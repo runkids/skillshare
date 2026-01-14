@@ -31,7 +31,7 @@ func DefaultTargets() map[string]TargetConfig {
 		"codex":    {Path: filepath.Join(home, ".codex", "skills")},
 		"cursor":   {Path: filepath.Join(home, ".cursor", "skills")},
 		"gemini":   {Path: filepath.Join(home, ".gemini", "antigravity", "skills")},
-		"opencode": {Path: filepath.Join(home, ".config", "opencode", "skills")},
+		"opencode": {Path: filepath.Join(home, ".config", "opencode", "skill")},
 	}
 }
 
