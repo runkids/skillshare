@@ -120,12 +120,13 @@ func cmdInit(args []string) error {
 		path       string
 		skillCount int
 		hasSkills  bool
+		exists     bool // true if skills dir exists, false if only parent exists
 	}
 	var detected []detectedDir
 
 	for name, target := range defaultTargets {
 		if info, err := os.Stat(target.Path); err == nil && info.IsDir() {
-			// Count skills
+			// Skills directory exists - count skills
 			entries, _ := os.ReadDir(target.Path)
 			skillCount := 0
 			for _, e := range entries {
@@ -138,11 +139,25 @@ func cmdInit(args []string) error {
 				path:       target.Path,
 				skillCount: skillCount,
 				hasSkills:  skillCount > 0,
+				exists:     true,
 			})
 			if skillCount > 0 {
 				ui.Success("Found: %s (%d skills)", name, skillCount)
 			} else {
 				ui.Info("Found: %s (empty)", name)
+			}
+		} else {
+			// Skills directory doesn't exist - check if parent exists (CLI installed)
+			parent := filepath.Dir(target.Path)
+			if _, err := os.Stat(parent); err == nil {
+				detected = append(detected, detectedDir{
+					name:       name,
+					path:       target.Path,
+					skillCount: 0,
+					hasSkills:  false,
+					exists:     false,
+				})
+				ui.Info("Found: %s (not initialized)", name)
 			}
 		}
 	}
@@ -162,6 +177,7 @@ func cmdInit(args []string) error {
 
 	// Ask user if they want to initialize from existing skills
 	var copyFrom string
+	var copyFromName string
 	if len(withSkills) > 0 {
 		ui.Header("Initialize from existing skills?")
 		fmt.Println("  Copy skills from an existing directory to the shared source?")
@@ -184,7 +200,8 @@ func cmdInit(args []string) error {
 
 		if choice >= 1 && choice <= len(withSkills) {
 			copyFrom = withSkills[choice-1].path
-			ui.Success("Will copy skills from %s", withSkills[choice-1].name)
+			copyFromName = withSkills[choice-1].name
+			ui.Success("Will copy skills from %s", copyFromName)
 		} else {
 			ui.Info("Starting with empty source")
 		}
@@ -222,17 +239,41 @@ func cmdInit(args []string) error {
 		ui.Success("Copied %d skills to source", copied)
 	}
 
-	// Build targets list
+	// Build targets list - only add the directory user chose to copy from
 	targets := make(map[string]config.TargetConfig)
-	for name, target := range defaultTargets {
-		// Check if CLI is installed
-		if _, err := os.Stat(target.Path); err == nil {
-			targets[name] = target
-		} else {
-			parent := filepath.Dir(target.Path)
-			if _, err := os.Stat(parent); err == nil {
-				targets[name] = target
+	if copyFromName != "" {
+		targets[copyFromName] = config.TargetConfig{Path: copyFrom}
+	}
+
+	// Find other available targets (detected directories)
+	var otherTargets []string
+	for _, d := range detected {
+		if d.name == copyFromName {
+			continue // Already added
+		}
+		otherTargets = append(otherTargets, d.name)
+	}
+
+	// Ask if user wants to add other targets
+	if len(otherTargets) > 0 {
+		ui.Header("Add other CLI targets?")
+		fmt.Println("  Other CLI tools detected on your system:")
+		for _, name := range otherTargets {
+			fmt.Printf("    - %s\n", name)
+		}
+		fmt.Println()
+		fmt.Print("  Add these targets? [Y/n]: ")
+		var input string
+		fmt.Scanln(&input)
+		input = strings.ToLower(strings.TrimSpace(input))
+
+		if input == "" || input == "y" || input == "yes" {
+			for _, name := range otherTargets {
+				targets[name] = defaultTargets[name]
 			}
+			ui.Success("Added %d additional targets", len(otherTargets))
+		} else {
+			ui.Info("Skipped additional targets")
 		}
 	}
 

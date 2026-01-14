@@ -30,7 +30,7 @@ Keeping them in sync manually is tedious.
 ~/.claude/skills/
     ├── my-skill     -> ~/.config/skillshare/skills/my-skill (symlink)
     ├── another-skill -> ~/.config/skillshare/skills/another-skill (symlink)
-    └── local-only/   <- Local skills are preserved
+    └── local-only/   <- Local skills are preserved (merge mode)
 ```
 
 ## Installation
@@ -39,11 +39,11 @@ Keeping them in sync manually is tedious.
 
 ```bash
 # Apple Silicon (M1/M2/M3/M4)
-curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_0.1.0_darwin_arm64.tar.gz | tar xz
+curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_darwin_arm64.tar.gz | tar xz
 sudo mv skillshare /usr/local/bin/
 
 # Intel
-curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_0.1.0_darwin_amd64.tar.gz | tar xz
+curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_darwin_amd64.tar.gz | tar xz
 sudo mv skillshare /usr/local/bin/
 ```
 
@@ -51,11 +51,11 @@ sudo mv skillshare /usr/local/bin/
 
 ```bash
 # x86_64
-curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_0.1.0_linux_amd64.tar.gz | tar xz
+curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_linux_amd64.tar.gz | tar xz
 sudo mv skillshare /usr/local/bin/
 
 # ARM64
-curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_0.1.0_linux_arm64.tar.gz | tar xz
+curl -sL https://github.com/runkids/skillshare/releases/latest/download/skillshare_linux_arm64.tar.gz | tar xz
 sudo mv skillshare /usr/local/bin/
 ```
 
@@ -91,7 +91,7 @@ rm -rf ~/.config/skillshare
 ## Quick Start
 
 ```bash
-# 1. Initialize with default source directory (~/.skills)
+# 1. Initialize (interactive source selection)
 skillshare init
 
 # 2. Check detected targets
@@ -106,7 +106,7 @@ skillshare sync
 ### Initialize
 
 ```bash
-# Use default source (~/.skills)
+# Interactive mode - choose source from existing skills directories
 skillshare init
 
 # Or specify custom source
@@ -116,6 +116,7 @@ skillshare init --source ~/my-skills
 This will:
 - Create the source directory
 - Detect installed CLI tools
+- Optionally copy skills from existing directories
 - Create config at `~/.config/skillshare/config.yaml`
 
 ### Sync
@@ -138,13 +139,52 @@ skillshare status
 
 Shows:
 - Source directory and skill count
-- Each target's status (linked, has files, not exist, conflict)
+- Each target's status, mode, and sync state
+
+### Diff
+
+```bash
+# Show differences for all targets
+skillshare diff
+
+# Show differences for specific target
+skillshare diff claude
+```
+
+### Backup
+
+```bash
+# Backup all targets
+skillshare backup
+
+# Backup specific target
+skillshare backup claude
+```
+
+### Doctor
+
+```bash
+skillshare doctor
+```
+
+Diagnoses:
+- Config file status
+- Source directory
+- Symlink support
+- Each target's health and mode
 
 ### Manage Targets
 
 ```bash
-# List targets
+# List all targets
 skillshare target list
+
+# Show target info
+skillshare target claude
+
+# Change target sync mode
+skillshare target claude --mode merge
+skillshare target claude --mode symlink
 
 # Add custom target
 skillshare target add myapp ~/.myapp/skills
@@ -166,9 +206,9 @@ mode: merge   # default mode for all targets
 targets:
   claude:
     path: ~/.claude/skills
-    mode: symlink   # override: use full directory symlink
   codex:
     path: ~/.codex/skills
+    mode: symlink   # override: use full directory symlink
   cursor:
     path: ~/.cursor/skills
   gemini:
@@ -189,14 +229,67 @@ ignore:
 
 Use `symlink` mode when you want all targets to share exactly the same skills.
 
+Change mode per target:
+```bash
+skillshare target claude --mode symlink
+skillshare sync
+```
+
 ## How It Works
 
 1. **init**: Detects CLI tools, optionally copy from existing skills
-2. **sync**:
-   - Backup targets with local skills before sync
-   - Create symlinks (merge mode: per-skill, symlink mode: whole directory)
-3. **status**: Check symlink health
-4. **target remove**: Backup, unlink symlinks, restore skills
+2. **sync**: Create symlinks (merge mode: per-skill, symlink mode: whole directory)
+3. **status**: Check symlink health and mode
+4. **diff**: Show differences between source and targets
+5. **backup**: Create manual backup of targets
+6. **doctor**: Diagnose configuration issues
+7. **target remove**: Backup, unlink symlinks, restore skills
+
+## Sync Across Machines
+
+Use git to sync your skills across multiple machines:
+
+### Initial Setup (Machine A)
+
+```bash
+# Initialize skillshare
+skillshare init
+
+# Push skills to remote
+cd ~/.config/skillshare/skills
+git init
+git add .
+git commit -m "Initial skills"
+git remote add origin git@github.com:you/my-skills.git
+git push -u origin main
+```
+
+### Clone to Another Machine (Machine B)
+
+```bash
+# Clone your skills repo
+git clone git@github.com:you/my-skills.git ~/.config/skillshare/skills
+
+# Initialize skillshare with the cloned source
+skillshare init --source ~/.config/skillshare/skills
+
+# Sync to all targets
+skillshare sync
+```
+
+### Daily Workflow
+
+```bash
+# Machine A - add/update skills
+cd ~/.config/skillshare/skills
+# ... edit skills ...
+git add . && git commit -m "Update skills" && git push
+
+# Machine B - pull and sync
+cd ~/.config/skillshare/skills
+git pull
+skillshare sync  # New skills are automatically symlinked
+```
 
 ## Backups
 
