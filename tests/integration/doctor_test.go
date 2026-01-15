@@ -16,6 +16,29 @@ func TestDoctor_AllGood_PassesAll(t *testing.T) {
 	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
 	targetPath := sb.CreateTarget("claude")
 
+	// Initialize git and commit to avoid warnings
+	cmd := exec.Command("git", "init")
+	cmd.Dir = sb.SourcePath
+	if err := cmd.Run(); err != nil {
+		t.Skip("git not available")
+	}
+
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = sb.SourcePath
+	cmd.Run()
+
+	cmd = exec.Command("git", "config", "user.name", "Test")
+	cmd.Dir = sb.SourcePath
+	cmd.Run()
+
+	cmd = exec.Command("git", "add", "-A")
+	cmd.Dir = sb.SourcePath
+	cmd.Run()
+
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = sb.SourcePath
+	cmd.Run()
+
 	// Create synced state
 	os.Symlink(filepath.Join(sb.SourcePath, "skill1"), filepath.Join(targetPath, "skill1"))
 
@@ -88,7 +111,7 @@ targets:
 	result := sb.RunCLI("doctor")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "issue")
+	result.AssertAnyOutputContains(t, "parent directory not found")
 }
 
 func TestDoctor_WrongSymlink_ShowsWarning(t *testing.T) {

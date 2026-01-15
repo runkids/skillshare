@@ -17,9 +17,23 @@ import (
 	"skillshare/internal/utils"
 )
 
+// doctorResult tracks issues and warnings
+type doctorResult struct {
+	errors   int
+	warnings int
+}
+
+func (r *doctorResult) addError() {
+	r.errors++
+}
+
+func (r *doctorResult) addWarning() {
+	r.warnings++
+}
+
 func cmdDoctor(args []string) error {
 	ui.Header("Checking environment")
-	issues := 0
+	result := &doctorResult{}
 
 	// Check config exists
 	if _, err := os.Stat(config.ConfigPath()); os.IsNotExist(err) {
@@ -35,25 +49,25 @@ func cmdDoctor(args []string) error {
 	}
 
 	// Check source exists
-	issues += checkSource(cfg)
+	checkSource(cfg, result)
 
 	// Check symlink support
-	issues += checkSymlinkSupport()
+	checkSymlinkSupport(result)
 
 	// Check git status
-	issues += checkGitStatus(cfg.Source)
+	checkGitStatus(cfg.Source, result)
 
 	// Check skills validity
-	issues += checkSkillsValidity(cfg.Source)
+	checkSkillsValidity(cfg.Source, result)
 
 	// Check each target
-	issues += checkTargets(cfg)
+	checkTargets(cfg, result)
 
 	// Check broken symlinks
-	issues += checkBrokenSymlinks(cfg)
+	checkBrokenSymlinks(cfg, result)
 
 	// Check duplicate skills
-	issues += checkDuplicateSkills(cfg)
+	checkDuplicateSkills(cfg, result)
 
 	// Check backup status
 	checkBackupStatus()
@@ -63,25 +77,29 @@ func cmdDoctor(args []string) error {
 
 	// Summary
 	ui.Header("Summary")
-	if issues == 0 {
+	if result.errors == 0 && result.warnings == 0 {
 		ui.Success("All checks passed!")
+	} else if result.errors == 0 {
+		ui.Warning("%d warning(s)", result.warnings)
 	} else {
-		ui.Warning("%d issue(s) found", issues)
+		ui.Error("%d error(s), %d warning(s)", result.errors, result.warnings)
 	}
 
 	return nil
 }
 
-func checkSource(cfg *config.Config) int {
+func checkSource(cfg *config.Config, result *doctorResult) {
 	info, err := os.Stat(cfg.Source)
 	if err != nil {
 		ui.Error("Source not found: %s", cfg.Source)
-		return 1
+		result.addError()
+		return
 	}
 
 	if !info.IsDir() {
 		ui.Error("Source is not a directory: %s", cfg.Source)
-		return 1
+		result.addError()
+		return
 	}
 
 	entries, _ := os.ReadDir(cfg.Source)
@@ -92,10 +110,9 @@ func checkSource(cfg *config.Config) int {
 		}
 	}
 	ui.Success("Source: %s (%d skills)", cfg.Source, skillCount)
-	return 0
 }
 
-func checkSymlinkSupport() int {
+func checkSymlinkSupport(result *doctorResult) {
 	testSymlink := filepath.Join(os.TempDir(), "skillshare_symlink_test")
 	testTarget := filepath.Join(os.TempDir(), "skillshare_symlink_target")
 	os.Remove(testSymlink)
@@ -106,16 +123,15 @@ func checkSymlinkSupport() int {
 
 	if err := os.Symlink(testTarget, testSymlink); err != nil {
 		ui.Error("Symlink not supported: %v", err)
-		return 1
+		result.addError()
+		return
 	}
 
 	ui.Success("Symlink support: OK")
-	return 0
 }
 
-func checkTargets(cfg *config.Config) int {
+func checkTargets(cfg *config.Config, result *doctorResult) {
 	ui.Header("Checking targets")
-	issues := 0
 
 	for name, target := range cfg.Targets {
 		// Determine mode
@@ -131,13 +147,11 @@ func checkTargets(cfg *config.Config) int {
 
 		if len(targetIssues) > 0 {
 			ui.Error("%s [%s]: %s", name, mode, strings.Join(targetIssues, ", "))
-			issues++
+			result.addError()
 		} else {
 			displayTargetStatus(name, target, cfg.Source, mode)
 		}
 	}
-
-	return issues
 }
 
 func checkTargetIssues(target config.TargetConfig, source string) []string {
@@ -213,11 +227,12 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 }
 
 // checkGitStatus checks if source is a git repo and its status
-func checkGitStatus(source string) int {
+func checkGitStatus(source string, result *doctorResult) {
 	gitDir := filepath.Join(source, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
 		ui.Warning("Git: not initialized (recommended for backup)")
-		return 0 // Not an error, just a warning
+		result.addWarning()
+		return
 	}
 
 	// Check for uncommitted changes
@@ -226,13 +241,15 @@ func checkGitStatus(source string) int {
 	output, err := cmd.Output()
 	if err != nil {
 		ui.Warning("Git: unable to check status")
-		return 0
+		result.addWarning()
+		return
 	}
 
 	if len(output) > 0 {
 		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 		ui.Warning("Git: %d uncommitted change(s)", len(lines))
-		return 0 // Warning, not error
+		result.addWarning()
+		return
 	}
 
 	// Check for remote
@@ -244,15 +261,13 @@ func checkGitStatus(source string) int {
 	} else {
 		ui.Success("Git: initialized with remote")
 	}
-
-	return 0
 }
 
 // checkSkillsValidity checks if all skills have valid SKILL.md files
-func checkSkillsValidity(source string) int {
+func checkSkillsValidity(source string, result *doctorResult) {
 	entries, err := os.ReadDir(source)
 	if err != nil {
-		return 0
+		return
 	}
 
 	var invalid []string
@@ -269,25 +284,19 @@ func checkSkillsValidity(source string) int {
 
 	if len(invalid) > 0 {
 		ui.Warning("Skills without SKILL.md: %s", strings.Join(invalid, ", "))
-		return 0 // Warning, not error
+		result.addWarning()
 	}
-
-	return 0
 }
 
 // checkBrokenSymlinks finds broken symlinks in targets
-func checkBrokenSymlinks(cfg *config.Config) int {
-	issues := 0
-
+func checkBrokenSymlinks(cfg *config.Config, result *doctorResult) {
 	for name, target := range cfg.Targets {
 		broken := findBrokenSymlinks(target.Path)
 		if len(broken) > 0 {
 			ui.Error("%s: %d broken symlink(s): %s", name, len(broken), strings.Join(broken, ", "))
-			issues++
+			result.addError()
 		}
 	}
-
-	return issues
 }
 
 func findBrokenSymlinks(dir string) []string {
@@ -317,7 +326,7 @@ func findBrokenSymlinks(dir string) []string {
 }
 
 // checkDuplicateSkills finds skills with same name in multiple locations
-func checkDuplicateSkills(cfg *config.Config) int {
+func checkDuplicateSkills(cfg *config.Config, result *doctorResult) {
 	skillLocations := make(map[string][]string)
 
 	// Collect from source
@@ -365,11 +374,10 @@ func checkDuplicateSkills(cfg *config.Config) int {
 	if len(duplicates) > 0 {
 		sort.Strings(duplicates)
 		ui.Warning("Duplicate skills: %s", strings.Join(duplicates, "; "))
-		ui.Info("  These skills exist in both source and target as separate copies.")
-		ui.Info("  Run 'skillshare sync' to replace target copies with symlinks.")
+		ui.Info("  These exist in both source and target as separate copies.")
+		ui.Info("  Fix: run 'skillshare sync' to replace with symlinks.")
+		result.addWarning()
 	}
-
-	return 0 // Warning only
 }
 
 // checkBackupStatus shows last backup time
