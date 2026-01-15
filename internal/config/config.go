@@ -27,12 +27,13 @@ type Config struct {
 func DefaultTargets() map[string]TargetConfig {
 	home, _ := os.UserHomeDir()
 	return map[string]TargetConfig{
-		"claude":   {Path: filepath.Join(home, ".claude", "skills")},
-		"codex":    {Path: filepath.Join(home, ".codex", "skills")},
-		"copilot":  {Path: filepath.Join(home, ".copilot", "skills")},
-		"cursor":   {Path: filepath.Join(home, ".cursor", "skills")},
+		"claude":      {Path: filepath.Join(home, ".claude", "skills")},
+		"codex":       {Path: filepath.Join(home, ".codex", "skills")},
+		"copilot":     {Path: filepath.Join(home, ".copilot", "skills")},
+		"crush":       {Path: filepath.Join(home, ".config", "crush", "skills")},
+		"cursor":      {Path: filepath.Join(home, ".cursor", "skills")},
 		"antigravity": {Path: filepath.Join(home, ".gemini", "antigravity", "skills")},
-		"opencode": {Path: filepath.Join(home, ".config", "opencode", "skill")},
+		"opencode":    {Path: filepath.Join(home, ".config", "opencode", "skill")},
 	}
 }
 
