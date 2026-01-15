@@ -422,19 +422,46 @@ git checkout -- deleted-skill/
 
 **How does `target remove` work? Is it safe?**
 
-Yes, it's safe. The mechanism depends on sync mode:
-
-- **Symlink mode**: Removes the symlink and copies source contents back to target
-- **Merge mode**: Only removes symlinks pointing to source, copies them back as real files, preserves local-only skills
+Yes, it's safe. Here's how it works:
 
 ```
-target remove claude
-       │
-       ├─► Backup target first
-       ├─► Detect sync mode
-       ├─► Unlink (symlink → copy back)
-       └─► Remove from config.yaml
+┌─────────────────────────────────────────────────────────┐
+│ skillshare target remove claude                         │
+└─────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │  1. Backup target   │
+              │  (backups/<ts>/)    │
+              └─────────────────────┘
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │  2. Detect mode     │
+              └─────────────────────┘
+                    │         │
+         symlink mode         merge mode
+                    │         │
+                    ▼         ▼
+┌───────────────────────┐   ┌───────────────────────┐
+│ 3a. Remove symlink    │   │ 3b. For each skill:   │
+│     ~/.claude/skills  │   │     Check if symlink  │
+│         ↓             │   │     points to source  │
+│ 4a. Copy source       │   │         ↓             │
+│     contents back     │   │ 4b. If yes:           │
+└───────────────────────┘   │     - Remove symlink  │
+                            │     - Copy back file  │
+                            └───────────────────────┘
+                         │
+                         ▼
+              ┌─────────────────────┐
+              │  5. Remove from     │
+              │     config.yaml     │
+              └─────────────────────┘
 ```
+
+- **Symlink mode**: Removes symlink, copies source contents back to target
+- **Merge mode**: Only removes symlinks pointing to source, preserves local-only skills
 
 This is why `skillshare target remove` is safe, while `rm -rf ~/.claude/skills` would delete your source files.
 
