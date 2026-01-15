@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
@@ -18,6 +21,7 @@ func cmdStatus(args []string) error {
 
 	printSourceStatus(cfg)
 	printTargetsStatus(cfg)
+	checkSkillVersion(cfg)
 
 	return nil
 }
@@ -94,4 +98,57 @@ func getSymlinkStatusDetail(target config.TargetConfig, source, mode string) (st
 	}
 
 	return status.String(), detail
+}
+
+func checkSkillVersion(cfg *config.Config) {
+	skillFile := filepath.Join(cfg.Source, "skillshare", "SKILL.md")
+	skillVersion := readSkillVersion(skillFile)
+
+	if skillVersion == "" {
+		// No skill or no version - suggest update
+		ui.Header("Skill Update")
+		ui.Warning("skillshare skill not found or missing version")
+		ui.Info("Run: skillshare update")
+		return
+	}
+
+	// Compare versions (simple string comparison works for semver)
+	if version != "dev" && skillVersion != version {
+		ui.Header("Skill Update")
+		ui.Warning("skillshare skill is outdated (skill: %s, CLI: %s)", skillVersion, version)
+		ui.Info("Run: skillshare update && skillshare sync")
+	}
+}
+
+func readSkillVersion(skillFile string) string {
+	file, err := os.Open(skillFile)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	inFrontmatter := false
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if line == "---" {
+			if !inFrontmatter {
+				inFrontmatter = true
+				continue
+			}
+			// End of frontmatter
+			break
+		}
+
+		if inFrontmatter && strings.HasPrefix(line, "version:") {
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) == 2 {
+				return strings.TrimSpace(parts[1])
+			}
+		}
+	}
+
+	return ""
 }

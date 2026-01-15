@@ -1,5 +1,6 @@
 ---
 name: skillshare
+version: 0.4.0
 description: Manage and sync skills across AI CLI tools. Use when asked to "sync my skills", "pull skills", "show skillshare status", "list my skills", "install a skill", "create a new skill", "backup skills", or manage skill targets.
 argument-hint: "[command] [target] [--dry-run]"
 ---
