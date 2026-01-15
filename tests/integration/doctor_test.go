@@ -279,6 +279,7 @@ func TestDoctor_DuplicateSkills_ShowsWarning(t *testing.T) {
 	sb.CreateSkill("duplicate-skill", map[string]string{"SKILL.md": "# Source"})
 
 	// Create target with local skill of same name (not symlink)
+	// Use symlink mode - merge mode allows local skills by design
 	targetPath := sb.CreateTarget("claude")
 	localSkill := filepath.Join(targetPath, "duplicate-skill")
 	os.MkdirAll(localSkill, 0755)
@@ -288,6 +289,7 @@ func TestDoctor_DuplicateSkills_ShowsWarning(t *testing.T) {
 targets:
   claude:
     path: ` + targetPath + `
+    mode: symlink
 `)
 
 	result := sb.RunCLI("doctor")

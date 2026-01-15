@@ -326,6 +326,7 @@ func findBrokenSymlinks(dir string) []string {
 }
 
 // checkDuplicateSkills finds skills with same name in multiple locations
+// Only checks symlink mode targets; merge mode allows local skills by design
 func checkDuplicateSkills(cfg *config.Config, result *doctorResult) {
 	skillLocations := make(map[string][]string)
 
@@ -337,8 +338,22 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult) {
 		}
 	}
 
-	// Collect from targets (local-only skills)
+	// Collect from symlink-mode targets only
 	for name, target := range cfg.Targets {
+		// Determine effective mode
+		mode := target.Mode
+		if mode == "" {
+			mode = cfg.Mode
+		}
+		if mode == "" {
+			mode = "merge"
+		}
+
+		// Skip merge mode - local skills are intentional
+		if mode == "merge" {
+			continue
+		}
+
 		entries, err := os.ReadDir(target.Path)
 		if err != nil {
 			continue
