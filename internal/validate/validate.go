@@ -140,7 +140,7 @@ func IsLikelySkillsPath(path string) bool {
 		".codex/skills",
 		".cursor/skills",
 		".gemini/antigravity/skills",
-		".config/opencode/skill",
+		".config/opencode/skills",
 	}
 
 	for _, pattern := range knownPatterns {
