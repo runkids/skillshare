@@ -30,7 +30,7 @@
 </p>
 
 > [!NOTE]
-> **What's New in 0.6.0 — Team Edition**
+> **[What's New in 0.6.0 — Team Edition 🎉](https://github.com/runkids/skillshare/releases/tag/v0.6.0)**
 > - **Tracked Repositories**: `install --track` to clone team skill repos, `update` to keep them current
 > - **Nested Skills**: Organize skills in folders (`work/api/` → `work__api/`)
 > - **Auto-Pruning**: Orphaned symlinks are automatically cleaned on sync
