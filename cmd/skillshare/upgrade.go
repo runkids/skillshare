@@ -91,11 +91,16 @@ func upgradeCLIBinary(dryRun, force bool) error {
 	if isHomebrewInstall(execPath) {
 		ui.Info("Detected Homebrew installation")
 		if dryRun {
-			ui.Info("Would run: brew install runkids/tap/skillshare")
+			ui.Info("Would run: brew upgrade runkids/tap/skillshare")
 			return nil
 		}
-		ui.Info("Running: brew install runkids/tap/skillshare")
-		return runBrewInstall()
+		ui.Info("Running: brew upgrade runkids/tap/skillshare")
+		if err := runBrewUpgrade(); err != nil {
+			return err
+		}
+		// Ensure symlink after brew upgrade
+		ensureShorthandSymlink(execPath)
+		return nil
 	}
 
 	// Get current version
@@ -112,6 +117,8 @@ func upgradeCLIBinary(dryRun, force bool) error {
 
 	if currentVersion == latestVersion && !force {
 		ui.Success("Already up to date")
+		// Still ensure symlink exists
+		ensureShorthandSymlink(execPath)
 		return nil
 	}
 
@@ -137,6 +144,9 @@ func upgradeCLIBinary(dryRun, force bool) error {
 	if err := downloadAndReplace(downloadURL, execPath); err != nil {
 		return fmt.Errorf("failed to upgrade: %w", err)
 	}
+
+	// Create ss symlink
+	ensureShorthandSymlink(execPath)
 
 	ui.Success("Upgraded to %s", latestVersion)
 	return nil
@@ -324,8 +334,8 @@ func isHomebrewInstall(execPath string) bool {
 	return false
 }
 
-func runBrewInstall() error {
-	cmd := exec.Command("brew", "install", "runkids/tap/skillshare")
+func runBrewUpgrade() error {
+	cmd := exec.Command("brew", "upgrade", "runkids/tap/skillshare")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
@@ -348,4 +358,29 @@ Examples:
   skillshare upgrade --cli        # Upgrade CLI only
   skillshare upgrade --skill      # Upgrade skill only
   skillshare upgrade --dry-run    # Preview upgrades`)
+}
+
+// ensureShorthandSymlink creates ss -> skillshare symlink if not exists
+func ensureShorthandSymlink(skillsharePath string) {
+	dir := filepath.Dir(skillsharePath)
+	ssPath := filepath.Join(dir, "ss")
+
+	// Check if ss already exists and points to skillshare
+	if target, err := os.Readlink(ssPath); err == nil {
+		if filepath.Base(target) == "skillshare" {
+			return // Already correct
+		}
+	}
+
+	// Remove existing ss (file or wrong symlink)
+	os.Remove(ssPath)
+
+	// Create symlink
+	if err := os.Symlink(skillsharePath, ssPath); err != nil {
+		// Try with sudo hint
+		ui.Warning("Could not create 'ss' shorthand: %v", err)
+		ui.Info("  Run: sudo ln -sf %s %s", skillsharePath, ssPath)
+	} else {
+		ui.Success("Created 'ss' shorthand")
+	}
 }

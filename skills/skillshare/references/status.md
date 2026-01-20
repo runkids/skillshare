@@ -17,8 +17,8 @@ Targets:
   cursor   ⚠ 1 diff   ~/.cursor/skills
 
 Version:
-  ✓ CLI: 0.6.2
-  ✓ Skill: 0.7.1 (up to date)
+  ✓ CLI: 0.6.3
+  ✓ Skill: 0.6.3 (up to date)
 ```
 
 ## diff
