@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/AlecAivazis/survey/v2"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/ui"
@@ -34,6 +35,8 @@ func cmdInit(args []string) error {
 	initGit := false    // --git: initialize git (set by flag)
 	noGit := false      // --no-git: skip git
 	gitFlagSet := false // track if --git was explicitly set
+	discover := false   // --discover: detect and add new agents to existing config
+	selectArg := ""     // --select: comma-separated list for --discover mode
 
 	// Parse args
 	for i := 0; i < len(args); i++ {
@@ -75,6 +78,14 @@ func cmdInit(args []string) error {
 			gitFlagSet = true
 		case "--no-git":
 			noGit = true
+		case "--discover", "-d":
+			discover = true
+		case "--select":
+			if i+1 >= len(args) {
+				return fmt.Errorf("--select requires a comma-separated list")
+			}
+			selectArg = args[i+1]
+			i++
 		}
 	}
 
@@ -98,6 +109,9 @@ func cmdInit(args []string) error {
 	if gitFlagSet && noGit {
 		return fmt.Errorf("--git and --no-git are mutually exclusive")
 	}
+	if selectArg != "" && !discover {
+		return fmt.Errorf("--select requires --discover flag")
+	}
 
 	// --remote implies --git
 	if remoteURL != "" && !noGit {
@@ -120,7 +134,15 @@ func cmdInit(args []string) error {
 			setupGitRemote(cfg.Source, remoteURL, dryRun)
 			return nil
 		}
-		return fmt.Errorf("already initialized. Config at: %s", config.ConfigPath())
+		// If --discover provided, detect and add new agents
+		if discover {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			return reinitWithDiscover(cfg, selectArg, dryRun)
+		}
+		return fmt.Errorf("already initialized. Run 'skillshare init --discover' to add new agents")
 	}
 
 	// Detect existing CLI skills directories
@@ -423,45 +445,58 @@ func buildTargetsList(detected []detectedDir, copyFrom, copyFromName, targetsArg
 		return targets
 	}
 
-	// Interactive mode: Add the directory user chose to copy from
-	if copyFromName != "" {
-		targets[copyFromName] = config.TargetConfig{Path: copyFrom}
-	}
-
-	// Find other available targets (detected directories)
-	var otherTargets []string
-	for _, d := range detected {
-		if d.name == copyFromName {
-			continue // Already added
-		}
-		otherTargets = append(otherTargets, d.name)
-	}
-
-	// Ask if user wants to add other targets
-	if len(otherTargets) > 0 {
-		ui.Header("Add other CLI targets?")
-		fmt.Println("  Other CLI tools detected on your system:")
-		for _, name := range otherTargets {
-			fmt.Printf("    - %s\n", name)
-		}
-		fmt.Println()
-		fmt.Print("  Add these targets? [Y/n]: ")
-		var input string
-		fmt.Scanln(&input)
-		input = strings.ToLower(strings.TrimSpace(input))
-
-		if input == "" || input == "y" || input == "yes" {
-			for _, name := range otherTargets {
-				targets[name] = defaultTargets[name]
-			}
-			ui.Success("Added %d additional targets", len(otherTargets))
-		} else {
-			ui.Info("Skipped additional targets")
-		}
-	}
-
-	if len(targets) == 0 {
+	// Interactive mode: Build multi-select items from detected directories
+	if len(detected) == 0 {
 		ui.Warning("No CLI skills directories detected.")
+		return targets
+	}
+
+	// Create options for survey.MultiSelect
+	options := make([]string, len(detected))
+	var defaultIndices []int
+	for i, d := range detected {
+		status := ""
+		if d.exists {
+			if d.skillCount > 0 {
+				status = fmt.Sprintf("(%d skills)", d.skillCount)
+			} else {
+				status = "(empty)"
+			}
+		} else {
+			status = "(not initialized)"
+		}
+		options[i] = fmt.Sprintf("%-12s %s %s", d.name, d.path, status)
+
+		// Pre-select if this is the copyFrom target
+		if d.name == copyFromName {
+			defaultIndices = append(defaultIndices, i)
+		}
+	}
+
+	// Show multi-select UI using survey
+	var selectedIndices []int
+	prompt := &survey.MultiSelect{
+		Message:  "Select targets to sync:",
+		Options:  options,
+		Default:  defaultIndices,
+		PageSize: 15,
+		Help:     "Use arrow keys to navigate, space to select, enter to confirm",
+	}
+
+	if err := survey.AskOne(prompt, &selectedIndices); err != nil {
+		return targets // User cancelled
+	}
+
+	// Add selected targets
+	for _, idx := range selectedIndices {
+		name := detected[idx].name
+		targets[name] = defaultTargets[name]
+	}
+
+	if len(targets) > 0 {
+		ui.Success("Added %d target(s)", len(targets))
+	} else {
+		ui.Info("No targets selected")
 	}
 
 	return targets
@@ -714,4 +749,191 @@ func createDefaultSkill(sourcePath string, dryRun bool) {
 		return
 	}
 	ui.Success("Downloaded default skill: skillshare")
+}
+
+// agentInfo holds information about a detected agent for discover mode
+type agentInfo struct {
+	name        string
+	path        string
+	description string
+}
+
+// reinitWithDiscover detects new agents and allows user to add them to existing config
+func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun bool) error {
+	ui.Header("Discovering new agents")
+
+	// Get all default targets
+	defaultTargets := config.DefaultTargets()
+
+	// Find agents not already in config
+	var newAgents []agentInfo
+	for name, target := range defaultTargets {
+		// Skip if already in config
+		if _, exists := existingCfg.Targets[name]; exists {
+			continue
+		}
+
+		// Check if the agent's parent directory exists (CLI is installed)
+		parent := filepath.Dir(target.Path)
+		if _, err := os.Stat(parent); err != nil {
+			continue // CLI not installed, skip
+		}
+
+		// Check skills directory status
+		status := "(not initialized)"
+		if info, err := os.Stat(target.Path); err == nil && info.IsDir() {
+			entries, _ := os.ReadDir(target.Path)
+			skillCount := 0
+			for _, e := range entries {
+				if e.IsDir() && !utils.IsHidden(e.Name()) {
+					skillCount++
+				}
+			}
+			if skillCount > 0 {
+				status = fmt.Sprintf("(%d skills)", skillCount)
+			} else {
+				status = "(empty)"
+			}
+		}
+
+		newAgents = append(newAgents, agentInfo{
+			name:        name,
+			path:        target.Path,
+			description: status,
+		})
+	}
+
+	if len(newAgents) == 0 {
+		ui.Info("No new agents detected")
+		return nil
+	}
+
+	ui.Success("Found %d new agent(s)", len(newAgents))
+
+	// Non-interactive mode with --select
+	if selectArg != "" {
+		return addSelectedAgentsByName(existingCfg, newAgents, selectArg, dryRun)
+	}
+
+	// Interactive mode: use survey.MultiSelect
+	options := make([]string, len(newAgents))
+	for i, agent := range newAgents {
+		options[i] = fmt.Sprintf("%-12s %s %s", agent.name, agent.path, agent.description)
+	}
+
+	var selectedIndices []int
+	prompt := &survey.MultiSelect{
+		Message:  "Select agents to add:",
+		Options:  options,
+		PageSize: 15,
+		Help:     "Use arrow keys to navigate, space to select, enter to confirm",
+	}
+
+	if err := survey.AskOne(prompt, &selectedIndices); err != nil {
+		return nil // User cancelled (Ctrl+C)
+	}
+
+	if len(selectedIndices) == 0 {
+		ui.Info("No agents selected")
+		return nil
+	}
+
+	// Map indices back to agent names
+	var selectedNames []string
+	for _, idx := range selectedIndices {
+		selectedNames = append(selectedNames, newAgents[idx].name)
+	}
+
+	// Add selected agents to config
+	for _, name := range selectedNames {
+		if target, ok := defaultTargets[name]; ok {
+			existingCfg.Targets[name] = target
+		}
+	}
+
+	if dryRun {
+		ui.Warning("Dry run - would add %d agent(s) to config", len(selectedNames))
+		for _, name := range selectedNames {
+			fmt.Printf("  + %s\n", name)
+		}
+		return nil
+	}
+
+	if err := existingCfg.Save(); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	ui.Success("Added %d agent(s) to config", len(selectedNames))
+	for _, name := range selectedNames {
+		fmt.Printf("  + %s\n", name)
+	}
+	ui.Info("Run 'skillshare sync' to sync skills to new targets")
+
+	return nil
+}
+
+// addSelectedAgentsByName adds agents specified by --select flag (non-interactive)
+func addSelectedAgentsByName(existingCfg *config.Config, newAgents []agentInfo, selectArg string, dryRun bool) error {
+	defaultTargets := config.DefaultTargets()
+
+	// Build a map of available new agents for quick lookup
+	availableAgents := make(map[string]bool)
+	for _, agent := range newAgents {
+		availableAgents[agent.name] = true
+	}
+
+	// Parse comma-separated selection
+	names := strings.Split(selectArg, ",")
+	var addedNames []string
+
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+
+		// Check if it's in the available new agents
+		if !availableAgents[name] {
+			// Check if it's already in config
+			if _, exists := existingCfg.Targets[name]; exists {
+				ui.Info("Agent already in config: %s (skipped)", name)
+			} else if _, ok := defaultTargets[name]; !ok {
+				ui.Warning("Unknown agent: %s (skipped)", name)
+			} else {
+				ui.Warning("Agent not detected: %s (skipped)", name)
+			}
+			continue
+		}
+
+		// Add to config
+		if target, ok := defaultTargets[name]; ok {
+			existingCfg.Targets[name] = target
+			addedNames = append(addedNames, name)
+		}
+	}
+
+	if len(addedNames) == 0 {
+		ui.Info("No new agents added")
+		return nil
+	}
+
+	if dryRun {
+		ui.Warning("Dry run - would add %d agent(s) to config", len(addedNames))
+		for _, name := range addedNames {
+			fmt.Printf("  + %s\n", name)
+		}
+		return nil
+	}
+
+	if err := existingCfg.Save(); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	ui.Success("Added %d agent(s) to config", len(addedNames))
+	for _, name := range addedNames {
+		fmt.Printf("  + %s\n", name)
+	}
+	ui.Info("Run 'skillshare sync' to sync skills to new targets")
+
+	return nil
 }

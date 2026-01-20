@@ -548,3 +548,191 @@ func TestInit_FullNonInteractive(t *testing.T) {
 		t.Error("config should contain claude target")
 	}
 }
+
+// ============================================
+// Discover mode tests
+// ============================================
+
+func TestInit_AlreadyInitialized_ErrorMentionsDiscover(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create config to simulate already initialized
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("init")
+
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--discover")
+}
+
+func TestInit_Discover_NoNewAgents(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Remove extra agent directories that sandbox creates by default
+	os.RemoveAll(filepath.Join(sb.Home, ".codex"))
+	os.RemoveAll(filepath.Join(sb.Home, ".cursor"))
+
+	// Create config with claude target (the only agent)
+	claudeSkillsPath := filepath.Join(sb.Home, ".claude", "skills")
+	os.MkdirAll(claudeSkillsPath, 0755)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeSkillsPath + `
+`)
+
+	// Run discover - no new agents should be found since only claude exists and is already configured
+	result := sb.RunCLI("init", "--discover")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "No new agents")
+}
+
+func TestInit_Discover_WithSelect_AddsNewAgent(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create initial config with claude only
+	claudeSkillsPath := filepath.Join(sb.Home, ".claude", "skills")
+	os.MkdirAll(claudeSkillsPath, 0755)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeSkillsPath + `
+`)
+
+	// Create cursor directory (new agent)
+	cursorSkillsPath := filepath.Join(sb.Home, ".cursor", "skills")
+	os.MkdirAll(cursorSkillsPath, 0755)
+
+	// Run discover with --select
+	result := sb.RunCLI("init", "--discover", "--select", "cursor")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Added 1 agent")
+
+	// Verify config now has cursor
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(configContent, "cursor:") {
+		t.Errorf("config should contain cursor target, got: %s", configContent)
+	}
+	// Should still have claude
+	if !strings.Contains(configContent, "claude:") {
+		t.Errorf("config should still contain claude target, got: %s", configContent)
+	}
+}
+
+func TestInit_Discover_WithSelect_MultipleAgents(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create initial config with no targets
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Create multiple agent directories
+	os.MkdirAll(filepath.Join(sb.Home, ".claude", "skills"), 0755)
+	os.MkdirAll(filepath.Join(sb.Home, ".cursor", "skills"), 0755)
+	os.MkdirAll(filepath.Join(sb.Home, ".codex", "skills"), 0755)
+
+	// Run discover with --select for multiple agents
+	result := sb.RunCLI("init", "--discover", "--select", "claude,cursor")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Added 2 agent")
+
+	// Verify config has both
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(configContent, "claude:") {
+		t.Error("config should contain claude target")
+	}
+	if !strings.Contains(configContent, "cursor:") {
+		t.Error("config should contain cursor target")
+	}
+	// Should NOT have codex (not selected)
+	if strings.Contains(configContent, "codex:") {
+		t.Error("config should NOT contain codex target")
+	}
+}
+
+func TestInit_Discover_DryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create initial config
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Create new agent directory
+	os.MkdirAll(filepath.Join(sb.Home, ".cursor", "skills"), 0755)
+
+	// Run discover with --dry-run
+	result := sb.RunCLI("init", "--discover", "--select", "cursor", "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Dry run")
+
+	// Verify config was NOT modified
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if strings.Contains(configContent, "cursor:") {
+		t.Error("dry-run should NOT add cursor to config")
+	}
+}
+
+func TestInit_Select_RequiresDiscover(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+
+	// Run init with --select but without --discover
+	result := sb.RunCLI("init", "--select", "cursor")
+
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--select requires --discover")
+}
+
+func TestInit_Discover_SkipsAlreadyConfigured(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create config with claude already
+	claudeSkillsPath := filepath.Join(sb.Home, ".claude", "skills")
+	os.MkdirAll(claudeSkillsPath, 0755)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeSkillsPath + `
+`)
+
+	// Try to add claude again via --select
+	result := sb.RunCLI("init", "--discover", "--select", "claude")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "already in config")
+}
+
+func TestInit_Discover_UnknownAgent(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create initial config
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Try to add unknown agent
+	result := sb.RunCLI("init", "--discover", "--select", "unknownagent")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Unknown agent")
+}

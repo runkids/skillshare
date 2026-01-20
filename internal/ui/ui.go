@@ -58,3 +58,21 @@ func Header(text string) {
 	fmt.Printf("\n%s%s%s\n", Cyan, text, Reset)
 	fmt.Println(Gray + "─────────────────────────────────────────" + Reset)
 }
+
+// Checkbox returns a formatted checkbox string
+func Checkbox(checked bool) string {
+	if checked {
+		return Green + "[x]" + Reset
+	}
+	return "[ ]"
+}
+
+// CheckboxItem prints a checkbox item with name and description
+func CheckboxItem(checked bool, name, description string) {
+	checkbox := Checkbox(checked)
+	if description != "" {
+		fmt.Printf("  %s %-12s %s%s%s\n", checkbox, name, Gray, description, Reset)
+	} else {
+		fmt.Printf("  %s %s\n", checkbox, name)
+	}
+}

@@ -31,6 +31,13 @@ Initializes skillshare configuration.
 | `--git` | Initialize git in source (recommended) |
 | `--no-git` | Skip git initialization |
 
+## Discover Flags (for adding new agents to existing config)
+
+| Flag | Description |
+|------|-------------|
+| `--discover` | Detect and add new agents to existing config (interactive) |
+| `--select <list>` | Comma-separated agents to add (non-interactive, requires `--discover`) |
+
 ## Other Flags
 
 | Flag | Description |
@@ -55,4 +62,10 @@ skillshare init --no-copy --no-targets --no-git
 
 # Custom source with remote
 skillshare init --source ~/my-skills --remote git@github.com:user/skills.git
+
+# Add new agents to existing config (non-interactive)
+skillshare init --discover --select "windsurf,kilocode"
+
+# Add new agents (interactive)
+skillshare init --discover
 ```
