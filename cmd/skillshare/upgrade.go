@@ -91,10 +91,9 @@ func upgradeCLIBinary(dryRun, force bool) error {
 	if isHomebrewInstall(execPath) {
 		ui.Info("Detected Homebrew installation")
 		if dryRun {
-			ui.Info("Would run: brew upgrade runkids/tap/skillshare")
+			ui.Info("Would run: brew update && brew upgrade runkids/tap/skillshare")
 			return nil
 		}
-		ui.Info("Running: brew upgrade runkids/tap/skillshare")
 		return runBrewUpgrade()
 	}
 
@@ -325,6 +324,17 @@ func isHomebrewInstall(execPath string) bool {
 }
 
 func runBrewUpgrade() error {
+	// First update the tap to get latest formula
+	ui.Info("Updating tap...")
+	updateCmd := exec.Command("brew", "update", "--quiet")
+	updateCmd.Stdout = os.Stdout
+	updateCmd.Stderr = os.Stderr
+	if err := updateCmd.Run(); err != nil {
+		ui.Warning("brew update failed, trying upgrade anyway...")
+	}
+
+	// Then upgrade
+	ui.Info("Upgrading...")
 	cmd := exec.Command("brew", "upgrade", "runkids/tap/skillshare")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
