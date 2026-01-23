@@ -267,16 +267,40 @@ func UpdateNotification(currentVersion, latestVersion string) {
 	}
 
 	fmt.Println()
+
+	// Build content lines without ANSI codes (pterm can't calculate width with them)
+	lines := []string{
+		"",
+		fmt.Sprintf("  Version: %s → %s", currentVersion, latestVersion),
+		"",
+		"  Run: skillshare upgrade",
+		"",
+	}
+
+	// Find max line length for consistent box width
+	maxLen := 0
+	for _, line := range lines {
+		if len(line) > maxLen {
+			maxLen = len(line)
+		}
+	}
+
+	// Pad lines to same length
+	content := ""
+	for i, line := range lines {
+		padded := line
+		if len(line) < maxLen {
+			padded = line + strings.Repeat(" ", maxLen-len(line))
+		}
+		content += padded
+		if i < len(lines)-1 {
+			content += "\n"
+		}
+	}
+
 	box := pterm.DefaultBox.
 		WithTitle(pterm.Yellow("Update Available")).
 		WithBoxStyle(pterm.NewStyle(pterm.FgYellow))
-	content := fmt.Sprintf(
-		"\n  %s %s → %s\n\n  Run: %s\n",
-		pterm.Gray("Version:"),
-		pterm.Red(currentVersion),
-		pterm.Green(latestVersion),
-		pterm.Cyan("skillshare upgrade"),
-	)
 	box.Println(content)
 }
 
