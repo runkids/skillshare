@@ -175,8 +175,8 @@ func DiscoverFromGit(source *Source) (*DiscoveryResult, error) {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	// Discover skills
-	skills := discoverSkills(repoPath)
+	// Discover skills (exclude root for whole-repo discovery)
+	skills := discoverSkills(repoPath, false)
 
 	return &DiscoveryResult{
 		RepoPath: tempDir,
@@ -186,7 +186,8 @@ func DiscoverFromGit(source *Source) (*DiscoveryResult, error) {
 }
 
 // discoverSkills finds directories containing SKILL.md
-func discoverSkills(repoPath string) []SkillInfo {
+// If includeRoot is true, root-level SKILL.md is also included (with Path=".")
+func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
 	var skills []SkillInfo
 
 	filepath.Walk(repoPath, func(path string, info os.FileInfo, err error) error {
@@ -204,8 +205,15 @@ func discoverSkills(repoPath string) []SkillInfo {
 			skillDir := filepath.Dir(path)
 			relPath, _ := filepath.Rel(repoPath, skillDir)
 
-			// Skip root level SKILL.md (repo itself is not a skill container)
-			if relPath != "." {
+			// Handle root level SKILL.md
+			if relPath == "." {
+				if includeRoot {
+					skills = append(skills, SkillInfo{
+						Name: filepath.Base(repoPath),
+						Path: ".",
+					})
+				}
+			} else {
 				skills = append(skills, SkillInfo{
 					Name: filepath.Base(skillDir),
 					Path: relPath,
@@ -219,6 +227,54 @@ func discoverSkills(repoPath string) []SkillInfo {
 	return skills
 }
 
+// DiscoverFromGitSubdir clones a repo and discovers skills within a subdirectory
+// Unlike DiscoverFromGit, this includes root-level SKILL.md of the subdir
+func DiscoverFromGitSubdir(source *Source) (*DiscoveryResult, error) {
+	if !isGitInstalled() {
+		return nil, fmt.Errorf("git is not installed or not in PATH")
+	}
+
+	if !source.HasSubdir() {
+		return nil, fmt.Errorf("source has no subdirectory specified")
+	}
+
+	// Clone to temp directory
+	tempDir, err := os.MkdirTemp("", "skillshare-discover-*")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+
+	repoPath := filepath.Join(tempDir, "repo")
+	if err := cloneRepo(source.CloneURL, repoPath, true); err != nil {
+		os.RemoveAll(tempDir)
+		return nil, fmt.Errorf("failed to clone repository: %w", err)
+	}
+
+	// Verify subdirectory exists
+	subdirPath := filepath.Join(repoPath, source.Subdir)
+	info, err := os.Stat(subdirPath)
+	if err != nil {
+		os.RemoveAll(tempDir)
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("subdirectory '%s' does not exist in repository", source.Subdir)
+		}
+		return nil, fmt.Errorf("cannot access subdirectory: %w", err)
+	}
+	if !info.IsDir() {
+		os.RemoveAll(tempDir)
+		return nil, fmt.Errorf("'%s' is not a directory", source.Subdir)
+	}
+
+	// Discover skills within the subdirectory (include root)
+	skills := discoverSkills(subdirPath, true)
+
+	return &DiscoveryResult{
+		RepoPath: tempDir,
+		Skills:   skills,
+		Source:   source,
+	}, nil
+}
+
 // CleanupDiscovery removes the temporary directory from discovery
 func CleanupDiscovery(result *DiscoveryResult) {
 	if result != nil && result.RepoPath != "" {
@@ -228,7 +284,26 @@ func CleanupDiscovery(result *DiscoveryResult) {
 
 // InstallFromDiscovery installs a skill from a discovered repository
 func InstallFromDiscovery(discovery *DiscoveryResult, skill SkillInfo, destPath string, opts InstallOptions) (*InstallResult, error) {
-	fullSource := discovery.Source.Raw + "/" + skill.Path
+	// Build full source path
+	// For subdir discovery, skill.Path is relative to the subdir
+	// For whole-repo discovery, skill.Path is relative to repo root
+	var fullSource string
+	var fullSubdir string
+
+	if skill.Path == "." {
+		// Root skill of a subdir discovery
+		fullSource = discovery.Source.Raw
+		fullSubdir = discovery.Source.Subdir
+	} else if discovery.Source.HasSubdir() {
+		// Nested skill within subdir discovery
+		fullSource = discovery.Source.Raw + "/" + skill.Path
+		fullSubdir = filepath.Join(discovery.Source.Subdir, skill.Path)
+	} else {
+		// Whole-repo discovery
+		fullSource = discovery.Source.Raw + "/" + skill.Path
+		fullSubdir = skill.Path
+	}
+
 	result := &InstallResult{
 		SkillName: skill.Name,
 		Source:    fullSource,
@@ -253,8 +328,20 @@ func InstallFromDiscovery(discovery *DiscoveryResult, skill SkillInfo, destPath 
 		return result, nil
 	}
 
-	// Copy from temp repo
-	srcPath := filepath.Join(discovery.RepoPath, "repo", skill.Path)
+	// Determine source path in temp repo
+	var srcPath string
+	if discovery.Source.HasSubdir() {
+		// Subdir discovery: paths are relative to the subdir
+		if skill.Path == "." {
+			srcPath = filepath.Join(discovery.RepoPath, "repo", discovery.Source.Subdir)
+		} else {
+			srcPath = filepath.Join(discovery.RepoPath, "repo", discovery.Source.Subdir, skill.Path)
+		}
+	} else {
+		// Whole-repo discovery: paths are relative to repo root
+		srcPath = filepath.Join(discovery.RepoPath, "repo", skill.Path)
+	}
+
 	if err := copyDir(srcPath, destPath); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
@@ -262,9 +349,9 @@ func InstallFromDiscovery(discovery *DiscoveryResult, skill SkillInfo, destPath 
 	// Write metadata
 	source := &Source{
 		Type:     discovery.Source.Type,
-		Raw:      discovery.Source.Raw + "/" + skill.Path,
+		Raw:      fullSource,
 		CloneURL: discovery.Source.CloneURL,
-		Subdir:   skill.Path,
+		Subdir:   fullSubdir,
 		Name:     skill.Name,
 	}
 	meta := NewMetaFromSource(source)
@@ -547,8 +634,8 @@ func InstallTrackedRepo(source *Source, sourceDir string, opts InstallOptions) (
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	// Discover skills in the cloned repo
-	skills := discoverSkills(destPath)
+	// Discover skills in the cloned repo (exclude root for tracked repos)
+	skills := discoverSkills(destPath, false)
 	result.SkillCount = len(skills)
 	for _, skill := range skills {
 		result.Skills = append(result.Skills, skill.Name)
@@ -582,8 +669,8 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 		return nil, fmt.Errorf("failed to update: %w", err)
 	}
 
-	// Re-discover skills
-	skills := discoverSkills(repoPath)
+	// Re-discover skills (exclude root for tracked repos)
+	skills := discoverSkills(repoPath, false)
 	result.SkillCount = len(skills)
 	for _, skill := range skills {
 		result.Skills = append(result.Skills, skill.Name)

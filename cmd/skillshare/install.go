@@ -105,12 +105,17 @@ func cmdInstall(args []string) error {
 		return handleTrackedRepoInstall(source, cfg, opts)
 	}
 
-	// If git source without subdir, discover skills and let user choose
-	if source.IsGit() && !source.HasSubdir() {
-		return handleGitDiscovery(source, cfg, opts)
+	// Handle git sources with discovery
+	if source.IsGit() {
+		if !source.HasSubdir() {
+			// Whole repo - discover all skills
+			return handleGitDiscovery(source, cfg, opts)
+		}
+		// Subdir specified - check for multiple skills within subdir
+		return handleGitSubdirInstall(source, cfg, opts)
 	}
 
-	// Direct installation (local path or git with subdir)
+	// Local path - direct installation
 	return handleDirectInstall(source, cfg, opts)
 }
 
@@ -278,9 +283,14 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 
 func promptSkillSelection(skills []install.SkillInfo) ([]install.SkillInfo, error) {
 	// Build options list with skill name and path
+	// Show "root" for skills with Path="."
 	options := make([]string, len(skills))
 	for i, skill := range skills {
-		options[i] = fmt.Sprintf("%s  (%s)", skill.Name, skill.Path)
+		label := skill.Path
+		if skill.Path == "." {
+			label = "root"
+		}
+		options[i] = fmt.Sprintf("%s  (%s)", skill.Name, label)
 	}
 
 	var selectedIndices []int
@@ -303,6 +313,153 @@ func promptSkillSelection(skills []install.SkillInfo) ([]install.SkillInfo, erro
 	}
 
 	return selected, nil
+}
+
+func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
+	// Header box
+	ui.HeaderBox("skillshare install", fmt.Sprintf("Source: %s\nSubdirectory: %s", source.Raw, source.Subdir))
+	fmt.Println()
+
+	spinner := ui.StartSpinner("Cloning repository...")
+
+	// Discover skills in subdir
+	discovery, err := install.DiscoverFromGitSubdir(source)
+	if err != nil {
+		spinner.Fail("Failed to clone")
+		return err
+	}
+	defer install.CleanupDiscovery(discovery)
+
+	// If only one skill found, install directly
+	if len(discovery.Skills) == 1 {
+		skill := discovery.Skills[0]
+		spinner.Success(fmt.Sprintf("Found 1 skill: %s", skill.Name))
+		fmt.Println()
+
+		destPath := filepath.Join(cfg.Source, skill.Name)
+		if opts.Name != "" {
+			destPath = filepath.Join(cfg.Source, opts.Name)
+		}
+
+		installSpinner := ui.StartSpinner(fmt.Sprintf("Installing %s...", skill.Name))
+
+		result, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
+		if err != nil {
+			installSpinner.Fail("Failed to install")
+			return err
+		}
+
+		if opts.DryRun {
+			installSpinner.Stop()
+			ui.Warning("[dry-run] %s", result.Action)
+		} else {
+			installSpinner.Success(fmt.Sprintf("Installed: %s", skill.Name))
+		}
+
+		for _, warning := range result.Warnings {
+			ui.Warning("%s", warning)
+		}
+
+		if !opts.DryRun {
+			fmt.Println()
+			ui.Info("Run 'skillshare sync' to distribute to all targets")
+		}
+		return nil
+	}
+
+	// Multiple skills found - enter discovery mode
+	if len(discovery.Skills) == 0 {
+		spinner.Fail("No skills found")
+		ui.Warning("No skills found in subdirectory (no SKILL.md files)")
+		return nil
+	}
+
+	spinner.Success(fmt.Sprintf("Found %d skill(s) in subdirectory", len(discovery.Skills)))
+	fmt.Println()
+
+	if opts.DryRun {
+		for _, skill := range discovery.Skills {
+			label := skill.Path
+			if skill.Path == "." {
+				label = "root"
+			}
+			ui.ListItem("info", skill.Name, label)
+		}
+		fmt.Println()
+		ui.Warning("[dry-run] Would prompt for selection")
+		return nil
+	}
+
+	// Prompt for selection
+	selected, err := promptSkillSelection(discovery.Skills)
+	if err != nil {
+		return err
+	}
+
+	if len(selected) == 0 {
+		ui.Info("No skills selected")
+		return nil
+	}
+
+	// Install selected skills
+	fmt.Println()
+
+	type installResult struct {
+		skill   install.SkillInfo
+		success bool
+		message string
+	}
+	results := make([]installResult, 0, len(selected))
+
+	spinner = ui.StartSpinner(fmt.Sprintf("Installing %d skill(s)...", len(selected)))
+
+	for i, skill := range selected {
+		spinner.Update(fmt.Sprintf("Installing %s... (%d/%d)", skill.Name, i+1, len(selected)))
+		destPath := filepath.Join(cfg.Source, skill.Name)
+
+		_, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
+		if err != nil {
+			results = append(results, installResult{skill: skill, success: false, message: err.Error()})
+			continue
+		}
+
+		results = append(results, installResult{skill: skill, success: true, message: "installed"})
+	}
+
+	// Count results
+	var installed, failed int
+	for _, r := range results {
+		if r.success {
+			installed++
+		} else {
+			failed++
+		}
+	}
+
+	if failed > 0 && installed == 0 {
+		spinner.Fail(fmt.Sprintf("Failed to install %d skill(s)", failed))
+	} else if failed > 0 {
+		spinner.Success(fmt.Sprintf("Installed %d skill(s), %d failed", installed, failed))
+	} else {
+		spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
+	}
+
+	// Show results
+	fmt.Println()
+	for _, r := range results {
+		if r.success {
+			ui.ListItem("success", r.skill.Name, r.message)
+		} else {
+			ui.ListItem("error", r.skill.Name, r.message)
+		}
+	}
+
+	if installed > 0 {
+		fmt.Println()
+		ui.Info("Run 'skillshare sync' to distribute to all targets")
+	}
+
+	return nil
 }
 
 func handleDirectInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {
