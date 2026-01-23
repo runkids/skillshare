@@ -27,9 +27,22 @@ func Box(title string, lines ...string) {
 		return
 	}
 
+	// Find max line length for consistent box width
+	maxLen := 0
+	for _, line := range lines {
+		if len(line) > maxLen {
+			maxLen = len(line)
+		}
+	}
+
+	// Pad lines to same length
 	content := ""
 	for i, line := range lines {
-		content += line
+		padded := line
+		if len(line) < maxLen {
+			padded = line + strings.Repeat(" ", maxLen-len(line))
+		}
+		content += padded
 		if i < len(lines)-1 {
 			content += "\n"
 		}

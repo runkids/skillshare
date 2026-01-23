@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -106,14 +107,39 @@ func fetchLatestVersion() (string, error) {
 	return strings.TrimPrefix(release.TagName, "v"), nil
 }
 
-// compareVersions returns true if v1 < v2
+// compareVersions returns true if v1 < v2 (proper semver comparison)
 func compareVersions(v1, v2 string) bool {
-	// Simple comparison - works for semantic versioning
-	// e.g., "1.2.3" < "1.2.4"
 	if v1 == "dev" || v1 == "" {
 		return false // Don't prompt for dev builds
 	}
-	return v1 != v2 && v2 > v1
+
+	parts1 := strings.Split(v1, ".")
+	parts2 := strings.Split(v2, ".")
+
+	// Compare each part numerically
+	maxLen := len(parts1)
+	if len(parts2) > maxLen {
+		maxLen = len(parts2)
+	}
+
+	for i := 0; i < maxLen; i++ {
+		var n1, n2 int
+		if i < len(parts1) {
+			n1, _ = strconv.Atoi(parts1[i])
+		}
+		if i < len(parts2) {
+			n2, _ = strconv.Atoi(parts2[i])
+		}
+
+		if n1 < n2 {
+			return true // v1 < v2
+		}
+		if n1 > n2 {
+			return false // v1 > v2
+		}
+	}
+
+	return false // v1 == v2
 }
 
 // Check checks if a new version is available
