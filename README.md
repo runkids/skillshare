@@ -119,6 +119,7 @@ Done. Your skills are now synced across all AI CLI tools.
 | Command | Description |
 |---------|-------------|
 | `init` | Initialize, auto-detect CLIs, setup git |
+| `new <name>` | Create a new skill with SKILL.md template |
 | `sync` | Sync skills to all targets |
 | `pull <target>` | Pull skills from target back to source |
 | `push` | Push to git remote (cross-machine) |

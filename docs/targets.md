@@ -6,44 +6,41 @@ Targets are AI CLI skill directories that skillshare syncs to.
 
 ## Supported Agents (35)
 
-| Agent | Key | Global Path |
-|-------|-----|-------------|
-| Agents | `agents` | `~/.config/agents/skills/` |
-| Amp | `amp` | `~/.config/agents/skills/` |
-| Antigravity | `antigravity` | `~/.gemini/antigravity/global_skills/` |
-| Claude Code | `claude` | `~/.claude/skills/` |
-| Cline | `cline` | `~/.cline/skills/` |
-| CodeBuddy | `codebuddy` | `~/.codebuddy/skills/` |
-| Codex | `codex` | `~/.codex/skills/` |
-| Command Code | `commandcode` | `~/.commandcode/skills/` |
-| Continue | `continue` | `~/.continue/skills/` |
-| GitHub Copilot | `copilot` | `~/.copilot/skills/` |
-| Crush | `crush` | `~/.config/crush/skills/` |
-| Cursor | `cursor` | `~/.cursor/skills/` |
-| Droid | `droid` | `~/.factory/skills/` |
-| Gemini CLI | `gemini` | `~/.gemini/skills/` |
-| Goose | `goose` | `~/.config/goose/skills/` |
-| Junie | `junie` | `~/.junie/skills/` |
-| Kilo Code | `kilocode` | `~/.kilocode/skills/` |
-| Kiro CLI | `kiro` | `~/.kiro/skills/` |
-| Kode | `kode` | `~/.kode/skills/` |
-| Letta | `letta` | `~/.letta/skills/` |
-| MCPJam | `mcpjam` | `~/.mcpjam/skills/` |
-| Moltbot | `moltbot` | `~/.moltbot/skills/` |
-| Mux | `mux` | `~/.mux/skills/` |
-| Neovate | `neovate` | `~/.neovate/skills/` |
-| OpenCode | `opencode` | `~/.config/opencode/skills/` |
-| OpenHands | `openhands` | `~/.openhands/skills/` |
-| Pi | `pi` | `~/.pi/agent/skills/` |
-| Pochi | `pochi` | `~/.pochi/skills/` |
-| Qoder | `qoder` | `~/.qoder/skills/` |
-| Qwen Code | `qwen` | `~/.qwen/skills/` |
-| Roo Code | `roo` | `~/.roo/skills/` |
-| Trae | `trae` | `~/.trae/skills/` |
-| Windsurf | `windsurf` | `~/.codeium/windsurf/skills/` |
-| Zencoder | `zencoder` | `~/.zencoder/skills/` |
+```text
+┌────────────────────────────────────────────────────────────────────────────┐
+│                           SUPPORTED TARGETS                                │
+│                                                                            │
+│  Built-in (auto-detected):                                                 │
+│  ┌─────────┐ ┌─────────┐ ┌───────────┐ ┌─────────┐ ┌─────────┐             │
+│  │ Agents  │ │   Amp   │ │Antigravity│ │ Claude  │ │  Cline  │             │
+│  └─────────┘ └─────────┘ └───────────┘ └─────────┘ └─────────┘             │
+│  ┌──────────┐ ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌─────────┐             │
+│  │CodeBuddy │ │  Codex  │ │Cmd Code │ │ Continue │ │ Copilot │             │
+│  └──────────┘ └─────────┘ └─────────┘ └──────────┘ └─────────┘             │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐               │
+│  │  Crush  │ │ Cursor  │ │  Droid  │ │ Gemini  │ │  Goose  │               │
+│  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘               │
+│  ┌─────────┐ ┌──────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐              │
+│  │  Junie  │ │ Kilocode │ │  Kiro   │ │  Kode   │ │  Letta  │              │
+│  └─────────┘ └──────────┘ └─────────┘ └─────────┘ └─────────┘              │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌──────────┐             │
+│  │ MCPJam  │ │ Moltbot │ │   Mux   │ │ Neovate  │ │ OpenCode │             │
+│  └─────────┘ └─────────┘ └─────────┘ └──────────┘ └──────────┘             │
+│  ┌───────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐             │
+│  │ OpenHands │ │   Pi    │ │  Pochi  │ │  Qoder  │ │  Qwen   │             │
+│  └───────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘             │
+│  ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌──────────┐                         │
+│  │   Roo   │ │  Trae   │ │ Windsurf │ │ Zencoder │                         │
+│  └─────────┘ └─────────┘ └──────────┘ └──────────┘                         │
+│                                                                            │
+│  Custom (add your own):                                                    │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐                                       │
+│  │  Aider  │ │   ...   │ │         │                                       │
+│  └─────────┘ └─────────┘ └─────────┘                                       │
+└────────────────────────────────────────────────────────────────────────────┘
+```
 
-**Custom targets:** Add any tool with `skillshare target add <name> <path>`
+Run `skillshare target <name>` to see the exact path for any agent.
 
 ---
 

@@ -51,6 +51,8 @@ func main() {
 		err = cmdUpgrade(args)
 	case "update":
 		err = cmdUpdate(args)
+	case "new":
+		err = cmdNew(args)
 	case "version", "-v", "--version":
 		fmt.Printf("skillshare %s\n", version)
 	case "help", "-h", "--help":
@@ -108,11 +110,13 @@ Commands:
   upgrade [--skill|--cli] [--force] Upgrade CLI and/or skillshare skill
   update <name> [--dry-run]         Update a skill or tracked repository
   update --all [--dry-run]          Update all tracked repositories
+  new <name> [--dry-run]            Create a new skill with SKILL.md template
   version                           Show version
   help                              Show this help
 
 Examples:
   skillshare init --source ~/.skills
+  skillshare new my-skill
   skillshare install github.com/user/skill-repo
   skillshare install github.com/org/repo/path/to/skill --dry-run
   skillshare target add claude ~/.claude/skills

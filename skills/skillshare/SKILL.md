@@ -29,6 +29,7 @@ skillshare list                # Show skills and tracked repos
 |--------|---------|
 | Sync skills | `skillshare sync` |
 | Preview first | `skillshare sync --dry-run` then `sync` |
+| Create new skill | `skillshare new <name>` then `sync` |
 | Pull from target | `skillshare pull <name>` then `sync` |
 | Install skill | `skillshare install <source>` then `sync` |
 | Install from repo (browse) | `skillshare install owner/repo` (discovery mode) |
