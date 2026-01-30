@@ -46,7 +46,13 @@ type Asset struct {
 func (r *Release) GetDownloadURL() (string, error) {
 	osName := runtime.GOOS
 	archName := runtime.GOARCH
-	expectedName := fmt.Sprintf("skillshare_%s_%s_%s.tar.gz", r.Version, osName, archName)
+
+	// Windows uses .zip, others use .tar.gz
+	ext := "tar.gz"
+	if osName == "windows" {
+		ext = "zip"
+	}
+	expectedName := fmt.Sprintf("skillshare_%s_%s_%s.%s", r.Version, osName, archName, ext)
 
 	for _, asset := range r.Assets {
 		if asset.Name == expectedName {

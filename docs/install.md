@@ -335,6 +335,19 @@ skillshare upgrade --skill
 skillshare sync  # ← Update skill in all targets
 ```
 
+**Troubleshooting:**
+
+If CLI upgrade fails (e.g., GitHub API rate limit), use `--force`:
+```bash
+skillshare upgrade --cli --force
+```
+
+To avoid rate limits, set a GitHub token:
+```bash
+export GITHUB_TOKEN=ghp_your_token_here
+skillshare upgrade
+```
+
 ---
 
 ## Uninstall

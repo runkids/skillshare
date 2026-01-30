@@ -38,7 +38,8 @@ targets: {}
 	os.WriteFile(skillPath, []byte("# Old Content"), 0644)
 
 	// Test skill upgrade only (CLI upgrade hits GitHub API rate limits in CI)
-	result := sb.RunCLI("upgrade", "--skill", "--dry-run")
+	// Use --force to trigger upgrade flow (without force, shows "Already up to date")
+	result := sb.RunCLI("upgrade", "--skill", "--dry-run", "--force")
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Would upgrade")

@@ -2,6 +2,8 @@ package main
 
 import (
 	"archive/tar"
+	"archive/zip"
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -9,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"skillshare/internal/config"
@@ -121,10 +124,11 @@ func upgradeCLIBinary(dryRun, force bool) error {
 	// Confirm if not forced
 	if !force {
 		fmt.Println()
-		fmt.Printf("  Upgrade to v%s? [y/N]: ", latestVersion)
+		fmt.Printf("  Upgrade to v%s? [Y/n]: ", latestVersion)
 		var input string
 		fmt.Scanln(&input)
-		if input != "y" && input != "Y" && input != "yes" {
+		input = strings.ToLower(strings.TrimSpace(input))
+		if input == "n" || input == "no" {
 			ui.Info("Cancelled")
 			return nil
 		}
@@ -218,7 +222,6 @@ func upgradeSkillshareSkill(dryRun, force bool) error {
 }
 
 func downloadAndReplace(url, destPath string) error {
-	// Download tarball
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
@@ -229,16 +232,21 @@ func downloadAndReplace(url, destPath string) error {
 		return fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
 
-	// Extract from tar.gz
-	gzr, err := gzip.NewReader(resp.Body)
+	// Windows uses zip, others use tar.gz
+	if runtime.GOOS == "windows" {
+		return extractFromZip(resp.Body, destPath)
+	}
+	return extractFromTarGz(resp.Body, destPath)
+}
+
+func extractFromTarGz(r io.Reader, destPath string) error {
+	gzr, err := gzip.NewReader(r)
 	if err != nil {
 		return err
 	}
 	defer gzr.Close()
 
 	tr := tar.NewReader(gzr)
-
-	// Find skillshare binary in archive
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
@@ -247,37 +255,61 @@ func downloadAndReplace(url, destPath string) error {
 		if err != nil {
 			return err
 		}
-
 		if header.Name == "skillshare" || header.Name == "./skillshare" {
-			// Write to temp file first
-			tmpFile, err := os.CreateTemp(filepath.Dir(destPath), "skillshare-upgrade-*")
+			return writeBinary(tr, destPath)
+		}
+	}
+}
+
+func extractFromZip(r io.Reader, destPath string) error {
+	// zip.Reader needs ReaderAt, so read all into memory
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return err
+	}
+
+	for _, f := range zr.File {
+		if f.Name == "skillshare.exe" || f.Name == "./skillshare.exe" {
+			rc, err := f.Open()
 			if err != nil {
 				return err
 			}
-			tmpPath := tmpFile.Name()
-
-			if _, err := io.Copy(tmpFile, tr); err != nil {
-				tmpFile.Close()
-				os.Remove(tmpPath)
-				return err
-			}
-			tmpFile.Close()
-
-			// Make executable
-			if err := os.Chmod(tmpPath, 0755); err != nil {
-				os.Remove(tmpPath)
-				return err
-			}
-
-			// Replace original
-			if err := os.Rename(tmpPath, destPath); err != nil {
-				os.Remove(tmpPath)
-				return err
-			}
-
-			return nil
+			defer rc.Close()
+			return writeBinary(rc, destPath)
 		}
 	}
+	return fmt.Errorf("skillshare.exe not found in archive")
+}
+
+func writeBinary(r io.Reader, destPath string) error {
+	tmpFile, err := os.CreateTemp(filepath.Dir(destPath), "skillshare-upgrade-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := tmpFile.Name()
+
+	if _, err := io.Copy(tmpFile, r); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	tmpFile.Close()
+
+	if err := os.Chmod(tmpPath, 0755); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+
+	if err := os.Rename(tmpPath, destPath); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+	return nil
 }
 
 func isHomebrewInstall(execPath string) bool {

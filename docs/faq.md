@@ -173,3 +173,61 @@ skillshare pull --remote
 2. Run `skillshare sync` to ensure symlinks are created
 3. Run `skillshare doctor` to diagnose issues
 4. Restart your AI CLI (some cache skill lists)
+
+### Upgrade fails with "GitHub API rate limit exceeded"
+
+GitHub limits unauthenticated API requests to 60/hour. Solutions:
+
+**Option 1: Set a GitHub token (recommended)**
+```powershell
+# Windows PowerShell
+$env:GITHUB_TOKEN = "ghp_your_token_here"
+skillshare upgrade
+```
+
+```bash
+# macOS/Linux
+export GITHUB_TOKEN=ghp_your_token_here
+skillshare upgrade
+```
+
+**Option 2: Force upgrade**
+```bash
+skillshare upgrade --cli --force
+```
+
+Create a token at: https://github.com/settings/tokens (no scopes needed for public repos)
+
+---
+
+## Windows-Specific
+
+### How do I install on Windows?
+
+Use PowerShell:
+```powershell
+irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
+```
+
+Or download the `.zip` from [releases](https://github.com/runkids/skillshare/releases).
+
+### Does skillshare need admin privileges on Windows?
+
+No. Skillshare uses NTFS junctions instead of symlinks, which don't require admin privileges.
+
+### Where are config files on Windows?
+
+```
+%USERPROFILE%\.config\skillshare\config.yaml
+%USERPROFILE%\.config\skillshare\skills\
+```
+
+### How do I set GITHUB_TOKEN permanently on Windows?
+
+```powershell
+# Current session only
+$env:GITHUB_TOKEN = "ghp_your_token"
+
+# Permanent (user-level)
+[Environment]::SetEnvironmentVariable("GITHUB_TOKEN", "ghp_your_token", "User")
+```
