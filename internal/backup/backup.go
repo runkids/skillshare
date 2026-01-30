@@ -127,11 +127,32 @@ type BackupInfo struct {
 func copyDir(src, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
+			// On Windows, reading a junction/symlink may fail with "Incorrect function"
+			// Skip these entries instead of failing the entire backup
+			if info != nil && (info.Mode()&os.ModeSymlink != 0 || info.Mode()&os.ModeIrregular != 0) {
+				return nil
+			}
+			// For directories that are junctions, skip the entire subtree
+			if info != nil && info.IsDir() {
+				return filepath.SkipDir
+			}
 			return err
 		}
 
-		// Skip symlinks - we only backup real files
+		// Skip symlinks/junctions - we only backup real files
 		if info.Mode()&os.ModeSymlink != 0 {
+			if info.IsDir() {
+				return filepath.SkipDir // Skip junction directory and its contents
+			}
+			return nil
+		}
+
+		// Use Lstat to double-check for junctions (Windows reparse points)
+		linfo, lerr := os.Lstat(path)
+		if lerr == nil && linfo.Mode()&os.ModeSymlink != 0 {
+			if linfo.IsDir() {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
