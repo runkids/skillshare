@@ -300,7 +300,7 @@ func UpdateNotification(currentVersion, latestVersion string) {
 	// Build content lines
 	lines := []string{
 		"",
-		fmt.Sprintf("  Version: %s → %s", currentVersion, latestVersion),
+		fmt.Sprintf("  Version: %s -> %s", currentVersion, latestVersion),
 		"",
 		"  Run: skillshare upgrade",
 		"",
