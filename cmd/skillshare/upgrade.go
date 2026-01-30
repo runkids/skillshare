@@ -79,10 +79,8 @@ func cmdUpgrade(args []string) error {
 }
 
 func upgradeCLIBinary(dryRun, force bool) error {
-	ui.Header("Upgrading CLI")
-
-	// Show current version first
-	ui.Info("Current version: %s", version)
+	// Step 1: Show current version
+	ui.StepStart("CLI", fmt.Sprintf("v%s", version))
 
 	// Get current executable path
 	execPath, err := os.Executable()
@@ -96,35 +94,37 @@ func upgradeCLIBinary(dryRun, force bool) error {
 
 	// Check if installed via Homebrew
 	if isHomebrewInstall(execPath) {
-		ui.Info("Detected Homebrew installation")
+		ui.StepContinue("Install", "Homebrew")
 		if dryRun {
-			ui.Info("Would run: brew update && brew upgrade runkids/tap/skillshare")
+			ui.StepEnd("Action", "Would run: brew upgrade runkids/tap/skillshare")
 			return nil
 		}
 		return runBrewUpgrade()
 	}
 
 	// Get latest version from GitHub
+	treeSpinner := ui.StartTreeSpinner("Checking latest version...", false)
 	latestVersion, downloadURL, err := getLatestRelease()
 	if err != nil {
+		treeSpinner.Fail("Failed to check")
 		return fmt.Errorf("failed to check latest version: %w", err)
 	}
-
-	ui.Info("Latest version:  %s", latestVersion)
+	treeSpinner.Success(fmt.Sprintf("Latest: v%s", latestVersion))
 
 	if version == latestVersion && !force {
-		ui.Success("Already up to date")
+		ui.StepEnd("Status", "Already up to date ✓")
 		return nil
 	}
 
 	if dryRun {
-		ui.Info("Would download: %s", downloadURL)
+		ui.StepEnd("Action", fmt.Sprintf("Would download v%s", latestVersion))
 		return nil
 	}
 
 	// Confirm if not forced
 	if !force {
-		fmt.Printf("  Upgrade to %s? [y/N]: ", latestVersion)
+		fmt.Println()
+		fmt.Printf("  Upgrade to v%s? [y/N]: ", latestVersion)
 		var input string
 		fmt.Scanln(&input)
 		if input != "y" && input != "Y" && input != "yes" {
@@ -133,22 +133,24 @@ func upgradeCLIBinary(dryRun, force bool) error {
 		}
 	}
 
-	ui.Info("Downloading %s...", latestVersion)
-
-	// Download and extract
+	// Download
+	fmt.Println()
+	downloadSpinner := ui.StartSpinner(fmt.Sprintf("Downloading v%s...", latestVersion))
 	if err := downloadAndReplace(downloadURL, execPath); err != nil {
+		downloadSpinner.Fail("Failed to download")
 		return fmt.Errorf("failed to upgrade: %w", err)
 	}
+	downloadSpinner.Success(fmt.Sprintf("Upgraded to v%s", latestVersion))
 
 	// Clear version cache so next check fetches fresh data
 	versioncheck.ClearCache()
 
-	ui.Success("Upgraded to %s", latestVersion)
 	return nil
 }
 
 func upgradeSkillshareSkill(dryRun, force bool) error {
-	ui.Header("Upgrading skillshare skill")
+	// Step 1: Show skill info
+	ui.StepStart("Skill", "skillshare")
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -164,33 +166,40 @@ func upgradeSkillshareSkill(dryRun, force bool) error {
 		exists = true
 	}
 
+	status := "Not installed"
+	if exists {
+		status = "Installed"
+	}
+	ui.StepContinue("Status", status)
+
 	if dryRun {
+		action := "Would download"
 		if exists {
-			ui.Info("Would upgrade: %s", skillshareSkillDir)
-		} else {
-			ui.Info("Would download: %s", skillshareSkillDir)
+			action = "Would upgrade"
 		}
-		ui.Info("Source: %s", skillshareSkillSource)
+		ui.StepEnd("Action", action)
 		return nil
 	}
 
 	// Confirm if exists and not forced
 	if exists && !force {
-		fmt.Print("  Overwrite existing skillshare skill? [y/N]: ")
+		fmt.Println()
+		fmt.Print("  Overwrite existing skill? [y/N]: ")
 		var input string
 		fmt.Scanln(&input)
 		if input != "y" && input != "Y" && input != "yes" {
 			ui.Info("Cancelled")
 			return nil
 		}
+		fmt.Println()
 	}
 
-	// Install using install package (downloads entire directory including references/)
-	spinner := ui.StartSpinner("Downloading from GitHub...")
+	// Install using install package
+	treeSpinner := ui.StartTreeSpinner("Downloading from GitHub...", true)
 
 	source, err := install.ParseSource(skillshareSkillSource)
 	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed to parse source: %v", err))
+		treeSpinner.Fail("Failed to parse source")
 		return err
 	}
 	source.Name = "skillshare"
@@ -200,13 +209,13 @@ func upgradeSkillshareSkill(dryRun, force bool) error {
 		DryRun: false,
 	})
 	if err != nil {
-		spinner.Fail(fmt.Sprintf("Failed to download: %v", err))
+		treeSpinner.Fail("Failed to download")
 		return err
 	}
 
-	spinner.Success("Upgraded skillshare skill")
-	ui.Info("Path: %s", skillshareSkillDir)
-	ui.Info("")
+	treeSpinner.Success("Upgraded")
+
+	fmt.Println()
 	ui.Info("Run 'skillshare sync' to distribute to all targets")
 
 	return nil
