@@ -113,8 +113,9 @@ Done. Your skills are now synced across all AI CLI tools.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                  ~/.config/skillshare/skills/               │
-│            (single source of truth — edit here)             │
+│                      Source Directory                        │
+│   macOS/Linux: ~/.config/skillshare/skills/                  │
+│   Windows:     %USERPROFILE%\.config\skillshare\skills\      │
 └─────────────────────────────────────────────────────────────┘
                               │ sync
               ┌───────────────┼───────────────┐
@@ -123,6 +124,8 @@ Done. Your skills are now synced across all AI CLI tools.
        │  Claude   │   │  OpenCode │   │ OpenClaw  │   ...
        └───────────┘   └───────────┘   └───────────┘
 ```
+
+> **Windows Note:** skillshare uses NTFS junctions instead of symlinks, so no admin privileges required.
 
 ## Commands
 
@@ -180,15 +183,19 @@ See [Team Edition Guide](docs/team-edition.md) for details.
 
 **What if I modify a skill in a target directory?**
 
-Since targets are symlinks, you're editing the source directly. All targets see changes immediately.
+Since targets are linked to source, you're editing the source directly. All targets see changes immediately.
 
 **How do I keep CLI-specific skills?**
 
 Use `merge` mode (default). Local skills in targets are preserved.
 
-**Accidentally deleted a skill through symlink?**
+**Accidentally deleted a skill?**
 
 Recover with git: `cd ~/.config/skillshare/skills && git checkout -- deleted-skill/`
+
+**Windows: Do I need admin privileges?**
+
+No. skillshare uses NTFS junctions (not symlinks), which don't require elevated permissions.
 
 See [FAQ & Troubleshooting](docs/faq.md) for more.
 
