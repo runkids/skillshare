@@ -12,7 +12,7 @@
 
 <p align="center">
   <strong>One source of truth for AI CLI skills. Sync everywhere with one command and simplify team sharing.</strong><br>
-  Claude Code, Moltbot, OpenCode & 30+ more.
+  Claude Code, OpenClaw, OpenCode & 30+ more.
 </p>
 
 <p align="center">
@@ -110,7 +110,7 @@ Done. Your skills are now synced across all AI CLI tools.
               ┌───────────────┼───────────────┐
               ▼               ▼               ▼
        ┌───────────┐   ┌───────────┐   ┌───────────┐
-       │  Claude   │   │  OpenCode │   │  Moltbot  │   ...
+       │  Claude   │   │  OpenCode │   │ OpenClaw  │   ...
        └───────────┘   └───────────┘   └───────────┘
 ```
 

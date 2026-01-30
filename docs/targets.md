@@ -24,7 +24,7 @@ Targets are AI CLI skill directories that skillshare syncs to.
 │  │  Junie  │ │ Kilocode │ │  Kimi   │ │  Kiro   │ │  Kode   │              │
 │  └─────────┘ └──────────┘ └─────────┘ └─────────┘ └─────────┘              │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌──────────┐              │
-│  │  Letta  │ │ MCPJam  │ │ Moltbot │ │   Mux   │ │ Neovate  │              │
+│  │  Letta  │ │ MCPJam  │ │OpenClaw │ │   Mux   │ │ Neovate  │              │
 │  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └──────────┘              │
 │  ┌──────────┐ ┌───────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐            │
 │  │ OpenCode │ │ OpenHands │ │   Pi    │ │  Pochi  │ │  Qoder  │            │

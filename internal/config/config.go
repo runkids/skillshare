@@ -49,7 +49,8 @@ func DefaultTargets() map[string]TargetConfig {
 		"kode":         {Path: filepath.Join(home, ".kode", "skills")},
 		"letta":        {Path: filepath.Join(home, ".letta", "skills")},
 		"mcpjam":       {Path: filepath.Join(home, ".mcpjam", "skills")},
-		"moltbot":      {Path: filepath.Join(home, ".moltbot", "skills")},
+		"moltbot":      {Path: filepath.Join(home, ".moltbot", "skills")},  // legacy name for openclaw
+		"openclaw":     {Path: filepath.Join(home, ".openclaw", "skills")},
 		"mux":          {Path: filepath.Join(home, ".mux", "skills")},
 		"neovate":      {Path: filepath.Join(home, ".neovate", "skills")},
 		"opencode":     {Path: filepath.Join(home, ".config", "opencode", "skills")},
