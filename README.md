@@ -14,6 +14,10 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/runkids/skillshare/stargazers"><img src="https://img.shields.io/github/stars/runkids/skillshare?style=social" alt="Star on GitHub"></a>
+</p>
+
+<p align="center">
   <strong>One source of truth for AI CLI skills. Sync everywhere with one command and simplify team sharing.</strong><br>
   Claude Code, OpenClaw, OpenCode & 40+ more.
 </p>
@@ -276,6 +280,8 @@ go test ./...
 ```
 
 [Open an issue](https://github.com/runkids/skillshare/issues) for bugs or feature requests.
+
+If you find skillshare useful, consider giving it a ⭐
 
 ## Star History
 
