@@ -8,29 +8,16 @@ Diagnose configuration issues.
 skillshare doctor
 ```
 
+<p>
+  <img src="../.github/assets/doctor-demo.png" alt="doctor demo" width="720">
+</p>
+
 **What it checks:**
 - Source directory exists and is valid
 - Config file is properly formatted
 - All targets are accessible
 - Symlinks are not broken
 - Git repository status (if initialized)
-
-**Example output:**
-```
-Skillshare Doctor
-─────────────────────────────────────────
-✓ Config file valid
-✓ Source directory exists (5 skills)
-✓ Git initialized (clean, remote: origin)
-
-Targets:
-  ✓ claude    ~/.claude/skills    5/5 synced
-  ✓ cursor    ~/.cursor/skills    5/5 synced
-  ✗ codex     ~/.codex/skills     2 broken symlinks
-
-Issues found: 1
-→ Run 'skillshare sync' to fix broken symlinks
-```
 
 ---
 

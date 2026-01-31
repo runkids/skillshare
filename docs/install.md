@@ -114,24 +114,12 @@ skillshare install ComposioHQ/awesome-claude-skills     # Another repo
 When you don't specify a path, skillshare lists all available skills:
 
 ```bash
-$ skillshare install anthropics/skills
-
-Discovering skills
-─────────────────────────────────────────
-→ Source: github.com/anthropics/skills
-→ Cloning repository...
-
-✓ Found 17 skill(s)
-
-? Select skills to install:
-  [arrows to move, space to select, enter to confirm]
-> [ ]  algorithmic-art
-  [ ]  brand-guidelines
-  [ ]  canvas-design
-  [x]  pdf              ← selected
-  [ ]  frontend-design
-  ...
+skillshare install anthropics/skills
 ```
+
+<p>
+  <img src="../.github/assets/install-demo.png" alt="install demo" width="720">
+</p>
 
 **Tip**: Use `--dry-run` to preview without installing:
 ```bash
@@ -192,10 +180,12 @@ skillshare install anthropics/skills/skills/pdf --update
 
 **Install team repo (tracked):**
 ```bash
-skillshare install github.com/team/shared-skills --track
-# Installed as: ~/.config/skillshare/skills/_shared-skills/
-# Can update with: skillshare update _shared-skills
+skillshare install anthropics/skills --track
 ```
+
+<p>
+  <img src="../.github/assets/team-reack-demo.png" alt="tracked repo install demo" width="720">
+</p>
 
 ### After Installing
 
@@ -217,20 +207,9 @@ skillshare list              # Basic list
 skillshare list --verbose    # Detailed info
 ```
 
-**Example output:**
-```
-Installed skills
-─────────────────────────────────────────────────────
-  pdf                           (github.com/anthropics/skills)
-  my-skill                      (local)
-  _team-repo__frontend__ui      (tracked: _team-repo)
-  personal__writing             (local)
-
-Tracked repositories
-─────────────────────────────────────────────────────
-  _team-repo      5 skills, up-to-date
-  _another-repo   3 skills, has changes
-```
+<p>
+  <img src="../.github/assets/list-demo.png" alt="list demo" width="720">
+</p>
 
 ---
 
@@ -244,6 +223,10 @@ Update skills or tracked repositories.
 skillshare update pdf              # Update from stored source
 skillshare update pdf --dry-run    # Preview
 ```
+
+<p>
+  <img src="../.github/assets/update-skilk-demo.png" alt="update skill demo" width="720">
+</p>
 
 **How it works:**
 ```
@@ -279,24 +262,24 @@ skillshare update --all            # Update all tracked repos + skills with meta
 **How it works:**
 ```
 ┌─────────────────────────────────────────┐
-│ skillshare update _team-repo            │
+│ skillshare update team-repo            │
 └─────────────────────────────────────────┘
          │
          ▼
-┌─────────────────────────────────────────┐
-│ cd ~/.config/skillshare/skills/_team-repo
-│ git pull                                │
-└─────────────────────────────────────────┘
+┌───────────────────────────────────────────┐
+│ cd ~/.config/skillshare/skills/_team-repo │
+│ git pull                                  │
+└───────────────────────────────────────────┘
 ```
 
 **Safety check:** If the repo has uncommitted changes, update is blocked:
 ```bash
-skillshare update _team-repo
+skillshare update team-repo
 # → "Repository has uncommitted changes"
 # → Shows modified files
 # → Requires --force to discard and update
 
-skillshare update _team-repo --force  # Discards local changes, then pulls
+skillshare update team-repo --force   # Discards local changes, then pulls
 skillshare update --all               # Update all (skips dirty repos)
 skillshare update --all --force       # Discards local changes, updates all
 ```
@@ -304,7 +287,7 @@ skillshare update --all --force       # Discards local changes, updates all
 ### After Updating
 
 ```bash
-skillshare update _team-repo
+skillshare update team-repo
 skillshare sync  # ← Distribute changes to targets
 ```
 
@@ -321,6 +304,10 @@ skillshare upgrade --skill      # Skill only
 skillshare upgrade --force      # Skip confirmation
 skillshare upgrade --dry-run    # Preview
 ```
+
+<p>
+  <img src="../.github/assets/upgrade-demo.png" alt="upgrade demo" width="720">
+</p>
 
 **What gets upgraded:**
 
@@ -342,7 +329,7 @@ If CLI upgrade fails (e.g., GitHub API rate limit), use `--force`:
 skillshare upgrade --cli --force
 ```
 
-To avoid rate limits, set a GitHub token:
+To avoid rate limits, set a GitHub token or login to `gh` cli:
 ```bash
 export GITHUB_TOKEN=ghp_your_token_here
 skillshare upgrade
@@ -360,10 +347,14 @@ skillshare uninstall pdf --force      # Skip confirmation
 skillshare uninstall pdf --dry-run    # Preview
 ```
 
+<p>
+  <img src="../.github/assets/uninstall-demo.png" alt="uninstall demo" width="720">
+</p>
+
 **For tracked repos:**
 ```bash
-skillshare uninstall _team-repo       # Checks for uncommitted changes
-skillshare uninstall _team-repo -f    # Force (ignore uncommitted)
+skillshare uninstall team-repo       # Checks for uncommitted changes
+skillshare uninstall team-repo -f    # Force (ignore uncommitted)
 ```
 
 ### After Uninstalling

@@ -94,19 +94,9 @@ skillshare sync -n           # Short form
 
 ### Example Output
 
-```
-$ skillshare sync
-
-Syncing skills
-─────────────────────────────────────────
-→ Source: ~/.config/skillshare/skills (5 skills)
-
-✓ claude: merged (5 linked, 2 local, 0 updated, 1 pruned)
-✓ cursor: merged (5 linked, 0 local, 0 updated, 0 pruned)
-✓ codex: symlink
-
-Sync complete
-```
+<p>
+  <img src="../.github/assets/sync-demo.png" alt="sync demo" width="720">
+</p>
 
 ---
 
@@ -118,23 +108,9 @@ Show current sync state.
 skillshare status
 ```
 
-### Example Output
-
-```
-Skillshare Status
-─────────────────────────────────────────
-Source: ~/.config/skillshare/skills
-  Skills: 5
-  Git: clean (remote: origin)
-
-Targets:
-  claude    merge     5/5 synced    ~/.claude/skills
-  cursor    merge     5/5 synced    ~/.cursor/skills
-  codex     symlink   ✓ linked      ~/.codex/skills
-
-Tracked Repositories:
-  _team-repo    5 skills    up-to-date
-```
+<p>
+  <img src="../.github/assets/status-demo.png" alt="status demo" width="720">
+</p>
 
 ---
 
@@ -147,18 +123,9 @@ skillshare diff              # All targets
 skillshare diff claude       # Specific target
 ```
 
-### Example Output
-
-```
-claude
-─────────────────────────────────────────
-  + my-new-skill       missing
-  ~ local-copy-skill   local copy (sync --force to replace)
-  - local-only-skill   local only
-
-Run 'sync' to add missing, 'sync --force' to replace local copies
-Run 'collect claude' to import local-only skills to source
-```
+<p>
+  <img src="../.github/assets/diff-demo.png" alt="diff demo" width="720">
+</p>
 
 ### Symbols
 

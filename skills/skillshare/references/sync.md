@@ -2,10 +2,10 @@
 
 ## Command Overview
 
-| 操作類型 | 命令 | 方向 |
-|----------|------|------|
-| **本地同步** | `sync` / `collect` | Source ↔ Targets |
-| **遠端同步** | `push` / `pull` | Source ↔ Git Remote |
+| Type | Command | Direction |
+|------|---------|-----------|
+| **Local sync** | `sync` / `collect` | Source ↔ Targets |
+| **Remote sync** | `push` / `pull` | Source ↔ Git Remote |
 
 ## sync
 
