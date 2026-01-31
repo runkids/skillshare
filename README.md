@@ -31,7 +31,7 @@
 </p>
 
 > [!NOTE]
-> **[What's New in 0.6.0 — Team Edition](https://github.com/runkids/skillshare/releases/tag/v0.6.0)**: Tracked repos, nested skills, auto-pruning, collision detection. [Learn more → docs/team-edition.md](docs/team-edition.md)
+> **[What's New in 0.7.0](https://github.com/runkids/skillshare/releases/tag/v0.7.0)**: Full Windows support (NTFS junctions, zip downloads, self-upgrade), [Search skills](#search-skills) from GitHub. [Previous: Team Edition → docs/team-edition.md](docs/team-edition.md)
 
 ## Why skillshare?
 
@@ -117,9 +117,8 @@ Done. Your skills are now synced across all AI CLI tools.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Source Directory                       │
-│   macOS/Linux: ~/.config/skillshare/skills/                 │
-│   Windows:     %USERPROFILE%\.config\skillshare\skills\     │
+│                       Source Directory                      │
+│                 ~/.config/skillshare/skills/                │
 └─────────────────────────────────────────────────────────────┘
                               │ sync
               ┌───────────────┼───────────────┐
@@ -129,7 +128,10 @@ Done. Your skills are now synced across all AI CLI tools.
        └───────────┘   └───────────┘   └───────────┘
 ```
 
-> **Windows Note:** skillshare uses NTFS junctions instead of symlinks, so no admin privileges required.
+| Platform | Source Path | Link Type |
+|----------|-------------|-----------|
+| macOS/Linux | `~/.config/skillshare/skills/` | Symlinks |
+| Windows | `%USERPROFILE%\.config\skillshare\skills\` | NTFS Junctions (no admin required) |
 
 ## Commands
 
@@ -137,6 +139,7 @@ Done. Your skills are now synced across all AI CLI tools.
 |---------|-------------|
 | `init` | Initialize, auto-detect CLIs, setup git |
 | `new <name>` | Create a new skill with SKILL.md template |
+| `search <query>` | [Search GitHub for skills](#search-skills) |
 | `sync` | Sync skills to all targets |
 | `pull <target>` | Pull skills from target back to source |
 | `push` | Push to git remote (cross-machine) |
@@ -157,6 +160,36 @@ skillshare target remove claude           # Safely unlink
 ```
 
 See [Documentation](docs/README.md) for complete reference.
+
+---
+
+## Search Skills
+
+Discover and install skills from GitHub with interactive search.
+
+```bash
+skillshare search runkids
+```
+
+<p align="left">
+  <img src=".github/assets/search-demo.png" alt="search demo" width="720">
+</p>
+
+**Features:**
+- **Smart ranking** — Results sorted by repository stars
+- **Interactive selector** — Arrow keys to navigate, Enter to install
+- **Continuous search** — Search again without restarting
+- **Filter forks** — Only shows original repositories
+
+```bash
+skillshare search pdf --list      # List only, no install prompt
+skillshare search react --json    # JSON output for scripting
+skillshare search commit -n 5     # Limit results
+```
+
+> **Note:** Requires GitHub authentication. Run `gh auth login` or set `GITHUB_TOKEN`.
+
+See [Search Guide](docs/search.md) for details.
 
 ---
 
@@ -219,10 +252,11 @@ See [FAQ & Troubleshooting](docs/faq.md) for more.
 ## Documentation
 
 - **[docs/](docs/README.md)** — Documentation index
-- **[install.md](docs/install.md)** — Install, update, upgrade skills
-- **[sync.md](docs/sync.md)** — Sync, pull, push, backup
 - **[targets.md](docs/targets.md)** — Target management
+- **[sync.md](docs/sync.md)** — Sync, pull, push, backup
 - **[team-edition.md](docs/team-edition.md)** — Team sharing with tracked repos
+- **[install.md](docs/install.md)** — Install, update, upgrade skills
+- **[search.md](docs/search.md)** — Search and discover skills
 - **[cross-machine.md](docs/cross-machine.md)** — Multi-machine sync
 - **[faq.md](docs/faq.md)** — FAQ & troubleshooting
 

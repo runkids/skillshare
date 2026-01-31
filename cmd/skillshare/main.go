@@ -61,6 +61,8 @@ func main() {
 		err = cmdUpdate(args)
 	case "new":
 		err = cmdNew(args)
+	case "search":
+		err = cmdSearch(args)
 	case "version", "-v", "--version":
 		ui.Logo(version)
 	case "help", "-h", "--help":
@@ -135,6 +137,7 @@ func printUsage() {
 	cmd("install", "<source>", "Install a skill from local path or git repo")
 	cmd("uninstall", "<name>", "Remove a skill from source directory")
 	cmd("list", "", "List all installed skills")
+	cmd("search", "<query>", "Search GitHub for skills")
 	cmd("sync", "", "Sync skills to all targets")
 	cmd("status", "", "Show status of all targets")
 	fmt.Println()
