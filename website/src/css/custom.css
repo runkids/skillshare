@@ -243,7 +243,6 @@ html {
 /* Footer container spacing */
 .footer .container {
   padding-top: 1.5rem;
-  padding-bottom: 1rem;
 }
 
 /* Footer column titles */
@@ -351,6 +350,8 @@ html {
 @media (max-width: 996px) {
   .footer .container {
     padding-top: 2rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
 
   .footer__col {

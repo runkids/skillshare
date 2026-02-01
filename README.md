@@ -158,9 +158,9 @@ Done. Your skills are now synced across all AI CLI tools.
 |-------|-------------|
 | [Getting Started](https://skillshare.runkids.work/docs/intro) | Quick start guide |
 | [Commands](https://skillshare.runkids.work/docs/commands/init) | All CLI commands |
-| [Team Edition](https://skillshare.runkids.work/docs/guides/team-edition) | Team sharing with tracked repos |
-| [Cross-machine](https://skillshare.runkids.work/docs/guides/cross-machine) | Multi-machine sync |
-| [FAQ](https://skillshare.runkids.work/docs/faq) | FAQ & troubleshooting |
+| [Team Edition](https://skillshare.runkids.work/docs/guides/team-sharing) | Team sharing with tracked repos |
+| [Cross-machine](https://skillshare.runkids.work/docs/guides/cross-machine-sync) | Multi-machine sync |
+| [FAQ](https://skillshare.runkids.work/docs/troubleshooting/faq) | FAQ & troubleshooting |
 
 ---
 
@@ -241,7 +241,7 @@ skillshare sync
 - **Auto-pruning** — Orphaned symlinks removed on sync
 - **Collision detection** — Warns about duplicate skill names
 
-See [Team Edition Guide](https://skillshare.runkids.work/docs/guides/team-edition) for details.
+See [Team Edition Guide](https://skillshare.runkids.work/docs/guides/team-sharing) for details.
 
 ---
 
@@ -263,7 +263,7 @@ Recover with git: `cd ~/.config/skillshare/skills && git checkout -- deleted-ski
 
 No. skillshare uses NTFS junctions (not symlinks), which don't require elevated permissions.
 
-See [FAQ & Troubleshooting](https://skillshare.runkids.work/docs/faq) for more.
+See [FAQ & Troubleshooting](https://skillshare.runkids.work/docs/troubleshooting/faq) for more.
 
 ---
 
