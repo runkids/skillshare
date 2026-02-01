@@ -1,0 +1,366 @@
+/* ========================================
+   Hero Section
+   ======================================== */
+.hero {
+  padding: 6rem 0 4rem;
+  text-align: center;
+  background: linear-gradient(180deg, var(--hero-gradient-start) 0%, var(--hero-gradient-end) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle animated gradient orb in background (dark mode only) */
+:global([data-theme='dark']) .hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 800px;
+  height: 800px;
+  background: radial-gradient(
+    circle,
+    rgba(59, 130, 246, 0.12) 0%,
+    rgba(249, 115, 22, 0.06) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.heroLogo {
+  width: 220px;
+  height: auto;
+  margin-bottom: 0.5rem;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.15));
+  transition: transform 0.3s ease;
+}
+
+.heroLogo:hover {
+  transform: scale(1.05);
+}
+
+.heroTitle {
+  font-size: 3rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  color: var(--ifm-font-color-base);
+  letter-spacing: -0.02em;
+}
+
+/* Multi-color gradient text effect - only in dark mode */
+:global([data-theme='dark']) .heroTitle {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.heroSubtitle {
+  font-size: 1.25rem;
+  color: var(--ifm-font-color-secondary);
+  margin-bottom: 2rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+/* ========================================
+   Install Command (Always terminal-style dark)
+   ======================================== */
+.installCommand {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 12px;
+  padding: 0.875rem 1.5rem;
+  margin-bottom: 2rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.875rem;
+  max-width: 100%;
+  overflow-x: auto;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+}
+
+:global([data-theme='dark']) .installCommand {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow:
+    0 4px 30px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.installCommand code {
+  background: none;
+  padding: 0;
+  color: #e2e8f0;
+  white-space: nowrap;
+}
+
+.prompt {
+  color: #22C55E;
+  margin-right: 0.5rem;
+  font-weight: 600;
+}
+
+.copyButton {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #94a3b8;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copyButton:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #f8fafc;
+}
+
+.heroButtons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ========================================
+   Features Section
+   ======================================== */
+.features {
+  padding: 5rem 0;
+}
+
+.featureGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.featureCard {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.25s ease;
+  cursor: default;
+  backdrop-filter: blur(10px);
+}
+
+:global([data-theme='dark']) .featureCard {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.featureCard:hover {
+  background: var(--card-bg-hover);
+  border-color: var(--card-border-hover);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+}
+
+:global([data-theme='dark']) .featureCard:hover {
+  background: rgba(30, 41, 59, 0.8);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(59, 130, 246, 0.1);
+}
+
+.featureIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 1.25rem;
+  background: var(--icon-bg);
+  border: 1px solid var(--icon-border);
+  border-radius: 14px;
+  color: var(--icon-color);
+  transition: all 0.25s ease;
+}
+
+/* Icon colors matching logo palette */
+.featureCard:nth-child(1) .featureIconWrapper {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05));
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3B82F6;
+}
+
+.featureCard:nth-child(2) .featureIconWrapper {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(249, 115, 22, 0.05));
+  border-color: rgba(249, 115, 22, 0.3);
+  color: #F97316;
+}
+
+.featureCard:nth-child(3) .featureIconWrapper {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05));
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #22C55E;
+}
+
+:global([data-theme='dark']) .featureCard:nth-child(1) .featureIconWrapper {
+  color: #60A5FA;
+}
+
+:global([data-theme='dark']) .featureCard:nth-child(2) .featureIconWrapper {
+  color: #FB923C;
+}
+
+:global([data-theme='dark']) .featureCard:nth-child(3) .featureIconWrapper {
+  color: #4ADE80;
+}
+
+.featureTitle {
+  font-size: 1.25rem;
+  margin-bottom: 0.75rem;
+  color: var(--ifm-font-color-base);
+  font-weight: 600;
+}
+
+.featureDescription {
+  color: var(--ifm-font-color-secondary);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ========================================
+   Demo Section
+   ======================================== */
+.demo {
+  padding: 5rem 0;
+}
+
+.demoContainer {
+  max-width: 960px;
+  margin: 0 auto;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--card-border);
+  transition: all 0.3s ease;
+}
+
+.demoContainer:hover {
+  transform: scale(1.01);
+  box-shadow:
+    0 30px 60px -15px rgba(0, 0, 0, 0.25),
+    0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+:global([data-theme='dark']) .demoContainer {
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+:global([data-theme='dark']) .demoContainer:hover {
+  box-shadow:
+    0 30px 60px -15px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(59, 130, 246, 0.2),
+    0 0 40px rgba(59, 130, 246, 0.1);
+}
+
+.demoContainer img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ========================================
+   Supported CLIs Section
+   ======================================== */
+.supported {
+  padding: 4rem 0 5rem;
+  text-align: center;
+}
+
+.supportedTitle {
+  color: var(--ifm-font-color-secondary);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 1.5rem;
+  font-weight: 500;
+}
+
+.cliLogos {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2rem;
+  align-items: center;
+}
+
+.cliLogos span {
+  font-size: 0.95rem;
+  color: var(--muted-text);
+  transition: all 0.2s ease;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.cliLogos span:hover {
+  color: var(--ifm-font-color-base);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+:global([data-theme='dark']) .cliLogos span:hover {
+  background: rgba(59, 130, 246, 0.15);
+  color: #f8fafc;
+}
+
+/* ========================================
+   Responsive
+   ======================================== */
+@media screen and (max-width: 996px) {
+  .hero {
+    padding: 4rem 1rem 3rem;
+  }
+
+  .heroTitle {
+    font-size: 2rem;
+  }
+
+  .heroSubtitle {
+    font-size: 1rem;
+  }
+
+  .featureGrid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .installCommand {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+}
+
+/* ========================================
+   Accessibility
+   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  .featureCard:hover {
+    transform: none;
+  }
+}
