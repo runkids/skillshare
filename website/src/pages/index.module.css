@@ -66,6 +66,62 @@
 }
 
 /* ========================================
+   Install Section with Tabs
+   ======================================== */
+.installSection {
+  margin-bottom: 2rem;
+}
+
+.installTabs {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.installTab {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  color: var(--muted-text);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.installTab:hover {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: var(--ifm-font-color-base);
+}
+
+.installTabActive {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: var(--ifm-color-primary);
+}
+
+:global([data-theme='dark']) .installTab {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+:global([data-theme='dark']) .installTab:hover {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+:global([data-theme='dark']) .installTabActive {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.5);
+  color: #60A5FA;
+}
+
+/* ========================================
    Install Command (Always terminal-style dark)
    ======================================== */
 .installCommand {
@@ -76,7 +132,6 @@
   border: 1px solid rgba(59, 130, 246, 0.2);
   border-radius: 12px;
   padding: 0.875rem 1.5rem;
-  margin-bottom: 2rem;
   font-family: var(--ifm-font-family-monospace);
   font-size: 0.875rem;
   max-width: 100%;
@@ -134,6 +189,133 @@
   gap: 1rem;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+/* ========================================
+   Why Section
+   ======================================== */
+.why {
+  padding: 5rem 0;
+  background: var(--ifm-background-surface-color);
+}
+
+:global([data-theme='dark']) .why {
+  background: rgba(30, 41, 59, 0.3);
+}
+
+.sectionTitle {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.sectionSubtitle {
+  text-align: center;
+  color: var(--ifm-font-color-secondary);
+  font-size: 1.1rem;
+  margin-bottom: 2.5rem;
+  line-height: 1.7;
+}
+
+.sectionSubtitle a {
+  color: var(--ifm-color-primary);
+  text-decoration: none;
+  font-weight: 500;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.08);
+  transition: all 0.2s ease;
+}
+
+.sectionSubtitle a:hover {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--ifm-color-primary-dark);
+}
+
+:global([data-theme='dark']) .sectionSubtitle a {
+  background: rgba(96, 165, 250, 0.15);
+  color: #60A5FA;
+}
+
+:global([data-theme='dark']) .sectionSubtitle a:hover {
+  background: rgba(96, 165, 250, 0.25);
+}
+
+/* Why Grid - Card Layout */
+.whyGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.whyCard {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  transition: all 0.25s ease;
+}
+
+:global([data-theme='dark']) .whyCard {
+  background: rgba(30, 41, 59, 0.5);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.whyCard:hover {
+  border-color: var(--card-border-hover);
+  transform: translateY(-2px);
+}
+
+:global([data-theme='dark']) .whyCard:hover {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.whyIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 10px;
+  color: #3b82f6;
+  margin-bottom: 1rem;
+}
+
+:global([data-theme='dark']) .whyIconWrapper {
+  background: rgba(96, 165, 250, 0.15);
+  border-color: rgba(96, 165, 250, 0.25);
+  color: #60a5fa;
+}
+
+.whyCardTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--ifm-font-color-base);
+}
+
+.whyCardDescription {
+  font-size: 0.875rem;
+  color: var(--ifm-font-color-secondary);
+  line-height: 1.6;
+  margin: 0;
+}
+
+@media (max-width: 996px) {
+  .whyGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .whyGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ========================================

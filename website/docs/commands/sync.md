@@ -106,43 +106,6 @@ skillshare sync -n           # Short form
 
 ---
 
-## Status
-
-Show current sync state.
-
-```bash
-skillshare status
-```
-
-<p>
-  <img src="/img/status-demo.png" alt="status demo" width="720" />
-</p>
-
----
-
-## Diff
-
-Show differences between source and targets.
-
-```bash
-skillshare diff              # All targets
-skillshare diff claude       # Specific target
-```
-
-<p>
-  <img src="/img/diff-demo.png" alt="diff demo" width="720" />
-</p>
-
-### Symbols
-
-| Symbol | Meaning | Action |
-|--------|---------|--------|
-| `+` | In source, missing in target | `sync` will add |
-| `~` | Both have it, but target is a local copy (not symlink) | `sync --force` to replace with symlink |
-| `-` | Only in target, not in source | `collect` to import to source |
-
----
-
 ## Collect
 
 Collect skills from a target back to source.
@@ -362,6 +325,8 @@ skillshare restore claude --dry-run                    # Preview
 
 ## Related
 
-- [targets](/docs/guides/targets) — Manage targets
-- [cross-machine](/docs/guides/cross-machine) — Sync across computers
+- [status](/docs/commands/status) — Show sync state
+- [diff](/docs/commands/diff) — Show differences
+- [Targets](/docs/targets) — Manage targets
+- [Cross-Machine Sync](/docs/guides/cross-machine-sync) — Sync across computers
 - [install](/docs/commands/install) — Install skills

@@ -4,6 +4,8 @@ sidebar_position: 4
 
 # Configuration
 
+Configuration file reference for skillshare.
+
 ## Overview
 
 ```
@@ -26,7 +28,7 @@ sidebar_position: 4
 
 ## Config File
 
-Location: `~/.config/skillshare/config.yaml`
+**Location:** `~/.config/skillshare/config.yaml`
 
 ### Full Example
 
@@ -133,14 +135,14 @@ ignore:
 
 ## Managing Config
 
-### View Current Config
+### View current config
 
 ```bash
 skillshare status
 # Shows source, targets, modes
 ```
 
-### Edit Config Directly
+### Edit config directly
 
 ```bash
 # Open in editor
@@ -150,7 +152,7 @@ $EDITOR ~/.config/skillshare/config.yaml
 skillshare sync
 ```
 
-### Reset Config
+### Reset config
 
 ```bash
 rm ~/.config/skillshare/config.yaml
@@ -159,34 +161,12 @@ skillshare init
 
 ---
 
-## Auto-Detected Targets
-
-When running `skillshare init`, these paths are checked:
-
-| Target | Path |
-|--------|------|
-| amp | `~/.amp/skills` |
-| claude | `~/.claude/skills` |
-| codex | `~/.codex/skills` |
-| crush | `~/.crush/skills` |
-| cursor | `~/.cursor/skills` |
-| gemini | `~/.gemini/skills` |
-| copilot | `~/.github-copilot/skills` |
-| goose | `~/.goose/skills` |
-| letta | `~/.letta/skills` |
-| antigravity | `~/.antigravity/skills` |
-| opencode | `~/.opencode/skills` |
-
-Only paths that exist are added as targets.
-
----
-
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
 | `SKILLSHARE_CONFIG` | Override config file path |
-| `SKILLSHARE_SOURCE` | Override source directory |
+| `GITHUB_TOKEN` | For API rate limit issues |
 
 **Example:**
 ```bash
@@ -197,7 +177,7 @@ SKILLSHARE_CONFIG=~/custom-config.yaml skillshare status
 
 ## Skill Metadata
 
-Each skill can have a `.skillshare.yaml` file storing install metadata:
+When you install a skill, skillshare creates a `.skillshare.yaml` file:
 
 ```yaml
 # ~/.config/skillshare/skills/pdf/.skillshare.yaml
@@ -208,10 +188,38 @@ type: git
 
 This is used by `skillshare update` to know where to fetch updates from.
 
+**Don't edit this file manually.**
+
+---
+
+## Platform Differences
+
+### macOS / Linux
+
+```yaml
+source: ~/.config/skillshare/skills
+targets:
+  claude:
+    path: ~/.claude/skills
+```
+
+Uses symlinks.
+
+### Windows
+
+```yaml
+source: %USERPROFILE%\.config\skillshare\skills
+targets:
+  claude:
+    path: %USERPROFILE%\.claude\skills
+```
+
+Uses NTFS junctions (no admin required).
+
 ---
 
 ## Related
 
-- [targets](/docs/guides/targets) — Managing targets
-- [sync](/docs/commands/sync) — Sync modes explained
-- [faq](/docs/faq) — Troubleshooting
+- [Source & Targets](/docs/concepts/source-and-targets) — Core concepts
+- [Sync Modes](/docs/concepts/sync-modes) — Merge vs symlink
+- [Environment Variables](/docs/reference/environment-variables) — All variables

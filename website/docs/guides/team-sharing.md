@@ -1,16 +1,16 @@
 ---
-sidebar_position: 1
+sidebar_position: 3
 ---
 
-# Team Edition
+# Team Sharing
 
-Share skills across your entire team. Clone once, update with one command, sync everywhere.
+Share skills across your entire team using tracked repositories.
 
 ## Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    TEAM EDITION WORKFLOW                        │
+│                    TEAM SHARING WORKFLOW                        │
 │                                                                 │
 │   ┌─────────────────────────────────────────────────────────┐   │
 │   │              GitHub: team/shared-skills                 │   │
@@ -40,9 +40,9 @@ Share skills across your entire team. Clone once, update with one command, sync 
 
 ---
 
-## Why Team Edition?
+## Why Team Sharing?
 
-| Without Team Edition | With Team Edition |
+| Without Team Sharing | With Team Sharing |
 |---------------------|-------------------|
 | "Hey, grab the latest deploy skill from Slack" | `skillshare update --all` |
 | Copy-paste skills between machines | One command installs everything |
@@ -51,81 +51,91 @@ Share skills across your entire team. Clone once, update with one command, sync 
 
 ---
 
-## Quick Start
+## For Team Leads
 
-**Team Lead** — Create a repo and share the install command:
+### Step 1: Create a skills repo
+
+Create a GitHub/GitLab/Bitbucket repository for your team's skills.
 
 ```bash
-# Create a skills repo on GitHub/GitLab/Bitbucket, add your team's skills
-# Share this command with team members
+mkdir team-skills && cd team-skills
+git init
+
+# Create skill structure
+mkdir -p frontend/ui backend/api devops/deploy
+
+# Add skills
+echo "---
+name: acme:ui
+description: Frontend UI patterns
+---
+# UI Skill
+..." > frontend/ui/SKILL.md
+
+git add .
+git commit -m "Initial skills"
+git push -u origin main
+```
+
+### Step 2: Share the install command
+
+Send this to your team:
+
+```bash
 skillshare install github.com/your-org/team-skills --track && skillshare sync
 ```
 
-**Team Member** — One command to install all team skills:
+---
+
+## For Team Members
+
+### Initial setup
 
 ```bash
-# Supports various git URL formats
+# Install the team skills repo
 skillshare install github.com/team/skills --track
-skillshare install git@bitbucket.org:company/skills.git --track --name company-skills
+
+# Sync to your AI CLIs
 skillshare sync
 ```
 
-<p>
-  <img src="/img/team-reack-demo.png" alt="tracked repo install demo" width="720" />
-</p>
+### Daily usage
+
+```bash
+# Check for updates
+skillshare update --all
+skillshare sync
+```
 
 ---
 
-## Daily Usage
+## Nested Skills & Auto-Flattening
 
-### Get Latest Skills
-
-When Team Lead updates the repo:
-
-```bash
-skillshare update --all    # Pull all tracked repos
-skillshare sync            # Sync to all AI CLIs
-```
-
-<p>
-  <img src="/img/update-tracked-demo.png" alt="update tracked repo demo" width="720" />
-</p>
-
-### Check Status
-
-```bash
-skillshare status          # View sync status and version
-skillshare list            # List all skills
-```
-
-<p>
-  <img src="/img/status-demo.png" alt="status demo" width="720" />
-</p>
-
----
-
-## Nested Skills
-
-Organize skills in folders. Skillshare flattens them for AI CLIs:
+Organize skills in folders — skillshare auto-flattens them for AI CLI compatibility:
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│           SOURCE                      TARGET                    │
-│  (your organization)            (what AI CLI sees)              │
-├─────────────────────────────────────────────────────────────────┤
-│  _team-skills/                                                  │
-│  ├── frontend/                                                  │
-│  │   ├── react/          ───►   _team-skills__frontend__react/  │
-│  │   └── vue/            ───►   _team-skills__frontend__vue/    │
-│  ├── backend/                                                   │
-│  │   └── api/            ───►   _team-skills__backend__api/     │
-│  └── devops/                                                    │
-│      └── deploy/         ───►   _team-skills__devops__deploy/   │
-└─────────────────────────────────────────────────────────────────┘
+SOURCE                              TARGET
+(your organization)                 (what AI CLI sees)
+────────────────────────────────────────────────────────────
+_team-skills/
+├── frontend/
+│   ├── react/          ───►   _team-skills__frontend__react/
+│   └── vue/            ───►   _team-skills__frontend__vue/
+├── backend/
+│   └── api/            ───►   _team-skills__backend__api/
+└── devops/
+    └── deploy/         ───►   _team-skills__devops__deploy/
 
 • _ prefix = tracked repository
 • __ (double underscore) = path separator
 ```
+
+**Benefits:**
+- Keep logical folder organization in your repo
+- AI CLIs see flat structure they expect
+- Flattened names preserve origin path for traceability
+
+See [Tracked Repositories](/docs/concepts/tracked-repositories#nested-skills--auto-flattening) for details.
 
 ---
 
@@ -133,18 +143,56 @@ Organize skills in folders. Skillshare flattens them for AI CLIs:
 
 When multiple skills have the same `name` field, sync warns you:
 
-<p>
-  <img src="/img/sync-collision-demo.png" alt="collision detection demo" width="720" />
-</p>
+```
+Warning: skill name collision detected
+  "ui" defined in:
+    - _team-a/frontend/ui/SKILL.md
+    - _team-b/components/ui/SKILL.md
+```
 
-**Best practice** — namespace your skills:
+**Solution:** Use namespaced names:
 
 ```yaml
-# In _acme-corp/frontend/ui/SKILL.md
-name: acme:ui
+# In _team-a/frontend/ui/SKILL.md
+name: team-a:ui
 
-# In _other-team/frontend/ui/SKILL.md
-name: other:ui
+# In _team-b/components/ui/SKILL.md
+name: team-b:ui
+```
+
+---
+
+## Multiple Team Repos
+
+Install multiple team repos:
+
+```bash
+# Frontend team
+skillshare install github.com/org/frontend-skills --track --name frontend
+
+# Backend team
+skillshare install github.com/org/backend-skills --track --name backend
+
+# DevOps team
+skillshare install github.com/org/devops-skills --track --name devops
+
+skillshare sync
+```
+
+Update all:
+```bash
+skillshare update --all
+skillshare sync
+```
+
+---
+
+## Private Repositories
+
+Use SSH URLs for private repos:
+
+```bash
+skillshare install git@github.com:org/private-skills.git --track
 ```
 
 ---
@@ -155,15 +203,32 @@ name: other:ui
 |---------|-------------|
 | `install <url> --track` | Clone repo as tracked repository |
 | `update <name>` | Git pull specific tracked repo |
-| `update --all` | Update all tracked repos + skills with metadata |
-| `uninstall <name>` | Remove tracked repo (checks uncommitted changes) |
-| `list` | List skills and tracked repos |
+| `update --all` | Update all tracked repos |
+| `uninstall <name>` | Remove tracked repo |
+| `list` | List all skills and tracked repos |
 | `status` | Show sync status |
+
+---
+
+## Best Practices
+
+### For Team Leads
+
+1. **Use clear structure**: Organize by function (frontend, backend, devops)
+2. **Namespace skills**: `team:skill-name` to avoid collisions
+3. **Document requirements**: README with setup instructions
+4. **Version control**: Use tags for stable releases
+
+### For Team Members
+
+1. **Update regularly**: `skillshare update --all` daily
+2. **Report issues**: If a skill doesn't work, tell the maintainer
+3. **Suggest improvements**: Open PRs to the skills repo
 
 ---
 
 ## Related
 
-- [install](/docs/commands/install) — Install commands
-- [sync](/docs/commands/sync) — Sync operations
-- [cross-machine](/docs/guides/cross-machine) — Personal cross-machine sync
+- [Tracked Repositories](/docs/concepts/tracked-repositories) — How tracked repos work
+- [Cross-Machine Sync](./cross-machine-sync) — Personal cross-machine sync
+- [Commands: install](/docs/commands/install) — Install command details

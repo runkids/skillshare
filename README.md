@@ -5,6 +5,7 @@
 <h1 align="center" style="margin-top: 0.5rem; margin-bottom: 0.5rem;">skillshare</h1>
 
 <p align="center">
+  <a href="https://skillshare.runkids.work"><img src="https://img.shields.io/badge/Website-skillshare.runkids.work-blue?logo=docusaurus" alt="Website"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="go.mod"><img src="https://img.shields.io/github/go-mod/go-version/runkids/skillshare" alt="Go Version"></a>
   <a href="https://github.com/runkids/skillshare/releases"><img src="https://img.shields.io/github/v/release/runkids/skillshare" alt="Release"></a>
@@ -26,11 +27,12 @@
 </p>
 
 <p align="center">
+  <a href="https://skillshare.runkids.work">Website</a> •
   <a href="#installation">Install</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#commands">Commands</a> •
   <a href="#team-edition">Team Edition</a> •
-  <a href="#documentation">Docs</a>
+  <a href="https://skillshare.runkids.work/docs/intro">Docs</a>
 </p>
 
 > [!NOTE]
@@ -45,14 +47,14 @@
 
 Install tools get skills onto agents. **Skillshare keeps them in sync.**
 
-| | Install-once tools | skillshare |
-|---|-------------------|------------|
-| After install | Done, no management | **Continuous sync** across all agents |
-| Update a skill | Re-install manually | **Edit once**, sync everywhere |
-| Pull back edits | ✗ | **Bidirectional** — pull from any agent |
-| Cross-machine | ✗ | **push/pull** via git |
-| Team sharing | Copy-paste | **Tracked repos** — `update` to stay current |
-| AI integration | Manual CLI | **Built-in skill** — AI operates it directly |
+| Feature | Description |
+|---------|-------------|
+| 🔗 **Non-destructive Merge** | Sync shared skills while preserving CLI-specific ones. Per-skill symlinks keep local skills untouched. |
+| ↔️ **Bidirectional Sync** | Created a skill in Claude? Collect it back to source and share with OpenClaw, OpenCode, and others. |
+| 🌐 **Cross-machine Sync** | One git push/pull syncs skills across all your machines. No re-running install commands. |
+| 📦 **Unified Source** | Local skills and installed skills live together in one directory. No separate management. |
+| 👥 **Team Sharing** | Install team repos once, update anytime with git pull. Changes sync to all agents instantly. |
+| ✨ **AI-Native** | Built-in skill lets AI operate skillshare directly. No manual CLI needed. |
 
 ## Installation
 
@@ -150,14 +152,15 @@ Done. Your skills are now synced across all AI CLI tools.
 
 ## Documentation
 
-- **[docs/](docs/README.md)** — Documentation index
-- **[targets.md](docs/targets.md)** — Target management
-- **[sync.md](docs/sync.md)** — Sync, pull, push, backup
-- **[team-edition.md](docs/team-edition.md)** — Team sharing with tracked repos
-- **[install.md](docs/install.md)** — Install, update, upgrade skills
-- **[search.md](docs/search.md)** — Search and discover skills
-- **[cross-machine.md](docs/cross-machine.md)** — Multi-machine sync
-- **[faq.md](docs/faq.md)** — FAQ & troubleshooting
+📖 **Full documentation at [skillshare.runkids.work](https://skillshare.runkids.work/docs/intro)**
+
+| Guide | Description |
+|-------|-------------|
+| [Getting Started](https://skillshare.runkids.work/docs/intro) | Quick start guide |
+| [Commands](https://skillshare.runkids.work/docs/commands/init) | All CLI commands |
+| [Team Edition](https://skillshare.runkids.work/docs/guides/team-edition) | Team sharing with tracked repos |
+| [Cross-machine](https://skillshare.runkids.work/docs/guides/cross-machine) | Multi-machine sync |
+| [FAQ](https://skillshare.runkids.work/docs/faq) | FAQ & troubleshooting |
 
 ---
 
@@ -215,7 +218,7 @@ skillshare search commit -n 5     # Limit results
 
 > **Note:** Requires GitHub authentication. Run `gh auth login` or set `GITHUB_TOKEN`.
 
-See [Search Guide](docs/search.md) for details.
+See [Search Guide](https://skillshare.runkids.work/docs/commands/search) for details.
 
 ---
 
@@ -238,7 +241,7 @@ skillshare sync
 - **Auto-pruning** — Orphaned symlinks removed on sync
 - **Collision detection** — Warns about duplicate skill names
 
-See [Team Edition Guide](docs/team-edition.md) for details.
+See [Team Edition Guide](https://skillshare.runkids.work/docs/guides/team-edition) for details.
 
 ---
 
@@ -260,7 +263,7 @@ Recover with git: `cd ~/.config/skillshare/skills && git checkout -- deleted-ski
 
 No. skillshare uses NTFS junctions (not symlinks), which don't require elevated permissions.
 
-See [FAQ & Troubleshooting](docs/faq.md) for more.
+See [FAQ & Troubleshooting](https://skillshare.runkids.work/docs/faq) for more.
 
 ---
 

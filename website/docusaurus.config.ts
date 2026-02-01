@@ -60,6 +60,16 @@ const config: Config = {
           label: 'Docs',
         },
         {
+          to: '/docs/commands',
+          label: 'Commands',
+          position: 'left',
+        },
+        {
+          href: 'https://github.com/runkids/skillshare/releases',
+          label: 'Changelog',
+          position: 'right',
+        },
+        {
           href: 'https://github.com/runkids/skillshare',
           label: 'GitHub',
           position: 'right',
@@ -72,21 +82,48 @@ const config: Config = {
         {
           title: 'Documentation',
           items: [
-            {label: 'Getting Started', to: '/docs/intro'},
-            {label: 'Commands', to: '/docs/commands/init'},
-            {label: 'Team Edition', to: '/docs/guides/team-edition'},
+            {label: 'Getting Started', to: '/docs/getting-started'},
+            {label: 'Commands', to: '/docs/commands'},
+            {label: 'Guides', to: '/docs/guides'},
+            {label: 'FAQ', to: '/docs/troubleshooting/faq'},
           ],
         },
         {
-          title: 'More',
+          title: 'Commands',
+          items: [
+            {label: 'init', to: '/docs/commands/init'},
+            {label: 'sync', to: '/docs/commands/sync'},
+            {label: 'install', to: '/docs/commands/install'},
+            {label: 'doctor', to: '/docs/commands/doctor'},
+          ],
+        },
+        {
+          title: 'Community',
           items: [
             {
               label: 'GitHub',
               href: 'https://github.com/runkids/skillshare',
             },
             {
+              label: 'Issues',
+              href: 'https://github.com/runkids/skillshare/issues',
+            },
+            {
+              label: 'Discussions',
+              href: 'https://github.com/runkids/skillshare/discussions',
+            },
+          ],
+        },
+        {
+          title: 'More',
+          items: [
+            {
               label: 'Releases',
               href: 'https://github.com/runkids/skillshare/releases',
+            },
+            {
+              label: 'Contributing',
+              href: 'https://github.com/runkids/skillshare/blob/main/CONTRIBUTING.md',
             },
           ],
         },

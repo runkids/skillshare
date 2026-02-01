@@ -147,14 +147,219 @@ html {
 }
 
 /* ========================================
-   FOOTER
+   MOBILE SIDEBAR - 強制全屏
+   ======================================== */
+@media (max-width: 996px) {
+  :root {
+    --docusaurus-sidebar-width: 100vw !important;
+  }
+
+  .navbar-sidebar {
+    background: var(--ifm-background-color) !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  [data-theme='dark'] .navbar-sidebar {
+    background: #0f172a !important;
+  }
+
+  .navbar-sidebar__items {
+    background: var(--ifm-background-color) !important;
+    width: 100vw !important;
+  }
+
+  [data-theme='dark'] .navbar-sidebar__items {
+    background: #0f172a !important;
+  }
+
+  .navbar-sidebar__item {
+    background: var(--ifm-background-color) !important;
+    width: 100vw !important;
+    min-width: 100vw !important;
+  }
+
+  [data-theme='dark'] .navbar-sidebar__item {
+    background: #0f172a !important;
+  }
+
+  .navbar-sidebar__brand {
+    background: var(--ifm-background-color) !important;
+  }
+
+  [data-theme='dark'] .navbar-sidebar__brand {
+    background: #0f172a !important;
+  }
+}
+
+.navbar-sidebar__brand {
+  background: var(--ifm-background-color);
+  padding: 1rem;
+  width: 100% !important;
+}
+
+[data-theme='dark'] .navbar-sidebar__brand {
+  background: #0f172a;
+}
+
+/* 確保 sidebar 連結可見 */
+.navbar-sidebar .menu__link {
+  color: var(--ifm-font-color-base);
+  padding: 0.75rem 1rem;
+}
+
+.navbar-sidebar .navbar__link {
+  color: var(--ifm-font-color-base);
+}
+
+/* ========================================
+   FOOTER (Enhanced)
    ======================================== */
 .footer {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Gradient accent line at top */
+.footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--gradient-brand);
+  opacity: 0.8;
 }
 
 .footer--dark {
   background-color: var(--ifm-footer-background-color);
+}
+
+/* Footer container spacing */
+.footer .container {
+  padding-top: 1.5rem;
+  padding-bottom: 1rem;
+}
+
+/* Footer column titles */
+.footer__title {
+  font-family: var(--ifm-heading-font-family);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+  margin-bottom: 0.75rem;
+  position: relative;
+  display: inline-block;
+}
+
+/* Subtle underline accent for titles */
+.footer__title::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 24px;
+  height: 2px;
+  background: var(--color-blue);
+  border-radius: 1px;
+  opacity: 0.6;
+}
+
+/* Footer links styling */
+.footer__link-item {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  padding: 0.2rem 0;
+  display: inline-block;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.footer__link-item:hover {
+  color: #60a5fa;
+  transform: translateX(4px);
+}
+
+/* Arrow indicator on hover */
+.footer__link-item::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 0;
+  border-top: 3px solid transparent;
+  border-bottom: 3px solid transparent;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.footer__link-item:hover::before {
+  opacity: 1;
+  border-left-color: var(--color-blue);
+  left: -8px;
+}
+
+/* Footer links list */
+.footer__items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+/* Footer column */
+.footer__col {
+  padding: 0 1rem;
+}
+
+/* Copyright section */
+.footer__bottom {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.footer__copyright {
+  color: #475569;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* External link icon for footer */
+.footer__link-item[href^="http"]::after {
+  content: ' ↗';
+  font-size: 0.7em;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.footer__link-item[href^="http"]:hover::after {
+  opacity: 1;
+}
+
+/* Responsive footer */
+@media (max-width: 996px) {
+  .footer .container {
+    padding-top: 2rem;
+  }
+
+  .footer__col {
+    padding: 1rem 0;
+  }
+
+  .footer__title {
+    margin-bottom: 1rem;
+  }
 }
 
 /* ========================================

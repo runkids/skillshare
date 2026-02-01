@@ -139,4 +139,4 @@ After creating a skill:
 
 - [install](/docs/commands/install) — Install skills from repos
 - [sync](/docs/commands/sync) — Sync skills to targets
-- [configuration](/docs/guides/configuration) — Config reference
+- [Configuration](/docs/targets/configuration) — Config reference

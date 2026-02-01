@@ -4,11 +4,29 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
-import {RefreshCw, Users, Bot, Copy, Check} from 'lucide-react';
+import {Copy, Check, Apple, Terminal, GitBranch, FolderSync, ArrowLeftRight, Globe, Layers, Sparkles} from 'lucide-react';
 
 import styles from './index.module.css';
 
-const INSTALL_COMMAND = 'curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh';
+type InstallMethod = 'curl' | 'powershell' | 'homebrew';
+
+const INSTALL_COMMANDS: Record<InstallMethod, {command: string; label: string; icon: ReactNode}> = {
+  curl: {
+    command: 'curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh',
+    label: 'macOS / Linux',
+    icon: <Terminal size={14} />,
+  },
+  powershell: {
+    command: 'irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex',
+    label: 'Windows',
+    icon: <span style={{fontSize: '12px'}}>PS</span>,
+  },
+  homebrew: {
+    command: 'brew install runkids/tap/skillshare',
+    label: 'Homebrew',
+    icon: <Apple size={14} />,
+  },
+};
 
 function CopyButton({text}: {text: string}) {
   const [copied, setCopied] = useState(false);
@@ -30,6 +48,34 @@ function CopyButton({text}: {text: string}) {
   );
 }
 
+function InstallTabs() {
+  const [method, setMethod] = useState<InstallMethod>('curl');
+  const current = INSTALL_COMMANDS[method];
+
+  return (
+    <div className={styles.installSection}>
+      <div className={styles.installTabs}>
+        {(Object.keys(INSTALL_COMMANDS) as InstallMethod[]).map((key) => (
+          <button
+            key={key}
+            className={`${styles.installTab} ${method === key ? styles.installTabActive : ''}`}
+            onClick={() => setMethod(key)}
+          >
+            {INSTALL_COMMANDS[key].icon}
+            <span>{INSTALL_COMMANDS[key].label}</span>
+          </button>
+        ))}
+      </div>
+      <div className={styles.installCommand}>
+        <code>
+          <span className={styles.prompt}>$</span> {current.command}
+        </code>
+        <CopyButton text={current.command} />
+      </div>
+    </div>
+  );
+}
+
 function HeroSection() {
   return (
     <header className={styles.hero}>
@@ -46,15 +92,10 @@ function HeroSection() {
           Sync everywhere with one command. Claude Code, OpenCode, Cursor & 40+ more.
         </p>
 
-        <div className={styles.installCommand}>
-          <code>
-            <span className={styles.prompt}>$</span> {INSTALL_COMMAND}
-          </code>
-          <CopyButton text={INSTALL_COMMAND} />
-        </div>
+        <InstallTabs />
 
         <div className={styles.heroButtons}>
-          <Link className="button button--primary button--lg" to="/docs/intro">
+          <Link className="button button--primary button--lg" to="/docs/">
             Get Started
           </Link>
           <Link
@@ -69,38 +110,59 @@ function HeroSection() {
   );
 }
 
-const features = [
+const whyFeatures = [
   {
-    title: 'Sync Everywhere',
-    Icon: RefreshCw,
-    description: 'Edit once, sync to all 40+ AI CLIs. Symlinks keep everything in sync automatically.',
+    Icon: FolderSync,
+    title: 'Non-destructive Merge',
+    description: 'Sync shared skills while preserving CLI-specific ones. Per-skill symlinks keep local skills untouched.',
   },
   {
-    title: 'Team Edition',
-    Icon: Users,
-    description: 'Share skills across your team with tracked repos. Install once, update everywhere.',
+    Icon: ArrowLeftRight,
+    title: 'Bidirectional Sync',
+    description: 'Created a skill in Claude? Collect it back to source and share with OpenClaw, OpenCode, and others.',
   },
   {
+    Icon: Globe,
+    title: 'Cross-machine Sync',
+    description: 'One git push/pull syncs skills across all your machines. No re-running install commands.',
+  },
+  {
+    Icon: Layers,
+    title: 'Unified Source',
+    description: 'Local skills and installed skills live together in one directory. No separate management.',
+  },
+  {
+    Icon: GitBranch,
+    title: 'Team Sharing',
+    description: 'Install team repos once, update anytime with git pull. Changes sync to all agents instantly.',
+  },
+  {
+    Icon: Sparkles,
     title: 'AI-Native',
-    Icon: Bot,
-    description: 'Built-in skill teaches AI how to manage skills. Your AI can run skillshare directly.',
+    description: 'Built-in skill lets AI operate skillshare directly. No manual CLI needed.',
   },
 ];
 
-function FeaturesSection() {
+function WhySection() {
   return (
-    <section className={styles.features}>
+    <section className={styles.why}>
       <div className="container">
-        <div className={styles.featureGrid}>
-          {features.map((feature, idx) => (
-            <div key={idx} className={styles.featureCard}>
-              <div className={styles.featureIconWrapper}>
-                <feature.Icon size={28} strokeWidth={1.5} />
+        <Heading as="h2" className={styles.sectionTitle}>
+          Why skillshare?
+        </Heading>
+        <p className={styles.sectionSubtitle}>
+          Install tools get skills onto agents. <strong>Skillshare keeps them in sync.</strong>
+        </p>
+        <div className={styles.whyGrid}>
+          {whyFeatures.map((item, idx) => (
+            <div key={idx} className={styles.whyCard}>
+              <div className={styles.whyIconWrapper}>
+                <item.Icon size={22} strokeWidth={1.5} />
               </div>
-              <Heading as="h3" className={styles.featureTitle}>
-                {feature.title}
+              <Heading as="h3" className={styles.whyCardTitle}>
+                {item.title}
               </Heading>
-              <p className={styles.featureDescription}>{feature.description}</p>
+              <p className={styles.whyCardDescription}>{item.description}</p>
             </div>
           ))}
         </div>
@@ -154,7 +216,7 @@ export default function Home(): ReactNode {
     >
       <HeroSection />
       <main>
-        <FeaturesSection />
+        <WhySection />
         <DemoSection />
         <SupportedSection />
       </main>
