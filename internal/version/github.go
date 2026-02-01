@@ -44,6 +44,11 @@ type Asset struct {
 
 // GetDownloadURL returns the download URL for the current platform
 func (r *Release) GetDownloadURL() (string, error) {
+	return BuildDownloadURL(r.Version)
+}
+
+// BuildDownloadURL constructs download URL from version string
+func BuildDownloadURL(version string) (string, error) {
 	osName := runtime.GOOS
 	archName := runtime.GOARCH
 
@@ -52,15 +57,11 @@ func (r *Release) GetDownloadURL() (string, error) {
 	if osName == "windows" {
 		ext = "zip"
 	}
-	expectedName := fmt.Sprintf("skillshare_%s_%s_%s.%s", r.Version, osName, archName, ext)
 
-	for _, asset := range r.Assets {
-		if asset.Name == expectedName {
-			return asset.BrowserDownloadURL, nil
-		}
-	}
-
-	return "", fmt.Errorf("no release found for %s/%s", osName, archName)
+	// Construct URL directly (avoids needing asset list from API)
+	filename := fmt.Sprintf("skillshare_%s_%s_%s.%s", version, osName, archName, ext)
+	url := fmt.Sprintf("https://github.com/%s/releases/download/v%s/%s", githubRepo, version, filename)
+	return url, nil
 }
 
 // newGitHubClient creates an HTTP client with optional auth

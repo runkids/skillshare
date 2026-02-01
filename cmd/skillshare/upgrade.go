@@ -104,12 +104,23 @@ func upgradeCLIBinary(dryRun, force bool) error {
 	// Get latest version from GitHub
 	treeSpinner := ui.StartTreeSpinner("Checking latest version...", false)
 	release, err := versionpkg.FetchLatestRelease()
+
+	var latestVersion string
 	if err != nil {
-		treeSpinner.Fail("Failed to check")
-		return fmt.Errorf("failed to check latest version: %w", err)
+		// API failed - try to use cached version
+		cachedVersion := versionpkg.GetCachedVersion()
+		if cachedVersion != "" && cachedVersion != version {
+			latestVersion = cachedVersion
+			treeSpinner.Success(fmt.Sprintf("Latest: v%s (cached)", latestVersion))
+		} else {
+			// No useful cache - skip silently
+			treeSpinner.Success("Skipped (rate limited)")
+			return nil
+		}
+	} else {
+		latestVersion = release.Version
+		treeSpinner.Success(fmt.Sprintf("Latest: v%s", latestVersion))
 	}
-	latestVersion := release.Version
-	treeSpinner.Success(fmt.Sprintf("Latest: v%s", latestVersion))
 
 	if version == latestVersion && !force {
 		ui.StepEnd("Status", "Already up to date ✓")
@@ -135,7 +146,7 @@ func upgradeCLIBinary(dryRun, force bool) error {
 	}
 
 	// Get download URL for current platform
-	downloadURL, err := release.GetDownloadURL()
+	downloadURL, err := versionpkg.BuildDownloadURL(latestVersion)
 	if err != nil {
 		return fmt.Errorf("failed to get download URL: %w", err)
 	}

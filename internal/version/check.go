@@ -13,9 +13,9 @@ import (
 var Version = "dev"
 
 const (
-	githubRepo     = "runkids/skillshare"
-	checkInterval  = 24 * time.Hour
-	cacheFileName  = "version-check.json"
+	githubRepo    = "runkids/skillshare"
+	checkInterval = 24 * time.Hour
+	cacheFileName = "version-check.json"
 )
 
 // Cache holds version check cache data
@@ -26,8 +26,8 @@ type Cache struct {
 
 // CheckResult holds the result of a version check
 type CheckResult struct {
-	CurrentVersion string
-	LatestVersion  string
+	CurrentVersion  string
+	LatestVersion   string
 	UpdateAvailable bool
 }
 
@@ -78,6 +78,15 @@ func ClearCache() {
 		return
 	}
 	os.Remove(cachePath)
+}
+
+// GetCachedVersion returns the cached latest version if available
+func GetCachedVersion() string {
+	cache, err := loadCache()
+	if err != nil || cache == nil {
+		return ""
+	}
+	return cache.LatestVersion
 }
 
 // loadCache loads the version check cache from disk
