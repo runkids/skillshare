@@ -50,10 +50,16 @@ After installing, you can search again or press `Enter` to quit.
 
 | Flag | Description |
 |------|-------------|
+| `--project`, `-p` | Install to project-level config (`.skillshare/`) |
+| `--global`, `-g` | Install to global config (`~/.config/skillshare`) |
 | `--list`, `-l` | List results only, no install prompt |
 | `--json` | Output as JSON (for scripting) |
 | `--limit N`, `-n N` | Maximum results (default: 20, max: 100) |
 | `--help`, `-h` | Show help |
+
+:::tip Auto-detection
+If neither `--project` nor `--global` is specified, skillshare auto-detects: if `.skillshare/config.yaml` exists in the current directory, it defaults to project mode; otherwise global mode.
+:::
 
 ## Examples
 
@@ -99,6 +105,15 @@ skillshare search react --json --limit 5
   }
 ]
 ```
+
+### Project Mode
+
+```bash
+skillshare search pdf -p           # Search and install to project
+skillshare search react --project  # Same thing, long flag
+```
+
+Installed skills go to `.skillshare/skills/` and the project config is updated automatically. If the project hasn't been initialized yet, skillshare will run `init -p` first.
 
 ### Limit Results
 

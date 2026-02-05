@@ -18,15 +18,35 @@ import (
 )
 
 func cmdSearch(args []string) error {
+	// Parse mode flags (--project/-p, --global/-g) first
+	mode, rest, err := parseModeArgs(args)
+	if err != nil {
+		return err
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("cannot determine working directory: %w", err)
+	}
+
+	// Auto-detect: if mode is auto and project config exists, use project mode
+	if mode == modeAuto && projectConfigExists(cwd) {
+		mode = modeProject
+	} else if mode == modeAuto {
+		mode = modeGlobal
+	}
+
+	applyModeLabel(mode)
+
 	var query string
 	var jsonOutput bool
 	var listOnly bool
 	var limit int = 20
 
-	// Parse arguments
+	// Parse remaining arguments
 	i := 0
-	for i < len(args) {
-		arg := args[i]
+	for i < len(rest) {
+		arg := rest[i]
 		switch {
 		case arg == "--json":
 			jsonOutput = true
@@ -69,7 +89,7 @@ func cmdSearch(args []string) error {
 	}
 
 	// Interactive mode
-	return searchInteractive(query, limit, listOnly)
+	return searchInteractive(query, limit, listOnly, mode, cwd)
 }
 
 func searchJSON(query string, limit int) error {
@@ -94,20 +114,20 @@ func searchJSON(query string, limit int) error {
 	return nil
 }
 
-func searchInteractive(query string, limit int, listOnly bool) error {
+func searchInteractive(query string, limit int, listOnly bool, mode runMode, cwd string) error {
 	// Show logo
 	ui.Logo(appversion.Version)
 
 	// List-only mode: single search and exit
 	if listOnly {
-		_, err := doSearch(query, limit, true)
+		_, err := doSearch(query, limit, true, mode, cwd)
 		return err
 	}
 
 	// Interactive loop mode
 	currentQuery := query
 	for {
-		searchAgain, err := doSearch(currentQuery, limit, false)
+		searchAgain, err := doSearch(currentQuery, limit, false, mode, cwd)
 		if err != nil {
 			return err
 		}
@@ -132,7 +152,7 @@ func searchInteractive(query string, limit int, listOnly bool) error {
 }
 
 // doSearch performs a search and returns (searchAgain, error)
-func doSearch(query string, limit int, listOnly bool) (bool, error) {
+func doSearch(query string, limit int, listOnly bool, mode runMode, cwd string) (bool, error) {
 	ui.StepStart("Searching", query)
 
 	spinner := ui.StartTreeSpinner("Querying GitHub...", false)
@@ -188,7 +208,7 @@ func doSearch(query string, limit int, listOnly bool) (bool, error) {
 
 	// Interactive mode: show selector
 	fmt.Println()
-	return promptInstallFromSearch(results)
+	return promptInstallFromSearch(results, mode, cwd)
 }
 
 func promptNextSearch() (string, bool) {
@@ -258,13 +278,7 @@ func printSearchResults(results []search.SearchResult) {
 	}
 }
 
-func promptInstallFromSearch(results []search.SearchResult) (bool, error) {
-	// Load config
-	cfg, err := config.Load()
-	if err != nil {
-		return false, fmt.Errorf("failed to load config: %w", err)
-	}
-
+func promptInstallFromSearch(results []search.SearchResult, mode runMode, cwd string) (bool, error) {
 	// Build options list with name and full source
 	// First option is "Search again"
 	options := make([]string, len(results)+1)
@@ -284,7 +298,7 @@ func promptInstallFromSearch(results []search.SearchResult) (bool, error) {
 		PageSize: 12,
 	}
 
-	err = survey.AskOne(prompt, &selectedIdx, survey.WithIcons(func(icons *survey.IconSet) {
+	err := survey.AskOne(prompt, &selectedIdx, survey.WithIcons(func(icons *survey.IconSet) {
 		icons.SelectFocus.Text = "▸"
 		icons.SelectFocus.Format = "yellow"
 	}))
@@ -301,8 +315,75 @@ func promptInstallFromSearch(results []search.SearchResult) (bool, error) {
 
 	// Install the selected skill
 	fmt.Println()
-	err = installFromSearchResult(selected, cfg)
-	return false, err
+	if mode == modeProject {
+		return false, installFromSearchResultProject(selected, cwd)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return false, fmt.Errorf("failed to load config: %w", err)
+	}
+	return false, installFromSearchResult(selected, cfg)
+}
+
+func installFromSearchResultProject(result search.SearchResult, cwd string) error {
+	// Auto-init project if not yet initialized
+	if !projectConfigExists(cwd) {
+		if err := performProjectInit(cwd, projectInitOptions{}); err != nil {
+			return err
+		}
+	}
+
+	runtime, err := loadProjectRuntime(cwd)
+	if err != nil {
+		return fmt.Errorf("failed to load project config: %w", err)
+	}
+
+	source, err := install.ParseSource(result.Source)
+	if err != nil {
+		return fmt.Errorf("invalid source: %w", err)
+	}
+
+	destPath := filepath.Join(runtime.sourcePath, result.Name)
+
+	// Check if already exists
+	if _, err := os.Stat(destPath); err == nil {
+		ui.Warning("Skill '%s' already exists in project", result.Name)
+		ui.Info("Use 'skillshare install %s -p --force' to overwrite", result.Source)
+		return nil
+	}
+
+	// Install
+	ui.StepStart("Installing", result.Source)
+
+	spinner := ui.StartTreeSpinner("Cloning repository...", true)
+
+	installResult, err := install.Install(source, destPath, install.InstallOptions{})
+	if err != nil {
+		spinner.Fail("Failed to install")
+		return err
+	}
+
+	spinner.Success(fmt.Sprintf("Installed: %s", result.Name))
+
+	for _, warning := range installResult.Warnings {
+		ui.Warning("%s", warning)
+	}
+
+	// Update .gitignore for the installed skill
+	if err := install.UpdateGitIgnore(filepath.Join(runtime.root, ".skillshare"), filepath.Join("skills", result.Name)); err != nil {
+		ui.Warning("Failed to update .skillshare/.gitignore: %v", err)
+	}
+
+	// Reconcile project config with installed skills
+	if err := reconcileProjectRemoteSkills(runtime); err != nil {
+		return err
+	}
+
+	fmt.Println()
+	ui.Info("Run 'skillshare sync' to distribute to project targets")
+
+	return nil
 }
 
 func installFromSearchResult(result search.SearchResult, cfg *config.Config) error {
@@ -360,6 +441,8 @@ func printSearchHelp() {
 Search GitHub for skills containing SKILL.md files.
 
 Options:
+  --project, -p  Install to project-level config (.skillshare/)
+  --global, -g   Install to global config (~/.config/skillshare)
   --json         Output results as JSON
   --list, -l     List results only (no install prompt)
   --limit N, -n  Maximum results (default: 20, max: 100)
@@ -370,5 +453,6 @@ Examples:
   skillshare search "code review"
   skillshare search commit --limit 10
   skillshare search frontend --json
-  skillshare search react --list`)
+  skillshare search react --list
+  skillshare search pdf -p`)
 }
