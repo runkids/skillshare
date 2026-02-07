@@ -1,12 +1,15 @@
 package install
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // InstallOptions configures the install behavior
@@ -525,6 +528,54 @@ func isGitRepo(path string) bool {
 	return IsGitRepo(path)
 }
 
+// gitCommandTimeout is the maximum time for a git network operation.
+const gitCommandTimeout = 60 * time.Second
+
+// gitCommand creates an exec.Cmd for git with GIT_TERMINAL_PROMPT=0
+// to prevent interactive credential prompts that hang CLI spinners and web UI.
+func gitCommand(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Env = append(os.Environ(),
+		"GIT_TERMINAL_PROMPT=0",
+		"GIT_ASKPASS=",
+		"SSH_ASKPASS=",
+	)
+	return cmd
+}
+
+// runGitCommand runs a git command with timeout, captures stderr for error messages.
+func runGitCommand(args []string, dir string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
+	defer cancel()
+
+	cmd := gitCommand(ctx, args...)
+	if dir != "" {
+		cmd.Dir = dir
+	}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return wrapGitError(stderr.String(), err)
+	}
+	return nil
+}
+
+// wrapGitError inspects stderr output to produce actionable error messages.
+func wrapGitError(stderr string, err error) error {
+	s := strings.TrimSpace(stderr)
+	if strings.Contains(s, "Authentication failed") ||
+		strings.Contains(s, "could not read Username") ||
+		strings.Contains(s, "terminal prompts disabled") {
+		return fmt.Errorf("authentication required — for private repos use SSH URL:\n       git@<host>:<owner>/<repo>.git\n       %s", s)
+	}
+	if s != "" {
+		return fmt.Errorf("%s", s)
+	}
+	return err
+}
+
 // cloneRepo performs a git clone (quiet mode for cleaner output)
 func cloneRepo(url, destPath string, shallow bool) error {
 	args := []string{"clone", "--quiet"}
@@ -532,16 +583,12 @@ func cloneRepo(url, destPath string, shallow bool) error {
 		args = append(args, "--depth", "1")
 	}
 	args = append(args, url, destPath)
-
-	cmd := exec.Command("git", args...)
-	return cmd.Run()
+	return runGitCommand(args, "")
 }
 
 // gitPull performs a git pull (quiet mode)
 func gitPull(repoPath string) error {
-	cmd := exec.Command("git", "pull", "--quiet")
-	cmd.Dir = repoPath
-	return cmd.Run()
+	return runGitCommand([]string{"pull", "--quiet"}, repoPath)
 }
 
 // getGitCommit returns the current HEAD commit hash
@@ -717,8 +764,7 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 
 // cloneRepoFull performs a full git clone (quiet mode for cleaner output)
 func cloneRepoFull(url, destPath string) error {
-	cmd := exec.Command("git", "clone", "--quiet", url, destPath)
-	return cmd.Run()
+	return runGitCommand([]string{"clone", "--quiet", url, destPath}, "")
 }
 
 // GetTrackedRepos returns a list of tracked repositories in the source directory

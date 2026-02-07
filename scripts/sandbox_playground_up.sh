@@ -27,10 +27,11 @@ docker compose -f "$COMPOSE_FILE" --profile playground run --rm --user "0:0" "$S
 
 docker compose -f "$COMPOSE_FILE" --profile playground up -d "$SERVICE"
 
-# Build skillshare binary into playground PATH and configure ss alias.
+# Copy pre-built frontend assets for go:embed, then build skillshare binary.
 docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(id -g)" "$SERVICE" \
-  bash -c "mkdir -p /sandbox-home/.local/bin && go build -o /sandbox-home/.local/bin/skillshare ./cmd/skillshare && ln -sf /sandbox-home/.local/bin/skillshare /sandbox-home/.local/bin/ss && touch /sandbox-home/.bashrc && { grep -qxF \"alias ss='skillshare'\" /sandbox-home/.bashrc || echo \"alias ss='skillshare'\" >> /sandbox-home/.bashrc; }"
+  bash -c "rm -rf internal/server/dist && cp -r /ui-dist internal/server/dist && mkdir -p /sandbox-home/.local/bin && go build -o /sandbox-home/.local/bin/skillshare ./cmd/skillshare && ln -sf /sandbox-home/.local/bin/skillshare /sandbox-home/.local/bin/ss && touch /sandbox-home/.bashrc && { grep -qxF \"alias ss='skillshare'\" /sandbox-home/.bashrc || echo \"alias ss='skillshare'\" >> /sandbox-home/.bashrc; }"
 
 echo "Playground is running."
 echo "Enter it with: ./scripts/sandbox_playground_shell.sh"
 echo "Inside playground you can directly run: skillshare  (and alias: ss)"
+echo "  skillshare ui --no-open    # start web dashboard (port 19420)"

@@ -149,6 +149,23 @@ skillshare install <source> --update
 skillshare install <source> --force
 ```
 
+### `authentication required — for private repos use SSH URL`
+
+**Cause:** You're trying to install from a private repo using an HTTPS URL. Skillshare disables interactive credential prompts to prevent hanging.
+
+**Solution:**
+```bash
+# Use SSH URL instead of HTTPS
+skillshare install git@github.com:team/private-skills.git
+skillshare install git@bitbucket.org:team/skills.git
+skillshare install git@gitlab.com:team/skills.git
+
+# With --track for team repos
+skillshare install git@bitbucket.org:team/skills.git --track
+```
+
+Make sure your SSH key is configured for the git host. See [Private Repositories](/docs/commands/install#private-repositories).
+
 ### `invalid skill: SKILL.md not found`
 
 **Cause:** The source doesn't have a valid SKILL.md file.

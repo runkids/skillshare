@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.10.0] - 2026-02-08
+
+### Added
+- **Web Dashboard** — `skillshare ui` launches a full-featured React SPA embedded in the binary
+  - Dashboard overview with skill/target counts, sync mode, and version check
+  - Skills browser with search, filter, SKILL.md viewer, and uninstall
+  - Targets page with status badges, add/remove targets
+  - Sync controls with dry-run/force toggles and diff preview
+  - Collect page to scan and pick skills from targets back to source
+  - GitHub skill search with one-click install and batch install
+  - Config editor with YAML validation
+  - Backup/restore management with cleanup
+  - Git sync page with push/pull, dirty-file detection, and force-pull
+  - Install page supporting path, git URL, and GitHub shorthand inputs
+  - Update tracked repos from the UI with commit/diff details
+- **REST API** at `/api/*` — Go `net/http` backend (30+ endpoints) powering the dashboard
+- **Single-binary distribution** — React frontend embedded via `go:embed`, no Node.js required at runtime
+- **Dev mode** — `go build -tags dev` serves placeholder SPA; use Vite on `:5173` with `/api` proxy for hot reload
+- **`internal/git/info.go`** — git operations library (pull with change info, force-pull, dirty detection, stage/commit/push)
+- **`internal/version/skill.go`** — local and remote skill version checking
+- **Bitbucket/GitLab URL support** — `install` now strips branch prefixes from Bitbucket (`src/{branch}/`) and GitLab (`-/tree/{branch}/`) web URLs
+- **`internal/utils/frontmatter.go`** — `ParseFrontmatterField()` utility for reading SKILL.md metadata
+- Integration tests for `skillshare ui` server startup
+- Docker sandbox support for web UI (`--host 0.0.0.0`, port 19420 mapping)
+- CI: frontend build step in release and test workflows
+- Website documentation for `ui` command
+
+### Changed
+- Makefile updated with `ui-build`, `build-ui`, `ui-dev` targets
+- `.goreleaser.yaml` updated to include frontend build in release pipeline
+- Docker sandbox Dockerfile uses multi-stage build with Node.js for frontend assets
+
 ## [0.9.0] - 2026-02-05
 
 ### Added

@@ -21,6 +21,10 @@ echo "  mise run lint           # go vet"
 echo "  mise run fmt            # format Go files"
 echo "  mise run fmt:check      # verify formatting only"
 echo "  mise run check          # fmt:check + lint + test"
+echo "  mise run ui:install     # install frontend dependencies"
+echo "  mise run ui:build       # build frontend + copy to embed"
+echo "  mise run ui:dev         # Go API server + Vite dev server"
+echo "  mise run build:ui       # ui:build + build (full binary)"
 echo "  mise run clean          # remove build artifacts"
 """
 
@@ -96,6 +100,31 @@ depends = ["fmt:check", "lint", "test"]
 [tasks.install]
 description = "Install skillshare to GOPATH/bin"
 run = "go install ./cmd/skillshare"
+
+[tasks."ui:install"]
+description = "Install frontend dependencies"
+run = "cd ui && pnpm install"
+
+[tasks."ui:build"]
+description = "Build frontend and copy to embed directory"
+depends = ["ui:install"]
+run = """
+cd ui && pnpm run build
+rm -rf internal/server/dist
+cp -r ui/dist internal/server/dist
+"""
+
+[tasks."ui:dev"]
+description = "Go API server + Vite dev server"
+run = """
+trap 'kill 0' EXIT
+go run -tags dev ./cmd/skillshare ui --no-open &
+cd ui && pnpm run dev
+"""
+
+[tasks."build:ui"]
+description = "Build frontend + Go binary (full build)"
+depends = ["ui:build", "build"]
 
 [tasks.clean]
 description = "Clean build artifacts"

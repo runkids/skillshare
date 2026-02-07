@@ -47,3 +47,39 @@ func ParseSkillName(skillPath string) (string, error) {
 
 	return "", nil // Name not found
 }
+
+// ParseFrontmatterField reads a SKILL.md file and extracts the value of a given frontmatter field.
+func ParseFrontmatterField(filePath, field string) string {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	inFrontmatter := false
+	prefix := field + ":"
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		if line == "---" {
+			if inFrontmatter {
+				break
+			}
+			inFrontmatter = true
+			continue
+		}
+
+		if inFrontmatter && strings.HasPrefix(line, prefix) {
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) == 2 {
+				val := strings.TrimSpace(parts[1])
+				val = strings.Trim(val, `"'`)
+				return val
+			}
+		}
+	}
+
+	return ""
+}

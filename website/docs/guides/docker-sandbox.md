@@ -85,6 +85,16 @@ ss status
 skillshare init --dry-run
 ```
 
+### Web UI in the Playground
+
+The playground container includes pre-built frontend assets and maps port 19420 to the host. To launch the web dashboard:
+
+```bash
+skillshare ui --host 0.0.0.0 --no-open
+```
+
+Then open `http://localhost:19420` in your host browser. Use `--host 0.0.0.0` because the container's `127.0.0.1` is not reachable from the host.
+
 When finished:
 
 ```bash

@@ -1,6 +1,7 @@
 package git
 
 import (
+	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -197,6 +198,64 @@ func Restore(repoPath string) error {
 	cmd := exec.Command("git", "restore", ".")
 	cmd.Dir = repoPath
 	return cmd.Run()
+}
+
+// IsRepo checks if the directory is a git repository
+func IsRepo(dir string) bool {
+	cmd := exec.Command("git", "rev-parse", "--git-dir")
+	cmd.Dir = dir
+	return cmd.Run() == nil
+}
+
+// HasRemote checks if the repo has at least one remote configured
+func HasRemote(dir string) bool {
+	cmd := exec.Command("git", "remote")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(out)) != ""
+}
+
+// StageAll stages all changes (git add -A)
+func StageAll(dir string) error {
+	cmd := exec.Command("git", "add", "-A")
+	cmd.Dir = dir
+	return cmd.Run()
+}
+
+// Commit creates a commit with the given message
+func Commit(dir, msg string) error {
+	cmd := exec.Command("git", "commit", "-m", msg)
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git commit failed: %s", strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// PushRemote pushes to the default remote
+func PushRemote(dir string) error {
+	cmd := exec.Command("git", "push")
+	cmd.Dir = dir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git push failed: %s", strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// GetStatus returns git status --porcelain output
+func GetStatus(dir string) (string, error) {
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // GetCurrentBranch returns the current branch name

@@ -238,6 +238,9 @@ func parseGitHTTPS(matches []string, source *Source) (*Source, error) {
 		subdir = matches[4]
 	}
 
+	// Strip platform-specific branch prefixes from web URLs
+	subdir = stripGitBranchPrefix(host, subdir)
+
 	// Normalize "." subdir (explicit root) to empty string
 	if subdir == "." {
 		subdir = ""
@@ -254,6 +257,46 @@ func parseGitHTTPS(matches []string, source *Source) (*Source, error) {
 	}
 
 	return source, nil
+}
+
+// stripGitBranchPrefix removes platform-specific branch path segments from web URLs.
+// Bitbucket: src/{branch}/path → path
+// GitLab:    -/tree/{branch}/path → path, -/blob/{branch}/path → path
+func stripGitBranchPrefix(host, subdir string) string {
+	if subdir == "" {
+		return ""
+	}
+
+	subdir = strings.TrimRight(subdir, "/")
+	parts := strings.SplitN(subdir, "/", 3)
+
+	// Bitbucket: src/{branch}/path
+	if strings.Contains(host, "bitbucket") && len(parts) >= 2 && parts[0] == "src" {
+		if len(parts) == 3 {
+			return parts[2]
+		}
+		return ""
+	}
+
+	// GitLab: -/tree/{branch}/path or -/blob/{branch}/path
+	if parts[0] == "-" && len(parts) >= 2 {
+		rest := strings.SplitN(parts[1], "/", 2)
+		if rest[0] == "tree" || rest[0] == "blob" {
+			// subdir is "-/tree/{branch}/path" or "-/blob/{branch}/path"
+			// After SplitN(subdir, "/", 3): parts = ["-", "tree", "{branch}/path"]
+			// Need to further split parts[2] to get past branch
+			if len(parts) == 3 {
+				inner := strings.SplitN(parts[2], "/", 2)
+				// inner[0] = branch, inner[1] = actual path
+				if len(inner) == 2 {
+					return inner[1]
+				}
+			}
+			return ""
+		}
+	}
+
+	return subdir
 }
 
 // HasSubdir returns true if this source requires subdirectory extraction

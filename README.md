@@ -32,6 +32,7 @@
   <a href="#installation">Install</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#commands">Commands</a> •
+  <a href="#web-dashboard">Web UI</a> •
   <a href="#project-skills">Project Skills</a> •
   <a href="#organization-skills">Organization Skills</a> •
   <a href="https://skillshare.runkids.cc/docs">Docs</a>
@@ -41,9 +42,9 @@
 > **Recent Updates**
 > | Version | Highlights |
 > |---------|------------|
+> | [0.10.0](https://github.com/runkids/skillshare/releases/tag/v0.10.0) | Web Dashboard — visual skill management via `skillshare ui` |
 > | [0.9.0](https://github.com/runkids/skillshare/releases/tag/v0.9.0) | Project-level skills — scope skills to a single repo, share via git |
 > | [0.8.0](https://github.com/runkids/skillshare/releases/tag/v0.8.0) | `pull` → `collect` rename, clearer command symmetry, refactoring |
-> | [0.7.0](https://github.com/runkids/skillshare/releases/tag/v0.7.0) | Windows support, GitHub skill search |
 
 ## Why skillshare?
 
@@ -58,6 +59,7 @@ Install tools get skills onto agents. **Skillshare keeps them in sync.**
 | 👥 **Organization Skills** | Install shared repos once, update anytime with git pull. Changes sync to all agents instantly. |
 | 📁 **Project Skills** | Scope skills to a repo, share via git. Auto-detected when you `cd` into the project. |
 | ✨ **AI-Native** | Built-in skill lets AI operate skillshare directly. No manual CLI needed. |
+| 🖥️ **Web Dashboard** | Visual skill browsing, sync status, and management. Run `skillshare ui` — single binary, no setup. |
 
 ## Installation
 
@@ -134,13 +136,28 @@ Done. Your skills are now synced across all AI CLI tools.
   <img src=".github/assets/windows-init.png" alt="Windows init demo" width="720">
 </p>
 
+## Documentation
+
+📖 **Full documentation at [skillshare.runkids.cc](https://skillshare.runkids.cc/docs/intro)**
+
+| Guide | Description |
+|-------|-------------|
+| [Getting Started](https://skillshare.runkids.cc/docs/intro) | Quick start guide |
+| [Commands](https://skillshare.runkids.cc/docs/commands/init) | All CLI commands |
+| [Web Dashboard](https://skillshare.runkids.cc/docs/commands/ui) | Visual skill management via browser |
+| [Project Skills](https://skillshare.runkids.cc/docs/guides/project-setup) | Project-level skills setup |
+| [Organization Skills](https://skillshare.runkids.cc/docs/guides/organization-sharing) | Organization-wide sharing with tracked repos |
+| [Cross-machine](https://skillshare.runkids.cc/docs/guides/cross-machine-sync) | Multi-machine sync |
+| [Docker Sandbox](https://skillshare.runkids.cc/docs/guides/docker-sandbox) | Test sandbox and interactive playground |
+| [FAQ](https://skillshare.runkids.cc/docs/troubleshooting/faq) | FAQ & troubleshooting |
+
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `init` | Initialize, auto-detect CLIs, setup git |
 | `new <name>` | Create a new skill with SKILL.md template |
-| `search <query>` | [Search GitHub for skills](#search-skills) |
+| `search <query>` | Search GitHub for skills |
 | `sync` | Sync skills to all targets |
 | `collect <target>` | Collect skills from target back to source |
 | `push` | Push to git remote (cross-machine) |
@@ -152,6 +169,48 @@ Done. Your skills are now synced across all AI CLI tools.
 | `status` | Show sync state |
 | `doctor` | Diagnose issues |
 | `upgrade` | Upgrade CLI and skill |
+| `ui` | [Launch web dashboard](#web-dashboard) |
+
+## Web Dashboard
+
+Launch a visual dashboard to browse skills, manage targets, sync, search, and edit config — all from your browser.
+
+```bash
+skillshare ui
+```
+
+Opens `http://localhost:19420` with a full-featured React dashboard embedded in the binary. No Node.js or extra setup required.
+
+| Page | What you can do |
+|------|----------------|
+| Dashboard | Overview of skills, targets, sync mode, version |
+| Skills | Browse and filter skills, view SKILL.md content, uninstall |
+| Install | Install from local path, git URL, or GitHub shorthand |
+| Targets | View status, add/remove targets |
+| Sync | Run sync with dry-run/force toggles, preview diffs |
+| Collect | Collect skills from targets back to source with picker flow |
+| Backup | Browse backups, restore, and clean up old snapshots |
+| Git Sync | Push/pull source repo, check dirty state, force pull when needed |
+| Search | Search GitHub for skills, one-click install |
+| Config | Edit config.yaml with validation |
+
+### UI Preview
+
+| Install Flow | Dashboard Overview |
+|---|---|
+| <img src=".github/assets/ui/web-install-demo.png" alt="web install flow" width="100%"> | <img src=".github/assets/ui/web-dashboard-demo.png" alt="web dashboard overview" width="100%"> |
+
+| Skills Browser | Skill Detail |
+|---|---|
+| <img src=".github/assets/ui/web-skills-demo.png" alt="web skills browser" width="100%"> | <img src=".github/assets/ui/web-skill-detail-demo.png" alt="web skill detail" width="100%"> |
+
+| Sync Controls | Search Skills |
+|---|---|
+| <img src=".github/assets/ui/web-sync-demo.png" alt="web sync controls" width="100%"> | <img src=".github/assets/ui/web-search-skills-demo.png" alt="web search skills" width="100%"> |
+
+Also works in Docker: `skillshare ui --host 0.0.0.0 --no-open` (port 19420 is mapped).
+
+---
 
 ## Docker Sandbox Testing
 
@@ -219,6 +278,7 @@ Inside the container you can run directly (no manual build needed):
 skillshare --help
 ss --help
 skillshare init --dry-run
+skillshare ui --host 0.0.0.0 --no-open  # Web UI at http://localhost:19420
 ```
 
 Stop the playground when done:
@@ -234,22 +294,6 @@ With `make`:
 ```bash
 make sandbox-down
 ```
-
-## Documentation
-
-📖 **Full documentation at [skillshare.runkids.cc](https://skillshare.runkids.cc/docs/intro)**
-
-| Guide | Description |
-|-------|-------------|
-| [Getting Started](https://skillshare.runkids.cc/docs/intro) | Quick start guide |
-| [Commands](https://skillshare.runkids.cc/docs/commands/init) | All CLI commands |
-| [Project Skills](https://skillshare.runkids.cc/docs/guides/project-setup) | Project-level skills setup |
-| [Organization Skills](https://skillshare.runkids.cc/docs/guides/organization-sharing) | Organization-wide sharing with tracked repos |
-| [Cross-machine](https://skillshare.runkids.cc/docs/guides/cross-machine-sync) | Multi-machine sync |
-| [Docker Sandbox](https://skillshare.runkids.cc/docs/guides/docker-sandbox) | Test sandbox and interactive playground |
-| [FAQ](https://skillshare.runkids.cc/docs/troubleshooting/faq) | FAQ & troubleshooting |
-
----
 
 ### Target Management
 

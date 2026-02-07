@@ -1,8 +1,11 @@
 package install
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -122,5 +125,74 @@ func TestDiscoverSkills_SkipsHiddenDirs(t *testing.T) {
 	skills := discoverSkills(repoPath, true)
 	if len(skills) != 0 {
 		t.Errorf("expected 0 skills (hidden dirs skipped), got %d", len(skills))
+	}
+}
+
+func TestWrapGitError(t *testing.T) {
+	tests := []struct {
+		name       string
+		stderr     string
+		err        error
+		wantSubstr string
+	}{
+		{
+			name:       "authentication failed",
+			stderr:     "fatal: Authentication failed for 'https://bitbucket.org/team/repo.git/'",
+			err:        errors.New("exit status 128"),
+			wantSubstr: "git@<host>:<owner>/<repo>.git",
+		},
+		{
+			name:       "could not read Username",
+			stderr:     "fatal: could not read Username for 'https://bitbucket.org': terminal prompts disabled",
+			err:        errors.New("exit status 128"),
+			wantSubstr: "git@<host>:<owner>/<repo>.git",
+		},
+		{
+			name:       "terminal prompts disabled",
+			stderr:     "fatal: terminal prompts disabled",
+			err:        errors.New("exit status 128"),
+			wantSubstr: "authentication required",
+		},
+		{
+			name:       "other stderr",
+			stderr:     "fatal: repository not found",
+			err:        errors.New("exit status 128"),
+			wantSubstr: "repository not found",
+		},
+		{
+			name:       "empty stderr falls back to err",
+			stderr:     "",
+			err:        errors.New("exit status 1"),
+			wantSubstr: "exit status 1",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := wrapGitError(tt.stderr, tt.err)
+			if !strings.Contains(got.Error(), tt.wantSubstr) {
+				t.Errorf("wrapGitError() = %q, want substring %q", got.Error(), tt.wantSubstr)
+			}
+		})
+	}
+}
+
+func TestGitCommand_SetsEnv(t *testing.T) {
+	ctx := context.Background()
+	cmd := gitCommand(ctx, "version")
+
+	want := map[string]bool{
+		"GIT_TERMINAL_PROMPT=0": false,
+		"GIT_ASKPASS=":          false,
+		"SSH_ASKPASS=":          false,
+	}
+	for _, env := range cmd.Env {
+		if _, ok := want[env]; ok {
+			want[env] = true
+		}
+	}
+	for k, found := range want {
+		if !found {
+			t.Errorf("gitCommand() missing env %q", k)
+		}
 	}
 }

@@ -24,3 +24,8 @@ docs/plans/
 .worktrees/
 
 video/node_modules/
+
+# Web UI
+ui/node_modules/
+ui/dist/
+internal/server/dist/assets/

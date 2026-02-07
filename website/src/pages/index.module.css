@@ -467,6 +467,76 @@
 }
 
 /* ========================================
+   Web UI Highlights
+   ======================================== */
+.uiHighlights {
+  padding: 5rem 0;
+  background: var(--ifm-background-surface-color);
+}
+
+:global([data-theme='dark']) .uiHighlights {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.uiHighlightsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-top: 2rem;
+}
+
+.uiHighlightCard {
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--card-bg);
+  transition: all 0.25s ease;
+}
+
+:global([data-theme='dark']) .uiHighlightCard {
+  background: rgba(30, 41, 59, 0.55);
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+.uiHighlightCard:hover {
+  transform: translateY(-2px);
+  border-color: var(--card-border-hover);
+  box-shadow: 0 14px 32px -20px rgba(0, 0, 0, 0.45);
+}
+
+:global([data-theme='dark']) .uiHighlightCard:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.uiHighlightCard img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.uiHighlightContent {
+  padding: 1rem 1.1rem 1.15rem;
+}
+
+.uiHighlightTitle {
+  font-size: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.uiHighlightDescription {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--ifm-font-color-secondary);
+  line-height: 1.55;
+}
+
+.uiHighlightsAction {
+  margin-top: 2rem;
+  display: flex;
+  justify-content: center;
+}
+
+/* ========================================
    Supported CLIs Section
    ======================================== */
 .supported {
@@ -535,6 +605,10 @@
     flex-direction: column;
     gap: 0.75rem;
     padding: 1rem;
+  }
+
+  .uiHighlightsGrid {
+    grid-template-columns: 1fr;
   }
 }
 

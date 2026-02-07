@@ -96,4 +96,3 @@ func printProjectTargetsStatus(runtime *projectRuntime) {
 		ui.Status(entry.Name, statusStr, detail)
 	}
 }
-

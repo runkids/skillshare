@@ -206,6 +206,7 @@ func TestParseSource_GitHTTPS(t *testing.T) {
 		name         string
 		input        string
 		wantCloneURL string
+		wantSubdir   string
 		wantName     string
 	}{
 		{
@@ -226,6 +227,53 @@ func TestParseSource_GitHTTPS(t *testing.T) {
 			wantCloneURL: "https://gitlab.com/user/repo.git",
 			wantName:     "repo",
 		},
+		{
+			name:         "bitbucket web URL with src/main",
+			input:        "https://bitbucket.org/team/skills/src/main/learn-and-update",
+			wantCloneURL: "https://bitbucket.org/team/skills.git",
+			wantSubdir:   "learn-and-update",
+			wantName:     "learn-and-update",
+		},
+		{
+			name:         "bitbucket web URL with src/main trailing slash",
+			input:        "https://bitbucket.org/team/skills/src/main/learn-and-update/",
+			wantCloneURL: "https://bitbucket.org/team/skills.git",
+			wantSubdir:   "learn-and-update",
+			wantName:     "learn-and-update",
+		},
+		{
+			name:         "bitbucket web URL src/branch only (no subdir)",
+			input:        "https://bitbucket.org/team/skills/src/main",
+			wantCloneURL: "https://bitbucket.org/team/skills.git",
+			wantName:     "skills",
+		},
+		{
+			name:         "bitbucket web URL nested subdir",
+			input:        "https://bitbucket.org/team/skills/src/develop/frontend/react",
+			wantCloneURL: "https://bitbucket.org/team/skills.git",
+			wantSubdir:   "frontend/react",
+			wantName:     "react",
+		},
+		{
+			name:         "gitlab web URL with -/tree/main",
+			input:        "https://gitlab.com/user/repo/-/tree/main/path/to/skill",
+			wantCloneURL: "https://gitlab.com/user/repo.git",
+			wantSubdir:   "path/to/skill",
+			wantName:     "skill",
+		},
+		{
+			name:         "gitlab web URL with -/blob/main",
+			input:        "https://gitlab.com/user/repo/-/blob/main/path/to/skill",
+			wantCloneURL: "https://gitlab.com/user/repo.git",
+			wantSubdir:   "path/to/skill",
+			wantName:     "skill",
+		},
+		{
+			name:         "gitlab web URL -/tree/branch only",
+			input:        "https://gitlab.com/user/repo/-/tree/main",
+			wantCloneURL: "https://gitlab.com/user/repo.git",
+			wantName:     "repo",
+		},
 	}
 
 	for _, tt := range tests {
@@ -239,6 +287,9 @@ func TestParseSource_GitHTTPS(t *testing.T) {
 			}
 			if source.CloneURL != tt.wantCloneURL {
 				t.Errorf("CloneURL = %v, want %v", source.CloneURL, tt.wantCloneURL)
+			}
+			if source.Subdir != tt.wantSubdir {
+				t.Errorf("Subdir = %v, want %v", source.Subdir, tt.wantSubdir)
 			}
 			if source.Name != tt.wantName {
 				t.Errorf("Name = %v, want %v", source.Name, tt.wantName)
@@ -367,6 +418,34 @@ func TestSource_MetaType(t *testing.T) {
 		if tt.source.MetaType() != tt.wantType {
 			t.Errorf("MetaType() = %v, want %v", tt.source.MetaType(), tt.wantType)
 		}
+	}
+}
+
+func TestStripGitBranchPrefix(t *testing.T) {
+	tests := []struct {
+		name   string
+		host   string
+		subdir string
+		want   string
+	}{
+		{"empty", "bitbucket.org", "", ""},
+		{"bitbucket src/main/path", "bitbucket.org", "src/main/learn-and-update", "learn-and-update"},
+		{"bitbucket src/main/nested", "bitbucket.org", "src/develop/a/b/c", "a/b/c"},
+		{"bitbucket src/branch only", "bitbucket.org", "src/main", ""},
+		{"bitbucket trailing slash", "bitbucket.org", "src/main/skill/", "skill"},
+		{"gitlab -/tree/main/path", "gitlab.com", "-/tree/main/path/to/skill", "path/to/skill"},
+		{"gitlab -/blob/main/path", "gitlab.com", "-/blob/main/path/to/skill", "path/to/skill"},
+		{"gitlab -/tree/branch only", "gitlab.com", "-/tree/main", ""},
+		{"non-platform passthrough", "example.com", "some/path", "some/path"},
+		{"bitbucket host variant", "bitbucket.mycompany.com", "src/main/skill", "skill"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := stripGitBranchPrefix(tt.host, tt.subdir)
+			if got != tt.want {
+				t.Errorf("stripGitBranchPrefix(%q, %q) = %q, want %q", tt.host, tt.subdir, got, tt.want)
+			}
+		})
 	}
 }
 

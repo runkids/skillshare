@@ -4,7 +4,7 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
-import {Copy, Check, Apple, Terminal, GitBranch, FolderSync, ArrowLeftRight, Globe, Layers, Sparkles} from 'lucide-react';
+import {Copy, Check, Apple, Terminal, GitBranch, FolderSync, ArrowLeftRight, Globe, Layers, LayoutDashboard} from 'lucide-react';
 
 import styles from './index.module.css';
 
@@ -137,9 +137,48 @@ const whyFeatures = [
     description: 'Organization-wide standards via tracked repos, plus project-scoped skills shared via git. Both auto-detected.',
   },
   {
-    Icon: Sparkles,
-    title: 'AI-Native',
-    description: 'Built-in skill lets AI operate skillshare directly. No manual CLI needed.',
+    Icon: LayoutDashboard,
+    title: 'Web Dashboard',
+    description: 'Visual skill browsing, sync status, and management. Run skillshare ui — single binary, no setup.',
+  },
+];
+
+const uiHighlights = [
+  {
+    title: 'One-Click Install',
+    description: 'Install a selected skill directly from the web flow without switching to terminal.',
+    image: '/img/web-install-demo.png',
+    alt: 'Web install flow for a selected skill',
+  },
+  {
+    title: 'Dashboard Overview',
+    description: 'Quickly check total skills, targets, and current sync mode.',
+    image: '/img/web-dashboard-demo.png',
+    alt: 'Web dashboard overview page',
+  },
+  {
+    title: 'Skills Explorer',
+    description: 'Browse installed skills and search your local catalog instantly.',
+    image: '/img/web-skills-demo.png',
+    alt: 'Web skills page listing installed skills',
+  },
+  {
+    title: 'Skill Detail',
+    description: 'Open SKILL.md content with metadata and repository source in one view.',
+    image: '/img/web-skill-detail-demo.png',
+    alt: 'Web skill detail page showing SKILL.md content',
+  },
+  {
+    title: 'Sync Control',
+    description: 'Run sync with dry-run and force options from a single control panel.',
+    image: '/img/web-sync-demo.png',
+    alt: 'Web sync page with dry-run and force controls',
+  },
+  {
+    title: 'GitHub Search',
+    description: 'Search remote skills and install to your source directory in one flow.',
+    image: '/img/web-search-skills-demo.png',
+    alt: 'Web search page for GitHub skills',
   },
 ];
 
@@ -183,6 +222,39 @@ function DemoSection() {
   );
 }
 
+function UIHighlightsSection() {
+  return (
+    <section className={styles.uiHighlights}>
+      <div className="container">
+        <Heading as="h2" className={styles.sectionTitle}>
+          Web UI Highlights
+        </Heading>
+        <p className={styles.sectionSubtitle}>
+          Next release focus: visual workflow for dashboard, browsing, sync, and search.
+        </p>
+        <div className={styles.uiHighlightsGrid}>
+          {uiHighlights.map((item) => (
+            <article key={item.title} className={styles.uiHighlightCard}>
+              <img src={item.image} alt={item.alt} loading="lazy" />
+              <div className={styles.uiHighlightContent}>
+                <Heading as="h3" className={styles.uiHighlightTitle}>
+                  {item.title}
+                </Heading>
+                <p className={styles.uiHighlightDescription}>{item.description}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+        <div className={styles.uiHighlightsAction}>
+          <Link className="button button--primary button--lg" to="/docs/commands/ui">
+            Explore Web UI Docs
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const supportedCLIs = [
   'Claude Code',
   'OpenCode',
@@ -218,6 +290,7 @@ export default function Home(): ReactNode {
       <main>
         <WhySection />
         <DemoSection />
+        <UIHighlightsSection />
         <SupportedSection />
       </main>
     </Layout>

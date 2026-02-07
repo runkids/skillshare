@@ -14,7 +14,7 @@ Complete reference for all skillshare commands.
 | **Skill Management** | `new`, `update`, `upgrade` |
 | **Target Management** | `target`, `diff` |
 | **Sync Operations** | `collect`, `backup`, `restore`, `push`, `pull` |
-| **Utilities** | `doctor` |
+| **Utilities** | `doctor`, `ui` |
 
 ---
 
@@ -60,6 +60,7 @@ Complete reference for all skillshare commands.
 | Command | Description |
 |---------|-------------|
 | [doctor](./doctor) | Diagnose issues |
+| [ui](./ui) | Launch web dashboard |
 
 ---
 
@@ -105,6 +106,9 @@ skillshare diff
 skillshare update --all
 skillshare doctor
 skillshare backup
+
+# Web UI
+skillshare ui
 ```
 
 ---

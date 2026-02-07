@@ -44,6 +44,8 @@ services:
     command:
       - sleep
       - infinity
+    ports:
+      - "19420:19420"
     environment:
       HOME: /sandbox-home
       GOCACHE: /go/build-cache

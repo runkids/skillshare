@@ -1,4 +1,4 @@
-.PHONY: help build build-meta run test test-unit test-int test-cover test-install test-docker test-docker-online sandbox-up sandbox-shell sandbox-down lint fmt fmt-check check install clean
+.PHONY: help build build-meta run test test-unit test-int test-cover test-install test-docker test-docker-online sandbox-up sandbox-shell sandbox-down lint fmt fmt-check check install clean ui-install ui-build ui-dev build-ui
 
 help:
 	@echo "Common tasks:"
@@ -18,7 +18,11 @@ help:
 	@echo "  make fmt                 # format Go files"
 	@echo "  make fmt-check           # verify formatting only"
 	@echo "  make check               # fmt-check + lint + test"
-	@echo "  make clean               # remove build artifacts"
+	@echo "  make ui-install           # install frontend dependencies"
+	@echo "  make ui-build             # build frontend + copy to embed"
+	@echo "  make ui-dev               # Go API server + Vite dev server"
+	@echo "  make build-ui             # ui-build + build (full binary)"
+	@echo "  make clean                # remove build artifacts"
 
 build:
 	mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare
@@ -72,6 +76,21 @@ check: fmt-check lint test
 
 install:
 	go install ./cmd/skillshare
+
+ui-install:
+	cd ui && pnpm install
+
+ui-build: ui-install
+	cd ui && pnpm run build
+	rm -rf internal/server/dist
+	cp -r ui/dist internal/server/dist
+
+ui-dev:
+	@trap 'kill 0' EXIT; \
+	go run -tags dev ./cmd/skillshare ui --no-open & \
+	cd ui && pnpm run dev
+
+build-ui: ui-build build
 
 clean:
 	rm -rf bin coverage.out

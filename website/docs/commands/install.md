@@ -177,6 +177,25 @@ skillshare install anthropics/skills --track
   <img src="/img/team-reack-demo.png" alt="tracked repo install demo" width="720" />
 </p>
 
+## Private Repositories
+
+For private repos, use **SSH URL** format to avoid authentication issues:
+
+```bash
+# ✅ SSH URL (recommended for private repos)
+skillshare install git@bitbucket.org:team/skills.git
+skillshare install git@github.com:team/private-skills.git
+skillshare install git@gitlab.com:team/skills.git
+
+# ✅ SSH URL with --track
+skillshare install git@bitbucket.org:team/skills.git --track
+
+# ❌ HTTPS URL for private repos will fail
+# skillshare install https://bitbucket.org/team/skills
+```
+
+HTTPS URLs require interactive authentication which is not supported by skillshare. If you accidentally use an HTTPS URL for a private repo, skillshare will fail fast with an error message suggesting the SSH format.
+
 ## After Installing
 
 Always sync to distribute to targets:

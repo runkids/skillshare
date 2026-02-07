@@ -103,6 +103,7 @@ const sidebars: SidebarsConfig = {
           label: 'Utilities',
           items: [
             'commands/doctor',
+            'commands/ui',
           ],
         },
       ],

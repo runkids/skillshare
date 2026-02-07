@@ -1,0 +1,253 @@
+@import "tailwindcss";
+
+@theme {
+  /* Hand-Drawn Color Palette */
+  --color-paper: #fdfbf7;
+  --color-paper-warm: #faf6ee;
+  --color-pencil: #2d2d2d;
+  --color-pencil-light: #5a5a5a;
+  --color-muted: #e5e0d8;
+  --color-muted-dark: #8a8478;
+  --color-accent: #ff4d4d;
+  --color-accent-dark: #e03e3e;
+  --color-blue: #2d5da1;
+  --color-blue-light: #4a7ec4;
+  --color-postit: #fff9c4;
+  --color-postit-dark: #fff3a0;
+  --color-success: #2e8b57;
+  --color-success-light: #d4edda;
+  --color-warning: #d4870e;
+  --color-warning-light: #fff3cd;
+  --color-danger: #c0392b;
+  --color-danger-light: #f8d7da;
+  --color-info: #2d5da1;
+  --color-info-light: #d6e4f0;
+
+  /* Typography */
+  --font-hand: 'Patrick Hand', cursive;
+  --font-heading: 'Kalam', cursive;
+
+  /* Shadows (hard offset, no blur) */
+  --shadow-sm: 3px 3px 0px 0px rgba(45, 45, 45, 0.12);
+  --shadow-md: 4px 4px 0px 0px #2d2d2d;
+  --shadow-lg: 8px 8px 0px 0px #2d2d2d;
+  --shadow-accent: 4px 4px 0px 0px #ff4d4d;
+}
+
+/* Wobbly border-radius values as CSS custom properties (not theme tokens) */
+:root {
+  --radius-wobbly: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  --radius-wobbly-sm: 125px 10px 115px 10px / 10px 115px 10px 125px;
+  --radius-wobbly-md: 185px 12px 165px 12px / 12px 165px 12px 185px;
+  --radius-wobbly-btn: 255px 25px 225px 25px / 25px 225px 25px 255px;
+}
+
+/* Base styles */
+body {
+  background-color: var(--color-paper);
+  color: var(--color-pencil);
+  font-family: var(--font-hand);
+  background-image: radial-gradient(var(--color-muted) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-paper);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-muted-dark);
+  border-radius: var(--radius-wobbly-sm);
+  border: 2px solid var(--color-paper);
+}
+
+/* Selection color */
+::selection {
+  background-color: var(--color-postit);
+  color: var(--color-pencil);
+}
+
+/* Markdown prose overrides for hand-drawn theme */
+.prose-hand {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    color: var(--color-pencil);
+    font-weight: 700;
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 0.75rem; }
+  h2 { font-size: 1.25rem; margin-bottom: 0.5rem; margin-top: 1.5rem; }
+  h3 { font-size: 1.1rem; margin-bottom: 0.25rem; margin-top: 1rem; }
+  p { color: var(--color-pencil-light); font-size: 1rem; margin-bottom: 0.75rem; line-height: 1.7; }
+  ul, ol { color: var(--color-pencil-light); font-size: 1rem; margin-bottom: 0.75rem; padding-left: 1.25rem; }
+  ul { list-style-type: disc; }
+  ol { list-style-type: decimal; }
+  li { margin-bottom: 0.25rem; }
+  code {
+    background-color: #f3eee2;
+    color: var(--color-blue);
+    padding: 0.12rem 0.45rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-family: 'Courier New', monospace;
+    border: 1px dashed var(--color-muted-dark);
+    box-shadow: 1px 1px 0 rgba(45, 45, 45, 0.08);
+  }
+  pre {
+    position: relative;
+    background: linear-gradient(145deg, #202b3e, #1a2232);
+    color: #eaf2ff;
+    padding: 2rem 1rem 1rem;
+    border: 2px solid #101827;
+    border-radius: var(--radius-wobbly-sm);
+    overflow-x: auto;
+    margin-bottom: 1rem;
+    box-shadow: 4px 4px 0px 0px #101827;
+  }
+  pre::before {
+    content: 'code';
+    position: absolute;
+    top: 0.5rem;
+    left: 0.75rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.08rem 0.45rem;
+    border-radius: 999px;
+    border: 1px dashed rgba(255, 255, 255, 0.6);
+    color: #f6fbff;
+    background: rgba(255, 255, 255, 0.14);
+    font-family: 'Courier New', monospace;
+  }
+  pre::-webkit-scrollbar {
+    height: 7px;
+  }
+  pre::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+  }
+  pre::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.45);
+    border-radius: 999px;
+  }
+  pre code {
+    display: block;
+    background: transparent;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    color: inherit;
+    font-size: 0.9rem;
+    line-height: 1.65;
+    font-family: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
+  }
+  a {
+    color: var(--color-blue);
+    text-decoration: underline;
+    text-decoration-style: wavy;
+    text-underline-offset: 3px;
+  }
+  a:hover {
+    color: var(--color-accent);
+  }
+  hr {
+    border-color: var(--color-muted);
+    border-style: dashed;
+    margin: 1.5rem 0;
+  }
+  blockquote {
+    border-left: 3px solid var(--color-blue);
+    padding-left: 1rem;
+    color: var(--color-pencil-light);
+    font-style: italic;
+    background: var(--color-paper-warm);
+    padding: 0.75rem 1rem;
+    border-radius: 0 8px 8px 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-bottom: 1rem;
+    border: 2px solid var(--color-pencil);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--color-paper-warm);
+    box-shadow: var(--shadow-sm);
+  }
+  thead tr {
+    background: var(--color-postit);
+  }
+  th, td {
+    border-bottom: 1px dashed var(--color-muted-dark);
+    border-right: 1px dashed var(--color-muted-dark);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+    font-size: 0.95rem;
+    color: var(--color-pencil);
+  }
+  th:last-child, td:last-child {
+    border-right: none;
+  }
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+/* Animation keyframes */
+@keyframes wobble {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-1deg); }
+  75% { transform: rotate(1deg); }
+}
+
+@keyframes sketch-in {
+  0% { opacity: 0; transform: scale(0.95) rotate(-2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@keyframes bounce-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes pencil-draw {
+  0% { width: 0; }
+  100% { width: 100%; }
+}
+
+@keyframes spin-slow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulse-gentle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-sketch-in {
+  animation: sketch-in 0.3s ease-out;
+}
+
+.animate-wobble {
+  animation: wobble 0.5s ease-in-out;
+}
+
+.animate-bounce-gentle {
+  animation: bounce-gentle 2s ease-in-out infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+.animate-pulse-gentle {
+  animation: pulse-gentle 1.5s ease-in-out infinite;
+}

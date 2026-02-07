@@ -26,11 +26,31 @@ jobs:
         with:
           go-version: "1.23"
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Build UI assets
+        run: make ui-build
+
+      - name: Verify embedded UI assets exist
+        run: |
+          test -f internal/server/dist/index.html
+          test -n "$(find internal/server/dist/assets -maxdepth 1 -type f | head -n 1)"
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           version: latest
-          args: release --clean
+          args: release --clean --skip=validate
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

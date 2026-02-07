@@ -55,6 +55,7 @@ Command cheat sheet for skillshare.
 | Command | Description |
 |---------|-------------|
 | `doctor` | Diagnose issues |
+| `ui` | Launch web dashboard on `localhost:19420` |
 | `mise run test:docker` | Run offline Docker sandbox tests |
 | `mise run test:docker:online` | Run optional online Docker tests |
 | `mise run sandbox:up` | Start persistent playground container |
@@ -65,6 +66,10 @@ Command cheat sheet for skillshare.
 | `make sandbox-up` | Start persistent playground container |
 | `make sandbox-shell` | Enter playground shell |
 | `make sandbox-down` | Stop playground container |
+| `mise run ui:build` | Build frontend + copy to embed |
+| `mise run build:ui` | Full binary with embedded frontend |
+| `make ui-build` | Build frontend + copy to embed |
+| `make build-ui` | Full binary with embedded frontend |
 
 ---
 
