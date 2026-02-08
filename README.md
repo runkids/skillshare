@@ -279,9 +279,9 @@ make build-ui
 
 ## Documentation
 
-- Docs home: https://skillshare.runkids.cc/docs/intro
-- Commands: https://skillshare.runkids.cc/docs/category/commands
-- Guides: https://skillshare.runkids.cc/docs/category/guides
+- Docs home: https://skillshare.runkids.cc/docs/
+- Commands: https://skillshare.runkids.cc/docs/commands
+- Guides: https://skillshare.runkids.cc/docs/guides/
 - Troubleshooting: https://skillshare.runkids.cc/docs/troubleshooting/faq
 
 ## Contributing
