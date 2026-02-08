@@ -2,21 +2,10 @@
 # Start a persistent Docker playground for interactive skillshare usage.
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-COMPOSE_FILE="$PROJECT_ROOT/docker-compose.sandbox.yml"
+source "$(dirname "$0")/_sandbox_common.sh"
 SERVICE="sandbox-playground"
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Error: docker command not found" >&2
-  exit 1
-fi
-
-if ! docker compose version >/dev/null 2>&1; then
-  echo "Error: docker compose plugin not available" >&2
-  exit 1
-fi
-
+require_docker
 cd "$PROJECT_ROOT"
 
 docker compose -f "$COMPOSE_FILE" --profile playground build "$SERVICE"
@@ -27,11 +16,21 @@ docker compose -f "$COMPOSE_FILE" --profile playground run --rm --user "0:0" "$S
 
 docker compose -f "$COMPOSE_FILE" --profile playground up -d "$SERVICE"
 
-# Copy pre-built frontend assets for go:embed, then build skillshare binary.
+# Build skillshare binary and set up aliases.
 docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(id -g)" "$SERVICE" \
-  bash -c "rm -rf internal/server/dist && cp -r /ui-dist internal/server/dist && mkdir -p /sandbox-home/.local/bin && go build -o /sandbox-home/.local/bin/skillshare ./cmd/skillshare && ln -sf /sandbox-home/.local/bin/skillshare /sandbox-home/.local/bin/ss && touch /sandbox-home/.bashrc && { grep -qxF \"alias ss='skillshare'\" /sandbox-home/.bashrc || echo \"alias ss='skillshare'\" >> /sandbox-home/.bashrc; }"
+  bash -c '
+    mkdir -p /sandbox-home/.local/bin
+    go build -o /sandbox-home/.local/bin/skillshare ./cmd/skillshare
+    ln -sf /sandbox-home/.local/bin/skillshare /sandbox-home/.local/bin/ss
+    touch /sandbox-home/.bashrc
+    grep -qxF "alias ss='"'"'skillshare'"'"'" /sandbox-home/.bashrc || echo "alias ss='"'"'skillshare'"'"'" >> /sandbox-home/.bashrc
+    grep -qxF "alias skillshare-ui='"'"'skillshare ui --host 0.0.0.0 --no-open'"'"'" /sandbox-home/.bashrc || echo "alias skillshare-ui='"'"'skillshare ui --host 0.0.0.0 --no-open'"'"'" >> /sandbox-home/.bashrc
+  '
 
 echo "Playground is running."
-echo "Enter it with: ./scripts/sandbox_playground_shell.sh"
+echo "Enter it with: ./scripts/sandbox_playground_shell.sh or run make sandbox-shell"
 echo "Inside playground you can directly run: skillshare  (and alias: ss)"
-echo "  skillshare ui --no-open    # start web dashboard (port 19420)"
+echo ""
+echo "Quick start:"
+echo "  skillshare init         # required before first use"
+echo "  skillshare-ui           # start web dashboard (port 19420)"

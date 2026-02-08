@@ -17,10 +17,15 @@ RUN apt-get update \
 # Copy pre-built frontend for go:embed at build time
 COPY --from=ui-builder /ui/dist /ui-dist
 
+# Entrypoint copies /ui-dist → internal/server/dist/ when missing (fixes gitignore)
+COPY docker/sandbox/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 WORKDIR /workspace
 
 COPY go.mod go.sum ./
 RUN go mod download
 RUN mkdir -p /go/build-cache /go/pkg/mod && chmod -R 0777 /go/build-cache /go/pkg/mod
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash", "-c", "./scripts/test.sh"]

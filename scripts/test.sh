@@ -77,8 +77,7 @@ cd "$PROJECT_ROOT"
 # Build binary for integration tests
 if [[ "$RUN_INT" == true ]]; then
     echo -e "${YELLOW}Building binary...${NC}"
-    mkdir -p bin
-    go build -o bin/skillshare ./cmd/skillshare
+    make build
     export SKILLSHARE_TEST_BINARY="$PROJECT_ROOT/bin/skillshare"
     echo -e "${GREEN}✓ Binary built: bin/skillshare${NC}"
     echo ""

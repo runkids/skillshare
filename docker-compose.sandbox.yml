@@ -1,46 +1,41 @@
+x-sandbox-common: &sandbox-common
+  build:
+    context: .
+    dockerfile: docker/sandbox/Dockerfile
+  working_dir: /workspace
+  environment:
+    GOCACHE: /go/build-cache
+  volumes:
+    - .:/workspace
+    - go-mod-cache:/go/pkg/mod
+    - go-build-cache:/go/build-cache
+
 services:
   sandbox-offline:
+    <<: *sandbox-common
     profiles:
       - offline
-    build:
-      context: .
-      dockerfile: docker/sandbox/Dockerfile
-    working_dir: /workspace
     command:
       - ./scripts/test.sh
     network_mode: none
     environment:
       HOME: /tmp
       GOCACHE: /go/build-cache
-    volumes:
-      - .:/workspace
-      - go-mod-cache:/go/pkg/mod
-      - go-build-cache:/go/build-cache
 
   sandbox-online:
+    <<: *sandbox-common
     profiles:
       - online
-    build:
-      context: .
-      dockerfile: docker/sandbox/Dockerfile
-    working_dir: /workspace
     command:
       - ./scripts/test.sh
     environment:
       HOME: /tmp
       GOCACHE: /go/build-cache
-    volumes:
-      - .:/workspace
-      - go-mod-cache:/go/pkg/mod
-      - go-build-cache:/go/build-cache
 
   sandbox-playground:
+    <<: *sandbox-common
     profiles:
       - playground
-    build:
-      context: .
-      dockerfile: docker/sandbox/Dockerfile
-    working_dir: /workspace
     command:
       - sleep
       - infinity
