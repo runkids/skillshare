@@ -115,7 +115,7 @@ run = "cd ui && pnpm install"
 description = "Build frontend and copy to embed directory"
 depends = ["ui:install"]
 run = """
-cd ui && pnpm run build
+(cd ui && pnpm run build)
 rm -rf internal/server/dist
 cp -r ui/dist internal/server/dist
 """
