@@ -8,6 +8,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 func cmdSync(args []string) error {
@@ -178,7 +179,10 @@ func syncSymlinkMode(name string, target config.TargetConfig, source string, dry
 
 	// Handle conflicts
 	if status == sync.StatusConflict && !force {
-		link, _ := os.Readlink(target.Path)
+		link, err := utils.ResolveLinkTarget(target.Path)
+		if err != nil {
+			link = "(unable to resolve target)"
+		}
 		return fmt.Errorf("conflict - symlink points to %s (use --force to override)", link)
 	}
 

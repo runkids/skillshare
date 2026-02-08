@@ -122,20 +122,15 @@ func CheckStatus(targetPath, sourcePath string) TargetStatus {
 		return StatusUnknown
 	}
 
-	// Check if it's a symlink
-	if info.Mode()&os.ModeSymlink != 0 {
-		link, err := os.Readlink(targetPath)
+	// Check if it's a symlink/junction
+	if utils.IsSymlinkOrJunction(targetPath) {
+		absLink, err := utils.ResolveLinkTarget(targetPath)
 		if err != nil {
 			return StatusUnknown
 		}
 
-		// Check if symlink points to our source
-		absLink := link
-		if !filepath.IsAbs(link) {
-			absLink = filepath.Join(filepath.Dir(targetPath), link)
-		}
+		// Check if link points to our source
 		absSource, _ := filepath.Abs(sourcePath)
-		absLink, _ = filepath.Abs(absLink)
 
 		if utils.PathsEqual(absLink, absSource) {
 			// Verify the link is not broken
@@ -230,7 +225,10 @@ func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryR
 		return CreateSymlink(target.Path, sourcePath)
 
 	case StatusConflict:
-		link, _ := os.Readlink(target.Path)
+		link, err := utils.ResolveLinkTarget(target.Path)
+		if err != nil {
+			link = "(unable to resolve target)"
+		}
 		return fmt.Errorf("target is symlink to different location: %s -> %s", target.Path, link)
 
 	case StatusBroken:
@@ -325,9 +323,9 @@ type MergeResult struct {
 func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun, force bool) (*MergeResult, error) {
 	result := &MergeResult{}
 
-	// Check if target is currently a symlink (symlink mode) - need to convert to merge mode
+	// Check if target is currently a symlink/junction (symlink mode) - need to convert to merge mode
 	info, err := os.Lstat(target.Path)
-	if err == nil && info.Mode()&os.ModeSymlink != 0 {
+	if err == nil && info != nil && utils.IsSymlinkOrJunction(target.Path) {
 		// Target is a symlink - remove it to convert to merge mode
 		if dryRun {
 			fmt.Printf("[dry-run] Would convert from symlink mode to merge mode: %s\n", target.Path)
@@ -356,13 +354,15 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 		targetSkillPath := filepath.Join(target.Path, skill.FlatName)
 
 		// Check if skill exists in target
-		targetInfo, err := os.Lstat(targetSkillPath)
+		_, err := os.Lstat(targetSkillPath)
 		if err == nil {
 			// Something exists at target path
-			if targetInfo.Mode()&os.ModeSymlink != 0 {
-				// It's a symlink - check if it points to source
-				link, _ := os.Readlink(targetSkillPath)
-				absLink, _ := filepath.Abs(link)
+			if utils.IsSymlinkOrJunction(targetSkillPath) {
+				// It's a symlink/junction - check if it points to source
+				absLink, err := utils.ResolveLinkTarget(targetSkillPath)
+				if err != nil {
+					return nil, fmt.Errorf("failed to resolve link target for %s: %w", skill.FlatName, err)
+				}
 				absSource, _ := filepath.Abs(skill.SourcePath)
 
 				if utils.PathsEqual(absLink, absSource) {
@@ -479,13 +479,13 @@ func PruneOrphanLinks(targetPath, sourcePath string, dryRun bool) (*PruneResult,
 		shouldRemove := false
 		reason := ""
 
-		if info.Mode()&os.ModeSymlink != 0 {
-			link, _ := os.Readlink(entryPath)
-			absLink := link
-			if !filepath.IsAbs(link) {
-				absLink = filepath.Join(filepath.Dir(entryPath), link)
+		if utils.IsSymlinkOrJunction(entryPath) {
+			absLink, err := utils.ResolveLinkTarget(entryPath)
+			if err != nil {
+				result.Warnings = append(result.Warnings,
+					fmt.Sprintf("%s: unable to resolve link target, kept", name))
+				continue
 			}
-			absLink, _ = filepath.Abs(absLink)
 
 			targetExists := false
 			if _, err := os.Stat(absLink); err == nil {
@@ -502,7 +502,7 @@ func PruneOrphanLinks(targetPath, sourcePath string, dryRun bool) (*PruneResult,
 				}
 			} else {
 				result.Warnings = append(result.Warnings,
-					fmt.Sprintf("%s: symlink to external location (%s), kept", name, link))
+					fmt.Sprintf("%s: symlink to external location (%s), kept", name, absLink))
 			}
 		} else if info.IsDir() {
 			// It's a directory - check naming characteristics
@@ -581,10 +581,12 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 		return StatusUnknown, 0, 0
 	}
 
-	// If it's a symlink to source, it's using symlink mode not merge
-	if info.Mode()&os.ModeSymlink != 0 {
-		link, _ := os.Readlink(targetPath)
-		absLink, _ := filepath.Abs(link)
+	// If it's a symlink/junction to source, it's using symlink mode not merge
+	if utils.IsSymlinkOrJunction(targetPath) {
+		absLink, err := utils.ResolveLinkTarget(targetPath)
+		if err != nil {
+			return StatusUnknown, 0, 0
+		}
 		absSource, _ := filepath.Abs(sourcePath)
 		if utils.PathsEqual(absLink, absSource) {
 			return StatusLinked, 0, 0
@@ -605,24 +607,15 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 		if utils.IsHidden(entry.Name()) {
 			continue
 		}
-		if !entry.IsDir() && entry.Type()&os.ModeSymlink == 0 {
-			continue
-		}
-
 		skillPath := filepath.Join(targetPath, entry.Name())
-		info, err := os.Lstat(skillPath)
-		if err != nil {
-			continue
-		}
 
-		if info.Mode()&os.ModeSymlink != 0 {
-			// It's a symlink - check if it points to somewhere in source
-			link, _ := os.Readlink(skillPath)
-			absLink := link
-			if !filepath.IsAbs(link) {
-				absLink = filepath.Join(filepath.Dir(skillPath), link)
+		if utils.IsSymlinkOrJunction(skillPath) {
+			// It's a symlink/junction - check if it points to somewhere in source
+			absLink, err := utils.ResolveLinkTarget(skillPath)
+			if err != nil {
+				localCount++
+				continue
 			}
-			absLink, _ = filepath.Abs(absLink)
 			absSource, _ := filepath.Abs(sourcePath)
 
 			// Check if the symlink target is within the source directory

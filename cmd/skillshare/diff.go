@@ -61,13 +61,13 @@ func showTargetDiff(name string, target config.TargetConfig, source string, sour
 	ui.Header(name)
 
 	// Check if target is a symlink (symlink mode)
-	targetInfo, err := os.Lstat(target.Path)
+	_, err := os.Lstat(target.Path)
 	if err != nil {
 		ui.Warning("Cannot access target: %v", err)
 		return
 	}
 
-	if targetInfo.Mode()&os.ModeSymlink != 0 {
+	if utils.IsSymlinkOrJunction(target.Path) {
 		showSymlinkDiff(target.Path, source)
 		return
 	}
@@ -77,13 +77,16 @@ func showTargetDiff(name string, target config.TargetConfig, source string, sour
 }
 
 func showSymlinkDiff(targetPath, source string) {
-	link, _ := os.Readlink(targetPath)
-	absLink, _ := filepath.Abs(link)
+	absLink, err := utils.ResolveLinkTarget(targetPath)
+	if err != nil {
+		ui.Warning("Unable to resolve symlink target: %v", err)
+		return
+	}
 	absSource, _ := filepath.Abs(source)
 	if utils.PathsEqual(absLink, absSource) {
 		ui.Success("Fully synced (symlink mode)")
 	} else {
-		ui.Warning("Symlink points to different location: %s", link)
+		ui.Warning("Symlink points to different location: %s", absLink)
 	}
 }
 
@@ -101,8 +104,7 @@ func showMergeDiff(targetName, targetPath, source string, sourceSkills map[strin
 			continue
 		}
 		skillPath := filepath.Join(targetPath, e.Name())
-		info, _ := os.Lstat(skillPath)
-		if info != nil && info.Mode()&os.ModeSymlink != 0 {
+		if utils.IsSymlinkOrJunction(skillPath) {
 			targetSymlinks[e.Name()] = true
 		}
 		targetSkills[e.Name()] = true

@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/utils"
@@ -133,7 +132,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		// Merge mode: check each skill
 		for _, skill := range discovered {
 			targetSkillPath := filepath.Join(target.Path, skill.FlatName)
-			info, err := os.Lstat(targetSkillPath)
+			_, err := os.Lstat(targetSkillPath)
 			if err != nil {
 				if os.IsNotExist(err) {
 					dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "missing"})
@@ -141,9 +140,12 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			if info.Mode()&os.ModeSymlink != 0 {
-				link, _ := os.Readlink(targetSkillPath)
-				absLink, _ := filepath.Abs(link)
+			if utils.IsSymlinkOrJunction(targetSkillPath) {
+				absLink, err := utils.ResolveLinkTarget(targetSkillPath)
+				if err != nil {
+					dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "link target unreadable"})
+					continue
+				}
 				absSource, _ := filepath.Abs(skill.SourcePath)
 				if !utils.PathsEqual(absLink, absSource) {
 					dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "symlink points elsewhere"})
@@ -165,15 +167,18 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if !validNames[eName] {
-				info, err := os.Lstat(filepath.Join(target.Path, eName))
+				_, err := os.Lstat(filepath.Join(target.Path, eName))
 				if err != nil {
 					continue
 				}
-				if info.Mode()&os.ModeSymlink != 0 {
-					link, _ := os.Readlink(filepath.Join(target.Path, eName))
-					absLink, _ := filepath.Abs(link)
+				entryPath := filepath.Join(target.Path, eName)
+				if utils.IsSymlinkOrJunction(entryPath) {
+					absLink, err := utils.ResolveLinkTarget(entryPath)
+					if err != nil {
+						continue
+					}
 					absSource, _ := filepath.Abs(s.cfg.Source)
-					if strings.HasPrefix(absLink, absSource+string(filepath.Separator)) {
+					if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
 						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan symlink"})
 					}
 				} else {
