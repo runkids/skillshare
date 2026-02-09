@@ -66,7 +66,7 @@ const config: Config = {
   themeConfig: {
     image: 'img/social-card.png',
     colorMode: {
-      defaultMode: 'dark',
+      defaultMode: 'light',
       respectPrefersColorScheme: false,
     },
     navbar: {
@@ -100,7 +100,7 @@ const config: Config = {
       ],
     },
     footer: {
-      style: 'dark',
+      style: 'light',
       links: [
         {
           title: 'Documentation',
