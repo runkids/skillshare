@@ -13,6 +13,8 @@ skillshare status -g       # Force global
 
 Project mode output includes: source path, targets with sync mode, remote skills list.
 
+**Sync drift detection:** Warns when targets have fewer linked skills than source (merge mode). Example: `⚠ claude: 3 skill(s) not synced (12/15 linked)`. Run `skillshare sync` to fix.
+
 ## diff
 
 Show differences between source and targets.
@@ -55,7 +57,7 @@ skillshare search <query> -n 10     # Limit results (default: 20)
 
 ## doctor
 
-Diagnose configuration and environment issues.
+Diagnose configuration and environment issues. Also checks for sync drift.
 
 ```bash
 skillshare doctor

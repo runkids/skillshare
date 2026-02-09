@@ -6,9 +6,12 @@
 |---------|----------|
 | "config not found" | `skillshare init` (global) or `skillshare init -p` (project) |
 | Target shows differences | `skillshare sync` |
+| Sync drift warning | `skillshare sync` to re-link missing skills |
 | Lost source files (global) | `cd ~/.config/skillshare/skills && git checkout -- .` |
 | Lost source files (project) | `git checkout -- .skillshare/skills/` |
+| Accidentally uninstalled | `skillshare trash restore <name>` (within 7 days) |
 | Skill not appearing | `skillshare sync` after install |
+| Install blocked by audit | `skillshare install ... --force` to override CRITICAL |
 | Git push fails | Check remote: `git -C ~/.config/skillshare/skills remote -v` |
 | Project mode not detected | Verify `.skillshare/config.yaml` exists in cwd |
 | Wrong mode detected | Use `-p` (project) or `-g` (global) to force |
@@ -16,9 +19,11 @@
 ## Diagnostic Commands
 
 ```bash
-skillshare doctor          # Check environment
+skillshare doctor          # Check environment + sync drift
 skillshare status          # Overview (auto-detects mode)
 skillshare diff            # Show differences
+skillshare log             # Recent operations and audit log
+skillshare log --audit     # Security scan history
 ls -la ~/.claude/skills    # Check global symlinks
 ls -la .claude/skills      # Check project symlinks
 ```

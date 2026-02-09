@@ -23,6 +23,7 @@ github.com/user/repo          # Discovers skills in repo
 github.com/user/repo/path     # Direct subdirectory
 https://github.com/...        # HTTPS URL
 git@github.com:...            # SSH URL
+git@host:owner/repo//subdir   # SSH with subpath (// separator)
 
 # Local
 ~/path/to/skill               # Local directory
@@ -67,6 +68,8 @@ skillshare install anthropics/skills -s pdf -p        # Selective + project mode
 
 **Project `install -p` (no source):** Installs all remote skills listed in `.skillshare/config.yaml`. Useful for new team members.
 
+**Security audit:** Install auto-scans skills after download. CRITICAL findings block install — use `--force` to override. HIGH/MEDIUM shown as warnings.
+
 **After install:** `skillshare sync`
 
 ## check
@@ -110,17 +113,19 @@ skillshare update _repo --force -p  # Discard local changes
 
 ## uninstall
 
-Remove a skill from source.
+Remove a skill from source. Moves to trash (7-day retention) instead of permanent deletion.
 
 ```bash
 # Global
-skillshare uninstall my-skill          # With confirmation
+skillshare uninstall my-skill          # With confirmation → moves to trash
 skillshare uninstall my-skill --force  # Skip confirmation
 
 # Project
 skillshare uninstall my-skill -p          # Remove from .skillshare/skills/
 skillshare uninstall my-skill --force -p  # Skip confirmation
 ```
+
+**Undo:** `skillshare trash restore <name>` to recover. See [trash.md](trash.md).
 
 **After uninstall:** `skillshare sync`
 
