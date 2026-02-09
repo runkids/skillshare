@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -40,14 +41,14 @@ func cmdLog(args []string) error {
 }
 
 func runLog(args []string, configPath string) error {
-	audit := false
+	auditOnly := false
 	clear := false
 	limit := 20
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "--audit", "-a":
-			audit = true
+			auditOnly = true
 		case "--clear", "-c":
 			clear = true
 		case "--tail", "-t":
@@ -64,14 +65,13 @@ func runLog(args []string, configPath string) error {
 		}
 	}
 
-	filename := oplog.OpsFile
-	label := "Operations"
-	if audit {
-		filename = oplog.AuditFile
-		label = "Audit"
-	}
-
 	if clear {
+		filename := oplog.OpsFile
+		label := "Operations"
+		if auditOnly {
+			filename = oplog.AuditFile
+			label = "Audit"
+		}
 		if err := oplog.Clear(configPath, filename); err != nil {
 			return fmt.Errorf("failed to clear log: %w", err)
 		}
@@ -79,17 +79,29 @@ func runLog(args []string, configPath string) error {
 		return nil
 	}
 
+	if auditOnly {
+		return printLogSection(configPath, oplog.AuditFile, "Audit", limit)
+	}
+
+	if err := printLogSection(configPath, oplog.OpsFile, "Operations", limit); err != nil {
+		return err
+	}
+	fmt.Println()
+	return printLogSection(configPath, oplog.AuditFile, "Audit", limit)
+}
+
+func printLogSection(configPath, filename, label string, limit int) error {
 	entries, err := oplog.Read(configPath, filename, limit)
 	if err != nil {
 		return fmt.Errorf("failed to read log: %w", err)
 	}
 
+	ui.HeaderBox("skillshare log", fmt.Sprintf("%s (last %d)", label, len(entries)))
 	if len(entries) == 0 {
 		ui.Info("No %s log entries", strings.ToLower(label))
 		return nil
 	}
 
-	ui.Header(fmt.Sprintf("%s Log (last %d)", label, len(entries)))
 	printLogEntries(entries)
 	return nil
 }
@@ -103,19 +115,53 @@ func printLogEntries(entries []oplog.Entry) {
 		dur := formatLogDuration(e.Duration)
 
 		if ui.IsTTY() {
-			fmt.Printf("  %s%s%s  %-9s  %-30s  %s  %s\n",
+			fmt.Printf("  %s%s%s  %-9s  %-96s  %s  %s\n",
 				ui.Gray, ts, ui.Reset, cmd, detail, status, dur)
 		} else {
-			fmt.Printf("  %s  %-9s  %-30s  %-7s  %s\n",
+			fmt.Printf("  %s  %-9s  %-96s  %-7s  %s\n",
 				ts, e.Command, detail, e.Status, dur)
 		}
+
+		printLogAuditSkillLines(e)
+	}
+}
+
+func printLogAuditSkillLines(e oplog.Entry) {
+	if e.Command != "audit" || e.Args == nil {
+		return
+	}
+
+	if failedSkills, ok := logArgStringSlice(e.Args, "failed_skills"); ok && len(failedSkills) > 0 {
+		printLogNamedSkills("failed skills", failedSkills)
+	}
+	if warningSkills, ok := logArgStringSlice(e.Args, "warning_skills"); ok && len(warningSkills) > 0 {
+		printLogNamedSkills("warning skills", warningSkills)
+	}
+}
+
+func printLogNamedSkills(label string, skills []string) {
+	const namesPerLine = 4
+	for i := 0; i < len(skills); i += namesPerLine {
+		end := i + namesPerLine
+		if end > len(skills) {
+			end = len(skills)
+		}
+
+		currentLabel := label
+		if i > 0 {
+			currentLabel = label + " (cont)"
+		}
+		fmt.Printf("                     -> %s: %s\n", currentLabel, strings.Join(skills[i:end], ", "))
 	}
 }
 
 func formatLogTimestamp(ts string) string {
 	t, err := time.Parse(time.RFC3339, ts)
 	if err != nil {
-		return ts[:16] // fallback
+		if len(ts) >= 16 {
+			return ts[:16]
+		}
+		return ts
 	}
 	return t.Format("2006-01-02 15:04")
 }
@@ -128,35 +174,212 @@ func formatLogCommand(cmd string) string {
 }
 
 func formatLogDetail(e oplog.Entry) string {
+	detail := ""
+	if e.Args != nil {
+		switch e.Command {
+		case "sync":
+			detail = formatSyncLogDetail(e.Args)
+		case "audit":
+			detail = formatAuditLogDetail(e.Args)
+		default:
+			detail = formatGenericLogDetail(e.Args)
+		}
+	}
+
+	if e.Message != "" && detail != "" {
+		return truncateLogString(detail+" ("+e.Message+")", 96)
+	}
 	if e.Message != "" {
-		return truncateLogString(e.Message, 30)
+		return truncateLogString(e.Message, 96)
 	}
-	if e.Args == nil {
-		return ""
+	if detail != "" {
+		return truncateLogString(detail, 96)
+	}
+	return ""
+}
+
+func formatSyncLogDetail(args map[string]any) string {
+	parts := make([]string, 0, 5)
+
+	if total, ok := logArgInt(args, "targets_total", "targets"); ok {
+		parts = append(parts, fmt.Sprintf("targets=%d", total))
+	}
+	if failed, ok := logArgInt(args, "targets_failed"); ok && failed > 0 {
+		parts = append(parts, fmt.Sprintf("failed=%d", failed))
+	}
+	if dryRun, ok := logArgBool(args, "dry_run"); ok && dryRun {
+		parts = append(parts, "dry-run")
+	}
+	if force, ok := logArgBool(args, "force"); ok && force {
+		parts = append(parts, "force")
+	}
+	if scope, ok := logArgString(args, "scope"); ok && scope != "" {
+		parts = append(parts, "scope="+scope)
 	}
 
-	// Build detail from common args
-	parts := make([]string, 0, 3)
-	if v, ok := e.Args["source"]; ok {
-		parts = append(parts, fmt.Sprintf("%v", v))
+	if len(parts) == 0 {
+		return formatGenericLogDetail(args)
 	}
-	if v, ok := e.Args["name"]; ok {
-		parts = append(parts, fmt.Sprintf("%v", v))
-	}
-	if v, ok := e.Args["skills"]; ok {
-		parts = append(parts, fmt.Sprintf("%v", v))
-	}
-	if v, ok := e.Args["targets"]; ok {
-		parts = append(parts, fmt.Sprintf("%v target(s)", v))
-	}
-	if v, ok := e.Args["target"]; ok {
-		parts = append(parts, fmt.Sprintf("%v", v))
-	}
-	if v, ok := e.Args["summary"]; ok {
-		parts = append(parts, fmt.Sprintf("%v", v))
+	return strings.Join(parts, ", ")
+}
+
+func formatAuditLogDetail(args map[string]any) string {
+	parts := make([]string, 0, 8)
+
+	scope, hasScope := logArgString(args, "scope")
+	name, hasName := logArgString(args, "name")
+	if hasScope && scope == "single" && hasName && name != "" {
+		parts = append(parts, "skill="+name)
+	} else if hasScope && scope == "all" {
+		parts = append(parts, "all-skills")
+	} else if hasName && name != "" {
+		parts = append(parts, name)
 	}
 
-	return truncateLogString(strings.Join(parts, " "), 30)
+	if mode, ok := logArgString(args, "mode"); ok && mode != "" {
+		parts = append(parts, "mode="+mode)
+	}
+	if scanned, ok := logArgInt(args, "scanned"); ok {
+		parts = append(parts, fmt.Sprintf("scanned=%d", scanned))
+	}
+	if passed, ok := logArgInt(args, "passed"); ok {
+		parts = append(parts, fmt.Sprintf("passed=%d", passed))
+	}
+	if warning, ok := logArgInt(args, "warning"); ok && warning > 0 {
+		parts = append(parts, fmt.Sprintf("warning=%d", warning))
+	}
+	if failed, ok := logArgInt(args, "failed"); ok && failed > 0 {
+		parts = append(parts, fmt.Sprintf("failed=%d", failed))
+	}
+
+	critical, hasCritical := logArgInt(args, "critical")
+	high, hasHigh := logArgInt(args, "high")
+	medium, hasMedium := logArgInt(args, "medium")
+	if (hasCritical && critical > 0) || (hasHigh && high > 0) || (hasMedium && medium > 0) {
+		parts = append(parts, fmt.Sprintf("sev(c/h/m)=%d/%d/%d", critical, high, medium))
+	}
+
+	if scanErrors, ok := logArgInt(args, "scan_errors"); ok && scanErrors > 0 {
+		parts = append(parts, fmt.Sprintf("scan-errors=%d", scanErrors))
+	}
+
+	if len(parts) == 0 {
+		return formatGenericLogDetail(args)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatGenericLogDetail(args map[string]any) string {
+	parts := make([]string, 0, 4)
+
+	if source, ok := logArgString(args, "source"); ok {
+		parts = append(parts, source)
+	}
+	if name, ok := logArgString(args, "name"); ok {
+		parts = append(parts, name)
+	}
+	if target, ok := logArgString(args, "target"); ok {
+		parts = append(parts, target)
+	}
+	if targets, ok := logArgInt(args, "targets"); ok {
+		parts = append(parts, fmt.Sprintf("targets=%d", targets))
+	}
+	if summary, ok := logArgString(args, "summary"); ok {
+		parts = append(parts, summary)
+	}
+
+	return strings.Join(parts, ", ")
+}
+
+func logArgString(args map[string]any, key string) (string, bool) {
+	v, ok := args[key]
+	if !ok || v == nil {
+		return "", false
+	}
+
+	switch s := v.(type) {
+	case string:
+		return s, true
+	default:
+		return fmt.Sprintf("%v", v), true
+	}
+}
+
+func logArgInt(args map[string]any, keys ...string) (int, bool) {
+	for _, key := range keys {
+		v, ok := args[key]
+		if !ok || v == nil {
+			continue
+		}
+
+		switch n := v.(type) {
+		case int:
+			return n, true
+		case int64:
+			return int(n), true
+		case float64:
+			return int(n), true
+		case string:
+			parsed, err := strconv.Atoi(strings.TrimSpace(n))
+			if err == nil {
+				return parsed, true
+			}
+		}
+	}
+	return 0, false
+}
+
+func logArgBool(args map[string]any, key string) (bool, bool) {
+	v, ok := args[key]
+	if !ok || v == nil {
+		return false, false
+	}
+
+	switch b := v.(type) {
+	case bool:
+		return b, true
+	case string:
+		parsed, err := strconv.ParseBool(strings.TrimSpace(b))
+		if err == nil {
+			return parsed, true
+		}
+	}
+	return false, false
+}
+
+func logArgStringSlice(args map[string]any, key string) ([]string, bool) {
+	v, ok := args[key]
+	if !ok || v == nil {
+		return nil, false
+	}
+
+	switch raw := v.(type) {
+	case []string:
+		if len(raw) == 0 {
+			return nil, false
+		}
+		return raw, true
+	case []any:
+		items := make([]string, 0, len(raw))
+		for _, it := range raw {
+			s := strings.TrimSpace(fmt.Sprintf("%v", it))
+			if s != "" {
+				items = append(items, s)
+			}
+		}
+		if len(items) == 0 {
+			return nil, false
+		}
+		return items, true
+	case string:
+		s := strings.TrimSpace(raw)
+		if s == "" {
+			return nil, false
+		}
+		return []string{s}, true
+	default:
+		return nil, false
+	}
 }
 
 func formatLogStatus(status string) string {
@@ -206,21 +429,21 @@ func statusFromErr(err error) string {
 func printLogHelp() {
 	fmt.Println(`Usage: skillshare log [options]
 
-View the operation log for debugging and compliance.
+View operations and audit logs for debugging and compliance.
 
 Options:
-  --audit, -a       Show audit log instead of operations log
+  --audit, -a       Show only audit log
   --tail, -t <N>    Show last N entries (default: 20)
-  --clear, -c       Clear the log file
+  --clear, -c       Clear the selected log file
   --project, -p     Use project-level log
   --global, -g      Use global log
   --help, -h        Show this help
 
 Examples:
-  skillshare log                  Show recent operations
-  skillshare log --audit          Show audit log
-  skillshare log --tail 50        Show last 50 entries
+  skillshare log                  Show operations and audit logs
+  skillshare log --audit          Show only audit log
+  skillshare log --tail 50        Show last 50 entries per section
   skillshare log --clear          Clear operations log
   skillshare log --clear --audit  Clear audit log
-  skillshare log -p               Show project operations log`)
+  skillshare log -p               Show project operations and audit logs`)
 }

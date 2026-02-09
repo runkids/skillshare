@@ -9,7 +9,6 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
-	"skillshare/internal/oplog"
 )
 
 // handleDiscover clones a git repo to a temp dir, discovers skills, then cleans up.
@@ -62,6 +61,7 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 
 // handleInstallBatch re-clones a repo and installs each selected skill.
 func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -138,6 +138,19 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		summary += " (some errors)"
 	}
 
+	status := "ok"
+	if installed < len(body.Skills) {
+		status = "partial"
+	}
+	s.writeOpsLog("install", status, start, map[string]any{
+		"source":           body.Source,
+		"skills_selected":  len(body.Skills),
+		"skills_installed": installed,
+		"skills_failed":    len(body.Skills) - installed,
+		"force":            body.Force,
+		"scope":            "ui",
+	}, firstErr)
+
 	// Reconcile project config after install
 	if s.IsProjectMode() && installed > 0 {
 		_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
@@ -195,6 +208,14 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
 		}
 
+		s.writeOpsLog("install", "ok", start, map[string]any{
+			"source":      body.Source,
+			"name":        source.Name,
+			"track":       true,
+			"skill_count": result.SkillCount,
+			"scope":       "ui",
+		}, "")
+
 		writeJSON(w, map[string]any{
 			"repoName":   result.RepoName,
 			"skillCount": result.SkillCount,
@@ -222,10 +243,13 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
 	}
 
-	// Log install operation
-	e := oplog.NewEntry("install", "ok", time.Since(start))
-	e.Args = map[string]any{"source": body.Source}
-	oplog.Write(s.configPath(), oplog.OpsFile, e) //nolint:errcheck
+	s.writeOpsLog("install", "ok", start, map[string]any{
+		"source": body.Source,
+		"name":   source.Name,
+		"track":  false,
+		"force":  body.Force,
+		"scope":  "ui",
+	}, "")
 
 	writeJSON(w, map[string]any{
 		"skillName": result.SkillName,

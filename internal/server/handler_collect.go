@@ -82,6 +82,7 @@ func (s *Server) handleCollectScan(w http.ResponseWriter, r *http.Request) {
 // handleCollect pulls selected local skills from targets to source.
 // POST /api/collect  { skills: [{name, targetName}], force: bool }
 func (s *Server) handleCollect(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -143,6 +144,21 @@ func (s *Server) handleCollect(w http.ResponseWriter, r *http.Request) {
 	for k, v := range result.Failed {
 		failed[k] = v.Error()
 	}
+
+	status := "ok"
+	msg := ""
+	if len(result.Failed) > 0 {
+		status = "partial"
+		msg = "some skills failed to collect"
+	}
+	s.writeOpsLog("collect", status, start, map[string]any{
+		"skills_selected": len(body.Skills),
+		"skills_pulled":   len(result.Pulled),
+		"skills_skipped":  len(result.Skipped),
+		"skills_failed":   len(result.Failed),
+		"force":           body.Force,
+		"scope":           "ui",
+	}, msg)
 
 	writeJSON(w, map[string]any{
 		"pulled":  result.Pulled,

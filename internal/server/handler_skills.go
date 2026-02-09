@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/install"
 	"skillshare/internal/sync"
@@ -190,6 +191,7 @@ func (s *Server) handleGetSkillFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -216,10 +218,17 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.writeOpsLog("uninstall", "ok", start, map[string]any{
+		"name":  repoName,
+		"type":  "repo",
+		"scope": "ui",
+	}, "")
+
 	writeJSON(w, map[string]any{"success": true, "name": repoName, "movedToTrash": true})
 }
 
 func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -248,6 +257,12 @@ func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "failed to trash skill: "+err.Error())
 			return
 		}
+
+		s.writeOpsLog("uninstall", "ok", start, map[string]any{
+			"name":  baseName,
+			"type":  "skill",
+			"scope": "ui",
+		}, "")
 
 		writeJSON(w, map[string]any{"success": true, "name": name, "movedToTrash": true})
 		return

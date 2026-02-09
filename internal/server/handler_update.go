@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/git"
 	"skillshare/internal/install"
@@ -26,6 +27,7 @@ type updateResultItem struct {
 }
 
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -37,6 +39,26 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 
 	if body.All {
 		results := s.updateAll(body.Force)
+		total := len(results)
+		failed := 0
+		for _, item := range results {
+			if item.Action == "error" {
+				failed++
+			}
+		}
+		status := "ok"
+		msg := ""
+		if failed > 0 {
+			status = "partial"
+			msg = fmt.Sprintf("%d update(s) failed", failed)
+		}
+		s.writeOpsLog("update", status, start, map[string]any{
+			"name":           "--all",
+			"force":          body.Force,
+			"results_total":  total,
+			"results_failed": failed,
+			"scope":          "ui",
+		}, msg)
 		writeJSON(w, map[string]any{"results": results})
 		return
 	}
@@ -47,6 +69,20 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := s.updateSingle(body.Name, body.Force)
+	status := "ok"
+	msg := ""
+	if result.Action == "error" {
+		status = "error"
+		msg = result.Message
+	} else if result.Action == "skipped" {
+		status = "partial"
+		msg = result.Message
+	}
+	s.writeOpsLog("update", status, start, map[string]any{
+		"name":  body.Name,
+		"force": body.Force,
+		"scope": "ui",
+	}, msg)
 	writeJSON(w, map[string]any{"results": []updateResultItem{result}})
 }
 

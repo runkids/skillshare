@@ -14,6 +14,14 @@ import (
 	"skillshare/internal/utils"
 )
 
+type syncLogStats struct {
+	Targets      int
+	Failed       int
+	DryRun       bool
+	Force        bool
+	ProjectScope bool
+}
+
 func cmdSync(args []string) error {
 	start := time.Now()
 
@@ -37,27 +45,13 @@ func cmdSync(args []string) error {
 
 	applyModeLabel(mode)
 
+	dryRun, force := parseSyncFlags(rest)
+
 	if mode == modeProject {
-		pCfg, _ := config.LoadProject(cwd)
-		targets := 0
-		if pCfg != nil {
-			targets = len(pCfg.Targets)
-		}
-		err := cmdSyncProject(rest, cwd)
-		logSyncOp(config.ProjectConfigPath(cwd), targets, start, err)
+		stats, err := cmdSyncProject(cwd, dryRun, force)
+		stats.ProjectScope = true
+		logSyncOp(config.ProjectConfigPath(cwd), stats, start, err)
 		return err
-	}
-
-	dryRun := false
-	force := false
-
-	for _, arg := range rest {
-		switch arg {
-		case "--dry-run", "-n":
-			dryRun = true
-		case "--force", "-f":
-			force = true
-		}
 	}
 
 	cfg, err := config.Load()
@@ -98,16 +92,16 @@ func cmdSync(args []string) error {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
-	hasError := false
+	failedTargets := 0
 	for name, target := range cfg.Targets {
 		if err := syncTarget(name, target, cfg, dryRun, force); err != nil {
 			ui.Error("%s: %v", name, err)
-			hasError = true
+			failedTargets++
 		}
 	}
 
 	var syncErr error
-	if hasError {
+	if failedTargets > 0 {
 		syncErr = fmt.Errorf("some targets failed to sync")
 	}
 
@@ -118,13 +112,39 @@ func cmdSync(args []string) error {
 		}
 	}
 
-	logSyncOp(config.ConfigPath(), len(cfg.Targets), start, syncErr)
+	logSyncOp(config.ConfigPath(), syncLogStats{
+		Targets: len(cfg.Targets),
+		Failed:  failedTargets,
+		DryRun:  dryRun,
+		Force:   force,
+	}, start, syncErr)
 	return syncErr
 }
 
-func logSyncOp(cfgPath string, targets int, start time.Time, cmdErr error) {
+func parseSyncFlags(args []string) (dryRun bool, force bool) {
+	for _, arg := range args {
+		switch arg {
+		case "--dry-run", "-n":
+			dryRun = true
+		case "--force", "-f":
+			force = true
+		}
+	}
+	return dryRun, force
+}
+
+func logSyncOp(cfgPath string, stats syncLogStats, start time.Time, cmdErr error) {
 	e := oplog.NewEntry("sync", statusFromErr(cmdErr), time.Since(start))
-	e.Args = map[string]any{"targets": targets}
+	e.Args = map[string]any{
+		"targets_total":  stats.Targets,
+		"targets_failed": stats.Failed,
+		"dry_run":        stats.DryRun,
+		"force":          stats.Force,
+		"scope":          "global",
+	}
+	if stats.ProjectScope {
+		e.Args["scope"] = "project"
+	}
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
 	}

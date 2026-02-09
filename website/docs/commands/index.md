@@ -60,7 +60,7 @@ Complete reference for all skillshare commands.
 | Command | Description |
 |---------|-------------|
 | [audit](./audit) | Scan skills for security threats |
-| [log](./log) | View operation log |
+| [log](./log) | View operations and audit logs |
 | [doctor](./doctor) | Diagnose issues |
 | [ui](./ui) | Launch web dashboard |
 

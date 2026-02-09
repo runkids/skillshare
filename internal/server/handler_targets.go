@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"time"
 
 	"skillshare/internal/config"
 	ssync "skillshare/internal/sync"
@@ -61,6 +62,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -110,10 +112,18 @@ func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.writeOpsLog("target", "ok", start, map[string]any{
+		"action": "add",
+		"name":   body.Name,
+		"target": body.Path,
+		"scope":  "ui",
+	}, "")
+
 	writeJSON(w, map[string]any{"success": true})
 }
 
 func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -148,6 +158,13 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
 		return
 	}
+
+	s.writeOpsLog("target", "ok", start, map[string]any{
+		"action": "remove",
+		"name":   name,
+		"target": target.Path,
+		"scope":  "ui",
+	}, "")
 
 	writeJSON(w, map[string]any{"success": true, "name": name})
 }

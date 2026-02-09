@@ -10,32 +10,27 @@ import (
 	"skillshare/internal/ui"
 )
 
-func cmdSyncProject(args []string, root string) error {
-	dryRun := false
-	force := false
-
-	for _, arg := range args {
-		switch arg {
-		case "--dry-run", "-n":
-			dryRun = true
-		case "--force", "-f":
-			force = true
-		}
+func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
+	stats := syncLogStats{
+		DryRun:       dryRun,
+		Force:        force,
+		ProjectScope: true,
 	}
 
 	if !projectConfigExists(root) {
 		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return err
+			return stats, err
 		}
 	}
 
 	runtime, err := loadProjectRuntime(root)
 	if err != nil {
-		return err
+		return stats, err
 	}
+	stats.Targets = len(runtime.config.Targets)
 
 	if _, err := os.Stat(runtime.sourcePath); os.IsNotExist(err) {
-		return fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
+		return stats, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
 	}
 
 	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(runtime.sourcePath)
@@ -60,13 +55,13 @@ func cmdSyncProject(args []string, root string) error {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
-	hasError := false
+	failedTargets := 0
 	for _, entry := range runtime.config.Targets {
 		name := entry.Name
 		target, ok := runtime.targets[name]
 		if !ok {
 			ui.Error("%s: target not found", name)
-			hasError = true
+			failedTargets++
 			continue
 		}
 
@@ -78,18 +73,19 @@ func cmdSyncProject(args []string, root string) error {
 		if mode == "symlink" {
 			if err := syncSymlinkMode(name, target, runtime.sourcePath, dryRun, force); err != nil {
 				ui.Error("%s: %v", name, err)
-				hasError = true
+				failedTargets++
 			}
 		} else {
 			if err := syncMergeMode(name, target, runtime.sourcePath, dryRun, force); err != nil {
 				ui.Error("%s: %v", name, err)
-				hasError = true
+				failedTargets++
 			}
 		}
 	}
 
-	if hasError {
-		return fmt.Errorf("some targets failed to sync")
+	stats.Failed = failedTargets
+	if failedTargets > 0 {
+		return stats, fmt.Errorf("some targets failed to sync")
 	}
 
 	// Opportunistic cleanup of expired trash items
@@ -99,7 +95,7 @@ func cmdSyncProject(args []string, root string) error {
 		}
 	}
 
-	return nil
+	return stats, nil
 }
 
 func projectTargetDisplayPath(entry config.ProjectTargetEntry) string {

@@ -4,26 +4,23 @@ import (
 	"fmt"
 )
 
-func cmdAuditProject(root string, args []string) error {
+func cmdAuditProject(root, specificSkill string) (auditRunSummary, bool, error) {
 	if !projectConfigExists(root) {
-		return fmt.Errorf("no project config found; run 'skillshare init -p' first")
+		return auditRunSummary{}, false, fmt.Errorf("no project config found; run 'skillshare init -p' first")
 	}
 
 	rt, err := loadProjectRuntime(root)
 	if err != nil {
-		return err
-	}
-
-	var specificSkill string
-	for _, a := range args {
-		if specificSkill == "" {
-			specificSkill = a
-		}
+		return auditRunSummary{}, false, err
 	}
 
 	if specificSkill != "" {
-		return auditSingleSkill(rt.sourcePath, specificSkill)
+		summary, blocked, err := auditSingleSkill(rt.sourcePath, specificSkill)
+		summary.Mode = "project"
+		return summary, blocked, err
 	}
 
-	return auditAllSkills(rt.sourcePath)
+	summary, blocked, err := auditAllSkills(rt.sourcePath)
+	summary.Mode = "project"
+	return summary, blocked, err
 }

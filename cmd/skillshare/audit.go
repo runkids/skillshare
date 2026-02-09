@@ -14,6 +14,22 @@ import (
 	"skillshare/internal/utils"
 )
 
+type auditRunSummary struct {
+	Scope      string
+	Skill      string
+	Scanned    int
+	Passed     int
+	Warning    int
+	Failed     int
+	Critical   int
+	High       int
+	Medium     int
+	WarnSkills []string
+	FailSkills []string
+	ScanErrors int
+	Mode       string
+}
+
 func cmdAudit(args []string) error {
 	start := time.Now()
 
@@ -37,19 +53,7 @@ func cmdAudit(args []string) error {
 
 	applyModeLabel(mode)
 
-	if mode == modeProject {
-		err := cmdAuditProject(cwd, rest)
-		logAuditOp(config.ProjectConfigPath(cwd), rest, start, err)
-		return err
-	}
-
-	cfg, err := config.Load()
-	if err != nil {
-		return err
-	}
-
-	// Determine what to scan
-	var specificSkill string
+	specificSkill := ""
 	for _, a := range rest {
 		if a == "--help" || a == "-h" {
 			printAuditHelp()
@@ -60,32 +64,100 @@ func cmdAudit(args []string) error {
 		}
 	}
 
-	if specificSkill != "" {
-		err = auditSingleSkill(cfg.Source, specificSkill)
-		logAuditOp(config.ConfigPath(), rest, start, err)
+	var (
+		summary auditRunSummary
+		blocked bool
+	)
+
+	if mode == modeProject {
+		summary, blocked, err = cmdAuditProject(cwd, specificSkill)
+		logAuditOp(config.ProjectConfigPath(cwd), rest, summary, start, err, blocked)
+		if blocked && err == nil {
+			os.Exit(1)
+		}
 		return err
 	}
 
-	err = auditAllSkills(cfg.Source)
-	logAuditOp(config.ConfigPath(), rest, start, err)
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	summary, blocked, err = runAudit(cfg.Source, specificSkill)
+	summary.Mode = "global"
+	logAuditOp(config.ConfigPath(), rest, summary, start, err, blocked)
+	if blocked && err == nil {
+		os.Exit(1)
+	}
 	return err
 }
 
-func logAuditOp(cfgPath string, args []string, start time.Time, cmdErr error) {
-	e := oplog.NewEntry("audit", statusFromErr(cmdErr), time.Since(start))
-	if len(args) > 0 {
-		e.Args = map[string]any{"name": args[0]}
+func runAudit(sourcePath, specificSkill string) (auditRunSummary, bool, error) {
+	if specificSkill != "" {
+		return auditSingleSkill(sourcePath, specificSkill)
+	}
+	return auditAllSkills(sourcePath)
+}
+
+func logAuditOp(cfgPath string, args []string, summary auditRunSummary, start time.Time, cmdErr error, blocked bool) {
+	status := statusFromErr(cmdErr)
+	if blocked && cmdErr == nil {
+		status = "blocked"
+	}
+
+	e := oplog.NewEntry("audit", status, time.Since(start))
+	fields := map[string]any{}
+
+	if summary.Scope != "" {
+		fields["scope"] = summary.Scope
+	}
+	if summary.Skill != "" {
+		fields["name"] = summary.Skill
+	}
+	if summary.Mode != "" {
+		fields["mode"] = summary.Mode
+	}
+	if summary.Scanned > 0 {
+		fields["scanned"] = summary.Scanned
+		fields["passed"] = summary.Passed
+		fields["warning"] = summary.Warning
+		fields["failed"] = summary.Failed
+		fields["critical"] = summary.Critical
+		fields["high"] = summary.High
+		fields["medium"] = summary.Medium
+		if len(summary.WarnSkills) > 0 {
+			fields["warning_skills"] = summary.WarnSkills
+		}
+		if len(summary.FailSkills) > 0 {
+			fields["failed_skills"] = summary.FailSkills
+		}
+	}
+	if summary.ScanErrors > 0 {
+		fields["scan_errors"] = summary.ScanErrors
+	}
+	if len(fields) == 0 && len(args) > 0 {
+		fields["name"] = args[0]
+	}
+	if len(fields) > 0 {
+		e.Args = fields
 	}
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
+	} else if blocked {
+		e.Message = "critical findings detected"
 	}
 	oplog.Write(cfgPath, oplog.AuditFile, e) //nolint:errcheck
 }
 
-func auditSingleSkill(sourcePath, name string) error {
+func auditSingleSkill(sourcePath, name string) (auditRunSummary, bool, error) {
+	summary := auditRunSummary{
+		Scope: "single",
+		Skill: name,
+	}
+
 	skillPath := filepath.Join(sourcePath, name)
 	if _, err := os.Stat(skillPath); os.IsNotExist(err) {
-		return fmt.Errorf("skill not found: %s", name)
+		return summary, false, fmt.Errorf("skill not found: %s", name)
 	}
 
 	ui.HeaderBox("skillshare audit", fmt.Sprintf("Scanning skill: %s", name))
@@ -93,29 +165,29 @@ func auditSingleSkill(sourcePath, name string) error {
 	start := time.Now()
 	result, err := audit.ScanSkill(skillPath)
 	if err != nil {
-		return fmt.Errorf("scan error: %w", err)
+		return summary, false, fmt.Errorf("scan error: %w", err)
 	}
 	elapsed := time.Since(start)
 
 	printSkillResult(result, elapsed)
 	printAuditSummary(1, []*audit.Result{result})
 
-	if result.HasCritical() {
-		os.Exit(1)
-	}
-	return nil
+	summary = summarizeAuditResults(1, []*audit.Result{result})
+	summary.Scope = "single"
+	summary.Skill = name
+	return summary, result.HasCritical(), nil
 }
 
-func auditAllSkills(sourcePath string) error {
+func auditAllSkills(sourcePath string) (auditRunSummary, bool, error) {
 	// Discover all skills
 	discovered, err := sync.DiscoverSourceSkills(sourcePath)
 	if err != nil {
-		return fmt.Errorf("failed to discover skills: %w", err)
+		return auditRunSummary{Scope: "all"}, false, fmt.Errorf("failed to discover skills: %w", err)
 	}
 
 	if len(discovered) == 0 {
 		ui.Info("No skills found in source directory")
-		return nil
+		return auditRunSummary{Scope: "all"}, false, nil
 	}
 
 	// Deduplicate by SourcePath — DiscoverSourceSkills may walk nested repos
@@ -155,6 +227,7 @@ func auditAllSkills(sourcePath string) error {
 	ui.HeaderBox("skillshare audit", fmt.Sprintf("Scanning %d skills for threats", total))
 
 	var results []*audit.Result
+	scanErrors := 0
 	for i, sp := range skillPaths {
 		start := time.Now()
 		result, err := audit.ScanSkill(sp.path)
@@ -162,6 +235,7 @@ func auditAllSkills(sourcePath string) error {
 
 		if err != nil {
 			ui.ListItem("error", sp.name, fmt.Sprintf("scan error: %v", err))
+			scanErrors++
 			continue
 		}
 
@@ -172,14 +246,17 @@ func auditAllSkills(sourcePath string) error {
 	fmt.Println()
 	printAuditSummary(total, results)
 
-	// Exit with code 1 if any critical findings
+	summary := summarizeAuditResults(total, results)
+	summary.Scope = "all"
+	summary.ScanErrors = scanErrors
+
 	for _, r := range results {
 		if r.HasCritical() {
-			os.Exit(1)
+			return summary, true, nil
 		}
 	}
 
-	return nil
+	return summary, false, nil
 }
 
 // printSkillResultLine prints a single-line result for a skill during batch scan.
@@ -254,51 +331,56 @@ func printSkillResult(result *audit.Result, elapsed time.Duration) {
 }
 
 func printAuditSummary(total int, results []*audit.Result) {
-	passed := 0
-	warning := 0
-	failed := 0
-	var totalCritical, totalHigh, totalMedium int
-
-	for _, r := range results {
-		c, h, m := r.CountBySeverity()
-		totalCritical += c
-		totalHigh += h
-		totalMedium += m
-
-		switch r.MaxSeverity() {
-		case audit.SeverityCritical, audit.SeverityHigh:
-			failed++
-		case audit.SeverityMedium:
-			warning++
-		default:
-			passed++
-		}
-	}
+	summary := summarizeAuditResults(total, results)
 
 	var lines []string
-	lines = append(lines, fmt.Sprintf("  Scanned:  %d skills", total))
-	lines = append(lines, fmt.Sprintf("  Passed:   %d", passed))
+	lines = append(lines, fmt.Sprintf("  Scanned:  %d skills", summary.Scanned))
+	lines = append(lines, fmt.Sprintf("  Passed:   %d", summary.Passed))
 
-	if warning > 0 {
-		lines = append(lines, fmt.Sprintf("  Warning:  %d (%d medium)", warning, totalMedium))
+	if summary.Warning > 0 {
+		lines = append(lines, fmt.Sprintf("  Warning:  %d (%d medium)", summary.Warning, summary.Medium))
 	} else {
-		lines = append(lines, fmt.Sprintf("  Warning:  %d", warning))
+		lines = append(lines, fmt.Sprintf("  Warning:  %d", summary.Warning))
 	}
 
-	if failed > 0 {
+	if summary.Failed > 0 {
 		parts := []string{}
-		if totalCritical > 0 {
-			parts = append(parts, fmt.Sprintf("%d critical", totalCritical))
+		if summary.Critical > 0 {
+			parts = append(parts, fmt.Sprintf("%d critical", summary.Critical))
 		}
-		if totalHigh > 0 {
-			parts = append(parts, fmt.Sprintf("%d high", totalHigh))
+		if summary.High > 0 {
+			parts = append(parts, fmt.Sprintf("%d high", summary.High))
 		}
-		lines = append(lines, fmt.Sprintf("  Failed:   %d (%s)", failed, joinParts(parts)))
+		lines = append(lines, fmt.Sprintf("  Failed:   %d (%s)", summary.Failed, joinParts(parts)))
 	} else {
-		lines = append(lines, fmt.Sprintf("  Failed:   %d", failed))
+		lines = append(lines, fmt.Sprintf("  Failed:   %d", summary.Failed))
 	}
 
 	ui.Box("Summary", lines...)
+}
+
+func summarizeAuditResults(total int, results []*audit.Result) auditRunSummary {
+	summary := auditRunSummary{Scanned: total}
+
+	for _, r := range results {
+		c, h, m := r.CountBySeverity()
+		summary.Critical += c
+		summary.High += h
+		summary.Medium += m
+
+		switch r.MaxSeverity() {
+		case audit.SeverityCritical, audit.SeverityHigh:
+			summary.Failed++
+			summary.FailSkills = append(summary.FailSkills, r.SkillName)
+		case audit.SeverityMedium:
+			summary.Warning++
+			summary.WarnSkills = append(summary.WarnSkills, r.SkillName)
+		default:
+			summary.Passed++
+		}
+	}
+
+	return summary
 }
 
 func formatSeverity(sev string) string {

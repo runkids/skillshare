@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"skillshare/internal/git"
 	ssync "skillshare/internal/sync"
@@ -61,6 +62,7 @@ type pushResponse struct {
 
 // handlePush stages, commits, and pushes changes
 func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -88,11 +90,21 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if status == "" {
+		s.writeOpsLog("push", "ok", start, map[string]any{
+			"summary": "nothing to push",
+			"dry_run": body.DryRun,
+			"scope":   "ui",
+		}, "")
 		writeJSON(w, pushResponse{Success: true, Message: "nothing to push (working tree clean)", DryRun: body.DryRun})
 		return
 	}
 
 	if body.DryRun {
+		s.writeOpsLog("push", "ok", start, map[string]any{
+			"summary": "dry run",
+			"dry_run": true,
+			"scope":   "ui",
+		}, "")
 		writeJSON(w, pushResponse{Success: true, Message: "dry run: would stage, commit, and push changes", DryRun: true})
 		return
 	}
@@ -119,6 +131,12 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.writeOpsLog("push", "ok", start, map[string]any{
+		"message": msg,
+		"dry_run": false,
+		"scope":   "ui",
+	}, "")
+
 	writeJSON(w, pushResponse{Success: true, Message: "pushed successfully"})
 }
 
@@ -134,6 +152,7 @@ type pullResponse struct {
 
 // handlePull pulls changes and syncs to targets
 func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -165,6 +184,11 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if body.DryRun {
+		s.writeOpsLog("pull", "ok", start, map[string]any{
+			"summary": "dry run",
+			"dry_run": true,
+			"scope":   "ui",
+		}, "")
 		writeJSON(w, pullResponse{Success: true, DryRun: true, Message: "dry run: would pull and sync"})
 		return
 	}
@@ -231,6 +255,14 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	if resp.SyncResults == nil {
 		resp.SyncResults = make([]syncTargetResult, 0)
 	}
+
+	s.writeOpsLog("pull", "ok", start, map[string]any{
+		"dry_run":      false,
+		"up_to_date":   resp.UpToDate,
+		"commits":      len(resp.Commits),
+		"targets_sync": len(resp.SyncResults),
+		"scope":        "ui",
+	}, "")
 
 	writeJSON(w, resp)
 }

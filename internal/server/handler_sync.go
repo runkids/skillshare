@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"skillshare/internal/oplog"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
@@ -57,6 +56,14 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		if mode == "merge" {
 			mergeResult, err := ssync.SyncTargetMerge(name, target, s.cfg.Source, body.DryRun, body.Force)
 			if err != nil {
+				s.writeOpsLog("sync", "error", start, map[string]any{
+					"targets_total":  len(s.cfg.Targets),
+					"targets_failed": 1,
+					"target":         name,
+					"dry_run":        body.DryRun,
+					"force":          body.Force,
+					"scope":          "ui",
+				}, err.Error())
 				writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
 				return
 			}
@@ -72,6 +79,14 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		} else {
 			err := ssync.SyncTarget(name, target, s.cfg.Source, body.DryRun)
 			if err != nil {
+				s.writeOpsLog("sync", "error", start, map[string]any{
+					"targets_total":  len(s.cfg.Targets),
+					"targets_failed": 1,
+					"target":         name,
+					"dry_run":        body.DryRun,
+					"force":          body.Force,
+					"scope":          "ui",
+				}, err.Error())
 				writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
 				return
 			}
@@ -82,9 +97,13 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Log the sync operation
-	e := oplog.NewEntry("sync", "ok", time.Since(start))
-	e.Args = map[string]any{"targets": len(results)}
-	oplog.Write(s.configPath(), oplog.OpsFile, e) //nolint:errcheck
+	s.writeOpsLog("sync", "ok", start, map[string]any{
+		"targets_total":  len(results),
+		"targets_failed": 0,
+		"dry_run":        body.DryRun,
+		"force":          body.Force,
+		"scope":          "ui",
+	}, "")
 
 	writeJSON(w, map[string]any{"results": results})
 }

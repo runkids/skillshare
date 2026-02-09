@@ -4,14 +4,14 @@ sidebar_position: 4
 
 # log
 
-View the persistent operation log for debugging and compliance.
+View persistent operations and audit logs for debugging and compliance.
 
 ```bash
-skillshare log                  # Show recent operations
-skillshare log --audit          # Show audit log
-skillshare log --tail 50        # Show last 50 entries
+skillshare log                  # Show operations + audit sections
+skillshare log --audit          # Show only audit log
+skillshare log --tail 50        # Show last 50 entries per section
 skillshare log --clear          # Clear operations log
-skillshare log -p               # Show project operations log
+skillshare log -p               # Show project operations + audit logs
 ```
 
 ## What Gets Logged
@@ -20,20 +20,23 @@ Every mutating CLI and Web UI operation is recorded as a JSONL entry with timest
 
 | Command | Log File |
 |---------|----------|
-| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update` | `operations.log` |
+| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `target`, `trash`, `config` | `operations.log` |
 | `audit` | `audit.log` |
+
+Web UI actions that call these APIs are logged the same way as CLI operations.
 
 ## Log Types
 
-### Operations Log (default)
-
-Records install, uninstall, sync, push, pull, collect, backup, restore, and update operations.
+### Default View
+Shows **both sections** in one output:
+- Operations log
+- Audit log
 
 ```bash
 skillshare log
 ```
 
-### Audit Log
+### Audit-Only View
 
 Records security audit scans separately from normal operations.
 
@@ -44,13 +47,15 @@ skillshare log --audit
 ## Example Output
 
 ```
-┌─ Operations Log (last 5) ───────────────┐
+┌─ skillshare log ───────────────────────────────┐
+  Operations (last 2)
+  2026-02-10 14:31  sync   targets=3, failed=1, scope=global            error   0.8s
+  2026-02-10 14:35  sync   targets=3, scope=global                       ok      0.3s
 
-  2026-02-10 14:30  INSTALL  anthropics/skills/pdf        ok       1.2s
-  2026-02-10 14:31  SYNC     some targets failed to sync  error    0.8s
-  2026-02-10 14:35  SYNC                                  ok       0.3s
-  2026-02-10 15:00  UPDATE   _team-skills                 ok       2.1s
-  2026-02-10 15:01  PUSH     Add new skill                ok       0.5s
+┌─ skillshare log ───────────────────────────────┐
+  Audit (last 1)
+  2026-02-10 14:36  audit  all-skills, scanned=12, passed=11, failed=1   blocked 1.1s
+                     -> failed skills: prompt-injection-skill, data-exfil-skill
 ```
 
 ## Log Format
@@ -83,9 +88,9 @@ Entries are stored in JSONL format (one JSON object per line):
 
 | Flag | Description |
 |------|------------|
-| `-a`, `--audit` | Show audit log instead of operations log |
+| `-a`, `--audit` | Show only audit log |
 | `-t`, `--tail <N>` | Show last N entries (default: 20) |
-| `-c`, `--clear` | Clear the log file |
+| `-c`, `--clear` | Clear selected log file (operations by default, audit with `--audit`) |
 | `-p`, `--project` | Use project-level log |
 | `-g`, `--global` | Use global log |
 | `-h`, `--help` | Show help |
@@ -100,8 +105,9 @@ skillshare ui
 ```
 
 The Log page provides:
-- **Tabs** to switch between Operations and Audit logs
+- **Tabs** for `All`, `Operations`, and `Audit`
 - **Table view** with time, command, details, status, and duration
+- **Audit detail rows** showing failed/warning skill names when present
 - **Clear** and **Refresh** controls
 
 ## Related

@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"skillshare/internal/backup"
 )
@@ -47,6 +48,7 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request) {
 
 // handleCreateBackup creates a backup of target(s)
 func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -81,6 +83,13 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	s.writeOpsLog("backup", "ok", start, map[string]any{
+		"target":         body.Target,
+		"targets_total":  len(targets),
+		"targets_backed": len(created),
+		"scope":          "ui",
+	}, "")
+
 	writeJSON(w, map[string]any{
 		"success":         true,
 		"backedUpTargets": created,
@@ -89,6 +98,7 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 
 // handleCleanupBackups removes old backups
 func (s *Server) handleCleanupBackups(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -99,6 +109,12 @@ func (s *Server) handleCleanupBackups(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.writeOpsLog("backup", "ok", start, map[string]any{
+		"action":  "cleanup",
+		"removed": removed,
+		"scope":   "ui",
+	}, "")
+
 	writeJSON(w, map[string]any{
 		"success": true,
 		"removed": removed,
@@ -107,6 +123,7 @@ func (s *Server) handleCleanupBackups(w http.ResponseWriter, r *http.Request) {
 
 // handleRestore restores a backup to a target
 func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -152,6 +169,13 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "restore failed: "+err.Error())
 		return
 	}
+
+	s.writeOpsLog("restore", "ok", start, map[string]any{
+		"target": body.Target,
+		"from":   body.Timestamp,
+		"force":  body.Force,
+		"scope":  "ui",
+	}, "")
 
 	writeJSON(w, map[string]any{
 		"success":   true,

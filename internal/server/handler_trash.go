@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"os"
+	"time"
 
 	"skillshare/internal/trash"
 )
@@ -47,6 +48,7 @@ func (s *Server) handleListTrash(w http.ResponseWriter, r *http.Request) {
 
 // handleRestoreTrash restores a trashed skill back to the source directory.
 func (s *Server) handleRestoreTrash(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -64,11 +66,18 @@ func (s *Server) handleRestoreTrash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.writeOpsLog("trash", "ok", start, map[string]any{
+		"action": "restore",
+		"name":   name,
+		"scope":  "ui",
+	}, "")
+
 	writeJSON(w, map[string]any{"success": true})
 }
 
 // handleDeleteTrash permanently deletes a single trashed item.
 func (s *Server) handleDeleteTrash(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -86,11 +95,18 @@ func (s *Server) handleDeleteTrash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.writeOpsLog("trash", "ok", start, map[string]any{
+		"action": "delete",
+		"name":   name,
+		"scope":  "ui",
+	}, "")
+
 	writeJSON(w, map[string]any{"success": true})
 }
 
 // handleEmptyTrash permanently deletes all trashed items.
 func (s *Server) handleEmptyTrash(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -105,6 +121,12 @@ func (s *Server) handleEmptyTrash(w http.ResponseWriter, r *http.Request) {
 		}
 		removed++
 	}
+
+	s.writeOpsLog("trash", "ok", start, map[string]any{
+		"action":  "empty",
+		"removed": removed,
+		"scope":   "ui",
+	}, "")
 
 	writeJSON(w, map[string]any{"success": true, "removed": removed})
 }

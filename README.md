@@ -189,7 +189,7 @@ skillshare sync            # Sync skills to all targets
 | `skillshare update --all` | Update all tracked repos |
 | `skillshare uninstall <name>` | Remove skill from source |
 | `skillshare audit [name]` | Scan skills for security threats |
-| `skillshare log` | View operation log for debugging and compliance |
+| `skillshare log` | View operations and audit logs for debugging and compliance |
 | `skillshare search <query>` | Search installable skills on GitHub |
 
 `skillshare search` requires GitHub auth (`gh auth login`) or `GITHUB_TOKEN`.

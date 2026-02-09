@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"skillshare/internal/audit"
 	"skillshare/internal/sync"
@@ -32,6 +33,7 @@ type auditSummary struct {
 }
 
 func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	source := s.cfg.Source
 
 	// Discover all skills
@@ -71,10 +73,17 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 
 	var results []auditResultResponse
 	summary := auditSummary{Total: len(skills)}
+	criticalCount := 0
+	highCount := 0
+	mediumCount := 0
+	failedSkills := make([]string, 0)
+	warningSkills := make([]string, 0)
+	scanErrors := 0
 
 	for _, sk := range skills {
 		result, err := audit.ScanSkill(sk.path)
 		if err != nil {
+			scanErrors++
 			continue
 		}
 
@@ -84,12 +93,45 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 		switch result.MaxSeverity() {
 		case audit.SeverityCritical, audit.SeverityHigh:
 			summary.Failed++
+			failedSkills = append(failedSkills, result.SkillName)
 		case audit.SeverityMedium:
 			summary.Warning++
+			warningSkills = append(warningSkills, result.SkillName)
 		default:
 			summary.Passed++
 		}
+
+		c, h, m := result.CountBySeverity()
+		criticalCount += c
+		highCount += h
+		mediumCount += m
 	}
+
+	status := "ok"
+	msg := ""
+	if criticalCount > 0 {
+		status = "blocked"
+		msg = "critical findings detected"
+	}
+	args := map[string]any{
+		"scope":       "all",
+		"mode":        "ui",
+		"scanned":     summary.Total,
+		"passed":      summary.Passed,
+		"warning":     summary.Warning,
+		"failed":      summary.Failed,
+		"critical":    criticalCount,
+		"high":        highCount,
+		"medium":      mediumCount,
+		"scan_errors": scanErrors,
+	}
+	if len(failedSkills) > 0 {
+		args["failed_skills"] = failedSkills
+	}
+	if len(warningSkills) > 0 {
+		args["warning_skills"] = warningSkills
+	}
+	s.writeAuditLog(status, start, args, msg)
 
 	writeJSON(w, map[string]any{
 		"results": results,
@@ -98,6 +140,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	name := r.PathValue("name")
 	skillPath := filepath.Join(s.cfg.Source, name)
 
@@ -112,7 +155,54 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	c, h, m := result.CountBySeverity()
+	warningCount := 0
+	failedCount := 0
+	failedSkills := []string{}
+	warningSkills := []string{}
+	switch result.MaxSeverity() {
+	case audit.SeverityCritical, audit.SeverityHigh:
+		failedCount = 1
+		failedSkills = append(failedSkills, result.SkillName)
+	case audit.SeverityMedium:
+		warningCount = 1
+		warningSkills = append(warningSkills, result.SkillName)
+	}
+
+	status := "ok"
+	msg := ""
+	if result.HasCritical() {
+		status = "blocked"
+		msg = "critical findings detected"
+	}
+	args := map[string]any{
+		"scope":    "single",
+		"name":     name,
+		"mode":     "ui",
+		"scanned":  1,
+		"passed":   boolToInt(len(result.Findings) == 0),
+		"warning":  warningCount,
+		"failed":   failedCount,
+		"critical": c,
+		"high":     h,
+		"medium":   m,
+	}
+	if len(failedSkills) > 0 {
+		args["failed_skills"] = failedSkills
+	}
+	if len(warningSkills) > 0 {
+		args["warning_skills"] = warningSkills
+	}
+	s.writeAuditLog(status, start, args, msg)
+
 	writeJSON(w, toAuditResponse(result))
+}
+
+func boolToInt(v bool) int {
+	if v {
+		return 1
+	}
+	return 0
 }
 
 func toAuditResponse(result *audit.Result) auditResultResponse {

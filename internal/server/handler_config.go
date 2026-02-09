@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/yaml.v3"
 	"skillshare/internal/config"
@@ -29,6 +30,7 @@ func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -64,6 +66,10 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "config saved but failed to reload: "+err.Error())
 		return
 	}
+
+	s.writeOpsLog("config", "ok", start, map[string]any{
+		"scope": "ui",
+	}, "")
 
 	writeJSON(w, map[string]any{"success": true})
 }
