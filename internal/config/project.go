@@ -59,8 +59,9 @@ func (t ProjectTargetEntry) MarshalYAML() (interface{}, error) {
 
 // ProjectSkill represents a remote skill entry in project config.
 type ProjectSkill struct {
-	Name   string `yaml:"name"`
-	Source string `yaml:"source"`
+	Name    string `yaml:"name"`
+	Source  string `yaml:"source"`
+	Tracked bool   `yaml:"tracked,omitempty"`
 }
 
 // ProjectConfig holds project-level config (.skillshare/config.yaml).

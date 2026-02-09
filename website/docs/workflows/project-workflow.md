@@ -110,7 +110,9 @@ git add .skillshare/
 git commit -m "Remove my-skill"
 ```
 
-### New Team Member Joins
+### Anyone Joins the Project
+
+Whether it's a new team member, an open source contributor, or someone trying a community template — the setup is the same:
 
 ```bash
 # Clone the project
@@ -123,6 +125,8 @@ skillshare install -p
 # Sync to targets
 skillshare sync
 ```
+
+The `config.yaml` acts as a portable skill manifest — no manual skill hunting required.
 
 ---
 

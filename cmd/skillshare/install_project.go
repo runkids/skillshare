@@ -180,28 +180,39 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 			continue
 		}
 
-		if err := validate.SkillName(skillName); err != nil {
-			ui.StepFail(skillName, fmt.Sprintf("invalid name: %v", err))
-			continue
-		}
-
 		source.Name = skillName
-		result, err := install.Install(source, destPath, opts)
-		if err != nil {
-			ui.StepFail(skillName, err.Error())
-			continue
+
+		if skill.Tracked {
+			trackedResult, err := install.InstallTrackedRepo(source, runtime.sourcePath, opts)
+			if err != nil {
+				ui.StepFail(skillName, err.Error())
+				continue
+			}
+			if opts.DryRun {
+				ui.StepDone(skillName, trackedResult.Action)
+				continue
+			}
+			ui.StepDone(skillName, fmt.Sprintf("installed (tracked, %d skills)", trackedResult.SkillCount))
+		} else {
+			if err := validate.SkillName(skillName); err != nil {
+				ui.StepFail(skillName, fmt.Sprintf("invalid name: %v", err))
+				continue
+			}
+			result, err := install.Install(source, destPath, opts)
+			if err != nil {
+				ui.StepFail(skillName, err.Error())
+				continue
+			}
+			if opts.DryRun {
+				ui.StepDone(skillName, result.Action)
+				continue
+			}
+			if err := install.UpdateGitIgnore(filepath.Join(runtime.root, ".skillshare"), filepath.Join("skills", skillName)); err != nil {
+				ui.Warning("Failed to update .skillshare/.gitignore: %v", err)
+			}
+			ui.StepDone(skillName, "installed")
 		}
 
-		if opts.DryRun {
-			ui.StepDone(skillName, result.Action)
-			continue
-		}
-
-		if err := install.UpdateGitIgnore(filepath.Join(runtime.root, ".skillshare"), filepath.Join("skills", skillName)); err != nil {
-			ui.Warning("Failed to update .skillshare/.gitignore: %v", err)
-		}
-
-		ui.StepDone(skillName, "installed")
 		installed++
 	}
 

@@ -223,10 +223,17 @@ skillshare pull
 skillshare init -p
 skillshare new my-skill -p
 skillshare install anthropics/skills/skills/pdf -p
+skillshare install github.com/team/skills --track -p
 skillshare sync
 ```
 
-Project mode keeps skills in `.skillshare/skills/` so they can be committed and shared with the repo.
+Project mode keeps skills in `.skillshare/skills/` so they can be committed and shared with the repo. The `config.yaml` acts as a **portable skill manifest** — anyone who clones the repo (team members, open source contributors, community users) can reproduce the exact same AI skill setup:
+
+```bash
+git clone github.com/your/project && cd project
+skillshare install -p    # Installs all skills listed in config (tracked repos included)
+skillshare sync
+```
 
 ### Organization Skills (Tracked Repo)
 

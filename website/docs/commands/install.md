@@ -151,7 +151,7 @@ skillshare install -p
 | Config update | None | Adds to `.skillshare/config.yaml` `skills:` |
 | No-arg install | Not available | Installs all skills listed in config |
 
-**No-arg install** reads `.skillshare/config.yaml` and installs all listed remote skills — useful for onboarding:
+**No-arg install** reads `.skillshare/config.yaml` and installs all listed remote skills — useful for onboarding new team members, open source contributors, or anyone cloning a project with a skill manifest:
 
 ```bash
 git clone github.com/team/project && cd project
@@ -159,9 +159,9 @@ skillshare install -p    # Install all remote skills from config
 skillshare sync          # Sync to targets
 ```
 
-When using no-arg project install (`skillshare install -p`), `--name` is not supported because multiple configured skills may be installed.
+When using no-arg project install (`skillshare install -p`), `--name` is not supported because multiple configured skills may be installed. Skills with `tracked: true` in the config are cloned with full git history (same as `--track`), so `skillshare update` works correctly.
 
-**Tracked repos in project mode** work the same as global — the repo is cloned with `.git` preserved and added to `.skillshare/.gitignore`:
+**Tracked repos in project mode** work the same as global — the repo is cloned with `.git` preserved and added to `.skillshare/.gitignore`. The `tracked: true` flag is auto-recorded in `.skillshare/config.yaml`:
 
 ```bash
 skillshare install github.com/team/skills --track -p

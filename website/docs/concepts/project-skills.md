@@ -15,6 +15,8 @@ Run skillshare at the project level — skills scoped to a single repository, sh
 | **Domain-specific context** | Finance app with regulatory rules, healthcare app with compliance guidelines |
 | **Project tooling** | CI/CD deployment knowledge, testing patterns, migration scripts specific to this repo |
 | **Onboarding acceleration** | "How does auth work here?" — the AI already knows, from committed project skills |
+| **Open source projects** | Maintainers commit `.skillshare/` so contributors get project-specific AI context on clone |
+| **Community skill curation** | A repo's `config.yaml` serves as a curated skill list — anyone can `install -p` to get the same setup |
 
 ---
 
@@ -87,7 +89,7 @@ skillshare sync -g       # Force global mode
 <project-root>/
 ├── .skillshare/
 │   ├── config.yaml              # Targets + remote skills list
-│   ├── .gitignore               # Ignores cloned remote/tracked skill dirs
+│   ├── .gitignore               # Ignores logs/ and cloned remote/tracked skill dirs
 │   └── skills/
 │       ├── my-local-skill/      # Created manually or via `skillshare new`
 │       │   └── SKILL.md
@@ -126,8 +128,9 @@ targets:
 skills:                            # Remote skills (installed via install -p)
   - name: pdf-skill
     source: anthropic/skills/pdf
-  - name: review
-    source: github.com/team/tools
+  - name: _team-skills
+    source: github.com/team/skills
+    tracked: true                  # Tracked repo: cloned with git history
 ```
 
 **Targets** support two formats:
@@ -135,6 +138,12 @@ skills:                            # Remote skills (installed via install -p)
 - **Long**: Object with `name`, optional `path`, and optional `mode` (`merge` or `symlink`). Supports relative paths (resolved from project root) and `~` expansion.
 
 **Skills** list tracks remote installations only. Local skills don't need entries here.
+
+- `tracked: true`: Installed with `--track` (git repo with `.git/` preserved). When someone runs `skillshare install -p`, tracked skills are cloned with full git history so `skillshare update` works correctly.
+
+:::tip Portable Skill Manifest
+`config.yaml` is a portable skill manifest — commit it to git and anyone who clones the repo can run `skillshare install -p && skillshare sync` to get the exact same AI skill setup. This works for teams, open source contributors, community templates, and even your own dotfiles across machines.
+:::
 
 ---
 
@@ -146,7 +155,7 @@ Project mode has some intentional limitations:
 |---------|-----------|-------|
 | Merge sync mode | ✓ | Default, per-skill symlinks |
 | Symlink sync mode | ✓ | Per-target via `skillshare target <name> --mode symlink -p` |
-| `--track` repos | ✓ | Cloned to `.skillshare/skills/_repo/`, added to `.gitignore` |
+| `--track` repos | ✓ | Cloned to `.skillshare/skills/_repo/`, added to `.gitignore` (`logs/` is also ignored by default) |
 | `--discover` | ✓ | Detect and add new targets to existing project config |
 | `push` / `pull` | ✗ | Use git directly on the project repo |
 | `collect` | ✓ | Collect local skills from project targets to `.skillshare/skills/` |
