@@ -8,12 +8,15 @@ import (
 
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
 
 func cmdAudit(args []string) error {
+	start := time.Now()
+
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
 		return err
@@ -35,7 +38,9 @@ func cmdAudit(args []string) error {
 	applyModeLabel(mode)
 
 	if mode == modeProject {
-		return cmdAuditProject(cwd, rest)
+		err := cmdAuditProject(cwd, rest)
+		logAuditOp(config.ProjectConfigPath(cwd), rest, start, err)
+		return err
 	}
 
 	cfg, err := config.Load()
@@ -56,10 +61,25 @@ func cmdAudit(args []string) error {
 	}
 
 	if specificSkill != "" {
-		return auditSingleSkill(cfg.Source, specificSkill)
+		err = auditSingleSkill(cfg.Source, specificSkill)
+		logAuditOp(config.ConfigPath(), rest, start, err)
+		return err
 	}
 
-	return auditAllSkills(cfg.Source)
+	err = auditAllSkills(cfg.Source)
+	logAuditOp(config.ConfigPath(), rest, start, err)
+	return err
+}
+
+func logAuditOp(cfgPath string, args []string, start time.Time, cmdErr error) {
+	e := oplog.NewEntry("audit", statusFromErr(cmdErr), time.Since(start))
+	if len(args) > 0 {
+		e.Args = map[string]any{"name": args[0]}
+	}
+	if cmdErr != nil {
+		e.Message = cmdErr.Error()
+	}
+	oplog.Write(cfgPath, oplog.AuditFile, e) //nolint:errcheck
 }
 
 func auditSingleSkill(sourcePath, name string) error {

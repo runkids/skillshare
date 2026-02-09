@@ -35,6 +35,7 @@ var commands = map[string]func([]string) error{
 	"search":    cmdSearch,
 	"trash":     cmdTrash,
 	"audit":     cmdAudit,
+	"log":       cmdLog,
 	"ui":        cmdUI,
 }
 
@@ -175,6 +176,7 @@ func printUsage() {
 	// Utilities
 	fmt.Println("UTILITIES")
 	cmd("audit", "[name]", "Scan skills for security threats")
+	cmd("log", "", "View operation log")
 	cmd("ui", "", "Launch web dashboard")
 	cmd("doctor", "", "Check environment and diagnose issues")
 	cmd("version", "", "Show version")

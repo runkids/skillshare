@@ -5,14 +5,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
 
 func cmdUpdate(args []string) error {
+	start := time.Now()
+
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
 		return err
@@ -34,7 +38,9 @@ func cmdUpdate(args []string) error {
 	applyModeLabel(mode)
 
 	if mode == modeProject {
-		return cmdUpdateProject(rest, cwd)
+		err := cmdUpdateProject(rest, cwd)
+		logUpdateOp(config.ProjectConfigPath(cwd), rest, start, err)
+		return err
 	}
 
 	var name string
@@ -76,11 +82,26 @@ func cmdUpdate(args []string) error {
 	}
 
 	if updateAll {
-		return updateAllTrackedRepos(cfg, dryRun, force)
+		err = updateAllTrackedRepos(cfg, dryRun, force)
+		logUpdateOp(config.ConfigPath(), []string{"--all"}, start, err)
+		return err
 	}
 
 	// Determine if it's a tracked repo or regular skill
-	return updateSkillOrRepo(cfg, name, dryRun, force)
+	err = updateSkillOrRepo(cfg, name, dryRun, force)
+	logUpdateOp(config.ConfigPath(), []string{name}, start, err)
+	return err
+}
+
+func logUpdateOp(cfgPath string, args []string, start time.Time, cmdErr error) {
+	e := oplog.NewEntry("update", statusFromErr(cmdErr), time.Since(start))
+	if len(args) > 0 {
+		e.Args = map[string]any{"name": args[0]}
+	}
+	if cmdErr != nil {
+		e.Message = cmdErr.Error()
+	}
+	oplog.Write(cfgPath, oplog.OpsFile, e) //nolint:errcheck
 }
 
 // updateResult tracks the result of an update operation

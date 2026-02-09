@@ -5,8 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
@@ -37,6 +39,8 @@ func displayLocalSkills(skills []sync.LocalSkillInfo) {
 }
 
 func cmdCollect(args []string) error {
+	start := time.Now()
+
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
 		return err
@@ -58,7 +62,9 @@ func cmdCollect(args []string) error {
 	applyModeLabel(mode)
 
 	if mode == modeProject {
-		return cmdCollectProject(rest, cwd)
+		err := cmdCollectProject(rest, cwd)
+		logCollectOp(config.ProjectConfigPath(cwd), start, err)
+		return err
 	}
 
 	dryRun := false
@@ -120,7 +126,17 @@ func cmdCollect(args []string) error {
 	}
 
 	// Execute collect
-	return executeCollect(allLocalSkills, cfg.Source, dryRun, force)
+	err = executeCollect(allLocalSkills, cfg.Source, dryRun, force)
+	logCollectOp(config.ConfigPath(), start, err)
+	return err
+}
+
+func logCollectOp(cfgPath string, start time.Time, cmdErr error) {
+	e := oplog.NewEntry("collect", statusFromErr(cmdErr), time.Since(start))
+	if cmdErr != nil {
+		e.Message = cmdErr.Error()
+	}
+	oplog.Write(cfgPath, oplog.OpsFile, e) //nolint:errcheck
 }
 
 func selectCollectTargets(cfg *config.Config, targetName string, collectAll bool) (map[string]config.TargetConfig, error) {

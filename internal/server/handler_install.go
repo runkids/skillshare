@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 )
 
 // handleDiscover clones a git repo to a temp dir, discovers skills, then cleans up.
@@ -148,6 +150,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -218,6 +221,11 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	if s.IsProjectMode() {
 		_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
 	}
+
+	// Log install operation
+	e := oplog.NewEntry("install", "ok", time.Since(start))
+	e.Args = map[string]any{"source": body.Source}
+	oplog.Write(s.configPath(), oplog.OpsFile, e) //nolint:errcheck
 
 	writeJSON(w, map[string]any{
 		"skillName": result.SkillName,

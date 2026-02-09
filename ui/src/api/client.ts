@@ -131,6 +131,12 @@ export const api = {
   emptyTrash: () =>
     apiFetch<{ success: boolean; removed: number }>('/trash/empty', { method: 'POST' }),
 
+  // Log
+  listLog: (type?: string, limit?: number) =>
+    apiFetch<LogListResponse>(`/log?type=${type ?? 'ops'}&limit=${limit ?? 100}`),
+  clearLog: (type?: string) =>
+    apiFetch<{ success: boolean }>(`/log?type=${type ?? 'ops'}`, { method: 'DELETE' }),
+
   // Audit
   auditAll: () => apiFetch<AuditAllResponse>('/audit'),
   auditSkill: (name: string) => apiFetch<AuditResult>(`/audit/${encodeURIComponent(name)}`),
@@ -369,6 +375,21 @@ export interface PullResponse {
   syncResults: SyncResult[];
   dryRun?: boolean;
   message?: string;
+}
+
+// Log types
+export interface LogEntry {
+  ts: string;
+  cmd: string;
+  args?: Record<string, any>;
+  status: string;
+  msg?: string;
+  ms?: number;
+}
+
+export interface LogListResponse {
+  entries: LogEntry[];
+  total: number;
 }
 
 // Audit types

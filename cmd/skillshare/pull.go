@@ -6,12 +6,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
 
 func cmdPull(args []string) error {
+	start := time.Now()
 	dryRun := false
 
 	for _, arg := range args {
@@ -26,7 +29,17 @@ func cmdPull(args []string) error {
 		return err
 	}
 
-	return pullFromRemote(cfg, dryRun)
+	err = pullFromRemote(cfg, dryRun)
+
+	if !dryRun {
+		e := oplog.NewEntry("pull", statusFromErr(err), time.Since(start))
+		if err != nil {
+			e.Message = err.Error()
+		}
+		oplog.Write(config.ConfigPath(), oplog.OpsFile, e) //nolint:errcheck
+	}
+
+	return err
 }
 
 // pullFromRemote pulls from git remote and syncs to all targets

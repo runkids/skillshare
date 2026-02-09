@@ -5,8 +5,10 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
 
@@ -114,6 +116,7 @@ func gitPush(sourcePath string, spinner *ui.Spinner) error {
 }
 
 func cmdPush(args []string) error {
+	start := time.Now()
 	opts := parsePushArgs(args)
 
 	cfg, err := config.Load()
@@ -165,5 +168,10 @@ func cmdPush(args []string) error {
 	}
 
 	spinner.Success("Push complete")
+
+	e := oplog.NewEntry("push", "ok", time.Since(start))
+	e.Args = map[string]any{"message": opts.message}
+	oplog.Write(config.ConfigPath(), oplog.OpsFile, e) //nolint:errcheck
+
 	return nil
 }

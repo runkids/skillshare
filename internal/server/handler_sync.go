@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
+	"skillshare/internal/oplog"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
@@ -19,6 +21,7 @@ type syncTargetResult struct {
 }
 
 func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -77,6 +80,11 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 		results = append(results, res)
 	}
+
+	// Log the sync operation
+	e := oplog.NewEntry("sync", "ok", time.Since(start))
+	e.Args = map[string]any{"targets": len(results)}
+	oplog.Write(s.configPath(), oplog.OpsFile, e) //nolint:errcheck
 
 	writeJSON(w, map[string]any{"results": results})
 }

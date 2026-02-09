@@ -6,12 +6,14 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 	"skillshare/internal/validate"
 	appversion "skillshare/internal/version"
@@ -162,6 +164,8 @@ func dispatchInstall(source *install.Source, cfg *config.Config, opts install.In
 }
 
 func cmdInstall(args []string) error {
+	start := time.Now()
+
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
 		return err
@@ -183,16 +187,18 @@ func cmdInstall(args []string) error {
 	applyModeLabel(mode)
 
 	if mode == modeProject {
-		return cmdInstallProject(rest, cwd)
+		err := cmdInstallProject(rest, cwd)
+		logInstallOp(config.ProjectConfigPath(cwd), rest, start, err)
+		return err
 	}
 
-	parsed, showHelp, err := parseInstallArgs(rest)
+	parsed, showHelp, parseErr := parseInstallArgs(rest)
 	if showHelp {
 		printInstallHelp()
-		return err
+		return parseErr
 	}
-	if err != nil {
-		return err
+	if parseErr != nil {
+		return parseErr
 	}
 
 	cfg, err := config.Load()
@@ -202,15 +208,31 @@ func cmdInstall(args []string) error {
 
 	source, resolvedFromMeta, err := resolveInstallSource(parsed.sourceArg, parsed.opts, cfg)
 	if err != nil {
+		logInstallOp(config.ConfigPath(), rest, start, err)
 		return err
 	}
 
 	// If resolved from metadata with update/force, go directly to install
 	if resolvedFromMeta {
-		return handleDirectInstall(source, cfg, parsed.opts)
+		err = handleDirectInstall(source, cfg, parsed.opts)
+		logInstallOp(config.ConfigPath(), rest, start, err)
+		return err
 	}
 
-	return dispatchInstall(source, cfg, parsed.opts)
+	err = dispatchInstall(source, cfg, parsed.opts)
+	logInstallOp(config.ConfigPath(), rest, start, err)
+	return err
+}
+
+func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error) {
+	e := oplog.NewEntry("install", statusFromErr(cmdErr), time.Since(start))
+	if len(args) > 0 {
+		e.Args = map[string]any{"source": args[0]}
+	}
+	if cmdErr != nil {
+		e.Message = cmdErr.Error()
+	}
+	oplog.Write(cfgPath, oplog.OpsFile, e) //nolint:errcheck
 }
 
 func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) error {

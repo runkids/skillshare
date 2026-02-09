@@ -7,9 +7,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 )
@@ -187,6 +189,8 @@ func performUninstall(target *uninstallTarget, cfg *config.Config) error {
 }
 
 func cmdUninstall(args []string) error {
+	start := time.Now()
+
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
 		return err
@@ -208,16 +212,18 @@ func cmdUninstall(args []string) error {
 	applyModeLabel(mode)
 
 	if mode == modeProject {
-		return cmdUninstallProject(rest, cwd)
+		err := cmdUninstallProject(rest, cwd)
+		logUninstallOp(config.ProjectConfigPath(cwd), rest, start, err)
+		return err
 	}
 
-	opts, showHelp, err := parseUninstallArgs(rest)
+	opts, showHelp, parseErr := parseUninstallArgs(rest)
 	if showHelp {
 		printUninstallHelp()
-		return err
+		return parseErr
 	}
-	if err != nil {
-		return err
+	if parseErr != nil {
+		return parseErr
 	}
 
 	cfg, err := config.Load()
@@ -263,7 +269,20 @@ func cmdUninstall(args []string) error {
 		}
 	}
 
-	return performUninstall(target, cfg)
+	err = performUninstall(target, cfg)
+	logUninstallOp(config.ConfigPath(), []string{opts.skillName}, start, err)
+	return err
+}
+
+func logUninstallOp(cfgPath string, args []string, start time.Time, cmdErr error) {
+	e := oplog.NewEntry("uninstall", statusFromErr(cmdErr), time.Since(start))
+	if len(args) > 0 {
+		e.Args = map[string]any{"name": args[0]}
+	}
+	if cmdErr != nil {
+		e.Message = cmdErr.Error()
+	}
+	oplog.Write(cfgPath, oplog.OpsFile, e) //nolint:errcheck
 }
 
 // isRepoDirty checks if a git repository has uncommitted changes

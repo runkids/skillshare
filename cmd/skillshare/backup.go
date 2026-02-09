@@ -9,10 +9,12 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
 
 func cmdBackup(args []string) error {
+	start := time.Now()
 	var targetName string
 	doList := false
 	doCleanup := false
@@ -47,7 +49,20 @@ func cmdBackup(args []string) error {
 		return backupCleanup()
 	}
 
-	return createBackup(targetName, dryRun)
+	err := createBackup(targetName, dryRun)
+
+	if !dryRun {
+		e := oplog.NewEntry("backup", statusFromErr(err), time.Since(start))
+		if targetName != "" {
+			e.Args = map[string]any{"target": targetName}
+		}
+		if err != nil {
+			e.Message = err.Error()
+		}
+		oplog.Write(config.ConfigPath(), oplog.OpsFile, e) //nolint:errcheck
+	}
+
+	return err
 }
 
 func createBackup(targetName string, dryRun bool) error {
@@ -266,6 +281,8 @@ func planBackupCleanup(backups []backup.BackupInfo, cfg backup.CleanupConfig, no
 }
 
 func cmdRestore(args []string) error {
+	start := time.Now()
+
 	if len(args) < 1 {
 		return fmt.Errorf("usage: skillshare restore <target> [--from <timestamp>] [--force] [--dry-run]")
 	}
@@ -318,11 +335,24 @@ func cmdRestore(args []string) error {
 		return previewRestoreFromLatest(targetName, target.Path, opts)
 	}
 
+	var restoreErr error
 	if fromTimestamp != "" {
-		return restoreFromTimestamp(targetName, target.Path, fromTimestamp, opts)
+		restoreErr = restoreFromTimestamp(targetName, target.Path, fromTimestamp, opts)
+	} else {
+		restoreErr = restoreFromLatest(targetName, target.Path, opts)
 	}
 
-	return restoreFromLatest(targetName, target.Path, opts)
+	e := oplog.NewEntry("restore", statusFromErr(restoreErr), time.Since(start))
+	e.Args = map[string]any{"target": targetName}
+	if fromTimestamp != "" {
+		e.Args["from"] = fromTimestamp
+	}
+	if restoreErr != nil {
+		e.Message = restoreErr.Error()
+	}
+	oplog.Write(config.ConfigPath(), oplog.OpsFile, e) //nolint:errcheck
+
+	return restoreErr
 }
 
 func restoreFromTimestamp(targetName, targetPath, timestamp string, opts backup.RestoreOptions) error {

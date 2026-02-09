@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
@@ -13,6 +15,8 @@ import (
 )
 
 func cmdSync(args []string) error {
+	start := time.Now()
+
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
 		return err
@@ -34,7 +38,9 @@ func cmdSync(args []string) error {
 	applyModeLabel(mode)
 
 	if mode == modeProject {
-		return cmdSyncProject(rest, cwd)
+		err := cmdSyncProject(rest, cwd)
+		logSyncOp(config.ProjectConfigPath(cwd), start, err)
+		return err
 	}
 
 	dryRun := false
@@ -95,8 +101,9 @@ func cmdSync(args []string) error {
 		}
 	}
 
+	var syncErr error
 	if hasError {
-		return fmt.Errorf("some targets failed to sync")
+		syncErr = fmt.Errorf("some targets failed to sync")
 	}
 
 	// Opportunistic cleanup of expired trash items
@@ -106,7 +113,16 @@ func cmdSync(args []string) error {
 		}
 	}
 
-	return nil
+	logSyncOp(config.ConfigPath(), start, syncErr)
+	return syncErr
+}
+
+func logSyncOp(cfgPath string, start time.Time, cmdErr error) {
+	e := oplog.NewEntry("sync", statusFromErr(cmdErr), time.Since(start))
+	if cmdErr != nil {
+		e.Message = cmdErr.Error()
+	}
+	oplog.Write(cfgPath, oplog.OpsFile, e) //nolint:errcheck
 }
 
 func backupTargetsBeforeSync(cfg *config.Config) {

@@ -158,6 +158,10 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/audit", s.handleAuditAll)
 	s.mux.HandleFunc("GET /api/audit/{name}", s.handleAuditSkill)
 
+	// Log
+	s.mux.HandleFunc("GET /api/log", s.handleListLog)
+	s.mux.HandleFunc("DELETE /api/log", s.handleClearLog)
+
 	// Config
 	s.mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	s.mux.HandleFunc("PUT /api/config", s.handlePutConfig)
