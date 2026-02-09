@@ -159,6 +159,24 @@ Explicit exclusions.
 
 ## Team Collaboration
 
+### Use project mode (`-p`) for repo-specific skills
+
+When skills are tightly coupled to one codebase (architecture, domain rules, deployment flow), prefer project mode:
+
+```bash
+skillshare init -p
+skillshare install <source> -p
+skillshare sync
+```
+
+**Why this helps:**
+- **Reproducible onboarding**: `.skillshare/config.yaml` acts as a portable skill manifest for anyone who clones the repo.
+- **Clear scope**: project skills stay in `.skillshare/skills/` instead of leaking into global personal workflows.
+- **Safer collaboration**: changes are reviewed through normal git PR flow with the project code.
+- **Lower noise in commits**: `.skillshare/logs/` is ignored by default in project mode.
+
+Use global mode for personal cross-project skills; use `-p` for repo-specific team context.
+
 ### Ownership
 
 - Assign owners to skill categories

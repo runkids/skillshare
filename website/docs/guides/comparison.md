@@ -12,12 +12,12 @@ If you're evaluating tools or considering a switch, this breakdown will help you
 
 ### Imperative (Install-per-command)
 
-Tools like `npx skills` use an imperative model — each install is a standalone operation:
+Imperative tools use an install-per-command model — each install is a standalone operation:
 
 ```
-npx skills add owner/repo → select agents → choose method → done
-npx skills add owner/repo → select agents → choose method → done
-npx skills add owner/repo → select agents → choose method → done
+tool add owner/repo → select agents → choose method → done
+tool add owner/repo → select agents → choose method → done
+tool add owner/repo → select agents → choose method → done
 ```
 
 Every operation requires user input. There's no persistent state describing "what should be installed where."
@@ -43,7 +43,7 @@ One command, no prompts, deterministic results every time.
 
 ## Feature Comparison
 
-| Capability | Imperative (npx skills) | Declarative (skillshare) |
+| Capability | Imperative (install-per-command) | Declarative (skillshare) |
 |------------|------------------------|--------------------------|
 | **Configuration** | No config file; prompts on every run | `config.yaml` — set once, reuse forever |
 | **Agent selection** | Interactive prompt each time | Defined in config; `sync` handles all |
@@ -160,3 +160,4 @@ Your existing skills are now managed from one place. For a detailed walkthrough,
 - You share skills with a team or organization
 - You want backup, restore, and version control for your skills
 - You prefer a single binary with no runtime dependencies
+- You don't want installation/download activity tracked outside your local workflow

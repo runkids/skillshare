@@ -14,7 +14,7 @@ Install tools get skills onto agents. **Skillshare keeps them in sync.**
 | | Install-once tools | skillshare |
 |---|-------------------|------------|
 | After install | Run update commands manually | **Merge sync** — per-skill symlinks, local skills preserved |
-| Update a skill | `npx skills update` / re-run | **Edit source**, changes reflect instantly |
+| Update a skill | Run update command / re-run install | **Edit source**, changes reflect instantly |
 | Pull back edits | — | **Bidirectional** — collect from any agent |
 | Cross-machine | Re-run install on each machine | **git push/pull** — one command sync |
 | Local + installed | Managed separately | **Unified** in single source directory |
