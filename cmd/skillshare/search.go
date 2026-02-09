@@ -78,11 +78,6 @@ func cmdSearch(args []string) error {
 		i++
 	}
 
-	if query == "" {
-		printSearchHelp()
-		return fmt.Errorf("search query is required")
-	}
-
 	// JSON mode: silent search, output JSON
 	if jsonOutput {
 		return searchJSON(query, limit)
@@ -94,7 +89,11 @@ func cmdSearch(args []string) error {
 
 func searchJSON(query string, limit int) error {
 	// Show progress on stderr (so JSON output stays clean on stdout)
-	fmt.Fprintf(os.Stderr, "Searching for '%s'...\n", query)
+	if query == "" {
+		fmt.Fprintf(os.Stderr, "Browsing popular skills...\n")
+	} else {
+		fmt.Fprintf(os.Stderr, "Searching for '%s'...\n", query)
+	}
 
 	results, err := search.Search(query, limit)
 	if err != nil {
@@ -153,7 +152,11 @@ func searchInteractive(query string, limit int, listOnly bool, mode runMode, cwd
 
 // doSearch performs a search and returns (searchAgain, error)
 func doSearch(query string, limit int, listOnly bool, mode runMode, cwd string) (bool, error) {
-	ui.StepStart("Searching", query)
+	if query == "" {
+		ui.StepStart("Browsing", "popular skills")
+	} else {
+		ui.StepStart("Searching", query)
+	}
 
 	spinner := ui.StartTreeSpinner("Querying GitHub...", false)
 
@@ -193,7 +196,11 @@ func doSearch(query string, limit int, listOnly bool, mode runMode, cwd string) 
 	if len(results) == 0 {
 		spinner.Success("No results")
 		fmt.Println()
-		ui.Info("No skills found for '%s'", query)
+		if query == "" {
+			ui.Info("No skills found")
+		} else {
+			ui.Info("No skills found for '%s'", query)
+		}
 		return true, nil // Allow search again
 	}
 
@@ -436,9 +443,10 @@ func truncate(s string, maxLen int) string {
 }
 
 func printSearchHelp() {
-	fmt.Println(`Usage: skillshare search <query> [options]
+	fmt.Println(`Usage: skillshare search [query] [options]
 
 Search GitHub for skills containing SKILL.md files.
+When no query is provided, browses popular skills.
 
 Options:
   --project, -p  Install to project-level config (.skillshare/)
@@ -449,6 +457,7 @@ Options:
   --help, -h     Show this help
 
 Examples:
+  skillshare search                   Browse popular skills
   skillshare search pdf
   skillshare search "code review"
   skillshare search commit --limit 10

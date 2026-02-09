@@ -9,15 +9,27 @@ Discover and install skills from GitHub repositories.
 ## Quick Start
 
 ```bash
-skillshare search vercel
+skillshare search vercel       # Search by keyword
+skillshare search              # Browse popular skills
 ```
 
 This searches GitHub for repositories containing `SKILL.md` files that match your query.
 
+## Browse Mode
+
+When no query is provided, `search` browses popular skills on GitHub:
+
+```bash
+skillshare search              # Browse popular skills
+skillshare search --list       # List popular skills
+```
+
+This uses `filename:SKILL.md` as the GitHub query and sorts results by star count, showing the most popular skill repositories first.
+
 ## How It Works
 
 ```
-skillshare search <query>
+skillshare search [query]
         │
         ▼
 GitHub Code Search API (filename:SKILL.md + query)
@@ -62,6 +74,12 @@ If neither `--project` nor `--global` is specified, skillshare auto-detects: if 
 :::
 
 ## Examples
+
+### Browse Popular
+
+```bash
+skillshare search              # Browse popular skills (no query)
+```
 
 ### Basic Search
 

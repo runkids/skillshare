@@ -120,6 +120,13 @@ func expandGitHubShorthand(input string) string {
 
 	// Check if it looks like owner/repo (at least one slash)
 	if strings.Contains(input, "/") {
+		// If the first segment contains ".", it's a domain (e.g., gitlab.com/user/repo)
+		// not a GitHub owner — prepend https:// so gitHTTPSPattern can match it
+		firstSlash := strings.Index(input, "/")
+		firstSegment := input[:firstSlash]
+		if strings.Contains(firstSegment, ".") {
+			return "https://" + input
+		}
 		return "github.com/" + input
 	}
 

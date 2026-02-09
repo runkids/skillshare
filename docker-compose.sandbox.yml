@@ -45,6 +45,7 @@ services:
       HOME: /sandbox-home
       GOCACHE: /go/build-cache
       PATH: /sandbox-home/.local/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      GITHUB_TOKEN: ${SKILLSHARE_PLAYGROUND_GITHUB_TOKEN:-}
     volumes:
       - .:/workspace
       - go-mod-cache:/go/pkg/mod

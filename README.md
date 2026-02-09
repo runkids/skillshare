@@ -57,6 +57,7 @@ Stop managing skills tool-by-tool.
 - **True bidirectional flow**: Pull skills back from targets with `collect` so improvements never get trapped in one tool.
 - **Cross-machine ready**: Git-native `push`/`pull` keeps all your devices aligned.
 - **Team + project friendly**: Use global skills for personal workflows and `.skillshare/` for repo-scoped collaboration.
+- **Privacy-first**: No central registry, no telemetry, no install tracking. Your skill setup stays entirely local.
 - **Visual control panel**: Open `skillshare ui` for browsing, install, target management, and sync status in one place.
 
 ## How It Works

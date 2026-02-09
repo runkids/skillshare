@@ -54,7 +54,7 @@ func cmdSyncProject(args []string, root string) error {
 		}
 	}
 
-	ui.Header("Syncing project skills")
+	ui.Header("Syncing skills (project)")
 	if dryRun {
 		ui.Warning("Dry run mode - no changes will be made")
 	}

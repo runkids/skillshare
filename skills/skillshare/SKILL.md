@@ -45,7 +45,7 @@ skillshare sync
 | **Inspect** | `status`, `diff`, `list`, `doctor` | ✓ (auto) |
 | **Sync** | `sync`, `collect` | ✓ (auto) |
 | **Remote** | `push`, `pull` | ✗ (use git) |
-| **Skills** | `new`, `install`, `uninstall`, `update`, `search` | ✓ (`-p`) |
+| **Skills** | `new`, `install`, `uninstall`, `update`, `check`, `search` | ✓ (`-p`) |
 | **Targets** | `target add/remove/list` | ✓ (`-p`) |
 | **Backup** | `backup`, `restore` | ✗ |
 | **Web UI** | `ui` | ✓ (`-p`) |
@@ -68,6 +68,11 @@ skillshare init --no-copy --all-targets --git           # Fresh start
 skillshare init -p --targets "claude-code,cursor"       # Specific targets
 skillshare init -p                                      # Interactive (user only)
 
+# Install (multi-skill repo non-interactive)
+skillshare install user/repo --all                # Install all
+skillshare install user/repo -s pdf,commit        # Select specific
+skillshare install user/repo -y                   # Auto-accept
+
 # Add new agents later
 skillshare init --discover --select "windsurf,kilocode"
 skillshare init -p --discover --select "windsurf"
@@ -82,6 +87,7 @@ skillshare init -p --discover --select "windsurf"
 ### Finding Skills
 
 ```bash
+skillshare search                   # Browse popular skills
 skillshare search <query>           # Interactive install
 skillshare search <query> --list    # List only
 skillshare search <query> --json    # JSON output

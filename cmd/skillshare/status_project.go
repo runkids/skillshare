@@ -32,7 +32,7 @@ func cmdStatusProject(root string) error {
 }
 
 func printProjectSourceStatus(sourcePath string) {
-	ui.Header("Source")
+	ui.Header("Source (project)")
 	info, err := os.Stat(sourcePath)
 	if err != nil {
 		ui.Error(".skillshare/skills/ (not found)")
@@ -79,7 +79,7 @@ func printProjectTrackedReposStatus(sourcePath string) {
 }
 
 func printProjectTargetsStatus(runtime *projectRuntime) {
-	ui.Header("Targets")
+	ui.Header("Targets (project)")
 	for _, entry := range runtime.config.Targets {
 		target, ok := runtime.targets[entry.Name]
 		if !ok {

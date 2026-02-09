@@ -105,7 +105,7 @@ func cmdUninstallProject(args []string, root string) error {
 }
 
 func confirmProjectUninstall() (bool, error) {
-	fmt.Print("Are you sure you want to uninstall this skill? [y/N]: ")
+	fmt.Print("Are you sure you want to uninstall this skill from the project? [y/N]: ")
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
 	if err != nil {

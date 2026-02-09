@@ -163,7 +163,7 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 		return fmt.Errorf("failed to get tracked repos: %w", err)
 	}
 
-	skills, err := getUpdatableSkills(cfg.Source)
+	skills, err := install.GetUpdatableSkills(cfg.Source)
 	if err != nil {
 		return fmt.Errorf("failed to get updatable skills: %w", err)
 	}
@@ -217,31 +217,6 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 	}
 
 	return nil
-}
-
-// getUpdatableSkills returns skill names that have metadata with a remote source
-func getUpdatableSkills(sourceDir string) ([]string, error) {
-	entries, err := os.ReadDir(sourceDir)
-	if err != nil {
-		return nil, err
-	}
-
-	var skills []string
-	for _, entry := range entries {
-		// Skip tracked repos (start with _) and non-directories
-		if !entry.IsDir() || (len(entry.Name()) > 0 && entry.Name()[0] == '_') {
-			continue
-		}
-
-		skillPath := filepath.Join(sourceDir, entry.Name())
-		meta, err := install.ReadMeta(skillPath)
-		if err != nil || meta == nil || meta.Source == "" {
-			continue // No metadata or no source, skip
-		}
-
-		skills = append(skills, entry.Name())
-	}
-	return skills, nil
 }
 
 func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force bool) error {

@@ -269,6 +269,44 @@ func GetCurrentBranch(repoPath string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// GetBehindCount fetches from origin and returns how many commits local is behind
+func GetBehindCount(repoPath string) (int, error) {
+	if err := Fetch(repoPath); err != nil {
+		return 0, err
+	}
+	branch, err := GetCurrentBranch(repoPath)
+	if err != nil {
+		return 0, err
+	}
+	cmd := exec.Command("git", "rev-list", "--count", "HEAD..origin/"+branch)
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return 0, err
+	}
+	n, _ := strconv.Atoi(strings.TrimSpace(string(out)))
+	return n, nil
+}
+
+// GetRemoteHeadHash returns the HEAD hash of a remote repo without cloning
+func GetRemoteHeadHash(repoURL string) (string, error) {
+	cmd := exec.Command("git", "ls-remote", repoURL, "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	// Format: "a1b2c3d4e5f6...\tHEAD\n"
+	parts := strings.Fields(strings.TrimSpace(string(out)))
+	if len(parts) == 0 {
+		return "", fmt.Errorf("no HEAD ref found")
+	}
+	hash := parts[0]
+	if len(hash) > 7 {
+		hash = hash[:7]
+	}
+	return hash, nil
+}
+
 // ForcePull fetches and resets to origin (handles force push)
 func ForcePull(repoPath string) (*UpdateInfo, error) {
 	info := &UpdateInfo{}

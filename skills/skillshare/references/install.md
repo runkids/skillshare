@@ -13,6 +13,11 @@ Install skills from local path or git repository.
 user/repo                     # Browse repo for skills
 user/repo/path/to/skill       # Direct path
 
+# GitLab / Bitbucket / other hosts
+gitlab.com/user/repo          # GitLab shorthand
+bitbucket.org/team/skills     # Bitbucket shorthand
+git.company.com/team/skills   # Self-hosted
+
 # Full URLs
 github.com/user/repo          # Discovers skills in repo
 github.com/user/repo/path     # Direct subdirectory
@@ -36,6 +41,12 @@ skillshare install github.com/team/repo --track   # Team repo
 skillshare install anthropics/skills/skills/pdf -p    # Install to .skillshare/skills/
 skillshare install github.com/team/repo --track -p    # Track in project
 skillshare install -p                                 # Install all remote skills from config
+
+# Selective install (non-interactive)
+skillshare install anthropics/skills -s pdf,commit    # Specific skills
+skillshare install anthropics/skills --all            # All skills
+skillshare install anthropics/skills -y               # Auto-accept
+skillshare install anthropics/skills -s pdf -p        # Selective + project mode
 ```
 
 ### Flags
@@ -47,6 +58,9 @@ skillshare install -p                                 # Install all remote skill
 | `--force, -f` | Overwrite existing |
 | `--update, -u` | Update if exists |
 | `--track, -t` | Track for updates (preserves .git) |
+| `--skill, -s <names>` | Select specific skills from multi-skill repo (comma-separated) |
+| `--all` | Install all discovered skills without prompting |
+| `--yes, -y` | Auto-accept all prompts (CI/CD friendly) |
 | `--dry-run, -n` | Preview |
 
 **Tracked repos:** Prefixed with `_`, nested with `__` (e.g., `_team__frontend__ui`).
@@ -54,6 +68,20 @@ skillshare install -p                                 # Install all remote skill
 **Project `install -p` (no source):** Installs all remote skills listed in `.skillshare/config.yaml`. Useful for new team members.
 
 **After install:** `skillshare sync`
+
+## check
+
+Check for available updates without applying changes.
+
+```bash
+skillshare check             # Show update status for all repos/skills
+skillshare check --json      # JSON output (CI-friendly)
+skillshare check -p          # Check project skills
+```
+
+- **Tracked repos:** Fetches from origin, shows commits behind
+- **Remote skills:** Compares installed version with remote HEAD
+- **Local skills:** Shown as "local source"
 
 ## update
 

@@ -186,7 +186,7 @@ func targetRemoveProject(args []string, root string) error {
 
 func targetRemoveProjectDryRun(toRemove []string, targets map[string]config.TargetConfig, sourcePath string) error {
 	ui.Warning("Dry run mode - no changes will be made")
-	ui.Header("Unlinking targets")
+	ui.Header("Unlinking targets (project)")
 	for _, name := range toRemove {
 		target, ok := targets[name]
 		if !ok {

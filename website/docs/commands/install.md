@@ -38,7 +38,9 @@ skillshare install ~/Downloads/my-skill
 skillshare install github.com/team/skills --track
 ```
 
-## GitHub Shorthand
+## Source Formats
+
+### GitHub Shorthand
 
 Use `owner/repo` format — automatically expands to `github.com/owner/repo`:
 
@@ -46,6 +48,23 @@ Use `owner/repo` format — automatically expands to `github.com/owner/repo`:
 skillshare install anthropics/skills                    # Browse mode
 skillshare install anthropics/skills/skills/pdf         # Direct install
 skillshare install ComposioHQ/awesome-claude-skills     # Another repo
+```
+
+### GitLab / Bitbucket / Other Hosts
+
+Use `domain/owner/repo` format for non-GitHub hosts:
+
+```bash
+skillshare install gitlab.com/user/repo                 # GitLab
+skillshare install bitbucket.org/team/skills            # Bitbucket
+skillshare install git.company.com/team/skills          # Self-hosted
+```
+
+Full URLs and SSH also work:
+
+```bash
+skillshare install https://gitlab.com/user/repo.git
+skillshare install git@gitlab.com:user/repo.git
 ```
 
 ## Discovery Mode (Browse Skills)
@@ -64,6 +83,27 @@ skillshare install anthropics/skills
 ```bash
 skillshare install anthropics/skills --dry-run
 ```
+
+## Selective Install (Non-Interactive)
+
+Pick specific skills from a multi-skill repo without prompts:
+
+```bash
+# Install specific skills by name
+skillshare install anthropics/skills -s pdf,commit
+
+# Install all discovered skills
+skillshare install anthropics/skills --all
+
+# Auto-accept (same as --all for multi-skill repos)
+skillshare install anthropics/skills -y
+
+# Combine with other flags
+skillshare install anthropics/skills -s pdf --dry-run
+skillshare install anthropics/skills --all -p
+```
+
+Useful for CI/CD pipelines and scripted workflows.
 
 ## Direct Install (Specific Path)
 
@@ -133,6 +173,9 @@ See [Project Setup](/docs/guides/project-setup) for the full guide.
 | `--force` | `-f` | Overwrite existing skill |
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--track` | `-t` | Keep `.git` for tracked repos |
+| `--skill` | `-s` | Select specific skills from multi-skill repo (comma-separated) |
+| `--all` | | Install all discovered skills without prompting |
+| `--yes` | `-y` | Auto-accept all prompts (CI/CD friendly) |
 | `--project` | `-p` | Install into project `.skillshare/skills/` |
 | `--dry-run` | `-n` | Preview only |
 

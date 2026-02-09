@@ -127,8 +127,9 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/install", s.handleInstall)
 	s.mux.HandleFunc("POST /api/install/batch", s.handleInstallBatch)
 
-	// Update
+	// Update & Check
 	s.mux.HandleFunc("POST /api/update", s.handleUpdate)
+	s.mux.HandleFunc("GET /api/check", s.handleCheck)
 
 	// Repo uninstall
 	s.mux.HandleFunc("DELETE /api/repos/{name}", s.handleUninstallRepo)

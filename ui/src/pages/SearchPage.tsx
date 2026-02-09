@@ -24,14 +24,14 @@ export default function SearchPage() {
   const [pendingSource, setPendingSource] = useState('');
   const [batchInstalling, setBatchInstalling] = useState(false);
 
-  const handleSearch = async () => {
-    if (!query.trim()) return;
+  const handleSearch = async (searchQuery?: string) => {
+    const q = searchQuery ?? query;
     setSearching(true);
     try {
-      const res = await api.search(query);
+      const res = await api.search(q);
       setResults(res.results);
       if (res.results.length === 0) {
-        toast('No results found. Try different search terms.', 'info');
+        toast(q ? 'No results found. Try different search terms.' : 'No popular skills found.', 'info');
       }
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
@@ -132,12 +132,12 @@ export default function SearchPage() {
               placeholder="Search GitHub for skills..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch(query)}
               className="!pl-11"
             />
           </div>
           <HandButton
-            onClick={handleSearch}
+            onClick={() => handleSearch(query)}
             disabled={searching}
             variant="primary"
             size="md"
@@ -227,9 +227,17 @@ export default function SearchPage() {
           >
             Start searching
           </p>
-          <p className="text-base text-pencil-light">
+          <p className="text-base text-pencil-light mb-4">
             Type a query above to find skills on GitHub
           </p>
+          <HandButton
+            onClick={() => handleSearch('')}
+            variant="secondary"
+            size="sm"
+          >
+            <Star size={14} strokeWidth={2.5} />
+            Browse Popular Skills
+          </HandButton>
         </div>
       )}
 

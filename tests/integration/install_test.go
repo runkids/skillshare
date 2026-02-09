@@ -984,3 +984,183 @@ targets: {}
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "--name can only be used when exactly one skill is discovered")
 }
+
+// createMultiSkillGitRepo creates a local git repo with multiple skills for testing.
+// Returns the git repo path (usable with file:// protocol).
+func createMultiSkillGitRepo(t *testing.T, sb *testutil.Sandbox, name string, skills []string) string {
+	t.Helper()
+	gitRepoPath := filepath.Join(sb.Root, name)
+	for _, skill := range skills {
+		skillPath := filepath.Join(gitRepoPath, skill)
+		os.MkdirAll(skillPath, 0755)
+		os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# "+skill), 0644)
+	}
+
+	cmd := exec.Command("git", "init")
+	cmd.Dir = gitRepoPath
+	if err := cmd.Run(); err != nil {
+		t.Skip("git not available, skipping git test")
+	}
+
+	for _, c := range [][]string{
+		{"config", "user.email", "test@test.com"},
+		{"config", "user.name", "Test"},
+		{"add", "."},
+		{"commit", "-m", "Initial commit"},
+	} {
+		cmd = exec.Command("git", c...)
+		cmd.Dir = gitRepoPath
+		cmd.Run()
+	}
+
+	return gitRepoPath
+}
+
+func TestInstall_SkillFlag_SelectsSpecific(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	gitRepoPath := createMultiSkillGitRepo(t, sb, "skill-flag-repo", []string{"skill-one", "skill-two", "skill-three"})
+
+	result := sb.RunCLI("install", "file://"+gitRepoPath, "-s", "skill-one")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "skill-one")
+
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-one", "SKILL.md")) {
+		t.Error("skill-one should be installed")
+	}
+	if sb.FileExists(filepath.Join(sb.SourcePath, "skill-two")) {
+		t.Error("skill-two should NOT be installed")
+	}
+	if sb.FileExists(filepath.Join(sb.SourcePath, "skill-three")) {
+		t.Error("skill-three should NOT be installed")
+	}
+}
+
+func TestInstall_SkillFlag_CommaSeparated(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	gitRepoPath := createMultiSkillGitRepo(t, sb, "comma-repo", []string{"skill-one", "skill-two", "skill-three"})
+
+	result := sb.RunCLI("install", "file://"+gitRepoPath, "-s", "skill-one,skill-two")
+	result.AssertSuccess(t)
+
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-one", "SKILL.md")) {
+		t.Error("skill-one should be installed")
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-two", "SKILL.md")) {
+		t.Error("skill-two should be installed")
+	}
+	if sb.FileExists(filepath.Join(sb.SourcePath, "skill-three")) {
+		t.Error("skill-three should NOT be installed")
+	}
+}
+
+func TestInstall_SkillFlag_NotFound(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	gitRepoPath := createMultiSkillGitRepo(t, sb, "notfound-repo", []string{"skill-one", "skill-two"})
+
+	result := sb.RunCLI("install", "file://"+gitRepoPath, "-s", "nonexistent")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "skills not found: nonexistent")
+	result.AssertAnyOutputContains(t, "Available:")
+}
+
+func TestInstall_AllFlag_InstallsAll(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	gitRepoPath := createMultiSkillGitRepo(t, sb, "all-flag-repo", []string{"skill-one", "skill-two", "skill-three"})
+
+	result := sb.RunCLI("install", "file://"+gitRepoPath, "--all")
+	result.AssertSuccess(t)
+
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-one", "SKILL.md")) {
+		t.Error("skill-one should be installed")
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-two", "SKILL.md")) {
+		t.Error("skill-two should be installed")
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-three", "SKILL.md")) {
+		t.Error("skill-three should be installed")
+	}
+}
+
+func TestInstall_YesFlag_InstallsAll(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	gitRepoPath := createMultiSkillGitRepo(t, sb, "yes-flag-repo", []string{"skill-one", "skill-two", "skill-three"})
+
+	result := sb.RunCLI("install", "file://"+gitRepoPath, "-y")
+	result.AssertSuccess(t)
+
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-one", "SKILL.md")) {
+		t.Error("skill-one should be installed")
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-two", "SKILL.md")) {
+		t.Error("skill-two should be installed")
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-three", "SKILL.md")) {
+		t.Error("skill-three should be installed")
+	}
+}
+
+func TestInstall_SkillFlag_DryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	gitRepoPath := createMultiSkillGitRepo(t, sb, "dryrun-skill-repo", []string{"skill-one", "skill-two", "skill-three"})
+
+	result := sb.RunCLI("install", "file://"+gitRepoPath, "-s", "skill-one", "--dry-run")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "skill-one")
+	result.AssertOutputContains(t, "dry-run")
+	result.AssertOutputContains(t, "1 skill(s)")
+
+	// skill-two and skill-three should NOT appear in output
+	result.AssertOutputNotContains(t, "skill-two")
+	result.AssertOutputNotContains(t, "skill-three")
+
+	// Nothing should be installed
+	if sb.FileExists(filepath.Join(sb.SourcePath, "skill-one")) {
+		t.Error("skill should not be installed in dry-run mode")
+	}
+}
+
+func TestInstall_SkillAndAllConflict(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("install", "file:///some/repo", "-s", "x", "--all")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--skill and --all cannot be used together")
+}
+
+func TestInstall_SkillAndTrackConflict(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("install", "file:///some/repo", "-s", "x", "--track")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--skill cannot be used with --track")
+}

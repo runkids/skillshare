@@ -30,7 +30,7 @@ func collectLocalSkills(targets map[string]config.TargetConfig, source string) [
 
 // displayLocalSkills shows the local skills found
 func displayLocalSkills(skills []sync.LocalSkillInfo) {
-	ui.Header("Local skills found")
+	ui.Header(ui.WithModeLabel("Local skills found"))
 	for _, skill := range skills {
 		ui.ListItem("info", skill.Name, fmt.Sprintf("[%s] %s", skill.TargetName, skill.Path))
 	}
@@ -154,7 +154,7 @@ func confirmCollect() bool {
 }
 
 func executeCollect(skills []sync.LocalSkillInfo, source string, dryRun, force bool) error {
-	ui.Header("Collecting skills")
+	ui.Header(ui.WithModeLabel("Collecting skills"))
 	result, err := sync.PullSkills(skills, source, sync.PullOptions{
 		DryRun: dryRun,
 		Force:  force,

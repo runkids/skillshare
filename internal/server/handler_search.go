@@ -9,10 +9,6 @@ import (
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
-	if query == "" {
-		writeError(w, http.StatusBadRequest, "query parameter 'q' is required")
-		return
-	}
 
 	limit := 20
 	if l := r.URL.Query().Get("limit"); l != "" {

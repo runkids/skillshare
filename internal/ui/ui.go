@@ -135,6 +135,14 @@ func isTTY() bool {
 // Set to "project" to display "(project)" next to the version.
 var ModeLabel string
 
+// WithModeLabel appends " (project)" to text when ModeLabel is set.
+func WithModeLabel(text string) string {
+	if ModeLabel != "" {
+		return text + " (" + ModeLabel + ")"
+	}
+	return text
+}
+
 func Logo(version string) {
 	LogoAnimated(version, isTTY())
 }

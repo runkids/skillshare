@@ -75,6 +75,7 @@ const sidebars: SidebarsConfig = {
           label: 'Skill Management',
           items: [
             'commands/new',
+            'commands/check',
             'commands/update',
             'commands/upgrade',
           ],

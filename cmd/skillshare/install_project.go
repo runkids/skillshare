@@ -39,6 +39,16 @@ func parseProjectInstallArgs(args []string) (*projectInstallArgs, bool, error) {
 			result.opts.DryRun = true
 		case arg == "--track" || arg == "-t":
 			result.opts.Track = true
+		case arg == "--skill" || arg == "-s":
+			if i+1 >= len(args) {
+				return nil, false, fmt.Errorf("--skill requires a value")
+			}
+			i++
+			result.opts.Skills = strings.Split(args[i], ",")
+		case arg == "--all":
+			result.opts.All = true
+		case arg == "--yes" || arg == "-y":
+			result.opts.Yes = true
 		case arg == "--help" || arg == "-h":
 			return nil, true, nil
 		case strings.HasPrefix(arg, "-"):
@@ -50,6 +60,35 @@ func parseProjectInstallArgs(args []string) (*projectInstallArgs, bool, error) {
 			result.sourceArg = arg
 		}
 		i++
+	}
+
+	// Clean --skill input
+	if len(result.opts.Skills) > 0 {
+		cleaned := make([]string, 0, len(result.opts.Skills))
+		for _, s := range result.opts.Skills {
+			s = strings.TrimSpace(s)
+			if s != "" {
+				cleaned = append(cleaned, s)
+			}
+		}
+		if len(cleaned) == 0 {
+			return nil, false, fmt.Errorf("--skill requires at least one skill name")
+		}
+		result.opts.Skills = cleaned
+	}
+
+	// Validate mutual exclusion
+	if result.opts.HasSkillFilter() && result.opts.All {
+		return nil, false, fmt.Errorf("--skill and --all cannot be used together")
+	}
+	if result.opts.HasSkillFilter() && result.opts.Yes {
+		return nil, false, fmt.Errorf("--skill and --yes cannot be used together")
+	}
+	if result.opts.HasSkillFilter() && result.opts.Track {
+		return nil, false, fmt.Errorf("--skill cannot be used with --track")
+	}
+	if result.opts.ShouldInstallAll() && result.opts.Track {
+		return nil, false, fmt.Errorf("--all/--yes cannot be used with --track")
 	}
 
 	return result, false, nil

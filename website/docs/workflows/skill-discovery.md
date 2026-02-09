@@ -21,9 +21,10 @@ Find, evaluate, and install skills from the community.
 
 ## Step 1: Search
 
-Find skills by keyword:
+Find skills by keyword, or browse popular skills:
 
 ```bash
+skillshare search              # Browse popular skills
 skillshare search pdf
 skillshare search "code review"
 skillshare search react
@@ -73,8 +74,14 @@ skillshare install anthropics/skills/skills/pdf
 ### Multiple skills from one repo
 
 ```bash
-skillshare install anthropics/skills/skills/pdf
-skillshare install anthropics/skills/skills/code-review
+# Interactive browse
+skillshare install anthropics/skills
+
+# Select specific skills (non-interactive)
+skillshare install anthropics/skills -s pdf,commit
+
+# Install all skills
+skillshare install anthropics/skills --all
 ```
 
 ### Entire repo (for teams)
@@ -109,7 +116,9 @@ skillshare sync
 
 | Command | Purpose |
 |---------|---------|
+| `search` | Browse popular skills |
 | `search <query>` | Search for skills |
+| `check` | Check for available updates |
 | `install <repo>` | Browse repo (discovery mode) |
 | `install <repo/path>` | Install specific skill |
 | `list` | Show installed skills |
@@ -150,6 +159,12 @@ skillshare status
 
 Use the skill in your AI CLI to make sure it works as expected.
 
+### Check for updates
+
+```bash
+skillshare check              # See what has updates available
+```
+
 ### Update later
 
 ```bash
@@ -166,4 +181,5 @@ skillshare update _team-skills
 
 - [Commands: search](/docs/commands/search) — Search command
 - [Commands: install](/docs/commands/install) — Install command
+- [Commands: check](/docs/commands/check) — Check for updates
 - [Commands: list](/docs/commands/list) — List command

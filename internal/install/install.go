@@ -14,12 +14,21 @@ import (
 
 // InstallOptions configures the install behavior
 type InstallOptions struct {
-	Name   string // Override skill name
-	Force  bool   // Overwrite existing
-	DryRun bool   // Preview only
-	Update bool   // Update existing installation
-	Track  bool   // Install as tracked repository (preserves .git)
+	Name   string   // Override skill name
+	Force  bool     // Overwrite existing
+	DryRun bool     // Preview only
+	Update bool     // Update existing installation
+	Track  bool     // Install as tracked repository (preserves .git)
+	Skills []string // Select specific skills from multi-skill repo (comma-separated)
+	All    bool     // Install all discovered skills without prompting
+	Yes    bool     // Auto-accept all prompts (equivalent to --all for multi-skill repos)
 }
+
+// ShouldInstallAll returns true if all discovered skills should be installed without prompting.
+func (o InstallOptions) ShouldInstallAll() bool { return o.All || o.Yes }
+
+// HasSkillFilter returns true if specific skills were requested via --skill flag.
+func (o InstallOptions) HasSkillFilter() bool { return len(o.Skills) > 0 }
 
 // InstallResult reports the outcome of an installation
 type InstallResult struct {
@@ -765,6 +774,31 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 // cloneRepoFull performs a full git clone (quiet mode for cleaner output)
 func cloneRepoFull(url, destPath string) error {
 	return runGitCommand([]string{"clone", "--quiet", url, destPath}, "")
+}
+
+// GetUpdatableSkills returns skill names that have metadata with a remote source
+func GetUpdatableSkills(sourceDir string) ([]string, error) {
+	entries, err := os.ReadDir(sourceDir)
+	if err != nil {
+		return nil, err
+	}
+
+	var skills []string
+	for _, entry := range entries {
+		// Skip tracked repos (start with _) and non-directories
+		if !entry.IsDir() || (len(entry.Name()) > 0 && entry.Name()[0] == '_') {
+			continue
+		}
+
+		skillPath := filepath.Join(sourceDir, entry.Name())
+		meta, err := ReadMeta(skillPath)
+		if err != nil || meta == nil || meta.Source == "" {
+			continue // No metadata or no source, skip
+		}
+
+		skills = append(skills, entry.Name())
+	}
+	return skills, nil
 }
 
 // GetTrackedRepos returns a list of tracked repositories in the source directory

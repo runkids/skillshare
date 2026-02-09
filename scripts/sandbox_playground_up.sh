@@ -8,6 +8,13 @@ SERVICE="sandbox-playground"
 require_docker
 cd "$PROJECT_ROOT"
 
+# Resolve GitHub token from env vars or gh CLI (for search command inside playground).
+SKILLSHARE_PLAYGROUND_GITHUB_TOKEN="${GITHUB_TOKEN:-${GH_TOKEN:-}}"
+if [ -z "$SKILLSHARE_PLAYGROUND_GITHUB_TOKEN" ] && command -v gh &>/dev/null; then
+  SKILLSHARE_PLAYGROUND_GITHUB_TOKEN="$(gh auth token 2>/dev/null || true)"
+fi
+export SKILLSHARE_PLAYGROUND_GITHUB_TOKEN
+
 docker compose -f "$COMPOSE_FILE" --profile playground build "$SERVICE"
 
 # Prepare shared volumes for host UID/GID access.
@@ -24,8 +31,17 @@ docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(i
     ln -sf /sandbox-home/.local/bin/skillshare /sandbox-home/.local/bin/ss
     touch /sandbox-home/.bashrc
     grep -qxF "alias ss='"'"'skillshare'"'"'" /sandbox-home/.bashrc || echo "alias ss='"'"'skillshare'"'"'" >> /sandbox-home/.bashrc
-    grep -qxF "alias skillshare-ui='"'"'skillshare ui --host 0.0.0.0 --no-open'"'"'" /sandbox-home/.bashrc || echo "alias skillshare-ui='"'"'skillshare ui --host 0.0.0.0 --no-open'"'"'" >> /sandbox-home/.bashrc
+    grep -qxF "alias skillshare-ui='"'"'skillshare ui -g --host 0.0.0.0 --no-open'"'"'" /sandbox-home/.bashrc || echo "alias skillshare-ui='"'"'skillshare ui -g --host 0.0.0.0 --no-open'"'"'" >> /sandbox-home/.bashrc
     grep -qxF "alias skillshare-ui-p='"'"'cd /sandbox-home/demo-project && skillshare ui -p --host 0.0.0.0 --no-open'"'"'" /sandbox-home/.bashrc || echo "alias skillshare-ui-p='"'"'cd /sandbox-home/demo-project && skillshare ui -p --host 0.0.0.0 --no-open'"'"'" >> /sandbox-home/.bashrc
+  '
+
+# Initialize global mode (needed for skillshare-ui alias).
+docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(id -g)" "$SERVICE" \
+  bash -c '
+    if [ ! -f /sandbox-home/.config/skillshare/config.yaml ]; then
+      mkdir -p /sandbox-home/.claude/skills
+      skillshare init -g --no-copy --all-targets --no-git
+    fi
   '
 
 # Set up a demo project for project mode.
@@ -67,15 +83,24 @@ SKILL_EOF
     fi
   '
 
-echo "Playground is running."
-echo "Enter it with: ./scripts/sandbox_playground_shell.sh or run make sandbox-shell"
-echo "Inside playground you can directly run: skillshare  (and alias: ss)"
+echo "══════════════════════════════════════════════════════════"
+echo "  Playground is running!"
+echo "  Enter with:  make sandbox-shell"
+echo "══════════════════════════════════════════════════════════"
 echo ""
-echo "Quick start (global mode):"
-echo "  skillshare init         # required before first use"
+echo "Available commands: skillshare (alias: ss)"
+echo ""
+echo "Quick start (global mode — ready to use):"
+echo "  skillshare status       # check current state"
 echo "  skillshare-ui           # start web dashboard (port 19420)"
 echo ""
 echo "Quick start (project mode — ready to use):"
 echo "  cd ~/demo-project       # pre-configured demo project"
 echo "  skillshare status       # auto-detects project mode"
 echo "  skillshare-ui-p         # project mode web dashboard (port 19420)"
+echo ""
+if [ -n "$SKILLSHARE_PLAYGROUND_GITHUB_TOKEN" ]; then
+  echo "GitHub token: detected (search command will work)"
+else
+  echo "GitHub token: not set (export GITHUB_TOKEN=... to enable 'skillshare search')"
+fi

@@ -30,6 +30,7 @@ var commands = map[string]func([]string) error{
 	"target":    cmdTarget,
 	"upgrade":   cmdUpgrade,
 	"update":    cmdUpdate,
+	"check":     cmdCheck,
 	"new":       cmdNew,
 	"search":    cmdSearch,
 	"ui":        cmdUI,
@@ -132,7 +133,7 @@ func printUsage() {
 	cmd("install", "<source>", "Install a skill from local path or git repo")
 	cmd("uninstall", "<name>", "Remove a skill from source directory")
 	cmd("list", "", "List all installed skills")
-	cmd("search", "<query>", "Search GitHub for skills")
+	cmd("search", "[query]", "Search or browse GitHub for skills")
 	cmd("sync", "", "Sync skills to all targets")
 	cmd("status", "", "Show status of all targets")
 	fmt.Println()
@@ -140,6 +141,7 @@ func printUsage() {
 	// Skill Management
 	fmt.Println("SKILL MANAGEMENT")
 	cmd("new", "<name>", "Create a new skill with SKILL.md template")
+	cmd("check", "", "Check for available updates")
 	cmd("update", "<name>", "Update a skill or tracked repository")
 	cmd("update", "--all", "Update all tracked repositories")
 	cmd("upgrade", "", "Upgrade CLI and/or skillshare skill")

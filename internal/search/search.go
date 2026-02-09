@@ -109,7 +109,12 @@ func normalizeLimit(limit int) int {
 
 // fetchCodeSearchResults fetches results from GitHub code search API
 func fetchCodeSearchResults(query string) (*gitHubSearchResponse, error) {
-	searchQuery := fmt.Sprintf("filename:SKILL.md %s", query)
+	var searchQuery string
+	if query == "" {
+		searchQuery = "filename:SKILL.md"
+	} else {
+		searchQuery = fmt.Sprintf("filename:SKILL.md %s", query)
+	}
 	apiURL := fmt.Sprintf(
 		"https://api.github.com/search/code?q=%s&per_page=%d",
 		url.QueryEscape(searchQuery),

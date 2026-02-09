@@ -4,7 +4,7 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
-import {Copy, Check, Apple, Terminal, GitBranch, FolderSync, ArrowLeftRight, Globe, Layers, LayoutDashboard} from 'lucide-react';
+import {Copy, Check, Apple, Terminal, GitBranch, FolderSync, ArrowLeftRight, Globe, ShieldCheck, LayoutDashboard} from 'lucide-react';
 
 import styles from './index.module.css';
 
@@ -198,9 +198,9 @@ const whyFeatures = [
     description: 'One git push/pull syncs skills across all your machines. No re-running install commands.',
   },
   {
-    Icon: Layers,
-    title: 'Unified Source',
-    description: 'Local skills and installed skills live together in one directory. No separate management.',
+    Icon: ShieldCheck,
+    title: 'Privacy-First',
+    description: 'No central registry, no telemetry, no install tracking. Your skill setup stays entirely local.',
   },
   {
     Icon: GitBranch,

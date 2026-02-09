@@ -77,12 +77,12 @@ make sandbox-up
 make sandbox-shell
 ```
 
-Inside the playground, `skillshare` and `ss` are ready:
+Inside the playground, `skillshare` and `ss` are ready. Both global mode and project mode are pre-initialized:
 
 ```bash
 skillshare --help
 ss status
-skillshare init --dry-run
+skillshare list
 ```
 
 ### Project Mode in the Playground
@@ -113,14 +113,24 @@ Then open `http://localhost:19420` on your host machine.
 
 ### Web UI in the Playground
 
-The playground container includes pre-built frontend assets and maps port 19420 to the host. To launch the global mode web dashboard:
+The playground container includes pre-built frontend assets and maps port 19420 to the host. Both global and project mode are pre-initialized, so you can launch the dashboard immediately:
 
 ```bash
-skillshare init          # required before first use
-skillshare-ui            # alias for: skillshare ui --host 0.0.0.0 --no-open
+skillshare-ui            # global mode dashboard
+skillshare-ui-p          # project mode dashboard (~/demo-project)
 ```
 
 Then open `http://localhost:19420` in your host browser. Use `--host 0.0.0.0` because the container's `127.0.0.1` is not reachable from the host.
+
+### GitHub Token (for Search)
+
+The playground automatically picks up your GitHub token from the host for `skillshare search`. It checks in order: `$GITHUB_TOKEN` → `$GH_TOKEN` → `gh auth token`. No extra setup needed if you're already authenticated on the host.
+
+```bash
+# If not detected, set it before starting the playground:
+export GITHUB_TOKEN=ghp_your_token_here
+make sandbox-up
+```
 
 When finished:
 
@@ -154,6 +164,7 @@ make sandbox-down
 
 - Offline sandbox cannot validate network-dependent features (for example remote `install` from GitHub).
 - Playground uses container-local `HOME`, so it does not directly modify your real host home config.
+- Go code changes are picked up automatically (`go build` runs inside the container from mounted source). **Frontend (`ui/`) changes** require running `make ui-build` on the host first, since the container does not have Node.js.
 - If you need custom experiments, pass commands directly:
 
 ```bash

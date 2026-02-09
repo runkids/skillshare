@@ -43,6 +43,16 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			result.opts.DryRun = true
 		case arg == "--track" || arg == "-t":
 			result.opts.Track = true
+		case arg == "--skill" || arg == "-s":
+			if i+1 >= len(args) {
+				return nil, false, fmt.Errorf("--skill requires a value")
+			}
+			i++
+			result.opts.Skills = strings.Split(args[i], ",")
+		case arg == "--all":
+			result.opts.All = true
+		case arg == "--yes" || arg == "-y":
+			result.opts.Yes = true
 		case arg == "--help" || arg == "-h":
 			return nil, true, nil // showHelp = true
 		case strings.HasPrefix(arg, "-"):
@@ -54,6 +64,35 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			result.sourceArg = arg
 		}
 		i++
+	}
+
+	// Clean --skill input
+	if len(result.opts.Skills) > 0 {
+		cleaned := make([]string, 0, len(result.opts.Skills))
+		for _, s := range result.opts.Skills {
+			s = strings.TrimSpace(s)
+			if s != "" {
+				cleaned = append(cleaned, s)
+			}
+		}
+		if len(cleaned) == 0 {
+			return nil, false, fmt.Errorf("--skill requires at least one skill name")
+		}
+		result.opts.Skills = cleaned
+	}
+
+	// Validate mutual exclusion
+	if result.opts.HasSkillFilter() && result.opts.All {
+		return nil, false, fmt.Errorf("--skill and --all cannot be used together")
+	}
+	if result.opts.HasSkillFilter() && result.opts.Yes {
+		return nil, false, fmt.Errorf("--skill and --yes cannot be used together")
+	}
+	if result.opts.HasSkillFilter() && result.opts.Track {
+		return nil, false, fmt.Errorf("--skill cannot be used with --track")
+	}
+	if result.opts.ShouldInstallAll() && result.opts.Track {
+		return nil, false, fmt.Errorf("--all/--yes cannot be used with --track")
 	}
 
 	if result.sourceArg == "" {
@@ -306,6 +345,28 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		return nil
 	}
 
+	// Non-interactive path: --skill or --all/--yes
+	if opts.HasSkillFilter() || opts.ShouldInstallAll() {
+		selected, err := selectSkills(discovery.Skills, opts)
+		if err != nil {
+			return err
+		}
+
+		if opts.DryRun {
+			fmt.Println()
+			for _, skill := range selected {
+				ui.SkillBoxCompact(skill.Name, skill.Path)
+			}
+			fmt.Println()
+			ui.Warning("[dry-run] Would install %d skill(s)", len(selected))
+			return nil
+		}
+
+		fmt.Println()
+		installSelectedSkills(selected, discovery, cfg, opts)
+		return nil
+	}
+
 	if opts.DryRun {
 		// Show skill list in dry-run mode
 		fmt.Println()
@@ -333,6 +394,51 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 	installSelectedSkills(selected, discovery, cfg, opts)
 
 	return nil
+}
+
+// selectSkills routes to the appropriate skill selection method:
+// --skill filter, --all/--yes auto-select, or interactive prompt.
+func selectSkills(skills []install.SkillInfo, opts install.InstallOptions) ([]install.SkillInfo, error) {
+	switch {
+	case opts.HasSkillFilter():
+		matched, notFound := filterSkillsByName(skills, opts.Skills)
+		if len(notFound) > 0 {
+			return nil, fmt.Errorf("skills not found: %s\nAvailable: %s",
+				strings.Join(notFound, ", "), skillNames(skills))
+		}
+		return matched, nil
+	case opts.ShouldInstallAll():
+		return skills, nil
+	default:
+		return promptSkillSelection(skills)
+	}
+}
+
+// filterSkillsByName matches requested names against discovered skills.
+func filterSkillsByName(skills []install.SkillInfo, names []string) (matched []install.SkillInfo, notFound []string) {
+	nameSet := make(map[string]bool, len(names))
+	for _, n := range names {
+		nameSet[n] = true
+	}
+	for _, skill := range skills {
+		if nameSet[skill.Name] {
+			matched = append(matched, skill)
+			delete(nameSet, skill.Name)
+		}
+	}
+	for n := range nameSet {
+		notFound = append(notFound, n)
+	}
+	return
+}
+
+// skillNames returns a comma-separated list of skill names for error messages.
+func skillNames(skills []install.SkillInfo) string {
+	names := make([]string, len(skills))
+	for i, s := range skills {
+		names[i] = s.Name
+	}
+	return strings.Join(names, ", ")
 }
 
 func promptSkillSelection(skills []install.SkillInfo) ([]install.SkillInfo, error) {
@@ -608,6 +714,28 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		return fmt.Errorf("--name can only be used when exactly one skill is discovered")
 	}
 
+	// Non-interactive path: --skill or --all/--yes
+	if opts.HasSkillFilter() || opts.ShouldInstallAll() {
+		selected, err := selectSkills(discovery.Skills, opts)
+		if err != nil {
+			return err
+		}
+
+		if opts.DryRun {
+			fmt.Println()
+			for _, skill := range selected {
+				ui.SkillBoxCompact(skill.Name, skill.Path)
+			}
+			fmt.Println()
+			ui.Warning("[dry-run] Would install %d skill(s)", len(selected))
+			return nil
+		}
+
+		fmt.Println()
+		installSelectedSkills(selected, discovery, cfg, opts)
+		return nil
+	}
+
 	if opts.DryRun {
 		fmt.Println()
 		for _, skill := range discovery.Skills {
@@ -723,6 +851,9 @@ Options:
   --force, -f         Overwrite if skill already exists
   --update, -u        Update existing (git pull if possible, else reinstall)
   --track, -t         Install as tracked repo (preserves .git for updates)
+  --skill, -s <names> Select specific skills from multi-skill repo (comma-separated)
+  --all               Install all discovered skills without prompting
+  --yes, -y           Auto-accept all prompts (equivalent to --all for multi-skill repos)
   --dry-run, -n       Preview the installation without making changes
   --project, -p       Use project-level config in current directory
   --global, -g        Use global config (~/.config/skillshare)
@@ -734,6 +865,12 @@ Examples:
   skillshare install ComposioHQ/awesome-claude-skills
   skillshare install ~/my-skill
   skillshare install github.com/user/repo --force
+
+Selective install (non-interactive):
+  skillshare install anthropics/skills -s pdf,commit     # Specific skills
+  skillshare install anthropics/skills --all             # All skills
+  skillshare install anthropics/skills -y                # Auto-accept
+  skillshare install anthropics/skills -s pdf --dry-run  # Preview selection
 
 Tracked repositories (Team Edition):
   skillshare install team/shared-skills --track   # Clone as _shared-skills

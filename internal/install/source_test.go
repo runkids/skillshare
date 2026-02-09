@@ -449,6 +449,68 @@ func TestStripGitBranchPrefix(t *testing.T) {
 	}
 }
 
+func TestParseSource_DomainShorthand(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		wantType     SourceType
+		wantCloneURL string
+		wantSubdir   string
+		wantName     string
+	}{
+		{
+			name:         "gitlab shorthand",
+			input:        "gitlab.com/user/repo",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://gitlab.com/user/repo.git",
+			wantName:     "repo",
+		},
+		{
+			name:         "bitbucket shorthand",
+			input:        "bitbucket.org/user/repo",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://bitbucket.org/user/repo.git",
+			wantName:     "repo",
+		},
+		{
+			name:         "gitlab with subdir",
+			input:        "gitlab.com/user/repo/path/to/skill",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://gitlab.com/user/repo.git",
+			wantSubdir:   "path/to/skill",
+			wantName:     "skill",
+		},
+		{
+			name:         "custom domain",
+			input:        "git.company.com/team/skills",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://git.company.com/team/skills.git",
+			wantName:     "skills",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, err := ParseSource(tt.input)
+			if err != nil {
+				t.Fatalf("ParseSource(%q) error = %v", tt.input, err)
+			}
+			if source.Type != tt.wantType {
+				t.Errorf("Type = %v, want %v", source.Type, tt.wantType)
+			}
+			if source.CloneURL != tt.wantCloneURL {
+				t.Errorf("CloneURL = %q, want %q", source.CloneURL, tt.wantCloneURL)
+			}
+			if source.Subdir != tt.wantSubdir {
+				t.Errorf("Subdir = %q, want %q", source.Subdir, tt.wantSubdir)
+			}
+			if source.Name != tt.wantName {
+				t.Errorf("Name = %q, want %q", source.Name, tt.wantName)
+			}
+		})
+	}
+}
+
 func TestParseSource_GeminiCLIMonorepo(t *testing.T) {
 	// Real-world test case from the plan
 	input := "github.com/google-gemini/gemini-cli/packages/core/src/skills/builtin/skill-creator"
@@ -537,6 +599,26 @@ func TestExpandGitHubShorthand(t *testing.T) {
 			name:  "single word unchanged (no slash)",
 			input: "somename",
 			want:  "somename",
+		},
+		{
+			name:  "gitlab domain gets https prefix",
+			input: "gitlab.com/user/repo",
+			want:  "https://gitlab.com/user/repo",
+		},
+		{
+			name:  "bitbucket domain gets https prefix",
+			input: "bitbucket.org/user/repo",
+			want:  "https://bitbucket.org/user/repo",
+		},
+		{
+			name:  "custom domain gets https prefix",
+			input: "git.company.com/team/skills",
+			want:  "https://git.company.com/team/skills",
+		},
+		{
+			name:  "github shorthand still works",
+			input: "anthropics/skills",
+			want:  "github.com/anthropics/skills",
 		},
 	}
 

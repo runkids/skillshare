@@ -22,7 +22,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
-import type { Target as TargetType } from '../api/client';
+import type { Target as TargetType, CheckResult } from '../api/client';
 import { useApi } from '../hooks/useApi';
 import { useAppContext } from '../context/AppContext';
 import { wobbly, shadows } from '../design';
@@ -181,6 +181,9 @@ export default function DashboardPage() {
         <TrackedReposSection repos={data.trackedRepos} />
       )}
 
+      {/* Skill Updates Check */}
+      <SkillUpdatesSection />
+
       {/* Targets Health */}
       <TargetsHealthSection />
 
@@ -196,9 +199,9 @@ export default function DashboardPage() {
           Quick Actions
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link to="/sync">
+          <Link to="/sync" className="h-full">
             <div
-              className="flex items-center gap-3 px-5 py-4 bg-postit border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer group"
+              className="flex items-center gap-3 px-5 py-4 h-full bg-postit border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer group"
               style={{
                 borderRadius: wobbly.md,
                 boxShadow: shadows.md,
@@ -225,9 +228,9 @@ export default function DashboardPage() {
             </div>
           </Link>
 
-          <Link to="/search">
+          <Link to="/search" className="h-full">
             <div
-              className="flex items-center gap-3 px-5 py-4 bg-info-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer"
+              className="flex items-center gap-3 px-5 py-4 h-full bg-info-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer"
               style={{
                 borderRadius: wobbly.md,
                 boxShadow: shadows.md,
@@ -250,9 +253,9 @@ export default function DashboardPage() {
             </div>
           </Link>
 
-          <Link to="/skills">
+          <Link to="/skills" className="h-full">
             <div
-              className="flex items-center gap-3 px-5 py-4 bg-success-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer"
+              className="flex items-center gap-3 px-5 py-4 h-full bg-success-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer"
               style={{
                 borderRadius: wobbly.md,
                 boxShadow: shadows.md,
@@ -278,10 +281,10 @@ export default function DashboardPage() {
           <button
             onClick={handleUpdateAll}
             disabled={updatingAll}
-            className="text-left w-full"
+            className="text-left w-full h-full"
           >
             <div
-              className="flex items-center gap-3 px-5 py-4 bg-warning-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer"
+              className="flex items-center gap-3 px-5 py-4 h-full bg-warning-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer"
               style={{
                 borderRadius: wobbly.md,
                 boxShadow: shadows.md,
@@ -377,6 +380,123 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
           );
         })}
       </div>
+    </Card>
+  );
+}
+
+/* ── Skill Updates Section ────────────────────────────── */
+
+function SkillUpdatesSection() {
+  const [checkData, setCheckData] = useState<CheckResult | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const { toast } = useToast();
+
+  const handleCheck = async () => {
+    setChecking(true);
+    try {
+      const result = await api.check();
+      setCheckData(result);
+      setChecked(true);
+    } catch (e: unknown) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  const updatableCount = checkData
+    ? checkData.tracked_repos.filter((r) => r.status === 'behind').length +
+      checkData.skills.filter((s) => s.status === 'update_available').length
+    : 0;
+
+  return (
+    <Card className="mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Download size={20} strokeWidth={2.5} className="text-blue" />
+          <h3
+            className="text-lg font-bold text-pencil"
+            style={{ fontFamily: 'var(--font-heading)' }}
+          >
+            Skill Updates
+          </h3>
+          {checked && updatableCount > 0 && (
+            <Badge variant="warning">{updatableCount} available</Badge>
+          )}
+          {checked && updatableCount === 0 && (
+            <Badge variant="success">All up to date</Badge>
+          )}
+        </div>
+        <button
+          onClick={handleCheck}
+          disabled={checking}
+          className="text-sm text-blue hover:underline disabled:opacity-50"
+          style={{ fontFamily: 'var(--font-hand)' }}
+        >
+          {checking ? 'Checking...' : checked ? 'Re-check' : 'Run Check'}
+        </button>
+      </div>
+
+      {!checked && !checking && (
+        <p className="text-pencil-light text-sm">
+          Click "Run Check" to see if any tracked repos or skills have updates available.
+        </p>
+      )}
+
+      {checking && (
+        <div className="space-y-3">
+          <Skeleton className="w-full h-8" />
+          <Skeleton className="w-3/4 h-8" />
+        </div>
+      )}
+
+      {checked && checkData && (
+        <div className="space-y-2">
+          {checkData.tracked_repos.map((repo) => (
+            <div
+              key={repo.name}
+              className="flex items-center justify-between py-2 px-3 bg-paper-warm border border-muted"
+              style={{ borderRadius: wobbly.sm }}
+            >
+              <div className="flex items-center gap-2">
+                <GitBranch size={14} className="text-pencil-light" />
+                <span className="text-pencil text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
+                  {repo.name.replace(/^_/, '')}
+                </span>
+              </div>
+              {repo.status === 'up_to_date' && <Badge variant="success">Up to date</Badge>}
+              {repo.status === 'behind' && <Badge variant="warning">{repo.behind} behind</Badge>}
+              {repo.status === 'dirty' && <Badge variant="default">Modified</Badge>}
+              {repo.status === 'error' && <Badge variant="danger">Error</Badge>}
+            </div>
+          ))}
+          {checkData.skills.map((skill) => (
+            <div
+              key={skill.name}
+              className="flex items-center justify-between py-2 px-3 bg-paper-warm border border-muted"
+              style={{ borderRadius: wobbly.sm }}
+            >
+              <div className="flex items-center gap-2">
+                <Puzzle size={14} className="text-pencil-light" />
+                <span className="text-pencil text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
+                  {skill.name}
+                </span>
+                {skill.source && (
+                  <span className="text-xs text-muted-dark truncate max-w-[200px]">{skill.source}</span>
+                )}
+              </div>
+              {skill.status === 'up_to_date' && <Badge variant="success">Up to date</Badge>}
+              {skill.status === 'update_available' && <Badge variant="warning">Update available</Badge>}
+              {skill.status === 'local' && <Badge variant="default">Local</Badge>}
+              {skill.status === 'error' && <Badge variant="danger">Error</Badge>}
+            </div>
+          ))}
+          {checkData.tracked_repos.length === 0 && checkData.skills.length === 0 && (
+            <p className="text-pencil-light text-sm">No tracked repos or updatable skills found.</p>
+          )}
+        </div>
+      )}
     </Card>
   );
 }

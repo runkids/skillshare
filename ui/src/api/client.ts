@@ -54,6 +54,7 @@ export const api = {
   // Search & Install
   search: (q: string, limit = 20) =>
     apiFetch<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}&limit=${limit}`),
+  check: () => apiFetch<CheckResult>('/check'),
   discover: (source: string) =>
     apiFetch<DiscoverResult>('/discover', {
       method: 'POST',
@@ -294,6 +295,27 @@ export interface BackupInfo {
 export interface BackupListResponse {
   backups: BackupInfo[];
   totalSizeMB: number;
+}
+
+// Check types
+export interface RepoCheckResult {
+  name: string;
+  status: string;
+  behind: number;
+  message?: string;
+}
+
+export interface SkillCheckResult {
+  name: string;
+  source: string;
+  version: string;
+  status: string;
+  installed_at?: string;
+}
+
+export interface CheckResult {
+  tracked_repos: RepoCheckResult[];
+  skills: SkillCheckResult[];
 }
 
 // Git types
