@@ -19,8 +19,8 @@
 </p>
 
 <p align="center">
-  <strong>One source of truth for AI CLI skills.</strong><br>
-  Sync once, use everywhere: Claude Code, Codex, Cursor, OpenCode, and more.
+  <strong>One source of truth for AI CLI skills. Sync everywhere with one command — from personal to organization-wide.</strong><br>
+  Claude Code, OpenClaw, OpenCode & 40+ more.
 </p>
 
 <p align="center">
@@ -59,25 +59,42 @@ Stop managing skills tool-by-tool.
 - **Team + project friendly**: Use global skills for personal workflows and `.skillshare/` for repo-scoped collaboration.
 - **Visual control panel**: Open `skillshare ui` for browsing, install, target management, and sync status in one place.
 
+## How It Works
+- macOS / Linux: `~/.config/skillshare/skills/`
+- Windows: `%USERPROFILE%\.config\skillshare\skills\`
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                       Source Directory                      │
+│                 ~/.config/skillshare/skills/                │
+└─────────────────────────────────────────────────────────────┘
+                              │ sync
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+       ┌───────────┐   ┌───────────┐   ┌───────────┐
+       │  Claude   │   │  OpenCode │   │ OpenClaw  │   ...
+       └───────────┘   └───────────┘   └───────────┘
+```
+
+| Platform | Source Path | Link Type |
+|----------|-------------|-----------|
+| macOS/Linux | `~/.config/skillshare/skills/` | Symlinks |
+| Windows | `%USERPROFILE%\.config\skillshare\skills\` | NTFS Junctions (no admin required) |
+
+
 ## CLI and UI Preview
 
 ### CLI
 
-| Status | Search |
+| Sync | Install Skills |
 |---|---|
-| <img src=".github/assets/status-demo.png" alt="CLI status command output" width="100%"> | <img src=".github/assets/search-demo.png" alt="CLI search command output" width="100%"> |
+| <img src=".github/assets/sync-collision-demo.png" alt="CLI status command output" width="100%"> | <img src=".github/assets/install-demo.png" alt="CLI install command output" width="100%"> |
 
 ### UI
 
 | Dashboard | Skills |
 |---|---|
 | <img src=".github/assets/ui/web-dashboard-demo.png" alt="Web dashboard overview" width="100%"> | <img src=".github/assets/ui/web-skills-demo.png" alt="Web UI skills browser" width="100%"> |
-
-### Windows
-
-<p align="left">
-  <img src=".github/assets/windows-init.png" alt="Windows initialization demo" width="720">
-</p>
 
 ## Installation
 
@@ -99,6 +116,14 @@ irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 brew install runkids/tap/skillshare
 ```
 
+### Shorthand (Optional)
+
+Add an alias to your shell config (`~/.zshrc` or `~/.bashrc`):
+
+```bash
+alias ss='skillshare'
+```
+
 ### Uninstall
 
 ```bash
@@ -112,6 +137,8 @@ Remove-Item "$env:LOCALAPPDATA\Programs\skillshare" -Recurse -Force
 Remove-Item "$env:USERPROFILE\.config\skillshare" -Recurse -Force  # optional
 ```
 
+---
+
 ## Quick Start
 
 ```bash
@@ -119,11 +146,6 @@ skillshare init --dry-run  # Preview setup
 skillshare init            # Create config, source, and detected targets
 skillshare sync            # Sync skills to all targets
 ```
-
-Default source directory:
-
-- macOS / Linux: `~/.config/skillshare/skills/`
-- Windows: `%USERPROFILE%\.config\skillshare\skills\`
 
 ## Common Workflows
 
@@ -294,6 +316,16 @@ go test ./...
 ```
 
 Issues and PRs are welcome: https://github.com/runkids/skillshare/issues
+
+---
+
+If you find skillshare useful, consider giving it a ⭐
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=runkids/skillshare&type=date&legend=top-left)](https://www.star-history.com/#runkids/skillshare&type=date&legend=top-left)
+
+---
 
 ## License
 
