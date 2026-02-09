@@ -2,19 +2,20 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"skillshare/internal/install"
+	"skillshare/internal/sync"
 	"skillshare/internal/ui"
-	"skillshare/internal/utils"
 )
 
 type projectSkillEntry struct {
-	Name   string
-	Source string
-	Remote bool
+	Name     string
+	Source   string
+	Remote   bool
+	RepoName string
 }
 
 func cmdListProject(root string) error {
@@ -25,65 +26,89 @@ func cmdListProject(root string) error {
 	}
 
 	sourcePath := filepath.Join(root, ".skillshare", "skills")
-	entries, err := os.ReadDir(sourcePath)
+
+	// Use recursive discovery (same as global list and web UI)
+	discovered, err := sync.DiscoverSourceSkills(sourcePath)
 	if err != nil {
-		return fmt.Errorf("cannot read project skills: %w", err)
+		return fmt.Errorf("cannot discover project skills: %w", err)
 	}
 
+	trackedRepos, _ := install.GetTrackedRepos(sourcePath)
+
 	var skills []projectSkillEntry
-	for _, entry := range entries {
-		if !entry.IsDir() || utils.IsHidden(entry.Name()) {
-			continue
+	for _, d := range discovered {
+		entry := projectSkillEntry{
+			Name: d.FlatName,
 		}
 
-		skillPath := filepath.Join(sourcePath, entry.Name())
-		if _, err := os.Stat(filepath.Join(skillPath, "SKILL.md")); err != nil {
-			continue
+		if d.IsInRepo {
+			parts := strings.SplitN(d.RelPath, "/", 2)
+			if len(parts) > 0 {
+				entry.RepoName = parts[0]
+			}
 		}
 
-		meta, _ := install.ReadMeta(skillPath)
+		meta, _ := install.ReadMeta(d.SourcePath)
 		if meta != nil && meta.Source != "" {
-			skills = append(skills, projectSkillEntry{Name: entry.Name(), Source: meta.Source, Remote: true})
-		} else {
-			skills = append(skills, projectSkillEntry{Name: entry.Name(), Remote: false})
+			entry.Source = meta.Source
+			entry.Remote = true
 		}
+
+		skills = append(skills, entry)
 	}
 
 	sort.Slice(skills, func(i, j int) bool {
 		return skills[i].Name < skills[j].Name
 	})
 
-	if len(skills) == 0 {
+	if len(skills) == 0 && len(trackedRepos) == 0 {
 		ui.Info("No skills installed")
 		ui.Info("Use 'skillshare install -p <source>' to install a skill")
 		return nil
 	}
 
-	ui.Header("Installed skills (project)")
+	if len(skills) > 0 {
+		ui.Header("Installed skills (project)")
 
-	maxNameLen := 0
-	for _, skill := range skills {
-		if len(skill.Name) > maxNameLen {
-			maxNameLen = len(skill.Name)
+		maxNameLen := 0
+		for _, skill := range skills {
+			if len(skill.Name) > maxNameLen {
+				maxNameLen = len(skill.Name)
+			}
+		}
+
+		for _, skill := range skills {
+			suffix := getProjectSkillSuffix(skill)
+			format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Gray, ui.Reset)
+			fmt.Printf(format, skill.Name, suffix)
 		}
 	}
 
-	for _, skill := range skills {
-		suffix := "local"
-		if skill.Remote {
-			suffix = abbreviateSource(skill.Source)
-		}
-		format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Gray, ui.Reset)
-		fmt.Printf(format, skill.Name, suffix)
+	if len(trackedRepos) > 0 {
+		displayTrackedRepos(trackedRepos, discovered, sourcePath)
 	}
 
 	fmt.Println()
+	trackedCount := 0
 	remoteCount := 0
 	for _, skill := range skills {
-		if skill.Remote {
+		if skill.RepoName != "" {
+			trackedCount++
+		} else if skill.Remote {
 			remoteCount++
 		}
 	}
-	ui.Info("%d skill(s): %d remote, %d local", len(skills), remoteCount, len(skills)-remoteCount)
+	localCount := len(skills) - trackedCount - remoteCount
+	ui.Info("%d skill(s): %d tracked, %d remote, %d local", len(skills), trackedCount, remoteCount, localCount)
 	return nil
+}
+
+func getProjectSkillSuffix(s projectSkillEntry) string {
+	if s.RepoName != "" {
+		return fmt.Sprintf("tracked: %s", s.RepoName)
+	}
+	if s.Remote {
+		return abbreviateSource(s.Source)
+	}
+	return "local"
 }

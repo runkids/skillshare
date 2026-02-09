@@ -69,7 +69,7 @@ skillshare install git@gitlab.com:user/repo.git
 
 ## Discovery Mode (Browse Skills)
 
-When you don't specify a path, skillshare lists all available skills:
+When you don't specify a path, skillshare clones the repo, scans for skills, and presents an interactive picker:
 
 ```bash
 skillshare install anthropics/skills
@@ -79,6 +79,8 @@ skillshare install anthropics/skills
   <img src="/img/install-demo.png" alt="install demo" width="720" />
 </p>
 
+Discovery scans all directories for `SKILL.md` files, skipping only `.git`. This means skills inside hidden directories like `.curated/` or `.system/` are discovered automatically.
+
 **Tip**: Use `--dry-run` to preview without installing:
 ```bash
 skillshare install anthropics/skills --dry-run
@@ -86,10 +88,10 @@ skillshare install anthropics/skills --dry-run
 
 ## Selective Install (Non-Interactive)
 
-Pick specific skills from a multi-skill repo without prompts:
+Pick specific skills from a multi-skill repo without prompts. The `--skill` flag supports **fuzzy matching** — if an exact name isn't found, it falls back to the closest match:
 
 ```bash
-# Install specific skills by name
+# Install specific skills by name (exact or fuzzy)
 skillshare install anthropics/skills -s pdf,commit
 
 # Install all discovered skills

@@ -24,7 +24,6 @@ const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/skills', icon: Puzzle, label: 'Skills' },
   { to: '/audit', icon: ShieldCheck, label: 'Audit' },
-  { to: '/log', icon: ScrollText, label: 'Log' },
   { to: '/install', icon: Download, label: 'Install' },
   { to: '/targets', icon: Target, label: 'Targets' },
   { to: '/sync', icon: RefreshCw, label: 'Sync' },
@@ -33,6 +32,7 @@ const allNavItems = [
   { to: '/trash', icon: Trash2, label: 'Trash' },
   { to: '/git', icon: GitBranch, label: 'Git Sync' },
   { to: '/search', icon: Search, label: 'Search' },
+  { to: '/log', icon: ScrollText, label: 'Log' },
   { to: '/config', icon: Settings, label: 'Config' },
 ];
 

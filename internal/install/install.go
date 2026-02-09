@@ -734,17 +734,13 @@ func InstallTrackedRepo(source *Source, sourceDir string, opts InstallOptions) (
 		return nil, fmt.Errorf("--track requires a git repository source")
 	}
 
-	// Determine repo name: opts.Name > source.Name > URL basename
+	// Determine repo name: opts.Name > TrackName (owner-repo) > source.Name
 	repoName := opts.Name
 	if repoName == "" {
-		repoName = source.Name
+		repoName = source.TrackName()
 	}
 	if repoName == "" {
-		repoName = filepath.Base(source.CloneURL)
-		// Remove .git suffix if present
-		if filepath.Ext(repoName) == ".git" {
-			repoName = repoName[:len(repoName)-4]
-		}
+		repoName = source.Name
 	}
 
 	// Prefix with _ to indicate tracked repo (avoid double prefix if user already added _)

@@ -66,6 +66,30 @@ targets: {}
 	result.AssertOutputContains(t, "github-subdir")
 }
 
+func TestList_TrackedRepo_HiddenDirs(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Simulate a tracked repo with skills inside hidden directories
+	sb.CreateNestedSkill("_openai-skills/skills/.curated/pdf", map[string]string{
+		"SKILL.md": "# PDF",
+	})
+	sb.CreateNestedSkill("_openai-skills/skills/.curated/figma", map[string]string{
+		"SKILL.md": "# Figma",
+	})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("list")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "pdf")
+	result.AssertOutputContains(t, "figma")
+	result.AssertOutputContains(t, "tracked")
+}
+
 func TestList_Help_ShowsUsage(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

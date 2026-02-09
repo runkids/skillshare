@@ -43,7 +43,7 @@
 > **Recent Updates**
 > | Version | Highlights |
 > |---------|------------|
-> | [0.11.0](https://github.com/runkids/skillshare/releases/tag/v0.11.0) | Security Audit — scan skills for threats, auto-block on install, web UI audit page |
+> | [0.11.0](https://github.com/runkids/skillshare/releases/tag/v0.11.0) | Security Audit, Operation Log, Trash, Update Preview — full audit trail + safety net |
 > | [0.10.0](https://github.com/runkids/skillshare/releases/tag/v0.10.0) | Web Dashboard — visual skill management via `skillshare ui` |
 > | [0.9.0](https://github.com/runkids/skillshare/releases/tag/v0.9.0) | Project-level skills — scope skills to a single repo, share via git |
 
@@ -189,6 +189,7 @@ skillshare sync            # Sync skills to all targets
 | `skillshare update --all` | Update all tracked repos |
 | `skillshare uninstall <name>` | Remove skill from source |
 | `skillshare audit [name]` | Scan skills for security threats |
+| `skillshare log` | View operation log for debugging and compliance |
 | `skillshare search <query>` | Search installable skills on GitHub |
 
 `skillshare search` requires GitHub auth (`gh auth login`) or `GITHUB_TOKEN`.

@@ -30,13 +30,10 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 			return nil // Skip inaccessible paths
 		}
 
-		// Skip hidden directories (except _ prefixed tracked repos)
-		if info.IsDir() {
-			name := info.Name()
-			// Skip .git and other hidden directories
-			if utils.IsHidden(name) {
-				return filepath.SkipDir
-			}
+		// Skip .git directory only — other hidden directories (e.g., .curated/, .system/)
+		// may contain skills (like openai/skills repo structure)
+		if info.IsDir() && info.Name() == ".git" {
+			return filepath.SkipDir
 		}
 
 		// Look for SKILL.md files

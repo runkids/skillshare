@@ -340,6 +340,45 @@ targets:
 	}
 }
 
+func TestSync_TrackedRepoSkills_HiddenDirs(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Simulate a tracked repo with skills inside hidden directories (like openai/skills)
+	// Structure: _openai-skills/.curated/pdf/SKILL.md
+	//            _openai-skills/.system/figma/SKILL.md
+	sb.CreateNestedSkill("_openai-skills/.curated/pdf", map[string]string{
+		"SKILL.md": "# PDF",
+	})
+	sb.CreateNestedSkill("_openai-skills/.system/figma", map[string]string{
+		"SKILL.md": "# Figma",
+	})
+
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("sync")
+
+	result.AssertSuccess(t)
+
+	// Verify skills inside hidden dirs are discovered and synced
+	pdfLink := filepath.Join(targetPath, "_openai-skills__.curated__pdf")
+	if !sb.IsSymlink(pdfLink) {
+		t.Errorf("skill inside .curated/ should be synced: %s", pdfLink)
+	}
+
+	figmaLink := filepath.Join(targetPath, "_openai-skills__.system__figma")
+	if !sb.IsSymlink(figmaLink) {
+		t.Errorf("skill inside .system/ should be synced: %s", figmaLink)
+	}
+}
+
 func TestSync_Pruning_RemovesOrphanLinks(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

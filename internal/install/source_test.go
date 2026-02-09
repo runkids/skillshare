@@ -453,6 +453,52 @@ func TestSource_MetaType(t *testing.T) {
 	}
 }
 
+func TestSource_TrackName(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "github shorthand",
+			raw:  "openai/skills",
+			want: "openai-skills",
+		},
+		{
+			name: "github HTTPS URL",
+			raw:  "https://github.com/anthropics/skills",
+			want: "anthropics-skills",
+		},
+		{
+			name: "github SSH URL",
+			raw:  "git@github.com:openai/skills.git",
+			want: "openai-skills",
+		},
+		{
+			name: "gitlab HTTPS URL",
+			raw:  "https://gitlab.com/team/my-repo.git",
+			want: "team-my-repo",
+		},
+		{
+			name: "github shorthand with subdir",
+			raw:  "openai/skills/skills/pdf",
+			want: "openai-skills",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, err := ParseSource(tt.raw)
+			if err != nil {
+				t.Fatalf("ParseSource(%q) error: %v", tt.raw, err)
+			}
+			got := source.TrackName()
+			if got != tt.want {
+				t.Errorf("TrackName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestStripGitBranchPrefix(t *testing.T) {
 	tests := []struct {
 		name   string

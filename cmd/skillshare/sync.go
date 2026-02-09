@@ -38,8 +38,13 @@ func cmdSync(args []string) error {
 	applyModeLabel(mode)
 
 	if mode == modeProject {
+		pCfg, _ := config.LoadProject(cwd)
+		targets := 0
+		if pCfg != nil {
+			targets = len(pCfg.Targets)
+		}
 		err := cmdSyncProject(rest, cwd)
-		logSyncOp(config.ProjectConfigPath(cwd), start, err)
+		logSyncOp(config.ProjectConfigPath(cwd), targets, start, err)
 		return err
 	}
 
@@ -113,12 +118,13 @@ func cmdSync(args []string) error {
 		}
 	}
 
-	logSyncOp(config.ConfigPath(), start, syncErr)
+	logSyncOp(config.ConfigPath(), len(cfg.Targets), start, syncErr)
 	return syncErr
 }
 
-func logSyncOp(cfgPath string, start time.Time, cmdErr error) {
+func logSyncOp(cfgPath string, targets int, start time.Time, cmdErr error) {
 	e := oplog.NewEntry("sync", statusFromErr(cmdErr), time.Since(start))
+	e.Args = map[string]any{"targets": targets}
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
 	}

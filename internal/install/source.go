@@ -328,6 +328,40 @@ func (s *Source) IsGit() bool {
 		s.Type == SourceTypeGitSSH
 }
 
+// TrackName returns a unique name for --track mode in "owner-repo" format.
+// For GitHub: https://github.com/openai/skills.git → "openai-skills"
+// For SSH:    git@github.com:openai/skills.git    → "openai-skills"
+// For HTTPS:  https://gitlab.com/team/repo.git    → "team-repo"
+// Falls back to source.Name if owner cannot be extracted.
+func (s *Source) TrackName() string {
+	url := s.CloneURL
+	if url == "" {
+		return s.Name
+	}
+
+	// Try SSH format: git@host:owner/repo.git
+	if sshMatches := gitSSHPattern.FindStringSubmatch(s.Raw); sshMatches != nil {
+		owner := sshMatches[2]
+		repo := strings.TrimSuffix(sshMatches[3], ".git")
+		return owner + "-" + repo
+	}
+
+	// Try extracting owner/repo from HTTPS clone URL
+	// Format: https://host/owner/repo.git
+	url = strings.TrimSuffix(url, ".git")
+	parts := strings.Split(url, "/")
+	if len(parts) >= 2 {
+		repo := parts[len(parts)-1]
+		owner := parts[len(parts)-2]
+		// Avoid host-only segments (e.g., "github.com")
+		if owner != "" && repo != "" && !strings.Contains(owner, ".") {
+			return owner + "-" + repo
+		}
+	}
+
+	return s.Name
+}
+
 // MetaType returns the type string for metadata
 func (s *Source) MetaType() string {
 	if s.HasSubdir() {

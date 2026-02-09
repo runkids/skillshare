@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.11.0] - 2026-02-10
+
+### Added
+- **Security Audit** — `skillshare audit [name]` scans skills for prompt injection, data exfiltration, credential access, destructive commands, obfuscation, and suspicious URLs
+  - CRITICAL findings block `skillshare install` by default; use `--force` to override
+  - HIGH/MEDIUM findings shown as warnings with file, line, and snippet detail
+  - Per-skill progress display with tree-formatted findings and summary box
+  - Project mode support (`skillshare audit -p`)
+- **Web UI Audit page** — scan all skills from the dashboard, view findings with severity badges
+  - Install flow shows `ConfirmDialog` on CRITICAL block with "Force Install" option
+  - Warning dialog displays HIGH/MEDIUM findings after successful install
+- **Audit API** — `GET /api/audit` and `GET /api/audit/{name}` endpoints
+- **Sync drift detection** — `status` and `doctor` warn when targets have fewer linked skills than source
+  - Web UI shows drift badges on Dashboard and Targets pages
+- **Trash (soft-delete) workflow** — uninstall now moves skills to trash with 7-day retention
+  - New CLI commands: `skillshare trash list`, `skillshare trash restore <name>`, `skillshare trash delete <name>`, `skillshare trash empty`
+  - Web UI Trash page for list/restore/delete/empty actions
+  - Trash API handlers with global/project mode support
+- **Update preview command** — `skillshare check` shows available updates for tracked repos and installed skills without modifying files
+- **Search ranking upgrade** — relevance scoring now combines name/description/stars with repo-scoped query support (`owner/repo[/subdir]`)
+- **Docs site local search** — Docusaurus local search integrated for command/doc lookup
+- **SSH subpath support** — `install git@host:repo.git//subdir` with `//` separator
+- **Docs comparison guide** — new declarative vs imperative workflow comparison page
+
+### Changed
+- **Install discovery + selection UX**
+  - Hidden directory scan now skips only `.git` (supports repos using folders like `.curated/` and `.system/`)
+  - `install --skill` falls back to fuzzy matching when exact name lookup fails
+  - UI SkillPicker adds filter input and filtered Select All behavior for large result sets
+  - Batch install feedback improved: summary toast always shown; blocked-skill retry targets only blocked items
+  - CLI mixed-result installs now use warning output and condensed success summaries
+- **Search performance + metadata enrichment** — star/description enrichment is parallelized, and description frontmatter is used in scoring
+- **Skill template refresh** — `new` command template updated to a WHAT+WHEN trigger format with step-based instructions
+- **Search command UX** — running `search` with no keyword now prompts for input instead of auto-browsing
+- **Sandbox hardening** — playground shell defaults to home and mounts source read-only to reduce accidental host edits
+- **Project mode clarity** — `(project)` labels added across key command outputs; uninstall prompt now explicitly says "from the project?"
+- **Privacy-first messaging + UI polish** — homepage/README messaging updated, dashboard quick actions aligned, and website hero/logo refreshed with a new hand-drawn style
+- `ConfirmDialog` component supports `wide` prop and hidden cancel button
+- Sidebar category renamed from "Utilities" to "Security & Utilities"
+- README updated with audit section, new screenshots, unified image sizes
+- Documentation links and navigation updated across README/website
+
+### Fixed
+- Web UI uninstall handlers now use trash move semantics instead of permanent deletion
+- Windows self-upgrade now shows a clear locked-binary hint when rename fails (for example, when `skillshare ui` is still running)
+- `mise.toml` `ui:build` path handling fixed so `cd ui` does not leak into subsequent build steps
+
 ## [0.10.0] - 2026-02-08
 
 ### Added
