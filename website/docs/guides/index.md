@@ -17,6 +17,7 @@ In-depth guides for specific use cases.
 | [Migration](./migration) | Migrate from other tools |
 | [Best Practices](./best-practices) | Naming, organization, and versioning |
 | [Docker Sandbox](./docker-sandbox) | Isolated test sandbox and interactive playground |
+| [Comparison](./comparison) | Compare skill management approaches |
 
 ---
 
@@ -35,6 +36,7 @@ In-depth guides for specific use cases.
 
 ### For Migration
 
+- [Comparison](./comparison) — Compare skill management approaches
 - [Migration](./migration) — Coming from other tools
 
 ### For Verification and Experimentation

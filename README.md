@@ -60,6 +60,27 @@ Stop managing skills tool-by-tool.
 - **Privacy-first**: No central registry, no telemetry, no install tracking. Your skill setup stays entirely local.
 - **Visual control panel**: Open `skillshare ui` for browsing, install, target management, and sync status in one place.
 
+## Comparison
+
+skillshare uses a **declarative** approach: define your targets once in `config.yaml`, then `sync` handles everything — no prompts, no repeated selections.
+
+| | Imperative (install-per-command) | Declarative (skillshare) |
+|---|---|---|
+| **Config** | No config; prompts every run | `config.yaml` — set once |
+| **Agent selection** | Interactive prompt each time | Defined in config |
+| **Install method** | Choose per operation | `sync_mode` in config |
+| **Source of truth** | Skills copied independently | Single source → symlinks |
+| **Remove one agent's skill** | May break other agents' symlinks | Only that target's symlink removed |
+| **New machine setup** | Re-run every install manually | `git clone` config + `sync` |
+| **Project-scoped skills** | Global lock file only | `init -p` for per-repo skills |
+| **Cross-machine sync** | Manual | Built-in `push` / `pull` |
+| **Bidirectional** | Install only | `collect` pulls changes back |
+| **Web dashboard** | None | `skillshare ui` |
+| **Runtime dependency** | Node.js + npm | None (single Go binary) |
+
+> [!TIP]
+> Coming from another tool? See the [Migration Guide](https://skillshare.runkids.cc/docs/guides/migration) and [detailed comparison](https://skillshare.runkids.cc/docs/guides/comparison).
+
 ## How It Works
 - macOS / Linux: `~/.config/skillshare/skills/`
 - Windows: `%USERPROFILE%\.config\skillshare\skills\`

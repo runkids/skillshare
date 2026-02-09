@@ -50,6 +50,7 @@ const sidebars: SidebarsConfig = {
         'guides/best-practices',
         'guides/project-setup',
         'guides/docker-sandbox',
+        'guides/comparison',
       ],
     },
     {
