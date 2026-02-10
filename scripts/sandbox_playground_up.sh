@@ -40,7 +40,7 @@ docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(i
   bash -c '
     if [ ! -f /sandbox-home/.config/skillshare/config.yaml ]; then
       mkdir -p /sandbox-home/.claude/skills
-      skillshare init -g --no-copy --all-targets --no-git
+      skillshare init -g --no-copy --all-targets --no-git --no-skill
     fi
   '
 
