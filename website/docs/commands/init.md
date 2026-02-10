@@ -41,6 +41,13 @@ skillshare init --dry-run    # Preview without changes
 │ 4. Create config.yaml                                           │
 │    → ~/.config/skillshare/config.yaml                           │
 └─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 5. Built-in skill (opt-in)                                      │
+│    → Install built-in skillshare skill? [y/N]                   │
+│    → Adds /skillshare command to AI CLIs                        │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Project Mode
@@ -128,7 +135,7 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 | `--no-targets` | Skip target selection |
 | `--git` | Initialize git without prompting |
 | `--no-git` | Skip git initialization |
-| `--skill` | Install built-in skillshare skill without prompting |
+| `--skill` | Install built-in skillshare skill without prompting (adds `/skillshare` to AI CLIs) |
 | `--no-skill` | Skip built-in skill installation |
 | `--discover, -d` | Detect and add new AI CLI targets to existing config |
 | `--select <list>` | Comma-separated targets to add (requires `--discover`) |

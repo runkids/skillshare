@@ -37,6 +37,11 @@ This:
 1. Creates your source directory (`~/.config/skillshare/skills/`)
 2. Auto-detects installed AI CLIs
 3. Sets up configuration
+4. Optionally installs the built-in skillshare skill (adds `/skillshare` command to AI CLIs)
+
+:::tip Built-in Skill
+During init, you'll be prompted: `Install built-in skillshare skill? [y/N]`. This adds a skill that lets your AI CLI manage skillshare directly. You can skip it and install later with `skillshare upgrade --skill`.
+:::
 
 **With git remote (recommended for cross-machine sync):**
 ```bash

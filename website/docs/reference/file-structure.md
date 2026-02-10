@@ -11,6 +11,7 @@ Directory layout and file locations for skillshare.
 ```
 ~/.config/skillshare/
 ├── config.yaml              # Configuration file
+├── audit-rules.yaml         # Custom audit rules (optional)
 ├── skills/                  # Source directory
 │   ├── my-skill/            # Regular skill
 │   │   ├── SKILL.md         # Skill definition (required)

@@ -58,6 +58,10 @@ skillshare ui --no-open &
 | **Backup** | View backup list, restore snapshots, and clean up entries |
 | **Git Sync** | Push/pull source repo with dirty-state checks and force pull |
 | **Search** | GitHub skill search with one-click install |
+| **Audit** | Security scan all skills, view findings by severity |
+| **Audit Rules** | Create and edit custom `audit-rules.yaml` with YAML editor |
+| **Trash** | View soft-deleted skills, restore or permanently delete |
+| **Log** | Operations and audit logs with command/status/time filters |
 | **Config** | YAML config editor with validation |
 
 ### Project Mode Differences
@@ -100,6 +104,11 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | GET | `/api/diff` | Diff between source and targets |
 | GET | `/api/search?q=` | Search GitHub for skills |
 | POST | `/api/install` | Install a skill from source |
+| GET | `/api/audit` | Scan all skills for security threats |
+| GET | `/api/audit/rules` | Get custom audit rules YAML |
+| PUT | `/api/audit/rules` | Save custom audit rules (validates regex) |
+| POST | `/api/audit/rules` | Create starter audit-rules.yaml |
+| GET | `/api/log` | List log entries with optional filters |
 | GET | `/api/config` | Get config as YAML |
 | PUT | `/api/config` | Update config YAML |
 

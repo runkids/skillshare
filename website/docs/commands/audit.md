@@ -91,6 +91,16 @@ skillshare ui
 
 The Dashboard page includes a Security Audit section with a quick-scan summary.
 
+### Custom Rules Editor
+
+The web dashboard includes a dedicated **Audit Rules** page at `/audit/rules` for creating and editing custom rules directly in the browser:
+
+- **Create**: If no `audit-rules.yaml` exists, click "Create Rules File" to scaffold one
+- **Edit**: YAML editor with syntax highlighting and validation
+- **Save**: Validates YAML format and regex patterns before saving
+
+Access it from the Audit page via the "Custom Rules" button.
+
 ## Exit Codes
 
 | Code | Meaning |
