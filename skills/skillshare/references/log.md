@@ -8,6 +8,10 @@ JSONL-based persistent audit trail. All mutating commands (sync, install, uninst
 skillshare log                    # Show operations + audit logs
 skillshare log --audit            # Audit log only
 skillshare log --tail 50          # Last 50 entries per section
+skillshare log --cmd sync         # Show only sync entries
+skillshare log --status error     # Show only errors
+skillshare log --since 2d         # Entries from last 2 days
+skillshare log --json             # Output as JSONL
 skillshare log --clear            # Clear operations log
 skillshare log --clear --audit    # Clear audit log
 skillshare log -p                 # Project logs
@@ -19,9 +23,15 @@ skillshare log -p                 # Project logs
 |------|-------------|
 | `--audit, -a` | Show audit log only |
 | `--tail, -t <N>` | Last N entries (default: 20) |
+| `--cmd <name>` | Filter by command name (e.g. sync, install, audit) |
+| `--status <status>` | Filter by status (ok, error, partial, blocked) |
+| `--since <dur\|date>` | Filter by time (30m, 2h, 2d, 1w, or 2006-01-02) |
+| `--json` | Output raw JSONL |
 | `--clear, -c` | Clear selected log file |
 | `-p, --project` | Project-level logs |
 | `-g, --global` | Global logs |
+
+When `--cmd` targets a command that only exists in one log file (e.g. `--cmd audit`), the other section is automatically skipped.
 
 ## Log Files
 
@@ -30,17 +40,19 @@ skillshare log -p                 # Project logs
 | `operations.log` | All CLI commands (sync, install, update, etc.) |
 | `audit.log` | Security scan results |
 
-Location: `~/.config/skillshare/` (global) or `.skillshare/` (project).
+Location: `~/.config/skillshare/logs/` (global) or `.skillshare/logs/` (project).
 
 ## Output Format
 
 ```
-2026-02-10 14:30:01  sync     targets=3, scope=global       ok     120ms
-2026-02-10 14:29:15  install  source=user/repo, name=pdf     ok     2.1s
-2026-02-10 14:28:00  audit    skill=*, scanned=5, failed=1   error  340ms
+  TIME             | CMD       | STATUS  | DUR
+  -----------------+-----------+---------+--------
+  2026-02-10 14:30 | SYNC      | ok      | 120ms
+  targets: 3
+  scope: global
 ```
 
-Fields: timestamp, command, detail, status, duration.
+Fields: timestamp, command, status, duration, then key-value detail lines.
 
 ## Status Colors (TTY)
 

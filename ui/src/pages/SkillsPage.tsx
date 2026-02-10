@@ -237,12 +237,16 @@ export default function SkillsPage() {
         </div>
         <div className="flex items-center gap-2 sm:w-52">
           <ArrowUpDown size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-          <HandSelect value={sortType} onChange={(e) => setSortType(e.target.value as SortType)}>
-            <option value="name-asc">Name A → Z</option>
-            <option value="name-desc">Name Z → A</option>
-            <option value="newest">Newest first</option>
-            <option value="oldest">Oldest first</option>
-          </HandSelect>
+          <HandSelect
+            value={sortType}
+            onChange={(v) => setSortType(v as SortType)}
+            options={[
+              { value: 'name-asc', label: 'Name A → Z' },
+              { value: 'name-desc', label: 'Name Z → A' },
+              { value: 'newest', label: 'Newest first' },
+              { value: 'oldest', label: 'Oldest first' },
+            ]}
+          />
         </div>
       </div>
 

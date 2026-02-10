@@ -132,8 +132,15 @@ export const api = {
     apiFetch<{ success: boolean; removed: number }>('/trash/empty', { method: 'POST' }),
 
   // Log
-  listLog: (type?: string, limit?: number) =>
-    apiFetch<LogListResponse>(`/log?type=${type ?? 'ops'}&limit=${limit ?? 100}`),
+  listLog: (type?: string, limit?: number, filters?: { cmd?: string; status?: string; since?: string }) => {
+    const params = new URLSearchParams();
+    params.set('type', type ?? 'ops');
+    params.set('limit', String(limit ?? 100));
+    if (filters?.cmd) params.set('cmd', filters.cmd);
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.since) params.set('since', filters.since);
+    return apiFetch<LogListResponse>(`/log?${params.toString()}`);
+  },
   clearLog: (type?: string) =>
     apiFetch<{ success: boolean }>(`/log?type=${type ?? 'ops'}`, { method: 'DELETE' }),
 
@@ -390,6 +397,8 @@ export interface LogEntry {
 export interface LogListResponse {
   entries: LogEntry[];
   total: number;
+  totalAll: number;
+  commands: string[];
 }
 
 // Audit types

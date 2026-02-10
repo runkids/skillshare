@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { ScrollText, Trash2, RefreshCw } from 'lucide-react';
 import { api } from '../api/client';
 import type { LogEntry } from '../api/client';
@@ -9,13 +9,38 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
+import { HandSelect } from '../components/HandInput';
 import { wobbly, shadows } from '../design';
 
 type LogTab = 'all' | 'ops' | 'audit';
+type TimeRange = '' | '1h' | '24h' | '7d' | '30d';
+
+const TIME_RANGES: { label: string; value: TimeRange }[] = [
+  { label: 'All', value: '' },
+  { label: '1h', value: '1h' },
+  { label: '24h', value: '24h' },
+  { label: '7d', value: '7d' },
+  { label: '30d', value: '30d' },
+];
+
+const STATUS_OPTIONS = ['', 'ok', 'error', 'partial', 'blocked'] as const;
+
+function timeRangeToSince(range: TimeRange): string {
+  if (!range) return '';
+  const now = new Date();
+  switch (range) {
+    case '1h': now.setHours(now.getHours() - 1); break;
+    case '24h': now.setHours(now.getHours() - 24); break;
+    case '7d': now.setDate(now.getDate() - 7); break;
+    case '30d': now.setDate(now.getDate() - 30); break;
+  }
+  return now.toISOString();
+}
 
 type LogSection = {
   entries: LogEntry[];
   total: number;
+  totalAll: number;
 };
 
 type AuditSkillLists = {
@@ -249,7 +274,7 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
   );
 }
 
-function Section({ title, entries, emptyLabel }: { title: string; entries: LogEntry[]; emptyLabel: string }) {
+function Section({ title, entries, emptyLabel, filtered }: { title: string; entries: LogEntry[]; emptyLabel: string; filtered?: boolean }) {
   return (
     <div className="space-y-3">
       <h3 className="text-xl font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
@@ -258,8 +283,10 @@ function Section({ title, entries, emptyLabel }: { title: string; entries: LogEn
       {entries.length === 0 ? (
         <EmptyState
           icon={ScrollText}
-          title="No entries yet"
-          description={`No ${emptyLabel} log entries recorded.`}
+          title={filtered ? 'No matching entries' : 'No entries yet'}
+          description={filtered
+            ? `No ${emptyLabel} log entries match the current filters.`
+            : `No ${emptyLabel} log entries recorded.`}
         />
       ) : (
         <LogTable entries={entries} />
@@ -271,35 +298,57 @@ function Section({ title, entries, emptyLabel }: { title: string; entries: LogEn
 export default function LogPage() {
   const { toast } = useToast();
   const [tab, setTab] = useState<LogTab>('all');
-  const [ops, setOps] = useState<LogSection>({ entries: [], total: 0 });
-  const [audit, setAudit] = useState<LogSection>({ entries: [], total: 0 });
+  const [ops, setOps] = useState<LogSection>({ entries: [], total: 0, totalAll: 0 });
+  const [audit, setAudit] = useState<LogSection>({ entries: [], total: 0, totalAll: 0 });
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Filter state
+  const [cmdFilter, setCmdFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [timeRange, setTimeRange] = useState<TimeRange>('');
+
+  const filters = useMemo(() => {
+    const f: { cmd?: string; status?: string; since?: string } = {};
+    if (cmdFilter) f.cmd = cmdFilter;
+    if (statusFilter) f.status = statusFilter;
+    const since = timeRangeToSince(timeRange);
+    if (since) f.since = since;
+    return Object.keys(f).length > 0 ? f : undefined;
+  }, [cmdFilter, statusFilter, timeRange]);
+
+  // Distinct commands from all (unfiltered) log entries, returned by the API
+  const [knownCommands, setKnownCommands] = useState<string[]>([]);
 
   const fetchLog = useCallback(async () => {
     setLoading(true);
     try {
       if (tab === 'all') {
         const [opsRes, auditRes] = await Promise.all([
-          api.listLog('ops', 100),
-          api.listLog('audit', 100),
+          api.listLog('ops', 100, filters),
+          api.listLog('audit', 100, filters),
         ]);
-        setOps({ entries: opsRes.entries, total: opsRes.total });
-        setAudit({ entries: auditRes.entries, total: auditRes.total });
+        setOps({ entries: opsRes.entries, total: opsRes.total, totalAll: opsRes.totalAll });
+        setAudit({ entries: auditRes.entries, total: auditRes.total, totalAll: auditRes.totalAll });
+        // Merge distinct commands from both logs (always unfiltered from backend)
+        const cmds = new Set([...opsRes.commands, ...auditRes.commands]);
+        setKnownCommands(Array.from(cmds).sort());
       } else if (tab === 'ops') {
-        const res = await api.listLog('ops', 100);
-        setOps({ entries: res.entries, total: res.total });
+        const res = await api.listLog('ops', 100, filters);
+        setOps({ entries: res.entries, total: res.total, totalAll: res.totalAll });
+        setKnownCommands(res.commands);
       } else {
-        const res = await api.listLog('audit', 100);
-        setAudit({ entries: res.entries, total: res.total });
+        const res = await api.listLog('audit', 100, filters);
+        setAudit({ entries: res.entries, total: res.total, totalAll: res.totalAll });
+        setKnownCommands(res.commands);
       }
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
       setLoading(false);
     }
-  }, [tab, toast]);
+  }, [tab, filters, toast]);
 
   useEffect(() => {
     fetchLog();
@@ -331,9 +380,21 @@ export default function LogPage() {
 
   if (loading && !hasEntries) return <PageSkeleton />;
 
-  const totalLabel = tab === 'all'
-    ? `${ops.total} ops / ${audit.total} audit`
-    : `${tab === 'ops' ? ops.total : audit.total} total entries`;
+  const hasFilter = !!filters;
+
+  const totalLabel = (() => {
+    if (tab === 'all') {
+      if (hasFilter) {
+        return `${ops.total} of ${ops.totalAll} ops / ${audit.total} of ${audit.totalAll} audit`;
+      }
+      return `${ops.total} ops / ${audit.total} audit`;
+    }
+    const sec = tab === 'ops' ? ops : audit;
+    if (hasFilter) {
+      return `${sec.total} of ${sec.totalAll} entries`;
+    }
+    return `${sec.total} entries`;
+  })();
 
   return (
     <div className="space-y-6">
@@ -388,15 +449,66 @@ export default function LogPage() {
         </span>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-36">
+          <HandSelect
+            label="Command"
+            value={cmdFilter}
+            onChange={setCmdFilter}
+            options={[
+              { value: '', label: 'All' },
+              ...knownCommands.map((cmd) => ({ value: cmd, label: cmd })),
+            ]}
+          />
+        </div>
+        <div className="w-32">
+          <HandSelect
+            label="Status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={STATUS_OPTIONS.map((s) => ({ value: s, label: s || 'All' }))}
+          />
+        </div>
+        <div>
+          <span
+            className="block text-base text-pencil-light mb-1"
+            style={{ fontFamily: 'var(--font-hand)' }}
+          >
+            Time
+          </span>
+          <div className="flex gap-1">
+            {TIME_RANGES.map((tr) => (
+              <button
+                key={tr.value}
+                onClick={() => setTimeRange(tr.value)}
+                className={`px-3 py-2 text-sm border-2 transition-all duration-100 ${
+                  timeRange === tr.value
+                    ? 'bg-white border-pencil text-pencil font-medium'
+                    : 'bg-transparent border-transparent text-pencil-light hover:text-pencil hover:bg-white/60'
+                }`}
+                style={{
+                  borderRadius: wobbly.sm,
+                  boxShadow: timeRange === tr.value ? shadows.sm : 'none',
+                  fontFamily: 'var(--font-hand)',
+                }}
+              >
+                {tr.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {tab === 'all' ? (
         <div className="space-y-6">
-          <Section title="Operations" entries={ops.entries} emptyLabel="operation" />
-          <Section title="Audit" entries={audit.entries} emptyLabel="audit" />
+          <Section title="Operations" entries={ops.entries} emptyLabel="operation" filtered={hasFilter} />
+          <Section title="Audit" entries={audit.entries} emptyLabel="audit" filtered={hasFilter} />
         </div>
       ) : tab === 'ops' ? (
-        <Section title="Operations" entries={ops.entries} emptyLabel="operation" />
+        <Section title="Operations" entries={ops.entries} emptyLabel="operation" filtered={hasFilter} />
       ) : (
-        <Section title="Audit" entries={audit.entries} emptyLabel="audit" />
+        <Section title="Audit" entries={audit.entries} emptyLabel="audit" filtered={hasFilter} />
       )}
 
       <ConfirmDialog

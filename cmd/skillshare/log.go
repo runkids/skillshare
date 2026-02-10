@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -9,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/mattn/go-runewidth"
 	"github.com/pterm/pterm"
@@ -26,8 +26,6 @@ const (
 	logStatusWidth       = 7
 	logDurationWidth     = 7
 	logMinWrapWidth      = 24
-
-	logDetailPrefix = "  detail: "
 )
 
 var logANSIRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
@@ -63,7 +61,9 @@ func cmdLog(args []string) error {
 func runLog(args []string, configPath string) error {
 	auditOnly := false
 	clear := false
+	jsonOutput := false
 	limit := 20
+	var filter oplog.Filter
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -71,6 +71,27 @@ func runLog(args []string, configPath string) error {
 			auditOnly = true
 		case "--clear", "-c":
 			clear = true
+		case "--json":
+			jsonOutput = true
+		case "--cmd":
+			if i+1 < len(args) {
+				i++
+				filter.Cmd = args[i]
+			}
+		case "--status":
+			if i+1 < len(args) {
+				i++
+				filter.Status = args[i]
+			}
+		case "--since":
+			if i+1 < len(args) {
+				i++
+				t, err := oplog.ParseSince(args[i])
+				if err != nil {
+					return err
+				}
+				filter.Since = t
+			}
 		case "--tail", "-t":
 			if i+1 < len(args) {
 				i++
@@ -100,20 +121,48 @@ func runLog(args []string, configPath string) error {
 	}
 
 	if auditOnly {
-		return printLogSection(configPath, oplog.AuditFile, "Audit", limit)
+		return printLogSection(configPath, oplog.AuditFile, "Audit", limit, filter, jsonOutput)
 	}
 
-	if err := printLogSection(configPath, oplog.OpsFile, "Operations", limit); err != nil {
+	// When filtering by command, only show the relevant section:
+	// "audit" only lives in audit.log; everything else in operations.log.
+	if filter.Cmd != "" {
+		if filter.Cmd == "audit" {
+			return printLogSection(configPath, oplog.AuditFile, "Audit", limit, filter, jsonOutput)
+		}
+		return printLogSection(configPath, oplog.OpsFile, "Operations", limit, filter, jsonOutput)
+	}
+
+	if err := printLogSection(configPath, oplog.OpsFile, "Operations", limit, filter, jsonOutput); err != nil {
 		return err
 	}
-	fmt.Println()
-	return printLogSection(configPath, oplog.AuditFile, "Audit", limit)
+	if !jsonOutput {
+		fmt.Println()
+	}
+	return printLogSection(configPath, oplog.AuditFile, "Audit", limit, filter, jsonOutput)
 }
 
-func printLogSection(configPath, filename, label string, limit int) error {
-	entries, err := oplog.Read(configPath, filename, limit)
+func printLogSection(configPath, filename, label string, limit int, f oplog.Filter, jsonOutput bool) error {
+	// When filtering, read all entries then filter, then apply limit
+	readLimit := limit
+	if !f.IsEmpty() {
+		readLimit = 0 // read all, filter will narrow down
+	}
+
+	entries, err := oplog.Read(configPath, filename, readLimit)
 	if err != nil {
 		return fmt.Errorf("failed to read log: %w", err)
+	}
+
+	if !f.IsEmpty() {
+		entries = oplog.FilterEntries(entries, f)
+		if limit > 0 && len(entries) > limit {
+			entries = entries[:limit]
+		}
+	}
+
+	if jsonOutput {
+		return printLogEntriesJSON(os.Stdout, entries)
 	}
 
 	logPath := filepath.Join(oplog.LogDir(configPath), filename)
@@ -136,6 +185,16 @@ func printLogSection(configPath, filename, label string, limit int) error {
 	return nil
 }
 
+func printLogEntriesJSON(w io.Writer, entries []oplog.Entry) error {
+	enc := json.NewEncoder(w)
+	for _, e := range entries {
+		if err := enc.Encode(e); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func printLogEntries(entries []oplog.Entry) {
 	if ui.IsTTY() {
 		printLogEntriesTTYTwoLine(os.Stdout, entries, logTerminalWidth())
@@ -148,7 +207,11 @@ func printLogEntries(entries []oplog.Entry) {
 func printLogEntriesTTYTwoLine(w io.Writer, entries []oplog.Entry, termWidth int) {
 	printLogTableHeaderTTY(w)
 
-	for _, e := range entries {
+	for i, e := range entries {
+		if i > 0 {
+			fmt.Fprintln(w)
+		}
+
 		ts := formatLogTimestamp(e.Timestamp)
 		cmd := padLogCell(strings.ToUpper(e.Command), logCmdWidth)
 		status := colorizeLogStatusCell(padLogCell(e.Status, logStatusWidth), e.Status)
@@ -164,18 +227,185 @@ func printLogEntriesTTYTwoLine(w io.Writer, entries []oplog.Entry, termWidth int
 			durCell,
 		)
 
-		detail := formatLogDetail(e, false)
-		if detail != "" {
-			printWrappedLogText(
-				w,
-				logDetailPrefix,
-				detail,
-				logWrapWidthForPrefix(termWidth, logDetailPrefix),
-			)
-		}
-
-		printLogAuditSkillLinesTTY(w, e, termWidth)
+		printLogDetailMultiLine(w, e, termWidth)
 	}
+}
+
+// logDetailPair represents a structured key-value for multi-line detail output.
+type logDetailPair struct {
+	key        string
+	value      string
+	isList     bool
+	listValues []string
+}
+
+func printLogDetailMultiLine(w io.Writer, e oplog.Entry, termWidth int) {
+	pairs := formatLogDetailPairs(e)
+
+	if e.Message != "" {
+		pairs = append(pairs, logDetailPair{key: "message", value: e.Message})
+	}
+
+	if len(pairs) == 0 {
+		return
+	}
+
+	const indent = "  "
+	const listIndent = "    - "
+	wrapWidth := termWidth - logDisplayWidth(indent) - 20 // leave room for key
+	if wrapWidth < logMinWrapWidth {
+		wrapWidth = logMinWrapWidth
+	}
+
+	for _, p := range pairs {
+		if p.isList && len(p.listValues) > 0 {
+			fmt.Fprintf(w, "%s%s%s:%s\n", indent, ui.Gray, p.key, ui.Reset)
+			for _, v := range p.listValues {
+				fmt.Fprintf(w, "%s%s%s%s%s\n", indent, ui.Gray, listIndent, ui.Reset, v)
+			}
+		} else if p.value != "" {
+			fmt.Fprintf(w, "%s%s%s:%s %s\n", indent, ui.Gray, p.key, ui.Reset, p.value)
+		}
+	}
+}
+
+func formatLogDetailPairs(e oplog.Entry) []logDetailPair {
+	if e.Args == nil {
+		return nil
+	}
+
+	switch e.Command {
+	case "sync":
+		return formatSyncLogPairs(e.Args)
+	case "install":
+		return formatInstallLogPairs(e.Args)
+	case "audit":
+		return formatAuditLogPairs(e.Args)
+	default:
+		return formatGenericLogPairs(e.Args)
+	}
+}
+
+func formatSyncLogPairs(args map[string]any) []logDetailPair {
+	var pairs []logDetailPair
+
+	if total, ok := logArgInt(args, "targets_total", "targets"); ok {
+		pairs = append(pairs, logDetailPair{key: "targets", value: fmt.Sprintf("%d", total)})
+	}
+	if failed, ok := logArgInt(args, "targets_failed"); ok && failed > 0 {
+		pairs = append(pairs, logDetailPair{key: "failed", value: fmt.Sprintf("%d", failed)})
+	}
+	if dryRun, ok := logArgBool(args, "dry_run"); ok && dryRun {
+		pairs = append(pairs, logDetailPair{key: "dry-run", value: "yes"})
+	}
+	if force, ok := logArgBool(args, "force"); ok && force {
+		pairs = append(pairs, logDetailPair{key: "force", value: "yes"})
+	}
+	if scope, ok := logArgString(args, "scope"); ok && scope != "" {
+		pairs = append(pairs, logDetailPair{key: "scope", value: scope})
+	}
+
+	return pairs
+}
+
+func formatInstallLogPairs(args map[string]any) []logDetailPair {
+	var pairs []logDetailPair
+
+	if mode, ok := logArgString(args, "mode"); ok && mode != "" {
+		pairs = append(pairs, logDetailPair{key: "mode", value: mode})
+	}
+	if skillCount, ok := logArgInt(args, "skill_count"); ok && skillCount > 0 {
+		pairs = append(pairs, logDetailPair{key: "skills", value: fmt.Sprintf("%d", skillCount)})
+	}
+	if source, ok := logArgString(args, "source"); ok && source != "" {
+		pairs = append(pairs, logDetailPair{key: "source", value: source})
+	}
+	if dryRun, ok := logArgBool(args, "dry_run"); ok && dryRun {
+		pairs = append(pairs, logDetailPair{key: "dry-run", value: "yes"})
+	}
+	if tracked, ok := logArgBool(args, "tracked"); ok && tracked {
+		pairs = append(pairs, logDetailPair{key: "tracked", value: "yes"})
+	}
+	if installedSkills, ok := logArgStringSlice(args, "installed_skills"); ok && len(installedSkills) > 0 {
+		pairs = append(pairs, logDetailPair{key: "installed", isList: true, listValues: installedSkills})
+	}
+	if failedSkills, ok := logArgStringSlice(args, "failed_skills"); ok && len(failedSkills) > 0 {
+		pairs = append(pairs, logDetailPair{key: "failed", isList: true, listValues: failedSkills})
+	}
+
+	return pairs
+}
+
+func formatAuditLogPairs(args map[string]any) []logDetailPair {
+	var pairs []logDetailPair
+
+	scope, hasScope := logArgString(args, "scope")
+	name, hasName := logArgString(args, "name")
+	if hasScope && scope == "single" && hasName && name != "" {
+		pairs = append(pairs, logDetailPair{key: "skill", value: name})
+	} else if hasScope && scope == "all" {
+		pairs = append(pairs, logDetailPair{key: "scope", value: "all-skills"})
+	} else if hasName && name != "" {
+		pairs = append(pairs, logDetailPair{key: "name", value: name})
+	}
+
+	if mode, ok := logArgString(args, "mode"); ok && mode != "" {
+		pairs = append(pairs, logDetailPair{key: "mode", value: mode})
+	}
+	if scanned, ok := logArgInt(args, "scanned"); ok {
+		pairs = append(pairs, logDetailPair{key: "scanned", value: fmt.Sprintf("%d", scanned)})
+	}
+	if passed, ok := logArgInt(args, "passed"); ok {
+		pairs = append(pairs, logDetailPair{key: "passed", value: fmt.Sprintf("%d", passed)})
+	}
+	if warning, ok := logArgInt(args, "warning"); ok && warning > 0 {
+		pairs = append(pairs, logDetailPair{key: "warning", value: fmt.Sprintf("%d", warning)})
+	}
+	if failed, ok := logArgInt(args, "failed"); ok && failed > 0 {
+		pairs = append(pairs, logDetailPair{key: "failed", value: fmt.Sprintf("%d", failed)})
+	}
+
+	critical, hasCritical := logArgInt(args, "critical")
+	high, hasHigh := logArgInt(args, "high")
+	medium, hasMedium := logArgInt(args, "medium")
+	if (hasCritical && critical > 0) || (hasHigh && high > 0) || (hasMedium && medium > 0) {
+		pairs = append(pairs, logDetailPair{key: "severity(c/h/m)", value: fmt.Sprintf("%d/%d/%d", critical, high, medium)})
+	}
+
+	if scanErrors, ok := logArgInt(args, "scan_errors"); ok && scanErrors > 0 {
+		pairs = append(pairs, logDetailPair{key: "scan-errors", value: fmt.Sprintf("%d", scanErrors)})
+	}
+
+	if failedSkills, ok := logArgStringSlice(args, "failed_skills"); ok && len(failedSkills) > 0 {
+		pairs = append(pairs, logDetailPair{key: "failed skills", isList: true, listValues: failedSkills})
+	}
+	if warningSkills, ok := logArgStringSlice(args, "warning_skills"); ok && len(warningSkills) > 0 {
+		pairs = append(pairs, logDetailPair{key: "warning skills", isList: true, listValues: warningSkills})
+	}
+
+	return pairs
+}
+
+func formatGenericLogPairs(args map[string]any) []logDetailPair {
+	var pairs []logDetailPair
+
+	if source, ok := logArgString(args, "source"); ok {
+		pairs = append(pairs, logDetailPair{key: "source", value: source})
+	}
+	if name, ok := logArgString(args, "name"); ok {
+		pairs = append(pairs, logDetailPair{key: "name", value: name})
+	}
+	if target, ok := logArgString(args, "target"); ok {
+		pairs = append(pairs, logDetailPair{key: "target", value: target})
+	}
+	if targets, ok := logArgInt(args, "targets"); ok {
+		pairs = append(pairs, logDetailPair{key: "targets", value: fmt.Sprintf("%d", targets)})
+	}
+	if summary, ok := logArgString(args, "summary"); ok {
+		pairs = append(pairs, logDetailPair{key: "summary", value: summary})
+	}
+
+	return pairs
 }
 
 func printLogEntriesNonTTY(w io.Writer, entries []oplog.Entry) {
@@ -188,21 +418,6 @@ func printLogEntriesNonTTY(w io.Writer, entries []oplog.Entry) {
 			ts, e.Command, detail, e.Status, dur)
 
 		printLogAuditSkillLinesNonTTY(w, e)
-	}
-}
-
-func printLogAuditSkillLinesTTY(w io.Writer, e oplog.Entry, termWidth int) {
-	if e.Command != "audit" || e.Args == nil {
-		return
-	}
-
-	if failedSkills, ok := logArgStringSlice(e.Args, "failed_skills"); ok && len(failedSkills) > 0 {
-		prefix := "  -> failed skills: "
-		printWrappedLogText(w, prefix, strings.Join(failedSkills, ", "), logWrapWidthForPrefix(termWidth, prefix))
-	}
-	if warningSkills, ok := logArgStringSlice(e.Args, "warning_skills"); ok && len(warningSkills) > 0 {
-		prefix := "  -> warning skills: "
-		printWrappedLogText(w, prefix, strings.Join(warningSkills, ", "), logWrapWidthForPrefix(termWidth, prefix))
 	}
 }
 
@@ -247,19 +462,6 @@ func printLogTableHeaderTTY(w io.Writer) {
 
 	fmt.Fprintf(w, "%s%s%s\n", ui.Cyan, header, ui.Reset)
 	fmt.Fprintf(w, "%s%s%s\n", ui.Gray, separator, ui.Reset)
-}
-
-func printWrappedLogText(w io.Writer, prefix, text string, width int) {
-	lines := wrapLogText(text, width)
-	if len(lines) == 0 {
-		return
-	}
-
-	continuationPrefix := strings.Repeat(" ", logDisplayWidth(prefix))
-	fmt.Fprintf(w, "%s%s%s%s\n", ui.Gray, prefix, ui.Reset, lines[0])
-	for _, line := range lines[1:] {
-		fmt.Fprintf(w, "%s%s%s%s\n", ui.Gray, continuationPrefix, ui.Reset, line)
-	}
 }
 
 func formatLogTimestamp(ts string) string {
@@ -562,64 +764,6 @@ func logTerminalWidth() int {
 	return 120
 }
 
-func logWrapWidthForPrefix(termWidth int, prefix string) int {
-	width := termWidth - logDisplayWidth(prefix)
-	if width < logMinWrapWidth {
-		return logMinWrapWidth
-	}
-	return width
-}
-
-func wrapLogText(text string, maxWidth int) []string {
-	text = strings.TrimSpace(text)
-	if text == "" {
-		return nil
-	}
-
-	if maxWidth <= 0 {
-		return []string{text}
-	}
-
-	lines := make([]string, 0, 4)
-	for len(text) > 0 {
-		if logDisplayWidth(text) <= maxWidth {
-			lines = append(lines, text)
-			break
-		}
-
-		splitAt := 0
-		currentWidth := 0
-		lastSpace := -1
-		for i, r := range text {
-			rw := runewidth.RuneWidth(r)
-			if currentWidth+rw > maxWidth {
-				break
-			}
-			currentWidth += rw
-			splitAt = i + utf8.RuneLen(r)
-			if r == ' ' || r == '\t' {
-				lastSpace = splitAt
-			}
-		}
-
-		if splitAt == 0 {
-			_, size := utf8.DecodeRuneInString(text)
-			splitAt = size
-		} else if lastSpace > 0 {
-			splitAt = lastSpace
-		}
-
-		line := strings.TrimSpace(text[:splitAt])
-		if line != "" {
-			lines = append(lines, line)
-		}
-
-		text = strings.TrimLeft(text[splitAt:], " \t")
-	}
-
-	return lines
-}
-
 func padLogCell(value string, width int) string {
 	current := logDisplayWidth(value)
 	if current >= width {
@@ -647,20 +791,29 @@ func printLogHelp() {
 View operations and audit logs for debugging and compliance.
 
 Options:
-  --audit, -a       Show only audit log
-  --tail, -t <N>    Show last N entries (default: 20)
-  --clear, -c       Clear the selected log file
-  --project, -p     Use project-level log
-  --global, -g      Use global log
-  --help, -h        Show this help
+  --audit, -a         Show only audit log
+  --tail, -t <N>      Show last N entries (default: 20)
+  --cmd <name>        Filter by command name (e.g. sync, install, audit)
+  --status <status>   Filter by status (ok, error, partial, blocked)
+  --since <dur|date>  Filter by time (e.g. 30m, 2h, 2d, 1w, 2006-01-02)
+  --json              Output raw JSONL (one JSON object per line)
+  --clear, -c         Clear the selected log file
+  --project, -p       Use project-level log
+  --global, -g        Use global log
+  --help, -h          Show this help
 
 Examples:
-  skillshare log                  Show operations and audit logs
-  skillshare log --audit          Show only audit log
-  skillshare log --tail 50        Show last 50 entries per section
-  skillshare log --clear          Clear operations log
-  skillshare log --clear --audit  Clear audit log
-  skillshare log -p               Show project operations and audit logs`)
+  skillshare log                    Show operations and audit logs
+  skillshare log --audit            Show only audit log
+  skillshare log --tail 50          Show last 50 entries per section
+  skillshare log --cmd sync         Show only sync entries
+  skillshare log --status error     Show only errors
+  skillshare log --since 2d         Show entries from last 2 days
+  skillshare log --json             Output as JSONL
+  skillshare log --json --cmd sync  JSONL filtered by command
+  skillshare log --clear            Clear operations log
+  skillshare log --clear --audit    Clear audit log
+  skillshare log -p                 Show project operations and audit logs`)
 }
 
 func isProjectLogConfig(configPath string) bool {

@@ -75,7 +75,7 @@ func HeaderBox(command, subtitle string) {
 
 	box := pterm.DefaultBox.
 		WithTitle(pterm.Cyan(command)).
-		WithTitleTopCenter()
+		WithTitleTopLeft()
 	box.Println(subtitle)
 }
 
