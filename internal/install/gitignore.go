@@ -19,6 +19,9 @@ const (
 func UpdateGitIgnore(dir, entry string) error {
 	gitignorePath := filepath.Join(dir, ".gitignore")
 
+	// Normalize to forward slashes (Windows paths use backslashes)
+	entry = strings.ReplaceAll(entry, "\\", "/")
+
 	// Ensure entry ends with / for directory
 	if !strings.HasSuffix(entry, "/") {
 		entry = entry + "/"
@@ -46,6 +49,9 @@ func UpdateGitIgnore(dir, entry string) error {
 // Returns true if the entry was found and removed.
 func RemoveFromGitIgnore(dir, entry string) (bool, error) {
 	gitignorePath := filepath.Join(dir, ".gitignore")
+
+	// Normalize to forward slashes (Windows paths use backslashes)
+	entry = strings.ReplaceAll(entry, "\\", "/")
 
 	// Ensure entry ends with / for directory
 	if !strings.HasSuffix(entry, "/") {

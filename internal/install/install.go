@@ -243,7 +243,7 @@ func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
 			} else {
 				skills = append(skills, SkillInfo{
 					Name: filepath.Base(skillDir),
-					Path: relPath,
+					Path: strings.ReplaceAll(relPath, "\\", "/"),
 				})
 			}
 		}
@@ -324,7 +324,7 @@ func InstallFromDiscovery(discovery *DiscoveryResult, skill SkillInfo, destPath 
 	} else if discovery.Source.HasSubdir() {
 		// Nested skill within subdir discovery
 		fullSource = discovery.Source.Raw + "/" + skill.Path
-		fullSubdir = filepath.Join(discovery.Source.Subdir, skill.Path)
+		fullSubdir = discovery.Source.Subdir + "/" + skill.Path
 	} else {
 		// Whole-repo discovery
 		fullSource = discovery.Source.Raw + "/" + skill.Path

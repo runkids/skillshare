@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -76,7 +77,7 @@ func NewMetaFromSource(source *Source) *SkillMeta {
 	}
 
 	if source.HasSubdir() {
-		meta.Subdir = source.Subdir
+		meta.Subdir = strings.ReplaceAll(source.Subdir, "\\", "/")
 	}
 
 	return meta
