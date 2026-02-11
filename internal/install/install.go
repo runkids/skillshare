@@ -832,47 +832,79 @@ func cloneRepoFull(url, destPath string) error {
 	return runGitCommand([]string{"clone", "--quiet", url, destPath}, "")
 }
 
-// GetUpdatableSkills returns skill names that have metadata with a remote source
+// GetUpdatableSkills returns skill names that have metadata with a remote source.
+// It walks subdirectories recursively so nested skills are found.
 func GetUpdatableSkills(sourceDir string) ([]string, error) {
-	entries, err := os.ReadDir(sourceDir)
+	var skills []string
+
+	err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if path == sourceDir {
+			return nil
+		}
+		// Skip .git directories
+		if info.IsDir() && info.Name() == ".git" {
+			return filepath.SkipDir
+		}
+		// Skip tracked repo directories (start with _)
+		if info.IsDir() && len(info.Name()) > 0 && info.Name()[0] == '_' {
+			return filepath.SkipDir
+		}
+		// Look for metadata files
+		if !info.IsDir() && info.Name() == metaFileName {
+			skillDir := filepath.Dir(path)
+			relPath, relErr := filepath.Rel(sourceDir, skillDir)
+			if relErr != nil || relPath == "." {
+				return nil
+			}
+			meta, metaErr := ReadMeta(skillDir)
+			if metaErr != nil || meta == nil || meta.Source == "" {
+				return nil
+			}
+			skills = append(skills, relPath)
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, err
-	}
-
-	var skills []string
-	for _, entry := range entries {
-		// Skip tracked repos (start with _) and non-directories
-		if !entry.IsDir() || (len(entry.Name()) > 0 && entry.Name()[0] == '_') {
-			continue
-		}
-
-		skillPath := filepath.Join(sourceDir, entry.Name())
-		meta, err := ReadMeta(skillPath)
-		if err != nil || meta == nil || meta.Source == "" {
-			continue // No metadata or no source, skip
-		}
-
-		skills = append(skills, entry.Name())
 	}
 	return skills, nil
 }
 
-// GetTrackedRepos returns a list of tracked repositories in the source directory
+// GetTrackedRepos returns a list of tracked repositories in the source directory.
+// It walks subdirectories recursively so repos nested in organizational
+// directories (e.g. category/_team-repo/) are found.
 func GetTrackedRepos(sourceDir string) ([]string, error) {
-	entries, err := os.ReadDir(sourceDir)
-	if err != nil {
-		return nil, err
-	}
-
 	var repos []string
-	for _, entry := range entries {
-		if entry.IsDir() && len(entry.Name()) > 0 && entry.Name()[0] == '_' {
-			// Verify it's actually a git repo
-			gitDir := filepath.Join(sourceDir, entry.Name(), ".git")
-			if _, err := os.Stat(gitDir); err == nil {
-				repos = append(repos, entry.Name())
+
+	err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if path == sourceDir {
+			return nil
+		}
+		// Skip .git directories
+		if info.IsDir() && info.Name() == ".git" {
+			return filepath.SkipDir
+		}
+		// Look for _-prefixed directories that are git repos
+		if info.IsDir() && len(info.Name()) > 0 && info.Name()[0] == '_' {
+			gitDir := filepath.Join(path, ".git")
+			if _, statErr := os.Stat(gitDir); statErr == nil {
+				relPath, relErr := filepath.Rel(sourceDir, path)
+				if relErr == nil {
+					repos = append(repos, relPath)
+				}
+				return filepath.SkipDir // Don't recurse into tracked repos
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return repos, nil
 }

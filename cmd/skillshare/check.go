@@ -11,7 +11,6 @@ import (
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/ui"
-	appversion "skillshare/internal/version"
 )
 
 // checkRepoResult holds the check result for a tracked repo
@@ -86,11 +85,6 @@ func cmdCheck(args []string) error {
 }
 
 func runCheck(sourceDir string, jsonOutput bool) error {
-	// Show logo (skip for JSON output)
-	if !jsonOutput {
-		ui.Logo(appversion.Version)
-	}
-
 	repos, err := install.GetTrackedRepos(sourceDir)
 	if err != nil {
 		repos = nil // Non-fatal: source dir might not exist yet
@@ -110,12 +104,14 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 			fmt.Println(string(out))
 			return nil
 		}
+		ui.Header(ui.WithModeLabel("Checking for updates"))
 		ui.Info("No tracked repositories or updatable skills found")
 		ui.Info("Use 'skillshare install <repo> --track' to add a tracked repository")
 		return nil
 	}
 
 	if !jsonOutput {
+		ui.Header(ui.WithModeLabel("Checking for updates"))
 		ui.StepStart("Source", sourceDir)
 		ui.StepContinue("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", len(repos), len(skills)))
 	}

@@ -252,18 +252,68 @@ func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force bool) erro
 		return updateTrackedRepo(cfg, repoName, dryRun, force)
 	}
 
-	// Try as regular skill
+	// Try as regular skill (exact path)
 	skillPath := filepath.Join(cfg.Source, name)
-	if _, err := install.ReadMeta(skillPath); err == nil {
+	if meta, err := install.ReadMeta(skillPath); err == nil && meta != nil {
 		return updateRegularSkill(cfg, name, dryRun, force)
 	}
 
-	// Check if it's a nested path that exists
+	// Check if it's a nested path that exists as git repo
 	if install.IsGitRepo(skillPath) {
 		return updateTrackedRepo(cfg, name, dryRun, force)
 	}
 
-	return fmt.Errorf("'%s' not found as tracked repo or skill with metadata", name)
+	// Fallback: search by basename in nested skills and repos
+	if match, err := resolveByBasename(cfg.Source, name); err == nil {
+		if match.isRepo {
+			return updateTrackedRepo(cfg, match.relPath, dryRun, force)
+		}
+		return updateRegularSkill(cfg, match.relPath, dryRun, force)
+	} else {
+		return err
+	}
+}
+
+type resolvedMatch struct {
+	relPath string
+	isRepo  bool
+}
+
+// resolveByBasename searches nested skills and tracked repos by their
+// directory basename. Returns an error when zero or multiple matches found.
+func resolveByBasename(sourceDir, name string) (resolvedMatch, error) {
+	var matches []resolvedMatch
+
+	// Search tracked repos
+	repos, _ := install.GetTrackedRepos(sourceDir)
+	for _, r := range repos {
+		if filepath.Base(r) == "_"+name || filepath.Base(r) == name {
+			matches = append(matches, resolvedMatch{relPath: r, isRepo: true})
+		}
+	}
+
+	// Search updatable skills
+	skills, _ := install.GetUpdatableSkills(sourceDir)
+	for _, s := range skills {
+		if filepath.Base(s) == name {
+			matches = append(matches, resolvedMatch{relPath: s, isRepo: false})
+		}
+	}
+
+	if len(matches) == 0 {
+		return resolvedMatch{}, fmt.Errorf("'%s' not found as tracked repo or skill with metadata", name)
+	}
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+
+	// Ambiguous: list all matches
+	lines := []string{fmt.Sprintf("'%s' matches multiple items:", name)}
+	for _, m := range matches {
+		lines = append(lines, fmt.Sprintf("  - %s", m.relPath))
+	}
+	lines = append(lines, "Please specify the full path")
+	return resolvedMatch{}, fmt.Errorf("%s", strings.Join(lines, "\n"))
 }
 
 func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force bool) error {

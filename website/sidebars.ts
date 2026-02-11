@@ -47,6 +47,7 @@ const sidebars: SidebarsConfig = {
         'guides/organization-sharing',
         'guides/cross-machine-sync',
         'guides/migration',
+        'guides/organizing-skills',
         'guides/best-practices',
         'guides/project-setup',
         'guides/docker-sandbox',

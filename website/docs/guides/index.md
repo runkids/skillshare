@@ -15,6 +15,7 @@ In-depth guides for specific use cases.
 | [Project Setup](./project-setup) | Set up project-scoped skills |
 | [Cross-Machine Sync](./cross-machine-sync) | Sync skills across computers |
 | [Migration](./migration) | Migrate from other tools |
+| [Organizing Skills](./organizing-skills) | Organize skills into folders with auto-flattening |
 | [Best Practices](./best-practices) | Naming, organization, and versioning |
 | [Docker Sandbox](./docker-sandbox) | Isolated test sandbox and interactive playground |
 | [Comparison](./comparison) | Compare skill management approaches |
@@ -26,6 +27,7 @@ In-depth guides for specific use cases.
 ### For Individuals
 
 - [Creating Skills](./creating-skills) — Write your first skill
+- [Organizing Skills](./organizing-skills) — Organize with folders
 - [Cross-Machine Sync](./cross-machine-sync) — Use on multiple computers
 
 ### For Teams
