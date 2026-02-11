@@ -183,12 +183,13 @@ See [Project Setup](/docs/guides/project-setup) for the full guide.
 |------|-------|-------------|
 | `--name <name>` | | Override installed name when exactly one skill is installed |
 | `--into <dir>` | | Install into subdirectory (e.g. `--into frontend` or `--into frontend/react`) |
-| `--force` | `-f` | Overwrite existing skill |
+| `--force` | `-f` | Overwrite existing skill; also override audit blocking |
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--track` | `-t` | Keep `.git` for tracked repos |
 | `--skill` | `-s` | Select specific skills from multi-skill repo (comma-separated) |
 | `--all` | | Install all discovered skills without prompting |
 | `--yes` | `-y` | Auto-accept all prompts (CI/CD friendly) |
+| `--skip-audit` | | Skip security audit for this install |
 | `--project` | `-p` | Install into project `.skillshare/skills/` |
 | `--dry-run` | `-n` | Preview only |
 
@@ -274,20 +275,46 @@ HTTPS URLs require interactive authentication which is not supported by skillsha
 
 Every skill is automatically scanned for security threats during installation:
 
-- **CRITICAL** findings (prompt injection, data exfiltration, credential access) **block installation**
-- **HIGH** / **MEDIUM** findings are shown as warnings but allow installation
+- Findings at or above `audit.block_threshold` **block installation** (default: `CRITICAL`)
+- Lower findings are shown as warnings and include risk score context
+- `audit.block_threshold` only controls block level; it does **not** disable scanning
+- There is no config switch to always skip audit; use `--skip-audit` per command when needed
+
+Threshold config example:
+
+```yaml
+audit:
+  block_threshold: HIGH
+```
 
 ```bash
 # Blocked — critical threat detected
 skillshare install evil-skill
-# → CRITICAL: Prompt injection detected (SKILL.md:15)
-# → Installation blocked. Use --force to override.
+# → Installation blocked at active threshold. Use --force to override.
 
 # Force install despite warnings
 skillshare install suspicious-skill --force
+
+# Skip scan entirely (use with caution)
+skillshare install suspicious-skill --skip-audit
 ```
 
-Use `--force` to bypass the security check. See [audit](/docs/commands/audit) for scanning details.
+Use `--force` to override block decisions, or `--skip-audit` to bypass scanning entirely. See [audit](/docs/commands/audit) for scanning details.
+
+### `--force` vs `--skip-audit`
+
+Both can unblock installation, but they do different things:
+
+| Flag | Audit execution | What happens |
+|------|------------------|--------------|
+| `--force` | Audit still runs | Findings are still generated/logged; install continues even if threshold is hit |
+| `--skip-audit` | Audit is skipped | No scan is performed for this install |
+
+Recommended usage:
+
+- Prefer `--force` when you still want visibility into findings.
+- Use `--skip-audit` only when you intentionally need to bypass scanning.
+- If both are set, `--skip-audit` takes precedence in practice (scan is skipped).
 
 ## After Installing
 

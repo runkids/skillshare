@@ -217,6 +217,8 @@ func TestFormatInstallLogDetail_IncludesInstalledSkills(t *testing.T) {
 	args := map[string]any{
 		"source":           "https://github.com/example/skills",
 		"mode":             "project",
+		"threshold":        "high",
+		"skip_audit":       true,
 		"skill_count":      2,
 		"installed_skills": []string{"skill-a", "skill-b"},
 		"failed_skills":    []string{"skill-c"},
@@ -226,13 +228,78 @@ func TestFormatInstallLogDetail_IncludesInstalledSkills(t *testing.T) {
 	if !strings.Contains(detail, "mode=project") {
 		t.Fatalf("expected mode in detail, got: %s", detail)
 	}
+	if !strings.Contains(detail, "threshold=HIGH") {
+		t.Fatalf("expected threshold in detail, got: %s", detail)
+	}
 	if !strings.Contains(detail, "skills=2") {
 		t.Fatalf("expected skill count in detail, got: %s", detail)
+	}
+	if !strings.Contains(detail, "skip-audit") {
+		t.Fatalf("expected skip-audit in detail, got: %s", detail)
 	}
 	if !strings.Contains(detail, "installed=skill-a, skill-b") {
 		t.Fatalf("expected installed skills in detail, got: %s", detail)
 	}
 	if !strings.Contains(detail, "failed=skill-c") {
 		t.Fatalf("expected failed skills in detail, got: %s", detail)
+	}
+}
+
+func TestFormatAuditLogDetail_IncludesExtendedFields(t *testing.T) {
+	args := map[string]any{
+		"scope":      "all",
+		"mode":       "global",
+		"threshold":  "medium",
+		"scanned":    10,
+		"passed":     5,
+		"warning":    3,
+		"failed":     2,
+		"critical":   2,
+		"high":       1,
+		"medium":     2,
+		"low":        4,
+		"info":       6,
+		"risk_score": 67,
+		"risk_label": "high",
+	}
+
+	detail := formatAuditLogDetail(args)
+	if !strings.Contains(detail, "threshold=MEDIUM") {
+		t.Fatalf("expected threshold in detail, got: %s", detail)
+	}
+	if !strings.Contains(detail, "sev(c/h/m/l/i)=2/1/2/4/6") {
+		t.Fatalf("expected extended severity summary in detail, got: %s", detail)
+	}
+	if !strings.Contains(detail, "risk=HIGH(67/100)") {
+		t.Fatalf("expected risk score/label in detail, got: %s", detail)
+	}
+}
+
+func TestPrintLogAuditSkillLinesNonTTY_IncludesLowAndInfoSkills(t *testing.T) {
+	entry := oplog.Entry{
+		Command: "audit",
+		Args: map[string]any{
+			"failed_skills":  []string{"critical-a"},
+			"warning_skills": []string{"high-a"},
+			"low_skills":     []string{"low-a"},
+			"info_skills":    []string{"info-a"},
+		},
+	}
+
+	var buf bytes.Buffer
+	printLogAuditSkillLinesNonTTY(&buf, entry)
+	out := buf.String()
+
+	if !strings.Contains(out, "failed skills: critical-a") {
+		t.Fatalf("expected failed skills output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "warning skills: high-a") {
+		t.Fatalf("expected warning skills output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "low skills: low-a") {
+		t.Fatalf("expected low skills output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "info skills: info-a") {
+		t.Fatalf("expected info skills output, got:\n%s", out)
 	}
 }

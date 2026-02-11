@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -16,6 +17,8 @@ const (
 	SeverityCritical = "CRITICAL"
 	SeverityHigh     = "HIGH"
 	SeverityMedium   = "MEDIUM"
+	SeverityLow      = "LOW"
+	SeverityInfo     = "INFO"
 )
 
 // validSeverities is the set of accepted severity values.
@@ -23,6 +26,50 @@ var validSeverities = map[string]bool{
 	SeverityCritical: true,
 	SeverityHigh:     true,
 	SeverityMedium:   true,
+	SeverityLow:      true,
+	SeverityInfo:     true,
+}
+
+var severityRank = map[string]int{
+	SeverityCritical: 0,
+	SeverityHigh:     1,
+	SeverityMedium:   2,
+	SeverityLow:      3,
+	SeverityInfo:     4,
+}
+
+// DefaultThreshold returns the default block threshold.
+func DefaultThreshold() string {
+	return SeverityCritical
+}
+
+// NormalizeSeverity normalizes and validates a severity-like value.
+func NormalizeSeverity(v string) (string, error) {
+	sev := strings.ToUpper(strings.TrimSpace(v))
+	if sev == "" {
+		return "", fmt.Errorf("empty severity")
+	}
+	if !validSeverities[sev] {
+		return "", fmt.Errorf("invalid severity %q", v)
+	}
+	return sev, nil
+}
+
+// NormalizeThreshold normalizes block threshold, defaulting to CRITICAL when empty.
+func NormalizeThreshold(v string) (string, error) {
+	if strings.TrimSpace(v) == "" {
+		return DefaultThreshold(), nil
+	}
+	return NormalizeSeverity(v)
+}
+
+// SeverityRank returns the sort/block rank for a severity.
+// Lower rank means higher severity.
+func SeverityRank(sev string) int {
+	if rank, ok := severityRank[sev]; ok {
+		return rank
+	}
+	return 999
 }
 
 // rule defines a single compiled scanning pattern.
@@ -167,8 +214,9 @@ func compileRules(yr []yamlRule) ([]rule, error) {
 		if y.Enabled != nil && !*y.Enabled {
 			continue // disabled rule
 		}
-		if !validSeverities[y.Severity] {
-			return nil, fmt.Errorf("rule %q: invalid severity %q", y.ID, y.Severity)
+		sev, err := NormalizeSeverity(y.Severity)
+		if err != nil {
+			return nil, fmt.Errorf("rule %q: %w", y.ID, err)
 		}
 		if y.Regex == "" {
 			return nil, fmt.Errorf("rule %q: empty regex", y.ID)
@@ -180,7 +228,7 @@ func compileRules(yr []yamlRule) ([]rule, error) {
 
 		r := rule{
 			ID:       y.ID,
-			Severity: y.Severity,
+			Severity: sev,
 			Pattern:  y.Pattern,
 			Message:  y.Message,
 			Regex:    re,
@@ -272,7 +320,7 @@ func DefaultRulesTemplate() string {
 # Rules are merged on top of built-in rules in order:
 #   built-in → global (~/.config/skillshare/audit-rules.yaml) → project (.skillshare/audit-rules.yaml)
 #
-# Each rule needs: id, severity (CRITICAL/HIGH/MEDIUM), pattern, message, regex.
+# Each rule needs: id, severity (CRITICAL/HIGH/MEDIUM/LOW/INFO), pattern, message, regex.
 # Optional: exclude (suppress match when line also matches), enabled (false to disable).
 
 rules:

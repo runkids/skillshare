@@ -24,7 +24,7 @@ function parseAuditError(msg: string): string[] {
   return msg
     .split('\n')
     .map((l) => l.trim())
-    .filter((l) => l.startsWith('CRITICAL:') || l.startsWith('HIGH:') || l.startsWith('"'));
+    .filter((l) => /^(CRITICAL|HIGH|MEDIUM|LOW|INFO):/.test(l) || l.startsWith('"'));
 }
 
 /** Check if an error is an audit block */
@@ -53,6 +53,7 @@ export default function InstallForm({
   const [into, setInto] = useState('');
   const [track, setTrack] = useState(false);
   const [force, setForce] = useState(false);
+  const [skipAudit, setSkipAudit] = useState(false);
   const [installing, setInstalling] = useState(false);
   const { toast } = useToast();
 
@@ -76,6 +77,7 @@ export default function InstallForm({
     setInto('');
     setTrack(false);
     setForce(false);
+    setSkipAudit(false);
     if (collapsible) setOpen(false);
   };
 
@@ -120,6 +122,7 @@ export default function InstallForm({
           into: pending.into,
           track: true,
           force: true,
+          skipAudit,
         });
         handleResult(res, res.skillName ?? res.repoName);
       } else if (pending.type === 'batch') {
@@ -128,6 +131,7 @@ export default function InstallForm({
           skills: pending.skills!,
           into: pending.into,
           force: true,
+          skipAudit,
         });
         toast(res.summary, 'success');
         const allWarnings: string[] = [];
@@ -144,6 +148,7 @@ export default function InstallForm({
           name: pending.name,
           into: pending.into,
           force: true,
+          skipAudit,
         });
         handleResult(res, res.skillName ?? res.repoName);
       }
@@ -169,6 +174,7 @@ export default function InstallForm({
           into: into.trim() || undefined,
           track: true,
           force,
+          skipAudit,
         });
         handleResult(res, res.skillName ?? res.repoName);
       } catch (e: unknown) {
@@ -195,6 +201,7 @@ export default function InstallForm({
           skills: disc.skills,
           into: into.trim() || undefined,
           force,
+          skipAudit,
         });
         const allWarnings: string[] = [];
         const auditFindings: string[] = [];
@@ -228,6 +235,7 @@ export default function InstallForm({
           name: name.trim() || undefined,
           into: into.trim() || undefined,
           force,
+          skipAudit,
         });
         handleResult(res, res.skillName ?? res.repoName);
       }
@@ -246,6 +254,7 @@ export default function InstallForm({
         skills: selected,
         into: into.trim() || undefined,
         force,
+        skipAudit,
       });
       const allWarnings: string[] = [];
       const auditFindings: string[] = [];
@@ -317,6 +326,11 @@ export default function InstallForm({
             label="Force overwrite"
             checked={force}
             onChange={setForce}
+          />
+          <HandCheckbox
+            label="Skip audit"
+            checked={skipAudit}
+            onChange={setSkipAudit}
           />
         </div>
         <HandButton

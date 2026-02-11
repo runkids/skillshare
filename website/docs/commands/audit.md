@@ -7,9 +7,12 @@ sidebar_position: 3
 Scan installed skills for security threats and malicious patterns.
 
 ```bash
-skillshare audit              # Scan all skills
-skillshare audit <name>       # Scan a specific skill
-skillshare audit -p           # Scan project skills
+skillshare audit                        # Scan all installed skills
+skillshare audit <name>                 # Scan a specific installed skill
+skillshare audit <path>                 # Scan a file/directory path
+skillshare audit --threshold high       # Block on HIGH+ findings
+skillshare audit --json                 # JSON output
+skillshare audit -p                     # Scan project skills
 ```
 
 ## What It Detects
@@ -36,6 +39,13 @@ skillshare audit -p           # Scan project skills
 |---------|------------|
 | `suspicious-fetch` | URLs used in command context (`curl`, `wget`, `fetch`) |
 | `system-writes` | Commands writing to `/usr`, `/etc`, `/var` |
+
+### LOW / INFO (non-blocking signal by default)
+
+These are lower-severity indicators that contribute to risk scoring and reporting:
+
+- `LOW`: weaker suspicious patterns that still deserve review
+- `INFO`: contextual hints (for triage / visibility)
 
 ## Example Output
 
@@ -67,11 +77,13 @@ skillshare audit -p           # Scan project skills
 └──────────────────────────────────────┘
 ```
 
-`Failed` only counts skills with at least one `CRITICAL` finding. `HIGH` and `MEDIUM` findings are reported under `Warning`.
+`Failed` counts skills with findings at or above the active threshold (`--threshold` or config `audit.block_threshold`; default `CRITICAL`).
+
+`audit.block_threshold` only controls the blocking threshold. It does **not** disable scanning.
 
 ## Install-time Scanning
 
-Skills are automatically scanned during installation. If **CRITICAL** threats are detected, the installation is blocked:
+Skills are automatically scanned during installation. Findings at or above `audit.block_threshold` block installation (default: `CRITICAL`):
 
 ```bash
 skillshare install /path/to/evil-skill
@@ -79,9 +91,23 @@ skillshare install /path/to/evil-skill
 
 skillshare install /path/to/evil-skill --force
 # Installs with warnings (use with caution)
+
+skillshare install /path/to/skill --skip-audit
+# Bypasses scanning (use with caution)
 ```
 
-HIGH and MEDIUM findings are shown as warnings but don't block installation.
+`--force` overrides block decisions. `--skip-audit` disables scanning for that install command.
+
+There is no config flag to globally disable install-time audit. Use `--skip-audit` only for commands where you intentionally want to bypass scanning.
+
+Difference summary:
+
+| Install flag | Audit runs? | Findings available? |
+|--------------|-------------|---------------------|
+| `--force` | Yes | Yes (installation still proceeds) |
+| `--skip-audit` | No | No (scan is bypassed) |
+
+If both are provided, `--skip-audit` effectively wins because audit is not executed.
 
 ## Web UI
 
@@ -110,8 +136,8 @@ Access it from the Audit page via the "Custom Rules" button.
 
 | Code | Meaning |
 |------|---------|
-| `0` | All skills passed (or only MEDIUM/HIGH findings) |
-| `1` | One or more CRITICAL findings detected |
+| `0` | No findings at or above active threshold |
+| `1` | One or more findings at or above active threshold |
 
 ## Scanned Files
 
@@ -180,7 +206,7 @@ rules:
 | Field | Required | Description |
 |-------|----------|-------------|
 | `id` | Yes | Stable identifier. Matching IDs override built-in rules. |
-| `severity` | Yes* | `CRITICAL`, `HIGH`, or `MEDIUM` |
+| `severity` | Yes* | `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, or `INFO` |
 | `pattern` | Yes* | Rule category name (e.g., `prompt-injection`) |
 | `message` | Yes* | Human-readable description shown in findings |
 | `regex` | Yes* | Regular expression to match against each line |
@@ -239,8 +265,8 @@ skillshare audit
 
 Summary interpretation:
 
-- `Failed` counts skills that contain at least one `CRITICAL` finding.
-- `Warning` counts skills that contain `HIGH` or `MEDIUM` findings (and no `CRITICAL`).
+- `Failed` counts skills with findings at or above the active threshold.
+- `Warning` counts skills with findings below threshold but above clean (for example `HIGH/MEDIUM/LOW/INFO` when threshold is `CRITICAL`).
 
 ### Built-in Rule IDs
 

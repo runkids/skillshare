@@ -276,9 +276,15 @@ skillshare audit            # Scan all skills
 skillshare audit <name>     # Scan a specific skill
 ```
 
-CRITICAL findings block installation by default. Use `--force` to override.
-
 Skills are also scanned automatically during `skillshare install`.
+
+- `skillshare install` runs an audit by default.
+- Block threshold is configurable with `audit.block_threshold` (`CRITICAL` default; also supports `HIGH`, `MEDIUM`, `LOW`, `INFO`).
+- `audit.block_threshold` only controls blocking level; it does **not** disable scanning.
+- There is no config flag to permanently skip audit. To bypass a single install, use `--skip-audit`.
+- Use `--force` to override blocked installs while still running audit (findings remain visible).
+- Use `--skip-audit` to bypass scanning for a single install command.
+- If both are set, `--skip-audit` takes precedence in practice (audit is not executed).
 
 > [!TIP]
 > See the [audit command reference](https://skillshare.runkids.cc/docs/commands/audit) for the full list of detection patterns.

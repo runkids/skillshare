@@ -37,6 +37,8 @@ func parseProjectInstallArgs(args []string) (*projectInstallArgs, bool, error) {
 			result.opts.Update = true
 		case arg == "--dry-run" || arg == "-n":
 			result.opts.DryRun = true
+		case arg == "--skip-audit":
+			result.opts.SkipAudit = true
 		case arg == "--track" || arg == "-t":
 			result.opts.Track = true
 		case arg == "--skill" || arg == "-s":
@@ -122,6 +124,8 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 	summary.DryRun = parsed.opts.DryRun
 	summary.Tracked = parsed.opts.Track
 	summary.Source = parsed.sourceArg
+	summary.Into = parsed.opts.Into
+	summary.SkipAudit = parsed.opts.SkipAudit
 
 	if !projectConfigExists(root) {
 		if err := performProjectInit(root, projectInitOptions{}); err != nil {
@@ -133,6 +137,9 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 	if err != nil {
 		return summary, err
 	}
+	parsed.opts.AuditThreshold = runtime.config.Audit.BlockThreshold
+	parsed.opts.AuditProjectRoot = root
+	summary.AuditThreshold = parsed.opts.AuditThreshold
 
 	if parsed.sourceArg == "" {
 		if parsed.opts.Name != "" {

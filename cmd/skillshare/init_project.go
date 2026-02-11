@@ -136,6 +136,9 @@ func performProjectInit(root string, opts projectInitOptions) error {
 
 	cfg := &config.ProjectConfig{
 		Targets: selected,
+		Audit: config.AuditConfig{
+			BlockThreshold: "CRITICAL",
+		},
 	}
 	if err := cfg.Save(root); err != nil {
 		return err

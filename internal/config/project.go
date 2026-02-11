@@ -68,6 +68,7 @@ type ProjectSkill struct {
 type ProjectConfig struct {
 	Targets []ProjectTargetEntry `yaml:"targets"`
 	Skills  []ProjectSkill       `yaml:"skills,omitempty"`
+	Audit   AuditConfig          `yaml:"audit,omitempty"`
 }
 
 // ProjectConfigPath returns the project config path for the given root.
@@ -90,6 +91,12 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse project config: %w", err)
 	}
+
+	threshold, err := normalizeAuditBlockThreshold(cfg.Audit.BlockThreshold)
+	if err != nil {
+		return nil, fmt.Errorf("project config has invalid audit.block_threshold: %w", err)
+	}
+	cfg.Audit.BlockThreshold = threshold
 
 	for _, target := range cfg.Targets {
 		if strings.TrimSpace(target.Name) == "" {

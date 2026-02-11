@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ScrollText, Trash2, RefreshCw } from 'lucide-react';
+import { ScrollText, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '../api/client';
 import type { LogEntry } from '../api/client';
 import Card from '../components/Card';
@@ -46,6 +46,8 @@ type LogSection = {
 type AuditSkillLists = {
   failed: string[];
   warning: string[];
+  low: string[];
+  info: string[];
 };
 
 function statusBadge(status: string) {
@@ -145,6 +147,9 @@ function formatAuditDetail(args: Record<string, any>): string {
   const mode = asString(args.mode);
   if (mode) parts.push(`mode=${mode}`);
 
+  const threshold = asString(args.threshold);
+  if (threshold) parts.push(`threshold=${threshold.toUpperCase()}`);
+
   const scanned = asInt(args.scanned);
   if (scanned != null) parts.push(`scanned=${scanned}`);
 
@@ -160,8 +165,17 @@ function formatAuditDetail(args: Record<string, any>): string {
   const critical = asInt(args.critical) ?? 0;
   const high = asInt(args.high) ?? 0;
   const medium = asInt(args.medium) ?? 0;
-  if (critical > 0 || high > 0 || medium > 0) {
-    parts.push(`sev(c/h/m)=${critical}/${high}/${medium}`);
+  const low = asInt(args.low) ?? 0;
+  const info = asInt(args.info) ?? 0;
+  if (critical > 0 || high > 0 || medium > 0 || low > 0 || info > 0) {
+    parts.push(`sev(c/h/m/l/i)=${critical}/${high}/${medium}/${low}/${info}`);
+  }
+
+  const riskScore = asInt(args.risk_score);
+  const riskLabel = asString(args.risk_label);
+  if (riskScore != null) {
+    if (riskLabel) parts.push(`risk=${riskLabel.toUpperCase()}(${riskScore}/100)`);
+    else parts.push(`risk=${riskScore}/100`);
   }
 
   const scanErrors = asInt(args.scan_errors);
@@ -172,11 +186,13 @@ function formatAuditDetail(args: Record<string, any>): string {
 
 function getAuditSkillLists(entry: LogEntry): AuditSkillLists {
   if (entry.cmd !== 'audit' || !entry.args) {
-    return { failed: [], warning: [] };
+    return { failed: [], warning: [], low: [], info: [] };
   }
   return {
     failed: asStringArray(entry.args.failed_skills),
     warning: asStringArray(entry.args.warning_skills),
+    low: asStringArray(entry.args.low_skills),
+    info: asStringArray(entry.args.info_skills),
   };
 }
 
@@ -209,7 +225,7 @@ function renderDetail(entry: LogEntry) {
   const summary = formatDetail(entry);
   const lists = getAuditSkillLists(entry);
 
-  if (lists.failed.length === 0 && lists.warning.length === 0) {
+  if (lists.failed.length === 0 && lists.warning.length === 0 && lists.low.length === 0 && lists.info.length === 0) {
     return summary;
   }
 
@@ -226,43 +242,65 @@ function renderDetail(entry: LogEntry) {
           warning skills: {summarizeNames(lists.warning, 6)}
         </div>
       )}
+      {lists.low.length > 0 && (
+        <div className="text-xs text-blue-700">
+          low skills: {summarizeNames(lists.low, 6)}
+        </div>
+      )}
+      {lists.info.length > 0 && (
+        <div className="text-xs text-pencil-light">
+          info skills: {summarizeNames(lists.info, 6)}
+        </div>
+      )}
     </div>
   );
 }
 
+const PAGE_SIZES = [10, 25, 50] as const;
+
 function LogTable({ entries }: { entries: LogEntry[] }) {
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<number>(25);
+
+  // Reset to first page when entries change (e.g. filter applied)
+  useEffect(() => { setPage(0); }, [entries]);
+
+  const totalPages = Math.max(1, Math.ceil(entries.length / pageSize));
+  const start = page * pageSize;
+  const visible = entries.slice(start, start + pageSize);
+
   return (
     <Card>
       <div className="overflow-x-auto">
         <table className="w-full text-left" style={{ fontFamily: 'var(--font-hand)' }}>
           <thead>
             <tr className="border-b-2 border-dashed border-muted-dark">
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Time</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Command</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Details</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Status</th>
-              <th className="pb-3 text-pencil-light text-sm font-medium text-right">Duration</th>
+              <th className="pb-3 pr-4 text-pencil-light text-base font-medium">Time</th>
+              <th className="pb-3 pr-4 text-pencil-light text-base font-medium">Command</th>
+              <th className="pb-3 pr-4 text-pencil-light text-base font-medium">Details</th>
+              <th className="pb-3 pr-4 text-pencil-light text-base font-medium">Status</th>
+              <th className="pb-3 text-pencil-light text-base font-medium text-right">Duration</th>
             </tr>
           </thead>
           <tbody>
-            {entries.map((entry, i) => (
+            {visible.map((entry, i) => (
               <tr
-                key={`${entry.ts}-${entry.cmd}-${i}`}
+                key={`${entry.ts}-${entry.cmd}-${start + i}`}
                 className="border-b border-dashed border-muted hover:bg-white/60 transition-colors"
               >
-                <td className="py-2.5 pr-4 text-pencil-light text-sm whitespace-nowrap">
+                <td className="py-3 pr-4 text-pencil-light text-base whitespace-nowrap">
                   {formatTimestamp(entry.ts)}
                 </td>
-                <td className="py-2.5 pr-4 font-medium text-pencil uppercase text-sm">
+                <td className="py-3 pr-4 font-medium text-pencil uppercase text-base">
                   {entry.cmd}
                 </td>
-                <td className="py-2.5 pr-4 text-pencil-light text-sm max-w-2xl break-words">
+                <td className="py-3 pr-4 text-pencil-light text-base max-w-2xl break-words">
                   {renderDetail(entry)}
                 </td>
-                <td className="py-2.5 pr-4">
+                <td className="py-3 pr-4">
                   {statusBadge(entry.status)}
                 </td>
-                <td className="py-2.5 text-pencil-light text-sm text-right whitespace-nowrap">
+                <td className="py-3 text-pencil-light text-base text-right whitespace-nowrap">
                   {formatDuration(entry.ms)}
                 </td>
               </tr>
@@ -270,6 +308,68 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {entries.length > PAGE_SIZES[0] && (
+        <div
+          className="flex items-center justify-between pt-4 mt-4 border-t-2 border-dashed border-muted"
+          style={{ fontFamily: 'var(--font-hand)' }}
+        >
+          <div className="flex items-center gap-2 text-base text-pencil-light">
+            <span>Show</span>
+            {PAGE_SIZES.map((size) => (
+              <button
+                key={size}
+                onClick={() => { setPageSize(size); setPage(0); }}
+                className={`px-2.5 py-1 text-base border-2 transition-all duration-100 ${
+                  pageSize === size
+                    ? 'bg-white border-pencil text-pencil font-medium'
+                    : 'bg-transparent border-transparent text-pencil-light hover:text-pencil hover:bg-white/60'
+                }`}
+                style={{
+                  borderRadius: wobbly.sm,
+                  boxShadow: pageSize === size ? shadows.sm : 'none',
+                }}
+              >
+                {size}
+              </button>
+            ))}
+            <span className="ml-1">
+              {start + 1}–{Math.min(start + pageSize, entries.length)} of {entries.length}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className={`p-1.5 border-2 transition-all duration-100 ${
+                page === 0
+                  ? 'border-transparent text-muted-dark cursor-not-allowed'
+                  : 'border-transparent text-pencil-light hover:text-pencil hover:bg-white/60 hover:border-pencil'
+              }`}
+              style={{ borderRadius: wobbly.sm }}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <span className="text-base text-pencil px-2">
+              {page + 1} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              className={`p-1.5 border-2 transition-all duration-100 ${
+                page >= totalPages - 1
+                  ? 'border-transparent text-muted-dark cursor-not-allowed'
+                  : 'border-transparent text-pencil-light hover:text-pencil hover:bg-white/60 hover:border-pencil'
+              }`}
+              style={{ borderRadius: wobbly.sm }}
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

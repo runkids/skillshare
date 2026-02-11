@@ -16,15 +16,18 @@ import (
 
 // InstallOptions configures the install behavior
 type InstallOptions struct {
-	Name   string   // Override skill name
-	Force  bool     // Overwrite existing
-	DryRun bool     // Preview only
-	Update bool     // Update existing installation
-	Track  bool     // Install as tracked repository (preserves .git)
-	Skills []string // Select specific skills from multi-skill repo (comma-separated)
-	All    bool     // Install all discovered skills without prompting
-	Yes    bool     // Auto-accept all prompts (equivalent to --all for multi-skill repos)
-	Into   string   // Install into subdirectory (e.g. "frontend" or "frontend/react")
+	Name             string   // Override skill name
+	Force            bool     // Overwrite existing
+	DryRun           bool     // Preview only
+	Update           bool     // Update existing installation
+	Track            bool     // Install as tracked repository (preserves .git)
+	Skills           []string // Select specific skills from multi-skill repo (comma-separated)
+	All              bool     // Install all discovered skills without prompting
+	Yes              bool     // Auto-accept all prompts (equivalent to --all for multi-skill repos)
+	Into             string   // Install into subdirectory (e.g. "frontend" or "frontend/react")
+	SkipAudit        bool     // Skip security audit entirely
+	AuditThreshold   string   // Block threshold: CRITICAL/HIGH/MEDIUM/LOW/INFO
+	AuditProjectRoot string   // Project root for project-mode audit rule resolution
 }
 
 // ShouldInstallAll returns true if all discovered skills should be installed without prompting.
@@ -35,11 +38,15 @@ func (o InstallOptions) HasSkillFilter() bool { return len(o.Skills) > 0 }
 
 // InstallResult reports the outcome of an installation
 type InstallResult struct {
-	SkillName string
-	SkillPath string
-	Source    string
-	Action    string // "cloned", "copied", "updated", "skipped"
-	Warnings  []string
+	SkillName      string
+	SkillPath      string
+	Source         string
+	Action         string // "cloned", "copied", "updated", "skipped"
+	Warnings       []string
+	AuditThreshold string
+	AuditRiskScore int
+	AuditRiskLabel string
+	AuditSkipped   bool
 }
 
 // SkillInfo represents a discovered skill in a repository
@@ -120,7 +127,7 @@ func installFromLocal(source *Source, destPath string, result *InstallResult, op
 	}
 
 	// Security audit
-	if err := auditInstalledSkill(destPath, result, opts.Force); err != nil {
+	if err := auditInstalledSkill(destPath, result, opts); err != nil {
 		return nil, err
 	}
 
@@ -375,7 +382,7 @@ func InstallFromDiscovery(discovery *DiscoveryResult, skill SkillInfo, destPath 
 	}
 
 	// Security audit
-	if err := auditInstalledSkill(destPath, result, opts.Force); err != nil {
+	if err := auditInstalledSkill(destPath, result, opts); err != nil {
 		return nil, err
 	}
 
@@ -436,7 +443,7 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	}
 
 	// Security audit
-	if err := auditInstalledSkill(destPath, result, opts.Force); err != nil {
+	if err := auditInstalledSkill(destPath, result, opts); err != nil {
 		return nil, err
 	}
 
@@ -538,15 +545,37 @@ func checkSkillFile(skillPath string, result *InstallResult) {
 }
 
 // auditInstalledSkill scans the installed skill for security threats.
-// If CRITICAL findings are detected and force is false, it removes the skill
-// directory and returns an error. HIGH/MEDIUM findings are appended as warnings.
-func auditInstalledSkill(destPath string, result *InstallResult, force bool) error {
-	scanResult, err := audit.ScanSkill(destPath)
+// It blocks installation when findings are at or above configured threshold
+// unless force is enabled.
+func auditInstalledSkill(destPath string, result *InstallResult, opts InstallOptions) error {
+	if opts.SkipAudit {
+		result.AuditSkipped = true
+		result.AuditThreshold = opts.AuditThreshold
+		result.Warnings = append(result.Warnings, "audit skipped (--skip-audit)")
+		return nil
+	}
+
+	threshold, err := audit.NormalizeThreshold(opts.AuditThreshold)
+	if err != nil {
+		threshold = audit.DefaultThreshold()
+	}
+	result.AuditThreshold = threshold
+
+	var scanResult *audit.Result
+	if opts.AuditProjectRoot != "" {
+		scanResult, err = audit.ScanSkillForProject(destPath, opts.AuditProjectRoot)
+	} else {
+		scanResult, err = audit.ScanSkill(destPath)
+	}
 	if err != nil {
 		// Non-fatal: warn but don't block
 		result.Warnings = append(result.Warnings, fmt.Sprintf("audit scan error: %v", err))
 		return nil
 	}
+	result.AuditRiskScore = scanResult.RiskScore
+	result.AuditRiskLabel = scanResult.RiskLabel
+	scanResult.Threshold = threshold
+	scanResult.IsBlocked = scanResult.HasSeverityAtOrAbove(threshold)
 
 	if len(scanResult.Findings) == 0 {
 		return nil
@@ -561,12 +590,12 @@ func auditInstalledSkill(destPath string, result *InstallResult, force bool) err
 		result.Warnings = append(result.Warnings, msg)
 	}
 
-	// CRITICAL findings block installation unless --force
-	if scanResult.HasCritical() && !force {
+	// Findings at or above threshold block installation unless --force.
+	if scanResult.IsBlocked && !opts.Force {
 		os.RemoveAll(destPath)
 		var details []string
 		for _, f := range scanResult.Findings {
-			if f.Severity == audit.SeverityCritical {
+			if audit.SeverityRank(f.Severity) <= audit.SeverityRank(threshold) {
 				detail := fmt.Sprintf("  %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
 				if f.Snippet != "" {
 					detail += fmt.Sprintf("\n    %q", f.Snippet)
@@ -574,7 +603,11 @@ func auditInstalledSkill(destPath string, result *InstallResult, force bool) err
 				details = append(details, detail)
 			}
 		}
-		return fmt.Errorf("security audit failed — critical threats detected:\n%s\n\nUse --force to override", strings.Join(details, "\n"))
+		return fmt.Errorf(
+			"security audit failed — findings at/above %s detected:\n%s\n\nUse --force to override or --skip-audit to bypass scanning",
+			threshold,
+			strings.Join(details, "\n"),
+		)
 	}
 
 	return nil

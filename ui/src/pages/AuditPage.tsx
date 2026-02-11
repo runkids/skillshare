@@ -33,9 +33,11 @@ export default function AuditPage() {
       setData(res);
       const { summary } = res;
       if (summary.failed > 0) {
-        toast(`Audit complete: ${summary.failed} skill(s) with critical issues`, 'warning');
+        toast(`Audit complete: ${summary.failed} skill(s) blocked at ${summary.threshold}+`, 'warning');
       } else if (summary.warning > 0) {
         toast(`Audit complete: ${summary.warning} skill(s) with warnings`, 'warning');
+      } else if (summary.low > 0 || summary.info > 0) {
+        toast(`Audit complete: ${summary.low + summary.info} informational findings`, 'warning');
       } else {
         toast('Audit complete: all skills passed', 'success');
       }
@@ -99,15 +101,29 @@ export default function AuditPage() {
       {data && !loading && (
         <>
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <StatCard label="Total" value={data.summary.total} icon={FileText} color="pencil" />
             <StatCard label="Passed" value={data.summary.passed} icon={ShieldCheck} color="success" />
             <StatCard label="Warnings" value={data.summary.warning} icon={AlertTriangle} color="warning" />
-            <StatCard label="Critical" value={data.summary.failed} icon={ShieldX} color="danger" />
+            <StatCard label="Blocked" value={data.summary.failed} icon={ShieldX} color="danger" />
+            <StatCard label="Low" value={data.summary.low} icon={Info} color="blue" />
+            <StatCard label="Info" value={data.summary.info} icon={Info} color="pencil-light" />
           </div>
 
+          <Card variant="outlined">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <Badge variant={data.summary.failed > 0 ? 'danger' : data.summary.warning > 0 ? 'warning' : 'success'}>
+                threshold: {data.summary.threshold}
+              </Badge>
+              <Badge variant={riskBadgeVariant(data.summary.riskLabel)}>
+                risk: {data.summary.riskLabel.toUpperCase()} ({data.summary.riskScore}/100)
+              </Badge>
+              {(data.summary.scanErrors ?? 0) > 0 && <span className="text-danger">scan errors: {data.summary.scanErrors}</span>}
+            </div>
+          </Card>
+
           {/* Findings list */}
-          {data.summary.failed === 0 && data.summary.warning === 0 ? (
+          {data.summary.failed === 0 && data.summary.warning === 0 && data.summary.low === 0 && data.summary.info === 0 ? (
             <EmptyState
               icon={ShieldCheck}
               title="All skills passed security audit"
@@ -117,7 +133,11 @@ export default function AuditPage() {
             <div className="space-y-4">
               {data.results
                 .filter((r) => r.findings.length > 0)
-                .sort((a, b) => severityRank(a) - severityRank(b))
+                .sort((a, b) => {
+                  const bySeverity = severityRank(a) - severityRank(b);
+                  if (bySeverity !== 0) return bySeverity;
+                  return b.riskScore - a.riskScore;
+                })
                 .map((result, i) => (
                   <SkillAuditCard key={result.skillName} result={result} index={i} />
                 ))}
@@ -125,7 +145,7 @@ export default function AuditPage() {
           )}
 
           {/* Passed skills summary */}
-          {data.summary.passed > 0 && (data.summary.failed > 0 || data.summary.warning > 0) && (
+          {data.summary.passed > 0 && (data.summary.failed > 0 || data.summary.warning > 0 || data.summary.low > 0 || data.summary.info > 0) && (
             <Card variant="outlined">
               <div className="flex items-center gap-2 text-success">
                 <ShieldCheck size={18} strokeWidth={2.5} />
@@ -199,7 +219,7 @@ function StatCard({
 
 function SkillAuditCard({ result, index }: { result: AuditResult; index: number }) {
   const maxSeverity = getMaxSeverity(result.findings);
-  const Icon = maxSeverity === 'CRITICAL' || maxSeverity === 'HIGH' ? ShieldAlert : Info;
+  const Icon = result.isBlocked ? ShieldAlert : Info;
 
   return (
     <Card
@@ -220,9 +240,14 @@ function SkillAuditCard({ result, index }: { result: AuditResult; index: number 
               {result.skillName}
             </span>
           </div>
-          <Badge variant={severityBadgeVariant(maxSeverity)}>
-            {result.findings.length} issue{result.findings.length !== 1 ? 's' : ''}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={severityBadgeVariant(maxSeverity)}>
+              {result.findings.length} issue{result.findings.length !== 1 ? 's' : ''}
+            </Badge>
+            <Badge variant={riskBadgeVariant(result.riskLabel)}>
+              {result.riskLabel.toUpperCase()} {result.riskScore}/100
+            </Badge>
+          </div>
         </div>
 
         {/* Findings */}
@@ -267,10 +292,28 @@ function severityBadgeVariant(sev: string): 'danger' | 'warning' | 'info' {
   }
 }
 
+function riskBadgeVariant(risk: string): 'danger' | 'warning' | 'info' | 'success' {
+  switch (risk) {
+    case 'critical':
+      return 'danger';
+    case 'high':
+      return 'warning';
+    case 'medium':
+      return 'info';
+    case 'low':
+      return 'success';
+    default:
+      return 'success';
+  }
+}
+
 function severityTextColor(sev: string): string {
   switch (sev) {
     case 'CRITICAL': return 'text-danger';
     case 'HIGH': return 'text-warning';
+    case 'MEDIUM': return 'text-blue';
+    case 'LOW': return 'text-blue';
+    case 'INFO': return 'text-pencil-light';
     default: return 'text-blue';
   }
 }
@@ -278,7 +321,10 @@ function severityTextColor(sev: string): string {
 function getMaxSeverity(findings: AuditFinding[]): string {
   if (findings.some((f) => f.severity === 'CRITICAL')) return 'CRITICAL';
   if (findings.some((f) => f.severity === 'HIGH')) return 'HIGH';
-  return 'MEDIUM';
+  if (findings.some((f) => f.severity === 'MEDIUM')) return 'MEDIUM';
+  if (findings.some((f) => f.severity === 'LOW')) return 'LOW';
+  if (findings.some((f) => f.severity === 'INFO')) return 'INFO';
+  return 'CLEAN';
 }
 
 function severityRank(result: AuditResult): number {
@@ -286,6 +332,9 @@ function severityRank(result: AuditResult): number {
   switch (max) {
     case 'CRITICAL': return 0;
     case 'HIGH': return 1;
-    default: return 2;
+    case 'MEDIUM': return 2;
+    case 'LOW': return 3;
+    case 'INFO': return 4;
+    default: return 5;
   }
 }

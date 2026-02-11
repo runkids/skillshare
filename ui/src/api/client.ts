@@ -60,12 +60,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ source }),
     }),
-  install: (opts: { source: string; name?: string; force?: boolean; track?: boolean; into?: string }) =>
+  install: (opts: { source: string; name?: string; force?: boolean; skipAudit?: boolean; track?: boolean; into?: string }) =>
     apiFetch<InstallResult>('/install', {
       method: 'POST',
       body: JSON.stringify(opts),
     }),
-  installBatch: (opts: { source: string; skills: DiscoveredSkill[]; force?: boolean; into?: string }) =>
+  installBatch: (opts: { source: string; skills: DiscoveredSkill[]; force?: boolean; skipAudit?: boolean; into?: string }) =>
     apiFetch<BatchInstallResult>('/install/batch', {
       method: 'POST',
       body: JSON.stringify(opts),
@@ -146,7 +146,7 @@ export const api = {
 
   // Audit
   auditAll: () => apiFetch<AuditAllResponse>('/audit'),
-  auditSkill: (name: string) => apiFetch<AuditResult>(`/audit/${encodeURIComponent(name)}`),
+  auditSkill: (name: string) => apiFetch<AuditSkillResponse>(`/audit/${encodeURIComponent(name)}`),
 
   // Audit Rules
   getAuditRules: () => apiFetch<AuditRulesResponse>('/audit/rules'),
@@ -415,7 +415,7 @@ export interface LogListResponse {
 
 // Audit types
 export interface AuditFinding {
-  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM';
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
   pattern: string;
   message: string;
   file: string;
@@ -426,6 +426,11 @@ export interface AuditFinding {
 export interface AuditResult {
   skillName: string;
   findings: AuditFinding[];
+  riskScore: number;
+  riskLabel: 'clean' | 'low' | 'medium' | 'high' | 'critical';
+  threshold: string;
+  isBlocked: boolean;
+  scanTarget?: string;
 }
 
 export interface AuditSummary {
@@ -433,10 +438,24 @@ export interface AuditSummary {
   passed: number;
   warning: number;
   failed: number;
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+  threshold: string;
+  riskScore: number;
+  riskLabel: 'clean' | 'low' | 'medium' | 'high' | 'critical';
+  scanErrors?: number;
 }
 
 export interface AuditAllResponse {
   results: AuditResult[];
+  summary: AuditSummary;
+}
+
+export interface AuditSkillResponse {
+  result: AuditResult;
   summary: AuditSummary;
 }
 

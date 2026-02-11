@@ -109,3 +109,18 @@ rules:
     pattern: system-writes
     message: "References to system directories"
     regex: '(?i)(write|copy|cp|mv|install)\s+.*/?(usr|etc|var|opt)/'
+
+  # ── LOW: insecure transport hints ──
+  - id: insecure-http-0
+    severity: LOW
+    pattern: insecure-http
+    message: "Non-HTTPS URL in command context"
+    regex: '(?i)(curl|wget|invoke-webrequest|iwr)\s+http://'
+    exclude: '(?i)http://(localhost|127\.0\.0\.1|0\.0\.0\.0)'
+
+  # ── INFO: risky shell chaining patterns (advisory) ──
+  - id: shell-chain-0
+    severity: INFO
+    pattern: shell-chain
+    message: "Command chaining detected; verify intent"
+    regex: '(?m)(\|\||&&|;)\s*(rm|chmod|curl|wget|bash|sh)\b'

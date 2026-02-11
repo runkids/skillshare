@@ -222,6 +222,9 @@ func performFreshInit(opts *initOptions, home string) error {
 			"**/.DS_Store",
 			"**/.git/**",
 		},
+		Audit: config.AuditConfig{
+			BlockThreshold: "CRITICAL",
+		},
 	}
 
 	if opts.dryRun {

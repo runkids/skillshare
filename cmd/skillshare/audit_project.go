@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+
+	"skillshare/internal/audit"
 )
 
 func cmdAuditProject(root, specificSkill string) (auditRunSummary, bool, error) {
@@ -14,11 +16,16 @@ func cmdAuditProject(root, specificSkill string) (auditRunSummary, bool, error) 
 		return auditRunSummary{}, false, err
 	}
 
-	if specificSkill != "" {
-		summary, blocked, err := auditSingleSkill(rt.sourcePath, specificSkill, "project", root)
-		return summary, blocked, err
+	threshold, err := audit.NormalizeThreshold(rt.config.Audit.BlockThreshold)
+	if err != nil {
+		threshold = audit.DefaultThreshold()
 	}
 
-	summary, blocked, err := auditAllSkills(rt.sourcePath, "project", root)
-	return summary, blocked, err
+	if specificSkill != "" {
+		_, summary, err := auditSkillByName(rt.sourcePath, specificSkill, "project", root, threshold, false)
+		return summary, summary.Failed > 0, err
+	}
+
+	_, summary, err := auditInstalled(rt.sourcePath, "project", root, threshold, false)
+	return summary, summary.Failed > 0, err
 }

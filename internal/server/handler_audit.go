@@ -22,20 +22,35 @@ type auditFindingResponse struct {
 }
 
 type auditResultResponse struct {
-	SkillName string                 `json:"skillName"`
-	Findings  []auditFindingResponse `json:"findings"`
+	SkillName  string                 `json:"skillName"`
+	Findings   []auditFindingResponse `json:"findings"`
+	RiskScore  int                    `json:"riskScore"`
+	RiskLabel  string                 `json:"riskLabel"`
+	Threshold  string                 `json:"threshold"`
+	IsBlocked  bool                   `json:"isBlocked"`
+	ScanTarget string                 `json:"scanTarget,omitempty"`
 }
 
 type auditSummary struct {
-	Total   int `json:"total"`
-	Passed  int `json:"passed"`
-	Warning int `json:"warning"`
-	Failed  int `json:"failed"`
+	Total      int    `json:"total"`
+	Passed     int    `json:"passed"`
+	Warning    int    `json:"warning"`
+	Failed     int    `json:"failed"`
+	Critical   int    `json:"critical"`
+	High       int    `json:"high"`
+	Medium     int    `json:"medium"`
+	Low        int    `json:"low"`
+	Info       int    `json:"info"`
+	Threshold  string `json:"threshold"`
+	RiskScore  int    `json:"riskScore"`
+	RiskLabel  string `json:"riskLabel"`
+	ScanErrors int    `json:"scanErrors,omitempty"`
 }
 
 func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	source := s.cfg.Source
+	threshold := s.auditThreshold()
 
 	// Discover all skills
 	discovered, err := sync.DiscoverSourceSkills(source)
@@ -73,13 +88,21 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var results []auditResultResponse
-	summary := auditSummary{Total: len(skills)}
+	summary := auditSummary{
+		Total:     len(skills),
+		Threshold: threshold,
+	}
 	criticalCount := 0
 	highCount := 0
 	mediumCount := 0
+	lowCount := 0
+	infoCount := 0
 	failedSkills := make([]string, 0)
 	warningSkills := make([]string, 0)
+	lowSkills := make([]string, 0)
+	infoSkills := make([]string, 0)
 	scanErrors := 0
+	maxRisk := 0
 
 	for _, sk := range skills {
 		var result *audit.Result
@@ -93,35 +116,58 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		result.Threshold = threshold
+		result.IsBlocked = result.HasSeverityAtOrAbove(threshold)
+
 		resp := toAuditResponse(result)
 		results = append(results, resp)
 
-		switch result.MaxSeverity() {
-		case audit.SeverityCritical:
+		if len(result.Findings) == 0 {
+			summary.Passed++
+		} else if result.IsBlocked {
 			summary.Failed++
 			failedSkills = append(failedSkills, result.SkillName)
-		case audit.SeverityHigh, audit.SeverityMedium:
+		} else {
 			summary.Warning++
 			warningSkills = append(warningSkills, result.SkillName)
-		default:
-			summary.Passed++
 		}
 
-		c, h, m := result.CountBySeverity()
+		c, h, m, l, i := result.CountBySeverityAll()
 		criticalCount += c
 		highCount += h
 		mediumCount += m
+		lowCount += l
+		infoCount += i
+		if l > 0 {
+			lowSkills = append(lowSkills, result.SkillName)
+		}
+		if i > 0 {
+			infoSkills = append(infoSkills, result.SkillName)
+		}
+		if result.RiskScore > maxRisk {
+			maxRisk = result.RiskScore
+		}
 	}
 
 	status := "ok"
 	msg := ""
-	if criticalCount > 0 {
+	if summary.Failed > 0 {
 		status = "blocked"
-		msg = "critical findings detected"
+		msg = "findings at/above threshold detected"
 	}
+	summary.Critical = criticalCount
+	summary.High = highCount
+	summary.Medium = mediumCount
+	summary.Low = lowCount
+	summary.Info = infoCount
+	summary.ScanErrors = scanErrors
+	summary.RiskScore = maxRisk
+	summary.RiskLabel = audit.RiskLabelFromScore(maxRisk)
+
 	args := map[string]any{
 		"scope":       "all",
 		"mode":        "ui",
+		"threshold":   threshold,
 		"scanned":     summary.Total,
 		"passed":      summary.Passed,
 		"warning":     summary.Warning,
@@ -129,6 +175,10 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 		"critical":    criticalCount,
 		"high":        highCount,
 		"medium":      mediumCount,
+		"low":         lowCount,
+		"info":        infoCount,
+		"risk_score":  summary.RiskScore,
+		"risk_label":  summary.RiskLabel,
 		"scan_errors": scanErrors,
 	}
 	if len(failedSkills) > 0 {
@@ -136,6 +186,12 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(warningSkills) > 0 {
 		args["warning_skills"] = warningSkills
+	}
+	if len(lowSkills) > 0 {
+		args["low_skills"] = lowSkills
+	}
+	if len(infoSkills) > 0 {
+		args["info_skills"] = infoSkills
 	}
 	s.writeAuditLog(status, start, args, msg)
 
@@ -148,6 +204,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	name := r.PathValue("name")
+	threshold := s.auditThreshold()
 	skillPath := filepath.Join(s.cfg.Source, name)
 
 	if _, err := os.Stat(skillPath); os.IsNotExist(err) {
@@ -169,37 +226,54 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, h, m := result.CountBySeverity()
+	result.Threshold = threshold
+	result.IsBlocked = result.HasSeverityAtOrAbove(threshold)
+
+	c, h, m, l, i := result.CountBySeverityAll()
 	warningCount := 0
 	failedCount := 0
 	failedSkills := []string{}
 	warningSkills := []string{}
-	switch result.MaxSeverity() {
-	case audit.SeverityCritical:
+	lowSkills := []string{}
+	infoSkills := []string{}
+	if len(result.Findings) == 0 {
+		// no-op
+	} else if result.IsBlocked {
 		failedCount = 1
 		failedSkills = append(failedSkills, result.SkillName)
-	case audit.SeverityHigh, audit.SeverityMedium:
+	} else {
 		warningCount = 1
 		warningSkills = append(warningSkills, result.SkillName)
+	}
+	if l > 0 {
+		lowSkills = append(lowSkills, result.SkillName)
+	}
+	if i > 0 {
+		infoSkills = append(infoSkills, result.SkillName)
 	}
 
 	status := "ok"
 	msg := ""
-	if result.HasCritical() {
+	if result.IsBlocked {
 		status = "blocked"
-		msg = "critical findings detected"
+		msg = "findings at/above threshold detected"
 	}
 	args := map[string]any{
-		"scope":    "single",
-		"name":     name,
-		"mode":     "ui",
-		"scanned":  1,
-		"passed":   boolToInt(len(result.Findings) == 0),
-		"warning":  warningCount,
-		"failed":   failedCount,
-		"critical": c,
-		"high":     h,
-		"medium":   m,
+		"scope":      "single",
+		"name":       name,
+		"mode":       "ui",
+		"threshold":  threshold,
+		"scanned":    1,
+		"passed":     boolToInt(len(result.Findings) == 0),
+		"warning":    warningCount,
+		"failed":     failedCount,
+		"critical":   c,
+		"high":       h,
+		"medium":     m,
+		"low":        l,
+		"info":       i,
+		"risk_score": result.RiskScore,
+		"risk_label": result.RiskLabel,
 	}
 	if len(failedSkills) > 0 {
 		args["failed_skills"] = failedSkills
@@ -207,9 +281,31 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 	if len(warningSkills) > 0 {
 		args["warning_skills"] = warningSkills
 	}
+	if len(lowSkills) > 0 {
+		args["low_skills"] = lowSkills
+	}
+	if len(infoSkills) > 0 {
+		args["info_skills"] = infoSkills
+	}
 	s.writeAuditLog(status, start, args, msg)
 
-	writeJSON(w, toAuditResponse(result))
+	writeJSON(w, map[string]any{
+		"result": toAuditResponse(result),
+		"summary": auditSummary{
+			Total:     1,
+			Passed:    boolToInt(len(result.Findings) == 0),
+			Warning:   warningCount,
+			Failed:    failedCount,
+			Critical:  c,
+			High:      h,
+			Medium:    m,
+			Low:       l,
+			Info:      i,
+			Threshold: threshold,
+			RiskScore: result.RiskScore,
+			RiskLabel: result.RiskLabel,
+		},
+	})
 }
 
 func boolToInt(v bool) int {
@@ -217,6 +313,18 @@ func boolToInt(v bool) int {
 		return 1
 	}
 	return 0
+}
+
+func (s *Server) auditThreshold() string {
+	if s.IsProjectMode() && s.projectCfg != nil {
+		if threshold, err := audit.NormalizeThreshold(s.projectCfg.Audit.BlockThreshold); err == nil {
+			return threshold
+		}
+	}
+	if threshold, err := audit.NormalizeThreshold(s.cfg.Audit.BlockThreshold); err == nil {
+		return threshold
+	}
+	return audit.DefaultThreshold()
 }
 
 // auditRulesPath returns the correct audit-rules.yaml path for the current mode.
@@ -318,7 +426,12 @@ func toAuditResponse(result *audit.Result) auditResultResponse {
 		})
 	}
 	return auditResultResponse{
-		SkillName: result.SkillName,
-		Findings:  findings,
+		SkillName:  result.SkillName,
+		Findings:   findings,
+		RiskScore:  result.RiskScore,
+		RiskLabel:  result.RiskLabel,
+		Threshold:  result.Threshold,
+		IsBlocked:  result.IsBlocked,
+		ScanTarget: result.ScanTarget,
 	}
 }

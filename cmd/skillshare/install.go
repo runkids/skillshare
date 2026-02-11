@@ -34,6 +34,8 @@ type installLogSummary struct {
 	DryRun          bool
 	Tracked         bool
 	Into            string
+	SkipAudit       bool
+	AuditThreshold  string
 }
 
 type installBatchSummary struct {
@@ -61,6 +63,8 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			result.opts.Update = true
 		case arg == "--dry-run" || arg == "-n":
 			result.opts.DryRun = true
+		case arg == "--skip-audit":
+			result.opts.SkipAudit = true
 		case arg == "--track" || arg == "-t":
 			result.opts.Track = true
 		case arg == "--skill" || arg == "-s":
@@ -252,6 +256,7 @@ func cmdInstall(args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+	parsed.opts.AuditThreshold = cfg.Audit.BlockThreshold
 
 	source, resolvedFromMeta, err := resolveInstallSource(parsed.sourceArg, parsed.opts, cfg)
 	if err != nil {
@@ -263,11 +268,13 @@ func cmdInstall(args []string) error {
 	}
 
 	summary := installLogSummary{
-		Source:  parsed.sourceArg,
-		Mode:    "global",
-		DryRun:  parsed.opts.DryRun,
-		Tracked: parsed.opts.Track,
-		Into:    parsed.opts.Into,
+		Source:         parsed.sourceArg,
+		Mode:           "global",
+		DryRun:         parsed.opts.DryRun,
+		Tracked:        parsed.opts.Track,
+		Into:           parsed.opts.Into,
+		SkipAudit:      parsed.opts.SkipAudit,
+		AuditThreshold: parsed.opts.AuditThreshold,
 	}
 
 	// If resolved from metadata with update/force, go directly to install
@@ -316,6 +323,12 @@ func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, 
 	if summary.Into != "" {
 		fields["into"] = summary.Into
 	}
+	if summary.SkipAudit {
+		fields["skip_audit"] = true
+	}
+	if summary.AuditThreshold != "" {
+		fields["threshold"] = strings.ToUpper(summary.AuditThreshold)
+	}
 	if summary.SkillCount > 0 {
 		fields["skill_count"] = summary.SkillCount
 	}
@@ -339,10 +352,12 @@ func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, 
 
 func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
 	logSummary := installLogSummary{
-		Source:  source.Raw,
-		DryRun:  opts.DryRun,
-		Tracked: true,
-		Into:    opts.Into,
+		Source:         source.Raw,
+		DryRun:         opts.DryRun,
+		Tracked:        true,
+		Into:           opts.Into,
+		SkipAudit:      opts.SkipAudit,
+		AuditThreshold: opts.AuditThreshold,
 	}
 
 	// Show logo with version
@@ -411,9 +426,11 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 
 func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
 	logSummary := installLogSummary{
-		Source: source.Raw,
-		DryRun: opts.DryRun,
-		Into:   opts.Into,
+		Source:         source.Raw,
+		DryRun:         opts.DryRun,
+		Into:           opts.Into,
+		SkipAudit:      opts.SkipAudit,
+		AuditThreshold: opts.AuditThreshold,
 	}
 
 	// Show logo with version
@@ -862,9 +879,11 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner) {
 
 func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
 	logSummary := installLogSummary{
-		Source: source.Raw,
-		DryRun: opts.DryRun,
-		Into:   opts.Into,
+		Source:         source.Raw,
+		DryRun:         opts.DryRun,
+		Into:           opts.Into,
+		SkipAudit:      opts.SkipAudit,
+		AuditThreshold: opts.AuditThreshold,
 	}
 
 	// Show logo with version
@@ -1005,9 +1024,11 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 
 func handleDirectInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
 	logSummary := installLogSummary{
-		Source: source.Raw,
-		DryRun: opts.DryRun,
-		Into:   opts.Into,
+		Source:         source.Raw,
+		DryRun:         opts.DryRun,
+		Into:           opts.Into,
+		SkipAudit:      opts.SkipAudit,
+		AuditThreshold: opts.AuditThreshold,
 	}
 
 	// Determine skill name
@@ -1104,13 +1125,14 @@ Sources:
 Options:
   --name <name>       Override installed name when exactly one skill is installed
   --into <dir>        Install into subdirectory (e.g. "frontend" or "frontend/react")
-  --force, -f         Overwrite if skill already exists
+  --force, -f         Overwrite existing skill; also continue if audit would block
   --update, -u        Update existing (git pull if possible, else reinstall)
   --track, -t         Install as tracked repo (preserves .git for updates)
   --skill, -s <names> Select specific skills from multi-skill repo (comma-separated)
   --all               Install all discovered skills without prompting
   --yes, -y           Auto-accept all prompts (equivalent to --all for multi-skill repos)
   --dry-run, -n       Preview the installation without making changes
+  --skip-audit        Skip security audit entirely for this install
   --project, -p       Use project-level config in current directory
   --global, -g        Use global config (~/.config/skillshare)
   --help, -h          Show this help
@@ -1121,6 +1143,7 @@ Examples:
   skillshare install ComposioHQ/awesome-claude-skills
   skillshare install ~/my-skill
   skillshare install github.com/user/repo --force
+  skillshare install ~/my-skill --skip-audit     # Bypass scan (no findings generated)
 
 Selective install (non-interactive):
   skillshare install anthropics/skills -s pdf,commit     # Specific skills

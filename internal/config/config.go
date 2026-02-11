@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 	"skillshare/internal/utils"
@@ -15,13 +16,21 @@ type TargetConfig struct {
 	Mode string `yaml:"mode,omitempty"` // symlink (default), copy
 }
 
+// AuditConfig holds security audit policy settings.
+type AuditConfig struct {
+	BlockThreshold string `yaml:"block_threshold,omitempty"` // CRITICAL/HIGH/MEDIUM/LOW/INFO
+}
+
 // Config holds the application configuration
 type Config struct {
 	Source  string                  `yaml:"source"`
 	Mode    string                  `yaml:"mode,omitempty"` // default mode: symlink
 	Targets map[string]TargetConfig `yaml:"targets"`
 	Ignore  []string                `yaml:"ignore,omitempty"`
+	Audit   AuditConfig             `yaml:"audit,omitempty"`
 }
+
+const defaultAuditBlockThreshold = "CRITICAL"
 
 // ConfigPath returns the config file path, respecting SKILLSHARE_CONFIG env var
 func ConfigPath() string {
@@ -48,6 +57,12 @@ func Load() (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
+
+	threshold, err := normalizeAuditBlockThreshold(cfg.Audit.BlockThreshold)
+	if err != nil {
+		return nil, fmt.Errorf("invalid audit.block_threshold: %w", err)
+	}
+	cfg.Audit.BlockThreshold = threshold
 
 	// Expand ~ in paths
 	cfg.Source = expandPath(cfg.Source)
@@ -92,4 +107,17 @@ func expandPath(path string) string {
 		return filepath.Join(home, path[1:])
 	}
 	return path
+}
+
+func normalizeAuditBlockThreshold(v string) (string, error) {
+	threshold := strings.ToUpper(strings.TrimSpace(v))
+	if threshold == "" {
+		return defaultAuditBlockThreshold, nil
+	}
+	switch threshold {
+	case "CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO":
+		return threshold, nil
+	default:
+		return "", fmt.Errorf("unsupported value %q", v)
+	}
 }

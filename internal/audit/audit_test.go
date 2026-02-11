@@ -537,8 +537,9 @@ func TestRuleCount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadBuiltinRules() error: %v", err)
 	}
-	if got := len(rules); got != 17 {
-		t.Errorf("expected 17 builtin rules, got %d", got)
+	expected := len(builtinYAML())
+	if got := len(rules); got != expected {
+		t.Errorf("expected %d builtin rules, got %d", expected, got)
 	}
 }
 
@@ -742,9 +743,9 @@ func TestRulesWithProject(t *testing.T) {
 	}
 
 	// Should have builtin rules + 1 custom rule
-	builtinCount := 17
+	builtinCount := len(builtinYAML())
 	if len(rules) != builtinCount+1 {
-		t.Errorf("expected %d rules (24 builtin + 1 custom), got %d", builtinCount+1, len(rules))
+		t.Errorf("expected %d rules (%d builtin + 1 custom), got %d", builtinCount+1, builtinCount, len(rules))
 	}
 
 	// Find the custom rule
@@ -784,8 +785,9 @@ func TestGlobalUserRules(t *testing.T) {
 		t.Fatalf("Rules() error: %v", err)
 	}
 
-	if len(rules) != 18 {
-		t.Errorf("expected 18 rules (17 builtin + 1 global custom), got %d", len(rules))
+	expected := len(builtinYAML()) + 1
+	if len(rules) != expected {
+		t.Errorf("expected %d rules (%d builtin + 1 global custom), got %d", expected, len(builtinYAML()), len(rules))
 	}
 
 	found := false
@@ -818,8 +820,9 @@ func TestGlobalUserRules_DisableBuiltin(t *testing.T) {
 		t.Fatalf("Rules() error: %v", err)
 	}
 
-	if len(rules) != 16 {
-		t.Errorf("expected 16 rules (17 builtin - 1 disabled), got %d", len(rules))
+	expected := len(builtinYAML()) - 1
+	if len(rules) != expected {
+		t.Errorf("expected %d rules (%d builtin - 1 disabled), got %d", expected, len(builtinYAML()), len(rules))
 	}
 
 	for _, r := range rules {

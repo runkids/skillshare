@@ -314,6 +314,9 @@ func formatInstallLogPairs(args map[string]any) []logDetailPair {
 	if mode, ok := logArgString(args, "mode"); ok && mode != "" {
 		pairs = append(pairs, logDetailPair{key: "mode", value: mode})
 	}
+	if threshold, ok := logArgString(args, "threshold"); ok && threshold != "" {
+		pairs = append(pairs, logDetailPair{key: "threshold", value: strings.ToUpper(threshold)})
+	}
 	if skillCount, ok := logArgInt(args, "skill_count"); ok && skillCount > 0 {
 		pairs = append(pairs, logDetailPair{key: "skills", value: fmt.Sprintf("%d", skillCount)})
 	}
@@ -325,6 +328,9 @@ func formatInstallLogPairs(args map[string]any) []logDetailPair {
 	}
 	if tracked, ok := logArgBool(args, "tracked"); ok && tracked {
 		pairs = append(pairs, logDetailPair{key: "tracked", value: "yes"})
+	}
+	if skipAudit, ok := logArgBool(args, "skip_audit"); ok && skipAudit {
+		pairs = append(pairs, logDetailPair{key: "skip-audit", value: "yes"})
 	}
 	if installedSkills, ok := logArgStringSlice(args, "installed_skills"); ok && len(installedSkills) > 0 {
 		pairs = append(pairs, logDetailPair{key: "installed", isList: true, listValues: installedSkills})
@@ -348,9 +354,15 @@ func formatAuditLogPairs(args map[string]any) []logDetailPair {
 	} else if hasName && name != "" {
 		pairs = append(pairs, logDetailPair{key: "name", value: name})
 	}
+	if path, ok := logArgString(args, "path"); ok && path != "" {
+		pairs = append(pairs, logDetailPair{key: "path", value: path})
+	}
 
 	if mode, ok := logArgString(args, "mode"); ok && mode != "" {
 		pairs = append(pairs, logDetailPair{key: "mode", value: mode})
+	}
+	if threshold, ok := logArgString(args, "threshold"); ok && threshold != "" {
+		pairs = append(pairs, logDetailPair{key: "threshold", value: strings.ToUpper(threshold)})
 	}
 	if scanned, ok := logArgInt(args, "scanned"); ok {
 		pairs = append(pairs, logDetailPair{key: "scanned", value: fmt.Sprintf("%d", scanned)})
@@ -368,8 +380,20 @@ func formatAuditLogPairs(args map[string]any) []logDetailPair {
 	critical, hasCritical := logArgInt(args, "critical")
 	high, hasHigh := logArgInt(args, "high")
 	medium, hasMedium := logArgInt(args, "medium")
-	if (hasCritical && critical > 0) || (hasHigh && high > 0) || (hasMedium && medium > 0) {
-		pairs = append(pairs, logDetailPair{key: "severity(c/h/m)", value: fmt.Sprintf("%d/%d/%d", critical, high, medium)})
+	low, hasLow := logArgInt(args, "low")
+	info, hasInfo := logArgInt(args, "info")
+	if (hasCritical && critical > 0) || (hasHigh && high > 0) || (hasMedium && medium > 0) || (hasLow && low > 0) || (hasInfo && info > 0) {
+		pairs = append(pairs, logDetailPair{key: "severity(c/h/m/l/i)", value: fmt.Sprintf("%d/%d/%d/%d/%d", critical, high, medium, low, info)})
+	}
+
+	riskScore, hasRiskScore := logArgInt(args, "risk_score")
+	riskLabel, hasRiskLabel := logArgString(args, "risk_label")
+	if hasRiskScore {
+		if hasRiskLabel && riskLabel != "" {
+			pairs = append(pairs, logDetailPair{key: "risk", value: fmt.Sprintf("%s (%d/100)", strings.ToUpper(riskLabel), riskScore)})
+		} else {
+			pairs = append(pairs, logDetailPair{key: "risk", value: fmt.Sprintf("%d/100", riskScore)})
+		}
 	}
 
 	if scanErrors, ok := logArgInt(args, "scan_errors"); ok && scanErrors > 0 {
@@ -381,6 +405,12 @@ func formatAuditLogPairs(args map[string]any) []logDetailPair {
 	}
 	if warningSkills, ok := logArgStringSlice(args, "warning_skills"); ok && len(warningSkills) > 0 {
 		pairs = append(pairs, logDetailPair{key: "warning skills", isList: true, listValues: warningSkills})
+	}
+	if lowSkills, ok := logArgStringSlice(args, "low_skills"); ok && len(lowSkills) > 0 {
+		pairs = append(pairs, logDetailPair{key: "low skills", isList: true, listValues: lowSkills})
+	}
+	if infoSkills, ok := logArgStringSlice(args, "info_skills"); ok && len(infoSkills) > 0 {
+		pairs = append(pairs, logDetailPair{key: "info skills", isList: true, listValues: infoSkills})
 	}
 
 	return pairs
@@ -431,6 +461,12 @@ func printLogAuditSkillLinesNonTTY(w io.Writer, e oplog.Entry) {
 	}
 	if warningSkills, ok := logArgStringSlice(e.Args, "warning_skills"); ok && len(warningSkills) > 0 {
 		printLogNamedSkillsNonTTY(w, "warning skills", warningSkills)
+	}
+	if lowSkills, ok := logArgStringSlice(e.Args, "low_skills"); ok && len(lowSkills) > 0 {
+		printLogNamedSkillsNonTTY(w, "low skills", lowSkills)
+	}
+	if infoSkills, ok := logArgStringSlice(e.Args, "info_skills"); ok && len(infoSkills) > 0 {
+		printLogNamedSkillsNonTTY(w, "info skills", infoSkills)
 	}
 }
 
@@ -540,6 +576,9 @@ func formatInstallLogDetail(args map[string]any) string {
 	if mode, ok := logArgString(args, "mode"); ok && mode != "" {
 		parts = append(parts, "mode="+mode)
 	}
+	if threshold, ok := logArgString(args, "threshold"); ok && threshold != "" {
+		parts = append(parts, "threshold="+strings.ToUpper(threshold))
+	}
 	if skillCount, ok := logArgInt(args, "skill_count"); ok && skillCount > 0 {
 		parts = append(parts, fmt.Sprintf("skills=%d", skillCount))
 	}
@@ -555,6 +594,9 @@ func formatInstallLogDetail(args map[string]any) string {
 	if tracked, ok := logArgBool(args, "tracked"); ok && tracked {
 		parts = append(parts, "tracked")
 	}
+	if skipAudit, ok := logArgBool(args, "skip_audit"); ok && skipAudit {
+		parts = append(parts, "skip-audit")
+	}
 	if source, ok := logArgString(args, "source"); ok && source != "" {
 		parts = append(parts, "source="+source)
 	}
@@ -566,7 +608,7 @@ func formatInstallLogDetail(args map[string]any) string {
 }
 
 func formatAuditLogDetail(args map[string]any) string {
-	parts := make([]string, 0, 8)
+	parts := make([]string, 0, 12)
 
 	scope, hasScope := logArgString(args, "scope")
 	name, hasName := logArgString(args, "name")
@@ -577,9 +619,15 @@ func formatAuditLogDetail(args map[string]any) string {
 	} else if hasName && name != "" {
 		parts = append(parts, name)
 	}
+	if path, ok := logArgString(args, "path"); ok && path != "" {
+		parts = append(parts, "path="+path)
+	}
 
 	if mode, ok := logArgString(args, "mode"); ok && mode != "" {
 		parts = append(parts, "mode="+mode)
+	}
+	if threshold, ok := logArgString(args, "threshold"); ok && threshold != "" {
+		parts = append(parts, "threshold="+strings.ToUpper(threshold))
 	}
 	if scanned, ok := logArgInt(args, "scanned"); ok {
 		parts = append(parts, fmt.Sprintf("scanned=%d", scanned))
@@ -597,8 +645,19 @@ func formatAuditLogDetail(args map[string]any) string {
 	critical, hasCritical := logArgInt(args, "critical")
 	high, hasHigh := logArgInt(args, "high")
 	medium, hasMedium := logArgInt(args, "medium")
-	if (hasCritical && critical > 0) || (hasHigh && high > 0) || (hasMedium && medium > 0) {
-		parts = append(parts, fmt.Sprintf("sev(c/h/m)=%d/%d/%d", critical, high, medium))
+	low, hasLow := logArgInt(args, "low")
+	info, hasInfo := logArgInt(args, "info")
+	if (hasCritical && critical > 0) || (hasHigh && high > 0) || (hasMedium && medium > 0) || (hasLow && low > 0) || (hasInfo && info > 0) {
+		parts = append(parts, fmt.Sprintf("sev(c/h/m/l/i)=%d/%d/%d/%d/%d", critical, high, medium, low, info))
+	}
+
+	if riskScore, ok := logArgInt(args, "risk_score"); ok {
+		riskLabel, hasRiskLabel := logArgString(args, "risk_label")
+		if hasRiskLabel && riskLabel != "" {
+			parts = append(parts, fmt.Sprintf("risk=%s(%d/100)", strings.ToUpper(riskLabel), riskScore))
+		} else {
+			parts = append(parts, fmt.Sprintf("risk=%d/100", riskScore))
+		}
 	}
 
 	if scanErrors, ok := logArgInt(args, "scan_errors"); ok && scanErrors > 0 {

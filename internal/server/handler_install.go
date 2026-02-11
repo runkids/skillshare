@@ -72,8 +72,9 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 			Name string `json:"name"`
 			Path string `json:"path"`
 		} `json:"skills"`
-		Force bool   `json:"force"`
-		Into  string `json:"into"`
+		Force     bool   `json:"force"`
+		SkipAudit bool   `json:"skipAudit"`
+		Into      string `json:"into"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -113,12 +114,20 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results := make([]batchResultItem, 0, len(body.Skills))
+	installOpts := install.InstallOptions{
+		Force:          body.Force,
+		SkipAudit:      body.SkipAudit,
+		AuditThreshold: s.auditThreshold(),
+	}
+	if s.IsProjectMode() {
+		installOpts.AuditProjectRoot = s.projectRoot
+	}
 	for _, sel := range body.Skills {
 		destPath := filepath.Join(s.cfg.Source, body.Into, sel.Name)
 		res, err := install.InstallFromDiscovery(discovery, install.SkillInfo{
 			Name: sel.Name,
 			Path: sel.Path,
-		}, destPath, install.InstallOptions{Force: body.Force})
+		}, destPath, installOpts)
 		if err != nil {
 			results = append(results, batchResultItem{
 				Name:  sel.Name,
@@ -163,7 +172,11 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		"mode":        s.installLogMode(),
 		"force":       body.Force,
 		"scope":       "ui",
+		"threshold":   s.auditThreshold(),
 		"skill_count": installed,
+	}
+	if body.SkipAudit {
+		args["skip_audit"] = true
 	}
 	if body.Into != "" {
 		args["into"] = body.Into
@@ -193,11 +206,12 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 
 	var body struct {
-		Source string `json:"source"`
-		Name   string `json:"name"`
-		Force  bool   `json:"force"`
-		Track  bool   `json:"track"`
-		Into   string `json:"into"`
+		Source    string `json:"source"`
+		Name      string `json:"name"`
+		Force     bool   `json:"force"`
+		SkipAudit bool   `json:"skipAudit"`
+		Track     bool   `json:"track"`
+		Into      string `json:"into"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -221,10 +235,23 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 
 	// Tracked repo install
 	if body.Track {
+		installOpts := install.InstallOptions{
+			Name:           body.Name,
+			Force:          body.Force,
+			SkipAudit:      body.SkipAudit,
+			Into:           body.Into,
+			AuditThreshold: s.auditThreshold(),
+		}
+		if s.IsProjectMode() {
+			installOpts.AuditProjectRoot = s.projectRoot
+		}
 		result, err := install.InstallTrackedRepo(source, s.cfg.Source, install.InstallOptions{
-			Name:  body.Name,
-			Force: body.Force,
-			Into:  body.Into,
+			Name:             installOpts.Name,
+			Force:            installOpts.Force,
+			SkipAudit:        installOpts.SkipAudit,
+			Into:             installOpts.Into,
+			AuditThreshold:   installOpts.AuditThreshold,
+			AuditProjectRoot: installOpts.AuditProjectRoot,
 		})
 		if err != nil {
 			s.writeOpsLog("install", "error", start, map[string]any{
@@ -232,6 +259,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 				"mode":          s.installLogMode(),
 				"tracked":       true,
 				"force":         body.Force,
+				"threshold":     s.auditThreshold(),
 				"scope":         "ui",
 				"failed_skills": []string{source.Name},
 			}, err.Error())
@@ -248,8 +276,12 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			"mode":        s.installLogMode(),
 			"tracked":     true,
 			"force":       body.Force,
+			"threshold":   s.auditThreshold(),
 			"scope":       "ui",
 			"skill_count": result.SkillCount,
+		}
+		if body.SkipAudit {
+			args["skip_audit"] = true
 		}
 		if body.Into != "" {
 			args["into"] = body.Into
@@ -279,14 +311,23 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := install.Install(source, destPath, install.InstallOptions{
-		Name:  body.Name,
-		Force: body.Force,
+		Name:           body.Name,
+		Force:          body.Force,
+		SkipAudit:      body.SkipAudit,
+		AuditThreshold: s.auditThreshold(),
+		AuditProjectRoot: func() string {
+			if s.IsProjectMode() {
+				return s.projectRoot
+			}
+			return ""
+		}(),
 	})
 	if err != nil {
 		s.writeOpsLog("install", "error", start, map[string]any{
 			"source":        body.Source,
 			"mode":          s.installLogMode(),
 			"force":         body.Force,
+			"threshold":     s.auditThreshold(),
 			"scope":         "ui",
 			"failed_skills": []string{source.Name},
 		}, err.Error())
@@ -303,9 +344,13 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		"source":           body.Source,
 		"mode":             s.installLogMode(),
 		"force":            body.Force,
+		"threshold":        s.auditThreshold(),
 		"scope":            "ui",
 		"skill_count":      1,
 		"installed_skills": []string{result.SkillName},
+	}
+	if body.SkipAudit {
+		okArgs["skip_audit"] = true
 	}
 	if body.Into != "" {
 		okArgs["into"] = body.Into
