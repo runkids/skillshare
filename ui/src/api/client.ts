@@ -60,12 +60,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ source }),
     }),
-  install: (opts: { source: string; name?: string; force?: boolean; track?: boolean }) =>
+  install: (opts: { source: string; name?: string; force?: boolean; track?: boolean; into?: string }) =>
     apiFetch<InstallResult>('/install', {
       method: 'POST',
       body: JSON.stringify(opts),
     }),
-  installBatch: (opts: { source: string; skills: DiscoveredSkill[]; force?: boolean }) =>
+  installBatch: (opts: { source: string; skills: DiscoveredSkill[]; force?: boolean; into?: string }) =>
     apiFetch<BatchInstallResult>('/install/batch', {
       method: 'POST',
       body: JSON.stringify(opts),

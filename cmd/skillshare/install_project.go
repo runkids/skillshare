@@ -45,6 +45,12 @@ func parseProjectInstallArgs(args []string) (*projectInstallArgs, bool, error) {
 			}
 			i++
 			result.opts.Skills = strings.Split(args[i], ",")
+		case arg == "--into":
+			if i+1 >= len(args) {
+				return nil, false, fmt.Errorf("--into requires a value")
+			}
+			i++
+			result.opts.Into = args[i]
 		case arg == "--all":
 			result.opts.All = true
 		case arg == "--yes" || arg == "-y":
@@ -91,6 +97,12 @@ func parseProjectInstallArgs(args []string) (*projectInstallArgs, bool, error) {
 		return nil, false, fmt.Errorf("--all/--yes cannot be used with --track")
 	}
 
+	if result.opts.Into != "" {
+		if err := validate.IntoPath(result.opts.Into); err != nil {
+			return nil, false, err
+		}
+	}
+
 	return result, false, nil
 }
 
@@ -125,6 +137,9 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 	if parsed.sourceArg == "" {
 		if parsed.opts.Name != "" {
 			return summary, fmt.Errorf("--name requires a source; it cannot be used with 'skillshare install -p' (no source)")
+		}
+		if parsed.opts.Into != "" {
+			return summary, fmt.Errorf("--into requires a source; it cannot be used with 'skillshare install -p' (no source)")
 		}
 		summary.Source = "project-config"
 		return installFromProjectConfig(runtime, parsed.opts)

@@ -67,7 +67,7 @@ Skillshare converts folder paths to flat names using `__` (double underscore) as
 
 | Source path | Synced target name |
 |---|---|
-| `frontend/vue/vue-best-practices/` | `frontend__vue__vue-best-practices` |
+| `frontend/react/react-best-practices/` | `frontend__react__react-best-practices` |
 | `utils/remotion/` | `utils__remotion` |
 | `web-dev/accessibility/` | `web-dev__accessibility` |
 
@@ -104,10 +104,10 @@ Checking for updates
 │
 ├─ Items  0 tracked repo(s), 15 skill(s)
 
-  ✓ frontend/frontend-design       up to date
-  ✓ frontend/vue/vue-best-practices up to date
-  ✓ utils/remotion                  up to date
-  ✓ web-dev/accessibility           up to date
+  ✓ frontend/frontend-design            up to date
+  ✓ frontend/react/react-best-practices up to date
+  ✓ utils/remotion                      up to date
+  ✓ web-dev/accessibility               up to date
 ```
 
 ### update
@@ -116,10 +116,10 @@ Supports both **full paths** and **short names**:
 
 ```bash
 # Full relative path
-skillshare update -g frontend/vue/vue-best-practices
+skillshare update -g frontend/react/react-best-practices
 
 # Short name (basename) — auto-resolved
-skillshare update -g vue-best-practices
+skillshare update -g react-best-practices
 
 # Update everything
 skillshare update -g --all
@@ -220,11 +220,11 @@ If you already have a flat skill collection:
 cd ~/.config/skillshare/skills
 
 # Create category folders
-mkdir -p frontend/vue frontend/react utils web-dev
+mkdir -p frontend/react frontend/react utils web-dev
 
 # Move skills into folders
-mv vue-best-practices frontend/vue/
-mv vue-debug-guides frontend/vue/
+mv react-best-practices frontend/react/
+mv react-debug-guides frontend/react/
 mv react-best-practices frontend/react/
 mv remotion utils/
 mv accessibility web-dev/

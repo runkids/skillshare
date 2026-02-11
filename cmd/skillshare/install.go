@@ -33,6 +33,7 @@ type installLogSummary struct {
 	FailedSkills    []string
 	DryRun          bool
 	Tracked         bool
+	Into            string
 }
 
 type installBatchSummary struct {
@@ -68,6 +69,12 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			}
 			i++
 			result.opts.Skills = strings.Split(args[i], ",")
+		case arg == "--into":
+			if i+1 >= len(args) {
+				return nil, false, fmt.Errorf("--into requires a value")
+			}
+			i++
+			result.opts.Into = args[i]
 		case arg == "--all":
 			result.opts.All = true
 		case arg == "--yes" || arg == "-y":
@@ -118,7 +125,29 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 		return nil, true, fmt.Errorf("source is required")
 	}
 
+	if result.opts.Into != "" {
+		if err := validate.IntoPath(result.opts.Into); err != nil {
+			return nil, false, err
+		}
+	}
+
 	return result, false, nil
+}
+
+// destWithInto returns the destination path, prepending opts.Into if set.
+func destWithInto(sourceDir string, opts install.InstallOptions, skillName string) string {
+	if opts.Into != "" {
+		return filepath.Join(sourceDir, opts.Into, skillName)
+	}
+	return filepath.Join(sourceDir, skillName)
+}
+
+// ensureIntoDirExists creates the Into subdirectory if opts.Into is set.
+func ensureIntoDirExists(sourceDir string, opts install.InstallOptions) error {
+	if opts.Into == "" {
+		return nil
+	}
+	return os.MkdirAll(filepath.Join(sourceDir, opts.Into), 0755)
 }
 
 // resolveSkillFromName resolves a skill name to source using metadata
@@ -238,6 +267,7 @@ func cmdInstall(args []string) error {
 		Mode:    "global",
 		DryRun:  parsed.opts.DryRun,
 		Tracked: parsed.opts.Track,
+		Into:    parsed.opts.Into,
 	}
 
 	// If resolved from metadata with update/force, go directly to install
@@ -283,6 +313,9 @@ func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, 
 	if summary.Tracked {
 		fields["tracked"] = true
 	}
+	if summary.Into != "" {
+		fields["into"] = summary.Into
+	}
 	if summary.SkillCount > 0 {
 		fields["skill_count"] = summary.SkillCount
 	}
@@ -309,6 +342,7 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 		Source:  source.Raw,
 		DryRun:  opts.DryRun,
 		Tracked: true,
+		Into:    opts.Into,
 	}
 
 	// Show logo with version
@@ -318,6 +352,9 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 	ui.StepStart("Source", source.Raw)
 	if opts.Name != "" {
 		ui.StepContinue("Name", "_"+opts.Name)
+	}
+	if opts.Into != "" {
+		ui.StepContinue("Into", opts.Into)
 	}
 
 	// Step 2: Clone with tree spinner
@@ -376,6 +413,7 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 	logSummary := installLogSummary{
 		Source: source.Raw,
 		DryRun: opts.DryRun,
+		Into:   opts.Into,
 	}
 
 	// Show logo with version
@@ -383,6 +421,9 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 
 	// Step 1: Show source
 	ui.StepStart("Source", source.Raw)
+	if opts.Into != "" {
+		ui.StepContinue("Into", opts.Into)
+	}
 
 	// Step 2: Clone with tree spinner animation
 	treeSpinner := ui.StartTreeSpinner("Cloning repository...", false)
@@ -425,7 +466,10 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		fmt.Println()
 		ui.SkillBox(skill.Name, "", loc)
 
-		destPath := filepath.Join(cfg.Source, skill.Name)
+		destPath := destWithInto(cfg.Source, opts, skill.Name)
+		if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
+			return logSummary, fmt.Errorf("failed to create --into directory: %w", err)
+		}
 		fmt.Println()
 
 		installSpinner := ui.StartSpinner(fmt.Sprintf("Installing %s...", skill.Name))
@@ -680,6 +724,14 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 	results := make([]skillInstallResult, 0, len(selected))
 	installSpinner := ui.StartSpinnerWithSteps("Installing...", len(selected))
 
+	// Ensure Into directory exists for batch installs
+	if opts.Into != "" {
+		if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
+			installSpinner.Fail("Failed to create --into directory")
+			return installBatchSummary{}
+		}
+	}
+
 	// Detect orchestrator: if root skill (path=".") is selected, children nest under it
 	var parentName string
 	var rootIdx = -1
@@ -713,13 +765,13 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 		var destPath string
 		if skill.Path == "." {
 			// Root skill - install directly
-			destPath = filepath.Join(cfg.Source, skill.Name)
+			destPath = destWithInto(cfg.Source, opts, skill.Name)
 		} else if parentName != "" {
 			// Child skill with parent selected - nest under parent
-			destPath = filepath.Join(cfg.Source, parentName, skill.Name)
+			destPath = destWithInto(cfg.Source, opts, filepath.Join(parentName, skill.Name))
 		} else {
 			// Standalone child skill - install to root
-			destPath = filepath.Join(cfg.Source, skill.Name)
+			destPath = destWithInto(cfg.Source, opts, skill.Name)
 		}
 
 		// If root was installed, children are already included - skip reinstall
@@ -812,6 +864,7 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 	logSummary := installLogSummary{
 		Source: source.Raw,
 		DryRun: opts.DryRun,
+		Into:   opts.Into,
 	}
 
 	// Show logo with version
@@ -820,6 +873,9 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 	// Step 1: Show source
 	ui.StepStart("Source", source.Raw)
 	ui.StepContinue("Subdir", source.Subdir)
+	if opts.Into != "" {
+		ui.StepContinue("Into", opts.Into)
+	}
 
 	// Step 2: Clone with tree spinner
 	treeSpinner := ui.StartTreeSpinner("Cloning repository...", false)
@@ -845,7 +901,10 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		}
 		ui.StepEnd("Found", fmt.Sprintf("1 skill: %s", skill.Name))
 
-		destPath := filepath.Join(cfg.Source, skill.Name)
+		destPath := destWithInto(cfg.Source, opts, skill.Name)
+		if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
+			return logSummary, fmt.Errorf("failed to create --into directory: %w", err)
+		}
 
 		fmt.Println()
 		installSpinner := ui.StartSpinner(fmt.Sprintf("Installing %s...", skill.Name))
@@ -948,6 +1007,7 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	logSummary := installLogSummary{
 		Source: source.Raw,
 		DryRun: opts.DryRun,
+		Into:   opts.Into,
 	}
 
 	// Determine skill name
@@ -965,7 +1025,12 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	source.Name = skillName
 
 	// Determine destination path
-	destPath := filepath.Join(cfg.Source, skillName)
+	destPath := destWithInto(cfg.Source, opts, skillName)
+
+	// Ensure Into directory exists
+	if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
+		return logSummary, fmt.Errorf("failed to create --into directory: %w", err)
+	}
 
 	// Show logo with version
 	ui.Logo(appversion.Version)
@@ -973,6 +1038,9 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	// Step 1: Show source info
 	ui.StepStart("Source", source.Raw)
 	ui.StepContinue("Name", skillName)
+	if opts.Into != "" {
+		ui.StepContinue("Into", opts.Into)
+	}
 	if source.HasSubdir() {
 		ui.StepContinue("Subdir", source.Subdir)
 	}
@@ -1035,6 +1103,7 @@ Sources:
 
 Options:
   --name <name>       Override installed name when exactly one skill is installed
+  --into <dir>        Install into subdirectory (e.g. "frontend" or "frontend/react")
   --force, -f         Overwrite if skill already exists
   --update, -u        Update existing (git pull if possible, else reinstall)
   --track, -t         Install as tracked repo (preserves .git for updates)
@@ -1058,6 +1127,11 @@ Selective install (non-interactive):
   skillshare install anthropics/skills --all             # All skills
   skillshare install anthropics/skills -y                # Auto-accept
   skillshare install anthropics/skills -s pdf --dry-run  # Preview selection
+
+Organize into subdirectories:
+  skillshare install anthropics/skills -s pdf --into frontend
+  skillshare install user/repo --track --into devops
+  skillshare install ~/my-skill --into frontend/react
 
 Tracked repositories (Team Edition):
   skillshare install team/shared-skills --track   # Clone as _shared-skills

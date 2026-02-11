@@ -24,6 +24,7 @@ type InstallOptions struct {
 	Skills []string // Select specific skills from multi-skill repo (comma-separated)
 	All    bool     // Install all discovered skills without prompting
 	Yes    bool     // Auto-accept all prompts (equivalent to --all for multi-skill repos)
+	Into   string   // Install into subdirectory (e.g. "frontend" or "frontend/react")
 }
 
 // ShouldInstallAll returns true if all discovered skills should be installed without prompting.
@@ -748,7 +749,14 @@ func InstallTrackedRepo(source *Source, sourceDir string, opts InstallOptions) (
 	if !strings.HasPrefix(repoName, "_") {
 		trackedName = "_" + repoName
 	}
-	destPath := filepath.Join(sourceDir, trackedName)
+	destBase := sourceDir
+	if opts.Into != "" {
+		destBase = filepath.Join(sourceDir, opts.Into)
+		if err := os.MkdirAll(destBase, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create --into directory: %w", err)
+		}
+	}
+	destPath := filepath.Join(destBase, trackedName)
 
 	result := &TrackedRepoResult{
 		RepoName: trackedName,
@@ -793,7 +801,11 @@ func InstallTrackedRepo(source *Source, sourceDir string, opts InstallOptions) (
 	}
 
 	// Auto-add to .gitignore to prevent committing tracked repo contents
-	if err := UpdateGitIgnore(sourceDir, trackedName); err != nil {
+	gitignoreEntry := trackedName
+	if opts.Into != "" {
+		gitignoreEntry = filepath.Join(opts.Into, trackedName)
+	}
+	if err := UpdateGitIgnore(sourceDir, gitignoreEntry); err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to update .gitignore: %v", err))
 	}
 

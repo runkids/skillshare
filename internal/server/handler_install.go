@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -71,7 +72,8 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 			Name string `json:"name"`
 			Path string `json:"path"`
 		} `json:"skills"`
-		Force bool `json:"force"`
+		Force bool   `json:"force"`
+		Into  string `json:"into"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -102,9 +104,17 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		Error    string   `json:"error,omitempty"`
 	}
 
+	// Ensure Into directory exists
+	if body.Into != "" {
+		if err := os.MkdirAll(filepath.Join(s.cfg.Source, body.Into), 0755); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to create into directory: "+err.Error())
+			return
+		}
+	}
+
 	results := make([]batchResultItem, 0, len(body.Skills))
 	for _, sel := range body.Skills {
-		destPath := filepath.Join(s.cfg.Source, sel.Name)
+		destPath := filepath.Join(s.cfg.Source, body.Into, sel.Name)
 		res, err := install.InstallFromDiscovery(discovery, install.SkillInfo{
 			Name: sel.Name,
 			Path: sel.Path,
@@ -155,6 +165,9 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		"scope":       "ui",
 		"skill_count": installed,
 	}
+	if body.Into != "" {
+		args["into"] = body.Into
+	}
 	if len(installedSkills) > 0 {
 		args["installed_skills"] = installedSkills
 	}
@@ -184,6 +197,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		Name   string `json:"name"`
 		Force  bool   `json:"force"`
 		Track  bool   `json:"track"`
+		Into   string `json:"into"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -210,6 +224,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		result, err := install.InstallTrackedRepo(source, s.cfg.Source, install.InstallOptions{
 			Name:  body.Name,
 			Force: body.Force,
+			Into:  body.Into,
 		})
 		if err != nil {
 			s.writeOpsLog("install", "error", start, map[string]any{
@@ -236,6 +251,9 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			"scope":       "ui",
 			"skill_count": result.SkillCount,
 		}
+		if body.Into != "" {
+			args["into"] = body.Into
+		}
 		if len(result.Skills) > 0 {
 			args["installed_skills"] = result.Skills
 		}
@@ -252,7 +270,13 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Regular install
-	destPath := filepath.Join(s.cfg.Source, source.Name)
+	destPath := filepath.Join(s.cfg.Source, body.Into, source.Name)
+	if body.Into != "" {
+		if err := os.MkdirAll(filepath.Join(s.cfg.Source, body.Into), 0755); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to create into directory: "+err.Error())
+			return
+		}
+	}
 
 	result, err := install.Install(source, destPath, install.InstallOptions{
 		Name:  body.Name,
@@ -275,14 +299,18 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
 	}
 
-	s.writeOpsLog("install", "ok", start, map[string]any{
+	okArgs := map[string]any{
 		"source":           body.Source,
 		"mode":             s.installLogMode(),
 		"force":            body.Force,
 		"scope":            "ui",
 		"skill_count":      1,
 		"installed_skills": []string{result.SkillName},
-	}, "")
+	}
+	if body.Into != "" {
+		okArgs["into"] = body.Into
+	}
+	s.writeOpsLog("install", "ok", start, okArgs, "")
 
 	writeJSON(w, map[string]any{
 		"skillName": result.SkillName,

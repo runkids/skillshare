@@ -37,6 +37,7 @@ interface PendingInstall {
   type: 'single' | 'batch' | 'track';
   source: string;
   name?: string;
+  into?: string;
   skills?: DiscoveredSkill[];
 }
 
@@ -49,6 +50,7 @@ export default function InstallForm({
   const [open, setOpen] = useState(defaultOpen);
   const [source, setSource] = useState('');
   const [name, setName] = useState('');
+  const [into, setInto] = useState('');
   const [track, setTrack] = useState(false);
   const [force, setForce] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -71,6 +73,7 @@ export default function InstallForm({
   const resetForm = () => {
     setSource('');
     setName('');
+    setInto('');
     setTrack(false);
     setForce(false);
     if (collapsible) setOpen(false);
@@ -114,6 +117,7 @@ export default function InstallForm({
         const res = await api.install({
           source: pending.source,
           name: pending.name,
+          into: pending.into,
           track: true,
           force: true,
         });
@@ -122,6 +126,7 @@ export default function InstallForm({
         const res = await api.installBatch({
           source: pending.source,
           skills: pending.skills!,
+          into: pending.into,
           force: true,
         });
         toast(res.summary, 'success');
@@ -137,6 +142,7 @@ export default function InstallForm({
         const res = await api.install({
           source: pending.source,
           name: pending.name,
+          into: pending.into,
           force: true,
         });
         handleResult(res, res.skillName ?? res.repoName);
@@ -160,12 +166,13 @@ export default function InstallForm({
         const res = await api.install({
           source: trimmed,
           name: name.trim() || undefined,
+          into: into.trim() || undefined,
           track: true,
           force,
         });
         handleResult(res, res.skillName ?? res.repoName);
       } catch (e: unknown) {
-        handleError(e, { type: 'track', source: trimmed, name: name.trim() || undefined });
+        handleError(e, { type: 'track', source: trimmed, name: name.trim() || undefined, into: into.trim() || undefined });
       } finally {
         setInstalling(false);
       }
@@ -186,6 +193,7 @@ export default function InstallForm({
         const res = await api.installBatch({
           source: trimmed,
           skills: disc.skills,
+          into: into.trim() || undefined,
           force,
         });
         const allWarnings: string[] = [];
@@ -218,12 +226,13 @@ export default function InstallForm({
         const res = await api.install({
           source: trimmed,
           name: name.trim() || undefined,
+          into: into.trim() || undefined,
           force,
         });
         handleResult(res, res.skillName ?? res.repoName);
       }
     } catch (e: unknown) {
-      handleError(e, { type: 'single', source: trimmed, name: name.trim() || undefined });
+      handleError(e, { type: 'single', source: trimmed, name: name.trim() || undefined, into: into.trim() || undefined });
     } finally {
       setInstalling(false);
     }
@@ -235,6 +244,7 @@ export default function InstallForm({
       const res = await api.installBatch({
         source: pendingSource,
         skills: selected,
+        into: into.trim() || undefined,
         force,
       });
       const allWarnings: string[] = [];
@@ -266,7 +276,7 @@ export default function InstallForm({
         });
       }
     } catch (e: unknown) {
-      handleError(e, { type: 'batch', source: pendingSource, skills: selected });
+      handleError(e, { type: 'batch', source: pendingSource, into: into.trim() || undefined, skills: selected });
     } finally {
       setBatchInstalling(false);
     }
@@ -289,6 +299,13 @@ export default function InstallForm({
           placeholder="custom-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
+        />
+        <HandInput
+          label="Into directory (optional)"
+          type="text"
+          placeholder="frontend or frontend/react"
+          value={into}
+          onChange={(e) => setInto(e.target.value)}
         />
         <div className="flex items-center gap-6">
           <HandCheckbox

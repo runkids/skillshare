@@ -180,6 +180,37 @@ func FlatSkillName(name string) error {
 	return nil
 }
 
+// IntoPath validates an --into subdirectory path.
+// Rules:
+//   - Cannot be empty
+//   - Cannot be an absolute path
+//   - Split by "/", each segment must pass SkillName() validation
+//   - No empty, ".", or ".." segments
+//   - Total length max 256 characters
+func IntoPath(p string) error {
+	if p == "" {
+		return fmt.Errorf("--into path cannot be empty")
+	}
+	if len(p) > 256 {
+		return fmt.Errorf("--into path too long (max 256 characters)")
+	}
+	if filepath.IsAbs(p) || strings.HasPrefix(p, "/") || strings.HasPrefix(p, "\\") {
+		return fmt.Errorf("--into path must be relative, not absolute")
+	}
+
+	segments := strings.Split(filepath.ToSlash(p), "/")
+	for _, seg := range segments {
+		if seg == "" || seg == "." || seg == ".." {
+			return fmt.Errorf("--into path contains invalid segment: %q", seg)
+		}
+		if err := SkillName(seg); err != nil {
+			return fmt.Errorf("--into path segment %q: %w", seg, err)
+		}
+	}
+
+	return nil
+}
+
 // TrackedRepoName validates a tracked repository name.
 // Rules:
 //   - Must start with _

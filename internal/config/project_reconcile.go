@@ -11,16 +11,13 @@ import (
 	"skillshare/internal/utils"
 )
 
-// ReconcileProjectSkills scans the project source directory for remotely-installed
-// skills (those with install metadata) and ensures they are listed in ProjectConfig.Skills[].
+// ReconcileProjectSkills scans the project source directory recursively for
+// remotely-installed skills (those with install metadata or tracked repos)
+// and ensures they are listed in ProjectConfig.Skills[].
 // It also updates .skillshare/.gitignore for each tracked skill.
 func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, sourcePath string) error {
-	entries, err := os.ReadDir(sourcePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil // no skills dir yet
-		}
-		return fmt.Errorf("failed to read project skills: %w", err)
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return nil // no skills dir yet
 	}
 
 	changed := false
@@ -29,28 +26,48 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, sourc
 		index[skill.Name] = i
 	}
 
-	for _, entry := range entries {
-		if !entry.IsDir() || utils.IsHidden(entry.Name()) {
-			continue
+	err := filepath.WalkDir(sourcePath, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if path == sourcePath {
+			return nil
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		// Skip hidden directories
+		if utils.IsHidden(d.Name()) {
+			return filepath.SkipDir
+		}
+		// Skip .git directories
+		if d.Name() == ".git" {
+			return filepath.SkipDir
 		}
 
-		skillName := entry.Name()
-		skillPath := filepath.Join(sourcePath, skillName)
+		relPath, relErr := filepath.Rel(sourcePath, path)
+		if relErr != nil {
+			return nil
+		}
 
 		// Determine source and tracked status
 		var source string
-		tracked := isGitRepo(skillPath)
+		tracked := isGitRepo(path)
 
-		meta, err := install.ReadMeta(skillPath)
-		if err == nil && meta != nil && meta.Source != "" {
+		meta, metaErr := install.ReadMeta(path)
+		if metaErr == nil && meta != nil && meta.Source != "" {
 			source = meta.Source
 		} else if tracked {
 			// Tracked repos have no meta file; derive source from git remote
-			source = gitRemoteOrigin(skillPath)
+			source = gitRemoteOrigin(path)
 		}
 		if source == "" {
-			continue
+			// Not an installed skill — continue walking deeper
+			return nil
 		}
+
+		// Use relative path as skill name (e.g. "frontend/pdf" or "_team-repo")
+		skillName := filepath.ToSlash(relPath)
 
 		if existingIdx, ok := index[skillName]; ok {
 			if projectCfg.Skills[existingIdx].Source != source {
@@ -74,6 +91,21 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, sourc
 		if err := install.UpdateGitIgnore(filepath.Join(projectRoot, ".skillshare"), filepath.Join("skills", skillName)); err != nil {
 			return fmt.Errorf("failed to update .skillshare/.gitignore: %w", err)
 		}
+
+		// If it's a tracked repo (has .git), don't recurse into it
+		if tracked {
+			return filepath.SkipDir
+		}
+
+		// If it has metadata, it's a leaf skill — don't recurse
+		if meta != nil && meta.Source != "" {
+			return filepath.SkipDir
+		}
+
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to scan project skills: %w", err)
 	}
 
 	if changed {

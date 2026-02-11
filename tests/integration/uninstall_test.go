@@ -128,8 +128,8 @@ func TestUninstall_NestedSkill_ResolvesByBasename(t *testing.T) {
 	defer sb.Cleanup()
 
 	// Create nested skill in organizational folder
-	sb.CreateSkill("frontend/vue/vue-best-practices", map[string]string{
-		"SKILL.md": "# Vue Best Practices",
+	sb.CreateSkill("frontend/react/react-best-practices", map[string]string{
+		"SKILL.md": "# React Best Practices",
 	})
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
@@ -137,12 +137,12 @@ targets: {}
 `)
 
 	// Uninstall by short name (basename only)
-	result := sb.RunCLI("uninstall", "vue-best-practices", "--force")
+	result := sb.RunCLI("uninstall", "react-best-practices", "--force")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Uninstalled")
 
 	// Verify nested skill was removed
-	skillPath := filepath.Join(sb.SourcePath, "frontend", "vue", "vue-best-practices")
+	skillPath := filepath.Join(sb.SourcePath, "frontend", "react", "react-best-practices")
 	if sb.FileExists(skillPath) {
 		t.Error("nested skill should be removed after uninstall by basename")
 	}

@@ -60,8 +60,8 @@ func parseUninstallArgs(args []string) (*uninstallOptions, bool, error) {
 }
 
 // resolveUninstallTarget resolves skill name to path and checks existence.
-// Supports short names for nested skills (e.g. "vue-best-practices" resolves
-// to "frontend/vue/vue-best-practices").
+// Supports short names for nested skills (e.g. "react-best-practices" resolves
+// to "frontend/react/react-best-practices").
 func resolveUninstallTarget(skillName string, cfg *config.Config) (*uninstallTarget, error) {
 	// Normalize _ prefix for tracked repos
 	if !strings.HasPrefix(skillName, "_") {
