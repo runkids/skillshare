@@ -74,7 +74,7 @@ Init automatically detects that the remote has existing skills and pulls them do
 :::info What happens behind the scenes
 1. Creates source directory and initializes git
 2. Adds remote and runs `git fetch`
-3. Detects remote has skills → auto-pulls them
+3. Detects remote has skills → resets local to match remote
 4. Sets up tracking branch
 5. Auto-detects and configures local targets
 :::

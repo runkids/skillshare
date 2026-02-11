@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.11.6] - 2026-02-11
+
+### Added
+- **Auto-pull on `init --remote`** — when remote has existing skills, init automatically fetches and syncs them; no manual `git clone` or `git pull` needed
+- **Auto-commit on `git init`** — `init` creates an initial commit (with `.gitignore`) so `push`/`pull`/`stash` work immediately
+- **Git identity fallback** — if `user.name`/`user.email` aren't configured, sets repo-local defaults (`skillshare@local`) with a hint to set your own
+- **Git remote error hints** — `push`, `pull`, and `init --remote` now show actionable hints for SSH, URL, and network errors
+- **Docker sandbox `--bare` mode** — `make sandbox-bare` starts the playground without auto-init for manual testing
+- **Docker sandbox `--volumes` reset** — `make sandbox-reset` removes the playground home volume for a full reset
+
+### Changed
+- **`init --remote` auto-detection** — global-only flags (`--remote`, `--source`, etc.) now skip project-mode auto-detection, so `init --remote` works from any directory
+- **Target multi-select labels** — shortened to `name (status)` for readability; paths shown during detection phase instead
+
+### Fixed
+- `init --remote` on second machine no longer fails with "Local changes detected" or merge conflicts
+- `init --remote` produces clean linear git history (no merge commits from unrelated histories)
+- Pro tip message only shown when built-in skill is actually installed
+
 ## [0.11.5] - 2026-02-11
 
 ### Added

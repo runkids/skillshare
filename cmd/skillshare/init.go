@@ -292,6 +292,19 @@ func printInitSuccess(sourcePath string, dryRun bool, skillInstalled bool) {
 	}
 }
 
+// hasGlobalOnlyInitFlags returns true if args contain flags only valid for global init
+// (e.g. --remote, --source). Used to skip project-mode auto-detection.
+func hasGlobalOnlyInitFlags(args []string) bool {
+	for _, arg := range args {
+		switch arg {
+		case "--remote", "--source", "-s", "--copy-from", "-c", "--no-copy",
+			"--git", "--no-git", "--skill", "--no-skill":
+			return true
+		}
+	}
+	return false
+}
+
 func cmdInit(args []string) error {
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
@@ -309,7 +322,7 @@ func cmdInit(args []string) error {
 		return fmt.Errorf("cannot determine home directory: %w", err)
 	}
 
-	if mode == modeAuto {
+	if mode == modeAuto && !hasGlobalOnlyInitFlags(rest) {
 		if cwd, cwdErr := os.Getwd(); cwdErr == nil && projectConfigExists(cwd) {
 			applyModeLabel(modeProject)
 			return cmdInitProject(rest)
@@ -881,14 +894,24 @@ func tryPullAfterRemoteSetup(sourcePath string) bool {
 	if hasLocalSkills {
 		spinner.Warn("Remote has existing skills, but local skills also exist")
 		ui.Info("  Push local:   skillshare push")
-		ui.Info("  Pull remote:  cd %s && git pull origin %s --allow-unrelated-histories", sourcePath, remoteBranch)
+		ui.Info("  Pull remote:  cd %s && git fetch origin && git -c merge.ff=false merge origin/%s --allow-unrelated-histories", sourcePath, remoteBranch)
 		return true
 	}
 
-	// Local is empty — auto-pull from remote
+	// Local is empty — reset to remote branch for clean linear history.
+	// This is safe because we verified hasLocalSkills is false above.
 	spinner.Update("Pulling skills from remote...")
 
-	// Get local branch name
+	resetCmd := exec.Command("git", "reset", "--hard", "origin/"+remoteBranch)
+	resetCmd.Dir = sourcePath
+	if output, err := resetCmd.CombinedOutput(); err != nil {
+		spinner.Fail("Failed to pull from remote")
+		fmt.Println(string(output))
+		ui.Info("  Try manually: cd %s && git reset --hard origin/%s", sourcePath, remoteBranch)
+		return true
+	}
+
+	// Set up tracking so push/pull work without specifying remote
 	localBranch := "main"
 	branchCmd := exec.Command("git", "branch", "--show-current")
 	branchCmd.Dir = sourcePath
@@ -897,17 +920,6 @@ func tryPullAfterRemoteSetup(sourcePath string) bool {
 			localBranch = b
 		}
 	}
-
-	pullCmd := exec.Command("git", "pull", "origin", remoteBranch, "--allow-unrelated-histories")
-	pullCmd.Dir = sourcePath
-	if output, err := pullCmd.CombinedOutput(); err != nil {
-		spinner.Fail("Failed to pull from remote")
-		fmt.Println(string(output))
-		ui.Info("  Try manually: cd %s && git pull origin %s --allow-unrelated-histories", sourcePath, remoteBranch)
-		return true
-	}
-
-	// Set up tracking branch
 	trackCmd := exec.Command("git", "branch", "--set-upstream-to=origin/"+remoteBranch, localBranch)
 	trackCmd.Dir = sourcePath
 	trackCmd.Run() // best-effort
