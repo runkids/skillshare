@@ -51,6 +51,10 @@ targets:
     project_name: continue
     global_path: "~/.continue/skills"
     project_path: ".continue/skills"
+  - global_name: cortex
+    project_name: cortex
+    global_path: "~/.snowflake/cortex/skills"
+    project_path: ".cortex/skills"
   - global_name: copilot
     project_name: github-copilot
     global_path: "~/.copilot/skills"
