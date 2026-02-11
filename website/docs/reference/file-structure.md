@@ -98,6 +98,9 @@ skills/
 │   ├── .skillshare.yaml     # Optional: install metadata
 │   ├── examples/            # Optional: example files
 │   └── templates/           # Optional: code templates
+├── frontend/                # Category folder (via --into or manual)
+│   └── react-skill/         # Skill in subdirectory
+│       └── SKILL.md         # Synced as frontend__react-skill
 └── _tracked-repo/           # Tracked repository
     ├── .git/                # Git history
     └── ...                  # Skill subdirectories

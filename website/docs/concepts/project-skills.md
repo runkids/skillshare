@@ -96,6 +96,10 @@ skillshare sync -g       # Force global mode
 │       ├── remote-skill/        # Installed via `skillshare install -p`
 │       │   ├── SKILL.md
 │       │   └── .skillshare-meta.json
+│       ├── tools/               # Category folder (via --into tools)
+│       │   └── pdf/             # Installed via `skillshare install ... --into tools -p`
+│       │       ├── SKILL.md
+│       │       └── .skillshare-meta.json
 │       └── _team-skills/        # Installed via `skillshare install --track -p`
 │           ├── .git/            # Git history preserved
 │           ├── frontend/ui/
@@ -104,6 +108,7 @@ skillshare sync -g       # Force global mode
 │   └── skills/
 │       ├── my-local-skill → ../../.skillshare/skills/my-local-skill
 │       ├── remote-skill → ../../.skillshare/skills/remote-skill
+│       ├── tools__pdf → ../../.skillshare/skills/tools/pdf
 │       ├── _team-skills__frontend__ui → ../../.skillshare/skills/_team-skills/frontend/ui
 │       └── _team-skills__backend__api → ../../.skillshare/skills/_team-skills/backend/api
 └── .cursor/

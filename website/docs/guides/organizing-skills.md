@@ -136,6 +136,39 @@ Please specify the full path
 
 ---
 
+## Install Directly into Folders
+
+Use `--into` to install a skill into a subdirectory in one step — no manual `mv` needed:
+
+```bash
+# Install into a category folder
+skillshare install anthropics/skills -s pdf --into frontend
+# → ~/.config/skillshare/skills/frontend/pdf/
+
+# Multi-level nesting
+skillshare install ~/my-skill --into frontend/react
+# → ~/.config/skillshare/skills/frontend/react/my-skill/
+
+# Works with --track too
+skillshare install github.com/team/skills --track --into devops
+# → ~/.config/skillshare/skills/devops/_skills/
+
+# Works in project mode
+skillshare install anthropics/skills -s pdf --into tools -p
+# → .skillshare/skills/tools/pdf/
+```
+
+After `skillshare sync`, targets show auto-flattened names:
+- `frontend/pdf/` → `frontend__pdf`
+- `frontend/react/my-skill/` → `frontend__react__my-skill`
+- `devops/_skills/frontend/ui/` → `devops___skills__frontend__ui`
+
+:::tip
+`--into` creates intermediate directories automatically. No need to `mkdir` first.
+:::
+
+---
+
 ## Suggested Folder Structures
 
 ### By domain
@@ -213,6 +246,10 @@ This gives you:
 ---
 
 ## Migrating from Flat to Folders
+
+:::tip New installs
+For new skills, use `--into` to install directly into the right folder — see [Install Directly into Folders](#install-directly-into-folders) above.
+:::
 
 If you already have a flat skill collection:
 

@@ -101,10 +101,14 @@ Install skills from GitHub into the project:
 ```bash
 skillshare install anthropics/skills/skills/pdf -p
 skillshare install github.com/team/shared-skills/review -p
+
+# Organize into subdirectories with --into
+skillshare install anthropics/skills -s pdf --into tools -p
+# → .skillshare/skills/tools/pdf/
 ```
 
 Remote skills are:
-- Installed to `.skillshare/skills/<name>/`
+- Installed to `.skillshare/skills/<name>/` (or `.skillshare/skills/<into>/<name>/` with `--into`)
 - Recorded in `.skillshare/config.yaml` under `skills:`
 - Added to `.skillshare/.gitignore` (cloned content not committed; `logs/` is ignored by default)
 

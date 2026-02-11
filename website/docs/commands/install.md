@@ -36,6 +36,9 @@ skillshare install ~/Downloads/my-skill
 
 # As tracked repo (for team sharing)
 skillshare install github.com/team/skills --track
+
+# Install into a subdirectory (organize by category)
+skillshare install ~/my-skill --into frontend
 ```
 
 ## Source Formats
@@ -138,6 +141,10 @@ Install skills into a project's `.skillshare/skills/` directory:
 # Install a skill into the project
 skillshare install anthropics/skills/skills/pdf -p
 
+# Install into a subdirectory within the project
+skillshare install anthropics/skills -s pdf --into tools -p
+# → .skillshare/skills/tools/pdf/
+
 # Install all remote skills from config (for new team members)
 skillshare install -p
 ```
@@ -175,6 +182,7 @@ See [Project Setup](/docs/guides/project-setup) for the full guide.
 | Flag | Short | Description |
 |------|-------|-------------|
 | `--name <name>` | | Override installed name when exactly one skill is installed |
+| `--into <dir>` | | Install into subdirectory (e.g. `--into frontend` or `--into frontend/react`) |
 | `--force` | `-f` | Overwrite existing skill |
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--track` | `-t` | Keep `.git` for tracked repos |
@@ -215,6 +223,21 @@ skillshare install pdf --update
 # By source URL
 skillshare install anthropics/skills/skills/pdf --update
 ```
+
+**Install into a subdirectory:**
+```bash
+# Organize by category
+skillshare install ~/my-skill --into frontend
+# → ~/.config/skillshare/skills/frontend/my-skill/
+
+# Multi-level nesting
+skillshare install anthropics/skills -s pdf --into frontend/react
+# → ~/.config/skillshare/skills/frontend/react/pdf/
+
+# After sync, target shows flat name: frontend__my-skill, frontend__react__pdf
+```
+
+See [Organizing Skills](/docs/guides/organizing-skills) for folder strategies.
 
 **Install team repo (tracked):**
 ```bash

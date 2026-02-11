@@ -51,11 +51,16 @@ docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(i
     CFG=/sandbox-home/.config/skillshare
 
     # Remove old demo skills so repeated runs stay deterministic.
-    rm -rf "$SKILLS"/audit-demo-*
+    rm -rf "$SKILLS"/audit-demo-* "$SKILLS"/security "$SKILLS"/devops
 
-    # Demo skill: realistic CI release helper (warning-only: HIGH + MEDIUM).
-    mkdir -p "$SKILLS/audit-demo-ci-release"
-    cat > "$SKILLS/audit-demo-ci-release/SKILL.md" << '\''SKILL_EOF'\''
+    # ── Nested skills (--into demo) ──────────────────────────────
+    # These live under category subdirectories to showcase the --into
+    # feature.  After sync, targets show flat names like
+    # security__audit-demo-ci-release and devops__deploy-checklist.
+
+    # security/audit-demo-ci-release: warning-only (HIGH + MEDIUM).
+    mkdir -p "$SKILLS/security/audit-demo-ci-release"
+    cat > "$SKILLS/security/audit-demo-ci-release/SKILL.md" << '\''SKILL_EOF'\''
 ---
 name: audit-demo-ci-release
 description: "[DEMO] CI release helper with warning-level findings"
@@ -76,9 +81,9 @@ Notes:
 - Internal artifact hosts are allowlisted by the playground custom rules.
 SKILL_EOF
 
-    # Demo skill: debug exfiltration path (CRITICAL, blocks by default).
-    mkdir -p "$SKILLS/audit-demo-debug-exfil"
-    cat > "$SKILLS/audit-demo-debug-exfil/SKILL.md" << '\''SKILL_EOF'\''
+    # security/audit-demo-debug-exfil: CRITICAL, blocks by default.
+    mkdir -p "$SKILLS/security/audit-demo-debug-exfil"
+    cat > "$SKILLS/security/audit-demo-debug-exfil/SKILL.md" << '\''SKILL_EOF'\''
 ---
 name: audit-demo-debug-exfil
 description: "[DEMO] Debug helper that leaks secrets (critical)"
@@ -94,7 +99,27 @@ cat ~/.ssh/id_rsa
 ```
 SKILL_EOF
 
-    # Demo skill: clean baseline with no findings.
+    # devops/deploy-checklist: clean skill in a different category.
+    mkdir -p "$SKILLS/devops/deploy-checklist"
+    cat > "$SKILLS/devops/deploy-checklist/SKILL.md" << '\''SKILL_EOF'\''
+---
+name: deploy-checklist
+description: "[DEMO] Deployment pre-flight checklist"
+---
+# Deploy Checklist
+
+Before merging to main:
+
+1. All CI checks green
+2. Changelog updated
+3. Version bumped
+4. Staging smoke test passed
+SKILL_EOF
+
+    # ── Root-level skills (flat, no --into) ──────────────────────
+    # These stay at the top level for comparison with nested skills.
+
+    # audit-demo-clean: baseline with no findings.
     mkdir -p "$SKILLS/audit-demo-clean"
     cat > "$SKILLS/audit-demo-clean/SKILL.md" << '\''SKILL_EOF'\''
 ---
@@ -153,7 +178,7 @@ docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(i
       # Initialize project mode with claude-code + agents targets (non-interactive)
       skillshare init -p --targets claude-code,agents
 
-      # Create a sample skill
+      # ── Root-level skill (flat) ──────────────────────────────
       mkdir -p .skillshare/skills/hello-world
       cat > .skillshare/skills/hello-world/SKILL.md << '\''SKILL_EOF'\''
 ---
@@ -176,11 +201,16 @@ Use this skill when greeting a user or starting a new conversation.
 3. Offer relevant suggestions based on the project context
 SKILL_EOF
 
-      rm -rf .skillshare/skills/audit-demo-*
+      rm -rf .skillshare/skills/audit-demo-* .skillshare/skills/demos .skillshare/skills/guides
 
-      # Create a realistic project release skill for audit demos.
-      mkdir -p .skillshare/skills/audit-demo-release
-      cat > .skillshare/skills/audit-demo-release/SKILL.md << '\''SKILL_EOF'\''
+      # ── Nested skills (--into demo) ────────────────────────────
+      # Demonstrates how project skills can be organized into
+      # subdirectories.  After sync, target shows flat names like
+      # demos__audit-demo-release and guides__code-review.
+
+      # demos/audit-demo-release: audit findings for demo.
+      mkdir -p .skillshare/skills/demos/audit-demo-release
+      cat > .skillshare/skills/demos/audit-demo-release/SKILL.md << '\''SKILL_EOF'\''
 ---
 name: audit-demo-release
 description: "[DEMO] Project release helper with review warnings"
@@ -197,6 +227,21 @@ chmod 777 /tmp/release-workdir
 ## Follow-up
 
 TODO: attach security review ticket before release.
+SKILL_EOF
+
+      # guides/code-review: clean nested skill for demo.
+      mkdir -p .skillshare/skills/guides/code-review
+      cat > .skillshare/skills/guides/code-review/SKILL.md << '\''SKILL_EOF'\''
+---
+name: code-review
+description: "[DEMO] Code review guidelines for the team"
+---
+# Code Review Guidelines
+
+1. Check for security issues first
+2. Verify test coverage
+3. Review naming conventions
+4. Ensure error handling is consistent
 SKILL_EOF
 
       # Project-level custom audit rules
@@ -227,12 +272,18 @@ echo "Available commands: skillshare (alias: ss)"
 echo ""
 echo "Quick start (global mode — ready to use):"
 echo "  skillshare status       # check current state"
+echo "  skillshare list         # see flat + nested skills"
 echo "  skillshare-ui           # start web dashboard (port 19420)"
 echo ""
 echo "Quick start (project mode — ready to use):"
 echo "  cd ~/demo-project       # pre-configured demo project"
 echo "  skillshare status       # auto-detects project mode"
 echo "  skillshare-ui-p         # project mode web dashboard (port 19420)"
+echo ""
+echo "Nested skills (--into demo, pre-loaded):"
+echo "  ls ~/.config/skillshare/skills/security/  # nested audit skills"
+echo "  ls ~/.config/skillshare/skills/devops/     # nested devops skills"
+echo "  skillshare install ~/some-skill --into frontend  # install into subdir"
 echo ""
 echo "Audit playground (pre-loaded with demo skills):"
 echo "  skillshare audit        # scan all skills, see findings"
