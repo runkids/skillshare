@@ -92,6 +92,23 @@ ignore:
 
 ## Git Errors
 
+### `Could not read from remote repository`
+
+**Cause:** SSH key not set up, or the remote URL is wrong.
+
+**Solution:**
+```bash
+# Check SSH access
+ssh -T git@github.com
+
+# If SSH isn't set up, use HTTPS instead
+git -C ~/.config/skillshare/skills remote set-url origin https://github.com/you/my-skills.git
+
+# Or set up SSH keys
+ssh-keygen -t ed25519 -C "you@example.com"
+# Then add the public key to GitHub → Settings → SSH keys
+```
+
 ### `push: remote has changes`
 
 **Cause:** Remote repository is ahead of local.
@@ -130,6 +147,16 @@ git status                    # See conflicted files
 git add .
 git commit -m "Resolve conflicts"
 skillshare sync
+```
+
+### `Git identity not configured`
+
+**Cause:** No `user.name` / `user.email` in git config. Skillshare uses a local fallback (`skillshare@local`) so init can complete, but you should set your own.
+
+**Solution:**
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "you@example.com"
 ```
 
 ---

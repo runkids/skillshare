@@ -48,6 +48,8 @@ During init, you'll be prompted: `Install built-in skillshare skill? [y/N]`. Thi
 skillshare init --remote git@github.com:you/my-skills.git
 ```
 
+If the remote already has skills (e.g., from another machine), they'll be pulled automatically during init.
+
 ---
 
 ## Step 3: Install your first skill

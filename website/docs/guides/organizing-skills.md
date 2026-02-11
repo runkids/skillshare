@@ -229,19 +229,15 @@ skills/
 Organizing skills in folders pairs naturally with git:
 
 ```bash
-cd ~/.config/skillshare/skills
-git init
-git add .
-git commit -m "organize skills into categories"
-git remote add origin git@github.com:yourname/my-skills.git
-git push -u origin main
+skillshare init --remote git@github.com:yourname/my-skills.git
+skillshare push -m "organize skills into categories"
 ```
 
 This gives you:
 - **History** of skill changes across machines
 - **Backup** via GitHub/GitLab
 - **Sharing** — others can browse and fork your collection
-- **Cross-machine sync** via `git pull` (see [Cross-Machine Sync](./cross-machine-sync))
+- **Cross-machine sync** via `skillshare pull` (see [Cross-Machine Sync](./cross-machine-sync))
 
 ---
 

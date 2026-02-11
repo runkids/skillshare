@@ -98,6 +98,19 @@ func stageAndCommit(sourcePath, message string, spinner *ui.Spinner) error {
 	return nil
 }
 
+// hintGitRemoteError prints helpful hints based on common git remote errors.
+func hintGitRemoteError(output string) {
+	switch {
+	case strings.Contains(output, "Could not read from remote"):
+		ui.Info("  Check SSH keys: ssh -T git@github.com")
+		ui.Info("  Or use HTTPS:   git remote set-url origin https://github.com/you/repo.git")
+	case strings.Contains(output, "not found") || strings.Contains(output, "does not exist"):
+		ui.Info("  Check remote URL: git remote get-url origin")
+	case strings.Contains(output, "could not resolve host"):
+		ui.Info("  Check network connection")
+	}
+}
+
 // gitPush pushes to remote
 func gitPush(sourcePath string, spinner *ui.Spinner) error {
 	spinner.Update("Pushing to remote...")
@@ -106,10 +119,14 @@ func gitPush(sourcePath string, spinner *ui.Spinner) error {
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		spinner.Fail("Push failed")
-		fmt.Println(string(output))
-		ui.Info("  Remote may have newer changes")
-		ui.Info("  Run: skillshare pull")
-		ui.Info("  Then: skillshare push")
+		outStr := string(output)
+		fmt.Print(outStr)
+		hintGitRemoteError(outStr)
+		if !strings.Contains(outStr, "Could not read from remote") {
+			ui.Info("  Remote may have newer changes")
+			ui.Info("  Run: skillshare pull")
+			ui.Info("  Then: skillshare push")
+		}
 		return fmt.Errorf("push failed")
 	}
 	return nil

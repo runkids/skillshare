@@ -33,18 +33,26 @@ skillshare init --dry-run    # Preview without changes
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ 3. Initialize git (optional)                                    │
-│    → Ready for cross-machine sync                               │
+│    → Creates initial commit (always)                            │
+│    → Ready for push / pull immediately                          │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 4. Create config.yaml                                           │
+│ 4. Set up remote (optional)                                     │
+│    → Adds git remote                                            │
+│    → Auto-pulls if remote has existing skills                   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ 5. Create config.yaml                                           │
 │    → ~/.config/skillshare/config.yaml                           │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 5. Built-in skill (opt-in)                                      │
+│ 6. Built-in skill (opt-in)                                      │
 │    → Install built-in skillshare skill? [y/N]                   │
 │    → Adds /skillshare command to AI CLIs                        │
 └─────────────────────────────────────────────────────────────────┘
@@ -126,7 +134,7 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 | Flag | Description |
 |------|-------------|
 | `--source <path>` | Custom source directory |
-| `--remote <url>` | Set git remote (implies git init) |
+| `--remote <url>` | Set git remote (implies `--git`; auto-pulls if remote has skills) |
 | `--project, -p` | Initialize project-level skills in current directory |
 | `--copy-from <name\|path>` | Copy skills from a specific CLI or path |
 | `--no-copy` | Start with empty source (skip copy prompt) |
@@ -148,6 +156,10 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 skillshare init
 
 # Setup with git remote for cross-machine sync
+# → Auto-pulls existing skills if the remote is not empty
+skillshare init --remote git@github.com:you/my-skills.git
+
+# Second machine: same command pulls your skills automatically
 skillshare init --remote git@github.com:you/my-skills.git
 
 # Use existing skills directory

@@ -100,13 +100,11 @@ Now all targets are symlinked to your single source.
 For cross-machine sync:
 
 ```bash
-cd ~/.config/skillshare/skills
-git init
-git remote add origin git@github.com:you/my-skills.git
-git add .
-git commit -m "Initial commit: migrated skills"
-git push -u origin main
+skillshare init --remote git@github.com:you/my-skills.git
+skillshare push -m "Initial commit: migrated skills"
 ```
+
+This initializes git, creates the initial commit, and adds the remote. Then `push` sends your skills to the remote.
 
 ---
 

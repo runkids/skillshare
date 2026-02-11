@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
 # Start a persistent Docker playground for interactive skillshare usage.
+# Usage: ./sandbox_playground_up.sh [--bare]
+#   --bare  Skip auto-init and demo setup (clean slate for manual testing)
 set -euo pipefail
 
 source "$(dirname "$0")/_sandbox_common.sh"
 SERVICE="sandbox-playground"
+
+BARE=false
+for arg in "$@"; do
+  case "$arg" in
+    --bare) BARE=true ;;
+  esac
+done
 
 require_docker
 cd "$PROJECT_ROOT"
@@ -34,6 +43,12 @@ docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(i
     grep -qxF "alias skillshare-ui='"'"'skillshare ui -g --host 0.0.0.0 --no-open'"'"'" /sandbox-home/.bashrc || echo "alias skillshare-ui='"'"'skillshare ui -g --host 0.0.0.0 --no-open'"'"'" >> /sandbox-home/.bashrc
     grep -qxF "alias skillshare-ui-p='"'"'cd /sandbox-home/demo-project && skillshare ui -p --host 0.0.0.0 --no-open'"'"'" /sandbox-home/.bashrc || echo "alias skillshare-ui-p='"'"'cd /sandbox-home/demo-project && skillshare ui -p --host 0.0.0.0 --no-open'"'"'" >> /sandbox-home/.bashrc
   '
+
+if [ "$BARE" = true ]; then
+  # --bare: only create target directories so the binary can detect them
+  docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(id -g)" "$SERVICE" \
+    bash -c 'mkdir -p /sandbox-home/.claude/skills'
+else
 
 # Initialize global mode (needed for skillshare-ui alias).
 docker compose -f "$COMPOSE_FILE" --profile playground exec --user "$(id -u):$(id -g)" "$SERVICE" \
@@ -263,13 +278,22 @@ RULES_EOF
     fi
   '
 
+fi  # end of if [ "$BARE" != true ]
+
 echo "══════════════════════════════════════════════════════════"
+if [ "$BARE" = true ]; then
+echo "  Playground is running! (bare mode — no auto-init)"
+else
 echo "  Playground is running!"
+fi
 echo "  Enter with:  make sandbox-shell"
 echo "══════════════════════════════════════════════════════════"
 echo ""
 echo "Available commands: skillshare (alias: ss)"
 echo ""
+if [ "$BARE" = true ]; then
+echo "Bare mode — run 'ss init' manually to get started."
+else
 echo "Quick start (global mode — ready to use):"
 echo "  skillshare status       # check current state"
 echo "  skillshare list         # see flat + nested skills"
@@ -294,6 +318,7 @@ echo "Try audit in project mode:"
 echo "  cd ~/demo-project"
 echo "  skillshare audit        # project-level scan with custom rules"
 echo "  cat .skillshare/audit-rules.yaml           # inspect project rules"
+fi
 echo ""
 if [ -n "$SKILLSHARE_PLAYGROUND_GITHUB_TOKEN" ]; then
   echo "GitHub token: detected (search command will work)"

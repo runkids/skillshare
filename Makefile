@@ -1,4 +1,4 @@
-.PHONY: help build build-meta run test test-unit test-int test-cover test-install test-docker test-docker-online sandbox-up sandbox-shell sandbox-down lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
+.PHONY: help build build-meta run test test-unit test-int test-cover test-install test-docker test-docker-online sandbox-up sandbox-bare sandbox-shell sandbox-down sandbox-reset lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
 
 help:
 	@echo "Common tasks:"
@@ -12,8 +12,10 @@ help:
 	@echo "  make test-docker         # docker offline sandbox (build + unit + integration)"
 	@echo "  make test-docker-online  # optional docker online install/update tests"
 	@echo "  make sandbox-up          # start persistent docker playground"
+	@echo "  make sandbox-bare        # start playground without auto-init"
 	@echo "  make sandbox-shell       # enter docker playground shell"
 	@echo "  make sandbox-down        # stop and remove docker playground"
+	@echo "  make sandbox-reset       # stop + remove playground volume (full reset)"
 	@echo "  make lint                # go vet"
 	@echo "  make fmt                 # format Go files"
 	@echo "  make fmt-check           # verify formatting only"
@@ -61,11 +63,17 @@ test-docker-online:
 sandbox-up:
 	./scripts/sandbox_playground_up.sh
 
+sandbox-bare:
+	./scripts/sandbox_playground_up.sh --bare
+
 sandbox-shell:
 	./scripts/sandbox_playground_shell.sh
 
 sandbox-down:
 	./scripts/sandbox_playground_down.sh
+
+sandbox-reset:
+	./scripts/sandbox_playground_down.sh --volumes
 
 lint:
 	go vet ./...

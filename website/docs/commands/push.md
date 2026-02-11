@@ -57,14 +57,14 @@ skillshare push --dry-run        # Preview
 Your source directory must be a git repository with a remote:
 
 ```bash
-# If not initialized yet:
+# Set up during init (recommended):
 skillshare init --remote git@github.com:you/my-skills.git
 
-# Or manually:
-cd ~/.config/skillshare/skills
-git init
-git remote add origin git@github.com:you/my-skills.git
+# Or add remote to existing setup:
+skillshare init --remote git@github.com:you/my-skills.git
 ```
+
+Init automatically creates the initial commit, so `push` works immediately after setup.
 
 ## Examples
 

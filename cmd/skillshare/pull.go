@@ -98,7 +98,9 @@ func pullFromRemote(cfg *config.Config, dryRun bool) error {
 	pullOutput, err := cmd.CombinedOutput()
 	if err != nil {
 		spinner.Fail("git pull failed")
-		fmt.Println(string(pullOutput))
+		outStr := string(pullOutput)
+		fmt.Print(outStr)
+		hintGitRemoteError(outStr)
 		return fmt.Errorf("git pull failed: %w", err)
 	}
 

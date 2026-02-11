@@ -243,7 +243,11 @@ func performFreshInit(opts *initOptions, home string) error {
 	installSkillIfNeeded(sourcePath, opts.dryRun, opts.initSkill, opts.noSkill)
 
 	// Print completion message
-	printInitSuccess(sourcePath, opts.dryRun)
+	skillInstalled := false
+	if _, err := os.Stat(filepath.Join(sourcePath, "skillshare", "SKILL.md")); err == nil {
+		skillInstalled = true
+	}
+	printInitSuccess(sourcePath, opts.dryRun, skillInstalled)
 
 	return nil
 }
@@ -266,7 +270,7 @@ func createSourceDir(sourcePath string, dryRun bool) error {
 }
 
 // printInitSuccess prints the success message after initialization
-func printInitSuccess(sourcePath string, dryRun bool) {
+func printInitSuccess(sourcePath string, dryRun bool, skillInstalled bool) {
 	if dryRun {
 		ui.Header("Dry run complete")
 		ui.Info("Would write config: %s", config.ConfigPath())
@@ -280,10 +284,12 @@ func printInitSuccess(sourcePath string, dryRun bool) {
 	fmt.Println()
 	ui.Info("Next steps:")
 	fmt.Println("  skillshare sync              # Sync to all targets")
-	fmt.Println()
-	ui.Info("Pro tip: Let AI manage your skills!")
-	fmt.Println("  \"Pull my new skill from Claude and sync to all targets\"")
-	fmt.Println("  \"Show me skillshare status\"")
+	if skillInstalled {
+		fmt.Println()
+		ui.Info("Pro tip: Let AI manage your skills!")
+		fmt.Println("  \"Pull my new skill from Claude and sync to all targets\"")
+		fmt.Println("  \"Show me skillshare status\"")
+	}
 }
 
 func cmdInit(args []string) error {
@@ -668,6 +674,29 @@ func initGitIfNeeded(sourcePath string, dryRun, initGit, noGit bool) {
 	doGitInit(sourcePath)
 }
 
+// ensureGitIdentity sets repo-local user.name/email if not configured globally.
+func ensureGitIdentity(repoDir string) {
+	// Check if user.name is already set (global or local)
+	cmd := exec.Command("git", "config", "user.name")
+	cmd.Dir = repoDir
+	if out, err := cmd.Output(); err == nil && strings.TrimSpace(string(out)) != "" {
+		return // already configured
+	}
+
+	// Set repo-local fallback identity so git commit works
+	nameCmd := exec.Command("git", "config", "user.name", "skillshare")
+	nameCmd.Dir = repoDir
+	nameCmd.Run()
+
+	emailCmd := exec.Command("git", "config", "user.email", "skillshare@local")
+	emailCmd.Dir = repoDir
+	emailCmd.Run()
+
+	ui.Info("Git identity not configured, using local default")
+	ui.Info("  Set yours: git config --global user.name \"Your Name\"")
+	ui.Info("             git config --global user.email \"you@example.com\"")
+}
+
 func doGitInit(sourcePath string) {
 	// Run git init
 	cmd := exec.Command("git", "init")
@@ -693,17 +722,29 @@ func doGitInit(sourcePath string) {
 		}
 	}
 
-	if hasFiles {
-		addCmd := exec.Command("git", "add", ".")
-		addCmd.Dir = sourcePath
-		addCmd.Run()
+	// Ensure git identity is configured (needed for commit).
+	ensureGitIdentity(sourcePath)
 
-		commitCmd := exec.Command("git", "commit", "-m", "Initial skills")
-		commitCmd.Dir = sourcePath
-		commitCmd.Run()
+	// Always create initial commit (at least .gitignore) so that
+	// git stash / git pull work immediately after init.
+	addCmd := exec.Command("git", "add", ".")
+	addCmd.Dir = sourcePath
+	addCmd.Run()
+
+	msg := "Initial commit"
+	if hasFiles {
+		msg = "Initial skills"
+	}
+	commitCmd := exec.Command("git", "commit", "-m", msg)
+	commitCmd.Dir = sourcePath
+	if out, err := commitCmd.CombinedOutput(); err != nil {
+		ui.Warning("Failed to create initial commit: %s", strings.TrimSpace(string(out)))
+	}
+
+	if hasFiles {
 		ui.Success("Git initialized with initial commit")
 	} else {
-		ui.Success("Git initialized (empty repository)")
+		ui.Success("Git initialized")
 	}
 }
 
@@ -784,7 +825,103 @@ func addRemote(sourcePath, remoteURL string) {
 	}
 
 	ui.Success("Git remote configured: %s", remoteURL)
-	ui.Info("Push your skills: skillshare push")
+
+	// Try to fetch and auto-pull if remote has existing skills
+	if !tryPullAfterRemoteSetup(sourcePath) {
+		ui.Info("Push your skills: skillshare push")
+	}
+}
+
+// tryPullAfterRemoteSetup attempts to fetch from remote and pull if it has content.
+// Returns true if remote had content (pulled or warned), false if remote is empty/unreachable.
+func tryPullAfterRemoteSetup(sourcePath string) bool {
+	spinner := ui.StartSpinner("Checking remote for existing skills...")
+
+	// Try to fetch
+	fetchCmd := exec.Command("git", "fetch", "origin")
+	fetchCmd.Dir = sourcePath
+	if output, err := fetchCmd.CombinedOutput(); err != nil {
+		spinner.Warn("Could not reach remote (will retry on push/pull)")
+		outStr := strings.TrimSpace(string(output))
+		if strings.Contains(outStr, "Could not read from remote") {
+			ui.Info("  Check SSH keys: ssh -T git@github.com")
+		} else if strings.Contains(outStr, "not found") || strings.Contains(outStr, "does not exist") {
+			ui.Info("  Check remote URL: git remote get-url origin")
+		}
+		return false
+	}
+
+	// Detect remote default branch (main or master)
+	remoteBranch := ""
+	for _, branch := range []string{"main", "master"} {
+		checkCmd := exec.Command("git", "rev-parse", "--verify", "origin/"+branch)
+		checkCmd.Dir = sourcePath
+		if err := checkCmd.Run(); err == nil {
+			remoteBranch = branch
+			break
+		}
+	}
+
+	if remoteBranch == "" {
+		spinner.Success("Remote is empty")
+		return false
+	}
+
+	// Remote has content — check if local has skill directories
+	hasLocalSkills := false
+	entries, _ := os.ReadDir(sourcePath)
+	for _, e := range entries {
+		if e.IsDir() && e.Name() != ".git" {
+			hasLocalSkills = true
+			break
+		}
+	}
+
+	if hasLocalSkills {
+		spinner.Warn("Remote has existing skills, but local skills also exist")
+		ui.Info("  Push local:   skillshare push")
+		ui.Info("  Pull remote:  cd %s && git pull origin %s --allow-unrelated-histories", sourcePath, remoteBranch)
+		return true
+	}
+
+	// Local is empty — auto-pull from remote
+	spinner.Update("Pulling skills from remote...")
+
+	// Get local branch name
+	localBranch := "main"
+	branchCmd := exec.Command("git", "branch", "--show-current")
+	branchCmd.Dir = sourcePath
+	if out, err := branchCmd.Output(); err == nil {
+		if b := strings.TrimSpace(string(out)); b != "" {
+			localBranch = b
+		}
+	}
+
+	pullCmd := exec.Command("git", "pull", "origin", remoteBranch, "--allow-unrelated-histories")
+	pullCmd.Dir = sourcePath
+	if output, err := pullCmd.CombinedOutput(); err != nil {
+		spinner.Fail("Failed to pull from remote")
+		fmt.Println(string(output))
+		ui.Info("  Try manually: cd %s && git pull origin %s --allow-unrelated-histories", sourcePath, remoteBranch)
+		return true
+	}
+
+	// Set up tracking branch
+	trackCmd := exec.Command("git", "branch", "--set-upstream-to=origin/"+remoteBranch, localBranch)
+	trackCmd.Dir = sourcePath
+	trackCmd.Run() // best-effort
+
+	// Count pulled skills
+	entries, _ = os.ReadDir(sourcePath)
+	skillCount := 0
+	for _, e := range entries {
+		if e.IsDir() && e.Name() != ".git" {
+			skillCount++
+		}
+	}
+
+	spinner.Success(fmt.Sprintf("Pulled %d skill(s) from remote", skillCount))
+	return true
 }
 
 const fallbackSkillContent = `---

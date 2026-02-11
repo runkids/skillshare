@@ -15,8 +15,10 @@ echo "  mise run test:install   # install.sh sandbox tests"
 echo "  mise run test:docker    # docker offline sandbox (build + unit + integration)"
 echo "  mise run test:docker:online  # optional docker online install/update tests"
 echo "  mise run sandbox:up     # start persistent docker playground"
+echo "  mise run sandbox:bare   # start playground without auto-init"
 echo "  mise run sandbox:shell  # enter docker playground shell"
 echo "  mise run sandbox:down   # stop and remove docker playground"
+echo "  mise run sandbox:reset  # stop + remove playground volume (full reset)"
 echo "  mise run lint           # go vet"
 echo "  mise run fmt            # format Go files"
 echo "  mise run fmt:check      # verify formatting only"
@@ -79,6 +81,10 @@ run = "./scripts/test_docker_online.sh"
 description = "Start persistent docker playground container"
 run = "./scripts/sandbox_playground_up.sh"
 
+[tasks."sandbox:bare"]
+description = "Start playground without auto-init (clean slate)"
+run = "./scripts/sandbox_playground_up.sh --bare"
+
 [tasks."sandbox:shell"]
 description = "Enter persistent docker playground shell"
 run = "./scripts/sandbox_playground_shell.sh"
@@ -86,6 +92,10 @@ run = "./scripts/sandbox_playground_shell.sh"
 [tasks."sandbox:down"]
 description = "Stop and remove persistent docker playground container"
 run = "./scripts/sandbox_playground_down.sh"
+
+[tasks."sandbox:reset"]
+description = "Stop playground and remove home volume (full reset)"
+run = "./scripts/sandbox_playground_down.sh --volumes"
 
 [tasks.lint]
 description = "Run go vet"

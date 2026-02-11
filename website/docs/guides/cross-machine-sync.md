@@ -34,9 +34,7 @@ Sync your skills across multiple computers using git.
 
 ---
 
-## Initial Setup
-
-### Option 1: New setup with remote
+## First Machine Setup
 
 ```bash
 skillshare init --remote git@github.com:you/my-skills.git
@@ -44,35 +42,49 @@ skillshare init --remote git@github.com:you/my-skills.git
 
 This:
 1. Creates source directory
-2. Initializes git
+2. Initializes git with initial commit
 3. Adds remote
 4. Auto-detects and configures targets
 
-### Option 2: Add remote to existing setup
-
+Then push your skills:
 ```bash
-cd ~/.config/skillshare/skills
-git init
-git remote add origin git@github.com:you/my-skills.git
-git add .
-git commit -m "Initial commit"
-git push -u origin main
+skillshare push
 ```
+
+:::tip Already initialized?
+Add a remote to an existing setup:
+```bash
+skillshare init --remote git@github.com:you/my-skills.git
+```
+This works even after initial setup — it just adds the remote.
+:::
 
 ---
 
 ## Second Machine Setup
 
-On a new machine:
+On a new machine, **the same command works**:
 
 ```bash
-# 1. Clone your skills repo
+skillshare init --remote git@github.com:you/my-skills.git
+```
+
+Init automatically detects that the remote has existing skills and pulls them down. No manual `git clone` needed.
+
+:::info What happens behind the scenes
+1. Creates source directory and initializes git
+2. Adds remote and runs `git fetch`
+3. Detects remote has skills → auto-pulls them
+4. Sets up tracking branch
+5. Auto-detects and configures local targets
+:::
+
+If you prefer manual control:
+
+```bash
+# Clone directly, then init with existing source
 git clone git@github.com:you/my-skills.git ~/.config/skillshare/skills
-
-# 2. Initialize skillshare (uses existing source)
 skillshare init --source ~/.config/skillshare/skills
-
-# 3. Sync to all local targets
 skillshare sync
 ```
 
