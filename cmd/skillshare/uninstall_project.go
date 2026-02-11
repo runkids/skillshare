@@ -30,18 +30,25 @@ func cmdUninstallProject(args []string, root string) error {
 	}
 
 	skillName := opts.skillName
+	sourceDir := filepath.Join(root, ".skillshare", "skills")
 
 	// Normalize _ prefix for tracked repos
 	if !strings.HasPrefix(skillName, "_") {
-		prefixed := filepath.Join(root, ".skillshare", "skills", "_"+skillName)
+		prefixed := filepath.Join(sourceDir, "_"+skillName)
 		if install.IsGitRepo(prefixed) {
 			skillName = "_" + skillName
 		}
 	}
 
-	skillPath := filepath.Join(root, ".skillshare", "skills", skillName)
+	skillPath := filepath.Join(sourceDir, skillName)
 	if info, err := os.Stat(skillPath); err != nil || !info.IsDir() {
-		return fmt.Errorf("skill '%s' not found in .skillshare/skills", skillName)
+		// Fallback: search by basename in nested directories
+		resolved, resolveErr := resolveNestedSkillDir(sourceDir, skillName)
+		if resolveErr != nil {
+			return fmt.Errorf("skill '%s' not found in .skillshare/skills", skillName)
+		}
+		skillName = resolved
+		skillPath = filepath.Join(sourceDir, resolved)
 	}
 
 	isTracked := install.IsGitRepo(skillPath)

@@ -123,6 +123,49 @@ targets: {}
 	result.AssertAnyOutputContains(t, "skill name is required")
 }
 
+func TestUninstall_NestedSkill_ResolvesByBasename(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create nested skill in organizational folder
+	sb.CreateSkill("frontend/vue/vue-best-practices", map[string]string{
+		"SKILL.md": "# Vue Best Practices",
+	})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Uninstall by short name (basename only)
+	result := sb.RunCLI("uninstall", "vue-best-practices", "--force")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Uninstalled")
+
+	// Verify nested skill was removed
+	skillPath := filepath.Join(sb.SourcePath, "frontend", "vue", "vue-best-practices")
+	if sb.FileExists(skillPath) {
+		t.Error("nested skill should be removed after uninstall by basename")
+	}
+}
+
+func TestUninstall_NestedSkill_FullPathAlsoWorks(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("backend/go-patterns", map[string]string{
+		"SKILL.md": "# Go Patterns",
+	})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Uninstall by full nested path
+	result := sb.RunCLI("uninstall", "backend/go-patterns", "--force")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Uninstalled")
+}
+
 func TestUninstall_ShowsMetadata(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

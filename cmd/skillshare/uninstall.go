@@ -59,7 +59,9 @@ func parseUninstallArgs(args []string) (*uninstallOptions, bool, error) {
 	return opts, false, nil
 }
 
-// resolveUninstallTarget resolves skill name to path and checks existence
+// resolveUninstallTarget resolves skill name to path and checks existence.
+// Supports short names for nested skills (e.g. "vue-best-practices" resolves
+// to "frontend/vue/vue-best-practices").
 func resolveUninstallTarget(skillName string, cfg *config.Config) (*uninstallTarget, error) {
 	// Normalize _ prefix for tracked repos
 	if !strings.HasPrefix(skillName, "_") {
@@ -73,11 +75,17 @@ func resolveUninstallTarget(skillName string, cfg *config.Config) (*uninstallTar
 	info, err := os.Stat(skillPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("skill '%s' not found in source", skillName)
+			// Fallback: search by basename in nested directories
+			resolved, resolveErr := resolveNestedSkillDir(cfg.Source, skillName)
+			if resolveErr != nil {
+				return nil, resolveErr
+			}
+			skillName = resolved
+			skillPath = filepath.Join(cfg.Source, resolved)
+		} else {
+			return nil, fmt.Errorf("cannot access skill: %w", err)
 		}
-		return nil, fmt.Errorf("cannot access skill: %w", err)
-	}
-	if !info.IsDir() {
+	} else if !info.IsDir() {
 		return nil, fmt.Errorf("'%s' is not a directory", skillName)
 	}
 
@@ -86,6 +94,44 @@ func resolveUninstallTarget(skillName string, cfg *config.Config) (*uninstallTar
 		path:          skillPath,
 		isTrackedRepo: install.IsGitRepo(skillPath),
 	}, nil
+}
+
+// resolveNestedSkillDir searches for a skill directory by basename within
+// nested organizational folders. Also matches _name variant for tracked repos.
+// Returns the relative path from sourceDir, or an error listing all matches
+// when the name is ambiguous.
+func resolveNestedSkillDir(sourceDir, name string) (string, error) {
+	var matches []string
+
+	filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error { //nolint:errcheck
+		if err != nil || path == sourceDir || !info.IsDir() {
+			return nil
+		}
+		if info.Name() == ".git" {
+			return filepath.SkipDir
+		}
+		if info.Name() == name || info.Name() == "_"+name {
+			if rel, relErr := filepath.Rel(sourceDir, path); relErr == nil && rel != "." {
+				matches = append(matches, rel)
+			}
+			return filepath.SkipDir
+		}
+		return nil
+	})
+
+	switch len(matches) {
+	case 0:
+		return "", fmt.Errorf("skill '%s' not found in source", name)
+	case 1:
+		return matches[0], nil
+	default:
+		lines := []string{fmt.Sprintf("'%s' matches multiple skills:", name)}
+		for _, m := range matches {
+			lines = append(lines, fmt.Sprintf("  - %s", m))
+		}
+		lines = append(lines, "Please specify the full path")
+		return "", fmt.Errorf("%s", strings.Join(lines, "\n"))
+	}
 }
 
 // displayUninstallInfo shows information about the skill to be uninstalled
