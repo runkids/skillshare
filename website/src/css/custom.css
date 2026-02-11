@@ -610,6 +610,17 @@ code:not([class*="prism"]) {
 /* ========================================
    TABLES — Hand-drawn
    ======================================== */
+td code {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.markdown > div:has(> table),
+.markdown > table {
+  overflow-x: auto;
+}
+
 table {
   display: table;
   width: 100%;

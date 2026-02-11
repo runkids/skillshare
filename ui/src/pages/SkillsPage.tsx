@@ -314,7 +314,7 @@ function TrackedPostit({ skill, index }: { skill: Skill; index: number }) {
   const color = getPostitColor(skill, index);
   const rotation = getRotation(index);
 
-  // Extract repo name from relPath (e.g., "_awesome-unnotech-skills/frontend-dugong" → "awesome-unnotech-skills")
+  // Extract repo name from relPath (e.g., "_awesome-skillshare-skills/frontend-dugong" → "awesome-skillshare-skills")
   const repoName = skill.relPath.startsWith('_')
     ? skill.relPath.split('/')[0].slice(1).replace(/__/g, '/')
     : undefined;

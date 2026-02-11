@@ -1,5 +1,6 @@
 [tools]
 go = "1.25.5"
+pnpm = "10.28.0"
 
 [tasks.help]
 description = "Show common development tasks"
