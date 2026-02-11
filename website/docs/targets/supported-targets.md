@@ -8,7 +8,7 @@ Complete list of AI CLIs that skillshare supports out of the box.
 
 ## Overview
 
-Skillshare supports **43+ AI CLI tools**. When you run `skillshare init`, it automatically detects and configures any installed tools.
+Skillshare supports **44+ AI CLI tools**. When you run `skillshare init`, it automatically detects and configures any installed tools.
 
 ---
 
@@ -20,9 +20,9 @@ These are auto-detected during `skillshare init`:
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                           SUPPORTED TARGETS                                │
 │                                                                            │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌───────────┐ ┌─────────┐             │
-│  │  AdaL   │ │ Agents  │ │   Amp   │ │Antigravity│ │ Augment │             │
-│  └─────────┘ └─────────┘ └─────────┘ └───────────┘ └─────────┘             │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌───────────┐ ┌─────────┐ ┌─────────┐ │
+│  │  AdaL   │ │ Agents  │ │   Amp   │ │Antigravity│ │ Augment │ │   Bob   │ │
+│  └─────────┘ └─────────┘ └─────────┘ └───────────┘ └─────────┘ └─────────┘ │
 │  ┌─────────┐ ┌─────────┐ ┌──────────┐ ┌─────────┐ ┌─────────┐              │
 │  │ Claude  │ │  Cline  │ │CodeBuddy │ │  Codex  │ │Cmd Code │              │
 │  └─────────┘ └─────────┘ └──────────┘ └─────────┘ └─────────┘              │
@@ -61,6 +61,7 @@ These are auto-detected during `skillshare init`:
 | amp | `~/.amp/skills` |
 | antigravity | `~/.antigravity/skills` |
 | augment | `~/.augment/skills` |
+| bob | `~/.bob/skills` |
 | claude | `~/.claude/skills` |
 | cline | `~/.cline/skills` |
 | codebuddy | `~/.codebuddy/skills` |

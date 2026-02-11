@@ -17,6 +17,10 @@ targets:
     project_name: augment
     global_path: "~/.augment/rules"
     project_path: ".augment/rules"
+  - global_name: bob
+    project_name: bob
+    global_path: "~/.bob/skills"
+    project_path: ".bob/skills"
   - global_name: claude
     project_name: claude-code
     global_path: "~/.claude/skills"
@@ -64,7 +68,7 @@ targets:
   - global_name: goose
     project_name: goose
     global_path: "~/.config/goose/skills"
-    project_path: ".goose/skills"
+    project_path: ".agents/skills"
   - global_name: iflow
     project_name: iflow-cli
     global_path: "~/.iflow/skills"
