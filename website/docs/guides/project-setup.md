@@ -33,33 +33,33 @@ skillshare init -p
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ skillshare init -p                                               │
+│ skillshare init -p                                              │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 1. Create .skillshare/ directory                                 │
-│    → .skillshare/skills/                                         │
-│    → .skillshare/config.yaml                                     │
+│ 1. Create .skillshare/ directory                                │
+│    → .skillshare/skills/                                        │
+│    → .skillshare/config.yaml                                    │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 2. Detect AI CLI directories in project                          │
-│    → Found: .claude/, .cursor/                                   │
+│ 2. Detect AI CLI directories in project                         │
+│    → Found: .claude/, .cursor/                                  │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 3. Create target skill directories                               │
-│    → .claude/skills/                                             │
-│    → .cursor/skills/                                             │
+│ 3. Create target skill directories                              │
+│    → .claude/skills/                                            │
+│    → .cursor/skills/                                            │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 4. Write config.yaml                                             │
-│    → targets: claude-code, cursor                                │
+│ 4. Write config.yaml                                            │
+│    → targets: claude-code, cursor                               │
 └─────────────────────────────────────────────────────────────────┘
 ```
 

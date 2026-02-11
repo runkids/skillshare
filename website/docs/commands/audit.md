@@ -43,7 +43,7 @@ skillshare audit -p           # Scan project skills
 ┌─ skillshare audit ──────────────────────────────────────────┐
 │  Scanning 12 skills for threats                             │
 │  mode: global                                               │
-│  path: /Users/alice/.config/skillshare/skills              │
+│  path: /Users/alice/.config/skillshare/skills               │
 └─────────────────────────────────────────────────────────────┘
 
 [1/12] ✓ react-best-practices         0.1s
@@ -62,8 +62,8 @@ skillshare audit -p           # Scan project skills
 ┌─ Summary ────────────────────────────┐
 │  Scanned:  12 skills                 │
 │  Passed:   9                         │
-│  Warning:  2 (1 high, 1 medium)     │
-│  Failed:   1 (1 critical)           │
+│  Warning:  2 (1 high, 1 medium)      │
+│  Failed:   1 (1 critical)            │
 └──────────────────────────────────────┘
 ```
 
