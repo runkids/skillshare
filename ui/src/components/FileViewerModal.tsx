@@ -6,6 +6,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import { json } from '@codemirror/lang-json';
 import { yaml } from '@codemirror/lang-yaml';
 import { python } from '@codemirror/lang-python';
+import { javascript } from '@codemirror/lang-javascript';
 import { EditorView } from '@codemirror/view';
 import Card from './Card';
 import HandButton from './HandButton';
@@ -51,6 +52,10 @@ export default function FileViewerModal({ skillName, filepath, onClose }: FileVi
     // Infer language from filename extension
     const ext = filepath.split('.').pop()?.toLowerCase();
     if (ext === 'py') exts.push(python());
+    else if (ext === 'js' || ext === 'mjs' || ext === 'cjs') exts.push(javascript());
+    else if (ext === 'ts' || ext === 'mts' || ext === 'cts') exts.push(javascript({ typescript: true }));
+    else if (ext === 'jsx') exts.push(javascript({ jsx: true }));
+    else if (ext === 'tsx') exts.push(javascript({ jsx: true, typescript: true }));
     return exts;
   }, [data, filepath]);
 
