@@ -35,6 +35,10 @@ targets:
     project_name: codebuddy
     global_path: "~/.codebuddy/skills"
     project_path: ".codebuddy/skills"
+  - global_name: comate
+    project_name: comate
+    global_path: "~/.comate/skills"
+    project_path: ".comate/skills"
   - global_name: codex
     project_name: codex
     global_path: "~/.codex/skills"
@@ -61,8 +65,8 @@ targets:
     project_path: ".cursor/skills"
   - global_name: droid
     project_name: droid
-    global_path: "~/.factory/skills"
-    project_path: ".factory/skills"
+    global_path: "~/.agents/skills"
+    project_path: ".agents/skills"
   - global_name: gemini
     project_name: gemini-cli
     global_path: "~/.gemini/skills"
