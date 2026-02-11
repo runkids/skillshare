@@ -217,24 +217,42 @@ func (s *Server) updateAll(force bool) []updateResultItem {
 	return results
 }
 
-// getServerUpdatableSkills returns skill names that have metadata with a remote source
+// getServerUpdatableSkills returns relative paths of skills that have metadata with a remote source.
+// It walks the source directory recursively to find nested skills (e.g. utils/ascii-box-check).
 func getServerUpdatableSkills(sourceDir string) ([]string, error) {
-	entries, err := os.ReadDir(sourceDir)
+	var skills []string
+	err := filepath.WalkDir(sourceDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if path == sourceDir {
+			return nil
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		name := d.Name()
+		// Skip hidden directories and .git
+		if name == ".git" || (len(name) > 0 && name[0] == '.') {
+			return filepath.SkipDir
+		}
+		// Skip tracked repos (_ prefix with .git inside)
+		if len(name) > 0 && name[0] == '_' {
+			return filepath.SkipDir
+		}
+		// Check if this directory has updatable metadata
+		meta, metaErr := install.ReadMeta(path)
+		if metaErr != nil || meta == nil || meta.Source == "" {
+			return nil // continue walking into subdirectories
+		}
+		relPath, relErr := filepath.Rel(sourceDir, path)
+		if relErr == nil {
+			skills = append(skills, filepath.ToSlash(relPath))
+		}
+		return filepath.SkipDir // don't recurse into skill directories
+	})
 	if err != nil {
 		return nil, err
-	}
-
-	var skills []string
-	for _, entry := range entries {
-		if !entry.IsDir() || (len(entry.Name()) > 0 && entry.Name()[0] == '_') {
-			continue
-		}
-		skillPath := filepath.Join(sourceDir, entry.Name())
-		meta, err := install.ReadMeta(skillPath)
-		if err != nil || meta == nil || meta.Source == "" {
-			continue
-		}
-		skills = append(skills, entry.Name())
 	}
 	return skills, nil
 }

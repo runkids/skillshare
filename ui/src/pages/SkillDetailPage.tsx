@@ -209,7 +209,7 @@ export default function SkillDetailPage() {
   const handleUpdate = async () => {
     setUpdating(true);
     try {
-      const res = await api.update({ name: skill.isInRepo ? skill.relPath.split('/')[0] : skill.name });
+      const res = await api.update({ name: skill.isInRepo ? skill.relPath.split('/')[0] : skill.relPath });
       const item = res.results[0];
       if (item?.action === 'updated') {
         toast(`Updated: ${item.name} — ${item.message}`, 'success');
