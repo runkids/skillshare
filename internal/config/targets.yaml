@@ -163,6 +163,14 @@ targets:
     project_name: windsurf
     global_path: "~/.codeium/windsurf/skills"
     project_path: ".windsurf/skills"
+  - global_name: xcode-claude
+    project_name: xcode-claude
+    global_path: "~/Library/Developer/Xcode/CodingAssistant/ClaudeAgentConfig/skills"
+    project_path: ".claude/skills"
+  - global_name: xcode-codex
+    project_name: xcode-codex
+    global_path: "~/Library/Developer/Xcode/CodingAssistant/codex/skills"
+    project_path: ".codex/skills"
   - global_name: zencoder
     project_name: zencoder
     global_path: "~/.zencoder/skills"

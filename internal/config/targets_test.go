@@ -34,7 +34,7 @@ func TestGroupedProjectTargets_AgentsGrouped(t *testing.T) {
 		memberSet[m] = true
 	}
 
-	expectedMembers := []string{"amp", "codex", "gemini-cli", "github-copilot", "opencode", "replit"}
+	expectedMembers := []string{"amp", "codex", "droid", "gemini-cli", "github-copilot", "opencode", "replit"}
 	for _, name := range expectedMembers {
 		if !memberSet[name] {
 			t.Errorf("expected %q in agents group members, got %v", name, agentsGroup.Members)
@@ -50,17 +50,17 @@ func TestGroupedProjectTargets_AgentsGrouped(t *testing.T) {
 func TestGroupedProjectTargets_SinglePathNotGrouped(t *testing.T) {
 	grouped := GroupedProjectTargets()
 
-	// claude-code has a unique path (.claude/skills), should not have members
+	// cursor has a unique path (.cursor/skills), should not have members
 	for _, g := range grouped {
-		if g.Name == "claude-code" {
+		if g.Name == "cursor" {
 			if len(g.Members) != 0 {
-				t.Errorf("claude-code should have no members, got %v", g.Members)
+				t.Errorf("cursor should have no members, got %v", g.Members)
 			}
 			return
 		}
 	}
 
-	t.Error("claude-code not found in GroupedProjectTargets result")
+	t.Error("cursor not found in GroupedProjectTargets result")
 }
 
 func TestGroupedProjectTargets_NoDuplicatePaths(t *testing.T) {
