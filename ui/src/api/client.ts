@@ -257,6 +257,7 @@ export interface SearchResult {
   stars: number;
   owner: string;
   repo: string;
+  tags?: string[];
 }
 
 export interface InstallResult {

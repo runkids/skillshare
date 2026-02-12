@@ -17,13 +17,13 @@ import (
 
 // SearchResult represents a skill found via search
 type SearchResult struct {
-	Name        string  // Skill name (from SKILL.md frontmatter or directory name)
-	Description string  // From SKILL.md frontmatter
-	Source      string  // Installable source (owner/repo/path)
-	Skill       string  // Specific skill name within a multi-skill repo (install -s)
-	Stars       int     // Repository star count
-	Owner       string  // Repository owner
-	Repo        string  // Repository name
+	Name        string   // Skill name (from SKILL.md frontmatter or directory name)
+	Description string   // From SKILL.md frontmatter
+	Source      string   // Installable source (owner/repo/path)
+	Skill       string   // Specific skill name within a multi-skill repo (install -s)
+	Stars       int      // Repository star count
+	Owner       string   // Repository owner
+	Repo        string   // Repository name
 	Path        string   // Path within repository
 	Tags        []string // Classification tags from hub index
 	Score       float64  `json:"-"` // Internal relevance score, hidden from JSON output

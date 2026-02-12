@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.12.0] - 2026-02-13
+
+### Added
+- **Hub index generation** — `skillshare hub index` builds a `skillshare-hub.json` from installed skills for private or team catalogs
+  - `--full` includes extended metadata (flatName, type, version, repoUrl, installedAt)
+  - `--output` / `-o` to customize output path; `--source` / `-s` to override scan directory
+  - Supports both global and project mode (`-p` / `-g`)
+- **Private index search** — `skillshare search --hub <url>` searches a hub index (local file or HTTP URL) instead of GitHub
+  - Browse all entries with no query, or fuzzy-match by name/description/tags/source
+  - Interactive install prompt with `source` and optional `skill` field support
+- **Hub index schema** — `schemaVersion: 1` with `tags` and `skill` fields for classification and multi-skill repo support
+- **Web UI hub search** — search private indexes from the dashboard with a hub URL dropdown
+  - Hub manager modal for adding, removing, and selecting saved hub URLs (persisted in localStorage)
+- **Web UI hub index API** — `GET /api/hub/index` endpoint for generating indexes from the dashboard
+- Hub index guide and command reference in documentation
+
+### Fixed
+- `hub index` help text referenced incorrect `--index-url` flag (now `--hub`)
+- Frontend `SearchResult` TypeScript interface missing `tags` field
+
 ## [0.11.6] - 2026-02-11
 
 ### Added

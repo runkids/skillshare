@@ -174,7 +174,7 @@ func printHubIndexHelp() {
 	fmt.Println(`Usage: skillshare hub index [options]
 
 Build an index.json file from installed skills. The generated index
-can be used with 'skillshare search --index-url' for private search.
+can be used with 'skillshare search --hub' for private search.
 
 Options:
   --source, -s <path>   Source directory to scan (default: auto-detect)
