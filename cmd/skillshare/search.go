@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/lithammer/fuzzysearch/fuzzy"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
@@ -360,6 +361,17 @@ func printSearchResults(results []search.SearchResult, isHub bool) {
 				desc := truncate(r.Description, 70)
 				fmt.Printf("      %s%s%s\n", ui.Gray, desc, ui.Reset)
 			}
+			// Show tags if available
+			if len(r.Tags) > 0 {
+				fmt.Printf("      %s", ui.Gray)
+				for j, tag := range r.Tags {
+					if j > 0 {
+						fmt.Print(" ")
+					}
+					fmt.Printf("#%s", tag)
+				}
+				fmt.Printf("%s\n", ui.Reset)
+			}
 		} else {
 			// Non-TTY output
 			if isHub {
@@ -373,6 +385,13 @@ func printSearchResults(results []search.SearchResult, isHub bool) {
 			if r.Description != "" {
 				fmt.Printf("      %s\n", truncate(r.Description, 70))
 			}
+			if len(r.Tags) > 0 {
+				tags := make([]string, len(r.Tags))
+				for j, tag := range r.Tags {
+					tags[j] = "#" + tag
+				}
+				fmt.Printf("      %s\n", strings.Join(tags, " "))
+			}
 		}
 	}
 }
@@ -384,14 +403,22 @@ func promptInstallFromSearch(results []search.SearchResult, isHub bool, mode run
 	options[0] = fmt.Sprintf("\033[36m⟲ Search again...\033[0m")
 
 	for i, r := range results {
+		var tagStr string
+		if len(r.Tags) > 0 {
+			t := make([]string, len(r.Tags))
+			for j, tag := range r.Tags {
+				t[j] = "#" + tag
+			}
+			tagStr = " " + strings.Join(t, " ")
+		}
 		if isHub {
 			desc := truncate(r.Description, 50)
-			options[i+1] = fmt.Sprintf("%-20s %s \033[90m%s\033[0m",
-				r.Name, desc, r.Source)
+			options[i+1] = fmt.Sprintf("%-20s %s \033[90m%s%s\033[0m",
+				r.Name, desc, r.Source, tagStr)
 		} else {
 			stars := search.FormatStars(r.Stars)
-			options[i+1] = fmt.Sprintf("%-20s ★ %-5s \033[90m%s\033[0m",
-				r.Name, stars, r.Source)
+			options[i+1] = fmt.Sprintf("%-20s ★ %-5s \033[90m%s%s\033[0m",
+				r.Name, stars, r.Source, tagStr)
 		}
 	}
 
@@ -401,6 +428,27 @@ func promptInstallFromSearch(results []search.SearchResult, isHub bool, mode run
 		Message:  "Select skill to install (↑↓ navigate, enter select, type to filter):",
 		Options:  options,
 		PageSize: 12,
+		Filter: func(filter string, value string, index int) bool {
+			if index == 0 {
+				return true // always show "Search again"
+			}
+			r := results[index-1]
+			f := strings.ToLower(filter)
+			// Fuzzy match on name (short, typo-tolerant)
+			if fuzzy.MatchNormalizedFold(filter, r.Name) {
+				return true
+			}
+			// Substring match on description and tags (precise)
+			if strings.Contains(strings.ToLower(r.Description), f) {
+				return true
+			}
+			for _, tag := range r.Tags {
+				if strings.Contains(strings.ToLower(tag), f) {
+					return true
+				}
+			}
+			return false
+		},
 	}
 
 	focusColor := "yellow"
