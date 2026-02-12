@@ -42,28 +42,46 @@ func cmdSearch(args []string) error {
 	var query string
 	var jsonOutput bool
 	var listOnly bool
+	var indexURL string
 	var limit int = 20
 
 	// Parse remaining arguments
 	i := 0
 	for i < len(rest) {
 		arg := rest[i]
+		key, val, hasEq := strings.Cut(arg, "=")
 		switch {
-		case arg == "--json":
+		case key == "--json":
 			jsonOutput = true
-		case arg == "--list" || arg == "-l":
+		case key == "--list" || key == "-l":
 			listOnly = true
-		case arg == "--limit" || arg == "-n":
-			if i+1 >= len(args) {
+		case key == "--index-url":
+			if hasEq {
+				indexURL = strings.TrimSpace(val)
+			} else if i+1 >= len(rest) {
+				return fmt.Errorf("--index-url requires a value")
+			} else {
+				i++
+				indexURL = strings.TrimSpace(rest[i])
+			}
+		case key == "--limit" || key == "-n":
+			if hasEq {
+				n, err := strconv.Atoi(strings.TrimSpace(val))
+				if err != nil || n < 1 {
+					return fmt.Errorf("--limit must be a positive number")
+				}
+				limit = n
+			} else if i+1 >= len(rest) {
 				return fmt.Errorf("--limit requires a value")
+			} else {
+				i++
+				n, err := strconv.Atoi(rest[i])
+				if err != nil || n < 1 {
+					return fmt.Errorf("--limit must be a positive number")
+				}
+				limit = n
 			}
-			i++
-			n, err := strconv.Atoi(args[i])
-			if err != nil || n < 1 {
-				return fmt.Errorf("--limit must be a positive number")
-			}
-			limit = n
-		case arg == "--help" || arg == "-h":
+		case key == "--help" || key == "-h":
 			printSearchHelp()
 			return nil
 		case strings.HasPrefix(arg, "-"):
@@ -81,14 +99,14 @@ func cmdSearch(args []string) error {
 
 	// JSON mode: silent search, output JSON
 	if jsonOutput {
-		return searchJSON(query, limit)
+		return searchJSON(query, limit, indexURL)
 	}
 
 	// Interactive mode
-	return searchInteractive(query, limit, listOnly, mode, cwd)
+	return searchInteractive(query, limit, listOnly, indexURL, mode, cwd)
 }
 
-func searchJSON(query string, limit int) error {
+func searchJSON(query string, limit int, indexURL string) error {
 	// Show progress on stderr (so JSON output stays clean on stdout)
 	if query == "" {
 		fmt.Fprintf(os.Stderr, "Browsing popular skills...\n")
@@ -96,7 +114,13 @@ func searchJSON(query string, limit int) error {
 		fmt.Fprintf(os.Stderr, "Searching for '%s'...\n", query)
 	}
 
-	results, err := search.Search(query, limit)
+	var results []search.SearchResult
+	var err error
+	if indexURL != "" {
+		results, err = search.SearchFromIndexURL(query, limit, indexURL)
+	} else {
+		results, err = search.Search(query, limit)
+	}
 	if err != nil {
 		// Return error as JSON
 		errJSON, _ := json.Marshal(map[string]string{"error": err.Error()})
@@ -114,7 +138,7 @@ func searchJSON(query string, limit int) error {
 	return nil
 }
 
-func searchInteractive(query string, limit int, listOnly bool, mode runMode, cwd string) error {
+func searchInteractive(query string, limit int, listOnly bool, indexURL string, mode runMode, cwd string) error {
 	// Show logo
 	ui.Logo(appversion.Version)
 
@@ -129,14 +153,14 @@ func searchInteractive(query string, limit int, listOnly bool, mode runMode, cwd
 
 	// List-only mode: single search and exit
 	if listOnly {
-		_, err := doSearch(query, limit, true, mode, cwd)
+		_, err := doSearch(query, limit, true, indexURL, mode, cwd)
 		return err
 	}
 
 	// Interactive loop mode
 	currentQuery := query
 	for {
-		searchAgain, err := doSearch(currentQuery, limit, false, mode, cwd)
+		searchAgain, err := doSearch(currentQuery, limit, false, indexURL, mode, cwd)
 		if err != nil {
 			return err
 		}
@@ -161,43 +185,58 @@ func searchInteractive(query string, limit int, listOnly bool, mode runMode, cwd
 }
 
 // doSearch performs a search and returns (searchAgain, error)
-func doSearch(query string, limit int, listOnly bool, mode runMode, cwd string) (bool, error) {
+func doSearch(query string, limit int, listOnly bool, indexURL string, mode runMode, cwd string) (bool, error) {
 	if query == "" {
 		ui.StepStart("Browsing", "popular skills")
 	} else {
 		ui.StepStart("Searching", query)
 	}
 
-	spinner := ui.StartTreeSpinner("Querying GitHub...", false)
+	var spinnerMsg string
+	if indexURL != "" {
+		spinnerMsg = "Querying index..."
+	} else {
+		spinnerMsg = "Querying GitHub..."
+	}
+	spinner := ui.StartTreeSpinner(spinnerMsg, false)
 
-	results, err := search.Search(query, limit)
+	var results []search.SearchResult
+	var err error
+	if indexURL != "" {
+		results, err = search.SearchFromIndexURL(query, limit, indexURL)
+	} else {
+		results, err = search.Search(query, limit)
+	}
 	if err != nil {
 		spinner.Fail("Search failed")
 
-		// Handle authentication required error
-		if _, ok := err.(*search.AuthRequiredError); ok {
-			fmt.Println()
-			ui.Warning("GitHub Code Search API requires authentication")
-			fmt.Println()
-			ui.Info("Option 1: Login with GitHub CLI (recommended)")
-			fmt.Printf("  %sgh auth login%s\n", ui.Gray, ui.Reset)
-			fmt.Println()
-			ui.Info("Option 2: Set GITHUB_TOKEN environment variable")
-			fmt.Printf("  %sexport GITHUB_TOKEN=ghp_your_token_here%s\n", ui.Gray, ui.Reset)
-			return false, nil
-		}
-
-		// Handle rate limit error with helpful message
-		if rateLimitErr, ok := err.(*search.RateLimitError); ok {
-			fmt.Println()
-			ui.Warning("GitHub API rate limit exceeded")
-			if rateLimitErr.Remaining == "0" {
-				ui.Info("Limit: %s requests/hour", rateLimitErr.Limit)
+		// GitHub-specific errors only apply when not using index
+		if indexURL == "" {
+			// Handle authentication required error
+			if _, ok := err.(*search.AuthRequiredError); ok {
+				fmt.Println()
+				ui.Warning("GitHub Code Search API requires authentication")
+				fmt.Println()
+				ui.Info("Option 1: Login with GitHub CLI (recommended)")
+				fmt.Printf("  %sgh auth login%s\n", ui.Gray, ui.Reset)
+				fmt.Println()
+				ui.Info("Option 2: Set GITHUB_TOKEN environment variable")
+				fmt.Printf("  %sexport GITHUB_TOKEN=ghp_your_token_here%s\n", ui.Gray, ui.Reset)
+				return false, nil
 			}
-			fmt.Println()
-			ui.Info("To increase rate limit, set GITHUB_TOKEN:")
-			fmt.Printf("  %sexport GITHUB_TOKEN=ghp_your_token_here%s\n", ui.Gray, ui.Reset)
-			return false, nil
+
+			// Handle rate limit error with helpful message
+			if rateLimitErr, ok := err.(*search.RateLimitError); ok {
+				fmt.Println()
+				ui.Warning("GitHub API rate limit exceeded")
+				if rateLimitErr.Remaining == "0" {
+					ui.Info("Limit: %s requests/hour", rateLimitErr.Limit)
+				}
+				fmt.Println()
+				ui.Info("To increase rate limit, set GITHUB_TOKEN:")
+				fmt.Printf("  %sexport GITHUB_TOKEN=ghp_your_token_here%s\n", ui.Gray, ui.Reset)
+				return false, nil
+			}
 		}
 		return false, err
 	}
@@ -502,12 +541,13 @@ Search GitHub for skills containing SKILL.md files.
 When no query is provided, browses popular skills.
 
 Options:
-  --project, -p  Install to project-level config (.skillshare/)
-  --global, -g   Install to global config (~/.config/skillshare)
-  --json         Output results as JSON
-  --list, -l     List results only (no install prompt)
-  --limit N, -n  Maximum results (default: 20, max: 100)
-  --help, -h     Show this help
+  --project, -p      Install to project-level config (.skillshare/)
+  --global, -g       Install to global config (~/.config/skillshare)
+  --index-url URL    Search from a private index (local path or HTTP URL)
+  --json             Output results as JSON
+  --list, -l         List results only (no install prompt)
+  --limit N, -n      Maximum results (default: 20, max: 100)
+  --help, -h         Show this help
 
 Examples:
   skillshare search                   Browse popular skills
@@ -516,5 +556,9 @@ Examples:
   skillshare search commit --limit 10
   skillshare search frontend --json
   skillshare search react --list
-  skillshare search pdf -p`)
+  skillshare search pdf -p
+
+  # Private index search
+  skillshare search --index-url /path/to/index.json
+  skillshare search react --index-url https://internal.corp/skills/index.json`)
 }
