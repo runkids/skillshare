@@ -58,6 +58,7 @@ const sidebars: SidebarsConfig = {
             'guides/project-setup',
             'guides/organization-sharing',
             'guides/cross-machine-sync',
+            'guides/hub-index',
           ],
         },
         {
@@ -124,6 +125,7 @@ const sidebars: SidebarsConfig = {
           label: 'Security & Utilities',
           items: [
             'commands/audit',
+            'commands/hub',
             'commands/log',
             'commands/doctor',
             'commands/ui',

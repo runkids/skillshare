@@ -40,14 +40,14 @@ func TestHub_IndexGeneratesJSON(t *testing.T) {
 	result.AssertAnyOutputContains(t, "Found 2 skill(s)")
 
 	// Verify generated file
-	data, err := os.ReadFile(filepath.Join(sb.SourcePath, "index.json"))
+	data, err := os.ReadFile(filepath.Join(sb.SourcePath, "skillshare-hub.json"))
 	if err != nil {
-		t.Fatalf("read index.json: %v", err)
+		t.Fatalf("read skillshare-hub.json: %v", err)
 	}
 
 	var idx hubIndex
 	if err := json.Unmarshal(data, &idx); err != nil {
-		t.Fatalf("parse index.json: %v", err)
+		t.Fatalf("parse skillshare-hub.json: %v", err)
 	}
 	if idx.SchemaVersion != 1 {
 		t.Errorf("schemaVersion = %d, want 1", idx.SchemaVersion)
@@ -89,9 +89,9 @@ func TestHub_IndexEmptySource(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Found 0 skill(s)")
 
-	data, err := os.ReadFile(filepath.Join(sb.SourcePath, "index.json"))
+	data, err := os.ReadFile(filepath.Join(sb.SourcePath, "skillshare-hub.json"))
 	if err != nil {
-		t.Fatalf("read index.json: %v", err)
+		t.Fatalf("read skillshare-hub.json: %v", err)
 	}
 
 	var idx hubIndex
@@ -130,9 +130,9 @@ func TestHub_IndexMinimalOmitsMetadata(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "minimal")
 
-	data, err := os.ReadFile(filepath.Join(sb.SourcePath, "index.json"))
+	data, err := os.ReadFile(filepath.Join(sb.SourcePath, "skillshare-hub.json"))
 	if err != nil {
-		t.Fatalf("read index.json: %v", err)
+		t.Fatalf("read skillshare-hub.json: %v", err)
 	}
 
 	// Parse as raw JSON to check field presence

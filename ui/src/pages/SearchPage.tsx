@@ -85,7 +85,7 @@ export default function SearchPage() {
     try {
       let res: { results: SearchResult[] };
       if (mode === 'index') {
-        res = await api.searchIndex(q, selectedIndex);
+        res = await api.searchHub(q, selectedIndex);
       } else {
         res = await api.search(q);
       }
@@ -318,7 +318,7 @@ export default function SearchPage() {
                 </HandButton>
               </div>
               <p className="text-xs text-muted-dark">
-                Enter an HTTP(S) URL or local file path to an index.json file.
+                Enter an HTTP(S) URL or local file path to a skillshare-hub.json file.
               </p>
             </div>
           )}

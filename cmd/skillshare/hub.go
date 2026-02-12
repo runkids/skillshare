@@ -101,7 +101,7 @@ func cmdHubIndex(args []string) error {
 
 	// Resolve output path
 	if outputPath == "" {
-		outputPath = sourcePath + "/index.json"
+		outputPath = sourcePath + "/skillshare-hub.json"
 	}
 
 	// Show logo
@@ -178,7 +178,7 @@ can be used with 'skillshare search --index-url' for private search.
 
 Options:
   --source, -s <path>   Source directory to scan (default: auto-detect)
-  --output, -o <path>   Output file path (default: <source>/index.json)
+  --output, -o <path>   Output file path (default: <source>/skillshare-hub.json)
   --full                Include full metadata (flatName, type, version, etc.)
   --project, -p         Use project mode (.skillshare/)
   --global, -g          Use global mode (~/.config/skillshare/)

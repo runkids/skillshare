@@ -64,6 +64,7 @@ After installing, you can search again or press `Enter` to quit.
 |------|-------------|
 | `--project`, `-p` | Install to project-level config (`.skillshare/`) |
 | `--global`, `-g` | Install to global config (`~/.config/skillshare`) |
+| `--hub URL` | Search from a private hub index (local path or HTTP URL) |
 | `--list`, `-l` | List results only, no install prompt |
 | `--json` | Output as JSON (for scripting) |
 | `--limit N`, `-n N` | Maximum results (default: 20, max: 100) |
@@ -174,6 +175,33 @@ If you don't use `gh` CLI:
 5. **Limit** — Returns top N results
 
 This ensures high-quality, popular skills appear first.
+
+## Private Index Search
+
+Search from a private hub index instead of GitHub:
+
+```bash
+# Local file
+skillshare search react --hub ./skillshare-hub.json
+
+# HTTP URL
+skillshare search react --hub https://internal.corp/skills/skillshare-hub.json
+
+# Browse all skills (empty query)
+skillshare search --hub ./skillshare-hub.json --json
+
+# Equals syntax also works
+skillshare search react --hub=./skillshare-hub.json
+```
+
+Build an index with [`hub index`](./hub.md):
+
+```bash
+skillshare hub index                    # Generate skillshare-hub.json
+skillshare search --hub ./skillshare-hub.json  # Search it
+```
+
+For more details, see the [Hub Index Guide](../guides/hub-index.md).
 
 ## Tips
 

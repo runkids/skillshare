@@ -9,7 +9,7 @@ import (
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
-	indexURL := r.URL.Query().Get("index_url")
+	indexURL := r.URL.Query().Get("hub")
 
 	limit := 20
 	if l := r.URL.Query().Get("limit"); l != "" {

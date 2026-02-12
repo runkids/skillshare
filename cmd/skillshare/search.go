@@ -55,11 +55,11 @@ func cmdSearch(args []string) error {
 			jsonOutput = true
 		case key == "--list" || key == "-l":
 			listOnly = true
-		case key == "--index-url":
+		case key == "--hub":
 			if hasEq {
 				indexURL = strings.TrimSpace(val)
 			} else if i+1 >= len(rest) {
-				return fmt.Errorf("--index-url requires a value")
+				return fmt.Errorf("--hub requires a value")
 			} else {
 				i++
 				indexURL = strings.TrimSpace(rest[i])
@@ -543,7 +543,7 @@ When no query is provided, browses popular skills.
 Options:
   --project, -p      Install to project-level config (.skillshare/)
   --global, -g       Install to global config (~/.config/skillshare)
-  --index-url URL    Search from a private index (local path or HTTP URL)
+  --hub URL          Search from a private hub index (local path or HTTP URL)
   --json             Output results as JSON
   --list, -l         List results only (no install prompt)
   --limit N, -n      Maximum results (default: 20, max: 100)
@@ -558,7 +558,7 @@ Examples:
   skillshare search react --list
   skillshare search pdf -p
 
-  # Private index search
-  skillshare search --index-url /path/to/index.json
-  skillshare search react --index-url https://internal.corp/skills/index.json`)
+  # Private hub index search
+  skillshare search --hub ./skillshare-hub.json
+  skillshare search react --hub https://internal.corp/skills/skillshare-hub.json`)
 }

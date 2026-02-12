@@ -39,7 +39,7 @@ func TestSearch_IndexURL_LocalFile(t *testing.T) {
 		{"name": "deploy-helper", "description": "K8s deployment", "source": "gitlab.com/ops/skills/deploy-helper"},
 	})
 
-	result := sb.RunCLI("search", "react", "--index-url", indexPath, "--list")
+	result := sb.RunCLI("search", "react", "--hub", indexPath, "--list")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "react-patterns")
 }
@@ -54,7 +54,7 @@ func TestSearch_IndexURL_NoResults(t *testing.T) {
 		{"name": "alpha", "source": "a/b"},
 	})
 
-	result := sb.RunCLI("search", "zzz-nonexistent", "--index-url", indexPath, "--list")
+	result := sb.RunCLI("search", "zzz-nonexistent", "--hub", indexPath, "--list")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "No skills found")
 }
@@ -69,8 +69,8 @@ func TestSearch_IndexURL_EqualsSyntax(t *testing.T) {
 		{"name": "test-skill", "description": "A test skill", "source": "owner/repo/test-skill"},
 	})
 
-	// Test --index-url=value syntax
-	result := sb.RunCLI("search", "test", "--index-url="+indexPath, "--list")
+	// Test --hub=value syntax
+	result := sb.RunCLI("search", "test", "--hub="+indexPath, "--list")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "test-skill")
 }
@@ -88,7 +88,7 @@ func TestSearch_IndexURL_BrowseAll(t *testing.T) {
 	})
 
 	// Empty query returns all — use --json to avoid interactive prompt
-	result := sb.RunCLI("search", "--index-url", indexPath, "--json")
+	result := sb.RunCLI("search", "--hub", indexPath, "--json")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "alpha")
 	result.AssertAnyOutputContains(t, "beta")
@@ -105,7 +105,7 @@ func TestSearch_IndexURL_SpinnerText(t *testing.T) {
 		{"name": "x", "source": "a/b"},
 	})
 
-	result := sb.RunCLI("search", "--index-url", indexPath, "--json")
+	result := sb.RunCLI("search", "--hub", indexPath, "--json")
 	result.AssertSuccess(t)
 	// JSON mode shows progress on stderr
 	result.AssertAnyOutputContains(t, "Browsing popular skills")
