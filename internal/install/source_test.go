@@ -589,6 +589,159 @@ func TestParseSource_DomainShorthand(t *testing.T) {
 	}
 }
 
+func TestParseSource_GitHubEnterprise(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		wantType     SourceType
+		wantCloneURL string
+		wantSubdir   string
+		wantName     string
+	}{
+		// GitHub Enterprise Server: github.COMPANY.com
+		{
+			name:         "GHE Server shorthand",
+			input:        "github.mycompany.com/org/repo",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://github.mycompany.com/org/repo.git",
+			wantName:     "repo",
+		},
+		{
+			name:         "GHE Server full URL",
+			input:        "https://github.mycompany.com/org/repo",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://github.mycompany.com/org/repo.git",
+			wantName:     "repo",
+		},
+		{
+			name:         "GHE Server with .git suffix",
+			input:        "https://github.mycompany.com/org/repo.git",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://github.mycompany.com/org/repo.git",
+			wantName:     "repo",
+		},
+		{
+			name:         "GHE Server with subdir",
+			input:        "https://github.mycompany.com/org/repo/skills/my-skill",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://github.mycompany.com/org/repo.git",
+			wantSubdir:   "skills/my-skill",
+			wantName:     "my-skill",
+		},
+		{
+			name:         "GHE Server different company",
+			input:        "github.acme.com/team/project",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://github.acme.com/team/project.git",
+			wantName:     "project",
+		},
+		// GitHub Enterprise Cloud: COMPANY.github.com
+		{
+			name:         "GHE Cloud shorthand",
+			input:        "mycompany.github.com/org/repo",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://mycompany.github.com/org/repo.git",
+			wantName:     "repo",
+		},
+		{
+			name:         "GHE Cloud full URL",
+			input:        "https://mycompany.github.com/org/repo",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://mycompany.github.com/org/repo.git",
+			wantName:     "repo",
+		},
+		{
+			name:         "GHE Cloud with subdir",
+			input:        "https://enterprise.github.com/team/skills/frontend/react",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://enterprise.github.com/team/skills.git",
+			wantSubdir:   "frontend/react",
+			wantName:     "react",
+		},
+		// SSH format
+		{
+			name:         "GHE Server SSH",
+			input:        "git@github.mycompany.com:org/repo.git",
+			wantType:     SourceTypeGitSSH,
+			wantCloneURL: "git@github.mycompany.com:org/repo.git",
+			wantName:     "repo",
+		},
+		{
+			name:         "GHE Cloud SSH",
+			input:        "git@mycompany.github.com:team/skills.git",
+			wantType:     SourceTypeGitSSH,
+			wantCloneURL: "git@mycompany.github.com:team/skills.git",
+			wantName:     "skills",
+		},
+		{
+			name:         "GHE SSH with subdir",
+			input:        "git@github.mycompany.com:org/repo.git//path/to/skill",
+			wantType:     SourceTypeGitSSH,
+			wantCloneURL: "git@github.mycompany.com:org/repo.git",
+			wantSubdir:   "path/to/skill",
+			wantName:     "skill",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, err := ParseSource(tt.input)
+			if err != nil {
+				t.Fatalf("ParseSource(%q) error = %v", tt.input, err)
+			}
+			if source.Type != tt.wantType {
+				t.Errorf("Type = %v, want %v", source.Type, tt.wantType)
+			}
+			if source.CloneURL != tt.wantCloneURL {
+				t.Errorf("CloneURL = %q, want %q", source.CloneURL, tt.wantCloneURL)
+			}
+			if source.Subdir != tt.wantSubdir {
+				t.Errorf("Subdir = %q, want %q", source.Subdir, tt.wantSubdir)
+			}
+			if source.Name != tt.wantName {
+				t.Errorf("Name = %q, want %q", source.Name, tt.wantName)
+			}
+		})
+	}
+}
+
+func TestParseSource_GitHubEnterprise_TrackName(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "GHE Server HTTPS",
+			raw:  "https://github.mycompany.com/team/skills",
+			want: "team-skills",
+		},
+		{
+			name: "GHE Cloud HTTPS",
+			raw:  "https://enterprise.github.com/org/repo",
+			want: "org-repo",
+		},
+		{
+			name: "GHE Server SSH",
+			raw:  "git@github.mycompany.com:org/skills.git",
+			want: "org-skills",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, err := ParseSource(tt.raw)
+			if err != nil {
+				t.Fatalf("ParseSource(%q) error: %v", tt.raw, err)
+			}
+			got := source.TrackName()
+			if got != tt.want {
+				t.Errorf("TrackName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestParseSource_GeminiCLIMonorepo(t *testing.T) {
 	// Real-world test case from the plan
 	input := "github.com/google-gemini/gemini-cli/packages/core/src/skills/builtin/skill-creator"
