@@ -66,12 +66,16 @@ skillshare search --hub /shared/team/skillshare-hub.json
 
 ### HTTP Server
 
-Host the index on any web server:
+Generate the index locally, then upload it to your hosting:
 
 ```bash
-# Generate and upload
+# Step 1: Generate
 skillshare hub index -o ./skillshare-hub.json
-# Upload to your preferred hosting
+
+# Step 2: Upload (use your preferred method)
+scp ./skillshare-hub.json server:/var/www/skills/
+# or: aws s3 cp ./skillshare-hub.json s3://my-bucket/
+# or: rsync, FTP, etc.
 ```
 
 Teammates search with:
@@ -81,12 +85,22 @@ skillshare search --hub https://skills.company.com/skillshare-hub.json
 
 ### Git Repository
 
-Commit the index to a shared repo:
+Commit the index to a shared repo so teammates can pull it:
 
 ```bash
 skillshare hub index -o ./skillshare-hub.json
 git add skillshare-hub.json && git commit -m "Update skill index"
 git push
+```
+
+Teammates can search via the raw URL or clone locally:
+```bash
+# Via raw URL
+skillshare search --hub https://raw.githubusercontent.com/team/skills/main/skillshare-hub.json
+
+# Or clone and search locally
+git pull
+skillshare search --hub ./skillshare-hub.json
 ```
 
 ## Web Dashboard
@@ -231,7 +245,7 @@ The [skillshare-hub](https://github.com/runkids/skillshare-hub) is a community-m
 skillshare search --hub https://raw.githubusercontent.com/runkids/skillshare-hub/main/skillshare-hub.json
 ```
 
-Want to share your skills with the community? [Submit a PR](https://github.com/runkids/skillshare-hub) to add your skill to the catalog.
+Want to share your skills with the community? [Open a PR](https://github.com/runkids/skillshare-hub) to add your skill to the catalog. CI automatically runs `skillshare audit` on every submission to check for security issues before merging.
 
 ## Tips
 

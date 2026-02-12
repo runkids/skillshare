@@ -187,7 +187,7 @@ skillshare search --hub https://raw.githubusercontent.com/runkids/skillshare-hub
 skillshare search react --hub https://raw.githubusercontent.com/runkids/skillshare-hub/main/skillshare-hub.json
 ```
 
-Want to share your skill with the community? Submit a PR to [runkids/skillshare-hub](https://github.com/runkids/skillshare-hub).
+Want to share your skill with the community? [Open a PR](https://github.com/runkids/skillshare-hub) to add your skill — CI runs `skillshare audit` on every submission.
 
 ## Private Index Search
 
