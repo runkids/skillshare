@@ -95,7 +95,15 @@ func cmdAudit(args []string) error {
 		cfgPath          string
 	)
 
-	if mode == modeProject {
+	// Path mode: target is an existing file/directory — no config needed.
+	if opts.Target != "" && pathExists(opts.Target) {
+		if mode == modeProject {
+			projectRoot = cwd
+			cfgPath = config.ProjectConfigPath(cwd)
+		} else {
+			cfgPath = config.ConfigPath()
+		}
+	} else if mode == modeProject {
 		rt, err := loadProjectRuntime(cwd)
 		if err != nil {
 			return err
