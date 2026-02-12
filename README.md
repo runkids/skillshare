@@ -36,6 +36,7 @@
   <a href="#web-dashboard">Web UI</a> •
   <a href="#project-skills-per-repo">Project Skills</a> •
   <a href="#organization-skills-tracked-repo">Organization Skills</a> •
+  <a href="#skill-hub">Hub</a> •
   <a href="https://skillshare.runkids.cc/docs">Docs</a>
 </p>
 
@@ -43,9 +44,9 @@
 > **Recent Updates**
 > | Version | Highlights |
 > |---------|------------|
+> | [0.12.0](https://github.com/runkids/skillshare/releases/tag/v0.12.0) | Skill Hub — generate indexes, search private catalogs with `--hub` |
 > | [0.11.0](https://github.com/runkids/skillshare/releases/tag/v0.11.0) | Security Audit, Operation Log, Trash, Update Preview — full audit trail + safety net |
 > | [0.10.0](https://github.com/runkids/skillshare/releases/tag/v0.10.0) | Web Dashboard — visual skill management via `skillshare ui` |
-> | [0.9.0](https://github.com/runkids/skillshare/releases/tag/v0.9.0) | Project-level skills — scope skills to a single repo, share via git |
 
 ## Why skillshare
 
@@ -195,8 +196,10 @@ skillshare sync            # Sync skills to all targets
 | `skillshare audit [name]` | Scan skills for security threats |
 | `skillshare log` | View operations and audit logs for debugging and compliance |
 | `skillshare search <query>` | Search installable skills on GitHub |
+| `skillshare search --hub <url>` | Search a private or team skill index |
+| `skillshare hub index` | Generate a hub index from installed skills |
 
-`skillshare search` requires GitHub auth (`gh auth login`) or `GITHUB_TOKEN`.
+`skillshare search` requires GitHub auth (`gh auth login`) or `GITHUB_TOKEN`. The `--hub` flag searches a local or remote JSON index instead.
 
 ### Target Management
 
@@ -246,6 +249,23 @@ skillshare install github.com/team/skills --track
 skillshare update _team-skills
 skillshare sync
 ```
+
+## Skill Hub
+
+Build a searchable skill catalog for your team or community — no GitHub API required.
+
+```bash
+skillshare hub index                    # Generate index from installed skills
+skillshare search --hub ./skillshare-hub.json react   # Search local index
+skillshare search --hub https://example.com/hub.json  # Search remote index
+```
+
+The generated `skillshare-hub.json` follows a versioned schema (`schemaVersion: 1`) with support for tags and multi-skill repos. Host it on any static server, internal CDN, or commit it alongside your skills repo.
+
+The community hub lives at [runkids/skillshare-hub](https://github.com/runkids/skillshare-hub) — open a PR to submit your skills. CI automatically runs `skillshare audit` on every submission to ensure quality and security.
+
+> [!TIP]
+> See the [Hub Index Guide](https://skillshare.runkids.cc/docs/guides/hub-index) for schema details and hosting options.
 
 ## Web Dashboard
 
