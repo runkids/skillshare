@@ -129,6 +129,9 @@ targets:
   - name: custom-ide               # Custom target with explicit path
     path: ./tools/ide/skills
     mode: symlink                  # Optional: "merge" (default) or "symlink"
+  - name: codex                    # Optional filters (merge mode)
+    include: [codex-*]
+    exclude: [codex-experimental-*]
 
 skills:                            # Remote skills (installed via install -p)
   - name: pdf-skill
@@ -140,7 +143,7 @@ skills:                            # Remote skills (installed via install -p)
 
 **Targets** support two formats:
 - **Short**: Just the target name (e.g., `claude-code`). Uses known default path, merge mode.
-- **Long**: Object with `name`, optional `path`, and optional `mode` (`merge` or `symlink`). Supports relative paths (resolved from project root) and `~` expansion.
+- **Long**: Object with `name`, optional `path`, optional `mode` (`merge` or `symlink`), and optional `include`/`exclude` filters. Supports relative paths (resolved from project root) and `~` expansion.
 
 **Skills** list tracks remote installations only. Local skills don't need entries here.
 

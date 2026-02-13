@@ -48,9 +48,11 @@ targets:
   codex:
     path: ~/.codex/skills
     mode: symlink  # Override default mode
+    include: [codex-*] # merge mode only
 
   cursor:
     path: ~/.cursor/skills
+    exclude: [experimental-*] # merge mode only
 
   # Custom target
   myapp:
@@ -100,6 +102,8 @@ targets:
   <name>:
     path: <path>
     mode: <mode>  # optional, overrides default
+    include: [<glob>, ...]  # optional, merge mode only
+    exclude: [<glob>, ...]  # optional, merge mode only
 ```
 
 **Example:**
@@ -115,6 +119,106 @@ targets:
   custom:
     path: ~/my-app/skills
 ```
+
+### `include` / `exclude` (target filters)
+
+Use per-target filters to control which skills are synced in **merge mode**.
+
+```yaml
+targets:
+  codex:
+    path: ~/.codex/skills
+    include: [codex-*]
+  claude:
+    path: ~/.claude/skills
+    exclude: [codex-*]
+```
+
+Rules:
+- Matching is against target flat names (for example `team__frontend__ui`)
+- `include` is applied first
+- `exclude` is applied after include
+- Pattern syntax uses Go `filepath.Match` (`*`, `?`, `[...]`)
+- In `symlink` mode, include/exclude is ignored
+- If a previously synced source link becomes excluded, `sync` removes that target entry
+- Local non-symlink folders that already existed in target are preserved
+
+#### Pattern cheat sheet
+
+| Pattern | Matches | Typical use |
+|---------|---------|-------------|
+| `codex-*` | `codex-agent`, `codex-rag` | Prefix-based grouping |
+| `team__*` | `team__frontend__ui` | Repo/group namespace |
+| `*-experimental` | `rag-experimental` | Suffix-based cleanup |
+| `core-?` | `core-a`, `core-1` | Single-character variant |
+| `[ab]-tool` | `a-tool`, `b-tool` | Small explicit set |
+
+#### Scenario A: include only
+
+Use `include` when a target should receive only a focused subset.
+
+```yaml
+targets:
+  codex:
+    path: ~/.codex/skills
+    include: [codex-*, shared-*]
+```
+
+Use case:
+- Keep Codex focused on coding workflows only
+- Avoid sending writing/research-only skills to this target
+
+#### Scenario B: exclude only
+
+Use `exclude` when a target should receive almost everything except a known subset.
+
+```yaml
+targets:
+  claude:
+    path: ~/.claude/skills
+    exclude: [*-experimental, codex-*]
+```
+
+Use case:
+- Keep one main target broad
+- Hide unstable or target-specific skills
+
+#### Scenario C: include + exclude
+
+Use both when you want a broad include, then carve out exceptions.
+
+```yaml
+targets:
+  cursor:
+    path: ~/.cursor/skills
+    include: [core-*, team__*]
+    exclude: [*-deprecated, team__legacy__*]
+```
+
+Evaluation order:
+1. Keep only names matching `include`
+2. Remove matches from `exclude`
+
+Given source skills:
+- `core-auth`
+- `core-deprecated`
+- `team__frontend__ui`
+- `team__legacy__docs`
+- `misc-tool`
+
+Result for `cursor`:
+- Synced: `core-auth`, `team__frontend__ui`
+- Not synced: `core-deprecated`, `team__legacy__docs`, `misc-tool`
+
+#### Existing target entries when filters change
+
+When you add or change filters, then run `skillshare sync`:
+
+| Existing item in target | What happens |
+|-------------------------|--------------|
+| Source-linked symlink/junction that is now filtered out | Removed (unlinked) |
+| Local non-symlink directory created in target | Preserved |
+| Unrelated local content | Preserved |
 
 ### `ignore`
 
@@ -164,6 +268,9 @@ targets:
   - name: custom-ide               # Object: custom path and mode
     path: ./tools/ide/skills
     mode: symlink
+  - name: codex                    # Object with filters
+    include: [codex-*]
+    exclude: [codex-experimental-*]
 
 # Remote skills — auto-managed by install/uninstall
 skills:
@@ -185,7 +292,7 @@ Supports two YAML forms:
 | Form | Example | When to use |
 |------|---------|-------------|
 | **String** | `- claude-code` | Known target, default path and merge mode |
-| **Object** | `- name: x, path: ..., mode: ...` | Custom path or symlink mode |
+| **Object** | `- name: x, path: ..., mode: ..., include: [...], exclude: [...]` | Custom path, mode override, or per-target filters |
 
 ### `skills` (project only)
 

@@ -14,9 +14,11 @@ import (
 // String: "claude-code"
 // Object: { name: "my-custom-ide", path: ".my-ide/skills/" }
 type ProjectTargetEntry struct {
-	Name string
-	Path string
-	Mode string // "merge" or "symlink", default "merge"
+	Name    string
+	Path    string
+	Mode    string // "merge" or "symlink", default "merge"
+	Include []string
+	Exclude []string
 }
 
 func (t *ProjectTargetEntry) UnmarshalYAML(value *yaml.Node) error {
@@ -26,9 +28,11 @@ func (t *ProjectTargetEntry) UnmarshalYAML(value *yaml.Node) error {
 	}
 
 	var decoded struct {
-		Name string `yaml:"name"`
-		Path string `yaml:"path"`
-		Mode string `yaml:"mode"`
+		Name    string   `yaml:"name"`
+		Path    string   `yaml:"path"`
+		Mode    string   `yaml:"mode"`
+		Include []string `yaml:"include"`
+		Exclude []string `yaml:"exclude"`
 	}
 	if err := value.Decode(&decoded); err != nil {
 		return err
@@ -36,23 +40,33 @@ func (t *ProjectTargetEntry) UnmarshalYAML(value *yaml.Node) error {
 	t.Name = strings.TrimSpace(decoded.Name)
 	t.Path = strings.TrimSpace(decoded.Path)
 	t.Mode = strings.TrimSpace(decoded.Mode)
+	t.Include = decoded.Include
+	t.Exclude = decoded.Exclude
 	return nil
 }
 
 func (t ProjectTargetEntry) MarshalYAML() (interface{}, error) {
 	hasPath := strings.TrimSpace(t.Path) != ""
 	hasMode := strings.TrimSpace(t.Mode) != ""
+	hasInclude := len(t.Include) > 0
+	hasExclude := len(t.Exclude) > 0
 
-	if !hasPath && !hasMode {
+	if !hasPath && !hasMode && !hasInclude && !hasExclude {
 		return t.Name, nil
 	}
 
-	obj := map[string]string{"name": t.Name}
+	obj := map[string]any{"name": t.Name}
 	if hasPath {
 		obj["path"] = t.Path
 	}
 	if hasMode {
 		obj["mode"] = t.Mode
+	}
+	if hasInclude {
+		obj["include"] = t.Include
+	}
+	if hasExclude {
+		obj["exclude"] = t.Exclude
 	}
 	return obj, nil
 }
@@ -162,7 +176,12 @@ func ResolveProjectTargets(projectRoot string, cfg *ProjectConfig) (map[string]T
 			absPath = filepath.Join(projectRoot, filepath.FromSlash(targetPath))
 		}
 
-		resolved[name] = TargetConfig{Path: absPath, Mode: entry.Mode}
+		resolved[name] = TargetConfig{
+			Path:    absPath,
+			Mode:    entry.Mode,
+			Include: append([]string(nil), entry.Include...),
+			Exclude: append([]string(nil), entry.Exclude...),
+		}
 	}
 
 	return resolved, nil

@@ -12,15 +12,20 @@ import (
 )
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, r *http.Request) {
+	// Best-effort refresh so UI reflects external config edits without restart.
+	// Keep endpoint usable even when config is temporarily invalid.
+	s.mu.Lock()
+	_ = s.reloadConfig()
+	cfgObj := any(s.cfg)
+	if s.IsProjectMode() {
+		cfgObj = s.projectCfg
+	}
+	s.mu.Unlock()
+
 	raw, err := os.ReadFile(s.configPath())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to read config: "+err.Error())
 		return
-	}
-
-	cfgObj := any(s.cfg)
-	if s.IsProjectMode() {
-		cfgObj = s.projectCfg
 	}
 
 	writeJSON(w, map[string]any{

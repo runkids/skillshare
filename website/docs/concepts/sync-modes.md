@@ -33,10 +33,29 @@ skills/                         ~/.claude/skills/
 - Keep target-specific skills (not synced)
 - Mix installed and local skills
 - Granular control
+- Per-target include/exclude filtering
 
 **When to use:**
 - You want some skills only in specific AI CLIs
 - You want to try local skills before syncing
+- You want one source but different skill subsets per target
+
+### Filter strategy in merge mode
+
+`include` and `exclude` are evaluated per target in this order:
+1. `include` keeps matching names
+2. `exclude` removes from that kept set
+
+Quick choices:
+- Use `include` when the target should get only a small subset
+- Use `exclude` when the target should get almost everything
+- Use `include + exclude` when you need a broad subset with explicit carve-outs
+
+Behavior when rules change:
+- Previously synced source-linked entries that become filtered out are removed on next `sync`
+- Existing local non-symlink folders in target are preserved
+
+See [Target Configuration](/docs/targets/configuration#include--exclude-target-filters) for full examples.
 
 ---
 
@@ -110,6 +129,7 @@ targets:
 |--------|-------|---------|
 | Local skills preserved | ✅ Yes | ❌ No |
 | All targets identical | ❌ Can differ | ✅ Yes |
+| Per-target include/exclude | ✅ Yes | ❌ Ignored |
 | Orphan cleanup needed | ✅ Yes | ❌ No |
 | Delete safety | ✅ Safe | ⚠️ Caution |
 | Complexity | Higher | Lower |

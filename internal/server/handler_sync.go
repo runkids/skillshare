@@ -72,7 +72,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			res.Skipped = mergeResult.Skipped
 
 			// Prune orphans
-			pruneResult, err := ssync.PruneOrphanLinks(target.Path, s.cfg.Source, body.DryRun)
+			pruneResult, err := ssync.PruneOrphanLinks(target.Path, s.cfg.Source, target.Include, target.Exclude, body.DryRun)
 			if err == nil {
 				res.Pruned = pruneResult.Removed
 			}
@@ -146,6 +146,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		}
 
 		dt := diffTarget{Target: name, Items: make([]diffItem, 0)}
+		filtered := discovered
 
 		if mode != "merge" {
 			status := ssync.CheckStatus(target.Path, s.cfg.Source)
@@ -155,9 +156,14 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 			diffs = append(diffs, dt)
 			continue
 		}
+		filtered, err = ssync.FilterSkills(discovered, target.Include, target.Exclude)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
+			return
+		}
 
 		// Merge mode: check each skill
-		for _, skill := range discovered {
+		for _, skill := range filtered {
 			targetSkillPath := filepath.Join(target.Path, skill.FlatName)
 			_, err := os.Lstat(targetSkillPath)
 			if err != nil {
@@ -185,7 +191,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		// Check for orphans
 		entries, _ := os.ReadDir(target.Path)
 		validNames := make(map[string]bool)
-		for _, skill := range discovered {
+		for _, skill := range filtered {
 			validNames[skill.FlatName] = true
 		}
 		for _, entry := range entries {
@@ -193,12 +199,29 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 			if utils.IsHidden(eName) {
 				continue
 			}
+			managed, err := ssync.ShouldSyncFlatName(eName, target.Include, target.Exclude)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
+				return
+			}
+			entryPath := filepath.Join(target.Path, eName)
+			if !managed {
+				if utils.IsSymlinkOrJunction(entryPath) {
+					absLink, err := utils.ResolveLinkTarget(entryPath)
+					if err == nil {
+						absSource, _ := filepath.Abs(s.cfg.Source)
+						if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
+							dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "excluded by filter"})
+						}
+					}
+				}
+				continue
+			}
 			if !validNames[eName] {
-				_, err := os.Lstat(filepath.Join(target.Path, eName))
+				_, err := os.Lstat(entryPath)
 				if err != nil {
 					continue
 				}
-				entryPath := filepath.Join(target.Path, eName)
 				if utils.IsSymlinkOrJunction(entryPath) {
 					absLink, err := utils.ResolveLinkTarget(entryPath)
 					if err != nil {

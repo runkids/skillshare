@@ -107,6 +107,7 @@ skillshare sync -n           # Short form
 │    ┌─────────────────────────────────────────────────────────┐  │
 │    │ merge mode:                                             │  │
 │    │   • Create symlink for each skill                       │  │
+│    │   • Apply per-target include/exclude filters            │  │
 │    │   • Preserve local-only skills                          │  │
 │    │   • Prune orphaned symlinks                             │  │
 │    ├─────────────────────────────────────────────────────────┤  │
@@ -239,6 +240,93 @@ skillshare push -m "Add pdf"     # Custom message
 |------|----------|----------|
 | `merge` | Each skill symlinked individually | **Default.** Preserves local skills. |
 | `symlink` | Entire directory is one symlink | Exact copies everywhere. |
+
+### Per-target include/exclude filters
+
+In merge mode, each target can define `include` / `exclude` patterns in config:
+
+```yaml
+targets:
+  codex:
+    path: ~/.codex/skills
+    include: [codex-*]
+  claude:
+    path: ~/.claude/skills
+    exclude: [codex-*]
+```
+
+- Matching is against flat target names (for example `team__frontend__ui`)
+- `include` is applied first, then `exclude`
+- `diff`, `status`, `doctor`, and UI drift all use the filtered expected set
+- In symlink mode, filters are ignored
+- `sync` removes existing source-linked entries that are now excluded
+
+See [Configuration](/docs/targets/configuration#include--exclude-target-filters) for full details.
+
+### Filter behavior examples
+
+Assume source contains:
+- `core-auth`
+- `core-docs`
+- `codex-agent`
+- `codex-experimental`
+- `team__frontend__ui`
+
+#### `include` only
+
+```yaml
+targets:
+  codex:
+    path: ~/.codex/skills
+    include: [codex-*, core-*]
+```
+
+After `sync`, codex receives:
+- `core-auth`
+- `core-docs`
+- `codex-agent`
+- `codex-experimental`
+
+Use this when a target should receive only a curated subset.
+
+#### `exclude` only
+
+```yaml
+targets:
+  claude:
+    path: ~/.claude/skills
+    exclude: [codex-*, *-experimental]
+```
+
+After `sync`, claude receives:
+- `core-auth`
+- `core-docs`
+- `team__frontend__ui`
+
+Use this when a target should get "almost everything" except specific groups.
+
+#### `include` + `exclude`
+
+```yaml
+targets:
+  cursor:
+    path: ~/.cursor/skills
+    include: [core-*, codex-*]
+    exclude: [*-experimental]
+```
+
+After `sync`, cursor receives:
+- `core-auth`
+- `core-docs`
+- `codex-agent`
+
+`codex-experimental` is first included, then removed by `exclude`.
+
+#### What gets removed when filters change
+
+When a filter is updated and `sync` runs:
+- Source-linked entries (symlink/junction) that are now filtered out are pruned
+- Local non-symlink folders already in target are preserved
 
 ### Merge Mode (Default)
 

@@ -38,7 +38,7 @@ claude
 ### Merge Mode Targets
 
 For targets using merge mode (default):
-- Lists skills in source not yet synced to target
+- Lists skills in that target's expected set (after `include`/`exclude`) not yet synced
 - Shows skills that exist as local copies instead of symlinks
 - Identifies local-only skills in target
 

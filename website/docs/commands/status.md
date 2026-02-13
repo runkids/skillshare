@@ -24,8 +24,9 @@ Tracked Repositories
 
 Targets
   ✓ claude    [merge] ~/.claude/skills (8 shared, 2 local)
-  ✓ cursor    [merge] ~/.cursor/skills (8 shared, 0 local)
-  ! codex     [merge->needs sync] ~/.openai-codex/skills
+  ✓ cursor    [merge] ~/.cursor/skills (3 shared, 0 local)
+  ✓ codex     [merge] ~/.codex/skills (3 shared, 0 local)
+  ! windsurf  [merge->needs sync] ~/.windsurf/skills
   ⚠ 2 skill(s) not synced — run 'skillshare sync'
 
 Version
@@ -51,6 +52,9 @@ Shows each configured target with:
 - **Sync mode**: `merge` or `symlink`
 - **Path**: Target directory location
 - **Status**: `merged`, `linked`, `unlinked`, or `needs sync`
+- **Shared/local counts**: In merge mode, counts use that target's expected set (after `include`/`exclude` filters)
+
+If a target is in symlink mode, `include`/`exclude` is ignored.
 
 | Status | Meaning |
 |--------|---------|
@@ -58,7 +62,7 @@ Shows each configured target with:
 | `linked` | Entire directory is symlinked |
 | `unlinked` | Not yet synced |
 | `needs sync` | Mode changed, run `sync` to apply |
-| `not synced` | Some skills missing from target — run `sync` |
+| `not synced` | Some expected skills (after filters) are missing — run `sync` |
 
 ### Version
 

@@ -24,11 +24,16 @@ func cmdStatusProject(root string) error {
 		return err
 	}
 
-	sourceSkillCount := countSourceSkills(runtime.sourcePath)
+	discovered, discoverErr := sync.DiscoverSourceSkills(runtime.sourcePath)
+	if discoverErr != nil {
+		discovered = nil
+	}
 
 	printProjectSourceStatus(runtime.sourcePath)
 	printProjectTrackedReposStatus(runtime.sourcePath)
-	printProjectTargetsStatus(runtime, sourceSkillCount)
+	if err := printProjectTargetsStatus(runtime, discovered); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -80,7 +85,7 @@ func printProjectTrackedReposStatus(sourcePath string) {
 	}
 }
 
-func printProjectTargetsStatus(runtime *projectRuntime, sourceSkillCount int) {
+func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.DiscoveredSkill) error {
 	ui.Header("Targets (project)")
 	driftTotal := 0
 	for _, entry := range runtime.config.Targets {
@@ -99,16 +104,24 @@ func printProjectTargetsStatus(runtime *projectRuntime, sourceSkillCount int) {
 		ui.Status(entry.Name, statusStr, detail)
 
 		if mode == "merge" {
+			filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
+			if err != nil {
+				return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)
+			}
+			expectedCount := len(filtered)
 			_, linkedCount, _ := sync.CheckStatusMerge(target.Path, runtime.sourcePath)
-			if linkedCount < sourceSkillCount {
-				drift := sourceSkillCount - linkedCount
+			if linkedCount < expectedCount {
+				drift := expectedCount - linkedCount
 				if drift > driftTotal {
 					driftTotal = drift
 				}
 			}
+		} else if len(target.Include) > 0 || len(target.Exclude) > 0 {
+			ui.Warning("%s: include/exclude ignored in symlink mode", entry.Name)
 		}
 	}
 	if driftTotal > 0 {
 		ui.Warning("%d skill(s) not synced — run 'skillshare sync'", driftTotal)
 	}
+	return nil
 }

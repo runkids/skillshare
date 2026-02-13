@@ -242,6 +242,9 @@ export interface Target {
   status: string;
   linkedCount: number;
   localCount: number;
+  include: string[];
+  exclude: string[];
+  expectedSkillCount: number;
 }
 
 export interface SyncResult {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -16,10 +17,11 @@ import (
 
 // Server holds the HTTP server state
 type Server struct {
-	cfg  *config.Config
-	addr string
-	mux  *http.ServeMux
-	mu   sync.Mutex // protects write operations (sync, install, uninstall, config)
+	cfg     *config.Config
+	addr    string
+	mux     *http.ServeMux
+	handler http.Handler
+	mu      sync.Mutex // protects write operations and config reloads
 
 	startTime time.Time // for uptime reporting in health check
 
@@ -36,6 +38,7 @@ func New(cfg *config.Config, addr string) *Server {
 		mux:  http.NewServeMux(),
 	}
 	s.registerRoutes()
+	s.handler = s.withConfigAutoReload(s.mux)
 	return s
 }
 
@@ -49,6 +52,7 @@ func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoo
 		projectCfg:  projectCfg,
 	}
 	s.registerRoutes()
+	s.handler = s.withConfigAutoReload(s.mux)
 	return s
 }
 
@@ -96,6 +100,38 @@ func (s *Server) reloadConfig() error {
 	return nil
 }
 
+func (s *Server) refreshConfig() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.reloadConfig()
+}
+
+func (s *Server) shouldAutoReloadConfig(path string) bool {
+	if !strings.HasPrefix(path, "/api/") {
+		return false
+	}
+	if path == "/api/health" {
+		return false
+	}
+	// Keep config editor recoverable even if config file is temporarily invalid.
+	if path == "/api/config" {
+		return false
+	}
+	return true
+}
+
+func (s *Server) withConfigAutoReload(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if s.shouldAutoReloadConfig(r.URL.Path) {
+			if err := s.refreshConfig(); err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to reload config: "+err.Error())
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // Start starts the HTTP server with graceful shutdown on SIGTERM/SIGINT.
 func (s *Server) Start() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -109,7 +145,7 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 
 	srv := &http.Server{
 		Addr:              s.addr,
-		Handler:           s.mux,
+		Handler:           s.handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

@@ -35,12 +35,6 @@ func cmdDiff(args []string) error {
 		return fmt.Errorf("failed to discover skills: %w", err)
 	}
 
-	// Build map of flat names (what gets synced to targets)
-	sourceSkills := make(map[string]bool)
-	for _, skill := range discovered {
-		sourceSkills[skill.FlatName] = true
-	}
-
 	targets := cfg.Targets
 	if targetName != "" {
 		if t, exists := cfg.Targets[targetName]; exists {
@@ -51,6 +45,14 @@ func cmdDiff(args []string) error {
 	}
 
 	for name, target := range targets {
+		filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
+		if err != nil {
+			return fmt.Errorf("target %s has invalid include/exclude config: %w", name, err)
+		}
+		sourceSkills := make(map[string]bool, len(filtered))
+		for _, skill := range filtered {
+			sourceSkills[skill.FlatName] = true
+		}
 		showTargetDiff(name, target, cfg.Source, sourceSkills)
 	}
 

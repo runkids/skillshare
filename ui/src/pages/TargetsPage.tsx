@@ -349,74 +349,87 @@ export default function TargetsPage() {
       {/* Targets list */}
       {targets.length > 0 ? (
         <div className="space-y-4">
-          {targets.map((target, i) => (
-            <Card
-              key={target.name}
-              className={i % 2 === 0 ? 'rotate-[-0.2deg]' : 'rotate-[0.2deg]'}
-            >
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <Target size={16} strokeWidth={2.5} className="text-success shrink-0" />
-                    <span
-                      className="font-bold text-pencil"
-                      style={{ fontFamily: 'var(--font-heading)' }}
+          {targets.map((target, i) => {
+            const expectedCount = target.expectedSkillCount || sourceSkillCount;
+            const hasDrift = target.mode === 'merge' && target.status === 'merged' && target.linkedCount < expectedCount;
+            return (
+              <Card
+                key={target.name}
+                className={i % 2 === 0 ? 'rotate-[-0.2deg]' : 'rotate-[0.2deg]'}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <Target size={16} strokeWidth={2.5} className="text-success shrink-0" />
+                      <span
+                        className="font-bold text-pencil"
+                        style={{ fontFamily: 'var(--font-heading)' }}
+                      >
+                        {target.name}
+                      </span>
+                      <StatusBadge status={target.status} />
+                      <span
+                        className="text-sm text-muted-dark border border-dashed border-muted-dark px-1.5 py-0.5"
+                        style={{ borderRadius: wobbly.sm }}
+                      >
+                        {target.mode}
+                      </span>
+                    </div>
+                    <p
+                      className="text-sm text-pencil-light truncate"
+                      style={{ fontFamily: "'Courier New', monospace" }}
                     >
-                      {target.name}
-                    </span>
-                    <StatusBadge status={target.status} />
-                    <span
-                      className="text-sm text-muted-dark border border-dashed border-muted-dark px-1.5 py-0.5"
-                      style={{ borderRadius: wobbly.sm }}
-                    >
-                      {target.mode}
-                    </span>
-                  </div>
-                  <p
-                    className="text-sm text-pencil-light truncate"
-                    style={{ fontFamily: "'Courier New', monospace" }}
-                  >
-                    {shortenHome(target.path)}
-                  </p>
-                  {target.mode === 'merge' && (() => {
-                    const hasDrift = target.status === 'merged' && target.linkedCount < sourceSkillCount;
-                    return (
+                      {shortenHome(target.path)}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {target.include?.length > 0 && (
+                        <span className="text-xs text-blue bg-blue-light px-1.5 py-0.5" style={{ borderRadius: wobbly.sm }}>
+                          include: {target.include.join(', ')}
+                        </span>
+                      )}
+                      {target.exclude?.length > 0 && (
+                        <span className="text-xs text-danger bg-danger-light px-1.5 py-0.5" style={{ borderRadius: wobbly.sm }}>
+                          exclude: {target.exclude.join(', ')}
+                        </span>
+                      )}
+                    </div>
+                    {target.mode === 'merge' && (
                       <p className={`text-sm mt-1 ${hasDrift ? 'text-warning' : 'text-muted-dark'}`}>
                         {hasDrift ? (
                           <span className="flex items-center gap-1">
                             <AlertTriangle size={12} strokeWidth={2.5} />
-                            {target.linkedCount}/{sourceSkillCount} shared, {target.localCount} local
+                            {target.linkedCount}/{expectedCount} shared, {target.localCount} local
                           </span>
                         ) : (
                           <>{target.linkedCount} shared, {target.localCount} local</>
                         )}
                       </p>
-                    );
-                  })()}
-                </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  {target.mode === 'merge' && target.localCount > 0 && (
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {target.mode === 'merge' && target.localCount > 0 && (
+                      <button
+                        onClick={() => setCollecting(target.name)}
+                        className="w-8 h-8 flex items-center justify-center text-muted-dark hover:text-blue transition-colors cursor-pointer border-2 border-transparent hover:border-blue"
+                        style={{ borderRadius: wobbly.sm }}
+                        title="Collect local skills"
+                      >
+                        <ArrowDownToLine size={16} strokeWidth={2.5} />
+                      </button>
+                    )}
                     <button
-                      onClick={() => setCollecting(target.name)}
-                      className="w-8 h-8 flex items-center justify-center text-muted-dark hover:text-blue transition-colors cursor-pointer border-2 border-transparent hover:border-blue"
+                      onClick={() => setRemoving(target.name)}
+                      className="w-8 h-8 flex items-center justify-center text-muted-dark hover:text-danger transition-colors cursor-pointer border-2 border-transparent hover:border-danger"
                       style={{ borderRadius: wobbly.sm }}
-                      title="Collect local skills"
+                      title="Remove target"
                     >
-                      <ArrowDownToLine size={16} strokeWidth={2.5} />
+                      <Trash2 size={16} strokeWidth={2.5} />
                     </button>
-                  )}
-                  <button
-                    onClick={() => setRemoving(target.name)}
-                    className="w-8 h-8 flex items-center justify-center text-muted-dark hover:text-danger transition-colors cursor-pointer border-2 border-transparent hover:border-danger"
-                    style={{ borderRadius: wobbly.sm }}
-                    title="Remove target"
-                  >
-                    <Trash2 size={16} strokeWidth={2.5} />
-                  </button>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </div>
       ) : (
         <EmptyState

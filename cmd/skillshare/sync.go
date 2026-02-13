@@ -191,7 +191,7 @@ func syncMergeMode(name string, target config.TargetConfig, source string, dryRu
 	}
 
 	// Prune orphan links (skills that no longer exist in source)
-	pruneResult, pruneErr := sync.PruneOrphanLinks(target.Path, source, dryRun)
+	pruneResult, pruneErr := sync.PruneOrphanLinks(target.Path, source, target.Include, target.Exclude, dryRun)
 	if pruneErr != nil {
 		ui.Warning("%s: prune failed: %v", name, pruneErr)
 	}

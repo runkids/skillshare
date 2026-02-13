@@ -345,6 +345,10 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills: %w", err)
 	}
+	discoveredSkills, err = FilterSkills(discoveredSkills, target.Include, target.Exclude)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply filters for target %s: %w", name, err)
+	}
 
 	for _, skill := range discoveredSkills {
 		// Use flat name in target (e.g., "personal__writing__email")
@@ -422,26 +426,37 @@ type PruneResult struct {
 	Warnings []string // Items that were kept with warnings
 }
 
-// PruneOrphanLinks removes orphan symlinks from target that no longer exist in source.
-// Uses a three-layer safety check:
-// 1. Dead symlinks pointing to source directory -> remove
-// 2. Directories with __ separator or @ prefix (skillshare-managed) -> remove if orphan
-// 3. Unknown directories -> keep and warn
-func PruneOrphanLinks(targetPath, sourcePath string, dryRun bool) (*PruneResult, error) {
+// PruneOrphanLinks removes target entries that are no longer managed by sync.
+// This includes:
+// 1. Source-linked entries excluded by include/exclude filters (remove from target)
+// 2. Orphan links/directories that no longer exist in source
+// 3. Unknown local directories (kept with warning)
+func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, dryRun bool) (*PruneResult, error) {
 	result := &PruneResult{}
 
-	// Get current valid skills from source
-	discoveredSkills, err := DiscoverSourceSkills(sourcePath)
+	// Discover all skills from source, then filter to target-managed skills.
+	allSourceSkills, err := DiscoverSourceSkills(sourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills for pruning: %w", err)
+	}
+	managedSkills, err := FilterSkills(allSourceSkills, include, exclude)
+	if err != nil {
+		return nil, fmt.Errorf("failed to apply filters for pruning: %w", err)
+	}
+	includePatterns, err := normalizePatterns(include)
+	if err != nil {
+		return nil, fmt.Errorf("invalid include pattern for pruning: %w", err)
+	}
+	excludePatterns, err := normalizePatterns(exclude)
+	if err != nil {
+		return nil, fmt.Errorf("invalid exclude pattern for pruning: %w", err)
 	}
 
 	// Build a set of valid flat names
 	validFlatNames := make(map[string]bool)
-	for _, skill := range discoveredSkills {
+	for _, skill := range managedSkills {
 		validFlatNames[skill.FlatName] = true
 	}
-
 	// Scan target directory
 	entries, err := os.ReadDir(targetPath)
 	if err != nil {
@@ -470,6 +485,32 @@ func PruneOrphanLinks(targetPath, sourcePath string, dryRun bool) (*PruneResult,
 		// Check if this entry is still valid
 		if validFlatNames[name] {
 			continue // Still exists in source, keep it
+		}
+		managedByFilter := shouldSyncFlatName(name, includePatterns, excludePatterns)
+
+		// For names outside current filter scope:
+		// - remove only symlinks/junctions that point to source (historical sync artifacts)
+		// - preserve local directories/files owned by users
+		if !managedByFilter {
+			if utils.IsSymlinkOrJunction(entryPath) {
+				absLink, err := utils.ResolveLinkTarget(entryPath)
+				if err != nil {
+					result.Warnings = append(result.Warnings,
+						fmt.Sprintf("%s: unable to resolve excluded link target, kept", name))
+					continue
+				}
+				if strings.HasPrefix(absLink, absSource+string(filepath.Separator)) {
+					if dryRun {
+						fmt.Printf("[dry-run] Would remove excluded symlink: %s\n", entryPath)
+					} else if err := os.RemoveAll(entryPath); err != nil {
+						result.Warnings = append(result.Warnings,
+							fmt.Sprintf("%s: failed to remove excluded symlink: %v", name, err))
+						continue
+					}
+					result.Removed = append(result.Removed, name)
+				}
+			}
+			continue
 		}
 
 		// Entry is orphan - determine if we should remove it

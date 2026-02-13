@@ -463,3 +463,189 @@ targets:
 		t.Error("local skill directory should be preserved")
 	}
 }
+
+func TestSync_MergeMode_IncludeFilter(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("codex-plan", map[string]string{"SKILL.md": "# Codex"})
+	sb.CreateSkill("claude-help", map[string]string{"SKILL.md": "# Claude"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+    include: [codex-*]
+`)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	if !sb.IsSymlink(filepath.Join(targetPath, "codex-plan")) {
+		t.Error("included skill should be symlinked")
+	}
+	if sb.FileExists(filepath.Join(targetPath, "claude-help")) {
+		t.Error("non-included skill should not be synced")
+	}
+}
+
+func TestSync_MergeMode_ExcludeFilter(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("codex-plan", map[string]string{"SKILL.md": "# Codex"})
+	sb.CreateSkill("claude-help", map[string]string{"SKILL.md": "# Claude"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+    exclude: [claude-*]
+`)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	if !sb.IsSymlink(filepath.Join(targetPath, "codex-plan")) {
+		t.Error("non-excluded skill should be symlinked")
+	}
+	if sb.FileExists(filepath.Join(targetPath, "claude-help")) {
+		t.Error("excluded skill should not be synced")
+	}
+}
+
+func TestSync_MergeMode_IncludeThenExclude(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("codex-plan", map[string]string{"SKILL.md": "# Plan"})
+	sb.CreateSkill("codex-test", map[string]string{"SKILL.md": "# Test"})
+	sb.CreateSkill("claude-help", map[string]string{"SKILL.md": "# Claude"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+    include: [codex-*]
+    exclude: ["*-test"]
+`)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	if !sb.IsSymlink(filepath.Join(targetPath, "codex-plan")) {
+		t.Error("included skill should be symlinked")
+	}
+	if sb.FileExists(filepath.Join(targetPath, "codex-test")) {
+		t.Error("exclude should be applied after include")
+	}
+	if sb.FileExists(filepath.Join(targetPath, "claude-help")) {
+		t.Error("skills outside include should not be synced")
+	}
+}
+
+func TestSync_Pruning_RemovesExcludedSourceLinkedSkill(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("keep-me", map[string]string{"SKILL.md": "# Keep"})
+	sb.CreateSkill("exclude-me", map[string]string{"SKILL.md": "# Exclude"})
+	targetPath := sb.CreateTarget("claude")
+
+	// Initial sync with no filters so both links exist.
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	// Add an exclude filter and sync again.
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+    exclude: [exclude-*]
+`)
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	if !sb.IsSymlink(filepath.Join(targetPath, "keep-me")) {
+		t.Error("non-excluded skill should stay synced")
+	}
+	if sb.FileExists(filepath.Join(targetPath, "exclude-me")) {
+		t.Error("excluded source-linked skill should be removed by sync")
+	}
+}
+
+func TestSync_Pruning_PreservesExcludedSourceLocalCopy(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("exclude-me", map[string]string{"SKILL.md": "# Source"})
+	targetPath := sb.CreateTarget("claude")
+
+	// Create local copy in target (not symlink)
+	localSkillPath := filepath.Join(targetPath, "exclude-me")
+	if err := os.MkdirAll(localSkillPath, 0755); err != nil {
+		t.Fatalf("failed to create local skill dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(localSkillPath, "SKILL.md"), []byte("# Local"), 0644); err != nil {
+		t.Fatalf("failed to write local skill: %v", err)
+	}
+
+	// First sync keeps local copy (no force).
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+	sb.RunCLI("sync").AssertSuccess(t)
+	if !sb.FileExists(localSkillPath) {
+		t.Fatal("local copy should exist before exclude")
+	}
+
+	// Add exclude and sync again - local copy should stay.
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+    exclude: [exclude-*]
+`)
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	if !sb.FileExists(localSkillPath) {
+		t.Error("excluded source skill local copy should be preserved")
+	}
+}
+
+func TestSync_MergeMode_InvalidFilterPatternFails(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# Skill"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+    include: ["["]
+`)
+
+	result := sb.RunCLI("sync")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "invalid include pattern")
+}

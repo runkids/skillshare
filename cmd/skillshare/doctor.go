@@ -156,6 +156,15 @@ func checkTargets(cfg *config.Config, result *doctorResult) {
 		if mode == "" {
 			mode = "merge"
 		}
+		if _, err := sync.FilterSkills(nil, target.Include, target.Exclude); err != nil {
+			ui.Error("%s [%s]: invalid include/exclude config: %v", name, mode, err)
+			result.addError()
+			continue
+		}
+		if mode != "merge" && (len(target.Include) > 0 || len(target.Exclude) > 0) {
+			ui.Warning("%s [%s]: include/exclude ignored in symlink mode", name, mode)
+			result.addWarning()
+		}
 
 		targetIssues := checkTargetIssues(target, cfg.Source)
 
@@ -245,10 +254,6 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult) {
 	if err != nil {
 		return
 	}
-	sourceCount := len(discovered)
-	if sourceCount == 0 {
-		return
-	}
 
 	for name, target := range cfg.Targets {
 		mode := target.Mode
@@ -261,14 +266,24 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult) {
 		if mode != "merge" {
 			continue
 		}
+		filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
+		if err != nil {
+			ui.Error("%s: invalid include/exclude config: %v", name, err)
+			result.addError()
+			continue
+		}
+		expectedCount := len(filtered)
+		if expectedCount == 0 {
+			continue
+		}
 
 		status, linkedCount, _ := sync.CheckStatusMerge(target.Path, cfg.Source)
 		if status != sync.StatusMerged {
 			continue
 		}
-		if linkedCount < sourceCount {
-			drift := sourceCount - linkedCount
-			ui.Warning("%s: %d skill(s) not synced (%d/%d linked)", name, drift, linkedCount, sourceCount)
+		if linkedCount < expectedCount {
+			drift := expectedCount - linkedCount
+			ui.Warning("%s: %d skill(s) not synced (%d/%d linked)", name, drift, linkedCount, expectedCount)
 			result.addWarning()
 		}
 	}

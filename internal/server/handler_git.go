@@ -239,7 +239,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 					res.Updated = mergeResult.Updated
 					res.Skipped = mergeResult.Skipped
 				}
-				pruneResult, err := ssync.PruneOrphanLinks(target.Path, src, false)
+				pruneResult, err := ssync.PruneOrphanLinks(target.Path, src, target.Include, target.Exclude, false)
 				if err == nil {
 					res.Pruned = pruneResult.Removed
 				}

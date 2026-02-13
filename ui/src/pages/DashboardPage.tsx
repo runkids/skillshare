@@ -702,10 +702,13 @@ function TargetsHealthSection() {
 
   const sourceSkillCount = data?.sourceSkillCount ?? 0;
   const driftTargets = (data?.targets ?? []).filter(
-    (t) => t.mode === 'merge' && t.status === 'merged' && t.linkedCount < sourceSkillCount
+    (t) => {
+      const expected = t.expectedSkillCount || sourceSkillCount;
+      return t.mode === 'merge' && t.status === 'merged' && t.linkedCount < expected;
+    }
   );
   const maxDrift = driftTargets.reduce(
-    (max, t) => Math.max(max, sourceSkillCount - t.linkedCount),
+    (max, t) => Math.max(max, (t.expectedSkillCount || sourceSkillCount) - t.linkedCount),
     0
   );
 
@@ -738,7 +741,8 @@ function TargetsHealthSection() {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {data.targets.map((t: TargetType) => {
-              const hasDrift = t.mode === 'merge' && t.status === 'merged' && t.linkedCount < sourceSkillCount;
+              const expected = t.expectedSkillCount || sourceSkillCount;
+              const hasDrift = t.mode === 'merge' && t.status === 'merged' && t.linkedCount < expected;
               return (
                 <Link key={t.name} to="/targets">
                   <div
@@ -757,7 +761,7 @@ function TargetsHealthSection() {
                     <div className="flex items-center gap-2 shrink-0 ml-2">
                       <StatusBadge status={t.status} />
                       {hasDrift ? (
-                        <Badge variant="warning">{t.linkedCount}/{sourceSkillCount} synced</Badge>
+                        <Badge variant="warning">{t.linkedCount}/{expected} synced</Badge>
                       ) : t.linkedCount > 0 ? (
                         <span className="text-xs text-muted-dark">{t.linkedCount} linked</span>
                       ) : null}

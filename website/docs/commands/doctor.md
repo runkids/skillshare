@@ -54,9 +54,10 @@ Summary
 For each target:
 - Path exists and is writable
 - Sync mode matches actual state
-- Sync drift (linked count vs source count)
+- Sync drift (linked count vs target expected count after `include`/`exclude`)
 - No broken symlinks
 - No duplicate skills (symlink mode)
+- Valid include/exclude glob patterns
 
 ### Version
 
@@ -136,7 +137,7 @@ Checking targets
   ✓ claude    [merge]: merged (8 shared, 2 local)
   ✗ cursor    [merge]: 2 broken symlink(s): old-skill, removed-skill
   ⚠ codex     [merge->needs sync]: linked (needs sync to apply merge mode)
-  ⚠ claude: 2 skill(s) not synced (10/12 linked)
+  ⚠ claude: 1 skill(s) not synced (2/3 linked)
 
 ⚠ Skills without SKILL.md: test-dir, temp
 

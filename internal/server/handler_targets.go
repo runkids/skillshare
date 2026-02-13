@@ -14,16 +14,20 @@ import (
 )
 
 type targetItem struct {
-	Name        string `json:"name"`
-	Path        string `json:"path"`
-	Mode        string `json:"mode"`
-	Status      string `json:"status"`
-	LinkedCount int    `json:"linkedCount"`
-	LocalCount  int    `json:"localCount"`
+	Name               string   `json:"name"`
+	Path               string   `json:"path"`
+	Mode               string   `json:"mode"`
+	Status             string   `json:"status"`
+	LinkedCount        int      `json:"linkedCount"`
+	LocalCount         int      `json:"localCount"`
+	Include            []string `json:"include"`
+	Exclude            []string `json:"exclude"`
+	ExpectedSkillCount int      `json:"expectedSkillCount"`
 }
 
 func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 	items := make([]targetItem, 0, len(s.cfg.Targets))
+	discovered, discoveredErr := ssync.DiscoverSourceSkills(s.cfg.Source)
 
 	globalMode := s.cfg.Mode
 	if globalMode == "" {
@@ -40,9 +44,29 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 			Name: name,
 			Path: target.Path,
 			Mode: mode,
+			Include: func() []string {
+				if len(target.Include) == 0 {
+					return []string{}
+				}
+				return append([]string(nil), target.Include...)
+			}(),
+			Exclude: func() []string {
+				if len(target.Exclude) == 0 {
+					return []string{}
+				}
+				return append([]string(nil), target.Exclude...)
+			}(),
 		}
 
 		if mode == "merge" {
+			if discoveredErr == nil {
+				filtered, err := ssync.FilterSkills(discovered, target.Include, target.Exclude)
+				if err != nil {
+					writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
+					return
+				}
+				item.ExpectedSkillCount = len(filtered)
+			}
 			status, linked, local := ssync.CheckStatusMerge(target.Path, s.cfg.Source)
 			item.Status = status.String()
 			item.LinkedCount = linked
@@ -57,7 +81,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 
 	// Count source skills for drift detection
 	sourceSkillCount := 0
-	if discovered, err := ssync.DiscoverSourceSkills(s.cfg.Source); err == nil {
+	if discoveredErr == nil {
 		sourceSkillCount = len(discovered)
 	}
 

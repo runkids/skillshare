@@ -97,7 +97,7 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | GET | `/api/skills` | List all skills with metadata |
 | GET | `/api/skills/{name}` | Skill detail + SKILL.md content |
 | DELETE | `/api/skills/{name}` | Uninstall a skill |
-| GET | `/api/targets` | List targets with status |
+| GET | `/api/targets` | List targets with status, include/exclude filters, and per-target expected counts |
 | POST | `/api/targets` | Add a target |
 | DELETE | `/api/targets/{name}` | Remove a target |
 | POST | `/api/sync` | Run sync (supports `dryRun`, `force`) |
