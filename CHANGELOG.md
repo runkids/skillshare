@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.12.4] - 2026-02-13
+
+### Added
+- **Graceful shutdown** — HTTP server handles SIGTERM/SIGINT with 10s drain period, safe for container orchestrators
+- **Server timeouts** — ReadHeaderTimeout (5s), ReadTimeout (15s), WriteTimeout (30s), IdleTimeout (60s) prevent slow-client resource exhaustion
+- **Enhanced health endpoint** — `/api/health` now returns `version` and `uptime_seconds`
+- **Production Docker image** (`docker/production/Dockerfile`) — multi-stage build, `tini` PID 1, non-root user (UID 10001), auto-init entrypoint, healthcheck
+- **CI Docker image** (`docker/ci/Dockerfile`) — minimal image for `skillshare audit` in pipelines
+- **Docker dev profile** — `make dev-docker-up` runs Go API server in Docker for frontend development without local Go
+- **Multi-arch Docker build** — `make docker-build-multiarch` produces linux/amd64 + linux/arm64 images
+- **Docker publish workflow** (`.github/workflows/docker-publish.yml`) — auto-builds and pushes production + CI images to GHCR on tag push
+- **`make sandbox-status`** — show playground container status
+
+### Changed
+- **Compose security hardening** — playground: `read_only`, `cap_drop: ALL`, `tmpfs` with exec; all profiles: `no-new-privileges`, resource limits (2 CPU / 2G)
+- **Test scripts DRY** — `test_docker.sh` accepts `--online` flag; `test_docker_online.sh` is now a thin wrapper
+- **Compose version check** — `_sandbox_common.sh` verifies Docker Compose v2.20+ with platform-specific install hints
+- **`.dockerignore` expanded** — excludes `.github/`, `website/`, editor temp files
+- **Git command timeout** — increased from 60s to 180s for constrained Docker/CI networks
+- **Online test timeout** — increased from 120s to 300s
+
+### Fixed
+- **Sandbox `chmod` failure** — playground volume init now uses `--cap-add ALL` to work with `cap_drop: ALL`
+- **Dev profile crash on first run** — auto-runs `skillshare init` before starting UI server
+- **Sandbox Dockerfile missing `curl`** — added for playground healthcheck
+
 ## [0.12.2] - 2026-02-13
 
 ### Fixed
