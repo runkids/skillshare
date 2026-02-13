@@ -375,6 +375,20 @@ export default function SearchPage() {
               </HandButton>
             </div>
           )}
+          <p className="text-sm text-muted-dark mt-3 flex items-center gap-1.5">
+            <Globe size={12} strokeWidth={2} />
+            Found an awesome skill? Submit a PR to
+            {' '}
+            <a
+              href="https://github.com/runkids/skillshare-hub"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue hover:underline"
+            >
+              skillshare-hub
+            </a>
+            .
+          </p>
         </Card>
       )}
 

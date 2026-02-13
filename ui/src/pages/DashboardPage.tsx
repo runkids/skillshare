@@ -7,7 +7,8 @@ import {
   Info,
   ArrowRight,
   RefreshCw,
-
+  Star,
+  X,
   Download,
   GitBranch,
   AlertTriangle,
@@ -30,10 +31,16 @@ import { useAppContext } from '../context/AppContext';
 import { wobbly, shadows } from '../design';
 import { shortenHome } from '../lib/paths';
 
+const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
+
 export default function DashboardPage() {
   const { data, loading, error } = useApi(() => api.getOverview());
   const [updatingAll, setUpdatingAll] = useState(false);
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
+  const [showStarCta, setShowStarCta] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.localStorage.getItem(STAR_CTA_DISMISSED_KEY) !== '1';
+  });
   const { toast } = useToast();
   const { isProjectMode } = useAppContext();
 
@@ -68,6 +75,12 @@ export default function DashboardPage() {
     } finally {
       setUpdatingAll(false);
     }
+  };
+
+  const dismissStarCta = () => {
+    setShowStarCta(false);
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(STAR_CTA_DISMISSED_KEY, '1');
   };
 
   const stats = [
@@ -178,6 +191,52 @@ export default function DashboardPage() {
           This is where your skills live. All targets sync from here.
         </p>
       </Card>
+
+      {/* Support CTA */}
+      {showStarCta && (
+        <Card variant="postit" className="mb-8">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div
+                className="w-10 h-10 bg-warning-light border-2 border-pencil flex items-center justify-center shrink-0"
+                style={{ borderRadius: '50%' }}
+              >
+                <Star size={18} strokeWidth={2.5} className="text-warning" />
+              </div>
+              <div>
+                <h3
+                  className="text-lg font-bold text-pencil"
+                  style={{ fontFamily: 'var(--font-heading)' }}
+                >
+                  Enjoying skillshare?
+                </h3>
+                <p className="text-sm text-pencil-light mt-1">
+                  If skillshare saved you time, please give us a star on GitHub:
+                  {' '}
+                  <a
+                    href="https://github.com/runkids/skillshare"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue hover:underline"
+                  >
+                    github.com/runkids/skillshare ⭐
+                  </a>
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={dismissStarCta}
+              className="shrink-0 p-1 text-pencil-light hover:text-pencil border border-transparent hover:border-muted transition-colors"
+              style={{ borderRadius: wobbly.sm }}
+              aria-label="Dismiss star reminder"
+              title="Dismiss"
+            >
+              <X size={16} strokeWidth={2.5} />
+            </button>
+          </div>
+        </Card>
+      )}
 
       {/* Tracked Repositories (hidden in project mode) */}
       {!isProjectMode && data.trackedRepos && data.trackedRepos.length > 0 && (

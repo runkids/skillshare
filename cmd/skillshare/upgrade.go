@@ -76,7 +76,16 @@ func cmdUpgrade(args []string) error {
 	if cliErr != nil {
 		return cliErr
 	}
-	return skillErr
+	if skillErr != nil {
+		return skillErr
+	}
+
+	if !dryRun && (upgradeCLI || upgradeSkill) {
+		fmt.Println()
+		ui.Info("If skillshare saved you time, please give us a star on GitHub: https://github.com/runkids/skillshare")
+	}
+
+	return nil
 }
 
 func upgradeCLIBinary(dryRun, force bool) error {
