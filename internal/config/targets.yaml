@@ -67,6 +67,10 @@ targets:
     project_name: cursor
     global_path: "~/.cursor/skills"
     project_path: ".cursor/skills"
+  - global_name: deepagents
+    project_name: deep-agents
+    global_path: "~/.deepagents/agent/skills"
+    project_path: ".deepagents/skills"
   - global_name: droid
     project_name: droid
     global_path: "~/.agents/skills"
