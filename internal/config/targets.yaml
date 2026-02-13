@@ -74,7 +74,7 @@ targets:
   - global_name: gemini
     project_name: gemini-cli
     global_path: "~/.gemini/skills"
-    project_path: ".agents/skills"
+    project_path: ".gemini/skills"
   - global_name: goose
     project_name: goose
     global_path: "~/.config/goose/skills"

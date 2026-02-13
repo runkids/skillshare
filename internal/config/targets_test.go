@@ -34,7 +34,7 @@ func TestGroupedProjectTargets_AgentsGrouped(t *testing.T) {
 		memberSet[m] = true
 	}
 
-	expectedMembers := []string{"amp", "codex", "droid", "gemini-cli", "github-copilot", "opencode", "replit"}
+	expectedMembers := []string{"amp", "codex", "droid", "github-copilot", "opencode", "replit"}
 	for _, name := range expectedMembers {
 		if !memberSet[name] {
 			t.Errorf("expected %q in agents group members, got %v", name, agentsGroup.Members)
