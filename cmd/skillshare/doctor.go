@@ -34,8 +34,39 @@ func (r *doctorResult) addWarning() {
 }
 
 func cmdDoctor(args []string) error {
+	mode, rest, err := parseModeArgs(args)
+	if err != nil {
+		return err
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("cannot determine working directory: %w", err)
+	}
+
+	if mode == modeAuto {
+		if projectConfigExists(cwd) {
+			mode = modeProject
+		} else {
+			mode = modeGlobal
+		}
+	}
+
+	applyModeLabel(mode)
+
+	if len(rest) > 0 {
+		return fmt.Errorf("unexpected arguments: %v", rest)
+	}
+
 	ui.Logo(version)
 
+	if mode == modeProject {
+		return cmdDoctorProject(cwd)
+	}
+	return cmdDoctorGlobal()
+}
+
+func cmdDoctorGlobal() error {
 	ui.Header("Checking environment")
 	result := &doctorResult{}
 
@@ -52,6 +83,51 @@ func cmdDoctor(args []string) error {
 		return nil
 	}
 
+	runDoctorChecks(cfg, result)
+	checkBackupStatus(false, config.ConfigPath())
+	checkTrashStatus(trash.TrashDir())
+	checkVersionDoctor(cfg)
+	checkForUpdates()
+	printDoctorSummary(result)
+
+	return nil
+}
+
+func cmdDoctorProject(root string) error {
+	ui.Header("Checking environment")
+	result := &doctorResult{}
+
+	cfgPath := config.ProjectConfigPath(root)
+	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+		ui.Error("Project config not found: run 'skillshare init -p' first")
+		return nil
+	}
+	ui.Success("Config: %s", cfgPath)
+
+	rt, err := loadProjectRuntime(root)
+	if err != nil {
+		ui.Error("Config error: %v", err)
+		return nil
+	}
+
+	cfg := &config.Config{
+		Source:  rt.sourcePath,
+		Targets: rt.targets,
+		Mode:    "merge",
+		Audit:   rt.config.Audit,
+	}
+
+	runDoctorChecks(cfg, result)
+	checkBackupStatus(true, cfgPath)
+	checkTrashStatus(trash.ProjectTrashDir(root))
+	checkVersionDoctor(cfg)
+	checkForUpdates()
+	printDoctorSummary(result)
+
+	return nil
+}
+
+func runDoctorChecks(cfg *config.Config, result *doctorResult) {
 	// Check source exists
 	checkSource(cfg, result)
 
@@ -75,20 +151,9 @@ func cmdDoctor(args []string) error {
 
 	// Check duplicate skills
 	checkDuplicateSkills(cfg, result)
+}
 
-	// Check backup status
-	checkBackupStatus()
-
-	// Check trash status
-	checkTrashStatus()
-
-	// Check CLI and skill version
-	checkVersionDoctor(cfg)
-
-	// Check for CLI updates
-	checkForUpdates()
-
-	// Summary
+func printDoctorSummary(result *doctorResult) {
 	ui.Header("Summary")
 	if result.errors == 0 && result.warnings == 0 {
 		ui.Success("All checks passed!")
@@ -98,7 +163,6 @@ func cmdDoctor(args []string) error {
 		ui.Error("%d error(s), %d warning(s)", result.errors, result.warnings)
 	}
 
-	return nil
 }
 
 func checkSource(cfg *config.Config, result *doctorResult) {
@@ -459,8 +523,13 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult) {
 }
 
 // checkBackupStatus shows last backup time
-func checkBackupStatus() {
-	backupDir := filepath.Join(filepath.Dir(config.ConfigPath()), "backups")
+func checkBackupStatus(isProject bool, cfgPath string) {
+	if isProject {
+		ui.Info("Backups: not used in project mode")
+		return
+	}
+
+	backupDir := filepath.Join(filepath.Dir(cfgPath), "backups")
 	entries, err := os.ReadDir(backupDir)
 	if err != nil || len(entries) == 0 {
 		ui.Info("Backups: none found")
@@ -500,8 +569,7 @@ func checkBackupStatus() {
 }
 
 // checkTrashStatus shows trash directory status
-func checkTrashStatus() {
-	trashBase := trash.TrashDir()
+func checkTrashStatus(trashBase string) {
 	if trashBase == "" {
 		return
 	}

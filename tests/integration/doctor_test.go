@@ -334,3 +334,34 @@ targets: {}
 	result.AssertOutputContains(t, "Backup")
 	result.AssertOutputContains(t, "none")
 }
+
+func TestDoctor_ProjectMode_AutoDetectsProjectConfig(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude-code")
+	sb.CreateProjectSkill(projectRoot, "project-skill", map[string]string{"SKILL.md": "# Project Skill"})
+
+	result := sb.RunCLIInDir(projectRoot, "doctor")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "(project)")
+	result.AssertOutputContains(t, ".skillshare/config.yaml")
+	result.AssertOutputContains(t, ".skillshare/skills")
+	result.AssertOutputContains(t, "Backups: not used in project mode")
+}
+
+func TestDoctor_ProjectMode_WithFlagUsesProjectConfig(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude-code")
+	sb.CreateProjectSkill(projectRoot, "project-skill", map[string]string{"SKILL.md": "# Project Skill"})
+
+	result := sb.RunCLIInDir(projectRoot, "doctor", "-p")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "(project)")
+	result.AssertOutputContains(t, ".skillshare/config.yaml")
+	result.AssertOutputContains(t, ".skillshare/skills")
+}

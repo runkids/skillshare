@@ -8,6 +8,8 @@ Check environment and diagnose issues with your skillshare setup.
 
 ```bash
 skillshare doctor
+skillshare doctor -p     # Project mode (.skillshare/config.yaml)
+skillshare doctor -g     # Force global mode
 ```
 
 ![doctor demo](/img/doctor-demo.png)
@@ -68,9 +70,18 @@ For each target:
 ### Other
 
 - Skills without `SKILL.md` files
-- Last backup timestamp
+- Last backup timestamp (global mode)
 - Trash status (item count, total size, oldest item age)
 - Broken symlinks in targets
+
+:::note Project Mode
+When a project has `.skillshare/config.yaml`, `skillshare doctor` auto-runs in project mode.
+
+In project mode:
+- Config/source checks use `.skillshare/config.yaml` and `.skillshare/skills`
+- Trash status uses `.skillshare/trash`
+- Backups show `not used in project mode`
+:::
 
 ## Common Issues
 
