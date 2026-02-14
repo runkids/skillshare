@@ -25,7 +25,7 @@ export const handTheme = EditorView.theme({
     color: 'var(--color-muted-dark)',
     border: 'none',
     borderRight: '2px dashed var(--color-muted)',
-    fontFamily: "'Patrick Hand', cursive",
+    fontFamily: "'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace",
     fontSize: '13px',
   },
   '.cm-activeLineGutter': {

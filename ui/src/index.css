@@ -24,8 +24,8 @@
   --color-info-light: #d6e4f0;
 
   /* Typography */
-  --font-hand: 'Patrick Hand', cursive;
-  --font-heading: 'Kalam', cursive;
+  --font-hand: 'Inter', sans-serif;
+  --font-heading: 'Inter', sans-serif;
 
   /* Shadows (hard offset, no blur) */
   --shadow-sm: 3px 3px 0px 0px rgba(45, 45, 45, 0.12);

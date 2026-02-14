@@ -383,7 +383,7 @@ export default function TargetsPage() {
                     </p>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {target.include?.length > 0 && (
-                        <span className="text-xs text-blue bg-blue-light px-1.5 py-0.5" style={{ borderRadius: wobbly.sm }}>
+                        <span className="text-xs text-blue bg-info-light px-1.5 py-0.5" style={{ borderRadius: wobbly.sm }}>
                           include: {target.include.join(', ')}
                         </span>
                       )}

@@ -1,11 +1,11 @@
 /**
- * skillshare Design System — Hand-Drawn Edition
- * Light: paper texture, pencil lines, post-it accents
- * Dark: chalkboard green, chalk-white text, dashed borders
- * Typography: Kalam (headings) + IBM Plex Sans (body) + JetBrains Mono (code)
+ * skillshare Design System — Sketchy Organic Edition
+ * Light: paper texture, pencil lines, post-it accents, wobbly borders
+ * Dark: warm parchment night, chalk-white text, dashed borders
+ * Typography: Inter (headings) + IBM Plex Sans (body) + JetBrains Mono (code)
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Patrick+Hand&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Kalam:wght@700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* ========================================
    LIGHT MODE — Paper
@@ -63,7 +63,7 @@
 
   /* Typography */
   --ifm-font-size-base: 17px;
-  --ifm-heading-font-family: 'Kalam', cursive;
+  --ifm-heading-font-family: 'Inter', sans-serif;
   --ifm-font-family-base: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   --ifm-font-family-monospace: 'JetBrains Mono', 'Fira Code', monospace;
   --ifm-font-weight-semibold: 600;
@@ -171,7 +171,7 @@ body {
   color: var(--color-pencil);
 }
 
-/* Headings in Kalam */
+/* Headings in Inter */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--ifm-heading-font-family);
 }
@@ -187,7 +187,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .navbar__title {
-  font-family: 'Kalam', cursive;
+  font-family: 'Inter', sans-serif;
   font-weight: 700;
   font-size: 1.3rem;
 }
@@ -280,9 +280,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .footer__title {
-  font-family: 'Kalam', cursive;
+  font-family: 'Inter', sans-serif;
   font-size: 0.92rem;
-  font-weight: 700;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-muted-dark);
@@ -499,13 +499,13 @@ a {
   border: 1px solid rgba(232, 168, 76, 0.35);
 }
 
-/* Category labels in Kalam */
+/* Category labels in Inter */
 .menu__list-item-collapsible {
   border-radius: 8px;
 }
 
 .menu__list-item-collapsible > .menu__link {
-  font-family: 'Kalam', cursive;
+  font-family: 'Inter', sans-serif;
   font-weight: 700;
 }
 
@@ -641,7 +641,7 @@ table {
 
 th {
   background: var(--color-postit);
-  font-family: 'Kalam', cursive;
+  font-family: 'Inter', sans-serif;
   font-weight: 700;
   font-size: 0.92rem;
   padding: 0.75rem 1rem;
@@ -683,8 +683,9 @@ td + td {
 }
 
 .admonition-heading h5 {
-  font-family: 'Kalam', cursive;
+  font-family: 'Inter', sans-serif;
   font-size: 0.95rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -779,7 +780,7 @@ blockquote {
 }
 
 .pagination-nav__label {
-  font-family: 'Kalam', cursive;
+  font-family: 'Inter', sans-serif;
   font-weight: 700;
 }
 
@@ -791,7 +792,7 @@ blockquote {
   padding: 0.25rem 0.5rem;
   border-radius: 6px;
   transition: all 0.2s ease;
-  font-family: 'Kalam', cursive;
+  font-family: 'Inter', sans-serif;
 }
 
 .breadcrumbs__link:hover {

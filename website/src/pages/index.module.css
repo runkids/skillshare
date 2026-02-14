@@ -447,7 +447,7 @@
 
 .sectionTitle {
   text-align: center;
-  font-family: 'Kalam', cursive;
+  font-family: 'Inter', sans-serif;
   font-size: 2rem;
   margin-bottom: 0.75rem;
   color: var(--color-pencil);
@@ -571,7 +571,7 @@
 }
 
 .whyCardTitle {
-  font-family: 'Kalam', cursive;
+  font-family: 'Inter', sans-serif;
   font-size: 1rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
@@ -701,7 +701,7 @@
 }
 
 .uiHighlightTitle {
-  font-family: 'Kalam', cursive;
+  font-family: 'Inter', sans-serif;
   font-size: 1rem;
   font-weight: 700;
   margin-bottom: 0.35rem;
@@ -731,12 +731,12 @@
 
 .supportedTitle {
   color: var(--color-pencil-light);
-  font-family: 'Kalam', cursive;
+  font-family: 'Inter', sans-serif;
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   margin-bottom: 1.5rem;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .cliLogos {
