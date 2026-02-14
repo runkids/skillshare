@@ -83,7 +83,7 @@ func cmdDoctorGlobal() error {
 		return nil
 	}
 
-	runDoctorChecks(cfg, result)
+	runDoctorChecks(cfg, result, false)
 	checkBackupStatus(false, config.ConfigPath())
 	checkTrashStatus(trash.TrashDir())
 	checkVersionDoctor(cfg)
@@ -117,7 +117,7 @@ func cmdDoctorProject(root string) error {
 		Audit:   rt.config.Audit,
 	}
 
-	runDoctorChecks(cfg, result)
+	runDoctorChecks(cfg, result, true)
 	checkBackupStatus(true, cfgPath)
 	checkTrashStatus(trash.ProjectTrashDir(root))
 	checkVersionDoctor(cfg)
@@ -127,15 +127,17 @@ func cmdDoctorProject(root string) error {
 	return nil
 }
 
-func runDoctorChecks(cfg *config.Config, result *doctorResult) {
+func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 	// Check source exists
 	checkSource(cfg, result)
 
 	// Check symlink support
 	checkSymlinkSupport(result)
 
-	// Check git status
-	checkGitStatus(cfg.Source, result)
+	// Check git status (skip in project mode — the project itself has version control)
+	if !isProject {
+		checkGitStatus(cfg.Source, result)
+	}
 
 	// Check skills validity
 	checkSkillsValidity(cfg.Source, result)
@@ -400,6 +402,12 @@ func checkSkillsValidity(source string, result *doctorResult) {
 	var invalid []string
 	for _, entry := range entries {
 		if !entry.IsDir() || utils.IsHidden(entry.Name()) {
+			continue
+		}
+
+		// Tracked repos (_prefix) are container directories for nested skills;
+		// they don't need a SKILL.md at the top level.
+		if utils.IsTrackedRepoDir(entry.Name()) {
 			continue
 		}
 
