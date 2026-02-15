@@ -50,7 +50,7 @@ skillshare ui --no-open &
 | Page | Description |
 |------|-------------|
 | **Dashboard** | Overview cards — skill count, target count, sync mode, version |
-| **Skills** | Searchable skill grid with metadata. Click to view SKILL.md content |
+| **Skills** | Searchable skill grid with metadata. Toggle between **Grid** and **Grouped** (by directory) views. Click to view SKILL.md content |
 | **Install** | Install from local path, git URL, or GitHub shorthand |
 | **Targets** | Target list with status badges. Add/remove targets |
 | **Sync** | Sync controls with dry-run toggle. Diff preview |

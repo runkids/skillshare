@@ -82,7 +82,7 @@ skillshare install anthropics/skills
   <img src="/img/install-demo.png" alt="install demo" width="720" />
 </p>
 
-Discovery scans all directories for `SKILL.md` files, skipping only `.git`. This means skills inside hidden directories like `.curated/` or `.system/` are discovered automatically.
+Discovery scans all directories for `SKILL.md` files, skipping only `.git`. This means skills inside hidden directories like `.curated/` or `.system/` are discovered automatically. When multiple skills are found, the selection prompt groups them by directory for easier browsing.
 
 **Tip**: Use `--dry-run` to preview without installing:
 ```bash

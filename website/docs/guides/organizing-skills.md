@@ -83,14 +83,22 @@ Skillshare converts folder paths to flat names using `__` (double underscore) as
 
 ### list
 
-Shows auto-flattened names (what AI CLIs see):
+Skills in the same directory are grouped together automatically:
 
 ```bash
 $ skillshare list -g
-  → frontend__vue__vue-best-practices     github.com/vuejs-ai/skills/...
-  → utils__remotion                       github.com/remotion-dev/skills/...
-  → web-dev__accessibility                github.com/addyosmani/web-quality-...
+
+  frontend/vue/
+    → vue-best-practices     github.com/vuejs-ai/skills/...
+
+  utils/
+    → remotion               github.com/remotion-dev/skills/...
+
+  web-dev/
+    → accessibility          github.com/addyosmani/web-quality-...
 ```
+
+Within each group, skills show their base name (not the full flat name). Top-level skills appear ungrouped at the bottom. If all skills are top-level, the output is a flat list — identical to the old format.
 
 ### check
 

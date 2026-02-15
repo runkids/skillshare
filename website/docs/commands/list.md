@@ -17,17 +17,25 @@ skillshare list --verbose    # Detailed view
 
 ### Compact View
 
+Skills are automatically grouped by directory when you use folders to organize them:
+
 ```
 Installed skills
 ─────────────────────────────────────────
+
+  frontend/
+    → react-helper        github.com/user/skills
+    → vue-helper          github.com/user/skills
+
   → my-skill              local
   → commit-commands       github.com/user/skills
-  → _team-skills:review   tracked: _team-skills
 
 Tracked repositories
 ─────────────────────────────────────────
   ✓ _team-skills          3 skills, up-to-date
 ```
+
+If all skills are at the top level (no folders), the output is a flat list — identical to previous versions.
 
 ### Verbose View
 
@@ -38,6 +46,18 @@ skillshare list --verbose
 ```
 Installed skills
 ─────────────────────────────────────────
+
+  frontend/
+    react-helper
+      Source:      github.com/user/skills
+      Type:        github
+      Installed:   2026-01-15
+
+    vue-helper
+      Source:      github.com/user/skills
+      Type:        github
+      Installed:   2026-01-15
+
   my-skill
     Source:      (local - no metadata)
 
@@ -45,12 +65,6 @@ Installed skills
     Source:      github.com/user/skills
     Type:        github
     Installed:   2026-01-15
-
-  _team-skills:review
-    Tracked repo: _team-skills
-    Source:      github.com/team/skills
-    Type:        github
-    Installed:   2026-01-10
 
 Tracked repositories
 ─────────────────────────────────────────
@@ -78,8 +92,9 @@ Skillshare operates at two levels. The `list` command shows skills from the acti
 │          ▼                              ▼                   │
 │  Installed skills               Installed skills (project)  │
 │  ─────────────────              ──────────────────────────  │
+│  frontend/                      tools/                      │
+│    → react..  github.com/...      → pdf  github.com/...     │
 │  → my-skill  local              → local-skill   local       │
-│  → commit..  github.com/...     → remote-skill  github.com/ │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -129,14 +144,17 @@ skillshare list -p       # Explicit project mode
 ```
 Installed skills (project)
 ─────────────────────────────────────────
+
+  tools/
+    → pdf               anthropic/skills/pdf
+    → review            github.com/team/tools
+
   → my-skill            local
-  → pdf                 anthropic/skills/pdf
-  → review              github.com/team/tools
 
 → 3 skill(s): 2 remote, 1 local
 ```
 
-Project list uses the same visual format as global list, with `(project)` label in the header. Skills are categorized as `local` (no metadata) or by source URL (remote).
+Project list uses the same visual format as global list, with `(project)` label in the header. Skills are grouped by directory and categorized as `local` (no metadata) or by source URL (remote).
 
 ## Options
 
