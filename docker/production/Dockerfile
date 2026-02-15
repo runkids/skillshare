@@ -1,27 +1,17 @@
 # Production Dockerfile — lightweight single-binary image
 # Build: docker build -f docker/production/Dockerfile -t skillshare .
 
-# Stage 1: Build frontend assets
-FROM node:22-bookworm-slim AS ui-builder
-RUN npm install -g pnpm@latest
-WORKDIR /ui
-COPY ui/package.json ui/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-COPY ui/ ./
-RUN pnpm run build
-
-# Stage 2: Build Go binary
+# Stage 1: Build Go binary
 FROM golang:1.25.5-bookworm AS go-builder
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-COPY --from=ui-builder /ui/dist internal/server/dist/
 ARG TARGETARCH=amd64
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
     go build -trimpath -ldflags="-s -w" -o /skillshare ./cmd/skillshare
 
-# Stage 3: Minimal runtime
+# Stage 2: Minimal runtime
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash git ca-certificates curl tini && \

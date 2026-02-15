@@ -10,6 +10,8 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/server"
 	"skillshare/internal/ui"
+	"skillshare/internal/uidist"
+	versionpkg "skillshare/internal/version"
 )
 
 func cmdUI(args []string) error {
@@ -40,6 +42,12 @@ func cmdUI(args []string) error {
 			}
 		case "--no-open":
 			noOpen = true
+		case "--clear-cache":
+			if err := uidist.ClearCache(); err != nil {
+				return fmt.Errorf("failed to clear UI cache: %w", err)
+			}
+			ui.Success("UI cache cleared.")
+			return nil
 		default:
 			return fmt.Errorf("unknown flag: %s", rest[i])
 		}
@@ -66,6 +74,40 @@ func cmdUI(args []string) error {
 	return startGlobalUI(addr, url, noOpen)
 }
 
+// ensureUIAvailable checks whether the UI is cached and downloads it if needed.
+// Returns the disk directory to serve from, or "" for dev mode (placeholder).
+func ensureUIAvailable() (string, error) {
+	ver := versionpkg.Version
+
+	// Check cache first — works for all versions including "dev"
+	// (e.g., Docker playground pre-populates cache for "dev")
+	if dir, ok := uidist.IsCached(ver); ok {
+		return dir, nil
+	}
+
+	if ver == "dev" || ver == "" {
+		// Dev mode without cached UI: use placeholder, Vite serves the frontend
+		return "", nil
+	}
+
+	// Download with spinner
+	sp := ui.StartSpinner("Downloading UI assets...")
+	if err := uidist.Download(ver); err != nil {
+		sp.Fail("Download failed")
+		fmt.Println()
+		ui.Warning("Install with the full installer to get the web UI:")
+		fmt.Println("  curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh")
+		return "", fmt.Errorf("could not download UI assets: %w", err)
+	}
+	sp.Success("UI assets downloaded and cached")
+
+	dir, ok := uidist.IsCached(ver)
+	if !ok {
+		return "", fmt.Errorf("UI assets were downloaded but cache verification failed")
+	}
+	return dir, nil
+}
+
 func startProjectUI(addr, url string, noOpen bool) error {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -88,11 +130,9 @@ func startProjectUI(addr, url string, noOpen bool) error {
 		Mode:    "merge",
 	}
 
-	if !server.IsUIBuilt() {
-		ui.Warning("Web UI is not included in this build.")
-		ui.Warning("Install with the full installer to get the web UI:")
-		fmt.Println("  curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh")
-		return nil
+	uiDir, err := ensureUIAvailable()
+	if err != nil {
+		return err
 	}
 
 	if !noOpen {
@@ -100,7 +140,7 @@ func startProjectUI(addr, url string, noOpen bool) error {
 		openBrowser(url)
 	}
 
-	srv := server.NewProject(cfg, rt.config, cwd, addr)
+	srv := server.NewProject(cfg, rt.config, cwd, addr, uiDir)
 	return srv.Start()
 }
 
@@ -110,11 +150,9 @@ func startGlobalUI(addr, url string, noOpen bool) error {
 		return err
 	}
 
-	if !server.IsUIBuilt() {
-		ui.Warning("Web UI is not included in this build.")
-		ui.Warning("Install with the full installer to get the web UI:")
-		fmt.Println("  curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh")
-		return nil
+	uiDir, err := ensureUIAvailable()
+	if err != nil {
+		return err
 	}
 
 	if !noOpen {
@@ -122,7 +160,7 @@ func startGlobalUI(addr, url string, noOpen bool) error {
 		openBrowser(url)
 	}
 
-	srv := server.New(cfg, addr)
+	srv := server.New(cfg, addr, uiDir)
 	return srv.Start()
 }
 

@@ -39,12 +39,10 @@ jobs:
           cache-dependency-path: ui/pnpm-lock.yaml
 
       - name: Build UI assets
-        run: make ui-build
+        run: cd ui && pnpm install --frozen-lockfile && pnpm run build
 
-      - name: Verify embedded UI assets exist
-        run: |
-          test -f internal/server/dist/index.html
-          test -n "$(find internal/server/dist/assets -maxdepth 1 -type f | head -n 1)"
+      - name: Create UI dist archive
+        run: tar czf skillshare-ui-dist.tar.gz -C ui/dist .
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6

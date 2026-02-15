@@ -64,6 +64,16 @@ func BuildDownloadURL(version string) (string, error) {
 	return url, nil
 }
 
+// BuildUIDistURL constructs the direct download URL for the UI dist tarball
+func BuildUIDistURL(ver string) string {
+	return fmt.Sprintf("https://github.com/%s/releases/download/v%s/skillshare-ui-dist.tar.gz", githubRepo, ver)
+}
+
+// BuildChecksumsURL constructs the direct download URL for the checksums file
+func BuildChecksumsURL(ver string) string {
+	return fmt.Sprintf("https://github.com/%s/releases/download/v%s/checksums.txt", githubRepo, ver)
+}
+
 // newGitHubClient creates an HTTP client with optional auth
 func newGitHubClient() *http.Client {
 	return &http.Client{Timeout: 10 * time.Second}

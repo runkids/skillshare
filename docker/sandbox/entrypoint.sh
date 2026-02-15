@@ -1,9 +1,12 @@
 #!/bin/bash
-# Docker entrypoint: ensure pre-built frontend assets are available for go:embed.
-# The host volume mount (.:/workspace) may not include internal/server/dist/
-# (gitignored), so we copy from the Docker-built /ui-dist if needed.
-if [ -d /ui-dist ] && [ ! -f internal/server/dist/index.html ]; then
-  mkdir -p internal/server/dist
-  cp -r /ui-dist/* internal/server/dist/
+# Docker entrypoint: populate UI cache from pre-built /ui-dist if available.
+# This allows "skillshare ui" to serve the full React SPA in the playground
+# even though the binary version is "dev" (no runtime download needed).
+if [ -d /ui-dist ] && [ -n "$HOME" ]; then
+  cache_dir="$HOME/.cache/skillshare/ui/dev"
+  if [ ! -f "$cache_dir/index.html" ]; then
+    mkdir -p "$cache_dir"
+    cp -r /ui-dist/* "$cache_dir/"
+  fi
 fi
 exec "$@"

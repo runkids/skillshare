@@ -28,28 +28,36 @@ type Server struct {
 	// Project mode fields (empty/nil for global mode)
 	projectRoot string
 	projectCfg  *config.ProjectConfig
+
+	// uiDistDir, when non-empty, serves UI from this disk directory
+	// instead of the embedded SPA. Used for runtime-downloaded UI assets.
+	uiDistDir string
 }
 
-// New creates a new Server for global mode
-func New(cfg *config.Config, addr string) *Server {
+// New creates a new Server for global mode.
+// uiDistDir, when non-empty, serves UI from disk instead of the embedded SPA.
+func New(cfg *config.Config, addr, uiDistDir string) *Server {
 	s := &Server{
-		cfg:  cfg,
-		addr: addr,
-		mux:  http.NewServeMux(),
+		cfg:       cfg,
+		addr:      addr,
+		mux:       http.NewServeMux(),
+		uiDistDir: uiDistDir,
 	}
 	s.registerRoutes()
 	s.handler = s.withConfigAutoReload(s.mux)
 	return s
 }
 
-// NewProject creates a new Server for project mode
-func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoot, addr string) *Server {
+// NewProject creates a new Server for project mode.
+// uiDistDir, when non-empty, serves UI from disk instead of the embedded SPA.
+func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoot, addr, uiDistDir string) *Server {
 	s := &Server{
 		cfg:         cfg,
 		addr:        addr,
 		mux:         http.NewServeMux(),
 		projectRoot: projectRoot,
 		projectCfg:  projectCfg,
+		uiDistDir:   uiDistDir,
 	}
 	s.registerRoutes()
 	s.handler = s.withConfigAutoReload(s.mux)
@@ -260,7 +268,11 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/config/available-targets", s.handleAvailableTargets)
 
 	// SPA fallback — must be last
-	s.mux.Handle("/", spaHandler())
+	if s.uiDistDir != "" {
+		s.mux.Handle("/", spaHandlerFromDisk(s.uiDistDir))
+	} else {
+		s.mux.Handle("/", uiPlaceholderHandler())
+	}
 }
 
 // handleHealth responds with status, version, and uptime

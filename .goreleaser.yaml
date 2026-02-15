@@ -5,8 +5,6 @@ project_name: skillshare
 before:
   hooks:
     - go mod tidy
-    - test -f internal/server/dist/index.html
-    - 'test -n "$(find internal/server/dist/assets -maxdepth 1 -type f | head -n 1)"'
 
 builds:
   - main: ./cmd/skillshare
@@ -32,6 +30,8 @@ archives:
 
 checksum:
   name_template: "checksums.txt"
+  extra_files:
+    - glob: skillshare-ui-dist.tar.gz
 
 changelog:
   sort: asc
@@ -40,6 +40,10 @@ changelog:
       - "^docs:"
       - "^test:"
       - "^ci:"
+
+release:
+  extra_files:
+    - glob: skillshare-ui-dist.tar.gz
 
 brews:
   - repository:

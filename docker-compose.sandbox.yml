@@ -59,7 +59,6 @@ services:
       GITHUB_TOKEN: ${SKILLSHARE_PLAYGROUND_GITHUB_TOKEN:-}
     volumes:
       - .:/workspace:ro
-      - /workspace/internal/server/dist  # writable overlay for go:embed (entrypoint copies UI assets here)
       - go-mod-cache:/go/pkg/mod
       - go-build-cache:/go/build-cache
       - playground-home:/sandbox-home
@@ -81,8 +80,8 @@ services:
       - -c
       - >-
         cd /workspace &&
-        go run -tags dev ./cmd/skillshare init -g --no-copy --no-git --skill 2>/dev/null;
-        go run -tags dev ./cmd/skillshare ui -g --no-open --host 0.0.0.0
+        go run ./cmd/skillshare init -g --no-copy --no-git --skill 2>/dev/null;
+        go run ./cmd/skillshare ui -g --no-open --host 0.0.0.0
     ports:
       - "19420:19420"
     environment:

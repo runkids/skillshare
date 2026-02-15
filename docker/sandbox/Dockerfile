@@ -1,4 +1,4 @@
-# Stage 1: Build frontend assets
+# Stage 1: Build frontend assets (for playground UI)
 FROM node:22-bookworm-slim AS ui-builder
 RUN npm install -g pnpm@latest
 WORKDIR /ui
@@ -14,10 +14,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends bash git ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy pre-built frontend for go:embed at build time
+# Copy pre-built frontend for playground UI cache
 COPY --from=ui-builder /ui/dist /ui-dist
 
-# Entrypoint copies /ui-dist → internal/server/dist/ when missing (fixes gitignore)
 COPY docker/sandbox/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 

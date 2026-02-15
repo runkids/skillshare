@@ -21,6 +21,7 @@ Opens `http://127.0.0.1:19420` in your default browser.
 | `--port <port>` | `19420` | HTTP server port |
 | `--host <host>` | `127.0.0.1` | Bind address (use `0.0.0.0` for Docker) |
 | `--no-open` | `false` | Don't open browser automatically |
+| `--clear-cache` | | Clear downloaded UI cache and exit |
 
 :::tip Auto-Detection
 If `.skillshare/config.yaml` exists in the current directory, the dashboard automatically starts in project mode. Use `-g` to force global mode.
@@ -114,7 +115,7 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 
 ## Docker Usage
 
-The playground container includes pre-built frontend assets. To use the web UI inside Docker:
+To use the web UI inside Docker (requires network access for first-time UI download):
 
 ```bash
 make sandbox-up
@@ -139,26 +140,34 @@ Or simply `skillshare ui` if `.skillshare/config.yaml` exists (auto-detected).
 
 The dashboard reads and writes `.skillshare/config.yaml`, syncs to project-local targets, and reconciles remote skill entries after install — just like the CLI.
 
+## Runtime UI Download
+
+`skillshare ui` automatically downloads pre-built UI assets from the matching GitHub Release on first launch. The assets are cached in `~/.cache/skillshare/ui/<version>/` (respects `XDG_CACHE_HOME`) so subsequent launches are instant and offline.
+
+- **First run** requires an internet connection to download the UI assets (~1 MB)
+- **Subsequent runs** use the cached assets — no network needed
+- **On upgrade**, old cached versions are automatically cleaned up; the new UI is pre-downloaded during `skillshare upgrade`
+- **To clear the cache manually**, run `skillshare ui --clear-cache`
+
 ## Homebrew Note
 
-The Homebrew formula (`brew install skillshare`) is optimized for CLI-only usage and does not include the web UI. If you installed via Homebrew and want the dashboard, reinstall with the full installer:
+All install methods (Homebrew, installer script, manual binary) use runtime UI download. When you run `skillshare ui`, it automatically downloads the UI assets from GitHub on first launch. After that, the cached assets are used offline.
+
+To clear the downloaded UI cache:
 
 ```bash
-brew uninstall skillshare
-curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
+skillshare ui --clear-cache
 ```
-
-All other CLI commands work identically regardless of install method.
 
 ## Architecture
 
-The web UI is a single-page React application embedded in the Go binary via `go:embed`. No external dependencies are needed at runtime — just the `skillshare` binary.
+The web UI is a single-page React application downloaded at runtime from the matching GitHub Release and served from disk cache (`~/.cache/skillshare/ui/<version>/`).
 
 ```
 skillshare ui
   ├── Go HTTP server (net/http)
   │   ├── /api/*    → REST API handlers
-  │   └── /*        → Embedded React SPA
+  │   └── /*        → Cached React SPA (runtime download)
   └── Browser opens http://127.0.0.1:19420
 ```
 

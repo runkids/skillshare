@@ -30,21 +30,15 @@ echo "  mise run fmt            # format Go files"
 echo "  mise run fmt:check      # verify formatting only"
 echo "  mise run check          # fmt:check + lint + test"
 echo "  mise run ui:install     # install frontend dependencies"
-echo "  mise run ui:build       # build frontend + copy to embed"
+echo "  mise run ui:build       # build frontend"
 echo "  mise run ui:dev         # Go API server + Vite dev server (requires local Go)"
-echo "  mise run build:all     # ui:build + build (full binary)"
+echo "  mise run build:all     # ui:build + build"
 echo "  mise run clean          # remove build artifacts"
 """
 
 [tasks.build]
 description = "Build the skillshare binary"
-run = """
-if [ ! -f internal/server/dist/index.html ]; then
-  mkdir -p internal/server/dist
-  printf '<!DOCTYPE html><html><body><h1>UI not built</h1><p>Run: mise run build:all</p></body></html>' > internal/server/dist/index.html
-fi
-mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare
-"""
+run = "mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare"
 
 [tasks."build:meta"]
 description = "Build with version metadata"
@@ -148,19 +142,15 @@ description = "Install frontend dependencies"
 run = "cd ui && pnpm install"
 
 [tasks."ui:build"]
-description = "Build frontend and copy to embed directory"
+description = "Build frontend"
 depends = ["ui:install"]
-run = """
-(cd ui && pnpm run build)
-rm -rf internal/server/dist
-cp -r ui/dist internal/server/dist
-"""
+run = "cd ui && pnpm run build"
 
 [tasks."ui:dev"]
 description = "Go API server + Vite dev server"
 run = """
 trap 'kill 0' EXIT
-go run -tags dev ./cmd/skillshare ui --no-open &
+go run ./cmd/skillshare ui --no-open &
 cd ui && pnpm run dev
 """
 

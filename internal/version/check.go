@@ -31,8 +31,8 @@ type CheckResult struct {
 	UpdateAvailable bool
 }
 
-// getCacheDir returns the cache directory, respecting XDG_CACHE_HOME
-func getCacheDir() (string, error) {
+// GetCacheDir returns the cache directory, respecting XDG_CACHE_HOME
+func GetCacheDir() (string, error) {
 	// XDG Base Directory Specification: use XDG_CACHE_HOME if set
 	if cacheHome := os.Getenv("XDG_CACHE_HOME"); cacheHome != "" {
 		return filepath.Join(cacheHome, "skillshare"), nil
@@ -47,7 +47,7 @@ func getCacheDir() (string, error) {
 
 // getCachePath returns the path to the cache file
 func getCachePath() (string, error) {
-	cacheDir, err := getCacheDir()
+	cacheDir, err := GetCacheDir()
 	if err != nil {
 		return "", err
 	}
