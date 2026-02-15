@@ -1218,3 +1218,132 @@ func TestInstall_SkillAndTrackConflict(t *testing.T) {
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "--skill cannot be used with --track")
 }
+
+// TestInstall_SubdirFuzzyResolve tests that when a subdir doesn't exist at the
+// exact path, the installer scans the repo for a matching skill by basename.
+// e.g. "owner/repo/pdf" where "pdf" lives at "skills/pdf/SKILL.md".
+func TestInstall_SubdirFuzzyResolve(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// Create a git repo where skills live under a skills/ prefix
+	gitRepoPath := filepath.Join(sb.Root, "fuzzy-repo")
+	skillPath := filepath.Join(gitRepoPath, "skills", "pdf")
+	os.MkdirAll(skillPath, 0755)
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# PDF Skill"), 0644)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = gitRepoPath
+	if err := cmd.Run(); err != nil {
+		t.Skip("git not available, skipping git test")
+	}
+
+	for _, c := range [][]string{
+		{"config", "user.email", "test@test.com"},
+		{"config", "user.name", "Test"},
+		{"add", "."},
+		{"commit", "-m", "Initial commit"},
+	} {
+		cmd = exec.Command("git", c...)
+		cmd.Dir = gitRepoPath
+		cmd.Run()
+	}
+
+	// Construct source with subdir "pdf" (simulates GitHub URL like owner/repo/pdf)
+	source := &install.Source{
+		Type:     install.SourceTypeGitHTTPS,
+		Raw:      "file://" + gitRepoPath + "/pdf",
+		CloneURL: "file://" + gitRepoPath,
+		Subdir:   "pdf",
+		Name:     "pdf",
+	}
+
+	destPath := filepath.Join(sb.SourcePath, "pdf")
+	result, err := install.Install(source, destPath, install.InstallOptions{})
+	if err != nil {
+		t.Fatalf("Install() error = %v", err)
+	}
+
+	if result.Action != "cloned and extracted" {
+		t.Errorf("Action = %q, want %q", result.Action, "cloned and extracted")
+	}
+
+	// Verify skill was installed
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "pdf", "SKILL.md")) {
+		t.Error("pdf skill should be installed via fuzzy subdir resolution")
+	}
+
+	// Verify content is correct
+	content := sb.ReadFile(filepath.Join(sb.SourcePath, "pdf", "SKILL.md"))
+	if !strings.Contains(content, "PDF Skill") {
+		t.Error("installed skill should have correct content")
+	}
+}
+
+// TestInstall_SubdirFuzzyResolve_Discovery tests fuzzy resolution through the
+// DiscoverFromGitSubdir path (multi-skill subdir with discovery).
+func TestInstall_SubdirFuzzyResolve_Discovery(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// Create a git repo: skills/frontend/SKILL.md + skills/frontend/child-a/SKILL.md
+	gitRepoPath := filepath.Join(sb.Root, "fuzzy-discover-repo")
+	parentPath := filepath.Join(gitRepoPath, "skills", "frontend")
+	childPath := filepath.Join(parentPath, "child-a")
+	os.MkdirAll(parentPath, 0755)
+	os.MkdirAll(childPath, 0755)
+	os.WriteFile(filepath.Join(parentPath, "SKILL.md"), []byte("# Frontend"), 0644)
+	os.WriteFile(filepath.Join(childPath, "SKILL.md"), []byte("# Child A"), 0644)
+
+	cmd := exec.Command("git", "init")
+	cmd.Dir = gitRepoPath
+	if err := cmd.Run(); err != nil {
+		t.Skip("git not available, skipping git test")
+	}
+
+	for _, c := range [][]string{
+		{"config", "user.email", "test@test.com"},
+		{"config", "user.name", "Test"},
+		{"add", "."},
+		{"commit", "-m", "Initial commit"},
+	} {
+		cmd = exec.Command("git", c...)
+		cmd.Dir = gitRepoPath
+		cmd.Run()
+	}
+
+	// Construct source with subdir "frontend" (simulates GitHub URL like owner/repo/frontend)
+	source := &install.Source{
+		Type:     install.SourceTypeGitHTTPS,
+		Raw:      "file://" + gitRepoPath + "/frontend",
+		CloneURL: "file://" + gitRepoPath,
+		Subdir:   "frontend",
+		Name:     "frontend",
+	}
+
+	discovery, err := install.DiscoverFromGitSubdir(source)
+	if err != nil {
+		t.Fatalf("DiscoverFromGitSubdir() error = %v", err)
+	}
+	defer install.CleanupDiscovery(discovery)
+
+	if len(discovery.Skills) == 0 {
+		t.Fatal("expected at least 1 skill discovered")
+	}
+
+	// Should find the root skill of the subdir + child
+	var foundRoot bool
+	for _, sk := range discovery.Skills {
+		if sk.Path == "." {
+			foundRoot = true
+		}
+	}
+	if !foundRoot {
+		t.Error("expected root skill of resolved subdir to be discovered")
+	}
+}

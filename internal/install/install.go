@@ -220,6 +220,45 @@ func DiscoverFromGit(source *Source) (*DiscoveryResult, error) {
 	}, nil
 }
 
+// resolveSubdir resolves a subdirectory path within a cloned repo.
+// It first checks for an exact match. If not found, it scans the repo for
+// SKILL.md files and looks for a skill whose name matches filepath.Base(subdir).
+// Returns the resolved subdir path (may differ from input) or an error.
+func resolveSubdir(repoPath, subdir string) (string, error) {
+	// 1. Exact match — fast path
+	exact := filepath.Join(repoPath, subdir)
+	info, err := os.Stat(exact)
+	if err == nil {
+		if !info.IsDir() {
+			return "", fmt.Errorf("'%s' is not a directory", subdir)
+		}
+		return subdir, nil
+	}
+	if !os.IsNotExist(err) {
+		return "", fmt.Errorf("cannot access subdirectory: %w", err)
+	}
+
+	// 2. Fuzzy match — scan for SKILL.md files whose directory basename matches
+	baseName := filepath.Base(subdir)
+	skills := discoverSkills(repoPath, false) // exclude root
+	var candidates []string
+	for _, sk := range skills {
+		if sk.Name == baseName {
+			candidates = append(candidates, sk.Path)
+		}
+	}
+
+	switch len(candidates) {
+	case 0:
+		return "", fmt.Errorf("subdirectory '%s' does not exist in repository", subdir)
+	case 1:
+		return candidates[0], nil
+	default:
+		return "", fmt.Errorf("subdirectory '%s' is ambiguous — multiple matches found:\n  %s",
+			subdir, strings.Join(candidates, "\n  "))
+	}
+}
+
 // discoverSkills finds directories containing SKILL.md
 // If includeRoot is true, root-level SKILL.md is also included (with Path=".")
 func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
@@ -285,20 +324,17 @@ func DiscoverFromGitSubdir(source *Source) (*DiscoveryResult, error) {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	// Verify subdirectory exists
-	subdirPath := filepath.Join(repoPath, source.Subdir)
-	info, err := os.Stat(subdirPath)
+	// Resolve subdirectory (exact match or fuzzy by skill name)
+	resolved, err := resolveSubdir(repoPath, source.Subdir)
 	if err != nil {
 		os.RemoveAll(tempDir)
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("subdirectory '%s' does not exist in repository", source.Subdir)
-		}
-		return nil, fmt.Errorf("cannot access subdirectory: %w", err)
+		return nil, err
 	}
-	if !info.IsDir() {
-		os.RemoveAll(tempDir)
-		return nil, fmt.Errorf("'%s' is not a directory", source.Subdir)
+	if resolved != source.Subdir {
+		source.Subdir = resolved
+		source.Name = filepath.Base(resolved)
 	}
+	subdirPath := filepath.Join(repoPath, resolved)
 
 	// Discover skills within the subdirectory (include root)
 	skills := discoverSkills(subdirPath, true)
@@ -424,18 +460,17 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	// Verify subdirectory exists
-	subdirPath := filepath.Join(tempRepoPath, source.Subdir)
-	info, err := os.Stat(subdirPath)
+	// Resolve subdirectory (exact match or fuzzy by skill name)
+	resolved, err := resolveSubdir(tempRepoPath, source.Subdir)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("subdirectory '%s' does not exist in repository", source.Subdir)
-		}
-		return nil, fmt.Errorf("cannot access subdirectory: %w", err)
+		return nil, err
 	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("'%s' is not a directory", source.Subdir)
+	if resolved != source.Subdir {
+		source.Subdir = resolved
+		source.Name = filepath.Base(resolved)
+		result.SkillName = source.Name
 	}
+	subdirPath := filepath.Join(tempRepoPath, resolved)
 
 	// Copy subdirectory to destination
 	if err := copyDir(subdirPath, destPath); err != nil {

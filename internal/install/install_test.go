@@ -148,6 +148,87 @@ func TestDiscoverSkills_FindsHiddenDirs(t *testing.T) {
 	}
 }
 
+func TestResolveSubdir(t *testing.T) {
+	t.Run("exact match", func(t *testing.T) {
+		repoPath := t.TempDir()
+		// Create exact subdir with SKILL.md
+		os.MkdirAll(filepath.Join(repoPath, "vue"), 0755)
+		os.WriteFile(filepath.Join(repoPath, "vue", "SKILL.md"), []byte("# Vue"), 0644)
+
+		resolved, err := resolveSubdir(repoPath, "vue")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resolved != "vue" {
+			t.Errorf("resolved = %q, want %q", resolved, "vue")
+		}
+	})
+
+	t.Run("fuzzy match via nested skill", func(t *testing.T) {
+		repoPath := t.TempDir()
+		// Skill lives under skills/ prefix, not at root
+		os.MkdirAll(filepath.Join(repoPath, "skills", "vue"), 0755)
+		os.WriteFile(filepath.Join(repoPath, "skills", "vue", "SKILL.md"), []byte("# Vue"), 0644)
+
+		resolved, err := resolveSubdir(repoPath, "vue")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resolved != "skills/vue" {
+			t.Errorf("resolved = %q, want %q", resolved, "skills/vue")
+		}
+	})
+
+	t.Run("no match", func(t *testing.T) {
+		repoPath := t.TempDir()
+		// Empty repo — no skills at all
+		_, err := resolveSubdir(repoPath, "nonexistent")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "does not exist") {
+			t.Errorf("error = %q, want substring %q", err.Error(), "does not exist")
+		}
+	})
+
+	t.Run("ambiguous match", func(t *testing.T) {
+		repoPath := t.TempDir()
+		// Two different paths with same skill name
+		os.MkdirAll(filepath.Join(repoPath, "frontend", "pdf"), 0755)
+		os.WriteFile(filepath.Join(repoPath, "frontend", "pdf", "SKILL.md"), []byte("# PDF FE"), 0644)
+		os.MkdirAll(filepath.Join(repoPath, "backend", "pdf"), 0755)
+		os.WriteFile(filepath.Join(repoPath, "backend", "pdf", "SKILL.md"), []byte("# PDF BE"), 0644)
+
+		_, err := resolveSubdir(repoPath, "pdf")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "ambiguous") {
+			t.Errorf("error = %q, want substring %q", err.Error(), "ambiguous")
+		}
+		if !strings.Contains(err.Error(), "frontend/pdf") {
+			t.Errorf("error should list candidate 'frontend/pdf': %q", err.Error())
+		}
+		if !strings.Contains(err.Error(), "backend/pdf") {
+			t.Errorf("error should list candidate 'backend/pdf': %q", err.Error())
+		}
+	})
+
+	t.Run("not a directory", func(t *testing.T) {
+		repoPath := t.TempDir()
+		// Create a file (not dir) at the subdir path
+		os.WriteFile(filepath.Join(repoPath, "vue"), []byte("not a dir"), 0644)
+
+		_, err := resolveSubdir(repoPath, "vue")
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "not a directory") {
+			t.Errorf("error = %q, want substring %q", err.Error(), "not a directory")
+		}
+	})
+}
+
 func TestWrapGitError(t *testing.T) {
 	tests := []struct {
 		name       string
