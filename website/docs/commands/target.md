@@ -175,8 +175,8 @@ skillshare target add windsurf -p                                # Add known tar
 skillshare target add custom ./tools/ai/skills -p                # Add custom path
 skillshare target remove cursor -p                                # Remove target
 skillshare target list -p                                         # List project targets
-skillshare target claude-code -p                                  # Show target info
-skillshare target claude-code --add-include "team-*" -p          # Add filter
+skillshare target claude -p                                  # Show target info
+skillshare target claude --add-include "team-*" -p          # Add filter
 ```
 
 ### How It Differs
@@ -192,13 +192,13 @@ skillshare target claude-code --add-include "team-*" -p          # Add filter
 
 ```
 Project Targets
-  claude-code    .claude/skills (merge)
+  claude    .claude/skills (merge)
   cursor         .cursor/skills (merge)
   custom-tool    ./tools/ai/skills (merge)
 ```
 
 Targets in project mode support:
-- **Known target names** (e.g., `claude-code`, `cursor`) — resolved to project-local paths
+- **Known target names** (e.g., `claude`, `cursor`) — resolved to project-local paths
 - **Custom paths** — relative to project root or absolute with `~` expansion
 
 ## Related

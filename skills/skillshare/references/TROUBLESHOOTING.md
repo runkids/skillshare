@@ -77,7 +77,7 @@ AI cannot respond to CLI prompts. Always use flags:
 ```bash
 # Good (non-interactive)
 skillshare init --copy-from claude --all-targets --git
-skillshare init -p --targets "claude-code,cursor"
+skillshare init -p --targets "claude,cursor"
 skillshare uninstall my-skill --force
 skillshare uninstall my-skill --force -p
 

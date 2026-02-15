@@ -56,12 +56,12 @@ func TestSkillTargets_CrossModeMatching(t *testing.T) {
 	defer sb.Cleanup()
 
 	// Skill declares "claude" (global name), target is configured as "claude"
-	// but skill should also match if target were "claude-code" (project name)
+	// but skill should also match if target were "claude" (project name)
 	sb.CreateSkill("cross-skill", map[string]string{
 		"SKILL.md": "---\nname: cross-skill\ntargets: [claude]\n---\n# Cross",
 	})
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "cross-skill", map[string]string{
 		"SKILL.md": "---\nname: cross-skill\ntargets: [claude]\n---\n# Cross",
 	})
@@ -69,10 +69,10 @@ func TestSkillTargets_CrossModeMatching(t *testing.T) {
 	result := sb.RunCLIInDir(projectRoot, "sync", "-p")
 	result.AssertSuccess(t)
 
-	// claude-code target path
+	// claude target path
 	targetPath := filepath.Join(projectRoot, ".claude", "skills")
 	if !sb.IsSymlink(filepath.Join(targetPath, "cross-skill")) {
-		t.Error("skill with targets: [claude] should match claude-code target")
+		t.Error("skill with targets: [claude] should match claude target")
 	}
 }
 

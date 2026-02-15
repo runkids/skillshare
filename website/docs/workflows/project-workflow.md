@@ -159,7 +159,7 @@ skillshare target list -p
 
 ```
 Project Targets
-  claude-code    .claude/skills (merge)
+  claude    .claude/skills (merge)
   cursor         .cursor/skills (merge)
 ```
 
@@ -178,7 +178,7 @@ Source
   ✓ .skillshare/skills (3 skills)
 
 Targets
-  ✓ claude-code  [merge] .claude/skills (3 synced)
+  ✓ claude  [merge] .claude/skills (3 synced)
   ✓ cursor       [merge] .cursor/skills (3 synced)
 
 Remote Skills

@@ -244,7 +244,7 @@ targets:
 ```yaml
 # Option 2: Route with filters (project config)
 targets:
-  - name: claude-code
+  - name: claude
     exclude: [codex-*]
   - name: codex
     include: [codex-*]

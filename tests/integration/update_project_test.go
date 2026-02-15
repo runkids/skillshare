@@ -14,7 +14,7 @@ import (
 func TestUpdateProject_LocalSkill_Error(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "local", map[string]string{
 		"SKILL.md": "# Local",
 	})
@@ -27,7 +27,7 @@ func TestUpdateProject_LocalSkill_Error(t *testing.T) {
 func TestUpdateProject_NotFound_Error(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	result := sb.RunCLIInDir(projectRoot, "update", "ghost", "-p")
 	result.AssertFailure(t)
@@ -37,7 +37,7 @@ func TestUpdateProject_NotFound_Error(t *testing.T) {
 func TestUpdateProject_DryRun(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	skillDir := sb.CreateProjectSkill(projectRoot, "remote", map[string]string{
 		"SKILL.md": "# Remote",
@@ -54,7 +54,7 @@ func TestUpdateProject_DryRun(t *testing.T) {
 func TestUpdateProject_AllDryRun_SkipsLocal(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Local (no meta) - should be skipped
 	sb.CreateProjectSkill(projectRoot, "local-only", map[string]string{

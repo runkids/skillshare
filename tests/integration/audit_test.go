@@ -204,10 +204,10 @@ audit:
 func TestInstall_ProjectBlockThresholdHigh_BlocksHighFinding(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - claude-code
+  - claude
 audit:
   block_threshold: HIGH
 `)
@@ -361,7 +361,7 @@ func copyDirRecursive(t *testing.T, src, dst string) {
 func TestAudit_Project(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Create a skill in project
 	projectSkills := filepath.Join(projectRoot, ".skillshare", "skills")
@@ -439,7 +439,7 @@ func TestAudit_CustomRules_DisableBuiltin(t *testing.T) {
 func TestAudit_ProjectCustomRules(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Create a skill with "FIXME"
 	projectSkills := filepath.Join(projectRoot, ".skillshare", "skills")
@@ -488,7 +488,7 @@ func TestAudit_InitRules_Global(t *testing.T) {
 func TestAudit_InitRules_Project(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	result := sb.RunCLIInDir(projectRoot, "audit", "-p", "--init-rules")
 	result.AssertSuccess(t)

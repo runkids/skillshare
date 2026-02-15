@@ -111,7 +111,7 @@ targets: [claude, cursor]
 | `[claude]` | Syncs only to targets matching "claude" |
 | `[claude, cursor]` | Syncs to targets matching either name |
 
-**Cross-mode matching:** A skill declaring `targets: [claude]` also matches the project target `claude-code`, because both refer to the same AI CLI. Matching uses the [target registry](/docs/targets/supported-targets).
+**Cross-mode matching:** A skill declaring `targets: [claude]` also matches the project target `claude`, because both refer to the same AI CLI. Matching uses the [target registry](/docs/targets/supported-targets).
 
 **Interaction with config filters:** Skill-level `targets` is applied **after** config-level `include`/`exclude`. Both must pass for a skill to be synced. See [Configuration](/docs/targets/configuration#skill-level-targets).
 

@@ -15,7 +15,7 @@ import (
 func TestGitignoreProject_InstallAddsEntry(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	sourceSkill := filepath.Join(sb.Root, "ext")
 	os.MkdirAll(sourceSkill, 0755)
@@ -35,7 +35,7 @@ func TestGitignoreProject_InstallAddsEntry(t *testing.T) {
 func TestGitignoreProject_UninstallRemovesEntry(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Create remote skill with meta
 	skillDir := sb.CreateProjectSkill(projectRoot, "removable", map[string]string{
@@ -50,7 +50,7 @@ func TestGitignoreProject_UninstallRemovesEntry(t *testing.T) {
 		"# BEGIN SKILLSHARE MANAGED - DO NOT EDIT\nskills/removable/\n# END SKILLSHARE MANAGED\n")
 
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - claude-code
+  - claude
 skills:
   - name: removable
     source: org/removable
@@ -67,7 +67,7 @@ skills:
 func TestGitignoreProject_PreservesUserEntries(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Write gitignore with user entries
 	sb.WriteFile(filepath.Join(projectRoot, ".skillshare", ".gitignore"),

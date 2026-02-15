@@ -58,7 +58,7 @@ Creates `.skillshare/` in current directory with `config.yaml`, `.gitignore`, an
 | Flag | Description |
 |------|-------------|
 | `-p, --project` | Enable project mode |
-| `--targets "claude-code,cursor"` | Specific targets (non-interactive) |
+| `--targets "claude,cursor"` | Specific targets (non-interactive) |
 | `--discover` | Discover new AI tools |
 | `--discover --select "a,b"` | Non-interactive discovery |
 | `--dry-run, -n` | Preview changes |
@@ -69,7 +69,7 @@ Creates `.skillshare/` in current directory with `config.yaml`, `.gitignore`, an
 
 ```bash
 # Initialize with specific targets
-skillshare init -p --targets "claude-code,cursor"
+skillshare init -p --targets "claude,cursor"
 
 # Verify
 skillshare status

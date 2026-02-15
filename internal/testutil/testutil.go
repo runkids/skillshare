@@ -264,7 +264,8 @@ func (sb *Sandbox) SetupProjectDir(targets ...string) string {
 
 	// Create target directories
 	knownPaths := map[string]string{
-		"claude-code": ".claude/skills",
+		"claude":      ".claude/skills",
+		"claude-code": ".claude/skills", // legacy alias
 		"cursor":      ".cursor/skills",
 		"codex":       ".agents/skills",
 	}

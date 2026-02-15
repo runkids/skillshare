@@ -11,7 +11,7 @@ func TestMatchesTargetName_SameName(t *testing.T) {
 }
 
 func TestMatchesTargetName_CrossMode(t *testing.T) {
-	// "claude" is global_name, "claude-code" is project_name for the same spec
+	// "claude" is global_name/project_name, "claude-code" is an alias for the same spec
 	if !MatchesTargetName("claude", "claude-code") {
 		t.Error("claude should match claude-code (cross-mode)")
 	}

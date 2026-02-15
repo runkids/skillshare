@@ -11,7 +11,7 @@ import (
 func TestStatusProject_ShowsSyncedTargets(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code", "cursor")
+	projectRoot := sb.SetupProjectDir("claude", "cursor")
 	sb.CreateProjectSkill(projectRoot, "skill-a", map[string]string{"SKILL.md": "# A"})
 
 	// Sync first
@@ -26,7 +26,7 @@ func TestStatusProject_ShowsSyncedTargets(t *testing.T) {
 func TestStatusProject_ShowsUnsynced(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "unsynced", map[string]string{"SKILL.md": "# U"})
 
 	// Don't sync — should show "has files" (target dir exists but no symlinks)
@@ -38,7 +38,7 @@ func TestStatusProject_ShowsUnsynced(t *testing.T) {
 func TestStatusProject_ShowsSourceAndTargets(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	result := sb.RunCLIInDir(projectRoot, "status", "-p")
 	result.AssertSuccess(t)

@@ -50,7 +50,7 @@ AI cannot respond to CLI prompts. Always pass flags to skip interactive prompts.
 ```bash
 # Key non-interactive patterns
 skillshare init --no-copy --all-targets --git --skill   # Global fresh start
-skillshare init -p --targets "claude-code,cursor"       # Project init
+skillshare init -p --targets "claude,cursor"       # Project init
 skillshare install user/repo --all                      # Install all skills
 skillshare install user/repo -s pdf,commit              # Select specific
 ```

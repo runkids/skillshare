@@ -15,7 +15,7 @@ skillshare target remove myapp                # Remove target (safe)
 
 ```bash
 skillshare target list -p                              # List project targets
-skillshare target claude-code -p                       # Show project target info
+skillshare target claude -p                       # Show project target info
 skillshare target add windsurf -p                      # Add known target
 skillshare target add custom-tool ./tools/skills -p    # Add custom path (relative)
 skillshare target remove windsurf -p                   # Remove project target
@@ -25,7 +25,7 @@ skillshare target remove windsurf -p                   # Remove project target
 
 ```yaml
 targets:
-  - claude-code                    # Short: known target, merge mode
+  - claude                    # Short: known target, merge mode
   - name: cursor                   # Long: with explicit mode
     mode: symlink
   - name: custom-ide               # Long: with custom path
@@ -40,7 +40,7 @@ Per-target mode (both global and project):
 ```bash
 skillshare target claude --mode merge         # Per-skill symlinks (default)
 skillshare target claude --mode symlink       # Entire dir symlinked
-skillshare target claude-code --mode symlink -p   # Project target mode
+skillshare target claude --mode symlink -p   # Project target mode
 ```
 
 | Mode | Description | Local Skills |

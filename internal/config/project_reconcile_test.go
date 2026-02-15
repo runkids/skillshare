@@ -23,7 +23,7 @@ func TestReconcileProjectSkills_AddsNewSkill(t *testing.T) {
 	}
 
 	cfg := &ProjectConfig{
-		Targets: []ProjectTargetEntry{{Name: "claude-code"}},
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
 	}
 
 	if err := ReconcileProjectSkills(root, cfg, skillsDir); err != nil {
@@ -56,7 +56,7 @@ func TestReconcileProjectSkills_UpdatesExistingSource(t *testing.T) {
 	}
 
 	cfg := &ProjectConfig{
-		Targets: []ProjectTargetEntry{{Name: "claude-code"}},
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
 		Skills:  []ProjectSkill{{Name: "my-skill", Source: "github.com/user/repo-v1"}},
 	}
 
@@ -87,7 +87,7 @@ func TestReconcileProjectSkills_SkipsNoMeta(t *testing.T) {
 	}
 
 	cfg := &ProjectConfig{
-		Targets: []ProjectTargetEntry{{Name: "claude-code"}},
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
 	}
 
 	if err := ReconcileProjectSkills(root, cfg, skillsDir); err != nil {

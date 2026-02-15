@@ -107,7 +107,7 @@ targets: {}
 func TestInstallProject_Into(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Create a source skill to install
 	sourceSkill := filepath.Join(sb.Root, "my-skill")
@@ -138,7 +138,7 @@ func TestInstallProject_Into(t *testing.T) {
 func TestInstallProject_Into_NoSource_Rejected(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// --into without source should fail
 	result := sb.RunCLIInDir(projectRoot, "install", "--into", "tools", "-p")

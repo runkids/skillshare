@@ -339,7 +339,7 @@ func TestDoctor_ProjectMode_AutoDetectsProjectConfig(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "project-skill", map[string]string{"SKILL.md": "# Project Skill"})
 
 	result := sb.RunCLIInDir(projectRoot, "doctor")
@@ -355,7 +355,7 @@ func TestDoctor_ProjectMode_WithFlagUsesProjectConfig(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "project-skill", map[string]string{"SKILL.md": "# Project Skill"})
 
 	result := sb.RunCLIInDir(projectRoot, "doctor", "-p")

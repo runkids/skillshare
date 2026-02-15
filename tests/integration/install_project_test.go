@@ -13,7 +13,7 @@ import (
 func TestInstallProject_LocalPath(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Create a source skill to install from
 	sourceSkill := filepath.Join(sb.Root, "external-skill")
@@ -32,7 +32,7 @@ func TestInstallProject_LocalPath(t *testing.T) {
 func TestInstallProject_CustomName(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	sourceSkill := filepath.Join(sb.Root, "my-source")
 	os.MkdirAll(sourceSkill, 0755)
@@ -49,7 +49,7 @@ func TestInstallProject_CustomName(t *testing.T) {
 func TestInstallProject_DryRun(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	sourceSkill := filepath.Join(sb.Root, "dry-skill")
 	os.MkdirAll(sourceSkill, 0755)
@@ -66,7 +66,7 @@ func TestInstallProject_DryRun(t *testing.T) {
 func TestInstallProject_TrackRequiresGitSource(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// --track with a non-git source should fail with git-related error
 	result := sb.RunCLIInDir(projectRoot, "install", "/some/path", "--track", "-p")
@@ -77,7 +77,7 @@ func TestInstallProject_TrackRequiresGitSource(t *testing.T) {
 func TestInstallProject_FromConfig_SkipsExisting(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Create an already-installed skill
 	sb.CreateProjectSkill(projectRoot, "already-here", map[string]string{
@@ -86,7 +86,7 @@ func TestInstallProject_FromConfig_SkipsExisting(t *testing.T) {
 
 	// Write config referencing it
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - claude-code
+  - claude
 skills:
   - name: already-here
     source: someone/skills/already-here
@@ -101,7 +101,7 @@ skills:
 func TestInstallProject_FromConfig_EmptySkills(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	result := sb.RunCLIInDir(projectRoot, "install", "-p")
 	result.AssertSuccess(t)
@@ -111,7 +111,7 @@ func TestInstallProject_FromConfig_EmptySkills(t *testing.T) {
 func TestInstallProject_NoSource_WithName_Errors(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	result := sb.RunCLIInDir(projectRoot, "install", "-p", "--name", "custom")
 	result.AssertFailure(t)

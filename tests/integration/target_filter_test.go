@@ -212,14 +212,14 @@ func TestTargetFilter_HelpShowsFilterFlags(t *testing.T) {
 func TestTargetFilter_Project_AddAndShow(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
-	result := sb.RunCLIInDir(projectRoot, "target", "claude-code", "--add-include", "team-*", "-p")
+	result := sb.RunCLIInDir(projectRoot, "target", "claude", "--add-include", "team-*", "-p")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "added include: team-*")
 
 	// Verify the include shows in info
-	info := sb.RunCLIInDir(projectRoot, "target", "claude-code", "-p")
+	info := sb.RunCLIInDir(projectRoot, "target", "claude", "-p")
 	info.AssertSuccess(t)
 	info.AssertOutputContains(t, "Include: team-*")
 }

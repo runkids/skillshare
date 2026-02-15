@@ -29,7 +29,7 @@ func TestFilterSkillsByTarget_CrossModeMatch(t *testing.T) {
 	skills := []DiscoveredSkill{
 		{FlatName: "cross-mode", Targets: []string{"claude"}},
 	}
-	// "claude-code" is the project_name for claude
+	// "claude-code" is an alias for claude
 	result := FilterSkillsByTarget(skills, "claude-code")
 	if len(result) != 1 {
 		t.Errorf("cross-mode match should work, got %d results", len(result))

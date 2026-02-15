@@ -138,6 +138,20 @@ They are complementary — backup protects targets from sync changes, trash prot
 
 ## Targets
 
+### I used `claude-code` (or `gemini-cli`, etc.) as a project target — is that still valid?
+
+Yes. Old project target names like `claude-code`, `gemini-cli`, `github-copilot` still resolve via aliases. However, the canonical name is now the same as the global name (e.g., `claude`, `gemini`, `copilot`). We recommend updating your `.skillshare/config.yaml` to use the short name:
+
+```yaml
+# Before
+targets:
+  - claude-code
+
+# After
+targets:
+  - claude
+```
+
 ### How does `target remove` work? Is it safe?
 
 Yes, it's safe:

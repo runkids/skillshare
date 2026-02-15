@@ -106,8 +106,8 @@ Examples:
   skillshare target claude --add-exclude "_legacy*"
 
 Project mode:
-  skillshare target add claude-code -p
-  skillshare target claude-code --add-include "team-*" -p
+  skillshare target add claude -p
+  skillshare target claude --add-include "team-*" -p
   skillshare target list -p`)
 }
 

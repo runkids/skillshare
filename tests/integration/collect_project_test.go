@@ -14,7 +14,7 @@ func TestCollectProject_FindsLocalSkills(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Place a local (non-symlinked) skill in the target
 	targetSkillDir := filepath.Join(projectRoot, ".claude", "skills", "local-skill")
@@ -31,7 +31,7 @@ func TestCollectProject_DryRun(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sourcePath := filepath.Join(projectRoot, ".skillshare", "skills")
 
 	// Place a local skill in the target
@@ -54,7 +54,7 @@ func TestCollectProject_Force(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sourcePath := filepath.Join(projectRoot, ".skillshare", "skills")
 
 	// Create existing skill in source
@@ -86,7 +86,7 @@ func TestCollectProject_NoLocalSkills(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Create a skill in source and symlink it (no local skills)
 	sb.CreateProjectSkill(projectRoot, "synced-skill", map[string]string{"SKILL.md": "# Synced"})

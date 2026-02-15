@@ -11,10 +11,11 @@ import (
 )
 
 type targetSpec struct {
-	GlobalName  string `yaml:"global_name"`
-	ProjectName string `yaml:"project_name"`
-	GlobalPath  string `yaml:"global_path"`
-	ProjectPath string `yaml:"project_path"`
+	GlobalName  string   `yaml:"global_name"`
+	ProjectName string   `yaml:"project_name"`
+	GlobalPath  string   `yaml:"global_path"`
+	ProjectPath string   `yaml:"project_path"`
+	Aliases     []string `yaml:"aliases,omitempty"` // Deprecated: backward compat for old project_name values. Remove once safe.
 }
 
 type targetsFile struct {
@@ -82,10 +83,26 @@ func ProjectTargets() map[string]TargetConfig {
 }
 
 // LookupProjectTarget returns the known project target config for a name.
+// It first checks canonical project names, then falls back to aliases.
 func LookupProjectTarget(name string) (TargetConfig, bool) {
 	targets := ProjectTargets()
-	target, ok := targets[name]
-	return target, ok
+	if target, ok := targets[name]; ok {
+		return target, true
+	}
+
+	// Fallback: check aliases (backward compat — remove once safe)
+	specs, err := loadTargetSpecs()
+	if err != nil {
+		return TargetConfig{}, false
+	}
+	for _, spec := range specs {
+		for _, alias := range spec.Aliases {
+			if alias == name && spec.ProjectName != "" && spec.ProjectPath != "" {
+				return targets[spec.ProjectName], true
+			}
+		}
+	}
+	return TargetConfig{}, false
 }
 
 // LookupGlobalTarget returns the known global target config for a name.
@@ -165,8 +182,8 @@ func GroupedProjectTargets() []GroupedProjectTarget {
 }
 
 // MatchesTargetName checks whether a skill-declared target name matches a
-// config target name.  It handles cross-mode matching (e.g. "claude" matches
-// "claude-code") by looking up the target spec registry.
+// config target name.  It handles alias matching (e.g. "claude" matches
+// the alias "claude-code") by looking up the target spec registry.
 func MatchesTargetName(skillTarget, configTarget string) bool {
 	if skillTarget == configTarget {
 		return true
@@ -178,10 +195,12 @@ func MatchesTargetName(skillTarget, configTarget string) bool {
 	}
 
 	for _, spec := range specs {
-		names := [2]string{spec.GlobalName, spec.ProjectName}
+		allNames := make([]string, 0, 2+len(spec.Aliases))
+		allNames = append(allNames, spec.GlobalName, spec.ProjectName)
+		allNames = append(allNames, spec.Aliases...) // backward compat — remove once safe
 		hasSkill := false
 		hasConfig := false
-		for _, n := range names {
+		for _, n := range allNames {
 			if n == skillTarget {
 				hasSkill = true
 			}
@@ -207,7 +226,10 @@ func KnownTargetNames() []string {
 	seen := make(map[string]bool)
 	var names []string
 	for _, spec := range specs {
-		for _, n := range []string{spec.GlobalName, spec.ProjectName} {
+		candidates := make([]string, 0, 2+len(spec.Aliases))
+		candidates = append(candidates, spec.GlobalName, spec.ProjectName)
+		candidates = append(candidates, spec.Aliases...) // backward compat — remove once safe
+		for _, n := range candidates {
 			if n != "" && !seen[n] {
 				seen[n] = true
 				names = append(names, n)

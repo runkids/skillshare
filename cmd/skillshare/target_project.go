@@ -37,9 +37,8 @@ func targetAddProject(args []string, root string) error {
 		}
 	}
 
-	projectTargets := config.ProjectTargets()
 	knownPath := ""
-	if known, ok := projectTargets[name]; ok {
+	if known, ok := config.LookupProjectTarget(name); ok {
 		knownPath = filepath.ToSlash(known.Path)
 	}
 

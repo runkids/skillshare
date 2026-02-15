@@ -158,11 +158,11 @@ func TestExclude_ProjectMerge_SkipsExcludedOnFirstSync(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "keep-me", map[string]string{"SKILL.md": "# Keep"})
 	sb.CreateProjectSkill(projectRoot, "exclude-me", map[string]string{"SKILL.md": "# Exclude"})
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - name: claude-code
+  - name: claude
     exclude: [exclude-*]
 `)
 
@@ -182,19 +182,19 @@ func TestExclude_ProjectMerge_RemovesExistingSourceLink(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "keep-me", map[string]string{"SKILL.md": "# Keep"})
 	sb.CreateProjectSkill(projectRoot, "exclude-me", map[string]string{"SKILL.md": "# Exclude"})
 
 	// First sync without filters.
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - claude-code
+  - claude
 `)
 	sb.RunCLIInDir(projectRoot, "sync", "-p").AssertSuccess(t)
 
 	// Add exclude and sync again.
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - name: claude-code
+  - name: claude
     exclude: [exclude-*]
 `)
 	result := sb.RunCLIInDir(projectRoot, "sync", "-p")
@@ -213,10 +213,10 @@ func TestExclude_ProjectMerge_PreservesLocalDirectory(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "exclude-me", map[string]string{"SKILL.md": "# Source"})
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - name: claude-code
+  - name: claude
     exclude: [exclude-*]
 `)
 
@@ -244,10 +244,10 @@ func TestExclude_ProjectMerge_InvalidExcludePatternFails(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "skill-a", map[string]string{"SKILL.md": "# Skill"})
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - name: claude-code
+  - name: claude
     exclude: ["["]
 `)
 
@@ -400,17 +400,17 @@ func TestInclude_ProjectMerge_RemovesExistingSourceLinkOutsideInclude(t *testing
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "include-me", map[string]string{"SKILL.md": "# Include"})
 	sb.CreateProjectSkill(projectRoot, "other-skill", map[string]string{"SKILL.md": "# Other"})
 
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - claude-code
+  - claude
 `)
 	sb.RunCLIInDir(projectRoot, "sync", "-p").AssertSuccess(t)
 
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - name: claude-code
+  - name: claude
     include: [include-*]
 `)
 	result := sb.RunCLIInDir(projectRoot, "sync", "-p")
@@ -429,11 +429,11 @@ func TestInclude_ProjectMerge_PreservesLocalDirectoryOutsideInclude(t *testing.T
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "include-me", map[string]string{"SKILL.md": "# Include"})
 	sb.CreateProjectSkill(projectRoot, "other-skill", map[string]string{"SKILL.md": "# Source"})
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - name: claude-code
+  - name: claude
     include: [include-*]
 `)
 
@@ -515,18 +515,18 @@ func TestIncludeExclude_ProjectMerge_PrecedenceAndRemoval(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "app-main", map[string]string{"SKILL.md": "# Main"})
 	sb.CreateProjectSkill(projectRoot, "app-beta", map[string]string{"SKILL.md": "# Beta"})
 	sb.CreateProjectSkill(projectRoot, "tool-main", map[string]string{"SKILL.md": "# Tool"})
 
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - claude-code
+  - claude
 `)
 	sb.RunCLIInDir(projectRoot, "sync", "-p").AssertSuccess(t)
 
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - name: claude-code
+  - name: claude
     include: [app-*]
     exclude: ["*-beta"]
 `)

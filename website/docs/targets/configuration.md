@@ -256,7 +256,7 @@ Source Skills
 
 Both layers must pass (AND relationship). Config filters always take priority — even if a skill declares `targets: [claude]`, a config `exclude: [claude-*]` will still exclude it.
 
-**Cross-mode matching:** `targets: [claude]` matches both the global target `claude` and the project target `claude-code`, because they refer to the same AI CLI. See [supported targets](/docs/targets/supported-targets).
+**Cross-mode matching:** `targets: [claude]` matches both the global target `claude` and the project target `claude`, because they refer to the same AI CLI. See [supported targets](/docs/targets/supported-targets).
 
 :::tip
 Use config filters (`include`/`exclude`) when the **consumer** wants to control what goes where. Use skill-level `targets` when the **author** knows the skill only works with specific AI CLIs.
@@ -315,7 +315,7 @@ Project config uses a different format from global config.
 ```yaml
 # Targets — string or object form
 targets:
-  - claude-code                    # String: known target with defaults
+  - claude                    # String: known target with defaults
   - cursor
   - name: custom-ide               # Object: custom path and mode
     path: ./tools/ide/skills
@@ -343,7 +343,7 @@ Supports two YAML forms:
 
 | Form | Example | When to use |
 |------|---------|-------------|
-| **String** | `- claude-code` | Known target, default path and merge mode |
+| **String** | `- claude` | Known target, default path and merge mode |
 | **Object** | `- name: x, path: ..., mode: ..., include: [...], exclude: [...]` | Custom path, mode override, or per-target filters |
 
 ### `skills` (project only)
