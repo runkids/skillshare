@@ -10,6 +10,7 @@ import {
   Globe,
   FolderOpen,
   LayoutGrid,
+  Target,
 } from 'lucide-react';
 import Badge from '../components/Badge';
 import { HandInput, HandSelect } from '../components/HandInput';
@@ -388,6 +389,12 @@ function TrackedPostit({ skill, index }: { skill: Skill; index: number }) {
               <span />
             )}
             <div className="flex items-center gap-1.5 shrink-0">
+              {skill.targets && skill.targets.length > 0 && (
+                <span className="inline-flex items-center gap-0.5" title={`Targets: ${skill.targets.join(', ')}`}>
+                  <Target size={13} strokeWidth={2.5} className="text-pencil-light" />
+                  <span className="text-xs text-pencil-light">{skill.targets.length}</span>
+                </span>
+              )}
               <Badge variant="success">tracked</Badge>
             </div>
           </div>
@@ -464,6 +471,12 @@ function RegularPostit({ skill, index }: { skill: Skill; index: number }) {
             <span />
           )}
           <div className="flex items-center gap-1.5 shrink-0">
+            {skill.targets && skill.targets.length > 0 && (
+              <span className="inline-flex items-center gap-0.5" title={`Targets: ${skill.targets.join(', ')}`}>
+                <Target size={13} strokeWidth={2.5} className="text-pencil-light" />
+                <span className="text-xs text-pencil-light">{skill.targets.length}</span>
+              </span>
+            )}
             {getTypeLabel(skill.type) && <Badge variant="info">{getTypeLabel(skill.type)}</Badge>}
           </div>
         </div>

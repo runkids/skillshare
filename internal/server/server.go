@@ -192,6 +192,7 @@ func (s *Server) registerRoutes() {
 	// Targets
 	s.mux.HandleFunc("GET /api/targets", s.handleListTargets)
 	s.mux.HandleFunc("POST /api/targets", s.handleAddTarget)
+	s.mux.HandleFunc("PATCH /api/targets/{name}", s.handleUpdateTarget)
 	s.mux.HandleFunc("DELETE /api/targets/{name}", s.handleRemoveTarget)
 
 	// Sync

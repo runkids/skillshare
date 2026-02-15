@@ -14,16 +14,17 @@ import (
 )
 
 type skillItem struct {
-	Name        string `json:"name"`
-	FlatName    string `json:"flatName"`
-	RelPath     string `json:"relPath"`
-	SourcePath  string `json:"sourcePath"`
-	IsInRepo    bool   `json:"isInRepo"`
-	InstalledAt string `json:"installedAt,omitempty"`
-	Source      string `json:"source,omitempty"`
-	Type        string `json:"type,omitempty"`
-	RepoURL     string `json:"repoUrl,omitempty"`
-	Version     string `json:"version,omitempty"`
+	Name        string   `json:"name"`
+	FlatName    string   `json:"flatName"`
+	RelPath     string   `json:"relPath"`
+	SourcePath  string   `json:"sourcePath"`
+	IsInRepo    bool     `json:"isInRepo"`
+	Targets     []string `json:"targets,omitempty"`
+	InstalledAt string   `json:"installedAt,omitempty"`
+	Source      string   `json:"source,omitempty"`
+	Type        string   `json:"type,omitempty"`
+	RepoURL     string   `json:"repoUrl,omitempty"`
+	Version     string   `json:"version,omitempty"`
 }
 
 func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
@@ -41,6 +42,7 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 			RelPath:    d.RelPath,
 			SourcePath: d.SourcePath,
 			IsInRepo:   d.IsInRepo,
+			Targets:    d.Targets,
 		}
 
 		// Enrich with metadata if available
@@ -80,6 +82,7 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 			RelPath:    d.RelPath,
 			SourcePath: d.SourcePath,
 			IsInRepo:   d.IsInRepo,
+			Targets:    d.Targets,
 		}
 
 		if meta, _ := install.ReadMeta(d.SourcePath); meta != nil {

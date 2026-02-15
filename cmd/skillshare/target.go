@@ -5,9 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -80,18 +82,33 @@ Subcommands:
   remove <name>          Remove a target
   remove --all           Remove all targets
   list                   List configured targets
-  <name>                 Show target info
+  <name>                 Show target info or modify settings
 
 Options:
   --project, -p          Use project-level config in current directory
   --global, -g           Use global config (~/.config/skillshare)
+
+Target Settings:
+  <name> --mode <mode>              Set sync mode (merge or symlink)
+  <name> --add-include <pattern>    Add an include filter pattern
+  <name> --add-exclude <pattern>    Add an exclude filter pattern
+  <name> --remove-include <pattern> Remove an include filter pattern
+  <name> --remove-exclude <pattern> Remove an exclude filter pattern
 
 Examples:
   skillshare target add cursor
   skillshare target add my-ide .my-ide/skills
   skillshare target remove cursor
   skillshare target list
-  skillshare target cursor`)
+  skillshare target cursor
+  skillshare target claude --add-include "team-*"
+  skillshare target claude --remove-include "team-*"
+  skillshare target claude --add-exclude "_legacy*"
+
+Project mode:
+  skillshare target add claude-code -p
+  skillshare target claude-code --add-include "team-*" -p
+  skillshare target list -p`)
 }
 
 func targetAdd(args []string) error {
@@ -385,6 +402,12 @@ func targetList() error {
 }
 
 func targetInfo(name string, args []string) error {
+	// Parse filter flags first, pass remaining to mode parsing
+	filterOpts, remaining, err := parseFilterFlags(args)
+	if err != nil {
+		return err
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -395,17 +418,45 @@ func targetInfo(name string, args []string) error {
 		return fmt.Errorf("target '%s' not found. Use 'skillshare target list' to see available targets", name)
 	}
 
-	// Parse flags
+	// Parse --mode from remaining args
 	var newMode string
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
+	for i := 0; i < len(remaining); i++ {
+		switch remaining[i] {
 		case "--mode", "-m":
-			if i+1 >= len(args) {
+			if i+1 >= len(remaining) {
 				return fmt.Errorf("--mode requires a value (merge or symlink)")
 			}
-			newMode = args[i+1]
+			newMode = remaining[i+1]
 			i++
 		}
+	}
+
+	// Apply filter updates if any
+	if filterOpts.hasUpdates() {
+		start := time.Now()
+		changes, fErr := applyFilterUpdates(&target.Include, &target.Exclude, filterOpts)
+		if fErr != nil {
+			return fErr
+		}
+		cfg.Targets[name] = target
+		if err := cfg.Save(); err != nil {
+			return err
+		}
+		for _, change := range changes {
+			ui.Success("%s: %s", name, change)
+		}
+		if len(changes) > 0 {
+			ui.Info("Run 'skillshare sync' to apply filter changes")
+		}
+
+		e := oplog.NewEntry("target", statusFromErr(nil), time.Since(start))
+		e.Args = map[string]any{
+			"action":  "filter",
+			"name":    name,
+			"changes": changes,
+		}
+		oplog.Write(config.ConfigPath(), oplog.OpsFile, e) //nolint:errcheck
+		return nil
 	}
 
 	// If --mode is provided, update the mode
@@ -454,9 +505,11 @@ func showTargetInfo(cfg *config.Config, name string, target config.TargetConfig)
 	status := sync.CheckStatus(target.Path, cfg.Source)
 
 	ui.Header(fmt.Sprintf("Target: %s", name))
-	fmt.Printf("  Path:   %s\n", target.Path)
-	fmt.Printf("  Mode:   %s\n", mode)
-	fmt.Printf("  Status: %s\n", status)
+	fmt.Printf("  Path:    %s\n", target.Path)
+	fmt.Printf("  Mode:    %s\n", mode)
+	fmt.Printf("  Status:  %s\n", status)
+	fmt.Printf("  Include: %s\n", formatFilterList(target.Include))
+	fmt.Printf("  Exclude: %s\n", formatFilterList(target.Exclude))
 
 	return nil
 }

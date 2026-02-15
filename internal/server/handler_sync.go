@@ -72,7 +72,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			res.Skipped = mergeResult.Skipped
 
 			// Prune orphans
-			pruneResult, err := ssync.PruneOrphanLinks(target.Path, s.cfg.Source, target.Include, target.Exclude, body.DryRun)
+			pruneResult, err := ssync.PruneOrphanLinks(target.Path, s.cfg.Source, target.Include, target.Exclude, name, body.DryRun)
 			if err == nil {
 				res.Pruned = pruneResult.Removed
 			}

@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -287,14 +289,20 @@ func targetInfoProject(name string, args []string, root string) error {
 		}
 	}
 
+	// Parse filter flags first, pass remaining to mode parsing
+	filterOpts, remaining, err := parseFilterFlags(args)
+	if err != nil {
+		return err
+	}
+
 	var newMode string
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
+	for i := 0; i < len(remaining); i++ {
+		switch remaining[i] {
 		case "--mode", "-m":
-			if i+1 >= len(args) {
+			if i+1 >= len(remaining) {
 				return fmt.Errorf("--mode requires a value (merge or symlink)")
 			}
-			newMode = args[i+1]
+			newMode = remaining[i+1]
 			i++
 		}
 	}
@@ -314,6 +322,34 @@ func targetInfoProject(name string, args []string, root string) error {
 
 	if targetIdx < 0 {
 		return fmt.Errorf("target '%s' not found. Use 'skillshare target list' to see available targets", name)
+	}
+
+	// Apply filter updates if any
+	if filterOpts.hasUpdates() {
+		start := time.Now()
+		entry := &cfg.Targets[targetIdx]
+		changes, fErr := applyFilterUpdates(&entry.Include, &entry.Exclude, filterOpts)
+		if fErr != nil {
+			return fErr
+		}
+		if err := cfg.Save(root); err != nil {
+			return err
+		}
+		for _, change := range changes {
+			ui.Success("%s: %s", name, change)
+		}
+		if len(changes) > 0 {
+			ui.Info("Run 'skillshare sync' to apply filter changes")
+		}
+
+		e := oplog.NewEntry("target", statusFromErr(nil), time.Since(start))
+		e.Args = map[string]any{
+			"action":  "filter",
+			"name":    name,
+			"changes": changes,
+		}
+		oplog.Write(config.ProjectConfigPath(root), oplog.OpsFile, e) //nolint:errcheck
+		return nil
 	}
 
 	if newMode != "" {
@@ -341,16 +377,19 @@ func targetInfoProject(name string, args []string, root string) error {
 	}
 
 	ui.Header(fmt.Sprintf("Target: %s", name))
-	fmt.Printf("  Path:   %s\n", projectTargetDisplayPath(targetEntry))
-	fmt.Printf("  Mode:   %s\n", displayMode)
+	fmt.Printf("  Path:    %s\n", projectTargetDisplayPath(targetEntry))
+	fmt.Printf("  Mode:    %s\n", displayMode)
 
 	if mode == "symlink" {
 		status := sync.CheckStatus(target.Path, sourcePath)
-		fmt.Printf("  Status: %s\n", status)
+		fmt.Printf("  Status:  %s\n", status)
 	} else {
 		status, linked, local := sync.CheckStatusMerge(target.Path, sourcePath)
-		fmt.Printf("  Status: %s (%d shared, %d local)\n", status, linked, local)
+		fmt.Printf("  Status:  %s (%d shared, %d local)\n", status, linked, local)
 	}
+
+	fmt.Printf("  Include: %s\n", formatFilterList(targetEntry.Include))
+	fmt.Printf("  Exclude: %s\n", formatFilterList(targetEntry.Exclude))
 
 	return nil
 }

@@ -138,6 +138,7 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 			if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", name, err)
 			}
+			filtered = sync.FilterSkillsByTarget(filtered, name)
 			expectedCount := len(filtered)
 			_, linkedCount, _ := sync.CheckStatusMerge(target.Path, cfg.Source)
 			if linkedCount < expectedCount {

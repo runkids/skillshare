@@ -13,10 +13,11 @@ import (
 
 // DiscoveredSkill represents a skill found during recursive source directory scan.
 type DiscoveredSkill struct {
-	SourcePath string // Full path: ~/.config/skillshare/skills/_team/frontend/ui
-	RelPath    string // Relative path from source: _team/frontend/ui
-	FlatName   string // Flat name for target: _team__frontend__ui
-	IsInRepo   bool   // Whether this skill is inside a tracked repo (_-prefixed directory)
+	SourcePath string   // Full path: ~/.config/skillshare/skills/_team/frontend/ui
+	RelPath    string   // Relative path from source: _team/frontend/ui
+	FlatName   string   // Flat name for target: _team__frontend__ui
+	IsInRepo   bool     // Whether this skill is inside a tracked repo (_-prefixed directory)
+	Targets    []string // From SKILL.md frontmatter; nil = all targets
 }
 
 // DiscoverSourceSkills recursively scans the source directory for skills.
@@ -59,11 +60,14 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 				isInRepo = true
 			}
 
+			targets := utils.ParseFrontmatterList(filepath.Join(skillDir, "SKILL.md"), "targets")
+
 			skills = append(skills, DiscoveredSkill{
 				SourcePath: skillDir,
 				RelPath:    relPath,
 				FlatName:   utils.PathToFlatName(relPath),
 				IsInRepo:   isInRepo,
+				Targets:    targets,
 			})
 		}
 
@@ -349,6 +353,7 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply filters for target %s: %w", name, err)
 	}
+	discoveredSkills = FilterSkillsByTarget(discoveredSkills, name)
 
 	for _, skill := range discoveredSkills {
 		// Use flat name in target (e.g., "personal__writing__email")
@@ -431,7 +436,7 @@ type PruneResult struct {
 // 1. Source-linked entries excluded by include/exclude filters (remove from target)
 // 2. Orphan links/directories that no longer exist in source
 // 3. Unknown local directories (kept with warning)
-func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, dryRun bool) (*PruneResult, error) {
+func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, targetName string, dryRun bool) (*PruneResult, error) {
 	result := &PruneResult{}
 
 	// Discover all skills from source, then filter to target-managed skills.
@@ -443,6 +448,7 @@ func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply filters for pruning: %w", err)
 	}
+	managedSkills = FilterSkillsByTarget(managedSkills, targetName)
 	includePatterns, err := normalizePatterns(include)
 	if err != nil {
 		return nil, fmt.Errorf("invalid include pattern for pruning: %w", err)

@@ -150,6 +150,7 @@ description: >-
   "trigger phrase 1", "trigger phrase 2", or needs help
   with a specific task.
 # ── Optional fields ──────────────────────────────────
+# targets: []                         # e.g. [claude, cursor] — omit for all targets
 # license: MIT
 # allowed-tools: "Bash(python:*) WebFetch"
 # metadata:

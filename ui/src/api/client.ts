@@ -41,6 +41,11 @@ export const api = {
     }),
   removeTarget: (name: string) =>
     apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  updateTarget: (name: string, opts: { include?: string[]; exclude?: string[] }) =>
+    apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(opts),
+    }),
 
   // Sync
   sync: (opts: { dryRun?: boolean; force?: boolean }) =>
@@ -228,6 +233,7 @@ export interface Skill {
   relPath: string;
   sourcePath: string;
   isInRepo: boolean;
+  targets?: string[];
   installedAt?: string;
   source?: string;
   type?: string;

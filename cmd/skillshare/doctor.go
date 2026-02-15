@@ -142,6 +142,9 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 	// Check skills validity
 	checkSkillsValidity(cfg.Source, result)
 
+	// Check skill-level targets field
+	checkSkillTargetsField(cfg.Source, result)
+
 	// Check each target
 	checkTargets(cfg, result)
 
@@ -338,6 +341,7 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult) {
 			result.addError()
 			continue
 		}
+		filtered = sync.FilterSkillsByTarget(filtered, name)
 		expectedCount := len(filtered)
 		if expectedCount == 0 {
 			continue
@@ -419,6 +423,39 @@ func checkSkillsValidity(source string, result *doctorResult) {
 
 	if len(invalid) > 0 {
 		ui.Warning("Skills without SKILL.md: %s", strings.Join(invalid, ", "))
+		result.addWarning()
+	}
+}
+
+// checkSkillTargetsField validates that skill-level targets values are known target names
+func checkSkillTargetsField(source string, result *doctorResult) {
+	discovered, err := sync.DiscoverSourceSkills(source)
+	if err != nil {
+		return
+	}
+
+	knownNames := config.KnownTargetNames()
+	knownSet := make(map[string]bool, len(knownNames))
+	for _, n := range knownNames {
+		knownSet[n] = true
+	}
+
+	var warnings []string
+	for _, skill := range discovered {
+		if skill.Targets == nil {
+			continue
+		}
+		for _, t := range skill.Targets {
+			if !knownSet[t] {
+				warnings = append(warnings, fmt.Sprintf("%s: unknown target %q", skill.RelPath, t))
+			}
+		}
+	}
+
+	if len(warnings) > 0 {
+		for _, w := range warnings {
+			ui.Warning("Skill targets: %s", w)
+		}
 		result.addWarning()
 	}
 }

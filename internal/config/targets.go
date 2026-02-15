@@ -164,6 +164,59 @@ func GroupedProjectTargets() []GroupedProjectTarget {
 	return result
 }
 
+// MatchesTargetName checks whether a skill-declared target name matches a
+// config target name.  It handles cross-mode matching (e.g. "claude" matches
+// "claude-code") by looking up the target spec registry.
+func MatchesTargetName(skillTarget, configTarget string) bool {
+	if skillTarget == configTarget {
+		return true
+	}
+
+	specs, err := loadTargetSpecs()
+	if err != nil {
+		return false
+	}
+
+	for _, spec := range specs {
+		names := [2]string{spec.GlobalName, spec.ProjectName}
+		hasSkill := false
+		hasConfig := false
+		for _, n := range names {
+			if n == skillTarget {
+				hasSkill = true
+			}
+			if n == configTarget {
+				hasConfig = true
+			}
+		}
+		if hasSkill && hasConfig {
+			return true
+		}
+	}
+
+	return false
+}
+
+// KnownTargetNames returns all known target names (both global and project).
+func KnownTargetNames() []string {
+	specs, err := loadTargetSpecs()
+	if err != nil {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var names []string
+	for _, spec := range specs {
+		for _, n := range []string{spec.GlobalName, spec.ProjectName} {
+			if n != "" && !seen[n] {
+				seen[n] = true
+				names = append(names, n)
+			}
+		}
+	}
+	return names
+}
+
 func normalizeTargetPath(path string) string {
 	if path == "" {
 		return path

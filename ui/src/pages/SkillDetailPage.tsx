@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Trash2, ExternalLink, FileText, ArrowUpRight, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Trash2, ExternalLink, FileText, ArrowUpRight, RefreshCw, Target } from 'lucide-react';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Badge from '../components/Badge';
@@ -253,6 +253,14 @@ export default function SkillDetailPage() {
           </h2>
           {skill.isInRepo && <Badge variant="warning">tracked repo</Badge>}
           {skillTypeLabel(skill.type) && <Badge variant="info">{skillTypeLabel(skill.type)}</Badge>}
+          {skill.targets && skill.targets.length > 0 && (
+            <span className="inline-flex items-center gap-1">
+              <Target size={13} strokeWidth={2.5} className="text-pencil-light" />
+              {skill.targets.map((t) => (
+                <Badge key={t} variant="default">{t}</Badge>
+              ))}
+            </span>
+          )}
         </div>
       </div>
 
@@ -324,6 +332,16 @@ export default function SkillDetailPage() {
                   label="Installed"
                   value={new Date(skill.installedAt).toLocaleDateString()}
                 />
+              )}
+              {skill.targets && skill.targets.length > 0 && (
+                <div>
+                  <dt className="text-sm text-pencil-light uppercase tracking-wider">Targets</dt>
+                  <dd className="flex flex-wrap gap-1.5 mt-1">
+                    {skill.targets.map((t) => (
+                      <Badge key={t} variant="default">{t}</Badge>
+                    ))}
+                  </dd>
+                </div>
               )}
               {skill.repoUrl && (
                 <div>
