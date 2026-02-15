@@ -142,8 +142,10 @@ irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 ### Homebrew
 
 ```bash
-brew install runkids/tap/skillshare
+brew install skillshare
 ```
+
+> **Note:** Recommended for CLI-only users. The Homebrew build does not include the [web dashboard](#web-dashboard) — all other commands work identically. For the full experience including `skillshare ui`, use the curl/PowerShell installer above.
 
 ### Shorthand (Optional)
 

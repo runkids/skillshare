@@ -88,6 +88,13 @@ func startProjectUI(addr, url string, noOpen bool) error {
 		Mode:    "merge",
 	}
 
+	if !server.IsUIBuilt() {
+		ui.Warning("Web UI is not included in this build.")
+		ui.Warning("Install with the full installer to get the web UI:")
+		fmt.Println("  curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh")
+		return nil
+	}
+
 	if !noOpen {
 		ui.Success("Opening %s in your browser... (project mode)", url)
 		openBrowser(url)
@@ -101,6 +108,13 @@ func startGlobalUI(addr, url string, noOpen bool) error {
 	cfg, err := loadUIConfig()
 	if err != nil {
 		return err
+	}
+
+	if !server.IsUIBuilt() {
+		ui.Warning("Web UI is not included in this build.")
+		ui.Warning("Install with the full installer to get the web UI:")
+		fmt.Println("  curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh")
+		return nil
 	}
 
 	if !noOpen {

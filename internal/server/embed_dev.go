@@ -6,6 +6,12 @@ import (
 	"net/http"
 )
 
+// IsUIBuilt reports whether the embedded dist contains a real frontend build.
+// In dev mode, the frontend is served by Vite, not embedded.
+func IsUIBuilt() bool {
+	return false
+}
+
 // spaHandler returns a placeholder handler when building with -tags dev.
 // In dev mode, use the Vite dev server on :5173 instead.
 func spaHandler() http.Handler {

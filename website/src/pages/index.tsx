@@ -22,7 +22,7 @@ const INSTALL_COMMANDS: Record<InstallMethod, {command: string; label: string; i
     icon: <span style={{fontSize: '12px'}}>PS</span>,
   },
   homebrew: {
-    command: 'brew install runkids/tap/skillshare',
+    command: 'brew install skillshare',
     label: 'Homebrew',
     icon: <Apple size={14} />,
   },

@@ -139,6 +139,17 @@ Or simply `skillshare ui` if `.skillshare/config.yaml` exists (auto-detected).
 
 The dashboard reads and writes `.skillshare/config.yaml`, syncs to project-local targets, and reconciles remote skill entries after install — just like the CLI.
 
+## Homebrew Note
+
+The Homebrew formula (`brew install skillshare`) is optimized for CLI-only usage and does not include the web UI. If you installed via Homebrew and want the dashboard, reinstall with the full installer:
+
+```bash
+brew uninstall skillshare
+curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh
+```
+
+All other CLI commands work identically regardless of install method.
+
 ## Architecture
 
 The web UI is a single-page React application embedded in the Go binary via `go:embed`. No external dependencies are needed at runtime — just the `skillshare` binary.

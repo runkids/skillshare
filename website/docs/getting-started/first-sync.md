@@ -15,6 +15,15 @@ Get your skills synced in 5 minutes.
 
 ## Step 1: Install skillshare
 
+**Homebrew:**
+```bash
+brew install skillshare
+```
+
+:::note
+Recommended for CLI-only users. The Homebrew build does not include the [web dashboard](/docs/commands/ui) — all other commands work identically. For the full experience including `skillshare ui`, use the curl installer below.
+:::
+
 **macOS / Linux:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh

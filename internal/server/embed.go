@@ -10,6 +10,16 @@ import (
 	"strings"
 )
 
+// IsUIBuilt reports whether the embedded dist contains a real frontend build.
+// Returns false when the dist only contains a placeholder (e.g. Homebrew or make build without UI).
+func IsUIBuilt() bool {
+	data, err := distFS.ReadFile("dist/index.html")
+	if err != nil {
+		return false
+	}
+	return !strings.Contains(string(data), "UI not built")
+}
+
 //go:embed all:dist
 var distFS embed.FS
 
