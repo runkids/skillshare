@@ -10,6 +10,9 @@
 
 $ErrorActionPreference = "Stop"
 
+# PowerShell 5.1 defaults to TLS 1.0/1.1; GitHub requires TLS 1.2+
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 $Repo = "runkids/skillshare"
 $BinaryName = "skillshare"
 
@@ -33,7 +36,7 @@ function Get-LatestVersion {
         $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest"
         return $release.tag_name
     } catch {
-        Write-Err "Failed to get latest version. Check your internet connection."
+        Write-Err "Failed to get latest version: $_"
     }
 }
 
