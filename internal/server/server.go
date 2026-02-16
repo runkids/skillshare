@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -32,6 +33,10 @@ type Server struct {
 	// uiDistDir, when non-empty, serves UI from this disk directory
 	// instead of the embedded SPA. Used for runtime-downloaded UI assets.
 	uiDistDir string
+
+	// onReady is called after the listener is bound but before serving.
+	// Used to open the browser only after the port is confirmed available.
+	onReady func()
 }
 
 // New creates a new Server for global mode.
@@ -147,12 +152,30 @@ func (s *Server) Start() error {
 	return s.StartWithContext(ctx)
 }
 
+// SetOnReady sets a callback invoked after the listener is bound but before
+// serving begins.  Used to open the browser only after the port is confirmed
+// available.
+func (s *Server) SetOnReady(fn func()) {
+	s.onReady = fn
+}
+
 // StartWithContext starts the HTTP server and shuts down gracefully when ctx is cancelled.
 func (s *Server) StartWithContext(ctx context.Context) error {
 	s.startTime = time.Now()
 
+	// Bind the port first so callers know immediately if it's in use.
+	ln, err := net.Listen("tcp", s.addr)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Skillshare UI running at http://%s\n", s.addr)
+
+	if s.onReady != nil {
+		s.onReady()
+	}
+
 	srv := &http.Server{
-		Addr:              s.addr,
 		Handler:           s.handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
@@ -162,8 +185,7 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		fmt.Printf("Skillshare UI running at http://%s\n", s.addr)
-		errCh <- srv.ListenAndServe()
+		errCh <- srv.Serve(ln)
 	}()
 
 	select {
