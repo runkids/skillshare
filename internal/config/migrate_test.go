@@ -31,7 +31,7 @@ func TestMigrateXDGDirs_MovesLegacyDirs(t *testing.T) {
 	os.MkdirAll(legacyLogs, 0755)
 	os.WriteFile(filepath.Join(legacyLogs, "ops.log"), []byte("data"), 0644)
 
-	MigrateXDGDirs()
+	results := MigrateXDGDirs()
 
 	// Verify moved to new locations
 	newBackups := filepath.Join(dataHome, "skillshare", "backups")
@@ -58,6 +58,8 @@ func TestMigrateXDGDirs_MovesLegacyDirs(t *testing.T) {
 	if _, err := os.Stat(legacyLogs); !os.IsNotExist(err) {
 		t.Error("legacy logs dir should be removed after migration")
 	}
+
+	assertNoMigrationFailures(t, results)
 }
 
 func TestMigrateXDGDirs_NoopWhenNoLegacyDirs(t *testing.T) {
@@ -67,7 +69,8 @@ func TestMigrateXDGDirs_NoopWhenNoLegacyDirs(t *testing.T) {
 	t.Setenv("XDG_STATE_HOME", filepath.Join(tmp, "state"))
 
 	// No legacy dirs exist — should not panic or error
-	MigrateXDGDirs()
+	results := MigrateXDGDirs()
+	assertNoMigrationFailures(t, results)
 }
 
 func TestMigrateXDGDirs_SkipsWhenDestExists(t *testing.T) {
@@ -90,7 +93,7 @@ func TestMigrateXDGDirs_SkipsWhenDestExists(t *testing.T) {
 	os.MkdirAll(newBackups, 0755)
 	os.WriteFile(filepath.Join(newBackups, "new.tar"), []byte("new"), 0644)
 
-	MigrateXDGDirs()
+	results := MigrateXDGDirs()
 
 	// New dir should be untouched
 	data, err := os.ReadFile(filepath.Join(newBackups, "new.tar"))
@@ -101,6 +104,14 @@ func TestMigrateXDGDirs_SkipsWhenDestExists(t *testing.T) {
 	// Legacy dir should still exist (not removed since dest already existed)
 	if _, err := os.Stat(legacyBackups); os.IsNotExist(err) {
 		t.Error("legacy dir should remain when dest already exists")
+	}
+
+	result := findMigrationResultByFrom(results, legacyBackups)
+	if result == nil {
+		t.Fatalf("expected migration result for %s", legacyBackups)
+	}
+	if result.Status != MigrationSkippedDestinationExists {
+		t.Fatalf("unexpected migration status for backup dir: got %q, want %q", result.Status, MigrationSkippedDestinationExists)
 	}
 }
 
@@ -118,7 +129,7 @@ func TestMigrateWindowsLegacyDir_MigrationPath(t *testing.T) {
 	os.WriteFile(filepath.Join(oldDir, "skills", "SKILL.md"), []byte("# skill"), 0644)
 
 	// Simulate what MigrateWindowsLegacyDir does: migrateDir(old, new)
-	migrateDir(oldDir, newDir)
+	result := migrateDir(oldDir, newDir)
 
 	// Verify moved
 	data, err := os.ReadFile(filepath.Join(newDir, "config.yaml"))
@@ -133,6 +144,9 @@ func TestMigrateWindowsLegacyDir_MigrationPath(t *testing.T) {
 	if _, err := os.Stat(oldDir); !os.IsNotExist(err) {
 		t.Error("legacy dir should be removed after migration")
 	}
+	if result.Status != MigrationMoved {
+		t.Fatalf("unexpected migration status: got %q, want %q", result.Status, MigrationMoved)
+	}
 }
 
 func TestMigrateWindowsLegacyDir_SkipsOnNonWindows(t *testing.T) {
@@ -140,7 +154,8 @@ func TestMigrateWindowsLegacyDir_SkipsOnNonWindows(t *testing.T) {
 		t.Skip("this test verifies non-Windows no-op behavior")
 	}
 	// Should not panic or do anything on non-Windows
-	MigrateWindowsLegacyDir()
+	results := MigrateWindowsLegacyDir()
+	assertNoMigrationFailures(t, results)
 }
 
 func TestMigrateWindowsLegacyDir_SkipsWhenDestExists(t *testing.T) {
@@ -154,7 +169,7 @@ func TestMigrateWindowsLegacyDir_SkipsWhenDestExists(t *testing.T) {
 	os.MkdirAll(newDir, 0755)
 	os.WriteFile(filepath.Join(newDir, "config.yaml"), []byte("new"), 0644)
 
-	migrateDir(oldDir, newDir)
+	result := migrateDir(oldDir, newDir)
 
 	// New dir untouched
 	data, _ := os.ReadFile(filepath.Join(newDir, "config.yaml"))
@@ -165,5 +180,92 @@ func TestMigrateWindowsLegacyDir_SkipsWhenDestExists(t *testing.T) {
 	// Old dir still exists
 	if _, err := os.Stat(oldDir); os.IsNotExist(err) {
 		t.Error("legacy dir should remain when dest already exists")
+	}
+	if result.Status != MigrationSkippedDestinationExists {
+		t.Fatalf("unexpected migration status: got %q, want %q", result.Status, MigrationSkippedDestinationExists)
+	}
+}
+
+func findMigrationResultByFrom(results []MigrationResult, from string) *MigrationResult {
+	for i := range results {
+		if results[i].From == from {
+			return &results[i]
+		}
+	}
+	return nil
+}
+
+func assertNoMigrationFailures(t *testing.T, results []MigrationResult) {
+	t.Helper()
+	for _, r := range results {
+		if r.Status == MigrationFailed {
+			t.Fatalf("unexpected migration failure for %s -> %s: %v", r.From, r.To, r.Err)
+		}
+	}
+}
+
+func TestMigrateConfigSourcePath_RewritesLegacySource(t *testing.T) {
+	tmp := t.TempDir()
+	cfgPath := filepath.Join(tmp, "config.yaml")
+	oldRoot := filepath.Join(tmp, "old", "skillshare")
+	newRoot := filepath.Join(tmp, "new", "skillshare")
+	oldSource := filepath.Join(oldRoot, "skills")
+	newSource := filepath.Join(newRoot, "skills")
+
+	t.Setenv("SKILLSHARE_CONFIG", cfgPath)
+
+	cfg := &Config{
+		Source:  oldSource,
+		Targets: map[string]TargetConfig{},
+	}
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	result := migrateConfigSourcePath(oldRoot, newRoot)
+	if result.Status != MigrationMoved {
+		t.Fatalf("unexpected migration status: got %q, want %q", result.Status, MigrationMoved)
+	}
+	if result.From != oldSource || result.To != newSource {
+		t.Fatalf("unexpected migration result: from=%q to=%q", result.From, result.To)
+	}
+
+	updated, err := Load()
+	if err != nil {
+		t.Fatalf("reload config: %v", err)
+	}
+	if updated.Source != newSource {
+		t.Fatalf("source not rewritten: got %q, want %q", updated.Source, newSource)
+	}
+}
+
+func TestMigrateConfigSourcePath_SkipsWhenUnrelatedSource(t *testing.T) {
+	tmp := t.TempDir()
+	cfgPath := filepath.Join(tmp, "config.yaml")
+	oldRoot := filepath.Join(tmp, "old", "skillshare")
+	newRoot := filepath.Join(tmp, "new", "skillshare")
+	customSource := filepath.Join(tmp, "custom", "skills")
+
+	t.Setenv("SKILLSHARE_CONFIG", cfgPath)
+
+	cfg := &Config{
+		Source:  customSource,
+		Targets: map[string]TargetConfig{},
+	}
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	result := migrateConfigSourcePath(oldRoot, newRoot)
+	if result.Status != MigrationSkippedNoChange {
+		t.Fatalf("unexpected migration status: got %q, want %q", result.Status, MigrationSkippedNoChange)
+	}
+
+	updated, err := Load()
+	if err != nil {
+		t.Fatalf("reload config: %v", err)
+	}
+	if updated.Source != customSource {
+		t.Fatalf("source should remain unchanged: got %q, want %q", updated.Source, customSource)
 	}
 }
