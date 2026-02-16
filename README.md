@@ -147,6 +147,8 @@ brew install skillshare
 
 > **Note:** All install methods include the web dashboard. `skillshare ui` automatically downloads UI assets on first launch — no extra setup needed.
 
+> **Tip:** To update to the latest version, run `skillshare upgrade`. It auto-detects your install method (Homebrew, manual, etc.) and handles the rest.
+
 ### Shorthand (Optional)
 
 Add an alias to your shell config (`~/.zshrc` or `~/.bashrc`):

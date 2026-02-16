@@ -56,11 +56,17 @@ skillshare upgrade --skill      # Skill only
 
 ## Homebrew Users
 
-If you installed via Homebrew, the upgrade command automatically uses `brew upgrade`:
+If you installed via Homebrew, `skillshare upgrade` automatically delegates to `brew upgrade`:
 
 ```bash
 skillshare upgrade
-# → brew upgrade runkids/tap/skillshare
+# → brew update && brew upgrade skillshare
+```
+
+You can also use Homebrew directly:
+
+```bash
+brew upgrade skillshare
 ```
 
 ## Examples
