@@ -97,6 +97,12 @@ skillshare sync  # Distribute to all targets
 
 The `skillshare` executable itself. Downloads from GitHub releases.
 
+### Web UI Assets
+
+After upgrading, skillshare pre-downloads the Web UI frontend assets for the new version. These are cached at `~/.cache/skillshare/ui/<version>/` and served when you run `skillshare ui`.
+
+If the pre-download fails (e.g. network issues), the assets will be downloaded on the next `skillshare ui` launch instead.
+
 ### Skillshare Skill
 
 The built-in `skillshare` skill that adds the `/skillshare` command to AI CLIs. Located at:

@@ -496,7 +496,7 @@ Uses symlinks.
 ### Windows
 
 ```yaml
-source: %USERPROFILE%\.config\skillshare\skills
+source: %AppData%\skillshare\skills
 targets:
   claude:
     path: %USERPROFILE%\.claude\skills

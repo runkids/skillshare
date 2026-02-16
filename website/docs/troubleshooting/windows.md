@@ -37,14 +37,14 @@ NTFS junctions work like symlinks for directories but are available to all users
 ### Where are config files on Windows?
 
 ```
-%USERPROFILE%\.config\skillshare\config.yaml
-%USERPROFILE%\.config\skillshare\skills\
-%USERPROFILE%\.config\skillshare\backups\
+%AppData%\skillshare\config.yaml
+%AppData%\skillshare\skills\
+%AppData%\skillshare\backups\
 ```
 
 Typically:
 ```
-C:\Users\YourName\.config\skillshare\
+C:\Users\YourName\AppData\Roaming\skillshare\
 ```
 
 ### Where are target directories?
@@ -153,7 +153,7 @@ If you use Windows Subsystem for Linux:
 ### Separate installations
 
 Keep separate skillshare installations for Windows and WSL:
-- Windows: `%USERPROFILE%\.config\skillshare\`
+- Windows: `%AppData%\skillshare\`
 - WSL: `~/.config/skillshare/`
 
 ### Share via git

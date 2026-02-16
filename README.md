@@ -44,9 +44,9 @@
 > **Recent Updates**
 > | Version | Highlights |
 > |---------|------------|
+> | [0.13.0](https://github.com/runkids/skillshare/releases/tag/v0.13.0) | Skill-level targets, XDG compliance, unified target names, runtime UI download |
 > | [0.12.0](https://github.com/runkids/skillshare/releases/tag/v0.12.0) | Skill Hub — generate indexes, search private catalogs with `--hub` |
 > | [0.11.0](https://github.com/runkids/skillshare/releases/tag/v0.11.0) | Security Audit, Operation Log, Trash, Update Preview — full audit trail + safety net |
-> | [0.10.0](https://github.com/runkids/skillshare/releases/tag/v0.10.0) | Web Dashboard — visual skill management via `skillshare ui` |
 
 ## Why skillshare
 
@@ -87,7 +87,7 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 
 ## How It Works
 - macOS / Linux: `~/.config/skillshare/skills/`
-- Windows: `%USERPROFILE%\.config\skillshare\skills\`
+- Windows: `%AppData%\skillshare\skills\`
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -105,7 +105,7 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 | Platform | Source Path | Link Type |
 |----------|-------------|-----------|
 | macOS/Linux | `~/.config/skillshare/skills/` | Symlinks |
-| Windows | `%USERPROFILE%\.config\skillshare\skills\` | NTFS Junctions (no admin required) |
+| Windows | `%AppData%\skillshare\skills\` | NTFS Junctions (no admin required) |
 
 > [!TIP]
 > Skills can be organized in folders (e.g. `frontend/react/react-best-practices/`) — they're auto-flattened on sync. See the [Organizing Guide](https://skillshare.runkids.cc/docs/guides/organizing-skills) and [runkids/my-skills](https://github.com/runkids/my-skills) for a real-world example.
@@ -165,7 +165,7 @@ rm -rf ~/.config/skillshare             # Config & data (optional)
 
 # Windows (PowerShell)
 Remove-Item "$env:LOCALAPPDATA\Programs\skillshare" -Recurse -Force
-Remove-Item "$env:USERPROFILE\.config\skillshare" -Recurse -Force  # optional
+Remove-Item "$env:APPDATA\skillshare" -Recurse -Force  # optional
 ```
 
 ---
