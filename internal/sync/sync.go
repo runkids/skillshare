@@ -436,7 +436,7 @@ type PruneResult struct {
 // 1. Source-linked entries excluded by include/exclude filters (remove from target)
 // 2. Orphan links/directories that no longer exist in source
 // 3. Unknown local directories (kept with warning)
-func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, targetName string, dryRun bool) (*PruneResult, error) {
+func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, targetName string, dryRun, force bool) (*PruneResult, error) {
 	result := &PruneResult{}
 
 	// Discover all skills from source, then filter to target-managed skills.
@@ -505,7 +505,7 @@ func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, 
 						fmt.Sprintf("%s: unable to resolve excluded link target, kept", name))
 					continue
 				}
-				if strings.HasPrefix(absLink, absSource+string(filepath.Separator)) {
+				if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
 					if dryRun {
 						fmt.Printf("[dry-run] Would remove excluded symlink: %s\n", entryPath)
 					} else if err := os.RemoveAll(entryPath); err != nil {
@@ -536,7 +536,7 @@ func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, 
 				targetExists = true
 			}
 
-			if strings.HasPrefix(absLink, absSource+string(filepath.Separator)) {
+			if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
 				if !targetExists {
 					shouldRemove = true
 					reason = "broken symlink to source"
@@ -544,6 +544,14 @@ func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, 
 					shouldRemove = true
 					reason = "orphan symlink to source"
 				}
+			} else if !targetExists {
+				// External symlink whose target no longer exists (e.g. after data migration)
+				shouldRemove = true
+				reason = "broken external symlink"
+			} else if force {
+				// Valid external symlink, but force mode requested
+				shouldRemove = true
+				reason = "external symlink (force)"
 			} else {
 				result.Warnings = append(result.Warnings,
 					fmt.Sprintf("%s: symlink to external location (%s), kept", name, absLink))

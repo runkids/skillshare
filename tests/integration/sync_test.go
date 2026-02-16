@@ -630,6 +630,90 @@ targets:
 	}
 }
 
+func TestSync_Pruning_RemovesBrokenExternalSymlinks(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create a skill and sync it
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# Skill A"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	// Simulate data migration: create a symlink pointing to a non-existent
+	// external path (as if the old source directory was moved/deleted)
+	oldPath := filepath.Join(sb.Home, "old-config", "skillshare", "skills", "migrated-skill")
+	os.Symlink(oldPath, filepath.Join(targetPath, "migrated-skill"))
+
+	if !sb.IsSymlink(filepath.Join(targetPath, "migrated-skill")) {
+		t.Fatal("setup: migrated-skill symlink should exist")
+	}
+
+	// Sync again — broken external symlink should be auto-removed
+	result = sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	if sb.FileExists(filepath.Join(targetPath, "migrated-skill")) {
+		t.Error("broken external symlink should have been pruned")
+	}
+	// Valid skill should still exist
+	if !sb.IsSymlink(filepath.Join(targetPath, "skill-a")) {
+		t.Error("skill-a should still be a symlink")
+	}
+}
+
+func TestSync_Pruning_ForceRemovesExternalSymlinks(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# Skill A"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	// Create a valid external symlink (target exists but outside source dir)
+	externalDir := filepath.Join(sb.Home, "external-skills", "ext-skill")
+	os.MkdirAll(externalDir, 0755)
+	os.WriteFile(filepath.Join(externalDir, "SKILL.md"), []byte("# External"), 0644)
+	os.Symlink(externalDir, filepath.Join(targetPath, "ext-skill"))
+
+	// Sync without force — external symlink should be preserved (with warning)
+	result = sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	if !sb.IsSymlink(filepath.Join(targetPath, "ext-skill")) {
+		t.Error("valid external symlink should be preserved without --force")
+	}
+
+	// Sync with --force — external symlink should be removed
+	result = sb.RunCLI("sync", "--force")
+	result.AssertSuccess(t)
+
+	if sb.FileExists(filepath.Join(targetPath, "ext-skill")) {
+		t.Error("external symlink should have been removed with --force")
+	}
+	// Valid source skill should still exist
+	if !sb.IsSymlink(filepath.Join(targetPath, "skill-a")) {
+		t.Error("skill-a should still be a symlink")
+	}
+}
+
 func TestSync_MergeMode_InvalidFilterPatternFails(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
