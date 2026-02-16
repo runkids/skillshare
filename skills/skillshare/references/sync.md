@@ -31,7 +31,7 @@ skillshare collect --all       # From all targets
 skillshare collect --dry-run   # Preview
 
 # Project (auto-detected or -p)
-skillshare collect claude-code     # From project target
+skillshare collect claude     # From project target
 skillshare collect --all           # All project targets
 skillshare collect --all --force   # Skip confirmation
 ```

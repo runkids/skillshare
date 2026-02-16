@@ -20,21 +20,26 @@ Project mode output includes: source path, targets with sync mode, remote skills
 Show differences between source and targets.
 
 ```bash
-skillshare diff                # All targets
+skillshare diff                # All targets (auto-detects mode)
 skillshare diff claude         # Specific target
+skillshare diff -p             # Project mode
+skillshare diff -g             # Force global
 ```
+
+Project mode shows filter info and skill-level target restrictions.
 
 ## list
 
-List installed skills.
+List installed skills, grouped by directory.
 
 ```bash
-skillshare list                # Auto-detects mode
-skillshare list --verbose      # With source info
+skillshare list                # Auto-detects mode (grouped display)
+skillshare list --verbose      # With source URL, install date, tracked info
+skillshare list -v             # Short form of --verbose
 skillshare list -g             # Force global
 ```
 
-Project mode shows local vs remote skills.
+Skills organized in subdirectories are displayed in groups. Tracked repos shown in a dedicated section with skill counts. Project mode shows local vs remote skills.
 
 ## search
 

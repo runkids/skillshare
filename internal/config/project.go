@@ -11,7 +11,7 @@ import (
 )
 
 // ProjectTargetEntry supports both string and object forms in YAML.
-// String: "claude-code"
+// String: "claude"
 // Object: { name: "my-custom-ide", path: ".my-ide/skills/" }
 type ProjectTargetEntry struct {
 	Name    string

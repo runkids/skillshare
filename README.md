@@ -44,9 +44,9 @@
 > **Recent Updates**
 > | Version | Highlights |
 > |---------|------------|
+> | [0.13.0](https://github.com/runkids/skillshare/releases/tag/v0.13.0) | Skill-level targets, XDG compliance, unified target names, runtime UI download |
 > | [0.12.0](https://github.com/runkids/skillshare/releases/tag/v0.12.0) | Skill Hub — generate indexes, search private catalogs with `--hub` |
 > | [0.11.0](https://github.com/runkids/skillshare/releases/tag/v0.11.0) | Security Audit, Operation Log, Trash, Update Preview — full audit trail + safety net |
-> | [0.10.0](https://github.com/runkids/skillshare/releases/tag/v0.10.0) | Web Dashboard — visual skill management via `skillshare ui` |
 
 ## Why skillshare
 
@@ -87,7 +87,7 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 
 ## How It Works
 - macOS / Linux: `~/.config/skillshare/skills/`
-- Windows: `%USERPROFILE%\.config\skillshare\skills\`
+- Windows: `%AppData%\skillshare\skills\`
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -105,7 +105,7 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 | Platform | Source Path | Link Type |
 |----------|-------------|-----------|
 | macOS/Linux | `~/.config/skillshare/skills/` | Symlinks |
-| Windows | `%USERPROFILE%\.config\skillshare\skills\` | NTFS Junctions (no admin required) |
+| Windows | `%AppData%\skillshare\skills\` | NTFS Junctions (no admin required) |
 
 > [!TIP]
 > Skills can be organized in folders (e.g. `frontend/react/react-best-practices/`) — they're auto-flattened on sync. See the [Organizing Guide](https://skillshare.runkids.cc/docs/guides/organizing-skills) and [runkids/my-skills](https://github.com/runkids/my-skills) for a real-world example.
@@ -145,7 +145,7 @@ irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 brew install skillshare
 ```
 
-> **Note:** Recommended for CLI-only users. The Homebrew build does not include the [web dashboard](#web-dashboard) — all other commands work identically. For the full experience including `skillshare ui`, use the curl/PowerShell installer above.
+> **Note:** All install methods include the web dashboard. `skillshare ui` automatically downloads UI assets on first launch — no extra setup needed.
 
 ### Shorthand (Optional)
 
@@ -161,11 +161,14 @@ alias ss='skillshare'
 # macOS/Linux
 brew uninstall skillshare               # Homebrew
 sudo rm /usr/local/bin/skillshare       # Manual install
-rm -rf ~/.config/skillshare             # Config & data (optional)
+rm -rf ~/.config/skillshare             # Config & skills (optional)
+rm -rf ~/.local/share/skillshare        # Backups & trash (optional)
+rm -rf ~/.local/state/skillshare        # Logs (optional)
+rm -rf ~/.cache/skillshare              # UI & version cache (optional)
 
 # Windows (PowerShell)
 Remove-Item "$env:LOCALAPPDATA\Programs\skillshare" -Recurse -Force
-Remove-Item "$env:USERPROFILE\.config\skillshare" -Recurse -Force  # optional
+Remove-Item "$env:APPDATA\skillshare" -Recurse -Force  # optional
 ```
 
 ---
@@ -281,7 +284,7 @@ skillshare ui -p         # Project mode (manages .skillshare/)
 - Opens `http://127.0.0.1:19420`
 - Requires `skillshare init` (or `init -p` for project mode) first
 - Auto-detects project mode when `.skillshare/config.yaml` exists
-- Runs from the same CLI binary (no extra frontend setup)
+- UI assets are downloaded on first launch (~1 MB), then cached offline at `~/.cache/skillshare/ui/`
 
 For containers/remote hosts:
 

@@ -183,7 +183,7 @@ func performFreshInit(opts *initOptions, home string) error {
 	// Default source path (same location as config)
 	sourcePath := opts.sourcePath
 	if sourcePath == "" {
-		sourcePath = filepath.Join(home, ".config", "skillshare", "skills")
+		sourcePath = filepath.Join(config.BaseDir(), "skills")
 	}
 
 	// Find directories with skills to potentially copy from

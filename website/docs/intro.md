@@ -74,7 +74,7 @@ Edit in source → all targets update. Edit in target → changes go to source (
 | Platform | Source Path | Link Type |
 |----------|-------------|-----------|
 | macOS/Linux | `~/.config/skillshare/skills/` | Symlinks |
-| Windows | `%USERPROFILE%\.config\skillshare\skills\` | NTFS Junctions |
+| Windows | `%AppData%\skillshare\skills\` | NTFS Junctions |
 
 ## Next Steps
 

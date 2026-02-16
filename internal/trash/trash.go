@@ -7,17 +7,15 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+
+	"skillshare/internal/config"
 )
 
 const defaultMaxAge = 7 * 24 * time.Hour // 7 days
 
 // TrashDir returns the global trash directory path.
 func TrashDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".config", "skillshare", "trash")
+	return filepath.Join(config.DataDir(), "trash")
 }
 
 // ProjectTrashDir returns the project-level trash directory path.

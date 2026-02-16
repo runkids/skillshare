@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"skillshare/internal/config"
 	"skillshare/internal/install"
 )
 
@@ -28,10 +29,14 @@ type Entry struct {
 }
 
 // LogDir returns the logs directory derived from a config file path.
-// For global mode: ~/.config/skillshare/logs/
-// For project mode: .skillshare/logs/
+// For project mode: .skillshare/logs/ (alongside project config)
+// For global mode: $XDG_STATE_HOME/skillshare/logs/
 func LogDir(configPath string) string {
-	return filepath.Join(filepath.Dir(configPath), "logs")
+	configDir := filepath.Dir(configPath)
+	if filepath.Base(configDir) == ".skillshare" {
+		return filepath.Join(configDir, "logs")
+	}
+	return filepath.Join(config.StateDir(), "logs")
 }
 
 // Write appends a single JSONL entry to the named log file.

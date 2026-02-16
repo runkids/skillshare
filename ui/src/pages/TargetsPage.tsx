@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Plus, Target, ArrowDownToLine, Search, CircleDot, PenLine, AlertTriangle } from 'lucide-react';
+import { Trash2, Plus, Target, ArrowDownToLine, Search, CircleDot, PenLine, AlertTriangle, Filter } from 'lucide-react';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
 import HandButton from '../components/HandButton';
 import { HandInput } from '../components/HandInput';
+import FilterTagInput from '../components/FilterTagInput';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
@@ -24,6 +25,9 @@ export default function TargetsPage() {
   const [customMode, setCustomMode] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const [collecting, setCollecting] = useState<string | null>(null);
+  const [editingFilter, setEditingFilter] = useState<string | null>(null);
+  const [filterDraft, setFilterDraft] = useState<{ include: string[]; exclude: string[] }>({ include: [], exclude: [] });
+  const [savingFilter, setSavingFilter] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -381,7 +385,7 @@ export default function TargetsPage() {
                     >
                       {shortenHome(target.path)}
                     </p>
-                    <div className="mt-1 flex flex-wrap gap-1">
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
                       {target.include?.length > 0 && (
                         <span className="text-xs text-blue bg-info-light px-1.5 py-0.5" style={{ borderRadius: wobbly.sm }}>
                           include: {target.include.join(', ')}
@@ -392,7 +396,72 @@ export default function TargetsPage() {
                           exclude: {target.exclude.join(', ')}
                         </span>
                       )}
+                      {target.mode === 'merge' && (
+                        <button
+                          onClick={() => {
+                            setEditingFilter(target.name);
+                            setFilterDraft({
+                              include: [...(target.include || [])],
+                              exclude: [...(target.exclude || [])],
+                            });
+                          }}
+                          className="w-6 h-6 flex items-center justify-center text-muted-dark hover:text-blue transition-colors cursor-pointer"
+                          title="Edit filters"
+                        >
+                          <Filter size={13} strokeWidth={2.5} />
+                        </button>
+                      )}
                     </div>
+                    {editingFilter === target.name && (
+                      <div className="mt-3 p-3 bg-postit/40 border-2 border-dashed border-muted-dark animate-sketch-in" style={{ borderRadius: wobbly.md }}>
+                        <div className="space-y-3">
+                          <FilterTagInput
+                            label="Include patterns"
+                            patterns={filterDraft.include}
+                            onChange={(p) => setFilterDraft({ ...filterDraft, include: p })}
+                            color="blue"
+                          />
+                          <FilterTagInput
+                            label="Exclude patterns"
+                            patterns={filterDraft.exclude}
+                            onChange={(p) => setFilterDraft({ ...filterDraft, exclude: p })}
+                            color="danger"
+                          />
+                          <div className="flex gap-2">
+                            <HandButton
+                              onClick={async () => {
+                                setSavingFilter(true);
+                                try {
+                                  await api.updateTarget(target.name, {
+                                    include: filterDraft.include,
+                                    exclude: filterDraft.exclude,
+                                  });
+                                  toast('Filters updated. Run sync to apply.', 'success');
+                                  setEditingFilter(null);
+                                  refetch();
+                                } catch (e: unknown) {
+                                  toast((e as Error).message, 'error');
+                                } finally {
+                                  setSavingFilter(false);
+                                }
+                              }}
+                              variant="primary"
+                              size="sm"
+                              disabled={savingFilter}
+                            >
+                              {savingFilter ? 'Saving...' : 'Save'}
+                            </HandButton>
+                            <HandButton
+                              onClick={() => setEditingFilter(null)}
+                              variant="ghost"
+                              size="sm"
+                            >
+                              Cancel
+                            </HandButton>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     {target.mode === 'merge' && (
                       <p className={`text-sm mt-1 ${hasDrift ? 'text-warning' : 'text-muted-dark'}`}>
                         {hasDrift ? (

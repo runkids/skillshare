@@ -64,7 +64,7 @@ func TestRestore_FromLatest_RestoresBackup(t *testing.T) {
 	targetPath := sb.CreateTarget("claude")
 
 	// Create backup directory manually
-	backupDir := filepath.Join(sb.Home, ".config", "skillshare", "backups")
+	backupDir := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups")
 	timestamp := time.Now().Format("20060102-150405")
 	backupPath := filepath.Join(backupDir, timestamp, "claude")
 	os.MkdirAll(backupPath, 0755)
@@ -99,7 +99,7 @@ func TestRestore_FromTimestamp_RestoresSpecific(t *testing.T) {
 	targetPath := sb.CreateTarget("claude")
 
 	// Create backup directory manually with specific timestamp
-	backupDir := filepath.Join(sb.Home, ".config", "skillshare", "backups")
+	backupDir := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups")
 	timestamp := "20240101-120000"
 	backupPath := filepath.Join(backupDir, timestamp, "claude")
 	os.MkdirAll(backupPath, 0755)
@@ -132,7 +132,7 @@ func TestRestore_OverwritesSymlink(t *testing.T) {
 	os.Symlink(sb.SourcePath, targetPath)
 
 	// Create backup
-	backupDir := filepath.Join(sb.Home, ".config", "skillshare", "backups")
+	backupDir := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups")
 	timestamp := time.Now().Format("20060102-150405")
 	backupPath := filepath.Join(backupDir, timestamp, "claude")
 	os.MkdirAll(backupPath, 0755)
@@ -163,7 +163,7 @@ func TestRestore_DryRun_DoesNotRestore(t *testing.T) {
 
 	targetPath := sb.CreateTarget("claude")
 
-	backupDir := filepath.Join(sb.Home, ".config", "skillshare", "backups")
+	backupDir := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups")
 	timestamp := time.Now().Format("20060102-150405")
 	backupPath := filepath.Join(backupDir, timestamp, "claude")
 	os.MkdirAll(backupPath, 0755)

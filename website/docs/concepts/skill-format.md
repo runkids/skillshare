@@ -97,6 +97,41 @@ tags: git, workflow
 
 Tags are also searchable — `skillshare search workflow --hub ...` matches skills tagged with "workflow".
 
+### `targets`
+
+Restrict which targets this skill syncs to. When omitted, the skill syncs to **all** targets.
+
+```yaml
+targets: [claude, cursor]
+```
+
+| Value | Behavior |
+|-------|----------|
+| *(omitted)* | Syncs to all targets (default) |
+| `[claude]` | Syncs only to targets matching "claude" |
+| `[claude, cursor]` | Syncs to targets matching either name |
+
+**Cross-mode matching:** A skill declaring `targets: [claude]` also matches the project target `claude`, because both refer to the same AI CLI. Matching uses the [target registry](/docs/targets/supported-targets).
+
+**Interaction with config filters:** Skill-level `targets` is applied **after** config-level `include`/`exclude`. Both must pass for a skill to be synced. See [Configuration](/docs/targets/configuration#skill-level-targets).
+
+**Example — Claude-only skill:**
+
+```markdown
+---
+name: claude-prompts
+description: Prompt patterns for Claude Code
+targets: [claude]
+---
+
+# Claude Prompts
+...
+```
+
+This skill will only appear in Claude Code's skills directory, even if you have Cursor, Codex, and other targets configured.
+
+---
+
 ## Custom Metadata
 
 You can add any custom fields:

@@ -24,7 +24,7 @@ func TestMode_GlobalFlag_ForcesGlobal(t *testing.T) {
 	defer sb.Cleanup()
 
 	// Create project dir with config
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Write global config
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
@@ -43,7 +43,7 @@ targets:
 func TestMode_AutoDetect_ProjectWhenConfigExists(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "auto-detect", map[string]string{"SKILL.md": "# A"})
 
 	// No flag → auto-detect project mode
@@ -74,7 +74,7 @@ targets:
 func TestMode_InstallTrackRequiresGitInProject(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// --track now allowed in project mode, but requires a git source
 	result := sb.RunCLIInDir(projectRoot, "install", "/some/path", "--track", "-p")

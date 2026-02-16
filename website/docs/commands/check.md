@@ -18,6 +18,7 @@ skillshare check --json      # Machine-readable output
 1. **Tracked repositories** — Fetches from origin, shows how many commits you're behind
 2. **Installed skills (with metadata)** — Compares installed version against the remote HEAD
 3. **Local skills** — Marks as "local source" (no remote to compare)
+4. **Skill-level `targets` validation** — Warns about unknown target names in SKILL.md `targets` frontmatter fields
 
 Unlike `update`, `check` never modifies any files.
 

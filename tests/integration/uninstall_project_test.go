@@ -15,7 +15,7 @@ import (
 func TestUninstallProject_RemovesSkill(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "to-remove", map[string]string{
 		"SKILL.md": "# Remove Me",
 	})
@@ -32,7 +32,7 @@ func TestUninstallProject_RemovesSkill(t *testing.T) {
 func TestUninstallProject_Force_SkipsConfirmation(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "bye", map[string]string{
 		"SKILL.md": "# Bye",
 	})
@@ -45,7 +45,7 @@ func TestUninstallProject_Force_SkipsConfirmation(t *testing.T) {
 func TestUninstallProject_UpdatesConfig(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Create remote skill with meta
 	skillDir := sb.CreateProjectSkill(projectRoot, "remote", map[string]string{
@@ -57,7 +57,7 @@ func TestUninstallProject_UpdatesConfig(t *testing.T) {
 
 	// Write config with the skill
 	sb.WriteProjectConfig(projectRoot, `targets:
-  - claude-code
+  - claude
 skills:
   - name: remote
     source: org/skills/remote
@@ -75,7 +75,7 @@ skills:
 func TestUninstallProject_NotFound_Error(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	result := sb.RunCLIInDir(projectRoot, "uninstall", "nonexistent", "--force", "-p")
 	result.AssertFailure(t)
@@ -85,7 +85,7 @@ func TestUninstallProject_NotFound_Error(t *testing.T) {
 func TestUninstallProject_DryRun(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "keep", map[string]string{
 		"SKILL.md": "# Keep",
 	})

@@ -108,6 +108,7 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 			if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)
 			}
+			filtered = sync.FilterSkillsByTarget(filtered, entry.Name)
 			expectedCount := len(filtered)
 			_, linkedCount, _ := sync.CheckStatusMerge(target.Path, runtime.sourcePath)
 			if linkedCount < expectedCount {

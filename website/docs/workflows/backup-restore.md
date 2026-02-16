@@ -11,14 +11,14 @@ Protect your skills and recover from mistakes.
 Skillshare maintains automatic backups and provides manual backup/restore commands.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    BACKUP SYSTEM                            │
-│                                                             │
-│   TARGETS ──► backup ──► ~/.config/skillshare/backups/      │
-│                                                             │
-│   BACKUPS ──► restore ──► TARGETS                           │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────┐
+│                    BACKUP SYSTEM                              │
+│                                                               │
+│   TARGETS ──► backup ──► ~/.local/share/skillshare/backups/   │
+│                                                               │
+│   BACKUPS ──► restore ──► TARGETS                             │
+│                                                               │
+└───────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -30,7 +30,7 @@ Backups are created automatically before:
 - `skillshare sync`
 - `skillshare target remove`
 
-**Location:** `~/.config/skillshare/backups/<timestamp>/`
+**Location:** `~/.local/share/skillshare/backups/<timestamp>/`
 
 ---
 

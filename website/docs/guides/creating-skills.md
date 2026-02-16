@@ -193,6 +193,26 @@ For each issue found:
 [Include an example input and expected output]
 ```
 
+### Target-specific skill
+
+```markdown
+---
+name: claude-prompts
+description: Prompt patterns specific to Claude Code
+targets: [claude]
+---
+
+# Claude Prompts
+
+Patterns that work best with Claude Code's capabilities.
+
+## When to Use
+
+Use when crafting prompts for Claude Code specifically.
+```
+
+When `targets` is set, the skill only syncs to matching targets — other targets won't receive it. Omit `targets` to sync everywhere.
+
 ### Process skill
 
 ```markdown

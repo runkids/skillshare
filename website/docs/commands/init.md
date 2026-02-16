@@ -64,7 +64,7 @@ Initialize project-level skills with `-p`:
 
 ```bash
 skillshare init -p                              # Interactive
-skillshare init -p --targets claude-code,cursor  # Non-interactive
+skillshare init -p --targets claude,cursor  # Non-interactive
 ```
 
 ### What Happens
@@ -97,7 +97,7 @@ skillshare init -p --targets claude-code,cursor  # Non-interactive
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ 4. Write config.yaml                                            │
-│    → targets: claude-code, cursor                               │
+│    → targets: claude, cursor                                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -120,7 +120,7 @@ Scans for newly installed AI CLIs not yet in your config and prompts you to add 
 
 ```bash
 skillshare init -p --discover           # Interactive selection
-skillshare init -p --discover --select gemini-cli  # Non-interactive
+skillshare init -p --discover --select gemini  # Non-interactive
 ```
 
 Scans the project directory for new AI CLI directories (e.g., `.gemini/`) and adds them as targets.
@@ -167,7 +167,7 @@ skillshare init --source ~/.config/skillshare/skills
 
 # Project-level setup
 skillshare init -p
-skillshare init -p --targets claude-code,cursor
+skillshare init -p --targets claude,cursor
 
 # Fully non-interactive setup
 skillshare init --no-copy --all-targets --git --skill

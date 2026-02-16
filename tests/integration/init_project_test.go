@@ -18,7 +18,7 @@ func TestInitProject_Fresh_CreatesStructure(t *testing.T) {
 	projectRoot := filepath.Join(sb.Root, "project")
 	os.MkdirAll(projectRoot, 0755)
 
-	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude-code,cursor")
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude,cursor")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Initialized successfully")
 
@@ -45,8 +45,8 @@ func TestInitProject_AlreadyInitialized_Error(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
-	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude")
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "already initialized")
 }
@@ -58,7 +58,7 @@ func TestInitProject_DryRun_NoFiles(t *testing.T) {
 	projectRoot := filepath.Join(sb.Root, "project")
 	os.MkdirAll(projectRoot, 0755)
 
-	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude-code", "--dry-run")
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude", "--dry-run")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Dry run")
 
@@ -74,12 +74,12 @@ func TestInitProject_ConfigContainsTargets(t *testing.T) {
 	projectRoot := filepath.Join(sb.Root, "project")
 	os.MkdirAll(projectRoot, 0755)
 
-	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude-code,cursor")
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude,cursor")
 	result.AssertSuccess(t)
 
 	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
-	if !strings.Contains(cfg, "claude-code") {
-		t.Error("config should contain claude-code target")
+	if !strings.Contains(cfg, "claude") {
+		t.Error("config should contain claude target")
 	}
 	if !strings.Contains(cfg, "cursor") {
 		t.Error("config should contain cursor target")
@@ -93,7 +93,7 @@ func TestInitProject_GitignoreIncludesLogsDirectory(t *testing.T) {
 	projectRoot := filepath.Join(sb.Root, "project")
 	os.MkdirAll(projectRoot, 0755)
 
-	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude-code")
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude")
 	result.AssertSuccess(t)
 
 	gitignore := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", ".gitignore"))

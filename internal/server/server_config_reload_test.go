@@ -37,7 +37,7 @@ func TestServer_AutoReloadsConfigForAPIRequests(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to load initial config: %v", err)
 	}
-	s := New(cfg, "127.0.0.1:0")
+	s := New(cfg, "127.0.0.1:0", "")
 
 	req1 := httptest.NewRequest(http.MethodGet, "/api/overview", nil)
 	rr1 := httptest.NewRecorder()
@@ -104,7 +104,7 @@ func TestServer_ConfigEndpointStillWorksWhenConfigTemporarilyInvalid(t *testing.
 	if err != nil {
 		t.Fatalf("failed to load initial config: %v", err)
 	}
-	s := New(cfg, "127.0.0.1:0")
+	s := New(cfg, "127.0.0.1:0", "")
 
 	invalidRaw := "source: [\n"
 	if err := os.WriteFile(cfgPath, []byte(invalidRaw), 0644); err != nil {

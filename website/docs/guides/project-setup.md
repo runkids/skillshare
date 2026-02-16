@@ -59,7 +59,7 @@ skillshare init -p
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ 4. Write config.yaml                                            │
-│    → targets: claude-code, cursor                               │
+│    → targets: claude, cursor                                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -70,7 +70,7 @@ After initialization, skillshare auto-detects project mode whenever you `cd` int
 You can also specify targets directly:
 
 ```bash
-skillshare init -p --targets claude-code,cursor
+skillshare init -p --targets claude,cursor
 ```
 
 ### Step 2: Create Local Skills
@@ -179,7 +179,7 @@ Targets support both known names and custom paths:
 ```yaml
 # .skillshare/config.yaml
 targets:
-  - claude-code                    # Known name → .claude/skills/
+  - claude                    # Known name → .claude/skills/
   - cursor                         # Known name → .cursor/skills/
   - name: custom-tool              # Custom path
     path: ./tools/ai/skills        # Relative to project root
@@ -193,7 +193,7 @@ targets:
 
 ```yaml
 targets:
-  - claude-code
+  - claude
   - cursor
   - name: windsurf
     path: .windsurf/skills

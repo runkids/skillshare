@@ -82,7 +82,7 @@ skillshare install anthropics/skills
   <img src="/img/install-demo.png" alt="install demo" width="720" />
 </p>
 
-Discovery scans all directories for `SKILL.md` files, skipping only `.git`. This means skills inside hidden directories like `.curated/` or `.system/` are discovered automatically.
+Discovery scans all directories for `SKILL.md` files, skipping only `.git`. This means skills inside hidden directories like `.curated/` or `.system/` are discovered automatically. When multiple skills are found, the selection prompt groups them by directory for easier browsing.
 
 **Tip**: Use `--dry-run` to preview without installing:
 ```bash
@@ -119,6 +119,9 @@ Provide the full path to install immediately:
 skillshare install anthropics/skills/skills/pdf
 skillshare install google-gemini/gemini-cli/packages/core/src/skills/builtin/skill-creator
 
+# Fuzzy subdirectory — if exact path doesn't exist, matches by skill name
+skillshare install runkids/my-skills/vue-best-practices
+
 # Full URL
 skillshare install github.com/user/repo/path/to/skill
 
@@ -132,6 +135,10 @@ skillshare install git@github.com:user/repo.git//path/to/skill
 skillshare install ~/Downloads/my-skill
 skillshare install /absolute/path/to/skill
 ```
+
+:::tip Fuzzy subdirectory resolution
+When specifying a subdirectory path like `owner/repo/skill-name`, if the exact path doesn't exist in the repo, skillshare scans all `SKILL.md` files and matches by directory basename. If multiple skills share the same name, an ambiguity error is shown with full paths so you can specify the exact one.
+:::
 
 ## Project Mode
 

@@ -210,6 +210,58 @@ Result for `cursor`:
 - Synced: `core-auth`, `team__frontend__ui`
 - Not synced: `core-deprecated`, `team__legacy__docs`, `misc-tool`
 
+#### Managing filters via CLI
+
+Instead of editing YAML manually, use the `target` command:
+
+```bash
+skillshare target claude --add-include "team-*"
+skillshare target claude --add-exclude "_legacy*"
+skillshare target claude --remove-include "team-*"
+skillshare sync  # Apply changes
+```
+
+Duplicate patterns are silently ignored. Invalid glob patterns return an error.
+
+See [target command](/docs/commands/target#target-filters-includeexclude) for full reference.
+
+#### Skill-level targets {#skill-level-targets}
+
+Skills can declare which targets they're compatible with using the `targets` field in SKILL.md:
+
+```yaml
+---
+name: claude-prompts
+targets: [claude]
+---
+```
+
+This is a **second layer** of filtering that works alongside config-level include/exclude:
+
+```
+Source Skills
+  │
+  ├─ Config include/exclude    ← per-target, set by consumer
+  │
+  └─ Skill targets field       ← per-skill, set by author
+      │
+      ▼
+  Skills synced to target
+```
+
+**Evaluation order:**
+1. `include` — keep only matching names
+2. `exclude` — remove matching names
+3. `targets` field — remove skills whose targets list doesn't include this target
+
+Both layers must pass (AND relationship). Config filters always take priority — even if a skill declares `targets: [claude]`, a config `exclude: [claude-*]` will still exclude it.
+
+**Cross-mode matching:** `targets: [claude]` matches both the global target `claude` and the project target `claude`, because they refer to the same AI CLI. See [supported targets](/docs/targets/supported-targets).
+
+:::tip
+Use config filters (`include`/`exclude`) when the **consumer** wants to control what goes where. Use skill-level `targets` when the **author** knows the skill only works with specific AI CLIs.
+:::
+
 #### Existing target entries when filters change
 
 When you add or change filters, then run `skillshare sync`:
@@ -263,7 +315,7 @@ Project config uses a different format from global config.
 ```yaml
 # Targets — string or object form
 targets:
-  - claude-code                    # String: known target with defaults
+  - claude                    # String: known target with defaults
   - cursor
   - name: custom-ide               # Object: custom path and mode
     path: ./tools/ide/skills
@@ -291,7 +343,7 @@ Supports two YAML forms:
 
 | Form | Example | When to use |
 |------|---------|-------------|
-| **String** | `- claude-code` | Known target, default path and merge mode |
+| **String** | `- claude` | Known target, default path and merge mode |
 | **Object** | `- name: x, path: ..., mode: ..., include: [...], exclude: [...]` | Custom path, mode override, or per-target filters |
 
 ### `skills` (project only)
@@ -444,7 +496,7 @@ Uses symlinks.
 ### Windows
 
 ```yaml
-source: %USERPROFILE%\.config\skillshare\skills
+source: %AppData%\skillshare\skills
 targets:
   claude:
     path: %USERPROFILE%\.claude\skills

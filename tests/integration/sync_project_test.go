@@ -13,7 +13,7 @@ import (
 func TestSyncProject_CreatesSymlinks(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "my-skill", map[string]string{
 		"SKILL.md": "# My Skill",
 	})
@@ -30,7 +30,7 @@ func TestSyncProject_CreatesSymlinks(t *testing.T) {
 func TestSyncProject_MultipleTargets(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code", "cursor")
+	projectRoot := sb.SetupProjectDir("claude", "cursor")
 	sb.CreateProjectSkill(projectRoot, "shared", map[string]string{
 		"SKILL.md": "# Shared",
 	})
@@ -49,7 +49,7 @@ func TestSyncProject_MultipleTargets(t *testing.T) {
 func TestSyncProject_PreservesLocalSkills(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "remote-skill", map[string]string{
 		"SKILL.md": "# Remote",
 	})
@@ -73,7 +73,7 @@ func TestSyncProject_PreservesLocalSkills(t *testing.T) {
 func TestSyncProject_PrunesOrphanLinks(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "skill-a", map[string]string{"SKILL.md": "# A"})
 	sb.CreateProjectSkill(projectRoot, "skill-b", map[string]string{"SKILL.md": "# B"})
 
@@ -98,7 +98,7 @@ func TestSyncProject_PrunesOrphanLinks(t *testing.T) {
 func TestSyncProject_DryRun_NoChanges(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "test", map[string]string{"SKILL.md": "# Test"})
 
 	result := sb.RunCLIInDir(projectRoot, "sync", "-p", "--dry-run")
@@ -113,7 +113,7 @@ func TestSyncProject_DryRun_NoChanges(t *testing.T) {
 func TestSyncProject_AutoDetectsMode(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "auto", map[string]string{"SKILL.md": "# Auto"})
 
 	// No -p flag; auto-detects from .skillshare/config.yaml

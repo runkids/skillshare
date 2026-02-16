@@ -191,7 +191,7 @@ targets:
 	sb.RunCLI("sync")
 
 	// Check the log file exists and is valid JSONL
-	logDir := filepath.Join(filepath.Dir(sb.ConfigPath), "logs")
+	logDir := filepath.Join(sb.Home, ".local", "state", "skillshare", "logs")
 	logFile := filepath.Join(logDir, "operations.log")
 
 	data, err := os.ReadFile(logFile)

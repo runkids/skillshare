@@ -24,9 +24,10 @@ targets:
     global_path: "~/.bob/skills"
     project_path: ".bob/skills"
   - global_name: claude
-    project_name: claude-code
+    project_name: claude
     global_path: "~/.claude/skills"
     project_path: ".claude/skills"
+    aliases: [claude-code]
   - global_name: cline
     project_name: cline
     global_path: "~/.cline/skills"
@@ -44,9 +45,10 @@ targets:
     global_path: "~/.codex/skills"
     project_path: ".agents/skills"
   - global_name: commandcode
-    project_name: command-code
+    project_name: commandcode
     global_path: "~/.commandcode/skills"
     project_path: ".commandcode/skills"
+    aliases: [command-code]
   - global_name: continue
     project_name: continue
     global_path: "~/.continue/skills"
@@ -56,9 +58,10 @@ targets:
     global_path: "~/.snowflake/cortex/skills"
     project_path: ".cortex/skills"
   - global_name: copilot
-    project_name: github-copilot
+    project_name: copilot
     global_path: "~/.copilot/skills"
     project_path: ".github/skills"
+    aliases: [github-copilot]
   - global_name: crush
     project_name: crush
     global_path: "~/.config/crush/skills"
@@ -68,41 +71,47 @@ targets:
     global_path: "~/.cursor/skills"
     project_path: ".cursor/skills"
   - global_name: deepagents
-    project_name: deep-agents
+    project_name: deepagents
     global_path: "~/.deepagents/agent/skills"
     project_path: ".deepagents/skills"
+    aliases: [deep-agents]
   - global_name: droid
     project_name: droid
     global_path: "~/.factory/skills"
     project_path: ".factory/skills"
   - global_name: gemini
-    project_name: gemini-cli
+    project_name: gemini
     global_path: "~/.gemini/skills"
     project_path: ".gemini/skills"
+    aliases: [gemini-cli]
   - global_name: goose
     project_name: goose
     global_path: "~/.config/goose/skills"
     project_path: ".agents/skills"
   - global_name: iflow
-    project_name: iflow-cli
+    project_name: iflow
     global_path: "~/.iflow/skills"
     project_path: ".iflow/skills"
+    aliases: [iflow-cli]
   - global_name: junie
     project_name: junie
     global_path: "~/.junie/skills"
     project_path: ".junie/skills"
   - global_name: kilocode
-    project_name: kilo
+    project_name: kilocode
     global_path: "~/.kilocode/skills"
     project_path: ".kilocode/skills"
+    aliases: [kilo]
   - global_name: kimi
-    project_name: kimi-cli
+    project_name: kimi
     global_path: "~/.kimi/skills"
     project_path: ".agents/skills"
+    aliases: [kimi-cli]
   - global_name: kiro
-    project_name: kiro-cli
+    project_name: kiro
     global_path: "~/.kiro/skills"
     project_path: ".kiro/skills"
+    aliases: [kiro-cli]
   - global_name: kode
     project_name: kode
     global_path: "~/.kode/skills"
@@ -150,9 +159,10 @@ targets:
     global_path: "~/.qoder/skills"
     project_path: ".qoder/skills"
   - global_name: qwen
-    project_name: qwen-code
+    project_name: qwen
     global_path: "~/.qwen/skills"
     project_path: ".qwen/skills"
+    aliases: [qwen-code]
   - global_name: roo
     project_name: roo
     global_path: "~/.roo/skills"
@@ -166,9 +176,10 @@ targets:
     global_path: "~/.trae-cn/skills"
     project_path: ".trae/skills"
   - global_name: vibe
-    project_name: mistral-vibe
+    project_name: vibe
     global_path: "~/.vibe/skills"
     project_path: ".vibe/skills"
+    aliases: [mistral-vibe]
   - global_name: windsurf
     project_name: windsurf
     global_path: "~/.codeium/windsurf/skills"

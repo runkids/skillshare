@@ -4,7 +4,7 @@ Initialize skillshare configuration (global or project).
 
 ## Global Init
 
-**Source:** Always `~/.config/skillshare/skills` (use `--source` only if user explicitly requests).
+**Source:** `~/.config/skillshare/skills` by default. Respects `$XDG_CONFIG_HOME` — if set, uses `$XDG_CONFIG_HOME/skillshare/skills`. Use `--source` only if user explicitly requests a custom path.
 
 ### Flags
 
@@ -58,7 +58,7 @@ Creates `.skillshare/` in current directory with `config.yaml`, `.gitignore`, an
 | Flag | Description |
 |------|-------------|
 | `-p, --project` | Enable project mode |
-| `--targets "claude-code,cursor"` | Specific targets (non-interactive) |
+| `--targets "claude,cursor"` | Specific targets (non-interactive) |
 | `--discover` | Discover new AI tools |
 | `--discover --select "a,b"` | Non-interactive discovery |
 | `--dry-run, -n` | Preview changes |
@@ -69,7 +69,7 @@ Creates `.skillshare/` in current directory with `config.yaml`, `.gitignore`, an
 
 ```bash
 # Initialize with specific targets
-skillshare init -p --targets "claude-code,cursor"
+skillshare init -p --targets "claude,cursor"
 
 # Verify
 skillshare status

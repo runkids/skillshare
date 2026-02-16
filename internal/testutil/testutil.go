@@ -58,7 +58,9 @@ func NewSandbox(t *testing.T) *Sandbox {
 	dirs := []string{
 		filepath.Join(home, ".config", "skillshare"),
 		filepath.Join(home, ".config", "skillshare", "skills"),
-		filepath.Join(home, ".config", "skillshare", "backups"),
+		filepath.Join(home, ".local", "share", "skillshare", "backups"),
+		filepath.Join(home, ".local", "share", "skillshare", "trash"),
+		filepath.Join(home, ".local", "state", "skillshare", "logs"),
 		filepath.Join(home, ".claude"),
 		filepath.Join(home, ".codex"),
 		filepath.Join(home, ".cursor"),
@@ -73,6 +75,14 @@ func NewSandbox(t *testing.T) *Sandbox {
 	// Override environment
 	sb.SetEnv("HOME", home)
 	sb.SetEnv("SKILLSHARE_CONFIG", sb.ConfigPath)
+
+	// Point XDG variables into the sandbox so config.BaseDir()/DataDir()/
+	// StateDir() resolve to sandbox paths.  Without this, CI runners that
+	// set XDG_CONFIG_HOME (e.g. ubuntu-latest) cause the subprocess to
+	// write files outside the sandbox.
+	sb.SetEnv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	sb.SetEnv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	sb.SetEnv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
 
 	return sb
 }
@@ -264,7 +274,8 @@ func (sb *Sandbox) SetupProjectDir(targets ...string) string {
 
 	// Create target directories
 	knownPaths := map[string]string{
-		"claude-code": ".claude/skills",
+		"claude":      ".claude/skills",
+		"claude-code": ".claude/skills", // legacy alias
 		"cursor":      ".cursor/skills",
 		"codex":       ".agents/skills",
 	}

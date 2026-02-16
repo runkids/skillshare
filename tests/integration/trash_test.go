@@ -69,7 +69,7 @@ targets: {}
 	}
 
 	// Trash should be empty now
-	trashDir := filepath.Join(sb.Home, ".config", "skillshare", "trash")
+	trashDir := filepath.Join(sb.Home, ".local", "share", "skillshare", "trash")
 	entries, _ := os.ReadDir(trashDir)
 	if len(entries) != 0 {
 		t.Errorf("trash should be empty after restore, has %d entries", len(entries))

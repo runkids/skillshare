@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"skillshare/internal/config"
@@ -37,6 +38,7 @@ func buildSkillEntries(discovered []sync.DiscoveredSkill) []skillEntry {
 		entry := skillEntry{
 			Name:     d.FlatName,
 			IsNested: d.IsInRepo || utils.HasNestedSeparator(d.FlatName),
+			RelPath:  d.RelPath,
 		}
 
 		if d.IsInRepo {
@@ -57,37 +59,165 @@ func buildSkillEntries(discovered []sync.DiscoveredSkill) []skillEntry {
 	return skills
 }
 
-// displaySkillsVerbose displays skills in verbose mode
-func displaySkillsVerbose(skills []skillEntry) {
+// extractGroupDir returns the parent directory from a RelPath.
+// "frontend/react-helper" → "frontend", "my-skill" → "", "_team/frontend/ui" → "_team/frontend"
+func extractGroupDir(relPath string) string {
+	i := strings.LastIndex(relPath, "/")
+	if i < 0 {
+		return ""
+	}
+	return relPath[:i]
+}
+
+// groupSkillEntries groups skill entries by their parent directory.
+// Returns ordered group keys and a map of group→entries.
+// Top-level skills (no parent dir) are grouped under "".
+func groupSkillEntries(skills []skillEntry) ([]string, map[string][]skillEntry) {
+	groups := make(map[string][]skillEntry)
 	for _, s := range skills {
-		fmt.Printf("  %s%s%s\n", ui.Cyan, s.Name, ui.Reset)
-		if s.RepoName != "" {
-			fmt.Printf("    %sTracked repo:%s %s\n", ui.Gray, ui.Reset, s.RepoName)
+		dir := extractGroupDir(s.RelPath)
+		groups[dir] = append(groups[dir], s)
+	}
+
+	// Collect sorted directory keys (non-empty first, then top-level "")
+	var dirs []string
+	for k := range groups {
+		if k != "" {
+			dirs = append(dirs, k)
 		}
-		if s.Source != "" {
-			fmt.Printf("    %sSource:%s      %s\n", ui.Gray, ui.Reset, s.Source)
-			fmt.Printf("    %sType:%s        %s\n", ui.Gray, ui.Reset, s.Type)
-			fmt.Printf("    %sInstalled:%s   %s\n", ui.Gray, ui.Reset, s.InstalledAt)
-		} else {
-			fmt.Printf("    %sSource:%s      (local - no metadata)\n", ui.Gray, ui.Reset)
+	}
+	sort.Strings(dirs)
+	// Append top-level group last
+	if _, ok := groups[""]; ok {
+		dirs = append(dirs, "")
+	}
+
+	return dirs, groups
+}
+
+// displayName returns the base skill name for display within a group.
+// When grouped under a directory, show just the base name; otherwise show full name.
+func displayName(s skillEntry, groupDir string) string {
+	if groupDir == "" {
+		return s.Name
+	}
+	// Use the last segment of RelPath as the display name
+	base := s.RelPath
+	if i := strings.LastIndex(base, "/"); i >= 0 {
+		base = base[i+1:]
+	}
+	return base
+}
+
+// hasGroups returns true if any skill has a parent directory (i.e., non-flat).
+func hasGroups(skills []skillEntry) bool {
+	for _, s := range skills {
+		if extractGroupDir(s.RelPath) != "" {
+			return true
 		}
-		fmt.Println()
+	}
+	return false
+}
+
+// displaySkillsVerbose displays skills in verbose mode, grouped by directory
+func displaySkillsVerbose(skills []skillEntry) {
+	if !hasGroups(skills) {
+		// Flat display — no grouping needed
+		for _, s := range skills {
+			fmt.Printf("  %s%s%s\n", ui.Cyan, s.Name, ui.Reset)
+			printVerboseDetails(s, "    ")
+		}
+		return
+	}
+
+	dirs, groups := groupSkillEntries(skills)
+	for i, dir := range dirs {
+		if dir != "" {
+			if i > 0 {
+				fmt.Println()
+			}
+			fmt.Printf("  %s%s/%s\n", ui.Gray, dir, ui.Reset)
+		} else if i > 0 {
+			fmt.Println()
+		}
+
+		for _, s := range groups[dir] {
+			name := displayName(s, dir)
+			indent := "    "
+			detailIndent := "      "
+			if dir == "" {
+				indent = "  "
+				detailIndent = "    "
+			}
+			fmt.Printf("%s%s%s%s\n", indent, ui.Cyan, name, ui.Reset)
+			printVerboseDetails(s, detailIndent)
+		}
 	}
 }
 
-// displaySkillsCompact displays skills in compact mode
+func printVerboseDetails(s skillEntry, indent string) {
+	if s.RepoName != "" {
+		fmt.Printf("%s%sTracked repo:%s %s\n", indent, ui.Gray, ui.Reset, s.RepoName)
+	}
+	if s.Source != "" {
+		fmt.Printf("%s%sSource:%s      %s\n", indent, ui.Gray, ui.Reset, s.Source)
+		fmt.Printf("%s%sType:%s        %s\n", indent, ui.Gray, ui.Reset, s.Type)
+		fmt.Printf("%s%sInstalled:%s   %s\n", indent, ui.Gray, ui.Reset, s.InstalledAt)
+	} else {
+		fmt.Printf("%s%sSource:%s      (local - no metadata)\n", indent, ui.Gray, ui.Reset)
+	}
+	fmt.Println()
+}
+
+// displaySkillsCompact displays skills in compact mode, grouped by directory
 func displaySkillsCompact(skills []skillEntry) {
-	maxNameLen := 0
-	for _, s := range skills {
-		if len(s.Name) > maxNameLen {
-			maxNameLen = len(s.Name)
+	if !hasGroups(skills) {
+		// Flat display — identical to previous behavior
+		maxNameLen := 0
+		for _, s := range skills {
+			if len(s.Name) > maxNameLen {
+				maxNameLen = len(s.Name)
+			}
 		}
+		for _, s := range skills {
+			suffix := getSkillSuffix(s)
+			format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Gray, ui.Reset)
+			fmt.Printf(format, s.Name, suffix)
+		}
+		return
 	}
 
-	for _, s := range skills {
-		suffix := getSkillSuffix(s)
-		format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Gray, ui.Reset)
-		fmt.Printf(format, s.Name, suffix)
+	dirs, groups := groupSkillEntries(skills)
+	for i, dir := range dirs {
+		if dir != "" {
+			if i > 0 {
+				fmt.Println()
+			}
+			fmt.Printf("  %s%s/%s\n", ui.Gray, dir, ui.Reset)
+		} else if i > 0 {
+			fmt.Println()
+		}
+
+		// Calculate max name length within this group
+		maxNameLen := 0
+		for _, s := range groups[dir] {
+			name := displayName(s, dir)
+			if len(name) > maxNameLen {
+				maxNameLen = len(name)
+			}
+		}
+
+		for _, s := range groups[dir] {
+			name := displayName(s, dir)
+			suffix := getSkillSuffix(s)
+			if dir != "" {
+				format := fmt.Sprintf("    %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Gray, ui.Reset)
+				fmt.Printf(format, name, suffix)
+			} else {
+				format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Gray, ui.Reset)
+				fmt.Printf(format, name, suffix)
+			}
+		}
 	}
 }
 
@@ -212,6 +342,7 @@ type skillEntry struct {
 	InstalledAt string
 	IsNested    bool
 	RepoName    string
+	RelPath     string
 }
 
 // abbreviateSource shortens long sources for display

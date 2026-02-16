@@ -65,6 +65,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 					writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
 					return
 				}
+				filtered = ssync.FilterSkillsByTarget(filtered, name)
 				item.ExpectedSkillCount = len(filtered)
 			}
 			status, linked, local := ssync.CheckStatusMerge(target.Path, s.cfg.Source)
@@ -200,6 +201,75 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 	}, "")
 
 	writeJSON(w, map[string]any{"success": true, "name": name})
+}
+
+func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	name := r.PathValue("name")
+
+	target, exists := s.cfg.Targets[name]
+	if !exists {
+		writeError(w, http.StatusNotFound, "target not found: "+name)
+		return
+	}
+
+	var body struct {
+		Include *[]string `json:"include"` // null = no change, [] = clear
+		Exclude *[]string `json:"exclude"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	// Validate patterns
+	if body.Include != nil {
+		if _, err := ssync.FilterSkills(nil, *body.Include, nil); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid include pattern: "+err.Error())
+			return
+		}
+		target.Include = *body.Include
+	}
+	if body.Exclude != nil {
+		if _, err := ssync.FilterSkills(nil, nil, *body.Exclude); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid exclude pattern: "+err.Error())
+			return
+		}
+		target.Exclude = *body.Exclude
+	}
+
+	s.cfg.Targets[name] = target
+
+	// In project mode, also update the project config
+	if s.IsProjectMode() {
+		for i := range s.projectCfg.Targets {
+			if s.projectCfg.Targets[i].Name == name {
+				if body.Include != nil {
+					s.projectCfg.Targets[i].Include = *body.Include
+				}
+				if body.Exclude != nil {
+					s.projectCfg.Targets[i].Exclude = *body.Exclude
+				}
+				break
+			}
+		}
+	}
+
+	if err := s.saveConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
+		return
+	}
+
+	s.writeOpsLog("target", "ok", start, map[string]any{
+		"action": "filter",
+		"name":   name,
+		"scope":  "ui",
+	}, "")
+
+	writeJSON(w, map[string]any{"success": true})
 }
 
 // unlinkMergeSymlinks removes symlinks in targetPath that point under the

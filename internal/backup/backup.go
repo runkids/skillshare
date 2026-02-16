@@ -7,16 +7,13 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+
+	"skillshare/internal/config"
 )
 
 // BackupDir returns the backup directory path.
-// Returns empty string if home directory cannot be determined.
 func BackupDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".config", "skillshare", "backups")
+	return filepath.Join(config.DataDir(), "backups")
 }
 
 // Create creates a backup of the target directory

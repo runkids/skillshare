@@ -694,11 +694,25 @@ func promptOrchestratorSelection(rootSkill install.SkillInfo, childSkills []inst
 }
 
 func promptMultiSelect(skills []install.SkillInfo) ([]install.SkillInfo, error) {
+	// Sort by path so skills in the same directory cluster together
+	sorted := make([]install.SkillInfo, len(skills))
+	copy(sorted, skills)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].Path < sorted[j].Path
+	})
+	skills = sorted
+
 	options := make([]string, len(skills))
 	for i, skill := range skills {
-		loc := skill.Path
-		if skill.Path == "." {
+		dir := filepath.Dir(skill.Path)
+		var loc string
+		switch {
+		case skill.Path == ".":
 			loc = "root"
+		case dir == ".":
+			loc = "root"
+		default:
+			loc = dir
 		}
 		options[i] = fmt.Sprintf("%s  \033[90m%s\033[0m", skill.Name, loc)
 	}

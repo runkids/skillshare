@@ -17,6 +17,9 @@
 | Wrong mode detected | Use `-p` (project) or `-g` (global) to force |
 | Custom audit rules not applying | Verify `audit-rules.yaml` path: global (`~/.config/skillshare/`) or project (`.skillshare/`). Run `skillshare audit --init-rules` to create template |
 | Nested skill not found | `update`/`uninstall` resolve short names — e.g., `skillshare update vue` finds `frontend/vue/vue-best-practices`. Use full path if ambiguous |
+| Config in wrong location | Skillshare respects `$XDG_CONFIG_HOME`. If set, config is at `$XDG_CONFIG_HOME/skillshare/`. Otherwise `~/.config/skillshare/` |
+| Skill not syncing to target | Check target filters (`target <name>`) and skill-level `targets` field in SKILL.md. Both can restrict which skills sync where |
+| Old project target names | Old names like `claude-code` still work as aliases. New canonical name is `claude` |
 
 ## Diagnostic Commands
 
@@ -77,7 +80,7 @@ AI cannot respond to CLI prompts. Always use flags:
 ```bash
 # Good (non-interactive)
 skillshare init --copy-from claude --all-targets --git
-skillshare init -p --targets "claude-code,cursor"
+skillshare init -p --targets "claude,cursor"
 skillshare uninstall my-skill --force
 skillshare uninstall my-skill --force -p
 

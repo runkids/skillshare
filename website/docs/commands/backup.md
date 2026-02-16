@@ -19,7 +19,7 @@ Backups are created **automatically** before:
 - `skillshare sync`
 - `skillshare target remove`
 
-Location: `~/.config/skillshare/backups/<timestamp>/`
+Location: `~/.local/share/skillshare/backups/<timestamp>/`
 
 ## Commands
 
@@ -68,7 +68,7 @@ Default cleanup policy:
 ## Backup Structure
 
 ```
-~/.config/skillshare/backups/
+~/.local/share/skillshare/backups/
 ├── 2026-01-20_15-30-00/
 │   ├── claude/
 │   │   ├── skill-a/

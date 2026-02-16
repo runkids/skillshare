@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
+	ssync "skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
 
@@ -244,7 +245,25 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 		ui.Info("Run 'skillshare update <name>' or 'skillshare update --all'")
 	}
 
+	// Warn about unknown target names in skill-level targets field
+	warnUnknownSkillTargets(sourceDir)
+
 	return nil
+}
+
+func warnUnknownSkillTargets(sourceDir string) {
+	discovered, err := ssync.DiscoverSourceSkills(sourceDir)
+	if err != nil {
+		return
+	}
+
+	warnings := findUnknownSkillTargets(discovered)
+	if len(warnings) > 0 {
+		fmt.Println()
+		for _, w := range warnings {
+			ui.Warning("Skill targets: %s", w)
+		}
+	}
 }
 
 func checkTrackedRepo(name, repoPath string) checkRepoResult {

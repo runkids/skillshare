@@ -14,7 +14,7 @@ import (
 func TestListProject_ShowsLocalAndRemote(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Local skill (no meta)
 	sb.CreateProjectSkill(projectRoot, "local-skill", map[string]string{
@@ -43,7 +43,7 @@ func TestListProject_ShowsLocalAndRemote(t *testing.T) {
 func TestListProject_Empty(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	result := sb.RunCLIInDir(projectRoot, "list", "-p")
 	result.AssertSuccess(t)
@@ -53,7 +53,7 @@ func TestListProject_Empty(t *testing.T) {
 func TestListProject_TrackedRepo_ShowsSkills(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Simulate a tracked repo with skills inside hidden directories (like openai/skills)
 	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
@@ -75,7 +75,7 @@ func TestListProject_TrackedRepo_ShowsSkills(t *testing.T) {
 func TestListProject_AutoDetectsMode(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 	sb.CreateProjectSkill(projectRoot, "skill", map[string]string{"SKILL.md": "# S"})
 
 	result := sb.RunCLIInDir(projectRoot, "list")

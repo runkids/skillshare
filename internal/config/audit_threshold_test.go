@@ -52,7 +52,7 @@ func TestLoadProject_DefaultAuditThreshold(t *testing.T) {
 		t.Fatalf("mkdir project config dir: %v", err)
 	}
 
-	raw := "targets:\n  - claude-code\n"
+	raw := "targets:\n  - claude\n"
 	if err := os.WriteFile(cfgPath, []byte(raw), 0644); err != nil {
 		t.Fatalf("write project config: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestLoadProject_InvalidAuditThreshold(t *testing.T) {
 		t.Fatalf("mkdir project config dir: %v", err)
 	}
 
-	raw := "targets:\n  - claude-code\naudit:\n  block_threshold: urgent\n"
+	raw := "targets:\n  - claude\naudit:\n  block_threshold: urgent\n"
 	if err := os.WriteFile(cfgPath, []byte(raw), 0644); err != nil {
 		t.Fatalf("write project config: %v", err)
 	}

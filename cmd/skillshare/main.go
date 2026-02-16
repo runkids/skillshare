@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"skillshare/internal/config"
 	"skillshare/internal/ui"
 	versioncheck "skillshare/internal/version"
 )
@@ -43,6 +44,13 @@ var commands = map[string]func([]string) error{
 func main() {
 	// Clean up any leftover .old files from Windows self-upgrade
 	cleanupOldBinary()
+
+	// Migrate Windows legacy ~/.config/skillshare → %AppData%\skillshare
+	results := config.MigrateWindowsLegacyDir()
+
+	// Migrate legacy dirs (backups/trash/logs) to XDG data/state dirs
+	results = append(results, config.MigrateXDGDirs()...)
+	reportMigrationResults(results)
 
 	// Set version for other packages to use
 	versioncheck.Version = version
@@ -87,6 +95,23 @@ func main() {
 		if result := versioncheck.Check(version); result != nil && result.UpdateAvailable {
 			ui.UpdateNotification(result.CurrentVersion, result.LatestVersion)
 		}
+	}
+}
+
+func reportMigrationResults(results []config.MigrationResult) {
+	for _, r := range results {
+		switch r.Status {
+		case config.MigrationMoved:
+			ui.Info("Migrated legacy data: %s -> %s", r.From, r.To)
+		case config.MigrationFailed:
+			if r.From != "" && r.To != "" {
+				ui.Warning("Legacy migration failed: %s -> %s (%v)", r.From, r.To, r.Err)
+				continue
+			}
+			ui.Warning("Legacy migration failed: %v", r.Err)
+		}
+		// MigrationSkippedDestinationExists is silent — it means the new
+		// location already has data (normal after first migration).
 	}
 }
 

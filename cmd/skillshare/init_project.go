@@ -266,14 +266,13 @@ func createProjectTargetDirs(root string, targets []config.ProjectTargetEntry) e
 		return nil
 	}
 
-	knownTargets := config.ProjectTargets()
 	created := map[string]bool{}
 
 	for _, target := range targets {
 		name := target.Name
 		path := target.Path
 		if path == "" {
-			if known, ok := knownTargets[name]; ok {
+			if known, ok := config.LookupProjectTarget(name); ok {
 				path = known.Path
 			} else {
 				continue
@@ -311,13 +310,12 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 	}
 
 	// Build set of existing paths for accurate dedup.
-	knownTargets := config.ProjectTargets()
 	existingPaths := make(map[string]bool)
 	for _, t := range cfg.Targets {
 		name := strings.TrimSpace(t.Name)
 		if t.Path != "" {
 			existingPaths[filepath.FromSlash(t.Path)] = true
-		} else if known, ok := knownTargets[name]; ok {
+		} else if known, ok := config.LookupProjectTarget(name); ok {
 			existingPaths[filepath.FromSlash(known.Path)] = true
 		}
 	}
@@ -356,7 +354,7 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 			}
 			target := findGroupedTarget(newTargets, name)
 			if target == nil {
-				if known, ok := knownTargets[name]; ok && existingPaths[filepath.FromSlash(known.Path)] {
+				if known, ok := config.LookupProjectTarget(name); ok && existingPaths[filepath.FromSlash(known.Path)] {
 					ui.Info("Target already covered: %s (skipped)", name)
 				} else {
 					ui.Warning("Target not detected: %s (skipped)", name)

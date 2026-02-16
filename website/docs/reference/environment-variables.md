@@ -20,6 +20,74 @@ SKILLSHARE_CONFIG=~/custom-config.yaml skillshare status
 
 ---
 
+### XDG_CONFIG_HOME
+
+Override the base configuration directory per the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir/latest/).
+
+```bash
+export XDG_CONFIG_HOME=~/my-config
+# skillshare will use ~/my-config/skillshare/
+```
+
+**Default behavior:**
+
+| Platform | Default |
+|----------|---------|
+| Linux | `~/.config/skillshare/` |
+| macOS | `~/.config/skillshare/` |
+| Windows | `%AppData%\skillshare\` |
+
+**Priority:** `SKILLSHARE_CONFIG` > `XDG_CONFIG_HOME` > platform default.
+
+:::note
+If you set `XDG_CONFIG_HOME` after initial setup, move your existing `~/.config/skillshare/` directory to the new location manually.
+:::
+
+---
+
+### XDG_DATA_HOME
+
+Override the data directory (backups, trash).
+
+```bash
+export XDG_DATA_HOME=~/my-data
+# skillshare will use ~/my-data/skillshare/backups/ and ~/my-data/skillshare/trash/
+```
+
+**Default:** `~/.local/share/skillshare/`
+
+---
+
+### XDG_STATE_HOME
+
+Override the state directory (operation logs).
+
+```bash
+export XDG_STATE_HOME=~/my-state
+# skillshare will use ~/my-state/skillshare/logs/
+```
+
+**Default:** `~/.local/state/skillshare/`
+
+---
+
+### XDG_CACHE_HOME
+
+Override the cache directory (version check cache, UI dist cache).
+
+```bash
+export XDG_CACHE_HOME=~/my-cache
+# skillshare will use ~/my-cache/skillshare/
+```
+
+**Default:** `~/.cache/skillshare/`
+
+:::tip Automatic migration
+Starting from v0.13.0, skillshare follows the XDG Base Directory Specification for backups, trash, and logs. If you're upgrading from an older version, these directories are automatically migrated from `~/.config/skillshare/` to their proper XDG locations on first run.
+:::
+
+---
+
 ## GitHub API
 
 ### GITHUB_TOKEN
@@ -103,6 +171,10 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `SKILLSHARE_CONFIG` | Config file path | `~/.config/skillshare/config.yaml` |
+| `XDG_CONFIG_HOME` | Base config directory | `~/.config` (Linux/macOS), `%AppData%` (Windows) |
+| `XDG_DATA_HOME` | Data directory (backups, trash) | `~/.local/share` |
+| `XDG_STATE_HOME` | State directory (logs) | `~/.local/state` |
+| `XDG_CACHE_HOME` | Cache directory (version check, UI) | `~/.cache` |
 | `GITHUB_TOKEN` | GitHub API auth | None |
 | `SKILLSHARE_TEST_BINARY` | Test binary path | `bin/skillshare` |
 

@@ -14,7 +14,7 @@ import (
 func TestTargetProject_AddKnownTarget(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	result := sb.RunCLIInDir(projectRoot, "target", "add", "cursor", "-p")
 	result.AssertSuccess(t)
@@ -29,7 +29,7 @@ func TestTargetProject_AddKnownTarget(t *testing.T) {
 func TestTargetProject_AddCustomTarget(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	result := sb.RunCLIInDir(projectRoot, "target", "add", "my-ide", ".my-ide/skills/", "-p")
 	result.AssertSuccess(t)
@@ -39,9 +39,9 @@ func TestTargetProject_AddCustomTarget(t *testing.T) {
 func TestTargetProject_AddDuplicate_Error(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
-	result := sb.RunCLIInDir(projectRoot, "target", "add", "claude-code", "-p")
+	result := sb.RunCLIInDir(projectRoot, "target", "add", "claude", "-p")
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "already exists")
 }
@@ -49,7 +49,7 @@ func TestTargetProject_AddDuplicate_Error(t *testing.T) {
 func TestTargetProject_RemoveTarget(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code", "cursor")
+	projectRoot := sb.SetupProjectDir("claude", "cursor")
 
 	result := sb.RunCLIInDir(projectRoot, "target", "remove", "cursor", "-p")
 	result.AssertSuccess(t)
@@ -64,7 +64,7 @@ func TestTargetProject_RemoveTarget(t *testing.T) {
 func TestTargetProject_RemoveAll(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code", "cursor")
+	projectRoot := sb.SetupProjectDir("claude", "cursor")
 
 	result := sb.RunCLIInDir(projectRoot, "target", "remove", "--all", "-p")
 	result.AssertSuccess(t)
@@ -73,11 +73,11 @@ func TestTargetProject_RemoveAll(t *testing.T) {
 func TestTargetProject_List(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code", "cursor")
+	projectRoot := sb.SetupProjectDir("claude", "cursor")
 
 	result := sb.RunCLIInDir(projectRoot, "target", "list", "-p")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "claude-code")
+	result.AssertOutputContains(t, "claude")
 	result.AssertOutputContains(t, "cursor")
 	result.AssertOutputContains(t, "merge")
 }
@@ -85,22 +85,22 @@ func TestTargetProject_List(t *testing.T) {
 func TestTargetProject_Info(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
-	result := sb.RunCLIInDir(projectRoot, "target", "claude-code", "-p")
+	result := sb.RunCLIInDir(projectRoot, "target", "claude", "-p")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "claude-code")
+	result.AssertOutputContains(t, "claude")
 	result.AssertOutputContains(t, "merge")
 }
 
 func TestTargetProject_SetMode(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
-	result := sb.RunCLIInDir(projectRoot, "target", "claude-code", "--mode", "symlink", "-p")
+	result := sb.RunCLIInDir(projectRoot, "target", "claude", "--mode", "symlink", "-p")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "Changed claude-code mode")
+	result.AssertAnyOutputContains(t, "Changed claude mode")
 
 	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
 	if !strings.Contains(cfg, "symlink") {
@@ -108,7 +108,7 @@ func TestTargetProject_SetMode(t *testing.T) {
 	}
 
 	// Verify info shows symlink mode
-	info := sb.RunCLIInDir(projectRoot, "target", "claude-code", "-p")
+	info := sb.RunCLIInDir(projectRoot, "target", "claude", "-p")
 	info.AssertSuccess(t)
 	info.AssertOutputContains(t, "symlink")
 }
@@ -116,9 +116,9 @@ func TestTargetProject_SetMode(t *testing.T) {
 func TestTargetProject_SetMode_InvalidMode(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
-	result := sb.RunCLIInDir(projectRoot, "target", "claude-code", "--mode", "invalid", "-p")
+	result := sb.RunCLIInDir(projectRoot, "target", "claude", "--mode", "invalid", "-p")
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "invalid mode")
 }
@@ -126,10 +126,10 @@ func TestTargetProject_SetMode_InvalidMode(t *testing.T) {
 func TestTargetProject_ListShowsMode(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Set mode to symlink
-	sb.RunCLIInDir(projectRoot, "target", "claude-code", "--mode", "symlink", "-p")
+	sb.RunCLIInDir(projectRoot, "target", "claude", "--mode", "symlink", "-p")
 
 	result := sb.RunCLIInDir(projectRoot, "target", "list", "-p")
 	result.AssertSuccess(t)
@@ -139,7 +139,7 @@ func TestTargetProject_ListShowsMode(t *testing.T) {
 func TestTargetProject_SyncSymlinkMode(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// Create a skill
 	sb.CreateProjectSkill(projectRoot, "test-skill", map[string]string{
@@ -147,7 +147,7 @@ func TestTargetProject_SyncSymlinkMode(t *testing.T) {
 	})
 
 	// Set mode to symlink
-	sb.RunCLIInDir(projectRoot, "target", "claude-code", "--mode", "symlink", "-p")
+	sb.RunCLIInDir(projectRoot, "target", "claude", "--mode", "symlink", "-p")
 
 	// Sync
 	result := sb.RunCLIInDir(projectRoot, "sync", "-p")
@@ -167,7 +167,7 @@ func TestTargetProject_SyncSymlinkMode(t *testing.T) {
 func TestTargetProject_RemoveNotFound_Error(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	result := sb.RunCLIInDir(projectRoot, "target", "remove", "nonexistent", "-p")
 	result.AssertFailure(t)
@@ -177,7 +177,7 @@ func TestTargetProject_RemoveNotFound_Error(t *testing.T) {
 func TestTargetProject_RemoveDryRun(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
-	projectRoot := sb.SetupProjectDir("claude-code", "cursor")
+	projectRoot := sb.SetupProjectDir("claude", "cursor")
 
 	result := sb.RunCLIInDir(projectRoot, "target", "remove", "cursor", "--dry-run", "-p")
 	result.AssertSuccess(t)

@@ -28,7 +28,7 @@ func TestUIProject_ExplicitFlag(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	projectRoot := sb.SetupProjectDir("claude-code")
+	projectRoot := sb.SetupProjectDir("claude")
 
 	// With -p flag and no .skillshare in a different dir, should fail
 	emptyDir := filepath.Join(sb.Root, "empty")

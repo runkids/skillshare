@@ -127,7 +127,7 @@ Run `skillshare doctor` to see current trash status (item count, size, age).
 | | backup | trash |
 |---|---|---|
 | **Protects** | target directories (sync snapshots) | source skills (uninstall) |
-| **Location** | `~/.config/skillshare/backups/` | `~/.config/skillshare/trash/` |
+| **Location** | `~/.local/share/skillshare/backups/` | `~/.local/share/skillshare/trash/` |
 | **Triggered by** | `sync`, `target remove` | `uninstall` |
 | **Restore with** | `skillshare restore <target>` | `skillshare trash restore <name>` |
 | **Auto-cleanup** | manual (`backup --cleanup`) | 7 days |
@@ -137,6 +137,20 @@ They are complementary — backup protects targets from sync changes, trash prot
 ---
 
 ## Targets
+
+### I used `claude-code` (or `gemini-cli`, etc.) as a project target — is that still valid?
+
+Yes. Old project target names like `claude-code`, `gemini-cli`, `github-copilot` still resolve via aliases. However, the canonical name is now the same as the global name (e.g., `claude`, `gemini`, `copilot`). We recommend updating your `.skillshare/config.yaml` to use the short name:
+
+```yaml
+# Before
+targets:
+  - claude-code
+
+# After
+targets:
+  - claude
+```
 
 ### How does `target remove` work? Is it safe?
 
@@ -241,7 +255,7 @@ Thousands of small skills work fine.
 ### Where are backups stored?
 
 ```
-~/.config/skillshare/backups/<timestamp>/
+~/.local/share/skillshare/backups/<timestamp>/
 ```
 
 ### How long are backups kept?

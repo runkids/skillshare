@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
@@ -76,6 +77,9 @@ func cmdDoctorGlobal() error {
 		return nil
 	}
 	ui.Success("Config: %s", config.ConfigPath())
+	ui.Info("Config directory: %s", config.BaseDir())
+	ui.Info("Data directory:   %s", config.DataDir())
+	ui.Info("State directory:  %s", config.StateDir())
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -84,7 +88,7 @@ func cmdDoctorGlobal() error {
 	}
 
 	runDoctorChecks(cfg, result, false)
-	checkBackupStatus(false, config.ConfigPath())
+	checkBackupStatus(false, backup.BackupDir())
 	checkTrashStatus(trash.TrashDir())
 	checkVersionDoctor(cfg)
 	checkForUpdates()
@@ -118,7 +122,7 @@ func cmdDoctorProject(root string) error {
 	}
 
 	runDoctorChecks(cfg, result, true)
-	checkBackupStatus(true, cfgPath)
+	checkBackupStatus(true, "")
 	checkTrashStatus(trash.ProjectTrashDir(root))
 	checkVersionDoctor(cfg)
 	checkForUpdates()
@@ -141,6 +145,9 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 
 	// Check skills validity
 	checkSkillsValidity(cfg.Source, result)
+
+	// Check skill-level targets field
+	checkSkillTargetsField(cfg.Source, result)
 
 	// Check each target
 	checkTargets(cfg, result)
@@ -338,6 +345,7 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult) {
 			result.addError()
 			continue
 		}
+		filtered = sync.FilterSkillsByTarget(filtered, name)
 		expectedCount := len(filtered)
 		if expectedCount == 0 {
 			continue
@@ -419,6 +427,22 @@ func checkSkillsValidity(source string, result *doctorResult) {
 
 	if len(invalid) > 0 {
 		ui.Warning("Skills without SKILL.md: %s", strings.Join(invalid, ", "))
+		result.addWarning()
+	}
+}
+
+// checkSkillTargetsField validates that skill-level targets values are known target names
+func checkSkillTargetsField(source string, result *doctorResult) {
+	discovered, err := sync.DiscoverSourceSkills(source)
+	if err != nil {
+		return
+	}
+
+	warnings := findUnknownSkillTargets(discovered)
+	if len(warnings) > 0 {
+		for _, w := range warnings {
+			ui.Warning("Skill targets: %s", w)
+		}
 		result.addWarning()
 	}
 }
@@ -531,13 +555,11 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult) {
 }
 
 // checkBackupStatus shows last backup time
-func checkBackupStatus(isProject bool, cfgPath string) {
+func checkBackupStatus(isProject bool, backupDir string) {
 	if isProject {
 		ui.Info("Backups: not used in project mode")
 		return
 	}
-
-	backupDir := filepath.Join(filepath.Dir(cfgPath), "backups")
 	entries, err := os.ReadDir(backupDir)
 	if err != nil || len(entries) == 0 {
 		ui.Info("Backups: none found")

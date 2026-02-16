@@ -26,16 +26,12 @@ help:
 	@echo "  make fmt-check               # verify formatting only"
 	@echo "  make check                   # fmt-check + lint + test"
 	@echo "  make ui-install              # install frontend dependencies"
-	@echo "  make ui-build                # build frontend + copy to embed"
+	@echo "  make ui-build                # build frontend"
 	@echo "  make ui-dev                  # Go API server + Vite dev server (requires local Go)"
-	@echo "  make build-all               # ui-build + build (full binary)"
+	@echo "  make build-all               # ui-build + build"
 	@echo "  make clean                   # remove build artifacts"
 
 build:
-	@if [ ! -f internal/server/dist/index.html ]; then \
-		mkdir -p internal/server/dist && \
-		printf '<!DOCTYPE html><html><body><h1>UI not built</h1><p>Run: make build-all</p></body></html>' > internal/server/dist/index.html; \
-	fi
 	mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare
 
 build-meta:
@@ -114,12 +110,10 @@ ui-install:
 
 ui-build: ui-install
 	cd ui && pnpm run build
-	rm -rf internal/server/dist
-	cp -r ui/dist internal/server/dist
 
 ui-dev:
 	@trap 'kill 0' EXIT; \
-	go run -tags dev ./cmd/skillshare ui --no-open & \
+	go run ./cmd/skillshare ui --no-open & \
 	cd ui && pnpm run dev
 
 build-all: ui-build build

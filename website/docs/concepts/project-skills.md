@@ -124,7 +124,7 @@ skillshare sync -g       # Force global mode
 
 ```yaml
 targets:
-  - claude-code                    # Known target (uses default path)
+  - claude                    # Known target (uses default path)
   - cursor                         # Known target
   - name: custom-ide               # Custom target with explicit path
     path: ./tools/ide/skills
@@ -142,7 +142,7 @@ skills:                            # Remote skills (installed via install -p)
 ```
 
 **Targets** support two formats:
-- **Short**: Just the target name (e.g., `claude-code`). Uses known default path, merge mode.
+- **Short**: Just the target name (e.g., `claude`). Uses known default path, merge mode.
 - **Long**: Object with `name`, optional `path`, optional `mode` (`merge` or `symlink`), and optional `include`/`exclude` filters. Supports relative paths (resolved from project root) and `~` expansion.
 
 **Skills** list tracks remote installations only. Local skills don't need entries here.

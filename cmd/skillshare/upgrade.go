@@ -18,6 +18,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/ui"
+	"skillshare/internal/uidist"
 	versionpkg "skillshare/internal/version"
 )
 
@@ -173,6 +174,16 @@ func upgradeCLIBinary(dryRun, force bool) error {
 
 	// Clear version cache so next check fetches fresh data
 	versionpkg.ClearCache()
+
+	// Pre-download UI assets for the new version (best-effort)
+	if latestVersion != "" {
+		uiSpinner := ui.StartSpinner("Downloading UI assets...")
+		if err := uidist.Download(latestVersion); err != nil {
+			uiSpinner.Warn("UI download skipped (run 'skillshare ui' to retry)")
+		} else {
+			uiSpinner.Success("UI assets cached")
+		}
+	}
 
 	return nil
 }

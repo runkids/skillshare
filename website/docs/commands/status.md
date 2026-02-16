@@ -86,7 +86,7 @@ Source
   ✓ .skillshare/skills (3 skills)
 
 Targets
-  ✓ claude-code  [merge] .claude/skills (3 synced)
+  ✓ claude       [merge] .claude/skills (3 synced)
   ✓ cursor       [merge] .cursor/skills (3 synced)
 
 Remote Skills

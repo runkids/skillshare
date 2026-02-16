@@ -10,6 +10,7 @@ import {
   Globe,
   FolderOpen,
   LayoutGrid,
+  Target,
 } from 'lucide-react';
 import Badge from '../components/Badge';
 import { HandInput, HandSelect } from '../components/HandInput';
@@ -49,10 +50,11 @@ function getRotation(index: number): string {
   return rotations[index % rotations.length];
 }
 
-/* ── Filter & Sort types ────────────────────────── */
+/* ── Filter, Sort & View types ──────────────────── */
 
 type FilterType = 'all' | 'tracked' | 'github' | 'local';
 type SortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
+type ViewType = 'grid' | 'grouped';
 
 const filterOptions: { key: FilterType; label: string; icon: React.ReactNode }[] = [
   { key: 'all', label: 'All', icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
@@ -158,6 +160,7 @@ export default function SkillsPage() {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('name-asc');
+  const [viewType, setViewType] = useState<ViewType>('grid');
 
   const skills = data?.skills ?? [];
 
@@ -189,6 +192,23 @@ export default function SkillsPage() {
     );
     return sortSkills(result, sortType);
   }, [skills, search, filterType, sortType]);
+
+  // Group skills by parent directory for grouped view
+  const grouped = useMemo(() => {
+    const groups = new Map<string, Skill[]>();
+    for (const skill of filtered) {
+      const rp = skill.relPath ?? '';
+      const lastSlash = rp.lastIndexOf('/');
+      const dir = lastSlash > 0 ? rp.substring(0, lastSlash) : '';
+      const existing = groups.get(dir) ?? [];
+      existing.push(skill);
+      groups.set(dir, existing);
+    }
+    // Sort directory keys: non-empty alphabetically first, then top-level ""
+    const sortedDirs = [...groups.keys()].filter((k) => k !== '').sort();
+    if (groups.has('')) sortedDirs.push('');
+    return { dirs: sortedDirs, groups };
+  }, [filtered]);
 
   if (loading) return <PageSkeleton />;
   if (error) {
@@ -248,6 +268,23 @@ export default function SkillsPage() {
             ]}
           />
         </div>
+        {/* View toggle */}
+        <div className="flex items-center border-2 border-muted overflow-hidden" style={{ borderRadius: wobbly.sm }}>
+          <button
+            onClick={() => setViewType('grid')}
+            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grid' ? 'bg-pencil text-white' : 'bg-white text-pencil-light hover:text-pencil'}`}
+            title="Grid view"
+          >
+            <LayoutGrid size={16} strokeWidth={2.5} />
+          </button>
+          <button
+            onClick={() => setViewType('grouped')}
+            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grouped' ? 'bg-pencil text-white' : 'bg-white text-pencil-light hover:text-pencil'}`}
+            title="Grouped view"
+          >
+            <FolderOpen size={16} strokeWidth={2.5} />
+          </button>
+        </div>
       </div>
 
       {/* Filter chips */}
@@ -286,13 +323,17 @@ export default function SkillsPage() {
         </p>
       )}
 
-      {/* Skills grid */}
+      {/* Skills grid / grouped view */}
       {filtered.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filtered.map((skill, i) => (
-            <SkillPostit key={skill.flatName} skill={skill} index={i} />
-          ))}
-        </div>
+        viewType === 'grid' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {filtered.map((skill, i) => (
+              <SkillPostit key={skill.flatName} skill={skill} index={i} />
+            ))}
+          </div>
+        ) : (
+          <GroupedView dirs={grouped.dirs} groups={grouped.groups} />
+        )
       ) : (
         <EmptyState
           icon={Puzzle}
@@ -304,6 +345,50 @@ export default function SkillsPage() {
           }
         />
       )}
+    </div>
+  );
+}
+
+/* ── Grouped view ───────────────────────────────── */
+
+function GroupedView({ dirs, groups }: { dirs: string[]; groups: Map<string, Skill[]> }) {
+  let globalIndex = 0;
+
+  return (
+    <div className="space-y-8">
+      {dirs.map((dir) => {
+        const skills = groups.get(dir) ?? [];
+        const sectionLabel = dir || '(root)';
+        const showHeader = dirs.length > 1 || dir !== '';
+
+        return (
+          <div key={dir || '__root'}>
+            {showHeader && (
+              <div className="flex items-center gap-2 mb-4">
+                <Folder size={18} strokeWidth={2.5} className="text-pencil-light" />
+                <h3
+                  className="text-lg font-bold text-pencil"
+                  style={{ fontFamily: 'var(--font-heading)' }}
+                >
+                  {sectionLabel}
+                </h3>
+                <span
+                  className="text-sm text-pencil-light px-2 py-0.5 bg-muted"
+                  style={{ borderRadius: wobbly.sm, fontFamily: 'var(--font-hand)' }}
+                >
+                  {skills.length}
+                </span>
+              </div>
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              {skills.map((skill) => {
+                const idx = globalIndex++;
+                return <SkillPostit key={skill.flatName} skill={skill} index={idx} />;
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -388,6 +473,12 @@ function TrackedPostit({ skill, index }: { skill: Skill; index: number }) {
               <span />
             )}
             <div className="flex items-center gap-1.5 shrink-0">
+              {skill.targets && skill.targets.length > 0 && (
+                <span className="inline-flex items-center gap-0.5" title={`Targets: ${skill.targets.join(', ')}`}>
+                  <Target size={13} strokeWidth={2.5} className="text-pencil-light" />
+                  <span className="text-xs text-pencil-light">{skill.targets.length}</span>
+                </span>
+              )}
               <Badge variant="success">tracked</Badge>
             </div>
           </div>
@@ -464,6 +555,12 @@ function RegularPostit({ skill, index }: { skill: Skill; index: number }) {
             <span />
           )}
           <div className="flex items-center gap-1.5 shrink-0">
+            {skill.targets && skill.targets.length > 0 && (
+              <span className="inline-flex items-center gap-0.5" title={`Targets: ${skill.targets.join(', ')}`}>
+                <Target size={13} strokeWidth={2.5} className="text-pencil-light" />
+                <span className="text-xs text-pencil-light">{skill.targets.length}</span>
+              </span>
+            )}
             {getTypeLabel(skill.type) && <Badge variant="info">{getTypeLabel(skill.type)}</Badge>}
           </div>
         </div>

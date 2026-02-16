@@ -9,26 +9,25 @@ Directory layout and file locations for skillshare.
 ## Overview
 
 ```
-~/.config/skillshare/
+~/.config/skillshare/        # XDG_CONFIG_HOME
 ├── config.yaml              # Configuration file
 ├── audit-rules.yaml         # Custom audit rules (optional)
-├── skills/                  # Source directory
-│   ├── my-skill/            # Regular skill
-│   │   ├── SKILL.md         # Skill definition (required)
-│   │   └── .skillshare-meta.json # Install metadata (auto-generated)
-│   ├── code-review/         # Another skill
-│   │   └── SKILL.md
-│   └── _team-skills/        # Tracked repository
-│       ├── .git/            # Git history preserved
-│       ├── frontend/
-│       │   └── ui/
-│       │       └── SKILL.md
-│       └── backend/
-│           └── api/
-│               └── SKILL.md
-├── logs/                    # Operation logs (JSONL)
-│   ├── operations.log       # install, sync, update, etc.
-│   └── audit.log            # Security audit scans
+└── skills/                  # Source directory
+    ├── my-skill/            # Regular skill
+    │   ├── SKILL.md         # Skill definition (required)
+    │   └── .skillshare-meta.json # Install metadata (auto-generated)
+    ├── code-review/         # Another skill
+    │   └── SKILL.md
+    └── _team-skills/        # Tracked repository
+        ├── .git/            # Git history preserved
+        ├── frontend/
+        │   └── ui/
+        │       └── SKILL.md
+        └── backend/
+            └── api/
+                └── SKILL.md
+
+~/.local/share/skillshare/   # XDG_DATA_HOME
 ├── backups/                 # Backup directory
 │   ├── 2026-01-20_15-30-00/
 │   │   ├── claude/
@@ -40,6 +39,18 @@ Directory layout and file locations for skillshare.
     │   └── SKILL.md
     └── old-skill_2026-01-19_10-00-00/
         └── SKILL.md
+
+~/.local/state/skillshare/   # XDG_STATE_HOME
+└── logs/                    # Operation logs (JSONL)
+    ├── operations.log       # install, sync, update, etc.
+    └── audit.log            # Security audit scans
+
+~/.cache/skillshare/         # XDG_CACHE_HOME      
+├── version-check.json       # Version check cache (24h TTL)
+└── ui/                      # Web UI dist cache
+    └── 0.13.0/              # Per-version cached assets
+        ├── index.html
+        └── assets/
 ```
 
 ---
@@ -52,9 +63,14 @@ Directory layout and file locations for skillshare.
 ~/.config/skillshare/config.yaml
 ```
 
-**Windows:**
+**Override with XDG:**
 ```
-%USERPROFILE%\.config\skillshare\config.yaml
+XDG_CONFIG_HOME=/custom/path → /custom/path/skillshare/config.yaml
+```
+
+**Windows default:**
+```
+%AppData%\skillshare\config.yaml
 ```
 
 ### Contents
@@ -86,24 +102,24 @@ See [Configuration](/docs/targets/configuration) for full reference.
 
 **Windows:**
 ```
-%USERPROFILE%\.config\skillshare\skills\
+%AppData%\skillshare\skills\
 ```
 
 ### Structure
 
 ```
 skills/
-├── skill-name/              # Skill directory
-│   ├── SKILL.md             # Required: skill definition
+├── skill-name/                   # Skill directory
+│   ├── SKILL.md                  # Required: skill definition
 │   ├── .skillshare-meta.json     # Optional: install metadata
-│   ├── examples/            # Optional: example files
-│   └── templates/           # Optional: code templates
-├── frontend/                # Category folder (via --into or manual)
-│   └── react-skill/         # Skill in subdirectory
-│       └── SKILL.md         # Synced as frontend__react-skill
-└── _tracked-repo/           # Tracked repository
-    ├── .git/                # Git history
-    └── ...                  # Skill subdirectories
+│   ├── examples/                 # Optional: example files
+│   └── templates/                # Optional: code templates
+├── frontend/                     # Category folder (via --into or manual)
+│   └── react-skill/              # Skill in subdirectory
+│       └── SKILL.md              # Synced as frontend__react-skill
+└── _tracked-repo/                # Tracked repository
+    ├── .git/                     # Git history
+    └── ...                       # Skill subdirectories
 ```
 
 ---
@@ -151,7 +167,7 @@ Metadata about where the skill was installed from:
 ### Location
 
 ```
-~/.config/skillshare/backups/
+~/.local/share/skillshare/backups/
 ```
 
 ### Structure
@@ -177,7 +193,7 @@ Backups are created:
 ### Location
 
 ```
-~/.config/skillshare/trash/
+~/.local/share/skillshare/trash/
 ```
 
 **Project mode:**
@@ -206,7 +222,7 @@ Trashed skills are:
 ### Location
 
 ```
-~/.config/skillshare/logs/
+~/.local/state/skillshare/logs/
 ```
 
 **Project mode:**
@@ -277,26 +293,36 @@ _team-skills__frontend__ui/SKILL.md
 
 ## Platform Differences
 
+:::tip XDG Base Directory
+skillshare respects the XDG Base Directory Specification. Override base directories with `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, and `XDG_CACHE_HOME`.
+
+See [Environment Variables](./environment-variables.md#xdg_config_home) for details.
+:::
+
 ### macOS / Linux
 
 | Item | Path |
 |------|------|
 | Config | `~/.config/skillshare/config.yaml` |
 | Source | `~/.config/skillshare/skills/` |
-| Logs | `~/.config/skillshare/logs/` |
-| Backups | `~/.config/skillshare/backups/` |
-| Trash | `~/.config/skillshare/trash/` |
+| Backups | `~/.local/share/skillshare/backups/` |
+| Trash | `~/.local/share/skillshare/trash/` |
+| Logs | `~/.local/state/skillshare/logs/` |
+| Version cache | `~/.cache/skillshare/version-check.json` |
+| UI cache | `~/.cache/skillshare/ui/{version}/` |
 | Link type | Symlinks |
 
 ### Windows
 
 | Item | Path |
 |------|------|
-| Config | `%USERPROFILE%\.config\skillshare\config.yaml` |
-| Source | `%USERPROFILE%\.config\skillshare\skills\` |
-| Logs | `%USERPROFILE%\.config\skillshare\logs\` |
-| Backups | `%USERPROFILE%\.config\skillshare\backups\` |
-| Trash | `%USERPROFILE%\.config\skillshare\trash\` |
+| Config | `%AppData%\skillshare\config.yaml` |
+| Source | `%AppData%\skillshare\skills\` |
+| Backups | `%AppData%\skillshare\backups\` |
+| Trash | `%AppData%\skillshare\trash\` |
+| Logs | `%AppData%\skillshare\logs\` |
+| Version cache | `%AppData%\skillshare\version-check.json` |
+| UI cache | `%AppData%\skillshare\ui\{version}\` |
 | Link type | NTFS Junctions |
 
 ---

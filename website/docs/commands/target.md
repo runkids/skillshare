@@ -90,13 +90,20 @@ skillshare sync  # Apply the change
 
 ## Target Filters (include/exclude)
 
-`target` command currently manages path and mode.  
-Per-target `include` / `exclude` filters are configured in YAML:
+Manage per-target include/exclude filters from the CLI:
 
-- Global: `~/.config/skillshare/config.yaml`
-- Project: `.skillshare/config.yaml`
+```bash
+skillshare target claude --add-include "team-*"
+skillshare target claude --add-exclude "_legacy*"
+skillshare target claude --remove-include "team-*"
+skillshare target claude --remove-exclude "_legacy*"
+```
 
-See [Configuration](/docs/targets/configuration#include--exclude-target-filters).
+After changing filters, run `skillshare sync` to apply.
+
+Filters work in **merge mode** only. Patterns use Go `filepath.Match` syntax (`*`, `?`, `[...]`).
+
+See [Configuration](/docs/targets/configuration#include--exclude-target-filters) for pattern cheat sheet and scenarios.
 
 ## Options
 
@@ -111,11 +118,15 @@ No additional options.
 | `--all, -a` | Remove all targets |
 | `--dry-run, -n` | Preview without making changes |
 
-### target info
+### target info / filters
 
 | Flag | Description |
 |------|-------------|
 | `--mode, -m <mode>` | Set sync mode (merge or symlink) |
+| `--add-include <pattern>` | Add an include filter pattern |
+| `--add-exclude <pattern>` | Add an exclude filter pattern |
+| `--remove-include <pattern>` | Remove an include filter pattern |
+| `--remove-exclude <pattern>` | Remove an exclude filter pattern |
 
 ## Supported AI CLIs
 
@@ -145,6 +156,12 @@ skillshare target claude
 skillshare target claude --mode symlink
 skillshare sync
 
+# Add/remove filters
+skillshare target claude --add-include "team-*"
+skillshare target claude --add-exclude "_legacy*"
+skillshare target claude --remove-include "team-*"
+skillshare sync
+
 # Remove target (restores skills)
 skillshare target remove cursor
 ```
@@ -154,11 +171,12 @@ skillshare target remove cursor
 Manage targets for the current project:
 
 ```bash
-skillshare target add windsurf -p                     # Add known target
-skillshare target add custom ./tools/ai/skills -p     # Add custom path
-skillshare target remove cursor -p                     # Remove target
-skillshare target list -p                              # List project targets
-skillshare target claude-code -p                       # Show target info
+skillshare target add windsurf -p                                # Add known target
+skillshare target add custom ./tools/ai/skills -p                # Add custom path
+skillshare target remove cursor -p                                # Remove target
+skillshare target list -p                                         # List project targets
+skillshare target claude -p                                  # Show target info
+skillshare target claude --add-include "team-*" -p          # Add filter
 ```
 
 ### How It Differs
@@ -174,13 +192,13 @@ skillshare target claude-code -p                       # Show target info
 
 ```
 Project Targets
-  claude-code    .claude/skills (merge)
+  claude    .claude/skills (merge)
   cursor         .cursor/skills (merge)
   custom-tool    ./tools/ai/skills (merge)
 ```
 
 Targets in project mode support:
-- **Known target names** (e.g., `claude-code`, `cursor`) — resolved to project-local paths
+- **Known target names** (e.g., `claude`, `cursor`) — resolved to project-local paths
 - **Custom paths** — relative to project root or absolute with `~` expansion
 
 ## Related
