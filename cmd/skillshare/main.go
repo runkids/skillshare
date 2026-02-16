@@ -103,8 +103,6 @@ func reportMigrationResults(results []config.MigrationResult) {
 		switch r.Status {
 		case config.MigrationMoved:
 			ui.Info("Migrated legacy data: %s -> %s", r.From, r.To)
-		case config.MigrationSkippedDestinationExists:
-			ui.Warning("Skipped legacy migration (destination exists): %s", r.To)
 		case config.MigrationFailed:
 			if r.From != "" && r.To != "" {
 				ui.Warning("Legacy migration failed: %s -> %s (%v)", r.From, r.To, r.Err)
@@ -112,6 +110,8 @@ func reportMigrationResults(results []config.MigrationResult) {
 			}
 			ui.Warning("Legacy migration failed: %v", r.Err)
 		}
+		// MigrationSkippedDestinationExists is silent — it means the new
+		// location already has data (normal after first migration).
 	}
 }
 

@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"skillshare/internal/config"
+	ssync "skillshare/internal/sync"
 )
 
 // filterUpdateOpts holds parsed filter modification flags.
@@ -132,4 +135,27 @@ func formatFilterList(patterns []string) string {
 		return "(none)"
 	}
 	return strings.Join(patterns, ", ")
+}
+
+// findUnknownSkillTargets returns warnings for skills whose targets field
+// references unknown target names.  Shared by check and doctor commands.
+func findUnknownSkillTargets(discovered []ssync.DiscoveredSkill) []string {
+	knownNames := config.KnownTargetNames()
+	knownSet := make(map[string]bool, len(knownNames))
+	for _, n := range knownNames {
+		knownSet[n] = true
+	}
+
+	var warnings []string
+	for _, skill := range discovered {
+		if skill.Targets == nil {
+			continue
+		}
+		for _, t := range skill.Targets {
+			if !knownSet[t] {
+				warnings = append(warnings, fmt.Sprintf("%s: unknown target %q", skill.RelPath, t))
+			}
+		}
+	}
+	return warnings
 }

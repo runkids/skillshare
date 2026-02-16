@@ -257,24 +257,7 @@ func warnUnknownSkillTargets(sourceDir string) {
 		return
 	}
 
-	knownNames := config.KnownTargetNames()
-	knownSet := make(map[string]bool, len(knownNames))
-	for _, n := range knownNames {
-		knownSet[n] = true
-	}
-
-	var warnings []string
-	for _, skill := range discovered {
-		if skill.Targets == nil {
-			continue
-		}
-		for _, t := range skill.Targets {
-			if !knownSet[t] {
-				warnings = append(warnings, fmt.Sprintf("%s: unknown target %q", skill.RelPath, t))
-			}
-		}
-	}
-
+	warnings := findUnknownSkillTargets(discovered)
 	if len(warnings) > 0 {
 		fmt.Println()
 		for _, w := range warnings {
