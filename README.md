@@ -145,7 +145,7 @@ irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 brew install skillshare
 ```
 
-> **Note:** Recommended for CLI-only users. The Homebrew build does not include the [web dashboard](#web-dashboard) — all other commands work identically. For the full experience including `skillshare ui`, use the curl/PowerShell installer above.
+> **Note:** All install methods include the web dashboard. `skillshare ui` automatically downloads UI assets on first launch — no extra setup needed.
 
 ### Shorthand (Optional)
 
@@ -161,7 +161,10 @@ alias ss='skillshare'
 # macOS/Linux
 brew uninstall skillshare               # Homebrew
 sudo rm /usr/local/bin/skillshare       # Manual install
-rm -rf ~/.config/skillshare             # Config & data (optional)
+rm -rf ~/.config/skillshare             # Config & skills (optional)
+rm -rf ~/.local/share/skillshare        # Backups & trash (optional)
+rm -rf ~/.local/state/skillshare        # Logs (optional)
+rm -rf ~/.cache/skillshare              # UI & version cache (optional)
 
 # Windows (PowerShell)
 Remove-Item "$env:LOCALAPPDATA\Programs\skillshare" -Recurse -Force
@@ -281,7 +284,7 @@ skillshare ui -p         # Project mode (manages .skillshare/)
 - Opens `http://127.0.0.1:19420`
 - Requires `skillshare init` (or `init -p` for project mode) first
 - Auto-detects project mode when `.skillshare/config.yaml` exists
-- Runs from the same CLI binary (no extra frontend setup)
+- UI assets are downloaded on first launch (~1 MB), then cached offline at `~/.cache/skillshare/ui/`
 
 For containers/remote hosts:
 

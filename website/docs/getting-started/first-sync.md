@@ -21,7 +21,7 @@ brew install skillshare
 ```
 
 :::note
-Recommended for CLI-only users. The Homebrew build does not include the [web dashboard](/docs/commands/ui) — all other commands work identically. For the full experience including `skillshare ui`, use the curl installer below.
+All install methods include the web dashboard. `skillshare ui` automatically downloads UI assets on first launch — no extra setup needed.
 :::
 
 **macOS / Linux:**
