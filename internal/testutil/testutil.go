@@ -76,6 +76,14 @@ func NewSandbox(t *testing.T) *Sandbox {
 	sb.SetEnv("HOME", home)
 	sb.SetEnv("SKILLSHARE_CONFIG", sb.ConfigPath)
 
+	// Point XDG variables into the sandbox so config.BaseDir()/DataDir()/
+	// StateDir() resolve to sandbox paths.  Without this, CI runners that
+	// set XDG_CONFIG_HOME (e.g. ubuntu-latest) cause the subprocess to
+	// write files outside the sandbox.
+	sb.SetEnv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	sb.SetEnv("XDG_DATA_HOME", filepath.Join(home, ".local", "share"))
+	sb.SetEnv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
+
 	return sb
 }
 
