@@ -69,6 +69,19 @@ export XDG_STATE_HOME=~/my-state
 
 **Default:** `~/.local/state/skillshare/`
 
+---
+
+### XDG_CACHE_HOME
+
+Override the cache directory (version check cache, UI dist cache).
+
+```bash
+export XDG_CACHE_HOME=~/my-cache
+# skillshare will use ~/my-cache/skillshare/
+```
+
+**Default:** `~/.cache/skillshare/`
+
 :::tip Automatic migration
 Starting from v0.13.0, skillshare follows the XDG Base Directory Specification for backups, trash, and logs. If you're upgrading from an older version, these directories are automatically migrated from `~/.config/skillshare/` to their proper XDG locations on first run.
 :::
@@ -161,6 +174,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `XDG_CONFIG_HOME` | Base config directory | `~/.config` (Linux/macOS), `%AppData%` (Windows) |
 | `XDG_DATA_HOME` | Data directory (backups, trash) | `~/.local/share` |
 | `XDG_STATE_HOME` | State directory (logs) | `~/.local/state` |
+| `XDG_CACHE_HOME` | Cache directory (version check, UI) | `~/.cache` |
 | `GITHUB_TOKEN` | GitHub API auth | None |
 | `SKILLSHARE_TEST_BINARY` | Test binary path | `bin/skillshare` |
 

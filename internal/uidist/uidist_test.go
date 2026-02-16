@@ -14,10 +14,7 @@ func TestCacheDir_Default(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CACHE_HOME", tmp)
 
-	dir, err := CacheDir("1.2.3")
-	if err != nil {
-		t.Fatal(err)
-	}
+	dir := CacheDir("1.2.3")
 	expected := filepath.Join(tmp, "skillshare", "ui", "1.2.3")
 	if dir != expected {
 		t.Errorf("got %s, want %s", dir, expected)

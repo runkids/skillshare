@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/config"
 	"skillshare/internal/version"
 )
 
@@ -22,21 +23,14 @@ const AssetName = "skillshare-ui-dist.tar.gz"
 
 // CacheDir returns the cache directory for a specific version's UI dist.
 // Path: ~/.cache/skillshare/ui/{ver}/
-func CacheDir(ver string) (string, error) {
-	base, err := version.GetCacheDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(base, "ui", ver), nil
+func CacheDir(ver string) string {
+	return filepath.Join(config.CacheDir(), "ui", ver)
 }
 
 // IsCached checks whether a cached UI dist exists for the given version.
 // Returns the directory path and true if index.html exists there.
 func IsCached(ver string) (string, bool) {
-	dir, err := CacheDir(ver)
-	if err != nil {
-		return "", false
-	}
+	dir := CacheDir(ver)
 	if _, err := os.Stat(filepath.Join(dir, "index.html")); err == nil {
 		return dir, true
 	}
@@ -46,10 +40,7 @@ func IsCached(ver string) (string, bool) {
 // Download fetches the UI dist tarball for the given version, verifies its
 // checksum, extracts it to the cache directory, and cleans up old versions.
 func Download(ver string) error {
-	dir, err := CacheDir(ver)
-	if err != nil {
-		return err
-	}
+	dir := CacheDir(ver)
 
 	// Fetch expected checksum
 	expectedHash, err := fetchChecksum(ver)
@@ -92,11 +83,7 @@ func Download(ver string) error {
 
 // ClearCache removes the entire UI cache directory (~/.cache/skillshare/ui/).
 func ClearCache() error {
-	base, err := version.GetCacheDir()
-	if err != nil {
-		return err
-	}
-	dir := filepath.Join(base, "ui")
+	dir := filepath.Join(config.CacheDir(), "ui")
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return nil
 	}
@@ -105,10 +92,7 @@ func ClearCache() error {
 
 // ClearVersion removes a specific version's cached UI dist.
 func ClearVersion(ver string) error {
-	dir, err := CacheDir(ver)
-	if err != nil {
-		return err
-	}
+	dir := CacheDir(ver)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return nil
 	}
@@ -117,11 +101,7 @@ func ClearVersion(ver string) error {
 
 // cleanOldVersions removes cached UI dist versions other than currentVer.
 func cleanOldVersions(currentVer string) error {
-	base, err := version.GetCacheDir()
-	if err != nil {
-		return err
-	}
-	uiDir := filepath.Join(base, "ui")
+	uiDir := filepath.Join(config.CacheDir(), "ui")
 	entries, err := os.ReadDir(uiDir)
 	if err != nil {
 		return err

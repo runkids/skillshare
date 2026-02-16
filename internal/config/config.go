@@ -103,6 +103,24 @@ func StateDir() string {
 	return filepath.Join(home, ".local", "state", "skillshare")
 }
 
+// CacheDir returns the cache directory (XDG_CACHE_HOME).
+// Priority:
+//  1. $XDG_CACHE_HOME/skillshare  (any platform, if set)
+//  2. %AppData%/skillshare        (Windows only, via os.UserConfigDir())
+//  3. ~/.cache/skillshare         (Linux, macOS)
+func CacheDir() string {
+	if xdg := os.Getenv("XDG_CACHE_HOME"); xdg != "" {
+		return filepath.Join(xdg, "skillshare")
+	}
+	if runtime.GOOS == "windows" {
+		if dir, err := os.UserConfigDir(); err == nil {
+			return filepath.Join(dir, "skillshare")
+		}
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".cache", "skillshare")
+}
+
 // ConfigPath returns the config file path, respecting SKILLSHARE_CONFIG env var
 func ConfigPath() string {
 	// Allow override for testing

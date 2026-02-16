@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"skillshare/internal/config"
 )
 
 // Version is set by main.go at startup
@@ -31,27 +33,9 @@ type CheckResult struct {
 	UpdateAvailable bool
 }
 
-// GetCacheDir returns the cache directory, respecting XDG_CACHE_HOME
-func GetCacheDir() (string, error) {
-	// XDG Base Directory Specification: use XDG_CACHE_HOME if set
-	if cacheHome := os.Getenv("XDG_CACHE_HOME"); cacheHome != "" {
-		return filepath.Join(cacheHome, "skillshare"), nil
-	}
-	// Default: ~/.cache/skillshare
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(homeDir, ".cache", "skillshare"), nil
-}
-
 // getCachePath returns the path to the cache file
-func getCachePath() (string, error) {
-	cacheDir, err := GetCacheDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(cacheDir, cacheFileName), nil
+func getCachePath() string {
+	return filepath.Join(config.CacheDir(), cacheFileName)
 }
 
 // legacyCachePath returns the old cache path for migration cleanup
@@ -73,11 +57,7 @@ func cleanupLegacyCache() {
 
 // ClearCache removes the version check cache file
 func ClearCache() {
-	cachePath, err := getCachePath()
-	if err != nil {
-		return
-	}
-	os.Remove(cachePath)
+	os.Remove(getCachePath())
 }
 
 // GetCachedVersion returns the cached latest version if available
@@ -91,12 +71,7 @@ func GetCachedVersion() string {
 
 // loadCache loads the version check cache from disk
 func loadCache() (*Cache, error) {
-	cachePath, err := getCachePath()
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := os.ReadFile(cachePath)
+	data, err := os.ReadFile(getCachePath())
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil // No cache yet
@@ -114,10 +89,7 @@ func loadCache() (*Cache, error) {
 
 // saveCache saves the version check cache to disk
 func saveCache(cache *Cache) error {
-	cachePath, err := getCachePath()
-	if err != nil {
-		return err
-	}
+	cachePath := getCachePath()
 
 	// Ensure directory exists
 	if err := os.MkdirAll(filepath.Dir(cachePath), 0755); err != nil {
