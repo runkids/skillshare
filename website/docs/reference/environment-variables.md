@@ -45,6 +45,36 @@ If you set `XDG_CONFIG_HOME` after initial setup, move your existing `~/.config/
 
 ---
 
+### XDG_DATA_HOME
+
+Override the data directory (backups, trash).
+
+```bash
+export XDG_DATA_HOME=~/my-data
+# skillshare will use ~/my-data/skillshare/backups/ and ~/my-data/skillshare/trash/
+```
+
+**Default:** `~/.local/share/skillshare/`
+
+---
+
+### XDG_STATE_HOME
+
+Override the state directory (operation logs).
+
+```bash
+export XDG_STATE_HOME=~/my-state
+# skillshare will use ~/my-state/skillshare/logs/
+```
+
+**Default:** `~/.local/state/skillshare/`
+
+:::tip Automatic migration
+Starting from v0.13.0, skillshare follows the XDG Base Directory Specification for backups, trash, and logs. If you're upgrading from an older version, these directories are automatically migrated from `~/.config/skillshare/` to their proper XDG locations on first run.
+:::
+
+---
+
 ## GitHub API
 
 ### GITHUB_TOKEN
@@ -129,6 +159,8 @@ export GITHUB_TOKEN="ghp_your_token_here"
 |----------|---------|---------|
 | `SKILLSHARE_CONFIG` | Config file path | `~/.config/skillshare/config.yaml` |
 | `XDG_CONFIG_HOME` | Base config directory | `~/.config` (Linux/macOS), `%AppData%` (Windows) |
+| `XDG_DATA_HOME` | Data directory (backups, trash) | `~/.local/share` |
+| `XDG_STATE_HOME` | State directory (logs) | `~/.local/state` |
 | `GITHUB_TOKEN` | GitHub API auth | None |
 | `SKILLSHARE_TEST_BINARY` | Test binary path | `bin/skillshare` |
 

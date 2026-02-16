@@ -13,7 +13,7 @@ import (
 
 // BackupDir returns the backup directory path.
 func BackupDir() string {
-	return filepath.Join(config.BaseDir(), "backups")
+	return filepath.Join(config.DataDir(), "backups")
 }
 
 // Create creates a backup of the target directory

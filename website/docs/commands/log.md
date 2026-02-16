@@ -72,11 +72,11 @@ skillshare log --json --cmd sync          # Filtered JSONL
 ## Example Output
 
 ```
-┌─ skillshare log ───────────────────────────────┐
-│ Operations (last 2)                            │
-│ mode: global                                   │
-│ file: ~/.config/skillshare/logs/operations.log │
-└────────────────────────────────────────────────┘
+┌─ skillshare log ────────────────────────────────────┐
+│ Operations (last 2)                                 │
+│ mode: global                                        │
+│ file: ~/.local/state/skillshare/logs/operations.log │
+└─────────────────────────────────────────────────────┘
   TIME             | CMD       | STATUS  | DUR
   -----------------+-----------+---------+--------
   2026-02-10 14:31 | SYNC      | error   | 0.8s
@@ -88,11 +88,11 @@ skillshare log --json --cmd sync          # Filtered JSONL
   targets: 3
   scope: global
 
-┌─ skillshare log ───────────────────────────────┐
-│ Audit (last 1)                                 │
-│ mode: global                                   │
-│ file: ~/.config/skillshare/logs/audit.log      │
-└────────────────────────────────────────────────┘
+┌─ skillshare log ────────────────────────────────────┐
+│ Audit (last 1)                                      │
+│ mode: global                                        │
+│ file: ~/.local/state/skillshare/logs/audit.log      │
+└─────────────────────────────────────────────────────┘
   TIME             | CMD       | STATUS  | DUR
   -----------------+-----------+---------+--------
   2026-02-10 14:36 | AUDIT     | blocked | 1.1s
@@ -125,8 +125,8 @@ Entries are stored in JSONL format (one JSON object per line):
 ## Log Location
 
 ```
-~/.config/skillshare/logs/operations.log    # Global operations
-~/.config/skillshare/logs/audit.log         # Global audit
+~/.local/state/skillshare/logs/operations.log    # Global operations
+~/.local/state/skillshare/logs/audit.log         # Global audit
 <project>/.skillshare/logs/operations.log   # Project operations
 <project>/.skillshare/logs/audit.log        # Project audit
 ```

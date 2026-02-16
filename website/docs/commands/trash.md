@@ -82,7 +82,7 @@ These two safety mechanisms protect different things:
 | | backup | trash |
 |---|---|---|
 | **Protects** | target directories (sync snapshots) | source skills (uninstall) |
-| **Location** | `~/.config/skillshare/backups/` | `~/.config/skillshare/trash/` |
+| **Location** | `~/.local/share/skillshare/backups/` | `~/.local/share/skillshare/trash/` |
 | **Triggered by** | `sync`, `target remove` | `uninstall` |
 | **Restore with** | `skillshare restore <target>` | `skillshare trash restore <name>` |
 | **Auto-cleanup** | manual (`backup --cleanup`) | 7 days |

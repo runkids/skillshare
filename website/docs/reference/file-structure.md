@@ -9,26 +9,25 @@ Directory layout and file locations for skillshare.
 ## Overview
 
 ```
-~/.config/skillshare/
+~/.config/skillshare/                # XDG_CONFIG_HOME
 ├── config.yaml              # Configuration file
 ├── audit-rules.yaml         # Custom audit rules (optional)
-├── skills/                  # Source directory
-│   ├── my-skill/            # Regular skill
-│   │   ├── SKILL.md         # Skill definition (required)
-│   │   └── .skillshare-meta.json # Install metadata (auto-generated)
-│   ├── code-review/         # Another skill
-│   │   └── SKILL.md
-│   └── _team-skills/        # Tracked repository
-│       ├── .git/            # Git history preserved
-│       ├── frontend/
-│       │   └── ui/
-│       │       └── SKILL.md
-│       └── backend/
-│           └── api/
-│               └── SKILL.md
-├── logs/                    # Operation logs (JSONL)
-│   ├── operations.log       # install, sync, update, etc.
-│   └── audit.log            # Security audit scans
+└── skills/                  # Source directory
+    ├── my-skill/            # Regular skill
+    │   ├── SKILL.md         # Skill definition (required)
+    │   └── .skillshare-meta.json # Install metadata (auto-generated)
+    ├── code-review/         # Another skill
+    │   └── SKILL.md
+    └── _team-skills/        # Tracked repository
+        ├── .git/            # Git history preserved
+        ├── frontend/
+        │   └── ui/
+        │       └── SKILL.md
+        └── backend/
+            └── api/
+                └── SKILL.md
+
+~/.local/share/skillshare/           # XDG_DATA_HOME
 ├── backups/                 # Backup directory
 │   ├── 2026-01-20_15-30-00/
 │   │   ├── claude/
@@ -40,6 +39,11 @@ Directory layout and file locations for skillshare.
     │   └── SKILL.md
     └── old-skill_2026-01-19_10-00-00/
         └── SKILL.md
+
+~/.local/state/skillshare/           # XDG_STATE_HOME
+└── logs/                    # Operation logs (JSONL)
+    ├── operations.log       # install, sync, update, etc.
+    └── audit.log            # Security audit scans
 ```
 
 ---
@@ -156,7 +160,7 @@ Metadata about where the skill was installed from:
 ### Location
 
 ```
-~/.config/skillshare/backups/
+~/.local/share/skillshare/backups/
 ```
 
 ### Structure
@@ -182,7 +186,7 @@ Backups are created:
 ### Location
 
 ```
-~/.config/skillshare/trash/
+~/.local/share/skillshare/trash/
 ```
 
 **Project mode:**
@@ -211,7 +215,7 @@ Trashed skills are:
 ### Location
 
 ```
-~/.config/skillshare/logs/
+~/.local/state/skillshare/logs/
 ```
 
 **Project mode:**
@@ -282,8 +286,8 @@ _team-skills__frontend__ui/SKILL.md
 
 ## Platform Differences
 
-:::tip XDG_CONFIG_HOME
-On any platform, setting `XDG_CONFIG_HOME` overrides the base directory. All paths below become relative to `$XDG_CONFIG_HOME/skillshare/` instead.
+:::tip XDG Base Directory
+skillshare respects the XDG Base Directory Specification. Override base directories with `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, and `XDG_STATE_HOME`.
 
 See [Environment Variables](./environment-variables.md#xdg_config_home) for details.
 :::
@@ -294,9 +298,9 @@ See [Environment Variables](./environment-variables.md#xdg_config_home) for deta
 |------|------|
 | Config | `~/.config/skillshare/config.yaml` |
 | Source | `~/.config/skillshare/skills/` |
-| Logs | `~/.config/skillshare/logs/` |
-| Backups | `~/.config/skillshare/backups/` |
-| Trash | `~/.config/skillshare/trash/` |
+| Logs | `~/.local/state/skillshare/logs/` |
+| Backups | `~/.local/share/skillshare/backups/` |
+| Trash | `~/.local/share/skillshare/trash/` |
 | Link type | Symlinks |
 
 ### Windows

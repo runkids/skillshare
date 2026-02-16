@@ -98,7 +98,7 @@ skillshare sync -n           # Short form
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ 1. Backup targets (automatic)                                   │
-│    → ~/.config/skillshare/backups/2026-01-20_15-30-00/          │
+│    → ~/.local/share/skillshare/backups/2026-01-20_15-30-00/     │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -373,7 +373,7 @@ skillshare sync  # Apply change
 
 Backups are created **automatically** before `sync` and `target remove`.
 
-Location: `~/.config/skillshare/backups/<timestamp>/`
+Location: `~/.local/share/skillshare/backups/<timestamp>/`
 
 ### Manual Backup
 

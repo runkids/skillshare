@@ -84,8 +84,8 @@ func TestXDG_Doctor_ShowsBaseDirectory(t *testing.T) {
 		t.Fatalf("doctor failed: %s", result.Output())
 	}
 
-	if !strings.Contains(result.Output(), "Base directory") {
-		t.Error("doctor output should contain 'Base directory'")
+	if !strings.Contains(result.Output(), "Config directory") {
+		t.Error("doctor output should contain 'Config directory'")
 	}
 }
 

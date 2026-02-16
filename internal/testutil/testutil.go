@@ -58,7 +58,9 @@ func NewSandbox(t *testing.T) *Sandbox {
 	dirs := []string{
 		filepath.Join(home, ".config", "skillshare"),
 		filepath.Join(home, ".config", "skillshare", "skills"),
-		filepath.Join(home, ".config", "skillshare", "backups"),
+		filepath.Join(home, ".local", "share", "skillshare", "backups"),
+		filepath.Join(home, ".local", "share", "skillshare", "trash"),
+		filepath.Join(home, ".local", "state", "skillshare", "logs"),
 		filepath.Join(home, ".claude"),
 		filepath.Join(home, ".codex"),
 		filepath.Join(home, ".cursor"),

@@ -36,7 +36,7 @@ skillshare uninstall my-skill --force  # Skip confirmation
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ 3. Move to trash (kept 7 days)                                  │
-│    → ~/.config/skillshare/trash/my-skill_<timestamp>/           │
+│    → ~/.local/share/skillshare/trash/my-skill_<timestamp>/      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -82,14 +82,14 @@ skillshare uninstall my-skill --force
 
 Uninstalled skills are **moved to trash**, not permanently deleted:
 
-- **Location:** `~/.config/skillshare/trash/` (global) or `.skillshare/trash/` (project)
+- **Location:** `~/.local/share/skillshare/trash/` (global) or `.skillshare/trash/` (project)
 - **Retention:** 7 days, then automatically cleaned up
 - **Reinstall hint:** If the skill was installed from a remote source, the reinstall command is shown
 - **Restore:** Use `skillshare trash restore <name>` to recover from trash
 
 ```
 ✓ Uninstalled: my-skill
-ℹ Moved to trash (7 days): ~/.config/skillshare/trash/my-skill_2026-01-20_15-30-00
+ℹ Moved to trash (7 days): ~/.local/share/skillshare/trash/my-skill_2026-01-20_15-30-00
 ℹ Reinstall: skillshare install github.com/user/repo/my-skill
 ```
 

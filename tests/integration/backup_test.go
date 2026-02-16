@@ -48,7 +48,7 @@ targets:
 	backupResult.AssertSuccess(t)
 
 	// Verify backup contains local skill but not the symlinked one
-	backupDir := filepath.Join(sb.Home, ".config", "skillshare", "backups")
+	backupDir := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups")
 	entries, err := os.ReadDir(backupDir)
 	if err != nil || len(entries) == 0 {
 		t.Fatal("backup directory should contain a timestamp directory")
@@ -233,7 +233,7 @@ targets:
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Dry run")
 
-	backupDir := filepath.Join(sb.Home, ".config", "skillshare", "backups")
+	backupDir := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups")
 	entries, err := os.ReadDir(backupDir)
 	if err != nil {
 		t.Fatalf("failed to read backup dir: %v", err)
@@ -251,7 +251,7 @@ func TestBackup_CleanupDryRun_DoesNotRemoveBackups(t *testing.T) {
 targets: {}
 `)
 
-	backupRoot := filepath.Join(sb.Home, ".config", "skillshare", "backups")
+	backupRoot := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups")
 	timestampDir := filepath.Join(backupRoot, "2024-01-01_00-00-00")
 	backupPath := filepath.Join(timestampDir, "claude", "old-skill")
 	os.MkdirAll(backupPath, 0755)

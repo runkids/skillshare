@@ -5,12 +5,11 @@ import (
 	"testing"
 )
 
-func TestTrashDir_RespectsXDGConfigHome(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", "/custom/config")
-	t.Setenv("SKILLSHARE_CONFIG", "")
+func TestTrashDir_RespectsXDGDataHome(t *testing.T) {
+	t.Setenv("XDG_DATA_HOME", "/custom/data")
 
 	got := TrashDir()
-	want := filepath.Join("/custom/config", "skillshare", "trash")
+	want := filepath.Join("/custom/data", "skillshare", "trash")
 	if got != want {
 		t.Errorf("TrashDir() = %q, want %q", got, want)
 	}

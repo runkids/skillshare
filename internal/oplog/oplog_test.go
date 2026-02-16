@@ -11,14 +11,26 @@ import (
 func tempConfigPath(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
+	// Isolate XDG_STATE_HOME so global-mode LogDir() doesn't collide across tests
+	t.Setenv("XDG_STATE_HOME", filepath.Join(dir, "state"))
 	return filepath.Join(dir, "config.yaml")
 }
 
-func TestLogDir(t *testing.T) {
+func TestLogDir_Global(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", "/custom/state")
+
 	got := LogDir("/home/user/.config/skillshare/config.yaml")
-	want := "/home/user/.config/skillshare/logs"
+	want := "/custom/state/skillshare/logs"
 	if got != want {
-		t.Errorf("LogDir() = %q, want %q", got, want)
+		t.Errorf("LogDir(global) = %q, want %q", got, want)
+	}
+}
+
+func TestLogDir_Project(t *testing.T) {
+	got := LogDir("/project/.skillshare/config.yaml")
+	want := "/project/.skillshare/logs"
+	if got != want {
+		t.Errorf("LogDir(project) = %q, want %q", got, want)
 	}
 }
 

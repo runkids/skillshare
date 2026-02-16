@@ -127,7 +127,7 @@ Run `skillshare doctor` to see current trash status (item count, size, age).
 | | backup | trash |
 |---|---|---|
 | **Protects** | target directories (sync snapshots) | source skills (uninstall) |
-| **Location** | `~/.config/skillshare/backups/` | `~/.config/skillshare/trash/` |
+| **Location** | `~/.local/share/skillshare/backups/` | `~/.local/share/skillshare/trash/` |
 | **Triggered by** | `sync`, `target remove` | `uninstall` |
 | **Restore with** | `skillshare restore <target>` | `skillshare trash restore <name>` |
 | **Auto-cleanup** | manual (`backup --cleanup`) | 7 days |
@@ -255,7 +255,7 @@ Thousands of small skills work fine.
 ### Where are backups stored?
 
 ```
-~/.config/skillshare/backups/<timestamp>/
+~/.local/share/skillshare/backups/<timestamp>/
 ```
 
 ### How long are backups kept?

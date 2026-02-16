@@ -23,7 +23,7 @@ Technical reference documentation for skillshare.
 |------|---------|
 | `~/.config/skillshare/config.yaml` | Configuration file |
 | `~/.config/skillshare/skills/` | Source directory |
-| `~/.config/skillshare/backups/` | Backup directory |
+| `~/.local/share/skillshare/backups/` | Backup directory |
 
 ### Environment Variables
 

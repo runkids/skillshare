@@ -59,4 +59,3 @@ func TestUI_ClearCache(t *testing.T) {
 		t.Error("expected UI cache directory to be removed after --clear-cache")
 	}
 }
-

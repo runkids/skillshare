@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"skillshare/internal/config"
 	"skillshare/internal/ui"
 	versioncheck "skillshare/internal/version"
 )
@@ -43,6 +44,12 @@ var commands = map[string]func([]string) error{
 func main() {
 	// Clean up any leftover .old files from Windows self-upgrade
 	cleanupOldBinary()
+
+	// Migrate Windows legacy ~/.config/skillshare → %AppData%\skillshare
+	config.MigrateWindowsLegacyDir()
+
+	// Migrate legacy dirs (backups/trash/logs) to XDG data/state dirs
+	config.MigrateXDGDirs()
 
 	// Set version for other packages to use
 	versioncheck.Version = version

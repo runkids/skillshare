@@ -15,7 +15,7 @@ const defaultMaxAge = 7 * 24 * time.Hour // 7 days
 
 // TrashDir returns the global trash directory path.
 func TrashDir() string {
-	return filepath.Join(config.BaseDir(), "trash")
+	return filepath.Join(config.DataDir(), "trash")
 }
 
 // ProjectTrashDir returns the project-level trash directory path.

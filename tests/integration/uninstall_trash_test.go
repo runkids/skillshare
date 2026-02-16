@@ -30,7 +30,7 @@ targets: {}
 	}
 
 	// Trash directory should contain the skill
-	trashDir := filepath.Join(sb.Home, ".config", "skillshare", "trash")
+	trashDir := filepath.Join(sb.Home, ".local", "share", "skillshare", "trash")
 	entries, err := os.ReadDir(trashDir)
 	if err != nil {
 		t.Fatalf("trash directory should exist: %v", err)
@@ -115,8 +115,9 @@ targets: {}
 	}
 
 	// Trash should be empty
-	trashDir := filepath.Join(sb.Home, ".config", "skillshare", "trash")
-	if _, err := os.Stat(trashDir); err == nil {
-		t.Error("trash directory should not be created during dry-run")
+	trashDir := filepath.Join(sb.Home, ".local", "share", "skillshare", "trash")
+	entries, err := os.ReadDir(trashDir)
+	if err == nil && len(entries) > 0 {
+		t.Error("trash directory should be empty during dry-run")
 	}
 }
