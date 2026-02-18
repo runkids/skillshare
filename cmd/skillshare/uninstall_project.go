@@ -124,16 +124,12 @@ func cmdUninstallProject(args []string, root string) error {
 	if !opts.dryRun {
 		var preflight []*uninstallTarget
 		for _, t := range targets {
-			if t.isTrackedRepo && !opts.force {
-				if isDirty, _ := isRepoDirty(t.path); isDirty {
-					if single {
-						ui.Error("Repository has uncommitted changes!")
-						ui.Info("Use --force to uninstall anyway, or commit/stash your changes first")
-						return fmt.Errorf("uncommitted changes detected, use --force to override")
-					}
-					ui.Warning("Skipping %s: uncommitted changes (use --force to override)", t.name)
-					continue
+			if err := checkTrackedRepoStatus(t, opts.force); err != nil {
+				if single {
+					return err
 				}
+				ui.Warning("Skipping %s: %v", t.name, err)
+				continue
 			}
 			preflight = append(preflight, t)
 		}

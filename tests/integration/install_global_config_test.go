@@ -66,6 +66,7 @@ targets: {}
 		{"into flag", []string{"install", "--global", "--into", "sub"}},
 		{"track flag", []string{"install", "--global", "--track"}},
 		{"skill flag", []string{"install", "--global", "--skill", "x"}},
+		{"exclude flag", []string{"install", "--global", "--exclude", "x"}},
 		{"all flag", []string{"install", "--global", "--all"}},
 		{"yes flag", []string{"install", "--global", "--yes"}},
 		{"update flag", []string{"install", "--global", "--update"}},

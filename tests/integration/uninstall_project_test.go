@@ -154,3 +154,26 @@ func TestUninstallProject_Group(t *testing.T) {
 		t.Error("backend/api should NOT be removed")
 	}
 }
+
+func TestUninstallProject_TrackedRepo_GitStatusErrorWarnsAndContinues(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	repoDir := sb.CreateProjectSkill(projectRoot, "_broken-repo", map[string]string{
+		"SKILL.md": "# Broken Repo",
+	})
+
+	// Mark as tracked for uninstall resolution, but keep it invalid so `git status` fails.
+	if err := os.MkdirAll(filepath.Join(repoDir, ".git"), 0755); err != nil {
+		t.Fatalf("failed to create fake .git dir: %v", err)
+	}
+
+	result := sb.RunCLIInDirWithInput(projectRoot, "y\n", "uninstall", "broken-repo", "-p")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Could not check git status")
+
+	if sb.FileExists(repoDir) {
+		t.Error("tracked repo should still be uninstalled when git status check fails")
+	}
+}

@@ -147,9 +147,9 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 	if result.sourceArg == "" {
 		hasSourceFlags := result.opts.Name != "" || result.opts.Into != "" ||
 			result.opts.Track || len(result.opts.Skills) > 0 ||
-			result.opts.All || result.opts.Yes || result.opts.Update
+			len(result.opts.Exclude) > 0 || result.opts.All || result.opts.Yes || result.opts.Update
 		if hasSourceFlags {
-			return nil, false, fmt.Errorf("flags --name, --into, --track, --skill, --all, --yes, and --update require a source argument")
+			return nil, false, fmt.Errorf("flags --name, --into, --track, --skill, --exclude, --all, --yes, and --update require a source argument")
 		}
 		return result, false, nil
 	}

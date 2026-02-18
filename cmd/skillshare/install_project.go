@@ -160,11 +160,11 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 	summary.AuditThreshold = parsed.opts.AuditThreshold
 
 	if parsed.sourceArg == "" {
-		if parsed.opts.Name != "" {
-			return summary, fmt.Errorf("--name requires a source; it cannot be used with 'skillshare install -p' (no source)")
-		}
-		if parsed.opts.Into != "" {
-			return summary, fmt.Errorf("--into requires a source; it cannot be used with 'skillshare install -p' (no source)")
+		hasSourceFlags := parsed.opts.Name != "" || parsed.opts.Into != "" ||
+			parsed.opts.Track || len(parsed.opts.Skills) > 0 ||
+			len(parsed.opts.Exclude) > 0 || parsed.opts.All || parsed.opts.Yes || parsed.opts.Update
+		if hasSourceFlags {
+			return summary, fmt.Errorf("flags --name, --into, --track, --skill, --exclude, --all, --yes, and --update require a source argument")
 		}
 		summary.Source = "project-config"
 		return installFromProjectConfig(runtime, parsed.opts)

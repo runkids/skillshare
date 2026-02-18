@@ -143,7 +143,7 @@ func TestInstallProject_Into_NoSource_Rejected(t *testing.T) {
 	// --into without source should fail
 	result := sb.RunCLIInDir(projectRoot, "install", "--into", "tools", "-p")
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "--into requires a source")
+	result.AssertAnyOutputContains(t, "require a source argument")
 }
 
 func contains(s, sub string) bool {

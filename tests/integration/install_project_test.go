@@ -115,5 +115,15 @@ func TestInstallProject_NoSource_WithName_Errors(t *testing.T) {
 
 	result := sb.RunCLIInDir(projectRoot, "install", "-p", "--name", "custom")
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "--name requires a source")
+	result.AssertAnyOutputContains(t, "require a source argument")
+}
+
+func TestInstallProject_NoSource_WithExclude_Errors(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	result := sb.RunCLIInDir(projectRoot, "install", "-p", "--exclude", "skip-me")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "require a source argument")
 }
