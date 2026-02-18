@@ -113,8 +113,11 @@ func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
 	}
 
 	var targets []*uninstallTarget
-	filepath.Walk(groupPath, func(path string, fi os.FileInfo, err error) error { //nolint:errcheck
-		if err != nil || path == groupPath || !fi.IsDir() {
+	if walkErr := filepath.Walk(groupPath, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if path == groupPath || !fi.IsDir() {
 			return nil
 		}
 		if fi.Name() == ".git" {
@@ -140,7 +143,9 @@ func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
 			return filepath.SkipDir // don't descend into skill dirs
 		}
 		return nil
-	})
+	}); walkErr != nil {
+		return nil, fmt.Errorf("failed to walk group '%s': %w", group, walkErr)
+	}
 
 	if len(targets) == 0 {
 		return nil, fmt.Errorf("no skills found in group '%s'", group)
@@ -156,8 +161,11 @@ func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
 func resolveNestedSkillDir(sourceDir, name string) (string, error) {
 	var matches []string
 
-	filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error { //nolint:errcheck
-		if err != nil || path == sourceDir || !info.IsDir() {
+	if walkErr := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if path == sourceDir || !info.IsDir() {
 			return nil
 		}
 		if info.Name() == ".git" {
@@ -170,7 +178,9 @@ func resolveNestedSkillDir(sourceDir, name string) (string, error) {
 			return filepath.SkipDir
 		}
 		return nil
-	})
+	}); walkErr != nil {
+		return "", fmt.Errorf("failed to search for skill '%s': %w", name, walkErr)
+	}
 
 	switch len(matches) {
 	case 0:
@@ -191,8 +201,11 @@ func resolveNestedSkillDir(sourceDir, name string) (string, error) {
 // Returns the list of relative skill names found, or nil if not a group.
 func countGroupSkills(dir string) []string {
 	var names []string
-	filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error { //nolint:errcheck
-		if err != nil || path == dir || !fi.IsDir() {
+	_ = filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if path == dir || !fi.IsDir() {
 			return nil
 		}
 		if fi.Name() == ".git" {

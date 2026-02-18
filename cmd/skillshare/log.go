@@ -425,6 +425,9 @@ func formatGenericLogPairs(args map[string]any) []logDetailPair {
 	if name, ok := logArgString(args, "name"); ok {
 		pairs = append(pairs, logDetailPair{key: "name", value: name})
 	}
+	if names, ok := logArgStringSlice(args, "names"); ok && len(names) > 0 {
+		pairs = append(pairs, logDetailPair{key: "names", isList: true, listValues: names})
+	}
 	if target, ok := logArgString(args, "target"); ok {
 		pairs = append(pairs, logDetailPair{key: "target", value: target})
 	}
@@ -678,6 +681,9 @@ func formatGenericLogDetail(args map[string]any) string {
 	}
 	if name, ok := logArgString(args, "name"); ok {
 		parts = append(parts, name)
+	}
+	if names, ok := logArgStringSlice(args, "names"); ok && len(names) > 0 {
+		parts = append(parts, strings.Join(names, ", "))
 	}
 	if target, ok := logArgString(args, "target"); ok {
 		parts = append(parts, target)

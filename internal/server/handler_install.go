@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -192,9 +193,13 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	// Reconcile config after install
 	if installed > 0 {
 		if s.IsProjectMode() {
-			_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
+			if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source); rErr != nil {
+				log.Printf("warning: failed to reconcile project skills config: %v", rErr)
+			}
 		} else {
-			_ = config.ReconcileGlobalSkills(s.cfg)
+			if rErr := config.ReconcileGlobalSkills(s.cfg); rErr != nil {
+				log.Printf("warning: failed to reconcile global skills config: %v", rErr)
+			}
 		}
 	}
 
@@ -272,9 +277,13 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		}
 		// Reconcile config after tracked repo install
 		if s.IsProjectMode() {
-			_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
+			if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source); rErr != nil {
+				log.Printf("warning: failed to reconcile project skills config: %v", rErr)
+			}
 		} else {
-			_ = config.ReconcileGlobalSkills(s.cfg)
+			if rErr := config.ReconcileGlobalSkills(s.cfg); rErr != nil {
+				log.Printf("warning: failed to reconcile global skills config: %v", rErr)
+			}
 		}
 
 		args := map[string]any{
@@ -343,9 +352,13 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 
 	// Reconcile config after single install
 	if s.IsProjectMode() {
-		_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
+		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source); rErr != nil {
+			log.Printf("warning: failed to reconcile project skills config: %v", rErr)
+		}
 	} else {
-		_ = config.ReconcileGlobalSkills(s.cfg)
+		if rErr := config.ReconcileGlobalSkills(s.cfg); rErr != nil {
+			log.Printf("warning: failed to reconcile global skills config: %v", rErr)
+		}
 	}
 
 	okArgs := map[string]any{

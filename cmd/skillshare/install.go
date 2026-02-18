@@ -319,7 +319,9 @@ func cmdInstall(args []string) error {
 			summary.Source = parsed.sourceArg
 		}
 		if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-			_ = config.ReconcileGlobalSkills(cfg)
+			if rErr := config.ReconcileGlobalSkills(cfg); rErr != nil {
+				ui.Warning("Failed to reconcile global skills config: %v", rErr)
+			}
 		}
 		logInstallOp(config.ConfigPath(), rest, start, err, summary)
 		return err
@@ -333,7 +335,9 @@ func cmdInstall(args []string) error {
 		summary.Source = parsed.sourceArg
 	}
 	if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-		_ = config.ReconcileGlobalSkills(cfg)
+		if rErr := config.ReconcileGlobalSkills(cfg); rErr != nil {
+			ui.Warning("Failed to reconcile global skills config: %v", rErr)
+		}
 	}
 	logInstallOp(config.ConfigPath(), rest, start, err, summary)
 	return err
@@ -627,11 +631,8 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 
 // selectSkills routes to the appropriate skill selection method:
 // --skill filter, --all/--yes auto-select, or interactive prompt.
-// After selection, applies --exclude filtering if specified.
+// Callers are expected to apply --exclude filtering before calling this function.
 func selectSkills(skills []install.SkillInfo, opts install.InstallOptions) ([]install.SkillInfo, error) {
-	var selected []install.SkillInfo
-	var err error
-
 	switch {
 	case opts.HasSkillFilter():
 		matched, notFound := filterSkillsByName(skills, opts.Skills)
@@ -639,22 +640,12 @@ func selectSkills(skills []install.SkillInfo, opts install.InstallOptions) ([]in
 			return nil, fmt.Errorf("skills not found: %s\nAvailable: %s",
 				strings.Join(notFound, ", "), skillNames(skills))
 		}
-		selected = matched
+		return matched, nil
 	case opts.ShouldInstallAll():
-		selected = skills
+		return skills, nil
 	default:
-		selected, err = promptSkillSelection(skills)
-		if err != nil {
-			return nil, err
-		}
+		return promptSkillSelection(skills)
 	}
-
-	// Apply --exclude filter
-	if len(opts.Exclude) > 0 {
-		selected = applyExclude(selected, opts.Exclude)
-	}
-
-	return selected, nil
 }
 
 // applyExclude removes skills whose names appear in the exclude list.
