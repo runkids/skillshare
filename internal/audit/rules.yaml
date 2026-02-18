@@ -82,6 +82,34 @@ rules:
     message: "Filesystem format command"
     regex: '(?i)\bmkfs\.'
 
+  # ── HIGH: dynamic code execution (JS/Python eval/exec) ──
+  - id: dynamic-code-exec-0
+    severity: HIGH
+    pattern: dynamic-code-exec
+    message: "Dynamic code execution (eval/exec) detected"
+    regex: '(?i)\b(eval|exec)\s*\('
+    exclude: '(?i)\b(eval|exec)\w+\s*\('
+
+  - id: dynamic-code-exec-1
+    severity: HIGH
+    pattern: dynamic-code-exec
+    message: "Dynamic Function constructor detected"
+    regex: '(?i)\bnew\s+Function\s*\('
+
+  # ── HIGH: Python shell execution ──
+  - id: shell-execution-0
+    severity: HIGH
+    pattern: shell-execution
+    message: "Python shell execution detected"
+    regex: '(?i)\b(os\.system|subprocess\.(run|call|Popen|check_output|check_call))\s*\('
+
+  # ── HIGH: hidden injection in HTML comments ──
+  - id: hidden-comment-injection-0
+    severity: HIGH
+    pattern: hidden-comment-injection
+    message: "Prompt injection hidden in HTML comment"
+    regex: '(?i)<!--.*?(ignore\s+(all\s+)?previous|disregard|you\s+are\s+now|forget\s+everything|override\s+safety|SYSTEM:)'
+
   # ── HIGH: obfuscation ──
   - id: obfuscation-0
     severity: HIGH
@@ -94,6 +122,21 @@ rules:
     pattern: obfuscation
     message: "Long base64-encoded string detected"
     regex: '[A-Za-z0-9+/]{100,}={0,2}'
+
+  # ── MEDIUM: environment variable access (JS) ──
+  - id: env-access-0
+    severity: MEDIUM
+    pattern: env-access
+    message: "Direct environment variable access via process.env"
+    regex: '\bprocess\.env\.\w+'
+    exclude: '(?i)\bprocess\.env\.(NODE_ENV|npm_)'
+
+  # ── MEDIUM: escape sequence obfuscation ──
+  - id: escape-obfuscation-0
+    severity: MEDIUM
+    pattern: escape-obfuscation
+    message: "Consecutive escape sequences may hide content"
+    regex: '(\\x[0-9a-fA-F]{2}){3,}|(\\u[0-9a-fA-F]{4}){3,}'
 
   # ── MEDIUM: suspicious URL usage ──
   - id: suspicious-fetch-0
