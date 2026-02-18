@@ -39,6 +39,9 @@ skillshare audit -p                     # Scan project skills
 | `hidden-unicode` | Zero-width characters that hide content from human review |
 | `destructive-commands` | `rm -rf /`, `chmod 777`, `sudo`, `dd if=`, `mkfs` |
 | `obfuscation` | Base64 decode pipes, long base64-encoded strings |
+| `dynamic-code-exec` | Dynamic code evaluation via language built-ins |
+| `shell-execution` | Python shell invocation via system or subprocess calls |
+| `hidden-comment-injection` | Prompt injection keywords hidden inside HTML comments |
 
 ### MEDIUM (informational warning, counted as Warning)
 
@@ -46,13 +49,15 @@ skillshare audit -p                     # Scan project skills
 |---------|------------|
 | `suspicious-fetch` | URLs used in command context (`curl`, `wget`, `fetch`) |
 | `system-writes` | Commands writing to `/usr`, `/etc`, `/var` |
+| `env-access` | Direct environment variable access via `process.env` (excludes `NODE_ENV`) |
+| `escape-obfuscation` | 3+ consecutive hex or unicode escape sequences |
 
 ### LOW / INFO (non-blocking signal by default)
 
 These are lower-severity indicators that contribute to risk scoring and reporting:
 
-- `LOW`: weaker suspicious patterns that still deserve review
-- `INFO`: contextual hints (for triage / visibility)
+- `LOW`: weaker suspicious patterns (e.g., non-HTTPS URLs in commands)
+- `INFO`: contextual hints like shell chaining patterns (for triage / visibility)
 
 ## Example Output
 
@@ -297,10 +302,18 @@ Source of truth (full built-in definitions):
 | `destructive-commands-2` | destructive-commands | HIGH |
 | `destructive-commands-3` | destructive-commands | HIGH |
 | `destructive-commands-4` | destructive-commands | HIGH |
+| `dynamic-code-exec-0` | dynamic-code-exec | HIGH |
+| `dynamic-code-exec-1` | dynamic-code-exec | HIGH |
+| `shell-execution-0` | shell-execution | HIGH |
+| `hidden-comment-injection-0` | hidden-comment-injection | HIGH |
 | `obfuscation-0` | obfuscation | HIGH |
 | `obfuscation-1` | obfuscation | HIGH |
+| `env-access-0` | env-access | MEDIUM |
+| `escape-obfuscation-0` | escape-obfuscation | MEDIUM |
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
 | `system-writes-0` | system-writes | MEDIUM |
+| `insecure-http-0` | insecure-http | LOW |
+| `shell-chain-0` | shell-chain | INFO |
 
 ## Options
 
