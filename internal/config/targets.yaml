@@ -79,6 +79,10 @@ targets:
     project_name: droid
     global_path: "~/.factory/skills"
     project_path: ".factory/skills"
+  - global_name: firebender
+    project_name: firebender
+    global_path: "~/.firebender/skills"
+    project_path: ".firebender/skills"
   - global_name: gemini
     project_name: gemini
     global_path: "~/.gemini/skills"

@@ -19,7 +19,7 @@ Targets are AI CLI skill directories that skillshare syncs to.
 │                         │  cursor    ~/.cursor/skills   │   │
 │                         │  codex     ~/.codex/skills    │   │
 │                         │  gemini    ~/.gemini/skills   │   │
-│                         │  ...       48+ supported      │   │
+│                         │  ...       49+ supported      │   │
 │                         └───────────────────────────────┘   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -37,7 +37,7 @@ Targets are AI CLI skill directories that skillshare syncs to.
 
 | Topic | Description |
 |-------|-------------|
-| [Supported Targets](./supported-targets.md) | Complete list of 48+ supported AI CLIs |
+| [Supported Targets](./supported-targets.md) | Complete list of 49+ supported AI CLIs |
 | [Adding Custom Targets](./adding-custom-targets.md) | Add any tool with a skills directory |
 | [Configuration](./configuration.md) | Config file reference |
 

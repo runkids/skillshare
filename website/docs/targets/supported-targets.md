@@ -8,7 +8,7 @@ Complete list of AI CLIs that skillshare supports out of the box.
 
 ## Overview
 
-Skillshare supports **48+ AI CLI tools**. When you run `skillshare init`, it automatically detects and configures any installed tools.
+Skillshare supports **49+ AI CLI tools**. When you run `skillshare init`, it automatically detects and configures any installed tools.
 
 ---
 
@@ -29,12 +29,15 @@ These are auto-detected during `skillshare init`:
 │  ┌─────────┐ ┌──────────┐ ┌──────────┐ ┌─────────┐ ┌─────────┐             │
 │  │  Codex  │ │ Cmd Code │ │ Continue │ │ Copilot │ │  Cortex │             │
 │  └─────────┘ └──────────┘ └──────────┘ └─────────┘ └─────────┘             │
-│  ┌───────┐ ┌────────┐ ┌─────────────┐ ┌───────┐ ┌────────┐ ┌───────┐       │
-│  │ Crush │ │ Cursor │ │ Deep Agents │ │ Droid │ │ Gemini │ │ Goose │       │
-│  └───────┘ └────────┘ └─────────────┘ └───────┘ └────────┘ └───────┘       │
-│  ┌───────┐ ┌───────┐ ┌──────────┐ ┌────────┐ ┌────────┐ ┌────────┐         │
-│  │ iFlow │ │ Junie │ │ Kilocode │ │  Kimi  │ │  Kiro  │ │  Kode  │         │
-│  └───────┘ └───────┘ └──────────┘ └────────┘ └────────┘ └────────┘         │
+│  ┌───────┐ ┌────────┐ ┌─────────────┐ ┌───────┐ ┌────────────┐             │
+│  │ Crush │ │ Cursor │ │ Deep Agents │ │ Droid │ │ Firebender │             │
+│  └───────┘ └────────┘ └─────────────┘ └───────┘ └────────────┘             │
+│  ┌────────┐ ┌───────┐ ┌───────┐                                            │
+│  │ Gemini │ │ Goose │ │ iFlow │                                            │
+│  └────────┘ └───────┘ └───────┘                                            │
+│  ┌───────┐ ┌──────────┐ ┌────────┐ ┌────────┐ ┌────────┐                   │
+│  │ Junie │ │ Kilocode │ │  Kimi  │ │  Kiro  │ │  Kode  │                   │
+│  └───────┘ └──────────┘ └────────┘ └────────┘ └────────┘                   │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌────────────┐            │
 │  │  Letta  │ │  MCPJam │ │   Mux   │ │ Neovate │ │ OpenClaude │            │
 │  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └────────────┘            │
@@ -75,6 +78,7 @@ These are auto-detected during `skillshare init`:
 | cursor | `~/.cursor/skills` | `.cursor/skills` |
 | deepagents | `~/.deepagents/agent/skills` | `.deepagents/skills` |
 | droid | `~/.factory/skills` | `.factory/skills` |
+| firebender | `~/.firebender/skills` | `.firebender/skills` |
 | gemini | `~/.gemini/skills` | `.gemini/skills` |
 | goose | `~/.config/goose/skills` | `.goose/skills` |
 | iflow | `~/.iflow/skills` | `.iflow/skills` |
