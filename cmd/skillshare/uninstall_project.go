@@ -97,7 +97,7 @@ func cmdUninstallProject(args []string, root string) error {
 
 	updatedSkills := make([]config.SkillEntry, 0, len(cfg.Skills))
 	for _, skill := range cfg.Skills {
-		if skill.Name != skillName {
+		if skill.FullName() != skillName {
 			updatedSkills = append(updatedSkills, skill)
 		}
 	}

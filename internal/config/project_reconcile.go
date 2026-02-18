@@ -23,7 +23,18 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, sourc
 	changed := false
 	index := map[string]int{}
 	for i, skill := range projectCfg.Skills {
-		index[skill.Name] = i
+		index[skill.FullName()] = i
+	}
+
+	// Migrate legacy entries: name "frontend/pdf" → group "frontend", name "pdf"
+	for i := range projectCfg.Skills {
+		s := &projectCfg.Skills[i]
+		if s.Group == "" && strings.Contains(s.Name, "/") {
+			group, bare := s.EffectiveParts()
+			s.Group = group
+			s.Name = bare
+			changed = true
+		}
 	}
 
 	err := filepath.WalkDir(sourcePath, func(path string, d os.DirEntry, err error) error {
@@ -66,10 +77,9 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, sourc
 			return nil
 		}
 
-		// Use relative path as skill name (e.g. "frontend/pdf" or "_team-repo")
-		skillName := filepath.ToSlash(relPath)
+		fullPath := filepath.ToSlash(relPath)
 
-		if existingIdx, ok := index[skillName]; ok {
+		if existingIdx, ok := index[fullPath]; ok {
 			if projectCfg.Skills[existingIdx].Source != source {
 				projectCfg.Skills[existingIdx].Source = source
 				changed = true
@@ -79,16 +89,22 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, sourc
 				changed = true
 			}
 		} else {
-			projectCfg.Skills = append(projectCfg.Skills, SkillEntry{
-				Name:    skillName,
+			entry := SkillEntry{
 				Source:  source,
 				Tracked: tracked,
-			})
-			index[skillName] = len(projectCfg.Skills) - 1
+			}
+			if idx := strings.LastIndex(fullPath, "/"); idx >= 0 {
+				entry.Group = fullPath[:idx]
+				entry.Name = fullPath[idx+1:]
+			} else {
+				entry.Name = fullPath
+			}
+			projectCfg.Skills = append(projectCfg.Skills, entry)
+			index[fullPath] = len(projectCfg.Skills) - 1
 			changed = true
 		}
 
-		if err := install.UpdateGitIgnore(filepath.Join(projectRoot, ".skillshare"), filepath.Join("skills", skillName)); err != nil {
+		if err := install.UpdateGitIgnore(filepath.Join(projectRoot, ".skillshare"), filepath.Join("skills", fullPath)); err != nil {
 			return fmt.Errorf("failed to update .skillshare/.gitignore: %w", err)
 		}
 

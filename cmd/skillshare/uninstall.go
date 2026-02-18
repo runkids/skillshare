@@ -321,7 +321,7 @@ func cmdUninstall(args []string) error {
 	if err == nil && len(cfg.Skills) > 0 {
 		updated := make([]config.SkillEntry, 0, len(cfg.Skills))
 		for _, s := range cfg.Skills {
-			if s.Name != target.name {
+			if s.FullName() != target.name {
 				updated = append(updated, s)
 			}
 		}

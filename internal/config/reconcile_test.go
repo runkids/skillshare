@@ -146,3 +146,88 @@ func TestReconcileGlobalSkills_MissingDir(t *testing.T) {
 		t.Fatalf("ReconcileGlobalSkills should not fail for missing dir: %v", err)
 	}
 }
+
+func TestReconcileGlobalSkills_NestedSkillSetsGroup(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	configPath := filepath.Join(root, "config.yaml")
+
+	// Create a nested skill: frontend/pdf
+	skillPath := filepath.Join(sourceDir, "frontend", "pdf")
+	if err := os.MkdirAll(skillPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	meta := map[string]string{"source": "anthropics/skills/skills/pdf"}
+	data, _ := json.Marshal(meta)
+	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfgData, _ := yaml.Marshal(&Config{Source: sourceDir})
+	if err := os.WriteFile(configPath, cfgData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SKILLSHARE_CONFIG", configPath)
+
+	cfg := &Config{Source: sourceDir}
+
+	if err := ReconcileGlobalSkills(cfg); err != nil {
+		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
+	}
+
+	if len(cfg.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(cfg.Skills))
+	}
+	if cfg.Skills[0].Name != "pdf" {
+		t.Errorf("expected bare name 'pdf', got %q", cfg.Skills[0].Name)
+	}
+	if cfg.Skills[0].Group != "frontend" {
+		t.Errorf("expected group 'frontend', got %q", cfg.Skills[0].Group)
+	}
+	if cfg.Skills[0].FullName() != "frontend/pdf" {
+		t.Errorf("expected FullName 'frontend/pdf', got %q", cfg.Skills[0].FullName())
+	}
+}
+
+func TestReconcileGlobalSkills_MigratesLegacySlashName(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	configPath := filepath.Join(root, "config.yaml")
+
+	// Create nested skill on disk
+	skillPath := filepath.Join(sourceDir, "frontend", "pdf")
+	if err := os.MkdirAll(skillPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	meta := map[string]string{"source": "anthropics/skills/skills/pdf"}
+	data, _ := json.Marshal(meta)
+	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfgData, _ := yaml.Marshal(&Config{Source: sourceDir})
+	if err := os.WriteFile(configPath, cfgData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SKILLSHARE_CONFIG", configPath)
+
+	// Start with legacy format: name contains slash, no group
+	cfg := &Config{
+		Source: sourceDir,
+		Skills: []SkillEntry{{Name: "frontend/pdf", Source: "anthropics/skills/skills/pdf"}},
+	}
+
+	if err := ReconcileGlobalSkills(cfg); err != nil {
+		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
+	}
+
+	if len(cfg.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(cfg.Skills))
+	}
+	if cfg.Skills[0].Name != "pdf" {
+		t.Errorf("expected migrated name 'pdf', got %q", cfg.Skills[0].Name)
+	}
+	if cfg.Skills[0].Group != "frontend" {
+		t.Errorf("expected migrated group 'frontend', got %q", cfg.Skills[0].Group)
+	}
+}
