@@ -93,6 +93,10 @@ skillshare install anthropics/skills
 
 Discovery scans all directories for `SKILL.md` files, skipping only `.git`. This means skills inside hidden directories like `.curated/` or `.system/` are discovered automatically. When multiple skills are found, the selection prompt groups them by directory for easier browsing.
 
+If the repository contains a `.skillignore` file at its root, matching skills are automatically excluded from discovery. See [.skillignore](#skillignore) below.
+
+If a skill's `SKILL.md` includes a `license:` frontmatter field, the license is shown in the selection prompt (e.g., `my-skill (MIT)`) and in the confirmation screen for single-skill installs.
+
 **Tip**: Use `--dry-run` to preview without installing:
 ```bash
 skillshare install anthropics/skills --dry-run
@@ -226,6 +230,7 @@ See [Project Setup](/docs/guides/project-setup) for the full guide.
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--track` | `-t` | Keep `.git` for tracked repos |
 | `--skill` | `-s` | Select specific skills from multi-skill repo (comma-separated) |
+| `--exclude` | | Skip specific skills during install (comma-separated names) |
 | `--all` | | Install all discovered skills without prompting |
 | `--yes` | `-y` | Auto-accept all prompts (CI/CD friendly) |
 | `--skip-audit` | | Skip security audit for this install |
@@ -354,6 +359,70 @@ Recommended usage:
 - Prefer `--force` when you still want visibility into findings.
 - Use `--skip-audit` only when you intentionally need to bypass scanning.
 - If both are set, `--skip-audit` takes precedence in practice (scan is skipped).
+
+## Excluding Skills
+
+### `--exclude` flag
+
+Skip specific skills when installing from a multi-skill repo:
+
+```bash
+# Install all except specific skills
+skillshare install anthropics/skills --all --exclude cli-sentry,delayed-command
+
+# Works with -y too
+skillshare install org/skills -y --exclude internal-tool
+
+# Combine with --skill for fine-grained control
+skillshare install org/skills -s pdf,commit,docs --exclude docs
+```
+
+When skills are excluded, a message shows what was skipped: `Excluded 2 skill(s): cli-sentry, delayed-command`.
+
+:::note Requires multi-skill discovery
+`--exclude` only works when installing from a **git repo** that contains multiple skills. It works with `--all`, `--yes`, `--skill`, and interactive selection modes. For direct installs (local paths or single-skill git URLs), `--exclude` is not applicable — a warning is shown if specified.
+:::
+
+### .skillignore {#skillignore}
+
+Repository maintainers can create a `.skillignore` file at the repo root to hide skills from discovery. Users installing from the repo will never see these skills in the selection prompt.
+
+```text title=".skillignore"
+# Internal tooling — not for public use
+validation-scripts
+scaffold-template
+
+# Exclude all test/eval skills
+prompt-eval-*
+```
+
+**Format:**
+- One pattern per line
+- Lines starting with `#` are comments
+- Empty lines are ignored
+- Exact name match: `validation-scripts`
+- Trailing wildcard: `prompt-eval-*` (matches any skill starting with `prompt-eval-`)
+
+**Use cases:**
+- Hide internal/test skills from public repos
+- Exclude work-in-progress skills
+- Keep repo-maintenance tools out of discovery
+
+`.skillignore` is applied during git repo discovery, so it affects all discovery-based install paths: `--all`, `--skill`, `--yes`, and interactive selection. It does **not** apply to direct local-path installs (which skip discovery entirely).
+
+:::tip Where to place .skillignore
+The `.skillignore` file must be at the **repository root**, not inside individual skill directories. It controls which skills are discoverable when users install from your repo.
+:::
+
+### `.skillignore` vs `--exclude`
+
+| | `.skillignore` | `--exclude` |
+|---|---|---|
+| **Who controls it** | Repo maintainer | Installing user |
+| **Where it lives** | `.skillignore` in repo root | CLI flag |
+| **When it applies** | During discovery (before selection) | After discovery (before prompt) |
+| **Scope** | All users installing from this repo | This install only |
+| **Requires** | Git repo with multiple skills | Git repo with multiple skills |
 
 ## After Installing
 

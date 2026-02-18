@@ -47,6 +47,12 @@ func parseProjectInstallArgs(args []string) (*projectInstallArgs, bool, error) {
 			}
 			i++
 			result.opts.Skills = strings.Split(args[i], ",")
+		case arg == "--exclude":
+			if i+1 >= len(args) {
+				return nil, false, fmt.Errorf("--exclude requires a value")
+			}
+			i++
+			result.opts.Exclude = strings.Split(args[i], ",")
 		case arg == "--into":
 			if i+1 >= len(args) {
 				return nil, false, fmt.Errorf("--into requires a value")
@@ -83,6 +89,18 @@ func parseProjectInstallArgs(args []string) (*projectInstallArgs, bool, error) {
 			return nil, false, fmt.Errorf("--skill requires at least one skill name")
 		}
 		result.opts.Skills = cleaned
+	}
+
+	// Clean --exclude input
+	if len(result.opts.Exclude) > 0 {
+		cleaned := make([]string, 0, len(result.opts.Exclude))
+		for _, s := range result.opts.Exclude {
+			s = strings.TrimSpace(s)
+			if s != "" {
+				cleaned = append(cleaned, s)
+			}
+		}
+		result.opts.Exclude = cleaned
 	}
 
 	// Validate mutual exclusion

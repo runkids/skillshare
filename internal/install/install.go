@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/utils"
 )
 
 // InstallOptions configures the install behavior
@@ -22,6 +23,7 @@ type InstallOptions struct {
 	Update           bool     // Update existing installation
 	Track            bool     // Install as tracked repository (preserves .git)
 	Skills           []string // Select specific skills from multi-skill repo (comma-separated)
+	Exclude          []string // Skills to exclude from installation (comma-separated)
 	All              bool     // Install all discovered skills without prompting
 	Yes              bool     // Auto-accept all prompts (equivalent to --all for multi-skill repos)
 	Into             string   // Install into subdirectory (e.g. "frontend" or "frontend/react")
@@ -51,8 +53,9 @@ type InstallResult struct {
 
 // SkillInfo represents a discovered skill in a repository
 type SkillInfo struct {
-	Name string // Skill name (directory name)
-	Path string // Relative path from repo root
+	Name    string // Skill name (directory name)
+	Path    string // Relative path from repo root
+	License string // License from SKILL.md frontmatter (if any)
 }
 
 // DiscoveryResult contains discovered skills from a repository
@@ -259,6 +262,40 @@ func resolveSubdir(repoPath, subdir string) (string, error) {
 	}
 }
 
+// readSkillIgnore reads a .skillignore file from the given directory.
+// Returns a list of patterns (exact names or trailing-wildcard like "prefix-*").
+// Lines starting with # and empty lines are skipped.
+func readSkillIgnore(dir string) []string {
+	data, err := os.ReadFile(filepath.Join(dir, ".skillignore"))
+	if err != nil {
+		return nil
+	}
+	var patterns []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		patterns = append(patterns, line)
+	}
+	return patterns
+}
+
+// matchSkillIgnore returns true if skillName matches any pattern.
+// Patterns support exact match and trailing wildcard ("prefix-*").
+func matchSkillIgnore(skillName string, patterns []string) bool {
+	for _, p := range patterns {
+		if strings.HasSuffix(p, "*") {
+			if strings.HasPrefix(skillName, strings.TrimSuffix(p, "*")) {
+				return true
+			}
+		} else if skillName == p {
+			return true
+		}
+	}
+	return false
+}
+
 // discoverSkills finds directories containing SKILL.md
 // If includeRoot is true, root-level SKILL.md is also included (with Path=".")
 func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
@@ -278,25 +315,40 @@ func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
 		if !info.IsDir() && info.Name() == "SKILL.md" {
 			skillDir := filepath.Dir(path)
 			relPath, _ := filepath.Rel(repoPath, skillDir)
+			license := utils.ParseFrontmatterField(path, "license")
 
 			// Handle root level SKILL.md
 			if relPath == "." {
 				if includeRoot {
 					skills = append(skills, SkillInfo{
-						Name: filepath.Base(repoPath),
-						Path: ".",
+						Name:    filepath.Base(repoPath),
+						Path:    ".",
+						License: license,
 					})
 				}
 			} else {
 				skills = append(skills, SkillInfo{
-					Name: filepath.Base(skillDir),
-					Path: strings.ReplaceAll(relPath, "\\", "/"),
+					Name:    filepath.Base(skillDir),
+					Path:    strings.ReplaceAll(relPath, "\\", "/"),
+					License: license,
 				})
 			}
 		}
 
 		return nil
 	})
+
+	// Apply .skillignore filtering
+	patterns := readSkillIgnore(repoPath)
+	if len(patterns) > 0 {
+		filtered := skills[:0]
+		for _, s := range skills {
+			if !matchSkillIgnore(s.Name, patterns) {
+				filtered = append(filtered, s)
+			}
+		}
+		skills = filtered
+	}
 
 	return skills
 }

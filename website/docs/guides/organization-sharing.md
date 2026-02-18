@@ -89,12 +89,28 @@ git commit -m "Initial skills"
 git push -u origin main
 ```
 
-### Step 2: Share the install command
+### Step 2: Add .skillignore (optional)
+
+If your repo has internal tooling or CI scripts that shouldn't be discovered as skills, create a `.skillignore` at the repo root:
+
+```text title=".skillignore"
+# CI/CD helpers — not installable skills
+ci-scripts
+_internal-*
+```
+
+### Step 3: Share the install command
 
 Send this to your team:
 
 ```bash
 skillshare install github.com/your-org/org-skills --track && skillshare sync
+```
+
+Team members who only need a subset can use `--exclude`:
+
+```bash
+skillshare install github.com/your-org/org-skills --all --exclude devops-deploy
 ```
 
 ---

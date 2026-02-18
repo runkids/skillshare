@@ -146,6 +146,19 @@ Instructions for the AI...
 
 See [Skill Format](/docs/concepts/skill-format) for details.
 
+### .skillignore (Optional, repo-level)
+
+A file in the **root of a skill repository** that excludes skills from discovery during `skillshare install`:
+
+```text
+# Hide internal tooling from discovery
+validation-scripts
+scaffold-template
+prompt-eval-*
+```
+
+One pattern per line. Supports exact match and trailing wildcard (`prefix-*`). Lines starting with `#` are comments. Only applies to discovery — already-installed skills are not affected.
+
 ### .skillshare-meta.json (Auto-generated)
 
 Metadata about where the skill was installed from:

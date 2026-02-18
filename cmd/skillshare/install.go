@@ -73,6 +73,12 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			}
 			i++
 			result.opts.Skills = strings.Split(args[i], ",")
+		case arg == "--exclude":
+			if i+1 >= len(args) {
+				return nil, false, fmt.Errorf("--exclude requires a value")
+			}
+			i++
+			result.opts.Exclude = strings.Split(args[i], ",")
 		case arg == "--into":
 			if i+1 >= len(args) {
 				return nil, false, fmt.Errorf("--into requires a value")
@@ -109,6 +115,18 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			return nil, false, fmt.Errorf("--skill requires at least one skill name")
 		}
 		result.opts.Skills = cleaned
+	}
+
+	// Clean --exclude input
+	if len(result.opts.Exclude) > 0 {
+		cleaned := make([]string, 0, len(result.opts.Exclude))
+		for _, s := range result.opts.Exclude {
+			s = strings.TrimSpace(s)
+			if s != "" {
+				cleaned = append(cleaned, s)
+			}
+		}
+		result.opts.Exclude = cleaned
 	}
 
 	// Validate mutual exclusion
@@ -482,6 +500,15 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 
 	ui.StepEnd("Found", fmt.Sprintf("%d skill(s)", len(discovery.Skills)))
 
+	// Apply --exclude early so excluded skills never appear in prompts
+	if len(opts.Exclude) > 0 {
+		discovery.Skills = applyExclude(discovery.Skills, opts.Exclude)
+		if len(discovery.Skills) == 0 {
+			ui.Info("All skills were excluded")
+			return logSummary, nil
+		}
+	}
+
 	if opts.Name != "" && len(discovery.Skills) != 1 {
 		return logSummary, fmt.Errorf("--name can only be used when exactly one skill is discovered")
 	}
@@ -501,7 +528,11 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 			loc = "root"
 		}
 		fmt.Println()
-		ui.SkillBox(skill.Name, "", loc)
+		desc := ""
+		if skill.License != "" {
+			desc = "License: " + skill.License
+		}
+		ui.SkillBox(skill.Name, desc, loc)
 
 		destPath := destWithInto(cfg.Source, opts, skill.Name)
 		if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
@@ -596,7 +627,11 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 
 // selectSkills routes to the appropriate skill selection method:
 // --skill filter, --all/--yes auto-select, or interactive prompt.
+// After selection, applies --exclude filtering if specified.
 func selectSkills(skills []install.SkillInfo, opts install.InstallOptions) ([]install.SkillInfo, error) {
+	var selected []install.SkillInfo
+	var err error
+
 	switch {
 	case opts.HasSkillFilter():
 		matched, notFound := filterSkillsByName(skills, opts.Skills)
@@ -604,12 +639,43 @@ func selectSkills(skills []install.SkillInfo, opts install.InstallOptions) ([]in
 			return nil, fmt.Errorf("skills not found: %s\nAvailable: %s",
 				strings.Join(notFound, ", "), skillNames(skills))
 		}
-		return matched, nil
+		selected = matched
 	case opts.ShouldInstallAll():
-		return skills, nil
+		selected = skills
 	default:
-		return promptSkillSelection(skills)
+		selected, err = promptSkillSelection(skills)
+		if err != nil {
+			return nil, err
+		}
 	}
+
+	// Apply --exclude filter
+	if len(opts.Exclude) > 0 {
+		selected = applyExclude(selected, opts.Exclude)
+	}
+
+	return selected, nil
+}
+
+// applyExclude removes skills whose names appear in the exclude list.
+func applyExclude(skills []install.SkillInfo, exclude []string) []install.SkillInfo {
+	excludeSet := make(map[string]bool, len(exclude))
+	for _, name := range exclude {
+		excludeSet[name] = true
+	}
+	var excluded []string
+	filtered := make([]install.SkillInfo, 0, len(skills))
+	for _, s := range skills {
+		if excludeSet[s.Name] {
+			excluded = append(excluded, s.Name)
+			continue
+		}
+		filtered = append(filtered, s)
+	}
+	if len(excluded) > 0 {
+		ui.Info("Excluded %d skill(s): %s", len(excluded), strings.Join(excluded, ", "))
+	}
+	return filtered
 }
 
 // filterSkillsByName matches requested names against discovered skills.
@@ -734,7 +800,11 @@ func promptMultiSelect(skills []install.SkillInfo) ([]install.SkillInfo, error) 
 		default:
 			loc = dir
 		}
-		options[i] = fmt.Sprintf("%s  \033[90m%s\033[0m", skill.Name, loc)
+		label := skill.Name
+		if skill.License != "" {
+			label += fmt.Sprintf(" (%s)", skill.License)
+		}
+		options[i] = fmt.Sprintf("%s  \033[90m%s\033[0m", label, loc)
 	}
 
 	var selectedIndices []int
@@ -996,6 +1066,15 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 
 	ui.StepEnd("Found", fmt.Sprintf("%d skill(s)", len(discovery.Skills)))
 
+	// Apply --exclude early so excluded skills never appear in prompts
+	if len(opts.Exclude) > 0 {
+		discovery.Skills = applyExclude(discovery.Skills, opts.Exclude)
+		if len(discovery.Skills) == 0 {
+			ui.Info("All skills were excluded")
+			return logSummary, nil
+		}
+	}
+
 	if opts.Name != "" {
 		return logSummary, fmt.Errorf("--name can only be used when exactly one skill is discovered")
 	}
@@ -1063,6 +1142,11 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 		Into:           opts.Into,
 		SkipAudit:      opts.SkipAudit,
 		AuditThreshold: opts.AuditThreshold,
+	}
+
+	// Warn about inapplicable flags
+	if len(opts.Exclude) > 0 {
+		ui.Warning("--exclude is only supported for multi-skill repos; ignored for direct install")
 	}
 
 	// Determine skill name
@@ -1261,6 +1345,7 @@ Options:
   --update, -u        Update existing (git pull if possible, else reinstall)
   --track, -t         Install as tracked repo (preserves .git for updates)
   --skill, -s <names> Select specific skills from multi-skill repo (comma-separated)
+  --exclude <names>   Skip specific skills during install (comma-separated)
   --all               Install all discovered skills without prompting
   --yes, -y           Auto-accept all prompts (equivalent to --all for multi-skill repos)
   --dry-run, -n       Preview the installation without making changes
@@ -1282,6 +1367,7 @@ Selective install (non-interactive):
   skillshare install anthropics/skills --all             # All skills
   skillshare install anthropics/skills -y                # Auto-accept
   skillshare install anthropics/skills -s pdf --dry-run  # Preview selection
+  skillshare install repo --all --exclude cli-sentry     # All except specific
 
 Organize into subdirectories:
   skillshare install anthropics/skills -s pdf --into frontend

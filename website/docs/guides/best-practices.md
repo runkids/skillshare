@@ -141,6 +141,20 @@ Concrete input/output examples.
 Explicit exclusions.
 ```
 
+### License
+
+Add a `license` field for published skills — especially important for corporate environments:
+
+```yaml
+---
+name: code-review
+description: Reviews code for quality
+license: MIT
+---
+```
+
+This is displayed during `skillshare install` so users can make informed compliance decisions.
+
 ### Content
 
 **Do:**
@@ -176,6 +190,19 @@ skillshare sync
 - **Lower noise in commits**: `.skillshare/logs/` is ignored by default in project mode.
 
 Use global mode for personal cross-project skills; use `-p` for repo-specific team context.
+
+### Use .skillignore for internal tools
+
+If your team repo contains internal tooling or work-in-progress skills, add a `.skillignore` to prevent accidental discovery:
+
+```text title=".skillignore"
+# Hide from public discovery
+_internal-scripts
+test-*
+wip-feature
+```
+
+This ensures external contributors or automation running `skillshare install <repo> --all` won't pick up internal skills.
 
 ### Ownership
 
@@ -283,6 +310,7 @@ Before installing third-party skills:
 - [ ] Clear folder structure
 - [ ] README with setup instructions
 - [ ] Namespaced skill names
+- [ ] `.skillignore` for internal tools
 - [ ] PR review process
 - [ ] CHANGELOG maintained
 

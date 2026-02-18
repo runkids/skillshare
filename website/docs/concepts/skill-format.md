@@ -134,6 +134,21 @@ targets: [claude]
 
 This skill will only appear in Claude Code's skills directory, even if you have Cursor, Codex, and other targets configured.
 
+### `license`
+
+The skill's license identifier. Displayed during installation to help with compliance decisions.
+
+```yaml
+license: MIT
+```
+
+When present, `skillshare install` shows the license in the skill selection prompt and confirmation screen:
+
+- **Single skill**: Displayed as `License: MIT` in the skill info box
+- **Multi-skill repo**: Appended to the skill name in the selection list (e.g., `my-skill (MIT)`)
+
+This is purely informational — it does not block installation. Common values: `MIT`, `Apache-2.0`, `GPL-3.0`, `BSD-3-Clause`, `ISC`.
+
 ---
 
 ## Custom Metadata

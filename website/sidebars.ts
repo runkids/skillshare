@@ -24,6 +24,7 @@ const sidebars: SidebarsConfig = {
         'concepts/tracked-repositories',
         'concepts/skill-format',
         'concepts/project-skills',
+        'concepts/declarative-manifest',
       ],
     },
     {
@@ -162,6 +163,7 @@ const sidebars: SidebarsConfig = {
         'reference/index',
         'reference/environment-variables',
         'reference/file-structure',
+        'reference/url-formats',
       ],
     },
   ],

@@ -287,6 +287,35 @@ author: Your Name
 ---
 ```
 
+### License metadata
+
+Add a `license` field so users see license info before installing:
+
+```yaml
+---
+name: my-skill
+description: My reusable skill
+license: MIT
+---
+```
+
+When present, `skillshare install` displays the license in the selection prompt and confirmation screen. This helps corporate users with compliance decisions. See [Skill Format](/docs/concepts/skill-format#license) for details.
+
+### Controlling discovery with .skillignore
+
+When publishing a multi-skill repository, you may have internal tools or work-in-progress skills you don't want users to discover. Create a `.skillignore` file at the repo root:
+
+```text title=".skillignore"
+# Internal tooling
+validation-scripts
+scaffold-template
+
+# Work in progress
+prompt-eval-*
+```
+
+Skills matching these patterns won't appear in `skillshare install <repo>` discovery. This is applied server-side (in the repo), so all users benefit automatically. See [install --exclude](/docs/commands/install#excluding-skills) for user-side exclusion.
+
 ---
 
 ## Checklist
