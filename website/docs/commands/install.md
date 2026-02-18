@@ -394,33 +394,32 @@ scaffold-template
 
 # Exclude all test/eval skills
 prompt-eval-*
+
+# Exclude an entire group directory
+internal-tools
 ```
 
-**Real-world example** — [`runkids/my-skills`](https://github.com/runkids/my-skills) uses `.skillignore` to hide two WIP skills:
+**Real-world example** — [`runkids/my-skills`](https://github.com/runkids/my-skills) uses `.skillignore` to exclude non-skill directories and internal tooling:
 
 ```text title=".skillignore"
-agent-browser
-remotion
+skillshare
+feature-radar
 ```
 
-The repo contains 21 skills, but discovery shows only 19. Combined with `--exclude`, users can further narrow the selection:
+Combined with `--exclude`, users can further narrow the selection:
 
 ```bash
 skillshare install runkids/my-skills --exclude seo
 ```
 
-<p>
-  <img src="/img/install_skillignore_exclude_lience_demo.png" alt=".skillignore + --exclude + license demo" width="720" />
-</p>
-
-This screenshot shows all three features working together: `.skillignore` hides `agent-browser` and `remotion`, `--exclude` removes `seo`, and license information (MIT, LICENSE.txt) is displayed next to each skill.
-
 **Format:**
 - One pattern per line
 - Lines starting with `#` are comments
 - Empty lines are ignored
-- Exact name match: `validation-scripts`
-- Trailing wildcard: `prompt-eval-*` (matches any skill starting with `prompt-eval-`)
+- Exact path match: `validation-scripts` (matches a skill at that path)
+- Group match: `feature-radar` (matches **all** skills under `feature-radar/`)
+- Precise path: `feature-radar/feature-radar` (matches only that specific skill, not the whole group)
+- Trailing wildcard: `prompt-eval-*` (matches any path starting with `prompt-eval-`)
 
 **Use cases:**
 - Hide internal/test skills from public repos

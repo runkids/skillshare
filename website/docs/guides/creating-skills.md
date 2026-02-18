@@ -310,9 +310,14 @@ When publishing a multi-skill repository, you may have internal tools or work-in
 validation-scripts
 scaffold-template
 
+# Exclude an entire group directory
+internal-tools
+
 # Work in progress
 prompt-eval-*
 ```
+
+Patterns match against skill paths, so a group name like `internal-tools` excludes **all** skills under that directory. Use a precise path like `internal-tools/helper` to exclude only a specific skill within a group.
 
 Skills matching these patterns won't appear in `skillshare install <repo>` discovery. This is applied server-side (in the repo), so all users benefit automatically. See [`runkids/my-skills`](https://github.com/runkids/my-skills) for a real-world example, and [install --exclude](/docs/commands/install#excluding-skills) for user-side exclusion.
 

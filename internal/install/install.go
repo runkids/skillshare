@@ -281,15 +281,16 @@ func readSkillIgnore(dir string) []string {
 	return patterns
 }
 
-// matchSkillIgnore returns true if skillName matches any pattern.
-// Patterns support exact match and trailing wildcard ("prefix-*").
-func matchSkillIgnore(skillName string, patterns []string) bool {
+// matchSkillIgnore returns true if skillPath matches any pattern.
+// Matching is path-based: exact path, group prefix (pattern matches a
+// directory prefix of skillPath), and trailing wildcard ("prefix-*").
+func matchSkillIgnore(skillPath string, patterns []string) bool {
 	for _, p := range patterns {
 		if strings.HasSuffix(p, "*") {
-			if strings.HasPrefix(skillName, strings.TrimSuffix(p, "*")) {
+			if strings.HasPrefix(skillPath, strings.TrimSuffix(p, "*")) {
 				return true
 			}
-		} else if skillName == p {
+		} else if skillPath == p || strings.HasPrefix(skillPath, p+"/") {
 			return true
 		}
 	}
@@ -343,7 +344,7 @@ func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
 	if len(patterns) > 0 {
 		filtered := skills[:0]
 		for _, s := range skills {
-			if !matchSkillIgnore(s.Name, patterns) {
+			if !matchSkillIgnore(s.Path, patterns) {
 				filtered = append(filtered, s)
 			}
 		}
