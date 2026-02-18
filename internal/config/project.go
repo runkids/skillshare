@@ -71,12 +71,15 @@ func (t ProjectTargetEntry) MarshalYAML() (interface{}, error) {
 	return obj, nil
 }
 
-// ProjectSkill represents a remote skill entry in project config.
-type ProjectSkill struct {
+// SkillEntry represents a remote skill entry in config (shared by global and project).
+type SkillEntry struct {
 	Name    string `yaml:"name"`
 	Source  string `yaml:"source"`
 	Tracked bool   `yaml:"tracked,omitempty"`
 }
+
+// ProjectSkill is a type alias kept for backward compatibility.
+type ProjectSkill = SkillEntry
 
 // ProjectConfig holds project-level config (.skillshare/config.yaml).
 type ProjectConfig struct {

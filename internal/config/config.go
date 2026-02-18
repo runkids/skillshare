@@ -42,6 +42,7 @@ type Config struct {
 	Source  string                  `yaml:"source"`
 	Mode    string                  `yaml:"mode,omitempty"` // default mode: symlink
 	Targets map[string]TargetConfig `yaml:"targets"`
+	Skills  []SkillEntry            `yaml:"skills,omitempty"`
 	Ignore  []string                `yaml:"ignore,omitempty"`
 	Audit   AuditConfig             `yaml:"audit,omitempty"`
 	Hub     HubConfig               `yaml:"hub,omitempty"`
@@ -151,6 +152,15 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid audit.block_threshold: %w", err)
 	}
 	cfg.Audit.BlockThreshold = threshold
+
+	for _, skill := range cfg.Skills {
+		if strings.TrimSpace(skill.Name) == "" {
+			return nil, fmt.Errorf("config has skill with empty name")
+		}
+		if strings.TrimSpace(skill.Source) == "" {
+			return nil, fmt.Errorf("config has skill '%s' with empty source", skill.Name)
+		}
+	}
 
 	// Expand ~ in paths
 	cfg.Source = expandPath(cfg.Source)

@@ -38,6 +38,7 @@ skillshare install anthropics/skills              # Browse official skills
 skillshare install anthropics/skills/skills/pdf   # Direct install
 skillshare install ~/Downloads/my-skill           # Local
 skillshare install github.com/team/repo --track   # Team repo
+skillshare install                                # Install all remote skills from config
 
 # Project
 skillshare install anthropics/skills/skills/pdf -p    # Install to .skillshare/skills/
@@ -76,7 +77,7 @@ skillshare install user/repo --skip-audit             # Skip security scan
 
 **Tracked repos:** Prefixed with `_`, nested with `__` (e.g., `_team__frontend__ui`).
 
-**Project `install -p` (no source):** Installs all remote skills listed in `.skillshare/config.yaml`. Useful for new team members.
+**No-arg install:** `skillshare install` (global) or `skillshare install -p` (project) installs all remote skills listed in `config.yaml`. Useful for new machines, new team members, or reproducing a skill setup from a shared config.
 
 **Security audit:** Install auto-scans skills after download. CRITICAL findings block install — use `--force` to override, `--skip-audit` to skip entirely. HIGH/MEDIUM shown as warnings.
 

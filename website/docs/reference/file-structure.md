@@ -83,6 +83,9 @@ targets:
     path: ~/.claude/skills
   cursor:
     path: ~/.cursor/skills
+skills:                    # auto-managed by install/uninstall
+  - name: pdf
+    source: anthropics/skills/skills/pdf
 ignore:
   - "**/.DS_Store"
   - "**/.git/**"

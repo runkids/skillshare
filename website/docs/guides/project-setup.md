@@ -168,7 +168,7 @@ cd my-project
 skillshare install -p && skillshare sync
 ```
 
-Done. All project skills are installed and synced. `skillshare install -p` (no URL) reads `.skillshare/config.yaml` and installs all listed remote skills automatically.
+Done. All project skills are installed and synced. `skillshare install -p` (no URL) reads `.skillshare/config.yaml` and installs all listed remote skills automatically. The same pattern works in global mode — `skillshare install` (no args) reads `~/.config/skillshare/config.yaml`.
 
 ---
 

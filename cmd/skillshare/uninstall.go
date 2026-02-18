@@ -316,6 +316,23 @@ func cmdUninstall(args []string) error {
 	}
 
 	err = performUninstall(target, cfg)
+
+	// Remove from global config skills manifest
+	if err == nil && len(cfg.Skills) > 0 {
+		updated := make([]config.SkillEntry, 0, len(cfg.Skills))
+		for _, s := range cfg.Skills {
+			if s.Name != target.name {
+				updated = append(updated, s)
+			}
+		}
+		if len(updated) != len(cfg.Skills) {
+			cfg.Skills = updated
+			if saveErr := cfg.Save(); saveErr != nil {
+				ui.Warning("Failed to update config after uninstall: %v", saveErr)
+			}
+		}
+	}
+
 	logUninstallOp(config.ConfigPath(), []string{opts.skillName}, start, err)
 	return err
 }

@@ -195,7 +195,7 @@ skillshare sync            # Sync skills to all targets
 | `skillshare diff` | Preview differences before syncing |
 | `skillshare doctor` | Diagnose config/environment issues |
 | `skillshare new <name>` | Create a new skill template |
-| `skillshare install <source>` | Install skill from local path or git source |
+| `skillshare install [source]` | Install skill from source, or all skills from config (no args) |
 | `skillshare collect [target]` | Import skills from target(s) back to source |
 | `skillshare update <name>` | Update one installed skill/repo |
 | `skillshare update --all` | Update all tracked repos |
@@ -241,11 +241,16 @@ skillshare install github.com/team/skills --track -p
 skillshare sync
 ```
 
-Project mode keeps skills in `.skillshare/skills/` so they can be committed and shared with the repo. The `config.yaml` acts as a **portable skill manifest** — anyone who clones the repo (team members, open source contributors, community users) can reproduce the exact same AI skill setup:
+Project mode keeps skills in `.skillshare/skills/` so they can be committed and shared with the repo. In both global and project mode, `config.yaml` acts as a **portable skill manifest** — run `skillshare install` with no arguments to install all listed skills:
 
 ```bash
+# Global — new machine setup
+skillshare install       # Installs all skills from ~/.config/skillshare/config.yaml
+skillshare sync
+
+# Project — new team member onboarding
 git clone github.com/your/project && cd project
-skillshare install -p    # Installs all skills listed in config (tracked repos included)
+skillshare install -p    # Installs all skills from .skillshare/config.yaml
 skillshare sync
 ```
 
