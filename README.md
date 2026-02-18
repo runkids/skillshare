@@ -20,7 +20,7 @@
 
 <p align="center">
   <strong>One source of truth for AI CLI skills. Sync everywhere with one command — from personal to organization-wide.</strong><br>
-  Claude Code, OpenClaw, OpenCode & 48+ more.
+  Claude Code, OpenClaw, OpenCode & 49+ more.
 </p>
 
 <p align="center">
@@ -44,6 +44,7 @@
 > **Recent Updates**
 > | Version | Highlights |
 > |---------|------------|
+> | [0.14.0](https://github.com/runkids/skillshare/releases/tag/v0.14.0) | Global skill manifest, `.skillignore`, multi-skill/group uninstall, license display, 6 new audit rules |
 > | [0.13.0](https://github.com/runkids/skillshare/releases/tag/v0.13.0) | Skill-level targets, XDG compliance, unified target names, runtime UI download |
 > | [0.12.0](https://github.com/runkids/skillshare/releases/tag/v0.12.0) | Skill Hub — generate indexes, search private catalogs with `--hub` |
 > | [0.11.0](https://github.com/runkids/skillshare/releases/tag/v0.11.0) | Security Audit, Operation Log, Trash, Update Preview — full audit trail + safety net |
@@ -199,7 +200,7 @@ skillshare sync            # Sync skills to all targets
 | `skillshare collect [target]` | Import skills from target(s) back to source |
 | `skillshare update <name>` | Update one installed skill/repo |
 | `skillshare update --all` | Update all tracked repos |
-| `skillshare uninstall <name>...` | Remove skill(s) from source |
+| `skillshare uninstall <name>... [-G <group>]` | Remove skill(s) or groups from source |
 | `skillshare audit [name]` | Scan skills for security threats |
 | `skillshare log` | View operations and audit logs for debugging and compliance |
 | `skillshare search <query>` | Search installable skills on GitHub |
