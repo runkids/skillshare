@@ -1,6 +1,6 @@
 # Target Management
 
-Manage AI CLI tool targets (Claude, Cursor, Windsurf, etc.). Skillshare supports 48+ built-in targets.
+Manage AI CLI tool targets (Claude, Cursor, Windsurf, Firebender, etc.). Skillshare supports 49+ built-in targets.
 
 ## Global Targets
 

@@ -70,6 +70,7 @@ skillshare install user/repo --skip-audit             # Skip security scan
 | `--into <dir>` | Install into subdirectory (e.g., `--into frontend`) |
 | `--all` | Install all discovered skills without prompting |
 | `--yes, -y` | Auto-accept all prompts (CI/CD friendly) |
+| `--exclude <name>` | Skip specific skills during multi-skill install (repeatable) |
 | `--skip-audit` | Skip security audit for this install |
 | `--dry-run, -n` | Preview |
 
@@ -78,6 +79,12 @@ skillshare install user/repo --skip-audit             # Skip security scan
 **Tracked repos:** Prefixed with `_`, nested with `__` (e.g., `_team__frontend__ui`).
 
 **No-arg install:** `skillshare install` (global) or `skillshare install -p` (project) installs all remote skills listed in `config.yaml`. Useful for new machines, new team members, or reproducing a skill setup from a shared config.
+
+**`.skillignore`:** Repo authors can add a `.skillignore` file at the repo root to hide skills from discovery. Supports exact match (`my-skill`), trailing wildcard (`prefix-*`), and group match (`feature-radar` excludes all skills under that directory). Applied before any selection prompt.
+
+**`--exclude`:** Skip specific skills during multi-skill install. Filters before the interactive prompt so excluded skills never appear. Example: `skillshare install user/repo --exclude debug --exclude experimental`.
+
+**License display:** If a SKILL.md has a `license` frontmatter field, it's shown in selection prompts (e.g., `my-skill (MIT)`) and in the single-skill confirmation box.
 
 **Security audit:** Install auto-scans skills after download. CRITICAL findings block install — use `--force` to override, `--skip-audit` to skip entirely. HIGH/MEDIUM shown as warnings.
 
@@ -125,17 +132,30 @@ skillshare update _repo --force -p  # Discard local changes
 
 ## uninstall
 
-Remove a skill from source. Moves to trash (7-day retention) instead of permanent deletion.
+Remove one or more skills from source. Moves to trash (7-day retention) instead of permanent deletion.
 
 ```bash
-# Global
-skillshare uninstall my-skill          # With confirmation → moves to trash
-skillshare uninstall my-skill --force  # Skip confirmation
+# Single skill
+skillshare uninstall my-skill              # With confirmation → moves to trash
+skillshare uninstall my-skill --force      # Skip confirmation
+
+# Multiple skills
+skillshare uninstall a b c --force         # Batch removal
+
+# Group removal (prefix match)
+skillshare uninstall --group frontend      # Remove all skills under frontend/
+skillshare uninstall -G frontend -G backend --force  # Multiple groups
+skillshare uninstall my-skill -G frontend --force    # Mix names and groups
 
 # Project
-skillshare uninstall my-skill -p          # Remove from .skillshare/skills/
-skillshare uninstall my-skill --force -p  # Skip confirmation
+skillshare uninstall my-skill -p
+skillshare uninstall -G frontend -p --force
+
+# Preview
+skillshare uninstall --group frontend --dry-run
 ```
+
+**Group auto-detection:** When uninstalling a directory that contains sub-skills, the confirmation prompt shows `Uninstalling group (N skills)` with a list of contained skills.
 
 **Undo:** `skillshare trash restore <name>` to recover. See [trash.md](trash.md).
 
