@@ -18,6 +18,7 @@ const FileViewerModal = lazy(() => import('../components/FileViewerModal'));
 type SkillManifest = {
   name?: string;
   description?: string;
+  license?: string;
 };
 
 function parseScalarValue(raw: string): string | undefined {
@@ -34,7 +35,7 @@ function parseScalarValue(raw: string): string | undefined {
   return trimmed;
 }
 
-function extractManifestValue(frontmatter: string, key: 'name' | 'description'): string | undefined {
+function extractManifestValue(frontmatter: string, key: 'name' | 'description' | 'license'): string | undefined {
   const lines = frontmatter.split(/\r?\n/);
   const keyPrefix = `${key}:`;
 
@@ -74,6 +75,7 @@ function parseSkillMarkdown(content: string): { manifest: SkillManifest; markdow
   const manifest: SkillManifest = {
     name: extractManifestValue(frontmatter, 'name'),
     description: extractManifestValue(frontmatter, 'description'),
+    license: extractManifestValue(frontmatter, 'license'),
   };
 
   const markdown = content.slice(match[0].length);
@@ -125,7 +127,7 @@ export default function SkillDetailPage() {
   const { skill, skillMdContent, files: rawFiles } = data;
   const files = rawFiles ?? [];
   const parsedDoc = parseSkillMarkdown(skillMdContent ?? '');
-  const hasManifest = Boolean(parsedDoc.manifest.name || parsedDoc.manifest.description);
+  const hasManifest = Boolean(parsedDoc.manifest.name || parsedDoc.manifest.description || parsedDoc.manifest.license);
   const renderedMarkdown = parsedDoc.markdown.trim() ? parsedDoc.markdown : skillMdContent;
 
   /** Try to resolve a reference to a known skill */
@@ -295,6 +297,12 @@ export default function SkillDetailPage() {
                     <div>
                       <dt className="text-sm text-muted-dark uppercase tracking-wide">Description</dt>
                       <dd className="text-base text-pencil">{parsedDoc.manifest.description}</dd>
+                    </div>
+                  )}
+                  {parsedDoc.manifest.license && (
+                    <div>
+                      <dt className="text-sm text-muted-dark uppercase tracking-wide">License</dt>
+                      <dd className="text-base text-pencil">{parsedDoc.manifest.license}</dd>
                     </div>
                   )}
                 </dl>
