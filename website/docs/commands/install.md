@@ -176,6 +176,10 @@ skillshare sync
 
 Skills with `tracked: true` are cloned with full git history (same as `--track`), so `skillshare update` works correctly. Skills already present on disk are skipped.
 
+:::tip push/pull vs install from config
+`push`/`pull` syncs actual skill **files** via git. `install` from config re-downloads from **source URLs**. They're complementary — see [Cross-Machine Sync](/docs/guides/cross-machine-sync#alternative-install-from-config) for when to use which.
+:::
+
 When using no-arg install, `--name`, `--into`, `--track`, `--skill`, `--all`, `--yes`, and `--update` are not supported (they require a source argument). `--dry-run`, `--force`, and `--skip-audit` work as expected.
 
 ## Project Mode

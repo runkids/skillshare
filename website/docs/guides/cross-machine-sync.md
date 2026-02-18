@@ -245,9 +245,38 @@ skillshare pull 2>/dev/null
 
 ---
 
+## Alternative: Install from Config
+
+If you don't want to set up a git remote, `config.yaml` doubles as a portable skill manifest. Every `install` / `uninstall` auto-updates the `skills:` section, and `skillshare install` (no args) reinstalls everything listed:
+
+```bash
+# Machine A — config.yaml records what you installed
+skillshare install anthropics/skills -s pdf
+# config.yaml now has: skills: [{name: pdf, source: "..."}]
+
+# Machine B — copy config.yaml, then:
+skillshare install      # Installs all listed skills
+skillshare sync
+```
+
+### When to use which
+
+| | `push` / `pull` | `install` (no args) |
+|---|---|---|
+| What's synced | Actual skill files (full content) | Source URLs only — re-downloads on install |
+| Local/hand-written skills | Included | Not included (no source URL) |
+| Setup required | Git remote on source dir | Just `config.yaml` |
+| Project mode | Global only | Works with `-p` (`.skillshare/config.yaml`) |
+| Maintenance | Manual `push` after changes | Auto-reconciled on install/uninstall |
+
+**Recommendation**: Use `push`/`pull` for personal cross-machine sync. Use `install` from config for team onboarding and project setup.
+
+---
+
 ## See Also
 
 - [push](/docs/commands/push) — Push to remote
 - [pull](/docs/commands/pull) — Pull from remote
+- [install](/docs/commands/install#install-from-config-no-arguments) — Install from config
 - [Organization-Wide Skills](./organization-sharing.md) — Team sharing
 - [init](/docs/commands/init) — Init with `--remote`
