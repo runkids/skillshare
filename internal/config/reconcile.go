@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/install"
 	"skillshare/internal/utils"
@@ -22,7 +23,18 @@ func ReconcileGlobalSkills(cfg *Config) error {
 	changed := false
 	index := map[string]int{}
 	for i, skill := range cfg.Skills {
-		index[skill.Name] = i
+		index[skill.FullName()] = i
+	}
+
+	// Migrate legacy entries: name "frontend/pdf" → group "frontend", name "pdf"
+	for i := range cfg.Skills {
+		s := &cfg.Skills[i]
+		if s.Group == "" && strings.Contains(s.Name, "/") {
+			group, bare := s.EffectiveParts()
+			s.Group = group
+			s.Name = bare
+			changed = true
+		}
 	}
 
 	err := filepath.WalkDir(sourcePath, func(path string, d os.DirEntry, err error) error {
@@ -60,9 +72,9 @@ func ReconcileGlobalSkills(cfg *Config) error {
 			return nil
 		}
 
-		skillName := filepath.ToSlash(relPath)
+		fullPath := filepath.ToSlash(relPath)
 
-		if existingIdx, ok := index[skillName]; ok {
+		if existingIdx, ok := index[fullPath]; ok {
 			if cfg.Skills[existingIdx].Source != source {
 				cfg.Skills[existingIdx].Source = source
 				changed = true
@@ -72,12 +84,18 @@ func ReconcileGlobalSkills(cfg *Config) error {
 				changed = true
 			}
 		} else {
-			cfg.Skills = append(cfg.Skills, SkillEntry{
-				Name:    skillName,
+			entry := SkillEntry{
 				Source:  source,
 				Tracked: tracked,
-			})
-			index[skillName] = len(cfg.Skills) - 1
+			}
+			if idx := strings.LastIndex(fullPath, "/"); idx >= 0 {
+				entry.Group = fullPath[:idx]
+				entry.Name = fullPath[idx+1:]
+			} else {
+				entry.Name = fullPath
+			}
+			cfg.Skills = append(cfg.Skills, entry)
+			index[fullPath] = len(cfg.Skills) - 1
 			changed = true
 		}
 

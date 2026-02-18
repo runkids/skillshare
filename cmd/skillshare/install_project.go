@@ -221,60 +221,72 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 	installed := 0
 
 	for _, skill := range runtime.config.Skills {
-		skillName := strings.TrimSpace(skill.Name)
-		if skillName == "" {
+		groupDir, bareName := skill.EffectiveParts()
+		if strings.TrimSpace(bareName) == "" {
 			continue
 		}
 
-		destPath := filepath.Join(runtime.sourcePath, skillName)
+		displayName := skill.FullName()
+		destPath := filepath.Join(runtime.sourcePath, filepath.FromSlash(displayName))
 		if _, err := os.Stat(destPath); err == nil {
-			ui.StepDone(skillName, "skipped (already exists)")
+			ui.StepDone(displayName, "skipped (already exists)")
 			continue
 		}
 
 		source, err := install.ParseSource(skill.Source)
 		if err != nil {
-			ui.StepFail(skillName, fmt.Sprintf("invalid source: %v", err))
+			ui.StepFail(displayName, fmt.Sprintf("invalid source: %v", err))
 			continue
 		}
 
-		source.Name = skillName
+		source.Name = bareName
 
 		if skill.Tracked {
-			trackedResult, err := install.InstallTrackedRepo(source, runtime.sourcePath, opts)
+			trackOpts := opts
+			if groupDir != "" {
+				trackOpts.Into = groupDir
+			}
+			trackedResult, err := install.InstallTrackedRepo(source, runtime.sourcePath, trackOpts)
 			if err != nil {
-				ui.StepFail(skillName, err.Error())
+				ui.StepFail(displayName, err.Error())
 				continue
 			}
 			if opts.DryRun {
-				ui.StepDone(skillName, trackedResult.Action)
+				ui.StepDone(displayName, trackedResult.Action)
 				continue
 			}
-			ui.StepDone(skillName, fmt.Sprintf("installed (tracked, %d skills)", trackedResult.SkillCount))
+			ui.StepDone(displayName, fmt.Sprintf("installed (tracked, %d skills)", trackedResult.SkillCount))
 			if len(trackedResult.Skills) > 0 {
 				summary.InstalledSkills = append(summary.InstalledSkills, trackedResult.Skills...)
 			} else {
-				summary.InstalledSkills = append(summary.InstalledSkills, skillName)
+				summary.InstalledSkills = append(summary.InstalledSkills, displayName)
 			}
 		} else {
-			if err := validate.SkillName(skillName); err != nil {
-				ui.StepFail(skillName, fmt.Sprintf("invalid name: %v", err))
+			if err := validate.SkillName(bareName); err != nil {
+				ui.StepFail(displayName, fmt.Sprintf("invalid name: %v", err))
 				continue
+			}
+			// Ensure group directory exists
+			if groupDir != "" {
+				if err := os.MkdirAll(filepath.Join(runtime.sourcePath, filepath.FromSlash(groupDir)), 0755); err != nil {
+					ui.StepFail(displayName, fmt.Sprintf("failed to create group directory: %v", err))
+					continue
+				}
 			}
 			result, err := install.Install(source, destPath, opts)
 			if err != nil {
-				ui.StepFail(skillName, err.Error())
+				ui.StepFail(displayName, err.Error())
 				continue
 			}
 			if opts.DryRun {
-				ui.StepDone(skillName, result.Action)
+				ui.StepDone(displayName, result.Action)
 				continue
 			}
-			if err := install.UpdateGitIgnore(filepath.Join(runtime.root, ".skillshare"), filepath.Join("skills", skillName)); err != nil {
+			if err := install.UpdateGitIgnore(filepath.Join(runtime.root, ".skillshare"), filepath.Join("skills", displayName)); err != nil {
 				ui.Warning("Failed to update .skillshare/.gitignore: %v", err)
 			}
-			ui.StepDone(skillName, "installed")
-			summary.InstalledSkills = append(summary.InstalledSkills, skillName)
+			ui.StepDone(displayName, "installed")
+			summary.InstalledSkills = append(summary.InstalledSkills, displayName)
 		}
 
 		installed++

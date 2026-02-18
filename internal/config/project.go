@@ -76,6 +76,32 @@ type SkillEntry struct {
 	Name    string `yaml:"name"`
 	Source  string `yaml:"source"`
 	Tracked bool   `yaml:"tracked,omitempty"`
+	Group   string `yaml:"group,omitempty"`
+}
+
+// FullName returns the full relative path for the skill entry.
+// If Group is set, returns "group/name"; otherwise returns Name.
+// For backward compatibility, if Name already contains "/" and Group is empty,
+// returns Name as-is (legacy format).
+func (s SkillEntry) FullName() string {
+	if s.Group != "" {
+		return s.Group + "/" + s.Name
+	}
+	return s.Name
+}
+
+// EffectiveParts returns the effective (group, bareName) for this skill entry.
+// If Group is set, returns (Group, Name).
+// For backward compat, if Name contains "/" and Group is empty,
+// splits at the last "/" to derive group and bare name.
+func (s SkillEntry) EffectiveParts() (group, name string) {
+	if s.Group != "" {
+		return s.Group, s.Name
+	}
+	if idx := strings.LastIndex(s.Name, "/"); idx >= 0 {
+		return s.Name[:idx], s.Name[idx+1:]
+	}
+	return "", s.Name
 }
 
 // ProjectSkill is a type alias kept for backward compatibility.

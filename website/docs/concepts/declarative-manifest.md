@@ -20,11 +20,13 @@ The `skills:` section in `config.yaml` serves as a **portable declaration** of y
 skills:
   - name: react-best-practices
     source: anthropics/skills/skills/react-best-practices
+    group: frontend                          # installed into frontend/
   - name: _team-skills
     source: my-org/shared-skills
     tracked: true
+    group: devops                            # installed into devops/
   - name: commit
-    source: anthropics/skills/skills/commit
+    source: anthropics/skills/skills/commit  # no group → root level
 ```
 
 ## How It Works
@@ -64,6 +66,7 @@ Each entry in the `skills:` list has these fields:
 | `name` | Yes | Skill name (directory name in source) |
 | `source` | Yes | Install source (GitHub shorthand, HTTPS URL, SSH URL) |
 | `tracked` | No | `true` for tracked repositories (preserves `.git`) |
+| `group` | No | Subdirectory path (e.g. `frontend` or `frontend/vue`). Corresponds to `--into` during install. |
 
 ## Use Cases
 
@@ -102,11 +105,23 @@ Project maintainers declare recommended skills:
 skills:
   - name: react-best-practices
     source: anthropics/skills/skills/react-best-practices
+    group: frontend
   - name: commit
     source: anthropics/skills/skills/commit
   - name: project-conventions
     source: ./skills/project-conventions
 ```
+
+:::info Group field and `--into`
+When you install with `--into`, the group is recorded automatically:
+
+```bash
+skillshare install anthropics/skills/skills/pdf --into frontend
+# config.yaml will contain: name: pdf, group: frontend
+```
+
+Running `skillshare install` (no args) recreates the same directory structure from the manifest.
+:::
 
 Contributors clone and run `skillshare install -p` to get project-specific AI context immediately.
 

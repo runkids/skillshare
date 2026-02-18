@@ -127,3 +127,72 @@ func TestReconcileProjectSkills_MissingDir(t *testing.T) {
 		t.Fatalf("ReconcileProjectSkills should not fail for missing dir: %v", err)
 	}
 }
+
+func TestReconcileProjectSkills_NestedSkillSetsGroup(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".skillshare", "skills")
+
+	// Create a nested skill: tools/my-skill
+	skillPath := filepath.Join(skillsDir, "tools", "my-skill")
+	if err := os.MkdirAll(skillPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	meta := map[string]string{"source": "github.com/user/repo"}
+	data, _ := json.Marshal(meta)
+	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+	}
+
+	if err := ReconcileProjectSkills(root, cfg, skillsDir); err != nil {
+		t.Fatalf("ReconcileProjectSkills failed: %v", err)
+	}
+
+	if len(cfg.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(cfg.Skills))
+	}
+	if cfg.Skills[0].Name != "my-skill" {
+		t.Errorf("expected bare name 'my-skill', got %q", cfg.Skills[0].Name)
+	}
+	if cfg.Skills[0].Group != "tools" {
+		t.Errorf("expected group 'tools', got %q", cfg.Skills[0].Group)
+	}
+}
+
+func TestReconcileProjectSkills_MigratesLegacySlashName(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".skillshare", "skills")
+
+	skillPath := filepath.Join(skillsDir, "tools", "my-skill")
+	if err := os.MkdirAll(skillPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	meta := map[string]string{"source": "github.com/user/repo"}
+	data, _ := json.Marshal(meta)
+	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Start with legacy format
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+		Skills:  []SkillEntry{{Name: "tools/my-skill", Source: "github.com/user/repo"}},
+	}
+
+	if err := ReconcileProjectSkills(root, cfg, skillsDir); err != nil {
+		t.Fatalf("ReconcileProjectSkills failed: %v", err)
+	}
+
+	if len(cfg.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(cfg.Skills))
+	}
+	if cfg.Skills[0].Name != "my-skill" {
+		t.Errorf("expected migrated name 'my-skill', got %q", cfg.Skills[0].Name)
+	}
+	if cfg.Skills[0].Group != "tools" {
+		t.Errorf("expected migrated group 'tools', got %q", cfg.Skills[0].Group)
+	}
+}
