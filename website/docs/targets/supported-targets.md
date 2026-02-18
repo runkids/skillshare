@@ -59,8 +59,8 @@ These are auto-detected during `skillshare init`:
 | adal | `~/.adal/skills` | `.adal/skills` |
 | agents | `~/.config/agents/skills` | `.agents/skills` |
 | amp | `~/.config/agents/skills` | `.agents/skills` |
-| antigravity | `~/.gemini/antigravity/global_skills` | `.agent/skills` |
-| augment | `~/.augment/rules` | `.augment/rules` |
+| antigravity | `~/.gemini/antigravity/skills` | `.agent/skills` |
+| augment | `~/.augment/skills` | `.augment/skills` |
 | bob | `~/.bob/skills` | `.bob/skills` |
 | claude | `~/.claude/skills` | `.claude/skills` |
 | cline | `~/.cline/skills` | `.cline/skills` |
@@ -76,7 +76,7 @@ These are auto-detected during `skillshare init`:
 | deepagents | `~/.deepagents/agent/skills` | `.deepagents/skills` |
 | droid | `~/.factory/skills` | `.factory/skills` |
 | gemini | `~/.gemini/skills` | `.gemini/skills` |
-| goose | `~/.config/goose/skills` | `.agents/skills` |
+| goose | `~/.config/goose/skills` | `.goose/skills` |
 | iflow | `~/.iflow/skills` | `.iflow/skills` |
 | junie | `~/.junie/skills` | `.junie/skills` |
 | kilocode | `~/.kilocode/skills` | `.kilocode/skills` |
