@@ -58,6 +58,14 @@ targets:
   myapp:
     path: ~/apps/myapp/skills
 
+# Remote skills — auto-managed by install/uninstall
+skills:
+  - name: pdf
+    source: anthropics/skills/skills/pdf
+  - name: _team-skills
+    source: github.com/team/skills
+    tracked: true
+
 # Files to ignore during sync
 ignore:
   - "**/.DS_Store"
@@ -272,6 +280,29 @@ When you add or change filters, then run `skillshare sync`:
 | Local non-symlink directory created in target | Preserved |
 | Unrelated local content | Preserved |
 
+### `skills`
+
+Tracks remotely-installed skills. Auto-managed by `skillshare install` and `skillshare uninstall`.
+
+```yaml
+skills:
+  - name: pdf
+    source: anthropics/skills/skills/pdf
+  - name: _team-skills
+    source: github.com/team/skills
+    tracked: true
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Skill directory name |
+| `source` | Yes | GitHub URL or local path |
+| `tracked` | No | `true` if installed with `--track` (default: `false`) |
+
+When you run `skillshare install` with no arguments, all listed skills that aren't already present are installed. This makes `config.yaml` a portable skill manifest — copy it to another machine and run `skillshare install && skillshare sync`.
+
+The `skills:` list is automatically updated after each `install` and `uninstall` operation. You don't need to edit it manually.
+
 ### `ignore`
 
 Glob patterns for files to skip during sync.
@@ -346,18 +377,12 @@ Supports two YAML forms:
 | **String** | `- claude` | Known target, default path and merge mode |
 | **Object** | `- name: x, path: ..., mode: ..., include: [...], exclude: [...]` | Custom path, mode override, or per-target filters |
 
-### `skills` (project only)
+### `skills` (project)
 
-Tracks remotely-installed skills. Auto-managed by `skillshare install -p` and `skillshare uninstall -p`.
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `name` | Yes | Skill directory name |
-| `source` | Yes | GitHub URL or local path |
-| `tracked` | No | `true` if installed with `--track` (default: `false`) |
+Same schema as the [global `skills` field](#skills). Auto-managed by `skillshare install -p` and `skillshare uninstall -p`.
 
 :::tip Portable Manifest
-`config.yaml` is a portable skill manifest. Anyone who clones the repo can run `skillshare install -p && skillshare sync` to reproduce the same setup.
+`config.yaml` is a portable skill manifest — in both global and project mode. Run `skillshare install && skillshare sync` on a new machine (or `skillshare install -p` in a project) to reproduce the same setup.
 :::
 
 ---

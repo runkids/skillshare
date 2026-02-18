@@ -625,6 +625,9 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 	logSummary.SkillCount = 1
 	logSummary.InstalledSkills = []string{result.Name}
 
+	// Reconcile global config with installed skills
+	_ = config.ReconcileGlobalSkills(cfg)
+
 	// Show warnings
 	for _, warning := range installResult.Warnings {
 		ui.Warning("%s", warning)

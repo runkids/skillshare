@@ -137,7 +137,7 @@ targets:
     include: [codex-*]
     exclude: [codex-experimental-*]
 
-skills:                            # Remote skills (installed via install -p)
+skills:                            # Remote skills (auto-managed by install/uninstall)
   - name: pdf-skill
     source: anthropic/skills/pdf
   - name: _team-skills
@@ -154,7 +154,7 @@ skills:                            # Remote skills (installed via install -p)
 - `tracked: true`: Installed with `--track` (git repo with `.git/` preserved). When someone runs `skillshare install -p`, tracked skills are cloned with full git history so `skillshare update` works correctly.
 
 :::tip Portable Skill Manifest
-`config.yaml` is a portable skill manifest — commit it to git and anyone who clones the repo can run `skillshare install -p && skillshare sync` to get the exact same AI skill setup. This works for teams, open source contributors, community templates, and even your own dotfiles across machines.
+`config.yaml` is a portable skill manifest in both global and project mode. In a project, commit it to git and anyone can run `skillshare install -p && skillshare sync`. For global mode, copy `config.yaml` to a new machine and run `skillshare install && skillshare sync`. This works for teams, open source contributors, community templates, and dotfiles across machines.
 :::
 
 ---

@@ -79,7 +79,7 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, sourc
 				changed = true
 			}
 		} else {
-			projectCfg.Skills = append(projectCfg.Skills, ProjectSkill{
+			projectCfg.Skills = append(projectCfg.Skills, SkillEntry{
 				Name:    skillName,
 				Source:  source,
 				Tracked: tracked,

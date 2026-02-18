@@ -367,7 +367,7 @@ func TestInstall_Help_ShowsUsage(t *testing.T) {
 	result.AssertOutputContains(t, "--name")
 }
 
-func TestInstall_NoArgs_ShowsHelp(t *testing.T) {
+func TestInstall_NoArgs_InstallsFromConfig(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -377,8 +377,8 @@ targets: {}
 
 	result := sb.RunCLI("install")
 
-	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "source is required")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "No remote skills defined")
 }
 
 func TestInstall_LocalGitRepo_ClonesSuccessfully(t *testing.T) {

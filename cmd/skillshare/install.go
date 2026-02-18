@@ -125,8 +125,15 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 		return nil, false, fmt.Errorf("--all/--yes cannot be used with --track")
 	}
 
+	// When no source is given, only bare "install" is valid — reject incompatible flags
 	if result.sourceArg == "" {
-		return nil, true, fmt.Errorf("source is required")
+		hasSourceFlags := result.opts.Name != "" || result.opts.Into != "" ||
+			result.opts.Track || len(result.opts.Skills) > 0 ||
+			result.opts.All || result.opts.Yes || result.opts.Update
+		if hasSourceFlags {
+			return nil, false, fmt.Errorf("flags --name, --into, --track, --skill, --all, --yes, and --update require a source argument")
+		}
+		return result, false, nil
 	}
 
 	if result.opts.Into != "" {
@@ -258,6 +265,13 @@ func cmdInstall(args []string) error {
 	}
 	parsed.opts.AuditThreshold = cfg.Audit.BlockThreshold
 
+	// No source argument: install from global config
+	if parsed.sourceArg == "" {
+		summary, err := installFromGlobalConfig(cfg, parsed.opts)
+		logInstallOp(config.ConfigPath(), rest, start, err, summary)
+		return err
+	}
+
 	source, resolvedFromMeta, err := resolveInstallSource(parsed.sourceArg, parsed.opts, cfg)
 	if err != nil {
 		logInstallOp(config.ConfigPath(), rest, start, err, installLogSummary{
@@ -286,6 +300,9 @@ func cmdInstall(args []string) error {
 		if summary.Source == "" {
 			summary.Source = parsed.sourceArg
 		}
+		if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
+			_ = config.ReconcileGlobalSkills(cfg)
+		}
 		logInstallOp(config.ConfigPath(), rest, start, err, summary)
 		return err
 	}
@@ -296,6 +313,9 @@ func cmdInstall(args []string) error {
 	}
 	if summary.Source == "" {
 		summary.Source = parsed.sourceArg
+	}
+	if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
+		_ = config.ReconcileGlobalSkills(cfg)
 	}
 	logInstallOp(config.ConfigPath(), rest, start, err, summary)
 	return err
@@ -1121,10 +1141,108 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	return logSummary, nil
 }
 
-func printInstallHelp() {
-	fmt.Println(`Usage: skillshare install <source|skill-name> [options]
+func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
+	summary := installLogSummary{
+		Mode:   "global",
+		Source: "global-config",
+		DryRun: opts.DryRun,
+	}
 
-Install a skill from a local path or git repository.
+	if len(cfg.Skills) == 0 {
+		ui.Info("No remote skills defined in config.yaml")
+		ui.Info("Install a skill first: skillshare install <source>")
+		return summary, nil
+	}
+
+	ui.Logo(appversion.Version)
+
+	total := len(cfg.Skills)
+	spinner := ui.StartSpinner(fmt.Sprintf("Installing %d skill(s) from config...", total))
+
+	installed := 0
+
+	for _, skill := range cfg.Skills {
+		skillName := strings.TrimSpace(skill.Name)
+		if skillName == "" {
+			continue
+		}
+
+		destPath := filepath.Join(cfg.Source, skillName)
+		if _, err := os.Stat(destPath); err == nil {
+			ui.StepDone(skillName, "skipped (already exists)")
+			continue
+		}
+
+		source, err := install.ParseSource(skill.Source)
+		if err != nil {
+			ui.StepFail(skillName, fmt.Sprintf("invalid source: %v", err))
+			continue
+		}
+
+		source.Name = skillName
+
+		if skill.Tracked {
+			trackedResult, err := install.InstallTrackedRepo(source, cfg.Source, opts)
+			if err != nil {
+				ui.StepFail(skillName, err.Error())
+				continue
+			}
+			if opts.DryRun {
+				ui.StepDone(skillName, trackedResult.Action)
+				continue
+			}
+			ui.StepDone(skillName, fmt.Sprintf("installed (tracked, %d skills)", trackedResult.SkillCount))
+			if len(trackedResult.Skills) > 0 {
+				summary.InstalledSkills = append(summary.InstalledSkills, trackedResult.Skills...)
+			} else {
+				summary.InstalledSkills = append(summary.InstalledSkills, skillName)
+			}
+		} else {
+			if err := validate.SkillName(skillName); err != nil {
+				ui.StepFail(skillName, fmt.Sprintf("invalid name: %v", err))
+				continue
+			}
+			result, err := install.Install(source, destPath, opts)
+			if err != nil {
+				ui.StepFail(skillName, err.Error())
+				continue
+			}
+			if opts.DryRun {
+				ui.StepDone(skillName, result.Action)
+				continue
+			}
+			ui.StepDone(skillName, "installed")
+			summary.InstalledSkills = append(summary.InstalledSkills, skillName)
+		}
+
+		installed++
+	}
+
+	if opts.DryRun {
+		spinner.Stop()
+		summary.SkillCount = len(summary.InstalledSkills)
+		return summary, nil
+	}
+
+	spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
+	fmt.Println()
+	ui.Info("Run 'skillshare sync' to distribute to all targets")
+	summary.SkillCount = len(summary.InstalledSkills)
+
+	if installed > 0 {
+		if err := config.ReconcileGlobalSkills(cfg); err != nil {
+			return summary, err
+		}
+	}
+
+	return summary, nil
+}
+
+func printInstallHelp() {
+	fmt.Println(`Usage: skillshare install [source|skill-name] [options]
+
+Install skills from a local path, git repository, or global config.
+When run with no arguments, installs all skills listed in config.yaml.
 When using --update or --force with a skill name, skillshare uses stored metadata to resolve the source.
 
 Sources:
@@ -1173,6 +1291,10 @@ Organize into subdirectories:
 Tracked repositories (Team Edition):
   skillshare install team/shared-skills --track   # Clone as _shared-skills
   skillshare install _shared-skills --update      # Update tracked repo
+
+Install from config (no arguments):
+  skillshare install                         # Install all skills from config.yaml
+  skillshare install --dry-run               # Preview config-based install
 
 Update existing skills:
   skillshare install my-skill --update       # Update using stored source

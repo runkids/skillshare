@@ -57,7 +57,7 @@ func TestReconcileProjectSkills_UpdatesExistingSource(t *testing.T) {
 
 	cfg := &ProjectConfig{
 		Targets: []ProjectTargetEntry{{Name: "claude"}},
-		Skills:  []ProjectSkill{{Name: "my-skill", Source: "github.com/user/repo-v1"}},
+		Skills:  []SkillEntry{{Name: "my-skill", Source: "github.com/user/repo-v1"}},
 	}
 
 	if err := ReconcileProjectSkills(root, cfg, skillsDir); err != nil {

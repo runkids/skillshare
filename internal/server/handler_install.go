@@ -189,9 +189,13 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeOpsLog("install", status, start, args, firstErr)
 
-	// Reconcile project config after install
-	if s.IsProjectMode() && installed > 0 {
-		_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
+	// Reconcile config after install
+	if installed > 0 {
+		if s.IsProjectMode() {
+			_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
+		} else {
+			_ = config.ReconcileGlobalSkills(s.cfg)
+		}
 	}
 
 	writeJSON(w, map[string]any{
@@ -266,9 +270,11 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		// Reconcile project config after tracked repo install
+		// Reconcile config after tracked repo install
 		if s.IsProjectMode() {
 			_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
+		} else {
+			_ = config.ReconcileGlobalSkills(s.cfg)
 		}
 
 		args := map[string]any{
@@ -335,9 +341,11 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Reconcile project config after single install
+	// Reconcile config after single install
 	if s.IsProjectMode() {
 		_ = config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source)
+	} else {
+		_ = config.ReconcileGlobalSkills(s.cfg)
 	}
 
 	okArgs := map[string]any{
