@@ -95,9 +95,13 @@ Starting from v0.13.0, skillshare follows the XDG Base Directory Specification f
 GitHub personal access token for API requests.
 
 **When needed:**
-- Upgrading skillshare CLI
-- Installing from private repos
-- Hitting rate limits
+- Upgrading skillshare CLI (`skillshare upgrade`)
+- Searching skills (`skillshare search`)
+- Avoiding GitHub API rate limits
+
+:::note
+This token is used for **GitHub API requests only** (search, version check), not for git clone. For private repos, use SSH URLs — see [Private Repositories](/docs/commands/install#private-repositories).
+:::
 
 **Usage:**
 ```bash

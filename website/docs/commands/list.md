@@ -170,6 +170,32 @@ Project list uses the same visual format as global list, with `(project)` label 
 | `--project, -p` | List project skills |
 | `--help, -h` | Show help |
 
+## Directory Grouping
+
+When skills are organized into folders (via [`--into`](/docs/commands/install) during install or manual `mv` + `sync`), `list` automatically groups them by directory:
+
+```
+  frontend/
+    → react-helper        github.com/user/skills
+    → vue-helper          github.com/user/skills
+
+  → my-skill              local
+```
+
+- Skills under the same folder share a group header (e.g., `frontend/`)
+- Within each group, only the base name is shown (not the full path)
+- Top-level skills (no parent folder) appear ungrouped at the bottom
+- If **all** skills are top-level, the output is a flat list — no group headers
+
+Grouping is based on the directory structure inside your source directory, not a flag. To start using it, organize skills with `--into`:
+
+```bash
+skillshare install owner/repo -s react-patterns --into frontend
+skillshare install owner/repo -s vue-patterns --into frontend
+```
+
+For more details, see [Organizing Skills with Folders](/docs/guides/organizing-skills).
+
 ## Understanding the Output
 
 ### Skill Sources

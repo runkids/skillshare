@@ -261,18 +261,107 @@ rules:
     enabled: false
 ```
 
-### Validate Changes
+### Getting Started with `--init-rules`
 
-Typical workflow:
+`--init-rules` creates a starter `audit-rules.yaml` with commented examples you can uncomment and adapt:
 
 ```bash
-# 1) Create starter file (once)
+skillshare audit --init-rules         # → ~/.config/skillshare/audit-rules.yaml
+skillshare audit -p --init-rules      # → .skillshare/audit-rules.yaml
+```
+
+The generated file looks like this:
+
+```yaml
+# Custom audit rules for skillshare.
+# Rules are merged on top of built-in rules in order:
+#   built-in → global (~/.config/skillshare/audit-rules.yaml)
+#            → project (.skillshare/audit-rules.yaml)
+#
+# Each rule needs: id, severity, pattern, message, regex.
+# Optional: exclude (suppress match), enabled (false to disable).
+
+rules:
+  # Example: flag TODO comments as informational
+  # - id: flag-todo
+  #   severity: MEDIUM
+  #   pattern: todo-comment
+  #   message: "TODO comment found"
+  #   regex: '(?i)\bTODO\b'
+
+  # Example: disable a built-in rule by id
+  # - id: system-writes-0
+  #   enabled: false
+
+  # Example: override a built-in rule (match by id, change severity)
+  # - id: destructive-commands-2
+  #   severity: MEDIUM
+  #   pattern: destructive-commands
+  #   message: "Sudo usage (downgraded)"
+  #   regex: '(?i)\bsudo\s+'
+```
+
+If the file already exists, `--init-rules` exits with an error — it never overwrites existing rules.
+
+### Workflow: Fixing a False Positive
+
+A common reason to customize rules is when a legitimate skill triggers a built-in rule. Here's a step-by-step example:
+
+**1. Run audit and see the false positive:**
+
+```bash
+$ skillshare audit ci-helper
+[1/1] ! ci-helper    0.2s
+      └─ HIGH: Destructive command pattern (SKILL.md:42)
+         "sudo apt-get install -y jq"
+```
+
+**2. Identify the rule ID from the [built-in rules table](#built-in-rule-ids):**
+
+The pattern `destructive-commands` with `sudo` matches rule `destructive-commands-2`.
+
+**3. Create a custom rules file (if you haven't already):**
+
+```bash
 skillshare audit --init-rules
+```
 
-# 2) Edit ~/.config/skillshare/audit-rules.yaml
+**4. Add a rule override to suppress or downgrade:**
 
-# 3) Re-run audit to verify expected classification changes
-skillshare audit
+```yaml
+# ~/.config/skillshare/audit-rules.yaml
+rules:
+  # Downgrade sudo to MEDIUM for CI automation skills
+  - id: destructive-commands-2
+    severity: MEDIUM
+    pattern: destructive-commands
+    message: "Sudo usage (downgraded for CI automation)"
+    regex: '(?i)\bsudo\s+'
+```
+
+Or disable it entirely:
+
+```yaml
+rules:
+  - id: destructive-commands-2
+    enabled: false
+```
+
+**5. Re-run audit to confirm:**
+
+```bash
+$ skillshare audit ci-helper
+[1/1] ✓ ci-helper    0.1s   # Now passes (or shows MEDIUM instead of HIGH)
+```
+
+### Validate Changes
+
+After editing rules, re-run audit to verify:
+
+```bash
+skillshare audit                     # Check all skills
+skillshare audit <name>              # Check a specific skill
+skillshare audit --json | jq '.skills[].findings'  # Inspect findings programmatically
 ```
 
 Summary interpretation:
