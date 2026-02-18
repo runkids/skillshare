@@ -187,13 +187,46 @@ func resolveNestedSkillDir(sourceDir, name string) (string, error) {
 	}
 }
 
+// countGroupSkills counts sub-skills inside a directory (non-recursive per skill).
+// Returns the list of relative skill names found, or nil if not a group.
+func countGroupSkills(dir string) []string {
+	var names []string
+	filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error { //nolint:errcheck
+		if err != nil || path == dir || !fi.IsDir() {
+			return nil
+		}
+		if fi.Name() == ".git" {
+			return filepath.SkipDir
+		}
+		if _, statErr := os.Stat(filepath.Join(path, "SKILL.md")); statErr == nil {
+			names = append(names, fi.Name())
+			return filepath.SkipDir
+		}
+		if install.IsGitRepo(path) {
+			names = append(names, fi.Name())
+			return filepath.SkipDir
+		}
+		return nil
+	})
+	return names
+}
+
 // displayUninstallInfo shows information about the skill to be uninstalled
 func displayUninstallInfo(target *uninstallTarget) {
 	if target.isTrackedRepo {
 		ui.Header("Uninstalling tracked repository")
 		ui.Info("Type: tracked repository")
 	} else {
-		ui.Header("Uninstalling skill")
+		// Check if this is a group directory containing sub-skills
+		subSkills := countGroupSkills(target.path)
+		if len(subSkills) > 0 {
+			ui.Header(fmt.Sprintf("Uninstalling group (%d skills)", len(subSkills)))
+			for _, s := range subSkills {
+				fmt.Printf("  - %s\n", s)
+			}
+		} else {
+			ui.Header("Uninstalling skill")
+		}
 		if meta, err := install.ReadMeta(target.path); err == nil && meta != nil {
 			ui.Info("Source: %s", meta.Source)
 			ui.Info("Installed: %s", meta.InstalledAt.Format("2006-01-02 15:04"))

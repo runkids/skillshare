@@ -94,6 +94,25 @@ Summary box:
 
 `Failed` counts skills with findings at/above the threshold. `Warning` counts skills with findings below the threshold.
 
+## Built-In Detection Patterns
+
+| Pattern | Severity | Detects | False-Positive Guards |
+|---------|----------|---------|----------------------|
+| `prompt-injection` | CRITICAL | Direct prompt override attempts | — |
+| `data-exfiltration` | CRITICAL | Piping sensitive data to network | — |
+| `credential-access` | CRITICAL | Reads from ~/.ssh, ~/.aws, etc. | — |
+| `destructive-commands` | HIGH | rm -rf, mkfs, disk wipe | — |
+| `dynamic-code-exec` | HIGH | Dynamic code evaluation calls | Excludes evaluate(), execFile() |
+| `shell-execution` | HIGH | Python shell invocation via stdlib | — |
+| `hidden-comment-injection` | HIGH | Prompt injection in HTML comments | — |
+| `obfuscation` | HIGH | Hidden unicode, long base64 strings | — |
+| `env-access` | MEDIUM | Environment variable references | Excludes NODE_ENV, npm_* |
+| `escape-obfuscation` | MEDIUM | 3+ consecutive hex/unicode escapes | — |
+| `suspicious-fetch` | MEDIUM | URLs used in command context | — |
+| `insecure-http` | MEDIUM | HTTP URLs (non-HTTPS) | — |
+| `system-writes` | MEDIUM | Writes to /etc, /usr, system paths | — |
+| `shell-chain` | MEDIUM | Long shell pipe chains | — |
+
 ## Custom Audit Rules
 
 Create custom rules to extend or override built-in patterns.

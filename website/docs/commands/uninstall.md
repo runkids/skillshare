@@ -74,6 +74,22 @@ When some skills are not found, the command **skips them with a warning** and co
 
 ## Group Removal
 
+When you uninstall a directory that contains sub-skills, skillshare automatically detects it as a **group** and lists the contained skills before asking for confirmation:
+
+```
+Uninstalling group (5 skills)
+─────────────────────────────────────────
+  - feature-radar
+  - feature-radar-archive
+  - feature-radar-learn
+  - feature-radar-ref
+  - feature-radar-scan
+→ Name: feature-radar
+→ Path: ~/.config/skillshare/skills/feature-radar
+
+Are you sure you want to uninstall this skill? [y/N]:
+```
+
 The `--group` flag removes all skills under a directory using **prefix matching**:
 
 ```bash

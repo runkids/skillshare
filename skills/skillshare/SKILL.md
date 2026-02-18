@@ -1,13 +1,16 @@
 ---
 name: skillshare
-version: 0.13.0
+version: 0.14.0
 description: |
   Syncs skills across AI CLI tools (Claude, Cursor, Windsurf, etc.) from a single source of truth.
   Global mode (~/.config/skillshare/) and project mode (.skillshare/ per-repo).
   Commands: status, sync, install, uninstall, update, check, search, new, collect,
   push, pull, diff, list, doctor, audit, init-rules, trash, log, backup, restore, target, ui, upgrade.
   Features: target-level skill filtering (include/exclude), skill-level targets field,
-  XDG Base Directory support, fuzzy subdirectory resolution for monorepo installs.
+  XDG Base Directory support, fuzzy subdirectory resolution for monorepo installs,
+  .skillignore for repo-level skill filtering, --exclude flag, license display,
+  multi-skill and group uninstall (--group/-G), declarative skill manifest (global + project),
+  group field for organized placement, 49+ supported targets.
   Use when: managing skills across AI tools, "skillshare" CLI, skill sync/install/search,
   project skills setup, target filtering, security audit, web dashboard, or troubleshooting.
 argument-hint: "[command] [target] [--dry-run] [-p|-g]"
@@ -62,6 +65,8 @@ See [init.md](references/init.md) and [install.md](references/install.md) for al
 ### Safety
 
 - `install` auto-scans skills; **CRITICAL** findings block install (`--force` to override)
+- `install` shows license from SKILL.md frontmatter in selection/confirmation prompts
+- `uninstall` accepts multiple names and `--group`/`-G` for batch removal; auto-detects group directories
 - `uninstall` moves to **trash** (7-day retention) — restore with `trash restore <name>`
 - **NEVER** `rm -rf` symlinked skills — deletes source. Use `skillshare uninstall` or `target remove`
 
