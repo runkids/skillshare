@@ -396,6 +396,25 @@ scaffold-template
 prompt-eval-*
 ```
 
+**Real-world example** — [`runkids/my-skills`](https://github.com/runkids/my-skills) uses `.skillignore` to hide two WIP skills:
+
+```text title=".skillignore"
+agent-browser
+remotion
+```
+
+The repo contains 21 skills, but discovery shows only 19. Combined with `--exclude`, users can further narrow the selection:
+
+```bash
+skillshare install runkids/my-skills --exclude seo
+```
+
+<p>
+  <img src="/img/install_skillignore_exclude_lience_demo.png" alt=".skillignore + --exclude + license demo" width="720" />
+</p>
+
+This screenshot shows all three features working together: `.skillignore` hides `agent-browser` and `remotion`, `--exclude` removes `seo`, and license information (MIT, LICENSE.txt) is displayed next to each skill.
+
 **Format:**
 - One pattern per line
 - Lines starting with `#` are comments

@@ -314,7 +314,7 @@ scaffold-template
 prompt-eval-*
 ```
 
-Skills matching these patterns won't appear in `skillshare install <repo>` discovery. This is applied server-side (in the repo), so all users benefit automatically. See [install --exclude](/docs/commands/install#excluding-skills) for user-side exclusion.
+Skills matching these patterns won't appear in `skillshare install <repo>` discovery. This is applied server-side (in the repo), so all users benefit automatically. See [`runkids/my-skills`](https://github.com/runkids/my-skills) for a real-world example, and [install --exclude](/docs/commands/install#excluding-skills) for user-side exclusion.
 
 ---
 
