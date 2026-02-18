@@ -1024,6 +1024,17 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		}
 		ui.StepEnd("Found", fmt.Sprintf("1 skill: %s", skill.Name))
 
+		loc := skill.Path
+		if loc == "." {
+			loc = "root"
+		}
+		fmt.Println()
+		desc := ""
+		if skill.License != "" {
+			desc = "License: " + skill.License
+		}
+		ui.SkillBox(skill.Name, desc, loc)
+
 		destPath := destWithInto(cfg.Source, opts, skill.Name)
 		if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
 			return logSummary, fmt.Errorf("failed to create --into directory: %w", err)
