@@ -155,9 +155,12 @@ A file in the **root of a skill repository** that excludes skills from discovery
 validation-scripts
 scaffold-template
 prompt-eval-*
+
+# Exclude an entire group directory
+internal-tools
 ```
 
-One pattern per line. Supports exact match and trailing wildcard (`prefix-*`). Lines starting with `#` are comments. Only applies to discovery — already-installed skills are not affected.
+One pattern per line. Patterns match against skill paths — a group name like `internal-tools` excludes all skills under that directory, while `internal-tools/helper` excludes only a specific skill. Also supports trailing wildcard (`prefix-*`). Lines starting with `#` are comments. Only applies to discovery — already-installed skills are not affected.
 
 ### .skillshare-meta.json (Auto-generated)
 

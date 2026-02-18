@@ -46,6 +46,74 @@ func TestInstall_SkillIgnore_ExcludesMatchedSkills(t *testing.T) {
 	}
 }
 
+func TestInstall_SkillIgnore_GroupPattern(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// Create a grouped repo: internal/ has 3 skills, plus 1 top-level skill
+	gitRepoPath := filepath.Join(sb.Root, "group-repo")
+	for _, rel := range []string{"internal/tool-a", "internal/tool-b", "internal/internal", "public-skill"} {
+		p := filepath.Join(gitRepoPath, rel)
+		os.MkdirAll(p, 0755)
+		os.WriteFile(filepath.Join(p, "SKILL.md"), []byte("# "+filepath.Base(rel)), 0644)
+	}
+	// "internal" excludes the entire internal/ group (including same-named internal/internal)
+	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte("internal\n"), 0644)
+
+	initGitRepo(t, gitRepoPath)
+
+	source, _ := install.ParseSource("file://" + gitRepoPath)
+	discovery, err := install.DiscoverFromGit(source)
+	if err != nil {
+		t.Fatalf("DiscoverFromGit() error = %v", err)
+	}
+	defer install.CleanupDiscovery(discovery)
+
+	if len(discovery.Skills) != 1 {
+		t.Errorf("expected 1 skill (public-skill), got %d: %+v", len(discovery.Skills), discovery.Skills)
+	}
+	if len(discovery.Skills) == 1 && discovery.Skills[0].Name != "public-skill" {
+		t.Errorf("expected public-skill, got %s", discovery.Skills[0].Name)
+	}
+}
+
+func TestInstall_SkillIgnore_PrecisePathInGroup(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// Same-name edge case: group "radar" contains skill "radar" and "helper"
+	gitRepoPath := filepath.Join(sb.Root, "precise-repo")
+	for _, rel := range []string{"radar/radar", "radar/helper", "other-skill"} {
+		p := filepath.Join(gitRepoPath, rel)
+		os.MkdirAll(p, 0755)
+		os.WriteFile(filepath.Join(p, "SKILL.md"), []byte("# "+filepath.Base(rel)), 0644)
+	}
+	// Exclude only radar/radar, NOT the entire group
+	os.WriteFile(filepath.Join(gitRepoPath, ".skillignore"), []byte("radar/radar\n"), 0644)
+
+	initGitRepo(t, gitRepoPath)
+
+	source, _ := install.ParseSource("file://" + gitRepoPath)
+	discovery, err := install.DiscoverFromGit(source)
+	if err != nil {
+		t.Fatalf("DiscoverFromGit() error = %v", err)
+	}
+	defer install.CleanupDiscovery(discovery)
+
+	if len(discovery.Skills) != 2 {
+		t.Errorf("expected 2 skills (helper + other-skill), got %d: %+v", len(discovery.Skills), discovery.Skills)
+	}
+	for _, sk := range discovery.Skills {
+		if sk.Name == "radar" && sk.Path == "radar/radar" {
+			t.Error("radar/radar should be excluded by precise path pattern")
+		}
+	}
+}
+
 func TestInstall_SkillIgnore_WildcardPattern(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
