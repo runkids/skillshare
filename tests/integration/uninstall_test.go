@@ -120,7 +120,7 @@ targets: {}
 	result := sb.RunCLI("uninstall")
 
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "skill name is required")
+	result.AssertAnyOutputContains(t, "skill name or --group is required")
 }
 
 func TestUninstall_NestedSkill_ResolvesByBasename(t *testing.T) {
@@ -188,4 +188,212 @@ targets: {}
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "github.com/user/repo")
+}
+
+// --- Multi-skill tests ---
+
+func TestUninstall_MultipleSkills(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("alpha", map[string]string{"SKILL.md": "# Alpha"})
+	sb.CreateSkill("beta", map[string]string{"SKILL.md": "# Beta"})
+	sb.CreateSkill("gamma", map[string]string{"SKILL.md": "# Gamma"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "alpha", "beta", "gamma", "-f")
+	result.AssertSuccess(t)
+
+	for _, name := range []string{"alpha", "beta", "gamma"} {
+		if sb.FileExists(filepath.Join(sb.SourcePath, name)) {
+			t.Errorf("skill %s should be removed", name)
+		}
+	}
+}
+
+func TestUninstall_MultipleSkills_PartialNotFound(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("exists-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateSkill("exists-b", map[string]string{"SKILL.md": "# B"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "exists-a", "nonexistent", "exists-b", "-f")
+	result.AssertSuccess(t) // partial success = exit 0
+	result.AssertAnyOutputContains(t, "not found")
+
+	if sb.FileExists(filepath.Join(sb.SourcePath, "exists-a")) {
+		t.Error("exists-a should be removed")
+	}
+	if sb.FileExists(filepath.Join(sb.SourcePath, "exists-b")) {
+		t.Error("exists-b should be removed")
+	}
+}
+
+func TestUninstall_MultipleSkills_AllNotFound(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "x", "y", "z", "-f")
+	result.AssertFailure(t)
+}
+
+func TestUninstall_MultipleSkills_DryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("dry-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateSkill("dry-b", map[string]string{"SKILL.md": "# B"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "dry-a", "dry-b", "-n")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "would move to trash")
+
+	// Both should still exist
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "dry-a")) {
+		t.Error("dry-a should not be removed in dry-run")
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "dry-b")) {
+		t.Error("dry-b should not be removed in dry-run")
+	}
+}
+
+// --- Group tests ---
+
+func TestUninstall_Group(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("frontend/skill-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateSkill("frontend/skill-b", map[string]string{"SKILL.md": "# B"})
+	sb.CreateSkill("backend/skill-c", map[string]string{"SKILL.md": "# C"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "--group", "frontend", "-f")
+	result.AssertSuccess(t)
+
+	if sb.FileExists(filepath.Join(sb.SourcePath, "frontend", "skill-a")) {
+		t.Error("frontend/skill-a should be removed")
+	}
+	if sb.FileExists(filepath.Join(sb.SourcePath, "frontend", "skill-b")) {
+		t.Error("frontend/skill-b should be removed")
+	}
+	// backend should be untouched
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "backend", "skill-c")) {
+		t.Error("backend/skill-c should NOT be removed")
+	}
+}
+
+func TestUninstall_Group_PrefixMatch(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("frontend/react/hooks", map[string]string{"SKILL.md": "# Hooks"})
+	sb.CreateSkill("frontend/vue/composables", map[string]string{"SKILL.md": "# Composables"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "--group", "frontend", "-f")
+	result.AssertSuccess(t)
+
+	if sb.FileExists(filepath.Join(sb.SourcePath, "frontend", "react", "hooks")) {
+		t.Error("frontend/react/hooks should be removed via prefix match")
+	}
+	if sb.FileExists(filepath.Join(sb.SourcePath, "frontend", "vue", "composables")) {
+		t.Error("frontend/vue/composables should be removed via prefix match")
+	}
+}
+
+func TestUninstall_Group_NotFound(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "--group", "nonexistent", "-f")
+	result.AssertFailure(t)
+}
+
+func TestUninstall_Group_DryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("frontend/dry-skill", map[string]string{"SKILL.md": "# Dry"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "--group", "frontend", "-n")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "would move to trash")
+
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "frontend", "dry-skill")) {
+		t.Error("dry-run should not remove skills")
+	}
+}
+
+// --- Mixed tests ---
+
+func TestUninstall_Mixed(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("standalone", map[string]string{"SKILL.md": "# Standalone"})
+	sb.CreateSkill("frontend/react-hooks", map[string]string{"SKILL.md": "# Hooks"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "standalone", "-G", "frontend", "-f")
+	result.AssertSuccess(t)
+
+	if sb.FileExists(filepath.Join(sb.SourcePath, "standalone")) {
+		t.Error("standalone should be removed")
+	}
+	if sb.FileExists(filepath.Join(sb.SourcePath, "frontend", "react-hooks")) {
+		t.Error("frontend/react-hooks should be removed via group")
+	}
+}
+
+func TestUninstall_Mixed_Dedup(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("frontend/my-skill", map[string]string{"SKILL.md": "# My Skill"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Specify the same skill by name AND by group — should only uninstall once
+	result := sb.RunCLI("uninstall", "frontend/my-skill", "-G", "frontend", "-f")
+	result.AssertSuccess(t)
+
+	if sb.FileExists(filepath.Join(sb.SourcePath, "frontend", "my-skill")) {
+		t.Error("skill should be removed")
+	}
 }

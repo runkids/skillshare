@@ -241,7 +241,7 @@ skillshare backup --cleanup # Remove old backups
 
 # Monthly
 skillshare list             # Review installed skills
-# Remove unused: skillshare uninstall <name>
+# Remove unused: skillshare uninstall <name>...
 ```
 
 ### Cleanup unused skills

@@ -12,7 +12,7 @@ Command cheat sheet for skillshare.
 |---------|-------------|
 | `init` | First-time setup |
 | `install <source>` | Add a skill |
-| `uninstall <name>` | Remove a skill |
+| `uninstall <name>...` | Remove one or more skills |
 | `list` | List all skills |
 | `search <query>` | Search for skills |
 | `sync` | Push to all targets |

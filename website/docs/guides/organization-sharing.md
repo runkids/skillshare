@@ -258,7 +258,7 @@ skillshare install git@github.com:org/private-skills.git --track
 | `install <url> --track` | Clone repo as tracked repository |
 | `update <name>` | Git pull specific tracked repo |
 | `update --all` | Update all tracked repos |
-| `uninstall <name>` | Remove tracked repo |
+| `uninstall <name>...` | Remove tracked repo(s) |
 | `list` | List all skills and tracked repos |
 | `status` | Show sync status |
 

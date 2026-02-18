@@ -163,7 +163,7 @@ func printUsage() {
 	fmt.Println("CORE COMMANDS")
 	cmd("init", "", "Initialize skillshare")
 	cmd("install", "<source>", "Install a skill from local path or git repo")
-	cmd("uninstall", "<name>", "Remove a skill from source directory")
+	cmd("uninstall", "<name>...", "Remove skills from source directory")
 	cmd("list", "", "List all installed skills")
 	cmd("search", "[query]", "Search or browse GitHub for skills")
 	cmd("sync", "", "Sync skills to all targets")

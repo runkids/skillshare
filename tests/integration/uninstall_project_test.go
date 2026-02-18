@@ -98,3 +98,59 @@ func TestUninstallProject_DryRun(t *testing.T) {
 		t.Error("dry-run should not remove skill")
 	}
 }
+
+func TestUninstallProject_MultipleSkills(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	sb.CreateProjectSkill(projectRoot, "skill-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateProjectSkill(projectRoot, "skill-b", map[string]string{"SKILL.md": "# B"})
+
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+skills:
+  - name: skill-a
+    source: local
+  - name: skill-b
+    source: local
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "uninstall", "skill-a", "skill-b", "--force", "-p")
+	result.AssertSuccess(t)
+
+	if sb.FileExists(filepath.Join(projectRoot, ".skillshare", "skills", "skill-a")) {
+		t.Error("skill-a should be removed")
+	}
+	if sb.FileExists(filepath.Join(projectRoot, ".skillshare", "skills", "skill-b")) {
+		t.Error("skill-b should be removed")
+	}
+
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if strings.Contains(cfg, "skill-a") || strings.Contains(cfg, "skill-b") {
+		t.Error("config should not contain removed skills")
+	}
+}
+
+func TestUninstallProject_Group(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	sb.CreateProjectSkill(projectRoot, "frontend/hooks", map[string]string{"SKILL.md": "# Hooks"})
+	sb.CreateProjectSkill(projectRoot, "frontend/styles", map[string]string{"SKILL.md": "# Styles"})
+	sb.CreateProjectSkill(projectRoot, "backend/api", map[string]string{"SKILL.md": "# API"})
+
+	result := sb.RunCLIInDir(projectRoot, "uninstall", "--group", "frontend", "--force", "-p")
+	result.AssertSuccess(t)
+
+	if sb.FileExists(filepath.Join(projectRoot, ".skillshare", "skills", "frontend", "hooks")) {
+		t.Error("frontend/hooks should be removed")
+	}
+	if sb.FileExists(filepath.Join(projectRoot, ".skillshare", "skills", "frontend", "styles")) {
+		t.Error("frontend/styles should be removed")
+	}
+	if !sb.FileExists(filepath.Join(projectRoot, ".skillshare", "skills", "backend", "api")) {
+		t.Error("backend/api should NOT be removed")
+	}
+}

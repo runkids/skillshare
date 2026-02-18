@@ -199,7 +199,7 @@ skillshare sync            # Sync skills to all targets
 | `skillshare collect [target]` | Import skills from target(s) back to source |
 | `skillshare update <name>` | Update one installed skill/repo |
 | `skillshare update --all` | Update all tracked repos |
-| `skillshare uninstall <name>` | Remove skill from source |
+| `skillshare uninstall <name>...` | Remove skill(s) from source |
 | `skillshare audit [name]` | Scan skills for security threats |
 | `skillshare log` | View operations and audit logs for debugging and compliance |
 | `skillshare search <query>` | Search installable skills on GitHub |

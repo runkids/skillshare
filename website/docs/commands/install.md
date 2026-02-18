@@ -421,10 +421,14 @@ skillshare install runkids/my-skills --exclude seo
 - Precise path: `feature-radar/feature-radar` (matches only that specific skill, not the whole group)
 - Trailing wildcard: `prompt-eval-*` (matches any path starting with `prompt-eval-`)
 
-**Use cases:**
-- Hide internal/test skills from public repos
-- Exclude work-in-progress skills
-- Keep repo-maintenance tools out of discovery
+**Recommended scenarios:**
+- Publishing a multi-skill repository while hiding internal tools or work-in-progress skills
+- Using a monorepo with grouped skill directories and excluding an entire group (for example, `internal-tools`)
+- Enforcing maintainer-level visibility rules so all installers never discover certain skills
+
+**Not a fit:**
+- Direct local-path installs (these skip discovery)
+- Single-skill direct installs (similar to `--exclude`, which is ignored for direct install paths)
 
 `.skillignore` is applied during git repo discovery, so it affects all discovery-based install paths: `--all`, `--skill`, `--yes`, and interactive selection. It does **not** apply to direct local-path installs (which skip discovery entirely).
 

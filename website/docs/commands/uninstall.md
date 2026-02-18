@@ -4,18 +4,20 @@ sidebar_position: 3
 
 # uninstall
 
-Remove a skill or tracked repository from the source directory. Skills are moved to trash and kept for 7 days before automatic cleanup.
+Remove one or more skills or tracked repositories from the source directory. Skills are moved to trash and kept for 7 days before automatic cleanup.
 
 ```bash
-skillshare uninstall my-skill          # Remove a skill
-skillshare uninstall team-repo         # Remove tracked repository (_ prefix optional)
-skillshare uninstall my-skill --force  # Skip confirmation
+skillshare uninstall my-skill              # Remove a single skill
+skillshare uninstall a b c --force         # Remove multiple skills at once
+skillshare uninstall --group frontend      # Remove all skills in a group
+skillshare uninstall team-repo             # Remove tracked repository (_ prefix optional)
 ```
 
 ## When to Use
 
-- Remove a skill you no longer need (it moves to trash for 7 days)
+- Remove skills you no longer need (they move to trash for 7 days)
 - Clean up a tracked repository you've stopped using
+- Batch-remove an entire group of skills at once
 
 ![uninstall demo](/img/uninstall-demo.png)
 
@@ -24,24 +26,30 @@ skillshare uninstall my-skill --force  # Skip confirmation
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ skillshare uninstall my-skill                                   │
+│ skillshare uninstall a b c --force                              │
+│ skillshare uninstall --group frontend                           │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 1. Locate skill in source directory                             │
-│    → ~/.config/skillshare/skills/my-skill/                      │
+│ 1. Resolve targets                                              │
+│    → Each name resolved in source directory                     │
+│    → Each --group walks group directory (prefix match)          │
+│    → Deduplicate by path                                        │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 2. Confirm removal (unless --force)                             │
-│    → "Are you sure you want to uninstall this skill? [y/N]"     │
+│ 2. Pre-flight checks                                            │
+│    → Tracked repos: check for uncommitted changes               │
+│    → Skip problematic skills with warning (batch mode)          │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 3. Move to trash (kept 7 days)                                  │
-│    → ~/.local/share/skillshare/trash/my-skill_<timestamp>/      │
+│ 3. Confirm and move to trash (kept 7 days)                      │
+│    → Single: "Are you sure? [y/N]"                              │
+│    → Multi: "Uninstall N skill(s)? [y/N]"                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -49,9 +57,45 @@ skillshare uninstall my-skill --force  # Skip confirmation
 
 | Flag | Description |
 |------|-------------|
+| `--group, -G <name>` | Remove all skills in a group (prefix match, repeatable) |
 | `--force, -f` | Skip confirmation and ignore uncommitted changes |
 | `--dry-run, -n` | Preview without making changes |
 | `--help, -h` | Show help |
+
+## Multiple Skills
+
+Remove several skills in one command:
+
+```bash
+skillshare uninstall alpha beta gamma --force
+```
+
+When some skills are not found, the command **skips them with a warning** and continues removing the rest. It only fails if **all** specified skills are invalid.
+
+## Group Removal
+
+The `--group` flag removes all skills under a directory using **prefix matching**:
+
+```bash
+# Remove all skills under frontend/
+skillshare uninstall --group frontend
+
+# Also removes nested skills: frontend/react/hooks, frontend/vue/composables
+skillshare uninstall --group frontend --force
+
+# Preview what would be removed
+skillshare uninstall --group frontend --dry-run
+```
+
+You can combine positional names with `--group`, and even use `-G` multiple times:
+
+```bash
+# Mix names and groups
+skillshare uninstall standalone-skill -G frontend -G backend --force
+
+# Duplicates are automatically deduplicated
+skillshare uninstall frontend/hooks -G frontend --force  # hooks removed once
+```
 
 ## Tracked Repositories
 
@@ -70,17 +114,24 @@ skillshare uninstall _team-skills --force # Force remove with uncommitted change
 ## Examples
 
 ```bash
-# Remove a regular skill
+# Remove a single skill
 skillshare uninstall my-skill
+
+# Remove multiple skills
+skillshare uninstall skill-a skill-b skill-c --force
+
+# Remove by group
+skillshare uninstall --group frontend --force
 
 # Preview removal
 skillshare uninstall my-skill --dry-run
+skillshare uninstall --group frontend -n
 
 # Remove tracked repository
 skillshare uninstall team-repo
 
-# Force remove (skip confirmation)
-skillshare uninstall my-skill --force
+# Mix names and groups
+skillshare uninstall my-skill -G frontend --force
 ```
 
 ## Safety
@@ -117,12 +168,13 @@ skillshare sync  # Remove from Claude, Cursor, etc.
 
 ## Project Mode
 
-Uninstall a skill or tracked repo from the project's `.skillshare/skills/`:
+Uninstall skills or tracked repos from the project's `.skillshare/skills/`:
 
 ```bash
-skillshare uninstall my-skill -p          # Remove a skill
-skillshare uninstall team-skills -p       # Remove tracked repo (_ prefix optional)
-skillshare uninstall team-skills -p -f    # Force remove with uncommitted changes
+skillshare uninstall my-skill -p                  # Remove a skill
+skillshare uninstall a b c -p -f                  # Remove multiple skills
+skillshare uninstall --group frontend -p -f        # Remove a group
+skillshare uninstall team-skills -p                # Tracked repo (_ prefix optional)
 ```
 
 In project mode, uninstall:

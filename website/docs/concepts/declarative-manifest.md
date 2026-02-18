@@ -53,7 +53,7 @@ Skills that already exist are skipped automatically.
 The manifest stays in sync with your actual skill collection:
 
 - **`skillshare install <source>`** — adds the installed skill to `skills:` automatically
-- **`skillshare uninstall <name>`** — removes the entry from `skills:` automatically
+- **`skillshare uninstall <name>...`** — removes the entry from `skills:` automatically
 
 You never need to edit the manifest manually (though you can).
 

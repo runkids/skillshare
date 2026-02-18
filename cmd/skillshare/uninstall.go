@@ -18,9 +18,10 @@ import (
 
 // uninstallOptions holds parsed arguments for uninstall command
 type uninstallOptions struct {
-	skillName string
-	force     bool
-	dryRun    bool
+	skillNames []string // positional args (0+)
+	groups     []string // --group/-G values (repeatable)
+	force      bool
+	dryRun     bool
 }
 
 // uninstallTarget holds resolved target information
@@ -34,26 +35,30 @@ type uninstallTarget struct {
 func parseUninstallArgs(args []string) (*uninstallOptions, bool, error) {
 	opts := &uninstallOptions{}
 
-	for _, arg := range args {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		switch {
 		case arg == "--force" || arg == "-f":
 			opts.force = true
 		case arg == "--dry-run" || arg == "-n":
 			opts.dryRun = true
+		case arg == "--group" || arg == "-G":
+			i++
+			if i >= len(args) {
+				return nil, false, fmt.Errorf("--group requires a value")
+			}
+			opts.groups = append(opts.groups, args[i])
 		case arg == "--help" || arg == "-h":
 			return nil, true, nil // showHelp = true
 		case strings.HasPrefix(arg, "-"):
 			return nil, false, fmt.Errorf("unknown option: %s", arg)
 		default:
-			if opts.skillName != "" {
-				return nil, false, fmt.Errorf("unexpected argument: %s", arg)
-			}
-			opts.skillName = arg
+			opts.skillNames = append(opts.skillNames, arg)
 		}
 	}
 
-	if opts.skillName == "" {
-		return nil, true, fmt.Errorf("skill name is required")
+	if len(opts.skillNames) == 0 && len(opts.groups) == 0 {
+		return nil, true, fmt.Errorf("skill name or --group is required")
 	}
 
 	return opts, false, nil
@@ -94,6 +99,54 @@ func resolveUninstallTarget(skillName string, cfg *config.Config) (*uninstallTar
 		path:          skillPath,
 		isTrackedRepo: install.IsGitRepo(skillPath),
 	}, nil
+}
+
+// resolveGroupSkills finds all skills under a group directory (prefix match).
+// Returns uninstallTargets for each skill found.
+func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
+	group = strings.TrimSuffix(group, "/")
+	groupPath := filepath.Join(sourceDir, group)
+
+	info, err := os.Stat(groupPath)
+	if err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("group '%s' not found in source", group)
+	}
+
+	var targets []*uninstallTarget
+	filepath.Walk(groupPath, func(path string, fi os.FileInfo, err error) error { //nolint:errcheck
+		if err != nil || path == groupPath || !fi.IsDir() {
+			return nil
+		}
+		if fi.Name() == ".git" {
+			return filepath.SkipDir
+		}
+
+		// Check if this directory is a skill (has SKILL.md) or tracked repo
+		hasSkillMD := false
+		if _, statErr := os.Stat(filepath.Join(path, "SKILL.md")); statErr == nil {
+			hasSkillMD = true
+		}
+		isRepo := install.IsGitRepo(path)
+
+		if hasSkillMD || isRepo {
+			rel, relErr := filepath.Rel(sourceDir, path)
+			if relErr == nil {
+				targets = append(targets, &uninstallTarget{
+					name:          rel,
+					path:          path,
+					isTrackedRepo: isRepo,
+				})
+			}
+			return filepath.SkipDir // don't descend into skill dirs
+		}
+		return nil
+	})
+
+	if len(targets) == 0 {
+		return nil, fmt.Errorf("no skills found in group '%s'", group)
+	}
+
+	return targets, nil
 }
 
 // resolveNestedSkillDir searches for a skill directory by basename within
@@ -277,51 +330,146 @@ func cmdUninstall(args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	target, err := resolveUninstallTarget(opts.skillName, cfg)
-	if err != nil {
-		return err
+	// --- Phase 1: RESOLVE ---
+	var targets []*uninstallTarget
+	seen := map[string]bool{} // dedup by path
+	var resolveWarnings []string
+
+	for _, name := range opts.skillNames {
+		t, err := resolveUninstallTarget(name, cfg)
+		if err != nil {
+			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
+			continue
+		}
+		if !seen[t.path] {
+			seen[t.path] = true
+			targets = append(targets, t)
+		}
 	}
 
-	displayUninstallInfo(target)
+	for _, group := range opts.groups {
+		groupTargets, err := resolveGroupSkills(group, cfg.Source)
+		if err != nil {
+			resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: %v", group, err))
+			continue
+		}
+		for _, t := range groupTargets {
+			if !seen[t.path] {
+				seen[t.path] = true
+				targets = append(targets, t)
+			}
+		}
+	}
 
-	// Check for uncommitted changes (skip in dry-run)
+	for _, w := range resolveWarnings {
+		ui.Warning("%s", w)
+	}
+
+	// --- Phase 2: VALIDATE ---
+	if len(targets) == 0 {
+		if len(resolveWarnings) > 0 {
+			return fmt.Errorf("no valid skills to uninstall")
+		}
+		return fmt.Errorf("no skills found")
+	}
+
+	// --- Phase 3: DISPLAY ---
+	single := len(targets) == 1
+	if single {
+		displayUninstallInfo(targets[0])
+	} else {
+		ui.Header(fmt.Sprintf("Uninstalling %d skill(s)", len(targets)))
+		for _, t := range targets {
+			label := t.name
+			if t.isTrackedRepo {
+				label += " (tracked)"
+			}
+			fmt.Printf("  - %s\n", label)
+		}
+		fmt.Println()
+	}
+
+	// --- Phase 4: PRE-FLIGHT ---
 	if !opts.dryRun {
-		if err := checkTrackedRepoStatus(target, opts.force); err != nil {
-			return err
+		var preflight []*uninstallTarget
+		for _, t := range targets {
+			if err := checkTrackedRepoStatus(t, opts.force); err != nil {
+				if single {
+					return err
+				}
+				ui.Warning("Skipping %s: %v", t.name, err)
+				continue
+			}
+			preflight = append(preflight, t)
+		}
+		targets = preflight
+
+		if len(targets) == 0 {
+			return fmt.Errorf("no skills to uninstall after pre-flight checks")
 		}
 	}
 
-	// Handle dry-run
+	// --- Phase 5: DRY-RUN or CONFIRM ---
 	if opts.dryRun {
-		ui.Warning("[dry-run] would move to trash: %s", target.path)
-		if target.isTrackedRepo {
-			ui.Warning("[dry-run] would remove %s from .gitignore", target.name)
-		}
-		if meta, err := install.ReadMeta(target.path); err == nil && meta != nil && meta.Source != "" {
-			ui.Info("[dry-run] Reinstall: skillshare install %s", meta.Source)
+		for _, t := range targets {
+			ui.Warning("[dry-run] would move to trash: %s", t.path)
+			if t.isTrackedRepo {
+				ui.Warning("[dry-run] would remove %s from .gitignore", t.name)
+			}
+			if meta, err := install.ReadMeta(t.path); err == nil && meta != nil && meta.Source != "" {
+				ui.Info("[dry-run] Reinstall: skillshare install %s", meta.Source)
+			}
 		}
 		return nil
 	}
 
-	// Confirm unless --force
 	if !opts.force {
-		confirmed, err := confirmUninstall(target)
-		if err != nil {
-			return err
-		}
-		if !confirmed {
-			ui.Info("Cancelled")
-			return nil
+		if single {
+			confirmed, err := confirmUninstall(targets[0])
+			if err != nil {
+				return err
+			}
+			if !confirmed {
+				ui.Info("Cancelled")
+				return nil
+			}
+		} else {
+			fmt.Printf("Uninstall %d skill(s)? [y/N]: ", len(targets))
+			reader := bufio.NewReader(os.Stdin)
+			input, err := reader.ReadString('\n')
+			if err != nil {
+				return err
+			}
+			input = strings.TrimSpace(strings.ToLower(input))
+			if input != "y" && input != "yes" {
+				ui.Info("Cancelled")
+				return nil
+			}
 		}
 	}
 
-	err = performUninstall(target, cfg)
+	// --- Phase 6: EXECUTE ---
+	var succeeded []*uninstallTarget
+	var failed []string
+	for _, t := range targets {
+		if err := performUninstall(t, cfg); err != nil {
+			failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
+			ui.Warning("Failed to uninstall %s: %v", t.name, err)
+		} else {
+			succeeded = append(succeeded, t)
+		}
+	}
 
-	// Remove from global config skills manifest
-	if err == nil && len(cfg.Skills) > 0 {
+	// --- Phase 7: FINALIZE ---
+	// Batch-remove succeeded skills from config
+	if len(succeeded) > 0 && len(cfg.Skills) > 0 {
+		removedNames := map[string]bool{}
+		for _, t := range succeeded {
+			removedNames[t.name] = true
+		}
 		updated := make([]config.SkillEntry, 0, len(cfg.Skills))
 		for _, s := range cfg.Skills {
-			if s.FullName() != target.name {
+			if !removedNames[s.FullName()] {
 				updated = append(updated, s)
 			}
 		}
@@ -333,14 +481,33 @@ func cmdUninstall(args []string) error {
 		}
 	}
 
-	logUninstallOp(config.ConfigPath(), []string{opts.skillName}, start, err)
-	return err
+	// Build names list for oplog
+	var opNames []string
+	for _, name := range opts.skillNames {
+		opNames = append(opNames, name)
+	}
+	for _, g := range opts.groups {
+		opNames = append(opNames, "--group="+g)
+	}
+
+	var finalErr error
+	if len(failed) > 0 {
+		if len(succeeded) == 0 {
+			finalErr = fmt.Errorf("all uninstalls failed")
+		}
+		// Partial failure: report but exit success (skip & continue)
+	}
+
+	logUninstallOp(config.ConfigPath(), opNames, start, finalErr)
+	return finalErr
 }
 
-func logUninstallOp(cfgPath string, args []string, start time.Time, cmdErr error) {
+func logUninstallOp(cfgPath string, names []string, start time.Time, cmdErr error) {
 	e := oplog.NewEntry("uninstall", statusFromErr(cmdErr), time.Since(start))
-	if len(args) > 0 {
-		e.Args = map[string]any{"name": args[0]}
+	if len(names) == 1 {
+		e.Args = map[string]any{"name": names[0]}
+	} else if len(names) > 1 {
+		e.Args = map[string]any{"names": names}
 	}
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
@@ -360,9 +527,10 @@ func isRepoDirty(repoPath string) (bool, error) {
 }
 
 func printUninstallHelp() {
-	fmt.Println(`Usage: skillshare uninstall <name> [options]
+	fmt.Println(`Usage: skillshare uninstall <name>... [options]
+       skillshare uninstall --group <group> [options]
 
-Remove a skill or tracked repository from the source directory.
+Remove one or more skills or tracked repositories from the source directory.
 Skills are moved to trash and kept for 7 days before automatic cleanup.
 If the skill was installed from a remote source, a reinstall command is shown.
 
@@ -372,16 +540,19 @@ For tracked repositories (_repo-name):
   - The _ prefix is optional (automatically detected)
 
 Options:
-  --force, -f     Skip confirmation and ignore uncommitted changes
-  --dry-run, -n   Preview without making changes
-  --project, -p   Use project-level config in current directory
-  --global, -g    Use global config (~/.config/skillshare)
-  --help, -h      Show this help
+  --group, -G <name>  Remove all skills in a group (prefix match, repeatable)
+  --force, -f         Skip confirmation and ignore uncommitted changes
+  --dry-run, -n       Preview without making changes
+  --project, -p       Use project-level config in current directory
+  --global, -g        Use global config (~/.config/skillshare)
+  --help, -h          Show this help
 
 Examples:
-  skillshare uninstall my-skill              # Remove a skill (moved to trash)
-  skillshare uninstall my-skill --force      # Skip confirmation
+  skillshare uninstall my-skill              # Remove a single skill
+  skillshare uninstall a b c --force         # Remove multiple skills at once
+  skillshare uninstall --group frontend      # Remove all skills in frontend/
+  skillshare uninstall --group frontend -n   # Preview group removal
+  skillshare uninstall x -G backend --force  # Mix names and groups
   skillshare uninstall _team-repo            # Remove tracked repository
-  skillshare uninstall team-repo             # _ prefix is optional
-  skillshare uninstall _team-repo --force    # Force remove with uncommitted changes`)
+  skillshare uninstall team-repo             # _ prefix is optional`)
 }
