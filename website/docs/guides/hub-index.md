@@ -4,19 +4,21 @@ sidebar_position: 4
 
 # Hub Index Guide
 
-Build and share private skill catalogs without depending on the GitHub API.
+Build a centralized skill catalog for your organization — no GitHub API or token required.
 
 ## Why Use a Hub Index?
 
-| Scenario | GitHub Search | Hub Index |
-|----------|--------------|-----------|
-| Public skills on GitHub | Yes | No |
-| Private/internal skills | No | Yes |
-| Air-gapped environments | No | Yes |
-| Custom curated catalogs | No | Yes |
-| No GitHub token needed | No | Yes |
+A hub index is a JSON file (`skillshare-hub.json`) that lists skills with their name, description, and source. Host it internally and every team member can search and install skills from it.
 
-A hub index is a JSON file (`skillshare-hub.json`) that lists skills with their name, description, and source. Anyone with access to this file can search and install from it.
+| Use Case | GitHub Search | Hub Index |
+|----------|--------------|-----------|
+| Organization-wide skill catalog | No | **Yes** |
+| Private/internal skills | No | **Yes** |
+| Air-gapped / VPN-only environments | No | **Yes** |
+| Curated, approved skill sets | No | **Yes** |
+| No GitHub token needed | No | **Yes** |
+
+For a real-world example, see the [Public Hub](#public-hub) section.
 
 ## Quick Start
 
@@ -209,7 +211,7 @@ Absolute paths, URLs, and domain-prefixed paths are never joined:
 
 ## Hand-Written Indexes
 
-You can create an index manually without using `hub index`:
+You can create an index manually without using `hub index`. This is especially useful for internal skills hosted on private infrastructure — sources that GitHub Search and public tools can never reach:
 
 ```json
 {
@@ -217,19 +219,29 @@ You can create an index manually without using `hub index`:
   "skills": [
     {
       "name": "company-style",
-      "description": "Company coding standards",
-      "source": "github.com/company/skills/company-style",
+      "description": "Company coding standards and review checklist",
+      "source": "ghe.internal.company.com/platform/ai-skills/company-style",
       "tags": ["quality", "workflow"]
     },
     {
       "name": "deploy-helper",
-      "description": "Deployment automation",
-      "source": "gitlab.com/ops/skills/deploy-helper",
+      "description": "Internal deployment automation",
+      "source": "gitlab.internal.company.com/ops/skills/deploy-helper",
       "tags": ["devops"]
+    },
+    {
+      "name": "onboarding",
+      "description": "New hire onboarding skill for AI assistants",
+      "source": "ghe.internal.company.com/hr/ai-skills/onboarding",
+      "tags": ["workflow"]
     }
   ]
 }
 ```
+
+:::tip Why not just use GitHub Search?
+`skillshare search` only finds public repos on github.com. A hub index can point to **any** source — GitHub Enterprise, private GitLab, internal servers — things that only your employees behind VPN can access. This is what makes hub the go-to solution for organization-wide skill distribution.
+:::
 
 Tips for hand-written indexes:
 - `sourcePath` is optional — omit if all sources are absolute
@@ -237,16 +249,49 @@ Tips for hand-written indexes:
 - Skills with empty `name` are skipped
 - Results are sorted by name alphabetically
 
-## Community Hub
+## Organization Deployment
 
-The [skillshare-hub](https://github.com/runkids/skillshare-hub) is a community-maintained index of curated skills. You can search it directly:
+A typical end-to-end workflow for rolling out a hub across your organization:
 
 ```bash
-skillshare search --hub              # Uses skillshare-hub by default
-skillshare search react --hub        # Search "react" in skillshare-hub
+# 1. A skill admin curates skills from internal repos
+skillshare install ghe.internal.company.com/platform/ai-skills/coding-standards
+skillshare install ghe.internal.company.com/platform/ai-skills/review-checklist
+skillshare install ghe.internal.company.com/security/ai-skills/threat-model
+
+# 2. Generate the hub index
+skillshare hub index -o ./skillshare-hub.json
+
+# 3. Host it (pick one)
+#    - Internal Git repo: commit and push
+#    - S3/CDN: aws s3 cp ./skillshare-hub.json s3://skills-bucket/
+#    - Intranet server: scp to your hosting
+
+# 4. Team members add the hub once
+skillshare hub add https://skills.internal.company.com/skillshare-hub.json --label company
+
+# 5. Search and install — only accessible behind VPN
+skillshare search coding --hub company
 ```
 
-Want to share your skills with the community? [Open a PR](https://github.com/runkids/skillshare-hub) to add your skill to the catalog. CI automatically runs `skillshare audit` on every submission to check for security issues before merging.
+To keep the index fresh, add `skillshare hub index` to a CI pipeline that runs after skill changes.
+
+## Public Hub
+
+The [skillshare-hub](https://github.com/runkids/skillshare-hub) is a curated catalog of quality skills. It is the **default hub** — when you run `search --hub` without specifying a source, it searches here:
+
+```bash
+skillshare search --hub              # Browse all skills in the public hub
+skillshare search react --hub        # Search for "react" skills
+```
+
+It also serves as a reference for building your own organization's hub:
+
+- **Index structure** — How to organize `skillshare-hub.json` with names, descriptions, sources, and tags
+- **CI validation** — Automated JSON format checks and `skillshare audit` security scans on every PR
+- **Contribution workflow** — Fork → add entry → PR, with CI gates
+
+Want to build an internal hub for your team? Fork the repo, replace the skills with your organization's catalog, and customize the CI pipeline to match your security policies.
 
 ## Tips
 

@@ -207,7 +207,7 @@ skillshare sync            # Sync skills to all targets
 | `skillshare search --hub [url]` | Search a hub index (default: skillshare-hub) |
 | `skillshare hub index` | Generate a hub index from installed skills |
 
-`skillshare search` requires GitHub auth (`gh auth login`) or `GITHUB_TOKEN`. The `--hub` flag searches a JSON index instead — without a URL it defaults to the community [skillshare-hub](https://github.com/runkids/skillshare-hub).
+`skillshare search` requires GitHub auth (`gh auth login`) or `GITHUB_TOKEN`. The `--hub` flag searches a JSON index instead — without a URL it defaults to the public [skillshare-hub](https://github.com/runkids/skillshare-hub).
 
 ### Target Management
 
@@ -265,11 +265,11 @@ skillshare sync
 
 ## Skill Hub
 
-Build a searchable skill catalog for your team or community — no GitHub API required.
+Build a searchable skill catalog for your organization — no GitHub API required.
 
 ```bash
 skillshare hub index                                   # Generate index from installed skills
-skillshare search --hub                                # Browse community skillshare-hub
+skillshare search --hub                                # Browse the public skillshare-hub
 skillshare search react --hub                          # Search "react" in skillshare-hub
 skillshare search --hub ./skillshare-hub.json react    # Search custom local index
 skillshare search --hub https://example.com/hub.json   # Search custom remote index
@@ -277,7 +277,7 @@ skillshare search --hub https://example.com/hub.json   # Search custom remote in
 
 The generated `skillshare-hub.json` follows a versioned schema (`schemaVersion: 1`) with support for tags and multi-skill repos. Host it on any static server, internal CDN, or commit it alongside your skills repo.
 
-The community hub lives at [runkids/skillshare-hub](https://github.com/runkids/skillshare-hub) — open a PR to submit your skills. CI automatically runs `skillshare audit` on every submission to ensure quality and security.
+The public hub at [runkids/skillshare-hub](https://github.com/runkids/skillshare-hub) is the built-in default. Fork it to bootstrap your organization's internal hub — CI validation and `skillshare audit` security scans are included out of the box.
 
 > [!TIP]
 > See the [Hub Index Guide](https://skillshare.runkids.cc/docs/guides/hub-index) for schema details and hosting options.

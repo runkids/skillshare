@@ -4,12 +4,12 @@ sidebar_position: 8
 
 # hub
 
-Manage skill hubs — saved hub sources for search.
+Manage skill hubs — saved hub sources for organization-wide skill discovery.
 
 ## When to Use
 
-- Add a private or community skill hub for `search` to query
-- Switch between multiple hubs (e.g., internal team vs public community)
+- Set up your organization's skill catalog for `search` to query
+- Switch between multiple hubs (e.g., company-wide vs team-specific)
 - List or remove saved hub sources
 
 ## hub add
@@ -200,4 +200,4 @@ hub:
       url: ./local-hub.json
 ```
 
-The community hub ([skillshare-hub](https://github.com/runkids/skillshare-hub)) is implicit and doesn't need to be saved. When no default is set, `search --hub` falls back to the community hub automatically.
+The [public hub](https://github.com/runkids/skillshare-hub) is the built-in default and doesn't need to be saved. When no custom default is set, `search --hub` falls back to it automatically. Fork this repo to bootstrap your own organization's hub.
