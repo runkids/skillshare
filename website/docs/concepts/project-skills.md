@@ -26,26 +26,19 @@ Use project skills when your team needs repo-specific AI instructions (coding st
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         PROJECT MODE                            │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │            .skillshare/skills/                          │   │
-│   │   (project source — committed to git)                   │   │
-│   │                                                         │   │
-│   │   my-skill/   remote-skill/                             │   │
-│   └────────────────────────┬────────────────────────────────┘   │
-│                  sync ↓    │                                    │
-│         ┌──────────────────┼──────────────────┐                 │
-│         ▼                  ▼                  ▼                 │
-│   ┌──────────┐       ┌──────────┐       ┌──────────┐            │
-│   │  .claude │       │  .cursor │       │  custom  │            │
-│   │  /skills │       │  /skills │       │  /skills │            │
-│   └──────────┘       └──────────┘       └──────────┘            │
-│                         TARGETS                                 │
-│          (merge or symlink mode, per-target)                    │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    SRC["`.skillshare/skills/
+(project source — committed to git)
+
+my-skill/ &nbsp; remote-skill/`"]
+    CLAUDE[".claude/skills"]
+    CURSOR[".cursor/skills"]
+    CUSTOM["custom/skills"]
+
+    SRC -->|sync| CLAUDE
+    SRC -->|sync| CURSOR
+    SRC -->|sync| CUSTOM
 ```
 
 ---

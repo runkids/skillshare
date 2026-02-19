@@ -8,16 +8,12 @@ Add skills from GitHub repos, git URLs, or local paths.
 
 ## Overview
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    SKILL LIFECYCLE                           │
-│                                                              │
-│   install ──► source ──► sync ──► targets                    │
-│                 │                                            │
-│              update                                          │
-│                 │                                            │
-│            uninstall ──► sync ──► removed from targets       │
-└──────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    INSTALL["install"] --> SOURCE["source"]
+    SOURCE --> SYNC1["sync"] --> TARGETS["targets"]
+    SOURCE --> UPDATE["update"]
+    SOURCE --> UNINSTALL["uninstall"] --> SYNC2["sync"] --> REMOVED["removed from targets"]
 ```
 
 ## When to Use

@@ -18,36 +18,22 @@ Understanding these concepts helps you get the most out of skillshare.
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     DUAL-LEVEL ARCHITECTURE                     │
-│                                                                 │
-│  ORGANIZATION LEVEL (global, cross-project)                     │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │  Source: ~/.config/skillshare/skills/                     │  │
-│  │  ├── my-skill/         (personal)                         │  │
-│  │  ├── _company-std/     (tracked: org-wide standards)      │  │
-│  │  └── _team-tools/      (tracked: team shared skills)      │  │
-│  └─────────────────────────────┬─────────────────────────────┘  │
-│                     sync ↓     │     ↑ collect                  │
-│           ┌────────────────────┼────────────────────┐           │
-│           ▼                    ▼                    ▼           │
-│     ~/.claude/skills     ~/.cursor/skills     ~/.opencode/      │
-│     (system-wide)        (system-wide)        (system-wide)     │
-│                                                                 │
-│  PROJECT LEVEL (repo-scoped, shared via git)                    │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │  Source: .skillshare/skills/     ← auto-detected by cd    │  │
-│  │  ├── api-conventions/  (local, committed to repo)         │  │
-│  │  └── deploy-guide/     (remote, in .gitignore)            │  │
-│  └─────────────────────────────┬─────────────────────────────┘  │
-│                     sync ↓     │                                │
-│           ┌────────────────────┼────────────────────┐           │
-│           ▼                    ▼                    ▼           │
-│     .claude/skills       .cursor/skills       .custom/skills    │
-│     (project-local)      (project-local)      (project-local)   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph ORG["ORGANIZATION LEVEL"]
+        ORG_SRC["~/.config/skillshare/skills/"]
+        ORG_SRC -- sync --> ORG_T1["~/.claude/skills/"]
+        ORG_SRC -- sync --> ORG_T2["~/.cursor/skills/"]
+        ORG_SRC -- sync --> ORG_T3["~/.opencode/"]
+        ORG_T1 -. collect .-> ORG_SRC
+    end
+
+    subgraph PROJ["PROJECT LEVEL"]
+        PROJ_SRC[".skillshare/skills/"]
+        PROJ_SRC -- sync --> PROJ_T1[".claude/skills/"]
+        PROJ_SRC -- sync --> PROJ_T2[".cursor/skills/"]
+        PROJ_SRC -- sync --> PROJ_T3[".custom/skills/"]
+    end
 ```
 
 ## Key Concepts

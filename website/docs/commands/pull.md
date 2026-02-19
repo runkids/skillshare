@@ -19,33 +19,13 @@ skillshare pull --dry-run    # Preview
 
 ## What Happens
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare pull                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Check repository status                                      │
-│    → Source is a git repo: ✓                                    │
-│    → Remote configured: ✓                                       │
-│    → No local changes: ✓                                        │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Pull from remote                                             │
-│    → git pull                                                   │
-│    → ✓ Pull complete                                            │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. Sync to all targets (automatic)                              │
-│    → skillshare sync                                            │
-│    → ✓ claude: merged (5 linked)                                │
-│    → ✓ cursor: merged (5 linked)                                │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    CMD["skillshare pull"]
+    CHECK["1. Check repository status"]
+    PULL["2. Pull from remote"]
+    SYNC["3. Sync to all targets"]
+    CMD --> CHECK --> PULL --> SYNC
 ```
 
 ## Options

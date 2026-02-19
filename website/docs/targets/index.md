@@ -8,21 +8,20 @@ Targets are AI CLI skill directories that skillshare syncs to.
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        TARGETS                              │
-│                                                             │
-│   Source ─────────────► sync ─────────────► Targets         │
-│                                                             │
-│                         ┌───────────────────────────────┐   │
-│                         │  claude    ~/.claude/skills   │   │
-│                         │  cursor    ~/.cursor/skills   │   │
-│                         │  codex     ~/.codex/skills    │   │
-│                         │  gemini    ~/.gemini/skills   │   │
-│                         │  ...       49+ supported      │   │
-│                         └───────────────────────────────┘   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    SRC["Source"]
+    TGT_CLAUDE["claude &nbsp; ~/.claude/skills"]
+    TGT_CURSOR["cursor &nbsp; ~/.cursor/skills"]
+    TGT_CODEX["codex &nbsp; ~/.codex/skills"]
+    TGT_GEMINI["gemini &nbsp; ~/.gemini/skills"]
+    TGT_MORE["... &nbsp; 49+ supported"]
+
+    SRC -->|sync| TGT_CLAUDE
+    SRC -->|sync| TGT_CURSOR
+    SRC -->|sync| TGT_CODEX
+    SRC -->|sync| TGT_GEMINI
+    SRC -->|sync| TGT_MORE
 ```
 
 ## What do you want to do?

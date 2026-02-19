@@ -22,35 +22,14 @@ Use `collect` when you've created or edited skills directly in a target director
 
 ## What Happens
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare collect claude                                       │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Find local skills (not symlinks) in target                   │
-│    → Found: new-skill, another-skill                            │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Confirm collection                                           │
-│    → "Collect these skills to source? [y/N]"                    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. Copy to source                                               │
-│    ~/.claude/skills/new-skill →                                 │
-│    ~/.config/skillshare/skills/new-skill                        │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 4. Replace with symlink (optional, via sync)                    │
-│    → Run 'skillshare sync' to distribute to all targets         │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    CMD["skillshare collect claude"]
+    FIND["1. Find local skills in target"]
+    CONFIRM["2. Confirm collection"]
+    COPY["3. Copy to source"]
+    SYMLINK["4. Replace with symlink"]
+    CMD --> FIND --> CONFIRM --> COPY --> SYMLINK
 ```
 
 ## Options

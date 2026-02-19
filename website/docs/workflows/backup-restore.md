@@ -10,15 +10,10 @@ Protect your skills and recover from mistakes.
 
 Skillshare maintains automatic backups and provides manual backup/restore commands.
 
-```
-┌───────────────────────────────────────────────────────────────┐
-│                    BACKUP SYSTEM                              │
-│                                                               │
-│   TARGETS ──► backup ──► ~/.local/share/skillshare/backups/   │
-│                                                               │
-│   BACKUPS ──► restore ──► TARGETS                             │
-│                                                               │
-└───────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    T1["TARGETS"] -- backup --> B["~/.local/share/skillshare/backups/"]
+    B -- restore --> T2["TARGETS"]
 ```
 
 ---
@@ -99,27 +94,13 @@ skillshare restore claude --dry-run
 
 ## What Restore Does
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ skillshare restore claude                                   │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 1. Find latest backup for claude                            │
-│    → backups/2026-01-20_15-30-00/claude/                    │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 2. Remove current target directory                          │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│ 3. Copy backup to target                                    │
-│    → ~/.claude/skills/                                      │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TITLE["skillshare restore claude"]
+    S1["1. Find latest backup"]
+    S2["2. Remove current target"]
+    S3["3. Copy backup to target"]
+    TITLE --> S1 --> S2 --> S3
 ```
 
 **Note:** After restore, the target contains real files (not symlinks). Run `skillshare sync` to re-establish symlinks.

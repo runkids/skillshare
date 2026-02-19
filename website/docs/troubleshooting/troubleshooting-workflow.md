@@ -8,13 +8,9 @@ Systematic approach to diagnosing and fixing issues.
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                 TROUBLESHOOTING FLOW                        │
-│                                                             │
-│   DIAGNOSE ──► IDENTIFY ──► FIX ──► VERIFY                  │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    DIAGNOSE["DIAGNOSE"] --> IDENTIFY["IDENTIFY"] --> FIX["FIX"] --> VERIFY["VERIFY"]
 ```
 
 ---

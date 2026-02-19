@@ -43,20 +43,15 @@ Done. Your skills are now synced across all AI CLI tools.
 
 ## How It Works
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    DUAL-LEVEL ARCHITECTURE                  │
-│                                                             │
-│  ORGANIZATION LEVEL              PROJECT LEVEL              │
-│  ~/.config/skillshare/           .skillshare/skills/        │
-│  ├── my-skill/                   ├── api-conventions/       │
-│  └── _company-std/               └── deploy-guide/          │
-│         │                               │                   │
-│         ▼ sync                          ▼ sync              │
-│  ~/.claude/skills/               .claude/skills/            │
-│  (system-wide targets)           (project-local targets)    │
-│                                  ← auto-detected by cd      │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph ORG["ORGANIZATION"]
+        ORG_SRC["~/.config/skillshare/skills/"] -- sync --> ORG_TGT["~/.claude/skills/ etc."]
+    end
+
+    subgraph PROJ["PROJECT"]
+        PROJ_SRC[".skillshare/skills/"] -- sync --> PROJ_TGT[".claude/skills/ etc."]
+    end
 ```
 
 Edit in source → all targets update. Edit in target → changes go to source (via symlinks).

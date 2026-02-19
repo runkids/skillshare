@@ -886,6 +886,64 @@ button[class*="copyButton"]:hover {
 }
 
 /* ========================================
+   MERMAID — fix handDrawn node clipping
+   ======================================== */
+.docusaurus-mermaid-container foreignObject {
+  overflow: visible !important;
+}
+
+/* ========================================
+   TARGET GRID (supported-targets.md)
+   ======================================== */
+.target-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+}
+
+.target-badge {
+  display: inline-block;
+  padding: 0.3rem 0.75rem;
+  border: 1.5px solid var(--color-pencil);
+  border-radius: var(--radius-wobbly-sm);
+  background: var(--color-paper-warm);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.82rem;
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+  color: var(--color-pencil);
+  transition: all 0.15s ease;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* Highlight target row on anchor navigation */
+tr:target {
+  scroll-margin-top: 4.5rem;
+}
+
+tr:target td {
+  background: var(--color-postit);
+  transition: background 0.3s ease;
+}
+
+[data-theme='dark'] tr:target td {
+  background: rgba(232, 168, 76, 0.18);
+}
+
+[data-theme='dark'] .target-badge {
+  border-color: rgba(240, 236, 225, 0.3);
+  background: rgba(36, 33, 32, 0.6);
+}
+
+.target-badge:hover {
+  border-color: var(--color-blue);
+  box-shadow: var(--shadow-hover);
+  transform: translate(1px, 1px);
+}
+
+/* ========================================
    HERO (Docusaurus default hero class)
    ======================================== */
 .hero {

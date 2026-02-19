@@ -8,20 +8,15 @@ Configuration file reference for skillshare.
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    SKILLSHARE FILES                             │
-│                                                                 │
-│  ~/.config/skillshare/                                          │
-│  ├── config.yaml          ← Configuration file                  │
-│  ├── skills/              ← Source directory (your skills)      │
-│  │   ├── my-skill/                                              │
-│  │   ├── another/                                               │
-│  │   └── _team-repo/      ← Tracked repository                  │
-│  └── backups/             ← Automatic backups                   │
-│      └── 2026-01-20.../                                         │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```text
+~/.config/skillshare/
+├── config.yaml          ← Configuration file
+├── skills/              ← Source directory (your skills)
+│   ├── my-skill/
+│   ├── another/
+│   └── _team-repo/      ← Tracked repository
+└── backups/             ← Automatic backups
+    └── 2026-01-20.../
 ```
 
 ---

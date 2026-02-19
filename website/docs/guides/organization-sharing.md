@@ -8,34 +8,11 @@ Share skills across all projects using tracked repositories.
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                  ORGANIZATION SHARING WORKFLOW                  │
-│                                                                 │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │           GitHub: your-org/shared-skills                │   │
-│   │   frontend/ui/   backend/api/   devops/deploy/          │   │
-│   └──────────────────────────┬──────────────────────────────┘   │
-│                              │                                  │
-│              skillshare install --track                         │
-│                              │                                  │
-│                              ▼                                  │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │  Alice's Machine          Bob's Machine                 │   │
-│   │  _org-skills/             _org-skills/                  │   │
-│   │  ├── frontend/ui/         ├── frontend/ui/              │   │
-│   │  ├── backend/api/         ├── backend/api/              │   │
-│   │  └── devops/deploy/       └── devops/deploy/            │   │
-│   └──────────────────────────┬──────────────────────────────┘   │
-│                              │                                  │
-│              skillshare update _org-skills                      │
-│                              │                                  │
-│                              ▼                                  │
-│   ┌─────────────────────────────────────────────────────────┐   │
-│   │  Everyone gets updates instantly                        │   │
-│   └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    REPO["GitHub: your-org/shared-skills"]
+    REPO -- "install --track" --> MACHINES["Team members' machines"]
+    MACHINES -- "update" --> RESULT["Everyone gets updates"]
 ```
 
 ---

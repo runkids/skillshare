@@ -20,49 +20,16 @@ skillshare init --dry-run    # Preview without changes
 
 ## What Happens
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare init                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Create source directory                                      │
-│    → ~/.config/skillshare/skills/                               │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Auto-detect AI CLIs                                          │
-│    → Found: claude, cursor, codex                               │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. Initialize git (optional)                                    │
-│    → Creates initial commit (always)                            │
-│    → Ready for push / pull immediately                          │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 4. Set up remote (optional)                                     │
-│    → Adds git remote                                            │
-│    → Auto-pulls if remote has existing skills                   │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 5. Create config.yaml                                           │
-│    → ~/.config/skillshare/config.yaml                           │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 6. Built-in skill (opt-in)                                      │
-│    → Install built-in skillshare skill? [y/N]                   │
-│    → Adds /skillshare command to AI CLIs                        │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TITLE["skillshare init"]
+    S1["1. Create source directory"]
+    S2["2. Auto-detect AI CLIs"]
+    S3["3. Initialize git"]
+    S4["4. Set up remote"]
+    S5["5. Create config.yaml"]
+    S6["6. Built-in skill"]
+    TITLE --> S1 --> S2 --> S3 --> S4 --> S5 --> S6
 ```
 
 ## Project Mode
@@ -76,36 +43,14 @@ skillshare init -p --targets claude,cursor  # Non-interactive
 
 ### What Happens
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare init -p                                              │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Create .skillshare/ directory                                │
-│    → .skillshare/skills/                                        │
-│    → .skillshare/config.yaml                                    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Detect AI CLI directories in project                         │
-│    → Found: .claude/, .cursor/                                  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. Create target skill directories                              │
-│    → .claude/skills/                                            │
-│    → .cursor/skills/                                            │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 4. Write config.yaml                                            │
-│    → targets: claude, cursor                                    │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TITLE["skillshare init -p"]
+    S1["1. Create .skillshare/ directory"]
+    S2["2. Detect AI CLI directories"]
+    S3["3. Create target skill directories"]
+    S4["4. Write config.yaml"]
+    TITLE --> S1 --> S2 --> S3 --> S4
 ```
 
 After init, commit `.skillshare/` to git. See [Project Setup](/docs/guides/project-setup) for the full guide.

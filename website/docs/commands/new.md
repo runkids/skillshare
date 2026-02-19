@@ -18,28 +18,13 @@ skillshare new <name> --dry-run  # Preview without creating
 - Start with the correct SKILL.md format (name, description, frontmatter)
 
 **What happens:**
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare new my-skill                                         │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Validate skill name                                          │
-│    → lowercase, numbers, hyphens only                           │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Create skill directory                                       │
-│    → ~/.config/skillshare/skills/my-skill/                      │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. Generate SKILL.md template                                   │
-│    → ~/.config/skillshare/skills/my-skill/SKILL.md              │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    CMD["skillshare new my-skill"]
+    VALIDATE["1. Validate skill name"]
+    CREATE["2. Create skill directory"]
+    GENERATE["3. Generate SKILL.md template"]
+    CMD --> VALIDATE --> CREATE --> GENERATE
 ```
 
 ---

@@ -18,22 +18,11 @@ Tracked repositories are git repos cloned into your source with their `.git` dir
 - **Easy updates**: `skillshare update <name>` runs git pull
 - **Version control**: Track which commit you're on
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│              GitHub: team/shared-skills                         │
-│   frontend/ui/   backend/api/   devops/deploy/                  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-              skillshare install --track
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Source: _team-skills/                                          │
-│  ├── .git/              ← Git history preserved                 │
-│  ├── frontend/ui/                                               │
-│  ├── backend/api/                                               │
-│  └── devops/deploy/                                             │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    GH["GitHub: team/shared-skills"]
+    SRC["Source: _team-skills/"]
+    GH -->|"install --track"| SRC
 ```
 
 ---

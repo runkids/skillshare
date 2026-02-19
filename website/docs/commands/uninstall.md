@@ -23,34 +23,13 @@ skillshare uninstall team-repo             # Remove tracked repository (_ prefix
 
 ## What Happens
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare uninstall my-skill                                   │
-│ skillshare uninstall a b c --force                              │
-│ skillshare uninstall --group frontend                           │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Resolve targets                                              │
-│    → Each name resolved in source directory                     │
-│    → Each --group walks group directory (prefix match)          │
-│    → Deduplicate by path                                        │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Pre-flight checks                                            │
-│    → Tracked repos: check for uncommitted changes               │
-│    → Skip problematic skills with warning (batch mode)          │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. Confirm and move to trash (kept 7 days)                      │
-│    → Single: "Are you sure? [y/N]"                              │
-│    → Multi: "Uninstall N skill(s)? [y/N]"                       │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TITLE["skillshare uninstall"]
+    S1["1. Resolve targets"]
+    S2["2. Pre-flight checks"]
+    S3["3. Confirm and move to trash"]
+    TITLE --> S1 --> S2 --> S3
 ```
 
 ## Options

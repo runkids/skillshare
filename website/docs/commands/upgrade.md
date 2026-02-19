@@ -22,32 +22,12 @@ skillshare upgrade --skill      # Skill only
 
 ## What Happens
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare upgrade                                              │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ CLI                                                             │
-│   Current:  v1.1.0                                              │
-│   └── Checking latest version...                                │
-│       └── Latest: v1.2.0                                        │
-│                                                                 │
-│   Upgrade to v1.2.0? [Y/n]: Y                                   │
-│   └── Downloading v1.2.0...                                     │
-│       └── ✓ Upgraded to v1.2.0                                  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ Skill                                                           │
-│   skillshare                                                    │
-│   └── Not installed                                             │
-│       Install built-in skillshare skill? [y/N]: y               │
-│       └── Downloading from GitHub...                            │
-│           └── ✓ Upgraded                                        │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TITLE["skillshare upgrade"]
+    CLI["1. Upgrade CLI binary"]
+    SKILL["2. Upgrade built-in skill"]
+    TITLE --> CLI --> SKILL
 ```
 
 ## Options

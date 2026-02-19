@@ -163,6 +163,14 @@ const config: Config = {
       ],
       copyright: `MIT License · Built with Docusaurus`,
     },
+    mermaid: {
+      theme: {light: 'default', dark: 'dark'},
+      options: {
+        look: 'handDrawn',
+        handDrawnSeed: 42,
+        flowchart: {curve: 'basis', padding: 20},
+      },
+    },
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,

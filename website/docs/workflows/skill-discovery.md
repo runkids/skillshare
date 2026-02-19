@@ -8,13 +8,9 @@ Find, evaluate, and install skills from the community.
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                  SKILL DISCOVERY FLOW                       │
-│                                                             │
-│   SEARCH ──► BROWSE ──► EVALUATE ──► INSTALL ──► SYNC       │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    SEARCH["SEARCH"] --> BROWSE["BROWSE"] --> EVALUATE["EVALUATE"] --> INSTALL["INSTALL"] --> SYNC["SYNC"]
 ```
 
 ---

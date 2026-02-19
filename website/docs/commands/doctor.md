@@ -23,10 +23,8 @@ skillshare doctor -g     # Force global mode
 
 ## What It Checks
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare doctor                                               │
-└─────────────────────────────────────────────────────────────────┘
+```text
+skillshare doctor
 
 Checking environment
   ✓ Config: ~/.config/skillshare/config.yaml

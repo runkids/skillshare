@@ -31,36 +31,14 @@ cd my-project
 skillshare init -p
 ```
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare init -p                                              │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Create .skillshare/ directory                                │
-│    → .skillshare/skills/                                        │
-│    → .skillshare/config.yaml                                    │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Detect AI CLI directories in project                         │
-│    → Found: .claude/, .cursor/                                  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. Create target skill directories                              │
-│    → .claude/skills/                                            │
-│    → .cursor/skills/                                            │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 4. Write config.yaml                                            │
-│    → targets: claude, cursor                                    │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TITLE["skillshare init -p"]
+    S1["1. Create .skillshare/ directory"]
+    S2["2. Detect AI CLI directories"]
+    S3["3. Create target skill directories"]
+    S4["4. Write config.yaml"]
+    TITLE --> S1 --> S2 --> S3 --> S4
 ```
 
 :::tip Auto-Detection

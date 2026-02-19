@@ -8,13 +8,9 @@ From idea to published skill.
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   SKILL CREATION FLOW                       │
-│                                                             │
-│   IDEA ──► CREATE ──► WRITE ──► TEST ──► PUBLISH            │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    IDEA["IDEA"] --> CREATE["CREATE"] --> WRITE["WRITE"] --> TEST["TEST"] --> PUBLISH["PUBLISH"]
 ```
 
 ---

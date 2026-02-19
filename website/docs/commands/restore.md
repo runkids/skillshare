@@ -19,28 +19,13 @@ skillshare restore claude --dry-run                    # Preview
 
 ## What Happens
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare restore claude                                       │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Find latest backup for claude                                │
-│    → backups/2026-01-20_15-30-00/claude/                        │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Remove current target directory                              │
-│    → ~/.claude/skills/ (removed)                                │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. Copy backup to target                                        │
-│    → ~/.claude/skills/ (restored)                               │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    CMD["skillshare restore claude"]
+    FIND["1. Find latest backup"]
+    REMOVE["2. Remove current target"]
+    COPY["3. Copy backup to target"]
+    CMD --> FIND --> REMOVE --> COPY
 ```
 
 ## Options

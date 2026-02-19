@@ -8,21 +8,14 @@ The edit → sync → commit cycle for project-level skill management.
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                  PROJECT WORKFLOW                               │
-│                                                                 │
-│   EDIT ──► SYNC ──► COMMIT ──► PUSH                             │
-│     │        │                    │                             │
-│     ▼        ▼                    ▼                             │
-│   .skillshare/   .claude/       Remote                          │
-│   skills/        .cursor/       (GitHub)                        │
-│                  etc.              │                            │
-│                                    ▼                            │
-│                              Team members                       │
-│                              clone + install + sync             │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    EDIT["EDIT"] --> SYNC["SYNC"] --> COMMIT["COMMIT"] --> PUSH["PUSH"]
+    EDIT --- SRC[".skillshare/skills/"]
+    SYNC --- TGT[".claude/ .cursor/ etc."]
+    PUSH --> REMOTE["Remote"]
+    REMOTE --> TEAM["Team"]
+    TEAM -.-> EDIT
 ```
 
 ---

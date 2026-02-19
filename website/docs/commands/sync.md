@@ -30,28 +30,24 @@ Operations like `install` and `uninstall` only modify source — sync propagates
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      SYNC OPERATIONS                            │
-│                                                                 │
-│                        ┌──────────┐                             │
-│                        │  Remote  │                             │
-│                        │  (git)   │                             │
-│                        └────┬─────┘                             │
-│                    push ↑   │   ↓ pull                          │
-│                             │                                   │
-│    ┌────────────────────────┼────────────────────────┐          │
-│    │                  SOURCE                         │          │
-│    │        ~/.config/skillshare/skills/             │          │
-│    └────────────────────────┬────────────────────────┘          │
-│                 sync ↓      │      ↑ collect                    │
-│         ┌───────────────────┼───────────────────┐               │
-│         ▼                   ▼                   ▼               │
-│   ┌──────────┐        ┌──────────┐        ┌──────────┐          │
-│   │  Claude  │        │  Cursor  │        │  Codex   │          │
-│   └──────────┘        └──────────┘        └──────────┘          │
-│                         TARGETS                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    REMOTE["`Remote
+(git)`"]
+    SOURCE["`SOURCE
+~/.config/skillshare/skills/`"]
+    CLAUDE["Claude"]
+    CURSOR["Cursor"]
+    CODEX["Codex"]
+
+    SOURCE -- push --> REMOTE
+    REMOTE -- pull --> SOURCE
+    SOURCE -- sync --> CLAUDE
+    SOURCE -- sync --> CURSOR
+    SOURCE -- sync --> CODEX
+    CLAUDE -- collect --> SOURCE
+    CURSOR -- collect --> SOURCE
+    CODEX -- collect --> SOURCE
 ```
 
 | Command | Direction | Description |
@@ -96,38 +92,17 @@ skillshare sync -n           # Short form
 
 ### What Happens
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare sync                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Backup targets (automatic)                                   │
-│    → ~/.local/share/skillshare/backups/2026-01-20_15-30-00/     │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. For each target:                                             │
-│    ┌─────────────────────────────────────────────────────────┐  │
-│    │ merge mode:                                             │  │
-│    │   • Create symlink for each skill                       │  │
-│    │   • Apply per-target include/exclude filters            │  │
-│    │   • Preserve local-only skills                          │  │
-│    │   • Prune orphaned symlinks                             │  │
-│    ├─────────────────────────────────────────────────────────┤  │
-│    │ symlink mode:                                           │  │
-│    │   • Replace entire directory with symlink               │  │
-│    └─────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. Report results                                               │
-│    ✓ claude: merged (5 linked, 2 local, 0 updated, 1 pruned)    │
-│    ✓ cursor: merged (5 linked, 0 local, 0 updated, 0 pruned)    │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TITLE["skillshare sync"]
+    S1["1. Backup targets"]
+    S2["2. For each target"]
+    MERGE["merge mode"]
+    SYMLINK["symlink mode"]
+    S3["3. Report results"]
+    TITLE --> S1 --> S2
+    S2 --> MERGE --> S3
+    S2 --> SYMLINK --> S3
 ```
 
 ### Example Output
@@ -150,28 +125,13 @@ skillshare collect --all            # Collect from all targets
 
 **When to use**: You created/edited a skill directly in a target (e.g., `~/.claude/skills/`) and want to bring it to source.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare collect claude                                       │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Find skills in target that aren't symlinks                   │
-│    → ~/.claude/skills/new-skill/ (local)                        │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Copy to source                                               │
-│    → ~/.config/skillshare/skills/new-skill/                     │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. Replace original with symlink                                │
-│    ~/.claude/skills/new-skill → source/new-skill                │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TITLE["skillshare collect claude"]
+    S1["1. Find local skills in target"]
+    S2["2. Copy to source"]
+    S3["3. Replace with symlink"]
+    TITLE --> S1 --> S2 --> S3
 ```
 
 **After collecting:**
@@ -193,21 +153,12 @@ skillshare pull --dry-run    # Preview
 
 **When to use**: You pushed changes from another machine and want to sync them here.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare pull                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. cd ~/.config/skillshare/skills                               │
-│    git pull                                                     │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. skillshare sync (automatic)                                  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TITLE["skillshare pull"]
+    S1["1. git pull"]
+    S2["2. skillshare sync"]
+    TITLE --> S1 --> S2
 ```
 
 ---
@@ -221,18 +172,12 @@ skillshare push                  # Auto-generated message
 skillshare push -m "Add pdf"     # Custom message
 ```
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare push -m "Add pdf skill"                              │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ cd ~/.config/skillshare/skills                                  │
-│ git add .                                                       │
-│ git commit -m "Add pdf skill"                                   │
-│ git push                                                        │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TITLE["skillshare push -m 'Add pdf skill'"]
+    S1["`cd source
+git add → commit → push`"]
+    TITLE --> S1
 ```
 
 **Conflict handling:**
@@ -417,27 +362,13 @@ skillshare restore claude --from 2026-01-19_10-00-00   # Specific backup
 skillshare restore claude --dry-run                    # Preview
 ```
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare restore claude                                       │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Find latest backup for claude                                │
-│    → backups/2026-01-20_15-30-00/claude/                        │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Remove current target directory                              │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. Copy backup to target                                        │
-│    → ~/.claude/skills/                                          │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    CMD["skillshare restore claude"]
+    FIND["1. Find latest backup"]
+    REMOVE["2. Remove current target"]
+    COPY["3. Copy backup to target"]
+    CMD --> FIND --> REMOVE --> COPY
 ```
 
 ---

@@ -24,52 +24,23 @@ skillshare update --all              # Update everything
 
 ### For Tracked Repositories
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare update _team-skills                                  │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Check for uncommitted changes                                │
-│    → "Repository has uncommitted changes"                       │
-│    → Use --force to discard and update                          │
-└─────────────────────────────────────────────────────────────────┘
-                              │ (clean)
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Run git pull                                                 │
-│    → Fetching from origin...                                    │
-│    → 3 commits, 5 files changed                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 3. Show changes                                                 │
-│    → abc1234  Add new feature                                   │
-│    → def5678  Fix bug in parser                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TITLE["skillshare update _team-skills"]
+    S1["1. Check for uncommitted changes"]
+    S2["2. Run git pull"]
+    S3["3. Show changes"]
+    TITLE --> S1 -- clean --> S2 --> S3
 ```
 
 ### For Regular Skills
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare update my-skill                                      │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 1. Read metadata                                                │
-│    → Source: github.com/user/skills                             │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│ 2. Re-install from source                                       │
-│    → Cloning repository...                                      │
-│    → Updated my-skill                                           │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    TITLE["skillshare update my-skill"]
+    S1["1. Read metadata"]
+    S2["2. Re-install from source"]
+    TITLE --> S1 --> S2
 ```
 
 ## Options

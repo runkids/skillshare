@@ -36,22 +36,15 @@ Without skillshare, you manage skills separately for each AI CLI:
 
 Skillshare introduces a **source directory** that syncs to all **targets**:
 
-```
-┌─────────────────────────────────────────┐
-│         SOURCE (edit here)              │
-│   ~/.config/skillshare/skills/          │
-│                                         │
-│   my-skill/   another/   _team-repo/    │
-└─────────────────────────────────────────┘
-                    │
-                    │ skillshare sync
-                    ▼
-┌─────────────────────────────────────────┐
-│              TARGETS                    │
-│   ~/.claude/skills/  (symlinks)         │
-│   ~/.cursor/skills/  (symlinks)         │
-│   ~/.codex/skills/   (symlinks)         │
-└─────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    SRC["SOURCE — ~/.config/skillshare/skills/"]
+    TGT_CLAUDE["~/.claude/skills/"]
+    TGT_CURSOR["~/.cursor/skills/"]
+    TGT_CODEX["~/.codex/skills/"]
+    SRC -->|"sync"| TGT_CLAUDE
+    SRC -->|"sync"| TGT_CURSOR
+    SRC -->|"sync"| TGT_CODEX
 ```
 
 **Benefits:**
@@ -109,16 +102,11 @@ This is where:
 
 You can use folders to organize your own skills — they'll be auto-flattened when synced to targets:
 
-```
-SOURCE (organized)                  TARGET (flattened)
-────────────────────────────────────────────────────────────
-~/.config/skillshare/skills/        ~/.claude/skills/
-├── work/                           ├── work__api-design/
-│   ├── api-design/        ───►     ├── work__code-review/
-│   └── code-review/       ───►     ├── personal__blog-helper/
-├── personal/                       └── personal__recipe/
-│   ├── blog-helper/       ───►
-│   └── recipe/            ───►
+```mermaid
+flowchart LR
+    SRC["SOURCE (organized)"]
+    TGT["TARGET (flattened)"]
+    SRC -->|"auto-flatten"| TGT
 ```
 
 **Benefits:**

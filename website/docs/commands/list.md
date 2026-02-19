@@ -82,26 +82,18 @@ Tracked repositories
 
 Skillshare operates at two levels. The `list` command shows skills from the active level:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  GLOBAL (machine-wide)          PROJECT (repository-scoped) │
-│                                                             │
-│  ~/.config/skillshare/          <project>/.skillshare/      │
-│  └── skills/                    └── skills/                 │
-│      ├── my-skill/                  ├── local-skill/        │
-│      ├── commit-cmds/               └── remote-skill/       │
-│      └── _team-repo/                                        │
-│                                                             │
-│  ┌───────────────┐              ┌───────────────┐           │
-│  │ list / list -g│              │ list -p       │           │
-│  └───────┬───────┘              └───────┬───────┘           │
-│          ▼                              ▼                   │
-│  Installed skills               Installed skills (project)  │
-│  ─────────────────              ──────────────────────────  │
-│  frontend/                      tools/                      │
-│    → react..  github.com/...      → pdf  github.com/...     │
-│  → my-skill  local              → local-skill   local       │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph GLOBAL["GLOBAL"]
+        G_SRC["~/.config/skillshare/skills/"]
+        G_CMD["list / list -g"]
+        G_CMD --> G_SRC
+    end
+    subgraph PROJECT["PROJECT"]
+        P_SRC[".skillshare/skills/"]
+        P_CMD["list -p"]
+        P_CMD --> P_SRC
+    end
 ```
 
 | | Global | Project |
@@ -115,12 +107,11 @@ Skillshare operates at two levels. The `list` command shows skills from the acti
 
 When you run `skillshare list` without flags, skillshare automatically detects the mode:
 
-```
-skillshare list
-    │
-    ├── .skillshare/config.yaml exists?
-    │       ├── YES → Project mode
-    │       └── NO  → Global mode
+```mermaid
+flowchart LR
+    CMD["skillshare list"] --> CHECK{".skillshare/config.yaml exists?"}
+    CHECK -- YES --> PROJ["Project mode"]
+    CHECK -- NO --> GLOB["Global mode"]
 ```
 
 ```bash

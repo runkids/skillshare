@@ -9,7 +9,6 @@ Use Docker for repeatable testing, frontend development without Go, production d
 ## Mode Selection Diagram
 
 ```mermaid
-%%{init: {'flowchart': {'htmlLabels': false}}}%%
 flowchart TD
 A["Need Docker"] --> B{"Primary goal"}
 B --> C["Regression checks"]

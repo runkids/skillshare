@@ -8,20 +8,13 @@ The edit → sync → push/pull cycle for everyday skill management.
 
 ## Overview
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    DAILY WORKFLOW                           │
-│                                                             │
-│   EDIT ──► SYNC ──► PUSH ───────────────► Remote            │
-│     │        │                               │              │
-│     │        │                               │              │
-│     ▼        ▼                               ▼              │
-│   Source   Targets                         Pull             │
-│     │                                        │              │
-│     │                                        │              │
-│     ◄────────────────────────────────────────┘              │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    EDIT["EDIT"] --> SYNC["SYNC"] --> PUSH["PUSH"] --> REMOTE["Remote"]
+    EDIT --- SRC["Source"]
+    SYNC --- TGT["Targets"]
+    REMOTE --> PULL["Pull"]
+    PULL -.-> EDIT
 ```
 
 ---

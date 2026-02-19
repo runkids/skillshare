@@ -8,28 +8,26 @@ Sync your skills across multiple computers using git.
 
 ## Overview
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    CROSS-MACHINE SYNC                        │
-│                                                              │
-│  ┌─────────────────┐                    ┌─────────────────┐  │
-│  │   Machine A     │                    │   Machine B     │  │
-│  │   (Work)        │                    │   (Home)        │  │
-│  │                 │                    │                 │  │
-│  │  ┌───────────┐  │                    │  ┌───────────┐  │  │
-│  │  │  Claude   │  │                    │  │  Claude   │  │  │
-│  │  │  Cursor   │  │                    │  │  Codex    │  │  │
-│  │  └─────┬─────┘  │                    │  └─────┬─────┘  │  │
-│  │        │        │                    │        │        │  │
-│  │        ▼        │                    │        ▼        │  │
-│  │  ┌───────────┐  │  push      pull    │  ┌───────────┐  │  │
-│  │  │  Source   │──┼────────►───────────┼──│  Source   │  │  │
-│  │  │  (git)    │  │   ┌──────────┐     │  │  (git)    │  │  │
-│  │  └───────────┘  │   │  GitHub  │     │  └───────────┘  │  │
-│  │                 │   │  Remote  │     │                 │  │
-│  └─────────────────┘   └──────────┘     └─────────────────┘  │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph A["Machine A (Work)"]
+        A_TARGETS["`Claude
+Cursor`"]
+        A_SRC["Source (git)"]
+        A_TARGETS --- A_SRC
+    end
+
+    REMOTE["GitHub Remote"]
+
+    subgraph B["Machine B (Home)"]
+        B_SRC["Source (git)"]
+        B_TARGETS["`Claude
+Codex`"]
+        B_SRC --- B_TARGETS
+    end
+
+    A_SRC -->|push| REMOTE
+    REMOTE -->|pull| B_SRC
 ```
 
 ---
