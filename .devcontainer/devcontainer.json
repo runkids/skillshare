@@ -1,0 +1,34 @@
+{
+  "name": "Skillshare Dev",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "skillshare-devcontainer",
+  "workspaceFolder": "/workspace",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24",
+      "pnpmVersion": "10.28.0"
+    }
+  },
+  "forwardPorts": [19420, 5173, 3000],
+  "portsAttributes": {
+    "19420": { "label": "API Server" },
+    "5173": { "label": "Vite (UI)" },
+    "3000": { "label": "Docusaurus" }
+  },
+  "remoteEnv": {
+    "PATH": "/workspace/bin:${containerEnv:PATH}",
+    "SKILLSHARE_UI_HOST": "0.0.0.0"
+  },
+  "postCreateCommand": ".devcontainer/setup.sh",
+  "postStartCommand": ".devcontainer/start-dev.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "bradlc.vscode-tailwindcss",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  }
+}

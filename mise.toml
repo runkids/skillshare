@@ -23,6 +23,7 @@ echo "  mise run sandbox:reset  # stop + remove playground volume (full reset)"
 echo "  mise run sandbox:status # show playground container status"
 echo "  mise run dev:docker:up  # Go API server in Docker (pair with: cd ui && pnpm run dev)"
 echo "  mise run dev:docker:down  # stop dev profile container"
+echo "  mise run dev:docker:watch  # Go API server with auto-rebuild on Go file changes"
 echo "  mise run docker:build   # build production Docker image"
 echo "  mise run docker:build:multiarch  # build multi-arch production image"
 echo "  mise run lint           # go vet"
@@ -109,6 +110,10 @@ run = "docker compose -f docker-compose.sandbox.yml --profile dev up -d sandbox-
 description = "Stop dev profile container"
 run = "docker compose -f docker-compose.sandbox.yml --profile dev down"
 
+[tasks."dev:docker:watch"]
+description = "Go API server in Docker with auto-rebuild on Go file changes"
+run = "docker compose -f docker-compose.sandbox.yml --profile dev watch"
+
 [tasks."docker:build"]
 description = "Build production Docker image"
 run = "docker build -f docker/production/Dockerfile -t skillshare ."
@@ -150,7 +155,7 @@ run = "cd ui && pnpm run build"
 description = "Go API server + Vite dev server"
 run = """
 trap 'kill 0' EXIT
-go run ./cmd/skillshare ui --no-open &
+go run ./cmd/skillshare ui --no-open --host ${SKILLSHARE_UI_HOST:-localhost} &
 cd ui && pnpm run dev
 """
 

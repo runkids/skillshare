@@ -16,6 +16,7 @@ B --> D["Remote-source validation"]
 B --> E["Command exploration"]
 B --> F["Frontend development"]
 B --> G["Deployment / CI"]
+B --> H["VS Code / Codespaces"]
 
 C --> C1["Offline test sandbox"]
 C1 --> C2["make test-docker"]
@@ -32,6 +33,9 @@ F1 --> F2["dev-docker-up + ui-dev"]
 G --> G1{"Production or CI?"}
 G1 --> G2["docker-build"]
 G1 --> G3["docker/ci/Dockerfile"]
+
+H --> H1["Devcontainer"]
+H1 --> H2["Reopen in Container"]
 ```
 
 Command mapping:
@@ -46,6 +50,7 @@ Command mapping:
 | `sandbox-status` | `mise run sandbox:status` | `make sandbox-status` |
 | `dev-docker-up` | `mise run dev:docker:up` | `make dev-docker-up` |
 | `dev-docker-down` | `mise run dev:docker:down` | `make dev-docker-down` |
+| `dev-docker-watch` | `mise run dev:docker:watch` | `make dev-docker-watch` |
 | `docker-build` | `mise run docker:build` | `make docker-build` |
 | `docker-build-multiarch` | `mise run docker:build:multiarch` | `make docker-build-multiarch` |
 
@@ -57,6 +62,7 @@ Command mapping:
 | Online test sandbox | Optional remote install/update checks | Enabled | One-shot |
 | Interactive playground | Manual command exploration and demos | Enabled | Persistent |
 | Dev profile | Go API server in Docker + Vite HMR on host | Enabled | Persistent |
+| Devcontainer | VS Code / Codespaces one-click dev environment | Enabled | Persistent |
 | Production image | Lightweight deployment (`docker/production/`) | Enabled | Persistent |
 | CI image | Skill validation in pipelines (`docker/ci/`) | Enabled | One-shot |
 
@@ -266,7 +272,116 @@ make dev-docker-down
 
 Both approaches give you instant HMR for `ui/` changes. The Docker variant pins the Go toolchain so backend behavior is consistent across contributors.
 
-**Note:** Go code changes require restarting the server — `Ctrl+C` and re-run for `make ui-dev`, or `make dev-docker-down && make dev-docker-up` for Docker.
+**With Docker Compose Watch** (auto-rebuild on Go changes):
+
+```bash
+# Terminal 1
+make dev-docker-watch    # watches cmd/, internal/, go.mod — auto-rebuilds on change
+
+# Terminal 2
+cd ui && pnpm run dev    # Vite dev server (localhost:5173, proxies /api → :19420)
+```
+
+When you edit Go files, Compose Watch detects the change, rebuilds the container, and restarts the API server automatically. No manual restart needed. Requires Docker Compose v2.22+.
+
+**Note:** Without Compose Watch, Go code changes require restarting the server — `Ctrl+C` and re-run for `make ui-dev`, or `make dev-docker-down && make dev-docker-up` for Docker.
+
+---
+
+## Devcontainer (VS Code / Codespaces)
+
+Open the project in a ready-to-code container — no local Go, Node, or pnpm needed.
+
+:::info Devcontainer vs Playground
+Both use the same base image and demo content. The **playground** (`make sandbox-up`) is a terminal-only environment for exploring commands. The **devcontainer** adds VS Code integration (IntelliSense, debugger, extensions) for developing the skillshare codebase itself.
+:::
+
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) running
+- VS Code with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension installed
+
+:::tip GitHub Codespaces
+On GitHub, click **Code → Codespaces → New codespace**. The devcontainer config is picked up automatically — no local Docker or extension needed.
+:::
+
+### Getting started
+
+1. Open the project folder in VS Code
+2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on macOS) and select **Dev Containers: Reopen in Container**
+3. Wait for the container to build (first time takes a few minutes, subsequent opens are fast)
+4. Once ready, the setup script builds the binary and creates demo skills automatically
+
+### What's included
+
+The devcontainer reuses the same `docker/sandbox/Dockerfile` as the sandbox, so you get:
+
+- Go 1.25 toolchain
+- Node.js 24 + pnpm (via [devcontainer feature](https://github.com/devcontainers/features/tree/main/src/node)) — enables `make ui-dev` and `cd website && pnpm start` inside the container
+- VS Code extensions: Go, Tailwind CSS, ESLint, Prettier
+- Ports forwarded: `19420` (Web UI), `5173` (Vite HMR), `3000` (Docusaurus)
+- Source code mounted at `/workspace`
+- **Pre-configured demo environment** — same as the interactive playground:
+  - Shortcut commands in PATH (`ss`, `skillshare-ui`, `skillshare-ui-p`, `website-dev`, `dev-servers`)
+  - Frontend dependencies pre-installed (`ui/` and `website/`)
+  - Global demo skills (audit examples, deploy checklist)
+  - Custom audit rules (global + project)
+  - Demo project at `~/demo-project` with project-mode skills
+
+### Quick start after container opens
+
+```bash
+ss status                 # global mode — already initialized
+ss list                   # see demo skills (flat + nested)
+ss audit                  # run audit with custom rules
+
+cd ~/demo-project
+ss status                 # auto-detects project mode
+ss audit                  # project-level audit
+skillshare-ui-p           # project mode web dashboard (port 19420)
+```
+
+### Frontend development
+
+All three dev servers start automatically when the container opens:
+
+| Port | Service | What it serves |
+|------|---------|----------------|
+| `19420` | Go API server | REST API backend |
+| `5173` | Vite | React UI with hot reload |
+| `3000` | Docusaurus | Documentation site with hot reload |
+
+Open `http://localhost:5173` (UI) or `http://localhost:3000` (docs) in your host browser — they're ready immediately.
+These URLs are available via Dev Containers port forwarding (no fixed host port bind in `.devcontainer/docker-compose.yml`).
+
+**Managing dev servers:**
+
+```bash
+dev-servers status              # check which servers are running
+dev-servers restart             # restart all
+dev-servers restart vite        # restart just Vite
+dev-servers stop docusaurus     # stop just Docusaurus
+dev-servers logs api            # tail Go API server log
+```
+
+Servers shut down automatically when the container stops and restart on the next container start.
+
+### Running the Web UI inside the container
+
+```bash
+skillshare-ui             # global mode dashboard
+skillshare-ui-p           # project mode dashboard
+
+# VS Code auto-forwards port 19420 → open http://localhost:19420
+```
+
+### Running tests
+
+```bash
+make test          # unit + integration
+make test-unit     # unit only
+make lint          # go vet
+```
 
 ---
 
@@ -317,7 +432,7 @@ On tag push (`v*`), the `docker-publish` GitHub Actions workflow builds and push
 - **Playground and dev profile share port 19420** — run only one at a time. Stop the other first (`make sandbox-down` or `make dev-docker-down`).
 - Offline sandbox cannot validate network-dependent features (for example remote `install` from GitHub).
 - Playground uses container-local `HOME`, so it does not directly modify your real host home config.
-- Go code changes are picked up automatically (`go build` runs inside the container from mounted source). **Frontend (`ui/`) changes** require running `make ui-build` on the host first, since the container does not have Node.js.
+- Go code changes are picked up automatically (`go build` runs inside the container from mounted source). **Frontend (`ui/`) changes** are picked up instantly when running `make ui-dev` (Vite HMR) inside the devcontainer. For the playground, run `make ui-build` on the host first since the playground container does not include Node.js.
 - If you need custom experiments, pass commands directly:
 
 ```bash

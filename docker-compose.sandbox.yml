@@ -87,6 +87,16 @@ services:
     environment:
       HOME: /tmp
       GOCACHE: /go/build-cache
+    develop:
+      watch:
+        - action: rebuild
+          path: ./cmd
+        - action: rebuild
+          path: ./internal
+        - action: rebuild
+          path: ./go.mod
+        - action: rebuild
+          path: ./go.sum
 
 volumes:
   go-mod-cache:

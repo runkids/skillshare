@@ -1,0 +1,22 @@
+# Devcontainer-only service: no profile restriction, stays alive for VS Code attach.
+# Reuses the same Dockerfile and volume setup as sandbox-dev.
+services:
+  skillshare-devcontainer:
+    build:
+      context: ..
+      dockerfile: docker/sandbox/Dockerfile
+    working_dir: /workspace
+    command: sleep infinity
+    environment:
+      HOME: /tmp
+      GOCACHE: /go/build-cache
+    volumes:
+      - ..:/workspace
+      - go-mod-cache:/go/pkg/mod
+      - go-build-cache:/go/build-cache
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  go-mod-cache:
+  go-build-cache:

@@ -1,4 +1,4 @@
-.PHONY: help build build-meta run test test-unit test-int test-cover test-install test-docker test-docker-online sandbox-up sandbox-bare sandbox-shell sandbox-down sandbox-reset sandbox-status dev-docker-up dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
+.PHONY: help build build-meta run test test-unit test-int test-cover test-install test-docker test-docker-online sandbox-up sandbox-bare sandbox-shell sandbox-down sandbox-reset sandbox-status dev-docker-up dev-docker-down dev-docker-watch docker-build docker-build-multiarch lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
 
 help:
 	@echo "Common tasks:"
@@ -19,6 +19,7 @@ help:
 	@echo "  make sandbox-status          # show playground container status"
 	@echo "  make dev-docker-up           # Go API server in Docker (pair with: cd ui && pnpm run dev)"
 	@echo "  make dev-docker-down         # stop dev profile container"
+	@echo "  make dev-docker-watch        # Go API server with auto-rebuild on Go file changes"
 	@echo "  make docker-build            # build production Docker image"
 	@echo "  make docker-build-multiarch  # build multi-arch production image"
 	@echo "  make lint                    # go vet"
@@ -85,6 +86,9 @@ dev-docker-up:
 dev-docker-down:
 	docker compose -f docker-compose.sandbox.yml --profile dev down
 
+dev-docker-watch:
+	docker compose -f docker-compose.sandbox.yml --profile dev watch
+
 docker-build:
 	docker build -f docker/production/Dockerfile -t skillshare .
 
@@ -113,7 +117,7 @@ ui-build: ui-install
 
 ui-dev:
 	@trap 'kill 0' EXIT; \
-	go run ./cmd/skillshare ui --no-open & \
+	go run ./cmd/skillshare ui --no-open --host $${SKILLSHARE_UI_HOST:-localhost} & \
 	cd ui && pnpm run dev
 
 build-all: ui-build build
