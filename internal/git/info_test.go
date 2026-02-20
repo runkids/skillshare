@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -157,5 +158,43 @@ func TestIsDirtyAndGetDirtyFiles(t *testing.T) {
 	}
 	if len(files) == 0 {
 		t.Error("expected at least one dirty file")
+	}
+}
+
+func addRemote(t *testing.T, repoPath, remoteURL string) {
+	t.Helper()
+	cmd := exec.Command("git", "remote", "add", "origin", remoteURL)
+	cmd.Dir = repoPath
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("failed to add remote: %v (%s)", err, strings.TrimSpace(string(out)))
+	}
+}
+
+func TestAuthEnvForRepo_UsesGitHubToken(t *testing.T) {
+	repo := initTestRepo(t)
+	addRemote(t, repo, "https://github.com/org/private-repo.git")
+	t.Setenv("GITHUB_TOKEN", "ghp_test_token_123")
+
+	env := authEnvForRepo(repo)
+	if len(env) != 3 {
+		t.Fatalf("expected auth env with 3 entries, got %d: %v", len(env), env)
+	}
+	if !strings.Contains(env[1], "url.https://x-access-token:ghp_test_token_123@github.com/.insteadOf") {
+		t.Fatalf("unexpected auth key env: %q", env[1])
+	}
+	if !strings.Contains(env[2], "https://github.com/") {
+		t.Fatalf("unexpected auth value env: %q", env[2])
+	}
+}
+
+func TestAuthEnvForRepo_NoTokenReturnsNil(t *testing.T) {
+	repo := initTestRepo(t)
+	addRemote(t, repo, "https://github.com/org/private-repo.git")
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
+
+	env := authEnvForRepo(repo)
+	if env != nil {
+		t.Fatalf("expected nil auth env without tokens, got: %v", env)
 	}
 }

@@ -257,9 +257,9 @@ func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force bool) err
 	var info *git.UpdateInfo
 	var err error
 	if force {
-		info, err = git.ForcePull(repoPath)
+		info, err = git.ForcePullWithAuth(repoPath)
 	} else {
-		info, err = git.Pull(repoPath)
+		info, err = git.PullWithAuth(repoPath)
 	}
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("%s failed: %v", repoName, err))
