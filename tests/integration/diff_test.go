@@ -182,3 +182,32 @@ targets:
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "missing")
 }
+
+func TestDiff_CopyMode_DetectsDeletedTargetDir(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{
+		"SKILL.md": "# Skill A",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+
+	// Sync to establish manifest
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	// Manually delete the target skill directory
+	os.RemoveAll(filepath.Join(targetPath, "skill-a"))
+
+	// Diff should detect the missing directory, NOT report "Fully synced"
+	result := sb.RunCLI("diff")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "missing")
+	result.AssertOutputNotContains(t, "synced")
+}
