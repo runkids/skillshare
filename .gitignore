@@ -30,6 +30,9 @@ docs/plans/
 
 video/node_modules/
 
+# Devcontainer secrets
+.devcontainer/.env
+
 # Web UI
 ui/node_modules/
 ui/dist/

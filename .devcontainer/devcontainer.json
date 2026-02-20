@@ -17,7 +17,12 @@
   },
   "remoteEnv": {
     "PATH": "/workspace/.devcontainer/bin:/workspace/bin:${containerEnv:PATH}",
-    "SKILLSHARE_UI_HOST": "0.0.0.0"
+    "SKILLSHARE_UI_HOST": "0.0.0.0",
+    "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}",
+    "GITLAB_TOKEN": "${localEnv:GITLAB_TOKEN}",
+    "BITBUCKET_TOKEN": "${localEnv:BITBUCKET_TOKEN}",
+    "BITBUCKET_USERNAME": "${localEnv:BITBUCKET_USERNAME}",
+    "SKILLSHARE_GIT_TOKEN": "${localEnv:SKILLSHARE_GIT_TOKEN}"
   },
   "postCreateCommand": ".devcontainer/setup.sh",
   "postStartCommand": ".devcontainer/start-dev.sh",

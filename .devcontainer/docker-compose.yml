@@ -7,6 +7,9 @@ services:
       dockerfile: docker/sandbox/Dockerfile
     working_dir: /workspace
     command: sleep infinity
+    env_file:
+      - path: .env
+        required: false
     environment:
       HOME: /tmp
       GOCACHE: /go/build-cache

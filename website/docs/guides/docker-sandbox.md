@@ -326,6 +326,38 @@ docs stop                 # stop Docusaurus
 
 `ui` starts both the Go API backend (port 19420, background) and Vite dev server (port 5173, HMR). Switching between `ui` and `ui -p` automatically restarts the API in the new mode. VS Code auto-forwards ports to your host browser.
 
+### Token configuration
+
+Tokens for private repo access (`GITHUB_TOKEN`, `GITLAB_TOKEN`, etc.) can come from multiple sources. They are checked in this order:
+
+| Priority | Source | Setup |
+|----------|--------|-------|
+| 1 | `.devcontainer/.env` | Copy `.env.example` → `.env`, fill in values (gitignored) |
+| 2 | Host env vars | Set in `~/.zshrc` — forwarded via `remoteEnv` in `devcontainer.json` |
+| 3 | `gh auth login` | `GITHUB_TOKEN` auto-detected on container start (GitHub only) |
+
+All sources are optional. You can also use `export` manually inside the container at any time.
+
+Check current state:
+
+```bash
+credential-helper status
+```
+
+### Private repo testing
+
+VS Code Dev Containers automatically forwards your host git credentials into the container. This means `git clone` of private repos may succeed even without explicit token env vars — the forwarded credential helper handles auth silently.
+
+To disable **all** authentication (credential helper + token env vars) for testing:
+
+```bash
+eval "$(credential-helper --eval off)"    # disable everything
+eval "$(credential-helper --eval on)"     # restore everything
+credential-helper status                  # check current state
+```
+
+Without `--eval`, only the git credential helper is toggled (token env vars remain active).
+
 ### Running tests
 
 ```bash

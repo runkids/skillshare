@@ -317,7 +317,7 @@ skillshare install https://github.com/org/private-skills.git --track
 |----------|---------|------------|
 | GitHub | `GITHUB_TOKEN` | Personal access token (`repo` scope) |
 | GitLab | `GITLAB_TOKEN` | Personal access or CI job token |
-| Bitbucket | `BITBUCKET_TOKEN` | Repository token, or app password (with `BITBUCKET_USERNAME` or `https://<username>@...`) |
+| Bitbucket | `BITBUCKET_TOKEN` | Repository token, or app password (with `BITBUCKET_USERNAME`) |
 | Any host | `SKILLSHARE_GIT_TOKEN` | Generic fallback |
 
 Platform-specific variables take priority over `SKILLSHARE_GIT_TOKEN`.
@@ -364,6 +364,7 @@ install-skills:
     script:
       - skillshare install https://bitbucket.org/team/skills.git --track
     env:
+      BITBUCKET_USERNAME: $BITBUCKET_USERNAME   # for app passwords
       BITBUCKET_TOKEN: $BITBUCKET_TOKEN
 ```
 
