@@ -188,11 +188,16 @@ func checkSource(cfg *config.Config, result *doctorResult) {
 		return
 	}
 
-	entries, _ := os.ReadDir(cfg.Source)
+	// Count real skills (directories containing SKILL.md), including nested/grouped ones.
 	skillCount := 0
-	for _, e := range entries {
-		if e.IsDir() && !utils.IsHidden(e.Name()) {
-			skillCount++
+	if discovered, err := sync.DiscoverSourceSkills(cfg.Source); err == nil {
+		skillCount = len(discovered)
+	} else {
+		entries, _ := os.ReadDir(cfg.Source)
+		for _, e := range entries {
+			if e.IsDir() && !utils.IsHidden(e.Name()) {
+				skillCount++
+			}
 		}
 	}
 	ui.Success("Source: %s (%d skills)", cfg.Source, skillCount)
@@ -431,6 +436,14 @@ func checkSkillsValidity(source string, result *doctorResult) {
 		return
 	}
 
+	discovered, _ := sync.DiscoverSourceSkills(source)
+	hasNestedSkills := make(map[string]bool)
+	for _, skill := range discovered {
+		if idx := strings.Index(skill.RelPath, "/"); idx > 0 {
+			hasNestedSkills[skill.RelPath[:idx]] = true
+		}
+	}
+
 	var invalid []string
 	for _, entry := range entries {
 		if !entry.IsDir() || utils.IsHidden(entry.Name()) {
@@ -440,6 +453,12 @@ func checkSkillsValidity(source string, result *doctorResult) {
 		// Tracked repos (_prefix) are container directories for nested skills;
 		// they don't need a SKILL.md at the top level.
 		if utils.IsTrackedRepoDir(entry.Name()) {
+			continue
+		}
+
+		// Group containers can intentionally organize nested skills and do not
+		// require their own SKILL.md at top-level.
+		if hasNestedSkills[entry.Name()] {
 			continue
 		}
 
@@ -508,20 +527,27 @@ func findBrokenSymlinks(dir string) []string {
 	return broken
 }
 
-// checkDuplicateSkills finds skills with same name in multiple locations
-// Only checks symlink mode targets; merge mode allows local skills by design
+// checkDuplicateSkills finds skills with same name in multiple locations.
+// Merge mode is skipped because local skills are intentional.
 func checkDuplicateSkills(cfg *config.Config, result *doctorResult) {
 	skillLocations := make(map[string][]string)
 
 	// Collect from source
-	entries, _ := os.ReadDir(cfg.Source)
-	for _, entry := range entries {
-		if entry.IsDir() && !utils.IsHidden(entry.Name()) {
-			skillLocations[entry.Name()] = append(skillLocations[entry.Name()], "source")
+	discovered, err := sync.DiscoverSourceSkills(cfg.Source)
+	if err == nil {
+		for _, skill := range discovered {
+			skillLocations[skill.FlatName] = append(skillLocations[skill.FlatName], "source")
+		}
+	} else {
+		entries, _ := os.ReadDir(cfg.Source)
+		for _, entry := range entries {
+			if entry.IsDir() && !utils.IsHidden(entry.Name()) {
+				skillLocations[entry.Name()] = append(skillLocations[entry.Name()], "source")
+			}
 		}
 	}
 
-	// Collect from symlink-mode targets only
+	// Collect from non-merge targets.
 	for name, target := range cfg.Targets {
 		// Determine effective mode
 		mode := target.Mode
@@ -537,6 +563,13 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult) {
 			continue
 		}
 
+		manifestManaged := map[string]string{}
+		if mode == "copy" {
+			if manifest, err := sync.ReadManifest(target.Path); err == nil && manifest != nil {
+				manifestManaged = manifest.Managed
+			}
+		}
+
 		entries, err := os.ReadDir(target.Path)
 		if err != nil {
 			continue
@@ -545,6 +578,13 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult) {
 		for _, entry := range entries {
 			if !entry.IsDir() || utils.IsHidden(entry.Name()) {
 				continue
+			}
+
+			// In copy mode, managed entries are expected source mirrors, not duplicates.
+			if mode == "copy" {
+				if _, isManaged := manifestManaged[entry.Name()]; isManaged {
+					continue
+				}
 			}
 
 			// Check if it's a local skill (not a symlink to source)

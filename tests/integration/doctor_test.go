@@ -251,6 +251,25 @@ targets: {}
 	result.AssertOutputContains(t, "invalid-skill")
 }
 
+func TestDoctor_GroupContainerWithoutSKILLmd_DoesNotWarn(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Group container directories (e.g. devops/, security/) may hold nested skills
+	// and should not be treated as invalid top-level skills.
+	sb.CreateNestedSkill("devops/deploy", map[string]string{"SKILL.md": "# Deploy"})
+	sb.CreateNestedSkill("security/audit", map[string]string{"SKILL.md": "# Audit"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("doctor")
+
+	result.AssertSuccess(t)
+	result.AssertOutputNotContains(t, "Skills without SKILL.md")
+}
+
 func TestDoctor_BrokenSymlink_ShowsError(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -299,6 +318,28 @@ targets:
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Duplicate")
 	result.AssertOutputContains(t, "duplicate-skill")
+}
+
+func TestDoctor_CopyModeManagedSkills_NoDuplicateWarning(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("duplicate-skill", map[string]string{"SKILL.md": "# Source"})
+	targetPath := sb.CreateTarget("copilot")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  copilot:
+    path: ` + targetPath + `
+    mode: copy
+`)
+
+	syncResult := sb.RunCLI("sync")
+	syncResult.AssertSuccess(t)
+
+	result := sb.RunCLI("doctor")
+	result.AssertSuccess(t)
+	result.AssertOutputNotContains(t, "Duplicate skills")
 }
 
 func TestDoctor_BackupExists_ShowsInfo(t *testing.T) {
