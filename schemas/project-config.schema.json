@@ -62,16 +62,16 @@
             "mode": {
               "type": "string",
               "description": "Sync mode override for this target.",
-              "enum": ["merge", "symlink"]
+              "enum": ["merge", "symlink", "copy"]
             },
             "include": {
               "type": "array",
-              "description": "Glob patterns — only matching skills are synced (merge mode only).",
+              "description": "Glob patterns — only matching skills are synced (merge and copy modes).",
               "items": { "type": "string" }
             },
             "exclude": {
               "type": "array",
-              "description": "Glob patterns — matching skills are excluded from sync (merge mode only).",
+              "description": "Glob patterns — matching skills are excluded from sync (merge and copy modes).",
               "items": { "type": "string" }
             }
           }

@@ -88,7 +88,14 @@ Push skills from source to all targets.
 skillshare sync              # Sync to all targets
 skillshare sync --dry-run    # Preview changes
 skillshare sync -n           # Short form
+skillshare sync --force      # Overwrite all managed skills
+skillshare sync -f           # Short form
 ```
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--dry-run` | `-n` | Preview changes without writing |
+| `--force` | `-f` | Overwrite all managed entries regardless of checksum (copy mode) or replace existing directories with symlinks (merge mode) |
 
 ### What Happens
 
@@ -192,7 +199,7 @@ git add → commit → push`"]
 | Mode | Behavior | Use case |
 |------|----------|----------|
 | `merge` | Each skill symlinked individually | **Default.** Preserves local skills. |
-| `copy` | Each skill copied as real files | AI CLIs that can't follow symlinks. |
+| `copy` | Each skill copied as real files | AI CLIs that can't follow symlinks (Cursor, Copilot CLI); vendoring skills into a project repo. |
 | `symlink` | Entire directory is one symlink | Exact copies everywhere. |
 
 ### Per-target include/exclude filters

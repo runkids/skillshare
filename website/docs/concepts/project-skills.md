@@ -159,6 +159,7 @@ Project mode has some intentional limitations:
 | Feature | Supported? | Notes |
 |---------|-----------|-------|
 | Merge sync mode | ✓ | Default, per-skill symlinks |
+| Copy sync mode | ✓ | Per-target via `skillshare target <name> --mode copy -p` |
 | Symlink sync mode | ✓ | Per-target via `skillshare target <name> --mode symlink -p` |
 | `--track` repos | ✓ | Cloned to `.skillshare/skills/_repo/`, added to `.gitignore` (`logs/` is also ignored by default) |
 | `--discover` | ✓ | Detect and add new targets to existing project config |

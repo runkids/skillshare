@@ -15,7 +15,7 @@ Choose merge mode (default) when you want per-skill symlinks and to preserve loc
 | Mode | Behavior | Use Case |
 |------|----------|----------|
 | `merge` | Each skill symlinked individually | **Default.** Preserves local skills. |
-| `copy` | Each skill copied as real files | AI CLIs that can't follow symlinks. |
+| `copy` | Each skill copied as real files | AI CLIs that can't follow symlinks; vendoring into project repos. |
 | `symlink` | Entire directory is one symlink | Exact copies everywhere. |
 
 ---
@@ -85,7 +85,9 @@ skills/                         ~/.cursor/skills/
 - Checksum-based skip: unchanged skills are not re-copied
 
 **When to use:**
-- Your AI CLI reports "skill not found" or can't read symlinked skills
+- Your AI CLI reports "skill not found" or can't read symlinked skills (e.g. Cursor, GitHub Copilot CLI)
+- You want to vendor skills into a project repo — copy mode in project mode lets the team commit real skill files to git, so teammates don't need skillshare installed
+- You need self-contained skill directories that work without a central source (portable setups, CI pipelines, air-gapped environments)
 - You want the same filtering behavior as merge mode but with real files
 
 ### How updates work

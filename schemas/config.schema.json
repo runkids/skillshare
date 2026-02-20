@@ -75,13 +75,13 @@
         },
         "include": {
           "type": "array",
-          "description": "Glob patterns — only matching skills are synced (merge mode only).",
+          "description": "Glob patterns — only matching skills are synced (merge and copy modes).",
           "items": { "type": "string" },
           "examples": [["codex-*", "shared-*"]]
         },
         "exclude": {
           "type": "array",
-          "description": "Glob patterns — matching skills are excluded from sync (merge mode only).",
+          "description": "Glob patterns — matching skills are excluded from sync (merge and copy modes).",
           "items": { "type": "string" },
           "examples": [["*-experimental", "codex-*"]]
         }
