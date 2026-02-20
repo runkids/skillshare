@@ -16,19 +16,17 @@ cd /workspace
 echo "▸ Building skillshare binary …"
 make build
 
+# ── 1a. Ensure Linux binary + stable command symlinks ─────────────
+echo "▸ Verifying skillshare command targets …"
+./.devcontainer/ensure-skillshare-linux-binary.sh
+
 # ── 1b. Install frontend dependencies ─────────────────────────────
 echo "▸ Installing UI dependencies …"
 (cd /workspace/ui && pnpm install --frozen-lockfile)
 echo "▸ Installing website dependencies …"
 (cd /workspace/website && pnpm install --frozen-lockfile)
 
-# ── 2. Install shortcut symlinks to PATH ─────────────────────────
-# Devcontainer-specific scripts live in .devcontainer/bin/ (source-controlled,
-# survives make clean). Only ephemeral symlinks are created here.
-echo "▸ Installing shortcut commands …"
-ln -sf /workspace/bin/skillshare /workspace/bin/ss
-
-# ── 3. Global mode init ────────────────────────────────────────────
+# ── 2. Global mode init ────────────────────────────────────────────
 echo "▸ Initializing global mode …"
 mkdir -p "$HOME/.claude/skills"
 GLOBAL_CFG="$HOME/.config/skillshare/config.yaml"
@@ -40,7 +38,7 @@ else
   skillshare init -g --no-copy --all-targets --no-git --skill
 fi
 
-# ── 4. Create demo content (shared with sandbox playground) ───────
+# ── 3. Create demo content (shared with sandbox playground) ───────
 echo "▸ Creating demo content …"
 SKILLS="$HOME/.config/skillshare/skills"
 CFG="$HOME/.config/skillshare"

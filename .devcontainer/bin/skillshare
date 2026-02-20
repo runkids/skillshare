@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+GO_BIN="/usr/local/go/bin/go"
+if [ ! -x "$GO_BIN" ]; then
+  GO_BIN="$(command -v go || true)"
+fi
+
+if [ -z "$GO_BIN" ]; then
+  echo "go toolchain not found in devcontainer" >&2
+  exit 1
+fi
+
+# Devcontainer default: run from source for instant feedback without rebuilding.
+# Set SKILLSHARE_DEV_USE_BINARY=1 to use the compiled binary path instead.
+if [ "${SKILLSHARE_DEV_USE_BINARY:-0}" = "1" ]; then
+  if [ -x /workspace/.devcontainer/ensure-skillshare-linux-binary.sh ]; then
+    /workspace/.devcontainer/ensure-skillshare-linux-binary.sh
+  fi
+  exec /workspace/bin/skillshare "$@"
+fi
+
+cd /workspace
+exec "$GO_BIN" run ./cmd/skillshare "$@"
