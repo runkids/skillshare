@@ -10,7 +10,8 @@ description: |
   XDG Base Directory support, fuzzy subdirectory resolution for monorepo installs,
   .skillignore for repo-level skill filtering, --exclude flag, license display,
   multi-skill and group uninstall (--group/-G), declarative skill manifest (global + project),
-  group field for organized placement, copy-mode manifest-aware doctor duplicate checks,
+  group field for organized placement, copy sync mode for symlink-incompatible CLIs,
+  HTTPS token auth for private repos (GITHUB_TOKEN, GITLAB_TOKEN, etc.),
   49+ supported targets.
   Use when: managing skills across AI tools, "skillshare" CLI, skill sync/install/search,
   project skills setup, target filtering, security audit, web dashboard, or troubleshooting.

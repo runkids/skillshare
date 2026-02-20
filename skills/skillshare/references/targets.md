@@ -83,14 +83,18 @@ Per-target mode (both global and project):
 
 ```bash
 skillshare target claude --mode merge         # Per-skill symlinks (default)
+skillshare target claude --mode copy          # Real-file copies with manifest tracking
 skillshare target claude --mode symlink       # Entire dir symlinked
-skillshare target claude --mode symlink -p   # Project target mode
+skillshare target claude --mode copy -p       # Project target mode
 ```
 
 | Mode | Description | Local Skills |
 |------|-------------|--------------|
-| `merge` | Individual symlinks per skill | Preserved |
+| `merge` | Individual symlinks per skill (default) | Preserved |
+| `copy` | Real-file copies with `.skillshare-manifest.json` | Preserved |
 | `symlink` | Single symlink for entire dir | Not possible |
+
+Copy mode is useful for AI CLIs that can't follow symlinks. Use `sync --force` to re-copy all files.
 
 ## Unified Target Names
 
