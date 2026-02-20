@@ -144,6 +144,47 @@ targets:
 	result.AssertOutputNotContains(t, "up to date")
 }
 
+func TestSync_CopyMode_ReplacesNonDirectoryManagedEntry(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{
+		"SKILL.md": "# Source",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+
+	// First sync creates managed directory + manifest
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	// Replace managed directory with a regular file
+	os.RemoveAll(filepath.Join(targetPath, "skill-a"))
+	os.WriteFile(filepath.Join(targetPath, "skill-a"), []byte("not-a-dir"), 0644)
+
+	// Sync should repair the invalid entry
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "updated")
+
+	skillPath := filepath.Join(targetPath, "skill-a")
+	info, err := os.Stat(skillPath)
+	if err != nil {
+		t.Fatalf("skill should exist after repair: %v", err)
+	}
+	if !info.IsDir() {
+		t.Fatal("skill should be restored as a directory")
+	}
+	if !sb.FileExists(filepath.Join(skillPath, "SKILL.md")) {
+		t.Error("restored directory should contain SKILL.md")
+	}
+}
+
 func TestSync_CopyMode_PreservesLocalSkills(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

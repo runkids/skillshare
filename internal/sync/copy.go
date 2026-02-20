@@ -71,7 +71,7 @@ func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, 
 		}
 
 		// Check what exists at the target path
-		_, lstatErr := os.Lstat(targetSkillPath)
+		targetInfo, lstatErr := os.Lstat(targetSkillPath)
 		exists := lstatErr == nil
 
 		if exists {
@@ -84,8 +84,31 @@ func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, 
 				}
 				// Fall through to copy below
 			} else {
-				// It's a real directory — check if managed by us
 				oldChecksum, isManaged := manifest.Managed[skill.FlatName]
+
+				// Non-directory entries are invalid for managed skills.
+				// Managed/forced entries should be replaced with a proper skill directory.
+				if !targetInfo.IsDir() {
+					if isManaged || force {
+						if dryRun {
+							fmt.Printf("[dry-run] Would replace non-directory entry with copy: %s\n", skill.FlatName)
+						} else {
+							if err := os.RemoveAll(targetSkillPath); err != nil {
+								return nil, fmt.Errorf("failed to remove invalid entry %s: %w", skill.FlatName, err)
+							}
+							if err := copyDirectory(skill.SourcePath, targetSkillPath); err != nil {
+								return nil, fmt.Errorf("failed to copy skill %s: %w", skill.FlatName, err)
+							}
+							manifest.Managed[skill.FlatName] = srcChecksum
+						}
+						result.Updated = append(result.Updated, skill.FlatName)
+						continue
+					}
+
+					// Local non-directory entry — preserve unless --force.
+					result.Skipped = append(result.Skipped, skill.FlatName)
+					continue
+				}
 
 				if !force && isManaged && oldChecksum == srcChecksum {
 					// Unchanged — skip
@@ -224,7 +247,7 @@ func CheckStatusCopy(targetPath string) (TargetStatus, int, int) {
 	// Count managed entries that actually exist on disk
 	managedCount := 0
 	for name := range manifest.Managed {
-		if _, err := os.Stat(filepath.Join(targetPath, name)); err == nil {
+		if info, err := os.Stat(filepath.Join(targetPath, name)); err == nil && info.IsDir() {
 			managedCount++
 		}
 	}

@@ -354,6 +354,33 @@ targets:
 	result.AssertOutputNotContains(t, "managed: 2")
 }
 
+func TestTargetInfo_CopyMode_ManagedCountIgnoresNonDirectory(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateSkill("skill-b", map[string]string{"SKILL.md": "# B"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	// Replace one managed skill directory with a regular file
+	os.RemoveAll(filepath.Join(targetPath, "skill-b"))
+	os.WriteFile(filepath.Join(targetPath, "skill-b"), []byte("not-a-dir"), 0644)
+
+	result := sb.RunCLI("target", "claude")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "managed: 1")
+	result.AssertOutputNotContains(t, "managed: 2")
+}
+
 func TestTargetMode_SetsMode(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

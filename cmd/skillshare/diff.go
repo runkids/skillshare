@@ -143,29 +143,40 @@ func showSymlinkDiff(targetPath, source string) {
 func showCopyDiff(targetName, targetPath string, filtered []sync.DiscoveredSkill, sourceSkills map[string]bool, manifest *sync.Manifest) {
 	var syncCount, localCount int
 
-	// Build source path lookup for checksum comparison
-	sourcePathMap := make(map[string]string, len(filtered))
-	for _, skill := range filtered {
-		sourcePathMap[skill.FlatName] = skill.SourcePath
-	}
-
 	// Check each source skill
 	for _, skill := range filtered {
 		oldChecksum, isManaged := manifest.Managed[skill.FlatName]
+		targetSkillPath := filepath.Join(targetPath, skill.FlatName)
 		if !isManaged {
-			// Not in manifest — missing or local copy
-			if _, err := os.Stat(filepath.Join(targetPath, skill.FlatName)); err == nil {
-				ui.DiffItem("modify", skill.FlatName, "local copy (sync --force to replace)")
-			} else {
+			// Not in manifest — missing or local entry
+			if info, err := os.Stat(targetSkillPath); err == nil {
+				if info.IsDir() {
+					ui.DiffItem("modify", skill.FlatName, "local copy (sync --force to replace)")
+				} else {
+					ui.DiffItem("modify", skill.FlatName, "target entry is not a directory")
+				}
+			} else if os.IsNotExist(err) {
 				ui.DiffItem("add", skill.FlatName, "missing")
+			} else {
+				ui.DiffItem("modify", skill.FlatName, "cannot access target entry")
 			}
 			syncCount++
 			continue
 		}
 		// Managed — verify target directory still exists
-		targetSkillPath := filepath.Join(targetPath, skill.FlatName)
-		if _, err := os.Stat(targetSkillPath); os.IsNotExist(err) {
+		targetInfo, err := os.Stat(targetSkillPath)
+		if os.IsNotExist(err) {
 			ui.DiffItem("add", skill.FlatName, "missing (deleted from target)")
+			syncCount++
+			continue
+		}
+		if err != nil {
+			ui.DiffItem("modify", skill.FlatName, "cannot access target entry")
+			syncCount++
+			continue
+		}
+		if !targetInfo.IsDir() {
+			ui.DiffItem("modify", skill.FlatName, "target entry is not a directory")
 			syncCount++
 			continue
 		}

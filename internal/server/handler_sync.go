@@ -179,17 +179,28 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 			manifest, _ := ssync.ReadManifest(target.Path)
 			for _, skill := range filtered {
 				oldChecksum, isManaged := manifest.Managed[skill.FlatName]
+				targetSkillPath := filepath.Join(target.Path, skill.FlatName)
 				if !isManaged {
-					if _, err := os.Stat(filepath.Join(target.Path, skill.FlatName)); err == nil {
-						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "skip", Reason: "local copy (sync --force to replace)"})
-					} else {
+					if info, err := os.Stat(targetSkillPath); err == nil {
+						if info.IsDir() {
+							dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "skip", Reason: "local copy (sync --force to replace)"})
+						} else {
+							dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "target entry is not a directory"})
+						}
+					} else if os.IsNotExist(err) {
 						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "missing"})
+					} else {
+						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "cannot access target entry"})
 					}
 				} else {
 					// Verify target directory still exists
-					targetSkillPath := filepath.Join(target.Path, skill.FlatName)
-					if _, statErr := os.Stat(targetSkillPath); os.IsNotExist(statErr) {
+					targetInfo, statErr := os.Stat(targetSkillPath)
+					if os.IsNotExist(statErr) {
 						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "missing (deleted from target)"})
+					} else if statErr != nil {
+						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "cannot access target entry"})
+					} else if !targetInfo.IsDir() {
+						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "target entry is not a directory"})
 					} else {
 						// Compare checksums to detect content drift
 						srcChecksum, err := ssync.DirChecksum(skill.SourcePath)

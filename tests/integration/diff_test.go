@@ -211,3 +211,32 @@ targets:
 	result.AssertOutputContains(t, "missing")
 	result.AssertOutputNotContains(t, "synced")
 }
+
+func TestDiff_CopyMode_DetectsNonDirectoryTargetEntry(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{
+		"SKILL.md": "# Skill A",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+
+	// Sync to establish manifest
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	// Replace managed directory with a regular file
+	os.RemoveAll(filepath.Join(targetPath, "skill-a"))
+	os.WriteFile(filepath.Join(targetPath, "skill-a"), []byte("not-a-dir"), 0644)
+
+	result := sb.RunCLI("diff")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "not a directory")
+	result.AssertOutputNotContains(t, "synced")
+}
