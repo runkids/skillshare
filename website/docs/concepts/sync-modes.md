@@ -7,7 +7,7 @@ sidebar_position: 3
 How skillshare links source to targets.
 
 :::tip When does this matter?
-Choose merge mode (default) when you want per-skill symlinks and to preserve local skills in targets. Choose copy mode when the AI CLI cannot follow symlinks (e.g. Cursor, Copilot CLI). Choose symlink mode when you want the entire directory linked and don't need local target skills.
+Choose merge mode (default) when you want per-skill symlinks and to preserve local skills in targets. Choose copy mode when you need real files instead of symlinks (portability, CI, or personal preference). Choose symlink mode when you want the entire directory linked and don't need local target skills.
 :::
 
 ## Overview
@@ -15,7 +15,7 @@ Choose merge mode (default) when you want per-skill symlinks and to preserve loc
 | Mode | Behavior | Use Case |
 |------|----------|----------|
 | `merge` | Each skill symlinked individually | **Default.** Preserves local skills. |
-| `copy` | Each skill copied as real files | AI CLIs that can't follow symlinks; vendoring into project repos. |
+| `copy` | Each skill copied as real files | Portability, CI/sandboxed environments, or when you prefer real files over symlinks. |
 | `symlink` | Entire directory is one symlink | Exact copies everywhere. |
 
 ---
@@ -78,14 +78,22 @@ skills/                         ~/.cursor/skills/
                                 └── .skillshare-manifest.json
 ```
 
+### Why copy mode?
+
+Even when your AI CLI handles symlinks correctly, copy mode provides value:
+
+- **Defensive design** — not every AI CLI guarantees symlink support, especially on Windows where symlink behavior varies by platform and permission level
+- **Sandboxed environments** — strict CI pipelines, containers, and air-gapped setups may not follow symlinks across filesystem boundaries
+- **User preference** — some users and teams simply prefer real files over symlinks for transparency and portability
+
 **Advantages:**
-- Works with AI CLIs that cannot read symlinks (Cursor, Copilot CLI, etc.)
+- Works everywhere — no symlink support required from the AI CLI or OS
 - Preserves local skills (same as merge mode)
 - Per-target include/exclude filtering
 - Checksum-based skip: unchanged skills are not re-copied
 
 **When to use:**
-- Your AI CLI reports "skill not found" or can't read symlinked skills (e.g. Cursor, GitHub Copilot CLI)
+- Your AI CLI reports "skill not found" or cannot read symlinked skills
 - You want to vendor skills into a project repo — copy mode in project mode lets the team commit real skill files to git, so teammates don't need skillshare installed
 - You need self-contained skill directories that work without a central source (portable setups, CI pipelines, air-gapped environments)
 - You want the same filtering behavior as merge mode but with real files
