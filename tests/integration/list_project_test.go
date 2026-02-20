@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -81,4 +82,30 @@ func TestListProject_AutoDetectsMode(t *testing.T) {
 	result := sb.RunCLIInDir(projectRoot, "list")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Installed skills (project)")
+}
+
+func TestListProject_PartialInit_RepairsMissingConfig(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := filepath.Join(sb.Root, "project")
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".skillshare", "skills"), 0755); err != nil {
+		t.Fatalf("mkdir partial project skills dir: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".claude", "skills"), 0755); err != nil {
+		t.Fatalf("mkdir project target dir: %v", err)
+	}
+
+	result := sb.RunCLIInDir(projectRoot, "list", "-p")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "No skills installed")
+
+	cfgPath := filepath.Join(projectRoot, ".skillshare", "config.yaml")
+	if !sb.FileExists(cfgPath) {
+		t.Fatalf("expected repaired config file at %s", cfgPath)
+	}
+	cfg := sb.ReadFile(cfgPath)
+	if !strings.Contains(cfg, "claude") {
+		t.Fatalf("expected repaired config to include detected claude target, got:\n%s", cfg)
+	}
 }

@@ -83,15 +83,27 @@ func cmdInitProject(args []string) error {
 func performProjectInit(root string, opts projectInitOptions) error {
 	projectDir := filepath.Join(root, ".skillshare")
 	configPath := config.ProjectConfigPath(root)
-	if _, err := os.Stat(projectDir); err == nil {
-		if opts.discover {
-			return reinitProjectWithDiscover(root, opts)
+	partialInitRepair := false
+	if info, err := os.Stat(projectDir); err == nil {
+		if !info.IsDir() {
+			return fmt.Errorf("project path exists but is not a directory: %s", projectDir)
 		}
-		return fmt.Errorf("project already initialized: %s\nRun 'skillshare init -p --discover' to add new targets", projectDir)
+		if projectConfigExists(root) {
+			if opts.discover {
+				return reinitProjectWithDiscover(root, opts)
+			}
+			return fmt.Errorf("project already initialized: %s\nRun 'skillshare init -p --discover' to add new targets", projectDir)
+		}
+		partialInitRepair = true
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to check project directory: %w", err)
 	}
 
 	ui.Logo(version)
 	ui.Header("Initializing project-level skills")
+	if partialInitRepair {
+		ui.Warning("Detected partial project initialization; repairing missing config")
+	}
 
 	var selected []config.ProjectTargetEntry
 
@@ -112,10 +124,18 @@ func performProjectInit(root string, opts projectInitOptions) error {
 			available = listAllProjectTargets()
 		}
 
-		var err error
-		selected, err = promptProjectTargets(available)
-		if err != nil {
-			return err
+		if partialInitRepair {
+			for _, target := range available {
+				if target.exists || target.parentExists {
+					selected = append(selected, config.ProjectTargetEntry{Name: target.name})
+				}
+			}
+		} else {
+			var err error
+			selected, err = promptProjectTargets(available)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
