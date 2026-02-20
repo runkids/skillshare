@@ -13,35 +13,18 @@ import (
 )
 
 func cmdUpdateProject(args []string, root string) error {
-	var name string
-	var updateAll bool
-	var dryRun bool
-	var force bool
-
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		switch {
-		case arg == "--all" || arg == "-a":
-			updateAll = true
-		case arg == "--dry-run" || arg == "-n":
-			dryRun = true
-		case arg == "--force" || arg == "-f":
-			force = true
-		case arg == "--help" || arg == "-h":
-			printUpdateHelp()
-			return nil
-		case strings.HasPrefix(arg, "-"):
-			return fmt.Errorf("unknown option: %s", arg)
-		default:
-			if name != "" {
-				return fmt.Errorf("unexpected argument: %s", arg)
-			}
-			name = arg
-		}
+	opts, showHelp, parseErr := parseUpdateArgs(args)
+	if showHelp {
+		printUpdateHelp()
+		return parseErr
+	}
+	if parseErr != nil {
+		return parseErr
 	}
 
-	if name == "" && !updateAll {
-		updateAll = true
+	// Project mode default: no args and no groups → --all
+	if len(opts.names) == 0 && len(opts.groups) == 0 && !opts.all {
+		opts.all = true
 	}
 
 	if !projectConfigExists(root) {
@@ -52,11 +35,153 @@ func cmdUpdateProject(args []string, root string) error {
 
 	sourcePath := filepath.Join(root, ".skillshare", "skills")
 
-	if updateAll {
-		return updateAllProjectSkills(sourcePath, dryRun, force)
+	if opts.all {
+		return updateAllProjectSkills(sourcePath, opts.dryRun, opts.force)
 	}
 
-	return updateSingleProjectSkill(sourcePath, name, dryRun, force)
+	return cmdUpdateProjectBatch(sourcePath, opts)
+}
+
+func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions) error {
+	// --- Resolve targets ---
+	type projectTarget struct {
+		name   string
+		path   string
+		isRepo bool
+	}
+
+	var targets []projectTarget
+	seen := map[string]bool{}
+	var resolveWarnings []string
+
+	for _, name := range opts.names {
+		// Check group directory first (before repo/skill lookup,
+		// so "feature-radar" expands to all skills rather than
+		// matching a single nested "feature-radar/feature-radar").
+		if isGroupDir(name, sourcePath) {
+			groupMatches, groupErr := resolveGroupUpdatable(name, sourcePath)
+			if groupErr != nil {
+				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, groupErr))
+				continue
+			}
+			if len(groupMatches) == 0 {
+				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no updatable skills in group", name))
+				continue
+			}
+			ui.Info("'%s' is a group — expanding to %d updatable skill(s)", name, len(groupMatches))
+			for _, m := range groupMatches {
+				p := filepath.Join(sourcePath, m.relPath)
+				if !seen[p] {
+					seen[p] = true
+					targets = append(targets, projectTarget{name: m.relPath, path: p, isRepo: m.isRepo})
+				}
+			}
+			continue
+		}
+
+		// Normalize _ prefix for tracked repos
+		repoName := name
+		if !strings.HasPrefix(repoName, "_") {
+			prefixed := filepath.Join(sourcePath, "_"+name)
+			if install.IsGitRepo(prefixed) {
+				repoName = "_" + name
+			}
+		}
+		repoPath := filepath.Join(sourcePath, repoName)
+
+		if install.IsGitRepo(repoPath) {
+			if !seen[repoPath] {
+				seen[repoPath] = true
+				targets = append(targets, projectTarget{name: repoName, path: repoPath, isRepo: true})
+			}
+			continue
+		}
+
+		// Regular skill with metadata
+		skillPath := filepath.Join(sourcePath, name)
+		if info, err := os.Stat(skillPath); err == nil && info.IsDir() {
+			meta, metaErr := install.ReadMeta(skillPath)
+			if metaErr == nil && meta != nil && meta.Source != "" {
+				if !seen[skillPath] {
+					seen[skillPath] = true
+					targets = append(targets, projectTarget{name: name, path: skillPath, isRepo: false})
+				}
+				continue
+			}
+			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s is a local skill, nothing to update", name))
+			continue
+		}
+
+		resolveWarnings = append(resolveWarnings, fmt.Sprintf("skill '%s' not found", name))
+	}
+
+	for _, group := range opts.groups {
+		groupMatches, err := resolveGroupUpdatable(group, sourcePath)
+		if err != nil {
+			resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: %v", group, err))
+			continue
+		}
+		if len(groupMatches) == 0 {
+			resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: no updatable skills in group", group))
+			continue
+		}
+		for _, m := range groupMatches {
+			p := filepath.Join(sourcePath, m.relPath)
+			if !seen[p] {
+				seen[p] = true
+				targets = append(targets, projectTarget{name: m.relPath, path: p, isRepo: m.isRepo})
+			}
+		}
+	}
+
+	for _, w := range resolveWarnings {
+		ui.Warning("%s", w)
+	}
+
+	if len(targets) == 0 {
+		if len(resolveWarnings) > 0 {
+			return fmt.Errorf("no valid skills to update")
+		}
+		return fmt.Errorf("no skills found")
+	}
+
+	// --- Execute ---
+	if len(targets) == 1 {
+		t := targets[0]
+		if t.isRepo {
+			return updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force)
+		}
+		return updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force)
+	}
+
+	// Batch mode
+	if opts.dryRun {
+		ui.Warning("Dry run mode - no changes will be made")
+	}
+
+	updated := 0
+	for _, t := range targets {
+		if t.isRepo {
+			if err := updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force); err != nil {
+				ui.Warning("%s: %v", t.name, err)
+			} else {
+				updated++
+			}
+		} else {
+			if err := updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force); err != nil {
+				ui.Warning("%s: %v", t.name, err)
+			} else {
+				updated++
+			}
+		}
+	}
+
+	if updated > 0 && !opts.dryRun {
+		fmt.Println()
+		ui.Info("Run 'skillshare sync' to distribute changes")
+	}
+
+	return nil
 }
 
 func updateSingleProjectSkill(sourcePath, name string, dryRun, force bool) error {

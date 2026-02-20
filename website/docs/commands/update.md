@@ -4,10 +4,12 @@ sidebar_position: 2
 
 # update
 
-Update a skill or tracked repository to the latest version.
+Update one or more skills or tracked repositories to the latest version.
 
 ```bash
 skillshare update my-skill           # Update single skill
+skillshare update a b c              # Update multiple at once
+skillshare update --group frontend   # Update all skills in a group
 skillshare update team-skills        # Update tracked repo
 skillshare update --all              # Update everything
 ```
@@ -48,9 +50,43 @@ flowchart TD
 | Flag | Description |
 |------|-------------|
 | `--all, -a` | Update all tracked repos and skills with metadata |
+| `--group, -G <name>` | Update all updatable skills in a group (repeatable) |
 | `--force, -f` | Discard local changes and force update |
 | `--dry-run, -n` | Preview without making changes |
 | `--help, -h` | Show help |
+
+## Update Multiple
+
+Update several skills at once:
+
+```bash
+skillshare update skill-a skill-b skill-c
+```
+
+Only updatable skills (tracked repos or skills with metadata) are processed. Skills not found are warned but don't cause failure.
+
+## Update Group
+
+Update all updatable skills within a group directory:
+
+```bash
+skillshare update --group frontend        # Update all in frontend/
+skillshare update -G frontend -G backend  # Multiple groups
+skillshare update x -G backend            # Mix names and groups
+```
+
+Local skills (without metadata or `.git`) inside the group are silently skipped.
+
+A positional argument that matches a group directory (not a repo or skill) is auto-expanded:
+
+```bash
+skillshare update frontend   # Same as --group frontend
+# ℹ 'frontend' is a group — expanding to 3 updatable skill(s)
+```
+
+:::note
+`--all` cannot be combined with skill names or `--group`.
+:::
 
 ## Update All
 
@@ -114,10 +150,12 @@ skillshare sync
 Update skills and tracked repos in the project:
 
 ```bash
-skillshare update pdf -p             # Update single skill (reinstall)
-skillshare update team-skills -p     # Update tracked repo (git pull)
-skillshare update --all -p           # Update everything
-skillshare update --all -p --dry-run # Preview
+skillshare update pdf -p              # Update single skill (reinstall)
+skillshare update a b c -p            # Update multiple skills
+skillshare update --group frontend -p # Update all in a group
+skillshare update team-skills -p      # Update tracked repo (git pull)
+skillshare update --all -p            # Update everything
+skillshare update --all -p --dry-run  # Preview
 ```
 
 ### How It Works

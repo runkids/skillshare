@@ -14,6 +14,127 @@ import (
 	"skillshare/internal/ui"
 )
 
+// updateOptions holds parsed arguments for update command
+type updateOptions struct {
+	names  []string // positional args (0+)
+	groups []string // --group/-G values (repeatable)
+	all    bool
+	dryRun bool
+	force  bool
+}
+
+// parseUpdateArgs parses command line arguments for the update command.
+// Returns (opts, showHelp, error).
+func parseUpdateArgs(args []string) (*updateOptions, bool, error) {
+	opts := &updateOptions{}
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--all" || arg == "-a":
+			opts.all = true
+		case arg == "--dry-run" || arg == "-n":
+			opts.dryRun = true
+		case arg == "--force" || arg == "-f":
+			opts.force = true
+		case arg == "--group" || arg == "-G":
+			i++
+			if i >= len(args) {
+				return nil, false, fmt.Errorf("--group requires a value")
+			}
+			opts.groups = append(opts.groups, args[i])
+		case arg == "--help" || arg == "-h":
+			return nil, true, nil
+		case strings.HasPrefix(arg, "-"):
+			return nil, false, fmt.Errorf("unknown option: %s", arg)
+		default:
+			opts.names = append(opts.names, arg)
+		}
+	}
+
+	if opts.all && (len(opts.names) > 0 || len(opts.groups) > 0) {
+		return nil, false, fmt.Errorf("--all cannot be used with skill names or --group")
+	}
+
+	if len(opts.names) == 0 && len(opts.groups) == 0 && !opts.all {
+		return nil, true, fmt.Errorf("specify a skill or repo name, or use --all")
+	}
+
+	return opts, false, nil
+}
+
+// resolveGroupUpdatable finds all updatable items (tracked repos or skills with
+// metadata) under a group directory. Local skills without metadata are skipped.
+func resolveGroupUpdatable(group, sourceDir string) ([]resolvedMatch, error) {
+	group = strings.TrimSuffix(group, "/")
+	groupPath := filepath.Join(sourceDir, group)
+
+	info, err := os.Stat(groupPath)
+	if err != nil || !info.IsDir() {
+		return nil, fmt.Errorf("group '%s' not found in source", group)
+	}
+
+	var matches []resolvedMatch
+	if walkErr := filepath.Walk(groupPath, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if path == groupPath || !fi.IsDir() {
+			return nil
+		}
+		if fi.Name() == ".git" {
+			return filepath.SkipDir
+		}
+
+		rel, relErr := filepath.Rel(sourceDir, path)
+		if relErr != nil || rel == "." {
+			return nil
+		}
+
+		// Tracked repo (has .git)
+		if install.IsGitRepo(path) {
+			matches = append(matches, resolvedMatch{relPath: rel, isRepo: true})
+			return filepath.SkipDir
+		}
+
+		// Skill with metadata (has .skillshare-meta.json)
+		if meta, metaErr := install.ReadMeta(path); metaErr == nil && meta != nil && meta.Source != "" {
+			matches = append(matches, resolvedMatch{relPath: rel, isRepo: false})
+			return filepath.SkipDir
+		}
+
+		return nil
+	}); walkErr != nil {
+		return nil, fmt.Errorf("failed to walk group '%s': %w", group, walkErr)
+	}
+
+	return matches, nil
+}
+
+// isGroupDir checks if a name corresponds to a group directory (a container
+// for other skills). Returns false for tracked repos, skills with metadata,
+// and directories that are themselves a skill (have SKILL.md).
+func isGroupDir(name, sourceDir string) bool {
+	path := filepath.Join(sourceDir, name)
+	info, err := os.Stat(path)
+	if err != nil || !info.IsDir() {
+		return false
+	}
+	// Not a tracked repo
+	if install.IsGitRepo(path) {
+		return false
+	}
+	// Not a skill with metadata
+	if meta, metaErr := install.ReadMeta(path); metaErr == nil && meta != nil && meta.Source != "" {
+		return false
+	}
+	// Not a skill directory (has SKILL.md)
+	if _, statErr := os.Stat(filepath.Join(path, "SKILL.md")); statErr == nil {
+		return false
+	}
+	return true
+}
+
 func cmdUpdate(args []string) error {
 	start := time.Now()
 
@@ -43,37 +164,13 @@ func cmdUpdate(args []string) error {
 		return err
 	}
 
-	var name string
-	var updateAll bool
-	var dryRun bool
-	var force bool
-
-	// Parse arguments
-	for i := 0; i < len(rest); i++ {
-		arg := rest[i]
-		switch {
-		case arg == "--all" || arg == "-a":
-			updateAll = true
-		case arg == "--dry-run" || arg == "-n":
-			dryRun = true
-		case arg == "--force" || arg == "-f":
-			force = true
-		case arg == "--help" || arg == "-h":
-			printUpdateHelp()
-			return nil
-		case strings.HasPrefix(arg, "-"):
-			return fmt.Errorf("unknown option: %s", arg)
-		default:
-			if name != "" {
-				return fmt.Errorf("unexpected argument: %s", arg)
-			}
-			name = arg
-		}
-	}
-
-	if name == "" && !updateAll {
+	opts, showHelp, parseErr := parseUpdateArgs(rest)
+	if showHelp {
 		printUpdateHelp()
-		return fmt.Errorf("specify a skill or repo name, or use --all")
+		return parseErr
+	}
+	if parseErr != nil {
+		return parseErr
 	}
 
 	cfg, err := config.Load()
@@ -81,22 +178,151 @@ func cmdUpdate(args []string) error {
 		return err
 	}
 
-	if updateAll {
-		err = updateAllTrackedRepos(cfg, dryRun, force)
+	if opts.all {
+		err = updateAllTrackedRepos(cfg, opts.dryRun, opts.force)
 		logUpdateOp(config.ConfigPath(), []string{"--all"}, start, err)
 		return err
 	}
 
-	// Determine if it's a tracked repo or regular skill
-	err = updateSkillOrRepo(cfg, name, dryRun, force)
-	logUpdateOp(config.ConfigPath(), []string{name}, start, err)
-	return err
+	// --- Resolve targets ---
+	var targets []resolvedMatch
+	seen := map[string]bool{}
+	var resolveWarnings []string
+
+	for _, name := range opts.names {
+		// Check group directory first (direct path match takes priority
+		// over basename, because e.g. "feature-radar" as a directory
+		// should expand to all skills, not resolve to the nested
+		// "feature-radar/feature-radar" via basename).
+		if isGroupDir(name, cfg.Source) {
+			groupMatches, groupErr := resolveGroupUpdatable(name, cfg.Source)
+			if groupErr != nil {
+				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, groupErr))
+				continue
+			}
+			if len(groupMatches) == 0 {
+				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no updatable skills in group", name))
+				continue
+			}
+			ui.Info("'%s' is a group — expanding to %d updatable skill(s)", name, len(groupMatches))
+			for _, m := range groupMatches {
+				if !seen[m.relPath] {
+					seen[m.relPath] = true
+					targets = append(targets, m)
+				}
+			}
+			continue
+		}
+
+		match, err := resolveByBasename(cfg.Source, name)
+		if err != nil {
+			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
+			continue
+		}
+		if !seen[match.relPath] {
+			seen[match.relPath] = true
+			targets = append(targets, match)
+		}
+	}
+
+	for _, group := range opts.groups {
+		groupMatches, err := resolveGroupUpdatable(group, cfg.Source)
+		if err != nil {
+			resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: %v", group, err))
+			continue
+		}
+		if len(groupMatches) == 0 {
+			resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: no updatable skills in group", group))
+			continue
+		}
+		for _, m := range groupMatches {
+			if !seen[m.relPath] {
+				seen[m.relPath] = true
+				targets = append(targets, m)
+			}
+		}
+	}
+
+	for _, w := range resolveWarnings {
+		ui.Warning("%s", w)
+	}
+
+	if len(targets) == 0 {
+		if len(resolveWarnings) > 0 {
+			return fmt.Errorf("no valid skills to update")
+		}
+		return fmt.Errorf("no skills found")
+	}
+
+	// --- Execute ---
+	if len(targets) == 1 {
+		// Single target: verbose path
+		t := targets[0]
+		var updateErr error
+		if t.isRepo {
+			updateErr = updateTrackedRepo(cfg, t.relPath, opts.dryRun, opts.force)
+		} else {
+			updateErr = updateRegularSkill(cfg, t.relPath, opts.dryRun, opts.force)
+		}
+		logUpdateOp(config.ConfigPath(), opts.names, start, updateErr)
+		return updateErr
+	}
+
+	// Multiple targets: batch path
+	total := len(targets)
+	ui.HeaderBox("skillshare update",
+		fmt.Sprintf("Updating %d skill(s)", total))
+	fmt.Println()
+
+	var result updateResult
+	for i, t := range targets {
+		progress := fmt.Sprintf("[%d/%d]", i+1, total)
+		itemPath := filepath.Join(cfg.Source, t.relPath)
+		if t.isRepo {
+			if updated, _ := updateTrackedRepoQuick(t.relPath, itemPath, progress, opts.dryRun, opts.force); updated {
+				result.updated++
+			} else {
+				result.skipped++
+			}
+		} else {
+			if updateSkillFromMeta(t.relPath, itemPath, progress, opts.dryRun) {
+				result.updated++
+			} else {
+				result.skipped++
+			}
+		}
+	}
+
+	if !opts.dryRun {
+		fmt.Println()
+		ui.Box("Summary", "",
+			fmt.Sprintf("  Total:    %d", total),
+			fmt.Sprintf("  Updated:  %d", result.updated),
+			fmt.Sprintf("  Skipped:  %d", result.skipped), "")
+	}
+
+	if result.updated > 0 {
+		fmt.Println()
+		ui.Info("Run 'skillshare sync' to distribute changes")
+	}
+
+	// Build oplog names
+	var opNames []string
+	opNames = append(opNames, opts.names...)
+	for _, g := range opts.groups {
+		opNames = append(opNames, "--group="+g)
+	}
+	logUpdateOp(config.ConfigPath(), opNames, start, nil)
+
+	return nil
 }
 
 func logUpdateOp(cfgPath string, args []string, start time.Time, cmdErr error) {
 	e := oplog.NewEntry("update", statusFromErr(cmdErr), time.Since(start))
-	if len(args) > 0 {
+	if len(args) == 1 {
 		e.Args = map[string]any{"name": args[0]}
+	} else if len(args) > 1 {
+		e.Args = map[string]any{"names": args}
 	}
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
@@ -475,22 +701,27 @@ func truncateString(s string, maxLen int) string {
 }
 
 func printUpdateHelp() {
-	fmt.Println(`Usage: skillshare update <name> [options]
+	fmt.Println(`Usage: skillshare update <name>... [options]
+       skillshare update --group <group> [options]
        skillshare update --all [options]
 
-Update a skill or tracked repository.
+Update one or more skills or tracked repositories.
 
 For tracked repos (_repo-name): runs git pull
 For regular skills: reinstalls from stored source metadata
+
+If a positional name matches a group directory (not a repo or skill), it is
+automatically expanded to all updatable skills in that group.
 
 Safety: Tracked repos with uncommitted changes are skipped by default.
 Use --force to discard local changes and update.
 
 Arguments:
-  name                Skill name or tracked repo name
+  name...             Skill name(s) or tracked repo name(s)
 
 Options:
   --all, -a           Update all tracked repos + skills with metadata
+  --group, -G <name>  Update all updatable skills in a group (repeatable)
   --force, -f         Discard local changes and force update
   --dry-run, -n       Preview without making changes
   --project, -p       Use project-level config in current directory
@@ -498,7 +729,10 @@ Options:
   --help, -h          Show this help
 
 Examples:
-  skillshare update my-skill              # Update regular skill from source
+  skillshare update my-skill              # Update single skill from source
+  skillshare update a b c                 # Update multiple skills at once
+  skillshare update --group frontend      # Update all skills in frontend/
+  skillshare update x -G backend          # Mix names and groups
   skillshare update _team-skills          # Update tracked repo (git pull)
   skillshare update team-skills           # _ prefix is optional for repos
   skillshare update --all                 # Update all tracked repos + skills

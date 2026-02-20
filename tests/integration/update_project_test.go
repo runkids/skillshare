@@ -66,3 +66,50 @@ func TestUpdateProject_AllDryRun_SkipsLocal(t *testing.T) {
 	// Should not contain "local-only" in dry-run output since it has no meta
 	result.AssertOutputNotContains(t, "local-only")
 }
+
+func writeProjectMeta(t *testing.T, skillDir string) {
+	t.Helper()
+	meta := map[string]any{"source": "/tmp/fake-source", "type": "local"}
+	data, _ := json.Marshal(meta)
+	if err := os.WriteFile(filepath.Join(skillDir, ".skillshare-meta.json"), data, 0644); err != nil {
+		t.Fatalf("failed to write meta: %v", err)
+	}
+}
+
+func TestUpdateProject_MultiNames_DryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	d1 := sb.CreateProjectSkill(projectRoot, "skill-a", map[string]string{"SKILL.md": "# A"})
+	writeProjectMeta(t, d1)
+	d2 := sb.CreateProjectSkill(projectRoot, "skill-b", map[string]string{"SKILL.md": "# B"})
+	writeProjectMeta(t, d2)
+
+	result := sb.RunCLIInDir(projectRoot, "update", "skill-a", "skill-b", "--dry-run", "-p")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "skill-a")
+	result.AssertAnyOutputContains(t, "skill-b")
+	result.AssertAnyOutputContains(t, "dry-run")
+}
+
+func TestUpdateProject_Group_DryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	// Create group in project skills
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	groupDir := filepath.Join(skillsDir, "frontend")
+	os.MkdirAll(filepath.Join(groupDir, "react"), 0755)
+	os.MkdirAll(filepath.Join(groupDir, "vue"), 0755)
+	os.WriteFile(filepath.Join(groupDir, "react", "SKILL.md"), []byte("# React"), 0644)
+	os.WriteFile(filepath.Join(groupDir, "vue", "SKILL.md"), []byte("# Vue"), 0644)
+	writeProjectMeta(t, filepath.Join(groupDir, "react"))
+	writeProjectMeta(t, filepath.Join(groupDir, "vue"))
+
+	result := sb.RunCLIInDir(projectRoot, "update", "--group", "frontend", "--dry-run", "-p")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "react")
+	result.AssertAnyOutputContains(t, "vue")
+}
