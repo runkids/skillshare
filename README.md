@@ -44,10 +44,10 @@
 > **Recent Updates**
 > | Version | Highlights |
 > |---------|------------|
+> | [0.15.0](https://github.com/runkids/skillshare/releases/tag/v0.15.0) | Copy sync mode for symlink-incompatible CLIs, private repo HTTPS token auth |
 > | [0.14.0](https://github.com/runkids/skillshare/releases/tag/v0.14.0) | Global skill manifest, `.skillignore`, multi-skill/group uninstall, license display, 6 new audit rules |
 > | [0.13.0](https://github.com/runkids/skillshare/releases/tag/v0.13.0) | Skill-level targets, XDG compliance, unified target names, runtime UI download |
 > | [0.12.0](https://github.com/runkids/skillshare/releases/tag/v0.12.0) | Skill Hub — generate indexes, search private catalogs with `--hub` |
-> | [0.11.0](https://github.com/runkids/skillshare/releases/tag/v0.11.0) | Security Audit, Operation Log, Trash, Update Preview — full audit trail + safety net |
 
 ## Why skillshare
 
@@ -73,7 +73,7 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 | **Config** | No config; prompts every run | `config.yaml` — set once |
 | **Agent selection** | Interactive prompt each time | Defined in config |
 | **Install method** | Choose per operation | `sync_mode` in config |
-| **Source of truth** | Skills copied independently | Single source → symlinks |
+| **Source of truth** | Skills copied independently | Single source → symlinks (or copies) |
 | **Remove one agent's skill** | May break other agents' symlinks | Only that target's symlink removed |
 | **New machine setup** | Re-run every install manually | `git clone` config + `sync` |
 | **Project-scoped skills** | Global lock file only | `init -p` for per-repo skills |
@@ -107,6 +107,8 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 |----------|-------------|-----------|
 | macOS/Linux | `~/.config/skillshare/skills/` | Symlinks |
 | Windows | `%AppData%\skillshare\skills\` | NTFS Junctions (no admin required) |
+
+> Targets that can't follow symlinks? Use `skillshare target <name> --mode copy` to sync as real files instead.
 
 > [!TIP]
 > Skills can be organized in folders (e.g. `frontend/react/react-best-practices/`) — they're auto-flattened on sync. See the [Organizing Guide](https://skillshare.runkids.cc/docs/guides/organizing-skills) and [runkids/my-skills](https://github.com/runkids/my-skills) for a real-world example.
