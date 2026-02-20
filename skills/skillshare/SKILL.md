@@ -1,6 +1,6 @@
 ---
 name: skillshare
-version: 0.14.1
+version: v0.15.0
 description: |
   Syncs skills across AI CLI tools (Claude, Cursor, Windsurf, etc.) from a single source of truth.
   Global mode (~/.config/skillshare/) and project mode (.skillshare/ per-repo).
