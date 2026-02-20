@@ -186,12 +186,18 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "missing"})
 					}
 				} else {
-					// Compare checksums to detect content drift
-					srcChecksum, err := ssync.DirChecksum(skill.SourcePath)
-					if err != nil {
-						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "cannot compute checksum"})
-					} else if srcChecksum != oldChecksum {
-						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "content changed"})
+					// Verify target directory still exists
+					targetSkillPath := filepath.Join(target.Path, skill.FlatName)
+					if _, statErr := os.Stat(targetSkillPath); os.IsNotExist(statErr) {
+						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "missing (deleted from target)"})
+					} else {
+						// Compare checksums to detect content drift
+						srcChecksum, err := ssync.DirChecksum(skill.SourcePath)
+						if err != nil {
+							dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "cannot compute checksum"})
+						} else if srcChecksum != oldChecksum {
+							dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "content changed"})
+						}
 					}
 				}
 			}

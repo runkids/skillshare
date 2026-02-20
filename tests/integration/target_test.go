@@ -327,6 +327,33 @@ targets:
 	result.AssertOutputContains(t, "managed: 2")
 }
 
+func TestTargetInfo_CopyMode_ManagedCountMatchesDisk(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateSkill("skill-b", map[string]string{"SKILL.md": "# B"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	// Delete one managed skill from disk
+	os.RemoveAll(filepath.Join(targetPath, "skill-b"))
+
+	// managed count should reflect actual disk state (1, not 2)
+	result := sb.RunCLI("target", "claude")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "managed: 1")
+	result.AssertOutputNotContains(t, "managed: 2")
+}
+
 func TestTargetMode_SetsMode(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

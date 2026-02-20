@@ -221,7 +221,13 @@ func CheckStatusCopy(targetPath string) (TargetStatus, int, int) {
 		return StatusUnknown, 0, 0
 	}
 
-	managedCount := len(manifest.Managed)
+	// Count managed entries that actually exist on disk
+	managedCount := 0
+	for name := range manifest.Managed {
+		if _, err := os.Stat(filepath.Join(targetPath, name)); err == nil {
+			managedCount++
+		}
+	}
 
 	// Count local (non-managed) entries
 	localCount := 0
@@ -238,7 +244,7 @@ func CheckStatusCopy(targetPath string) (TargetStatus, int, int) {
 		}
 	}
 
-	if managedCount > 0 {
+	if managedCount > 0 || len(manifest.Managed) > 0 {
 		return StatusCopied, managedCount, localCount
 	}
 

@@ -162,7 +162,14 @@ func showCopyDiff(targetName, targetPath string, filtered []sync.DiscoveredSkill
 			syncCount++
 			continue
 		}
-		// Managed — compare checksums to detect content drift
+		// Managed — verify target directory still exists
+		targetSkillPath := filepath.Join(targetPath, skill.FlatName)
+		if _, err := os.Stat(targetSkillPath); os.IsNotExist(err) {
+			ui.DiffItem("add", skill.FlatName, "missing (deleted from target)")
+			syncCount++
+			continue
+		}
+		// Compare checksums to detect content drift
 		srcChecksum, err := sync.DirChecksum(skill.SourcePath)
 		if err != nil {
 			ui.DiffItem("modify", skill.FlatName, "cannot compute checksum")
