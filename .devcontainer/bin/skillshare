@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-GO_BIN="/usr/local/go/bin/go"
+WORKSPACE_ROOT="${SKILLSHARE_DEV_WORKSPACE_ROOT:-/workspace}"
+PROJECT_ROOT="${SKILLSHARE_DEV_PROJECT_ROOT:-${HOME:-/tmp}/demo-project}"
+TMP_BIN="${SKILLSHARE_DEV_TMP_BINARY:-/tmp/skillshare-dev}"
+
+if [ ! -d "$WORKSPACE_ROOT" ] || [ ! -f "$WORKSPACE_ROOT/go.mod" ]; then
+  echo "devcontainer workspace not found: $WORKSPACE_ROOT" >&2
+  exit 1
+fi
+
+GO_BIN="${SKILLSHARE_DEV_GO_BIN:-/usr/local/go/bin/go}"
 if [ ! -x "$GO_BIN" ]; then
   GO_BIN="$(command -v go || true)"
 fi
@@ -11,14 +20,54 @@ if [ -z "$GO_BIN" ]; then
   exit 1
 fi
 
-# Devcontainer default: run from source for instant feedback without rebuilding.
-# Set SKILLSHARE_DEV_USE_BINARY=1 to use the compiled binary path instead.
-if [ "${SKILLSHARE_DEV_USE_BINARY:-0}" = "1" ]; then
-  if [ -x /workspace/.devcontainer/ensure-skillshare-linux-binary.sh ]; then
-    /workspace/.devcontainer/ensure-skillshare-linux-binary.sh
+wants_project_mode() {
+  local mode="auto"
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      -p|--project) mode="project" ;;
+      -g|--global) mode="global" ;;
+    esac
+  done
+  [ "$mode" = "project" ]
+}
+
+canonical_dir() {
+  local path="$1"
+  if [ -d "$path" ]; then
+    (cd "$path" && pwd -P)
+  else
+    echo "$path"
   fi
-  exec /workspace/bin/skillshare "$@"
+}
+
+CURRENT_DIR="$(pwd -P)"
+WORKSPACE_DIR="$(canonical_dir "$WORKSPACE_ROOT")"
+
+if wants_project_mode "$@" \
+  && [ "${SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT:-0}" != "1" ] \
+  && [ "$CURRENT_DIR" = "$WORKSPACE_DIR" ]; then
+  if [ -d "$PROJECT_ROOT" ]; then
+    echo "devcontainer: project mode redirected to $PROJECT_ROOT" >&2
+    cd "$PROJECT_ROOT"
+  else
+    echo "refusing project mode in $WORKSPACE_ROOT (demo project missing: $PROJECT_ROOT)" >&2
+    exit 1
+  fi
 fi
 
-cd /workspace
-exec "$GO_BIN" run ./cmd/skillshare "$@"
+# Devcontainer default: build from source for instant feedback, then run in caller cwd.
+# Set SKILLSHARE_DEV_USE_BINARY=1 to use the compiled /workspace/bin/skillshare directly.
+if [ "${SKILLSHARE_DEV_USE_BINARY:-0}" = "1" ]; then
+  if [ -x "$WORKSPACE_ROOT/.devcontainer/ensure-skillshare-linux-binary.sh" ]; then
+    "$WORKSPACE_ROOT/.devcontainer/ensure-skillshare-linux-binary.sh"
+  fi
+  exec "$WORKSPACE_ROOT/bin/skillshare" "$@"
+fi
+
+if ! (cd "$WORKSPACE_ROOT" && "$GO_BIN" build -o "$TMP_BIN" ./cmd/skillshare); then
+  echo "failed to build devcontainer skillshare binary" >&2
+  exit 1
+fi
+
+exec "$TMP_BIN" "$@"
