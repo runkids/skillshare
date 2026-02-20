@@ -127,3 +127,58 @@ func TestDiff_NoConfig_ReturnsError(t *testing.T) {
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "init")
 }
+
+func TestDiff_CopyMode_DetectsContentDrift(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	skillDir := sb.CreateSkill("skill-a", map[string]string{
+		"SKILL.md": "# Original",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+
+	// Sync to establish manifest with checksum
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	// Diff should show fully synced
+	result := sb.RunCLI("diff")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "synced")
+
+	// Modify source content
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Modified"), 0644)
+
+	// Diff should now detect content drift
+	result = sb.RunCLI("diff")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "content changed")
+}
+
+func TestDiff_CopyMode_EmptyManifest(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{
+		"SKILL.md": "# Skill A",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+
+	// Run diff WITHOUT syncing first — empty manifest, but mode is copy
+	result := sb.RunCLI("diff")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "missing")
+}

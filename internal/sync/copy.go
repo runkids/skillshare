@@ -65,7 +65,7 @@ func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, 
 		targetSkillPath := filepath.Join(target.Path, skill.FlatName)
 
 		// Compute source checksum
-		srcChecksum, err := dirChecksum(skill.SourcePath)
+		srcChecksum, err := DirChecksum(skill.SourcePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to checksum source skill %s: %w", skill.FlatName, err)
 		}
@@ -245,9 +245,9 @@ func CheckStatusCopy(targetPath string) (TargetStatus, int, int) {
 	return StatusHasFiles, 0, localCount
 }
 
-// dirChecksum computes a deterministic SHA256 checksum of a directory.
+// DirChecksum computes a deterministic SHA256 checksum of a directory.
 // It hashes sorted relative paths and file contents.
-func dirChecksum(dir string) (string, error) {
+func DirChecksum(dir string) (string, error) {
 	type entry struct {
 		relPath string
 		content []byte

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/sync"
 	"skillshare/internal/testutil"
 )
 
@@ -187,5 +188,39 @@ func TestTargetProject_RemoveDryRun(t *testing.T) {
 	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
 	if !strings.Contains(cfg, "cursor") {
 		t.Error("dry-run should not remove target from config")
+	}
+}
+
+func TestTargetProject_RemoveCopyMode_CleansManifest(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	sb.CreateProjectSkill(projectRoot, "my-skill", map[string]string{
+		"SKILL.md": "# My Skill",
+	})
+
+	// Override project config to use copy mode
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - name: claude
+    mode: copy
+`)
+
+	// Sync to create copies + manifest
+	sb.RunCLIInDir(projectRoot, "sync", "-p").AssertSuccess(t)
+
+	targetPath := filepath.Join(projectRoot, ".claude", "skills")
+	manifestPath := filepath.Join(targetPath, sync.ManifestFile)
+	if !sb.FileExists(manifestPath) {
+		t.Fatal("manifest should exist after copy sync")
+	}
+
+	// Remove target
+	result := sb.RunCLIInDir(projectRoot, "target", "remove", "claude", "-p")
+	result.AssertSuccess(t)
+
+	// Manifest should be cleaned up
+	if sb.FileExists(manifestPath) {
+		t.Error("manifest should be removed after target remove")
 	}
 }

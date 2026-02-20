@@ -76,17 +76,20 @@ func cmdDiffGlobal(targetName string) error {
 		if err != nil {
 			return fmt.Errorf("target %s has invalid include/exclude config: %w", name, err)
 		}
-		sourceSkills := make(map[string]bool, len(filtered))
-		for _, skill := range filtered {
-			sourceSkills[skill.FlatName] = true
+		mode := target.Mode
+		if mode == "" {
+			mode = cfg.Mode
+			if mode == "" {
+				mode = "merge"
+			}
 		}
-		showTargetDiff(name, target, cfg.Source, sourceSkills)
+		showTargetDiff(name, target, cfg.Source, mode, filtered)
 	}
 
 	return nil
 }
 
-func showTargetDiff(name string, target config.TargetConfig, source string, sourceSkills map[string]bool) {
+func showTargetDiff(name string, target config.TargetConfig, source, mode string, filtered []sync.DiscoveredSkill) {
 	ui.Header(name)
 
 	if len(target.Include) > 0 {
@@ -103,15 +106,19 @@ func showTargetDiff(name string, target config.TargetConfig, source string, sour
 		return
 	}
 
+	sourceSkills := make(map[string]bool, len(filtered))
+	for _, skill := range filtered {
+		sourceSkills[skill.FlatName] = true
+	}
+
 	if utils.IsSymlinkOrJunction(target.Path) {
 		showSymlinkDiff(target.Path, source)
 		return
 	}
 
-	// Check for copy mode (manifest present)
-	manifest, _ := sync.ReadManifest(target.Path)
-	if len(manifest.Managed) > 0 {
-		showCopyDiff(name, target.Path, sourceSkills, manifest)
+	if mode == "copy" {
+		manifest, _ := sync.ReadManifest(target.Path)
+		showCopyDiff(name, target.Path, filtered, sourceSkills, manifest)
 		return
 	}
 
@@ -133,18 +140,37 @@ func showSymlinkDiff(targetPath, source string) {
 	}
 }
 
-func showCopyDiff(targetName, targetPath string, sourceSkills map[string]bool, manifest *sync.Manifest) {
+func showCopyDiff(targetName, targetPath string, filtered []sync.DiscoveredSkill, sourceSkills map[string]bool, manifest *sync.Manifest) {
 	var syncCount, localCount int
 
-	// Skills only in source (not yet copied)
-	for skill := range sourceSkills {
-		if _, isManaged := manifest.Managed[skill]; !isManaged {
-			// Check if it exists as a local directory
-			if _, err := os.Stat(filepath.Join(targetPath, skill)); err == nil {
-				ui.DiffItem("modify", skill, "local copy (sync --force to replace)")
+	// Build source path lookup for checksum comparison
+	sourcePathMap := make(map[string]string, len(filtered))
+	for _, skill := range filtered {
+		sourcePathMap[skill.FlatName] = skill.SourcePath
+	}
+
+	// Check each source skill
+	for _, skill := range filtered {
+		oldChecksum, isManaged := manifest.Managed[skill.FlatName]
+		if !isManaged {
+			// Not in manifest — missing or local copy
+			if _, err := os.Stat(filepath.Join(targetPath, skill.FlatName)); err == nil {
+				ui.DiffItem("modify", skill.FlatName, "local copy (sync --force to replace)")
 			} else {
-				ui.DiffItem("add", skill, "missing")
+				ui.DiffItem("add", skill.FlatName, "missing")
 			}
+			syncCount++
+			continue
+		}
+		// Managed — compare checksums to detect content drift
+		srcChecksum, err := sync.DirChecksum(skill.SourcePath)
+		if err != nil {
+			ui.DiffItem("modify", skill.FlatName, "cannot compute checksum")
+			syncCount++
+			continue
+		}
+		if srcChecksum != oldChecksum {
+			ui.DiffItem("modify", skill.FlatName, "content changed")
 			syncCount++
 		}
 	}

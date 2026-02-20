@@ -166,6 +166,8 @@ func targetRemoveProject(args []string, root string) error {
 					ui.Warning("%s: %v", name, err)
 				}
 			} else {
+				// Remove copy-mode manifest if present
+				sync.RemoveManifest(target.Path)
 				if err := unlinkMergeModeSafe(target.Path, sourcePath); err != nil {
 					ui.Warning("%s: %v", name, err)
 				}
