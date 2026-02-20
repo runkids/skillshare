@@ -63,7 +63,9 @@ For each target:
 - Sync mode matches actual state
 - Sync drift (linked/managed count vs target expected count after `include`/`exclude`)
 - No broken symlinks
-- No duplicate skills (symlink mode)
+- Duplicate-skill checks for unintended local collisions:
+  - `merge` mode: skipped (local skills are expected)
+  - `copy` mode: manifest-managed copies are ignored; only local colliding copies are warned
 - Valid include/exclude glob patterns
 
 ### Version

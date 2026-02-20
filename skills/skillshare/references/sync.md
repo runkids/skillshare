@@ -11,7 +11,7 @@
 
 ## sync
 
-Distribute skills from source to all targets via symlinks.
+Distribute skills from source to all targets using each target's sync mode (`merge` / `copy` / `symlink`).
 
 ```bash
 skillshare sync                # Execute (auto-detects mode)
@@ -19,6 +19,16 @@ skillshare sync --dry-run      # Preview
 skillshare sync --force        # Override conflicts
 skillshare sync -g             # Force global mode
 ```
+
+### Sync modes (quick reference)
+
+- `merge` (default): per-skill symlinks, preserves local target skills.
+- `copy`: real-file copies with `.skillshare-manifest.json` tracking managed entries.
+- `symlink`: whole target directory symlinked to source.
+
+Copy mode note:
+- `skillshare doctor` duplicate checks ignore manifest-managed copy entries (expected mirrors of source).
+- Duplicate warnings in copy mode are for true local copies that collide with source skill names.
 
 ## collect
 
