@@ -296,7 +296,18 @@ func GetCurrentBranch(repoPath string) (string, error) {
 
 // GetBehindCount fetches from origin and returns how many commits local is behind
 func GetBehindCount(repoPath string) (int, error) {
-	if err := Fetch(repoPath); err != nil {
+	return GetBehindCountWithEnv(repoPath, nil)
+}
+
+// GetBehindCountWithAuth fetches from origin and returns how many commits local
+// is behind, injecting HTTPS token auth based on origin remote when available.
+func GetBehindCountWithAuth(repoPath string) (int, error) {
+	return GetBehindCountWithEnv(repoPath, authEnvForRepo(repoPath))
+}
+
+// GetBehindCountWithEnv is like GetBehindCount but with additional env vars.
+func GetBehindCountWithEnv(repoPath string, extraEnv []string) (int, error) {
+	if err := FetchWithEnv(repoPath, extraEnv); err != nil {
 		return 0, err
 	}
 	branch, err := GetCurrentBranch(repoPath)
@@ -315,7 +326,21 @@ func GetBehindCount(repoPath string) (int, error) {
 
 // GetRemoteHeadHash returns the HEAD hash of a remote repo without cloning
 func GetRemoteHeadHash(repoURL string) (string, error) {
+	return GetRemoteHeadHashWithEnv(repoURL, nil)
+}
+
+// GetRemoteHeadHashWithAuth returns remote HEAD hash with HTTPS token auth
+// injection when token env vars are available.
+func GetRemoteHeadHashWithAuth(repoURL string) (string, error) {
+	return GetRemoteHeadHashWithEnv(repoURL, install.AuthEnvForURL(repoURL))
+}
+
+// GetRemoteHeadHashWithEnv is like GetRemoteHeadHash but with additional env vars.
+func GetRemoteHeadHashWithEnv(repoURL string, extraEnv []string) (string, error) {
 	cmd := exec.Command("git", "ls-remote", repoURL, "HEAD")
+	if len(extraEnv) > 0 {
+		cmd.Env = append(os.Environ(), extraEnv...)
+	}
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err

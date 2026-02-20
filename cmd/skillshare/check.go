@@ -505,7 +505,7 @@ func checkTrackedRepo(name, repoPath string) checkRepoResult {
 	}
 
 	// Fetch and compare
-	behind, err := git.GetBehindCount(repoPath)
+	behind, err := git.GetBehindCountWithAuth(repoPath)
 	if err != nil {
 		result.Status = "error"
 		result.Message = err.Error()
@@ -544,7 +544,7 @@ func checkRegularSkill(name, skillPath string) checkSkillResult {
 	}
 
 	// Compare with remote
-	remoteHash, err := git.GetRemoteHeadHash(meta.RepoURL)
+	remoteHash, err := git.GetRemoteHeadHashWithAuth(meta.RepoURL)
 	if err != nil {
 		result.Status = "error"
 		return result

@@ -103,6 +103,34 @@ targets: {}
 	result.AssertOutputContains(t, "behind")
 }
 
+func TestCheck_TrackedRepo_TokenEnvDoesNotBreakFileFetch(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	remoteRepo := filepath.Join(sb.Root, "remote-repo.git")
+	gitInit(t, remoteRepo, true)
+
+	trackedPath := filepath.Join(sb.SourcePath, "_auth-check-repo")
+	gitClone(t, remoteRepo, trackedPath)
+	os.MkdirAll(filepath.Join(trackedPath, "my-skill"), 0755)
+	os.WriteFile(filepath.Join(trackedPath, "my-skill", "SKILL.md"), []byte("# Test"), 0644)
+	gitAddCommit(t, trackedPath, "initial")
+	gitPush(t, trackedPath)
+
+	t.Setenv("GITHUB_TOKEN", "ghp_fake_token_12345")
+	t.Setenv("GITLAB_TOKEN", "glpat-fake-token")
+	t.Setenv("BITBUCKET_TOKEN", "bb-fake-token")
+	t.Setenv("SKILLSHARE_GIT_TOKEN", "generic-fake-token")
+
+	result := sb.RunCLI("check")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "up to date")
+}
+
 func TestCheck_RegularSkill_ShowsMeta(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
