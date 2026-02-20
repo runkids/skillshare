@@ -737,6 +737,11 @@ func gitCommand(ctx context.Context, args ...string) *exec.Cmd {
 
 // runGitCommand runs a git command with timeout, captures stderr for error messages.
 func runGitCommand(args []string, dir string) error {
+	return runGitCommandEnv(args, dir, nil)
+}
+
+// runGitCommandEnv is like runGitCommand but accepts extra environment variables.
+func runGitCommandEnv(args []string, dir string, extraEnv []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
 	defer cancel()
 
@@ -744,23 +749,39 @@ func runGitCommand(args []string, dir string) error {
 	if dir != "" {
 		cmd.Dir = dir
 	}
+	cmd.Env = append(cmd.Env, extraEnv...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
 	if err != nil {
-		return wrapGitError(stderr.String(), err)
+		return wrapGitError(stderr.String(), err, usedTokenAuth(extraEnv))
 	}
 	return nil
 }
 
+func usedTokenAuth(extraEnv []string) bool {
+	for _, env := range extraEnv {
+		if strings.HasPrefix(env, "GIT_CONFIG_KEY_") && strings.Contains(env, ".insteadOf") {
+			return true
+		}
+	}
+	return false
+}
+
 // wrapGitError inspects stderr output to produce actionable error messages.
-func wrapGitError(stderr string, err error) error {
-	s := strings.TrimSpace(stderr)
+func wrapGitError(stderr string, err error, tokenAuthAttempted bool) error {
+	s := sanitizeTokens(strings.TrimSpace(stderr))
 	if strings.Contains(s, "Authentication failed") ||
 		strings.Contains(s, "could not read Username") ||
 		strings.Contains(s, "terminal prompts disabled") {
-		return fmt.Errorf("authentication required — for private repos use SSH URL:\n       git@<host>:<owner>/<repo>.git\n       %s", s)
+		if tokenAuthAttempted {
+			return fmt.Errorf("authentication failed — token rejected, check permissions and expiry\n       %s", s)
+		}
+		return fmt.Errorf("authentication required — options:\n"+
+			"       1. SSH URL: git@<host>:<owner>/<repo>.git\n"+
+			"       2. Token env var: GITHUB_TOKEN, GITLAB_TOKEN, BITBUCKET_TOKEN, or SKILLSHARE_GIT_TOKEN\n"+
+			"       3. Git credential helper: gh auth login\n       %s", s)
 	}
 	if s != "" {
 		return fmt.Errorf("%s", s)
@@ -768,19 +789,35 @@ func wrapGitError(stderr string, err error) error {
 	return err
 }
 
-// cloneRepo performs a git clone (quiet mode for cleaner output)
+// cloneRepo performs a git clone (quiet mode for cleaner output).
+// If a token is available in env vars, it injects authentication via
+// GIT_CONFIG env vars without modifying the stored remote URL.
 func cloneRepo(url, destPath string, shallow bool) error {
 	args := []string{"clone", "--quiet"}
 	if shallow {
 		args = append(args, "--depth", "1")
 	}
 	args = append(args, url, destPath)
-	return runGitCommand(args, "")
+	return runGitCommandEnv(args, "", authEnv(url))
 }
 
-// gitPull performs a git pull (quiet mode)
+// gitPull performs a git pull (quiet mode).
+// If the remote uses HTTPS and a token is available, it injects
+// authentication via GIT_CONFIG env vars (same mechanism as cloneRepo).
 func gitPull(repoPath string) error {
-	return runGitCommand([]string{"pull", "--quiet"}, repoPath)
+	remoteURL := getRemoteURL(repoPath)
+	return runGitCommandEnv([]string{"pull", "--quiet"}, repoPath, authEnv(remoteURL))
+}
+
+// getRemoteURL returns the fetch URL for the "origin" remote, or "".
+func getRemoteURL(repoPath string) string {
+	cmd := exec.Command("git", "remote", "get-url", "origin")
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // getGitCommit returns the current HEAD commit hash
@@ -963,7 +1000,7 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 
 // cloneRepoFull performs a full git clone (quiet mode for cleaner output)
 func cloneRepoFull(url, destPath string) error {
-	return runGitCommand([]string{"clone", "--quiet", url, destPath}, "")
+	return runGitCommandEnv([]string{"clone", "--quiet", url, destPath}, "", authEnv(url))
 }
 
 // GetUpdatableSkills returns skill names that have metadata with a remote source.

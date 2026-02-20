@@ -92,28 +92,25 @@ Starting from v0.13.0, skillshare follows the XDG Base Directory Specification f
 
 ### GITHUB_TOKEN
 
-GitHub personal access token for API requests.
+GitHub personal access token.
 
-**When needed:**
-- Upgrading skillshare CLI (`skillshare upgrade`)
-- Searching skills (`skillshare search`)
-- Avoiding GitHub API rate limits
-
-:::note
-This token is used for **GitHub API requests only** (search, version check), not for git clone. For private repos, use SSH URLs — see [Private Repositories](/docs/commands/install#private-repositories).
-:::
-
-**Usage:**
-```bash
-export GITHUB_TOKEN=ghp_your_token_here
-skillshare upgrade
-```
+**Used for:**
+- GitHub API requests (`skillshare search`, `skillshare upgrade`)
+- **Git clone authentication** — automatically injected when installing private repos via HTTPS
 
 **Creating a token:**
 1. Go to https://github.com/settings/tokens
 2. Generate new token (classic)
-3. No scopes needed for public repos
+3. Scope: `repo` for private repos, none for public repos
 4. Copy the token
+
+Official docs: [Managing your personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
+
+**Usage:**
+```bash
+export GITHUB_TOKEN=ghp_your_token_here
+skillshare install https://github.com/org/private-skills.git --track
+```
 
 **Windows:**
 ```powershell
@@ -123,6 +120,63 @@ $env:GITHUB_TOKEN = "ghp_your_token"
 # Permanent
 [Environment]::SetEnvironmentVariable("GITHUB_TOKEN", "ghp_your_token", "User")
 ```
+
+---
+
+## Git Authentication
+
+These variables enable HTTPS authentication for private repositories. When set, skillshare automatically injects the token during `install` and `update` — no URL modification needed.
+
+See [Private Repositories](/docs/commands/install#private-repositories) for details and CI/CD examples.
+
+
+### GITLAB_TOKEN
+
+GitLab personal access or CI job token. Used for HTTPS clone of GitLab-hosted private repos.
+
+Official docs: [Token overview](https://docs.gitlab.com/security/tokens/)
+
+```bash
+export GITLAB_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx
+skillshare install https://gitlab.com/org/skills.git --track
+```
+
+### BITBUCKET_TOKEN
+
+Bitbucket repository access token, or app password. Used for HTTPS clone of Bitbucket-hosted private repos.
+
+Official docs: [Access tokens](https://support.atlassian.com/bitbucket-cloud/docs/access-tokens/)
+
+Repository access tokens use `x-token-auth` automatically (no username needed).
+
+If using an app password, also provide your username via `BITBUCKET_USERNAME` (or include it in the URL as `https://<username>@bitbucket.org/...`).
+
+```bash
+export BITBUCKET_USERNAME=your_bitbucket_username
+export BITBUCKET_TOKEN=your_app_password
+skillshare install https://bitbucket.org/team/skills.git --track
+```
+
+### BITBUCKET_USERNAME
+
+Bitbucket username used with `BITBUCKET_TOKEN` when that token is an app password.
+
+```bash
+export BITBUCKET_USERNAME=your_bitbucket_username
+export BITBUCKET_TOKEN=your_app_password
+skillshare install https://bitbucket.org/team/skills.git --track
+```
+
+### SKILLSHARE_GIT_TOKEN
+
+Generic fallback token for any HTTPS git host. Used when no platform-specific token is set.
+
+```bash
+export SKILLSHARE_GIT_TOKEN=your_token
+skillshare install https://git.example.com/org/skills.git --track
+```
+
+**Token priority:** Platform-specific (`GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`) > `SKILLSHARE_GIT_TOKEN`.
 
 ---
 
@@ -179,7 +233,11 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `XDG_DATA_HOME` | Data directory (backups, trash) | `~/.local/share` |
 | `XDG_STATE_HOME` | State directory (logs) | `~/.local/state` |
 | `XDG_CACHE_HOME` | Cache directory (version check, UI) | `~/.cache` |
-| `GITHUB_TOKEN` | GitHub API auth | None |
+| `GITHUB_TOKEN` | GitHub API + git clone auth | None |
+| `GITLAB_TOKEN` | GitLab git clone auth | None |
+| `BITBUCKET_TOKEN` | Bitbucket git clone auth | None |
+| `BITBUCKET_USERNAME` | Bitbucket username for app password auth | None |
+| `SKILLSHARE_GIT_TOKEN` | Generic git clone auth (fallback) | None |
 | `SKILLSHARE_TEST_BINARY` | Test binary path | `bin/skillshare` |
 
 ---

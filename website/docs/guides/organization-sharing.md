@@ -220,11 +220,62 @@ skillshare sync
 
 ## Private Repositories
 
-Use SSH URLs for private repos:
+**SSH** (recommended for developer machines):
 
 ```bash
 skillshare install git@github.com:org/private-skills.git --track
 ```
+
+**HTTPS with token** (recommended for CI/CD):
+
+```bash
+export GITHUB_TOKEN=ghp_your_token
+skillshare install https://github.com/org/private-skills.git --track
+```
+
+Official token documentation:
+- GitHub: [Managing your personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
+- GitLab: [Token overview](https://docs.gitlab.com/security/tokens/)
+- Bitbucket: [Access tokens](https://support.atlassian.com/bitbucket-cloud/docs/access-tokens/)
+
+### CI/CD Setup
+
+**GitHub Actions:**
+
+```yaml
+- name: Install org skills
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    skillshare install https://github.com/org/skills.git --track
+    skillshare sync
+```
+
+**GitLab CI:**
+
+```yaml
+install-skills:
+  script:
+    - skillshare install https://gitlab.com/org/skills.git --track
+    - skillshare sync
+  variables:
+    GITLAB_TOKEN: $CI_JOB_TOKEN
+```
+
+**Bitbucket Pipelines:**
+
+```yaml
+- step:
+    name: Install org skills
+    script:
+      - skillshare install https://bitbucket.org/team/skills.git --track
+      - skillshare sync
+    env:
+      BITBUCKET_USERNAME: $BITBUCKET_USERNAME   # for app passwords
+      BITBUCKET_TOKEN: $BITBUCKET_TOKEN
+```
+
+See [Environment Variables](/docs/reference/environment-variables#git-authentication) for all supported tokens.
 
 ---
 

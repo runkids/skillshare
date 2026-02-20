@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.15.0] - 2026-02-21
+
+### Added
+- **HTTPS token auth for private repos** — `install` and `update` automatically detect `GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`, or `SKILLSHARE_GIT_TOKEN` and inject credentials via transient `GIT_CONFIG_*` env during clone/pull; tokens are never persisted to disk; platform-specific vars take priority over generic fallback
+- **Token-aware error messages** — auth failures now distinguish between "no token" (suggests SSH, env vars, credential helper) and "token rejected" (suggests checking permissions and expiry); token values and `BITBUCKET_USERNAME` in stderr are redacted
+
+### Changed
+- **`GITHUB_TOKEN` expanded scope** — previously used only for GitHub API (search, upgrade); now also used for HTTPS clone/pull of GitHub-hosted private repos
+- **`GIT_CONFIG_COUNT` safe append** — auth token injection now reads existing `GIT_CONFIG_COUNT` and appends at the next available index, avoiding silent override of user's existing git config env vars in CI pipelines
+
 ## [0.14.2] - 2026-02-20
 
 ### Added

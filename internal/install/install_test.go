@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -234,25 +235,58 @@ func TestWrapGitError(t *testing.T) {
 		name       string
 		stderr     string
 		err        error
+		envVars    map[string]string
+		tokenAuth  bool
 		wantSubstr string
 	}{
 		{
-			name:       "authentication failed",
+			name:       "auth failed no token — shows options",
 			stderr:     "fatal: Authentication failed for 'https://bitbucket.org/team/repo.git/'",
 			err:        errors.New("exit status 128"),
-			wantSubstr: "git@<host>:<owner>/<repo>.git",
+			wantSubstr: "GITHUB_TOKEN",
 		},
 		{
-			name:       "could not read Username",
+			name:       "could not read Username no token — shows options",
 			stderr:     "fatal: could not read Username for 'https://bitbucket.org': terminal prompts disabled",
 			err:        errors.New("exit status 128"),
-			wantSubstr: "git@<host>:<owner>/<repo>.git",
+			wantSubstr: "SSH URL",
 		},
 		{
-			name:       "terminal prompts disabled",
+			name:       "terminal prompts disabled no token",
 			stderr:     "fatal: terminal prompts disabled",
 			err:        errors.New("exit status 128"),
 			wantSubstr: "authentication required",
+		},
+		{
+			name:       "auth failed with token — token rejected",
+			stderr:     "fatal: Authentication failed for 'https://github.com/org/repo.git/'",
+			err:        errors.New("exit status 128"),
+			envVars:    map[string]string{"GITHUB_TOKEN": "ghp_expired"},
+			tokenAuth:  true,
+			wantSubstr: "token rejected",
+		},
+		{
+			name:       "auth failed with generic token — token rejected",
+			stderr:     "fatal: terminal prompts disabled",
+			err:        errors.New("exit status 128"),
+			envVars:    map[string]string{"SKILLSHARE_GIT_TOKEN": "custom_tok"},
+			tokenAuth:  true,
+			wantSubstr: "token rejected",
+		},
+		{
+			name:       "auth failed with unrelated token in env — still auth required",
+			stderr:     "fatal: Authentication failed for 'https://bitbucket.org/team/repo.git/'",
+			err:        errors.New("exit status 128"),
+			envVars:    map[string]string{"GITHUB_TOKEN": "ghp_present_but_not_used"},
+			wantSubstr: "authentication required",
+		},
+		{
+			name:       "stderr with token value — sanitized",
+			stderr:     "fatal: auth failed for https://x-access-token:ghp_leaked@github.com/",
+			err:        errors.New("exit status 128"),
+			envVars:    map[string]string{"GITHUB_TOKEN": "ghp_leaked"},
+			tokenAuth:  true,
+			wantSubstr: "[REDACTED]",
 		},
 		{
 			name:       "other stderr",
@@ -269,7 +303,10 @@ func TestWrapGitError(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := wrapGitError(tt.stderr, tt.err)
+			for k, v := range tt.envVars {
+				t.Setenv(k, v)
+			}
+			got := wrapGitError(tt.stderr, tt.err, tt.tokenAuth)
 			if !strings.Contains(got.Error(), tt.wantSubstr) {
 				t.Errorf("wrapGitError() = %q, want substring %q", got.Error(), tt.wantSubstr)
 			}
@@ -296,4 +333,33 @@ func TestGitCommand_SetsEnv(t *testing.T) {
 			t.Errorf("gitCommand() missing env %q", k)
 		}
 	}
+}
+
+func TestGetRemoteURL(t *testing.T) {
+	dir := t.TempDir()
+	// Init a bare git repo and set a remote URL.
+	for _, args := range [][]string{
+		{"git", "init", dir},
+		{"git", "-C", dir, "remote", "add", "origin", "https://github.com/org/repo.git"},
+	} {
+		if out, err := runCmd(args...); err != nil {
+			t.Fatalf("%v failed: %v\n%s", args, err, out)
+		}
+	}
+
+	got := getRemoteURL(dir)
+	if got != "https://github.com/org/repo.git" {
+		t.Errorf("getRemoteURL() = %q, want %q", got, "https://github.com/org/repo.git")
+	}
+
+	// Non-git directory returns empty.
+	if got := getRemoteURL(t.TempDir()); got != "" {
+		t.Errorf("getRemoteURL(non-git) = %q, want empty", got)
+	}
+}
+
+func runCmd(args ...string) (string, error) {
+	cmd := exec.Command(args[0], args[1:]...)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }

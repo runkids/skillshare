@@ -291,25 +291,81 @@ skillshare install anthropics/skills --track
 
 ## Private Repositories
 
-For private repos, use **SSH URL** format to avoid authentication issues:
+### SSH (recommended)
+
+SSH is the simplest method — if your SSH key is configured, it just works:
 
 ```bash
-# ✅ SSH URL (recommended for private repos)
-skillshare install git@bitbucket.org:team/skills.git
-skillshare install git@github.com:team/private-skills.git
-skillshare install git@gitlab.com:team/skills.git
-
-# ✅ SSH URL with subdirectory
-skillshare install git@bitbucket.org:team/skills.git//frontend-react
-
-# ✅ SSH URL with --track
+skillshare install git@github.com:org/private-skills.git --track
+skillshare install git@gitlab.com:org/skills.git --track
 skillshare install git@bitbucket.org:team/skills.git --track
 
-# ❌ HTTPS URL for private repos will fail
-# skillshare install https://bitbucket.org/team/skills
+# With subdirectory
+skillshare install git@github.com:org/skills.git//frontend-react
 ```
 
-HTTPS URLs require interactive authentication which is not supported by skillshare. If you accidentally use an HTTPS URL for a private repo, skillshare will fail fast with an error message suggesting the SSH format.
+### HTTPS with Token
+
+Set the appropriate environment variable and use a regular HTTPS URL. Skillshare automatically detects the token and injects it during clone:
+
+```bash
+export GITHUB_TOKEN=ghp_your_token
+skillshare install https://github.com/org/private-skills.git --track
+```
+
+| Platform | Env Var | Token Type |
+|----------|---------|------------|
+| GitHub | `GITHUB_TOKEN` | Personal access token (`repo` scope) |
+| GitLab | `GITLAB_TOKEN` | Personal access or CI job token |
+| Bitbucket | `BITBUCKET_TOKEN` | Repository token, or app password (with `BITBUCKET_USERNAME` or `https://<username>@...`) |
+| Any host | `SKILLSHARE_GIT_TOKEN` | Generic fallback |
+
+Platform-specific variables take priority over `SKILLSHARE_GIT_TOKEN`.
+
+Official token documentation:
+- GitHub: [Managing your personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
+- GitLab: [Token overview](https://docs.gitlab.com/security/tokens/)
+- Bitbucket: [Access tokens](https://support.atlassian.com/bitbucket-cloud/docs/access-tokens/)
+
+For Bitbucket app passwords, also set your username:
+
+```bash
+export BITBUCKET_USERNAME=your_bitbucket_username
+export BITBUCKET_TOKEN=your_app_password
+skillshare install https://bitbucket.org/team/skills.git --track
+```
+
+### CI/CD Examples
+
+**GitHub Actions:**
+
+```yaml
+- name: Install shared skills
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: skillshare install https://github.com/org/skills.git --track
+```
+
+**GitLab CI:**
+
+```yaml
+install-skills:
+  script:
+    - skillshare install https://gitlab.com/org/skills.git --track
+  variables:
+    GITLAB_TOKEN: $CI_JOB_TOKEN
+```
+
+**Bitbucket Pipelines:**
+
+```yaml
+- step:
+    name: Install shared skills
+    script:
+      - skillshare install https://bitbucket.org/team/skills.git --track
+    env:
+      BITBUCKET_TOKEN: $BITBUCKET_TOKEN
+```
 
 ## Security Scanning
 

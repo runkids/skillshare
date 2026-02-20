@@ -669,16 +669,21 @@ func SkillBox(name, description, location string) {
 
 // SkillBoxCompact prints a compact skill box (for multiple skills)
 func SkillBoxCompact(name, location string) {
+	loc := location
+	if loc == "." {
+		loc = "root"
+	}
+
 	if IsTTY() {
-		loc := location
-		if loc == "." {
-			loc = "root"
+		if loc == "" {
+			fmt.Printf("  %s %s\n", pterm.Cyan(StepBullet), pterm.White(name))
+			return
 		}
 		fmt.Printf("  %s %s %s\n", pterm.Cyan(StepBullet), pterm.White(name), pterm.Gray("("+loc+")"))
 	} else {
-		loc := location
-		if loc == "." {
-			loc = "root"
+		if loc == "" {
+			fmt.Printf("  %s %s\n", StepBullet, name)
+			return
 		}
 		fmt.Printf("  %s %s (%s)\n", StepBullet, name, loc)
 	}
