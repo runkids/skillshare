@@ -5,6 +5,7 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -83,7 +84,7 @@ targets: {}
 
 	// Verify no token leaks in output
 	output := result.Output()
-	if containsSubstring(output, token) {
+	if strings.Contains(output, token) {
 		t.Error("token should not appear in CLI output")
 	}
 }
@@ -118,7 +119,7 @@ targets: {}
 
 	// Verify no token leaks
 	output := updateResult.Output()
-	if containsSubstring(output, token) {
+	if strings.Contains(output, token) {
 		t.Error("token should not appear in update output")
 	}
 }
