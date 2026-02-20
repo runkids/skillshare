@@ -180,7 +180,7 @@ Skills with `tracked: true` are cloned with full git history (same as `--track`)
 `push`/`pull` syncs actual skill **files** via git. `install` from config re-downloads from **source URLs**. They're complementary — see [Cross-Machine Sync](/docs/guides/cross-machine-sync#alternative-install-from-config) for when to use which.
 :::
 
-When using no-arg install, `--name`, `--into`, `--track`, `--skill`, `--all`, `--yes`, and `--update` are not supported (they require a source argument). `--dry-run`, `--force`, and `--skip-audit` work as expected.
+When using no-arg install, `--name`, `--into`, `--track`, `--skill`, `--exclude`, `--all`, `--yes`, and `--update` are not supported (they require a source argument). `--dry-run`, `--force`, and `--skip-audit` work as expected.
 
 ## Project Mode
 
@@ -231,6 +231,7 @@ See [Project Setup](/docs/guides/project-setup) for the full guide.
 | `--yes` | `-y` | Auto-accept all prompts (CI/CD friendly) |
 | `--skip-audit` | | Skip security audit for this install |
 | `--project` | `-p` | Install into project `.skillshare/skills/` |
+| `--global` | `-g` | Install into global `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | Preview only |
 
 ## Common Scenarios

@@ -3,12 +3,19 @@
 ## [0.15.0] - 2026-02-21
 
 ### Added
-- **HTTPS token auth for private repos** — `install` and `update` automatically detect `GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`, or `SKILLSHARE_GIT_TOKEN` and inject credentials via transient `GIT_CONFIG_*` env during clone/pull; tokens are never persisted to disk; platform-specific vars take priority over generic fallback
-- **Token-aware error messages** — auth failures now distinguish between "no token" (suggests SSH, env vars, credential helper) and "token rejected" (suggests checking permissions and expiry); token values and `BITBUCKET_USERNAME` in stderr are redacted
+- **Copy sync mode** — `skillshare target <name> --mode copy` syncs skills as real files instead of symlinks, for AI CLIs that can't follow symlinks (e.g. Cursor, Copilot CLI); uses SHA256 checksums for incremental updates; `sync --force` re-copies all; existing targets can switch between merge/copy/symlink at any time (#31, #2)
+- **Private repo support via HTTPS tokens** — `install` and `update` now auto-detect `GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`, or `SKILLSHARE_GIT_TOKEN` for HTTPS clone/pull; no manual git config needed; tokens are never written to disk
+- **Better auth error messages** — auth failures now tell you whether the issue is "no token found" (with setup suggestions) or "token rejected" (check permissions/expiry); token values are redacted in output
+
+### Fixed
+- **`diff` now detects content changes in copy mode** — previously only checked symlink presence; now compares file checksums
+- **`doctor` no longer flags copy-managed skills as duplicates**
+- **`target remove` in project mode cleans up copy manifest**
+- **Copy mode no longer fails on stray files** in target directories or missing target paths
 
 ### Changed
-- **`GITHUB_TOKEN` expanded scope** — previously used only for GitHub API (search, upgrade); now also used for HTTPS clone/pull of GitHub-hosted private repos
-- **`GIT_CONFIG_COUNT` safe append** — auth token injection now reads existing `GIT_CONFIG_COUNT` and appends at the next available index, avoiding silent override of user's existing git config env vars in CI pipelines
+- **`agents` target renamed to `universal`** — existing configs using `agents` continue to work (backward-compatible alias); Kimi and Replit paths updated to match upstream docs
+- **`GITHUB_TOKEN` now used for HTTPS clone** — previously only used for GitHub API (search, upgrade); now also used when cloning private repos over HTTPS
 
 ## [0.14.2] - 2026-02-20
 
