@@ -495,21 +495,35 @@ func updateTargetMode(cfg *config.Config, name string, target config.TargetConfi
 }
 
 func showTargetInfo(cfg *config.Config, name string, target config.TargetConfig) error {
-	mode := target.Mode
-	if mode == "" {
-		mode = cfg.Mode
-		if mode == "" {
-			mode = "merge"
+	effectiveMode := target.Mode
+	if effectiveMode == "" {
+		effectiveMode = cfg.Mode
+		if effectiveMode == "" {
+			effectiveMode = "merge"
 		}
-		mode = mode + " (default)"
 	}
 
-	status := sync.CheckStatus(target.Path, cfg.Source)
+	modeDisplay := effectiveMode
+	if target.Mode == "" {
+		modeDisplay = effectiveMode + " (default)"
+	}
+
+	var statusLine string
+	switch effectiveMode {
+	case "copy":
+		status, managed, local := sync.CheckStatusCopy(target.Path)
+		statusLine = fmt.Sprintf("%s (managed: %d, local: %d)", status, managed, local)
+	case "merge":
+		status, linked, local := sync.CheckStatusMerge(target.Path, cfg.Source)
+		statusLine = fmt.Sprintf("%s (linked: %d, local: %d)", status, linked, local)
+	default:
+		statusLine = sync.CheckStatus(target.Path, cfg.Source).String()
+	}
 
 	ui.Header(fmt.Sprintf("Target: %s", name))
 	fmt.Printf("  Path:    %s\n", target.Path)
-	fmt.Printf("  Mode:    %s\n", mode)
-	fmt.Printf("  Status:  %s\n", status)
+	fmt.Printf("  Mode:    %s\n", modeDisplay)
+	fmt.Printf("  Status:  %s\n", statusLine)
 	fmt.Printf("  Include: %s\n", formatFilterList(target.Include))
 	fmt.Printf("  Exclude: %s\n", formatFilterList(target.Exclude))
 

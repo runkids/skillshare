@@ -175,14 +175,23 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if mode == "copy" {
-			// Copy mode: check via manifest
+			// Copy mode: check via manifest + checksum comparison
 			manifest, _ := ssync.ReadManifest(target.Path)
 			for _, skill := range filtered {
-				if _, isManaged := manifest.Managed[skill.FlatName]; !isManaged {
+				oldChecksum, isManaged := manifest.Managed[skill.FlatName]
+				if !isManaged {
 					if _, err := os.Stat(filepath.Join(target.Path, skill.FlatName)); err == nil {
 						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "skip", Reason: "local copy (sync --force to replace)"})
 					} else {
 						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "missing"})
+					}
+				} else {
+					// Compare checksums to detect content drift
+					srcChecksum, err := ssync.DirChecksum(skill.SourcePath)
+					if err != nil {
+						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "cannot compute checksum"})
+					} else if srcChecksum != oldChecksum {
+						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "content changed"})
 					}
 				}
 			}

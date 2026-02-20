@@ -51,11 +51,11 @@ func cmdDiffProject(root, targetName string) error {
 		if err != nil {
 			return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)
 		}
-		sourceSkills := make(map[string]bool, len(filtered))
-		for _, skill := range filtered {
-			sourceSkills[skill.FlatName] = true
+		mode := target.Mode
+		if mode == "" {
+			mode = "merge"
 		}
-		showTargetDiff(entry.Name, target, runtime.sourcePath, sourceSkills)
+		showTargetDiff(entry.Name, target, runtime.sourcePath, mode, filtered)
 	}
 
 	return nil
