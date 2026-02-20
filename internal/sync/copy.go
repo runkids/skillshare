@@ -285,7 +285,7 @@ func DirChecksum(dir string) (string, error) {
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil // skip inaccessible
+			return err
 		}
 		if info.IsDir() {
 			// Skip .git directories
@@ -297,14 +297,14 @@ func DirChecksum(dir string) (string, error) {
 
 		relPath, err := filepath.Rel(dir, path)
 		if err != nil {
-			return nil
+			return err
 		}
 		// Normalize path separators for cross-platform consistency
 		relPath = strings.ReplaceAll(relPath, "\\", "/")
 
 		content, err := os.ReadFile(path)
 		if err != nil {
-			return nil
+			return err
 		}
 
 		entries = append(entries, entry{relPath: relPath, content: content})
