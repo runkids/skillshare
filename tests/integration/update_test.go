@@ -5,6 +5,7 @@ package integration
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -139,4 +140,45 @@ func TestUpdate_PositionalGroupAutoDetect(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "is a group")
 	result.AssertAnyOutputContains(t, "s1")
+}
+
+func TestUpdate_TrackedRepo_TokenEnvDoesNotBreakFilePull(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	gitRepoPath := filepath.Join(sb.Root, "update-auth-file-remote")
+	if err := os.MkdirAll(gitRepoPath, 0755); err != nil {
+		t.Fatalf("failed to create repo dir: %v", err)
+	}
+	sb.WriteFile(filepath.Join(gitRepoPath, "SKILL.md"), "# Version 1")
+	initGitRepo(t, gitRepoPath)
+
+	installResult := sb.RunCLI("install", "file://"+gitRepoPath, "--track", "--name", "update-auth-file")
+	installResult.AssertSuccess(t)
+
+	sb.WriteFile(filepath.Join(gitRepoPath, "SKILL.md"), "# Version 2")
+	cmd := exec.Command("git", "add", ".")
+	cmd.Dir = gitRepoPath
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git add failed: %v", err)
+	}
+	cmd = exec.Command("git", "commit", "-m", "v2")
+	cmd.Dir = gitRepoPath
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+
+	t.Setenv("GITHUB_TOKEN", "ghp_fake_token_12345")
+	t.Setenv("GITLAB_TOKEN", "glpat-fake-token")
+	t.Setenv("BITBUCKET_TOKEN", "bb-fake-token")
+	t.Setenv("SKILLSHARE_GIT_TOKEN", "generic-fake-token")
+
+	updateResult := sb.RunCLI("update", "_update-auth-file")
+	updateResult.AssertSuccess(t)
+
+	content := sb.ReadFile(filepath.Join(sb.SourcePath, "_update-auth-file", "SKILL.md"))
+	if content != "# Version 2" {
+		t.Fatalf("expected tracked repo to update to Version 2, got: %s", content)
+	}
 }

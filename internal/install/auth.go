@@ -135,6 +135,12 @@ func authEnv(cloneURL string) []string {
 	}
 }
 
+// AuthEnvForURL returns git auth injection env for HTTPS clone/pull URLs.
+// Returns nil when no token is available or URL is not HTTPS.
+func AuthEnvForURL(cloneURL string) []string {
+	return authEnv(cloneURL)
+}
+
 // existingConfigCount returns the current GIT_CONFIG_COUNT from the
 // environment, or 0 if unset/invalid.
 func existingConfigCount() int {

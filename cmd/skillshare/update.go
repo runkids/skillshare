@@ -361,9 +361,9 @@ func updateTrackedRepoQuick(repo, repoPath, progress string, dryRun, force bool)
 
 	var info *git.UpdateInfo
 	if force {
-		info, err = git.ForcePull(repoPath)
+		info, err = git.ForcePullWithAuth(repoPath)
 	} else {
-		info, err = git.Pull(repoPath)
+		info, err = git.PullWithAuth(repoPath)
 	}
 	if err != nil {
 		spinner.Warn(fmt.Sprintf("%s %v", repo, err))
@@ -593,9 +593,9 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force bool) 
 	var info *git.UpdateInfo
 	var err error
 	if force {
-		info, err = git.ForcePull(repoPath)
+		info, err = git.ForcePullWithAuth(repoPath)
 	} else {
-		info, err = git.Pull(repoPath)
+		info, err = git.PullWithAuth(repoPath)
 	}
 	if err != nil {
 		spinner.Fail("Failed to update")

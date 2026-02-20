@@ -2,9 +2,12 @@ package git
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"skillshare/internal/install"
 )
 
 // DiffStats holds git diff statistics
@@ -42,8 +45,16 @@ func GetCurrentHash(repoPath string) (string, error) {
 
 // Fetch runs git fetch
 func Fetch(repoPath string) error {
+	return FetchWithEnv(repoPath, nil)
+}
+
+// FetchWithEnv runs git fetch with additional environment variables.
+func FetchWithEnv(repoPath string, extraEnv []string) error {
 	cmd := exec.Command("git", "fetch")
 	cmd.Dir = repoPath
+	if len(extraEnv) > 0 {
+		cmd.Env = append(os.Environ(), extraEnv...)
+	}
 	return cmd.Run()
 }
 
@@ -123,6 +134,17 @@ func extractNumber(s string) int {
 
 // Pull runs git pull and returns update info (quiet mode)
 func Pull(repoPath string) (*UpdateInfo, error) {
+	return PullWithEnv(repoPath, nil)
+}
+
+// PullWithAuth runs git pull with token auth env inferred from origin remote.
+func PullWithAuth(repoPath string) (*UpdateInfo, error) {
+	return PullWithEnv(repoPath, authEnvForRepo(repoPath))
+}
+
+// PullWithEnv runs git pull and returns update info (quiet mode) with
+// additional environment variables.
+func PullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
 	info := &UpdateInfo{}
 
 	// Get hash before pull
@@ -135,6 +157,9 @@ func Pull(repoPath string) (*UpdateInfo, error) {
 	// Run git pull (quiet mode)
 	cmd := exec.Command("git", "pull", "--quiet")
 	cmd.Dir = repoPath
+	if len(extraEnv) > 0 {
+		cmd.Env = append(os.Environ(), extraEnv...)
+	}
 	if err := cmd.Run(); err != nil {
 		return nil, err
 	}
@@ -309,6 +334,16 @@ func GetRemoteHeadHash(repoURL string) (string, error) {
 
 // ForcePull fetches and resets to origin (handles force push)
 func ForcePull(repoPath string) (*UpdateInfo, error) {
+	return ForcePullWithEnv(repoPath, nil)
+}
+
+// ForcePullWithAuth runs force-pull flow with token auth env inferred from origin remote.
+func ForcePullWithAuth(repoPath string) (*UpdateInfo, error) {
+	return ForcePullWithEnv(repoPath, authEnvForRepo(repoPath))
+}
+
+// ForcePullWithEnv fetches and resets to origin with additional env vars.
+func ForcePullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
 	info := &UpdateInfo{}
 
 	// Get hash before
@@ -325,7 +360,7 @@ func ForcePull(repoPath string) (*UpdateInfo, error) {
 	}
 
 	// Fetch
-	if err := Fetch(repoPath); err != nil {
+	if err := FetchWithEnv(repoPath, extraEnv); err != nil {
 		return nil, err
 	}
 
@@ -357,4 +392,18 @@ func ForcePull(repoPath string) (*UpdateInfo, error) {
 	info.Stats = stats
 
 	return info, nil
+}
+
+func authEnvForRepo(repoPath string) []string {
+	return install.AuthEnvForURL(getRemoteURL(repoPath))
+}
+
+func getRemoteURL(repoPath string) string {
+	cmd := exec.Command("git", "remote", "get-url", "origin")
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
