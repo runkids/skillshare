@@ -47,7 +47,7 @@ One command, no prompts, deterministic results every time.
 |------------|------------------------|--------------------------|
 | **Configuration** | No config file; prompts on every run | `config.yaml` — set once, reuse forever |
 | **Agent selection** | Interactive prompt each time | Defined in config; `sync` handles all |
-| **Install method** | Choose copy/symlink per operation | `sync_mode` in config (merge or symlink) |
+| **Install method** | Choose copy/symlink per operation | `sync_mode` in config (merge, copy, or symlink) |
 | **Single source of truth** | Skills copied to each agent independently | Source directory → symlinks to all targets |
 | **Removing a skill from one agent** | May delete source files, breaking other agents | Only affects that target's symlink |
 | **Reproducible setup** | No built-in way to restore on new machine | `config.yaml` + source dir = full restore |

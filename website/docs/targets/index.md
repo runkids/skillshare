@@ -89,5 +89,5 @@ Only paths that exist are added. See [Supported Targets](./supported-targets.md)
 ## Related
 
 - [Source & Targets](/docs/concepts/source-and-targets) — Core concepts
-- [Sync Modes](/docs/concepts/sync-modes) — Merge vs symlink
+- [Sync Modes](/docs/concepts/sync-modes) — Merge, copy, symlink
 - [Commands: target](/docs/commands/target) — Target command details

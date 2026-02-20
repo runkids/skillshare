@@ -16,7 +16,7 @@
     "mode": {
       "type": "string",
       "description": "Default sync mode for all targets.",
-      "enum": ["merge", "symlink"],
+      "enum": ["merge", "symlink", "copy"],
       "default": "merge",
       "examples": ["merge"]
     },
@@ -71,7 +71,7 @@
         "mode": {
           "type": "string",
           "description": "Sync mode override for this target. If omitted, inherits the top-level mode.",
-          "enum": ["merge", "symlink"]
+          "enum": ["merge", "symlink", "copy"]
         },
         "include": {
           "type": "array",

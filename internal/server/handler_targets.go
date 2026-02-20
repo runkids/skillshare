@@ -58,7 +58,8 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 			}(),
 		}
 
-		if mode == "merge" {
+		switch mode {
+		case "merge":
 			if discoveredErr == nil {
 				filtered, err := ssync.FilterSkills(discovered, target.Include, target.Exclude)
 				if err != nil {
@@ -72,7 +73,21 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 			item.Status = status.String()
 			item.LinkedCount = linked
 			item.LocalCount = local
-		} else {
+		case "copy":
+			if discoveredErr == nil {
+				filtered, err := ssync.FilterSkills(discovered, target.Include, target.Exclude)
+				if err != nil {
+					writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
+					return
+				}
+				filtered = ssync.FilterSkillsByTarget(filtered, name)
+				item.ExpectedSkillCount = len(filtered)
+			}
+			status, managed, local := ssync.CheckStatusCopy(target.Path)
+			item.Status = status.String()
+			item.LinkedCount = managed // reuse field for managed count
+			item.LocalCount = local
+		default:
 			status := ssync.CheckStatus(target.Path, s.cfg.Source)
 			item.Status = status.String()
 		}
@@ -163,13 +178,15 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clean up symlinks from the target before deleting from config
+	// Clean up symlinks/manifest from the target before deleting from config
 	info, err := os.Lstat(target.Path)
 	if err == nil {
 		if info.Mode()&os.ModeSymlink != 0 {
 			// Symlink mode: entire directory is a symlink
 			os.Remove(target.Path)
 		} else if info.IsDir() {
+			// Remove manifest if present (copy mode)
+			ssync.RemoveManifest(target.Path)
 			// Merge mode: remove individual skill symlinks pointing to source
 			s.unlinkMergeSymlinks(target.Path)
 		}

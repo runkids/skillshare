@@ -299,7 +299,7 @@ func targetInfoProject(name string, args []string, root string) error {
 		switch remaining[i] {
 		case "--mode", "-m":
 			if i+1 >= len(remaining) {
-				return fmt.Errorf("--mode requires a value (merge or symlink)")
+				return fmt.Errorf("--mode requires a value (merge, symlink, or copy)")
 			}
 			newMode = remaining[i+1]
 			i++
@@ -379,10 +379,14 @@ func targetInfoProject(name string, args []string, root string) error {
 	fmt.Printf("  Path:    %s\n", projectTargetDisplayPath(targetEntry))
 	fmt.Printf("  Mode:    %s\n", displayMode)
 
-	if mode == "symlink" {
+	switch mode {
+	case "symlink":
 		status := sync.CheckStatus(target.Path, sourcePath)
 		fmt.Printf("  Status:  %s\n", status)
-	} else {
+	case "copy":
+		status, managed, local := sync.CheckStatusCopy(target.Path)
+		fmt.Printf("  Status:  %s (%d managed, %d local)\n", status, managed, local)
+	default:
 		status, linked, local := sync.CheckStatusMerge(target.Path, sourcePath)
 		fmt.Printf("  Status:  %s (%d shared, %d local)\n", status, linked, local)
 	}
@@ -394,8 +398,8 @@ func targetInfoProject(name string, args []string, root string) error {
 }
 
 func updateTargetModeProject(cfg *config.ProjectConfig, idx int, newMode string, root string) error {
-	if newMode != "merge" && newMode != "symlink" {
-		return fmt.Errorf("invalid mode '%s'. Use 'merge' or 'symlink'", newMode)
+	if newMode != "merge" && newMode != "symlink" && newMode != "copy" {
+		return fmt.Errorf("invalid mode '%s'. Use 'merge', 'symlink', or 'copy'", newMode)
 	}
 
 	entry := &cfg.Targets[idx]

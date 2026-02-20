@@ -34,7 +34,7 @@ Checking environment
 
 Checking targets
   ✓ claude    [merge]: merged (8 shared, 2 local)
-  ✓ cursor    [merge]: merged (8 shared, 0 local)
+  ✓ cursor    [copy]: copied (8 managed, 0 local)
   ⚠ codex     [merge]: needs sync
 
 Version
@@ -61,7 +61,7 @@ Summary
 For each target:
 - Path exists and is writable
 - Sync mode matches actual state
-- Sync drift (linked count vs target expected count after `include`/`exclude`)
+- Sync drift (linked/managed count vs target expected count after `include`/`exclude`)
 - No broken symlinks
 - No duplicate skills (symlink mode)
 - Valid include/exclude glob patterns

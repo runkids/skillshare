@@ -14,7 +14,7 @@ import (
 // TargetConfig holds configuration for a single target
 type TargetConfig struct {
 	Path    string   `yaml:"path"`
-	Mode    string   `yaml:"mode,omitempty"` // symlink (default), copy
+	Mode    string   `yaml:"mode,omitempty"` // merge, symlink, or copy
 	Include []string `yaml:"include,omitempty"`
 	Exclude []string `yaml:"exclude,omitempty"`
 }

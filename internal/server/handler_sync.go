@@ -53,17 +53,20 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			Pruned:  make([]string, 0),
 		}
 
-		if mode == "merge" {
+		syncErrArgs := map[string]any{
+			"targets_total":  len(s.cfg.Targets),
+			"targets_failed": 1,
+			"target":         name,
+			"dry_run":        body.DryRun,
+			"force":          body.Force,
+			"scope":          "ui",
+		}
+
+		switch mode {
+		case "merge":
 			mergeResult, err := ssync.SyncTargetMerge(name, target, s.cfg.Source, body.DryRun, body.Force)
 			if err != nil {
-				s.writeOpsLog("sync", "error", start, map[string]any{
-					"targets_total":  len(s.cfg.Targets),
-					"targets_failed": 1,
-					"target":         name,
-					"dry_run":        body.DryRun,
-					"force":          body.Force,
-					"scope":          "ui",
-				}, err.Error())
+				s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
 				writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
 				return
 			}
@@ -71,22 +74,31 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			res.Updated = mergeResult.Updated
 			res.Skipped = mergeResult.Skipped
 
-			// Prune orphans
 			pruneResult, err := ssync.PruneOrphanLinks(target.Path, s.cfg.Source, target.Include, target.Exclude, name, body.DryRun, body.Force)
 			if err == nil {
 				res.Pruned = pruneResult.Removed
 			}
-		} else {
+
+		case "copy":
+			copyResult, err := ssync.SyncTargetCopy(name, target, s.cfg.Source, body.DryRun, body.Force)
+			if err != nil {
+				s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
+				writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
+				return
+			}
+			res.Linked = copyResult.Copied
+			res.Updated = copyResult.Updated
+			res.Skipped = copyResult.Skipped
+
+			pruneResult, err := ssync.PruneOrphanCopies(target.Path, s.cfg.Source, target.Include, target.Exclude, name, body.DryRun)
+			if err == nil {
+				res.Pruned = pruneResult.Removed
+			}
+
+		default:
 			err := ssync.SyncTarget(name, target, s.cfg.Source, body.DryRun)
 			if err != nil {
-				s.writeOpsLog("sync", "error", start, map[string]any{
-					"targets_total":  len(s.cfg.Targets),
-					"targets_failed": 1,
-					"target":         name,
-					"dry_run":        body.DryRun,
-					"force":          body.Force,
-					"scope":          "ui",
-				}, err.Error())
+				s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
 				writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
 				return
 			}
@@ -148,7 +160,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		dt := diffTarget{Target: name, Items: make([]diffItem, 0)}
 		filtered := discovered
 
-		if mode != "merge" {
+		if mode == "symlink" {
 			status := ssync.CheckStatus(target.Path, s.cfg.Source)
 			if status != ssync.StatusLinked {
 				dt.Items = append(dt.Items, diffItem{Skill: "(entire directory)", Action: "link", Reason: "missing"})
@@ -160,6 +172,32 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
 			return
+		}
+
+		if mode == "copy" {
+			// Copy mode: check via manifest
+			manifest, _ := ssync.ReadManifest(target.Path)
+			for _, skill := range filtered {
+				if _, isManaged := manifest.Managed[skill.FlatName]; !isManaged {
+					if _, err := os.Stat(filepath.Join(target.Path, skill.FlatName)); err == nil {
+						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "skip", Reason: "local copy (sync --force to replace)"})
+					} else {
+						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "missing"})
+					}
+				}
+			}
+			// Check for orphan managed copies
+			validNames := make(map[string]bool)
+			for _, skill := range filtered {
+				validNames[skill.FlatName] = true
+			}
+			for managedName := range manifest.Managed {
+				if !validNames[managedName] {
+					dt.Items = append(dt.Items, diffItem{Skill: managedName, Action: "prune", Reason: "orphan copy"})
+				}
+			}
+			diffs = append(diffs, dt)
+			continue
 		}
 
 		// Merge mode: check each skill

@@ -18,7 +18,7 @@ skillshare target <name> --mode merge  # Change sync mode
 
 - Add a new AI CLI target after installing a new tool
 - Remove a target you no longer use
-- Change sync mode (merge vs symlink) for a target
+- Change sync mode (merge, copy, or symlink) for a target
 - Set up include/exclude filters for selective skill syncing
 
 ## Subcommands
@@ -51,6 +51,7 @@ skillshare target remove cursor --dry-run # Preview
 2. Detects sync mode:
    - **Symlink mode:** Removes the directory symlink, copies source contents back as a real directory
    - **Merge mode:** Removes only symlinks pointing to source (by path prefix), copies each skill back as real files. Local (non-symlink) skills are preserved.
+   - **Copy mode:** Removes `.skillshare-manifest.json`. Managed copies and local skills are preserved as regular directories.
 3. Removes target from config
 
 ### target list
@@ -87,11 +88,12 @@ skillshare sync  # Apply change
 | Mode | Behavior |
 |------|----------|
 | `merge` | Each skill symlinked individually. Preserves local skills. **Default.** |
+| `copy` | Each skill copied as real files. For AI CLIs that can't follow symlinks. |
 | `symlink` | Entire directory is one symlink. Exact copies everywhere. |
 
 ```bash
-# Set target to symlink mode
-skillshare target claude --mode symlink
+# Set target to copy mode (for Cursor, Copilot CLI, etc.)
+skillshare target cursor --mode copy
 skillshare sync  # Apply the change
 ```
 
@@ -108,7 +110,7 @@ skillshare target claude --remove-exclude "_legacy*"
 
 After changing filters, run `skillshare sync` to apply.
 
-Filters work in **merge mode** only. Patterns use Go `filepath.Match` syntax (`*`, `?`, `[...]`).
+Filters work in **merge and copy modes**. Patterns use Go `filepath.Match` syntax (`*`, `?`, `[...]`). In symlink mode, filters are ignored.
 
 See [Configuration](/docs/targets/configuration#include--exclude-target-filters) for pattern cheat sheet and scenarios.
 
@@ -129,7 +131,7 @@ No additional options.
 
 | Flag | Description |
 |------|-------------|
-| `--mode, -m <mode>` | Set sync mode (merge or symlink) |
+| `--mode, -m <mode>` | Set sync mode (merge, copy, or symlink) |
 | `--add-include <pattern>` | Add an include filter pattern |
 | `--add-exclude <pattern>` | Add an exclude filter pattern |
 | `--remove-include <pattern>` | Remove an include filter pattern |
@@ -158,6 +160,10 @@ skillshare target add my-tool ~/my-tool/skills
 
 # Check target status
 skillshare target claude
+
+# Switch to copy mode (for AI CLIs that can't read symlinks)
+skillshare target cursor --mode copy
+skillshare sync
 
 # Switch to symlink mode
 skillshare target claude --mode symlink
@@ -192,7 +198,7 @@ skillshare target claude --add-include "team-*" -p          # Add filter
 |---|---|---|
 | Config | `~/.config/skillshare/config.yaml` | `.skillshare/config.yaml` |
 | Paths | Absolute (e.g., `~/.claude/skills`) | Relative or absolute (e.g., `.claude/skills`) |
-| Sync mode | Merge or symlink | Merge or symlink (default merge) |
+| Sync mode | Merge, copy, or symlink | Merge, copy, or symlink (default merge) |
 | Mode change | `--mode` flag | `--mode` flag |
 
 ### Project Target List Example

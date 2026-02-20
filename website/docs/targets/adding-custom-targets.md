@@ -170,4 +170,4 @@ skillshare target add myapp /correct/path/skills
 
 - [Supported Targets](./supported-targets.md) — Built-in targets
 - [Configuration](./configuration.md) — Edit config directly
-- [Sync Modes](/docs/concepts/sync-modes) — Merge vs symlink
+- [Sync Modes](/docs/concepts/sync-modes) — Merge, copy, symlink

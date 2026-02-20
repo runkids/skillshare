@@ -69,7 +69,7 @@ skillshare sync          # Auto-detected project mode
 skillshare sync -p       # Explicit project mode
 ```
 
-**Project sync** defaults to merge mode (per-skill symlinks), but each target can be set to symlink mode via `skillshare target <name> --mode symlink -p`. Backup is not created (project targets are reproducible from source).
+**Project sync** defaults to merge mode (per-skill symlinks), but each target can be set to copy or symlink mode via `skillshare target <name> --mode copy -p`. Backup is not created (project targets are reproducible from source).
 
 ```
 .skillshare/skills/                 .claude/skills/
@@ -101,7 +101,9 @@ flowchart TD
     SYMLINK["symlink mode"]
     S3["3. Report results"]
     TITLE --> S1 --> S2
+    COPY["copy mode"]
     S2 --> MERGE --> S3
+    S2 --> COPY --> S3
     S2 --> SYMLINK --> S3
 ```
 
@@ -190,11 +192,12 @@ git add → commit → push`"]
 | Mode | Behavior | Use case |
 |------|----------|----------|
 | `merge` | Each skill symlinked individually | **Default.** Preserves local skills. |
+| `copy` | Each skill copied as real files | AI CLIs that can't follow symlinks. |
 | `symlink` | Entire directory is one symlink | Exact copies everywhere. |
 
 ### Per-target include/exclude filters
 
-In merge mode, each target can define `include` / `exclude` patterns in config:
+In merge and copy modes, each target can define `include` / `exclude` patterns in config:
 
 ```yaml
 targets:
@@ -210,7 +213,8 @@ targets:
 - `include` is applied first, then `exclude`
 - `diff`, `status`, `doctor`, and UI drift all use the filtered expected set
 - In symlink mode, filters are ignored
-- `sync` removes existing source-linked entries that are now excluded
+- In copy mode, filters work the same way as merge mode
+- `sync` removes existing source-linked or managed entries that are now excluded
 
 See [Configuration](/docs/targets/configuration#include--exclude-target-filters) for full details.
 
@@ -291,6 +295,20 @@ skills/                         ~/.claude/skills/
                                 └── ...
 ```
 
+### Copy Mode
+
+```
+Source                          Target (cursor)
+─────────────────────────────────────────────────────────────
+skills/                         ~/.cursor/skills/
+├── my-skill/        ────copy►  ├── my-skill/    (real files)
+├── another/         ────copy►  ├── another/     (real files)
+└── ...                         ├── local-only/  (preserved)
+                                └── .skillshare-manifest.json
+```
+
+A `.skillshare-manifest.json` tracks managed skills and checksums. Unchanged skills are skipped on re-sync; `--force` overwrites all.
+
 ### Symlink Mode
 
 ```
@@ -306,6 +324,7 @@ skills/              ────────►  ~/.claude/skills → (symlink 
 
 ```bash
 skillshare target claude --mode merge
+skillshare target claude --mode copy
 skillshare target claude --mode symlink
 skillshare sync  # Apply change
 ```

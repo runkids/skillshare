@@ -73,7 +73,7 @@ skillshare sync -g       # Force global mode
 | **Source** | `~/.config/skillshare/skills/` | `.skillshare/skills/` (project root) |
 | **Config** | `~/.config/skillshare/config.yaml` | `.skillshare/config.yaml` |
 | **Targets** | System-wide AI CLI directories | Per-project directories |
-| **Sync mode** | Merge or symlink (per-target) | Merge or symlink (per-target, default merge) |
+| **Sync mode** | Merge, copy, or symlink (per-target) | Merge, copy, or symlink (per-target, default merge) |
 | **Tracked repos** | Supported (`--track`) | Supported (`--track -p`) |
 | **Git integration** | Optional (`push`/`pull`) | Skills committed directly to project repo |
 | **Scope** | All projects on machine | Single repository |

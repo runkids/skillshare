@@ -704,7 +704,7 @@ function TargetsHealthSection() {
   const driftTargets = (data?.targets ?? []).filter(
     (t) => {
       const expected = t.expectedSkillCount || sourceSkillCount;
-      return t.mode === 'merge' && t.status === 'merged' && t.linkedCount < expected;
+      return (t.mode === 'merge' && t.status === 'merged' || t.mode === 'copy' && t.status === 'copied') && t.linkedCount < expected;
     }
   );
   const maxDrift = driftTargets.reduce(
@@ -742,7 +742,7 @@ function TargetsHealthSection() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {data.targets.map((t: TargetType) => {
               const expected = t.expectedSkillCount || sourceSkillCount;
-              const hasDrift = t.mode === 'merge' && t.status === 'merged' && t.linkedCount < expected;
+              const hasDrift = (t.mode === 'merge' && t.status === 'merged' || t.mode === 'copy' && t.status === 'copied') && t.linkedCount < expected;
               return (
                 <Link key={t.name} to="/targets">
                   <div
@@ -763,7 +763,7 @@ function TargetsHealthSection() {
                       {hasDrift ? (
                         <Badge variant="warning">{t.linkedCount}/{expected} synced</Badge>
                       ) : t.linkedCount > 0 ? (
-                        <span className="text-xs text-muted-dark">{t.linkedCount} linked</span>
+                        <span className="text-xs text-muted-dark">{t.linkedCount} {t.mode === 'copy' ? 'managed' : 'linked'}</span>
                       ) : null}
                     </div>
                   </div>

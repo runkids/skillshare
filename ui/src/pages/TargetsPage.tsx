@@ -355,7 +355,8 @@ export default function TargetsPage() {
         <div className="space-y-4">
           {targets.map((target, i) => {
             const expectedCount = target.expectedSkillCount || sourceSkillCount;
-            const hasDrift = target.mode === 'merge' && target.status === 'merged' && target.linkedCount < expectedCount;
+            const isMergeOrCopy = target.mode === 'merge' && target.status === 'merged' || target.mode === 'copy' && target.status === 'copied';
+            const hasDrift = isMergeOrCopy && target.linkedCount < expectedCount;
             return (
               <Card
                 key={target.name}
@@ -396,7 +397,7 @@ export default function TargetsPage() {
                           exclude: {target.exclude.join(', ')}
                         </span>
                       )}
-                      {target.mode === 'merge' && (
+                      {(target.mode === 'merge' || target.mode === 'copy') && (
                         <button
                           onClick={() => {
                             setEditingFilter(target.name);
@@ -462,21 +463,21 @@ export default function TargetsPage() {
                         </div>
                       </div>
                     )}
-                    {target.mode === 'merge' && (
+                    {(target.mode === 'merge' || target.mode === 'copy') && (
                       <p className={`text-sm mt-1 ${hasDrift ? 'text-warning' : 'text-muted-dark'}`}>
                         {hasDrift ? (
                           <span className="flex items-center gap-1">
                             <AlertTriangle size={12} strokeWidth={2.5} />
-                            {target.linkedCount}/{expectedCount} shared, {target.localCount} local
+                            {target.linkedCount}/{expectedCount} {target.mode === 'copy' ? 'managed' : 'shared'}, {target.localCount} local
                           </span>
                         ) : (
-                          <>{target.linkedCount} shared, {target.localCount} local</>
+                          <>{target.linkedCount} {target.mode === 'copy' ? 'managed' : 'shared'}, {target.localCount} local</>
                         )}
                       </p>
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {target.mode === 'merge' && target.localCount > 0 && (
+                    {(target.mode === 'merge' || target.mode === 'copy') && target.localCount > 0 && (
                       <button
                         onClick={() => setCollecting(target.name)}
                         className="w-8 h-8 flex items-center justify-center text-muted-dark hover:text-blue transition-colors cursor-pointer border-2 border-transparent hover:border-blue"

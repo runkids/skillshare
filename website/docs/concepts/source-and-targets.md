@@ -185,5 +185,5 @@ $EDITOR ~/.claude/skills/my-skill/SKILL.md
 
 - [sync](/docs/commands/sync) — Propagate changes from source to targets
 - [collect](/docs/commands/collect) — Pull skills from targets back to source
-- [Sync Modes](./sync-modes.md) — How files are linked (merge vs symlink)
+- [Sync Modes](./sync-modes.md) — How files are linked (merge, copy, symlink)
 - [Configuration](/docs/targets/configuration) — Target config reference

@@ -92,6 +92,7 @@ const (
 	StatusConflict              // Target is a symlink pointing elsewhere
 	StatusBroken                // Target is a broken symlink
 	StatusMerged                // Target uses merge mode (individual skill symlinks)
+	StatusCopied                // Target uses copy mode (individual skill copies + manifest)
 )
 
 func (s TargetStatus) String() string {
@@ -108,6 +109,8 @@ func (s TargetStatus) String() string {
 		return "broken"
 	case StatusMerged:
 		return "merged"
+	case StatusCopied:
+		return "copied"
 	default:
 		return "unknown"
 	}
@@ -201,6 +204,11 @@ func CreateSymlink(targetPath, sourcePath string) error {
 
 // SyncTarget performs the sync operation for a single target
 func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryRun bool) error {
+	// Remove copy-mode manifest if present (copy→symlink conversion)
+	if !dryRun {
+		RemoveManifest(target.Path) //nolint:errcheck
+	}
+
 	status := CheckStatus(target.Path, sourcePath)
 
 	switch status {
@@ -323,6 +331,11 @@ type MergeResult struct {
 // If force is true, local copies will be replaced with symlinks.
 func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun, force bool) (*MergeResult, error) {
 	result := &MergeResult{}
+
+	// Remove copy-mode manifest if present (copy→merge conversion)
+	if !dryRun {
+		RemoveManifest(target.Path) //nolint:errcheck
+	}
 
 	// Check if target is currently a symlink/junction (symlink mode) - need to convert to merge mode
 	info, err := os.Lstat(target.Path)

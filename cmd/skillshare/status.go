@@ -133,16 +133,22 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 		statusStr, detail := getTargetStatusDetail(target, cfg.Source, mode)
 		ui.Status(name, statusStr, detail)
 
-		if mode == "merge" {
+		if mode == "merge" || mode == "copy" {
 			filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
 			if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", name, err)
 			}
 			filtered = sync.FilterSkillsByTarget(filtered, name)
 			expectedCount := len(filtered)
-			_, linkedCount, _ := sync.CheckStatusMerge(target.Path, cfg.Source)
-			if linkedCount < expectedCount {
-				drift := expectedCount - linkedCount
+
+			var syncedCount int
+			if mode == "copy" {
+				_, syncedCount, _ = sync.CheckStatusCopy(target.Path)
+			} else {
+				_, syncedCount, _ = sync.CheckStatusMerge(target.Path, cfg.Source)
+			}
+			if syncedCount < expectedCount {
+				drift := expectedCount - syncedCount
 				if drift > driftTotal {
 					driftTotal = drift
 				}
@@ -176,10 +182,14 @@ func getTargetMode(targetMode, globalMode string) string {
 }
 
 func getTargetStatusDetail(target config.TargetConfig, source, mode string) (string, string) {
-	if mode == "merge" {
+	switch mode {
+	case "merge":
 		return getMergeStatusDetail(target, source, mode)
+	case "copy":
+		return getCopyStatusDetail(target, mode)
+	default:
+		return getSymlinkStatusDetail(target, source, mode)
 	}
-	return getSymlinkStatusDetail(target, source, mode)
 }
 
 func getMergeStatusDetail(target config.TargetConfig, source, mode string) (string, string) {
@@ -190,6 +200,19 @@ func getMergeStatusDetail(target config.TargetConfig, source, mode string) (stri
 		return "merged", fmt.Sprintf("[%s] %s (%d shared, %d local)", mode, target.Path, linkedCount, localCount)
 	case sync.StatusLinked:
 		// Configured as merge but actually using symlink - needs resync
+		return "linked", fmt.Sprintf("[%s->needs sync] %s", mode, target.Path)
+	default:
+		return status.String(), fmt.Sprintf("[%s] %s (%d local)", mode, target.Path, localCount)
+	}
+}
+
+func getCopyStatusDetail(target config.TargetConfig, mode string) (string, string) {
+	status, managedCount, localCount := sync.CheckStatusCopy(target.Path)
+
+	switch status {
+	case sync.StatusCopied:
+		return "copied", fmt.Sprintf("[%s] %s (%d managed, %d local)", mode, target.Path, managedCount, localCount)
+	case sync.StatusLinked:
 		return "linked", fmt.Sprintf("[%s->needs sync] %s", mode, target.Path)
 	default:
 		return status.String(), fmt.Sprintf("[%s] %s (%d local)", mode, target.Path, localCount)

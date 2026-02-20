@@ -166,11 +166,14 @@ func syncTarget(name string, target config.TargetConfig, cfg *config.Config, dry
 		mode = "merge"
 	}
 
-	if mode == "merge" {
+	switch mode {
+	case "merge":
 		return syncMergeMode(name, target, cfg.Source, dryRun, force)
+	case "copy":
+		return syncCopyMode(name, target, cfg.Source, dryRun, force)
+	default:
+		return syncSymlinkMode(name, target, cfg.Source, dryRun, force)
 	}
-
-	return syncSymlinkMode(name, target, cfg.Source, dryRun, force)
 }
 
 func syncMergeMode(name string, target config.TargetConfig, source string, dryRun, force bool) error {
@@ -204,6 +207,54 @@ func syncMergeMode(name string, target config.TargetConfig, source string, dryRu
 	}
 
 	// Show filter summary (omit empty, human-readable)
+	if len(target.Include) > 0 {
+		ui.Info("  include: %s", strings.Join(target.Include, ", "))
+	}
+	if len(target.Exclude) > 0 {
+		ui.Info("  exclude: %s", strings.Join(target.Exclude, ", "))
+	}
+
+	// Show prune warnings
+	if pruneResult != nil {
+		for _, warn := range pruneResult.Warnings {
+			ui.Warning("  %s", warn)
+		}
+	}
+
+	return nil
+}
+
+func syncCopyMode(name string, target config.TargetConfig, source string, dryRun, force bool) error {
+	result, err := sync.SyncTargetCopy(name, target, source, dryRun, force)
+	if err != nil {
+		return err
+	}
+
+	// Prune orphan copies
+	pruneResult, pruneErr := sync.PruneOrphanCopies(target.Path, source, target.Include, target.Exclude, name, dryRun)
+	if pruneErr != nil {
+		ui.Warning("%s: prune failed: %v", name, pruneErr)
+	}
+
+	// Report results
+	copiedCount := len(result.Copied)
+	updatedCount := len(result.Updated)
+	skippedCount := len(result.Skipped)
+	removedCount := 0
+	if pruneResult != nil {
+		removedCount = len(pruneResult.Removed)
+	}
+
+	if copiedCount > 0 || updatedCount > 0 || removedCount > 0 {
+		ui.Success("%s: copied (%d new, %d skipped, %d updated, %d pruned)",
+			name, copiedCount, skippedCount, updatedCount, removedCount)
+	} else if skippedCount > 0 {
+		ui.Success("%s: copied (%d skipped, up to date)", name, skippedCount)
+	} else {
+		ui.Success("%s: copied (no skills)", name)
+	}
+
+	// Show filter summary
 	if len(target.Include) > 0 {
 		ui.Info("  include: %s", strings.Join(target.Include, ", "))
 	}

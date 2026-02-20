@@ -41,7 +41,7 @@ flowchart LR
 | Concept | What It Is | Learn More |
 |---------|-----------|------------|
 | **Source & Targets** | Single source of truth, multiple destinations | [→ Source & Targets](./source-and-targets.md) |
-| **Sync Modes** | Merge vs symlink — how files are linked | [→ Sync Modes](./sync-modes.md) |
+| **Sync Modes** | Merge, copy, symlink — how files are linked | [→ Sync Modes](./sync-modes.md) |
 | **Tracked Repos** | Git repos installed with `--track` | [→ Tracked Repositories](./tracked-repositories.md) |
 | **Skill Format** | SKILL.md structure and metadata | [→ Skill Format](./skill-format.md) |
 | **Project Skills** | Project-level skills scoped to a repository | [→ Project Skills](./project-skills.md) |

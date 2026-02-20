@@ -84,11 +84,12 @@ targets:
   codex:
     path: ~/.codex/skills
     mode: symlink  # Override default mode
-    include: [codex-*] # merge mode only
+    include: [codex-*] # merge/copy mode only
 
   cursor:
     path: ~/.cursor/skills
-    exclude: [experimental-*] # merge mode only
+    mode: copy  # real files for Cursor
+    exclude: [experimental-*] # merge/copy mode only
 
   # Custom target
   myapp:
@@ -135,6 +136,7 @@ mode: merge
 | Value | Behavior |
 |-------|----------|
 | `merge` | Each skill symlinked individually. Local skills preserved. **(default)** |
+| `copy` | Each skill copied as real files. For AI CLIs that can't follow symlinks. |
 | `symlink` | Entire target directory is one symlink. |
 
 ### `targets`
@@ -146,8 +148,8 @@ targets:
   <name>:
     path: <path>
     mode: <mode>  # optional, overrides default
-    include: [<glob>, ...]  # optional, merge mode only
-    exclude: [<glob>, ...]  # optional, merge mode only
+    include: [<glob>, ...]  # optional, merge/copy mode only
+    exclude: [<glob>, ...]  # optional, merge/copy mode only
 ```
 
 **Example:**
@@ -166,7 +168,7 @@ targets:
 
 ### `include` / `exclude` (target filters)
 
-Use per-target filters to control which skills are synced in **merge mode**.
+Use per-target filters to control which skills are synced in **merge and copy modes**.
 
 ```yaml
 targets:
@@ -313,6 +315,7 @@ When you add or change filters, then run `skillshare sync`:
 | Existing item in target | What happens |
 |-------------------------|--------------|
 | Source-linked symlink/junction that is now filtered out | Removed (unlinked) |
+| Managed copy (copy mode) that is now filtered out | Removed |
 | Local non-symlink directory created in target | Preserved |
 | Unrelated local content | Preserved |
 
@@ -571,5 +574,5 @@ Uses NTFS junctions (no admin required).
 ## Related
 
 - [Source & Targets](/docs/concepts/source-and-targets) — Core concepts
-- [Sync Modes](/docs/concepts/sync-modes) — Merge vs symlink
+- [Sync Modes](/docs/concepts/sync-modes) — Merge vs copy vs symlink
 - [Environment Variables](/docs/reference/environment-variables) — All variables

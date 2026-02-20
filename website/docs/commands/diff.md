@@ -48,6 +48,13 @@ For targets using merge mode (default):
 - Shows skills that exist as local copies instead of symlinks
 - Identifies local-only skills in target
 
+### Copy Mode Targets
+
+For targets using copy mode:
+- Lists skills in source not yet managed (missing from manifest)
+- Shows orphan managed copies no longer in source (will be pruned on sync)
+- Identifies local-only skills (not in source and not managed)
+
 ### Symlink Mode Targets
 
 For targets using symlink mode:

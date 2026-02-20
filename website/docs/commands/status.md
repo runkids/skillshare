@@ -33,6 +33,7 @@ Targets
   ✓ claude    [merge] ~/.claude/skills (8 shared, 2 local)
   ✓ cursor    [merge] ~/.cursor/skills (3 shared, 0 local)
   ✓ codex     [merge] ~/.codex/skills (3 shared, 0 local)
+  ✓ copilot   [copy] ~/.copilot/skills (3 managed, 0 local)
   ! windsurf  [merge->needs sync] ~/.windsurf/skills
   ⚠ 2 skill(s) not synced — run 'skillshare sync'
 
@@ -56,16 +57,17 @@ Lists git repositories installed with `--track`. Shows:
 ### Targets
 
 Shows each configured target with:
-- **Sync mode**: `merge` or `symlink`
+- **Sync mode**: `merge`, `copy`, or `symlink`
 - **Path**: Target directory location
 - **Status**: `merged`, `linked`, `unlinked`, or `needs sync`
-- **Shared/local counts**: In merge mode, counts use that target's expected set (after `include`/`exclude` filters)
+- **Shared/local counts**: In merge and copy modes, counts use that target's expected set (after `include`/`exclude` filters). Copy mode shows "managed" instead of "shared".
 
 If a target is in symlink mode, `include`/`exclude` is ignored.
 
 | Status | Meaning |
 |--------|---------|
 | `merged` | Skills are symlinked individually |
+| `copied` | Skills are copied as real files (with manifest) |
 | `linked` | Entire directory is symlinked |
 | `unlinked` | Not yet synced |
 | `needs sync` | Mode changed, run `sync` to apply |

@@ -58,16 +58,18 @@ func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
 			mode = "merge"
 		}
 
-		if mode == "symlink" {
-			if err := syncSymlinkMode(name, target, runtime.sourcePath, dryRun, force); err != nil {
-				ui.Error("%s: %v", name, err)
-				failedTargets++
-			}
-		} else {
-			if err := syncMergeMode(name, target, runtime.sourcePath, dryRun, force); err != nil {
-				ui.Error("%s: %v", name, err)
-				failedTargets++
-			}
+		var syncErr error
+		switch mode {
+		case "symlink":
+			syncErr = syncSymlinkMode(name, target, runtime.sourcePath, dryRun, force)
+		case "copy":
+			syncErr = syncCopyMode(name, target, runtime.sourcePath, dryRun, force)
+		default:
+			syncErr = syncMergeMode(name, target, runtime.sourcePath, dryRun, force)
+		}
+		if syncErr != nil {
+			ui.Error("%s: %v", name, syncErr)
+			failedTargets++
 		}
 	}
 

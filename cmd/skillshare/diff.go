@@ -108,6 +108,13 @@ func showTargetDiff(name string, target config.TargetConfig, source string, sour
 		return
 	}
 
+	// Check for copy mode (manifest present)
+	manifest, _ := sync.ReadManifest(target.Path)
+	if len(manifest.Managed) > 0 {
+		showCopyDiff(name, target.Path, sourceSkills, manifest)
+		return
+	}
+
 	// Merge mode - check individual skills
 	showMergeDiff(name, target.Path, source, sourceSkills)
 }
@@ -123,6 +130,59 @@ func showSymlinkDiff(targetPath, source string) {
 		ui.Success("Fully synced (symlink mode)")
 	} else {
 		ui.Warning("Symlink points to different location: %s", absLink)
+	}
+}
+
+func showCopyDiff(targetName, targetPath string, sourceSkills map[string]bool, manifest *sync.Manifest) {
+	var syncCount, localCount int
+
+	// Skills only in source (not yet copied)
+	for skill := range sourceSkills {
+		if _, isManaged := manifest.Managed[skill]; !isManaged {
+			// Check if it exists as a local directory
+			if _, err := os.Stat(filepath.Join(targetPath, skill)); err == nil {
+				ui.DiffItem("modify", skill, "local copy (sync --force to replace)")
+			} else {
+				ui.DiffItem("add", skill, "missing")
+			}
+			syncCount++
+		}
+	}
+
+	// Managed copies no longer in source (orphans)
+	for name := range manifest.Managed {
+		if !sourceSkills[name] {
+			ui.DiffItem("remove", name, "orphan (will be pruned)")
+			syncCount++
+		}
+	}
+
+	// Local directories not in source and not managed
+	entries, _ := os.ReadDir(targetPath)
+	for _, e := range entries {
+		if utils.IsHidden(e.Name()) || !e.IsDir() {
+			continue
+		}
+		if sourceSkills[e.Name()] {
+			continue
+		}
+		if _, isManaged := manifest.Managed[e.Name()]; isManaged {
+			continue
+		}
+		ui.DiffItem("remove", e.Name(), "local only")
+		localCount++
+	}
+
+	if syncCount == 0 && localCount == 0 {
+		ui.Success("Fully synced")
+	} else {
+		fmt.Println()
+		if syncCount > 0 {
+			ui.Info("Run 'sync' to copy missing, 'sync --force' to replace local copies")
+		}
+		if localCount > 0 {
+			ui.Info("Run 'collect %s' to import local-only skills to source", targetName)
+		}
 	}
 }
 

@@ -234,7 +234,7 @@ func checkTargets(cfg *config.Config, result *doctorResult) {
 			result.addError()
 			continue
 		}
-		if mode != "merge" && (len(target.Include) > 0 || len(target.Exclude) > 0) {
+		if mode == "symlink" && (len(target.Include) > 0 || len(target.Exclude) > 0) {
 			ui.Warning("%s [%s]: include/exclude ignored in symlink mode", name, mode)
 			result.addWarning()
 		}
@@ -295,7 +295,8 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 	var statusStr string
 	needsSync := false
 
-	if mode == "merge" {
+	switch mode {
+	case "merge":
 		status, linkedCount, localCount := sync.CheckStatusMerge(target.Path, source)
 		switch status {
 		case sync.StatusMerged:
@@ -306,7 +307,18 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 		default:
 			statusStr = status.String()
 		}
-	} else {
+	case "copy":
+		status, managedCount, localCount := sync.CheckStatusCopy(target.Path)
+		switch status {
+		case sync.StatusCopied:
+			statusStr = fmt.Sprintf("copied (%d managed, %d local)", managedCount, localCount)
+		case sync.StatusLinked:
+			statusStr = "linked (needs sync to apply copy mode)"
+			needsSync = true
+		default:
+			statusStr = status.String()
+		}
+	default:
 		status := sync.CheckStatus(target.Path, source)
 		statusStr = status.String()
 		if status == sync.StatusMerged {
@@ -336,7 +348,7 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult) {
 		if mode == "" {
 			mode = "merge"
 		}
-		if mode != "merge" {
+		if mode != "merge" && mode != "copy" {
 			continue
 		}
 		filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
@@ -351,14 +363,26 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult) {
 			continue
 		}
 
-		status, linkedCount, _ := sync.CheckStatusMerge(target.Path, cfg.Source)
-		if status != sync.StatusMerged {
-			continue
-		}
-		if linkedCount < expectedCount {
-			drift := expectedCount - linkedCount
-			ui.Warning("%s: %d skill(s) not synced (%d/%d linked)", name, drift, linkedCount, expectedCount)
-			result.addWarning()
+		if mode == "copy" {
+			status, managedCount, _ := sync.CheckStatusCopy(target.Path)
+			if status != sync.StatusCopied {
+				continue
+			}
+			if managedCount < expectedCount {
+				drift := expectedCount - managedCount
+				ui.Warning("%s: %d skill(s) not synced (%d/%d copied)", name, drift, managedCount, expectedCount)
+				result.addWarning()
+			}
+		} else {
+			status, linkedCount, _ := sync.CheckStatusMerge(target.Path, cfg.Source)
+			if status != sync.StatusMerged {
+				continue
+			}
+			if linkedCount < expectedCount {
+				drift := expectedCount - linkedCount
+				ui.Warning("%s: %d skill(s) not synced (%d/%d linked)", name, drift, linkedCount, expectedCount)
+				result.addWarning()
+			}
 		}
 	}
 }

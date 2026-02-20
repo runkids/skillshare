@@ -103,16 +103,22 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 		statusStr, detail := getTargetStatusDetail(target, runtime.sourcePath, mode)
 		ui.Status(entry.Name, statusStr, detail)
 
-		if mode == "merge" {
+		if mode == "merge" || mode == "copy" {
 			filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
 			if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)
 			}
 			filtered = sync.FilterSkillsByTarget(filtered, entry.Name)
 			expectedCount := len(filtered)
-			_, linkedCount, _ := sync.CheckStatusMerge(target.Path, runtime.sourcePath)
-			if linkedCount < expectedCount {
-				drift := expectedCount - linkedCount
+
+			var syncedCount int
+			if mode == "copy" {
+				_, syncedCount, _ = sync.CheckStatusCopy(target.Path)
+			} else {
+				_, syncedCount, _ = sync.CheckStatusMerge(target.Path, runtime.sourcePath)
+			}
+			if syncedCount < expectedCount {
+				drift := expectedCount - syncedCount
 				if drift > driftTotal {
 					driftTotal = drift
 				}

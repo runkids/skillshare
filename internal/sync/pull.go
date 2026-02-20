@@ -60,7 +60,11 @@ func FindLocalSkills(targetPath, sourcePath string) ([]LocalSkillInfo, error) {
 		return skills, nil
 	}
 
-	// Target is a directory (merge mode) - scan for local skills
+	// Target is a directory (merge or copy mode) - scan for local skills
+
+	// Read manifest to identify copy-mode managed skills
+	manifest, _ := ReadManifest(targetPath)
+
 	entries, err := os.ReadDir(targetPath)
 	if err != nil {
 		return nil, err
@@ -86,6 +90,13 @@ func FindLocalSkills(targetPath, sourcePath string) ([]LocalSkillInfo, error) {
 		// Only process directories (skills are directories)
 		if !skillInfo.IsDir() {
 			continue
+		}
+
+		// Skip copy-mode managed skills
+		if manifest != nil {
+			if _, isManaged := manifest.Managed[entry.Name()]; isManaged {
+				continue
+			}
 		}
 
 		// This is a local skill
