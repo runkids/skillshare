@@ -314,6 +314,58 @@ targets: {}
 	}
 }
 
+func TestInit_AlreadyInitialized_RemoteFlag_WithNoGit_DoesNotCreateCommit(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Initialize git repo and create initial commit.
+	cmd := exec.Command("git", "init")
+	cmd.Dir = sb.SourcePath
+	if err := cmd.Run(); err != nil {
+		t.Skip("git not available")
+	}
+	testutil.RunGit(t, sb.SourcePath, "config", "user.email", "test@example.com")
+	testutil.RunGit(t, sb.SourcePath, "config", "user.name", "Test User")
+
+	seedDir := filepath.Join(sb.SourcePath, "seed-skill")
+	if err := os.MkdirAll(seedDir, 0o755); err != nil {
+		t.Fatalf("failed to create seed skill dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(seedDir, "SKILL.md"), []byte("# Seed"), 0o644); err != nil {
+		t.Fatalf("failed to write seed SKILL.md: %v", err)
+	}
+	testutil.RunGit(t, sb.SourcePath, "add", "-A")
+	testutil.RunGit(t, sb.SourcePath, "commit", "-m", "initial")
+	beforeHead := testutil.RunGit(t, sb.SourcePath, "rev-parse", "HEAD")
+
+	// Add dirty file that should remain uncommitted when --no-git is used.
+	dirtyDir := filepath.Join(sb.SourcePath, "dirty-skill")
+	if err := os.MkdirAll(dirtyDir, 0o755); err != nil {
+		t.Fatalf("failed to create dirty skill dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dirtyDir, "SKILL.md"), []byte("# Dirty"), 0o644); err != nil {
+		t.Fatalf("failed to write dirty SKILL.md: %v", err)
+	}
+
+	result := sb.RunCLI("init", "--remote", "git@github.com:test/skills.git", "--no-git")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "--no-git")
+
+	afterHead := testutil.RunGit(t, sb.SourcePath, "rev-parse", "HEAD")
+	if beforeHead != afterHead {
+		t.Fatalf("expected no new commit with --no-git, before=%s after=%s", beforeHead, afterHead)
+	}
+
+	status := testutil.RunGit(t, sb.SourcePath, "status", "--porcelain")
+	if !strings.Contains(status, "dirty-skill") {
+		t.Fatalf("expected dirty file to remain uncommitted, got status: %s", status)
+	}
+}
+
 // ============================================
 // Non-interactive flag tests
 // ============================================

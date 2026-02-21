@@ -85,12 +85,12 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 
 | Flag | Description |
 |------|-------------|
-| `--source <path>` | Custom source directory |
+| `--source, -s <path>` | Custom source directory |
 | `--remote <url>` | Set git remote (implies `--git`; auto-pulls if remote has skills) |
 | `--project, -p` | Initialize project-level skills in current directory |
-| `--copy-from <name\|path>` | Copy skills from a specific CLI or path |
+| `--copy-from, -c <name\|path>` | Copy skills from a specific CLI or path |
 | `--no-copy` | Start with empty source (skip copy prompt) |
-| `--targets <list>` | Comma-separated target names |
+| `--targets, -t <list>` | Comma-separated target names |
 | `--all-targets` | Add all detected targets |
 | `--no-targets` | Skip target selection |
 | `--git` | Initialize git without prompting |
@@ -99,20 +99,35 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 | `--no-skill` | Skip built-in skill installation |
 | `--discover, -d` | Detect and add new AI CLI targets to existing config |
 | `--select <list>` | Comma-separated targets to add (requires `--discover`) |
-| `--dry-run` | Preview without changes |
+| `--dry-run, -n` | Preview without changes |
 
 ## Common Scenarios
+
+### Remote setup (pick one)
+
+Interactive (recommended for first-time setup when you want guided prompts):
+
+```bash
+skillshare init --remote git@github.com:you/my-skills.git
+```
+
+Non-interactive (no prompts, auto-detect installed targets):
+
+```bash
+skillshare init --remote git@github.com:you/my-skills.git --no-copy --all-targets --no-skill
+```
+
+Non-interactive (no prompts, and import existing Claude skills now):
+
+```bash
+skillshare init --remote git@github.com:you/my-skills.git --copy-from claude --all-targets --no-skill
+```
+
+### Other scenarios
 
 ```bash
 # Standard setup (auto-detect everything)
 skillshare init
-
-# Setup with git remote for cross-machine sync
-# → Auto-pulls existing skills if the remote is not empty
-skillshare init --remote git@github.com:you/my-skills.git
-
-# Second machine: same command pulls your skills automatically
-skillshare init --remote git@github.com:you/my-skills.git
 
 # Use existing skills directory
 skillshare init --source ~/.config/skillshare/skills

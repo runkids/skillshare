@@ -34,8 +34,20 @@ Codex`"]
 
 ## First Machine Setup
 
+### Interactive (guided prompts)
+
 ```bash
 skillshare init --remote git@github.com:you/my-skills.git
+```
+
+### Non-interactive (no prompts)
+
+```bash
+# Remote already has your skills (or start fresh source)
+skillshare init --remote git@github.com:you/my-skills.git --no-copy --all-targets --no-skill
+
+# First machine with existing Claude skills: import during init
+skillshare init --remote git@github.com:you/my-skills.git --copy-from claude --all-targets --no-skill
 ```
 
 This:
@@ -43,6 +55,12 @@ This:
 2. Initializes git with initial commit
 3. Adds remote
 4. Auto-detects and configures targets
+
+Optional later (only if you install additional AI CLIs after setup):
+
+```bash
+skillshare init --discover
+```
 
 Then push your skills:
 ```bash

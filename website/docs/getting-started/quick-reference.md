@@ -91,11 +91,24 @@ skillshare sync
 
 ### Cross-machine sync
 ```bash
+# Setup (pick one)
+# Interactive (guided prompts)
+skillshare init --remote git@github.com:you/my-skills.git
+
+# Non-interactive (no prompts, auto-detect installed targets)
+skillshare init --remote git@github.com:you/my-skills.git --no-copy --all-targets --no-skill
+
 # Machine A: push changes
 skillshare push -m "Add new skill"
 
 # Machine B: pull and sync
 skillshare pull
+```
+
+Optional later (only if you install additional AI CLIs after setup):
+
+```bash
+skillshare init --discover
 ```
 
 ### Team skill sharing

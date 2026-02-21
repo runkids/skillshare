@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/AlecAivazis/survey/v2"
 	"skillshare/internal/config"
@@ -19,6 +21,7 @@ import (
 
 const skillshareSkillSource = "github.com/runkids/skillshare/skills/skillshare"
 const skillshareSkillURL = "https://raw.githubusercontent.com/runkids/skillshare/main/skills/skillshare/SKILL.md"
+const remoteFetchTimeout = 15 * time.Second
 
 // initOptions holds all parsed arguments for the init command
 type initOptions struct {
@@ -198,8 +201,10 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 		// (--remote implies --git, so opts.initGit is already true)
 		initGitIfNeeded(cfg.Source, opts.dryRun, opts.initGit, opts.noGit)
 		// Commit any uncommitted source files so push/pull work cleanly
-		if !opts.dryRun {
-			commitSourceFiles(cfg.Source)
+		if !opts.dryRun && !opts.noGit {
+			if err := commitSourceFiles(cfg.Source); err != nil {
+				ui.Warning("Failed to commit source files: %v", err)
+			}
 		}
 		setupGitRemote(cfg.Source, opts.remoteURL, opts.dryRun)
 		return true, nil
@@ -289,7 +294,9 @@ func performFreshInit(opts *initOptions, home string) error {
 
 	// Single initial commit with all source files (.gitignore + skills)
 	if !opts.dryRun && !opts.noGit {
-		commitSourceFiles(sourcePath)
+		if err := commitSourceFiles(sourcePath); err != nil {
+			ui.Warning("Failed to create initial commit: %v", err)
+		}
 	}
 
 	// Print completion message
@@ -786,21 +793,29 @@ func doGitInit(sourcePath string) {
 	ui.Success("Git initialized")
 }
 
-// commitSourceFiles creates a single initial commit with all source files
-// (.gitignore, copied skills, installed skills). Called once at the end of
-// init so that git stash / git pull work immediately.
-func commitSourceFiles(sourcePath string) {
+// commitSourceFiles creates a single commit with all source files
+// (.gitignore, copied skills, installed skills).
+func commitSourceFiles(sourcePath string) error {
 	gitDir := filepath.Join(sourcePath, ".git")
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-		return
+		return nil
 	}
 
 	addCmd := exec.Command("git", "add", ".")
 	addCmd.Dir = sourcePath
-	addCmd.Run()
+	if out, err := addCmd.CombinedOutput(); err != nil {
+		trimmed := strings.TrimSpace(string(out))
+		if trimmed == "" {
+			return fmt.Errorf("git add failed")
+		}
+		return fmt.Errorf("git add failed: %s", trimmed)
+	}
 
 	// Determine commit message based on content
-	entries, _ := os.ReadDir(sourcePath)
+	entries, err := os.ReadDir(sourcePath)
+	if err != nil {
+		return fmt.Errorf("failed to read source directory: %w", err)
+	}
 	hasSkills := false
 	for _, e := range entries {
 		if e.Name() != ".git" && e.Name() != ".gitignore" {
@@ -815,7 +830,17 @@ func commitSourceFiles(sourcePath string) {
 	}
 	commitCmd := exec.Command("git", "commit", "-m", msg)
 	commitCmd.Dir = sourcePath
-	commitCmd.Run() // best-effort
+	if out, err := commitCmd.CombinedOutput(); err != nil {
+		trimmed := strings.TrimSpace(string(out))
+		if strings.Contains(trimmed, "nothing to commit") || strings.Contains(trimmed, "no changes added to commit") {
+			return nil
+		}
+		if trimmed == "" {
+			return fmt.Errorf("git commit failed")
+		}
+		return fmt.Errorf("git commit failed: %s", trimmed)
+	}
+	return nil
 }
 
 func setupGitRemote(sourcePath, remoteURL string, dryRun bool) {
@@ -902,18 +927,40 @@ func addRemote(sourcePath, remoteURL string) {
 	}
 }
 
+// remoteFetchEnv returns env vars for non-interactive remote checks.
+func remoteFetchEnv(remoteURL string) []string {
+	env := append([]string{}, os.Environ()...)
+	env = append(env,
+		"GIT_TERMINAL_PROMPT=0",
+		"GIT_ASKPASS=",
+		"SSH_ASKPASS=",
+	)
+	// Keep user-provided SSH command if present (custom key/proxy).
+	if v, ok := os.LookupEnv("GIT_SSH_COMMAND"); !ok || strings.TrimSpace(v) == "" {
+		env = append(env, "GIT_SSH_COMMAND=ssh -o BatchMode=yes -o ConnectTimeout=8")
+	}
+	if authEnv := install.AuthEnvForURL(remoteURL); len(authEnv) > 0 {
+		env = append(env, authEnv...)
+	}
+	return env
+}
+
 // tryPullAfterRemoteSetup attempts to fetch from remote and pull if it has content.
 // Returns true if remote had content (pulled or warned), false if remote is empty/unreachable.
 func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	spinner := ui.StartSpinner("Checking remote for existing skills...")
 
 	// Try to fetch (inject HTTPS token auth when available)
-	fetchCmd := exec.Command("git", "fetch", "origin")
+	fetchCtx, cancel := context.WithTimeout(context.Background(), remoteFetchTimeout)
+	defer cancel()
+	fetchCmd := exec.CommandContext(fetchCtx, "git", "fetch", "origin")
 	fetchCmd.Dir = sourcePath
-	if authEnv := install.AuthEnvForURL(remoteURL); len(authEnv) > 0 {
-		fetchCmd.Env = append(os.Environ(), authEnv...)
-	}
+	fetchCmd.Env = remoteFetchEnv(remoteURL)
 	if output, err := fetchCmd.CombinedOutput(); err != nil {
+		if errors.Is(fetchCtx.Err(), context.DeadlineExceeded) {
+			spinner.Warn("Remote check timed out (will retry on push/pull)")
+			return false
+		}
 		spinner.Warn("Could not reach remote (will retry on push/pull)")
 		outStr := strings.TrimSpace(string(output))
 		if strings.Contains(outStr, "Could not read from remote") {
