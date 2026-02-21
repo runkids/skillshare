@@ -13,6 +13,7 @@ import (
 
 func TestInstallFromSearchResult_LogsInstalledSkillDetails(t *testing.T) {
 	tmp := t.TempDir()
+	setIsolatedXDG(t, tmp)
 	cfgPath := filepath.Join(tmp, "home", ".config", "skillshare", "config.yaml")
 	t.Setenv("SKILLSHARE_CONFIG", cfgPath)
 
@@ -65,4 +66,13 @@ func TestInstallFromSearchResult_LogsInstalledSkillDetails(t *testing.T) {
 	if !strings.Contains(detail, "installed=search-installed-skill") {
 		t.Fatalf("expected installed skill in detail, got: %s", detail)
 	}
+}
+
+func setIsolatedXDG(t *testing.T, root string) {
+	t.Helper()
+
+	xdgRoot := filepath.Join(root, "xdg")
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(xdgRoot, "config"))
+	t.Setenv("XDG_DATA_HOME", filepath.Join(xdgRoot, "data"))
+	t.Setenv("XDG_STATE_HOME", filepath.Join(xdgRoot, "state"))
 }
