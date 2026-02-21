@@ -94,6 +94,14 @@ skillshare diff claude     # See exactly what's different
 skillshare sync            # Fix it
 ```
 
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--target, -t <name>` | Show diff for a specific target |
+| `--project, -p` | Use project mode |
+| `--global, -g` | Use global mode |
+
 ## See Also
 
 - [sync](/docs/commands/sync) — Sync to targets
