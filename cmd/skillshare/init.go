@@ -39,11 +39,46 @@ type initOptions struct {
 }
 
 // parseInitArgs parses command line arguments into initOptions
+// errHelp is a sentinel error indicating --help was requested.
+var errHelp = fmt.Errorf("help requested")
+
+func printInitUsage() {
+	fmt.Println("Usage: skillshare init [flags]")
+	fmt.Println()
+	fmt.Println("Initialize skillshare — detect AI CLI tools, create config, and set up skill syncing.")
+	fmt.Println()
+	fmt.Println("FLAGS")
+	fmt.Println("  --source, -s <path>       Set source directory (default: ~/.config/skillshare/skills)")
+	fmt.Println("  --remote <url>            Set git remote for cross-machine sync (implies --git)")
+	fmt.Println("  --copy-from, -c <name>    Copy existing skills from a detected CLI directory")
+	fmt.Println("  --no-copy                 Start with empty source (skip copy prompt)")
+	fmt.Println("  --targets, -t <list>      Comma-separated target names to add")
+	fmt.Println("  --all-targets             Add all detected targets")
+	fmt.Println("  --no-targets              Skip target setup")
+	fmt.Println("  --git                     Initialize git in source (default: prompt)")
+	fmt.Println("  --no-git                  Skip git initialization")
+	fmt.Println("  --skill                   Install built-in skillshare skill")
+	fmt.Println("  --no-skill                Skip built-in skill installation")
+	fmt.Println("  --discover, -d            Detect and add new AI CLI agents to existing config")
+	fmt.Println("  --select <list>           Select specific agents to add (requires --discover)")
+	fmt.Println("  --dry-run, -n             Preview without making changes")
+	fmt.Println("  -p, --project             Initialize project-level config in current directory")
+	fmt.Println()
+	fmt.Println("EXAMPLES")
+	fmt.Println("  skillshare init                                    # Interactive setup")
+	fmt.Println("  skillshare init --remote git@github.com:u/skills   # With cross-machine sync")
+	fmt.Println("  skillshare init --no-copy --git --no-skill         # Non-interactive, minimal")
+	fmt.Println("  skillshare init --discover                         # Add newly installed AI tools")
+	fmt.Println("  skillshare init -p                                 # Project-level init")
+}
+
 func parseInitArgs(args []string) (*initOptions, error) {
 	opts := &initOptions{}
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
+		case "--help", "-h":
+			return nil, errHelp
 		case "--source", "-s":
 			if i+1 >= len(args) {
 				return nil, fmt.Errorf("--source requires a path argument")
@@ -157,6 +192,9 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 		if err != nil {
 			return true, err
 		}
+		// Ensure git is initialized before setting up remote
+		// (--remote implies --git, so opts.initGit is already true)
+		initGitIfNeeded(cfg.Source, opts.dryRun, opts.initGit, opts.noGit)
 		setupGitRemote(cfg.Source, opts.remoteURL, opts.dryRun)
 		return true, nil
 	}
@@ -331,6 +369,10 @@ func cmdInit(args []string) error {
 	}
 
 	opts, err := parseInitArgs(rest)
+	if err == errHelp {
+		printInitUsage()
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -842,19 +884,22 @@ func addRemote(sourcePath, remoteURL string) {
 	ui.Success("Git remote configured: %s", remoteURL)
 
 	// Try to fetch and auto-pull if remote has existing skills
-	if !tryPullAfterRemoteSetup(sourcePath) {
+	if !tryPullAfterRemoteSetup(sourcePath, remoteURL) {
 		ui.Info("Push your skills: skillshare push")
 	}
 }
 
 // tryPullAfterRemoteSetup attempts to fetch from remote and pull if it has content.
 // Returns true if remote had content (pulled or warned), false if remote is empty/unreachable.
-func tryPullAfterRemoteSetup(sourcePath string) bool {
+func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	spinner := ui.StartSpinner("Checking remote for existing skills...")
 
-	// Try to fetch
+	// Try to fetch (inject HTTPS token auth when available)
 	fetchCmd := exec.Command("git", "fetch", "origin")
 	fetchCmd.Dir = sourcePath
+	if authEnv := install.AuthEnvForURL(remoteURL); len(authEnv) > 0 {
+		fetchCmd.Env = append(os.Environ(), authEnv...)
+	}
 	if output, err := fetchCmd.CombinedOutput(); err != nil {
 		spinner.Warn("Could not reach remote (will retry on push/pull)")
 		outStr := strings.TrimSpace(string(output))
@@ -882,7 +927,20 @@ func tryPullAfterRemoteSetup(sourcePath string) bool {
 		return false
 	}
 
-	// Remote has content — check if local has skill directories
+	// Check if remote actually has skill directories (not just README/config files)
+	hasRemoteSkills := false
+	lsCmd := exec.Command("git", "ls-tree", "-d", "--name-only", "origin/"+remoteBranch)
+	lsCmd.Dir = sourcePath
+	if lsOut, err := lsCmd.Output(); err == nil && strings.TrimSpace(string(lsOut)) != "" {
+		hasRemoteSkills = true
+	}
+
+	if !hasRemoteSkills {
+		spinner.Success("Remote is empty (no skills found)")
+		return false
+	}
+
+	// Remote has skills — check if local also has skill directories
 	hasLocalSkills := false
 	entries, _ := os.ReadDir(sourcePath)
 	for _, e := range entries {
@@ -894,8 +952,8 @@ func tryPullAfterRemoteSetup(sourcePath string) bool {
 
 	if hasLocalSkills {
 		spinner.Warn("Remote has existing skills, but local skills also exist")
-		ui.Info("  Push local:   skillshare push")
-		ui.Info("  Pull remote:  cd %s && git fetch origin && git -c merge.ff=false merge origin/%s --allow-unrelated-histories", sourcePath, remoteBranch)
+		ui.Info("  Push local:  skillshare push")
+		ui.Info("  Pull remote: skillshare pull  (replaces local with remote)")
 		return true
 	}
 
