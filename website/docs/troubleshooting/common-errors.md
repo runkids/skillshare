@@ -176,22 +176,49 @@ skillshare install <source> --update
 skillshare install <source> --force
 ```
 
-### `authentication required — for private repos use SSH URL`
+### `Authentication failed` / `Access denied`
 
-**Cause:** You're trying to install from a private repo using an HTTPS URL. Skillshare disables interactive credential prompts to prevent hanging.
+**Cause:** HTTPS credentials are missing, expired, or wrong token type.
 
-**Solution:**
+**Solution — Option 1: Set a token env var:**
+
 ```bash
-# Use SSH URL instead of HTTPS
-skillshare install git@github.com:team/private-skills.git
-skillshare install git@bitbucket.org:team/skills.git
-skillshare install git@gitlab.com:team/skills.git
+# GitHub
+export GITHUB_TOKEN=ghp_xxxx
 
-# With --track for team repos
-skillshare install git@bitbucket.org:team/skills.git --track
+# GitLab (must be a Personal Access Token, prefix glpat-)
+export GITLAB_TOKEN=glpat-xxxx
+
+# Bitbucket
+export BITBUCKET_TOKEN=your_app_password
 ```
 
-Make sure your SSH key is configured for the git host. See [Private Repositories](/docs/commands/install#private-repositories).
+**Windows (PowerShell):**
+```powershell
+$env:GITLAB_TOKEN = "glpat-xxxx"
+
+# Permanent (survives restarts)
+[Environment]::SetEnvironmentVariable("GITLAB_TOKEN", "glpat-xxxx", "User")
+```
+
+**Solution — Option 2: Use SSH URL:**
+```bash
+skillshare install git@github.com:team/private-skills.git
+skillshare install git@gitlab.com:team/skills.git
+skillshare install git@bitbucket.org:team/skills.git
+```
+
+**Solution — Option 3: Git credential helper:**
+```bash
+gh auth login          # GitHub CLI
+git credential approve # or platform-specific credential manager
+```
+
+:::warning GitLab token types
+GitLab has multiple token types. Only **Personal Access Token** (`glpat-`) works for git operations. Feed Tokens (`glft-`), Deploy Tokens (`gldt-`), and others may not have git access.
+:::
+
+See [Environment Variables](/docs/reference/environment-variables#git-authentication) and [Private Repositories](/docs/commands/install#private-repositories).
 
 ### `invalid skill: SKILL.md not found`
 
