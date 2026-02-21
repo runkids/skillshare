@@ -123,9 +123,9 @@ skillshare push -m "Add pdf"     # Custom message
 
 **What happens:**
 ```
-git add .
+git add -A
 git commit -m "Add pdf"
-git push origin main
+git push          # auto-sets upstream on first push
 ```
 
 ### Pull
@@ -138,7 +138,7 @@ skillshare pull
 
 **What happens:**
 ```
-git pull origin main
+git pull           # or fetch + reset on first pull
 skillshare sync
 ```
 
@@ -150,7 +150,10 @@ skillshare sync
 
 ```
 $ skillshare push
-Error: remote has changes. Run 'skillshare pull' first.
+Push failed
+  Remote may have newer changes
+  Run: skillshare pull
+  Then: skillshare push
 ```
 
 **Solution:**
@@ -163,7 +166,9 @@ skillshare push
 
 ```
 $ skillshare pull
-Error: local has uncommitted changes.
+Local changes detected
+  Run: skillshare push
+  Or:  cd ~/.config/skillshare/skills && git stash
 ```
 
 **Solution:**
@@ -172,10 +177,11 @@ Error: local has uncommitted changes.
 skillshare push -m "Local changes"
 skillshare pull
 
-# Option 2: Discard local changes
+# Option 2: Stash changes temporarily
 cd ~/.config/skillshare/skills
-git checkout -- .
+git stash
 skillshare pull
+git stash pop
 ```
 
 ### Merge conflicts
