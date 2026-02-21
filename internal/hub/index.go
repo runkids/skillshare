@@ -52,7 +52,7 @@ type SkillEntry struct {
 // name, description, source are populated.
 // If auditSkills is true, each skill is scanned with audit.ScanSkill
 // and risk fields are populated.
-func BuildIndex(sourcePath string, full bool, auditSkills ...bool) (*Index, error) {
+func BuildIndex(sourcePath string, full bool, auditSkills bool) (*Index, error) {
 	// Fail fast if source directory does not exist.
 	if _, err := os.Stat(sourcePath); err != nil {
 		return nil, fmt.Errorf("source directory: %w", err)
@@ -110,7 +110,7 @@ func BuildIndex(sourcePath string, full bool, auditSkills ...bool) (*Index, erro
 		}
 
 		// Audit enrichment: scan skill and populate risk fields.
-		if len(auditSkills) > 0 && auditSkills[0] {
+		if auditSkills {
 			if res, err := audit.ScanSkill(d.SourcePath); err == nil {
 				score := res.RiskScore
 				item.RiskScore = &score
