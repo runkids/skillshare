@@ -121,6 +121,7 @@ func hintGitRemoteError(output string) {
 			ui.Info("       export GITLAB_TOKEN=glpat-xxxx")
 		}
 		ui.Info("    3. Git credential helper: gh auth login")
+		ui.Info("  Docs: https://skillshare.runkids.cc/docs/reference/environment-variables#git-authentication")
 	case strings.Contains(output, "Could not read from remote"):
 		ui.Info("  Check SSH keys: ssh -T git@github.com")
 		ui.Info("  Or use HTTPS:   git remote set-url origin https://github.com/you/repo.git")

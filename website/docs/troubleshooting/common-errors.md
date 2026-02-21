@@ -214,8 +214,17 @@ gh auth login          # GitHub CLI
 git credential approve # or platform-specific credential manager
 ```
 
+**Required token permissions:**
+
+| Platform | Token type | Scopes / Permissions |
+|----------|-----------|---------------------|
+| GitHub | Personal Access Token (`ghp_`) | `repo` (private repos), none (public) |
+| GitLab | Personal Access Token (`glpat-`) | `read_repository` + `write_repository` |
+| Bitbucket | Repository Access Token | Read + Write |
+| Bitbucket | App Password + `BITBUCKET_USERNAME` | Repositories: Read + Write |
+
 :::warning GitLab token types
-GitLab has multiple token types. Only **Personal Access Token** (`glpat-`) works for git operations. Feed Tokens (`glft-`), Deploy Tokens (`gldt-`), and others may not have git access.
+Only **Personal Access Token** (`glpat-`) works for git operations. Feed Tokens (`glft-`) do **not** have git access.
 :::
 
 See [Environment Variables](/docs/reference/environment-variables#git-authentication) and [Private Repositories](/docs/commands/install#private-repositories).
