@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"skillshare/internal/utils"
@@ -234,6 +235,8 @@ func ScanSkillWithRules(skillPath string, activeRules []rule) (*Result, error) {
 		return nil, fmt.Errorf("error scanning skill: %w", err)
 	}
 
+	result.Findings = append(result.Findings, scanDanglingLinks(skillPath)...)
+
 	result.updateRisk()
 	return result, nil
 }
@@ -363,4 +366,102 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// mdLinkRe matches Markdown inline links of the form [label](target).
+var mdLinkRe = regexp.MustCompile(`\[[^\]]*\]\(([^)]+)\)`)
+
+// isExternalOrAnchorLink returns true if the link target should be skipped
+// (external schemes, protocol-relative URLs, or pure anchors).
+func isExternalOrAnchorLink(target string) bool {
+	lower := strings.ToLower(target)
+	for _, prefix := range []string{
+		"http://", "https://", "mailto:", "tel:", "data:", "ftp://", "//",
+	} {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	// Pure anchor links such as (#section) — no file to resolve.
+	return strings.HasPrefix(target, "#")
+}
+
+// stripFragmentAndQuery removes any #fragment or ?query from a link target.
+func stripFragmentAndQuery(target string) string {
+	if i := strings.IndexByte(target, '#'); i >= 0 {
+		target = target[:i]
+	}
+	if i := strings.IndexByte(target, '?'); i >= 0 {
+		target = target[:i]
+	}
+	return target
+}
+
+// scanDanglingLinks walks all .md files in skillPath and returns a Finding for
+// every local relative markdown link whose target does not exist on disk.
+func scanDanglingLinks(skillPath string) []Finding {
+	var findings []Finding
+
+	_ = filepath.Walk(skillPath, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+
+		relPath, relErr := filepath.Rel(skillPath, path)
+		if relErr != nil {
+			return nil
+		}
+		depth := relDepth(relPath)
+
+		if fi.IsDir() {
+			if path != skillPath && utils.IsHidden(fi.Name()) {
+				return filepath.SkipDir
+			}
+			if depth > maxScanDepth {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		if depth > maxScanDepth {
+			return nil
+		}
+		if strings.ToLower(filepath.Ext(fi.Name())) != ".md" {
+			return nil
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil
+		}
+
+		fileDir := filepath.Join(skillPath, filepath.Dir(relPath))
+		lines := strings.Split(string(data), "\n")
+		for lineNum, line := range lines {
+			for _, m := range mdLinkRe.FindAllStringSubmatch(line, -1) {
+				target := m[1]
+				if isExternalOrAnchorLink(target) {
+					continue
+				}
+				cleaned := stripFragmentAndQuery(target)
+				if cleaned == "" {
+					continue
+				}
+				absTarget := filepath.Join(fileDir, cleaned)
+				if _, statErr := os.Stat(absTarget); statErr != nil {
+					findings = append(findings, Finding{
+						Severity: SeverityMedium,
+						Pattern:  "dangling-link",
+						Message:  fmt.Sprintf("dangling local markdown link: target %q not found", target),
+						File:     relPath,
+						Line:     lineNum + 1,
+						Snippet:  truncate(strings.TrimSpace(line), 80),
+					})
+				}
+			}
+		}
+		return nil
+	})
+
+	return findings
 }
