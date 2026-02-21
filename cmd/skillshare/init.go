@@ -197,6 +197,10 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 		// Ensure git is initialized before setting up remote
 		// (--remote implies --git, so opts.initGit is already true)
 		initGitIfNeeded(cfg.Source, opts.dryRun, opts.initGit, opts.noGit)
+		// Commit any uncommitted source files so push/pull work cleanly
+		if !opts.dryRun {
+			commitSourceFiles(cfg.Source)
+		}
 		setupGitRemote(cfg.Source, opts.remoteURL, opts.dryRun)
 		return true, nil
 	}
@@ -282,6 +286,11 @@ func performFreshInit(opts *initOptions, home string) error {
 
 	// Install built-in skillshare skill (opt-in)
 	installSkillIfNeeded(sourcePath, opts.dryRun, opts.initSkill, opts.noSkill)
+
+	// Single initial commit with all source files (.gitignore + skills)
+	if !opts.dryRun && !opts.noGit {
+		commitSourceFiles(sourcePath)
+	}
 
 	// Print completion message
 	skillInstalled := false
@@ -771,40 +780,42 @@ func doGitInit(sourcePath string) {
 		os.WriteFile(gitignore, []byte(".DS_Store\n"), 0644)
 	}
 
-	// Initial commit if there are files
-	entries, _ := os.ReadDir(sourcePath)
-	hasFiles := false
-	for _, e := range entries {
-		if e.Name() != ".git" && e.Name() != ".gitignore" {
-			hasFiles = true
-			break
-		}
-	}
-
 	// Ensure git identity is configured (needed for commit).
 	ensureGitIdentity(sourcePath)
 
-	// Always create initial commit (at least .gitignore) so that
-	// git stash / git pull work immediately after init.
+	ui.Success("Git initialized")
+}
+
+// commitSourceFiles creates a single initial commit with all source files
+// (.gitignore, copied skills, installed skills). Called once at the end of
+// init so that git stash / git pull work immediately.
+func commitSourceFiles(sourcePath string) {
+	gitDir := filepath.Join(sourcePath, ".git")
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		return
+	}
+
 	addCmd := exec.Command("git", "add", ".")
 	addCmd.Dir = sourcePath
 	addCmd.Run()
 
+	// Determine commit message based on content
+	entries, _ := os.ReadDir(sourcePath)
+	hasSkills := false
+	for _, e := range entries {
+		if e.Name() != ".git" && e.Name() != ".gitignore" {
+			hasSkills = true
+			break
+		}
+	}
+
 	msg := "Initial commit"
-	if hasFiles {
+	if hasSkills {
 		msg = "Initial skills"
 	}
 	commitCmd := exec.Command("git", "commit", "-m", msg)
 	commitCmd.Dir = sourcePath
-	if out, err := commitCmd.CombinedOutput(); err != nil {
-		ui.Warning("Failed to create initial commit: %s", strings.TrimSpace(string(out)))
-	}
-
-	if hasFiles {
-		ui.Success("Git initialized with initial commit")
-	} else {
-		ui.Success("Git initialized")
-	}
+	commitCmd.Run() // best-effort
 }
 
 func setupGitRemote(sourcePath, remoteURL string, dryRun bool) {
