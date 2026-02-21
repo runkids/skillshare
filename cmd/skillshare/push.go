@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	gitops "skillshare/internal/git"
 	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
@@ -49,7 +50,7 @@ func checkGitRepo(sourcePath string, spinner *ui.Spinner) error {
 	gitDir := sourcePath + "/.git"
 	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
 		spinner.Fail("Source is not a git repository")
-		ui.Info("  Run: cd %s && git init", sourcePath)
+		ui.Info("  Run: skillshare init --remote <url>")
 		return fmt.Errorf("not a git repository")
 	}
 
@@ -111,11 +112,24 @@ func hintGitRemoteError(output string) {
 	}
 }
 
-// gitPush pushes to remote
+// gitPush pushes to remote, auto-setting upstream on first push.
 func gitPush(sourcePath string, spinner *ui.Spinner) error {
 	spinner.Update("Pushing to remote...")
-	cmd := exec.Command("git", "push")
+
+	args := []string{"push"}
+	if !gitops.HasUpstream(sourcePath) {
+		branch, err := gitops.GetCurrentBranch(sourcePath)
+		if err != nil {
+			branch = "main"
+		}
+		args = append(args, "-u", "origin", branch)
+	}
+
+	cmd := exec.Command("git", args...)
 	cmd.Dir = sourcePath
+	if authEnv := gitops.AuthEnvForRepo(sourcePath); len(authEnv) > 0 {
+		cmd.Env = append(os.Environ(), authEnv...)
+	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		spinner.Fail("Push failed")

@@ -283,6 +283,13 @@ func GetStatus(dir string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// HasUpstream checks if the current branch has upstream tracking configured.
+func HasUpstream(dir string) bool {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+	cmd.Dir = dir
+	return cmd.Run() == nil
+}
+
 // GetCurrentBranch returns the current branch name
 func GetCurrentBranch(repoPath string) (string, error) {
 	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
@@ -419,8 +426,13 @@ func ForcePullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
 	return info, nil
 }
 
-func authEnvForRepo(repoPath string) []string {
+// AuthEnvForRepo returns HTTPS token auth env vars for the repo's origin remote.
+func AuthEnvForRepo(repoPath string) []string {
 	return install.AuthEnvForURL(getRemoteURL(repoPath))
+}
+
+func authEnvForRepo(repoPath string) []string {
+	return AuthEnvForRepo(repoPath)
 }
 
 func getRemoteURL(repoPath string) string {

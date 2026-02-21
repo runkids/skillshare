@@ -282,6 +282,38 @@ targets: {}
 	result.AssertOutputContains(t, "already configured")
 }
 
+func TestInit_AlreadyInitialized_RemoteFlag_NoGit_AutoInitsGit(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Config exists but git is NOT initialized (simulates second machine setup)
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("init", "--remote", "git@github.com:test/skills.git")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Git remote configured")
+
+	// Verify git was initialized
+	gitDir := filepath.Join(sb.SourcePath, ".git")
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		t.Error("git should have been auto-initialized")
+	}
+
+	// Verify remote was added
+	cmd := exec.Command("git", "remote", "-v")
+	cmd.Dir = sb.SourcePath
+	output, err := cmd.Output()
+	if err != nil {
+		t.Errorf("failed to check git remote: %v", err)
+	}
+	if !strings.Contains(string(output), "git@github.com:test/skills.git") {
+		t.Errorf("remote should be configured, got: %s", output)
+	}
+}
+
 // ============================================
 // Non-interactive flag tests
 // ============================================
