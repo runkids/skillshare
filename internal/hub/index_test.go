@@ -275,6 +275,92 @@ func TestWriteIndex(t *testing.T) {
 	}
 }
 
+func TestBuildIndex_WithAudit(t *testing.T) {
+	source := t.TempDir()
+	// A clean skill — no dangerous patterns.
+	createSkill(t, source, "safe-skill", "---\nname: safe-skill\ndescription: A safe skill\n---\n# Safe content\nJust helpful tips.")
+
+	idx, err := BuildIndex(source, false, true)
+	if err != nil {
+		t.Fatalf("BuildIndex with audit: %v", err)
+	}
+	if len(idx.Skills) != 1 {
+		t.Fatalf("got %d skills, want 1", len(idx.Skills))
+	}
+
+	s := idx.Skills[0]
+	if s.RiskScore == nil {
+		t.Fatal("riskScore should not be nil when audit=true")
+	}
+	if *s.RiskScore != 0 {
+		t.Errorf("riskScore = %d, want 0 for clean skill", *s.RiskScore)
+	}
+	if s.RiskLabel != "clean" {
+		t.Errorf("riskLabel = %q, want 'clean'", s.RiskLabel)
+	}
+	if s.AuditedAt == "" {
+		t.Error("auditedAt should be set when audit=true")
+	}
+
+	// Verify JSON serialization includes risk fields.
+	data, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if _, ok := raw["riskScore"]; !ok {
+		t.Error("riskScore should be present in JSON (even when 0)")
+	}
+	if _, ok := raw["riskLabel"]; !ok {
+		t.Error("riskLabel should be present in JSON")
+	}
+	if _, ok := raw["auditedAt"]; !ok {
+		t.Error("auditedAt should be present in JSON")
+	}
+}
+
+func TestBuildIndex_WithoutAudit(t *testing.T) {
+	source := t.TempDir()
+	createSkill(t, source, "my-skill", "---\nname: my-skill\n---\n# Content")
+
+	idx, err := BuildIndex(source, false)
+	if err != nil {
+		t.Fatalf("BuildIndex without audit: %v", err)
+	}
+	if len(idx.Skills) != 1 {
+		t.Fatalf("got %d skills, want 1", len(idx.Skills))
+	}
+
+	s := idx.Skills[0]
+	if s.RiskScore != nil {
+		t.Errorf("riskScore should be nil when audit not requested, got %d", *s.RiskScore)
+	}
+	if s.RiskLabel != "" {
+		t.Errorf("riskLabel should be empty when audit not requested, got %q", s.RiskLabel)
+	}
+	if s.AuditedAt != "" {
+		t.Errorf("auditedAt should be empty when audit not requested, got %q", s.AuditedAt)
+	}
+
+	// Verify JSON omits risk fields.
+	data, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	for _, key := range []string{"riskScore", "riskLabel", "auditedAt"} {
+		if _, ok := raw[key]; ok {
+			t.Errorf("audit field %q should not be in JSON when audit=false", key)
+		}
+	}
+}
+
 func TestWriteIndex_NilIndex(t *testing.T) {
 	if err := WriteIndex("/tmp/should-not-exist.json", nil); err == nil {
 		t.Fatal("expected error for nil index")

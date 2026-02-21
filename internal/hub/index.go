@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/audit"
 	"skillshare/internal/install"
 	ssync "skillshare/internal/sync"
 )
@@ -39,12 +40,19 @@ type SkillEntry struct {
 	Version     string `json:"version,omitempty"`
 	InstalledAt string `json:"installedAt,omitempty"`
 	IsInRepo    *bool  `json:"isInRepo,omitempty"`
+
+	// Audit fields — only emitted with --audit.
+	RiskScore *int   `json:"riskScore,omitempty"`
+	RiskLabel string `json:"riskLabel,omitempty"`
+	AuditedAt string `json:"auditedAt,omitempty"`
 }
 
 // BuildIndex scans the source directory and returns a hub index.
 // If full is true, metadata fields are included; otherwise only
 // name, description, source are populated.
-func BuildIndex(sourcePath string, full bool) (*Index, error) {
+// If auditSkills is true, each skill is scanned with audit.ScanSkill
+// and risk fields are populated.
+func BuildIndex(sourcePath string, full bool, auditSkills ...bool) (*Index, error) {
 	// Fail fast if source directory does not exist.
 	if _, err := os.Stat(sourcePath); err != nil {
 		return nil, fmt.Errorf("source directory: %w", err)
@@ -98,6 +106,16 @@ func BuildIndex(sourcePath string, full bool) (*Index, error) {
 			if d.IsInRepo {
 				v := true
 				item.IsInRepo = &v
+			}
+		}
+
+		// Audit enrichment: scan skill and populate risk fields.
+		if len(auditSkills) > 0 && auditSkills[0] {
+			if res, err := audit.ScanSkill(d.SourcePath); err == nil {
+				score := res.RiskScore
+				item.RiskScore = &score
+				item.RiskLabel = res.RiskLabel
+				item.AuditedAt = time.Now().UTC().Format(time.RFC3339)
 			}
 		}
 

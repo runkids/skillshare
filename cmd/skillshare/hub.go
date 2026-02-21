@@ -120,6 +120,7 @@ func cmdHubIndex(args []string) error {
 	var sourcePath string
 	var outputPath string
 	var full bool
+	var auditSkills bool
 
 	// Parse remaining arguments
 	i := 0
@@ -147,6 +148,8 @@ func cmdHubIndex(args []string) error {
 			}
 		case key == "--full":
 			full = true
+		case key == "--audit":
+			auditSkills = true
 		case key == "--help" || key == "-h":
 			printHubIndexHelp()
 			return nil
@@ -178,13 +181,17 @@ func cmdHubIndex(args []string) error {
 
 	spinner := ui.StartTreeSpinner("Scanning source directory...", false)
 
-	idx, err := hub.BuildIndex(sourcePath, full)
+	idx, err := hub.BuildIndex(sourcePath, full, auditSkills)
 	if err != nil {
 		spinner.Fail("Failed to build index")
 		return err
 	}
 
-	spinner.Success(fmt.Sprintf("Found %d skill(s)", len(idx.Skills)))
+	if auditSkills {
+		spinner.Success(fmt.Sprintf("Found %d skill(s), audit complete", len(idx.Skills)))
+	} else {
+		spinner.Success(fmt.Sprintf("Found %d skill(s)", len(idx.Skills)))
+	}
 
 	// Write to file
 	writeSpinner := ui.StartTreeSpinner("Writing index...", true)
@@ -198,9 +205,14 @@ func cmdHubIndex(args []string) error {
 
 	// Summary
 	fmt.Println()
-	if full {
+	switch {
+	case full && auditSkills:
+		ui.Info("Mode: full + audit (metadata and risk scores included)")
+	case full:
 		ui.Info("Mode: full (metadata included)")
-	} else {
+	case auditSkills:
+		ui.Info("Mode: audit (risk scores included)")
+	default:
 		ui.Info("Mode: minimal (name, description, source only)")
 	}
 	ui.Info("Skills: %d", len(idx.Skills))
@@ -252,6 +264,7 @@ Options:
   --source, -s <path>   Source directory to scan (default: auto-detect)
   --output, -o <path>   Output file path (default: <source>/skillshare-hub.json)
   --full                Include full metadata (flatName, type, version, etc.)
+  --audit               Run security audit on each skill and include risk scores
   --project, -p         Use project mode (.skillshare/)
   --global, -g          Use global mode (~/.config/skillshare/)
   --help, -h            Show this help
@@ -259,6 +272,8 @@ Options:
 Examples:
   skillshare hub index                           Build minimal index
   skillshare hub index --full                    Build with full metadata
+  skillshare hub index --audit                   Build with risk scores
+  skillshare hub index --full --audit            Full metadata + risk scores
   skillshare hub index -o /tmp/index.json        Custom output path
   skillshare hub index -s ~/my-skills            Custom source directory
   skillshare hub index -p                        Project mode`)
