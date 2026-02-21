@@ -14,9 +14,10 @@ import (
 const SkillSourceURL = "https://raw.githubusercontent.com/runkids/skillshare/main/skills/skillshare/SKILL.md"
 
 // ReadLocalSkillVersion reads the "version" field from source/skillshare/SKILL.md.
+// The returned value never has a "v" prefix.
 func ReadLocalSkillVersion(sourceDir string) string {
 	skillFile := filepath.Join(sourceDir, "skillshare", "SKILL.md")
-	return utils.ParseFrontmatterField(skillFile, "version")
+	return strings.TrimPrefix(utils.ParseFrontmatterField(skillFile, "version"), "v")
 }
 
 // FetchRemoteSkillVersion fetches the latest skill version from GitHub (3s timeout).
@@ -49,7 +50,7 @@ func FetchRemoteSkillVersion() string {
 		if inFrontmatter && strings.HasPrefix(line, "version:") {
 			parts := strings.SplitN(line, ":", 2)
 			if len(parts) == 2 {
-				return strings.TrimSpace(parts[1])
+				return strings.TrimPrefix(strings.TrimSpace(parts[1]), "v")
 			}
 		}
 	}
