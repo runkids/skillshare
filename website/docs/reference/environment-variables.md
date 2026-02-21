@@ -134,7 +134,17 @@ See [Private Repositories](/docs/commands/install#private-repositories) for deta
 
 GitLab personal access or CI job token. Used for HTTPS clone of GitLab-hosted private repos.
 
+**Creating a token:**
+1. Go to https://gitlab.com/-/user_settings/personal_access_tokens
+2. Add new token
+3. Scopes: `read_repository` (pull only) or `read_repository` + `write_repository` (push & pull)
+4. Copy the token (prefix `glpat-`)
+
 Official docs: [Token overview](https://docs.gitlab.com/security/tokens/)
+
+:::warning Token types
+Only **Personal Access Token** (`glpat-`) and **Project/Group Access Token** work for git operations. Feed Tokens (`glft-`) do **not** have git access.
+:::
 
 ```bash
 export GITLAB_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx
@@ -150,11 +160,17 @@ $env:GITLAB_TOKEN = "glpat-xxxxxxxxxxxxxxxxxxxx"
 
 Bitbucket repository access token, or app password. Used for HTTPS clone of Bitbucket-hosted private repos.
 
+**Creating a token (repository access token):**
+1. Go to Repository → Settings → Access tokens
+2. Create token with **Read** permission (pull only) or **Read + Write** (push & pull)
+3. Copy the token — uses `x-token-auth` automatically (no username needed)
+
+**Creating a token (app password):**
+1. Go to https://bitbucket.org/account/settings/app-passwords/
+2. Create app password with **Repositories: Read** (pull only) or **Repositories: Read + Write** (push & pull)
+3. Also set `BITBUCKET_USERNAME` (or include it in the URL as `https://<username>@bitbucket.org/...`)
+
 Official docs: [Access tokens](https://support.atlassian.com/bitbucket-cloud/docs/access-tokens/)
-
-Repository access tokens use `x-token-auth` automatically (no username needed).
-
-If using an app password, also provide your username via `BITBUCKET_USERNAME` (or include it in the URL as `https://<username>@bitbucket.org/...`).
 
 ```bash
 export BITBUCKET_USERNAME=your_bitbucket_username
