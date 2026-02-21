@@ -158,8 +158,9 @@ func gitPush(sourcePath string, spinner *ui.Spinner) error {
 
 	cmd := exec.Command("git", args...)
 	cmd.Dir = sourcePath
+	cmd.Env = append(os.Environ(), "LC_ALL=C")
 	if len(authEnv) > 0 {
-		cmd.Env = append(os.Environ(), authEnv...)
+		cmd.Env = append(cmd.Env, authEnv...)
 	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {

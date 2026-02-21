@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"skillshare/internal/audit"
@@ -63,8 +64,8 @@ func BuildIndex(sourcePath string, full bool, auditSkills bool) (*Index, error) 
 		return nil, err
 	}
 
-	entries := make([]SkillEntry, 0, len(discovered))
-	for _, d := range discovered {
+	entries := make([]SkillEntry, len(discovered))
+	for i, d := range discovered {
 		item := SkillEntry{
 			Name: filepath.Base(d.SourcePath),
 		}
@@ -109,17 +110,29 @@ func BuildIndex(sourcePath string, full bool, auditSkills bool) (*Index, error) 
 			}
 		}
 
-		// Audit enrichment: scan skill and populate risk fields.
-		if auditSkills {
-			if res, err := audit.ScanSkill(d.SourcePath); err == nil {
-				score := res.RiskScore
-				item.RiskScore = &score
-				item.RiskLabel = res.RiskLabel
-				item.AuditedAt = time.Now().UTC().Format(time.RFC3339)
-			}
-		}
+		entries[i] = item
+	}
 
-		entries = append(entries, item)
+	// Parallel audit enrichment: scan skills concurrently with bounded workers.
+	if auditSkills {
+		const maxWorkers = 8
+		sem := make(chan struct{}, maxWorkers)
+		var wg sync.WaitGroup
+		for i, d := range discovered {
+			wg.Add(1)
+			sem <- struct{}{}
+			go func(idx int, sourcePath string) {
+				defer wg.Done()
+				defer func() { <-sem }()
+				if res, err := audit.ScanSkill(sourcePath); err == nil {
+					score := res.RiskScore
+					entries[idx].RiskScore = &score
+					entries[idx].RiskLabel = res.RiskLabel
+					entries[idx].AuditedAt = time.Now().UTC().Format(time.RFC3339)
+				}
+			}(i, d.SourcePath)
+		}
+		wg.Wait()
 	}
 
 	// Deterministic output: sort by name ascending.

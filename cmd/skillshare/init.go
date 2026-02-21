@@ -830,6 +830,7 @@ func commitSourceFiles(sourcePath string) error {
 	}
 	commitCmd := exec.Command("git", "commit", "-m", msg)
 	commitCmd.Dir = sourcePath
+	commitCmd.Env = append(os.Environ(), "LC_ALL=C")
 	if out, err := commitCmd.CombinedOutput(); err != nil {
 		trimmed := strings.TrimSpace(string(out))
 		if strings.Contains(trimmed, "nothing to commit") || strings.Contains(trimmed, "no changes added to commit") {
@@ -934,6 +935,7 @@ func remoteFetchEnv(remoteURL string) []string {
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_ASKPASS=",
 		"SSH_ASKPASS=",
+		"LC_ALL=C",
 	)
 	// Keep user-provided SSH command if present (custom key/proxy).
 	if v, ok := os.LookupEnv("GIT_SSH_COMMAND"); !ok || strings.TrimSpace(v) == "" {

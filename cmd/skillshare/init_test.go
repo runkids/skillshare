@@ -93,6 +93,9 @@ func TestRemoteFetchEnv_DisablesInteractivePrompts(t *testing.T) {
 	if v, ok := envValue(env, "GIT_SSH_COMMAND"); !ok || !strings.Contains(v, "BatchMode=yes") {
 		t.Fatalf("expected default GIT_SSH_COMMAND with BatchMode=yes, got %q (present=%v)", v, ok)
 	}
+	if v, ok := envValue(env, "LC_ALL"); !ok || v != "C" {
+		t.Fatalf("expected LC_ALL=C for locale-independent git output, got %q (present=%v)", v, ok)
+	}
 }
 
 func TestRemoteFetchEnv_RespectsExistingSSHCommand(t *testing.T) {
