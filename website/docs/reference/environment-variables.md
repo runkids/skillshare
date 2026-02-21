@@ -141,6 +141,11 @@ export GITLAB_TOKEN=glpat-xxxxxxxxxxxxxxxxxxxx
 skillshare install https://gitlab.com/org/skills.git --track
 ```
 
+**Windows:**
+```powershell
+$env:GITLAB_TOKEN = "glpat-xxxxxxxxxxxxxxxxxxxx"
+```
+
 ### BITBUCKET_TOKEN
 
 Bitbucket repository access token, or app password. Used for HTTPS clone of Bitbucket-hosted private repos.
@@ -155,6 +160,12 @@ If using an app password, also provide your username via `BITBUCKET_USERNAME` (o
 export BITBUCKET_USERNAME=your_bitbucket_username
 export BITBUCKET_TOKEN=your_app_password
 skillshare install https://bitbucket.org/team/skills.git --track
+```
+
+**Windows:**
+```powershell
+$env:BITBUCKET_USERNAME = "your_bitbucket_username"
+$env:BITBUCKET_TOKEN = "your_app_password"
 ```
 
 ### BITBUCKET_USERNAME
@@ -174,6 +185,11 @@ Generic fallback token for any HTTPS git host. Used when no platform-specific to
 ```bash
 export SKILLSHARE_GIT_TOKEN=your_token
 skillshare install https://git.example.com/org/skills.git --track
+```
+
+**Windows:**
+```powershell
+$env:SKILLSHARE_GIT_TOKEN = "your_token"
 ```
 
 **Token priority:** Platform-specific (`GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`) > `SKILLSHARE_GIT_TOKEN`.

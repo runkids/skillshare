@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -114,6 +115,11 @@ func hintGitRemoteError(output string) {
 		ui.Info("  Authentication failed — options:")
 		ui.Info("    1. SSH URL: git remote set-url origin git@<host>:<owner>/<repo>.git")
 		ui.Info("    2. Token env var: GITHUB_TOKEN, GITLAB_TOKEN, BITBUCKET_TOKEN, or SKILLSHARE_GIT_TOKEN")
+		if runtime.GOOS == "windows" {
+			ui.Info("       PowerShell: $env:GITLAB_TOKEN = \"glpat-xxxx\"")
+		} else {
+			ui.Info("       export GITLAB_TOKEN=glpat-xxxx")
+		}
 		ui.Info("    3. Git credential helper: gh auth login")
 	case strings.Contains(output, "Could not read from remote"):
 		ui.Info("  Check SSH keys: ssh -T git@github.com")
