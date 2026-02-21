@@ -32,7 +32,7 @@ flowchart TD
 
 | Flag | Description |
 |------|-------------|
-| `--from <timestamp>` | Restore from specific backup |
+| `--from, -f <timestamp>` | Restore from specific backup |
 | `--force` | Overwrite without confirmation |
 | `--dry-run, -n` | Preview without making changes |
 
