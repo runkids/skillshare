@@ -116,18 +116,29 @@ func hintGitRemoteError(output string) {
 func gitPush(sourcePath string, spinner *ui.Spinner) error {
 	spinner.Update("Pushing to remote...")
 
+	authEnv := gitops.AuthEnvForRepo(sourcePath)
 	args := []string{"push"}
+	localBranch, err := gitops.GetCurrentBranch(sourcePath)
+	if err != nil {
+		localBranch = "main"
+	}
+
 	if !gitops.HasUpstream(sourcePath) {
-		branch, err := gitops.GetCurrentBranch(sourcePath)
-		if err != nil {
-			branch = "main"
+		remoteBranch := detectRemoteDefaultBranchForPush(sourcePath, authEnv)
+		if remoteBranch != "" && remoteBranch != localBranch {
+			args = append(args, "-u", "origin", localBranch+":"+remoteBranch)
+		} else {
+			args = append(args, "-u", "origin", localBranch)
 		}
-		args = append(args, "-u", "origin", branch)
+	} else if remoteName, upstreamBranch := upstreamTrackingBranch(sourcePath); remoteName != "" && upstreamBranch != "" && upstreamBranch != localBranch {
+		// push.default=simple refuses pushing when upstream branch name differs
+		// from local branch name. Push explicitly to tracked upstream branch.
+		args = []string{"push", remoteName, "HEAD:" + upstreamBranch}
 	}
 
 	cmd := exec.Command("git", args...)
 	cmd.Dir = sourcePath
-	if authEnv := gitops.AuthEnvForRepo(sourcePath); len(authEnv) > 0 {
+	if len(authEnv) > 0 {
 		cmd.Env = append(os.Environ(), authEnv...)
 	}
 	output, err := cmd.CombinedOutput()
@@ -144,6 +155,38 @@ func gitPush(sourcePath string, spinner *ui.Spinner) error {
 		return fmt.Errorf("push failed")
 	}
 	return nil
+}
+
+func upstreamTrackingBranch(sourcePath string) (remoteName, branch string) {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+	cmd.Dir = sourcePath
+	out, err := cmd.Output()
+	if err != nil {
+		return "", ""
+	}
+	ref := strings.TrimSpace(string(out))
+	parts := strings.SplitN(ref, "/", 2)
+	if len(parts) != 2 {
+		return "", ""
+	}
+	return parts[0], parts[1]
+}
+
+func detectRemoteDefaultBranchForPush(sourcePath string, authEnv []string) string {
+	fetchCmd := exec.Command("git", "fetch", "origin")
+	fetchCmd.Dir = sourcePath
+	if len(authEnv) > 0 {
+		fetchCmd.Env = append(os.Environ(), authEnv...)
+	}
+	if err := fetchCmd.Run(); err != nil {
+		return ""
+	}
+
+	branch, err := gitops.GetRemoteDefaultBranch(sourcePath)
+	if err != nil {
+		return ""
+	}
+	return branch
 }
 
 func cmdPush(args []string) error {

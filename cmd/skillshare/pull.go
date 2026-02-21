@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -12,6 +13,13 @@ import (
 	gitops "skillshare/internal/git"
 	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
+)
+
+type firstPullOutcome int
+
+const (
+	firstPullNoop firstPullOutcome = iota
+	firstPullApplied
 )
 
 func cmdPull(args []string) error {
@@ -101,7 +109,7 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 	// Subsequent pulls: normal git pull.
 	authEnv := gitops.AuthEnvForRepo(cfg.Source)
 	if !gitops.HasUpstream(cfg.Source) {
-		if err := firstPull(cfg.Source, authEnv, force, spinner); err != nil {
+		if _, err := firstPull(cfg.Source, authEnv, force, spinner); err != nil {
 			return err
 		}
 	} else {
@@ -130,10 +138,11 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 
 // firstPull handles the initial pull when no upstream tracking exists.
 // Fetches remote, then decides based on local/remote content:
-//   - Remote has no skills → just set upstream (nothing useful to pull)
-//   - Local has no skills  → reset to remote (safe, nothing to lose)
-//   - Both have skills     → refuse and let user choose push or pull --force
-func firstPull(sourcePath string, authEnv []string, force bool, spinner *ui.Spinner) error {
+//   - Remote has branches but no skills + local has skills:
+//     merge unrelated histories (preserve local skills, import remote files)
+//   - Local has no skills, or --force: reset to remote
+//   - Both local/remote have skills and no --force: fail (non-zero exit)
+func firstPull(sourcePath string, authEnv []string, force bool, spinner *ui.Spinner) (firstPullOutcome, error) {
 	spinner.Update("Fetching from remote...")
 
 	fetchCmd := exec.Command("git", "fetch", "origin")
@@ -146,47 +155,52 @@ func firstPull(sourcePath string, authEnv []string, force bool, spinner *ui.Spin
 		outStr := string(output)
 		fmt.Print(outStr)
 		hintGitRemoteError(outStr)
-		return fmt.Errorf("fetch failed: %w", err)
+		return firstPullNoop, fmt.Errorf("fetch failed: %w", err)
 	}
 
-	// Detect remote default branch (main or master)
-	remoteBranch := ""
-	for _, b := range []string{"main", "master"} {
-		checkCmd := exec.Command("git", "rev-parse", "--verify", "origin/"+b)
-		checkCmd.Dir = sourcePath
-		if err := checkCmd.Run(); err == nil {
-			remoteBranch = b
-			break
+	remoteBranch, err := gitops.GetRemoteDefaultBranch(sourcePath)
+	if err != nil {
+		if errors.Is(err, gitops.ErrNoRemoteBranches) {
+			spinner.Warn("Remote has no branches yet")
+			ui.Info("  Push your skills first: skillshare push")
+			return firstPullNoop, nil
 		}
-	}
-	if remoteBranch == "" {
-		spinner.Warn("Remote has no branches yet")
-		ui.Info("  Push your skills first: skillshare push")
-		return nil
+		spinner.Fail("Failed to detect remote default branch")
+		return firstPullNoop, fmt.Errorf("failed to detect remote default branch: %w", err)
 	}
 
 	// Check if remote actually has skill directories
-	hasRemoteSkills := false
-	lsCmd := exec.Command("git", "ls-tree", "-d", "--name-only", "origin/"+remoteBranch)
-	lsCmd.Dir = sourcePath
-	if lsOut, err := lsCmd.Output(); err == nil && strings.TrimSpace(string(lsOut)) != "" {
-		hasRemoteSkills = true
+	hasRemoteSkills, err := hasRemoteSkillDirs(sourcePath, remoteBranch)
+	if err != nil {
+		spinner.Fail("Failed to inspect remote skills")
+		return firstPullNoop, fmt.Errorf("failed to inspect remote skills: %w", err)
 	}
 
 	// Check if local has skill directories
-	hasLocalSkills := false
-	entries, _ := os.ReadDir(sourcePath)
-	for _, e := range entries {
-		if e.IsDir() && e.Name() != ".git" {
-			hasLocalSkills = true
-			break
-		}
+	hasLocalSkills, err := hasLocalSkillDirs(sourcePath)
+	if err != nil {
+		spinner.Fail("Failed to inspect local skills")
+		return firstPullNoop, fmt.Errorf("failed to inspect local skills: %w", err)
 	}
 
 	if !hasRemoteSkills {
-		// Remote has no skills — just set upstream, user can push later
+		// Remote has history/files but no skills.
+		// If local has skills, merge histories so later push/pull won't hit
+		// unrelated-history errors.
+		if hasLocalSkills && !force {
+			if err := mergeRemoteHistory(sourcePath, remoteBranch, spinner); err != nil {
+				return firstPullNoop, err
+			}
+			setUpstream(sourcePath, remoteBranch)
+			return firstPullApplied, nil
+		}
+
+		// Local has no skills (or --force): align to remote history directly.
+		if err := resetToRemote(sourcePath, remoteBranch, spinner); err != nil {
+			return firstPullNoop, err
+		}
 		setUpstream(sourcePath, remoteBranch)
-		return nil
+		return firstPullApplied, nil
 	}
 
 	if hasLocalSkills && !force {
@@ -194,21 +208,15 @@ func firstPull(sourcePath string, authEnv []string, force bool, spinner *ui.Spin
 		spinner.Fail("Remote has skills, but local skills also exist")
 		ui.Info("  Push local:  skillshare push")
 		ui.Info("  Pull remote: skillshare pull --force  (replaces local with remote)")
-		return nil
+		return firstPullNoop, fmt.Errorf("pull blocked: remote and local both contain skills; rerun with --force or push local changes")
 	}
 
 	// Safe to reset: either local has no skills, or --force was used
-	spinner.Update("Pulling skills from remote...")
-	resetCmd := exec.Command("git", "reset", "--hard", "origin/"+remoteBranch)
-	resetCmd.Dir = sourcePath
-	if output, err := resetCmd.CombinedOutput(); err != nil {
-		spinner.Fail("Failed to pull from remote")
-		fmt.Print(string(output))
-		return fmt.Errorf("reset failed: %w", err)
+	if err := resetToRemote(sourcePath, remoteBranch, spinner); err != nil {
+		return firstPullNoop, err
 	}
-
 	setUpstream(sourcePath, remoteBranch)
-	return nil
+	return firstPullApplied, nil
 }
 
 func setUpstream(sourcePath, remoteBranch string) {
@@ -219,4 +227,55 @@ func setUpstream(sourcePath, remoteBranch string) {
 	trackCmd := exec.Command("git", "branch", "--set-upstream-to=origin/"+remoteBranch, localBranch)
 	trackCmd.Dir = sourcePath
 	trackCmd.Run() // best-effort
+}
+
+func hasRemoteSkillDirs(sourcePath, remoteBranch string) (bool, error) {
+	lsCmd := exec.Command("git", "ls-tree", "-d", "--name-only", "origin/"+remoteBranch)
+	lsCmd.Dir = sourcePath
+	lsOut, err := lsCmd.Output()
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(string(lsOut)) != "", nil
+}
+
+func hasLocalSkillDirs(sourcePath string) (bool, error) {
+	entries, err := os.ReadDir(sourcePath)
+	if err != nil {
+		return false, err
+	}
+	for _, e := range entries {
+		if e.IsDir() && e.Name() != ".git" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func mergeRemoteHistory(sourcePath, remoteBranch string, spinner *ui.Spinner) error {
+	spinner.Update("Merging remote history...")
+	mergeCmd := exec.Command("git", "merge", "--allow-unrelated-histories", "--no-edit", "origin/"+remoteBranch)
+	mergeCmd.Dir = sourcePath
+	if output, err := mergeCmd.CombinedOutput(); err != nil {
+		spinner.Fail("Failed to merge remote history")
+		fmt.Print(string(output))
+		abortCmd := exec.Command("git", "merge", "--abort")
+		abortCmd.Dir = sourcePath
+		abortCmd.Run() // best-effort cleanup
+		ui.Info("  Resolve manually: cd %s && git merge --allow-unrelated-histories origin/%s", sourcePath, remoteBranch)
+		return fmt.Errorf("merge failed: %w", err)
+	}
+	return nil
+}
+
+func resetToRemote(sourcePath, remoteBranch string, spinner *ui.Spinner) error {
+	spinner.Update("Pulling skills from remote...")
+	resetCmd := exec.Command("git", "reset", "--hard", "origin/"+remoteBranch)
+	resetCmd.Dir = sourcePath
+	if output, err := resetCmd.CombinedOutput(); err != nil {
+		spinner.Fail("Failed to pull from remote")
+		fmt.Print(string(output))
+		return fmt.Errorf("reset failed: %w", err)
+	}
+	return nil
 }

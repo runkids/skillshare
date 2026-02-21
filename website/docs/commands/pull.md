@@ -9,6 +9,7 @@ Pull from git remote and sync to all targets.
 ```bash
 skillshare pull              # Pull and sync
 skillshare pull --dry-run    # Preview
+skillshare pull --force      # Replace local with remote on first pull
 ```
 
 ## When to Use
@@ -33,6 +34,7 @@ flowchart TD
 | Flag | Description |
 |------|-------------|
 | `--dry-run, -n` | Preview without making changes |
+| `--force, -f` | On first pull conflict, replace local skills with remote |
 
 ## Prerequisites
 
@@ -68,6 +70,28 @@ skillshare pull
 git stash pop
 ```
 
+## First Pull Conflict (Exit Code != 0)
+
+On first pull (no upstream yet), if both local and remote already contain skill directories,
+`pull` stops with a non-zero exit code and **does not run sync**:
+
+```bash
+$ skillshare pull
+Remote has skills, but local skills also exist
+  Push local:  skillshare push
+  Pull remote: skillshare pull --force  (replaces local with remote)
+```
+
+Choose one path:
+
+```bash
+# Keep local skills, push them
+skillshare push
+
+# Replace local with remote
+skillshare pull --force
+```
+
 ## Examples
 
 ```bash
@@ -76,6 +100,9 @@ skillshare pull
 
 # Preview what would happen
 skillshare pull --dry-run
+
+# Replace local with remote on first-pull conflict
+skillshare pull --force
 ```
 
 ## Workflow

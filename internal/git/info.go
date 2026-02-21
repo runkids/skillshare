@@ -1,6 +1,7 @@
 package git
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -31,6 +32,9 @@ type UpdateInfo struct {
 	BeforeHash string
 	AfterHash  string
 }
+
+// ErrNoRemoteBranches indicates the origin remote currently has no branches.
+var ErrNoRemoteBranches = errors.New("no remote branches found")
 
 // GetCurrentHash returns the current HEAD hash (short)
 func GetCurrentHash(repoPath string) (string, error) {
@@ -299,6 +303,50 @@ func GetCurrentBranch(repoPath string) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// GetRemoteDefaultBranch returns the default branch name for origin.
+// Resolution order:
+//  1. refs/remotes/origin/HEAD
+//  2. common branch names (main, master)
+//  3. first discovered refs/remotes/origin/* branch
+func GetRemoteDefaultBranch(repoPath string) (string, error) {
+	cmd := exec.Command("git", "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD")
+	cmd.Dir = repoPath
+	if out, err := cmd.Output(); err == nil {
+		branch := strings.TrimSpace(string(out))
+		branch = strings.TrimPrefix(branch, "origin/")
+		if branch != "" {
+			return branch, nil
+		}
+	}
+
+	for _, branch := range []string{"main", "master"} {
+		checkCmd := exec.Command("git", "rev-parse", "--verify", "refs/remotes/origin/"+branch)
+		checkCmd.Dir = repoPath
+		if err := checkCmd.Run(); err == nil {
+			return branch, nil
+		}
+	}
+
+	listCmd := exec.Command("git", "for-each-ref", "--format=%(refname:short)", "refs/remotes/origin")
+	listCmd.Dir = repoPath
+	out, err := listCmd.Output()
+	if err != nil {
+		return "", err
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		ref := strings.TrimSpace(line)
+		if ref == "" || ref == "origin/HEAD" {
+			continue
+		}
+		ref = strings.TrimPrefix(ref, "origin/")
+		if ref != "" {
+			return ref, nil
+		}
+	}
+
+	return "", ErrNoRemoteBranches
 }
 
 // GetBehindCount fetches from origin and returns how many commits local is behind

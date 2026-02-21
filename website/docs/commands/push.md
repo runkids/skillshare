@@ -51,6 +51,15 @@ skillshare init --remote git@github.com:you/my-skills.git
 
 Init automatically creates the initial commit, so `push` works immediately after setup.
 
+## First Push Upstream Mapping
+
+On first push (no upstream tracking yet), `skillshare push` auto-configures upstream:
+
+- If remote already has a default branch (for example `main` or `trunk`), local changes are pushed to that remote default branch.
+- If remote is empty, it pushes to your current local branch.
+
+This avoids accidentally creating the wrong remote branch (for example local `master` while remote uses `main`).
+
 ## Examples
 
 ```bash

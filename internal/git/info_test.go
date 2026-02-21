@@ -198,3 +198,115 @@ func TestAuthEnvForRepo_NoTokenReturnsNil(t *testing.T) {
 		t.Fatalf("expected nil auth env without tokens, got: %v", env)
 	}
 }
+
+func TestAuthEnvForRepo_SSHRemote_ReturnsNil(t *testing.T) {
+	repo := initTestRepo(t)
+	addRemote(t, repo, "git@github.com:org/private-repo.git")
+	t.Setenv("GITHUB_TOKEN", "ghp_test_token_123")
+	t.Setenv("SKILLSHARE_GIT_TOKEN", "generic-token")
+
+	env := AuthEnvForRepo(repo)
+	if env != nil {
+		t.Fatalf("expected nil auth env for SSH remote, got: %v", env)
+	}
+}
+
+func TestGetRemoteDefaultBranch_UsesOriginHEAD(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "trunk", map[string]string{
+		"README.md": "# trunk\n",
+	})
+	repo := cloneRepo(t, remote)
+
+	branch, err := GetRemoteDefaultBranch(repo)
+	if err != nil {
+		t.Fatalf("GetRemoteDefaultBranch failed: %v", err)
+	}
+	if branch != "trunk" {
+		t.Fatalf("expected trunk, got %q", branch)
+	}
+}
+
+func TestGetRemoteDefaultBranch_FallbackMainMaster(t *testing.T) {
+	for _, wantBranch := range []string{"main", "master"} {
+		t.Run(wantBranch, func(t *testing.T) {
+			remote := createBareRemoteWithBranch(t, wantBranch, map[string]string{
+				"README.md": "# " + wantBranch + "\n",
+			})
+			repo := cloneRepo(t, remote)
+			runGit(t, repo, "update-ref", "-d", "refs/remotes/origin/HEAD")
+
+			branch, err := GetRemoteDefaultBranch(repo)
+			if err != nil {
+				t.Fatalf("GetRemoteDefaultBranch failed: %v", err)
+			}
+			if branch != wantBranch {
+				t.Fatalf("expected %s, got %q", wantBranch, branch)
+			}
+		})
+	}
+}
+
+func TestGetRemoteDefaultBranch_FallbackFirstRemoteBranch(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "release", map[string]string{
+		"README.md": "# release\n",
+	})
+	repo := cloneRepo(t, remote)
+	runGit(t, repo, "update-ref", "-d", "refs/remotes/origin/HEAD")
+
+	branch, err := GetRemoteDefaultBranch(repo)
+	if err != nil {
+		t.Fatalf("GetRemoteDefaultBranch failed: %v", err)
+	}
+	if branch != "release" {
+		t.Fatalf("expected release, got %q", branch)
+	}
+}
+
+func runGit(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+
+	cmd := exec.Command("git", args...)
+	if dir != "" {
+		cmd.Dir = dir
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v failed: %v (%s)", args, err, strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func createBareRemoteWithBranch(t *testing.T, branch string, files map[string]string) string {
+	t.Helper()
+
+	root := t.TempDir()
+	remote := filepath.Join(root, "remote.git")
+	runGit(t, "", "init", "--bare", remote)
+
+	seed := filepath.Join(root, "seed")
+	runGit(t, "", "clone", remote, seed)
+	runGit(t, seed, "config", "user.email", "test@test.com")
+	runGit(t, seed, "config", "user.name", "test")
+	for rel, content := range files {
+		path := filepath.Join(seed, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			t.Fatalf("failed to create dir for %s: %v", rel, err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			t.Fatalf("failed to write %s: %v", rel, err)
+		}
+	}
+	runGit(t, seed, "add", "-A")
+	runGit(t, seed, "commit", "-m", "seed "+branch)
+	runGit(t, seed, "push", "origin", "HEAD:"+branch)
+	runGit(t, remote, "symbolic-ref", "HEAD", "refs/heads/"+branch)
+	return remote
+}
+
+func cloneRepo(t *testing.T, remote string) string {
+	t.Helper()
+
+	repo := filepath.Join(t.TempDir(), "repo")
+	runGit(t, "", "clone", remote, repo)
+	return repo
+}
