@@ -159,6 +159,65 @@ func TestSearchFromIndexURL_SkipsEmptyName(t *testing.T) {
 	}
 }
 
+func TestSearchFromIndexURL_RiskFields(t *testing.T) {
+	dir := t.TempDir()
+	indexPath := writeTestIndex(t, dir, "index.json", `{
+		"schemaVersion": 1,
+		"skills": [
+			{"name": "safe-skill", "source": "a/b", "riskScore": 0, "riskLabel": "clean"},
+			{"name": "risky-skill", "source": "c/d", "riskScore": 42, "riskLabel": "medium"},
+			{"name": "unaudited-skill", "source": "e/f"}
+		]
+	}`)
+
+	results, err := SearchFromIndexURL("", 20, indexPath)
+	if err != nil {
+		t.Fatalf("SearchFromIndexURL: %v", err)
+	}
+	if len(results) != 3 {
+		t.Fatalf("got %d results, want 3", len(results))
+	}
+
+	// Results are sorted by name: risky, safe, unaudited.
+	risky := results[0] // risky-skill
+	safe := results[1]  // safe-skill
+	unaud := results[2] // unaudited-skill
+
+	if risky.Name != "risky-skill" {
+		t.Fatalf("expected risky-skill first (sorted), got %q", risky.Name)
+	}
+
+	// safe-skill: riskScore=0, riskLabel=clean
+	if safe.RiskScore == nil {
+		t.Fatal("safe-skill: riskScore should not be nil")
+	}
+	if *safe.RiskScore != 0 {
+		t.Errorf("safe-skill: riskScore = %d, want 0", *safe.RiskScore)
+	}
+	if safe.RiskLabel != "clean" {
+		t.Errorf("safe-skill: riskLabel = %q, want 'clean'", safe.RiskLabel)
+	}
+
+	// risky-skill: riskScore=42, riskLabel=medium
+	if risky.RiskScore == nil {
+		t.Fatal("risky-skill: riskScore should not be nil")
+	}
+	if *risky.RiskScore != 42 {
+		t.Errorf("risky-skill: riskScore = %d, want 42", *risky.RiskScore)
+	}
+	if risky.RiskLabel != "medium" {
+		t.Errorf("risky-skill: riskLabel = %q, want 'medium'", risky.RiskLabel)
+	}
+
+	// unaudited-skill: riskScore=nil, riskLabel=""
+	if unaud.RiskScore != nil {
+		t.Errorf("unaudited-skill: riskScore should be nil, got %d", *unaud.RiskScore)
+	}
+	if unaud.RiskLabel != "" {
+		t.Errorf("unaudited-skill: riskLabel should be empty, got %q", unaud.RiskLabel)
+	}
+}
+
 func TestIsRelativeSource(t *testing.T) {
 	tests := []struct {
 		source string

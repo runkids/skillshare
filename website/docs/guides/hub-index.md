@@ -51,6 +51,27 @@ skillshare search --hub ./skillshare-hub.json --json
 
 The interactive search flow works the same as GitHub search — select a skill and it gets installed.
 
+## Audit Enrichment
+
+Add security risk scores to your index so teammates can see skill safety at a glance:
+
+```bash
+# Build index with audit scores
+skillshare hub index --audit
+
+# Combine with full metadata
+skillshare hub index --full --audit
+```
+
+When `--audit` is used, each skill is scanned with `skillshare audit` rules and the index includes `riskScore` (0–100), `riskLabel` (clean/low/medium/high/critical), and `auditedAt` timestamp. Skills that fail to scan are included without risk fields.
+
+Search results from an audited index display risk badges:
+
+```
+  1. safe-skill               owner/repo/safe-skill         [clean]
+  2. risky-skill              owner/repo/risky-skill        [high]
+```
+
 ## Sharing Strategies
 
 ### File Share (Simplest)
@@ -259,8 +280,8 @@ skillshare install ghe.internal.company.com/platform/ai-skills/coding-standards
 skillshare install ghe.internal.company.com/platform/ai-skills/review-checklist
 skillshare install ghe.internal.company.com/security/ai-skills/threat-model
 
-# 2. Generate the hub index
-skillshare hub index -o ./skillshare-hub.json
+# 2. Generate the hub index (with optional audit scores)
+skillshare hub index --audit -o ./skillshare-hub.json
 
 # 3. Host it (pick one)
 #    - Internal Git repo: commit and push

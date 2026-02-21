@@ -361,10 +361,11 @@ func printSearchResults(results []search.SearchResult, isHub bool) {
 
 		if ui.IsTTY() {
 			if isHub {
-				fmt.Printf("  %s%-3s%s %-24s %s%s%s\n",
+				riskBadge := formatRiskBadge(r.RiskLabel)
+				fmt.Printf("  %s%-3s%s %-24s %s%s%s%s\n",
 					ui.Cyan, num, ui.Reset,
 					truncate(r.Name, 24),
-					ui.Gray, source, ui.Reset)
+					ui.Gray, source, ui.Reset, riskBadge)
 			} else {
 				stars := search.FormatStars(r.Stars)
 				fmt.Printf("  %s%-3s%s %-24s %s%-40s%s %s★ %s%s\n",
@@ -393,8 +394,9 @@ func printSearchResults(results []search.SearchResult, isHub bool) {
 		} else {
 			// Non-TTY output
 			if isHub {
-				fmt.Printf("  %-3s %-24s %s\n",
-					num, truncate(r.Name, 24), source)
+				riskBadge := formatRiskBadgePlain(r.RiskLabel)
+				fmt.Printf("  %-3s %-24s %s%s\n",
+					num, truncate(r.Name, 24), source, riskBadge)
 			} else {
 				stars := search.FormatStars(r.Stars)
 				fmt.Printf("  %-3s %-24s %-40s ★ %s\n",
@@ -647,6 +649,36 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// formatRiskBadge returns a colored risk badge for TTY output.
+// Returns empty string when label is empty (not audited).
+func formatRiskBadge(label string) string {
+	if label == "" {
+		return ""
+	}
+	var color string
+	switch label {
+	case "clean":
+		color = ui.Green
+	case "low":
+		color = ui.Cyan
+	case "medium":
+		color = ui.Yellow
+	case "high", "critical":
+		color = ui.Red
+	default:
+		color = ui.Gray
+	}
+	return fmt.Sprintf(" %s[%s]%s", color, label, ui.Reset)
+}
+
+// formatRiskBadgePlain returns a plain risk badge for non-TTY output.
+func formatRiskBadgePlain(label string) string {
+	if label == "" {
+		return ""
+	}
+	return fmt.Sprintf(" [%s]", label)
 }
 
 func printSearchHelp() {

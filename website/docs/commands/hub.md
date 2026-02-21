@@ -108,6 +108,7 @@ skillshare hub index [options]
 | `--source`, `-s` | Source directory to scan (default: auto-detect) |
 | `--output`, `-o` | Output file path (default: `<source>/skillshare-hub.json`) |
 | `--full` | Include full metadata (flatName, type, version, etc.) |
+| `--audit` | Run security audit on each skill and include risk scores |
 | `--project`, `-p` | Use project mode (`.skillshare/`) |
 | `--global`, `-g` | Use global mode (`~/.config/skillshare`) |
 | `--help`, `-h` | Show help |
@@ -149,6 +150,21 @@ skillshare hub index [options]
 }
 ```
 
+**Audit (`--audit`)** — Adds security risk scores from `skillshare audit`:
+
+```json
+{
+  "name": "my-skill",
+  "description": "A useful skill",
+  "source": "owner/repo/.claude/skills/my-skill",
+  "riskScore": 0,
+  "riskLabel": "clean",
+  "auditedAt": "2026-02-22T10:00:00Z"
+}
+```
+
+`--audit` can be combined with `--full` to include both metadata and risk scores. Risk labels: `clean` (0), `low` (1–25), `medium` (26–50), `high` (51–75), `critical` (76–100).
+
 Metadata fields use `omitempty` — redundant values are suppressed:
 - `flatName` omitted when equal to `name`
 - `relPath` omitted when equal to `source`
@@ -162,6 +178,12 @@ skillshare hub index
 
 # Build with full metadata
 skillshare hub index --full
+
+# Build with security risk scores
+skillshare hub index --audit
+
+# Full metadata + risk scores
+skillshare hub index --full --audit
 
 # Custom output path
 skillshare hub index -o /shared/team/skillshare-hub.json

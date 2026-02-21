@@ -26,7 +26,9 @@ type SearchResult struct {
 	Repo        string   // Repository name
 	Path        string   // Path within repository
 	Tags        []string // Classification tags from hub index
-	Score       float64  `json:"-"` // Internal relevance score, hidden from JSON output
+	RiskScore   *int     `json:"riskScore,omitempty"` // Audit risk score (0-100), nil if not audited
+	RiskLabel   string   `json:"riskLabel,omitempty"` // Audit risk label (clean/low/medium/high/critical)
+	Score       float64  `json:"-"`                   // Internal relevance score, hidden from JSON output
 }
 
 // RateLimitError indicates GitHub API rate limit was exceeded

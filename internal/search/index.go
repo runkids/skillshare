@@ -22,6 +22,8 @@ type indexSkill struct {
 	Source      string   `json:"source"`
 	Skill       string   `json:"skill"`
 	Tags        []string `json:"tags"`
+	RiskScore   *int     `json:"riskScore,omitempty"`
+	RiskLabel   string   `json:"riskLabel,omitempty"`
 }
 
 // SearchFromIndexURL searches skills from a private index.json URL or local path.
@@ -83,6 +85,8 @@ func searchIndex(query string, limit int, doc *indexDocument) ([]SearchResult, e
 			Tags:        it.Tags,
 			Owner:       owner,
 			Repo:        repo,
+			RiskScore:   it.RiskScore,
+			RiskLabel:   it.RiskLabel,
 		})
 	}
 
