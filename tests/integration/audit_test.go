@@ -300,6 +300,38 @@ func TestAudit_PathScan_JSON(t *testing.T) {
 	}
 }
 
+func TestAudit_DanglingLink_Medium(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("link-skill", map[string]string{
+		"SKILL.md": "---\nname: link-skill\n---\n# Skill\n\n[broken](nonexistent.md)\n",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit", "link-skill")
+	result.AssertSuccess(t) // MEDIUM does not exceed default CRITICAL threshold
+	result.AssertAnyOutputContains(t, "dangling local markdown link")
+	result.AssertAnyOutputContains(t, "nonexistent.md")
+	result.AssertAnyOutputContains(t, "Warning:   1")
+	result.AssertAnyOutputContains(t, "Severity:  c/h/m/l/i = 0/0/1/0/0")
+}
+
+func TestAudit_DanglingLink_ValidFileNoFinding(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("link-skill", map[string]string{
+		"SKILL.md": "---\nname: link-skill\n---\n# Skill\n\n[guide](guide.md)\n",
+		"guide.md": "# Guide",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit", "link-skill")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "No issues found")
+}
+
 func TestAudit_BuiltinSkill_NoFindings(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
