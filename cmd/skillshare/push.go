@@ -99,9 +99,22 @@ func stageAndCommit(sourcePath, message string, spinner *ui.Spinner) error {
 	return nil
 }
 
+// isAuthError returns true when git output indicates an authentication failure.
+func isAuthError(output string) bool {
+	return strings.Contains(output, "Authentication failed") ||
+		strings.Contains(output, "Access denied") ||
+		strings.Contains(output, "could not read Username") ||
+		strings.Contains(output, "terminal prompts disabled")
+}
+
 // hintGitRemoteError prints helpful hints based on common git remote errors.
 func hintGitRemoteError(output string) {
 	switch {
+	case isAuthError(output):
+		ui.Info("  Authentication failed — options:")
+		ui.Info("    1. SSH URL: git remote set-url origin git@<host>:<owner>/<repo>.git")
+		ui.Info("    2. Token env var: GITHUB_TOKEN, GITLAB_TOKEN, BITBUCKET_TOKEN, or SKILLSHARE_GIT_TOKEN")
+		ui.Info("    3. Git credential helper: gh auth login")
 	case strings.Contains(output, "Could not read from remote"):
 		ui.Info("  Check SSH keys: ssh -T git@github.com")
 		ui.Info("  Or use HTTPS:   git remote set-url origin https://github.com/you/repo.git")
@@ -147,7 +160,7 @@ func gitPush(sourcePath string, spinner *ui.Spinner) error {
 		outStr := string(output)
 		fmt.Print(outStr)
 		hintGitRemoteError(outStr)
-		if !strings.Contains(outStr, "Could not read from remote") {
+		if !strings.Contains(outStr, "Could not read from remote") && !isAuthError(outStr) {
 			ui.Info("  Remote may have newer changes")
 			ui.Info("  Run: skillshare pull")
 			ui.Info("  Then: skillshare push")
