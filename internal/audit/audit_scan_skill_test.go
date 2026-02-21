@@ -145,6 +145,7 @@ func TestTruncate(t *testing.T) {
 }
 
 func TestScanSkill_DanglingLink(t *testing.T) {
+	// A skill referencing a local file that does not exist should produce a MEDIUM dangling-link finding.
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "my-skill")
 	os.MkdirAll(skillDir, 0755)
@@ -174,6 +175,7 @@ func TestScanSkill_DanglingLink(t *testing.T) {
 }
 
 func TestScanSkill_ValidFileLink(t *testing.T) {
+	// A skill with a local link pointing to an existing file should produce no dangling-link finding.
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "my-skill")
 	os.MkdirAll(skillDir, 0755)
@@ -193,6 +195,7 @@ func TestScanSkill_ValidFileLink(t *testing.T) {
 }
 
 func TestScanSkill_ValidDirectoryLink(t *testing.T) {
+	// A skill with a local link pointing to an existing directory should produce no dangling-link finding.
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "my-skill")
 	os.MkdirAll(filepath.Join(skillDir, "resources"), 0755)
