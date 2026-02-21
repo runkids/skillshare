@@ -60,7 +60,7 @@ The `audit` command acts as a **gatekeeper** — scanning skill content for know
 
 ## What It Detects
 
-The audit engine scans every text-based file in a skill directory against 25 built-in regex rules, organized into 5 severity levels.
+The audit engine scans every text-based file in a skill directory against 25 built-in regex rules and structural checks, organized into 5 severity levels.
 
 ### CRITICAL (blocks installation and counted as Failed)
 
@@ -107,9 +107,16 @@ These patterns are **suspicious in context** — they may be legitimate but dese
 These are lower-severity indicators that contribute to risk scoring and reporting:
 
 - `LOW`: weaker suspicious patterns (e.g., non-HTTPS URLs in commands — potential for man-in-the-middle attacks)
+- `LOW`: **dangling local links** — broken relative markdown links whose target file or directory does not exist on disk
 - `INFO`: contextual hints like shell chaining patterns (for triage / visibility)
 
 > These findings don't block installation but raise the overall risk score. A skill with many LOW/INFO findings may warrant closer inspection.
+
+#### Dangling Link Detection
+
+The audit engine also performs a **structural check** on `.md` files: it extracts all inline markdown links (`[label](target)`) and verifies that local relative targets exist on disk. External links (`http://`, `https://`, `mailto:`, etc.) and pure anchors (`#section`) are skipped.
+
+This catches common quality issues like missing referenced files, renamed paths, or incomplete skill packaging. Each broken link produces a `LOW` severity finding with pattern `dangling-link`.
 
 ## Threat Categories Deep Dive
 
@@ -467,6 +474,10 @@ rules:
   # Disable a built-in rule
   - id: system-writes-0
     enabled: false
+
+  # Disable the dangling-link structural check
+  - id: dangling-link
+    enabled: false
 ```
 
 ### Fields
@@ -547,6 +558,10 @@ rules:
 
   # Example: disable a built-in rule by id
   # - id: system-writes-0
+  #   enabled: false
+
+  # Example: disable the dangling-link structural check
+  # - id: dangling-link
   #   enabled: false
 
   # Example: override a built-in rule (match by id, change severity)
@@ -658,6 +673,7 @@ Source of truth (full built-in definitions):
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
 | `system-writes-0` | system-writes | MEDIUM |
 | `insecure-http-0` | insecure-http | LOW |
+| `dangling-link` | dangling-link | LOW |
 | `shell-chain-0` | shell-chain | INFO |
 
 ## Options

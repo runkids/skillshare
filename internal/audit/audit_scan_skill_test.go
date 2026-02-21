@@ -132,6 +132,127 @@ func TestIsScannable(t *testing.T) {
 	}
 }
 
+func TestScanSkill_DanglingLink(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[broken link](missing-file.md)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" && f.Severity == "LOW" {
+			found = true
+			if f.Line != 3 {
+				t.Errorf("expected line 3, got %d", f.Line)
+			}
+			if f.File != "SKILL.md" {
+				t.Errorf("expected file SKILL.md, got %s", f.File)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected a LOW dangling-link finding, got findings: %+v", result.Findings)
+	}
+}
+
+func TestScanSkill_ValidFileLink(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "guide.md"), []byte("# Guide"), 0644)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[guide](guide.md)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" {
+			t.Errorf("unexpected dangling-link finding for valid file link: %+v", f)
+		}
+	}
+}
+
+func TestScanSkill_ValidDirectoryLink(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(filepath.Join(skillDir, "resources"), 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[resources](resources)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" {
+			t.Errorf("unexpected dangling-link finding for valid directory link: %+v", f)
+		}
+	}
+}
+
+func TestScanSkill_ExternalLinkSkipped(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[site](https://example.com)\n[mail](mailto:a@b.com)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" {
+			t.Errorf("unexpected dangling-link finding for external link: %+v", f)
+		}
+	}
+}
+
+func TestScanSkill_AnchorLinkSkipped(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[section](#overview)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" {
+			t.Errorf("unexpected dangling-link finding for anchor link: %+v", f)
+		}
+	}
+}
+
+func TestScanSkill_DanglingLink_FragmentStripped(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "guide.md"), []byte("# Guide\n## Section"), 0644)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[section](guide.md#section)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" {
+			t.Errorf("unexpected dangling-link finding for link with fragment: %+v", f)
+		}
+	}
+}
+
 func TestTruncate(t *testing.T) {
 	if got := truncate("short", 80); got != "short" {
 		t.Errorf("truncate short = %q", got)

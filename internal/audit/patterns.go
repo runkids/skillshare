@@ -335,6 +335,10 @@ rules:
   # - id: system-writes-0
   #   enabled: false
 
+  # Example: disable the dangling-link structural check
+  # - id: dangling-link
+  #   enabled: false
+
   # Example: override a built-in rule (match by id, change severity)
   # - id: destructive-commands-2
   #   severity: MEDIUM
@@ -370,6 +374,43 @@ func ValidateRulesYAML(raw string) error {
 	}
 	_, err = compileRules(yr)
 	return err
+}
+
+// extractDisabledIDs returns the set of rule IDs explicitly disabled
+// (enabled: false) in a merged yamlRule slice.
+func extractDisabledIDs(yr []yamlRule) map[string]bool {
+	m := make(map[string]bool)
+	for _, r := range yr {
+		if r.Enabled != nil && !*r.Enabled {
+			m[r.ID] = true
+		}
+	}
+	return m
+}
+
+// disabledIDsGlobal returns IDs disabled in global mode (builtin + global user overrides).
+func disabledIDsGlobal() map[string]bool {
+	base := builtinYAML()
+	user, err := loadUserRules(globalAuditRulesPath())
+	if err != nil || user == nil {
+		return extractDisabledIDs(base)
+	}
+	return extractDisabledIDs(mergeYAMLRules(base, user))
+}
+
+// disabledIDsForProject returns IDs disabled in project mode
+// (builtin + global user + project user overrides).
+func disabledIDsForProject(projectRoot string) map[string]bool {
+	base := builtinYAML()
+	globalUser, _ := loadUserRules(globalAuditRulesPath())
+	if globalUser != nil {
+		base = mergeYAMLRules(base, globalUser)
+	}
+	projectUser, _ := loadUserRules(filepath.Join(projectRoot, ".skillshare", "audit-rules.yaml"))
+	if projectUser != nil {
+		base = mergeYAMLRules(base, projectUser)
+	}
+	return extractDisabledIDs(base)
 }
 
 // resetForTest resets cached state for testing.

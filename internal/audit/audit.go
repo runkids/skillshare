@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"skillshare/internal/utils"
@@ -13,6 +14,13 @@ const (
 	maxScanFileSize = 1_000_000 // 1MB
 	maxScanDepth    = 6
 )
+
+// mdFileInfo holds data collected during the walk for structural checks.
+type mdFileInfo struct {
+	relPath string
+	data    []byte
+	absDir  string // absolute directory containing this file
+}
 
 var riskWeights = map[string]int{
 	SeverityCritical: 25,
@@ -142,7 +150,8 @@ func RiskLabelFromScore(score int) string {
 
 // ScanSkill scans all scannable files in a skill directory using global rules.
 func ScanSkill(skillPath string) (*Result, error) {
-	return ScanSkillWithRules(skillPath, nil)
+	disabled := disabledIDsGlobal()
+	return scanSkillImpl(skillPath, nil, disabled)
 }
 
 // ScanFile scans a single file using global rules.
@@ -166,12 +175,19 @@ func ScanSkillForProject(skillPath, projectRoot string) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load project rules: %w", err)
 	}
-	return ScanSkillWithRules(skillPath, rules)
+	disabled := disabledIDsForProject(projectRoot)
+	return scanSkillImpl(skillPath, rules, disabled)
 }
 
 // ScanSkillWithRules scans all scannable files using the given rules.
 // If activeRules is nil, the default global rules are used.
+// Structural checks (e.g. dangling-link) always run; to disable them
+// use ScanSkill / ScanSkillForProject which honour audit-rules.yaml.
 func ScanSkillWithRules(skillPath string, activeRules []rule) (*Result, error) {
+	return scanSkillImpl(skillPath, activeRules, nil)
+}
+
+func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]bool) (*Result, error) {
 	info, err := os.Stat(skillPath)
 	if err != nil {
 		return nil, fmt.Errorf("cannot access skill path: %w", err)
@@ -184,6 +200,8 @@ func ScanSkillWithRules(skillPath string, activeRules []rule) (*Result, error) {
 		SkillName:  filepath.Base(skillPath),
 		ScanTarget: skillPath,
 	}
+
+	var mdFiles []mdFileInfo
 
 	err = filepath.Walk(skillPath, func(path string, fi os.FileInfo, walkErr error) error {
 		if walkErr != nil {
@@ -225,6 +243,14 @@ func ScanSkillWithRules(skillPath string, activeRules []rule) (*Result, error) {
 			return nil
 		}
 
+		if strings.ToLower(filepath.Ext(fi.Name())) == ".md" {
+			mdFiles = append(mdFiles, mdFileInfo{
+				relPath: relPath,
+				data:    data,
+				absDir:  filepath.Dir(path),
+			})
+		}
+
 		findings := ScanContentWithRules(data, relPath, activeRules)
 		result.Findings = append(result.Findings, findings...)
 
@@ -232,6 +258,11 @@ func ScanSkillWithRules(skillPath string, activeRules []rule) (*Result, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error scanning skill: %w", err)
+	}
+
+	// Structural check: scan collected .md files for dangling local links.
+	if !disabled["dangling-link"] {
+		result.Findings = append(result.Findings, checkDanglingLinks(mdFiles)...)
 	}
 
 	result.updateRisk()
@@ -363,4 +394,64 @@ func truncate(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen-3] + "..."
+}
+
+// mdLinkRe matches Markdown inline links: [label](target).
+var mdLinkRe = regexp.MustCompile(`\[[^\]]*\]\(([^)]+)\)`)
+
+// checkDanglingLinks scans collected .md file data for local relative links
+// whose targets do not exist on disk. Returns LOW-severity findings.
+func checkDanglingLinks(files []mdFileInfo) []Finding {
+	var findings []Finding
+	for _, f := range files {
+		lines := strings.Split(string(f.data), "\n")
+		for lineNum, line := range lines {
+			for _, m := range mdLinkRe.FindAllStringSubmatch(line, -1) {
+				target := m[1]
+				if isExternalOrAnchor(target) {
+					continue
+				}
+				cleaned := stripFragment(target)
+				if cleaned == "" {
+					continue
+				}
+				abs := filepath.Join(f.absDir, cleaned)
+				if _, err := os.Stat(abs); err != nil {
+					findings = append(findings, Finding{
+						Severity: SeverityLow,
+						Pattern:  "dangling-link",
+						Message:  fmt.Sprintf("broken local link: %q not found", target),
+						File:     f.relPath,
+						Line:     lineNum + 1,
+						Snippet:  truncate(strings.TrimSpace(line), 80),
+					})
+				}
+			}
+		}
+	}
+	return findings
+}
+
+// isExternalOrAnchor returns true for links that should not be checked on disk.
+func isExternalOrAnchor(target string) bool {
+	lower := strings.ToLower(target)
+	for _, prefix := range []string{
+		"http://", "https://", "mailto:", "tel:", "data:", "ftp://", "//",
+	} {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return strings.HasPrefix(target, "#")
+}
+
+// stripFragment removes #fragment and ?query from a link target.
+func stripFragment(target string) string {
+	if i := strings.IndexByte(target, '#'); i >= 0 {
+		target = target[:i]
+	}
+	if i := strings.IndexByte(target, '?'); i >= 0 {
+		target = target[:i]
+	}
+	return target
 }

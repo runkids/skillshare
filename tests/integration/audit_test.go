@@ -485,6 +485,64 @@ func TestAudit_InitRules_Global(t *testing.T) {
 	result.AssertAnyOutputContains(t, "already exists")
 }
 
+func TestAudit_DanglingLink_Low(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("link-skill", map[string]string{
+		"SKILL.md": "---\nname: link-skill\n---\n# Skill\n\nSee [setup guide](docs/setup.md) for details.",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit", "link-skill")
+	result.AssertSuccess(t) // LOW does not exceed default CRITICAL threshold
+	result.AssertAnyOutputContains(t, "broken local link")
+	result.AssertAnyOutputContains(t, "docs/setup.md")
+	result.AssertAnyOutputContains(t, "Severity:  c/h/m/l/i = 0/0/0/1/0")
+}
+
+func TestAudit_DanglingLink_ValidFileNoFinding(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("link-skill", map[string]string{
+		"SKILL.md": "---\nname: link-skill\n---\n# Skill\n\nSee [guide](guide.md) for details.",
+		"guide.md": "# Guide\nSome content here.",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit", "link-skill")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "No issues found")
+}
+
+func TestAudit_DanglingLink_DisabledByRules(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("link-skill", map[string]string{
+		"SKILL.md": "---\nname: link-skill\n---\n# Skill\n\n[broken](nonexistent.md)\n",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// Without custom rules, dangling link should be detected
+	result := sb.RunCLI("audit", "link-skill")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "broken local link")
+
+	// Disable the dangling-link check via global custom rules
+	configDir := filepath.Dir(sb.ConfigPath)
+	os.WriteFile(filepath.Join(configDir, "audit-rules.yaml"), []byte(`rules:
+  - id: dangling-link
+    enabled: false
+`), 0644)
+
+	// Now dangling links should NOT be flagged
+	result = sb.RunCLI("audit", "link-skill")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "No issues found")
+}
+
 func TestAudit_InitRules_Project(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

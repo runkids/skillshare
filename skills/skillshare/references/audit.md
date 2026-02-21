@@ -1,6 +1,6 @@
 # Security Audit
 
-Scan skills for prompt injection, data exfiltration, credential access, destructive commands, obfuscation, and suspicious URLs.
+Scan skills for prompt injection, data exfiltration, credential access, destructive commands, obfuscation, suspicious URLs, and broken local links.
 
 ## Usage
 
@@ -109,9 +109,10 @@ Summary box:
 | `env-access` | MEDIUM | Environment variable references | Excludes NODE_ENV, npm_* |
 | `escape-obfuscation` | MEDIUM | 3+ consecutive hex/unicode escapes | — |
 | `suspicious-fetch` | MEDIUM | URLs used in command context | — |
-| `insecure-http` | MEDIUM | HTTP URLs (non-HTTPS) | — |
 | `system-writes` | MEDIUM | Writes to /etc, /usr, system paths | — |
-| `shell-chain` | MEDIUM | Long shell pipe chains | — |
+| `insecure-http` | LOW | HTTP URLs (non-HTTPS) | — |
+| `dangling-link` | LOW | Broken local markdown links | Skips external/anchor links |
+| `shell-chain` | INFO | Long shell pipe chains | — |
 
 ## Custom Audit Rules
 
@@ -145,6 +146,10 @@ rules:
 
   # Disable a built-in rule
   - id: system-writes-0
+    enabled: false
+
+  # Disable the dangling-link structural check
+  - id: dangling-link
     enabled: false
 
   # Override severity of a built-in rule
