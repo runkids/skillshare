@@ -139,7 +139,7 @@ targets: {}
 	cmd.Dir = sb.SourcePath
 	cmd.Run()
 
-	configGit(t, sb.SourcePath)
+	testutil.ConfigureGitUser(t, sb.SourcePath)
 
 	// Initial commit and push to set up tracking
 	cmd = exec.Command("git", "commit", "--allow-empty", "-m", "initial")
@@ -188,7 +188,7 @@ targets: {}
 	cmd.Dir = sb.SourcePath
 	cmd.Run()
 
-	configGit(t, sb.SourcePath)
+	testutil.ConfigureGitUser(t, sb.SourcePath)
 
 	// Create initial commit (simulates what skillshare init does)
 	cmd = exec.Command("git", "commit", "--allow-empty", "-m", "initial")
@@ -213,17 +213,17 @@ func TestPush_NoUpstream_RemoteMain_LocalMaster_PushesToMain_NoMasterCreated(t *
 targets: {}
 `)
 
-	bareRepo := setupBareRemotePush(t, sb)
-	seedRemoteBranchPush(t, sb, bareRepo, "main", map[string]string{
+	bareRepo := testutil.SetupBareRemoteRepo(t, sb.Home)
+	testutil.SeedRemoteBranch(t, sb.Home, bareRepo, "main", map[string]string{
 		"README.md": "# main",
 	})
 
-	runGitPush(t, sb.SourcePath, "init")
-	runGitPush(t, sb.SourcePath, "remote", "add", "origin", bareRepo)
-	configGit(t, sb.SourcePath)
-	runGitPush(t, sb.SourcePath, "fetch", "origin")
-	runGitPush(t, sb.SourcePath, "checkout", "-b", "master", "origin/main")
-	runGitPush(t, sb.SourcePath, "branch", "--unset-upstream")
+	testutil.RunGit(t, sb.SourcePath, "init")
+	testutil.RunGit(t, sb.SourcePath, "remote", "add", "origin", bareRepo)
+	testutil.ConfigureGitUser(t, sb.SourcePath)
+	testutil.RunGit(t, sb.SourcePath, "fetch", "origin")
+	testutil.RunGit(t, sb.SourcePath, "checkout", "-b", "master", "origin/main")
+	testutil.RunGit(t, sb.SourcePath, "branch", "--unset-upstream")
 
 	sb.CreateSkill("local-skill", map[string]string{"SKILL.md": "# Local"})
 
@@ -231,7 +231,7 @@ targets: {}
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Push complete")
 
-	refs := runGitPush(t, bareRepo, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+	refs := testutil.RunGit(t, bareRepo, "for-each-ref", "--format=%(refname:short)", "refs/heads")
 	if !strings.Contains(refs, "main") {
 		t.Fatalf("expected remote to contain main branch, got: %s", refs)
 	}
@@ -248,17 +248,17 @@ func TestPush_NoUpstream_RemoteCustomDefault_PushesToRemoteDefault(t *testing.T)
 targets: {}
 `)
 
-	bareRepo := setupBareRemotePush(t, sb)
-	seedRemoteBranchPush(t, sb, bareRepo, "trunk", map[string]string{
+	bareRepo := testutil.SetupBareRemoteRepo(t, sb.Home)
+	testutil.SeedRemoteBranch(t, sb.Home, bareRepo, "trunk", map[string]string{
 		"README.md": "# trunk",
 	})
 
-	runGitPush(t, sb.SourcePath, "init")
-	runGitPush(t, sb.SourcePath, "remote", "add", "origin", bareRepo)
-	configGit(t, sb.SourcePath)
-	runGitPush(t, sb.SourcePath, "fetch", "origin")
-	runGitPush(t, sb.SourcePath, "checkout", "-b", "feature", "origin/trunk")
-	runGitPush(t, sb.SourcePath, "branch", "--unset-upstream")
+	testutil.RunGit(t, sb.SourcePath, "init")
+	testutil.RunGit(t, sb.SourcePath, "remote", "add", "origin", bareRepo)
+	testutil.ConfigureGitUser(t, sb.SourcePath)
+	testutil.RunGit(t, sb.SourcePath, "fetch", "origin")
+	testutil.RunGit(t, sb.SourcePath, "checkout", "-b", "feature", "origin/trunk")
+	testutil.RunGit(t, sb.SourcePath, "branch", "--unset-upstream")
 
 	sb.CreateSkill("local-skill", map[string]string{"SKILL.md": "# Local"})
 
@@ -266,12 +266,12 @@ targets: {}
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Push complete")
 
-	upstream := runGitPush(t, sb.SourcePath, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
+	upstream := testutil.RunGit(t, sb.SourcePath, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
 	if upstream != "origin/trunk" {
 		t.Fatalf("expected upstream origin/trunk, got %q", upstream)
 	}
 
-	refs := runGitPush(t, bareRepo, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+	refs := testutil.RunGit(t, bareRepo, "for-each-ref", "--format=%(refname:short)", "refs/heads")
 	if !strings.Contains(refs, "trunk") {
 		t.Fatalf("expected remote to contain trunk branch, got: %s", refs)
 	}
@@ -288,21 +288,21 @@ func TestPush_NoUpstream_RemoteEmpty_UsesLocalBranch(t *testing.T) {
 targets: {}
 `)
 
-	bareRepo := setupBareRemotePush(t, sb)
+	bareRepo := testutil.SetupBareRemoteRepo(t, sb.Home)
 
-	runGitPush(t, sb.SourcePath, "init")
-	runGitPush(t, sb.SourcePath, "remote", "add", "origin", bareRepo)
-	configGit(t, sb.SourcePath)
-	runGitPush(t, sb.SourcePath, "commit", "--allow-empty", "-m", "initial")
+	testutil.RunGit(t, sb.SourcePath, "init")
+	testutil.RunGit(t, sb.SourcePath, "remote", "add", "origin", bareRepo)
+	testutil.ConfigureGitUser(t, sb.SourcePath)
+	testutil.RunGit(t, sb.SourcePath, "commit", "--allow-empty", "-m", "initial")
 
-	localBranch := runGitPush(t, sb.SourcePath, "branch", "--show-current")
+	localBranch := testutil.RunGit(t, sb.SourcePath, "branch", "--show-current")
 	sb.CreateSkill("local-skill", map[string]string{"SKILL.md": "# Local"})
 
 	result := sb.RunCLI("push", "-m", "first push")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Push complete")
 
-	refs := runGitPush(t, bareRepo, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+	refs := testutil.RunGit(t, bareRepo, "for-each-ref", "--format=%(refname:short)", "refs/heads")
 	if !strings.Contains(refs, localBranch) {
 		t.Fatalf("expected remote to contain local branch %s, got: %s", localBranch, refs)
 	}
@@ -322,70 +322,10 @@ func initGitWithRemote(t *testing.T, sb *testutil.Sandbox) {
 	cmd.Dir = sb.SourcePath
 	cmd.Run()
 
-	configGit(t, sb.SourcePath)
-}
-
-func configGit(t *testing.T, dir string) {
-	cmd := exec.Command("git", "config", "user.email", "test@test.com")
-	cmd.Dir = dir
-	cmd.Run()
-
-	cmd = exec.Command("git", "config", "user.name", "Test")
-	cmd.Dir = dir
-	cmd.Run()
+	testutil.ConfigureGitUser(t, sb.SourcePath)
 }
 
 func commitAll(t *testing.T, dir, message string) {
-	cmd := exec.Command("git", "add", "-A")
-	cmd.Dir = dir
-	cmd.Run()
-
-	cmd = exec.Command("git", "commit", "-m", message, "--allow-empty")
-	cmd.Dir = dir
-	cmd.Run()
-}
-
-func runGitPush(t *testing.T, dir string, args ...string) string {
-	t.Helper()
-	cmd := exec.Command("git", args...)
-	if dir != "" {
-		cmd.Dir = dir
-	}
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %v failed: %v (%s)", args, err, strings.TrimSpace(string(out)))
-	}
-	return strings.TrimSpace(string(out))
-}
-
-func setupBareRemotePush(t *testing.T, sb *testutil.Sandbox) string {
-	t.Helper()
-	bareRepo := filepath.Join(sb.Home, "remote.git")
-	cmd := exec.Command("git", "init", "--bare", bareRepo)
-	if err := cmd.Run(); err != nil {
-		t.Skip("git not available")
-	}
-	return bareRepo
-}
-
-func seedRemoteBranchPush(t *testing.T, sb *testutil.Sandbox, bareRepo, branch string, files map[string]string) {
-	t.Helper()
-	seedDir := filepath.Join(sb.Home, "seed-"+branch)
-	runGitPush(t, "", "clone", bareRepo, seedDir)
-	configGit(t, seedDir)
-
-	for rel, content := range files {
-		full := filepath.Join(seedDir, rel)
-		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
-			t.Fatalf("failed to create dir for %s: %v", rel, err)
-		}
-		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
-			t.Fatalf("failed to write %s: %v", rel, err)
-		}
-	}
-
-	runGitPush(t, seedDir, "add", "-A")
-	runGitPush(t, seedDir, "commit", "-m", "seed "+branch)
-	runGitPush(t, seedDir, "push", "origin", "HEAD:"+branch)
-	runGitPush(t, bareRepo, "symbolic-ref", "HEAD", "refs/heads/"+branch)
+	testutil.RunGit(t, dir, "add", "-A")
+	testutil.RunGit(t, dir, "commit", "-m", message, "--allow-empty")
 }

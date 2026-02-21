@@ -170,14 +170,14 @@ func firstPull(sourcePath string, authEnv []string, force bool, spinner *ui.Spin
 	}
 
 	// Check if remote actually has skill directories
-	hasRemoteSkills, err := hasRemoteSkillDirs(sourcePath, remoteBranch)
+	hasRemoteSkills, err := gitops.HasRemoteSkillDirs(sourcePath, remoteBranch)
 	if err != nil {
 		spinner.Fail("Failed to inspect remote skills")
 		return firstPullNoop, fmt.Errorf("failed to inspect remote skills: %w", err)
 	}
 
 	// Check if local has skill directories
-	hasLocalSkills, err := hasLocalSkillDirs(sourcePath)
+	hasLocalSkills, err := gitops.HasLocalSkillDirs(sourcePath)
 	if err != nil {
 		spinner.Fail("Failed to inspect local skills")
 		return firstPullNoop, fmt.Errorf("failed to inspect local skills: %w", err)
@@ -227,29 +227,6 @@ func setUpstream(sourcePath, remoteBranch string) {
 	trackCmd := exec.Command("git", "branch", "--set-upstream-to=origin/"+remoteBranch, localBranch)
 	trackCmd.Dir = sourcePath
 	trackCmd.Run() // best-effort
-}
-
-func hasRemoteSkillDirs(sourcePath, remoteBranch string) (bool, error) {
-	lsCmd := exec.Command("git", "ls-tree", "-d", "--name-only", "origin/"+remoteBranch)
-	lsCmd.Dir = sourcePath
-	lsOut, err := lsCmd.Output()
-	if err != nil {
-		return false, err
-	}
-	return strings.TrimSpace(string(lsOut)) != "", nil
-}
-
-func hasLocalSkillDirs(sourcePath string) (bool, error) {
-	entries, err := os.ReadDir(sourcePath)
-	if err != nil {
-		return false, err
-	}
-	for _, e := range entries {
-		if e.IsDir() && e.Name() != ".git" {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 func mergeRemoteHistory(sourcePath, remoteBranch string, spinner *ui.Spinner) error {

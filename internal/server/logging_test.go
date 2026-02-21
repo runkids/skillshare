@@ -12,11 +12,12 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/testutil"
 )
 
 func TestHandlePutConfig_WritesOpsLog(t *testing.T) {
 	tmp := t.TempDir()
-	setIsolatedXDG(t, tmp)
+	testutil.SetIsolatedXDG(t, tmp)
 	sourceDir := filepath.Join(tmp, "skills")
 	if err := os.MkdirAll(sourceDir, 0755); err != nil {
 		t.Fatalf("failed to create source dir: %v", err)
@@ -64,7 +65,7 @@ func TestHandlePutConfig_WritesOpsLog(t *testing.T) {
 
 func TestHandleAuditAll_WritesAuditLog(t *testing.T) {
 	tmp := t.TempDir()
-	setIsolatedXDG(t, tmp)
+	testutil.SetIsolatedXDG(t, tmp)
 	sourceDir := filepath.Join(tmp, "skills")
 	skillDir := filepath.Join(sourceDir, "safe-skill")
 	if err := os.MkdirAll(skillDir, 0755); err != nil {
@@ -114,7 +115,7 @@ func TestHandleAuditAll_WritesAuditLog(t *testing.T) {
 
 func TestHandleAuditAll_HighOnlyClassifiedAsWarning(t *testing.T) {
 	tmp := t.TempDir()
-	setIsolatedXDG(t, tmp)
+	testutil.SetIsolatedXDG(t, tmp)
 	sourceDir := filepath.Join(tmp, "skills")
 	skillDir := filepath.Join(sourceDir, "high-only-skill")
 	if err := os.MkdirAll(skillDir, 0755); err != nil {
@@ -188,7 +189,7 @@ func TestHandleAuditAll_HighOnlyClassifiedAsWarning(t *testing.T) {
 
 func TestHandleInstall_WritesDetailedInstallLog(t *testing.T) {
 	tmp := t.TempDir()
-	setIsolatedXDG(t, tmp)
+	testutil.SetIsolatedXDG(t, tmp)
 	sourceDir := filepath.Join(tmp, "skills")
 	if err := os.MkdirAll(sourceDir, 0755); err != nil {
 		t.Fatalf("failed to create source dir: %v", err)
@@ -279,7 +280,7 @@ func toStringSlice(v any) []string {
 
 func TestHandleInstall_ErrorAlsoWritesInstallLog(t *testing.T) {
 	tmp := t.TempDir()
-	setIsolatedXDG(t, tmp)
+	testutil.SetIsolatedXDG(t, tmp)
 	sourceDir := filepath.Join(tmp, "skills")
 	if err := os.MkdirAll(sourceDir, 0755); err != nil {
 		t.Fatalf("failed to create source dir: %v", err)
@@ -344,13 +345,4 @@ func TestHandleInstall_ErrorAlsoWritesInstallLog(t *testing.T) {
 	if !strings.Contains(e.Message, "already exists") {
 		t.Fatalf("expected error message to mention existing skill, got %q", e.Message)
 	}
-}
-
-func setIsolatedXDG(t *testing.T, root string) {
-	t.Helper()
-
-	xdgRoot := filepath.Join(root, "xdg")
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(xdgRoot, "config"))
-	t.Setenv("XDG_DATA_HOME", filepath.Join(xdgRoot, "data"))
-	t.Setenv("XDG_STATE_HOME", filepath.Join(xdgRoot, "state"))
 }

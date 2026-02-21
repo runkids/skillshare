@@ -143,7 +143,7 @@ func Pull(repoPath string) (*UpdateInfo, error) {
 
 // PullWithAuth runs git pull with token auth env inferred from origin remote.
 func PullWithAuth(repoPath string) (*UpdateInfo, error) {
-	return PullWithEnv(repoPath, authEnvForRepo(repoPath))
+	return PullWithEnv(repoPath, AuthEnvForRepo(repoPath))
 }
 
 // PullWithEnv runs git pull and returns update info (quiet mode) with
@@ -349,6 +349,31 @@ func GetRemoteDefaultBranch(repoPath string) (string, error) {
 	return "", ErrNoRemoteBranches
 }
 
+// HasRemoteSkillDirs reports whether origin/<remoteBranch> has at least one top-level directory.
+func HasRemoteSkillDirs(repoPath, remoteBranch string) (bool, error) {
+	lsCmd := exec.Command("git", "ls-tree", "-d", "--name-only", "origin/"+remoteBranch)
+	lsCmd.Dir = repoPath
+	lsOut, err := lsCmd.Output()
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(string(lsOut)) != "", nil
+}
+
+// HasLocalSkillDirs reports whether the repo root has at least one directory besides .git.
+func HasLocalSkillDirs(repoPath string) (bool, error) {
+	entries, err := os.ReadDir(repoPath)
+	if err != nil {
+		return false, err
+	}
+	for _, e := range entries {
+		if e.IsDir() && e.Name() != ".git" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // GetBehindCount fetches from origin and returns how many commits local is behind
 func GetBehindCount(repoPath string) (int, error) {
 	return GetBehindCountWithEnv(repoPath, nil)
@@ -357,7 +382,7 @@ func GetBehindCount(repoPath string) (int, error) {
 // GetBehindCountWithAuth fetches from origin and returns how many commits local
 // is behind, injecting HTTPS token auth based on origin remote when available.
 func GetBehindCountWithAuth(repoPath string) (int, error) {
-	return GetBehindCountWithEnv(repoPath, authEnvForRepo(repoPath))
+	return GetBehindCountWithEnv(repoPath, AuthEnvForRepo(repoPath))
 }
 
 // GetBehindCountWithEnv is like GetBehindCount but with additional env vars.
@@ -419,7 +444,7 @@ func ForcePull(repoPath string) (*UpdateInfo, error) {
 
 // ForcePullWithAuth runs force-pull flow with token auth env inferred from origin remote.
 func ForcePullWithAuth(repoPath string) (*UpdateInfo, error) {
-	return ForcePullWithEnv(repoPath, authEnvForRepo(repoPath))
+	return ForcePullWithEnv(repoPath, AuthEnvForRepo(repoPath))
 }
 
 // ForcePullWithEnv fetches and resets to origin with additional env vars.
@@ -477,10 +502,6 @@ func ForcePullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
 // AuthEnvForRepo returns HTTPS token auth env vars for the repo's origin remote.
 func AuthEnvForRepo(repoPath string) []string {
 	return install.AuthEnvForURL(getRemoteURL(repoPath))
-}
-
-func authEnvForRepo(repoPath string) []string {
-	return AuthEnvForRepo(repoPath)
 }
 
 func getRemoteURL(repoPath string) string {

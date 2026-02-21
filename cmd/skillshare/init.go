@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"skillshare/internal/config"
+	gitops "skillshare/internal/git"
 	"skillshare/internal/install"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/ui"
@@ -911,43 +913,30 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 		return false
 	}
 
-	// Detect remote default branch (main or master)
-	remoteBranch := ""
-	for _, branch := range []string{"main", "master"} {
-		checkCmd := exec.Command("git", "rev-parse", "--verify", "origin/"+branch)
-		checkCmd.Dir = sourcePath
-		if err := checkCmd.Run(); err == nil {
-			remoteBranch = branch
-			break
+	remoteBranch, err := gitops.GetRemoteDefaultBranch(sourcePath)
+	if err != nil {
+		if errors.Is(err, gitops.ErrNoRemoteBranches) {
+			spinner.Success("Remote is empty")
+			return false
 		}
-	}
-
-	if remoteBranch == "" {
-		spinner.Success("Remote is empty")
+		spinner.Warn("Could not detect remote default branch (will retry on push/pull)")
 		return false
 	}
 
-	// Check if remote actually has skill directories (not just README/config files)
-	hasRemoteSkills := false
-	lsCmd := exec.Command("git", "ls-tree", "-d", "--name-only", "origin/"+remoteBranch)
-	lsCmd.Dir = sourcePath
-	if lsOut, err := lsCmd.Output(); err == nil && strings.TrimSpace(string(lsOut)) != "" {
-		hasRemoteSkills = true
+	hasRemoteSkills, err := gitops.HasRemoteSkillDirs(sourcePath, remoteBranch)
+	if err != nil {
+		spinner.Warn("Could not inspect remote skills (will retry on push/pull)")
+		return false
 	}
-
 	if !hasRemoteSkills {
 		spinner.Success("Remote is empty (no skills found)")
 		return false
 	}
 
-	// Remote has skills — check if local also has skill directories
-	hasLocalSkills := false
-	entries, _ := os.ReadDir(sourcePath)
-	for _, e := range entries {
-		if e.IsDir() && e.Name() != ".git" {
-			hasLocalSkills = true
-			break
-		}
+	hasLocalSkills, err := gitops.HasLocalSkillDirs(sourcePath)
+	if err != nil {
+		spinner.Warn("Could not inspect local skills (will retry on pull)")
+		return true
 	}
 
 	if hasLocalSkills {

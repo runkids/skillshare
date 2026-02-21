@@ -175,7 +175,7 @@ func TestAuthEnvForRepo_UsesGitHubToken(t *testing.T) {
 	addRemote(t, repo, "https://github.com/org/private-repo.git")
 	t.Setenv("GITHUB_TOKEN", "ghp_test_token_123")
 
-	env := authEnvForRepo(repo)
+	env := AuthEnvForRepo(repo)
 	if len(env) != 3 {
 		t.Fatalf("expected auth env with 3 entries, got %d: %v", len(env), env)
 	}
@@ -193,7 +193,7 @@ func TestAuthEnvForRepo_NoTokenReturnsNil(t *testing.T) {
 	t.Setenv("GITHUB_TOKEN", "")
 	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
 
-	env := authEnvForRepo(repo)
+	env := AuthEnvForRepo(repo)
 	if env != nil {
 		t.Fatalf("expected nil auth env without tokens, got: %v", env)
 	}
@@ -259,6 +259,46 @@ func TestGetRemoteDefaultBranch_FallbackFirstRemoteBranch(t *testing.T) {
 	}
 	if branch != "release" {
 		t.Fatalf("expected release, got %q", branch)
+	}
+}
+
+func TestHasRemoteSkillDirs(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "main", map[string]string{
+		"README.md":            "# docs\n",
+		"skill-one/SKILL.md":   "# one\n",
+		"skill-two/README.txt": "x\n",
+	})
+	repo := cloneRepo(t, remote)
+
+	hasSkills, err := HasRemoteSkillDirs(repo, "main")
+	if err != nil {
+		t.Fatalf("HasRemoteSkillDirs failed: %v", err)
+	}
+	if !hasSkills {
+		t.Fatal("expected remote to have skill directories")
+	}
+}
+
+func TestHasLocalSkillDirs(t *testing.T) {
+	repo := initTestRepo(t)
+
+	hasSkills, err := HasLocalSkillDirs(repo)
+	if err != nil {
+		t.Fatalf("HasLocalSkillDirs failed: %v", err)
+	}
+	if hasSkills {
+		t.Fatal("expected no local skill directories in fresh repo")
+	}
+
+	if err := os.MkdirAll(filepath.Join(repo, "my-skill"), 0o755); err != nil {
+		t.Fatalf("failed to create local skill dir: %v", err)
+	}
+	hasSkills, err = HasLocalSkillDirs(repo)
+	if err != nil {
+		t.Fatalf("HasLocalSkillDirs failed: %v", err)
+	}
+	if !hasSkills {
+		t.Fatal("expected local skill directory to be detected")
 	}
 }
 
