@@ -79,6 +79,36 @@ func TestRiskScoreAndLabel(t *testing.T) {
 	}
 }
 
+func TestRiskLabelFromScoreAndMaxSeverity(t *testing.T) {
+	t.Parallel()
+
+	if got := RiskLabelFromScoreAndMaxSeverity(8, SeverityMedium); got != "medium" {
+		t.Fatalf("expected medium label for score=8 + MEDIUM severity, got %q", got)
+	}
+
+	if got := RiskLabelFromScoreAndMaxSeverity(1, SeverityInfo); got != "low" {
+		t.Fatalf("expected low label for score=1 + INFO severity, got %q", got)
+	}
+
+	if got := RiskLabelFromScoreAndMaxSeverity(30, SeverityLow); got != "medium" {
+		t.Fatalf("expected medium label for score=30 + LOW severity, got %q", got)
+	}
+}
+
+func TestResultUpdateRisk_UsesSeverityFloor(t *testing.T) {
+	t.Parallel()
+
+	r := &Result{Findings: []Finding{{Severity: SeverityMedium}}}
+	r.updateRisk()
+
+	if r.RiskScore != 8 {
+		t.Fatalf("expected score 8 for one MEDIUM finding, got %d", r.RiskScore)
+	}
+	if r.RiskLabel != "medium" {
+		t.Fatalf("expected medium risk label for one MEDIUM finding, got %q", r.RiskLabel)
+	}
+}
+
 func TestScanFileWithRules_Boundaries(t *testing.T) {
 	t.Parallel()
 

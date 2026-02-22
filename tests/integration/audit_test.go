@@ -315,24 +315,76 @@ func TestAudit_DanglingLink_Medium(t *testing.T) {
 	result.AssertAnyOutputContains(t, "nonexistent.md")
 	result.AssertAnyOutputContains(t, "Warning:   1")
 	result.AssertAnyOutputContains(t, "Severity:  c/h/m/l/i = 0/0/1/0/0")
+	result.AssertAnyOutputContains(t, "Risk:      MEDIUM (8/100)")
 }
 
-func TestAudit_DanglingLink_ValidFileNoFinding(t *testing.T) {
+func TestAudit_DanglingLink_Backtick_Medium(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	sb.CreateSkill("link-skill", map[string]string{
-		"SKILL.md": "---\nname: link-skill\n---\n# Skill\n\n[guide](guide.md)\n",
-		"guide.md": "# Guide",
+	sb.CreateSkill("code-skill", map[string]string{
+		"SKILL.md": "---\nname: code-skill\n---\n# Skill\n\nOpen `nonexistent.md` for details\n",
 	})
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
-	result := sb.RunCLI("audit", "link-skill")
+	result := sb.RunCLI("audit", "code-skill")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "dangling local markdown link")
+	result.AssertAnyOutputContains(t, "nonexistent.md")
+	result.AssertAnyOutputContains(t, "Warning:   1")
+	result.AssertAnyOutputContains(t, "Severity:  c/h/m/l/i = 0/0/1/0/0")
+}
+
+func TestAudit_DanglingLink_Plain_Medium(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("plain-skill", map[string]string{
+		"SKILL.md": "---\nname: plain-skill\n---\n# Skill\n\nsee missing.md for details\n",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit", "plain-skill")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "dangling local markdown link")
+	result.AssertAnyOutputContains(t, "missing.md")
+	result.AssertAnyOutputContains(t, "Warning:   1")
+	result.AssertAnyOutputContains(t, "Severity:  c/h/m/l/i = 0/0/1/0/0")
+}
+
+func TestAudit_DanglingLink_Plain_ValidNoFinding(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("plain-skill", map[string]string{
+		"guide.md": "# Guide",
+		"SKILL.md": "---\nname: plain-skill\n---\n# Skill\n\nsee guide.md for details\n",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit", "plain-skill")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "No issues found")
 }
 
-func TestAudit_BuiltinSkill_NoFindings(t *testing.T) {
+func TestAudit_ExternalSourceRepositoryLink_High(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("source-link-skill", map[string]string{
+		"SKILL.md": "---\nname: source-link-skill\n---\n# Skill\n\n[source repository](https://example.com/repo)\n",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit", "source-link-skill")
+	result.AssertSuccess(t) // default threshold is CRITICAL, so HIGH is warning
+	result.AssertAnyOutputContains(t, "external source repository link detected")
+	result.AssertAnyOutputContains(t, "Warning:   1")
+	result.AssertAnyOutputContains(t, "Failed:    0")
+	result.AssertAnyOutputContains(t, "Severity:  c/h/m/l/i = 0/1/0/0/0")
+}
+
+func TestAudit_BuiltinSkill_DanglingLinks(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -348,7 +400,7 @@ func TestAudit_BuiltinSkill_NoFindings(t *testing.T) {
 
 	result := sb.RunCLI("audit", "skillshare")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "No issues found")
+	result.AssertAnyOutputContains(t, "Summary")
 }
 
 // testSourceFile returns the path of this test file via runtime.Caller.

@@ -7,6 +7,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
+
 	"skillshare/internal/utils"
 )
 
@@ -46,7 +50,7 @@ type Result struct {
 
 func (r *Result) updateRisk() {
 	r.RiskScore = CalculateRiskScore(r.Findings)
-	r.RiskLabel = RiskLabelFromScore(r.RiskScore)
+	r.RiskLabel = RiskLabelFromScoreAndMaxSeverity(r.RiskScore, r.MaxSeverity())
 }
 
 // HasCritical returns true if any finding is CRITICAL severity.
@@ -139,6 +143,56 @@ func RiskLabelFromScore(score int) string {
 	default:
 		return "critical"
 	}
+}
+
+// riskFloorLabelFromSeverity maps the highest finding severity to a minimum
+// risk label so severity is not downplayed by weighted scoring.
+func riskFloorLabelFromSeverity(maxSeverity string) string {
+	switch maxSeverity {
+	case SeverityCritical:
+		return "critical"
+	case SeverityHigh:
+		return "high"
+	case SeverityMedium:
+		return "medium"
+	case SeverityLow, SeverityInfo:
+		return "low"
+	default:
+		return "clean"
+	}
+}
+
+// riskLabelRank returns an ordinal for comparing risk labels.
+func riskLabelRank(label string) int {
+	switch strings.ToLower(strings.TrimSpace(label)) {
+	case "clean":
+		return 0
+	case "low":
+		return 1
+	case "medium":
+		return 2
+	case "high":
+		return 3
+	case "critical":
+		return 4
+	default:
+		return -1
+	}
+}
+
+// maxRiskLabel returns the higher-priority risk label.
+func maxRiskLabel(a, b string) string {
+	if riskLabelRank(b) > riskLabelRank(a) {
+		return b
+	}
+	return a
+}
+
+// RiskLabelFromScoreAndMaxSeverity returns the effective risk label by combining
+// weighted score and max finding severity, ensuring severity is never
+// under-represented.
+func RiskLabelFromScoreAndMaxSeverity(score int, maxSeverity string) string {
+	return maxRiskLabel(RiskLabelFromScore(score), riskFloorLabelFromSeverity(maxSeverity))
 }
 
 // ScanSkill scans all scannable files in a skill directory using global rules.
@@ -368,8 +422,158 @@ func truncate(s string, maxLen int) string {
 	return s[:maxLen-3] + "..."
 }
 
-// mdLinkRe matches Markdown inline links of the form [label](target).
-var mdLinkRe = regexp.MustCompile(`\[[^\]]*\]\(([^)]+)\)`)
+// markdownLink captures a discovered markdown link with source line and label.
+type markdownLink struct {
+	Target string
+	Line   int
+	Label  string
+}
+
+var mdPathTokenRe = regexp.MustCompile(`(?i)[A-Za-z0-9_./-]+\.md`)
+
+// extractMarkdownInlineLinks extracts inline links plus plain/code .md mentions
+// used by dangling-link and external-repository checks.
+func extractMarkdownInlineLinks(src []byte) []markdownLink {
+	parser := goldmark.New().Parser()
+	doc := parser.Parse(text.NewReader(src))
+
+	var links []markdownLink
+	seen := map[string]struct{}{}
+	appendUnique := func(target string, line int, label string) {
+		key := fmt.Sprintf("%d|%s|%s", line, target, strings.ToLower(strings.TrimSpace(label)))
+		if _, exists := seen[key]; exists {
+			return
+		}
+		seen[key] = struct{}{}
+		links = append(links, markdownLink{Target: target, Line: line, Label: strings.TrimSpace(label)})
+	}
+	_ = ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+
+		linkNode, ok := n.(*ast.Link)
+		if ok {
+			target := strings.TrimSpace(string(linkNode.Destination))
+			if target != "" {
+				line := lineFromOffset(src, linkStartOffset(linkNode, src))
+				appendUnique(target, line, extractLinkLabel(linkNode, src))
+			}
+			return ast.WalkContinue, nil
+		}
+
+		var raw string
+		var offset int
+		switch inline := n.(type) {
+		case *ast.Text:
+			if _, inCodeSpan := inline.Parent().(*ast.CodeSpan); inCodeSpan {
+				return ast.WalkContinue, nil
+			}
+			raw = strings.TrimSpace(string(inline.Text(src)))
+			offset = inline.Segment.Start
+		case *ast.CodeSpan:
+			raw = strings.TrimSpace(string(inline.Text(src)))
+			offset = nodeStartOffset(inline, src)
+		default:
+			return ast.WalkContinue, nil
+		}
+
+		if raw == "" {
+			return ast.WalkContinue, nil
+		}
+
+		line := lineFromOffset(src, offset)
+		for _, token := range mdPathTokenRe.FindAllString(raw, -1) {
+			target := strings.TrimSpace(token)
+			if target == "" {
+				continue
+			}
+			appendUnique(target, line, "")
+		}
+		return ast.WalkContinue, nil
+	})
+
+	return links
+}
+
+// extractLinkLabel returns normalized visible label text for a markdown link.
+func extractLinkLabel(linkNode *ast.Link, src []byte) string {
+	var parts []string
+	_ = ast.Walk(linkNode, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch node := n.(type) {
+		case *ast.Text:
+			text := strings.TrimSpace(string(node.Text(src)))
+			if text != "" {
+				parts = append(parts, text)
+			}
+		case *ast.CodeSpan:
+			text := strings.TrimSpace(string(node.Text(src)))
+			if text != "" {
+				parts = append(parts, text)
+			}
+		}
+		return ast.WalkContinue, nil
+	})
+	return strings.TrimSpace(strings.Join(parts, " "))
+}
+
+// linkStartOffset returns the first text offset inside a link for line mapping.
+func linkStartOffset(linkNode *ast.Link, src []byte) int {
+	offset := -1
+	_ = ast.Walk(linkNode, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		if textNode, ok := n.(*ast.Text); ok {
+			offset = textNode.Segment.Start
+			return ast.WalkStop, nil
+		}
+		return ast.WalkContinue, nil
+	})
+	if offset >= 0 {
+		return offset
+	}
+	return 0
+}
+
+// nodeStartOffset returns the first text offset for an arbitrary AST node.
+func nodeStartOffset(node ast.Node, src []byte) int {
+	offset := -1
+	_ = ast.Walk(node, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		if textNode, ok := n.(*ast.Text); ok {
+			offset = textNode.Segment.Start
+			return ast.WalkStop, nil
+		}
+		return ast.WalkContinue, nil
+	})
+	if offset >= 0 {
+		return offset
+	}
+	return 0
+}
+
+// lineFromOffset maps a byte offset in src to a 1-based line number.
+func lineFromOffset(src []byte, offset int) int {
+	if offset <= 0 {
+		return 1
+	}
+	if offset > len(src) {
+		offset = len(src)
+	}
+	line := 1
+	for i := 0; i < offset; i++ {
+		if src[i] == '\n' {
+			line++
+		}
+	}
+	return line
+}
 
 // isExternalOrAnchorLink returns true if the link target should be skipped
 // (external schemes, protocol-relative URLs, or pure anchors).
@@ -384,6 +588,18 @@ func isExternalOrAnchorLink(target string) bool {
 	}
 	// Pure anchor links such as (#section) — no file to resolve.
 	return strings.HasPrefix(target, "#")
+}
+
+// isExternalWebLink returns true for web URLs (including protocol-relative).
+func isExternalWebLink(target string) bool {
+	lower := strings.ToLower(strings.TrimSpace(target))
+	return strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") || strings.HasPrefix(lower, "//")
+}
+
+// isSourceRepositoryLabel matches common "source repository" link labels.
+func isSourceRepositoryLabel(label string) bool {
+	normalized := strings.ToLower(strings.Join(strings.Fields(strings.TrimSpace(label)), " "))
+	return normalized == "source repository" || normalized == "source repo"
 }
 
 // stripFragmentAndQuery removes any #fragment or ?query from a link target.
@@ -426,6 +642,9 @@ func scanDanglingLinks(skillPath string) []Finding {
 		if depth > maxScanDepth {
 			return nil
 		}
+		if fi.Size() > maxScanFileSize {
+			return nil
+		}
 		if strings.ToLower(filepath.Ext(fi.Name())) != ".md" {
 			return nil
 		}
@@ -437,27 +656,43 @@ func scanDanglingLinks(skillPath string) []Finding {
 
 		fileDir := filepath.Join(skillPath, filepath.Dir(relPath))
 		lines := strings.Split(string(data), "\n")
-		for lineNum, line := range lines {
-			for _, m := range mdLinkRe.FindAllStringSubmatch(line, -1) {
-				target := m[1]
-				if isExternalOrAnchorLink(target) {
-					continue
-				}
-				cleaned := stripFragmentAndQuery(target)
-				if cleaned == "" {
-					continue
-				}
-				absTarget := filepath.Join(fileDir, cleaned)
-				if _, statErr := os.Stat(absTarget); statErr != nil {
-					findings = append(findings, Finding{
-						Severity: SeverityMedium,
-						Pattern:  "dangling-link",
-						Message:  fmt.Sprintf("dangling local markdown link: target %q not found", target),
-						File:     relPath,
-						Line:     lineNum + 1,
-						Snippet:  truncate(strings.TrimSpace(line), 80),
-					})
-				}
+		for _, link := range extractMarkdownInlineLinks(data) {
+			target := link.Target
+			lineNum := link.Line
+			snippet := ""
+			if lineNum > 0 && lineNum <= len(lines) {
+				snippet = truncate(strings.TrimSpace(lines[lineNum-1]), 80)
+			}
+
+			if isExternalWebLink(target) && isSourceRepositoryLabel(link.Label) {
+				findings = append(findings, Finding{
+					Severity: SeverityHigh,
+					Pattern:  "external-source-repository-link",
+					Message:  fmt.Sprintf("external source repository link detected: %q", target),
+					File:     relPath,
+					Line:     lineNum,
+					Snippet:  snippet,
+				})
+				continue
+			}
+
+			if isExternalOrAnchorLink(target) {
+				continue
+			}
+			cleaned := stripFragmentAndQuery(target)
+			if cleaned == "" {
+				continue
+			}
+			absTarget := filepath.Join(fileDir, cleaned)
+			if _, statErr := os.Stat(absTarget); statErr != nil {
+				findings = append(findings, Finding{
+					Severity: SeverityMedium,
+					Pattern:  "dangling-link",
+					Message:  fmt.Sprintf("dangling local markdown link: target %q not found", target),
+					File:     relPath,
+					Line:     lineNum,
+					Snippet:  snippet,
+				})
 			}
 		}
 		return nil
