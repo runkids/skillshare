@@ -204,21 +204,29 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string) *update
 	}
 
 	if err != nil {
-		git.ResetHard(repoPath, beforeHash) //nolint:errcheck
+		msg := "security audit failed: " + err.Error()
+		if resetErr := git.ResetHard(repoPath, beforeHash); resetErr != nil {
+			msg += " (WARNING: rollback also failed: " + resetErr.Error() + " — malicious content may remain)"
+		}
 		return &updateResultItem{
 			Name:    name,
 			Action:  "blocked",
-			Message: "security audit failed: " + err.Error(),
+			Message: msg,
 			IsRepo:  true,
 		}
 	}
 
 	if result.HasHigh() {
-		git.ResetHard(repoPath, beforeHash) //nolint:errcheck
+		msg := "blocked by security audit — HIGH/CRITICAL findings detected"
+		if resetErr := git.ResetHard(repoPath, beforeHash); resetErr != nil {
+			msg += " (WARNING: rollback failed: " + resetErr.Error() + " — malicious content may remain)"
+		} else {
+			msg += ", rolled back"
+		}
 		return &updateResultItem{
 			Name:    name,
 			Action:  "blocked",
-			Message: "blocked by security audit — HIGH/CRITICAL findings detected, rolled back",
+			Message: msg,
 			IsRepo:  true,
 		}
 	}
