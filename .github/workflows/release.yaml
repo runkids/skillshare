@@ -52,3 +52,34 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
+      - name: Add contributors to release notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          PREV_TAG=$(git tag --sort=-v:refname | grep -v "^${TAG}$" | head -1)
+
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous tag found, skipping contributors"
+            exit 0
+          fi
+
+          # Get unique GitHub logins between tags (exclude bots and maintainer)
+          LOGINS=$(gh api "repos/${GITHUB_REPOSITORY}/compare/${PREV_TAG}...${TAG}" \
+            --jq '[.commits[].author.login // empty] | unique | .[]' 2>/dev/null \
+            | grep -v '\[bot\]$' \
+            | grep -v '^runkids$' || true)
+
+          if [ -z "$LOGINS" ]; then
+            echo "No external contributors found, skipping"
+            exit 0
+          fi
+
+          # Format as @mentions and render release notes from template
+          CONTRIBUTORS=$(echo "$LOGINS" | sed 's/^/@/' | paste -sd ', ' -)
+          GORELEASER_BODY=$(gh release view "$TAG" --json body -q .body)
+          export GORELEASER_BODY CONTRIBUTORS
+          envsubst '${GORELEASER_BODY} ${CONTRIBUTORS}' < .github/RELEASE_TEMPLATE.md > release-notes.md
+          gh release edit "$TAG" --notes-file release-notes.md
+          rm -f release-notes.md
