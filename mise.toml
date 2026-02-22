@@ -127,10 +127,10 @@ depends = ["ui:install"]
 run = "cd ui && pnpm run build"
 
 [tasks."ui:dev"]
-description = "Go API server + Vite dev server"
+description = "Go API server + Vite dev server (air hot-reload)"
 run = """
 trap 'kill 0' EXIT
-go run ./cmd/skillshare ui --no-open --host ${SKILLSHARE_UI_HOST:-localhost} &
+air &
 cd ui && pnpm run dev
 """
 
