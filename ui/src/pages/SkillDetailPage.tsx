@@ -219,7 +219,10 @@ export default function SkillDetailPage() {
       const res = await api.update({ name: skillName, skipAudit });
       const item = res.results[0];
       if (item?.action === 'updated') {
-        toast(`Updated: ${item.name} — ${item.message}`, 'success');
+        const auditInfo = item.auditRiskLabel
+          ? ` · Security: ${item.auditRiskLabel.toUpperCase()}${item.auditRiskScore ? ` (${item.auditRiskScore}/100)` : ''}`
+          : '';
+        toast(`Updated: ${item.name} — ${item.message}${auditInfo}`, 'success');
         refetch();
       } else if (item?.action === 'up-to-date') {
         toast(`${item.name} is already up to date.`, 'info');

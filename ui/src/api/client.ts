@@ -298,6 +298,8 @@ export interface UpdateResultItem {
   action: string; // "updated", "up-to-date", "skipped", "error", "blocked"
   message?: string;
   isRepo: boolean;
+  auditRiskScore?: number;
+  auditRiskLabel?: string;
 }
 
 export interface AvailableTarget {
