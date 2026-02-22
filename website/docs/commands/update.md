@@ -171,13 +171,13 @@ skillshare update team-skills --diff
 
 ```
 ┌─ Files Changed ─────────────────────────────┐
-│                                              │
-│  ~ SKILL.md (+12 -3)                         │
-│  + scripts/deploy.sh (+45 -0)                │
-│  - old-helper.sh (+0 -22)                    │
-│  ~ utils/format.md (+5 -2)                   │
-│                                              │
-└──────────────────────────────────────────────┘
+│                                             │
+│  ~ SKILL.md (+12 -3)                        │
+│  + scripts/deploy.sh (+45 -0)               │
+│  - old-helper.sh (+0 -22)                   │
+│  ~ utils/format.md (+5 -2)                  │
+│                                             │
+└─────────────────────────────────────────────┘
 ```
 
 Markers: `+` added, `-` deleted, `~` modified. Shows up to 20 files; additional files are summarized as "... and N more file(s)".

@@ -903,12 +903,17 @@ func renderDiffSummary(repoPath, beforeHash, afterHash string) {
 }
 
 // isSecurityError returns true if the error originated from the audit gate.
+// Matches errors from auditGateAfterPull ("security audit", "rolled back"),
+// install.Install post-update path ("post-update audit"), and rollback failures.
 func isSecurityError(err error) bool {
 	if err == nil {
 		return false
 	}
 	msg := err.Error()
-	return strings.Contains(msg, "security audit") || strings.Contains(msg, "rolled back") || strings.Contains(msg, "rollback failed")
+	return strings.Contains(msg, "security audit") ||
+		strings.Contains(msg, "post-update audit") ||
+		strings.Contains(msg, "rolled back") ||
+		strings.Contains(msg, "rollback failed")
 }
 
 func truncateString(s string, maxLen int) string {
