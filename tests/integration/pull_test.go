@@ -280,7 +280,7 @@ targets:
 	result.AssertOutputContains(t, "Pull complete")
 }
 
-func TestPull_FirstPull_BothHaveSkills_NoForce_Fails_NoSync(t *testing.T) {
+func TestPull_FirstPull_BothHaveSkills_NoForce_MergesAndSyncs(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -302,16 +302,19 @@ targets:
 	testutil.RunGit(t, sb.SourcePath, "commit", "-m", "local skill")
 
 	result := sb.RunCLI("pull")
-	result.AssertFailure(t)
-	result.AssertOutputContains(t, "Remote has skills, but local skills also exist")
-	result.AssertOutputNotContains(t, "Pull complete")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Pull complete")
 
-	if sb.FileExists(filepath.Join(targetPath, "local-skill", "SKILL.md")) {
-		t.Error("sync should not run when pull is blocked")
+	// Both local and remote skills should be synced to target.
+	if !sb.FileExists(filepath.Join(targetPath, "local-skill", "SKILL.md")) {
+		t.Error("local skill should be synced after merge")
+	}
+	if !sb.FileExists(filepath.Join(targetPath, "remote-skill", "SKILL.md")) {
+		t.Error("remote skill should be synced after merge")
 	}
 }
 
-func TestPull_BlockedPath_DoesNotPrintPullComplete(t *testing.T) {
+func TestPull_BothHaveSkills_MergesSuccessfully(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -330,8 +333,16 @@ targets: {}
 	testutil.RunGit(t, sb.SourcePath, "commit", "-m", "local skill")
 
 	result := sb.RunCLI("pull")
-	result.AssertFailure(t)
-	result.AssertOutputNotContains(t, "Pull complete")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Pull complete")
+
+	// Both skills should exist after merge.
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "local-skill", "SKILL.md")) {
+		t.Error("local skill should be preserved after merge")
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "remote-skill", "SKILL.md")) {
+		t.Error("remote skill should exist after merge")
+	}
 }
 
 func TestPull_FirstPull_RemoteNoSkills_LocalHasSkills_AutoMergeHistories(t *testing.T) {
