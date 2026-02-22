@@ -256,6 +256,63 @@ func TestScanSkill_DanglingLink_FragmentStripped(t *testing.T) {
 	}
 }
 
+func TestScanSkill_DanglingLink_WithTitle_NoFinding(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "guide.md"), []byte("# Guide"), 0644)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[guide](guide.md \"Local guide\")\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" {
+			t.Errorf("unexpected dangling-link finding for markdown title syntax: %+v", f)
+		}
+	}
+}
+
+func TestScanSkill_DanglingLink_AngleBracketTarget_NoFinding(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "guide.md"), []byte("# Guide"), 0644)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[guide](<guide.md>)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" {
+			t.Errorf("unexpected dangling-link finding for angle-bracket target: %+v", f)
+		}
+	}
+}
+
+func TestScanSkill_DanglingLink_PathWithParentheses_NoFinding(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "guide(name).md"), []byte("# Guide"), 0644)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[guide](guide(name).md)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" {
+			t.Errorf("unexpected dangling-link finding for path with parentheses: %+v", f)
+		}
+	}
+}
+
 func TestScanSkill_ExternalLinkDetected(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "my-skill")
@@ -279,6 +336,52 @@ func TestScanSkill_ExternalLinkDetected(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("expected a LOW external-link finding, got findings: %+v", result.Findings)
+	}
+}
+
+func TestScanSkill_ExternalLink_AutolinkDetected(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n<https://example.com/docs>\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, f := range result.Findings {
+		if f.Pattern == "external-link" && f.Severity == "LOW" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected a LOW external-link finding for autolink, got findings: %+v", result.Findings)
+	}
+}
+
+func TestScanSkill_ExternalLink_ReferenceStyleDetected(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[docs][d]\n\n[d]: https://example.com/docs\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, f := range result.Findings {
+		if f.Pattern == "external-link" && f.Severity == "LOW" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected a LOW external-link finding for reference-style link, got findings: %+v", result.Findings)
 	}
 }
 
@@ -315,6 +418,115 @@ func TestScanSkill_SourceRepoLink_HIGH(t *testing.T) {
 	// Risk label should be "high" due to severity floor, not "low" from score alone
 	if result.RiskLabel != "high" {
 		t.Errorf("expected risk label 'high', got %q (score=%d)", result.RiskLabel, result.RiskScore)
+	}
+}
+
+func TestScanSkill_SourceRepoLink_MultilineDetected(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "repo-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[source repository]\n(https://github.com/org/repo)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var foundSourceRepo, foundExternal bool
+	for _, f := range result.Findings {
+		if f.Pattern == "source-repository-link" && f.Severity == "HIGH" {
+			foundSourceRepo = true
+		}
+		if f.Pattern == "external-link" {
+			foundExternal = true
+		}
+	}
+	if !foundSourceRepo {
+		t.Errorf("expected HIGH source-repository-link finding for multiline markdown link, got: %+v", result.Findings)
+	}
+	if foundExternal {
+		t.Error("multiline source repository link should NOT also trigger external-link")
+	}
+}
+
+func TestScanSkill_CodeFenceLinksIgnored(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "fence-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n```md\n[source repository](https://github.com/org/repo)\n[broken](missing.md)\n```\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, f := range result.Findings {
+		if f.Pattern == "source-repository-link" || f.Pattern == "dangling-link" || f.Pattern == "external-link" {
+			t.Errorf("unexpected markdown-link finding from code fence: %+v", f)
+		}
+	}
+}
+
+func TestScanSkill_InlineCodeLinksIgnored(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "inline-code-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\nUse `[source repository](https://github.com/org/repo)` as an example.\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, f := range result.Findings {
+		if f.Pattern == "source-repository-link" || f.Pattern == "external-link" {
+			t.Errorf("unexpected markdown-link finding from inline code: %+v", f)
+		}
+	}
+}
+
+func TestScanSkill_ImageLinkIgnored(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "image-link-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n![source repository](https://github.com/org/repo.png)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, f := range result.Findings {
+		if f.Pattern == "source-repository-link" || f.Pattern == "external-link" {
+			t.Errorf("unexpected markdown-link finding from image link: %+v", f)
+		}
+	}
+}
+
+func TestScanSkill_HTMLAnchorDetectedAsExternalLink(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "html-link-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n<a href=\"https://example.com/docs\">docs</a>\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, f := range result.Findings {
+		if f.Pattern == "external-link" && f.Severity == "LOW" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected LOW external-link finding for HTML anchor, got: %+v", result.Findings)
 	}
 }
 

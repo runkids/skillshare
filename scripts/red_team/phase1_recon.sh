@@ -32,6 +32,94 @@ See [source repo](local-docs.md) for details."
 ss_capture audit tc03-skill --json
 assert_no_finding "TC-03: local link ignored" "$SS_OUTPUT" "source-repository-link"
 
+# ── TC-03b: multiline [source repository] + (url) → HIGH ───────
+
+info "TC-03b: multiline source repository link detection"
+create_skill "$SOURCE_DIR/tc03b-skill" "# Helpful skill
+[source repository]
+(https://github.com/evil/repo)"
+ss_capture audit tc03b-skill --json
+assert_finding "TC-03b: multiline source repository link detected as HIGH" "$SS_OUTPUT" "source-repository-link" "HIGH"
+assert_no_finding "TC-03b: source repository link excluded from external-link" "$SS_OUTPUT" "external-link"
+
+# ── TC-03c: autolink <https://...> → external-link LOW ──────────
+
+info "TC-03c: markdown autolink is flagged as external-link"
+create_skill "$SOURCE_DIR/tc03c-skill" "# Helpful skill
+See <https://example.com/docs> for details."
+ss_capture audit tc03c-skill --json
+assert_finding "TC-03c: autolink detected as LOW external-link" "$SS_OUTPUT" "external-link" "LOW"
+
+# ── TC-03d: reference-style link → external-link LOW ────────────
+
+info "TC-03d: reference-style markdown link is flagged as external-link"
+create_skill "$SOURCE_DIR/tc03d-skill" "# Helpful skill
+See [docs][reference].
+
+[reference]: https://docs.example.com/guide"
+ss_capture audit tc03d-skill --json
+assert_finding "TC-03d: reference-style link detected as LOW external-link" "$SS_OUTPUT" "external-link" "LOW"
+
+# ── TC-03e: valid local markdown target variants → no dangling ──
+
+info "TC-03e: valid local markdown targets should not trigger dangling-link"
+create_skill "$SOURCE_DIR/tc03e-skill" "# Helpful skill
+See [guide](guide.md \"Local guide\").
+See [guide angle](<guide.md>).
+See [guide with parens](guide(name).md)."
+cat > "$SOURCE_DIR/tc03e-skill/guide.md" <<'EOF'
+# Guide
+EOF
+cat > "$SOURCE_DIR/tc03e-skill/guide(name).md" <<'EOF'
+# Guide with parens
+EOF
+ss_capture audit tc03e-skill --json
+assert_no_finding "TC-03e: local markdown variants are not dangling links" "$SS_OUTPUT" "dangling-link"
+
+# ── TC-03f: code fence links should be ignored ───────────────────
+
+info "TC-03f: links inside markdown code fences are ignored"
+mkdir -p "$SOURCE_DIR/tc03f-skill"
+cat > "$SOURCE_DIR/tc03f-skill/SKILL.md" <<'EOF'
+---
+name: tc03f-skill
+---
+# Helpful skill
+```md
+[source repository](https://github.com/evil/repo)
+[broken](missing.md)
+```
+EOF
+ss_capture audit tc03f-skill --json
+assert_no_finding "TC-03f: code fence source repository link ignored" "$SS_OUTPUT" "source-repository-link"
+assert_no_finding "TC-03f: code fence broken local link ignored" "$SS_OUTPUT" "dangling-link"
+
+# ── TC-03g: inline code links should be ignored ──────────────────
+
+info "TC-03g: inline code markdown links are ignored"
+create_skill "$SOURCE_DIR/tc03g-skill" "# Helpful skill
+Use \`[source repository](https://github.com/evil/repo)\` as an example."
+ss_capture audit tc03g-skill --json
+assert_no_finding "TC-03g: inline code source repository link ignored" "$SS_OUTPUT" "source-repository-link"
+assert_no_finding "TC-03g: inline code external-link ignored" "$SS_OUTPUT" "external-link"
+
+# ── TC-03h: image links should not trigger markdown link rules ───
+
+info "TC-03h: image links are ignored by markdown link audit rules"
+create_skill "$SOURCE_DIR/tc03h-skill" "# Helpful skill
+![source repository](https://github.com/evil/repo.png)"
+ss_capture audit tc03h-skill --json
+assert_no_finding "TC-03h: image link source repository ignored" "$SS_OUTPUT" "source-repository-link"
+assert_no_finding "TC-03h: image link external-link ignored" "$SS_OUTPUT" "external-link"
+
+# ── TC-03i: HTML anchor links should be audited ──────────────────
+
+info "TC-03i: HTML anchor href is flagged as external-link"
+create_skill "$SOURCE_DIR/tc03i-skill" "# Helpful skill
+<a href=\"https://example.com/docs\">docs</a>"
+ss_capture audit tc03i-skill --json
+assert_finding "TC-03i: HTML anchor detected as LOW external-link" "$SS_OUTPUT" "external-link" "LOW"
+
 # ── TC-04: Prompt injection in HTML comment ─────────────────────
 
 info "TC-04: hidden prompt injection in HTML comment"
