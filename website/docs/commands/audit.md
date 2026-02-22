@@ -62,7 +62,7 @@ The `audit` command acts as a **gatekeeper** — scanning skill content for know
 
 ## What It Detects
 
-The audit engine scans every text-based file in a skill directory against 27 built-in regex rules and structural checks, organized into 5 severity levels.
+The audit engine scans every text-based file in a skill directory against 31 built-in rules (regex patterns, structural checks, and content integrity verification), organized into 5 severity levels.
 
 ### CRITICAL (blocks installation and counted as Failed)
 
@@ -88,8 +88,9 @@ These patterns are **strong indicators of malicious intent** but may occasionall
 | `dynamic-code-exec` | Dynamic code evaluation via language built-ins |
 | `shell-execution` | Python shell invocation via system or subprocess calls |
 | `hidden-comment-injection` | Prompt injection keywords hidden inside HTML comments |
+| `source-repository-link` | Markdown links labeled "source repo" or "source repository" pointing to external URLs — may be used for supply-chain redirects |
 
-> **Why high?** Hidden Unicode characters can make malicious instructions invisible during code review. Base64 obfuscation is a common technique to bypass human inspection. Destructive commands like `rm -rf /` can cause irreversible damage.
+> **Why high?** Hidden Unicode characters can make malicious instructions invisible during code review. Base64 obfuscation is a common technique to bypass human inspection. Destructive commands like `rm -rf /` can cause irreversible damage. Source repository links can redirect users to malicious forks or repositories during supply-chain attacks.
 
 ### MEDIUM (informational warning, counted as Warning)
 
@@ -104,6 +105,18 @@ These patterns are **suspicious in context** — they may be legitimate but dese
 
 > **Why medium?** A skill that downloads from external URLs could be pulling malicious payloads. System path writes can modify critical OS files. Environment variable access may expose secrets unintentionally.
 
+### MEDIUM: Content Integrity
+
+Skills installed or updated via `skillshare install` or `skillshare update` have their file hashes recorded in `.skillshare-meta.json`. On subsequent audits, the engine verifies content integrity:
+
+| Pattern | Severity | Description |
+|---------|----------|------------|
+| `content-tampered` | MEDIUM | A file's SHA-256 hash no longer matches the recorded hash |
+| `content-missing` | LOW | A file recorded in metadata no longer exists on disk |
+| `content-unexpected` | LOW | A new file exists that was not recorded in metadata |
+
+> **Backward compatible:** Skills installed before this feature (without `file_hashes` in metadata) are silently skipped — no false positives.
+
 ### LOW / INFO (non-blocking signal by default)
 
 These are lower-severity indicators that contribute to risk scoring and reporting:
@@ -111,6 +124,7 @@ These are lower-severity indicators that contribute to risk scoring and reportin
 - `LOW`: weaker suspicious patterns (e.g., non-HTTPS URLs in commands — potential for man-in-the-middle attacks)
 - `LOW`: **external links** — markdown links pointing to external URLs (`https://...`), which may indicate prompt injection vectors or unnecessary token consumption; localhost links are excluded
 - `LOW`: **dangling local links** — broken relative markdown links whose target file or directory does not exist on disk
+- `LOW`: **content-missing** / **content-unexpected** — content integrity issues (see above)
 - `INFO`: contextual hints like shell chaining patterns (for triage / visibility)
 
 > These findings don't block installation but raise the overall risk score. A skill with many LOW/INFO findings may warrant closer inspection.
@@ -215,6 +229,19 @@ The score is the **sum of all finding weights**, capped at 100.
 | 51–75 | `high` | Significant risk, careful review required |
 | 76–100 | `critical` | Severe risk, likely malicious |
 
+### Severity-Based Risk Floor
+
+The risk label is the **higher** of the score-based label and a floor derived from the most severe finding:
+
+| Max Severity | Risk Floor |
+|--------------|-----------|
+| CRITICAL | `critical` |
+| HIGH | `high` |
+| MEDIUM | `medium` |
+| LOW or INFO | (no floor) |
+
+This ensures that a skill with a single HIGH finding always gets a risk label of at least `high`, even if its numeric score (15) would map to `low`. The score still reflects the aggregate risk, but the label will never understate the worst finding's severity.
+
 ### Example Calculation
 
 A skill with the following findings:
@@ -265,7 +292,9 @@ Even though a CRITICAL finding is present, the score reflects the aggregate risk
 
 `audit.block_threshold` only controls the blocking threshold. It does **not** disable scanning.
 
-## Install-time Scanning
+## Automatic Scanning
+
+### Install-time
 
 Skills are automatically scanned during installation. Findings at or above `audit.block_threshold` block installation (default: `CRITICAL`):
 
@@ -292,6 +321,10 @@ Difference summary:
 | `--skip-audit` | No | No (scan is bypassed) |
 
 If both are provided, `--skip-audit` effectively wins because audit is not executed.
+
+### Update-time
+
+`skillshare update` runs a security audit after pulling tracked repos. If **HIGH** or **CRITICAL** findings are detected, the update is automatically rolled back. See [`update --skip-audit`](/docs/commands/update#security-audit-gate) for details.
 
 ## CI/CD Integration
 
@@ -652,7 +685,7 @@ Source of truth for regex-based rules:
 
 :::note Structural checks
 
-`dangling-link` is not defined in `rules.yaml` — it is a **structural check** that verifies local markdown link targets exist on disk (using filesystem lookups, not regex). It still appears in the table below and can be disabled via `audit-rules.yaml` like any other rule.
+`dangling-link`, `content-tampered`, `content-missing`, and `content-unexpected` are not defined in `rules.yaml` — they are **structural checks** (filesystem lookups and hash comparisons, not regex). They still appear in the table below and can be disabled via `audit-rules.yaml` like any other rule.
 
 :::
 
@@ -677,6 +710,7 @@ Source of truth for regex-based rules:
 | `hidden-comment-injection-0` | hidden-comment-injection | HIGH |
 | `obfuscation-0` | obfuscation | HIGH |
 | `obfuscation-1` | obfuscation | HIGH |
+| `source-repository-link-0` | source-repository-link | HIGH |
 | `env-access-0` | env-access | MEDIUM |
 | `escape-obfuscation-0` | escape-obfuscation | MEDIUM |
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
@@ -684,6 +718,9 @@ Source of truth for regex-based rules:
 | `insecure-http-0` | insecure-http | LOW |
 | `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
+| `content-tampered` | content-tampered | MEDIUM |
+| `content-missing` | content-missing | LOW |
+| `content-unexpected` | content-unexpected | LOW |
 | `shell-chain-0` | shell-chain | INFO |
 
 ## Options
