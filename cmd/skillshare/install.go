@@ -11,6 +11,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 
+	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
@@ -65,6 +66,16 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			result.opts.DryRun = true
 		case arg == "--skip-audit":
 			result.opts.SkipAudit = true
+		case arg == "--audit-threshold" || arg == "--threshold" || arg == "-T":
+			if i+1 >= len(args) {
+				return nil, false, fmt.Errorf("%s requires a value", arg)
+			}
+			i++
+			threshold, err := normalizeInstallAuditThreshold(args[i])
+			if err != nil {
+				return nil, false, err
+			}
+			result.opts.AuditThreshold = threshold
 		case arg == "--track" || arg == "-t":
 			result.opts.Track = true
 		case arg == "--skill" || arg == "-s":
@@ -161,6 +172,30 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 	}
 
 	return result, false, nil
+}
+
+// normalizeInstallAuditThreshold normalizes install threshold values and
+// supports shorthand level aliases for CLI ergonomics.
+func normalizeInstallAuditThreshold(raw string) (string, error) {
+	v := strings.ToLower(strings.TrimSpace(raw))
+	switch v {
+	case "c", "crit":
+		v = audit.SeverityCritical
+	case "h":
+		v = audit.SeverityHigh
+	case "m", "med":
+		v = audit.SeverityMedium
+	case "l":
+		v = audit.SeverityLow
+	case "i":
+		v = audit.SeverityInfo
+	}
+
+	threshold, err := audit.NormalizeThreshold(v)
+	if err != nil {
+		return "", fmt.Errorf("invalid audit threshold %q (use: critical|high|medium|low|info or c|h|m|l|i)", raw)
+	}
+	return threshold, nil
 }
 
 // destWithInto returns the destination path, prepending opts.Into if set.
@@ -281,7 +316,9 @@ func cmdInstall(args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
-	parsed.opts.AuditThreshold = cfg.Audit.BlockThreshold
+	if parsed.opts.AuditThreshold == "" {
+		parsed.opts.AuditThreshold = cfg.Audit.BlockThreshold
+	}
 
 	// No source argument: install from global config
 	if parsed.sourceArg == "" {
@@ -826,9 +863,10 @@ func promptMultiSelect(skills []install.SkillInfo) ([]install.SkillInfo, error) 
 
 // skillInstallResult holds the result of installing a single skill
 type skillInstallResult struct {
-	skill   install.SkillInfo
-	success bool
-	message string
+	skill    install.SkillInfo
+	success  bool
+	message  string
+	warnings []string
 }
 
 // installSelectedSkills installs multiple skills with progress display
@@ -892,7 +930,7 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 			continue
 		}
 
-		_, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
+		installResult, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
 		if err != nil {
 			results = append(results, skillInstallResult{skill: skill, success: false, message: err.Error()})
 			continue
@@ -901,7 +939,16 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 		if skill.Path == "." {
 			rootInstalled = true
 		}
-		results = append(results, skillInstallResult{skill: skill, success: true, message: "installed"})
+		message := "installed"
+		if len(installResult.Warnings) > 0 {
+			message = fmt.Sprintf("installed (%d warning(s))", len(installResult.Warnings))
+		}
+		results = append(results, skillInstallResult{
+			skill:    skill,
+			success:  true,
+			message:  message,
+			warnings: installResult.Warnings,
+		})
 	}
 
 	displayInstallResults(results, installSpinner)
@@ -923,12 +970,14 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 // displayInstallResults shows the final install results
 func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner) {
 	var successes, failures []skillInstallResult
+	totalWarnings := 0
 	for _, r := range results {
 		if r.success {
 			successes = append(successes, r)
 		} else {
 			failures = append(failures, r)
 		}
+		totalWarnings += len(r.warnings)
 	}
 
 	installed := len(successes)
@@ -962,6 +1011,16 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner) {
 		} else {
 			for _, r := range successes {
 				ui.StepDone(r.skill.Name, r.message)
+			}
+		}
+	}
+
+	if totalWarnings > 0 {
+		fmt.Println()
+		ui.Warning("%d warning(s) detected during install", totalWarnings)
+		for _, r := range results {
+			for _, warning := range r.warnings {
+				ui.Warning("%s: %s", r.skill.Name, warning)
 			}
 		}
 	}
@@ -1364,6 +1423,9 @@ Options:
   --yes, -y           Auto-accept all prompts (equivalent to --all for multi-skill repos)
   --dry-run, -n       Preview the installation without making changes
   --skip-audit        Skip security audit entirely for this install
+  --audit-threshold, --threshold, -T <t>
+                      Block install by severity at/above: critical|high|medium|low|info
+                      (also supports c|h|m|l|i)
   --project, -p       Use project-level config in current directory
   --global, -g        Use global config (~/.config/skillshare)
   --help, -h          Show this help
@@ -1375,6 +1437,7 @@ Examples:
   skillshare install ~/my-skill
   skillshare install github.com/user/repo --force
   skillshare install ~/my-skill --skip-audit     # Bypass scan (no findings generated)
+  skillshare install ~/my-skill -T high          # Override block threshold for this run
 
 Selective install (non-interactive):
   skillshare install anthropics/skills -s pdf,commit     # Specific skills

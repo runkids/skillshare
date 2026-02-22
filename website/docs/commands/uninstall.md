@@ -66,7 +66,7 @@ Uninstalling group (5 skills)
 → Name: feature-radar
 → Path: ~/.config/skillshare/skills/feature-radar
 
-Are you sure you want to uninstall this skill? [y/N]:
+Are you sure you want to uninstall this group? [y/N]:
 ```
 
 The `--group` flag removes all skills under a directory using **prefix matching**:
@@ -81,6 +81,8 @@ skillshare uninstall --group frontend --force
 # Preview what would be removed
 skillshare uninstall --group frontend --dry-run
 ```
+
+When group removal is applied (including auto-detected directory groups), each removed member is also removed from the managed `skills:` list in config (`~/.config/skillshare/config.yaml` or `.skillshare/config.yaml` in project mode).
 
 You can combine positional names with `--group`, and even use `-G` multiple times:
 

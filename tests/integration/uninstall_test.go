@@ -445,3 +445,69 @@ skills:
 		t.Error("config should still contain skill-c from other group")
 	}
 }
+
+func TestUninstall_MultipleGroupDirs_UsesGroupCopy(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("fix-review/checklist", map[string]string{"SKILL.md": "# Checklist"})
+	sb.CreateSkill("security/audit", map[string]string{"SKILL.md": "# Audit"})
+	sb.CreateSkill("other/keep", map[string]string{"SKILL.md": "# Keep"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "fix-review", "security/", "--force")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Uninstalling 2 group(s)")
+	result.AssertOutputContains(t, "Uninstalled group: fix-review")
+	result.AssertOutputContains(t, "Uninstalled group: security")
+
+	if sb.FileExists(filepath.Join(sb.SourcePath, "fix-review")) {
+		t.Error("fix-review group should be removed")
+	}
+	if sb.FileExists(filepath.Join(sb.SourcePath, "security")) {
+		t.Error("security group should be removed")
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "other", "keep")) {
+		t.Error("other/keep should NOT be removed")
+	}
+}
+
+func TestUninstall_GroupDirWithTrailingSlash_RemovesConfigEntries(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("security/scan", map[string]string{"SKILL.md": "# Scan"})
+	sb.CreateSkill("security/hardening", map[string]string{"SKILL.md": "# Hardening"})
+	sb.CreateSkill("other/keep", map[string]string{"SKILL.md": "# Keep"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+skills:
+  - name: scan
+    source: github.com/org/repo/scan
+    group: security
+  - name: hardening
+    source: github.com/org/repo/hardening
+    group: security
+  - name: keep
+    source: github.com/org/repo/keep
+    group: other
+`)
+
+	result := sb.RunCLI("uninstall", "security/", "-f")
+	result.AssertSuccess(t)
+
+	cfg := sb.ReadFile(sb.ConfigPath)
+	if strings.Contains(cfg, "scan") {
+		t.Error("config should not contain scan after security/ uninstall")
+	}
+	if strings.Contains(cfg, "hardening") {
+		t.Error("config should not contain hardening after security/ uninstall")
+	}
+	if !strings.Contains(cfg, "keep") {
+		t.Error("config should still contain keep from other group")
+	}
+}

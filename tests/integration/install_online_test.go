@@ -58,7 +58,9 @@ func TestInstall_RemoteGitHub_Track(t *testing.T) {
 targets: {}
 `)
 
-	result := sb.RunCLI("install", "runkids/skillshare", "--track", "--name", "test-tracked")
+	// This repository intentionally contains malicious-pattern fixtures in tests/docs.
+	// Use --force so this test validates track mechanics, not audit blocking policy.
+	result := sb.RunCLI("install", "runkids/skillshare", "--track", "--name", "test-tracked", "--force")
 
 	result.AssertSuccess(t)
 

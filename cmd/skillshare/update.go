@@ -906,14 +906,14 @@ func renderUpdateAuditResult(result *install.InstallResult) {
 	label := strings.ToUpper(result.AuditRiskLabel)
 	score := result.AuditRiskScore
 	if score == 0 {
-		ui.Info("Security: %s", label)
+		ui.Info("Aggregate risk: %s", label)
 		return
 	}
 	if ui.IsTTY() {
 		color := riskColor(result.AuditRiskLabel)
-		fmt.Printf("%s→%s Security: %s%s (%d/100)%s\n", ui.Cyan, ui.Reset, color, label, score, ui.Reset)
+		fmt.Printf("%s→%s Aggregate risk: %s%s (%d/100)%s\n", ui.Cyan, ui.Reset, color, label, score, ui.Reset)
 	} else {
-		fmt.Printf("→ Security: %s (%d/100)\n", label, score)
+		fmt.Printf("→ Aggregate risk: %s (%d/100)\n", label, score)
 	}
 }
 

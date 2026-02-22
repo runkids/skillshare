@@ -132,15 +132,19 @@ This updates:
 
 ## Security Audit Gate
 
-After updating skills, `update` automatically runs a security audit. If **HIGH** or **CRITICAL** findings are detected, tracked repo updates are rolled back to protect against supply-chain attacks. For all update types, the audit risk label and score are displayed:
+After updating skills, `update` automatically runs a security audit:
+
+- **Tracked repos (`git pull`)** use a post-pull gate at **HIGH/CRITICAL**
+- **Regular skills (reinstall path)** use install-time threshold policy (default `CRITICAL`)
+- For all update types, aggregate risk label/score is displayed for review context
 
 ```
-→ Security: LOW (12/100)
+→ Aggregate risk: LOW (12/100)
 ```
 
-### Interactive Mode (TTY)
+### Interactive Mode (TTY, tracked repos)
 
-When findings are detected, you're prompted to decide:
+When HIGH/CRITICAL findings are detected after tracked-repo pull, you're prompted to decide:
 
 ```
   [HIGH] Source repository link detected — may be used for supply-chain redirects (SKILL.md:5)

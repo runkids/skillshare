@@ -45,23 +45,25 @@ flowchart TD
     subgraph INSTALL ["Phase 1 — Install"]
         I1["skillshare install &lt;source&gt;"] --> I2{"Install mode"}
         I2 -- "Regular skill" --> I3{"Audit scan"}
-        I3 -- "HIGH/CRITICAL" --> I4["Blocked ✗"]
-        I3 -- "Clean" --> I5["Write .skillshare-meta.json<br/>(sha256 per file)"]
+        I3 -- "At/above threshold" --> I4["Blocked (unless --force) ✗"]
+        I3 -- "Pass / --force" --> I5["Write .skillshare-meta.json<br/>(sha256 per file)"]
         I5 --> I6["Installed skill ✓"]
         I2 -- "Tracked repo (--track)" --> I7["Clone repo with .git"]
-        I7 --> I8["Tracked repo installed ✓<br/>(no file_hashes metadata)"]
+        I7 --> I8{"Audit full repo<br/>(same threshold)"}
+        I8 -- "At/above threshold" --> I9["Blocked + cleanup ✗<br/>(manual cleanup if auto-remove fails)"]
+        I8 -- "Pass / --force" --> I10["Tracked repo installed ✓<br/>(no file_hashes metadata)"]
     end
 
     subgraph UPDATE ["Phase 2 — Update"]
         U1["skillshare update _repo"] --> U2["git pull"]
-        U2 --> U3{"Post-update<br/>audit scan"}
-        U3 -- "HIGH/CRITICAL" --> U4["git reset --hard<br/>(rollback)"]
+        U2 --> U3{"Post-update audit<br/>(HIGH/CRITICAL gate)"}
+        U3 -- "HIGH/CRITICAL" --> U4["Rollback<br/>(auto in CI/non-TTY)"]
         U3 -- "Clean" --> U5["Tracked repo updated ✓"]
 
         R1["skillshare update &lt;skill&gt;"] --> R2["Reinstall from source"]
-        R2 --> R3{"Install-time<br/>audit scan"}
-        R3 -- "HIGH/CRITICAL" --> R4["Blocked ✗"]
-        R3 -- "Clean" --> R5["Refresh metadata hashes"]
+        R2 --> R3{"Install-time audit<br/>(threshold gate)"}
+        R3 -- "At/above threshold" --> R4["Blocked ✗"]
+        R3 -- "Pass" --> R5["Refresh metadata hashes"]
         R5 --> R6["Regular skill updated ✓"]
     end
 
@@ -75,18 +77,19 @@ flowchart TD
         A4 -- "Extra file" --> A7["content-unexpected<br/>(LOW)"]
     end
 
-    I8 --> U1
+    I10 --> U1
     I6 --> R1
     I6 --> A1
-    I8 --> A1
+    I10 --> A1
     U5 --> A1
     R6 --> A1
 
     style I4 fill:#ef4444,color:#fff
+    style I9 fill:#ef4444,color:#fff
     style U4 fill:#ef4444,color:#fff
     style R4 fill:#ef4444,color:#fff
     style I6 fill:#22c55e,color:#fff
-    style I8 fill:#22c55e,color:#fff
+    style I10 fill:#22c55e,color:#fff
     style U5 fill:#22c55e,color:#fff
     style R6 fill:#22c55e,color:#fff
     style A8 fill:#22c55e,color:#fff
@@ -94,6 +97,7 @@ flowchart TD
     style A6 fill:#fbbf24,color:#000
     style A7 fill:#fbbf24,color:#000
     style I3 fill:#f59e0b,color:#000
+    style I8 fill:#f59e0b,color:#000
     style U3 fill:#f59e0b,color:#000
     style R3 fill:#f59e0b,color:#000
     style A4 fill:#f59e0b,color:#000
@@ -101,7 +105,8 @@ flowchart TD
 
 **Key design:**
 - **Regular skill install/update** — audit runs before acceptance; successful installs/updates write `file_hashes` metadata
-- **Tracked repo update gate** — audit runs *after* `git pull`; HIGH/CRITICAL findings trigger rollback automatically in non-interactive mode
+- **Tracked repo install gate** — fresh `--track` installs are audited across the whole cloned repository before acceptance
+- **Tracked repo update gate** — `skillshare update` audits after `git pull`; HIGH/CRITICAL findings trigger rollback automatically in non-interactive mode
 - **Integrity verification scope** — `content-*` hash checks run only when `file_hashes` metadata exists
 
 ## Security Checklist

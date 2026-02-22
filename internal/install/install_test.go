@@ -335,6 +335,26 @@ func TestGitCommand_SetsEnv(t *testing.T) {
 	}
 }
 
+func TestUpdateTrackedRepo_BeforeHashFailure_FailsClosed(t *testing.T) {
+	repoPath := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoPath, ".git"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	result := &TrackedRepoResult{
+		RepoName: "_broken-repo",
+		RepoPath: repoPath,
+	}
+
+	_, err := updateTrackedRepo(repoPath, result, InstallOptions{})
+	if err == nil {
+		t.Fatal("expected error when rollback commit cannot be determined")
+	}
+	if !strings.Contains(err.Error(), "failed to determine rollback commit before update") {
+		t.Fatalf("expected rollback commit error, got: %v", err)
+	}
+}
+
 func TestGetRemoteURL(t *testing.T) {
 	dir := t.TempDir()
 	// Init a bare git repo and set a remote URL.
