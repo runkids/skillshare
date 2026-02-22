@@ -143,3 +143,203 @@ func TestTruncate(t *testing.T) {
 		t.Errorf("truncate long = len %d, want 80", len(got))
 	}
 }
+
+// TestScanSkill_DanglingLink verifies that a missing local markdown target is
+// reported as a MEDIUM dangling-link finding with correct location metadata.
+func TestScanSkill_DanglingLink(t *testing.T) {
+	// A skill referencing a local file that does not exist should produce a MEDIUM dangling-link finding.
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[broken link](missing-file.md)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" && f.Severity == "MEDIUM" {
+			found = true
+			if f.Line != 3 {
+				t.Errorf("expected line 3, got %d", f.Line)
+			}
+			if f.File != "SKILL.md" {
+				t.Errorf("expected file SKILL.md, got %s", f.File)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected a MEDIUM dangling-link finding, got findings: %+v", result.Findings)
+	}
+}
+
+// TestScanSkill_ValidFileLink verifies that an existing local file target does
+// not produce a dangling-link finding.
+func TestScanSkill_ValidFileLink(t *testing.T) {
+	// A skill with a local link pointing to an existing file should produce no dangling-link finding.
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "guide.md"), []byte("# Guide"), 0644)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[guide](guide.md)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" {
+			t.Errorf("unexpected dangling-link finding for valid file link: %+v", f)
+		}
+	}
+}
+
+// TestScanSkill_ValidDirectoryLink verifies that links to existing directories
+// are treated as valid local targets.
+func TestScanSkill_ValidDirectoryLink(t *testing.T) {
+	// A skill with a local link pointing to an existing directory should produce no dangling-link finding.
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(filepath.Join(skillDir, "resources"), 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[resources](resources)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" {
+			t.Errorf("unexpected dangling-link finding for valid directory link: %+v", f)
+		}
+	}
+}
+
+func TestScanSkill_PlainLink(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\nsee guide.md for details\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" && f.Severity == "MEDIUM" {
+			found = true
+			if f.Line != 3 {
+				t.Errorf("expected line 3, got %d", f.Line)
+			}
+			if f.File != "SKILL.md" {
+				t.Errorf("expected file SKILL.md, got %s", f.File)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected a MEDIUM dangling-link finding for plain link, got findings: %+v", result.Findings)
+	}
+}
+
+func TestScanSkill_ValidPlainLink_NoFinding(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "guide.md"), []byte("# Guide"), 0644)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\nsee guide.md for details\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" {
+			t.Errorf("unexpected dangling-link finding for valid plain link: %+v", f)
+		}
+	}
+}
+
+func TestScanSkill_DanglingCodeLink(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\nOpen `missing.md` for details\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" && f.Severity == "MEDIUM" {
+			found = true
+			if f.Line != 3 {
+				t.Errorf("expected line 3, got %d", f.Line)
+			}
+			if f.File != "SKILL.md" {
+				t.Errorf("expected file SKILL.md, got %s", f.File)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected a MEDIUM dangling-link finding for code link, got %+v", result.Findings)
+	}
+}
+
+func TestScanSkill_ExternalSourceRepositoryLink_High(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[source repository](https://example.com/repo)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, f := range result.Findings {
+		if f.Pattern == "external-source-repository-link" {
+			found = true
+			if f.Severity != SeverityHigh {
+				t.Errorf("expected HIGH severity, got %s", f.Severity)
+			}
+			if f.Line != 3 {
+				t.Errorf("expected line 3, got %d", f.Line)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected external-source-repository-link finding, got %+v", result.Findings)
+	}
+}
+
+func TestScanSkill_ExternalLinkWithoutSourceLabel_NoFinding(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[documentation](https://example.com/docs)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, f := range result.Findings {
+		if f.Pattern == "external-source-repository-link" {
+			t.Fatalf("did not expect external-source-repository-link finding, got %+v", f)
+		}
+	}
+}

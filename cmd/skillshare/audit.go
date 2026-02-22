@@ -505,6 +505,8 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 	}
 
 	maxRisk := 0
+	maxSeverityRank := 999
+	maxSeverity := ""
 	for _, r := range results {
 		c, h, m, l, i := r.CountBySeverityAll()
 		summary.Critical += c
@@ -533,12 +535,20 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 		if r.RiskScore > maxRisk {
 			maxRisk = r.RiskScore
 		}
+		if sev := r.MaxSeverity(); sev != "" {
+			rank := audit.SeverityRank(sev)
+			if rank < maxSeverityRank {
+				maxSeverityRank = rank
+				maxSeverity = sev
+			}
+		}
 	}
 	summary.RiskScore = maxRisk
-	summary.RiskLabel = audit.RiskLabelFromScore(maxRisk)
+	summary.RiskLabel = audit.RiskLabelFromScoreAndMaxSeverity(maxRisk, maxSeverity)
 	return summary
 }
 
+// containsSeverity reports whether findings includes at least one given severity.
 func containsSeverity(findings []audit.Finding, severity string) bool {
 	for _, f := range findings {
 		if f.Severity == severity {
@@ -552,27 +562,65 @@ func containsSeverity(findings []audit.Finding, severity string) bool {
 func printSkillResultLine(index, total int, result *audit.Result, elapsed time.Duration) {
 	prefix := fmt.Sprintf("[%d/%d]", index, total)
 	name := result.SkillName
+	showTime := elapsed >= time.Second
 	timeStr := fmt.Sprintf("%.1fs", elapsed.Seconds())
 
 	switch {
 	case len(result.Findings) == 0:
 		if ui.IsTTY() {
-			fmt.Printf("%s \033[32m✓\033[0m %s %s%s%s\n", prefix, name, ui.Gray, timeStr, ui.Reset)
+			coloredPrefix := fmt.Sprintf("%s%s%s", ui.Gray, prefix, ui.Reset)
+			if showTime {
+				fmt.Printf("%s \033[32m✓\033[0m %s %s%s%s\n", coloredPrefix, name, ui.Gray, timeStr, ui.Reset)
+			} else {
+				fmt.Printf("%s \033[32m✓\033[0m %s\n", coloredPrefix, name)
+			}
 		} else {
-			fmt.Printf("%s ✓ %s %s\n", prefix, name, timeStr)
-		}
-	case result.IsBlocked:
-		if ui.IsTTY() {
-			fmt.Printf("%s \033[31m✗\033[0m %s %s%s%s  %s(%s %d/100)%s\n", prefix, name, ui.Gray, timeStr, ui.Reset, ui.Red, strings.ToUpper(result.RiskLabel), result.RiskScore, ui.Reset)
-		} else {
-			fmt.Printf("%s ✗ %s %s (%s %d/100)\n", prefix, name, timeStr, strings.ToUpper(result.RiskLabel), result.RiskScore)
+			if showTime {
+				fmt.Printf("%s ✓ %s %s\n", prefix, name, timeStr)
+			} else {
+				fmt.Printf("%s ✓ %s\n", prefix, name)
+			}
 		}
 	default:
-		if ui.IsTTY() {
-			fmt.Printf("%s \033[33m!\033[0m %s %s%s%s  %s(%s %d/100)%s\n", prefix, name, ui.Gray, timeStr, ui.Reset, ui.Yellow, strings.ToUpper(result.RiskLabel), result.RiskScore, ui.Reset)
-		} else {
-			fmt.Printf("%s ! %s %s (%s %d/100)\n", prefix, name, timeStr, strings.ToUpper(result.RiskLabel), result.RiskScore)
+		riskLabel := strings.ToUpper(result.RiskLabel)
+		riskText := fmt.Sprintf("%s %d/100", riskLabel, result.RiskScore)
+		symbol := "!"
+		if result.IsBlocked {
+			symbol = "✗"
 		}
+		if ui.IsTTY() {
+			coloredPrefix := fmt.Sprintf("%s%s%s", ui.Gray, prefix, ui.Reset)
+			severityColor := riskRampColorTTY(result.RiskLabel)
+			coloredSymbol := fmt.Sprintf("%s%s%s", severityColor, symbol, ui.Reset)
+			coloredRisk := fmt.Sprintf("%s%s%s", severityColor, riskText, ui.Reset)
+			if showTime {
+				fmt.Printf("%s %s %s  %s  %s%s%s\n", coloredPrefix, coloredSymbol, name, coloredRisk, ui.Gray, timeStr, ui.Reset)
+			} else {
+				fmt.Printf("%s %s %s  %s\n", coloredPrefix, coloredSymbol, name, coloredRisk)
+			}
+		} else {
+			if showTime {
+				fmt.Printf("%s %s %s  %s  %s\n", prefix, symbol, name, riskText, timeStr)
+			} else {
+				fmt.Printf("%s %s %s  %s\n", prefix, symbol, name, riskText)
+			}
+		}
+	}
+}
+
+// riskRampColorTTY maps risk labels to ANSI colors for TTY batch output.
+func riskRampColorTTY(label string) string {
+	switch strings.ToLower(strings.TrimSpace(label)) {
+	case "critical":
+		return "\033[31m"
+	case "high":
+		return "\033[38;5;208m"
+	case "medium":
+		return "\033[33m"
+	case "low":
+		return "\033[38;5;229m"
+	default:
+		return ui.Gray
 	}
 }
 
