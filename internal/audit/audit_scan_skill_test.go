@@ -279,6 +279,110 @@ func TestScanSkill_ExternalLinkDetected(t *testing.T) {
 	}
 }
 
+func TestScanSkill_SourceRepoLink_HIGH(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "repo-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[source repository](https://github.com/org/repo)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var foundSourceRepo, foundExternal bool
+	for _, f := range result.Findings {
+		if f.Pattern == "source-repository-link" && f.Severity == "HIGH" {
+			foundSourceRepo = true
+			if f.Line != 3 {
+				t.Errorf("expected line 3, got %d", f.Line)
+			}
+		}
+		if f.Pattern == "external-link" {
+			foundExternal = true
+		}
+	}
+	if !foundSourceRepo {
+		t.Errorf("expected HIGH source-repository-link finding, got: %+v", result.Findings)
+	}
+	if foundExternal {
+		t.Error("source repository link should NOT also trigger external-link (overlap exclusion)")
+	}
+	// Risk label should be "high" due to severity floor, not "low" from score alone
+	if result.RiskLabel != "high" {
+		t.Errorf("expected risk label 'high', got %q (score=%d)", result.RiskLabel, result.RiskScore)
+	}
+}
+
+func TestScanSkill_SourceRepoLink_LocalNotTriggered(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "local-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "guide.md"), []byte("# Guide"), 0644)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[source repository](guide.md)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "source-repository-link" {
+			t.Errorf("local link should NOT trigger source-repository-link: %+v", f)
+		}
+	}
+}
+
+func TestScanSkill_DocumentationLink_OnlyExternal(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "doc-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[documentation](https://docs.example.com)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var foundExternal bool
+	for _, f := range result.Findings {
+		if f.Pattern == "external-link" {
+			foundExternal = true
+		}
+		if f.Pattern == "source-repository-link" {
+			t.Errorf("documentation link should NOT trigger source-repository-link: %+v", f)
+		}
+	}
+	if !foundExternal {
+		t.Error("documentation link should trigger external-link")
+	}
+}
+
+func TestScanSkill_SourceRepoLink_ShortLabel(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "short-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[source repo](https://github.com/org/repo)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, f := range result.Findings {
+		if f.Pattern == "source-repository-link" && f.Severity == "HIGH" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected HIGH source-repository-link for 'source repo' label, got: %+v", result.Findings)
+	}
+}
+
 func TestScanSkill_ExternalLinkLocalhostSkipped(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "my-skill")

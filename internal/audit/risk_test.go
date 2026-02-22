@@ -79,6 +79,41 @@ func TestRiskScoreAndLabel(t *testing.T) {
 	}
 }
 
+func TestRiskLabelFromScoreAndMaxSeverity(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		score     int
+		maxSev    string
+		wantLabel string
+	}{
+		// Single HIGH finding: score=15 → "low" by score, but floor is "high"
+		{"single HIGH floor", 15, SeverityHigh, "high"},
+		// Single CRITICAL: score=25 → "low" by score, floor is "critical"
+		{"single CRITICAL floor", 25, SeverityCritical, "critical"},
+		// Score already above floor: many findings push score high
+		{"score exceeds floor", 80, SeverityHigh, "critical"},
+		// MEDIUM floor: score=8 → "low" by score, floor is "medium"
+		{"single MEDIUM floor", 8, SeverityMedium, "medium"},
+		// LOW floor: score=3 → "low" by score, floor is "low"
+		{"single LOW floor", 3, SeverityLow, "low"},
+		// INFO: no floor, stays "low"
+		{"INFO no floor", 1, SeverityInfo, "low"},
+		// Clean: no findings
+		{"clean no findings", 0, "", "clean"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := RiskLabelFromScoreAndMaxSeverity(tt.score, tt.maxSev)
+			if got != tt.wantLabel {
+				t.Errorf("RiskLabelFromScoreAndMaxSeverity(%d, %q) = %q, want %q",
+					tt.score, tt.maxSev, got, tt.wantLabel)
+			}
+		})
+	}
+}
+
 func TestScanFileWithRules_Boundaries(t *testing.T) {
 	t.Parallel()
 
