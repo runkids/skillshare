@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -803,8 +805,10 @@ func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool) error {
 	if err != nil {
 		// Scan error in non-interactive mode → fail-closed
 		if !ui.IsTTY() {
-			git.ResetHard(repoPath, beforeHash) //nolint:errcheck
-			return fmt.Errorf("security audit failed: %v (use --skip-audit to bypass)", err)
+			if resetErr := git.ResetHard(repoPath, beforeHash); resetErr != nil {
+				return fmt.Errorf("security audit failed: %v; WARNING: rollback also failed: %v — malicious content may remain: %w", err, resetErr, audit.ErrBlocked)
+			}
+			return fmt.Errorf("security audit failed: %v — rolled back (use --skip-audit to bypass): %w", err, audit.ErrBlocked)
 		}
 		ui.Warning("security audit error: %v", err)
 		return nil
@@ -824,25 +828,25 @@ func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool) error {
 	if ui.IsTTY() {
 		fmt.Printf("\n  Security findings at HIGH or above detected.\n")
 		fmt.Printf("  Apply anyway? [y/N]: ")
-		var answer string
-		fmt.Scanln(&answer)
+		reader := bufio.NewReader(os.Stdin)
+		answer, _ := reader.ReadString('\n')
 		answer = strings.TrimSpace(strings.ToLower(answer))
 		if answer == "y" || answer == "yes" {
 			return nil
 		}
 		// User declined → rollback
 		if err := git.ResetHard(repoPath, beforeHash); err != nil {
-			return fmt.Errorf("rollback failed: %w", err)
+			return fmt.Errorf("rollback failed: %w: %w", err, audit.ErrBlocked)
 		}
 		ui.Info("Rolled back to %s", beforeHash[:12])
-		return fmt.Errorf("update rejected by user after security audit")
+		return fmt.Errorf("update rejected by user after security audit: %w", audit.ErrBlocked)
 	}
 
 	// Non-interactive → fail-closed
 	if err := git.ResetHard(repoPath, beforeHash); err != nil {
-		return fmt.Errorf("rollback failed: %w", err)
+		return fmt.Errorf("rollback failed: %w: %w", err, audit.ErrBlocked)
 	}
-	return fmt.Errorf("security audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass)")
+	return fmt.Errorf("security audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass): %w", audit.ErrBlocked)
 }
 
 // auditGateAfterPullProject is like auditGateAfterPull but uses project-mode rules.
@@ -854,8 +858,10 @@ func auditGateAfterPullProject(repoPath, projectRoot, beforeHash string, skipAud
 	result, err := audit.ScanSkillForProject(repoPath, projectRoot)
 	if err != nil {
 		if !ui.IsTTY() {
-			git.ResetHard(repoPath, beforeHash) //nolint:errcheck
-			return fmt.Errorf("security audit failed: %v (use --skip-audit to bypass)", err)
+			if resetErr := git.ResetHard(repoPath, beforeHash); resetErr != nil {
+				return fmt.Errorf("security audit failed: %v; WARNING: rollback also failed: %v — malicious content may remain: %w", err, resetErr, audit.ErrBlocked)
+			}
+			return fmt.Errorf("security audit failed: %v — rolled back (use --skip-audit to bypass): %w", err, audit.ErrBlocked)
 		}
 		ui.Warning("security audit error: %v", err)
 		return nil
@@ -874,23 +880,23 @@ func auditGateAfterPullProject(repoPath, projectRoot, beforeHash string, skipAud
 	if ui.IsTTY() {
 		fmt.Printf("\n  Security findings at HIGH or above detected.\n")
 		fmt.Printf("  Apply anyway? [y/N]: ")
-		var answer string
-		fmt.Scanln(&answer)
+		reader := bufio.NewReader(os.Stdin)
+		answer, _ := reader.ReadString('\n')
 		answer = strings.TrimSpace(strings.ToLower(answer))
 		if answer == "y" || answer == "yes" {
 			return nil
 		}
 		if err := git.ResetHard(repoPath, beforeHash); err != nil {
-			return fmt.Errorf("rollback failed: %w", err)
+			return fmt.Errorf("rollback failed: %w: %w", err, audit.ErrBlocked)
 		}
 		ui.Info("Rolled back to %s", beforeHash[:12])
-		return fmt.Errorf("update rejected by user after security audit")
+		return fmt.Errorf("update rejected by user after security audit: %w", audit.ErrBlocked)
 	}
 
 	if err := git.ResetHard(repoPath, beforeHash); err != nil {
-		return fmt.Errorf("rollback failed: %w", err)
+		return fmt.Errorf("rollback failed: %w: %w", err, audit.ErrBlocked)
 	}
-	return fmt.Errorf("security audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass)")
+	return fmt.Errorf("security audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass): %w", audit.ErrBlocked)
 }
 
 // renderDiffSummary prints a file-level change summary for the given repo.
@@ -1008,17 +1014,9 @@ func renderHashDiffSummary(beforeHashes, afterHashes map[string]string) {
 }
 
 // isSecurityError returns true if the error originated from the audit gate.
-// Matches errors from auditGateAfterPull ("security audit", "rolled back"),
-// install.Install post-update path ("post-update audit"), and rollback failures.
+// All security-related errors wrap audit.ErrBlocked as a sentinel.
 func isSecurityError(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	return strings.Contains(msg, "security audit") ||
-		strings.Contains(msg, "post-update audit") ||
-		strings.Contains(msg, "rolled back") ||
-		strings.Contains(msg, "rollback failed")
+	return errors.Is(err, audit.ErrBlocked)
 }
 
 func truncateString(s string, maxLen int) string {

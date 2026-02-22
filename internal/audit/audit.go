@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +14,10 @@ import (
 
 	"skillshare/internal/utils"
 )
+
+// ErrBlocked is a sentinel error indicating that an operation was blocked
+// by the security audit. Use errors.Is(err, audit.ErrBlocked) to check.
+var ErrBlocked = errors.New("blocked by security audit")
 
 const (
 	maxScanFileSize = 1_000_000 // 1MB
