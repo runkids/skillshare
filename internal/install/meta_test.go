@@ -1,6 +1,8 @@
 package install
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -60,5 +62,68 @@ func TestInstallFromDiscovery_FullSubdirUsesForwardSlashes(t *testing.T) {
 	}
 	if fullSubdir != "skills/my-skill" {
 		t.Errorf("fullSubdir = %q, want %q", fullSubdir, "skills/my-skill")
+	}
+}
+
+func TestComputeFileHashes_Basic(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Hello"), 0644)
+	os.MkdirAll(filepath.Join(dir, "sub"), 0755)
+	os.WriteFile(filepath.Join(dir, "sub", "README.md"), []byte("readme"), 0644)
+
+	hashes, err := ComputeFileHashes(dir)
+	if err != nil {
+		t.Fatalf("ComputeFileHashes: %v", err)
+	}
+	if len(hashes) != 2 {
+		t.Fatalf("expected 2 hashes, got %d: %v", len(hashes), hashes)
+	}
+	for path, h := range hashes {
+		if !strings.HasPrefix(h, "sha256:") {
+			t.Errorf("hash for %s missing sha256: prefix: %s", path, h)
+		}
+		if len(h) != len("sha256:")+64 {
+			t.Errorf("hash for %s has wrong length: %s", path, h)
+		}
+	}
+	if _, ok := hashes["SKILL.md"]; !ok {
+		t.Error("missing SKILL.md in hashes")
+	}
+	if _, ok := hashes["sub/README.md"]; !ok {
+		t.Error("missing sub/README.md in hashes (should use forward slash)")
+	}
+}
+
+func TestComputeFileHashes_SkipsMetaAndGit(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Skill"), 0644)
+	os.WriteFile(filepath.Join(dir, ".skillshare-meta.json"), []byte("{}"), 0644)
+	os.MkdirAll(filepath.Join(dir, ".git", "objects"), 0755)
+	os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte("ref: refs/heads/main"), 0644)
+
+	hashes, err := ComputeFileHashes(dir)
+	if err != nil {
+		t.Fatalf("ComputeFileHashes: %v", err)
+	}
+	if len(hashes) != 1 {
+		t.Fatalf("expected 1 hash (SKILL.md only), got %d: %v", len(hashes), hashes)
+	}
+	if _, ok := hashes[".skillshare-meta.json"]; ok {
+		t.Error("should skip .skillshare-meta.json")
+	}
+	if _, ok := hashes[".git/HEAD"]; ok {
+		t.Error("should skip .git/")
+	}
+}
+
+func TestComputeFileHashes_Deterministic(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "file.txt"), []byte("content"), 0644)
+
+	h1, _ := ComputeFileHashes(dir)
+	h2, _ := ComputeFileHashes(dir)
+
+	if h1["file.txt"] != h2["file.txt"] {
+		t.Errorf("hashes differ: %s vs %s", h1["file.txt"], h2["file.txt"])
 	}
 }

@@ -1,6 +1,9 @@
 package audit
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -397,6 +400,175 @@ func TestScanSkill_ExternalLinkLocalhostSkipped(t *testing.T) {
 	for _, f := range result.Findings {
 		if f.Pattern == "external-link" {
 			t.Errorf("unexpected external-link finding for localhost link: %+v", f)
+		}
+	}
+}
+
+// helper: compute sha256 hex of content
+func sha256hex(data []byte) string {
+	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
+}
+
+// helper: write meta with file_hashes
+func writeMetaWithHashes(t *testing.T, dir string, hashes map[string]string) {
+	t.Helper()
+	meta := struct {
+		Source     string            `json:"source"`
+		Type       string            `json:"type"`
+		FileHashes map[string]string `json:"file_hashes"`
+	}{
+		Source:     "test",
+		Type:       "local",
+		FileHashes: hashes,
+	}
+	data, _ := json.Marshal(meta)
+	os.WriteFile(filepath.Join(dir, ".skillshare-meta.json"), data, 0644)
+}
+
+func TestScanSkill_ContentTampered(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+
+	content := []byte("# Original content")
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), content, 0644)
+
+	// Write meta with correct hash
+	writeMetaWithHashes(t, skillDir, map[string]string{
+		"SKILL.md": "sha256:" + sha256hex(content),
+	})
+
+	// Verify clean scan
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "content-tampered" {
+			t.Fatal("should not report tampered before modification")
+		}
+	}
+
+	// Modify the file
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# HACKED"), 0644)
+
+	result, err = ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range result.Findings {
+		if f.Pattern == "content-tampered" {
+			found = true
+			if f.Severity != SeverityMedium {
+				t.Errorf("expected MEDIUM, got %s", f.Severity)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected content-tampered finding after modification")
+	}
+}
+
+func TestScanSkill_ContentMissing(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+
+	writeMetaWithHashes(t, skillDir, map[string]string{
+		"SKILL.md":  "sha256:abc123",
+		"extras.md": "sha256:def456",
+	})
+
+	// Only create SKILL.md, extras.md is missing
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Skill"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range result.Findings {
+		if f.Pattern == "content-missing" && f.File == "extras.md" {
+			found = true
+			if f.Severity != SeverityLow {
+				t.Errorf("expected LOW, got %s", f.Severity)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected content-missing finding for extras.md")
+	}
+}
+
+func TestScanSkill_ContentUnexpected(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+
+	content := []byte("# Skill")
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), content, 0644)
+	os.WriteFile(filepath.Join(skillDir, "sneaky.sh"), []byte("#!/bin/sh"), 0644)
+
+	// Pin only SKILL.md
+	writeMetaWithHashes(t, skillDir, map[string]string{
+		"SKILL.md": "sha256:" + sha256hex(content),
+	})
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range result.Findings {
+		if f.Pattern == "content-unexpected" && f.File == "sneaky.sh" {
+			found = true
+			if f.Severity != SeverityLow {
+				t.Errorf("expected LOW, got %s", f.Severity)
+			}
+		}
+	}
+	if !found {
+		t.Error("expected content-unexpected finding for sneaky.sh")
+	}
+}
+
+func TestScanSkill_NoHashesNoFindings(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Skill"), 0644)
+
+	// Write meta WITHOUT file_hashes (backward compat)
+	meta := `{"source":"test","type":"local"}`
+	os.WriteFile(filepath.Join(skillDir, ".skillshare-meta.json"), []byte(meta), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "content-tampered" || f.Pattern == "content-missing" || f.Pattern == "content-unexpected" {
+			t.Errorf("should not report integrity findings without file_hashes, got %s", f.Pattern)
+		}
+	}
+}
+
+func TestScanSkill_NoMetaNoFindings(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Skill"), 0644)
+	// No .skillshare-meta.json at all
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "content-tampered" || f.Pattern == "content-missing" || f.Pattern == "content-unexpected" {
+			t.Errorf("should not report integrity findings without meta, got %s", f.Pattern)
 		}
 	}
 }
