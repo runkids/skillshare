@@ -96,6 +96,7 @@ export default function SkillDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<string | null>(null);
   const { toast } = useToast();
 
@@ -210,10 +211,12 @@ export default function SkillDetailPage() {
     }
   };
 
-  const handleUpdate = async () => {
+  const handleUpdate = async (skipAudit = false) => {
     setUpdating(true);
+    setBlockedMessage(null);
     try {
-      const res = await api.update({ name: skill.isInRepo ? skill.relPath.split('/')[0] : skill.relPath });
+      const skillName = skill.isInRepo ? skill.relPath.split('/')[0] : skill.relPath;
+      const res = await api.update({ name: skillName, skipAudit });
       const item = res.results[0];
       if (item?.action === 'updated') {
         toast(`Updated: ${item.name} — ${item.message}`, 'success');
@@ -221,7 +224,7 @@ export default function SkillDetailPage() {
       } else if (item?.action === 'up-to-date') {
         toast(`${item.name} is already up to date.`, 'info');
       } else if (item?.action === 'blocked') {
-        toast(item.message ?? 'Blocked by security audit', 'error');
+        setBlockedMessage(item.message ?? 'Blocked by security audit — HIGH/CRITICAL findings detected');
       } else if (item?.action === 'error') {
         toast(item.message ?? 'Update failed', 'error');
       } else {
@@ -376,7 +379,7 @@ export default function SkillDetailPage() {
             <div className="flex gap-2 mt-4 pt-4 border-t-2 border-dashed border-pencil-light/30">
               {(skill.isInRepo || skill.source) && (
                 <HandButton
-                  onClick={handleUpdate}
+                  onClick={() => handleUpdate()}
                   disabled={updating}
                   variant="secondary"
                   size="sm"
@@ -470,6 +473,26 @@ export default function SkillDetailPage() {
           />
         </Suspense>
       )}
+
+      {/* Blocked by security audit dialog */}
+      <ConfirmDialog
+        open={blockedMessage !== null}
+        title="Blocked by Security Audit"
+        message={
+          <>
+            <p className="text-danger text-sm mb-2">{blockedMessage}</p>
+            <p className="text-pencil-light text-sm">Skip the audit and apply the update anyway?</p>
+          </>
+        }
+        confirmText="Skip Audit & Update"
+        variant="danger"
+        loading={updating}
+        onConfirm={() => {
+          setBlockedMessage(null);
+          handleUpdate(true);
+        }}
+        onCancel={() => setBlockedMessage(null)}
+      />
 
       {/* Confirm uninstall dialog */}
       <ConfirmDialog

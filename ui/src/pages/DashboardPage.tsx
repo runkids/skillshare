@@ -68,7 +68,9 @@ export default function DashboardPage() {
       if (res.results.length === 0) {
         toast('No tracked repos or updatable skills found.', 'info');
       } else {
-        toast(`Update complete: ${updated} updated, ${upToDate} up-to-date.`, updated > 0 ? 'success' : 'info');
+        const parts = [`${updated} updated`, `${upToDate} up-to-date`];
+        if (blocked.length > 0) parts.push(`${blocked.length} blocked`);
+        toast(`Update complete: ${parts.join(', ')}.`, blocked.length > 0 ? 'warning' : updated > 0 ? 'success' : 'info');
       }
       blocked.forEach((r) => toast(`${r.name}: ${r.message}`, 'error'));
       errors.forEach((r) => toast(`${r.name}: ${r.message}`, 'error'));

@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.15.4] - 2026-02-22
+
+### Added
+- **Post-update security audit gate** — `skillshare update` now runs a security audit after pulling tracked repositories; if HIGH or CRITICAL findings are detected, the update is automatically rolled back; interactive mode prompts for confirmation, non-interactive mode (CI) fails closed; use `--skip-audit` to bypass
+- **`--diff` flag for `update`** — `skillshare update team-skills --diff` shows a file-level change summary after pulling a tracked repo (added/modified/deleted files with line counts)
+- **Content hash pinning** — `install` and `update` now record SHA-256 hashes of all skill files in `.skillshare-meta.json`; subsequent `audit` runs detect tampering (`content-tampered`), missing files (`content-missing`), and unexpected files (`content-unexpected`)
+- **`source-repository-link` audit rule** (HIGH) — detects markdown links labeled "source repo" or "source repository" pointing to external URLs, which may be used for supply-chain redirect attacks
+- **Severity-based risk floor** — audit risk label is now the higher of the score-based label and a floor derived from the most severe finding (e.g., a single HIGH finding always gets at least a `high` risk label)
+
+### Fixed
+- **Uninstall group directory config cleanup** — uninstalling a group directory (e.g., `frontend/`) now properly removes member skill entries (e.g., `frontend/react`, `frontend/vue`) from `config.yaml` via prefix matching
+- **Batch `update --all` error propagation** — repos blocked by the security audit gate now count as "Blocked" in the batch summary and cause non-zero exit code
+- **`--skip-audit` passthrough** — the flag is now consistently honored for both tracked repos and regular skills during `update`
+- **Server rollback error reporting** — Web UI update endpoint now implements post-pull audit gate with automatic rollback on HIGH/CRITICAL findings
+
 ## [0.15.3] - 2026-02-22
 
 ### Added
