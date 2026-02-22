@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
@@ -16,11 +17,13 @@ import (
 
 // updateOptions holds parsed arguments for update command
 type updateOptions struct {
-	names  []string // positional args (0+)
-	groups []string // --group/-G values (repeatable)
-	all    bool
-	dryRun bool
-	force  bool
+	names     []string // positional args (0+)
+	groups    []string // --group/-G values (repeatable)
+	all       bool
+	dryRun    bool
+	force     bool
+	skipAudit bool
+	diff      bool
 }
 
 // parseUpdateArgs parses command line arguments for the update command.
@@ -37,6 +40,10 @@ func parseUpdateArgs(args []string) (*updateOptions, bool, error) {
 			opts.dryRun = true
 		case arg == "--force" || arg == "-f":
 			opts.force = true
+		case arg == "--skip-audit":
+			opts.skipAudit = true
+		case arg == "--diff":
+			opts.diff = true
 		case arg == "--group" || arg == "-G":
 			i++
 			if i >= len(args) {
@@ -179,7 +186,7 @@ func cmdUpdate(args []string) error {
 	}
 
 	if opts.all {
-		err = updateAllTrackedRepos(cfg, opts.dryRun, opts.force)
+		err = updateAllTrackedRepos(cfg, opts.dryRun, opts.force, opts.skipAudit, opts.diff)
 		logUpdateOp(config.ConfigPath(), []string{"--all"}, start, err)
 		return err
 	}
@@ -260,7 +267,7 @@ func cmdUpdate(args []string) error {
 		t := targets[0]
 		var updateErr error
 		if t.isRepo {
-			updateErr = updateTrackedRepo(cfg, t.relPath, opts.dryRun, opts.force)
+			updateErr = updateTrackedRepo(cfg, t.relPath, opts.dryRun, opts.force, opts.skipAudit, opts.diff)
 		} else {
 			updateErr = updateRegularSkill(cfg, t.relPath, opts.dryRun, opts.force)
 		}
@@ -279,7 +286,7 @@ func cmdUpdate(args []string) error {
 		progress := fmt.Sprintf("[%d/%d]", i+1, total)
 		itemPath := filepath.Join(cfg.Source, t.relPath)
 		if t.isRepo {
-			if updated, _ := updateTrackedRepoQuick(t.relPath, itemPath, progress, opts.dryRun, opts.force); updated {
+			if updated, _ := updateTrackedRepoQuick(t.relPath, itemPath, progress, opts.dryRun, opts.force, opts.skipAudit, opts.diff); updated {
 				result.updated++
 			} else {
 				result.skipped++
@@ -337,7 +344,7 @@ type updateResult struct {
 }
 
 // updateTrackedRepoQuick updates a single tracked repo (for --all mode)
-func updateTrackedRepoQuick(repo, repoPath, progress string, dryRun, force bool) (updated bool, err error) {
+func updateTrackedRepoQuick(repo, repoPath, progress string, dryRun, force, skipAudit, showDiff bool) (updated bool, err error) {
 	// Check for uncommitted changes
 	if isDirty, _ := git.IsDirty(repoPath); isDirty {
 		if !force {
@@ -372,9 +379,20 @@ func updateTrackedRepoQuick(repo, repoPath, progress string, dryRun, force bool)
 
 	if info.UpToDate {
 		spinner.Success(fmt.Sprintf("%s Already up to date", repo))
-	} else {
-		spinner.Success(fmt.Sprintf("%s %d commits, %d files", repo, len(info.Commits), info.Stats.FilesChanged))
+		return false, nil
 	}
+
+	spinner.Success(fmt.Sprintf("%s %d commits, %d files", repo, len(info.Commits), info.Stats.FilesChanged))
+
+	if showDiff {
+		renderDiffSummary(repoPath, info.BeforeHash, info.AfterHash)
+	}
+
+	// Post-pull audit gate
+	if err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit); err != nil {
+		return false, err
+	}
+
 	return true, nil
 }
 
@@ -404,7 +422,7 @@ func updateSkillFromMeta(skill, skillPath, progress string, dryRun bool) (update
 	return true
 }
 
-func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
+func updateAllTrackedRepos(cfg *config.Config, dryRun, force, skipAudit, showDiff bool) error {
 	repos, err := install.GetTrackedRepos(cfg.Source)
 	if err != nil {
 		return fmt.Errorf("failed to get tracked repos: %w", err)
@@ -432,7 +450,7 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 	for i, repo := range repos {
 		repoPath := filepath.Join(cfg.Source, repo)
 		progress := fmt.Sprintf("[%d/%d]", i+1, total)
-		if updated, _ := updateTrackedRepoQuick(repo, repoPath, progress, dryRun, force); updated {
+		if updated, _ := updateTrackedRepoQuick(repo, repoPath, progress, dryRun, force, skipAudit, showDiff); updated {
 			result.updated++
 		} else {
 			result.skipped++
@@ -466,7 +484,7 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force bool) error {
 	return nil
 }
 
-func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force bool) error {
+func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force, skipAudit, showDiff bool) error {
 	// Try tracked repo first (with _ prefix)
 	repoName := name
 	if !strings.HasPrefix(repoName, "_") {
@@ -475,7 +493,7 @@ func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force bool) erro
 	repoPath := filepath.Join(cfg.Source, repoName)
 
 	if install.IsGitRepo(repoPath) {
-		return updateTrackedRepo(cfg, repoName, dryRun, force)
+		return updateTrackedRepo(cfg, repoName, dryRun, force, skipAudit, showDiff)
 	}
 
 	// Try as regular skill (exact path)
@@ -486,13 +504,13 @@ func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force bool) erro
 
 	// Check if it's a nested path that exists as git repo
 	if install.IsGitRepo(skillPath) {
-		return updateTrackedRepo(cfg, name, dryRun, force)
+		return updateTrackedRepo(cfg, name, dryRun, force, skipAudit, showDiff)
 	}
 
 	// Fallback: search by basename in nested skills and repos
 	if match, err := resolveByBasename(cfg.Source, name); err == nil {
 		if match.isRepo {
-			return updateTrackedRepo(cfg, match.relPath, dryRun, force)
+			return updateTrackedRepo(cfg, match.relPath, dryRun, force, skipAudit, showDiff)
 		}
 		return updateRegularSkill(cfg, match.relPath, dryRun, force)
 	} else {
@@ -542,7 +560,7 @@ func resolveByBasename(sourceDir, name string) (resolvedMatch, error) {
 	return resolvedMatch{}, fmt.Errorf("%s", strings.Join(lines, "\n"))
 }
 
-func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force bool) error {
+func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipAudit, showDiff bool) error {
 	repoPath := filepath.Join(cfg.Source, repoName)
 
 	// Header box
@@ -631,7 +649,16 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force bool) 
 	lines = append(lines, "")
 
 	ui.Box("Changes", lines...)
+
+	if showDiff {
+		renderDiffSummary(repoPath, info.BeforeHash, info.AfterHash)
+	}
 	fmt.Println()
+
+	// Post-pull audit gate
+	if err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit); err != nil {
+		return err
+	}
 
 	ui.SuccessMsg("Updated %s", repoName)
 	fmt.Println()
@@ -693,6 +720,148 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force bool
 	return nil
 }
 
+// auditGateAfterPull scans the repo for security issues after a git pull.
+// If HIGH or CRITICAL findings are detected:
+//   - TTY mode: prompts the user; on decline, resets to beforeHash.
+//   - Non-TTY mode: automatically resets to beforeHash and returns error.
+//
+// Returns nil if audit passes or is skipped.
+func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool) error {
+	if skipAudit {
+		return nil
+	}
+
+	result, err := audit.ScanSkill(repoPath)
+	if err != nil {
+		// Scan error in non-interactive mode → fail-closed
+		if !ui.IsTTY() {
+			git.ResetHard(repoPath, beforeHash) //nolint:errcheck
+			return fmt.Errorf("security audit failed: %v (use --skip-audit to bypass)", err)
+		}
+		ui.Warning("security audit error: %v", err)
+		return nil
+	}
+
+	if !result.HasHigh() {
+		return nil
+	}
+
+	// Show findings
+	for _, f := range result.Findings {
+		if audit.SeverityRank(f.Severity) <= audit.SeverityRank(audit.SeverityHigh) {
+			ui.Warning("[%s] %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
+		}
+	}
+
+	if ui.IsTTY() {
+		fmt.Printf("\n  Security findings at HIGH or above detected.\n")
+		fmt.Printf("  Apply anyway? [y/N]: ")
+		var answer string
+		fmt.Scanln(&answer)
+		answer = strings.TrimSpace(strings.ToLower(answer))
+		if answer == "y" || answer == "yes" {
+			return nil
+		}
+		// User declined → rollback
+		if err := git.ResetHard(repoPath, beforeHash); err != nil {
+			return fmt.Errorf("rollback failed: %w", err)
+		}
+		ui.Info("Rolled back to %s", beforeHash[:12])
+		return fmt.Errorf("update rejected by user after security audit")
+	}
+
+	// Non-interactive → fail-closed
+	if err := git.ResetHard(repoPath, beforeHash); err != nil {
+		return fmt.Errorf("rollback failed: %w", err)
+	}
+	return fmt.Errorf("security audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass)")
+}
+
+// auditGateAfterPullProject is like auditGateAfterPull but uses project-mode rules.
+func auditGateAfterPullProject(repoPath, projectRoot, beforeHash string, skipAudit bool) error {
+	if skipAudit {
+		return nil
+	}
+
+	result, err := audit.ScanSkillForProject(repoPath, projectRoot)
+	if err != nil {
+		if !ui.IsTTY() {
+			git.ResetHard(repoPath, beforeHash) //nolint:errcheck
+			return fmt.Errorf("security audit failed: %v (use --skip-audit to bypass)", err)
+		}
+		ui.Warning("security audit error: %v", err)
+		return nil
+	}
+
+	if !result.HasHigh() {
+		return nil
+	}
+
+	for _, f := range result.Findings {
+		if audit.SeverityRank(f.Severity) <= audit.SeverityRank(audit.SeverityHigh) {
+			ui.Warning("[%s] %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
+		}
+	}
+
+	if ui.IsTTY() {
+		fmt.Printf("\n  Security findings at HIGH or above detected.\n")
+		fmt.Printf("  Apply anyway? [y/N]: ")
+		var answer string
+		fmt.Scanln(&answer)
+		answer = strings.TrimSpace(strings.ToLower(answer))
+		if answer == "y" || answer == "yes" {
+			return nil
+		}
+		if err := git.ResetHard(repoPath, beforeHash); err != nil {
+			return fmt.Errorf("rollback failed: %w", err)
+		}
+		ui.Info("Rolled back to %s", beforeHash[:12])
+		return fmt.Errorf("update rejected by user after security audit")
+	}
+
+	if err := git.ResetHard(repoPath, beforeHash); err != nil {
+		return fmt.Errorf("rollback failed: %w", err)
+	}
+	return fmt.Errorf("security audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass)")
+}
+
+// renderDiffSummary prints a file-level change summary for the given repo.
+func renderDiffSummary(repoPath, beforeHash, afterHash string) {
+	changes, err := git.GetChangedFiles(repoPath, beforeHash, afterHash)
+	if err != nil || len(changes) == 0 {
+		return
+	}
+
+	maxFiles := 20
+	lines := []string{""}
+	for i, c := range changes {
+		if i >= maxFiles {
+			lines = append(lines, fmt.Sprintf("  ... and %d more file(s)", len(changes)-maxFiles))
+			break
+		}
+		var marker string
+		switch c.Status {
+		case "A":
+			marker = "+"
+		case "D":
+			marker = "-"
+		default:
+			marker = "~"
+		}
+		detail := fmt.Sprintf("  %s %s", marker, c.Path)
+		if c.LinesAdded > 0 || c.LinesDeleted > 0 {
+			detail += fmt.Sprintf(" (+%d -%d)", c.LinesAdded, c.LinesDeleted)
+		}
+		if c.OldPath != "" {
+			detail += fmt.Sprintf(" (from %s)", c.OldPath)
+		}
+		lines = append(lines, detail)
+	}
+	lines = append(lines, "")
+
+	ui.Box("Files Changed", lines...)
+}
+
 func truncateString(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
@@ -724,6 +893,8 @@ Options:
   --group, -G <name>  Update all updatable skills in a group (repeatable)
   --force, -f         Discard local changes and force update
   --dry-run, -n       Preview without making changes
+  --skip-audit        Skip post-update security audit
+  --diff              Show file-level change summary after update
   --project, -p       Use project-level config in current directory
   --global, -g        Use global config (~/.config/skillshare)
   --help, -h          Show this help

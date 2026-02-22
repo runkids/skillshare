@@ -47,6 +47,24 @@ func GetCurrentHash(repoPath string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// GetCurrentFullHash returns the current HEAD hash (full 40-char).
+func GetCurrentFullHash(repoPath string) (string, error) {
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// ResetHard resets the working tree to the given revision.
+func ResetHard(repoPath, rev string) error {
+	cmd := exec.Command("git", "reset", "--hard", rev)
+	cmd.Dir = repoPath
+	return cmd.Run()
+}
+
 // Fetch runs git fetch
 func Fetch(repoPath string) error {
 	return FetchWithEnv(repoPath, nil)
@@ -151,8 +169,8 @@ func PullWithAuth(repoPath string) (*UpdateInfo, error) {
 func PullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
 	info := &UpdateInfo{}
 
-	// Get hash before pull
-	beforeHash, err := GetCurrentHash(repoPath)
+	// Get full hash before pull (for reliable rollback)
+	beforeHash, err := GetCurrentFullHash(repoPath)
 	if err != nil {
 		return nil, err
 	}
@@ -168,8 +186,8 @@ func PullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
 		return nil, err
 	}
 
-	// Get hash after pull
-	afterHash, err := GetCurrentHash(repoPath)
+	// Get full hash after pull
+	afterHash, err := GetCurrentFullHash(repoPath)
 	if err != nil {
 		return nil, err
 	}
@@ -190,6 +208,94 @@ func PullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
 	info.Stats = stats
 
 	return info, nil
+}
+
+// FileChange describes a single file change between two git revisions.
+type FileChange struct {
+	Status       string // A=added, M=modified, D=deleted, R=renamed
+	Path         string
+	OldPath      string // non-empty for renames
+	LinesAdded   int
+	LinesDeleted int
+}
+
+// GetChangedFiles returns file-level changes between two revisions.
+func GetChangedFiles(repoPath, from, to string) ([]FileChange, error) {
+	// Get name-status for type of change
+	statusCmd := exec.Command("git", "diff", "--name-status", from+".."+to)
+	statusCmd.Dir = repoPath
+	statusOut, err := statusCmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	// Get numstat for line counts
+	numCmd := exec.Command("git", "diff", "--numstat", from+".."+to)
+	numCmd.Dir = repoPath
+	numOut, err := numCmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse name-status
+	type statusEntry struct {
+		status  string
+		path    string
+		oldPath string
+	}
+	var entries []statusEntry
+	for _, line := range strings.Split(strings.TrimSpace(string(statusOut)), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) < 2 {
+			continue
+		}
+		s := parts[0]
+		e := statusEntry{path: parts[len(parts)-1]}
+		if strings.HasPrefix(s, "R") {
+			e.status = "R"
+			if len(parts) >= 3 {
+				e.oldPath = parts[1]
+				e.path = parts[2]
+			}
+		} else {
+			e.status = s[:1] // A, M, D, etc.
+		}
+		entries = append(entries, e)
+	}
+
+	// Parse numstat into a map keyed by path
+	numMap := map[string][2]int{} // path -> [added, deleted]
+	for _, line := range strings.Split(strings.TrimSpace(string(numOut)), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\t")
+		if len(parts) < 3 {
+			continue
+		}
+		added, _ := strconv.Atoi(parts[0])
+		deleted, _ := strconv.Atoi(parts[1])
+		numMap[parts[len(parts)-1]] = [2]int{added, deleted}
+	}
+
+	var changes []FileChange
+	for _, e := range entries {
+		fc := FileChange{
+			Status:  e.status,
+			Path:    e.path,
+			OldPath: e.oldPath,
+		}
+		if nums, ok := numMap[e.path]; ok {
+			fc.LinesAdded = nums[0]
+			fc.LinesDeleted = nums[1]
+		}
+		changes = append(changes, fc)
+	}
+
+	return changes, nil
 }
 
 // IsDirty checks if repo has uncommitted changes
@@ -466,8 +572,8 @@ func ForcePullWithAuth(repoPath string) (*UpdateInfo, error) {
 func ForcePullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
 	info := &UpdateInfo{}
 
-	// Get hash before
-	beforeHash, err := GetCurrentHash(repoPath)
+	// Get full hash before (for reliable rollback)
+	beforeHash, err := GetCurrentFullHash(repoPath)
 	if err != nil {
 		return nil, err
 	}
@@ -491,8 +597,8 @@ func ForcePullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
 		return nil, err
 	}
 
-	// Get hash after
-	afterHash, err := GetCurrentHash(repoPath)
+	// Get full hash after
+	afterHash, err := GetCurrentFullHash(repoPath)
 	if err != nil {
 		return nil, err
 	}
