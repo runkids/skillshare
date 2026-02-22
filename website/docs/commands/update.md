@@ -35,7 +35,7 @@ flowchart TD
     S4["4. Show changes"]
     TITLE --> S1 -- clean --> S2 --> S3
     S3 -- pass --> S4
-    S3 -- "HIGH/CRITICAL" --> RB["Rollback"]
+    S3 -- "At/above threshold" --> RB["Rollback"]
 
     style RB fill:#ef4444,color:#fff
 ```
@@ -60,6 +60,7 @@ flowchart TD
 | `--force, -f` | Discard local changes and force update |
 | `--dry-run, -n` | Preview without making changes |
 | `--skip-audit` | Skip the post-update security audit gate |
+| `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | Override update audit block threshold (`critical|high|medium|low|info`; shorthand: `c|h|m|l|i`, plus `crit`, `med`) |
 | `--diff` | Show file-level change summary after update |
 | `--help, -h` | Show help |
 
@@ -134,8 +135,8 @@ This updates:
 
 After updating skills, `update` automatically runs a security audit:
 
-- **Tracked repos (`git pull`)** use a post-pull gate at **HIGH/CRITICAL**
-- **Regular skills (reinstall path)** use install-time threshold policy (default `CRITICAL`)
+- **Tracked repos (`git pull`)** use a post-pull gate at the active threshold (`audit.block_threshold`, default `CRITICAL`)
+- **Regular skills (reinstall path)** use the same threshold policy
 - For all update types, aggregate risk label/score is displayed for review context
 
 ```
@@ -144,12 +145,12 @@ After updating skills, `update` automatically runs a security audit:
 
 ### Interactive Mode (TTY, tracked repos)
 
-When HIGH/CRITICAL findings are detected after tracked-repo pull, you're prompted to decide:
+When findings are detected at or above the active threshold, you're prompted to decide:
 
 ```
   [HIGH] Source repository link detected — may be used for supply-chain redirects (SKILL.md:5)
 
-  Security findings at HIGH or above detected.
+  Security findings at or above active threshold detected.
   Apply anyway? [y/N]:
 ```
 
@@ -168,6 +169,13 @@ skillshare update --all --skip-audit
 :::caution
 `--skip-audit` disables the post-update security scan entirely. Use it only when you trust the source or have an external audit process.
 :::
+
+You can override threshold per command with `--audit-threshold`, `--threshold`, or `-T`:
+
+```bash
+skillshare update _team-skills --threshold high
+skillshare update --all -T h
+```
 
 ## File Change Summary (`--diff`)
 

@@ -153,6 +153,37 @@ func setupProjectTrackedRepo(t *testing.T, sb *testutil.Sandbox, projectRoot, na
 	return repoName
 }
 
+// setupProjectTrackedRepoHighUpdate creates a tracked repo in project mode with a
+// clean initial commit and a pending HIGH-only update on the remote.
+func setupProjectTrackedRepoHighUpdate(t *testing.T, sb *testutil.Sandbox, projectRoot, name string) string {
+	t.Helper()
+
+	remoteDir := filepath.Join(sb.Root, name+"-remote.git")
+	run(t, "", "git", "init", "--bare", remoteDir)
+
+	repoName := "_" + name
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	repoPath := filepath.Join(skillsDir, repoName)
+	run(t, sb.Root, "git", "clone", remoteDir, repoPath)
+
+	os.MkdirAll(filepath.Join(repoPath, "my-skill"), 0755)
+	os.WriteFile(filepath.Join(repoPath, "my-skill", "SKILL.md"),
+		[]byte("---\nname: "+name+"\n---\n# Clean skill"), 0644)
+	run(t, repoPath, "git", "add", "-A")
+	run(t, repoPath, "git", "commit", "-m", "init")
+	run(t, repoPath, "git", "push", "origin", "HEAD")
+
+	workDir := filepath.Join(sb.Root, name+"-work")
+	run(t, sb.Root, "git", "clone", remoteDir, workDir)
+	os.WriteFile(filepath.Join(workDir, "my-skill", "SKILL.md"),
+		[]byte("---\nname: "+name+"\n---\n# Updated\n[source repository](https://github.com/org/repo)\n"), 0644)
+	run(t, workDir, "git", "add", "-A")
+	run(t, workDir, "git", "commit", "-m", "inject high-only content")
+	run(t, workDir, "git", "push", "origin", "HEAD")
+
+	return repoName
+}
+
 func TestUpdateProject_BatchAll_FailsOnMalicious(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -192,4 +223,25 @@ func TestUpdateProject_BatchMultiple_FailsOnMalicious(t *testing.T) {
 	result := sb.RunCLIInDir(projectRoot, "update", cleanName, maliciousName, "-p")
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "blocked by security audit")
+}
+
+func TestUpdateProject_HighBlockedWithThresholdOverride(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	repoName := setupProjectTrackedRepoHighUpdate(t, sb, projectRoot, "proj-high")
+
+	result := sb.RunCLIInDir(projectRoot, "update", repoName, "-p", "-T", "h")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "findings at/above HIGH")
+
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	content := sb.ReadFile(filepath.Join(skillsDir, repoName, "my-skill", "SKILL.md"))
+	if contains(content, "[source repository]") {
+		t.Error("HIGH-only update should be rolled back when threshold is HIGH")
+	}
+	if !contains(content, "Clean skill") {
+		t.Error("clean pre-update content should remain after rollback")
+	}
 }

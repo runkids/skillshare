@@ -34,10 +34,18 @@ func cmdUpdateProject(args []string, root string) error {
 		}
 	}
 
-	sourcePath := filepath.Join(root, ".skillshare", "skills")
+	runtime, err := loadProjectRuntime(root)
+	if err != nil {
+		return err
+	}
+
+	sourcePath := runtime.sourcePath
+	if opts.threshold == "" {
+		opts.threshold = runtime.config.Audit.BlockThreshold
+	}
 
 	if opts.all {
-		return updateAllProjectSkills(sourcePath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, root)
+		return updateAllProjectSkills(sourcePath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, root)
 	}
 
 	return cmdUpdateProjectBatch(sourcePath, opts, root)
@@ -150,9 +158,9 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	if len(targets) == 1 {
 		t := targets[0]
 		if t.isRepo {
-			return updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.diff, projectRoot)
+			return updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, projectRoot)
 		}
-		return updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, projectRoot)
+		return updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, projectRoot)
 	}
 
 	// Batch mode
@@ -164,7 +172,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	securityFailed := 0
 	for _, t := range targets {
 		if t.isRepo {
-			if err := updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.diff, projectRoot); err != nil {
+			if err := updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, projectRoot); err != nil {
 				if isSecurityError(err) {
 					securityFailed++
 				}
@@ -173,7 +181,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 				updated++
 			}
 		} else {
-			if err := updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, projectRoot); err != nil {
+			if err := updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, projectRoot); err != nil {
 				if isSecurityError(err) {
 					securityFailed++
 				}
@@ -195,7 +203,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	return nil
 }
 
-func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit, showDiff bool, projectRoot string) error {
+func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit, showDiff bool, threshold, projectRoot string) error {
 	// Normalize _ prefix for tracked repos
 	repoName := name
 	if !strings.HasPrefix(repoName, "_") {
@@ -208,7 +216,7 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit,
 
 	// Try as tracked repo first
 	if install.IsGitRepo(repoPath) {
-		return updateProjectTrackedRepo(repoName, repoPath, dryRun, force, skipAudit, showDiff, projectRoot)
+		return updateProjectTrackedRepo(repoName, repoPath, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
 	}
 
 	// Regular skill with metadata
@@ -239,7 +247,12 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit,
 	}
 
 	spinner := ui.StartSpinner(fmt.Sprintf("Updating %s...", name))
-	opts := install.InstallOptions{Force: true, Update: true, SkipAudit: skipAudit}
+	opts := install.InstallOptions{
+		Force:          true,
+		Update:         true,
+		SkipAudit:      skipAudit,
+		AuditThreshold: threshold,
+	}
 	result, err := install.Install(source, skillPath, opts)
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("%s failed: %v", name, err))
@@ -258,7 +271,7 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit,
 	return nil
 }
 
-func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudit, showDiff bool, projectRoot string) error {
+func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudit, showDiff bool, threshold, projectRoot string) error {
 	// Check for uncommitted changes
 	if isDirty, _ := git.IsDirty(repoPath); isDirty {
 		if !force {
@@ -306,7 +319,7 @@ func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudi
 	scanFn := func(path string) (*audit.Result, error) {
 		return audit.ScanSkillForProject(path, projectRoot)
 	}
-	if err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, scanFn); err != nil {
+	if err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, scanFn); err != nil {
 		return err
 	}
 
@@ -315,7 +328,7 @@ func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudi
 	return nil
 }
 
-func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDiff bool, projectRoot string) error {
+func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDiff bool, threshold, projectRoot string) error {
 	entries, err := os.ReadDir(sourcePath)
 	if err != nil {
 		return fmt.Errorf("failed to read project skills: %w", err)
@@ -337,7 +350,7 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 
 		// Tracked repo: git pull
 		if install.IsGitRepo(skillPath) {
-			if err := updateProjectTrackedRepo(skillName, skillPath, dryRun, force, skipAudit, showDiff, projectRoot); err != nil {
+			if err := updateProjectTrackedRepo(skillName, skillPath, dryRun, force, skipAudit, showDiff, threshold, projectRoot); err != nil {
 				if isSecurityError(err) {
 					securityFailed++
 				}
@@ -372,7 +385,12 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 		}
 
 		spinner := ui.StartSpinner(fmt.Sprintf("Updating %s...", skillName))
-		result, err := install.Install(source, skillPath, install.InstallOptions{Force: true, Update: true, SkipAudit: skipAudit})
+		result, err := install.Install(source, skillPath, install.InstallOptions{
+			Force:          true,
+			Update:         true,
+			SkipAudit:      skipAudit,
+			AuditThreshold: threshold,
+		})
 		if err != nil {
 			spinner.Fail(fmt.Sprintf("%s failed: %v", skillName, err))
 			if isSecurityError(err) {

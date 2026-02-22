@@ -130,8 +130,8 @@ git pull origin main
 
 **Security behavior during updates:**
 - Updated content is audited after pull.
-- For `skillshare update`, HIGH/CRITICAL findings trigger a gate (TTY asks for confirmation; non-TTY rolls back automatically unless `--skip-audit` is used).
-- For `skillshare install <repo> --track --update`, blocking uses the active install threshold (`audit.block_threshold` or `--threshold`).
+- Blocking uses the active threshold (`audit.block_threshold` by default, or per-command `--threshold`/`-T` override).
+- In TTY mode, `skillshare update` prompts for confirmation when findings hit threshold; in non-TTY mode it rolls back automatically (unless `--skip-audit` is used).
 - On rejection, tracked repos roll back to the previous commit to preserve local state.
 - If rollback baseline capture fails, update aborts for safety (fail-closed).
 

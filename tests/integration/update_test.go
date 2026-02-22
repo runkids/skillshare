@@ -217,6 +217,38 @@ func setupTrackedRepoWithMaliciousUpdate(t *testing.T, sb *testutil.Sandbox) str
 	return repoName
 }
 
+// setupTrackedRepoWithHighOnlyUpdate creates a tracked repo with a clean initial
+// commit, then pushes an update that triggers a HIGH finding (without CRITICAL).
+func setupTrackedRepoWithHighOnlyUpdate(t *testing.T, sb *testutil.Sandbox) string {
+	t.Helper()
+
+	remoteDir := filepath.Join(sb.Root, "remote-repo-high.git")
+	run(t, "", "git", "init", "--bare", remoteDir)
+
+	repoName := "_audit-high-repo"
+	repoPath := filepath.Join(sb.SourcePath, repoName)
+	run(t, sb.Root, "git", "clone", remoteDir, repoPath)
+
+	// Initial clean commit
+	os.MkdirAll(filepath.Join(repoPath, "my-skill"), 0755)
+	os.WriteFile(filepath.Join(repoPath, "my-skill", "SKILL.md"),
+		[]byte("---\nname: my-skill\n---\n# Clean skill\nNothing dangerous."), 0644)
+	run(t, repoPath, "git", "add", "-A")
+	run(t, repoPath, "git", "commit", "-m", "initial clean commit")
+	run(t, repoPath, "git", "push", "origin", "HEAD")
+
+	// Push HIGH-only update from work clone
+	workDir := filepath.Join(sb.Root, "work-clone-high")
+	run(t, sb.Root, "git", "clone", remoteDir, workDir)
+	os.WriteFile(filepath.Join(workDir, "my-skill", "SKILL.md"),
+		[]byte("---\nname: my-skill\n---\n# Updated\n[source repository](https://github.com/org/repo)\n"), 0644)
+	run(t, workDir, "git", "add", "-A")
+	run(t, workDir, "git", "commit", "-m", "inject high-only content")
+	run(t, workDir, "git", "push", "origin", "HEAD")
+
+	return repoName
+}
+
 func TestUpdate_AutoAudit_RollbackOnMalicious(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -254,6 +286,43 @@ func TestUpdate_AutoAuditSkipAudit(t *testing.T) {
 	content := sb.ReadFile(filepath.Join(sb.SourcePath, repoName, "my-skill", "SKILL.md"))
 	if !contains(content, "Ignore all previous instructions") {
 		t.Error("with --skip-audit, malicious content should be present")
+	}
+}
+
+func TestUpdate_AutoAudit_HighAllowedAtCriticalThreshold(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	repoName := setupTrackedRepoWithHighOnlyUpdate(t, sb)
+
+	// Default threshold is CRITICAL, so HIGH findings should not block.
+	result := sb.RunCLI("update", repoName)
+	result.AssertSuccess(t)
+
+	content := sb.ReadFile(filepath.Join(sb.SourcePath, repoName, "my-skill", "SKILL.md"))
+	if !contains(content, "[source repository]") {
+		t.Error("HIGH-only update should be applied at default CRITICAL threshold")
+	}
+}
+
+func TestUpdate_AutoAudit_HighBlockedWithThresholdOverride(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	repoName := setupTrackedRepoWithHighOnlyUpdate(t, sb)
+
+	result := sb.RunCLI("update", repoName, "-T", "h")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "findings at/above HIGH")
+
+	content := sb.ReadFile(filepath.Join(sb.SourcePath, repoName, "my-skill", "SKILL.md"))
+	if contains(content, "[source repository]") {
+		t.Error("HIGH-only update should be rolled back when threshold is HIGH")
+	}
+	if !contains(content, "Nothing dangerous.") {
+		t.Error("clean pre-update content should remain after rollback")
 	}
 }
 

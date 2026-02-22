@@ -268,6 +268,51 @@ func TestInstall_LocalPath_HighFinding_BelowCriticalThresholdWarns(t *testing.T)
 	}
 }
 
+func TestInstall_LocalPath_UpdateReinstall_RespectsAuditThreshold(t *testing.T) {
+	tmp := t.TempDir()
+	srcDir := createLocalSkillSource(t, tmp, "update-threshold")
+	destDir := filepath.Join(tmp, "dest", "update-threshold")
+
+	source := &Source{
+		Type: SourceTypeLocalPath,
+		Raw:  srcDir,
+		Path: srcDir,
+		Name: "update-threshold",
+	}
+
+	// Initial clean install.
+	if _, err := Install(source, destDir, InstallOptions{SkipAudit: true}); err != nil {
+		t.Fatalf("initial install failed: %v", err)
+	}
+
+	// Update source with HIGH-only content.
+	if err := os.WriteFile(
+		filepath.Join(srcDir, "SKILL.md"),
+		[]byte("---\nname: update-threshold\n---\n# Updated\n[source repository](https://github.com/org/repo)\n"),
+		0644,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	// Update path should use the same threshold and block on HIGH.
+	_, err := Install(source, destDir, InstallOptions{Update: true, AuditThreshold: audit.SeverityHigh})
+	if err == nil {
+		t.Fatal("expected update to be blocked by HIGH threshold")
+	}
+	if !errors.Is(err, audit.ErrBlocked) {
+		t.Fatalf("expected error to wrap audit.ErrBlocked, got: %v", err)
+	}
+
+	// Original destination should remain unchanged after blocked update.
+	content, readErr := os.ReadFile(filepath.Join(destDir, "SKILL.md"))
+	if readErr != nil {
+		t.Fatalf("failed to read destination SKILL.md: %v", readErr)
+	}
+	if strings.Contains(string(content), "[source repository]") {
+		t.Fatalf("expected blocked update content to be rolled back, got: %s", string(content))
+	}
+}
+
 func TestInstall_LocalPath_AuditSkipped(t *testing.T) {
 	tmp := t.TempDir()
 	srcDir := createLocalSkillSource(t, tmp, "skip-audit")

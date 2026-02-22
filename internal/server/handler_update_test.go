@@ -59,11 +59,14 @@ func TestAuditGateTrackedRepo_RollbackFailure_ReportsWarning(t *testing.T) {
 	}
 
 	// Create a minimal server
-	cfg := &config.Config{Source: t.TempDir()}
+	cfg := &config.Config{
+		Source: t.TempDir(),
+		Audit:  config.AuditConfig{BlockThreshold: "HIGH"},
+	}
 	s := &Server{cfg: cfg}
 
 	// Pass an invalid beforeHash so git reset --hard will fail
-	result, _ := s.auditGateTrackedRepo("test-repo", repoDir, "0000000000000000000000000000000000000000")
+	result, _ := s.auditGateTrackedRepo("test-repo", repoDir, "0000000000000000000000000000000000000000", s.updateAuditThreshold())
 
 	if result == nil {
 		t.Fatal("expected blocked result, got nil (audit should detect HIGH finding)")
@@ -88,7 +91,7 @@ func TestAuditGateTrackedRepo_ScanError_RollbackFailure_ReportsWarning(t *testin
 
 	// Non-existent path → audit.ScanSkill returns error, git.ResetHard also fails
 	nonExistentPath := filepath.Join(t.TempDir(), "does-not-exist")
-	result, _ := s.auditGateTrackedRepo("test-repo", nonExistentPath, "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+	result, _ := s.auditGateTrackedRepo("test-repo", nonExistentPath, "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", s.updateAuditThreshold())
 
 	if result == nil {
 		t.Fatal("expected blocked result")
@@ -125,7 +128,7 @@ func TestAuditGateTrackedRepo_Clean_ReturnsNil(t *testing.T) {
 	cfg := &config.Config{Source: t.TempDir()}
 	s := &Server{cfg: cfg}
 
-	blocked, auditResult := s.auditGateTrackedRepo("clean-repo", repoDir, "doesntmatter")
+	blocked, auditResult := s.auditGateTrackedRepo("clean-repo", repoDir, "doesntmatter", s.updateAuditThreshold())
 	if blocked != nil {
 		t.Errorf("expected nil for clean repo, got action=%q message=%q", blocked.Action, blocked.Message)
 	}

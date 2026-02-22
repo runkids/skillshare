@@ -574,21 +574,38 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 			return result, nil
 		}
 
+		threshold, err := audit.NormalizeThreshold(opts.AuditThreshold)
+		if err != nil {
+			threshold = audit.DefaultThreshold()
+		}
+		result.AuditThreshold = threshold
+
 		// Record hash before pull for rollback
-		beforeHash, _ := getGitFullHash(destPath)
+		beforeHash, err := getGitFullHash(destPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to determine rollback commit before update (aborting for safety): %w", err)
+		}
+		if beforeHash == "" {
+			return nil, fmt.Errorf("failed to determine rollback commit before update (aborting for safety): empty commit hash")
+		}
 
 		if err := gitPull(destPath); err != nil {
 			return nil, fmt.Errorf("failed to update: %w", err)
 		}
 
-		// Post-pull audit gate: rollback on HIGH/CRITICAL unless skipped
-		if beforeHash != "" && !opts.SkipAudit {
+		// Post-pull audit gate: rollback on findings at/above threshold unless skipped.
+		if !opts.SkipAudit {
 			afterHash, _ := getGitFullHash(destPath)
 			if afterHash != beforeHash {
-				if err := auditGateFailClosed(destPath, beforeHash, opts.AuditProjectRoot); err != nil {
+				scanResult, err := auditGateFailClosed(destPath, beforeHash, threshold, opts.AuditProjectRoot)
+				if err != nil {
 					return nil, err
 				}
+				result.AuditRiskScore = scanResult.RiskScore
+				result.AuditRiskLabel = scanResult.RiskLabel
 			}
+		} else {
+			result.AuditSkipped = true
 		}
 
 		// Update metadata timestamp and file hashes
@@ -626,7 +643,7 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 
 	// Install to temp location first.
 	// Force is NOT set: tempDest is fresh, so no overwrite needed.
-	// This lets auditInstalledSkill properly gate on HIGH/CRITICAL findings,
+	// This lets auditInstalledSkill properly gate on findings at/above threshold,
 	// consistent with auditGateAfterPull for tracked repos.
 	innerResult, err := Install(source, tempDest, InstallOptions{
 		Name:             opts.Name,
@@ -634,6 +651,7 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		DryRun:           false,
 		Update:           false,
 		SkipAudit:        opts.SkipAudit,
+		AuditThreshold:   opts.AuditThreshold,
 		AuditProjectRoot: opts.AuditProjectRoot,
 	})
 	if err != nil {
@@ -828,10 +846,21 @@ func auditTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOp
 }
 
 // auditGateFailClosed scans a repo after git pull and rolls back on scan
-// error or HIGH/CRITICAL findings. Used by handleUpdate for non-tracked skill
-// updates where fail-closed is the only behaviour (no TTY prompt, no threshold
-// override). For tracked repos with richer audit options, see auditTrackedRepoUpdate.
-func auditGateFailClosed(repoPath, beforeHash, projectRoot string) error {
+// error or findings at/above threshold. Used by handleUpdate for non-tracked
+// skill updates where fail-closed is the only behaviour.
+func auditGateFailClosed(repoPath, beforeHash, threshold, projectRoot string) (*audit.Result, error) {
+	if beforeHash == "" {
+		return nil, fmt.Errorf(
+			"post-update audit failed — rollback commit unavailable, update aborted and repository state is unknown: %w",
+			audit.ErrBlocked,
+		)
+	}
+
+	normalizedThreshold, err := audit.NormalizeThreshold(threshold)
+	if err != nil {
+		normalizedThreshold = audit.DefaultThreshold()
+	}
+
 	var scanResult *audit.Result
 	var scanErr error
 	if projectRoot != "" {
@@ -841,17 +870,24 @@ func auditGateFailClosed(repoPath, beforeHash, projectRoot string) error {
 	}
 	if scanErr != nil {
 		if resetErr := gitResetHard(repoPath, beforeHash); resetErr != nil {
-			return fmt.Errorf("post-update audit failed: %v; WARNING: rollback also failed: %v — malicious content may remain: %w", scanErr, resetErr, audit.ErrBlocked)
+			return nil, fmt.Errorf("post-update audit failed: %v; WARNING: rollback also failed: %v — malicious content may remain: %w", scanErr, resetErr, audit.ErrBlocked)
 		}
-		return fmt.Errorf("post-update audit failed: %v — rolled back (use --skip-audit to bypass): %w", scanErr, audit.ErrBlocked)
+		return nil, fmt.Errorf("post-update audit failed: %v — rolled back (use --skip-audit to bypass): %w", scanErr, audit.ErrBlocked)
 	}
-	if scanResult.HasHigh() {
+	if scanResult.HasSeverityAtOrAbove(normalizedThreshold) {
+		details := blockedFindingDetails(scanResult.Findings, normalizedThreshold)
 		if resetErr := gitResetHard(repoPath, beforeHash); resetErr != nil {
-			return fmt.Errorf("post-update audit found HIGH/CRITICAL findings; WARNING: rollback also failed: %v — malicious content may remain: %w", resetErr, audit.ErrBlocked)
+			return nil, fmt.Errorf("post-update audit found findings at/above %s; WARNING: rollback also failed: %v — malicious content may remain: %w", normalizedThreshold, resetErr, audit.ErrBlocked)
 		}
-		return fmt.Errorf("post-update audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass): %w", audit.ErrBlocked)
+		return nil, fmt.Errorf(
+			"post-update audit failed — findings at/above %s detected (rolled back to %s):\n%s\n\nUse --skip-audit to bypass: %w",
+			normalizedThreshold,
+			shortHash(beforeHash),
+			strings.Join(details, "\n"),
+			audit.ErrBlocked,
+		)
 	}
-	return nil
+	return scanResult, nil
 }
 
 // auditTrackedRepoUpdate scans an updated tracked repo for security threats.
@@ -878,8 +914,19 @@ func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResu
 		scanResult, err = audit.ScanSkill(repoPath)
 	}
 	if err != nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("audit scan error: %v", err))
-		return nil
+		if beforeHash == "" {
+			return fmt.Errorf(
+				"security audit failed: %v — rollback commit unavailable, update aborted and repository state is unknown: %w",
+				err,
+				audit.ErrBlocked,
+			)
+		}
+		if resetErr := gitResetHard(repoPath, beforeHash); resetErr != nil {
+			return fmt.Errorf("security audit failed: %v; WARNING: rollback also failed: %v — malicious content may remain: %w",
+				err, resetErr, audit.ErrBlocked)
+		}
+		return fmt.Errorf("security audit failed: %v — rolled back (use --skip-audit to bypass): %w",
+			err, audit.ErrBlocked)
 	}
 	result.AuditRiskScore = scanResult.RiskScore
 	result.AuditRiskLabel = scanResult.RiskLabel

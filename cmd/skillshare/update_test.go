@@ -47,3 +47,26 @@ func TestIsSecurityError(t *testing.T) {
 		})
 	}
 }
+
+func TestParseUpdateArgs_ThresholdAlias(t *testing.T) {
+	opts, showHelp, err := parseUpdateArgs([]string{"--all", "-T", "h"})
+	if err != nil {
+		t.Fatalf("parseUpdateArgs returned error: %v", err)
+	}
+	if showHelp {
+		t.Fatal("expected showHelp=false")
+	}
+	if opts.threshold != audit.SeverityHigh {
+		t.Fatalf("expected threshold=%s, got %s", audit.SeverityHigh, opts.threshold)
+	}
+}
+
+func TestParseUpdateArgs_InvalidThreshold(t *testing.T) {
+	_, showHelp, err := parseUpdateArgs([]string{"--all", "--threshold", "urgent"})
+	if err == nil {
+		t.Fatal("expected error for invalid threshold")
+	}
+	if showHelp {
+		t.Fatal("expected showHelp=false on invalid threshold")
+	}
+}
