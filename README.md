@@ -44,7 +44,7 @@
 > **Recent Updates**
 > | Version | Highlights |
 > |---------|------------|
-> | [0.15.x](https://github.com/runkids/skillshare/releases/tag/v0.15.3) | Copy sync mode, private repo HTTPS token auth, `pull` merges by default, multi-name `audit` with `--group`, parallel audit scanning, `external-link` detection rule |
+> | [0.15.x](https://github.com/runkids/skillshare/releases/tag/v0.15.4) | Supply-chain security (auto-audit gate with rollback, content hash pinning, `--diff` for `update`), copy sync mode, HTTPS token auth, multi-name `audit` with `--group` |
 > | [0.14.0](https://github.com/runkids/skillshare/releases/tag/v0.14.0) | Global skill manifest, `.skillignore`, multi-skill/group uninstall, license display, 6 new audit rules |
 > | [0.13.0](https://github.com/runkids/skillshare/releases/tag/v0.13.0) | Skill-level targets, XDG compliance, unified target names, runtime UI download |
 > | [0.12.0](https://github.com/runkids/skillshare/releases/tag/v0.12.0) | Skill Hub — generate indexes, search private catalogs with `--hub` |
