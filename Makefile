@@ -1,4 +1,4 @@
-.PHONY: help build build-meta run test test-unit test-int test-docker test-docker-online test-redteam test-redteam-signal playground playground-down dev-docker dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
+.PHONY: help build build-meta run test test-unit test-int test-docker test-docker-online test-redteam test-redteam-signal test-redteam-rules-signal playground playground-down dev-docker dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
 
 help:
 	@echo "Common tasks:"
@@ -11,6 +11,7 @@ help:
 	@echo "  make test-docker-online  # docker online install/update tests"
 	@echo "  make test-redteam   # red team supply-chain security tests"
 	@echo "  make test-redteam-signal  # verify red team test fails on intentional mutation"
+	@echo "  make test-redteam-rules-signal  # verify red team test fails when critical builtin rules are disabled"
 	@echo "  make playground     # start playground + enter shell (one step)"
 	@echo "  make playground-down  # stop and remove playground"
 	@echo "  make lint           # go vet"
@@ -57,6 +58,9 @@ test-redteam: build
 
 test-redteam-signal:
 	./scripts/test_redteam_signal.sh
+
+test-redteam-rules-signal:
+	./scripts/test_redteam_rules_signal.sh
 
 playground:
 	./scripts/sandbox_playground_up.sh
