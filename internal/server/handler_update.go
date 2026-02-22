@@ -22,10 +22,12 @@ type updateRequest struct {
 }
 
 type updateResultItem struct {
-	Name    string `json:"name"`
-	Action  string `json:"action"` // "updated", "up-to-date", "skipped", "error", "blocked"
-	Message string `json:"message,omitempty"`
-	IsRepo  bool   `json:"isRepo"`
+	Name           string `json:"name"`
+	Action         string `json:"action"` // "updated", "up-to-date", "skipped", "error", "blocked"
+	Message        string `json:"message,omitempty"`
+	IsRepo         bool   `json:"isRepo"`
+	AuditRiskScore int    `json:"auditRiskScore,omitempty"`
+	AuditRiskLabel string `json:"auditRiskLabel,omitempty"`
 }
 
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
@@ -178,23 +180,29 @@ func (s *Server) updateTrackedRepo(name, repoPath string, force, skipAudit bool)
 	}
 
 	// Post-pull audit gate
-	if !skipAudit {
-		if blocked := s.auditGateTrackedRepo(name, repoPath, info.BeforeHash); blocked != nil {
-			return *blocked
-		}
-	}
-
-	return updateResultItem{
+	item := updateResultItem{
 		Name:    name,
 		Action:  "updated",
 		Message: fmt.Sprintf("%d commits, %d files changed", len(info.Commits), info.Stats.FilesChanged),
 		IsRepo:  true,
 	}
+	if !skipAudit {
+		blocked, auditResult := s.auditGateTrackedRepo(name, repoPath, info.BeforeHash)
+		if blocked != nil {
+			return *blocked
+		}
+		if auditResult != nil {
+			item.AuditRiskScore = auditResult.RiskScore
+			item.AuditRiskLabel = auditResult.RiskLabel
+		}
+	}
+
+	return item
 }
 
 // auditGateTrackedRepo scans a tracked repo after pull and rolls back if HIGH/CRITICAL.
-// Returns a blocked result item, or nil if the update should proceed.
-func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string) *updateResultItem {
+// Returns (blocked item, audit result). blocked is non-nil when the update should be rejected.
+func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string) (*updateResultItem, *audit.Result) {
 	var result *audit.Result
 	var err error
 	if s.IsProjectMode() {
@@ -213,7 +221,7 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string) *update
 			Action:  "blocked",
 			Message: msg,
 			IsRepo:  true,
-		}
+		}, nil
 	}
 
 	if result.HasHigh() {
@@ -228,10 +236,10 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string) *update
 			Action:  "blocked",
 			Message: msg,
 			IsRepo:  true,
-		}
+		}, result
 	}
 
-	return nil
+	return nil, result
 }
 
 func (s *Server) updateRegularSkill(name, skillPath string, skipAudit bool) updateResultItem {
@@ -249,7 +257,8 @@ func (s *Server) updateRegularSkill(name, skillPath string, skipAudit bool) upda
 	if s.IsProjectMode() {
 		opts.AuditProjectRoot = s.projectRoot
 	}
-	if _, err = install.Install(source, skillPath, opts); err != nil {
+	result, err := install.Install(source, skillPath, opts)
+	if err != nil {
 		return updateResultItem{
 			Name:    name,
 			Action:  "error",
@@ -257,11 +266,16 @@ func (s *Server) updateRegularSkill(name, skillPath string, skipAudit bool) upda
 		}
 	}
 
-	return updateResultItem{
+	item := updateResultItem{
 		Name:    name,
 		Action:  "updated",
 		Message: "reinstalled from source",
 	}
+	if result != nil && result.AuditRiskLabel != "" {
+		item.AuditRiskScore = result.AuditRiskScore
+		item.AuditRiskLabel = result.AuditRiskLabel
+	}
+	return item
 }
 
 func (s *Server) updateAll(force, skipAudit bool) []updateResultItem {
