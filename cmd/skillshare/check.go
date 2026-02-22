@@ -591,11 +591,11 @@ Options:
   --help, -h          Show this help
 
 Examples:
-  skillshare check                      Check all items
-  skillshare check my-skill             Check a single skill
-  skillshare check a b c                Check multiple skills
-  skillshare check --group frontend     Check all skills in frontend/
-  skillshare check x -G backend         Mix names and groups
-  skillshare check --json               Output as JSON (for CI)
-  skillshare check -p                   Check project skills`)
+  skillshare check                     # Check all items
+  skillshare check my-skill            # Check a single skill
+  skillshare check a b c               # Check multiple skills
+  skillshare check --group frontend    # Check all skills in frontend/
+  skillshare check x -G backend        # Mix names and groups
+  skillshare check --json              # Output as JSON (for CI)
+  skillshare check -p                  # Check project skills`)
 }
