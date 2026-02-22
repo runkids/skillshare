@@ -646,8 +646,14 @@ Summary interpretation:
 
 Use `id` values to override or disable specific built-in rules:
 
-Source of truth (full built-in definitions):
+Source of truth for regex-based rules:
 [`internal/audit/rules.yaml`](https://github.com/runkids/skillshare/blob/main/internal/audit/rules.yaml)
+
+:::note Structural checks
+
+`dangling-link` is not defined in `rules.yaml` — it is a **structural check** that verifies local markdown link targets exist on disk (using filesystem lookups, not regex). It still appears in the table below and can be disabled via `audit-rules.yaml` like any other rule.
+
+:::
 
 | ID | Pattern | Severity |
 |----|---------|----------|
