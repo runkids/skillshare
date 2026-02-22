@@ -25,27 +25,28 @@ type auditOptions struct {
 }
 
 type auditRunSummary struct {
-	Scope      string   `json:"scope,omitempty"`
-	Skill      string   `json:"skill,omitempty"`
-	Path       string   `json:"path,omitempty"`
-	Scanned    int      `json:"scanned"`
-	Passed     int      `json:"passed"`
-	Warning    int      `json:"warning"`
-	Failed     int      `json:"failed"`
-	Critical   int      `json:"critical"`
-	High       int      `json:"high"`
-	Medium     int      `json:"medium"`
-	Low        int      `json:"low"`
-	Info       int      `json:"info"`
-	WarnSkills []string `json:"warningSkills,omitempty"`
-	FailSkills []string `json:"failedSkills,omitempty"`
-	LowSkills  []string `json:"lowSkills,omitempty"`
-	InfoSkills []string `json:"infoSkills,omitempty"`
-	ScanErrors int      `json:"scanErrors"`
-	Mode       string   `json:"mode,omitempty"`
-	Threshold  string   `json:"threshold,omitempty"`
-	RiskScore  int      `json:"riskScore"`
-	RiskLabel  string   `json:"riskLabel,omitempty"`
+	Scope       string   `json:"scope,omitempty"`
+	Skill       string   `json:"skill,omitempty"`
+	Path        string   `json:"path,omitempty"`
+	Scanned     int      `json:"scanned"`
+	Passed      int      `json:"passed"`
+	Warning     int      `json:"warning"`
+	Failed      int      `json:"failed"`
+	Critical    int      `json:"critical"`
+	High        int      `json:"high"`
+	Medium      int      `json:"medium"`
+	Low         int      `json:"low"`
+	Info        int      `json:"info"`
+	WarnSkills  []string `json:"warningSkills,omitempty"`
+	FailSkills  []string `json:"failedSkills,omitempty"`
+	LowSkills   []string `json:"lowSkills,omitempty"`
+	InfoSkills  []string `json:"infoSkills,omitempty"`
+	ScanErrors  int      `json:"scanErrors"`
+	Mode        string   `json:"mode,omitempty"`
+	Threshold   string   `json:"threshold,omitempty"`
+	MaxSeverity string   `json:"maxSeverity,omitempty"`
+	RiskScore   int      `json:"riskScore"`
+	RiskLabel   string   `json:"riskLabel,omitempty"`
 }
 
 type auditJSONOutput struct {
@@ -196,12 +197,16 @@ func parseAuditArgs(args []string) (auditOptions, bool, error) {
 			opts.InitRules = true
 		case "--json":
 			opts.JSON = true
-		case "--threshold":
+		case "--threshold", "-T":
 			if i+1 >= len(args) {
-				return opts, false, fmt.Errorf("--threshold requires a value")
+				return opts, false, fmt.Errorf("%s requires a value", arg)
 			}
 			i++
-			opts.Threshold = args[i]
+			threshold, err := normalizeInstallAuditThreshold(args[i])
+			if err != nil {
+				return opts, false, err
+			}
+			opts.Threshold = threshold
 		case "--group", "-G":
 			if i+1 >= len(args) {
 				return opts, false, fmt.Errorf("--group requires a value")
@@ -226,12 +231,12 @@ func pathExists(path string) bool {
 	return err == nil
 }
 
-func auditHeaderSubtitle(scanLine, mode, sourcePath string) string {
+func auditHeaderSubtitle(scanLine, mode, sourcePath, threshold string) string {
 	displayPath := sourcePath
 	if abs, err := filepath.Abs(sourcePath); err == nil {
 		displayPath = abs
 	}
-	return fmt.Sprintf("%s\nmode: %s\npath: %s", scanLine, mode, displayPath)
+	return fmt.Sprintf("%s\nmode: %s\npath: %s\nblock rule: finding severity >= %s", scanLine, mode, displayPath, threshold)
 }
 
 func collectInstalledSkillPaths(sourcePath string) ([]struct {
@@ -343,7 +348,7 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, jsonOutput 
 	}
 
 	if !jsonOutput {
-		ui.HeaderBox("skillshare audit", auditHeaderSubtitle(fmt.Sprintf("Scanning %d skills for threats", len(skillPaths)), mode, sourcePath))
+		ui.HeaderBox("skillshare audit", auditHeaderSubtitle(fmt.Sprintf("Scanning %d skills for threats", len(skillPaths)), mode, sourcePath, threshold))
 	}
 
 	// Phase 1: parallel scan with bounded workers.
@@ -453,7 +458,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	}
 
 	if !jsonOutput {
-		ui.HeaderBox("skillshare audit", auditHeaderSubtitle(fmt.Sprintf("Scanning %d skills for threats", len(matched)), mode, sourcePath))
+		ui.HeaderBox("skillshare audit", auditHeaderSubtitle(fmt.Sprintf("Scanning %d skills for threats", len(matched)), mode, sourcePath, threshold))
 	}
 
 	// Phase 1: parallel scan.
@@ -514,7 +519,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold string, jso
 	}
 
 	if !jsonOutput {
-		ui.HeaderBox("skillshare audit", auditHeaderSubtitle(fmt.Sprintf("Scanning skill: %s", name), mode, sourcePath))
+		ui.HeaderBox("skillshare audit", auditHeaderSubtitle(fmt.Sprintf("Scanning skill: %s", name), mode, sourcePath, threshold))
 	}
 
 	start := time.Now()
@@ -555,7 +560,7 @@ func auditPath(rawPath, mode, projectRoot, threshold string, jsonOutput bool) ([
 	}
 
 	if !jsonOutput {
-		ui.HeaderBox("skillshare audit", fmt.Sprintf("Scanning path target\nmode: %s\npath: %s", mode, absPath))
+		ui.HeaderBox("skillshare audit", fmt.Sprintf("Scanning path target\nmode: %s\npath: %s\nblock rule: finding severity >= %s", mode, absPath, threshold))
 	}
 
 	start := time.Now()
@@ -605,6 +610,9 @@ func logAuditOp(cfgPath string, args []string, summary auditRunSummary, start ti
 	}
 	if summary.Threshold != "" {
 		fields["threshold"] = summary.Threshold
+	}
+	if summary.MaxSeverity != "" {
+		fields["max_severity"] = summary.MaxSeverity
 	}
 	if summary.Scanned > 0 {
 		fields["scanned"] = summary.Scanned
@@ -692,6 +700,7 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 	}
 	summary.RiskScore = maxRisk
 	summary.RiskLabel = audit.RiskLabelFromScoreAndMaxSeverity(maxRisk, maxSeverity)
+	summary.MaxSeverity = maxSeverity
 	return summary
 }
 
@@ -747,7 +756,11 @@ func printSkillResultLine(index, total int, result *audit.Result, elapsed time.D
 	if result.IsBlocked {
 		symbol = "✗"
 	}
-	riskText := fmt.Sprintf("%s %d/100", strings.ToUpper(result.RiskLabel), result.RiskScore)
+	maxSeverity := result.MaxSeverity()
+	if maxSeverity == "" {
+		maxSeverity = "NONE"
+	}
+	riskText := fmt.Sprintf("AGG %s %d/100, max %s", strings.ToUpper(result.RiskLabel), result.RiskScore, maxSeverity)
 
 	if ui.IsTTY() {
 		if showTime {
@@ -784,10 +797,26 @@ func printSkillResult(result *audit.Result, elapsed time.Duration) {
 	}
 
 	color := riskColor(result.RiskLabel)
+	threshold := result.Threshold
+	if threshold == "" {
+		threshold = audit.DefaultThreshold()
+	}
+	maxSeverity := result.MaxSeverity()
+	if maxSeverity == "" {
+		maxSeverity = "NONE"
+	}
+	decision := "ALLOW"
+	compare := "<"
+	if result.IsBlocked {
+		decision = "BLOCK"
+		compare = ">="
+	}
 	if ui.IsTTY() {
-		fmt.Printf("%s→%s Risk: %s%s (%d/100)%s\n", ui.Cyan, ui.Reset, color, strings.ToUpper(result.RiskLabel), result.RiskScore, ui.Reset)
+		fmt.Printf("%s→%s Aggregate risk: %s%s (%d/100)%s\n", ui.Cyan, ui.Reset, color, strings.ToUpper(result.RiskLabel), result.RiskScore, ui.Reset)
+		fmt.Printf("%s→%s Block decision: %s (max severity %s %s threshold %s)\n", ui.Cyan, ui.Reset, decision, maxSeverity, compare, threshold)
 	} else {
-		fmt.Printf("→ Risk: %s (%d/100)\n", strings.ToUpper(result.RiskLabel), result.RiskScore)
+		fmt.Printf("→ Aggregate risk: %s (%d/100)\n", strings.ToUpper(result.RiskLabel), result.RiskScore)
+		fmt.Printf("→ Block decision: %s (max severity %s %s threshold %s)\n", decision, maxSeverity, compare, threshold)
 	}
 }
 
@@ -801,7 +830,12 @@ func printAuditSummary(summary auditRunSummary) {
 	}
 
 	var lines []string
-	lines = append(lines, fmt.Sprintf("  Threshold: %s", summary.Threshold))
+	maxSeverity := summary.MaxSeverity
+	if maxSeverity == "" {
+		maxSeverity = "NONE"
+	}
+	lines = append(lines, fmt.Sprintf("  Block:     severity >= %s", summary.Threshold))
+	lines = append(lines, fmt.Sprintf("  Max sev:   %s", maxSeverity))
 	lines = append(lines, fmt.Sprintf("  Scanned:   %d skill(s)", summary.Scanned))
 	lines = append(lines, fmt.Sprintf("  Passed:    %s", colorize(ui.Green, fmt.Sprintf("%d", summary.Passed))))
 	if summary.Warning > 0 {
@@ -822,7 +856,8 @@ func printAuditSummary(summary auditRunSummary) {
 		summary.Info))
 	riskLabel := strings.ToUpper(summary.RiskLabel)
 	riskText := fmt.Sprintf("%s (%d/100)", riskLabel, summary.RiskScore)
-	lines = append(lines, fmt.Sprintf("  Risk:      %s", colorize(riskColor(summary.RiskLabel), riskText)))
+	lines = append(lines, fmt.Sprintf("  Aggregate: %s", colorize(riskColor(summary.RiskLabel), riskText)))
+	lines = append(lines, "  Note:      Failed uses severity gate; aggregate is informational")
 	if summary.ScanErrors > 0 {
 		lines = append(lines, fmt.Sprintf("  Scan errs: %d", summary.ScanErrors))
 	}
@@ -864,6 +899,7 @@ func printAuditHelp() {
 Scan installed skills (or a specific skill/path) for security threats.
 
 If no names or groups are specified, all installed skills are scanned.
+Block decisions use severity threshold; aggregate risk score is reported separately.
 
 Arguments:
   name...              Skill name(s) to scan (optional)
@@ -873,7 +909,8 @@ Options:
   --group, -G <name>   Scan all skills in a group (repeatable)
   -p, --project        Use project-level skills
   -g, --global         Use global skills
-  --threshold <t>      Block threshold: critical|high|medium|low|info
+  --threshold, -T <t>  Block by severity at/above: critical|high|medium|low|info
+                       (also supports c|h|m|l|i)
   --json               Output JSON
   --init-rules         Create a starter audit-rules.yaml
   -h, --help           Show this help
@@ -887,6 +924,7 @@ Examples:
   skillshare audit ./skills/my-skill         # Scan a directory path
   skillshare audit ./skills/foo/SKILL.md     # Scan a single file
   skillshare audit --threshold high          # Block on HIGH+ findings
+  skillshare audit -T h                      # Same, with shorthand alias
   skillshare audit --json                    # Output machine-readable results
   skillshare audit -p --init-rules           # Create project custom rules file`)
 }

@@ -311,17 +311,20 @@ Scan installed skills for prompt injection, data exfiltration, credential theft,
 ```bash
 skillshare audit            # Scan all skills
 skillshare audit <name>     # Scan a specific skill
+skillshare audit -T h       # Block on HIGH+ findings for this run
 ```
 
 Skills are also scanned automatically during `skillshare install`.
 
 - `skillshare install` runs an audit by default.
 - Block threshold is configurable with `audit.block_threshold` (`CRITICAL` default; also supports `HIGH`, `MEDIUM`, `LOW`, `INFO`).
+- Per-command threshold override is supported on install: `--audit-threshold`, `--threshold`, `-T` (supports shorthand: `c|h|m|l|i`, plus `crit`, `med`).
 - `audit.block_threshold` only controls blocking level; it does **not** disable scanning.
 - There is no config flag to permanently skip audit. To bypass a single install, use `--skip-audit`.
 - Use `--force` to override blocked installs while still running audit (findings remain visible).
 - Use `--skip-audit` to bypass scanning for a single install command.
 - If both are set, `--skip-audit` takes precedence in practice (audit is not executed).
+- Audit output shows both **block decision** (severity threshold) and **aggregate risk** (score/label). Aggregate risk does not by itself block installs.
 
 > [!TIP]
 > See the [Securing Your Skills](https://skillshare.runkids.cc/docs/guides/security) guide for a complete security workflow, or the [audit command reference](https://skillshare.runkids.cc/docs/commands/audit) for the full list of detection patterns.

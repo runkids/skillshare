@@ -64,6 +64,8 @@ func TestAudit_HighOnly_IsWarningNotFailed(t *testing.T) {
 	result.AssertAnyOutputContains(t, "Warning:   1")
 	result.AssertAnyOutputContains(t, "Failed:    0")
 	result.AssertAnyOutputContains(t, "Severity:  c/h/m/l/i = 0/1/0/0/0")
+	result.AssertAnyOutputContains(t, "severity >= CRITICAL")
+	result.AssertAnyOutputContains(t, "Aggregate:")
 }
 
 func TestAudit_SingleSkill(t *testing.T) {
@@ -230,6 +232,46 @@ audit:
 	}
 }
 
+func TestInstall_AuditThresholdFlag_BlocksHighFinding(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	highPath := filepath.Join(sb.Root, "flag-high")
+	os.MkdirAll(highPath, 0755)
+	os.WriteFile(filepath.Join(highPath, "SKILL.md"),
+		[]byte("---\nname: flag-high\n---\n# CI helper\nsudo apt-get install -y jq"), 0644)
+
+	result := sb.RunCLI("install", highPath, "--audit-threshold", "high")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "at/above HIGH")
+
+	if sb.FileExists(filepath.Join(sb.SourcePath, "flag-high", "SKILL.md")) {
+		t.Error("high finding should be blocked when --audit-threshold high is set")
+	}
+}
+
+func TestInstall_AuditThresholdShortFlagAndLevelAlias_BlocksHighFinding(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	highPath := filepath.Join(sb.Root, "short-flag-high")
+	os.MkdirAll(highPath, 0755)
+	os.WriteFile(filepath.Join(highPath, "SKILL.md"),
+		[]byte("---\nname: short-flag-high\n---\n# CI helper\nsudo apt-get install -y jq"), 0644)
+
+	result := sb.RunCLI("install", highPath, "-T", "h")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "at/above HIGH")
+}
+
 func TestAudit_JSON_ThresholdAndRiskFields(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -264,6 +306,35 @@ func TestAudit_JSON_ThresholdAndRiskFields(t *testing.T) {
 	}
 	if payload.Summary.RiskScore <= 0 || payload.Summary.RiskLabel == "" {
 		t.Fatalf("expected non-empty risk fields, got score=%d label=%q", payload.Summary.RiskScore, payload.Summary.RiskLabel)
+	}
+}
+
+func TestAudit_JSON_ThresholdAlias_ParsesShorthand(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("high-skill", map[string]string{
+		"SKILL.md": "---\nname: high-skill\n---\n# CI setup\nsudo apt-get install -y jq",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit", "high-skill", "--threshold", "h", "--json")
+	result.AssertExitCode(t, 1)
+
+	var payload struct {
+		Summary struct {
+			Threshold string `json:"threshold"`
+			Failed    int    `json:"failed"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(result.Stdout)), &payload); err != nil {
+		t.Fatalf("failed to parse JSON output: %v\nstdout=%s", err, result.Stdout)
+	}
+	if payload.Summary.Threshold != "HIGH" {
+		t.Fatalf("expected threshold HIGH from shorthand 'h', got %s", payload.Summary.Threshold)
+	}
+	if payload.Summary.Failed != 1 {
+		t.Fatalf("expected failed=1 with threshold HIGH, got failed=%d", payload.Summary.Failed)
 	}
 }
 
@@ -690,8 +761,8 @@ func TestAudit_SourceRepoLink_HIGH(t *testing.T) {
 	result := sb.RunCLI("audit", "repo-skill")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Source repository link detected")
-	// Risk label should be "high" (severity floor), not "low" (score-only)
-	result.AssertAnyOutputContains(t, "Risk: HIGH")
+	// Aggregate risk label should be "high" (severity floor), not "low" (score-only)
+	result.AssertAnyOutputContains(t, "Aggregate risk: HIGH")
 }
 
 func TestAudit_SourceRepoLink_JSON_RiskLabel(t *testing.T) {

@@ -105,7 +105,9 @@ targets: {}
 `)
 
 	// Install a public repo as tracked (creates .git, enabling git pull)
-	installResult := sb.RunCLI("install", "runkids/skillshare", "--track", "--name", "auth-tracked-test")
+	// This repository intentionally contains malicious-pattern fixtures in tests/docs.
+	// Use --force so this auth test focuses on token-safe update behavior.
+	installResult := sb.RunCLI("install", "runkids/skillshare", "--track", "--name", "auth-tracked-test", "--force")
 	installResult.AssertSuccess(t)
 
 	trackedDir := filepath.Join(sb.SourcePath, "_auth-tracked-test")

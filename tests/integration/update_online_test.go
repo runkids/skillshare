@@ -19,7 +19,9 @@ targets: {}
 `)
 
 	// Step 1: install with --track
-	installResult := sb.RunCLI("install", "runkids/skillshare", "--track", "--name", "test-tracked")
+	// This repository intentionally contains malicious-pattern fixtures in tests/docs.
+	// Use --force so this test validates track+update mechanics, not audit blocking policy.
+	installResult := sb.RunCLI("install", "runkids/skillshare", "--track", "--name", "test-tracked", "--force")
 	installResult.AssertSuccess(t)
 
 	// Step 2: update the tracked repo (should be up to date)

@@ -31,6 +31,13 @@ type uninstallTarget struct {
 	isTrackedRepo bool
 }
 
+type uninstallTypeSummary struct {
+	skills          int
+	groups          int
+	trackedRepos    int
+	groupSkillCount map[string]int // key: target.path
+}
+
 // parseUninstallArgs parses command line arguments
 func parseUninstallArgs(args []string) (*uninstallOptions, bool, error) {
 	opts := &uninstallOptions{}
@@ -68,6 +75,11 @@ func parseUninstallArgs(args []string) (*uninstallOptions, bool, error) {
 // Supports short names for nested skills (e.g. "react-best-practices" resolves
 // to "frontend/react/react-best-practices").
 func resolveUninstallTarget(skillName string, cfg *config.Config) (*uninstallTarget, error) {
+	skillName = strings.TrimRight(strings.TrimSpace(skillName), `/\`)
+	if skillName == "" || skillName == "." {
+		return nil, fmt.Errorf("invalid skill name: %q", skillName)
+	}
+
 	// Normalize _ prefix for tracked repos
 	if !strings.HasPrefix(skillName, "_") {
 		prefixedPath := filepath.Join(cfg.Source, "_"+skillName)
@@ -104,7 +116,10 @@ func resolveUninstallTarget(skillName string, cfg *config.Config) (*uninstallTar
 // resolveGroupSkills finds all skills under a group directory (prefix match).
 // Returns uninstallTargets for each skill found.
 func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
-	group = strings.TrimSuffix(group, "/")
+	group = strings.TrimRight(strings.TrimSpace(group), `/\`)
+	if group == "" || group == "." {
+		return nil, fmt.Errorf("invalid group name: %q", group)
+	}
 	groupPath := filepath.Join(sourceDir, group)
 
 	info, err := os.Stat(groupPath)
@@ -224,6 +239,58 @@ func countGroupSkills(dir string) []string {
 	return names
 }
 
+func summarizeUninstallTargets(targets []*uninstallTarget) uninstallTypeSummary {
+	s := uninstallTypeSummary{
+		groupSkillCount: make(map[string]int, len(targets)),
+	}
+
+	for _, t := range targets {
+		if t.isTrackedRepo {
+			s.trackedRepos++
+			continue
+		}
+
+		subSkills := countGroupSkills(t.path)
+		if len(subSkills) > 0 {
+			s.groups++
+			s.groupSkillCount[t.path] = len(subSkills)
+			continue
+		}
+
+		s.skills++
+	}
+
+	return s
+}
+
+func (s uninstallTypeSummary) noun() string {
+	total := s.skills + s.groups + s.trackedRepos
+	switch {
+	case s.groups == total:
+		return "group(s)"
+	case s.skills == total:
+		return "skill(s)"
+	case s.trackedRepos == total:
+		return "tracked repo(s)"
+	default:
+		return "target(s)"
+	}
+}
+
+func (s uninstallTypeSummary) details() string {
+	var parts []string
+	if s.skills > 0 {
+		parts = append(parts, fmt.Sprintf("%d skill(s)", s.skills))
+	}
+	if s.groups > 0 {
+		parts = append(parts, fmt.Sprintf("%d group(s)", s.groups))
+	}
+	if s.trackedRepos > 0 {
+		parts = append(parts, fmt.Sprintf("%d tracked repo(s)", s.trackedRepos))
+	}
+	return strings.Join(parts, ", ")
+}
+
 // displayUninstallInfo shows information about the skill to be uninstalled
 func displayUninstallInfo(target *uninstallTarget) {
 	if target.isTrackedRepo {
@@ -281,6 +348,8 @@ func confirmUninstall(target *uninstallTarget) (bool, error) {
 	prompt := "Are you sure you want to uninstall this skill?"
 	if target.isTrackedRepo {
 		prompt = "Are you sure you want to uninstall this tracked repository?"
+	} else if len(countGroupSkills(target.path)) > 0 {
+		prompt = "Are you sure you want to uninstall this group?"
 	}
 
 	fmt.Printf("%s [y/N]: ", prompt)
@@ -298,6 +367,10 @@ func confirmUninstall(target *uninstallTarget) (bool, error) {
 func performUninstall(target *uninstallTarget, cfg *config.Config) error {
 	// Read metadata before moving (for reinstall hint)
 	meta, _ := install.ReadMeta(target.path)
+	groupSkillCount := 0
+	if !target.isTrackedRepo {
+		groupSkillCount = len(countGroupSkills(target.path))
+	}
 
 	// For tracked repos, clean up .gitignore
 	if target.isTrackedRepo {
@@ -315,8 +388,10 @@ func performUninstall(target *uninstallTarget, cfg *config.Config) error {
 
 	if target.isTrackedRepo {
 		ui.Success("Uninstalled tracked repository: %s", target.name)
+	} else if groupSkillCount > 0 {
+		ui.Success("Uninstalled group: %s", target.name)
 	} else {
-		ui.Success("Uninstalled: %s", target.name)
+		ui.Success("Uninstalled skill: %s", target.name)
 	}
 	ui.Info("Moved to trash (7 days): %s", trashPath)
 	if meta != nil && meta.Source != "" {
@@ -421,14 +496,22 @@ func cmdUninstall(args []string) error {
 
 	// --- Phase 3: DISPLAY ---
 	single := len(targets) == 1
+	summary := summarizeUninstallTargets(targets)
 	if single {
 		displayUninstallInfo(targets[0])
 	} else {
-		ui.Header(fmt.Sprintf("Uninstalling %d skill(s)", len(targets)))
+		ui.Header(fmt.Sprintf("Uninstalling %d %s", len(targets), summary.noun()))
+		if summary.noun() == "target(s)" {
+			ui.Info("Includes: %s", summary.details())
+		}
 		for _, t := range targets {
 			label := t.name
 			if t.isTrackedRepo {
-				label += " (tracked)"
+				label += " (tracked repository)"
+			} else if c := summary.groupSkillCount[t.path]; c > 0 {
+				label += fmt.Sprintf(" (group, %d skills)", c)
+			} else {
+				label += " (skill)"
 			}
 			fmt.Printf("  - %s\n", label)
 		}
@@ -480,7 +563,8 @@ func cmdUninstall(args []string) error {
 				return nil
 			}
 		} else {
-			fmt.Printf("Uninstall %d skill(s)? [y/N]: ", len(targets))
+			confirmSummary := summarizeUninstallTargets(targets)
+			fmt.Printf("Uninstall %d %s? [y/N]: ", len(targets), confirmSummary.noun())
 			reader := bufio.NewReader(os.Stdin)
 			input, err := reader.ReadString('\n')
 			if err != nil {

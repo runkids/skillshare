@@ -319,7 +319,12 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		if isMarkdown {
 			rulesForFile = mdContentRules
 		}
-		findings := ScanContentWithRules(data, relPath, rulesForFile)
+		var findings []Finding
+		if isMarkdown {
+			findings = ScanMarkdownContentWithRules(data, relPath, rulesForFile)
+		} else {
+			findings = ScanContentWithRules(data, relPath, rulesForFile)
+		}
 		result.Findings = append(result.Findings, findings...)
 
 		return nil
@@ -387,7 +392,7 @@ func ScanFileWithRules(filePath string, activeRules []rule) (*Result, error) {
 
 	if strings.EqualFold(filepath.Ext(info.Name()), ".md") {
 		mdContentRules, mdLinkRules := splitMarkdownLinkRules(resolvedRules)
-		result.Findings = ScanContentWithRules(data, filepath.Base(filePath), mdContentRules)
+		result.Findings = ScanMarkdownContentWithRules(data, filepath.Base(filePath), mdContentRules)
 		result.Findings = append(result.Findings, checkMarkdownLinkRules([]mdFileInfo{
 			{
 				relPath: filepath.Base(filePath),
@@ -437,6 +442,59 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 					Snippet:  truncate(strings.TrimSpace(line), 80),
 				})
 			}
+		}
+	}
+
+	return findings
+}
+
+// ScanMarkdownContentWithRules scans markdown content and suppresses selected
+// non-critical patterns when they appear in educational example context.
+func ScanMarkdownContentWithRules(content []byte, filename string, activeRules []rule) []Finding {
+	if activeRules == nil {
+		var err error
+		activeRules, err = Rules()
+		if err != nil {
+			return nil
+		}
+	}
+
+	var findings []Finding
+	lines := strings.Split(string(content), "\n")
+	inCodeFence := false
+	fenceMarker := ""
+	tutorialPath := isLikelyTutorialPath(filename)
+
+	for lineNum, line := range lines {
+		if marker, ok := detectFenceMarker(line); ok {
+			if !inCodeFence {
+				inCodeFence = true
+				fenceMarker = marker
+			} else if marker == fenceMarker {
+				inCodeFence = false
+				fenceMarker = ""
+			}
+			continue
+		}
+
+		for _, r := range activeRules {
+			if !r.Regex.MatchString(line) {
+				continue
+			}
+			if r.Exclude != nil && r.Exclude.MatchString(line) {
+				continue
+			}
+			if shouldSuppressTutorialExample(r.Pattern, line, inCodeFence, tutorialPath) {
+				continue
+			}
+			findings = append(findings, Finding{
+				Severity: r.Severity,
+				Pattern:  r.Pattern,
+				Message:  r.Message,
+				File:     filename,
+				Line:     lineNum + 1, // 1-indexed
+				Snippet:  truncate(strings.TrimSpace(line), 80),
+			})
 		}
 	}
 
@@ -494,11 +552,23 @@ func truncate(s string, maxLen int) string {
 }
 
 var (
-	mdAutoLinkRe   = regexp.MustCompile(`<((?:https?://)[^>\s]+)>`)
-	mdRefLinkRe    = regexp.MustCompile(`\[([^\]]+)\]\[([^\]]*)\]`)
-	mdHTMLAnchorRe = regexp.MustCompile(`(?i)<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>`)
-	mdHTMLTagStrip = regexp.MustCompile(`(?s)<[^>]*>`)
+	mdAutoLinkRe       = regexp.MustCompile(`<((?:https?://)[^>\s]+)>`)
+	mdRefLinkRe        = regexp.MustCompile(`\[([^\]]+)\]\[([^\]]*)\]`)
+	mdHTMLAnchorRe     = regexp.MustCompile(`(?i)<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>`)
+	mdHTMLTagStrip     = regexp.MustCompile(`(?s)<[^>]*>`)
+	mdTutorialMarkerRe = regexp.MustCompile(`(?i)(for\s+example|e\.g\.|example:|examples:|sample:|original:|attacker:|safe:|unsafe:|vulnerable:|pattern:|ruleid:|ok:|sink:|message:)`)
 )
+
+var tutorialSuppressedPatterns = map[string]bool{
+	"dynamic-code-exec":    true,
+	"shell-execution":      true,
+	"destructive-commands": true,
+	"suspicious-fetch":     true,
+	"system-writes":        true,
+	"insecure-http":        true,
+	"escape-obfuscation":   true,
+	"hidden-unicode":       true,
+}
 
 type markdownLink struct {
 	label   string
@@ -1029,6 +1099,32 @@ func indexInSpans(idx int, spans []span) bool {
 	return false
 }
 
+func shouldSuppressTutorialExample(pattern, line string, inCodeFence, tutorialPath bool) bool {
+	if !tutorialSuppressedPatterns[pattern] {
+		return false
+	}
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return false
+	}
+	if inCodeFence || tutorialPath {
+		return true
+	}
+	return mdTutorialMarkerRe.MatchString(trimmed)
+}
+
+func isLikelyTutorialPath(path string) bool {
+	lower := strings.ToLower(filepath.ToSlash(path))
+	parts := strings.Split(lower, "/")
+	for _, p := range parts {
+		switch p {
+		case "reference", "references", "resource", "resources", "template", "templates", "example", "examples":
+			return true
+		}
+	}
+	return false
+}
+
 // isExternalOrAnchor returns true for links that should not be checked on disk.
 func isExternalOrAnchor(target string) bool {
 	lower := strings.ToLower(target)
@@ -1087,6 +1183,16 @@ func checkContentIntegrity(skillPath string) []Finding {
 			continue
 		}
 		if info.IsDir() {
+			continue
+		}
+		if info.Size() > maxScanFileSize {
+			findings = append(findings, Finding{
+				Severity: SeverityMedium,
+				Pattern:  "content-oversize",
+				Message:  fmt.Sprintf("pinned file exceeds scan size limit (%d bytes): %s", info.Size(), rel),
+				File:     rel,
+				Line:     0,
+			})
 			continue
 		}
 		actual, hashErr := fileHash(absPath)

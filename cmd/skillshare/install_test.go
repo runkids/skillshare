@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strings"
 	"testing"
 
 	"skillshare/internal/install"
@@ -84,5 +85,46 @@ func TestFilterSkillsByName_ExactTakesPriority(t *testing.T) {
 	}
 	if len(matched) != 1 || matched[0].Name != "fig" {
 		t.Errorf("exact match should take priority, got %v", matched)
+	}
+}
+
+func TestNormalizeInstallAuditThreshold(t *testing.T) {
+	tests := []struct {
+		in      string
+		want    string
+		wantErr bool
+	}{
+		{in: "critical", want: "CRITICAL"},
+		{in: "high", want: "HIGH"},
+		{in: "medium", want: "MEDIUM"},
+		{in: "low", want: "LOW"},
+		{in: "info", want: "INFO"},
+		{in: "c", want: "CRITICAL"},
+		{in: "h", want: "HIGH"},
+		{in: "m", want: "MEDIUM"},
+		{in: "l", want: "LOW"},
+		{in: "i", want: "INFO"},
+		{in: "crit", want: "CRITICAL"},
+		{in: "med", want: "MEDIUM"},
+		{in: "x", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		got, err := normalizeInstallAuditThreshold(tt.in)
+		if tt.wantErr {
+			if err == nil {
+				t.Fatalf("normalizeInstallAuditThreshold(%q) expected error", tt.in)
+			}
+			if !strings.Contains(err.Error(), "invalid audit threshold") {
+				t.Fatalf("normalizeInstallAuditThreshold(%q) error mismatch: %v", tt.in, err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("normalizeInstallAuditThreshold(%q) unexpected error: %v", tt.in, err)
+		}
+		if got != tt.want {
+			t.Fatalf("normalizeInstallAuditThreshold(%q) = %q, want %q", tt.in, got, tt.want)
+		}
 	}
 }

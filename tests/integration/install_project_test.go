@@ -127,3 +127,23 @@ func TestInstallProject_NoSource_WithExclude_Errors(t *testing.T) {
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "require a source argument")
 }
+
+func TestInstallProject_AuditThresholdShortFlag_BlocksHighFinding(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	highPath := filepath.Join(sb.Root, "project-flag-high")
+	os.MkdirAll(highPath, 0755)
+	os.WriteFile(filepath.Join(highPath, "SKILL.md"),
+		[]byte("---\nname: project-flag-high\n---\n# CI helper\nsudo apt-get install -y jq"), 0644)
+
+	result := sb.RunCLIInDir(projectRoot, "install", highPath, "-p", "-T", "high")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "at/above HIGH")
+
+	projectSkillPath := filepath.Join(projectRoot, ".skillshare", "skills", "project-flag-high", "SKILL.md")
+	if sb.FileExists(projectSkillPath) {
+		t.Error("project install should be blocked when -T high is set")
+	}
+}

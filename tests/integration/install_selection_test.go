@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -88,6 +89,35 @@ func TestInstall_AllFlag_InstallsAll(t *testing.T) {
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "skill-three", "SKILL.md")) {
 		t.Error("skill-three should be installed")
 	}
+}
+
+func TestInstall_AllFlag_ShowsAuditWarningsForFindingsBelowThreshold(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	gitRepoPath := filepath.Join(sb.Root, "all-flag-audit-warning-repo")
+	safeSkill := filepath.Join(gitRepoPath, "safe-skill")
+	highSkill := filepath.Join(gitRepoPath, "high-skill")
+	if err := os.MkdirAll(safeSkill, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(highSkill, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(safeSkill, "SKILL.md"), []byte("# safe-skill"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(highSkill, "SKILL.md"), []byte("# high-skill\nsudo apt-get install -y jq"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	initGitRepo(t, gitRepoPath)
+
+	result := sb.RunCLI("install", "file://"+gitRepoPath, "--all")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "audit HIGH")
+	result.AssertAnyOutputContains(t, "none at/above block threshold (CRITICAL)")
 }
 
 func TestInstall_YesFlag_InstallsAll(t *testing.T) {

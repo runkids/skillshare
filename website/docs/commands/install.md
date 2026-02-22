@@ -180,7 +180,7 @@ Skills with `tracked: true` are cloned with full git history (same as `--track`)
 `push`/`pull` syncs actual skill **files** via git. `install` from config re-downloads from **source URLs**. They're complementary — see [Cross-Machine Sync](/docs/guides/cross-machine-sync#alternative-install-from-config) for when to use which.
 :::
 
-When using no-arg install, `--name`, `--into`, `--track`, `--skill`, `--exclude`, `--all`, `--yes`, and `--update` are not supported (they require a source argument). `--dry-run`, `--force`, and `--skip-audit` work as expected.
+When using no-arg install, `--name`, `--into`, `--track`, `--skill`, `--exclude`, `--all`, `--yes`, and `--update` are not supported (they require a source argument). `--dry-run`, `--force`, `--skip-audit`, and threshold overrides (`--audit-threshold` / `--threshold` / `-T`) work as expected.
 
 ## Project Mode
 
@@ -230,6 +230,7 @@ See [Project Setup](/docs/guides/project-setup) for the full guide.
 | `--all` | | Install all discovered skills without prompting |
 | `--yes` | `-y` | Auto-accept all prompts (CI/CD friendly) |
 | `--skip-audit` | | Skip security audit for this install |
+| `--audit-threshold <t>`, `--threshold <t>` | `-T` | Override audit block threshold for this command (`critical|high|medium|low|info`; shorthand: `c|h|m|l|i`, plus `crit`, `med`) |
 | `--project` | `-p` | Install into project `.skillshare/skills/` |
 | `--global` | `-g` | Install into global `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | Preview only |
@@ -243,6 +244,7 @@ skillshare install google-gemini/gemini-cli/.../skill-creator --name my-creator
 ```
 
 `--name` only works when install resolves to a single skill.
+In `--track` mode, custom names are stored as tracked repo directories (auto-prefixed with `_`) and must not contain path separators or `..`.
 
 ```bash
 # ✅ Single skill (works)
@@ -377,6 +379,7 @@ Every skill is automatically scanned for security threats during installation:
 - Lower findings are shown as warnings and include risk score context
 - `audit.block_threshold` only controls block level; it does **not** disable scanning
 - There is no config switch to always skip audit; use `--skip-audit` per command when needed
+- You can override threshold per command with `--audit-threshold`, `--threshold`, or `-T`
 
 Threshold config example:
 
@@ -395,9 +398,32 @@ skillshare install suspicious-skill --force
 
 # Skip scan entirely (use with caution)
 skillshare install suspicious-skill --skip-audit
+
+# Per-command threshold override (same meaning)
+skillshare install suspicious-skill --audit-threshold high
+skillshare install suspicious-skill --threshold high
+skillshare install suspicious-skill -T h
 ```
 
 Use `--force` to override block decisions, or `--skip-audit` to bypass scanning entirely. See [audit](/docs/commands/audit) for scanning details.
+
+The install decision uses **finding severity vs threshold**. Aggregate risk score/label is reported for context and does not by itself block installs.
+
+### Tracked Repo Audit Gate (`--track`)
+
+Tracked repos use the same threshold model, but the scan scope and failure handling are stricter:
+
+- Fresh `--track` install scans the **entire cloned repository** (not just one skill folder)
+- Findings at/above threshold block install unless `--force` is used
+- On blocked fresh install, skillshare automatically removes the cloned repo from source
+- If automatic cleanup fails, install returns an explicit error and tells you to remove the path manually
+
+Tracked repo updates through install (`skillshare install <repo> --track --update`) are audited after `git pull`:
+
+- Skillshare captures a pre-pull commit hash first
+- If hash capture fails, update aborts immediately (fail-closed)
+- If findings at/above threshold are detected, update is rolled back to the pre-pull commit
+- If rollback fails, command exits with a warning that malicious content may remain
 
 ### `--force` vs `--skip-audit`
 

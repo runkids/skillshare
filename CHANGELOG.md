@@ -1,20 +1,25 @@
 # Changelog
 
-## [0.15.4] - 2026-02-22
+## [0.15.4] - 2026-02-23
 
 ### Added
 - **Post-update security audit gate** — `skillshare update` now runs a security audit after pulling tracked repositories; if HIGH or CRITICAL findings are detected, the update is automatically rolled back; interactive mode prompts for confirmation, non-interactive mode (CI) fails closed; use `--skip-audit` to bypass
+- **Post-install audit gate for `--track`** — `skillshare install --track` and tracked repo updates now run the same security audit gate; fresh installs are removed on block, updates are rolled back via `git reset`; use `--skip-audit` to bypass
 - **`--diff` flag for `update`** — `skillshare update team-skills --diff` shows a file-level change summary after update; for tracked repos, includes line counts via `git diff`; for regular skills, uses file hash comparison to show added/modified/deleted files
 - **Content hash pinning** — `install` and `update` now record SHA-256 hashes of all skill files in `.skillshare-meta.json`; subsequent `audit` runs detect tampering (`content-tampered`), missing files (`content-missing`), and unexpected files (`content-unexpected`)
 - **`source-repository-link` audit rule** (HIGH) — detects markdown links labeled "source repo" or "source repository" pointing to external URLs, which may be used for supply-chain redirect attacks
+- **Structural markdown link parsing for audit** — audit rules now use a full markdown parser instead of regex, correctly handling inline links with titles, reference-style links, autolinks, and HTML anchors while skipping code fences, inline code spans, and image links; reduces false positives in `external-link` and `source-repository-link` rules
 - **Severity-based risk floor** — audit risk label is now the higher of the score-based label and a floor derived from the most severe finding (e.g., a single HIGH finding always gets at least a `high` risk label)
+- **Severity-based color ramp** — audit output now uses consistent color coding: CRITICAL → red, HIGH → orange, MEDIUM → yellow, LOW/INFO → gray; applies to batch summary, severity counts, and single-skill risk labels
 - **Audit risk score in `update` output** — CLI and Web UI now display the risk label and score (e.g., "Security: LOW (12/100)") after updating regular skills; Web UI toast notifications include the same information for all update types
 
 ### Fixed
 - **Uninstall group directory config cleanup** — uninstalling a group directory (e.g., `frontend/`) now properly removes member skill entries (e.g., `frontend/react`, `frontend/vue`) from `config.yaml` via prefix matching
 - **Batch `update --all` error propagation** — repos blocked by the security audit gate now count as "Blocked" in the batch summary and cause non-zero exit code
-- **`--skip-audit` passthrough** — the flag is now consistently honored for both tracked repos and regular skills during `update`
+- **`--skip-audit` passthrough** — the flag is now consistently honored for both tracked repos and regular skills during `update` and `install`
 - **Server rollback error reporting** — Web UI update endpoint now implements post-pull audit gate with automatic rollback on HIGH/CRITICAL findings
+- **Audit rollback error accuracy** — rollback failures now report whether the reset succeeded ("rolled back") or failed ("malicious content may remain") instead of silently ignoring errors
+- **Audit error propagation** — file hash computation now propagates walk/hash errors instead of silently skipping, ensuring complete integrity baselines
 
 ## [0.15.3] - 2026-02-22
 

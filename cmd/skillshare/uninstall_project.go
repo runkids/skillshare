@@ -16,6 +16,11 @@ import (
 // resolveProjectUninstallTarget resolves a skill name to an uninstallTarget
 // within a project's .skillshare/skills directory.
 func resolveProjectUninstallTarget(skillName, sourceDir string) (*uninstallTarget, error) {
+	skillName = strings.TrimRight(strings.TrimSpace(skillName), `/\`)
+	if skillName == "" || skillName == "." {
+		return nil, fmt.Errorf("invalid skill name: %q", skillName)
+	}
+
 	// Normalize _ prefix for tracked repos
 	if !strings.HasPrefix(skillName, "_") {
 		prefixed := filepath.Join(sourceDir, "_"+skillName)
@@ -106,14 +111,22 @@ func cmdUninstallProject(args []string, root string) error {
 
 	// --- Phase 3: DISPLAY ---
 	single := len(targets) == 1
+	summary := summarizeUninstallTargets(targets)
 	if single {
 		displayUninstallInfo(targets[0])
 	} else {
-		ui.Header(fmt.Sprintf("Uninstalling %d skill(s)", len(targets)))
+		ui.Header(fmt.Sprintf("Uninstalling %d %s", len(targets), summary.noun()))
+		if summary.noun() == "target(s)" {
+			ui.Info("Includes: %s", summary.details())
+		}
 		for _, t := range targets {
 			label := t.name
 			if t.isTrackedRepo {
-				label += " (tracked)"
+				label += " (tracked repository)"
+			} else if c := summary.groupSkillCount[t.path]; c > 0 {
+				label += fmt.Sprintf(" (group, %d skills)", c)
+			} else {
+				label += " (skill)"
 			}
 			fmt.Printf("  - %s\n", label)
 		}
@@ -154,7 +167,7 @@ func cmdUninstallProject(args []string, root string) error {
 
 	if !opts.force {
 		if single {
-			confirmed, err := confirmProjectUninstall()
+			confirmed, err := confirmProjectUninstall(targets[0])
 			if err != nil {
 				return err
 			}
@@ -163,7 +176,8 @@ func cmdUninstallProject(args []string, root string) error {
 				return nil
 			}
 		} else {
-			fmt.Printf("Uninstall %d skill(s) from the project? [y/N]: ", len(targets))
+			confirmSummary := summarizeUninstallTargets(targets)
+			fmt.Printf("Uninstall %d %s from the project? [y/N]: ", len(targets), confirmSummary.noun())
 			reader := bufio.NewReader(os.Stdin)
 			input, err := reader.ReadString('\n')
 			if err != nil {
@@ -182,6 +196,10 @@ func cmdUninstallProject(args []string, root string) error {
 	var failed []string
 	for _, t := range targets {
 		meta, _ := install.ReadMeta(t.path)
+		groupSkillCount := 0
+		if !t.isTrackedRepo {
+			groupSkillCount = len(countGroupSkills(t.path))
+		}
 
 		// Clean up .gitignore (all project skills have gitignore entries)
 		if _, err := install.RemoveFromGitIgnore(filepath.Join(root, ".skillshare"), filepath.Join("skills", t.name)); err != nil {
@@ -197,8 +215,10 @@ func cmdUninstallProject(args []string, root string) error {
 
 		if t.isTrackedRepo {
 			ui.Success("Uninstalled tracked repository: %s", t.name)
+		} else if groupSkillCount > 0 {
+			ui.Success("Uninstalled group: %s", t.name)
 		} else {
-			ui.Success("Uninstalled: %s", t.name)
+			ui.Success("Uninstalled skill: %s", t.name)
 		}
 		ui.Info("Moved to trash (7 days): %s", trashPath)
 		if meta != nil && meta.Source != "" {
@@ -257,8 +277,14 @@ func cmdUninstallProject(args []string, root string) error {
 	return nil
 }
 
-func confirmProjectUninstall() (bool, error) {
-	fmt.Print("Are you sure you want to uninstall this skill from the project? [y/N]: ")
+func confirmProjectUninstall(target *uninstallTarget) (bool, error) {
+	prompt := "Are you sure you want to uninstall this skill from the project? [y/N]: "
+	if target.isTrackedRepo {
+		prompt = "Are you sure you want to uninstall this tracked repository from the project? [y/N]: "
+	} else if len(countGroupSkills(target.path)) > 0 {
+		prompt = "Are you sure you want to uninstall this group from the project? [y/N]: "
+	}
+	fmt.Print(prompt)
 	reader := bufio.NewReader(os.Stdin)
 	input, err := reader.ReadString('\n')
 	if err != nil {

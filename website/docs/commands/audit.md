@@ -13,6 +13,7 @@ skillshare audit a b c                  # Scan multiple skills
 skillshare audit --group frontend       # Scan all skills in a group
 skillshare audit <path>                 # Scan a file/directory path
 skillshare audit --threshold high       # Block on HIGH+ findings
+skillshare audit -T h                   # Same as --threshold high
 skillshare audit --json                 # JSON output
 skillshare audit -p                     # Scan project skills
 ```
@@ -91,6 +92,13 @@ These patterns are **strong indicators of malicious intent** but may occasionall
 | `source-repository-link` | Markdown links labeled "source repo" or "source repository" pointing to external URLs — may be used for supply-chain redirects |
 
 > **Why high?** Hidden Unicode characters can make malicious instructions invisible during code review. Base64 obfuscation is a common technique to bypass human inspection. Destructive commands like `rm -rf /` can cause irreversible damage. Source repository links can redirect users to malicious forks or repositories during supply-chain attacks.
+
+`source-repository-link` uses structural Markdown parsing, not plain regex matching:
+
+- Detects both inline and multiline links such as `[source repository](https://...)` and `[source repository]\n(https://...)`
+- Label match is case-insensitive for `source repository` and `source repo`
+- Local relative links are excluded from this HIGH rule
+- Matching source-repo links are excluded from generic `external-link` to avoid duplicate findings
 
 ### MEDIUM (informational warning, counted as Warning)
 
@@ -258,6 +266,26 @@ A skill with the following findings:
 
 Even though a CRITICAL finding is present, the score reflects the aggregate risk. The `--threshold` flag and `audit.block_threshold` config control blocking behavior independently from the score.
 
+In other words, block decisions are **severity-threshold based**, while aggregate risk is **score/label based** for triage context.
+
+### Blocking vs Risk: Decision Algorithms
+
+Skillshare computes two related but independent decisions:
+
+1. **Block decision (policy gate)**
+```text
+blocked = any finding where severity_rank <= threshold_rank
+```
+2. **Aggregate risk (triage context)**
+```text
+score = min(100, sum(weight[severity] for each finding))
+label = worse_of(score_label(score), floor_from_max_severity(max_finding_severity))
+```
+
+This is why you can see:
+- no blocked findings at threshold, but an aggregate label of `critical` from accumulated lower-severity findings
+- a `high` risk label with low numeric score when a single HIGH finding triggers severity floor
+
 ## Example Output
 
 ```
@@ -305,6 +333,12 @@ skillshare install /path/to/evil-skill
 skillshare install /path/to/evil-skill --force
 # Installs with warnings (use with caution)
 
+skillshare install /path/to/skill --audit-threshold high
+# Per-command block threshold override
+
+skillshare install /path/to/skill -T h
+# Same as --audit-threshold high
+
 skillshare install /path/to/skill --skip-audit
 # Bypasses scanning (use with caution)
 ```
@@ -325,6 +359,8 @@ If both are provided, `--skip-audit` effectively wins because audit is not execu
 ### Update-time
 
 `skillshare update` runs a security audit after pulling tracked repos. If **HIGH** or **CRITICAL** findings are detected, the update is automatically rolled back. See [`update --skip-audit`](/docs/commands/update#security-audit-gate) for details.
+
+When updating tracked repos via install (`skillshare install <repo> --track --update`), the gate uses install threshold policy (`audit.block_threshold` or `--threshold` / `-T`) instead of fixed HIGH/CRITICAL.
 
 ## CI/CD Integration
 
@@ -730,7 +766,7 @@ Source of truth for regex-based rules:
 | `-G`, `--group` `<name>` | Scan all skills in a group (repeatable) |
 | `-p`, `--project` | Scan project-level skills |
 | `-g`, `--global` | Scan global skills |
-| `--threshold` `<t>` | Block threshold: `critical`\|`high`\|`medium`\|`low`\|`info` |
+| `--threshold` `<t>`, `-T` `<t>` | Block threshold: `critical`\|`high`\|`medium`\|`low`\|`info` (shorthand: `c`\|`h`\|`m`\|`l`\|`i`, plus `crit`, `med`) |
 | `--json` | Output machine-readable JSON |
 | `--init-rules` | Create a starter `audit-rules.yaml` (respects `-p`/`-g`) |
 | `-h`, `--help` | Show help |

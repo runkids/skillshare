@@ -223,3 +223,42 @@ skills:
 		t.Error("config should still contain skill-c from other group")
 	}
 }
+
+func TestUninstallProject_GroupDirWithTrailingSlash_RemovesConfigEntries(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	sb.CreateProjectSkill(projectRoot, "security/scan", map[string]string{"SKILL.md": "# Scan"})
+	sb.CreateProjectSkill(projectRoot, "security/hardening", map[string]string{"SKILL.md": "# Hardening"})
+	sb.CreateProjectSkill(projectRoot, "other/keep", map[string]string{"SKILL.md": "# Keep"})
+
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+skills:
+  - name: scan
+    source: github.com/org/repo/scan
+    group: security
+  - name: hardening
+    source: github.com/org/repo/hardening
+    group: security
+  - name: keep
+    source: github.com/org/repo/keep
+    group: other
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "uninstall", "security/", "--force", "-p")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Uninstalled group: security")
+
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if strings.Contains(cfg, "scan") {
+		t.Error("config should not contain scan after security/ uninstall")
+	}
+	if strings.Contains(cfg, "hardening") {
+		t.Error("config should not contain hardening after security/ uninstall")
+	}
+	if !strings.Contains(cfg, "keep") {
+		t.Error("config should still contain keep from other group")
+	}
+}

@@ -48,7 +48,10 @@ skillshare sync
 **What happens:**
 1. Repo is cloned to `~/.config/skillshare/skills/_team-skills/`
 2. `.git` directory is preserved
-3. Nested skills are flattened for AI CLIs
+3. Entire repo is security-audited using active install threshold (`audit.block_threshold` or `--threshold`)
+4. Nested skills are flattened for AI CLIs
+
+If findings hit the threshold, install is blocked unless `--force` is used. On block, skillshare removes the cloned repo automatically; if cleanup fails, the command reports the exact path for manual cleanup.
 
 ---
 
@@ -125,6 +128,13 @@ cd ~/.config/skillshare/skills/_team-skills
 git pull origin main
 ```
 
+**Security behavior during updates:**
+- Updated content is audited after pull.
+- For `skillshare update`, HIGH/CRITICAL findings trigger a gate (TTY asks for confirmation; non-TTY rolls back automatically unless `--skip-audit` is used).
+- For `skillshare install <repo> --track --update`, blocking uses the active install threshold (`audit.block_threshold` or `--threshold`).
+- On rejection, tracked repos roll back to the previous commit to preserve local state.
+- If rollback baseline capture fails, update aborts for safety (fail-closed).
+
 ---
 
 ## Uninstalling
@@ -195,6 +205,11 @@ Nested skills are auto-flattened the same way as global mode — `_team-skills/f
 skillshare install github.com/team/skills --track --name acme-skills
 # Installed as: _acme-skills/
 ```
+
+Name constraints for `--track --name`:
+- Must resolve to a tracked repo directory name starting with `_`.
+- Must not contain path separators (`/`, `\`) or parent traversal (`..`).
+- Invalid names are rejected before clone.
 
 ---
 

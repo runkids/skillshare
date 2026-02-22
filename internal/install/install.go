@@ -65,6 +65,8 @@ type DiscoveryResult struct {
 	Source   *Source     // Original source
 }
 
+var removeAll = os.RemoveAll
+
 // Install executes the installation from source to destination
 func Install(source *Source, destPath string, opts InstallOptions) (*InstallResult, error) {
 	result := &InstallResult{
@@ -583,24 +585,8 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		if beforeHash != "" && !opts.SkipAudit {
 			afterHash, _ := getGitFullHash(destPath)
 			if afterHash != beforeHash {
-				var scanResult *audit.Result
-				var scanErr error
-				if opts.AuditProjectRoot != "" {
-					scanResult, scanErr = audit.ScanSkillForProject(destPath, opts.AuditProjectRoot)
-				} else {
-					scanResult, scanErr = audit.ScanSkill(destPath)
-				}
-				if scanErr != nil {
-					if resetErr := gitResetHard(destPath, beforeHash); resetErr != nil {
-						return nil, fmt.Errorf("post-update audit failed: %v; WARNING: rollback also failed: %v — malicious content may remain: %w", scanErr, resetErr, audit.ErrBlocked)
-					}
-					return nil, fmt.Errorf("post-update audit failed: %v — rolled back (use --skip-audit to bypass): %w", scanErr, audit.ErrBlocked)
-				}
-				if scanResult.HasHigh() {
-					if resetErr := gitResetHard(destPath, beforeHash); resetErr != nil {
-						return nil, fmt.Errorf("post-update audit found HIGH/CRITICAL findings; WARNING: rollback also failed: %v — malicious content may remain: %w", resetErr, audit.ErrBlocked)
-					}
-					return nil, fmt.Errorf("post-update audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass): %w", audit.ErrBlocked)
+				if err := auditGateFailClosed(destPath, beforeHash, opts.AuditProjectRoot); err != nil {
+					return nil, err
 				}
 			}
 		}
@@ -736,16 +722,16 @@ func auditInstalledSkill(destPath string, result *InstallResult, opts InstallOpt
 
 	// Findings at or above threshold block installation unless --force.
 	if scanResult.IsBlocked && !opts.Force {
-		os.RemoveAll(destPath)
-		var details []string
-		for _, f := range scanResult.Findings {
-			if audit.SeverityRank(f.Severity) <= audit.SeverityRank(threshold) {
-				detail := fmt.Sprintf("  %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
-				if f.Snippet != "" {
-					detail += fmt.Sprintf("\n    %q", f.Snippet)
-				}
-				details = append(details, detail)
-			}
+		details := blockedFindingDetails(scanResult.Findings, threshold)
+		if removeErr := removeAll(destPath); removeErr != nil {
+			return fmt.Errorf(
+				"security audit failed — findings at/above %s detected:\n%s\n\nAutomatic cleanup failed for %s: %v\nManual removal is required: %w",
+				threshold,
+				strings.Join(details, "\n"),
+				destPath,
+				removeErr,
+				audit.ErrBlocked,
+			)
 		}
 		return fmt.Errorf(
 			"security audit failed — findings at/above %s detected:\n%s\n\nUse --force to override or --skip-audit to bypass scanning: %w",
@@ -755,7 +741,210 @@ func auditInstalledSkill(destPath string, result *InstallResult, opts InstallOpt
 		)
 	}
 
+	if scanResult.IsBlocked && opts.Force {
+		result.Warnings = append(result.Warnings,
+			fmt.Sprintf("audit findings at/above block threshold (%s); proceeding due to --force", threshold))
+	} else if !scanResult.IsBlocked {
+		result.Warnings = append(result.Warnings,
+			fmt.Sprintf("audit findings detected, but none at/above block threshold (%s)", threshold))
+	}
+
 	return nil
+}
+
+// auditTrackedRepo scans an entire tracked repo directory for security threats.
+// It blocks installation when findings are at or above configured threshold
+// unless force is enabled. On block, the repo directory is removed.
+func auditTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOptions) error {
+	if opts.SkipAudit {
+		result.AuditSkipped = true
+		result.AuditThreshold = opts.AuditThreshold
+		result.Warnings = append(result.Warnings, "audit skipped (--skip-audit)")
+		return nil
+	}
+
+	threshold, err := audit.NormalizeThreshold(opts.AuditThreshold)
+	if err != nil {
+		threshold = audit.DefaultThreshold()
+	}
+	result.AuditThreshold = threshold
+
+	var scanResult *audit.Result
+	if opts.AuditProjectRoot != "" {
+		scanResult, err = audit.ScanSkillForProject(repoPath, opts.AuditProjectRoot)
+	} else {
+		scanResult, err = audit.ScanSkill(repoPath)
+	}
+	if err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("audit scan error: %v", err))
+		return nil
+	}
+	result.AuditRiskScore = scanResult.RiskScore
+	result.AuditRiskLabel = scanResult.RiskLabel
+	scanResult.Threshold = threshold
+	scanResult.IsBlocked = scanResult.HasSeverityAtOrAbove(threshold)
+
+	if len(scanResult.Findings) == 0 {
+		return nil
+	}
+
+	for _, f := range scanResult.Findings {
+		msg := fmt.Sprintf("audit %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
+		if f.Snippet != "" {
+			msg += fmt.Sprintf("\n       %q", f.Snippet)
+		}
+		result.Warnings = append(result.Warnings, msg)
+	}
+
+	if scanResult.IsBlocked && !opts.Force {
+		details := blockedFindingDetails(scanResult.Findings, threshold)
+		if removeErr := removeAll(repoPath); removeErr != nil {
+			return fmt.Errorf(
+				"security audit failed — findings at/above %s detected:\n%s\n\nAutomatic cleanup failed for %s: %v\nManual removal is required: %w",
+				threshold,
+				strings.Join(details, "\n"),
+				repoPath,
+				removeErr,
+				audit.ErrBlocked,
+			)
+		}
+		return fmt.Errorf(
+			"security audit failed — findings at/above %s detected:\n%s\n\nUse --force to override or --skip-audit to bypass scanning: %w",
+			threshold,
+			strings.Join(details, "\n"),
+			audit.ErrBlocked,
+		)
+	}
+
+	if scanResult.IsBlocked && opts.Force {
+		result.Warnings = append(result.Warnings,
+			fmt.Sprintf("audit findings at/above block threshold (%s); proceeding due to --force", threshold))
+	} else if !scanResult.IsBlocked {
+		result.Warnings = append(result.Warnings,
+			fmt.Sprintf("audit findings detected, but none at/above block threshold (%s)", threshold))
+	}
+
+	return nil
+}
+
+// auditGateFailClosed scans a repo after git pull and rolls back on scan
+// error or HIGH/CRITICAL findings. Used by handleUpdate for non-tracked skill
+// updates where fail-closed is the only behaviour (no TTY prompt, no threshold
+// override). For tracked repos with richer audit options, see auditTrackedRepoUpdate.
+func auditGateFailClosed(repoPath, beforeHash, projectRoot string) error {
+	var scanResult *audit.Result
+	var scanErr error
+	if projectRoot != "" {
+		scanResult, scanErr = audit.ScanSkillForProject(repoPath, projectRoot)
+	} else {
+		scanResult, scanErr = audit.ScanSkill(repoPath)
+	}
+	if scanErr != nil {
+		if resetErr := gitResetHard(repoPath, beforeHash); resetErr != nil {
+			return fmt.Errorf("post-update audit failed: %v; WARNING: rollback also failed: %v — malicious content may remain: %w", scanErr, resetErr, audit.ErrBlocked)
+		}
+		return fmt.Errorf("post-update audit failed: %v — rolled back (use --skip-audit to bypass): %w", scanErr, audit.ErrBlocked)
+	}
+	if scanResult.HasHigh() {
+		if resetErr := gitResetHard(repoPath, beforeHash); resetErr != nil {
+			return fmt.Errorf("post-update audit found HIGH/CRITICAL findings; WARNING: rollback also failed: %v — malicious content may remain: %w", resetErr, audit.ErrBlocked)
+		}
+		return fmt.Errorf("post-update audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass): %w", audit.ErrBlocked)
+	}
+	return nil
+}
+
+// auditTrackedRepoUpdate scans an updated tracked repo for security threats.
+// Unlike auditTrackedRepo (used for fresh installs), on block it rolls back
+// via git reset --hard to preserve the repo and its history.
+func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResult, opts InstallOptions) error {
+	if opts.SkipAudit {
+		result.AuditSkipped = true
+		result.AuditThreshold = opts.AuditThreshold
+		result.Warnings = append(result.Warnings, "audit skipped (--skip-audit)")
+		return nil
+	}
+
+	threshold, err := audit.NormalizeThreshold(opts.AuditThreshold)
+	if err != nil {
+		threshold = audit.DefaultThreshold()
+	}
+	result.AuditThreshold = threshold
+
+	var scanResult *audit.Result
+	if opts.AuditProjectRoot != "" {
+		scanResult, err = audit.ScanSkillForProject(repoPath, opts.AuditProjectRoot)
+	} else {
+		scanResult, err = audit.ScanSkill(repoPath)
+	}
+	if err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("audit scan error: %v", err))
+		return nil
+	}
+	result.AuditRiskScore = scanResult.RiskScore
+	result.AuditRiskLabel = scanResult.RiskLabel
+	scanResult.Threshold = threshold
+	scanResult.IsBlocked = scanResult.HasSeverityAtOrAbove(threshold)
+
+	if len(scanResult.Findings) == 0 {
+		return nil
+	}
+
+	for _, f := range scanResult.Findings {
+		msg := fmt.Sprintf("audit %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
+		if f.Snippet != "" {
+			msg += fmt.Sprintf("\n       %q", f.Snippet)
+		}
+		result.Warnings = append(result.Warnings, msg)
+	}
+
+	if scanResult.IsBlocked && !opts.Force {
+		if beforeHash == "" {
+			return fmt.Errorf(
+				"security audit found findings at/above %s — rollback commit unavailable, update aborted and repository state is unknown: %w",
+				threshold,
+				audit.ErrBlocked,
+			)
+		}
+
+		// Rollback via git reset to preserve the repo
+		if resetErr := gitResetHard(repoPath, beforeHash); resetErr != nil {
+			return fmt.Errorf("security audit found findings at/above %s — WARNING: rollback also failed: %v — malicious content may remain: %w",
+				threshold, resetErr, audit.ErrBlocked)
+		}
+		details := blockedFindingDetails(scanResult.Findings, threshold)
+		return fmt.Errorf(
+			"security audit failed — findings at/above %s detected (rolled back to %s):\n%s\n\nUse --force to override or --skip-audit to bypass scanning: %w",
+			threshold,
+			shortHash(beforeHash),
+			strings.Join(details, "\n"),
+			audit.ErrBlocked,
+		)
+	}
+
+	if scanResult.IsBlocked && opts.Force {
+		result.Warnings = append(result.Warnings,
+			fmt.Sprintf("audit findings at/above block threshold (%s); proceeding due to --force", threshold))
+	} else if !scanResult.IsBlocked {
+		result.Warnings = append(result.Warnings,
+			fmt.Sprintf("audit findings detected, but none at/above block threshold (%s)", threshold))
+	}
+
+	return nil
+}
+
+func blockedFindingDetails(findings []audit.Finding, threshold string) []string {
+	var details []string
+	for _, f := range findings {
+		if audit.SeverityRank(f.Severity) <= audit.SeverityRank(threshold) {
+			detail := fmt.Sprintf("  %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
+			if f.Snippet != "" {
+				detail += fmt.Sprintf("\n    %q", f.Snippet)
+			}
+			details = append(details, detail)
+		}
+	}
+	return details
 }
 
 // isGitInstalled checks if git command is available
@@ -889,6 +1078,9 @@ func getGitCommit(repoPath string) (string, error) {
 }
 
 // getGitFullHash returns the full HEAD commit hash for reliable rollback.
+// NOTE: duplicates git.GetCurrentFullHash — kept here because internal/git
+// imports internal/install (for AuthEnvForURL), so the reverse import would
+// create a cycle.
 func getGitFullHash(repoPath string) (string, error) {
 	cmd := exec.Command("git", "rev-parse", "HEAD")
 	cmd.Dir = repoPath
@@ -899,7 +1091,35 @@ func getGitFullHash(repoPath string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+func shortHash(hash string) string {
+	if len(hash) <= 12 {
+		return hash
+	}
+	return hash[:12]
+}
+
+func validateTrackedRepoDirName(name string) error {
+	if strings.TrimSpace(name) == "" {
+		return fmt.Errorf("tracked repo name cannot be empty")
+	}
+	if !strings.HasPrefix(name, "_") || len(name) < 2 {
+		return fmt.Errorf("tracked repo name must start with '_' and include at least one additional character")
+	}
+	if strings.Contains(name, "..") {
+		return fmt.Errorf("tracked repo name cannot contain '..'")
+	}
+	if strings.Contains(name, "/") || strings.Contains(name, "\\") {
+		return fmt.Errorf("tracked repo name cannot contain path separators")
+	}
+	if filepath.Clean(name) != name {
+		return fmt.Errorf("tracked repo name contains invalid path segments")
+	}
+	return nil
+}
+
 // gitResetHard resets the working tree to the given revision.
+// NOTE: duplicates git.ResetHard — kept here to avoid import cycle
+// (internal/git imports internal/install).
 func gitResetHard(repoPath, rev string) error {
 	cmd := exec.Command("git", "reset", "--hard", rev)
 	cmd.Dir = repoPath
@@ -954,12 +1174,16 @@ func copyFile(src, dst string) error {
 
 // TrackedRepoResult reports the outcome of a tracked repo installation
 type TrackedRepoResult struct {
-	RepoName   string   // Name of the tracked repo (e.g., "_team-skills")
-	RepoPath   string   // Full path to the repo
-	SkillCount int      // Number of skills discovered
-	Skills     []string // Names of discovered skills
-	Action     string   // "cloned", "updated", "skipped"
-	Warnings   []string
+	RepoName       string   // Name of the tracked repo (e.g., "_team-skills")
+	RepoPath       string   // Full path to the repo
+	SkillCount     int      // Number of skills discovered
+	Skills         []string // Names of discovered skills
+	Action         string   // "cloned", "updated", "skipped"
+	Warnings       []string
+	AuditThreshold string
+	AuditRiskScore int
+	AuditRiskLabel string
+	AuditSkipped   bool
 }
 
 // InstallTrackedRepo clones a git repository as a tracked repo.
@@ -982,6 +1206,9 @@ func InstallTrackedRepo(source *Source, sourceDir string, opts InstallOptions) (
 	trackedName := repoName
 	if !strings.HasPrefix(repoName, "_") {
 		trackedName = "_" + repoName
+	}
+	if err := validateTrackedRepoDirName(trackedName); err != nil {
+		return nil, fmt.Errorf("invalid tracked repo name %q: %w", trackedName, err)
 	}
 	destBase := sourceDir
 	if opts.Into != "" {
@@ -1034,6 +1261,11 @@ func InstallTrackedRepo(source *Source, sourceDir string, opts InstallOptions) (
 		result.Warnings = append(result.Warnings, "no SKILL.md files found in repository")
 	}
 
+	// Security audit on the entire tracked repo
+	if err := auditTrackedRepo(destPath, result, opts); err != nil {
+		return nil, err
+	}
+
 	// Auto-add to .gitignore to prevent committing tracked repo contents
 	gitignoreEntry := trackedName
 	if opts.Into != "" {
@@ -1058,8 +1290,22 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 		return result, nil
 	}
 
+	// Record hash before pull for rollback on audit failure
+	beforeHash, err := getGitFullHash(repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to determine rollback commit before update (aborting for safety): %w", err)
+	}
+	if beforeHash == "" {
+		return nil, fmt.Errorf("failed to determine rollback commit before update (aborting for safety): empty commit hash")
+	}
+
 	if err := gitPull(repoPath); err != nil {
 		return nil, fmt.Errorf("failed to update: %w", err)
+	}
+
+	// Post-pull audit: rollback via git reset (not os.RemoveAll) to preserve repo.
+	if err := auditTrackedRepoUpdate(repoPath, beforeHash, result, opts); err != nil {
+		return nil, err
 	}
 
 	// Re-discover skills (exclude root for tracked repos)
