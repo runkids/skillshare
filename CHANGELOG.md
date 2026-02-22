@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.15.3] - 2026-02-22
+
+### Added
+- **Multi-name and `--group` for `audit`** — `skillshare audit a b c` scans multiple skills at once; `--group`/`-G` flag scans all skills in a group directory (repeatable); names and groups can be mixed freely (e.g. `skillshare audit my-skill -G frontend`)
+- **`external-link` audit rule** — new `external-link-0` rule (LOW severity) detects external URLs in markdown links (`[text](https://...)`) that may indicate prompt injection vectors or unnecessary token consumption; localhost and loopback links are excluded
+- **Auth tokens for hub search** — `search --hub` now automatically uses `GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`, or `SKILLSHARE_GIT_TOKEN` when fetching private hub indexes; no extra configuration needed
+
+### Changed
+- **`pull` merges by default** — when both local and remote have skills on first pull, `pull` now attempts a git merge instead of failing; if the merge has conflicts, it stops with guidance; `--force` still replaces local with remote
+- **Parallel audit scanning** — `skillshare audit` (all-skills scan) now runs up to 8 concurrent workers for faster results in both CLI and Web UI
+
+### Fixed
+- **`audit` resolves nested skill names** — `skillshare audit nested__skill` now correctly finds skills by flat name or basename with short-name fallback
+
 ## [0.15.2] - 2026-02-22
 
 ### Added
