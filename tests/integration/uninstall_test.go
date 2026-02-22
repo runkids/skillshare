@@ -4,6 +4,7 @@ package integration
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -395,5 +396,52 @@ targets: {}
 
 	if sb.FileExists(filepath.Join(sb.SourcePath, "frontend", "my-skill")) {
 		t.Error("skill should be removed")
+	}
+}
+
+// TestUninstall_GroupDir_RemovesConfigEntries verifies that uninstalling a group
+// directory (not --group flag, but a directory name) removes all member skills
+// from the config.yaml skills manifest.
+func TestUninstall_GroupDir_RemovesConfigEntries(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("mygroup/skill-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateSkill("mygroup/skill-b", map[string]string{"SKILL.md": "# B"})
+	sb.CreateSkill("other/skill-c", map[string]string{"SKILL.md": "# C"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+skills:
+  - name: skill-a
+    source: github.com/org/repo/skill-a
+    group: mygroup
+  - name: skill-b
+    source: github.com/org/repo/skill-b
+    group: mygroup
+  - name: skill-c
+    source: github.com/org/repo/skill-c
+    group: other
+`)
+
+	result := sb.RunCLI("uninstall", "mygroup", "-f")
+	result.AssertSuccess(t)
+
+	// Group directory should be removed from disk
+	if sb.FileExists(filepath.Join(sb.SourcePath, "mygroup")) {
+		t.Error("mygroup directory should be removed")
+	}
+
+	// Config should no longer contain mygroup skills
+	cfg := sb.ReadFile(sb.ConfigPath)
+	if strings.Contains(cfg, "skill-a") {
+		t.Error("config should not contain skill-a after group uninstall")
+	}
+	if strings.Contains(cfg, "skill-b") {
+		t.Error("config should not contain skill-b after group uninstall")
+	}
+	// other group should be untouched
+	if !strings.Contains(cfg, "skill-c") {
+		t.Error("config should still contain skill-c from other group")
 	}
 }
