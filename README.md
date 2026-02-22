@@ -44,7 +44,7 @@
 > **Recent Updates**
 > | Version | Highlights |
 > |---------|------------|
-> | [0.15.x](https://github.com/runkids/skillshare/releases/tag/v0.15.4) | Supply-chain security (auto-audit gate with rollback, content hash pinning, `--diff` for `update`), copy sync mode, HTTPS token auth, multi-name `audit` with `--group` |
+> | [0.15.x](https://github.com/runkids/skillshare/releases/tag/v0.15.4) | Supply-chain security (threshold-based audit gate with rollback on install/update, `--threshold`/`-T` override, content hash pinning, `--diff` for `update`), copy sync mode, HTTPS token auth, multi-name `audit` with `--group` |
 > | [0.14.0](https://github.com/runkids/skillshare/releases/tag/v0.14.0) | Global skill manifest, `.skillignore`, multi-skill/group uninstall, license display, 6 new audit rules |
 > | [0.13.0](https://github.com/runkids/skillshare/releases/tag/v0.13.0) | Skill-level targets, XDG compliance, unified target names, runtime UI download |
 > | [0.12.0](https://github.com/runkids/skillshare/releases/tag/v0.12.0) | Skill Hub — generate indexes, search private catalogs with `--hub` |
@@ -79,7 +79,7 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 | **Project-scoped skills** | Global lock file only | `init -p` for per-repo skills |
 | **Cross-machine sync** | Manual | Built-in `push` / `pull` |
 | **Bidirectional** | Install only | `collect` pulls changes back |
-| **Security audit** | None | Built-in `audit` + auto-scan on install |
+| **Security audit** | None | Built-in `audit` + auto-scan on install/update |
 | **Web dashboard** | None | `skillshare ui` |
 | **Runtime dependency** | Node.js + npm | None (single Go binary) |
 
@@ -312,19 +312,20 @@ Scan installed skills for prompt injection, data exfiltration, credential theft,
 skillshare audit            # Scan all skills
 skillshare audit <name>     # Scan a specific skill
 skillshare audit -T h       # Block on HIGH+ findings for this run
+skillshare update _team -T h # Override update gate to HIGH for this run
 ```
 
-Skills are also scanned automatically during `skillshare install`.
+Skills are also scanned automatically during `skillshare install` and `skillshare update`.
 
-- `skillshare install` runs an audit by default.
+- `skillshare install` and `skillshare update` run an audit by default.
 - Block threshold is configurable with `audit.block_threshold` (`CRITICAL` default; also supports `HIGH`, `MEDIUM`, `LOW`, `INFO`).
-- Per-command threshold override is supported on install: `--audit-threshold`, `--threshold`, `-T` (supports shorthand: `c|h|m|l|i`, plus `crit`, `med`).
+- Per-command threshold override is supported on install and update: `--audit-threshold`, `--threshold`, `-T` (supports shorthand: `c|h|m|l|i`, plus `crit`, `med`).
 - `audit.block_threshold` only controls blocking level; it does **not** disable scanning.
-- There is no config flag to permanently skip audit. To bypass a single install, use `--skip-audit`.
-- Use `--force` to override blocked installs while still running audit (findings remain visible).
-- Use `--skip-audit` to bypass scanning for a single install command.
+- There is no config flag to permanently skip audit. To bypass a single run, use `--skip-audit`.
+- Use `--force` (where supported) to override blocked installs while still running audit (findings remain visible).
+- Use `--skip-audit` to bypass scanning for a single install/update command.
 - If both are set, `--skip-audit` takes precedence in practice (audit is not executed).
-- Audit output shows both **block decision** (severity threshold) and **aggregate risk** (score/label). Aggregate risk does not by itself block installs.
+- Audit output shows both **block decision** (severity threshold) and **aggregate risk** (score/label). Aggregate risk does not by itself block installs or updates.
 
 > [!TIP]
 > See the [Securing Your Skills](https://skillshare.runkids.cc/docs/guides/security) guide for a complete security workflow, or the [audit command reference](https://skillshare.runkids.cc/docs/commands/audit) for the full list of detection patterns.

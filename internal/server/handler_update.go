@@ -30,6 +30,21 @@ type updateResultItem struct {
 	AuditRiskLabel string `json:"auditRiskLabel,omitempty"`
 }
 
+func (s *Server) updateAuditThreshold() string {
+	if s.IsProjectMode() && s.projectCfg != nil {
+		if threshold, err := audit.NormalizeThreshold(s.projectCfg.Audit.BlockThreshold); err == nil {
+			return threshold
+		}
+		return audit.DefaultThreshold()
+	}
+	if s.cfg != nil {
+		if threshold, err := audit.NormalizeThreshold(s.cfg.Audit.BlockThreshold); err == nil {
+			return threshold
+		}
+	}
+	return audit.DefaultThreshold()
+}
+
 func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.mu.Lock()
@@ -187,7 +202,7 @@ func (s *Server) updateTrackedRepo(name, repoPath string, force, skipAudit bool)
 		IsRepo:  true,
 	}
 	if !skipAudit {
-		blocked, auditResult := s.auditGateTrackedRepo(name, repoPath, info.BeforeHash)
+		blocked, auditResult := s.auditGateTrackedRepo(name, repoPath, info.BeforeHash, s.updateAuditThreshold())
 		if blocked != nil {
 			return *blocked
 		}
@@ -200,9 +215,10 @@ func (s *Server) updateTrackedRepo(name, repoPath string, force, skipAudit bool)
 	return item
 }
 
-// auditGateTrackedRepo scans a tracked repo after pull and rolls back if HIGH/CRITICAL.
+// auditGateTrackedRepo scans a tracked repo after pull and rolls back if findings are detected
+// at or above the active threshold.
 // Returns (blocked item, audit result). blocked is non-nil when the update should be rejected.
-func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string) (*updateResultItem, *audit.Result) {
+func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash, threshold string) (*updateResultItem, *audit.Result) {
 	var result *audit.Result
 	var err error
 	if s.IsProjectMode() {
@@ -213,8 +229,12 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string) (*updat
 
 	if err != nil {
 		msg := "security audit failed: " + err.Error()
-		if resetErr := git.ResetHard(repoPath, beforeHash); resetErr != nil {
+		if beforeHash == "" {
+			msg += " (rollback commit unavailable, repository state is unknown)"
+		} else if resetErr := git.ResetHard(repoPath, beforeHash); resetErr != nil {
 			msg += " (WARNING: rollback also failed: " + resetErr.Error() + " — malicious content may remain)"
+		} else {
+			msg += " (rolled back)"
 		}
 		return &updateResultItem{
 			Name:    name,
@@ -224,9 +244,11 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string) (*updat
 		}, nil
 	}
 
-	if result.HasHigh() {
-		msg := "blocked by security audit — HIGH/CRITICAL findings detected"
-		if resetErr := git.ResetHard(repoPath, beforeHash); resetErr != nil {
+	if result.HasSeverityAtOrAbove(threshold) {
+		msg := fmt.Sprintf("blocked by security audit — findings at/above %s detected", threshold)
+		if beforeHash == "" {
+			msg += " (rollback commit unavailable, repository state is unknown)"
+		} else if resetErr := git.ResetHard(repoPath, beforeHash); resetErr != nil {
 			msg += " (WARNING: rollback failed: " + resetErr.Error() + " — malicious content may remain)"
 		} else {
 			msg += ", rolled back"
@@ -253,7 +275,12 @@ func (s *Server) updateRegularSkill(name, skillPath string, skipAudit bool) upda
 		}
 	}
 
-	opts := install.InstallOptions{Force: true, Update: true, SkipAudit: skipAudit}
+	opts := install.InstallOptions{
+		Force:          true,
+		Update:         true,
+		SkipAudit:      skipAudit,
+		AuditThreshold: s.updateAuditThreshold(),
+	}
 	if s.IsProjectMode() {
 		opts.AuditProjectRoot = s.projectRoot
 	}
