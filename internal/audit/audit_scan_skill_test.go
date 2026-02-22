@@ -253,6 +253,50 @@ func TestScanSkill_DanglingLink_FragmentStripped(t *testing.T) {
 	}
 }
 
+func TestScanSkill_ExternalLinkDetected(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[docs](https://example.com)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var found bool
+	for _, f := range result.Findings {
+		if f.Pattern == "external-link" && f.Severity == "LOW" {
+			found = true
+			if f.Line != 3 {
+				t.Errorf("expected line 3, got %d", f.Line)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected a LOW external-link finding, got findings: %+v", result.Findings)
+	}
+}
+
+func TestScanSkill_ExternalLinkLocalhostSkipped(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[local](http://localhost:3000)\n[loopback](http://127.0.0.1:8080/api)\n[bind](http://0.0.0.0:5000)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "external-link" {
+			t.Errorf("unexpected external-link finding for localhost link: %+v", f)
+		}
+	}
+}
+
 func TestTruncate(t *testing.T) {
 	if got := truncate("short", 80); got != "short" {
 		t.Errorf("truncate short = %q", got)

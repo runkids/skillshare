@@ -161,6 +161,14 @@ rules:
     regex: '(?i)(curl|wget|invoke-webrequest|iwr)\s+http://'
     exclude: '(?i)http://(localhost|127\.0\.0\.1|0\.0\.0\.0)'
 
+  # ── LOW: external links in markdown ──
+  - id: external-link-0
+    severity: LOW
+    pattern: external-link
+    message: "External URL in markdown link"
+    regex: '\]\(https?://[^)]+\)'
+    exclude: '(?i)\]\(https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)[:/)]'
+
   # ── INFO: risky shell chaining patterns (advisory) ──
   - id: shell-chain-0
     severity: INFO
