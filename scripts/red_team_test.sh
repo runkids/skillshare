@@ -79,18 +79,19 @@ if ! command -v jq &>/dev/null; then
 fi
 pass "jq available"
 
-# Ensure git identity exists (needed in containers without global gitconfig)
-if ! git config user.name &>/dev/null; then
-  git config --global user.name "Red Team Test"
-  git config --global user.email "redteam@test.local"
-  info "Set temporary git identity for commit operations"
-fi
-
 # Create isolated temp environment
 TMPDIR_ROOT="$(mktemp -d)"
 SOURCE_DIR="$TMPDIR_ROOT/source"
 CONFIG_PATH="$TMPDIR_ROOT/config.yaml"
 mkdir -p "$SOURCE_DIR"
+
+# Use an isolated git global config to avoid mutating user-level settings.
+# This ensures commit identity is available in clean containers and CI.
+GIT_CONFIG_GLOBAL="$TMPDIR_ROOT/gitconfig"
+export GIT_CONFIG_GLOBAL
+git config --global user.name "Red Team Test"
+git config --global user.email "redteam@test.local"
+info "Using isolated git config: $GIT_CONFIG_GLOBAL"
 
 cat > "$CONFIG_PATH" <<EOF
 source: $SOURCE_DIR
