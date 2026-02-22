@@ -36,13 +36,13 @@ func cmdUpdateProject(args []string, root string) error {
 	sourcePath := filepath.Join(root, ".skillshare", "skills")
 
 	if opts.all {
-		return updateAllProjectSkills(sourcePath, opts.dryRun, opts.force)
+		return updateAllProjectSkills(sourcePath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, root)
 	}
 
-	return cmdUpdateProjectBatch(sourcePath, opts)
+	return cmdUpdateProjectBatch(sourcePath, opts, root)
 }
 
-func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions) error {
+func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot string) error {
 	// --- Resolve targets ---
 	type projectTarget struct {
 		name   string
@@ -149,9 +149,9 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions) error {
 	if len(targets) == 1 {
 		t := targets[0]
 		if t.isRepo {
-			return updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force)
+			return updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.diff, projectRoot)
 		}
-		return updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force)
+		return updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, projectRoot)
 	}
 
 	// Batch mode
@@ -162,13 +162,13 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions) error {
 	updated := 0
 	for _, t := range targets {
 		if t.isRepo {
-			if err := updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force); err != nil {
+			if err := updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.diff, projectRoot); err != nil {
 				ui.Warning("%s: %v", t.name, err)
 			} else {
 				updated++
 			}
 		} else {
-			if err := updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force); err != nil {
+			if err := updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, projectRoot); err != nil {
 				ui.Warning("%s: %v", t.name, err)
 			} else {
 				updated++
@@ -184,7 +184,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions) error {
 	return nil
 }
 
-func updateSingleProjectSkill(sourcePath, name string, dryRun, force bool) error {
+func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit, showDiff bool, projectRoot string) error {
 	// Normalize _ prefix for tracked repos
 	repoName := name
 	if !strings.HasPrefix(repoName, "_") {
@@ -197,7 +197,7 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force bool) error
 
 	// Try as tracked repo first
 	if install.IsGitRepo(repoPath) {
-		return updateProjectTrackedRepo(repoName, repoPath, dryRun, force)
+		return updateProjectTrackedRepo(repoName, repoPath, dryRun, force, skipAudit, showDiff, projectRoot)
 	}
 
 	// Regular skill with metadata
@@ -233,7 +233,7 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force bool) error
 	return nil
 }
 
-func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force bool) error {
+func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudit, showDiff bool, projectRoot string) error {
 	// Check for uncommitted changes
 	if isDirty, _ := git.IsDirty(repoPath); isDirty {
 		if !force {
@@ -268,15 +268,26 @@ func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force bool) err
 
 	if info.UpToDate {
 		spinner.Success(fmt.Sprintf("%s already up to date", repoName))
-	} else {
-		spinner.Success(fmt.Sprintf("%s %d commits, %d files", repoName, len(info.Commits), info.Stats.FilesChanged))
+		return nil
 	}
+
+	spinner.Success(fmt.Sprintf("%s %d commits, %d files", repoName, len(info.Commits), info.Stats.FilesChanged))
+
+	if showDiff {
+		renderDiffSummary(repoPath, info.BeforeHash, info.AfterHash)
+	}
+
+	// Post-pull audit gate (project mode)
+	if err := auditGateAfterPullProject(repoPath, projectRoot, info.BeforeHash, skipAudit); err != nil {
+		return err
+	}
+
 	fmt.Println()
 	ui.Info("Run 'skillshare sync' to distribute changes")
 	return nil
 }
 
-func updateAllProjectSkills(sourcePath string, dryRun, force bool) error {
+func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDiff bool, projectRoot string) error {
 	entries, err := os.ReadDir(sourcePath)
 	if err != nil {
 		return fmt.Errorf("failed to read project skills: %w", err)
@@ -297,7 +308,7 @@ func updateAllProjectSkills(sourcePath string, dryRun, force bool) error {
 
 		// Tracked repo: git pull
 		if install.IsGitRepo(skillPath) {
-			if err := updateProjectTrackedRepo(skillName, skillPath, dryRun, force); err != nil {
+			if err := updateProjectTrackedRepo(skillName, skillPath, dryRun, force, skipAudit, showDiff, projectRoot); err != nil {
 				ui.Warning("%s: %v", skillName, err)
 			} else {
 				updated++

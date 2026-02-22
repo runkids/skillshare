@@ -562,8 +562,33 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 			return result, nil
 		}
 
+		// Record hash before pull for rollback
+		beforeHash, _ := getGitFullHash(destPath)
+
 		if err := gitPull(destPath); err != nil {
 			return nil, fmt.Errorf("failed to update: %w", err)
+		}
+
+		// Post-pull audit gate: rollback on HIGH/CRITICAL unless skipped
+		if beforeHash != "" && !opts.SkipAudit {
+			afterHash, _ := getGitFullHash(destPath)
+			if afterHash != beforeHash {
+				var scanResult *audit.Result
+				var scanErr error
+				if opts.AuditProjectRoot != "" {
+					scanResult, scanErr = audit.ScanSkillForProject(destPath, opts.AuditProjectRoot)
+				} else {
+					scanResult, scanErr = audit.ScanSkill(destPath)
+				}
+				if scanErr != nil {
+					gitResetHard(destPath, beforeHash) //nolint:errcheck
+					return nil, fmt.Errorf("post-update audit failed: %v (use --skip-audit to bypass)", scanErr)
+				}
+				if scanResult.HasHigh() {
+					gitResetHard(destPath, beforeHash) //nolint:errcheck
+					return nil, fmt.Errorf("post-update audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass)")
+				}
+			}
 		}
 
 		// Update metadata timestamp
@@ -829,6 +854,24 @@ func getGitCommit(repoPath string) (string, error) {
 		return "", err
 	}
 	return string(output[:len(output)-1]), nil // Remove trailing newline
+}
+
+// getGitFullHash returns the full HEAD commit hash for reliable rollback.
+func getGitFullHash(repoPath string) (string, error) {
+	cmd := exec.Command("git", "rev-parse", "HEAD")
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// gitResetHard resets the working tree to the given revision.
+func gitResetHard(repoPath, rev string) error {
+	cmd := exec.Command("git", "reset", "--hard", rev)
+	cmd.Dir = repoPath
+	return cmd.Run()
 }
 
 // copyDir copies a directory recursively
