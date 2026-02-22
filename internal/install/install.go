@@ -134,8 +134,11 @@ func installFromLocal(source *Source, destPath string, result *InstallResult, op
 		return nil, err
 	}
 
-	// Write metadata
+	// Write metadata with file hashes
 	meta := NewMetaFromSource(source)
+	if hashes, hashErr := ComputeFileHashes(destPath); hashErr == nil {
+		meta.FileHashes = hashes
+	}
 	if err := WriteMeta(destPath, meta); err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
 	}
@@ -170,11 +173,13 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	// Write metadata
+	// Write metadata with file hashes
 	meta := NewMetaFromSource(source)
-	// Try to get the commit hash
 	if hash, err := getGitCommit(destPath); err == nil {
 		meta.Version = hash
+	}
+	if hashes, hashErr := ComputeFileHashes(destPath); hashErr == nil {
+		meta.FileHashes = hashes
 	}
 	if err := WriteMeta(destPath, meta); err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
@@ -475,7 +480,7 @@ func InstallFromDiscovery(discovery *DiscoveryResult, skill SkillInfo, destPath 
 		return nil, err
 	}
 
-	// Write metadata
+	// Write metadata with file hashes
 	source := &Source{
 		Type:     discovery.Source.Type,
 		Raw:      fullSource,
@@ -486,6 +491,9 @@ func InstallFromDiscovery(discovery *DiscoveryResult, skill SkillInfo, destPath 
 	meta := NewMetaFromSource(source)
 	if hash, err := getGitCommit(filepath.Join(discovery.RepoPath, "repo")); err == nil {
 		meta.Version = hash
+	}
+	if hashes, hashErr := ComputeFileHashes(destPath); hashErr == nil {
+		meta.FileHashes = hashes
 	}
 	if err := WriteMeta(destPath, meta); err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
@@ -535,11 +543,13 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 		return nil, err
 	}
 
-	// Write metadata
+	// Write metadata with file hashes
 	meta := NewMetaFromSource(source)
-	// Try to get the commit hash from temp repo
 	if hash, err := getGitCommit(tempRepoPath); err == nil {
 		meta.Version = hash
+	}
+	if hashes, hashErr := ComputeFileHashes(destPath); hashErr == nil {
+		meta.FileHashes = hashes
 	}
 	if err := WriteMeta(destPath, meta); err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
@@ -591,11 +601,14 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 			}
 		}
 
-		// Update metadata timestamp
+		// Update metadata timestamp and file hashes
 		meta, _ := ReadMeta(destPath)
 		if meta != nil {
 			if hash, err := getGitCommit(destPath); err == nil {
 				meta.Version = hash
+			}
+			if hashes, hashErr := ComputeFileHashes(destPath); hashErr == nil {
+				meta.FileHashes = hashes
 			}
 			WriteMeta(destPath, meta)
 		}

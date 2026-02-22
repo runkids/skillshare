@@ -1,7 +1,11 @@
 package audit
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -310,6 +314,11 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		result.Findings = append(result.Findings, checkDanglingLinks(mdFiles)...)
 	}
 
+	// Content integrity check against pinned hashes.
+	if !disabled["content-integrity"] {
+		result.Findings = append(result.Findings, checkContentIntegrity(skillPath)...)
+	}
+
 	result.updateRisk()
 	return result, nil
 }
@@ -488,6 +497,105 @@ func isExternalOrAnchor(target string) bool {
 		}
 	}
 	return strings.HasPrefix(target, "#")
+}
+
+// checkContentIntegrity compares files on disk against pinned hashes in
+// .skillshare-meta.json. Backward-compatible: skips silently when meta or
+// file_hashes is absent.
+func checkContentIntegrity(skillPath string) []Finding {
+	metaPath := filepath.Join(skillPath, ".skillshare-meta.json")
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		return nil // no meta → skip
+	}
+
+	var raw struct {
+		FileHashes map[string]string `json:"file_hashes"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil || len(raw.FileHashes) == 0 {
+		return nil // no hashes → skip
+	}
+
+	var findings []Finding
+
+	// Check pinned files: missing or tampered
+	for rel, expected := range raw.FileHashes {
+		absPath := filepath.Join(skillPath, filepath.FromSlash(rel))
+		info, err := os.Stat(absPath)
+		if err != nil {
+			findings = append(findings, Finding{
+				Severity: SeverityLow,
+				Pattern:  "content-missing",
+				Message:  fmt.Sprintf("pinned file missing: %s", rel),
+				File:     rel,
+				Line:     0,
+			})
+			continue
+		}
+		if info.IsDir() {
+			continue
+		}
+		actual, hashErr := fileHash(absPath)
+		if hashErr != nil {
+			continue
+		}
+		if "sha256:"+actual != expected {
+			findings = append(findings, Finding{
+				Severity: SeverityMedium,
+				Pattern:  "content-tampered",
+				Message:  fmt.Sprintf("file hash mismatch: %s", rel),
+				File:     rel,
+				Line:     0,
+			})
+		}
+	}
+
+	// Check for unexpected files not in the pinned set
+	filepath.Walk(skillPath, func(path string, fi os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+		if fi.IsDir() {
+			if fi.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if fi.Name() == ".skillshare-meta.json" {
+			return nil
+		}
+		rel, relErr := filepath.Rel(skillPath, path)
+		if relErr != nil {
+			return nil
+		}
+		normalized := filepath.ToSlash(rel)
+		if _, ok := raw.FileHashes[normalized]; !ok {
+			findings = append(findings, Finding{
+				Severity: SeverityLow,
+				Pattern:  "content-unexpected",
+				Message:  fmt.Sprintf("file not in pinned hashes: %s", normalized),
+				File:     normalized,
+				Line:     0,
+			})
+		}
+		return nil
+	})
+
+	return findings
+}
+
+// fileHash returns the hex-encoded SHA-256 digest of a file.
+func fileHash(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // stripFragment removes #fragment and ?query from a link target.
