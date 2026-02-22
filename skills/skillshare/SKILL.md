@@ -1,18 +1,14 @@
 ---
 name: skillshare
-version: v0.15.0
+version: v0.15.3
 description: |
   Syncs skills across AI CLI tools (Claude, Cursor, Windsurf, etc.) from a single source of truth.
   Global mode (~/.config/skillshare/) and project mode (.skillshare/ per-repo).
   Commands: status, sync, install, uninstall, update, check, search, new, collect,
   push, pull, diff, list, doctor, audit, init-rules, trash, log, backup, restore, target, ui, upgrade.
-  Features: target-level skill filtering (include/exclude), skill-level targets field,
-  XDG Base Directory support, fuzzy subdirectory resolution for monorepo installs,
-  .skillignore for repo-level skill filtering, --exclude flag, license display,
-  multi-skill and group uninstall (--group/-G), declarative skill manifest (global + project),
-  group field for organized placement, copy sync mode for symlink-incompatible CLIs,
-  HTTPS token auth for private repos (GITHUB_TOKEN, GITLAB_TOKEN, etc.),
-  49+ supported targets.
+  Features: target filtering (include/exclude), skill-level targets field,
+  .skillignore, --exclude flag, group uninstall (--group/-G), declarative skill manifest,
+  group field, copy sync mode, HTTPS token auth for private repos, 49+ supported targets.
   Use when: managing skills across AI tools, "skillshare" CLI, skill sync/install/search,
   project skills setup, target filtering, security audit, web dashboard, or troubleshooting.
 argument-hint: "[command] [target] [--dry-run] [-p|-g]"

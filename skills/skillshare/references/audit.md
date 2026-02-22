@@ -7,6 +7,8 @@ Scan skills for prompt injection, data exfiltration, credential access, destruct
 ```bash
 skillshare audit                   # Scan all skills
 skillshare audit <name>            # Scan specific skill
+skillshare audit a b c             # Scan multiple skills
+skillshare audit --group frontend  # Scan all skills in a group
 skillshare audit <path>            # Scan file or directory path
 skillshare audit -p                # Scan project skills
 ```
@@ -15,6 +17,7 @@ skillshare audit -p                # Scan project skills
 
 | Flag | Description |
 |------|-------------|
+| `-G, --group <name>` | Scan all skills in a group (repeatable) |
 | `-p, --project` | Scan project-level skills |
 | `-g, --global` | Scan global skills |
 | `--threshold <t>` | Block threshold override: `critical\|high\|medium\|low\|info` |
@@ -111,6 +114,7 @@ Summary box:
 | `suspicious-fetch` | MEDIUM | URLs used in command context | — |
 | `system-writes` | MEDIUM | Writes to /etc, /usr, system paths | — |
 | `insecure-http` | LOW | HTTP URLs (non-HTTPS) | — |
+| `external-link` | LOW | External URLs in markdown links | Excludes localhost/127.0.0.1/0.0.0.0 |
 | `dangling-link` | LOW | Broken local markdown links | Skips external/anchor links |
 | `shell-chain` | INFO | Long shell pipe chains | — |
 
