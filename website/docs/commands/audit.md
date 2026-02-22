@@ -9,6 +9,8 @@ Scan installed skills for security threats and malicious patterns.
 ```bash
 skillshare audit                        # Scan all installed skills
 skillshare audit <name>                 # Scan a specific installed skill
+skillshare audit a b c                  # Scan multiple skills
+skillshare audit --group frontend       # Scan all skills in a group
 skillshare audit <path>                 # Scan a file/directory path
 skillshare audit --threshold high       # Block on HIGH+ findings
 skillshare audit --json                 # JSON output
@@ -680,8 +682,11 @@ Source of truth (full built-in definitions):
 
 | Flag | Description |
 |------|------------|
+| `-G`, `--group` `<name>` | Scan all skills in a group (repeatable) |
 | `-p`, `--project` | Scan project-level skills |
 | `-g`, `--global` | Scan global skills |
+| `--threshold` `<t>` | Block threshold: `critical`\|`high`\|`medium`\|`low`\|`info` |
+| `--json` | Output machine-readable JSON |
 | `--init-rules` | Create a starter `audit-rules.yaml` (respects `-p`/`-g`) |
 | `-h`, `--help` | Show help |
 
