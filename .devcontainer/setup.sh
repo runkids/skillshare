@@ -27,11 +27,15 @@ PROFILE_EOF
 echo "▸ Building skillshare binary …"
 make build
 
-# ── 1a. Ensure Linux binary + stable command symlinks ─────────────
+# ── 1a. Install air (Go hot-reload) ─────────────────────────────
+echo "▸ Installing air (hot-reload) …"
+go install github.com/air-verse/air@latest
+
+# ── 1b. Ensure Linux binary + stable command symlinks ─────────────
 echo "▸ Verifying skillshare command targets …"
 ./.devcontainer/ensure-skillshare-linux-binary.sh
 
-# ── 1b. Install frontend dependencies ─────────────────────────────
+# ── 1c. Install frontend dependencies ─────────────────────────────
 echo "▸ Installing UI dependencies …"
 (cd /workspace/ui && pnpm install --frozen-lockfile)
 echo "▸ Installing website dependencies …"

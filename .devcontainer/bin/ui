@@ -71,21 +71,16 @@ for _ in 1 2 3 4 5 6; do
   sleep 0.5
 done
 
-# Build binary.
-printf "  %-12s building..." "api"
-if ! (cd /workspace && /usr/local/go/bin/go build -o /tmp/skillshare-dev ./cmd/skillshare) 2>"$LOGDIR/ui-build.log"; then
-  echo " failed (see $LOGDIR/ui-build.log)"
-  exit 1
-fi
-echo " ok"
-
-# Start API.
+# Start API via air (hot-reload).
+export SKILLSHARE_UI_HOST=0.0.0.0
+MODE_FLAG="-${MODE:0:1}"
+export SKILLSHARE_UI_FLAGS="${MODE_FLAG} --port ${PORT}"
 if [ "$MODE" = "project" ]; then
   cd ~/demo-project
 fi
-nohup /tmp/skillshare-dev ui "-${MODE:0:1}" --no-open --host 0.0.0.0 --port $PORT > "$LOGDIR/api-dev.log" 2>&1 &
+nohup /usr/local/go/bin/air -c /workspace/.air.toml > "$LOGDIR/api-dev.log" 2>&1 &
 echo $! > "$PIDDIR/api.pid"
-printf "  %-12s started (%s mode)\n" "api" "$MODE"
+printf "  %-12s started (%s mode, hot-reload)\n" "api" "$MODE"
 
 # Ensure Vite is running.
 if is_port_open $VITE_PORT; then
