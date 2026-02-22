@@ -379,3 +379,83 @@ func TestUpdate_BatchMultiple_FailsOnMalicious(t *testing.T) {
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "blocked by security audit")
 }
+
+func TestUpdate_Diff_RegularSkill_ShowsFileChanges(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	// Create a local skill source directory
+	localSource := filepath.Join(sb.Root, "my-local-skill")
+	os.MkdirAll(localSource, 0755)
+	os.WriteFile(filepath.Join(localSource, "SKILL.md"), []byte("# V1"), 0644)
+
+	// Install from local path (creates copy + metadata)
+	result := sb.RunCLI("install", localSource)
+	result.AssertSuccess(t)
+
+	// Modify the source: change existing file, add new file
+	os.WriteFile(filepath.Join(localSource, "SKILL.md"), []byte("# V2\nUpdated."), 0644)
+	os.WriteFile(filepath.Join(localSource, "extra.txt"), []byte("new file"), 0644)
+
+	// Update WITH --diff
+	result2 := sb.RunCLI("update", "my-local-skill", "--diff", "--skip-audit")
+	result2.AssertSuccess(t)
+	result2.AssertAnyOutputContains(t, "Files Changed")
+	result2.AssertAnyOutputContains(t, "SKILL.md")
+	result2.AssertAnyOutputContains(t, "extra.txt")
+
+	// Update WITHOUT --diff — should not show file list
+	// Modify source again so update has something to do
+	os.WriteFile(filepath.Join(localSource, "SKILL.md"), []byte("# V3"), 0644)
+
+	result3 := sb.RunCLI("update", "my-local-skill", "--skip-audit")
+	result3.AssertSuccess(t)
+	result3.AssertOutputNotContains(t, "Files Changed")
+}
+
+func TestUpdate_RegularSkill_ShowsAuditResult(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	// Create a local skill source directory
+	localSource := filepath.Join(sb.Root, "audit-skill")
+	os.MkdirAll(localSource, 0755)
+	os.WriteFile(filepath.Join(localSource, "SKILL.md"), []byte("# Audit Test"), 0644)
+
+	// Install from local path
+	result := sb.RunCLI("install", localSource)
+	result.AssertSuccess(t)
+
+	// Update WITHOUT --skip-audit — should show audit result
+	result2 := sb.RunCLI("update", "audit-skill")
+	result2.AssertSuccess(t)
+	result2.AssertAnyOutputContains(t, "Security:")
+
+	// Update WITH --skip-audit — should NOT show Security line
+	result3 := sb.RunCLI("update", "audit-skill", "--skip-audit")
+	result3.AssertSuccess(t)
+	result3.AssertOutputNotContains(t, "Security:")
+}
+
+func TestUpdate_Diff_RegularSkill_NoChanges_ShowsMessage(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	// Create a local skill source directory
+	localSource := filepath.Join(sb.Root, "no-change-skill")
+	os.MkdirAll(localSource, 0755)
+	os.WriteFile(filepath.Join(localSource, "SKILL.md"), []byte("# Static"), 0644)
+
+	// Install from local path
+	result := sb.RunCLI("install", localSource)
+	result.AssertSuccess(t)
+
+	// Update with --diff but NO source changes — should show "No file changes"
+	result2 := sb.RunCLI("update", "no-change-skill", "--diff", "--skip-audit")
+	result2.AssertSuccess(t)
+	result2.AssertAnyOutputContains(t, "No file changes detected")
+	result2.AssertOutputNotContains(t, "Files Changed")
+}

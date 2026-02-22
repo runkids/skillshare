@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -269,7 +270,7 @@ func cmdUpdate(args []string) error {
 		if t.isRepo {
 			updateErr = updateTrackedRepo(cfg, t.relPath, opts.dryRun, opts.force, opts.skipAudit, opts.diff)
 		} else {
-			updateErr = updateRegularSkill(cfg, t.relPath, opts.dryRun, opts.force, opts.skipAudit)
+			updateErr = updateRegularSkill(cfg, t.relPath, opts.dryRun, opts.force, opts.skipAudit, opts.diff)
 		}
 		logUpdateOp(config.ConfigPath(), opts.names, start, updateErr)
 		return updateErr
@@ -296,7 +297,7 @@ func cmdUpdate(args []string) error {
 				result.skipped++
 			}
 		} else {
-			updated, err := updateSkillFromMeta(t.relPath, itemPath, progress, opts.dryRun, opts.skipAudit)
+			updated, err := updateSkillFromMeta(t.relPath, itemPath, progress, opts.dryRun, opts.skipAudit, opts.diff)
 			if err != nil && isSecurityError(err) {
 				result.securityFailed++
 			} else if updated {
@@ -419,10 +420,16 @@ func updateTrackedRepoQuick(repo, repoPath, progress string, dryRun, force, skip
 // updateSkillFromMeta updates a skill using its metadata.
 // Returns (true, nil) on success, (false, nil) on non-security skip,
 // or (false, err) when install fails (caller should check isSecurityError).
-func updateSkillFromMeta(skill, skillPath, progress string, dryRun, skipAudit bool) (bool, error) {
+func updateSkillFromMeta(skill, skillPath, progress string, dryRun, skipAudit, showDiff bool) (bool, error) {
 	if dryRun {
 		ui.ListItem("info", skill, "[dry-run] would reinstall from source")
 		return false, nil
+	}
+
+	// Snapshot before update for --diff
+	var beforeHashes map[string]string
+	if showDiff {
+		beforeHashes, _ = install.ComputeFileHashes(skillPath)
 	}
 
 	spinner := ui.StartSpinner(fmt.Sprintf("%s Updating %s...", progress, skill))
@@ -435,12 +442,20 @@ func updateSkillFromMeta(skill, skillPath, progress string, dryRun, skipAudit bo
 	}
 
 	opts := install.InstallOptions{Force: true, Update: true, SkipAudit: skipAudit}
-	if _, err = install.Install(source, skillPath, opts); err != nil {
+	result, err := install.Install(source, skillPath, opts)
+	if err != nil {
 		spinner.Warn(fmt.Sprintf("%s %v", skill, err))
 		return false, err
 	}
 
 	spinner.Success(fmt.Sprintf("%s Reinstalled from source", skill))
+	renderUpdateAuditResult(result)
+
+	if showDiff {
+		afterHashes, _ := install.ComputeFileHashes(skillPath)
+		renderHashDiffSummary(beforeHashes, afterHashes)
+	}
+
 	return true, nil
 }
 
@@ -487,7 +502,7 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force, skipAudit, showDif
 	for i, skill := range skills {
 		skillPath := filepath.Join(cfg.Source, skill)
 		progress := fmt.Sprintf("[%d/%d]", len(repos)+i+1, total)
-		updated, err := updateSkillFromMeta(skill, skillPath, progress, dryRun, skipAudit)
+		updated, err := updateSkillFromMeta(skill, skillPath, progress, dryRun, skipAudit, showDiff)
 		if err != nil && isSecurityError(err) {
 			result.securityFailed++
 		} else if updated {
@@ -538,7 +553,7 @@ func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force, skipAudit
 	// Try as regular skill (exact path)
 	skillPath := filepath.Join(cfg.Source, name)
 	if meta, err := install.ReadMeta(skillPath); err == nil && meta != nil {
-		return updateRegularSkill(cfg, name, dryRun, force, skipAudit)
+		return updateRegularSkill(cfg, name, dryRun, force, skipAudit, showDiff)
 	}
 
 	// Check if it's a nested path that exists as git repo
@@ -551,7 +566,7 @@ func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force, skipAudit
 		if match.isRepo {
 			return updateTrackedRepo(cfg, match.relPath, dryRun, force, skipAudit, showDiff)
 		}
-		return updateRegularSkill(cfg, match.relPath, dryRun, force, skipAudit)
+		return updateRegularSkill(cfg, match.relPath, dryRun, force, skipAudit, showDiff)
 	} else {
 		return err
 	}
@@ -706,7 +721,7 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipA
 	return nil
 }
 
-func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, skipAudit bool) error {
+func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, skipAudit, showDiff bool) error {
 	skillPath := filepath.Join(cfg.Source, skillName)
 
 	// Read metadata to get source
@@ -734,6 +749,12 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 		return fmt.Errorf("invalid source in metadata: %w", err)
 	}
 
+	// Snapshot before update for --diff
+	var beforeHashes map[string]string
+	if showDiff {
+		beforeHashes, _ = install.ComputeFileHashes(skillPath)
+	}
+
 	spinner := ui.StartSpinner("Cloning source repository...")
 
 	opts := install.InstallOptions{
@@ -752,6 +773,13 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 
 	for _, warning := range result.Warnings {
 		ui.Warning("%s", warning)
+	}
+
+	renderUpdateAuditResult(result)
+
+	if showDiff {
+		afterHashes, _ := install.ComputeFileHashes(skillPath)
+		renderHashDiffSummary(beforeHashes, afterHashes)
 	}
 
 	fmt.Println()
@@ -896,6 +924,83 @@ func renderDiffSummary(repoPath, beforeHash, afterHash string) {
 			detail += fmt.Sprintf(" (from %s)", c.OldPath)
 		}
 		lines = append(lines, detail)
+	}
+	lines = append(lines, "")
+
+	ui.Box("Files Changed", lines...)
+}
+
+// renderUpdateAuditResult prints a one-line audit result after a skill update.
+// Uses ui.Info format (→ prefix, no extra indent) for visual consistency.
+func renderUpdateAuditResult(result *install.InstallResult) {
+	if result == nil {
+		return
+	}
+	if result.AuditSkipped {
+		return // already shown as warning via result.Warnings
+	}
+	if result.AuditRiskLabel == "" {
+		return
+	}
+	label := strings.ToUpper(result.AuditRiskLabel)
+	score := result.AuditRiskScore
+	if score == 0 {
+		ui.Info("Security: %s", label)
+		return
+	}
+	if ui.IsTTY() {
+		color := riskColor(result.AuditRiskLabel)
+		fmt.Printf("%s→%s Security: %s%s (%d/100)%s\n", ui.Cyan, ui.Reset, color, label, score, ui.Reset)
+	} else {
+		fmt.Printf("→ Security: %s (%d/100)\n", label, score)
+	}
+}
+
+// renderHashDiffSummary prints a file-level change summary by comparing
+// file hashes before and after an update. Works for non-git skill updates.
+func renderHashDiffSummary(beforeHashes, afterHashes map[string]string) {
+	type fileChange struct {
+		path   string
+		marker string // "+", "-", "~"
+	}
+
+	var changes []fileChange
+
+	// Added or modified
+	for path, afterHash := range afterHashes {
+		beforeHash, existed := beforeHashes[path]
+		if !existed {
+			changes = append(changes, fileChange{path: path, marker: "+"})
+		} else if beforeHash != afterHash {
+			changes = append(changes, fileChange{path: path, marker: "~"})
+		}
+	}
+
+	// Removed
+	for path := range beforeHashes {
+		if _, exists := afterHashes[path]; !exists {
+			changes = append(changes, fileChange{path: path, marker: "-"})
+		}
+	}
+
+	if len(changes) == 0 {
+		ui.Info("No file changes detected")
+		return
+	}
+
+	// Sort for deterministic output
+	sort.Slice(changes, func(i, j int) bool {
+		return changes[i].path < changes[j].path
+	})
+
+	maxFiles := 20
+	lines := []string{""}
+	for i, c := range changes {
+		if i >= maxFiles {
+			lines = append(lines, fmt.Sprintf("  ... and %d more file(s)", len(changes)-maxFiles))
+			break
+		}
+		lines = append(lines, fmt.Sprintf("  %s %s", c.marker, c.path))
 	}
 	lines = append(lines, "")
 

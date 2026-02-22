@@ -634,16 +634,30 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 
 	tempDest := filepath.Join(tempDir, "skill")
 
-	// Install to temp location first
-	_, err = Install(source, tempDest, InstallOptions{
-		Name:   opts.Name,
-		Force:  true,
-		DryRun: false,
-		Update: false,
+	// Install to temp location first.
+	// Force is NOT set: tempDest is fresh, so no overwrite needed.
+	// This lets auditInstalledSkill properly gate on HIGH/CRITICAL findings,
+	// consistent with auditGateAfterPull for tracked repos.
+	innerResult, err := Install(source, tempDest, InstallOptions{
+		Name:             opts.Name,
+		Force:            false,
+		DryRun:           false,
+		Update:           false,
+		SkipAudit:        opts.SkipAudit,
+		AuditProjectRoot: opts.AuditProjectRoot,
 	})
 	if err != nil {
 		// Installation failed - original skill is preserved
 		return nil, err
+	}
+
+	// Propagate audit results and warnings from inner install
+	if innerResult != nil {
+		result.AuditRiskScore = innerResult.AuditRiskScore
+		result.AuditRiskLabel = innerResult.AuditRiskLabel
+		result.AuditSkipped = innerResult.AuditSkipped
+		result.AuditThreshold = innerResult.AuditThreshold
+		result.Warnings = append(result.Warnings, innerResult.Warnings...)
 	}
 
 	// Installation succeeded - now safe to remove original and move new

@@ -231,13 +231,27 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit,
 		return nil
 	}
 
+	// Snapshot before update for --diff
+	var beforeHashes map[string]string
+	if showDiff {
+		beforeHashes, _ = install.ComputeFileHashes(skillPath)
+	}
+
 	spinner := ui.StartSpinner(fmt.Sprintf("Updating %s...", name))
 	opts := install.InstallOptions{Force: true, Update: true, SkipAudit: skipAudit}
-	if _, err := install.Install(source, skillPath, opts); err != nil {
+	result, err := install.Install(source, skillPath, opts)
+	if err != nil {
 		spinner.Fail(fmt.Sprintf("%s failed: %v", name, err))
 		return err
 	}
 	spinner.Success(fmt.Sprintf("Updated %s", name))
+	renderUpdateAuditResult(result)
+
+	if showDiff {
+		afterHashes, _ := install.ComputeFileHashes(skillPath)
+		renderHashDiffSummary(beforeHashes, afterHashes)
+	}
+
 	fmt.Println()
 	ui.Info("Run 'skillshare sync' to distribute changes")
 	return nil
@@ -347,8 +361,15 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 			continue
 		}
 
+		// Snapshot before update for --diff
+		var beforeHashes map[string]string
+		if showDiff {
+			beforeHashes, _ = install.ComputeFileHashes(skillPath)
+		}
+
 		spinner := ui.StartSpinner(fmt.Sprintf("Updating %s...", skillName))
-		if _, err := install.Install(source, skillPath, install.InstallOptions{Force: true, Update: true, SkipAudit: skipAudit}); err != nil {
+		result, err := install.Install(source, skillPath, install.InstallOptions{Force: true, Update: true, SkipAudit: skipAudit})
+		if err != nil {
 			spinner.Fail(fmt.Sprintf("%s failed: %v", skillName, err))
 			if isSecurityError(err) {
 				securityFailed++
@@ -356,6 +377,13 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 			continue
 		}
 		spinner.Success(fmt.Sprintf("Updated %s", skillName))
+		renderUpdateAuditResult(result)
+
+		if showDiff {
+			afterHashes, _ := install.ComputeFileHashes(skillPath)
+			renderHashDiffSummary(beforeHashes, afterHashes)
+		}
+
 		updated++
 	}
 
