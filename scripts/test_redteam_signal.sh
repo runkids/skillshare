@@ -12,15 +12,24 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 UPDATE_GO="$PROJECT_ROOT/cmd/skillshare/update.go"
-BACKUP_FILE="$(mktemp "${TMPDIR:-/tmp}/update.go.backup.XXXXXX")"
+BACKUP_FILE=""
+BACKUP_READY=false
 RESTORED=false
 
+backup_source() {
+  BACKUP_FILE="$(mktemp "${TMPDIR:-/tmp}/update.go.backup.XXXXXX")"
+  cp "$UPDATE_GO" "$BACKUP_FILE"
+  BACKUP_READY=true
+}
+
 restore_source() {
-  if [ "$RESTORED" = false ] && [ -f "$BACKUP_FILE" ]; then
+  if [ "$RESTORED" = false ] && [ "$BACKUP_READY" = true ] && [ -f "$BACKUP_FILE" ]; then
     cp "$BACKUP_FILE" "$UPDATE_GO"
     RESTORED=true
   fi
-  rm -f "$BACKUP_FILE"
+  if [ -n "$BACKUP_FILE" ]; then
+    rm -f "$BACKUP_FILE"
+  fi
 }
 
 cleanup() {
@@ -32,11 +41,20 @@ echo "==> [1/4] Baseline: running make test-redteam (should pass)"
 (cd "$PROJECT_ROOT" && make test-redteam)
 
 echo "==> [2/4] Injecting mutation: bypass rollback on HIGH/CRITICAL findings"
-cp "$UPDATE_GO" "$BACKUP_FILE"
+backup_source
 
-perl -0pi -e 's@return fmt\.Errorf\("security audit found HIGH/CRITICAL findings .*?\(use --skip-audit to bypass\)"\)@return nil // MUTATION: bypass rollback gate@g' "$UPDATE_GO"
+perl -0pi -e 's@return fmt\.Errorf\("security audit failed[^"]*rolled back \(use --skip-audit to bypass\): %w", normalizedThreshold, audit\.ErrBlocked\)@return nil // MUTATION: bypass rollback gate@g' "$UPDATE_GO"
 
-MUTATION_COUNT="$(rg -c "MUTATION: bypass rollback gate" "$UPDATE_GO" || true)"
+if command -v rg >/dev/null 2>&1; then
+  MUTATION_COUNT="$(rg -c "MUTATION: bypass rollback gate" "$UPDATE_GO" || true)"
+else
+  MUTATION_COUNT="$(grep -c "MUTATION: bypass rollback gate" "$UPDATE_GO" || true)"
+fi
+MUTATION_COUNT="${MUTATION_COUNT:-0}"
+if ! [[ "$MUTATION_COUNT" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: mutation count is not numeric: $MUTATION_COUNT"
+  exit 2
+fi
 if [ "$MUTATION_COUNT" -lt 2 ]; then
   echo "ERROR: expected to inject 2 mutation points, got $MUTATION_COUNT"
   exit 2
