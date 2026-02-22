@@ -1,0 +1,5 @@
+${GORELEASER_BODY}
+
+## Contributors
+
+${CONTRIBUTORS}
