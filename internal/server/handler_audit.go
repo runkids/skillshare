@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	gosync "sync"
 	"time"
 
 	"skillshare/internal/audit"
@@ -104,18 +105,43 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	scanErrors := 0
 	maxRisk := 0
 
-	for _, sk := range skills {
-		var result *audit.Result
-		if s.IsProjectMode() {
-			result, err = audit.ScanSkillForProject(sk.path, s.projectRoot)
-		} else {
-			result, err = audit.ScanSkill(sk.path)
-		}
-		if err != nil {
+	// Phase 1: parallel scan with bounded workers.
+	type scanEntry struct {
+		result *audit.Result
+		err    error
+	}
+	scanned := make([]scanEntry, len(skills))
+	const maxAuditWorkers = 8
+	sem := make(chan struct{}, maxAuditWorkers)
+	var wg gosync.WaitGroup
+	isProject := s.IsProjectMode()
+	projectRoot := s.projectRoot
+	for idx, sk := range skills {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i int, path string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			var res *audit.Result
+			var e error
+			if isProject {
+				res, e = audit.ScanSkillForProject(path, projectRoot)
+			} else {
+				res, e = audit.ScanSkill(path)
+			}
+			scanned[i] = scanEntry{res, e}
+		}(idx, sk.path)
+	}
+	wg.Wait()
+
+	// Phase 2: sequential result collection.
+	for i := range skills {
+		se := scanned[i]
+		if se.err != nil {
 			scanErrors++
 			continue
 		}
-
+		result := se.result
 		result.Threshold = threshold
 		result.IsBlocked = result.HasSeverityAtOrAbove(threshold)
 
