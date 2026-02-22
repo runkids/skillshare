@@ -141,6 +141,17 @@ func AuthEnvForURL(cloneURL string) []string {
 	return authEnv(cloneURL)
 }
 
+// ResolveTokenForURL returns token credentials resolved from env vars for the
+// provided HTTPS URL. Returns empty strings when no token is available.
+func ResolveTokenForURL(cloneURL string) (token, username string) {
+	return resolveToken(cloneURL)
+}
+
+// DetectPlatformForURL identifies the git hosting platform for a URL.
+func DetectPlatformForURL(cloneURL string) Platform {
+	return detectPlatform(cloneURL)
+}
+
 // existingConfigCount returns the current GIT_CONFIG_COUNT from the
 // environment, or 0 if unset/invalid.
 func existingConfigCount() int {

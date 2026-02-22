@@ -267,8 +267,23 @@ func Commit(dir, msg string) error {
 
 // PushRemote pushes to the default remote
 func PushRemote(dir string) error {
+	return PushRemoteWithEnv(dir, nil)
+}
+
+// PushRemoteWithAuth pushes to the default remote with token auth env inferred
+// from origin remote.
+func PushRemoteWithAuth(dir string) error {
+	return PushRemoteWithEnv(dir, AuthEnvForRepo(dir))
+}
+
+// PushRemoteWithEnv pushes to the default remote with additional environment
+// variables.
+func PushRemoteWithEnv(dir string, extraEnv []string) error {
 	cmd := exec.Command("git", "push")
 	cmd.Dir = dir
+	if len(extraEnv) > 0 {
+		cmd.Env = append(os.Environ(), extraEnv...)
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("git push failed: %s", strings.TrimSpace(string(out)))

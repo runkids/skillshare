@@ -187,6 +187,23 @@ func TestAuthEnvForRepo_UsesGitHubToken(t *testing.T) {
 	}
 }
 
+func TestAuthEnvForRepo_UsesGitLabToken(t *testing.T) {
+	repo := initTestRepo(t)
+	addRemote(t, repo, "https://gitlab.com/group/private-repo.git")
+	t.Setenv("GITLAB_TOKEN", "glpat_test_token_123")
+
+	env := AuthEnvForRepo(repo)
+	if len(env) != 3 {
+		t.Fatalf("expected auth env with 3 entries, got %d: %v", len(env), env)
+	}
+	if !strings.Contains(env[1], "url.https://oauth2:glpat_test_token_123@gitlab.com/.insteadOf") {
+		t.Fatalf("unexpected auth key env: %q", env[1])
+	}
+	if !strings.Contains(env[2], "https://gitlab.com/") {
+		t.Fatalf("unexpected auth value env: %q", env[2])
+	}
+}
+
 func TestAuthEnvForRepo_NoTokenReturnsNil(t *testing.T) {
 	repo := initTestRepo(t)
 	addRemote(t, repo, "https://github.com/org/private-repo.git")

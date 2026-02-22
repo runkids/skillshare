@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"skillshare/internal/install"
 )
 
 type indexDocument struct {
@@ -136,7 +139,7 @@ func loadIndex(indexURL string) (*indexDocument, error) {
 
 	if strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://") {
 		client := &http.Client{Timeout: 15 * time.Second}
-		req, err := http.NewRequest("GET", s, nil)
+		req, err := buildHubRequest(s)
 		if err != nil {
 			return nil, err
 		}
@@ -146,7 +149,7 @@ func loadIndex(indexURL string) (*indexDocument, error) {
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("fetch hub: HTTP %d", resp.StatusCode)
+			return nil, hubHTTPError(req.URL.String(), resp.StatusCode)
 		}
 		var doc indexDocument
 		if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
@@ -165,6 +168,143 @@ func loadIndex(indexURL string) (*indexDocument, error) {
 		return nil, fmt.Errorf("parse hub: %w", err)
 	}
 	return &doc, nil
+}
+
+// normalizeHubURL rewrites common web file-view URLs to raw-content URLs.
+func normalizeHubURL(rawURL string) string {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return rawURL
+	}
+
+	host := strings.ToLower(u.Hostname())
+	if strings.Contains(host, "gitlab") {
+		// GitLab web URLs for private repos commonly redirect to sign-in. Convert
+		// to API raw endpoint so PAT auth headers work reliably.
+		if apiURL, ok := gitLabWebToAPIRawURL(u); ok {
+			return apiURL
+		}
+		if strings.Contains(u.Path, "/-/blob/") {
+			u.Path = strings.Replace(u.Path, "/-/blob/", "/-/raw/", 1)
+			return u.String()
+		}
+	}
+
+	// Bitbucket web view URL:
+	// https://bitbucket.org/<workspace>/<repo>/src/<ref>/<path>
+	// -> https://bitbucket.org/<workspace>/<repo>/raw/<ref>/<path>
+	if strings.Contains(host, "bitbucket") {
+		parts := strings.Split(strings.TrimPrefix(u.Path, "/"), "/")
+		if len(parts) >= 5 && parts[2] == "src" {
+			parts[2] = "raw"
+			u.Path = "/" + strings.Join(parts, "/")
+			return u.String()
+		}
+	}
+
+	// GitHub blob URL:
+	// https://github.com/<owner>/<repo>/blob/<ref>/<path>
+	// -> https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<path>
+	if host == "github.com" {
+		parts := strings.Split(strings.TrimPrefix(u.Path, "/"), "/")
+		if len(parts) >= 5 && parts[2] == "blob" {
+			return (&url.URL{
+				Scheme: "https",
+				Host:   "raw.githubusercontent.com",
+				Path:   "/" + parts[0] + "/" + parts[1] + "/" + strings.Join(parts[3:], "/"),
+			}).String()
+		}
+	}
+
+	return rawURL
+}
+
+// gitLabWebToAPIRawURL converts:
+//
+//	https://gitlab.com/<project>/-/(blob|raw)/<ref>/<file>
+//
+// to:
+//
+//	https://gitlab.com/api/v4/projects/<project-escaped>/repository/files/<file-escaped>/raw?ref=<ref>
+func gitLabWebToAPIRawURL(u *url.URL) (string, bool) {
+	path := u.Path
+	marker := "/-/blob/"
+	if !strings.Contains(path, marker) {
+		marker = "/-/raw/"
+		if !strings.Contains(path, marker) {
+			return "", false
+		}
+	}
+
+	parts := strings.SplitN(path, marker, 2)
+	if len(parts) != 2 {
+		return "", false
+	}
+	projectPath := strings.Trim(parts[0], "/")
+	rest := strings.TrimPrefix(parts[1], "/")
+	slash := strings.Index(rest, "/")
+	if projectPath == "" || slash <= 0 || slash >= len(rest)-1 {
+		return "", false
+	}
+	ref := rest[:slash]
+	filePath := rest[slash+1:]
+
+	return fmt.Sprintf(
+		"%s://%s/api/v4/projects/%s/repository/files/%s/raw?ref=%s",
+		u.Scheme,
+		u.Host,
+		url.PathEscape(projectPath),
+		url.PathEscape(filePath),
+		url.QueryEscape(ref),
+	), true
+}
+
+func buildHubRequest(indexURL string) (*http.Request, error) {
+	req, err := http.NewRequest("GET", normalizeHubURL(indexURL), nil)
+	if err != nil {
+		return nil, err
+	}
+	applyHubAuthHeaders(req)
+	return req, nil
+}
+
+func applyHubAuthHeaders(req *http.Request) {
+	token, username := install.ResolveTokenForURL(req.URL.String())
+	if token == "" {
+		return
+	}
+
+	switch install.DetectPlatformForURL(req.URL.String()) {
+	case install.PlatformGitLab:
+		req.Header.Set("PRIVATE-TOKEN", token)
+		req.Header.Set("Authorization", "Bearer "+token)
+	case install.PlatformGitHub:
+		req.Header.Set("Authorization", "Bearer "+token)
+	case install.PlatformBitbucket:
+		if username == "" {
+			username = "x-token-auth"
+		}
+		req.SetBasicAuth(username, token)
+	default:
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+}
+
+func hubHTTPError(indexURL string, status int) error {
+	if status != http.StatusUnauthorized && status != http.StatusForbidden {
+		return fmt.Errorf("fetch hub: HTTP %d", status)
+	}
+
+	switch install.DetectPlatformForURL(indexURL) {
+	case install.PlatformGitLab:
+		return fmt.Errorf("fetch hub: HTTP %d (authentication required; set GITLAB_TOKEN or SKILLSHARE_GIT_TOKEN)", status)
+	case install.PlatformGitHub:
+		return fmt.Errorf("fetch hub: HTTP %d (authentication required; set GITHUB_TOKEN or SKILLSHARE_GIT_TOKEN)", status)
+	case install.PlatformBitbucket:
+		return fmt.Errorf("fetch hub: HTTP %d (authentication required; set BITBUCKET_TOKEN or SKILLSHARE_GIT_TOKEN)", status)
+	default:
+		return fmt.Errorf("fetch hub: HTTP %d (authentication required)", status)
+	}
 }
 
 func parseOwnerRepo(source string) (owner, repo string) {
