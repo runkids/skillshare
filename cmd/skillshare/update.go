@@ -412,7 +412,7 @@ func updateTrackedRepoQuick(repo, repoPath, progress string, dryRun, force, skip
 	}
 
 	// Post-pull audit gate
-	if err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit); err != nil {
+	if err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, audit.ScanSkill); err != nil {
 		return false, err
 	}
 
@@ -712,7 +712,7 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipA
 	fmt.Println()
 
 	// Post-pull audit gate
-	if err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit); err != nil {
+	if err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, audit.ScanSkill); err != nil {
 		return err
 	}
 
@@ -790,18 +790,23 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 	return nil
 }
 
+// auditScanFunc abstracts the audit scan call so the same gate logic
+// can be used for both global mode (audit.ScanSkill) and project mode
+// (audit.ScanSkillForProject with a captured projectRoot).
+type auditScanFunc func(repoPath string) (*audit.Result, error)
+
 // auditGateAfterPull scans the repo for security issues after a git pull.
 // If HIGH or CRITICAL findings are detected:
 //   - TTY mode: prompts the user; on decline, resets to beforeHash.
 //   - Non-TTY mode: automatically resets to beforeHash and returns error.
 //
 // Returns nil if audit passes or is skipped.
-func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool) error {
+func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool, scanFn auditScanFunc) error {
 	if skipAudit {
 		return nil
 	}
 
-	result, err := audit.ScanSkill(repoPath)
+	result, err := scanFn(repoPath)
 	if err != nil {
 		// Scan error in non-interactive mode → fail-closed
 		if !ui.IsTTY() {
@@ -843,56 +848,6 @@ func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool) error {
 	}
 
 	// Non-interactive → fail-closed
-	if err := git.ResetHard(repoPath, beforeHash); err != nil {
-		return fmt.Errorf("rollback failed: %w: %w", err, audit.ErrBlocked)
-	}
-	return fmt.Errorf("security audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass): %w", audit.ErrBlocked)
-}
-
-// auditGateAfterPullProject is like auditGateAfterPull but uses project-mode rules.
-func auditGateAfterPullProject(repoPath, projectRoot, beforeHash string, skipAudit bool) error {
-	if skipAudit {
-		return nil
-	}
-
-	result, err := audit.ScanSkillForProject(repoPath, projectRoot)
-	if err != nil {
-		if !ui.IsTTY() {
-			if resetErr := git.ResetHard(repoPath, beforeHash); resetErr != nil {
-				return fmt.Errorf("security audit failed: %v; WARNING: rollback also failed: %v — malicious content may remain: %w", err, resetErr, audit.ErrBlocked)
-			}
-			return fmt.Errorf("security audit failed: %v — rolled back (use --skip-audit to bypass): %w", err, audit.ErrBlocked)
-		}
-		ui.Warning("security audit error: %v", err)
-		return nil
-	}
-
-	if !result.HasHigh() {
-		return nil
-	}
-
-	for _, f := range result.Findings {
-		if audit.SeverityRank(f.Severity) <= audit.SeverityRank(audit.SeverityHigh) {
-			ui.Warning("[%s] %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
-		}
-	}
-
-	if ui.IsTTY() {
-		fmt.Printf("\n  Security findings at HIGH or above detected.\n")
-		fmt.Printf("  Apply anyway? [y/N]: ")
-		reader := bufio.NewReader(os.Stdin)
-		answer, _ := reader.ReadString('\n')
-		answer = strings.TrimSpace(strings.ToLower(answer))
-		if answer == "y" || answer == "yes" {
-			return nil
-		}
-		if err := git.ResetHard(repoPath, beforeHash); err != nil {
-			return fmt.Errorf("rollback failed: %w: %w", err, audit.ErrBlocked)
-		}
-		ui.Info("Rolled back to %s", beforeHash[:12])
-		return fmt.Errorf("update rejected by user after security audit: %w", audit.ErrBlocked)
-	}
-
 	if err := git.ResetHard(repoPath, beforeHash); err != nil {
 		return fmt.Errorf("rollback failed: %w: %w", err, audit.ErrBlocked)
 	}

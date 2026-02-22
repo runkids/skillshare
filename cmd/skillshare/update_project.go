@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/audit"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/ui"
@@ -302,7 +303,10 @@ func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudi
 	}
 
 	// Post-pull audit gate (project mode)
-	if err := auditGateAfterPullProject(repoPath, projectRoot, info.BeforeHash, skipAudit); err != nil {
+	scanFn := func(path string) (*audit.Result, error) {
+		return audit.ScanSkillForProject(path, projectRoot)
+	}
+	if err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, scanFn); err != nil {
 		return err
 	}
 
