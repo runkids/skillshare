@@ -4,10 +4,11 @@
 
 ### Added
 - **Post-update security audit gate** — `skillshare update` now runs a security audit after pulling tracked repositories; if HIGH or CRITICAL findings are detected, the update is automatically rolled back; interactive mode prompts for confirmation, non-interactive mode (CI) fails closed; use `--skip-audit` to bypass
-- **`--diff` flag for `update`** — `skillshare update team-skills --diff` shows a file-level change summary after pulling a tracked repo (added/modified/deleted files with line counts)
+- **`--diff` flag for `update`** — `skillshare update team-skills --diff` shows a file-level change summary after update; for tracked repos, includes line counts via `git diff`; for regular skills, uses file hash comparison to show added/modified/deleted files
 - **Content hash pinning** — `install` and `update` now record SHA-256 hashes of all skill files in `.skillshare-meta.json`; subsequent `audit` runs detect tampering (`content-tampered`), missing files (`content-missing`), and unexpected files (`content-unexpected`)
 - **`source-repository-link` audit rule** (HIGH) — detects markdown links labeled "source repo" or "source repository" pointing to external URLs, which may be used for supply-chain redirect attacks
 - **Severity-based risk floor** — audit risk label is now the higher of the score-based label and a floor derived from the most severe finding (e.g., a single HIGH finding always gets at least a `high` risk label)
+- **Audit risk score in `update` output** — CLI and Web UI now display the risk label and score (e.g., "Security: LOW (12/100)") after updating regular skills; Web UI toast notifications include the same information for all update types
 
 ### Fixed
 - **Uninstall group directory config cleanup** — uninstalling a group directory (e.g., `frontend/`) now properly removes member skill entries (e.g., `frontend/react`, `frontend/vue`) from `config.yaml` via prefix matching
