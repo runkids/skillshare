@@ -558,7 +558,7 @@ function SkillAuditCard({ result, index }: { result: AuditResult; index: number 
           {/* Right: block stamp + risk meter */}
           <div className="flex items-center gap-3 shrink-0">
             {/* Block status stamp */}
-            <BlockStamp isBlocked={result.isBlocked} threshold={result.threshold} />
+            <BlockStamp isBlocked={result.isBlocked} />
             {/* Risk indicator */}
             <RiskMeter riskLabel={result.riskLabel} riskScore={result.riskScore} />
           </div>
@@ -579,7 +579,7 @@ function SkillAuditCard({ result, index }: { result: AuditResult; index: number 
  * BlockStamp — alarming red stamp or reassuring green check
  * ────────────────────────────────────────────────────────────────────── */
 
-function BlockStamp({ isBlocked, threshold }: { isBlocked: boolean; threshold: string }) {
+function BlockStamp({ isBlocked }: { isBlocked: boolean }) {
   if (isBlocked) {
     return (
       <div
