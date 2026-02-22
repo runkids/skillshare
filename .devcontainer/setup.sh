@@ -27,9 +27,9 @@ PROFILE_EOF
 echo "▸ Building skillshare binary …"
 make build
 
-# ── 1a. Install air (Go hot-reload) ─────────────────────────────
+# ── 1a. Install air (Go hot-reload) — optional, `ui` command auto-installs if missing
 echo "▸ Installing air (hot-reload) …"
-go install github.com/air-verse/air@latest
+go install github.com/air-verse/air@latest || echo "  ⚠ air install failed (will auto-install on first 'ui' run)"
 
 # ── 1b. Ensure Linux binary + stable command symlinks ─────────────
 echo "▸ Verifying skillshare command targets …"
