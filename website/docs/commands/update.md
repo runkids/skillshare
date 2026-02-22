@@ -31,8 +31,13 @@ flowchart TD
     TITLE["skillshare update _team-skills"]
     S1["1. Check for uncommitted changes"]
     S2["2. Run git pull"]
-    S3["3. Show changes"]
+    S3["3. Security audit gate"]
+    S4["4. Show changes"]
     TITLE --> S1 -- clean --> S2 --> S3
+    S3 -- pass --> S4
+    S3 -- "HIGH/CRITICAL" --> RB["Rollback"]
+
+    style RB fill:#ef4444,color:#fff
 ```
 
 ### For Regular Skills
@@ -42,7 +47,8 @@ flowchart TD
     TITLE["skillshare update my-skill"]
     S1["1. Read metadata"]
     S2["2. Re-install from source"]
-    TITLE --> S1 --> S2
+    S3["3. Security audit gate"]
+    TITLE --> S1 --> S2 --> S3
 ```
 
 ## Options
@@ -53,6 +59,8 @@ flowchart TD
 | `--group, -G <name>` | Update all updatable skills in a group (repeatable) |
 | `--force, -f` | Discard local changes and force update |
 | `--dry-run, -n` | Preview without making changes |
+| `--skip-audit` | Skip the post-update security audit gate |
+| `--diff` | Show file-level change summary after update |
 | `--help, -h` | Show help |
 
 ## Update Multiple
@@ -63,7 +71,7 @@ Update several skills at once:
 skillshare update skill-a skill-b skill-c
 ```
 
-Only updatable skills (tracked repos or skills with metadata) are processed. Skills not found are warned but don't cause failure.
+Only updatable skills (tracked repos or skills with metadata) are processed. Skills not found are warned but don't cause failure. However, if any skill is **blocked by the security audit gate**, the batch command exits with a non-zero code.
 
 ## Update Group
 
@@ -122,6 +130,58 @@ This updates:
 └────────────────────────────┘
 ```
 
+## Security Audit Gate
+
+After pulling updates for tracked repositories, `update` automatically runs a security audit. If **HIGH** or **CRITICAL** findings are detected, the update is rolled back to protect against supply-chain attacks.
+
+### Interactive Mode (TTY)
+
+When findings are detected, you're prompted to decide:
+
+```
+  [HIGH] Source repository link detected — may be used for supply-chain redirects (SKILL.md:5)
+
+  Security findings at HIGH or above detected.
+  Apply anyway? [y/N]:
+```
+
+- **`y`** — Accept the update despite findings
+- **`N`** (default) — Roll back to the pre-pull state
+
+### Non-Interactive Mode (CI/CD)
+
+In non-interactive environments, the update is automatically rolled back and the command exits with a non-zero code. This ensures fail-closed behavior in CI pipelines.
+
+```bash
+# Bypass the audit gate when you trust the source
+skillshare update --all --skip-audit
+```
+
+:::caution
+`--skip-audit` disables the post-update security scan entirely. Use it only when you trust the source or have an external audit process.
+:::
+
+## File Change Summary (`--diff`)
+
+Use `--diff` to see a file-level change summary after each tracked repo update:
+
+```bash
+skillshare update team-skills --diff
+```
+
+```
+┌─ Files Changed ─────────────────────────────┐
+│                                              │
+│  ~ SKILL.md (+12 -3)                         │
+│  + scripts/deploy.sh (+45 -0)                │
+│  - old-helper.sh (+0 -22)                    │
+│  ~ utils/format.md (+5 -2)                   │
+│                                              │
+└──────────────────────────────────────────────┘
+```
+
+Markers: `+` added, `-` deleted, `~` modified. Shows up to 20 files; additional files are summarized as "... and N more file(s)".
+
 ## Handling Conflicts
 
 If a tracked repo has uncommitted changes:
@@ -141,7 +201,7 @@ skillshare update _team-skills --force
 Run `skillshare sync` to distribute changes to all targets:
 
 ```bash
-skillshare update --all
+skillshare update --all --diff   # Update with file-level change summary
 skillshare sync
 ```
 
@@ -156,6 +216,8 @@ skillshare update --group frontend -p # Update all in a group
 skillshare update team-skills -p      # Update tracked repo (git pull)
 skillshare update --all -p            # Update everything
 skillshare update --all -p --dry-run  # Preview
+skillshare update --all -p --diff     # Update with file change summary
+skillshare update --all -p --skip-audit  # Skip security audit gate
 ```
 
 ### How It Works
