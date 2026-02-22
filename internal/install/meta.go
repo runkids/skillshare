@@ -75,7 +75,7 @@ func ComputeFileHashes(skillPath string) (map[string]string, error) {
 
 	err := filepath.Walk(skillPath, func(path string, info os.FileInfo, walkErr error) error {
 		if walkErr != nil {
-			return nil
+			return walkErr
 		}
 		if info.IsDir() {
 			if info.Name() == ".git" {
@@ -89,12 +89,12 @@ func ComputeFileHashes(skillPath string) (map[string]string, error) {
 
 		rel, relErr := filepath.Rel(skillPath, path)
 		if relErr != nil {
-			return nil
+			return fmt.Errorf("relative path for %s: %w", path, relErr)
 		}
 
 		h, hashErr := hashFile(path)
 		if hashErr != nil {
-			return nil
+			return fmt.Errorf("hashing %s: %w", path, hashErr)
 		}
 		// Normalize path separators to /
 		hashes[filepath.ToSlash(rel)] = "sha256:" + h

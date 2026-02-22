@@ -591,12 +591,16 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 					scanResult, scanErr = audit.ScanSkill(destPath)
 				}
 				if scanErr != nil {
-					gitResetHard(destPath, beforeHash) //nolint:errcheck
-					return nil, fmt.Errorf("post-update audit failed: %v (use --skip-audit to bypass)", scanErr)
+					if resetErr := gitResetHard(destPath, beforeHash); resetErr != nil {
+						return nil, fmt.Errorf("post-update audit failed: %v; WARNING: rollback also failed: %v — malicious content may remain: %w", scanErr, resetErr, audit.ErrBlocked)
+					}
+					return nil, fmt.Errorf("post-update audit failed: %v — rolled back (use --skip-audit to bypass): %w", scanErr, audit.ErrBlocked)
 				}
 				if scanResult.HasHigh() {
-					gitResetHard(destPath, beforeHash) //nolint:errcheck
-					return nil, fmt.Errorf("post-update audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass)")
+					if resetErr := gitResetHard(destPath, beforeHash); resetErr != nil {
+						return nil, fmt.Errorf("post-update audit found HIGH/CRITICAL findings; WARNING: rollback also failed: %v — malicious content may remain: %w", resetErr, audit.ErrBlocked)
+					}
+					return nil, fmt.Errorf("post-update audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass): %w", audit.ErrBlocked)
 				}
 			}
 		}
@@ -744,9 +748,10 @@ func auditInstalledSkill(destPath string, result *InstallResult, opts InstallOpt
 			}
 		}
 		return fmt.Errorf(
-			"security audit failed — findings at/above %s detected:\n%s\n\nUse --force to override or --skip-audit to bypass scanning",
+			"security audit failed — findings at/above %s detected:\n%s\n\nUse --force to override or --skip-audit to bypass scanning: %w",
 			threshold,
 			strings.Join(details, "\n"),
+			audit.ErrBlocked,
 		)
 	}
 

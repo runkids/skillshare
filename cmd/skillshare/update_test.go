@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"testing"
+
+	"skillshare/internal/audit"
 )
 
 func TestIsSecurityError(t *testing.T) {
@@ -15,22 +17,18 @@ func TestIsSecurityError(t *testing.T) {
 		{fmt.Errorf("skill not found"), false},
 		{fmt.Errorf("has uncommitted changes"), false},
 
-		// auditGateAfterPull errors
-		{fmt.Errorf("security audit failed: scan error (use --skip-audit to bypass)"), true},
-		{fmt.Errorf("security audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass)"), true},
-		{fmt.Errorf("update rejected by user after security audit"), true},
-		{fmt.Errorf("rollback failed: permission denied"), true},
+		// Sentinel-based detection
+		{fmt.Errorf("security audit failed: scan error: %w", audit.ErrBlocked), true},
+		{fmt.Errorf("post-update audit failed: scan error — rolled back: %w", audit.ErrBlocked), true},
+		{fmt.Errorf("rollback failed: permission denied: %w", audit.ErrBlocked), true},
+		{audit.ErrBlocked, true},
 
-		// install.Install post-update audit errors
-		{fmt.Errorf("post-update audit failed: scan error (use --skip-audit to bypass)"), true},
-		{fmt.Errorf("post-update audit found HIGH/CRITICAL findings — rolled back (use --skip-audit to bypass)"), true},
+		// Wrapped sentinel
+		{fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", audit.ErrBlocked)), true},
 
-		// install.Install install-time audit errors
-		{fmt.Errorf("security audit failed — findings at/above HIGH detected"), true},
-
-		// Partial keyword matches should still work
-		{fmt.Errorf("something security audit something"), true},
-		{fmt.Errorf("was rolled back successfully"), true},
+		// Non-sentinel errors with similar text should NOT match
+		{fmt.Errorf("security audit something"), false},
+		{fmt.Errorf("was rolled back successfully"), false},
 	}
 
 	for _, tt := range tests {
