@@ -655,6 +655,7 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 	}
 
 	maxRisk := 0
+	maxSeverity := ""
 	for _, r := range results {
 		c, h, m, l, i := r.CountBySeverityAll()
 		summary.Critical += c
@@ -683,9 +684,14 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 		if r.RiskScore > maxRisk {
 			maxRisk = r.RiskScore
 		}
+		if rs := r.MaxSeverity(); rs != "" {
+			if maxSeverity == "" || audit.SeverityRank(rs) < audit.SeverityRank(maxSeverity) {
+				maxSeverity = rs
+			}
+		}
 	}
 	summary.RiskScore = maxRisk
-	summary.RiskLabel = audit.RiskLabelFromScore(maxRisk)
+	summary.RiskLabel = audit.RiskLabelFromScoreAndMaxSeverity(maxRisk, maxSeverity)
 	return summary
 }
 

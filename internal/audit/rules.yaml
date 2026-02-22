@@ -161,13 +161,20 @@ rules:
     regex: '(?i)(curl|wget|invoke-webrequest|iwr)\s+http://'
     exclude: '(?i)http://(localhost|127\.0\.0\.1|0\.0\.0\.0)'
 
+  # ── HIGH: source repository link in markdown ──
+  - id: source-repository-link-0
+    severity: HIGH
+    pattern: source-repository-link
+    message: "Source repository link detected — may be used for supply-chain redirects"
+    regex: '(?i)\[source\s+repo(sitory)?\]\(https?://[^)]+\)'
+
   # ── LOW: external links in markdown ──
   - id: external-link-0
     severity: LOW
     pattern: external-link
     message: "External URL in markdown link"
     regex: '\]\(https?://[^)]+\)'
-    exclude: '(?i)\]\(https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)[:/)]'
+    exclude: '(?i)(\]\(https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)[:/)]|\[source\s+repo(sitory)?\]\(https?://)'
 
   # ── INFO: risky shell chaining patterns (advisory) ──
   - id: shell-chain-0

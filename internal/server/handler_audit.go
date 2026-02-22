@@ -104,6 +104,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	infoSkills := make([]string, 0)
 	scanErrors := 0
 	maxRisk := 0
+	maxSeverity := ""
 
 	// Phase 1: parallel scan with bounded workers.
 	projectRoot := s.projectRoot
@@ -151,6 +152,11 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 		if result.RiskScore > maxRisk {
 			maxRisk = result.RiskScore
 		}
+		if ms := result.MaxSeverity(); ms != "" {
+			if maxSeverity == "" || audit.SeverityRank(ms) < audit.SeverityRank(maxSeverity) {
+				maxSeverity = ms
+			}
+		}
 	}
 
 	status := "ok"
@@ -166,7 +172,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	summary.Info = infoCount
 	summary.ScanErrors = scanErrors
 	summary.RiskScore = maxRisk
-	summary.RiskLabel = audit.RiskLabelFromScore(maxRisk)
+	summary.RiskLabel = audit.RiskLabelFromScoreAndMaxSeverity(maxRisk, maxSeverity)
 
 	args := map[string]any{
 		"scope":       "all",

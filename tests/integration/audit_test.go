@@ -674,6 +674,85 @@ func TestAudit_AllUnresolved(t *testing.T) {
 	result.AssertAnyOutputContains(t, "no skills matched")
 }
 
+func TestAudit_SourceRepoLink_HIGH(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("repo-skill", map[string]string{
+		"SKILL.md": "---\nname: repo-skill\n---\n# Skill\n\n[source repository](https://github.com/org/repo)\n",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// source-repository-link is HIGH; default threshold is CRITICAL → warning, not failed
+	result := sb.RunCLI("audit", "repo-skill")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Source repository link detected")
+	// Risk label should be "high" (severity floor), not "low" (score-only)
+	result.AssertAnyOutputContains(t, "Risk: HIGH")
+}
+
+func TestAudit_SourceRepoLink_JSON_RiskLabel(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("repo-json", map[string]string{
+		"SKILL.md": "---\nname: repo-json\n---\n# Skill\n\n[source repository](https://github.com/org/repo)\n",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit", "repo-json", "--json")
+	result.AssertSuccess(t)
+
+	var payload struct {
+		Results []struct {
+			RiskLabel string `json:"riskLabel"`
+			RiskScore int    `json:"riskScore"`
+			Findings  []struct {
+				Pattern  string `json:"pattern"`
+				Severity string `json:"severity"`
+			} `json:"findings"`
+		} `json:"results"`
+		Summary struct {
+			RiskLabel string `json:"riskLabel"`
+			High      int    `json:"high"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(result.Stdout)), &payload); err != nil {
+		t.Fatalf("JSON parse error: %v\nstdout=%s", err, result.Stdout)
+	}
+
+	if len(payload.Results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(payload.Results))
+	}
+	r := payload.Results[0]
+
+	// Should have source-repository-link HIGH, NOT external-link
+	var hasSourceRepo bool
+	for _, f := range r.Findings {
+		if f.Pattern == "source-repository-link" && f.Severity == "HIGH" {
+			hasSourceRepo = true
+		}
+		if f.Pattern == "external-link" {
+			t.Error("source repo link should not also trigger external-link")
+		}
+	}
+	if !hasSourceRepo {
+		t.Errorf("expected source-repository-link finding, got: %+v", r.Findings)
+	}
+
+	// Risk label: result level
+	if r.RiskLabel != "high" {
+		t.Errorf("result riskLabel = %q, want 'high'", r.RiskLabel)
+	}
+	// Risk label: summary level (severity floor consistency)
+	if payload.Summary.RiskLabel != "high" {
+		t.Errorf("summary riskLabel = %q, want 'high'", payload.Summary.RiskLabel)
+	}
+	if payload.Summary.High != 1 {
+		t.Errorf("summary high = %d, want 1", payload.Summary.High)
+	}
+}
+
 func TestAudit_GroupJSON(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

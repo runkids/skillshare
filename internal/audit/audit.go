@@ -53,7 +53,7 @@ type Result struct {
 
 func (r *Result) updateRisk() {
 	r.RiskScore = CalculateRiskScore(r.Findings)
-	r.RiskLabel = RiskLabelFromScore(r.RiskScore)
+	r.RiskLabel = RiskLabelFromScoreAndMaxSeverity(r.RiskScore, r.MaxSeverity())
 }
 
 // HasCritical returns true if any finding is CRITICAL severity.
@@ -146,6 +146,51 @@ func RiskLabelFromScore(score int) string {
 	default:
 		return "critical"
 	}
+}
+
+// riskLabelRanks maps risk labels to numeric ranks (lower = more severe).
+var riskLabelRanks = map[string]int{
+	"critical": 0,
+	"high":     1,
+	"medium":   2,
+	"low":      3,
+	"clean":    4,
+}
+
+// riskLabelRank returns the numeric rank for a risk label (lower = more severe).
+func riskLabelRank(label string) int {
+	if r, ok := riskLabelRanks[label]; ok {
+		return r
+	}
+	return 999
+}
+
+// riskFloorFromSeverity returns the minimum risk label implied by a severity.
+func riskFloorFromSeverity(severity string) string {
+	switch severity {
+	case SeverityCritical:
+		return "critical"
+	case SeverityHigh:
+		return "high"
+	case SeverityMedium:
+		return "medium"
+	case SeverityLow:
+		return "low"
+	default:
+		return "clean"
+	}
+}
+
+// RiskLabelFromScoreAndMaxSeverity computes the risk label as the higher of
+// the score-based label and the severity floor. This ensures a single HIGH
+// finding is never reported as "low" risk.
+func RiskLabelFromScoreAndMaxSeverity(score int, maxSeverity string) string {
+	scoreLabel := RiskLabelFromScore(score)
+	floor := riskFloorFromSeverity(maxSeverity)
+	if riskLabelRank(floor) < riskLabelRank(scoreLabel) {
+		return floor
+	}
+	return scoreLabel
 }
 
 // ScanSkill scans all scannable files in a skill directory using global rules.
