@@ -62,7 +62,7 @@ The `audit` command acts as a **gatekeeper** — scanning skill content for know
 
 ## What It Detects
 
-The audit engine scans every text-based file in a skill directory against 25 built-in regex rules and structural checks, organized into 5 severity levels.
+The audit engine scans every text-based file in a skill directory against 27 built-in regex rules and structural checks, organized into 5 severity levels.
 
 ### CRITICAL (blocks installation and counted as Failed)
 
@@ -109,6 +109,7 @@ These patterns are **suspicious in context** — they may be legitimate but dese
 These are lower-severity indicators that contribute to risk scoring and reporting:
 
 - `LOW`: weaker suspicious patterns (e.g., non-HTTPS URLs in commands — potential for man-in-the-middle attacks)
+- `LOW`: **external links** — markdown links pointing to external URLs (`https://...`), which may indicate prompt injection vectors or unnecessary token consumption; localhost links are excluded
 - `LOW`: **dangling local links** — broken relative markdown links whose target file or directory does not exist on disk
 - `INFO`: contextual hints like shell chaining patterns (for triage / visibility)
 
@@ -681,6 +682,7 @@ Source of truth for regex-based rules:
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
 | `system-writes-0` | system-writes | MEDIUM |
 | `insecure-http-0` | insecure-http | LOW |
+| `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
 | `shell-chain-0` | shell-chain | INFO |
 
