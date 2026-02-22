@@ -932,6 +932,7 @@ func TestAudit_ContentHash_PathTraversal_Ignored(t *testing.T) {
 		"../../../secret.txt":            "sha256:0000",
 		"../../secret.txt":               "sha256:0000",
 		"sub/../../../escape/passwd.txt": "sha256:0000",
+		"/etc/passwd":                    "sha256:0000",
 	})
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
@@ -942,4 +943,5 @@ func TestAudit_ContentHash_PathTraversal_Ignored(t *testing.T) {
 	result.AssertAnyOutputContains(t, "No issues found")
 	result.AssertOutputNotContains(t, "secret.txt")
 	result.AssertOutputNotContains(t, "passwd.txt")
+	result.AssertOutputNotContains(t, "/etc/passwd")
 }

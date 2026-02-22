@@ -108,6 +108,7 @@ source "$RED_TEAM_DIR/phase1_recon.sh"
 source "$RED_TEAM_DIR/phase2_attack.sh"
 source "$RED_TEAM_DIR/phase3_integrity.sh"
 source "$RED_TEAM_DIR/phase4_batch.sh"
+source "$RED_TEAM_DIR/phase5_advanced.sh"
 
 # ══════════════════════════════════════════════════════════════════
 # SUMMARY

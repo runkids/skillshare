@@ -520,7 +520,14 @@ func checkContentIntegrity(skillPath string) []Finding {
 
 	// Check pinned files: missing or tampered
 	for rel, expected := range raw.FileHashes {
-		absPath := filepath.Clean(filepath.Join(skillPath, filepath.FromSlash(rel)))
+		normalizedRel := filepath.FromSlash(rel)
+		// Reject absolute keys in metadata (e.g. "/etc/passwd").
+		// file_hashes must always be skill-relative paths.
+		if filepath.IsAbs(normalizedRel) {
+			continue
+		}
+
+		absPath := filepath.Clean(filepath.Join(skillPath, normalizedRel))
 		// Containment check: reject keys that escape the skill directory
 		if !strings.HasPrefix(absPath, filepath.Clean(skillPath)+string(filepath.Separator)) {
 			continue
