@@ -698,30 +698,62 @@ func containsSeverity(findings []audit.Finding, severity string) bool {
 	return false
 }
 
+// riskColor maps a risk label to an ANSI color, aligned with formatSeverity.
+func riskColor(label string) string {
+	switch strings.ToLower(label) {
+	case "critical":
+		return ui.Red
+	case "high":
+		return ui.Orange
+	case "medium":
+		return ui.Yellow
+	default:
+		return ui.Gray
+	}
+}
+
 // printSkillResultLine prints a single-line result for a skill during batch scan.
 func printSkillResultLine(index, total int, result *audit.Result, elapsed time.Duration) {
 	prefix := fmt.Sprintf("[%d/%d]", index, total)
 	name := result.SkillName
+	showTime := elapsed >= time.Second
 	timeStr := fmt.Sprintf("%.1fs", elapsed.Seconds())
 
-	switch {
-	case len(result.Findings) == 0:
+	if len(result.Findings) == 0 {
 		if ui.IsTTY() {
-			fmt.Printf("%s \033[32m✓\033[0m %s %s%s%s\n", prefix, name, ui.Gray, timeStr, ui.Reset)
+			if showTime {
+				fmt.Printf("%s \033[32m✓\033[0m %s %s%s%s\n", prefix, name, ui.Gray, timeStr, ui.Reset)
+			} else {
+				fmt.Printf("%s \033[32m✓\033[0m %s\n", prefix, name)
+			}
 		} else {
-			fmt.Printf("%s ✓ %s %s\n", prefix, name, timeStr)
+			if showTime {
+				fmt.Printf("%s ✓ %s %s\n", prefix, name, timeStr)
+			} else {
+				fmt.Printf("%s ✓ %s\n", prefix, name)
+			}
 		}
-	case result.IsBlocked:
-		if ui.IsTTY() {
-			fmt.Printf("%s \033[31m✗\033[0m %s %s%s%s  %s(%s %d/100)%s\n", prefix, name, ui.Gray, timeStr, ui.Reset, ui.Red, strings.ToUpper(result.RiskLabel), result.RiskScore, ui.Reset)
+		return
+	}
+
+	color := riskColor(result.RiskLabel)
+	symbol := "!"
+	if result.IsBlocked {
+		symbol = "✗"
+	}
+	riskText := fmt.Sprintf("%s %d/100", strings.ToUpper(result.RiskLabel), result.RiskScore)
+
+	if ui.IsTTY() {
+		if showTime {
+			fmt.Printf("%s %s%s%s %s  %s(%s)%s  %s%s%s\n", prefix, color, symbol, ui.Reset, name, color, riskText, ui.Reset, ui.Gray, timeStr, ui.Reset)
 		} else {
-			fmt.Printf("%s ✗ %s %s (%s %d/100)\n", prefix, name, timeStr, strings.ToUpper(result.RiskLabel), result.RiskScore)
+			fmt.Printf("%s %s%s%s %s  %s(%s)%s\n", prefix, color, symbol, ui.Reset, name, color, riskText, ui.Reset)
 		}
-	default:
-		if ui.IsTTY() {
-			fmt.Printf("%s \033[33m!\033[0m %s %s%s%s  %s(%s %d/100)%s\n", prefix, name, ui.Gray, timeStr, ui.Reset, ui.Yellow, strings.ToUpper(result.RiskLabel), result.RiskScore, ui.Reset)
+	} else {
+		if showTime {
+			fmt.Printf("%s %s %s  (%s)  %s\n", prefix, symbol, name, riskText, timeStr)
 		} else {
-			fmt.Printf("%s ! %s %s (%s %d/100)\n", prefix, name, timeStr, strings.ToUpper(result.RiskLabel), result.RiskScore)
+			fmt.Printf("%s %s %s  (%s)\n", prefix, symbol, name, riskText)
 		}
 	}
 }
@@ -745,18 +777,46 @@ func printSkillResult(result *audit.Result, elapsed time.Duration) {
 		}
 	}
 
-	ui.Info("Risk: %s (%d/100)", strings.ToUpper(result.RiskLabel), result.RiskScore)
+	color := riskColor(result.RiskLabel)
+	if ui.IsTTY() {
+		fmt.Printf("%s→%s Risk: %s%s (%d/100)%s\n", ui.Cyan, ui.Reset, color, strings.ToUpper(result.RiskLabel), result.RiskScore, ui.Reset)
+	} else {
+		fmt.Printf("→ Risk: %s (%d/100)\n", strings.ToUpper(result.RiskLabel), result.RiskScore)
+	}
 }
 
 func printAuditSummary(summary auditRunSummary) {
+	tty := ui.IsTTY()
+	colorize := func(color, text string) string {
+		if !tty {
+			return text
+		}
+		return color + text + ui.Reset
+	}
+
 	var lines []string
 	lines = append(lines, fmt.Sprintf("  Threshold: %s", summary.Threshold))
 	lines = append(lines, fmt.Sprintf("  Scanned:   %d skill(s)", summary.Scanned))
-	lines = append(lines, fmt.Sprintf("  Passed:    %d", summary.Passed))
-	lines = append(lines, fmt.Sprintf("  Warning:   %d", summary.Warning))
-	lines = append(lines, fmt.Sprintf("  Failed:    %d", summary.Failed))
-	lines = append(lines, fmt.Sprintf("  Severity:  c/h/m/l/i = %d/%d/%d/%d/%d", summary.Critical, summary.High, summary.Medium, summary.Low, summary.Info))
-	lines = append(lines, fmt.Sprintf("  Risk:      %s (%d/100)", strings.ToUpper(summary.RiskLabel), summary.RiskScore))
+	lines = append(lines, fmt.Sprintf("  Passed:    %s", colorize(ui.Green, fmt.Sprintf("%d", summary.Passed))))
+	if summary.Warning > 0 {
+		lines = append(lines, fmt.Sprintf("  Warning:   %s", colorize(ui.Yellow, fmt.Sprintf("%d", summary.Warning))))
+	} else {
+		lines = append(lines, fmt.Sprintf("  Warning:   %d", summary.Warning))
+	}
+	if summary.Failed > 0 {
+		lines = append(lines, fmt.Sprintf("  Failed:    %s", colorize(ui.Red, fmt.Sprintf("%d", summary.Failed))))
+	} else {
+		lines = append(lines, fmt.Sprintf("  Failed:    %d", summary.Failed))
+	}
+	lines = append(lines, fmt.Sprintf("  Severity:  c/h/m/l/i = %s/%s/%s/%s/%d",
+		colorize(ui.Red, fmt.Sprintf("%d", summary.Critical)),
+		colorize(ui.Orange, fmt.Sprintf("%d", summary.High)),
+		colorize(ui.Yellow, fmt.Sprintf("%d", summary.Medium)),
+		colorize(ui.Gray, fmt.Sprintf("%d", summary.Low)),
+		summary.Info))
+	riskLabel := strings.ToUpper(summary.RiskLabel)
+	riskText := fmt.Sprintf("%s (%d/100)", riskLabel, summary.RiskScore)
+	lines = append(lines, fmt.Sprintf("  Risk:      %s", colorize(riskColor(summary.RiskLabel), riskText)))
 	if summary.ScanErrors > 0 {
 		lines = append(lines, fmt.Sprintf("  Scan errs: %d", summary.ScanErrors))
 	}
@@ -769,15 +829,15 @@ func formatSeverity(sev string) string {
 	}
 	switch sev {
 	case audit.SeverityCritical:
-		return "\033[31;1mCRITICAL\033[0m"
+		return ui.Red + "CRITICAL" + ui.Reset
 	case audit.SeverityHigh:
-		return "\033[33;1mHIGH\033[0m"
+		return ui.Orange + "HIGH" + ui.Reset
 	case audit.SeverityMedium:
-		return "\033[36mMEDIUM\033[0m"
+		return ui.Yellow + "MEDIUM" + ui.Reset
 	case audit.SeverityLow:
-		return "\033[90mLOW\033[0m"
+		return ui.Gray + "LOW" + ui.Reset
 	case audit.SeverityInfo:
-		return "\033[90mINFO\033[0m"
+		return ui.Gray + "INFO" + ui.Reset
 	}
 	return sev
 }
@@ -813,14 +873,14 @@ Options:
   -h, --help           Show this help
 
 Examples:
-  skillshare audit                           Scan all installed skills
-  skillshare audit react-patterns            Scan a specific skill
-  skillshare audit a b c                     Scan multiple skills
-  skillshare audit --group frontend          Scan all skills in frontend/
-  skillshare audit x -G backend             Mix names and groups
-  skillshare audit ./skills/my-skill         Scan a directory path
-  skillshare audit ./skills/foo/SKILL.md     Scan a single file
-  skillshare audit --threshold high          Block on HIGH+ findings
-  skillshare audit --json                    Output machine-readable results
-  skillshare audit -p --init-rules           Create project custom rules file`)
+  skillshare audit                           # Scan all installed skills
+  skillshare audit react-patterns            # Scan a specific skill
+  skillshare audit a b c                     # Scan multiple skills
+  skillshare audit --group frontend          # Scan all skills in frontend/
+  skillshare audit x -G backend              # Mix names and groups
+  skillshare audit ./skills/my-skill         # Scan a directory path
+  skillshare audit ./skills/foo/SKILL.md     # Scan a single file
+  skillshare audit --threshold high          # Block on HIGH+ findings
+  skillshare audit --json                    # Output machine-readable results
+  skillshare audit -p --init-rules           # Create project custom rules file`)
 }
