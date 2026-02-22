@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	gosync "sync"
 	"time"
 
 	"skillshare/internal/audit"
@@ -48,6 +47,11 @@ type auditSummary struct {
 	ScanErrors int    `json:"scanErrors,omitempty"`
 }
 
+type skillEntry struct {
+	name string
+	path string
+}
+
 func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	source := s.cfg.Source
@@ -62,10 +66,6 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 
 	// Deduplicate and also pick up top-level dirs without SKILL.md
 	seen := make(map[string]bool)
-	type skillEntry struct {
-		name string
-		path string
-	}
 	var skills []skillEntry
 
 	for _, d := range discovered {
@@ -106,42 +106,20 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	maxRisk := 0
 
 	// Phase 1: parallel scan with bounded workers.
-	type scanEntry struct {
-		result *audit.Result
-		err    error
-	}
-	scanned := make([]scanEntry, len(skills))
-	const maxAuditWorkers = 8
-	sem := make(chan struct{}, maxAuditWorkers)
-	var wg gosync.WaitGroup
-	isProject := s.IsProjectMode()
 	projectRoot := s.projectRoot
-	for idx, sk := range skills {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(i int, path string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			var res *audit.Result
-			var e error
-			if isProject {
-				res, e = audit.ScanSkillForProject(path, projectRoot)
-			} else {
-				res, e = audit.ScanSkill(path)
-			}
-			scanned[i] = scanEntry{res, e}
-		}(idx, sk.path)
+	if !s.IsProjectMode() {
+		projectRoot = ""
 	}
-	wg.Wait()
+	scanned := audit.ParallelScan(skillsToAuditInputs(skills), projectRoot)
 
 	// Phase 2: sequential result collection.
 	for i := range skills {
 		se := scanned[i]
-		if se.err != nil {
+		if se.Err != nil {
 			scanErrors++
 			continue
 		}
-		result := se.result
+		result := se.Result
 		result.Threshold = threshold
 		result.IsBlocked = result.HasSeverityAtOrAbove(threshold)
 
@@ -437,6 +415,14 @@ func (s *Server) handleInitAuditRules(w http.ResponseWriter, r *http.Request) {
 		"success": true,
 		"path":    path,
 	})
+}
+
+func skillsToAuditInputs(skills []skillEntry) []audit.SkillInput {
+	inputs := make([]audit.SkillInput, len(skills))
+	for i, s := range skills {
+		inputs[i] = audit.SkillInput{Name: s.name, Path: s.path}
+	}
+	return inputs
 }
 
 func toAuditResponse(result *audit.Result) auditResultResponse {
