@@ -126,7 +126,7 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Push
-	if err := git.PushRemote(src); err != nil {
+	if err := git.PushRemoteWithAuth(src); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -194,7 +194,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Pull
-	info, err := git.Pull(src)
+	info, err := git.PullWithAuth(src)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "git pull failed: "+err.Error())
 		return

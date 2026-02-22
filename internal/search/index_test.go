@@ -3,6 +3,7 @@ package search
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -258,5 +259,182 @@ func TestIsRelativeSource(t *testing.T) {
 				t.Errorf("isRelativeSource(%q) = %v, want %v", tt.source, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestNormalizeHubURL_GitLabBlob(t *testing.T) {
+	in := "https://gitlab.com/runkids/demo_empty/-/blob/b3cc455172bee71af57aff7c5a37fd33d000d3a8/skillshare-hub.json"
+	want := "https://gitlab.com/api/v4/projects/runkids%2Fdemo_empty/repository/files/skillshare-hub.json/raw?ref=b3cc455172bee71af57aff7c5a37fd33d000d3a8"
+
+	got := normalizeHubURL(in)
+	if got != want {
+		t.Fatalf("normalizeHubURL() = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeHubURL_GitLabRaw(t *testing.T) {
+	in := "https://gitlab.com/runkids/demo_empty/-/raw/main/skillshare-hub.json"
+	want := "https://gitlab.com/api/v4/projects/runkids%2Fdemo_empty/repository/files/skillshare-hub.json/raw?ref=main"
+
+	got := normalizeHubURL(in)
+	if got != want {
+		t.Fatalf("normalizeHubURL() = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeHubURL_GitHubBlob(t *testing.T) {
+	in := "https://github.com/acme/skills/blob/main/skillshare-hub.json"
+	want := "https://raw.githubusercontent.com/acme/skills/main/skillshare-hub.json"
+
+	got := normalizeHubURL(in)
+	if got != want {
+		t.Fatalf("normalizeHubURL() = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeHubURL_BitbucketSrc(t *testing.T) {
+	in := "https://bitbucket.org/team/repo/src/main/skillshare-hub.json"
+	want := "https://bitbucket.org/team/repo/raw/main/skillshare-hub.json"
+
+	got := normalizeHubURL(in)
+	if got != want {
+		t.Fatalf("normalizeHubURL() = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeHubURL_BitbucketRaw_NoChange(t *testing.T) {
+	in := "https://bitbucket.org/team/repo/raw/main/skillshare-hub.json"
+
+	got := normalizeHubURL(in)
+	if got != in {
+		t.Fatalf("normalizeHubURL() = %q, want unchanged %q", got, in)
+	}
+}
+
+func TestBuildHubRequest_GitLabHeaders(t *testing.T) {
+	t.Setenv("GITLAB_TOKEN", "glpat_test")
+	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
+
+	req, err := buildHubRequest("https://gitlab.com/runkids/demo_empty/-/blob/main/skillshare-hub.json")
+	if err != nil {
+		t.Fatalf("buildHubRequest() error = %v", err)
+	}
+
+	if !strings.Contains(req.URL.String(), "/api/v4/projects/") {
+		t.Fatalf("expected normalized gitlab api URL, got %q", req.URL.String())
+	}
+	if got := req.Header.Get("PRIVATE-TOKEN"); got != "glpat_test" {
+		t.Fatalf("PRIVATE-TOKEN = %q, want glpat_test", got)
+	}
+	if got := req.Header.Get("Authorization"); got != "Bearer glpat_test" {
+		t.Fatalf("Authorization = %q, want Bearer token", got)
+	}
+}
+
+func TestBuildHubRequest_GitHubHeaders(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "ghp_test")
+	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
+
+	req, err := buildHubRequest("https://github.com/acme/skills/blob/main/skillshare-hub.json")
+	if err != nil {
+		t.Fatalf("buildHubRequest() error = %v", err)
+	}
+
+	if req.URL.Host != "raw.githubusercontent.com" {
+		t.Fatalf("request host = %q, want raw.githubusercontent.com", req.URL.Host)
+	}
+	if got := req.Header.Get("Authorization"); got != "Bearer ghp_test" {
+		t.Fatalf("Authorization = %q, want Bearer token", got)
+	}
+}
+
+func TestBuildHubRequest_BitbucketBasicAuth(t *testing.T) {
+	t.Setenv("BITBUCKET_TOKEN", "bb_app_password")
+	t.Setenv("BITBUCKET_USERNAME", "willie0903")
+	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
+
+	req, err := buildHubRequest("https://bitbucket.org/team/repo/raw/main/skillshare-hub.json")
+	if err != nil {
+		t.Fatalf("buildHubRequest() error = %v", err)
+	}
+
+	user, pass, ok := req.BasicAuth()
+	if !ok {
+		t.Fatal("expected basic auth to be set for bitbucket request")
+	}
+	if user != "willie0903" || pass != "bb_app_password" {
+		t.Fatalf("basic auth = %q:%q, want willie0903:bb_app_password", user, pass)
+	}
+}
+
+func TestBuildHubRequest_NoToken_NoAuthHeader(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GITLAB_TOKEN", "")
+	t.Setenv("BITBUCKET_TOKEN", "")
+	t.Setenv("SKILLSHARE_GIT_TOKEN", "")
+
+	req, err := buildHubRequest("https://gitlab.com/group/repo/-/raw/main/skillshare-hub.json")
+	if err != nil {
+		t.Fatalf("buildHubRequest() error = %v", err)
+	}
+
+	if got := req.Header.Get("Authorization"); got != "" {
+		t.Fatalf("Authorization = %q, want empty", got)
+	}
+	if got := req.Header.Get("PRIVATE-TOKEN"); got != "" {
+		t.Fatalf("PRIVATE-TOKEN = %q, want empty", got)
+	}
+	if _, _, ok := req.BasicAuth(); ok {
+		t.Fatal("did not expect basic auth without token")
+	}
+}
+
+func TestHubHTTPError_AuthHints(t *testing.T) {
+	tests := []struct {
+		name   string
+		url    string
+		status int
+		hint   string
+	}{
+		{
+			name:   "gitlab",
+			url:    "https://gitlab.com/group/repo/-/raw/main/skillshare-hub.json",
+			status: 403,
+			hint:   "GITLAB_TOKEN",
+		},
+		{
+			name:   "github",
+			url:    "https://raw.githubusercontent.com/acme/skills/main/skillshare-hub.json",
+			status: 401,
+			hint:   "GITHUB_TOKEN",
+		},
+		{
+			name:   "bitbucket",
+			url:    "https://bitbucket.org/team/repo/raw/main/skillshare-hub.json",
+			status: 403,
+			hint:   "BITBUCKET_TOKEN",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := hubHTTPError(tt.url, tt.status)
+			if err == nil {
+				t.Fatal("expected non-nil error")
+			}
+			if !strings.Contains(err.Error(), tt.hint) {
+				t.Fatalf("error = %q, want hint containing %q", err.Error(), tt.hint)
+			}
+		})
+	}
+}
+
+func TestHubHTTPError_NonAuthStatus(t *testing.T) {
+	err := hubHTTPError("https://gitlab.com/group/repo/-/raw/main/skillshare-hub.json", 404)
+	if err == nil {
+		t.Fatal("expected non-nil error")
+	}
+	if err.Error() != "fetch hub: HTTP 404" {
+		t.Fatalf("error = %q, want plain HTTP status", err.Error())
 	}
 }

@@ -141,9 +141,9 @@ func (s *Server) updateTrackedRepo(name, repoPath string, force bool) updateResu
 	var info *git.UpdateInfo
 	var err error
 	if force {
-		info, err = git.ForcePull(repoPath)
+		info, err = git.ForcePullWithAuth(repoPath)
 	} else {
-		info, err = git.Pull(repoPath)
+		info, err = git.PullWithAuth(repoPath)
 	}
 	if err != nil {
 		return updateResultItem{
