@@ -278,6 +278,21 @@ func collectInstalledSkillPaths(sourcePath string) ([]struct {
 	return skillPaths, nil
 }
 
+// resolveSkillPath searches installed skills for a match by flat name or basename.
+// Returns the full path if found, empty string otherwise.
+func resolveSkillPath(sourcePath, name string) string {
+	skills, err := collectInstalledSkillPaths(sourcePath)
+	if err != nil {
+		return ""
+	}
+	for _, sp := range skills {
+		if sp.name == name || filepath.Base(sp.path) == name {
+			return sp.path
+		}
+	}
+	return ""
+}
+
 func scanSkillPath(skillPath, projectRoot string) (*audit.Result, error) {
 	if projectRoot != "" {
 		return audit.ScanSkillForProject(skillPath, projectRoot)
@@ -522,7 +537,12 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold string, jso
 
 	skillPath := filepath.Join(sourcePath, name)
 	if _, err := os.Stat(skillPath); os.IsNotExist(err) {
-		return nil, summary, fmt.Errorf("skill not found: %s", name)
+		// Short-name fallback: search installed skills by flat name or basename.
+		resolved := resolveSkillPath(sourcePath, name)
+		if resolved == "" {
+			return nil, summary, fmt.Errorf("skill not found: %s", name)
+		}
+		skillPath = resolved
 	}
 
 	if !jsonOutput {

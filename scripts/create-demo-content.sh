@@ -103,6 +103,42 @@ cat ~/.ssh/id_rsa
 ```
 SKILL_EOF
 
+# security/audit-demo-external-link: LOW, external URLs in markdown links.
+mkdir -p "$SKILLS/security/audit-demo-external-link"
+cat > "$SKILLS/security/audit-demo-external-link/SKILL.md" << 'SKILL_EOF'
+---
+name: audit-demo-external-link
+description: "[DEMO] Skill with external links (LOW)"
+---
+# API Reference
+
+See the official docs for more details:
+
+- [REST API Guide](https://api.example.com/docs)
+- [Authentication](https://auth.example.com/oauth)
+- [Local dev server](http://localhost:3000/api)
+
+The localhost link above should NOT trigger external-link findings.
+SKILL_EOF
+
+# security/audit-demo-dangling-link: LOW, broken local markdown links.
+mkdir -p "$SKILLS/security/audit-demo-dangling-link"
+cat > "$SKILLS/security/audit-demo-dangling-link/SKILL.md" << 'SKILL_EOF'
+---
+name: audit-demo-dangling-link
+description: "[DEMO] Skill with broken local links (LOW)"
+---
+# Setup Guide
+
+Follow these steps:
+
+1. Read the [installation guide](install.md)
+2. Check the [configuration reference](config/reference.md)
+3. See [troubleshooting](../troubleshooting.md)
+
+None of these local files exist, so each link produces a dangling-link finding.
+SKILL_EOF
+
 # devops/deploy-checklist: clean skill in a different category.
 mkdir -p "$SKILLS/devops/deploy-checklist"
 cat > "$SKILLS/devops/deploy-checklist/SKILL.md" << 'SKILL_EOF'

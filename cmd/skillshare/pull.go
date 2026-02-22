@@ -140,8 +140,9 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 // Fetches remote, then decides based on local/remote content:
 //   - Remote has branches but no skills + local has skills:
 //     merge unrelated histories (preserve local skills, import remote files)
+//   - Both have skills + no --force: attempt merge (fail on conflict)
+//   - Both have skills + --force: reset to remote (discard local)
 //   - Local has no skills, or --force: reset to remote
-//   - Both local/remote have skills and no --force: fail (non-zero exit)
 func firstPull(sourcePath string, authEnv []string, force bool, spinner *ui.Spinner) (firstPullOutcome, error) {
 	spinner.Update("Fetching from remote...")
 
@@ -204,11 +205,13 @@ func firstPull(sourcePath string, authEnv []string, force bool, spinner *ui.Spin
 	}
 
 	if hasLocalSkills && !force {
-		// Both have skills — refuse to overwrite
-		spinner.Fail("Remote has skills, but local skills also exist")
-		ui.Info("  Push local:  skillshare push")
-		ui.Info("  Pull remote: skillshare pull --force  (replaces local with remote)")
-		return firstPullNoop, fmt.Errorf("pull blocked: remote and local both contain skills; rerun with --force or push local changes")
+		// Both have skills — try merge; on conflict, guide the user.
+		if err := mergeRemoteHistory(sourcePath, remoteBranch, spinner); err != nil {
+			ui.Info("  Or force-pull: skillshare pull --force  (replaces local with remote)")
+			return firstPullNoop, err
+		}
+		setUpstream(sourcePath, remoteBranch)
+		return firstPullApplied, nil
 	}
 
 	// Safe to reset: either local has no skills, or --force was used
@@ -231,7 +234,7 @@ func setUpstream(sourcePath, remoteBranch string) {
 
 func mergeRemoteHistory(sourcePath, remoteBranch string, spinner *ui.Spinner) error {
 	spinner.Update("Merging remote history...")
-	mergeCmd := exec.Command("git", "merge", "--allow-unrelated-histories", "--no-edit", "origin/"+remoteBranch)
+	mergeCmd := exec.Command("git", "-c", "merge.ff=false", "merge", "--allow-unrelated-histories", "--no-edit", "origin/"+remoteBranch)
 	mergeCmd.Dir = sourcePath
 	if output, err := mergeCmd.CombinedOutput(); err != nil {
 		spinner.Fail("Failed to merge remote history")
