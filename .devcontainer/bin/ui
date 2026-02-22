@@ -72,15 +72,26 @@ for _ in 1 2 3 4 5 6; do
 done
 
 # Start API via air (hot-reload).
+# Air always builds from /workspace. For project mode, SKILLSHARE_UI_EXEC_PREFIX
+# changes the cwd before exec'ing the binary (skillshare ui -p uses os.Getwd()).
 export SKILLSHARE_UI_HOST=0.0.0.0
 MODE_FLAG="-${MODE:0:1}"
 export SKILLSHARE_UI_FLAGS="${MODE_FLAG} --port ${PORT}"
 if [ "$MODE" = "project" ]; then
-  cd ~/demo-project
+  export SKILLSHARE_UI_EXEC_PREFIX="cd $HOME/demo-project && /workspace/"
 fi
 nohup /usr/local/go/bin/air -c /workspace/.air.toml > "$LOGDIR/api-dev.log" 2>&1 &
 echo $! > "$PIDDIR/api.pid"
-printf "  %-12s started (%s mode, hot-reload)\n" "api" "$MODE"
+printf "  %-12s building..." "api"
+for _ in $(seq 1 30); do
+  is_port_open $PORT && break
+  sleep 1
+done
+if is_port_open $PORT; then
+  printf " ready (%s mode, hot-reload)\n" "$MODE"
+else
+  echo " waiting (check $LOGDIR/api-dev.log)"
+fi
 
 # Ensure Vite is running.
 if is_port_open $VITE_PORT; then
