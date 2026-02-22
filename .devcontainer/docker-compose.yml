@@ -7,12 +7,14 @@ services:
       dockerfile: docker/sandbox/Dockerfile
     working_dir: /workspace
     command: sleep infinity
-    env_file:
-      - path: .env
-        required: false
     environment:
       HOME: /tmp
       GOCACHE: /go/build-cache
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITLAB_TOKEN: ${GITLAB_TOKEN:-}
+      BITBUCKET_TOKEN: ${BITBUCKET_TOKEN:-}
+      BITBUCKET_USERNAME: ${BITBUCKET_USERNAME:-}
+      SKILLSHARE_GIT_TOKEN: ${SKILLSHARE_GIT_TOKEN:-}
     volumes:
       - ..:/workspace
       - go-mod-cache:/go/pkg/mod

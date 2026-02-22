@@ -12,6 +12,17 @@ if [ "${HOME:-}" != "/tmp" ] || [ ! -d /workspace ] || [ ! -f /workspace/go.mod 
 fi
 cd /workspace
 
+# ── 0. Token env: .env overrides host-passed env vars ────────────────
+# Docker-compose passes host tokens via environment (fallback).
+# If .devcontainer/.env exists, source it in every login shell to override.
+cat > /etc/profile.d/skillshare-env.sh << 'PROFILE_EOF'
+if [ -f /workspace/.devcontainer/.env ]; then
+  set -a
+  . /workspace/.devcontainer/.env
+  set +a
+fi
+PROFILE_EOF
+
 # ── 1. Build CLI ────────────────────────────────────────────────────
 echo "▸ Building skillshare binary …"
 make build
