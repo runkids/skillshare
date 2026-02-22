@@ -17,7 +17,7 @@ RUN pnpm run build
 FROM golang:${GO_VERSION}-bookworm
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends bash git ca-certificates curl \
+    && apt-get install -y --no-install-recommends bash git ca-certificates curl jq \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy pre-built frontend for playground UI cache
