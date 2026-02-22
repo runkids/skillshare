@@ -80,7 +80,18 @@ export SKILLSHARE_UI_FLAGS="${MODE_FLAG} --port ${PORT}"
 if [ "$MODE" = "project" ]; then
   export SKILLSHARE_UI_EXEC_PREFIX="cd $HOME/demo-project && /workspace/"
 fi
-nohup /usr/local/go/bin/air -c /workspace/.air.toml > "$LOGDIR/api-dev.log" 2>&1 &
+# Resolve air binary (go install puts it in GOPATH/bin, not GOROOT/bin).
+AIR_BIN=""
+for p in "$(go env GOPATH)/bin/air" /go/bin/air /usr/local/go/bin/air; do
+  [ -x "$p" ] && AIR_BIN="$p" && break
+done
+if [ -z "$AIR_BIN" ]; then
+  echo "  air          not found — installing..." >&2
+  go install github.com/air-verse/air@latest
+  AIR_BIN="$(go env GOPATH)/bin/air"
+fi
+
+nohup "$AIR_BIN" -c /workspace/.air.toml > "$LOGDIR/api-dev.log" 2>&1 &
 echo $! > "$PIDDIR/api.pid"
 printf "  %-12s building..." "api"
 for _ in $(seq 1 30); do
@@ -90,7 +101,7 @@ done
 if is_port_open $PORT; then
   printf " ready (%s mode, hot-reload)\n" "$MODE"
 else
-  echo " waiting (check $LOGDIR/api-dev.log)"
+  echo " slow start (check $LOGDIR/api-dev.log)"
 fi
 
 # Ensure Vite is running.

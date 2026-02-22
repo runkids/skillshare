@@ -5,7 +5,7 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  bin = "./tmp/skillshare"
+  entrypoint = "./cmd/skillshare"
   cmd = "go build -o ./tmp/skillshare ./cmd/skillshare"
   # SKILLSHARE_UI_EXEC_PREFIX: optional prefix for the run command (e.g., "cd /path && /workspace/"
   # to change cwd while keeping the binary path absolute). Empty by default.
