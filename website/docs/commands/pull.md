@@ -70,25 +70,28 @@ skillshare pull
 git stash pop
 ```
 
-## First Pull Conflict (Exit Code != 0)
+## First Pull with Existing Skills
 
 On first pull (no upstream yet), if both local and remote already contain skill directories,
-`pull` stops with a non-zero exit code and **does not run sync**:
+`pull` attempts a **merge** to combine both sides. If the merge succeeds, both local and remote skills are preserved.
+
+If there are **merge conflicts**, `pull` fails with a non-zero exit code:
 
 ```bash
 $ skillshare pull
-Remote has skills, but local skills also exist
-  Push local:  skillshare push
-  Pull remote: skillshare pull --force  (replaces local with remote)
+Failed to merge remote history
+  Or force-pull: skillshare pull --force  (replaces local with remote)
 ```
 
-Choose one path:
+Resolve options:
 
 ```bash
-# Keep local skills, push them
+# Resolve conflicts manually, then push
+cd ~/.config/skillshare/skills
+git add . && git commit
 skillshare push
 
-# Replace local with remote
+# Or discard local and take remote
 skillshare pull --force
 ```
 
