@@ -18,7 +18,8 @@ import (
 )
 
 type auditOptions struct {
-	Target    string
+	Targets   []string
+	Groups    []string
 	InitRules bool
 	JSON      bool
 	Threshold string
@@ -96,8 +97,9 @@ func cmdAudit(args []string) error {
 		cfgPath          string
 	)
 
-	// Path mode: target is an existing file/directory — no config needed.
-	if opts.Target != "" && pathExists(opts.Target) {
+	// Path mode: exactly 1 target that is an existing file/directory — no config needed.
+	isSinglePath := len(opts.Targets) == 1 && len(opts.Groups) == 0 && pathExists(opts.Targets[0])
+	if isSinglePath {
 		if mode == modeProject {
 			projectRoot = cwd
 			cfgPath = config.ProjectConfigPath(cwd)
@@ -137,13 +139,18 @@ func cmdAudit(args []string) error {
 		summary auditRunSummary
 	)
 
+	hasTargets := len(opts.Targets) > 0 || len(opts.Groups) > 0
+	isSingleName := len(opts.Targets) == 1 && len(opts.Groups) == 0 && !pathExists(opts.Targets[0])
+
 	switch {
-	case opts.Target == "":
+	case !hasTargets:
 		results, summary, err = auditInstalled(sourcePath, modeString(mode), projectRoot, threshold, opts.JSON)
-	case pathExists(opts.Target):
-		results, summary, err = auditPath(opts.Target, modeString(mode), projectRoot, threshold, opts.JSON)
+	case isSinglePath:
+		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.JSON)
+	case isSingleName:
+		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.JSON)
 	default:
-		results, summary, err = auditSkillByName(sourcePath, opts.Target, modeString(mode), projectRoot, threshold, opts.JSON)
+		results, summary, err = auditFiltered(sourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, opts.JSON)
 	}
 	if err != nil {
 		logAuditOp(cfgPath, rest, summary, start, err, false)
@@ -196,14 +203,17 @@ func parseAuditArgs(args []string) (auditOptions, bool, error) {
 			}
 			i++
 			opts.Threshold = args[i]
+		case "--group", "-G":
+			if i+1 >= len(args) {
+				return opts, false, fmt.Errorf("--group requires a value")
+			}
+			i++
+			opts.Groups = append(opts.Groups, args[i])
 		default:
 			if strings.HasPrefix(arg, "-") {
 				return opts, false, fmt.Errorf("unknown option: %s", arg)
 			}
-			if opts.Target != "" {
-				return opts, false, fmt.Errorf("unexpected argument: %s", arg)
-			}
-			opts.Target = arg
+			opts.Targets = append(opts.Targets, arg)
 		}
 	}
 	return opts, false, nil
@@ -361,6 +371,137 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, jsonOutput 
 
 	summary := summarizeAuditResults(len(skillPaths), results, threshold)
 	summary.Scope = "all"
+	summary.Mode = mode
+	summary.ScanErrors = scanErrors
+
+	if !jsonOutput {
+		printAuditSummary(summary)
+	}
+
+	return results, summary, nil
+}
+
+func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot, threshold string, jsonOutput bool) ([]*audit.Result, auditRunSummary, error) {
+	base := auditRunSummary{
+		Scope:     "filtered",
+		Mode:      mode,
+		Threshold: threshold,
+	}
+
+	allSkills, err := collectInstalledSkillPaths(sourcePath)
+	if err != nil {
+		return nil, base, err
+	}
+
+	// Build match sets for O(1) lookup.
+	nameSet := make(map[string]bool, len(names))
+	for _, n := range names {
+		nameSet[n] = true
+	}
+
+	// Filter skills by names and groups.
+	seen := make(map[string]bool)
+	var matched []struct {
+		name string
+		path string
+	}
+	resolvedNames := make(map[string]bool)
+
+	for _, sp := range allSkills {
+		// Name match: flat name or basename.
+		if nameSet[sp.name] || nameSet[filepath.Base(sp.path)] {
+			if !seen[sp.path] {
+				seen[sp.path] = true
+				matched = append(matched, sp)
+			}
+			resolvedNames[sp.name] = true
+			resolvedNames[filepath.Base(sp.path)] = true
+			continue
+		}
+
+		// Group match: flat name starts with group+"__".
+		for _, g := range groups {
+			if strings.HasPrefix(sp.name, g+"__") {
+				if !seen[sp.path] {
+					seen[sp.path] = true
+					matched = append(matched, sp)
+				}
+				break
+			}
+		}
+	}
+
+	// Warn about unresolved names.
+	var warnings []string
+	for _, n := range names {
+		if !resolvedNames[n] {
+			warnings = append(warnings, n)
+		}
+	}
+	for _, w := range warnings {
+		if !jsonOutput {
+			ui.Warning("skill not found: %s", w)
+		}
+	}
+
+	if len(matched) == 0 {
+		return nil, base, fmt.Errorf("no skills matched the given names/groups")
+	}
+
+	if !jsonOutput {
+		ui.HeaderBox("skillshare audit", auditHeaderSubtitle(fmt.Sprintf("Scanning %d skills for threats", len(matched)), mode, sourcePath))
+	}
+
+	// Phase 1: parallel scan.
+	type scanResult struct {
+		result  *audit.Result
+		err     error
+		elapsed time.Duration
+	}
+	scanResults := make([]scanResult, len(matched))
+
+	const maxAuditWorkers = 8
+	sem := make(chan struct{}, maxAuditWorkers)
+	var wg gosync.WaitGroup
+	for i, sp := range matched {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(idx int, path string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			t := time.Now()
+			res, scanErr := scanSkillPath(path, projectRoot)
+			scanResults[idx] = scanResult{res, scanErr, time.Since(t)}
+		}(i, sp.path)
+	}
+	wg.Wait()
+
+	// Phase 2: sequential output and result collection.
+	results := make([]*audit.Result, 0, len(matched))
+	scanErrors := 0
+	for i, sp := range matched {
+		sr := scanResults[i]
+		if sr.err != nil {
+			scanErrors++
+			if !jsonOutput {
+				ui.ListItem("error", sp.name, fmt.Sprintf("scan error: %v", sr.err))
+			}
+			continue
+		}
+		sr.result.Threshold = threshold
+		sr.result.IsBlocked = sr.result.HasSeverityAtOrAbove(threshold)
+		results = append(results, sr.result)
+		if !jsonOutput {
+			printSkillResultLine(i+1, len(matched), sr.result, sr.elapsed)
+		}
+	}
+
+	if !jsonOutput {
+		fmt.Println()
+	}
+
+	summary := summarizeAuditResults(len(matched), results, threshold)
+	summary.Scope = "filtered"
 	summary.Mode = mode
 	summary.ScanErrors = scanErrors
 
@@ -662,28 +803,36 @@ func initAuditRules(path string) error {
 }
 
 func printAuditHelp() {
-	fmt.Println("Usage: skillshare audit [target|path] [options]")
-	fmt.Println()
-	fmt.Println("Scan installed skills (or a specific skill/path) for security threats.")
-	fmt.Println()
-	fmt.Println("Arguments:")
-	fmt.Println("  target            Skill name to scan (optional)")
-	fmt.Println("  path              Existing file/directory path to scan (optional)")
-	fmt.Println()
-	fmt.Println("Options:")
-	fmt.Println("  -p, --project     Use project-level skills")
-	fmt.Println("  -g, --global      Use global skills")
-	fmt.Println("  --threshold <t>   Block threshold: critical|high|medium|low|info")
-	fmt.Println("  --json            Output JSON")
-	fmt.Println("  --init-rules      Create a starter audit-rules.yaml")
-	fmt.Println("  -h, --help        Show this help")
-	fmt.Println()
-	fmt.Println("Examples:")
-	fmt.Println("  skillshare audit                           Scan all installed skills")
-	fmt.Println("  skillshare audit react-patterns            Scan a specific skill")
-	fmt.Println("  skillshare audit ./skills/my-skill         Scan a directory path")
-	fmt.Println("  skillshare audit ./skills/foo/SKILL.md     Scan a single file")
-	fmt.Println("  skillshare audit --threshold high          Block on HIGH+ findings")
-	fmt.Println("  skillshare audit --json                    Output machine-readable results")
-	fmt.Println("  skillshare audit -p --init-rules           Create project custom rules file")
+	fmt.Println(`Usage: skillshare audit [name...] [options]
+       skillshare audit --group <group> [options]
+       skillshare audit <path> [options]
+
+Scan installed skills (or a specific skill/path) for security threats.
+
+If no names or groups are specified, all installed skills are scanned.
+
+Arguments:
+  name...              Skill name(s) to scan (optional)
+  path                 Existing file/directory path to scan (optional)
+
+Options:
+  --group, -G <name>   Scan all skills in a group (repeatable)
+  -p, --project        Use project-level skills
+  -g, --global         Use global skills
+  --threshold <t>      Block threshold: critical|high|medium|low|info
+  --json               Output JSON
+  --init-rules         Create a starter audit-rules.yaml
+  -h, --help           Show this help
+
+Examples:
+  skillshare audit                           Scan all installed skills
+  skillshare audit react-patterns            Scan a specific skill
+  skillshare audit a b c                     Scan multiple skills
+  skillshare audit --group frontend          Scan all skills in frontend/
+  skillshare audit x -G backend             Mix names and groups
+  skillshare audit ./skills/my-skill         Scan a directory path
+  skillshare audit ./skills/foo/SKILL.md     Scan a single file
+  skillshare audit --threshold high          Block on HIGH+ findings
+  skillshare audit --json                    Output machine-readable results
+  skillshare audit -p --init-rules           Create project custom rules file`)
 }
