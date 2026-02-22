@@ -4,7 +4,7 @@
 
 ### Added
 - **Multi-name and `--group` for `audit`** — `skillshare audit a b c` scans multiple skills at once; `--group`/`-G` flag scans all skills in a group directory (repeatable); names and groups can be mixed freely (e.g. `skillshare audit my-skill -G frontend`)
-- **`external-link` audit rule** — new `external-link-0` rule (LOW severity) detects external URLs in markdown links (`[text](https://...)`) that may indicate prompt injection vectors or unnecessary token consumption; localhost and loopback links are excluded
+- **`external-link` audit rule** (closes #38) — new `external-link-0` rule (LOW severity) detects external URLs in markdown links (`[text](https://...)`) that may indicate prompt injection vectors or unnecessary token consumption; localhost and loopback links are excluded; completes #38 together with dangling-link detection from v0.15.1 (supersedes #39)
 - **Auth tokens for hub search** — `search --hub` now automatically uses `GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`, or `SKILLSHARE_GIT_TOKEN` when fetching private hub indexes; no extra configuration needed
 
 ### Changed
@@ -13,6 +13,7 @@
 
 ### Fixed
 - **`audit` resolves nested skill names** — `skillshare audit nested__skill` now correctly finds skills by flat name or basename with short-name fallback
+- **CodeX SKILL.md description over 1024 chars** (fixes #40) — built-in skill description trimmed to stay within CodeX's 1024-character limit
 
 ## [0.15.2] - 2026-02-22
 

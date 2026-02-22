@@ -44,7 +44,7 @@
 > **Recent Updates**
 > | Version | Highlights |
 > |---------|------------|
-> | [0.15.0](https://github.com/runkids/skillshare/releases/tag/v0.15.0) | Copy sync mode for symlink-incompatible CLIs, private repo HTTPS token auth |
+> | [0.15.x](https://github.com/runkids/skillshare/releases/tag/v0.15.3) | Copy sync mode, private repo HTTPS token auth, `pull` merges by default, multi-name `audit` with `--group`, parallel audit scanning, `external-link` detection rule |
 > | [0.14.0](https://github.com/runkids/skillshare/releases/tag/v0.14.0) | Global skill manifest, `.skillignore`, multi-skill/group uninstall, license display, 6 new audit rules |
 > | [0.13.0](https://github.com/runkids/skillshare/releases/tag/v0.13.0) | Skill-level targets, XDG compliance, unified target names, runtime UI download |
 > | [0.12.0](https://github.com/runkids/skillshare/releases/tag/v0.12.0) | Skill Hub — generate indexes, search private catalogs with `--hub` |
@@ -403,13 +403,41 @@ make build-all      # frontend + Go binary
 
 ## Contributing
 
+Contributions are welcome! Here's the recommended workflow:
+
+1. **Open an issue first** — describe what you'd like to change and why. This helps align on scope and approach before writing code.
+2. **Submit a draft PR** — if you'd like to propose an implementation, open a [draft pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests#draft-pull-requests) and link it to the issue. Draft PRs let us collaborate on the approach early, before investing time in polish.
+3. **Include tests** — PRs that include test coverage are much easier to review and merge. Run `make check` (format + lint + test) to verify before submitting.
+
 ```bash
 git clone https://github.com/runkids/skillshare.git
 cd skillshare
-make check          # format + lint + test
+make check          # format + lint + test (must pass)
 ```
 
-Or open in Dev Containers for a zero-setup environment. Issues and PRs welcome: https://github.com/runkids/skillshare/issues
+Or open in [Dev Containers](https://containers.dev/) for a zero-setup environment.
+
+> [!TIP]
+> Not sure where to start? Browse [open issues](https://github.com/runkids/skillshare/issues) or open a new one to discuss your idea.
+
+## Contributors
+
+Thanks to everyone who helped shape skillshare through issues, PRs, and ideas.
+
+<a href="https://github.com/leeeezx"><img src="https://github.com/leeeezx.png" width="40" height="40" alt="leeeezx"></a>
+<a href="https://github.com/xocasdashdash"><img src="https://github.com/xocasdashdash.png" width="40" height="40" alt="xocasdashdash"></a>
+<a href="https://github.com/romanr"><img src="https://github.com/romanr.png" width="40" height="40" alt="romanr"></a>
+<a href="https://github.com/philippe-granet"><img src="https://github.com/philippe-granet.png" width="40" height="40" alt="philippe-granet"></a>
+<a href="https://github.com/terranc"><img src="https://github.com/terranc.png" width="40" height="40" alt="terranc"></a>
+<a href="https://github.com/benrfairless"><img src="https://github.com/benrfairless.png" width="40" height="40" alt="benrfairless"></a>
+<a href="https://github.com/nerveband"><img src="https://github.com/nerveband.png" width="40" height="40" alt="nerveband"></a>
+<a href="https://github.com/EarthChen"><img src="https://github.com/EarthChen.png" width="40" height="40" alt="EarthChen"></a>
+<a href="https://github.com/gdm257"><img src="https://github.com/gdm257.png" width="40" height="40" alt="gdm257"></a>
+<a href="https://github.com/skovtunenko"><img src="https://github.com/skovtunenko.png" width="40" height="40" alt="skovtunenko"></a>
+<a href="https://github.com/TyceHerrman"><img src="https://github.com/TyceHerrman.png" width="40" height="40" alt="TyceHerrman"></a>
+<a href="https://github.com/1am2syman"><img src="https://github.com/1am2syman.png" width="40" height="40" alt="1am2syman"></a>
+<a href="https://github.com/thealokkr"><img src="https://github.com/thealokkr.png" width="40" height="40" alt="thealokkr"></a>
+<a href="https://github.com/njg7194"><img src="https://github.com/njg7194.png" width="40" height="40" alt="njg7194"></a>
 
 ---
 
