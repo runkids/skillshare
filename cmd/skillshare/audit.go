@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	gosync "sync"
 	"time"
 
 	"skillshare/internal/audit"
@@ -300,6 +299,17 @@ func scanSkillPath(skillPath, projectRoot string) (*audit.Result, error) {
 	return audit.ScanSkill(skillPath)
 }
 
+func toAuditInputs(skills []struct {
+	name string
+	path string
+}) []audit.SkillInput {
+	inputs := make([]audit.SkillInput, len(skills))
+	for i, s := range skills {
+		inputs[i] = audit.SkillInput{Name: s.name, Path: s.path}
+	}
+	return inputs
+}
+
 func scanPathTarget(targetPath, projectRoot string) (*audit.Result, error) {
 	info, err := os.Stat(targetPath)
 	if err != nil {
@@ -337,46 +347,25 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, jsonOutput 
 	}
 
 	// Phase 1: parallel scan with bounded workers.
-	type scanResult struct {
-		result  *audit.Result
-		err     error
-		elapsed time.Duration
-	}
-	scanResults := make([]scanResult, len(skillPaths))
-
-	const maxAuditWorkers = 8
-	sem := make(chan struct{}, maxAuditWorkers)
-	var wg gosync.WaitGroup
-	for i, sp := range skillPaths {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(idx int, path string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			t := time.Now()
-			res, err := scanSkillPath(path, projectRoot)
-			scanResults[idx] = scanResult{res, err, time.Since(t)}
-		}(i, sp.path)
-	}
-	wg.Wait()
+	scanResults := audit.ParallelScan(toAuditInputs(skillPaths), projectRoot)
 
 	// Phase 2: sequential output and result collection.
 	results := make([]*audit.Result, 0, len(skillPaths))
 	scanErrors := 0
 	for i, sp := range skillPaths {
 		sr := scanResults[i]
-		if sr.err != nil {
+		if sr.Err != nil {
 			scanErrors++
 			if !jsonOutput {
-				ui.ListItem("error", sp.name, fmt.Sprintf("scan error: %v", sr.err))
+				ui.ListItem("error", sp.name, fmt.Sprintf("scan error: %v", sr.Err))
 			}
 			continue
 		}
-		sr.result.Threshold = threshold
-		sr.result.IsBlocked = sr.result.HasSeverityAtOrAbove(threshold)
-		results = append(results, sr.result)
+		sr.Result.Threshold = threshold
+		sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(threshold)
+		results = append(results, sr.Result)
 		if !jsonOutput {
-			printSkillResultLine(i+1, len(skillPaths), sr.result, sr.elapsed)
+			printSkillResultLine(i+1, len(skillPaths), sr.Result, sr.Elapsed)
 		}
 	}
 
@@ -468,46 +457,25 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	}
 
 	// Phase 1: parallel scan.
-	type scanResult struct {
-		result  *audit.Result
-		err     error
-		elapsed time.Duration
-	}
-	scanResults := make([]scanResult, len(matched))
-
-	const maxAuditWorkers = 8
-	sem := make(chan struct{}, maxAuditWorkers)
-	var wg gosync.WaitGroup
-	for i, sp := range matched {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(idx int, path string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			t := time.Now()
-			res, scanErr := scanSkillPath(path, projectRoot)
-			scanResults[idx] = scanResult{res, scanErr, time.Since(t)}
-		}(i, sp.path)
-	}
-	wg.Wait()
+	scanResults := audit.ParallelScan(toAuditInputs(matched), projectRoot)
 
 	// Phase 2: sequential output and result collection.
 	results := make([]*audit.Result, 0, len(matched))
 	scanErrors := 0
 	for i, sp := range matched {
 		sr := scanResults[i]
-		if sr.err != nil {
+		if sr.Err != nil {
 			scanErrors++
 			if !jsonOutput {
-				ui.ListItem("error", sp.name, fmt.Sprintf("scan error: %v", sr.err))
+				ui.ListItem("error", sp.name, fmt.Sprintf("scan error: %v", sr.Err))
 			}
 			continue
 		}
-		sr.result.Threshold = threshold
-		sr.result.IsBlocked = sr.result.HasSeverityAtOrAbove(threshold)
-		results = append(results, sr.result)
+		sr.Result.Threshold = threshold
+		sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(threshold)
+		results = append(results, sr.Result)
 		if !jsonOutput {
-			printSkillResultLine(i+1, len(matched), sr.result, sr.elapsed)
+			printSkillResultLine(i+1, len(matched), sr.Result, sr.Elapsed)
 		}
 	}
 
