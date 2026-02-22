@@ -38,3 +38,6 @@ video/node_modules/
 ui/node_modules/
 ui/dist/
 internal/server/dist/
+
+# Air hot-reload
+tmp/
