@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
   workflow_call:
 
 jobs:
@@ -65,3 +68,35 @@ jobs:
 
       - name: Docker Sandbox Tests (Online)
         run: ./scripts/test_docker_online.sh
+
+  redteam:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Red Team Test
+        run: make test-redteam
+
+  redteam-signal:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+
+      - name: Red Team Signal (Code Mutation)
+        run: make test-redteam-signal
+
+      - name: Red Team Signal (Rules Disable)
+        run: make test-redteam-rules-signal
