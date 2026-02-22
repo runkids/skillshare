@@ -117,9 +117,12 @@ Update installed skills or tracked repositories.
 ```bash
 # Global
 skillshare update my-skill       # Update from stored source
+skillshare update a b c          # Update multiple at once
 skillshare update _team-skills   # Git pull tracked repo
+skillshare update --group front  # Update all in a group
 skillshare update --all          # All tracked repos + skills
 skillshare update --all -n       # Preview updates
+skillshare update --all --diff   # Show file-level change summary
 
 # Project
 skillshare update my-skill -p       # Update project skill
@@ -128,7 +131,20 @@ skillshare update --all -p          # All project remote/tracked skills
 skillshare update _repo --force -p  # Discard local changes
 ```
 
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--all, -a` | Update all tracked repos and skills with metadata |
+| `--group, -G <name>` | Update all updatable skills in a group (repeatable) |
+| `--force, -f` | Discard local changes and force update |
+| `--dry-run, -n` | Preview without making changes |
+| `--skip-audit` | Skip post-update security audit gate |
+| `--diff` | Show file-level change summary after update |
+
 **Safety:** Tracked repos with uncommitted changes are skipped. Use `--force` to override.
+
+**Security:** Post-update audit gate rolls back tracked repos on HIGH/CRITICAL findings. Risk label and score displayed after updates. Use `--skip-audit` to bypass.
 
 **After update:** `skillshare sync`
 

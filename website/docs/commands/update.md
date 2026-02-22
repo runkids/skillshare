@@ -132,7 +132,11 @@ This updates:
 
 ## Security Audit Gate
 
-After pulling updates for tracked repositories, `update` automatically runs a security audit. If **HIGH** or **CRITICAL** findings are detected, the update is rolled back to protect against supply-chain attacks.
+After updating skills, `update` automatically runs a security audit. If **HIGH** or **CRITICAL** findings are detected, tracked repo updates are rolled back to protect against supply-chain attacks. For all update types, the audit risk label and score are displayed:
+
+```
+→ Security: LOW (12/100)
+```
 
 ### Interactive Mode (TTY)
 
@@ -163,11 +167,14 @@ skillshare update --all --skip-audit
 
 ## File Change Summary (`--diff`)
 
-Use `--diff` to see a file-level change summary after each tracked repo update:
+Use `--diff` to see a file-level change summary after each update:
 
 ```bash
 skillshare update team-skills --diff
+skillshare update --all --diff
 ```
+
+For **tracked repositories**, the diff uses `git diff` and includes line-level statistics:
 
 ```
 ┌─ Files Changed ─────────────────────────────┐
@@ -176,6 +183,17 @@ skillshare update team-skills --diff
 │  + scripts/deploy.sh (+45 -0)               │
 │  - old-helper.sh (+0 -22)                   │
 │  ~ utils/format.md (+5 -2)                  │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
+For **regular skills** (installed from a remote source), the diff compares file hashes before and after the reinstall:
+
+```
+┌─ Files Changed ─────────────────────────────┐
+│                                             │
+│  ~ SKILL.md                                 │
+│  + new-helper.sh                            │
 │                                             │
 └─────────────────────────────────────────────┘
 ```
