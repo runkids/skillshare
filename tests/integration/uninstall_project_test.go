@@ -177,3 +177,49 @@ func TestUninstallProject_TrackedRepo_GitStatusErrorWarnsAndContinues(t *testing
 		t.Error("tracked repo should still be uninstalled when git status check fails")
 	}
 }
+
+// TestUninstallProject_GroupDir_RemovesConfigEntries verifies that uninstalling
+// a group directory removes all member skills from the project config.yaml.
+func TestUninstallProject_GroupDir_RemovesConfigEntries(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	sb.CreateProjectSkill(projectRoot, "mygroup/skill-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateProjectSkill(projectRoot, "mygroup/skill-b", map[string]string{"SKILL.md": "# B"})
+	sb.CreateProjectSkill(projectRoot, "other/skill-c", map[string]string{"SKILL.md": "# C"})
+
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+skills:
+  - name: skill-a
+    source: github.com/org/repo/skill-a
+    group: mygroup
+  - name: skill-b
+    source: github.com/org/repo/skill-b
+    group: mygroup
+  - name: skill-c
+    source: github.com/org/repo/skill-c
+    group: other
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "uninstall", "mygroup", "--force", "-p")
+	result.AssertSuccess(t)
+
+	// Group directory should be removed from disk
+	if sb.FileExists(filepath.Join(projectRoot, ".skillshare", "skills", "mygroup")) {
+		t.Error("mygroup directory should be removed")
+	}
+
+	// Config should no longer contain mygroup skills
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if strings.Contains(cfg, "skill-a") {
+		t.Error("config should not contain skill-a after group uninstall")
+	}
+	if strings.Contains(cfg, "skill-b") {
+		t.Error("config should not contain skill-b after group uninstall")
+	}
+	if !strings.Contains(cfg, "skill-c") {
+		t.Error("config should still contain skill-c from other group")
+	}
+}

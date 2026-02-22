@@ -219,9 +219,22 @@ func cmdUninstallProject(args []string, root string) error {
 			}
 			updated := make([]config.SkillEntry, 0, len(cfg.Skills))
 			for _, s := range cfg.Skills {
-				if !removedNames[s.FullName()] {
-					updated = append(updated, s)
+				fullName := s.FullName()
+				if removedNames[fullName] {
+					continue
 				}
+				// When a group directory is uninstalled, also remove its member skills
+				memberOfRemoved := false
+				for name := range removedNames {
+					if strings.HasPrefix(fullName, name+"/") {
+						memberOfRemoved = true
+						break
+					}
+				}
+				if memberOfRemoved {
+					continue
+				}
+				updated = append(updated, s)
 			}
 			cfg.Skills = updated
 			if err := cfg.Save(root); err != nil {
