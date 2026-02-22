@@ -1,4 +1,4 @@
-.PHONY: help build build-meta run test test-unit test-int test-docker test-docker-online playground playground-down dev-docker dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
+.PHONY: help build build-meta run test test-unit test-int test-docker test-docker-online test-redteam playground playground-down dev-docker dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
 
 help:
 	@echo "Common tasks:"
@@ -9,6 +9,7 @@ help:
 	@echo "  make test-int       # integration tests only"
 	@echo "  make test-docker    # docker offline sandbox (build + unit + integration)"
 	@echo "  make test-docker-online  # docker online install/update tests"
+	@echo "  make test-redteam   # red team supply-chain security tests"
 	@echo "  make playground     # start playground + enter shell (one step)"
 	@echo "  make playground-down  # stop and remove playground"
 	@echo "  make lint           # go vet"
@@ -49,6 +50,9 @@ test-docker:
 
 test-docker-online:
 	./scripts/test_docker_online.sh
+
+test-redteam: build
+	./scripts/red_team_test.sh
 
 playground:
 	./scripts/sandbox_playground_up.sh

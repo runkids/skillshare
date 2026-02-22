@@ -13,6 +13,7 @@ echo "  mise run test:unit      # unit tests only"
 echo "  mise run test:int       # integration tests only"
 echo "  mise run test:docker    # docker offline sandbox (build + unit + integration)"
 echo "  mise run test:docker:online  # docker online install/update tests"
+echo "  mise run test:redteam   # red team supply-chain security tests"
 echo "  mise run playground     # start playground + enter shell (one step)"
 echo "  mise run playground:down  # stop and remove playground"
 echo "  mise run lint           # go vet"
@@ -63,6 +64,11 @@ run = "./scripts/test_docker.sh"
 [tasks."test:docker:online"]
 description = "Run optional network-dependent tests in docker sandbox"
 run = "./scripts/test_docker_online.sh"
+
+[tasks."test:redteam"]
+description = "Run red team supply-chain security tests"
+depends = ["build"]
+run = "./scripts/red_team_test.sh"
 
 [tasks.playground]
 description = "Start playground and enter shell (one step)"
