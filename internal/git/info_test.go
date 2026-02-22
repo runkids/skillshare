@@ -319,6 +319,80 @@ func TestHasLocalSkillDirs(t *testing.T) {
 	}
 }
 
+func TestGetChangedFiles_Rename(t *testing.T) {
+	repo := initTestRepo(t)
+
+	// Record the starting commit
+	fromHash := runGit(t, repo, "rev-parse", "HEAD")
+
+	// Rename README.md → GUIDE.md (keep content similar for rename detection)
+	os.Rename(filepath.Join(repo, "README.md"), filepath.Join(repo, "GUIDE.md"))
+	runGit(t, repo, "add", "-A")
+	runGit(t, repo, "commit", "-m", "rename file")
+
+	toHash := runGit(t, repo, "rev-parse", "HEAD")
+
+	changes, err := GetChangedFiles(repo, fromHash, toHash)
+	if err != nil {
+		t.Fatalf("GetChangedFiles failed: %v", err)
+	}
+
+	// Should have at least one rename entry
+	var found bool
+	for _, c := range changes {
+		if c.Status == "R" && c.Path == "GUIDE.md" {
+			found = true
+			if c.OldPath != "README.md" {
+				t.Errorf("expected OldPath=README.md, got %q", c.OldPath)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected rename entry for GUIDE.md, got: %+v", changes)
+	}
+}
+
+func TestGetChangedFiles_AddModifyDelete(t *testing.T) {
+	repo := initTestRepo(t)
+
+	// Add a file to delete later
+	os.WriteFile(filepath.Join(repo, "to-delete.txt"), []byte("delete me"), 0644)
+	runGit(t, repo, "add", "-A")
+	runGit(t, repo, "commit", "-m", "add to-delete")
+
+	fromHash := runGit(t, repo, "rev-parse", "HEAD")
+
+	// Add new, modify existing, delete file
+	os.WriteFile(filepath.Join(repo, "new.txt"), []byte("new file"), 0644)
+	os.WriteFile(filepath.Join(repo, "README.md"), []byte("# modified"), 0644)
+	os.Remove(filepath.Join(repo, "to-delete.txt"))
+	runGit(t, repo, "add", "-A")
+	runGit(t, repo, "commit", "-m", "mixed changes")
+
+	toHash := runGit(t, repo, "rev-parse", "HEAD")
+
+	changes, err := GetChangedFiles(repo, fromHash, toHash)
+	if err != nil {
+		t.Fatalf("GetChangedFiles failed: %v", err)
+	}
+
+	statuses := map[string]string{}
+	for _, c := range changes {
+		statuses[c.Path] = c.Status
+	}
+
+	if statuses["new.txt"] != "A" {
+		t.Errorf("expected new.txt=A, got %q", statuses["new.txt"])
+	}
+	if statuses["README.md"] != "M" {
+		t.Errorf("expected README.md=M, got %q", statuses["README.md"])
+	}
+	if statuses["to-delete.txt"] != "D" {
+		t.Errorf("expected to-delete.txt=D, got %q", statuses["to-delete.txt"])
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 

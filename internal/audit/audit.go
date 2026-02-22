@@ -520,7 +520,11 @@ func checkContentIntegrity(skillPath string) []Finding {
 
 	// Check pinned files: missing or tampered
 	for rel, expected := range raw.FileHashes {
-		absPath := filepath.Join(skillPath, filepath.FromSlash(rel))
+		absPath := filepath.Clean(filepath.Join(skillPath, filepath.FromSlash(rel)))
+		// Containment check: reject keys that escape the skill directory
+		if !strings.HasPrefix(absPath, filepath.Clean(skillPath)+string(filepath.Separator)) {
+			continue
+		}
 		info, err := os.Stat(absPath)
 		if err != nil {
 			findings = append(findings, Finding{

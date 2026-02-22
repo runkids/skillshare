@@ -220,6 +220,8 @@ export default function SkillDetailPage() {
         refetch();
       } else if (item?.action === 'up-to-date') {
         toast(`${item.name} is already up to date.`, 'info');
+      } else if (item?.action === 'blocked') {
+        toast(item.message ?? 'Blocked by security audit', 'error');
       } else if (item?.action === 'error') {
         toast(item.message ?? 'Update failed', 'error');
       } else {

@@ -912,3 +912,34 @@ func TestAudit_ContentHash_NoHashes_NoFindings(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "No issues found")
 }
+
+func TestAudit_ContentHash_PathTraversal_Ignored(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	content := []byte("---\nname: traversal-skill\n---\n# Safe content")
+	skillDir := filepath.Join(sb.SourcePath, "traversal-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), content, 0644)
+
+	// Create a secret file outside the skill directory
+	secretFile := filepath.Join(sb.Root, "secret.txt")
+	os.WriteFile(secretFile, []byte("TOP SECRET"), 0644)
+
+	// Craft a meta with path traversal key pointing outside skill dir
+	writeMetaJSON(t, skillDir, map[string]string{
+		"SKILL.md":                       fmt.Sprintf("sha256:%s", sha256Hex(content)),
+		"../../../secret.txt":            "sha256:0000",
+		"../../secret.txt":               "sha256:0000",
+		"sub/../../../escape/passwd.txt": "sha256:0000",
+	})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// Path traversal keys must be silently ignored — no content-missing findings
+	result := sb.RunCLI("audit", "traversal-skill")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "No issues found")
+	result.AssertOutputNotContains(t, "secret.txt")
+	result.AssertOutputNotContains(t, "passwd.txt")
+}

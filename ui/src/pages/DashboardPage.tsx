@@ -64,11 +64,13 @@ export default function DashboardPage() {
       const updated = res.results.filter((r) => r.action === 'updated').length;
       const upToDate = res.results.filter((r) => r.action === 'up-to-date').length;
       const errors = res.results.filter((r) => r.action === 'error');
+      const blocked = res.results.filter((r) => r.action === 'blocked');
       if (res.results.length === 0) {
         toast('No tracked repos or updatable skills found.', 'info');
       } else {
         toast(`Update complete: ${updated} updated, ${upToDate} up-to-date.`, updated > 0 ? 'success' : 'info');
       }
+      blocked.forEach((r) => toast(`${r.name}: ${r.message}`, 'error'));
       errors.forEach((r) => toast(`${r.name}: ${r.message}`, 'error'));
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
