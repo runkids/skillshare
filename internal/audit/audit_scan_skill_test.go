@@ -567,6 +567,7 @@ func TestScanSkill_ContentIntegrity_PathTraversal(t *testing.T) {
 	writeMetaWithHashes(t, skillDir, map[string]string{
 		"SKILL.md":            "sha256:" + sha256hex(content),
 		"../../../etc/passwd": "sha256:aaaa",
+		"/etc/passwd":         "sha256:bbbb",
 	})
 
 	result, err := ScanSkill(skillDir)
@@ -575,7 +576,7 @@ func TestScanSkill_ContentIntegrity_PathTraversal(t *testing.T) {
 	}
 
 	for _, f := range result.Findings {
-		if f.File == "../../../etc/passwd" {
+		if f.File == "../../../etc/passwd" || f.File == "/etc/passwd" {
 			t.Errorf("path traversal key should be silently skipped, got finding: %s %s", f.Pattern, f.File)
 		}
 	}
