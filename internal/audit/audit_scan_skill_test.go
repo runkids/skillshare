@@ -555,6 +555,32 @@ func TestScanSkill_NoHashesNoFindings(t *testing.T) {
 	}
 }
 
+func TestScanSkill_ContentIntegrity_PathTraversal(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+
+	content := []byte("# Skill")
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), content, 0644)
+
+	// Write meta with a path-traversal key that escapes the skill directory
+	writeMetaWithHashes(t, skillDir, map[string]string{
+		"SKILL.md":            "sha256:" + sha256hex(content),
+		"../../../etc/passwd": "sha256:aaaa",
+	})
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, f := range result.Findings {
+		if f.File == "../../../etc/passwd" {
+			t.Errorf("path traversal key should be silently skipped, got finding: %s %s", f.Pattern, f.File)
+		}
+	}
+}
+
 func TestScanSkill_NoMetaNoFindings(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "my-skill")

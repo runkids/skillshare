@@ -220,65 +220,97 @@ type FileChange struct {
 }
 
 // GetChangedFiles returns file-level changes between two revisions.
+// Uses NUL-delimited output (-z) for safe handling of special filenames.
 func GetChangedFiles(repoPath, from, to string) ([]FileChange, error) {
-	// Get name-status for type of change
-	statusCmd := exec.Command("git", "diff", "--name-status", from+".."+to)
+	// Get name-status with NUL delimiter
+	statusCmd := exec.Command("git", "diff", "--name-status", "-z", "-M", from+".."+to)
 	statusCmd.Dir = repoPath
 	statusOut, err := statusCmd.Output()
 	if err != nil {
 		return nil, err
 	}
 
-	// Get numstat for line counts
-	numCmd := exec.Command("git", "diff", "--numstat", from+".."+to)
+	// Get numstat with NUL delimiter
+	numCmd := exec.Command("git", "diff", "--numstat", "-z", "-M", from+".."+to)
 	numCmd.Dir = repoPath
 	numOut, err := numCmd.Output()
 	if err != nil {
 		return nil, err
 	}
 
-	// Parse name-status
+	// Parse NUL-delimited name-status.
+	// Format: status\0path\0  (for A/M/D)
+	//         Rxxx\0oldpath\0newpath\0  (for renames)
 	type statusEntry struct {
 		status  string
 		path    string
 		oldPath string
 	}
 	var entries []statusEntry
-	for _, line := range strings.Split(strings.TrimSpace(string(statusOut)), "\n") {
-		if line == "" {
+	fields := strings.Split(string(statusOut), "\x00")
+	for i := 0; i < len(fields); {
+		s := fields[i]
+		if s == "" {
+			i++
 			continue
 		}
-		parts := strings.Split(line, "\t")
-		if len(parts) < 2 {
-			continue
-		}
-		s := parts[0]
-		e := statusEntry{path: parts[len(parts)-1]}
 		if strings.HasPrefix(s, "R") {
-			e.status = "R"
-			if len(parts) >= 3 {
-				e.oldPath = parts[1]
-				e.path = parts[2]
+			// Rename: status, oldpath, newpath
+			if i+2 >= len(fields) {
+				break
 			}
+			entries = append(entries, statusEntry{
+				status:  "R",
+				oldPath: fields[i+1],
+				path:    fields[i+2],
+			})
+			i += 3
 		} else {
-			e.status = s[:1] // A, M, D, etc.
+			// A, M, D, etc.: status, path
+			if i+1 >= len(fields) {
+				break
+			}
+			entries = append(entries, statusEntry{
+				status: s[:1],
+				path:   fields[i+1],
+			})
+			i += 2
 		}
-		entries = append(entries, e)
 	}
 
-	// Parse numstat into a map keyed by path
+	// Parse NUL-delimited numstat.
+	// Normal:  added\tdeleted\tpath\0
+	// Rename:  added\tdeleted\t\0oldpath\0newpath\0
+	// When -z is used, renames have an empty path field followed by NUL-separated old/new paths.
 	numMap := map[string][2]int{} // path -> [added, deleted]
-	for _, line := range strings.Split(strings.TrimSpace(string(numOut)), "\n") {
-		if line == "" {
+	numFields := strings.Split(string(numOut), "\x00")
+	for i := 0; i < len(numFields); {
+		record := numFields[i]
+		if record == "" {
+			i++
 			continue
 		}
-		parts := strings.Split(line, "\t")
+		parts := strings.SplitN(record, "\t", 3)
 		if len(parts) < 3 {
+			i++
 			continue
 		}
 		added, _ := strconv.Atoi(parts[0])
 		deleted, _ := strconv.Atoi(parts[1])
-		numMap[parts[len(parts)-1]] = [2]int{added, deleted}
+		pathField := parts[2]
+		if pathField == "" {
+			// Rename: next two NUL-delimited fields are oldpath and newpath
+			if i+2 < len(numFields) {
+				newPath := numFields[i+2]
+				numMap[newPath] = [2]int{added, deleted}
+				i += 3
+			} else {
+				i++
+			}
+		} else {
+			numMap[pathField] = [2]int{added, deleted}
+			i++
+		}
 	}
 
 	var changes []FileChange

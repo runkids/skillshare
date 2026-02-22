@@ -304,3 +304,78 @@ func TestUpdate_Diff_ShowsFileChanges(t *testing.T) {
 	// Without --diff, should not show the file-level box
 	result2.AssertOutputNotContains(t, "Files Changed")
 }
+
+// setupCleanTrackedRepo creates a simple tracked repo with a pending clean update.
+// Returns the repo name (e.g. "_clean-repo").
+func setupCleanTrackedRepo(t *testing.T, sb *testutil.Sandbox, name string) string {
+	t.Helper()
+
+	remoteDir := filepath.Join(sb.Root, name+"-remote.git")
+	run(t, "", "git", "init", "--bare", remoteDir)
+
+	repoName := "_" + name
+	repoPath := filepath.Join(sb.SourcePath, repoName)
+	run(t, sb.Root, "git", "clone", remoteDir, repoPath)
+
+	os.MkdirAll(filepath.Join(repoPath, "my-skill"), 0755)
+	os.WriteFile(filepath.Join(repoPath, "my-skill", "SKILL.md"),
+		[]byte("---\nname: "+name+"\n---\n# Clean"), 0644)
+	run(t, repoPath, "git", "add", "-A")
+	run(t, repoPath, "git", "commit", "-m", "init")
+	run(t, repoPath, "git", "push", "origin", "HEAD")
+
+	// Push a clean update from work clone
+	workDir := filepath.Join(sb.Root, name+"-work")
+	run(t, sb.Root, "git", "clone", remoteDir, workDir)
+	os.WriteFile(filepath.Join(workDir, "my-skill", "SKILL.md"),
+		[]byte("---\nname: "+name+"\n---\n# Updated clean"), 0644)
+	run(t, workDir, "git", "add", "-A")
+	run(t, workDir, "git", "commit", "-m", "update")
+	run(t, workDir, "git", "push", "origin", "HEAD")
+
+	return repoName
+}
+
+// TestUpdate_BatchAll_FailsOnMalicious verifies that `update --all` returns
+// non-zero exit code when ANY tracked repo is blocked by audit gate,
+// even if other repos update successfully.
+func TestUpdate_BatchAll_FailsOnMalicious(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	// One clean repo + one malicious repo
+	cleanName := setupCleanTrackedRepo(t, sb, "batch-clean")
+	maliciousName := setupTrackedRepoWithMaliciousUpdate(t, sb)
+
+	result := sb.RunCLI("update", "--all")
+	result.AssertFailure(t) // Must exit non-zero even though clean repo succeeded
+	result.AssertAnyOutputContains(t, "blocked by security audit")
+
+	// Clean repo should be updated
+	cleanContent := sb.ReadFile(filepath.Join(sb.SourcePath, cleanName, "my-skill", "SKILL.md"))
+	if !contains(cleanContent, "Updated clean") {
+		t.Error("clean repo should have been updated")
+	}
+
+	// Malicious repo should be rolled back
+	malContent := sb.ReadFile(filepath.Join(sb.SourcePath, maliciousName, "my-skill", "SKILL.md"))
+	if contains(malContent, "Ignore all previous") {
+		t.Error("malicious repo should have been rolled back")
+	}
+}
+
+// TestUpdate_BatchMultiple_FailsOnMalicious verifies that multi-name batch
+// update (not --all) also returns non-zero when a repo is blocked.
+func TestUpdate_BatchMultiple_FailsOnMalicious(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	setupGlobalConfig(sb)
+
+	cleanName := setupCleanTrackedRepo(t, sb, "multi-clean")
+	maliciousName := setupTrackedRepoWithMaliciousUpdate(t, sb)
+
+	result := sb.RunCLI("update", cleanName, maliciousName)
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "blocked by security audit")
+}

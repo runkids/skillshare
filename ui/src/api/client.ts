@@ -97,7 +97,7 @@ export const api = {
     }),
 
   // Update
-  update: (opts: { name?: string; force?: boolean; all?: boolean }) =>
+  update: (opts: { name?: string; force?: boolean; all?: boolean; skipAudit?: boolean }) =>
     apiFetch<{ results: UpdateResultItem[] }>('/update', {
       method: 'POST',
       body: JSON.stringify(opts),
@@ -295,7 +295,7 @@ export interface InstallResult {
 
 export interface UpdateResultItem {
   name: string;
-  action: string; // "updated", "up-to-date", "skipped", "error"
+  action: string; // "updated", "up-to-date", "skipped", "error", "blocked"
   message?: string;
   isRepo: boolean;
 }

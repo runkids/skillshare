@@ -9,19 +9,21 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/audit"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 )
 
 type updateRequest struct {
-	Name  string `json:"name"`
-	Force bool   `json:"force"`
-	All   bool   `json:"all"`
+	Name      string `json:"name"`
+	Force     bool   `json:"force"`
+	All       bool   `json:"all"`
+	SkipAudit bool   `json:"skipAudit"`
 }
 
 type updateResultItem struct {
 	Name    string `json:"name"`
-	Action  string `json:"action"` // "updated", "up-to-date", "skipped", "error"
+	Action  string `json:"action"` // "updated", "up-to-date", "skipped", "error", "blocked"
 	Message string `json:"message,omitempty"`
 	IsRepo  bool   `json:"isRepo"`
 }
@@ -38,26 +40,39 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if body.All {
-		results := s.updateAll(body.Force)
+		results := s.updateAll(body.Force, body.SkipAudit)
 		total := len(results)
 		failed := 0
+		blocked := 0
 		for _, item := range results {
 			if item.Action == "error" {
 				failed++
+			} else if item.Action == "blocked" {
+				blocked++
 			}
 		}
 		status := "ok"
 		msg := ""
+		if blocked > 0 {
+			status = "partial"
+			msg = fmt.Sprintf("%d update(s) blocked by security audit", blocked)
+		}
 		if failed > 0 {
 			status = "partial"
-			msg = fmt.Sprintf("%d update(s) failed", failed)
+			if msg != "" {
+				msg += fmt.Sprintf(", %d update(s) failed", failed)
+			} else {
+				msg = fmt.Sprintf("%d update(s) failed", failed)
+			}
 		}
 		s.writeOpsLog("update", status, start, map[string]any{
-			"name":           "--all",
-			"force":          body.Force,
-			"results_total":  total,
-			"results_failed": failed,
-			"scope":          "ui",
+			"name":            "--all",
+			"force":           body.Force,
+			"skip_audit":      body.SkipAudit,
+			"results_total":   total,
+			"results_failed":  failed,
+			"results_blocked": blocked,
+			"scope":           "ui",
 		}, msg)
 		writeJSON(w, map[string]any{"results": results})
 		return
@@ -68,10 +83,13 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := s.updateSingle(body.Name, body.Force)
+	result := s.updateSingle(body.Name, body.Force, body.SkipAudit)
 	status := "ok"
 	msg := ""
 	if result.Action == "error" {
+		status = "error"
+		msg = result.Message
+	} else if result.Action == "blocked" {
 		status = "error"
 		msg = result.Message
 	} else if result.Action == "skipped" {
@@ -79,14 +97,15 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		msg = result.Message
 	}
 	s.writeOpsLog("update", status, start, map[string]any{
-		"name":  body.Name,
-		"force": body.Force,
-		"scope": "ui",
+		"name":       body.Name,
+		"force":      body.Force,
+		"skip_audit": body.SkipAudit,
+		"scope":      "ui",
 	}, msg)
 	writeJSON(w, map[string]any{"results": []updateResultItem{result}})
 }
 
-func (s *Server) updateSingle(name string, force bool) updateResultItem {
+func (s *Server) updateSingle(name string, force, skipAudit bool) updateResultItem {
 	// Try tracked repo first (with _ prefix)
 	repoName := name
 	if !strings.HasPrefix(repoName, "_") {
@@ -95,19 +114,19 @@ func (s *Server) updateSingle(name string, force bool) updateResultItem {
 	repoPath := filepath.Join(s.cfg.Source, repoName)
 
 	if install.IsGitRepo(repoPath) {
-		return s.updateTrackedRepo(repoName, repoPath, force)
+		return s.updateTrackedRepo(repoName, repoPath, force, skipAudit)
 	}
 
 	// Try as regular skill
 	skillPath := filepath.Join(s.cfg.Source, name)
 	if meta, _ := install.ReadMeta(skillPath); meta != nil && meta.Source != "" {
-		return s.updateRegularSkill(name, skillPath)
+		return s.updateRegularSkill(name, skillPath, skipAudit)
 	}
 
 	// Try original name as git repo path
 	origPath := filepath.Join(s.cfg.Source, name)
 	if install.IsGitRepo(origPath) {
-		return s.updateTrackedRepo(name, origPath, force)
+		return s.updateTrackedRepo(name, origPath, force, skipAudit)
 	}
 
 	return updateResultItem{
@@ -117,7 +136,7 @@ func (s *Server) updateSingle(name string, force bool) updateResultItem {
 	}
 }
 
-func (s *Server) updateTrackedRepo(name, repoPath string, force bool) updateResultItem {
+func (s *Server) updateTrackedRepo(name, repoPath string, force, skipAudit bool) updateResultItem {
 	// Check for uncommitted changes
 	if isDirty, _ := git.IsDirty(repoPath); isDirty {
 		if !force {
@@ -158,6 +177,13 @@ func (s *Server) updateTrackedRepo(name, repoPath string, force bool) updateResu
 		return updateResultItem{Name: name, Action: "up-to-date", IsRepo: true}
 	}
 
+	// Post-pull audit gate
+	if !skipAudit {
+		if blocked := s.auditGateTrackedRepo(name, repoPath, info.BeforeHash); blocked != nil {
+			return *blocked
+		}
+	}
+
 	return updateResultItem{
 		Name:    name,
 		Action:  "updated",
@@ -166,7 +192,41 @@ func (s *Server) updateTrackedRepo(name, repoPath string, force bool) updateResu
 	}
 }
 
-func (s *Server) updateRegularSkill(name, skillPath string) updateResultItem {
+// auditGateTrackedRepo scans a tracked repo after pull and rolls back if HIGH/CRITICAL.
+// Returns a blocked result item, or nil if the update should proceed.
+func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash string) *updateResultItem {
+	var result *audit.Result
+	var err error
+	if s.IsProjectMode() {
+		result, err = audit.ScanSkillForProject(repoPath, s.projectRoot)
+	} else {
+		result, err = audit.ScanSkill(repoPath)
+	}
+
+	if err != nil {
+		git.ResetHard(repoPath, beforeHash) //nolint:errcheck
+		return &updateResultItem{
+			Name:    name,
+			Action:  "blocked",
+			Message: "security audit failed: " + err.Error(),
+			IsRepo:  true,
+		}
+	}
+
+	if result.HasHigh() {
+		git.ResetHard(repoPath, beforeHash) //nolint:errcheck
+		return &updateResultItem{
+			Name:    name,
+			Action:  "blocked",
+			Message: "blocked by security audit — HIGH/CRITICAL findings detected, rolled back",
+			IsRepo:  true,
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) updateRegularSkill(name, skillPath string, skipAudit bool) updateResultItem {
 	meta, _ := install.ReadMeta(skillPath)
 	source, err := install.ParseSource(meta.Source)
 	if err != nil {
@@ -177,7 +237,10 @@ func (s *Server) updateRegularSkill(name, skillPath string) updateResultItem {
 		}
 	}
 
-	opts := install.InstallOptions{Force: true, Update: true}
+	opts := install.InstallOptions{Force: true, Update: true, SkipAudit: skipAudit}
+	if s.IsProjectMode() {
+		opts.AuditProjectRoot = s.projectRoot
+	}
 	if _, err = install.Install(source, skillPath, opts); err != nil {
 		return updateResultItem{
 			Name:    name,
@@ -193,7 +256,7 @@ func (s *Server) updateRegularSkill(name, skillPath string) updateResultItem {
 	}
 }
 
-func (s *Server) updateAll(force bool) []updateResultItem {
+func (s *Server) updateAll(force, skipAudit bool) []updateResultItem {
 	var results []updateResultItem
 
 	// Update tracked repos
@@ -201,7 +264,7 @@ func (s *Server) updateAll(force bool) []updateResultItem {
 	if err == nil {
 		for _, repo := range repos {
 			repoPath := filepath.Join(s.cfg.Source, repo)
-			results = append(results, s.updateTrackedRepo(repo, repoPath, force))
+			results = append(results, s.updateTrackedRepo(repo, repoPath, force, skipAudit))
 		}
 	}
 
@@ -210,7 +273,7 @@ func (s *Server) updateAll(force bool) []updateResultItem {
 	if err == nil {
 		for _, skill := range skills {
 			skillPath := filepath.Join(s.cfg.Source, skill)
-			results = append(results, s.updateRegularSkill(skill, skillPath))
+			results = append(results, s.updateRegularSkill(skill, skillPath, skipAudit))
 		}
 	}
 

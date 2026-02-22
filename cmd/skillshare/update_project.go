@@ -160,15 +160,22 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	}
 
 	updated := 0
+	securityFailed := 0
 	for _, t := range targets {
 		if t.isRepo {
 			if err := updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.diff, projectRoot); err != nil {
+				if isSecurityError(err) {
+					securityFailed++
+				}
 				ui.Warning("%s: %v", t.name, err)
 			} else {
 				updated++
 			}
 		} else {
 			if err := updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, projectRoot); err != nil {
+				if isSecurityError(err) {
+					securityFailed++
+				}
 				ui.Warning("%s: %v", t.name, err)
 			} else {
 				updated++
@@ -181,6 +188,9 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
 
+	if securityFailed > 0 {
+		return fmt.Errorf("%d repo(s) blocked by security audit", securityFailed)
+	}
 	return nil
 }
 
@@ -222,10 +232,10 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit,
 	}
 
 	spinner := ui.StartSpinner(fmt.Sprintf("Updating %s...", name))
-	opts := install.InstallOptions{Force: true, Update: true}
+	opts := install.InstallOptions{Force: true, Update: true, SkipAudit: skipAudit}
 	if _, err := install.Install(source, skillPath, opts); err != nil {
 		spinner.Fail(fmt.Sprintf("%s failed: %v", name, err))
-		return nil
+		return err
 	}
 	spinner.Success(fmt.Sprintf("Updated %s", name))
 	fmt.Println()
@@ -298,6 +308,7 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 	}
 
 	updated := 0
+	securityFailed := 0
 	for _, entry := range entries {
 		if !entry.IsDir() || utils.IsHidden(entry.Name()) {
 			continue
@@ -309,6 +320,9 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 		// Tracked repo: git pull
 		if install.IsGitRepo(skillPath) {
 			if err := updateProjectTrackedRepo(skillName, skillPath, dryRun, force, skipAudit, showDiff, projectRoot); err != nil {
+				if isSecurityError(err) {
+					securityFailed++
+				}
 				ui.Warning("%s: %v", skillName, err)
 			} else {
 				updated++
@@ -334,8 +348,11 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 		}
 
 		spinner := ui.StartSpinner(fmt.Sprintf("Updating %s...", skillName))
-		if _, err := install.Install(source, skillPath, install.InstallOptions{Force: true, Update: true}); err != nil {
+		if _, err := install.Install(source, skillPath, install.InstallOptions{Force: true, Update: true, SkipAudit: skipAudit}); err != nil {
 			spinner.Fail(fmt.Sprintf("%s failed: %v", skillName, err))
+			if isSecurityError(err) {
+				securityFailed++
+			}
 			continue
 		}
 		spinner.Success(fmt.Sprintf("Updated %s", skillName))
@@ -347,5 +364,8 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
 
+	if securityFailed > 0 {
+		return fmt.Errorf("%d repo(s) blocked by security audit", securityFailed)
+	}
 	return nil
 }

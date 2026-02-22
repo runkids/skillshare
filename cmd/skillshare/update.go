@@ -269,7 +269,7 @@ func cmdUpdate(args []string) error {
 		if t.isRepo {
 			updateErr = updateTrackedRepo(cfg, t.relPath, opts.dryRun, opts.force, opts.skipAudit, opts.diff)
 		} else {
-			updateErr = updateRegularSkill(cfg, t.relPath, opts.dryRun, opts.force)
+			updateErr = updateRegularSkill(cfg, t.relPath, opts.dryRun, opts.force, opts.skipAudit)
 		}
 		logUpdateOp(config.ConfigPath(), opts.names, start, updateErr)
 		return updateErr
@@ -286,13 +286,20 @@ func cmdUpdate(args []string) error {
 		progress := fmt.Sprintf("[%d/%d]", i+1, total)
 		itemPath := filepath.Join(cfg.Source, t.relPath)
 		if t.isRepo {
-			if updated, _ := updateTrackedRepoQuick(t.relPath, itemPath, progress, opts.dryRun, opts.force, opts.skipAudit, opts.diff); updated {
+			updated, err := updateTrackedRepoQuick(t.relPath, itemPath, progress, opts.dryRun, opts.force, opts.skipAudit, opts.diff)
+			if err != nil {
+				result.securityFailed++
+				ui.Warning("%s: %v", t.relPath, err)
+			} else if updated {
 				result.updated++
 			} else {
 				result.skipped++
 			}
 		} else {
-			if updateSkillFromMeta(t.relPath, itemPath, progress, opts.dryRun) {
+			updated, err := updateSkillFromMeta(t.relPath, itemPath, progress, opts.dryRun, opts.skipAudit)
+			if err != nil && isSecurityError(err) {
+				result.securityFailed++
+			} else if updated {
 				result.updated++
 			} else {
 				result.skipped++
@@ -302,10 +309,17 @@ func cmdUpdate(args []string) error {
 
 	if !opts.dryRun {
 		fmt.Println()
-		ui.Box("Summary", "",
+		lines := []string{
+			"",
 			fmt.Sprintf("  Total:    %d", total),
 			fmt.Sprintf("  Updated:  %d", result.updated),
-			fmt.Sprintf("  Skipped:  %d", result.skipped), "")
+			fmt.Sprintf("  Skipped:  %d", result.skipped),
+		}
+		if result.securityFailed > 0 {
+			lines = append(lines, fmt.Sprintf("  Blocked:  %d (security)", result.securityFailed))
+		}
+		lines = append(lines, "")
+		ui.Box("Summary", lines...)
 	}
 
 	if result.updated > 0 {
@@ -319,9 +333,14 @@ func cmdUpdate(args []string) error {
 	for _, g := range opts.groups {
 		opNames = append(opNames, "--group="+g)
 	}
-	logUpdateOp(config.ConfigPath(), opNames, start, nil)
 
-	return nil
+	var batchErr error
+	if result.securityFailed > 0 {
+		batchErr = fmt.Errorf("%d repo(s) blocked by security audit", result.securityFailed)
+	}
+	logUpdateOp(config.ConfigPath(), opNames, start, batchErr)
+
+	return batchErr
 }
 
 func logUpdateOp(cfgPath string, args []string, start time.Time, cmdErr error) {
@@ -339,8 +358,9 @@ func logUpdateOp(cfgPath string, args []string, start time.Time, cmdErr error) {
 
 // updateResult tracks the result of an update operation
 type updateResult struct {
-	updated int
-	skipped int
+	updated        int
+	skipped        int
+	securityFailed int
 }
 
 // updateTrackedRepoQuick updates a single tracked repo (for --all mode)
@@ -396,11 +416,13 @@ func updateTrackedRepoQuick(repo, repoPath, progress string, dryRun, force, skip
 	return true, nil
 }
 
-// updateSkillFromMeta updates a skill using its metadata
-func updateSkillFromMeta(skill, skillPath, progress string, dryRun bool) (updated bool) {
+// updateSkillFromMeta updates a skill using its metadata.
+// Returns (true, nil) on success, (false, nil) on non-security skip,
+// or (false, err) when install fails (caller should check isSecurityError).
+func updateSkillFromMeta(skill, skillPath, progress string, dryRun, skipAudit bool) (bool, error) {
 	if dryRun {
 		ui.ListItem("info", skill, "[dry-run] would reinstall from source")
-		return false
+		return false, nil
 	}
 
 	spinner := ui.StartSpinner(fmt.Sprintf("%s Updating %s...", progress, skill))
@@ -409,17 +431,17 @@ func updateSkillFromMeta(skill, skillPath, progress string, dryRun bool) (update
 	source, err := install.ParseSource(meta.Source)
 	if err != nil {
 		spinner.Warn(fmt.Sprintf("%s invalid source: %v", skill, err))
-		return false
+		return false, nil
 	}
 
-	opts := install.InstallOptions{Force: true, Update: true}
+	opts := install.InstallOptions{Force: true, Update: true, SkipAudit: skipAudit}
 	if _, err = install.Install(source, skillPath, opts); err != nil {
 		spinner.Warn(fmt.Sprintf("%s %v", skill, err))
-		return false
+		return false, err
 	}
 
 	spinner.Success(fmt.Sprintf("%s Reinstalled from source", skill))
-	return true
+	return true, nil
 }
 
 func updateAllTrackedRepos(cfg *config.Config, dryRun, force, skipAudit, showDiff bool) error {
@@ -450,7 +472,11 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force, skipAudit, showDif
 	for i, repo := range repos {
 		repoPath := filepath.Join(cfg.Source, repo)
 		progress := fmt.Sprintf("[%d/%d]", i+1, total)
-		if updated, _ := updateTrackedRepoQuick(repo, repoPath, progress, dryRun, force, skipAudit, showDiff); updated {
+		updated, err := updateTrackedRepoQuick(repo, repoPath, progress, dryRun, force, skipAudit, showDiff)
+		if err != nil {
+			result.securityFailed++
+			ui.Warning("%s: %v", repo, err)
+		} else if updated {
 			result.updated++
 		} else {
 			result.skipped++
@@ -461,7 +487,10 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force, skipAudit, showDif
 	for i, skill := range skills {
 		skillPath := filepath.Join(cfg.Source, skill)
 		progress := fmt.Sprintf("[%d/%d]", len(repos)+i+1, total)
-		if updateSkillFromMeta(skill, skillPath, progress, dryRun) {
+		updated, err := updateSkillFromMeta(skill, skillPath, progress, dryRun, skipAudit)
+		if err != nil && isSecurityError(err) {
+			result.securityFailed++
+		} else if updated {
 			result.updated++
 		} else {
 			result.skipped++
@@ -470,10 +499,17 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force, skipAudit, showDif
 
 	if !dryRun {
 		fmt.Println()
-		ui.Box("Summary", "",
+		lines := []string{
+			"",
 			fmt.Sprintf("  Total:    %d", total),
 			fmt.Sprintf("  Updated:  %d", result.updated),
-			fmt.Sprintf("  Skipped:  %d", result.skipped), "")
+			fmt.Sprintf("  Skipped:  %d", result.skipped),
+		}
+		if result.securityFailed > 0 {
+			lines = append(lines, fmt.Sprintf("  Blocked:  %d (security)", result.securityFailed))
+		}
+		lines = append(lines, "")
+		ui.Box("Summary", lines...)
 	}
 
 	if result.updated > 0 {
@@ -481,6 +517,9 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force, skipAudit, showDif
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
 
+	if result.securityFailed > 0 {
+		return fmt.Errorf("%d repo(s) blocked by security audit", result.securityFailed)
+	}
 	return nil
 }
 
@@ -499,7 +538,7 @@ func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force, skipAudit
 	// Try as regular skill (exact path)
 	skillPath := filepath.Join(cfg.Source, name)
 	if meta, err := install.ReadMeta(skillPath); err == nil && meta != nil {
-		return updateRegularSkill(cfg, name, dryRun, force)
+		return updateRegularSkill(cfg, name, dryRun, force, skipAudit)
 	}
 
 	// Check if it's a nested path that exists as git repo
@@ -512,7 +551,7 @@ func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force, skipAudit
 		if match.isRepo {
 			return updateTrackedRepo(cfg, match.relPath, dryRun, force, skipAudit, showDiff)
 		}
-		return updateRegularSkill(cfg, match.relPath, dryRun, force)
+		return updateRegularSkill(cfg, match.relPath, dryRun, force, skipAudit)
 	} else {
 		return err
 	}
@@ -667,7 +706,7 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipA
 	return nil
 }
 
-func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force bool) error {
+func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, skipAudit bool) error {
 	skillPath := filepath.Join(cfg.Source, skillName)
 
 	// Read metadata to get source
@@ -698,8 +737,9 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force bool
 	spinner := ui.StartSpinner("Cloning source repository...")
 
 	opts := install.InstallOptions{
-		Force:  true,
-		Update: true,
+		Force:     true,
+		Update:    true,
+		SkipAudit: skipAudit,
 	}
 
 	result, err := install.Install(source, skillPath, opts)
@@ -860,6 +900,15 @@ func renderDiffSummary(repoPath, beforeHash, afterHash string) {
 	lines = append(lines, "")
 
 	ui.Box("Files Changed", lines...)
+}
+
+// isSecurityError returns true if the error originated from the audit gate.
+func isSecurityError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "security audit") || strings.Contains(msg, "rolled back") || strings.Contains(msg, "rollback failed")
 }
 
 func truncateString(s string, maxLen int) string {
