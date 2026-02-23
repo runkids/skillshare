@@ -756,7 +756,7 @@ func buildTargetsList(detected []detectedDir, copyFrom, copyFromName, targetsArg
 		Help:     "Use arrow keys to navigate, space to select, enter to confirm",
 	}
 
-	if err := survey.AskOne(prompt, &selectedIndices); err != nil {
+	if err := survey.AskOne(prompt, &selectedIndices, survey.WithKeepFilter(true)); err != nil {
 		return targets // User cancelled
 	}
 
@@ -1308,7 +1308,7 @@ func promptAgentSelection(newAgents []agentInfo) ([]string, error) {
 		Help:     "Use arrow keys to navigate, space to select, enter to confirm",
 	}
 
-	if err := survey.AskOne(prompt, &selectedIndices); err != nil {
+	if err := survey.AskOne(prompt, &selectedIndices, survey.WithKeepFilter(true)); err != nil {
 		return nil, nil
 	}
 
