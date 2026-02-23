@@ -5,10 +5,15 @@
 ### Added
 - **`init --mode` flag** — `skillshare init --mode copy` (or `-m copy`) sets the default sync mode for all targets at init time; in interactive mode (TTY), a prompt offers merge / copy / symlink selection; `init --discover --mode copy` applies the mode only to newly added targets, leaving existing targets unchanged (closes [#42](https://github.com/runkids/skillshare/issues/42))
 - **Per-target sync mode hint** — after `sync` and `doctor`, a contextual hint suggests `copy` mode for targets known to have symlink compatibility issues (Cursor, Antigravity, Copilot, OpenCode); suppressed when only symlink-compatible targets are configured
+- **`uninstall --all`** — remove all skills from source in one command; requires confirmation unless `--force` is set; works in both global and project mode
+
+### Changed
+- **Improved CLI output** — compact grouped audit findings (`× N` dedup), structured section labels, lighter update headers
 
 ### Fixed
 - **Orphan real directories not pruned after uninstall** — `sync` in merge mode now writes `.skillshare-manifest.json` to track managed skills; after `uninstall`, orphan directories (non-symlinks) that appear in the manifest are safely removed instead of kept with "unknown directory" warnings; user-created directories not in the manifest are still preserved (fixes [#45](https://github.com/runkids/skillshare/issues/45))
 - **Exclude filter not removing managed real directories** — changing `exclude` patterns now correctly prunes previously-managed real directories (not just symlinks) from targets; manifest entries are cleaned up to prevent stale ownership
+- **MultiSelect filter text cleared after selection** — filter text is now preserved after selecting an item in interactive prompts (e.g., `install` skill picker)
 
 ## [0.15.4] - 2026-02-23
 
