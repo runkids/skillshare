@@ -9,6 +9,9 @@ fi
 
 BIN_DIR=/workspace/bin
 BIN=$BIN_DIR/skillshare
+WRAPPER_DIR=/workspace/.devcontainer/bin
+WRAPPER_SKILLSHARE=$WRAPPER_DIR/skillshare
+WRAPPER_SS=$WRAPPER_DIR/ss
 NEED_REBUILD=0
 REASON=""
 GO_BIN=/usr/local/go/bin/go
@@ -49,5 +52,13 @@ fi
 
 # Keep command resolution deterministic in interactive shells.
 ln -sf "$BIN" /workspace/bin/ss
-ln -sf "$BIN" /usr/local/bin/skillshare
-ln -sf "$BIN" /usr/local/bin/ss
+
+# Prefer wrapper entrypoints for /usr/local/bin so commands stay Linux-safe
+# even when /workspace/bin/skillshare is overwritten by a host-built binary.
+if [ -x "$WRAPPER_SKILLSHARE" ] && [ -x "$WRAPPER_SS" ]; then
+  ln -sf "$WRAPPER_SKILLSHARE" /usr/local/bin/skillshare
+  ln -sf "$WRAPPER_SS" /usr/local/bin/ss
+else
+  ln -sf "$BIN" /usr/local/bin/skillshare
+  ln -sf "$BIN" /usr/local/bin/ss
+fi
