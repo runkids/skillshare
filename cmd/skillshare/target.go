@@ -248,7 +248,7 @@ func unlinkTarget(targetName string, target config.TargetConfig, sourcePath stri
 		}
 		ui.Success("%s: unlinked and restored", targetName)
 	} else if info.IsDir() {
-		// Remove copy-mode manifest if present
+		// Remove manifest if present (merge/copy mode)
 		sync.RemoveManifest(target.Path) //nolint:errcheck
 		if err := unlinkMergeMode(target.Path, sourcePath); err != nil {
 			return err

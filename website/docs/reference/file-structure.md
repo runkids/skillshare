@@ -254,20 +254,28 @@ Trashed skills are:
 
 ## Target Directories
 
-Targets are AI CLI skill directories. After sync, they contain symlinks to source:
+Targets are AI CLI skill directories. After sync, they contain symlinks (or copies) to source.
 
+### Merge mode
+
+Each skill is symlinked individually. A manifest tracks managed skills for orphan cleanup:
 ```
 ~/.claude/skills/
 ├── my-skill -> ~/.config/skillshare/skills/my-skill
 ├── code-review -> ~/.config/skillshare/skills/code-review
-└── local-only/              # Not symlinked (local skill in merge mode)
+├── local-only/              # Not symlinked (user-created, preserved)
+└── .skillshare-manifest.json  # Tracks managed skills
 ```
 
-### Merge mode
+### Copy mode
 
-Each skill is symlinked individually:
+Each skill is copied as real files. The manifest tracks checksums for incremental sync:
 ```
-skill/ -> source/skill/
+~/.cursor/skills/
+├── my-skill/                  # Real files (copied from source)
+├── code-review/               # Real files
+├── local-only/                # User-created, preserved
+└── .skillshare-manifest.json  # Tracks managed skills + checksums
 ```
 
 ### Symlink mode
@@ -361,9 +369,9 @@ Skillshare follows the [XDG Base Directory Specification](https://specifications
 | Purpose | Path |
 |---------|------|
 | Config + Skills | `%AppData%\skillshare\` |
-| Data (backups, trash) | `%LocalAppData%\skillshare\` |
-| State (logs) | `%LocalAppData%\skillshare\state\` |
-| Cache (UI) | `%LocalAppData%\skillshare\cache\` |
+| Data (backups, trash) | `%AppData%\skillshare\` |
+| State (logs) | `%AppData%\skillshare\` |
+| Cache (UI) | `%AppData%\skillshare\` |
 
 ### Migration Note
 

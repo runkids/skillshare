@@ -110,16 +110,18 @@ targets:
 		t.Errorf("symlink target = %q, want %q", got, expectedTarget)
 	}
 
-	// Exactly one symlink in target
+	// Exactly one visible entry in target (manifest is a hidden file)
 	entries, err := os.ReadDir(targetPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 1 {
-		names := make([]string, len(entries))
-		for i, e := range entries {
-			names[i] = e.Name()
+	var visible []string
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name(), ".") {
+			visible = append(visible, e.Name())
 		}
-		t.Errorf("expected exactly 1 symlink in target, got %d: %v", len(entries), names)
+	}
+	if len(visible) != 1 {
+		t.Errorf("expected exactly 1 visible entry in target, got %d: %v", len(visible), visible)
 	}
 }

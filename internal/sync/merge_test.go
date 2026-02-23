@@ -287,6 +287,18 @@ func TestPruneOrphanLinks_RemovesExcluded(t *testing.T) {
 	if _, err := os.Lstat(filepath.Join(tgt, "beta")); !os.IsNotExist(err) {
 		t.Error("expected beta to be removed")
 	}
+
+	// Excluded skill should also be removed from manifest.
+	m, err := ReadManifest(tgt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m.Managed["beta"]; ok {
+		t.Error("expected beta to be removed from manifest after exclude prune")
+	}
+	if _, ok := m.Managed["alpha"]; !ok {
+		t.Error("expected alpha to remain in manifest")
+	}
 }
 
 func TestPruneOrphanLinks_KeepsExternal(t *testing.T) {
@@ -312,6 +324,165 @@ func TestPruneOrphanLinks_KeepsExternal(t *testing.T) {
 	}
 	if len(result.Warnings) != 1 {
 		t.Errorf("expected 1 warning for external symlink, got %d", len(result.Warnings))
+	}
+}
+
+func TestPruneOrphanLinks_ExcludedManagedDir_Removed(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha", "beta")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	// Sync both skills → manifest has both
+	if _, err := SyncTargetMerge("test", target, src, false, false); err != nil {
+		t.Fatal(err)
+	}
+
+	// Replace beta symlink with real directory (simulate copy-mode residue)
+	os.Remove(filepath.Join(tgt, "beta"))
+	os.MkdirAll(filepath.Join(tgt, "beta"), 0755)
+	os.WriteFile(filepath.Join(tgt, "beta", "SKILL.md"), []byte("# residue"), 0644)
+
+	// Prune with beta excluded — real directory should be removed via manifest
+	result, err := PruneOrphanLinks(tgt, src, nil, []string{"beta"}, "test", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Removed) != 1 || result.Removed[0] != "beta" {
+		t.Errorf("expected beta removed, got %v", result.Removed)
+	}
+	if _, err := os.Lstat(filepath.Join(tgt, "beta")); !os.IsNotExist(err) {
+		t.Error("expected beta directory to be removed")
+	}
+
+	// Manifest should not contain beta
+	m, _ := ReadManifest(tgt)
+	if _, ok := m.Managed["beta"]; ok {
+		t.Error("expected beta removed from manifest")
+	}
+	if _, ok := m.Managed["alpha"]; !ok {
+		t.Error("expected alpha to remain in manifest")
+	}
+}
+
+func TestSyncTargetMerge_WritesManifest(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha", "beta")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	_, err := SyncTargetMerge("test", target, src, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Manifest should exist and contain the linked skills
+	m, err := ReadManifest(tgt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Managed) != 2 {
+		t.Errorf("expected 2 managed entries, got %d: %v", len(m.Managed), m.Managed)
+	}
+	for _, name := range []string{"alpha", "beta"} {
+		if v, ok := m.Managed[name]; !ok {
+			t.Errorf("expected %s in manifest", name)
+		} else if v != "symlink" {
+			t.Errorf("expected manifest value 'symlink' for %s, got %q", name, v)
+		}
+	}
+}
+
+func TestSyncTargetMerge_DryRun_NoManifest(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	_, err := SyncTargetMerge("test", target, src, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Manifest should NOT exist after dry-run
+	p := filepath.Join(tgt, ManifestFile)
+	if _, err := os.Stat(p); !os.IsNotExist(err) {
+		t.Error("manifest should not be written in dry-run mode")
+	}
+}
+
+func TestPruneOrphanLinks_ManifestTrackedDir_Removed(t *testing.T) {
+	src, tgt := setupMergeTest(t, "my-skill")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	// Sync to create symlink + manifest
+	if _, err := SyncTargetMerge("test", target, src, false, false); err != nil {
+		t.Fatal(err)
+	}
+
+	// Replace symlink with a real directory (simulates copy mode residue)
+	os.Remove(filepath.Join(tgt, "my-skill"))
+	os.MkdirAll(filepath.Join(tgt, "my-skill"), 0755)
+	os.WriteFile(filepath.Join(tgt, "my-skill", "SKILL.md"), []byte("# Copy"), 0644)
+
+	// Remove source skill (simulates uninstall)
+	os.RemoveAll(filepath.Join(src, "my-skill"))
+
+	// Prune should remove the directory because it's in the manifest
+	result, err := PruneOrphanLinks(tgt, src, nil, nil, "test", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Removed) != 1 {
+		t.Errorf("expected 1 removed (manifest-tracked dir), got %d: %v", len(result.Removed), result.Removed)
+	}
+	if _, err := os.Stat(filepath.Join(tgt, "my-skill")); !os.IsNotExist(err) {
+		t.Error("manifest-tracked orphan directory should have been removed")
+	}
+}
+
+func TestPruneOrphanLinks_NoManifest_KeepsUnknownDir(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha")
+
+	// Do NOT sync (no manifest exists)
+	// Just create a real directory in target
+	os.MkdirAll(filepath.Join(tgt, "unknown-skill"), 0755)
+
+	result, err := PruneOrphanLinks(tgt, src, nil, nil, "test", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Without manifest, unknown directory should be kept with warning
+	if len(result.Removed) != 0 {
+		t.Errorf("expected 0 removed (no manifest, unknown dir kept), got %d", len(result.Removed))
+	}
+	if len(result.Warnings) != 1 {
+		t.Errorf("expected 1 warning for unknown dir, got %d", len(result.Warnings))
+	}
+}
+
+func TestPruneOrphanLinks_ManifestCleanedAfterPrune(t *testing.T) {
+	src, tgt := setupMergeTest(t, "alpha", "beta")
+	target := config.TargetConfig{Path: tgt, Mode: "merge"}
+
+	// Sync to create links + manifest with alpha and beta
+	if _, err := SyncTargetMerge("test", target, src, false, false); err != nil {
+		t.Fatal(err)
+	}
+
+	// Remove beta from source
+	os.RemoveAll(filepath.Join(src, "beta"))
+
+	// Prune — beta symlink should be removed and manifest updated
+	_, err := PruneOrphanLinks(tgt, src, nil, nil, "test", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Manifest should no longer contain beta
+	m, err := ReadManifest(tgt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m.Managed["beta"]; ok {
+		t.Error("beta should have been removed from manifest after prune")
+	}
+	if _, ok := m.Managed["alpha"]; !ok {
+		t.Error("alpha should still be in manifest")
 	}
 }
 

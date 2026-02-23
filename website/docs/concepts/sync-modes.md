@@ -46,7 +46,7 @@ skills/                         ~/.claude/skills/
 ├── my-skill/        ────────►  ├── my-skill/ → (symlink)
 ├── another/         ────────►  ├── another/  → (symlink)
 └── ...                         ├── local-only/  (preserved)
-                                └── ...
+                                └── .skillshare-manifest.json
 ```
 
 **Advantages:**
@@ -54,6 +54,7 @@ skills/                         ~/.claude/skills/
 - Mix installed and local skills
 - Granular control
 - Per-target include/exclude filtering
+- Manifest-based orphan cleanup (safely removes non-symlink residue after uninstall)
 
 **When to use:**
 - You want some skills only in specific AI CLIs
@@ -81,7 +82,7 @@ See [Target Configuration](/docs/targets/configuration#include--exclude-target-f
 
 ## Copy Mode
 
-Each skill is copied as real files to the target directory. A `.skillshare-manifest.json` file tracks which skills are managed, so local skills are preserved.
+Each skill is copied as real files to the target directory. A `.skillshare-manifest.json` file tracks which skills are managed and their checksums, so local skills are preserved.
 
 ```
 Source                          Target (cursor)
@@ -124,8 +125,11 @@ On each `skillshare sync`, the checksum of each source skill is compared to the 
 
 ### Manifest lifecycle
 
-- Created on first `sync` with copy mode
-- Removed automatically when switching to merge or symlink mode (non-copy)
+Both merge and copy modes write `.skillshare-manifest.json` to track managed skills:
+
+- **Merge mode**: records skill names with value `"symlink"` — used to safely prune orphan real directories (e.g., copy-mode residue) after uninstall
+- **Copy mode**: records skill names with SHA-256 checksums — used for incremental sync and orphan detection
+- Removed automatically when switching to symlink mode
 - If manually deleted, the next `sync` rebuilds it
 
 ---
@@ -238,9 +242,13 @@ targets:
 
 ## Orphan Cleanup
 
-In merge mode, when you remove a skill from source, the target symlinks become "orphaned" (pointing to nothing). In copy mode, the manifest tracks which skills are managed, so orphan copies are identified and removed.
+In both merge and copy modes, `sync` automatically prunes orphans:
 
-**Handling:** `skillshare sync` automatically prunes orphans in both modes:
+- **Symlinks** pointing to deleted source skills are always removed
+- **Real directories** are removed if they appear in `.skillshare-manifest.json` (previously managed by skillshare)
+- **Unknown directories** not in the manifest are preserved with a warning (assumed to be user-created)
+
+This means that after `uninstall` + `sync`, even non-symlink residue (e.g., directories left from a previous `copy` mode) is safely cleaned up.
 
 ```
 $ skillshare sync

@@ -185,7 +185,7 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 			// Symlink mode: entire directory is a symlink
 			os.Remove(target.Path)
 		} else if info.IsDir() {
-			// Remove manifest if present (copy mode)
+			// Remove manifest if present (merge/copy mode)
 			ssync.RemoveManifest(target.Path)
 			// Merge mode: remove individual skill symlinks pointing to source
 			s.unlinkMergeSymlinks(target.Path)

@@ -421,9 +421,15 @@ targets:
 	if !sb.IsSymlink(filepath.Join(targetPath, "skill-a")) {
 		t.Error("should be a symlink after copy→merge conversion with --force")
 	}
-	// Manifest should be removed
-	if sb.FileExists(filepath.Join(targetPath, sync.ManifestFile)) {
-		t.Error("manifest should be removed after copy→merge conversion")
+	// Manifest should exist with merge-mode value ("symlink") replacing copy-mode checksum
+	m, err := sync.ReadManifest(targetPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := m.Managed["skill-a"]; !ok {
+		t.Error("manifest should contain skill-a after copy→merge conversion")
+	} else if v != "symlink" {
+		t.Errorf("manifest value should be 'symlink' after conversion, got %q", v)
 	}
 }
 
