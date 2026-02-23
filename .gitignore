@@ -20,7 +20,11 @@ coverage.out
 AGENTS.md
 CLAUDE.md
 docs/plans/
-.skillshare/
+.agents/
+.skillshare/*
+!.skillshare/skills/
+!.skillshare/config.yaml
+!.skillshare/.gitignore
 /specs/
 .pnpm-store/
 .feature-radar/
