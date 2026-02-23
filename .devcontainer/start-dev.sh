@@ -6,21 +6,9 @@ set -euo pipefail
 if [ -x /workspace/.devcontainer/ensure-skillshare-linux-binary.sh ]; then
   /workspace/.devcontainer/ensure-skillshare-linux-binary.sh
 fi
-if [ -f /workspace/.devcontainer/ssenv-shortcuts.sh ]; then
-  cp /workspace/.devcontainer/ssenv-shortcuts.sh /etc/profile.d/ssenv-shortcuts.sh
-  chmod +x /etc/profile.d/ssenv-shortcuts.sh
+if [ -x /workspace/.devcontainer/install-ssenv-shortcuts.sh ]; then
+  /workspace/.devcontainer/install-ssenv-shortcuts.sh
 fi
-for rc in /etc/bash.bashrc /root/.bashrc; do
-  if [ -f "$rc" ] && ! grep -Fq "/etc/profile.d/ssenv-shortcuts.sh" "$rc"; then
-    cat >> "$rc" <<'RC_EOF'
-
-# skillshare: ssenv shortcuts
-if [ -f /etc/profile.d/ssenv-shortcuts.sh ]; then
-  . /etc/profile.d/ssenv-shortcuts.sh
-fi
-RC_EOF
-  fi
-done
 
 # Auto-detect GITHUB_TOKEN from gh CLI if not already set
 # (via .env, remoteEnv, or manual export).

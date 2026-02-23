@@ -10,14 +10,6 @@ fi
 BIN_DIR=/workspace/bin
 BIN=$BIN_DIR/skillshare
 WRAPPER_DIR=/workspace/.devcontainer/bin
-WRAPPER_SKILLSHARE=$WRAPPER_DIR/skillshare
-WRAPPER_SS=$WRAPPER_DIR/ss
-WRAPPER_SSENV=$WRAPPER_DIR/ssenv
-WRAPPER_SSHELP=$WRAPPER_DIR/sshelp
-WRAPPER_SSNEW=$WRAPPER_DIR/ssnew
-WRAPPER_SSUSE=$WRAPPER_DIR/ssuse
-WRAPPER_SSBACK=$WRAPPER_DIR/ssback
-WRAPPER_SSLS=$WRAPPER_DIR/ssls
 NEED_REBUILD=0
 REASON=""
 GO_BIN=/usr/local/go/bin/go
@@ -61,31 +53,16 @@ ln -sf "$BIN" /workspace/bin/ss
 
 # Prefer wrapper entrypoints for /usr/local/bin so commands stay Linux-safe
 # even when /workspace/bin/skillshare is overwritten by a host-built binary.
-if [ -x "$WRAPPER_SKILLSHARE" ] && [ -x "$WRAPPER_SS" ]; then
-  ln -sf "$WRAPPER_SKILLSHARE" /usr/local/bin/skillshare
-  ln -sf "$WRAPPER_SS" /usr/local/bin/ss
+if [ -x "$WRAPPER_DIR/skillshare" ] && [ -x "$WRAPPER_DIR/ss" ]; then
+  ln -sf "$WRAPPER_DIR/skillshare" /usr/local/bin/skillshare
+  ln -sf "$WRAPPER_DIR/ss" /usr/local/bin/ss
 else
   ln -sf "$BIN" /usr/local/bin/skillshare
   ln -sf "$BIN" /usr/local/bin/ss
 fi
 
-if [ -x "$WRAPPER_SSENV" ]; then
-  ln -sf "$WRAPPER_SSENV" /usr/local/bin/ssenv
-fi
-
-if [ -x "$WRAPPER_SSHELP" ]; then
-  ln -sf "$WRAPPER_SSHELP" /usr/local/bin/sshelp
-fi
-
-if [ -x "$WRAPPER_SSNEW" ]; then
-  ln -sf "$WRAPPER_SSNEW" /usr/local/bin/ssnew
-fi
-if [ -x "$WRAPPER_SSUSE" ]; then
-  ln -sf "$WRAPPER_SSUSE" /usr/local/bin/ssuse
-fi
-if [ -x "$WRAPPER_SSBACK" ]; then
-  ln -sf "$WRAPPER_SSBACK" /usr/local/bin/ssback
-fi
-if [ -x "$WRAPPER_SSLS" ]; then
-  ln -sf "$WRAPPER_SSLS" /usr/local/bin/ssls
-fi
+for cmd in ssenv sshelp ssnew ssuse ssback ssls; do
+  if [ -x "$WRAPPER_DIR/$cmd" ]; then
+    ln -sf "$WRAPPER_DIR/$cmd" "/usr/local/bin/$cmd"
+  fi
+done

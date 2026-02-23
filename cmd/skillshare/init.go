@@ -244,29 +244,22 @@ func shouldPromptInitMode(opts *initOptions, sourcePath string, withSkills, dete
 
 func promptSyncModeSelection() string {
 	ui.Header("Sync mode preference")
-	fmt.Println("  Choose the default sync mode for newly configured targets:")
-	fmt.Println("  [1] merge   (per-skill symlinks, preserves local skills)")
-	fmt.Println("  [2] copy    (real files, compatibility-first)")
-	fmt.Println("  [3] symlink (entire directory linked)")
-	fmt.Println()
-	fmt.Print("  Enter choice [1]: ")
+	fmt.Println("  Choose the default sync mode for newly configured targets.")
+	fmt.Println("  - merge: per-skill symlinks, preserves local skills")
+	fmt.Println("  - copy: real files, compatibility-first")
+	fmt.Println("  - symlink: entire directory linked")
 
-	var input string
-	if _, err := fmt.Scanln(&input); err != nil {
+	options := []string{"merge", "copy", "symlink"}
+	var selected string
+	prompt := &survey.Select{
+		Message: "Select sync mode:",
+		Options: options,
+		Default: "merge",
+	}
+	if err := survey.AskOne(prompt, &selected); err != nil {
 		return "merge"
 	}
-
-	switch normalizeSyncMode(input) {
-	case "", "1", "merge":
-		return "merge"
-	case "2", "copy":
-		return "copy"
-	case "3", "symlink":
-		return "symlink"
-	default:
-		ui.Warning("Unknown mode selection %q, defaulting to merge", input)
-		return "merge"
-	}
+	return normalizeSyncMode(selected)
 }
 
 func modeOverrideForTarget(requestedMode, inheritedDefault string) string {
