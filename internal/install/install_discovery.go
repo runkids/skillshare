@@ -47,6 +47,7 @@ func discoverFromGitWithProgressImpl(source *Source, onProgress ProgressCallback
 	}, nil
 }
 
+// discoverFromGitImpl is the non-progress variant used by the public facade.
 func discoverFromGitImpl(source *Source) (*DiscoveryResult, error) {
 	return discoverFromGitWithProgressImpl(source, nil)
 }
@@ -284,6 +285,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 	}, nil
 }
 
+// discoverFromGitSubdirImpl is the non-progress variant used by the public facade.
 func discoverFromGitSubdirImpl(source *Source) (*DiscoveryResult, error) {
 	return discoverFromGitSubdirWithProgressImpl(source, nil)
 }

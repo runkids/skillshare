@@ -74,6 +74,7 @@ type TrackedRepoResult struct {
 var removeAll = os.RemoveAll
 
 // Install executes the installation from source to destination.
+// This file is intentionally a thin facade; implementation lives in split files.
 func Install(source *Source, destPath string, opts InstallOptions) (*InstallResult, error) {
 	return installImpl(source, destPath, opts)
 }

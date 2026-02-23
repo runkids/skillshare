@@ -44,7 +44,7 @@ func getUpdatableSkillsImpl(sourceDir string) ([]string, error) {
 	return skills, nil
 }
 
-// GetTrackedRepos returns a list of tracked repositories in the source directory.
+// getTrackedReposImpl returns tracked repositories from the source directory.
 // It walks subdirectories recursively so repos nested in organizational
 // directories (e.g. category/_team-repo/) are found.
 
