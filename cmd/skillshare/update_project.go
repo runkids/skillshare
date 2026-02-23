@@ -284,7 +284,7 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit,
 		return err
 	}
 	spinner.Success(fmt.Sprintf("Updated %s", name))
-	renderUpdateAuditResult(result)
+	renderInstallWarningsWithResult("", result.Warnings, false, result)
 
 	if showDiff {
 		afterHashes, _ := install.ComputeFileHashes(skillPath)
@@ -452,7 +452,7 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 			continue
 		}
 		spinner.Success(fmt.Sprintf("Updated %s", skillName))
-		renderUpdateAuditResult(result)
+		renderAuditRiskOnly("", result)
 
 		if showDiff {
 			afterHashes, _ := install.ComputeFileHashes(skillPath)

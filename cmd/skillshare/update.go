@@ -470,7 +470,7 @@ func updateSkillFromMeta(skill, skillPath, progress string, dryRun, skipAudit, s
 	}
 
 	spinner.Success(fmt.Sprintf("%s Reinstalled from source", skill))
-	renderUpdateAuditResult(result)
+	renderAuditRiskOnly("", result)
 
 	if showDiff {
 		afterHashes, _ := install.ComputeFileHashes(skillPath)
@@ -793,14 +793,7 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 
 	spinner.Success(fmt.Sprintf("Updated %s", skillName))
 
-	if len(result.Warnings) > 0 {
-		ui.SectionLabel("Audit Findings")
-		for _, warning := range result.Warnings {
-			ui.Warning("%s", warning)
-		}
-	}
-
-	renderUpdateAuditResult(result)
+	renderInstallWarningsWithResult("", result.Warnings, false, result)
 
 	if showDiff {
 		afterHashes, _ := install.ComputeFileHashes(skillPath)
@@ -921,32 +914,6 @@ func renderDiffSummary(repoPath, beforeHash, afterHash string) {
 	lines = append(lines, "")
 
 	ui.Box("Files Changed", lines...)
-}
-
-// renderUpdateAuditResult prints a one-line audit result after a skill update.
-// Uses ui.Info format (→ prefix, no extra indent) for visual consistency.
-func renderUpdateAuditResult(result *install.InstallResult) {
-	if result == nil {
-		return
-	}
-	if result.AuditSkipped {
-		return // already shown as warning via result.Warnings
-	}
-	if result.AuditRiskLabel == "" {
-		return
-	}
-	label := strings.ToUpper(result.AuditRiskLabel)
-	score := result.AuditRiskScore
-	if score == 0 {
-		ui.Info("Aggregate risk: %s", label)
-		return
-	}
-	if ui.IsTTY() {
-		color := riskColor(result.AuditRiskLabel)
-		fmt.Printf("%s→%s Aggregate risk: %s%s (%d/100)%s\n", ui.Cyan, ui.Reset, color, label, score, ui.Reset)
-	} else {
-		fmt.Printf("→ Aggregate risk: %s (%d/100)\n", label, score)
-	}
 }
 
 // renderHashDiffSummary prints a file-level change summary by comparing

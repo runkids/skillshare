@@ -963,8 +963,107 @@ func formatWarningWithSkill(skillName, warning string) string {
 	return fmt.Sprintf("%s: %s", skillName, warning)
 }
 
+// auditFindingGroup groups findings with the same severity and message.
+type auditFindingGroup struct {
+	severity  string
+	message   string
+	locations []string // e.g., "SKILL.md:3"
+}
+
+// installAuditFindingLinePattern parses "audit HIGH: Sudo escalation (SKILL.md:3)"
+var installAuditFindingLinePattern = regexp.MustCompile(
+	`^audit\s+([A-Z]+):\s+(.+?)\s+\(([^)]+)\)\s*$`,
+)
+
+// groupAuditFindings groups finding lines by (severity, message), collecting locations.
+func groupAuditFindings(digest installWarningDigest) []auditFindingGroup {
+	type groupKey struct {
+		severity string
+		message  string
+	}
+	indexMap := make(map[groupKey]int)
+	var groups []auditFindingGroup
+
+	for _, severity := range installAuditSeverityOrder {
+		for _, line := range digest.findingByLevel[severity] {
+			m := installAuditFindingLinePattern.FindStringSubmatch(line)
+			if m == nil {
+				// Fallback: ungroupable line as its own group
+				groups = append(groups, auditFindingGroup{
+					severity: severity, message: stripAuditPrefix(line), locations: nil,
+				})
+				continue
+			}
+			sev, msg, loc := m[1], m[2], m[3]
+			key := groupKey{severity: strings.ToUpper(sev), message: msg}
+			if idx, ok := indexMap[key]; ok {
+				groups[idx].locations = append(groups[idx].locations, loc)
+			} else {
+				indexMap[key] = len(groups)
+				groups = append(groups, auditFindingGroup{
+					severity: strings.ToUpper(sev), message: msg, locations: []string{loc},
+				})
+			}
+		}
+	}
+	return groups
+}
+
+// stripAuditPrefix removes the "audit " prefix from a finding line.
+func stripAuditPrefix(line string) string {
+	for _, severity := range installAuditSeverityOrder {
+		prefix := "audit " + severity + ": "
+		if strings.HasPrefix(line, prefix) {
+			return severity + ": " + strings.TrimPrefix(line, prefix)
+		}
+	}
+	// Also strip bare "audit " prefix from status lines
+	if strings.HasPrefix(line, "audit ") {
+		return strings.TrimPrefix(line, "audit ")
+	}
+	return line
+}
+
+// formatFindingGroup formats a grouped finding as a single line.
+func formatFindingGroup(g auditFindingGroup) string {
+	var sb strings.Builder
+	sb.WriteString(g.severity)
+	sb.WriteString(": ")
+	sb.WriteString(g.message)
+	if len(g.locations) > 1 {
+		sb.WriteString(fmt.Sprintf(" × %d", len(g.locations)))
+	}
+	// Show locations (compact)
+	if len(g.locations) > 0 {
+		const maxLocs = 5
+		sb.WriteString(" (")
+		for i, loc := range g.locations {
+			if i >= maxLocs {
+				sb.WriteString(fmt.Sprintf(", +%d more", len(g.locations)-maxLocs))
+				break
+			}
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(loc)
+		}
+		sb.WriteString(")")
+	}
+	return sb.String()
+}
+
+// renderInstallWarnings renders audit warnings for a single skill.
+// When skillName is empty, it prints a SectionLabel header (single-skill mode).
+// When skillName is set, each line is prefixed with the skill name (batch mode).
 func renderInstallWarnings(skillName string, warnings []string, auditVerbose bool) {
+	renderInstallWarningsWithResult(skillName, warnings, auditVerbose, nil)
+}
+
+// renderInstallWarningsWithResult is like renderInstallWarnings but also displays
+// the aggregate risk score from the install result when available.
+func renderInstallWarningsWithResult(skillName string, warnings []string, auditVerbose bool, result *install.InstallResult) {
 	if len(warnings) == 0 {
+		renderAuditRiskOnly(skillName, result)
 		return
 	}
 
@@ -973,19 +1072,14 @@ func renderInstallWarnings(skillName string, warnings []string, auditVerbose boo
 		ui.SectionLabel("Audit Findings")
 	}
 
-	if auditVerbose {
-		for _, warning := range warnings {
-			ui.Warning("%s", formatWarningWithSkill(skillName, warning))
-		}
-		return
-	}
-
 	digest := digestInstallWarnings(warnings)
 
+	// Non-audit warnings first
 	for _, warning := range digest.nonAuditLines {
 		ui.Warning("%s", formatWarningWithSkill(skillName, warning))
 	}
 
+	// Compute totals
 	totalFindings := 0
 	countParts := make([]string, 0, len(installAuditSeverityOrder))
 	for _, severity := range installAuditSeverityOrder {
@@ -997,39 +1091,69 @@ func renderInstallWarnings(skillName string, warnings []string, auditVerbose boo
 		countParts = append(countParts, fmt.Sprintf("%s=%d", severity, count))
 	}
 
+	// Summary-first: counts + status + risk score
 	if totalFindings > 0 {
-		ui.Warning("%s", formatWarningWithSkill(skillName, "audit summary: "+strings.Join(countParts, ", ")))
+		summary := strings.Join(countParts, ", ")
+		if len(digest.statusLines) > 0 {
+			// Append threshold status (strip "audit " prefix)
+			status := stripAuditPrefix(digest.statusLines[0])
+			summary += " — " + status
+		}
+		ui.Info("%s", formatWarningWithSkill(skillName, fmt.Sprintf("%d finding(s): %s", totalFindings, summary)))
+	} else {
+		for _, line := range digest.statusLines {
+			ui.Info("%s", formatWarningWithSkill(skillName, stripAuditPrefix(line)))
+		}
 	}
-
-	for _, line := range digest.statusLines {
-		ui.Warning("%s", formatWarningWithSkill(skillName, line))
-	}
+	renderAuditRiskOnly(skillName, result)
 	for _, line := range digest.otherAuditLines {
-		ui.Warning("%s", formatWarningWithSkill(skillName, line))
+		ui.Warning("%s", formatWarningWithSkill(skillName, stripAuditPrefix(line)))
 	}
 
 	if totalFindings == 0 {
 		return
 	}
 
-	const maxDetails = 3
-	shown := 0
-	for _, severity := range installAuditSeverityOrder {
-		for _, line := range digest.findingByLevel[severity] {
-			ui.Warning("%s", formatWarningWithSkill(skillName, line))
-			shown++
-			if shown >= maxDetails {
-				break
-			}
+	// Group findings by message
+	groups := groupAuditFindings(digest)
+
+	if auditVerbose {
+		// Verbose: show all groups with all locations
+		for _, g := range groups {
+			ui.Warning("%s", formatWarningWithSkill(skillName, formatFindingGroup(g)))
 		}
-		if shown >= maxDetails {
-			break
-		}
+		return
 	}
 
-	if suppressed := totalFindings - shown; suppressed > 0 {
+	// Compact: show top groups (by severity order, already sorted)
+	const maxGroups = 5
+	shown := 0
+	for _, g := range groups {
+		if shown >= maxGroups {
+			break
+		}
+		ui.Warning("%s", formatWarningWithSkill(skillName, formatFindingGroup(g)))
+		shown++
+	}
+
+	if remaining := len(groups) - shown; remaining > 0 {
 		ui.Info("%s", formatWarningWithSkill(skillName,
-			fmt.Sprintf("suppressed %d audit finding line(s); re-run with --audit-verbose for full details", suppressed)))
+			fmt.Sprintf("+%d more finding type(s); use --audit-verbose for full details", remaining)))
+	}
+}
+
+// renderAuditRiskOnly prints the aggregate risk score if available.
+func renderAuditRiskOnly(skillName string, result *install.InstallResult) {
+	if result == nil || result.AuditSkipped || result.AuditRiskLabel == "" {
+		return
+	}
+	label := strings.ToUpper(result.AuditRiskLabel)
+	if result.AuditRiskScore > 0 {
+		ui.Info("%s", formatWarningWithSkill(skillName,
+			fmt.Sprintf("risk: %s (%d/100)", label, result.AuditRiskScore)))
+	} else {
+		ui.Info("%s", formatWarningWithSkill(skillName,
+			fmt.Sprintf("risk: %s", label)))
 	}
 }
 
