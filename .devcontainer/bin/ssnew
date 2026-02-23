@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-name="${1:-env-$(date +%Y%m%d-%H%M%S)}"
-shift || true
+name=""
+if [[ $# -gt 0 && "$1" != "--" ]]; then
+  name="$1"
+  shift
+fi
+if [ -z "$name" ]; then
+  name="env-$(date +%Y%m%d-%H%M%S)"
+fi
 if [ "${1:-}" = "--" ]; then
   shift
 fi

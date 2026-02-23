@@ -32,21 +32,9 @@ esac
 PROFILE_EOF
 
 # Shortcuts for isolated env switching without memorizing eval commands.
-cp /workspace/.devcontainer/ssenv-shortcuts.sh /etc/profile.d/ssenv-shortcuts.sh
-chmod +x /etc/profile.d/ssenv-shortcuts.sh
-
-# Ensure interactive bash shells always load ssenv shortcuts (login and non-login).
-for rc in /etc/bash.bashrc /root/.bashrc; do
-  if [ -f "$rc" ] && ! grep -Fq "/etc/profile.d/ssenv-shortcuts.sh" "$rc"; then
-    cat >> "$rc" <<'RC_EOF'
-
-# skillshare: ssenv shortcuts
-if [ -f /etc/profile.d/ssenv-shortcuts.sh ]; then
-  . /etc/profile.d/ssenv-shortcuts.sh
+if [ -x /workspace/.devcontainer/install-ssenv-shortcuts.sh ]; then
+  /workspace/.devcontainer/install-ssenv-shortcuts.sh
 fi
-RC_EOF
-  fi
-done
 
 # ── 1. Build CLI ────────────────────────────────────────────────────
 echo "▸ Building skillshare binary …"
