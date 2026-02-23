@@ -1,9 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -36,6 +38,7 @@ type installLogSummary struct {
 	Tracked         bool
 	Into            string
 	SkipAudit       bool
+	AuditVerbose    bool
 	AuditThreshold  string
 }
 
@@ -43,6 +46,16 @@ type installBatchSummary struct {
 	InstalledSkills []string
 	FailedSkills    []string
 }
+
+var installAuditSeverityOrder = []string{
+	audit.SeverityCritical,
+	audit.SeverityHigh,
+	audit.SeverityMedium,
+	audit.SeverityLow,
+	audit.SeverityInfo,
+}
+
+var installAuditThresholdPattern = regexp.MustCompile(`at/above\s+([A-Z]+)\s+detected`)
 
 // parseInstallArgs parses install command arguments
 func parseInstallArgs(args []string) (*installArgs, bool, error) {
@@ -66,6 +79,8 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			result.opts.DryRun = true
 		case arg == "--skip-audit":
 			result.opts.SkipAudit = true
+		case arg == "--audit-verbose":
+			result.opts.AuditVerbose = true
 		case arg == "--audit-threshold" || arg == "--threshold" || arg == "-T":
 			if i+1 >= len(args) {
 				return nil, false, fmt.Errorf("%s requires a value", arg)
@@ -343,6 +358,7 @@ func cmdInstall(args []string) error {
 		Tracked:        parsed.opts.Track,
 		Into:           parsed.opts.Into,
 		SkipAudit:      parsed.opts.SkipAudit,
+		AuditVerbose:   parsed.opts.AuditVerbose,
 		AuditThreshold: parsed.opts.AuditThreshold,
 	}
 
@@ -405,6 +421,9 @@ func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, 
 	if summary.SkipAudit {
 		fields["skip_audit"] = true
 	}
+	if summary.AuditVerbose {
+		fields["audit_verbose"] = true
+	}
 	if summary.AuditThreshold != "" {
 		fields["threshold"] = strings.ToUpper(summary.AuditThreshold)
 	}
@@ -436,6 +455,7 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 		Tracked:        true,
 		Into:           opts.Into,
 		SkipAudit:      opts.SkipAudit,
+		AuditVerbose:   opts.AuditVerbose,
 		AuditThreshold: opts.AuditThreshold,
 	}
 
@@ -484,9 +504,7 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 	}
 
 	// Display warnings
-	for _, warning := range result.Warnings {
-		ui.Warning("%s", warning)
-	}
+	renderInstallWarnings("", result.Warnings, opts.AuditVerbose)
 
 	if !opts.DryRun {
 		logSummary.SkillCount = result.SkillCount
@@ -509,6 +527,7 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		DryRun:         opts.DryRun,
 		Into:           opts.Into,
 		SkipAudit:      opts.SkipAudit,
+		AuditVerbose:   opts.AuditVerbose,
 		AuditThreshold: opts.AuditThreshold,
 	}
 
@@ -595,9 +614,7 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 			installSpinner.Success(fmt.Sprintf("Installed: %s", skill.Name))
 		}
 
-		for _, warning := range result.Warnings {
-			ui.Warning("%s", warning)
-		}
+		renderInstallWarnings("", result.Warnings, opts.AuditVerbose)
 
 		if !opts.DryRun {
 			fmt.Println()
@@ -618,9 +635,7 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 
 		if opts.DryRun {
 			fmt.Println()
-			for _, skill := range selected {
-				ui.SkillBoxCompact(skill.Name, skill.Path)
-			}
+			printSkillListCompact(selected)
 			fmt.Println()
 			ui.Warning("[dry-run] Would install %d skill(s)", len(selected))
 			return logSummary, nil
@@ -637,9 +652,7 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 	if opts.DryRun {
 		// Show skill list in dry-run mode
 		fmt.Println()
-		for _, skill := range discovery.Skills {
-			ui.SkillBoxCompact(skill.Name, skill.Path)
-		}
+		printSkillListCompact(discovery.Skills)
 		fmt.Println()
 		ui.Warning("[dry-run] Would prompt for selection")
 		return logSummary, nil
@@ -867,6 +880,341 @@ type skillInstallResult struct {
 	success  bool
 	message  string
 	warnings []string
+	err      error
+}
+
+type installWarningDigest struct {
+	findingCounts   map[string]int
+	findingByLevel  map[string][]string
+	statusLines     []string
+	otherAuditLines []string
+	nonAuditLines   []string
+}
+
+type batchInstallWarningDigest struct {
+	totalFindings            int
+	findingCounts            map[string]int
+	skillsWithFindings       int
+	belowThresholdSkillCount int
+	aboveThresholdSkillCount int
+	scanErrorSkillCount      int
+	skippedAuditSkillCount   int
+	highCriticalBySkill      map[string]int
+	nonAuditLines            []string
+	otherAuditLines          []string
+}
+
+func parseInstallAuditSeverity(warning string) (string, bool) {
+	for _, severity := range installAuditSeverityOrder {
+		if strings.HasPrefix(warning, "audit "+severity+":") {
+			return severity, true
+		}
+	}
+	return "", false
+}
+
+func firstWarningLine(warning string) string {
+	trimmed := strings.TrimSpace(warning)
+	if i := strings.IndexByte(trimmed, '\n'); i >= 0 {
+		return strings.TrimSpace(trimmed[:i])
+	}
+	return trimmed
+}
+
+func digestInstallWarnings(warnings []string) installWarningDigest {
+	digest := installWarningDigest{
+		findingCounts:  make(map[string]int, len(installAuditSeverityOrder)),
+		findingByLevel: make(map[string][]string, len(installAuditSeverityOrder)),
+	}
+
+	for _, warning := range warnings {
+		if severity, ok := parseInstallAuditSeverity(warning); ok {
+			line := firstWarningLine(warning)
+			digest.findingCounts[severity]++
+			digest.findingByLevel[severity] = append(digest.findingByLevel[severity], line)
+			continue
+		}
+
+		switch {
+		case strings.HasPrefix(warning, "audit findings "):
+			digest.statusLines = append(digest.statusLines, firstWarningLine(warning))
+		case strings.HasPrefix(warning, "audit scan error"), strings.HasPrefix(warning, "audit skipped"), strings.HasPrefix(warning, "audit "):
+			digest.otherAuditLines = append(digest.otherAuditLines, firstWarningLine(warning))
+		default:
+			digest.nonAuditLines = append(digest.nonAuditLines, warning)
+		}
+	}
+
+	return digest
+}
+
+func formatWarningWithSkill(skillName, warning string) string {
+	if skillName == "" {
+		return warning
+	}
+	return fmt.Sprintf("%s: %s", skillName, warning)
+}
+
+func renderInstallWarnings(skillName string, warnings []string, auditVerbose bool) {
+	if len(warnings) == 0 {
+		return
+	}
+
+	if auditVerbose {
+		for _, warning := range warnings {
+			ui.Warning("%s", formatWarningWithSkill(skillName, warning))
+		}
+		return
+	}
+
+	digest := digestInstallWarnings(warnings)
+
+	for _, warning := range digest.nonAuditLines {
+		ui.Warning("%s", formatWarningWithSkill(skillName, warning))
+	}
+
+	totalFindings := 0
+	countParts := make([]string, 0, len(installAuditSeverityOrder))
+	for _, severity := range installAuditSeverityOrder {
+		count := digest.findingCounts[severity]
+		if count == 0 {
+			continue
+		}
+		totalFindings += count
+		countParts = append(countParts, fmt.Sprintf("%s=%d", severity, count))
+	}
+
+	if totalFindings > 0 {
+		ui.Warning("%s", formatWarningWithSkill(skillName, "audit summary: "+strings.Join(countParts, ", ")))
+	}
+
+	for _, line := range digest.statusLines {
+		ui.Warning("%s", formatWarningWithSkill(skillName, line))
+	}
+	for _, line := range digest.otherAuditLines {
+		ui.Warning("%s", formatWarningWithSkill(skillName, line))
+	}
+
+	if totalFindings == 0 {
+		return
+	}
+
+	const maxDetails = 3
+	shown := 0
+	for _, severity := range installAuditSeverityOrder {
+		for _, line := range digest.findingByLevel[severity] {
+			ui.Warning("%s", formatWarningWithSkill(skillName, line))
+			shown++
+			if shown >= maxDetails {
+				break
+			}
+		}
+		if shown >= maxDetails {
+			break
+		}
+	}
+
+	if suppressed := totalFindings - shown; suppressed > 0 {
+		ui.Info("%s", formatWarningWithSkill(skillName,
+			fmt.Sprintf("suppressed %d audit finding line(s); re-run with --audit-verbose for full details", suppressed)))
+	}
+}
+
+func appendUniqueLimited(lines []string, line string, limit int) []string {
+	for _, existing := range lines {
+		if existing == line {
+			return lines
+		}
+	}
+	if len(lines) >= limit {
+		return lines
+	}
+	return append(lines, line)
+}
+
+func summarizeBatchInstallWarnings(results []skillInstallResult) batchInstallWarningDigest {
+	summary := batchInstallWarningDigest{
+		findingCounts:       make(map[string]int, len(installAuditSeverityOrder)),
+		highCriticalBySkill: make(map[string]int),
+	}
+
+	for _, result := range results {
+		if len(result.warnings) == 0 {
+			continue
+		}
+
+		digest := digestInstallWarnings(result.warnings)
+		skillHasFindings := false
+
+		for _, severity := range installAuditSeverityOrder {
+			count := digest.findingCounts[severity]
+			if count == 0 {
+				continue
+			}
+			summary.totalFindings += count
+			summary.findingCounts[severity] += count
+			skillHasFindings = true
+		}
+
+		if skillHasFindings {
+			summary.skillsWithFindings++
+			highCritical := digest.findingCounts[audit.SeverityCritical] + digest.findingCounts[audit.SeverityHigh]
+			if highCritical > 0 {
+				summary.highCriticalBySkill[result.skill.Name] = highCritical
+			}
+		}
+
+		for _, line := range digest.statusLines {
+			switch {
+			case strings.HasPrefix(line, "audit findings detected, but none at/above block threshold"):
+				summary.belowThresholdSkillCount++
+			case strings.HasPrefix(line, "audit findings at/above block threshold"):
+				summary.aboveThresholdSkillCount++
+			default:
+				summary.otherAuditLines = appendUniqueLimited(
+					summary.otherAuditLines,
+					formatWarningWithSkill(result.skill.Name, line),
+					5,
+				)
+			}
+		}
+
+		for _, line := range digest.otherAuditLines {
+			switch {
+			case strings.HasPrefix(line, "audit scan error"):
+				summary.scanErrorSkillCount++
+			case strings.HasPrefix(line, "audit skipped"):
+				summary.skippedAuditSkillCount++
+			default:
+				summary.otherAuditLines = appendUniqueLimited(
+					summary.otherAuditLines,
+					formatWarningWithSkill(result.skill.Name, line),
+					5,
+				)
+			}
+		}
+
+		for _, line := range digest.nonAuditLines {
+			summary.nonAuditLines = append(summary.nonAuditLines, formatWarningWithSkill(result.skill.Name, line))
+		}
+	}
+
+	return summary
+}
+
+func formatInstallSeverityCounts(counts map[string]int) string {
+	parts := make([]string, 0, len(installAuditSeverityOrder))
+	for _, severity := range installAuditSeverityOrder {
+		if count := counts[severity]; count > 0 {
+			parts = append(parts, fmt.Sprintf("%s=%d", severity, count))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+func topHighCriticalSkillsByCount(scoreBySkill map[string]int, limit int) []string {
+	type skillScore struct {
+		name  string
+		score int
+	}
+
+	if limit <= 0 || len(scoreBySkill) == 0 {
+		return nil
+	}
+
+	scores := make([]skillScore, 0, len(scoreBySkill))
+	for name, score := range scoreBySkill {
+		scores = append(scores, skillScore{name: name, score: score})
+	}
+
+	sort.Slice(scores, func(i, j int) bool {
+		if scores[i].score == scores[j].score {
+			return scores[i].name < scores[j].name
+		}
+		return scores[i].score > scores[j].score
+	})
+
+	if len(scores) > limit {
+		scores = scores[:limit]
+	}
+
+	top := make([]string, 0, len(scores))
+	for _, item := range scores {
+		top = append(top, fmt.Sprintf("%s(%d)", item.name, item.score))
+	}
+	return top
+}
+
+func renderBatchInstallWarningsCompact(results []skillInstallResult, totalWarnings int, hints ...string) {
+	ui.Warning("%d warning(s) detected during install (compact batch view)", totalWarnings)
+
+	summary := summarizeBatchInstallWarnings(results)
+
+	for _, line := range summary.nonAuditLines {
+		ui.Warning("%s", line)
+	}
+
+	if summary.totalFindings > 0 {
+		ui.Warning("audit findings across %d skill(s): %s",
+			summary.skillsWithFindings,
+			formatInstallSeverityCounts(summary.findingCounts),
+		)
+	}
+	if summary.belowThresholdSkillCount > 0 {
+		ui.Warning("%d skill(s) had findings below the active block threshold", summary.belowThresholdSkillCount)
+	}
+	if summary.aboveThresholdSkillCount > 0 {
+		ui.Warning("%d skill(s) had findings at/above threshold and continued due to --force", summary.aboveThresholdSkillCount)
+	}
+	if summary.scanErrorSkillCount > 0 {
+		ui.Warning("%d skill(s) had audit scan errors", summary.scanErrorSkillCount)
+	}
+	if summary.skippedAuditSkillCount > 0 {
+		ui.Warning("%d skill(s) skipped audit (--skip-audit)", summary.skippedAuditSkillCount)
+	}
+
+	if skillsWithHighCritical := len(summary.highCriticalBySkill); skillsWithHighCritical > 0 {
+		ui.Warning("skills with HIGH/CRITICAL findings: %d", skillsWithHighCritical)
+		top := topHighCriticalSkillsByCount(summary.highCriticalBySkill, 10)
+		if len(top) > 5 {
+			for _, item := range top {
+				ui.Info("  %s", item)
+			}
+		} else if len(top) > 0 {
+			ui.Info("top HIGH/CRITICAL: %s", strings.Join(top, ", "))
+		}
+	}
+
+	for _, line := range summary.otherAuditLines {
+		ui.Warning("%s", line)
+	}
+
+	if summary.totalFindings > 0 {
+		hint := "suppressed %d audit finding line(s); re-run with --audit-verbose for full details"
+		if len(hints) > 0 {
+			hint = hints[0]
+		}
+		ui.Info(hint, summary.totalFindings)
+	}
+}
+
+// printSkillListCompact prints a list of skills with compression for large lists.
+// ≤20 skills: print each with SkillBoxCompact. >20: first 10 + "... and N more".
+func printSkillListCompact(skills []install.SkillInfo) {
+	const threshold = 20
+	const showCount = 10
+
+	if len(skills) <= threshold {
+		for _, skill := range skills {
+			ui.SkillBoxCompact(skill.Name, skill.Path)
+		}
+		return
+	}
+
+	for i := 0; i < showCount; i++ {
+		ui.SkillBoxCompact(skills[i].Name, skills[i].Path)
+	}
+	ui.Info("... and %d more skill(s)", len(skills)-showCount)
 }
 
 // installSelectedSkills installs multiple skills with progress display
@@ -932,7 +1280,7 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 
 		installResult, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
 		if err != nil {
-			results = append(results, skillInstallResult{skill: skill, success: false, message: err.Error()})
+			results = append(results, skillInstallResult{skill: skill, success: false, message: err.Error(), err: err})
 			continue
 		}
 
@@ -951,7 +1299,7 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 		})
 	}
 
-	displayInstallResults(results, installSpinner)
+	displayInstallResults(results, installSpinner, opts.AuditVerbose)
 
 	summary := installBatchSummary{
 		InstalledSkills: make([]string, 0, len(results)),
@@ -967,8 +1315,214 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 	return summary
 }
 
+type auditBlockedFailureDigest struct {
+	threshold    string
+	findingCount int
+	firstFinding string
+}
+
+func isAuditSeverityLine(line string) bool {
+	for _, severity := range installAuditSeverityOrder {
+		if strings.HasPrefix(line, severity+":") {
+			return true
+		}
+	}
+	return false
+}
+
+func parseAuditBlockedFailure(message string) auditBlockedFailureDigest {
+	digest := auditBlockedFailureDigest{}
+	if matches := installAuditThresholdPattern.FindStringSubmatch(message); len(matches) == 2 {
+		digest.threshold = matches[1]
+	}
+
+	for _, rawLine := range strings.Split(message, "\n") {
+		line := strings.TrimSpace(rawLine)
+		if !isAuditSeverityLine(line) {
+			continue
+		}
+		digest.findingCount++
+		if digest.firstFinding == "" {
+			digest.firstFinding = line
+		}
+	}
+
+	return digest
+}
+
+func summarizeBlockedThreshold(failures []skillInstallResult) string {
+	thresholds := map[string]bool{}
+	for _, failure := range failures {
+		digest := parseAuditBlockedFailure(failure.message)
+		if digest.threshold != "" {
+			thresholds[digest.threshold] = true
+		}
+	}
+
+	if len(thresholds) == 0 {
+		return "configured"
+	}
+	if len(thresholds) == 1 {
+		for threshold := range thresholds {
+			return threshold
+		}
+	}
+	return "mixed"
+}
+
+func truncateForInstallSummary(text string, max int) string {
+	if max <= 0 || len(text) <= max {
+		return text
+	}
+	if max <= 3 {
+		return text[:max]
+	}
+	return text[:max-3] + "..."
+}
+
+func blockedSkillLabel(name, threshold string) string {
+	if !ui.IsTTY() {
+		return name
+	}
+	color := riskColor(strings.ToLower(strings.TrimSpace(threshold)))
+	if color == "" {
+		color = ui.Red
+	}
+	return ui.Bold + color + name + ui.Reset
+}
+
+func formatBlockedThresholdLabel(threshold string) string {
+	threshold = strings.TrimSpace(threshold)
+	if threshold == "" {
+		return "configured"
+	}
+	if threshold == "mixed" {
+		return threshold
+	}
+	return formatSeverity(threshold)
+}
+
+func compactInstallFailureMessage(result skillInstallResult) string {
+	if result.err != nil && errors.Is(result.err, audit.ErrBlocked) {
+		digest := parseAuditBlockedFailure(result.message)
+
+		parts := []string{"blocked by security audit"}
+		if digest.threshold != "" && digest.findingCount > 0 {
+			suffix := "findings"
+			if digest.findingCount == 1 {
+				suffix = "finding"
+			}
+			parts = append(parts, fmt.Sprintf("(%s, %d %s)", digest.threshold, digest.findingCount, suffix))
+		} else if digest.threshold != "" {
+			parts = append(parts, "("+digest.threshold+")")
+		}
+
+		if digest.firstFinding != "" {
+			first := digest.firstFinding
+			for _, severity := range installAuditSeverityOrder {
+				prefix := severity + ": "
+				if strings.HasPrefix(first, prefix) {
+					first = strings.TrimPrefix(first, prefix)
+					break
+				}
+			}
+			parts = append(parts, truncateForInstallSummary(first, 110))
+		}
+
+		return strings.Join(parts, " ")
+	}
+
+	return firstWarningLine(result.message)
+}
+
+// renderInstallWarningsHighCriticalOnly prints only HIGH/CRITICAL findings
+// verbosely, and summarizes remaining findings in one line.
+func renderInstallWarningsHighCriticalOnly(skillName string, warnings []string) {
+	digest := digestInstallWarnings(warnings)
+
+	// Print non-audit warnings as-is
+	for _, warning := range digest.nonAuditLines {
+		ui.Warning("%s", formatWarningWithSkill(skillName, warning))
+	}
+
+	// Print HIGH and CRITICAL findings verbosely
+	highCritCount := 0
+	for _, severity := range []string{audit.SeverityCritical, audit.SeverityHigh} {
+		for _, line := range digest.findingByLevel[severity] {
+			ui.Warning("%s", formatWarningWithSkill(skillName, line))
+			highCritCount++
+		}
+	}
+
+	// Summarize remaining findings (MEDIUM/LOW/INFO) in one line
+	otherParts := make([]string, 0, 3)
+	for _, severity := range []string{audit.SeverityMedium, audit.SeverityLow, audit.SeverityInfo} {
+		if count := digest.findingCounts[severity]; count > 0 {
+			otherParts = append(otherParts, fmt.Sprintf("%s=%d", severity, count))
+		}
+	}
+	if len(otherParts) > 0 {
+		ui.Info("%s", formatWarningWithSkill(skillName,
+			fmt.Sprintf("also: %s (use 'skillshare check %s' for details)", strings.Join(otherParts, ", "), skillName)))
+	}
+
+	// Print status/other audit lines
+	for _, line := range digest.statusLines {
+		ui.Warning("%s", formatWarningWithSkill(skillName, line))
+	}
+	for _, line := range digest.otherAuditLines {
+		ui.Warning("%s", formatWarningWithSkill(skillName, line))
+	}
+}
+
+// countSkillsWithWarnings counts how many results have at least one warning.
+func countSkillsWithWarnings(results []skillInstallResult) int {
+	n := 0
+	for _, r := range results {
+		if len(r.warnings) > 0 {
+			n++
+		}
+	}
+	return n
+}
+
+// hasHighCriticalWarnings checks if a result contains HIGH or CRITICAL audit findings.
+func hasHighCriticalWarnings(r skillInstallResult) bool {
+	for _, w := range r.warnings {
+		if strings.HasPrefix(w, "audit CRITICAL:") || strings.HasPrefix(w, "audit HIGH:") {
+			return true
+		}
+	}
+	return false
+}
+
+// sortResultsByHighCritical returns a copy sorted by HIGH/CRITICAL finding count descending.
+func sortResultsByHighCritical(results []skillInstallResult) []skillInstallResult {
+	sorted := make([]skillInstallResult, len(results))
+	copy(sorted, results)
+	sort.Slice(sorted, func(i, j int) bool {
+		ci := countHighCritical(sorted[i])
+		cj := countHighCritical(sorted[j])
+		if ci != cj {
+			return ci > cj
+		}
+		return sorted[i].skill.Name < sorted[j].skill.Name
+	})
+	return sorted
+}
+
+func countHighCritical(r skillInstallResult) int {
+	n := 0
+	for _, w := range r.warnings {
+		if strings.HasPrefix(w, "audit CRITICAL:") || strings.HasPrefix(w, "audit HIGH:") {
+			n++
+		}
+	}
+	return n
+}
+
 // displayInstallResults shows the final install results
-func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner) {
+func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, auditVerbose bool) {
 	var successes, failures []skillInstallResult
 	totalWarnings := 0
 	for _, r := range results {
@@ -991,24 +1545,92 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner) {
 		spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
 	}
 
+	useSections := len(results) > 10
+
 	// Show failures first with details
 	if failed > 0 {
-		fmt.Println()
+		var blockedFailures, otherFailures []skillInstallResult
 		for _, r := range failures {
-			ui.StepFail(r.skill.Name, r.message)
+			if r.err != nil && errors.Is(r.err, audit.ErrBlocked) {
+				blockedFailures = append(blockedFailures, r)
+				continue
+			}
+			otherFailures = append(otherFailures, r)
+		}
+
+		if useSections {
+			ui.SectionLabel("Blocked / Failed")
+		} else {
+			fmt.Println()
+		}
+		if len(blockedFailures) > 0 && !auditVerbose {
+			threshold := summarizeBlockedThreshold(blockedFailures)
+			ui.Warning("%d skill(s) blocked by security audit (%s threshold)", len(blockedFailures), formatBlockedThresholdLabel(threshold))
+			ui.Info("Use --force to continue blocked installs, or --skip-audit to bypass scanning for this run")
+		}
+
+		const blockedVerboseLimit = 20
+		if auditVerbose && len(blockedFailures) > blockedVerboseLimit {
+			// Large batch: summary line + first N verbose + rest compact
+			threshold := summarizeBlockedThreshold(blockedFailures)
+			ui.Warning("%d skill(s) blocked by security audit (%s threshold)", len(blockedFailures), formatBlockedThresholdLabel(threshold))
+			ui.Info("Use --force to continue blocked installs, or --skip-audit to bypass scanning for this run")
+			for i, r := range blockedFailures {
+				digest := parseAuditBlockedFailure(r.message)
+				if i < blockedVerboseLimit {
+					ui.StepFail(blockedSkillLabel(r.skill.Name, digest.threshold), r.message)
+				} else {
+					ui.StepFail(blockedSkillLabel(r.skill.Name, digest.threshold), compactInstallFailureMessage(r))
+				}
+			}
+			remaining := len(blockedFailures) - blockedVerboseLimit
+			if remaining > 0 {
+				ui.Info("%d more blocked skill(s) shown in compact form above", remaining)
+			}
+		} else {
+			for _, r := range blockedFailures {
+				digest := parseAuditBlockedFailure(r.message)
+				msg := r.message
+				if !auditVerbose {
+					msg = compactInstallFailureMessage(r)
+				}
+				ui.StepFail(blockedSkillLabel(r.skill.Name, digest.threshold), msg)
+			}
+		}
+		for _, r := range otherFailures {
+			msg := r.message
+			if !auditVerbose {
+				msg = compactInstallFailureMessage(r)
+			}
+			ui.StepFail(r.skill.Name, msg)
 		}
 	}
 
 	// Show successes — condensed when many
 	if installed > 0 {
-		fmt.Println()
-		if installed > 10 {
-			names := make([]string, installed)
-			for i, r := range successes {
-				names[i] = r.skill.Name
-			}
-			ui.StepDone(fmt.Sprintf("%d skills installed", installed), strings.Join(names, ", "))
+		if useSections {
+			ui.SectionLabel("Installed")
 		} else {
+			fmt.Println()
+		}
+		switch {
+		case installed > 50:
+			ui.StepDone(fmt.Sprintf("%d skills installed", installed), "")
+		case installed > 10:
+			maxShown := 10
+			names := make([]string, 0, maxShown)
+			for i, r := range successes {
+				if i >= maxShown {
+					break
+				}
+				names = append(names, r.skill.Name)
+			}
+			detail := strings.Join(names, ", ")
+			if installed > maxShown {
+				detail = fmt.Sprintf("%s ... +%d more", detail, installed-maxShown)
+			}
+			ui.StepDone(fmt.Sprintf("%d skills installed", installed), detail)
+		default:
 			for _, r := range successes {
 				ui.StepDone(r.skill.Name, r.message)
 			}
@@ -1016,17 +1638,49 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner) {
 	}
 
 	if totalWarnings > 0 {
-		fmt.Println()
-		ui.Warning("%d warning(s) detected during install", totalWarnings)
-		for _, r := range results {
-			for _, warning := range r.warnings {
-				ui.Warning("%s: %s", r.skill.Name, warning)
+		if useSections {
+			ui.SectionLabel("Audit Warnings")
+		} else {
+			fmt.Println()
+		}
+		if auditVerbose {
+			skillsWithWarnings := countSkillsWithWarnings(results)
+			if skillsWithWarnings <= 20 {
+				// Small batch: show full verbose detail per skill
+				ui.Warning("%d warning(s) detected during install", totalWarnings)
+				for _, r := range results {
+					renderInstallWarnings(r.skill.Name, r.warnings, true)
+				}
+			} else {
+				// Large batch: compact summary + only HIGH/CRITICAL findings from top skills
+				renderBatchInstallWarningsCompact(results, totalWarnings,
+					"%d audit finding line(s) across all skills; HIGH/CRITICAL detail expanded below")
+				fmt.Println()
+				ui.Warning("HIGH/CRITICAL detail (top skills):")
+				shown := 0
+				for _, r := range sortResultsByHighCritical(results) {
+					if shown >= 20 || !hasHighCriticalWarnings(r) {
+						break
+					}
+					renderInstallWarningsHighCriticalOnly(r.skill.Name, r.warnings)
+					shown++
+				}
+				remaining := skillsWithWarnings - shown
+				if remaining > 0 {
+					ui.Info("%d more skill(s) with findings; use 'skillshare check <name>' for details", remaining)
+				}
 			}
+		} else {
+			renderBatchInstallWarningsCompact(results, totalWarnings)
 		}
 	}
 
 	if installed > 0 {
-		fmt.Println()
+		if useSections {
+			ui.SectionLabel("Next Steps")
+		} else {
+			fmt.Println()
+		}
 		ui.Info("Run 'skillshare sync' to distribute to all targets")
 	}
 }
@@ -1037,6 +1691,7 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		DryRun:         opts.DryRun,
 		Into:           opts.Into,
 		SkipAudit:      opts.SkipAudit,
+		AuditVerbose:   opts.AuditVerbose,
 		AuditThreshold: opts.AuditThreshold,
 	}
 
@@ -1106,9 +1761,7 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 			installSpinner.Success(fmt.Sprintf("Installed: %s", skill.Name))
 		}
 
-		for _, warning := range result.Warnings {
-			ui.Warning("%s", warning)
-		}
+		renderInstallWarnings("", result.Warnings, opts.AuditVerbose)
 
 		if !opts.DryRun {
 			fmt.Println()
@@ -1149,9 +1802,7 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 
 		if opts.DryRun {
 			fmt.Println()
-			for _, skill := range selected {
-				ui.SkillBoxCompact(skill.Name, skill.Path)
-			}
+			printSkillListCompact(selected)
 			fmt.Println()
 			ui.Warning("[dry-run] Would install %d skill(s)", len(selected))
 			return logSummary, nil
@@ -1167,9 +1818,7 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 
 	if opts.DryRun {
 		fmt.Println()
-		for _, skill := range discovery.Skills {
-			ui.SkillBoxCompact(skill.Name, skill.Path)
-		}
+		printSkillListCompact(discovery.Skills)
 		fmt.Println()
 		ui.Warning("[dry-run] Would prompt for selection")
 		return logSummary, nil
@@ -1202,6 +1851,7 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 		DryRun:         opts.DryRun,
 		Into:           opts.Into,
 		SkipAudit:      opts.SkipAudit,
+		AuditVerbose:   opts.AuditVerbose,
 		AuditThreshold: opts.AuditThreshold,
 	}
 
@@ -1271,9 +1921,7 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	}
 
 	// Display warnings
-	for _, warning := range result.Warnings {
-		ui.Warning("%s", warning)
-	}
+	renderInstallWarnings("", result.Warnings, opts.AuditVerbose)
 
 	// Show next steps
 	if !opts.DryRun {
@@ -1288,9 +1936,10 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 
 func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
 	summary := installLogSummary{
-		Mode:   "global",
-		Source: "global-config",
-		DryRun: opts.DryRun,
+		Mode:         "global",
+		Source:       "global-config",
+		DryRun:       opts.DryRun,
+		AuditVerbose: opts.AuditVerbose,
 	}
 
 	if len(cfg.Skills) == 0 {
@@ -1423,6 +2072,7 @@ Options:
   --yes, -y           Auto-accept all prompts (equivalent to --all for multi-skill repos)
   --dry-run, -n       Preview the installation without making changes
   --skip-audit        Skip security audit entirely for this install
+  --audit-verbose     Show full audit finding lines (default: compact summary)
   --audit-threshold, --threshold, -T <t>
                       Block install by severity at/above: critical|high|medium|low|info
                       (also supports c|h|m|l|i)
@@ -1437,6 +2087,7 @@ Examples:
   skillshare install ~/my-skill
   skillshare install github.com/user/repo --force
   skillshare install ~/my-skill --skip-audit     # Bypass scan (no findings generated)
+  skillshare install user/repo --all --audit-verbose
   skillshare install ~/my-skill -T high          # Override block threshold for this run
 
 Selective install (non-interactive):
