@@ -393,6 +393,82 @@ func TestGetChangedFiles_AddModifyDelete(t *testing.T) {
 	}
 }
 
+func TestPullWithProgress(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "main", map[string]string{
+		"README.md": "# v1\n",
+	})
+	repo := cloneRepo(t, remote)
+
+	updater := filepath.Join(t.TempDir(), "updater")
+	runGit(t, "", "clone", remote, updater)
+	runGit(t, updater, "config", "user.email", "test@test.com")
+	runGit(t, updater, "config", "user.name", "test")
+	if err := os.WriteFile(filepath.Join(updater, "README.md"), []byte("# v2\n"), 0644); err != nil {
+		t.Fatalf("failed writing update: %v", err)
+	}
+	runGit(t, updater, "add", "-A")
+	runGit(t, updater, "commit", "-m", "update")
+	runGit(t, updater, "push", "origin", "HEAD:main")
+
+	info, err := PullWithProgress(repo, nil, func(string) {})
+	if err != nil {
+		t.Fatalf("PullWithProgress failed: %v", err)
+	}
+	if info.UpToDate {
+		t.Fatalf("expected update to pull new commit")
+	}
+	if info.AfterHash == info.BeforeHash {
+		t.Fatalf("expected before/after hash to differ")
+	}
+}
+
+func TestForcePullWithProgress(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "main", map[string]string{
+		"README.md": "# v1\n",
+	})
+	repo := cloneRepo(t, remote)
+	runGit(t, repo, "config", "user.email", "test@test.com")
+	runGit(t, repo, "config", "user.name", "test")
+
+	// Add remote commit.
+	updater := filepath.Join(t.TempDir(), "updater")
+	runGit(t, "", "clone", remote, updater)
+	runGit(t, updater, "config", "user.email", "test@test.com")
+	runGit(t, updater, "config", "user.name", "test")
+	if err := os.WriteFile(filepath.Join(updater, "README.md"), []byte("# remote\n"), 0644); err != nil {
+		t.Fatalf("failed writing remote update: %v", err)
+	}
+	runGit(t, updater, "add", "-A")
+	runGit(t, updater, "commit", "-m", "remote update")
+	runGit(t, updater, "push", "origin", "HEAD:main")
+
+	// Create divergent local commit.
+	if err := os.WriteFile(filepath.Join(repo, "local.txt"), []byte("local"), 0644); err != nil {
+		t.Fatalf("failed writing local update: %v", err)
+	}
+	runGit(t, repo, "add", "-A")
+	runGit(t, repo, "commit", "-m", "local change")
+
+	info, err := ForcePullWithProgress(repo, nil, func(string) {})
+	if err != nil {
+		t.Fatalf("ForcePullWithProgress failed: %v", err)
+	}
+	if info.UpToDate {
+		t.Fatalf("expected force pull to change local hash")
+	}
+	if info.AfterHash == info.BeforeHash {
+		t.Fatalf("expected before/after hash to differ")
+	}
+
+	content, err := os.ReadFile(filepath.Join(repo, "README.md"))
+	if err != nil {
+		t.Fatalf("failed reading README after force pull: %v", err)
+	}
+	if !strings.Contains(string(content), "remote") {
+		t.Fatalf("expected repo to reset to remote content, got: %s", content)
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 

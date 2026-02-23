@@ -277,6 +277,11 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit,
 		SkipAudit:      skipAudit,
 		AuditThreshold: threshold,
 	}
+	if ui.IsTTY() {
+		opts.OnProgress = func(line string) {
+			spinner.Update(line)
+		}
+	}
 	result, err := install.Install(source, skillPath, opts)
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("%s failed: %v", name, err))
@@ -315,13 +320,19 @@ func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudi
 	}
 
 	spinner := ui.StartSpinner(fmt.Sprintf("Updating %s...", repoName))
+	var onProgress func(string)
+	if ui.IsTTY() {
+		onProgress = func(line string) {
+			spinner.Update(line)
+		}
+	}
 
 	var info *git.UpdateInfo
 	var err error
 	if force {
-		info, err = git.ForcePullWithAuth(repoPath)
+		info, err = git.ForcePullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
 	} else {
-		info, err = git.PullWithAuth(repoPath)
+		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
 	}
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("%s failed: %v", repoName, err))
@@ -434,12 +445,18 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 		}
 
 		spinner := ui.StartSpinner(fmt.Sprintf("Updating %s...", skillName))
-		result, err := install.Install(source, skillPath, install.InstallOptions{
+		opts := install.InstallOptions{
 			Force:          true,
 			Update:         true,
 			SkipAudit:      skipAudit,
 			AuditThreshold: threshold,
-		})
+		}
+		if ui.IsTTY() {
+			opts.OnProgress = func(line string) {
+				spinner.Update(line)
+			}
+		}
+		result, err := install.Install(source, skillPath, opts)
 		if err != nil {
 			spinner.Fail(fmt.Sprintf("%s failed: %v", skillName, err))
 			if isSecurityError(err) {

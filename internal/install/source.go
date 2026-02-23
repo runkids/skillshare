@@ -2,6 +2,7 @@ package install
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -326,6 +327,57 @@ func (s *Source) IsGit() bool {
 	return s.Type == SourceTypeGitHub ||
 		s.Type == SourceTypeGitHTTPS ||
 		s.Type == SourceTypeGitSSH
+}
+
+// GitHubOwner returns the repository owner for GitHub/GHE sources.
+// Returns empty string for non-GitHub hosts or unparsable URLs.
+func (s *Source) GitHubOwner() string {
+	owner, _ := s.gitHubOwnerRepo()
+	return owner
+}
+
+// GitHubRepo returns the repository name for GitHub/GHE sources.
+// Returns empty string for non-GitHub hosts or unparsable URLs.
+func (s *Source) GitHubRepo() string {
+	_, repo := s.gitHubOwnerRepo()
+	return repo
+}
+
+func (s *Source) gitHubOwnerRepo() (owner, repo string) {
+	cloneURL := strings.TrimSpace(s.CloneURL)
+	if cloneURL == "" {
+		return "", ""
+	}
+
+	// SSH clone URL: git@host:owner/repo.git
+	if sshMatches := gitSSHPattern.FindStringSubmatch(cloneURL); sshMatches != nil {
+		host := strings.ToLower(strings.TrimSpace(sshMatches[1]))
+		if !strings.Contains(host, "github") {
+			return "", ""
+		}
+		return sshMatches[2], strings.TrimSuffix(sshMatches[3], ".git")
+	}
+
+	u, err := url.Parse(cloneURL)
+	if err != nil {
+		return "", ""
+	}
+	host := strings.ToLower(u.Hostname())
+	if !strings.Contains(host, "github") {
+		return "", ""
+	}
+
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) < 2 {
+		return "", ""
+	}
+
+	owner = parts[0]
+	repo = strings.TrimSuffix(parts[1], ".git")
+	if owner == "" || repo == "" {
+		return "", ""
+	}
+	return owner, repo
 }
 
 // TrackName returns a unique name for --track mode in "owner-repo" format.

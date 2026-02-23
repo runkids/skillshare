@@ -473,6 +473,11 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 
 	// Step 2: Clone with tree spinner
 	treeSpinner := ui.StartTreeSpinner("Cloning repository...", false)
+	if ui.IsTTY() {
+		opts.OnProgress = func(line string) {
+			treeSpinner.Update(line)
+		}
+	}
 
 	result, err := install.InstallTrackedRepo(source, cfg.Source, opts)
 	if err != nil {
@@ -545,8 +550,13 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 
 	// Step 2: Clone with tree spinner animation
 	treeSpinner := ui.StartTreeSpinner("Cloning repository...", false)
+	if ui.IsTTY() {
+		opts.OnProgress = func(line string) {
+			treeSpinner.Update(line)
+		}
+	}
 
-	discovery, err := install.DiscoverFromGit(source)
+	discovery, err := install.DiscoverFromGitWithProgress(source, opts.OnProgress)
 	if err != nil {
 		treeSpinner.Fail("Failed to clone")
 		return logSummary, err
@@ -1871,10 +1881,19 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 	}
 
 	// Step 2: Clone with tree spinner
-	treeSpinner := ui.StartTreeSpinner("Cloning repository...", false)
+	progressMsg := "Cloning repository..."
+	if source.GitHubOwner() != "" && source.GitHubRepo() != "" {
+		progressMsg = "Downloading via GitHub API..."
+	}
+	treeSpinner := ui.StartTreeSpinner(progressMsg, false)
+	if ui.IsTTY() {
+		opts.OnProgress = func(line string) {
+			treeSpinner.Update(line)
+		}
+	}
 
 	// Discover skills in subdir
-	discovery, err := install.DiscoverFromGitSubdir(source)
+	discovery, err := install.DiscoverFromGitSubdirWithProgress(source, opts.OnProgress)
 	if err != nil {
 		treeSpinner.Fail("Failed to clone")
 		return logSummary, err
@@ -1882,6 +1901,9 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 	defer install.CleanupDiscovery(discovery)
 
 	treeSpinner.Success("Cloned")
+	for _, w := range discovery.Warnings {
+		ui.Warning("%s", w)
+	}
 
 	// If only one skill found, install directly
 	if len(discovery.Skills) == 1 {
@@ -2071,6 +2093,11 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 		actionMsg = "Copying files..."
 	}
 	treeSpinner := ui.StartTreeSpinner(actionMsg, true)
+	if source.IsGit() && ui.IsTTY() {
+		opts.OnProgress = func(line string) {
+			treeSpinner.Update(line)
+		}
+	}
 
 	// Execute installation
 	result, err := install.Install(source, destPath, opts)

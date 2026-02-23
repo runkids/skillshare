@@ -742,6 +742,55 @@ func TestParseSource_GitHubEnterprise_TrackName(t *testing.T) {
 	}
 }
 
+func TestSource_GitHubOwnerRepo(t *testing.T) {
+	tests := []struct {
+		name      string
+		raw       string
+		wantOwner string
+		wantRepo  string
+	}{
+		{
+			name:      "github shorthand",
+			raw:       "openai/skills",
+			wantOwner: "openai",
+			wantRepo:  "skills",
+		},
+		{
+			name:      "ghe https",
+			raw:       "https://github.acme.com/team/repo/skills/pkg",
+			wantOwner: "team",
+			wantRepo:  "repo",
+		},
+		{
+			name:      "ghe ssh",
+			raw:       "git@github.acme.com:team/repo.git//skills/pkg",
+			wantOwner: "team",
+			wantRepo:  "repo",
+		},
+		{
+			name:      "non-github host",
+			raw:       "https://gitlab.com/team/repo",
+			wantOwner: "",
+			wantRepo:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, err := ParseSource(tt.raw)
+			if err != nil {
+				t.Fatalf("ParseSource(%q) error = %v", tt.raw, err)
+			}
+			if got := source.GitHubOwner(); got != tt.wantOwner {
+				t.Fatalf("GitHubOwner() = %q, want %q", got, tt.wantOwner)
+			}
+			if got := source.GitHubRepo(); got != tt.wantRepo {
+				t.Fatalf("GitHubRepo() = %q, want %q", got, tt.wantRepo)
+			}
+		})
+	}
+}
+
 func TestParseSource_GeminiCLIMonorepo(t *testing.T) {
 	// Real-world test case from the plan
 	input := "github.com/google-gemini/gemini-cli/packages/core/src/skills/builtin/skill-creator"

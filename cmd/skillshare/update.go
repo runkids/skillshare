@@ -401,12 +401,18 @@ func updateTrackedRepoQuick(repo, repoPath, progress string, dryRun, force, skip
 	}
 
 	spinner := ui.StartSpinner(fmt.Sprintf("%s Updating %s...", progress, repo))
+	var onProgress func(string)
+	if ui.IsTTY() {
+		onProgress = func(line string) {
+			spinner.Update(line)
+		}
+	}
 
 	var info *git.UpdateInfo
 	if force {
-		info, err = git.ForcePullWithAuth(repoPath)
+		info, err = git.ForcePullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
 	} else {
-		info, err = git.PullWithAuth(repoPath)
+		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
 	}
 	if err != nil {
 		spinner.Warn(fmt.Sprintf("%s %v", repo, err))
@@ -461,6 +467,11 @@ func updateSkillFromMeta(skill, skillPath, progress string, dryRun, skipAudit, s
 		Update:         true,
 		SkipAudit:      skipAudit,
 		AuditThreshold: threshold,
+	}
+	if ui.IsTTY() {
+		opts.OnProgress = func(line string) {
+			spinner.Update(line)
+		}
 	}
 	result, err := install.Install(source, skillPath, opts)
 	if err != nil {
@@ -678,14 +689,20 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipA
 	}
 
 	spinner.Update("Fetching from origin...")
+	var onProgress func(string)
+	if ui.IsTTY() {
+		onProgress = func(line string) {
+			spinner.Update(line)
+		}
+	}
 
 	// Use ForcePull if --force to handle force push
 	var info *git.UpdateInfo
 	var err error
 	if force {
-		info, err = git.ForcePullWithAuth(repoPath)
+		info, err = git.ForcePullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
 	} else {
-		info, err = git.PullWithAuth(repoPath)
+		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
 	}
 	if err != nil {
 		spinner.Fail("Failed to update")
@@ -779,6 +796,11 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 		Update:         true,
 		SkipAudit:      skipAudit,
 		AuditThreshold: threshold,
+	}
+	if ui.IsTTY() {
+		opts.OnProgress = func(line string) {
+			spinner.Update(line)
+		}
 	}
 
 	result, err := install.Install(source, skillPath, opts)

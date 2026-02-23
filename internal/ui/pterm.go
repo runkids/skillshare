@@ -586,6 +586,15 @@ func (ts *TreeSpinner) Fail(message string) {
 	}
 }
 
+// Update updates the tree spinner text while running.
+func (ts *TreeSpinner) Update(message string) {
+	if ts.spinner != nil {
+		ts.spinner.UpdateText(message)
+		return
+	}
+	fmt.Printf("... %s\n", message)
+}
+
 // StepItem prints a step with label and value (legacy, use StepStart/Continue/End)
 func StepItem(label, value string) {
 	if IsTTY() {

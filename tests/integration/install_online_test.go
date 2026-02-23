@@ -3,7 +3,9 @@
 package integration
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -75,4 +77,41 @@ targets: {}
 	}
 	// Output should mention skill count
 	result.AssertAnyOutputContains(t, "skill")
+}
+
+func TestInstall_GitHubSubdirViaAPI(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	source := "majiayu000/claude-skill-registry/skills/documents/atlassian-search"
+	result := sb.RunCLI("install", source)
+	result.AssertSuccess(t)
+
+	skillDir := filepath.Join(sb.SourcePath, "atlassian-search")
+	if !sb.FileExists(skillDir) {
+		t.Fatalf("expected skill directory %s to exist", skillDir)
+	}
+	if !sb.FileExists(filepath.Join(skillDir, "SKILL.md")) {
+		t.Fatalf("expected SKILL.md in %s", skillDir)
+	}
+	if sb.FileExists(filepath.Join(skillDir, ".git")) {
+		t.Fatalf("did not expect .git directory for subdir API install")
+	}
+
+	metaPath := filepath.Join(skillDir, ".skillshare-meta.json")
+	metaRaw, err := os.ReadFile(metaPath)
+	if err != nil {
+		t.Fatalf("failed to read metadata: %v", err)
+	}
+	meta := string(metaRaw)
+	if !strings.Contains(meta, "\"source\": \"github.com/majiayu000/claude-skill-registry/skills/documents/atlassian-search\"") {
+		t.Fatalf("expected metadata source to preserve subdir source, got: %s", meta)
+	}
+	if !strings.Contains(meta, "\"subdir\": \"skills/documents/atlassian-search\"") {
+		t.Fatalf("expected metadata subdir to match install path, got: %s", meta)
+	}
 }
