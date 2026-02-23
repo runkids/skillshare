@@ -112,23 +112,19 @@ This updates:
 ### Example Output
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│ skillshare update --all                                         │
-│ Updating 2 tracked repos + 3 skills                             │
-└─────────────────────────────────────────────────────────────────┘
+Updating 2 tracked repos + 3 skills
 
 [1/5] ✓ _team-skills       Already up to date
 [2/5] ✓ _personal-repo     3 commits, 2 files
 [3/5] ✓ my-skill           Reinstalled from source
+→ risk: LOW (12/100)
 [4/5] ! other-skill        has uncommitted changes (use --force)
 [5/5] ✓ another-skill      Reinstalled from source
 
-┌────────────────────────────┐
-│ Summary                    │
-│   Total:    5              │
-│   Updated:  4              │
-│   Skipped:  1              │
-└────────────────────────────┘
+── Summary ─────────────────────────────
+  Total:    5
+  Updated:  4
+  Skipped:  1
 ```
 
 ## Security Audit Gate
@@ -137,10 +133,10 @@ After updating skills, `update` automatically runs a security audit:
 
 - **Tracked repos (`git pull`)** use a post-pull gate at the active threshold (`audit.block_threshold`, default `CRITICAL`)
 - **Regular skills (reinstall path)** use the same threshold policy
-- For all update types, aggregate risk label/score is displayed for review context
+- For all update types, risk label/score is displayed for review context
 
 ```
-→ Aggregate risk: LOW (12/100)
+→ risk: LOW (12/100)
 ```
 
 ### Interactive Mode (TTY, tracked repos)

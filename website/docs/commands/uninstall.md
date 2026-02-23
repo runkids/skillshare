@@ -172,33 +172,35 @@ Single skill (verbose):
 ℹ Reinstall: skillshare install github.com/user/repo/my-skill
 ```
 
-Multiple skills (compact batch, ≤10):
+Multiple skills (batch):
 
 ```
 ✓ Uninstalled 4 skill(s) (0.1s)
 
+── Removed ─────────────────────────────
 ✓ pdf        skill
 ✓ tdd        skill
 ✓ security   group, 2 skills
 ✗ bad-skill  failed to move to trash: ...
 
+── Next Steps ──────────────────────────
 ℹ Moved to trash (7 days).
 ℹ Run 'skillshare sync' to update all targets
 ```
 
-Large batch (>10 targets) uses section labels for readability:
+Large batches use a condensed format:
 
 ```
 ✓ Uninstalled 920, failed 2 (1.2s)
 
-  Failed
+── Failed ──────────────────────────────
 ✗ bad-a  failed to move to trash: permission denied
 ✗ bad-b  failed to move to trash: permission denied
 
-  Removed
+── Removed ─────────────────────────────
 ✓ 920 uninstalled
 
-  Next Steps
+── Next Steps ──────────────────────────
 ℹ Moved to trash (7 days).
 ℹ Run 'skillshare sync' to update all targets
 ```

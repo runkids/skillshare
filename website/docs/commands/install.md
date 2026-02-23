@@ -231,6 +231,7 @@ See [Project Setup](/docs/guides/project-setup) for the full guide.
 | `--yes` | `-y` | Auto-accept all prompts (CI/CD friendly) |
 | `--skip-audit` | | Skip security audit for this install |
 | `--audit-threshold <t>`, `--threshold <t>` | `-T` | Override audit block threshold for this command (`critical|high|medium|low|info`; shorthand: `c|h|m|l|i`, plus `crit`, `med`) |
+| `--audit-verbose` | | Show full audit findings per skill (default: compact summary) |
 | `--project` | `-p` | Install into project `.skillshare/skills/` |
 | `--global` | `-g` | Install into global `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | Preview only |
@@ -407,7 +408,7 @@ skillshare install suspicious-skill -T h
 
 Use `--force` to override block decisions, or `--skip-audit` to bypass scanning entirely. See [audit](/docs/commands/audit) for scanning details.
 
-The install decision uses **finding severity vs threshold**. Aggregate risk score/label is reported for context and does not by itself block installs.
+The install decision uses **finding severity vs threshold**. Risk score/label is reported for context and does not by itself block installs. By default, audit findings are shown as a compact summary (grouped by severity and message). Use `--audit-verbose` to see the full list.
 
 ### Tracked Repo Audit Gate (`--track`)
 

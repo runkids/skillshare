@@ -323,7 +323,7 @@ Skills are also scanned automatically during `skillshare install` and `skillshar
 - Use `--force` (where supported) to override blocked installs while still running audit (findings remain visible).
 - Use `--skip-audit` to bypass scanning for a single install/update command.
 - If both are set, `--skip-audit` takes precedence in practice (audit is not executed).
-- Audit output shows both **block decision** (severity threshold) and **aggregate risk** (score/label). Aggregate risk does not by itself block installs or updates.
+- Audit output shows both **block decision** (severity threshold) and **risk score** (label/score). Risk score does not by itself block installs or updates.
 
 > [!TIP]
 > See the [Securing Your Skills](https://skillshare.runkids.cc/docs/guides/security) guide for a complete security workflow, or the [audit command reference](https://skillshare.runkids.cc/docs/commands/audit) for the full list of detection patterns.
