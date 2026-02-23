@@ -735,14 +735,8 @@ func cmdUninstall(args []string) error {
 			}
 		}
 
-		useSections := len(results) > 10
-
 		if len(failures) > 0 {
-			if useSections {
-				ui.SectionLabel("Failed")
-			} else {
-				fmt.Println()
-			}
+			ui.SectionLabel("Failed")
 			for _, r := range failures {
 				ui.StepFail(r.target.name, r.errMsg)
 			}
@@ -750,11 +744,7 @@ func cmdUninstall(args []string) error {
 
 		// Successes: condensed when many
 		if len(successes) > 0 {
-			if useSections {
-				ui.SectionLabel("Removed")
-			} else {
-				fmt.Println()
-			}
+			ui.SectionLabel("Removed")
 			switch {
 			case len(successes) > 50:
 				ui.StepDone(fmt.Sprintf("%d uninstalled", len(successes)), "")
@@ -777,11 +767,7 @@ func cmdUninstall(args []string) error {
 		}
 
 		// Batch summary
-		if useSections {
-			ui.SectionLabel("Next Steps")
-		} else {
-			fmt.Println()
-		}
+		ui.SectionLabel("Next Steps")
 		ui.Info("Moved to trash (7 days).")
 		ui.Info("Run 'skillshare sync' to update all targets")
 
