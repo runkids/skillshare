@@ -32,6 +32,23 @@ func TestMatchesTargetName_UnknownName(t *testing.T) {
 	}
 }
 
+func TestMatchesTargetName_SharedProjectPath(t *testing.T) {
+	// codex and universal share project_path ".agents/skills"
+	if !MatchesTargetName("codex", "universal") {
+		t.Error("codex should match universal (shared project path)")
+	}
+	if !MatchesTargetName("universal", "codex") {
+		t.Error("universal should match codex (shared project path)")
+	}
+}
+
+func TestMatchesTargetName_SharedPath_NoFalsePositive(t *testing.T) {
+	// claude and cursor have different paths — must not match via path fallback
+	if MatchesTargetName("claude", "cursor") {
+		t.Error("claude should not match cursor (different paths)")
+	}
+}
+
 func TestKnownTargetNames(t *testing.T) {
 	names := KnownTargetNames()
 	if len(names) == 0 {
