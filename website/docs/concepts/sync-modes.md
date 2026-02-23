@@ -18,6 +18,21 @@ Choose merge mode (default) when you want per-skill symlinks and to preserve loc
 | `copy` | Each skill copied as real files | Portability, CI/sandboxed environments, or when you prefer real files over symlinks. |
 | `symlink` | Entire directory is one symlink | Exact copies everywhere. |
 
+## Decision Matrix (Neutral)
+
+Use this table to pick based on your constraints, not target brand names:
+
+| Decision axis | `merge` | `copy` | `symlink` |
+|---|---|---|---|
+| Compatibility across different AI CLIs | Medium | High | Low–Medium |
+| Edit-once immediate reflection | High | Low (requires `sync`) | High |
+| Disk usage | Low | High | Low |
+| Safety against accidental delete-from-target | High | High | Low |
+| Operational simplicity | Medium | Medium | High |
+| Per-target filtering (`include`/`exclude`) | Yes | Yes | No |
+
+If you are unsure, start with `merge` and switch specific targets to `copy` as needed.
+
 ---
 
 ## Merge Mode (Default)
@@ -97,6 +112,7 @@ Even when your AI CLI handles symlinks correctly, copy mode provides value:
 - You want to vendor skills into a project repo — copy mode in project mode lets the team commit real skill files to git, so teammates don't need skillshare installed
 - You need self-contained skill directories that work without a central source (portable setups, CI pipelines, air-gapped environments)
 - You want the same filtering behavior as merge mode but with real files
+- Common first candidates for `copy`: `cursor`, `antigravity`, `copilot`, `opencode`
 
 ### How updates work
 
@@ -161,6 +177,26 @@ skillshare sync
 skillshare target claude --mode merge
 skillshare sync
 ```
+
+### By-target overrides (recommended)
+
+You do not need one global mode for every target. A common pattern is:
+
+```yaml
+mode: merge
+targets:
+  claude:
+    path: ~/.claude/skills
+    # inherits merge
+  cursor:
+    path: ~/.cursor/skills
+    mode: copy
+  codex:
+    path: ~/.codex/skills
+    mode: symlink
+```
+
+Use per-target overrides when one target needs compatibility-first behavior (`copy`) while others keep instant reflection (`merge`/`symlink`).
 
 ### Default mode
 

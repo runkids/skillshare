@@ -86,6 +86,54 @@ func TestInitProject_ConfigContainsTargets(t *testing.T) {
 	}
 }
 
+func TestInitProject_ModeFlag_SetsTargetsMode(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := filepath.Join(sb.Root, "project")
+	os.MkdirAll(projectRoot, 0755)
+
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude,cursor", "--mode", "symlink")
+	result.AssertSuccess(t)
+
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if !strings.Contains(cfg, "mode: symlink") {
+		t.Errorf("project config should include symlink mode override, got:\n%s", cfg)
+	}
+}
+
+func TestInitProject_ModeFlag_Invalid(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := filepath.Join(sb.Root, "project")
+	os.MkdirAll(projectRoot, 0755)
+
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude", "--mode", "invalid")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "invalid --mode value")
+}
+
+func TestInitProject_Discover_WithMode_AddsTargetMode(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude")
+	os.MkdirAll(filepath.Join(projectRoot, ".cursor"), 0755)
+
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--discover", "--select", "cursor", "--mode", "copy")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Added 1 target")
+
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if !strings.Contains(cfg, "mode: copy") {
+		t.Errorf("newly discovered target should use copy mode, got:\n%s", cfg)
+	}
+	if !strings.Contains(cfg, "- claude") {
+		t.Errorf("existing target should remain unchanged, got:\n%s", cfg)
+	}
+}
+
 func TestInitProject_ConfigHasSchemaComment(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

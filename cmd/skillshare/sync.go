@@ -88,6 +88,7 @@ func cmdSync(args []string) error {
 			failedTargets++
 		}
 	}
+	printPerTargetModeHint(cfg.Targets, cfg.Mode, false)
 
 	var syncErr error
 	if failedTargets > 0 {

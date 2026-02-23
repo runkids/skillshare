@@ -17,6 +17,7 @@ type projectInitOptions struct {
 	targets   []string // Non-interactive target list
 	discover  bool
 	selectArg string // Non-interactive selection for --discover
+	mode      string // default mode for new targets: merge|copy|symlink
 }
 
 type detectedProjectTarget struct {
@@ -25,6 +26,26 @@ type detectedProjectTarget struct {
 	exists       bool
 	parentExists bool
 	members      []string // non-nil for grouped targets sharing the same path
+}
+
+func printProjectInitUsage() {
+	fmt.Println("Usage: skillshare init -p [flags]")
+	fmt.Println()
+	fmt.Println("Initialize project-level skillshare config in the current repository.")
+	fmt.Println()
+	fmt.Println("FLAGS")
+	fmt.Println("  --targets <list>          Comma-separated target names to add")
+	fmt.Println("  --discover, -d            Detect and add new project targets to existing config")
+	fmt.Println("  --select <list>           Select specific targets to add (requires --discover)")
+	fmt.Println("  --mode, -m <mode>         Set sync mode (merge, copy, symlink; default: merge).")
+	fmt.Println("                            With --discover, applies only to newly added targets")
+	fmt.Println("  --dry-run, -n             Preview without making changes")
+	fmt.Println("  --help, -h                Show this help")
+	fmt.Println()
+	fmt.Println("EXAMPLES")
+	fmt.Println("  skillshare init -p")
+	fmt.Println("  skillshare init -p --targets claude,cursor --mode copy")
+	fmt.Println("  skillshare init -p --discover --select cursor --mode copy")
 }
 
 func parseProjectInitArgs(args []string) (projectInitOptions, bool, error) {
@@ -50,6 +71,12 @@ func parseProjectInitArgs(args []string) (projectInitOptions, bool, error) {
 			}
 			i++
 			opts.targets = strings.Split(args[i], ",")
+		case arg == "--mode" || arg == "-m":
+			if i+1 >= len(args) {
+				return opts, false, fmt.Errorf("--mode requires a value (merge, copy, or symlink)")
+			}
+			i++
+			opts.mode = normalizeSyncMode(args[i])
 		case strings.HasPrefix(arg, "-"):
 			return opts, false, fmt.Errorf("unknown option: %s", arg)
 		}
@@ -58,6 +85,9 @@ func parseProjectInitArgs(args []string) (projectInitOptions, bool, error) {
 	if opts.selectArg != "" && !opts.discover {
 		return opts, false, fmt.Errorf("--select requires --discover flag")
 	}
+	if err := validateSyncMode(opts.mode); err != nil {
+		return opts, false, err
+	}
 
 	return opts, false, nil
 }
@@ -65,7 +95,7 @@ func parseProjectInitArgs(args []string) (projectInitOptions, bool, error) {
 func cmdInitProject(args []string) error {
 	opts, showHelp, err := parseProjectInitArgs(args)
 	if showHelp {
-		fmt.Println("Usage: skillshare init -p [--dry-run]")
+		printProjectInitUsage()
 		return nil
 	}
 	if err != nil {
@@ -106,6 +136,7 @@ func performProjectInit(root string, opts projectInitOptions) error {
 	}
 
 	var selected []config.ProjectTargetEntry
+	selectedMode := opts.mode
 
 	// If --targets provided, skip interactive prompt
 	if len(opts.targets) > 0 {
@@ -137,6 +168,15 @@ func performProjectInit(root string, opts projectInitOptions) error {
 				return err
 			}
 		}
+	}
+	if selectedMode == "" && len(opts.targets) == 0 && !partialInitRepair && runningInInteractiveTTY() {
+		selectedMode = promptSyncModeSelection()
+	}
+	if selectedMode == "" {
+		selectedMode = "merge"
+	}
+	for i := range selected {
+		selected[i].Mode = modeOverrideForTarget(selectedMode, "merge")
 	}
 
 	if opts.dryRun {
@@ -383,7 +423,10 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 			}
 			if !seen[target.name] {
 				seen[target.name] = true
-				selected = append(selected, config.ProjectTargetEntry{Name: target.name})
+				selected = append(selected, config.ProjectTargetEntry{
+					Name: target.name,
+					Mode: modeOverrideForTarget(opts.mode, "merge"),
+				})
 			}
 		}
 	} else {
@@ -398,6 +441,11 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 	if len(selected) == 0 {
 		ui.Info("No new targets added")
 		return nil
+	}
+	if opts.mode != "" {
+		for i := range selected {
+			selected[i].Mode = modeOverrideForTarget(opts.mode, "merge")
+		}
 	}
 
 	if opts.dryRun {

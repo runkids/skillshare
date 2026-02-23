@@ -19,6 +19,7 @@ skillshare target <name> --mode merge  # Change sync mode
 - Add a new AI CLI target after installing a new tool
 - Remove a target you no longer use
 - Change sync mode (merge, copy, or symlink) for a target
+- Tune compatibility target-by-target instead of forcing one global mode
 - Set up include/exclude filters for selective skill syncing
 
 ## Subcommands
@@ -91,10 +92,28 @@ skillshare sync  # Apply change
 | `copy` | Each skill copied as real files. For AI CLIs that can't follow symlinks. |
 | `symlink` | Entire directory is one symlink. Exact copies everywhere. |
 
+`target --mode` is the main compatibility control surface. Keep your global default simple, then override only where needed.
+In `sync`/`doctor` hints, the example target is prioritized as `cursor` → `antigravity` → `copilot` → `opencode`. If none exist, no compatibility hint is shown.
+
 ```bash
 # Set target to copy mode (for Cursor, Copilot CLI, etc.)
 skillshare target cursor --mode copy
 skillshare sync  # Apply the change
+```
+
+### Mixed strategy example
+
+```bash
+# Keep default merge behavior for most targets
+skillshare target claude --mode merge
+
+# Compatibility-first for one target
+skillshare target cursor --mode copy
+
+# Exact mirror for another target
+skillshare target codex --mode symlink
+
+skillshare sync
 ```
 
 ## Target Filters (include/exclude)

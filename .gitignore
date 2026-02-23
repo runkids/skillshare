@@ -24,6 +24,8 @@ docs/plans/
 /specs/
 .pnpm-store/
 .feature-radar/
+.cache/
+.playwright-mcp
 
 # Worktrees
 .worktrees/
@@ -41,3 +43,4 @@ internal/server/dist/
 
 # Air hot-reload
 tmp/
+MEMORY.md

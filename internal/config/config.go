@@ -40,7 +40,7 @@ type HubConfig struct {
 // Config holds the application configuration
 type Config struct {
 	Source  string                  `yaml:"source"`
-	Mode    string                  `yaml:"mode,omitempty"` // default mode: symlink
+	Mode    string                  `yaml:"mode,omitempty"` // default mode: merge
 	Targets map[string]TargetConfig `yaml:"targets"`
 	Skills  []SkillEntry            `yaml:"skills,omitempty"`
 	Ignore  []string                `yaml:"ignore,omitempty"`

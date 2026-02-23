@@ -46,11 +46,35 @@ irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 skillshare init
 ```
 
+<p>
+  <img src="/img/init-with-mode.png" alt="Interactive init flow" width="720" />
+</p>
+
 This:
 1. Creates your source directory (`~/.config/skillshare/skills/`)
 2. Auto-detects installed AI CLIs
 3. Sets up configuration
 4. Optionally installs the built-in skillshare skill (adds `/skillshare` command to AI CLIs)
+
+### Init mode tip
+
+`init` supports `--mode` to set your starting sync behavior:
+
+```bash
+skillshare init --mode copy
+```
+
+- `merge` (default): per-skill links, local target skills preserved
+- `copy`: real files, compatibility-first
+- `symlink`: whole target dir linked
+
+If you later run discover with mode:
+
+```bash
+skillshare init --discover --select cursor --mode copy
+```
+
+`--mode` is applied only to targets added in that discover run. Existing targets are not modified.
 
 :::tip Built-in Skill
 During init, you'll be prompted: `Install built-in skillshare skill? [y/N]`. This adds a skill that lets your AI CLI manage skillshare directly. You can skip it and install later with `skillshare upgrade --skill`.
@@ -115,15 +139,24 @@ Here's what skillshare did behind the scenes:
 
 2. **`install`** — Cloned the skill from GitHub into your source directory (`~/.config/skillshare/skills/`). Ran a security audit automatically.
 
-3. **`sync`** — Created symlinks from your source to each target. For example:
+3. **`sync`** — Applied each target's configured sync mode (default is merge, which creates per-skill symlinks). For example:
    ```
    ~/.claude/skills/pdf → ~/.config/skillshare/skills/pdf  (symlink)
    ```
 
 This means:
-- **Edit once, reflect everywhere** — Editing the source file updates all targets instantly (via symlinks)
-- **Non-destructive** — Your existing target skills are preserved (merge mode)
+- **Mode-aware behavior** — Merge/symlink modes reflect source edits immediately; copy mode updates on next `sync`
+- **Non-destructive** — Existing target-local skills are preserved in merge/copy mode
 - **Reversible** — `skillshare backup` creates snapshots; `skillshare restore` reverts
+
+Need a different behavior for one target? Use per-target overrides:
+
+```bash
+skillshare target <name> --mode copy
+skillshare sync
+```
+
+See [Sync Modes](/docs/concepts/sync-modes) for the decision matrix and trade-offs.
 
 ## See Also
 
