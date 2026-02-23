@@ -855,13 +855,15 @@ func promptMultiSelect(skills []install.SkillInfo) ([]install.SkillInfo, error) 
 		PageSize: 15,
 	}
 
-	err := survey.AskOne(prompt, &selectedIndices, survey.WithIcons(func(icons *survey.IconSet) {
-		icons.UnmarkedOption.Text = " "
-		icons.MarkedOption.Text = "✓"
-		icons.MarkedOption.Format = "green"
-		icons.SelectFocus.Text = "▸"
-		icons.SelectFocus.Format = "yellow"
-	}))
+	err := survey.AskOne(prompt, &selectedIndices,
+		survey.WithKeepFilter(true),
+		survey.WithIcons(func(icons *survey.IconSet) {
+			icons.UnmarkedOption.Text = " "
+			icons.MarkedOption.Text = "✓"
+			icons.MarkedOption.Format = "green"
+			icons.SelectFocus.Text = "▸"
+			icons.SelectFocus.Format = "yellow"
+		}))
 	if err != nil {
 		return nil, nil
 	}

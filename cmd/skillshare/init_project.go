@@ -308,7 +308,7 @@ func promptProjectTargets(available []detectedProjectTarget) ([]config.ProjectTa
 		Help:     "Use arrow keys to navigate, space to select, enter to confirm",
 	}
 
-	if err := survey.AskOne(prompt, &selectedIndices); err != nil {
+	if err := survey.AskOne(prompt, &selectedIndices, survey.WithKeepFilter(true)); err != nil {
 		return nil, nil
 	}
 
