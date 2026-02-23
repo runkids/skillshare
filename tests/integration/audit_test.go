@@ -133,7 +133,7 @@ func TestInstall_Malicious_Blocked(t *testing.T) {
 
 	result := sb.RunCLI("install", evilPath)
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "security audit failed")
+	result.AssertAnyOutputContains(t, "blocked by security audit")
 
 	// Verify skill was NOT installed
 	if sb.FileExists(filepath.Join(sb.SourcePath, "evil-install", "SKILL.md")) {
