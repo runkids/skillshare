@@ -62,7 +62,7 @@ func TestInstall_Track_BlocksCritical(t *testing.T) {
 
 	result := sb.RunCLI("install", repoURL, "--track", "--name", "evil-repo")
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "security audit failed")
+	result.AssertAnyOutputContains(t, "blocked by security audit")
 
 	// Verify the repo directory was removed
 	repoPath := filepath.Join(sb.SourcePath, "_evil-repo")

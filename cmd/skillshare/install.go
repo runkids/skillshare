@@ -477,6 +477,9 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 	result, err := install.InstallTrackedRepo(source, cfg.Source, opts)
 	if err != nil {
 		treeSpinner.Fail("Failed to clone")
+		if errors.Is(err, audit.ErrBlocked) {
+			return logSummary, renderBlockedAuditError(err)
+		}
 		return logSummary, err
 	}
 
@@ -513,7 +516,7 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 
 	// Show next steps
 	if !opts.DryRun {
-		fmt.Println()
+		ui.SectionLabel("Next Steps")
 		ui.Info("Run 'skillshare sync' to distribute skills to all targets")
 		ui.Info("Run 'skillshare update %s' to update this repo later", result.RepoName)
 	}
@@ -604,6 +607,9 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		result, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
 		if err != nil {
 			installSpinner.Fail("Failed to install")
+			if errors.Is(err, audit.ErrBlocked) {
+				return logSummary, renderBlockedAuditError(err)
+			}
 			return logSummary, err
 		}
 
@@ -617,7 +623,7 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		renderInstallWarnings("", result.Warnings, opts.AuditVerbose)
 
 		if !opts.DryRun {
-			fmt.Println()
+			ui.SectionLabel("Next Steps")
 			ui.Info("Run 'skillshare sync' to distribute to all targets")
 			logSummary.InstalledSkills = append(logSummary.InstalledSkills, skill.Name)
 			logSummary.SkillCount = len(logSummary.InstalledSkills)
@@ -1025,6 +1031,52 @@ func renderInstallWarnings(skillName string, warnings []string, auditVerbose boo
 		ui.Info("%s", formatWarningWithSkill(skillName,
 			fmt.Sprintf("suppressed %d audit finding line(s); re-run with --audit-verbose for full details", suppressed)))
 	}
+}
+
+// renderBlockedAuditError displays a structured audit-blocked error and returns
+// a short error for main.go to print as a one-line summary.
+func renderBlockedAuditError(err error) error {
+	msg := err.Error()
+
+	// Extract finding detail lines (lines starting with a severity level)
+	var detailLines []string
+	for _, rawLine := range strings.Split(msg, "\n") {
+		line := strings.TrimSpace(rawLine)
+		if isAuditSeverityLine(line) {
+			detailLines = append(detailLines, "  "+line)
+		}
+	}
+
+	// Build summary from parsed digest
+	digest := parseAuditBlockedFailure(msg)
+	summaryParts := []string{"security audit"}
+	if digest.threshold != "" && digest.findingCount > 0 {
+		suffix := "findings"
+		if digest.findingCount == 1 {
+			suffix = "finding"
+		}
+		summaryParts = append(summaryParts, fmt.Sprintf("blocked — %d %s at/above %s", digest.findingCount, suffix, digest.threshold))
+	} else {
+		summaryParts = append(summaryParts, "blocked")
+	}
+
+	ui.SectionLabel("Audit Findings")
+	ui.StepFail(strings.Join(summaryParts, ": "), "")
+	for _, line := range detailLines {
+		fmt.Println(line)
+	}
+
+	// Check for cleanup failure or rollback info
+	if strings.Contains(msg, "Automatic cleanup failed") || strings.Contains(msg, "Manual removal is required") {
+		fmt.Println()
+		ui.Warning("automatic cleanup failed — manual removal may be required")
+	}
+	if strings.Contains(msg, "rollback also failed") {
+		fmt.Println()
+		ui.Warning("rollback also failed — malicious content may remain")
+	}
+
+	return fmt.Errorf("blocked by security audit (use --force to override)")
 }
 
 func appendUniqueLimited(lines []string, line string, limit int) []string {
@@ -1758,6 +1810,9 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		result, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
 		if err != nil {
 			installSpinner.Fail("Failed to install")
+			if errors.Is(err, audit.ErrBlocked) {
+				return logSummary, renderBlockedAuditError(err)
+			}
 			return logSummary, err
 		}
 
@@ -1771,7 +1826,7 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		renderInstallWarnings("", result.Warnings, opts.AuditVerbose)
 
 		if !opts.DryRun {
-			fmt.Println()
+			ui.SectionLabel("Next Steps")
 			ui.Info("Run 'skillshare sync' to distribute to all targets")
 			logSummary.InstalledSkills = append(logSummary.InstalledSkills, skill.Name)
 			logSummary.SkillCount = len(logSummary.InstalledSkills)
@@ -1915,6 +1970,9 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	result, err := install.Install(source, destPath, opts)
 	if err != nil {
 		treeSpinner.Fail("Failed to install")
+		if errors.Is(err, audit.ErrBlocked) {
+			return logSummary, renderBlockedAuditError(err)
+		}
 		return logSummary, err
 	}
 
@@ -1932,7 +1990,7 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 
 	// Show next steps
 	if !opts.DryRun {
-		fmt.Println()
+		ui.SectionLabel("Next Steps")
 		ui.Info("Run 'skillshare sync' to distribute to all targets")
 		logSummary.InstalledSkills = append(logSummary.InstalledSkills, skillName)
 		logSummary.SkillCount = len(logSummary.InstalledSkills)
