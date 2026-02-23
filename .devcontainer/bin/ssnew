@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+name="${1:-env-$(date +%Y%m%d-%H%M%S)}"
+shift || true
+if [ "${1:-}" = "--" ]; then
+  shift
+fi
+
+ssenv create "$name"
+if [ "$#" -gt 0 ]; then
+  exec ssenv enter "$name" -- "$@"
+fi
+exec ssenv enter "$name"

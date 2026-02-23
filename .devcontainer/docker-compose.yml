@@ -1,5 +1,7 @@
 # Devcontainer-only service: no profile restriction, stays alive for VS Code attach.
 # Reuses the same Dockerfile and volume setup as sandbox-dev.
+name: skillshare_devcontainer
+
 services:
   skillshare-devcontainer:
     build:
