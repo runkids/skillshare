@@ -12,6 +12,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
+	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 )
@@ -20,6 +21,7 @@ import (
 type uninstallOptions struct {
 	skillNames []string // positional args (0+)
 	groups     []string // --group/-G values (repeatable)
+	all        bool     // --all: remove ALL skills from source
 	force      bool
 	dryRun     bool
 }
@@ -45,6 +47,8 @@ func parseUninstallArgs(args []string) (*uninstallOptions, bool, error) {
 	for i := 0; i < len(args); i++ {
 		arg := args[i]
 		switch {
+		case arg == "--all":
+			opts.all = true
 		case arg == "--force" || arg == "-f":
 			opts.force = true
 		case arg == "--dry-run" || arg == "-n":
@@ -64,11 +68,45 @@ func parseUninstallArgs(args []string) (*uninstallOptions, bool, error) {
 		}
 	}
 
+	// --all mutual exclusion checks
+	if opts.all {
+		if len(opts.skillNames) > 0 {
+			return nil, false, fmt.Errorf("--all cannot be used with skill names")
+		}
+		if len(opts.groups) > 0 {
+			return nil, false, fmt.Errorf("--all cannot be used with --group")
+		}
+		return opts, false, nil
+	}
+
 	if len(opts.skillNames) == 0 && len(opts.groups) == 0 {
 		return nil, true, fmt.Errorf("skill name or --group is required")
 	}
 
 	return opts, false, nil
+}
+
+// topLevelDir returns the first path component of a relative path.
+// e.g. "frontend/react/hooks" → "frontend", "my-skill" → "my-skill"
+func topLevelDir(relPath string) string {
+	parts := strings.SplitN(relPath, "/", 2)
+	return parts[0]
+}
+
+// looksLikeShellGlob detects when positional args appear to be shell-expanded
+// file names rather than real skill names. Heuristic: ≥3 warnings, warnings ≥50%
+// of names, and ≥2 names contain a dot (file extension characteristic).
+func looksLikeShellGlob(names []string, warnings []string) bool {
+	if len(warnings) < 3 || len(warnings)*2 < len(names) {
+		return false
+	}
+	dotCount := 0
+	for _, name := range names {
+		if strings.Contains(name, ".") {
+			dotCount++
+		}
+	}
+	return dotCount >= 2
 }
 
 // resolveUninstallTarget resolves skill name to path and checks existence.
@@ -363,7 +401,33 @@ func confirmUninstall(target *uninstallTarget) (bool, error) {
 	return input == "y" || input == "yes", nil
 }
 
-// performUninstall moves the skill to trash and cleans up
+// performUninstallQuiet moves the skill to trash and cleans up without printing output.
+// Used by batch mode; returns the type label for StepDone display.
+func performUninstallQuiet(target *uninstallTarget, cfg *config.Config) (typeLabel string, err error) {
+	groupSkillCount := 0
+	if !target.isTrackedRepo {
+		groupSkillCount = len(countGroupSkills(target.path))
+	}
+
+	// For tracked repos, clean up .gitignore
+	if target.isTrackedRepo {
+		install.RemoveFromGitIgnore(cfg.Source, target.name) //nolint:errcheck
+	}
+
+	if _, err := trash.MoveToTrash(target.path, target.name, trash.TrashDir()); err != nil {
+		return "", fmt.Errorf("failed to move to trash: %w", err)
+	}
+
+	if target.isTrackedRepo {
+		return "tracked repo", nil
+	}
+	if groupSkillCount > 0 {
+		return fmt.Sprintf("group, %d skills", groupSkillCount), nil
+	}
+	return "skill", nil
+}
+
+// performUninstall moves the skill to trash and cleans up (verbose single-target output)
 func performUninstall(target *uninstallTarget, cfg *config.Config) error {
 	// Read metadata before moving (for reinstall hint)
 	meta, _ := install.ReadMeta(target.path)
@@ -456,6 +520,30 @@ func cmdUninstall(args []string) error {
 	seen := map[string]bool{} // dedup by path
 	var resolveWarnings []string
 
+	if opts.all {
+		discovered, err := sync.DiscoverSourceSkills(cfg.Source)
+		if err != nil {
+			return fmt.Errorf("failed to discover skills: %w", err)
+		}
+		if len(discovered) == 0 {
+			return fmt.Errorf("no skills found in source")
+		}
+		// Collect unique top-level directories to avoid nested skill duplication
+		topDirs := map[string]bool{}
+		for _, d := range discovered {
+			topDirs[topLevelDir(d.RelPath)] = true
+		}
+		for dir := range topDirs {
+			skillPath := filepath.Join(cfg.Source, dir)
+			targets = append(targets, &uninstallTarget{
+				name:          dir,
+				path:          skillPath,
+				isTrackedRepo: install.IsGitRepo(skillPath),
+			})
+			seen[skillPath] = true
+		}
+	}
+
 	for _, name := range opts.skillNames {
 		t, err := resolveUninstallTarget(name, cfg)
 		if err != nil {
@@ -486,6 +574,14 @@ func cmdUninstall(args []string) error {
 		ui.Warning("%s", w)
 	}
 
+	// Shell glob detection: if positional args look like shell-expanded filenames,
+	// intercept early and suggest --all instead
+	if !opts.all && looksLikeShellGlob(opts.skillNames, resolveWarnings) {
+		ui.Warning("It looks like '*' was expanded by your shell into file names.")
+		ui.Info("To uninstall all skills, use: skillshare uninstall --all")
+		return fmt.Errorf("shell glob expansion detected")
+	}
+
 	// --- Phase 2: VALIDATE ---
 	if len(targets) == 0 {
 		if len(resolveWarnings) > 0 {
@@ -501,19 +597,34 @@ func cmdUninstall(args []string) error {
 		displayUninstallInfo(targets[0])
 	} else {
 		ui.Header(fmt.Sprintf("Uninstalling %d %s", len(targets), summary.noun()))
-		if summary.noun() == "target(s)" {
+		if len(targets) > 20 {
+			// Compressed: only list non-skill items (groups, tracked repos) individually
 			ui.Info("Includes: %s", summary.details())
-		}
-		for _, t := range targets {
-			label := t.name
-			if t.isTrackedRepo {
-				label += " (tracked repository)"
-			} else if c := summary.groupSkillCount[t.path]; c > 0 {
-				label += fmt.Sprintf(" (group, %d skills)", c)
-			} else {
-				label += " (skill)"
+			for _, t := range targets {
+				if t.isTrackedRepo {
+					fmt.Printf("  - %s (tracked repository)\n", t.name)
+				} else if c := summary.groupSkillCount[t.path]; c > 0 {
+					fmt.Printf("  - %s (group, %d skills)\n", t.name, c)
+				}
 			}
-			fmt.Printf("  - %s\n", label)
+			if summary.skills > 0 {
+				fmt.Printf("  ... and %d skill(s)\n", summary.skills)
+			}
+		} else {
+			if summary.noun() == "target(s)" {
+				ui.Info("Includes: %s", summary.details())
+			}
+			for _, t := range targets {
+				label := t.name
+				if t.isTrackedRepo {
+					label += " (tracked repository)"
+				} else if c := summary.groupSkillCount[t.path]; c > 0 {
+					label += fmt.Sprintf(" (group, %d skills)", c)
+				} else {
+					label += " (skill)"
+				}
+				fmt.Printf("  - %s\n", label)
+			}
 		}
 		fmt.Println()
 	}
@@ -579,14 +690,112 @@ func cmdUninstall(args []string) error {
 	}
 
 	// --- Phase 6: EXECUTE ---
+	batch := len(targets) > 1
+	type batchResult struct {
+		target    *uninstallTarget
+		typeLabel string
+		errMsg    string
+	}
+
 	var succeeded []*uninstallTarget
 	var failed []string
-	for _, t := range targets {
-		if err := performUninstall(t, cfg); err != nil {
-			failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
-			ui.Warning("Failed to uninstall %s: %v", t.name, err)
+
+	if batch {
+		sp := ui.StartSpinner(fmt.Sprintf("Uninstalling %d %s", len(targets), summary.noun()))
+		var results []batchResult
+
+		for _, t := range targets {
+			typeLabel, err := performUninstallQuiet(t, cfg)
+			if err != nil {
+				results = append(results, batchResult{target: t, errMsg: err.Error()})
+				failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
+			} else {
+				results = append(results, batchResult{target: t, typeLabel: typeLabel})
+				succeeded = append(succeeded, t)
+			}
+		}
+
+		// Spinner end state
+		if len(failed) > 0 && len(succeeded) == 0 {
+			sp.Fail(fmt.Sprintf("Failed to uninstall %d %s", len(failed), summary.noun()))
+		} else if len(failed) > 0 {
+			sp.Warn(fmt.Sprintf("Uninstalled %d, failed %d", len(succeeded), len(failed)))
 		} else {
-			succeeded = append(succeeded, t)
+			sp.Success(fmt.Sprintf("Uninstalled %d %s", len(succeeded), summary.noun()))
+		}
+
+		// Failures always shown individually
+		var successes []batchResult
+		var failures []batchResult
+		for _, r := range results {
+			if r.errMsg != "" {
+				failures = append(failures, r)
+			} else {
+				successes = append(successes, r)
+			}
+		}
+
+		useSections := len(results) > 10
+
+		if len(failures) > 0 {
+			if useSections {
+				ui.SectionLabel("Failed")
+			} else {
+				fmt.Println()
+			}
+			for _, r := range failures {
+				ui.StepFail(r.target.name, r.errMsg)
+			}
+		}
+
+		// Successes: condensed when many
+		if len(successes) > 0 {
+			if useSections {
+				ui.SectionLabel("Removed")
+			} else {
+				fmt.Println()
+			}
+			switch {
+			case len(successes) > 50:
+				ui.StepDone(fmt.Sprintf("%d uninstalled", len(successes)), "")
+			case len(successes) > 10:
+				const maxShown = 10
+				names := make([]string, 0, maxShown)
+				for i := 0; i < maxShown && i < len(successes); i++ {
+					names = append(names, successes[i].target.name)
+				}
+				detail := strings.Join(names, ", ")
+				if len(successes) > maxShown {
+					detail = fmt.Sprintf("%s ... +%d more", detail, len(successes)-maxShown)
+				}
+				ui.StepDone(fmt.Sprintf("%d uninstalled", len(successes)), detail)
+			default:
+				for _, r := range successes {
+					ui.StepDone(r.target.name, r.typeLabel)
+				}
+			}
+		}
+
+		// Batch summary
+		if useSections {
+			ui.SectionLabel("Next Steps")
+		} else {
+			fmt.Println()
+		}
+		ui.Info("Moved to trash (7 days).")
+		ui.Info("Run 'skillshare sync' to update all targets")
+
+		// Opportunistic cleanup of expired trash items
+		if n, _ := trash.Cleanup(trash.TrashDir(), 0); n > 0 {
+			ui.Info("Cleaned up %d expired trash item(s)", n)
+		}
+	} else {
+		for _, t := range targets {
+			if err := performUninstall(t, cfg); err != nil {
+				failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
+			} else {
+				succeeded = append(succeeded, t)
+			}
 		}
 	}
 
@@ -626,6 +835,9 @@ func cmdUninstall(args []string) error {
 
 	// Build names list for oplog
 	var opNames []string
+	if opts.all {
+		opNames = append(opNames, "--all")
+	}
 	for _, name := range opts.skillNames {
 		opNames = append(opNames, name)
 	}
@@ -672,6 +884,7 @@ func isRepoDirty(repoPath string) (bool, error) {
 func printUninstallHelp() {
 	fmt.Println(`Usage: skillshare uninstall <name>... [options]
        skillshare uninstall --group <group> [options]
+       skillshare uninstall --all [options]
 
 Remove one or more skills or tracked repositories from the source directory.
 Skills are moved to trash and kept for 7 days before automatic cleanup.
@@ -683,6 +896,7 @@ For tracked repositories (_repo-name):
   - The _ prefix is optional (automatically detected)
 
 Options:
+  --all               Remove ALL skills from source (requires confirmation)
   --group, -G <name>  Remove all skills in a group (prefix match, repeatable)
   --force, -f         Skip confirmation and ignore uncommitted changes
   --dry-run, -n       Preview without making changes
@@ -693,6 +907,9 @@ Options:
 Examples:
   skillshare uninstall my-skill              # Remove a single skill
   skillshare uninstall a b c --force         # Remove multiple skills at once
+  skillshare uninstall --all                 # Remove all skills
+  skillshare uninstall --all --force         # Remove all without confirmation
+  skillshare uninstall --all -n              # Preview what would be removed
   skillshare uninstall --group frontend      # Remove all skills in frontend/
   skillshare uninstall --group frontend -n   # Preview group removal
   skillshare uninstall x -G backend --force  # Mix names and groups
