@@ -142,7 +142,10 @@ func (s *Spinner) NextStep(message string) {
 // Success stops spinner with success
 func (s *Spinner) Success(message string) {
 	elapsed := time.Since(s.start)
-	msg := fmt.Sprintf("%s (%.1fs)", message, elapsed.Seconds())
+	msg := message
+	if elapsed.Seconds() >= 0.05 {
+		msg = fmt.Sprintf("%s (%.1fs)", message, elapsed.Seconds())
+	}
 	if s.spinner != nil {
 		s.spinner.Success(msg)
 	} else {
@@ -162,7 +165,10 @@ func (s *Spinner) Fail(message string) {
 // Warn stops spinner with warning (yellow)
 func (s *Spinner) Warn(message string) {
 	elapsed := time.Since(s.start)
-	msg := fmt.Sprintf("%s (%.1fs)", message, elapsed.Seconds())
+	msg := message
+	if elapsed.Seconds() >= 0.05 {
+		msg = fmt.Sprintf("%s (%.1fs)", message, elapsed.Seconds())
+	}
 	if s.spinner != nil {
 		s.spinner.Warning(msg)
 	} else {
@@ -601,7 +607,11 @@ func StepDone(label, value string) {
 // StepFail prints a failed step
 func StepFail(label, value string) {
 	if IsTTY() {
-		fmt.Printf("%s %-10s %s\n", pterm.Red(StepCross), pterm.White(label), value)
+		styledLabel := pterm.White(label)
+		if ansiRegex.MatchString(label) {
+			styledLabel = label
+		}
+		fmt.Printf("%s %-10s %s\n", pterm.Red(StepCross), styledLabel, value)
 	} else {
 		fmt.Printf("%s %-10s %s\n", StepCross, label, value)
 	}
@@ -694,6 +704,16 @@ type SkillDisplay struct {
 	Name        string
 	Description string
 	Path        string
+}
+
+// SectionLabel prints a dim section label for visual grouping in batch output.
+// Only used when the result set is large enough to benefit from sections (>10 items).
+func SectionLabel(label string) {
+	if IsTTY() {
+		fmt.Printf("\n  %s\n", pterm.Gray(label))
+	} else {
+		fmt.Printf("\n- %s\n", label)
+	}
 }
 
 // wrapText wraps text to specified width

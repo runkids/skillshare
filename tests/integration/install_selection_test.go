@@ -116,8 +116,8 @@ func TestInstall_AllFlag_ShowsAuditWarningsForFindingsBelowThreshold(t *testing.
 
 	result := sb.RunCLI("install", "file://"+gitRepoPath, "--all")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "audit HIGH")
-	result.AssertAnyOutputContains(t, "none at/above block threshold (CRITICAL)")
+	result.AssertAnyOutputContains(t, "HIGH=1")
+	result.AssertAnyOutputContains(t, "findings below the active block threshold")
 }
 
 func TestInstall_YesFlag_InstallsAll(t *testing.T) {

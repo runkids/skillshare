@@ -28,6 +28,7 @@ type InstallOptions struct {
 	Yes              bool     // Auto-accept all prompts (equivalent to --all for multi-skill repos)
 	Into             string   // Install into subdirectory (e.g. "frontend" or "frontend/react")
 	SkipAudit        bool     // Skip security audit entirely
+	AuditVerbose     bool     // Print full audit findings in CLI output (default is compact summary)
 	AuditThreshold   string   // Block threshold: CRITICAL/HIGH/MEDIUM/LOW/INFO
 	AuditProjectRoot string   // Project root for project-mode audit rule resolution
 }
