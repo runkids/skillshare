@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.15.5] - 2026-02-23
+
+### Added
+- **`init --mode` flag** — `skillshare init --mode copy` (or `-m copy`) sets the default sync mode for all targets at init time; in interactive mode (TTY), a prompt offers merge / copy / symlink selection; `init --discover --mode copy` applies the mode only to newly added targets, leaving existing targets unchanged (closes [#42](https://github.com/runkids/skillshare/issues/42))
+- **Per-target sync mode hint** — after `sync` and `doctor`, a contextual hint suggests `copy` mode for targets known to have symlink compatibility issues (Cursor, Antigravity, Copilot, OpenCode); suppressed when only symlink-compatible targets are configured
+
 ## [0.15.4] - 2026-02-23
 
 ### Added
