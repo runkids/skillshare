@@ -419,7 +419,7 @@ func cmdUninstallProject(args []string, root string) error {
 	}
 
 	if !batch {
-		fmt.Println()
+		ui.SectionLabel("Next Steps")
 		ui.Info("Run 'skillshare sync' to clean up symlinks")
 
 		// Opportunistic cleanup of expired trash items

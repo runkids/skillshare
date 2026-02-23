@@ -123,6 +123,7 @@ func trashRestore(mode runMode, cwd string, args []string) error {
 	ui.Success("Restored: %s", name)
 	age := time.Since(entry.Date)
 	ui.Info("Trashed %s ago, now back in %s", formatAge(age), destDir)
+	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to update targets")
 
 	return nil

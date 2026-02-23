@@ -291,7 +291,7 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit,
 		renderHashDiffSummary(beforeHashes, afterHashes)
 	}
 
-	fmt.Println()
+	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to distribute changes")
 	return nil
 }
@@ -348,7 +348,7 @@ func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudi
 		return err
 	}
 
-	fmt.Println()
+	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to distribute changes")
 	return nil
 }
