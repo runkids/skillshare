@@ -30,7 +30,9 @@ skillshare init
 skillshare sync
 ```
 
-After setup, your skills are symlinked — edit once, reflect everywhere.
+After setup, behavior depends on mode:
+- `merge`/`symlink`: source edits reflect immediately
+- `copy`: changes apply on next `sync`
 
 ## What's Next?
 

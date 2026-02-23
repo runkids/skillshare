@@ -72,6 +72,7 @@ func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
 			failedTargets++
 		}
 	}
+	printPerTargetModeHint(runtime.targets, "merge", true)
 
 	stats.Failed = failedTargets
 	if failedTargets > 0 {

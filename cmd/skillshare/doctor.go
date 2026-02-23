@@ -151,6 +151,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 
 	// Check each target
 	checkTargets(cfg, result)
+	printPerTargetModeHint(cfg.Targets, cfg.Mode, isProject)
 
 	// Check sync drift
 	checkSyncDrift(cfg, result)

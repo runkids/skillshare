@@ -61,7 +61,7 @@
             },
             "mode": {
               "type": "string",
-              "description": "Sync mode override for this target.",
+              "description": "Sync mode override for this target (`merge`, `copy`, or `symlink`).",
               "enum": ["merge", "symlink", "copy"]
             },
             "include": {

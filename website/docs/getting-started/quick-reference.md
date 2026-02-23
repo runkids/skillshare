@@ -111,6 +111,12 @@ Optional later (only if you install additional AI CLIs after setup):
 skillshare init --discover
 ```
 
+With mode override during discover, only newly added targets are affected:
+
+```bash
+skillshare init --discover --select cursor --mode copy
+```
+
 ### Team skill sharing
 ```bash
 # Install team repo

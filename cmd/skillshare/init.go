@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
+	"golang.org/x/term"
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
 	"skillshare/internal/install"
@@ -41,6 +42,7 @@ type initOptions struct {
 	skillFlagSet bool
 	discover     bool
 	selectArg    string
+	mode         string
 }
 
 // parseInitArgs parses command line arguments into initOptions
@@ -60,6 +62,8 @@ func printInitUsage() {
 	fmt.Println("  --targets, -t <list>      Comma-separated target names to add")
 	fmt.Println("  --all-targets             Add all detected targets")
 	fmt.Println("  --no-targets              Skip target setup")
+	fmt.Println("  --mode, -m <mode>         Set sync mode (merge, copy, symlink; default: merge).")
+	fmt.Println("                            With --discover, applies only to newly added targets")
 	fmt.Println("  --git                     Initialize git in source (default: prompt)")
 	fmt.Println("  --no-git                  Skip git initialization")
 	fmt.Println("  --skill                   Install built-in skillshare skill")
@@ -116,6 +120,12 @@ func parseInitArgs(args []string) (*initOptions, error) {
 			opts.allTargets = true
 		case "--no-targets":
 			opts.noTargets = true
+		case "--mode", "-m":
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("--mode requires a value (merge, copy, or symlink)")
+			}
+			opts.mode = args[i+1]
+			i++
 		case "--git":
 			opts.initGit = true
 			opts.gitFlagSet = true
@@ -171,6 +181,10 @@ func validateInitOptions(opts *initOptions, home string) error {
 	if opts.selectArg != "" && !opts.discover {
 		return fmt.Errorf("--select requires --discover flag")
 	}
+	opts.mode = normalizeSyncMode(opts.mode)
+	if err := validateSyncMode(opts.mode); err != nil {
+		return err
+	}
 
 	// --remote implies --git
 	if opts.remoteURL != "" && !opts.noGit {
@@ -183,6 +197,91 @@ func validateInitOptions(opts *initOptions, home string) error {
 	}
 
 	return nil
+}
+
+func normalizeSyncMode(mode string) string {
+	return strings.ToLower(strings.TrimSpace(mode))
+}
+
+func validateSyncMode(mode string) error {
+	if mode == "" {
+		return nil
+	}
+	switch mode {
+	case "merge", "copy", "symlink":
+		return nil
+	default:
+		return fmt.Errorf("invalid --mode value %q (expected: merge, copy, or symlink)", mode)
+	}
+}
+
+func runningInInteractiveTTY() bool {
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+func hasGitRepo(sourcePath string) bool {
+	_, err := os.Stat(filepath.Join(sourcePath, ".git"))
+	return err == nil
+}
+
+func hasBuiltinSkill(sourcePath string) bool {
+	_, err := os.Stat(filepath.Join(sourcePath, "skillshare", "SKILL.md"))
+	return err == nil
+}
+
+func shouldPromptInitMode(opts *initOptions, sourcePath string, withSkills, detected []detectedDir) bool {
+	if opts.mode != "" || !runningInInteractiveTTY() {
+		return false
+	}
+
+	willPromptCopy := !opts.noCopy && opts.copyFrom == "" && len(withSkills) > 0
+	willPromptTargets := !opts.noTargets && !opts.allTargets && opts.targetsArg == "" && len(detected) > 0
+	willPromptGit := !opts.noGit && !opts.initGit && !hasGitRepo(sourcePath)
+	willPromptSkill := !opts.noSkill && !opts.initSkill && !hasBuiltinSkill(sourcePath)
+
+	return willPromptCopy || willPromptTargets || willPromptGit || willPromptSkill
+}
+
+func promptSyncModeSelection() string {
+	ui.Header("Sync mode preference")
+	fmt.Println("  Choose the default sync mode for newly configured targets:")
+	fmt.Println("  [1] merge   (per-skill symlinks, preserves local skills)")
+	fmt.Println("  [2] copy    (real files, compatibility-first)")
+	fmt.Println("  [3] symlink (entire directory linked)")
+	fmt.Println()
+	fmt.Print("  Enter choice [1]: ")
+
+	var input string
+	if _, err := fmt.Scanln(&input); err != nil {
+		return "merge"
+	}
+
+	switch normalizeSyncMode(input) {
+	case "", "1", "merge":
+		return "merge"
+	case "2", "copy":
+		return "copy"
+	case "3", "symlink":
+		return "symlink"
+	default:
+		ui.Warning("Unknown mode selection %q, defaulting to merge", input)
+		return "merge"
+	}
+}
+
+func modeOverrideForTarget(requestedMode, inheritedDefault string) string {
+	requestedMode = normalizeSyncMode(requestedMode)
+	defaultMode := normalizeSyncMode(inheritedDefault)
+	if defaultMode == "" {
+		defaultMode = "merge"
+	}
+	if requestedMode == "" {
+		return ""
+	}
+	if requestedMode == "merge" && defaultMode == "merge" {
+		return ""
+	}
+	return requestedMode
 }
 
 // handleExistingInit handles init when config already exists
@@ -216,7 +315,7 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 		if err != nil {
 			return true, err
 		}
-		return true, reinitWithDiscover(cfg, opts.selectArg, opts.dryRun)
+		return true, reinitWithDiscover(cfg, opts.selectArg, opts.dryRun, opts.mode)
 	}
 
 	return true, fmt.Errorf("already initialized. Run 'skillshare init --discover' to add new agents, or 'skillshare init -p' to initialize project-level skills")
@@ -262,11 +361,18 @@ func performFreshInit(opts *initOptions, home string) error {
 
 	// Build targets list
 	targets := buildTargetsList(detected, copyFromPath, copyFromName, opts.targetsArg, opts.allTargets, opts.noTargets)
+	mode := opts.mode
+	if shouldPromptInitMode(opts, sourcePath, withSkills, detected) {
+		mode = promptSyncModeSelection()
+	}
+	if mode == "" {
+		mode = "merge"
+	}
 
 	// Create config
 	cfg := &config.Config{
 		Source:  sourcePath,
-		Mode:    "merge",
+		Mode:    mode,
 		Targets: targets,
 		Ignore: []string{
 			"**/.DS_Store",
@@ -1222,11 +1328,12 @@ func promptAgentSelection(newAgents []agentInfo) ([]string, error) {
 }
 
 // saveAddedAgents adds agents to config and saves
-func saveAddedAgents(cfg *config.Config, names []string, dryRun bool) error {
+func saveAddedAgents(cfg *config.Config, names []string, dryRun bool, mode string) error {
 	defaultTargets := config.DefaultTargets()
 
 	for _, name := range names {
 		if target, ok := defaultTargets[name]; ok {
+			target.Mode = modeOverrideForTarget(mode, cfg.Mode)
 			cfg.Targets[name] = target
 		}
 	}
@@ -1253,7 +1360,7 @@ func saveAddedAgents(cfg *config.Config, names []string, dryRun bool) error {
 }
 
 // reinitWithDiscover detects new agents and allows user to add them to existing config
-func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun bool) error {
+func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun bool, mode string) error {
 	ui.Header("Discovering new agents")
 
 	newAgents := detectNewAgents(existingCfg)
@@ -1266,7 +1373,7 @@ func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun boo
 
 	// Non-interactive mode with --select
 	if selectArg != "" {
-		return addSelectedAgentsByName(existingCfg, newAgents, selectArg, dryRun)
+		return addSelectedAgentsByName(existingCfg, newAgents, selectArg, dryRun, mode)
 	}
 
 	// Interactive mode
@@ -1280,11 +1387,11 @@ func reinitWithDiscover(existingCfg *config.Config, selectArg string, dryRun boo
 		return nil
 	}
 
-	return saveAddedAgents(existingCfg, selectedNames, dryRun)
+	return saveAddedAgents(existingCfg, selectedNames, dryRun, mode)
 }
 
 // addSelectedAgentsByName adds agents specified by --select flag (non-interactive)
-func addSelectedAgentsByName(existingCfg *config.Config, newAgents []agentInfo, selectArg string, dryRun bool) error {
+func addSelectedAgentsByName(existingCfg *config.Config, newAgents []agentInfo, selectArg string, dryRun bool, mode string) error {
 	defaultTargets := config.DefaultTargets()
 
 	// Build a map of available new agents for quick lookup
@@ -1318,6 +1425,7 @@ func addSelectedAgentsByName(existingCfg *config.Config, newAgents []agentInfo, 
 
 		// Add to config
 		if target, ok := defaultTargets[name]; ok {
+			target.Mode = modeOverrideForTarget(mode, existingCfg.Mode)
 			existingCfg.Targets[name] = target
 			addedNames = append(addedNames, name)
 		}

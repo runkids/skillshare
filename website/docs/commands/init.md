@@ -77,6 +77,19 @@ skillshare init -p --discover --select gemini  # Non-interactive
 
 Scans the project directory for new AI CLI directories (e.g., `.gemini/`) and adds them as targets.
 
+### Discover + Mode behavior
+
+When you combine `--discover` with `--mode`, the mode is applied **only** to targets added in this discover run.
+Existing targets in config are left unchanged.
+
+```bash
+# Adds cursor with mode=copy, does not change existing targets
+skillshare init --discover --select cursor --mode copy
+
+# Project mode variant (same rule)
+skillshare init -p --discover --select cursor --mode copy
+```
+
 :::tip
 If you run `skillshare init` on an already-initialized setup without `--discover`, the error message will hint you to use it.
 :::
@@ -93,6 +106,7 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 | `--targets, -t <list>` | Comma-separated target names |
 | `--all-targets` | Add all detected targets |
 | `--no-targets` | Skip target selection |
+| `--mode, -m <mode>` | Set default mode for newly configured targets (`merge`, `copy`, `symlink`). With `--discover`, affects only newly added targets. |
 | `--git` | Initialize git without prompting |
 | `--no-git` | Skip git initialization |
 | `--skill` | Install built-in skillshare skill without prompting (adds `/skillshare` to AI CLIs) |
@@ -100,6 +114,13 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 | `--discover, -d` | Detect and add new AI CLI targets to existing config |
 | `--select <list>` | Comma-separated targets to add (requires `--discover`) |
 | `--dry-run, -n` | Preview without changes |
+
+`init` sets your starting mode policy. You can always fine-tune per target later:
+
+```bash
+skillshare target cursor --mode copy
+skillshare sync
+```
 
 ## Common Scenarios
 
@@ -139,7 +160,13 @@ skillshare init -p --targets claude,cursor
 # Fully non-interactive setup
 skillshare init --no-copy --all-targets --git --skill
 
+# Start with copy mode defaults for newly added targets
+skillshare init --mode copy
+
 # Add newly installed CLIs to existing config
 skillshare init --discover
 skillshare init -p --discover
+
+# Add a newly discovered target and force copy mode only for that new target
+skillshare init --discover --select cursor --mode copy
 ```

@@ -42,12 +42,8 @@
 
 > [!NOTE]
 > **Recent Updates**
-> | Version | Highlights |
-> |---------|------------|
-> | [0.15.x](https://github.com/runkids/skillshare/releases/tag/v0.15.4) | Supply-chain security (threshold-based audit gate with rollback on install/update, `--threshold`/`-T` override, content hash pinning, `--diff` for `update`), copy sync mode, HTTPS token auth, multi-name `audit` with `--group` |
-> | [0.14.0](https://github.com/runkids/skillshare/releases/tag/v0.14.0) | Global skill manifest, `.skillignore`, multi-skill/group uninstall, license display, 6 new audit rules |
-> | [0.13.0](https://github.com/runkids/skillshare/releases/tag/v0.13.0) | Skill-level targets, XDG compliance, unified target names, runtime UI download |
-> | [0.12.0](https://github.com/runkids/skillshare/releases/tag/v0.12.0) | Skill Hub — generate indexes, search private catalogs with `--hub` |
+> - **[0.15.x](https://github.com/runkids/skillshare/releases/tag/v0.15.4)**: Supply-chain security hardening, copy sync mode, HTTPS token auth.
+> - Full history: [All Releases](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -56,6 +52,7 @@ Stop managing skills tool-by-tool.
 
 - **One command, everywhere**: Sync to Claude Code, Codex, Cursor, OpenCode, and more with `skillshare sync`.
 - **Safe by default**: Non-destructive merge mode keeps CLI-local skills intact while sharing team skills.
+- **Per-target mode control**: Keep a global default, then tune specific targets with `skillshare target <name> --mode <merge|copy|symlink>`.
 - **True bidirectional flow**: Pull skills back from targets with `collect` so improvements never get trapped in one tool.
 - **Cross-machine ready**: Git-native `push`/`pull` keeps all your devices aligned.
 - **Team + project friendly**: Use global skills for personal workflows and `.skillshare/` for repo-scoped collaboration.
@@ -109,6 +106,7 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 | Windows | `%AppData%\skillshare\skills\` | NTFS Junctions (no admin required) |
 
 > Targets that can't follow symlinks? Use `skillshare target <name> --mode copy` to sync as real files instead.
+> You can mix modes by target. See the [Sync Modes guide](https://skillshare.runkids.cc/docs/concepts/sync-modes) and [`target` command docs](https://skillshare.runkids.cc/docs/commands/target).
 
 > [!TIP]
 > Skills can be organized in folders (e.g. `frontend/react/react-best-practices/`) — they're auto-flattened on sync. See the [Organizing Guide](https://skillshare.runkids.cc/docs/guides/organizing-skills) and [runkids/my-skills](https://github.com/runkids/my-skills) for a real-world example.

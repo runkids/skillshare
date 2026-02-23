@@ -714,6 +714,37 @@ targets:
 	}
 }
 
+func TestInit_Discover_WithMode_OnlyAppliesToNewTargets(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	claudeSkillsPath := filepath.Join(sb.Home, ".claude", "skills")
+	cursorSkillsPath := filepath.Join(sb.Home, ".cursor", "skills")
+	os.MkdirAll(claudeSkillsPath, 0755)
+	os.MkdirAll(cursorSkillsPath, 0755)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + claudeSkillsPath + `
+    mode: symlink
+`)
+
+	result := sb.RunCLI("init", "--discover", "--select", "cursor", "--mode", "copy")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Added 1 agent")
+
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(configContent, "mode: symlink") {
+		t.Errorf("existing target mode should remain unchanged, got:\n%s", configContent)
+	}
+	if !strings.Contains(configContent, "cursor:") || !strings.Contains(configContent, "mode: copy") {
+		t.Errorf("new target should be added with mode copy, got:\n%s", configContent)
+	}
+}
+
 func TestInit_Discover_WithSelect_MultipleAgents(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -821,6 +852,34 @@ targets: {}
 
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Unknown agent")
+}
+
+func TestInit_ModeFlag_SetsDefaultMode(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+
+	result := sb.RunCLI("init", "--mode", "copy", "--no-copy", "--no-targets", "--no-git", "--no-skill")
+
+	result.AssertSuccess(t)
+
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(configContent, "mode: copy") {
+		t.Errorf("config should contain mode: copy, got:\n%s", configContent)
+	}
+}
+
+func TestInit_ModeFlag_Invalid(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+
+	result := sb.RunCLI("init", "--mode", "invalid", "--no-copy", "--no-targets", "--no-git", "--no-skill")
+
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "invalid --mode value")
 }
 
 // ============================================

@@ -99,6 +99,51 @@ targets: {}
 	result.AssertOutputContains(t, "Symlink")
 }
 
+func TestDoctor_ShowsPerTargetModeHint(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	claudePath := sb.CreateTarget("claude")
+	cursorPath := sb.CreateTarget("cursor")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + claudePath + `
+  cursor:
+    path: ` + cursorPath + `
+`)
+
+	result := sb.RunCLI("doctor")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "tune sync mode per target")
+	result.AssertOutputContains(t, "skillshare target cursor --mode copy && skillshare sync")
+}
+
+func TestDoctor_DoesNotShowPerTargetModeHint_ForClaudeCodexOnly(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	claudePath := sb.CreateTarget("claude")
+	codexPath := sb.CreateTarget("codex")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + claudePath + `
+  codex:
+    path: ` + codexPath + `
+`)
+
+	result := sb.RunCLI("doctor")
+
+	result.AssertSuccess(t)
+	result.AssertOutputNotContains(t, "tune sync mode per target")
+}
+
 func TestDoctor_TargetIssues_ShowsProblems(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

@@ -67,6 +67,7 @@ For each target:
   - `merge` mode: skipped (local skills are expected)
   - `copy` mode: manifest-managed copies are ignored; only local colliding copies are warned
 - Valid include/exclude glob patterns
+- Info-level per-target compatibility hint when applicable (example target priority: `cursor` → `antigravity` → `copilot` → `opencode`; no hint when these targets are absent)
 
 ### Version
 

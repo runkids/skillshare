@@ -199,8 +199,21 @@ git add → commit → push`"]
 | Mode | Behavior | Use case |
 |------|----------|----------|
 | `merge` | Each skill symlinked individually | **Default.** Preserves local skills. |
-| `copy` | Each skill copied as real files | AI CLIs that can't follow symlinks (Cursor, Copilot CLI); vendoring skills into a project repo. |
+| `copy` | Each skill copied as real files | Compatibility-first setups, vendoring skills into a project repo, or environments where symlink behavior is unreliable. |
 | `symlink` | Entire directory is one symlink | Exact copies everywhere. |
+
+Per-target override remains the primary tuning knob:
+
+```bash
+skillshare target <name> --mode copy
+skillshare sync
+```
+
+When `sync` prints a compatibility hint, the example target is chosen in this priority:
+`cursor` → `antigravity` → `copilot` → `opencode`.
+If none of these targets exist (or they already run `copy`), no compatibility hint is shown.
+
+See [Sync Modes](/docs/concepts/sync-modes) for a neutral decision matrix.
 
 ### Per-target include/exclude filters
 

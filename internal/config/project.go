@@ -22,7 +22,7 @@ var projectSchemaComment = []byte("# yaml-language-server: $schema=" + ProjectSc
 type ProjectTargetEntry struct {
 	Name    string
 	Path    string
-	Mode    string // "merge" or "symlink", default "merge"
+	Mode    string // "merge", "copy", or "symlink"; default "merge"
 	Include []string
 	Exclude []string
 }
