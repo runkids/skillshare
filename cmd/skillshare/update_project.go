@@ -165,8 +165,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 
 	// Batch mode
 	total := len(targets)
-	ui.HeaderBox("skillshare update",
-		fmt.Sprintf("Updating %d skill(s)", total))
+	ui.Header(fmt.Sprintf("Updating %d skill(s)", total))
 	fmt.Println()
 
 	if opts.dryRun {
@@ -376,8 +375,7 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 	}
 
 	if total > 1 {
-		ui.HeaderBox("skillshare update --all",
-			fmt.Sprintf("Updating %d skill(s)", total))
+		ui.Header(fmt.Sprintf("Updating %d skill(s)", total))
 		fmt.Println()
 	}
 

@@ -294,8 +294,7 @@ func cmdUpdate(args []string) error {
 
 	// Multiple targets: batch path
 	total := len(targets)
-	ui.HeaderBox("skillshare update",
-		fmt.Sprintf("Updating %d skill(s)", total))
+	ui.Header(fmt.Sprintf("Updating %d skill(s)", total))
 	fmt.Println()
 
 	var result updateResult
@@ -498,8 +497,7 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force, skipAudit, showDif
 	}
 
 	total := len(repos) + len(skills)
-	ui.HeaderBox("skillshare update --all",
-		fmt.Sprintf("Updating %d tracked repos + %d skills", len(repos), len(skills)))
+	ui.Header(fmt.Sprintf("Updating %d tracked repos + %d skills", len(repos), len(skills)))
 	fmt.Println()
 
 	var result updateResult
@@ -638,8 +636,7 @@ func resolveByBasename(sourceDir, name string) (resolvedMatch, error) {
 func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipAudit, showDiff bool, threshold string) error {
 	repoPath := filepath.Join(cfg.Source, repoName)
 
-	// Header box
-	ui.HeaderBox("skillshare update", fmt.Sprintf("Updating: %s", repoName))
+	ui.StepStart("Repo", repoName)
 	fmt.Println()
 
 	// Check for uncommitted changes
@@ -754,9 +751,8 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 		return fmt.Errorf("skill '%s' has no source metadata, cannot update", skillName)
 	}
 
-	// Header box
-	ui.HeaderBox("skillshare update",
-		fmt.Sprintf("Updating: %s\nSource: %s", skillName, meta.Source))
+	ui.StepStart("Skill", skillName)
+	ui.StepContinue("Source", meta.Source)
 	fmt.Println()
 
 	if dryRun {
