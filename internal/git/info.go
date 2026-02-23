@@ -1,8 +1,10 @@
 package git
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -154,6 +156,57 @@ func extractNumber(s string) int {
 	return n
 }
 
+func runGitWithProgress(repoPath string, args []string, extraEnv []string, onProgress func(string)) error {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = repoPath
+	if len(extraEnv) > 0 {
+		cmd.Env = append(os.Environ(), extraEnv...)
+	}
+
+	if onProgress == nil {
+		return cmd.Run()
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	if err := streamGitProgress(stderrPipe, onProgress); err != nil {
+		return err
+	}
+	return cmd.Wait()
+}
+
+func streamGitProgress(stderr io.Reader, onProgress func(string)) error {
+	scanner := bufio.NewScanner(stderr)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	scanner.Split(scanGitProgress)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line != "" {
+			onProgress(line)
+		}
+	}
+	return scanner.Err()
+}
+
+func scanGitProgress(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	for i, b := range data {
+		if b == '\n' || b == '\r' {
+			return i + 1, data[:i], nil
+		}
+	}
+	if atEOF && len(data) > 0 {
+		return len(data), data, nil
+	}
+	return 0, nil, nil
+}
+
 // Pull runs git pull and returns update info (quiet mode)
 func Pull(repoPath string) (*UpdateInfo, error) {
 	return PullWithEnv(repoPath, nil)
@@ -164,50 +217,49 @@ func PullWithAuth(repoPath string) (*UpdateInfo, error) {
 	return PullWithEnv(repoPath, AuthEnvForRepo(repoPath))
 }
 
-// PullWithEnv runs git pull and returns update info (quiet mode) with
-// additional environment variables.
-func PullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
+// PullWithProgress runs git pull and optionally streams progress lines to
+// onProgress when non-nil.
+func PullWithProgress(repoPath string, extraEnv []string, onProgress func(string)) (*UpdateInfo, error) {
 	info := &UpdateInfo{}
 
-	// Get full hash before pull (for reliable rollback)
 	beforeHash, err := GetCurrentFullHash(repoPath)
 	if err != nil {
 		return nil, err
 	}
 	info.BeforeHash = beforeHash
 
-	// Run git pull (quiet mode)
-	cmd := exec.Command("git", "pull", "--quiet")
-	cmd.Dir = repoPath
-	if len(extraEnv) > 0 {
-		cmd.Env = append(os.Environ(), extraEnv...)
+	args := []string{"pull", "--quiet"}
+	if onProgress != nil {
+		args = []string{"pull", "--progress"}
 	}
-	if err := cmd.Run(); err != nil {
+	if err := runGitWithProgress(repoPath, args, extraEnv, onProgress); err != nil {
 		return nil, err
 	}
 
-	// Get full hash after pull
 	afterHash, err := GetCurrentFullHash(repoPath)
 	if err != nil {
 		return nil, err
 	}
 	info.AfterHash = afterHash
 
-	// Check if already up to date by comparing hashes
 	if beforeHash == afterHash {
 		info.UpToDate = true
 		return info, nil
 	}
 
-	// Get commits between
 	commits, _ := GetCommitsBetween(repoPath, beforeHash, afterHash)
 	info.Commits = commits
 
-	// Get diff stats
 	stats, _ := GetDiffStats(repoPath, beforeHash, afterHash)
 	info.Stats = stats
 
 	return info, nil
+}
+
+// PullWithEnv runs git pull and returns update info (quiet mode) with
+// additional environment variables.
+func PullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
+	return PullWithProgress(repoPath, extraEnv, nil)
 }
 
 // FileChange describes a single file change between two git revisions.
@@ -600,36 +652,38 @@ func ForcePullWithAuth(repoPath string) (*UpdateInfo, error) {
 	return ForcePullWithEnv(repoPath, AuthEnvForRepo(repoPath))
 }
 
-// ForcePullWithEnv fetches and resets to origin with additional env vars.
-func ForcePullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
+// ForcePullWithProgress runs fetch+hard-reset and optionally streams fetch
+// progress lines when onProgress is non-nil.
+func ForcePullWithProgress(repoPath string, extraEnv []string, onProgress func(string)) (*UpdateInfo, error) {
 	info := &UpdateInfo{}
 
-	// Get full hash before (for reliable rollback)
 	beforeHash, err := GetCurrentFullHash(repoPath)
 	if err != nil {
 		return nil, err
 	}
 	info.BeforeHash = beforeHash
 
-	// Get current branch
 	branch, err := GetCurrentBranch(repoPath)
 	if err != nil {
 		return nil, err
 	}
 
-	// Fetch
-	if err := FetchWithEnv(repoPath, extraEnv); err != nil {
+	fetchArgs := []string{"fetch"}
+	if onProgress == nil {
+		fetchArgs = []string{"fetch", "--quiet"}
+	} else {
+		fetchArgs = []string{"fetch", "--progress"}
+	}
+	if err := runGitWithProgress(repoPath, fetchArgs, extraEnv, onProgress); err != nil {
 		return nil, err
 	}
 
-	// Reset to origin/branch
 	cmd := exec.Command("git", "reset", "--hard", "origin/"+branch)
 	cmd.Dir = repoPath
 	if err := cmd.Run(); err != nil {
 		return nil, err
 	}
 
-	// Get full hash after
 	afterHash, err := GetCurrentFullHash(repoPath)
 	if err != nil {
 		return nil, err
@@ -641,15 +695,18 @@ func ForcePullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
 		return info, nil
 	}
 
-	// Get commits between (may fail if history diverged, that's ok)
 	commits, _ := GetCommitsBetween(repoPath, beforeHash, afterHash)
 	info.Commits = commits
 
-	// Get diff stats
 	stats, _ := GetDiffStats(repoPath, beforeHash, afterHash)
 	info.Stats = stats
 
 	return info, nil
+}
+
+// ForcePullWithEnv fetches and resets to origin with additional env vars.
+func ForcePullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
+	return ForcePullWithProgress(repoPath, extraEnv, nil)
 }
 
 // AuthEnvForRepo returns HTTPS token auth env vars for the repo's origin remote.

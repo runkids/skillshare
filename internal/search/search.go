@@ -5,14 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
-	"os"
-	"os/exec"
 	"sort"
 	"strings"
 	"sync"
-	"time"
+
+	ghclient "skillshare/internal/github"
 )
 
 // SearchResult represents a skill found via search
@@ -31,20 +29,8 @@ type SearchResult struct {
 	Score       float64  `json:"-"`                   // Internal relevance score, hidden from JSON output
 }
 
-// RateLimitError indicates GitHub API rate limit was exceeded
-type RateLimitError struct {
-	Limit     string
-	Remaining string
-	Reset     string
-}
-
-func (e *RateLimitError) Error() string {
-	msg := "GitHub API rate limit exceeded"
-	if e.Remaining == "0" {
-		msg += fmt.Sprintf(" (0/%s remaining)", e.Limit)
-	}
-	return msg
-}
+// RateLimitError indicates GitHub API rate limit was exceeded.
+type RateLimitError = ghclient.RateLimitError
 
 // AuthRequiredError indicates GitHub API requires authentication
 type AuthRequiredError struct{}
@@ -185,19 +171,19 @@ func fetchCodeSearchResults(query string) (*gitHubSearchResponse, error) {
 		100, // GitHub API max per page
 	)
 
-	req, err := newGitHubRequest(apiURL)
+	req, err := ghclient.NewRequest(apiURL)
 	if err != nil {
 		return nil, err
 	}
 
-	client := newGitHubClient()
+	client := ghclient.NewClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("network error: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if err := checkRateLimit(resp); err != nil {
+	if err := ghclient.CheckRateLimit(resp); err != nil {
 		return nil, err
 	}
 
@@ -396,12 +382,12 @@ func scoreAndSort(results []SearchResult, query string) {
 func fetchRepoStars(owner, repo string) (int, error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo)
 
-	req, err := newGitHubRequest(apiURL)
+	req, err := ghclient.NewRequest(apiURL)
 	if err != nil {
 		return 0, err
 	}
 
-	client := newGitHubClient()
+	client := ghclient.NewClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
@@ -434,12 +420,12 @@ func fetchSkillMetadata(owner, repo, path string) (desc, name string, err error)
 		owner, repo, url.PathEscape(skillPath),
 	)
 
-	req, err := newGitHubRequest(apiURL)
+	req, err := ghclient.NewRequest(apiURL)
 	if err != nil {
 		return "", "", err
 	}
 
-	client := newGitHubClient()
+	client := ghclient.NewClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", "", err
@@ -505,82 +491,6 @@ func lastPathSegment(path string) string {
 		return path[idx+1:]
 	}
 	return path
-}
-
-// newGitHubClient creates an HTTP client for GitHub API
-func newGitHubClient() *http.Client {
-	return &http.Client{Timeout: 15 * time.Second}
-}
-
-// newGitHubRequest creates a request with auth header if token is available
-func newGitHubRequest(url string) (*http.Request, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	// Try to get token from various sources
-	token := getGitHubToken()
-	if token != "" {
-		req.Header.Set("Authorization", "token "+token)
-	}
-
-	return req, nil
-}
-
-// cachedGHToken caches the result of gh auth token command
-var cachedGHToken string
-var ghTokenChecked bool
-
-// getGitHubToken attempts to get a GitHub token from various sources
-func getGitHubToken() string {
-	// 1. Check GITHUB_TOKEN environment variable
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		return token
-	}
-
-	// 2. Check GH_TOKEN environment variable (used by gh CLI)
-	if token := os.Getenv("GH_TOKEN"); token != "" {
-		return token
-	}
-
-	// 3. Try to get token from gh CLI (cached)
-	if ghTokenChecked {
-		return cachedGHToken
-	}
-	ghTokenChecked = true
-
-	token, err := getGHCLIToken()
-	if err == nil && token != "" {
-		cachedGHToken = token
-		return token
-	}
-
-	return ""
-}
-
-// getGHCLIToken attempts to get token from gh CLI
-func getGHCLIToken() (string, error) {
-	cmd := exec.Command("gh", "auth", "token")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(output)), nil
-}
-
-// checkRateLimit checks response for rate limit errors
-func checkRateLimit(resp *http.Response) error {
-	if resp.StatusCode == 403 || resp.StatusCode == 429 {
-		return &RateLimitError{
-			Limit:     resp.Header.Get("X-RateLimit-Limit"),
-			Remaining: resp.Header.Get("X-RateLimit-Remaining"),
-			Reset:     resp.Header.Get("X-RateLimit-Reset"),
-		}
-	}
-	return nil
 }
 
 // FormatStars formats star count for display (e.g., 2400 -> 2.4k)

@@ -1,7 +1,6 @@
 package install
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -17,11 +16,12 @@ import (
 
 // InstallOptions configures the install behavior
 type InstallOptions struct {
-	Name             string   // Override skill name
-	Force            bool     // Overwrite existing
-	DryRun           bool     // Preview only
-	Update           bool     // Update existing installation
-	Track            bool     // Install as tracked repository (preserves .git)
+	Name             string // Override skill name
+	Force            bool   // Overwrite existing
+	DryRun           bool   // Preview only
+	Update           bool   // Update existing installation
+	Track            bool   // Install as tracked repository (preserves .git)
+	OnProgress       ProgressCallback
 	Skills           []string // Select specific skills from multi-skill repo (comma-separated)
 	Exclude          []string // Skills to exclude from installation (comma-separated)
 	All              bool     // Install all discovered skills without prompting
@@ -61,9 +61,11 @@ type SkillInfo struct {
 
 // DiscoveryResult contains discovered skills from a repository
 type DiscoveryResult struct {
-	RepoPath string      // Temp directory where repo was cloned
-	Skills   []SkillInfo // Discovered skills
-	Source   *Source     // Original source
+	RepoPath   string      // Temp directory where repo was cloned
+	Skills     []SkillInfo // Discovered skills
+	Source     *Source     // Original source
+	CommitHash string      // Source commit hash when available
+	Warnings   []string    // Non-fatal warnings during discovery
 }
 
 var removeAll = os.RemoveAll
@@ -172,7 +174,7 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 	}
 
 	// Clone the repository
-	if err := cloneRepo(source.CloneURL, destPath, true); err != nil {
+	if err := cloneRepo(source.CloneURL, destPath, true, opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -197,6 +199,12 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 
 // DiscoverFromGit clones a repo and discovers available skills
 func DiscoverFromGit(source *Source) (*DiscoveryResult, error) {
+	return DiscoverFromGitWithProgress(source, nil)
+}
+
+// DiscoverFromGitWithProgress clones a repo, optionally streaming git progress,
+// and discovers available skills.
+func DiscoverFromGitWithProgress(source *Source, onProgress ProgressCallback) (*DiscoveryResult, error) {
 	if !isGitInstalled() {
 		return nil, fmt.Errorf("git is not installed or not in PATH")
 	}
@@ -208,7 +216,7 @@ func DiscoverFromGit(source *Source) (*DiscoveryResult, error) {
 	}
 
 	repoPath := filepath.Join(tempDir, "repo")
-	if err := cloneRepo(source.CloneURL, repoPath, true); err != nil {
+	if err := cloneRepo(source.CloneURL, repoPath, true, onProgress); err != nil {
 		os.RemoveAll(tempDir)
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
@@ -224,10 +232,13 @@ func DiscoverFromGit(source *Source) (*DiscoveryResult, error) {
 		}
 	}
 
+	commitHash, _ := getGitCommit(repoPath)
+
 	return &DiscoveryResult{
-		RepoPath: tempDir,
-		Skills:   skills,
-		Source:   source,
+		RepoPath:   tempDir,
+		Skills:     skills,
+		Source:     source,
+		CommitHash: commitHash,
 	}, nil
 }
 
@@ -365,6 +376,12 @@ func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
 // DiscoverFromGitSubdir clones a repo and discovers skills within a subdirectory
 // Unlike DiscoverFromGit, this includes root-level SKILL.md of the subdir
 func DiscoverFromGitSubdir(source *Source) (*DiscoveryResult, error) {
+	return DiscoverFromGitSubdirWithProgress(source, nil)
+}
+
+// DiscoverFromGitSubdirWithProgress clones a repo and discovers skills within
+// a subdirectory while optionally streaming git progress output.
+func DiscoverFromGitSubdirWithProgress(source *Source, onProgress ProgressCallback) (*DiscoveryResult, error) {
 	if !isGitInstalled() {
 		return nil, fmt.Errorf("git is not installed or not in PATH")
 	}
@@ -373,19 +390,70 @@ func DiscoverFromGitSubdir(source *Source) (*DiscoveryResult, error) {
 		return nil, fmt.Errorf("source has no subdirectory specified")
 	}
 
-	// Clone to temp directory
+	// Prepare temporary repo directory
 	tempDir, err := os.MkdirTemp("", "skillshare-discover-*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-
 	repoPath := filepath.Join(tempDir, "repo")
-	if err := cloneRepo(source.CloneURL, repoPath, true); err != nil {
+	var warnings []string
+	var commitHash string
+	var subdirPath string
+
+	// Fast path 1: GitHub/GHE Contents API
+	if isGitHubAPISource(source) {
+		owner, repo := source.GitHubOwner(), source.GitHubRepo()
+		subdirPath = filepath.Join(repoPath, source.Subdir)
+		hash, dlErr := downloadGitHubDir(owner, repo, source.Subdir, subdirPath, source, onProgress)
+		if dlErr == nil {
+			commitHash = hash
+			skills := discoverSkills(subdirPath, true)
+			return &DiscoveryResult{
+				RepoPath:   tempDir,
+				Skills:     skills,
+				Source:     source,
+				CommitHash: commitHash,
+			}, nil
+		}
+		warnings = append(warnings, fmt.Sprintf("GitHub API discovery fallback: %v", dlErr))
+		_ = os.RemoveAll(repoPath)
+	}
+
+	// Fast path 2: sparse checkout for non-GitHub hosts
+	if !isGitHubAPISource(source) && gitSupportsSparseCheckout() {
+		if err := sparseCloneSubdir(source.CloneURL, source.Subdir, repoPath, authEnv(source.CloneURL), onProgress); err == nil {
+			subdirPath = filepath.Join(repoPath, source.Subdir)
+			if info, statErr := os.Stat(subdirPath); statErr == nil && info.IsDir() {
+				if hash, hashErr := getGitCommit(repoPath); hashErr == nil {
+					commitHash = hash
+				}
+				skills := discoverSkills(subdirPath, true)
+				return &DiscoveryResult{
+					RepoPath:   tempDir,
+					Skills:     skills,
+					Source:     source,
+					CommitHash: commitHash,
+					Warnings:   warnings,
+				}, nil
+			}
+			warnings = append(warnings, "sparse checkout discovery fallback: subdirectory missing after checkout")
+			_ = os.RemoveAll(repoPath)
+		} else {
+			warnings = append(warnings, fmt.Sprintf("sparse checkout discovery fallback: %v", err))
+			_ = os.RemoveAll(repoPath)
+		}
+	}
+
+	// Fallback: full clone + fuzzy subdir resolution
+	_ = os.RemoveAll(repoPath)
+	if onProgress != nil {
+		onProgress("Cloning repository...")
+	}
+	if err := cloneRepo(source.CloneURL, repoPath, true, onProgress); err != nil {
 		os.RemoveAll(tempDir)
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-	// Resolve subdirectory (exact match or fuzzy by skill name)
 	resolved, err := resolveSubdir(repoPath, source.Subdir)
 	if err != nil {
 		os.RemoveAll(tempDir)
@@ -395,15 +463,18 @@ func DiscoverFromGitSubdir(source *Source) (*DiscoveryResult, error) {
 		source.Subdir = resolved
 		source.Name = filepath.Base(resolved)
 	}
-	subdirPath := filepath.Join(repoPath, resolved)
+	subdirPath = filepath.Join(repoPath, resolved)
+	if hash, hashErr := getGitCommit(repoPath); hashErr == nil {
+		commitHash = hash
+	}
 
-	// Discover skills within the subdirectory (include root)
 	skills := discoverSkills(subdirPath, true)
-
 	return &DiscoveryResult{
-		RepoPath: tempDir,
-		Skills:   skills,
-		Source:   source,
+		RepoPath:   tempDir,
+		Skills:     skills,
+		Source:     source,
+		CommitHash: commitHash,
+		Warnings:   warnings,
 	}, nil
 }
 
@@ -492,7 +563,9 @@ func InstallFromDiscovery(discovery *DiscoveryResult, skill SkillInfo, destPath 
 		Name:     skill.Name,
 	}
 	meta := NewMetaFromSource(source)
-	if hash, err := getGitCommit(filepath.Join(discovery.RepoPath, "repo")); err == nil {
+	if discovery.CommitHash != "" {
+		meta.Version = discovery.CommitHash
+	} else if hash, err := getGitCommit(filepath.Join(discovery.RepoPath, "repo")); err == nil {
 		meta.Version = hash
 	}
 	if hashes, hashErr := ComputeFileHashes(destPath); hashErr == nil {
@@ -520,21 +593,68 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	defer os.RemoveAll(tempDir)
 
 	tempRepoPath := filepath.Join(tempDir, "repo")
-	if err := cloneRepo(source.CloneURL, tempRepoPath, true); err != nil {
-		return nil, fmt.Errorf("failed to clone repository: %w", err)
+	var subdirPath string
+	var resolved string
+	var commitHash string
+
+	// Fast path 1: GitHub/GHE Contents API
+	if isGitHubAPISource(source) {
+		owner, repo := source.GitHubOwner(), source.GitHubRepo()
+		resolved = source.Subdir
+		subdirPath = filepath.Join(tempRepoPath, resolved)
+		hash, dlErr := downloadGitHubDir(owner, repo, source.Subdir, subdirPath, source, opts.OnProgress)
+		if dlErr == nil {
+			commitHash = hash
+		} else {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("GitHub API install fallback: %v", dlErr))
+			subdirPath = ""
+			_ = os.RemoveAll(tempRepoPath)
+		}
 	}
 
-	// Resolve subdirectory (exact match or fuzzy by skill name)
-	resolved, err := resolveSubdir(tempRepoPath, source.Subdir)
-	if err != nil {
-		return nil, err
+	// Fast path 2: sparse checkout for non-GitHub hosts
+	if subdirPath == "" && !isGitHubAPISource(source) && gitSupportsSparseCheckout() {
+		resolved = source.Subdir
+		if err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, authEnv(source.CloneURL), opts.OnProgress); err == nil {
+			subdirPath = filepath.Join(tempRepoPath, resolved)
+			if info, statErr := os.Stat(subdirPath); statErr != nil || !info.IsDir() {
+				subdirPath = ""
+				result.Warnings = append(result.Warnings, "sparse checkout install fallback: subdirectory missing after checkout")
+				_ = os.RemoveAll(tempRepoPath)
+			} else if hash, hashErr := getGitCommit(tempRepoPath); hashErr == nil {
+				commitHash = hash
+			}
+		} else {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("sparse checkout install fallback: %v", err))
+			_ = os.RemoveAll(tempRepoPath)
+		}
 	}
-	if resolved != source.Subdir {
-		source.Subdir = resolved
-		source.Name = filepath.Base(resolved)
-		result.SkillName = source.Name
+
+	// Fallback: full clone + fuzzy subdir resolution
+	if subdirPath == "" {
+		_ = os.RemoveAll(tempRepoPath)
+		if opts.OnProgress != nil {
+			opts.OnProgress("Cloning repository...")
+		}
+		if err := cloneRepo(source.CloneURL, tempRepoPath, true, opts.OnProgress); err != nil {
+			return nil, fmt.Errorf("failed to clone repository: %w", err)
+		}
+
+		var err error
+		resolved, err = resolveSubdir(tempRepoPath, source.Subdir)
+		if err != nil {
+			return nil, err
+		}
+		if resolved != source.Subdir {
+			source.Subdir = resolved
+			source.Name = filepath.Base(resolved)
+			result.SkillName = source.Name
+		}
+		subdirPath = filepath.Join(tempRepoPath, resolved)
+		if hash, hashErr := getGitCommit(tempRepoPath); hashErr == nil {
+			commitHash = hash
+		}
 	}
-	subdirPath := filepath.Join(tempRepoPath, resolved)
 
 	// Copy subdirectory to destination
 	if err := copyDir(subdirPath, destPath); err != nil {
@@ -548,8 +668,8 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 
 	// Write metadata with file hashes
 	meta := NewMetaFromSource(source)
-	if hash, err := getGitCommit(tempRepoPath); err == nil {
-		meta.Version = hash
+	if commitHash != "" {
+		meta.Version = commitHash
 	}
 	if hashes, hashErr := ComputeFileHashes(destPath); hashErr == nil {
 		meta.FileHashes = hashes
@@ -590,7 +710,7 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 			return nil, fmt.Errorf("failed to determine rollback commit before update (aborting for safety): empty commit hash")
 		}
 
-		if err := gitPull(destPath); err != nil {
+		if err := gitPull(destPath, opts.OnProgress); err != nil {
 			return nil, fmt.Errorf("failed to update: %w", err)
 		}
 
@@ -651,6 +771,7 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 		Force:            false,
 		DryRun:           false,
 		Update:           false,
+		OnProgress:       opts.OnProgress,
 		SkipAudit:        opts.SkipAudit,
 		AuditThreshold:   opts.AuditThreshold,
 		AuditProjectRoot: opts.AuditProjectRoot,
@@ -1036,22 +1157,7 @@ func runGitCommand(args []string, dir string) error {
 
 // runGitCommandEnv is like runGitCommand but accepts extra environment variables.
 func runGitCommandEnv(args []string, dir string, extraEnv []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), gitCommandTimeout)
-	defer cancel()
-
-	cmd := gitCommand(ctx, args...)
-	if dir != "" {
-		cmd.Dir = dir
-	}
-	cmd.Env = append(cmd.Env, extraEnv...)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		return wrapGitError(stderr.String(), err, usedTokenAuth(extraEnv))
-	}
-	return nil
+	return runGitCommandWithProgress(args, dir, extraEnv, nil)
 }
 
 func usedTokenAuth(extraEnv []string) bool {
@@ -1086,21 +1192,30 @@ func wrapGitError(stderr string, err error, tokenAuthAttempted bool) error {
 // cloneRepo performs a git clone (quiet mode for cleaner output).
 // If a token is available in env vars, it injects authentication via
 // GIT_CONFIG env vars without modifying the stored remote URL.
-func cloneRepo(url, destPath string, shallow bool) error {
-	args := []string{"clone", "--quiet"}
+func cloneRepo(url, destPath string, shallow bool, onProgress ProgressCallback) error {
+	args := []string{"clone"}
+	if onProgress != nil {
+		args = append(args, "--progress")
+	} else {
+		args = append(args, "--quiet")
+	}
 	if shallow {
 		args = append(args, "--depth", "1")
 	}
 	args = append(args, url, destPath)
-	return runGitCommandEnv(args, "", authEnv(url))
+	return runGitCommandWithProgress(args, "", authEnv(url), onProgress)
 }
 
 // gitPull performs a git pull (quiet mode).
 // If the remote uses HTTPS and a token is available, it injects
 // authentication via GIT_CONFIG env vars (same mechanism as cloneRepo).
-func gitPull(repoPath string) error {
+func gitPull(repoPath string, onProgress ProgressCallback) error {
 	remoteURL := getRemoteURL(repoPath)
-	return runGitCommandEnv([]string{"pull", "--quiet"}, repoPath, authEnv(remoteURL))
+	args := []string{"pull", "--quiet"}
+	if onProgress != nil {
+		args = []string{"pull", "--progress"}
+	}
+	return runGitCommandWithProgress(args, repoPath, authEnv(remoteURL), onProgress)
 }
 
 // getRemoteURL returns the fetch URL for the "origin" remote, or "".
@@ -1293,8 +1408,9 @@ func InstallTrackedRepo(source *Source, sourceDir string, opts InstallOptions) (
 		return result, nil
 	}
 
-	// Clone the repository (full clone, not shallow, to support updates)
-	if err := cloneRepoFull(source.CloneURL, destPath); err != nil {
+	// Clone tracked repos with a download-optimized strategy first, then
+	// fallback to the legacy full clone for compatibility.
+	if err := cloneTrackedRepo(source.CloneURL, destPath, opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -1347,7 +1463,7 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 		return nil, fmt.Errorf("failed to determine rollback commit before update (aborting for safety): empty commit hash")
 	}
 
-	if err := gitPull(repoPath); err != nil {
+	if err := gitPull(repoPath, opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to update: %w", err)
 	}
 
@@ -1368,8 +1484,82 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 }
 
 // cloneRepoFull performs a full git clone (quiet mode for cleaner output)
-func cloneRepoFull(url, destPath string) error {
-	return runGitCommandEnv([]string{"clone", "--quiet", url, destPath}, "", authEnv(url))
+func cloneRepoFull(url, destPath string, onProgress ProgressCallback) error {
+	args := []string{"clone", "--quiet", url, destPath}
+	if onProgress != nil {
+		args = []string{"clone", "--progress", url, destPath}
+	}
+	return runGitCommandWithProgress(args, "", authEnv(url), onProgress)
+}
+
+// cloneTrackedRepo clones a tracked repository with an optimized payload first
+// and falls back to full clone when the remote does not support partial/shallow
+// capabilities.
+func cloneTrackedRepo(url, destPath string, onProgress ProgressCallback) error {
+	args := []string{
+		"clone",
+		"--filter=blob:none",
+		"--depth", "1",
+		"--single-branch",
+		"--quiet",
+		url,
+		destPath,
+	}
+	if onProgress != nil {
+		args = []string{
+			"clone",
+			"--filter=blob:none",
+			"--depth", "1",
+			"--single-branch",
+			"--progress",
+			url,
+			destPath,
+		}
+	}
+
+	err := runGitCommandWithProgress(args, "", authEnv(url), onProgress)
+	if err == nil {
+		return nil
+	}
+	if !shouldFallbackTrackedClone(err) {
+		return err
+	}
+	if onProgress != nil {
+		onProgress("Remote lacks partial clone support; retrying standard clone...")
+	}
+	return cloneRepoFull(url, destPath, onProgress)
+}
+
+func shouldFallbackTrackedClone(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	s := strings.ToLower(err.Error())
+	if strings.Contains(s, "authentication failed") ||
+		strings.Contains(s, "could not read username") ||
+		strings.Contains(s, "terminal prompts disabled") ||
+		strings.Contains(s, "permission denied") ||
+		strings.Contains(s, "repository not found") {
+		return false
+	}
+
+	capabilityHints := []string{
+		"does not support",
+		"not support",
+		"filter",
+		"shallow",
+		"depth",
+		"single-branch",
+		"partial clone",
+		"dumb http",
+	}
+	for _, hint := range capabilityHints {
+		if strings.Contains(s, hint) {
+			return true
+		}
+	}
+	return false
 }
 
 // GetUpdatableSkills returns skill names that have metadata with a remote source.
