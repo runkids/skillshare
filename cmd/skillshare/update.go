@@ -813,8 +813,11 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 
 	spinner.Success(fmt.Sprintf("Updated %s", skillName))
 
-	for _, warning := range result.Warnings {
-		ui.Warning("%s", warning)
+	if len(result.Warnings) > 0 {
+		ui.SectionLabel("Audit Findings")
+		for _, warning := range result.Warnings {
+			ui.Warning("%s", warning)
+		}
 	}
 
 	renderUpdateAuditResult(result)

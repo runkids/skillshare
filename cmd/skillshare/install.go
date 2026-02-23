@@ -960,6 +960,11 @@ func renderInstallWarnings(skillName string, warnings []string, auditVerbose boo
 		return
 	}
 
+	// Visual separator for single-skill output (batch mode handles its own sections)
+	if skillName == "" {
+		ui.SectionLabel("Audit Findings")
+	}
+
 	if auditVerbose {
 		for _, warning := range warnings {
 			ui.Warning("%s", formatWarningWithSkill(skillName, warning))
