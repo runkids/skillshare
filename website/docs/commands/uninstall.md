@@ -9,6 +9,7 @@ Remove one or more skills or tracked repositories from the source directory. Ski
 ```bash
 skillshare uninstall my-skill              # Remove a single skill
 skillshare uninstall a b c --force         # Remove multiple skills at once
+skillshare uninstall --all                 # Remove all skills
 skillshare uninstall --group frontend      # Remove all skills in a group
 skillshare uninstall team-repo             # Remove tracked repository (_ prefix optional)
 ```
@@ -18,6 +19,7 @@ skillshare uninstall team-repo             # Remove tracked repository (_ prefix
 - Remove skills you no longer need (they move to trash for 7 days)
 - Clean up a tracked repository you've stopped using
 - Batch-remove an entire group of skills at once
+- Remove **all** skills at once with `--all`
 
 ![uninstall demo](/img/uninstall-demo.png)
 
@@ -36,6 +38,7 @@ flowchart TD
 
 | Flag | Description |
 |------|-------------|
+| `--all` | Remove **all** skills from source (requires confirmation) |
 | `--group, -G <name>` | Remove all skills in a group (prefix match, repeatable) |
 | `--force, -f` | Skip confirmation and ignore uncommitted changes |
 | `--dry-run, -n` | Preview without making changes |
@@ -50,6 +53,22 @@ skillshare uninstall alpha beta gamma --force
 ```
 
 When some skills are not found, the command **skips them with a warning** and continues removing the rest. It only fails if **all** specified skills are invalid.
+
+## Remove All
+
+Use `--all` to remove every skill from the source directory at once:
+
+```bash
+skillshare uninstall --all                 # Interactive confirmation
+skillshare uninstall --all --force         # Skip confirmation
+skillshare uninstall --all -n              # Preview what would be removed
+```
+
+`--all` cannot be combined with skill names or `--group`.
+
+:::tip Shell glob protection
+Running `skillshare uninstall *` without quotes causes your shell to expand `*` into file names in the current directory. Skillshare detects this and suggests using `--all` instead. Always quote the wildcard (`"*"`) or use `--all`.
+:::
 
 ## Group Removal
 
@@ -117,6 +136,11 @@ skillshare uninstall my-skill
 # Remove multiple skills
 skillshare uninstall skill-a skill-b skill-c --force
 
+# Remove all skills
+skillshare uninstall --all
+skillshare uninstall --all --force
+skillshare uninstall --all -n              # Preview
+
 # Remove by group
 skillshare uninstall --group frontend --force
 
@@ -140,10 +164,43 @@ Uninstalled skills are **moved to trash**, not permanently deleted:
 - **Reinstall hint:** If the skill was installed from a remote source, the reinstall command is shown
 - **Restore:** Use `skillshare trash restore <name>` to recover from trash
 
+Single skill (verbose):
+
 ```
-✓ Uninstalled: my-skill
+✓ Uninstalled skill: my-skill
 ℹ Moved to trash (7 days): ~/.local/share/skillshare/trash/my-skill_2026-01-20_15-30-00
 ℹ Reinstall: skillshare install github.com/user/repo/my-skill
+```
+
+Multiple skills (compact batch, ≤10):
+
+```
+✓ Uninstalled 4 skill(s) (0.1s)
+
+✓ pdf        skill
+✓ tdd        skill
+✓ security   group, 2 skills
+✗ bad-skill  failed to move to trash: ...
+
+ℹ Moved to trash (7 days).
+ℹ Run 'skillshare sync' to update all targets
+```
+
+Large batch (>10 targets) uses section labels for readability:
+
+```
+✓ Uninstalled 920, failed 2 (1.2s)
+
+  Failed
+✗ bad-a  failed to move to trash: permission denied
+✗ bad-b  failed to move to trash: permission denied
+
+  Removed
+✓ 920 uninstalled
+
+  Next Steps
+ℹ Moved to trash (7 days).
+ℹ Run 'skillshare sync' to update all targets
 ```
 
 To restore an accidentally uninstalled skill:
@@ -170,6 +227,7 @@ Uninstall skills or tracked repos from the project's `.skillshare/skills/`:
 ```bash
 skillshare uninstall my-skill -p                  # Remove a skill
 skillshare uninstall a b c -p -f                  # Remove multiple skills
+skillshare uninstall --all -p -f                   # Remove all project skills
 skillshare uninstall --group frontend -p -f        # Remove a group
 skillshare uninstall team-skills -p                # Tracked repo (_ prefix optional)
 ```

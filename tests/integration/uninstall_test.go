@@ -461,8 +461,9 @@ targets: {}
 	result := sb.RunCLI("uninstall", "fix-review", "security/", "--force")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Uninstalling 2 group(s)")
-	result.AssertOutputContains(t, "Uninstalled group: fix-review")
-	result.AssertOutputContains(t, "Uninstalled group: security")
+	result.AssertAnyOutputContains(t, "Uninstalled 2 group(s)")
+	result.AssertAnyOutputContains(t, "fix-review")
+	result.AssertAnyOutputContains(t, "security")
 
 	if sb.FileExists(filepath.Join(sb.SourcePath, "fix-review")) {
 		t.Error("fix-review group should be removed")
@@ -510,4 +511,126 @@ skills:
 	if !strings.Contains(cfg, "keep") {
 		t.Error("config should still contain keep from other group")
 	}
+}
+
+// --- --all tests ---
+
+func TestUninstall_AllFlag(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("alpha", map[string]string{"SKILL.md": "# Alpha"})
+	sb.CreateSkill("beta", map[string]string{"SKILL.md": "# Beta"})
+	sb.CreateSkill("gamma", map[string]string{"SKILL.md": "# Gamma"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+skills:
+  - name: alpha
+    source: github.com/org/alpha
+  - name: beta
+    source: github.com/org/beta
+  - name: gamma
+    source: github.com/org/gamma
+`)
+
+	result := sb.RunCLI("uninstall", "--all", "--force")
+	result.AssertSuccess(t)
+
+	for _, name := range []string{"alpha", "beta", "gamma"} {
+		if sb.FileExists(filepath.Join(sb.SourcePath, name)) {
+			t.Errorf("skill %s should be removed after --all", name)
+		}
+	}
+
+	// Config skills should be cleared
+	cfg := sb.ReadFile(sb.ConfigPath)
+	if strings.Contains(cfg, "alpha") || strings.Contains(cfg, "beta") || strings.Contains(cfg, "gamma") {
+		t.Error("config should not contain any skills after --all uninstall")
+	}
+}
+
+func TestUninstall_AllProject(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude")
+	projectSource := filepath.Join(projectRoot, ".skillshare", "skills")
+
+	sb.CreateProjectSkill(projectRoot, "skill-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateProjectSkill(projectRoot, "skill-b", map[string]string{"SKILL.md": "# B"})
+
+	sb.WriteProjectConfig(projectRoot, `skills:
+  - name: skill-a
+    source: github.com/org/a
+  - name: skill-b
+    source: github.com/org/b
+targets: {}
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "uninstall", "--all", "--force", "-p")
+	result.AssertSuccess(t)
+
+	for _, name := range []string{"skill-a", "skill-b"} {
+		if sb.FileExists(filepath.Join(projectSource, name)) {
+			t.Errorf("skill %s should be removed after --all in project mode", name)
+		}
+	}
+}
+
+func TestUninstall_AllMutualExclusion(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// --all + skill names
+	result := sb.RunCLI("uninstall", "--all", "skill-a")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--all cannot be used with skill names")
+
+	// --all + --group
+	result = sb.RunCLI("uninstall", "--all", "--group", "frontend")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--all cannot be used with --group")
+}
+
+func TestUninstall_AllDryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("dry-all-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateSkill("dry-all-b", map[string]string{"SKILL.md": "# B"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("uninstall", "--all", "-n")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "would move to trash")
+
+	// Skills should NOT be removed
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "dry-all-a")) {
+		t.Error("dry-all-a should not be removed in dry-run")
+	}
+	if !sb.FileExists(filepath.Join(sb.SourcePath, "dry-all-b")) {
+		t.Error("dry-all-b should not be removed in dry-run")
+	}
+}
+
+func TestUninstall_ShellGlobDetection(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Simulate what happens when shell expands * in a Go project directory
+	result := sb.RunCLI("uninstall", "README.md", "go.mod", "go.sum", "cmd", "internal", "--force")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--all")
 }
