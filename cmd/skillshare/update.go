@@ -324,8 +324,14 @@ func cmdUpdate(args []string) error {
 		}
 	}
 
+	useSections := total > 10
+
 	if !opts.dryRun {
-		fmt.Println()
+		if useSections {
+			ui.SectionLabel("Summary")
+		} else {
+			fmt.Println()
+		}
 		lines := []string{
 			"",
 			fmt.Sprintf("  Total:    %d", total),
@@ -340,7 +346,11 @@ func cmdUpdate(args []string) error {
 	}
 
 	if result.updated > 0 {
-		fmt.Println()
+		if useSections {
+			ui.SectionLabel("Next Steps")
+		} else {
+			fmt.Println()
+		}
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
 
@@ -533,8 +543,14 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force, skipAudit, showDif
 		}
 	}
 
+	useSections := total > 10
+
 	if !dryRun {
-		fmt.Println()
+		if useSections {
+			ui.SectionLabel("Summary")
+		} else {
+			fmt.Println()
+		}
 		lines := []string{
 			"",
 			fmt.Sprintf("  Total:    %d", total),
@@ -549,7 +565,11 @@ func updateAllTrackedRepos(cfg *config.Config, dryRun, force, skipAudit, showDif
 	}
 
 	if result.updated > 0 {
-		fmt.Println()
+		if useSections {
+			ui.SectionLabel("Next Steps")
+		} else {
+			fmt.Println()
+		}
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
 
