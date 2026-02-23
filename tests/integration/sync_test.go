@@ -759,6 +759,80 @@ targets:
 	}
 }
 
+func TestSync_MergeMode_ManifestPrunesOrphanDir(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("my-skill", map[string]string{"SKILL.md": "# My Skill"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	// First sync — creates symlink + manifest
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	if !sb.IsSymlink(filepath.Join(targetPath, "my-skill")) {
+		t.Fatal("my-skill should be a symlink after sync")
+	}
+
+	// Replace symlink with a real directory (simulates copy-mode residue)
+	os.Remove(filepath.Join(targetPath, "my-skill"))
+	os.MkdirAll(filepath.Join(targetPath, "my-skill"), 0755)
+	os.WriteFile(filepath.Join(targetPath, "my-skill", "SKILL.md"), []byte("# Copy"), 0644)
+
+	// Remove source skill (simulates uninstall)
+	os.RemoveAll(filepath.Join(sb.SourcePath, "my-skill"))
+
+	// Sync again — manifest knows my-skill was managed, so it should be pruned
+	result = sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	if sb.FileExists(filepath.Join(targetPath, "my-skill")) {
+		t.Error("manifest-tracked orphan directory should have been pruned")
+	}
+}
+
+func TestSync_MergeMode_ManifestPreservesUserDir(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("shared-skill", map[string]string{"SKILL.md": "# Shared"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	// Sync to establish manifest
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	// Manually create a user directory (never synced by skillshare)
+	userDir := filepath.Join(targetPath, "user-created")
+	os.MkdirAll(userDir, 0755)
+	os.WriteFile(filepath.Join(userDir, "SKILL.md"), []byte("# User"), 0644)
+
+	// Remove source skill
+	os.RemoveAll(filepath.Join(sb.SourcePath, "shared-skill"))
+
+	// Sync again — user-created should be preserved (not in manifest)
+	result = sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	if !sb.FileExists(userDir) {
+		t.Error("user-created directory should be preserved (not in manifest)")
+	}
+}
+
 func TestSync_MergeMode_InvalidFilterPatternFails(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

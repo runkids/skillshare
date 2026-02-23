@@ -204,7 +204,7 @@ func CreateSymlink(targetPath, sourcePath string) error {
 
 // SyncTarget performs the sync operation for a single target
 func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryRun bool) error {
-	// Remove copy-mode manifest if present (copy→symlink conversion)
+	// Remove manifest if present (merge/copy → symlink conversion)
 	if !dryRun {
 		RemoveManifest(target.Path) //nolint:errcheck
 	}
@@ -332,11 +332,6 @@ type MergeResult struct {
 func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun, force bool) (*MergeResult, error) {
 	result := &MergeResult{}
 
-	// Remove copy-mode manifest if present (copy→merge conversion)
-	if !dryRun {
-		RemoveManifest(target.Path) //nolint:errcheck
-	}
-
 	// Check if target is currently a symlink/junction (symlink mode) - need to convert to merge mode
 	info, err := os.Lstat(target.Path)
 	if err == nil && info != nil && utils.IsSymlinkOrJunction(target.Path) {
@@ -435,6 +430,19 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 		}
 	}
 
+	// Write manifest (additive: merge with existing entries)
+	if !dryRun {
+		manifest, _ := ReadManifest(target.Path)
+		for _, name := range result.Linked {
+			manifest.Managed[name] = "symlink"
+		}
+		for _, name := range result.Updated {
+			manifest.Managed[name] = "symlink"
+		}
+		// Skipped items are NOT added — they are user-local copies
+		WriteManifest(target.Path, manifest) //nolint:errcheck
+	}
+
 	return result, nil
 }
 
@@ -451,6 +459,10 @@ type PruneResult struct {
 // 3. Unknown local directories (kept with warning)
 func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, targetName string, dryRun, force bool) (*PruneResult, error) {
 	result := &PruneResult{}
+
+	// Read manifest for managed-directory detection (may be empty/absent)
+	manifest, _ := ReadManifest(targetPath)
+	manifestChanged := false
 
 	// Discover all skills from source, then filter to target-managed skills.
 	allSourceSkills, err := DiscoverSourceSkills(sourcePath)
@@ -511,6 +523,13 @@ func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, 
 		// - remove only symlinks/junctions that point to source (historical sync artifacts)
 		// - preserve local directories/files owned by users
 		if !managedByFilter {
+			// This entry is outside current filter scope, so it should no longer
+			// be treated as skillshare-managed for this target.
+			_, inManifest := manifest.Managed[name]
+			if inManifest {
+				delete(manifest.Managed, name)
+				manifestChanged = true
+			}
 			if utils.IsSymlinkOrJunction(entryPath) {
 				absLink, err := utils.ResolveLinkTarget(entryPath)
 				if err != nil {
@@ -528,6 +547,16 @@ func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, 
 					}
 					result.Removed = append(result.Removed, name)
 				}
+			} else if inManifest && info.IsDir() {
+				// Real directory previously managed by skillshare, now excluded by filter — remove it
+				if dryRun {
+					fmt.Printf("[dry-run] Would remove excluded managed directory: %s\n", entryPath)
+				} else if err := os.RemoveAll(entryPath); err != nil {
+					result.Warnings = append(result.Warnings,
+						fmt.Sprintf("%s: failed to remove excluded managed directory: %v", name, err))
+					continue
+				}
+				result.Removed = append(result.Removed, name)
 			}
 			continue
 		}
@@ -570,13 +599,16 @@ func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, 
 					fmt.Sprintf("%s: symlink to external location (%s), kept", name, absLink))
 			}
 		} else if info.IsDir() {
-			// It's a directory - check naming characteristics
-			// Safety check 2: Only remove if it has skillshare naming patterns
-			if utils.HasNestedSeparator(name) || utils.IsTrackedRepoDir(name) {
+			// Check manifest first (most reliable)
+			if _, inManifest := manifest.Managed[name]; inManifest {
+				shouldRemove = true
+				reason = "orphan skillshare-managed directory (manifest)"
+			} else if utils.HasNestedSeparator(name) || utils.IsTrackedRepoDir(name) {
+				// Fallback: naming pattern heuristic
 				shouldRemove = true
 				reason = "orphan skillshare-managed directory"
 			} else {
-				// Safety check 3: Unknown directory - warn and keep
+				// Unknown directory - warn and keep
 				result.Warnings = append(result.Warnings,
 					fmt.Sprintf("%s: unknown directory (not from skillshare), kept", name))
 			}
@@ -593,7 +625,17 @@ func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, 
 				}
 			}
 			result.Removed = append(result.Removed, name)
+			// Track manifest changes for cleanup
+			if _, inManifest := manifest.Managed[name]; inManifest {
+				delete(manifest.Managed, name)
+				manifestChanged = true
+			}
 		}
+	}
+
+	// Write back manifest if entries were removed (skip in dry-run)
+	if manifestChanged && !dryRun {
+		WriteManifest(targetPath, manifest) //nolint:errcheck
 	}
 
 	return result, nil

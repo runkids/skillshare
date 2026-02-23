@@ -46,7 +46,8 @@ claude
 For targets using merge mode (default):
 - Lists skills in that target's expected set (after `include`/`exclude`) not yet synced
 - Shows skills that exist as local copies instead of symlinks
-- Identifies local-only skills in target
+- Identifies orphan directories tracked by manifest (will be pruned on sync)
+- Identifies local-only skills in target (not in manifest — preserved)
 
 ### Copy Mode Targets
 

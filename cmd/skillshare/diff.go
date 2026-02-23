@@ -281,7 +281,7 @@ func showMergeDiff(targetName, targetPath, source string, sourceSkills map[strin
 			ui.Info("Run 'sync' to add missing, 'sync --force' to replace local copies")
 		}
 		if localCount > 0 {
-			ui.Info("Run 'pull %s' to import local-only skills to source", targetName)
+			ui.Info("Run 'collect %s' to import local-only skills to source", targetName)
 		}
 	}
 }

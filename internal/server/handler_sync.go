@@ -258,6 +258,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		for _, skill := range filtered {
 			validNames[skill.FlatName] = true
 		}
+		manifest, _ := ssync.ReadManifest(target.Path)
 		for _, entry := range entries {
 			eName := entry.Name()
 			if utils.IsHidden(eName) {
@@ -278,11 +279,13 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 							dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "excluded by filter"})
 						}
 					}
+				} else if _, inManifest := manifest.Managed[eName]; inManifest {
+					dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "excluded managed directory"})
 				}
 				continue
 			}
 			if !validNames[eName] {
-				_, err := os.Lstat(entryPath)
+				info, err := os.Lstat(entryPath)
 				if err != nil {
 					continue
 				}
@@ -295,8 +298,12 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 					if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
 						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan symlink"})
 					}
-				} else {
-					dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "local", Reason: "local only"})
+				} else if info.IsDir() {
+					if _, inManifest := manifest.Managed[eName]; inManifest {
+						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan managed directory (manifest)"})
+					} else {
+						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "local", Reason: "local only"})
+					}
 				}
 			}
 		}

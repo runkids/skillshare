@@ -7,12 +7,13 @@ import (
 	"time"
 )
 
-// ManifestFile is the filename for the copy-mode manifest.
+// ManifestFile is the filename for the sync manifest.
 const ManifestFile = ".skillshare-manifest.json"
 
-// Manifest tracks which skills are managed by copy mode in a target directory.
+// Manifest tracks which skills are managed by skillshare in a target directory.
+// Used by both merge mode (values: "symlink") and copy mode (values: SHA-256 checksum).
 type Manifest struct {
-	Managed   map[string]string `json:"managed"` // flatName → dirChecksum
+	Managed   map[string]string `json:"managed"` // flatName → "symlink" (merge) or SHA-256 checksum (copy)
 	UpdatedAt time.Time         `json:"updated_at"`
 }
 

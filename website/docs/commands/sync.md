@@ -102,7 +102,7 @@ skillshare sync -f           # Short form
 ```mermaid
 flowchart TD
     TITLE["skillshare sync"]
-    S1["1. Backup targets"]
+    S1["1. Backup targets (global only)"]
     S2["2. For each target"]
     MERGE["merge mode"]
     SYMLINK["symlink mode"]
@@ -312,7 +312,7 @@ skills/                         ~/.claude/skills/
 ├── my-skill/        ────────►  ├── my-skill/ → (symlink)
 ├── another/         ────────►  ├── another/  → (symlink)
 └── ...                         ├── local-only/  (preserved)
-                                └── ...
+                                └── .skillshare-manifest.json
 ```
 
 ### Copy Mode
@@ -327,7 +327,7 @@ skills/                         ~/.cursor/skills/
                                 └── .skillshare-manifest.json
 ```
 
-A `.skillshare-manifest.json` tracks managed skills and checksums. Unchanged skills are skipped on re-sync; `--force` overwrites all.
+Both merge and copy modes write `.skillshare-manifest.json` to track managed skills. In copy mode, checksums enable incremental sync (unchanged skills are skipped); `--force` overwrites all.
 
 ### Symlink Mode
 
