@@ -22,6 +22,7 @@ func (e *RateLimitError) Error() string {
 	if e.Remaining == "0" {
 		msg += fmt.Sprintf(" (0/%s remaining)", e.Limit)
 	}
+	msg += "; set GITHUB_TOKEN/GH_TOKEN or run 'gh auth login'"
 	return msg
 }
 

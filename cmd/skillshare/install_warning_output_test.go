@@ -47,6 +47,8 @@ func TestRenderInstallWarnings_CompactSuppressesExtraDetails(t *testing.T) {
 		"audit HIGH: Finding two (b.md:2)",
 		"audit LOW: Finding three (c.md:3)",
 		"audit LOW: Finding four (d.md:4)",
+		"audit LOW: Finding five (e.md:5)",
+		"audit LOW: Finding six (f.md:6)",
 	}
 
 	output := captureStdout(t, func() {
@@ -54,10 +56,10 @@ func TestRenderInstallWarnings_CompactSuppressesExtraDetails(t *testing.T) {
 	})
 	output = stripANSIWarnings(output)
 
-	if !strings.Contains(output, "demo-skill: audit summary: HIGH=2, LOW=2") {
+	if !strings.Contains(output, "demo-skill: 6 finding(s): HIGH=2, LOW=4") {
 		t.Fatalf("expected compact summary in output, got:\n%s", output)
 	}
-	if !strings.Contains(output, "suppressed 1 audit finding line(s); re-run with --audit-verbose for full details") {
+	if !strings.Contains(output, "+1 more finding type(s); use --audit-verbose for full details") {
 		t.Fatalf("expected suppression hint in output, got:\n%s", output)
 	}
 }

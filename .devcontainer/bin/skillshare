@@ -20,7 +20,7 @@ if [ -z "$GO_BIN" ]; then
   exit 1
 fi
 
-wants_project_mode() {
+resolve_mode() {
   local mode="auto"
   local arg
   for arg in "$@"; do
@@ -29,7 +29,11 @@ wants_project_mode() {
       -g|--global) mode="global" ;;
     esac
   done
-  [ "$mode" = "project" ]
+  echo "$mode"
+}
+
+wants_project_mode() {
+  [ "$(resolve_mode "$@")" = "project" ]
 }
 
 canonical_dir() {
@@ -54,6 +58,17 @@ if wants_project_mode "$@" \
     echo "refusing project mode in $WORKSPACE_ROOT (demo project missing: $PROJECT_ROOT)" >&2
     exit 1
   fi
+fi
+
+# New-user guardrail in devcontainer:
+# At workspace root, auto mode resolves to /workspace/.skillshare when present.
+# Make this explicit and point to mode flags.
+if [ "$(resolve_mode "$@")" = "auto" ] \
+  && [ "$CURRENT_DIR" = "$WORKSPACE_DIR" ] \
+  && [ -f "$WORKSPACE_ROOT/.skillshare/config.yaml" ] \
+  && [ "${SKILLSHARE_DEV_SHOW_MODE_HINT:-1}" = "1" ]; then
+  echo "devcontainer: auto mode uses workspace project config ($WORKSPACE_ROOT/.skillshare)." >&2
+  echo "             use -g for global mode, or -p for demo project ($PROJECT_ROOT)." >&2
 fi
 
 # Devcontainer default: build from source for instant feedback, then run in caller cwd.
