@@ -175,7 +175,7 @@ func TestInstall_Malicious_SkipAudit(t *testing.T) {
 
 	result := sb.RunCLI("install", evilPath, "--skip-audit")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "audit skipped")
+	result.AssertAnyOutputContains(t, "skipped (--skip-audit)")
 
 	if !sb.FileExists(filepath.Join(sb.SourcePath, "evil-skip", "SKILL.md")) {
 		t.Error("skill should be installed with --skip-audit")
