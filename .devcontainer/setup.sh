@@ -23,6 +23,14 @@ if [ -f /workspace/.devcontainer/.env ]; then
 fi
 PROFILE_EOF
 
+# Keep devcontainer command wrappers ahead of /usr/local/bin in login shells.
+cat > /etc/profile.d/skillshare-path.sh << 'PROFILE_EOF'
+case ":$PATH:" in
+  *:/workspace/.devcontainer/bin:*) ;;
+  *) export PATH="/workspace/.devcontainer/bin:/workspace/bin:$PATH" ;;
+esac
+PROFILE_EOF
+
 # ── 1. Build CLI ────────────────────────────────────────────────────
 echo "▸ Building skillshare binary …"
 make build
