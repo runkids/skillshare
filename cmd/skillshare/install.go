@@ -2078,7 +2078,7 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 	}
 
 	spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
-	fmt.Println()
+	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to distribute to all targets")
 	summary.SkillCount = len(summary.InstalledSkills)
 

@@ -461,7 +461,7 @@ func performUninstall(target *uninstallTarget, cfg *config.Config) error {
 	if meta != nil && meta.Source != "" {
 		ui.Info("Reinstall: skillshare install %s", meta.Source)
 	}
-	fmt.Println()
+	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to update all targets")
 
 	// Opportunistic cleanup of expired trash items

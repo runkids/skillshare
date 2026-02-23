@@ -311,7 +311,7 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 	}
 
 	spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
-	fmt.Println()
+	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to create symlinks")
 	summary.SkillCount = len(summary.InstalledSkills)
 

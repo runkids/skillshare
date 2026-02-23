@@ -736,7 +736,7 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipA
 	}
 
 	ui.SuccessMsg("Updated %s", repoName)
-	fmt.Println()
+	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to distribute changes")
 
 	return nil
@@ -807,7 +807,7 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 		renderHashDiffSummary(beforeHashes, afterHashes)
 	}
 
-	fmt.Println()
+	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to distribute changes")
 
 	return nil
