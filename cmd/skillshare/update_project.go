@@ -164,17 +164,25 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	}
 
 	// Batch mode
+	total := len(targets)
+	ui.HeaderBox("skillshare update",
+		fmt.Sprintf("Updating %d skill(s)", total))
+	fmt.Println()
+
 	if opts.dryRun {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
 	updated := 0
+	skipped := 0
 	securityFailed := 0
 	for _, t := range targets {
 		if t.isRepo {
 			if err := updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, projectRoot); err != nil {
 				if isSecurityError(err) {
 					securityFailed++
+				} else {
+					skipped++
 				}
 				ui.Warning("%s: %v", t.name, err)
 			} else {
@@ -184,6 +192,8 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 			if err := updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, projectRoot); err != nil {
 				if isSecurityError(err) {
 					securityFailed++
+				} else {
+					skipped++
 				}
 				ui.Warning("%s: %v", t.name, err)
 			} else {
@@ -192,8 +202,33 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 		}
 	}
 
+	useSections := total > 10
+
+	if !opts.dryRun {
+		if useSections {
+			ui.SectionLabel("Summary")
+		} else {
+			fmt.Println()
+		}
+		lines := []string{
+			"",
+			fmt.Sprintf("  Total:    %d", total),
+			fmt.Sprintf("  Updated:  %d", updated),
+			fmt.Sprintf("  Skipped:  %d", skipped),
+		}
+		if securityFailed > 0 {
+			lines = append(lines, fmt.Sprintf("  Blocked:  %d (security)", securityFailed))
+		}
+		lines = append(lines, "")
+		ui.Box("Summary", lines...)
+	}
+
 	if updated > 0 && !opts.dryRun {
-		fmt.Println()
+		if useSections {
+			ui.SectionLabel("Next Steps")
+		} else {
+			fmt.Println()
+		}
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
 
@@ -334,11 +369,34 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 		return fmt.Errorf("failed to read project skills: %w", err)
 	}
 
+	// Count total updatable items for header
+	var total int
+	for _, entry := range entries {
+		if !entry.IsDir() || utils.IsHidden(entry.Name()) {
+			continue
+		}
+		p := filepath.Join(sourcePath, entry.Name())
+		if install.IsGitRepo(p) {
+			total++
+			continue
+		}
+		if meta, metaErr := install.ReadMeta(p); metaErr == nil && meta != nil && meta.Source != "" {
+			total++
+		}
+	}
+
+	if total > 1 {
+		ui.HeaderBox("skillshare update --all",
+			fmt.Sprintf("Updating %d skill(s)", total))
+		fmt.Println()
+	}
+
 	if dryRun {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
 	updated := 0
+	skipped := 0
 	securityFailed := 0
 	for _, entry := range entries {
 		if !entry.IsDir() || utils.IsHidden(entry.Name()) {
@@ -353,6 +411,8 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 			if err := updateProjectTrackedRepo(skillName, skillPath, dryRun, force, skipAudit, showDiff, threshold, projectRoot); err != nil {
 				if isSecurityError(err) {
 					securityFailed++
+				} else {
+					skipped++
 				}
 				ui.Warning("%s: %v", skillName, err)
 			} else {
@@ -370,6 +430,7 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 		source, err := install.ParseSource(meta.Source)
 		if err != nil {
 			ui.Warning("%s invalid source: %v", skillName, err)
+			skipped++
 			continue
 		}
 
@@ -395,6 +456,8 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 			spinner.Fail(fmt.Sprintf("%s failed: %v", skillName, err))
 			if isSecurityError(err) {
 				securityFailed++
+			} else {
+				skipped++
 			}
 			continue
 		}
@@ -409,8 +472,33 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 		updated++
 	}
 
+	useSections := total > 10
+
+	if !dryRun && total > 1 {
+		if useSections {
+			ui.SectionLabel("Summary")
+		} else {
+			fmt.Println()
+		}
+		lines := []string{
+			"",
+			fmt.Sprintf("  Total:    %d", total),
+			fmt.Sprintf("  Updated:  %d", updated),
+			fmt.Sprintf("  Skipped:  %d", skipped),
+		}
+		if securityFailed > 0 {
+			lines = append(lines, fmt.Sprintf("  Blocked:  %d (security)", securityFailed))
+		}
+		lines = append(lines, "")
+		ui.Box("Summary", lines...)
+	}
+
 	if updated > 0 && !dryRun {
-		fmt.Println()
+		if useSections {
+			ui.SectionLabel("Next Steps")
+		} else {
+			fmt.Println()
+		}
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
 
