@@ -202,14 +202,8 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 		}
 	}
 
-	useSections := total > 10
-
 	if !opts.dryRun {
-		if useSections {
-			ui.SectionLabel("Summary")
-		} else {
-			fmt.Println()
-		}
+		ui.SectionLabel("Summary")
 		lines := []string{
 			"",
 			fmt.Sprintf("  Total:    %d", total),
@@ -224,11 +218,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	}
 
 	if updated > 0 && !opts.dryRun {
-		if useSections {
-			ui.SectionLabel("Next Steps")
-		} else {
-			fmt.Println()
-		}
+		ui.SectionLabel("Next Steps")
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
 
@@ -472,14 +462,8 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 		updated++
 	}
 
-	useSections := total > 10
-
 	if !dryRun && total > 1 {
-		if useSections {
-			ui.SectionLabel("Summary")
-		} else {
-			fmt.Println()
-		}
+		ui.SectionLabel("Summary")
 		lines := []string{
 			"",
 			fmt.Sprintf("  Total:    %d", total),
@@ -494,11 +478,7 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 	}
 
 	if updated > 0 && !dryRun {
-		if useSections {
-			ui.SectionLabel("Next Steps")
-		} else {
-			fmt.Println()
-		}
+		ui.SectionLabel("Next Steps")
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
 

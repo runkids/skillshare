@@ -1604,8 +1604,6 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 		spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
 	}
 
-	useSections := len(results) > 10
-
 	// Show failures first with details
 	if failed > 0 {
 		var blockedFailures, otherFailures []skillInstallResult
@@ -1617,11 +1615,7 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 			otherFailures = append(otherFailures, r)
 		}
 
-		if useSections {
-			ui.SectionLabel("Blocked / Failed")
-		} else {
-			fmt.Println()
-		}
+		ui.SectionLabel("Blocked / Failed")
 		if len(blockedFailures) > 0 && !auditVerbose {
 			threshold := summarizeBlockedThreshold(blockedFailures)
 			ui.Warning("%d skill(s) blocked by security audit (%s threshold)", len(blockedFailures), formatBlockedThresholdLabel(threshold))
@@ -1667,11 +1661,7 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 
 	// Show successes — condensed when many
 	if installed > 0 {
-		if useSections {
-			ui.SectionLabel("Installed")
-		} else {
-			fmt.Println()
-		}
+		ui.SectionLabel("Installed")
 		switch {
 		case installed > 50:
 			ui.StepDone(fmt.Sprintf("%d skills installed", installed), "")
@@ -1697,11 +1687,7 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 	}
 
 	if totalWarnings > 0 {
-		if useSections {
-			ui.SectionLabel("Audit Warnings")
-		} else {
-			fmt.Println()
-		}
+		ui.SectionLabel("Audit Warnings")
 		if auditVerbose {
 			skillsWithWarnings := countSkillsWithWarnings(results)
 			if skillsWithWarnings <= 20 {
@@ -1735,11 +1721,7 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 	}
 
 	if installed > 0 {
-		if useSections {
-			ui.SectionLabel("Next Steps")
-		} else {
-			fmt.Println()
-		}
+		ui.SectionLabel("Next Steps")
 		ui.Info("Run 'skillshare sync' to distribute to all targets")
 	}
 }
