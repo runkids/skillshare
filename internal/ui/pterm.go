@@ -325,12 +325,24 @@ func (p *ProgressBar) Increment() {
 	}
 }
 
-// UpdateTitle updates progress bar title
+// UpdateTitle updates progress bar title. The title is padded or
+// truncated to a fixed width so that the bar width stays stable.
 func (p *ProgressBar) UpdateTitle(title string) {
+	const maxWidth = 40
+	// Truncate long titles with ellipsis
+	display := title
+	if len(display) > maxWidth {
+		display = display[:maxWidth-3] + "..."
+	}
+	// Pad to fixed width to prevent bar width from changing
+	if len(display) < maxWidth {
+		display += strings.Repeat(" ", maxWidth-len(display))
+	}
+
 	if p.bar != nil {
-		p.bar.UpdateTitle(title)
+		p.bar.UpdateTitle(display)
 	} else {
-		fmt.Printf("  %s\n", title)
+		fmt.Printf("  %s\n", strings.TrimRight(display, " "))
 	}
 }
 

@@ -679,6 +679,12 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		return logSummary, nil
 	}
 
+	// Non-TTY with large repo: require explicit flags
+	if !ui.IsTTY() && len(discovery.Skills) >= largeRepoThreshold {
+		ui.Info("Found %d skills. Non-interactive mode requires --all, --yes, or --skill <names>", len(discovery.Skills))
+		return logSummary, fmt.Errorf("interactive selection not available in non-TTY mode")
+	}
+
 	fmt.Println()
 
 	selected, err := promptSkillSelection(discovery.Skills)
@@ -786,6 +792,48 @@ func skillNames(skills []install.SkillInfo) string {
 	return strings.Join(names, ", ")
 }
 
+// largeRepoThreshold is the skill count above which the directory-based
+// selection UI is shown instead of a flat MultiSelect.
+const largeRepoThreshold = 50
+
+// directoryGroup groups discovered skills by their parent directory.
+type directoryGroup struct {
+	dir    string
+	skills []install.SkillInfo
+}
+
+// groupSkillsByDirectory groups skills by filepath.Dir(path).
+// Root-level skills (path "." or dir ".") are grouped under "(root)".
+// Groups are sorted alphabetically by directory name, with "(root)" first.
+func groupSkillsByDirectory(skills []install.SkillInfo) []directoryGroup {
+	groupMap := make(map[string][]install.SkillInfo)
+	for _, s := range skills {
+		dir := filepath.Dir(s.Path)
+		if dir == "." || s.Path == "." {
+			dir = "(root)"
+		}
+		groupMap[dir] = append(groupMap[dir], s)
+	}
+
+	groups := make([]directoryGroup, 0, len(groupMap))
+	for dir, dirSkills := range groupMap {
+		groups = append(groups, directoryGroup{dir: dir, skills: dirSkills})
+	}
+
+	sort.Slice(groups, func(i, j int) bool {
+		// "(root)" always first
+		if groups[i].dir == "(root)" {
+			return true
+		}
+		if groups[j].dir == "(root)" {
+			return false
+		}
+		return groups[i].dir < groups[j].dir
+	})
+
+	return groups
+}
+
 func promptSkillSelection(skills []install.SkillInfo) ([]install.SkillInfo, error) {
 	// Check for orchestrator structure (root + children)
 	var rootSkill *install.SkillInfo
@@ -801,6 +849,11 @@ func promptSkillSelection(skills []install.SkillInfo) ([]install.SkillInfo, erro
 	// If orchestrator structure detected, use two-stage selection
 	if rootSkill != nil && len(childSkills) > 0 {
 		return promptOrchestratorSelection(*rootSkill, childSkills)
+	}
+
+	// Large repo: directory-based selection with search
+	if len(skills) >= largeRepoThreshold {
+		return promptLargeRepoSelection(skills)
 	}
 
 	// Otherwise, use standard multi-select
@@ -839,6 +892,105 @@ func promptOrchestratorSelection(rootSkill install.SkillInfo, childSkills []inst
 
 	// Stage 2: Select individual skills (children only, no root)
 	return promptMultiSelect(childSkills)
+}
+
+// promptLargeRepoSelection presents a directory-based selection for large repos.
+// Stage 1: choose "install all", a directory group, or "search by name".
+// Stage 2: if a directory is chosen and has ≤50 skills, use promptMultiSelect;
+// otherwise recurse.
+func promptLargeRepoSelection(skills []install.SkillInfo) ([]install.SkillInfo, error) {
+	groups := groupSkillsByDirectory(skills)
+
+	// Build options: "Install all N skills", one per directory, "Search by name"
+	options := make([]string, 0, len(groups)+2)
+	options = append(options, fmt.Sprintf("Install all %d skills", len(skills)))
+	for _, g := range groups {
+		options = append(options, fmt.Sprintf("%-30s  \033[90m(%d skills)\033[0m", g.dir, len(g.skills)))
+	}
+	options = append(options, "Search by name")
+
+	pageSize := len(groups) + 2
+	if pageSize > 20 {
+		pageSize = 20
+	}
+
+	var choice int
+	prompt := &survey.Select{
+		Message:  fmt.Sprintf("Found %d skills in %d directories:", len(skills), len(groups)),
+		Options:  options,
+		PageSize: pageSize,
+	}
+
+	err := survey.AskOne(prompt, &choice, survey.WithIcons(func(icons *survey.IconSet) {
+		icons.SelectFocus.Text = "▸"
+		icons.SelectFocus.Format = "yellow"
+	}))
+	if err != nil {
+		return nil, nil // user cancelled
+	}
+
+	// "Install all"
+	if choice == 0 {
+		return skills, nil
+	}
+
+	// "Search by name"
+	if choice == len(options)-1 {
+		return promptSearchSelect(skills)
+	}
+
+	// Directory selected (choice 1..len(groups))
+	group := groups[choice-1]
+	ui.Info("Directory: %s (%d skills)", group.dir, len(group.skills))
+
+	if len(group.skills) > largeRepoThreshold {
+		return promptLargeRepoSelection(group.skills)
+	}
+	return promptMultiSelect(group.skills)
+}
+
+// promptSearchSelect lets the user search skills by name with fuzzy matching.
+func promptSearchSelect(skills []install.SkillInfo) ([]install.SkillInfo, error) {
+	skillNames := make([]string, len(skills))
+	skillByName := make(map[string]install.SkillInfo, len(skills))
+	for i, s := range skills {
+		skillNames[i] = s.Name
+		skillByName[s.Name] = s
+	}
+
+	for {
+		var query string
+		prompt := &survey.Input{
+			Message: "Search skills (partial name match):",
+		}
+		if err := survey.AskOne(prompt, &query); err != nil {
+			return nil, nil // user cancelled
+		}
+		query = strings.TrimSpace(query)
+		if query == "" {
+			ui.Warning("Please enter a search term")
+			continue
+		}
+
+		ranks := fuzzy.RankFindNormalizedFold(query, skillNames)
+		sort.Sort(ranks)
+
+		if len(ranks) == 0 {
+			ui.Warning("No skills matching %q — try a different search term", query)
+			continue
+		}
+		if len(ranks) > largeRepoThreshold {
+			ui.Warning("Too many matches (%d) — try a narrower search term", len(ranks))
+			continue
+		}
+
+		matched := make([]install.SkillInfo, len(ranks))
+		for i, r := range ranks {
+			matched[i] = skillByName[r.Target]
+		}
+		ui.Info("Found %d matching skill(s)", len(matched))
+		return promptMultiSelect(matched)
+	}
 }
 
 func promptMultiSelect(skills []install.SkillInfo) ([]install.SkillInfo, error) {
@@ -1352,7 +1504,12 @@ func renderBatchInstallWarningsCompact(results []skillInstallResult, totalWarnin
 
 	summary := summarizeBatchInstallWarnings(results)
 
-	for _, line := range summary.nonAuditLines {
+	const maxNonAuditLines = 5
+	for i, line := range summary.nonAuditLines {
+		if i >= maxNonAuditLines {
+			ui.Warning("+%d more non-audit warning(s)", len(summary.nonAuditLines)-maxNonAuditLines)
+			break
+		}
 		ui.Warning("%s", line)
 	}
 
@@ -1377,13 +1534,13 @@ func renderBatchInstallWarningsCompact(results []skillInstallResult, totalWarnin
 
 	if skillsWithHighCritical := len(summary.highCriticalBySkill); skillsWithHighCritical > 0 {
 		ui.Warning("skills with HIGH/CRITICAL findings: %d", skillsWithHighCritical)
-		top := topHighCriticalSkillsByCount(summary.highCriticalBySkill, 10)
-		if len(top) > 5 {
-			for _, item := range top {
-				ui.Info("  %s", item)
+		top := topHighCriticalSkillsByCount(summary.highCriticalBySkill, 5)
+		if len(top) > 0 {
+			extra := ""
+			if skillsWithHighCritical > len(top) {
+				extra = fmt.Sprintf(" +%d more", skillsWithHighCritical-len(top))
 			}
-		} else if len(top) > 0 {
-			ui.Info("top HIGH/CRITICAL: %s", strings.Join(top, ", "))
+			ui.Info("top HIGH/CRITICAL: %s%s", strings.Join(top, ", "), extra)
 		}
 	}
 
@@ -1397,6 +1554,51 @@ func renderBatchInstallWarningsCompact(results []skillInstallResult, totalWarnin
 			hint = hints[0]
 		}
 		ui.Info(hint, summary.totalFindings)
+	}
+}
+
+// renderUltraCompactAuditSummary prints a 3-4 line audit summary for very large
+// batches (>100 results). Designed to keep terminal output manageable.
+func renderUltraCompactAuditSummary(results []skillInstallResult, _ int) {
+	summary := summarizeBatchInstallWarnings(results)
+
+	// Line 1: total findings with severity breakdown
+	if summary.totalFindings > 0 {
+		ui.Warning("%d finding(s) across %d skill(s): %s",
+			summary.totalFindings,
+			summary.skillsWithFindings,
+			formatInstallSeverityCounts(summary.findingCounts),
+		)
+	}
+
+	// Line 2: status line (only if nonzero)
+	var statusParts []string
+	if summary.belowThresholdSkillCount > 0 {
+		statusParts = append(statusParts, fmt.Sprintf("%d below threshold", summary.belowThresholdSkillCount))
+	}
+	if summary.aboveThresholdSkillCount > 0 {
+		statusParts = append(statusParts, fmt.Sprintf("%d above threshold (--force)", summary.aboveThresholdSkillCount))
+	}
+	if summary.scanErrorSkillCount > 0 {
+		statusParts = append(statusParts, fmt.Sprintf("%d scan errors", summary.scanErrorSkillCount))
+	}
+	if len(statusParts) > 0 {
+		ui.Warning("%s", strings.Join(statusParts, ", "))
+	}
+
+	// Line 3: top HIGH/CRITICAL (max 3 skills)
+	if len(summary.highCriticalBySkill) > 0 {
+		top := topHighCriticalSkillsByCount(summary.highCriticalBySkill, 3)
+		extra := ""
+		if len(summary.highCriticalBySkill) > len(top) {
+			extra = fmt.Sprintf(" +%d more", len(summary.highCriticalBySkill)-len(top))
+		}
+		ui.Info("top HIGH/CRITICAL: %s%s", strings.Join(top, ", "), extra)
+	}
+
+	// Line 4: suppressed hint
+	if summary.totalFindings > 0 {
+		ui.Info("suppressed %d audit finding line(s); re-run with --audit-verbose for full details", summary.totalFindings)
 	}
 }
 
@@ -1419,15 +1621,34 @@ func printSkillListCompact(skills []install.SkillInfo) {
 	ui.Info("... and %d more skill(s)", len(skills)-showCount)
 }
 
+// largeBatchProgressThreshold is the skill count above which a progress bar
+// is used instead of a step spinner during batch install.
+const largeBatchProgressThreshold = 20
+
 // installSelectedSkills installs multiple skills with progress display
 func installSelectedSkills(selected []install.SkillInfo, discovery *install.DiscoveryResult, cfg *config.Config, opts install.InstallOptions) installBatchSummary {
 	results := make([]skillInstallResult, 0, len(selected))
-	installSpinner := ui.StartSpinnerWithSteps("Installing...", len(selected))
+
+	// Choose progress indicator: progress bar for large batches, spinner otherwise
+	var installSpinner *ui.Spinner
+	var progressBar *ui.ProgressBar
+	usePB := len(selected) > largeBatchProgressThreshold
+	if usePB {
+		progressBar = ui.StartProgress("Installing skills", len(selected))
+	} else {
+		installSpinner = ui.StartSpinnerWithSteps("Installing...", len(selected))
+	}
 
 	// Ensure Into directory exists for batch installs
 	if opts.Into != "" {
 		if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
-			installSpinner.Fail("Failed to create --into directory")
+			if installSpinner != nil {
+				installSpinner.Fail("Failed to create --into directory")
+			}
+			if progressBar != nil {
+				progressBar.Stop()
+				ui.ErrorMsg("Failed to create --into directory")
+			}
 			return installBatchSummary{}
 		}
 	}
@@ -1456,9 +1677,14 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 	rootInstalled := false
 
 	for i, skill := range orderedSkills {
-		installSpinner.NextStep(fmt.Sprintf("Installing %s...", skill.Name))
-		if i == 0 {
-			installSpinner.Update(fmt.Sprintf("Installing %s...", skill.Name))
+		if installSpinner != nil {
+			installSpinner.NextStep(fmt.Sprintf("Installing %s...", skill.Name))
+			if i == 0 {
+				installSpinner.Update(fmt.Sprintf("Installing %s...", skill.Name))
+			}
+		}
+		if progressBar != nil {
+			progressBar.UpdateTitle(fmt.Sprintf("Installing %s", skill.Name))
 		}
 
 		// Determine destination path
@@ -1477,12 +1703,18 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 		// If root was installed, children are already included - skip reinstall
 		if rootInstalled && skill.Path != "." {
 			results = append(results, skillInstallResult{skill: skill, success: true, message: fmt.Sprintf("included in %s", parentName)})
+			if progressBar != nil {
+				progressBar.Increment()
+			}
 			continue
 		}
 
 		installResult, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
 		if err != nil {
 			results = append(results, skillInstallResult{skill: skill, success: false, message: err.Error(), err: err})
+			if progressBar != nil {
+				progressBar.Increment()
+			}
 			continue
 		}
 
@@ -1499,6 +1731,13 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 			message:  message,
 			warnings: installResult.Warnings,
 		})
+		if progressBar != nil {
+			progressBar.Increment()
+		}
+	}
+
+	if progressBar != nil {
+		progressBar.Stop()
 	}
 
 	displayInstallResults(results, installSpinner, opts.AuditVerbose)
@@ -1739,12 +1978,24 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 	installed := len(successes)
 	failed := len(failures)
 
-	if failed > 0 && installed == 0 {
-		spinner.Fail(fmt.Sprintf("Failed to install %d skill(s)", failed))
-	} else if failed > 0 {
-		spinner.Warn(fmt.Sprintf("Installed %d, failed %d", installed, failed))
+	if spinner != nil {
+		if failed > 0 && installed == 0 {
+			spinner.Fail(fmt.Sprintf("Failed to install %d skill(s)", failed))
+		} else if failed > 0 {
+			spinner.Warn(fmt.Sprintf("Installed %d, failed %d", installed, failed))
+		} else {
+			spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
+		}
 	} else {
-		spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
+		// Progress bar mode — print summary line directly
+		fmt.Println()
+		if failed > 0 && installed == 0 {
+			ui.ErrorMsg("Failed to install %d skill(s)", failed)
+		} else if failed > 0 {
+			ui.SuccessMsg("Installed %d, failed %d", installed, failed)
+		} else {
+			ui.SuccessMsg("Installed %d skill(s)", installed)
+		}
 	}
 
 	// Show failures first with details
@@ -1858,6 +2109,8 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 					ui.Info("%d more skill(s) with findings; use 'skillshare check <name>' for details", remaining)
 				}
 			}
+		} else if len(results) > 100 {
+			renderUltraCompactAuditSummary(results, totalWarnings)
 		} else {
 			renderBatchInstallWarningsCompact(results, totalWarnings)
 		}
@@ -2021,6 +2274,12 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		fmt.Println()
 		ui.Warning("[dry-run] Would prompt for selection")
 		return logSummary, nil
+	}
+
+	// Non-TTY with large repo: require explicit flags
+	if !ui.IsTTY() && len(discovery.Skills) >= largeRepoThreshold {
+		ui.Info("Found %d skills. Non-interactive mode requires --all, --yes, or --skill <names>", len(discovery.Skills))
+		return logSummary, fmt.Errorf("interactive selection not available in non-TTY mode")
 	}
 
 	fmt.Println()
