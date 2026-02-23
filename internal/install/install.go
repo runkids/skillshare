@@ -419,8 +419,9 @@ func DiscoverFromGitSubdirWithProgress(source *Source, onProgress ProgressCallba
 		_ = os.RemoveAll(repoPath)
 	}
 
-	// Fast path 2: sparse checkout for non-GitHub hosts
-	if !isGitHubAPISource(source) && gitSupportsSparseCheckout() {
+	// Fast path 2: sparse checkout fallback when API path is unavailable
+	// or unsupported (works for GitHub and non-GitHub hosts).
+	if gitSupportsSparseCheckout() {
 		if err := sparseCloneSubdir(source.CloneURL, source.Subdir, repoPath, authEnv(source.CloneURL), onProgress); err == nil {
 			subdirPath = filepath.Join(repoPath, source.Subdir)
 			if info, statErr := os.Stat(subdirPath); statErr == nil && info.IsDir() {
@@ -612,8 +613,9 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 		}
 	}
 
-	// Fast path 2: sparse checkout for non-GitHub hosts
-	if subdirPath == "" && !isGitHubAPISource(source) && gitSupportsSparseCheckout() {
+	// Fast path 2: sparse checkout fallback when API path is unavailable
+	// or unsupported (works for GitHub and non-GitHub hosts).
+	if subdirPath == "" && gitSupportsSparseCheckout() {
 		resolved = source.Subdir
 		if err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, authEnv(source.CloneURL), opts.OnProgress); err == nil {
 			subdirPath = filepath.Join(tempRepoPath, resolved)
@@ -1410,7 +1412,7 @@ func InstallTrackedRepo(source *Source, sourceDir string, opts InstallOptions) (
 
 	// Clone tracked repos with a download-optimized strategy first, then
 	// fallback to the legacy full clone for compatibility.
-	if err := cloneTrackedRepo(source.CloneURL, destPath, opts.OnProgress); err != nil {
+	if err := cloneTrackedRepo(source.CloneURL, source.Subdir, destPath, opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -1495,7 +1497,31 @@ func cloneRepoFull(url, destPath string, onProgress ProgressCallback) error {
 // cloneTrackedRepo clones a tracked repository with an optimized payload first
 // and falls back to full clone when the remote does not support partial/shallow
 // capabilities.
-func cloneTrackedRepo(url, destPath string, onProgress ProgressCallback) error {
+//
+// When subdir is provided, sparse checkout is attempted first to reduce payload
+// while preserving .git for future tracked updates.
+func cloneTrackedRepo(url, subdir, destPath string, onProgress ProgressCallback) error {
+	subdir = strings.TrimSpace(subdir)
+	if subdir != "" && gitSupportsSparseCheckout() {
+		if onProgress != nil {
+			onProgress("Preparing sparse checkout...")
+		}
+		if err := sparseCloneSubdir(url, subdir, destPath, authEnv(url), onProgress); err == nil {
+			return nil
+		} else if shouldFallbackSparseTrackedClone(err) {
+			// sparseCloneSubdir may have already created destPath. Clean it before
+			// falling back to a standard clone strategy.
+			if cleanupErr := removeAll(destPath); cleanupErr != nil {
+				return fmt.Errorf("sparse checkout failed (%v), and cleanup failed: %w", err, cleanupErr)
+			}
+			if onProgress != nil {
+				onProgress("Sparse checkout unavailable; retrying standard clone...")
+			}
+		} else {
+			return err
+		}
+	}
+
 	args := []string{
 		"clone",
 		"--filter=blob:none",
@@ -1528,6 +1554,25 @@ func cloneTrackedRepo(url, destPath string, onProgress ProgressCallback) error {
 		onProgress("Remote lacks partial clone support; retrying standard clone...")
 	}
 	return cloneRepoFull(url, destPath, onProgress)
+}
+
+func shouldFallbackSparseTrackedClone(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	s := strings.ToLower(err.Error())
+	if strings.Contains(s, "authentication failed") ||
+		strings.Contains(s, "could not read username") ||
+		strings.Contains(s, "terminal prompts disabled") ||
+		strings.Contains(s, "permission denied") ||
+		strings.Contains(s, "repository not found") {
+		return false
+	}
+
+	// For compatibility, fallback to the legacy tracked clone flow for
+	// capability, sparse-path, and server-specific sparse checkout errors.
+	return true
 }
 
 func shouldFallbackTrackedClone(err error) bool {

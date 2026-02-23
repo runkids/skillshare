@@ -60,8 +60,8 @@ mkdir -p "$HOME/.claude/skills"
 GLOBAL_CFG="$HOME/.config/skillshare/config.yaml"
 if [ -f "$GLOBAL_CFG" ]; then
   echo "  ✓ Already initialized ($GLOBAL_CFG), skipping init"
-elif skillshare status >/dev/null 2>&1; then
-  echo "  ✓ Already initialized (detected via 'skillshare status'), skipping init"
+elif skillshare status -g >/dev/null 2>&1; then
+  echo "  ✓ Already initialized (detected via 'skillshare status -g'), skipping init"
 else
   skillshare init -g --no-copy --all-targets --no-git --skill
 fi

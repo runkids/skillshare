@@ -472,7 +472,11 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 	}
 
 	// Step 2: Clone with tree spinner
-	treeSpinner := ui.StartTreeSpinner("Cloning repository...", false)
+	progressMsg := "Cloning repository..."
+	if source.HasSubdir() {
+		progressMsg = "Sparse-checkout cloning subdirectory..."
+	}
+	treeSpinner := ui.StartTreeSpinner(progressMsg, false)
 	if ui.IsTTY() {
 		opts.OnProgress = func(line string) {
 			treeSpinner.Update(line)

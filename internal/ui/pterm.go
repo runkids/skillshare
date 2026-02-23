@@ -14,6 +14,11 @@ import (
 // ansiRegex matches ANSI escape sequences
 var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 
+// gitProgressPercentRegex extracts "Stage: NN%" from git progress lines.
+var gitProgressPercentRegex = regexp.MustCompile(`^([^:]+):\s*([0-9]{1,3}%)`)
+
+const spinnerGitUpdateMinInterval = 120 * time.Millisecond
+
 // displayWidth returns the visible width of a string (excluding ANSI codes, handling wide chars)
 func displayWidth(s string) int {
 	// Remove ANSI codes first, then calculate Unicode-aware width
@@ -86,6 +91,8 @@ type Spinner struct {
 	currentStep int
 	totalSteps  int
 	stepPrefix  string
+	lastUpdate  time.Time
+	lastMessage string
 }
 
 // StartSpinner starts a spinner with message
@@ -119,6 +126,13 @@ func StartSpinnerWithSteps(message string, totalSteps int) *Spinner {
 
 // Update updates spinner text
 func (s *Spinner) Update(message string) {
+	message, ok := normalizeSpinnerUpdate(message, s.lastMessage, s.lastUpdate)
+	if !ok {
+		return
+	}
+	s.lastMessage = message
+	s.lastUpdate = time.Now()
+
 	if s.spinner != nil {
 		s.spinner.UpdateText(s.stepPrefix + message)
 	} else {
@@ -520,9 +534,11 @@ func StepEnd(label, value string) {
 
 // TreeSpinner is a spinner that fits into tree structure
 type TreeSpinner struct {
-	spinner *pterm.SpinnerPrinter
-	start   time.Time
-	isLast  bool
+	spinner     *pterm.SpinnerPrinter
+	start       time.Time
+	isLast      bool
+	lastUpdate  time.Time
+	lastMessage string
 }
 
 // StartTreeSpinner starts a spinner in tree context
@@ -588,11 +604,71 @@ func (ts *TreeSpinner) Fail(message string) {
 
 // Update updates the tree spinner text while running.
 func (ts *TreeSpinner) Update(message string) {
+	message, ok := normalizeSpinnerUpdate(message, ts.lastMessage, ts.lastUpdate)
+	if !ok {
+		return
+	}
+	ts.lastMessage = message
+	ts.lastUpdate = time.Now()
+
 	if ts.spinner != nil {
 		ts.spinner.UpdateText(message)
 		return
 	}
 	fmt.Printf("... %s\n", message)
+}
+
+func normalizeSpinnerUpdate(message, lastMessage string, lastUpdate time.Time) (string, bool) {
+	msg := normalizeGitProgressMessage(strings.TrimSpace(message))
+	if msg == "" {
+		return "", false
+	}
+	if msg == lastMessage {
+		return "", false
+	}
+
+	// Git progress can emit rapid \r updates (especially transfer rate).
+	// Throttle those lines to reduce visible flicker.
+	if isGitProgressMessage(msg) && !lastUpdate.IsZero() && time.Since(lastUpdate) < spinnerGitUpdateMinInterval {
+		return "", false
+	}
+
+	return msg, true
+}
+
+func normalizeGitProgressMessage(message string) string {
+	msg := strings.TrimSpace(message)
+	if msg == "" {
+		return ""
+	}
+
+	// "remote: ..." chatter is common; keep message body only.
+	if strings.HasPrefix(strings.ToLower(msg), "remote:") {
+		msg = strings.TrimSpace(msg[len("remote:"):])
+	}
+
+	// Drop volatile transfer-rate suffix to avoid constant redraws:
+	// e.g. "... 234.42 MiB | 15.94 MiB/s"
+	if strings.Contains(msg, "|") && strings.Contains(msg, "%") {
+		msg = strings.TrimSpace(strings.SplitN(msg, "|", 2)[0])
+		msg = strings.TrimRight(msg, ", ")
+	}
+
+	// Normalize percentage progress to stage + percent only.
+	// e.g. "Receiving objects: 69% (...)" -> "Receiving objects: 69%"
+	if m := gitProgressPercentRegex.FindStringSubmatch(msg); len(m) == 3 {
+		stage := strings.TrimSpace(m[1])
+		pct := strings.TrimSpace(m[2])
+		if stage != "" && pct != "" {
+			return fmt.Sprintf("%s: %s", stage, pct)
+		}
+	}
+
+	return msg
+}
+
+func isGitProgressMessage(message string) bool {
+	return strings.Contains(message, "%") && strings.Contains(message, ":")
 }
 
 // StepItem prints a step with label and value (legacy, use StepStart/Continue/End)

@@ -141,17 +141,20 @@ cmd_enter() {
   local shell_bin="${SHELL:-/bin/bash}"
 
   if [ "$#" -gt 0 ]; then
-    env \
-      SSENV_ORIG_HOME="$orig_home" \
-      SSENV_ACTIVE="$name" \
-      SSENV_ENTERED="1" \
-      HOME="$path" \
-      XDG_CONFIG_HOME="$path/.config" \
-      XDG_DATA_HOME="$path/.local/share" \
-      XDG_STATE_HOME="$path/.local/state" \
-      XDG_CACHE_HOME="$path/.cache" \
-      "$@"
-    return 0
+    (
+      cd "$path"
+      env \
+        SSENV_ORIG_HOME="$orig_home" \
+        SSENV_ACTIVE="$name" \
+        SSENV_ENTERED="1" \
+        HOME="$path" \
+        XDG_CONFIG_HOME="$path/.config" \
+        XDG_DATA_HOME="$path/.local/share" \
+        XDG_STATE_HOME="$path/.local/state" \
+        XDG_CACHE_HOME="$path/.cache" \
+        "$@"
+    )
+    return $?
   fi
 
   echo "entering isolated shell: $name ($path)"
