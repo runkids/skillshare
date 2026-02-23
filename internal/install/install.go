@@ -942,7 +942,7 @@ func auditTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOp
 		details := blockedFindingDetails(scanResult.Findings, threshold)
 		if removeErr := removeAll(repoPath); removeErr != nil {
 			return fmt.Errorf(
-				"security audit failed — findings at/above %s detected:\n%s\n\nAutomatic cleanup failed for %s: %v\nManual removal is required: %w",
+				"security audit failed — findings at/above %s detected in tracked repository:\n%s\n\nAutomatic cleanup failed for %s: %v\nManual removal is required: %w",
 				threshold,
 				strings.Join(details, "\n"),
 				repoPath,
@@ -951,7 +951,7 @@ func auditTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOp
 			)
 		}
 		return fmt.Errorf(
-			"security audit failed — findings at/above %s detected:\n%s\n\nUse --force to override or --skip-audit to bypass scanning: %w",
+			"security audit failed — findings at/above %s detected in tracked repository:\n%s\n\nUse --force to override or --skip-audit to bypass scanning: %w",
 			threshold,
 			strings.Join(details, "\n"),
 			audit.ErrBlocked,
@@ -1072,7 +1072,7 @@ func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResu
 	if scanResult.IsBlocked && !opts.Force {
 		if beforeHash == "" {
 			return fmt.Errorf(
-				"security audit found findings at/above %s — rollback commit unavailable, update aborted and repository state is unknown: %w",
+				"security audit found findings at/above %s in tracked repository — rollback commit unavailable, update aborted and repository state is unknown: %w",
 				threshold,
 				audit.ErrBlocked,
 			)
@@ -1080,12 +1080,12 @@ func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResu
 
 		// Rollback via git reset to preserve the repo
 		if resetErr := gitResetHard(repoPath, beforeHash); resetErr != nil {
-			return fmt.Errorf("security audit found findings at/above %s — WARNING: rollback also failed: %v — malicious content may remain: %w",
+			return fmt.Errorf("security audit found findings at/above %s in tracked repository — WARNING: rollback also failed: %v — malicious content may remain: %w",
 				threshold, resetErr, audit.ErrBlocked)
 		}
 		details := blockedFindingDetails(scanResult.Findings, threshold)
 		return fmt.Errorf(
-			"security audit failed — findings at/above %s detected (rolled back to %s):\n%s\n\nUse --force to override or --skip-audit to bypass scanning: %w",
+			"security audit failed — findings at/above %s detected in tracked repository (rolled back to %s):\n%s\n\nUse --force to override or --skip-audit to bypass scanning: %w",
 			threshold,
 			shortHash(beforeHash),
 			strings.Join(details, "\n"),

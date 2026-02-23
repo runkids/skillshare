@@ -202,6 +202,26 @@ func TestCompactInstallFailureMessage_RemovesRepeatedForceGuidance(t *testing.T)
 	}
 }
 
+func TestRenderBlockedAuditError_TrackedRepositoryContext(t *testing.T) {
+	errMsg := "security audit failed — findings at/above CRITICAL detected in tracked repository:\n" +
+		"  CRITICAL: Prompt injection attempt detected (SECURITY.md:40)\n\n" +
+		"Use --force to override or --skip-audit to bypass scanning"
+	errInput := fmt.Errorf("%s: %w", errMsg, audit.ErrBlocked)
+
+	var renderedErr error
+	output := captureStdout(t, func() {
+		renderedErr = renderBlockedAuditError(errInput)
+	})
+	output = stripANSIWarnings(output)
+
+	if renderedErr == nil {
+		t.Fatal("expected blocked audit error")
+	}
+	if !strings.Contains(output, "blocked — 1 finding at/above CRITICAL in tracked repository") {
+		t.Fatalf("expected tracked-repository context in blocked summary, got:\n%s", output)
+	}
+}
+
 func TestPrintSkillListCompact_SmallList(t *testing.T) {
 	skills := make([]install.SkillInfo, 5)
 	for i := range skills {

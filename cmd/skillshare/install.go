@@ -485,10 +485,11 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 
 	result, err := install.InstallTrackedRepo(source, cfg.Source, opts)
 	if err != nil {
-		treeSpinner.Fail("Failed to clone")
 		if errors.Is(err, audit.ErrBlocked) {
+			treeSpinner.Fail("Blocked by security audit")
 			return logSummary, renderBlockedAuditError(err)
 		}
+		treeSpinner.Fail("Failed to clone")
 		return logSummary, err
 	}
 
@@ -1188,14 +1189,18 @@ func renderBlockedAuditError(err error) error {
 	// Build summary from parsed digest
 	digest := parseAuditBlockedFailure(msg)
 	summaryParts := []string{"security audit"}
+	contextSuffix := ""
+	if strings.Contains(strings.ToLower(msg), "tracked repository") {
+		contextSuffix = " in tracked repository"
+	}
 	if digest.threshold != "" && digest.findingCount > 0 {
 		suffix := "findings"
 		if digest.findingCount == 1 {
 			suffix = "finding"
 		}
-		summaryParts = append(summaryParts, fmt.Sprintf("blocked — %d %s at/above %s", digest.findingCount, suffix, digest.threshold))
+		summaryParts = append(summaryParts, fmt.Sprintf("blocked — %d %s at/above %s%s", digest.findingCount, suffix, digest.threshold, contextSuffix))
 	} else {
-		summaryParts = append(summaryParts, "blocked")
+		summaryParts = append(summaryParts, "blocked"+contextSuffix)
 	}
 
 	ui.SectionLabel("Audit Findings")
