@@ -1,0 +1,301 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+EVAL_MODE=false
+if [ "${1:-}" = "--eval" ]; then
+  EVAL_MODE=true
+  shift
+fi
+
+ENV_ROOT="${SSENV_ROOT:-/tmp/ss-envs}"
+mkdir -p "$ENV_ROOT"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ssenv create [name]
+  ssenv use <name>
+  ssenv enter <name> [-- <command> ...]
+  ssenv reset
+  ssenv delete <name> [--force]
+  ssenv list
+  ssenv status
+  ssenv shortcuts
+
+Options:
+  --eval   Emit shell commands for eval-based switching.
+
+Examples:
+  ssnew demo
+  ssuse demo
+  ssenv enter demo
+  ssenv enter demo -- ss status
+  ssback
+  sshelp
+  ssenv delete demo --force
+  # Fallback (if shortcuts are unavailable):
+  eval "$(ssenv --eval use demo)"
+  eval "$(ssenv --eval reset)"
+EOF
+}
+
+die() {
+  echo "$*" >&2
+  exit 1
+}
+
+require_name() {
+  local name="$1"
+  if [ -z "$name" ]; then
+    die "missing environment name"
+  fi
+  if [[ ! "$name" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    die "invalid environment name: $name (allowed: letters, numbers, ., _, -)"
+  fi
+}
+
+env_path() {
+  echo "$ENV_ROOT/$1"
+}
+
+ensure_layout() {
+  local path="$1"
+  mkdir -p \
+    "$path/.config" \
+    "$path/.local/share" \
+    "$path/.local/state" \
+    "$path/.cache"
+}
+
+emit_export() {
+  local key="$1"
+  local value="$2"
+  printf 'export %s=%q\n' "$key" "$value"
+}
+
+emit_use_commands() {
+  local name="$1"
+  local path="$2"
+  local orig_home="${SSENV_ORIG_HOME:-$HOME}"
+  local orig_pwd="${SSENV_ORIG_PWD:-$PWD}"
+  emit_export "SSENV_ORIG_HOME" "$orig_home"
+  emit_export "SSENV_ORIG_PWD" "$orig_pwd"
+  emit_export "SSENV_ACTIVE" "$name"
+  emit_export "HOME" "$path"
+  emit_export "XDG_CONFIG_HOME" "$path/.config"
+  emit_export "XDG_DATA_HOME" "$path/.local/share"
+  emit_export "XDG_STATE_HOME" "$path/.local/state"
+  emit_export "XDG_CACHE_HOME" "$path/.cache"
+  echo "unset SSENV_ENTERED"
+  printf 'cd %q\n' "$path"
+}
+
+cmd_create() {
+  local name="${1:-}"
+  if [ -z "$name" ]; then
+    name="env-$(date +%Y%m%d-%H%M%S)"
+  fi
+  require_name "$name"
+  local path
+  path="$(env_path "$name")"
+  if [ -e "$path" ]; then
+    die "environment already exists: $name ($path)"
+  fi
+
+  ensure_layout "$path"
+  echo "created: $name -> $path"
+  echo "activate: eval \"\$(ssenv --eval use $name)\""
+}
+
+cmd_use() {
+  local name="${1:-}"
+  require_name "$name"
+  local path
+  path="$(env_path "$name")"
+  [ -d "$path" ] || die "environment not found: $name ($path)"
+  ensure_layout "$path"
+
+  if $EVAL_MODE; then
+    emit_use_commands "$name" "$path"
+    return 0
+  fi
+
+  echo "environment ready: $name -> $path"
+  echo "run: eval \"\$(ssenv --eval use $name)\""
+}
+
+cmd_enter() {
+  local name="${1:-}"
+  require_name "$name"
+  shift || true
+  if [ "${1:-}" = "--" ]; then
+    shift
+  fi
+
+  local path
+  path="$(env_path "$name")"
+  [ -d "$path" ] || die "environment not found: $name ($path)"
+  ensure_layout "$path"
+
+  local orig_home="${SSENV_ORIG_HOME:-$HOME}"
+  local shell_bin="${SHELL:-/bin/bash}"
+
+  if [ "$#" -gt 0 ]; then
+    env \
+      SSENV_ORIG_HOME="$orig_home" \
+      SSENV_ACTIVE="$name" \
+      SSENV_ENTERED="1" \
+      HOME="$path" \
+      XDG_CONFIG_HOME="$path/.config" \
+      XDG_DATA_HOME="$path/.local/share" \
+      XDG_STATE_HOME="$path/.local/state" \
+      XDG_CACHE_HOME="$path/.cache" \
+      "$@"
+    return 0
+  fi
+
+  echo "entering isolated shell: $name ($path)"
+  cd "$path"
+  exec env \
+    SSENV_ORIG_HOME="$orig_home" \
+    SSENV_ACTIVE="$name" \
+    SSENV_ENTERED="1" \
+    HOME="$path" \
+    XDG_CONFIG_HOME="$path/.config" \
+    XDG_DATA_HOME="$path/.local/share" \
+    XDG_STATE_HOME="$path/.local/state" \
+    XDG_CACHE_HOME="$path/.cache" \
+    "$shell_bin" -l
+}
+
+cmd_reset() {
+  if $EVAL_MODE; then
+    local back_home="${SSENV_ORIG_HOME:-$HOME}"
+    local back_pwd="${SSENV_ORIG_PWD:-$back_home}"
+    emit_export "HOME" "$back_home"
+    echo "unset SSENV_ACTIVE"
+    echo "unset XDG_CONFIG_HOME"
+    echo "unset XDG_DATA_HOME"
+    echo "unset XDG_STATE_HOME"
+    echo "unset XDG_CACHE_HOME"
+    echo "unset SSENV_ORIG_HOME"
+    echo "unset SSENV_ORIG_PWD"
+    echo "unset SSENV_ENTERED"
+    printf 'cd %q\n' "$back_pwd"
+    return 0
+  fi
+
+  echo "run: eval \"\$(ssenv --eval reset)\""
+}
+
+cmd_delete() {
+  local name="${1:-}"
+  require_name "$name"
+  shift || true
+  local force=false
+  if [ "${1:-}" = "--force" ]; then
+    force=true
+  fi
+
+  local path
+  path="$(env_path "$name")"
+  [ -d "$path" ] || die "environment not found: $name ($path)"
+
+  if [ "${SSENV_ACTIVE:-}" = "$name" ] && ! $force; then
+    die "environment '$name' is active; run 'eval \"\$(ssenv --eval reset)\"' first or use --force"
+  fi
+
+  if ! $force; then
+    if [ ! -t 0 ]; then
+      die "refusing to delete in non-interactive mode without --force"
+    fi
+    read -r -p "Delete environment '$name'? [y/N] " ans
+    case "$ans" in
+      y|Y|yes|YES) ;;
+      *) echo "aborted"; return 0 ;;
+    esac
+  fi
+
+  rm -rf "$path"
+  echo "deleted: $name"
+}
+
+cmd_list() {
+  local active="${SSENV_ACTIVE:-}"
+  local found=false
+  shopt -s nullglob
+  for d in "$ENV_ROOT"/*; do
+    [ -d "$d" ] || continue
+    found=true
+    local n
+    n="$(basename "$d")"
+    if [ "$n" = "$active" ]; then
+      echo "* $n (active)"
+    else
+      echo "  $n"
+    fi
+  done
+  shopt -u nullglob
+
+  if ! $found; then
+    echo "(no environments)"
+  fi
+}
+
+cmd_status() {
+  echo "env_root: $ENV_ROOT"
+  echo "home: $HOME"
+  if [ -n "${SSENV_ACTIVE:-}" ]; then
+    echo "active: ${SSENV_ACTIVE}"
+  else
+    echo "active: (none)"
+  fi
+}
+
+cmd_shortcuts() {
+  cat <<'EOF'
+Shortcuts:
+  ssnew <name>   create + enter an isolated shell
+  ssuse <name>   enter an existing isolated shell
+  ssback         leave isolated context helper
+  ssls           list isolated envs
+  sshelp         show this shortcuts help
+
+Notes:
+  - ssnew/ssuse/ssls/sshelp are executable commands.
+  - In an isolated shell (entered via ssnew/ssuse), use 'exit' or run 'ssback'.
+  - For eval-based switching, use: eval "$(ssenv --eval use <name>)", then 'ssback'.
+
+Core commands:
+  ssenv create <name>
+  ssenv enter <name> [-- <command> ...]
+  ssenv delete <name> --force
+  ssenv list
+  ssenv status
+
+Fallback without shortcuts:
+  eval "$(ssenv --eval use <name>)"
+  eval "$(ssenv --eval reset)"
+EOF
+}
+
+command_name="${1:-}"
+shift || true
+
+case "$command_name" in
+  create) cmd_create "$@" ;;
+  use) cmd_use "$@" ;;
+  enter) cmd_enter "$@" ;;
+  reset) cmd_reset "$@" ;;
+  delete) cmd_delete "$@" ;;
+  list) cmd_list ;;
+  status) cmd_status ;;
+  shortcuts) cmd_shortcuts ;;
+  help|-h|--help|"")
+    usage
+    ;;
+  *)
+    usage >&2
+    die "unknown command: $command_name"
+    ;;
+esac

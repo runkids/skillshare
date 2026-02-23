@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -lt 1 ]; then
+  echo "Usage: ssuse <name> [-- <command> ...]" >&2
+  exit 1
+fi
+
+name="$1"
+shift || true
+if [ "${1:-}" = "--" ]; then
+  shift
+fi
+
+if [ "$#" -gt 0 ]; then
+  exec ssenv enter "$name" -- "$@"
+fi
+exec ssenv enter "$name"

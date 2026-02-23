@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${SSENV_ENTERED:-0}" = "1" ]; then
+  echo "You are in an isolated shell. Use 'exit' to go back."
+  exit 0
+fi
+
+if [ -n "${SSENV_ACTIVE:-}" ]; then
+  echo "Run this to switch back in the current shell:"
+  echo "  eval \"\$(ssenv --eval reset)\""
+  exit 0
+fi
+
+if [ -d /workspace ] && [ "${PWD:-}" != "/workspace" ]; then
+  echo "You are already in base shell."
+  echo "Run: cd /workspace"
+  exit 0
+fi
+
+echo "Already in base shell."
