@@ -11,6 +11,7 @@ In-depth guides for specific use cases.
 | I want to... | Read |
 |--------------|------|
 | Write my first skill | [Creating Skills](./creating-skills.md) |
+| Design reliable, deterministic skills | [Skill Design](./skill-design.md) |
 | Organize a growing skill collection | [Organizing Skills](./organizing-skills.md) |
 | Share skills with my team via a git repo | [Organization-Wide Skills](./organization-sharing.md) |
 | Set up skills for a specific project | [Project Setup](./project-setup.md) |
@@ -27,6 +28,7 @@ In-depth guides for specific use cases.
 | Guide | Description |
 |-------|-------------|
 | [Creating Skills](./creating-skills.md) | Create and publish your own skills |
+| [Skill Design](./skill-design.md) | Complexity levels, determinism, CLI wrapper pattern |
 | [Organizing Skills](./organizing-skills.md) | Organize skills into folders with auto-flattening |
 | [Best Practices](./best-practices.md) | Naming, organization, and versioning |
 

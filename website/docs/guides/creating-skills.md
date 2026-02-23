@@ -336,5 +336,6 @@ Before publishing:
 
 - [new](/docs/commands/new) — Create a skill with template
 - [Skill Format](/docs/concepts/skill-format) — SKILL.md structure
+- [Skill Design](./skill-design.md) — Complexity levels, determinism, CLI wrapper pattern
 - [Best Practices](./best-practices.md) — Naming and organization
 - [Organizing Skills](./organizing-skills.md) — Folder structure

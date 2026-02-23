@@ -321,5 +321,6 @@ For a comprehensive security workflow, see the [Securing Your Skills](./security
 ## See Also
 
 - [Creating Skills](./creating-skills.md) — Skill creation guide
+- [Skill Design](./skill-design.md) — Complexity levels, determinism, CLI wrapper pattern
 - [Skill Format](/docs/concepts/skill-format) — SKILL.md reference
 - [Organization-Wide Skills](./organization-sharing.md) — Team sharing patterns

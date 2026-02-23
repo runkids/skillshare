@@ -48,6 +48,7 @@ const sidebars: SidebarsConfig = {
           label: 'Skills',
           items: [
             'guides/creating-skills',
+            'guides/skill-design',
             'guides/organizing-skills',
             'guides/best-practices',
           ],
