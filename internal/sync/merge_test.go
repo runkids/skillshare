@@ -252,12 +252,15 @@ func TestPruneOrphanLinks_KeepsLocal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Local dir should be kept with warning (unknown directory)
+	// Local dir should be kept and recorded in LocalDirs (not Warnings)
 	if len(result.Removed) != 0 {
 		t.Errorf("expected 0 removed (local kept), got %d: %v", len(result.Removed), result.Removed)
 	}
-	if len(result.Warnings) != 1 {
-		t.Errorf("expected 1 warning for unknown local dir, got %d", len(result.Warnings))
+	if len(result.LocalDirs) != 1 {
+		t.Errorf("expected 1 local dir, got %d", len(result.LocalDirs))
+	}
+	if len(result.Warnings) != 0 {
+		t.Errorf("expected 0 warnings, got %d: %v", len(result.Warnings), result.Warnings)
 	}
 }
 
@@ -446,12 +449,15 @@ func TestPruneOrphanLinks_NoManifest_KeepsUnknownDir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Without manifest, unknown directory should be kept with warning
+	// Without manifest, unknown directory should be kept and recorded as local
 	if len(result.Removed) != 0 {
-		t.Errorf("expected 0 removed (no manifest, unknown dir kept), got %d", len(result.Removed))
+		t.Errorf("expected 0 removed (no manifest, local dir kept), got %d", len(result.Removed))
 	}
-	if len(result.Warnings) != 1 {
-		t.Errorf("expected 1 warning for unknown dir, got %d", len(result.Warnings))
+	if len(result.LocalDirs) != 1 {
+		t.Errorf("expected 1 local dir, got %d", len(result.LocalDirs))
+	}
+	if len(result.Warnings) != 0 {
+		t.Errorf("expected 0 warnings, got %d: %v", len(result.Warnings), result.Warnings)
 	}
 }
 

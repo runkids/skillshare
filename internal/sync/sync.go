@@ -448,8 +448,9 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 
 // PruneResult holds the result of a prune operation
 type PruneResult struct {
-	Removed  []string // Items that were removed
-	Warnings []string // Items that were kept with warnings
+	Removed   []string // Items that were removed
+	Warnings  []string // Items that were kept with warnings
+	LocalDirs []string // User-created directories not managed by skillshare
 }
 
 // PruneOrphanLinks removes target entries that are no longer managed by sync.
@@ -608,9 +609,8 @@ func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, 
 				shouldRemove = true
 				reason = "orphan skillshare-managed directory"
 			} else {
-				// Unknown directory - warn and keep
-				result.Warnings = append(result.Warnings,
-					fmt.Sprintf("%s: unknown directory (not from skillshare), kept", name))
+				// User-created local directory — record but don't warn
+				result.LocalDirs = append(result.LocalDirs, name)
 			}
 		}
 

@@ -220,6 +220,18 @@ func MatchesTargetName(skillTarget, configTarget string) bool {
 		}
 	}
 
+	// Fallback: check whether both names resolve to the same project or global path.
+	// This handles cases like "codex" and "universal" sharing ".agents/skills".
+	skillPaths := resolveTargetPaths(specs, skillTarget)
+	configPaths := resolveTargetPaths(specs, configTarget)
+	for _, sp := range skillPaths {
+		for _, cp := range configPaths {
+			if sp == cp {
+				return true
+			}
+		}
+	}
+
 	return false
 }
 
@@ -244,6 +256,35 @@ func KnownTargetNames() []string {
 		}
 	}
 	return names
+}
+
+// resolveTargetPaths collects the non-empty project and global paths for a
+// target name across all specs (including aliases).
+func resolveTargetPaths(specs []targetSpec, name string) []string {
+	var paths []string
+	seen := make(map[string]bool)
+	for _, spec := range specs {
+		allNames := make([]string, 0, 2+len(spec.Aliases))
+		allNames = append(allNames, spec.GlobalName, spec.ProjectName)
+		allNames = append(allNames, spec.Aliases...)
+		match := false
+		for _, n := range allNames {
+			if n == name {
+				match = true
+				break
+			}
+		}
+		if !match {
+			continue
+		}
+		for _, p := range []string{spec.ProjectPath, spec.GlobalPath} {
+			if p != "" && !seen[p] {
+				seen[p] = true
+				paths = append(paths, p)
+			}
+		}
+	}
+	return paths
 }
 
 func normalizeTargetPath(path string) string {

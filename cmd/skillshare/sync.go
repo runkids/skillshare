@@ -196,6 +196,7 @@ func syncMergeMode(name string, target config.TargetConfig, source string, dryRu
 	removedCount := 0
 	if pruneResult != nil {
 		removedCount = len(pruneResult.Removed)
+		skippedCount += len(pruneResult.LocalDirs)
 	}
 
 	if linkedCount > 0 || updatedCount > 0 || removedCount > 0 {
