@@ -53,6 +53,10 @@ ssls() {
   command ssls "$@"
 }
 
+ssrm() {
+  command ssrm "$@"
+}
+
 sshelp() {
   command sshelp "$@"
 }

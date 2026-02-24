@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ -z "${1:-}" ]; then
+  echo "Usage: ssrm <name>" >&2
+  exit 1
+fi
+
+exec ssenv delete "$1" --force
