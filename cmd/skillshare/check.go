@@ -288,44 +288,79 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 		return nil
 	}
 
-	// Display results
-	if len(repoResults) > 0 {
-		fmt.Println()
-		for _, r := range repoResults {
-			switch r.Status {
-			case "up_to_date":
-				ui.ListItem("success", r.Name, "up to date")
-			case "behind":
-				ui.ListItem("info", r.Name, fmt.Sprintf("%d commit(s) behind", r.Behind))
-			case "dirty":
-				ui.ListItem("warning", r.Name, "has uncommitted changes")
-			case "error":
-				ui.ListItem("error", r.Name, fmt.Sprintf("error: %s", r.Message))
+	// Display results + summary
+	renderCheckResults(repoResults, skillResults, false)
+
+	// Warn about unknown target names in skill-level targets field
+	warnUnknownSkillTargets(sourceDir)
+
+	return nil
+}
+
+// renderCheckResults displays repos and skills that need attention,
+// suppresses up_to_date/local items, and prints a summary line.
+func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkillResult, showLocalSkills bool) {
+	// Repos: only show behind/dirty/error
+	upToDateRepos := 0
+	hasRepoOutput := false
+	for _, r := range repoResults {
+		switch r.Status {
+		case "up_to_date":
+			upToDateRepos++
+		case "behind":
+			if !hasRepoOutput {
+				fmt.Println()
+				hasRepoOutput = true
 			}
+			ui.ListItem("info", r.Name, fmt.Sprintf("%d commit(s) behind", r.Behind))
+		case "dirty":
+			if !hasRepoOutput {
+				fmt.Println()
+				hasRepoOutput = true
+			}
+			ui.ListItem("warning", r.Name, "has uncommitted changes")
+		case "error":
+			if !hasRepoOutput {
+				fmt.Println()
+				hasRepoOutput = true
+			}
+			ui.ListItem("error", r.Name, fmt.Sprintf("error: %s", r.Message))
 		}
 	}
 
-	if len(skillResults) > 0 {
-		fmt.Println()
-		for _, s := range skillResults {
-			switch s.Status {
-			case "up_to_date":
-				detail := "up to date"
-				if s.Source != "" {
-					detail += fmt.Sprintf("  %s", formatSourceShort(s.Source))
+	// Skills: only show update_available/error; suppress up_to_date and local
+	upToDateSkills := 0
+	localSkills := 0
+	hasSkillOutput := false
+	for _, s := range skillResults {
+		switch s.Status {
+		case "up_to_date":
+			upToDateSkills++
+		case "local":
+			localSkills++
+			if showLocalSkills {
+				if !hasSkillOutput {
+					fmt.Println()
+					hasSkillOutput = true
 				}
-				ui.ListItem("success", s.Name, detail)
-			case "update_available":
-				detail := "update available"
-				if s.Source != "" {
-					detail += fmt.Sprintf("  %s", formatSourceShort(s.Source))
-				}
-				ui.ListItem("info", s.Name, detail)
-			case "local":
 				ui.ListItem("info", s.Name, "local source")
-			case "error":
-				ui.ListItem("warning", s.Name, "cannot reach remote")
 			}
+		case "update_available":
+			if !hasSkillOutput {
+				fmt.Println()
+				hasSkillOutput = true
+			}
+			detail := "update available"
+			if s.Source != "" {
+				detail += fmt.Sprintf("  %s", formatSourceShort(s.Source))
+			}
+			ui.ListItem("info", s.Name, detail)
+		case "error":
+			if !hasSkillOutput {
+				fmt.Println()
+				hasSkillOutput = true
+			}
+			ui.ListItem("warning", s.Name, "cannot reach remote")
 		}
 	}
 
@@ -344,8 +379,24 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 	}
 
 	fmt.Println()
+	upToDateTotal := upToDateRepos + upToDateSkills
+	if upToDateTotal > 0 {
+		parts := []string{}
+		if upToDateRepos > 0 {
+			parts = append(parts, fmt.Sprintf("%d repo(s)", upToDateRepos))
+		}
+		if upToDateSkills > 0 {
+			parts = append(parts, fmt.Sprintf("%d skill(s)", upToDateSkills))
+		}
+		ui.SuccessMsg("%s up to date", strings.Join(parts, " + "))
+	}
+	if localSkills > 0 {
+		ui.Info("%d local skill(s) skipped", localSkills)
+	}
 	if updatableRepos+updatableSkills == 0 {
-		ui.SuccessMsg("Everything is up to date")
+		if upToDateTotal == 0 && localSkills == 0 {
+			ui.SuccessMsg("Everything is up to date")
+		}
 	} else {
 		parts := []string{}
 		if updatableRepos > 0 {
@@ -357,11 +408,6 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 		ui.Info("%s have updates available", strings.Join(parts, " + "))
 		ui.Info("Run 'skillshare update <name>' or 'skillshare update --all'")
 	}
-
-	// Warn about unknown target names in skill-level targets field
-	warnUnknownSkillTargets(sourceDir)
-
-	return nil
 }
 
 func toRepoResults(outputs []check.RepoCheckOutput) []checkRepoResult {
@@ -543,76 +589,8 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 		return nil
 	}
 
-	// --- Display results ---
-
-	if len(repoResults) > 0 {
-		fmt.Println()
-		for _, r := range repoResults {
-			switch r.Status {
-			case "up_to_date":
-				ui.ListItem("success", r.Name, "up to date")
-			case "behind":
-				ui.ListItem("info", r.Name, fmt.Sprintf("%d commit(s) behind", r.Behind))
-			case "dirty":
-				ui.ListItem("warning", r.Name, "has uncommitted changes")
-			case "error":
-				ui.ListItem("error", r.Name, fmt.Sprintf("error: %s", r.Message))
-			}
-		}
-	}
-
-	if len(skillResults) > 0 {
-		fmt.Println()
-		for _, s := range skillResults {
-			switch s.Status {
-			case "up_to_date":
-				detail := "up to date"
-				if s.Source != "" {
-					detail += fmt.Sprintf("  %s", formatSourceShort(s.Source))
-				}
-				ui.ListItem("success", s.Name, detail)
-			case "update_available":
-				detail := "update available"
-				if s.Source != "" {
-					detail += fmt.Sprintf("  %s", formatSourceShort(s.Source))
-				}
-				ui.ListItem("info", s.Name, detail)
-			case "local":
-				ui.ListItem("info", s.Name, "local source")
-			case "error":
-				ui.ListItem("warning", s.Name, "cannot reach remote")
-			}
-		}
-	}
-
-	// Summary
-	updatableRepos := 0
-	for _, r := range repoResults {
-		if r.Status == "behind" {
-			updatableRepos++
-		}
-	}
-	updatableSkills := 0
-	for _, s := range skillResults {
-		if s.Status == "update_available" {
-			updatableSkills++
-		}
-	}
-
-	fmt.Println()
-	if updatableRepos+updatableSkills == 0 {
-		ui.SuccessMsg("Everything is up to date")
-	} else {
-		parts := []string{}
-		if updatableRepos > 0 {
-			parts = append(parts, fmt.Sprintf("%d repo(s)", updatableRepos))
-		}
-		if updatableSkills > 0 {
-			parts = append(parts, fmt.Sprintf("%d skill(s)", updatableSkills))
-		}
-		ui.Info("%s have updates available", strings.Join(parts, " + "))
-		ui.Info("Run 'skillshare update <name>' or 'skillshare update --all'")
-	}
+	// Display results + summary (filtered: show local skills individually)
+	renderCheckResults(repoResults, skillResults, true)
 
 	return nil
 }
