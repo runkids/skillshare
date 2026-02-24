@@ -131,9 +131,8 @@ func cmdUpdate(args []string) error {
 		opts.threshold = cfg.Audit.BlockThreshold
 	}
 
-	ui.Header("Global Update")
-	ui.Info("Storage    %s", cfg.Source)
-	fmt.Println()
+	ui.Header(ui.WithModeLabel("Updating"))
+	ui.StepStart("Source", cfg.Source)
 
 	// --- Resolve targets ---
 	var targets []updateTarget
@@ -235,14 +234,23 @@ func cmdUpdate(args []string) error {
 		}
 	}
 
+	// Count repos vs skills for summary
+	var repoCount, skillCount int
+	for _, t := range targets {
+		if t.isRepo {
+			repoCount++
+		} else {
+			skillCount++
+		}
+	}
+	ui.StepContinue("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", repoCount, skillCount))
+
 	for _, w := range resolveWarnings {
 		ui.Warning("%s", w)
 	}
 
 	if len(targets) == 0 {
 		if opts.all {
-			ui.Header("Updating 0 skill(s)")
-			fmt.Println()
 			ui.SuccessMsg("Updated 0, skipped 0 of 0 skill(s)")
 			return nil
 		}
@@ -274,10 +282,6 @@ func cmdUpdate(args []string) error {
 	}
 
 	// Multiple targets: batch path
-	total := len(targets)
-	ui.Header(fmt.Sprintf("Updating %d skill(s)", total))
-	fmt.Println()
-
 	if opts.dryRun {
 		ui.Warning("[dry-run] No changes will be made")
 	}

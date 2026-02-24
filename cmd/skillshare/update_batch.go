@@ -48,6 +48,7 @@ func (uc *updateContext) makeInstallOpts() install.InstallOptions {
 // Returns combined updateResult and any security error.
 func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult, error) {
 	total := len(targets)
+	fmt.Println()
 	progressBar := ui.StartProgress("Updating skills", total)
 
 	var result updateResult
