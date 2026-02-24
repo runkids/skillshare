@@ -20,7 +20,7 @@ type checklistItemData struct {
 type checklistConfig struct {
 	title        string
 	items        []checklistItemData
-	singleSelect bool // true = radio behaviour (only one can be selected)
+	singleSelect bool   // true = radio behaviour (only one can be selected)
 	itemName     string // status bar name (e.g. "target", "agent")
 }
 
