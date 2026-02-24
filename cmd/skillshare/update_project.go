@@ -435,42 +435,70 @@ func updateProjectSkillFromMeta(sourcePath, name string, dryRun, skipAudit bool,
 }
 
 func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDiff bool, threshold, projectRoot string) error {
-	entries, err := os.ReadDir(sourcePath)
+	type target struct {
+		name   string
+		path   string
+		isRepo bool
+	}
+	var targets []target
+
+	err := filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if path == sourcePath {
+			return nil
+		}
+		// Skip hidden directories (like .skillshare)
+		if info.IsDir() && utils.IsHidden(info.Name()) {
+			return filepath.SkipDir
+		}
+		// Skip .git
+		if info.IsDir() && info.Name() == ".git" {
+			return filepath.SkipDir
+		}
+
+		// Tracked repo (_-prefixed)
+		if info.IsDir() && strings.HasPrefix(info.Name(), "_") {
+			if install.IsGitRepo(path) {
+				rel, _ := filepath.Rel(sourcePath, path)
+				targets = append(targets, target{name: rel, path: path, isRepo: true})
+				return filepath.SkipDir // Don't look inside tracked repos
+			}
+		}
+
+		// Regular skill with metadata
+		if !info.IsDir() && info.Name() == "SKILL.md" {
+			skillDir := filepath.Dir(path)
+			meta, metaErr := install.ReadMeta(skillDir)
+			if metaErr == nil && meta != nil && meta.Source != "" {
+				rel, _ := filepath.Rel(sourcePath, skillDir)
+				if rel != "." {
+					targets = append(targets, target{name: rel, path: skillDir, isRepo: false})
+				}
+			}
+		}
+		return nil
+	})
 	if err != nil {
-		return fmt.Errorf("failed to read project skills: %w", err)
+		return fmt.Errorf("failed to scan skills: %w", err)
 	}
 
-	// Count total updatable items
-	var total int
-	for _, entry := range entries {
-		if !entry.IsDir() || utils.IsHidden(entry.Name()) {
-			continue
-		}
-		p := filepath.Join(sourcePath, entry.Name())
-		if install.IsGitRepo(p) {
-			total++
-			continue
-		}
-		if meta, metaErr := install.ReadMeta(p); metaErr == nil && meta != nil && meta.Source != "" {
-			total++
-		}
+	total := len(targets)
+	if total == 0 {
+		ui.Header("Updating 0 skill(s)")
+		fmt.Println()
+		ui.SuccessMsg("Updated 0, skipped 0 of 0 skill(s)")
+		return nil
 	}
 
 	// Single item: use verbose single-target path
 	if total == 1 {
-		for _, entry := range entries {
-			if !entry.IsDir() || utils.IsHidden(entry.Name()) {
-				continue
-			}
-			name := entry.Name()
-			p := filepath.Join(sourcePath, name)
-			if install.IsGitRepo(p) {
-				return updateProjectTrackedRepo(name, p, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
-			}
-			if meta, metaErr := install.ReadMeta(p); metaErr == nil && meta != nil && meta.Source != "" {
-				return updateSingleProjectSkill(sourcePath, name, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
-			}
+		t := targets[0]
+		if t.isRepo {
+			return updateProjectTrackedRepo(t.name, t.path, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
 		}
+		return updateSingleProjectSkill(sourcePath, t.name, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
 	}
 
 	ui.Header(fmt.Sprintf("Updating %d skill(s)", total))
@@ -486,18 +514,11 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 	skipped := 0
 	securityFailed := 0
 	var auditEntries []batchAuditEntry
-	for _, entry := range entries {
-		if !entry.IsDir() || utils.IsHidden(entry.Name()) {
-			continue
-		}
 
-		skillName := entry.Name()
-		skillPath := filepath.Join(sourcePath, skillName)
-
-		// Tracked repo: git pull
-		if install.IsGitRepo(skillPath) {
-			progressBar.UpdateTitle(fmt.Sprintf("Updating %s", skillName))
-			if err := updateProjectTrackedRepoQuick(skillName, skillPath, dryRun, force, skipAudit, threshold, projectRoot); err != nil {
+	for _, t := range targets {
+		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+		if t.isRepo {
+			if err := updateProjectTrackedRepoQuick(t.name, t.path, dryRun, force, skipAudit, threshold, projectRoot); err != nil {
 				if isSecurityError(err) {
 					securityFailed++
 				} else {
@@ -506,28 +527,21 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 			} else {
 				updated++
 			}
-			progressBar.Increment()
-			continue
-		}
-
-		// Skip non-updatable entries (no metadata)
-		if meta, metaErr := install.ReadMeta(skillPath); metaErr != nil || meta == nil || meta.Source == "" {
-			continue
-		}
-
-		// Regular skill with metadata: use batch helper
-		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", skillName))
-		ok, riskLabel, err := updateProjectSkillFromMeta(sourcePath, skillName, dryRun, skipAudit, threshold)
-		if err != nil {
-			if isSecurityError(err) {
-				securityFailed++
+		} else {
+			ok, riskLabel, err := updateProjectSkillFromMeta(sourcePath, t.name, dryRun, skipAudit, threshold)
+			if err != nil {
+				if isSecurityError(err) {
+					securityFailed++
+				} else {
+					skipped++
+				}
+			} else if ok {
+				updated++
+				if riskLabel != "" {
+					auditEntries = append(auditEntries, batchAuditEntry{name: t.name, risk: riskLabel})
+				}
 			} else {
 				skipped++
-			}
-		} else if ok {
-			updated++
-			if riskLabel != "" {
-				auditEntries = append(auditEntries, batchAuditEntry{name: skillName, risk: riskLabel})
 			}
 		}
 		progressBar.Increment()

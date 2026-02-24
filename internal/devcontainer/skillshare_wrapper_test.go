@@ -176,7 +176,7 @@ func TestSkillshareWrapper_ProjectModeRedirectsFromWorkspaceRoot(t *testing.T) {
 	if actualCWD != expectedDemo {
 		t.Fatalf("expected cwd %q, got %q", expectedDemo, actualCWD)
 	}
-	if !strings.Contains(stderr, "project mode redirected to "+demo) {
+	if !strings.Contains(stderr, "redirecting workspace execution to "+demo) {
 		t.Fatalf("expected redirect message in stderr, got: %q", stderr)
 	}
 
