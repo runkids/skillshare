@@ -21,13 +21,6 @@
         ]
       ]
     },
-    "skills": {
-      "type": "array",
-      "description": "Remote skills installed via 'skillshare install -p'. Auto-managed — do not edit manually.",
-      "items": {
-        "$ref": "#/$defs/skillEntry"
-      }
-    },
     "audit": {
       "$ref": "#/$defs/auditConfig"
     },
@@ -77,34 +70,6 @@
           }
         }
       ]
-    },
-    "skillEntry": {
-      "type": "object",
-      "description": "A remote skill entry tracked in config.",
-      "required": ["name", "source"],
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Skill directory name.",
-          "examples": ["pdf", "_team-skills"]
-        },
-        "source": {
-          "type": "string",
-          "description": "GitHub path or local path where the skill was installed from.",
-          "examples": ["anthropics/skills/skills/pdf", "github.com/team/skills"]
-        },
-        "tracked": {
-          "type": "boolean",
-          "description": "True if installed with --track (preserves git history).",
-          "default": false
-        },
-        "group": {
-          "type": "string",
-          "description": "Subdirectory group the skill belongs to (set by --into).",
-          "examples": ["frontend", "backend"]
-        }
-      }
     },
     "auditConfig": {
       "type": "object",
