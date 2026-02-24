@@ -88,8 +88,6 @@ func cmdSync(args []string) error {
 			failedTargets++
 		}
 	}
-	printSymlinkCompatHint(cfg.Targets, cfg.Mode, false)
-
 	var syncErr error
 	if failedTargets > 0 {
 		syncErr = fmt.Errorf("some targets failed to sync")
