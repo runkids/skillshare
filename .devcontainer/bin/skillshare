@@ -48,27 +48,17 @@ canonical_dir() {
 CURRENT_DIR="$(pwd -P)"
 WORKSPACE_DIR="$(canonical_dir "$WORKSPACE_ROOT")"
 
-if wants_project_mode "$@" \
+# Redirection logic:
+# If we are in the workspace root and NOT in global mode,
+# default to the demo project in PROJECT_ROOT if it exists.
+if [ "$(resolve_mode "$@")" != "global" ] \
   && [ "${SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT:-0}" != "1" ] \
   && [ "$CURRENT_DIR" = "$WORKSPACE_DIR" ]; then
+  
   if [ -d "$PROJECT_ROOT" ]; then
-    echo "devcontainer: project mode redirected to $PROJECT_ROOT" >&2
+    echo "devcontainer: redirecting workspace execution to $PROJECT_ROOT" >&2
     cd "$PROJECT_ROOT"
-  else
-    echo "refusing project mode in $WORKSPACE_ROOT (demo project missing: $PROJECT_ROOT)" >&2
-    exit 1
   fi
-fi
-
-# New-user guardrail in devcontainer:
-# At workspace root, auto mode resolves to /workspace/.skillshare when present.
-# Make this explicit and point to mode flags.
-if [ "$(resolve_mode "$@")" = "auto" ] \
-  && [ "$CURRENT_DIR" = "$WORKSPACE_DIR" ] \
-  && [ -f "$WORKSPACE_ROOT/.skillshare/config.yaml" ] \
-  && [ "${SKILLSHARE_DEV_SHOW_MODE_HINT:-1}" = "1" ]; then
-  echo "devcontainer: auto mode uses workspace project config ($WORKSPACE_ROOT/.skillshare)." >&2
-  echo "             use -g for global mode, or -p for demo project ($PROJECT_ROOT)." >&2
 fi
 
 # Devcontainer default: build from source for instant feedback, then run in caller cwd.

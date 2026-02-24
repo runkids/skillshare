@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-exec ssenv shortcuts "$@"
+exec /workspace/.devcontainer/bin/help "$@"

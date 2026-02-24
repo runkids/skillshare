@@ -56,3 +56,11 @@ ssls() {
 sshelp() {
   command sshelp "$@"
 }
+
+# Override bash built-in help
+alias help='/workspace/.devcontainer/bin/help'
+
+# Visual feedback for isolated environments
+if [ -n "${SSENV_ACTIVE:-}" ]; then
+  export PS1="(${SSENV_ACTIVE}) ${PS1:-}"
+fi

@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Colors
+BOLD=$'\033[1m'
+GREEN=$'\033[0;32m'
+BLUE=$'\033[0;34m'
+YELLOW=$'\033[1;33m'
+NC=$'\033[0m' # No Color
+
+cat << EOF
+
+${BOLD}Skillshare Devcontainer Help${NC}
+==========================================================
+
+${BLUE}Core CLI${NC}
+  ${BOLD}ss${NC} <cmd>      Shortcut for 'skillshare'. Builds from source.
+  ${BOLD}skillshare${NC}  The main CLI tool.
+
+${BLUE}Services${NC}
+  ${BOLD}ui${NC} [-p]       Start Dashboard (Vite + API). -p for project mode.
+  ${BOLD}ui stop${NC}    Stop the Dashboard.
+  ${BOLD}docs${NC}        Start Docusaurus documentation site.
+  ${BOLD}docs stop${NC}   Stop the documentation site.
+
+${BLUE}Environment Management (Isolated HOME)${NC}
+  ${BOLD}ssnew${NC} <name> [--init]  Create and enter a new isolated shell.
+  ${BOLD}ssuse${NC} <name>         Enter an existing isolated shell.
+  ${BOLD}ssls${NC}               List all isolated environments.
+  ${BOLD}ssback${NC}             Exit an isolated shell or go back to workspace.
+  ${BOLD}ssenv${NC} <cmd>          Advanced environment management.
+
+${BLUE}Authentication & Security${NC}
+  ${BOLD}credential-helper status${NC}  Check GitHub/GitLab token state.
+  ${BOLD}credential-helper off${NC}     Temporarily disable all auth for testing.
+
+${YELLOW}Tips:${NC}
+  - Isolated environments are stored in ${BOLD}~/.ss-envs/${NC} and are persistent.
+  - Use ${BOLD}ssnew --init${NC} to skip the manual 'ss init' step.
+  - Your shell history is saved even after container rebuilds.
+
+==========================================================
+EOF

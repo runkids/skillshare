@@ -2,18 +2,22 @@
 set -euo pipefail
 
 name=""
-if [[ $# -gt 0 && "$1" != "--" ]]; then
-  name="$1"
+init_flag=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --init) init_flag="--init" ;;
+    --) shift; break ;;
+    -*) echo "Unknown option: $1" >&2; exit 1 ;;
+    *) if [ -z "$name" ]; then name="$1"; else break; fi ;;
+  esac
   shift
-fi
+done
+
 if [ -z "$name" ]; then
   name="env-$(date +%Y%m%d-%H%M%S)"
 fi
-if [ "${1:-}" = "--" ]; then
-  shift
-fi
 
-ssenv create "$name"
+ssenv create "$name" $init_flag
 if [ "$#" -gt 0 ]; then
   exec ssenv enter "$name" -- "$@"
 fi
