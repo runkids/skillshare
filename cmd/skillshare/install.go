@@ -151,17 +151,6 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 		return nil, false, fmt.Errorf("--all/--yes cannot be used with --track")
 	}
 
-	// When no source is given, only bare "install" is valid — reject incompatible flags
-	if result.sourceArg == "" {
-		hasSourceFlags := result.opts.Name != "" || result.opts.Into != "" ||
-			result.opts.Track || len(result.opts.Skills) > 0 ||
-			len(result.opts.Exclude) > 0 || result.opts.All || result.opts.Yes || result.opts.Update
-		if hasSourceFlags {
-			return nil, false, fmt.Errorf("flags --name, --into, --track, --skill, --exclude, --all, --yes, and --update require a source argument")
-		}
-		return result, false, nil
-	}
-
 	if result.opts.Into != "" {
 		if err := validate.IntoPath(result.opts.Into); err != nil {
 			return nil, false, err
@@ -283,6 +272,16 @@ func cmdInstall(args []string) error {
 	}
 	if parseErr != nil {
 		return parseErr
+	}
+
+	// When no source is given, only bare "install" is valid — reject incompatible flags
+	if parsed.sourceArg == "" {
+		hasSourceFlags := parsed.opts.Name != "" || parsed.opts.Into != "" ||
+			parsed.opts.Track || len(parsed.opts.Skills) > 0 ||
+			len(parsed.opts.Exclude) > 0 || parsed.opts.All || parsed.opts.Yes || parsed.opts.Update
+		if hasSourceFlags {
+			return fmt.Errorf("flags --name, --into, --track, --skill, --exclude, --all, --yes, and --update require a source argument")
+		}
 	}
 
 	cfg, err := config.Load()
