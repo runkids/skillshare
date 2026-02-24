@@ -4,14 +4,16 @@ JSONL-based persistent audit trail. All mutating commands (sync, install, uninst
 
 ## Usage
 
+Default launches interactive TUI on TTY. Use `--json` (structured) or `--no-tui` (plain text) for programmatic access.
+
 ```bash
-skillshare log                    # Show operations + audit logs
+skillshare log --json             # JSONL output (recommended for scripts/AI)
+skillshare log --no-tui           # Plain text output
 skillshare log --audit            # Audit log only
 skillshare log --tail 50          # Last 50 entries per section
 skillshare log --cmd sync         # Show only sync entries
 skillshare log --status error     # Show only errors
 skillshare log --since 2d         # Entries from last 2 days
-skillshare log --json             # Output as JSONL
 skillshare log --clear            # Clear operations log
 skillshare log --clear --audit    # Clear audit log
 skillshare log -p                 # Project logs
@@ -26,7 +28,8 @@ skillshare log -p                 # Project logs
 | `--cmd <name>` | Filter by command name (e.g. sync, install, audit) |
 | `--status <status>` | Filter by status (ok, error, partial, blocked) |
 | `--since <dur\|date>` | Filter by time (30m, 2h, 2d, 1w, or 2006-01-02) |
-| `--json` | Output raw JSONL |
+| `--json` | Output raw JSONL (recommended for scripts/AI) |
+| `--no-tui` | Plain text output (skip interactive TUI) |
 | `--clear, -c` | Clear selected log file |
 | `-p, --project` | Project-level logs |
 | `-g, --global` | Global logs |

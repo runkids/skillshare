@@ -36,7 +36,17 @@ var (
 
 	tuiTargetStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("6")) // cyan
+
+	tuiFilterStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("6")) // cyan — shared by list and log TUI
 )
+
+// applyTUIFilterStyle sets filter prompt, cursor, and input cursor to the shared style.
+func applyTUIFilterStyle(l *list.Model) {
+	l.Styles.FilterPrompt = tuiFilterStyle
+	l.Styles.FilterCursor = tuiFilterStyle
+	l.FilterInput.Cursor.Style = tuiFilterStyle
+}
 
 // listTUIModel is the bubbletea model for the interactive skill list.
 type listTUIModel struct {
@@ -80,6 +90,7 @@ func newListTUIModel(skills []skillItem, totalCount int, modeLabel, sourcePath s
 		Bold(true).Foreground(lipgloss.Color("6")) // cyan
 	l.SetShowStatusBar(true)
 	l.SetFilteringEnabled(true)
+	applyTUIFilterStyle(&l)
 	l.SetShowHelp(false) // We render our own help
 
 	// Custom status bar showing count
