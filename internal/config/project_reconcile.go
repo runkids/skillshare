@@ -15,20 +15,20 @@ import (
 // remotely-installed skills (those with install metadata or tracked repos)
 // and ensures they are listed in ProjectConfig.Skills[].
 // It also updates .skillshare/.gitignore for each tracked skill.
-func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, sourcePath string) error {
+func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *Registry, sourcePath string) error {
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		return nil // no skills dir yet
 	}
 
 	changed := false
 	index := map[string]int{}
-	for i, skill := range projectCfg.Skills {
+	for i, skill := range reg.Skills {
 		index[skill.FullName()] = i
 	}
 
 	// Migrate legacy entries: name "frontend/pdf" → group "frontend", name "pdf"
-	for i := range projectCfg.Skills {
-		s := &projectCfg.Skills[i]
+	for i := range reg.Skills {
+		s := &reg.Skills[i]
 		if s.Group == "" && strings.Contains(s.Name, "/") {
 			group, bare := s.EffectiveParts()
 			s.Group = group
@@ -80,12 +80,12 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, sourc
 		fullPath := filepath.ToSlash(relPath)
 
 		if existingIdx, ok := index[fullPath]; ok {
-			if projectCfg.Skills[existingIdx].Source != source {
-				projectCfg.Skills[existingIdx].Source = source
+			if reg.Skills[existingIdx].Source != source {
+				reg.Skills[existingIdx].Source = source
 				changed = true
 			}
-			if projectCfg.Skills[existingIdx].Tracked != tracked {
-				projectCfg.Skills[existingIdx].Tracked = tracked
+			if reg.Skills[existingIdx].Tracked != tracked {
+				reg.Skills[existingIdx].Tracked = tracked
 				changed = true
 			}
 		} else {
@@ -99,8 +99,8 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, sourc
 			} else {
 				entry.Name = fullPath
 			}
-			projectCfg.Skills = append(projectCfg.Skills, entry)
-			index[fullPath] = len(projectCfg.Skills) - 1
+			reg.Skills = append(reg.Skills, entry)
+			index[fullPath] = len(reg.Skills) - 1
 			changed = true
 		}
 
@@ -125,7 +125,7 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, sourc
 	}
 
 	if changed {
-		if err := projectCfg.Save(projectRoot); err != nil {
+		if err := reg.Save(filepath.Join(projectRoot, ".skillshare")); err != nil {
 			return err
 		}
 	}

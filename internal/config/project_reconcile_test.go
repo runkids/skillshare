@@ -25,19 +25,20 @@ func TestReconcileProjectSkills_AddsNewSkill(t *testing.T) {
 	cfg := &ProjectConfig{
 		Targets: []ProjectTargetEntry{{Name: "claude"}},
 	}
+	reg := &Registry{}
 
-	if err := ReconcileProjectSkills(root, cfg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	if len(cfg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(cfg.Skills))
+	if len(reg.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
 	}
-	if cfg.Skills[0].Name != "my-skill" {
-		t.Errorf("expected skill name 'my-skill', got %q", cfg.Skills[0].Name)
+	if reg.Skills[0].Name != "my-skill" {
+		t.Errorf("expected skill name 'my-skill', got %q", reg.Skills[0].Name)
 	}
-	if cfg.Skills[0].Source != "github.com/user/repo" {
-		t.Errorf("expected source 'github.com/user/repo', got %q", cfg.Skills[0].Source)
+	if reg.Skills[0].Source != "github.com/user/repo" {
+		t.Errorf("expected source 'github.com/user/repo', got %q", reg.Skills[0].Source)
 	}
 }
 
@@ -57,18 +58,20 @@ func TestReconcileProjectSkills_UpdatesExistingSource(t *testing.T) {
 
 	cfg := &ProjectConfig{
 		Targets: []ProjectTargetEntry{{Name: "claude"}},
-		Skills:  []SkillEntry{{Name: "my-skill", Source: "github.com/user/repo-v1"}},
+	}
+	reg := &Registry{
+		Skills: []SkillEntry{{Name: "my-skill", Source: "github.com/user/repo-v1"}},
 	}
 
-	if err := ReconcileProjectSkills(root, cfg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	if len(cfg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(cfg.Skills))
+	if len(reg.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
 	}
-	if cfg.Skills[0].Source != "github.com/user/repo-v2" {
-		t.Errorf("expected updated source 'github.com/user/repo-v2', got %q", cfg.Skills[0].Source)
+	if reg.Skills[0].Source != "github.com/user/repo-v2" {
+		t.Errorf("expected updated source 'github.com/user/repo-v2', got %q", reg.Skills[0].Source)
 	}
 }
 
@@ -89,13 +92,14 @@ func TestReconcileProjectSkills_SkipsNoMeta(t *testing.T) {
 	cfg := &ProjectConfig{
 		Targets: []ProjectTargetEntry{{Name: "claude"}},
 	}
+	reg := &Registry{}
 
-	if err := ReconcileProjectSkills(root, cfg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	if len(cfg.Skills) != 0 {
-		t.Errorf("expected 0 skills (no meta), got %d", len(cfg.Skills))
+	if len(reg.Skills) != 0 {
+		t.Errorf("expected 0 skills (no meta), got %d", len(reg.Skills))
 	}
 }
 
@@ -107,13 +111,14 @@ func TestReconcileProjectSkills_EmptyDir(t *testing.T) {
 	}
 
 	cfg := &ProjectConfig{}
+	reg := &Registry{}
 
-	if err := ReconcileProjectSkills(root, cfg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	if len(cfg.Skills) != 0 {
-		t.Errorf("expected 0 skills, got %d", len(cfg.Skills))
+	if len(reg.Skills) != 0 {
+		t.Errorf("expected 0 skills, got %d", len(reg.Skills))
 	}
 }
 
@@ -122,8 +127,9 @@ func TestReconcileProjectSkills_MissingDir(t *testing.T) {
 	skillsDir := filepath.Join(root, ".skillshare", "skills") // does not exist
 
 	cfg := &ProjectConfig{}
+	reg := &Registry{}
 
-	if err := ReconcileProjectSkills(root, cfg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills should not fail for missing dir: %v", err)
 	}
 }
@@ -146,19 +152,20 @@ func TestReconcileProjectSkills_NestedSkillSetsGroup(t *testing.T) {
 	cfg := &ProjectConfig{
 		Targets: []ProjectTargetEntry{{Name: "claude"}},
 	}
+	reg := &Registry{}
 
-	if err := ReconcileProjectSkills(root, cfg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	if len(cfg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(cfg.Skills))
+	if len(reg.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
 	}
-	if cfg.Skills[0].Name != "my-skill" {
-		t.Errorf("expected bare name 'my-skill', got %q", cfg.Skills[0].Name)
+	if reg.Skills[0].Name != "my-skill" {
+		t.Errorf("expected bare name 'my-skill', got %q", reg.Skills[0].Name)
 	}
-	if cfg.Skills[0].Group != "tools" {
-		t.Errorf("expected group 'tools', got %q", cfg.Skills[0].Group)
+	if reg.Skills[0].Group != "tools" {
+		t.Errorf("expected group 'tools', got %q", reg.Skills[0].Group)
 	}
 }
 
@@ -179,20 +186,22 @@ func TestReconcileProjectSkills_MigratesLegacySlashName(t *testing.T) {
 	// Start with legacy format
 	cfg := &ProjectConfig{
 		Targets: []ProjectTargetEntry{{Name: "claude"}},
-		Skills:  []SkillEntry{{Name: "tools/my-skill", Source: "github.com/user/repo"}},
+	}
+	reg := &Registry{
+		Skills: []SkillEntry{{Name: "tools/my-skill", Source: "github.com/user/repo"}},
 	}
 
-	if err := ReconcileProjectSkills(root, cfg, skillsDir); err != nil {
+	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	if len(cfg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(cfg.Skills))
+	if len(reg.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
 	}
-	if cfg.Skills[0].Name != "my-skill" {
-		t.Errorf("expected migrated name 'my-skill', got %q", cfg.Skills[0].Name)
+	if reg.Skills[0].Name != "my-skill" {
+		t.Errorf("expected migrated name 'my-skill', got %q", reg.Skills[0].Name)
 	}
-	if cfg.Skills[0].Group != "tools" {
-		t.Errorf("expected migrated group 'tools', got %q", cfg.Skills[0].Group)
+	if reg.Skills[0].Group != "tools" {
+		t.Errorf("expected migrated group 'tools', got %q", reg.Skills[0].Group)
 	}
 }

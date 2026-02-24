@@ -25,7 +25,7 @@ func TestReconcileGlobalSkills_AddsNewSkill(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Write initial config
+	// Write initial config (needed for ConfigPath() resolution)
 	cfgData, _ := yaml.Marshal(&Config{Source: sourceDir})
 	if err := os.WriteFile(configPath, cfgData, 0644); err != nil {
 		t.Fatal(err)
@@ -33,19 +33,20 @@ func TestReconcileGlobalSkills_AddsNewSkill(t *testing.T) {
 	t.Setenv("SKILLSHARE_CONFIG", configPath)
 
 	cfg := &Config{Source: sourceDir}
+	reg := &Registry{}
 
-	if err := ReconcileGlobalSkills(cfg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	if len(cfg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(cfg.Skills))
+	if len(reg.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
 	}
-	if cfg.Skills[0].Name != "my-skill" {
-		t.Errorf("expected skill name 'my-skill', got %q", cfg.Skills[0].Name)
+	if reg.Skills[0].Name != "my-skill" {
+		t.Errorf("expected skill name 'my-skill', got %q", reg.Skills[0].Name)
 	}
-	if cfg.Skills[0].Source != "github.com/user/repo" {
-		t.Errorf("expected source 'github.com/user/repo', got %q", cfg.Skills[0].Source)
+	if reg.Skills[0].Source != "github.com/user/repo" {
+		t.Errorf("expected source 'github.com/user/repo', got %q", reg.Skills[0].Source)
 	}
 }
 
@@ -70,20 +71,20 @@ func TestReconcileGlobalSkills_UpdatesExistingSource(t *testing.T) {
 	}
 	t.Setenv("SKILLSHARE_CONFIG", configPath)
 
-	cfg := &Config{
-		Source: sourceDir,
+	cfg := &Config{Source: sourceDir}
+	reg := &Registry{
 		Skills: []SkillEntry{{Name: "my-skill", Source: "github.com/user/repo-v1"}},
 	}
 
-	if err := ReconcileGlobalSkills(cfg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	if len(cfg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(cfg.Skills))
+	if len(reg.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
 	}
-	if cfg.Skills[0].Source != "github.com/user/repo-v2" {
-		t.Errorf("expected updated source 'github.com/user/repo-v2', got %q", cfg.Skills[0].Source)
+	if reg.Skills[0].Source != "github.com/user/repo-v2" {
+		t.Errorf("expected updated source 'github.com/user/repo-v2', got %q", reg.Skills[0].Source)
 	}
 }
 
@@ -108,13 +109,14 @@ func TestReconcileGlobalSkills_SkipsNoMeta(t *testing.T) {
 	t.Setenv("SKILLSHARE_CONFIG", configPath)
 
 	cfg := &Config{Source: sourceDir}
+	reg := &Registry{}
 
-	if err := ReconcileGlobalSkills(cfg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	if len(cfg.Skills) != 0 {
-		t.Errorf("expected 0 skills (no meta), got %d", len(cfg.Skills))
+	if len(reg.Skills) != 0 {
+		t.Errorf("expected 0 skills (no meta), got %d", len(reg.Skills))
 	}
 }
 
@@ -126,13 +128,14 @@ func TestReconcileGlobalSkills_EmptyDir(t *testing.T) {
 	}
 
 	cfg := &Config{Source: sourceDir}
+	reg := &Registry{}
 
-	if err := ReconcileGlobalSkills(cfg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	if len(cfg.Skills) != 0 {
-		t.Errorf("expected 0 skills, got %d", len(cfg.Skills))
+	if len(reg.Skills) != 0 {
+		t.Errorf("expected 0 skills, got %d", len(reg.Skills))
 	}
 }
 
@@ -141,8 +144,9 @@ func TestReconcileGlobalSkills_MissingDir(t *testing.T) {
 	sourceDir := filepath.Join(root, "skills") // does not exist
 
 	cfg := &Config{Source: sourceDir}
+	reg := &Registry{}
 
-	if err := ReconcileGlobalSkills(cfg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
 		t.Fatalf("ReconcileGlobalSkills should not fail for missing dir: %v", err)
 	}
 }
@@ -170,22 +174,23 @@ func TestReconcileGlobalSkills_NestedSkillSetsGroup(t *testing.T) {
 	t.Setenv("SKILLSHARE_CONFIG", configPath)
 
 	cfg := &Config{Source: sourceDir}
+	reg := &Registry{}
 
-	if err := ReconcileGlobalSkills(cfg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	if len(cfg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(cfg.Skills))
+	if len(reg.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
 	}
-	if cfg.Skills[0].Name != "pdf" {
-		t.Errorf("expected bare name 'pdf', got %q", cfg.Skills[0].Name)
+	if reg.Skills[0].Name != "pdf" {
+		t.Errorf("expected bare name 'pdf', got %q", reg.Skills[0].Name)
 	}
-	if cfg.Skills[0].Group != "frontend" {
-		t.Errorf("expected group 'frontend', got %q", cfg.Skills[0].Group)
+	if reg.Skills[0].Group != "frontend" {
+		t.Errorf("expected group 'frontend', got %q", reg.Skills[0].Group)
 	}
-	if cfg.Skills[0].FullName() != "frontend/pdf" {
-		t.Errorf("expected FullName 'frontend/pdf', got %q", cfg.Skills[0].FullName())
+	if reg.Skills[0].FullName() != "frontend/pdf" {
+		t.Errorf("expected FullName 'frontend/pdf', got %q", reg.Skills[0].FullName())
 	}
 }
 
@@ -212,22 +217,22 @@ func TestReconcileGlobalSkills_MigratesLegacySlashName(t *testing.T) {
 	t.Setenv("SKILLSHARE_CONFIG", configPath)
 
 	// Start with legacy format: name contains slash, no group
-	cfg := &Config{
-		Source: sourceDir,
+	cfg := &Config{Source: sourceDir}
+	reg := &Registry{
 		Skills: []SkillEntry{{Name: "frontend/pdf", Source: "anthropics/skills/skills/pdf"}},
 	}
 
-	if err := ReconcileGlobalSkills(cfg); err != nil {
+	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	if len(cfg.Skills) != 1 {
-		t.Fatalf("expected 1 skill, got %d", len(cfg.Skills))
+	if len(reg.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(reg.Skills))
 	}
-	if cfg.Skills[0].Name != "pdf" {
-		t.Errorf("expected migrated name 'pdf', got %q", cfg.Skills[0].Name)
+	if reg.Skills[0].Name != "pdf" {
+		t.Errorf("expected migrated name 'pdf', got %q", reg.Skills[0].Name)
 	}
-	if cfg.Skills[0].Group != "frontend" {
-		t.Errorf("expected migrated group 'frontend', got %q", cfg.Skills[0].Group)
+	if reg.Skills[0].Group != "frontend" {
+		t.Errorf("expected migrated group 'frontend', got %q", reg.Skills[0].Group)
 	}
 }

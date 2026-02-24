@@ -14,7 +14,7 @@ import (
 // skills (those with install metadata or tracked repos) and ensures they are
 // listed in Config.Skills[]. This is the global-mode counterpart of
 // ReconcileProjectSkills.
-func ReconcileGlobalSkills(cfg *Config) error {
+func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
 	sourcePath := cfg.Source
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		return nil // no skills dir yet
@@ -22,13 +22,13 @@ func ReconcileGlobalSkills(cfg *Config) error {
 
 	changed := false
 	index := map[string]int{}
-	for i, skill := range cfg.Skills {
+	for i, skill := range reg.Skills {
 		index[skill.FullName()] = i
 	}
 
 	// Migrate legacy entries: name "frontend/pdf" → group "frontend", name "pdf"
-	for i := range cfg.Skills {
-		s := &cfg.Skills[i]
+	for i := range reg.Skills {
+		s := &reg.Skills[i]
 		if s.Group == "" && strings.Contains(s.Name, "/") {
 			group, bare := s.EffectiveParts()
 			s.Group = group
@@ -75,12 +75,12 @@ func ReconcileGlobalSkills(cfg *Config) error {
 		fullPath := filepath.ToSlash(relPath)
 
 		if existingIdx, ok := index[fullPath]; ok {
-			if cfg.Skills[existingIdx].Source != source {
-				cfg.Skills[existingIdx].Source = source
+			if reg.Skills[existingIdx].Source != source {
+				reg.Skills[existingIdx].Source = source
 				changed = true
 			}
-			if cfg.Skills[existingIdx].Tracked != tracked {
-				cfg.Skills[existingIdx].Tracked = tracked
+			if reg.Skills[existingIdx].Tracked != tracked {
+				reg.Skills[existingIdx].Tracked = tracked
 				changed = true
 			}
 		} else {
@@ -94,8 +94,8 @@ func ReconcileGlobalSkills(cfg *Config) error {
 			} else {
 				entry.Name = fullPath
 			}
-			cfg.Skills = append(cfg.Skills, entry)
-			index[fullPath] = len(cfg.Skills) - 1
+			reg.Skills = append(reg.Skills, entry)
+			index[fullPath] = len(reg.Skills) - 1
 			changed = true
 		}
 
@@ -113,7 +113,7 @@ func ReconcileGlobalSkills(cfg *Config) error {
 	}
 
 	if changed {
-		if err := cfg.Save(); err != nil {
+		if err := reg.Save(filepath.Dir(ConfigPath())); err != nil {
 			return err
 		}
 	}
