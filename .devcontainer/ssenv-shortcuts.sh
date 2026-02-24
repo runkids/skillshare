@@ -60,7 +60,21 @@ sshelp() {
 # Override bash built-in help
 alias help='/workspace/.devcontainer/bin/help'
 
-# Visual feedback for isolated environments
-if [ -n "${SSENV_ACTIVE:-}" ]; then
-  export PS1="(${SSENV_ACTIVE}) ${PS1:-}"
+# Dynamic prompt prefix for isolated environments
+_ssenv_prompt() {
+  if [ -n "${SSENV_ACTIVE:-}" ]; then
+    PS1="(${SSENV_ACTIVE}) ${_SSENV_ORIG_PS1:-\$ }"
+  else
+    PS1="${_SSENV_ORIG_PS1:-\$ }"
+  fi
+}
+
+# Save original PS1 once (guard against re-source)
+if [ -z "${_SSENV_ORIG_PS1+x}" ]; then
+  _SSENV_ORIG_PS1="${PS1:-}"
+fi
+
+# Register prompt hook (append, don't clobber existing PROMPT_COMMAND)
+if [[ "${PROMPT_COMMAND:-}" != *"_ssenv_prompt"* ]]; then
+  PROMPT_COMMAND="_ssenv_prompt${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
 fi
