@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/check"
 	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
@@ -42,6 +43,58 @@ type checkOptions struct {
 	names  []string // positional (0+ = all)
 	groups []string // --group/-G
 	json   bool
+}
+
+// skillWithMeta holds a regular skill plus its parsed metadata for grouping.
+type skillWithMeta struct {
+	name string
+	path string
+	meta *install.SkillMeta
+}
+
+// collectCheckItems reads metadata and partitions items for parallel checking.
+// Returns: tracked repo inputs, URL-grouped skills, local skill results (no network needed).
+func collectCheckItems(sourceDir string, repos []string, skills []string) (
+	[]check.RepoCheckInput,
+	map[string][]skillWithMeta,
+	[]checkSkillResult,
+) {
+	var repoInputs []check.RepoCheckInput
+	for _, repo := range repos {
+		repoInputs = append(repoInputs, check.RepoCheckInput{
+			Name:     repo,
+			RepoPath: filepath.Join(sourceDir, repo),
+		})
+	}
+
+	urlGroups := make(map[string][]skillWithMeta)
+	var localResults []checkSkillResult
+
+	for _, skill := range skills {
+		skillPath := filepath.Join(sourceDir, skill)
+		meta, err := install.ReadMeta(skillPath)
+
+		if err != nil || meta == nil || meta.RepoURL == "" {
+			result := checkSkillResult{Name: skill, Status: "local"}
+			if meta != nil {
+				result.Source = meta.Source
+				result.Version = meta.Version
+				if !meta.InstalledAt.IsZero() {
+					result.InstalledAt = meta.InstalledAt.Format("2006-01-02")
+				}
+			}
+			localResults = append(localResults, result)
+			continue
+		}
+
+		urlGroups[meta.RepoURL] = append(urlGroups[meta.RepoURL], skillWithMeta{
+			name: skill,
+			path: skillPath,
+			meta: meta,
+		})
+	}
+
+	return repoInputs, urlGroups, localResults
 }
 
 // parseCheckArgs parses command line arguments for the check command.
