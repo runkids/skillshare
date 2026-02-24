@@ -42,7 +42,7 @@
 
 > [!NOTE]
 > **Recent Updates**
-> - **[0.16.0](https://github.com/runkids/skillshare/releases/tag/v0.16.0)**: Performance overhaul (sparse checkout, parallel check, tree hash), interactive bubbletea TUI, registry separation, CLI visual refresh. ([#46](https://github.com/runkids/skillshare/issues/46))
+> - **[0.16.0](https://github.com/runkids/skillshare/releases/tag/v0.16.0)**: Performance overhaul (sparse checkout, parallel check, tree hash), interactive bubbletea TUI, registry separation, CLI visual refresh.
 > - **[0.15.x](https://github.com/runkids/skillshare/releases/tag/v0.15.5)**: Supply-chain security hardening, copy sync mode, HTTPS token auth.
 > - Full history: [All Releases](https://github.com/runkids/skillshare/releases)
 
@@ -456,8 +456,9 @@ Or open in [Dev Containers](https://containers.dev/) for a zero-setup environmen
 Thanks to everyone who helped shape skillshare through issues, PRs, and ideas.
 
 <a href="https://github.com/leeeezx"><img src="https://github.com/leeeezx.png" width="40" height="40" style="border-radius:50%" alt="leeeezx"></a>
-<a href="https://github.com/xocasdashdash"><img src="https://github.com/xocasdashdash.png" width="40" height="40" style="border-radius:50%" alt="xocasdashdash"></a>
+<a href="https://github.com/Vergil333"><img src="https://github.com/Vergil333.png" width="40" height="40" style="border-radius:50%" alt="Vergil333"></a>
 <a href="https://github.com/romanr"><img src="https://github.com/romanr.png" width="40" height="40" style="border-radius:50%" alt="romanr"></a>
+<a href="https://github.com/xocasdashdash"><img src="https://github.com/xocasdashdash.png" width="40" height="40" style="border-radius:50%" alt="xocasdashdash"></a>
 <a href="https://github.com/philippe-granet"><img src="https://github.com/philippe-granet.png" width="40" height="40" style="border-radius:50%" alt="philippe-granet"></a>
 <a href="https://github.com/terranc"><img src="https://github.com/terranc.png" width="40" height="40" style="border-radius:50%" alt="terranc"></a>
 <a href="https://github.com/benrfairless"><img src="https://github.com/benrfairless.png" width="40" height="40" style="border-radius:50%" alt="benrfairless"></a>
@@ -468,8 +469,6 @@ Thanks to everyone who helped shape skillshare through issues, PRs, and ideas.
 <a href="https://github.com/TyceHerrman"><img src="https://github.com/TyceHerrman.png" width="40" height="40" style="border-radius:50%" alt="TyceHerrman"></a>
 <a href="https://github.com/1am2syman"><img src="https://github.com/1am2syman.png" width="40" height="40" style="border-radius:50%" alt="1am2syman"></a>
 <a href="https://github.com/thealokkr"><img src="https://github.com/thealokkr.png" width="40" height="40" style="border-radius:50%" alt="thealokkr"></a>
-<a href="https://github.com/njg7194"><img src="https://github.com/njg7194.png" width="40" height="40" style="border-radius:50%" alt="njg7194"></a>
-<a href="https://github.com/Vergil333"><img src="https://github.com/Vergil333.png" width="40" height="40" style="border-radius:50%" alt="Vergil333"></a>
 
 ---
 
