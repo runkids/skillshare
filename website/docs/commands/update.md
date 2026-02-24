@@ -62,6 +62,9 @@ flowchart TD
 | `--skip-audit` | Skip the post-update security audit gate |
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | Override update audit block threshold (`critical|high|medium|low|info`; shorthand: `c|h|m|l|i`, plus `crit`, `med`) |
 | `--diff` | Show file-level change summary after update |
+| `--audit-verbose` | Show detailed per-skill audit findings in batch mode |
+| `--project, -p` | Use project-level config in current directory |
+| `--global, -g` | Use global config (`~/.config/skillshare`) |
 | `--help, -h` | Show help |
 
 ## Update Multiple

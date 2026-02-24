@@ -42,6 +42,8 @@ flowchart TD
 | `--group, -G <name>` | Remove all skills in a group (prefix match, repeatable) |
 | `--force, -f` | Skip confirmation and ignore uncommitted changes |
 | `--dry-run, -n` | Preview without making changes |
+| `--project, -p` | Use project-level config in current directory |
+| `--global, -g` | Use global config (`~/.config/skillshare`) |
 | `--help, -h` | Show help |
 
 ## Multiple Skills
