@@ -10,7 +10,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { api } from '../api/client';
-import type { BackupInfo } from '../api/client';
+import type { BackupInfo, RestoreValidateResponse } from '../api/client';
 import { useApi } from '../hooks/useApi';
 import { useAppContext } from '../context/AppContext';
 import { formatSize } from '../lib/format';
@@ -82,6 +82,10 @@ export default function BackupPage() {
   const [cleaningUp, setCleaningUp] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState<{ timestamp: string; target: string } | null>(null);
   const [restoring, setRestoring] = useState(false);
+  const [validation, setValidation] = useState<{
+    loading: boolean;
+    result: RestoreValidateResponse | null;
+  }>({ loading: false, result: null });
 
   const backups = data?.backups ?? [];
 
@@ -116,18 +120,35 @@ export default function BackupPage() {
     }
   };
 
+  const openRestoreDialog = async (timestamp: string, target: string) => {
+    setRestoreTarget({ timestamp, target });
+    setValidation({ loading: true, result: null });
+    try {
+      const result = await api.validateRestore({ timestamp, target });
+      setValidation({ loading: false, result });
+    } catch {
+      setValidation({ loading: false, result: null });
+    }
+  };
+
+  const closeRestoreDialog = () => {
+    setRestoreTarget(null);
+    setValidation({ loading: false, result: null });
+  };
+
   const handleRestore = async () => {
     if (!restoreTarget) return;
     setRestoring(true);
+    const needsForce = (validation.result?.conflicts?.length ?? 0) > 0;
     try {
-      await api.restore({ ...restoreTarget, force: true });
+      await api.restore({ ...restoreTarget, force: needsForce });
       toast(`Restored ${restoreTarget.target} from backup`, 'success');
       refetch();
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
       setRestoring(false);
-      setRestoreTarget(null);
+      closeRestoreDialog();
     }
   };
 
@@ -224,7 +245,7 @@ export default function BackupPage() {
               isNewest={i === 0}
               index={i}
               onRestore={(target) =>
-                setRestoreTarget({ timestamp: backup.timestamp, target })
+                openRestoreDialog(backup.timestamp, target)
               }
             />
           ))}
@@ -252,20 +273,61 @@ export default function BackupPage() {
       <ConfirmDialog
         open={restoreTarget !== null}
         title="Restore Backup"
+        wide
         message={
           restoreTarget ? (
-            <span>
-              Restore <strong>{restoreTarget.target}</strong> from backup{' '}
-              <code className="text-sm">{restoreTarget.timestamp}</code>?
-              This will overwrite the current target contents.
-            </span>
+            <div className="text-left space-y-3">
+              <div className="space-y-1 text-sm">
+                <div><strong>Target:</strong> {restoreTarget.target}</div>
+                <div><strong>From:</strong> <code className="text-xs bg-paper-dark/50 px-1 rounded">{restoreTarget.timestamp}</code></div>
+                {validation.result && validation.result.backupSizeBytes > 0 && (
+                  <div><strong>Backup size:</strong> {formatSize(validation.result.backupSizeBytes)}</div>
+                )}
+              </div>
+
+              {validation.loading && (
+                <p className="text-pencil-light italic text-sm">Checking target state...</p>
+              )}
+
+              {validation.result?.currentIsSymlink && (
+                <p className="text-blue text-sm">
+                  Current target is a symlink — it will be safely replaced.
+                </p>
+              )}
+
+              {(validation.result?.conflicts?.length ?? 0) > 0 && (
+                <div className="bg-warning/10 border border-warning/30 rounded p-2 text-sm">
+                  <p className="font-medium text-warning mb-1">
+                    Target has {validation.result!.conflicts.length} existing item(s) that will be overwritten:
+                  </p>
+                  <ul className="list-disc list-inside text-pencil-light max-h-24 overflow-y-auto">
+                    {validation.result!.conflicts.slice(0, 10).map((f) => (
+                      <li key={f}>{f}</li>
+                    ))}
+                    {validation.result!.conflicts.length > 10 && (
+                      <li>...and {validation.result!.conflicts.length - 10} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+
+              {validation.result && !validation.result.currentIsSymlink && validation.result.conflicts.length === 0 && (
+                <p className="text-green text-sm">
+                  Target is empty or does not exist — safe to restore.
+                </p>
+              )}
+            </div>
           ) : <span />
         }
-        confirmText="Restore"
+        confirmText={
+          (validation.result?.conflicts?.length ?? 0) > 0
+            ? 'Restore (overwrite)'
+            : 'Restore'
+        }
         variant="danger"
-        loading={restoring}
+        loading={restoring || validation.loading}
         onConfirm={handleRestore}
-        onCancel={() => setRestoreTarget(null)}
+        onCancel={closeRestoreDialog}
       />
     </div>
   );
