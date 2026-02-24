@@ -11,7 +11,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-UPDATE_GO="$PROJECT_ROOT/cmd/skillshare/update.go"
+UPDATE_GO="$PROJECT_ROOT/cmd/skillshare/update_handlers.go"
 BACKUP_FILE=""
 BACKUP_READY=false
 RESTORED=false
@@ -43,7 +43,7 @@ echo "==> [1/4] Baseline: running make test-redteam (should pass)"
 echo "==> [2/4] Injecting mutation: bypass rollback on HIGH/CRITICAL findings"
 backup_source
 
-perl -0pi -e 's@return fmt\.Errorf\("security audit failed[^"]*rolled back \(use --skip-audit to bypass\): %w", normalizedThreshold, audit\.ErrBlocked\)@return nil // MUTATION: bypass rollback gate@g' "$UPDATE_GO"
+perl -0pi -e 's@return result, fmt\.Errorf\("security audit failed — findings at/above %s detected — rolled back \(use --skip-audit to bypass\): %w", normalizedThreshold, audit\.ErrBlocked\)@return result, nil // MUTATION: bypass rollback gate@g' "$UPDATE_GO"
 
 if command -v rg >/dev/null 2>&1; then
   MUTATION_COUNT="$(rg -c "MUTATION: bypass rollback gate" "$UPDATE_GO" || true)"
