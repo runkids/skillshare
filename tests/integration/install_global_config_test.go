@@ -102,28 +102,29 @@ targets: {}
 	result := sb.RunCLI("install", "--global", localSkill)
 	result.AssertSuccess(t)
 
-	// Read back config and verify skills[] was added
-	data, err := os.ReadFile(sb.ConfigPath)
+	// Read registry.yaml (skills are stored here, not in config.yaml)
+	registryPath := filepath.Join(filepath.Dir(sb.ConfigPath), "registry.yaml")
+	data, err := os.ReadFile(registryPath)
 	if err != nil {
-		t.Fatalf("failed to read config: %v", err)
+		t.Fatalf("expected registry.yaml after install: %v", err)
 	}
 
-	var cfg struct {
+	var reg struct {
 		Skills []struct {
 			Name   string `yaml:"name"`
 			Source string `yaml:"source"`
 		} `yaml:"skills"`
 	}
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		t.Fatalf("failed to parse config: %v", err)
+	if err := yaml.Unmarshal(data, &reg); err != nil {
+		t.Fatalf("failed to parse registry: %v", err)
 	}
 
-	if len(cfg.Skills) == 0 {
-		t.Fatal("expected skills[] in config after install, got none")
+	if len(reg.Skills) == 0 {
+		t.Fatal("expected skills[] in registry after install, got none")
 	}
 
 	found := false
-	for _, s := range cfg.Skills {
+	for _, s := range reg.Skills {
 		if s.Name == "test-skill" {
 			found = true
 			if strings.TrimSpace(s.Source) == "" {
@@ -132,7 +133,15 @@ targets: {}
 		}
 	}
 	if !found {
-		t.Errorf("expected skill 'test-skill' in config, got: %+v", cfg.Skills)
+		t.Errorf("expected skill 'test-skill' in registry, got: %+v", reg.Skills)
+	}
+
+	// Verify config.yaml does NOT contain skills[]
+	configData, _ := os.ReadFile(sb.ConfigPath)
+	var cfgCheck map[string]any
+	_ = yaml.Unmarshal(configData, &cfgCheck)
+	if _, hasSkills := cfgCheck["skills"]; hasSkills {
+		t.Error("config.yaml should not contain skills[] after install")
 	}
 
 	// Verify meta file was written (so reconcile can find it)
