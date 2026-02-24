@@ -12,7 +12,7 @@ import (
 	"skillshare/internal/install"
 )
 
-func TestHandleGitSubdirInstall_SingleSkill_ShowsLicense(t *testing.T) {
+func TestHandleGitInstall_SubdirSingleSkill_ShowsLicense(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
 	}
@@ -39,9 +39,9 @@ func TestHandleGitSubdirInstall_SingleSkill_ShowsLicense(t *testing.T) {
 	}
 
 	output := captureStdoutStderr(t, func() {
-		_, err := handleGitSubdirInstall(source, cfg, install.InstallOptions{DryRun: true})
+		_, err := handleGitInstall(source, cfg, install.InstallOptions{DryRun: true})
 		if err != nil {
-			t.Fatalf("handleGitSubdirInstall() error = %v", err)
+			t.Fatalf("handleGitInstall() error = %v", err)
 		}
 	})
 

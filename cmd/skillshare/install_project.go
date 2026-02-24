@@ -2,14 +2,10 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/ui"
-	"skillshare/internal/validate"
 	appversion "skillshare/internal/version"
 )
 
@@ -97,106 +93,38 @@ func installFromProjectConfig(runtime *projectRuntime, opts install.InstallOptio
 		DryRun: opts.DryRun,
 	}
 
-	if len(runtime.config.Skills) == 0 {
+	ctx := &projectInstallContext{runtime: runtime}
+
+	if len(ctx.ConfigSkills()) == 0 {
 		ui.Info("No remote skills defined in .skillshare/config.yaml")
 		return summary, nil
 	}
 
 	ui.Logo(appversion.Version)
-
-	total := len(runtime.config.Skills)
+	total := len(ctx.ConfigSkills())
 	spinner := ui.StartSpinner(fmt.Sprintf("Installing %d skill(s) from config...", total))
 
-	installed := 0
-
-	for _, skill := range runtime.config.Skills {
-		groupDir, bareName := skill.EffectiveParts()
-		if strings.TrimSpace(bareName) == "" {
-			continue
-		}
-
-		displayName := skill.FullName()
-		destPath := filepath.Join(runtime.sourcePath, filepath.FromSlash(displayName))
-		if _, err := os.Stat(destPath); err == nil {
-			ui.StepDone(displayName, "skipped (already exists)")
-			continue
-		}
-
-		source, err := install.ParseSource(skill.Source)
-		if err != nil {
-			ui.StepFail(displayName, fmt.Sprintf("invalid source: %v", err))
-			continue
-		}
-
-		source.Name = bareName
-
-		if skill.Tracked {
-			trackOpts := opts
-			if groupDir != "" {
-				trackOpts.Into = groupDir
-			}
-			trackedResult, err := install.InstallTrackedRepo(source, runtime.sourcePath, trackOpts)
-			if err != nil {
-				ui.StepFail(displayName, err.Error())
-				continue
-			}
-			if opts.DryRun {
-				ui.StepDone(displayName, trackedResult.Action)
-				continue
-			}
-			ui.StepDone(displayName, fmt.Sprintf("installed (tracked, %d skills)", trackedResult.SkillCount))
-			if len(trackedResult.Skills) > 0 {
-				summary.InstalledSkills = append(summary.InstalledSkills, trackedResult.Skills...)
-			} else {
-				summary.InstalledSkills = append(summary.InstalledSkills, displayName)
-			}
-		} else {
-			if err := validate.SkillName(bareName); err != nil {
-				ui.StepFail(displayName, fmt.Sprintf("invalid name: %v", err))
-				continue
-			}
-			// Ensure group directory exists
-			if groupDir != "" {
-				if err := os.MkdirAll(filepath.Join(runtime.sourcePath, filepath.FromSlash(groupDir)), 0755); err != nil {
-					ui.StepFail(displayName, fmt.Sprintf("failed to create group directory: %v", err))
-					continue
-				}
-			}
-			result, err := install.Install(source, destPath, opts)
-			if err != nil {
-				ui.StepFail(displayName, err.Error())
-				continue
-			}
-			if opts.DryRun {
-				ui.StepDone(displayName, result.Action)
-				continue
-			}
-			if err := install.UpdateGitIgnore(filepath.Join(runtime.root, ".skillshare"), filepath.Join("skills", displayName)); err != nil {
-				ui.Warning("Failed to update .skillshare/.gitignore: %v", err)
-			}
-			ui.StepDone(displayName, "installed")
-			summary.InstalledSkills = append(summary.InstalledSkills, displayName)
-		}
-
-		installed++
+	result, err := install.InstallFromConfig(ctx, opts)
+	if err != nil {
+		spinner.Fail("Install failed")
+		summary.InstalledSkills = result.InstalledSkills
+		summary.FailedSkills = result.FailedSkills
+		summary.SkillCount = len(result.InstalledSkills)
+		return summary, err
 	}
+
+	summary.InstalledSkills = result.InstalledSkills
+	summary.FailedSkills = result.FailedSkills
+	summary.SkillCount = len(result.InstalledSkills)
 
 	if opts.DryRun {
 		spinner.Stop()
-		summary.SkillCount = len(summary.InstalledSkills)
 		return summary, nil
 	}
 
-	spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
+	spinner.Success(fmt.Sprintf("Installed %d skill(s)", result.Installed))
 	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to create symlinks")
-	summary.SkillCount = len(summary.InstalledSkills)
-
-	if installed > 0 {
-		if err := reconcileProjectRemoteSkills(runtime); err != nil {
-			return summary, err
-		}
-	}
 
 	return summary, nil
 }
