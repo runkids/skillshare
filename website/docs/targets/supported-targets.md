@@ -56,6 +56,7 @@ These are auto-detected during `skillshare init`:
   <a className="target-badge" href="#target-pochi">Pochi</a>
   <a className="target-badge" href="#target-qoder">Qoder</a>
   <a className="target-badge" href="#target-qwen">Qwen</a>
+  <a className="target-badge" href="#target-replit">Replit</a>
   <a className="target-badge" href="#target-roo">Roo</a>
   <a className="target-badge" href="#target-trae">Trae</a>
   <a className="target-badge" href="#target-trae-cn">Trae CN</a>
@@ -114,7 +115,7 @@ These are auto-detected during `skillshare init`:
 <tr id="target-pochi"><td>pochi</td><td><code>&#126;/.pochi/skills</code></td><td><code>.pochi/skills</code></td></tr>
 <tr id="target-qoder"><td>qoder</td><td><code>&#126;/.qoder/skills</code></td><td><code>.qoder/skills</code></td></tr>
 <tr id="target-qwen"><td>qwen</td><td><code>&#126;/.qwen/skills</code></td><td><code>.qwen/skills</code></td></tr>
-<tr><td>replit</td><td>—</td><td><code>.agents/skills</code></td></tr>
+<tr id="target-replit"><td>replit</td><td>—</td><td><code>.agents/skills</code></td></tr>
 <tr id="target-roo"><td>roo</td><td><code>&#126;/.roo/skills</code></td><td><code>.roo/skills</code></td></tr>
 <tr id="target-trae"><td>trae</td><td><code>&#126;/.trae/skills</code></td><td><code>.trae/skills</code></td></tr>
 <tr id="target-trae-cn"><td>trae-cn</td><td><code>&#126;/.trae-cn/skills</code></td><td><code>.trae/skills</code></td></tr>
