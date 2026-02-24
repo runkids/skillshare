@@ -9,7 +9,6 @@ import (
 
 	"skillshare/internal/check"
 	"skillshare/internal/config"
-	"skillshare/internal/git"
 	"skillshare/internal/install"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/ui"
@@ -455,29 +454,77 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 		return fmt.Errorf("no skills found")
 	}
 
-	// --- Check resolved targets ---
-	var repoResults []checkRepoResult
-	var skillResults []checkSkillResult
-
-	if !opts.json {
-		fmt.Println()
-	}
-
-	var spinner *ui.Spinner
-	if !opts.json {
-		spinner = ui.StartSpinner(fmt.Sprintf("Checking %d target(s)...", len(targets)))
-	}
-
+	// --- Partition targets for parallel check ---
+	var repoNames []string
+	var skillNames []string
 	for _, t := range targets {
 		if t.isRepo {
-			repoResults = append(repoResults, checkTrackedRepo(t.name, t.path))
+			repoNames = append(repoNames, t.name)
 		} else {
-			skillResults = append(skillResults, checkRegularSkill(t.name, t.path))
+			skillNames = append(skillNames, t.name)
 		}
 	}
 
-	if spinner != nil {
-		spinner.Success(fmt.Sprintf("Checked %d target(s)", len(targets)))
+	repoInputs, urlGroups, localResults := collectCheckItems(sourceDir, repoNames, skillNames)
+
+	var urlInputs []check.URLCheckInput
+	var urlOrder []string
+	for url := range urlGroups {
+		urlInputs = append(urlInputs, check.URLCheckInput{RepoURL: url})
+		urlOrder = append(urlOrder, url)
+	}
+
+	total := len(repoInputs) + len(urlInputs)
+
+	var progressBar *ui.ProgressBar
+	if !opts.json && total > 0 {
+		fmt.Println()
+		progressBar = ui.StartProgress("Checking targets", total)
+	}
+
+	onDone := func() {
+		if progressBar != nil {
+			progressBar.Increment()
+		}
+	}
+
+	repoOutputs := check.ParallelCheckRepos(repoInputs, onDone)
+	urlOutputs := check.ParallelCheckURLs(urlInputs, onDone)
+
+	if progressBar != nil {
+		progressBar.Stop()
+	}
+
+	repoResults := toRepoResults(repoOutputs)
+
+	urlHashMap := make(map[string]check.URLCheckOutput)
+	for _, out := range urlOutputs {
+		urlHashMap[out.RepoURL] = out
+	}
+
+	var skillResults []checkSkillResult
+	skillResults = append(skillResults, localResults...)
+
+	for _, url := range urlOrder {
+		out := urlHashMap[url]
+		for _, sw := range urlGroups[url] {
+			result := checkSkillResult{
+				Name:    sw.name,
+				Source:  sw.meta.Source,
+				Version: sw.meta.Version,
+			}
+			if !sw.meta.InstalledAt.IsZero() {
+				result.InstalledAt = sw.meta.InstalledAt.Format("2006-01-02")
+			}
+			if out.Err != nil {
+				result.Status = "error"
+			} else if sw.meta.Version == out.RemoteHash {
+				result.Status = "up_to_date"
+			} else {
+				result.Status = "update_available"
+			}
+			skillResults = append(skillResults, result)
+		}
 	}
 
 	if opts.json {
@@ -583,71 +630,6 @@ func warnUnknownSkillTargets(sourceDir string) {
 			ui.Warning("Skill targets: %s", w)
 		}
 	}
-}
-
-func checkTrackedRepo(name, repoPath string) checkRepoResult {
-	result := checkRepoResult{Name: name}
-
-	// Check for uncommitted changes
-	if isDirty, _ := git.IsDirty(repoPath); isDirty {
-		result.Status = "dirty"
-		result.Message = "has uncommitted changes"
-		return result
-	}
-
-	// Fetch and compare
-	behind, err := git.GetBehindCountWithAuth(repoPath)
-	if err != nil {
-		result.Status = "error"
-		result.Message = err.Error()
-		return result
-	}
-
-	if behind == 0 {
-		result.Status = "up_to_date"
-	} else {
-		result.Status = "behind"
-		result.Behind = behind
-	}
-
-	return result
-}
-
-func checkRegularSkill(name, skillPath string) checkSkillResult {
-	result := checkSkillResult{Name: name}
-
-	meta, err := install.ReadMeta(skillPath)
-	if err != nil || meta == nil {
-		result.Status = "local"
-		return result
-	}
-
-	result.Source = meta.Source
-	result.Version = meta.Version
-	if !meta.InstalledAt.IsZero() {
-		result.InstalledAt = meta.InstalledAt.Format("2006-01-02")
-	}
-
-	// If no repo URL, it's a local source
-	if meta.RepoURL == "" {
-		result.Status = "local"
-		return result
-	}
-
-	// Compare with remote
-	remoteHash, err := git.GetRemoteHeadHashWithAuth(meta.RepoURL)
-	if err != nil {
-		result.Status = "error"
-		return result
-	}
-
-	if meta.Version == remoteHash {
-		result.Status = "up_to_date"
-	} else {
-		result.Status = "update_available"
-	}
-
-	return result
 }
 
 // formatSourceShort returns a shortened source for display
