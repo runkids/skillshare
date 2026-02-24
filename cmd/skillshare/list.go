@@ -490,7 +490,19 @@ func cmdList(args []string) error {
 	// TTY + not --no-tui + has skills → launch interactive TUI
 	if !opts.NoTUI && len(skills) > 0 && term.IsTerminal(int(os.Stdout.Fd())) {
 		items := toSkillItems(skills)
-		return runListTUI(items, totalCount, "global", cfg.Source, cfg.Targets)
+		action, skillName, err := runListTUI(items, totalCount, "global", cfg.Source, cfg.Targets)
+		if err != nil {
+			return err
+		}
+		switch action {
+		case "audit":
+			return cmdAudit([]string{skillName})
+		case "update":
+			return cmdUpdate([]string{skillName})
+		case "uninstall":
+			return cmdUninstall([]string{skillName})
+		}
+		return nil
 	}
 
 	// Handle empty results before starting pager

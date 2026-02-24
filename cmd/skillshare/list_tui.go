@@ -46,6 +46,7 @@ type listTUIModel struct {
 	sourcePath string
 	targets    map[string]config.TargetConfig
 	quitting   bool
+	action     string // "audit", "update", "uninstall", or "" (normal quit)
 }
 
 // newListTUIModel creates a new TUI model from skill entries.
@@ -114,12 +115,27 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "A":
+			return m.quitWithAction("audit")
+		case "U":
+			return m.quitWithAction("update")
+		case "X":
+			return m.quitWithAction("uninstall")
 		}
 	}
 
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
+}
+
+// quitWithAction sets the action on the selected skill and exits the TUI.
+func (m listTUIModel) quitWithAction(action string) (tea.Model, tea.Cmd) {
+	if _, ok := m.list.SelectedItem().(skillItem); ok {
+		m.action = action
+	}
+	m.quitting = true
+	return m, tea.Quit
 }
 
 func (m listTUIModel) View() string {
@@ -139,7 +155,7 @@ func (m listTUIModel) View() string {
 	}
 
 	// Help line
-	help := "↑↓ navigate  / filter  esc clear  q quit"
+	help := "↑↓ navigate  / filter  A audit  U update  X uninstall  q quit"
 	b.WriteString(tuiHelpStyle.Render(help))
 	b.WriteString("\n")
 
@@ -240,10 +256,28 @@ func (m listTUIModel) findSyncedTargets(e skillEntry) []string {
 }
 
 // runListTUI starts the bubbletea TUI for the skill list.
-// Returns nil on normal exit (user pressed q).
-func runListTUI(skills []skillItem, totalCount int, modeLabel, sourcePath string, targets map[string]config.TargetConfig) error {
+// Returns (action, skillName, error). action is "" on normal quit (q/ctrl+c).
+func runListTUI(skills []skillItem, totalCount int, modeLabel, sourcePath string, targets map[string]config.TargetConfig) (string, string, error) {
 	model := newListTUIModel(skills, totalCount, modeLabel, sourcePath, targets)
 	p := tea.NewProgram(model, tea.WithAltScreen())
-	_, err := p.Run()
-	return err
+	finalModel, err := p.Run()
+	if err != nil {
+		return "", "", err
+	}
+
+	m, ok := finalModel.(listTUIModel)
+	if !ok || m.action == "" {
+		return "", "", nil
+	}
+
+	// Extract skill name from selected item
+	var skillName string
+	if item, ok := m.list.SelectedItem().(skillItem); ok {
+		if item.entry.RelPath != "" {
+			skillName = item.entry.RelPath
+		} else {
+			skillName = item.entry.Name
+		}
+	}
+	return m.action, skillName, nil
 }
