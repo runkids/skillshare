@@ -176,7 +176,7 @@ func cmdCheck(args []string) error {
 func runCheck(sourceDir string, jsonOutput bool) error {
 	repos, err := install.GetTrackedRepos(sourceDir)
 	if err != nil {
-		repos = nil // Non-fatal: source dir might not exist yet
+		repos = nil
 	}
 
 	skills, err := install.GetUpdatableSkills(sourceDir)
@@ -199,95 +199,80 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 		return nil
 	}
 
+	// Collect & group
+	repoInputs, urlGroups, localResults := collectCheckItems(sourceDir, repos, skills)
+
+	// Build unique URL list
+	var urlInputs []check.URLCheckInput
+	var urlOrder []string
+	for url := range urlGroups {
+		urlInputs = append(urlInputs, check.URLCheckInput{RepoURL: url})
+		urlOrder = append(urlOrder, url)
+	}
+
+	total := len(repoInputs) + len(urlInputs)
+
 	if !jsonOutput {
 		ui.Header(ui.WithModeLabel("Checking for updates"))
 		ui.StepStart("Source", sourceDir)
 		ui.StepContinue("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", len(repos), len(skills)))
 	}
 
-	var repoResults []checkRepoResult
+	// Parallel check with progress bar
+	var progressBar *ui.ProgressBar
+	if !jsonOutput && total > 0 {
+		fmt.Println()
+		progressBar = ui.StartProgress("Checking for updates", total)
+	}
+
+	onDone := func() {
+		if progressBar != nil {
+			progressBar.Increment()
+		}
+	}
+
+	repoOutputs := check.ParallelCheckRepos(repoInputs, onDone)
+	urlOutputs := check.ParallelCheckURLs(urlInputs, onDone)
+
+	if progressBar != nil {
+		progressBar.Stop()
+	}
+
+	// Convert repo outputs
+	repoResults := toRepoResults(repoOutputs)
+
+	// Broadcast URL results to grouped skills
+	urlHashMap := make(map[string]check.URLCheckOutput)
+	for _, out := range urlOutputs {
+		urlHashMap[out.RepoURL] = out
+	}
+
 	var skillResults []checkSkillResult
+	skillResults = append(skillResults, localResults...)
 
-	// Check tracked repos
-	if len(repos) > 0 {
-		if !jsonOutput {
-			fmt.Println()
-			spinner := ui.StartSpinner(fmt.Sprintf("Fetching updates for %d tracked repo(s)...", len(repos)))
-
-			for _, repo := range repos {
-				repoPath := filepath.Join(sourceDir, repo)
-				result := checkTrackedRepo(repo, repoPath)
-				repoResults = append(repoResults, result)
+	for _, url := range urlOrder {
+		out := urlHashMap[url]
+		for _, sw := range urlGroups[url] {
+			result := checkSkillResult{
+				Name:    sw.name,
+				Source:  sw.meta.Source,
+				Version: sw.meta.Version,
 			}
-
-			spinner.Success(fmt.Sprintf("Checked %d tracked repo(s)", len(repos)))
-			fmt.Println()
-
-			for _, r := range repoResults {
-				switch r.Status {
-				case "up_to_date":
-					ui.ListItem("success", r.Name, "up to date")
-				case "behind":
-					ui.ListItem("info", r.Name, fmt.Sprintf("%d commit(s) behind", r.Behind))
-				case "dirty":
-					ui.ListItem("warning", r.Name, "has uncommitted changes")
-				case "error":
-					ui.ListItem("error", r.Name, fmt.Sprintf("error: %s", r.Message))
-				}
+			if !sw.meta.InstalledAt.IsZero() {
+				result.InstalledAt = sw.meta.InstalledAt.Format("2006-01-02")
 			}
-		} else {
-			for _, repo := range repos {
-				repoPath := filepath.Join(sourceDir, repo)
-				result := checkTrackedRepo(repo, repoPath)
-				repoResults = append(repoResults, result)
+			if out.Err != nil {
+				result.Status = "error"
+			} else if sw.meta.Version == out.RemoteHash {
+				result.Status = "up_to_date"
+			} else {
+				result.Status = "update_available"
 			}
+			skillResults = append(skillResults, result)
 		}
 	}
 
-	// Check regular skills
-	if len(skills) > 0 {
-		if !jsonOutput {
-			fmt.Println()
-			spinner := ui.StartSpinner(fmt.Sprintf("Checking %d installed skill(s)...", len(skills)))
-
-			for _, skill := range skills {
-				skillPath := filepath.Join(sourceDir, skill)
-				result := checkRegularSkill(skill, skillPath)
-				skillResults = append(skillResults, result)
-			}
-
-			spinner.Success(fmt.Sprintf("Checked %d installed skill(s)", len(skills)))
-			fmt.Println()
-
-			for _, s := range skillResults {
-				switch s.Status {
-				case "up_to_date":
-					detail := "up to date"
-					if s.Source != "" {
-						detail += fmt.Sprintf("  %s", formatSourceShort(s.Source))
-					}
-					ui.ListItem("success", s.Name, detail)
-				case "update_available":
-					detail := "update available"
-					if s.Source != "" {
-						detail += fmt.Sprintf("  %s", formatSourceShort(s.Source))
-					}
-					ui.ListItem("info", s.Name, detail)
-				case "local":
-					ui.ListItem("info", s.Name, "local source")
-				case "error":
-					ui.ListItem("warning", s.Name, "cannot reach remote")
-				}
-			}
-		} else {
-			for _, skill := range skills {
-				skillPath := filepath.Join(sourceDir, skill)
-				result := checkRegularSkill(skill, skillPath)
-				skillResults = append(skillResults, result)
-			}
-		}
-	}
-
+	// JSON output
 	if jsonOutput {
 		output := checkOutput{
 			TrackedRepos: repoResults,
@@ -302,6 +287,47 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 		out, _ := json.MarshalIndent(output, "", "  ")
 		fmt.Println(string(out))
 		return nil
+	}
+
+	// Display results
+	if len(repoResults) > 0 {
+		fmt.Println()
+		for _, r := range repoResults {
+			switch r.Status {
+			case "up_to_date":
+				ui.ListItem("success", r.Name, "up to date")
+			case "behind":
+				ui.ListItem("info", r.Name, fmt.Sprintf("%d commit(s) behind", r.Behind))
+			case "dirty":
+				ui.ListItem("warning", r.Name, "has uncommitted changes")
+			case "error":
+				ui.ListItem("error", r.Name, fmt.Sprintf("error: %s", r.Message))
+			}
+		}
+	}
+
+	if len(skillResults) > 0 {
+		fmt.Println()
+		for _, s := range skillResults {
+			switch s.Status {
+			case "up_to_date":
+				detail := "up to date"
+				if s.Source != "" {
+					detail += fmt.Sprintf("  %s", formatSourceShort(s.Source))
+				}
+				ui.ListItem("success", s.Name, detail)
+			case "update_available":
+				detail := "update available"
+				if s.Source != "" {
+					detail += fmt.Sprintf("  %s", formatSourceShort(s.Source))
+				}
+				ui.ListItem("info", s.Name, detail)
+			case "local":
+				ui.ListItem("info", s.Name, "local source")
+			case "error":
+				ui.ListItem("warning", s.Name, "cannot reach remote")
+			}
+		}
 	}
 
 	// Summary
@@ -337,6 +363,19 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 	warnUnknownSkillTargets(sourceDir)
 
 	return nil
+}
+
+func toRepoResults(outputs []check.RepoCheckOutput) []checkRepoResult {
+	results := make([]checkRepoResult, len(outputs))
+	for i, o := range outputs {
+		results[i] = checkRepoResult{
+			Name:    o.Name,
+			Status:  o.Status,
+			Behind:  o.Behind,
+			Message: o.Message,
+		}
+	}
+	return results
 }
 
 // runCheckFiltered checks only the specified targets (resolved from names/groups).
