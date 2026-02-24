@@ -760,10 +760,14 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 		AuditVerbose: opts.AuditVerbose,
 	}
 
-	ctx := &globalInstallContext{cfg: cfg}
+	reg, regErr := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
+	if regErr != nil {
+		return summary, fmt.Errorf("failed to load registry: %w", regErr)
+	}
+	ctx := &globalInstallContext{cfg: cfg, reg: reg}
 
 	if len(ctx.ConfigSkills()) == 0 {
-		ui.Info("No remote skills defined in config.yaml")
+		ui.Info("No remote skills defined in registry")
 		ui.Info("Install a skill first: skillshare install <source>")
 		return summary, nil
 	}

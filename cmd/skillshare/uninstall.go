@@ -786,35 +786,41 @@ func cmdUninstall(args []string) error {
 	}
 
 	// --- Phase 7: FINALIZE ---
-	// Batch-remove succeeded skills from config
-	if len(succeeded) > 0 && len(cfg.Skills) > 0 {
-		removedNames := map[string]bool{}
-		for _, t := range succeeded {
-			removedNames[t.name] = true
-		}
-		updated := make([]config.SkillEntry, 0, len(cfg.Skills))
-		for _, s := range cfg.Skills {
-			fullName := s.FullName()
-			if removedNames[fullName] {
-				continue
+	// Batch-remove succeeded skills from registry
+	if len(succeeded) > 0 {
+		regDir := filepath.Dir(config.ConfigPath())
+		reg, regErr := config.LoadRegistry(regDir)
+		if regErr != nil {
+			ui.Warning("Failed to load registry: %v", regErr)
+		} else if len(reg.Skills) > 0 {
+			removedNames := map[string]bool{}
+			for _, t := range succeeded {
+				removedNames[t.name] = true
 			}
-			// When a group directory is uninstalled, also remove its member skills
-			memberOfRemoved := false
-			for name := range removedNames {
-				if strings.HasPrefix(fullName, name+"/") {
-					memberOfRemoved = true
-					break
+			updated := make([]config.SkillEntry, 0, len(reg.Skills))
+			for _, s := range reg.Skills {
+				fullName := s.FullName()
+				if removedNames[fullName] {
+					continue
 				}
+				// When a group directory is uninstalled, also remove its member skills
+				memberOfRemoved := false
+				for name := range removedNames {
+					if strings.HasPrefix(fullName, name+"/") {
+						memberOfRemoved = true
+						break
+					}
+				}
+				if memberOfRemoved {
+					continue
+				}
+				updated = append(updated, s)
 			}
-			if memberOfRemoved {
-				continue
-			}
-			updated = append(updated, s)
-		}
-		if len(updated) != len(cfg.Skills) {
-			cfg.Skills = updated
-			if saveErr := cfg.Save(); saveErr != nil {
-				ui.Warning("Failed to update config after uninstall: %v", saveErr)
+			if len(updated) != len(reg.Skills) {
+				reg.Skills = updated
+				if saveErr := reg.Save(regDir); saveErr != nil {
+					ui.Warning("Failed to update registry after uninstall: %v", saveErr)
+				}
 			}
 		}
 	}

@@ -384,16 +384,17 @@ func cmdUninstallProject(args []string, root string) error {
 
 	// --- Phase 7: FINALIZE ---
 	if len(succeeded) > 0 {
-		cfg, err := config.LoadProject(root)
-		if err != nil {
-			ui.Warning("Failed to load project config: %v", err)
-		} else {
+		regDir := filepath.Join(root, ".skillshare")
+		reg, regErr := config.LoadRegistry(regDir)
+		if regErr != nil {
+			ui.Warning("Failed to load registry: %v", regErr)
+		} else if len(reg.Skills) > 0 {
 			removedNames := map[string]bool{}
 			for _, t := range succeeded {
 				removedNames[t.name] = true
 			}
-			updated := make([]config.SkillEntry, 0, len(cfg.Skills))
-			for _, s := range cfg.Skills {
+			updated := make([]config.SkillEntry, 0, len(reg.Skills))
+			for _, s := range reg.Skills {
 				fullName := s.FullName()
 				if removedNames[fullName] {
 					continue
@@ -411,9 +412,11 @@ func cmdUninstallProject(args []string, root string) error {
 				}
 				updated = append(updated, s)
 			}
-			cfg.Skills = updated
-			if err := cfg.Save(root); err != nil {
-				ui.Warning("Failed to update project config: %v", err)
+			if len(updated) != len(reg.Skills) {
+				reg.Skills = updated
+				if saveErr := reg.Save(regDir); saveErr != nil {
+					ui.Warning("Failed to update registry after uninstall: %v", saveErr)
+				}
 			}
 		}
 	}
