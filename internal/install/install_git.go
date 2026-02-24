@@ -190,6 +190,8 @@ func getSubdirTreeHash(repoPath, subdir string) string {
 	if subdir == "" {
 		return ""
 	}
+	// Strip leading "/" from subdir — git rev-parse doesn't accept absolute paths
+	subdir = strings.TrimPrefix(subdir, "/")
 	cmd := exec.Command("git", "rev-parse", "HEAD:"+subdir)
 	cmd.Dir = repoPath
 	out, err := cmd.Output()

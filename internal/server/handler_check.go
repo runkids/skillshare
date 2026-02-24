@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/check"
 	"skillshare/internal/git"
@@ -151,7 +152,8 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 			if sw.meta.Version == remoteHash {
 				r.Status = "up_to_date"
 			} else if sw.meta.TreeHash != "" && sw.meta.Subdir != "" && remoteTreeHashes != nil {
-				if rh, ok := remoteTreeHashes[sw.meta.Subdir]; ok && sw.meta.TreeHash == rh {
+				normalizedSubdir := strings.TrimPrefix(sw.meta.Subdir, "/")
+				if rh, ok := remoteTreeHashes[normalizedSubdir]; ok && sw.meta.TreeHash == rh {
 					r.Status = "up_to_date"
 				} else {
 					r.Status = "update_available"
