@@ -30,16 +30,20 @@ Project mode shows filter info and skill-level target restrictions.
 
 ## list
 
-List installed skills, grouped by directory.
+List installed skills. Interactive TUI on TTY, plain text otherwise.
 
 ```bash
-skillshare list                # Auto-detects mode (grouped display)
-skillshare list --verbose      # With source URL, install date, tracked info
-skillshare list -v             # Short form of --verbose
+skillshare list                # Interactive TUI (default on TTY)
+skillshare list react          # Filter by name/path/source
+skillshare list --type local   # Filter by type: tracked, local, github
+skillshare list --sort newest  # Sort: name (default), newest, oldest
+skillshare list --verbose      # Detailed plain text view
+skillshare list --json         # JSON output (recommended for AI usage)
+skillshare list --no-tui       # Plain text, skip TUI
 skillshare list -g             # Force global
 ```
 
-Skills organized in subdirectories are displayed in groups. Tracked repos shown in a dedicated section with skill counts. Project mode shows local vs remote skills.
+TUI features: fuzzy filter (type to search), detail panel (description, path, files, synced targets). Use `--json` for programmatic inspection: `skillshare list --json | jq '.[] | {name, source, type}'`.
 
 ## search
 
