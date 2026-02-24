@@ -326,7 +326,10 @@ func cmdInstall(args []string) error {
 			summary.Source = parsed.sourceArg
 		}
 		if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-			if rErr := config.ReconcileGlobalSkills(cfg); rErr != nil {
+			reg, regErr := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
+			if regErr != nil {
+				ui.Warning("Failed to load registry: %v", regErr)
+			} else if rErr := config.ReconcileGlobalSkills(cfg, reg); rErr != nil {
 				ui.Warning("Failed to reconcile global skills config: %v", rErr)
 			}
 		}
@@ -342,7 +345,10 @@ func cmdInstall(args []string) error {
 		summary.Source = parsed.sourceArg
 	}
 	if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-		if rErr := config.ReconcileGlobalSkills(cfg); rErr != nil {
+		reg, regErr := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
+		if regErr != nil {
+			ui.Warning("Failed to load registry: %v", regErr)
+		} else if rErr := config.ReconcileGlobalSkills(cfg, reg); rErr != nil {
 			ui.Warning("Failed to reconcile global skills config: %v", rErr)
 		}
 	}

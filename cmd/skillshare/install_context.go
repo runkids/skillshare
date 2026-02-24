@@ -35,13 +35,16 @@ func toSkillEntryDTOs(skills []config.SkillEntry) []install.SkillEntryDTO {
 // globalInstallContext implements install.InstallContext for global mode.
 type globalInstallContext struct {
 	cfg *config.Config
+	reg *config.Registry
 }
 
 func (g *globalInstallContext) SourcePath() string { return g.cfg.Source }
 func (g *globalInstallContext) ConfigSkills() []install.SkillEntryDTO {
-	return toSkillEntryDTOs(g.cfg.Skills)
+	return toSkillEntryDTOs(g.reg.Skills)
 }
-func (g *globalInstallContext) Reconcile() error              { return config.ReconcileGlobalSkills(g.cfg) }
+func (g *globalInstallContext) Reconcile() error {
+	return config.ReconcileGlobalSkills(g.cfg, g.reg)
+}
 func (g *globalInstallContext) PostInstallSkill(string) error { return nil }
 func (g *globalInstallContext) Mode() string                  { return "global" }
 
@@ -56,7 +59,7 @@ type projectInstallContext struct {
 
 func (p *projectInstallContext) SourcePath() string { return p.runtime.sourcePath }
 func (p *projectInstallContext) ConfigSkills() []install.SkillEntryDTO {
-	return toSkillEntryDTOs(p.runtime.config.Skills)
+	return toSkillEntryDTOs(p.runtime.registry.Skills)
 }
 func (p *projectInstallContext) Reconcile() error {
 	return reconcileProjectRemoteSkills(p.runtime)

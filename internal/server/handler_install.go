@@ -193,11 +193,11 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	// Reconcile config after install
 	if installed > 0 {
 		if s.IsProjectMode() {
-			if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source); rErr != nil {
+			if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.registry, s.cfg.Source); rErr != nil {
 				log.Printf("warning: failed to reconcile project skills config: %v", rErr)
 			}
 		} else {
-			if rErr := config.ReconcileGlobalSkills(s.cfg); rErr != nil {
+			if rErr := config.ReconcileGlobalSkills(s.cfg, s.registry); rErr != nil {
 				log.Printf("warning: failed to reconcile global skills config: %v", rErr)
 			}
 		}
@@ -277,11 +277,11 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		}
 		// Reconcile config after tracked repo install
 		if s.IsProjectMode() {
-			if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source); rErr != nil {
+			if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.registry, s.cfg.Source); rErr != nil {
 				log.Printf("warning: failed to reconcile project skills config: %v", rErr)
 			}
 		} else {
-			if rErr := config.ReconcileGlobalSkills(s.cfg); rErr != nil {
+			if rErr := config.ReconcileGlobalSkills(s.cfg, s.registry); rErr != nil {
 				log.Printf("warning: failed to reconcile global skills config: %v", rErr)
 			}
 		}
@@ -352,11 +352,11 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 
 	// Reconcile config after single install
 	if s.IsProjectMode() {
-		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.cfg.Source); rErr != nil {
+		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.registry, s.cfg.Source); rErr != nil {
 			log.Printf("warning: failed to reconcile project skills config: %v", rErr)
 		}
 	} else {
-		if rErr := config.ReconcileGlobalSkills(s.cfg); rErr != nil {
+		if rErr := config.ReconcileGlobalSkills(s.cfg, s.registry); rErr != nil {
 			log.Printf("warning: failed to reconcile global skills config: %v", rErr)
 		}
 	}
