@@ -4,18 +4,24 @@ import { Save, FileCode, ShieldCheck, ArrowLeft, FilePlus } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView } from '@codemirror/view';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Card from '../components/Card';
 import HandButton from '../components/HandButton';
 import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
-import { useApi } from '../hooks/useApi';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { handTheme } from '../lib/codemirror-theme';
 
 export default function AuditRulesPage() {
-  const { data, loading, error, refetch } = useApi(() => api.getAuditRules());
+  const queryClient = useQueryClient();
+  const { data, isPending, error } = useQuery({
+    queryKey: queryKeys.audit.rules,
+    queryFn: () => api.getAuditRules(),
+    staleTime: staleTimes.auditRules,
+  });
   const [raw, setRaw] = useState('');
   const [saving, setSaving] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -43,7 +49,7 @@ export default function AuditRulesPage() {
       await api.putAuditRules(raw);
       toast('Audit rules saved successfully.', 'success');
       setDirty(false);
-      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.audit.rules });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
@@ -56,7 +62,7 @@ export default function AuditRulesPage() {
     try {
       await api.initAuditRules();
       toast('Audit rules file created.', 'success');
-      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.audit.rules });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
@@ -64,14 +70,14 @@ export default function AuditRulesPage() {
     }
   };
 
-  if (loading) return <PageSkeleton />;
+  if (isPending) return <PageSkeleton />;
   if (error) {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
           Failed to load audit rules
         </p>
-        <p className="text-pencil-light text-sm mt-1">{error}</p>
+        <p className="text-pencil-light text-sm mt-1">{error.message}</p>
       </Card>
     );
   }

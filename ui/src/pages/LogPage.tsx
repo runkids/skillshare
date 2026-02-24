@@ -1,7 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ScrollText, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { LogEntry } from '../api/client';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Card from '../components/Card';
 import HandButton from '../components/HandButton';
 import Badge from '../components/Badge';
@@ -36,12 +38,6 @@ function timeRangeToSince(range: TimeRange): string {
   }
   return now.toISOString();
 }
-
-type LogSection = {
-  entries: LogEntry[];
-  total: number;
-  totalAll: number;
-};
 
 type AuditSkillLists = {
   failed: string[];
@@ -424,10 +420,8 @@ function Section({ title, entries, emptyLabel, filtered }: { title: string; entr
 
 export default function LogPage() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState<LogTab>('all');
-  const [ops, setOps] = useState<LogSection>({ entries: [], total: 0, totalAll: 0 });
-  const [audit, setAudit] = useState<LogSection>({ entries: [], total: 0, totalAll: 0 });
-  const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -437,7 +431,7 @@ export default function LogPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('');
 
   const filters = useMemo(() => {
-    const f: { cmd?: string; status?: string; since?: string } = {};
+    const f: Record<string, string> = {};
     if (cmdFilter) f.cmd = cmdFilter;
     if (statusFilter) f.status = statusFilter;
     const since = timeRangeToSince(timeRange);
@@ -445,47 +439,51 @@ export default function LogPage() {
     return Object.keys(f).length > 0 ? f : undefined;
   }, [cmdFilter, statusFilter, timeRange]);
 
-  // Distinct commands from all (unfiltered) log entries, returned by the API
-  const [knownCommands, setKnownCommands] = useState<string[]>([]);
+  const opsQuery = useQuery({
+    queryKey: queryKeys.log('ops', 100, filters),
+    queryFn: () => api.listLog('ops', 100, filters),
+    enabled: tab === 'all' || tab === 'ops',
+    staleTime: staleTimes.log,
+  });
 
-  const fetchLog = useCallback(async () => {
-    setLoading(true);
-    try {
-      if (tab === 'all') {
-        const [opsRes, auditRes] = await Promise.all([
-          api.listLog('ops', 100, filters),
-          api.listLog('audit', 100, filters),
-        ]);
-        setOps({ entries: opsRes.entries, total: opsRes.total, totalAll: opsRes.totalAll });
-        setAudit({ entries: auditRes.entries, total: auditRes.total, totalAll: auditRes.totalAll });
-        // Merge distinct commands from both logs (always unfiltered from backend)
-        const cmds = new Set([...opsRes.commands, ...auditRes.commands]);
-        setKnownCommands(Array.from(cmds).sort());
-      } else if (tab === 'ops') {
-        const res = await api.listLog('ops', 100, filters);
-        setOps({ entries: res.entries, total: res.total, totalAll: res.totalAll });
-        setKnownCommands(res.commands);
-      } else {
-        const res = await api.listLog('audit', 100, filters);
-        setAudit({ entries: res.entries, total: res.total, totalAll: res.totalAll });
-        setKnownCommands(res.commands);
-      }
-    } catch (e: any) {
-      toast(e.message, 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [tab, filters, toast]);
+  const auditQuery = useQuery({
+    queryKey: queryKeys.log('audit', 100, filters),
+    queryFn: () => api.listLog('audit', 100, filters),
+    enabled: tab === 'all' || tab === 'audit',
+    staleTime: staleTimes.log,
+  });
 
-  useEffect(() => {
-    fetchLog();
-  }, [fetchLog]);
+  const opsEntries = opsQuery.data?.entries ?? [];
+  const opsTotal = opsQuery.data?.total ?? 0;
+  const opsTotalAll = opsQuery.data?.totalAll ?? 0;
+  const auditEntries = auditQuery.data?.entries ?? [];
+  const auditTotal = auditQuery.data?.total ?? 0;
+  const auditTotalAll = auditQuery.data?.totalAll ?? 0;
+
+  const loading = (tab === 'all' || tab === 'ops') && opsQuery.isPending
+    || (tab === 'all' || tab === 'audit') && auditQuery.isPending;
 
   const hasEntries = tab === 'all'
-    ? ops.entries.length > 0 || audit.entries.length > 0
+    ? opsEntries.length > 0 || auditEntries.length > 0
     : tab === 'ops'
-      ? ops.entries.length > 0
-      : audit.entries.length > 0;
+      ? opsEntries.length > 0
+      : auditEntries.length > 0;
+
+  // Distinct commands from all (unfiltered) log entries, returned by the API
+  const knownCommands = useMemo(() => {
+    const cmds = new Set<string>();
+    if (opsQuery.data?.commands) {
+      for (const cmd of opsQuery.data.commands) cmds.add(cmd);
+    }
+    if (auditQuery.data?.commands) {
+      for (const cmd of auditQuery.data.commands) cmds.add(cmd);
+    }
+    return Array.from(cmds).sort();
+  }, [opsQuery.data?.commands, auditQuery.data?.commands]);
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['log'] });
+  };
 
   const handleClear = async () => {
     setClearing(true);
@@ -495,7 +493,7 @@ export default function LogPage() {
       } else {
         await api.clearLog(tab);
       }
-      await fetchLog();
+      queryClient.invalidateQueries({ queryKey: ['log'] });
       toast('Log cleared', 'success');
     } catch (e: any) {
       toast(e.message, 'error');
@@ -512,15 +510,16 @@ export default function LogPage() {
   const totalLabel = (() => {
     if (tab === 'all') {
       if (hasFilter) {
-        return `${ops.total} of ${ops.totalAll} ops / ${audit.total} of ${audit.totalAll} audit`;
+        return `${opsTotal} of ${opsTotalAll} ops / ${auditTotal} of ${auditTotalAll} audit`;
       }
-      return `${ops.total} ops / ${audit.total} audit`;
+      return `${opsTotal} ops / ${auditTotal} audit`;
     }
-    const sec = tab === 'ops' ? ops : audit;
+    const secTotal = tab === 'ops' ? opsTotal : auditTotal;
+    const secTotalAll = tab === 'ops' ? opsTotalAll : auditTotalAll;
     if (hasFilter) {
-      return `${sec.total} of ${sec.totalAll} entries`;
+      return `${secTotal} of ${secTotalAll} entries`;
     }
-    return `${sec.total} entries`;
+    return `${secTotal} entries`;
   })();
 
   return (
@@ -539,7 +538,7 @@ export default function LogPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <HandButton onClick={fetchLog} variant="secondary" size="sm" disabled={loading}>
+          <HandButton onClick={handleRefresh} variant="secondary" size="sm" disabled={loading}>
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             Refresh
           </HandButton>
@@ -629,13 +628,13 @@ export default function LogPage() {
 
       {tab === 'all' ? (
         <div className="space-y-6">
-          <Section title="Operations" entries={ops.entries} emptyLabel="operation" filtered={hasFilter} />
-          <Section title="Audit" entries={audit.entries} emptyLabel="audit" filtered={hasFilter} />
+          <Section title="Operations" entries={opsEntries} emptyLabel="operation" filtered={hasFilter} />
+          <Section title="Audit" entries={auditEntries} emptyLabel="audit" filtered={hasFilter} />
         </div>
       ) : tab === 'ops' ? (
-        <Section title="Operations" entries={ops.entries} emptyLabel="operation" filtered={hasFilter} />
+        <Section title="Operations" entries={opsEntries} emptyLabel="operation" filtered={hasFilter} />
       ) : (
-        <Section title="Audit" entries={audit.entries} emptyLabel="audit" filtered={hasFilter} />
+        <Section title="Audit" entries={auditEntries} emptyLabel="audit" filtered={hasFilter} />
       )}
 
       <ConfirmDialog

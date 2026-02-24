@@ -3,17 +3,23 @@ import { Save, FileCode } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView } from '@codemirror/view';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Card from '../components/Card';
 import HandButton from '../components/HandButton';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
-import { useApi } from '../hooks/useApi';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { handTheme } from '../lib/codemirror-theme';
 
 export default function ConfigPage() {
-  const { data, loading, error, refetch } = useApi(() => api.getConfig());
+  const queryClient = useQueryClient();
+  const { data, isPending, error } = useQuery({
+    queryKey: queryKeys.config,
+    queryFn: () => api.getConfig(),
+    staleTime: staleTimes.config,
+  });
   const [raw, setRaw] = useState('');
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -40,7 +46,9 @@ export default function ConfigPage() {
       await api.putConfig(raw);
       toast('Config saved successfully.', 'success');
       setDirty(false);
-      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.config });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
@@ -48,14 +56,14 @@ export default function ConfigPage() {
     }
   };
 
-  if (loading) return <PageSkeleton />;
+  if (isPending) return <PageSkeleton />;
   if (error) {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
           Failed to load config
         </p>
-        <p className="text-pencil-light text-sm mt-1">{error}</p>
+        <p className="text-pencil-light text-sm mt-1">{error.message}</p>
       </Card>
     );
   }

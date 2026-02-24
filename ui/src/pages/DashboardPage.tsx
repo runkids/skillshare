@@ -17,6 +17,8 @@ import {
   Zap,
   ShieldCheck,
 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import Skeleton from '../components/Skeleton';
@@ -26,7 +28,6 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
 import type { Target as TargetType, CheckResult, AuditAllResponse } from '../api/client';
-import { useApi } from '../hooks/useApi';
 import { useAppContext } from '../context/AppContext';
 import { wobbly, shadows } from '../design';
 import { shortenHome } from '../lib/paths';
@@ -34,7 +35,12 @@ import { shortenHome } from '../lib/paths';
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
 
 export default function DashboardPage() {
-  const { data, loading, error } = useApi(() => api.getOverview());
+  const { data, isPending, error } = useQuery({
+    queryKey: queryKeys.overview,
+    queryFn: () => api.getOverview(),
+    staleTime: staleTimes.overview,
+  });
+  const queryClient = useQueryClient();
   const [updatingAll, setUpdatingAll] = useState(false);
   const [showUpdateConfirm, setShowUpdateConfirm] = useState(false);
   const [showStarCta, setShowStarCta] = useState(() => {
@@ -44,14 +50,14 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const { isProjectMode } = useAppContext();
 
-  if (loading) return <PageSkeleton />;
+  if (isPending) return <PageSkeleton />;
   if (error) {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
           Oops! Something went wrong.
         </p>
-        <p className="text-pencil-light text-sm mt-1">{error}</p>
+        <p className="text-pencil-light text-sm mt-1">{error.message}</p>
       </Card>
     );
   }
@@ -74,6 +80,8 @@ export default function DashboardPage() {
       }
       blocked.forEach((r) => toast(`${r.name}: ${r.message}`, 'error'));
       errors.forEach((r) => toast(`${r.name}: ${r.message}`, 'error'));
+      await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
@@ -412,7 +420,7 @@ export default function DashboardPage() {
   );
 }
 
-/* ── Tracked Repositories Section ─────────────────────── */
+/* -- Tracked Repositories Section --------------------- */
 
 function TrackedReposSection({ repos }: { repos: { name: string; skillCount: number; dirty: boolean }[] }) {
   return (
@@ -466,7 +474,7 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
   );
 }
 
-/* ── Skill Updates Section ────────────────────────────── */
+/* -- Skill Updates Section ---------------------------- */
 
 function SkillUpdatesSection() {
   const [checkData, setCheckData] = useState<CheckResult | null>(null);
@@ -583,7 +591,7 @@ function SkillUpdatesSection() {
   );
 }
 
-/* ── Security Audit Section ───────────────────────────── */
+/* -- Security Audit Section --------------------------- */
 
 function SecurityAuditSection() {
   const [auditData, setAuditData] = useState<AuditAllResponse | null>(null);
@@ -699,10 +707,14 @@ function SecurityAuditSection() {
   );
 }
 
-/* ── Targets Health Section ───────────────────────────── */
+/* -- Targets Health Section --------------------------- */
 
 function TargetsHealthSection() {
-  const { data, loading } = useApi(() => api.listTargets());
+  const { data, isPending } = useQuery({
+    queryKey: queryKeys.targets.all,
+    queryFn: () => api.listTargets(),
+    staleTime: staleTimes.targets,
+  });
 
   const sourceSkillCount = data?.sourceSkillCount ?? 0;
   const driftTargets = (data?.targets ?? []).filter(
@@ -735,7 +747,7 @@ function TargetsHealthSection() {
           View all
         </Link>
       </div>
-      {loading ? (
+      {isPending ? (
         <div className="space-y-3">
           <Skeleton className="w-full h-10" />
           <Skeleton className="w-full h-10" />
@@ -789,10 +801,14 @@ function TargetsHealthSection() {
   );
 }
 
-/* ── Version Status Section ───────────────────────────── */
+/* -- Version Status Section --------------------------- */
 
 function VersionStatusSection() {
-  const { data, loading } = useApi(() => api.getVersionCheck());
+  const { data, isPending } = useQuery({
+    queryKey: queryKeys.versionCheck,
+    queryFn: () => api.getVersionCheck(),
+    staleTime: staleTimes.version,
+  });
 
   return (
     <Card className="mb-8">
@@ -805,7 +821,7 @@ function VersionStatusSection() {
           Version Status
         </h3>
       </div>
-      {loading ? (
+      {isPending ? (
         <div className="space-y-3">
           <Skeleton className="w-full h-8" />
           <Skeleton className="w-3/4 h-8" />

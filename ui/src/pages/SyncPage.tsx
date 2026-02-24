@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   RefreshCw,
   Eye,
@@ -23,10 +24,11 @@ import HandButton from '../components/HandButton';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api, type SyncResult, type DiffTarget } from '../api/client';
-import { useApi } from '../hooks/useApi';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { wobbly, shadows } from '../design';
 
 export default function SyncPage() {
+  const queryClient = useQueryClient();
   const [dryRun, setDryRun] = useState(false);
   const [force, setForce] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -34,7 +36,11 @@ export default function SyncPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const { toast } = useToast();
 
-  const diff = useApi(() => api.diff());
+  const diffQuery = useQuery({
+    queryKey: queryKeys.diff(),
+    queryFn: () => api.diff(),
+    staleTime: staleTimes.diff,
+  });
 
   const handleSync = async () => {
     setSyncing(true);
@@ -51,7 +57,9 @@ export default function SyncPage() {
           'success',
         );
       }
-      diff.refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
@@ -60,7 +68,7 @@ export default function SyncPage() {
   };
 
   // Calculate diff summary
-  const diffs = diff.data?.diffs ?? [];
+  const diffs = diffQuery.data?.diffs ?? [];
   const totalActions = diffs.reduce((sum, d) => sum + (d.items?.length ?? 0), 0);
   const pendingLinks = diffs.reduce(
     (sum, d) => sum + (d.items?.filter((i) => i.action === 'link').length ?? 0),
@@ -166,7 +174,7 @@ export default function SyncPage() {
       <Card variant="postit" className="mb-6 text-center">
         <div className="flex flex-col items-center gap-4">
           {/* Status indicator */}
-          {diff.loading ? (
+          {diffQuery.isPending ? (
             <p className="text-pencil-light text-base">Checking status...</p>
           ) : syncActions > 0 ? (
             <div className="flex flex-wrap items-center justify-center gap-3">
@@ -274,16 +282,16 @@ export default function SyncPage() {
         >
           Current Diff
         </h3>
-        {diff.loading && <PageSkeleton />}
-        {diff.error && (
+        {diffQuery.isPending && <PageSkeleton />}
+        {diffQuery.error && (
           <Card variant="accent">
             <div className="flex items-center gap-2 text-danger">
               <AlertCircle size={18} strokeWidth={2.5} />
-              <span>{diff.error}</span>
+              <span>{diffQuery.error.message}</span>
             </div>
           </Card>
         )}
-        {diff.data && <DiffView diffs={diff.data.diffs} />}
+        {diffQuery.data && <DiffView diffs={diffQuery.data.diffs} />}
       </div>
     </div>
   );

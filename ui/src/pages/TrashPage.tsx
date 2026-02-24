@@ -5,9 +5,10 @@ import {
   RotateCcw,
   X,
 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { TrashedSkill } from '../api/client';
-import { useApi } from '../hooks/useApi';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { formatSize } from '../lib/format';
 import Card from '../components/Card';
@@ -35,7 +36,13 @@ function timeAgo(dateStr: string): string {
 export default function TrashPage() {
   const { isProjectMode } = useAppContext();
   const { toast } = useToast();
-  const { data, loading, error, refetch } = useApi(() => api.listTrash(), []);
+  const queryClient = useQueryClient();
+
+  const { data, isPending, error } = useQuery({
+    queryKey: queryKeys.trash,
+    queryFn: () => api.listTrash(),
+    staleTime: staleTimes.trash,
+  });
 
   const [restoreName, setRestoreName] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
@@ -52,7 +59,8 @@ export default function TrashPage() {
     try {
       await api.restoreTrash(restoreName);
       toast(`Restored "${restoreName}" from trash`, 'success');
-      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.trash });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
@@ -67,7 +75,8 @@ export default function TrashPage() {
     try {
       await api.deleteTrash(deleteName);
       toast(`Permanently deleted "${deleteName}"`, 'success');
-      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.trash });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
@@ -81,7 +90,8 @@ export default function TrashPage() {
     try {
       const res = await api.emptyTrash();
       toast(`Emptied trash (${res.removed} item${res.removed !== 1 ? 's' : ''} removed)`, 'success');
-      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.trash });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
@@ -90,12 +100,12 @@ export default function TrashPage() {
     }
   };
 
-  if (loading) return <PageSkeleton />;
+  if (isPending) return <PageSkeleton />;
 
   if (error) {
     return (
       <Card>
-        <p className="text-danger">{error}</p>
+        <p className="text-danger">{error.message}</p>
       </Card>
     );
   }

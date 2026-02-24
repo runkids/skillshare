@@ -13,9 +13,10 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { PullResponse } from '../api/client';
-import { useApi } from '../hooks/useApi';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { shortenHome } from '../lib/paths';
 import Card from '../components/Card';
@@ -42,7 +43,13 @@ function fileName(line: string): string {
 export default function GitSyncPage() {
   const { isProjectMode } = useAppContext();
   const { toast } = useToast();
-  const { data: status, loading, error, refetch } = useApi(() => api.gitStatus(), []);
+  const queryClient = useQueryClient();
+
+  const { data: status, isPending, error } = useQuery({
+    queryKey: queryKeys.gitStatus,
+    queryFn: () => api.gitStatus(),
+    staleTime: staleTimes.gitStatus,
+  });
 
   if (isProjectMode) {
     return (
@@ -93,7 +100,9 @@ export default function GitSyncPage() {
         toast(res.message, 'success');
         setCommitMsg('');
       }
-      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
@@ -115,7 +124,9 @@ export default function GitSyncPage() {
         const n = res.commits?.length ?? 0;
         toast(`Pulled ${n} commit(s) and synced`, 'success');
       }
-      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
@@ -123,12 +134,12 @@ export default function GitSyncPage() {
     }
   };
 
-  if (loading) return <PageSkeleton />;
+  if (isPending) return <PageSkeleton />;
 
   if (error) {
     return (
       <Card>
-        <p className="text-danger">{error}</p>
+        <p className="text-danger">{error.message}</p>
       </Card>
     );
   }

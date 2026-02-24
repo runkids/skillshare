@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDownToLine,
   Target,
@@ -21,12 +22,14 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api, type CollectScanTarget, type CollectResult } from '../api/client';
+import { queryKeys } from '../lib/queryKeys';
 import { wobbly, shadows } from '../design';
 import { formatSize } from '../lib/format';
 
 type Phase = 'idle' | 'scanning' | 'scanned' | 'collecting' | 'done';
 
 export default function CollectPage() {
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const presetTarget = searchParams.get('target') ?? undefined;
 
@@ -86,6 +89,8 @@ export default function CollectPage() {
         pulledCount > 0 ? 'success' : 'info',
       );
       setPhase('done');
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
       setPhase('scanned');
@@ -587,4 +592,3 @@ function DetailList({
     </div>
   );
 }
-
