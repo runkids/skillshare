@@ -94,3 +94,38 @@ func checkOneRepo(r RepoCheckInput) RepoCheckOutput {
 	}
 	return out
 }
+
+// ParallelCheckURLs checks unique repo URLs concurrently with bounded workers.
+// onDone is called after each URL completes (may be nil).
+// Returns []URLCheckOutput aligned by index with the input slice.
+func ParallelCheckURLs(urls []URLCheckInput, onDone func()) []URLCheckOutput {
+	outputs := make([]URLCheckOutput, len(urls))
+	if len(urls) == 0 {
+		return outputs
+	}
+
+	sem := make(chan struct{}, maxWorkers)
+	var wg sync.WaitGroup
+
+	for i, u := range urls {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(idx int, input URLCheckInput) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			hash, err := git.GetRemoteHeadHashWithAuth(input.RepoURL)
+			outputs[idx] = URLCheckOutput{
+				RepoURL:    input.RepoURL,
+				RemoteHash: hash,
+				Err:        err,
+			}
+			if onDone != nil {
+				onDone()
+			}
+		}(i, u)
+	}
+	wg.Wait()
+
+	return outputs
+}
