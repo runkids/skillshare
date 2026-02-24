@@ -67,7 +67,12 @@ func ParallelCheckRepos(repos []RepoCheckInput, onDone func()) []RepoCheckOutput
 func checkOneRepo(r RepoCheckInput) RepoCheckOutput {
 	out := RepoCheckOutput{Name: r.Name}
 
-	isDirty, _ := git.IsDirty(r.RepoPath)
+	isDirty, err := git.IsDirty(r.RepoPath)
+	if err != nil {
+		out.Status = "error"
+		out.Message = err.Error()
+		return out
+	}
 	if isDirty {
 		out.Status = "dirty"
 		out.Message = "has uncommitted changes"

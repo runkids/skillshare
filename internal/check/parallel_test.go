@@ -35,4 +35,23 @@ func TestParallelCheckRepos_CallbackCount(t *testing.T) {
 			t.Errorf("result[%d]: expected status 'error', got %q", i, r.Status)
 		}
 	}
+
+	// Verify index alignment
+	if results[0].Name != "repo-a" {
+		t.Errorf("results[0].Name = %q, want %q", results[0].Name, "repo-a")
+	}
+	if results[1].Name != "repo-b" {
+		t.Errorf("results[1].Name = %q, want %q", results[1].Name, "repo-b")
+	}
+	if results[2].Name != "repo-c" {
+		t.Errorf("results[2].Name = %q, want %q", results[2].Name, "repo-c")
+	}
+}
+
+func TestParallelCheckRepos_NilCallback(t *testing.T) {
+	inputs := []RepoCheckInput{{Name: "x", RepoPath: "/nonexistent"}}
+	results := ParallelCheckRepos(inputs, nil)
+	if len(results) != 1 {
+		t.Errorf("expected 1 result, got %d", len(results))
+	}
 }
