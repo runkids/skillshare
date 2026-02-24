@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trash2, Plus, Target, ArrowDownToLine, Search, CircleDot, PenLine, AlertTriangle, Filter } from 'lucide-react';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
@@ -12,13 +13,22 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
 import type { AvailableTarget } from '../api/client';
-import { useApi } from '../hooks/useApi';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { wobbly, shadows } from '../design';
 import { shortenHome } from '../lib/paths';
 
 export default function TargetsPage() {
-  const { data, loading, error, refetch } = useApi(() => api.listTargets());
-  const availTargets = useApi(() => api.availableTargets());
+  const queryClient = useQueryClient();
+  const { data, isPending, error } = useQuery({
+    queryKey: queryKeys.targets.all,
+    queryFn: () => api.listTargets(),
+    staleTime: staleTimes.targets,
+  });
+  const availTargets = useQuery({
+    queryKey: queryKeys.targets.available,
+    queryFn: () => api.availableTargets(),
+    staleTime: staleTimes.targets,
+  });
   const [adding, setAdding] = useState(false);
   const [newTarget, setNewTarget] = useState({ name: '', path: '' });
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,14 +53,14 @@ export default function TargetsPage() {
     };
   }, [availTargets.data, searchQuery]);
 
-  if (loading) return <PageSkeleton />;
+  if (isPending) return <PageSkeleton />;
   if (error) {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
           Failed to load targets
         </p>
-        <p className="text-pencil-light text-sm mt-1">{error}</p>
+        <p className="text-pencil-light text-sm mt-1">{error.message}</p>
       </Card>
     );
   }
@@ -70,8 +80,8 @@ export default function TargetsPage() {
       setSearchQuery('');
       setCustomMode(false);
       toast(`Target "${newTarget.name}" added.`, 'success');
-      refetch();
-      availTargets.refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.targets.available });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     }
@@ -82,7 +92,7 @@ export default function TargetsPage() {
       await api.removeTarget(name);
       toast(`Target "${name}" removed.`, 'success');
       setRemoving(null);
-      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
       setRemoving(null);
@@ -439,7 +449,7 @@ export default function TargetsPage() {
                                   });
                                   toast('Filters updated. Run sync to apply.', 'success');
                                   setEditingFilter(null);
-                                  refetch();
+                                  queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
                                 } catch (e: unknown) {
                                   toast((e as Error).message, 'error');
                                 } finally {

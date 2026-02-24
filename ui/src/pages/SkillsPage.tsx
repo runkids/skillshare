@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, forwardRef, memo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Search,
@@ -12,16 +12,19 @@ import {
   LayoutGrid,
   Target,
 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { VirtuosoGrid } from 'react-virtuoso';
+import type { GridComponents } from 'react-virtuoso';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Badge from '../components/Badge';
 import { HandInput, HandSelect } from '../components/HandInput';
 import { PageSkeleton } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import Card from '../components/Card';
 import { api, type Skill } from '../api/client';
-import { useApi } from '../hooks/useApi';
 import { wobbly, shadows } from '../design';
 
-/* ── Color palette ──────────────────────────────── */
+/* -- Color palette -------------------------------- */
 
 const postitColors = [
   { bg: '#fff9c4', border: '#e6d95a' }, // classic yellow
@@ -50,7 +53,7 @@ function getRotation(index: number): string {
   return rotations[index % rotations.length];
 }
 
-/* ── Filter, Sort & View types ──────────────────── */
+/* -- Filter, Sort & View types -------------------- */
 
 type FilterType = 'all' | 'tracked' | 'github' | 'local';
 type SortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
@@ -106,7 +109,7 @@ function sortSkills(skills: Skill[], sortType: SortType): Skill[] {
   }
 }
 
-/* ── Filter chip component ──────────────────────── */
+/* -- Filter chip component ------------------------ */
 
 function FilterChip({
   label,
@@ -153,10 +156,263 @@ function FilterChip({
   );
 }
 
-/* ── Main page ──────────────────────────────────── */
+/* -- VirtuosoGrid components (OUTSIDE component function) -- */
+
+const GridList = forwardRef<HTMLDivElement, React.ComponentPropsWithRef<'div'>>(
+  ({ style, children, ...props }, ref) => (
+    <div
+      ref={ref}
+      {...props}
+      style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem', ...style }}
+    >
+      {children}
+    </div>
+  ),
+);
+GridList.displayName = 'GridList';
+
+const GridItem = ({ children, ...props }: React.ComponentPropsWithRef<'div'>) => (
+  <div
+    {...props}
+    className="!w-full md:!w-[calc(50%-0.625rem)] xl:!w-[calc(33.333%-0.834rem)]"
+    style={{ display: 'flex', flex: 'none', boxSizing: 'border-box' }}
+  >
+    {children}
+  </div>
+);
+
+const GridPlaceholder = () => (
+  <div
+    className="!w-full md:!w-[calc(50%-0.625rem)] xl:!w-[calc(33.333%-0.834rem)]"
+    style={{ display: 'flex', flex: 'none', boxSizing: 'border-box' }}
+  >
+    <div className="w-full h-32 bg-muted animate-pulse" style={{ borderRadius: wobbly.md }} />
+  </div>
+);
+
+const gridComponents: GridComponents = {
+  List: GridList as GridComponents['List'],
+  Item: GridItem as GridComponents['Item'],
+  ScrollSeekPlaceholder: GridPlaceholder as GridComponents['ScrollSeekPlaceholder'],
+};
+
+/* -- Tracked (organization) card ------------------ */
+
+const TrackedPostit = memo(function TrackedPostit({
+  skill,
+  index,
+}: {
+  skill: Skill;
+  index: number;
+}) {
+  const color = getPostitColor(skill, index);
+  const rotation = getRotation(index);
+
+  // Extract repo name from relPath (e.g., "_awesome-skillshare-skills/frontend-dugong" -> "awesome-skillshare-skills")
+  const repoName = skill.relPath.startsWith('_')
+    ? skill.relPath.split('/')[0].slice(1).replace(/__/g, '/')
+    : undefined;
+
+  return (
+    <Link to={`/skills/${encodeURIComponent(skill.flatName)}`} className="w-full">
+      <div
+        className="relative border-2 cursor-pointer transition-all duration-150 hover:scale-[1.03] hover:z-10 overflow-hidden"
+        style={{
+          backgroundColor: color.bg,
+          borderColor: color.border,
+          borderRadius: wobbly.md,
+          boxShadow: `4px 4px 0px 0px ${color.border}`,
+          transform: `rotate(${rotation})`,
+          fontFamily: 'var(--font-hand)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = `8px 8px 0px 0px ${color.border}`;
+          e.currentTarget.style.transform = `rotate(0deg) scale(1.03)`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = `4px 4px 0px 0px ${color.border}`;
+          e.currentTarget.style.transform = `rotate(${rotation})`;
+        }}
+      >
+        {/* Organization banner */}
+        <div
+          className="flex items-center gap-1.5 px-4 py-1.5 border-b-2"
+          style={{
+            backgroundColor: color.border,
+            borderColor: color.border,
+          }}
+        >
+          <Users size={13} strokeWidth={2.5} className="text-white" />
+          <span
+            className="text-xs text-white font-bold tracking-wide uppercase truncate"
+            style={{ fontFamily: 'var(--font-heading)' }}
+          >
+            {repoName ?? 'Organization'}
+          </span>
+        </div>
+
+        {/* Card body */}
+        <div className="p-5 pb-4">
+          {/* Skill name */}
+          <div className="flex items-center gap-2 mb-2">
+            <div className="shrink-0">
+              <GitBranch size={18} strokeWidth={2.5} className="text-pencil" />
+            </div>
+            <h3
+              className="font-bold text-pencil text-lg truncate leading-tight"
+              style={{ fontFamily: 'var(--font-heading)' }}
+            >
+              {skill.name}
+            </h3>
+          </div>
+
+          {/* Path */}
+          <p
+            className="text-sm text-pencil-light truncate mb-2"
+            style={{ fontFamily: "'Courier New', monospace" }}
+          >
+            {skill.relPath}
+          </p>
+
+          {/* Bottom row */}
+          <div className="flex items-center justify-between gap-2 mt-auto">
+            {skill.source ? (
+              <span className="text-sm text-pencil-light truncate flex-1">{skill.source}</span>
+            ) : (
+              <span />
+            )}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {skill.targets && skill.targets.length > 0 && (
+                <span
+                  className="inline-flex items-center gap-0.5"
+                  title={`Targets: ${skill.targets.join(', ')}`}
+                >
+                  <Target size={13} strokeWidth={2.5} className="text-pencil-light" />
+                  <span className="text-xs text-pencil-light">{skill.targets.length}</span>
+                </span>
+              )}
+              <Badge variant="success">tracked</Badge>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+});
+
+/* -- Regular skill card --------------------------- */
+
+const RegularPostit = memo(function RegularPostit({
+  skill,
+  index,
+}: {
+  skill: Skill;
+  index: number;
+}) {
+  const color = getPostitColor(skill, index);
+  const rotation = getRotation(index);
+
+  return (
+    <Link to={`/skills/${encodeURIComponent(skill.flatName)}`} className="w-full">
+      <div
+        className="relative p-5 pb-4 border-2 cursor-pointer transition-all duration-150 hover:scale-[1.03] hover:z-10"
+        style={{
+          backgroundColor: color.bg,
+          borderColor: color.border,
+          borderRadius: wobbly.md,
+          boxShadow: shadows.md,
+          transform: `rotate(${rotation})`,
+          fontFamily: 'var(--font-hand)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = shadows.lg;
+          e.currentTarget.style.transform = `rotate(0deg) scale(1.03)`;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = shadows.md;
+          e.currentTarget.style.transform = `rotate(${rotation})`;
+        }}
+      >
+        {/* Tape decoration at top */}
+        <div
+          className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-14 h-5 opacity-50 z-10"
+          style={{
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.7), rgba(200,200,180,0.4))',
+            borderRadius: '2px',
+            transform: `rotate(${index % 2 === 0 ? '-3deg' : '2deg'})`,
+            border: '1px solid rgba(180,170,150,0.3)',
+          }}
+        />
+
+        {/* Skill name */}
+        <div className="flex items-center gap-2 mb-2">
+          <div className="shrink-0">
+            <Folder size={18} strokeWidth={2.5} className="text-pencil" />
+          </div>
+          <h3
+            className="font-bold text-pencil text-lg truncate leading-tight"
+            style={{ fontFamily: 'var(--font-heading)' }}
+          >
+            {skill.name}
+          </h3>
+        </div>
+
+        {/* Path */}
+        <p
+          className="text-sm text-pencil-light truncate mb-2"
+          style={{ fontFamily: "'Courier New', monospace" }}
+        >
+          {skill.relPath}
+        </p>
+
+        {/* Bottom row */}
+        <div className="flex items-center justify-between gap-2 mt-auto">
+          {skill.source ? (
+            <span className="text-sm text-pencil-light truncate flex-1">{skill.source}</span>
+          ) : (
+            <span />
+          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {skill.targets && skill.targets.length > 0 && (
+              <span
+                className="inline-flex items-center gap-0.5"
+                title={`Targets: ${skill.targets.join(', ')}`}
+              >
+                <Target size={13} strokeWidth={2.5} className="text-pencil-light" />
+                <span className="text-xs text-pencil-light">{skill.targets.length}</span>
+              </span>
+            )}
+            {getTypeLabel(skill.type) && <Badge variant="info">{getTypeLabel(skill.type)}</Badge>}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+});
+
+/* -- Card dispatcher ------------------------------ */
+
+const SkillPostit = memo(function SkillPostit({
+  skill,
+  index,
+}: {
+  skill: Skill;
+  index: number;
+}) {
+  if (skill.isInRepo) {
+    return <TrackedPostit skill={skill} index={index} />;
+  }
+  return <RegularPostit skill={skill} index={index} />;
+});
+
+/* -- Main page ------------------------------------ */
 
 export default function SkillsPage() {
-  const { data, loading, error } = useApi(() => api.listSkills());
+  const { data, isPending, error } = useQuery({
+    queryKey: queryKeys.skills.all,
+    queryFn: () => api.listSkills(),
+    staleTime: staleTimes.skills,
+  });
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('name-asc');
@@ -180,7 +436,7 @@ export default function SkillsPage() {
     return counts;
   }, [skills]);
 
-  // Apply text filter → type filter → sort
+  // Apply text filter -> type filter -> sort
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     const result = skills.filter(
@@ -210,14 +466,14 @@ export default function SkillsPage() {
     return { dirs: sortedDirs, groups };
   }, [filtered]);
 
-  if (loading) return <PageSkeleton />;
+  if (isPending) return <PageSkeleton />;
   if (error) {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
           Failed to load skills
         </p>
-        <p className="text-pencil-light text-base mt-1">{error}</p>
+        <p className="text-pencil-light text-base mt-1">{error.message}</p>
       </Card>
     );
   }
@@ -326,11 +582,19 @@ export default function SkillsPage() {
       {/* Skills grid / grouped view */}
       {filtered.length > 0 ? (
         viewType === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {filtered.map((skill, i) => (
-              <SkillPostit key={skill.flatName} skill={skill} index={i} />
-            ))}
-          </div>
+          <VirtuosoGrid
+            useWindowScroll
+            totalCount={filtered.length}
+            overscan={200}
+            components={gridComponents}
+            scrollSeekConfiguration={{
+              enter: (velocity) => Math.abs(velocity) > 800,
+              exit: (velocity) => Math.abs(velocity) < 200,
+            }}
+            itemContent={(index) => (
+              <SkillPostit skill={filtered[index]} index={index} />
+            )}
+          />
         ) : (
           <GroupedView dirs={grouped.dirs} groups={grouped.groups} />
         )
@@ -349,7 +613,7 @@ export default function SkillsPage() {
   );
 }
 
-/* ── Grouped view ───────────────────────────────── */
+/* -- Grouped view --------------------------------- */
 
 function GroupedView({ dirs, groups }: { dirs: string[]; groups: Map<string, Skill[]> }) {
   let globalIndex = 0;
@@ -391,189 +655,4 @@ function GroupedView({ dirs, groups }: { dirs: string[]; groups: Map<string, Ski
       })}
     </div>
   );
-}
-
-/* ── Tracked (organization) card ────────────────── */
-
-function TrackedPostit({ skill, index }: { skill: Skill; index: number }) {
-  const color = getPostitColor(skill, index);
-  const rotation = getRotation(index);
-
-  // Extract repo name from relPath (e.g., "_awesome-skillshare-skills/frontend-dugong" → "awesome-skillshare-skills")
-  const repoName = skill.relPath.startsWith('_')
-    ? skill.relPath.split('/')[0].slice(1).replace(/__/g, '/')
-    : undefined;
-
-  return (
-    <Link to={`/skills/${encodeURIComponent(skill.flatName)}`}>
-      <div
-        className="relative border-2 cursor-pointer transition-all duration-150 hover:scale-[1.03] hover:z-10 overflow-hidden"
-        style={{
-          backgroundColor: color.bg,
-          borderColor: color.border,
-          borderRadius: wobbly.md,
-          boxShadow: `4px 4px 0px 0px ${color.border}`,
-          transform: `rotate(${rotation})`,
-          fontFamily: 'var(--font-hand)',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.boxShadow = `8px 8px 0px 0px ${color.border}`;
-          e.currentTarget.style.transform = `rotate(0deg) scale(1.03)`;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.boxShadow = `4px 4px 0px 0px ${color.border}`;
-          e.currentTarget.style.transform = `rotate(${rotation})`;
-        }}
-      >
-        {/* Organization banner */}
-        <div
-          className="flex items-center gap-1.5 px-4 py-1.5 border-b-2"
-          style={{
-            backgroundColor: color.border,
-            borderColor: color.border,
-          }}
-        >
-          <Users size={13} strokeWidth={2.5} className="text-white" />
-          <span
-            className="text-xs text-white font-bold tracking-wide uppercase truncate"
-            style={{ fontFamily: 'var(--font-heading)' }}
-          >
-            {repoName ?? 'Organization'}
-          </span>
-        </div>
-
-        {/* Card body */}
-        <div className="p-5 pb-4">
-          {/* Skill name */}
-          <div className="flex items-center gap-2 mb-2">
-            <div className="shrink-0">
-              <GitBranch size={18} strokeWidth={2.5} className="text-pencil" />
-            </div>
-            <h3
-              className="font-bold text-pencil text-lg truncate leading-tight"
-              style={{ fontFamily: 'var(--font-heading)' }}
-            >
-              {skill.name}
-            </h3>
-          </div>
-
-          {/* Path */}
-          <p
-            className="text-sm text-pencil-light truncate mb-2"
-            style={{ fontFamily: "'Courier New', monospace" }}
-          >
-            {skill.relPath}
-          </p>
-
-          {/* Bottom row */}
-          <div className="flex items-center justify-between gap-2 mt-auto">
-            {skill.source ? (
-              <span className="text-sm text-pencil-light truncate flex-1">{skill.source}</span>
-            ) : (
-              <span />
-            )}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {skill.targets && skill.targets.length > 0 && (
-                <span className="inline-flex items-center gap-0.5" title={`Targets: ${skill.targets.join(', ')}`}>
-                  <Target size={13} strokeWidth={2.5} className="text-pencil-light" />
-                  <span className="text-xs text-pencil-light">{skill.targets.length}</span>
-                </span>
-              )}
-              <Badge variant="success">tracked</Badge>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-/* ── Regular skill card ─────────────────────────── */
-
-function RegularPostit({ skill, index }: { skill: Skill; index: number }) {
-  const color = getPostitColor(skill, index);
-  const rotation = getRotation(index);
-
-  return (
-    <Link to={`/skills/${encodeURIComponent(skill.flatName)}`}>
-      <div
-        className="relative p-5 pb-4 border-2 cursor-pointer transition-all duration-150 hover:scale-[1.03] hover:z-10"
-        style={{
-          backgroundColor: color.bg,
-          borderColor: color.border,
-          borderRadius: wobbly.md,
-          boxShadow: shadows.md,
-          transform: `rotate(${rotation})`,
-          fontFamily: 'var(--font-hand)',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.boxShadow = shadows.lg;
-          e.currentTarget.style.transform = `rotate(0deg) scale(1.03)`;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.boxShadow = shadows.md;
-          e.currentTarget.style.transform = `rotate(${rotation})`;
-        }}
-      >
-        {/* Tape decoration at top */}
-        <div
-          className="absolute -top-2.5 left-1/2 -translate-x-1/2 w-14 h-5 opacity-50 z-10"
-          style={{
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.7), rgba(200,200,180,0.4))',
-            borderRadius: '2px',
-            transform: `rotate(${index % 2 === 0 ? '-3deg' : '2deg'})`,
-            border: '1px solid rgba(180,170,150,0.3)',
-          }}
-        />
-
-        {/* Skill name */}
-        <div className="flex items-center gap-2 mb-2">
-          <div className="shrink-0">
-            <Folder size={18} strokeWidth={2.5} className="text-pencil" />
-          </div>
-          <h3
-            className="font-bold text-pencil text-lg truncate leading-tight"
-            style={{ fontFamily: 'var(--font-heading)' }}
-          >
-            {skill.name}
-          </h3>
-        </div>
-
-        {/* Path */}
-        <p
-          className="text-sm text-pencil-light truncate mb-2"
-          style={{ fontFamily: "'Courier New', monospace" }}
-        >
-          {skill.relPath}
-        </p>
-
-        {/* Bottom row */}
-        <div className="flex items-center justify-between gap-2 mt-auto">
-          {skill.source ? (
-            <span className="text-sm text-pencil-light truncate flex-1">{skill.source}</span>
-          ) : (
-            <span />
-          )}
-          <div className="flex items-center gap-1.5 shrink-0">
-            {skill.targets && skill.targets.length > 0 && (
-              <span className="inline-flex items-center gap-0.5" title={`Targets: ${skill.targets.join(', ')}`}>
-                <Target size={13} strokeWidth={2.5} className="text-pencil-light" />
-                <span className="text-xs text-pencil-light">{skill.targets.length}</span>
-              </span>
-            )}
-            {getTypeLabel(skill.type) && <Badge variant="info">{getTypeLabel(skill.type)}</Badge>}
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-/* ── Card dispatcher ────────────────────────────── */
-
-function SkillPostit({ skill, index }: { skill: Skill; index: number }) {
-  if (skill.isInRepo) {
-    return <TrackedPostit skill={skill} index={index} />;
-  }
-  return <RegularPostit skill={skill} index={index} />;
 }

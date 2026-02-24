@@ -2,6 +2,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Trash2, ExternalLink, FileText, ArrowUpRight, RefreshCw, Target } from 'lucide-react';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Badge from '../components/Badge';
 import Card from '../components/Card';
 import HandButton from '../components/HandButton';
@@ -9,7 +11,6 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { api, type Skill } from '../api/client';
-import { useApi } from '../hooks/useApi';
 import { lazy, Suspense, useState, useMemo } from 'react';
 import { wobbly, shadows } from '../design';
 
@@ -91,8 +92,18 @@ function skillTypeLabel(type?: string): string | undefined {
 export default function SkillDetailPage() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
-  const { data, loading, error, refetch } = useApi(() => api.getSkill(name!), [name]);
-  const allSkills = useApi(() => api.listSkills());
+  const queryClient = useQueryClient();
+  const { data, isPending, error } = useQuery({
+    queryKey: queryKeys.skills.detail(name!),
+    queryFn: () => api.getSkill(name!),
+    staleTime: staleTimes.skills,
+    enabled: !!name,
+  });
+  const allSkills = useQuery({
+    queryKey: queryKeys.skills.all,
+    queryFn: () => api.listSkills(),
+    staleTime: staleTimes.skills,
+  });
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -112,14 +123,14 @@ export default function SkillDetailPage() {
     return { byName, byFlat };
   }, [allSkills.data]);
 
-  if (loading) return <PageSkeleton />;
+  if (isPending) return <PageSkeleton />;
   if (error) {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
           Failed to load skill
         </p>
-        <p className="text-pencil-light text-sm mt-1">{error}</p>
+        <p className="text-pencil-light text-sm mt-1">{error.message}</p>
       </Card>
     );
   }
@@ -203,6 +214,9 @@ export default function SkillDetailPage() {
         await api.deleteSkill(skill.flatName);
         toast(`Skill "${skill.name}" uninstalled.`, 'success');
       }
+      await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.trash });
       navigate('/skills');
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
@@ -223,7 +237,9 @@ export default function SkillDetailPage() {
           ? ` · Security: ${item.auditRiskLabel.toUpperCase()}${item.auditRiskScore ? ` (${item.auditRiskScore}/100)` : ''}`
           : '';
         toast(`Updated: ${item.name} — ${item.message}${auditInfo}`, 'success');
-        refetch();
+        await queryClient.invalidateQueries({ queryKey: queryKeys.skills.detail(name!) });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       } else if (item?.action === 'up-to-date') {
         toast(`${item.name} is already up to date.`, 'info');
       } else if (item?.action === 'blocked') {

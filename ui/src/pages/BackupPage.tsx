@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Archive,
   Clock,
@@ -11,8 +12,8 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { BackupInfo, RestoreValidateResponse } from '../api/client';
-import { useApi } from '../hooks/useApi';
 import { useAppContext } from '../context/AppContext';
+import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { formatSize } from '../lib/format';
 import Card from '../components/Card';
 import HandButton from '../components/HandButton';
@@ -49,7 +50,12 @@ function formatDate(dateStr: string): string {
 export default function BackupPage() {
   const { isProjectMode } = useAppContext();
   const { toast } = useToast();
-  const { data, loading, error, refetch } = useApi(() => api.listBackups(), []);
+  const queryClient = useQueryClient();
+  const { data, isPending, error } = useQuery({
+    queryKey: queryKeys.backups,
+    queryFn: () => api.listBackups(),
+    staleTime: staleTimes.backups,
+  });
 
   if (isProjectMode) {
     return (
@@ -98,7 +104,7 @@ export default function BackupPage() {
       } else {
         toast('Nothing to back up', 'info');
       }
-      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.backups });
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
@@ -111,7 +117,7 @@ export default function BackupPage() {
     try {
       const res = await api.cleanupBackups();
       toast(`Cleaned up ${res.removed} old backup(s)`, 'success');
-      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.backups });
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
@@ -143,7 +149,8 @@ export default function BackupPage() {
     try {
       await api.restore({ ...restoreTarget, force: needsForce });
       toast(`Restored ${restoreTarget.target} from backup`, 'success');
-      refetch();
+      queryClient.invalidateQueries({ queryKey: queryKeys.backups });
+      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
@@ -152,12 +159,12 @@ export default function BackupPage() {
     }
   };
 
-  if (loading) return <PageSkeleton />;
+  if (isPending) return <PageSkeleton />;
 
   if (error) {
     return (
       <Card>
-        <p className="text-danger">{error}</p>
+        <p className="text-danger">{error.message}</p>
       </Card>
     );
   }

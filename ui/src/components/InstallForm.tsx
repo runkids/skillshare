@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Download, Package, ChevronDown, ChevronUp, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import Card from './Card';
 import HandButton from './HandButton';
 import Badge from './Badge';
@@ -8,6 +9,7 @@ import SkillPickerModal from './SkillPickerModal';
 import ConfirmDialog from './ConfirmDialog';
 import { useToast } from './Toast';
 import { api, type InstallResult, type DiscoveredSkill } from '../api/client';
+import { queryKeys } from '../lib/queryKeys';
 
 interface InstallFormProps {
   /** Called after a successful install with the result */
@@ -56,6 +58,7 @@ export default function InstallForm({
   const [skipAudit, setSkipAudit] = useState(false);
   const [installing, setInstalling] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Discovery flow state
   const [discoveredSkills, setDiscoveredSkills] = useState<DiscoveredSkill[]>([]);
@@ -81,6 +84,11 @@ export default function InstallForm({
     if (collapsible) setOpen(false);
   };
 
+  const invalidateAfterInstall = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+  };
+
   /** Handle install result: show warning dialog if warnings exist, otherwise just toast */
   const handleResult = useCallback(
     (res: InstallResult, label?: string) => {
@@ -90,6 +98,7 @@ export default function InstallForm({
         setWarningDialog(res.warnings);
       }
       resetForm();
+      invalidateAfterInstall();
       onSuccess?.(res);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,6 +150,7 @@ export default function InstallForm({
         }
         if (allWarnings.length > 0) setWarningDialog(allWarnings);
         resetForm();
+        invalidateAfterInstall();
         onSuccess?.({ action: 'installed', warnings: [], skillName: res.summary });
       } else {
         const res = await api.install({
@@ -221,6 +231,7 @@ export default function InstallForm({
         toast(res.summary, auditBlockedSkills.length > 0 ? 'warning' : 'success');
         if (allWarnings.length > 0) setWarningDialog(allWarnings);
         resetForm();
+        invalidateAfterInstall();
         onSuccess?.({ action: 'installed', warnings: [], skillName: res.summary });
         if (auditBlockedSkills.length > 0) {
           setAuditDialog({
@@ -276,6 +287,7 @@ export default function InstallForm({
       if (allWarnings.length > 0) setWarningDialog(allWarnings);
       setShowPicker(false);
       resetForm();
+      invalidateAfterInstall();
       onSuccess?.({ action: 'installed', warnings: [], skillName: res.summary });
       // Show audit dialog for blocked items only (force-retry targets just those)
       if (auditBlockedSkills.length > 0) {

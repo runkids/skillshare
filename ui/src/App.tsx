@@ -1,5 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { queryClient } from './lib/queryClient';
 import { ToastProvider } from './components/Toast';
 import { AppProvider } from './context/AppContext';
 import { PageSkeleton } from './components/Skeleton';
@@ -27,30 +30,33 @@ function Lazy({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <ToastProvider>
-      <AppProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route element={<Layout />}>
-              <Route index element={<DashboardPage />} />
-              <Route path="skills" element={<Lazy><SkillsPage /></Lazy>} />
-              <Route path="skills/:name" element={<Lazy><SkillDetailPage /></Lazy>} />
-              <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
-              <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
-              <Route path="collect" element={<Lazy><CollectPage /></Lazy>} />
-              <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />
-              <Route path="trash" element={<Lazy><TrashPage /></Lazy>} />
-              <Route path="git" element={<Lazy><GitSyncPage /></Lazy>} />
-              <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
-              <Route path="install" element={<Lazy><InstallPage /></Lazy>} />
-              <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
-              <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
-              <Route path="log" element={<Lazy><LogPage /></Lazy>} />
-              <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </AppProvider>
-    </ToastProvider>
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <AppProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route element={<Layout />}>
+                <Route index element={<DashboardPage />} />
+                <Route path="skills" element={<Lazy><SkillsPage /></Lazy>} />
+                <Route path="skills/:name" element={<Lazy><SkillDetailPage /></Lazy>} />
+                <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
+                <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
+                <Route path="collect" element={<Lazy><CollectPage /></Lazy>} />
+                <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />
+                <Route path="trash" element={<Lazy><TrashPage /></Lazy>} />
+                <Route path="git" element={<Lazy><GitSyncPage /></Lazy>} />
+                <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
+                <Route path="install" element={<Lazy><InstallPage /></Lazy>} />
+                <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
+                <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
+                <Route path="log" element={<Lazy><LogPage /></Lazy>} />
+                <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
+              </Route>
+            </Routes>
+          </BrowserRouter>
+        </AppProvider>
+      </ToastProvider>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   );
 }

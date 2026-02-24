@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
   server: {
     host: true,
     port: 5173,
@@ -33,6 +36,10 @@ export default defineConfig({
             id.includes('devlop')
           ) {
             return 'vendor-markdown';
+          }
+          // TanStack Query — shared across all pages
+          if (id.includes('@tanstack/react-query')) {
+            return 'vendor-tanstack-query';
           }
         },
       },

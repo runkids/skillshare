@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Search, Star, Download, Globe, Database, Settings } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import HandButton from '../components/HandButton';
@@ -9,6 +10,7 @@ import HubManagerModal, { type SavedHub } from '../components/HubManagerModal';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { api, type SearchResult, type DiscoveredSkill } from '../api/client';
+import { queryKeys } from '../lib/queryKeys';
 
 type SearchMode = 'github' | 'hub';
 
@@ -33,6 +35,7 @@ export default function SearchPage() {
   const [searching, setSearching] = useState(false);
   const [filter, setFilter] = useState('');
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Hub state
   const [selectedHub, setSelectedHub] = useState(COMMUNITY_HUB.url);
@@ -173,6 +176,8 @@ export default function SearchPage() {
             }
           }
           toast(res.summary, hasAuditBlock ? 'warning' : 'success');
+          queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+          queryClient.invalidateQueries({ queryKey: queryKeys.overview });
           return;
         }
         // skill not found in repo — fall through to picker
@@ -198,6 +203,8 @@ export default function SearchPage() {
           }
         }
         toast(res.summary, hasAuditBlock ? 'warning' : 'success');
+        queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       } else {
         const res = await api.install({ source });
         toast(
@@ -207,6 +214,8 @@ export default function SearchPage() {
         if (res.warnings?.length > 0) {
           res.warnings.forEach((w) => toast(w, 'warning'));
         }
+        queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       }
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
@@ -238,6 +247,8 @@ export default function SearchPage() {
       }
       toast(res.summary, hasAuditBlock ? 'warning' : 'success');
       setShowPicker(false);
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
