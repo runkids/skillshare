@@ -7,6 +7,8 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"skillshare/internal/ui"
 )
 
 // logDetailLabelStyle uses a wider width than the shared tuiDetailLabelStyle
@@ -193,51 +195,58 @@ func renderLogDetailPanel(item logItem) string {
 	return b.String()
 }
 
-// colorizeSeverityBreakdown colors each number in "0/0/1/0/0" to match audit summary:
-// critical=red, high=orange(208), medium=yellow, low=gray, info=default
+// severityStyles maps the 5 severity levels (c/h/m/l/i) to lipgloss styles
+// using shared color IDs from ui.SeverityColorID.
+var severityStyles = []lipgloss.Style{
+	lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDCritical)),
+	lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDHigh)),
+	lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDMedium)),
+	lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDLow)),
+	lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDInfo)),
+}
+
+// colorizeSeverityBreakdown colors each number in "0/0/1/0/0" to match audit summary.
 func colorizeSeverityBreakdown(value string) string {
 	parts := strings.Split(value, "/")
 	if len(parts) != 5 {
 		return value
 	}
-	styles := []lipgloss.Style{
-		lipgloss.NewStyle().Foreground(lipgloss.Color("1")),   // critical — red
-		lipgloss.NewStyle().Foreground(lipgloss.Color("208")), // high — orange
-		lipgloss.NewStyle().Foreground(lipgloss.Color("3")),   // medium — yellow
-		lipgloss.NewStyle().Foreground(lipgloss.Color("8")),   // low — gray
-		lipgloss.NewStyle(), // info — default
-	}
 	for i, p := range parts {
-		parts[i] = styles[i].Render(p)
+		parts[i] = severityStyles[i].Render(p)
 	}
-	return strings.Join(parts, lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render("/"))
+	sep := lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDLow)).Render("/")
+	return strings.Join(parts, sep)
+}
+
+// severityLipglossStyle returns a lipgloss style for the given severity string.
+func severityLipglossStyle(severity string) lipgloss.Style {
+	id := ui.SeverityColorID(severity)
+	if id == "" {
+		return lipgloss.NewStyle()
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color(id))
 }
 
 // colorizeThreshold applies color based on audit threshold level.
-func colorizeThreshold(value string, red, yellow, green lipgloss.Style) string {
-	upper := strings.ToUpper(value)
-	switch {
-	case upper == "CRITICAL" || upper == "HIGH":
-		return red.Render(value)
-	case upper == "MEDIUM":
-		return yellow.Render(value)
-	default:
+func colorizeThreshold(value string, _, _, green lipgloss.Style) string {
+	style := severityLipglossStyle(value)
+	if ui.SeverityColorID(value) == "" {
 		return green.Render(value)
 	}
+	return style.Render(value)
 }
 
 // colorizeRiskValue applies color based on the risk label embedded in the value string.
 // e.g. "CRITICAL (85/100)" → red, "LOW (15/100)" → green
-func colorizeRiskValue(value string, red, yellow, green lipgloss.Style) string {
-	upper := strings.ToUpper(value)
-	switch {
-	case strings.HasPrefix(upper, "CRITICAL") || strings.HasPrefix(upper, "HIGH"):
-		return red.Render(value)
-	case strings.HasPrefix(upper, "MEDIUM"):
-		return yellow.Render(value)
-	default:
+func colorizeRiskValue(value string, _, _, green lipgloss.Style) string {
+	// Extract the severity word (first token before space or paren)
+	sev := strings.SplitN(strings.ToUpper(value), " ", 2)[0]
+	sev = strings.TrimRight(sev, "(")
+	style := severityLipglossStyle(sev)
+	if ui.SeverityColorID(sev) == "" {
 		return green.Render(value)
 	}
+	return style.Render(value)
 }
 
 // runLogTUI starts the bubbletea TUI for the log viewer.
