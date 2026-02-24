@@ -72,8 +72,6 @@ func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
 			failedTargets++
 		}
 	}
-	printSymlinkCompatHint(runtime.targets, "merge", true)
-
 	stats.Failed = failedTargets
 	if failedTargets > 0 {
 		return stats, fmt.Errorf("some targets failed to sync")

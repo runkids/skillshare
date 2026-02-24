@@ -47,52 +47,6 @@ targets:
 	}
 }
 
-func TestSync_ShowsSymlinkCompatHint(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	claudePath := sb.CreateTarget("claude")
-	cursorPath := sb.CreateTarget("cursor")
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + `
-mode: merge
-targets:
-  claude:
-    path: ` + claudePath + `
-  cursor:
-    path: ` + cursorPath + `
-`)
-
-	result := sb.RunCLI("sync", "--dry-run")
-
-	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Symlink compatibility")
-	result.AssertOutputContains(t, "--mode copy")
-}
-
-func TestSync_NoSymlinkCompatHint_WhenAllCopy(t *testing.T) {
-	sb := testutil.NewSandbox(t)
-	defer sb.Cleanup()
-
-	claudePath := sb.CreateTarget("claude")
-	codexPath := sb.CreateTarget("codex")
-
-	sb.WriteConfig(`source: ` + sb.SourcePath + `
-targets:
-  claude:
-    path: ` + claudePath + `
-    mode: copy
-  codex:
-    path: ` + codexPath + `
-    mode: copy
-`)
-
-	result := sb.RunCLI("sync", "--dry-run")
-
-	result.AssertSuccess(t)
-	result.AssertOutputNotContains(t, "Symlink compatibility")
-}
-
 func TestSync_MergeMode_PreservesLocalSkills(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
