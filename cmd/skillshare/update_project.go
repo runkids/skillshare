@@ -50,7 +50,7 @@ func cmdUpdateProject(args []string, root string) error {
 	fmt.Println()
 
 	if opts.all {
-		return updateAllProjectSkills(sourcePath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, root)
+		return updateAllProjectSkills(sourcePath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, opts.auditVerbose, root)
 	}
 
 	return cmdUpdateProjectBatch(sourcePath, opts, root)
@@ -165,7 +165,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 		if t.isRepo {
 			return updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, projectRoot)
 		}
-		return updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, projectRoot)
+		return updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, opts.auditVerbose, projectRoot)
 	}
 
 	// Batch mode with progress bar
@@ -183,41 +183,148 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	skipped := 0
 	securityFailed := 0
 	var auditEntries []batchAuditEntry
+	var blockedEntries []batchBlockedEntry
+
+	// Group skills by RepoURL to optimize updates
+	repoGroups := make(map[string][]projectTarget)
+	var standaloneSkills []projectTarget
+	var trackedRepos []projectTarget
+
 	for _, t := range targets {
-		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
 		if t.isRepo {
-			if err := updateProjectTrackedRepoQuick(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.threshold, projectRoot); err != nil {
-				if isSecurityError(err) {
-					securityFailed++
-				} else {
-					skipped++
-				}
-			} else {
-				updated++
-			}
+			trackedRepos = append(trackedRepos, t)
+			continue
+		}
+
+		meta, err := install.ReadMeta(t.path)
+		if err == nil && meta != nil && meta.RepoURL != "" {
+			repoGroups[meta.RepoURL] = append(repoGroups[meta.RepoURL], t)
 		} else {
-			ok, riskLabel, err := updateProjectSkillFromMeta(sourcePath, t.name, opts.dryRun, opts.skipAudit, opts.threshold)
-			if err != nil {
-				if isSecurityError(err) {
-					securityFailed++
-				} else {
-					skipped++
-				}
-			} else if ok {
-				updated++
-				if riskLabel != "" {
-					auditEntries = append(auditEntries, batchAuditEntry{name: t.name, risk: riskLabel})
-				}
+			standaloneSkills = append(standaloneSkills, t)
+		}
+	}
+
+	// 1. Process tracked repositories (git pull)
+	for _, t := range trackedRepos {
+		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+		repoUpdated, auditResult, err := updateProjectTrackedRepoQuick(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.threshold, projectRoot)
+		if err != nil {
+			if isSecurityError(err) {
+				securityFailed++
+				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 			} else {
 				skipped++
 			}
+		} else if repoUpdated {
+			updated++
+		} else {
+			skipped++
+		}
+		if auditResult != nil {
+			auditEntries = append(auditEntries, batchAuditEntryFromAuditResult(t.name, auditResult, opts.skipAudit))
 		}
 		progressBar.Increment()
 	}
+
+	// 2. Process grouped skills (one clone per repo)
+	for repoURL, groupTargets := range repoGroups {
+		if opts.dryRun {
+			for _, t := range groupTargets {
+				progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+				progressBar.Increment()
+				skipped++
+			}
+			continue
+		}
+
+		progressBar.UpdateTitle(fmt.Sprintf("Updating %d skills from %s", len(groupTargets), repoURL))
+
+		// Map targets by their relative path within the repo
+		skillRelPaths := make([]string, 0, len(groupTargets))
+		pathToTarget := make(map[string]projectTarget)
+		for _, t := range groupTargets {
+			meta, _ := install.ReadMeta(t.path)
+			if meta != nil {
+				skillRelPaths = append(skillRelPaths, meta.Subdir)
+				pathToTarget[meta.Subdir] = t
+			}
+		}
+
+		batchOpts := install.InstallOptions{
+			Force:            true,
+			Update:           true,
+			SkipAudit:        opts.skipAudit,
+			AuditThreshold:   opts.threshold,
+			AuditProjectRoot: projectRoot,
+		}
+		if ui.IsTTY() {
+			batchOpts.OnProgress = func(line string) {
+				progressBar.UpdateTitle(line)
+			}
+		}
+
+		batchResult, err := install.UpdateSkillsFromRepo(repoURL, skillRelPaths, sourcePath, batchOpts)
+		if err != nil {
+			for _, t := range groupTargets {
+				progressBar.UpdateTitle(fmt.Sprintf("Failed %s: %v", t.name, err))
+				skipped++
+				progressBar.Increment()
+			}
+			continue
+		}
+
+		for _, relPath := range skillRelPaths {
+			t := pathToTarget[relPath]
+			progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+
+			if ui.IsTTY() {
+				time.Sleep(50 * time.Millisecond)
+			}
+
+			if err := batchResult.Errors[relPath]; err != nil {
+				if isSecurityError(err) {
+					securityFailed++
+					blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+				} else {
+					skipped++
+				}
+			} else if res := batchResult.Results[relPath]; res != nil {
+				updated++
+				auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.name, res))
+			} else {
+				skipped++
+			}
+			progressBar.Increment()
+		}
+	}
+
+	// 3. Process standalone skills
+	for _, t := range standaloneSkills {
+		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+		ok, installRes, err := updateProjectSkillFromMeta(sourcePath, t.name, opts.dryRun, opts.skipAudit, opts.threshold)
+		if err != nil {
+			if isSecurityError(err) {
+				securityFailed++
+				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+			} else {
+				skipped++
+			}
+		} else if ok {
+			updated++
+		} else {
+			skipped++
+		}
+		if installRes != nil {
+			auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.name, installRes))
+		}
+		progressBar.Increment()
+	}
+
 	progressBar.Stop()
 
 	if !opts.dryRun {
-		renderBatchAuditSummary(auditEntries)
+		displayUpdateBlockedSection(blockedEntries)
+		displayUpdateAuditResults(auditEntries, opts.auditVerbose)
 		fmt.Println()
 		ui.SuccessMsg("Updated %d, skipped %d of %d skill(s)", updated, skipped, total)
 		if securityFailed > 0 {
@@ -236,7 +343,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	return nil
 }
 
-func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit, showDiff bool, threshold, projectRoot string) error {
+func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool, projectRoot string) error {
 	// Normalize _ prefix for tracked repos
 	repoName := name
 	if !strings.HasPrefix(repoName, "_") {
@@ -305,7 +412,7 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit,
 	ui.StepResult("success", "Updated successfully", time.Since(startUpdate))
 	fmt.Println()
 
-	renderInstallWarningsWithResult("", result.Warnings, false, result)
+	renderInstallWarningsWithResult("", result.Warnings, auditVerbose, result)
 
 	if showDiff {
 		afterHashes, _ := install.ComputeFileHashes(skillPath)
@@ -375,7 +482,7 @@ func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudi
 	scanFn := func(path string) (*audit.Result, error) {
 		return audit.ScanSkillForProject(path, projectRoot)
 	}
-	if err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, scanFn); err != nil {
+	if _, err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, scanFn); err != nil {
 		return err
 	}
 
@@ -385,20 +492,21 @@ func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudi
 }
 
 // updateProjectTrackedRepoQuick updates a tracked repo in project batch mode (quiet).
-func updateProjectTrackedRepoQuick(repoName, repoPath string, dryRun, force, skipAudit bool, threshold, projectRoot string) error {
+// Returns (updated, auditResult, error).
+func updateProjectTrackedRepoQuick(repoName, repoPath string, dryRun, force, skipAudit bool, threshold, projectRoot string) (bool, *audit.Result, error) {
 	if isDirty, _ := git.IsDirty(repoPath); isDirty {
 		if !force {
-			return fmt.Errorf("uncommitted changes in %s", repoName)
+			return false, nil, fmt.Errorf("uncommitted changes in %s", repoName)
 		}
 		if !dryRun {
 			if err := git.Restore(repoPath); err != nil {
-				return fmt.Errorf("failed to discard changes: %w", err)
+				return false, nil, fmt.Errorf("failed to discard changes: %w", err)
 			}
 		}
 	}
 
 	if dryRun {
-		return nil
+		return false, nil, nil
 	}
 
 	var info *git.UpdateInfo
@@ -409,35 +517,39 @@ func updateProjectTrackedRepoQuick(repoName, repoPath string, dryRun, force, ski
 		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), nil)
 	}
 	if err != nil || info.UpToDate {
-		return nil
+		return false, nil, nil
 	}
 
 	scanFn := func(path string) (*audit.Result, error) {
 		return audit.ScanSkillForProject(path, projectRoot)
 	}
-	return auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, scanFn)
+	auditResult, auditErr := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, scanFn)
+	if auditErr != nil {
+		return false, auditResult, auditErr
+	}
+	return true, auditResult, nil
 }
 
 // updateProjectSkillFromMeta updates a project skill using metadata in batch mode (quiet).
-// Returns (updated, riskLabel, error).
-func updateProjectSkillFromMeta(sourcePath, name string, dryRun, skipAudit bool, threshold string) (bool, string, error) {
+// Returns (updated, installResult, error).
+func updateProjectSkillFromMeta(sourcePath, name string, dryRun, skipAudit bool, threshold string) (bool, *install.InstallResult, error) {
 	skillPath := filepath.Join(sourcePath, name)
 	if _, err := os.Stat(skillPath); err != nil {
-		return false, "", nil
+		return false, nil, nil
 	}
 
 	meta, err := install.ReadMeta(skillPath)
 	if err != nil || meta == nil || meta.Source == "" {
-		return false, "", nil
+		return false, nil, nil
 	}
 
 	source, err := install.ParseSource(meta.Source)
 	if err != nil {
-		return false, "", nil
+		return false, nil, nil
 	}
 
 	if dryRun {
-		return false, "", nil
+		return false, nil, nil
 	}
 
 	opts := install.InstallOptions{
@@ -448,13 +560,13 @@ func updateProjectSkillFromMeta(sourcePath, name string, dryRun, skipAudit bool,
 	}
 	result, err := install.Install(source, skillPath, opts)
 	if err != nil {
-		return false, "", err
+		return false, nil, err
 	}
 
-	return true, formatRiskLabel(result), nil
+	return true, result, nil
 }
 
-func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDiff bool, threshold, projectRoot string) error {
+func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool, projectRoot string) error {
 	type target struct {
 		name   string
 		path   string
@@ -518,7 +630,7 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 		if t.isRepo {
 			return updateProjectTrackedRepo(t.name, t.path, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
 		}
-		return updateSingleProjectSkill(sourcePath, t.name, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
+		return updateSingleProjectSkill(sourcePath, t.name, dryRun, force, skipAudit, showDiff, threshold, auditVerbose, projectRoot)
 	}
 
 	ui.Header(fmt.Sprintf("Updating %d skill(s)", total))
@@ -534,42 +646,147 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 	skipped := 0
 	securityFailed := 0
 	var auditEntries []batchAuditEntry
+	var blockedEntries []batchBlockedEntry
+
+	// Group skills by RepoURL to optimize updates
+	repoGroups := make(map[string][]target)
+	var standaloneSkills []target
+	var trackedRepos []target
 
 	for _, t := range targets {
-		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
 		if t.isRepo {
-			if err := updateProjectTrackedRepoQuick(t.name, t.path, dryRun, force, skipAudit, threshold, projectRoot); err != nil {
-				if isSecurityError(err) {
-					securityFailed++
-				} else {
-					skipped++
-				}
-			} else {
-				updated++
-			}
+			trackedRepos = append(trackedRepos, t)
+			continue
+		}
+
+		meta, err := install.ReadMeta(t.path)
+		if err == nil && meta != nil && meta.RepoURL != "" {
+			repoGroups[meta.RepoURL] = append(repoGroups[meta.RepoURL], t)
 		} else {
-			ok, riskLabel, err := updateProjectSkillFromMeta(sourcePath, t.name, dryRun, skipAudit, threshold)
-			if err != nil {
-				if isSecurityError(err) {
-					securityFailed++
-				} else {
-					skipped++
-				}
-			} else if ok {
-				updated++
-				if riskLabel != "" {
-					auditEntries = append(auditEntries, batchAuditEntry{name: t.name, risk: riskLabel})
-				}
+			standaloneSkills = append(standaloneSkills, t)
+		}
+	}
+
+	// 1. Process tracked repositories (git pull)
+	for _, t := range trackedRepos {
+		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+		repoUpdated, auditResult, err := updateProjectTrackedRepoQuick(t.name, t.path, dryRun, force, skipAudit, threshold, projectRoot)
+		if err != nil {
+			if isSecurityError(err) {
+				securityFailed++
+				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 			} else {
 				skipped++
 			}
+		} else if repoUpdated {
+			updated++
+		} else {
+			skipped++
+		}
+		if auditResult != nil {
+			auditEntries = append(auditEntries, batchAuditEntryFromAuditResult(t.name, auditResult, skipAudit))
 		}
 		progressBar.Increment()
 	}
+
+	// 2. Process grouped skills (one clone per repo)
+	for repoURL, groupTargets := range repoGroups {
+		if dryRun {
+			for _, t := range groupTargets {
+				progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+				progressBar.Increment()
+				skipped++
+			}
+			continue
+		}
+
+		progressBar.UpdateTitle(fmt.Sprintf("Updating %d skills from %s", len(groupTargets), repoURL))
+
+		// Map targets by their relative path within the repo
+		skillRelPaths := make([]string, 0, len(groupTargets))
+		pathToTarget := make(map[string]target)
+		for _, t := range groupTargets {
+			meta, _ := install.ReadMeta(t.path)
+			if meta != nil {
+				skillRelPaths = append(skillRelPaths, meta.Subdir)
+				pathToTarget[meta.Subdir] = t
+			}
+		}
+
+		batchOpts := install.InstallOptions{
+			Force:          true,
+			Update:         true,
+			SkipAudit:      skipAudit,
+			AuditThreshold: threshold,
+		}
+		if ui.IsTTY() {
+			batchOpts.OnProgress = func(line string) {
+				progressBar.UpdateTitle(line)
+			}
+		}
+
+		batchResult, err := install.UpdateSkillsFromRepo(repoURL, skillRelPaths, sourcePath, batchOpts)
+		if err != nil {
+			for _, t := range groupTargets {
+				progressBar.UpdateTitle(fmt.Sprintf("Failed %s: %v", t.name, err))
+				skipped++
+				progressBar.Increment()
+			}
+			continue
+		}
+
+		for _, relPath := range skillRelPaths {
+			t := pathToTarget[relPath]
+			progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+
+			if ui.IsTTY() {
+				time.Sleep(50 * time.Millisecond)
+			}
+
+			if err := batchResult.Errors[relPath]; err != nil {
+				if isSecurityError(err) {
+					securityFailed++
+					blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+				} else {
+					skipped++
+				}
+			} else if res := batchResult.Results[relPath]; res != nil {
+				updated++
+				auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.name, res))
+			} else {
+				skipped++
+			}
+			progressBar.Increment()
+		}
+	}
+
+	// 3. Process standalone skills
+	for _, t := range standaloneSkills {
+		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+		ok, installRes, err := updateProjectSkillFromMeta(sourcePath, t.name, dryRun, skipAudit, threshold)
+		if err != nil {
+			if isSecurityError(err) {
+				securityFailed++
+				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
+			} else {
+				skipped++
+			}
+		} else if ok {
+			updated++
+		} else {
+			skipped++
+		}
+		if installRes != nil {
+			auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.name, installRes))
+		}
+		progressBar.Increment()
+	}
+
 	progressBar.Stop()
 
 	if !dryRun {
-		renderBatchAuditSummary(auditEntries)
+		displayUpdateBlockedSection(blockedEntries)
+		displayUpdateAuditResults(auditEntries, auditVerbose)
 		fmt.Println()
 		ui.SuccessMsg("Updated %d, skipped %d of %d skill(s)", updated, skipped, total)
 		if securityFailed > 0 {

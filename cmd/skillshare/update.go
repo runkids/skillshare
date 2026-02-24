@@ -21,14 +21,15 @@ import (
 
 // updateOptions holds parsed arguments for update command
 type updateOptions struct {
-	names     []string // positional args (0+)
-	groups    []string // --group/-G values (repeatable)
-	all       bool
-	dryRun    bool
-	force     bool
-	skipAudit bool
-	diff      bool
-	threshold string
+	names        []string // positional args (0+)
+	groups       []string // --group/-G values (repeatable)
+	all          bool
+	dryRun       bool
+	force        bool
+	skipAudit    bool
+	diff         bool
+	threshold    string
+	auditVerbose bool
 }
 
 // parseUpdateArgs parses command line arguments for the update command.
@@ -59,6 +60,8 @@ func parseUpdateArgs(args []string) (*updateOptions, bool, error) {
 			opts.threshold = threshold
 		case arg == "--diff":
 			opts.diff = true
+		case arg == "--audit-verbose":
+			opts.auditVerbose = true
 		case arg == "--group" || arg == "-G":
 			i++
 			if i >= len(args) {
@@ -332,7 +335,7 @@ func cmdUpdate(args []string) error {
 		if t.isRepo {
 			updateErr = updateTrackedRepo(cfg, t.relPath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold)
 		} else {
-			updateErr = updateRegularSkill(cfg, t.relPath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold)
+			updateErr = updateRegularSkill(cfg, t.relPath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, opts.auditVerbose)
 		}
 
 		var opNames []string
@@ -358,37 +361,147 @@ func cmdUpdate(args []string) error {
 
 	var result updateResult
 	var auditEntries []batchAuditEntry
+	var blockedEntries []batchBlockedEntry
+
+	// Group skills by RepoURL to optimize updates
+	repoGroups := make(map[string][]resolvedMatch)
+	var standaloneSkills []resolvedMatch
+	var trackedRepos []resolvedMatch
+
 	for _, t := range targets {
+		if t.isRepo {
+			trackedRepos = append(trackedRepos, t)
+			continue
+		}
+
+		itemPath := filepath.Join(cfg.Source, t.relPath)
+		meta, err := install.ReadMeta(itemPath)
+		if err == nil && meta != nil && meta.RepoURL != "" {
+			repoGroups[meta.RepoURL] = append(repoGroups[meta.RepoURL], t)
+		} else {
+			standaloneSkills = append(standaloneSkills, t)
+		}
+	}
+
+	// 1. Process tracked repositories (git pull)
+	for _, t := range trackedRepos {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.relPath))
 		itemPath := filepath.Join(cfg.Source, t.relPath)
-		if t.isRepo {
-			updated, err := updateTrackedRepoQuick(t.relPath, itemPath, opts.dryRun, opts.force, opts.skipAudit, opts.threshold)
-			if err != nil {
+		updated, auditResult, err := updateTrackedRepoQuick(t.relPath, itemPath, opts.dryRun, opts.force, opts.skipAudit, opts.threshold)
+		if err != nil {
+			if isSecurityError(err) {
 				result.securityFailed++
-			} else if updated {
-				result.updated++
+				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.relPath, errMsg: err.Error()})
 			} else {
 				result.skipped++
 			}
+		} else if updated {
+			result.updated++
 		} else {
-			updated, riskLabel, err := updateSkillFromMeta(t.relPath, itemPath, opts.dryRun, opts.skipAudit, opts.threshold)
-			if err != nil && isSecurityError(err) {
-				result.securityFailed++
-			} else if updated {
-				result.updated++
-				if riskLabel != "" {
-					auditEntries = append(auditEntries, batchAuditEntry{name: t.relPath, risk: riskLabel})
-				}
-			} else {
-				result.skipped++
-			}
+			result.skipped++
+		}
+		if auditResult != nil {
+			auditEntries = append(auditEntries, batchAuditEntryFromAuditResult(t.relPath, auditResult, opts.skipAudit))
 		}
 		progressBar.Increment()
 	}
+
+	// 2. Process grouped skills (one clone per repo)
+	for repoURL, groupTargets := range repoGroups {
+		if opts.dryRun {
+			for _, t := range groupTargets {
+				progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.relPath))
+				progressBar.Increment()
+				result.skipped++
+			}
+			continue
+		}
+
+		progressBar.UpdateTitle(fmt.Sprintf("Updating %d skills from %s", len(groupTargets), repoURL))
+
+		// Map targets by their relative path within the repo
+		skillRelPaths := make([]string, 0, len(groupTargets))
+		pathToTarget := make(map[string]resolvedMatch)
+		for _, t := range groupTargets {
+			itemPath := filepath.Join(cfg.Source, t.relPath)
+			meta, _ := install.ReadMeta(itemPath)
+			if meta != nil {
+				skillRelPaths = append(skillRelPaths, meta.Subdir)
+				pathToTarget[meta.Subdir] = t
+			}
+		}
+
+		batchOpts := install.InstallOptions{
+			Force:          true,
+			Update:         true,
+			SkipAudit:      opts.skipAudit,
+			AuditThreshold: opts.threshold,
+		}
+		if ui.IsTTY() {
+			batchOpts.OnProgress = func(line string) {
+				progressBar.UpdateTitle(line)
+			}
+		}
+
+		batchResult, err := install.UpdateSkillsFromRepo(repoURL, skillRelPaths, cfg.Source, batchOpts)
+		if err != nil {
+			for _, t := range groupTargets {
+				progressBar.UpdateTitle(fmt.Sprintf("Failed %s: %v", t.relPath, err))
+				result.skipped++
+				progressBar.Increment()
+			}
+			continue
+		}
+
+		for _, relPath := range skillRelPaths {
+			t := pathToTarget[relPath]
+			progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.relPath))
+
+			if ui.IsTTY() {
+				time.Sleep(50 * time.Millisecond)
+			}
+
+			if err := batchResult.Errors[relPath]; err != nil {
+				if isSecurityError(err) {
+					result.securityFailed++
+					blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.relPath, errMsg: err.Error()})
+				} else {
+					result.skipped++
+				}
+			} else if res := batchResult.Results[relPath]; res != nil {
+				result.updated++
+				auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.relPath, res))
+			} else {
+				result.skipped++
+			}
+			progressBar.Increment()
+		}
+	}
+
+	// 3. Process standalone skills
+	for _, t := range standaloneSkills {
+		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.relPath))
+		itemPath := filepath.Join(cfg.Source, t.relPath)
+		updated, installRes, err := updateSkillFromMeta(t.relPath, itemPath, opts.dryRun, opts.skipAudit, opts.threshold)
+		if err != nil && isSecurityError(err) {
+			result.securityFailed++
+			blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.relPath, errMsg: err.Error()})
+		} else if updated {
+			result.updated++
+		} else {
+			result.skipped++
+		}
+		if installRes != nil {
+			auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.relPath, installRes))
+		}
+		progressBar.Increment()
+	}
+
 	progressBar.Stop()
 
 	if !opts.dryRun {
-		renderBatchAuditSummary(auditEntries)
+		displayUpdateBlockedSection(blockedEntries)
+		displayUpdateAuditResults(auditEntries, opts.auditVerbose)
 		fmt.Println()
 		ui.SuccessMsg("Updated %d, skipped %d of %d skill(s)", result.updated, result.skipped, total)
 		if result.securityFailed > 0 {
@@ -441,90 +554,241 @@ type updateResult struct {
 	securityFailed int
 }
 
-// batchAuditEntry holds per-item audit info for post-batch summary.
-type batchAuditEntry struct {
-	name string
-	risk string // e.g. "CLEAN", "MEDIUM (42/100)"
+// batchBlockedEntry records a skill that was blocked by security audit during batch update.
+type batchBlockedEntry struct {
+	name   string
+	errMsg string
 }
 
-func renderBatchAuditSummary(entries []batchAuditEntry) {
+// batchAuditEntry holds per-item audit info for post-batch summary.
+type batchAuditEntry struct {
+	name      string
+	risk      string // e.g. "CLEAN", "MEDIUM (42/100)"
+	warnings  []string
+	riskScore int
+	skipped   bool
+	result    *install.InstallResult // nil for tracked repos
+}
+
+// batchAuditEntryFromAuditResult builds a batchAuditEntry from an audit.Result
+// (used for tracked repos where we only have the raw audit scan result).
+func batchAuditEntryFromAuditResult(name string, ar *audit.Result, skipAudit bool) batchAuditEntry {
+	entry := batchAuditEntry{
+		name:      name,
+		riskScore: ar.RiskScore,
+		skipped:   skipAudit,
+	}
+	label := strings.ToUpper(ar.RiskLabel)
+	if label == "" && len(ar.Findings) == 0 {
+		label = "CLEAN"
+	}
+	if ar.RiskScore > 0 {
+		entry.risk = fmt.Sprintf("%s (%d/100)", label, ar.RiskScore)
+	} else {
+		entry.risk = label
+	}
+	// Convert findings to warning strings (same format as install_audit.go)
+	for _, f := range ar.Findings {
+		msg := fmt.Sprintf("audit %s: %s (%s:%d)", f.Severity, f.Message, f.File, f.Line)
+		if f.Snippet != "" {
+			msg += fmt.Sprintf("\n       %q", f.Snippet)
+		}
+		entry.warnings = append(entry.warnings, msg)
+	}
+	return entry
+}
+
+// batchAuditEntryFromInstallResult builds a batchAuditEntry from an InstallResult
+// (used for grouped and standalone skills).
+func batchAuditEntryFromInstallResult(name string, res *install.InstallResult) batchAuditEntry {
+	return batchAuditEntry{
+		name:      name,
+		risk:      formatRiskLabel(res),
+		warnings:  res.Warnings,
+		riskScore: res.AuditRiskScore,
+		skipped:   res.AuditSkipped,
+		result:    res,
+	}
+}
+
+// displayUpdateAuditResults renders the audit findings section for batch updates.
+// Non-verbose: CLEAN count + compact severity breakdown (matches install --all output).
+// Verbose: adds per-skill risk lines and detailed findings.
+func displayUpdateAuditResults(entries []batchAuditEntry, auditVerbose bool) {
 	if len(entries) == 0 {
 		return
 	}
 
-	ui.SectionLabel("Audit Findings")
+	// Convert batchAuditEntry → skillInstallResult for reuse of install rendering
+	results := make([]skillInstallResult, 0, len(entries))
+	for _, e := range entries {
+		sir := skillInstallResult{
+			skill:          install.SkillInfo{Name: e.name},
+			success:        true,
+			warnings:       e.warnings,
+			auditRiskLabel: e.risk,
+			auditRiskScore: e.riskScore,
+			auditSkipped:   e.skipped,
+			result:         e.result,
+		}
+		results = append(results, sir)
+	}
 
+	// Categorize entries
 	clean := 0
 	var notable []batchAuditEntry
 	for _, e := range entries {
-		if e.risk == "CLEAN" {
+		if e.risk == "CLEAN" || e.risk == "" {
 			clean++
 		} else {
 			notable = append(notable, e)
 		}
 	}
 
-	for _, e := range notable {
-		ui.Warning("risk: %s — %s", e.risk, e.name)
+	// Count total warnings across all entries
+	totalWarnings := 0
+	for _, r := range results {
+		totalWarnings += len(r.warnings)
 	}
-	if clean > 0 {
-		ui.Info("Audit: %d skill(s) CLEAN", clean)
+
+	ui.SectionLabel("Audit Findings")
+
+	if auditVerbose {
+		// Verbose: per-skill risk lines + detailed findings
+		for _, e := range notable {
+			ui.Warning("risk: %s — %s", e.risk, e.name)
+		}
+		if clean > 0 {
+			ui.Info("Audit: %d skill(s) CLEAN", clean)
+		}
+		if totalWarnings > 0 {
+			skillsWithWarnings := countSkillsWithWarnings(results)
+			if skillsWithWarnings <= 20 {
+				for _, e := range entries {
+					if len(e.warnings) > 0 {
+						renderInstallWarningsWithResult(e.name, e.warnings, true, e.result)
+					}
+				}
+			} else {
+				// Large batch verbose: compact summary + top HIGH/CRITICAL detail
+				renderBatchInstallWarningsCompact(results, totalWarnings,
+					"%d audit finding line(s) across all skills; HIGH/CRITICAL detail expanded below")
+				fmt.Println()
+				ui.Warning("HIGH/CRITICAL detail (top skills):")
+				shown := 0
+				for _, r := range sortResultsByHighCritical(results) {
+					if shown >= 20 || !hasHighCriticalWarnings(r) {
+						break
+					}
+					renderInstallWarningsHighCriticalOnly(r.skill.Name, r.warnings)
+					shown++
+				}
+			}
+		}
+	} else {
+		// Non-verbose: compact summary only (matches install --all output)
+		if clean > 0 {
+			ui.Info("Audit: %d skill(s) CLEAN", clean)
+		}
+		if totalWarnings > 0 {
+			if len(entries) > 100 {
+				renderUltraCompactAuditSummary(results, totalWarnings)
+			} else {
+				renderBatchInstallWarningsCompact(results, totalWarnings,
+					"suppressed %d audit finding line(s); re-run with --audit-verbose for full details")
+			}
+		}
 	}
+}
+
+// displayUpdateBlockedSection renders the "Blocked / Rolled Back" section
+// for skills that were blocked by security audit during batch update.
+func displayUpdateBlockedSection(blocked []batchBlockedEntry) {
+	if len(blocked) == 0 {
+		return
+	}
+	ui.SectionLabel("Blocked / Rolled Back")
+	ui.Warning("%d skill(s) blocked by security audit", len(blocked))
+	ui.Info("Use --force or --skip-audit to bypass")
+	for _, b := range blocked {
+		digest := parseAuditBlockedFailure(b.errMsg)
+		label := blockedSkillLabel(b.name, digest.threshold)
+		ui.StepFail(label, compactBlockedUpdateMessage(b.errMsg))
+	}
+}
+
+// compactBlockedUpdateMessage extracts a compact message from a blocked update error.
+func compactBlockedUpdateMessage(errMsg string) string {
+	digest := parseAuditBlockedFailure(errMsg)
+	parts := []string{"blocked by security audit"}
+	if digest.threshold != "" && digest.findingCount > 0 {
+		suffix := "findings"
+		if digest.findingCount == 1 {
+			suffix = "finding"
+		}
+		parts = append(parts, fmt.Sprintf("(%s, %d %s)", digest.threshold, digest.findingCount, suffix))
+	} else if digest.threshold != "" {
+		parts = append(parts, "("+digest.threshold+")")
+	}
+	return strings.Join(parts, " ")
 }
 
 // updateTrackedRepoQuick updates a single tracked repo in batch mode.
 // Output is suppressed; caller handles display via progress bar.
-func updateTrackedRepoQuick(repo, repoPath string, dryRun, force, skipAudit bool, threshold string) (updated bool, err error) {
+// Returns (updated, auditResult, error).
+func updateTrackedRepoQuick(repo, repoPath string, dryRun, force, skipAudit bool, threshold string) (bool, *audit.Result, error) {
 	// Check for uncommitted changes
 	if isDirty, _ := git.IsDirty(repoPath); isDirty {
 		if !force {
-			return false, nil
+			return false, nil, nil
 		}
 		if !dryRun {
 			if err := git.Restore(repoPath); err != nil {
-				return false, nil
+				return false, nil, nil
 			}
 		}
 	}
 
 	if dryRun {
-		return false, nil
+		return false, nil, nil
 	}
 
 	var info *git.UpdateInfo
+	var err error
 	if force {
 		info, err = git.ForcePullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), nil)
 	} else {
 		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), nil)
 	}
 	if err != nil {
-		return false, nil
+		return false, nil, nil
 	}
 
 	if info.UpToDate {
-		return false, nil
+		return false, nil, nil
 	}
 
 	// Post-pull audit gate
-	if err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, audit.ScanSkill); err != nil {
-		return false, err
+	auditResult, auditErr := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, audit.ScanSkill)
+	if auditErr != nil {
+		return false, auditResult, auditErr
 	}
 
-	return true, nil
+	return true, auditResult, nil
 }
 
 // updateSkillFromMeta updates a skill using its metadata in batch mode.
 // Output is suppressed; caller handles display via progress bar.
-// Returns (updated, riskLabel, error). riskLabel is e.g. "CLEAN" or "MEDIUM (42/100)".
-func updateSkillFromMeta(skill, skillPath string, dryRun, skipAudit bool, threshold string) (bool, string, error) {
+// Returns (updated, installResult, error).
+func updateSkillFromMeta(skill, skillPath string, dryRun, skipAudit bool, threshold string) (bool, *install.InstallResult, error) {
 	if dryRun {
-		return false, "", nil
+		return false, nil, nil
 	}
 
 	meta, _ := install.ReadMeta(skillPath)
 	source, err := install.ParseSource(meta.Source)
 	if err != nil {
-		return false, "", nil
+		return false, nil, nil
 	}
 
 	opts := install.InstallOptions{
@@ -535,12 +799,10 @@ func updateSkillFromMeta(skill, skillPath string, dryRun, skipAudit bool, thresh
 	}
 	result, err := install.Install(source, skillPath, opts)
 	if err != nil {
-		return false, "", err
+		return false, nil, err
 	}
 
-	// Build risk label for batch summary
-	riskLabel := formatRiskLabel(result)
-	return true, riskLabel, nil
+	return true, result, nil
 }
 
 // formatRiskLabel builds a display string from install result audit info.
@@ -557,7 +819,7 @@ func formatRiskLabel(result *install.InstallResult) string {
 
 // updateSkillOrRepo updates a skill or repo by name, handling _ prefix and
 // basename resolution.
-func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force, skipAudit, showDiff bool, threshold string) error {
+func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool) error {
 	// Try tracked repo first (with _ prefix)
 	repoName := name
 	if !strings.HasPrefix(repoName, "_") {
@@ -572,7 +834,7 @@ func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force, skipAudit
 	// Try as regular skill (exact path)
 	skillPath := filepath.Join(cfg.Source, name)
 	if meta, err := install.ReadMeta(skillPath); err == nil && meta != nil {
-		return updateRegularSkill(cfg, name, dryRun, force, skipAudit, showDiff, threshold)
+		return updateRegularSkill(cfg, name, dryRun, force, skipAudit, showDiff, threshold, auditVerbose)
 	}
 
 	// Check if it's a nested path that exists as git repo
@@ -585,7 +847,7 @@ func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force, skipAudit
 		if match.isRepo {
 			return updateTrackedRepo(cfg, match.relPath, dryRun, force, skipAudit, showDiff, threshold)
 		}
-		return updateRegularSkill(cfg, match.relPath, dryRun, force, skipAudit, showDiff, threshold)
+		return updateRegularSkill(cfg, match.relPath, dryRun, force, skipAudit, showDiff, threshold, auditVerbose)
 	} else {
 		return err
 	}
@@ -738,7 +1000,7 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipA
 	fmt.Println()
 
 	// Post-pull audit gate
-	if err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, audit.ScanSkill); err != nil {
+	if _, err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, audit.ScanSkill); err != nil {
 		return err
 	}
 
@@ -751,7 +1013,7 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipA
 	return nil
 }
 
-func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, skipAudit, showDiff bool, threshold string) error {
+func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool) error {
 	skillPath := filepath.Join(cfg.Source, skillName)
 
 	// Read metadata to get source
@@ -809,7 +1071,7 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 	ui.StepResult("success", "Updated successfully", time.Since(startUpdate))
 	fmt.Println()
 
-	renderInstallWarningsWithResult("", result.Warnings, false, result)
+	renderInstallWarningsWithResult("", result.Warnings, auditVerbose, result)
 
 	if showDiff {
 		afterHashes, _ := install.ComputeFileHashes(skillPath)
@@ -832,10 +1094,10 @@ type auditScanFunc func(repoPath string) (*audit.Result, error)
 //   - TTY mode: prompts the user; on decline, resets to beforeHash.
 //   - Non-TTY mode: automatically resets to beforeHash and returns error.
 //
-// Returns nil if audit passes or is skipped.
-func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool, threshold string, scanFn auditScanFunc) error {
+// Returns the audit result (may be nil if skipped or on error) and any error.
+func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool, threshold string, scanFn auditScanFunc) (*audit.Result, error) {
 	if skipAudit {
-		return nil
+		return nil, nil
 	}
 	normalizedThreshold, err := audit.NormalizeThreshold(threshold)
 	if err != nil {
@@ -846,16 +1108,16 @@ func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool, threshold s
 	if err != nil {
 		// Scan error -> fail-closed across modes.
 		if beforeHash == "" {
-			return fmt.Errorf("security audit failed: %v — rollback commit unavailable, update aborted and repository state is unknown: %w", err, audit.ErrBlocked)
+			return nil, fmt.Errorf("security audit failed: %v — rollback commit unavailable, update aborted and repository state is unknown: %w", err, audit.ErrBlocked)
 		}
 		if resetErr := git.ResetHard(repoPath, beforeHash); resetErr != nil {
-			return fmt.Errorf("security audit failed: %v; WARNING: rollback also failed: %v — malicious content may remain: %w", err, resetErr, audit.ErrBlocked)
+			return nil, fmt.Errorf("security audit failed: %v; WARNING: rollback also failed: %v — malicious content may remain: %w", err, resetErr, audit.ErrBlocked)
 		}
-		return fmt.Errorf("security audit failed: %v — rolled back (use --skip-audit to bypass): %w", err, audit.ErrBlocked)
+		return nil, fmt.Errorf("security audit failed: %v — rolled back (use --skip-audit to bypass): %w", err, audit.ErrBlocked)
 	}
 
 	if !result.HasSeverityAtOrAbove(normalizedThreshold) {
-		return nil
+		return result, nil
 	}
 
 	// Show findings
@@ -872,27 +1134,27 @@ func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool, threshold s
 		answer, _ := reader.ReadString('\n')
 		answer = strings.TrimSpace(strings.ToLower(answer))
 		if answer == "y" || answer == "yes" {
-			return nil
+			return result, nil
 		}
 		// User declined → rollback
 		if beforeHash == "" {
-			return fmt.Errorf("security audit failed — findings at/above %s detected, rollback commit unavailable and repository state is unknown: %w", normalizedThreshold, audit.ErrBlocked)
+			return result, fmt.Errorf("security audit failed — findings at/above %s detected, rollback commit unavailable and repository state is unknown: %w", normalizedThreshold, audit.ErrBlocked)
 		}
 		if err := git.ResetHard(repoPath, beforeHash); err != nil {
-			return fmt.Errorf("security audit failed — findings at/above %s detected; WARNING: rollback also failed: %v — malicious content may remain: %w", normalizedThreshold, err, audit.ErrBlocked)
+			return result, fmt.Errorf("security audit failed — findings at/above %s detected; WARNING: rollback also failed: %v — malicious content may remain: %w", normalizedThreshold, err, audit.ErrBlocked)
 		}
 		ui.Info("Rolled back to %s", beforeHash[:12])
-		return fmt.Errorf("security audit failed — findings at/above %s detected — rolled back (use --skip-audit to bypass): %w", normalizedThreshold, audit.ErrBlocked)
+		return result, fmt.Errorf("security audit failed — findings at/above %s detected — rolled back (use --skip-audit to bypass): %w", normalizedThreshold, audit.ErrBlocked)
 	}
 
 	// Non-interactive → fail-closed
 	if beforeHash == "" {
-		return fmt.Errorf("security audit failed — findings at/above %s detected, rollback commit unavailable and repository state is unknown: %w", normalizedThreshold, audit.ErrBlocked)
+		return result, fmt.Errorf("security audit failed — findings at/above %s detected, rollback commit unavailable and repository state is unknown: %w", normalizedThreshold, audit.ErrBlocked)
 	}
 	if err := git.ResetHard(repoPath, beforeHash); err != nil {
-		return fmt.Errorf("security audit failed — findings at/above %s detected; WARNING: rollback also failed: %v — malicious content may remain: %w", normalizedThreshold, err, audit.ErrBlocked)
+		return result, fmt.Errorf("security audit failed — findings at/above %s detected; WARNING: rollback also failed: %v — malicious content may remain: %w", normalizedThreshold, err, audit.ErrBlocked)
 	}
-	return fmt.Errorf("security audit failed — findings at/above %s detected — rolled back (use --skip-audit to bypass): %w", normalizedThreshold, audit.ErrBlocked)
+	return result, fmt.Errorf("security audit failed — findings at/above %s detected — rolled back (use --skip-audit to bypass): %w", normalizedThreshold, audit.ErrBlocked)
 }
 
 // renderDiffSummary prints a file-level change summary for the given repo.
@@ -1025,6 +1287,7 @@ Options:
                       Override update audit block threshold (critical|high|medium|low|info;
                       shorthand: c|h|m|l|i, plus crit, med)
   --diff              Show file-level change summary after update
+  --audit-verbose     Show detailed per-skill audit findings in batch mode
   --project, -p       Use project-level config in current directory
   --global, -g        Use global config (~/.config/skillshare)
   --help, -h          Show this help
