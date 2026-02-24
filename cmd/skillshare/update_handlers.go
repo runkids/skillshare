@@ -379,9 +379,9 @@ func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force, skipAudit
 	// Fallback: search by basename in nested skills and repos
 	if match, err := resolveByBasename(cfg.Source, name); err == nil {
 		if match.isRepo {
-			return updateTrackedRepo(cfg, match.relPath, dryRun, force, skipAudit, showDiff, threshold)
+			return updateTrackedRepo(cfg, match.name, dryRun, force, skipAudit, showDiff, threshold)
 		}
-		return updateRegularSkill(cfg, match.relPath, dryRun, force, skipAudit, showDiff, threshold, auditVerbose)
+		return updateRegularSkill(cfg, match.name, dryRun, force, skipAudit, showDiff, threshold, auditVerbose)
 	} else {
 		return err
 	}

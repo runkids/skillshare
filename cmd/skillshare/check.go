@@ -289,7 +289,7 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 // runCheckFiltered checks only the specified targets (resolved from names/groups).
 func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 	// --- Resolve targets ---
-	var targets []resolvedMatch
+	var targets []updateTarget
 	seen := map[string]bool{}
 	var resolveWarnings []string
 
@@ -307,8 +307,8 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 			}
 			ui.Info("'%s' is a group — expanding to %d updatable skill(s)", name, len(groupMatches))
 			for _, m := range groupMatches {
-				if !seen[m.relPath] {
-					seen[m.relPath] = true
+				if !seen[m.name] {
+					seen[m.name] = true
 					targets = append(targets, m)
 				}
 			}
@@ -320,8 +320,8 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
 			continue
 		}
-		if !seen[match.relPath] {
-			seen[match.relPath] = true
+		if !seen[match.name] {
+			seen[match.name] = true
 			targets = append(targets, match)
 		}
 	}
@@ -337,8 +337,8 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 			continue
 		}
 		for _, m := range groupMatches {
-			if !seen[m.relPath] {
-				seen[m.relPath] = true
+			if !seen[m.name] {
+				seen[m.name] = true
 				targets = append(targets, m)
 			}
 		}
@@ -377,11 +377,10 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 	}
 
 	for _, t := range targets {
-		itemPath := filepath.Join(sourceDir, t.relPath)
 		if t.isRepo {
-			repoResults = append(repoResults, checkTrackedRepo(t.relPath, itemPath))
+			repoResults = append(repoResults, checkTrackedRepo(t.name, t.path))
 		} else {
-			skillResults = append(skillResults, checkRegularSkill(t.relPath, itemPath))
+			skillResults = append(skillResults, checkRegularSkill(t.name, t.path))
 		}
 	}
 

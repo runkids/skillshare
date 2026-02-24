@@ -134,7 +134,7 @@ func cmdUpdate(args []string) error {
 	fmt.Println()
 
 	// --- Resolve targets ---
-	var targets []resolvedMatch
+	var targets []updateTarget
 	seen := map[string]bool{}
 	var resolveWarnings []string
 
@@ -157,7 +157,7 @@ func cmdUpdate(args []string) error {
 					rel, _ := filepath.Rel(cfg.Source, path)
 					if !seen[rel] {
 						seen[rel] = true
-						targets = append(targets, resolvedMatch{relPath: rel, isRepo: true})
+						targets = append(targets, updateTarget{name: rel, path: path, isRepo: true})
 					}
 					return filepath.SkipDir
 				}
@@ -171,7 +171,7 @@ func cmdUpdate(args []string) error {
 					rel, _ := filepath.Rel(cfg.Source, skillDir)
 					if rel != "." && !seen[rel] {
 						seen[rel] = true
-						targets = append(targets, resolvedMatch{relPath: rel, isRepo: false})
+						targets = append(targets, updateTarget{name: rel, path: skillDir, isRepo: false})
 					}
 				}
 			}
@@ -195,8 +195,8 @@ func cmdUpdate(args []string) error {
 				}
 				ui.Info("'%s' is a group — expanding to %d updatable skill(s)", name, len(groupMatches))
 				for _, m := range groupMatches {
-					if !seen[m.relPath] {
-						seen[m.relPath] = true
+					if !seen[m.name] {
+						seen[m.name] = true
 						targets = append(targets, m)
 					}
 				}
@@ -208,8 +208,8 @@ func cmdUpdate(args []string) error {
 				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
 				continue
 			}
-			if !seen[match.relPath] {
-				seen[match.relPath] = true
+			if !seen[match.name] {
+				seen[match.name] = true
 				targets = append(targets, match)
 			}
 		}
@@ -225,8 +225,8 @@ func cmdUpdate(args []string) error {
 				continue
 			}
 			for _, m := range groupMatches {
-				if !seen[m.relPath] {
-					seen[m.relPath] = true
+				if !seen[m.name] {
+					seen[m.name] = true
 					targets = append(targets, m)
 				}
 			}
@@ -256,9 +256,9 @@ func cmdUpdate(args []string) error {
 		t := targets[0]
 		var updateErr error
 		if t.isRepo {
-			updateErr = updateTrackedRepo(cfg, t.relPath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold)
+			updateErr = updateTrackedRepo(cfg, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold)
 		} else {
-			updateErr = updateRegularSkill(cfg, t.relPath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, opts.auditVerbose)
+			updateErr = updateRegularSkill(cfg, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, opts.auditVerbose)
 		}
 
 		var opNames []string
@@ -287,9 +287,9 @@ func cmdUpdate(args []string) error {
 	var blockedEntries []batchBlockedEntry
 
 	// Group skills by RepoURL to optimize updates
-	repoGroups := make(map[string][]resolvedMatch)
-	var standaloneSkills []resolvedMatch
-	var trackedRepos []resolvedMatch
+	repoGroups := make(map[string][]updateTarget)
+	var standaloneSkills []updateTarget
+	var trackedRepos []updateTarget
 
 	for _, t := range targets {
 		if t.isRepo {
@@ -297,8 +297,7 @@ func cmdUpdate(args []string) error {
 			continue
 		}
 
-		itemPath := filepath.Join(cfg.Source, t.relPath)
-		meta, err := install.ReadMeta(itemPath)
+		meta, err := install.ReadMeta(t.path)
 		if err == nil && meta != nil && meta.RepoURL != "" {
 			repoGroups[meta.RepoURL] = append(repoGroups[meta.RepoURL], t)
 		} else {
@@ -308,13 +307,12 @@ func cmdUpdate(args []string) error {
 
 	// 1. Process tracked repositories (git pull)
 	for _, t := range trackedRepos {
-		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.relPath))
-		itemPath := filepath.Join(cfg.Source, t.relPath)
-		updated, auditResult, err := updateTrackedRepoQuick(t.relPath, itemPath, opts.dryRun, opts.force, opts.skipAudit, opts.threshold)
+		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+		updated, auditResult, err := updateTrackedRepoQuick(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.threshold)
 		if err != nil {
 			if isSecurityError(err) {
 				result.securityFailed++
-				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.relPath, errMsg: err.Error()})
+				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 			} else {
 				result.skipped++
 			}
@@ -324,7 +322,7 @@ func cmdUpdate(args []string) error {
 			result.skipped++
 		}
 		if auditResult != nil {
-			auditEntries = append(auditEntries, batchAuditEntryFromAuditResult(t.relPath, auditResult, opts.skipAudit))
+			auditEntries = append(auditEntries, batchAuditEntryFromAuditResult(t.name, auditResult, opts.skipAudit))
 		}
 		progressBar.Increment()
 	}
@@ -333,7 +331,7 @@ func cmdUpdate(args []string) error {
 	for repoURL, groupTargets := range repoGroups {
 		if opts.dryRun {
 			for _, t := range groupTargets {
-				progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.relPath))
+				progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
 				progressBar.Increment()
 				result.skipped++
 			}
@@ -344,12 +342,11 @@ func cmdUpdate(args []string) error {
 
 		// Map repo-internal subdir → local absolute path
 		skillTargetMap := make(map[string]string)
-		pathToTarget := make(map[string]resolvedMatch)
+		pathToTarget := make(map[string]updateTarget)
 		for _, t := range groupTargets {
-			itemPath := filepath.Join(cfg.Source, t.relPath)
-			meta, _ := install.ReadMeta(itemPath)
+			meta, _ := install.ReadMeta(t.path)
 			if meta != nil {
-				skillTargetMap[meta.Subdir] = itemPath
+				skillTargetMap[meta.Subdir] = t.path
 				pathToTarget[meta.Subdir] = t
 			}
 		}
@@ -369,7 +366,7 @@ func cmdUpdate(args []string) error {
 		batchResult, err := install.UpdateSkillsFromRepo(repoURL, skillTargetMap, batchOpts)
 		if err != nil {
 			for _, t := range groupTargets {
-				progressBar.UpdateTitle(fmt.Sprintf("Failed %s: %v", t.relPath, err))
+				progressBar.UpdateTitle(fmt.Sprintf("Failed %s: %v", t.name, err))
 				result.skipped++
 				progressBar.Increment()
 			}
@@ -378,7 +375,7 @@ func cmdUpdate(args []string) error {
 
 		for subdir := range skillTargetMap {
 			t := pathToTarget[subdir]
-			progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.relPath))
+			progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
 
 			if ui.IsTTY() {
 				time.Sleep(50 * time.Millisecond)
@@ -387,13 +384,13 @@ func cmdUpdate(args []string) error {
 			if err := batchResult.Errors[subdir]; err != nil {
 				if isSecurityError(err) {
 					result.securityFailed++
-					blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.relPath, errMsg: err.Error()})
+					blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 				} else {
 					result.skipped++
 				}
 			} else if res := batchResult.Results[subdir]; res != nil {
 				result.updated++
-				auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.relPath, res))
+				auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.name, res))
 			} else {
 				result.skipped++
 			}
@@ -403,19 +400,18 @@ func cmdUpdate(args []string) error {
 
 	// 3. Process standalone skills
 	for _, t := range standaloneSkills {
-		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.relPath))
-		itemPath := filepath.Join(cfg.Source, t.relPath)
-		updated, installRes, err := updateSkillFromMeta(t.relPath, itemPath, opts.dryRun, opts.skipAudit, opts.threshold)
+		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
+		updated, installRes, err := updateSkillFromMeta(t.name, t.path, opts.dryRun, opts.skipAudit, opts.threshold)
 		if err != nil && isSecurityError(err) {
 			result.securityFailed++
-			blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.relPath, errMsg: err.Error()})
+			blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 		} else if updated {
 			result.updated++
 		} else {
 			result.skipped++
 		}
 		if installRes != nil {
-			auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.relPath, installRes))
+			auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.name, installRes))
 		}
 		progressBar.Increment()
 	}

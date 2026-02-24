@@ -58,13 +58,7 @@ func cmdUpdateProject(args []string, root string) error {
 
 func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot string) error {
 	// --- Resolve targets ---
-	type projectTarget struct {
-		name   string
-		path   string
-		isRepo bool
-	}
-
-	var targets []projectTarget
+	var targets []updateTarget
 	seen := map[string]bool{}
 	var resolveWarnings []string
 
@@ -84,10 +78,9 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 			}
 			ui.Info("'%s' is a group — expanding to %d updatable skill(s)", name, len(groupMatches))
 			for _, m := range groupMatches {
-				p := filepath.Join(sourcePath, m.relPath)
-				if !seen[p] {
-					seen[p] = true
-					targets = append(targets, projectTarget{name: m.relPath, path: p, isRepo: m.isRepo})
+				if !seen[m.path] {
+					seen[m.path] = true
+					targets = append(targets, m)
 				}
 			}
 			continue
@@ -106,7 +99,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 		if install.IsGitRepo(repoPath) {
 			if !seen[repoPath] {
 				seen[repoPath] = true
-				targets = append(targets, projectTarget{name: repoName, path: repoPath, isRepo: true})
+				targets = append(targets, updateTarget{name: repoName, path: repoPath, isRepo: true})
 			}
 			continue
 		}
@@ -118,7 +111,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 			if metaErr == nil && meta != nil && meta.Source != "" {
 				if !seen[skillPath] {
 					seen[skillPath] = true
-					targets = append(targets, projectTarget{name: name, path: skillPath, isRepo: false})
+					targets = append(targets, updateTarget{name: name, path: skillPath, isRepo: false})
 				}
 				continue
 			}
@@ -140,10 +133,9 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 			continue
 		}
 		for _, m := range groupMatches {
-			p := filepath.Join(sourcePath, m.relPath)
-			if !seen[p] {
-				seen[p] = true
-				targets = append(targets, projectTarget{name: m.relPath, path: p, isRepo: m.isRepo})
+			if !seen[m.path] {
+				seen[m.path] = true
+				targets = append(targets, m)
 			}
 		}
 	}
@@ -186,9 +178,9 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	var blockedEntries []batchBlockedEntry
 
 	// Group skills by RepoURL to optimize updates
-	repoGroups := make(map[string][]projectTarget)
-	var standaloneSkills []projectTarget
-	var trackedRepos []projectTarget
+	repoGroups := make(map[string][]updateTarget)
+	var standaloneSkills []updateTarget
+	var trackedRepos []updateTarget
 
 	for _, t := range targets {
 		if t.isRepo {
@@ -241,7 +233,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 
 		// Map repo-internal subdir → local absolute path
 		skillTargetMap := make(map[string]string)
-		pathToTarget := make(map[string]projectTarget)
+		pathToTarget := make(map[string]updateTarget)
 		for _, t := range groupTargets {
 			meta, _ := install.ReadMeta(t.path)
 			if meta != nil {
