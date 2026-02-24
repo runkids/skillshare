@@ -196,6 +196,31 @@ function getAuditSkillLists(entry: LogEntry): AuditSkillLists {
   };
 }
 
+function formatUpdateDetail(args: Record<string, any>): string {
+  const parts: string[] = [];
+
+  const mode = asString(args.mode);
+  if (mode) parts.push(`mode=${mode}`);
+
+  if (args.all === true || args.all === 'true') parts.push('all');
+
+  const name = asString(args.name);
+  if (name) parts.push(name);
+
+  const names = asStringArray(args.names);
+  if (names.length > 0) parts.push(summarizeNames(names));
+
+  const threshold = asString(args.threshold);
+  if (threshold) parts.push(`threshold=${threshold.toUpperCase()}`);
+
+  if (args.force === true || args.force === 'true') parts.push('force');
+  if (args.dry_run === true || args.dry_run === 'true') parts.push('dry-run');
+  if (args.skip_audit === true || args.skip_audit === 'true') parts.push('skip-audit');
+  if (args.diff === true || args.diff === 'true') parts.push('diff');
+
+  return parts.join(', ');
+}
+
 function formatGenericDetail(args: Record<string, any>): string {
   const parts: string[] = [];
   if (args.source) parts.push(String(args.source));
@@ -211,9 +236,11 @@ function formatDetail(entry: LogEntry): string {
   const detail = entry.args
     ? entry.cmd === 'sync'
       ? formatSyncDetail(entry.args)
-      : entry.cmd === 'audit'
-        ? formatAuditDetail(entry.args)
-        : formatGenericDetail(entry.args)
+      : entry.cmd === 'update'
+        ? formatUpdateDetail(entry.args)
+        : entry.cmd === 'audit'
+          ? formatAuditDetail(entry.args)
+          : formatGenericDetail(entry.args)
     : '';
 
   if (entry.msg && detail) return `${detail} (${entry.msg})`;

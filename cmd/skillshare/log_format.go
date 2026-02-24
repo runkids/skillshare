@@ -27,6 +27,8 @@ func formatLogDetailPairs(e oplog.Entry) []logDetailPair {
 		return formatSyncLogPairs(e.Args)
 	case "install":
 		return formatInstallLogPairs(e.Args)
+	case "update":
+		return formatUpdateLogPairs(e.Args)
 	case "audit":
 		return formatAuditLogPairs(e.Args)
 	default:
@@ -85,6 +87,40 @@ func formatInstallLogPairs(args map[string]any) []logDetailPair {
 	}
 	if failedSkills, ok := logArgStringSlice(args, "failed_skills"); ok && len(failedSkills) > 0 {
 		pairs = append(pairs, logDetailPair{key: "failed", isList: true, listValues: failedSkills})
+	}
+
+	return pairs
+}
+
+func formatUpdateLogPairs(args map[string]any) []logDetailPair {
+	var pairs []logDetailPair
+
+	if mode, ok := logArgString(args, "mode"); ok && mode != "" {
+		pairs = append(pairs, logDetailPair{key: "mode", value: mode})
+	}
+	if all, ok := logArgBool(args, "all"); ok && all {
+		pairs = append(pairs, logDetailPair{key: "scope", value: "all"})
+	}
+	if name, ok := logArgString(args, "name"); ok && name != "" {
+		pairs = append(pairs, logDetailPair{key: "name", value: name})
+	}
+	if names, ok := logArgStringSlice(args, "names"); ok && len(names) > 0 {
+		pairs = append(pairs, logDetailPair{key: "names", isList: true, listValues: names})
+	}
+	if threshold, ok := logArgString(args, "threshold"); ok && threshold != "" {
+		pairs = append(pairs, logDetailPair{key: "threshold", value: strings.ToUpper(threshold)})
+	}
+	if force, ok := logArgBool(args, "force"); ok && force {
+		pairs = append(pairs, logDetailPair{key: "force", value: "yes"})
+	}
+	if dryRun, ok := logArgBool(args, "dry_run"); ok && dryRun {
+		pairs = append(pairs, logDetailPair{key: "dry-run", value: "yes"})
+	}
+	if skipAudit, ok := logArgBool(args, "skip_audit"); ok && skipAudit {
+		pairs = append(pairs, logDetailPair{key: "skip-audit", value: "yes"})
+	}
+	if diff, ok := logArgBool(args, "diff"); ok && diff {
+		pairs = append(pairs, logDetailPair{key: "diff", value: "yes"})
 	}
 
 	return pairs
@@ -208,6 +244,8 @@ func formatLogDetail(e oplog.Entry, truncate bool) string {
 			detail = formatSyncLogDetail(e.Args)
 		case "install":
 			detail = formatInstallLogDetail(e.Args)
+		case "update":
+			detail = formatUpdateLogDetail(e.Args)
 		case "audit":
 			detail = formatAuditLogDetail(e.Args)
 		default:
@@ -288,6 +326,43 @@ func formatInstallLogDetail(args map[string]any) string {
 	}
 	if source, ok := logArgString(args, "source"); ok && source != "" {
 		parts = append(parts, "source="+source)
+	}
+
+	if len(parts) == 0 {
+		return formatGenericLogDetail(args)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatUpdateLogDetail(args map[string]any) string {
+	parts := make([]string, 0, 8)
+
+	if mode, ok := logArgString(args, "mode"); ok && mode != "" {
+		parts = append(parts, "mode="+mode)
+	}
+	if all, ok := logArgBool(args, "all"); ok && all {
+		parts = append(parts, "all")
+	}
+	if name, ok := logArgString(args, "name"); ok && name != "" {
+		parts = append(parts, name)
+	}
+	if names, ok := logArgStringSlice(args, "names"); ok && len(names) > 0 {
+		parts = append(parts, strings.Join(names, ", "))
+	}
+	if threshold, ok := logArgString(args, "threshold"); ok && threshold != "" {
+		parts = append(parts, "threshold="+strings.ToUpper(threshold))
+	}
+	if force, ok := logArgBool(args, "force"); ok && force {
+		parts = append(parts, "force")
+	}
+	if dryRun, ok := logArgBool(args, "dry_run"); ok && dryRun {
+		parts = append(parts, "dry-run")
+	}
+	if skipAudit, ok := logArgBool(args, "skip_audit"); ok && skipAudit {
+		parts = append(parts, "skip-audit")
+	}
+	if diff, ok := logArgBool(args, "diff"); ok && diff {
+		parts = append(parts, "diff")
 	}
 
 	if len(parts) == 0 {
