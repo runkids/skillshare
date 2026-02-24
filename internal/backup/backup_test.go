@@ -137,6 +137,27 @@ func TestBackupDir_RespectsXDGDataHome(t *testing.T) {
 	}
 }
 
+func TestValidateRestore_SymlinkTarget_IsAllowed(t *testing.T) {
+	tmp := t.TempDir()
+	backupPath := filepath.Join(tmp, "backup")
+	os.MkdirAll(filepath.Join(backupPath, "claude"), 0755)
+	os.WriteFile(filepath.Join(backupPath, "claude", "SKILL.md"), []byte("# X"), 0644)
+
+	// Create a symlink as destination pointing to a non-empty directory.
+	// With os.Stat (buggy): resolves symlink, sees non-empty dir, requires --force.
+	// With os.Lstat (fixed): detects symlink, returns nil immediately.
+	destPath := filepath.Join(tmp, "target")
+	realDir := filepath.Join(tmp, "real")
+	os.MkdirAll(realDir, 0755)
+	os.WriteFile(filepath.Join(realDir, "existing.txt"), []byte("data"), 0644)
+	os.Symlink(realDir, destPath)
+
+	err := ValidateRestore(backupPath, "claude", destPath, RestoreOptions{})
+	if err != nil {
+		t.Errorf("symlink target should be allowed without force, got: %v", err)
+	}
+}
+
 // --- helpers ---
 
 func writeTestFile(t *testing.T, path, content string) {
