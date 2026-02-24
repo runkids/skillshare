@@ -221,6 +221,9 @@ func installFromDiscoveryImpl(discovery *DiscoveryResult, skill SkillInfo, destP
 	} else if hash, err := getGitCommit(filepath.Join(discovery.RepoPath, "repo")); err == nil {
 		meta.Version = hash
 	}
+	if fullSubdir != "" {
+		meta.TreeHash = getSubdirTreeHash(filepath.Join(discovery.RepoPath, "repo"), fullSubdir)
+	}
 	if hashes, hashErr := ComputeFileHashes(destPath); hashErr == nil {
 		meta.FileHashes = hashes
 	}
@@ -326,6 +329,9 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	meta := NewMetaFromSource(source)
 	if commitHash != "" {
 		meta.Version = commitHash
+	}
+	if resolved != "" {
+		meta.TreeHash = getSubdirTreeHash(tempRepoPath, resolved)
 	}
 	if hashes, hashErr := ComputeFileHashes(destPath); hashErr == nil {
 		meta.FileHashes = hashes
