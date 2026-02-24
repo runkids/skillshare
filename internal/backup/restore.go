@@ -24,7 +24,7 @@ func ValidateRestore(backupPath, targetName, destPath string, opts RestoreOption
 	}
 
 	// Check if destination exists
-	info, err := os.Stat(destPath)
+	info, err := os.Lstat(destPath)
 	if err == nil {
 		if info.Mode()&os.ModeSymlink != 0 {
 			return nil
