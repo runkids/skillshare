@@ -107,8 +107,10 @@ func cmdUpdate(args []string) error {
 	applyModeLabel(mode)
 
 	if mode == modeProject {
+		// Parse opts for logging (cmdUpdateProject parses again internally)
+		projOpts, _, _ := parseUpdateArgs(rest)
 		err := cmdUpdateProject(rest, cwd)
-		logUpdateOp(config.ProjectConfigPath(cwd), rest, start, err)
+		logUpdateOp(config.ProjectConfigPath(cwd), rest, projOpts, "project", start, err)
 		return err
 	}
 
@@ -267,7 +269,7 @@ func cmdUpdate(args []string) error {
 		} else {
 			opNames = opts.names
 		}
-		logUpdateOp(config.ConfigPath(), opNames, start, updateErr)
+		logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, updateErr)
 		return updateErr
 	}
 
@@ -293,18 +295,44 @@ func cmdUpdate(args []string) error {
 			opNames = append(opNames, "--group="+g)
 		}
 	}
-	logUpdateOp(config.ConfigPath(), opNames, start, batchErr)
+	logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, batchErr)
 
 	return batchErr
 }
 
-func logUpdateOp(cfgPath string, args []string, start time.Time, cmdErr error) {
+func logUpdateOp(cfgPath string, names []string, opts *updateOptions, mode string, start time.Time, cmdErr error) {
 	e := oplog.NewEntry("update", statusFromErr(cmdErr), time.Since(start))
-	if len(args) == 1 {
-		e.Args = map[string]any{"name": args[0]}
-	} else if len(args) > 1 {
-		e.Args = map[string]any{"names": args}
+	a := map[string]any{"mode": mode}
+	if opts != nil {
+		if opts.all {
+			a["all"] = true
+		}
+		if len(names) == 1 {
+			a["name"] = names[0]
+		} else if len(names) > 1 {
+			a["names"] = names
+		}
+		if opts.force {
+			a["force"] = true
+		}
+		if opts.dryRun {
+			a["dry_run"] = true
+		}
+		if opts.skipAudit {
+			a["skip_audit"] = true
+		}
+		if opts.threshold != "" {
+			a["threshold"] = opts.threshold
+		}
+		if opts.diff {
+			a["diff"] = true
+		}
+	} else if len(names) == 1 {
+		a["name"] = names[0]
+	} else if len(names) > 1 {
+		a["names"] = names
 	}
+	e.Args = a
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
 	}
