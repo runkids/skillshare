@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -40,6 +41,31 @@ const (
 	Bold      = "\033[1m"
 	BoldReset = "\033[22m"
 )
+
+// SeverityColor returns the ANSI color code for a given audit severity level.
+func SeverityColor(severity string) string {
+	switch strings.ToUpper(severity) {
+	case "CRITICAL":
+		return Red
+	case "HIGH":
+		return Orange
+	case "MEDIUM":
+		return Yellow
+	case "LOW", "INFO":
+		return Gray
+	default:
+		return ""
+	}
+}
+
+// Colorize wraps text with a color code and reset. Returns plain text if
+// color is empty or stdout is not a TTY.
+func Colorize(color, text string) string {
+	if color == "" || !IsTTY() {
+		return text
+	}
+	return color + text + Reset
+}
 
 // Success prints a success message
 func Success(format string, args ...interface{}) {

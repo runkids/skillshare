@@ -715,16 +715,10 @@ func containsSeverity(findings []audit.Finding, severity string) bool {
 
 // riskColor maps a risk label to an ANSI color, aligned with formatSeverity.
 func riskColor(label string) string {
-	switch strings.ToLower(label) {
-	case "critical":
-		return ui.Red
-	case "high":
-		return ui.Orange
-	case "medium":
-		return ui.Yellow
-	default:
-		return ui.Gray
+	if c := ui.SeverityColor(label); c != "" {
+		return c
 	}
+	return ui.Gray
 }
 
 // printSkillResultLine prints a single-line result for a skill during batch scan.
@@ -821,14 +815,6 @@ func printSkillResult(result *audit.Result, elapsed time.Duration) {
 }
 
 func printAuditSummary(summary auditRunSummary) {
-	tty := ui.IsTTY()
-	colorize := func(color, text string) string {
-		if !tty {
-			return text
-		}
-		return color + text + ui.Reset
-	}
-
 	var lines []string
 	maxSeverity := summary.MaxSeverity
 	if maxSeverity == "" {
@@ -837,26 +823,26 @@ func printAuditSummary(summary auditRunSummary) {
 	lines = append(lines, fmt.Sprintf("  Block:     severity >= %s", summary.Threshold))
 	lines = append(lines, fmt.Sprintf("  Max sev:   %s", maxSeverity))
 	lines = append(lines, fmt.Sprintf("  Scanned:   %d skill(s)", summary.Scanned))
-	lines = append(lines, fmt.Sprintf("  Passed:    %s", colorize(ui.Green, fmt.Sprintf("%d", summary.Passed))))
+	lines = append(lines, fmt.Sprintf("  Passed:    %s", ui.Colorize(ui.Green, fmt.Sprintf("%d", summary.Passed))))
 	if summary.Warning > 0 {
-		lines = append(lines, fmt.Sprintf("  Warning:   %s", colorize(ui.Yellow, fmt.Sprintf("%d", summary.Warning))))
+		lines = append(lines, fmt.Sprintf("  Warning:   %s", ui.Colorize(ui.Yellow, fmt.Sprintf("%d", summary.Warning))))
 	} else {
 		lines = append(lines, fmt.Sprintf("  Warning:   %d", summary.Warning))
 	}
 	if summary.Failed > 0 {
-		lines = append(lines, fmt.Sprintf("  Failed:    %s", colorize(ui.Red, fmt.Sprintf("%d", summary.Failed))))
+		lines = append(lines, fmt.Sprintf("  Failed:    %s", ui.Colorize(ui.Red, fmt.Sprintf("%d", summary.Failed))))
 	} else {
 		lines = append(lines, fmt.Sprintf("  Failed:    %d", summary.Failed))
 	}
 	lines = append(lines, fmt.Sprintf("  Severity:  c/h/m/l/i = %s/%s/%s/%s/%d",
-		colorize(ui.Red, fmt.Sprintf("%d", summary.Critical)),
-		colorize(ui.Orange, fmt.Sprintf("%d", summary.High)),
-		colorize(ui.Yellow, fmt.Sprintf("%d", summary.Medium)),
-		colorize(ui.Gray, fmt.Sprintf("%d", summary.Low)),
+		ui.Colorize(ui.Red, fmt.Sprintf("%d", summary.Critical)),
+		ui.Colorize(ui.Orange, fmt.Sprintf("%d", summary.High)),
+		ui.Colorize(ui.Yellow, fmt.Sprintf("%d", summary.Medium)),
+		ui.Colorize(ui.Gray, fmt.Sprintf("%d", summary.Low)),
 		summary.Info))
 	riskLabel := strings.ToUpper(summary.RiskLabel)
 	riskText := fmt.Sprintf("%s (%d/100)", riskLabel, summary.RiskScore)
-	lines = append(lines, fmt.Sprintf("  Aggregate: %s", colorize(riskColor(summary.RiskLabel), riskText)))
+	lines = append(lines, fmt.Sprintf("  Aggregate: %s", ui.Colorize(riskColor(summary.RiskLabel), riskText)))
 	lines = append(lines, "  Note:      Failed uses severity gate; aggregate is informational")
 	if summary.ScanErrors > 0 {
 		lines = append(lines, fmt.Sprintf("  Scan errs: %d", summary.ScanErrors))
@@ -865,22 +851,7 @@ func printAuditSummary(summary auditRunSummary) {
 }
 
 func formatSeverity(sev string) string {
-	if !ui.IsTTY() {
-		return sev
-	}
-	switch sev {
-	case audit.SeverityCritical:
-		return ui.Red + "CRITICAL" + ui.Reset
-	case audit.SeverityHigh:
-		return ui.Orange + "HIGH" + ui.Reset
-	case audit.SeverityMedium:
-		return ui.Yellow + "MEDIUM" + ui.Reset
-	case audit.SeverityLow:
-		return ui.Gray + "LOW" + ui.Reset
-	case audit.SeverityInfo:
-		return ui.Gray + "INFO" + ui.Reset
-	}
-	return sev
+	return ui.Colorize(ui.SeverityColor(sev), strings.ToUpper(sev))
 }
 
 func initAuditRules(path string) error {
