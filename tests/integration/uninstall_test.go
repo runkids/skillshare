@@ -432,17 +432,18 @@ skills:
 		t.Error("mygroup directory should be removed")
 	}
 
-	// Config should no longer contain mygroup skills
-	cfg := sb.ReadFile(sb.ConfigPath)
-	if strings.Contains(cfg, "skill-a") {
-		t.Error("config should not contain skill-a after group uninstall")
+	// Registry should no longer contain mygroup skills
+	registryPath := filepath.Join(filepath.Dir(sb.ConfigPath), "registry.yaml")
+	registryContent := sb.ReadFile(registryPath)
+	if strings.Contains(registryContent, "skill-a") {
+		t.Error("registry should not contain skill-a after group uninstall")
 	}
-	if strings.Contains(cfg, "skill-b") {
-		t.Error("config should not contain skill-b after group uninstall")
+	if strings.Contains(registryContent, "skill-b") {
+		t.Error("registry should not contain skill-b after group uninstall")
 	}
 	// other group should be untouched
-	if !strings.Contains(cfg, "skill-c") {
-		t.Error("config should still contain skill-c from other group")
+	if !strings.Contains(registryContent, "skill-c") {
+		t.Error("registry should still contain skill-c from other group")
 	}
 }
 
@@ -501,15 +502,16 @@ skills:
 	result := sb.RunCLI("uninstall", "security/", "-f")
 	result.AssertSuccess(t)
 
-	cfg := sb.ReadFile(sb.ConfigPath)
-	if strings.Contains(cfg, "scan") {
-		t.Error("config should not contain scan after security/ uninstall")
+	registryPath := filepath.Join(filepath.Dir(sb.ConfigPath), "registry.yaml")
+	registryContent := sb.ReadFile(registryPath)
+	if strings.Contains(registryContent, "scan") {
+		t.Error("registry should not contain scan after security/ uninstall")
 	}
-	if strings.Contains(cfg, "hardening") {
-		t.Error("config should not contain hardening after security/ uninstall")
+	if strings.Contains(registryContent, "hardening") {
+		t.Error("registry should not contain hardening after security/ uninstall")
 	}
-	if !strings.Contains(cfg, "keep") {
-		t.Error("config should still contain keep from other group")
+	if !strings.Contains(registryContent, "keep") {
+		t.Error("registry should still contain keep from other group")
 	}
 }
 
@@ -543,10 +545,11 @@ skills:
 		}
 	}
 
-	// Config skills should be cleared
-	cfg := sb.ReadFile(sb.ConfigPath)
-	if strings.Contains(cfg, "alpha") || strings.Contains(cfg, "beta") || strings.Contains(cfg, "gamma") {
-		t.Error("config should not contain any skills after --all uninstall")
+	// Registry skills should be cleared
+	registryPath := filepath.Join(filepath.Dir(sb.ConfigPath), "registry.yaml")
+	registryContent := sb.ReadFile(registryPath)
+	if strings.Contains(registryContent, "alpha") || strings.Contains(registryContent, "beta") || strings.Contains(registryContent, "gamma") {
+		t.Error("registry should not contain any skills after --all uninstall")
 	}
 }
 

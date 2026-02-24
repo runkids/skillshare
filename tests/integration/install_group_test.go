@@ -33,17 +33,18 @@ targets: {}
 		t.Error("skill should be installed to source/frontend/pdf-skill/")
 	}
 
-	// Read config and verify group field
-	configContent := sb.ReadFile(sb.ConfigPath)
-	if !strings.Contains(configContent, "group: frontend") {
-		t.Errorf("config should contain 'group: frontend', got:\n%s", configContent)
+	// Read registry and verify group field
+	registryPath := filepath.Join(filepath.Dir(sb.ConfigPath), "registry.yaml")
+	registryContent := sb.ReadFile(registryPath)
+	if !strings.Contains(registryContent, "group: frontend") {
+		t.Errorf("registry should contain 'group: frontend', got:\n%s", registryContent)
 	}
 	// Name should be the bare name, not "frontend/pdf-skill"
-	if strings.Contains(configContent, "name: frontend/pdf-skill") {
-		t.Errorf("config should NOT contain legacy slash name 'frontend/pdf-skill', got:\n%s", configContent)
+	if strings.Contains(registryContent, "name: frontend/pdf-skill") {
+		t.Errorf("registry should NOT contain legacy slash name 'frontend/pdf-skill', got:\n%s", registryContent)
 	}
-	if !strings.Contains(configContent, "name: pdf-skill") {
-		t.Errorf("config should contain bare 'name: pdf-skill', got:\n%s", configContent)
+	if !strings.Contains(registryContent, "name: pdf-skill") {
+		t.Errorf("registry should contain bare 'name: pdf-skill', got:\n%s", registryContent)
 	}
 }
 
@@ -63,13 +64,14 @@ targets: {}
 	result := sb.RunCLI("install", localSkill, "--into", "frontend/vue")
 	result.AssertSuccess(t)
 
-	// Read config and verify group field
-	configContent := sb.ReadFile(sb.ConfigPath)
-	if !strings.Contains(configContent, "group: frontend/vue") {
-		t.Errorf("config should contain 'group: frontend/vue', got:\n%s", configContent)
+	// Read registry and verify group field
+	registryPath := filepath.Join(filepath.Dir(sb.ConfigPath), "registry.yaml")
+	registryContent := sb.ReadFile(registryPath)
+	if !strings.Contains(registryContent, "group: frontend/vue") {
+		t.Errorf("registry should contain 'group: frontend/vue', got:\n%s", registryContent)
 	}
-	if !strings.Contains(configContent, "name: ui-skill") {
-		t.Errorf("config should contain bare 'name: ui-skill', got:\n%s", configContent)
+	if !strings.Contains(registryContent, "name: ui-skill") {
+		t.Errorf("registry should contain bare 'name: ui-skill', got:\n%s", registryContent)
 	}
 }
 
@@ -149,13 +151,13 @@ func TestInstallProject_Into_RecordsGroupField(t *testing.T) {
 	result := sb.RunCLIInDir(projectRoot, "install", sourceSkill, "--into", "tools", "-p")
 	result.AssertSuccess(t)
 
-	// Read project config and verify group field
-	configPath := filepath.Join(projectRoot, ".skillshare", "config.yaml")
-	configContent := sb.ReadFile(configPath)
-	if !strings.Contains(configContent, "group: tools") {
-		t.Errorf("project config should contain 'group: tools', got:\n%s", configContent)
+	// Read project registry and verify group field
+	registryPath := filepath.Join(projectRoot, ".skillshare", "registry.yaml")
+	registryContent := sb.ReadFile(registryPath)
+	if !strings.Contains(registryContent, "group: tools") {
+		t.Errorf("project registry should contain 'group: tools', got:\n%s", registryContent)
 	}
-	if !strings.Contains(configContent, "name: my-skill") {
-		t.Errorf("project config should contain bare 'name: my-skill', got:\n%s", configContent)
+	if !strings.Contains(registryContent, "name: my-skill") {
+		t.Errorf("project registry should contain bare 'name: my-skill', got:\n%s", registryContent)
 	}
 }

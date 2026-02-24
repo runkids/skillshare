@@ -55,20 +55,21 @@ func TestUninstallProject_UpdatesConfig(t *testing.T) {
 	metaJSON, _ := json.Marshal(meta)
 	os.WriteFile(filepath.Join(skillDir, ".skillshare-meta.json"), metaJSON, 0644)
 
-	// Write config with the skill
+	// Write config and registry with the skill
 	sb.WriteProjectConfig(projectRoot, `targets:
   - claude
-skills:
+`)
+	os.WriteFile(filepath.Join(projectRoot, ".skillshare", "registry.yaml"), []byte(`skills:
   - name: remote
     source: org/skills/remote
-`)
+`), 0644)
 
 	result := sb.RunCLIInDir(projectRoot, "uninstall", "remote", "--force", "-p")
 	result.AssertSuccess(t)
 
-	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
-	if strings.Contains(cfg, "remote") {
-		t.Error("config should not contain removed skill")
+	registryContent := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "registry.yaml"))
+	if strings.Contains(registryContent, "remote") {
+		t.Error("registry should not contain removed skill")
 	}
 }
 
@@ -109,12 +110,13 @@ func TestUninstallProject_MultipleSkills(t *testing.T) {
 
 	sb.WriteProjectConfig(projectRoot, `targets:
   - claude
-skills:
+`)
+	os.WriteFile(filepath.Join(projectRoot, ".skillshare", "registry.yaml"), []byte(`skills:
   - name: skill-a
     source: local
   - name: skill-b
     source: local
-`)
+`), 0644)
 
 	result := sb.RunCLIInDir(projectRoot, "uninstall", "skill-a", "skill-b", "--force", "-p")
 	result.AssertSuccess(t)
@@ -126,9 +128,9 @@ skills:
 		t.Error("skill-b should be removed")
 	}
 
-	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
-	if strings.Contains(cfg, "skill-a") || strings.Contains(cfg, "skill-b") {
-		t.Error("config should not contain removed skills")
+	registryContent := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "registry.yaml"))
+	if strings.Contains(registryContent, "skill-a") || strings.Contains(registryContent, "skill-b") {
+		t.Error("registry should not contain removed skills")
 	}
 }
 
@@ -191,7 +193,8 @@ func TestUninstallProject_GroupDir_RemovesConfigEntries(t *testing.T) {
 
 	sb.WriteProjectConfig(projectRoot, `targets:
   - claude
-skills:
+`)
+	os.WriteFile(filepath.Join(projectRoot, ".skillshare", "registry.yaml"), []byte(`skills:
   - name: skill-a
     source: github.com/org/repo/skill-a
     group: mygroup
@@ -201,7 +204,7 @@ skills:
   - name: skill-c
     source: github.com/org/repo/skill-c
     group: other
-`)
+`), 0644)
 
 	result := sb.RunCLIInDir(projectRoot, "uninstall", "mygroup", "--force", "-p")
 	result.AssertSuccess(t)
@@ -211,16 +214,16 @@ skills:
 		t.Error("mygroup directory should be removed")
 	}
 
-	// Config should no longer contain mygroup skills
-	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
-	if strings.Contains(cfg, "skill-a") {
-		t.Error("config should not contain skill-a after group uninstall")
+	// Registry should no longer contain mygroup skills
+	registryContent := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "registry.yaml"))
+	if strings.Contains(registryContent, "skill-a") {
+		t.Error("registry should not contain skill-a after group uninstall")
 	}
-	if strings.Contains(cfg, "skill-b") {
-		t.Error("config should not contain skill-b after group uninstall")
+	if strings.Contains(registryContent, "skill-b") {
+		t.Error("registry should not contain skill-b after group uninstall")
 	}
-	if !strings.Contains(cfg, "skill-c") {
-		t.Error("config should still contain skill-c from other group")
+	if !strings.Contains(registryContent, "skill-c") {
+		t.Error("registry should still contain skill-c from other group")
 	}
 }
 
@@ -235,7 +238,8 @@ func TestUninstallProject_GroupDirWithTrailingSlash_RemovesConfigEntries(t *test
 
 	sb.WriteProjectConfig(projectRoot, `targets:
   - claude
-skills:
+`)
+	os.WriteFile(filepath.Join(projectRoot, ".skillshare", "registry.yaml"), []byte(`skills:
   - name: scan
     source: github.com/org/repo/scan
     group: security
@@ -245,20 +249,20 @@ skills:
   - name: keep
     source: github.com/org/repo/keep
     group: other
-`)
+`), 0644)
 
 	result := sb.RunCLIInDir(projectRoot, "uninstall", "security/", "--force", "-p")
 	result.AssertSuccess(t)
 	result.AssertAnyOutputContains(t, "Uninstalled group: security")
 
-	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
-	if strings.Contains(cfg, "scan") {
-		t.Error("config should not contain scan after security/ uninstall")
+	registryContent := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "registry.yaml"))
+	if strings.Contains(registryContent, "scan") {
+		t.Error("registry should not contain scan after security/ uninstall")
 	}
-	if strings.Contains(cfg, "hardening") {
-		t.Error("config should not contain hardening after security/ uninstall")
+	if strings.Contains(registryContent, "hardening") {
+		t.Error("registry should not contain hardening after security/ uninstall")
 	}
-	if !strings.Contains(cfg, "keep") {
-		t.Error("config should still contain keep from other group")
+	if !strings.Contains(registryContent, "keep") {
+		t.Error("registry should still contain keep from other group")
 	}
 }
