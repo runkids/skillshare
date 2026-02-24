@@ -419,14 +419,14 @@ func cmdUpdate(args []string) error {
 
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %d skills from %s", len(groupTargets), repoURL))
 
-		// Map targets by their relative path within the repo
-		skillRelPaths := make([]string, 0, len(groupTargets))
+		// Map repo-internal subdir → local absolute path
+		skillTargetMap := make(map[string]string)
 		pathToTarget := make(map[string]resolvedMatch)
 		for _, t := range groupTargets {
 			itemPath := filepath.Join(cfg.Source, t.relPath)
 			meta, _ := install.ReadMeta(itemPath)
 			if meta != nil {
-				skillRelPaths = append(skillRelPaths, meta.Subdir)
+				skillTargetMap[meta.Subdir] = itemPath
 				pathToTarget[meta.Subdir] = t
 			}
 		}
@@ -443,7 +443,7 @@ func cmdUpdate(args []string) error {
 			}
 		}
 
-		batchResult, err := install.UpdateSkillsFromRepo(repoURL, skillRelPaths, cfg.Source, batchOpts)
+		batchResult, err := install.UpdateSkillsFromRepo(repoURL, skillTargetMap, batchOpts)
 		if err != nil {
 			for _, t := range groupTargets {
 				progressBar.UpdateTitle(fmt.Sprintf("Failed %s: %v", t.relPath, err))
@@ -453,22 +453,22 @@ func cmdUpdate(args []string) error {
 			continue
 		}
 
-		for _, relPath := range skillRelPaths {
-			t := pathToTarget[relPath]
+		for subdir := range skillTargetMap {
+			t := pathToTarget[subdir]
 			progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.relPath))
 
 			if ui.IsTTY() {
 				time.Sleep(50 * time.Millisecond)
 			}
 
-			if err := batchResult.Errors[relPath]; err != nil {
+			if err := batchResult.Errors[subdir]; err != nil {
 				if isSecurityError(err) {
 					result.securityFailed++
 					blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.relPath, errMsg: err.Error()})
 				} else {
 					result.skipped++
 				}
-			} else if res := batchResult.Results[relPath]; res != nil {
+			} else if res := batchResult.Results[subdir]; res != nil {
 				result.updated++
 				auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.relPath, res))
 			} else {

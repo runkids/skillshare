@@ -197,6 +197,10 @@ func TestUpdateProject_BatchAll_FailsOnMalicious(t *testing.T) {
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "blocked by security audit")
 
+	// Blocked section shows details (not just a count)
+	result.AssertAnyOutputContains(t, "Blocked / Rolled Back")
+	result.AssertAnyOutputContains(t, maliciousName)
+
 	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
 
 	// Clean repo should be updated
@@ -243,5 +247,82 @@ func TestUpdateProject_HighBlockedWithThresholdOverride(t *testing.T) {
 	}
 	if !contains(content, "Clean skill") {
 		t.Error("clean pre-update content should remain after rollback")
+	}
+}
+
+// TestUpdateProject_BatchAll_SubdirSkills_NoDuplication verifies that
+// `update --all` uses the correct local destination path (not meta.Subdir)
+// when batch-updating skills from a monorepo. Without the fix, skills
+// installed at e.g. "alpha/" but with meta.Subdir="skills/alpha" would leak
+// a duplicate copy at "skills/alpha/", doubling the count on the next scan.
+func TestUpdateProject_BatchAll_SubdirSkills_NoDuplication(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	// 1. Create a bare repo with skills nested under "skills/" subdirectory
+	remoteDir := filepath.Join(sb.Root, "monorepo-remote.git")
+	run(t, "", "git", "init", "--bare", remoteDir)
+
+	workDir := filepath.Join(sb.Root, "monorepo-work")
+	run(t, sb.Root, "git", "clone", remoteDir, workDir)
+
+	// Create two skills inside skills/ subdir in the repo
+	for _, name := range []string{"alpha", "beta"} {
+		skillDir := filepath.Join(workDir, "skills", name)
+		os.MkdirAll(skillDir, 0755)
+		os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+			[]byte("---\nname: "+name+"\n---\n# "+name+" v1"), 0644)
+	}
+	run(t, workDir, "git", "add", "-A")
+	run(t, workDir, "git", "commit", "-m", "init skills")
+	run(t, workDir, "git", "push", "origin", "HEAD")
+
+	// 2. Simulate installed skills at LOCAL paths (without "skills/" prefix)
+	//    but with meta.Subdir pointing to the repo-internal path "skills/alpha"
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	repoURL := "file://" + remoteDir
+
+	for _, name := range []string{"alpha", "beta"} {
+		localDir := filepath.Join(skillsDir, name)
+		os.MkdirAll(localDir, 0755)
+		os.WriteFile(filepath.Join(localDir, "SKILL.md"),
+			[]byte("---\nname: "+name+"\n---\n# "+name+" v1"), 0644)
+
+		meta := map[string]any{
+			"source":   repoURL + "//skills/" + name,
+			"type":     "git",
+			"repo_url": repoURL,
+			"subdir":   "skills/" + name,
+		}
+		metaJSON, _ := json.Marshal(meta)
+		os.WriteFile(filepath.Join(localDir, ".skillshare-meta.json"), metaJSON, 0644)
+	}
+
+	// 3. First update --all
+	result1 := sb.RunCLIInDir(projectRoot, "update", "--all", "-p", "--skip-audit")
+	result1.AssertSuccess(t)
+
+	// Verify no leaked "skills/" subdirectory was created
+	leakedDir := filepath.Join(skillsDir, "skills")
+	if _, err := os.Stat(leakedDir); err == nil {
+		t.Fatalf("leaked directory %s should not exist after first update", leakedDir)
+	}
+
+	// 4. Second update --all — count should stay the same
+	result2 := sb.RunCLIInDir(projectRoot, "update", "--all", "-p", "--skip-audit")
+	result2.AssertSuccess(t)
+
+	// Still no leaked directory
+	if _, err := os.Stat(leakedDir); err == nil {
+		t.Fatalf("leaked directory %s should not exist after second update", leakedDir)
+	}
+
+	// Verify original skills still exist and were updated
+	for _, name := range []string{"alpha", "beta"} {
+		skillPath := filepath.Join(skillsDir, name, "SKILL.md")
+		if _, err := os.Stat(skillPath); err != nil {
+			t.Errorf("skill %s should still exist at %s", name, skillPath)
+		}
 	}
 }
