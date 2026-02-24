@@ -5,9 +5,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
-	"github.com/lithammer/fuzzysearch/fuzzy"
-
 	"skillshare/internal/install"
 	"skillshare/internal/ui"
 )
@@ -89,28 +86,23 @@ func promptSkillSelection(skills []install.SkillInfo) ([]install.SkillInfo, erro
 
 func promptOrchestratorSelection(rootSkill install.SkillInfo, childSkills []install.SkillInfo) ([]install.SkillInfo, error) {
 	// Stage 1: Choose install mode
-	options := []string{
-		fmt.Sprintf("Install entire pack  \033[90m%s + %d children\033[0m", rootSkill.Name, len(childSkills)),
-		"Select individual skills",
+	cfg := checklistConfig{
+		title:        "Install mode",
+		singleSelect: true,
+		itemName:     "option",
+		items: []checklistItemData{
+			{label: fmt.Sprintf("Install entire pack (%s + %d children)", rootSkill.Name, len(childSkills)), preSelected: true},
+			{label: "Select individual skills"},
+		},
 	}
 
-	var modeIdx int
-	prompt := &survey.Select{
-		Message:  "Install mode:",
-		Options:  options,
-		PageSize: 5,
-	}
-
-	err := survey.AskOne(prompt, &modeIdx, survey.WithIcons(func(icons *survey.IconSet) {
-		icons.SelectFocus.Text = "▸"
-		icons.SelectFocus.Format = "yellow"
-	}))
-	if err != nil {
+	indices, err := runChecklistTUI(cfg)
+	if err != nil || len(indices) == 0 {
 		return nil, nil
 	}
 
 	// If "entire pack" selected, return all skills
-	if modeIdx == 0 {
+	if indices[0] == 0 {
 		allSkills := make([]install.SkillInfo, 0, len(childSkills)+1)
 		allSkills = append(allSkills, rootSkill)
 		allSkills = append(allSkills, childSkills...)
@@ -145,50 +137,6 @@ func promptLargeRepoSelection(skills []install.SkillInfo, _ string) ([]install.S
 			return result, nil
 		}
 		// User cancelled from MultiSelect — loop back to TUI
-	}
-}
-
-// promptSearchSelect lets the user search skills by name with fuzzy matching.
-func promptSearchSelect(skills []install.SkillInfo) ([]install.SkillInfo, error) {
-	skillNames := make([]string, len(skills))
-	skillByName := make(map[string]install.SkillInfo, len(skills))
-	for i, s := range skills {
-		skillNames[i] = s.Name
-		skillByName[s.Name] = s
-	}
-
-	for {
-		var query string
-		prompt := &survey.Input{
-			Message: "Search skills (partial name match):",
-		}
-		if err := survey.AskOne(prompt, &query); err != nil {
-			return nil, nil // user cancelled
-		}
-		query = strings.TrimSpace(query)
-		if query == "" {
-			ui.Warning("Please enter a search term")
-			continue
-		}
-
-		ranks := fuzzy.RankFindNormalizedFold(query, skillNames)
-		sort.Sort(ranks)
-
-		if len(ranks) == 0 {
-			ui.Warning("No skills matching %q — try a different search term", query)
-			continue
-		}
-		if len(ranks) > largeRepoThreshold {
-			ui.Warning("Too many matches (%d) — try a narrower search term", len(ranks))
-			continue
-		}
-
-		matched := make([]install.SkillInfo, len(ranks))
-		for i, r := range ranks {
-			matched[i] = skillByName[r.Target]
-		}
-		ui.Info("Found %d matching skill(s)", len(matched))
-		return promptMultiSelect(matched)
 	}
 }
 
@@ -237,12 +185,8 @@ func applyExclude(skills []install.SkillInfo, exclude []string) []install.SkillI
 }
 
 // filterSkillsByName matches requested names against discovered skills.
-// It tries exact match first, then falls back to fuzzy matching.
+// It tries exact match first, then falls back to case-insensitive substring matching.
 func filterSkillsByName(skills []install.SkillInfo, names []string) (matched []install.SkillInfo, notFound []string) {
-	skillNames := make([]string, len(skills))
-	for i, s := range skills {
-		skillNames[i] = s.Name
-	}
 	skillByName := make(map[string]install.SkillInfo, len(skills))
 	for _, s := range skills {
 		skillByName[s.Name] = s
@@ -255,15 +199,21 @@ func filterSkillsByName(skills []install.SkillInfo, names []string) (matched []i
 			continue
 		}
 
-		// Fall back to fuzzy match
-		ranks := fuzzy.RankFindNormalizedFold(name, skillNames)
-		sort.Sort(ranks)
-		if len(ranks) == 1 {
-			matched = append(matched, skillByName[ranks[0].Target])
-		} else if len(ranks) > 1 {
-			suggestions := make([]string, len(ranks))
-			for i, r := range ranks {
-				suggestions[i] = r.Target
+		// Fall back to case-insensitive substring match
+		nameLower := strings.ToLower(name)
+		var candidates []install.SkillInfo
+		for _, s := range skills {
+			if strings.Contains(strings.ToLower(s.Name), nameLower) {
+				candidates = append(candidates, s)
+			}
+		}
+
+		if len(candidates) == 1 {
+			matched = append(matched, candidates[0])
+		} else if len(candidates) > 1 {
+			suggestions := make([]string, len(candidates))
+			for i, c := range candidates {
+				suggestions[i] = c.Name
 			}
 			notFound = append(notFound, fmt.Sprintf("%s (did you mean: %s?)", name, strings.Join(suggestions, ", ")))
 		} else {

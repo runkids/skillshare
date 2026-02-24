@@ -1,16 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	"golang.org/x/term"
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
@@ -244,22 +245,46 @@ func shouldPromptInitMode(opts *initOptions, sourcePath string, withSkills, dete
 
 func promptSyncModeSelection() string {
 	ui.Header("Sync mode preference")
-	fmt.Println("  Choose the default sync mode for newly configured targets.")
-	fmt.Println("  - merge: per-skill symlinks, preserves local skills")
-	fmt.Println("  - copy: real files, compatibility-first")
-	fmt.Println("  - symlink: entire directory linked")
 
-	options := []string{"merge", "copy", "symlink"}
-	var selected string
-	prompt := &survey.Select{
-		Message: "Select sync mode:",
-		Options: options,
-		Default: "merge",
+	type modeOption struct {
+		name string
+		desc string
 	}
-	if err := survey.AskOne(prompt, &selected); err != nil {
+	modes := []modeOption{
+		{"merge", "per-skill symlinks, preserves local skills"},
+		{"copy", "real files, recommended if unsure whether your AI CLI supports symlinks"},
+		{"symlink", "entire directory linked"},
+	}
+
+	for i, m := range modes {
+		fmt.Printf("  %d) %-8s — %s\n", i+1, m.name, m.desc)
+	}
+	fmt.Println()
+	fmt.Print("  Enter choice [1]: ")
+
+	input, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if err != nil {
+		ui.Success("Sync mode: merge")
 		return "merge"
 	}
-	return normalizeSyncMode(selected)
+	input = strings.TrimSpace(input)
+
+	// Default or invalid → merge
+	idx := 0
+	if input != "" {
+		if n := input[0] - '1'; n < byte(len(modes)) {
+			idx = int(n)
+		}
+	}
+
+	selected := normalizeSyncMode(modes[idx].name)
+	ui.Success("Sync mode: %s", selected)
+	fmt.Println()
+	if selected != "copy" {
+		ui.Info("If a tool doesn't support symlinks, switch to copy mode:")
+		fmt.Printf("  %sskillshare config --mode copy && skillshare sync%s\n", ui.Yellow, ui.Reset)
+	}
+	return selected
 }
 
 func modeOverrideForTarget(requestedMode, inheritedDefault string) string {
@@ -439,7 +464,7 @@ func printInitSuccess(sourcePath string, dryRun bool, skillInstalled bool) {
 	ui.Success("Config: %s", config.ConfigPath())
 	fmt.Println()
 	ui.Info("Next steps:")
-	fmt.Println("  skillshare sync              # Sync to all targets")
+	fmt.Printf("  %sskillshare sync%s              %s# Sync to all targets%s\n", ui.Yellow, ui.Reset, ui.Gray, ui.Reset)
 	if skillInstalled {
 		fmt.Println()
 		ui.Info("Pro tip: Let AI manage your skills!")
@@ -723,10 +748,8 @@ func buildTargetsList(detected []detectedDir, copyFrom, copyFromName, targetsArg
 		return targets
 	}
 
-	// Create options for survey.MultiSelect
-	// Use short labels (name + status) since paths were shown during detection.
-	options := make([]string, len(detected))
-	var defaultIndices []int
+	// Build checklist items from detected directories.
+	items := make([]checklistItemData, len(detected))
 	for i, d := range detected {
 		status := ""
 		if d.exists {
@@ -738,25 +761,18 @@ func buildTargetsList(detected []detectedDir, copyFrom, copyFromName, targetsArg
 		} else {
 			status = "(not initialized)"
 		}
-		options[i] = fmt.Sprintf("%s %s", d.name, status)
-
-		// Pre-select if this is the copyFrom target
-		if d.name == copyFromName {
-			defaultIndices = append(defaultIndices, i)
+		items[i] = checklistItemData{
+			label:       fmt.Sprintf("%-14s %s  %s", d.name, d.path, status),
+			preSelected: d.name == copyFromName,
 		}
 	}
 
-	// Show multi-select UI using survey
-	var selectedIndices []int
-	prompt := &survey.MultiSelect{
-		Message:  "Select targets to sync:",
-		Options:  options,
-		Default:  defaultIndices,
-		PageSize: 15,
-		Help:     "Use arrow keys to navigate, space to select, enter to confirm",
-	}
-
-	if err := survey.AskOne(prompt, &selectedIndices, survey.WithKeepFilter(true)); err != nil {
+	selectedIndices, err := runChecklistTUI(checklistConfig{
+		title:    "Select targets to sync",
+		items:    items,
+		itemName: "target",
+	})
+	if err != nil || selectedIndices == nil {
 		return targets // User cancelled
 	}
 
@@ -767,12 +783,21 @@ func buildTargetsList(detected []detectedDir, copyFrom, copyFromName, targetsArg
 	}
 
 	if len(targets) > 0 {
-		ui.Success("Added %d target(s)", len(targets))
+		ui.Success("Added %d target(s): %s", len(targets), joinTargetNames(targets))
 	} else {
 		ui.Info("No targets selected")
 	}
 
 	return targets
+}
+
+func joinTargetNames(targets map[string]config.TargetConfig) string {
+	names := make([]string, 0, len(targets))
+	for name := range targets {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return strings.Join(names, ", ")
 }
 
 func summarizeInitConfig(cfg *config.Config) {
@@ -1295,20 +1320,20 @@ func getAgentStatus(path string) string {
 
 // promptAgentSelection shows interactive selection and returns selected agent names
 func promptAgentSelection(newAgents []agentInfo) ([]string, error) {
-	options := make([]string, len(newAgents))
+	items := make([]checklistItemData, len(newAgents))
 	for i, agent := range newAgents {
-		options[i] = fmt.Sprintf("%-12s %s %s", agent.name, agent.path, agent.description)
+		items[i] = checklistItemData{
+			label: agent.name,
+			desc:  fmt.Sprintf("%s %s", agent.path, agent.description),
+		}
 	}
 
-	var selectedIndices []int
-	prompt := &survey.MultiSelect{
-		Message:  "Select agents to add:",
-		Options:  options,
-		PageSize: 15,
-		Help:     "Use arrow keys to navigate, space to select, enter to confirm",
-	}
-
-	if err := survey.AskOne(prompt, &selectedIndices, survey.WithKeepFilter(true)); err != nil {
+	selectedIndices, err := runChecklistTUI(checklistConfig{
+		title:    "Select agents to add",
+		items:    items,
+		itemName: "agent",
+	})
+	if err != nil || selectedIndices == nil {
 		return nil, nil
 	}
 
