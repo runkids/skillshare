@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/lithammer/fuzzysearch/fuzzy"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
@@ -417,90 +416,49 @@ func printSearchResults(results []search.SearchResult, isHub bool) {
 }
 
 func promptInstallFromSearch(results []search.SearchResult, isHub bool, mode runMode, cwd string) (bool, error) {
-	// Build options list with name and full source
-	// First option is "Search again"
-	options := make([]string, len(results)+1)
-	options[0] = fmt.Sprintf("\033[36m⟲ Search again...\033[0m")
-
-	for i, r := range results {
-		var tagStr string
-		if len(r.Tags) > 0 {
-			t := make([]string, len(r.Tags))
-			for j, tag := range r.Tags {
-				t[j] = "#" + tag
-			}
-			tagStr = " " + strings.Join(t, " ")
-		}
-		if isHub {
-			desc := truncate(r.Description, 50)
-			options[i+1] = fmt.Sprintf("%-20s %s \033[90m%s%s\033[0m",
-				r.Name, desc, r.Source, tagStr)
-		} else {
-			stars := search.FormatStars(r.Stars)
-			options[i+1] = fmt.Sprintf("%-20s ★ %-5s \033[90m%s%s\033[0m",
-				r.Name, stars, r.Source, tagStr)
-		}
-	}
-
-	// Use survey Select for better UX
-	var selectedIdx int
-	prompt := &survey.Select{
-		Message:  "Select skill to install (↑↓ navigate, enter select, type to filter):",
-		Options:  options,
-		PageSize: 12,
-		Filter: func(filter string, value string, index int) bool {
-			if index == 0 {
-				return true // always show "Search again"
-			}
-			r := results[index-1]
-			f := strings.ToLower(filter)
-			// Fuzzy match on name (short, typo-tolerant)
-			if fuzzy.MatchNormalizedFold(filter, r.Name) {
-				return true
-			}
-			// Substring match on description and tags (precise)
-			if strings.Contains(strings.ToLower(r.Description), f) {
-				return true
-			}
-			for _, tag := range r.Tags {
-				if strings.Contains(strings.ToLower(tag), f) {
-					return true
-				}
-			}
-			return false
-		},
-	}
-
-	focusColor := "yellow"
-	if isHub {
-		focusColor = "cyan"
-	}
-	err := survey.AskOne(prompt, &selectedIdx, survey.WithIcons(func(icons *survey.IconSet) {
-		icons.SelectFocus.Text = "▸"
-		icons.SelectFocus.Format = focusColor
-	}))
+	res, err := runSearchSelectTUI(results, isHub)
 	if err != nil {
-		return false, nil // User cancelled (Ctrl+C) - exit
+		return false, err
 	}
-
-	// "Search again" selected
-	if selectedIdx == 0 {
-		return true, nil // Signal to search again
+	if res.searchAgain {
+		return true, nil
 	}
-
-	selected := results[selectedIdx-1]
-
-	// Install the selected skill
+	if len(res.selected) == 0 {
+		return false, nil
+	}
 	fmt.Println()
-	if mode == modeProject {
-		return false, installFromSearchResultProject(selected, cwd)
+	return false, batchInstallFromSearch(res.selected, mode, cwd)
+}
+
+// batchInstallFromSearch installs multiple search results sequentially.
+// Errors are reported per-skill; processing continues on failure.
+func batchInstallFromSearch(selected []search.SearchResult, mode runMode, cwd string) error {
+	var cfg *config.Config
+	if mode != modeProject {
+		var err error
+		cfg, err = config.Load()
+		if err != nil {
+			return fmt.Errorf("failed to load config: %w", err)
+		}
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		return false, fmt.Errorf("failed to load config: %w", err)
+	var errs []string
+	for _, r := range selected {
+		var err error
+		if mode == modeProject {
+			err = installFromSearchResultProject(r, cwd)
+		} else {
+			err = installFromSearchResult(r, cfg)
+		}
+		if err != nil {
+			ui.Error("Failed to install '%s': %v", r.Name, err)
+			errs = append(errs, r.Name)
+		}
 	}
-	return false, installFromSearchResult(selected, cfg)
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to install %d skill(s): %s", len(errs), strings.Join(errs, ", "))
+	}
+	return nil
 }
 
 func installFromSearchResultProject(result search.SearchResult, cwd string) (err error) {
