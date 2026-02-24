@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/runkids/skillshare/main/schemas/registry.schema.json",
+  "title": "Skillshare Registry",
+  "description": "Skill registry for skillshare — tracks installed/tracked skills. Location: ~/.config/skillshare/registry.yaml (global) or .skillshare/registry.yaml (project). Auto-managed by reconciliation; manual edits are preserved.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "skills": {
+      "type": "array",
+      "description": "Installed/tracked skills.",
+      "items": {
+        "$ref": "#/$defs/skillEntry"
+      }
+    }
+  },
+  "$defs": {
+    "skillEntry": {
+      "type": "object",
+      "description": "A remote skill entry tracked in the registry.",
+      "required": ["name", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Skill directory name.",
+          "examples": ["pdf", "_team-skills"]
+        },
+        "source": {
+          "type": "string",
+          "description": "GitHub path or local path where the skill was installed from.",
+          "examples": ["anthropics/skills/skills/pdf", "github.com/team/skills"]
+        },
+        "tracked": {
+          "type": "boolean",
+          "description": "True if installed with --track (preserves git history).",
+          "default": false
+        },
+        "group": {
+          "type": "string",
+          "description": "Subdirectory group the skill belongs to (set by --into).",
+          "examples": ["frontend", "backend"]
+        }
+      }
+    }
+  }
+}
