@@ -224,10 +224,7 @@ func dispatchInstall(source *install.Source, cfg *config.Config, opts install.In
 	}
 
 	if source.IsGit() {
-		if !source.HasSubdir() {
-			return handleGitDiscovery(source, cfg, opts)
-		}
-		return handleGitSubdirInstall(source, cfg, opts)
+		return handleGitInstall(source, cfg, opts)
 	}
 
 	return handleDirectInstall(source, cfg, opts)

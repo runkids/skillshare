@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -107,7 +106,7 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 	return logSummary, nil
 }
 
-func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
+func handleGitInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
 	logSummary := installLogSummary{
 		Source:         source.Raw,
 		DryRun:         opts.DryRun,
@@ -122,19 +121,32 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 
 	// Step 1: Show source
 	ui.StepStart("Source", source.Raw)
+	if source.HasSubdir() {
+		ui.StepContinue("Subdir", source.Subdir)
+	}
 	if opts.Into != "" {
 		ui.StepContinue("Into", opts.Into)
 	}
 
 	// Step 2: Clone with tree spinner animation
-	treeSpinner := ui.StartTreeSpinner("Cloning repository...", false)
+	progressMsg := "Cloning repository..."
+	if source.HasSubdir() && source.GitHubOwner() != "" && source.GitHubRepo() != "" {
+		progressMsg = "Downloading via GitHub API..."
+	}
+	treeSpinner := ui.StartTreeSpinner(progressMsg, false)
 	if ui.IsTTY() {
 		opts.OnProgress = func(line string) {
 			treeSpinner.Update(line)
 		}
 	}
 
-	discovery, err := install.DiscoverFromGitWithProgress(source, opts.OnProgress)
+	var discovery *install.DiscoveryResult
+	var err error
+	if source.HasSubdir() {
+		discovery, err = install.DiscoverFromGitSubdirWithProgress(source, opts.OnProgress)
+	} else {
+		discovery, err = install.DiscoverFromGitWithProgress(source, opts.OnProgress)
+	}
 	if err != nil {
 		treeSpinner.Fail("Failed to clone")
 		return logSummary, err
@@ -142,6 +154,67 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 	defer install.CleanupDiscovery(discovery)
 
 	treeSpinner.Success("Cloned")
+
+	// Show subdir-specific warnings (e.g. GitHub API fallback notices)
+	if source.HasSubdir() {
+		for _, w := range discovery.Warnings {
+			ui.Warning("%s", w)
+		}
+	}
+
+	// Subdir mode handles single skill before empty check (shows "1 skill: name")
+	if source.HasSubdir() && len(discovery.Skills) == 1 {
+		skill := discovery.Skills[0]
+		if opts.Name != "" {
+			if err := validate.SkillName(opts.Name); err != nil {
+				return logSummary, fmt.Errorf("invalid skill name '%s': %w", opts.Name, err)
+			}
+			skill.Name = opts.Name
+		}
+		ui.StepEnd("Found", fmt.Sprintf("1 skill: %s", skill.Name))
+
+		displayPath := skill.Name
+		if opts.Into != "" {
+			displayPath = filepath.Join(opts.Into, skill.Name)
+		}
+
+		fmt.Println()
+		desc := ""
+		if skill.License != "" {
+			desc = "License: " + skill.License
+		}
+		ui.SkillBox(skill.Name, desc, displayPath)
+
+		destPath := destWithInto(cfg.Source, opts, skill.Name)
+		if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
+			return logSummary, fmt.Errorf("failed to create --into directory: %w", err)
+		}
+
+		fmt.Println()
+		installSpinner := ui.StartSpinner("Installing...")
+
+		result, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
+		if err != nil {
+			installSpinner.Stop()
+			if errors.Is(err, audit.ErrBlocked) {
+				return logSummary, renderBlockedAuditError(err)
+			}
+			ui.ErrorMsg("Failed to install: %v", err)
+			return logSummary, err
+		}
+
+		installSpinner.Stop()
+		ui.SuccessMsg("Installed: %s", skill.Name)
+		renderInstallWarningsWithResult("", result.Warnings, opts.AuditVerbose, result)
+
+		if !opts.DryRun {
+			ui.SectionLabel("Next Steps")
+			ui.Info("Run 'skillshare sync' to distribute to all targets")
+			logSummary.InstalledSkills = append(logSummary.InstalledSkills, skill.Name)
+			logSummary.SkillCount = len(logSummary.InstalledSkills)
+		}
+		return logSummary, nil
+	}
 
 	// Step 3: Show found skills
 	if len(discovery.Skills) == 0 {
@@ -164,7 +237,7 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		return logSummary, fmt.Errorf("--name can only be used when exactly one skill is discovered")
 	}
 
-	// Single skill: show detailed box and install directly
+	// Single skill (non-subdir): show detailed box and install directly
 	if len(discovery.Skills) == 1 {
 		skill := discovery.Skills[0]
 		if opts.Name != "" {
@@ -582,186 +655,6 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 	}
 }
 
-func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
-	logSummary := installLogSummary{
-		Source:         source.Raw,
-		DryRun:         opts.DryRun,
-		Into:           opts.Into,
-		SkipAudit:      opts.SkipAudit,
-		AuditVerbose:   opts.AuditVerbose,
-		AuditThreshold: opts.AuditThreshold,
-	}
-
-	// Show logo with version
-	ui.Logo(appversion.Version)
-
-	// Step 1: Show source
-	ui.StepStart("Source", source.Raw)
-	ui.StepContinue("Subdir", source.Subdir)
-	if opts.Into != "" {
-		ui.StepContinue("Into", opts.Into)
-	}
-
-	// Step 2: Clone with tree spinner
-	progressMsg := "Cloning repository..."
-	if source.GitHubOwner() != "" && source.GitHubRepo() != "" {
-		progressMsg = "Downloading via GitHub API..."
-	}
-	treeSpinner := ui.StartTreeSpinner(progressMsg, false)
-	if ui.IsTTY() {
-		opts.OnProgress = func(line string) {
-			treeSpinner.Update(line)
-		}
-	}
-
-	// Discover skills in subdir
-	discovery, err := install.DiscoverFromGitSubdirWithProgress(source, opts.OnProgress)
-	if err != nil {
-		treeSpinner.Fail("Failed to clone")
-		return logSummary, err
-	}
-	defer install.CleanupDiscovery(discovery)
-
-	treeSpinner.Success("Cloned")
-	for _, w := range discovery.Warnings {
-		ui.Warning("%s", w)
-	}
-
-	// If only one skill found, install directly
-	if len(discovery.Skills) == 1 {
-		skill := discovery.Skills[0]
-		if opts.Name != "" {
-			if err := validate.SkillName(opts.Name); err != nil {
-				return logSummary, fmt.Errorf("invalid skill name '%s': %w", opts.Name, err)
-			}
-			skill.Name = opts.Name
-		}
-		ui.StepEnd("Found", fmt.Sprintf("1 skill: %s", skill.Name))
-
-		// Determine local installation info for display (relative to skills dir)
-		displayPath := skill.Name
-		if opts.Into != "" {
-			displayPath = filepath.Join(opts.Into, skill.Name)
-		}
-
-		fmt.Println()
-		desc := ""
-		if skill.License != "" {
-			desc = "License: " + skill.License
-		}
-		ui.SkillBox(skill.Name, desc, displayPath)
-
-		destPath := destWithInto(cfg.Source, opts, skill.Name)
-		if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
-			return logSummary, fmt.Errorf("failed to create --into directory: %w", err)
-		}
-
-		fmt.Println()
-		installSpinner := ui.StartSpinner("Installing...")
-
-		result, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
-		if err != nil {
-			installSpinner.Stop()
-			if errors.Is(err, audit.ErrBlocked) {
-				return logSummary, renderBlockedAuditError(err)
-			}
-			ui.ErrorMsg("Failed to install: %v", err)
-			return logSummary, err
-		}
-
-		installSpinner.Stop()
-		ui.SuccessMsg("Installed: %s", skill.Name)
-
-		renderInstallWarningsWithResult("", result.Warnings, opts.AuditVerbose, result)
-
-		if !opts.DryRun {
-			ui.SectionLabel("Next Steps")
-			ui.Info("Run 'skillshare sync' to distribute to all targets")
-			logSummary.InstalledSkills = append(logSummary.InstalledSkills, skill.Name)
-			logSummary.SkillCount = len(logSummary.InstalledSkills)
-		}
-		return logSummary, nil
-	}
-
-	// Multiple skills found - enter discovery mode
-	if len(discovery.Skills) == 0 {
-		ui.StepEnd("Found", "No skills (no SKILL.md files)")
-		return logSummary, nil
-	}
-
-	ui.StepEnd("Found", fmt.Sprintf("%d skill(s)", len(discovery.Skills)))
-
-	// Apply --exclude early so excluded skills never appear in prompts
-	if len(opts.Exclude) > 0 {
-		discovery.Skills = applyExclude(discovery.Skills, opts.Exclude)
-		if len(discovery.Skills) == 0 {
-			ui.Info("All skills were excluded")
-			return logSummary, nil
-		}
-	}
-
-	if opts.Name != "" {
-		return logSummary, fmt.Errorf("--name can only be used when exactly one skill is discovered")
-	}
-
-	// Non-interactive path: --skill or --all/--yes
-	if opts.HasSkillFilter() || opts.ShouldInstallAll() {
-		selected, err := selectSkills(discovery.Skills, opts)
-		if err != nil {
-			return logSummary, err
-		}
-
-		if opts.DryRun {
-			fmt.Println()
-			printSkillListCompact(selected)
-			fmt.Println()
-			ui.Warning("[dry-run] Would install %d skill(s)", len(selected))
-			return logSummary, nil
-		}
-
-		fmt.Println()
-		batchSummary := installSelectedSkills(selected, discovery, cfg, opts)
-		logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
-		logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
-		logSummary.SkillCount = len(logSummary.InstalledSkills)
-		return logSummary, nil
-	}
-
-	if opts.DryRun {
-		fmt.Println()
-		printSkillListCompact(discovery.Skills)
-		fmt.Println()
-		ui.Warning("[dry-run] Would prompt for selection")
-		return logSummary, nil
-	}
-
-	// Non-TTY with large repo: require explicit flags
-	if !ui.IsTTY() && len(discovery.Skills) >= largeRepoThreshold {
-		ui.Info("Found %d skills. Non-interactive mode requires --all, --yes, or --skill <names>", len(discovery.Skills))
-		return logSummary, fmt.Errorf("interactive selection not available in non-TTY mode")
-	}
-
-	fmt.Println()
-
-	selected, err := promptSkillSelection(discovery.Skills)
-	if err != nil {
-		return logSummary, err
-	}
-
-	if len(selected) == 0 {
-		ui.Info("No skills selected")
-		return logSummary, nil
-	}
-
-	fmt.Println()
-	batchSummary := installSelectedSkills(selected, discovery, cfg, opts)
-	logSummary.InstalledSkills = append(logSummary.InstalledSkills, batchSummary.InstalledSkills...)
-	logSummary.FailedSkills = append(logSummary.FailedSkills, batchSummary.FailedSkills...)
-	logSummary.SkillCount = len(logSummary.InstalledSkills)
-
-	return logSummary, nil
-}
-
 func handleDirectInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
 	logSummary := installLogSummary{
 		Source:         source.Raw,
@@ -867,104 +760,39 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 		AuditVerbose: opts.AuditVerbose,
 	}
 
-	if len(cfg.Skills) == 0 {
+	ctx := &globalInstallContext{cfg: cfg}
+
+	if len(ctx.ConfigSkills()) == 0 {
 		ui.Info("No remote skills defined in config.yaml")
 		ui.Info("Install a skill first: skillshare install <source>")
 		return summary, nil
 	}
 
 	ui.Logo(appversion.Version)
-
-	total := len(cfg.Skills)
+	total := len(ctx.ConfigSkills())
 	spinner := ui.StartSpinner(fmt.Sprintf("Installing %d skill(s) from config...", total))
 
-	installed := 0
-
-	for _, skill := range cfg.Skills {
-		groupDir, bareName := skill.EffectiveParts()
-		if strings.TrimSpace(bareName) == "" {
-			continue
-		}
-
-		displayName := skill.FullName()
-		destPath := filepath.Join(cfg.Source, filepath.FromSlash(displayName))
-		if _, err := os.Stat(destPath); err == nil {
-			ui.StepDone(displayName, "skipped (already exists)")
-			continue
-		}
-
-		source, err := install.ParseSource(skill.Source)
-		if err != nil {
-			ui.StepFail(displayName, fmt.Sprintf("invalid source: %v", err))
-			continue
-		}
-
-		source.Name = bareName
-
-		if skill.Tracked {
-			trackOpts := opts
-			if groupDir != "" {
-				trackOpts.Into = groupDir
-			}
-			trackedResult, err := install.InstallTrackedRepo(source, cfg.Source, trackOpts)
-			if err != nil {
-				ui.StepFail(displayName, err.Error())
-				continue
-			}
-			if opts.DryRun {
-				ui.StepDone(displayName, trackedResult.Action)
-				continue
-			}
-			ui.StepDone(displayName, fmt.Sprintf("installed (tracked, %d skills)", trackedResult.SkillCount))
-			if len(trackedResult.Skills) > 0 {
-				summary.InstalledSkills = append(summary.InstalledSkills, trackedResult.Skills...)
-			} else {
-				summary.InstalledSkills = append(summary.InstalledSkills, displayName)
-			}
-		} else {
-			if err := validate.SkillName(bareName); err != nil {
-				ui.StepFail(displayName, fmt.Sprintf("invalid name: %v", err))
-				continue
-			}
-			// Ensure group directory exists
-			if groupDir != "" {
-				if err := os.MkdirAll(filepath.Join(cfg.Source, filepath.FromSlash(groupDir)), 0755); err != nil {
-					ui.StepFail(displayName, fmt.Sprintf("failed to create group directory: %v", err))
-					continue
-				}
-			}
-			result, err := install.Install(source, destPath, opts)
-			if err != nil {
-				ui.StepFail(displayName, err.Error())
-				continue
-			}
-			if opts.DryRun {
-				ui.StepDone(displayName, result.Action)
-				continue
-			}
-			ui.StepDone(displayName, "installed")
-			summary.InstalledSkills = append(summary.InstalledSkills, displayName)
-		}
-
-		installed++
+	result, err := install.InstallFromConfig(ctx, opts)
+	if err != nil {
+		spinner.Fail("Install failed")
+		summary.InstalledSkills = result.InstalledSkills
+		summary.FailedSkills = result.FailedSkills
+		summary.SkillCount = len(result.InstalledSkills)
+		return summary, err
 	}
+
+	summary.InstalledSkills = result.InstalledSkills
+	summary.FailedSkills = result.FailedSkills
+	summary.SkillCount = len(result.InstalledSkills)
 
 	if opts.DryRun {
 		spinner.Stop()
-		summary.SkillCount = len(summary.InstalledSkills)
 		return summary, nil
 	}
 
-	spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
+	spinner.Success(fmt.Sprintf("Installed %d skill(s)", result.Installed))
 	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to distribute to all targets")
-	summary.SkillCount = len(summary.InstalledSkills)
-
-	if installed > 0 {
-		if err := config.ReconcileGlobalSkills(cfg); err != nil {
-			return summary, err
-		}
-	}
 
 	return summary, nil
 }
