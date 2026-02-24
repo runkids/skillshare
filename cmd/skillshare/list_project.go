@@ -54,7 +54,19 @@ func cmdListProject(root string, opts listOptions) error {
 		if rt, rtErr := loadProjectRuntime(root); rtErr == nil {
 			targets = rt.targets
 		}
-		return runListTUI(items, totalCount, "project", sourcePath, targets)
+		action, skillName, err := runListTUI(items, totalCount, "project", sourcePath, targets)
+		if err != nil {
+			return err
+		}
+		switch action {
+		case "audit":
+			return cmdAudit([]string{"-p", skillName})
+		case "update":
+			return cmdUpdateProject([]string{skillName}, root)
+		case "uninstall":
+			return cmdUninstallProject([]string{skillName}, root)
+		}
+		return nil
 	}
 
 	// Handle empty results before starting pager
