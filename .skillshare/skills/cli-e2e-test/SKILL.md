@@ -60,17 +60,25 @@ Prompt user (via AskUserQuestion):
    docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
      ssenv enter "$ENV_NAME" -- <command>
    ```
-3. After each step, verify conditions in the Expected block
-4. Mark each step PASS / FAIL
+4. After each step, verify conditions in the Expected block
+5. Mark each step PASS / FAIL
 
-#### Generating new script:
+#### Generating new runbook:
 
 1. Read `git diff HEAD~3` to find changed files in `cmd/skillshare/` or `internal/`
 2. Read changed files to understand new/modified functionality
-3. Generate new runbook to `ai_docs/tests/<slug>_runbook.md`, following existing conventions:
+3. **Validate all CLI flags before writing** — for every `ss <command> <flag>` in the runbook:
+   - Grep `cmd/skillshare/<command>.go` for the exact flag string (e.g. `"--force"`)
+   - Run `ss <command> --help` inside container if needed
+   - Common mistakes to avoid:
+     - `uninstall --yes` → **wrong**, use `--force` / `-f`
+     - `init --target <name>` → **wrong**, `init` has no `--target` flag
+     - `init -p --no-skill --force` → `--force` is not an init flag; use `--no-copy`
+4. Generate new runbook to `ai_docs/tests/<slug>_runbook.md`, following existing conventions:
    - YAML-free, pure Markdown
    - Has Scope, Environment, Steps (each with bash + Expected), Pass Criteria
-4. Then execute the new runbook (same flow as above)
+5. **Run the runbook quality checklist** (see below) before executing
+6. Then execute the new runbook (same flow as above)
 
 ### Phase 4: Cleanup & Report
 
@@ -99,7 +107,31 @@ Prompt user (via AskUserQuestion):
    Result: {N}/{total} passed
    ```
 
-4. If any FAIL → analyze cause, provide fix suggestions
+4. If any FAIL → distinguish between runbook bug vs real bug:
+   - **Runbook bug**: wrong flag, wrong file path, stale assertion → fix runbook, re-run step
+   - **Real bug**: CLI misbehavior → analyze cause, provide fix suggestions
+
+5. **Retrospective** — ask user (via AskUserQuestion):
+   > Did you encounter any friction during this test run that the skill or runbook could handle better?
+   - **Option A**: Yes, improve e2e skill — review test friction (wrong flags, stale assertions, missing checklist items, unclear instructions), then update SKILL.md and/or runbooks
+   - **Option B**: Yes, but only fix the runbook — fix the specific runbook without changing the skill itself
+   - **Option C**: No, skip
+
+   Improvement targets:
+   - **SKILL.md**: add new checklist items, common-mistake examples, or rule clarifications learned from this run
+   - **Runbooks**: fix stale assertions (e.g. config.yaml → registry.yaml), wrong flags, outdated paths
+   - **Both**: when a systemic issue (e.g. a refactor changed file locations) affects both the skill's guidance and existing runbooks
+
+## Runbook Quality Checklist
+
+Before executing a newly generated runbook, verify:
+
+- [ ] **All CLI flags exist** — every `ss <cmd> --flag` was grep-verified against source
+- [ ] **`--init` interaction** — if runbook has `ss init`, account for `ssenv create --init` already initializing (add `--force` to re-init, or skip init step)
+- [ ] **Correct confirmation flags** — `uninstall` uses `--force` (not `--yes`); `init` re-run needs no flag (just fails gracefully)
+- [ ] **Skill data in registry.yaml** — assertions about installed skills check `registry.yaml`, NOT `config.yaml`; config.yaml should never contain `skills:`
+- [ ] **File existence timing** — `registry.yaml` is only created after first install/reconcile, not on `ss init`
+- [ ] **Project mode paths** — project commands use `.skillshare/` not `~/.config/skillshare/`
 
 ## Rules
 
@@ -111,6 +143,7 @@ Prompt user (via AskUserQuestion):
 - **`ss` = `skillshare`** — same binary in runbooks
 - **`~` = ssenv-isolated HOME** — `ssenv enter` auto-sets `HOME`
 - **Use `--init`** — simplify setup by using `ssenv create <name> --init`
+- **`--init` already runs init** — the env is pre-initialized; runbook steps calling `ss init` again will fail unless the step explicitly resets state first
 
 ## ssenv Quick Reference
 

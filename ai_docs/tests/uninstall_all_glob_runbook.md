@@ -69,7 +69,7 @@ ss uninstall --all --force
 Expected:
 - Output contains `Uninstalled` for each top-level entry
 - Source directory is empty (no skill directories remain)
-- Config skills list is cleared
+- Registry skills list is cleared
 
 Verify:
 
@@ -77,7 +77,7 @@ Verify:
 REMAINING=$(ls ~/.config/skillshare/skills/ 2>/dev/null | grep -v '.gitignore' | wc -l | tr -d ' ')
 echo "Remaining skills: $REMAINING (expected: 0)"
 
-grep -c 'name:' ~/.config/skillshare/config.yaml || echo "no skills in config"
+grep -c 'name:' ~/.config/skillshare/registry.yaml || echo "no skills in registry"
 ```
 
 ### 4. Sync after --all leaves no orphans
@@ -137,7 +137,7 @@ ss uninstall --all --force -p
 
 Expected:
 - Both skills removed from `.skillshare/skills/`
-- Project config skills list cleared
+- Project registry skills list cleared
 
 Verify:
 
@@ -150,7 +150,7 @@ echo "Remaining project skills: $REMAINING (expected: 0)"
 
 - [ ] `--all --dry-run` shows preview without removing skills
 - [ ] `--all --force` removes all skills from source
-- [ ] Config `skills:` list cleared after `--all`
+- [ ] Registry `skills:` list cleared after `--all`
 - [ ] `sync` after `--all` cleans up target symlinks
 - [ ] `--all` + skill names → mutual exclusion error
 - [ ] `--all` + `--group` → mutual exclusion error
