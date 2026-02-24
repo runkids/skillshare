@@ -42,7 +42,8 @@
 
 > [!NOTE]
 > **Recent Updates**
-> - **[0.15.x](https://github.com/runkids/skillshare/releases/tag/v0.15.4)**: Supply-chain security hardening, copy sync mode, HTTPS token auth.
+> - **[0.16.0](https://github.com/runkids/skillshare/releases/tag/v0.16.0)**: Performance overhaul (sparse checkout, parallel check, tree hash), interactive bubbletea TUI, registry separation, CLI visual refresh. ([#46](https://github.com/runkids/skillshare/issues/46))
+> - **[0.15.x](https://github.com/runkids/skillshare/releases/tag/v0.15.5)**: Supply-chain security hardening, copy sync mode, HTTPS token auth.
 > - Full history: [All Releases](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
@@ -394,6 +395,34 @@ make fmt            # format Go files
 make check          # fmt + lint + test
 make ui-dev         # Go API server + Vite HMR together
 make build-all      # frontend + Go binary
+```
+
+### AI-Assisted Development
+
+This repo ships project-mode skills (`.skillshare/skills/`) that AI coding agents can use directly:
+
+| Skill | Purpose |
+|-------|---------|
+| `cli-e2e-test` | Run E2E tests in devcontainer from `ai_docs/tests/` runbooks |
+| `codebase-audit` | Cross-validate CLI flags, docs, tests, and targets |
+| `implement-feature` | TDD workflow with spec → tests → implement → E2E runbook |
+| `update-docs` | Sync website docs with recent code changes |
+| `changelog` | Generate CHANGELOG entries from commits |
+
+```bash
+skillshare sync -p   # Install project skills for your AI agent
+```
+
+### Isolated Testing with `ssenv` (Devcontainer)
+
+Inside the devcontainer, use `ssenv` to create isolated skillshare environments for parallel testing:
+
+```bash
+ssnew demo && ssuse demo    # Create and switch to isolated environment
+ss init && ss sync          # Run commands without affecting main config
+ssback                      # Return to original environment
+ssls                        # List environments
+ssrm demo                   # Delete environment
 ```
 
 ## Documentation
