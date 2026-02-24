@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -8,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/AlecAivazis/survey/v2"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
@@ -291,18 +290,15 @@ func doSearch(query string, limit int, listOnly bool, indexURL string, mode runM
 }
 
 func promptSearchQuery(isHub bool) (string, bool) {
-	var input string
-	msg := "Enter search keyword:"
+	msg := "Enter search keyword: "
 	if isHub {
-		msg = "Enter search keyword (empty to browse all):"
+		msg = "Enter search keyword (empty to browse all): "
 	}
-	prompt := &survey.Input{
-		Message: msg,
-	}
+	fmt.Print(msg)
 
-	err := survey.AskOne(prompt, &input)
+	input, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil {
-		return "", true // Ctrl+C
+		return "", true // EOF / Ctrl+D
 	}
 
 	input = strings.TrimSpace(input)
@@ -314,15 +310,11 @@ func promptSearchQuery(isHub bool) (string, bool) {
 }
 
 func promptNextSearch() (string, bool) {
-	// Use survey Input for next search
-	var input string
-	prompt := &survey.Input{
-		Message: "Search again (or press Enter to quit):",
-	}
+	fmt.Print("Search again (or press Enter to quit): ")
 
-	err := survey.AskOne(prompt, &input)
+	input, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil {
-		return "", true // Ctrl+C
+		return "", true // EOF / Ctrl+D
 	}
 
 	input = strings.TrimSpace(input)

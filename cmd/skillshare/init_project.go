@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/ui"
@@ -218,8 +217,8 @@ func performProjectInit(root string, opts projectInitOptions) error {
 	ui.Success("Config: %s", config.ProjectConfigPath(root))
 	fmt.Println()
 	ui.Info("Next steps:")
-	fmt.Println("  skillshare install <skill> -p    # Install a skill")
-	fmt.Println("  skillshare sync                  # Sync to all targets")
+	fmt.Printf("  %sskillshare install <skill> -p%s    %s# Install a skill%s\n", ui.Yellow, ui.Reset, ui.Gray, ui.Reset)
+	fmt.Printf("  %sskillshare sync%s                  %s# Sync to all targets%s\n", ui.Yellow, ui.Reset, ui.Gray, ui.Reset)
 
 	return nil
 }
@@ -282,8 +281,7 @@ func listAllProjectTargets() []detectedProjectTarget {
 func promptProjectTargets(available []detectedProjectTarget) ([]config.ProjectTargetEntry, error) {
 	ui.Header("Select targets to sync")
 
-	options := make([]string, len(available))
-	defaultIndices := []int{}
+	items := make([]checklistItemData, len(available))
 	for i, target := range available {
 		label := fmt.Sprintf("%-14s %s", target.name, target.path)
 		if len(target.members) > 0 {
@@ -292,30 +290,33 @@ func promptProjectTargets(available []detectedProjectTarget) ([]config.ProjectTa
 		if !target.exists && target.parentExists {
 			label += " (not initialized)"
 		}
-		options[i] = label
-
-		if target.exists || target.parentExists {
-			defaultIndices = append(defaultIndices, i)
+		items[i] = checklistItemData{
+			label:       label,
+			preSelected: target.exists || target.parentExists,
 		}
 	}
 
-	var selectedIndices []int
-	prompt := &survey.MultiSelect{
-		Message:  "Select targets to sync:",
-		Options:  options,
-		Default:  defaultIndices,
-		PageSize: 15,
-		Help:     "Use arrow keys to navigate, space to select, enter to confirm",
-	}
-
-	if err := survey.AskOne(prompt, &selectedIndices, survey.WithKeepFilter(true)); err != nil {
+	selectedIndices, err := runChecklistTUI(checklistConfig{
+		title:    "Select targets to sync",
+		items:    items,
+		itemName: "target",
+	})
+	if err != nil || selectedIndices == nil {
 		return nil, nil
 	}
 
 	selected := make([]config.ProjectTargetEntry, 0, len(selectedIndices))
+	names := make([]string, 0, len(selectedIndices))
 	for _, idx := range selectedIndices {
 		name := available[idx].name
 		selected = append(selected, config.ProjectTargetEntry{Name: name})
+		names = append(names, name)
+	}
+
+	if len(selected) > 0 {
+		ui.Success("Added %d target(s): %s", len(selected), strings.Join(names, ", "))
+	} else {
+		ui.Info("No targets selected")
 	}
 
 	return selected, nil
