@@ -5,6 +5,7 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -267,5 +268,208 @@ targets: {}
 
 	if !sb.FileExists(timestampDir) {
 		t.Error("dry-run should not remove backups")
+	}
+}
+
+// --- Restore integration tests ---
+
+func TestRestore_LatestBackup(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	targetPath := sb.CreateTarget("claude")
+
+	skillPath := filepath.Join(targetPath, "my-skill")
+	os.MkdirAll(skillPath, 0755)
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# Original"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	sb.RunCLI("backup").AssertSuccess(t)
+
+	// Modify the skill
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# Modified"), 0644)
+
+	// Restore
+	result := sb.RunCLI("restore", "claude", "--force")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Restored")
+
+	content, err := os.ReadFile(filepath.Join(skillPath, "SKILL.md"))
+	if err != nil {
+		t.Fatalf("failed to read restored file: %v", err)
+	}
+	if string(content) != "# Original" {
+		t.Errorf("expected '# Original', got '%s'", string(content))
+	}
+}
+
+func TestRestore_SpecificTimestamp(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	targetPath := sb.CreateTarget("claude")
+
+	skillPath := filepath.Join(targetPath, "my-skill")
+	os.MkdirAll(skillPath, 0755)
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# V1"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	sb.RunCLI("backup").AssertSuccess(t)
+
+	// Get first backup timestamp
+	backupDir := filepath.Join(sb.Home, ".local", "share", "skillshare", "backups")
+	entries, err := os.ReadDir(backupDir)
+	if err != nil || len(entries) == 0 {
+		t.Fatal("expected at least one backup directory")
+	}
+	firstTimestamp := entries[0].Name()
+
+	// Wait to ensure different timestamp
+	time.Sleep(1100 * time.Millisecond)
+
+	// Modify and create second backup
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# V2"), 0644)
+	sb.RunCLI("backup").AssertSuccess(t)
+
+	// Modify again
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# V3"), 0644)
+
+	// Restore from first backup specifically
+	result := sb.RunCLI("restore", "claude", "--from", firstTimestamp, "--force")
+	result.AssertSuccess(t)
+
+	content, _ := os.ReadFile(filepath.Join(skillPath, "SKILL.md"))
+	if string(content) != "# V1" {
+		t.Errorf("expected '# V1' from first backup, got '%s'", string(content))
+	}
+}
+
+func TestRestore_TargetNotInBackup(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	claudePath := sb.CreateTarget("claude")
+	codexPath := filepath.Join(sb.Home, ".codex", "skills")
+	os.MkdirAll(codexPath, 0755)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudePath + `
+  codex:
+    path: ` + codexPath + `
+`)
+
+	// Create files and backup only claude (codex is empty, skipped)
+	skillPath := filepath.Join(claudePath, "my-skill")
+	os.MkdirAll(skillPath, 0755)
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# X"), 0644)
+	sb.RunCLI("backup").AssertSuccess(t)
+
+	// Try to restore codex (which had no files to backup)
+	result := sb.RunCLI("restore", "codex")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "no backup found")
+}
+
+func TestRestore_DryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	targetPath := sb.CreateTarget("claude")
+
+	skillPath := filepath.Join(targetPath, "my-skill")
+	os.MkdirAll(skillPath, 0755)
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# Original"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	sb.RunCLI("backup").AssertSuccess(t)
+
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# Modified"), 0644)
+
+	result := sb.RunCLI("restore", "claude", "--dry-run", "--force")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Dry run")
+
+	// Verify file was NOT restored
+	content, _ := os.ReadFile(filepath.Join(skillPath, "SKILL.md"))
+	if string(content) != "# Modified" {
+		t.Error("dry-run should not modify files")
+	}
+}
+
+func TestRestore_Force_OverwritesNonEmpty(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	targetPath := sb.CreateTarget("claude")
+
+	skillPath := filepath.Join(targetPath, "my-skill")
+	os.MkdirAll(skillPath, 0755)
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# Backed Up"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	sb.RunCLI("backup").AssertSuccess(t)
+
+	// Add extra files to target
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# Changed"), 0644)
+	os.WriteFile(filepath.Join(targetPath, "extra.txt"), []byte("extra"), 0644)
+
+	result := sb.RunCLI("restore", "claude", "--force")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Restored")
+}
+
+func TestRestore_NoForce_NonEmpty_Fails(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	targetPath := sb.CreateTarget("claude")
+
+	skillPath := filepath.Join(targetPath, "my-skill")
+	os.MkdirAll(skillPath, 0755)
+	os.WriteFile(filepath.Join(skillPath, "SKILL.md"), []byte("# Original"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	sb.RunCLI("backup").AssertSuccess(t)
+
+	// Restore without --force on non-empty target
+	result := sb.RunCLI("restore", "claude")
+	result.AssertFailure(t)
+	// The error message includes "not empty" or "use --force"
+	combined := result.Stdout + result.Stderr
+	if !strings.Contains(combined, "not empty") && !strings.Contains(combined, "--force") {
+		t.Errorf("expected error about non-empty target, got: %s", combined)
+	}
+
+	// Verify files are intact
+	content, _ := os.ReadFile(filepath.Join(skillPath, "SKILL.md"))
+	if string(content) != "# Original" {
+		t.Error("failed restore should not modify files")
 	}
 }
