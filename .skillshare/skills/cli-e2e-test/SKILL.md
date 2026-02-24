@@ -74,12 +74,16 @@ Prompt user (via AskUserQuestion):
 
 ### Phase 4: Cleanup & Report
 
-1. Clean up isolated environment:
+1. Ask user before cleanup (via AskUserQuestion):
+   - **Option A**: Delete ssenv environment now
+   - **Option B**: Keep for manual debugging (print env name for later `ssenv delete`)
+
+2. If user chose Option A:
    ```bash
    docker exec $CONTAINER ssenv delete "$ENV_NAME" --force
    ```
 
-2. Output summary:
+3. Output summary:
    ```
    ── E2E Test Report ──
 
@@ -95,7 +99,7 @@ Prompt user (via AskUserQuestion):
    Result: {N}/{total} passed
    ```
 
-3. If any FAIL → analyze cause, provide fix suggestions
+4. If any FAIL → analyze cause, provide fix suggestions
 
 ## Rules
 
@@ -103,7 +107,7 @@ Prompt user (via AskUserQuestion):
 - **Always use `ssenv` for HOME isolation** — don't pollute container default HOME
 - **Verify every step** — never skip Expected checks
 - **Don't abort on failure** — record FAIL, continue to next step, summarize at end
-- **Always clean up** — Phase 4 must delete the ssenv environment
+- **Ask before cleanup** — Phase 4 must prompt user before deleting ssenv environment
 - **`ss` = `skillshare`** — same binary in runbooks
 - **`~` = ssenv-isolated HOME** — `ssenv enter` auto-sets `HOME`
 - **Use `--init`** — simplify setup by using `ssenv create <name> --init`
@@ -127,12 +131,15 @@ Prompt user (via AskUserQuestion):
 When running Go tests inside devcontainer (not via runbook):
 
 ```bash
+# ssenv changes HOME, so always cd to /workspace first for Go test commands
+cd /workspace
 go build -o bin/skillshare ./cmd/skillshare
 SKILLSHARE_TEST_BINARY="$PWD/bin/skillshare" go test ./tests/integration -count=1
 go test ./...
 ```
 
 Always run in devcontainer unless there is a documented exception.
+Note: `ssenv enter` changes HOME, which may affect Go module resolution — always `cd /workspace` before running `go test` or `go build`.
 
 ## Container Command Templates
 
@@ -155,5 +162,11 @@ docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
 docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
   TARGET=~/.claude/skills
   ls -la "$TARGET"
+'
+
+# Go tests (must cd /workspace because ssenv changes HOME)
+docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
+  cd /workspace
+  go test ./internal/install -run TestParseSource -count=1
 '
 ```
