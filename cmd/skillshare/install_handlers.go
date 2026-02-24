@@ -204,7 +204,11 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		}
 
 		installSpinner.Stop()
-		ui.SuccessMsg("Installed: %s", skill.Name)
+		if opts.DryRun {
+			ui.Warning("[dry-run] Would install: %s", skill.Name)
+		} else {
+			ui.SuccessMsg("Installed: %s", skill.Name)
+		}
 		renderInstallWarningsWithResult("", result.Warnings, opts.AuditVerbose, result)
 
 		if !opts.DryRun {
@@ -278,7 +282,11 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		}
 
 		installSpinner.Stop()
-		ui.SuccessMsg("Installed: %s", skill.Name)
+		if opts.DryRun {
+			ui.Warning("[dry-run] Would install: %s", skill.Name)
+		} else {
+			ui.SuccessMsg("Installed: %s", skill.Name)
+		}
 		renderInstallWarningsWithResult("", result.Warnings, opts.AuditVerbose, result)
 
 		if !opts.DryRun {
