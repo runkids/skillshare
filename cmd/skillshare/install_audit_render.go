@@ -475,7 +475,8 @@ func formatInstallSeverityCounts(counts map[string]int) string {
 	parts := make([]string, 0, len(installAuditSeverityOrder))
 	for _, severity := range installAuditSeverityOrder {
 		if count := counts[severity]; count > 0 {
-			parts = append(parts, fmt.Sprintf("%s=%d", severity, count))
+			label := ui.Colorize(ui.SeverityColor(severity), severity)
+			parts = append(parts, fmt.Sprintf("%s=%d", label, count))
 		}
 	}
 	return strings.Join(parts, ", ")
