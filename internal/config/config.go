@@ -42,7 +42,6 @@ type Config struct {
 	Source  string                  `yaml:"source"`
 	Mode    string                  `yaml:"mode,omitempty"` // default mode: merge
 	Targets map[string]TargetConfig `yaml:"targets"`
-	Skills  []SkillEntry            `yaml:"skills,omitempty"`
 	Ignore  []string                `yaml:"ignore,omitempty"`
 	Audit   AuditConfig             `yaml:"audit,omitempty"`
 	Hub     HubConfig               `yaml:"hub,omitempty"`
@@ -140,6 +139,10 @@ func ConfigPath() string {
 // Load reads the config from the default location
 func Load() (*Config, error) {
 	path := ConfigPath()
+
+	// Migrate skills[] to registry.yaml (one-time, silent)
+	_ = migrateSkillsToRegistry(path)
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -159,27 +162,11 @@ func Load() (*Config, error) {
 	}
 	cfg.Audit.BlockThreshold = threshold
 
-	for _, skill := range cfg.Skills {
-		if strings.TrimSpace(skill.Name) == "" {
-			return nil, fmt.Errorf("config has skill with empty name")
-		}
-		if strings.TrimSpace(skill.Source) == "" {
-			return nil, fmt.Errorf("config has skill '%s' with empty source", skill.Name)
-		}
-	}
-
 	// Expand ~ in paths
 	cfg.Source = expandPath(cfg.Source)
 	for name, target := range cfg.Targets {
 		target.Path = expandPath(target.Path)
 		cfg.Targets[name] = target
-	}
-
-	// Migrate skills[] to registry.yaml (one-time, silent)
-	if len(cfg.Skills) > 0 {
-		if err := migrateSkillsToRegistry(&cfg); err != nil {
-			return nil, err
-		}
 	}
 
 	return &cfg, nil
@@ -222,35 +209,52 @@ func expandPath(path string) string {
 	return path
 }
 
-// migrateSkillsToRegistry moves Skills[] from config.yaml to registry.yaml.
-// Called once when old-format config is detected and no registry.yaml exists.
-func migrateSkillsToRegistry(cfg *Config) error {
-	configDir := filepath.Dir(ConfigPath())
+// migrateSkillsToRegistry extracts skills[] from config.yaml into registry.yaml.
+// Uses raw YAML parsing because Config struct no longer has a Skills field.
+func migrateSkillsToRegistry(configPath string) error {
+	configDir := filepath.Dir(configPath)
 	registryPath := RegistryPath(configDir)
 
 	// Only migrate if registry.yaml doesn't already exist
 	if _, err := os.Stat(registryPath); err == nil {
-		cfg.Skills = nil // don't keep stale skills in config
 		return nil
 	}
 
-	if len(cfg.Skills) == 0 {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil
+	}
+
+	// Parse with a temporary struct to extract skills
+	var legacy struct {
+		Skills []SkillEntry `yaml:"skills,omitempty"`
+	}
+	if err := yaml.Unmarshal(data, &legacy); err != nil {
+		return nil
+	}
+
+	if len(legacy.Skills) == 0 {
 		return nil
 	}
 
 	// Write registry.yaml
-	reg := &Registry{Skills: cfg.Skills}
+	reg := &Registry{Skills: legacy.Skills}
 	if err := reg.Save(configDir); err != nil {
 		return fmt.Errorf("failed to create registry.yaml during migration: %w", err)
 	}
 
-	// Clear skills from config and re-save
-	cfg.Skills = nil
-	if err := cfg.Save(); err != nil {
-		return fmt.Errorf("failed to update config.yaml during migration: %w", err)
+	// Strip skills from config.yaml using raw map
+	var raw map[string]any
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil
 	}
-
-	return nil
+	delete(raw, "skills")
+	cleaned, err := yaml.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	cleaned = append(schemaComment, cleaned...)
+	return os.WriteFile(configPath, cleaned, 0644)
 }
 
 func normalizeAuditBlockThreshold(v string) (string, error) {

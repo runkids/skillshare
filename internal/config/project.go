@@ -110,13 +110,9 @@ func (s SkillEntry) EffectiveParts() (group, name string) {
 	return "", s.Name
 }
 
-// ProjectSkill is a type alias kept for backward compatibility.
-type ProjectSkill = SkillEntry
-
 // ProjectConfig holds project-level config (.skillshare/config.yaml).
 type ProjectConfig struct {
 	Targets []ProjectTargetEntry `yaml:"targets"`
-	Skills  []ProjectSkill       `yaml:"skills,omitempty"`
 	Audit   AuditConfig          `yaml:"audit,omitempty"`
 	Hub     HubConfig            `yaml:"hub,omitempty"`
 }
@@ -129,6 +125,10 @@ func ProjectConfigPath(projectRoot string) string {
 // LoadProject loads the project config from the given root.
 func LoadProject(projectRoot string) (*ProjectConfig, error) {
 	path := ProjectConfigPath(projectRoot)
+
+	// Migrate skills[] to registry.yaml (one-time, silent)
+	_ = migrateProjectSkillsToRegistry(path, projectRoot)
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -151,21 +151,6 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 	for _, target := range cfg.Targets {
 		if strings.TrimSpace(target.Name) == "" {
 			return nil, fmt.Errorf("project config has target with empty name")
-		}
-	}
-	for _, skill := range cfg.Skills {
-		if strings.TrimSpace(skill.Name) == "" {
-			return nil, fmt.Errorf("project config has skill with empty name")
-		}
-		if strings.TrimSpace(skill.Source) == "" {
-			return nil, fmt.Errorf("project config has skill '%s' with empty source", skill.Name)
-		}
-	}
-
-	// Migrate skills[] to registry.yaml (one-time, silent)
-	if len(cfg.Skills) > 0 {
-		if err := migrateProjectSkillsToRegistry(&cfg, projectRoot); err != nil {
-			return nil, err
 		}
 	}
 
@@ -194,31 +179,49 @@ func (c *ProjectConfig) Save(projectRoot string) error {
 	return nil
 }
 
-// migrateProjectSkillsToRegistry moves Skills[] from project config.yaml to registry.yaml.
-func migrateProjectSkillsToRegistry(cfg *ProjectConfig, projectRoot string) error {
+// migrateProjectSkillsToRegistry extracts skills[] from project config.yaml into registry.yaml.
+// Uses raw YAML parsing because ProjectConfig struct no longer has a Skills field.
+func migrateProjectSkillsToRegistry(configPath, projectRoot string) error {
 	registryDir := filepath.Join(projectRoot, ".skillshare")
 	registryPath := RegistryPath(registryDir)
 
 	if _, err := os.Stat(registryPath); err == nil {
-		cfg.Skills = nil
 		return nil
 	}
 
-	if len(cfg.Skills) == 0 {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
 		return nil
 	}
 
-	reg := &Registry{Skills: cfg.Skills}
+	var legacy struct {
+		Skills []SkillEntry `yaml:"skills,omitempty"`
+	}
+	if err := yaml.Unmarshal(data, &legacy); err != nil {
+		return nil
+	}
+
+	if len(legacy.Skills) == 0 {
+		return nil
+	}
+
+	reg := &Registry{Skills: legacy.Skills}
 	if err := reg.Save(registryDir); err != nil {
 		return fmt.Errorf("failed to create registry.yaml during project migration: %w", err)
 	}
 
-	cfg.Skills = nil
-	if err := cfg.Save(projectRoot); err != nil {
-		return fmt.Errorf("failed to update project config.yaml during migration: %w", err)
+	// Strip skills from project config.yaml
+	var raw map[string]any
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil
 	}
-
-	return nil
+	delete(raw, "skills")
+	cleaned, err := yaml.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	cleaned = append(projectSchemaComment, cleaned...)
+	return os.WriteFile(configPath, cleaned, 0644)
 }
 
 // ResolveProjectTargets converts project config targets into absolute target paths.

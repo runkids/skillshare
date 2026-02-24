@@ -67,14 +67,9 @@ func TestMigrateGlobalSkillsToRegistry(t *testing.T) {
 	}
 	t.Setenv("SKILLSHARE_CONFIG", configPath)
 
-	cfg, err := Load()
+	_, err := Load()
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
-	}
-
-	// config.Skills should be empty after migration
-	if len(cfg.Skills) != 0 {
-		t.Errorf("expected config.Skills to be empty after migration, got %d", len(cfg.Skills))
 	}
 
 	// registry.yaml should exist with the skill
@@ -149,13 +144,9 @@ func TestMigrateProjectSkillsToRegistry(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg, err := LoadProject(root)
+	_, err := LoadProject(root)
 	if err != nil {
 		t.Fatalf("LoadProject failed: %v", err)
-	}
-
-	if len(cfg.Skills) != 0 {
-		t.Errorf("expected project config.Skills empty after migration, got %d", len(cfg.Skills))
 	}
 
 	reg, err := LoadRegistry(skillshareDir)
