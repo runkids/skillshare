@@ -15,6 +15,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// tuiBrandYellow is the logo yellow used for active/selected item borders across all TUIs.
+const tuiBrandYellow = lipgloss.Color("#D4D93C")
+
 // Styles for the TUI list view.
 // Colors match existing CLI output: Cyan (\033[36m) = "6", Gray (\033[90m) = "8".
 var (
@@ -67,21 +70,18 @@ func newListTUIModel(skills []skillItem, totalCount int, modeLabel, sourcePath s
 		items[i] = s
 	}
 
-	// Create delegate with colors matching existing CLI output
+	// Create delegate — NormalTitle/SelectedTitle have NO Foreground
+	// so that Title()'s inline lipgloss colors (white name + colored badge) take effect.
 	delegate := list.NewDefaultDelegate()
-	delegate.ShowDescription = true
+	delegate.ShowDescription = false
+	delegate.SetHeight(1)
+	delegate.SetSpacing(0)
 	delegate.Styles.NormalTitle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("6")).PaddingLeft(2) // cyan — matches ui.Cyan
-	delegate.Styles.NormalDesc = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).PaddingLeft(2) // gray — matches ui.Gray
-	delegate.Styles.SelectedTitle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("6")).Bold(true).
+		Foreground(lipgloss.Color("15")).PaddingLeft(2) // bright white
+	delegate.Styles.SelectedTitle = lipgloss.NewStyle().Bold(true).
+		Foreground(tuiBrandYellow).
 		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(lipgloss.Color("6")).PaddingLeft(1)
-	delegate.Styles.SelectedDesc = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(lipgloss.Color("6")).PaddingLeft(1)
+		BorderForeground(tuiBrandYellow).PaddingLeft(1)
 
 	// Create list model
 	l := list.New(items, delegate, 0, 0)
