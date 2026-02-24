@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/check"
 	"skillshare/internal/config"
@@ -620,6 +621,23 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 		}
 	}
 
+	// --- Header (match update command style) ---
+	if !opts.json {
+		ui.Header(ui.WithModeLabel("Checking for updates"))
+		ui.StepStart("Source", sourceDir)
+		ui.StepContinue("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", len(repoNames), len(skillNames)))
+
+		// Single skill: show per-skill detail like update does
+		if len(targets) == 1 && !targets[0].isRepo {
+			t := targets[0]
+			skillPath := filepath.Join(sourceDir, t.name)
+			if meta, metaErr := install.ReadMeta(skillPath); metaErr == nil && meta != nil && meta.Source != "" {
+				ui.StepStart("Skill", t.name)
+				ui.StepContinue("Source", meta.Source)
+			}
+		}
+	}
+
 	repoInputs, urlGroups, localResults := collectCheckItems(sourceDir, repoNames, skillNames)
 
 	var urlInputs []check.URLCheckInput
@@ -634,12 +652,21 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 		totalSkills += len(group)
 	}
 	total := len(repoInputs) + totalSkills
+	isSingle := len(targets) == 1
 
+	// Single target: spinner; multiple targets: progress bar
 	var progressBar *ui.ProgressBar
+	var spinner *ui.Spinner
 	if !opts.json && total > 0 {
 		fmt.Println()
-		progressBar = ui.StartProgress("Checking targets", total)
+		if isSingle {
+			spinner = ui.StartSpinner("Checking...")
+		} else {
+			progressBar = ui.StartProgress("Checking targets", total)
+		}
 	}
+
+	startCheck := time.Now()
 
 	repoOnDone := func() {
 		if progressBar != nil {
@@ -652,10 +679,10 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 
 	if progressBar != nil {
 		progressBar.Add(totalSkills)
-	}
-
-	if progressBar != nil {
 		progressBar.Stop()
+	}
+	if spinner != nil {
+		spinner.Stop()
 	}
 
 	repoResults := toRepoResults(repoOutputs)
@@ -684,10 +711,56 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 		return nil
 	}
 
+	// Single target: use StepResult like update does
+	if isSingle {
+		r := singleCheckStatus(repoResults, skillResults)
+		ui.StepResult(r.status, r.message, time.Since(startCheck))
+		return nil
+	}
+
 	// Display results + summary (filtered: show local skills individually)
 	renderCheckResults(repoResults, skillResults, true)
 
 	return nil
+}
+
+// singleCheckResult holds the display status for a single-target check.
+type singleCheckResult struct {
+	status  string // "success" or "error"
+	message string
+}
+
+// singleCheckStatus derives a StepResult-compatible status from a single check.
+func singleCheckStatus(repos []checkRepoResult, skills []checkSkillResult) singleCheckResult {
+	// Repo results
+	for _, r := range repos {
+		switch r.Status {
+		case "up_to_date":
+			return singleCheckResult{"success", "Up to date"}
+		case "behind":
+			return singleCheckResult{"info", fmt.Sprintf("%d commit(s) behind — run 'skillshare update' to update", r.Behind)}
+		case "error":
+			return singleCheckResult{"error", r.Message}
+		default:
+			return singleCheckResult{"info", r.Status}
+		}
+	}
+	// Skill results
+	for _, s := range skills {
+		switch s.Status {
+		case "up_to_date":
+			return singleCheckResult{"success", "Up to date"}
+		case "update_available":
+			return singleCheckResult{"info", "Update available — run 'skillshare update' to update"}
+		case "local":
+			return singleCheckResult{"success", "Local skill (no remote source)"}
+		case "error":
+			return singleCheckResult{"error", "Cannot reach remote"}
+		default:
+			return singleCheckResult{"info", s.Status}
+		}
+	}
+	return singleCheckResult{"success", "Up to date"}
 }
 
 func warnUnknownSkillTargets(sourceDir string) {
