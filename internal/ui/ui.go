@@ -42,6 +42,16 @@ const (
 	BoldReset = "\033[22m"
 )
 
+// Severity color IDs (256-color palette) — single source of truth for both
+// ANSI escape codes (SeverityColor) and lipgloss styles (SeverityColorID).
+const (
+	SeverityIDCritical = "1"   // red
+	SeverityIDHigh     = "208" // orange
+	SeverityIDMedium   = "3"   // yellow
+	SeverityIDLow      = "8"   // gray
+	SeverityIDInfo     = "8"   // gray
+)
+
 // SeverityColor returns the ANSI color code for a given audit severity level.
 func SeverityColor(severity string) string {
 	switch strings.ToUpper(severity) {
@@ -53,6 +63,25 @@ func SeverityColor(severity string) string {
 		return Yellow
 	case "LOW", "INFO":
 		return Gray
+	default:
+		return ""
+	}
+}
+
+// SeverityColorID returns the 256-color palette ID for a severity level.
+// Use with lipgloss: lipgloss.Color(ui.SeverityColorID("HIGH"))
+func SeverityColorID(severity string) string {
+	switch strings.ToUpper(severity) {
+	case "CRITICAL":
+		return SeverityIDCritical
+	case "HIGH":
+		return SeverityIDHigh
+	case "MEDIUM":
+		return SeverityIDMedium
+	case "LOW":
+		return SeverityIDLow
+	case "INFO":
+		return SeverityIDInfo
 	default:
 		return ""
 	}
