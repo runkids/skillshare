@@ -23,14 +23,21 @@ type directoryGroup struct {
 	skills []install.SkillInfo
 }
 
-// groupSkillsByDirectory groups skills by filepath.Dir(path).
-// Root-level skills (path "." or dir ".") are grouped under "(root)".
+// groupSkillsByDirectory groups skills by their first directory segment
+// after stripping the given prefix. For example, with prefix "data" and
+// path "data/subdir-a/skill", the group key is "subdir-a".
+// Root-level skills (no directory segment after prefix) are grouped under "(root)".
 // Groups are sorted alphabetically by directory name, with "(root)" first.
-func groupSkillsByDirectory(skills []install.SkillInfo) []directoryGroup {
+func groupSkillsByDirectory(skills []install.SkillInfo, prefix string) []directoryGroup {
 	groupMap := make(map[string][]install.SkillInfo)
 	for _, s := range skills {
-		dir := filepath.Dir(s.Path)
-		if dir == "." || s.Path == "." {
+		rel := s.Path
+		if prefix != "" {
+			rel = strings.TrimPrefix(rel, prefix+"/")
+		}
+		dir := strings.SplitN(rel, "/", 2)[0]
+		// If no slash remained (single segment) or root path, it's a root-level skill
+		if dir == rel || dir == "." || s.Path == "." {
 			dir = "(root)"
 		}
 		groupMap[dir] = append(groupMap[dir], s)
@@ -74,7 +81,7 @@ func promptSkillSelection(skills []install.SkillInfo) ([]install.SkillInfo, erro
 
 	// Large repo: directory-based selection with search
 	if len(skills) >= largeRepoThreshold {
-		return promptLargeRepoSelection(skills)
+		return promptLargeRepoSelection(skills, "")
 	}
 
 	// Otherwise, use standard multi-select
@@ -118,9 +125,9 @@ func promptOrchestratorSelection(rootSkill install.SkillInfo, childSkills []inst
 // promptLargeRepoSelection presents a directory-based selection for large repos.
 // Stage 1: choose "install all", a directory group, or "search by name".
 // Stage 2: if a directory is chosen and has ≤50 skills, use promptMultiSelect;
-// otherwise recurse.
-func promptLargeRepoSelection(skills []install.SkillInfo) ([]install.SkillInfo, error) {
-	groups := groupSkillsByDirectory(skills)
+// otherwise recurse with the selected directory as the new prefix.
+func promptLargeRepoSelection(skills []install.SkillInfo, prefix string) ([]install.SkillInfo, error) {
+	groups := groupSkillsByDirectory(skills, prefix)
 
 	// Build options: "Install all N skills", one per directory, "Search by name"
 	options := make([]string, 0, len(groups)+2)
@@ -162,10 +169,14 @@ func promptLargeRepoSelection(skills []install.SkillInfo) ([]install.SkillInfo, 
 
 	// Directory selected (choice 1..len(groups))
 	group := groups[choice-1]
-	ui.Info("Directory: %s (%d skills)", group.dir, len(group.skills))
+	newPrefix := group.dir
+	if prefix != "" {
+		newPrefix = prefix + "/" + group.dir
+	}
+	ui.Info("Directory: %s (%d skills)", newPrefix, len(group.skills))
 
 	if len(group.skills) > largeRepoThreshold {
-		return promptLargeRepoSelection(group.skills)
+		return promptLargeRepoSelection(group.skills, newPrefix)
 	}
 	return promptMultiSelect(group.skills)
 }
