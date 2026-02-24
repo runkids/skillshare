@@ -209,7 +209,12 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 		urlOrder = append(urlOrder, url)
 	}
 
-	total := len(repoInputs) + len(urlInputs)
+	// Count total items for meaningful progress (skill count, not URL count)
+	totalSkills := 0
+	for _, group := range urlGroups {
+		totalSkills += len(group)
+	}
+	total := len(repoInputs) + totalSkills
 
 	if !jsonOutput {
 		ui.Header(ui.WithModeLabel("Checking for updates"))
@@ -224,14 +229,19 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 		progressBar = ui.StartProgress("Checking for updates", total)
 	}
 
-	onDone := func() {
+	repoOnDone := func() {
 		if progressBar != nil {
 			progressBar.Increment()
 		}
 	}
 
-	repoOutputs := check.ParallelCheckRepos(repoInputs, onDone)
-	urlOutputs := check.ParallelCheckURLs(urlInputs, onDone)
+	repoOutputs := check.ParallelCheckRepos(repoInputs, repoOnDone)
+	urlOutputs := check.ParallelCheckURLs(urlInputs, nil)
+
+	// Increment by skill count per completed URL group
+	if progressBar != nil {
+		progressBar.Add(totalSkills)
+	}
 
 	if progressBar != nil {
 		progressBar.Stop()
@@ -617,7 +627,11 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 		urlOrder = append(urlOrder, url)
 	}
 
-	total := len(repoInputs) + len(urlInputs)
+	totalSkills := 0
+	for _, group := range urlGroups {
+		totalSkills += len(group)
+	}
+	total := len(repoInputs) + totalSkills
 
 	var progressBar *ui.ProgressBar
 	if !opts.json && total > 0 {
@@ -625,14 +639,18 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 		progressBar = ui.StartProgress("Checking targets", total)
 	}
 
-	onDone := func() {
+	repoOnDone := func() {
 		if progressBar != nil {
 			progressBar.Increment()
 		}
 	}
 
-	repoOutputs := check.ParallelCheckRepos(repoInputs, onDone)
-	urlOutputs := check.ParallelCheckURLs(urlInputs, onDone)
+	repoOutputs := check.ParallelCheckRepos(repoInputs, repoOnDone)
+	urlOutputs := check.ParallelCheckURLs(urlInputs, nil)
+
+	if progressBar != nil {
+		progressBar.Add(totalSkills)
+	}
 
 	if progressBar != nil {
 		progressBar.Stop()

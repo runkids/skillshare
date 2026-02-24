@@ -320,10 +320,17 @@ func StartProgress(title string, total int) *ProgressBar {
 	return &ProgressBar{bar: bar, total: total}
 }
 
-// Increment increments progress
+// Increment increments progress by 1.
 func (p *ProgressBar) Increment() {
 	if p.bar != nil {
 		p.bar.Increment()
+	}
+}
+
+// Add increments progress by n.
+func (p *ProgressBar) Add(n int) {
+	if p.bar != nil {
+		p.bar.Add(n)
 	}
 }
 
