@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
@@ -257,9 +256,9 @@ func cmdUpdate(args []string) error {
 		t := targets[0]
 		var updateErr error
 		if t.isRepo {
-			updateErr = updateTrackedRepo(cfg, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold)
+			updateErr = updateTrackedRepo(cfg.Source, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, "")
 		} else {
-			updateErr = updateRegularSkill(cfg, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, opts.auditVerbose)
+			updateErr = updateRegularSkill(cfg.Source, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, opts.auditVerbose, "")
 		}
 
 		var opNames []string
@@ -272,7 +271,7 @@ func cmdUpdate(args []string) error {
 		return updateErr
 	}
 
-	// Multiple targets: batch path with progress bar
+	// Multiple targets: batch path
 	total := len(targets)
 	ui.Header(fmt.Sprintf("Updating %d skill(s)", total))
 	fmt.Println()
@@ -281,162 +280,8 @@ func cmdUpdate(args []string) error {
 		ui.Warning("[dry-run] No changes will be made")
 	}
 
-	progressBar := ui.StartProgress("Updating skills", total)
-
-	var result updateResult
-	var auditEntries []batchAuditEntry
-	var blockedEntries []batchBlockedEntry
-
-	// Group skills by RepoURL to optimize updates
-	repoGroups := make(map[string][]updateTarget)
-	var standaloneSkills []updateTarget
-	var trackedRepos []updateTarget
-
-	for _, t := range targets {
-		if t.isRepo {
-			trackedRepos = append(trackedRepos, t)
-			continue
-		}
-
-		meta, err := install.ReadMeta(t.path)
-		if err == nil && meta != nil && meta.RepoURL != "" {
-			repoGroups[meta.RepoURL] = append(repoGroups[meta.RepoURL], t)
-		} else {
-			standaloneSkills = append(standaloneSkills, t)
-		}
-	}
-
-	// 1. Process tracked repositories (git pull)
-	for _, t := range trackedRepos {
-		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-		updated, auditResult, err := updateTrackedRepoQuick(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.threshold, audit.ScanSkill)
-		if err != nil {
-			if isSecurityError(err) {
-				result.securityFailed++
-				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
-			} else {
-				result.skipped++
-			}
-		} else if updated {
-			result.updated++
-		} else {
-			result.skipped++
-		}
-		if auditResult != nil {
-			auditEntries = append(auditEntries, batchAuditEntryFromAuditResult(t.name, auditResult, opts.skipAudit))
-		}
-		progressBar.Increment()
-	}
-
-	// 2. Process grouped skills (one clone per repo)
-	for repoURL, groupTargets := range repoGroups {
-		if opts.dryRun {
-			for _, t := range groupTargets {
-				progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-				progressBar.Increment()
-				result.skipped++
-			}
-			continue
-		}
-
-		progressBar.UpdateTitle(fmt.Sprintf("Updating %d skills from %s", len(groupTargets), repoURL))
-
-		// Map repo-internal subdir → local absolute path
-		skillTargetMap := make(map[string]string)
-		pathToTarget := make(map[string]updateTarget)
-		for _, t := range groupTargets {
-			meta, _ := install.ReadMeta(t.path)
-			if meta != nil {
-				skillTargetMap[meta.Subdir] = t.path
-				pathToTarget[meta.Subdir] = t
-			}
-		}
-
-		batchOpts := install.InstallOptions{
-			Force:          true,
-			Update:         true,
-			SkipAudit:      opts.skipAudit,
-			AuditThreshold: opts.threshold,
-		}
-		if ui.IsTTY() {
-			batchOpts.OnProgress = func(line string) {
-				progressBar.UpdateTitle(line)
-			}
-		}
-
-		batchResult, err := install.UpdateSkillsFromRepo(repoURL, skillTargetMap, batchOpts)
-		if err != nil {
-			for _, t := range groupTargets {
-				progressBar.UpdateTitle(fmt.Sprintf("Failed %s: %v", t.name, err))
-				result.skipped++
-				progressBar.Increment()
-			}
-			continue
-		}
-
-		for subdir := range skillTargetMap {
-			t := pathToTarget[subdir]
-			progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-
-			if ui.IsTTY() {
-				time.Sleep(50 * time.Millisecond)
-			}
-
-			if err := batchResult.Errors[subdir]; err != nil {
-				if isSecurityError(err) {
-					result.securityFailed++
-					blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
-				} else {
-					result.skipped++
-				}
-			} else if res := batchResult.Results[subdir]; res != nil {
-				result.updated++
-				auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.name, res))
-			} else {
-				result.skipped++
-			}
-			progressBar.Increment()
-		}
-	}
-
-	// 3. Process standalone skills
-	for _, t := range standaloneSkills {
-		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-		installOpts := install.InstallOptions{
-			Force: true, Update: true,
-			SkipAudit: opts.skipAudit, AuditThreshold: opts.threshold,
-		}
-		updated, installRes, err := updateSkillFromMeta(t.path, opts.dryRun, installOpts)
-		if err != nil && isSecurityError(err) {
-			result.securityFailed++
-			blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
-		} else if updated {
-			result.updated++
-		} else {
-			result.skipped++
-		}
-		if installRes != nil {
-			auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.name, installRes))
-		}
-		progressBar.Increment()
-	}
-
-	progressBar.Stop()
-
-	if !opts.dryRun {
-		displayUpdateBlockedSection(blockedEntries)
-		displayUpdateAuditResults(auditEntries, opts.auditVerbose)
-		fmt.Println()
-		ui.SuccessMsg("Updated %d, skipped %d of %d skill(s)", result.updated, result.skipped, total)
-		if result.securityFailed > 0 {
-			ui.Warning("Blocked: %d (security)", result.securityFailed)
-		}
-	}
-
-	if result.updated > 0 && !opts.dryRun {
-		ui.SectionLabel("Next Steps")
-		ui.Info("Run 'skillshare sync' to distribute changes")
-	}
+	uc := &updateContext{sourcePath: cfg.Source, opts: opts}
+	_, batchErr := executeBatchUpdate(uc, targets)
 
 	// Build oplog names
 	var opNames []string
@@ -447,11 +292,6 @@ func cmdUpdate(args []string) error {
 		for _, g := range opts.groups {
 			opNames = append(opNames, "--group="+g)
 		}
-	}
-
-	var batchErr error
-	if result.securityFailed > 0 {
-		batchErr = fmt.Errorf("%d repo(s) blocked by security audit", result.securityFailed)
 	}
 	logUpdateOp(config.ConfigPath(), opNames, start, batchErr)
 

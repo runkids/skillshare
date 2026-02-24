@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"skillshare/internal/audit"
-	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/ui"
@@ -90,8 +89,8 @@ func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool, threshold s
 	return result, fmt.Errorf("security audit failed — findings at/above %s detected — rolled back (use --skip-audit to bypass): %w", normalizedThreshold, audit.ErrBlocked)
 }
 
-func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipAudit, showDiff bool, threshold string) error {
-	repoPath := filepath.Join(cfg.Source, repoName)
+func updateTrackedRepo(sourcePath, repoName string, dryRun, force, skipAudit, showDiff bool, threshold, projectRoot string) error {
+	repoPath := filepath.Join(sourcePath, repoName)
 	start := time.Now()
 
 	ui.StepStart("Repo", repoName)
@@ -195,7 +194,13 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipA
 	fmt.Println()
 
 	// Post-pull audit gate
-	if _, err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, audit.ScanSkill); err != nil {
+	var scanFn auditScanFunc = audit.ScanSkill
+	if projectRoot != "" {
+		scanFn = func(path string) (*audit.Result, error) {
+			return audit.ScanSkillForProject(path, projectRoot)
+		}
+	}
+	if _, err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, scanFn); err != nil {
 		return err
 	}
 
@@ -208,8 +213,8 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipA
 	return nil
 }
 
-func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool) error {
-	skillPath := filepath.Join(cfg.Source, skillName)
+func updateRegularSkill(sourcePath, skillName string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool, projectRoot string) error {
+	skillPath := filepath.Join(sourcePath, skillName)
 
 	// Read metadata to get source
 	meta, err := install.ReadMeta(skillPath)
@@ -244,10 +249,11 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 	spinner := ui.StartSpinner("Updating...")
 
 	opts := install.InstallOptions{
-		Force:          true,
-		Update:         true,
-		SkipAudit:      skipAudit,
-		AuditThreshold: threshold,
+		Force:            true,
+		Update:           true,
+		SkipAudit:        skipAudit,
+		AuditThreshold:   threshold,
+		AuditProjectRoot: projectRoot,
 	}
 	if ui.IsTTY() {
 		opts.OnProgress = func(line string) {
@@ -355,35 +361,35 @@ func updateSkillFromMeta(skillPath string, dryRun bool, installOpts install.Inst
 
 // updateSkillOrRepo updates a skill or repo by name, handling _ prefix and
 // basename resolution.
-func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool) error {
+func updateSkillOrRepo(sourcePath, name string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool, projectRoot string) error {
 	// Try tracked repo first (with _ prefix)
 	repoName := name
 	if !strings.HasPrefix(repoName, "_") {
 		repoName = "_" + name
 	}
-	repoPath := filepath.Join(cfg.Source, repoName)
+	repoPath := filepath.Join(sourcePath, repoName)
 
 	if install.IsGitRepo(repoPath) {
-		return updateTrackedRepo(cfg, repoName, dryRun, force, skipAudit, showDiff, threshold)
+		return updateTrackedRepo(sourcePath, repoName, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
 	}
 
 	// Try as regular skill (exact path)
-	skillPath := filepath.Join(cfg.Source, name)
+	skillPath := filepath.Join(sourcePath, name)
 	if meta, err := install.ReadMeta(skillPath); err == nil && meta != nil {
-		return updateRegularSkill(cfg, name, dryRun, force, skipAudit, showDiff, threshold, auditVerbose)
+		return updateRegularSkill(sourcePath, name, dryRun, force, skipAudit, showDiff, threshold, auditVerbose, projectRoot)
 	}
 
 	// Check if it's a nested path that exists as git repo
 	if install.IsGitRepo(skillPath) {
-		return updateTrackedRepo(cfg, name, dryRun, force, skipAudit, showDiff, threshold)
+		return updateTrackedRepo(sourcePath, name, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
 	}
 
 	// Fallback: search by basename in nested skills and repos
-	if match, err := resolveByBasename(cfg.Source, name); err == nil {
+	if match, err := resolveByBasename(sourcePath, name); err == nil {
 		if match.isRepo {
-			return updateTrackedRepo(cfg, match.name, dryRun, force, skipAudit, showDiff, threshold)
+			return updateTrackedRepo(sourcePath, match.name, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
 		}
-		return updateRegularSkill(cfg, match.name, dryRun, force, skipAudit, showDiff, threshold, auditVerbose)
+		return updateRegularSkill(sourcePath, match.name, dryRun, force, skipAudit, showDiff, threshold, auditVerbose, projectRoot)
 	} else {
 		return err
 	}

@@ -5,10 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
-	"skillshare/internal/audit"
-	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -155,9 +152,9 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	if len(targets) == 1 {
 		t := targets[0]
 		if t.isRepo {
-			return updateProjectTrackedRepo(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, projectRoot)
+			return updateTrackedRepo(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, projectRoot)
 		}
-		return updateSingleProjectSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, opts.auditVerbose, projectRoot)
+		return updateRegularSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, opts.auditVerbose, projectRoot)
 	}
 
 	// Batch mode
@@ -172,154 +169,6 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	uc := &updateContext{sourcePath: sourcePath, projectRoot: projectRoot, opts: opts}
 	_, batchErr := executeBatchUpdate(uc, targets)
 	return batchErr
-}
-
-func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool, projectRoot string) error {
-	// Normalize _ prefix for tracked repos
-	repoName := name
-	if !strings.HasPrefix(repoName, "_") {
-		prefixed := filepath.Join(sourcePath, "_"+name)
-		if install.IsGitRepo(prefixed) {
-			repoName = "_" + name
-		}
-	}
-	repoPath := filepath.Join(sourcePath, repoName)
-
-	// Try as tracked repo first
-	if install.IsGitRepo(repoPath) {
-		return updateProjectTrackedRepo(repoName, repoPath, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
-	}
-
-	// Regular skill with metadata
-	skillPath := filepath.Join(sourcePath, name)
-	if _, err := os.Stat(skillPath); err != nil {
-		return fmt.Errorf("skill '%s' not found", name)
-	}
-
-	meta, err := install.ReadMeta(skillPath)
-	if err != nil || meta == nil {
-		return fmt.Errorf("%s is a local skill, nothing to update", name)
-	}
-
-	source, err := install.ParseSource(meta.Source)
-	if err != nil {
-		return fmt.Errorf("invalid source for %s: %w", name, err)
-	}
-
-	if dryRun {
-		ui.Info("[dry-run] would update %s", name)
-		return nil
-	}
-
-	ui.StepStart("Skill", name)
-	ui.StepContinue("Source", meta.Source)
-
-	// Snapshot before update for --diff
-	var beforeHashes map[string]string
-	if showDiff {
-		beforeHashes, _ = install.ComputeFileHashes(skillPath)
-	}
-
-	startUpdate := time.Now()
-	spinner := ui.StartSpinner("Updating...")
-	opts := install.InstallOptions{
-		Force:          true,
-		Update:         true,
-		SkipAudit:      skipAudit,
-		AuditThreshold: threshold,
-	}
-	if ui.IsTTY() {
-		opts.OnProgress = func(line string) {
-			spinner.Update("   " + line) // Indent to align with tree
-		}
-	}
-	result, err := install.Install(source, skillPath, opts)
-	if err != nil {
-		spinner.Stop()
-		ui.StepResult("error", fmt.Sprintf("Failed: %v", err), 0)
-		return err
-	}
-	spinner.Stop()
-	ui.StepResult("success", "Updated successfully", time.Since(startUpdate))
-	fmt.Println()
-
-	renderInstallWarningsWithResult("", result.Warnings, auditVerbose, result)
-
-	if showDiff {
-		afterHashes, _ := install.ComputeFileHashes(skillPath)
-		renderHashDiffSummary(beforeHashes, afterHashes)
-	}
-
-	ui.SectionLabel("Next Steps")
-	ui.Info("Run 'skillshare sync' to distribute changes")
-	return nil
-}
-
-// updateProjectTrackedRepo updates a single tracked repo in project mode (verbose).
-func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudit, showDiff bool, threshold, projectRoot string) error {
-	if isDirty, _ := git.IsDirty(repoPath); isDirty {
-		if !force {
-			ui.Warning("%s has uncommitted changes (use --force to discard)", repoName)
-			return fmt.Errorf("uncommitted changes in %s", repoName)
-		}
-		if !dryRun {
-			if err := git.Restore(repoPath); err != nil {
-				return fmt.Errorf("failed to discard changes: %w", err)
-			}
-		}
-	}
-
-	if dryRun {
-		ui.Info("[dry-run] would git pull %s", repoName)
-		return nil
-	}
-
-	ui.StepStart("Repo", repoName)
-
-	startUpdate := time.Now()
-	spinner := ui.StartSpinner("Checking status...")
-	var onProgress func(string)
-	if ui.IsTTY() {
-		onProgress = func(line string) { spinner.Update(line) }
-	}
-
-	var info *git.UpdateInfo
-	var err error
-	if force {
-		info, err = git.ForcePullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
-	} else {
-		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
-	}
-	if err != nil {
-		spinner.Stop()
-		ui.StepResult("error", fmt.Sprintf("Failed: %v", err), 0)
-		return nil
-	}
-
-	if info.UpToDate {
-		spinner.Stop()
-		ui.StepResult("success", "Already up to date", time.Since(startUpdate))
-		return nil
-	}
-
-	spinner.Stop()
-	ui.StepResult("success", fmt.Sprintf("%d commits, %d files updated", len(info.Commits), info.Stats.FilesChanged), time.Since(startUpdate))
-	fmt.Println()
-
-	if showDiff {
-		renderDiffSummary(repoPath, info.BeforeHash, info.AfterHash)
-	}
-
-	scanFn := func(path string) (*audit.Result, error) {
-		return audit.ScanSkillForProject(path, projectRoot)
-	}
-	if _, err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, scanFn); err != nil {
-		return err
-	}
-
-	ui.SectionLabel("Next Steps")
-	ui.Info("Run 'skillshare sync' to distribute changes")
-	return nil
 }
 
 func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool, projectRoot string) error {
@@ -379,9 +228,9 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 	if total == 1 {
 		t := targets[0]
 		if t.isRepo {
-			return updateProjectTrackedRepo(t.name, t.path, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
+			return updateTrackedRepo(sourcePath, t.name, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
 		}
-		return updateSingleProjectSkill(sourcePath, t.name, dryRun, force, skipAudit, showDiff, threshold, auditVerbose, projectRoot)
+		return updateRegularSkill(sourcePath, t.name, dryRun, force, skipAudit, showDiff, threshold, auditVerbose, projectRoot)
 	}
 
 	uc := &updateContext{
