@@ -348,9 +348,10 @@ func (p *ProgressBar) UpdateTitle(title string) {
 	}
 }
 
-// Stop stops the progress bar
+// Stop stops the progress bar. It's safe to call even if the bar already
+// stopped itself (pterm auto-stops when Current >= Total).
 func (p *ProgressBar) Stop() {
-	if p.bar != nil {
+	if p.bar != nil && p.bar.IsActive {
 		p.bar.Stop()
 	}
 }

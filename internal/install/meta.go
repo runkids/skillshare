@@ -22,6 +22,7 @@ type SkillMeta struct {
 	RepoURL     string            `json:"repo_url,omitempty"`    // Git repo URL (for git sources)
 	Subdir      string            `json:"subdir,omitempty"`      // Subdirectory path (for monorepo)
 	Version     string            `json:"version,omitempty"`     // Git commit hash or version
+	TreeHash    string            `json:"tree_hash,omitempty"`   // Git tree SHA of Subdir
 	FileHashes  map[string]string `json:"file_hashes,omitempty"` // sha256:<hex> per file
 }
 

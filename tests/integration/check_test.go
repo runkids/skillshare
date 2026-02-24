@@ -373,6 +373,202 @@ func TestCheckProject_MultiNames(t *testing.T) {
 	result.AssertOutputNotContains(t, "beta")
 }
 
+// ── Tree hash tests ──────────────────────────────────────
+
+// TestCheck_TreeHash_SkillUnchanged verifies that when a registry repo gets a
+// new commit in a different subdir, the unchanged skill stays "up_to_date".
+func TestCheck_TreeHash_SkillUnchanged(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// Create bare remote with two skill subdirs
+	remoteRepo := filepath.Join(sb.Root, "registry.git")
+	workClone := filepath.Join(sb.Root, "work")
+	gitInit(t, remoteRepo, true)
+	gitClone(t, remoteRepo, workClone)
+
+	os.MkdirAll(filepath.Join(workClone, "skills", "skill-a"), 0755)
+	os.WriteFile(filepath.Join(workClone, "skills", "skill-a", "SKILL.md"), []byte("# Skill A"), 0644)
+	os.MkdirAll(filepath.Join(workClone, "skills", "skill-b"), 0755)
+	os.WriteFile(filepath.Join(workClone, "skills", "skill-b", "SKILL.md"), []byte("# Skill B"), 0644)
+	gitAddCommit(t, workClone, "add both skills")
+	gitPush(t, workClone)
+
+	// Get current commit hash and tree hash for skill-a
+	commitHash := gitRevParse(t, workClone, "HEAD")
+	treeHash := gitRevParse(t, workClone, "HEAD:skills/skill-a")
+
+	// Install skill-a with tree hash metadata
+	skillDir := sb.CreateSkill("skill-a", map[string]string{
+		"SKILL.md": "# Skill A",
+	})
+	writeMetaWithTreeHash(t, skillDir, "file://"+remoteRepo, commitHash, treeHash, "skills/skill-a")
+
+	// Now push a change to skill-b (skill-a is untouched)
+	os.WriteFile(filepath.Join(workClone, "skills", "skill-b", "SKILL.md"), []byte("# Skill B v2"), 0644)
+	gitAddCommit(t, workClone, "update skill-b only")
+	gitPush(t, workClone)
+
+	// Check: skill-a should be up_to_date (tree hash matches)
+	result := sb.RunCLI("check", "--json")
+	result.AssertSuccess(t)
+
+	var output checkOutput
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("failed to parse JSON: %v\noutput: %s", err, result.Stdout)
+	}
+
+	if len(output.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(output.Skills))
+	}
+	if output.Skills[0].Status != "up_to_date" {
+		t.Errorf("expected up_to_date, got %q", output.Skills[0].Status)
+	}
+}
+
+// TestCheck_TreeHash_SkillChanged verifies that when a skill's subdir changes,
+// it correctly reports "update_available".
+func TestCheck_TreeHash_SkillChanged(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	remoteRepo := filepath.Join(sb.Root, "registry.git")
+	workClone := filepath.Join(sb.Root, "work")
+	gitInit(t, remoteRepo, true)
+	gitClone(t, remoteRepo, workClone)
+
+	os.MkdirAll(filepath.Join(workClone, "skills", "my-skill"), 0755)
+	os.WriteFile(filepath.Join(workClone, "skills", "my-skill", "SKILL.md"), []byte("# V1"), 0644)
+	gitAddCommit(t, workClone, "add skill")
+	gitPush(t, workClone)
+
+	commitHash := gitRevParse(t, workClone, "HEAD")
+	treeHash := gitRevParse(t, workClone, "HEAD:skills/my-skill")
+
+	skillDir := sb.CreateSkill("my-skill", map[string]string{
+		"SKILL.md": "# V1",
+	})
+	writeMetaWithTreeHash(t, skillDir, "file://"+remoteRepo, commitHash, treeHash, "skills/my-skill")
+
+	// Modify the skill's subdir and push
+	os.WriteFile(filepath.Join(workClone, "skills", "my-skill", "SKILL.md"), []byte("# V2"), 0644)
+	gitAddCommit(t, workClone, "update skill")
+	gitPush(t, workClone)
+
+	result := sb.RunCLI("check", "--json")
+	result.AssertSuccess(t)
+
+	var output checkOutput
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("failed to parse JSON: %v\noutput: %s", err, result.Stdout)
+	}
+
+	if len(output.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(output.Skills))
+	}
+	if output.Skills[0].Status != "update_available" {
+		t.Errorf("expected update_available, got %q", output.Skills[0].Status)
+	}
+}
+
+// TestCheck_TreeHash_FallbackNoTreeHash verifies backward compatibility:
+// when meta has no TreeHash, falls back to commit hash comparison.
+func TestCheck_TreeHash_FallbackNoTreeHash(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	remoteRepo := filepath.Join(sb.Root, "registry.git")
+	workClone := filepath.Join(sb.Root, "work")
+	gitInit(t, remoteRepo, true)
+	gitClone(t, remoteRepo, workClone)
+
+	os.MkdirAll(filepath.Join(workClone, "skills", "old-skill"), 0755)
+	os.WriteFile(filepath.Join(workClone, "skills", "old-skill", "SKILL.md"), []byte("# Old"), 0644)
+	gitAddCommit(t, workClone, "add skill")
+	gitPush(t, workClone)
+
+	commitHash := gitRevParse(t, workClone, "HEAD")
+
+	// Install with old-style metadata (no tree_hash)
+	skillDir := sb.CreateSkill("old-skill", map[string]string{
+		"SKILL.md": "# Old",
+	})
+	writeMetaNoTreeHash(t, skillDir, "file://"+remoteRepo, commitHash, "skills/old-skill")
+
+	// Push an unrelated change (skill untouched)
+	os.WriteFile(filepath.Join(workClone, "README.md"), []byte("# Readme"), 0644)
+	gitAddCommit(t, workClone, "unrelated change")
+	gitPush(t, workClone)
+
+	result := sb.RunCLI("check", "--json")
+	result.AssertSuccess(t)
+
+	var output checkOutput
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("failed to parse JSON: %v\noutput: %s", err, result.Stdout)
+	}
+
+	if len(output.Skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(output.Skills))
+	}
+	// Without tree_hash, commit hash differs → update_available (backward compat)
+	if output.Skills[0].Status != "update_available" {
+		t.Errorf("expected update_available (fallback), got %q", output.Skills[0].Status)
+	}
+}
+
+// ── Tree hash test helpers ────────────────────────────────
+
+func gitRevParse(t *testing.T, dir, ref string) string {
+	t.Helper()
+	cmd := exec.Command("git", "rev-parse", ref)
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git rev-parse %s failed: %v", ref, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func writeMetaWithTreeHash(t *testing.T, skillDir, repoURL, version, treeHash, subdir string) {
+	t.Helper()
+	meta := map[string]any{
+		"source":       repoURL + "//" + subdir,
+		"type":         "github",
+		"repo_url":     repoURL,
+		"version":      version,
+		"tree_hash":    treeHash,
+		"subdir":       subdir,
+		"installed_at": "2026-01-01T00:00:00Z",
+	}
+	data, _ := json.Marshal(meta)
+	if err := os.WriteFile(filepath.Join(skillDir, ".skillshare-meta.json"), data, 0644); err != nil {
+		t.Fatalf("writeMetaWithTreeHash: %v", err)
+	}
+}
+
+func writeMetaNoTreeHash(t *testing.T, skillDir, repoURL, version, subdir string) {
+	t.Helper()
+	meta := map[string]any{
+		"source":       repoURL + "//" + subdir,
+		"type":         "github",
+		"repo_url":     repoURL,
+		"version":      version,
+		"subdir":       subdir,
+		"installed_at": "2026-01-01T00:00:00Z",
+	}
+	data, _ := json.Marshal(meta)
+	if err := os.WriteFile(filepath.Join(skillDir, ".skillshare-meta.json"), data, 0644); err != nil {
+		t.Fatalf("writeMetaNoTreeHash: %v", err)
+	}
+}
+
 // checkOutput mirrors the JSON structure for test parsing
 type checkOutput struct {
 	TrackedRepos []struct {

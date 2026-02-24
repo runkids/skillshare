@@ -60,7 +60,7 @@ type dirPickerLevel struct {
 type dirPickerModel struct {
 	list       list.Model
 	allSkills  []install.SkillInfo
-	stack      []dirPickerLevel   // stack[0] = root
+	stack      []dirPickerLevel    // stack[0] = root
 	result     []install.SkillInfo // selected skills (nil = cancelled)
 	installAll bool                // true when user chose "Install all"
 	quitting   bool
@@ -303,7 +303,7 @@ func (i skillSelectItem) Title() string {
 }
 
 func (i skillSelectItem) Description() string { return "" }
-func (i skillSelectItem) FilterValue() string  { return i.name }
+func (i skillSelectItem) FilterValue() string { return i.name }
 
 // skillSelectModel is the bubbletea model for skill multi-select.
 type skillSelectModel struct {

@@ -240,36 +240,14 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 	// Convert repo outputs
 	repoResults := toRepoResults(repoOutputs)
 
-	// Broadcast URL results to grouped skills
+	// Broadcast URL results to grouped skills (with per-skill tree hash comparison)
 	urlHashMap := make(map[string]check.URLCheckOutput)
 	for _, out := range urlOutputs {
 		urlHashMap[out.RepoURL] = out
 	}
 
-	var skillResults []checkSkillResult
-	skillResults = append(skillResults, localResults...)
-
-	for _, url := range urlOrder {
-		out := urlHashMap[url]
-		for _, sw := range urlGroups[url] {
-			result := checkSkillResult{
-				Name:    sw.name,
-				Source:  sw.meta.Source,
-				Version: sw.meta.Version,
-			}
-			if !sw.meta.InstalledAt.IsZero() {
-				result.InstalledAt = sw.meta.InstalledAt.Format("2006-01-02")
-			}
-			if out.Err != nil {
-				result.Status = "error"
-			} else if sw.meta.Version == out.RemoteHash {
-				result.Status = "up_to_date"
-			} else {
-				result.Status = "update_available"
-			}
-			skillResults = append(skillResults, result)
-		}
-	}
+	skillResults := resolveSkillStatuses(urlGroups, urlHashMap, urlOrder)
+	skillResults = append(localResults, skillResults...)
 
 	// JSON output
 	if jsonOutput {
@@ -427,6 +405,121 @@ func toRepoResults(outputs []check.RepoCheckOutput) []checkRepoResult {
 	return results
 }
 
+// resolveSkillStatuses determines the status of each skill using tree hash
+// comparison when available, falling back to commit hash comparison.
+//
+// Fast path: if all skills in a URL group have Version == RemoteHash,
+// they are all up_to_date without any additional network call.
+//
+// Slow path: when HEAD moved, skills with TreeHash are compared via
+// blobless fetch + ls-tree. Skills without TreeHash fall back to
+// commit-level comparison (existing behavior).
+func resolveSkillStatuses(
+	urlGroups map[string][]skillWithMeta,
+	urlHashMap map[string]check.URLCheckOutput,
+	urlOrder []string,
+) []checkSkillResult {
+	var results []checkSkillResult
+
+	for _, url := range urlOrder {
+		out := urlHashMap[url]
+		group := urlGroups[url]
+
+		// Pre-fill base result fields for each skill
+		type pending struct {
+			result checkSkillResult
+			meta   *install.SkillMeta
+		}
+		items := make([]pending, len(group))
+		for i, sw := range group {
+			r := checkSkillResult{
+				Name:    sw.name,
+				Source:  sw.meta.Source,
+				Version: sw.meta.Version,
+			}
+			if !sw.meta.InstalledAt.IsZero() {
+				r.InstalledAt = sw.meta.InstalledAt.Format("2006-01-02")
+			}
+			items[i] = pending{result: r, meta: sw.meta}
+		}
+
+		// Error from ls-remote → all error
+		if out.Err != nil {
+			for i := range items {
+				items[i].result.Status = "error"
+			}
+			for _, it := range items {
+				results = append(results, it.result)
+			}
+			continue
+		}
+
+		// Fast path: commit hash matches → all up_to_date
+		allMatch := true
+		for _, it := range items {
+			if it.meta.Version != out.RemoteHash {
+				allMatch = false
+				break
+			}
+		}
+		if allMatch {
+			for i := range items {
+				items[i].result.Status = "up_to_date"
+			}
+			for _, it := range items {
+				results = append(results, it.result)
+			}
+			continue
+		}
+
+		// Slow path: HEAD moved — collect subdirs that have TreeHash
+		var subdirs []string
+		for _, it := range items {
+			if it.meta.TreeHash != "" && it.meta.Subdir != "" {
+				subdirs = append(subdirs, it.meta.Subdir)
+			}
+		}
+
+		// Fetch remote tree hashes once per URL (nil on error → fallback)
+		var remoteTreeHashes map[string]string
+		if len(subdirs) > 0 {
+			remoteTreeHashes = check.FetchRemoteTreeHashes(url)
+		}
+
+		for i, it := range items {
+			// Already matched by commit hash → up_to_date
+			if it.meta.Version == out.RemoteHash {
+				items[i].result.Status = "up_to_date"
+				continue
+			}
+
+			// Try tree hash comparison
+			if it.meta.TreeHash != "" && it.meta.Subdir != "" && remoteTreeHashes != nil {
+				if remoteHash, ok := remoteTreeHashes[it.meta.Subdir]; ok {
+					if it.meta.TreeHash == remoteHash {
+						items[i].result.Status = "up_to_date"
+					} else {
+						items[i].result.Status = "update_available"
+					}
+				} else {
+					// Subdir not found remotely (deleted?)
+					items[i].result.Status = "update_available"
+				}
+				continue
+			}
+
+			// Fallback: commit hash differs, no tree hash → update_available
+			items[i].result.Status = "update_available"
+		}
+
+		for _, it := range items {
+			results = append(results, it.result)
+		}
+	}
+
+	return results
+}
+
 // runCheckFiltered checks only the specified targets (resolved from names/groups).
 func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 	// --- Resolve targets ---
@@ -552,30 +645,8 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 		urlHashMap[out.RepoURL] = out
 	}
 
-	var skillResults []checkSkillResult
-	skillResults = append(skillResults, localResults...)
-
-	for _, url := range urlOrder {
-		out := urlHashMap[url]
-		for _, sw := range urlGroups[url] {
-			result := checkSkillResult{
-				Name:    sw.name,
-				Source:  sw.meta.Source,
-				Version: sw.meta.Version,
-			}
-			if !sw.meta.InstalledAt.IsZero() {
-				result.InstalledAt = sw.meta.InstalledAt.Format("2006-01-02")
-			}
-			if out.Err != nil {
-				result.Status = "error"
-			} else if sw.meta.Version == out.RemoteHash {
-				result.Status = "up_to_date"
-			} else {
-				result.Status = "update_available"
-			}
-			skillResults = append(skillResults, result)
-		}
-	}
+	skillResults := resolveSkillStatuses(urlGroups, urlHashMap, urlOrder)
+	skillResults = append(localResults, skillResults...)
 
 	if opts.json {
 		output := checkOutput{

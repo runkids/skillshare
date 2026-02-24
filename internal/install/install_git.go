@@ -182,4 +182,21 @@ func gitResetHard(repoPath, rev string) error {
 	return cmd.Run()
 }
 
+// getSubdirTreeHash returns the git tree hash for a subdirectory within a repo.
+// This is the SHA of the tree object for that directory — it changes only when
+// files inside the subdir change, even if the repo HEAD moves.
+// Returns "" on any error (no .git, subdir not found, etc.).
+func getSubdirTreeHash(repoPath, subdir string) string {
+	if subdir == "" {
+		return ""
+	}
+	cmd := exec.Command("git", "rev-parse", "HEAD:"+subdir)
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 // copyDir copies a directory recursively

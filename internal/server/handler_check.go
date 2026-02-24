@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"path/filepath"
 
+	"skillshare/internal/check"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 )
@@ -53,34 +54,114 @@ func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
 		repoResults = append(repoResults, result)
 	}
 
-	var skillResults []skillCheckResult
+	// Group skills by repo URL for efficient checking
+	type skillWithMeta struct {
+		name string
+		meta *install.SkillMeta
+	}
+	urlGroups := make(map[string][]skillWithMeta)
+	var localResults []skillCheckResult
+
 	for _, skill := range skills {
 		skillPath := filepath.Join(sourceDir, skill)
-		result := skillCheckResult{Name: skill}
-
 		meta, err := install.ReadMeta(skillPath)
 		if err != nil || meta == nil || meta.RepoURL == "" {
-			result.Status = "local"
-			skillResults = append(skillResults, result)
+			localResults = append(localResults, skillCheckResult{
+				Name:   skill,
+				Status: "local",
+			})
+			continue
+		}
+		urlGroups[meta.RepoURL] = append(urlGroups[meta.RepoURL], skillWithMeta{
+			name: skill,
+			meta: meta,
+		})
+	}
+
+	skillResults := append([]skillCheckResult{}, localResults...)
+
+	for url, group := range urlGroups {
+		// Get remote HEAD hash
+		remoteHash, err := git.GetRemoteHeadHash(url)
+
+		if err != nil {
+			for _, sw := range group {
+				r := skillCheckResult{
+					Name:    sw.name,
+					Source:  sw.meta.Source,
+					Version: sw.meta.Version,
+					Status:  "error",
+				}
+				if !sw.meta.InstalledAt.IsZero() {
+					r.InstalledAt = sw.meta.InstalledAt.Format("2006-01-02")
+				}
+				skillResults = append(skillResults, r)
+			}
 			continue
 		}
 
-		result.Source = meta.Source
-		result.Version = meta.Version
-		if !meta.InstalledAt.IsZero() {
-			result.InstalledAt = meta.InstalledAt.Format("2006-01-02")
+		// Fast path: check if all skills match by commit hash
+		allMatch := true
+		for _, sw := range group {
+			if sw.meta.Version != remoteHash {
+				allMatch = false
+				break
+			}
+		}
+		if allMatch {
+			for _, sw := range group {
+				r := skillCheckResult{
+					Name:    sw.name,
+					Source:  sw.meta.Source,
+					Version: sw.meta.Version,
+					Status:  "up_to_date",
+				}
+				if !sw.meta.InstalledAt.IsZero() {
+					r.InstalledAt = sw.meta.InstalledAt.Format("2006-01-02")
+				}
+				skillResults = append(skillResults, r)
+			}
+			continue
 		}
 
-		remoteHash, err := git.GetRemoteHeadHash(meta.RepoURL)
-		if err != nil {
-			result.Status = "error"
-		} else if meta.Version == remoteHash {
-			result.Status = "up_to_date"
-		} else {
-			result.Status = "update_available"
+		// Slow path: HEAD moved — try tree hash comparison
+		var hasTreeHash bool
+		for _, sw := range group {
+			if sw.meta.TreeHash != "" && sw.meta.Subdir != "" {
+				hasTreeHash = true
+				break
+			}
 		}
 
-		skillResults = append(skillResults, result)
+		var remoteTreeHashes map[string]string
+		if hasTreeHash {
+			remoteTreeHashes = check.FetchRemoteTreeHashes(url)
+		}
+
+		for _, sw := range group {
+			r := skillCheckResult{
+				Name:    sw.name,
+				Source:  sw.meta.Source,
+				Version: sw.meta.Version,
+			}
+			if !sw.meta.InstalledAt.IsZero() {
+				r.InstalledAt = sw.meta.InstalledAt.Format("2006-01-02")
+			}
+
+			if sw.meta.Version == remoteHash {
+				r.Status = "up_to_date"
+			} else if sw.meta.TreeHash != "" && sw.meta.Subdir != "" && remoteTreeHashes != nil {
+				if rh, ok := remoteTreeHashes[sw.meta.Subdir]; ok && sw.meta.TreeHash == rh {
+					r.Status = "up_to_date"
+				} else {
+					r.Status = "update_available"
+				}
+			} else {
+				r.Status = "update_available"
+			}
+
+			skillResults = append(skillResults, r)
+		}
 	}
 
 	if repoResults == nil {
