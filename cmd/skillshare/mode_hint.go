@@ -7,8 +7,6 @@ import (
 	"skillshare/internal/ui"
 )
 
-var preferredModeHintTargets = []string{"cursor", "antigravity", "copilot", "opencode"}
-
 func effectiveSyncMode(targetMode, defaultMode string) string {
 	mode := normalizeSyncMode(targetMode)
 	if mode == "" {
@@ -18,26 +16,6 @@ func effectiveSyncMode(targetMode, defaultMode string) string {
 		mode = "merge"
 	}
 	return mode
-}
-
-func modeHintExampleTarget(targets map[string]config.TargetConfig, defaultMode string) string {
-	if len(targets) == 0 {
-		return ""
-	}
-
-	// Keep hints quiet for simple setups (e.g. claude/codex only) and only
-	// suggest copy mode for targets that more commonly need compatibility tuning.
-	for _, preferred := range preferredModeHintTargets {
-		target, ok := targets[preferred]
-		if !ok {
-			continue
-		}
-		mode := effectiveSyncMode(target.Mode, defaultMode)
-		if mode == "merge" || mode == "symlink" {
-			return preferred
-		}
-	}
-	return ""
 }
 
 func modeHintCommand(targetName string, projectMode bool) string {
@@ -50,15 +28,24 @@ func modeHintCommand(targetName string, projectMode bool) string {
 	return fmt.Sprintf("skillshare target %s --mode copy && skillshare sync", targetName)
 }
 
-func printPerTargetModeHint(targets map[string]config.TargetConfig, defaultMode string, projectMode bool) {
-	example := modeHintExampleTarget(targets, defaultMode)
-	if example == "" {
+func printSymlinkCompatHint(targets map[string]config.TargetConfig, defaultMode string, projectMode bool) {
+	// Find any target that uses a non-copy mode (merge or symlink).
+	var exampleTarget string
+	for name, target := range targets {
+		mode := effectiveSyncMode(target.Mode, defaultMode)
+		if mode != "copy" {
+			exampleTarget = name
+			break
+		}
+	}
+	if exampleTarget == "" {
 		return
 	}
 
-	// Keep this hint subtle and visually separated from sync/doctor results.
 	fmt.Println()
-	fmt.Printf("%sHint:%s tune sync mode per target when needed\n", ui.Muted, ui.Reset)
-	fmt.Printf("%s  %s%s\n", ui.Muted, modeHintCommand(example, projectMode), ui.Reset)
+	ui.Info("Symlink compatibility: some tools cannot read symlinked skills.")
+	ui.Info("  If a tool can't discover your skills, switch it to copy mode:")
+	cmd := modeHintCommand(exampleTarget, projectMode)
+	fmt.Printf("  %s%s%s\n", ui.Muted, cmd, ui.Reset)
 	fmt.Println()
 }

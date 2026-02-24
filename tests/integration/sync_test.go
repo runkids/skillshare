@@ -47,7 +47,7 @@ targets:
 	}
 }
 
-func TestSync_ShowsPerTargetModeHint(t *testing.T) {
+func TestSync_ShowsSymlinkCompatHint(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -66,11 +66,11 @@ targets:
 	result := sb.RunCLI("sync", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "tune sync mode per target")
-	result.AssertOutputContains(t, "skillshare target cursor --mode copy && skillshare sync")
+	result.AssertOutputContains(t, "Symlink compatibility")
+	result.AssertOutputContains(t, "--mode copy")
 }
 
-func TestSync_DoesNotShowPerTargetModeHint_ForClaudeCodexOnly(t *testing.T) {
+func TestSync_NoSymlinkCompatHint_WhenAllCopy(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -78,18 +78,19 @@ func TestSync_DoesNotShowPerTargetModeHint_ForClaudeCodexOnly(t *testing.T) {
 	codexPath := sb.CreateTarget("codex")
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
-mode: merge
 targets:
   claude:
     path: ` + claudePath + `
+    mode: copy
   codex:
     path: ` + codexPath + `
+    mode: copy
 `)
 
 	result := sb.RunCLI("sync", "--dry-run")
 
 	result.AssertSuccess(t)
-	result.AssertOutputNotContains(t, "tune sync mode per target")
+	result.AssertOutputNotContains(t, "Symlink compatibility")
 }
 
 func TestSync_MergeMode_PreservesLocalSkills(t *testing.T) {
