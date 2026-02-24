@@ -98,6 +98,27 @@ func TestGetSubdirTreeHash_ChangesOnModify(t *testing.T) {
 	}
 }
 
+func TestGetSubdirTreeHash_LeadingSlash(t *testing.T) {
+	repo := initTestRepo(t)
+
+	subdir := filepath.Join(repo, "skills", "my-skill")
+	os.MkdirAll(subdir, 0755)
+	os.WriteFile(filepath.Join(subdir, "SKILL.md"), []byte("# Test"), 0644)
+	gitAdd(t, repo, ".")
+	gitCommit(t, repo, "add skill")
+
+	// Leading slash (as stored by //-syntax sources) should work identically
+	hashNoSlash := getSubdirTreeHash(repo, "skills/my-skill")
+	hashWithSlash := getSubdirTreeHash(repo, "/skills/my-skill")
+
+	if hashNoSlash == "" {
+		t.Fatal("expected non-empty tree hash without slash")
+	}
+	if hashWithSlash != hashNoSlash {
+		t.Errorf("leading slash gave different result: %q vs %q", hashWithSlash, hashNoSlash)
+	}
+}
+
 // --- test helpers ---
 
 func initTestRepo(t *testing.T) string {

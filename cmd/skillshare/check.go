@@ -505,7 +505,9 @@ func resolveSkillStatuses(
 
 			// Try tree hash comparison
 			if it.meta.TreeHash != "" && it.meta.Subdir != "" && remoteTreeHashes != nil {
-				if remoteHash, ok := remoteTreeHashes[it.meta.Subdir]; ok {
+				// ls-tree paths never have leading "/", but meta.Subdir may
+				normalizedSubdir := strings.TrimPrefix(it.meta.Subdir, "/")
+				if remoteHash, ok := remoteTreeHashes[normalizedSubdir]; ok {
 					if it.meta.TreeHash == remoteHash {
 						items[i].result.Status = "up_to_date"
 					} else {
