@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
@@ -308,7 +309,7 @@ func cmdUpdate(args []string) error {
 	// 1. Process tracked repositories (git pull)
 	for _, t := range trackedRepos {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-		updated, auditResult, err := updateTrackedRepoQuick(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.threshold)
+		updated, auditResult, err := updateTrackedRepoQuick(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.threshold, audit.ScanSkill)
 		if err != nil {
 			if isSecurityError(err) {
 				result.securityFailed++
@@ -401,7 +402,11 @@ func cmdUpdate(args []string) error {
 	// 3. Process standalone skills
 	for _, t := range standaloneSkills {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-		updated, installRes, err := updateSkillFromMeta(t.name, t.path, opts.dryRun, opts.skipAudit, opts.threshold)
+		installOpts := install.InstallOptions{
+			Force: true, Update: true,
+			SkipAudit: opts.skipAudit, AuditThreshold: opts.threshold,
+		}
+		updated, installRes, err := updateSkillFromMeta(t.path, opts.dryRun, installOpts)
 		if err != nil && isSecurityError(err) {
 			result.securityFailed++
 			blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
