@@ -175,6 +175,13 @@ func Load() (*Config, error) {
 		cfg.Targets[name] = target
 	}
 
+	// Migrate skills[] to registry.yaml (one-time, silent)
+	if len(cfg.Skills) > 0 {
+		if err := migrateSkillsToRegistry(&cfg); err != nil {
+			return nil, err
+		}
+	}
+
 	return &cfg, nil
 }
 
@@ -213,6 +220,37 @@ func expandPath(path string) string {
 		return filepath.Join(home, path[1:])
 	}
 	return path
+}
+
+// migrateSkillsToRegistry moves Skills[] from config.yaml to registry.yaml.
+// Called once when old-format config is detected and no registry.yaml exists.
+func migrateSkillsToRegistry(cfg *Config) error {
+	configDir := filepath.Dir(ConfigPath())
+	registryPath := RegistryPath(configDir)
+
+	// Only migrate if registry.yaml doesn't already exist
+	if _, err := os.Stat(registryPath); err == nil {
+		cfg.Skills = nil // don't keep stale skills in config
+		return nil
+	}
+
+	if len(cfg.Skills) == 0 {
+		return nil
+	}
+
+	// Write registry.yaml
+	reg := &Registry{Skills: cfg.Skills}
+	if err := reg.Save(configDir); err != nil {
+		return fmt.Errorf("failed to create registry.yaml during migration: %w", err)
+	}
+
+	// Clear skills from config and re-save
+	cfg.Skills = nil
+	if err := cfg.Save(); err != nil {
+		return fmt.Errorf("failed to update config.yaml during migration: %w", err)
+	}
+
+	return nil
 }
 
 func normalizeAuditBlockThreshold(v string) (string, error) {

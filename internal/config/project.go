@@ -162,6 +162,13 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 		}
 	}
 
+	// Migrate skills[] to registry.yaml (one-time, silent)
+	if len(cfg.Skills) > 0 {
+		if err := migrateProjectSkillsToRegistry(&cfg, projectRoot); err != nil {
+			return nil, err
+		}
+	}
+
 	return &cfg, nil
 }
 
@@ -182,6 +189,33 @@ func (c *ProjectConfig) Save(projectRoot string) error {
 
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("failed to write project config: %w", err)
+	}
+
+	return nil
+}
+
+// migrateProjectSkillsToRegistry moves Skills[] from project config.yaml to registry.yaml.
+func migrateProjectSkillsToRegistry(cfg *ProjectConfig, projectRoot string) error {
+	registryDir := filepath.Join(projectRoot, ".skillshare")
+	registryPath := RegistryPath(registryDir)
+
+	if _, err := os.Stat(registryPath); err == nil {
+		cfg.Skills = nil
+		return nil
+	}
+
+	if len(cfg.Skills) == 0 {
+		return nil
+	}
+
+	reg := &Registry{Skills: cfg.Skills}
+	if err := reg.Save(registryDir); err != nil {
+		return fmt.Errorf("failed to create registry.yaml during project migration: %w", err)
+	}
+
+	cfg.Skills = nil
+	if err := cfg.Save(projectRoot); err != nil {
+		return fmt.Errorf("failed to update project config.yaml during migration: %w", err)
 	}
 
 	return nil
