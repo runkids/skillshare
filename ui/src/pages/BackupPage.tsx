@@ -13,6 +13,7 @@ import { api } from '../api/client';
 import type { BackupInfo } from '../api/client';
 import { useApi } from '../hooks/useApi';
 import { useAppContext } from '../context/AppContext';
+import { formatSize } from '../lib/format';
 import Card from '../components/Card';
 import HandButton from '../components/HandButton';
 import Badge from '../components/Badge';
@@ -170,9 +171,9 @@ export default function BackupPage() {
                 ? 'No backups yet'
                 : `${backups.length} backup${backups.length !== 1 ? 's' : ''} on file`}
             </p>
-            {data && data.totalSizeMB > 0 && (
+            {data && data.totalSizeBytes > 0 && (
               <p className="text-sm text-pencil-light">
-                Total size: {data.totalSizeMB.toFixed(1)} MB
+                Total size: {formatSize(data.totalSizeBytes)}
               </p>
             )}
           </div>
@@ -303,9 +304,9 @@ function BackupCard({
               {timeAgo(backup.date)}
             </span>
           </div>
-          {backup.sizeMB > 0 && (
+          {backup.sizeBytes > 0 && (
             <span className="text-xs text-pencil-light">
-              {backup.sizeMB.toFixed(1)} MB
+              {formatSize(backup.sizeBytes)}
             </span>
           )}
         </div>

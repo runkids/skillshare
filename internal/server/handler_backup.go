@@ -13,7 +13,7 @@ type backupInfoJSON struct {
 	Path      string   `json:"path"`
 	Targets   []string `json:"targets"`
 	Date      string   `json:"date"`
-	SizeMB    float64  `json:"sizeMB"`
+	SizeBytes int64    `json:"sizeBytes"`
 }
 
 func toBackupJSON(b backup.BackupInfo) backupInfoJSON {
@@ -22,7 +22,7 @@ func toBackupJSON(b backup.BackupInfo) backupInfoJSON {
 		Path:      b.Path,
 		Targets:   b.Targets,
 		Date:      b.Date.Format("2006-01-02T15:04:05Z07:00"),
-		SizeMB:    float64(backup.Size(b.Path)) / 1024 / 1024,
+		SizeBytes: backup.Size(b.Path),
 	}
 }
 
@@ -41,8 +41,8 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request) {
 
 	total, _ := backup.TotalSize()
 	writeJSON(w, map[string]any{
-		"backups":     items,
-		"totalSizeMB": float64(total) / 1024 / 1024,
+		"backups":        items,
+		"totalSizeBytes": total,
 	})
 }
 

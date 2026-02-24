@@ -9,6 +9,7 @@ import { api } from '../api/client';
 import type { TrashedSkill } from '../api/client';
 import { useApi } from '../hooks/useApi';
 import { useAppContext } from '../context/AppContext';
+import { formatSize } from '../lib/format';
 import Card from '../components/Card';
 import HandButton from '../components/HandButton';
 import Badge from '../components/Badge';
@@ -29,14 +30,6 @@ function timeAgo(dateStr: string): string {
   const days = Math.floor(hrs / 24);
   if (days < 30) return `${days}d ago`;
   return `${Math.floor(days / 30)}mo ago`;
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const kb = bytes / 1024;
-  if (kb < 1024) return `${kb.toFixed(1)} KB`;
-  const mb = kb / 1024;
-  return `${mb.toFixed(1)} MB`;
 }
 
 export default function TrashPage() {

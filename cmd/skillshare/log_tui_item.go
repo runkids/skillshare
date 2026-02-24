@@ -7,7 +7,6 @@ import (
 	"skillshare/internal/oplog"
 )
 
-
 // logItem wraps oplog.Entry to implement bubbles/list.Item interface.
 type logItem struct {
 	entry  oplog.Entry

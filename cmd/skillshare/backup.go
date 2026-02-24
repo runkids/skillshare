@@ -172,14 +172,14 @@ func backupList() error {
 	}
 
 	totalSize, _ := backup.TotalSize()
-	ui.Header(fmt.Sprintf("All backups (%.1f MB total)", float64(totalSize)/(1024*1024)))
+	ui.Header(fmt.Sprintf("All backups (%s total)", formatBytes(totalSize)))
 
 	for _, b := range backups {
 		size := backup.Size(b.Path)
-		fmt.Printf("  %s  %-20s  %6.1f MB  %s\n",
+		fmt.Printf("  %s  %-20s  %8s  %s\n",
 			b.Timestamp,
 			strings.Join(b.Targets, ", "),
-			float64(size)/(1024*1024),
+			formatBytes(size),
 			b.Path)
 	}
 
@@ -201,7 +201,7 @@ func backupCleanup() error {
 	}
 
 	totalSize, _ := backup.TotalSize()
-	ui.Info("Current: %d backups, %.1f MB total", len(backups), float64(totalSize)/(1024*1024))
+	ui.Info("Current: %d backups, %s total", len(backups), formatBytes(totalSize))
 
 	// Use default cleanup config
 	cfg := backup.DefaultCleanupConfig()
@@ -212,9 +212,9 @@ func backupCleanup() error {
 
 	if removed > 0 {
 		newSize, _ := backup.TotalSize()
-		ui.Success("Removed %d old backups (freed %.1f MB)",
+		ui.Success("Removed %d old backups (freed %s)",
 			removed,
-			float64(totalSize-newSize)/(1024*1024))
+			formatBytes(totalSize-newSize))
 	} else {
 		ui.Info("No backups needed to be removed")
 	}
@@ -236,12 +236,12 @@ func backupCleanupDryRun() error {
 	}
 
 	totalSize, _ := backup.TotalSize()
-	ui.Info("Current: %d backups, %.1f MB total", len(backups), float64(totalSize)/(1024*1024))
+	ui.Info("Current: %d backups, %s total", len(backups), formatBytes(totalSize))
 
 	cfg := backup.DefaultCleanupConfig()
 	removed, freed := planBackupCleanup(backups, cfg, time.Now())
 	if removed > 0 {
-		ui.Warning("Dry run - would remove %d old backups (free %.1f MB)", removed, float64(freed)/(1024*1024))
+		ui.Warning("Dry run - would remove %d old backups (free %s)", removed, formatBytes(freed))
 	} else {
 		ui.Info("Dry run - no backups needed to be removed")
 	}
