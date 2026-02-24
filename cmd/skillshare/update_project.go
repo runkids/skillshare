@@ -47,7 +47,8 @@ func cmdUpdateProject(args []string, root string) error {
 	fmt.Println()
 
 	if opts.all {
-		return updateAllProjectSkills(sourcePath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, opts.auditVerbose, root)
+		uc := &updateContext{sourcePath: sourcePath, projectRoot: root, opts: opts}
+		return updateAllProjectSkills(uc)
 	}
 
 	return cmdUpdateProjectBatch(sourcePath, opts, root)
@@ -171,21 +172,19 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	return batchErr
 }
 
-func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool, projectRoot string) error {
+func updateAllProjectSkills(uc *updateContext) error {
 	var targets []updateTarget
 
-	err := filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(uc.sourcePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
-		if path == sourcePath {
+		if path == uc.sourcePath {
 			return nil
 		}
-		// Skip hidden directories (like .skillshare)
 		if info.IsDir() && utils.IsHidden(info.Name()) {
 			return filepath.SkipDir
 		}
-		// Skip .git
 		if info.IsDir() && info.Name() == ".git" {
 			return filepath.SkipDir
 		}
@@ -193,9 +192,9 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 		// Tracked repo (_-prefixed)
 		if info.IsDir() && strings.HasPrefix(info.Name(), "_") {
 			if install.IsGitRepo(path) {
-				rel, _ := filepath.Rel(sourcePath, path)
+				rel, _ := filepath.Rel(uc.sourcePath, path)
 				targets = append(targets, updateTarget{name: rel, path: path, isRepo: true})
-				return filepath.SkipDir // Don't look inside tracked repos
+				return filepath.SkipDir
 			}
 		}
 
@@ -204,7 +203,7 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 			skillDir := filepath.Dir(path)
 			meta, metaErr := install.ReadMeta(skillDir)
 			if metaErr == nil && meta != nil && meta.Source != "" {
-				rel, _ := filepath.Rel(sourcePath, skillDir)
+				rel, _ := filepath.Rel(uc.sourcePath, skillDir)
 				if rel != "." {
 					targets = append(targets, updateTarget{name: rel, path: skillDir, isRepo: false})
 				}
@@ -228,28 +227,15 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 	if total == 1 {
 		t := targets[0]
 		if t.isRepo {
-			return updateTrackedRepo(sourcePath, t.name, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
+			return updateTrackedRepo(uc.sourcePath, t.name, uc.opts.dryRun, uc.opts.force, uc.opts.skipAudit, uc.opts.diff, uc.opts.threshold, uc.projectRoot)
 		}
-		return updateRegularSkill(sourcePath, t.name, dryRun, force, skipAudit, showDiff, threshold, auditVerbose, projectRoot)
-	}
-
-	uc := &updateContext{
-		sourcePath:  sourcePath,
-		projectRoot: projectRoot,
-		opts: &updateOptions{
-			dryRun:       dryRun,
-			force:        force,
-			skipAudit:    skipAudit,
-			diff:         showDiff,
-			threshold:    threshold,
-			auditVerbose: auditVerbose,
-		},
+		return updateRegularSkill(uc.sourcePath, t.name, uc.opts.dryRun, uc.opts.force, uc.opts.skipAudit, uc.opts.diff, uc.opts.threshold, uc.opts.auditVerbose, uc.projectRoot)
 	}
 
 	ui.Header(fmt.Sprintf("Updating %d skill(s)", total))
 	fmt.Println()
 
-	if dryRun {
+	if uc.opts.dryRun {
 		ui.Warning("[dry-run] No changes will be made")
 	}
 
