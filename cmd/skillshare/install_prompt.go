@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -122,63 +121,31 @@ func promptOrchestratorSelection(rootSkill install.SkillInfo, childSkills []inst
 	return promptMultiSelect(childSkills)
 }
 
-// promptLargeRepoSelection presents a directory-based selection for large repos.
-// Stage 1: choose "install all", a directory group, or "search by name".
-// Stage 2: if a directory is chosen and has ≤50 skills, use promptMultiSelect;
-// otherwise recurse with the selected directory as the new prefix.
-func promptLargeRepoSelection(skills []install.SkillInfo, prefix string) ([]install.SkillInfo, error) {
-	groups := groupSkillsByDirectory(skills, prefix)
-
-	// Build options: "Install all N skills", one per directory, "Search by name"
-	options := make([]string, 0, len(groups)+2)
-	options = append(options, fmt.Sprintf("Install all %d skills", len(skills)))
-	for _, g := range groups {
-		options = append(options, fmt.Sprintf("%-30s  \033[90m(%d skills)\033[0m", g.dir, len(g.skills)))
+// promptLargeRepoSelection presents a TUI directory picker for large repos.
+// The TUI supports multi-level navigation with backspace to go back.
+// prefix is unused (kept for caller compatibility); the TUI manages its own prefix stack.
+func promptLargeRepoSelection(skills []install.SkillInfo, _ string) ([]install.SkillInfo, error) {
+	for {
+		selected, installAll, err := runDirPickerTUI(skills)
+		if err != nil {
+			return nil, err
+		}
+		if selected == nil {
+			return nil, nil // user cancelled from TUI
+		}
+		if installAll {
+			return selected, nil
+		}
+		// Leaf directory — let user pick individual skills
+		result, err := promptMultiSelect(selected)
+		if err != nil {
+			return nil, err
+		}
+		if result != nil {
+			return result, nil
+		}
+		// User cancelled from MultiSelect — loop back to TUI
 	}
-	options = append(options, "Search by name")
-
-	pageSize := len(groups) + 2
-	if pageSize > 20 {
-		pageSize = 20
-	}
-
-	var choice int
-	prompt := &survey.Select{
-		Message:  fmt.Sprintf("Found %d skills in %d directories:", len(skills), len(groups)),
-		Options:  options,
-		PageSize: pageSize,
-	}
-
-	err := survey.AskOne(prompt, &choice, survey.WithIcons(func(icons *survey.IconSet) {
-		icons.SelectFocus.Text = "▸"
-		icons.SelectFocus.Format = "yellow"
-	}))
-	if err != nil {
-		return nil, nil // user cancelled
-	}
-
-	// "Install all"
-	if choice == 0 {
-		return skills, nil
-	}
-
-	// "Search by name"
-	if choice == len(options)-1 {
-		return promptSearchSelect(skills)
-	}
-
-	// Directory selected (choice 1..len(groups))
-	group := groups[choice-1]
-	newPrefix := group.dir
-	if prefix != "" {
-		newPrefix = prefix + "/" + group.dir
-	}
-	ui.Info("Directory: %s (%d skills)", newPrefix, len(group.skills))
-
-	if len(group.skills) > largeRepoThreshold {
-		return promptLargeRepoSelection(group.skills, newPrefix)
-	}
-	return promptMultiSelect(group.skills)
 }
 
 // promptSearchSelect lets the user search skills by name with fuzzy matching.
@@ -226,59 +193,7 @@ func promptSearchSelect(skills []install.SkillInfo) ([]install.SkillInfo, error)
 }
 
 func promptMultiSelect(skills []install.SkillInfo) ([]install.SkillInfo, error) {
-	// Sort by path so skills in the same directory cluster together
-	sorted := make([]install.SkillInfo, len(skills))
-	copy(sorted, skills)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].Path < sorted[j].Path
-	})
-	skills = sorted
-
-	options := make([]string, len(skills))
-	for i, skill := range skills {
-		dir := filepath.Dir(skill.Path)
-		var loc string
-		switch {
-		case skill.Path == ".":
-			loc = "root"
-		case dir == ".":
-			loc = "root"
-		default:
-			loc = dir
-		}
-		label := skill.Name
-		if skill.License != "" {
-			label += fmt.Sprintf(" (%s)", skill.License)
-		}
-		options[i] = fmt.Sprintf("%s  \033[90m%s\033[0m", label, loc)
-	}
-
-	var selectedIndices []int
-	prompt := &survey.MultiSelect{
-		Message:  "Select skills to install:",
-		Options:  options,
-		PageSize: 15,
-	}
-
-	err := survey.AskOne(prompt, &selectedIndices,
-		survey.WithKeepFilter(true),
-		survey.WithIcons(func(icons *survey.IconSet) {
-			icons.UnmarkedOption.Text = " "
-			icons.MarkedOption.Text = "✓"
-			icons.MarkedOption.Format = "green"
-			icons.SelectFocus.Text = "▸"
-			icons.SelectFocus.Format = "yellow"
-		}))
-	if err != nil {
-		return nil, nil
-	}
-
-	selected := make([]install.SkillInfo, len(selectedIndices))
-	for i, idx := range selectedIndices {
-		selected[i] = skills[idx]
-	}
-
-	return selected, nil
+	return runSkillSelectTUI(skills)
 }
 
 // selectSkills routes to the appropriate skill selection method:

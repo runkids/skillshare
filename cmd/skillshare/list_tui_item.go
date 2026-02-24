@@ -23,17 +23,25 @@ func (i skillItem) FilterValue() string {
 	return strings.Join(parts, " ")
 }
 
-// Title returns the skill name for the list delegate.
-// When the skill is nested (e.g. "frontend/react-helper"), show the full
-// relative path so the group context is visible in the flat list.
+// Title returns the skill name with a type badge for the list delegate.
+// Name is bright white; badge: tracked → green, local → gray.
 func (i skillItem) Title() string {
+	name := i.entry.Name
 	if i.entry.RelPath != "" && i.entry.RelPath != i.entry.Name {
-		return i.entry.RelPath
+		name = i.entry.RelPath
 	}
-	return i.entry.Name
+	title := name
+
+	if i.entry.RepoName != "" {
+		title += "  [tracked]"
+	} else if i.entry.Source == "" {
+		title += "  [local]"
+	}
+	return title
 }
 
 // Description returns a one-line summary for the list delegate.
+// Local skills return "" since the [local] badge in Title() already conveys this.
 func (i skillItem) Description() string {
 	if i.entry.RepoName != "" {
 		return fmt.Sprintf("tracked: %s", i.entry.RepoName)
@@ -41,7 +49,7 @@ func (i skillItem) Description() string {
 	if i.entry.Source != "" {
 		return abbreviateSource(i.entry.Source)
 	}
-	return "local"
+	return ""
 }
 
 // toSkillItems converts a slice of skillEntry to skillItem slice.

@@ -38,13 +38,13 @@ func newLogTUIModel(items []logItem, logLabel, modeLabel string) logTUIModel {
 	delegate.Styles.NormalDesc = lipgloss.NewStyle().
 		Foreground(lipgloss.Color("8")).PaddingLeft(2)
 	delegate.Styles.SelectedTitle = lipgloss.NewStyle().
-		Bold(true).
+		Bold(true).Foreground(tuiBrandYellow).
 		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(lipgloss.Color("6")).PaddingLeft(1)
+		BorderForeground(tuiBrandYellow).PaddingLeft(1)
 	delegate.Styles.SelectedDesc = lipgloss.NewStyle().
 		Foreground(lipgloss.Color("8")).
 		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(lipgloss.Color("6")).PaddingLeft(1)
+		BorderForeground(tuiBrandYellow).PaddingLeft(1)
 
 	l := list.New(listItems, delegate, 0, 0)
 	l.Title = fmt.Sprintf("Log: %s (%s)", logLabel, modeLabel)
