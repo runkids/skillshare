@@ -60,6 +60,7 @@ type listTUIModel struct {
 	targets    map[string]config.TargetConfig
 	quitting   bool
 	action     string // "audit", "update", "uninstall", or "" (normal quit)
+	termWidth  int
 }
 
 // newListTUIModel creates a new TUI model from skill entries.
@@ -112,8 +113,9 @@ func (m listTUIModel) Init() tea.Cmd {
 func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		m.termWidth = msg.Width
 		// Reserve space for detail panel + help
-		m.list.SetSize(msg.Width, msg.Height-12)
+		m.list.SetSize(msg.Width, msg.Height-16)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -186,15 +188,36 @@ func (m listTUIModel) renderDetailPanel(e skillEntry) string {
 		b.WriteString("\n")
 	}
 
-	// Description from SKILL.md frontmatter
+	// Description from SKILL.md frontmatter — word-wrapped to terminal width
 	skillDir := filepath.Join(m.sourcePath, e.RelPath)
 	skillMD := filepath.Join(skillDir, "SKILL.md")
 	if desc := utils.ParseFrontmatterField(skillMD, "description"); desc != "" {
-		// Truncate long descriptions to one line
-		if len(desc) > 80 {
-			desc = desc[:77] + "..."
+		// 2 (left padding) + 14 (label width) = 16 chars before value
+		const labelOffset = 16
+		maxWidth := m.termWidth - labelOffset
+		if maxWidth < 40 {
+			maxWidth = 40
 		}
-		row("Description:", desc)
+		lines := wordWrapLines(desc, maxWidth)
+		const maxDescLines = 3
+		truncated := len(lines) > maxDescLines
+		if truncated {
+			lines = lines[:maxDescLines]
+			lines[maxDescLines-1] += "..."
+		}
+		row("Description:", lines[0])
+		indent := strings.Repeat(" ", labelOffset)
+		for _, line := range lines[1:] {
+			b.WriteString(indent)
+			b.WriteString(tuiDetailValueStyle.Render(line))
+			b.WriteString("\n")
+		}
+		b.WriteString("\n") // blank line after multi-line description
+	}
+
+	// License from SKILL.md frontmatter
+	if license := utils.ParseFrontmatterField(skillMD, "license"); license != "" {
+		row("License:", license)
 	}
 
 	// Disk path
@@ -291,4 +314,25 @@ func runListTUI(skills []skillItem, totalCount int, modeLabel, sourcePath string
 		}
 	}
 	return m.action, skillName, nil
+}
+
+// wordWrapLines splits text into lines that fit within maxWidth, breaking at word boundaries.
+func wordWrapLines(text string, maxWidth int) []string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return []string{""}
+	}
+
+	var lines []string
+	cur := words[0]
+	for _, w := range words[1:] {
+		if len(cur)+1+len(w) > maxWidth {
+			lines = append(lines, cur)
+			cur = w
+		} else {
+			cur += " " + w
+		}
+	}
+	lines = append(lines, cur)
+	return lines
 }
