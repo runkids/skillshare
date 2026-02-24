@@ -239,13 +239,13 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %d skills from %s", len(groupTargets), repoURL))
 
-		// Map targets by their relative path within the repo
-		skillRelPaths := make([]string, 0, len(groupTargets))
+		// Map repo-internal subdir → local absolute path
+		skillTargetMap := make(map[string]string)
 		pathToTarget := make(map[string]projectTarget)
 		for _, t := range groupTargets {
 			meta, _ := install.ReadMeta(t.path)
 			if meta != nil {
-				skillRelPaths = append(skillRelPaths, meta.Subdir)
+				skillTargetMap[meta.Subdir] = t.path
 				pathToTarget[meta.Subdir] = t
 			}
 		}
@@ -263,7 +263,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 			}
 		}
 
-		batchResult, err := install.UpdateSkillsFromRepo(repoURL, skillRelPaths, sourcePath, batchOpts)
+		batchResult, err := install.UpdateSkillsFromRepo(repoURL, skillTargetMap, batchOpts)
 		if err != nil {
 			for _, t := range groupTargets {
 				progressBar.UpdateTitle(fmt.Sprintf("Failed %s: %v", t.name, err))
@@ -273,22 +273,22 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 			continue
 		}
 
-		for _, relPath := range skillRelPaths {
-			t := pathToTarget[relPath]
+		for subdir := range skillTargetMap {
+			t := pathToTarget[subdir]
 			progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
 
 			if ui.IsTTY() {
 				time.Sleep(50 * time.Millisecond)
 			}
 
-			if err := batchResult.Errors[relPath]; err != nil {
+			if err := batchResult.Errors[subdir]; err != nil {
 				if isSecurityError(err) {
 					securityFailed++
 					blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 				} else {
 					skipped++
 				}
-			} else if res := batchResult.Results[relPath]; res != nil {
+			} else if res := batchResult.Results[subdir]; res != nil {
 				updated++
 				auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.name, res))
 			} else {
@@ -702,13 +702,13 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %d skills from %s", len(groupTargets), repoURL))
 
-		// Map targets by their relative path within the repo
-		skillRelPaths := make([]string, 0, len(groupTargets))
+		// Map repo-internal subdir → local absolute path
+		skillTargetMap := make(map[string]string)
 		pathToTarget := make(map[string]target)
 		for _, t := range groupTargets {
 			meta, _ := install.ReadMeta(t.path)
 			if meta != nil {
-				skillRelPaths = append(skillRelPaths, meta.Subdir)
+				skillTargetMap[meta.Subdir] = t.path
 				pathToTarget[meta.Subdir] = t
 			}
 		}
@@ -725,7 +725,7 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 			}
 		}
 
-		batchResult, err := install.UpdateSkillsFromRepo(repoURL, skillRelPaths, sourcePath, batchOpts)
+		batchResult, err := install.UpdateSkillsFromRepo(repoURL, skillTargetMap, batchOpts)
 		if err != nil {
 			for _, t := range groupTargets {
 				progressBar.UpdateTitle(fmt.Sprintf("Failed %s: %v", t.name, err))
@@ -735,22 +735,22 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 			continue
 		}
 
-		for _, relPath := range skillRelPaths {
-			t := pathToTarget[relPath]
+		for subdir := range skillTargetMap {
+			t := pathToTarget[subdir]
 			progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
 
 			if ui.IsTTY() {
 				time.Sleep(50 * time.Millisecond)
 			}
 
-			if err := batchResult.Errors[relPath]; err != nil {
+			if err := batchResult.Errors[subdir]; err != nil {
 				if isSecurityError(err) {
 					securityFailed++
 					blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 				} else {
 					skipped++
 				}
-			} else if res := batchResult.Results[relPath]; res != nil {
+			} else if res := batchResult.Results[subdir]; res != nil {
 				updated++
 				auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.name, res))
 			} else {
