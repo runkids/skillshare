@@ -449,7 +449,7 @@ func TestList_JSON_OutputsValidJSON(t *testing.T) {
 
 	sb.CreateSkill("alpha", map[string]string{"SKILL.md": "# Alpha"})
 	sb.CreateSkill("beta", map[string]string{
-		"SKILL.md": "# Beta",
+		"SKILL.md":              "# Beta",
 		".skillshare-meta.json": `{"source":"github.com/user/repo","type":"github","installed_at":"2024-06-01T00:00:00Z"}`,
 	})
 

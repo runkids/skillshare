@@ -22,6 +22,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api, type CollectScanTarget, type CollectResult } from '../api/client';
 import { wobbly, shadows } from '../design';
+import { formatSize } from '../lib/format';
 
 type Phase = 'idle' | 'scanning' | 'scanned' | 'collecting' | 'done';
 
@@ -587,8 +588,3 @@ function DetailList({
   );
 }
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}

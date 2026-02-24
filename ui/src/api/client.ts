@@ -381,12 +381,12 @@ export interface BackupInfo {
   path: string;
   targets: string[];
   date: string;
-  sizeMB: number;
+  sizeBytes: number;
 }
 
 export interface BackupListResponse {
   backups: BackupInfo[];
-  totalSizeMB: number;
+  totalSizeBytes: number;
 }
 
 // Check types

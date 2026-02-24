@@ -205,7 +205,7 @@ func colorizeSeverityBreakdown(value string) string {
 		lipgloss.NewStyle().Foreground(lipgloss.Color("208")), // high — orange
 		lipgloss.NewStyle().Foreground(lipgloss.Color("3")),   // medium — yellow
 		lipgloss.NewStyle().Foreground(lipgloss.Color("8")),   // low — gray
-		lipgloss.NewStyle(),                                    // info — default
+		lipgloss.NewStyle(), // info — default
 	}
 	for i, p := range parts {
 		parts[i] = styles[i].Render(p)
