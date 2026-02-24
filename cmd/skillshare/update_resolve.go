@@ -10,8 +10,8 @@ import (
 )
 
 type updateTarget struct {
-	name string // relative path from source dir (display name)
-	path string // absolute path on disk
+	name   string // relative path from source dir (display name)
+	path   string // absolute path on disk
 	isRepo bool
 }
 
