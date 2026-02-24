@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.16.0] - 2026-02-25
+
+### Performance
+
+- **Per-skill tree hash comparison for `check`** — `skillshare check` now uses blobless git fetches (~150-200 KB) and compares per-skill directory tree hashes instead of whole-commit hashes; detects updates to individual skills within monorepos without downloading full history ([#46](https://github.com/runkids/skillshare/issues/46))
+- **Parallel checking with bounded concurrency** — `check` and `check --all` run up to 8 concurrent workers; deduplicates `ls-remote` calls for repos hosting multiple skills; progress bar now shows skill count instead of URL count ([#46](https://github.com/runkids/skillshare/issues/46))
+- **Sparse checkout for subdir installs** — `install owner/repo/subdir` uses `git sparse-checkout` (git 2.25+) to clone only the needed subdirectory with `--filter=blob:none`; falls back to full clone on older git versions (fixes [#46](https://github.com/runkids/skillshare/issues/46))
+- **Batch update progress** — `update --all` now shows a progress bar with the current skill name during batch operations
+
+### New Features
+
+- **Interactive TUI for `list`** — `skillshare list` launches a bubbletea TUI with fuzzy search, filter, sort, and a detail panel showing description, license, and metadata; inline actions: audit, update, and uninstall directly from the list (`skillshare list --no-tui` for plain text)
+- **Interactive TUI for `log`** — `skillshare log` launches a bubbletea TUI with fuzzy filter and detail panel for browsing operation history (`skillshare log --no-tui` for plain text)
+- **Interactive TUI for `search`** — `skillshare search` results now use a bubbletea multi-select checkbox interface instead of survey prompts
+- **Interactive TUI for `init`** — target selection in `skillshare init` now uses a bubbletea checklist with descriptions instead of survey multi-select
+- **Skill registry separation** — installed skill metadata moved from `config.yaml` to `registry.yaml`; `config.yaml` remains focused on user settings (targets, audit thresholds, custom targets); silent auto-migration on first v0.16.0 run — no user action required
+- **Project-mode skills for this repo** — `.skillshare/skills/` ships 5 built-in project skills for contributors: `cli-e2e-test`, `codebase-audit`, `implement-feature`, `update-docs`, `changelog`; install with `skillshare sync -p` in the repo
+- **Restore validation preview** — Web UI restore modal now shows a pre-restore validation with conflict warnings, backup size, and symlink detection before committing (`POST /api/restore/validate`)
+- **Expanded detail panel in `list` TUI** — detail view now includes word-wrapped description and license field
+
+### Changed
+
+- **CLI visual language overhaul** — all single-item operations (install, update, check) now use a consistent hierarchical layout with structured labels (`Source:`, `Items:`, `Skill:`) and adaptive spinners; audit findings section only appears when findings exist
+- **`check` single-skill output** — single skill/repo checks now use the same hierarchical tree layout as `update` with spinner and step results instead of a progress bar
+- **`check` summarizes clean results** — up-to-date and local-only skills are now shown as summary counts (e.g., "3 up to date, 2 local") instead of listing each one individually
+- **Symlink compat hint moved to `doctor`** — per-target mode hints removed from `sync` output; `doctor` now shows a universal symlink compatibility notice when relevant targets are configured
+- **Web UI migrated to TanStack Query** — all API calls use `@tanstack/react-query` with automatic caching, deduplication, and background refetching; Skills page uses virtual scrolling for large collections
+- **Deprecated `openclaude` target removed** — replaced by `openclaw`; existing configs using `openclaude` should update to `openclaw`
+
+### Fixed
+
+- **Infinite loop in directory picker for large repos** — bubbletea directory picker now handles repos with many subdirectories without hanging
+- **Leading slash in subdir path breaks tree hash lookup** — `check` now normalizes `//skills/foo` to `skills/foo` for consistent path matching
+- **`update --all` in project mode skipped nested skills** — recursive skill discovery now enabled for project-mode `update --all`
+- **Batch update path duplication** — `update --all` now uses caller-provided destination paths to prevent doubled path segments
+- **`file://` URL subdir extraction** — `install file:///path/to/repo//subdir` now correctly extracts subdirectories via the `//` separator
+- **Git clone progress missing in batch update** — progress output now wired through to batch update operations
+- **Backup restore with symlinks** — `ValidateRestore` now uses `os.Lstat` to correctly detect symlink targets instead of following them
+
 ## [0.15.5] - 2026-02-23
 
 ### Added
