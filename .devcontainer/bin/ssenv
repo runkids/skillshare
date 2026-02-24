@@ -7,7 +7,7 @@ if [ "${1:-}" = "--eval" ]; then
   shift
 fi
 
-ENV_ROOT="${SSENV_ROOT:-/tmp/ss-envs}"
+ENV_ROOT="${SSENV_ROOT:-$HOME/.ss-envs}"
 mkdir -p "$ENV_ROOT"
 
 usage() {
@@ -91,7 +91,18 @@ emit_use_commands() {
 }
 
 cmd_create() {
-  local name="${1:-}"
+  local name=""
+  local do_init=false
+  
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --init) do_init=true ;;
+      -*) die "unknown option: $1" ;;
+      *) if [ -z "$name" ]; then name="$1"; else die "too many arguments for create"; fi ;;
+    esac
+    shift
+  done
+
   if [ -z "$name" ]; then
     name="env-$(date +%Y%m%d-%H%M%S)"
   fi
@@ -103,6 +114,14 @@ cmd_create() {
   fi
 
   ensure_layout "$path"
+  
+  if [ "$do_init" = true ]; then
+    echo "▸ Initializing $name ($path) ..."
+    # Use the wrapper binary with the new HOME to perform global init
+    HOME="$path" /workspace/.devcontainer/bin/skillshare init -g --no-copy --all-targets --no-git --skill >/dev/null 2>&1
+    echo "  ✓ Global config initialized"
+  fi
+
   echo "created: $name -> $path"
   echo "activate: eval \"\$(ssenv --eval use $name)\""
 }

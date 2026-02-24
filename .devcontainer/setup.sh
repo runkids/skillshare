@@ -6,8 +6,8 @@
 #   HOME=/tmp  |  binary at /workspace/bin/skillshare  |  PATH includes /workspace/bin
 set -euo pipefail
 
-if [ "${HOME:-}" != "/tmp" ] || [ ! -d /workspace ] || [ ! -f /workspace/go.mod ]; then
-  echo "Refusing to run: expected devcontainer context (HOME=/tmp, /workspace mounted)." >&2
+if [[ "${HOME:-}" != "/tmp" && "${HOME:-}" != "/home/developer" ]] || [ ! -d /workspace ] || [ ! -f /workspace/go.mod ]; then
+  echo "Refusing to run: expected devcontainer context (HOME=/tmp or /home/developer, /workspace mounted)." >&2
   exit 1
 fi
 cd /workspace
@@ -39,10 +39,6 @@ fi
 # ── 1. Build CLI ────────────────────────────────────────────────────
 echo "▸ Building skillshare binary …"
 make build
-
-# ── 1a. Install air (Go hot-reload) — optional, `ui` command auto-installs if missing
-echo "▸ Installing air (hot-reload) …"
-go install github.com/air-verse/air@latest || echo "  ⚠ air install failed (will auto-install on first 'ui' run)"
 
 # ── 1b. Ensure Linux binary + stable command symlinks ─────────────
 echo "▸ Verifying skillshare command targets …"

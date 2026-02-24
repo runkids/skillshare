@@ -11,24 +11,27 @@ Run isolated E2E tests in devcontainer. $ARGUMENTS specifies runbook name or "ne
 
 ### Phase 0: Environment Check
 
-1. Confirm devcontainer is running:
+1. Confirm devcontainer is running and get container ID:
    ```bash
-   docker compose -f .devcontainer/docker-compose.yml ps --format json
+   CONTAINER=$(docker compose -f .devcontainer/docker-compose.yml ps -q skillshare-devcontainer)
    ```
-   - If not running → prompt user: `docker compose -f .devcontainer/docker-compose.yml up -d`
-   - Wait until container is running
+   - If empty → prompt user: `docker compose -f .devcontainer/docker-compose.yml up -d`
+   - Ensure `CONTAINER` is set for all subsequent `docker exec` calls.
 
 2. Confirm Linux binary is available:
    ```bash
-   docker exec skillshare_devcontainer-skillshare-devcontainer-1 bash -c \
+   docker exec $CONTAINER bash -c \
      '/workspace/.devcontainer/ensure-skillshare-linux-binary.sh && ss version'
    ```
 
 ### Phase 1: Detect Scope
 
 1. Read all `*_runbook.md` files under `ai_docs/tests/` to list available runbooks
-2. Read `git diff HEAD~3 --stat` to identify recent code changes
-3. Match changes to relevant runbooks (compare runbook Scope sections with changed file paths)
+2. Identify recent changes (unstaged + recent commits):
+   ```bash
+   git diff --name-only HEAD~3
+   ```
+3. Match changes to relevant runbooks.
 
 ### Phase 2: Select Tests
 
@@ -43,20 +46,19 @@ Prompt user (via AskUserQuestion):
 #### Running existing runbook:
 
 1. Read the selected runbook `.md` file
-2. Create isolated environment and execute step by step:
+2. Create isolated environment with **auto-initialization**:
    ```bash
-   # Container name
-   CONTAINER="skillshare_devcontainer-skillshare-devcontainer-1"
    ENV_NAME="e2e-$(date +%Y%m%d-%H%M%S)"
 
-   # Create isolated environment
-   docker exec $CONTAINER ssenv create "$ENV_NAME"
+   # Use --init to automatically run 'ss init -g' with all targets
+   docker exec $CONTAINER ssenv create "$ENV_NAME" --init
+   ```
 
-   # Isolated HOME has no target dirs by default — create them before init
-   docker exec $CONTAINER ssenv enter "$ENV_NAME" -- mkdir -p ~/.claude ~/.codex
-
-   # Execute each step from runbook (ssenv enter isolates HOME)
-   docker exec $CONTAINER ssenv enter "$ENV_NAME" -- <command>
+3. Execute each step from runbook:
+   ```bash
+   # Use SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 to prevent redirection to demo-project
+   docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
+     ssenv enter "$ENV_NAME" -- <command>
    ```
 3. After each step, verify conditions in the Expected block
 4. Mark each step PASS / FAIL
@@ -104,7 +106,7 @@ Prompt user (via AskUserQuestion):
 - **Always clean up** — Phase 4 must delete the ssenv environment
 - **`ss` = `skillshare`** — same binary in runbooks
 - **`~` = ssenv-isolated HOME** — `ssenv enter` auto-sets `HOME`
-- **Create target dirs first** — isolated HOME has no `.claude`/`.codex` etc.; `mkdir -p` before `init`
+- **Use `--init`** — simplify setup by using `ssenv create <name> --init`
 
 ## ssenv Quick Reference
 

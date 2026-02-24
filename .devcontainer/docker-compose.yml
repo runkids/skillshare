@@ -10,7 +10,7 @@ services:
     working_dir: /workspace
     command: sleep infinity
     environment:
-      HOME: /tmp
+      HOME: /home/developer
       GOCACHE: /go/build-cache
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       GITLAB_TOKEN: ${GITLAB_TOKEN:-}
@@ -21,9 +21,11 @@ services:
       - ..:/workspace
       - go-mod-cache:/go/pkg/mod
       - go-build-cache:/go/build-cache
+      - dev-home:/home/developer
     security_opt:
       - no-new-privileges:true
 
 volumes:
   go-mod-cache:
   go-build-cache:
+  dev-home:

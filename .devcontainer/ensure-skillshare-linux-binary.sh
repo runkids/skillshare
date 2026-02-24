@@ -61,7 +61,7 @@ else
   ln -sf "$BIN" /usr/local/bin/ss
 fi
 
-for cmd in ssenv sshelp ssnew ssuse ssback ssls; do
+for cmd in ssenv sshelp ssnew ssuse ssback ssls help; do
   if [ -x "$WRAPPER_DIR/$cmd" ]; then
     ln -sf "$WRAPPER_DIR/$cmd" "/usr/local/bin/$cmd"
   fi
