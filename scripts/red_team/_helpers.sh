@@ -49,17 +49,21 @@ $content
 SKILL_EOF
 }
 
-# Run skillshare with isolated config
+# Run skillshare with isolated config.
+# -g is placed after the subcommand to force global mode,
+# preventing auto-detection of .skillshare/ in the working directory.
 ss() {
-  SKILLSHARE_CONFIG="$CONFIG_PATH" "$BIN" "$@" 2>&1
+  local cmd="$1"; shift
+  SKILLSHARE_CONFIG="$CONFIG_PATH" "$BIN" "$cmd" -g "$@" 2>&1
 }
 
 # Run skillshare, capture output + exit code
 # Sets: SS_OUTPUT, SS_EXIT
 ss_capture() {
+  local cmd="$1"; shift
   SS_OUTPUT=""
   SS_EXIT=0
-  SS_OUTPUT="$(SKILLSHARE_CONFIG="$CONFIG_PATH" "$BIN" "$@" 2>&1)" || SS_EXIT=$?
+  SS_OUTPUT="$(SKILLSHARE_CONFIG="$CONFIG_PATH" "$BIN" "$cmd" -g "$@" 2>&1)" || SS_EXIT=$?
 }
 
 # ── Assertion helpers ──────────────────────────────────────────────

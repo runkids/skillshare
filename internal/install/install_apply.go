@@ -250,24 +250,9 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	var resolved string
 	var commitHash string
 
-	// Fast path 1: GitHub/GHE Contents API
-	if isGitHubAPISource(source) {
-		owner, repo := source.GitHubOwner(), source.GitHubRepo()
-		resolved = source.Subdir
-		subdirPath = filepath.Join(tempRepoPath, resolved)
-		hash, dlErr := downloadGitHubDir(owner, repo, source.Subdir, subdirPath, source, opts.OnProgress)
-		if dlErr == nil {
-			commitHash = hash
-		} else {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("GitHub API install fallback: %v", dlErr))
-			subdirPath = ""
-			_ = os.RemoveAll(tempRepoPath)
-		}
-	}
-
-	// Fast path 2: sparse checkout fallback when API path is unavailable
-	// or unsupported (works for GitHub and non-GitHub hosts).
-	if subdirPath == "" && gitSupportsSparseCheckout() {
+	// Fast path 1: sparse checkout (preferred for speed if git is modern)
+	// Works for GitHub and non-GitHub hosts.
+	if gitSupportsSparseCheckout() {
 		resolved = source.Subdir
 		if err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, authEnv(source.CloneURL), opts.OnProgress); err == nil {
 			subdirPath = filepath.Join(tempRepoPath, resolved)
@@ -280,6 +265,23 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 			}
 		} else {
 			result.Warnings = append(result.Warnings, fmt.Sprintf("sparse checkout install fallback: %v", err))
+			_ = os.RemoveAll(tempRepoPath)
+			subdirPath = ""
+		}
+	}
+
+	// Fast path 2: GitHub/GHE Contents API
+	// Fallback for when sparse checkout is unavailable or fails.
+	if subdirPath == "" && isGitHubAPISource(source) {
+		owner, repo := source.GitHubOwner(), source.GitHubRepo()
+		resolved = source.Subdir
+		subdirPath = filepath.Join(tempRepoPath, resolved)
+		hash, dlErr := downloadGitHubDir(owner, repo, source.Subdir, subdirPath, source, opts.OnProgress)
+		if dlErr == nil {
+			commitHash = hash
+		} else {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("GitHub API install fallback: %v", dlErr))
+			subdirPath = ""
 			_ = os.RemoveAll(tempRepoPath)
 		}
 	}
