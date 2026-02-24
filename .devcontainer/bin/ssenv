@@ -64,7 +64,9 @@ ensure_layout() {
     "$path/.config" \
     "$path/.local/share" \
     "$path/.local/state" \
-    "$path/.cache"
+    "$path/.cache" \
+    "$path/.claude" \
+    "$path/.codex"
 }
 
 emit_export() {
