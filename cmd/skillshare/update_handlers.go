@@ -282,7 +282,7 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 // updateTrackedRepoQuick updates a single tracked repo in batch mode.
 // Output is suppressed; caller handles display via progress bar.
 // Returns (updated, auditResult, error).
-func updateTrackedRepoQuick(repo, repoPath string, dryRun, force, skipAudit bool, threshold string) (bool, *audit.Result, error) {
+func updateTrackedRepoQuick(repo, repoPath string, dryRun, force, skipAudit bool, threshold string, scanFn auditScanFunc) (bool, *audit.Result, error) {
 	// Check for uncommitted changes
 	if isDirty, _ := git.IsDirty(repoPath); isDirty {
 		if !force {
@@ -315,7 +315,7 @@ func updateTrackedRepoQuick(repo, repoPath string, dryRun, force, skipAudit bool
 	}
 
 	// Post-pull audit gate
-	auditResult, auditErr := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, audit.ScanSkill)
+	auditResult, auditErr := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, scanFn)
 	if auditErr != nil {
 		return false, auditResult, auditErr
 	}
@@ -326,24 +326,26 @@ func updateTrackedRepoQuick(repo, repoPath string, dryRun, force, skipAudit bool
 // updateSkillFromMeta updates a skill using its metadata in batch mode.
 // Output is suppressed; caller handles display via progress bar.
 // Returns (updated, installResult, error).
-func updateSkillFromMeta(skill, skillPath string, dryRun, skipAudit bool, threshold string) (bool, *install.InstallResult, error) {
+func updateSkillFromMeta(skillPath string, dryRun bool, installOpts install.InstallOptions) (bool, *install.InstallResult, error) {
 	if dryRun {
 		return false, nil, nil
 	}
 
-	meta, _ := install.ReadMeta(skillPath)
+	if _, err := os.Stat(skillPath); err != nil {
+		return false, nil, nil
+	}
+
+	meta, err := install.ReadMeta(skillPath)
+	if err != nil || meta == nil || meta.Source == "" {
+		return false, nil, nil
+	}
+
 	source, err := install.ParseSource(meta.Source)
 	if err != nil {
 		return false, nil, nil
 	}
 
-	opts := install.InstallOptions{
-		Force:          true,
-		Update:         true,
-		SkipAudit:      skipAudit,
-		AuditThreshold: threshold,
-	}
-	result, err := install.Install(source, skillPath, opts)
+	result, err := install.Install(source, skillPath, installOpts)
 	if err != nil {
 		return false, nil, err
 	}

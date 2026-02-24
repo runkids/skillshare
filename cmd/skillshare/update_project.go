@@ -199,7 +199,10 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	// 1. Process tracked repositories (git pull)
 	for _, t := range trackedRepos {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-		repoUpdated, auditResult, err := updateProjectTrackedRepoQuick(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.threshold, projectRoot)
+		projectScanFn := func(path string) (*audit.Result, error) {
+			return audit.ScanSkillForProject(path, projectRoot)
+		}
+		repoUpdated, auditResult, err := updateTrackedRepoQuick(t.name, t.path, opts.dryRun, opts.force, opts.skipAudit, opts.threshold, projectScanFn)
 		if err != nil {
 			if isSecurityError(err) {
 				securityFailed++
@@ -293,7 +296,12 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	// 3. Process standalone skills
 	for _, t := range standaloneSkills {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-		ok, installRes, err := updateProjectSkillFromMeta(sourcePath, t.name, opts.dryRun, opts.skipAudit, opts.threshold)
+		projectInstallOpts := install.InstallOptions{
+			Force: true, Update: true,
+			SkipAudit: opts.skipAudit, AuditThreshold: opts.threshold,
+			AuditProjectRoot: projectRoot,
+		}
+		ok, installRes, err := updateSkillFromMeta(t.path, opts.dryRun, projectInstallOpts)
 		if err != nil {
 			if isSecurityError(err) {
 				securityFailed++
@@ -483,81 +491,6 @@ func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudi
 	return nil
 }
 
-// updateProjectTrackedRepoQuick updates a tracked repo in project batch mode (quiet).
-// Returns (updated, auditResult, error).
-func updateProjectTrackedRepoQuick(repoName, repoPath string, dryRun, force, skipAudit bool, threshold, projectRoot string) (bool, *audit.Result, error) {
-	if isDirty, _ := git.IsDirty(repoPath); isDirty {
-		if !force {
-			return false, nil, fmt.Errorf("uncommitted changes in %s", repoName)
-		}
-		if !dryRun {
-			if err := git.Restore(repoPath); err != nil {
-				return false, nil, fmt.Errorf("failed to discard changes: %w", err)
-			}
-		}
-	}
-
-	if dryRun {
-		return false, nil, nil
-	}
-
-	var info *git.UpdateInfo
-	var err error
-	if force {
-		info, err = git.ForcePullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), nil)
-	} else {
-		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), nil)
-	}
-	if err != nil || info.UpToDate {
-		return false, nil, nil
-	}
-
-	scanFn := func(path string) (*audit.Result, error) {
-		return audit.ScanSkillForProject(path, projectRoot)
-	}
-	auditResult, auditErr := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, scanFn)
-	if auditErr != nil {
-		return false, auditResult, auditErr
-	}
-	return true, auditResult, nil
-}
-
-// updateProjectSkillFromMeta updates a project skill using metadata in batch mode (quiet).
-// Returns (updated, installResult, error).
-func updateProjectSkillFromMeta(sourcePath, name string, dryRun, skipAudit bool, threshold string) (bool, *install.InstallResult, error) {
-	skillPath := filepath.Join(sourcePath, name)
-	if _, err := os.Stat(skillPath); err != nil {
-		return false, nil, nil
-	}
-
-	meta, err := install.ReadMeta(skillPath)
-	if err != nil || meta == nil || meta.Source == "" {
-		return false, nil, nil
-	}
-
-	source, err := install.ParseSource(meta.Source)
-	if err != nil {
-		return false, nil, nil
-	}
-
-	if dryRun {
-		return false, nil, nil
-	}
-
-	opts := install.InstallOptions{
-		Force:          true,
-		Update:         true,
-		SkipAudit:      skipAudit,
-		AuditThreshold: threshold,
-	}
-	result, err := install.Install(source, skillPath, opts)
-	if err != nil {
-		return false, nil, err
-	}
-
-	return true, result, nil
-}
-
 func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool, projectRoot string) error {
 	type target struct {
 		name   string
@@ -662,7 +595,10 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 	// 1. Process tracked repositories (git pull)
 	for _, t := range trackedRepos {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-		repoUpdated, auditResult, err := updateProjectTrackedRepoQuick(t.name, t.path, dryRun, force, skipAudit, threshold, projectRoot)
+		allScanFn := func(path string) (*audit.Result, error) {
+			return audit.ScanSkillForProject(path, projectRoot)
+		}
+		repoUpdated, auditResult, err := updateTrackedRepoQuick(t.name, t.path, dryRun, force, skipAudit, threshold, allScanFn)
 		if err != nil {
 			if isSecurityError(err) {
 				securityFailed++
@@ -755,7 +691,12 @@ func updateAllProjectSkills(sourcePath string, dryRun, force, skipAudit, showDif
 	// 3. Process standalone skills
 	for _, t := range standaloneSkills {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-		ok, installRes, err := updateProjectSkillFromMeta(sourcePath, t.name, dryRun, skipAudit, threshold)
+		allInstallOpts := install.InstallOptions{
+			Force: true, Update: true,
+			SkipAudit: skipAudit, AuditThreshold: threshold,
+			AuditProjectRoot: projectRoot,
+		}
+		ok, installRes, err := updateSkillFromMeta(t.path, dryRun, allInstallOpts)
 		if err != nil {
 			if isSecurityError(err) {
 				securityFailed++
