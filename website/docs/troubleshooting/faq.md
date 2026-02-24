@@ -258,6 +258,32 @@ Instructions for the AI...
 
 See [Skill Format](/docs/concepts/skill-format) for full details.
 
+### What does "unknown target" warning mean?
+
+When running `skillshare check` or `skillshare doctor`, you may see:
+
+```
+! Skill targets: my-skill: unknown target "*"
+```
+
+This means the skill's `SKILL.md` frontmatter has a `targets` field with an unrecognized name — often `"*"` (wildcard). skillshare expects **exact target names** (e.g., `claude`, `cursor`, `codex`), not glob patterns.
+
+**If you want a skill to sync to all targets**, omit the `targets` field entirely:
+
+```yaml
+---
+name: my-skill
+description: Works everywhere
+# no targets field = syncs to all targets
+---
+```
+
+**If this warning is from a third-party skill**, the skill author used an unsupported syntax. You can:
+1. **Ignore the warning** — the skill still installs, it just won't auto-filter to specific targets
+2. **Fork and fix** — Remove or correct the `targets` field in the skill's `SKILL.md`
+
+See [Skill Format — `targets`](/docs/concepts/skill-format#targets) for the full specification.
+
 ### Can a skill have multiple files?
 
 Yes. A skill directory can contain:
