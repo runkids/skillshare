@@ -299,7 +299,9 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 
 // renderCheckResults displays repos and skills that need attention,
 // suppresses up_to_date/local items, and prints a summary line.
-func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkillResult, showLocalSkills bool) {
+// When showDetails is false (full check), update_available items are summarized.
+// When showDetails is true (filtered check), each item is listed individually.
+func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkillResult, showDetails bool) {
 	// Repos: only show behind/dirty/error
 	upToDateRepos := 0
 	hasRepoOutput := false
@@ -338,7 +340,7 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 			upToDateSkills++
 		case "local":
 			localSkills++
-			if showLocalSkills {
+			if showDetails {
 				if !hasSkillOutput {
 					fmt.Println()
 					hasSkillOutput = true
@@ -346,15 +348,17 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 				ui.ListItem("info", s.Name, "local source")
 			}
 		case "update_available":
-			if !hasSkillOutput {
-				fmt.Println()
-				hasSkillOutput = true
+			if showDetails {
+				if !hasSkillOutput {
+					fmt.Println()
+					hasSkillOutput = true
+				}
+				detail := "update available"
+				if s.Source != "" {
+					detail += fmt.Sprintf("  %s", formatSourceShort(s.Source))
+				}
+				ui.ListItem("info", s.Name, detail)
 			}
-			detail := "update available"
-			if s.Source != "" {
-				detail += fmt.Sprintf("  %s", formatSourceShort(s.Source))
-			}
-			ui.ListItem("info", s.Name, detail)
 		case "error":
 			if !hasSkillOutput {
 				fmt.Println()

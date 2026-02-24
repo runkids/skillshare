@@ -42,9 +42,8 @@ func cmdUpdateProject(args []string, root string) error {
 		opts.threshold = runtime.config.Audit.BlockThreshold
 	}
 
-	ui.Header("Project Update")
-	ui.Info("Directory  %s", root)
-	fmt.Println()
+	ui.Header(ui.WithModeLabel("Updating"))
+	ui.StepStart("Source", sourcePath)
 
 	if opts.all {
 		uc := &updateContext{sourcePath: sourcePath, projectRoot: root, opts: opts}
@@ -138,6 +137,16 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 		}
 	}
 
+	var repoCount, skillCount int
+	for _, t := range targets {
+		if t.isRepo {
+			repoCount++
+		} else {
+			skillCount++
+		}
+	}
+	ui.StepContinue("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", repoCount, skillCount))
+
 	for _, w := range resolveWarnings {
 		ui.Warning("%s", w)
 	}
@@ -159,10 +168,6 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	}
 
 	// Batch mode
-	total := len(targets)
-	ui.Header(fmt.Sprintf("Updating %d skill(s)", total))
-	fmt.Println()
-
 	if opts.dryRun {
 		ui.Warning("[dry-run] No changes will be made")
 	}
@@ -215,10 +220,18 @@ func updateAllProjectSkills(uc *updateContext) error {
 		return fmt.Errorf("failed to scan skills: %w", err)
 	}
 
+	var repoCount, skillCount int
+	for _, t := range targets {
+		if t.isRepo {
+			repoCount++
+		} else {
+			skillCount++
+		}
+	}
+	ui.StepContinue("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", repoCount, skillCount))
+
 	total := len(targets)
 	if total == 0 {
-		ui.Header("Updating 0 skill(s)")
-		fmt.Println()
 		ui.SuccessMsg("Updated 0, skipped 0 of 0 skill(s)")
 		return nil
 	}
@@ -231,9 +244,6 @@ func updateAllProjectSkills(uc *updateContext) error {
 		}
 		return updateRegularSkill(uc.sourcePath, t.name, uc.opts.dryRun, uc.opts.force, uc.opts.skipAudit, uc.opts.diff, uc.opts.threshold, uc.opts.auditVerbose, uc.projectRoot)
 	}
-
-	ui.Header(fmt.Sprintf("Updating %d skill(s)", total))
-	fmt.Println()
 
 	if uc.opts.dryRun {
 		ui.Warning("[dry-run] No changes will be made")
