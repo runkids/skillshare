@@ -60,7 +60,7 @@ skillshare backup --cleanup --dry-run # Preview cleanup
 Default cleanup policy:
 - Keep last 10 backups
 - Remove backups older than 30 days
-- Cap total size at 100 MB
+- Cap total size at 500 MB
 
 ## Options
 
