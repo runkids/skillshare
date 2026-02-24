@@ -38,7 +38,7 @@ Force with `-p` (project) or `-g` (global).
 | **Targets** | `target add/remove/list` | ✓ (`-p`) |
 | **Security** | `audit [name]` | ✓ (`-p`) |
 | **Trash** | `trash list\|restore\|delete\|empty` | ✓ (`-p`) |
-| **Log** | `log [--audit] [--tail N]` | ✓ (`-p`) |
+| **Log** | `log [--json\|--no-tui] [--audit] [--tail N]` | ✓ (`-p`) |
 | **Backup** | `backup`, `restore` | ✗ |
 | **Web UI** | `ui` (`-g` global, `-p` project) | ✓ (`-p`) |
 | **Upgrade** | `upgrade [--cli\|--skill]` | — |

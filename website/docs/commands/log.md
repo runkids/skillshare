@@ -7,22 +7,40 @@ sidebar_position: 4
 View persistent operations and audit logs for debugging and compliance.
 
 ```bash
-skillshare log                    # Show operations + audit sections
+skillshare log                    # Interactive TUI (default on TTY)
 skillshare log --audit            # Show only audit log
-skillshare log --tail 50          # Show last 50 entries per section
+skillshare log --tail 50          # Show last 50 entries
 skillshare log --cmd sync         # Show only sync entries
 skillshare log --status error     # Show only errors
 skillshare log --since 2d         # Entries from last 2 days
 skillshare log --json             # Output as JSONL
+skillshare log --no-tui           # Plain text output
 skillshare log --clear            # Clear operations log
-skillshare log -p                 # Show project operations + audit logs
+skillshare log -p                 # Project operations + audit logs
 ```
 
 ## When to Use
 
+- Browse and filter log entries interactively
 - Debug what happened during a failed operation
 - Review the audit trail for compliance or troubleshooting
 - Filter logs by command, status, or time range for investigation
+
+## Interactive TUI
+
+On a TTY, `skillshare log` launches an interactive terminal UI with:
+
+- **Fuzzy filtering** — type to filter by timestamp, command, status, source, or detail content
+- **Keyboard navigation** — arrow keys to browse, `q` to quit
+- **Detail panel** — shows full timestamp, command, status, duration, source, and structured args for the selected entry
+- **Merged view** — operations and audit entries are merged and sorted by time when viewing both
+
+Use `--no-tui` to skip the TUI and print plain text instead:
+
+```bash
+skillshare log --no-tui           # Plain text output
+skillshare log --no-tui | less    # Pipe to pager manually
+```
 
 ## What Gets Logged
 
@@ -75,7 +93,9 @@ skillshare log --json                     # All entries as JSONL
 skillshare log --json --cmd sync          # Filtered JSONL
 ```
 
-## Example Output
+## Example Output (Plain Text)
+
+When using `--no-tui` or in a non-TTY environment:
 
 ```
 ┌─ skillshare log ────────────────────────────────────┐
@@ -161,6 +181,7 @@ If your repository root `.gitignore` also ignores `.skillshare/`, add matching u
 | `--status <status>` | Filter by status (`ok`, `error`, `partial`, `blocked`) |
 | `--since <dur\|date>` | Filter by time (`30m`, `2h`, `2d`, `1w`, or `2006-01-02`) |
 | `--json` | Output raw JSONL (one JSON object per line) |
+| `--no-tui` | Disable interactive TUI, use plain text output |
 | `-c`, `--clear` | Clear selected log file (operations by default, audit with `--audit`) |
 | `-p`, `--project` | Use project-level log |
 | `-g`, `--global` | Use global log |
