@@ -137,8 +137,6 @@ targets:
     project_name: neovate
     global_path: "~/.neovate/skills"
     project_path: ".neovate/skills"
-  - global_name: openclaude
-    global_path: "~/.openclaude/skills"
   - global_name: openclaw
     project_name: openclaw
     global_path: "~/.openclaw/skills"
