@@ -54,8 +54,8 @@ var gitSSHPattern = regexp.MustCompile(`^git@([^:]+):([^/]+)/(.+?)(?:\.git)?(?:/
 // Git HTTPS pattern: https://host/owner/repo[.git]
 var gitHTTPSPattern = regexp.MustCompile(`^https?://([^/]+)/([^/]+)/([^/]+?)(?:\.git)?(?:/(.+))?$`)
 
-// File URL pattern: file:///path/to/repo
-var fileURLPattern = regexp.MustCompile(`^file://(.+)$`)
+// File URL pattern: file:///path/to/repo[//subdir]
+var fileURLPattern = regexp.MustCompile(`^file://(.+?)(?://(.+))?$`)
 
 // ParseSource analyzes the input string and returns a Source struct
 func ParseSource(input string) (*Source, error) {
@@ -236,12 +236,22 @@ func parseGitSSH(matches []string, source *Source) (*Source, error) {
 }
 
 func parseFileURL(matches []string, source *Source) (*Source, error) {
-	// matches: [full, path]
+	// matches: [full, path, subdir]
 	path := filepath.Clean(matches[1])
+	subdir := ""
+	if len(matches) > 2 && matches[2] != "" {
+		subdir = strings.TrimRight(matches[2], "/")
+	}
 
 	source.Type = SourceTypeGitHTTPS // Treat as git for cloning
 	source.CloneURL = "file://" + path
-	source.Name = filepath.Base(path)
+
+	if subdir != "" {
+		source.Subdir = subdir
+		source.Name = filepath.Base(subdir)
+	} else {
+		source.Name = filepath.Base(path)
+	}
 
 	return source, nil
 }

@@ -239,7 +239,7 @@ EOF
   git -C "$REPO" init
   git -C "$REPO" add .
   git -C "$REPO" -c user.name=e2e -c user.email=e2e@example.com commit -m init
-  ss install -g "file://$REPO/skills/alpha" --name sparse-alpha --force
+  ss install -g "file://$REPO//skills/alpha" --name sparse-alpha --force
   test -f ~/.config/skillshare/skills/sparse-alpha/SKILL.md
 '
 ```
@@ -262,7 +262,7 @@ EOF
   git -C "$REPO" init
   git -C "$REPO" add .
   git -C "$REPO" -c user.name=e2e -c user.email=e2e@example.com commit -m init
-  ss install -g "file://$REPO/pdf" --name fuzzy-pdf --force 2>&1 | tee /tmp/issue46-fuzzy.log
+  ss install -g "file://$REPO//pdf" --name fuzzy-pdf --force 2>&1 | tee /tmp/issue46-fuzzy.log
   test -f ~/.config/skillshare/skills/fuzzy-pdf/SKILL.md
   grep -q "sparse checkout install fallback" /tmp/issue46-fuzzy.log || true
 '

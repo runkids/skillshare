@@ -335,6 +335,7 @@ func TestParseSource_FileURL(t *testing.T) {
 		name         string
 		input        string
 		wantCloneURL string
+		wantSubdir   string
 		wantName     string
 	}{
 		{
@@ -349,6 +350,27 @@ func TestParseSource_FileURL(t *testing.T) {
 			wantCloneURL: "file:///path/to/repo",
 			wantName:     "repo",
 		},
+		{
+			name:         "file url with // single-level subdir",
+			input:        "file:///path/to/repo//skills",
+			wantCloneURL: "file:///path/to/repo",
+			wantSubdir:   "skills",
+			wantName:     "skills",
+		},
+		{
+			name:         "file url with // nested subdir",
+			input:        "file:///path/to/repo//skills/alpha",
+			wantCloneURL: "file:///path/to/repo",
+			wantSubdir:   "skills/alpha",
+			wantName:     "alpha",
+		},
+		{
+			name:         "file url with // subdir trailing slash",
+			input:        "file:///path/to/repo//skills/alpha/",
+			wantCloneURL: "file:///path/to/repo",
+			wantSubdir:   "skills/alpha",
+			wantName:     "alpha",
+		},
 	}
 
 	for _, tt := range tests {
@@ -362,6 +384,9 @@ func TestParseSource_FileURL(t *testing.T) {
 			}
 			if source.CloneURL != tt.wantCloneURL {
 				t.Errorf("CloneURL = %v, want %v", source.CloneURL, tt.wantCloneURL)
+			}
+			if source.Subdir != tt.wantSubdir {
+				t.Errorf("Subdir = %v, want %v", source.Subdir, tt.wantSubdir)
 			}
 			if source.Name != tt.wantName {
 				t.Errorf("Name = %v, want %v", source.Name, tt.wantName)
