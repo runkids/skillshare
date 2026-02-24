@@ -281,12 +281,13 @@ cmd_shortcuts() {
 Shortcuts:
   ssnew <name>   create + enter an isolated shell
   ssuse <name>   enter an existing isolated shell
+  ssrm <name>    force-delete an environment
   ssback         leave isolated context helper
   ssls           list isolated envs
   sshelp         show this shortcuts help
 
 Notes:
-  - ssnew/ssuse/ssls/sshelp are executable commands.
+  - ssnew/ssuse/ssrm/ssls/sshelp are executable commands.
   - In an isolated shell (entered via ssnew/ssuse), use 'exit' or run 'ssback'.
   - For eval-based switching, use: eval "$(ssenv --eval use <name>)", then 'ssback'.
 

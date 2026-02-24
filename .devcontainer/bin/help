@@ -26,6 +26,7 @@ ${BLUE}Services${NC}
 ${BLUE}Environment Management (Isolated HOME)${NC}
   ${BOLD}ssnew${NC} <name> [--init]  Create and enter a new isolated shell.
   ${BOLD}ssuse${NC} <name>         Enter an existing isolated shell.
+  ${BOLD}ssrm${NC} <name>          Force-delete an environment.
   ${BOLD}ssls${NC}               List all isolated environments.
   ${BOLD}ssback${NC}             Exit an isolated shell or go back to workspace.
   ${BOLD}ssenv${NC} <cmd>          Advanced environment management.
