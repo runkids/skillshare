@@ -146,6 +146,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(opts),
     }),
+  validateRestore: (opts: { timestamp: string; target: string }) =>
+    apiFetch<RestoreValidateResponse>('/restore/validate', {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    }),
 
   // Trash
   listTrash: () => apiFetch<TrashListResponse>('/trash'),
@@ -387,6 +392,14 @@ export interface BackupInfo {
 export interface BackupListResponse {
   backups: BackupInfo[];
   totalSizeBytes: number;
+}
+
+export interface RestoreValidateResponse {
+  valid: boolean;
+  error: string;
+  conflicts: string[];
+  backupSizeBytes: number;
+  currentIsSymlink: boolean;
 }
 
 // Check types
