@@ -34,6 +34,9 @@ func auditInstalledSkill(destPath string, result *InstallResult, opts InstallOpt
 	}
 	result.AuditRiskScore = scanResult.RiskScore
 	result.AuditRiskLabel = scanResult.RiskLabel
+	if result.AuditRiskLabel == "" && len(scanResult.Findings) == 0 {
+		result.AuditRiskLabel = "CLEAN"
+	}
 	scanResult.Threshold = threshold
 	scanResult.IsBlocked = scanResult.HasSeverityAtOrAbove(threshold)
 
@@ -111,6 +114,9 @@ func auditTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOp
 	}
 	result.AuditRiskScore = scanResult.RiskScore
 	result.AuditRiskLabel = scanResult.RiskLabel
+	if result.AuditRiskLabel == "" && len(scanResult.Findings) == 0 {
+		result.AuditRiskLabel = "CLEAN"
+	}
 	scanResult.Threshold = threshold
 	scanResult.IsBlocked = scanResult.HasSeverityAtOrAbove(threshold)
 
@@ -242,6 +248,9 @@ func auditTrackedRepoUpdate(repoPath, beforeHash string, result *TrackedRepoResu
 	}
 	result.AuditRiskScore = scanResult.RiskScore
 	result.AuditRiskLabel = scanResult.RiskLabel
+	if result.AuditRiskLabel == "" && len(scanResult.Findings) == 0 {
+		result.AuditRiskLabel = "CLEAN"
+	}
 	scanResult.Threshold = threshold
 	scanResult.IsBlocked = scanResult.HasSeverityAtOrAbove(threshold)
 

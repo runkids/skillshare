@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/audit"
 	"skillshare/internal/git"
@@ -43,6 +44,10 @@ func cmdUpdateProject(args []string, root string) error {
 	if opts.threshold == "" {
 		opts.threshold = runtime.config.Audit.BlockThreshold
 	}
+
+	ui.Header("Project Update")
+	ui.Info("Directory  %s", root)
+	fmt.Println()
 
 	if opts.all {
 		return updateAllProjectSkills(sourcePath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, root)
@@ -268,13 +273,17 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit,
 		return nil
 	}
 
+	ui.StepStart("Skill", name)
+	ui.StepContinue("Source", meta.Source)
+
 	// Snapshot before update for --diff
 	var beforeHashes map[string]string
 	if showDiff {
 		beforeHashes, _ = install.ComputeFileHashes(skillPath)
 	}
 
-	spinner := ui.StartSpinner(fmt.Sprintf("Updating %s...", name))
+	startUpdate := time.Now()
+	spinner := ui.StartSpinner("Updating...")
 	opts := install.InstallOptions{
 		Force:          true,
 		Update:         true,
@@ -283,15 +292,19 @@ func updateSingleProjectSkill(sourcePath, name string, dryRun, force, skipAudit,
 	}
 	if ui.IsTTY() {
 		opts.OnProgress = func(line string) {
-			spinner.Update(line)
+			spinner.Update("   " + line) // Indent to align with tree
 		}
 	}
 	result, err := install.Install(source, skillPath, opts)
 	if err != nil {
-		spinner.Fail(fmt.Sprintf("%s failed: %v", name, err))
+		spinner.Stop()
+		ui.StepResult("error", fmt.Sprintf("Failed: %v", err), 0)
 		return err
 	}
-	spinner.Success(fmt.Sprintf("Updated %s", name))
+	spinner.Stop()
+	ui.StepResult("success", "Updated successfully", time.Since(startUpdate))
+	fmt.Println()
+
 	renderInstallWarningsWithResult("", result.Warnings, false, result)
 
 	if showDiff {
@@ -323,7 +336,10 @@ func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudi
 		return nil
 	}
 
-	spinner := ui.StartSpinner(fmt.Sprintf("Updating %s...", repoName))
+	ui.StepStart("Repo", repoName)
+
+	startUpdate := time.Now()
+	spinner := ui.StartSpinner("Checking status...")
 	var onProgress func(string)
 	if ui.IsTTY() {
 		onProgress = func(line string) { spinner.Update(line) }
@@ -337,16 +353,20 @@ func updateProjectTrackedRepo(repoName, repoPath string, dryRun, force, skipAudi
 		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
 	}
 	if err != nil {
-		spinner.Fail(fmt.Sprintf("%s failed: %v", repoName, err))
+		spinner.Stop()
+		ui.StepResult("error", fmt.Sprintf("Failed: %v", err), 0)
 		return nil
 	}
 
 	if info.UpToDate {
-		spinner.Success(fmt.Sprintf("%s already up to date", repoName))
+		spinner.Stop()
+		ui.StepResult("success", "Already up to date", time.Since(startUpdate))
 		return nil
 	}
 
-	spinner.Success(fmt.Sprintf("%s %d commits, %d files", repoName, len(info.Commits), info.Stats.FilesChanged))
+	spinner.Stop()
+	ui.StepResult("success", fmt.Sprintf("%d commits, %d files updated", len(info.Commits), info.Stats.FilesChanged), time.Since(startUpdate))
+	fmt.Println()
 
 	if showDiff {
 		renderDiffSummary(repoPath, info.BeforeHash, info.AfterHash)

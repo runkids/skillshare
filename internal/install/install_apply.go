@@ -128,6 +128,11 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 	// Check for SKILL.md
 	checkSkillFile(destPath, result)
 
+	// Security audit
+	if err := auditInstalledSkill(destPath, result, opts); err != nil {
+		return nil, err
+	}
+
 	result.Action = "cloned"
 	return result, nil
 }

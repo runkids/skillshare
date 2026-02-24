@@ -16,6 +16,7 @@ import (
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 // updateOptions holds parsed arguments for update command
@@ -202,67 +203,106 @@ func cmdUpdate(args []string) error {
 		opts.threshold = cfg.Audit.BlockThreshold
 	}
 
-	if opts.all {
-		err = updateAllTrackedRepos(cfg, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold)
-		logUpdateOp(config.ConfigPath(), []string{"--all"}, start, err)
-		return err
-	}
+	ui.Header("Global Update")
+	ui.Info("Storage    %s", cfg.Source)
+	fmt.Println()
 
 	// --- Resolve targets ---
 	var targets []resolvedMatch
 	seen := map[string]bool{}
 	var resolveWarnings []string
 
-	for _, name := range opts.names {
-		// Check group directory first (direct path match takes priority
-		// over basename, because e.g. "feature-radar" as a directory
-		// should expand to all skills, not resolve to the nested
-		// "feature-radar/feature-radar" via basename).
-		if isGroupDir(name, cfg.Source) {
-			groupMatches, groupErr := resolveGroupUpdatable(name, cfg.Source)
-			if groupErr != nil {
-				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, groupErr))
+	if opts.all {
+		// Recursive discovery for --all
+		err := filepath.Walk(cfg.Source, func(path string, info os.FileInfo, err error) error {
+			if err != nil || path == cfg.Source {
+				return nil
+			}
+			if info.IsDir() && utils.IsHidden(info.Name()) {
+				return filepath.SkipDir
+			}
+			if info.IsDir() && info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+
+			// Tracked repo
+			if info.IsDir() && strings.HasPrefix(info.Name(), "_") {
+				if install.IsGitRepo(path) {
+					rel, _ := filepath.Rel(cfg.Source, path)
+					if !seen[rel] {
+						seen[rel] = true
+						targets = append(targets, resolvedMatch{relPath: rel, isRepo: true})
+					}
+					return filepath.SkipDir
+				}
+			}
+
+			// Regular skill
+			if !info.IsDir() && info.Name() == "SKILL.md" {
+				skillDir := filepath.Dir(path)
+				meta, metaErr := install.ReadMeta(skillDir)
+				if metaErr == nil && meta != nil && meta.Source != "" {
+					rel, _ := filepath.Rel(cfg.Source, skillDir)
+					if rel != "." && !seen[rel] {
+						seen[rel] = true
+						targets = append(targets, resolvedMatch{relPath: rel, isRepo: false})
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to scan skills: %w", err)
+		}
+	} else {
+		// Resolve by specific names/groups
+		for _, name := range opts.names {
+			if isGroupDir(name, cfg.Source) {
+				groupMatches, groupErr := resolveGroupUpdatable(name, cfg.Source)
+				if groupErr != nil {
+					resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, groupErr))
+					continue
+				}
+				if len(groupMatches) == 0 {
+					resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no updatable skills in group", name))
+					continue
+				}
+				ui.Info("'%s' is a group — expanding to %d updatable skill(s)", name, len(groupMatches))
+				for _, m := range groupMatches {
+					if !seen[m.relPath] {
+						seen[m.relPath] = true
+						targets = append(targets, m)
+					}
+				}
+				continue
+			}
+
+			match, err := resolveByBasename(cfg.Source, name)
+			if err != nil {
+				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
+				continue
+			}
+			if !seen[match.relPath] {
+				seen[match.relPath] = true
+				targets = append(targets, match)
+			}
+		}
+
+		for _, group := range opts.groups {
+			groupMatches, err := resolveGroupUpdatable(group, cfg.Source)
+			if err != nil {
+				resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: %v", group, err))
 				continue
 			}
 			if len(groupMatches) == 0 {
-				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no updatable skills in group", name))
+				resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: no updatable skills in group", group))
 				continue
 			}
-			ui.Info("'%s' is a group — expanding to %d updatable skill(s)", name, len(groupMatches))
 			for _, m := range groupMatches {
 				if !seen[m.relPath] {
 					seen[m.relPath] = true
 					targets = append(targets, m)
 				}
-			}
-			continue
-		}
-
-		match, err := resolveByBasename(cfg.Source, name)
-		if err != nil {
-			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
-			continue
-		}
-		if !seen[match.relPath] {
-			seen[match.relPath] = true
-			targets = append(targets, match)
-		}
-	}
-
-	for _, group := range opts.groups {
-		groupMatches, err := resolveGroupUpdatable(group, cfg.Source)
-		if err != nil {
-			resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: %v", group, err))
-			continue
-		}
-		if len(groupMatches) == 0 {
-			resolveWarnings = append(resolveWarnings, fmt.Sprintf("--group %s: no updatable skills in group", group))
-			continue
-		}
-		for _, m := range groupMatches {
-			if !seen[m.relPath] {
-				seen[m.relPath] = true
-				targets = append(targets, m)
 			}
 		}
 	}
@@ -272,6 +312,12 @@ func cmdUpdate(args []string) error {
 	}
 
 	if len(targets) == 0 {
+		if opts.all {
+			ui.Header("Updating 0 skill(s)")
+			fmt.Println()
+			ui.SuccessMsg("Updated 0, skipped 0 of 0 skill(s)")
+			return nil
+		}
 		if len(resolveWarnings) > 0 {
 			return fmt.Errorf("no valid skills to update")
 		}
@@ -288,7 +334,14 @@ func cmdUpdate(args []string) error {
 		} else {
 			updateErr = updateRegularSkill(cfg, t.relPath, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold)
 		}
-		logUpdateOp(config.ConfigPath(), opts.names, start, updateErr)
+
+		var opNames []string
+		if opts.all {
+			opNames = []string{"--all"}
+		} else {
+			opNames = opts.names
+		}
+		logUpdateOp(config.ConfigPath(), opNames, start, updateErr)
 		return updateErr
 	}
 
@@ -343,16 +396,20 @@ func cmdUpdate(args []string) error {
 		}
 	}
 
-	if result.updated > 0 {
+	if result.updated > 0 && !opts.dryRun {
 		ui.SectionLabel("Next Steps")
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
 
 	// Build oplog names
 	var opNames []string
-	opNames = append(opNames, opts.names...)
-	for _, g := range opts.groups {
-		opNames = append(opNames, "--group="+g)
+	if opts.all {
+		opNames = []string{"--all"}
+	} else {
+		opNames = append(opNames, opts.names...)
+		for _, g := range opts.groups {
+			opNames = append(opNames, "--group="+g)
+		}
 	}
 
 	var batchErr error
@@ -390,12 +447,12 @@ type batchAuditEntry struct {
 	risk string // e.g. "CLEAN", "MEDIUM (42/100)"
 }
 
-// renderBatchAuditSummary prints audit results collected during a batch update.
-// Only entries with non-CLEAN risk are shown individually; CLEAN items are counted.
 func renderBatchAuditSummary(entries []batchAuditEntry) {
 	if len(entries) == 0 {
 		return
 	}
+
+	ui.SectionLabel("Audit Findings")
 
 	clean := 0
 	var notable []batchAuditEntry
@@ -405,11 +462,6 @@ func renderBatchAuditSummary(entries []batchAuditEntry) {
 		} else {
 			notable = append(notable, e)
 		}
-	}
-
-	if len(notable) == 0 && clean > 0 {
-		ui.Info("Audit: all %d skill(s) CLEAN", clean)
-		return
 	}
 
 	for _, e := range notable {
@@ -503,86 +555,8 @@ func formatRiskLabel(result *install.InstallResult) string {
 	return label
 }
 
-func updateAllTrackedRepos(cfg *config.Config, dryRun, force, skipAudit, showDiff bool, threshold string) error {
-	repos, err := install.GetTrackedRepos(cfg.Source)
-	if err != nil {
-		return fmt.Errorf("failed to get tracked repos: %w", err)
-	}
-
-	skills, err := install.GetUpdatableSkills(cfg.Source)
-	if err != nil {
-		return fmt.Errorf("failed to get updatable skills: %w", err)
-	}
-
-	if len(repos) == 0 && len(skills) == 0 {
-		ui.Info("No tracked repositories or updatable skills found")
-		ui.Info("Use 'skillshare install <repo> --track' to add a tracked repository")
-		return nil
-	}
-
-	total := len(repos) + len(skills)
-	ui.Header(fmt.Sprintf("Updating %d tracked repos + %d skills", len(repos), len(skills)))
-	fmt.Println()
-
-	progressBar := ui.StartProgress("Updating skills", total)
-
-	var result updateResult
-	var auditEntries []batchAuditEntry
-
-	// Update tracked repos
-	for _, repo := range repos {
-		repoPath := filepath.Join(cfg.Source, repo)
-		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", repo))
-		updated, err := updateTrackedRepoQuick(repo, repoPath, dryRun, force, skipAudit, threshold)
-		if err != nil {
-			result.securityFailed++
-		} else if updated {
-			result.updated++
-		} else {
-			result.skipped++
-		}
-		progressBar.Increment()
-	}
-
-	// Update regular skills
-	for _, skill := range skills {
-		skillPath := filepath.Join(cfg.Source, skill)
-		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", skill))
-		updated, riskLabel, err := updateSkillFromMeta(skill, skillPath, dryRun, skipAudit, threshold)
-		if err != nil && isSecurityError(err) {
-			result.securityFailed++
-		} else if updated {
-			result.updated++
-			if riskLabel != "" {
-				auditEntries = append(auditEntries, batchAuditEntry{name: skill, risk: riskLabel})
-			}
-		} else {
-			result.skipped++
-		}
-		progressBar.Increment()
-	}
-	progressBar.Stop()
-
-	if !dryRun {
-		renderBatchAuditSummary(auditEntries)
-		fmt.Println()
-		ui.SuccessMsg("Updated %d, skipped %d of %d skill(s)", result.updated, result.skipped, total)
-		if result.securityFailed > 0 {
-			ui.Warning("Blocked: %d (security)", result.securityFailed)
-		}
-	}
-
-	if result.updated > 0 {
-		ui.SectionLabel("Next Steps")
-		ui.Info("Run 'skillshare sync' to distribute changes")
-	}
-
-	if result.securityFailed > 0 {
-		return fmt.Errorf("%d repo(s) blocked by security audit", result.securityFailed)
-	}
-	return nil
-}
-
+// updateSkillOrRepo updates a skill or repo by name, handling _ prefix and
+// basename resolution.
 func updateSkillOrRepo(cfg *config.Config, name string, dryRun, force, skipAudit, showDiff bool, threshold string) error {
 	// Try tracked repo first (with _ prefix)
 	repoName := name
@@ -661,12 +635,13 @@ func resolveByBasename(sourceDir, name string) (resolvedMatch, error) {
 
 func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipAudit, showDiff bool, threshold string) error {
 	repoPath := filepath.Join(cfg.Source, repoName)
+	start := time.Now()
 
 	ui.StepStart("Repo", repoName)
-	fmt.Println()
 
+	startUpdate := time.Now()
 	// Check for uncommitted changes
-	spinner := ui.StartSpinner("Checking repository status...")
+	spinner := ui.StartSpinner("Checking status...")
 
 	isDirty, _ := git.IsDirty(repoPath)
 	if isDirty {
@@ -703,11 +678,11 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipA
 		return nil
 	}
 
-	spinner.Update("Fetching from origin...")
+	spinner.Update("   Fetching from origin...")
 	var onProgress func(string)
 	if ui.IsTTY() {
 		onProgress = func(line string) {
-			spinner.Update(line)
+			spinner.Update("   " + line)
 		}
 	}
 
@@ -720,16 +695,19 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipA
 		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
 	}
 	if err != nil {
-		spinner.Fail("Failed to update")
+		spinner.Stop()
+		ui.StepResult("error", fmt.Sprintf("Failed: %v", err), 0)
 		return fmt.Errorf("git pull failed: %w", err)
 	}
 
 	if info.UpToDate {
-		spinner.Success("Already up to date")
+		spinner.Stop()
+		ui.StepResult("success", "Already up to date", time.Since(startUpdate))
 		return nil
 	}
 
 	spinner.Stop()
+	ui.StepResult("success", fmt.Sprintf("%d commits, %d files updated", len(info.Commits), info.Stats.FilesChanged), time.Since(startUpdate))
 	fmt.Println()
 
 	// Show changes box
@@ -765,6 +743,8 @@ func updateTrackedRepo(cfg *config.Config, repoName string, dryRun, force, skipA
 	}
 
 	ui.SuccessMsg("Updated %s", repoName)
+	ui.StepResult("success", "Updated successfully", time.Since(start))
+	fmt.Println()
 	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to distribute changes")
 
@@ -785,13 +765,13 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 
 	ui.StepStart("Skill", skillName)
 	ui.StepContinue("Source", meta.Source)
-	fmt.Println()
 
 	if dryRun {
 		ui.Warning("[dry-run] Would reinstall from: %s", meta.Source)
 		return nil
 	}
 
+	startUpdate := time.Now()
 	// Parse source and reinstall
 	source, err := install.ParseSource(meta.Source)
 	if err != nil {
@@ -804,7 +784,7 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 		beforeHashes, _ = install.ComputeFileHashes(skillPath)
 	}
 
-	spinner := ui.StartSpinner("Cloning source repository...")
+	spinner := ui.StartSpinner("Updating...")
 
 	opts := install.InstallOptions{
 		Force:          true,
@@ -814,17 +794,20 @@ func updateRegularSkill(cfg *config.Config, skillName string, dryRun, force, ski
 	}
 	if ui.IsTTY() {
 		opts.OnProgress = func(line string) {
-			spinner.Update(line)
+			spinner.Update("   " + line)
 		}
 	}
 
 	result, err := install.Install(source, skillPath, opts)
 	if err != nil {
-		spinner.Fail("Failed to update")
+		spinner.Stop()
+		ui.StepResult("error", fmt.Sprintf("Failed: %v", err), 0)
 		return fmt.Errorf("update failed: %w", err)
 	}
 
-	spinner.Success(fmt.Sprintf("Updated %s", skillName))
+	spinner.Stop()
+	ui.StepResult("success", "Updated successfully", time.Since(startUpdate))
+	fmt.Println()
 
 	renderInstallWarningsWithResult("", result.Warnings, false, result)
 

@@ -516,8 +516,14 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 		}
 	}
 
-	// Display warnings
-	renderInstallWarnings("", result.Warnings, opts.AuditVerbose)
+	// Display warnings and risk info
+	res := &install.InstallResult{
+		AuditRiskScore: result.AuditRiskScore,
+		AuditRiskLabel: result.AuditRiskLabel,
+		AuditSkipped:   result.AuditSkipped,
+		Warnings:       result.Warnings,
+	}
+	renderInstallWarningsWithResult("", result.Warnings, opts.AuditVerbose, res)
 
 	if !opts.DryRun {
 		logSummary.SkillCount = result.SkillCount
@@ -601,16 +607,18 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 			skill.Name = opts.Name
 		}
 
-		loc := skill.Path
-		if loc == "." {
-			loc = "root"
+		// Determine local installation info for display (relative to skills dir)
+		displayPath := skill.Name
+		if opts.Into != "" {
+			displayPath = filepath.Join(opts.Into, skill.Name)
 		}
+
 		fmt.Println()
 		desc := ""
 		if skill.License != "" {
 			desc = "License: " + skill.License
 		}
-		ui.SkillBox(skill.Name, desc, loc)
+		ui.SkillBox(skill.Name, desc, displayPath)
 
 		destPath := destWithInto(cfg.Source, opts, skill.Name)
 		if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
@@ -618,24 +626,20 @@ func handleGitDiscovery(source *install.Source, cfg *config.Config, opts install
 		}
 		fmt.Println()
 
-		installSpinner := ui.StartSpinner(fmt.Sprintf("Installing %s...", skill.Name))
+		installSpinner := ui.StartSpinner("Installing...")
 		result, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
 		if err != nil {
-			installSpinner.Fail("Failed to install")
+			installSpinner.Stop()
 			if errors.Is(err, audit.ErrBlocked) {
 				return logSummary, renderBlockedAuditError(err)
 			}
+			ui.ErrorMsg("Failed to install: %v", err)
 			return logSummary, err
 		}
 
-		if opts.DryRun {
-			installSpinner.Stop()
-			ui.Warning("[dry-run] %s", result.Action)
-		} else {
-			installSpinner.Success(fmt.Sprintf("Installed: %s", skill.Name))
-		}
-
-		renderInstallWarnings("", result.Warnings, opts.AuditVerbose)
+		installSpinner.Stop()
+		ui.SuccessMsg("Installed: %s", skill.Name)
+		renderInstallWarningsWithResult("", result.Warnings, opts.AuditVerbose, result)
 
 		if !opts.DryRun {
 			ui.SectionLabel("Next Steps")
@@ -1051,11 +1055,15 @@ func promptMultiSelect(skills []install.SkillInfo) ([]install.SkillInfo, error) 
 
 // skillInstallResult holds the result of installing a single skill
 type skillInstallResult struct {
-	skill    install.SkillInfo
-	success  bool
-	message  string
-	warnings []string
-	err      error
+	skill          install.SkillInfo
+	success        bool
+	message        string
+	warnings       []string
+	auditRiskLabel string
+	auditRiskScore int
+	auditSkipped   bool
+	result         *install.InstallResult
+	err            error
 }
 
 type installWarningDigest struct {
@@ -1229,14 +1237,19 @@ func renderInstallWarnings(skillName string, warnings []string, auditVerbose boo
 // renderInstallWarningsWithResult is like renderInstallWarnings but also displays
 // the aggregate risk score from the install result when available.
 func renderInstallWarningsWithResult(skillName string, warnings []string, auditVerbose bool, result *install.InstallResult) {
-	if len(warnings) == 0 {
-		renderAuditRiskOnly(skillName, result)
-		return
-	}
-
-	// Visual separator for single-skill output (batch mode handles its own sections)
+	// Visual separator for single-skill output
 	if skillName == "" {
 		ui.SectionLabel("Audit Findings")
+	}
+
+	if len(warnings) == 0 {
+		if skillName == "" {
+			renderAuditRiskOnly(skillName, result)
+		} else {
+			// Batch mode: prefix with skill name
+			ui.Info("%s: risk CLEAN", skillName)
+		}
+		return
 	}
 
 	digest := digestInstallWarnings(warnings)
@@ -1311,10 +1324,13 @@ func renderInstallWarningsWithResult(skillName string, warnings []string, auditV
 
 // renderAuditRiskOnly prints the aggregate risk score if available.
 func renderAuditRiskOnly(skillName string, result *install.InstallResult) {
-	if result == nil || result.AuditSkipped || result.AuditRiskLabel == "" {
+	if result == nil || result.AuditSkipped {
 		return
 	}
 	label := strings.ToUpper(result.AuditRiskLabel)
+	if label == "" {
+		label = "CLEAN" // Fallback if still empty
+	}
 	if result.AuditRiskScore > 0 {
 		ui.Info("%s", formatWarningWithSkill(skillName,
 			fmt.Sprintf("risk: %s (%d/100)", label, result.AuditRiskScore)))
@@ -1726,10 +1742,14 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 			message = fmt.Sprintf("installed (%d warning(s))", len(installResult.Warnings))
 		}
 		results = append(results, skillInstallResult{
-			skill:    skill,
-			success:  true,
-			message:  message,
-			warnings: installResult.Warnings,
+			skill:          skill,
+			success:        true,
+			message:        message,
+			warnings:       installResult.Warnings,
+			auditRiskLabel: installResult.AuditRiskLabel,
+			auditRiskScore: installResult.AuditRiskScore,
+			auditSkipped:   installResult.AuditSkipped,
+			result:         installResult,
 		})
 		if progressBar != nil {
 			progressBar.Increment()
@@ -2075,7 +2095,13 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 			ui.StepDone(fmt.Sprintf("%d skills installed", installed), detail)
 		default:
 			for _, r := range successes {
-				ui.StepDone(r.skill.Name, r.message)
+				if installed == 1 {
+					// Single skill: show full audit info
+					fmt.Println()
+					renderInstallWarningsWithResult("", r.warnings, auditVerbose, r.result)
+				} else {
+					ui.StepDone(r.skill.Name, r.message)
+				}
 			}
 		}
 	}
@@ -2178,16 +2204,18 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		}
 		ui.StepEnd("Found", fmt.Sprintf("1 skill: %s", skill.Name))
 
-		loc := skill.Path
-		if loc == "." {
-			loc = "root"
+		// Determine local installation info for display (relative to skills dir)
+		displayPath := skill.Name
+		if opts.Into != "" {
+			displayPath = filepath.Join(opts.Into, skill.Name)
 		}
+
 		fmt.Println()
 		desc := ""
 		if skill.License != "" {
 			desc = "License: " + skill.License
 		}
-		ui.SkillBox(skill.Name, desc, loc)
+		ui.SkillBox(skill.Name, desc, displayPath)
 
 		destPath := destWithInto(cfg.Source, opts, skill.Name)
 		if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
@@ -2195,25 +2223,22 @@ func handleGitSubdirInstall(source *install.Source, cfg *config.Config, opts ins
 		}
 
 		fmt.Println()
-		installSpinner := ui.StartSpinner(fmt.Sprintf("Installing %s...", skill.Name))
+		installSpinner := ui.StartSpinner("Installing...")
 
 		result, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
 		if err != nil {
-			installSpinner.Fail("Failed to install")
+			installSpinner.Stop()
 			if errors.Is(err, audit.ErrBlocked) {
 				return logSummary, renderBlockedAuditError(err)
 			}
+			ui.ErrorMsg("Failed to install: %v", err)
 			return logSummary, err
 		}
 
-		if opts.DryRun {
-			installSpinner.Stop()
-			ui.Warning("[dry-run] %s", result.Action)
-		} else {
-			installSpinner.Success(fmt.Sprintf("Installed: %s", skill.Name))
-		}
+		installSpinner.Stop()
+		ui.SuccessMsg("Installed: %s", skill.Name)
 
-		renderInstallWarnings("", result.Warnings, opts.AuditVerbose)
+		renderInstallWarningsWithResult("", result.Warnings, opts.AuditVerbose, result)
 
 		if !opts.DryRun {
 			ui.SectionLabel("Next Steps")

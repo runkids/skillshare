@@ -102,7 +102,9 @@ func StartSpinner(message string) *Spinner {
 		return &Spinner{start: time.Now()}
 	}
 
-	s, _ := pterm.DefaultSpinner.Start(message)
+	s, _ := pterm.DefaultSpinner.
+		WithRemoveWhenDone(true).
+		Start(message)
 	return &Spinner{spinner: s, start: time.Now()}
 }
 
@@ -516,7 +518,7 @@ const (
 // StepStart prints the first step (with arrow)
 func StepStart(label, value string) {
 	if IsTTY() {
-		fmt.Printf("%s  %s  %s\n", pterm.Yellow(StepArrow), pterm.White(label), value)
+		fmt.Printf("%s  %-10s  %s\n", pterm.Yellow(StepArrow), pterm.LightCyan(label), pterm.Bold.Sprint(value))
 	} else {
 		fmt.Printf("%s  %s  %s\n", StepArrow, label, value)
 	}
@@ -526,10 +528,40 @@ func StepStart(label, value string) {
 func StepContinue(label, value string) {
 	if IsTTY() {
 		fmt.Printf("%s\n", pterm.Gray(StepLine))
-		fmt.Printf("%s %s  %s\n", pterm.Gray(StepBranch+"─"), pterm.White(label), value)
+		fmt.Printf("%s %-10s  %s\n", pterm.Gray(StepBranch+"─"), pterm.Gray(label), pterm.White(value))
 	} else {
 		fmt.Printf("%s\n", StepLine)
 		fmt.Printf("%s─ %s  %s\n", StepBranch, label, value)
+	}
+}
+
+// StepResult prints the result as the final node of the tree
+func StepResult(status, message string, duration time.Duration) {
+	var icon string
+	var style pterm.Style
+	switch status {
+	case "success":
+		icon = StepCheck
+		style = *pterm.NewStyle(pterm.FgGreen, pterm.Bold)
+	case "error":
+		icon = StepCross
+		style = *pterm.NewStyle(pterm.FgRed, pterm.Bold)
+	default:
+		icon = "→"
+		style = *pterm.NewStyle(pterm.FgYellow, pterm.Bold)
+	}
+
+	timeStr := ""
+	if duration > 0 {
+		timeStr = pterm.Gray(fmt.Sprintf(" (%.1fs)", duration.Seconds()))
+	}
+
+	if IsTTY() {
+		fmt.Printf("%s\n", pterm.Gray(StepLine))
+		fmt.Printf("%s %s %s  %s%s\n", pterm.Gray(StepCorner+"─"), style.Sprint(icon), style.Sprint(strings.ToUpper(status)), message, timeStr)
+	} else {
+		fmt.Printf("%s\n", StepLine)
+		fmt.Printf("%s─ %s %s  %s%s\n", StepCorner, icon, strings.ToUpper(status), message, timeStr)
 	}
 }
 
@@ -714,64 +746,41 @@ func StepFail(label, value string) {
 	}
 }
 
-// SkillBox prints a skill in a styled box with name and description
+// SkillBox prints a skill summary in a modern, compact card
 func SkillBox(name, description, location string) {
 	if !IsTTY() {
 		fmt.Printf("\n── %s ──\n", name)
 		if description != "" {
 			fmt.Printf("  %s\n", description)
 		}
-		if location != "" {
-			fmt.Printf("  Location: %s\n", location)
-		}
+		fmt.Printf("  Location: %s\n", location)
 		return
 	}
 
-	// Build content lines
-	var lines []string
-	lines = append(lines, "")
+	var content strings.Builder
 
 	if description != "" {
-		wrapped := wrapText(description, 55)
+		wrapped := wrapText(description, 50)
 		for _, line := range wrapped {
-			lines = append(lines, "  "+line)
+			content.WriteString(pterm.White("  " + line + "\n"))
 		}
+		content.WriteString("\n")
+	} else {
+		content.WriteString(pterm.Italic.Sprint("  Ready to use!\n\n"))
 	}
 
-	if location != "" {
-		lines = append(lines, "")
-		lines = append(lines, fmt.Sprintf("  %s %s", pterm.Gray("Location:"), pterm.Gray(location)))
+	loc := location
+	if loc == "" || loc == "." {
+		loc = "(root)"
 	}
+	content.WriteString(pterm.Gray("  Location:  ") + pterm.LightCyan("skills/"+loc))
 
-	lines = append(lines, "")
-
-	// Calculate max width
-	maxLen := 0
-	for _, line := range lines {
-		w := displayWidth(line)
-		if w > maxLen {
-			maxLen = w
-		}
-	}
-
-	// Pad lines
-	var content strings.Builder
-	for i, line := range lines {
-		padded := line
-		w := displayWidth(line)
-		if w < maxLen {
-			padded = line + strings.Repeat(" ", maxLen-w)
-		}
-		content.WriteString(padded)
-		if i < len(lines)-1 {
-			content.WriteString("\n")
-		}
-	}
-
-	box := pterm.DefaultBox.
-		WithTitle(pterm.Cyan(name)).
-		WithTitleTopLeft()
-	box.Println(content.String())
+	pterm.DefaultBox.
+		WithTitle(pterm.LightCyan(pterm.Bold.Sprint(name))).
+		WithTitleTopLeft().
+		WithBoxStyle(pterm.NewStyle(pterm.FgCyan)).
+		WithPadding(1).
+		Println(content.String())
 }
 
 // SkillBoxCompact prints a compact skill box (for multiple skills)
