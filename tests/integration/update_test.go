@@ -421,6 +421,10 @@ func TestUpdate_BatchAll_FailsOnMalicious(t *testing.T) {
 	result.AssertFailure(t) // Must exit non-zero even though clean repo succeeded
 	result.AssertAnyOutputContains(t, "blocked by security audit")
 
+	// Blocked section shows details (not just a count)
+	result.AssertAnyOutputContains(t, "Blocked / Rolled Back")
+	result.AssertAnyOutputContains(t, maliciousName)
+
 	// Clean repo should be updated
 	cleanContent := sb.ReadFile(filepath.Join(sb.SourcePath, cleanName, "my-skill", "SKILL.md"))
 	if !contains(cleanContent, "Updated clean") {

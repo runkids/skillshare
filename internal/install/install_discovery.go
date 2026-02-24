@@ -206,27 +206,8 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 	var commitHash string
 	var subdirPath string
 
-	// Fast path 1: GitHub/GHE Contents API
-	if isGitHubAPISource(source) {
-		owner, repo := source.GitHubOwner(), source.GitHubRepo()
-		subdirPath = filepath.Join(repoPath, source.Subdir)
-		hash, dlErr := downloadGitHubDir(owner, repo, source.Subdir, subdirPath, source, onProgress)
-		if dlErr == nil {
-			commitHash = hash
-			skills := discoverSkills(subdirPath, true)
-			return &DiscoveryResult{
-				RepoPath:   tempDir,
-				Skills:     skills,
-				Source:     source,
-				CommitHash: commitHash,
-			}, nil
-		}
-		warnings = append(warnings, fmt.Sprintf("GitHub API discovery fallback: %v", dlErr))
-		_ = os.RemoveAll(repoPath)
-	}
-
-	// Fast path 2: sparse checkout fallback when API path is unavailable
-	// or unsupported (works for GitHub and non-GitHub hosts).
+	// Fast path 1: sparse checkout (preferred for speed if git is modern)
+	// Works for GitHub and non-GitHub hosts.
 	if gitSupportsSparseCheckout() {
 		if err := sparseCloneSubdir(source.CloneURL, source.Subdir, repoPath, authEnv(source.CloneURL), onProgress); err == nil {
 			subdirPath = filepath.Join(repoPath, source.Subdir)
@@ -245,10 +226,33 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 			}
 			warnings = append(warnings, "sparse checkout discovery fallback: subdirectory missing after checkout")
 			_ = os.RemoveAll(repoPath)
+			subdirPath = ""
 		} else {
 			warnings = append(warnings, fmt.Sprintf("sparse checkout discovery fallback: %v", err))
 			_ = os.RemoveAll(repoPath)
+			subdirPath = ""
 		}
+	}
+
+	// Fast path 2: GitHub/GHE Contents API
+	// Fallback for when sparse checkout is unavailable or fails.
+	if subdirPath == "" && isGitHubAPISource(source) {
+		owner, repo := source.GitHubOwner(), source.GitHubRepo()
+		subdirPath = filepath.Join(repoPath, source.Subdir)
+		hash, dlErr := downloadGitHubDir(owner, repo, source.Subdir, subdirPath, source, onProgress)
+		if dlErr == nil {
+			commitHash = hash
+			skills := discoverSkills(subdirPath, true)
+			return &DiscoveryResult{
+				RepoPath:   tempDir,
+				Skills:     skills,
+				Source:     source,
+				CommitHash: commitHash,
+			}, nil
+		}
+		warnings = append(warnings, fmt.Sprintf("GitHub API discovery fallback: %v", dlErr))
+		_ = os.RemoveAll(repoPath)
+		subdirPath = ""
 	}
 
 	// Fallback: full clone + fuzzy subdir resolution
