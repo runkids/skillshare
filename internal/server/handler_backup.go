@@ -3,6 +3,8 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"skillshare/internal/backup"
@@ -181,5 +183,68 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 		"success":   true,
 		"target":    body.Target,
 		"timestamp": body.Timestamp,
+	})
+}
+
+// handleValidateRestore checks if a restore would succeed and returns conflict info.
+func (s *Server) handleValidateRestore(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Timestamp string `json:"timestamp"`
+		Target    string `json:"target"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	if body.Timestamp == "" || body.Target == "" {
+		writeError(w, http.StatusBadRequest, "timestamp and target are required")
+		return
+	}
+
+	t, ok := s.cfg.Targets[body.Target]
+	if !ok {
+		writeError(w, http.StatusBadRequest, "target not found: "+body.Target)
+		return
+	}
+
+	bk, err := backup.GetBackupByTimestamp(body.Timestamp)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "backup not found: "+err.Error())
+		return
+	}
+
+	backupSize := backup.Size(filepath.Join(bk.Path, body.Target))
+
+	// Check destination state with Lstat to detect symlinks
+	isSymlink := false
+	var conflicts []string
+	info, err := os.Lstat(t.Path)
+	if err == nil {
+		if info.Mode()&os.ModeSymlink != 0 {
+			isSymlink = true
+		} else if info.IsDir() {
+			entries, _ := os.ReadDir(t.Path)
+			for _, e := range entries {
+				conflicts = append(conflicts, e.Name())
+			}
+		}
+	}
+
+	// Validate backup source exists for target
+	opts := backup.RestoreOptions{Force: true}
+	validErr := backup.ValidateRestore(bk.Path, body.Target, t.Path, opts)
+
+	errMsg := ""
+	if validErr != nil {
+		errMsg = validErr.Error()
+	}
+
+	writeJSON(w, map[string]any{
+		"valid":            validErr == nil,
+		"error":            errMsg,
+		"conflicts":        conflicts,
+		"backupSizeBytes":  backupSize,
+		"currentIsSymlink": isSymlink,
 	})
 }
