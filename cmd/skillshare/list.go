@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,23 +13,189 @@ import (
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
+
+	"golang.org/x/term"
 )
 
-// parseListArgs parses list command arguments
-func parseListArgs(args []string) (verbose bool, showHelp bool, err error) {
-	for _, arg := range args {
-		switch arg {
-		case "--verbose", "-v":
-			verbose = true
-		case "--help", "-h":
-			return false, true, nil
+// listOptions holds parsed options for the list command.
+type listOptions struct {
+	Verbose    bool
+	ShowHelp   bool
+	JSON       bool
+	NoTUI      bool
+	Pattern    string // positional search pattern (case-insensitive)
+	TypeFilter string // --type: "tracked", "local", "github"
+	SortBy     string // --sort: "name" (default), "newest", "oldest"
+}
+
+// validTypeFilters lists accepted values for --type.
+var validTypeFilters = map[string]bool{
+	"tracked": true,
+	"local":   true,
+	"github":  true,
+}
+
+// validSortOptions lists accepted values for --sort.
+var validSortOptions = map[string]bool{
+	"name":   true,
+	"newest": true,
+	"oldest": true,
+}
+
+// parseListArgs parses list command arguments into listOptions.
+func parseListArgs(args []string) (listOptions, error) {
+	var opts listOptions
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--verbose" || arg == "-v":
+			opts.Verbose = true
+		case arg == "--json" || arg == "-j":
+			opts.JSON = true
+		case arg == "--no-tui":
+			opts.NoTUI = true
+		case arg == "--help" || arg == "-h":
+			opts.ShowHelp = true
+			return opts, nil
+		case arg == "--type" || arg == "-t":
+			i++
+			if i >= len(args) {
+				return opts, fmt.Errorf("--type requires a value (tracked, local, github)")
+			}
+			v := strings.ToLower(args[i])
+			if !validTypeFilters[v] {
+				return opts, fmt.Errorf("invalid type %q: must be tracked, local, or github", args[i])
+			}
+			opts.TypeFilter = v
+		case strings.HasPrefix(arg, "--type="):
+			v := strings.ToLower(strings.TrimPrefix(arg, "--type="))
+			if !validTypeFilters[v] {
+				return opts, fmt.Errorf("invalid type %q: must be tracked, local, or github", v)
+			}
+			opts.TypeFilter = v
+		case strings.HasPrefix(arg, "-t="):
+			v := strings.ToLower(strings.TrimPrefix(arg, "-t="))
+			if !validTypeFilters[v] {
+				return opts, fmt.Errorf("invalid type %q: must be tracked, local, or github", v)
+			}
+			opts.TypeFilter = v
+		case arg == "--sort" || arg == "-s":
+			i++
+			if i >= len(args) {
+				return opts, fmt.Errorf("--sort requires a value (name, newest, oldest)")
+			}
+			v := strings.ToLower(args[i])
+			if !validSortOptions[v] {
+				return opts, fmt.Errorf("invalid sort %q: must be name, newest, or oldest", args[i])
+			}
+			opts.SortBy = v
+		case strings.HasPrefix(arg, "--sort="):
+			v := strings.ToLower(strings.TrimPrefix(arg, "--sort="))
+			if !validSortOptions[v] {
+				return opts, fmt.Errorf("invalid sort %q: must be name, newest, or oldest", v)
+			}
+			opts.SortBy = v
+		case strings.HasPrefix(arg, "-s="):
+			v := strings.ToLower(strings.TrimPrefix(arg, "-s="))
+			if !validSortOptions[v] {
+				return opts, fmt.Errorf("invalid sort %q: must be name, newest, or oldest", v)
+			}
+			opts.SortBy = v
+		case strings.HasPrefix(arg, "-"):
+			return opts, fmt.Errorf("unknown option: %s", arg)
 		default:
-			if strings.HasPrefix(arg, "-") {
-				return false, false, fmt.Errorf("unknown option: %s", arg)
+			// Positional argument → search pattern (first one wins)
+			if opts.Pattern == "" {
+				opts.Pattern = arg
+			} else {
+				return opts, fmt.Errorf("unexpected argument: %s", arg)
 			}
 		}
 	}
-	return verbose, false, nil
+	return opts, nil
+}
+
+// filterSkillEntries filters skills by pattern and type.
+// Pattern matches case-insensitively against Name, RelPath, and Source.
+func filterSkillEntries(skills []skillEntry, pattern, typeFilter string) []skillEntry {
+	if pattern == "" && typeFilter == "" {
+		return skills
+	}
+
+	pat := strings.ToLower(pattern)
+	var result []skillEntry
+	for _, s := range skills {
+		// Type filter
+		if typeFilter != "" {
+			switch typeFilter {
+			case "tracked":
+				if s.RepoName == "" {
+					continue
+				}
+			case "local":
+				if s.Source != "" {
+					continue
+				}
+			case "github":
+				if s.Source == "" || s.RepoName != "" {
+					continue
+				}
+			}
+		}
+
+		// Pattern filter
+		if pat != "" {
+			nameLower := strings.ToLower(s.Name)
+			relPathLower := strings.ToLower(s.RelPath)
+			sourceLower := strings.ToLower(s.Source)
+			if !strings.Contains(nameLower, pat) &&
+				!strings.Contains(relPathLower, pat) &&
+				!strings.Contains(sourceLower, pat) {
+				continue
+			}
+		}
+
+		result = append(result, s)
+	}
+	return result
+}
+
+// sortSkillEntries sorts skills by the given criteria.
+func sortSkillEntries(skills []skillEntry, sortBy string) {
+	switch sortBy {
+	case "newest":
+		sort.SliceStable(skills, func(i, j int) bool {
+			a, b := skills[i].InstalledAt, skills[j].InstalledAt
+			if a == "" && b == "" {
+				return false
+			}
+			if a == "" {
+				return false // empty dates go last
+			}
+			if b == "" {
+				return true
+			}
+			return a > b // descending
+		})
+	case "oldest":
+		sort.SliceStable(skills, func(i, j int) bool {
+			a, b := skills[i].InstalledAt, skills[j].InstalledAt
+			if a == "" && b == "" {
+				return false
+			}
+			if a == "" {
+				return false // empty dates go last
+			}
+			if b == "" {
+				return true
+			}
+			return a < b // ascending
+		})
+	default: // "name" or empty
+		sort.SliceStable(skills, func(i, j int) bool {
+			return skills[i].Name < skills[j].Name
+		})
+	}
 }
 
 // buildSkillEntries builds skill entries from discovered skills
@@ -281,8 +448,8 @@ func cmdList(args []string) error {
 
 	applyModeLabel(mode)
 
-	verbose, showHelp, err := parseListArgs(rest)
-	if showHelp {
+	opts, err := parseListArgs(rest)
+	if opts.ShowHelp {
 		printListHelp()
 		return nil
 	}
@@ -291,8 +458,7 @@ func cmdList(args []string) error {
 	}
 
 	if mode == modeProject {
-		_ = verbose
-		return cmdListProject(cwd)
+		return cmdListProject(cwd, opts)
 	}
 
 	cfg, err := config.Load()
@@ -307,27 +473,68 @@ func cmdList(args []string) error {
 
 	trackedRepos, _ := install.GetTrackedRepos(cfg.Source)
 	skills := buildSkillEntries(discovered)
+	totalCount := len(skills)
+	hasFilter := opts.Pattern != "" || opts.TypeFilter != ""
 
-	if len(skills) == 0 && len(trackedRepos) == 0 {
+	// Apply filter and sort
+	skills = filterSkillEntries(skills, opts.Pattern, opts.TypeFilter)
+	if opts.SortBy != "" {
+		sortSkillEntries(skills, opts.SortBy)
+	}
+
+	// JSON output — skip pager and text formatting
+	if opts.JSON {
+		return displaySkillsJSON(skills)
+	}
+
+	// TTY + not --no-tui + has skills → launch interactive TUI
+	if !opts.NoTUI && len(skills) > 0 && term.IsTerminal(int(os.Stdout.Fd())) {
+		items := toSkillItems(skills)
+		return runListTUI(items, totalCount, "global", cfg.Source, cfg.Targets)
+	}
+
+	// Handle empty results before starting pager
+	if len(skills) == 0 && len(trackedRepos) == 0 && !hasFilter {
 		ui.Info("No skills installed")
 		ui.Info("Use 'skillshare install <source>' to install a skill")
 		return nil
 	}
 
+	if hasFilter && len(skills) == 0 {
+		if opts.Pattern != "" && opts.TypeFilter != "" {
+			ui.Info("No skills matching %q (type: %s)", opts.Pattern, opts.TypeFilter)
+		} else if opts.Pattern != "" {
+			ui.Info("No skills matching %q", opts.Pattern)
+		} else {
+			ui.Info("No skills matching type %q", opts.TypeFilter)
+		}
+		return nil
+	}
+
+	// Plain text output (--no-tui or non-TTY)
 	if len(skills) > 0 {
 		ui.Header("Installed skills")
-		if verbose {
+		if opts.Verbose {
 			displaySkillsVerbose(skills)
 		} else {
 			displaySkillsCompact(skills)
 		}
 	}
 
-	if len(trackedRepos) > 0 {
+	// Hide tracked repos section when filter/pattern is active
+	if len(trackedRepos) > 0 && !hasFilter {
 		displayTrackedRepos(trackedRepos, discovered, cfg.Source)
 	}
 
-	if !verbose && len(skills) > 0 {
+	// Show match stats when filter is active
+	if hasFilter && len(skills) > 0 {
+		fmt.Println()
+		if opts.Pattern != "" {
+			ui.Info("%d of %d skill(s) matching %q", len(skills), totalCount, opts.Pattern)
+		} else {
+			ui.Info("%d of %d skill(s)", len(skills), totalCount)
+		}
+	} else if !opts.Verbose && len(skills) > 0 {
 		fmt.Println()
 		ui.Info("Use --verbose for more details")
 	}
@@ -345,6 +552,33 @@ type skillEntry struct {
 	RelPath     string
 }
 
+// skillJSON is the JSON representation for --json output.
+type skillJSON struct {
+	Name        string `json:"name"`
+	RelPath     string `json:"relPath"`
+	Source      string `json:"source,omitempty"`
+	Type        string `json:"type,omitempty"`
+	InstalledAt string `json:"installedAt,omitempty"`
+	RepoName    string `json:"repoName,omitempty"`
+}
+
+func displaySkillsJSON(skills []skillEntry) error {
+	items := make([]skillJSON, len(skills))
+	for i, s := range skills {
+		items[i] = skillJSON{
+			Name:        s.Name,
+			RelPath:     s.RelPath,
+			Source:      s.Source,
+			Type:        s.Type,
+			InstalledAt: s.InstalledAt,
+			RepoName:    s.RepoName,
+		}
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(items)
+}
+
 // abbreviateSource shortens long sources for display
 func abbreviateSource(source string) string {
 	// Remove https:// prefix
@@ -359,17 +593,26 @@ func abbreviateSource(source string) string {
 }
 
 func printListHelp() {
-	fmt.Println(`Usage: skillshare list [options]
+	fmt.Println(`Usage: skillshare list [pattern] [options]
 
 List all installed skills in the source directory.
+An optional pattern filters skills by name, path, or source (case-insensitive).
 
 Options:
-  --verbose, -v   Show detailed information (source, type, install date)
-  --project, -p   Use project-level config in current directory
-  --global, -g    Use global config (~/.config/skillshare)
-  --help, -h      Show this help
+  --verbose, -v          Show detailed information (source, type, install date)
+  --json, -j             Output as JSON (useful for CI/scripts)
+  --no-tui               Disable interactive TUI, use plain text output
+  --type, -t <type>      Filter by type: tracked, local, github
+  --sort, -s <order>     Sort order: name (default), newest, oldest
+  --project, -p          Use project-level config in current directory
+  --global, -g           Use global config (~/.config/skillshare)
+  --help, -h             Show this help
 
 Examples:
   skillshare list
+  skillshare list react
+  skillshare list --type local
+  skillshare list react --type github --sort newest
+  skillshare list --json | jq '.[].name'
   skillshare list --verbose`)
 }

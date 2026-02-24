@@ -7,17 +7,53 @@ sidebar_position: 4
 List all installed skills in the source directory.
 
 ```bash
-skillshare list              # Compact view
-skillshare list --verbose    # Detailed view
+skillshare list              # Interactive TUI (default on TTY)
+skillshare list --verbose    # Detailed plain text view
+skillshare list --json       # JSON output for CI/scripts
 ```
 
 ## When to Use
 
 - See what skills are installed and where they came from
+- Search and filter skills interactively
 - Check which skills are tracked repos vs local
 - Audit your skill collection before a cleanup
 
 ![list demo](/img/list-demo.png)
+
+## Interactive TUI
+
+On a TTY, `skillshare list` launches an interactive terminal UI with:
+
+- **Fuzzy filtering** — type to filter by name, path, or source
+- **Keyboard navigation** — arrow keys to browse, `q` to quit
+- **Detail panel** — shows description, disk path, files, and synced targets for the selected skill
+
+Use `--no-tui` to skip the TUI and print plain text instead:
+
+```bash
+skillshare list --no-tui          # Plain text output
+skillshare list --no-tui | less   # Pipe to pager manually
+```
+
+## Search and Filter
+
+Filter skills without entering the TUI:
+
+```bash
+skillshare list react                     # Filter by name/path/source
+skillshare list --type local              # Only local skills
+skillshare list --type github             # Only GitHub-sourced skills
+skillshare list react --sort newest       # Sort by install date
+skillshare list --json | jq '.[].name'   # JSON for scripting
+```
+
+:::tip AI Usage
+Use `--json` mode when inspecting skills programmatically:
+```bash
+skillshare list --json | jq '.[] | {name, source, type}'
+```
+:::
 
 ## Example Output
 
@@ -157,8 +193,14 @@ Project list uses the same visual format as global list, with `(project)` label 
 
 | Flag | Description |
 |------|-------------|
+| `[pattern]` | Filter skills by name, path, or source (case-insensitive) |
 | `--verbose, -v` | Show detailed information (source, type, install date) |
+| `--json, -j` | Output as JSON (useful for CI/scripts) |
+| `--no-tui` | Disable interactive TUI, use plain text output |
+| `--type, -t <type>` | Filter by type: `tracked`, `local`, `github` |
+| `--sort, -s <order>` | Sort order: `name` (default), `newest`, `oldest` |
 | `--project, -p` | List project skills |
+| `--global, -g` | List global skills |
 | `--help, -h` | Show help |
 
 ## Directory Grouping
