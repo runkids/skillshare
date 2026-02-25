@@ -19,6 +19,12 @@ var gitProgressPercentRegex = regexp.MustCompile(`^([^:]+):\s*([0-9]{1,3}%)`)
 
 const spinnerGitUpdateMinInterval = 120 * time.Millisecond
 
+func init() {
+	// Unify spinner style: braille dot pattern (matches bubbletea spinner.Dot), cyan.
+	pterm.DefaultSpinner.Sequence = []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"}
+	pterm.DefaultSpinner.Style = pterm.NewStyle(pterm.FgCyan)
+}
+
 // displayWidth returns the visible width of a string (excluding ANSI codes, handling wide chars)
 func displayWidth(s string) int {
 	// Remove ANSI codes first, then calculate Unicode-aware width

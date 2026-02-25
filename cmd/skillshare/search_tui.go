@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -92,11 +93,24 @@ type searchSelectModel struct {
 	outcome   searchSelectOutcome
 	quitting  bool
 	termWidth int
+
+	// Application-level filter (matches list_tui pattern)
+	allItems    []searchSelectItem
+	filterText  string
+	filterInput textinput.Model
+	filtering   bool
+	matchCount  int
 }
 
 func newSearchSelectModel(results []search.SearchResult, isHub bool) searchSelectModel {
 	sel := make(map[int]bool, len(results))
 	items := makeSearchSelectItems(results, isHub, sel)
+
+	// Keep typed allItems for filter
+	allItems := make([]searchSelectItem, len(items))
+	for i, item := range items {
+		allItems[i] = item.(searchSelectItem)
+	}
 
 	delegate := list.NewDefaultDelegate()
 	delegate.ShowDescription = true
@@ -118,18 +132,26 @@ func newSearchSelectModel(results []search.SearchResult, isHub bool) searchSelec
 	l.Title = searchSelectTitle(0, len(results))
 	l.Styles.Title = lipgloss.NewStyle().
 		Bold(true).Foreground(lipgloss.Color("6"))
-	l.SetShowStatusBar(true)
-	l.SetFilteringEnabled(true)
+	l.SetShowStatusBar(false)    // custom status line
+	l.SetFilteringEnabled(false) // application-level filter
 	l.SetShowHelp(false)
-	l.SetStatusBarItemName("skill", "skills")
-	applyTUIFilterStyle(&l)
+	l.SetShowPagination(false) // page info in custom status line
+
+	// Filter text input
+	fi := textinput.New()
+	fi.Prompt = "/ "
+	fi.PromptStyle = tuiFilterStyle
+	fi.Cursor.Style = tuiFilterStyle
 
 	return searchSelectModel{
-		list:     l,
-		results:  results,
-		isHub:    isHub,
-		selected: sel,
-		total:    len(results),
+		list:        l,
+		results:     results,
+		isHub:       isHub,
+		selected:    sel,
+		total:       len(results),
+		allItems:    allItems,
+		matchCount:  len(allItems),
+		filterInput: fi,
 	}
 }
 
@@ -160,11 +182,30 @@ func (m searchSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Don't intercept keys when filtering
-		if m.list.FilterState() == list.Filtering {
-			break
+		// --- Filter mode: only handle filter input + esc/enter ---
+		if m.filtering {
+			switch msg.String() {
+			case "esc":
+				m.filtering = false
+				m.filterText = ""
+				m.filterInput.SetValue("")
+				m.applySearchFilter()
+				return m, nil
+			case "enter":
+				m.filtering = false
+				return m, nil
+			}
+			var cmd tea.Cmd
+			m.filterInput, cmd = m.filterInput.Update(msg)
+			newVal := m.filterInput.Value()
+			if newVal != m.filterText {
+				m.filterText = newVal
+				m.applySearchFilter()
+			}
+			return m, cmd
 		}
 
+		// --- Normal mode ---
 		switch msg.String() {
 		case " ": // space — toggle current item
 			item, ok := m.list.SelectedItem().(searchSelectItem)
@@ -180,7 +221,7 @@ func (m searchSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.refreshItems()
 			return m, nil
 
-		case "a": // toggle all
+		case "a": // toggle all visible
 			selectAll := m.selCount < m.total
 			for i := 0; i < m.total; i++ {
 				m.selected[i] = selectAll
@@ -207,6 +248,11 @@ func (m searchSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 
+		case "/":
+			m.filtering = true
+			m.filterInput.Focus()
+			return m, textinput.Blink
+
 		case "q", "ctrl+c", "esc":
 			m.outcome = searchSelectNone
 			m.quitting = true
@@ -221,10 +267,53 @@ func (m searchSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *searchSelectModel) refreshItems() {
 	cursor := m.list.Index()
-	items := makeSearchSelectItems(m.results, m.isHub, m.selected)
-	m.list.SetItems(items)
-	m.list.Select(cursor)
+	// Rebuild allItems with current checkbox state
+	for i := range m.allItems {
+		m.allItems[i].selected = m.selected[m.allItems[i].idx]
+	}
+	// Apply filter if active, otherwise show all
+	if m.filterText != "" {
+		m.applySearchFilter()
+	} else {
+		items := make([]list.Item, len(m.allItems))
+		for i, item := range m.allItems {
+			items[i] = item
+		}
+		m.list.SetItems(items)
+	}
+	if cursor < len(m.list.Items()) {
+		m.list.Select(cursor)
+	}
 	m.list.Title = searchSelectTitle(m.selCount, m.total)
+}
+
+// applySearchFilter does a case-insensitive substring match over allItems,
+// preserving checkbox state from m.selected.
+func (m *searchSelectModel) applySearchFilter() {
+	term := strings.ToLower(m.filterText)
+
+	if term == "" {
+		items := make([]list.Item, len(m.allItems))
+		for i := range m.allItems {
+			m.allItems[i].selected = m.selected[m.allItems[i].idx]
+			items[i] = m.allItems[i]
+		}
+		m.matchCount = len(m.allItems)
+		m.list.SetItems(items)
+		m.list.ResetSelected()
+		return
+	}
+
+	var matched []list.Item
+	for _, item := range m.allItems {
+		if strings.Contains(strings.ToLower(item.FilterValue()), term) {
+			item.selected = m.selected[item.idx]
+			matched = append(matched, item)
+		}
+	}
+	m.matchCount = len(matched)
+	m.list.SetItems(matched)
+	m.list.ResetSelected()
 }
 
 func (m searchSelectModel) View() string {
@@ -234,18 +323,30 @@ func (m searchSelectModel) View() string {
 
 	var b strings.Builder
 	b.WriteString(m.list.View())
-	b.WriteString("\n")
+	b.WriteString("\n\n")
+
+	// Filter bar (always visible)
+	b.WriteString(m.renderSearchFilterBar())
 
 	// Detail panel for selected item
 	if item, ok := m.list.SelectedItem().(searchSelectItem); ok {
 		b.WriteString(m.renderSearchDetailPanel(item.result))
 	}
 
-	help := "↑↓ navigate  space toggle  a all  enter install  s search again  / filter  esc cancel"
+	help := "↑↓ navigate  ←→ page  space toggle  a all  enter install  s search again  / filter  esc cancel"
 	b.WriteString(tuiHelpStyle.Render(help))
 	b.WriteString("\n")
 
 	return b.String()
+}
+
+// renderSearchFilterBar renders the status line for the search TUI.
+func (m searchSelectModel) renderSearchFilterBar() string {
+	return renderTUIFilterBar(
+		m.filterInput.View(), m.filtering, m.filterText,
+		m.matchCount, len(m.allItems), 0,
+		"skills", renderPageInfoFromPaginator(m.list.Paginator),
+	)
 }
 
 // renderSearchDetailPanel renders the detail section for the selected search result.

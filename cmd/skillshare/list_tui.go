@@ -11,6 +11,7 @@ import (
 	"skillshare/internal/utils"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/paginator"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -343,48 +344,56 @@ func (m listTUIModel) View() string {
 	}
 
 	// Help line
-	help := "↑↓ navigate  / filter  A audit  U update  X uninstall  q quit"
+	help := "↑↓ navigate  ←→ page  / filter  A audit  U update  X uninstall  q quit"
 	b.WriteString(tuiHelpStyle.Render(help))
 	b.WriteString("\n")
 
 	return b.String()
 }
 
-// renderFilterBar renders the status line (always visible) and filter input when active.
+// renderFilterBar renders the status line for the list TUI.
 func (m listTUIModel) renderFilterBar() string {
-	total := len(m.allItems)
-	pageInfo := m.renderPageInfo()
+	return renderTUIFilterBar(
+		m.filterInput.View(), m.filtering, m.filterText,
+		m.matchCount, len(m.allItems), maxListItems,
+		"skills", m.renderPageInfo(),
+	)
+}
 
-	if m.filtering {
-		if m.filterText == "" {
-			// Just entered filter mode, no text yet — show total as normal
-			status := fmt.Sprintf("  %s skills%s", formatNumber(total), pageInfo)
-			return "  " + m.filterInput.View() + tuiHelpStyle.Render(status) + "\n"
+// renderTUIFilterBar renders a unified filter + status line shared by all TUIs.
+// inputView is filterInput.View(). maxShown is the item cap (0 = no cap).
+func renderTUIFilterBar(inputView string, filtering bool, filterText string, matchCount, totalCount, maxShown int, noun, pageInfo string) string {
+	if filtering {
+		if filterText == "" {
+			status := fmt.Sprintf("  %s %s%s", formatNumber(totalCount), noun, pageInfo)
+			return "  " + inputView + tuiHelpStyle.Render(status) + "\n"
 		}
-		// Active filter with text
-		status := fmt.Sprintf("  %s/%s skills", formatNumber(m.matchCount), formatNumber(total))
-		if m.matchCount > maxListItems {
-			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxListItems))
+		status := fmt.Sprintf("  %s/%s %s", formatNumber(matchCount), formatNumber(totalCount), noun)
+		if maxShown > 0 && matchCount > maxShown {
+			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxShown))
 		}
 		status += pageInfo
-		return "  " + m.filterInput.View() + tuiHelpStyle.Render(status) + "\n"
+		return "  " + inputView + tuiHelpStyle.Render(status) + "\n"
 	}
-	if m.filterText != "" {
-		// Filter applied but input not focused
-		status := fmt.Sprintf("  filter: %s — %s/%s skills", m.filterText, formatNumber(m.matchCount), formatNumber(total))
-		if m.matchCount > maxListItems {
-			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxListItems))
+	if filterText != "" {
+		status := fmt.Sprintf("filter: %s — %s/%s %s", filterText, formatNumber(matchCount), formatNumber(totalCount), noun)
+		if maxShown > 0 && matchCount > maxShown {
+			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxShown))
 		}
 		status += pageInfo
 		return tuiHelpStyle.Render(status) + "\n"
 	}
-	// No filter — show real total
-	return tuiHelpStyle.Render(fmt.Sprintf("  %s skills%s", formatNumber(total), pageInfo)) + "\n"
+	return tuiHelpStyle.Render(fmt.Sprintf("%s %s%s", formatNumber(totalCount), noun, pageInfo)) + "\n"
 }
 
 // renderPageInfo returns page indicator like " · Page 2 of 4,729" or "" if single page.
 func (m listTUIModel) renderPageInfo() string {
-	p := m.list.Paginator
+	return renderPageInfoFromPaginator(m.list.Paginator)
+}
+
+// renderPageInfoFromPaginator returns " · Page 2 of 4,729" or "" if single page.
+// Shared by list, log, and search TUIs.
+func renderPageInfoFromPaginator(p paginator.Model) string {
 	if p.TotalPages <= 1 {
 		return ""
 	}

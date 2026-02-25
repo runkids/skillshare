@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -22,6 +23,13 @@ type logTUIModel struct {
 	list      list.Model
 	modeLabel string // "global" or "project"
 	quitting  bool
+
+	// Application-level filter (matches list_tui pattern)
+	allItems    []logItem
+	filterText  string
+	filterInput textinput.Model
+	filtering   bool
+	matchCount  int
 }
 
 // newLogTUIModel creates a new TUI model from log items.
@@ -50,15 +58,23 @@ func newLogTUIModel(items []logItem, logLabel, modeLabel string) logTUIModel {
 	l.Title = fmt.Sprintf("Log: %s (%s)", logLabel, modeLabel)
 	l.Styles.Title = lipgloss.NewStyle().
 		Bold(true).Foreground(lipgloss.Color("6"))
-	l.SetShowStatusBar(true)
-	l.SetFilteringEnabled(true)
+	l.SetShowStatusBar(false)    // custom status line
+	l.SetFilteringEnabled(false) // application-level filter
 	l.SetShowHelp(false)
-	l.SetStatusBarItemName("entry", "entries")
-	applyTUIFilterStyle(&l)
+	l.SetShowPagination(false) // page info in custom status line
+
+	// Filter text input
+	fi := textinput.New()
+	fi.Prompt = "/ "
+	fi.PromptStyle = tuiFilterStyle
+	fi.Cursor.Style = tuiFilterStyle
 
 	return logTUIModel{
-		list:      l,
-		modeLabel: modeLabel,
+		list:        l,
+		modeLabel:   modeLabel,
+		allItems:    items,
+		matchCount:  len(items),
+		filterInput: fi,
 	}
 }
 
@@ -73,20 +89,70 @@ func (m logTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		if m.list.FilterState() == list.Filtering {
-			break
+		// --- Filter mode: route keys to filterInput ---
+		if m.filtering {
+			switch msg.String() {
+			case "esc":
+				m.filtering = false
+				m.filterText = ""
+				m.filterInput.SetValue("")
+				m.applyLogFilter()
+				return m, nil
+			case "enter":
+				m.filtering = false
+				return m, nil
+			}
+			var cmd tea.Cmd
+			m.filterInput, cmd = m.filterInput.Update(msg)
+			newVal := m.filterInput.Value()
+			if newVal != m.filterText {
+				m.filterText = newVal
+				m.applyLogFilter()
+			}
+			return m, cmd
 		}
 
+		// --- Normal mode ---
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "/":
+			m.filtering = true
+			m.filterInput.Focus()
+			return m, textinput.Blink
 		}
 	}
 
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
+}
+
+// applyLogFilter does a case-insensitive substring match over allItems.
+func (m *logTUIModel) applyLogFilter() {
+	term := strings.ToLower(m.filterText)
+
+	if term == "" {
+		all := make([]list.Item, len(m.allItems))
+		for i, item := range m.allItems {
+			all[i] = item
+		}
+		m.matchCount = len(m.allItems)
+		m.list.SetItems(all)
+		m.list.ResetSelected()
+		return
+	}
+
+	var matched []list.Item
+	for _, item := range m.allItems {
+		if strings.Contains(strings.ToLower(item.FilterValue()), term) {
+			matched = append(matched, item)
+		}
+	}
+	m.matchCount = len(matched)
+	m.list.SetItems(matched)
+	m.list.ResetSelected()
 }
 
 func (m logTUIModel) View() string {
@@ -97,18 +163,30 @@ func (m logTUIModel) View() string {
 	var b strings.Builder
 
 	b.WriteString(m.list.View())
-	b.WriteString("\n")
+	b.WriteString("\n\n")
+
+	// Filter bar (always visible)
+	b.WriteString(m.renderLogFilterBar())
 
 	// Detail panel for selected item
 	if item, ok := m.list.SelectedItem().(logItem); ok {
 		b.WriteString(renderLogDetailPanel(item))
 	}
 
-	help := "↑↓ navigate  / filter  q quit"
+	help := "↑↓ navigate  ←→ page  / filter  q quit"
 	b.WriteString(tuiHelpStyle.Render(help))
 	b.WriteString("\n")
 
 	return b.String()
+}
+
+// renderLogFilterBar renders the status line for the log TUI.
+func (m logTUIModel) renderLogFilterBar() string {
+	return renderTUIFilterBar(
+		m.filterInput.View(), m.filtering, m.filterText,
+		m.matchCount, len(m.allItems), 0,
+		"entries", renderPageInfoFromPaginator(m.list.Paginator),
+	)
 }
 
 // renderLogDetailPanel renders structured details for the selected log entry.
