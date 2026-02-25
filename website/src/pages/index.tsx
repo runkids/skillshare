@@ -254,7 +254,7 @@ const whyFeatures = [
   {
     Icon: Globe,
     title: 'Cross-machine Sync',
-    description: 'One git push/pull syncs skills across all your machines. No re-running install commands.',
+    description: 'One git push/pull syncs skills across all your machines. Works with any Git host — GitHub, GitLab, Bitbucket, or self-hosted.',
   },
   {
     Icon: ShieldCheck,

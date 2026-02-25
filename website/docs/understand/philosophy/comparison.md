@@ -58,6 +58,7 @@ One command, no prompts, deterministic results every time.
 | **Offline operation** | Requires npx + network for CLI itself | Single binary, works offline after install |
 | **Web dashboard** | None | `skillshare ui` — visual management |
 | **Backup / restore** | None | `skillshare backup` / `skillshare restore` |
+| **Git platform support** | GitHub only for update/check (hardcoded to GitHub Trees API) | Any Git remote — GitHub, GitLab, Bitbucket, Gitea, self-hosted |
 | **Runtime dependency** | Node.js + npm | None (single Go binary) |
 
 ## Common Pain Points Solved
@@ -96,6 +97,20 @@ With skillshare, your entire setup is portable:
 3. Run `skillshare sync`
 
 All targets are recreated instantly.
+
+### "Update and check don't work with GitLab / Bitbucket / Azure DevOps"
+
+Imperative tools often rely on the GitHub Trees API for update checks, which means `update` and `check` silently skip skills from non-GitHub sources.
+
+skillshare uses **local git operations** (`git fetch` + tree hash comparison) — it works with any Git remote, including GitLab, Bitbucket, Azure DevOps, Gitea, and self-hosted instances. No platform-specific API is required.
+
+```bash
+# All of these support install, update, and check:
+skillshare install https://gitlab.com/team/skills
+skillshare install git@bitbucket.org:company/private-skills.git
+skillshare install https://git.mycompany.com/org/repo
+skillshare update   # checks all sources, regardless of host
+```
 
 ### "Clone takes forever on large repositories"
 
@@ -159,6 +174,7 @@ Your existing skills are now managed from one place. For a detailed walkthrough,
 - You work across multiple machines
 - You share skills with a team or organization
 - You want backup, restore, and version control for your skills
+- You host skills on GitLab, Bitbucket, Azure DevOps, or self-hosted Git
 - You prefer a single binary with no runtime dependencies
 - You don't want installation/download activity tracked outside your local workflow
 

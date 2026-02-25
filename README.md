@@ -58,6 +58,7 @@ Stop managing skills tool-by-tool.
 - **Cross-machine ready**: Git-native `push`/`pull` keeps all your devices aligned.
 - **Team + project friendly**: Use global skills for personal workflows and `.skillshare/` for repo-scoped collaboration.
 - **Folder-friendly**: Organize skills in folders (e.g. `frontend/react/`) — auto-flattened to flat names on sync.
+- **Any Git host**: Install, update, and check skills from GitHub, GitLab, Bitbucket, Azure DevOps, or any self-hosted Git — no platform-specific API required.
 - **Privacy-first**: No central registry, no telemetry, no install tracking. Your skill setup stays entirely local.
 - **Built-in security audit**: Scan skills for prompt injection, data exfiltration, and other threats before they reach your AI agent.
 - **Visual control panel**: Open `skillshare ui` for browsing, install, target management, and sync status in one place.
@@ -79,6 +80,7 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 | **Bidirectional** | Install only | `collect` pulls changes back |
 | **Security audit** | None | Built-in `audit` + auto-scan on install/update |
 | **Web dashboard** | None | `skillshare ui` |
+| **Git platform support** | GitHub only for update/check | Any Git remote (GitHub, GitLab, Bitbucket, etc.) |
 | **Runtime dependency** | Node.js + npm | None (single Go binary) |
 
 > [!TIP]
