@@ -183,4 +183,4 @@ If you can't resolve the issue:
 - [Common Errors](/docs/troubleshooting/common-errors) — Error messages and solutions
 - [Windows Issues](/docs/troubleshooting/windows) — Windows-specific problems
 - [FAQ](/docs/troubleshooting/faq) — Frequently asked questions
-- [Commands: doctor](/docs/commands/doctor) — Doctor command
+- [Commands: doctor](/docs/reference/commands/doctor) — Doctor command

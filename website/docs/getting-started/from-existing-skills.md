@@ -145,6 +145,6 @@ skillshare restore cursor
 
 ## See Also
 
-- [Daily Workflow](/docs/workflows/daily-workflow) — Your day-to-day after migration
-- [Cross-Machine Sync](/docs/guides/cross-machine-sync) — Sync to other machines
-- [Core Concepts](/docs/concepts) — How source and targets work
+- [Daily Workflow](/docs/how-to/daily-tasks/daily-workflow) — Your day-to-day after migration
+- [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) — Sync to other machines
+- [Core Concepts](/docs/understand) — How source and targets work

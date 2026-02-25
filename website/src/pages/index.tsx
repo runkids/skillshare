@@ -4,7 +4,7 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
-import {Copy, Check, Apple, Terminal, GitBranch, FolderSync, ArrowLeftRight, Globe, ShieldCheck, LayoutDashboard} from 'lucide-react';
+import {Copy, Check, Apple, Terminal, GitBranch, FolderSync, ArrowLeftRight, Globe, ShieldCheck, LayoutDashboard, Compass, Users, PenTool} from 'lucide-react';
 
 import styles from './index.module.css';
 
@@ -181,6 +181,65 @@ function HeroSection() {
   );
 }
 
+const SCENARIOS = [
+  {
+    icon: <Compass size={28} />,
+    title: 'New to AI Tools',
+    description: '5 minutes from install to first sync',
+    link: '/docs/getting-started',
+  },
+  {
+    icon: <FolderSync size={28} />,
+    title: 'Multi-Tool Sync',
+    description: 'Claude + Cursor + Codex — one source of truth',
+    link: '/docs/learn/with-multiple-tools',
+  },
+  {
+    icon: <Users size={28} />,
+    title: 'Team Sharing',
+    description: "Standardize your team's AI workflow",
+    link: '/docs/how-to/sharing/organization-sharing',
+  },
+  {
+    icon: <PenTool size={28} />,
+    title: 'Write Skills',
+    description: 'Create and publish your own skill set',
+    link: '/docs/understand/philosophy/skill-design',
+  },
+  {
+    icon: <ArrowLeftRight size={28} />,
+    title: 'Migrating',
+    description: 'Coming from another tool or manual setup',
+    link: '/docs/how-to/advanced/migration',
+  },
+];
+
+function ScenarioSection() {
+  return (
+    <section className={styles.scenarioSection}>
+      <div className="container">
+        <Heading as="h2" className={styles.sectionTitle}>
+          Where would you like to start?
+        </Heading>
+        <div className={styles.scenarioGrid}>
+          {SCENARIOS.map((scenario, idx) => (
+            <Link
+              key={idx}
+              to={scenario.link}
+              className={styles.scenarioCard}
+              style={{transform: CARD_ROTATIONS[idx % CARD_ROTATIONS.length]}}
+            >
+              <div className={styles.scenarioIcon}>{scenario.icon}</div>
+              <h3>{scenario.title}</h3>
+              <p>{scenario.description}</p>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const whyFeatures = [
   {
     Icon: FolderSync,
@@ -267,7 +326,7 @@ function WhySection() {
           Why skillshare?
         </Heading>
         <p className={styles.sectionSubtitle}>
-          Install tools get skills onto agents. <strong>Skillshare keeps them in sync.</strong>
+          Install tools get skills onto agents. <strong>skillshare keeps them in sync.</strong>
         </p>
         <div className={styles.whyGrid}>
           {whyFeatures.map((item, idx) => (
@@ -328,7 +387,7 @@ function UIHighlightsSection() {
           ))}
         </div>
         <div className={styles.uiHighlightsAction}>
-          <Link className="button button--primary button--lg" to="/docs/commands/ui">
+          <Link className="button button--primary button--lg" to="/docs/reference/commands/ui">
             Explore Web UI Docs
           </Link>
         </div>
@@ -369,6 +428,7 @@ export default function Home(): ReactNode {
       description={siteConfig.tagline}
     >
       <HeroSection />
+      <ScenarioSection />
       <WavyDivider />
       <main>
         <WhySection />

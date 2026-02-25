@@ -82,7 +82,7 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 | **Runtime dependency** | Node.js + npm | None (single Go binary) |
 
 > [!TIP]
-> Coming from another tool? See the [Migration Guide](https://skillshare.runkids.cc/docs/guides/migration) and [detailed comparison](https://skillshare.runkids.cc/docs/guides/comparison).
+> Coming from another tool? See the [Migration Guide](https://skillshare.runkids.cc/docs/how-to/advanced/migration) and [detailed comparison](https://skillshare.runkids.cc/docs/understand/philosophy/comparison).
 
 ## How It Works
 - macOS / Linux: `~/.config/skillshare/skills/`
@@ -107,10 +107,10 @@ skillshare uses a **declarative** approach: define your targets once in `config.
 | Windows | `%AppData%\skillshare\skills\` | NTFS Junctions (no admin required) |
 
 > Targets that can't follow symlinks? Use `skillshare target <name> --mode copy` to sync as real files instead.
-> You can mix modes by target. See the [Sync Modes guide](https://skillshare.runkids.cc/docs/concepts/sync-modes) and [`target` command docs](https://skillshare.runkids.cc/docs/commands/target).
+> You can mix modes by target. See the [Sync Modes guide](https://skillshare.runkids.cc/docs/understand/sync-modes) and [`target` command docs](https://skillshare.runkids.cc/docs/reference/commands/target).
 
 > [!TIP]
-> Skills can be organized in folders (e.g. `frontend/react/react-best-practices/`) — they're auto-flattened on sync. See the [Organizing Guide](https://skillshare.runkids.cc/docs/guides/organizing-skills) and [runkids/my-skills](https://github.com/runkids/my-skills) for a real-world example.
+> Skills can be organized in folders (e.g. `frontend/react/react-best-practices/`) — they're auto-flattened on sync. See the [Organizing Guide](https://skillshare.runkids.cc/docs/how-to/daily-tasks/organizing-skills) and [runkids/my-skills](https://github.com/runkids/my-skills) for a real-world example.
 
 
 ## CLI and UI Preview
@@ -281,7 +281,7 @@ The generated `skillshare-hub.json` follows a versioned schema (`schemaVersion: 
 The public hub at [runkids/skillshare-hub](https://github.com/runkids/skillshare-hub) is the built-in default. Fork it to bootstrap your organization's internal hub — CI validation and `skillshare audit` security scans are included out of the box.
 
 > [!TIP]
-> See the [Hub Index Guide](https://skillshare.runkids.cc/docs/guides/hub-index) for schema details and hosting options.
+> See the [Hub Index Guide](https://skillshare.runkids.cc/docs/how-to/sharing/hub-index) for schema details and hosting options.
 
 ## Web Dashboard
 
@@ -327,7 +327,7 @@ Skills are also scanned automatically during `skillshare install` and `skillshar
 - Audit output shows both **block decision** (severity threshold) and **risk score** (label/score). Risk score does not by itself block installs or updates.
 
 > [!TIP]
-> See the [Securing Your Skills](https://skillshare.runkids.cc/docs/guides/security) guide for a complete security workflow, or the [audit command reference](https://skillshare.runkids.cc/docs/commands/audit) for the full list of detection patterns.
+> See the [Securing Your Skills](https://skillshare.runkids.cc/docs/how-to/advanced/security) guide for a complete security workflow, or the [audit command reference](https://skillshare.runkids.cc/docs/reference/commands/audit) for the full list of detection patterns.
 
 ## Docker
 
@@ -428,8 +428,8 @@ ssrm demo                   # Delete environment
 ## Documentation
 
 - Docs home: https://skillshare.runkids.cc/docs/
-- Commands: https://skillshare.runkids.cc/docs/commands
-- Guides: https://skillshare.runkids.cc/docs/guides/
+- Reference: https://skillshare.runkids.cc/docs/reference/commands
+- How-To: https://skillshare.runkids.cc/docs/how-to/
 - Troubleshooting: https://skillshare.runkids.cc/docs/troubleshooting/faq
 
 ## Contributing

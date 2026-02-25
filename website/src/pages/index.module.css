@@ -419,6 +419,142 @@
 }
 
 /* ========================================
+   Scenario Section — "Where would you like to start?"
+   ======================================== */
+.scenarioSection {
+  padding: 4rem 0 2rem;
+}
+
+.scenarioGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.scenarioCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+  background: var(--card-bg);
+  border: 2px solid var(--color-pencil);
+  border-radius: var(--radius-wobbly-md);
+  padding: 1.5rem 1rem;
+  transition: all 0.15s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.scenarioCard:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translate(1px, 1px) rotate(-0.5deg) !important;
+  text-decoration: none;
+  color: inherit;
+}
+
+:global([data-theme='dark']) .scenarioCard {
+  background: var(--card-bg);
+  border-color: rgba(240, 236, 225, 0.2);
+}
+
+:global([data-theme='dark']) .scenarioCard:hover {
+  background: var(--card-bg-hover);
+  border-color: var(--color-blue);
+}
+
+.scenarioIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--color-pencil);
+  background: #d6e4f0;
+  color: #2d5da1;
+}
+
+.scenarioCard:nth-child(2) .scenarioIcon {
+  background: #d4edda;
+  color: #2e8b57;
+}
+
+.scenarioCard:nth-child(3) .scenarioIcon {
+  background: #fff3cd;
+  color: #d4870e;
+}
+
+.scenarioCard:nth-child(4) .scenarioIcon {
+  background: #e8dff0;
+  color: #6b3fa0;
+}
+
+.scenarioCard:nth-child(5) .scenarioIcon {
+  background: #f8d7da;
+  color: #c0392b;
+}
+
+:global([data-theme='dark']) .scenarioIcon {
+  border-color: var(--card-border);
+}
+
+:global([data-theme='dark']) .scenarioCard:nth-child(1) .scenarioIcon {
+  background: rgba(107, 163, 214, 0.18);
+  color: #7db8e8;
+}
+
+:global([data-theme='dark']) .scenarioCard:nth-child(2) .scenarioIcon {
+  background: rgba(92, 184, 122, 0.18);
+  color: #6dca8e;
+}
+
+:global([data-theme='dark']) .scenarioCard:nth-child(3) .scenarioIcon {
+  background: rgba(232, 168, 64, 0.18);
+  color: #e8a840;
+}
+
+:global([data-theme='dark']) .scenarioCard:nth-child(4) .scenarioIcon {
+  background: rgba(160, 100, 220, 0.18);
+  color: #b088d0;
+}
+
+:global([data-theme='dark']) .scenarioCard:nth-child(5) .scenarioIcon {
+  background: rgba(224, 90, 79, 0.18);
+  color: #e05a4f;
+}
+
+.scenarioCard h3 {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  color: var(--color-pencil);
+}
+
+.scenarioCard p {
+  font-size: 0.82rem;
+  color: var(--color-pencil-light);
+  line-height: 1.5;
+  margin: 0;
+}
+
+@media (max-width: 996px) {
+  .scenarioGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .scenarioGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ========================================
    Wavy Divider
    ======================================== */
 .wavyDivider {

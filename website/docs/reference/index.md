@@ -6,36 +6,17 @@ sidebar_position: 1
 
 Technical reference documentation for skillshare.
 
-## What are you looking for?
+## Sections
 
-| Topic | Read |
-|-------|------|
-| Environment variables that affect skillshare | [Environment Variables](./environment-variables.md) |
-| Where skillshare stores config, skills, logs, cache | [File Structure](./file-structure.md) |
-| Config file format and options | [Configuration](/docs/targets/configuration) |
-| All CLI commands | [Commands](/docs/commands) |
+| Section | Description |
+|---------|-------------|
+| [Commands](/docs/reference/commands) | All CLI commands with usage, flags, and examples |
+| [Targets](/docs/reference/targets) | Supported AI tools and target configuration |
+| [Appendix](/docs/reference/appendix) | Environment variables, file structure, URL formats |
 
-## Quick Reference
+## Quick Links
 
-### Key Paths (Unix)
-
-| Path | Purpose |
-|------|---------|
-| `~/.config/skillshare/config.yaml` | Configuration file |
-| `~/.config/skillshare/skills/` | Source directory (your skills) |
-| `~/.local/share/skillshare/backups/` | Backup directory |
-| `~/.local/share/skillshare/trash/` | Soft-deleted skills |
-| `~/.local/state/skillshare/logs/` | Operation and audit logs |
-| `~/.cache/skillshare/ui/` | Downloaded web dashboard |
-
-### Environment Variables
-
-| Variable | Purpose |
-|----------|---------|
-| `SKILLSHARE_CONFIG` | Override config path |
-| `GITHUB_TOKEN` | GitHub API authentication |
-
-## See Also
-
-- [Configuration](/docs/targets/configuration) — Config file details
-- [Commands](/docs/commands) — All commands
+- [Configuration](/docs/reference/targets/configuration) — Config file format and options
+- [Environment Variables](/docs/reference/appendix/environment-variables) — Variables that affect skillshare
+- [File Structure](/docs/reference/appendix/file-structure) — Where skillshare stores config, skills, logs, cache
+- [URL Formats](/docs/reference/appendix/url-formats) — Supported git URL formats

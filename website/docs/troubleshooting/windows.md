@@ -26,7 +26,7 @@ irm https://raw.githubusercontent.com/runkids/skillshare/main/install.ps1 | iex
 
 ### Does skillshare need admin privileges?
 
-**No.** Skillshare uses NTFS junctions instead of symlinks, which don't require admin privileges.
+**No.** skillshare uses NTFS junctions instead of symlinks, which don't require admin privileges.
 
 NTFS junctions work like symlinks for directories but are available to all users.
 
@@ -121,7 +121,7 @@ Then restart.
 
 **Cause:** You're seeing symlinks instead of junctions.
 
-**Note:** Skillshare uses NTFS junctions on Windows, not symlinks. If you see symlink errors, ensure you're using the Windows version of skillshare.
+**Note:** skillshare uses NTFS junctions on Windows, not symlinks. If you see symlink errors, ensure you're using the Windows version of skillshare.
 
 ---
 
@@ -139,7 +139,7 @@ function ssl { skillshare pull }
 
 ### Check PowerShell version
 
-Skillshare works with PowerShell 5.1+ and PowerShell Core 7+:
+skillshare works with PowerShell 5.1+ and PowerShell Core 7+:
 ```powershell
 $PSVersionTable.PSVersion
 ```
@@ -182,4 +182,4 @@ Include in bug reports:
 ## Related
 
 - [Common Errors](./common-errors.md) — General error solutions
-- [Configuration](/docs/targets/configuration) — Config file reference
+- [Configuration](/docs/reference/targets/configuration) — Config file reference
