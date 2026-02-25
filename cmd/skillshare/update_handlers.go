@@ -93,7 +93,7 @@ func updateTrackedRepo(sourcePath, repoName string, dryRun, force, skipAudit, sh
 	repoPath := filepath.Join(sourcePath, repoName)
 	start := time.Now()
 
-	ui.StepStart("Repo", repoName)
+	ui.StepContinue("Repo", repoName+" (tracked)")
 
 	startUpdate := time.Now()
 	// Check for uncommitted changes
@@ -225,7 +225,7 @@ func updateRegularSkill(sourcePath, skillName string, dryRun, force, skipAudit, 
 		return fmt.Errorf("skill '%s' has no source metadata, cannot update", skillName)
 	}
 
-	ui.StepStart("Skill", skillName)
+	ui.StepContinue("Skill", skillName)
 	ui.StepContinue("Source", meta.Source)
 
 	if dryRun {

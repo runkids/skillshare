@@ -174,6 +174,16 @@ func cmdCheck(args []string) error {
 }
 
 func runCheck(sourceDir string, jsonOutput bool) error {
+	if !jsonOutput {
+		ui.Header(ui.WithModeLabel("Checking for updates"))
+		ui.StepStart("Source", sourceDir)
+	}
+
+	var scanSpinner *ui.Spinner
+	if !jsonOutput {
+		scanSpinner = ui.StartSpinner("Scanning skills...")
+	}
+
 	repos, err := install.GetTrackedRepos(sourceDir)
 	if err != nil {
 		repos = nil
@@ -185,6 +195,9 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 	}
 
 	if len(repos) == 0 && len(skills) == 0 {
+		if scanSpinner != nil {
+			scanSpinner.Stop()
+		}
 		if jsonOutput {
 			out, _ := json.MarshalIndent(checkOutput{
 				TrackedRepos: []checkRepoResult{},
@@ -193,7 +206,6 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 			fmt.Println(string(out))
 			return nil
 		}
-		ui.Header(ui.WithModeLabel("Checking for updates"))
 		ui.Info("No tracked repositories or updatable skills found")
 		ui.Info("Use 'skillshare install <repo> --track' to add a tracked repository")
 		return nil
@@ -201,6 +213,10 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 
 	// Collect & group
 	repoInputs, urlGroups, localResults := collectCheckItems(sourceDir, repos, skills)
+
+	if scanSpinner != nil {
+		scanSpinner.Stop()
+	}
 
 	// Build unique URL list
 	var urlInputs []check.URLCheckInput
@@ -218,8 +234,6 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 	total := len(repoInputs) + totalSkills
 
 	if !jsonOutput {
-		ui.Header(ui.WithModeLabel("Checking for updates"))
-		ui.StepStart("Source", sourceDir)
 		ui.StepContinue("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", len(repos), len(skills)))
 	}
 
@@ -535,7 +549,17 @@ func resolveSkillStatuses(
 
 // runCheckFiltered checks only the specified targets (resolved from names/groups).
 func runCheckFiltered(sourceDir string, opts *checkOptions) error {
+	if !opts.json {
+		ui.Header(ui.WithModeLabel("Checking for updates"))
+		ui.StepStart("Source", sourceDir)
+	}
+
 	// --- Resolve targets ---
+	var resolveSpinner *ui.Spinner
+	if !opts.json {
+		resolveSpinner = ui.StartSpinner("Resolving skills...")
+	}
+
 	var targets []updateTarget
 	seen := map[string]bool{}
 	var resolveWarnings []string
@@ -591,6 +615,10 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 		}
 	}
 
+	if resolveSpinner != nil {
+		resolveSpinner.Stop()
+	}
+
 	for _, w := range resolveWarnings {
 		ui.Warning("%s", w)
 	}
@@ -621,10 +649,8 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 		}
 	}
 
-	// --- Header (match update command style) ---
+	// --- Header details (Header + StepStart already shown above) ---
 	if !opts.json {
-		ui.Header(ui.WithModeLabel("Checking for updates"))
-		ui.StepStart("Source", sourceDir)
 		ui.StepContinue("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", len(repoNames), len(skillNames)))
 
 		// Single skill: show per-skill detail like update does
@@ -632,7 +658,7 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 			t := targets[0]
 			skillPath := filepath.Join(sourceDir, t.name)
 			if meta, metaErr := install.ReadMeta(skillPath); metaErr == nil && meta != nil && meta.Source != "" {
-				ui.StepStart("Skill", t.name)
+				ui.StepContinue("Skill", t.name)
 				ui.StepContinue("Source", meta.Source)
 			}
 		}
@@ -658,10 +684,10 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 	var progressBar *ui.ProgressBar
 	var spinner *ui.Spinner
 	if !opts.json && total > 0 {
-		fmt.Println()
 		if isSingle {
 			spinner = ui.StartSpinner("Checking...")
 		} else {
+			fmt.Println()
 			progressBar = ui.StartProgress("Checking targets", total)
 		}
 	}
