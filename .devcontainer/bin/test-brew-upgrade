@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Simulate Homebrew upgrade path for visual verification.
+# Places the binary in a fake Cellar so isHomebrewInstall() triggers,
+# and provides a mock brew script to exercise the tree output.
+
+WORKSPACE_ROOT="${SKILLSHARE_DEV_WORKSPACE_ROOT:-/workspace}"
+GO_BIN="${SKILLSHARE_DEV_GO_BIN:-/usr/local/go/bin/go}"
+[ -x "$GO_BIN" ] || GO_BIN="$(command -v go || true)"
+
+CELLAR="/opt/homebrew/Cellar/skillshare/dev/bin"
+FAKE_BIN="/tmp/fake-brew-bin"
+BINARY="$CELLAR/skillshare"
+
+cleanup() {
+  rm -rf "$FAKE_BIN" /opt/homebrew/Cellar/skillshare
+  rmdir /opt/homebrew/Cellar 2>/dev/null || true
+  rmdir /opt/homebrew 2>/dev/null || true
+}
+trap cleanup EXIT
+
+# Build and place in fake Cellar
+mkdir -p "$CELLAR" "$FAKE_BIN"
+(cd "$WORKSPACE_ROOT" && "$GO_BIN" build -o "$BINARY" ./cmd/skillshare)
+
+# --- Case 1: both succeed ---
+cat > "$FAKE_BIN/brew" << 'EOF'
+#!/bin/bash
+sleep 0.2
+EOF
+chmod +x "$FAKE_BIN/brew"
+
+echo "=== Case 1: success ==="
+PATH="$FAKE_BIN:$PATH" "$BINARY" upgrade --cli 2>&1 || true
+
+# --- Case 2: tap fails, upgrade succeeds ---
+cat > "$FAKE_BIN/brew" << 'EOF'
+#!/bin/bash
+[[ "$1" == "update" ]] && exit 1
+sleep 0.2
+EOF
+chmod +x "$FAKE_BIN/brew"
+
+echo ""
+echo "=== Case 2: tap fail, upgrade ok ==="
+PATH="$FAKE_BIN:$PATH" "$BINARY" upgrade --cli 2>&1 || true
+
+# --- Case 3: both fail ---
+cat > "$FAKE_BIN/brew" << 'EOF'
+#!/bin/bash
+echo "Error: something went wrong" >&2
+exit 1
+EOF
+chmod +x "$FAKE_BIN/brew"
+
+echo ""
+echo "=== Case 3: both fail ==="
+PATH="$FAKE_BIN:$PATH" "$BINARY" upgrade --cli 2>&1 || true

@@ -534,6 +534,14 @@ const (
 	StepCorner = "└"
 )
 
+// TreeLine returns the tree continuation character (│) with TTY coloring
+func TreeLine() string {
+	if IsTTY() {
+		return pterm.Gray(StepLine)
+	}
+	return StepLine
+}
+
 // StepStart prints the first step (with arrow)
 func StepStart(label, value string) {
 	if IsTTY() {
@@ -662,6 +670,26 @@ func (ts *TreeSpinner) Fail(message string) {
 		fmt.Printf("%s %s\n", pterm.Gray(prefix), pterm.Red(message))
 	} else {
 		fmt.Printf("%s %s\n", prefix, message)
+	}
+}
+
+// Warn completes the tree spinner with a warning
+func (ts *TreeSpinner) Warn(message string) {
+	elapsed := time.Since(ts.start)
+
+	prefix := StepBranch + "─"
+	if ts.isLast {
+		prefix = StepCorner + "─"
+	}
+
+	if ts.spinner != nil {
+		ts.spinner.Stop()
+	}
+
+	if IsTTY() {
+		fmt.Printf("%s %s  %s\n", pterm.Gray(prefix), pterm.Yellow(message), pterm.Gray(fmt.Sprintf("(%.1fs)", elapsed.Seconds())))
+	} else {
+		fmt.Printf("%s %s (%.1fs)\n", prefix, message, elapsed.Seconds())
 	}
 }
 

@@ -146,13 +146,13 @@ func upgradeCLIBinary(dryRun, force bool) error {
 
 	// Confirm if not forced
 	if !force {
-		fmt.Println()
-		fmt.Printf("  Upgrade to v%s? [Y/n]: ", latestVersion)
+		fmt.Printf("%s\n", ui.TreeLine())
+		fmt.Printf("%s  Upgrade to v%s? [Y/n]: ", ui.TreeLine(), latestVersion)
 		var input string
 		fmt.Scanln(&input)
 		input = strings.ToLower(strings.TrimSpace(input))
 		if input == "n" || input == "no" {
-			ui.Info("Cancelled")
+			ui.StepEnd("Status", "Cancelled")
 			return nil
 		}
 	}
@@ -164,8 +164,8 @@ func upgradeCLIBinary(dryRun, force bool) error {
 	}
 
 	// Download
-	fmt.Println()
-	downloadSpinner := ui.StartSpinner(fmt.Sprintf("Downloading v%s...", latestVersion))
+	hasUIDownload := latestVersion != ""
+	downloadSpinner := ui.StartTreeSpinner(fmt.Sprintf("Downloading v%s...", latestVersion), !hasUIDownload)
 	if err := downloadAndReplace(downloadURL, execPath); err != nil {
 		downloadSpinner.Fail("Failed to download")
 		return fmt.Errorf("failed to upgrade: %w", err)
@@ -176,8 +176,8 @@ func upgradeCLIBinary(dryRun, force bool) error {
 	versionpkg.ClearCache()
 
 	// Pre-download UI assets for the new version (best-effort)
-	if latestVersion != "" {
-		uiSpinner := ui.StartSpinner("Downloading UI assets...")
+	if hasUIDownload {
+		uiSpinner := ui.StartTreeSpinner("Downloading UI assets...", true)
 		if err := uidist.Download(latestVersion); err != nil {
 			uiSpinner.Warn("UI download skipped (run 'skillshare ui' to retry)")
 		} else {
@@ -426,26 +426,36 @@ func isHomebrewInstall(execPath string) bool {
 }
 
 func runBrewUpgrade() error {
-	// First update the tap to get latest formula
-	ui.Info("Updating tap...")
+	// Phase 1: brew update (tap refresh)
+	tapSpinner := ui.StartTreeSpinner("Updating tap...", false)
 	updateCmd := exec.Command("brew", "update", "--quiet")
-	updateCmd.Stdout = os.Stdout
-	updateCmd.Stderr = os.Stderr
+	var updateBuf bytes.Buffer
+	updateCmd.Stdout = &updateBuf
+	updateCmd.Stderr = &updateBuf
 	if err := updateCmd.Run(); err != nil {
-		ui.Warning("brew update failed, trying upgrade anyway...")
+		tapSpinner.Fail("Tap update failed (continuing)")
+	} else {
+		tapSpinner.Success("Tap updated")
 	}
 
-	// Then upgrade
-	ui.Info("Upgrading...")
+	// Phase 2: brew upgrade
+	upgradeSpinner := ui.StartTreeSpinner("Upgrading via Homebrew...", true)
 	cmd := exec.Command("brew", "upgrade", "skillshare")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
-	if err == nil {
-		// Clear version cache so next check fetches fresh data
-		versionpkg.ClearCache()
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	if err := cmd.Run(); err != nil {
+		upgradeSpinner.Fail("Upgrade failed")
+		// Show captured output for debugging
+		if out := strings.TrimSpace(buf.String()); out != "" {
+			fmt.Println()
+			fmt.Println(out)
+		}
+		return err
 	}
-	return err
+	upgradeSpinner.Success("Upgraded")
+	versionpkg.ClearCache()
+	return nil
 }
 
 func printUpgradeHelp() {
