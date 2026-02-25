@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -128,6 +129,45 @@ func extractFrontmatterRaw(filePath string) string {
 		return ""
 	}
 	return strings.Join(lines, "\n")
+}
+
+// ParseFrontmatterFields reads a SKILL.md file once and returns the values of
+// multiple frontmatter fields. This avoids opening the same file repeatedly
+// when multiple fields are needed (e.g. description + license).
+func ParseFrontmatterFields(filePath string, fields []string) map[string]string {
+	result := make(map[string]string, len(fields))
+	if len(fields) == 0 {
+		return result
+	}
+
+	raw := extractFrontmatterRaw(filePath)
+	if raw == "" {
+		return result
+	}
+
+	var fm map[string]any
+	if err := yaml.Unmarshal([]byte(raw), &fm); err != nil {
+		return result
+	}
+
+	for _, field := range fields {
+		val, ok := fm[field]
+		if !ok || val == nil {
+			continue
+		}
+		switch v := val.(type) {
+		case string:
+			result[field] = v
+		case int:
+			result[field] = fmt.Sprintf("%d", v)
+		case float64:
+			result[field] = fmt.Sprintf("%g", v)
+		case bool:
+			result[field] = fmt.Sprintf("%t", v)
+		}
+	}
+
+	return result
 }
 
 // ParseFrontmatterField reads a SKILL.md file and extracts the value of a given frontmatter field.

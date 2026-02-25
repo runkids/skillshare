@@ -20,6 +20,79 @@ type DiscoveredSkill struct {
 	Targets    []string // From SKILL.md frontmatter; nil = all targets
 }
 
+// DiscoverSourceSkillsLite recursively scans the source directory for skills
+// without parsing SKILL.md frontmatter. Targets is always nil for each skill.
+// It also collects tracked repo paths (directories starting with _ that contain
+// .git) during the same walk, eliminating the need for a separate GetTrackedRepos call.
+//
+// Use this for commands like list/uninstall that don't need per-skill target filtering.
+func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, error) {
+	var skills []DiscoveredSkill
+	var trackedRepos []string
+	trackedRepoPaths := make(map[string]bool) // track paths to detect nested tracked repos
+
+	err := filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip inaccessible paths
+		}
+
+		// Skip .git directory
+		if info.IsDir() && info.Name() == ".git" {
+			return filepath.SkipDir
+		}
+
+		// Collect tracked repos: _-prefixed directories that are git repos
+		if info.IsDir() && info.Name() != "." && info.Name()[0] == '_' {
+			gitDir := filepath.Join(path, ".git")
+			if _, statErr := os.Stat(gitDir); statErr == nil {
+				relPath, relErr := filepath.Rel(sourcePath, path)
+				if relErr == nil && relPath != "." {
+					trackedRepos = append(trackedRepos, relPath)
+					trackedRepoPaths[path] = true
+				}
+			}
+		}
+
+		// Look for SKILL.md files
+		if !info.IsDir() && info.Name() == "SKILL.md" {
+			skillDir := filepath.Dir(path)
+			relPath, err := filepath.Rel(sourcePath, skillDir)
+			if err != nil {
+				return nil
+			}
+
+			if relPath == "." {
+				return nil
+			}
+
+			relPath = strings.ReplaceAll(relPath, "\\", "/")
+
+			isInRepo := false
+			parts := strings.Split(relPath, "/")
+			if len(parts) > 0 && utils.IsTrackedRepoDir(parts[0]) {
+				isInRepo = true
+			}
+
+			// Skip frontmatter parsing — Targets stays nil
+			skills = append(skills, DiscoveredSkill{
+				SourcePath: skillDir,
+				RelPath:    relPath,
+				FlatName:   utils.PathToFlatName(relPath),
+				IsInRepo:   isInRepo,
+				Targets:    nil,
+			})
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to walk source directory: %w", err)
+	}
+
+	return skills, trackedRepos, nil
+}
+
 // DiscoverSourceSkills recursively scans the source directory for skills.
 // A skill is identified by the presence of a SKILL.md file.
 // Returns all discovered skills with their metadata for syncing.
