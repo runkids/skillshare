@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.16.1] - 2026-02-25
+
+### Improvements
+
+- **Async TUI loading for `list`** — skill list now loads inside the TUI with a spinner instead of blocking before rendering; metadata reads use a parallel worker pool (64 workers) for faster startup
+- **Unified filter bar across all TUIs** — `list`, `log`, and `search` now share the same filter UX: press `/` to enter filter mode, `Esc` to clear, `Enter` to lock; search TUI suppresses action keys while typing to avoid accidental checkbox toggles
+- **Colorized audit output** — severity counts (CRITICAL/HIGH/MEDIUM/LOW/INFO), risk labels, and finding details are now color-coded by severity level
+- **Improved install output** — single-skill and tracked-repo installs show inline tree steps (description, license, location) instead of a separate SkillBox; description truncation increased to 100 characters with visible ellipsis (`…`)
+- **Parallel uninstall discovery** — `uninstall --all` uses parallel git dirty checks (8 workers) for faster execution
+
+### Fixed
+
+- **Frozen terminal during `check` and `update`** — header and spinners now appear immediately before filesystem scans, so users see feedback instead of a blank screen
+- **Spinner flicker during `install` clone** — eliminated visual glitch when transitioning between clone and post-clone phases
+- **Large operation log files crash `log` TUI** — JSONL parser now uses streaming `json.Decoder` instead of reading entire lines into memory, handling arbitrarily large log entries
+
 ## [0.16.0] - 2026-02-25
 
 ### Performance
