@@ -35,34 +35,34 @@ Expected:
 
 ```bash
 ssenv enter "$ENV_NAME" -- bash -c '
-  ss install github.com/sickn33/antigravity-awesome-skills//skills/codebase-research -g
+  ss install github.com/sickn33/antigravity-awesome-skills//skills/active-directory-attacks -g
 '
 ```
 
 Expected:
 - Skill installed successfully
 - `.skillshare-meta.json` contains `tree_hash` field (non-empty 40-char hex)
-- `subdir` field is `skills/codebase-research`
+- `subdir` field is `skills/active-directory-attacks`
 - `repo_url` is set
 
 ### 3. Verify meta fields
 
 ```bash
 ssenv enter "$ENV_NAME" -- bash -c '
-  cat ~/.config/skillshare/skills/codebase-research/.skillshare-meta.json
+  cat ~/.config/skillshare/skills/active-directory-attacks/.skillshare-meta.json
 '
 ```
 
 Expected:
 - JSON contains `"tree_hash"` with a 40-character hex string
-- JSON contains `"subdir": "skills/codebase-research"`
+- JSON contains `"subdir": "skills/active-directory-attacks"`
 - JSON contains `"version"` (short commit hash)
 
 ### 4. Run check — should be up_to_date (no remote changes since install)
 
 ```bash
 ssenv enter "$ENV_NAME" -- bash -c '
-  ss check codebase-research -g --json
+  ss check active-directory-attacks -g --json
 '
 ```
 
@@ -86,7 +86,7 @@ Expected:
 
 ```bash
 ssenv enter "$ENV_NAME" -- bash -c '
-  ss check codebase-research ab-test-setup -g --json
+  ss check active-directory-attacks ab-test-setup -g --json
 '
 ```
 
@@ -99,7 +99,7 @@ Expected:
 ```bash
 ssenv enter "$ENV_NAME" -- bash -c '
   # Backup original meta
-  META=~/.config/skillshare/skills/codebase-research/.skillshare-meta.json
+  META=~/.config/skillshare/skills/active-directory-attacks/.skillshare-meta.json
   # Remove tree_hash field from meta to simulate old-format install
   python3 -c "
 import json, sys
@@ -121,7 +121,7 @@ Expected:
 
 ```bash
 ssenv enter "$ENV_NAME" -- bash -c '
-  ss check codebase-research -g --json
+  ss check active-directory-attacks -g --json
 '
 ```
 

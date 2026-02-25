@@ -1,9 +1,18 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
+
+// padTo pads s to minProgressWidth (same constant used in normalizeGitProgressMessage).
+func padTo(s string) string {
+	if len(s) < minProgressWidth {
+		return s + strings.Repeat(" ", minProgressWidth-len(s))
+	}
+	return s
+}
 
 func TestNormalizeGitProgressMessage(t *testing.T) {
 	tests := []struct {
@@ -14,17 +23,22 @@ func TestNormalizeGitProgressMessage(t *testing.T) {
 		{
 			name: "strip transfer rate suffix",
 			in:   "Receiving objects:  69% (268052/388481), 234.42 MiB | 15.94 MiB/s",
-			want: "Receiving objects: 69%",
+			want: padTo("Receiving objects: 69%"),
 		},
 		{
 			name: "strip remote prefix",
 			in:   "remote: Compressing objects: 100% (32/32), done.",
-			want: "Compressing objects: 100%",
+			want: padTo("Compressing objects: 100%"),
 		},
 		{
 			name: "keep normal message",
 			in:   "Cloning repository...",
-			want: "Cloning repository...",
+			want: padTo("Cloning repository..."),
+		},
+		{
+			name: "long message not padded",
+			in:   "This is a long message that exceeds the minimum progress width limit easily",
+			want: "This is a long message that exceeds the minimum progress width limit easily",
 		},
 	}
 
@@ -42,22 +56,23 @@ func TestNormalizeGitProgressMessage(t *testing.T) {
 
 func TestNormalizeSpinnerUpdate(t *testing.T) {
 	t.Run("dedupe", func(t *testing.T) {
-		msg, ok := normalizeSpinnerUpdate("Receiving objects: 69% (1/2)", "Receiving objects: 69%", time.Time{})
+		// lastMessage is already normalized (padded), so dedupe still triggers.
+		msg, ok := normalizeSpinnerUpdate("Receiving objects: 69% (1/2)", padTo("Receiving objects: 69%"), time.Time{})
 		if ok || msg != "" {
 			t.Fatalf("expected dedupe skip, got ok=%v msg=%q", ok, msg)
 		}
 	})
 
 	t.Run("throttle git progress", func(t *testing.T) {
-		msg, ok := normalizeSpinnerUpdate("Receiving objects: 70% (2/2)", "Receiving objects: 69%", time.Now())
+		msg, ok := normalizeSpinnerUpdate("Receiving objects: 70% (2/2)", padTo("Receiving objects: 69%"), time.Now())
 		if ok || msg != "" {
 			t.Fatalf("expected throttled skip, got ok=%v msg=%q", ok, msg)
 		}
 	})
 
 	t.Run("allow non-git status even when recent", func(t *testing.T) {
-		msg, ok := normalizeSpinnerUpdate("Cloning repository...", "Downloading via GitHub API...", time.Now())
-		if !ok || msg != "Cloning repository..." {
+		msg, ok := normalizeSpinnerUpdate("Cloning repository...", padTo("Downloading via GitHub API..."), time.Now())
+		if !ok || msg != padTo("Cloning repository...") {
 			t.Fatalf("expected pass-through status, got ok=%v msg=%q", ok, msg)
 		}
 	})
