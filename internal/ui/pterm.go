@@ -18,11 +18,16 @@ var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
 var gitProgressPercentRegex = regexp.MustCompile(`^([^:]+):\s*([0-9]{1,3}%)`)
 
 const spinnerGitUpdateMinInterval = 120 * time.Millisecond
+const minProgressWidth = 40
 
 func init() {
 	// Unify spinner style: braille dot pattern (matches bubbletea spinner.Dot), cyan.
 	pterm.DefaultSpinner.Sequence = []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"}
 	pterm.DefaultSpinner.Style = pterm.NewStyle(pterm.FgCyan)
+	// Disable built-in timer to prevent flicker: the animation goroutine
+	// appends "(Ns)" but UpdateText does not, causing per-frame length
+	// differences. Our Success()/Warn() already print elapsed time.
+	pterm.DefaultSpinner.ShowTimer = false
 }
 
 // displayWidth returns the visible width of a string (excluding ANSI codes, handling wide chars)
@@ -718,8 +723,14 @@ func normalizeGitProgressMessage(message string) string {
 		stage := strings.TrimSpace(m[1])
 		pct := strings.TrimSpace(m[2])
 		if stage != "" && pct != "" {
-			return fmt.Sprintf("%s: %s", stage, pct)
+			msg = fmt.Sprintf("%s: %s", stage, pct)
 		}
+	}
+
+	// Pad short messages to a fixed width so they overwrite residual
+	// characters left by a previous longer message on the same line.
+	if len(msg) < minProgressWidth {
+		msg += strings.Repeat(" ", minProgressWidth-len(msg))
 	}
 
 	return msg
