@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"skillshare/internal/config"
-	"skillshare/internal/install"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 
@@ -21,40 +20,31 @@ func cmdListProject(root string, opts listOptions) error {
 	}
 
 	sourcePath := filepath.Join(root, ".skillshare", "skills")
+	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
-	// Use recursive discovery (same as global list and web UI)
-	discovered, err := sync.DiscoverSourceSkills(sourcePath)
-	if err != nil {
-		return fmt.Errorf("cannot discover project skills: %w", err)
-	}
-
-	trackedRepos, _ := install.GetTrackedRepos(sourcePath)
-	skills := buildSkillEntries(discovered)
-	totalCount := len(skills)
-	hasFilter := opts.Pattern != "" || opts.TypeFilter != ""
-
-	// Apply filter and sort
-	skills = filterSkillEntries(skills, opts.Pattern, opts.TypeFilter)
-	sortBy := opts.SortBy
-	if sortBy == "" {
-		sortBy = "name" // project mode default
-	}
-	sortSkillEntries(skills, sortBy)
-
-	// JSON output — skip pager and text formatting
-	if opts.JSON {
-		return displaySkillsJSON(skills)
-	}
-
-	// TTY + not --no-tui + has skills → launch interactive TUI
-	if !opts.NoTUI && len(skills) > 0 && term.IsTerminal(int(os.Stdout.Fd())) {
-		items := toSkillItems(skills)
+	// TTY + not JSON + not --no-tui → launch TUI with async loading (no blank screen)
+	if !opts.JSON && !opts.NoTUI && isTTY {
 		// Load project targets for TUI detail panel (synced-to info)
 		var targets map[string]config.TargetConfig
 		if rt, rtErr := loadProjectRuntime(root); rtErr == nil {
 			targets = rt.targets
 		}
-		action, skillName, err := runListTUI(items, totalCount, "project", sourcePath, targets)
+		sortBy := opts.SortBy
+		if sortBy == "" {
+			sortBy = "name"
+		}
+		loadFn := func() listLoadResult {
+			discovered, _, err := sync.DiscoverSourceSkillsLite(sourcePath)
+			if err != nil {
+				return listLoadResult{err: fmt.Errorf("cannot discover project skills: %w", err)}
+			}
+			skills := buildSkillEntries(discovered)
+			total := len(skills)
+			skills = filterSkillEntries(skills, opts.Pattern, opts.TypeFilter)
+			sortSkillEntries(skills, sortBy)
+			return listLoadResult{skills: toSkillItems(skills), totalCount: total}
+		}
+		action, skillName, err := runListTUI(loadFn, "project", sourcePath, targets)
 		if err != nil {
 			return err
 		}
@@ -67,6 +57,44 @@ func cmdListProject(root string, opts listOptions) error {
 			return cmdUninstallProject([]string{skillName}, root)
 		}
 		return nil
+	}
+
+	// Non-TUI path (JSON or plain text): synchronous loading with spinner
+	var sp *ui.Spinner
+	if !opts.JSON && isTTY {
+		sp = ui.StartSpinner("Loading skills...")
+	}
+
+	// Use lite discovery (skips frontmatter I/O, collects tracked repos in one walk)
+	discovered, trackedRepos, err := sync.DiscoverSourceSkillsLite(sourcePath)
+	if err != nil {
+		if sp != nil {
+			sp.Fail("Discovery failed")
+		}
+		return fmt.Errorf("cannot discover project skills: %w", err)
+	}
+
+	if sp != nil {
+		sp.Update(fmt.Sprintf("Reading metadata for %d skills...", len(discovered)))
+	}
+	skills := buildSkillEntries(discovered)
+	if sp != nil {
+		sp.Success(fmt.Sprintf("Loaded %d skills", len(skills)))
+	}
+	totalCount := len(skills)
+	hasFilter := opts.Pattern != "" || opts.TypeFilter != ""
+
+	// Apply filter and sort
+	skills = filterSkillEntries(skills, opts.Pattern, opts.TypeFilter)
+	sortBy := opts.SortBy
+	if sortBy == "" {
+		sortBy = "name" // project mode default
+	}
+	sortSkillEntries(skills, sortBy)
+
+	// JSON output
+	if opts.JSON {
+		return displaySkillsJSON(skills)
 	}
 
 	// Handle empty results before starting pager
