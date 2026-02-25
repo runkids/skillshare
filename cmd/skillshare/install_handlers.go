@@ -67,19 +67,8 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 		fmt.Println()
 		ui.Warning("[dry-run] Would install tracked repo")
 	} else {
-		ui.StepEnd("Found", fmt.Sprintf("%d skill(s)", result.SkillCount))
-
-		// Show skill box
-		fmt.Println()
-		ui.SkillBox(result.RepoName, fmt.Sprintf("Tracked repository with %d skills", result.SkillCount), result.RepoPath)
-
-		// Show skill list if not too many
-		if len(result.Skills) > 0 && len(result.Skills) <= 10 {
-			fmt.Println()
-			for _, skill := range result.Skills {
-				ui.SkillBoxCompact(skill, "")
-			}
-		}
+		ui.StepContinue("Found", fmt.Sprintf("%d skill(s)", result.SkillCount))
+		renderTrackedRepoMeta(result.RepoName, result.Skills, result.RepoPath)
 	}
 
 	// Display warnings and risk info
@@ -171,16 +160,14 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			}
 			skill.Name = opts.Name
 		}
-		ui.StepEnd("Found", fmt.Sprintf("1 skill: %s", skill.Name))
+		ui.StepContinue("Found", fmt.Sprintf("1 skill: %s", skill.Name))
 
 		displayPath := skill.Name
 		if opts.Into != "" {
 			displayPath = filepath.Join(opts.Into, skill.Name)
 		}
 
-		fmt.Println()
-		desc := buildSkillBoxDesc(skill)
-		ui.SkillBox(skill.Name, desc, displayPath)
+		renderSkillMeta(skill, displayPath)
 
 		destPath := destWithInto(cfg.Source, opts, skill.Name)
 		if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
@@ -254,9 +241,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 			displayPath = filepath.Join(opts.Into, skill.Name)
 		}
 
-		fmt.Println()
-		desc := buildSkillBoxDesc(skill)
-		ui.SkillBox(skill.Name, desc, displayPath)
+		renderSkillMeta(skill, displayPath)
 
 		destPath := destWithInto(cfg.Source, opts, skill.Name)
 		if err := ensureIntoDirExists(cfg.Source, opts); err != nil {
@@ -803,15 +788,31 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 	return summary, nil
 }
 
-// buildSkillBoxDesc combines description and license into a SkillBox description string.
-func buildSkillBoxDesc(skill install.SkillInfo) string {
-	desc := skill.Description
-	if skill.License != "" {
-		if desc != "" {
-			desc += "\nLicense: " + skill.License
-		} else {
-			desc = "License: " + skill.License
-		}
+// renderSkillMeta prints skill description, license, and location as inline tree steps.
+func renderSkillMeta(skill install.SkillInfo, displayPath string) {
+	if skill.Description != "" {
+		ui.StepContinue("Desc", truncateDesc(skill.Description, 60))
 	}
-	return desc
+	if skill.License != "" {
+		ui.StepContinue("License", skill.License)
+	}
+	ui.StepEnd("Location", "skills/"+displayPath)
+}
+
+// renderTrackedRepoMeta prints tracked repo metadata as inline tree steps.
+func renderTrackedRepoMeta(repoName string, skills []string, repoPath string) {
+	ui.StepContinue("Tracked", repoName)
+	if len(skills) > 0 && len(skills) <= 10 {
+		ui.StepContinue("Skills", strings.Join(skills, ", "))
+	}
+	ui.StepEnd("Location", repoPath)
+}
+
+// truncateDesc truncates a description string to max runes, appending "…" if truncated.
+func truncateDesc(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max]) + "…"
 }
