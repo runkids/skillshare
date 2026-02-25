@@ -67,6 +67,12 @@ skillshare install https://bitbucket.org/owner/repo
 
 # Self-hosted Gitea
 skillshare install https://git.mycompany.com/team/skills
+
+# AtomGit (China)
+skillshare install https://atomgit.com/owner/repo
+
+# Gitee (China)
+skillshare install https://gitee.com/owner/repo
 ```
 
 ## SSH URLs
@@ -196,13 +202,13 @@ If you get an authentication error with HTTPS, switch to SSH URLs. skillshare se
 
 ## Platform Support
 
-| Feature | GitHub | GitLab | Bitbucket | Gitea | GHE | Azure DevOps |
-|---------|--------|--------|-----------|-------|-----|--------------|
-| Shorthand (`owner/repo`) | Yes | No | No | No | Yes | `ado:` prefix |
-| Full HTTPS URL | Yes | Yes | Yes | Yes | Yes | Yes |
-| SSH URL | Yes | Yes | Yes | Yes | Yes | Yes |
-| Subdirectory | Yes | Yes | Yes | Yes | Yes | Yes |
-| `skillshare search` | Yes | No | No | No | No | No |
+| Feature | GitHub | GitLab | Bitbucket | Gitea | GHE | Azure DevOps | AtomGit/Gitee |
+|---------|--------|--------|-----------|-------|-----|--------------|---------------|
+| Shorthand (`owner/repo`) | Yes | No | No | No | Yes | `ado:` prefix | No |
+| Full HTTPS URL | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| SSH URL | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| Subdirectory | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| `skillshare search` | Yes | No | No | No | No | No | No |
 
 ## Related
 

@@ -71,7 +71,7 @@ Edit in source → all targets update. Edit in target → changes go to source (
 - **Dual-Level Architecture** — Organization skills for company standards + project skills for repo context
 - **Instant Updates** — Symlink-based sync means edits reflect immediately across all AI tools
 - **Team Ready** — Organization skills via tracked repos, project skills via git commit
-- **Any Git Host** — Install, update, and check from GitHub, GitLab, Bitbucket, Azure DevOps, or any self-hosted Git
+- **Any Git Host** — Install, update, and check from GitHub, GitLab, Bitbucket, Azure DevOps, AtomGit, Gitee, or any self-hosted Git
 - **Security Audit** — Scan skills for prompt injection, data exfiltration, and threats. Auto-scans on install
 
 ## Supported Platforms
