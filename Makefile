@@ -1,4 +1,4 @@
-.PHONY: help build build-meta run test test-unit test-int test-docker test-docker-online test-redteam test-redteam-signal test-redteam-rules-signal playground playground-down dev-docker dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
+.PHONY: help build build-meta build-windows run test test-unit test-int test-docker test-docker-online test-redteam test-redteam-signal test-redteam-rules-signal playground playground-down dev-docker dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
 
 help:
 	@echo "Common tasks:"
@@ -34,6 +34,9 @@ build:
 
 build-meta:
 	./scripts/build.sh
+
+build-windows:
+	./scripts/build-windows.sh $(SHARED)
 
 run: build
 	./bin/skillshare --help
