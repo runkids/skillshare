@@ -13,7 +13,7 @@ Get skillshare running in minutes. Choose your starting point:
 | Set up skillshare from scratch | [First Sync](./first-sync.md) — install, init, and sync in 5 minutes |
 | I already have skills in Claude/Cursor/etc. | [From Existing Skills](./from-existing-skills.md) — consolidate and unify |
 | I know skillshare, just need command syntax | [Quick Reference](./quick-reference.md) — cheat sheet |
-| Try without installing anything | [Docker Playground](/docs/guides/docker-sandbox#playground) — `make playground` in cloned repo |
+| Try without installing anything | [Docker Playground](/docs/how-to/advanced/docker-sandbox#playground) — `make playground` in cloned repo |
 
 ## The 3-Step Pattern
 
@@ -38,6 +38,6 @@ After setup, behavior depends on mode:
 
 After you're set up:
 
-- [Core Concepts](/docs/concepts) — Understand source, targets, and sync modes
-- [Daily Workflow](/docs/workflows/daily-workflow) — How to use skillshare day-to-day
-- [Commands Reference](/docs/commands) — Full command reference
+- [Core Concepts](/docs/understand) — Understand source, targets, and sync modes
+- [Daily Workflow](/docs/how-to/daily-tasks/daily-workflow) — How to use skillshare day-to-day
+- [Commands Reference](/docs/reference/commands) — Full command reference

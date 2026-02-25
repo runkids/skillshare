@@ -71,7 +71,7 @@ This lets you:
 
 **Note:** `pull` is the only command that auto-syncs, because its intent is "bring everything up to date."
 
-See [Why Sync is a Separate Step](/docs/concepts/source-and-targets#why-sync-is-a-separate-step) for the full design rationale.
+See [Why Sync is a Separate Step](/docs/understand/source-and-targets#why-sync-is-a-separate-step) for the full design rationale.
 
 ### How do I sync across multiple machines?
 
@@ -85,7 +85,7 @@ skillshare push -m "Add new skill"
 skillshare pull
 ```
 
-See [Cross-Machine Sync](/docs/guides/cross-machine-sync) for full setup.
+See [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) for full setup.
 
 ### What if I accidentally delete a skill through a symlink?
 
@@ -176,7 +176,7 @@ targets:
     include: [skill-b, skill-c]
 ```
 
-Both approaches can be combined — config filters are applied first, then the skill-level `targets` field. See [Skill Format — `targets`](/docs/concepts/skill-format#targets) and [Configuration — filters](/docs/targets/configuration#skill-level-targets).
+Both approaches can be combined — config filters are applied first, then the skill-level `targets` field. See [Skill Format — `targets`](/docs/understand/skill-format#targets) and [Configuration — filters](/docs/reference/targets/configuration#skill-level-targets).
 
 ---
 
@@ -256,7 +256,7 @@ description: Brief description
 Instructions for the AI...
 ```
 
-See [Skill Format](/docs/concepts/skill-format) for full details.
+See [Skill Format](/docs/understand/skill-format) for full details.
 
 ### What does "unknown target" warning mean?
 
@@ -282,7 +282,7 @@ description: Works everywhere
 1. **Ignore the warning** — the skill still installs, it just won't auto-filter to specific targets
 2. **Fork and fix** — Remove or correct the `targets` field in the skill's `SKILL.md`
 
-See [Skill Format — `targets`](/docs/concepts/skill-format#targets) for the full specification.
+See [Skill Format — `targets`](/docs/understand/skill-format#targets) for the full specification.
 
 ### Can a skill have multiple files?
 
@@ -347,7 +347,7 @@ Skills are instructions for your AI agent — a malicious skill could tell the A
 - **CRITICAL findings block** — Prompt injection, data exfiltration, credential access are blocked by default
 - **Manual scan** — Run `skillshare audit` to scan all installed skills at any time
 
-See [audit command](/docs/commands/audit) for the full list of detection patterns.
+See [audit command](/docs/reference/commands/audit) for the full list of detection patterns.
 
 ### What if audit blocks my install?
 

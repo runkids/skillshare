@@ -9,7 +9,7 @@ slug: /
 
 ## Why skillshare?
 
-Install tools get skills onto agents. **Skillshare keeps them in sync.**
+Install tools get skills onto agents. **skillshare keeps them in sync.**
 
 | | Install-once tools | skillshare |
 |---|-------------------|------------|
@@ -42,7 +42,7 @@ skillshare sync
 Done. Your skills are now synced across all AI CLI tools.
 
 :::tip[Try without installing]
-Want to explore first? Use the [Docker Playground](/docs/guides/docker-sandbox#playground) — one command, no local install needed:
+Want to explore first? Use the [Docker Playground](/docs/how-to/advanced/docker-sandbox#playground) — one command, no local install needed:
 
 ```bash
 git clone https://github.com/runkids/skillshare.git && cd skillshare
@@ -85,14 +85,14 @@ Edit in source → all targets update. Edit in target → changes go to source (
 ### Individual Developer
 
 1. [First Sync](/docs/getting-started/first-sync) — Get synced in 5 minutes
-2. [Creating Skills](/docs/guides/creating-skills) — Write your first skill
-3. [Cross-Machine Sync](/docs/guides/cross-machine-sync) — Keep skills in sync across machines
+2. [Creating Skills](/docs/how-to/daily-tasks/creating-skills) — Write your first skill
+3. [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) — Keep skills in sync across machines
 
 ### Team Lead / Organization
 
-1. [Organization-Wide Skills](/docs/guides/organization-sharing) — Share standards across the team
-2. [Project Setup](/docs/guides/project-setup) — Set up project-scoped skills
-3. [Security Audit](/docs/commands/audit) — Scan third-party skills before deployment
+1. [Organization-Wide Skills](/docs/how-to/sharing/organization-sharing) — Share standards across the team
+2. [Project Setup](/docs/how-to/sharing/project-setup) — Set up project-scoped skills
+3. [Security Audit](/docs/reference/commands/audit) — Scan third-party skills before deployment
 
 ### Already Have Skills?
 
@@ -100,7 +100,7 @@ Edit in source → all targets update. Edit in target → changes go to source (
 
 ### Explore More
 
-- [Core Concepts](/docs/concepts) — Source, targets, sync modes
-- [Commands Reference](/docs/commands) — All available commands
-- [Docker Sandbox](/docs/guides/docker-sandbox) — Try skillshare in an isolated environment
+- [Core Concepts](/docs/understand) — Source, targets, sync modes
+- [Commands Reference](/docs/reference/commands) — All available commands
+- [Docker Sandbox](/docs/how-to/advanced/docker-sandbox) — Try skillshare in an isolated environment
 - [FAQ](/docs/troubleshooting/faq) — Common questions

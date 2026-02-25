@@ -86,4 +86,4 @@ If you can't resolve the issue:
 ## Related
 
 - [Troubleshooting Workflow](./troubleshooting-workflow.md) — Step-by-step debugging
-- [Commands: doctor](/docs/commands/doctor) — Doctor command details
+- [Commands: doctor](/docs/reference/commands/doctor) — Doctor command details

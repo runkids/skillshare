@@ -151,7 +151,7 @@ skillshare sync
 
 ### `Git identity not configured`
 
-**Cause:** No `user.name` / `user.email` in git config. Skillshare uses a local fallback (`skillshare@local`) so init can complete, but you should set your own.
+**Cause:** No `user.name` / `user.email` in git config. skillshare uses a local fallback (`skillshare@local`) so init can complete, but you should set your own.
 
 **Solution:**
 ```bash
@@ -227,7 +227,7 @@ git credential approve # or platform-specific credential manager
 Only **Personal Access Token** (`glpat-`) works for git operations. Feed Tokens (`glft-`) do **not** have git access.
 :::
 
-See [Environment Variables](/docs/reference/environment-variables#git-authentication) and [Private Repositories](/docs/commands/install#private-repositories).
+See [Environment Variables](/docs/reference/appendix/environment-variables#git-authentication) and [Private Repositories](/docs/reference/commands/install#private-repositories).
 
 ### `invalid skill: SKILL.md not found`
 
@@ -307,7 +307,7 @@ skillshare doctor
 **Solution:** Rename one in SKILL.md or use `include`/`exclude` filters to route them to different targets:
 ```yaml
 # Option 1: Namespace in SKILL.md
-name: team-a:skill-name
+name: team-a-skill-name
 
 # Option 2: Route with filters (global config)
 targets:
@@ -328,7 +328,7 @@ targets:
 
 :::tip
 If filters already isolate the duplicates, sync shows an info message instead of a warning — no action needed.
-See [Target Filters](/docs/targets/configuration#include--exclude-target-filters) for full syntax.
+See [Target Filters](/docs/reference/targets/configuration#include--exclude-target-filters) for full syntax.
 :::
 
 ---

@@ -15,10 +15,14 @@ Get your skills synced in 5 minutes.
 
 ## Step 1: Install skillshare
 
-**Homebrew:**
+**Homebrew (macOS / Linux):**
 ```bash
 brew install skillshare
 ```
+
+:::note
+Homebrew releases may lag behind the latest version by a few days. For the newest release, use the install script below.
+:::
 
 :::note
 All install methods include the web dashboard. `skillshare ui` automatically downloads UI assets on first launch — no extra setup needed.
@@ -127,9 +131,9 @@ You should see:
 
 ## What's Next?
 
-- [Create your own skill](/docs/guides/creating-skills)
-- [Sync across machines](/docs/guides/cross-machine-sync)
-- [Organization-wide skills](/docs/guides/organization-sharing)
+- [Create your own skill](/docs/how-to/daily-tasks/creating-skills)
+- [Sync across machines](/docs/how-to/sharing/cross-machine-sync)
+- [Organization-wide skills](/docs/how-to/sharing/organization-sharing)
 
 ## What Just Happened?
 
@@ -137,7 +141,7 @@ Here's what skillshare did behind the scenes:
 
 1. **`init`** — Created `~/.config/skillshare/config.yaml` and `~/.config/skillshare/skills/`. Auto-detected your AI CLIs (Claude, Cursor, etc.) and added them as targets.
 
-2. **`install`** — Cloned the skill from GitHub into your source directory (`~/.config/skillshare/skills/`). Ran a security audit automatically.
+2. **`install`** — Cloned the skill from the Git repository into your source directory (`~/.config/skillshare/skills/`). Ran a security audit automatically. Works with GitHub, GitLab, Bitbucket, Gitea, Azure DevOps, and any HTTPS/SSH Git host.
 
 3. **`sync`** — Applied each target's configured sync mode (default is merge, which creates per-skill symlinks). For example:
    ```
@@ -156,10 +160,10 @@ skillshare target <name> --mode copy
 skillshare sync
 ```
 
-See [Sync Modes](/docs/concepts/sync-modes) for the decision matrix and trade-offs.
+See [Sync Modes](/docs/understand/sync-modes) for the decision matrix and trade-offs.
 
 ## See Also
 
-- [Core Concepts](/docs/concepts) — Understand source, targets, and sync modes
-- [Daily Workflow](/docs/workflows/daily-workflow) — How to use skillshare day-to-day
-- [Creating Skills](/docs/guides/creating-skills) — Write your own skills
+- [Core Concepts](/docs/understand) — Understand source, targets, and sync modes
+- [Daily Workflow](/docs/how-to/daily-tasks/daily-workflow) — How to use skillshare day-to-day
+- [Creating Skills](/docs/how-to/daily-tasks/creating-skills) — Write your own skills

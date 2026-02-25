@@ -143,6 +143,7 @@ make playground-down     # stop container
 | Path | Description |
 |------|-------------|
 | `~/.config/skillshare/config.yaml` | Configuration file |
+| `~/.config/skillshare/registry.yaml` | Installed skill registry (auto-managed) |
 | `~/.config/skillshare/skills/` | Source directory |
 | `~/.local/state/skillshare/logs/` | Operation and audit logs |
 | `~/.local/share/skillshare/backups/` | Backup directory |
@@ -160,5 +161,5 @@ make playground-down     # stop container
 
 ## See Also
 
-- [Commands Reference](/docs/commands) — Full command documentation
-- [Concepts](/docs/concepts) — Core concepts explained
+- [Commands Reference](/docs/reference/commands) — Full command documentation
+- [Concepts](/docs/understand) — Core concepts explained
