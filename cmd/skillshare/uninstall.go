@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	gosync "sync"
 	"time"
 
 	"skillshare/internal/config"
@@ -521,10 +522,13 @@ func cmdUninstall(args []string) error {
 	var resolveWarnings []string
 
 	if opts.all {
-		discovered, err := sync.DiscoverSourceSkills(cfg.Source)
+		sp := ui.StartSpinner("Discovering skills...")
+		discovered, _, err := sync.DiscoverSourceSkillsLite(cfg.Source)
 		if err != nil {
+			sp.Fail("Discovery failed")
 			return fmt.Errorf("failed to discover skills: %w", err)
 		}
+		sp.Success(fmt.Sprintf("Found %d skills", len(discovered)))
 		if len(discovered) == 0 {
 			return fmt.Errorf("no skills found in source")
 		}
@@ -631,15 +635,71 @@ func cmdUninstall(args []string) error {
 
 	// --- Phase 4: PRE-FLIGHT ---
 	if !opts.dryRun {
+		// Parallel git dirty checks for tracked repos
+		type dirtyResult struct {
+			dirty bool
+			err   error
+		}
+		dirtyResults := make(map[int]dirtyResult) // index → result
+
+		// Collect tracked repo indices
+		var trackedIndices []int
+		for i, t := range targets {
+			if t.isTrackedRepo {
+				trackedIndices = append(trackedIndices, i)
+			}
+		}
+
+		if len(trackedIndices) > 0 {
+			const maxDirtyWorkers = 8
+			results := make([]dirtyResult, len(trackedIndices))
+			sem := make(chan struct{}, maxDirtyWorkers)
+			var wg gosync.WaitGroup
+
+			for j, idx := range trackedIndices {
+				wg.Add(1)
+				sem <- struct{}{}
+				go func(slot int, t *uninstallTarget) {
+					defer wg.Done()
+					defer func() { <-sem }()
+					dirty, err := isRepoDirty(t.path)
+					results[slot] = dirtyResult{dirty: dirty, err: err}
+				}(j, targets[idx])
+			}
+			wg.Wait()
+
+			for j, idx := range trackedIndices {
+				dirtyResults[idx] = results[j]
+			}
+		}
+
 		var preflight []*uninstallTarget
-		for _, t := range targets {
-			if err := checkTrackedRepoStatus(t, opts.force); err != nil {
-				if single {
-					return err
-				}
-				ui.Warning("Skipping %s: %v", t.name, err)
+		for i, t := range targets {
+			if !t.isTrackedRepo {
+				preflight = append(preflight, t)
 				continue
 			}
+			dr := dirtyResults[i]
+			if dr.err != nil {
+				ui.Warning("Could not check git status for %s: %v", t.name, dr.err)
+				preflight = append(preflight, t)
+				continue
+			}
+			if !dr.dirty {
+				preflight = append(preflight, t)
+				continue
+			}
+			// Repo is dirty
+			if !opts.force {
+				if single {
+					ui.Error("Repository has uncommitted changes!")
+					ui.Info("Use --force to uninstall anyway, or commit/stash your changes first")
+					return fmt.Errorf("uncommitted changes detected, use --force to override")
+				}
+				ui.Warning("Skipping %s: uncommitted changes detected, use --force to override", t.name)
+				continue
+			}
+			ui.Warning("Repository %s has uncommitted changes (proceeding with --force)", t.name)
 			preflight = append(preflight, t)
 		}
 		targets = preflight

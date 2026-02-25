@@ -83,14 +83,15 @@ func (i searchSelectItem) FilterValue() string {
 
 // searchSelectModel is the bubbletea model for search multi-select.
 type searchSelectModel struct {
-	list     list.Model
-	results  []search.SearchResult
-	isHub    bool
-	selected map[int]bool
-	selCount int
-	total    int
-	outcome  searchSelectOutcome
-	quitting bool
+	list      list.Model
+	results   []search.SearchResult
+	isHub     bool
+	selected  map[int]bool
+	selCount  int
+	total     int
+	outcome   searchSelectOutcome
+	quitting  bool
+	termWidth int
 }
 
 func newSearchSelectModel(results []search.SearchResult, isHub bool) searchSelectModel {
@@ -154,7 +155,8 @@ func (m searchSelectModel) Init() tea.Cmd { return nil }
 func (m searchSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetSize(msg.Width, msg.Height-4)
+		m.termWidth = msg.Width
+		m.list.SetSize(msg.Width, msg.Height-14)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -234,9 +236,76 @@ func (m searchSelectModel) View() string {
 	b.WriteString(m.list.View())
 	b.WriteString("\n")
 
+	// Detail panel for selected item
+	if item, ok := m.list.SelectedItem().(searchSelectItem); ok {
+		b.WriteString(m.renderSearchDetailPanel(item.result))
+	}
+
 	help := "↑↓ navigate  space toggle  a all  enter install  s search again  / filter  esc cancel"
 	b.WriteString(tuiHelpStyle.Render(help))
 	b.WriteString("\n")
+
+	return b.String()
+}
+
+// renderSearchDetailPanel renders the detail section for the selected search result.
+func (m searchSelectModel) renderSearchDetailPanel(r search.SearchResult) string {
+	var b strings.Builder
+	b.WriteString(tuiSeparatorStyle.Render("  ─────────────────────────────────────────"))
+	b.WriteString("\n")
+
+	row := func(label, value string) {
+		b.WriteString("  ")
+		b.WriteString(tuiDetailLabelStyle.Render(label))
+		b.WriteString(tuiDetailValueStyle.Render(value))
+		b.WriteString("\n")
+	}
+
+	// Description — word-wrapped
+	if r.Description != "" {
+		const labelOffset = 16
+		maxWidth := m.termWidth - labelOffset
+		if maxWidth < 40 {
+			maxWidth = 40
+		}
+		lines := wordWrapLines(r.Description, maxWidth)
+		const maxDescLines = 3
+		truncated := len(lines) > maxDescLines
+		if truncated {
+			lines = lines[:maxDescLines]
+			lines[maxDescLines-1] += "..."
+		}
+		row("Description:", lines[0])
+		indent := strings.Repeat(" ", labelOffset)
+		for _, line := range lines[1:] {
+			b.WriteString(indent)
+			b.WriteString(tuiDetailValueStyle.Render(line))
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
+
+	// Source
+	row("Source:", r.Source)
+
+	// Stars (non-hub)
+	if !m.isHub {
+		row("Stars:", search.FormatStars(r.Stars))
+	}
+
+	// Risk (hub)
+	if m.isHub && r.RiskLabel != "" {
+		row("Risk:", r.RiskLabel)
+	}
+
+	// Tags
+	if len(r.Tags) > 0 {
+		tags := make([]string, len(r.Tags))
+		for i, tag := range r.Tags {
+			tags[i] = "#" + tag
+		}
+		row("Tags:", tuiTargetStyle.Render(strings.Join(tags, "  ")))
+	}
 
 	return b.String()
 }

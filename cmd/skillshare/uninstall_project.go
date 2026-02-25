@@ -97,10 +97,13 @@ func cmdUninstallProject(args []string, root string) error {
 	var resolveWarnings []string
 
 	if opts.all {
-		discovered, err := sync.DiscoverSourceSkills(sourceDir)
+		sp := ui.StartSpinner("Discovering skills...")
+		discovered, _, err := sync.DiscoverSourceSkillsLite(sourceDir)
 		if err != nil {
+			sp.Fail("Discovery failed")
 			return fmt.Errorf("failed to discover skills: %w", err)
 		}
+		sp.Success(fmt.Sprintf("Found %d skills", len(discovered)))
 		if len(discovered) == 0 {
 			return fmt.Errorf("no skills found in project source")
 		}

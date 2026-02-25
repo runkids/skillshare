@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	gosync "sync"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
@@ -198,31 +199,46 @@ func sortSkillEntries(skills []skillEntry, sortBy string) {
 	}
 }
 
-// buildSkillEntries builds skill entries from discovered skills
+// buildSkillEntries builds skill entries from discovered skills.
+// ReadMeta calls are parallelized with a bounded worker pool.
 func buildSkillEntries(discovered []sync.DiscoveredSkill) []skillEntry {
-	var skills []skillEntry
-	for _, d := range discovered {
-		entry := skillEntry{
+	skills := make([]skillEntry, len(discovered))
+
+	// Pre-fill non-I/O fields
+	for i, d := range discovered {
+		skills[i] = skillEntry{
 			Name:     d.FlatName,
 			IsNested: d.IsInRepo || utils.HasNestedSeparator(d.FlatName),
 			RelPath:  d.RelPath,
 		}
-
 		if d.IsInRepo {
 			parts := strings.SplitN(d.RelPath, "/", 2)
 			if len(parts) > 0 {
-				entry.RepoName = parts[0]
+				skills[i].RepoName = parts[0]
 			}
 		}
-
-		if meta, err := install.ReadMeta(d.SourcePath); err == nil && meta != nil {
-			entry.Source = meta.Source
-			entry.Type = meta.Type
-			entry.InstalledAt = meta.InstalledAt.Format("2006-01-02")
-		}
-
-		skills = append(skills, entry)
 	}
+
+	// Parallel ReadMeta with bounded concurrency
+	const metaWorkers = 64
+	sem := make(chan struct{}, metaWorkers)
+	var wg gosync.WaitGroup
+
+	for i, d := range discovered {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(idx int, sourcePath string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			if meta, err := install.ReadMeta(sourcePath); err == nil && meta != nil {
+				skills[idx].Source = meta.Source
+				skills[idx].Type = meta.Type
+				skills[idx].InstalledAt = meta.InstalledAt.Format("2006-01-02")
+			}
+		}(i, d.SourcePath)
+	}
+	wg.Wait()
+
 	return skills
 }
 
@@ -399,16 +415,37 @@ func getSkillSuffix(s skillEntry) string {
 	return "local"
 }
 
-// displayTrackedRepos displays the tracked repositories section
+// displayTrackedRepos displays the tracked repositories section.
+// Git status checks run in parallel (bounded by maxDirtyWorkers).
 func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkill, sourcePath string) {
 	fmt.Println()
 	ui.Header("Tracked repositories")
 
-	for _, repoName := range trackedRepos {
-		repoPath := filepath.Join(sourcePath, repoName)
-		skillCount := countRepoSkills(repoName, discovered)
+	// Parallel git status checks
+	const maxDirtyWorkers = 8
+	type repoStatus struct {
+		dirty bool
+	}
+	results := make([]repoStatus, len(trackedRepos))
+	sem := make(chan struct{}, maxDirtyWorkers)
+	var wg gosync.WaitGroup
 
-		if isDirty, _ := isRepoDirty(repoPath); isDirty {
+	for i, repoName := range trackedRepos {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(idx int, name string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			repoPath := filepath.Join(sourcePath, name)
+			dirty, _ := isRepoDirty(repoPath)
+			results[idx] = repoStatus{dirty: dirty}
+		}(i, repoName)
+	}
+	wg.Wait()
+
+	for i, repoName := range trackedRepos {
+		skillCount := countRepoSkills(repoName, discovered)
+		if results[i].dirty {
 			ui.ListItem("warning", repoName, fmt.Sprintf("%d skills, has changes", skillCount))
 		} else {
 			ui.ListItem("success", repoName, fmt.Sprintf("%d skills, up-to-date", skillCount))
@@ -466,31 +503,24 @@ func cmdList(args []string) error {
 		return err
 	}
 
-	discovered, err := sync.DiscoverSourceSkills(cfg.Source)
-	if err != nil {
-		return fmt.Errorf("cannot discover skills: %w", err)
-	}
+	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
-	trackedRepos, _ := install.GetTrackedRepos(cfg.Source)
-	skills := buildSkillEntries(discovered)
-	totalCount := len(skills)
-	hasFilter := opts.Pattern != "" || opts.TypeFilter != ""
-
-	// Apply filter and sort
-	skills = filterSkillEntries(skills, opts.Pattern, opts.TypeFilter)
-	if opts.SortBy != "" {
-		sortSkillEntries(skills, opts.SortBy)
-	}
-
-	// JSON output — skip pager and text formatting
-	if opts.JSON {
-		return displaySkillsJSON(skills)
-	}
-
-	// TTY + not --no-tui + has skills → launch interactive TUI
-	if !opts.NoTUI && len(skills) > 0 && term.IsTerminal(int(os.Stdout.Fd())) {
-		items := toSkillItems(skills)
-		action, skillName, err := runListTUI(items, totalCount, "global", cfg.Source, cfg.Targets)
+	// TTY + not JSON + not --no-tui → launch TUI with async loading (no blank screen)
+	if !opts.JSON && !opts.NoTUI && isTTY {
+		loadFn := func() listLoadResult {
+			discovered, _, err := sync.DiscoverSourceSkillsLite(cfg.Source)
+			if err != nil {
+				return listLoadResult{err: fmt.Errorf("cannot discover skills: %w", err)}
+			}
+			skills := buildSkillEntries(discovered)
+			total := len(skills)
+			skills = filterSkillEntries(skills, opts.Pattern, opts.TypeFilter)
+			if opts.SortBy != "" {
+				sortSkillEntries(skills, opts.SortBy)
+			}
+			return listLoadResult{skills: toSkillItems(skills), totalCount: total}
+		}
+		action, skillName, err := runListTUI(loadFn, "global", cfg.Source, cfg.Targets)
 		if err != nil {
 			return err
 		}
@@ -503,6 +533,40 @@ func cmdList(args []string) error {
 			return cmdUninstall([]string{skillName})
 		}
 		return nil
+	}
+
+	// Non-TUI path (JSON or plain text): synchronous loading with spinner
+	var sp *ui.Spinner
+	if !opts.JSON && isTTY {
+		sp = ui.StartSpinner("Loading skills...")
+	}
+	discovered, trackedRepos, err := sync.DiscoverSourceSkillsLite(cfg.Source)
+	if err != nil {
+		if sp != nil {
+			sp.Fail("Discovery failed")
+		}
+		return fmt.Errorf("cannot discover skills: %w", err)
+	}
+
+	if sp != nil {
+		sp.Update(fmt.Sprintf("Reading metadata for %d skills...", len(discovered)))
+	}
+	skills := buildSkillEntries(discovered)
+	if sp != nil {
+		sp.Success(fmt.Sprintf("Loaded %d skills", len(skills)))
+	}
+	totalCount := len(skills)
+	hasFilter := opts.Pattern != "" || opts.TypeFilter != ""
+
+	// Apply filter and sort
+	skills = filterSkillEntries(skills, opts.Pattern, opts.TypeFilter)
+	if opts.SortBy != "" {
+		sortSkillEntries(skills, opts.SortBy)
+	}
+
+	// JSON output
+	if opts.JSON {
+		return displaySkillsJSON(skills)
 	}
 
 	// Handle empty results before starting pager
