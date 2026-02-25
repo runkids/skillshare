@@ -58,7 +58,7 @@ One command, no prompts, deterministic results every time.
 | **Offline operation** | Requires npx + network for CLI itself | Single binary, works offline after install |
 | **Web dashboard** | None | `skillshare ui` — visual management |
 | **Backup / restore** | None | `skillshare backup` / `skillshare restore` |
-| **Git platform support** | GitHub only for update/check (hardcoded to GitHub Trees API) | Any Git remote — GitHub, GitLab, Bitbucket, Gitea, self-hosted |
+| **Git platform support** | GitHub only for update/check (hardcoded to GitHub Trees API) | Any Git remote — GitHub, GitLab, Bitbucket, Azure DevOps, Gitea, AtomGit, Gitee, self-hosted |
 | **Runtime dependency** | Node.js + npm | None (single Go binary) |
 
 ## Common Pain Points Solved
@@ -102,7 +102,7 @@ All targets are recreated instantly.
 
 Imperative tools often rely on the GitHub Trees API for update checks, which means `update` and `check` silently skip skills from non-GitHub sources.
 
-skillshare uses **local git operations** (`git fetch` + tree hash comparison) — it works with any Git remote, including GitLab, Bitbucket, Azure DevOps, Gitea, and self-hosted instances. No platform-specific API is required.
+skillshare uses **local git operations** (`git fetch` + tree hash comparison) — it works with any Git remote, including GitLab, Bitbucket, Azure DevOps, Gitea, AtomGit, Gitee, and any self-hosted instance. No platform-specific API is required.
 
 ```bash
 # All of these support install, update, and check:
