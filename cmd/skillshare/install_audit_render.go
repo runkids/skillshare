@@ -198,32 +198,46 @@ func stripAuditPrefix(line string) string {
 	return line
 }
 
-// formatFindingGroup formats a grouped finding as a single line.
+// formatFindingGroup formats a grouped finding with locations on a separate indented line.
 func formatFindingGroup(g auditFindingGroup) string {
 	var sb strings.Builder
-	sb.WriteString(g.severity)
+	sb.WriteString(ui.Colorize(ui.SeverityColor(g.severity), g.severity))
 	sb.WriteString(": ")
 	sb.WriteString(g.message)
 	if len(g.locations) > 1 {
 		sb.WriteString(fmt.Sprintf(" × %d", len(g.locations)))
 	}
-	// Show locations (compact)
-	if len(g.locations) > 0 {
-		const maxLocs = 5
-		sb.WriteString(" (")
-		for i, loc := range g.locations {
-			if i >= maxLocs {
-				sb.WriteString(fmt.Sprintf(", +%d more", len(g.locations)-maxLocs))
-				break
-			}
-			if i > 0 {
-				sb.WriteString(", ")
-			}
-			sb.WriteString(loc)
+	return sb.String()
+}
+
+// formatFindingLocations formats the locations as an indented second line.
+func formatFindingLocations(g auditFindingGroup) string {
+	if len(g.locations) == 0 {
+		return ""
+	}
+	const maxLocs = 3
+	var sb strings.Builder
+	for i, loc := range g.locations {
+		if i >= maxLocs {
+			sb.WriteString(fmt.Sprintf(", +%d more", len(g.locations)-maxLocs))
+			break
 		}
-		sb.WriteString(")")
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(loc)
 	}
 	return sb.String()
+}
+
+// printFindingGroup prints a finding with severity-colored prefix and locations on a second line.
+func printFindingGroup(skillName string, g auditFindingGroup) {
+	color := ui.SeverityColor(g.severity)
+	prefix := ui.Colorize(color, "!")
+	fmt.Printf("%s %s\n", prefix, formatWarningWithSkill(skillName, formatFindingGroup(g)))
+	if locs := formatFindingLocations(g); locs != "" {
+		fmt.Printf("  %s\n", ui.Colorize(ui.Gray, locs))
+	}
 }
 
 // renderInstallWarnings renders audit warnings for a single skill.
@@ -260,19 +274,13 @@ func renderInstallWarningsWithResult(skillName string, warnings []string, auditV
 
 	// Compute totals
 	totalFindings := 0
-	countParts := make([]string, 0, len(installAuditSeverityOrder))
 	for _, severity := range installAuditSeverityOrder {
-		count := digest.findingCounts[severity]
-		if count == 0 {
-			continue
-		}
-		totalFindings += count
-		countParts = append(countParts, fmt.Sprintf("%s=%d", severity, count))
+		totalFindings += digest.findingCounts[severity]
 	}
 
 	// Summary-first: counts + status + risk score
 	if totalFindings > 0 {
-		summary := strings.Join(countParts, ", ")
+		summary := formatInstallSeverityCounts(digest.findingCounts)
 		if len(digest.statusLines) > 0 {
 			// Append threshold status (strip "audit " prefix)
 			status := stripAuditPrefix(digest.statusLines[0])
@@ -296,10 +304,15 @@ func renderInstallWarningsWithResult(skillName string, warnings []string, auditV
 	// Group findings by message
 	groups := groupAuditFindings(digest)
 
+	// Visual gap before finding details (single-skill only)
+	if skillName == "" {
+		fmt.Println()
+	}
+
 	if auditVerbose {
 		// Verbose: show all groups with all locations
 		for _, g := range groups {
-			ui.Warning("%s", formatWarningWithSkill(skillName, formatFindingGroup(g)))
+			printFindingGroup(skillName, g)
 		}
 		return
 	}
@@ -311,7 +324,7 @@ func renderInstallWarningsWithResult(skillName string, warnings []string, auditV
 		if shown >= maxGroups {
 			break
 		}
-		ui.Warning("%s", formatWarningWithSkill(skillName, formatFindingGroup(g)))
+		printFindingGroup(skillName, g)
 		shown++
 	}
 
@@ -328,14 +341,15 @@ func renderAuditRiskOnly(skillName string, result *install.InstallResult) {
 	}
 	label := strings.ToUpper(result.AuditRiskLabel)
 	if label == "" {
-		label = "CLEAN" // Fallback if still empty
+		label = "CLEAN"
 	}
+	coloredLabel := formatSeverity(label)
 	if result.AuditRiskScore > 0 {
 		ui.Info("%s", formatWarningWithSkill(skillName,
-			fmt.Sprintf("risk: %s (%d/100)", label, result.AuditRiskScore)))
+			fmt.Sprintf("risk: %s (%d/100)", coloredLabel, result.AuditRiskScore)))
 	} else {
 		ui.Info("%s", formatWarningWithSkill(skillName,
-			fmt.Sprintf("risk: %s", label)))
+			fmt.Sprintf("risk: %s", coloredLabel)))
 	}
 }
 
