@@ -12,10 +12,11 @@ import (
 type Platform int
 
 const (
-	PlatformUnknown   Platform = iota
-	PlatformGitHub             // github.com and GitHub Enterprise
-	PlatformGitLab             // gitlab.com and self-hosted GitLab
-	PlatformBitbucket          // bitbucket.org
+	PlatformUnknown      Platform = iota
+	PlatformGitHub                // github.com and GitHub Enterprise
+	PlatformGitLab                // gitlab.com and self-hosted GitLab
+	PlatformBitbucket             // bitbucket.org
+	PlatformAzureDevOps           // dev.azure.com and visualstudio.com
 )
 
 // extractHost returns the hostname from a clone URL.
@@ -58,6 +59,9 @@ func detectPlatform(cloneURL string) Platform {
 	if strings.Contains(host, "bitbucket") {
 		return PlatformBitbucket
 	}
+	if host == "dev.azure.com" || host == "ssh.dev.azure.com" || strings.HasSuffix(host, ".visualstudio.com") {
+		return PlatformAzureDevOps
+	}
 	return PlatformUnknown
 }
 
@@ -86,6 +90,10 @@ func resolveToken(cloneURL string) (token, username string) {
 				return t, u
 			}
 			return t, "x-token-auth"
+		}
+	case PlatformAzureDevOps:
+		if t := os.Getenv("AZURE_DEVOPS_TOKEN"); t != "" {
+			return t, "x-access-token"
 		}
 	}
 
@@ -183,7 +191,7 @@ func originalPrefix(cloneURL, host string) string {
 func sanitizeTokens(text string) string {
 	vars := []string{
 		"GITHUB_TOKEN", "GITLAB_TOKEN", "BITBUCKET_TOKEN",
-		"SKILLSHARE_GIT_TOKEN", "BITBUCKET_USERNAME",
+		"AZURE_DEVOPS_TOKEN", "SKILLSHARE_GIT_TOKEN", "BITBUCKET_USERNAME",
 	}
 	for _, v := range vars {
 		if t := os.Getenv(v); t != "" {
