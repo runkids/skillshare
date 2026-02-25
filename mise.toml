@@ -40,6 +40,10 @@ run = "mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare"
 description = "Build with version metadata"
 run = "./scripts/build.sh"
 
+[tasks."build:windows"]
+description = "Cross-compile for Windows ARM64 and copy to shared folder"
+run = "./scripts/build-windows.sh ${1:-}"
+
 [tasks.run]
 description = "Run skillshare help using the local binary"
 depends = ["build"]
