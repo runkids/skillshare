@@ -144,3 +144,89 @@ func TestParseFrontmatterField_FileNotExist(t *testing.T) {
 		t.Errorf("expected empty string for non-existent file, got %q", got)
 	}
 }
+
+func TestParseFrontmatterFields(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		fields   []string
+		expected map[string]string
+	}{
+		{
+			name: "extracts multiple fields at once",
+			content: `---
+name: my-skill
+description: A great skill
+license: MIT
+---
+# Content`,
+			fields:   []string{"description", "license"},
+			expected: map[string]string{"description": "A great skill", "license": "MIT"},
+		},
+		{
+			name: "missing fields are omitted from result",
+			content: `---
+name: my-skill
+---
+# Content`,
+			fields:   []string{"description", "license"},
+			expected: map[string]string{},
+		},
+		{
+			name: "partial match returns found fields only",
+			content: `---
+name: my-skill
+license: Apache-2.0
+---`,
+			fields:   []string{"description", "license"},
+			expected: map[string]string{"license": "Apache-2.0"},
+		},
+		{
+			name:     "empty fields list returns empty map",
+			content:  "---\nname: x\n---",
+			fields:   []string{},
+			expected: map[string]string{},
+		},
+		{
+			name:     "non-existent file returns empty map",
+			content:  "", // will use non-existent path
+			fields:   []string{"name"},
+			expected: map[string]string{},
+		},
+		{
+			name: "numeric and boolean values are converted",
+			content: `---
+version: 2
+enabled: true
+---`,
+			fields:   []string{"version", "enabled"},
+			expected: map[string]string{"version": "2", "enabled": "true"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var filePath string
+			if tt.name == "non-existent file returns empty map" {
+				filePath = "/nonexistent/path/SKILL.md"
+			} else {
+				dir := t.TempDir()
+				filePath = filepath.Join(dir, "SKILL.md")
+				if err := os.WriteFile(filePath, []byte(tt.content), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			got := ParseFrontmatterFields(filePath, tt.fields)
+			if len(got) != len(tt.expected) {
+				t.Errorf("ParseFrontmatterFields() returned %d fields, want %d: got=%v", len(got), len(tt.expected), got)
+				return
+			}
+			for k, want := range tt.expected {
+				if got[k] != want {
+					t.Errorf("ParseFrontmatterFields()[%q] = %q, want %q", k, got[k], want)
+				}
+			}
+		})
+	}
+}
