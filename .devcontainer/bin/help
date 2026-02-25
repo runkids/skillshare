@@ -31,6 +31,9 @@ ${BLUE}Environment Management (Isolated HOME)${NC}
   ${BOLD}ssback${NC}             Exit an isolated shell or go back to workspace.
   ${BOLD}ssenv${NC} <cmd>          Advanced environment management.
 
+${BLUE}Testing${NC}
+  ${BOLD}test-brew-upgrade${NC}  Simulate Homebrew upgrade path (mock brew).
+
 ${BLUE}Authentication & Security${NC}
   ${BOLD}credential-helper status${NC}  Check GitHub/GitLab token state.
   ${BOLD}credential-helper off${NC}     Temporarily disable all auth for testing.
