@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -64,6 +65,13 @@ type dirPickerModel struct {
 	result     []install.SkillInfo // selected skills (nil = cancelled)
 	installAll bool                // true when user chose "Install all"
 	quitting   bool
+
+	// Application-level filter (matches list/search/log TUI pattern)
+	allItems    []list.Item
+	filterText  string
+	filterInput textinput.Model
+	filtering   bool
+	matchCount  int
 }
 
 // newDirPickerModel creates a new directory picker TUI model.
@@ -97,13 +105,21 @@ func newDirPickerModel(skills []install.SkillInfo) dirPickerModel {
 	l.Title = "Select directory"
 	l.Styles.Title = lipgloss.NewStyle().
 		Bold(true).Foreground(lipgloss.Color("6"))
-	l.SetShowStatusBar(true)
-	l.SetFilteringEnabled(true)
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
-	l.SetStatusBarItemName("item", "items")
-	applyTUIFilterStyle(&l)
+	l.SetShowPagination(false)
+
+	// Filter text input
+	fi := textinput.New()
+	fi.Prompt = "/ "
+	fi.PromptStyle = tuiFilterStyle
+	fi.Cursor.Style = tuiFilterStyle
 
 	m.list = l
+	m.allItems = items
+	m.matchCount = len(items)
+	m.filterInput = fi
 	return m
 }
 
@@ -147,11 +163,30 @@ func (m dirPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Don't intercept keys when filtering
-		if m.list.FilterState() == list.Filtering {
-			break
+		// --- Filter mode: only handle filter input + esc/enter ---
+		if m.filtering {
+			switch msg.String() {
+			case "esc":
+				m.filtering = false
+				m.filterText = ""
+				m.filterInput.SetValue("")
+				m.applyDirFilter()
+				return m, nil
+			case "enter":
+				m.filtering = false
+				return m, nil
+			}
+			var cmd tea.Cmd
+			m.filterInput, cmd = m.filterInput.Update(msg)
+			newVal := m.filterInput.Value()
+			if newVal != m.filterText {
+				m.filterText = newVal
+				m.applyDirFilter()
+			}
+			return m, cmd
 		}
 
+		// --- Normal mode ---
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
@@ -202,6 +237,11 @@ func (m dirPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
+		case "/":
+			m.filtering = true
+			m.filterInput.Focus()
+			return m, textinput.Blink
+
 		case "backspace", "esc":
 			if len(m.stack) > 1 {
 				m.stack = m.stack[:len(m.stack)-1]
@@ -223,15 +263,41 @@ func (m dirPickerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *dirPickerModel) rebuildList() {
 	cur := m.currentLevel()
 	items := m.buildItems(cur.skills, cur.prefix)
+	m.allItems = items
+	m.filterText = ""
+	m.filterInput.SetValue("")
+	m.filtering = false
+	m.matchCount = len(items)
 	m.list.SetItems(items)
 	m.list.ResetSelected()
-	m.list.ResetFilter()
 
 	if cur.prefix != "" {
 		m.list.Title = fmt.Sprintf("Select directory: %s (%d skills)", cur.prefix, len(cur.skills))
 	} else {
 		m.list.Title = fmt.Sprintf("Select directory (%d skills)", len(cur.skills))
 	}
+}
+
+// applyDirFilter does a case-insensitive substring match over allItems.
+func (m *dirPickerModel) applyDirFilter() {
+	term := strings.ToLower(m.filterText)
+
+	if term == "" {
+		m.matchCount = len(m.allItems)
+		m.list.SetItems(m.allItems)
+		m.list.ResetSelected()
+		return
+	}
+
+	var matched []list.Item
+	for _, item := range m.allItems {
+		if strings.Contains(strings.ToLower(item.(dirPickerItem).FilterValue()), term) {
+			matched = append(matched, item)
+		}
+	}
+	m.matchCount = len(matched)
+	m.list.SetItems(matched)
+	m.list.ResetSelected()
 }
 
 func (m dirPickerModel) View() string {
@@ -242,7 +308,14 @@ func (m dirPickerModel) View() string {
 	var b strings.Builder
 
 	b.WriteString(m.list.View())
-	b.WriteString("\n")
+	b.WriteString("\n\n")
+
+	// Filter bar (always visible)
+	b.WriteString(renderTUIFilterBar(
+		m.filterInput.View(), m.filtering, m.filterText,
+		m.matchCount, len(m.allItems), 0,
+		"items", renderPageInfoFromPaginator(m.list.Paginator),
+	))
 
 	// Help line — hide "backspace back" at root level
 	var help string
@@ -315,6 +388,13 @@ type skillSelectModel struct {
 	total    int
 	result   []install.SkillInfo // nil = cancelled
 	quitting bool
+
+	// Application-level filter (matches list/search/log TUI pattern)
+	allItems    []skillSelectItem
+	filterText  string
+	filterInput textinput.Model
+	filtering   bool
+	matchCount  int
 }
 
 func newSkillSelectModel(skills []install.SkillInfo) skillSelectModel {
@@ -351,22 +431,36 @@ func newSkillSelectModel(skills []install.SkillInfo) skillSelectModel {
 		Border(lipgloss.NormalBorder(), false, false, false, true).
 		BorderForeground(tuiBrandYellow).PaddingLeft(1)
 
+	// Keep typed allItems for filter
+	allItems := make([]skillSelectItem, len(items))
+	for i, item := range items {
+		allItems[i] = item.(skillSelectItem)
+	}
+
 	l := list.New(items, delegate, 0, 0)
 	l.Title = skillSelectTitle(0, len(sorted))
 	l.Styles.Title = lipgloss.NewStyle().
 		Bold(true).Foreground(lipgloss.Color("6"))
-	l.SetShowStatusBar(true)
-	l.SetFilteringEnabled(true)
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
-	l.SetStatusBarItemName("skill", "skills")
-	applyTUIFilterStyle(&l)
+	l.SetShowPagination(false)
+
+	// Filter text input
+	fi := textinput.New()
+	fi.Prompt = "/ "
+	fi.PromptStyle = tuiFilterStyle
+	fi.Cursor.Style = tuiFilterStyle
 
 	return skillSelectModel{
-		list:     l,
-		skills:   sorted,
-		locs:     locs,
-		selected: sel,
-		total:    len(sorted),
+		list:        l,
+		skills:      sorted,
+		locs:        locs,
+		selected:    sel,
+		total:       len(sorted),
+		allItems:    allItems,
+		matchCount:  len(allItems),
+		filterInput: fi,
 	}
 }
 
@@ -398,11 +492,30 @@ func (m skillSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Don't intercept keys when filtering
-		if m.list.FilterState() == list.Filtering {
-			break
+		// --- Filter mode: only handle filter input + esc/enter ---
+		if m.filtering {
+			switch msg.String() {
+			case "esc":
+				m.filtering = false
+				m.filterText = ""
+				m.filterInput.SetValue("")
+				m.applySkillFilter()
+				return m, nil
+			case "enter":
+				m.filtering = false
+				return m, nil
+			}
+			var cmd tea.Cmd
+			m.filterInput, cmd = m.filterInput.Update(msg)
+			newVal := m.filterInput.Value()
+			if newVal != m.filterText {
+				m.filterText = newVal
+				m.applySkillFilter()
+			}
+			return m, cmd
 		}
 
+		// --- Normal mode ---
 		switch msg.String() {
 		case " ": // space — toggle current item
 			item, ok := m.list.SelectedItem().(skillSelectItem)
@@ -441,6 +554,11 @@ func (m skillSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 
+		case "/":
+			m.filtering = true
+			m.filterInput.Focus()
+			return m, textinput.Blink
+
 		case "q", "ctrl+c", "esc":
 			m.quitting = true
 			return m, tea.Quit
@@ -455,10 +573,52 @@ func (m skillSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // refreshItems rebuilds list items to reflect current selection state.
 func (m *skillSelectModel) refreshItems() {
 	cursor := m.list.Index()
+	// Rebuild allItems with current checkbox state
 	items := makeSkillSelectItems(m.skills, m.locs, m.selected)
-	m.list.SetItems(items)
-	m.list.Select(cursor)
+	m.allItems = make([]skillSelectItem, len(items))
+	for i, item := range items {
+		m.allItems[i] = item.(skillSelectItem)
+	}
+	// Apply filter if active, otherwise show all
+	if m.filterText != "" {
+		m.applySkillFilter()
+	} else {
+		m.matchCount = len(m.allItems)
+		m.list.SetItems(items)
+	}
+	if cursor < len(m.list.Items()) {
+		m.list.Select(cursor)
+	}
 	m.list.Title = skillSelectTitle(m.selCount, m.total)
+}
+
+// applySkillFilter does a case-insensitive substring match over allItems,
+// preserving checkbox state from m.selected.
+func (m *skillSelectModel) applySkillFilter() {
+	term := strings.ToLower(m.filterText)
+
+	if term == "" {
+		items := make([]list.Item, len(m.allItems))
+		for i := range m.allItems {
+			m.allItems[i].selected = m.selected[m.allItems[i].idx]
+			items[i] = m.allItems[i]
+		}
+		m.matchCount = len(m.allItems)
+		m.list.SetItems(items)
+		m.list.ResetSelected()
+		return
+	}
+
+	var matched []list.Item
+	for _, item := range m.allItems {
+		if strings.Contains(strings.ToLower(item.FilterValue()), term) {
+			item.selected = m.selected[item.idx]
+			matched = append(matched, item)
+		}
+	}
+	m.matchCount = len(matched)
+	m.list.SetItems(matched)
+	m.list.ResetSelected()
 }
 
 func (m skillSelectModel) View() string {
@@ -468,7 +628,14 @@ func (m skillSelectModel) View() string {
 
 	var b strings.Builder
 	b.WriteString(m.list.View())
-	b.WriteString("\n")
+	b.WriteString("\n\n")
+
+	// Filter bar (always visible)
+	b.WriteString(renderTUIFilterBar(
+		m.filterInput.View(), m.filtering, m.filterText,
+		m.matchCount, len(m.allItems), 0,
+		"skills", renderPageInfoFromPaginator(m.list.Paginator),
+	))
 
 	help := "↑↓ navigate  space toggle  a all  enter confirm  / filter  esc cancel"
 	b.WriteString(tuiHelpStyle.Render(help))
