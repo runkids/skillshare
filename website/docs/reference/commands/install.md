@@ -18,7 +18,7 @@ flowchart TD
 
 ## When to Use
 
-- Add a new skill from GitHub, GitLab, Bitbucket, or a local path
+- Add a new skill from GitHub, GitLab, Bitbucket, Azure DevOps, or a local path
 - Install an organization's shared skill repository (with `--track`)
 - Re-install or update an existing skill (with `--update` or `--force`)
 
@@ -73,6 +73,25 @@ Full URLs and SSH also work:
 ```bash
 skillshare install https://gitlab.com/user/repo.git
 skillshare install git@gitlab.com:user/repo.git
+```
+
+### Azure DevOps
+
+Use the `ado:` shorthand or full Azure DevOps URLs:
+
+```bash
+# Shorthand (ado:org/project/repo)
+skillshare install ado:myorg/myproject/myrepo
+skillshare install ado:myorg/myproject/myrepo/skills/react    # With subdir
+
+# Full HTTPS URL
+skillshare install https://dev.azure.com/myorg/myproject/_git/myrepo
+
+# Legacy format (auto-normalized)
+skillshare install https://myorg.visualstudio.com/myproject/_git/myrepo
+
+# SSH
+skillshare install git@ssh.dev.azure.com:v3/myorg/myproject/myrepo
 ```
 
 ## Discovery Mode (Browse Skills)
@@ -303,6 +322,7 @@ SSH is the simplest method — if your SSH key is configured, it just works:
 skillshare install git@github.com:org/private-skills.git --track
 skillshare install git@gitlab.com:org/skills.git --track
 skillshare install git@bitbucket.org:team/skills.git --track
+skillshare install git@ssh.dev.azure.com:v3/org/project/skills --track
 
 # With subdirectory
 skillshare install git@github.com:org/skills.git//frontend-react
@@ -322,6 +342,7 @@ skillshare install https://github.com/org/private-skills.git --track
 | GitHub | `GITHUB_TOKEN` | Personal access token (`repo` scope) |
 | GitLab | `GITLAB_TOKEN` | Personal access or CI job token |
 | Bitbucket | `BITBUCKET_TOKEN` | Repository token, or app password (with `BITBUCKET_USERNAME`) |
+| Azure DevOps | `AZURE_DEVOPS_TOKEN` | Personal Access Token (Code: Read scope) |
 | Any host | `SKILLSHARE_GIT_TOKEN` | Generic fallback |
 
 Platform-specific variables take priority over `SKILLSHARE_GIT_TOKEN`.
@@ -330,6 +351,7 @@ Official token documentation:
 - GitHub: [Managing your personal access tokens](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
 - GitLab: [Token overview](https://docs.gitlab.com/security/tokens/)
 - Bitbucket: [Access tokens](https://support.atlassian.com/bitbucket-cloud/docs/access-tokens/)
+- Azure DevOps: [Use Personal Access Tokens](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate?view=azure-devops)
 
 For Bitbucket app passwords, also set your username:
 
@@ -370,6 +392,14 @@ install-skills:
     env:
       BITBUCKET_USERNAME: $BITBUCKET_USERNAME   # for app passwords
       BITBUCKET_TOKEN: $BITBUCKET_TOKEN
+```
+
+**Azure Pipelines:**
+
+```yaml
+- script: skillshare install https://dev.azure.com/org/project/_git/skills --track
+  env:
+    AZURE_DEVOPS_TOKEN: $(System.AccessToken)
 ```
 
 ## Security Scanning

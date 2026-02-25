@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.16.2] - 2026-02-26
+
+### New Features
+
+- **Azure DevOps URL support** — install from Azure DevOps repos using `ado:` shorthand, full HTTPS (`dev.azure.com`), legacy HTTPS (`visualstudio.com`), or SSH v3 (`ssh.dev.azure.com`) URLs:
+  ```bash
+  skillshare install ado:myorg/myproject/myrepo
+  skillshare install https://dev.azure.com/org/proj/_git/repo
+  skillshare install git@ssh.dev.azure.com:v3/org/proj/repo
+  ```
+- **`AZURE_DEVOPS_TOKEN` env var** — automatic HTTPS token injection for Azure DevOps private repos, same pattern as `GITHUB_TOKEN` / `GITLAB_TOKEN` / `BITBUCKET_TOKEN`:
+  ```bash
+  export AZURE_DEVOPS_TOKEN=your_pat
+  skillshare install https://dev.azure.com/org/proj/_git/repo --track
+  ```
+- **`update --prune`** — remove stale skills whose upstream source no longer exists (`skillshare update --prune`)
+- **Stale detection in `check`** — `skillshare check` now reports skills deleted upstream as "stale (deleted upstream)" instead of silently skipping them
+- **Windows ARM64 cross-compile** — `make build-windows` / `mise run build:windows` produces Windows ARM64 binaries
+
+### Fixed
+
+- **`upgrade` spinner nesting** — brew output and GitHub release download steps now render cleanly inside tree spinners instead of breaking the layout
+
 ## [0.16.1] - 2026-02-25
 
 ### Improvements
