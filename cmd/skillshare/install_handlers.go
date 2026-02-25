@@ -791,7 +791,7 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 // renderSkillMeta prints skill description, license, and location as inline tree steps.
 func renderSkillMeta(skill install.SkillInfo, displayPath string) {
 	if skill.Description != "" {
-		ui.StepContinue("Desc", truncateDesc(skill.Description, 60))
+		ui.StepContinue("Desc", truncateDesc(skill.Description, 100))
 	}
 	if skill.License != "" {
 		ui.StepContinue("License", skill.License)
@@ -808,11 +808,11 @@ func renderTrackedRepoMeta(repoName string, skills []string, repoPath string) {
 	ui.StepEnd("Location", repoPath)
 }
 
-// truncateDesc truncates a description string to max runes, appending "…" if truncated.
+// truncateDesc truncates a description string to max runes, appending " ..." if truncated.
 func truncateDesc(s string, max int) string {
 	runes := []rune(s)
 	if len(runes) <= max {
 		return s
 	}
-	return string(runes[:max]) + "…"
+	return string(runes[:max]) + " ..."
 }
