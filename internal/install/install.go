@@ -42,9 +42,10 @@ type InstallResult struct {
 
 // SkillInfo represents a discovered skill in a repository
 type SkillInfo struct {
-	Name    string // Skill name (directory name)
-	Path    string // Relative path from repo root
-	License string // License from SKILL.md frontmatter (if any)
+	Name        string // Skill name (directory name)
+	Path        string // Relative path from repo root
+	License     string // License from SKILL.md frontmatter (if any)
+	Description string // Description from SKILL.md frontmatter (if any)
 }
 
 // DiscoveryResult contains discovered skills from a repository

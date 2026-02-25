@@ -146,22 +146,24 @@ func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
 		if !info.IsDir() && info.Name() == "SKILL.md" {
 			skillDir := filepath.Dir(path)
 			relPath, _ := filepath.Rel(repoPath, skillDir)
-			license := utils.ParseFrontmatterField(path, "license")
+			fm := utils.ParseFrontmatterFields(path, []string{"description", "license"})
 
 			// Handle root level SKILL.md
 			if relPath == "." {
 				if includeRoot {
 					skills = append(skills, SkillInfo{
-						Name:    filepath.Base(repoPath),
-						Path:    ".",
-						License: license,
+						Name:        filepath.Base(repoPath),
+						Path:        ".",
+						License:     fm["license"],
+						Description: fm["description"],
 					})
 				}
 			} else {
 				skills = append(skills, SkillInfo{
-					Name:    filepath.Base(skillDir),
-					Path:    strings.ReplaceAll(relPath, "\\", "/"),
-					License: license,
+					Name:        filepath.Base(skillDir),
+					Path:        strings.ReplaceAll(relPath, "\\", "/"),
+					License:     fm["license"],
+					Description: fm["description"],
 				})
 			}
 		}
