@@ -63,6 +63,7 @@ flowchart TD
 | `--audit-threshold <t>`, `--threshold <t>`, `-T <t>` | Override update audit block threshold (`critical|high|medium|low|info`; shorthand: `c|h|m|l|i`, plus `crit`, `med`) |
 | `--diff` | Show file-level change summary after update |
 | `--audit-verbose` | Show detailed per-skill audit findings in batch mode |
+| `--prune` | Remove stale skills (deleted upstream) instead of warning |
 | `--project, -p` | Use project-level config in current directory |
 | `--global, -g` | Use global config (`~/.config/skillshare`) |
 | `--help, -h` | Show help |
@@ -129,6 +130,33 @@ Updating 2 tracked repos + 3 skills
   Updated:  4
   Skipped:  1
 ```
+
+## Stale Skill Cleanup (`--prune`)
+
+When an upstream repository renames or removes a skill, `update` detects it as **stale** and warns you:
+
+```
+⚠ 1 skill(s) no longer found in upstream repository:
+  ⚠ frontend/old-skill — stale (deleted upstream)
+ℹ Run with --prune to remove stale skills
+```
+
+Add `--prune` to automatically remove stale skills (moved to trash, not permanently deleted):
+
+```bash
+skillshare update --all --prune
+```
+
+`check` also reports stale skills:
+
+```bash
+skillshare check --all
+# ⚠ 1 skill(s) stale (deleted upstream) — run 'skillshare update --all --prune' to remove
+```
+
+:::note
+Tracked repositories (`_repo`) are not affected by `--prune`. When a tracked repo removes a skill internally, `sync` automatically cleans up orphan symlinks via `PruneOrphanLinks`.
+:::
 
 ## Security Audit Gate
 

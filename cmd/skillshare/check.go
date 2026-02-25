@@ -333,9 +333,10 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 		}
 	}
 
-	// Skills: only show update_available/error; suppress up_to_date and local
+	// Skills: only show update_available/stale/error; suppress up_to_date and local
 	upToDateSkills := 0
 	localSkills := 0
+	staleSkills := 0
 	hasSkillOutput := false
 	for _, s := range skillResults {
 		switch s.Status {
@@ -362,6 +363,13 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 				}
 				ui.ListItem("info", s.Name, detail)
 			}
+		case "stale":
+			staleSkills++
+			if !hasSkillOutput {
+				fmt.Println()
+				hasSkillOutput = true
+			}
+			ui.ListItem("warning", s.Name, "stale (deleted upstream)")
 		case "error":
 			if !hasSkillOutput {
 				fmt.Println()
@@ -400,8 +408,11 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 	if localSkills > 0 {
 		ui.Info("%d local skill(s) skipped", localSkills)
 	}
+	if staleSkills > 0 {
+		ui.Warning("%d skill(s) stale (deleted upstream) — run 'skillshare update --all --prune' to remove", staleSkills)
+	}
 	if updatableRepos+updatableSkills == 0 {
-		if upToDateTotal == 0 && localSkills == 0 {
+		if upToDateTotal == 0 && localSkills == 0 && staleSkills == 0 {
 			ui.SuccessMsg("Everything is up to date")
 		}
 	} else {
@@ -529,8 +540,8 @@ func resolveSkillStatuses(
 						items[i].result.Status = "update_available"
 					}
 				} else {
-					// Subdir not found remotely (deleted?)
-					items[i].result.Status = "update_available"
+					// Subdir not found remotely — skill deleted upstream
+					items[i].result.Status = "stale"
 				}
 				continue
 			}
@@ -778,6 +789,8 @@ func singleCheckStatus(repos []checkRepoResult, skills []checkSkillResult) singl
 			return singleCheckResult{"success", "Up to date"}
 		case "update_available":
 			return singleCheckResult{"info", "Update available — run 'skillshare update' to update"}
+		case "stale":
+			return singleCheckResult{"warning", "Stale (deleted upstream) — run 'skillshare update --prune' to remove"}
 		case "local":
 			return singleCheckResult{"success", "Local skill (no remote source)"}
 		case "error":

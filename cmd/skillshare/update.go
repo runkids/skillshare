@@ -25,6 +25,7 @@ type updateOptions struct {
 	diff         bool
 	threshold    string
 	auditVerbose bool
+	prune        bool
 }
 
 // parseUpdateArgs parses command line arguments for the update command.
@@ -57,6 +58,8 @@ func parseUpdateArgs(args []string) (*updateOptions, bool, error) {
 			opts.diff = true
 		case arg == "--audit-verbose":
 			opts.auditVerbose = true
+		case arg == "--prune":
+			opts.prune = true
 		case arg == "--group" || arg == "-G":
 			i++
 			if i >= len(args) {
@@ -261,14 +264,16 @@ func cmdUpdate(args []string) error {
 	}
 
 	// --- Execute ---
+	uc := &updateContext{sourcePath: cfg.Source, opts: opts}
+
 	if len(targets) == 1 {
 		// Single target: verbose path
 		t := targets[0]
 		var updateErr error
 		if t.isRepo {
-			updateErr = updateTrackedRepo(cfg.Source, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, "")
+			updateErr = updateTrackedRepo(uc, t.name)
 		} else {
-			updateErr = updateRegularSkill(cfg.Source, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, opts.auditVerbose, "")
+			updateErr = updateRegularSkill(uc, t.name)
 		}
 
 		var opNames []string
@@ -286,7 +291,6 @@ func cmdUpdate(args []string) error {
 		ui.Warning("[dry-run] No changes will be made")
 	}
 
-	uc := &updateContext{sourcePath: cfg.Source, opts: opts}
 	_, batchErr := executeBatchUpdate(uc, targets)
 
 	// Build oplog names
@@ -331,6 +335,9 @@ func logUpdateOp(cfgPath string, names []string, opts *updateOptions, mode strin
 		if opts.diff {
 			a["diff"] = true
 		}
+		if opts.prune {
+			a["prune"] = true
+		}
 	} else if len(names) == 1 {
 		a["name"] = names[0]
 	} else if len(names) > 1 {
@@ -373,6 +380,7 @@ Options:
                       shorthand: c|h|m|l|i, plus crit, med)
   --diff              Show file-level change summary after update
   --audit-verbose     Show detailed per-skill audit findings in batch mode
+  --prune             Remove stale skills (deleted upstream) instead of warning
   --project, -p       Use project-level config in current directory
   --global, -g        Use global config (~/.config/skillshare)
   --help, -h          Show this help
@@ -387,5 +395,6 @@ Examples:
   skillshare update --all                 # Update all tracked repos + skills
   skillshare update --all -T high         # Use HIGH threshold for this run
   skillshare update --all --dry-run       # Preview updates
-  skillshare update _team --force         # Discard changes and update`)
+  skillshare update _team --force         # Discard changes and update
+  skillshare update --all --prune        # Update all + remove stale skills`)
 }

@@ -89,8 +89,8 @@ func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool, threshold s
 	return result, fmt.Errorf("security audit failed — findings at/above %s detected — rolled back (use --skip-audit to bypass): %w", normalizedThreshold, audit.ErrBlocked)
 }
 
-func updateTrackedRepo(sourcePath, repoName string, dryRun, force, skipAudit, showDiff bool, threshold, projectRoot string) error {
-	repoPath := filepath.Join(sourcePath, repoName)
+func updateTrackedRepo(uc *updateContext, repoName string) error {
+	repoPath := filepath.Join(uc.sourcePath, repoName)
 	start := time.Now()
 
 	ui.StepContinue("Repo", repoName+" (tracked)")
@@ -104,7 +104,7 @@ func updateTrackedRepo(sourcePath, repoName string, dryRun, force, skipAudit, sh
 		spinner.Stop()
 		files, _ := git.GetDirtyFiles(repoPath)
 
-		if !force {
+		if !uc.opts.force {
 			lines := []string{
 				"",
 				"Repository has uncommitted changes:",
@@ -120,7 +120,7 @@ func updateTrackedRepo(sourcePath, repoName string, dryRun, force, skipAudit, sh
 		}
 
 		ui.Warning("Discarding local changes (--force)")
-		if !dryRun {
+		if !uc.opts.dryRun {
 			if err := git.Restore(repoPath); err != nil {
 				return fmt.Errorf("failed to discard changes: %w", err)
 			}
@@ -128,7 +128,7 @@ func updateTrackedRepo(sourcePath, repoName string, dryRun, force, skipAudit, sh
 		spinner = ui.StartSpinner("Fetching from origin...")
 	}
 
-	if dryRun {
+	if uc.opts.dryRun {
 		spinner.Stop()
 		ui.Warning("[dry-run] Would run: git pull")
 		return nil
@@ -145,7 +145,7 @@ func updateTrackedRepo(sourcePath, repoName string, dryRun, force, skipAudit, sh
 	// Use ForcePull if --force to handle force push
 	var info *git.UpdateInfo
 	var err error
-	if force {
+	if uc.opts.force {
 		info, err = git.ForcePullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
 	} else {
 		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), onProgress)
@@ -188,19 +188,14 @@ func updateTrackedRepo(sourcePath, repoName string, dryRun, force, skipAudit, sh
 
 	ui.Box("Changes", lines...)
 
-	if showDiff {
+	if uc.opts.diff {
 		renderDiffSummary(repoPath, info.BeforeHash, info.AfterHash)
 	}
 	fmt.Println()
 
 	// Post-pull audit gate
-	var scanFn auditScanFunc = audit.ScanSkill
-	if projectRoot != "" {
-		scanFn = func(path string) (*audit.Result, error) {
-			return audit.ScanSkillForProject(path, projectRoot)
-		}
-	}
-	if _, err := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, scanFn); err != nil {
+	scanFn := uc.auditScanFn()
+	if _, err := auditGateAfterPull(repoPath, info.BeforeHash, uc.opts.skipAudit, uc.opts.threshold, scanFn); err != nil {
 		return err
 	}
 
@@ -213,8 +208,8 @@ func updateTrackedRepo(sourcePath, repoName string, dryRun, force, skipAudit, sh
 	return nil
 }
 
-func updateRegularSkill(sourcePath, skillName string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool, projectRoot string) error {
-	skillPath := filepath.Join(sourcePath, skillName)
+func updateRegularSkill(uc *updateContext, skillName string) error {
+	skillPath := filepath.Join(uc.sourcePath, skillName)
 
 	// Read metadata to get source
 	meta, err := install.ReadMeta(skillPath)
@@ -228,7 +223,7 @@ func updateRegularSkill(sourcePath, skillName string, dryRun, force, skipAudit, 
 	ui.StepContinue("Skill", skillName)
 	ui.StepContinue("Source", meta.Source)
 
-	if dryRun {
+	if uc.opts.dryRun {
 		ui.Warning("[dry-run] Would reinstall from: %s", meta.Source)
 		return nil
 	}
@@ -242,28 +237,38 @@ func updateRegularSkill(sourcePath, skillName string, dryRun, force, skipAudit, 
 
 	// Snapshot before update for --diff
 	var beforeHashes map[string]string
-	if showDiff {
+	if uc.opts.diff {
 		beforeHashes, _ = install.ComputeFileHashes(skillPath)
 	}
 
 	spinner := ui.StartSpinner("Updating...")
 
-	opts := install.InstallOptions{
-		Force:            true,
-		Update:           true,
-		SkipAudit:        skipAudit,
-		AuditThreshold:   threshold,
-		AuditProjectRoot: projectRoot,
-	}
+	installOpts := uc.makeInstallOpts()
 	if ui.IsTTY() {
-		opts.OnProgress = func(line string) {
+		installOpts.OnProgress = func(line string) {
 			spinner.Update("   " + line)
 		}
 	}
 
-	result, err := install.Install(source, skillPath, opts)
+	result, err := install.Install(source, skillPath, installOpts)
 	if err != nil {
 		spinner.Stop()
+
+		// Stale skill: subdir deleted from upstream
+		if isStaleError(err) {
+			if uc.opts.prune {
+				if pruneErr := pruneSkill(skillPath, skillName, uc); pruneErr == nil {
+					pruneRegistry([]string{skillName}, uc)
+					ui.StepResult("warning", "Pruned — stale (deleted upstream)", 0)
+					return nil
+				}
+			}
+			ui.StepResult("warning", "Stale (deleted upstream)", 0)
+			fmt.Println()
+			displayStaleWarning([]string{skillName})
+			return nil
+		}
+
 		ui.StepResult("error", fmt.Sprintf("Failed: %v", err), 0)
 		return fmt.Errorf("update failed: %w", err)
 	}
@@ -272,9 +277,9 @@ func updateRegularSkill(sourcePath, skillName string, dryRun, force, skipAudit, 
 	ui.StepResult("success", "Updated successfully", time.Since(startUpdate))
 	fmt.Println()
 
-	renderInstallWarningsWithResult("", result.Warnings, auditVerbose, result)
+	renderInstallWarningsWithResult("", result.Warnings, uc.opts.auditVerbose, result)
 
-	if showDiff {
+	if uc.opts.diff {
 		afterHashes, _ := install.ComputeFileHashes(skillPath)
 		renderHashDiffSummary(beforeHashes, afterHashes)
 	}
@@ -288,26 +293,26 @@ func updateRegularSkill(sourcePath, skillName string, dryRun, force, skipAudit, 
 // updateTrackedRepoQuick updates a single tracked repo in batch mode.
 // Output is suppressed; caller handles display via progress bar.
 // Returns (updated, auditResult, error).
-func updateTrackedRepoQuick(repo, repoPath string, dryRun, force, skipAudit bool, threshold string, scanFn auditScanFunc) (bool, *audit.Result, error) {
+func updateTrackedRepoQuick(uc *updateContext, repoPath string) (bool, *audit.Result, error) {
 	// Check for uncommitted changes
 	if isDirty, _ := git.IsDirty(repoPath); isDirty {
-		if !force {
+		if !uc.opts.force {
 			return false, nil, nil
 		}
-		if !dryRun {
+		if !uc.opts.dryRun {
 			if err := git.Restore(repoPath); err != nil {
 				return false, nil, nil
 			}
 		}
 	}
 
-	if dryRun {
+	if uc.opts.dryRun {
 		return false, nil, nil
 	}
 
 	var info *git.UpdateInfo
 	var err error
-	if force {
+	if uc.opts.force {
 		info, err = git.ForcePullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), nil)
 	} else {
 		info, err = git.PullWithProgress(repoPath, git.AuthEnvForRepo(repoPath), nil)
@@ -321,7 +326,7 @@ func updateTrackedRepoQuick(repo, repoPath string, dryRun, force, skipAudit bool
 	}
 
 	// Post-pull audit gate
-	auditResult, auditErr := auditGateAfterPull(repoPath, info.BeforeHash, skipAudit, threshold, scanFn)
+	auditResult, auditErr := auditGateAfterPull(repoPath, info.BeforeHash, uc.opts.skipAudit, uc.opts.threshold, uc.auditScanFn())
 	if auditErr != nil {
 		return false, auditResult, auditErr
 	}
@@ -332,8 +337,8 @@ func updateTrackedRepoQuick(repo, repoPath string, dryRun, force, skipAudit bool
 // updateSkillFromMeta updates a skill using its metadata in batch mode.
 // Output is suppressed; caller handles display via progress bar.
 // Returns (updated, installResult, error).
-func updateSkillFromMeta(skillPath string, dryRun bool, installOpts install.InstallOptions) (bool, *install.InstallResult, error) {
-	if dryRun {
+func updateSkillFromMeta(uc *updateContext, skillPath string) (bool, *install.InstallResult, error) {
+	if uc.opts.dryRun {
 		return false, nil, nil
 	}
 
@@ -351,48 +356,12 @@ func updateSkillFromMeta(skillPath string, dryRun bool, installOpts install.Inst
 		return false, nil, nil
 	}
 
-	result, err := install.Install(source, skillPath, installOpts)
+	result, err := install.Install(source, skillPath, uc.makeInstallOpts())
 	if err != nil {
 		return false, nil, err
 	}
 
 	return true, result, nil
-}
-
-// updateSkillOrRepo updates a skill or repo by name, handling _ prefix and
-// basename resolution.
-func updateSkillOrRepo(sourcePath, name string, dryRun, force, skipAudit, showDiff bool, threshold string, auditVerbose bool, projectRoot string) error {
-	// Try tracked repo first (with _ prefix)
-	repoName := name
-	if !strings.HasPrefix(repoName, "_") {
-		repoName = "_" + name
-	}
-	repoPath := filepath.Join(sourcePath, repoName)
-
-	if install.IsGitRepo(repoPath) {
-		return updateTrackedRepo(sourcePath, repoName, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
-	}
-
-	// Try as regular skill (exact path)
-	skillPath := filepath.Join(sourcePath, name)
-	if meta, err := install.ReadMeta(skillPath); err == nil && meta != nil {
-		return updateRegularSkill(sourcePath, name, dryRun, force, skipAudit, showDiff, threshold, auditVerbose, projectRoot)
-	}
-
-	// Check if it's a nested path that exists as git repo
-	if install.IsGitRepo(skillPath) {
-		return updateTrackedRepo(sourcePath, name, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
-	}
-
-	// Fallback: search by basename in nested skills and repos
-	if match, err := resolveByBasename(sourcePath, name); err == nil {
-		if match.isRepo {
-			return updateTrackedRepo(sourcePath, match.name, dryRun, force, skipAudit, showDiff, threshold, projectRoot)
-		}
-		return updateRegularSkill(sourcePath, match.name, dryRun, force, skipAudit, showDiff, threshold, auditVerbose, projectRoot)
-	} else {
-		return err
-	}
 }
 
 // renderDiffSummary prints a file-level change summary for the given repo.

@@ -14,6 +14,7 @@ type updateResult struct {
 	updated        int
 	skipped        int
 	securityFailed int
+	pruned         int
 }
 
 // batchBlockedEntry records a skill that was blocked by security audit during batch update.
@@ -205,4 +206,28 @@ func formatRiskLabel(result *install.InstallResult) string {
 		return fmt.Sprintf("%s (%d/100)", label, result.AuditRiskScore)
 	}
 	return label
+}
+
+// displayPrunedSection shows the list of pruned (stale) skills after batch update.
+func displayPrunedSection(pruned []string) {
+	if len(pruned) == 0 {
+		return
+	}
+	ui.SectionLabel("Pruned (Stale)")
+	for _, name := range pruned {
+		ui.ListItem("warning", name, "removed (deleted upstream)")
+	}
+}
+
+// displayStaleWarning shows a warning for stale skills when --prune is not used.
+func displayStaleWarning(stale []string) {
+	if len(stale) == 0 {
+		return
+	}
+	fmt.Println()
+	ui.Warning("%d skill(s) no longer found in upstream repository:", len(stale))
+	for _, name := range stale {
+		ui.ListItem("warning", name, "stale (deleted upstream)")
+	}
+	ui.Info("Run with --prune to remove stale skills")
 }
