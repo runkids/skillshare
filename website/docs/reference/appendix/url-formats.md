@@ -18,6 +18,9 @@ All source URL patterns recognized by `skillshare install`.
 | SSH with subdir | `git@github.com:owner/repo.git//path` | `//` separates repo from subdir |
 | GHE Cloud | `mycompany.github.com/org/repo` | Enterprise Cloud subdomain |
 | GHE Server | `github.mycompany.com/org/repo` | Enterprise Server |
+| Azure DevOps shorthand | `ado:org/project/repo` | Expands to `dev.azure.com` URL |
+| Azure DevOps HTTPS | `https://dev.azure.com/org/proj/_git/repo` | Modern format |
+| Azure DevOps SSH | `git@ssh.dev.azure.com:v3/org/proj/repo` | SSH v3 format |
 | Local path | `~/my-skill` or `/abs/path` | Copies directory to source |
 | Git file URL | `file:///path/to/repo` | Local git clone (for testing) |
 
@@ -104,6 +107,30 @@ Both patterns support subdirectory paths:
 skillshare install github.mycompany.com/org/repo/path/to/skill
 ```
 
+## Azure DevOps
+
+### Shorthand
+
+The `ado:` prefix expands to Azure DevOps URLs:
+
+```bash
+skillshare install ado:myorg/myproject/myrepo
+skillshare install ado:myorg/myproject/myrepo/skills/react
+```
+
+### Full URLs
+
+```bash
+# Modern format
+skillshare install https://dev.azure.com/myorg/myproject/_git/myrepo
+
+# Legacy format (auto-normalized to dev.azure.com)
+skillshare install https://myorg.visualstudio.com/myproject/_git/myrepo
+
+# SSH
+skillshare install git@ssh.dev.azure.com:v3/myorg/myproject/myrepo
+```
+
 ## Local Paths
 
 Install from a directory on your filesystem:
@@ -154,13 +181,13 @@ If you get an authentication error with HTTPS, switch to SSH URLs. skillshare se
 
 ## Platform Support
 
-| Feature | GitHub | GitLab | Bitbucket | Gitea | GHE |
-|---------|--------|--------|-----------|-------|-----|
-| Shorthand (`owner/repo`) | Yes | No | No | No | Yes |
-| Full HTTPS URL | Yes | Yes | Yes | Yes | Yes |
-| SSH URL | Yes | Yes | Yes | Yes | Yes |
-| Subdirectory | Yes | Yes | Yes | Yes | Yes |
-| `skillshare search` | Yes | No | No | No | No |
+| Feature | GitHub | GitLab | Bitbucket | Gitea | GHE | Azure DevOps |
+|---------|--------|--------|-----------|-------|-----|--------------|
+| Shorthand (`owner/repo`) | Yes | No | No | No | Yes | `ado:` prefix |
+| Full HTTPS URL | Yes | Yes | Yes | Yes | Yes | Yes |
+| SSH URL | Yes | Yes | Yes | Yes | Yes | Yes |
+| Subdirectory | Yes | Yes | Yes | Yes | Yes | Yes |
+| `skillshare search` | Yes | No | No | No | No | No |
 
 ## Related
 
