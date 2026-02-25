@@ -73,7 +73,7 @@ func wrapGitError(stderr string, err error, tokenAuthAttempted bool) error {
 		}
 		return fmt.Errorf("authentication required — options:\n"+
 			"       1. SSH URL: git@<host>:<owner>/<repo>.git\n"+
-			"       2. Token env var: GITHUB_TOKEN, GITLAB_TOKEN, BITBUCKET_TOKEN, or SKILLSHARE_GIT_TOKEN\n"+
+			"       2. Token env var: GITHUB_TOKEN, GITLAB_TOKEN, BITBUCKET_TOKEN, AZURE_DEVOPS_TOKEN, or SKILLSHARE_GIT_TOKEN\n"+
 			"       3. Git credential helper: gh auth login\n       %s", s)
 	}
 	if s != "" {

@@ -175,6 +175,21 @@ gh auth login
 skillshare install https://github.com/company/private-repo
 ```
 
+### Azure DevOps with PAT
+
+Azure DevOps repos use [Personal Access Tokens (PATs)](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate?view=azure-devops) for HTTPS auth:
+
+```bash
+export AZURE_DEVOPS_TOKEN=your_pat_here
+skillshare install https://dev.azure.com/org/project/_git/repo
+```
+
+Or use SSH (no token needed):
+
+```bash
+skillshare install git@ssh.dev.azure.com:v3/org/project/repo
+```
+
 :::tip Private Repos
 If you get an authentication error with HTTPS, switch to SSH URLs. skillshare sets `GIT_TERMINAL_PROMPT=0` to prevent hanging credential prompts, so interactive HTTPS auth won't work.
 :::

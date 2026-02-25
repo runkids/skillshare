@@ -194,6 +194,28 @@ export BITBUCKET_TOKEN=your_app_password
 skillshare install https://bitbucket.org/team/skills.git --track
 ```
 
+### AZURE_DEVOPS_TOKEN
+
+Azure DevOps Personal Access Token (PAT). Used for HTTPS clone of Azure DevOps-hosted private repos.
+
+**Creating a token:**
+1. Go to `https://dev.azure.com/{org}/_usersSettings/tokens`
+2. Select **+ New Token**
+3. Scopes: **Code → Read** (pull only) or **Code → Read & Write** (push & pull)
+4. Copy the token (84-character string with `AZDO` signature)
+
+Official docs: [Use Personal Access Tokens](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate?view=azure-devops)
+
+```bash
+export AZURE_DEVOPS_TOKEN=your_pat_here
+skillshare install https://dev.azure.com/org/project/_git/repo --track
+```
+
+**Windows:**
+```powershell
+$env:AZURE_DEVOPS_TOKEN = "your_pat_here"
+```
+
 ### SKILLSHARE_GIT_TOKEN
 
 Generic fallback token for any HTTPS git host. Used when no platform-specific token is set.
@@ -208,7 +230,7 @@ skillshare install https://git.example.com/org/skills.git --track
 $env:SKILLSHARE_GIT_TOKEN = "your_token"
 ```
 
-**Token priority:** Platform-specific (`GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`) > `SKILLSHARE_GIT_TOKEN`.
+**Token priority:** Platform-specific (`GITHUB_TOKEN`, `GITLAB_TOKEN`, `BITBUCKET_TOKEN`, `AZURE_DEVOPS_TOKEN`) > `SKILLSHARE_GIT_TOKEN`.
 
 ---
 
@@ -269,6 +291,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `GITLAB_TOKEN` | GitLab git clone auth | None |
 | `BITBUCKET_TOKEN` | Bitbucket git clone auth | None |
 | `BITBUCKET_USERNAME` | Bitbucket username for app password auth | None |
+| `AZURE_DEVOPS_TOKEN` | Azure DevOps git clone auth | None |
 | `SKILLSHARE_GIT_TOKEN` | Generic git clone auth (fallback) | None |
 | `SKILLSHARE_TEST_BINARY` | Test binary path | `bin/skillshare` |
 

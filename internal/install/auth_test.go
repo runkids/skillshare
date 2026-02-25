@@ -43,6 +43,9 @@ func TestDetectPlatform(t *testing.T) {
 		{"self-hosted gitlab", "https://gitlab.internal.co/org/repo.git", PlatformGitLab},
 		{"bitbucket.org", "https://bitbucket.org/team/repo.git", PlatformBitbucket},
 		{"ssh github", "git@github.com:org/repo.git", PlatformGitHub},
+		{"azure devops", "https://dev.azure.com/org/proj/_git/repo", PlatformAzureDevOps},
+		{"azure ssh", "git@ssh.dev.azure.com:v3/org/proj/repo", PlatformAzureDevOps},
+		{"visualstudio.com", "https://myorg.visualstudio.com/proj/_git/repo", PlatformAzureDevOps},
 		{"unknown host", "https://git.example.com/repo.git", PlatformUnknown},
 		{"empty", "", PlatformUnknown},
 	}
@@ -126,6 +129,32 @@ func TestResolveToken(t *testing.T) {
 			envVars:  map[string]string{"SKILLSHARE_GIT_TOKEN": "tok"},
 			wantTok:  "tok",
 			wantUser: "oauth2",
+		},
+		{
+			name:     "azure devops token",
+			url:      "https://dev.azure.com/org/proj/_git/repo",
+			envVars:  map[string]string{"AZURE_DEVOPS_TOKEN": "ado_pat_test"},
+			wantTok:  "ado_pat_test",
+			wantUser: "x-access-token",
+		},
+		{
+			name:     "azure devops generic fallback",
+			url:      "https://dev.azure.com/org/proj/_git/repo",
+			envVars:  map[string]string{"SKILLSHARE_GIT_TOKEN": "generic"},
+			wantTok:  "generic",
+			wantUser: "x-access-token",
+		},
+		{
+			name:     "azure devops specific beats generic",
+			url:      "https://dev.azure.com/org/proj/_git/repo",
+			envVars:  map[string]string{"AZURE_DEVOPS_TOKEN": "ado_specific", "SKILLSHARE_GIT_TOKEN": "generic"},
+			wantTok:  "ado_specific",
+			wantUser: "x-access-token",
+		},
+		{
+			name:    "azure devops ssh returns empty",
+			url:     "git@ssh.dev.azure.com:v3/org/proj/repo",
+			envVars: map[string]string{"AZURE_DEVOPS_TOKEN": "ado_pat"},
 		},
 		{
 			name:     "platform specific beats generic",
@@ -225,6 +254,14 @@ func TestAuthEnv(t *testing.T) {
 			wantCount: "1", wantIdx: "0",
 			wantKey: "url.https://x-token-auth:ATATT3x_test=FBFF@bitbucket.org/.insteadOf",
 			wantVal: "https://bitbucket.org/",
+		},
+		{
+			name:      "azure devops with token",
+			url:       "https://dev.azure.com/org/proj/_git/repo",
+			envVars:   map[string]string{"AZURE_DEVOPS_TOKEN": "ado_pat"},
+			wantCount: "1", wantIdx: "0",
+			wantKey: "url.https://x-access-token:ado_pat@dev.azure.com/.insteadOf",
+			wantVal: "https://dev.azure.com/",
 		},
 		{
 			name:      "token with at sign",
@@ -344,6 +381,12 @@ func TestSanitizeTokens(t *testing.T) {
 			text:    "fatal: auth failed for https://willie0903:app_pwd@bitbucket.org/",
 			envVars: map[string]string{"BITBUCKET_TOKEN": "app_pwd", "BITBUCKET_USERNAME": "willie0903"},
 			want:    "fatal: auth failed for https://[REDACTED]:[REDACTED]@bitbucket.org/",
+		},
+		{
+			name:    "redacts azure devops token",
+			text:    "fatal: auth failed for https://x-access-token:ado_secret@dev.azure.com/",
+			envVars: map[string]string{"AZURE_DEVOPS_TOKEN": "ado_secret"},
+			want:    "fatal: auth failed for https://x-access-token:[REDACTED]@dev.azure.com/",
 		},
 		{
 			name: "no token no change",
