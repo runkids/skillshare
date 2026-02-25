@@ -3,7 +3,6 @@
 package oplog
 
 import (
-	"bufio"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -92,20 +91,17 @@ func Read(configPath, filename string, limit int) ([]Entry, error) {
 	defer f.Close()
 
 	var all []Entry
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if len(line) == 0 {
-			continue
-		}
+	dec := json.NewDecoder(f)
+	for dec.More() {
 		var e Entry
-		if err := json.Unmarshal(line, &e); err != nil {
-			continue // skip malformed lines
+		if err := dec.Decode(&e); err != nil {
+			// Skip malformed entries — advance past the bad line
+			if dec.More() {
+				continue
+			}
+			break
 		}
 		all = append(all, e)
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
 	}
 
 	// Reverse to newest-first
