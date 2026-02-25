@@ -179,10 +179,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		}
 
 		fmt.Println()
-		desc := ""
-		if skill.License != "" {
-			desc = "License: " + skill.License
-		}
+		desc := buildSkillBoxDesc(skill)
 		ui.SkillBox(skill.Name, desc, displayPath)
 
 		destPath := destWithInto(cfg.Source, opts, skill.Name)
@@ -258,10 +255,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		}
 
 		fmt.Println()
-		desc := ""
-		if skill.License != "" {
-			desc = "License: " + skill.License
-		}
+		desc := buildSkillBoxDesc(skill)
 		ui.SkillBox(skill.Name, desc, displayPath)
 
 		destPath := destWithInto(cfg.Source, opts, skill.Name)
@@ -807,4 +801,17 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 	ui.Info("Run 'skillshare sync' to distribute to all targets")
 
 	return summary, nil
+}
+
+// buildSkillBoxDesc combines description and license into a SkillBox description string.
+func buildSkillBoxDesc(skill install.SkillInfo) string {
+	desc := skill.Description
+	if skill.License != "" {
+		if desc != "" {
+			desc += "\nLicense: " + skill.License
+		} else {
+			desc = "License: " + skill.License
+		}
+	}
+	return desc
 }
