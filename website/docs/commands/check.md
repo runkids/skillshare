@@ -42,8 +42,9 @@ result=$(skillshare check --json)
 
 1. **Tracked repositories** — Fetches from origin, shows how many commits you're behind
 2. **Installed skills (with metadata)** — Compares installed version against the remote HEAD
-3. **Local skills** — Marks as "local source" (no remote to compare)
-4. **Skill-level `targets` validation** — Warns about unknown target names in SKILL.md `targets` frontmatter fields
+3. **Stale skills** — Detects skills whose subdirectory was deleted from the upstream repository
+4. **Local skills** — Marks as "local source" (no remote to compare)
+5. **Skill-level `targets` validation** — Warns about unknown target names in SKILL.md `targets` frontmatter fields
 
 Unlike `update`, `check` never modifies any files.
 
@@ -62,8 +63,10 @@ skillshare check
   ─────────────────────────────────────────
   ✓ pdf                up to date          anthropics/skills
   ⬇ commit             update available    anthropics/skills
+  ⚠ old-helper         stale (deleted upstream)
   • local-skill        local source
 
+  ⚠ 1 skill(s) stale (deleted upstream) — run 'skillshare update --all --prune' to remove
   Summary: 1 repo + 1 skill have updates available
   Run 'skillshare update <name>' or 'skillshare update --all'
 ```
@@ -124,6 +127,8 @@ skillshare check --json
      "status": "up_to_date", "installed_at": "2024-06-01T10:00:00Z"},
     {"name": "commit", "source": "anthropics/skills", "version": "x9y8z7w",
      "status": "update_available", "installed_at": "2024-05-15T08:30:00Z"},
+    {"name": "old-helper", "source": "anthropics/skills", "version": "d4e5f6g",
+     "status": "stale", "installed_at": "2024-03-10T09:00:00Z"},
     {"name": "local-skill", "source": "", "version": "",
      "status": "local", "installed_at": "2024-04-20T12:00:00Z"}
   ]
@@ -143,6 +148,8 @@ skillshare check --json
 1. Read `.skillshare-meta.json` for stored version and repo URL
 2. Run `git ls-remote <repo_url> HEAD` to get remote HEAD hash
 3. Compare with stored version hash
+
+When a skill's subdirectory no longer exists in the remote repository (renamed or deleted upstream), `check` reports it as **stale** instead of "update available". Use `update --prune` to clean up stale skills.
 
 ### Local Skills
 

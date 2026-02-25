@@ -2,10 +2,14 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 )
 
@@ -54,6 +58,8 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	var result updateResult
 	var auditEntries []batchAuditEntry
 	var blockedEntries []batchBlockedEntry
+	var staleNames []string
+	var prunedNames []string
 
 	// Group skills by RepoURL to optimize updates
 	repoGroups := make(map[string][]updateTarget)
@@ -73,14 +79,10 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		}
 	}
 
-	scanFn := uc.auditScanFn()
-
 	// Phase 1: tracked repos (git pull)
 	for _, t := range trackedRepos {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-		updated, auditResult, err := updateTrackedRepoQuick(
-			t.name, t.path, uc.opts.dryRun, uc.opts.force,
-			uc.opts.skipAudit, uc.opts.threshold, scanFn)
+		updated, auditResult, err := updateTrackedRepoQuick(uc, t.path)
 		if err != nil {
 			if isSecurityError(err) {
 				result.securityFailed++
@@ -148,7 +150,19 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			}
 
 			if err := batchResult.Errors[subdir]; err != nil {
-				if isSecurityError(err) {
+				if isStaleError(err) {
+					if uc.opts.prune {
+						if pruneErr := pruneSkill(t.path, t.name, uc); pruneErr == nil {
+							prunedNames = append(prunedNames, t.name)
+							result.pruned++
+						} else {
+							result.skipped++
+						}
+					} else {
+						staleNames = append(staleNames, t.name)
+						result.skipped++
+					}
+				} else if isSecurityError(err) {
 					result.securityFailed++
 					blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 				} else {
@@ -167,10 +181,21 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	// Phase 3: standalone skills
 	for _, t := range standaloneSkills {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-		installOpts := uc.makeInstallOpts()
-		updated, installRes, err := updateSkillFromMeta(t.path, uc.opts.dryRun, installOpts)
+		updated, installRes, err := updateSkillFromMeta(uc, t.path)
 		if err != nil {
-			if isSecurityError(err) {
+			if isStaleError(err) {
+				if uc.opts.prune {
+					if pruneErr := pruneSkill(t.path, t.name, uc); pruneErr == nil {
+						prunedNames = append(prunedNames, t.name)
+						result.pruned++
+					} else {
+						result.skipped++
+					}
+				} else {
+					staleNames = append(staleNames, t.name)
+					result.skipped++
+				}
+			} else if isSecurityError(err) {
 				result.securityFailed++
 				blockedEntries = append(blockedEntries, batchBlockedEntry{name: t.name, errMsg: err.Error()})
 			} else {
@@ -189,18 +214,29 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 
 	progressBar.Stop()
 
+	// Registry cleanup for pruned skills
+	if len(prunedNames) > 0 {
+		pruneRegistry(prunedNames, uc)
+	}
+
 	// Render results
 	if !uc.opts.dryRun {
 		displayUpdateBlockedSection(blockedEntries)
+		displayPrunedSection(prunedNames)
+		displayStaleWarning(staleNames)
 		displayUpdateAuditResults(auditEntries, uc.opts.auditVerbose)
 		fmt.Println()
-		ui.SuccessMsg("Updated %d, skipped %d of %d skill(s)", result.updated, result.skipped, total)
+		parts := []string{fmt.Sprintf("Updated %d, skipped %d", result.updated, result.skipped)}
+		if result.pruned > 0 {
+			parts = append(parts, fmt.Sprintf("pruned %d", result.pruned))
+		}
+		ui.SuccessMsg("%s of %d skill(s)", strings.Join(parts, ", "), total)
 		if result.securityFailed > 0 {
 			ui.Warning("Blocked: %d (security)", result.securityFailed)
 		}
 	}
 
-	if result.updated > 0 && !uc.opts.dryRun {
+	if (result.updated > 0 || result.pruned > 0) && !uc.opts.dryRun {
 		ui.SectionLabel("Next Steps")
 		ui.Info("Run 'skillshare sync' to distribute changes")
 	}
@@ -209,4 +245,58 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		return result, fmt.Errorf("%d repo(s) blocked by security audit", result.securityFailed)
 	}
 	return result, nil
+}
+
+// isStaleError returns true if the error indicates a skill path was deleted
+// from the upstream repository.
+func isStaleError(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "not found in repository") ||
+		strings.Contains(msg, "does not exist in repository")
+}
+
+// pruneSkill moves a stale skill to the trash directory.
+func pruneSkill(skillPath, name string, uc *updateContext) error {
+	var trashDir string
+	if uc.isProject() {
+		trashDir = trash.ProjectTrashDir(uc.projectRoot)
+	} else {
+		trashDir = trash.TrashDir()
+	}
+	_, err := trash.MoveToTrash(skillPath, name, trashDir)
+	return err
+}
+
+// pruneRegistry removes pruned skill entries from the registry.
+func pruneRegistry(prunedNames []string, uc *updateContext) {
+	var regDir string
+	if uc.isProject() {
+		regDir = filepath.Join(uc.projectRoot, ".skillshare")
+	} else {
+		regDir = filepath.Dir(config.ConfigPath())
+	}
+
+	reg, err := config.LoadRegistry(regDir)
+	if err != nil || len(reg.Skills) == 0 {
+		return
+	}
+
+	removedSet := make(map[string]bool, len(prunedNames))
+	for _, n := range prunedNames {
+		removedSet[n] = true
+	}
+
+	updated := make([]config.SkillEntry, 0, len(reg.Skills))
+	for _, s := range reg.Skills {
+		if !removedSet[s.FullName()] {
+			updated = append(updated, s)
+		}
+	}
+
+	if len(updated) != len(reg.Skills) {
+		reg.Skills = updated
+		if saveErr := reg.Save(regDir); saveErr != nil {
+			ui.Warning("Failed to update registry after prune: %v", saveErr)
+		}
+	}
 }

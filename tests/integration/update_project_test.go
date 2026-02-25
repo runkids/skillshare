@@ -250,6 +250,115 @@ func TestUpdateProject_HighBlockedWithThresholdOverride(t *testing.T) {
 	}
 }
 
+// setupProjectMultiSkillRepo creates a bare remote with two skills, installs
+// both in project mode, then deletes one from the remote and pushes.
+func setupProjectMultiSkillRepo(t *testing.T, sb *testutil.Sandbox, projectRoot string) (string, string, string) {
+	t.Helper()
+
+	remoteRepo := filepath.Join(sb.Root, "proj-multi.git")
+	workClone := filepath.Join(sb.Root, "proj-multi-work")
+	gitInit(t, remoteRepo, true)
+	gitClone(t, remoteRepo, workClone)
+
+	for _, name := range []string{"proj-keep", "proj-stale"} {
+		os.MkdirAll(filepath.Join(workClone, "skills", name), 0755)
+		os.WriteFile(filepath.Join(workClone, "skills", name, "SKILL.md"),
+			[]byte("---\nname: "+name+"\n---\n# "+name), 0644)
+	}
+	gitAddCommit(t, workClone, "add two skills")
+	gitPush(t, workClone)
+
+	// Install both in project mode
+	for _, name := range []string{"proj-keep", "proj-stale"} {
+		r := sb.RunCLIInDir(projectRoot, "install", "file://"+remoteRepo+"//skills/"+name, "-p", "--skip-audit")
+		r.AssertSuccess(t)
+	}
+
+	// Delete proj-stale from remote, update proj-keep
+	os.RemoveAll(filepath.Join(workClone, "skills", "proj-stale"))
+	os.WriteFile(filepath.Join(workClone, "skills", "proj-keep", "SKILL.md"),
+		[]byte("---\nname: proj-keep\n---\n# proj-keep v2"), 0644)
+	gitAddCommit(t, workClone, "remove proj-stale, update proj-keep")
+	gitPush(t, workClone)
+
+	return remoteRepo, "proj-keep", "proj-stale"
+}
+
+// TestUpdateProject_Prune_RemovesStaleSkill verifies --prune in project mode.
+func TestUpdateProject_Prune_RemovesStaleSkill(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	_, keepName, staleName := setupProjectMultiSkillRepo(t, sb, projectRoot)
+
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+
+	// Verify both exist
+	if _, err := os.Stat(filepath.Join(skillsDir, keepName)); err != nil {
+		t.Fatalf("keep should exist: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(skillsDir, staleName)); err != nil {
+		t.Fatalf("stale should exist before prune: %v", err)
+	}
+
+	result := sb.RunCLIInDir(projectRoot, "update", "--all", "--prune", "--skip-audit", "-p")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "pruned")
+	result.AssertAnyOutputContains(t, staleName)
+
+	// Stale skill should be removed
+	if _, err := os.Stat(filepath.Join(skillsDir, staleName)); !os.IsNotExist(err) {
+		t.Error("stale skill should have been pruned in project mode")
+	}
+
+	// Keep skill should still exist
+	if _, err := os.Stat(filepath.Join(skillsDir, keepName)); err != nil {
+		t.Error("keep skill should still exist after prune")
+	}
+}
+
+// TestUpdateProject_Prune_RegistryCleanup verifies project registry is cleaned after prune.
+func TestUpdateProject_Prune_RegistryCleanup(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	_, _, staleName := setupProjectMultiSkillRepo(t, sb, projectRoot)
+
+	result := sb.RunCLIInDir(projectRoot, "update", "--all", "--prune", "--skip-audit", "-p")
+	result.AssertSuccess(t)
+
+	regPath := filepath.Join(projectRoot, ".skillshare", "registry.yaml")
+	if _, err := os.Stat(regPath); err == nil {
+		regContent := sb.ReadFile(regPath)
+		if contains(regContent, staleName) {
+			t.Errorf("project registry should not contain pruned skill %q", staleName)
+		}
+	}
+}
+
+// TestUpdateProject_StaleWarning_NoPrune verifies stale warning in project mode without --prune.
+func TestUpdateProject_StaleWarning_NoPrune(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+
+	_, _, staleName := setupProjectMultiSkillRepo(t, sb, projectRoot)
+
+	result := sb.RunCLIInDir(projectRoot, "update", "--all", "--skip-audit", "-p")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "stale")
+	result.AssertAnyOutputContains(t, "--prune")
+	result.AssertAnyOutputContains(t, staleName)
+
+	// Stale skill should still exist (not pruned)
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	if _, err := os.Stat(filepath.Join(skillsDir, staleName)); err != nil {
+		t.Error("stale skill should still exist without --prune in project mode")
+	}
+}
+
 // TestUpdateProject_BatchAll_SubdirSkills_NoDuplication verifies that
 // `update --all` uses the correct local destination path (not meta.Subdir)
 // when batch-updating skills from a monorepo. Without the fix, skills

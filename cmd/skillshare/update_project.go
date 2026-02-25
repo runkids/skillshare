@@ -159,12 +159,14 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 	}
 
 	// --- Execute ---
+	uc := &updateContext{sourcePath: sourcePath, projectRoot: projectRoot, opts: opts}
+
 	if len(targets) == 1 {
 		t := targets[0]
 		if t.isRepo {
-			return updateTrackedRepo(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, projectRoot)
+			return updateTrackedRepo(uc, t.name)
 		}
-		return updateRegularSkill(sourcePath, t.name, opts.dryRun, opts.force, opts.skipAudit, opts.diff, opts.threshold, opts.auditVerbose, projectRoot)
+		return updateRegularSkill(uc, t.name)
 	}
 
 	// Batch mode
@@ -172,7 +174,6 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 		ui.Warning("[dry-run] No changes will be made")
 	}
 
-	uc := &updateContext{sourcePath: sourcePath, projectRoot: projectRoot, opts: opts}
 	_, batchErr := executeBatchUpdate(uc, targets)
 	return batchErr
 }
@@ -240,9 +241,9 @@ func updateAllProjectSkills(uc *updateContext) error {
 	if total == 1 {
 		t := targets[0]
 		if t.isRepo {
-			return updateTrackedRepo(uc.sourcePath, t.name, uc.opts.dryRun, uc.opts.force, uc.opts.skipAudit, uc.opts.diff, uc.opts.threshold, uc.projectRoot)
+			return updateTrackedRepo(uc, t.name)
 		}
-		return updateRegularSkill(uc.sourcePath, t.name, uc.opts.dryRun, uc.opts.force, uc.opts.skipAudit, uc.opts.diff, uc.opts.threshold, uc.opts.auditVerbose, uc.projectRoot)
+		return updateRegularSkill(uc, t.name)
 	}
 
 	if uc.opts.dryRun {
