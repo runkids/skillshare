@@ -990,3 +990,168 @@ func TestParseSource_GitHubShorthandExpansion(t *testing.T) {
 		})
 	}
 }
+
+func TestParseSource_AzureDevOps(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		wantType     SourceType
+		wantCloneURL string
+		wantSubdir   string
+		wantName     string
+	}{
+		{
+			name:         "modern HTTPS",
+			input:        "https://dev.azure.com/myorg/myproj/_git/myrepo",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://dev.azure.com/myorg/myproj/_git/myrepo",
+			wantName:     "myrepo",
+		},
+		{
+			name:         "modern HTTPS with .git suffix",
+			input:        "https://dev.azure.com/myorg/myproj/_git/myrepo.git",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://dev.azure.com/myorg/myproj/_git/myrepo",
+			wantName:     "myrepo",
+		},
+		{
+			name:         "modern HTTPS with subdir",
+			input:        "https://dev.azure.com/org/proj/_git/repo/skills/react",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://dev.azure.com/org/proj/_git/repo",
+			wantSubdir:   "skills/react",
+			wantName:     "react",
+		},
+		{
+			name:         "legacy visualstudio.com format",
+			input:        "https://myorg.visualstudio.com/myproj/_git/myrepo",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://dev.azure.com/myorg/myproj/_git/myrepo",
+			wantName:     "myrepo",
+		},
+		{
+			name:         "SSH v3 format",
+			input:        "git@ssh.dev.azure.com:v3/myorg/myproj/myrepo",
+			wantType:     SourceTypeGitSSH,
+			wantCloneURL: "git@ssh.dev.azure.com:v3/myorg/myproj/myrepo",
+			wantName:     "myrepo",
+		},
+		{
+			name:         "SSH v3 with .git suffix",
+			input:        "git@ssh.dev.azure.com:v3/myorg/myproj/myrepo.git",
+			wantType:     SourceTypeGitSSH,
+			wantCloneURL: "git@ssh.dev.azure.com:v3/myorg/myproj/myrepo",
+			wantName:     "myrepo",
+		},
+		{
+			name:         "SSH v3 with subdir",
+			input:        "git@ssh.dev.azure.com:v3/org/proj/repo//skills/react",
+			wantType:     SourceTypeGitSSH,
+			wantCloneURL: "git@ssh.dev.azure.com:v3/org/proj/repo",
+			wantSubdir:   "skills/react",
+			wantName:     "react",
+		},
+		{
+			name:         "ado: shorthand",
+			input:        "ado:myorg/myproj/myrepo",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://dev.azure.com/myorg/myproj/_git/myrepo",
+			wantName:     "myrepo",
+		},
+		{
+			name:         "ado: shorthand with subdir",
+			input:        "ado:org/proj/repo/skills/react",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://dev.azure.com/org/proj/_git/repo",
+			wantSubdir:   "skills/react",
+			wantName:     "react",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, err := ParseSource(tt.input)
+			if err != nil {
+				t.Fatalf("ParseSource(%q) error = %v", tt.input, err)
+			}
+			if source.Type != tt.wantType {
+				t.Errorf("Type = %v, want %v", source.Type, tt.wantType)
+			}
+			if source.CloneURL != tt.wantCloneURL {
+				t.Errorf("CloneURL = %q, want %q", source.CloneURL, tt.wantCloneURL)
+			}
+			if source.Subdir != tt.wantSubdir {
+				t.Errorf("Subdir = %q, want %q", source.Subdir, tt.wantSubdir)
+			}
+			if source.Name != tt.wantName {
+				t.Errorf("Name = %q, want %q", source.Name, tt.wantName)
+			}
+		})
+	}
+}
+
+func TestParseSource_AzureDevOps_TrackName(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "modern HTTPS",
+			raw:  "https://dev.azure.com/org/proj/_git/repo",
+			want: "org-proj-repo",
+		},
+		{
+			name: "legacy visualstudio.com",
+			raw:  "https://myorg.visualstudio.com/myproj/_git/myrepo",
+			want: "myorg-myproj-myrepo",
+		},
+		{
+			name: "SSH v3",
+			raw:  "git@ssh.dev.azure.com:v3/org/proj/repo",
+			want: "org-proj-repo",
+		},
+		{
+			name: "ado: shorthand",
+			raw:  "ado:org/proj/repo",
+			want: "org-proj-repo",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, err := ParseSource(tt.raw)
+			if err != nil {
+				t.Fatalf("ParseSource(%q) error: %v", tt.raw, err)
+			}
+			got := source.TrackName()
+			if got != tt.want {
+				t.Errorf("TrackName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseSource_AzureDevOps_GitHubOwnerEmpty(t *testing.T) {
+	// Azure DevOps sources should return empty GitHubOwner/GitHubRepo
+	inputs := []string{
+		"https://dev.azure.com/org/proj/_git/repo",
+		"git@ssh.dev.azure.com:v3/org/proj/repo",
+		"ado:org/proj/repo",
+	}
+
+	for _, input := range inputs {
+		t.Run(input, func(t *testing.T) {
+			source, err := ParseSource(input)
+			if err != nil {
+				t.Fatalf("ParseSource(%q) error: %v", input, err)
+			}
+			if got := source.GitHubOwner(); got != "" {
+				t.Errorf("GitHubOwner() = %q, want empty", got)
+			}
+			if got := source.GitHubRepo(); got != "" {
+				t.Errorf("GitHubRepo() = %q, want empty", got)
+			}
+		})
+	}
+}

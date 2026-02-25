@@ -57,6 +57,18 @@ var gitHTTPSPattern = regexp.MustCompile(`^https?://([^/]+)/([^/]+)/([^/]+?)(?:\
 // File URL pattern: file:///path/to/repo[//subdir]
 var fileURLPattern = regexp.MustCompile(`^file://(.+?)(?://(.+))?$`)
 
+// Azure DevOps HTTPS: https://dev.azure.com/{org}/{project}/_git/{repo}[/subdir]
+var azureDevOpsPattern = regexp.MustCompile(
+	`^https?://dev\.azure\.com/([^/]+)/([^/]+)/_git/([^/?]+?)(?:\.git)?(?:/(.+))?$`)
+
+// Azure DevOps legacy: https://{org}.visualstudio.com/{project}/_git/{repo}[/subdir]
+var azureVSPattern = regexp.MustCompile(
+	`^https?://([^.]+)\.visualstudio\.com/([^/]+)/_git/([^/?]+?)(?:\.git)?(?:/(.+))?$`)
+
+// Azure DevOps SSH: git@ssh.dev.azure.com:v3/{org}/{project}/{repo}[//subdir]
+var azureSSHPattern = regexp.MustCompile(
+	`^git@ssh\.dev\.azure\.com:v3/([^/]+)/([^/]+)/(.+?)(?:\.git)?(?://(.+))?$`)
+
 // ParseSource analyzes the input string and returns a Source struct
 func ParseSource(input string) (*Source, error) {
 	input = strings.TrimSpace(input)
@@ -77,6 +89,17 @@ func ParseSource(input string) (*Source, error) {
 	// Check for local path first (starts with /, ~, or .)
 	if isLocalPath(input) {
 		return parseLocalPath(input, source)
+	}
+
+	// Try Azure DevOps patterns (before generic HTTPS to avoid misparse)
+	if matches := azureDevOpsPattern.FindStringSubmatch(input); matches != nil {
+		return parseAzureDevOps(matches[1], matches[2], matches[3], matches[4], source)
+	}
+	if matches := azureVSPattern.FindStringSubmatch(input); matches != nil {
+		return parseAzureDevOps(matches[1], matches[2], matches[3], matches[4], source)
+	}
+	if matches := azureSSHPattern.FindStringSubmatch(input); matches != nil {
+		return parseAzureSSH(matches[1], matches[2], matches[3], matches[4], source)
 	}
 
 	// Try GitHub shorthand pattern
@@ -108,7 +131,20 @@ func isLocalPath(input string) bool {
 // Examples:
 //   - anthropics/skills -> github.com/anthropics/skills
 //   - anthropics/skills/skills/pdf -> github.com/anthropics/skills/skills/pdf
+//   - ado:org/project/repo -> https://dev.azure.com/org/project/_git/repo
 func expandGitHubShorthand(input string) string {
+	// Azure DevOps shorthand: ado:org/project/repo[/subdir]
+	if strings.HasPrefix(input, "ado:") {
+		parts := strings.SplitN(input[4:], "/", 4) // org/project/repo[/subdir]
+		if len(parts) >= 3 {
+			base := fmt.Sprintf("https://dev.azure.com/%s/%s/_git/%s", parts[0], parts[1], parts[2])
+			if len(parts) == 4 {
+				return base + "/" + parts[3]
+			}
+			return base
+		}
+	}
+
 	// Skip if already has a known prefix
 	if strings.HasPrefix(input, "github.com/") ||
 		strings.HasPrefix(input, "http://") ||
@@ -256,6 +292,32 @@ func parseFileURL(matches []string, source *Source) (*Source, error) {
 	return source, nil
 }
 
+func parseAzureDevOps(org, project, repo, subdir string, source *Source) (*Source, error) {
+	repo = strings.TrimSuffix(repo, ".git")
+	source.Type = SourceTypeGitHTTPS
+	source.CloneURL = fmt.Sprintf("https://dev.azure.com/%s/%s/_git/%s", org, project, repo)
+	if subdir != "" {
+		source.Subdir = subdir
+		source.Name = filepath.Base(subdir)
+	} else {
+		source.Name = repo
+	}
+	return source, nil
+}
+
+func parseAzureSSH(org, project, repo, subdir string, source *Source) (*Source, error) {
+	repo = strings.TrimSuffix(repo, ".git")
+	source.Type = SourceTypeGitSSH
+	source.CloneURL = fmt.Sprintf("git@ssh.dev.azure.com:v3/%s/%s/%s", org, project, repo)
+	if subdir != "" {
+		source.Subdir = subdir
+		source.Name = filepath.Base(subdir)
+	} else {
+		source.Name = repo
+	}
+	return source, nil
+}
+
 func parseGitHTTPS(matches []string, source *Source) (*Source, error) {
 	// matches: [full, host, owner, repo, subdir]
 	host := matches[1]
@@ -391,14 +453,33 @@ func (s *Source) gitHubOwnerRepo() (owner, repo string) {
 }
 
 // TrackName returns a unique name for --track mode in "owner-repo" format.
-// For GitHub: https://github.com/openai/skills.git → "openai-skills"
-// For SSH:    git@github.com:openai/skills.git    → "openai-skills"
-// For HTTPS:  https://gitlab.com/team/repo.git    → "team-repo"
+// For GitHub:    https://github.com/openai/skills.git           → "openai-skills"
+// For SSH:       git@github.com:openai/skills.git               → "openai-skills"
+// For HTTPS:     https://gitlab.com/team/repo.git               → "team-repo"
+// For Azure SSH: git@ssh.dev.azure.com:v3/org/proj/repo         → "org-proj-repo"
+// For Azure:     https://dev.azure.com/org/proj/_git/repo       → "org-proj-repo"
 // Falls back to source.Name if owner cannot be extracted.
 func (s *Source) TrackName() string {
-	url := s.CloneURL
-	if url == "" {
+	cloneURL := s.CloneURL
+	if cloneURL == "" {
 		return s.Name
+	}
+
+	// Azure DevOps SSH: git@ssh.dev.azure.com:v3/org/project/repo
+	if sshMatches := azureSSHPattern.FindStringSubmatch(s.Raw); sshMatches != nil {
+		return sshMatches[1] + "-" + sshMatches[2] + "-" + strings.TrimSuffix(sshMatches[3], ".git")
+	}
+
+	// Azure DevOps HTTPS: dev.azure.com/org/project/_git/repo
+	if strings.Contains(cloneURL, "dev.azure.com") || strings.Contains(cloneURL, "visualstudio.com") {
+		u, err := url.Parse(cloneURL)
+		if err == nil {
+			parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+			// parts: [org, project, _git, repo]
+			if len(parts) >= 4 && parts[2] == "_git" {
+				return parts[0] + "-" + parts[1] + "-" + parts[3]
+			}
+		}
 	}
 
 	// Try SSH format: git@host:owner/repo.git
@@ -410,8 +491,8 @@ func (s *Source) TrackName() string {
 
 	// Try extracting owner/repo from HTTPS clone URL
 	// Format: https://host/owner/repo.git
-	url = strings.TrimSuffix(url, ".git")
-	parts := strings.Split(url, "/")
+	cloneURL = strings.TrimSuffix(cloneURL, ".git")
+	parts := strings.Split(cloneURL, "/")
 	if len(parts) >= 2 {
 		repo := parts[len(parts)-1]
 		owner := parts[len(parts)-2]
