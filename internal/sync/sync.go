@@ -403,6 +403,16 @@ type MergeResult struct {
 // Supports nested skills: source path "personal/writing/email" becomes target symlink "personal__writing__email"
 // If force is true, local copies will be replaced with symlinks.
 func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun, force bool) (*MergeResult, error) {
+	skills, err := DiscoverSourceSkills(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover skills: %w", err)
+	}
+	return SyncTargetMergeWithSkills(name, target, skills, dryRun, force)
+}
+
+// SyncTargetMergeWithSkills is like SyncTargetMerge but accepts pre-discovered skills,
+// avoiding redundant filesystem walks when syncing multiple targets.
+func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, dryRun, force bool) (*MergeResult, error) {
 	result := &MergeResult{}
 
 	// Check if target is currently a symlink/junction (symlink mode) - need to convert to merge mode
@@ -425,12 +435,8 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 		}
 	}
 
-	// Discover all skills recursively from source
-	discoveredSkills, err := DiscoverSourceSkills(sourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover skills: %w", err)
-	}
-	discoveredSkills, err = FilterSkills(discoveredSkills, target.Include, target.Exclude)
+	// Filter skills for this target
+	discoveredSkills, err := FilterSkills(allSkills, target.Include, target.Exclude)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply filters for target %s: %w", name, err)
 	}
@@ -526,23 +532,57 @@ type PruneResult struct {
 	LocalDirs []string // User-created directories not managed by skillshare
 }
 
+// PruneOptions holds parameters for PruneOrphanLinks / PruneOrphanCopies.
+type PruneOptions struct {
+	TargetPath string
+	SourcePath string
+	Skills     []DiscoveredSkill // pre-discovered; if nil, will be discovered from SourcePath
+	Include    []string
+	Exclude    []string
+	TargetName string
+	DryRun     bool
+	Force      bool
+}
+
 // PruneOrphanLinks removes target entries that are no longer managed by sync.
 // This includes:
 // 1. Source-linked entries excluded by include/exclude filters (remove from target)
 // 2. Orphan links/directories that no longer exist in source
 // 3. Unknown local directories (kept with warning)
 func PruneOrphanLinks(targetPath, sourcePath string, include, exclude []string, targetName string, dryRun, force bool) (*PruneResult, error) {
+	allSourceSkills, err := DiscoverSourceSkills(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover skills for pruning: %w", err)
+	}
+	return PruneOrphanLinksWithSkills(PruneOptions{
+		TargetPath: targetPath,
+		SourcePath: sourcePath,
+		Skills:     allSourceSkills,
+		Include:    include,
+		Exclude:    exclude,
+		TargetName: targetName,
+		DryRun:     dryRun,
+		Force:      force,
+	})
+}
+
+// PruneOrphanLinksWithSkills is like PruneOrphanLinks but accepts pre-discovered skills
+// via PruneOptions, avoiding redundant filesystem walks.
+func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
+	targetPath := opts.TargetPath
+	sourcePath := opts.SourcePath
+	allSourceSkills := opts.Skills
+	include := opts.Include
+	exclude := opts.Exclude
+	targetName := opts.TargetName
+	dryRun := opts.DryRun
+	force := opts.Force
 	result := &PruneResult{}
 
 	// Read manifest for managed-directory detection (may be empty/absent)
 	manifest, _ := ReadManifest(targetPath)
 	manifestChanged := false
 
-	// Discover all skills from source, then filter to target-managed skills.
-	allSourceSkills, err := DiscoverSourceSkills(sourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover skills for pruning: %w", err)
-	}
 	managedSkills, err := FilterSkills(allSourceSkills, include, exclude)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply filters for pruning: %w", err)

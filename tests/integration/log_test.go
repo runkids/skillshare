@@ -461,7 +461,7 @@ targets:
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Operation Log Summary")
 	result.AssertOutputContains(t, "sync")
-	result.AssertOutputContains(t, "Success rate")
+	result.AssertOutputContains(t, "OK:")
 }
 
 func TestLog_CheckCreatesEntry(t *testing.T) {

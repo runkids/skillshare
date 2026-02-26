@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
@@ -11,6 +12,7 @@ import (
 )
 
 func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
+	start := time.Now()
 	stats := syncLogStats{
 		DryRun:       dryRun,
 		Force:        force,
@@ -33,17 +35,24 @@ func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
 		return stats, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
 	}
 
+	// Phase 1: Discovery — spinner
+	spinner := ui.StartSpinner("Discovering skills")
 	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(runtime.sourcePath)
-	if discoverErr == nil {
-		reportCollisions(discoveredSkills, runtime.targets)
+	if discoverErr != nil {
+		spinner.Fail("Discovery failed")
+		return stats, discoverErr
 	}
+	spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
+	reportCollisions(discoveredSkills, runtime.targets)
 
+	// Phase 2: Per-target sync
 	ui.Header("Syncing skills (project)")
 	if dryRun {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
 	failedTargets := 0
+	var totals syncModeStats
 	for _, entry := range runtime.config.Targets {
 		name := entry.Name
 		target, ok := runtime.targets[name]
@@ -58,21 +67,37 @@ func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
 			mode = "merge"
 		}
 
+		var s syncModeStats
 		var syncErr error
 		switch mode {
 		case "symlink":
 			syncErr = syncSymlinkMode(name, target, runtime.sourcePath, dryRun, force)
 		case "copy":
-			syncErr = syncCopyMode(name, target, runtime.sourcePath, dryRun, force)
+			s, syncErr = syncCopyModeWithSkills(name, target, runtime.sourcePath, discoveredSkills, dryRun, force)
 		default:
-			syncErr = syncMergeMode(name, target, runtime.sourcePath, dryRun, force)
+			s, syncErr = syncMergeModeWithSkills(name, target, runtime.sourcePath, discoveredSkills, dryRun, force)
 		}
 		if syncErr != nil {
 			ui.Error("%s: %v", name, syncErr)
 			failedTargets++
 		}
+		totals.linked += s.linked
+		totals.local += s.local
+		totals.updated += s.updated
+		totals.pruned += s.pruned
 	}
 	stats.Failed = failedTargets
+
+	// Phase 3: Summary
+	ui.SyncSummary(ui.SyncStats{
+		Targets:  len(runtime.config.Targets),
+		Linked:   totals.linked,
+		Local:    totals.local,
+		Updated:  totals.updated,
+		Pruned:   totals.pruned,
+		Duration: time.Since(start),
+	})
+
 	if failedTargets > 0 {
 		return stats, fmt.Errorf("some targets failed to sync")
 	}

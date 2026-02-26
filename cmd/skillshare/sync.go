@@ -23,6 +23,11 @@ type syncLogStats struct {
 	ProjectScope bool
 }
 
+// syncModeStats aggregates per-target sync results for UI summary.
+type syncModeStats struct {
+	linked, local, updated, pruned int
+}
+
 func cmdSync(args []string) error {
 	start := time.Now()
 
@@ -70,28 +75,50 @@ func cmdSync(args []string) error {
 		backupTargetsBeforeSync(cfg)
 	}
 
-	// Check for name collisions before syncing (per-target aware)
+	// Phase 1: Discovery — spinner
+	spinner := ui.StartSpinner("Discovering skills")
 	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
-	if discoverErr == nil {
-		reportCollisions(discoveredSkills, cfg.Targets)
+	if discoverErr != nil {
+		spinner.Fail("Discovery failed")
+		return discoverErr
 	}
+	spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
+	reportCollisions(discoveredSkills, cfg.Targets)
 
+	// Phase 2: Per-target sync
 	ui.Header("Syncing skills")
 	if dryRun {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
 	failedTargets := 0
+	var totals syncModeStats
 	for name, target := range cfg.Targets {
-		if err := syncTarget(name, target, cfg, dryRun, force); err != nil {
+		stats, err := syncTargetWithSkillsStats(name, target, cfg, discoveredSkills, dryRun, force)
+		if err != nil {
 			ui.Error("%s: %v", name, err)
 			failedTargets++
 		}
+		totals.linked += stats.linked
+		totals.local += stats.local
+		totals.updated += stats.updated
+		totals.pruned += stats.pruned
 	}
+
 	var syncErr error
 	if failedTargets > 0 {
 		syncErr = fmt.Errorf("some targets failed to sync")
 	}
+
+	// Phase 3: Summary
+	ui.SyncSummary(ui.SyncStats{
+		Targets:  len(cfg.Targets),
+		Linked:   totals.linked,
+		Local:    totals.local,
+		Updated:  totals.updated,
+		Pruned:   totals.pruned,
+		Duration: time.Since(start),
+	})
 
 	// Opportunistic cleanup of expired trash items
 	if !dryRun {
@@ -179,19 +206,66 @@ func syncTarget(name string, target config.TargetConfig, cfg *config.Config, dry
 	}
 }
 
+func syncTargetWithSkills(name string, target config.TargetConfig, cfg *config.Config, skills []sync.DiscoveredSkill, dryRun, force bool) error {
+	_, err := syncTargetWithSkillsStats(name, target, cfg, skills, dryRun, force)
+	return err
+}
+
+func syncTargetWithSkillsStats(name string, target config.TargetConfig, cfg *config.Config, skills []sync.DiscoveredSkill, dryRun, force bool) (syncModeStats, error) {
+	mode := target.Mode
+	if mode == "" {
+		mode = cfg.Mode
+	}
+	if mode == "" {
+		mode = "merge"
+	}
+
+	switch mode {
+	case "merge":
+		return syncMergeModeWithSkills(name, target, cfg.Source, skills, dryRun, force)
+	case "copy":
+		return syncCopyModeWithSkills(name, target, cfg.Source, skills, dryRun, force)
+	default:
+		err := syncSymlinkMode(name, target, cfg.Source, dryRun, force)
+		return syncModeStats{}, err
+	}
+}
+
 func syncMergeMode(name string, target config.TargetConfig, source string, dryRun, force bool) error {
 	result, err := sync.SyncTargetMerge(name, target, source, dryRun, force)
 	if err != nil {
 		return err
 	}
 
-	// Prune orphan links (skills that no longer exist in source)
 	pruneResult, pruneErr := sync.PruneOrphanLinks(target.Path, source, target.Include, target.Exclude, name, dryRun, force)
 	if pruneErr != nil {
 		ui.Warning("%s: prune failed: %v", name, pruneErr)
 	}
 
-	// Report results
+	reportMergeResult(name, target, result, pruneResult)
+	return nil
+}
+
+func syncMergeModeWithSkills(name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, dryRun, force bool) (syncModeStats, error) {
+	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, dryRun, force)
+	if err != nil {
+		return syncModeStats{}, err
+	}
+
+	pruneResult, pruneErr := sync.PruneOrphanLinksWithSkills(sync.PruneOptions{
+		TargetPath: target.Path, SourcePath: source, Skills: skills,
+		Include: target.Include, Exclude: target.Exclude, TargetName: name,
+		DryRun: dryRun, Force: force,
+	})
+	if pruneErr != nil {
+		ui.Warning("%s: prune failed: %v", name, pruneErr)
+	}
+
+	reportMergeResult(name, target, result, pruneResult)
+	return mergeStats(result, pruneResult), nil
+}
+
+func reportMergeResult(name string, target config.TargetConfig, result *sync.MergeResult, pruneResult *sync.PruneResult) {
 	linkedCount := len(result.Linked)
 	updatedCount := len(result.Updated)
 	skippedCount := len(result.Skipped)
@@ -210,7 +284,6 @@ func syncMergeMode(name string, target config.TargetConfig, source string, dryRu
 		ui.Success("%s: merged (no skills)", name)
 	}
 
-	// Show filter summary (omit empty, human-readable)
 	if len(target.Include) > 0 {
 		ui.Info("  include: %s", strings.Join(target.Include, ", "))
 	}
@@ -218,14 +291,11 @@ func syncMergeMode(name string, target config.TargetConfig, source string, dryRu
 		ui.Info("  exclude: %s", strings.Join(target.Exclude, ", "))
 	}
 
-	// Show prune warnings
 	if pruneResult != nil {
 		for _, warn := range pruneResult.Warnings {
 			ui.Warning("  %s", warn)
 		}
 	}
-
-	return nil
 }
 
 func syncCopyMode(name string, target config.TargetConfig, source string, dryRun, force bool) error {
@@ -234,13 +304,64 @@ func syncCopyMode(name string, target config.TargetConfig, source string, dryRun
 		return err
 	}
 
-	// Prune orphan copies
 	pruneResult, pruneErr := sync.PruneOrphanCopies(target.Path, source, target.Include, target.Exclude, name, dryRun)
 	if pruneErr != nil {
 		ui.Warning("%s: prune failed: %v", name, pruneErr)
 	}
 
-	// Report results
+	reportCopyResult(name, target, result, pruneResult)
+	return nil
+}
+
+func syncCopyModeWithSkills(name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, dryRun, force bool) (syncModeStats, error) {
+	// Copy mode is slow (checksum + file copy per skill) — show a spinner with progress
+	spinner := ui.StartSpinner(fmt.Sprintf("%s: copying skills", name))
+	onProgress := func(cur, total int, skill string) {
+		spinner.Update(fmt.Sprintf("%s: %d/%d %s", name, cur, total, skill))
+	}
+
+	result, err := sync.SyncTargetCopyWithSkills(name, target, skills, dryRun, force, onProgress)
+	if err != nil {
+		spinner.Fail(fmt.Sprintf("%s: copy failed", name))
+		return syncModeStats{}, err
+	}
+	spinner.Stop()
+
+	pruneResult, pruneErr := sync.PruneOrphanCopiesWithSkills(target.Path, skills, target.Include, target.Exclude, name, dryRun)
+	if pruneErr != nil {
+		ui.Warning("%s: prune failed: %v", name, pruneErr)
+	}
+
+	reportCopyResult(name, target, result, pruneResult)
+	return copyStats(result, pruneResult), nil
+}
+
+func mergeStats(result *sync.MergeResult, prune *sync.PruneResult) syncModeStats {
+	s := syncModeStats{
+		linked:  len(result.Linked),
+		local:   len(result.Skipped),
+		updated: len(result.Updated),
+	}
+	if prune != nil {
+		s.pruned = len(prune.Removed)
+		s.local += len(prune.LocalDirs)
+	}
+	return s
+}
+
+func copyStats(result *sync.CopyResult, prune *sync.PruneResult) syncModeStats {
+	s := syncModeStats{
+		linked:  len(result.Copied),
+		local:   len(result.Skipped),
+		updated: len(result.Updated),
+	}
+	if prune != nil {
+		s.pruned = len(prune.Removed)
+	}
+	return s
+}
+
+func reportCopyResult(name string, target config.TargetConfig, result *sync.CopyResult, pruneResult *sync.PruneResult) {
 	copiedCount := len(result.Copied)
 	updatedCount := len(result.Updated)
 	skippedCount := len(result.Skipped)
@@ -258,7 +379,6 @@ func syncCopyMode(name string, target config.TargetConfig, source string, dryRun
 		ui.Success("%s: copied (no skills)", name)
 	}
 
-	// Show filter summary
 	if len(target.Include) > 0 {
 		ui.Info("  include: %s", strings.Join(target.Include, ", "))
 	}
@@ -266,14 +386,11 @@ func syncCopyMode(name string, target config.TargetConfig, source string, dryRun
 		ui.Info("  exclude: %s", strings.Join(target.Exclude, ", "))
 	}
 
-	// Show prune warnings
 	if pruneResult != nil {
 		for _, warn := range pruneResult.Warnings {
 			ui.Warning("  %s", warn)
 		}
 	}
-
-	return nil
 }
 
 func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.TargetConfig) {
@@ -296,12 +413,18 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 		ui.Info("Rename one in SKILL.md or adjust include/exclude filters")
 		fmt.Println()
 	} else {
-		// Global collision exists but filters isolate them — informational
-		ui.Info("Duplicate skill names exist but are isolated by target filters:")
-		for _, c := range global {
-			ui.Info("  '%s' (%d definitions)", c.Name, len(c.Paths))
+		// Global collision exists but filters isolate them — dim list
+		const maxShow = 50
+		fmt.Printf("\n%s%d duplicate skill names (isolated by target filters)%s\n",
+			ui.Gray, len(global), ui.Reset)
+		fmt.Println(ui.Gray + "─────────────────────────────────────────" + ui.Reset)
+		for i, c := range global {
+			if i >= maxShow {
+				fmt.Printf("%s  ... and %d more%s\n", ui.Gray, len(global)-maxShow, ui.Reset)
+				break
+			}
+			fmt.Printf("%s  '%s' (%d definitions)%s\n", ui.Gray, c.Name, len(c.Paths), ui.Reset)
 		}
-		fmt.Println()
 	}
 }
 

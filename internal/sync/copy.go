@@ -23,6 +23,16 @@ type CopyResult struct {
 // SyncTargetCopy performs copy mode sync — copies each skill individually
 // while preserving target-specific (unmanaged) skills.
 func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, dryRun, force bool) (*CopyResult, error) {
+	skills, err := DiscoverSourceSkills(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover skills: %w", err)
+	}
+	return SyncTargetCopyWithSkills(name, target, skills, dryRun, force, nil)
+}
+
+// SyncTargetCopyWithSkills is like SyncTargetCopy but accepts pre-discovered skills
+// and an optional progress callback for per-skill UI updates.
+func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, dryRun, force bool, onProgress func(current, total int, skill string)) (*CopyResult, error) {
 	result := &CopyResult{}
 
 	// If target is currently a symlink (symlink mode), remove it to convert
@@ -44,12 +54,8 @@ func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, 
 		}
 	}
 
-	// Discover and filter source skills
-	discoveredSkills, err := DiscoverSourceSkills(sourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover skills: %w", err)
-	}
-	discoveredSkills, err = FilterSkills(discoveredSkills, target.Include, target.Exclude)
+	// Filter skills for this target
+	discoveredSkills, err := FilterSkills(allSkills, target.Include, target.Exclude)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply filters for target %s: %w", name, err)
 	}
@@ -61,7 +67,11 @@ func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, 
 		return nil, fmt.Errorf("failed to read manifest: %w", err)
 	}
 
-	for _, skill := range discoveredSkills {
+	for i, skill := range discoveredSkills {
+		if onProgress != nil {
+			onProgress(i+1, len(discoveredSkills), skill.FlatName)
+		}
+
 		targetSkillPath := filepath.Join(target.Path, skill.FlatName)
 
 		// Compute source checksum
@@ -165,6 +175,15 @@ func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, 
 
 // PruneOrphanCopies removes managed copies that no longer exist in source.
 func PruneOrphanCopies(targetPath, sourcePath string, include, exclude []string, targetName string, dryRun bool) (*PruneResult, error) {
+	allSourceSkills, err := DiscoverSourceSkills(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to discover skills for pruning: %w", err)
+	}
+	return PruneOrphanCopiesWithSkills(targetPath, allSourceSkills, include, exclude, targetName, dryRun)
+}
+
+// PruneOrphanCopiesWithSkills is like PruneOrphanCopies but accepts pre-discovered skills.
+func PruneOrphanCopiesWithSkills(targetPath string, allSourceSkills []DiscoveredSkill, include, exclude []string, targetName string, dryRun bool) (*PruneResult, error) {
 	result := &PruneResult{}
 
 	manifest, err := ReadManifest(targetPath)
@@ -172,11 +191,6 @@ func PruneOrphanCopies(targetPath, sourcePath string, include, exclude []string,
 		return nil, fmt.Errorf("failed to read manifest: %w", err)
 	}
 
-	// Discover current source skills
-	allSourceSkills, err := DiscoverSourceSkills(sourcePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to discover skills for pruning: %w", err)
-	}
 	managedSkills, err := FilterSkills(allSourceSkills, include, exclude)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply filters for pruning: %w", err)
