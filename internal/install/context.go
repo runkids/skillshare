@@ -60,6 +60,7 @@ type InstallContext interface {
 // ConfigInstallResult summarises the outcome of InstallFromConfig.
 type ConfigInstallResult struct {
 	Installed       int
+	Skipped         int
 	InstalledSkills []string
 	FailedSkills    []string
 }
