@@ -123,12 +123,19 @@ type diffProgress struct {
 	isTTY           bool
 }
 
-func newDiffProgress(names []string, totalSkills int) *diffProgress {
+// newDiffProgress creates a progress display for diff scanning.
+// When showBar is false (no copy-mode targets), the progress bar is hidden
+// because merge/symlink diffs are instant.
+func newDiffProgress(names []string, totalSkills int, showBar bool) *diffProgress {
+	barTotal := totalSkills
+	if !showBar {
+		barTotal = 0
+	}
 	dp := &diffProgress{
 		names:       names,
 		states:      make([]string, len(names)),
 		details:     make([]string, len(names)),
-		totalSkills: totalSkills,
+		totalSkills: barTotal,
 		frames:      []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"},
 		isTTY:       ui.IsTTY(),
 	}
@@ -324,6 +331,7 @@ func cmdDiffGlobal(targetName string) error {
 	}
 	var fentries []filteredEntry
 	totalSkills := 0
+	hasCopyMode := false
 	for _, e := range entries {
 		filtered, err := sync.FilterSkills(discovered, e.target.Include, e.target.Exclude)
 		if err != nil {
@@ -331,13 +339,16 @@ func cmdDiffGlobal(targetName string) error {
 		}
 		fentries = append(fentries, filteredEntry{e, filtered})
 		totalSkills += len(filtered)
+		if e.mode == "copy" {
+			hasCopyMode = true
+		}
 	}
 
 	names := make([]string, len(fentries))
 	for i, fe := range fentries {
 		names[i] = fe.name
 	}
-	progress := newDiffProgress(names, totalSkills)
+	progress := newDiffProgress(names, totalSkills, hasCopyMode)
 
 	results := make([]targetDiffResult, len(fentries))
 	sem := make(chan struct{}, 8)
@@ -610,7 +621,8 @@ func renderGroupedDiffs(results []targetDiffResult) {
 		ui.Warning("%s", r.errMsg)
 	}
 
-	// Render grouped diff results
+	// Render grouped diff results; track whether hints are needed across all groups
+	var anySyncNeeded, anyLocalOnly, anyCopyMode bool
 	for _, fp := range groupOrder {
 		g := groups[fp]
 		sort.Strings(g.names)
@@ -633,36 +645,100 @@ func renderGroupedDiffs(results []targetDiffResult) {
 			return items[i].name < items[j].name
 		})
 
-		var syncCount, localCount int
 		for _, item := range items {
-			ui.DiffItem(item.action, item.name, item.reason)
 			if item.isSync {
-				syncCount++
+				anySyncNeeded = true
 			} else {
-				localCount++
+				anyLocalOnly = true
 			}
+		}
+		if g.result.mode == "copy" {
+			anyCopyMode = true
 		}
 
+		// Group items by (action, reason) for compact summary output
+		type diffSummaryGroup struct {
+			action string
+			reason string
+			count  int
+			names  []string // nil for reasons we don't expand (e.g. "local copy")
+		}
+		summaryMap := make(map[string]*diffSummaryGroup)
+		var summaryKeys []string
+		for _, item := range items {
+			key := item.action + "|" + item.reason
+			if sg, ok := summaryMap[key]; ok {
+				sg.count++
+				if sg.names != nil {
+					sg.names = append(sg.names, item.name)
+				}
+			} else {
+				sg := &diffSummaryGroup{
+					action: item.action,
+					reason: item.reason,
+					count:  1,
+				}
+				// "local copy" reasons are too numerous to list individually
+				if !strings.Contains(item.reason, "local copy") {
+					sg.names = []string{item.name}
+				}
+				summaryMap[key] = sg
+				summaryKeys = append(summaryKeys, key)
+			}
+		}
+		sort.Slice(summaryKeys, func(i, j int) bool {
+			gi, gj := summaryMap[summaryKeys[i]], summaryMap[summaryKeys[j]]
+			oi, oj := diffActionOrder(gi.action), diffActionOrder(gj.action)
+			if oi != oj {
+				return oi < oj
+			}
+			return gi.reason < gj.reason
+		})
+		for _, key := range summaryKeys {
+			sg := summaryMap[key]
+			if sg.names != nil && len(sg.names) > 0 {
+				ui.DiffItem(sg.action, fmt.Sprintf("%d %s:", sg.count, sg.reason), "")
+				for _, n := range sg.names {
+					fmt.Printf("      %s\n", n)
+				}
+			} else {
+				ui.DiffItem(sg.action, fmt.Sprintf("%d %s", sg.count, sg.reason), "")
+			}
+		}
+	}
+
+	// Print action hints once after all groups
+	if anySyncNeeded || anyLocalOnly {
 		fmt.Println()
-		if syncCount > 0 {
-			if g.result.mode == "copy" {
-				ui.Info("Run 'sync' to copy missing, 'sync --force' to replace local copies")
-			} else {
-				ui.Info("Run 'sync' to add missing, 'sync --force' to replace local copies")
-			}
+	}
+	if anySyncNeeded {
+		if anyCopyMode {
+			ui.Info("Run 'sync' to copy missing, 'sync --force' to replace local copies")
+		} else {
+			ui.Info("Run 'sync' to add missing, 'sync --force' to replace local copies")
 		}
-		if localCount > 0 {
-			if len(g.names) == 1 {
-				ui.Info("Run 'collect %s' to import local-only skills to source", g.names[0])
-			} else {
-				ui.Info("Run 'collect' to import local-only skills to source")
-			}
-		}
+	}
+	if anyLocalOnly {
+		ui.Info("Run 'collect' to import local-only skills to source")
 	}
 
 	// Render fully synced targets as a single line
 	if len(syncedNames) > 0 {
 		sort.Strings(syncedNames)
 		ui.Success("%s: fully synced", strings.Join(syncedNames, ", "))
+	}
+}
+
+// diffActionOrder returns a sort key: add=0, modify=1, remove=2.
+func diffActionOrder(action string) int {
+	switch action {
+	case "add":
+		return 0
+	case "modify":
+		return 1
+	case "remove":
+		return 2
+	default:
+		return 3
 	}
 }
