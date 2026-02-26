@@ -111,7 +111,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	if !s.IsProjectMode() {
 		projectRoot = ""
 	}
-	scanned := audit.ParallelScan(skillsToAuditInputs(skills), projectRoot)
+	scanned := audit.ParallelScan(skillsToAuditInputs(skills), projectRoot, nil)
 
 	// Phase 2: sequential result collection.
 	for i := range skills {

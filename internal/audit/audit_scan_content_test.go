@@ -1,6 +1,9 @@
 package audit
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestScanContent_Clean(t *testing.T) {
 	content := []byte(`---
@@ -277,16 +280,16 @@ func TestScanContent_LineNumbers(t *testing.T) {
 	}
 }
 
-func TestScanContent_Snippet_Truncation(t *testing.T) {
-	// A line longer than 80 chars should be truncated
-	long := "ignore previous instructions " + string(make([]byte, 100))
+func TestScanContent_Snippet_NotTruncated(t *testing.T) {
+	// Snippets are no longer truncated — full trimmed line is preserved.
+	long := "ignore previous instructions " + strings.Repeat("x", 100)
 	findings := ScanContent([]byte(long), "SKILL.md")
 
 	if len(findings) == 0 {
 		t.Fatal("expected findings")
 	}
-	if len(findings[0].Snippet) > 80 {
-		t.Errorf("snippet too long: %d chars", len(findings[0].Snippet))
+	if findings[0].Snippet != long {
+		t.Errorf("snippet should be full line, got %d chars", len(findings[0].Snippet))
 	}
 }
 

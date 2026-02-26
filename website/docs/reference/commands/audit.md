@@ -16,6 +16,9 @@ skillshare audit --threshold high       # Block on HIGH+ findings
 skillshare audit -T h                   # Same as --threshold high
 skillshare audit --json                 # JSON output
 skillshare audit -p                     # Scan project skills
+skillshare audit --quiet                # Only show skills with findings
+skillshare audit --yes                  # Skip large-scan confirmation
+skillshare audit --no-tui               # Plain text output (no interactive TUI)
 ```
 
 ## Why Security Scanning Matters
@@ -320,6 +323,30 @@ This is why you can see:
 
 `audit.block_threshold` only controls the blocking threshold. It does **not** disable scanning.
 
+### Interactive TUI Mode
+
+When scanning multiple skills in an interactive terminal, the audit command launches a **full-screen TUI** (powered by bubbletea) instead of printing results line-by-line. The TUI uses a side-by-side layout:
+
+**Left panel** — skill list sorted by severity (findings first), with `✗`/`!`/`✓` status badges and aggregate risk scores.
+
+**Right panel** — detail for the currently selected skill, automatically updated as you navigate:
+
+- **Summary**: risk score (colorized), max severity, block status, threshold, scan time, severity breakdown (c/h/m/l/i)
+- **Findings**: each finding shows `[N] SEVERITY pattern`, message, `file:line` location, and matched snippet
+
+**Controls:**
+- `↑↓` navigate skills, `←→` page
+- `/` filter skills by name
+- `Ctrl+d`/`Ctrl+u` scroll the detail panel
+- Mouse wheel scrolls the detail panel
+- `q`/`Esc` quit
+
+The TUI activates automatically when all conditions are met: interactive terminal, non-JSON output, and multiple results. Use `--no-tui` to force plain text output. Narrow terminals (`<70` columns) fall back to a vertical layout.
+
+### Large Scan Confirmation
+
+When scanning more than 1,000 skills in an interactive terminal, the command prompts for confirmation before proceeding. Use `--yes` to skip this prompt in TTY environments (e.g., local automation scripts). In CI/CD pipelines (non-TTY), the prompt is automatically skipped.
+
 ## Automatic Scanning
 
 ### Install-time
@@ -364,7 +391,7 @@ When updating tracked repos via install (`skillshare install <repo> --track --up
 
 ## CI/CD Integration
 
-The `audit` command is designed for pipeline automation. Combine exit codes with JSON output for programmatic decision-making.
+The `audit` command is designed for pipeline automation. In non-TTY environments (CI runners, piped output), the interactive TUI and confirmation prompt are automatically disabled — no `--yes` or `--no-tui` needed. Combine exit codes with JSON output for programmatic decision-making.
 
 ### Exit Codes in Pipelines
 
@@ -768,6 +795,9 @@ Source of truth for regex-based rules:
 | `-g`, `--global` | Scan global skills |
 | `--threshold` `<t>`, `-T` `<t>` | Block threshold: `critical`\|`high`\|`medium`\|`low`\|`info` (shorthand: `c`\|`h`\|`m`\|`l`\|`i`, plus `crit`, `med`) |
 | `--json` | Output machine-readable JSON |
+| `--yes`, `-y` | Skip large-scan confirmation prompt (auto-confirms) |
+| `--quiet`, `-q` | Only show skills with findings + summary (suppress clean ✓ lines) |
+| `--no-tui` | Disable interactive TUI, print plain text output |
 | `--init-rules` | Create a starter `audit-rules.yaml` (respects `-p`/`-g`) |
 | `-h`, `--help` | Show help |
 

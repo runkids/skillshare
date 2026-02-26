@@ -3,11 +3,12 @@ package audit
 import (
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 )
 
 func TestParallelScan_EmptyInput(t *testing.T) {
-	outputs := ParallelScan(nil, "")
+	outputs := ParallelScan(nil, "", nil)
 	if len(outputs) != 0 {
 		t.Errorf("expected 0 outputs, got %d", len(outputs))
 	}
@@ -20,7 +21,7 @@ func TestParallelScan_SingleSkill(t *testing.T) {
 	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Clean skill"), 0644)
 
 	inputs := []SkillInput{{Name: "clean-skill", Path: skillDir}}
-	outputs := ParallelScan(inputs, "")
+	outputs := ParallelScan(inputs, "", nil)
 
 	if len(outputs) != 1 {
 		t.Fatalf("expected 1 output, got %d", len(outputs))
@@ -51,7 +52,7 @@ func TestParallelScan_MultipleSkills_IndexAligned(t *testing.T) {
 		inputs = append(inputs, SkillInput{Name: name, Path: skillDir})
 	}
 
-	outputs := ParallelScan(inputs, "")
+	outputs := ParallelScan(inputs, "", nil)
 
 	if len(outputs) != 3 {
 		t.Fatalf("expected 3 outputs, got %d", len(outputs))
@@ -73,7 +74,7 @@ func TestParallelScan_ErrorHandling(t *testing.T) {
 		{Name: "missing", Path: "/does-not-exist-at-all"},
 	}
 
-	outputs := ParallelScan(inputs, "")
+	outputs := ParallelScan(inputs, "", nil)
 
 	if len(outputs) != 1 {
 		t.Fatalf("expected 1 output, got %d", len(outputs))
@@ -106,7 +107,7 @@ func TestParallelScan_MixedResults(t *testing.T) {
 		{Name: "dirty", Path: dirtyDir},
 	}
 
-	outputs := ParallelScan(inputs, "")
+	outputs := ParallelScan(inputs, "", nil)
 
 	if len(outputs) != 3 {
 		t.Fatalf("expected 3 outputs, got %d", len(outputs))
@@ -131,5 +132,30 @@ func TestParallelScan_MixedResults(t *testing.T) {
 	}
 	if outputs[2].Result == nil || !outputs[2].Result.HasCritical() {
 		t.Error("[2] expected critical findings for prompt injection")
+	}
+}
+
+func TestParallelScan_OnDoneCalled(t *testing.T) {
+	dir := t.TempDir()
+
+	names := []string{"a", "b", "c", "d", "e"}
+	var inputs []SkillInput
+	for _, name := range names {
+		skillDir := filepath.Join(dir, name)
+		os.MkdirAll(skillDir, 0755)
+		os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# "+name), 0644)
+		inputs = append(inputs, SkillInput{Name: name, Path: skillDir})
+	}
+
+	var count atomic.Int64
+	onDone := func() { count.Add(1) }
+
+	outputs := ParallelScan(inputs, "", onDone)
+
+	if len(outputs) != len(names) {
+		t.Fatalf("expected %d outputs, got %d", len(names), len(outputs))
+	}
+	if got := count.Load(); got != int64(len(names)) {
+		t.Errorf("expected onDone called %d times, got %d", len(names), got)
 	}
 }
