@@ -7,10 +7,13 @@
 - **`diff` output redesign** — actions are now labeled by what they do (`add`, `remove`, `update`, `restore`) with a grouped summary showing counts per action; overall summary line at the end
 - **Web UI log stats bar** — Log page now shows a stats bar with success rate and per-command breakdown
 - **Hub batch install progress** — multi-skill installs from `search --hub` now show real-time git clone progress (`cloning 45%`, `resolving 67%`) instead of a static "installing..." label; only the active install is shown to keep the display compact
+- **Hub risk badge colors** — risk labels in hub search results are now color-coded by severity (green for clean, yellow for low, red for critical) in both the list and detail panel
+- **Hub batch failure output** — failure details are classified by type (security / ambiguous / not found) with distinct icons; long audit findings and ambiguous path lists are truncated to 3 lines with a "(+N more)" summary
 
 ### Performance
 
 - **Batch install reconcile** — config reconciliation now runs once after all installs complete instead of after each skill, eliminating O(n²) directory walks that caused batch installs of large collections to appear stuck
+- **Repo-grouped cloning** — skills from the same git repo are now cloned once and installed from the shared clone, reducing network requests for multi-skill repos
 
 ### Fixed
 
@@ -23,6 +26,7 @@
 - **Oplog data loss** — rewriteEntries now checks for write errors before truncating the original file
 - **TUI content clipping** — detail panels in `list` and `log` TUIs now hard-wrap content and account for padding, preventing text from being clipped at panel edges
 - **TUI footer spacing** — list and log TUI footers have proper breathing room between action hints
+- **Copy mode symlink handling** — `sync` in copy mode now dereferences directory symlinks instead of copying broken link files; prevents missing content in targets like Windsurf that use file copying
 
 ## [0.16.2] - 2026-02-26
 
