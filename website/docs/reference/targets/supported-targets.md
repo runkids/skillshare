@@ -8,7 +8,7 @@ Complete list of AI CLIs that skillshare supports out of the box.
 
 ## Overview
 
-skillshare supports **49+ AI CLI tools**. When you run `skillshare init`, it automatically detects and configures any installed tools.
+skillshare supports **50+ AI CLI tools**. When you run `skillshare init`, it automatically detects and configures any installed tools.
 
 ---
 
@@ -61,6 +61,7 @@ These are auto-detected during `skillshare init`:
   <a className="target-badge" href="#target-trae">Trae</a>
   <a className="target-badge" href="#target-trae-cn">Trae CN</a>
   <a className="target-badge" href="#target-vibe">Vibe</a>
+  <a className="target-badge" href="#target-verdent">Verdent</a>
   <a className="target-badge" href="#target-windsurf">Windsurf</a>
   <a className="target-badge" href="#target-xcode-claude">Xcode Claude</a>
   <a className="target-badge" href="#target-xcode-codex">Xcode Codex</a>
@@ -120,6 +121,7 @@ These are auto-detected during `skillshare init`:
 <tr id="target-trae"><td>trae</td><td><code>&#126;/.trae/skills</code></td><td><code>.trae/skills</code></td></tr>
 <tr id="target-trae-cn"><td>trae-cn</td><td><code>&#126;/.trae-cn/skills</code></td><td><code>.trae/skills</code></td></tr>
 <tr id="target-vibe"><td>vibe</td><td><code>&#126;/.vibe/skills</code></td><td><code>.vibe/skills</code></td></tr>
+<tr id="target-verdent"><td>verdent</td><td><code>&#126;/.verdent/skills</code></td><td><code>.verdent/skills</code></td></tr>
 <tr id="target-windsurf"><td>windsurf</td><td><code>&#126;/.codeium/windsurf/skills</code></td><td><code>.windsurf/skills</code></td></tr>
 <tr id="target-xcode-claude"><td>xcode-claude</td><td><code>&#126;/Library/Developer/Xcode/CodingAssistant/ClaudeAgentConfig/skills</code></td><td><code>.claude/skills</code></td></tr>
 <tr id="target-xcode-codex"><td>xcode-codex</td><td><code>&#126;/Library/Developer/Xcode/CodingAssistant/codex/skills</code></td><td><code>.codex/skills</code></td></tr>

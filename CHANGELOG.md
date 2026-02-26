@@ -30,6 +30,11 @@
 - **Copy mode symlink handling** — `sync` in copy mode now dereferences directory symlinks instead of copying broken link files; prevents missing content in targets like Windsurf that use file copying
 - **`uninstall --all` stale summary** — spinner and confirm prompt now show correct noun type after skipping dirty tracked repos; added skip count message ("1 tracked repo skipped, 2 remaining"); fixed unnatural pluralization ("2 group(s)" → "2 groups")
 - **Empty `list` / `log` TUI** — `list` and `log` no longer open a blank interactive screen when there are no skills or log entries; they print a plain-text hint instead
+- **`install` quiet mode** — tracked config dry-run messages are now suppressed in quiet mode
+
+### New Targets
+
+- **Verdent** — added [Verdent](https://www.verdent.ai/) AI coding agent (`verdent`)
 
 ## [0.16.2] - 2026-02-26
 
