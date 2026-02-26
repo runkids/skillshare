@@ -4,6 +4,19 @@
 
 ### New Features
 
+- **`diff` command** — new command to preview what `sync` would change without modifying anything; parallel target scanning, grouped output for targets with identical diffs, and an overall progress bar:
+  ```bash
+  skillshare diff              # all targets
+  skillshare diff claude       # single target
+  skillshare diff -p           # project mode
+  ```
+- **Interactive TUI for `audit`** — `skillshare audit` launches a bubbletea TUI with severity-colored results, fuzzy filter, and detail panel; progress bar during scanning; confirmation prompt for large scans (1,000+ skills) (`skillshare audit --no-tui` for plain text)
+- **Tree sidebar in `list` TUI** — detail panel now shows the skill's directory tree (up to 3 levels) with glamour-rendered markdown preview; SKILL.md pinned at top for quick reading
+- **Log TUI: delete entries** — press `space` to select entries, `d` to delete with confirmation; supports multi-select (`a` to select all)
+- **Log `--stats` flag** — aggregated summary with per-command breakdown, success rate, and partial/blocked status tracking:
+  ```bash
+  skillshare log --stats
+  ```
 - **Azure DevOps URL support** — install from Azure DevOps repos using `ado:` shorthand, full HTTPS (`dev.azure.com`), legacy HTTPS (`visualstudio.com`), or SSH v3 (`ssh.dev.azure.com`) URLs:
   ```bash
   skillshare install ado:myorg/myproject/myrepo
@@ -18,6 +31,24 @@
 - **`update --prune`** — remove stale skills whose upstream source no longer exists (`skillshare update --prune`)
 - **Stale detection in `check`** — `skillshare check` now reports skills deleted upstream as "stale (deleted upstream)" instead of silently skipping them
 - **Windows ARM64 cross-compile** — `make build-windows` / `mise run build:windows` produces Windows ARM64 binaries
+
+### Performance (large skill collections)
+
+- **Parallel target sync** — both global and project-mode `sync` now run target syncs concurrently (up to 8 workers) with a live per-target progress display
+- **mtime fast-path for copy mode** — repeat syncs skip SHA-256 checksums when source directory mtime is unchanged, making no-op syncs near-instant
+- **Cached skill discovery** — skills are discovered once and shared across all parallel target workers instead of rediscovering per target
+
+### Improvements
+
+- **Batch progress for hub installs** — multi-skill installs from `search` now show per-skill status (queued/installing/done/error) with a live progress display
+- **Log retention** — operation log auto-trims old entries with configurable limits and hysteresis to avoid frequent rewrites
+- **Partial completion tracking** — `sync`, `install`, `update`, and `uninstall` now log `"partial"` status when some targets succeed and others fail, instead of a blanket `"error"`
+- **Unified TUI color palette** — all bubbletea TUIs share a consistent color palette via shared `tc` struct
+
+### Website
+
+- **Documentation restructure** — website now follows Diátaxis IA (getting-started / how-to / learn / understand / reference / troubleshooting)
+- **Blog launch** — 5 launch posts covering tutorials, recipes, and migration guides
 
 ### Fixed
 
