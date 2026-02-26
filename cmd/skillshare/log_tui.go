@@ -2,13 +2,16 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
 
@@ -30,6 +33,14 @@ type logTUIModel struct {
 	filterInput textinput.Model
 	filtering   bool
 	matchCount  int
+
+	// Stats
+	stats     logStats
+	showStats bool
+
+	// Detail panel scrolling
+	detailScroll int
+	termHeight   int
 }
 
 // newLogTUIModel creates a new TUI model from log items.
@@ -75,6 +86,7 @@ func newLogTUIModel(items []logItem, logLabel, modeLabel string) logTUIModel {
 		allItems:    items,
 		matchCount:  len(items),
 		filterInput: fi,
+		stats:       computeLogStatsFromItems(items),
 	}
 }
 
@@ -85,7 +97,14 @@ func (m logTUIModel) Init() tea.Cmd {
 func (m logTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetSize(msg.Width, msg.Height-24)
+		m.termHeight = msg.Height
+		// Reserve bottom half for detail panel + filter + footer + help (~6 lines overhead)
+		// Give list roughly 40% of terminal, min 6 lines
+		listHeight := msg.Height * 2 / 5
+		if listHeight < 6 {
+			listHeight = 6
+		}
+		m.list.SetSize(msg.Width, listHeight)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -121,11 +140,26 @@ func (m logTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.filtering = true
 			m.filterInput.Focus()
 			return m, textinput.Blink
+		case "s":
+			m.showStats = !m.showStats
+			return m, nil
+		case "j":
+			m.detailScroll++
+			return m, nil
+		case "k":
+			if m.detailScroll > 0 {
+				m.detailScroll--
+			}
+			return m, nil
 		}
 	}
 
+	prevIdx := m.list.Index()
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
+	if m.list.Index() != prevIdx {
+		m.detailScroll = 0 // reset scroll when selection changes
+	}
 	return m, cmd
 }
 
@@ -141,18 +175,22 @@ func (m *logTUIModel) applyLogFilter() {
 		m.matchCount = len(m.allItems)
 		m.list.SetItems(all)
 		m.list.ResetSelected()
+		m.stats = computeLogStatsFromItems(m.allItems)
 		return
 	}
 
+	var matchedItems []logItem
 	var matched []list.Item
 	for _, item := range m.allItems {
 		if strings.Contains(strings.ToLower(item.FilterValue()), term) {
+			matchedItems = append(matchedItems, item)
 			matched = append(matched, item)
 		}
 	}
 	m.matchCount = len(matched)
 	m.list.SetItems(matched)
 	m.list.ResetSelected()
+	m.stats = computeLogStatsFromItems(matchedItems)
 }
 
 func (m logTUIModel) View() string {
@@ -162,18 +200,33 @@ func (m logTUIModel) View() string {
 
 	var b strings.Builder
 
+	if m.showStats {
+		b.WriteString("\n")
+		b.WriteString(m.renderStatsPanel())
+		b.WriteString("\n")
+
+		help := "s back to list  q quit"
+		b.WriteString(tuiHelpStyle.Render(help))
+		b.WriteString("\n")
+		return b.String()
+	}
+
 	b.WriteString(m.list.View())
 	b.WriteString("\n\n")
 
 	// Filter bar (always visible)
 	b.WriteString(m.renderLogFilterBar())
 
-	// Detail panel for selected item
+	// Detail panel for selected item (scrollable, height-limited)
 	if item, ok := m.list.SelectedItem().(logItem); ok {
-		b.WriteString(renderLogDetailPanel(item))
+		detailContent := renderLogDetailPanel(item)
+		b.WriteString(m.scrollableDetail(detailContent))
 	}
 
-	help := "↑↓ navigate  ←→ page  / filter  q quit"
+	// Stats footer
+	b.WriteString(m.renderStatsFooter())
+
+	help := "↑↓ navigate  ←→ page  / filter  s stats  q quit"
 	b.WriteString(tuiHelpStyle.Render(help))
 	b.WriteString("\n")
 
@@ -187,6 +240,55 @@ func (m logTUIModel) renderLogFilterBar() string {
 		m.matchCount, len(m.allItems), 0,
 		"entries", renderPageInfoFromPaginator(m.list.Paginator),
 	)
+}
+
+// scrollableDetail wraps a detail panel string with height limit and scroll offset.
+func (m logTUIModel) scrollableDetail(content string) string {
+	lines := strings.Split(content, "\n")
+
+	// List takes ~40% of terminal; remaining goes to detail.
+	// Subtract overhead: filter bar(2) + stats footer(1) + help bar(1) + newlines(3) = 7
+	listHeight := m.termHeight * 2 / 5
+	if listHeight < 6 {
+		listHeight = 6
+	}
+	maxDetailLines := m.termHeight - listHeight - 7
+	if maxDetailLines < 5 {
+		maxDetailLines = 5
+	}
+
+	totalLines := len(lines)
+	if totalLines <= maxDetailLines {
+		return content // fits without scrolling
+	}
+
+	// Clamp scroll offset
+	maxScroll := totalLines - maxDetailLines
+	offset := m.detailScroll
+	if offset > maxScroll {
+		offset = maxScroll
+	}
+
+	visible := lines[offset:]
+	if len(visible) > maxDetailLines {
+		visible = visible[:maxDetailLines]
+	}
+
+	var b strings.Builder
+	for _, line := range visible {
+		b.WriteString(line)
+		b.WriteString("\n")
+	}
+
+	// Scroll indicator
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	if offset > 0 || offset < maxScroll {
+		indicator := fmt.Sprintf("  ── j/k scroll (%d/%d) ──", offset+1, maxScroll+1)
+		b.WriteString(dimStyle.Render(indicator))
+		b.WriteString("\n")
+	}
+
+	return b.String()
 }
 
 // renderLogDetailPanel renders structured details for the selected log entry.
@@ -345,6 +447,194 @@ func colorizeRiskValue(value string, _, _, green lipgloss.Style) string {
 		return green.Render(value)
 	}
 	return style.Render(value)
+}
+
+// computeLogStatsFromItems converts logItems to oplog entries and computes stats.
+func computeLogStatsFromItems(items []logItem) logStats {
+	entries := make([]oplog.Entry, len(items))
+	for i, item := range items {
+		entries[i] = item.entry
+	}
+	return computeLogStats(entries)
+}
+
+// renderStatsFooter renders a compact stats line above the help bar.
+func (m logTUIModel) renderStatsFooter() string {
+	if m.stats.Total == 0 {
+		return ""
+	}
+
+	parts := []string{
+		fmt.Sprintf("%d ops", m.stats.Total),
+		fmt.Sprintf("✓ %.1f%%", m.stats.SuccessRate*100),
+	}
+
+	if m.stats.LastOperation != nil {
+		ts, err := time.Parse(time.RFC3339, m.stats.LastOperation.Timestamp)
+		if err == nil {
+			parts = append(parts, fmt.Sprintf("last: %s %s ago",
+				m.stats.LastOperation.Command, formatRelativeTime(time.Since(ts))))
+		}
+	}
+
+	line := strings.Join(parts, " | ")
+	style := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	return "  " + style.Render(line) + "\n"
+}
+
+// renderStatsPanel renders the full stats overlay panel.
+func (m logTUIModel) renderStatsPanel() string {
+	var b strings.Builder
+
+	cyanStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+	redStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("1"))
+	yellowStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
+	boldStyle := lipgloss.NewStyle().Bold(true)
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	b.WriteString(titleStyle.Render("  Operation Log Summary"))
+	b.WriteString("\n")
+	b.WriteString(dimStyle.Render("  " + strings.Repeat("─", 50)))
+	b.WriteString("\n\n")
+
+	if m.stats.Total == 0 {
+		b.WriteString(dimStyle.Render("  No entries"))
+		b.WriteString("\n")
+		return b.String()
+	}
+
+	// ── Overview row ──
+	okTotal := 0
+	for _, cs := range m.stats.ByCommand {
+		okTotal += cs.OK
+	}
+	rateColor := statsSuccessRateColor(m.stats.SuccessRate)
+	b.WriteString(fmt.Sprintf("  %s  %s\n\n",
+		dimStyle.Render("Total:"),
+		boldStyle.Render(fmt.Sprintf("%d", m.stats.Total)),
+	))
+	b.WriteString(fmt.Sprintf("  %s  %s %s\n\n",
+		dimStyle.Render("OK:"),
+		rateColor.Render(fmt.Sprintf("%d/%d", okTotal, m.stats.Total)),
+		dimStyle.Render(fmt.Sprintf("(%.1f%%)", m.stats.SuccessRate*100)),
+	))
+
+
+	// ── Command breakdown with horizontal bars ──
+	header := fmt.Sprintf("  %-12s  %-20s  %s", "Command", "", "OK")
+	b.WriteString(dimStyle.Render(header))
+	b.WriteString("\n")
+	b.WriteString(dimStyle.Render("  " + strings.Repeat("─", 42)))
+	b.WriteString("\n")
+
+	type cmdEntry struct {
+		name string
+		cs   commandStats
+	}
+	var cmds []cmdEntry
+	for name, cs := range m.stats.ByCommand {
+		cmds = append(cmds, cmdEntry{name, cs})
+	}
+	sort.Slice(cmds, func(i, j int) bool { return cmds[i].cs.Total > cmds[j].cs.Total })
+
+	maxCount := 0
+	if len(cmds) > 0 {
+		maxCount = cmds[0].cs.Total
+	}
+
+	const cmdBarWidth = 20
+	for _, cmd := range cmds {
+		// Proportional bar
+		barLen := cmdBarWidth
+		if maxCount > 0 {
+			barLen = cmd.cs.Total * cmdBarWidth / maxCount
+		}
+		if barLen < 1 {
+			barLen = 1
+		}
+
+		// Color the bar: green portion for OK, red for errors
+		okBarLen := 0
+		if cmd.cs.Total > 0 {
+			okBarLen = cmd.cs.OK * barLen / cmd.cs.Total
+		}
+		errBarLen := barLen - okBarLen
+
+		cmdBar := greenStyle.Render(strings.Repeat("▓", okBarLen))
+		if errBarLen > 0 {
+			cmdBar += redStyle.Render(strings.Repeat("▓", errBarLen))
+		}
+		padding := strings.Repeat(" ", cmdBarWidth-barLen)
+
+		// "✓6/9" format — ok out of total, self-explanatory
+		okRatio := fmt.Sprintf("✓%d/%d", cmd.cs.OK, cmd.cs.Total)
+		ratioColor := greenStyle
+		if cmd.cs.OK < cmd.cs.Total {
+			ratioColor = redStyle
+		}
+		if cmd.cs.OK == cmd.cs.Total {
+			ratioColor = greenStyle
+		}
+
+		b.WriteString(fmt.Sprintf("  %s  %s%s  %s\n",
+			dimStyle.Render(fmt.Sprintf("%-12s", cmd.name)),
+			cmdBar, padding, ratioColor.Render(okRatio)))
+	}
+
+	b.WriteString("\n")
+
+	// ── Status distribution ──
+	okTotal, errTotal, partialTotal, blockedTotal := 0, 0, 0, 0
+	for _, cs := range m.stats.ByCommand {
+		okTotal += cs.OK
+		errTotal += cs.Error
+		partialTotal += cs.Partial
+		blockedTotal += cs.Blocked
+	}
+
+	b.WriteString(dimStyle.Render("  " + strings.Repeat("─", 50)))
+	b.WriteString("\n")
+	b.WriteString(fmt.Sprintf("  %s %s",
+		dimStyle.Render("Status:"),
+		greenStyle.Render(fmt.Sprintf("✓ %d ok", okTotal))))
+	if errTotal > 0 {
+		b.WriteString(fmt.Sprintf("  %s", redStyle.Render(fmt.Sprintf("✗ %d error", errTotal))))
+	}
+	if partialTotal > 0 {
+		b.WriteString(fmt.Sprintf("  %s", yellowStyle.Render(fmt.Sprintf("◐ %d partial", partialTotal))))
+	}
+	if blockedTotal > 0 {
+		b.WriteString(fmt.Sprintf("  %s", redStyle.Render(fmt.Sprintf("⊘ %d blocked", blockedTotal))))
+	}
+	b.WriteString("\n")
+
+	// ── Last operation ──
+	if m.stats.LastOperation != nil {
+		ts, err := time.Parse(time.RFC3339, m.stats.LastOperation.Timestamp)
+		if err == nil {
+			ago := formatRelativeTime(time.Since(ts))
+			b.WriteString(fmt.Sprintf("  %s %s %s\n",
+				dimStyle.Render("Last op:"),
+				cyanStyle.Render(m.stats.LastOperation.Command),
+				dimStyle.Render(fmt.Sprintf("(%s ago)", ago))))
+		}
+	}
+
+	return b.String()
+}
+
+// statsSuccessRateColor returns a lipgloss style based on the success rate.
+func statsSuccessRateColor(rate float64) lipgloss.Style {
+	switch {
+	case rate >= 0.9:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Bold(true) // green
+	case rate >= 0.7:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true) // yellow
+	default:
+		return lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Bold(true) // red
+	}
 }
 
 // runLogTUI starts the bubbletea TUI for the log viewer.

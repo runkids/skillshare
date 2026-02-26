@@ -31,6 +31,16 @@ func formatLogDetailPairs(e oplog.Entry) []logDetailPair {
 		return formatUpdateLogPairs(e.Args)
 	case "audit":
 		return formatAuditLogPairs(e.Args)
+	case "check":
+		return formatCheckLogPairs(e.Args)
+	case "diff":
+		return formatDiffLogPairs(e.Args)
+	case "trash":
+		return formatTrashLogPairs(e.Args)
+	case "init":
+		return formatInitLogPairs(e.Args)
+	case "upgrade":
+		return formatUpgradeLogPairs(e.Args)
 	default:
 		return formatGenericLogPairs(e.Args)
 	}
@@ -200,6 +210,205 @@ func formatAuditLogPairs(args map[string]any) []logDetailPair {
 	return pairs
 }
 
+func formatCheckLogPairs(args map[string]any) []logDetailPair {
+	var pairs []logDetailPair
+
+	if repos, ok := logArgInt(args, "repos_checked"); ok && repos > 0 {
+		pairs = append(pairs, logDetailPair{key: "repos", value: fmt.Sprintf("%d", repos)})
+	}
+	if skills, ok := logArgInt(args, "skills_checked"); ok && skills > 0 {
+		pairs = append(pairs, logDetailPair{key: "skills", value: fmt.Sprintf("%d", skills)})
+	}
+	if updates, ok := logArgInt(args, "updates_available"); ok && updates > 0 {
+		pairs = append(pairs, logDetailPair{key: "updates", value: fmt.Sprintf("%d", updates)})
+	}
+	if errors, ok := logArgInt(args, "errors"); ok && errors > 0 {
+		pairs = append(pairs, logDetailPair{key: "errors", value: fmt.Sprintf("%d", errors)})
+	}
+	if scope, ok := logArgString(args, "scope"); ok && scope != "" {
+		pairs = append(pairs, logDetailPair{key: "scope", value: scope})
+	}
+
+	return pairs
+}
+
+func formatDiffLogPairs(args map[string]any) []logDetailPair {
+	var pairs []logDetailPair
+
+	if target, ok := logArgString(args, "target"); ok && target != "" {
+		pairs = append(pairs, logDetailPair{key: "target", value: target})
+	}
+	if targetsShown, ok := logArgInt(args, "targets_shown"); ok && targetsShown > 0 {
+		pairs = append(pairs, logDetailPair{key: "targets", value: fmt.Sprintf("%d", targetsShown)})
+	}
+	if scope, ok := logArgString(args, "scope"); ok && scope != "" {
+		pairs = append(pairs, logDetailPair{key: "scope", value: scope})
+	}
+
+	return pairs
+}
+
+func formatTrashLogPairs(args map[string]any) []logDetailPair {
+	var pairs []logDetailPair
+
+	if action, ok := logArgString(args, "action"); ok && action != "" {
+		pairs = append(pairs, logDetailPair{key: "action", value: action})
+	}
+	if items, ok := logArgInt(args, "items"); ok && items > 0 {
+		pairs = append(pairs, logDetailPair{key: "items", value: fmt.Sprintf("%d", items)})
+	}
+	if name, ok := logArgString(args, "name"); ok && name != "" {
+		pairs = append(pairs, logDetailPair{key: "name", value: name})
+	}
+
+	return pairs
+}
+
+func formatInitLogPairs(args map[string]any) []logDetailPair {
+	var pairs []logDetailPair
+
+	if targetsAdded, ok := logArgInt(args, "targets_added"); ok && targetsAdded > 0 {
+		pairs = append(pairs, logDetailPair{key: "targets", value: fmt.Sprintf("%d", targetsAdded)})
+	}
+	if sourceCreated, ok := logArgBool(args, "source_created"); ok && sourceCreated {
+		pairs = append(pairs, logDetailPair{key: "source", value: "created"})
+	}
+	if gitInit, ok := logArgBool(args, "git_init"); ok && gitInit {
+		pairs = append(pairs, logDetailPair{key: "git", value: "yes"})
+	}
+	if skillInstalled, ok := logArgBool(args, "skill_installed"); ok && skillInstalled {
+		pairs = append(pairs, logDetailPair{key: "skill", value: "installed"})
+	}
+
+	return pairs
+}
+
+func formatUpgradeLogPairs(args map[string]any) []logDetailPair {
+	var pairs []logDetailPair
+
+	if cli, ok := logArgBool(args, "cli"); ok && cli {
+		pairs = append(pairs, logDetailPair{key: "cli", value: "yes"})
+	}
+	if skill, ok := logArgBool(args, "skill"); ok && skill {
+		pairs = append(pairs, logDetailPair{key: "skill", value: "yes"})
+	}
+	if from, ok := logArgString(args, "from_version"); ok && from != "" {
+		pairs = append(pairs, logDetailPair{key: "from", value: from})
+	}
+	if to, ok := logArgString(args, "to_version"); ok && to != "" {
+		pairs = append(pairs, logDetailPair{key: "to", value: to})
+	}
+
+	return pairs
+}
+
+func formatCheckLogDetail(args map[string]any) string {
+	parts := make([]string, 0, 5)
+
+	if repos, ok := logArgInt(args, "repos_checked"); ok && repos > 0 {
+		parts = append(parts, fmt.Sprintf("repos=%d", repos))
+	}
+	if skills, ok := logArgInt(args, "skills_checked"); ok && skills > 0 {
+		parts = append(parts, fmt.Sprintf("skills=%d", skills))
+	}
+	if updates, ok := logArgInt(args, "updates_available"); ok && updates > 0 {
+		parts = append(parts, fmt.Sprintf("updates=%d", updates))
+	}
+	if errors, ok := logArgInt(args, "errors"); ok && errors > 0 {
+		parts = append(parts, fmt.Sprintf("errors=%d", errors))
+	}
+	if scope, ok := logArgString(args, "scope"); ok && scope != "" {
+		parts = append(parts, "scope="+scope)
+	}
+
+	if len(parts) == 0 {
+		return formatGenericLogDetail(args)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatDiffLogDetail(args map[string]any) string {
+	parts := make([]string, 0, 3)
+
+	if target, ok := logArgString(args, "target"); ok && target != "" {
+		parts = append(parts, "target="+target)
+	}
+	if targetsShown, ok := logArgInt(args, "targets_shown"); ok && targetsShown > 0 {
+		parts = append(parts, fmt.Sprintf("targets=%d", targetsShown))
+	}
+	if scope, ok := logArgString(args, "scope"); ok && scope != "" {
+		parts = append(parts, "scope="+scope)
+	}
+
+	if len(parts) == 0 {
+		return formatGenericLogDetail(args)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatTrashLogDetail(args map[string]any) string {
+	parts := make([]string, 0, 3)
+
+	if action, ok := logArgString(args, "action"); ok && action != "" {
+		parts = append(parts, action)
+	}
+	if items, ok := logArgInt(args, "items"); ok && items > 0 {
+		parts = append(parts, fmt.Sprintf("items=%d", items))
+	}
+	if name, ok := logArgString(args, "name"); ok && name != "" {
+		parts = append(parts, name)
+	}
+
+	if len(parts) == 0 {
+		return formatGenericLogDetail(args)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatInitLogDetail(args map[string]any) string {
+	parts := make([]string, 0, 4)
+
+	if targetsAdded, ok := logArgInt(args, "targets_added"); ok && targetsAdded > 0 {
+		parts = append(parts, fmt.Sprintf("targets=%d", targetsAdded))
+	}
+	if sourceCreated, ok := logArgBool(args, "source_created"); ok && sourceCreated {
+		parts = append(parts, "source-created")
+	}
+	if gitInit, ok := logArgBool(args, "git_init"); ok && gitInit {
+		parts = append(parts, "git")
+	}
+	if skillInstalled, ok := logArgBool(args, "skill_installed"); ok && skillInstalled {
+		parts = append(parts, "skill-installed")
+	}
+
+	if len(parts) == 0 {
+		return formatGenericLogDetail(args)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatUpgradeLogDetail(args map[string]any) string {
+	parts := make([]string, 0, 4)
+
+	if cli, ok := logArgBool(args, "cli"); ok && cli {
+		parts = append(parts, "cli")
+	}
+	if skill, ok := logArgBool(args, "skill"); ok && skill {
+		parts = append(parts, "skill")
+	}
+	if from, ok := logArgString(args, "from_version"); ok && from != "" {
+		parts = append(parts, "from="+from)
+	}
+	if to, ok := logArgString(args, "to_version"); ok && to != "" {
+		parts = append(parts, "to="+to)
+	}
+
+	if len(parts) == 0 {
+		return formatGenericLogDetail(args)
+	}
+	return strings.Join(parts, ", ")
+}
+
 func formatGenericLogPairs(args map[string]any) []logDetailPair {
 	var pairs []logDetailPair
 
@@ -248,6 +457,16 @@ func formatLogDetail(e oplog.Entry, truncate bool) string {
 			detail = formatUpdateLogDetail(e.Args)
 		case "audit":
 			detail = formatAuditLogDetail(e.Args)
+		case "check":
+			detail = formatCheckLogDetail(e.Args)
+		case "diff":
+			detail = formatDiffLogDetail(e.Args)
+		case "trash":
+			detail = formatTrashLogDetail(e.Args)
+		case "init":
+			detail = formatInitLogDetail(e.Args)
+		case "upgrade":
+			detail = formatUpgradeLogDetail(e.Args)
 		default:
 			detail = formatGenericLogDetail(e.Args)
 		}

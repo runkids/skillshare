@@ -357,7 +357,11 @@ func cmdInstall(args []string) error {
 }
 
 func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, summary installLogSummary) {
-	e := oplog.NewEntry("install", statusFromErr(cmdErr), time.Since(start))
+	status := statusFromErr(cmdErr)
+	if len(summary.InstalledSkills) > 0 && len(summary.FailedSkills) > 0 {
+		status = "partial"
+	}
+	e := oplog.NewEntry("install", status, time.Since(start))
 	fields := map[string]any{}
 	source := summary.Source
 	if len(args) > 0 {
@@ -405,7 +409,7 @@ func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, 
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
 	}
-	oplog.Write(cfgPath, oplog.OpsFile, e) //nolint:errcheck
+	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 func printInstallHelp() {

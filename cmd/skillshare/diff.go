@@ -5,14 +5,18 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 )
 
 func cmdDiff(args []string) error {
+	start := time.Now()
+
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
 		return err
@@ -33,6 +37,13 @@ func cmdDiff(args []string) error {
 
 	applyModeLabel(mode)
 
+	scope := "global"
+	cfgPath := config.ConfigPath()
+	if mode == modeProject {
+		scope = "project"
+		cfgPath = config.ProjectConfigPath(cwd)
+	}
+
 	var targetName string
 	for i := 0; i < len(rest); i++ {
 		if rest[i] == "--target" || rest[i] == "-t" {
@@ -45,10 +56,30 @@ func cmdDiff(args []string) error {
 		}
 	}
 
+	var cmdErr error
 	if mode == modeProject {
-		return cmdDiffProject(cwd, targetName)
+		cmdErr = cmdDiffProject(cwd, targetName)
+	} else {
+		cmdErr = cmdDiffGlobal(targetName)
 	}
-	return cmdDiffGlobal(targetName)
+	logDiffOp(cfgPath, targetName, scope, 0, start, cmdErr)
+	return cmdErr
+}
+
+func logDiffOp(cfgPath string, targetName, scope string, targetsShown int, start time.Time, cmdErr error) {
+	e := oplog.NewEntry("diff", statusFromErr(cmdErr), time.Since(start))
+	a := map[string]any{"scope": scope}
+	if targetName != "" {
+		a["target"] = targetName
+	}
+	if targetsShown > 0 {
+		a["targets_shown"] = targetsShown
+	}
+	e.Args = a
+	if cmdErr != nil {
+		e.Message = cmdErr.Error()
+	}
+	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 func cmdDiffGlobal(targetName string) error {

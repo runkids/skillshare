@@ -13,6 +13,7 @@ skillshare log --tail 50          # Show last 50 entries
 skillshare log --cmd sync         # Show only sync entries
 skillshare log --status error     # Show only errors
 skillshare log --since 2d         # Entries from last 2 days
+skillshare log --stats            # Show summary statistics
 skillshare log --json             # Output as JSONL
 skillshare log --no-tui           # Plain text output
 skillshare log --clear            # Clear operations log
@@ -33,6 +34,8 @@ On a TTY, `skillshare log` launches an interactive terminal UI with:
 - **Fuzzy filtering** — type to filter by timestamp, command, status, source, or detail content
 - **Keyboard navigation** — arrow keys to browse, `q` to quit
 - **Detail panel** — shows full timestamp, command, status, duration, source, and structured args for the selected entry
+- **Stats footer** — always-visible compact summary: ops count, success rate, last operation
+- **Stats panel** — press `s` to toggle a full breakdown by command with success/failure counts
 - **Merged view** — operations and audit entries are merged and sorted by time when viewing both
 
 Use `--no-tui` to skip the TUI and print plain text instead:
@@ -48,7 +51,7 @@ Every mutating CLI and Web UI operation is recorded as a JSONL entry with timest
 
 | Command | Log File |
 |---------|----------|
-| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `target`, `trash`, `config` | `operations.log` |
+| `install`, `uninstall`, `sync`, `push`, `pull`, `collect`, `backup`, `restore`, `update`, `target`, `trash`, `config`, `check`, `diff`, `init`, `upgrade` | `operations.log` |
 | `audit` | `audit.log` |
 
 Web UI actions that call these APIs are logged the same way as CLI operations.
@@ -180,6 +183,7 @@ If your repository root `.gitignore` also ignores `.skillshare/`, add matching u
 | `--cmd <name>` | Filter by command name (e.g. `sync`, `install`, `audit`) |
 | `--status <status>` | Filter by status (`ok`, `error`, `partial`, `blocked`) |
 | `--since <dur\|date>` | Filter by time (`30m`, `2h`, `2d`, `1w`, or `2006-01-02`) |
+| `--stats` | Show summary statistics (total, success rate, per-command breakdown) |
 | `--json` | Output raw JSONL (one JSON object per line) |
 | `--no-tui` | Disable interactive TUI, use plain text output |
 | `-c`, `--clear` | Clear selected log file (operations by default, audit with `--audit`) |
@@ -202,6 +206,42 @@ The Log page provides:
 - **Table view** with time, command, details, status, and duration
 - **Audit detail rows** showing failed/warning skill names when present
 - **Clear** and **Refresh** controls
+
+## Stats View
+
+### CLI
+
+```bash
+skillshare log --stats                # Summary of all operations
+skillshare log --stats --cmd sync     # Stats for sync only
+skillshare log --stats --since 7d     # Stats for last 7 days
+```
+
+### TUI
+
+Press `s` in the TUI to toggle the stats panel, showing:
+
+- Total operations and per-command breakdown with horizontal bar chart
+- Success/failure counts per command (color-coded)
+- Overall success rate with visual progress bar
+- Last operation timestamp
+
+The footer bar always shows a compact summary: `20 ops | ✓ 92.3% | last: sync 2h ago`
+
+### Detail Panel Scrolling
+
+When a log entry has long detail content (e.g. audit results with many skills), use `j`/`k` to scroll the detail panel up and down.
+
+## Log Retention
+
+Logs are automatically truncated to prevent unbounded growth. The default limit is **1000 entries per log file** (each CLI or Web UI operation = 1 entry). `operations.log` and `audit.log` are tracked separately.
+
+To override the default, add to `config.yaml`:
+
+```yaml
+log:
+  max_entries: 500  # entries per file; 0 = unlimited (default: 1000)
+```
 
 ## See Also
 

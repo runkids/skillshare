@@ -59,7 +59,7 @@ func cmdBackup(args []string) error {
 		if err != nil {
 			e.Message = err.Error()
 		}
-		oplog.Write(config.ConfigPath(), oplog.OpsFile, e) //nolint:errcheck
+		oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 	}
 
 	return err
@@ -350,7 +350,7 @@ func cmdRestore(args []string) error {
 	if restoreErr != nil {
 		e.Message = restoreErr.Error()
 	}
-	oplog.Write(config.ConfigPath(), oplog.OpsFile, e) //nolint:errcheck
+	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
 	return restoreErr
 }

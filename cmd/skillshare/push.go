@@ -266,7 +266,7 @@ func cmdPush(args []string) error {
 
 	e := oplog.NewEntry("push", "ok", time.Since(start))
 	e.Args = map[string]any{"message": opts.message}
-	oplog.Write(config.ConfigPath(), oplog.OpsFile, e) //nolint:errcheck
+	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
 	return nil
 }

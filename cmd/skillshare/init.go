@@ -16,6 +16,7 @@ import (
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -487,6 +488,8 @@ func hasGlobalOnlyInitFlags(args []string) bool {
 }
 
 func cmdInit(args []string) error {
+	start := time.Now()
+
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
 		return err
@@ -525,10 +528,37 @@ func cmdInit(args []string) error {
 
 	handled, err := handleExistingInit(opts)
 	if handled {
+		logInitOp(config.ConfigPath(), 0, false, false, false, start, err)
 		return err
 	}
 
-	return performFreshInit(opts, home)
+	cmdErr := performFreshInit(opts, home)
+	// Config is created by performFreshInit, so cfgPath is valid now
+	cfgPath := config.ConfigPath()
+	logInitOp(cfgPath, 0, true, opts.initGit, hasBuiltinSkill(opts.sourcePath), start, cmdErr)
+	return cmdErr
+}
+
+func logInitOp(cfgPath string, targetsAdded int, sourceCreated bool, gitInit bool, skillInstalled bool, start time.Time, cmdErr error) {
+	e := oplog.NewEntry("init", statusFromErr(cmdErr), time.Since(start))
+	a := map[string]any{}
+	if targetsAdded > 0 {
+		a["targets_added"] = targetsAdded
+	}
+	if sourceCreated {
+		a["source_created"] = true
+	}
+	if gitInit {
+		a["git_init"] = true
+	}
+	if skillInstalled {
+		a["skill_installed"] = true
+	}
+	e.Args = a
+	if cmdErr != nil {
+		e.Message = cmdErr.Error()
+	}
+	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 type detectedDir struct {

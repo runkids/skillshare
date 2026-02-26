@@ -48,7 +48,7 @@ func cmdPull(args []string) error {
 		if err != nil {
 			e.Message = err.Error()
 		}
-		oplog.Write(config.ConfigPath(), oplog.OpsFile, e) //nolint:errcheck
+		oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 	}
 
 	return err

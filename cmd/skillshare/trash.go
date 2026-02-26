@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 )
@@ -84,6 +85,8 @@ func trashList(mode runMode, cwd string) error {
 }
 
 func trashRestore(mode runMode, cwd string, args []string) error {
+	start := time.Now()
+
 	var name string
 	for _, arg := range args {
 		switch {
@@ -105,18 +108,24 @@ func trashRestore(mode runMode, cwd string, args []string) error {
 		return fmt.Errorf("skill name is required")
 	}
 
+	cfgPath := resolveTrashCfgPath(mode, cwd)
+
 	trashBase := resolveTrashBase(mode, cwd)
 	entry := trash.FindByName(trashBase, name)
 	if entry == nil {
-		return fmt.Errorf("'%s' not found in trash", name)
+		cmdErr := fmt.Errorf("'%s' not found in trash", name)
+		logTrashOp(cfgPath, "restore", 0, name, start, cmdErr)
+		return cmdErr
 	}
 
 	destDir, err := resolveSourceDir(mode, cwd)
 	if err != nil {
+		logTrashOp(cfgPath, "restore", 0, name, start, err)
 		return err
 	}
 
 	if err := trash.Restore(entry, destDir); err != nil {
+		logTrashOp(cfgPath, "restore", 0, name, start, err)
 		return err
 	}
 
@@ -126,6 +135,7 @@ func trashRestore(mode runMode, cwd string, args []string) error {
 	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to update targets")
 
+	logTrashOp(cfgPath, "restore", 1, name, start, nil)
 	return nil
 }
 
@@ -166,6 +176,9 @@ func trashDelete(mode runMode, cwd string, args []string) error {
 }
 
 func trashEmpty(mode runMode, cwd string) error {
+	start := time.Now()
+	cfgPath := resolveTrashCfgPath(mode, cwd)
+
 	trashBase := resolveTrashBase(mode, cwd)
 	items := trash.List(trashBase)
 
@@ -187,12 +200,15 @@ func trashEmpty(mode runMode, cwd string) error {
 	removed := 0
 	for _, item := range items {
 		if err := os.RemoveAll(item.Path); err != nil {
-			return fmt.Errorf("failed to delete '%s': %w", item.Name, err)
+			cmdErr := fmt.Errorf("failed to delete '%s': %w", item.Name, err)
+			logTrashOp(cfgPath, "empty", removed, "", start, cmdErr)
+			return cmdErr
 		}
 		removed++
 	}
 
 	ui.Success("Emptied trash: %d item(s) permanently deleted", removed)
+	logTrashOp(cfgPath, "empty", removed, "", start, nil)
 	return nil
 }
 
@@ -223,6 +239,29 @@ func formatAge(d time.Duration) string {
 	default:
 		return fmt.Sprintf("%dd", int(d.Hours()/24))
 	}
+}
+
+func resolveTrashCfgPath(mode runMode, cwd string) string {
+	if mode == modeProject {
+		return config.ProjectConfigPath(cwd)
+	}
+	return config.ConfigPath()
+}
+
+func logTrashOp(cfgPath string, action string, count int, name string, start time.Time, cmdErr error) {
+	e := oplog.NewEntry("trash", statusFromErr(cmdErr), time.Since(start))
+	a := map[string]any{"action": action}
+	if count > 0 {
+		a["items"] = count
+	}
+	if name != "" {
+		a["name"] = name
+	}
+	e.Args = a
+	if cmdErr != nil {
+		e.Message = cmdErr.Error()
+	}
+	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 func printTrashHelp() {

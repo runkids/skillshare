@@ -498,7 +498,7 @@ func cmdUninstall(args []string) error {
 
 	if mode == modeProject {
 		err := cmdUninstallProject(rest, cwd)
-		logUninstallOp(config.ProjectConfigPath(cwd), uninstallOpNames(rest), start, err)
+		logUninstallOp(config.ProjectConfigPath(cwd), uninstallOpNames(rest), 0, start, err)
 		return err
 	}
 
@@ -895,7 +895,7 @@ func cmdUninstall(args []string) error {
 		// Partial failure: report but exit success (skip & continue)
 	}
 
-	logUninstallOp(config.ConfigPath(), opNames, start, finalErr)
+	logUninstallOp(config.ConfigPath(), opNames, len(succeeded), start, finalErr)
 	return finalErr
 }
 
@@ -917,17 +917,24 @@ func uninstallOpNames(args []string) []string {
 	return names
 }
 
-func logUninstallOp(cfgPath string, names []string, start time.Time, cmdErr error) {
-	e := oplog.NewEntry("uninstall", statusFromErr(cmdErr), time.Since(start))
+func logUninstallOp(cfgPath string, names []string, succeeded int, start time.Time, cmdErr error) {
+	status := statusFromErr(cmdErr)
+	if succeeded > 0 && succeeded < len(names) {
+		status = "partial"
+	}
+	e := oplog.NewEntry("uninstall", status, time.Since(start))
 	if len(names) == 1 {
 		e.Args = map[string]any{"name": names[0]}
 	} else if len(names) > 1 {
 		e.Args = map[string]any{"names": names}
 	}
+	if succeeded > 0 && e.Args != nil {
+		e.Args["succeeded"] = succeeded
+	}
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
 	}
-	oplog.Write(cfgPath, oplog.OpsFile, e) //nolint:errcheck
+	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 // isRepoDirty checks if a git repository has uncommitted changes

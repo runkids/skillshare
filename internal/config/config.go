@@ -24,6 +24,11 @@ type AuditConfig struct {
 	BlockThreshold string `yaml:"block_threshold,omitempty"` // CRITICAL/HIGH/MEDIUM/LOW/INFO
 }
 
+// LogConfig holds log retention settings.
+type LogConfig struct {
+	MaxEntries int `yaml:"max_entries,omitempty"` // 0 = unlimited
+}
+
 // HubEntry represents a single saved hub source.
 type HubEntry struct {
 	Label   string `yaml:"label"`
@@ -45,9 +50,13 @@ type Config struct {
 	Ignore  []string                `yaml:"ignore,omitempty"`
 	Audit   AuditConfig             `yaml:"audit,omitempty"`
 	Hub     HubConfig               `yaml:"hub,omitempty"`
+	Log     LogConfig               `yaml:"log,omitempty"`
 }
 
 const defaultAuditBlockThreshold = "CRITICAL"
+
+// DefaultLogMaxEntries is the default maximum number of log entries to retain per file.
+const DefaultLogMaxEntries = 1000
 
 // GlobalSchemaURL is the JSON Schema URL for the global config file.
 const GlobalSchemaURL = "https://raw.githubusercontent.com/runkids/skillshare/main/schemas/config.schema.json"

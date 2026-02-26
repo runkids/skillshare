@@ -349,7 +349,7 @@ func targetInfoProject(name string, args []string, root string) error {
 			"name":    name,
 			"changes": changes,
 		}
-		oplog.Write(config.ProjectConfigPath(root), oplog.OpsFile, e) //nolint:errcheck
+		oplog.WriteWithLimit(config.ProjectConfigPath(root), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 		return nil
 	}
 

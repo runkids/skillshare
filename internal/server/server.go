@@ -301,6 +301,7 @@ func (s *Server) registerRoutes() {
 
 	// Log
 	s.mux.HandleFunc("GET /api/log", s.handleListLog)
+	s.mux.HandleFunc("GET /api/log/stats", s.handleLogStats)
 	s.mux.HandleFunc("DELETE /api/log", s.handleClearLog)
 
 	// Config
