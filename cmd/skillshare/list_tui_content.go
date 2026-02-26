@@ -350,8 +350,8 @@ func sidebarWidth(termWidth int) int {
 func renderContentOverlay(m listTUIModel) string {
 	var b strings.Builder
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	titleStyle := tc.Title
+	dimStyle := tc.Dim
 
 	skillName := filepath.Base(m.contentSkillKey)
 	fileName := ""
@@ -382,8 +382,7 @@ func renderContentOverlay(m listTUIModel) string {
 		PaddingLeft(1).
 		Render(sidebarStr)
 
-	borderStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).
+	borderStyle := tc.Border.
 		Height(contentHeight).MaxHeight(contentHeight)
 	borderCol := strings.Repeat("│\n", contentHeight)
 	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
@@ -402,7 +401,7 @@ func renderContentOverlay(m listTUIModel) string {
 	if scrollInfo != "" {
 		help += "  " + scrollInfo
 	}
-	b.WriteString(tuiHelpStyle.Render(help))
+	b.WriteString(tc.Help.Render(help))
 	b.WriteString("\n")
 
 	return b.String()
@@ -414,10 +413,10 @@ func renderSidebarStr(m listTUIModel, width, height int) string {
 		return "(no files)"
 	}
 
-	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(tuiBrandYellow)
-	dirStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
+	selectedStyle := lipgloss.NewStyle().Bold(true).Foreground(tc.BrandYellow)
+	dirStyle := tc.Cyan
 	fileStyle := lipgloss.NewStyle()
-	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	dimStyle := tc.Dim
 
 	total := len(m.treeNodes)
 	start := m.treeScroll

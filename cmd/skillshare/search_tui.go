@@ -7,7 +7,6 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"skillshare/internal/search"
 )
@@ -113,26 +112,11 @@ func newSearchSelectModel(results []search.SearchResult, isHub bool) searchSelec
 	}
 
 	delegate := list.NewDefaultDelegate()
-	delegate.ShowDescription = false
-	delegate.SetHeight(1)
-	delegate.SetSpacing(0)
-	delegate.Styles.NormalTitle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("15")).PaddingLeft(2)
-	delegate.Styles.NormalDesc = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).PaddingLeft(2)
-	delegate.Styles.SelectedTitle = lipgloss.NewStyle().Bold(true).
-		Foreground(tuiBrandYellow).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(tuiBrandYellow).PaddingLeft(1)
-	delegate.Styles.SelectedDesc = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(tuiBrandYellow).PaddingLeft(1)
+	configureDelegate(&delegate, true)
 
 	l := list.New(items, delegate, 0, 0)
 	l.Title = searchSelectTitle(0, len(results))
-	l.Styles.Title = lipgloss.NewStyle().
-		Bold(true).Foreground(lipgloss.Color("6"))
+	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)    // custom status line
 	l.SetFilteringEnabled(false) // application-level filter
 	l.SetShowHelp(false)
@@ -141,8 +125,8 @@ func newSearchSelectModel(results []search.SearchResult, isHub bool) searchSelec
 	// Filter text input
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tuiFilterStyle
-	fi.Cursor.Style = tuiFilterStyle
+	fi.PromptStyle = tc.Filter
+	fi.Cursor.Style = tc.Filter
 
 	return searchSelectModel{
 		list:        l,
@@ -335,7 +319,7 @@ func (m searchSelectModel) View() string {
 	}
 
 	help := "↑↓ navigate  ←→ page  space toggle  a all  enter install  s search again  / filter  esc cancel"
-	b.WriteString(tuiHelpStyle.Render(help))
+	b.WriteString(tc.Help.Render(help))
 	b.WriteString("\n")
 
 	return b.String()
@@ -353,13 +337,13 @@ func (m searchSelectModel) renderSearchFilterBar() string {
 // renderSearchDetailPanel renders the detail section for the selected search result.
 func (m searchSelectModel) renderSearchDetailPanel(r search.SearchResult) string {
 	var b strings.Builder
-	b.WriteString(tuiSeparatorStyle.Render("  ─────────────────────────────────────────"))
+	b.WriteString(tc.Separator.Render("  ─────────────────────────────────────────"))
 	b.WriteString("\n")
 
 	row := func(label, value string) {
 		b.WriteString("  ")
-		b.WriteString(tuiDetailLabelStyle.Render(label))
-		b.WriteString(tuiDetailValueStyle.Render(value))
+		b.WriteString(tc.Label.Render(label))
+		b.WriteString(tc.Value.Render(value))
 		b.WriteString("\n")
 	}
 
@@ -381,7 +365,7 @@ func (m searchSelectModel) renderSearchDetailPanel(r search.SearchResult) string
 		indent := strings.Repeat(" ", labelOffset)
 		for _, line := range lines[1:] {
 			b.WriteString(indent)
-			b.WriteString(tuiDetailValueStyle.Render(line))
+			b.WriteString(tc.Value.Render(line))
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
@@ -406,7 +390,7 @@ func (m searchSelectModel) renderSearchDetailPanel(r search.SearchResult) string
 		for i, tag := range r.Tags {
 			tags[i] = "#" + tag
 		}
-		row("Tags:", tuiTargetStyle.Render(strings.Join(tags, "  ")))
+		row("Tags:", tc.Target.Render(strings.Join(tags, "  ")))
 	}
 
 	return b.String()

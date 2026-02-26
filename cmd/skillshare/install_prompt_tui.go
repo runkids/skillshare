@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"skillshare/internal/install"
 )
@@ -86,25 +85,11 @@ func newDirPickerModel(skills []install.SkillInfo) dirPickerModel {
 	items := m.buildItems(skills, "")
 
 	delegate := list.NewDefaultDelegate()
-	delegate.ShowDescription = true
-	delegate.SetSpacing(0)
-	delegate.Styles.NormalTitle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("15")).PaddingLeft(2) // bright white
-	delegate.Styles.NormalDesc = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).PaddingLeft(2)
-	delegate.Styles.SelectedTitle = lipgloss.NewStyle().
-		Foreground(tuiBrandYellow).Bold(true).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(tuiBrandYellow).PaddingLeft(1)
-	delegate.Styles.SelectedDesc = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(tuiBrandYellow).PaddingLeft(1)
+	configureDelegate(&delegate, true)
 
 	l := list.New(items, delegate, 0, 0)
 	l.Title = "Select directory"
-	l.Styles.Title = lipgloss.NewStyle().
-		Bold(true).Foreground(lipgloss.Color("6"))
+	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -113,8 +98,8 @@ func newDirPickerModel(skills []install.SkillInfo) dirPickerModel {
 	// Filter text input
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tuiFilterStyle
-	fi.Cursor.Style = tuiFilterStyle
+	fi.PromptStyle = tc.Filter
+	fi.Cursor.Style = tc.Filter
 
 	m.list = l
 	m.allItems = items
@@ -324,7 +309,7 @@ func (m dirPickerModel) View() string {
 	} else {
 		help = "↑↓ navigate  enter select  / filter  q quit"
 	}
-	b.WriteString(tuiHelpStyle.Render(help))
+	b.WriteString(tc.Help.Render(help))
 	b.WriteString("\n")
 
 	return b.String()
@@ -421,15 +406,7 @@ func newSkillSelectModel(skills []install.SkillInfo) skillSelectModel {
 	items := makeSkillSelectItems(sorted, locs, sel)
 
 	delegate := list.NewDefaultDelegate()
-	delegate.ShowDescription = false
-	delegate.SetHeight(1)
-	delegate.SetSpacing(0)
-	delegate.Styles.NormalTitle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("15")).PaddingLeft(2) // bright white
-	delegate.Styles.SelectedTitle = lipgloss.NewStyle().Bold(true).
-		Foreground(tuiBrandYellow).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(tuiBrandYellow).PaddingLeft(1)
+	configureDelegate(&delegate, false)
 
 	// Keep typed allItems for filter
 	allItems := make([]skillSelectItem, len(items))
@@ -439,8 +416,7 @@ func newSkillSelectModel(skills []install.SkillInfo) skillSelectModel {
 
 	l := list.New(items, delegate, 0, 0)
 	l.Title = skillSelectTitle(0, len(sorted))
-	l.Styles.Title = lipgloss.NewStyle().
-		Bold(true).Foreground(lipgloss.Color("6"))
+	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -449,8 +425,8 @@ func newSkillSelectModel(skills []install.SkillInfo) skillSelectModel {
 	// Filter text input
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tuiFilterStyle
-	fi.Cursor.Style = tuiFilterStyle
+	fi.PromptStyle = tc.Filter
+	fi.Cursor.Style = tc.Filter
 
 	return skillSelectModel{
 		list:        l,
@@ -638,7 +614,7 @@ func (m skillSelectModel) View() string {
 	))
 
 	help := "↑↓ navigate  space toggle  a all  enter confirm  / filter  esc cancel"
-	b.WriteString(tuiHelpStyle.Render(help))
+	b.WriteString(tc.Help.Render(help))
 	b.WriteString("\n")
 
 	return b.String()

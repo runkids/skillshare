@@ -6,7 +6,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // checklistItemData holds the input data for a single checklist item.
@@ -94,29 +93,10 @@ func newChecklistModel(cfg checklistConfig) checklistModel {
 	listItems := makeChecklistItems(cfg.items, sel, cfg.singleSelect)
 
 	delegate := list.NewDefaultDelegate()
-	delegate.ShowDescription = hasDesc
-	if hasDesc {
-		delegate.SetSpacing(0)
-	} else {
-		delegate.SetHeight(1)
-		delegate.SetSpacing(0)
-	}
-	delegate.Styles.NormalTitle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("15")).PaddingLeft(2)
-	delegate.Styles.NormalDesc = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).PaddingLeft(2)
-	delegate.Styles.SelectedTitle = lipgloss.NewStyle().Bold(true).
-		Foreground(tuiBrandYellow).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(tuiBrandYellow).PaddingLeft(1)
-	delegate.Styles.SelectedDesc = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(tuiBrandYellow).PaddingLeft(1)
+	configureDelegate(&delegate, hasDesc)
 
 	l := list.New(listItems, delegate, 0, 0)
-	l.Styles.Title = lipgloss.NewStyle().
-		Bold(true).Foreground(lipgloss.Color("6"))
+	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(true)
 	l.SetFilteringEnabled(true)
 	l.SetShowHelp(false)
@@ -284,7 +264,7 @@ func (m checklistModel) View() string {
 	} else {
 		help = "↑↓ navigate  space toggle  a all  enter confirm  / filter  esc cancel"
 	}
-	b.WriteString(tuiHelpStyle.Render(help))
+	b.WriteString(tc.Help.Render(help))
 	b.WriteString("\n")
 
 	return b.String()
