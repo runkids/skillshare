@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
@@ -761,29 +762,71 @@ func installFromGlobalConfig(cfg *config.Config, opts install.InstallOptions) (i
 
 	ui.Logo(appversion.Version)
 	total := len(ctx.ConfigSkills())
-	spinner := ui.StartSpinner(fmt.Sprintf("Installing %d skill(s) from config...", total))
+	installStart := time.Now()
+
+	// Use quiet mode + TreeSpinner: suppress per-skill output, show summary
+	opts.Quiet = true
+	ui.StepStart("Installing", fmt.Sprintf("%d skill(s) from config", total))
+	treeSpinner := ui.StartTreeSpinner("Resolving skills...", false)
+	if ui.IsTTY() {
+		opts.OnProgress = func(line string) {
+			if text := parseGitProgressLine(line); text != "" {
+				treeSpinner.Update(text)
+			}
+		}
+	}
 
 	result, err := install.InstallFromConfig(ctx, opts)
-	if err != nil {
-		spinner.Fail("Install failed")
-		summary.InstalledSkills = result.InstalledSkills
-		summary.FailedSkills = result.FailedSkills
-		summary.SkillCount = len(result.InstalledSkills)
-		return summary, err
-	}
 
 	summary.InstalledSkills = result.InstalledSkills
 	summary.FailedSkills = result.FailedSkills
 	summary.SkillCount = len(result.InstalledSkills)
 
+	if err != nil {
+		treeSpinner.Fail("Install failed")
+		elapsed := time.Since(installStart)
+		parts := []string{fmt.Sprintf("Installed %d skill(s)", len(result.InstalledSkills))}
+		if len(result.FailedSkills) > 0 {
+			parts = append(parts, fmt.Sprintf("%d failed", len(result.FailedSkills)))
+		}
+		ui.StepResult("error", strings.Join(parts, ", "), elapsed)
+		return summary, err
+	}
+
 	if opts.DryRun {
-		spinner.Stop()
+		treeSpinner.Success("Ready")
 		return summary, nil
 	}
 
-	spinner.Success(fmt.Sprintf("Installed %d skill(s)", result.Installed))
-	ui.SectionLabel("Next Steps")
-	ui.Info("Run 'skillshare sync' to distribute to all targets")
+	treeSpinner.Success("Done")
+
+	elapsed := time.Since(installStart)
+	parts := []string{fmt.Sprintf("Installed %d skill(s)", result.Installed)}
+	if result.Skipped > 0 {
+		parts = append(parts, fmt.Sprintf("%d skipped", result.Skipped))
+	}
+	if len(result.FailedSkills) > 0 {
+		parts = append(parts, fmt.Sprintf("%d failed", len(result.FailedSkills)))
+	}
+	status := "success"
+	if len(result.FailedSkills) > 0 {
+		status = "error"
+	}
+	ui.StepResult(status, strings.Join(parts, ", "), elapsed)
+
+	// Show failed details
+	if len(result.FailedSkills) > 0 {
+		fmt.Println()
+		for _, name := range result.FailedSkills {
+			ui.StepFail(name, "install failed")
+		}
+	}
+
+	// Sync hint
+	if result.Installed > 0 {
+		fmt.Println()
+		ui.Info("Run 'skillshare sync' to distribute to all targets")
+	}
 
 	return summary, nil
 }

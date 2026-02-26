@@ -33,7 +33,7 @@ skills:
 	result := sb.RunCLI("install", "--global")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "skipped (already exists)")
+	result.AssertAnyOutputContains(t, "1 skipped")
 }
 
 func TestInstall_Global_FromConfig_EmptySkills(t *testing.T) {

@@ -485,15 +485,24 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 	if result.Skill != "" {
 		opts.Skills = []string{result.Skill}
 	}
+	if ui.IsTTY() {
+		opts.OnProgress = func(line string) {
+			if text := parseGitProgressLine(line); text != "" {
+				spinner.Update(text)
+			}
+		}
+	}
 
 	installResult, err := install.Install(source, destPath, opts)
 	if err != nil {
 		spinner.Fail("Failed to install")
 		logSummary.FailedSkills = []string{result.Name}
+		elapsed := time.Since(start)
+		ui.StepResult("error", fmt.Sprintf("Failed to install %s", result.Name), elapsed)
 		return err
 	}
 
-	spinner.Success(fmt.Sprintf("Installed: %s", result.Name))
+	spinner.Success("Cloned")
 	logSummary.SkillCount = 1
 	logSummary.InstalledSkills = []string{result.Name}
 
@@ -511,6 +520,10 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 		return err
 	}
 
+	elapsed := time.Since(start)
+	ui.StepResult("success", fmt.Sprintf("Installed %s", result.Name), elapsed)
+
+	// Sync hint
 	fmt.Println()
 	ui.Info("Run 'skillshare sync' to distribute to project targets")
 
@@ -552,15 +565,24 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 	if result.Skill != "" {
 		opts.Skills = []string{result.Skill}
 	}
+	if ui.IsTTY() {
+		opts.OnProgress = func(line string) {
+			if text := parseGitProgressLine(line); text != "" {
+				spinner.Update(text)
+			}
+		}
+	}
 
 	installResult, err := install.Install(source, destPath, opts)
 	if err != nil {
 		spinner.Fail("Failed to install")
 		logSummary.FailedSkills = []string{result.Name}
+		elapsed := time.Since(start)
+		ui.StepResult("error", fmt.Sprintf("Failed to install %s", result.Name), elapsed)
 		return err
 	}
 
-	spinner.Success(fmt.Sprintf("Installed: %s", result.Name))
+	spinner.Success("Cloned")
 	logSummary.SkillCount = 1
 	logSummary.InstalledSkills = []string{result.Name}
 
@@ -578,7 +600,10 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 		ui.Warning("%s", warning)
 	}
 
-	// Next steps
+	elapsed := time.Since(start)
+	ui.StepResult("success", fmt.Sprintf("Installed %s", result.Name), elapsed)
+
+	// Sync hint
 	fmt.Println()
 	ui.Info("Run 'skillshare sync' to distribute to all targets")
 

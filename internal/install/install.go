@@ -19,6 +19,7 @@ type InstallOptions struct {
 	AuditVerbose     bool     // Print full audit findings in CLI output (default is compact summary)
 	AuditThreshold   string   // Block threshold: CRITICAL/HIGH/MEDIUM/LOW/INFO
 	AuditProjectRoot string   // Project root for project-mode audit rule resolution
+	Quiet            bool     // Suppress per-skill output in InstallFromConfig
 }
 
 // ShouldInstallAll returns true if all discovered skills should be installed without prompting.
