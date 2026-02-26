@@ -14,6 +14,7 @@ import (
 	"github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/glamour/styles"
 	"github.com/charmbracelet/lipgloss"
+	xansi "github.com/charmbracelet/x/ansi"
 )
 
 // treeNode represents a file or directory in the sidebar tree.
@@ -191,12 +192,14 @@ func loadContentFile(m *listTUIModel) {
 		return
 	}
 
+	w := m.contentPanelWidth()
+
 	if strings.HasSuffix(strings.ToLower(node.name), ".md") {
-		m.contentText = renderMarkdown(rawText, m.contentPanelWidth())
+		m.contentText = hardWrapContent(renderMarkdown(rawText, w), w)
 		return
 	}
 
-	m.contentText = rawText
+	m.contentText = hardWrapContent(rawText, w)
 }
 
 // autoPreviewFile loads the file under treeCursor if it's not a directory.
@@ -221,6 +224,16 @@ func (m *listTUIModel) contentPanelWidth() int {
 		w = 40
 	}
 	return w
+}
+
+// hardWrapContent hard-wraps content so every logical line fits within width.
+// This ensures scroll calculations (based on line count) match the visual
+// line count in the panel, preventing bottom content from being clipped.
+func hardWrapContent(text string, width int) string {
+	if width <= 0 {
+		return text
+	}
+	return xansi.Hardwrap(text, width, false)
 }
 
 // ─── Glamour Markdown Rendering ──────────────────────────────────────
@@ -566,8 +579,9 @@ func (m listTUIModel) handleContentMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) 
 // ─── Tree Navigation Helpers ─────────────────────────────────────────
 
 // contentViewHeight returns the usable height for the content area.
+// Reserves extra lines as breathing room above the help bar.
 func (m *listTUIModel) contentViewHeight() int {
-	h := m.termHeight - 4
+	h := m.termHeight - 5
 	if h < 5 {
 		h = 5
 	}
