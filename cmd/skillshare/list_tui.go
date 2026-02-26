@@ -112,7 +112,7 @@ type listTUIModel struct {
 	filtering   bool            // true when filter input is focused
 	matchCount  int             // total matches (may exceed maxListItems)
 
-	// Content viewer overlay — dual-pane tree sidebar + content viewer
+	// Content viewer overlay — dual-pane: left tree + right content
 	showContent     bool
 	contentScroll   int
 	contentText     string     // current file content (rendered)
@@ -122,7 +122,6 @@ type listTUIModel struct {
 	treeNodes       []treeNode // visible nodes (collapsed children hidden)
 	treeCursor      int        // selected index in treeNodes
 	treeScroll      int        // scroll offset for sidebar
-	sidebarFocused  bool       // true = left panel focused, false = right panel
 }
 
 // newListTUIModel creates a new TUI model.
@@ -281,80 +280,9 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// --- Content viewer mode: dual-pane tree + content ---
+		// --- Content viewer: dual-pane (keyboard always controls left tree) ---
 		if m.showContent {
-			switch msg.String() {
-			case "esc":
-				if m.sidebarFocused {
-					m.sidebarFocused = false
-				} else {
-					m.showContent = false
-				}
-				return m, nil
-			case "q", "ctrl+c":
-				m.quitting = true
-				return m, tea.Quit
-			case "tab":
-				m.sidebarFocused = !m.sidebarFocused
-				return m, nil
-			case "h", "left":
-				if m.sidebarFocused {
-					// Collapse current dir or jump to parent
-					collapseOrParent(&m)
-				} else {
-					m.sidebarFocused = true
-				}
-				return m, nil
-			case "l", "right":
-				if m.sidebarFocused && len(m.treeNodes) > 0 && m.treeCursor < len(m.treeNodes) {
-					node := m.treeNodes[m.treeCursor]
-					if node.isDir {
-						expandDir(&m)
-					} else {
-						// File already previewed — switch to content for scrolling
-						m.sidebarFocused = false
-					}
-				} else {
-					m.sidebarFocused = false
-				}
-				return m, nil
-			case "j", "down":
-				if m.sidebarFocused {
-					if m.treeCursor < len(m.treeNodes)-1 {
-						m.treeCursor++
-						m.ensureTreeCursorVisible()
-						autoPreviewFile(&m)
-					}
-				} else {
-					max := m.contentMaxScroll()
-					if m.contentScroll < max {
-						m.contentScroll++
-					}
-				}
-				return m, nil
-			case "k", "up":
-				if m.sidebarFocused {
-					if m.treeCursor > 0 {
-						m.treeCursor--
-						m.ensureTreeCursorVisible()
-						autoPreviewFile(&m)
-					}
-				} else {
-					if m.contentScroll > 0 {
-						m.contentScroll--
-					}
-				}
-				return m, nil
-			case "enter":
-				if m.sidebarFocused && len(m.treeNodes) > 0 && m.treeCursor < len(m.treeNodes) {
-					node := m.treeNodes[m.treeCursor]
-					if node.isDir {
-						toggleTreeDir(&m)
-					}
-				}
-				return m, nil
-			}
-			return m, nil
+			return m.handleContentKey(msg)
 		}
 
 		// --- Filter mode: route keys to filterInput ---
@@ -429,7 +357,7 @@ func (m listTUIModel) View() string {
 		return fmt.Sprintf("\n  %s Loading skills...\n", m.loadSpinner.View())
 	}
 
-	// Content viewer overlay — full-screen
+	// Content viewer — dual-pane
 	if m.showContent {
 		return renderContentOverlay(m)
 	}

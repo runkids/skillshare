@@ -28,7 +28,7 @@ On a TTY, `skillshare list` launches an interactive terminal UI with:
 - **Fuzzy filtering** — type to filter by name, path, or source
 - **Keyboard navigation** — arrow keys to browse, `q` to quit
 - **Detail panel** — shows description, disk path, files, and synced targets for the selected skill
-- **Content viewer** — press `Enter` to open a dual-pane viewer with a file tree sidebar and Markdown-rendered content. Navigate the tree with `h`/`l` to switch panels, `j`/`k` to move, and `Enter` to open files or toggle directories. Mouse wheel and click are also supported.
+- **Content viewer** — press `Enter` to open a dual-pane viewer with a file tree on the left and Markdown-rendered content on the right. `j`/`k` browse files (auto-preview), `l`/`Enter` expand directories, `h` collapse. `Ctrl+d`/`u` scroll content half-page, `g`/`G` jump to top/bottom. Mouse wheel and click are also supported.
 
 Use `--no-tui` to skip the TUI and print plain text instead:
 
