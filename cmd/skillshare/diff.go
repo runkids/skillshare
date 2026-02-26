@@ -566,22 +566,78 @@ func diffFingerprint(items []copyDiffEntry) string {
 	return b.String()
 }
 
+// actionCategory groups diff items by the user action needed.
+type actionCategory struct {
+	kind   string   // "sync", "force", "collect", "warn"
+	label  string   // e.g. "sync will add"
+	names  []string
+	expand bool // true = list skill names
+}
+
+// categorizeItems maps raw diff items to action-oriented categories.
+func categorizeItems(items []copyDiffEntry) []actionCategory {
+	type bucket struct {
+		kind  string
+		label string
+		names []string
+	}
+	buckets := map[string]*bucket{}
+	var order []string
+
+	add := func(key, kind, label, name string) {
+		if b, ok := buckets[key]; ok {
+			b.names = append(b.names, name)
+		} else {
+			buckets[key] = &bucket{kind: kind, label: label, names: []string{name}}
+			order = append(order, key)
+		}
+	}
+
+	for _, item := range items {
+		switch {
+		case item.reason == "source only":
+			add("sync-add", "sync", "sync will add", item.name)
+		case item.reason == "deleted from target":
+			add("sync-restore", "sync", "sync will restore", item.name)
+		case item.reason == "content changed":
+			add("sync-update", "sync", "sync will update", item.name)
+		case strings.Contains(item.reason, "local copy"):
+			add("force", "force", "local copies (sync --force to replace)", item.name)
+		case strings.Contains(item.reason, "orphan"):
+			add("sync-prune", "sync", "sync will prune", item.name)
+		case item.reason == "local only" || item.reason == "not in source":
+			add("collect", "collect", "collect will import", item.name)
+		default:
+			add("warn", "warn", item.reason, item.name)
+		}
+	}
+
+	var cats []actionCategory
+	for _, key := range order {
+		b := buckets[key]
+		expand := len(b.names) <= 15
+		cats = append(cats, actionCategory{
+			kind:   b.kind,
+			label:  b.label,
+			names:  b.names,
+			expand: expand,
+		})
+	}
+	return cats
+}
+
 // renderGroupedDiffs groups targets with identical diff results and renders
 // merged output. Targets with errors are always shown individually.
 func renderGroupedDiffs(results []targetDiffResult) {
-	// Sort results by name for deterministic output
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].name < results[j].name
 	})
 
-	// Separate error targets from normal targets
 	var errorResults []targetDiffResult
 	var syncedNames []string
 	type diffGroup struct {
-		names   []string
-		result  targetDiffResult // representative
-		include []string
-		exclude []string
+		names  []string
+		result targetDiffResult
 	}
 	groups := make(map[string]*diffGroup)
 	var groupOrder []string
@@ -598,148 +654,110 @@ func renderGroupedDiffs(results []targetDiffResult) {
 		fp := diffFingerprint(r.items)
 		if g, exists := groups[fp]; exists {
 			g.names = append(g.names, r.name)
-			// Merge include/exclude for display if they differ
-			if len(r.include) > 0 || len(r.exclude) > 0 {
-				g.include = nil
-				g.exclude = nil
-			}
 		} else {
-			groups[fp] = &diffGroup{
-				names:   []string{r.name},
-				result:  r,
-				include: r.include,
-				exclude: r.exclude,
-			}
+			groups[fp] = &diffGroup{names: []string{r.name}, result: r}
 			groupOrder = append(groupOrder, fp)
 		}
 	}
 
-	// Render error targets individually
+	// Overall summary (skip when all targets are fully synced — the ✓ line is enough)
+	needCount := 0
+	for _, g := range groups {
+		needCount += len(g.names)
+	}
+	if needCount > 0 || len(errorResults) > 0 {
+		renderOverallSummary(len(errorResults), needCount, len(syncedNames))
+	}
+
+	// Error targets
 	for _, r := range errorResults {
 		ui.Header(r.name)
 		ui.Warning("%s", r.errMsg)
 	}
 
-	// Render grouped diff results; track whether hints are needed across all groups
-	var anySyncNeeded, anyLocalOnly, anyCopyMode bool
+	// Grouped diffs
+	var anySyncNeeded, anyForceNeeded, anyCollectNeeded bool
 	for _, fp := range groupOrder {
 		g := groups[fp]
 		sort.Strings(g.names)
 		ui.Header(strings.Join(g.names, ", "))
 
-		// Show include/exclude only if all targets in group share the same filter
-		if len(g.names) == 1 {
-			if len(g.include) > 0 {
-				ui.Info("  include: %s", strings.Join(g.include, ", "))
-			}
-			if len(g.exclude) > 0 {
-				ui.Info("  exclude: %s", strings.Join(g.exclude, ", "))
-			}
-		}
-
-		// Sort items by name for stable output
 		items := make([]copyDiffEntry, len(g.result.items))
 		copy(items, g.result.items)
 		sort.Slice(items, func(i, j int) bool {
 			return items[i].name < items[j].name
 		})
 
-		for _, item := range items {
-			if item.isSync {
+		cats := categorizeItems(items)
+		for _, cat := range cats {
+			n := len(cat.names)
+			switch cat.kind {
+			case "sync":
 				anySyncNeeded = true
-			} else {
-				anyLocalOnly = true
+			case "force":
+				anyForceNeeded = true
+			case "collect":
+				anyCollectNeeded = true
 			}
-		}
-		if g.result.mode == "copy" {
-			anyCopyMode = true
-		}
 
-		// Group items by (action, reason) for compact summary output
-		type diffSummaryGroup struct {
-			action string
-			reason string
-			count  int
-			names  []string // nil for reasons we don't expand (e.g. "local copy")
-		}
-		summaryMap := make(map[string]*diffSummaryGroup)
-		var summaryKeys []string
-		for _, item := range items {
-			key := item.action + "|" + item.reason
-			if sg, ok := summaryMap[key]; ok {
-				sg.count++
-				if sg.names != nil {
-					sg.names = append(sg.names, item.name)
+			skillWord := "skills"
+			if n == 1 {
+				skillWord = "skill"
+			}
+			if cat.expand && n > 0 {
+				ui.ActionLine(cat.kind, fmt.Sprintf("%s %d %s:", cat.label, n, skillWord))
+				for _, name := range cat.names {
+					fmt.Printf("      %s\n", name)
 				}
 			} else {
-				sg := &diffSummaryGroup{
-					action: item.action,
-					reason: item.reason,
-					count:  1,
-				}
-				// "local copy" reasons are too numerous to list individually
-				if !strings.Contains(item.reason, "local copy") {
-					sg.names = []string{item.name}
-				}
-				summaryMap[key] = sg
-				summaryKeys = append(summaryKeys, key)
-			}
-		}
-		sort.Slice(summaryKeys, func(i, j int) bool {
-			gi, gj := summaryMap[summaryKeys[i]], summaryMap[summaryKeys[j]]
-			oi, oj := diffActionOrder(gi.action), diffActionOrder(gj.action)
-			if oi != oj {
-				return oi < oj
-			}
-			return gi.reason < gj.reason
-		})
-		for _, key := range summaryKeys {
-			sg := summaryMap[key]
-			if sg.names != nil && len(sg.names) > 0 {
-				ui.DiffItem(sg.action, fmt.Sprintf("%d %s:", sg.count, sg.reason), "")
-				for _, n := range sg.names {
-					fmt.Printf("      %s\n", n)
-				}
-			} else {
-				ui.DiffItem(sg.action, fmt.Sprintf("%d %s", sg.count, sg.reason), "")
+				ui.ActionLine(cat.kind, fmt.Sprintf("%s %d %s", cat.label, n, skillWord))
 			}
 		}
 	}
 
-	// Print action hints once after all groups
-	if anySyncNeeded || anyLocalOnly {
+	// Conditional hints
+	if anySyncNeeded || anyForceNeeded || anyCollectNeeded {
 		fmt.Println()
 	}
-	if anySyncNeeded {
-		if anyCopyMode {
-			ui.Info("Run 'sync' to copy missing, 'sync --force' to replace local copies")
+	if anySyncNeeded || anyForceNeeded {
+		if anyForceNeeded {
+			ui.Info("Run 'skillshare sync' to apply changes, 'skillshare sync --force' to also replace local copies")
 		} else {
-			ui.Info("Run 'sync' to add missing, 'sync --force' to replace local copies")
+			ui.Info("Run 'skillshare sync' to apply changes")
 		}
 	}
-	if anyLocalOnly {
-		ui.Info("Run 'collect' to import local-only skills to source")
+	if anyCollectNeeded {
+		ui.Info("Run 'skillshare collect' to import local skills to source")
 	}
 
-	// Render fully synced targets as a single line
+	// Fully synced
 	if len(syncedNames) > 0 {
 		sort.Strings(syncedNames)
 		ui.Success("%s: fully synced", strings.Join(syncedNames, ", "))
 	}
 }
 
-// diffActionOrder returns a sort key: add=0, modify=1, remove=2.
-func diffActionOrder(action string) int {
-	switch action {
-	case "add":
-		return 0
-	case "modify":
-		return 1
-	case "remove":
-		return 2
-	default:
-		return 3
+func renderOverallSummary(errCount, needCount, syncCount int) {
+	var parts []string
+	if errCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d target%s inaccessible", errCount, pluralS(errCount)))
 	}
+	if needCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d target%s need sync", needCount, pluralS(needCount)))
+	}
+	if syncCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d fully synced", syncCount))
+	}
+	if len(parts) > 0 {
+		fmt.Printf("\n%s\n", strings.Join(parts, ", "))
+	}
+}
+
+func pluralS(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
 }
 
 func printDiffHelp() {
