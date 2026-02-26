@@ -26,7 +26,7 @@ type AuditConfig struct {
 
 // LogConfig holds log retention settings.
 type LogConfig struct {
-	MaxEntries int `yaml:"max_entries,omitempty"` // 0 = unlimited
+	MaxEntries *int `yaml:"max_entries,omitempty"` // nil = use default (1000), 0 = unlimited, >0 = limit
 }
 
 // HubEntry represents a single saved hub source.

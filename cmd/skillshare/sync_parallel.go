@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	gosync "sync"
 	"time"
@@ -366,7 +367,7 @@ func runParallelSync(entries []syncTargetEntry, source string, skills []sync.Dis
 	groups := make(map[string][]indexedEntry)
 	var groupOrder []string
 	for i, e := range entries {
-		p := e.target.Path
+		p := canonicalPath(e.target.Path)
 		if _, seen := groups[p]; !seen {
 			groupOrder = append(groupOrder, p)
 		}
@@ -406,4 +407,35 @@ func runParallelSync(entries []syncTargetEntry, source string, skills []sync.Dis
 		}
 	}
 	return results, failedTargets
+}
+
+// canonicalPath resolves a target path to a canonical form for grouping.
+// This prevents the same physical directory from being placed in different
+// groups due to trailing slashes, relative segments, or symlink aliases.
+//
+// When the full path doesn't exist (e.g. /link/skills where /link is a symlink
+// but skills/ hasn't been created yet), we resolve the longest existing ancestor
+// and re-append the remaining segments so that symlink aliases still converge.
+func canonicalPath(p string) string {
+	cleaned := filepath.Clean(p)
+	abs, err := filepath.Abs(cleaned)
+	if err != nil {
+		return cleaned
+	}
+	// Fast path: entire path exists and can be resolved.
+	if resolved, err := filepath.EvalSymlinks(abs); err == nil {
+		return resolved
+	}
+	// Slow path: walk up to the nearest existing ancestor, resolve it,
+	// then re-append the non-existent tail segments.
+	parent, tail := filepath.Dir(abs), filepath.Base(abs)
+	for parent != abs {
+		if resolved, err := filepath.EvalSymlinks(parent); err == nil {
+			return filepath.Join(resolved, tail)
+		}
+		abs = parent
+		tail = filepath.Join(filepath.Base(parent), tail)
+		parent = filepath.Dir(parent)
+	}
+	return abs
 }

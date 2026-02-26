@@ -188,15 +188,16 @@ func printLogEntriesJSON(w io.Writer, entries []oplog.Entry) error {
 }
 
 // logMaxEntries returns the configured max log entries, defaulting to 1000.
+// nil (not set) → 1000, 0 → unlimited (passed as 0 to WriteWithLimit), >0 → use value, <0 → default.
 func logMaxEntries() int {
 	cfg, err := config.Load()
 	if err != nil {
 		return config.DefaultLogMaxEntries
 	}
-	if cfg.Log.MaxEntries > 0 {
-		return cfg.Log.MaxEntries
+	if cfg.Log.MaxEntries == nil || *cfg.Log.MaxEntries < 0 {
+		return config.DefaultLogMaxEntries
 	}
-	return config.DefaultLogMaxEntries
+	return *cfg.Log.MaxEntries
 }
 
 // statusFromErr returns "ok" for nil errors and "error" otherwise.
