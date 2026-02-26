@@ -73,6 +73,7 @@ type listTUIModel struct {
 	loadSpinner spinner.Model
 	loadFn      listLoadFn
 	loadErr     error // non-nil if loading failed
+	emptyResult bool  // true when async load returned zero skills
 
 	// Application-level filter — replaces bubbles/list built-in fuzzy filter
 	// to avoid O(N*M) fuzzy scan on 100k+ items every keystroke.
@@ -210,6 +211,11 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loadFn = nil // release closure for GC
 		if msg.result.err != nil {
 			m.loadErr = msg.result.err
+			m.quitting = true
+			return m, tea.Quit
+		}
+		if msg.result.totalCount == 0 {
+			m.emptyResult = true
 			m.quitting = true
 			return m, tea.Quit
 		}
@@ -568,6 +574,9 @@ func runListTUI(loadFn listLoadFn, modeLabel, sourcePath string, targets map[str
 	if !ok || m.action == "" {
 		if m.loadErr != nil {
 			return "", "", m.loadErr
+		}
+		if m.emptyResult {
+			return "empty", "", nil
 		}
 		return "", "", nil
 	}

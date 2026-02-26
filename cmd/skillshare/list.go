@@ -525,6 +525,10 @@ func cmdList(args []string) error {
 			return err
 		}
 		switch action {
+		case "empty":
+			ui.Info("No skills installed")
+			ui.Info("Use 'skillshare install <source>' to install a skill")
+			return nil
 		case "audit":
 			return cmdAudit([]string{skillName})
 		case "update":
