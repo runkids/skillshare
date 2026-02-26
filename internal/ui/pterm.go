@@ -422,67 +422,33 @@ func UpdateNotification(currentVersion, latestVersion string) {
 	box.Println(content)
 }
 
-// SyncSummary prints a beautiful sync summary box
+// SyncSummary prints a sync summary line.
 func SyncSummary(stats SyncStats) {
+	fmt.Println() // spacing
+
 	if !IsTTY() {
-		fmt.Printf("\n─── Sync Complete ───\n")
-		fmt.Printf("  Targets: %d  Linked: %d  Local: %d  Updated: %d  Pruned: %d\n",
+		fmt.Printf("Sync complete: %d targets, %d linked, %d local, %d updated, %d pruned",
 			stats.Targets, stats.Linked, stats.Local, stats.Updated, stats.Pruned)
 		if stats.Duration > 0 {
-			fmt.Printf("  Duration: %.1fs\n", stats.Duration.Seconds())
+			fmt.Printf(" (%.1fs)", stats.Duration.Seconds())
 		}
+		fmt.Println()
 		return
 	}
 
-	// Build stats line with colors
-	statsLine := fmt.Sprintf(
-		"  %s targets  %s linked  %s local  %s updated  %s pruned",
+	line := fmt.Sprintf(
+		"%s  %s targets  %s linked  %s local  %s updated  %s pruned",
+		pterm.Green("✓ Sync complete"),
 		pterm.Cyan(fmt.Sprint(stats.Targets)),
 		pterm.Green(fmt.Sprint(stats.Linked)),
 		pterm.Blue(fmt.Sprint(stats.Local)),
 		pterm.Yellow(fmt.Sprint(stats.Updated)),
 		pterm.Gray(fmt.Sprint(stats.Pruned)),
 	)
-
-	var durationLine string
 	if stats.Duration > 0 {
-		durationLine = fmt.Sprintf("  Completed in %s", pterm.Gray(fmt.Sprintf("%.1fs", stats.Duration.Seconds())))
+		line += fmt.Sprintf("  %s", pterm.Gray(fmt.Sprintf("(%.1fs)", stats.Duration.Seconds())))
 	}
-
-	// Build content with proper padding
-	lines := []string{"", statsLine}
-	if durationLine != "" {
-		lines = append(lines, durationLine)
-	}
-	lines = append(lines, "")
-
-	// Find max display width
-	maxLen := 0
-	for _, line := range lines {
-		w := displayWidth(line)
-		if w > maxLen {
-			maxLen = w
-		}
-	}
-
-	// Pad lines
-	var content strings.Builder
-	for i, line := range lines {
-		padded := line
-		w := displayWidth(line)
-		if w < maxLen {
-			padded = line + strings.Repeat(" ", maxLen-w)
-		}
-		content.WriteString(padded)
-		if i < len(lines)-1 {
-			content.WriteString("\n")
-		}
-	}
-
-	box := pterm.DefaultBox.
-		WithTitle(pterm.Green("✓ Sync Complete")).
-		WithBoxStyle(pterm.NewStyle(pterm.FgGreen))
-	box.Println(content.String())
+	fmt.Println(line)
 }
 
 // SyncStats holds statistics for sync summary

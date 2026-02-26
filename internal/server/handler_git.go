@@ -218,6 +218,9 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 			globalMode = "merge"
 		}
 
+		// Discover skills once for all targets
+		allSkills, discoverErr := ssync.DiscoverSourceSkills(src)
+
 		for name, target := range s.cfg.Targets {
 			mode := target.Mode
 			if mode == "" {
@@ -232,18 +235,38 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 				Pruned:  make([]string, 0),
 			}
 
-			if mode == "merge" {
-				mergeResult, err := ssync.SyncTargetMerge(name, target, src, false, false)
+			if discoverErr != nil {
+				resp.SyncResults = append(resp.SyncResults, res)
+				continue
+			}
+
+			switch mode {
+			case "merge":
+				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, false, false)
 				if err == nil {
 					res.Linked = mergeResult.Linked
 					res.Updated = mergeResult.Updated
 					res.Skipped = mergeResult.Skipped
 				}
-				pruneResult, err := ssync.PruneOrphanLinks(target.Path, src, target.Include, target.Exclude, name, false, false)
+				pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
+					TargetPath: target.Path, SourcePath: src, Skills: allSkills,
+					Include: target.Include, Exclude: target.Exclude, TargetName: name,
+				})
 				if err == nil {
 					res.Pruned = pruneResult.Removed
 				}
-			} else {
+			case "copy":
+				copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, false, false, nil)
+				if err == nil {
+					res.Linked = copyResult.Copied
+					res.Updated = copyResult.Updated
+					res.Skipped = copyResult.Skipped
+				}
+				pruneResult, err := ssync.PruneOrphanCopiesWithSkills(target.Path, allSkills, target.Include, target.Exclude, name, false)
+				if err == nil {
+					res.Pruned = pruneResult.Removed
+				}
+			default:
 				ssync.SyncTarget(name, target, src, false)
 				res.Linked = []string{"(symlink mode)"}
 			}

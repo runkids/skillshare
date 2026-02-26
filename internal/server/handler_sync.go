@@ -37,6 +37,13 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		globalMode = "merge"
 	}
 
+	// Discover skills once for all targets
+	allSkills, err := ssync.DiscoverSourceSkills(s.cfg.Source)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
+		return
+	}
+
 	results := make([]syncTargetResult, 0)
 
 	for name, target := range s.cfg.Targets {
@@ -64,7 +71,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 		switch mode {
 		case "merge":
-			mergeResult, err := ssync.SyncTargetMerge(name, target, s.cfg.Source, body.DryRun, body.Force)
+			mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, body.DryRun, body.Force)
 			if err != nil {
 				s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
 				writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
@@ -74,13 +81,17 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			res.Updated = mergeResult.Updated
 			res.Skipped = mergeResult.Skipped
 
-			pruneResult, err := ssync.PruneOrphanLinks(target.Path, s.cfg.Source, target.Include, target.Exclude, name, body.DryRun, body.Force)
+			pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
+				TargetPath: target.Path, SourcePath: s.cfg.Source, Skills: allSkills,
+				Include: target.Include, Exclude: target.Exclude, TargetName: name,
+				DryRun: body.DryRun, Force: body.Force,
+			})
 			if err == nil {
 				res.Pruned = pruneResult.Removed
 			}
 
 		case "copy":
-			copyResult, err := ssync.SyncTargetCopy(name, target, s.cfg.Source, body.DryRun, body.Force)
+			copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, body.DryRun, body.Force, nil)
 			if err != nil {
 				s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
 				writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
@@ -90,7 +101,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			res.Updated = copyResult.Updated
 			res.Skipped = copyResult.Skipped
 
-			pruneResult, err := ssync.PruneOrphanCopies(target.Path, s.cfg.Source, target.Include, target.Exclude, name, body.DryRun)
+			pruneResult, err := ssync.PruneOrphanCopiesWithSkills(target.Path, allSkills, target.Include, target.Exclude, name, body.DryRun)
 			if err == nil {
 				res.Pruned = pruneResult.Removed
 			}
