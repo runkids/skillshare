@@ -45,33 +45,37 @@ func cmdDiffProject(root, targetName string) error {
 		}
 	}
 
-	// Build sorted name list for progress display
-	names := make([]string, len(targets))
-	for i, entry := range targets {
-		names[i] = entry.Name
+	// Pre-filter skills per target and compute total for progress bar
+	type resolvedTarget struct {
+		name     string
+		target   config.TargetConfig
+		mode     string
+		filtered []sync.DiscoveredSkill
 	}
-	progress := newDiffProgress(names)
-
-	var results []targetDiffResult
-	for i, entry := range targets {
+	var resolved []resolvedTarget
+	totalSkills := 0
+	for _, entry := range targets {
 		target, ok := runtime.targets[entry.Name]
 		if !ok {
-			progress.stop()
 			return fmt.Errorf("target '%s' not resolved", entry.Name)
 		}
-
 		filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
 		if err != nil {
-			progress.stop()
 			return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)
 		}
 		mode := target.Mode
 		if mode == "" {
 			mode = "merge"
 		}
-		progress.startTarget(i)
-		r := collectTargetDiff(entry.Name, target, runtime.sourcePath, mode, filtered, progress, i)
-		progress.doneTarget(i, r)
+		resolved = append(resolved, resolvedTarget{entry.Name, target, mode, filtered})
+		totalSkills += len(filtered)
+	}
+
+	progress := newDiffProgress(totalSkills)
+
+	var results []targetDiffResult
+	for _, rt := range resolved {
+		r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.filtered, progress)
 		results = append(results, r)
 	}
 
