@@ -306,26 +306,40 @@ func (s uninstallTypeSummary) noun() string {
 	total := s.skills + s.groups + s.trackedRepos
 	switch {
 	case s.groups == total:
-		return "group(s)"
+		return fmt.Sprintf("group%s", pluralS(total))
 	case s.skills == total:
-		return "skill(s)"
+		return fmt.Sprintf("skill%s", pluralS(total))
 	case s.trackedRepos == total:
-		return "tracked repo(s)"
+		return fmt.Sprintf("tracked repo%s", pluralS(total))
 	default:
-		return "target(s)"
+		return fmt.Sprintf("target%s", pluralS(total))
 	}
+}
+
+func (s uninstallTypeSummary) isMixed() bool {
+	types := 0
+	if s.skills > 0 {
+		types++
+	}
+	if s.groups > 0 {
+		types++
+	}
+	if s.trackedRepos > 0 {
+		types++
+	}
+	return types > 1
 }
 
 func (s uninstallTypeSummary) details() string {
 	var parts []string
 	if s.skills > 0 {
-		parts = append(parts, fmt.Sprintf("%d skill(s)", s.skills))
+		parts = append(parts, fmt.Sprintf("%d skill%s", s.skills, pluralS(s.skills)))
 	}
 	if s.groups > 0 {
-		parts = append(parts, fmt.Sprintf("%d group(s)", s.groups))
+		parts = append(parts, fmt.Sprintf("%d group%s", s.groups, pluralS(s.groups)))
 	}
 	if s.trackedRepos > 0 {
-		parts = append(parts, fmt.Sprintf("%d tracked repo(s)", s.trackedRepos))
+		parts = append(parts, fmt.Sprintf("%d tracked repo%s", s.trackedRepos, pluralS(s.trackedRepos)))
 	}
 	return strings.Join(parts, ", ")
 }
@@ -423,7 +437,7 @@ func performUninstallQuiet(target *uninstallTarget, cfg *config.Config) (typeLab
 		return "tracked repo", nil
 	}
 	if groupSkillCount > 0 {
-		return fmt.Sprintf("group, %d skills", groupSkillCount), nil
+		return fmt.Sprintf("group, %d skill%s", groupSkillCount, pluralS(groupSkillCount)), nil
 	}
 	return "skill", nil
 }
@@ -467,7 +481,7 @@ func performUninstall(target *uninstallTarget, cfg *config.Config) error {
 
 	// Opportunistic cleanup of expired trash items
 	if n, _ := trash.Cleanup(trash.TrashDir(), 0); n > 0 {
-		ui.Info("Cleaned up %d expired trash item(s)", n)
+		ui.Info("Cleaned up %d expired trash item%s", n, pluralS(n))
 	}
 
 	return nil
@@ -608,14 +622,14 @@ func cmdUninstall(args []string) error {
 				if t.isTrackedRepo {
 					fmt.Printf("  - %s (tracked repository)\n", t.name)
 				} else if c := summary.groupSkillCount[t.path]; c > 0 {
-					fmt.Printf("  - %s (group, %d skills)\n", t.name, c)
+					fmt.Printf("  - %s (group, %d skill%s)\n", t.name, c, pluralS(c))
 				}
 			}
 			if summary.skills > 0 {
-				fmt.Printf("  ... and %d skill(s)\n", summary.skills)
+				fmt.Printf("  ... and %d skill%s\n", summary.skills, pluralS(summary.skills))
 			}
 		} else {
-			if summary.noun() == "target(s)" {
+			if summary.isMixed() {
 				ui.Info("Includes: %s", summary.details())
 			}
 			for _, t := range targets {
@@ -623,7 +637,7 @@ func cmdUninstall(args []string) error {
 				if t.isTrackedRepo {
 					label += " (tracked repository)"
 				} else if c := summary.groupSkillCount[t.path]; c > 0 {
-					label += fmt.Sprintf(" (group, %d skills)", c)
+					label += fmt.Sprintf(" (group, %d skill%s)", c, pluralS(c))
 				} else {
 					label += " (skill)"
 				}
@@ -702,7 +716,14 @@ func cmdUninstall(args []string) error {
 			ui.Warning("Repository %s has uncommitted changes (proceeding with --force)", t.name)
 			preflight = append(preflight, t)
 		}
+		skippedCount := len(targets) - len(preflight)
 		targets = preflight
+		summary = summarizeUninstallTargets(targets)
+
+		if skippedCount > 0 {
+			ui.Info("%d tracked repo%s skipped, %d remaining", skippedCount, pluralS(skippedCount), len(targets))
+			fmt.Println()
+		}
 
 		if len(targets) == 0 {
 			return fmt.Errorf("no skills to uninstall after pre-flight checks")
@@ -833,7 +854,7 @@ func cmdUninstall(args []string) error {
 
 		// Opportunistic cleanup of expired trash items
 		if n, _ := trash.Cleanup(trash.TrashDir(), 0); n > 0 {
-			ui.Info("Cleaned up %d expired trash item(s)", n)
+			ui.Info("Cleaned up %d expired trash item%s", n, pluralS(n))
 		}
 	} else {
 		for _, t := range targets {

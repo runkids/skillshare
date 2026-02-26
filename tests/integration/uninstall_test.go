@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -461,8 +462,8 @@ targets: {}
 
 	result := sb.RunCLI("uninstall", "fix-review", "security/", "--force")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "Uninstalling 2 group(s)")
-	result.AssertAnyOutputContains(t, "Uninstalled 2 group(s)")
+	result.AssertOutputContains(t, "Uninstalling 2 groups")
+	result.AssertAnyOutputContains(t, "Uninstalled 2 groups")
 	result.AssertAnyOutputContains(t, "fix-review")
 	result.AssertAnyOutputContains(t, "security")
 
@@ -636,4 +637,47 @@ targets: {}
 	result := sb.RunCLI("uninstall", "README.md", "go.mod", "go.sum", "cmd", "internal", "--force")
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "--all")
+}
+
+// TestUninstall_BatchSkipsDirtyTrackedRepo verifies that --all skips dirty
+// tracked repos, prints a skip summary, and still removes clean skills.
+func TestUninstall_BatchSkipsDirtyTrackedRepo(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create a tracked repo with uncommitted changes (dirty)
+	dirtyRepoPath := filepath.Join(sb.SourcePath, "_dirty-repo")
+	os.MkdirAll(dirtyRepoPath, 0755)
+	os.WriteFile(filepath.Join(dirtyRepoPath, "SKILL.md"), []byte("# Dirty"), 0644)
+	initGitRepo(t, dirtyRepoPath)
+	// Add an untracked file to make it dirty
+	os.WriteFile(filepath.Join(dirtyRepoPath, "uncommitted.txt"), []byte("dirty"), 0644)
+
+	// Create 2 normal skills
+	sb.CreateSkill("clean-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateSkill("clean-b", map[string]string{"SKILL.md": "# B"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLIWithInput("y\n", "uninstall", "--all")
+	result.AssertSuccess(t)
+
+	// Dirty repo should still exist
+	if !sb.FileExists(dirtyRepoPath) {
+		t.Error("dirty tracked repo should NOT be removed")
+	}
+
+	// Clean skills should be removed
+	if sb.FileExists(filepath.Join(sb.SourcePath, "clean-a")) {
+		t.Error("clean-a should be removed")
+	}
+	if sb.FileExists(filepath.Join(sb.SourcePath, "clean-b")) {
+		t.Error("clean-b should be removed")
+	}
+
+	// Skip summary should appear
+	result.AssertAnyOutputContains(t, "skipped")
+	result.AssertAnyOutputContains(t, "remaining")
 }
