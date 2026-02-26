@@ -115,6 +115,32 @@ func tcSevStyle(severity string) lipgloss.Style {
 	}
 }
 
+// riskLabelStyle maps a lowercase risk label to the matching lipgloss style.
+func riskLabelStyle(label string) lipgloss.Style {
+	switch strings.ToLower(label) {
+	case "clean":
+		return tc.Green
+	case "low":
+		return tc.Low
+	case "medium":
+		return tc.Medium
+	case "high":
+		return tc.High
+	case "critical":
+		return tc.Critical
+	default:
+		return tc.Dim
+	}
+}
+
+// formatRiskBadgeLipgloss returns a colored risk badge for TUI list items.
+func formatRiskBadgeLipgloss(label string) string {
+	if label == "" {
+		return ""
+	}
+	return " " + riskLabelStyle(label).Render("["+label+"]")
+}
+
 // configureDelegate applies shared delegate styles to a list.DefaultDelegate.
 // showDesc toggles description row (2-line items when true, 1-line when false).
 func configureDelegate(d *list.DefaultDelegate, showDesc bool) {
