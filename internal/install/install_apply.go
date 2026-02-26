@@ -6,6 +6,22 @@ import (
 	"path/filepath"
 )
 
+// buildDiscoverySkillSource constructs metadata Source string for a skill
+// selected from a discovery result.
+func buildDiscoverySkillSource(source *Source, skillPath string) string {
+	if skillPath == "." {
+		return source.Raw
+	}
+	if source.HasSubdir() {
+		return source.Raw + "/" + skillPath
+	}
+	// Whole-repo SSH sources encode subdir using //path.
+	if source.Type == SourceTypeGitSSH {
+		return source.Raw + "//" + skillPath
+	}
+	return source.Raw + "/" + skillPath
+}
+
 func installImpl(source *Source, destPath string, opts InstallOptions) (*InstallResult, error) {
 	result := &InstallResult{
 		SkillName: source.Name,
@@ -148,15 +164,15 @@ func installFromDiscoveryImpl(discovery *DiscoveryResult, skill SkillInfo, destP
 
 	if skill.Path == "." {
 		// Root skill of a subdir discovery
-		fullSource = discovery.Source.Raw
+		fullSource = buildDiscoverySkillSource(discovery.Source, skill.Path)
 		fullSubdir = discovery.Source.Subdir
 	} else if discovery.Source.HasSubdir() {
 		// Nested skill within subdir discovery
-		fullSource = discovery.Source.Raw + "/" + skill.Path
+		fullSource = buildDiscoverySkillSource(discovery.Source, skill.Path)
 		fullSubdir = discovery.Source.Subdir + "/" + skill.Path
 	} else {
 		// Whole-repo discovery
-		fullSource = discovery.Source.Raw + "/" + skill.Path
+		fullSource = buildDiscoverySkillSource(discovery.Source, skill.Path)
 		fullSubdir = skill.Path
 	}
 

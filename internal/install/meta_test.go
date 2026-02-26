@@ -65,6 +65,62 @@ func TestInstallFromDiscovery_FullSubdirUsesForwardSlashes(t *testing.T) {
 	}
 }
 
+func TestBuildDiscoverySkillSource(t *testing.T) {
+	tests := []struct {
+		name     string
+		source   *Source
+		skill    string
+		expected string
+	}{
+		{
+			name: "https whole repo",
+			source: &Source{
+				Type: SourceTypeGitHTTPS,
+				Raw:  "https://gitlab.com/team/repo.git",
+			},
+			skill:    "skills/docker",
+			expected: "https://gitlab.com/team/repo.git/skills/docker",
+		},
+		{
+			name: "ssh whole repo uses double slash",
+			source: &Source{
+				Type: SourceTypeGitSSH,
+				Raw:  "git@gitlab.com:team/repo.git",
+			},
+			skill:    "frontend/ui-skill",
+			expected: "git@gitlab.com:team/repo.git//frontend/ui-skill",
+		},
+		{
+			name: "ssh with source subdir keeps single slash for nested skill",
+			source: &Source{
+				Type:   SourceTypeGitSSH,
+				Raw:    "git@gitlab.com:team/repo.git//skills",
+				Subdir: "skills",
+			},
+			skill:    "ui-skill",
+			expected: "git@gitlab.com:team/repo.git//skills/ui-skill",
+		},
+		{
+			name: "root skill keeps raw",
+			source: &Source{
+				Type: SourceTypeGitHub,
+				Raw:  "openai/skills/skills",
+			},
+			skill:    ".",
+			expected: "openai/skills/skills",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildDiscoverySkillSource(tt.source, tt.skill)
+			if got != tt.expected {
+				t.Errorf("buildDiscoverySkillSource() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestComputeFileHashes_Basic(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# Hello"), 0644)
