@@ -115,8 +115,8 @@ type listTUIModel struct {
 	// Content viewer overlay — dual-pane: left tree + right content
 	showContent     bool
 	contentScroll   int
-	contentText     string     // current file content (rendered)
-	contentSkillKey string     // RelPath of skill being viewed
+	contentText     string // current file content (rendered)
+	contentSkillKey string // RelPath of skill being viewed
 	termHeight      int
 	treeAllNodes    []treeNode // complete flat tree (includes collapsed children)
 	treeNodes       []treeNode // visible nodes (collapsed children hidden)

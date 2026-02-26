@@ -955,7 +955,6 @@ func (m logTUIModel) renderStatsPanel() string {
 		dimStyle.Render(fmt.Sprintf("(%.1f%%)", m.stats.SuccessRate*100)),
 	))
 
-
 	// ── Command breakdown with horizontal bars ──
 	header := fmt.Sprintf("  %-12s  %-20s  %s", "Command", "", "OK")
 	b.WriteString(dimStyle.Render(header))
