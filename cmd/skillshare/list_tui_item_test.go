@@ -25,22 +25,22 @@ func TestSkillItem_ImplementsListItem(t *testing.T) {
 
 func TestSkillItem_Title_TopLevel(t *testing.T) {
 	item := skillItem{entry: skillEntry{Name: "my-skill"}}
-	if got := item.Title(); got != "my-skill" {
-		t.Errorf("Title() = %q, want %q", got, "my-skill")
+	if got := item.Title(); got != "my-skill  [local]" {
+		t.Errorf("Title() = %q, want %q", got, "my-skill  [local]")
 	}
 }
 
 func TestSkillItem_Title_Nested(t *testing.T) {
 	item := skillItem{entry: skillEntry{Name: "react-helper", RelPath: "frontend/react-helper"}}
-	if got := item.Title(); got != "frontend/react-helper" {
-		t.Errorf("Title() = %q, want %q", got, "frontend/react-helper")
+	if got := item.Title(); got != "frontend/react-helper  [local]" {
+		t.Errorf("Title() = %q, want %q", got, "frontend/react-helper  [local]")
 	}
 }
 
 func TestSkillItem_Title_SameNameAsRelPath(t *testing.T) {
 	item := skillItem{entry: skillEntry{Name: "my-skill", RelPath: "my-skill"}}
-	if got := item.Title(); got != "my-skill" {
-		t.Errorf("Title() = %q, want %q", got, "my-skill")
+	if got := item.Title(); got != "my-skill  [local]" {
+		t.Errorf("Title() = %q, want %q", got, "my-skill  [local]")
 	}
 }
 
@@ -60,7 +60,8 @@ func TestSkillItem_Description_Remote(t *testing.T) {
 
 func TestSkillItem_Description_Local(t *testing.T) {
 	item := skillItem{entry: skillEntry{}}
-	if got := item.Description(); got != "local" {
-		t.Errorf("Description() = %q", got)
+	// Local skills return "" — the [local] badge is shown in Title() instead
+	if got := item.Description(); got != "" {
+		t.Errorf("Description() = %q, want %q", got, "")
 	}
 }
