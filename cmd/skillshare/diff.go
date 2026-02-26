@@ -2,11 +2,15 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	gosync "sync"
 	"time"
+
+	"github.com/pterm/pterm"
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
@@ -103,37 +107,169 @@ type copyDiffEntry struct {
 	isSync bool // true = needs sync, false = local-only
 }
 
-// diffProgress wraps ui.ProgressBar for multi-target diff scanning.
-// Tracks total skills across all targets; UpdateTitle shows the current target + skill name.
+// diffProgress displays multi-target scanning progress.
+// Target list (spinner/queued/done) + overall progress bar at the bottom.
 type diffProgress struct {
-	bar *ui.ProgressBar
+	names           []string
+	states          []string // "queued", "scanning", "done", "error"
+	details         []string
+	totalSkills     int
+	processedSkills int
+	area            *pterm.AreaPrinter
+	mu              gosync.Mutex
+	stopCh          chan struct{}
+	frames          []string
+	frame           int
+	isTTY           bool
 }
 
-func newDiffProgress(totalSkills int) *diffProgress {
-	if totalSkills == 0 {
-		return &diffProgress{}
+func newDiffProgress(names []string, totalSkills int) *diffProgress {
+	dp := &diffProgress{
+		names:       names,
+		states:      make([]string, len(names)),
+		details:     make([]string, len(names)),
+		totalSkills: totalSkills,
+		frames:      []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"},
+		isTTY:       ui.IsTTY(),
 	}
-	return &diffProgress{
-		bar: ui.StartProgress("Comparing targets", totalSkills),
+	for i := range dp.states {
+		dp.states[i] = "queued"
+	}
+	if !dp.isTTY {
+		return dp
+	}
+	area, _ := pterm.DefaultArea.WithRemoveWhenDone(true).Start()
+	dp.area = area
+	dp.stopCh = make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(80 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-dp.stopCh:
+				return
+			case <-ticker.C:
+				dp.mu.Lock()
+				dp.frame = (dp.frame + 1) % len(dp.frames)
+				dp.render()
+				dp.mu.Unlock()
+			}
+		}
+	}()
+	dp.render()
+	return dp
+}
+
+func (dp *diffProgress) render() {
+	if dp.area == nil {
+		return
+	}
+	var lines []string
+	for i, name := range dp.names {
+		var line string
+		switch dp.states[i] {
+		case "queued":
+			line = fmt.Sprintf("  %s  %s", pterm.Gray(name), pterm.Gray("queued"))
+		case "scanning":
+			spin := pterm.Cyan(dp.frames[dp.frame])
+			line = fmt.Sprintf("  %s %s  %s", spin, pterm.Cyan(name), pterm.Gray(dp.details[i]))
+		case "done":
+			line = fmt.Sprintf("  %s %s  %s", pterm.Green("✓"), name, pterm.Gray(dp.details[i]))
+		case "error":
+			line = fmt.Sprintf("  %s %s  %s", pterm.Red("✗"), name, pterm.Gray(dp.details[i]))
+		}
+		lines = append(lines, line)
+	}
+	// Progress bar at bottom
+	if dp.totalSkills > 0 {
+		lines = append(lines, "  "+dp.renderBar())
+	}
+	dp.area.Update(strings.Join(lines, "\n"))
+}
+
+func (dp *diffProgress) renderBar() string {
+	const barWidth = 30
+	current := dp.processedSkills
+	total := dp.totalSkills
+	filled := current * barWidth / total
+	if filled > barWidth {
+		filled = barWidth
+	}
+	pct := int(math.Round(float64(current) * 100 / float64(total)))
+	filledBar := pterm.Cyan(strings.Repeat("█", filled))
+	emptyBar := pterm.Gray(strings.Repeat("█", barWidth-filled))
+	count := fmt.Sprintf("%d/%d", current, total)
+	return fmt.Sprintf("%s%s %s %d%%", filledBar, emptyBar, pterm.Gray(count), pct)
+}
+
+func (dp *diffProgress) startTarget(name string) {
+	dp.mu.Lock()
+	defer dp.mu.Unlock()
+	for i, n := range dp.names {
+		if n == name {
+			dp.states[i] = "scanning"
+			dp.details[i] = "comparing..."
+			break
+		}
+	}
+	if !dp.isTTY {
+		fmt.Printf("  %s: scanning...\n", name)
 	}
 }
 
 func (dp *diffProgress) update(targetName, skillName string) {
-	if dp.bar != nil {
-		dp.bar.UpdateTitle(fmt.Sprintf("%s: %s", targetName, skillName))
-		dp.bar.Increment()
+	dp.mu.Lock()
+	defer dp.mu.Unlock()
+	dp.processedSkills++
+	for i, n := range dp.names {
+		if n == targetName {
+			dp.details[i] = skillName
+			break
+		}
 	}
 }
 
 func (dp *diffProgress) add(n int) {
-	if dp.bar != nil {
-		dp.bar.Add(n)
+	dp.mu.Lock()
+	defer dp.mu.Unlock()
+	dp.processedSkills += n
+}
+
+func (dp *diffProgress) doneTarget(name string, r targetDiffResult) {
+	dp.mu.Lock()
+	defer dp.mu.Unlock()
+	for i, n := range dp.names {
+		if n != name {
+			continue
+		}
+		if r.errMsg != "" {
+			dp.states[i] = "error"
+			dp.details[i] = r.errMsg
+		} else if r.synced {
+			dp.states[i] = "done"
+			dp.details[i] = "fully synced"
+		} else {
+			dp.states[i] = "done"
+			dp.details[i] = fmt.Sprintf("%d difference(s)", r.syncCount+r.localCount)
+		}
+		break
+	}
+	if !dp.isTTY {
+		for i, n := range dp.names {
+			if n == name {
+				fmt.Printf("  %s: %s\n", name, dp.details[i])
+				break
+			}
+		}
 	}
 }
 
 func (dp *diffProgress) stop() {
-	if dp.bar != nil {
-		dp.bar.Stop()
+	if dp.stopCh != nil {
+		close(dp.stopCh)
+	}
+	if dp.area != nil {
+		dp.area.Stop() //nolint:errcheck
 	}
 }
 
@@ -197,11 +333,17 @@ func cmdDiffGlobal(targetName string) error {
 		totalSkills += len(filtered)
 	}
 
-	progress := newDiffProgress(totalSkills)
+	names := make([]string, len(fentries))
+	for i, fe := range fentries {
+		names[i] = fe.name
+	}
+	progress := newDiffProgress(names, totalSkills)
 
 	var results []targetDiffResult
 	for _, fe := range fentries {
+		progress.startTarget(fe.name)
 		r := collectTargetDiff(fe.name, fe.target, cfg.Source, fe.mode, fe.filtered, progress)
+		progress.doneTarget(fe.name, r)
 		results = append(results, r)
 	}
 
