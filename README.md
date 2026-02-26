@@ -91,13 +91,13 @@ skillshare fixes this:
 
 ## CLI and UI Preview
 
-| Sync | Install + Audit |
+| Skill Detail | Security Audit |
 |---|---|
-| <img src=".github/assets/sync-collision-demo.png" alt="CLI sync output" width="480"> | <img src=".github/assets/install-with-audio-demo.png" alt="CLI install with security audit" width="480"> |
+| <img src=".github/assets/skill-detail-tui.png" alt="CLI sync output" width="480" height="300"> | <img src=".github/assets/audit-tui.png" alt="CLI install with security audit" width="480" height="300"> |
 
-| Dashboard | Security Audit |
+| UI Dashboard | UI Skills |
 |---|---|
-| <img src=".github/assets/ui/web-dashboard-demo.png" alt="Web dashboard overview" width="480"> | <img src=".github/assets/ui/web-audit-demo.png" alt="Web UI security audit" width="480"> |
+| <img src=".github/assets/ui/web-dashboard-demo.png" alt="Web dashboard overview" width="480"> | <img src=".github/assets/ui/web-skills-demo.png" alt="Web UI skills page" width="480"> |
 
 ## Installation
 
