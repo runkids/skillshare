@@ -159,24 +159,24 @@ func CheckboxItem(checked bool, name, description string) {
 	}
 }
 
-// DiffItem prints a diff-style list item (+/-/~)
-func DiffItem(action, name, detail string) {
+// ActionLine prints an action-oriented diff line with arrow prefix.
+//
+//	kind: "sync" (→ cyan), "force" (⚠ yellow), "collect" (← gray), "warn" (⚠ yellow)
+func ActionLine(kind, text string) {
 	var icon, color string
-	switch action {
-	case "add":
-		icon, color = "+", Green
-	case "modify":
-		icon, color = "~", Yellow
-	case "remove":
-		icon, color = "-", Cyan
+	switch kind {
+	case "sync":
+		icon, color = "→", Cyan
+	case "force":
+		icon, color = "⚠", Yellow
+	case "collect":
+		icon, color = "←", Gray
+	case "warn":
+		icon, color = "⚠", Yellow
 	default:
 		icon, color = " ", Reset
 	}
-	if detail != "" {
-		fmt.Printf("  %s%s%s %s %s%s%s\n", color, icon, Reset, name, Gray, detail, Reset)
-	} else {
-		fmt.Printf("  %s%s%s %s\n", color, icon, Reset, name)
-	}
+	fmt.Printf("  %s%s%s %s\n", color, icon, Reset, text)
 }
 
 // isTTY checks if stdout is a terminal (for animation support)
