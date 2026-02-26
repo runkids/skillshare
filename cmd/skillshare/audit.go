@@ -326,16 +326,6 @@ func toAuditInputs(skills []struct {
 	return inputs
 }
 
-// findElapsed returns the elapsed time for a result from the scan outputs.
-func findElapsed(outputs []audit.ScanOutput, result *audit.Result) time.Duration {
-	for _, o := range outputs {
-		if o.Result == result {
-			return o.Elapsed
-		}
-	}
-	return 0
-}
-
 func scanPathTarget(targetPath, projectRoot string) (*audit.Result, error) {
 	info, err := os.Stat(targetPath)
 	if err != nil {
@@ -418,8 +408,9 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 		fmt.Println()
 	}
 
-	// Collect results.
+	// Collect results and their elapsed times together.
 	results := make([]*audit.Result, 0, len(skillPaths))
+	elapsed := make([]time.Duration, 0, len(skillPaths))
 	scanErrors := 0
 	for i, sp := range skillPaths {
 		sr := scanResults[i]
@@ -433,6 +424,7 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 		sr.Result.Threshold = threshold
 		sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(threshold)
 		results = append(results, sr.Result)
+		elapsed = append(elapsed, sr.Elapsed)
 	}
 
 	summary := summarizeAuditResults(len(skillPaths), results, threshold)
@@ -444,7 +436,7 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	if !jsonOutput {
 		for i, r := range results {
 			if !opts.Quiet || len(r.Findings) > 0 {
-				printSkillResultLine(i+1, len(results), r, findElapsed(scanResults, r))
+				printSkillResultLine(i+1, len(results), r, elapsed[i])
 			}
 		}
 		fmt.Println()
@@ -554,8 +546,9 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 		fmt.Println()
 	}
 
-	// Collect results.
+	// Collect results and their elapsed times together.
 	results := make([]*audit.Result, 0, len(matched))
+	elapsed := make([]time.Duration, 0, len(matched))
 	scanErrors := 0
 	for i, sp := range matched {
 		sr := scanResults[i]
@@ -569,6 +562,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 		sr.Result.Threshold = threshold
 		sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(threshold)
 		results = append(results, sr.Result)
+		elapsed = append(elapsed, sr.Elapsed)
 	}
 
 	summary := summarizeAuditResults(len(matched), results, threshold)
@@ -580,7 +574,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	if !jsonOutput {
 		for i, r := range results {
 			if !opts.Quiet || len(r.Findings) > 0 {
-				printSkillResultLine(i+1, len(results), r, findElapsed(scanResults, r))
+				printSkillResultLine(i+1, len(results), r, elapsed[i])
 			}
 		}
 		fmt.Println()
