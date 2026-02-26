@@ -45,46 +45,38 @@ func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
 	spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
 	reportCollisions(discoveredSkills, runtime.targets)
 
-	// Phase 2: Per-target sync
+	// Phase 2: Per-target sync (parallel)
 	ui.Header("Syncing skills (project)")
 	if dryRun {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
-	failedTargets := 0
-	var totals syncModeStats
+	var entries []syncTargetEntry
+	notFoundCount := 0
 	for _, entry := range runtime.config.Targets {
 		name := entry.Name
 		target, ok := runtime.targets[name]
 		if !ok {
 			ui.Error("%s: target not found", name)
-			failedTargets++
+			notFoundCount++
 			continue
 		}
-
 		mode := target.Mode
 		if mode == "" {
 			mode = "merge"
 		}
+		entries = append(entries, syncTargetEntry{name: name, target: target, mode: mode})
+	}
 
-		var s syncModeStats
-		var syncErr error
-		switch mode {
-		case "symlink":
-			syncErr = syncSymlinkMode(name, target, runtime.sourcePath, dryRun, force)
-		case "copy":
-			s, syncErr = syncCopyModeWithSkills(name, target, runtime.sourcePath, discoveredSkills, dryRun, force)
-		default:
-			s, syncErr = syncMergeModeWithSkills(name, target, runtime.sourcePath, discoveredSkills, dryRun, force)
-		}
-		if syncErr != nil {
-			ui.Error("%s: %v", name, syncErr)
-			failedTargets++
-		}
-		totals.linked += s.linked
-		totals.local += s.local
-		totals.updated += s.updated
-		totals.pruned += s.pruned
+	results, failedTargets := runParallelSync(entries, runtime.sourcePath, discoveredSkills, dryRun, force)
+	failedTargets += notFoundCount
+
+	var totals syncModeStats
+	for _, r := range results {
+		totals.linked += r.stats.linked
+		totals.local += r.stats.local
+		totals.updated += r.stats.updated
+		totals.pruned += r.stats.pruned
 	}
 	stats.Failed = failedTargets
 
