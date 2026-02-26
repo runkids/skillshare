@@ -314,6 +314,170 @@ func TestWriteWithLimit_ZeroMeansUnlimited(t *testing.T) {
 	}
 }
 
+func TestDeleteEntries_Basic(t *testing.T) {
+	cfgPath := tempConfigPath(t)
+
+	entries := []Entry{
+		{Timestamp: "2026-01-01T10:00:00Z", Command: "sync", Status: "ok", Duration: 100},
+		{Timestamp: "2026-01-01T10:01:00Z", Command: "install", Status: "ok", Duration: 200},
+		{Timestamp: "2026-01-01T10:02:00Z", Command: "audit", Status: "error", Duration: 300},
+	}
+	for _, e := range entries {
+		if err := Write(cfgPath, OpsFile, e); err != nil {
+			t.Fatalf("Write() error: %v", err)
+		}
+	}
+
+	// Delete the middle entry
+	deleted, err := DeleteEntries(cfgPath, OpsFile, []Entry{entries[1]})
+	if err != nil {
+		t.Fatalf("DeleteEntries() error: %v", err)
+	}
+	if deleted != 1 {
+		t.Fatalf("deleted = %d, want 1", deleted)
+	}
+
+	remaining, err := Read(cfgPath, OpsFile, 0)
+	if err != nil {
+		t.Fatalf("Read() error: %v", err)
+	}
+	if len(remaining) != 2 {
+		t.Fatalf("got %d entries, want 2", len(remaining))
+	}
+	// Read returns newest first
+	if remaining[0].Command != "audit" {
+		t.Errorf("remaining[0].Command = %q, want audit", remaining[0].Command)
+	}
+	if remaining[1].Command != "sync" {
+		t.Errorf("remaining[1].Command = %q, want sync", remaining[1].Command)
+	}
+}
+
+func TestDeleteEntries_NoMatch(t *testing.T) {
+	cfgPath := tempConfigPath(t)
+
+	e := Entry{Timestamp: "2026-01-01T10:00:00Z", Command: "sync", Status: "ok", Duration: 100}
+	if err := Write(cfgPath, OpsFile, e); err != nil {
+		t.Fatalf("Write() error: %v", err)
+	}
+
+	noMatch := Entry{Timestamp: "2099-01-01T00:00:00Z", Command: "nope", Status: "ok", Duration: 0}
+	deleted, err := DeleteEntries(cfgPath, OpsFile, []Entry{noMatch})
+	if err != nil {
+		t.Fatalf("DeleteEntries() error: %v", err)
+	}
+	if deleted != 0 {
+		t.Fatalf("deleted = %d, want 0", deleted)
+	}
+
+	remaining, _ := Read(cfgPath, OpsFile, 0)
+	if len(remaining) != 1 {
+		t.Fatalf("got %d entries, want 1", len(remaining))
+	}
+}
+
+func TestDeleteEntries_DeleteAll(t *testing.T) {
+	cfgPath := tempConfigPath(t)
+
+	entries := []Entry{
+		{Timestamp: "2026-01-01T10:00:00Z", Command: "sync", Status: "ok", Duration: 100},
+		{Timestamp: "2026-01-01T10:01:00Z", Command: "install", Status: "ok", Duration: 200},
+	}
+	for _, e := range entries {
+		if err := Write(cfgPath, OpsFile, e); err != nil {
+			t.Fatalf("Write() error: %v", err)
+		}
+	}
+
+	deleted, err := DeleteEntries(cfgPath, OpsFile, entries)
+	if err != nil {
+		t.Fatalf("DeleteEntries() error: %v", err)
+	}
+	if deleted != 2 {
+		t.Fatalf("deleted = %d, want 2", deleted)
+	}
+
+	remaining, _ := Read(cfgPath, OpsFile, 0)
+	if len(remaining) != 0 {
+		t.Fatalf("got %d entries, want 0", len(remaining))
+	}
+}
+
+func TestDeleteEntries_DuplicateEntries(t *testing.T) {
+	cfgPath := tempConfigPath(t)
+
+	// Write 3 identical entries
+	e := Entry{Timestamp: "2026-01-01T10:00:00Z", Command: "sync", Status: "ok", Duration: 100}
+	for range 3 {
+		if err := Write(cfgPath, OpsFile, e); err != nil {
+			t.Fatalf("Write() error: %v", err)
+		}
+	}
+
+	// Delete only 1 of the 3 duplicates
+	deleted, err := DeleteEntries(cfgPath, OpsFile, []Entry{e})
+	if err != nil {
+		t.Fatalf("DeleteEntries() error: %v", err)
+	}
+	if deleted != 1 {
+		t.Fatalf("deleted = %d, want 1", deleted)
+	}
+
+	remaining, _ := Read(cfgPath, OpsFile, 0)
+	if len(remaining) != 2 {
+		t.Fatalf("got %d entries, want 2", len(remaining))
+	}
+}
+
+func TestDeleteEntries_EmptyMatches(t *testing.T) {
+	cfgPath := tempConfigPath(t)
+
+	e := Entry{Timestamp: "2026-01-01T10:00:00Z", Command: "sync", Status: "ok", Duration: 100}
+	if err := Write(cfgPath, OpsFile, e); err != nil {
+		t.Fatalf("Write() error: %v", err)
+	}
+
+	deleted, err := DeleteEntries(cfgPath, OpsFile, nil)
+	if err != nil {
+		t.Fatalf("DeleteEntries() error: %v", err)
+	}
+	if deleted != 0 {
+		t.Fatalf("deleted = %d, want 0", deleted)
+	}
+}
+
+func TestDeleteEntries_SeparateFiles(t *testing.T) {
+	cfgPath := tempConfigPath(t)
+
+	opsEntry := Entry{Timestamp: "2026-01-01T10:00:00Z", Command: "sync", Status: "ok", Duration: 100}
+	auditEntry := Entry{Timestamp: "2026-01-01T10:01:00Z", Command: "audit", Status: "ok", Duration: 200}
+
+	if err := Write(cfgPath, OpsFile, opsEntry); err != nil {
+		t.Fatalf("Write ops error: %v", err)
+	}
+	if err := Write(cfgPath, AuditFile, auditEntry); err != nil {
+		t.Fatalf("Write audit error: %v", err)
+	}
+
+	// Delete from audit file only — ops should be untouched
+	deleted, err := DeleteEntries(cfgPath, AuditFile, []Entry{auditEntry})
+	if err != nil {
+		t.Fatalf("DeleteEntries() error: %v", err)
+	}
+	if deleted != 1 {
+		t.Fatalf("deleted = %d, want 1", deleted)
+	}
+
+	ops, _ := Read(cfgPath, OpsFile, 0)
+	audit, _ := Read(cfgPath, AuditFile, 0)
+	if len(ops) != 1 {
+		t.Fatalf("ops should have 1 entry, got %d", len(ops))
+	}
+	if len(audit) != 0 {
+		t.Fatalf("audit should have 0 entries, got %d", len(audit))
+	}
+}
+
 func TestWriteWithLimit_HysteresisAvoidsTruncation(t *testing.T) {
 	cfgPath := tempConfigPath(t)
 	maxEntries := 10

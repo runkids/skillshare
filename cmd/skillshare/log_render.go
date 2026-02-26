@@ -79,11 +79,21 @@ func printLogDetailMultiLine(w io.Writer, e oplog.Entry, termWidth int) {
 		wrapWidth = logMinWrapWidth
 	}
 
+	const maxBulletItems = 5 // plain text is not scrollable — keep compact
 	for _, p := range pairs {
 		if p.isList && len(p.listValues) > 0 {
 			fmt.Fprintf(w, "%s%s%s:%s\n", indent, ui.Gray, p.key, ui.Reset)
-			for _, v := range p.listValues {
+			show := p.listValues
+			remaining := 0
+			if len(show) > maxBulletItems {
+				remaining = len(show) - maxBulletItems
+				show = show[:maxBulletItems]
+			}
+			for _, v := range show {
 				fmt.Fprintf(w, "%s%s%s%s%s\n", indent, ui.Gray, listIndent, ui.Reset, v)
+			}
+			if remaining > 0 {
+				fmt.Fprintf(w, "%s%s%s... and %d more%s\n", indent, ui.Gray, listIndent, remaining, ui.Reset)
 			}
 		} else if p.value != "" {
 			fmt.Fprintf(w, "%s%s%s:%s %s\n", indent, ui.Gray, p.key, ui.Reset, p.value)

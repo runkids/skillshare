@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -21,11 +22,33 @@ var logDetailLabelStyle = lipgloss.NewStyle().
 	Foreground(lipgloss.Color("8")).
 	Width(22)
 
+// logLoadFn is a function that loads log items (runs in a goroutine inside the TUI).
+type logLoadFn func() ([]logItem, error)
+
+// logLoadedMsg is sent when the background load completes.
+type logLoadedMsg struct {
+	items []logItem
+	err   error
+}
+
+// logDeletedMsg is sent when the background delete + reload completes.
+type logDeletedMsg struct {
+	items   []logItem
+	deleted int
+	err     error
+}
+
 // logTUIModel is the bubbletea model for the interactive log viewer.
 type logTUIModel struct {
 	list      list.Model
 	modeLabel string // "global" or "project"
 	quitting  bool
+
+	// Async loading — spinner shown until data arrives
+	loading     bool
+	loadSpinner spinner.Model
+	loadFn      logLoadFn
+	loadErr     error
 
 	// Application-level filter (matches list_tui pattern)
 	allItems    []logItem
@@ -40,28 +63,39 @@ type logTUIModel struct {
 
 	// Detail panel scrolling
 	detailScroll int
+	termWidth    int
 	termHeight   int
+
+	// Delete selection
+	selected       map[int]bool // key = allItems index; true = marked
+	selCount       int
+	configPath     string // needed for oplog.DeleteEntries
+	confirmDelete  bool   // true = showing delete confirmation prompt
+	deleting       bool   // true = delete in progress (spinner)
+	lastDeletedMsg string // e.g. "Deleted 3 entries"
 }
 
-// newLogTUIModel creates a new TUI model from log items.
-func newLogTUIModel(items []logItem, logLabel, modeLabel string) logTUIModel {
-	listItems := make([]list.Item, len(items))
-	for i, item := range items {
-		listItems[i] = item
+// newLogTUIModel creates a new TUI model.
+// When loadFn is non-nil, items are loaded asynchronously (spinner shown).
+// When loadFn is nil, items are used directly (pre-loaded).
+func newLogTUIModel(loadFn logLoadFn, items []logItem, logLabel, modeLabel, configPath string) logTUIModel {
+	var listItems []list.Item
+	var allItems []logItem
+	if loadFn == nil {
+		listItems = make([]list.Item, len(items))
+		for i, item := range items {
+			listItems[i] = item
+		}
+		allItems = items
 	}
 
 	delegate := list.NewDefaultDelegate()
-	delegate.ShowDescription = true
-	// Title: no foreground — let embedded lipgloss colors (command, status) show through
+	delegate.ShowDescription = false
+	delegate.SetHeight(1)
+	delegate.SetSpacing(0)
 	delegate.Styles.NormalTitle = lipgloss.NewStyle().PaddingLeft(2)
-	delegate.Styles.NormalDesc = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).PaddingLeft(2)
 	delegate.Styles.SelectedTitle = lipgloss.NewStyle().
 		Bold(true).Foreground(tuiBrandYellow).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(tuiBrandYellow).PaddingLeft(1)
-	delegate.Styles.SelectedDesc = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).
 		Border(lipgloss.NormalBorder(), false, false, false, true).
 		BorderForeground(tuiBrandYellow).PaddingLeft(1)
 
@@ -74,6 +108,11 @@ func newLogTUIModel(items []logItem, logLabel, modeLabel string) logTUIModel {
 	l.SetShowHelp(false)
 	l.SetShowPagination(false) // page info in custom status line
 
+	// Loading spinner
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
+
 	// Filter text input
 	fi := textinput.New()
 	fi.Prompt = "/ "
@@ -83,31 +122,137 @@ func newLogTUIModel(items []logItem, logLabel, modeLabel string) logTUIModel {
 	return logTUIModel{
 		list:        l,
 		modeLabel:   modeLabel,
-		allItems:    items,
-		matchCount:  len(items),
+		loading:     loadFn != nil,
+		loadFn:      loadFn,
+		loadSpinner: sp,
+		allItems:    allItems,
+		matchCount:  len(allItems),
 		filterInput: fi,
-		stats:       computeLogStatsFromItems(items),
+		stats:       computeLogStatsFromItems(allItems),
+		selected:    make(map[int]bool),
+		configPath:  configPath,
 	}
 }
 
 func (m logTUIModel) Init() tea.Cmd {
+	if m.loading && m.loadFn != nil {
+		return tea.Batch(m.loadSpinner.Tick, func() tea.Msg {
+			items, err := m.loadFn()
+			return logLoadedMsg{items: items, err: err}
+		})
+	}
 	return nil
 }
 
 func (m logTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		m.termWidth = msg.Width
 		m.termHeight = msg.Height
-		// Reserve bottom half for detail panel + filter + footer + help (~6 lines overhead)
-		// Give list roughly 40% of terminal, min 6 lines
-		listHeight := msg.Height * 2 / 5
-		if listHeight < 6 {
-			listHeight = 6
+		// Horizontal layout: list takes left panel width; height = full minus overhead
+		// Overhead: filter bar(1) + stats footer(1) + help bar(1) + newlines(2) = 5
+		panelHeight := msg.Height - 5
+		if panelHeight < 6 {
+			panelHeight = 6
 		}
-		m.list.SetSize(msg.Width, listHeight)
+		if m.termWidth >= 70 {
+			m.list.SetSize(logListWidth(m.termWidth), panelHeight)
+		} else {
+			// Narrow fallback: vertical layout, list takes full width
+			m.list.SetSize(msg.Width, panelHeight)
+		}
 		return m, nil
 
+	case spinner.TickMsg:
+		if m.loading || m.deleting {
+			var cmd tea.Cmd
+			m.loadSpinner, cmd = m.loadSpinner.Update(msg)
+			return m, cmd
+		}
+
+	case logDeletedMsg:
+		m.deleting = false
+		if msg.err != nil {
+			m.loadErr = msg.err
+			m.quitting = true
+			return m, tea.Quit
+		}
+		m.lastDeletedMsg = fmt.Sprintf("Deleted %d entries", msg.deleted)
+		m.allItems = msg.items
+		m.selected = make(map[int]bool)
+		m.selCount = 0
+		m.filterText = ""
+		m.filterInput.SetValue("")
+		m.matchCount = len(msg.items)
+		m.stats = computeLogStatsFromItems(msg.items)
+		listItems := make([]list.Item, len(msg.items))
+		for i, item := range msg.items {
+			listItems[i] = item
+		}
+		m.list.SetItems(listItems)
+		m.list.ResetSelected()
+		return m, nil
+
+	case logLoadedMsg:
+		m.loading = false
+		// Keep loadFn for reload after delete (closure is lightweight)
+		if msg.err != nil {
+			m.loadErr = msg.err
+			m.quitting = true
+			return m, tea.Quit
+		}
+		m.allItems = msg.items
+		m.matchCount = len(msg.items)
+		m.stats = computeLogStatsFromItems(msg.items)
+		listItems := make([]list.Item, len(msg.items))
+		for i, item := range msg.items {
+			listItems[i] = item
+		}
+		m.list.SetItems(listItems)
+		return m, nil
+
+	case tea.MouseMsg:
+		if !m.loading && !m.showStats && m.termWidth >= 70 {
+			leftWidth := logListWidth(m.termWidth)
+			if msg.X > leftWidth {
+				// Right panel: scroll detail with mouse wheel
+				switch msg.Button {
+				case tea.MouseButtonWheelUp:
+					if m.detailScroll > 0 {
+						m.detailScroll--
+					}
+					return m, nil
+				case tea.MouseButtonWheelDown:
+					m.detailScroll++
+					return m, nil
+				}
+			}
+		}
+
 	case tea.KeyMsg:
+		// Ignore keys while loading or deleting (except quit)
+		if m.loading || m.deleting {
+			if msg.String() == "q" || msg.String() == "ctrl+c" {
+				m.quitting = true
+				return m, tea.Quit
+			}
+			return m, nil
+		}
+
+		// --- Confirm delete mode ---
+		if m.confirmDelete {
+			switch msg.String() {
+			case "y":
+				m.confirmDelete = false
+				m.deleting = true
+				return m, tea.Batch(m.loadSpinner.Tick, m.executeDelete())
+			case "n", "esc":
+				m.confirmDelete = false
+				return m, nil
+			}
+			return m, nil
+		}
+
 		// --- Filter mode: route keys to filterInput ---
 		if m.filtering {
 			switch msg.String() {
@@ -143,13 +288,62 @@ func (m logTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "s":
 			m.showStats = !m.showStats
 			return m, nil
-		case "j":
-			m.detailScroll++
+		case "ctrl+d":
+			m.detailScroll += 5
 			return m, nil
-		case "k":
-			if m.detailScroll > 0 {
-				m.detailScroll--
+		case "ctrl+u":
+			m.detailScroll -= 5
+			if m.detailScroll < 0 {
+				m.detailScroll = 0
 			}
+			return m, nil
+
+		case " ": // space — toggle select current item for deletion
+			idx := m.selectedAllItemsIndex()
+			if idx < 0 {
+				break
+			}
+			m.selected[idx] = !m.selected[idx]
+			if m.selected[idx] {
+				m.selCount++
+			} else {
+				delete(m.selected, idx)
+				m.selCount--
+			}
+			m.allItems[idx].marked = m.selected[idx]
+			m.lastDeletedMsg = "" // clear stale message
+			m.rebuildListItems()
+			return m, nil
+
+		case "a": // toggle all/none (visible filtered items only)
+			visibleIndices := m.visibleAllItemsIndices()
+			selectAll := m.selCount < len(visibleIndices)
+
+			// Clear all selections first, then re-select if toggling on
+			for idx := range m.selected {
+				if idx < len(m.allItems) {
+					m.allItems[idx].marked = false
+				}
+			}
+			m.selected = make(map[int]bool)
+			m.selCount = 0
+
+			if selectAll {
+				for _, idx := range visibleIndices {
+					m.selected[idx] = true
+					m.allItems[idx].marked = true
+					m.selCount++
+				}
+			}
+			m.lastDeletedMsg = ""
+			m.rebuildListItems()
+			return m, nil
+
+		case "d": // initiate delete of selected items
+			if m.selCount == 0 {
+				break
+			}
+			m.confirmDelete = true
 			return m, nil
 		}
 	}
@@ -193,13 +387,149 @@ func (m *logTUIModel) applyLogFilter() {
 	m.stats = computeLogStatsFromItems(matchedItems)
 }
 
+// selectedAllItemsIndex returns the allItems index for the currently highlighted list item.
+// Returns -1 if nothing is selected or the item can't be matched.
+func (m *logTUIModel) selectedAllItemsIndex() int {
+	sel, ok := m.list.SelectedItem().(logItem)
+	if !ok {
+		return -1
+	}
+	// Match by entry identity (pointer-free: use content)
+	for i, item := range m.allItems {
+		if item.entry.Timestamp == sel.entry.Timestamp &&
+			item.entry.Command == sel.entry.Command &&
+			item.entry.Status == sel.entry.Status &&
+			item.entry.Duration == sel.entry.Duration &&
+			item.source == sel.source {
+			return i
+		}
+	}
+	return -1
+}
+
+// visibleAllItemsIndices returns allItems indices for all currently visible list items.
+// When a filter is active, only matching items are in the list.
+func (m *logTUIModel) visibleAllItemsIndices() []int {
+	listItems := m.list.Items()
+	indices := make([]int, 0, len(listItems))
+	for _, li := range listItems {
+		item, ok := li.(logItem)
+		if !ok {
+			continue
+		}
+		for i, ai := range m.allItems {
+			if ai.entry.Timestamp == item.entry.Timestamp &&
+				ai.entry.Command == item.entry.Command &&
+				ai.entry.Status == item.entry.Status &&
+				ai.entry.Duration == item.entry.Duration &&
+				ai.source == item.source {
+				indices = append(indices, i)
+				break
+			}
+		}
+	}
+	return indices
+}
+
+// rebuildListItems reconstructs list.Items from allItems (preserving marked state).
+// Re-applies active filter if one exists.
+func (m *logTUIModel) rebuildListItems() {
+	curIdx := m.list.Index()
+	if m.filterText != "" {
+		m.applyLogFilter()
+	} else {
+		items := make([]list.Item, len(m.allItems))
+		for i, item := range m.allItems {
+			items[i] = item
+		}
+		m.list.SetItems(items)
+		m.matchCount = len(items)
+	}
+	// Restore cursor position
+	if curIdx < len(m.list.Items()) {
+		m.list.Select(curIdx)
+	}
+}
+
+// executeDelete performs the actual deletion in a background goroutine, then reloads.
+func (m *logTUIModel) executeDelete() tea.Cmd {
+	// Collect entries to delete, grouped by source file
+	var opsMatches, auditMatches []oplog.Entry
+	for idx, marked := range m.selected {
+		if !marked || idx >= len(m.allItems) {
+			continue
+		}
+		item := m.allItems[idx]
+		switch item.source {
+		case "audit":
+			auditMatches = append(auditMatches, item.entry)
+		default:
+			opsMatches = append(opsMatches, item.entry)
+		}
+	}
+
+	configPath := m.configPath
+	loadFn := m.loadFn
+	return func() tea.Msg {
+		totalDeleted := 0
+
+		if len(opsMatches) > 0 {
+			n, err := oplog.DeleteEntries(configPath, oplog.OpsFile, opsMatches)
+			if err != nil {
+				return logDeletedMsg{err: err}
+			}
+			totalDeleted += n
+		}
+		if len(auditMatches) > 0 {
+			n, err := oplog.DeleteEntries(configPath, oplog.AuditFile, auditMatches)
+			if err != nil {
+				return logDeletedMsg{err: err}
+			}
+			totalDeleted += n
+		}
+
+		// Reload items using the same loadFn if available
+		if loadFn != nil {
+			items, err := loadFn()
+			if err != nil {
+				return logDeletedMsg{err: err}
+			}
+			return logDeletedMsg{items: items, deleted: totalDeleted}
+		}
+
+		// Fallback: re-read both log files
+		opsEntries, err := oplog.Read(configPath, oplog.OpsFile, 0)
+		if err != nil {
+			return logDeletedMsg{err: err}
+		}
+		auditEntries, err := oplog.Read(configPath, oplog.AuditFile, 0)
+		if err != nil {
+			return logDeletedMsg{err: err}
+		}
+		items := append(toLogItems(opsEntries, "operations"), toLogItems(auditEntries, "audit")...)
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].entry.Timestamp > items[j].entry.Timestamp
+		})
+		return logDeletedMsg{items: items, deleted: totalDeleted}
+	}
+}
+
 func (m logTUIModel) View() string {
 	if m.quitting {
 		return ""
 	}
 
+	// Loading / deleting state — spinner + message
+	if m.loading {
+		return fmt.Sprintf("\n  %s Loading log entries...\n", m.loadSpinner.View())
+	}
+	if m.deleting {
+		return fmt.Sprintf("\n  %s Deleting entries...\n", m.loadSpinner.View())
+	}
+
 	var b strings.Builder
 
+	// Stats overlay — full screen, unchanged
 	if m.showStats {
 		b.WriteString("\n")
 		b.WriteString(m.renderStatsPanel())
@@ -211,26 +541,111 @@ func (m logTUIModel) View() string {
 		return b.String()
 	}
 
-	b.WriteString(m.list.View())
-	b.WriteString("\n\n")
+	// Narrow terminal (<70 cols): vertical fallback
+	if m.termWidth < 70 {
+		return m.viewVertical()
+	}
 
-	// Filter bar (always visible)
+	// ── Horizontal split layout ──
+	// Filter bar (full width, top)
 	b.WriteString(m.renderLogFilterBar())
 
-	// Detail panel for selected item (scrollable, height-limited)
+	// Panel height: terminal minus filter(1) + stats footer(1) + help(1) + newlines(2)
+	panelHeight := m.termHeight - 5
+	if panelHeight < 6 {
+		panelHeight = 6
+	}
+
+	leftWidth := logListWidth(m.termWidth)
+	rightWidth := logDetailPanelWidth(m.termWidth)
+
+	// Left panel: list
+	leftPanel := lipgloss.NewStyle().
+		Width(leftWidth).MaxWidth(leftWidth).
+		Height(panelHeight).MaxHeight(panelHeight).
+		Render(m.list.View())
+
+	// Border column
+	borderStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("8")).
+		Height(panelHeight).MaxHeight(panelHeight)
+	borderCol := strings.Repeat("│\n", panelHeight)
+	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
+
+	// Right panel: detail for selected item
+	var detailStr string
 	if item, ok := m.list.SelectedItem().(logItem); ok {
 		detailContent := renderLogDetailPanel(item)
-		b.WriteString(m.scrollableDetail(detailContent))
+		detailStr = m.applyDetailScroll(detailContent, panelHeight)
 	}
+	rightPanel := lipgloss.NewStyle().
+		Width(rightWidth).MaxWidth(rightWidth).
+		Height(panelHeight).MaxHeight(panelHeight).
+		PaddingLeft(1).
+		Render(detailStr)
+
+	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
+	b.WriteString(body)
+	b.WriteString("\n")
 
 	// Stats footer
 	b.WriteString(m.renderStatsFooter())
 
-	help := "↑↓ navigate  ←→ page  / filter  s stats  q quit"
-	b.WriteString(tuiHelpStyle.Render(help))
+	b.WriteString(tuiHelpStyle.Render(m.logHelpBar()))
 	b.WriteString("\n")
 
 	return b.String()
+}
+
+// viewVertical renders the original vertical layout for narrow terminals.
+func (m logTUIModel) viewVertical() string {
+	var b strings.Builder
+
+	b.WriteString(m.list.View())
+	b.WriteString("\n\n")
+
+	b.WriteString(m.renderLogFilterBar())
+
+	if item, ok := m.list.SelectedItem().(logItem); ok {
+		detailContent := renderLogDetailPanel(item)
+		// Vertical: detail takes remaining space below the list
+		detailHeight := m.termHeight - m.termHeight*2/5 - 7
+		b.WriteString(m.applyDetailScroll(detailContent, detailHeight))
+	}
+
+	b.WriteString(m.renderStatsFooter())
+
+	b.WriteString(tuiHelpStyle.Render(m.logHelpBar()))
+	b.WriteString("\n")
+
+	return b.String()
+}
+
+// logHelpBar returns the context-sensitive help text for the bottom bar.
+func (m logTUIModel) logHelpBar() string {
+	if m.confirmDelete {
+		return fmt.Sprintf("Delete %d entries? y confirm  n cancel", m.selCount)
+	}
+
+	var parts []string
+	parts = append(parts, "↑↓ navigate  ←→ page  / filter")
+
+	if m.selCount > 0 {
+		parts = append(parts, fmt.Sprintf("d delete(%d)  space toggle  a all", m.selCount))
+	} else {
+		parts = append(parts, "space select  a all")
+	}
+
+	parts = append(parts, "s stats  q quit")
+
+	help := strings.Join(parts, "  ")
+
+	if m.lastDeletedMsg != "" {
+		greenStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("2"))
+		help = greenStyle.Render(m.lastDeletedMsg) + "  " + help
+	}
+
+	return help
 }
 
 // renderLogFilterBar renders the status line for the log TUI.
@@ -242,17 +657,35 @@ func (m logTUIModel) renderLogFilterBar() string {
 	)
 }
 
-// scrollableDetail wraps a detail panel string with height limit and scroll offset.
-func (m logTUIModel) scrollableDetail(content string) string {
+// logListWidth returns the left panel width for horizontal layout.
+// 40% of terminal, clamped to [30, 60].
+func logListWidth(termWidth int) int {
+	w := termWidth * 2 / 5
+	if w < 30 {
+		w = 30
+	}
+	if w > 60 {
+		w = 60
+	}
+	return w
+}
+
+// logDetailPanelWidth returns the right detail panel width.
+// termWidth minus list width minus border/gap (3 chars).
+func logDetailPanelWidth(termWidth int) int {
+	w := termWidth - logListWidth(termWidth) - 3
+	if w < 30 {
+		w = 30
+	}
+	return w
+}
+
+// applyDetailScroll wraps a detail panel string with height limit and scroll offset.
+// viewHeight is the maximum number of visible lines for the detail area.
+func (m logTUIModel) applyDetailScroll(content string, viewHeight int) string {
 	lines := strings.Split(content, "\n")
 
-	// List takes ~40% of terminal; remaining goes to detail.
-	// Subtract overhead: filter bar(2) + stats footer(1) + help bar(1) + newlines(3) = 7
-	listHeight := m.termHeight * 2 / 5
-	if listHeight < 6 {
-		listHeight = 6
-	}
-	maxDetailLines := m.termHeight - listHeight - 7
+	maxDetailLines := viewHeight
 	if maxDetailLines < 5 {
 		maxDetailLines = 5
 	}
@@ -283,7 +716,7 @@ func (m logTUIModel) scrollableDetail(content string) string {
 	// Scroll indicator
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	if offset > 0 || offset < maxScroll {
-		indicator := fmt.Sprintf("  ── j/k scroll (%d/%d) ──", offset+1, maxScroll+1)
+		indicator := fmt.Sprintf("  ── Ctrl+d/u scroll (%d/%d) ──", offset+1, maxScroll+1)
 		b.WriteString(dimStyle.Render(indicator))
 		b.WriteString("\n")
 	}
@@ -294,11 +727,8 @@ func (m logTUIModel) scrollableDetail(content string) string {
 // renderLogDetailPanel renders structured details for the selected log entry.
 func renderLogDetailPanel(item logItem) string {
 	var b strings.Builder
-	b.WriteString(tuiSeparatorStyle.Render("  ─────────────────────────────────────────"))
-	b.WriteString("\n")
 
 	row := func(label, value string) {
-		b.WriteString("  ")
 		b.WriteString(logDetailLabelStyle.Render(label))
 		b.WriteString(tuiDetailValueStyle.Render(value))
 		b.WriteString("\n")
@@ -346,12 +776,11 @@ func renderLogDetailPanel(item logItem) string {
 
 	// Structured args via formatLogDetailPairs — colorize semantic values
 	pairs := formatLogDetailPairs(e)
-	const maxBulletItems = 5 // condense long lists to avoid flooding the panel
+	const maxBulletItems = 100 // right panel has dedicated space + scroll
 
 	for _, p := range pairs {
 		// List fields: render as multi-line bullet list for readability
 		if p.isList && len(p.listValues) > 0 {
-			b.WriteString("  ")
 			b.WriteString(logDetailLabelStyle.Render(p.key + ":"))
 			b.WriteString("\n")
 			show := p.listValues
@@ -361,10 +790,10 @@ func renderLogDetailPanel(item logItem) string {
 				show = show[:maxBulletItems]
 			}
 			for _, v := range show {
-				b.WriteString("      - " + tuiDetailValueStyle.Render(v) + "\n")
+				b.WriteString("    - " + tuiDetailValueStyle.Render(v) + "\n")
 			}
 			if remaining > 0 {
-				summary := fmt.Sprintf("      ... and %d more", remaining)
+				summary := fmt.Sprintf("    ... and %d more", remaining)
 				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(summary) + "\n")
 			}
 			continue
@@ -464,22 +893,27 @@ func (m logTUIModel) renderStatsFooter() string {
 		return ""
 	}
 
+	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	cyanStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
+	rateStyle := statsSuccessRateColor(m.stats.SuccessRate)
+
 	parts := []string{
-		fmt.Sprintf("%d ops", m.stats.Total),
-		fmt.Sprintf("✓ %.1f%%", m.stats.SuccessRate*100),
+		dimStyle.Render(fmt.Sprintf("%d ops", m.stats.Total)),
+		rateStyle.Render(fmt.Sprintf("✓ %.1f%%", m.stats.SuccessRate*100)),
 	}
 
 	if m.stats.LastOperation != nil {
 		ts, err := time.Parse(time.RFC3339, m.stats.LastOperation.Timestamp)
 		if err == nil {
-			parts = append(parts, fmt.Sprintf("last: %s %s ago",
-				m.stats.LastOperation.Command, formatRelativeTime(time.Since(ts))))
+			lastPart := dimStyle.Render("last: ") +
+				cyanStyle.Render(m.stats.LastOperation.Command) +
+				dimStyle.Render(fmt.Sprintf(" %s ago", formatRelativeTime(time.Since(ts))))
+			parts = append(parts, lastPart)
 		}
 	}
 
-	line := strings.Join(parts, " | ")
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	return "  " + style.Render(line) + "\n"
+	sep := dimStyle.Render(" | ")
+	return "  " + strings.Join(parts, sep) + "\n"
 }
 
 // renderStatsPanel renders the full stats overlay panel.
@@ -637,15 +1071,29 @@ func statsSuccessRateColor(rate float64) lipgloss.Style {
 	}
 }
 
-// runLogTUI starts the bubbletea TUI for the log viewer.
-func runLogTUI(items []logItem, logLabel, modeLabel string) error {
+// runLogTUI starts the bubbletea TUI for the log viewer (pre-loaded items).
+func runLogTUI(items []logItem, logLabel, modeLabel, configPath string) error {
 	if len(items) == 0 {
 		fmt.Printf("No %s log entries\n", strings.ToLower(logLabel))
 		return nil
 	}
 
-	model := newLogTUIModel(items, logLabel, modeLabel)
-	p := tea.NewProgram(model, tea.WithAltScreen())
+	model := newLogTUIModel(nil, items, logLabel, modeLabel, configPath)
+	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	_, err := p.Run()
 	return err
+}
+
+// runLogTUIAsync starts the bubbletea TUI with async loading (spinner shown).
+func runLogTUIAsync(loadFn logLoadFn, logLabel, modeLabel, configPath string) error {
+	model := newLogTUIModel(loadFn, nil, logLabel, modeLabel, configPath)
+	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
+	finalModel, err := p.Run()
+	if err != nil {
+		return err
+	}
+	if m, ok := finalModel.(logTUIModel); ok && m.loadErr != nil {
+		return m.loadErr
+	}
+	return nil
 }

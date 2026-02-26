@@ -266,60 +266,60 @@ func isProjectLogConfig(configPath string) bool {
 	return filepath.Base(filepath.Dir(configPath)) == ".skillshare"
 }
 
-// runLogTUIDispatch reads log entries and launches the interactive TUI viewer.
+// runLogTUIDispatch launches the interactive TUI with async log loading.
 func runLogTUIDispatch(configPath string, auditOnly bool, limit int, filter oplog.Filter, modeLabel string) error {
-	var items []logItem
-
 	if auditOnly {
-		entries, err := readAndFilter(configPath, oplog.AuditFile, limit, filter)
-		if err != nil {
-			return err
-		}
-		items = toLogItems(entries, "audit")
-		return runLogTUI(items, "Audit", modeLabel)
+		return runLogTUIAsync(func() ([]logItem, error) {
+			entries, err := readAndFilter(configPath, oplog.AuditFile, limit, filter)
+			if err != nil {
+				return nil, err
+			}
+			return toLogItems(entries, "audit"), nil
+		}, "Audit", modeLabel, configPath)
 	}
 
 	// When filtering by command, only read the relevant log
 	if filter.Cmd != "" {
 		if filter.Cmd == "audit" {
-			entries, err := readAndFilter(configPath, oplog.AuditFile, limit, filter)
+			return runLogTUIAsync(func() ([]logItem, error) {
+				entries, err := readAndFilter(configPath, oplog.AuditFile, limit, filter)
+				if err != nil {
+					return nil, err
+				}
+				return toLogItems(entries, "audit"), nil
+			}, "Audit", modeLabel, configPath)
+		}
+		return runLogTUIAsync(func() ([]logItem, error) {
+			entries, err := readAndFilter(configPath, oplog.OpsFile, limit, filter)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			items = toLogItems(entries, "audit")
-			return runLogTUI(items, "Audit", modeLabel)
-		}
-		entries, err := readAndFilter(configPath, oplog.OpsFile, limit, filter)
+			return toLogItems(entries, "operations"), nil
+		}, "Operations", modeLabel, configPath)
+	}
+
+	// Default: read both logs, merge, sort
+	return runLogTUIAsync(func() ([]logItem, error) {
+		opsEntries, err := readAndFilter(configPath, oplog.OpsFile, 0, filter)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		items = toLogItems(entries, "operations")
-		return runLogTUI(items, "Operations", modeLabel)
-	}
+		auditEntries, err := readAndFilter(configPath, oplog.AuditFile, 0, filter)
+		if err != nil {
+			return nil, err
+		}
 
-	// Read both logs, merge, and sort by timestamp (newest first)
-	opsEntries, err := readAndFilter(configPath, oplog.OpsFile, 0, filter)
-	if err != nil {
-		return err
-	}
-	auditEntries, err := readAndFilter(configPath, oplog.AuditFile, 0, filter)
-	if err != nil {
-		return err
-	}
+		items := append(toLogItems(opsEntries, "operations"), toLogItems(auditEntries, "audit")...)
 
-	items = append(toLogItems(opsEntries, "operations"), toLogItems(auditEntries, "audit")...)
+		sort.Slice(items, func(i, j int) bool {
+			return items[i].entry.Timestamp > items[j].entry.Timestamp
+		})
 
-	// Sort by timestamp descending (newest first)
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].entry.Timestamp > items[j].entry.Timestamp
-	})
-
-	// Apply limit after merge
-	if limit > 0 && len(items) > limit {
-		items = items[:limit]
-	}
-
-	return runLogTUI(items, "Operations & Audit", modeLabel)
+		if limit > 0 && len(items) > limit {
+			items = items[:limit]
+		}
+		return items, nil
+	}, "Operations & Audit", modeLabel, configPath)
 }
 
 // readAndFilter reads entries from a log file, applies filter, and limits results.
