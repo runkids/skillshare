@@ -113,7 +113,8 @@ func newSearchSelectModel(results []search.SearchResult, isHub bool) searchSelec
 	}
 
 	delegate := list.NewDefaultDelegate()
-	delegate.ShowDescription = true
+	delegate.ShowDescription = false
+	delegate.SetHeight(1)
 	delegate.SetSpacing(0)
 	delegate.Styles.NormalTitle = lipgloss.NewStyle().
 		Foreground(lipgloss.Color("15")).PaddingLeft(2)
@@ -178,7 +179,7 @@ func (m searchSelectModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
-		m.list.SetSize(msg.Width, msg.Height-14)
+		m.list.SetSize(msg.Width, msg.Height-13)
 		return m, nil
 
 	case tea.KeyMsg:
