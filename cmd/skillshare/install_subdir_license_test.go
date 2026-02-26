@@ -45,7 +45,7 @@ func TestHandleGitInstall_SubdirSingleSkill_ShowsLicense(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "License: MIT") {
+	if !strings.Contains(output, "License") || !strings.Contains(output, "MIT") {
 		t.Fatalf("expected output to include license, got:\n%s", output)
 	}
 }

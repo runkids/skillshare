@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"skillshare/internal/oplog"
+	"skillshare/internal/ui"
 )
 
 func TestComputeLogStats_Basic(t *testing.T) {
@@ -49,8 +50,9 @@ func TestComputeLogStats_Empty(t *testing.T) {
 func TestRenderStatsCLI_Empty(t *testing.T) {
 	stats := computeLogStats(nil)
 	output := renderStatsCLI(stats)
-	if output != "No log entries\n" {
-		t.Errorf("got %q, want %q", output, "No log entries\n")
+	want := ui.Gray + "No log entries" + ui.Reset + "\n"
+	if output != want {
+		t.Errorf("got %q, want %q", output, want)
 	}
 }
 
