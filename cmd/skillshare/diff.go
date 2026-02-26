@@ -339,13 +339,22 @@ func cmdDiffGlobal(targetName string) error {
 	}
 	progress := newDiffProgress(names, totalSkills)
 
-	var results []targetDiffResult
-	for _, fe := range fentries {
-		progress.startTarget(fe.name)
-		r := collectTargetDiff(fe.name, fe.target, cfg.Source, fe.mode, fe.filtered, progress)
-		progress.doneTarget(fe.name, r)
-		results = append(results, r)
+	results := make([]targetDiffResult, len(fentries))
+	sem := make(chan struct{}, 8)
+	var wg gosync.WaitGroup
+	for i, fe := range fentries {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(idx int, fe filteredEntry) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			progress.startTarget(fe.name)
+			r := collectTargetDiff(fe.name, fe.target, cfg.Source, fe.mode, fe.filtered, progress)
+			progress.doneTarget(fe.name, r)
+			results[idx] = r
+		}(i, fe)
 	}
+	wg.Wait()
 
 	progress.stop()
 	renderGroupedDiffs(results)
