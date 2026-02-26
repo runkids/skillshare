@@ -52,6 +52,7 @@ type logTUIModel struct {
 	loadSpinner spinner.Model
 	loadFn      logLoadFn
 	loadErr     error
+	emptyResult bool // true when async load returned zero entries
 
 	// Application-level filter (matches list_tui pattern)
 	allItems    []logItem
@@ -193,6 +194,11 @@ func (m logTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Keep loadFn for reload after delete (closure is lightweight)
 		if msg.err != nil {
 			m.loadErr = msg.err
+			m.quitting = true
+			return m, tea.Quit
+		}
+		if len(msg.items) == 0 {
+			m.emptyResult = true
 			m.quitting = true
 			return m, tea.Quit
 		}
@@ -1049,8 +1055,14 @@ func runLogTUIAsync(loadFn logLoadFn, logLabel, modeLabel, configPath string) er
 	if err != nil {
 		return err
 	}
-	if m, ok := finalModel.(logTUIModel); ok && m.loadErr != nil {
-		return m.loadErr
+	if m, ok := finalModel.(logTUIModel); ok {
+		if m.loadErr != nil {
+			return m.loadErr
+		}
+		if m.emptyResult {
+			fmt.Printf("No %s log entries\n", strings.ToLower(logLabel))
+			return nil
+		}
 	}
 	return nil
 }

@@ -49,6 +49,10 @@ func cmdListProject(root string, opts listOptions) error {
 			return err
 		}
 		switch action {
+		case "empty":
+			ui.Info("No skills installed")
+			ui.Info("Use 'skillshare install -p <source>' to install a skill")
+			return nil
 		case "audit":
 			return cmdAudit([]string{"-p", skillName})
 		case "update":
