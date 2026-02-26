@@ -13,8 +13,8 @@ const ManifestFile = ".skillshare-manifest.json"
 // Manifest tracks which skills are managed by skillshare in a target directory.
 // Used by both merge mode (values: "symlink") and copy mode (values: SHA-256 checksum).
 type Manifest struct {
-	Managed   map[string]string `json:"managed"`            // flatName → "symlink" (merge) or SHA-256 checksum (copy)
-	Mtimes    map[string]int64  `json:"mtimes,omitempty"`   // flatName → source dir max mtime (UnixNano), copy mode only
+	Managed   map[string]string `json:"managed"`          // flatName → "symlink" (merge) or SHA-256 checksum (copy)
+	Mtimes    map[string]int64  `json:"mtimes,omitempty"` // flatName → source dir max mtime (UnixNano), copy mode only
 	UpdatedAt time.Time         `json:"updated_at"`
 }
 
