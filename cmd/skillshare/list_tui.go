@@ -194,8 +194,8 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
-		// Reserve space for detail panel + filter bar + help
-		m.list.SetSize(msg.Width, msg.Height-17)
+		// Reserve space for detail panel + filter bar + gap + help
+		m.list.SetSize(msg.Width, msg.Height-18)
 		return m, nil
 
 	case spinner.TickMsg:
@@ -334,6 +334,7 @@ func (m listTUIModel) View() string {
 	if item, ok := m.list.SelectedItem().(skillItem); ok {
 		b.WriteString(m.renderDetailPanel(item.entry))
 	}
+	b.WriteString("\n")
 
 	// Help line
 	help := "↑↓ navigate  ←→ page  / filter  Enter view  A audit  U update  X uninstall  q quit"

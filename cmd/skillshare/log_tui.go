@@ -542,8 +542,8 @@ func (m logTUIModel) View() string {
 	}
 
 	// ── Horizontal split layout ──
-	// Panel height: terminal minus filter(1) + stats footer(1) + help(1) + newlines(2)
-	panelHeight := m.termHeight - 5
+	// Footer: gap(1) + filter(1) + stats(1) + gap(1) + help(1) + trailing(1) = 6 + 2 gaps = 8
+	panelHeight := m.termHeight - 8
 	if panelHeight < 6 {
 		panelHeight = 6
 	}
@@ -577,13 +577,14 @@ func (m logTUIModel) View() string {
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
 	b.WriteString(body)
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 
 	// Filter bar (below panels, matching list TUI layout)
 	b.WriteString(m.renderLogFilterBar())
 
 	// Stats footer
 	b.WriteString(m.renderStatsFooter())
+	b.WriteString("\n")
 
 	b.WriteString(tc.Help.Render(m.logHelpBar()))
 	b.WriteString("\n")
