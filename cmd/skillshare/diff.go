@@ -109,28 +109,25 @@ type copyDiffEntry struct {
 // diffProgress displays multi-target scanning progress using AreaPrinter.
 // Shows all targets at once: spinner for active, checkmark for done, "queued" for waiting.
 type diffProgress struct {
-	names    []string
-	states   []string // "queued", "scanning", "done", "error"
-	details  []string // status detail text
-	totals   []int    // total skills per target (0 = no progress bar)
-	currents []int    // current skill index per target
-	area     *pterm.AreaPrinter
-	mu       gosync.Mutex
-	stopCh   chan struct{}
-	frames   []string
-	frame    int
-	isTTY    bool
+	names     []string
+	states    []string // "queued", "scanning", "done", "error"
+	details   []string // status detail text
+	completed int      // number of targets finished
+	area      *pterm.AreaPrinter
+	mu        gosync.Mutex
+	stopCh    chan struct{}
+	frames    []string
+	frame     int
+	isTTY     bool
 }
 
 func newDiffProgress(names []string) *diffProgress {
 	dp := &diffProgress{
-		names:    names,
-		states:   make([]string, len(names)),
-		details:  make([]string, len(names)),
-		totals:   make([]int, len(names)),
-		currents: make([]int, len(names)),
-		frames:   []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"},
-		isTTY:    ui.IsTTY(),
+		names:   names,
+		states:  make([]string, len(names)),
+		details: make([]string, len(names)),
+		frames:  []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"},
+		isTTY:   ui.IsTTY(),
 	}
 	for i := range dp.states {
 		dp.states[i] = "queued"
@@ -164,16 +161,12 @@ func newDiffProgress(names []string) *diffProgress {
 const progressBarWidth = 20
 
 func progressBar(current, total int) string {
-	if total <= 0 {
-		return ""
-	}
 	filled := current * progressBarWidth / total
 	if filled > progressBarWidth {
 		filled = progressBarWidth
 	}
-	pct := current * 100 / total
-	bar := strings.Repeat("█", filled) + strings.Repeat("░", progressBarWidth-filled)
-	return fmt.Sprintf("%s %3d%%", bar, pct)
+	bar := strings.Repeat("━", filled) + strings.Repeat("─", progressBarWidth-filled)
+	return fmt.Sprintf("%s %d/%d targets", bar, current, total)
 }
 
 func (dp *diffProgress) render() {
@@ -188,18 +181,18 @@ func (dp *diffProgress) render() {
 			line = fmt.Sprintf("  %s  %s", pterm.Gray(name), pterm.Gray("queued"))
 		case "scanning":
 			spinner := pterm.Cyan(dp.frames[dp.frame])
-			if dp.totals[i] > 0 {
-				bar := progressBar(dp.currents[i], dp.totals[i])
-				line = fmt.Sprintf("  %s %s  %s  %s", spinner, pterm.Cyan(name), pterm.Cyan(bar), pterm.Gray(dp.details[i]))
-			} else {
-				line = fmt.Sprintf("  %s %s  %s", spinner, pterm.Cyan(name), pterm.Gray(dp.details[i]))
-			}
+			line = fmt.Sprintf("  %s %s  %s", spinner, pterm.Cyan(name), pterm.Gray(dp.details[i]))
 		case "done":
 			line = fmt.Sprintf("  %s %s  %s", pterm.Green("✓"), name, pterm.Gray(dp.details[i]))
 		case "error":
 			line = fmt.Sprintf("  %s %s  %s", pterm.Red("✗"), name, pterm.Gray(dp.details[i]))
 		}
 		lines = append(lines, line)
+	}
+	// Overall progress bar at the bottom
+	total := len(dp.names)
+	if total > 1 {
+		lines = append(lines, "  "+pterm.Gray(progressBar(dp.completed, total)))
 	}
 	dp.area.Update(strings.Join(lines, "\n"))
 }
@@ -214,22 +207,16 @@ func (dp *diffProgress) startTarget(idx int) {
 	}
 }
 
-func (dp *diffProgress) setTargetTotal(idx int, total int) {
+func (dp *diffProgress) updateTarget(idx int, detail string) {
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
-	dp.totals[idx] = total
-}
-
-func (dp *diffProgress) updateTarget(idx int, current int, detail string) {
-	dp.mu.Lock()
-	defer dp.mu.Unlock()
-	dp.currents[idx] = current
 	dp.details[idx] = detail
 }
 
 func (dp *diffProgress) doneTarget(idx int, r targetDiffResult) {
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
+	dp.completed++
 	if r.errMsg != "" {
 		dp.states[idx] = "error"
 		dp.details[idx] = r.errMsg
@@ -376,12 +363,9 @@ func collectSymlinkDiff(r *targetDiffResult, targetPath, source string) {
 }
 
 func collectCopyDiff(r *targetDiffResult, targetPath string, filtered []sync.DiscoveredSkill, sourceSkills map[string]bool, manifest *sync.Manifest, dp *diffProgress, dpIdx int) {
-	if dp != nil {
-		dp.setTargetTotal(dpIdx, len(filtered))
-	}
 	for i, skill := range filtered {
 		if dp != nil {
-			dp.updateTarget(dpIdx, i+1, skill.FlatName)
+			dp.updateTarget(dpIdx, fmt.Sprintf("%d/%d %s", i+1, len(filtered), skill.FlatName))
 		}
 		oldChecksum, isManaged := manifest.Managed[skill.FlatName]
 		targetSkillPath := filepath.Join(targetPath, skill.FlatName)
