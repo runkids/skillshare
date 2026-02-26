@@ -478,12 +478,10 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 	// Phase 1: grouped install — clone each repo once, install multiple skills.
 	for _, group := range groups {
 		// Build a whole-repo source (no Subdir) for cloning.
-		repoSource := &install.Source{
-			Type:     group.source.Type,
-			Raw:      group.source.GitHubOwner() + "/" + group.source.GitHubRepo(),
-			CloneURL: group.source.CloneURL,
-			Name:     group.source.GitHubRepo(),
-		}
+		// Copy the parsed source and clear Subdir so the clone fetches the
+		// entire repo rather than a single subdirectory.
+		repoSource := *group.source
+		repoSource.Subdir = ""
 
 		// Use the first skill's name for clone progress display.
 		cloneLabel := group.results[0].Name
@@ -493,7 +491,7 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 		}
 
 		onProgress := progress.progressCallbackFor(cloneLabel)
-		discovery, cloneErr := install.DiscoverFromGitWithProgress(repoSource, onProgress)
+		discovery, cloneErr := install.DiscoverFromGitWithProgress(&repoSource, onProgress)
 
 		if cloneErr != nil {
 			// Clone failed — mark all skills in group as failed.
