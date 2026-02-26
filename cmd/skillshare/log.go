@@ -245,7 +245,7 @@ Examples:
 
 func runLogStats(configPath string, auditOnly bool, f oplog.Filter) error {
 	filename := oplog.OpsFile
-	if auditOnly {
+	if auditOnly || f.Cmd == "audit" {
 		filename = oplog.AuditFile
 	}
 

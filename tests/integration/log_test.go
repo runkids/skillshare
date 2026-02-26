@@ -464,6 +464,26 @@ targets:
 	result.AssertOutputContains(t, "OK:")
 }
 
+func TestLog_StatsCmdAuditReadsAuditLog(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("s1", map[string]string{"SKILL.md": "# S\n\nTest."})
+	tp := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + tp + `
+`)
+
+	sb.RunCLI("audit")
+
+	result := sb.RunCLI("log", "--stats", "--cmd", "audit")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "audit")
+	result.AssertOutputContains(t, "OK:")
+}
+
 func TestLog_CheckCreatesEntry(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
