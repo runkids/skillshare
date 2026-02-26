@@ -6,10 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	gosync "sync"
 	"time"
-
-	"github.com/pterm/pterm"
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
@@ -106,139 +103,37 @@ type copyDiffEntry struct {
 	isSync bool // true = needs sync, false = local-only
 }
 
-// diffProgress displays multi-target scanning progress using AreaPrinter.
-// Shows all targets at once: spinner for active, checkmark for done, "queued" for waiting.
+// diffProgress wraps ui.ProgressBar for multi-target diff scanning.
+// Tracks total skills across all targets; UpdateTitle shows the current target + skill name.
 type diffProgress struct {
-	names     []string
-	states    []string // "queued", "scanning", "done", "error"
-	details   []string // status detail text
-	completed int      // number of targets finished
-	area      *pterm.AreaPrinter
-	mu        gosync.Mutex
-	stopCh    chan struct{}
-	frames    []string
-	frame     int
-	isTTY     bool
+	bar *ui.ProgressBar
 }
 
-func newDiffProgress(names []string) *diffProgress {
-	dp := &diffProgress{
-		names:   names,
-		states:  make([]string, len(names)),
-		details: make([]string, len(names)),
-		frames:  []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"},
-		isTTY:   ui.IsTTY(),
+func newDiffProgress(totalSkills int) *diffProgress {
+	if totalSkills == 0 {
+		return &diffProgress{}
 	}
-	for i := range dp.states {
-		dp.states[i] = "queued"
-	}
-	if !dp.isTTY {
-		return dp
-	}
-	area, _ := pterm.DefaultArea.WithRemoveWhenDone(true).Start()
-	dp.area = area
-	dp.stopCh = make(chan struct{})
-	// Animation goroutine
-	go func() {
-		ticker := time.NewTicker(80 * time.Millisecond)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-dp.stopCh:
-				return
-			case <-ticker.C:
-				dp.mu.Lock()
-				dp.frame = (dp.frame + 1) % len(dp.frames)
-				dp.render()
-				dp.mu.Unlock()
-			}
-		}
-	}()
-	dp.render()
-	return dp
-}
-
-const progressBarWidth = 20
-
-func progressBar(current, total int) string {
-	filled := current * progressBarWidth / total
-	if filled > progressBarWidth {
-		filled = progressBarWidth
-	}
-	bar := strings.Repeat("━", filled) + strings.Repeat("─", progressBarWidth-filled)
-	return fmt.Sprintf("%s %d/%d targets", bar, current, total)
-}
-
-func (dp *diffProgress) render() {
-	if dp.area == nil {
-		return
-	}
-	var lines []string
-	for i, name := range dp.names {
-		var line string
-		switch dp.states[i] {
-		case "queued":
-			line = fmt.Sprintf("  %s  %s", pterm.Gray(name), pterm.Gray("queued"))
-		case "scanning":
-			spinner := pterm.Cyan(dp.frames[dp.frame])
-			line = fmt.Sprintf("  %s %s  %s", spinner, pterm.Cyan(name), pterm.Gray(dp.details[i]))
-		case "done":
-			line = fmt.Sprintf("  %s %s  %s", pterm.Green("✓"), name, pterm.Gray(dp.details[i]))
-		case "error":
-			line = fmt.Sprintf("  %s %s  %s", pterm.Red("✗"), name, pterm.Gray(dp.details[i]))
-		}
-		lines = append(lines, line)
-	}
-	// Overall progress bar at the bottom
-	total := len(dp.names)
-	if total > 1 {
-		lines = append(lines, "  "+pterm.Gray(progressBar(dp.completed, total)))
-	}
-	dp.area.Update(strings.Join(lines, "\n"))
-}
-
-func (dp *diffProgress) startTarget(idx int) {
-	dp.mu.Lock()
-	defer dp.mu.Unlock()
-	dp.states[idx] = "scanning"
-	dp.details[idx] = "comparing..."
-	if !dp.isTTY {
-		fmt.Printf("  %s: scanning...\n", dp.names[idx])
+	return &diffProgress{
+		bar: ui.StartProgress("Comparing targets", totalSkills),
 	}
 }
 
-func (dp *diffProgress) updateTarget(idx int, detail string) {
-	dp.mu.Lock()
-	defer dp.mu.Unlock()
-	dp.details[idx] = detail
+func (dp *diffProgress) update(targetName, skillName string) {
+	if dp.bar != nil {
+		dp.bar.UpdateTitle(fmt.Sprintf("%s: %s", targetName, skillName))
+		dp.bar.Increment()
+	}
 }
 
-func (dp *diffProgress) doneTarget(idx int, r targetDiffResult) {
-	dp.mu.Lock()
-	defer dp.mu.Unlock()
-	dp.completed++
-	if r.errMsg != "" {
-		dp.states[idx] = "error"
-		dp.details[idx] = r.errMsg
-	} else if r.synced {
-		dp.states[idx] = "done"
-		dp.details[idx] = "fully synced"
-	} else {
-		dp.states[idx] = "done"
-		total := r.syncCount + r.localCount
-		dp.details[idx] = fmt.Sprintf("%d difference(s)", total)
-	}
-	if !dp.isTTY {
-		fmt.Printf("  %s: %s\n", dp.names[idx], dp.details[idx])
+func (dp *diffProgress) add(n int) {
+	if dp.bar != nil {
+		dp.bar.Add(n)
 	}
 }
 
 func (dp *diffProgress) stop() {
-	if dp.stopCh != nil {
-		close(dp.stopCh)
-	}
-	if dp.area != nil {
-		dp.area.Stop() //nolint:errcheck
+	if dp.bar != nil {
+		dp.bar.Stop()
 	}
 }
 
@@ -286,23 +181,27 @@ func cmdDiffGlobal(targetName string) error {
 		return entries[i].name < entries[j].name
 	})
 
-	// Collect diffs with progress display
-	names := make([]string, len(entries))
-	for i, e := range entries {
-		names[i] = e.name
+	// Pre-filter skills per target and compute total for progress bar
+	type filteredEntry struct {
+		targetEntry
+		filtered []sync.DiscoveredSkill
 	}
-	progress := newDiffProgress(names)
-
-	var results []targetDiffResult
-	for i, e := range entries {
+	var fentries []filteredEntry
+	totalSkills := 0
+	for _, e := range entries {
 		filtered, err := sync.FilterSkills(discovered, e.target.Include, e.target.Exclude)
 		if err != nil {
-			progress.stop()
 			return fmt.Errorf("target %s has invalid include/exclude config: %w", e.name, err)
 		}
-		progress.startTarget(i)
-		r := collectTargetDiff(e.name, e.target, cfg.Source, e.mode, filtered, progress, i)
-		progress.doneTarget(i, r)
+		fentries = append(fentries, filteredEntry{e, filtered})
+		totalSkills += len(filtered)
+	}
+
+	progress := newDiffProgress(totalSkills)
+
+	var results []targetDiffResult
+	for _, fe := range fentries {
+		r := collectTargetDiff(fe.name, fe.target, cfg.Source, fe.mode, fe.filtered, progress)
 		results = append(results, r)
 	}
 
@@ -311,7 +210,7 @@ func cmdDiffGlobal(targetName string) error {
 	return nil
 }
 
-func collectTargetDiff(name string, target config.TargetConfig, source, mode string, filtered []sync.DiscoveredSkill, dp *diffProgress, idx int) targetDiffResult {
+func collectTargetDiff(name string, target config.TargetConfig, source, mode string, filtered []sync.DiscoveredSkill, dp *diffProgress) targetDiffResult {
 	r := targetDiffResult{
 		name:    name,
 		mode:    mode,
@@ -323,6 +222,7 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	_, err := os.Lstat(target.Path)
 	if err != nil {
 		r.errMsg = fmt.Sprintf("Cannot access target: %v", err)
+		dp.add(len(filtered))
 		return r
 	}
 
@@ -334,17 +234,19 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	if utils.IsSymlinkOrJunction(target.Path) {
 		r.mode = "symlink"
 		collectSymlinkDiff(&r, target.Path, source)
+		dp.add(len(filtered))
 		return r
 	}
 
 	if mode == "copy" {
 		manifest, _ := sync.ReadManifest(target.Path)
-		collectCopyDiff(&r, target.Path, filtered, sourceSkills, manifest, dp, idx)
+		collectCopyDiff(&r, name, target.Path, filtered, sourceSkills, manifest, dp)
 		return r
 	}
 
-	// Merge mode
+	// Merge mode (instant)
 	collectMergeDiff(&r, target.Path, sourceSkills)
+	dp.add(len(filtered))
 	return r
 }
 
@@ -362,11 +264,9 @@ func collectSymlinkDiff(r *targetDiffResult, targetPath, source string) {
 	}
 }
 
-func collectCopyDiff(r *targetDiffResult, targetPath string, filtered []sync.DiscoveredSkill, sourceSkills map[string]bool, manifest *sync.Manifest, dp *diffProgress, dpIdx int) {
-	for i, skill := range filtered {
-		if dp != nil {
-			dp.updateTarget(dpIdx, fmt.Sprintf("%d/%d %s", i+1, len(filtered), skill.FlatName))
-		}
+func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtered []sync.DiscoveredSkill, sourceSkills map[string]bool, manifest *sync.Manifest, dp *diffProgress) {
+	for _, skill := range filtered {
+		dp.update(targetName, skill.FlatName)
 		oldChecksum, isManaged := manifest.Managed[skill.FlatName]
 		targetSkillPath := filepath.Join(targetPath, skill.FlatName)
 		if !isManaged {
