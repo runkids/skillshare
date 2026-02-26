@@ -395,7 +395,7 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	// Phase 1: parallel scan with progress bar.
 	var progressBar *ui.ProgressBar
 	if !jsonOutput {
-		progressBar = ui.StartProgressWithMaxWidth("Scanning skills", len(skillPaths), headerMinWidth+4)
+		progressBar = ui.StartProgress("Scanning skills", len(skillPaths))
 	}
 	onDone := func() {
 		if progressBar != nil {
@@ -521,7 +521,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	// Phase 1: parallel scan with progress bar.
 	var progressBar *ui.ProgressBar
 	if !jsonOutput {
-		progressBar = ui.StartProgressWithMaxWidth("Scanning skills", len(matched), headerMinWidth+4)
+		progressBar = ui.StartProgress("Scanning skills", len(matched))
 	}
 	onDone := func() {
 		if progressBar != nil {
