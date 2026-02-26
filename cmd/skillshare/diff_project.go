@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	gosync "sync"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
@@ -77,13 +78,22 @@ func cmdDiffProject(root, targetName string) error {
 	}
 	progress := newDiffProgress(names, totalSkills)
 
-	var results []targetDiffResult
-	for _, rt := range resolved {
-		progress.startTarget(rt.name)
-		r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.filtered, progress)
-		progress.doneTarget(rt.name, r)
-		results = append(results, r)
+	results := make([]targetDiffResult, len(resolved))
+	sem := make(chan struct{}, 8)
+	var wg gosync.WaitGroup
+	for i, rt := range resolved {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(idx int, rt resolvedTarget) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			progress.startTarget(rt.name)
+			r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.filtered, progress)
+			progress.doneTarget(rt.name, r)
+			results[idx] = r
+		}(i, rt)
 	}
+	wg.Wait()
 
 	progress.stop()
 	renderGroupedDiffs(results)
