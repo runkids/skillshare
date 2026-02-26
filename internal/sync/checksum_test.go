@@ -3,6 +3,7 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -105,6 +106,45 @@ func TestDirChecksum_NestedFiles(t *testing.T) {
 	}
 	if c == c2 {
 		t.Error("changing nested file should change checksum")
+	}
+}
+
+func TestDirChecksum_SymlinkDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink behavior differs on Windows")
+	}
+
+	dir := t.TempDir()
+	realA := filepath.Join(dir, "real-a")
+	realB := filepath.Join(dir, "real-b")
+	os.MkdirAll(realA, 0755)
+	os.MkdirAll(realB, 0755)
+	os.WriteFile(filepath.Join(realA, "data.txt"), []byte("A"), 0644)
+	os.WriteFile(filepath.Join(realB, "data.txt"), []byte("B"), 0644)
+
+	linkPath := filepath.Join(dir, "data")
+	if err := os.Symlink("real-a", linkPath); err != nil {
+		t.Skipf("symlink not supported in this environment: %v", err)
+	}
+
+	c1, err := DirChecksum(dir)
+	if err != nil {
+		t.Fatalf("checksum should support symlinked directories: %v", err)
+	}
+
+	if err := os.Remove(linkPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("real-b", linkPath); err != nil {
+		t.Fatal(err)
+	}
+
+	c2, err := DirChecksum(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c1 == c2 {
+		t.Error("changing symlinked directory content should change checksum")
 	}
 }
 

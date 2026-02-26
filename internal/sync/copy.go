@@ -317,6 +317,7 @@ func CheckStatusCopy(targetPath string) (TargetStatus, int, int) {
 // Skips .git directories. Only uses os.Stat (via filepath.Walk), never reads file content.
 func DirMaxMtime(dir string) (int64, error) {
 	var maxMtime int64
+	hasSymlink := false
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -325,6 +326,12 @@ func DirMaxMtime(dir string) (int64, error) {
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		// Symlink targets can change without updating the link mtime.
+		// Disable mtime fast-path for symlink-containing skills.
+		if info.Mode()&os.ModeSymlink != 0 {
+			hasSymlink = true
 			return nil
 		}
 		if mt := info.ModTime().UnixNano(); mt > maxMtime {
@@ -332,45 +339,20 @@ func DirMaxMtime(dir string) (int64, error) {
 		}
 		return nil
 	})
-	return maxMtime, err
+	if err != nil {
+		return 0, err
+	}
+	if hasSymlink {
+		return 0, fmt.Errorf("mtime fast-path not supported for directories containing symlinks")
+	}
+	return maxMtime, nil
 }
 
 // DirChecksum computes a deterministic SHA256 checksum of a directory.
 // It hashes sorted relative paths and file contents.
 func DirChecksum(dir string) (string, error) {
-	type entry struct {
-		relPath string
-		content []byte
-	}
-	var entries []entry
-
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			// Skip .git directories
-			if info.Name() == ".git" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		relPath, err := filepath.Rel(dir, path)
-		if err != nil {
-			return err
-		}
-		// Normalize path separators for cross-platform consistency
-		relPath = strings.ReplaceAll(relPath, "\\", "/")
-
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-
-		entries = append(entries, entry{relPath: relPath, content: content})
-		return nil
-	})
+	var entries []checksumEntry
+	err := collectChecksumEntries(dir, "", &entries, map[string]bool{})
 	if err != nil {
 		return "", err
 	}
@@ -389,4 +371,79 @@ func DirChecksum(dir string) (string, error) {
 	}
 
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
+}
+
+type checksumEntry struct {
+	relPath string
+	content []byte
+}
+
+// collectChecksumEntries recursively collects file entries for checksumming.
+// Directory symlinks are dereferenced to hash effective copied content.
+func collectChecksumEntries(root, relPrefix string, entries *[]checksumEntry, active map[string]bool) error {
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return fmt.Errorf("failed to resolve checksum root %s: %w", root, err)
+	}
+	if active[resolvedRoot] {
+		return fmt.Errorf("detected symlink directory cycle while checksumming: %s", root)
+	}
+	active[resolvedRoot] = true
+	defer delete(active, resolvedRoot)
+
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			// Skip .git directories
+			if info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		relPath, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		// Normalize path separators for cross-platform consistency
+		relPath = strings.ReplaceAll(relPath, "\\", "/")
+		if relPath == "." {
+			relPath = ""
+		}
+
+		fullRelPath := relPath
+		if relPrefix != "" {
+			if fullRelPath == "" {
+				fullRelPath = relPrefix
+			} else {
+				fullRelPath = relPrefix + "/" + fullRelPath
+			}
+		}
+
+		// A symlink can point to a directory. In copy mode we dereference
+		// directory symlinks, so checksum should include effective contents.
+		if info.Mode()&os.ModeSymlink != 0 {
+			targetInfo, statErr := os.Stat(path)
+			if statErr != nil {
+				return fmt.Errorf("failed to stat symlink target %s: %w", path, statErr)
+			}
+			if targetInfo.IsDir() {
+				resolvedDir, resolveErr := filepath.EvalSymlinks(path)
+				if resolveErr != nil {
+					return fmt.Errorf("failed to resolve symlink directory %s: %w", path, resolveErr)
+				}
+				return collectChecksumEntries(resolvedDir, fullRelPath, entries, active)
+			}
+		}
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		*entries = append(*entries, checksumEntry{relPath: fullRelPath, content: content})
+		return nil
+	})
 }

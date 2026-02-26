@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"skillshare/internal/sync"
@@ -242,6 +243,51 @@ targets:
 	if sb.IsSymlink(flatDir) {
 		t.Error("should be a real copy, not symlink")
 	}
+}
+
+func TestSync_CopyMode_SymlinkedDirectoryInSkill(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlink behavior differs on Windows")
+	}
+
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	skillDir := sb.CreateSkill("ui-ux-pro-max", map[string]string{
+		"SKILL.md": "# UI UX Pro Max",
+	})
+	realData := filepath.Join(skillDir, "real-data")
+	if err := os.MkdirAll(realData, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(realData, "payload.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("real-data", filepath.Join(skillDir, "data")); err != nil {
+		t.Skipf("symlink not supported in this environment: %v", err)
+	}
+
+	targetPath := sb.CreateTarget("copilot")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  copilot:
+    path: ` + targetPath + `
+    mode: copy
+`)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	copiedDataPath := filepath.Join(targetPath, "ui-ux-pro-max", "data")
+	if sb.IsSymlink(copiedDataPath) {
+		t.Error("copy mode should materialize symlinked directories as real directories")
+	}
+	if !sb.FileExists(filepath.Join(copiedDataPath, "payload.txt")) {
+		t.Error("symlinked directory content should be copied")
+	}
+
+	// Regression check: checksum path should also succeed on subsequent sync.
+	sb.RunCLI("sync").AssertSuccess(t)
 }
 
 func TestSync_CopyMode_Pruning(t *testing.T) {

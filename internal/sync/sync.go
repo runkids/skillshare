@@ -352,6 +352,22 @@ func mergeDirectories(src, dst string) error {
 
 // copyDirectory copies a directory recursively
 func copyDirectory(src, dst string) error {
+	return copyDirectoryWithState(src, dst, map[string]bool{})
+}
+
+// copyDirectoryWithState copies recursively and dereferences directory symlinks.
+// active tracks real paths in the current recursion stack to prevent cycles.
+func copyDirectoryWithState(src, dst string, active map[string]bool) error {
+	resolvedSrc, err := filepath.EvalSymlinks(src)
+	if err != nil {
+		return fmt.Errorf("failed to resolve source directory %s: %w", src, err)
+	}
+	if active[resolvedSrc] {
+		return fmt.Errorf("detected symlink directory cycle while copying: %s", src)
+	}
+	active[resolvedSrc] = true
+	defer delete(active, resolvedSrc)
+
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -362,6 +378,22 @@ func copyDirectory(src, dst string) error {
 
 		if info.IsDir() {
 			return os.MkdirAll(dstPath, info.Mode())
+		}
+
+		// In copy mode we need real files/dirs, so directory symlinks are
+		// dereferenced and copied as concrete directories.
+		if info.Mode()&os.ModeSymlink != 0 {
+			targetInfo, statErr := os.Stat(path)
+			if statErr != nil {
+				return fmt.Errorf("failed to stat symlink target %s: %w", path, statErr)
+			}
+			if targetInfo.IsDir() {
+				resolvedDir, resolveErr := filepath.EvalSymlinks(path)
+				if resolveErr != nil {
+					return fmt.Errorf("failed to resolve symlink directory %s: %w", path, resolveErr)
+				}
+				return copyDirectoryWithState(resolvedDir, dstPath, active)
+			}
 		}
 
 		return copyFile(path, dstPath)
