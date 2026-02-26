@@ -568,8 +568,8 @@ func diffFingerprint(items []copyDiffEntry) string {
 
 // actionCategory groups diff items by the user action needed.
 type actionCategory struct {
-	kind   string   // "sync", "force", "collect", "warn"
-	label  string   // e.g. "sync will add"
+	kind   string // "sync", "force", "collect", "warn"
+	label  string // e.g. "sync will add"
 	names  []string
 	expand bool // true = list skill names
 }

@@ -40,14 +40,14 @@ type auditItem struct {
 }
 
 func (i auditItem) Title() string {
-	name := i.result.SkillName
+	name := colorSkillPath(i.result.SkillName)
 	if len(i.result.Findings) == 0 {
-		return tc.Green.Render("✓") + " " + ac.ItemName.Render(name)
+		return tc.Green.Render("✓") + " " + name
 	}
 	if i.result.IsBlocked {
-		return tc.Red.Render("✗") + " " + ac.ItemName.Render(name)
+		return tc.Red.Render("✗") + " " + name
 	}
-	return tc.Yellow.Render("!") + " " + ac.ItemName.Render(name)
+	return tc.Yellow.Render("!") + " " + name
 }
 
 func (i auditItem) Description() string { return "" }
@@ -271,9 +271,6 @@ func (m auditTUIModel) View() string {
 	// ── Horizontal split layout ──
 	var b strings.Builder
 
-	// Filter bar (full width, top)
-	b.WriteString(m.renderFilterBar())
-
 	// Panel height (matches WindowSizeMsg overhead)
 	panelHeight := m.termHeight - 6
 	if panelHeight < 6 {
@@ -309,7 +306,10 @@ func (m auditTUIModel) View() string {
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
 	b.WriteString(body)
-	b.WriteString("\n\n")
+	b.WriteString("\n")
+
+	// Filter bar (below panels, matching list TUI layout)
+	b.WriteString(m.renderFilterBar())
 
 	// Summary footer
 	b.WriteString(m.renderSummaryFooter())

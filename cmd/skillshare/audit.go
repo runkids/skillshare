@@ -423,6 +423,10 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 		}
 		sr.Result.Threshold = threshold
 		sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(threshold)
+		// Use relative path so TUI shows group hierarchy (e.g. "frontend/vue/skill").
+		if rel, err := filepath.Rel(sourcePath, sr.Result.ScanTarget); err == nil && rel != sr.Result.SkillName {
+			sr.Result.SkillName = rel
+		}
 		results = append(results, sr.Result)
 		elapsed = append(elapsed, sr.Elapsed)
 	}
@@ -561,6 +565,9 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 		}
 		sr.Result.Threshold = threshold
 		sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(threshold)
+		if rel, err := filepath.Rel(sourcePath, sr.Result.ScanTarget); err == nil && rel != sr.Result.SkillName {
+			sr.Result.SkillName = rel
+		}
 		results = append(results, sr.Result)
 		elapsed = append(elapsed, sr.Elapsed)
 	}
@@ -618,6 +625,9 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold string, jso
 	elapsed := time.Since(start)
 	result.Threshold = threshold
 	result.IsBlocked = result.HasSeverityAtOrAbove(threshold)
+	if rel, err := filepath.Rel(sourcePath, result.ScanTarget); err == nil && rel != result.SkillName {
+		result.SkillName = rel
+	}
 
 	summary = summarizeAuditResults(1, []*audit.Result{result}, threshold)
 	summary.Scope = "single"
