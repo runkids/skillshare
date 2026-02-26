@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { ScrollText, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { LogEntry } from '../api/client';
+import type { LogEntry, LogStatsResponse } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Card from '../components/Card';
 import HandButton from '../components/HandButton';
@@ -279,6 +279,64 @@ function renderDetail(entry: LogEntry) {
   );
 }
 
+function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
+  const commands = Object.entries(stats.by_command).sort((a, b) => b[1].total - a[1].total);
+  const rate = stats.total > 0 ? Math.round(stats.success_rate * 100) : 0;
+  const rateColor = rate >= 90 ? 'text-success' : rate >= 70 ? 'text-warning' : 'text-danger';
+
+  return (
+    <div
+      className="grid gap-3"
+      style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}
+    >
+      {/* Success rate */}
+      <Card className="!py-3 !px-4 text-center">
+        <div className="text-pencil-light text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
+          Success Rate
+        </div>
+        <div className={`text-2xl font-bold ${rateColor}`} style={{ fontFamily: 'var(--font-heading)' }}>
+          {rate}%
+        </div>
+        <div className="text-pencil-light text-xs" style={{ fontFamily: 'var(--font-hand)' }}>
+          {stats.total} total
+        </div>
+      </Card>
+
+      {/* Top commands */}
+      {commands.slice(0, 4).map(([cmd, cs]) => (
+        <Card key={cmd} className="!py-3 !px-4 text-center">
+          <div className="text-pencil-light text-sm uppercase" style={{ fontFamily: 'var(--font-hand)' }}>
+            {cmd}
+          </div>
+          <div className="text-2xl font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+            {cs.total}
+          </div>
+          <div className="flex items-center justify-center gap-1.5 text-xs" style={{ fontFamily: 'var(--font-hand)' }}>
+            {cs.ok > 0 && <span className="text-success">{cs.ok} ok</span>}
+            {cs.error > 0 && <span className="text-danger">{cs.error} err</span>}
+            {cs.partial > 0 && <span className="text-warning">{cs.partial} partial</span>}
+          </div>
+        </Card>
+      ))}
+
+      {/* Last operation */}
+      {stats.last_operation && (
+        <Card className="!py-3 !px-4 text-center">
+          <div className="text-pencil-light text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
+            Last Op
+          </div>
+          <div className="text-base font-bold text-pencil uppercase" style={{ fontFamily: 'var(--font-heading)' }}>
+            {stats.last_operation.cmd}
+          </div>
+          <div className="text-xs" style={{ fontFamily: 'var(--font-hand)' }}>
+            {statusBadge(stats.last_operation.status)}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 const PAGE_SIZES = [10, 25, 50] as const;
 
 function LogTable({ entries }: { entries: LogEntry[] }) {
@@ -453,6 +511,13 @@ export default function LogPage() {
     staleTime: staleTimes.log,
   });
 
+  const statsType = tab === 'audit' ? 'audit' : 'ops';
+  const statsQuery = useQuery({
+    queryKey: queryKeys.logStats(statsType, filters),
+    queryFn: () => api.getLogStats(statsType, filters),
+    staleTime: staleTimes.log,
+  });
+
   const opsEntries = opsQuery.data?.entries ?? [];
   const opsTotal = opsQuery.data?.total ?? 0;
   const opsTotalAll = opsQuery.data?.totalAll ?? 0;
@@ -483,6 +548,7 @@ export default function LogPage() {
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: ['log'] });
+    queryClient.invalidateQueries({ queryKey: ['log-stats'] });
   };
 
   const handleClear = async () => {
@@ -494,6 +560,7 @@ export default function LogPage() {
         await api.clearLog(tab);
       }
       queryClient.invalidateQueries({ queryKey: ['log'] });
+    queryClient.invalidateQueries({ queryKey: ['log-stats'] });
       toast('Log cleared', 'success');
     } catch (e: any) {
       toast(e.message, 'error');
@@ -625,6 +692,10 @@ export default function LogPage() {
           </div>
         </div>
       </div>
+
+      {statsQuery.data && statsQuery.data.total > 0 && (
+        <LogStatsBar stats={statsQuery.data} />
+      )}
 
       {tab === 'all' ? (
         <div className="space-y-6">

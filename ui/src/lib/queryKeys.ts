@@ -26,6 +26,8 @@ export const queryKeys = {
 
   log: (type: string, limit: number, filters?: Record<string, string>) =>
     ['log', type, limit, filters ?? {}] as const,
+  logStats: (type: string, filters?: Record<string, string>) =>
+    ['log-stats', type, filters ?? {}] as const,
 
   config: ['config'] as const,
 };

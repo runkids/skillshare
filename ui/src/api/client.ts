@@ -173,6 +173,14 @@ export const api = {
   },
   clearLog: (type?: string) =>
     apiFetch<{ success: boolean }>(`/log?type=${type ?? 'ops'}`, { method: 'DELETE' }),
+  getLogStats: (type?: string, filters?: { cmd?: string; status?: string; since?: string }) => {
+    const params = new URLSearchParams();
+    params.set('type', type ?? 'ops');
+    if (filters?.cmd) params.set('cmd', filters.cmd);
+    if (filters?.status) params.set('status', filters.status);
+    if (filters?.since) params.set('since', filters.since);
+    return apiFetch<LogStatsResponse>(`/log/stats?${params.toString()}`);
+  },
 
   // Audit
   auditAll: () => apiFetch<AuditAllResponse>('/audit'),
@@ -464,6 +472,21 @@ export interface LogListResponse {
   total: number;
   totalAll: number;
   commands: string[];
+}
+
+export interface CommandStats {
+  total: number;
+  ok: number;
+  error: number;
+  partial: number;
+  blocked: number;
+}
+
+export interface LogStatsResponse {
+  total: number;
+  success_rate: number;
+  by_command: Record<string, CommandStats>;
+  last_operation?: LogEntry;
 }
 
 // Audit types
