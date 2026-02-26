@@ -45,6 +45,7 @@ func cmdDiffProject(root, targetName string) error {
 		}
 	}
 
+	var results []targetDiffResult
 	for _, entry := range targets {
 		target, ok := runtime.targets[entry.Name]
 		if !ok {
@@ -59,8 +60,10 @@ func cmdDiffProject(root, targetName string) error {
 		if mode == "" {
 			mode = "merge"
 		}
-		showTargetDiff(entry.Name, target, runtime.sourcePath, mode, filtered)
+		r := collectTargetDiff(entry.Name, target, runtime.sourcePath, mode, filtered)
+		results = append(results, r)
 	}
 
+	renderGroupedDiffs(results)
 	return nil
 }

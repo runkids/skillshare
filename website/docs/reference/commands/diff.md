@@ -23,13 +23,34 @@ skillshare diff claude       # Specific target
 
 ```
 claude
-  + missing-skill       missing
+  + missing-skill       source only
   ~ local-copy          local copy (sync --force to replace)
   - local-only          local only
 
   Run 'sync' to add missing, 'sync --force' to replace local copies
   Run 'collect claude' to import local-only skills to source
 ```
+
+### Grouped Multi-Target Output
+
+When multiple targets have identical diff results, they are grouped into a single block to reduce noise:
+
+```
+claude, agents
+  + skill-1             source only
+  + skill-2             source only
+
+  Run 'sync' to add missing, 'sync --force' to replace local copies
+
+cursor
+  + skill-1             source only
+
+  Run 'sync' to add missing, 'sync --force' to replace local copies
+
+codex, copilot: fully synced
+```
+
+Targets with different results (e.g. due to `include`/`exclude` filters) are still shown separately.
 
 ## Symbols
 
