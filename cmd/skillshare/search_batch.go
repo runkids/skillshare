@@ -264,6 +264,24 @@ type sourceGroup struct {
 	results  []search.SearchResult // all results sharing this clone URL
 }
 
+// repoSourceForGroupedClone converts a subdir source into a repo-root source.
+// This keeps provider-specific details (GitLab/Bitbucket/Azure/GitHub) by
+// parsing CloneURL directly, then ensures Subdir is cleared for whole-repo clone.
+func repoSourceForGroupedClone(src *install.Source) install.Source {
+	repoSource := *src
+	repoSource.Subdir = ""
+	repoSource.Raw = repoSource.CloneURL
+
+	// Re-parse CloneURL to get a canonical root-level name/type.
+	if root, err := install.ParseSource(repoSource.CloneURL); err == nil {
+		repoSource.Type = root.Type
+		repoSource.Raw = root.Raw
+		repoSource.Name = root.Name
+	}
+
+	return repoSource
+}
+
 // groupByRepo partitions selected search results by CloneURL.
 // Results that share the same git repo are grouped together for a single clone.
 // Results that cannot be grouped (parse failure, local path, non-subdir singles)
@@ -478,10 +496,7 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 	// Phase 1: grouped install — clone each repo once, install multiple skills.
 	for _, group := range groups {
 		// Build a whole-repo source (no Subdir) for cloning.
-		// Copy the parsed source and clear Subdir so the clone fetches the
-		// entire repo rather than a single subdirectory.
-		repoSource := *group.source
-		repoSource.Subdir = ""
+		repoSource := repoSourceForGroupedClone(group.source)
 
 		// Use the first skill's name for clone progress display.
 		cloneLabel := group.results[0].Name

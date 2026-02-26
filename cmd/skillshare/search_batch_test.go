@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"skillshare/internal/install"
 )
 
 func TestClassifyFailureDetail(t *testing.T) {
@@ -98,6 +100,72 @@ func TestClassifyFailureDetail(t *testing.T) {
 				if !strings.Contains(last, "+") || !strings.Contains(last, "more") {
 					t.Errorf("last sub-line should contain truncation indicator, got %q", last)
 				}
+			}
+		})
+	}
+}
+
+func TestRepoSourceForGroupedClone(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "github shorthand subdir",
+			input: "openai/skills/skills/react",
+		},
+		{
+			name:  "gitlab web tree url",
+			input: "https://gitlab.com/team/repo/-/tree/main/skills/docker",
+		},
+		{
+			name:  "bitbucket web src url",
+			input: "https://bitbucket.org/team/repo/src/main/skills/vue",
+		},
+		{
+			name:  "azure devops https subdir",
+			input: "https://dev.azure.com/org/project/_git/repo/skills/node",
+		},
+		{
+			name:  "git ssh subdir",
+			input: "git@gitlab.com:team/monorepo.git//frontend/ui-skill",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src, err := install.ParseSource(tt.input)
+			if err != nil {
+				t.Fatalf("ParseSource(%q) error: %v", tt.input, err)
+			}
+			if src.Subdir == "" {
+				t.Fatalf("test input must include subdir, got empty for %q", tt.input)
+			}
+
+			repo := repoSourceForGroupedClone(src)
+
+			if repo.Subdir != "" {
+				t.Errorf("repo.Subdir = %q, want empty", repo.Subdir)
+			}
+			if repo.Raw == "" {
+				t.Fatal("repo.Raw should not be empty")
+			}
+			if repo.CloneURL != src.CloneURL {
+				t.Errorf("repo.CloneURL = %q, want %q", repo.CloneURL, src.CloneURL)
+			}
+			if repo.Name == "" {
+				t.Fatal("repo.Name should not be empty")
+			}
+
+			parsedRoot, err := install.ParseSource(repo.Raw)
+			if err != nil {
+				t.Fatalf("repo.Raw should be parseable as root source, got error: %v (raw=%q)", err, repo.Raw)
+			}
+			if parsedRoot.Subdir != "" {
+				t.Errorf("parsed root source should not have subdir, got %q", parsedRoot.Subdir)
+			}
+			if parsedRoot.CloneURL != src.CloneURL {
+				t.Errorf("parsed root CloneURL = %q, want %q", parsedRoot.CloneURL, src.CloneURL)
 			}
 		})
 	}
