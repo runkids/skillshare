@@ -1,13 +1,13 @@
 ---
 name: skillshare-changelog
-description: Generate CHANGELOG.md entry from recent commits in conventional format
+description: Generate CHANGELOG.md entry from recent commits in conventional format. Also syncs the website changelog page.
 argument-hint: "[tag-version]"
 targets: [claude, codex]
 ---
 
 Generate a CHANGELOG.md entry for a release. $ARGUMENTS specifies the tag version (e.g., `v0.16.0`) or omit to auto-detect via `git describe --tags --abbrev=0`.
 
-**Scope**: This skill only updates `CHANGELOG.md`. It does NOT write code (use `implement-feature`) or update docs (use `update-docs`).
+**Scope**: This skill updates `CHANGELOG.md` and syncs the website changelog (`website/src/pages/changelog.md`). It does NOT write code (use `implement-feature`) or update docs (use `update-docs`).
 
 ## Workflow
 
@@ -81,7 +81,18 @@ Format:
 - Renamed `old-name` to `new-name`
 ```
 
-### Step 6: RELEASE_NOTES (Maintainer Only)
+### Step 6: Sync Website Changelog
+
+The website has its own changelog page at `website/src/pages/changelog.md`. After updating `CHANGELOG.md`, sync the new entry to the website version.
+
+**Differences between the two files**:
+- Website file has MDX frontmatter (`title`, `description`) and an intro paragraph — preserve these, don't overwrite
+- Website file has a `---` separator after the intro, before the first version entry
+- The release entries themselves are identical in content
+
+**How to sync**: Read the website changelog, then insert the same new entry after the `---` separator (line after intro paragraph), before the first existing version entry. Do NOT replace the entire file — only insert the new entry block.
+
+### Step 7: RELEASE_NOTES (Maintainer Only)
 
 **IMPORTANT**: `specs/RELEASE_NOTES_<version>.md` is only generated when the user is the project maintainer (runkids). Contributors should skip this step.
 
@@ -105,4 +116,5 @@ If not maintainer:
 - **Verify features exist** — grep source before claiming a feature was added
 - **No internal noise** — exclude test-only, CI-only, or refactor-only changes
 - **Conventional format** — follow existing CHANGELOG.md style exactly
-- **RELEASE_NOTES = maintainer only** — contributors only update CHANGELOG.md
+- **Always sync both** — `CHANGELOG.md` and `website/src/pages/changelog.md` must have identical release entries
+- **RELEASE_NOTES = maintainer only** — contributors only update CHANGELOG.md + website changelog

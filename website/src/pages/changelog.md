@@ -9,6 +9,85 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.16.3] - 2026-02-27
+
+### Improvements
+
+- **`diff` output redesign** — actions are now labeled by what they do (`add`, `remove`, `update`, `restore`) with a grouped summary showing counts per action; overall summary line at the end
+- **Install progress output** — config and search installs now show tree-style steps with a summary line (installed/skipped/failed counts + elapsed time) and real-time git clone progress
+- **Web UI log stats bar** — Log page now shows a stats bar with success rate and per-command breakdown
+- **Hub batch install progress** — multi-skill installs from `search --hub` now show real-time git clone progress (`cloning 45%`, `resolving 67%`) instead of a static "installing..." label; only the active install is shown to keep the display compact
+- **Hub risk badge colors** — risk labels in hub search results are now color-coded by severity (green for clean, yellow for low, red for critical) in both the list and detail panel
+- **Hub batch failure output** — failure details are classified by type (security / ambiguous / not found) with distinct icons; long audit findings and ambiguous path lists are truncated to 3 lines with a "(+N more)" summary
+
+### Performance
+
+- **Batch install reconcile** — config reconciliation now runs once after all installs complete instead of after each skill, eliminating O(n²) directory walks that caused batch installs of large collections to appear stuck
+- **Repo-grouped cloning** — skills from the same git repo are now cloned once and installed from the shared clone, reducing network requests for multi-skill repos
+
+### Fixed
+
+- **Race condition in `sync`** — targets sharing the same filesystem path no longer produce duplicate or missing symlinks
+- **Race condition in `sync` group key** — canonicalized group key prevents non-deterministic sync results
+- **Web UI stats on "All" tab** — dashboard now computes stats from both ops and audit logs, not just ops
+- **Web UI last operation timestamp** — timestamps are compared as dates instead of strings, fixing incorrect "most recent" ordering
+- **`log --stats --cmd audit`** — now correctly reads from `audit.log` instead of `operations.log`
+- **`log max_entries: 0`** — setting max_entries to 0 now correctly means unlimited instead of deleting all entries
+- **Oplog data loss** — rewriteEntries now checks for write errors before truncating the original file
+- **TUI content clipping** — detail panels in `list` and `log` TUIs now hard-wrap content and account for padding, preventing text from being clipped at panel edges
+- **TUI footer spacing** — list and log TUI footers have proper breathing room between action hints
+- **Copy mode symlink handling** — `sync` in copy mode now dereferences directory symlinks instead of copying broken link files; prevents missing content in targets like Windsurf that use file copying
+- **`uninstall --all` stale summary** — spinner and confirm prompt now show correct noun type after skipping dirty tracked repos; added skip count message ("1 tracked repo skipped, 2 remaining"); fixed unnatural pluralization ("2 group(s)" → "2 groups")
+- **Empty `list` / `log` TUI** — `list` and `log` no longer open a blank interactive screen when there are no skills or log entries; they print a plain-text hint instead
+
+## [0.16.2] - 2026-02-26
+
+### New Features
+
+- **`diff` command** — new command to preview what `sync` would change without modifying anything; parallel target scanning, grouped output for targets with identical diffs, and an overall progress bar:
+  ```bash
+  skillshare diff              # all targets
+  skillshare diff claude       # single target
+  skillshare diff -p           # project mode
+  ```
+- **Interactive TUI for `audit`** — `skillshare audit` launches a bubbletea TUI with severity-colored results, fuzzy filter, and detail panel; progress bar during scanning; confirmation prompt for large scans (1,000+ skills) (`skillshare audit --no-tui` for plain text)
+- **Tree sidebar in `list` TUI** — detail panel now shows the skill's directory tree (up to 3 levels) with glamour-rendered markdown preview; SKILL.md pinned at top for quick reading
+- **Log TUI: delete entries** — press `space` to select entries, `d` to delete with confirmation; supports multi-select (`a` to select all)
+- **Log `--stats` flag** — aggregated summary with per-command breakdown, success rate, and partial/blocked status tracking:
+  ```bash
+  skillshare log --stats
+  ```
+- **Azure DevOps URL support** — install from Azure DevOps repos using `ado:` shorthand, full HTTPS (`dev.azure.com`), legacy HTTPS (`visualstudio.com`), or SSH v3 (`ssh.dev.azure.com`) URLs:
+  ```bash
+  skillshare install ado:myorg/myproject/myrepo
+  skillshare install https://dev.azure.com/org/proj/_git/repo
+  skillshare install git@ssh.dev.azure.com:v3/org/proj/repo
+  ```
+- **`AZURE_DEVOPS_TOKEN` env var** — automatic HTTPS token injection for Azure DevOps private repos, same pattern as `GITHUB_TOKEN` / `GITLAB_TOKEN` / `BITBUCKET_TOKEN`:
+  ```bash
+  export AZURE_DEVOPS_TOKEN=your_pat
+  skillshare install https://dev.azure.com/org/proj/_git/repo --track
+  ```
+- **`update --prune`** — remove stale skills whose upstream source no longer exists (`skillshare update --prune`)
+- **Stale detection in `check`** — `skillshare check` now reports skills deleted upstream as "stale (deleted upstream)" instead of silently skipping them
+- **Windows ARM64 cross-compile** — `make build-windows` / `mise run build:windows` produces Windows ARM64 binaries
+
+### Performance
+
+- **Parallel target sync** — both global and project-mode `sync` now run target syncs concurrently (up to 8 workers) with a live per-target progress display
+- **mtime fast-path for copy mode** — repeat syncs skip SHA-256 checksums when source directory mtime is unchanged, making no-op syncs near-instant
+- **Cached skill discovery** — skills are discovered once and shared across all parallel target workers instead of rediscovering per target
+
+### Improvements
+
+- **Batch progress for hub installs** — multi-skill installs from `search` now show per-skill status (queued/installing/done/error) with a live progress display
+- **Log retention** — operation log auto-trims old entries with configurable limits and hysteresis to avoid frequent rewrites
+- **Partial completion tracking** — `sync`, `install`, `update`, and `uninstall` now log `"partial"` status when some targets succeed and others fail, instead of a blanket `"error"`
+- **Unified TUI color palette** — all bubbletea TUIs share a consistent color palette via shared `tc` struct
+
+### Fixed
+
+- **`upgrade` spinner nesting** — brew output and GitHub release download steps now render cleanly inside tree spinners instead of breaking the layout
 
 ## [0.16.1] - 2026-02-25
 
