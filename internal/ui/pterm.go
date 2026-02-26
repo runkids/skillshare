@@ -342,7 +342,68 @@ func SummaryBox(title string, items map[string]string) {
 	box.Println(content)
 }
 
-// ProgressBar and related methods are in progress.go.
+// ProgressBar wraps pterm progress bar
+type ProgressBar struct {
+	bar   *pterm.ProgressbarPrinter
+	total int
+}
+
+// StartProgress starts a progress bar
+func StartProgress(title string, total int) *ProgressBar {
+	if !IsTTY() {
+		fmt.Printf("%s (0/%d)\n", title, total)
+		return &ProgressBar{total: total}
+	}
+
+	bar, _ := pterm.DefaultProgressbar.
+		WithTotal(total).
+		WithTitle(title).
+		Start()
+	return &ProgressBar{bar: bar, total: total}
+}
+
+// Increment increments progress by 1.
+func (p *ProgressBar) Increment() {
+	if p.bar != nil {
+		p.bar.Increment()
+	}
+}
+
+// Add increments progress by n.
+func (p *ProgressBar) Add(n int) {
+	if p.bar != nil {
+		p.bar.Add(n)
+	}
+}
+
+// UpdateTitle updates progress bar title. The title is padded or
+// truncated to a fixed width so that the bar width stays stable.
+func (p *ProgressBar) UpdateTitle(title string) {
+	const maxWidth = 40
+	// Truncate long titles with ellipsis
+	display := title
+	if len(display) > maxWidth {
+		display = display[:maxWidth-3] + "..."
+	}
+	// Pad to fixed width to prevent bar width from changing
+	if len(display) < maxWidth {
+		display += strings.Repeat(" ", maxWidth-len(display))
+	}
+
+	if p.bar != nil {
+		p.bar.UpdateTitle(display)
+	} else {
+		fmt.Printf("  %s\n", strings.TrimRight(display, " "))
+	}
+}
+
+// Stop stops the progress bar. It's safe to call even if the bar already
+// stopped itself (pterm auto-stops when Current >= Total).
+func (p *ProgressBar) Stop() {
+	if p.bar != nil && p.bar.IsActive {
+		p.bar.Stop()
+	}
+}
 
 // UpdateNotification prints a colorful update notification
 func UpdateNotification(currentVersion, latestVersion string) {
