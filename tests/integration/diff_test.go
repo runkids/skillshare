@@ -212,6 +212,113 @@ targets:
 	result.AssertOutputNotContains(t, "Fully synced")
 }
 
+func TestDiff_MultiTarget_SameResult_Grouped(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateSkill("skill-b", map[string]string{"SKILL.md": "# B"})
+	claudePath := sb.CreateTarget("claude")
+	agentsPath := sb.CreateTarget("agents")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  agents:
+    path: ` + agentsPath + `
+  claude:
+    path: ` + claudePath + `
+`)
+
+	result := sb.RunCLI("diff")
+	result.AssertSuccess(t)
+
+	// Both targets should be merged into one header
+	result.AssertOutputContains(t, "agents, claude")
+
+	// Items should only appear once (not duplicated)
+	out := result.Stdout
+	countA := countOccurrences(out, "skill-a")
+	countB := countOccurrences(out, "skill-b")
+	if countA != 1 {
+		t.Errorf("expected skill-a to appear once, got %d times in:\n%s", countA, out)
+	}
+	if countB != 1 {
+		t.Errorf("expected skill-b to appear once, got %d times in:\n%s", countB, out)
+	}
+}
+
+func TestDiff_MultiTarget_DifferentResult_Separate(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# A"})
+	sb.CreateSkill("skill-b", map[string]string{"SKILL.md": "# B"})
+	claudePath := sb.CreateTarget("claude")
+	cursorPath := sb.CreateTarget("cursor")
+
+	// Sync skill-a to cursor only (via symlink) so the diff results differ
+	os.Symlink(filepath.Join(sb.SourcePath, "skill-a"), filepath.Join(cursorPath, "skill-a"))
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + claudePath + `
+  cursor:
+    path: ` + cursorPath + `
+`)
+
+	result := sb.RunCLI("diff")
+	result.AssertSuccess(t)
+
+	// Each target should have its own header (not merged)
+	result.AssertOutputContains(t, "claude")
+	result.AssertOutputContains(t, "cursor")
+	// They should NOT be merged into one line
+	result.AssertOutputNotContains(t, "claude, cursor")
+	result.AssertOutputNotContains(t, "cursor, claude")
+}
+
+func TestDiff_MultiTarget_AllSynced_Merged(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# A"})
+	claudePath := sb.CreateTarget("claude")
+	agentsPath := sb.CreateTarget("agents")
+
+	// Sync both targets
+	os.Symlink(filepath.Join(sb.SourcePath, "skill-a"), filepath.Join(claudePath, "skill-a"))
+	os.Symlink(filepath.Join(sb.SourcePath, "skill-a"), filepath.Join(agentsPath, "skill-a"))
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  agents:
+    path: ` + agentsPath + `
+  claude:
+    path: ` + claudePath + `
+`)
+
+	result := sb.RunCLI("diff")
+	result.AssertSuccess(t)
+
+	// Both fully synced targets should be merged into one line
+	result.AssertOutputContains(t, "agents, claude: fully synced")
+}
+
+func countOccurrences(s, substr string) int {
+	count := 0
+	for i := 0; i+len(substr) <= len(s); i++ {
+		if s[i:i+len(substr)] == substr {
+			count++
+			i += len(substr) - 1
+		}
+	}
+	return count
+}
+
 func TestDiff_CopyMode_DetectsNonDirectoryTargetEntry(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
