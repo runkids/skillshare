@@ -29,27 +29,29 @@ type searchInstallResult struct {
 // searchInstallProgress displays batch install progress using pterm.AreaPrinter.
 // Follows the same pattern as syncProgress (sync_parallel.go) and diffProgress (diff.go).
 type searchInstallProgress struct {
-	names   []string
-	states  []string // "queued", "installing", "done", "skipped", "error"
-	details []string
-	total   int
-	done    int
-	area    *pterm.AreaPrinter
-	mu      gosync.Mutex
-	stopCh  chan struct{}
-	frames  []string
-	frame   int
-	isTTY   bool
+	names       []string
+	states      []string // "queued", "installing", "done", "skipped", "error"
+	details     []string
+	statusTexts []string // per-skill status detail (e.g. "cloning 45%", "auditing...")
+	total       int
+	done        int
+	area        *pterm.AreaPrinter
+	mu          gosync.Mutex
+	stopCh      chan struct{}
+	frames      []string
+	frame       int
+	isTTY       bool
 }
 
 func newSearchInstallProgress(names []string) *searchInstallProgress {
 	sp := &searchInstallProgress{
-		names:   names,
-		states:  make([]string, len(names)),
-		details: make([]string, len(names)),
-		total:   len(names),
-		frames:  []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"},
-		isTTY:   ui.IsTTY(),
+		names:       names,
+		states:      make([]string, len(names)),
+		details:     make([]string, len(names)),
+		statusTexts: make([]string, len(names)),
+		total:       len(names),
+		frames:      []string{"⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"},
+		isTTY:       ui.IsTTY(),
 	}
 	for i := range sp.states {
 		sp.states[i] = "queued"
@@ -85,24 +87,44 @@ func (sp *searchInstallProgress) render() {
 	}
 	var lines []string
 	for i, name := range sp.names {
-		var line string
-		switch sp.states[i] {
-		case "queued":
-			line = fmt.Sprintf("  %s  %s", pterm.Gray(name), pterm.Gray("queued"))
-		case "installing":
-			spin := pterm.Cyan(sp.frames[sp.frame])
-			line = fmt.Sprintf("  %s %s  %s", spin, pterm.Cyan(name), pterm.Gray("installing..."))
-		case "done":
-			line = fmt.Sprintf("  %s %s  %s", pterm.Green("✓"), name, pterm.Gray(sp.details[i]))
-		case "skipped":
-			line = fmt.Sprintf("  %s %s  %s", pterm.Yellow("⚠"), name, pterm.Gray(sp.details[i]))
-		case "error":
-			line = fmt.Sprintf("  %s %s  %s", pterm.Red("✗"), name, pterm.Gray(sp.details[i]))
+		if sp.states[i] != "installing" {
+			continue
 		}
-		lines = append(lines, line)
+		spin := pterm.Cyan(sp.frames[sp.frame])
+		status := sp.statusTexts[i]
+		if status == "" {
+			status = "installing..."
+		}
+		lines = append(lines, fmt.Sprintf("  %s %s  %s", spin, pterm.Cyan(name), pterm.Gray(status)))
 	}
-	// Progress bar at bottom
-	lines = append(lines, "", "  "+sp.renderBar())
+
+	// When no skill is actively installing, show a summary line so the area isn't blank.
+	if len(lines) == 0 && sp.done > 0 {
+		var parts []string
+		var installed, skipped int
+		for _, s := range sp.states {
+			switch s {
+			case "done":
+				installed++
+			case "skipped":
+				skipped++
+			}
+		}
+		if installed > 0 {
+			parts = append(parts, fmt.Sprintf("%d installed", installed))
+		}
+		if skipped > 0 {
+			parts = append(parts, fmt.Sprintf("%d skipped", skipped))
+		}
+		if len(parts) > 0 {
+			lines = append(lines, "  "+pterm.Gray(strings.Join(parts, ", ")))
+		}
+	}
+
+	if len(lines) > 0 {
+		lines = append(lines, "")
+	}
+	lines = append(lines, "  "+sp.renderBar())
 	sp.area.Update(strings.Join(lines, "\n"))
 }
 
@@ -125,12 +147,73 @@ func (sp *searchInstallProgress) startSkill(name string) {
 	for i, n := range sp.names {
 		if n == name {
 			sp.states[i] = "installing"
+			sp.statusTexts[i] = "cloning..."
 			break
 		}
 	}
 	if !sp.isTTY {
 		fmt.Printf("  %s: installing...\n", name)
 	}
+}
+
+// updateStatus updates the status detail text for a skill (e.g. "cloning 45%").
+func (sp *searchInstallProgress) updateStatus(name, text string) {
+	sp.mu.Lock()
+	defer sp.mu.Unlock()
+	for i, n := range sp.names {
+		if n == name {
+			sp.statusTexts[i] = text
+			break
+		}
+	}
+}
+
+// progressCallbackFor returns an install.ProgressCallback that parses git
+// stderr lines into concise status text for the progress display.
+func (sp *searchInstallProgress) progressCallbackFor(name string) install.ProgressCallback {
+	if !sp.isTTY {
+		return nil
+	}
+	return func(line string) {
+		if text := parseGitProgressLine(line); text != "" {
+			sp.updateStatus(name, text)
+		}
+	}
+}
+
+// parseGitProgressLine extracts a concise status from a git stderr line.
+func parseGitProgressLine(line string) string {
+	line = strings.TrimSpace(line)
+	switch {
+	case strings.HasPrefix(line, "Cloning"):
+		return "cloning..."
+	case strings.Contains(line, "Receiving objects:"):
+		if pct := extractPercent(line, "Receiving objects:"); pct != "" {
+			return "cloning " + pct
+		}
+		return "cloning..."
+	case strings.Contains(line, "Resolving deltas:"):
+		if pct := extractPercent(line, "Resolving deltas:"); pct != "" {
+			return "resolving " + pct
+		}
+		return "resolving..."
+	case strings.Contains(line, "Downloading"):
+		return "downloading..."
+	}
+	return ""
+}
+
+// extractPercent extracts "XX%" from a git progress line after the given prefix.
+func extractPercent(line, prefix string) string {
+	idx := strings.Index(line, prefix)
+	if idx < 0 {
+		return ""
+	}
+	rest := strings.TrimSpace(line[idx+len(prefix):])
+	if pctEnd := strings.Index(rest, "%"); pctEnd > 0 {
+		return strings.TrimSpace(rest[:pctEnd]) + "%"
+	}
+	return ""
 }
 
 func (sp *searchInstallProgress) doneSkill(name string, r searchInstallResult) {
@@ -174,7 +257,7 @@ func (sp *searchInstallProgress) stop() {
 }
 
 // collectSearchInstallGlobal installs a search result in global mode without UI output.
-func collectSearchInstallGlobal(result search.SearchResult, cfg *config.Config) searchInstallResult {
+func collectSearchInstallGlobal(result search.SearchResult, cfg *config.Config, onProgress install.ProgressCallback) searchInstallResult {
 	r := searchInstallResult{
 		name:   result.Name,
 		source: result.Source,
@@ -196,7 +279,7 @@ func collectSearchInstallGlobal(result search.SearchResult, cfg *config.Config) 
 		return r
 	}
 
-	opts := install.InstallOptions{}
+	opts := install.InstallOptions{OnProgress: onProgress}
 	if result.Skill != "" {
 		opts.Skills = []string{result.Skill}
 	}
@@ -210,21 +293,11 @@ func collectSearchInstallGlobal(result search.SearchResult, cfg *config.Config) 
 
 	r.status = "installed"
 	r.warnings = installResult.Warnings
-
-	// Reconcile global config
-	reg, _ := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
-	if reg == nil {
-		reg = &config.Registry{}
-	}
-	if rErr := config.ReconcileGlobalSkills(cfg, reg); rErr != nil {
-		r.warnings = append(r.warnings, fmt.Sprintf("reconcile: %v", rErr))
-	}
-
 	return r
 }
 
 // collectSearchInstallProject installs a search result in project mode without UI output.
-func collectSearchInstallProject(result search.SearchResult, cwd string) searchInstallResult {
+func collectSearchInstallProject(result search.SearchResult, cwd string, onProgress install.ProgressCallback) searchInstallResult {
 	r := searchInstallResult{
 		name:   result.Name,
 		source: result.Source,
@@ -262,7 +335,7 @@ func collectSearchInstallProject(result search.SearchResult, cwd string) searchI
 		return r
 	}
 
-	opts := install.InstallOptions{}
+	opts := install.InstallOptions{OnProgress: onProgress}
 	if result.Skill != "" {
 		opts.Skills = []string{result.Skill}
 	}
@@ -276,17 +349,6 @@ func collectSearchInstallProject(result search.SearchResult, cwd string) searchI
 
 	r.status = "installed"
 	r.warnings = installResult.Warnings
-
-	// Update .gitignore
-	if err := install.UpdateGitIgnore(filepath.Join(runtime.root, ".skillshare"), filepath.Join("skills", result.Name)); err != nil {
-		r.warnings = append(r.warnings, fmt.Sprintf("gitignore: %v", err))
-	}
-
-	// Reconcile project config
-	if err := reconcileProjectRemoteSkills(runtime); err != nil {
-		r.warnings = append(r.warnings, fmt.Sprintf("reconcile: %v", err))
-	}
-
 	return r
 }
 
@@ -324,13 +386,14 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 	results := make([]searchInstallResult, len(selected))
 	for i, sr := range selected {
 		progress.startSkill(sr.Name)
+		onProgress := progress.progressCallbackFor(sr.Name)
 
 		start := time.Now()
 		var r searchInstallResult
 		if mode == modeProject {
-			r = collectSearchInstallProject(sr, cwd)
+			r = collectSearchInstallProject(sr, cwd, onProgress)
 		} else {
-			r = collectSearchInstallGlobal(sr, cfg)
+			r = collectSearchInstallGlobal(sr, cfg, onProgress)
 		}
 		results[i] = r
 
@@ -363,6 +426,20 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 	}
 
 	progress.stop()
+
+	// Reconcile once after all installs (not per-skill) to avoid O(n²) directory walks.
+	if mode == modeProject {
+		if runtime, err := loadProjectRuntime(cwd); err == nil {
+			_ = reconcileProjectRemoteSkills(runtime)
+		}
+	} else {
+		reg, _ := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
+		if reg == nil {
+			reg = &config.Registry{}
+		}
+		_ = config.ReconcileGlobalSkills(cfg, reg)
+	}
+
 	renderBatchSearchInstallSummary(results, mode, time.Since(batchStart))
 
 	// Return error if any failed
