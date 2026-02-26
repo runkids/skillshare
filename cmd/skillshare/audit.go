@@ -653,7 +653,7 @@ func logAuditOp(cfgPath string, args []string, summary auditRunSummary, start ti
 	} else if blocked {
 		e.Message = fmt.Sprintf("findings at/above %s detected", summary.Threshold)
 	}
-	oplog.Write(cfgPath, oplog.AuditFile, e) //nolint:errcheck
+	oplog.WriteWithLimit(cfgPath, oplog.AuditFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 func summarizeAuditResults(total int, results []*audit.Result, threshold string) auditRunSummary {

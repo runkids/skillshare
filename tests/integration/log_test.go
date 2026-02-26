@@ -242,6 +242,47 @@ targets:
 	logResult.AssertOutputContains(t, "installed=log-installed-skill")
 }
 
+func TestLog_SyncPartialStatus(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("test-skill", map[string]string{
+		"SKILL.md": "# Test\n\nTest.",
+	})
+
+	goodTarget := sb.CreateTarget("claude")
+
+	// Create a file where the broken target's parent should be a directory,
+	// so os.MkdirAll fails when sync tries to create the target path.
+	blocker := filepath.Join(sb.Home, "blocker")
+	if err := os.WriteFile(blocker, []byte("not a dir"), 0644); err != nil {
+		t.Fatalf("failed to create blocker file: %v", err)
+	}
+	brokenTarget := filepath.Join(blocker, "skills")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + goodTarget + `
+  broken:
+    path: ` + brokenTarget + `
+`)
+
+	// Sync should fail (broken target) but succeed for claude
+	syncResult := sb.RunCLI("sync")
+	syncResult.AssertFailure(t)
+
+	// Read oplog via --json --cmd sync --tail 1
+	logResult := sb.RunCLI("log", "--json", "--cmd", "sync", "--tail", "1")
+	logResult.AssertSuccess(t)
+
+	output := strings.TrimSpace(logResult.Output())
+	if !strings.Contains(output, `"status":"partial"`) {
+		t.Errorf("expected status partial in oplog, got:\n%s", output)
+	}
+}
+
 // --- Filter & JSON tests ---
 
 // setupSyncAndInstallLog creates a sandbox with both sync and install log entries.
@@ -399,4 +440,44 @@ func TestLog_TailAfterFilter(t *testing.T) {
 	if jsonLines != 1 {
 		t.Errorf("expected 1 JSON line from tail-after-filter, got %d\noutput:\n%s", jsonLines, output)
 	}
+}
+
+func TestLog_StatsOutput(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("s1", map[string]string{"SKILL.md": "# S\n\nTest."})
+	tp := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + tp + `
+`)
+
+	sb.RunCLI("sync")
+	sb.RunCLI("sync")
+
+	result := sb.RunCLI("log", "--stats")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Operation Log Summary")
+	result.AssertOutputContains(t, "sync")
+	result.AssertOutputContains(t, "Success rate")
+}
+
+func TestLog_CheckCreatesEntry(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	targetPath := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	sb.RunCLI("check")
+
+	logResult := sb.RunCLI("log", "--json", "--cmd", "check", "--tail", "1")
+	logResult.AssertSuccess(t)
+	logResult.AssertOutputContains(t, `"cmd":"check"`)
 }

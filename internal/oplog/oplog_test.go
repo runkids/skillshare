@@ -1,6 +1,7 @@
 package oplog
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -251,5 +252,89 @@ func TestWrite_ProjectFirstLogCreationAddsLogsToGitignore(t *testing.T) {
 	}
 	if strings.Count(string(content2), "logs/") != 1 {
 		t.Fatalf("expected logs/ to appear exactly once, got:\n%s", string(content2))
+	}
+}
+
+func TestWriteWithLimit_Truncates(t *testing.T) {
+	cfgPath := tempConfigPath(t)
+	maxEntries := 10
+	// threshold = 10 + 10/5 = 12
+	// Write 13 entries: entry 13 triggers truncation (13 > 12), keeping newest 10
+	total := 13
+
+	for i := 0; i < total; i++ {
+		e := Entry{
+			Timestamp: fmt.Sprintf("2026-01-01T10:%02d:00Z", i),
+			Command:   fmt.Sprintf("cmd-%d", i),
+			Status:    "ok",
+		}
+		if err := WriteWithLimit(cfgPath, OpsFile, e, maxEntries); err != nil {
+			t.Fatalf("WriteWithLimit() error on entry %d: %v", i, err)
+		}
+	}
+
+	entries, err := Read(cfgPath, OpsFile, 0)
+	if err != nil {
+		t.Fatalf("Read() error: %v", err)
+	}
+	if len(entries) != maxEntries {
+		t.Fatalf("got %d entries, want %d", len(entries), maxEntries)
+	}
+
+	// Newest entry should be cmd-12 (Read returns newest first)
+	if entries[0].Command != "cmd-12" {
+		t.Errorf("newest entry = %q, want %q", entries[0].Command, "cmd-12")
+	}
+	// Oldest kept entry should be cmd-3
+	if entries[len(entries)-1].Command != "cmd-3" {
+		t.Errorf("oldest kept entry = %q, want %q", entries[len(entries)-1].Command, "cmd-3")
+	}
+}
+
+func TestWriteWithLimit_ZeroMeansUnlimited(t *testing.T) {
+	cfgPath := tempConfigPath(t)
+
+	for i := 0; i < 20; i++ {
+		e := Entry{
+			Timestamp: fmt.Sprintf("2026-01-01T10:%02d:00Z", i),
+			Command:   "sync",
+			Status:    "ok",
+		}
+		if err := WriteWithLimit(cfgPath, OpsFile, e, 0); err != nil {
+			t.Fatalf("WriteWithLimit() error: %v", err)
+		}
+	}
+
+	entries, err := Read(cfgPath, OpsFile, 0)
+	if err != nil {
+		t.Fatalf("Read() error: %v", err)
+	}
+	if len(entries) != 20 {
+		t.Errorf("got %d entries, want 20 (unlimited)", len(entries))
+	}
+}
+
+func TestWriteWithLimit_HysteresisAvoidsTruncation(t *testing.T) {
+	cfgPath := tempConfigPath(t)
+	maxEntries := 10
+
+	// Write 11 entries — threshold is 10 + 10/5 = 12, so 11 <= 12 should NOT truncate
+	for i := 0; i < 11; i++ {
+		e := Entry{
+			Timestamp: fmt.Sprintf("2026-01-01T10:%02d:00Z", i),
+			Command:   fmt.Sprintf("cmd-%d", i),
+			Status:    "ok",
+		}
+		if err := WriteWithLimit(cfgPath, OpsFile, e, maxEntries); err != nil {
+			t.Fatalf("WriteWithLimit() error: %v", err)
+		}
+	}
+
+	entries, err := Read(cfgPath, OpsFile, 0)
+	if err != nil {
+		t.Fatalf("Read() error: %v", err)
+	}
+	if len(entries) != 11 {
+		t.Errorf("got %d entries, want 11 (hysteresis should prevent truncation)", len(entries))
 	}
 }

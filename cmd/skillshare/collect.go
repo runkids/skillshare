@@ -136,7 +136,7 @@ func logCollectOp(cfgPath string, start time.Time, cmdErr error) {
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
 	}
-	oplog.Write(cfgPath, oplog.OpsFile, e) //nolint:errcheck
+	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 func selectCollectTargets(cfg *config.Config, targetName string, collectAll bool) (map[string]config.TargetConfig, error) {

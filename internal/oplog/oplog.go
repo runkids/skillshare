@@ -3,6 +3,7 @@
 package oplog
 
 import (
+	"bufio"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -74,6 +75,83 @@ func ensureProjectLogGitignore(configPath string) {
 		return
 	}
 	_ = install.UpdateGitIgnore(configDir, "logs")
+}
+
+// WriteWithLimit appends an entry and truncates the file if it exceeds maxEntries.
+// maxEntries <= 0 means unlimited (same as Write).
+func WriteWithLimit(configPath, filename string, e Entry, maxEntries int) error {
+	if err := Write(configPath, filename, e); err != nil {
+		return err
+	}
+
+	if maxEntries <= 0 {
+		return nil
+	}
+
+	// Hysteresis: only truncate when 20% over limit to avoid frequent rewrites
+	threshold := maxEntries + maxEntries/5
+	path := filepath.Join(LogDir(configPath), filename)
+	entries, err := readAllEntries(path)
+	if err != nil || len(entries) <= threshold {
+		return nil
+	}
+
+	// Keep newest maxEntries (entries are in file order = oldest first)
+	keep := entries[len(entries)-maxEntries:]
+	return rewriteEntries(path, keep)
+}
+
+// readAllEntries reads all entries from the log file in file order (oldest first).
+func readAllEntries(path string) ([]Entry, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	defer f.Close()
+
+	var all []Entry
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		var e Entry
+		if err := json.Unmarshal(line, &e); err != nil {
+			continue // skip malformed lines
+		}
+		all = append(all, e)
+	}
+	return all, scanner.Err()
+}
+
+// rewriteEntries atomically replaces the log file with the given entries.
+func rewriteEntries(path string, entries []Entry) error {
+	tmp := path + ".tmp"
+	f, err := os.Create(tmp)
+	if err != nil {
+		return err
+	}
+
+	for _, e := range entries {
+		data, err := json.Marshal(e)
+		if err != nil {
+			f.Close()
+			os.Remove(tmp)
+			return err
+		}
+		f.Write(data)
+		f.Write([]byte("\n"))
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+
+	return os.Rename(tmp, path)
 }
 
 // Read returns the last `limit` entries from the named log file (newest first).

@@ -14,15 +14,19 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 	"skillshare/internal/uidist"
 	versionpkg "skillshare/internal/version"
 )
 
 func cmdUpgrade(args []string) error {
+	start := time.Now()
+
 	dryRun := false
 	force := false
 	skillOnly := false
@@ -73,12 +77,18 @@ func cmdUpgrade(args []string) error {
 		skillErr = upgradeSkillshareSkill(dryRun, skillForce)
 	}
 
-	// Return first error
+	// Determine first error for return and logging
+	var cmdErr error
 	if cliErr != nil {
-		return cliErr
+		cmdErr = cliErr
+	} else if skillErr != nil {
+		cmdErr = skillErr
 	}
-	if skillErr != nil {
-		return skillErr
+
+	logUpgradeOp(config.ConfigPath(), upgradeCLI && cliErr == nil, upgradeSkill && skillErr == nil, version, "", start, cmdErr)
+
+	if cmdErr != nil {
+		return cmdErr
 	}
 
 	if !dryRun && (upgradeCLI || upgradeSkill) {
@@ -87,6 +97,28 @@ func cmdUpgrade(args []string) error {
 	}
 
 	return nil
+}
+
+func logUpgradeOp(cfgPath string, cliUpgraded bool, skillUpgraded bool, fromVersion, toVersion string, start time.Time, cmdErr error) {
+	e := oplog.NewEntry("upgrade", statusFromErr(cmdErr), time.Since(start))
+	a := map[string]any{}
+	if cliUpgraded {
+		a["cli"] = true
+	}
+	if skillUpgraded {
+		a["skill"] = true
+	}
+	if fromVersion != "" {
+		a["from_version"] = fromVersion
+	}
+	if toVersion != "" {
+		a["to_version"] = toVersion
+	}
+	e.Args = a
+	if cmdErr != nil {
+		e.Message = cmdErr.Error()
+	}
+	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 func upgradeCLIBinary(dryRun, force bool) error {

@@ -122,7 +122,11 @@ func parseSyncFlags(args []string) (dryRun bool, force bool) {
 }
 
 func logSyncOp(cfgPath string, stats syncLogStats, start time.Time, cmdErr error) {
-	e := oplog.NewEntry("sync", statusFromErr(cmdErr), time.Since(start))
+	status := statusFromErr(cmdErr)
+	if stats.Failed > 0 && stats.Failed < stats.Targets {
+		status = "partial"
+	}
+	e := oplog.NewEntry("sync", status, time.Since(start))
 	e.Args = map[string]any{
 		"targets_total":  stats.Targets,
 		"targets_failed": stats.Failed,
@@ -136,7 +140,7 @@ func logSyncOp(cfgPath string, stats syncLogStats, start time.Time, cmdErr error
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
 	}
-	oplog.Write(cfgPath, oplog.OpsFile, e) //nolint:errcheck
+	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 func backupTargetsBeforeSync(cfg *config.Config) {

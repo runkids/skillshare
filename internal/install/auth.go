@@ -12,11 +12,11 @@ import (
 type Platform int
 
 const (
-	PlatformUnknown      Platform = iota
-	PlatformGitHub                // github.com and GitHub Enterprise
-	PlatformGitLab                // gitlab.com and self-hosted GitLab
-	PlatformBitbucket             // bitbucket.org
-	PlatformAzureDevOps           // dev.azure.com and visualstudio.com
+	PlatformUnknown     Platform = iota
+	PlatformGitHub               // github.com and GitHub Enterprise
+	PlatformGitLab               // gitlab.com and self-hosted GitLab
+	PlatformBitbucket            // bitbucket.org
+	PlatformAzureDevOps          // dev.azure.com and visualstudio.com
 )
 
 // extractHost returns the hostname from a clone URL.

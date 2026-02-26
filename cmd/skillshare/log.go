@@ -46,6 +46,7 @@ func runLog(args []string, configPath string) error {
 	auditOnly := false
 	clear := false
 	jsonOutput := false
+	stats := false
 	noTUI := false
 	limit := 20
 	var filter oplog.Filter
@@ -60,6 +61,8 @@ func runLog(args []string, configPath string) error {
 			jsonOutput = true
 		case "--no-tui":
 			noTUI = true
+		case "--stats":
+			stats = true
 		case "--cmd":
 			if i+1 < len(args) {
 				i++
@@ -110,6 +113,11 @@ func runLog(args []string, configPath string) error {
 		}
 		ui.Success("%s log cleared", label)
 		return nil
+	}
+
+	// Stats summary
+	if stats {
+		return runLogStats(configPath, auditOnly, filter)
 	}
 
 	// TUI dispatch: interactive viewer when TTY and not explicitly disabled
@@ -179,6 +187,18 @@ func printLogEntriesJSON(w io.Writer, entries []oplog.Entry) error {
 	return nil
 }
 
+// logMaxEntries returns the configured max log entries, defaulting to 1000.
+func logMaxEntries() int {
+	cfg, err := config.Load()
+	if err != nil {
+		return config.DefaultLogMaxEntries
+	}
+	if cfg.Log.MaxEntries > 0 {
+		return cfg.Log.MaxEntries
+	}
+	return config.DefaultLogMaxEntries
+}
+
 // statusFromErr returns "ok" for nil errors and "error" otherwise.
 // Used by all command instrumentation to derive oplog status.
 func statusFromErr(err error) string {
@@ -200,6 +220,7 @@ Options:
   --status <status>   Filter by status (ok, error, partial, blocked)
   --since <dur|date>  Filter by time (e.g. 30m, 2h, 2d, 1w, 2006-01-02)
   --json              Output raw JSONL (one JSON object per line)
+  --stats             Show aggregated statistics summary
   --no-tui            Disable interactive TUI, print plain text
   --clear, -c         Clear the selected log file
   --project, -p       Use project-level log
@@ -217,7 +238,28 @@ Examples:
   skillshare log --json --cmd sync  JSONL filtered by command
   skillshare log --clear            Clear operations log
   skillshare log --clear --audit    Clear audit log
+  skillshare log --stats             Show aggregated statistics
   skillshare log -p                 Show project operations and audit logs`)
+}
+
+func runLogStats(configPath string, auditOnly bool, f oplog.Filter) error {
+	filename := oplog.OpsFile
+	if auditOnly {
+		filename = oplog.AuditFile
+	}
+
+	entries, err := oplog.Read(configPath, filename, 0)
+	if err != nil {
+		return fmt.Errorf("failed to read log: %w", err)
+	}
+
+	if !f.IsEmpty() {
+		entries = oplog.FilterEntries(entries, f)
+	}
+
+	stats := computeLogStats(entries)
+	fmt.Print(renderStatsCLI(stats))
+	return nil
 }
 
 func isProjectLogConfig(configPath string) bool {

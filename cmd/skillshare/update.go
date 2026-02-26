@@ -113,7 +113,7 @@ func cmdUpdate(args []string) error {
 		// Parse opts for logging (cmdUpdateProject parses again internally)
 		projOpts, _, _ := parseUpdateArgs(rest)
 		err := cmdUpdateProject(rest, cwd)
-		logUpdateOp(config.ProjectConfigPath(cwd), rest, projOpts, "project", start, err)
+		logUpdateOp(config.ProjectConfigPath(cwd), rest, projOpts, "project", start, err, nil)
 		return err
 	}
 
@@ -282,7 +282,7 @@ func cmdUpdate(args []string) error {
 		} else {
 			opNames = opts.names
 		}
-		logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, updateErr)
+		logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, updateErr, nil)
 		return updateErr
 	}
 
@@ -291,7 +291,7 @@ func cmdUpdate(args []string) error {
 		ui.Warning("[dry-run] No changes will be made")
 	}
 
-	_, batchErr := executeBatchUpdate(uc, targets)
+	batchResult, batchErr := executeBatchUpdate(uc, targets)
 
 	// Build oplog names
 	var opNames []string
@@ -303,13 +303,17 @@ func cmdUpdate(args []string) error {
 			opNames = append(opNames, "--group="+g)
 		}
 	}
-	logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, batchErr)
+	logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, batchErr, &batchResult)
 
 	return batchErr
 }
 
-func logUpdateOp(cfgPath string, names []string, opts *updateOptions, mode string, start time.Time, cmdErr error) {
-	e := oplog.NewEntry("update", statusFromErr(cmdErr), time.Since(start))
+func logUpdateOp(cfgPath string, names []string, opts *updateOptions, mode string, start time.Time, cmdErr error, result *updateResult) {
+	status := statusFromErr(cmdErr)
+	if result != nil && result.updated > 0 && (result.securityFailed > 0 || cmdErr != nil) {
+		status = "partial"
+	}
+	e := oplog.NewEntry("update", status, time.Since(start))
 	a := map[string]any{"mode": mode}
 	if opts != nil {
 		if opts.all {
@@ -343,11 +347,25 @@ func logUpdateOp(cfgPath string, names []string, opts *updateOptions, mode strin
 	} else if len(names) > 1 {
 		a["names"] = names
 	}
+	if result != nil {
+		if result.updated > 0 {
+			a["updated"] = result.updated
+		}
+		if result.securityFailed > 0 {
+			a["security_failed"] = result.securityFailed
+		}
+		if result.skipped > 0 {
+			a["skipped"] = result.skipped
+		}
+		if result.pruned > 0 {
+			a["pruned"] = result.pruned
+		}
+	}
 	e.Args = a
 	if cmdErr != nil {
 		e.Message = cmdErr.Error()
 	}
-	oplog.Write(cfgPath, oplog.OpsFile, e) //nolint:errcheck
+	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 func printUpdateHelp() {

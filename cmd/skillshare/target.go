@@ -457,7 +457,7 @@ func targetInfo(name string, args []string) error {
 			"name":    name,
 			"changes": changes,
 		}
-		oplog.Write(config.ConfigPath(), oplog.OpsFile, e) //nolint:errcheck
+		oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 		return nil
 	}
 

@@ -11,6 +11,7 @@ import (
 	"skillshare/internal/check"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/oplog"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
@@ -126,6 +127,8 @@ func parseCheckArgs(args []string) (*checkOptions, bool, error) {
 }
 
 func cmdCheck(args []string) error {
+	start := time.Now()
+
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
 		return err
@@ -146,6 +149,11 @@ func cmdCheck(args []string) error {
 
 	applyModeLabel(mode)
 
+	scope := "global"
+	if mode == modeProject {
+		scope = "project"
+	}
+
 	opts, showHelp, parseErr := parseCheckArgs(rest)
 	if showHelp {
 		printCheckHelp()
@@ -155,8 +163,12 @@ func cmdCheck(args []string) error {
 		return parseErr
 	}
 
+	cfgPath := config.ConfigPath()
 	if mode == modeProject {
-		return cmdCheckProject(cwd, opts)
+		cfgPath = config.ProjectConfigPath(cwd)
+		cmdErr := cmdCheckProject(cwd, opts)
+		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
+		return cmdErr
 	}
 
 	cfg, err := config.Load()
@@ -166,11 +178,30 @@ func cmdCheck(args []string) error {
 
 	// No names and no groups → check all (existing behavior)
 	if len(opts.names) == 0 && len(opts.groups) == 0 {
-		return runCheck(cfg.Source, opts.json)
+		cmdErr := runCheck(cfg.Source, opts.json)
+		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
+		return cmdErr
 	}
 
 	// Filtered check: resolve targets then check only those
-	return runCheckFiltered(cfg.Source, opts)
+	cmdErr := runCheckFiltered(cfg.Source, opts)
+	logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
+	return cmdErr
+}
+
+func logCheckOp(cfgPath string, repos, skills, updatesAvailable, errors int, scope string, start time.Time, cmdErr error) {
+	e := oplog.NewEntry("check", statusFromErr(cmdErr), time.Since(start))
+	e.Args = map[string]any{
+		"repos_checked":     repos,
+		"skills_checked":    skills,
+		"updates_available": updatesAvailable,
+		"errors":            errors,
+		"scope":             scope,
+	}
+	if cmdErr != nil {
+		e.Message = cmdErr.Error()
+	}
+	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
 func runCheck(sourceDir string, jsonOutput bool) error {
