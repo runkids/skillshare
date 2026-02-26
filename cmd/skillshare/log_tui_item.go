@@ -11,17 +11,23 @@ import (
 type logItem struct {
 	entry  oplog.Entry
 	source string // "operations" or "audit" — identifies which log file
+	marked bool   // true = selected for deletion
 }
 
 // Title returns a one-line header: [2024-01-15 14:30] SYNC — ok
 // Plain text only — embedded ANSI breaks bubbletea's DefaultDelegate truncation.
+// When marked for deletion, a ✗ prefix is prepended.
 func (i logItem) Title() string {
 	ts := formatLogTimestamp(i.entry.Timestamp)
-	return fmt.Sprintf("[%s] %s — %s",
+	title := fmt.Sprintf("[%s] %s — %s",
 		ts,
 		strings.ToUpper(i.entry.Command),
 		i.entry.Status,
 	)
+	if i.marked {
+		return "✗ " + title
+	}
+	return title
 }
 
 // Description returns duration + one-line summary for the list delegate.

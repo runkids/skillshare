@@ -194,6 +194,56 @@ func Read(configPath, filename string, limit int) ([]Entry, error) {
 	return all, nil
 }
 
+// DeleteEntries removes entries that match the given list from the named log file.
+// Matching is by content (timestamp + command + status + duration) rather than index,
+// because Read() returns newest-first while the file stores oldest-first.
+// Returns the number of entries actually deleted.
+func DeleteEntries(configPath, filename string, matches []Entry) (int, error) {
+	if len(matches) == 0 {
+		return 0, nil
+	}
+
+	path := filepath.Join(LogDir(configPath), filename)
+	all, err := readAllEntries(path)
+	if err != nil {
+		return 0, err
+	}
+
+	// Build match set keyed by (ts, cmd, status, duration)
+	type entryKey struct {
+		ts     string
+		cmd    string
+		status string
+		dur    int64
+	}
+	matchCounts := make(map[entryKey]int, len(matches))
+	for _, m := range matches {
+		k := entryKey{m.Timestamp, m.Command, m.Status, m.Duration}
+		matchCounts[k]++
+	}
+
+	kept := make([]Entry, 0, len(all))
+	deleted := 0
+	for _, e := range all {
+		k := entryKey{e.Timestamp, e.Command, e.Status, e.Duration}
+		if matchCounts[k] > 0 {
+			matchCounts[k]--
+			deleted++
+			continue
+		}
+		kept = append(kept, e)
+	}
+
+	if deleted == 0 {
+		return 0, nil
+	}
+
+	if err := rewriteEntries(path, kept); err != nil {
+		return 0, err
+	}
+	return deleted, nil
+}
+
 // Clear truncates the named log file.
 func Clear(configPath, filename string) error {
 	path := filepath.Join(LogDir(configPath), filename)

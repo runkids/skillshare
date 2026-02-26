@@ -301,10 +301,10 @@ func TestRenderLogDetailPanel_BulletListShort(t *testing.T) {
 }
 
 func TestRenderLogDetailPanel_BulletListCondensed(t *testing.T) {
-	// >5 items: first 5 shown, rest condensed into "... and N more"
-	skills := make([]any, 12)
+	// >100 items: first 100 shown, rest condensed into "... and N more"
+	skills := make([]any, 105)
 	for i := range skills {
-		skills[i] = fmt.Sprintf("skill-%02d", i+1)
+		skills[i] = fmt.Sprintf("skill-%03d", i+1)
 	}
 	item := logItem{
 		entry: oplog.Entry{
@@ -318,20 +318,20 @@ func TestRenderLogDetailPanel_BulletListCondensed(t *testing.T) {
 	}
 	out := stripANSI(renderLogDetailPanel(item))
 
-	// First 5 should be visible
-	for i := 1; i <= 5; i++ {
-		needle := fmt.Sprintf("- skill-%02d", i)
+	// First 100 should be visible
+	for i := 1; i <= 100; i++ {
+		needle := fmt.Sprintf("- skill-%03d", i)
 		if !strings.Contains(out, needle) {
 			t.Fatalf("expected bullet for %s, got:\n%s", needle, out)
 		}
 	}
-	// 6th should NOT be visible as a bullet
-	if strings.Contains(out, "- skill-06") {
-		t.Fatalf("did not expect bullet for skill-06 (should be condensed), got:\n%s", out)
+	// 101st should NOT be visible as a bullet
+	if strings.Contains(out, "- skill-101") {
+		t.Fatalf("did not expect bullet for skill-101 (should be condensed), got:\n%s", out)
 	}
 	// Summary line
-	if !strings.Contains(out, "... and 7 more") {
-		t.Fatalf("expected '... and 7 more' summary, got:\n%s", out)
+	if !strings.Contains(out, "... and 5 more") {
+		t.Fatalf("expected '... and 5 more' summary, got:\n%s", out)
 	}
 }
 
