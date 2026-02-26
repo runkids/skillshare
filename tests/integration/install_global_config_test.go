@@ -36,6 +36,39 @@ skills:
 	result.AssertAnyOutputContains(t, "1 skipped")
 }
 
+func TestInstall_Global_FromConfig_DryRun_TrackedRespectsQuiet(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	repoPath := filepath.Join(sb.Root, "tracked-src")
+	if err := os.MkdirAll(repoPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, "SKILL.md"), []byte("# tracked"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	initGitRepo(t, repoPath)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	registryPath := filepath.Join(filepath.Dir(sb.ConfigPath), "registry.yaml")
+	if err := os.WriteFile(registryPath, []byte(`skills:
+  - name: dryrun-track
+    source: file://`+repoPath+`
+    tracked: true
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result := sb.RunCLI("install", "--global", "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Ready")
+	result.AssertOutputNotContains(t, "would clone")
+}
+
 func TestInstall_Global_FromConfig_EmptySkills(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

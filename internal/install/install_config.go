@@ -163,7 +163,9 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 			continue
 		}
 		if opts.DryRun {
-			ui.StepDone(displayName, installed.action)
+			if !opts.Quiet {
+				ui.StepDone(displayName, installed.action)
+			}
 			continue
 		}
 		result.InstalledSkills = append(result.InstalledSkills, installed.skills...)
