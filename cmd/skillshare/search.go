@@ -418,39 +418,26 @@ func promptInstallFromSearch(results []search.SearchResult, isHub bool, mode run
 	if len(res.selected) == 0 {
 		return false, nil
 	}
-	fmt.Println()
 	return false, batchInstallFromSearch(res.selected, mode, cwd)
 }
 
 // batchInstallFromSearch installs multiple search results sequentially.
-// Errors are reported per-skill; processing continues on failure.
+// Single selection uses verbose per-skill output; multi-selection uses progress display.
 func batchInstallFromSearch(selected []search.SearchResult, mode runMode, cwd string) error {
-	var cfg *config.Config
-	if mode != modeProject {
-		var err error
-		cfg, err = config.Load()
+	if len(selected) == 1 {
+		// Single skill: verbose output (StepStart + TreeSpinner + warnings)
+		fmt.Println()
+		if mode == modeProject {
+			return installFromSearchResultProject(selected[0], cwd)
+		}
+		cfg, err := config.Load()
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)
 		}
+		return installFromSearchResult(selected[0], cfg)
 	}
-
-	var errs []string
-	for _, r := range selected {
-		var err error
-		if mode == modeProject {
-			err = installFromSearchResultProject(r, cwd)
-		} else {
-			err = installFromSearchResult(r, cfg)
-		}
-		if err != nil {
-			ui.Error("Failed to install '%s': %v", r.Name, err)
-			errs = append(errs, r.Name)
-		}
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("failed to install %d skill(s): %s", len(errs), strings.Join(errs, ", "))
-	}
-	return nil
+	// Multiple skills: progress display + summary
+	return batchInstallFromSearchWithProgress(selected, mode, cwd)
 }
 
 func installFromSearchResultProject(result search.SearchResult, cwd string) (err error) {
