@@ -433,6 +433,75 @@ targets:
 	}
 }
 
+// --- mtime cache ---
+
+func TestSync_CopyMode_MtimeCache(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{
+		"SKILL.md": "# Skill A",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+
+	// First sync — copies skill
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	// Verify manifest has mtimes
+	var manifest sync.Manifest
+	data, _ := os.ReadFile(filepath.Join(targetPath, sync.ManifestFile))
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatalf("failed to parse manifest: %v", err)
+	}
+	if manifest.Mtimes == nil {
+		t.Fatal("manifest should have Mtimes map")
+	}
+	if _, ok := manifest.Mtimes["skill-a"]; !ok {
+		t.Fatal("manifest should have mtime for skill-a")
+	}
+	if manifest.Mtimes["skill-a"] == 0 {
+		t.Fatal("mtime should be non-zero")
+	}
+
+	// Second sync without changes — should skip via mtime fast-path
+	result2 := sb.RunCLI("sync")
+	result2.AssertSuccess(t)
+	result2.AssertOutputContains(t, "skipped")
+}
+
+func TestSync_CopyMode_MtimeCache_ForceBypassesMtime(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{
+		"SKILL.md": "# Skill A",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+
+	// First sync
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	// Force sync — should NOT use mtime shortcut
+	result := sb.RunCLI("sync", "--force")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "updated")
+}
+
 // --- project mode copy ---
 
 func TestSync_CopyMode_Project(t *testing.T) {

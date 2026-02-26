@@ -174,7 +174,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		if mode == "symlink" {
 			status := ssync.CheckStatus(target.Path, s.cfg.Source)
 			if status != ssync.StatusLinked {
-				dt.Items = append(dt.Items, diffItem{Skill: "(entire directory)", Action: "link", Reason: "missing"})
+				dt.Items = append(dt.Items, diffItem{Skill: "(entire directory)", Action: "link", Reason: "source only"})
 			}
 			diffs = append(diffs, dt)
 			continue
@@ -199,7 +199,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 							dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "target entry is not a directory"})
 						}
 					} else if os.IsNotExist(err) {
-						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "missing"})
+						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "source only"})
 					} else {
 						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "cannot access target entry"})
 					}
@@ -213,6 +213,12 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 					} else if !targetInfo.IsDir() {
 						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "target entry is not a directory"})
 					} else {
+						// mtime fast-path: skip checksum if source mtime unchanged
+						oldMtime := manifest.Mtimes[skill.FlatName]
+						currentMtime, mtimeErr := ssync.DirMaxMtime(skill.SourcePath)
+						if mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
+							continue // unchanged
+						}
 						// Compare checksums to detect content drift
 						srcChecksum, err := ssync.DirChecksum(skill.SourcePath)
 						if err != nil {
@@ -243,7 +249,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 			_, err := os.Lstat(targetSkillPath)
 			if err != nil {
 				if os.IsNotExist(err) {
-					dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "missing"})
+					dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "source only"})
 				}
 				continue
 			}

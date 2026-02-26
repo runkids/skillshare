@@ -74,7 +74,21 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 
 		targetSkillPath := filepath.Join(target.Path, skill.FlatName)
 
-		// Compute source checksum
+		// Compute source mtime for fast-path skip
+		currentMtime, mtimeErr := DirMaxMtime(skill.SourcePath)
+
+		// mtime fast-path: if source mtime is unchanged AND target is still a valid dir, skip checksum
+		oldChecksum, isManaged := manifest.Managed[skill.FlatName]
+		oldMtime := manifest.Mtimes[skill.FlatName] // 0 if missing
+		if mtimeErr == nil && isManaged && !force && oldMtime > 0 && currentMtime == oldMtime {
+			// Verify target still exists as a directory (user may have replaced it)
+			if ti, err := os.Lstat(targetSkillPath); err == nil && ti.IsDir() {
+				result.Skipped = append(result.Skipped, skill.FlatName)
+				continue
+			}
+		}
+
+		// mtime changed or no record — compute full checksum
 		srcChecksum, err := DirChecksum(skill.SourcePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to checksum source skill %s: %w", skill.FlatName, err)
@@ -94,8 +108,6 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 				}
 				// Fall through to copy below
 			} else {
-				oldChecksum, isManaged := manifest.Managed[skill.FlatName]
-
 				// Non-directory entries are invalid for managed skills.
 				// Managed/forced entries should be replaced with a proper skill directory.
 				if !targetInfo.IsDir() {
@@ -110,6 +122,9 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 								return nil, fmt.Errorf("failed to copy skill %s: %w", skill.FlatName, err)
 							}
 							manifest.Managed[skill.FlatName] = srcChecksum
+							if mtimeErr == nil {
+								manifest.Mtimes[skill.FlatName] = currentMtime
+							}
 						}
 						result.Updated = append(result.Updated, skill.FlatName)
 						continue
@@ -121,7 +136,10 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 				}
 
 				if !force && isManaged && oldChecksum == srcChecksum {
-					// Unchanged — skip
+					// Unchanged — skip (but update mtime record if it changed)
+					if mtimeErr == nil && currentMtime != oldMtime && !dryRun {
+						manifest.Mtimes[skill.FlatName] = currentMtime
+					}
 					result.Skipped = append(result.Skipped, skill.FlatName)
 					continue
 				}
@@ -140,6 +158,9 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 							return nil, fmt.Errorf("failed to copy skill %s: %w", skill.FlatName, err)
 						}
 						manifest.Managed[skill.FlatName] = srcChecksum
+						if mtimeErr == nil {
+							manifest.Mtimes[skill.FlatName] = currentMtime
+						}
 					}
 					result.Updated = append(result.Updated, skill.FlatName)
 					continue
@@ -159,6 +180,9 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 				return nil, fmt.Errorf("failed to copy skill %s: %w", skill.FlatName, err)
 			}
 			manifest.Managed[skill.FlatName] = srcChecksum
+			if mtimeErr == nil {
+				manifest.Mtimes[skill.FlatName] = currentMtime
+			}
 		}
 		result.Copied = append(result.Copied, skill.FlatName)
 	}
@@ -219,6 +243,7 @@ func PruneOrphanCopiesWithSkills(targetPath string, allSourceSkills []Discovered
 				continue
 			}
 			delete(manifest.Managed, flatName)
+			delete(manifest.Mtimes, flatName)
 		}
 		result.Removed = append(result.Removed, flatName)
 	}
@@ -286,6 +311,28 @@ func CheckStatusCopy(targetPath string) (TargetStatus, int, int) {
 	}
 
 	return StatusHasFiles, 0, localCount
+}
+
+// DirMaxMtime returns the latest ModTime (UnixNano) among all files in dir.
+// Skips .git directories. Only uses os.Stat (via filepath.Walk), never reads file content.
+func DirMaxMtime(dir string) (int64, error) {
+	var maxMtime int64
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if mt := info.ModTime().UnixNano(); mt > maxMtime {
+			maxMtime = mt
+		}
+		return nil
+	})
+	return maxMtime, err
 }
 
 // DirChecksum computes a deterministic SHA256 checksum of a directory.
