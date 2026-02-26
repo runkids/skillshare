@@ -550,7 +550,7 @@ export default function LogPage() {
     // Pick the most recent last_operation from the two sources
     let lastOp = ops?.last_operation;
     if (audit?.last_operation) {
-      if (!lastOp || audit.last_operation.ts > lastOp.ts) {
+      if (!lastOp || new Date(audit.last_operation.ts).getTime() > new Date(lastOp.ts).getTime()) {
         lastOp = audit.last_operation;
       }
     }
