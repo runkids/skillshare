@@ -56,6 +56,26 @@ Now every team member gets the same skills when they open the container.
 
 The same `.devcontainer/` config works in Codespaces with no changes. Codespaces runs `postCreateCommand` the same way VS Code does.
 
+## Isolated Testing with ssenv
+
+Inside the devcontainer, `ssenv` lets you create isolated skillshare environments for parallel testing. Each environment gets its own `HOME` directory with separate config, skills, and targets.
+
+| Command | What it does |
+|---------|-------------|
+| `ssnew <name>` | Create a new isolated environment |
+| `ssuse <name>` | Switch to an environment |
+| `ssback` | Return to the original environment |
+| `ssls` | List all environments |
+| `ssrm <name>` | Delete an environment |
+
+```bash
+ssnew demo && ssuse demo    # Create and switch
+ss init && ss sync          # Commands run in isolation
+ssback                      # Return to original
+```
+
+This is useful for testing config changes or skill installations without affecting your main setup.
+
 ## What's Next?
 
 - [Project skill setup →](/docs/how-to/sharing/project-setup)
