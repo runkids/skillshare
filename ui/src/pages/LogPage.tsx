@@ -511,12 +511,56 @@ export default function LogPage() {
     staleTime: staleTimes.log,
   });
 
-  const statsType = tab === 'audit' ? 'audit' : 'ops';
-  const statsQuery = useQuery({
-    queryKey: queryKeys.logStats(statsType, filters),
-    queryFn: () => api.getLogStats(statsType, filters),
+  const opsStatsQuery = useQuery({
+    queryKey: queryKeys.logStats('ops', filters),
+    queryFn: () => api.getLogStats('ops', filters),
+    enabled: tab === 'all' || tab === 'ops',
     staleTime: staleTimes.log,
   });
+
+  const auditStatsQuery = useQuery({
+    queryKey: queryKeys.logStats('audit', filters),
+    queryFn: () => api.getLogStats('audit', filters),
+    enabled: tab === 'all' || tab === 'audit',
+    staleTime: staleTimes.log,
+  });
+
+  const mergedStats = useMemo((): LogStatsResponse | undefined => {
+    if (tab === 'ops') return opsStatsQuery.data;
+    if (tab === 'audit') return auditStatsQuery.data;
+    // tab === 'all': merge both
+    const ops = opsStatsQuery.data;
+    const audit = auditStatsQuery.data;
+    if (!ops && !audit) return undefined;
+    const byCommand: Record<string, { total: number; ok: number; error: number; partial: number; blocked: number }> = {};
+    for (const src of [ops, audit]) {
+      if (!src) continue;
+      for (const [cmd, cs] of Object.entries(src.by_command)) {
+        const existing = byCommand[cmd] ?? { total: 0, ok: 0, error: 0, partial: 0, blocked: 0 };
+        existing.total += cs.total;
+        existing.ok += cs.ok;
+        existing.error += cs.error;
+        existing.partial += cs.partial;
+        existing.blocked += cs.blocked;
+        byCommand[cmd] = existing;
+      }
+    }
+    const total = (ops?.total ?? 0) + (audit?.total ?? 0);
+    const okTotal = Object.values(byCommand).reduce((sum, cs) => sum + cs.ok, 0);
+    // Pick the most recent last_operation from the two sources
+    let lastOp = ops?.last_operation;
+    if (audit?.last_operation) {
+      if (!lastOp || audit.last_operation.ts > lastOp.ts) {
+        lastOp = audit.last_operation;
+      }
+    }
+    return {
+      total,
+      success_rate: total > 0 ? okTotal / total : 0,
+      by_command: byCommand,
+      last_operation: lastOp,
+    };
+  }, [tab, opsStatsQuery.data, auditStatsQuery.data]);
 
   const opsEntries = opsQuery.data?.entries ?? [];
   const opsTotal = opsQuery.data?.total ?? 0;
@@ -693,8 +737,8 @@ export default function LogPage() {
         </div>
       </div>
 
-      {statsQuery.data && statsQuery.data.total > 0 && (
-        <LogStatsBar stats={statsQuery.data} />
+      {mergedStats && mergedStats.total > 0 && (
+        <LogStatsBar stats={mergedStats} />
       )}
 
       {tab === 'all' ? (
