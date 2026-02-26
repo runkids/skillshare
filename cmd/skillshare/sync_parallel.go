@@ -348,6 +348,8 @@ func renderSyncResults(results []syncTargetResult) {
 }
 
 // runParallelSync executes sync for multiple targets in parallel using bounded concurrency.
+// Targets sharing the same resolved path are grouped and run sequentially within one
+// goroutine to avoid race conditions (e.g., two targets trying to create the same symlink).
 // Returns results (indexed by position) and count of failed targets.
 func runParallelSync(entries []syncTargetEntry, source string, skills []sync.DiscoveredSkill, dryRun, force bool) ([]syncTargetResult, int) {
 	names := make([]string, len(entries))
@@ -356,21 +358,40 @@ func runParallelSync(entries []syncTargetEntry, source string, skills []sync.Dis
 	}
 	progress := newSyncProgress(names)
 
+	// Group entries by resolved target path so shared-path targets run sequentially.
+	type indexedEntry struct {
+		idx   int
+		entry syncTargetEntry
+	}
+	groups := make(map[string][]indexedEntry)
+	var groupOrder []string
+	for i, e := range entries {
+		p := e.target.Path
+		if _, seen := groups[p]; !seen {
+			groupOrder = append(groupOrder, p)
+		}
+		groups[p] = append(groups[p], indexedEntry{idx: i, entry: e})
+	}
+
 	results := make([]syncTargetResult, len(entries))
 	sem := make(chan struct{}, syncMaxWorkers)
 	var wg gosync.WaitGroup
 
-	for i, e := range entries {
+	for _, p := range groupOrder {
+		group := groups[p]
 		wg.Add(1)
 		sem <- struct{}{}
-		go func(idx int, entry syncTargetEntry) {
+		go func(members []indexedEntry) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			progress.startTarget(entry.name)
-			r := collectSyncResult(entry.name, entry.target, source, entry.mode, skills, dryRun, force, progress)
-			progress.doneTarget(entry.name, r)
-			results[idx] = r
-		}(i, e)
+			// Run all members of this path group sequentially.
+			for _, m := range members {
+				progress.startTarget(m.entry.name)
+				r := collectSyncResult(m.entry.name, m.entry.target, source, m.entry.mode, skills, dryRun, force, progress)
+				progress.doneTarget(m.entry.name, r)
+				results[m.idx] = r
+			}
+		}(group)
 	}
 	wg.Wait()
 	progress.stop()

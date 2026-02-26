@@ -7,10 +7,14 @@ set -euo pipefail
 
 WORKSPACE_ROOT="${SKILLSHARE_DEV_WORKSPACE_ROOT:-/workspace}"
 GO_BIN="${SKILLSHARE_DEV_GO_BIN:-/usr/local/go/bin/go}"
-[ -x "$GO_BIN" ] || GO_BIN="$(command -v go || true)"
+[ -x "$GO_BIN" ] || GO_BIN="$(command -v go)"
+if [ -z "$GO_BIN" ]; then
+  echo "Error: 'go' command not found. Please ensure Go is installed and in your PATH." >&2
+  exit 1
+fi
 
 CELLAR="/opt/homebrew/Cellar/skillshare/dev/bin"
-FAKE_BIN="/tmp/fake-brew-bin"
+FAKE_BIN="$(mktemp -d)"
 BINARY="$CELLAR/skillshare"
 
 cleanup() {
