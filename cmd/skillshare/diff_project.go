@@ -71,11 +71,17 @@ func cmdDiffProject(root, targetName string) error {
 		totalSkills += len(filtered)
 	}
 
-	progress := newDiffProgress(totalSkills)
+	names := make([]string, len(resolved))
+	for i, rt := range resolved {
+		names[i] = rt.name
+	}
+	progress := newDiffProgress(names, totalSkills)
 
 	var results []targetDiffResult
 	for _, rt := range resolved {
+		progress.startTarget(rt.name)
 		r := collectTargetDiff(rt.name, rt.target, runtime.sourcePath, rt.mode, rt.filtered, progress)
+		progress.doneTarget(rt.name, r)
 		results = append(results, r)
 	}
 
