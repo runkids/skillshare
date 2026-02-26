@@ -183,6 +183,10 @@ targets:
     global_path: "~/.vibe/skills"
     project_path: ".vibe/skills"
     aliases: [mistral-vibe]
+  - global_name: verdent
+    project_name: verdent
+    global_path: "~/.verdent/skills"
+    project_path: ".verdent/skills"
   - global_name: windsurf
     project_name: windsurf
     global_path: "~/.codeium/windsurf/skills"

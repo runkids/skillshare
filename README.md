@@ -19,7 +19,7 @@
 
 <p align="center">
   <strong>One source of truth for AI CLI skills. Sync everywhere with one command — from personal to organization-wide.</strong><br>
-  Claude Code, OpenClaw, OpenCode & 49+ more.
+  Claude Code, OpenClaw, OpenCode & 50+ more.
 </p>
 
 <p align="center">
@@ -48,7 +48,7 @@ You edit in one, forget to copy to another, and lose track of what's where.
 
 skillshare fixes this:
 
-- **One source, every agent** — sync to Claude, Cursor, Codex & 49+ more with `skillshare sync`
+- **One source, every agent** — sync to Claude, Cursor, Codex & 50+ more with `skillshare sync`
 - **Install from anywhere** — GitHub, GitLab, Bitbucket, Azure DevOps, or any self-hosted Git
 - **Built-in security** — audit skills for prompt injection and data exfiltration before use
 - **Team-ready** — project skills in `.skillshare/`, org-wide skills via tracked repos
