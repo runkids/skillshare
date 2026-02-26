@@ -46,7 +46,7 @@ type Finding struct {
 	Message  string `json:"message"`
 	File     string `json:"file"`
 	Line     int    `json:"line"`
-	Snippet  string `json:"snippet"` // max 80 chars of the matched line
+	Snippet  string `json:"snippet"` // trimmed matched line (no truncation)
 }
 
 // Result holds all findings for a single skill.
@@ -265,6 +265,9 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	mdContentRules, mdLinkRules := splitMarkdownLinkRules(resolvedRules)
 
 	var mdFiles []mdFileInfo
+	// fileCache collects file contents read during walk so that
+	// checkContentIntegrity can reuse them instead of re-reading from disk.
+	fileCache := make(map[string][]byte)
 
 	err = filepath.Walk(skillPath, func(path string, fi os.FileInfo, walkErr error) error {
 		if walkErr != nil {
@@ -306,6 +309,9 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 			return nil
 		}
 
+		// Cache content for content-integrity check reuse.
+		fileCache[filepath.ToSlash(relPath)] = data
+
 		isMarkdown := strings.EqualFold(filepath.Ext(fi.Name()), ".md")
 		if isMarkdown {
 			mdFiles = append(mdFiles, mdFileInfo{
@@ -344,7 +350,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 
 	// Content integrity check against pinned hashes.
 	if !disabled["content-integrity"] {
-		result.Findings = append(result.Findings, checkContentIntegrity(skillPath)...)
+		result.Findings = append(result.Findings, checkContentIntegrity(skillPath, fileCache)...)
 	}
 
 	result.updateRisk()
@@ -425,9 +431,19 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 	}
 
 	var findings []Finding
-	lines := strings.Split(string(content), "\n")
-
-	for lineNum, line := range lines {
+	text := string(content)
+	lineNum := 0
+	for start := 0; start <= len(text); {
+		lineNum++
+		end := strings.IndexByte(text[start:], '\n')
+		var line string
+		if end == -1 {
+			line = text[start:]
+			start = len(text) + 1
+		} else {
+			line = text[start : start+end]
+			start = start + end + 1
+		}
 		for _, r := range activeRules {
 			if r.Regex.MatchString(line) {
 				if r.Exclude != nil && r.Exclude.MatchString(line) {
@@ -438,8 +454,8 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 					Pattern:  r.Pattern,
 					Message:  r.Message,
 					File:     filename,
-					Line:     lineNum + 1, // 1-indexed
-					Snippet:  truncate(strings.TrimSpace(line), 80),
+					Line:     lineNum,
+					Snippet:  strings.TrimSpace(line),
 				})
 			}
 		}
@@ -460,12 +476,24 @@ func ScanMarkdownContentWithRules(content []byte, filename string, activeRules [
 	}
 
 	var findings []Finding
-	lines := strings.Split(string(content), "\n")
+	text := string(content)
 	inCodeFence := false
 	fenceMarker := ""
 	tutorialPath := isLikelyTutorialPath(filename)
+	lineNum := 0
 
-	for lineNum, line := range lines {
+	for start := 0; start <= len(text); {
+		lineNum++
+		end := strings.IndexByte(text[start:], '\n')
+		var line string
+		if end == -1 {
+			line = text[start:]
+			start = len(text) + 1
+		} else {
+			line = text[start : start+end]
+			start = start + end + 1
+		}
+
 		if marker, ok := detectFenceMarker(line); ok {
 			if !inCodeFence {
 				inCodeFence = true
@@ -492,8 +520,8 @@ func ScanMarkdownContentWithRules(content []byte, filename string, activeRules [
 				Pattern:  r.Pattern,
 				Message:  r.Message,
 				File:     filename,
-				Line:     lineNum + 1, // 1-indexed
-				Snippet:  truncate(strings.TrimSpace(line), 80),
+				Line:     lineNum,
+				Snippet:  strings.TrimSpace(line),
 			})
 		}
 	}
@@ -618,7 +646,7 @@ func checkMarkdownLinkRules(files []mdFileInfo, markdownLinkRules []rule) []Find
 					Message:  r.Message,
 					File:     f.relPath,
 					Line:     link.line,
-					Snippet:  truncate(link.snippet, 80),
+					Snippet:  link.snippet,
 				})
 			}
 		}
@@ -648,7 +676,7 @@ func checkDanglingLinks(files []mdFileInfo) []Finding {
 					Message:  fmt.Sprintf("broken local link: %q not found", target),
 					File:     f.relPath,
 					Line:     link.line,
-					Snippet:  truncate(link.snippet, 80),
+					Snippet:  link.snippet,
 				})
 			}
 		}
@@ -1140,8 +1168,9 @@ func isExternalOrAnchor(target string) bool {
 
 // checkContentIntegrity compares files on disk against pinned hashes in
 // .skillshare-meta.json. Backward-compatible: skips silently when meta or
-// file_hashes is absent.
-func checkContentIntegrity(skillPath string) []Finding {
+// file_hashes is absent. cache holds file contents already read during the
+// walk phase; files not in cache are read from disk as fallback.
+func checkContentIntegrity(skillPath string, cache map[string][]byte) []Finding {
 	metaPath := filepath.Join(skillPath, ".skillshare-meta.json")
 	data, err := os.ReadFile(metaPath)
 	if err != nil {
@@ -1195,9 +1224,18 @@ func checkContentIntegrity(skillPath string) []Finding {
 			})
 			continue
 		}
-		actual, hashErr := fileHash(absPath)
-		if hashErr != nil {
-			continue
+		// Use cached content when available to avoid re-reading from disk.
+		normalized := filepath.ToSlash(rel)
+		var actual string
+		if cached, ok := cache[normalized]; ok {
+			sum := sha256.Sum256(cached)
+			actual = hex.EncodeToString(sum[:])
+		} else {
+			var hashErr error
+			actual, hashErr = fileHash(absPath)
+			if hashErr != nil {
+				continue
+			}
 		}
 		if "sha256:"+actual != expected {
 			findings = append(findings, Finding{

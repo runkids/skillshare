@@ -30,8 +30,8 @@ func init() {
 	pterm.DefaultSpinner.ShowTimer = false
 }
 
-// displayWidth returns the visible width of a string (excluding ANSI codes, handling wide chars)
-func displayWidth(s string) int {
+// DisplayWidth returns the visible width of a string (excluding ANSI codes, handling wide chars)
+func DisplayWidth(s string) int {
 	// Remove ANSI codes first, then calculate Unicode-aware width
 	clean := ansiRegex.ReplaceAllString(s, "")
 	return runewidth.StringWidth(clean)
@@ -45,6 +45,12 @@ func IsTTY() bool {
 
 // Box prints content in a styled box
 func Box(title string, lines ...string) {
+	BoxWithMinWidth(title, 0, lines...)
+}
+
+// BoxWithMinWidth prints a titled box, enforcing a minimum content width.
+// Use this to align multiple boxes to the same width.
+func BoxWithMinWidth(title string, minWidth int, lines ...string) {
 	if !IsTTY() {
 		if title != "" {
 			fmt.Printf("── %s ──\n", title)
@@ -56,9 +62,9 @@ func Box(title string, lines ...string) {
 	}
 
 	// Find max display width for consistent box width (excludes ANSI codes)
-	maxLen := 0
+	maxLen := minWidth
 	for _, line := range lines {
-		w := displayWidth(line)
+		w := DisplayWidth(line)
 		if w > maxLen {
 			maxLen = w
 		}
@@ -68,7 +74,7 @@ func Box(title string, lines ...string) {
 	content := ""
 	for i, line := range lines {
 		padded := line
-		w := displayWidth(line)
+		w := DisplayWidth(line)
 		if w < maxLen {
 			padded = line + strings.Repeat(" ", maxLen-w)
 		}
@@ -84,9 +90,34 @@ func Box(title string, lines ...string) {
 
 // HeaderBox prints command header box
 func HeaderBox(command, subtitle string) {
+	HeaderBoxWithMinWidth(command, subtitle, 0)
+}
+
+// HeaderBoxWithMinWidth prints command header box with a minimum content width.
+func HeaderBoxWithMinWidth(command, subtitle string, minWidth int) {
 	if !IsTTY() {
 		fmt.Printf("%s\n%s\n", command, subtitle)
 		return
+	}
+
+	// Pad subtitle lines to at least minWidth.
+	if minWidth > 0 {
+		lines := strings.Split(subtitle, "\n")
+		maxLen := minWidth
+		for _, line := range lines {
+			if w := DisplayWidth(line); w > maxLen {
+				maxLen = w
+			}
+		}
+		var padded []string
+		for _, line := range lines {
+			w := DisplayWidth(line)
+			if w < maxLen {
+				line = line + strings.Repeat(" ", maxLen-w)
+			}
+			padded = append(padded, line)
+		}
+		subtitle = strings.Join(padded, "\n")
 	}
 
 	box := pterm.DefaultBox.
@@ -243,7 +274,7 @@ func WarningBox(title string, lines ...string) {
 	// Find max display width for consistent box width (excludes ANSI codes)
 	maxLen := 0
 	for _, line := range lines {
-		w := displayWidth(line)
+		w := DisplayWidth(line)
 		if w > maxLen {
 			maxLen = w
 		}
@@ -253,7 +284,7 @@ func WarningBox(title string, lines ...string) {
 	content := ""
 	for i, line := range lines {
 		padded := line
-		w := displayWidth(line)
+		w := DisplayWidth(line)
 		if w < maxLen {
 			padded = line + strings.Repeat(" ", maxLen-w)
 		}
@@ -287,7 +318,7 @@ func SummaryBox(title string, items map[string]string) {
 	// Find max display width for consistent box width (excludes ANSI codes)
 	maxLen := 0
 	for _, line := range lines {
-		w := displayWidth(line)
+		w := DisplayWidth(line)
 		if w > maxLen {
 			maxLen = w
 		}
@@ -297,7 +328,7 @@ func SummaryBox(title string, items map[string]string) {
 	content := ""
 	for i, line := range lines {
 		padded := line
-		w := displayWidth(line)
+		w := DisplayWidth(line)
 		if w < maxLen {
 			padded = line + strings.Repeat(" ", maxLen-w)
 		}
@@ -396,7 +427,7 @@ func UpdateNotification(currentVersion, latestVersion string) {
 	// Find max display width for consistent box width (excludes ANSI codes)
 	maxLen := 0
 	for _, line := range lines {
-		w := displayWidth(line)
+		w := DisplayWidth(line)
 		if w > maxLen {
 			maxLen = w
 		}
@@ -406,7 +437,7 @@ func UpdateNotification(currentVersion, latestVersion string) {
 	content := ""
 	for i, line := range lines {
 		padded := line
-		w := displayWidth(line)
+		w := DisplayWidth(line)
 		if w < maxLen {
 			padded = line + strings.Repeat(" ", maxLen-w)
 		}

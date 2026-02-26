@@ -48,8 +48,8 @@ const (
 	SeverityIDCritical = "1"   // red
 	SeverityIDHigh     = "208" // orange
 	SeverityIDMedium   = "3"   // yellow
-	SeverityIDLow      = "8"   // gray
-	SeverityIDInfo     = "8"   // gray
+	SeverityIDLow      = "12"  // bright blue — visible on dark backgrounds
+	SeverityIDInfo     = "244" // medium gray — informational, lowest priority
 )
 
 // SeverityColor returns the ANSI color code for a given audit severity level.
@@ -61,7 +61,9 @@ func SeverityColor(severity string) string {
 		return Orange
 	case "MEDIUM":
 		return Yellow
-	case "LOW", "INFO":
+	case "LOW":
+		return Blue
+	case "INFO":
 		return Gray
 	default:
 		return ""
