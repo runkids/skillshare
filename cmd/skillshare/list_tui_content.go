@@ -209,11 +209,14 @@ func autoPreviewFile(m *listTUIModel) {
 	}
 }
 
-// contentPanelWidth returns the available width for the right content panel.
+// contentPanelWidth returns the available text width for the right content panel.
+// This accounts for PaddingLeft(1) used in rendering, so content renders at
+// the exact width the panel can display without line-wrapping.
 func (m *listTUIModel) contentPanelWidth() int {
 	sw := sidebarWidth(m.termWidth)
-	// 2 (left margin) + sw (sidebar) + 1 (border) + 1 (gap) + content + 1 (right margin)
-	w := m.termWidth - sw - 5
+	// lipgloss Width includes padding, so subtract 1 for PaddingLeft(1)
+	// Layout: leftMargin(1) + sidebar(sw) + PaddingLeft(1) + border(1) + PaddingLeft(1) + content + rightMargin(1)
+	w := m.termWidth - sw - 5 - 1
 	if w < 40 {
 		w = 40
 	}
@@ -367,14 +370,19 @@ func renderContentOverlay(m listTUIModel) string {
 	b.WriteString("\n")
 
 	sw := sidebarWidth(m.termWidth)
-	rw := m.termWidth - sw - 5
-	if rw < 20 {
-		rw = 20
+	// panelW is the lipgloss Width (includes PaddingLeft); textW is usable text width
+	panelW := m.termWidth - sw - 5
+	if panelW < 20 {
+		panelW = 20
+	}
+	textW := panelW - 1 // subtract PaddingLeft(1)
+	if textW < 20 {
+		textW = 20
 	}
 	contentHeight := m.contentViewHeight()
 
 	sidebarStr := renderSidebarStr(m, sw, contentHeight)
-	contentStr, scrollInfo := renderContentStr(m, rw, contentHeight)
+	contentStr, scrollInfo := renderContentStr(m, textW, contentHeight)
 
 	leftPanel := lipgloss.NewStyle().
 		Width(sw).MaxWidth(sw).
@@ -388,7 +396,7 @@ func renderContentOverlay(m listTUIModel) string {
 	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
 
 	rightPanel := lipgloss.NewStyle().
-		Width(rw).MaxWidth(rw).
+		Width(panelW).MaxWidth(panelW).
 		Height(contentHeight).MaxHeight(contentHeight).
 		PaddingLeft(1).
 		Render(contentStr)
