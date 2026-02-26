@@ -143,7 +143,6 @@ func loadContentForSkill(m *listTUIModel, e skillEntry) {
 	m.contentScroll = 0
 	m.treeCursor = 0
 	m.treeScroll = 0
-	m.sidebarFocused = false
 
 	m.treeAllNodes = buildTreeNodes(skillDir)
 	m.treeNodes = buildVisibleNodes(m.treeAllNodes)
@@ -153,7 +152,8 @@ func loadContentForSkill(m *listTUIModel, e skillEntry) {
 		return
 	}
 
-	loadContentFile(m)
+	// Auto-preview the first file (SKILL.md if present)
+	autoPreviewFile(m)
 }
 
 // loadContentFile reads the file at treeCursor and stores rendered content.
@@ -199,6 +199,16 @@ func loadContentFile(m *listTUIModel) {
 	m.contentText = rawText
 }
 
+// autoPreviewFile loads the file under treeCursor if it's not a directory.
+func autoPreviewFile(m *listTUIModel) {
+	if len(m.treeNodes) == 0 || m.treeCursor >= len(m.treeNodes) {
+		return
+	}
+	if !m.treeNodes[m.treeCursor].isDir {
+		loadContentFile(m)
+	}
+}
+
 // contentPanelWidth returns the available width for the right content panel.
 func (m *listTUIModel) contentPanelWidth() int {
 	sw := sidebarWidth(m.termWidth)
@@ -210,26 +220,23 @@ func (m *listTUIModel) contentPanelWidth() int {
 	return w
 }
 
+// ─── Glamour Markdown Rendering ──────────────────────────────────────
+
 // contentGlamourStyle returns a modified dark style with no backgrounds or margins
 // that would bleed or overflow in the constrained dual-pane layout.
 func contentGlamourStyle() ansi.StyleConfig {
 	s := styles.DarkStyleConfig
 	zero := uint(0)
 
-	// Document: remove margin — we handle our own padding in the layout
 	s.Document.Margin = &zero
 
-	// H1: remove background, use cyan foreground
 	s.H1.StylePrimitive.BackgroundColor = nil
 	s.H1.StylePrimitive.Color = stringPtr("6")
 	s.H1.StylePrimitive.Bold = boolPtr(true)
 	s.H1.StylePrimitive.Prefix = "# "
 	s.H1.StylePrimitive.Suffix = ""
 
-	// Inline code: remove background (causes colored bars)
 	s.Code.StylePrimitive.BackgroundColor = nil
-
-	// Code block: remove margin
 	s.CodeBlock.Margin = &zero
 
 	return s
@@ -257,6 +264,75 @@ func renderMarkdown(text string, width int) string {
 	return strings.TrimSpace(rendered)
 }
 
+// ─── Keyboard Handling ───────────────────────────────────────────────
+
+// handleContentKey handles keyboard input in the dual-pane content viewer.
+// Keyboard always controls the left tree; Ctrl+d/u/g/G scroll the right panel.
+func (m listTUIModel) handleContentKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "ctrl+c":
+		m.quitting = true
+		return m, tea.Quit
+	case "esc":
+		m.showContent = false
+		return m, nil
+
+	// Left tree: navigate
+	case "j", "down":
+		if m.treeCursor < len(m.treeNodes)-1 {
+			m.treeCursor++
+			m.ensureTreeCursorVisible()
+			autoPreviewFile(&m)
+		}
+		return m, nil
+	case "k", "up":
+		if m.treeCursor > 0 {
+			m.treeCursor--
+			m.ensureTreeCursorVisible()
+			autoPreviewFile(&m)
+		}
+		return m, nil
+	case "l", "right", "enter":
+		if len(m.treeNodes) > 0 && m.treeCursor < len(m.treeNodes) {
+			node := m.treeNodes[m.treeCursor]
+			if node.isDir {
+				toggleTreeDir(&m)
+			}
+			// Files are already auto-previewed by j/k
+		}
+		return m, nil
+	case "h", "left":
+		collapseOrParent(&m)
+		return m, nil
+
+	// Right content: scroll
+	case "ctrl+d":
+		half := m.contentViewHeight() / 2
+		max := m.contentMaxScroll()
+		m.contentScroll += half
+		if m.contentScroll > max {
+			m.contentScroll = max
+		}
+		return m, nil
+	case "ctrl+u":
+		half := m.contentViewHeight() / 2
+		m.contentScroll -= half
+		if m.contentScroll < 0 {
+			m.contentScroll = 0
+		}
+		return m, nil
+	case "G":
+		m.contentScroll = m.contentMaxScroll()
+		return m, nil
+	case "g":
+		m.contentScroll = 0
+		return m, nil
+	}
+	return m, nil
+}
+
+// ─── Rendering ───────────────────────────────────────────────────────
+
 // sidebarWidth returns the width for the left sidebar panel.
 func sidebarWidth(termWidth int) int {
 	quarter := termWidth / 4
@@ -278,7 +354,6 @@ func renderContentOverlay(m listTUIModel) string {
 	dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 
 	skillName := filepath.Base(m.contentSkillKey)
-
 	fileName := ""
 	if len(m.treeNodes) > 0 && m.treeCursor < len(m.treeNodes) {
 		fileName = m.treeNodes[m.treeCursor].relPath
@@ -296,15 +371,11 @@ func renderContentOverlay(m listTUIModel) string {
 	if rw < 20 {
 		rw = 20
 	}
-	contentHeight := m.termHeight - 4 // title(2) + help(1) + margin(1)
-	if contentHeight < 5 {
-		contentHeight = 5
-	}
+	contentHeight := m.contentViewHeight()
 
 	sidebarStr := renderSidebarStr(m, sw, contentHeight)
 	contentStr, scrollInfo := renderContentStr(m, rw, contentHeight)
 
-	// Constrain each panel with lipgloss (ANSI-aware width/height)
 	leftPanel := lipgloss.NewStyle().
 		Width(sw).MaxWidth(sw).
 		Height(contentHeight).MaxHeight(contentHeight).
@@ -327,8 +398,7 @@ func renderContentOverlay(m listTUIModel) string {
 	b.WriteString(body)
 	b.WriteString("\n")
 
-	// Help line with scroll info
-	help := "j/k browse  l expand  h collapse  Enter toggle dir  Esc back  q quit"
+	help := "j/k browse  l/Enter expand  h collapse  Ctrl+d/u scroll  g/G top/bottom  Esc back  q quit"
 	if scrollInfo != "" {
 		help += "  " + scrollInfo
 	}
@@ -385,7 +455,6 @@ func renderSidebarStr(m listTUIModel, width, height int) string {
 
 		label := indent + prefix + name
 
-		// Truncate to fit width (reserve 2 for cursor mark + space)
 		maxLabel := width - 2
 		if maxLabel < 5 {
 			maxLabel = 5
@@ -394,15 +463,13 @@ func renderSidebarStr(m listTUIModel, width, height int) string {
 			label = label[:maxLabel-3] + "..."
 		}
 
-		var line string
 		if i == m.treeCursor {
-			line = selectedStyle.Render(label)
+			lines = append(lines, selectedStyle.Render(label))
 		} else if n.isDir {
-			line = dirStyle.Render(label)
+			lines = append(lines, dirStyle.Render(label))
 		} else {
-			line = fileStyle.Render(label)
+			lines = append(lines, fileStyle.Render(label))
 		}
-		lines = append(lines, line)
 	}
 
 	if total > height {
@@ -413,7 +480,6 @@ func renderSidebarStr(m listTUIModel, width, height int) string {
 }
 
 // renderContentStr renders the right content panel as a single string.
-// Returns the rendered text and a scroll info string (empty if content fits).
 func renderContentStr(m listTUIModel, width, height int) (string, string) {
 	lines := strings.Split(m.contentText, "\n")
 	totalLines := len(lines)
@@ -432,30 +498,19 @@ func renderContentStr(m listTUIModel, width, height int) (string, string) {
 	result := make([]string, height)
 	copy(result, visible)
 
-	scrollInfo := fmt.Sprintf("(%d/%d)", offset+maxScroll-maxScroll+1, maxScroll+1)
-	_ = width // reserved for future truncation
+	scrollInfo := fmt.Sprintf("(%d/%d)", offset+1, maxScroll+1)
+	_ = width
 
 	return strings.Join(result, "\n"), scrollInfo
 }
 
-// contentMaxScroll returns the maximum scroll offset for the current content.
-func (m *listTUIModel) contentMaxScroll() int {
-	lines := strings.Split(m.contentText, "\n")
-	height := m.termHeight - 4
-	if height < 5 {
-		height = 5
-	}
-	maxScroll := len(lines) - height
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
-	return maxScroll
-}
+// ─── Mouse Handling ──────────────────────────────────────────────────
 
-// handleContentMouse handles mouse events in the content viewer overlay.
+// handleContentMouse handles mouse events in the dual-pane content viewer.
+// Left side = tree navigation, right side = content scrolling.
 func (m listTUIModel) handleContentMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	sw := sidebarWidth(m.termWidth)
-	inSidebar := msg.X < sw+3 // left panel width + border
+	inSidebar := msg.X < sw+3
 
 	switch {
 	case msg.Button == tea.MouseButtonWheelUp:
@@ -463,6 +518,7 @@ func (m listTUIModel) handleContentMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) 
 			if m.treeCursor > 0 {
 				m.treeCursor--
 				m.ensureTreeCursorVisible()
+				autoPreviewFile(&m)
 			}
 		} else {
 			if m.contentScroll > 0 {
@@ -474,6 +530,7 @@ func (m listTUIModel) handleContentMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) 
 			if m.treeCursor < len(m.treeNodes)-1 {
 				m.treeCursor++
 				m.ensureTreeCursorVisible()
+				autoPreviewFile(&m)
 			}
 		} else {
 			max := m.contentMaxScroll()
@@ -487,83 +544,42 @@ func (m listTUIModel) handleContentMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) 
 			idx := m.treeScroll + row
 			if idx >= 0 && idx < len(m.treeNodes) {
 				m.treeCursor = idx
-				m.sidebarFocused = true
 				node := m.treeNodes[idx]
 				if node.isDir {
 					toggleTreeDir(&m)
 				} else {
 					loadContentFile(&m)
-					m.sidebarFocused = false
 				}
 			}
-		} else {
-			m.sidebarFocused = false
 		}
 	}
 	return m, nil
 }
 
-// autoPreviewFile loads the file under treeCursor if it's not a directory.
-func autoPreviewFile(m *listTUIModel) {
-	if len(m.treeNodes) == 0 || m.treeCursor >= len(m.treeNodes) {
-		return
+// ─── Tree Navigation Helpers ─────────────────────────────────────────
+
+// contentViewHeight returns the usable height for the content area.
+func (m *listTUIModel) contentViewHeight() int {
+	h := m.termHeight - 4
+	if h < 5 {
+		h = 5
 	}
-	if !m.treeNodes[m.treeCursor].isDir {
-		loadContentFile(m)
-	}
+	return h
 }
 
-// expandDir expands the directory under treeCursor (no-op if already expanded).
-func expandDir(m *listTUIModel) {
-	if len(m.treeNodes) == 0 || m.treeCursor >= len(m.treeNodes) {
-		return
+// contentMaxScroll returns the maximum scroll offset for the current content.
+func (m *listTUIModel) contentMaxScroll() int {
+	lines := strings.Split(m.contentText, "\n")
+	maxScroll := len(lines) - m.contentViewHeight()
+	if maxScroll < 0 {
+		maxScroll = 0
 	}
-	node := m.treeNodes[m.treeCursor]
-	if !node.isDir || node.expanded {
-		return
-	}
-	for i := range m.treeAllNodes {
-		if m.treeAllNodes[i].relPath == node.relPath {
-			m.treeAllNodes[i].expanded = true
-			break
-		}
-	}
-	m.treeNodes = buildVisibleNodes(m.treeAllNodes)
-}
-
-// collapseOrParent collapses the current directory, or jumps to the parent directory.
-// If cursor is on an expanded directory → collapse it.
-// If cursor is on a file or collapsed directory → jump to parent directory.
-func collapseOrParent(m *listTUIModel) {
-	if len(m.treeNodes) == 0 || m.treeCursor >= len(m.treeNodes) {
-		return
-	}
-	node := m.treeNodes[m.treeCursor]
-
-	// Expanded directory → collapse
-	if node.isDir && node.expanded {
-		toggleTreeDir(m)
-		return
-	}
-
-	// Find parent directory (first node above with depth-1)
-	if node.depth > 0 {
-		for i := m.treeCursor - 1; i >= 0; i-- {
-			if m.treeNodes[i].isDir && m.treeNodes[i].depth == node.depth-1 {
-				m.treeCursor = i
-				m.ensureTreeCursorVisible()
-				return
-			}
-		}
-	}
+	return maxScroll
 }
 
 // ensureTreeCursorVisible adjusts treeScroll so the cursor is within the visible range.
 func (m *listTUIModel) ensureTreeCursorVisible() {
-	contentHeight := m.termHeight - 4
-	if contentHeight < 5 {
-		contentHeight = 5
-	}
+	contentHeight := m.contentViewHeight()
 	if m.treeCursor < m.treeScroll {
 		m.treeScroll = m.treeCursor
 	} else if m.treeCursor >= m.treeScroll+contentHeight {
@@ -591,6 +607,47 @@ func toggleTreeDir(m *listTUIModel) {
 	m.treeNodes = buildVisibleNodes(m.treeAllNodes)
 	if m.treeCursor >= len(m.treeNodes) {
 		m.treeCursor = len(m.treeNodes) - 1
+	}
+}
+
+// expandDir expands the directory under treeCursor (no-op if already expanded).
+func expandDir(m *listTUIModel) {
+	if len(m.treeNodes) == 0 || m.treeCursor >= len(m.treeNodes) {
+		return
+	}
+	node := m.treeNodes[m.treeCursor]
+	if !node.isDir || node.expanded {
+		return
+	}
+	for i := range m.treeAllNodes {
+		if m.treeAllNodes[i].relPath == node.relPath {
+			m.treeAllNodes[i].expanded = true
+			break
+		}
+	}
+	m.treeNodes = buildVisibleNodes(m.treeAllNodes)
+}
+
+// collapseOrParent collapses the current directory, or jumps to the parent directory.
+func collapseOrParent(m *listTUIModel) {
+	if len(m.treeNodes) == 0 || m.treeCursor >= len(m.treeNodes) {
+		return
+	}
+	node := m.treeNodes[m.treeCursor]
+
+	if node.isDir && node.expanded {
+		toggleTreeDir(m)
+		return
+	}
+
+	if node.depth > 0 {
+		for i := m.treeCursor - 1; i >= 0; i-- {
+			if m.treeNodes[i].isDir && m.treeNodes[i].depth == node.depth-1 {
+				m.treeCursor = i
+				m.ensureTreeCursorVisible()
+				return
+			}
+		}
 	}
 }
 
