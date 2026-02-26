@@ -120,7 +120,6 @@ skillshare sync            # Fix it
 
 | Flag | Description |
 |------|-------------|
-| `--target, -t <name>` | Show diff for a specific target |
 | `--project, -p` | Use project mode |
 | `--global, -g` | Use global mode |
 

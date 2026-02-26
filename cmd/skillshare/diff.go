@@ -51,12 +51,11 @@ func cmdDiff(args []string) error {
 
 	var targetName string
 	for i := 0; i < len(rest); i++ {
-		if rest[i] == "--target" || rest[i] == "-t" {
-			if i+1 < len(rest) {
-				targetName = rest[i+1]
-				i++
-			}
-		} else {
+		switch rest[i] {
+		case "--help", "-h":
+			printDiffHelp()
+			return nil
+		default:
 			targetName = rest[i]
 		}
 	}
@@ -741,4 +740,24 @@ func diffActionOrder(action string) int {
 	default:
 		return 3
 	}
+}
+
+func printDiffHelp() {
+	fmt.Println(`Usage: skillshare diff [target] [options]
+
+Show differences between source skills and target directories.
+Previews what 'sync' would change without modifying anything.
+
+Arguments:
+  target               Target name to diff (optional; diffs all if omitted)
+
+Options:
+  --project, -p        Diff project-level skills (.skillshare/)
+  --global, -g         Diff global skills (~/.config/skillshare)
+  --help, -h           Show this help
+
+Examples:
+  skillshare diff                      # Diff all targets
+  skillshare diff claude               # Diff a single target
+  skillshare diff -p                   # Diff project-mode targets`)
 }
