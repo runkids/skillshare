@@ -180,9 +180,9 @@ func (dp *diffProgress) render() {
 		}
 		lines = append(lines, line)
 	}
-	// Progress bar at bottom
+	// Progress bar at bottom (with blank line separator)
 	if dp.totalSkills > 0 {
-		lines = append(lines, "  "+dp.renderBar())
+		lines = append(lines, "", "  "+dp.renderBar())
 	}
 	dp.area.Update(strings.Join(lines, "\n"))
 }
