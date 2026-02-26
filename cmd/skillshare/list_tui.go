@@ -15,36 +15,6 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-)
-
-// tuiBrandYellow is the logo yellow used for active/selected item borders across all TUIs.
-const tuiBrandYellow = lipgloss.Color("#D4D93C")
-
-// Styles for the TUI list view.
-// Colors match existing CLI output: Cyan (\033[36m) = "6", Gray (\033[90m) = "8".
-var (
-	tuiDetailLabelStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("8")). // gray — matches ui.Gray
-				Width(14)
-
-	tuiDetailValueStyle = lipgloss.NewStyle() // default foreground — matches ui.Reset
-
-	tuiHelpStyle = lipgloss.NewStyle().
-			MarginLeft(2).
-			Foreground(lipgloss.Color("8")) // gray
-
-	tuiSeparatorStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("8"))
-
-	tuiFileStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("8"))
-
-	tuiTargetStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("6")) // cyan
-
-	tuiFilterStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("6")) // cyan — shared by list and log TUI
 )
 
 // maxListItems is the maximum number of items passed to bubbles/list.
@@ -53,9 +23,9 @@ const maxListItems = 1000
 
 // applyTUIFilterStyle sets filter prompt, cursor, and input cursor to the shared style.
 func applyTUIFilterStyle(l *list.Model) {
-	l.Styles.FilterPrompt = tuiFilterStyle
-	l.Styles.FilterCursor = tuiFilterStyle
-	l.FilterInput.Cursor.Style = tuiFilterStyle
+	l.Styles.FilterPrompt = tc.Filter
+	l.Styles.FilterCursor = tc.Filter
+	l.FilterInput.Cursor.Style = tc.Filter
 }
 
 // listLoadResult holds the result of async skill loading inside the TUI.
@@ -128,18 +98,8 @@ type listTUIModel struct {
 // When loadFn is non-nil, skills are loaded asynchronously inside the TUI (spinner shown).
 // When loadFn is nil, skills/totalCount are used directly (pre-loaded).
 func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, modeLabel, sourcePath string, targets map[string]config.TargetConfig) listTUIModel {
-	// Create delegate — NormalTitle/SelectedTitle have NO Foreground
-	// so that Title()'s inline lipgloss colors (white name + colored badge) take effect.
 	delegate := list.NewDefaultDelegate()
-	delegate.ShowDescription = false
-	delegate.SetHeight(1)
-	delegate.SetSpacing(0)
-	delegate.Styles.NormalTitle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("15")).PaddingLeft(2) // bright white
-	delegate.Styles.SelectedTitle = lipgloss.NewStyle().Bold(true).
-		Foreground(tuiBrandYellow).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(tuiBrandYellow).PaddingLeft(1)
+	configureDelegate(&delegate, false)
 
 	// Build initial item set (empty if async loading)
 	var items []list.Item
@@ -155,8 +115,7 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 	// Create list model — built-in filter DISABLED; we manage our own.
 	l := list.New(items, delegate, 0, 0)
 	l.Title = fmt.Sprintf("Installed skills (%s)", modeLabel)
-	l.Styles.Title = lipgloss.NewStyle().
-		Bold(true).Foreground(lipgloss.Color("6")) // cyan
+	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)    // we render our own status with real total count
 	l.SetFilteringEnabled(false) // application-level filter replaces built-in
 	l.SetShowHelp(false)         // we render our own help
@@ -165,13 +124,13 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 	// Loading spinner
 	sp := spinner.New()
 	sp.Spinner = spinner.Dot
-	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("6")) // cyan
+	sp.Style = tc.SpinnerStyle
 
 	// Filter text input
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tuiFilterStyle
-	fi.Cursor.Style = tuiFilterStyle
+	fi.PromptStyle = tc.Filter
+	fi.Cursor.Style = tc.Filter
 
 	return listTUIModel{
 		list:        l,
@@ -378,7 +337,7 @@ func (m listTUIModel) View() string {
 
 	// Help line
 	help := "↑↓ navigate  ←→ page  / filter  Enter view  A audit  U update  X uninstall  q quit"
-	b.WriteString(tuiHelpStyle.Render(help))
+	b.WriteString(tc.Help.Render(help))
 	b.WriteString("\n")
 
 	return b.String()
@@ -399,14 +358,14 @@ func renderTUIFilterBar(inputView string, filtering bool, filterText string, mat
 	if filtering {
 		if filterText == "" {
 			status := fmt.Sprintf("  %s %s%s", formatNumber(totalCount), noun, pageInfo)
-			return "  " + inputView + tuiHelpStyle.Render(status) + "\n"
+			return "  " + inputView + tc.Help.Render(status) + "\n"
 		}
 		status := fmt.Sprintf("  %s/%s %s", formatNumber(matchCount), formatNumber(totalCount), noun)
 		if maxShown > 0 && matchCount > maxShown {
 			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxShown))
 		}
 		status += pageInfo
-		return "  " + inputView + tuiHelpStyle.Render(status) + "\n"
+		return "  " + inputView + tc.Help.Render(status) + "\n"
 	}
 	if filterText != "" {
 		status := fmt.Sprintf("filter: %s — %s/%s %s", filterText, formatNumber(matchCount), formatNumber(totalCount), noun)
@@ -414,9 +373,9 @@ func renderTUIFilterBar(inputView string, filtering bool, filterText string, mat
 			status += fmt.Sprintf(" (first %s shown)", formatNumber(maxShown))
 		}
 		status += pageInfo
-		return tuiHelpStyle.Render(status) + "\n"
+		return tc.Help.Render(status) + "\n"
 	}
-	return tuiHelpStyle.Render(fmt.Sprintf("%s %s%s", formatNumber(totalCount), noun, pageInfo)) + "\n"
+	return tc.Help.Render(fmt.Sprintf("%s %s%s", formatNumber(totalCount), noun, pageInfo)) + "\n"
 }
 
 // renderPageInfo returns page indicator like " · Page 2 of 4,729" or "" if single page.
@@ -482,13 +441,13 @@ func (m listTUIModel) getDetailData(e skillEntry) *detailData {
 // renderDetailPanel renders the detail section for the selected skill.
 func (m listTUIModel) renderDetailPanel(e skillEntry) string {
 	var b strings.Builder
-	b.WriteString(tuiSeparatorStyle.Render("  ─────────────────────────────────────────"))
+	b.WriteString(tc.Separator.Render("  ─────────────────────────────────────────"))
 	b.WriteString("\n")
 
 	row := func(label, value string) {
 		b.WriteString("  ")
-		b.WriteString(tuiDetailLabelStyle.Render(label))
-		b.WriteString(tuiDetailValueStyle.Render(value))
+		b.WriteString(tc.Label.Render(label))
+		b.WriteString(tc.Value.Render(value))
 		b.WriteString("\n")
 	}
 
@@ -513,7 +472,7 @@ func (m listTUIModel) renderDetailPanel(e skillEntry) string {
 		indent := strings.Repeat(" ", labelOffset)
 		for _, line := range lines[1:] {
 			b.WriteString(indent)
-			b.WriteString(tuiDetailValueStyle.Render(line))
+			b.WriteString(tc.Value.Render(line))
 			b.WriteString("\n")
 		}
 		b.WriteString("\n") // blank line after multi-line description
@@ -529,10 +488,10 @@ func (m listTUIModel) renderDetailPanel(e skillEntry) string {
 
 	// Source info
 	if e.RepoName != "" {
-		row("Tracked:", e.RepoName)
+		row("Tracked:", tc.Cyan.Render(e.RepoName))
 	}
 	if e.Source != "" {
-		row("Source:", e.Source)
+		row("Source:", tc.Cyan.Render(e.Source))
 	} else {
 		row("Source:", "(local)")
 	}
@@ -547,7 +506,7 @@ func (m listTUIModel) renderDetailPanel(e skillEntry) string {
 
 	// Synced targets
 	if len(d.SyncedTargets) > 0 {
-		row("Synced to:", tuiTargetStyle.Render(strings.Join(d.SyncedTargets, ", ")))
+		row("Synced to:", tc.Target.Render(strings.Join(d.SyncedTargets, ", ")))
 	}
 
 	return b.String()

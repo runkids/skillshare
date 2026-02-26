@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"skillshare/internal/audit"
-	"skillshare/internal/ui"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -15,80 +14,21 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// auditTUIColors centralizes all color styles for the audit TUI.
-// Single source of truth — change colors here, not scattered across methods.
+// ac holds audit-specific styles that don't belong in the shared tc palette.
 var ac = struct {
-	// Semantic
-	Title   lipgloss.Style // section headings (skill name, "Findings")
-	Dim     lipgloss.Style // secondary info, separators
-	Green   lipgloss.Style // passed, clean
-	Yellow  lipgloss.Style // warning, has findings
-	Red     lipgloss.Style // blocked, failed
-	White   lipgloss.Style // primary values
-	File    lipgloss.Style // file:line locations
-	Snippet lipgloss.Style // code snippets
-
-	// Severity (from ui.SeverityID* constants)
-	Critical lipgloss.Style
-	High     lipgloss.Style
-	Medium   lipgloss.Style
-	Low      lipgloss.Style
-	Info     lipgloss.Style
-
-	// Detail panel
-	Label lipgloss.Style // row labels ("Risk:", "Status:", etc.)
-
-	// List item symbols
-	SymbolGreen  lipgloss.Style
-	SymbolYellow lipgloss.Style
-	SymbolRed    lipgloss.Style
-	ItemName     lipgloss.Style
+	File     lipgloss.Style // file:line locations — cyan
+	Snippet  lipgloss.Style // code snippet highlight
+	ItemName lipgloss.Style // list item name — light gray
 }{
-	Title:   lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6")),
-	Dim:     lipgloss.NewStyle().Foreground(lipgloss.Color("8")),
-	Green:   lipgloss.NewStyle().Foreground(lipgloss.Color("2")),
-	Yellow:  lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
-	Red:     lipgloss.NewStyle().Foreground(lipgloss.Color("1")),
-	White:   lipgloss.NewStyle().Foreground(lipgloss.Color("15")),
-	File:    lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
-	Snippet: lipgloss.NewStyle().Foreground(lipgloss.Color("179")),
-
-	Critical: lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDCritical)).Bold(true),
-	High:     lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDHigh)),
-	Medium:   lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDMedium)),
-	Low:      lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDLow)),
-	Info:     lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDInfo)),
-
-	Label: lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Width(14),
-
-	SymbolGreen:  lipgloss.NewStyle().Foreground(lipgloss.Color("2")),
-	SymbolYellow: lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
-	SymbolRed:    lipgloss.NewStyle().Foreground(lipgloss.Color("1")),
-	ItemName:     lipgloss.NewStyle().Foreground(lipgloss.Color("252")),
-}
-
-// acSevStyle returns the severity lipgloss style from the centralized config.
-func acSevStyle(severity string) lipgloss.Style {
-	switch strings.ToUpper(severity) {
-	case "CRITICAL":
-		return ac.Critical
-	case "HIGH":
-		return ac.High
-	case "MEDIUM":
-		return ac.Medium
-	case "LOW":
-		return ac.Low
-	case "INFO":
-		return ac.Info
-	default:
-		return ac.Dim
-	}
+	File:     lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
+	Snippet:  lipgloss.NewStyle().Foreground(lipgloss.Color("179")),
+	ItemName: lipgloss.NewStyle().Foreground(lipgloss.Color("252")),
 }
 
 // acSevCount returns severity color for non-zero counts, dim for zero.
 func acSevCount(count int, style lipgloss.Style) lipgloss.Style {
 	if count == 0 {
-		return ac.Dim
+		return tc.Dim
 	}
 	return style
 }
@@ -102,12 +42,12 @@ type auditItem struct {
 func (i auditItem) Title() string {
 	name := i.result.SkillName
 	if len(i.result.Findings) == 0 {
-		return ac.SymbolGreen.Render("✓") + " " + ac.ItemName.Render(name)
+		return tc.Green.Render("✓") + " " + ac.ItemName.Render(name)
 	}
 	if i.result.IsBlocked {
-		return ac.SymbolRed.Render("✗") + " " + ac.ItemName.Render(name)
+		return tc.Red.Render("✗") + " " + ac.ItemName.Render(name)
 	}
-	return ac.SymbolYellow.Render("!") + " " + ac.ItemName.Render(name)
+	return tc.Yellow.Render("!") + " " + ac.ItemName.Render(name)
 }
 
 func (i auditItem) Description() string { return "" }
@@ -177,18 +117,11 @@ func newAuditTUIModel(results []*audit.Result, scanOutputs []audit.ScanOutput, s
 	}
 
 	delegate := list.NewDefaultDelegate()
-	delegate.ShowDescription = false
-	delegate.SetHeight(1)
-	delegate.SetSpacing(0)
-	delegate.Styles.NormalTitle = lipgloss.NewStyle().PaddingLeft(2)
-	delegate.Styles.SelectedTitle = lipgloss.NewStyle().Bold(true).
-		Foreground(tuiBrandYellow).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(tuiBrandYellow).PaddingLeft(1)
+	configureDelegate(&delegate, false)
 
 	l := list.New(listItems, delegate, 0, 0)
 	l.Title = fmt.Sprintf("Audit results (%d scanned)", summary.Scanned)
-	l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6"))
+	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.SetShowHelp(false)
@@ -196,8 +129,8 @@ func newAuditTUIModel(results []*audit.Result, scanOutputs []audit.ScanOutput, s
 
 	fi := textinput.New()
 	fi.Prompt = "/ "
-	fi.PromptStyle = tuiFilterStyle
-	fi.Cursor.Style = tuiFilterStyle
+	fi.PromptStyle = tc.Filter
+	fi.Cursor.Style = tc.Filter
 
 	return auditTUIModel{
 		list:        l,
@@ -357,8 +290,7 @@ func (m auditTUIModel) View() string {
 		Render(m.list.View())
 
 	// Border column
-	borderStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("8")).
+	borderStyle := tc.Border.
 		Height(panelHeight).MaxHeight(panelHeight)
 	borderCol := strings.Repeat("│\n", panelHeight)
 	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
@@ -383,7 +315,7 @@ func (m auditTUIModel) View() string {
 	b.WriteString(m.renderSummaryFooter())
 
 	// Help line
-	b.WriteString(tuiHelpStyle.Render("↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll detail  q quit"))
+	b.WriteString(tc.Help.Render("↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll detail  q quit"))
 	b.WriteString("\n")
 
 	return b.String()
@@ -406,7 +338,7 @@ func (m auditTUIModel) viewVertical() string {
 
 	b.WriteString(m.renderSummaryFooter())
 
-	b.WriteString(tuiHelpStyle.Render("↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll  q quit"))
+	b.WriteString(tc.Help.Render("↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll  q quit"))
 	b.WriteString("\n")
 
 	return b.String()
@@ -429,31 +361,31 @@ func (m auditTUIModel) renderSummaryFooter() string {
 	s := m.summary
 
 	parts := []string{
-		ac.Dim.Render(fmt.Sprintf("Scanned: %s", formatNumber(s.Scanned))),
-		ac.Green.Render(fmt.Sprintf("Passed: %s", formatNumber(s.Passed))),
+		tc.Dim.Render(fmt.Sprintf("Scanned: %s", formatNumber(s.Scanned))),
+		tc.Green.Render(fmt.Sprintf("Passed: %s", formatNumber(s.Passed))),
 	}
 	if s.Warning > 0 {
-		parts = append(parts, ac.Yellow.Render(fmt.Sprintf("Warning: %s", formatNumber(s.Warning))))
+		parts = append(parts, tc.Yellow.Render(fmt.Sprintf("Warning: %s", formatNumber(s.Warning))))
 	} else {
-		parts = append(parts, ac.Dim.Render(fmt.Sprintf("Warning: %s", formatNumber(s.Warning))))
+		parts = append(parts, tc.Dim.Render(fmt.Sprintf("Warning: %s", formatNumber(s.Warning))))
 	}
 	if s.Failed > 0 {
-		parts = append(parts, ac.Red.Render(fmt.Sprintf("Failed: %s", formatNumber(s.Failed))))
+		parts = append(parts, tc.Red.Render(fmt.Sprintf("Failed: %s", formatNumber(s.Failed))))
 	} else {
-		parts = append(parts, ac.Dim.Render(fmt.Sprintf("Failed: %s", formatNumber(s.Failed))))
+		parts = append(parts, tc.Dim.Render(fmt.Sprintf("Failed: %s", formatNumber(s.Failed))))
 	}
 
 	sevParts := []string{
-		acSevCount(s.Critical, ac.Critical).Render(fmt.Sprintf("%d", s.Critical)),
-		acSevCount(s.High, ac.High).Render(fmt.Sprintf("%d", s.High)),
-		acSevCount(s.Medium, ac.Medium).Render(fmt.Sprintf("%d", s.Medium)),
-		acSevCount(s.Low, ac.Low).Render(fmt.Sprintf("%d", s.Low)),
-		acSevCount(s.Info, ac.Info).Render(fmt.Sprintf("%d", s.Info)),
+		acSevCount(s.Critical, tc.Critical).Render(fmt.Sprintf("%d", s.Critical)),
+		acSevCount(s.High, tc.High).Render(fmt.Sprintf("%d", s.High)),
+		acSevCount(s.Medium, tc.Medium).Render(fmt.Sprintf("%d", s.Medium)),
+		acSevCount(s.Low, tc.Low).Render(fmt.Sprintf("%d", s.Low)),
+		acSevCount(s.Info, tc.Info).Render(fmt.Sprintf("%d", s.Info)),
 	}
-	sep := ac.Dim.Render("/")
-	parts = append(parts, ac.Dim.Render("c/h/m/l/i = ")+strings.Join(sevParts, sep))
+	sep := tc.Dim.Render("/")
+	parts = append(parts, tc.Dim.Render("c/h/m/l/i = ")+strings.Join(sevParts, sep))
 
-	return "  " + strings.Join(parts, ac.Dim.Render(" | ")) + "\n"
+	return "  " + strings.Join(parts, tc.Dim.Render(" | ")) + "\n"
 }
 
 // renderDetailContent renders the full detail panel for the selected audit item.
@@ -464,24 +396,24 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 	r := item.result
 
 	row := func(label, value string) {
-		b.WriteString(ac.Label.Render(label))
+		b.WriteString(tc.Label.Render(label))
 		b.WriteString(value)
 		b.WriteString("\n")
 	}
 
 	// ── Header ──
-	b.WriteString(ac.Title.Render(r.SkillName))
+	b.WriteString(tc.Title.Render(r.SkillName))
 	b.WriteString("\n")
-	b.WriteString(ac.Dim.Render(strings.Repeat("─", 40)))
+	b.WriteString(tc.Dim.Render(strings.Repeat("─", 40)))
 	b.WriteString("\n\n")
 
 	// ── Summary section ──
 
 	// Risk — colorized by severity
 	riskText := fmt.Sprintf("%s (%d/100)", strings.ToUpper(r.RiskLabel), r.RiskScore)
-	riskStyle := acSevStyle(r.RiskLabel)
+	riskStyle := tcSevStyle(r.RiskLabel)
 	if r.RiskLabel == "clean" {
-		riskStyle = ac.Green
+		riskStyle = tc.Green
 	}
 	row("Risk:", riskStyle.Render(riskText))
 
@@ -490,29 +422,29 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 	if maxSev == "" {
 		maxSev = "NONE"
 	}
-	maxSevStyle := acSevStyle(maxSev)
+	maxSevStyle := tcSevStyle(maxSev)
 	if strings.ToUpper(maxSev) == "NONE" {
-		maxSevStyle = ac.Green
+		maxSevStyle = tc.Green
 	}
 	row("Max sev:", maxSevStyle.Render(maxSev))
 
 	// Block status
 	if r.IsBlocked {
-		row("Status:", ac.Red.Render("✗ BLOCKED"))
+		row("Status:", tc.Red.Render("✗ BLOCKED"))
 	} else if len(r.Findings) == 0 {
-		row("Status:", ac.Green.Render("✓ Clean"))
+		row("Status:", tc.Green.Render("✓ Clean"))
 	} else {
-		row("Status:", ac.Yellow.Render("! Has findings (not blocked)"))
+		row("Status:", tc.Yellow.Render("! Has findings (not blocked)"))
 	}
 
 	// Threshold
 	if r.Threshold != "" {
-		row("Threshold:", ac.Dim.Render("severity >= ")+ac.White.Render(strings.ToUpper(r.Threshold)))
+		row("Threshold:", tc.Dim.Render("severity >= ")+tc.Emphasis.Render(strings.ToUpper(r.Threshold)))
 	}
 
 	// Scan time
 	if item.elapsed > 0 {
-		row("Scan time:", ac.Dim.Render(fmt.Sprintf("%.1fs", item.elapsed.Seconds())))
+		row("Scan time:", tc.Dim.Render(fmt.Sprintf("%.1fs", item.elapsed.Seconds())))
 	}
 
 	// Severity breakdown — only non-zero counts are colorized; zeros are dim
@@ -521,23 +453,23 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 		for _, f := range r.Findings {
 			counts[f.Severity]++
 		}
-		sep := ac.Dim.Render("/")
-		sevLine := acSevCount(counts["CRITICAL"], ac.Critical).Render(fmt.Sprintf("%d", counts["CRITICAL"])) + sep +
-			acSevCount(counts["HIGH"], ac.High).Render(fmt.Sprintf("%d", counts["HIGH"])) + sep +
-			acSevCount(counts["MEDIUM"], ac.Medium).Render(fmt.Sprintf("%d", counts["MEDIUM"])) + sep +
-			acSevCount(counts["LOW"], ac.Low).Render(fmt.Sprintf("%d", counts["LOW"])) + sep +
-			acSevCount(counts["INFO"], ac.Info).Render(fmt.Sprintf("%d", counts["INFO"]))
-		row("Severity:", ac.Dim.Render("c/h/m/l/i = ")+sevLine)
-		row("Total:", ac.White.Render(fmt.Sprintf("%d", len(r.Findings)))+ac.Dim.Render(" finding(s)"))
+		sep := tc.Dim.Render("/")
+		sevLine := acSevCount(counts["CRITICAL"], tc.Critical).Render(fmt.Sprintf("%d", counts["CRITICAL"])) + sep +
+			acSevCount(counts["HIGH"], tc.High).Render(fmt.Sprintf("%d", counts["HIGH"])) + sep +
+			acSevCount(counts["MEDIUM"], tc.Medium).Render(fmt.Sprintf("%d", counts["MEDIUM"])) + sep +
+			acSevCount(counts["LOW"], tc.Low).Render(fmt.Sprintf("%d", counts["LOW"])) + sep +
+			acSevCount(counts["INFO"], tc.Info).Render(fmt.Sprintf("%d", counts["INFO"]))
+		row("Severity:", tc.Dim.Render("c/h/m/l/i = ")+sevLine)
+		row("Total:", tc.Emphasis.Render(fmt.Sprintf("%d", len(r.Findings)))+tc.Dim.Render(" finding(s)"))
 	}
 
 	b.WriteString("\n")
 
 	// ── Findings detail ──
 	if len(r.Findings) > 0 {
-		b.WriteString(ac.Title.Render("Findings"))
+		b.WriteString(tc.Title.Render("Findings"))
 		b.WriteString("\n")
-		b.WriteString(ac.Dim.Render(strings.Repeat("─", 40)))
+		b.WriteString(tc.Dim.Render(strings.Repeat("─", 40)))
 		b.WriteString("\n\n")
 
 		sorted := make([]audit.Finding, len(r.Findings))
@@ -548,25 +480,25 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 
 		for idx, f := range sorted {
 			// [N] SEVERITY  pattern
-			sevBadge := acSevStyle(f.Severity).Render(strings.ToUpper(f.Severity))
-			header := ac.Dim.Render(fmt.Sprintf("[%d] ", idx+1))
-			patternText := ac.White.Bold(true).Render(f.Pattern)
+			sevBadge := tcSevStyle(f.Severity).Render(strings.ToUpper(f.Severity))
+			header := tc.Dim.Render(fmt.Sprintf("[%d] ", idx+1))
+			patternText := tc.Emphasis.Bold(true).Render(f.Pattern)
 			b.WriteString(header + sevBadge + "  " + patternText + "\n")
 
 			// Message
-			b.WriteString(ac.Dim.Render("    "))
-			b.WriteString(ac.Dim.Render(f.Message))
+			b.WriteString(tc.Dim.Render("    "))
+			b.WriteString(tc.Dim.Render(f.Message))
 			b.WriteString("\n")
 
 			// Location: file:line
 			loc := fmt.Sprintf("%s:%d", f.File, f.Line)
-			b.WriteString(ac.Dim.Render("    "))
+			b.WriteString(tc.Dim.Render("    "))
 			b.WriteString(ac.File.Render(loc))
 			b.WriteString("\n")
 
 			// Snippet — with │ gutter
 			if f.Snippet != "" {
-				gutter := ac.Dim.Render("    │ ")
+				gutter := tc.Dim.Render("    │ ")
 				b.WriteString(gutter)
 				b.WriteString(ac.Snippet.Render(f.Snippet))
 				b.WriteString("\n")
@@ -614,7 +546,7 @@ func (m auditTUIModel) applyDetailScroll(content string, viewHeight int) string 
 	// Scroll indicator
 	if offset > 0 || offset < maxScroll {
 		indicator := fmt.Sprintf("── Ctrl+d/u scroll (%d/%d) ──", offset+1, maxScroll+1)
-		b.WriteString(ac.Dim.Render(indicator))
+		b.WriteString(tc.Dim.Render(indicator))
 		b.WriteString("\n")
 	}
 

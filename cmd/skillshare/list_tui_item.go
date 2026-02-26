@@ -24,18 +24,18 @@ func (i skillItem) FilterValue() string {
 }
 
 // Title returns the skill name with a type badge for the list delegate.
-// Name is bright white; badge: tracked → green, local → gray.
+// Inline colors: name → bright white, badge: tracked → green, local → gray.
 func (i skillItem) Title() string {
-	name := i.entry.Name
+	nameStr := i.entry.Name
 	if i.entry.RelPath != "" && i.entry.RelPath != i.entry.Name {
-		name = i.entry.RelPath
+		nameStr = i.entry.RelPath
 	}
-	title := name
+	title := tc.Emphasis.Render(nameStr)
 
 	if i.entry.RepoName != "" {
-		title += "  [tracked]"
+		title += "  " + tc.Green.Render("[tracked]")
 	} else if i.entry.Source == "" {
-		title += "  [local]"
+		title += "  " + tc.Dim.Render("[local]")
 	}
 	return title
 }
