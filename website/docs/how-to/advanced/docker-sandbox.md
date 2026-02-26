@@ -370,6 +370,30 @@ make lint          # go vet
 
 ## Production and CI Images
 
+### Image comparison
+
+Three Dockerfiles serve different purposes:
+
+| | Production | CI | Sandbox |
+|---|---|---|---|
+| **Image** | `ghcr.io/runkids/skillshare` | `ghcr.io/runkids/skillshare-ci` | Local build only |
+| **Dockerfile** | `docker/production/Dockerfile` | `docker/ci/Dockerfile` | `docker/sandbox/Dockerfile` |
+| **Base** | `debian:bookworm-slim` | `debian:bookworm-slim` | `golang:1.25.5-bookworm` |
+| **Includes** | git, curl, tini | git only | Go toolchain, gh, jq, air, delve, pre-built UI |
+| **Non-root** | Yes (UID 10001) | No | No |
+| **PID 1** | tini | default | default |
+| **Healthcheck** | Yes (`/api/health`) | No | No |
+| **Entrypoint** | `skillshare ui` (Web dashboard) | `skillshare` (direct CLI) | `entrypoint.sh` (test runner) |
+| **Use case** | Self-hosted dashboard, Kubernetes | CI/CD skill validation | Development, testing, playground |
+| **Published to GHCR** | Yes | Yes | No |
+| **Multi-arch** | amd64 + arm64 | amd64 + arm64 | Host arch only |
+
+**When to use which:**
+
+- **Production** — Deploy the Web UI dashboard on a server or Kubernetes cluster
+- **CI** — Run `audit`, `install --dry-run`, or other validation commands in GitHub Actions / GitLab CI
+- **Sandbox** — Local development (`make test-docker`, `make playground`, `make dev-docker`)
+
 ### Production image
 
 Build a lightweight production image with the embedded Web UI:
@@ -404,9 +428,41 @@ docker build -f docker/ci/Dockerfile -t skillshare-ci .
 docker run --rm -v ./my-skills:/skills skillshare-ci audit /skills
 ```
 
-### Automated publishing
+The CI image's entrypoint is `skillshare` itself, so you pass subcommands directly:
 
-On tag push (`v*`), the `docker-publish` GitHub Actions workflow builds and pushes both production and CI images to GHCR with multi-arch support. Browse published versions at [GitHub Packages](https://github.com/runkids/skillshare/pkgs/container/skillshare).
+```bash
+# Audit with threshold
+docker run --rm -v ./skills:/skills ghcr.io/runkids/skillshare-ci audit /skills --threshold HIGH
+
+# Dry-run install to verify a repo
+docker run --rm ghcr.io/runkids/skillshare-ci install org/repo --dry-run
+```
+
+### Sandbox image
+
+The sandbox image is for local development and testing only (not published to GHCR). It includes the full Go toolchain, development tools (air, delve), GitHub CLI, and pre-built frontend assets.
+
+Used by: `make test-docker`, `make test-docker-online`, `make playground`, `make dev-docker`.
+
+See the [Playground](#interactive-playground) and [Dev Profile](#dev-profile) sections above for usage.
+
+### Image tags and versioning
+
+On tag push (`v*`), the `docker-publish` GitHub Actions workflow builds and pushes both production and CI images to GHCR with multi-arch support.
+
+Each image is tagged with three patterns:
+
+| Tag pattern | Example | Description |
+|---|---|---|
+| `v<major>.<minor>.<patch>` | `v0.16.1` | Exact version (immutable) |
+| `<major>.<minor>` | `0.16` | Latest patch for this minor version (rolling) |
+| `sha-<short>` | `sha-153464a` | Git commit SHA (immutable) |
+
+:::tip
+Use exact version tags (`v0.16.1`) in production for reproducibility. Use minor tags (`0.16`) to get patch updates automatically. Use `sha-` tags to pin to a specific commit.
+:::
+
+Browse published versions at [GitHub Packages](https://github.com/runkids/skillshare/pkgs/container/skillshare).
 
 ---
 
