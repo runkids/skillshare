@@ -145,6 +145,83 @@ func TestParseFrontmatterField_FileNotExist(t *testing.T) {
 	}
 }
 
+func TestReadSkillBody(t *testing.T) {
+	tests := []struct {
+		name     string
+		content  string
+		expected string
+	}{
+		{
+			name: "returns body after frontmatter",
+			content: `---
+name: my-skill
+description: A skill
+---
+# My Skill
+
+This is the body content.`,
+			expected: "# My Skill\n\nThis is the body content.",
+		},
+		{
+			name:     "returns full content when no frontmatter",
+			content:  "# Just Content\n\nNo frontmatter here.",
+			expected: "# Just Content\n\nNo frontmatter here.",
+		},
+		{
+			name:     "returns empty for empty file",
+			content:  "",
+			expected: "",
+		},
+		{
+			name: "returns empty when frontmatter has no closing delimiter",
+			content: `---
+name: broken
+no closing`,
+			expected: "",
+		},
+		{
+			name: "returns empty body when nothing after frontmatter",
+			content: `---
+name: my-skill
+---`,
+			expected: "",
+		},
+		{
+			name: "preserves multiline body content",
+			content: `---
+name: my-skill
+---
+Line 1
+Line 2
+
+Line 4`,
+			expected: "Line 1\nLine 2\n\nLine 4",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			filePath := filepath.Join(dir, "SKILL.md")
+			if err := os.WriteFile(filePath, []byte(tt.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			got := ReadSkillBody(filePath)
+			if got != tt.expected {
+				t.Errorf("ReadSkillBody() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestReadSkillBody_FileNotExist(t *testing.T) {
+	got := ReadSkillBody("/nonexistent/path/SKILL.md")
+	if got != "" {
+		t.Errorf("expected empty string for non-existent file, got %q", got)
+	}
+}
+
 func TestParseFrontmatterFields(t *testing.T) {
 	tests := []struct {
 		name     string

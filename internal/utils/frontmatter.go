@@ -170,6 +170,51 @@ func ParseFrontmatterFields(filePath string, fields []string) map[string]string 
 	return result
 }
 
+// ReadSkillBody reads a file and returns everything after the YAML frontmatter.
+// If no frontmatter is present, the entire content is returned.
+// Returns "" on read error.
+func ReadSkillBody(filePath string) string {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return ""
+	}
+
+	content := string(data)
+	// Check for frontmatter opening delimiter
+	if !strings.HasPrefix(strings.TrimSpace(content), "---") {
+		return strings.TrimSpace(content)
+	}
+
+	// Skip leading whitespace + first "---" line
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	foundOpen := false
+	for scanner.Scan() {
+		if strings.TrimSpace(scanner.Text()) == "---" {
+			foundOpen = true
+			break
+		}
+	}
+	if !foundOpen {
+		return strings.TrimSpace(content)
+	}
+
+	// Skip until closing "---"
+	for scanner.Scan() {
+		if strings.TrimSpace(scanner.Text()) == "---" {
+			// Collect remaining lines
+			var lines []string
+			for scanner.Scan() {
+				lines = append(lines, scanner.Text())
+			}
+			result := strings.Join(lines, "\n")
+			return strings.TrimSpace(result)
+		}
+	}
+
+	// No closing delimiter found — return everything after opening "---"
+	return ""
+}
+
 // ParseFrontmatterField reads a SKILL.md file and extracts the value of a given frontmatter field.
 // It supports both inline values and YAML block scalars (>, >-, |, |-).
 func ParseFrontmatterField(filePath, field string) string {
