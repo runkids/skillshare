@@ -143,8 +143,16 @@ func rewriteEntries(path string, entries []Entry) error {
 			os.Remove(tmp)
 			return err
 		}
-		f.Write(data)
-		f.Write([]byte("\n"))
+		if _, err := f.Write(data); err != nil {
+			f.Close()
+			os.Remove(tmp)
+			return err
+		}
+		if _, err := f.Write([]byte("\n")); err != nil {
+			f.Close()
+			os.Remove(tmp)
+			return err
+		}
 	}
 	if err := f.Close(); err != nil {
 		os.Remove(tmp)

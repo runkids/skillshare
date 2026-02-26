@@ -478,6 +478,82 @@ func TestDeleteEntries_SeparateFiles(t *testing.T) {
 	}
 }
 
+func TestRewriteEntries_PreservesOriginalOnWriteFailure(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.log")
+
+	// Seed the log with known entries via rewriteEntries
+	original := []Entry{
+		{Timestamp: "2026-01-01T10:00:00Z", Command: "sync", Status: "ok", Duration: 100},
+		{Timestamp: "2026-01-01T10:01:00Z", Command: "install", Status: "ok", Duration: 200},
+	}
+	if err := rewriteEntries(path, original); err != nil {
+		t.Fatalf("initial rewriteEntries() error: %v", err)
+	}
+
+	// Make directory read-only so .tmp file creation fails
+	if err := os.Chmod(dir, 0555); err != nil {
+		t.Fatalf("chmod error: %v", err)
+	}
+	defer os.Chmod(dir, 0755) // restore for cleanup
+
+	// Attempt rewrite — should fail
+	replacement := []Entry{
+		{Timestamp: "2026-01-01T11:00:00Z", Command: "update", Status: "ok", Duration: 999},
+	}
+	err := rewriteEntries(path, replacement)
+	if err == nil {
+		// Restore permissions before failing so cleanup works
+		os.Chmod(dir, 0755)
+		t.Fatal("rewriteEntries() should have failed on read-only directory")
+	}
+
+	// Restore permissions to read the file
+	os.Chmod(dir, 0755)
+
+	// Verify original file is preserved intact
+	entries, err := readAllEntries(path)
+	if err != nil {
+		t.Fatalf("readAllEntries() error: %v", err)
+	}
+	if len(entries) != len(original) {
+		t.Fatalf("got %d entries, want %d — original was corrupted", len(entries), len(original))
+	}
+	if entries[0].Command != "sync" || entries[1].Command != "install" {
+		t.Errorf("original entries changed: got %v", entries)
+	}
+}
+
+func TestRewriteEntries_NoTmpFileLeftOnFailure(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.log")
+
+	// Write initial data
+	if err := rewriteEntries(path, []Entry{
+		{Timestamp: "2026-01-01T10:00:00Z", Command: "cmd1", Status: "ok"},
+	}); err != nil {
+		t.Fatalf("initial rewriteEntries() error: %v", err)
+	}
+
+	// Make directory read-only
+	if err := os.Chmod(dir, 0555); err != nil {
+		t.Fatalf("chmod error: %v", err)
+	}
+	defer os.Chmod(dir, 0755)
+
+	_ = rewriteEntries(path, []Entry{
+		{Timestamp: "2026-01-01T11:00:00Z", Command: "cmd2", Status: "ok"},
+	})
+
+	os.Chmod(dir, 0755)
+
+	// Verify no .tmp file left behind
+	tmpPath := path + ".tmp"
+	if _, err := os.Stat(tmpPath); !os.IsNotExist(err) {
+		t.Errorf("expected .tmp file to not exist after failed rewrite, but it does")
+	}
+}
+
 func TestWriteWithLimit_HysteresisAvoidsTruncation(t *testing.T) {
 	cfgPath := tempConfigPath(t)
 	maxEntries := 10
