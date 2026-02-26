@@ -45,25 +45,37 @@ func cmdDiffProject(root, targetName string) error {
 		}
 	}
 
+	// Build sorted name list for progress display
+	names := make([]string, len(targets))
+	for i, entry := range targets {
+		names[i] = entry.Name
+	}
+	progress := newDiffProgress(names)
+
 	var results []targetDiffResult
-	for _, entry := range targets {
+	for i, entry := range targets {
 		target, ok := runtime.targets[entry.Name]
 		if !ok {
+			progress.stop()
 			return fmt.Errorf("target '%s' not resolved", entry.Name)
 		}
 
 		filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
 		if err != nil {
+			progress.stop()
 			return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)
 		}
 		mode := target.Mode
 		if mode == "" {
 			mode = "merge"
 		}
-		r := collectTargetDiff(entry.Name, target, runtime.sourcePath, mode, filtered)
+		progress.startTarget(i)
+		r := collectTargetDiff(entry.Name, target, runtime.sourcePath, mode, filtered, progress, i)
+		progress.doneTarget(i, r)
 		results = append(results, r)
 	}
 
+	progress.stop()
 	renderGroupedDiffs(results)
 	return nil
 }
