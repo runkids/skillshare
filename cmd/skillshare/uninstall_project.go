@@ -67,7 +67,7 @@ func performProjectUninstallQuiet(target *uninstallTarget, root, trashDir string
 		return "tracked repo", nil
 	}
 	if groupSkillCount > 0 {
-		return fmt.Sprintf("group, %d skills", groupSkillCount), nil
+		return fmt.Sprintf("group, %d skill%s", groupSkillCount, pluralS(groupSkillCount)), nil
 	}
 	return "skill", nil
 }
@@ -181,14 +181,14 @@ func cmdUninstallProject(args []string, root string) error {
 				if t.isTrackedRepo {
 					fmt.Printf("  - %s (tracked repository)\n", t.name)
 				} else if c := summary.groupSkillCount[t.path]; c > 0 {
-					fmt.Printf("  - %s (group, %d skills)\n", t.name, c)
+					fmt.Printf("  - %s (group, %d skill%s)\n", t.name, c, pluralS(c))
 				}
 			}
 			if summary.skills > 0 {
-				fmt.Printf("  ... and %d skill(s)\n", summary.skills)
+				fmt.Printf("  ... and %d skill%s\n", summary.skills, pluralS(summary.skills))
 			}
 		} else {
-			if summary.noun() == "target(s)" {
+			if summary.isMixed() {
 				ui.Info("Includes: %s", summary.details())
 			}
 			for _, t := range targets {
@@ -196,7 +196,7 @@ func cmdUninstallProject(args []string, root string) error {
 				if t.isTrackedRepo {
 					label += " (tracked repository)"
 				} else if c := summary.groupSkillCount[t.path]; c > 0 {
-					label += fmt.Sprintf(" (group, %d skills)", c)
+					label += fmt.Sprintf(" (group, %d skill%s)", c, pluralS(c))
 				} else {
 					label += " (skill)"
 				}
@@ -219,7 +219,14 @@ func cmdUninstallProject(args []string, root string) error {
 			}
 			preflight = append(preflight, t)
 		}
+		skippedCount := len(targets) - len(preflight)
 		targets = preflight
+		summary = summarizeUninstallTargets(targets)
+
+		if skippedCount > 0 {
+			ui.Info("%d tracked repo%s skipped, %d remaining", skippedCount, pluralS(skippedCount), len(targets))
+			fmt.Println()
+		}
 
 		if len(targets) == 0 {
 			return fmt.Errorf("no skills to uninstall after pre-flight checks")
@@ -348,7 +355,7 @@ func cmdUninstallProject(args []string, root string) error {
 
 		// Opportunistic cleanup of expired trash items
 		if n, _ := trash.Cleanup(trashDir, 0); n > 0 {
-			ui.Info("Cleaned up %d expired trash item(s)", n)
+			ui.Info("Cleaned up %d expired trash item%s", n, pluralS(n))
 		}
 	} else {
 		for _, t := range targets {
@@ -430,7 +437,7 @@ func cmdUninstallProject(args []string, root string) error {
 
 		// Opportunistic cleanup of expired trash items
 		if n, _ := trash.Cleanup(trashDir, 0); n > 0 {
-			ui.Info("Cleaned up %d expired trash item(s)", n)
+			ui.Info("Cleaned up %d expired trash item%s", n, pluralS(n))
 		}
 	}
 
