@@ -55,6 +55,7 @@ func cmdDiffProject(root, targetName string) error {
 	}
 	var resolved []resolvedTarget
 	totalSkills := 0
+	hasCopyMode := false
 	for _, entry := range targets {
 		target, ok := runtime.targets[entry.Name]
 		if !ok {
@@ -70,13 +71,16 @@ func cmdDiffProject(root, targetName string) error {
 		}
 		resolved = append(resolved, resolvedTarget{entry.Name, target, mode, filtered})
 		totalSkills += len(filtered)
+		if mode == "copy" {
+			hasCopyMode = true
+		}
 	}
 
 	names := make([]string, len(resolved))
 	for i, rt := range resolved {
 		names[i] = rt.name
 	}
-	progress := newDiffProgress(names, totalSkills)
+	progress := newDiffProgress(names, totalSkills, hasCopyMode)
 
 	results := make([]targetDiffResult, len(resolved))
 	sem := make(chan struct{}, 8)

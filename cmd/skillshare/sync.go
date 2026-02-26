@@ -85,24 +85,33 @@ func cmdSync(args []string) error {
 	spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
 	reportCollisions(discoveredSkills, cfg.Targets)
 
-	// Phase 2: Per-target sync
+	// Phase 2: Per-target sync (parallel)
 	ui.Header("Syncing skills")
 	if dryRun {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
-	failedTargets := 0
-	var totals syncModeStats
+	globalMode := cfg.Mode
+	if globalMode == "" {
+		globalMode = "merge"
+	}
+	var entries []syncTargetEntry
 	for name, target := range cfg.Targets {
-		stats, err := syncTargetWithSkillsStats(name, target, cfg, discoveredSkills, dryRun, force)
-		if err != nil {
-			ui.Error("%s: %v", name, err)
-			failedTargets++
+		mode := target.Mode
+		if mode == "" {
+			mode = globalMode
 		}
-		totals.linked += stats.linked
-		totals.local += stats.local
-		totals.updated += stats.updated
-		totals.pruned += stats.pruned
+		entries = append(entries, syncTargetEntry{name: name, target: target, mode: mode})
+	}
+
+	results, failedTargets := runParallelSync(entries, cfg.Source, discoveredSkills, dryRun, force)
+
+	var totals syncModeStats
+	for _, r := range results {
+		totals.linked += r.stats.linked
+		totals.local += r.stats.local
+		totals.updated += r.stats.updated
+		totals.pruned += r.stats.pruned
 	}
 
 	var syncErr error
@@ -413,18 +422,9 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 		ui.Info("Rename one in SKILL.md or adjust include/exclude filters")
 		fmt.Println()
 	} else {
-		// Global collision exists but filters isolate them — dim list
-		const maxShow = 50
-		fmt.Printf("\n%s%d duplicate skill names (isolated by target filters)%s\n",
-			ui.Gray, len(global), ui.Reset)
-		fmt.Println(ui.Gray + "─────────────────────────────────────────" + ui.Reset)
-		for i, c := range global {
-			if i >= maxShow {
-				fmt.Printf("%s  ... and %d more%s\n", ui.Gray, len(global)-maxShow, ui.Reset)
-				break
-			}
-			fmt.Printf("%s  '%s' (%d definitions)%s\n", ui.Gray, c.Name, len(c.Paths), ui.Reset)
-		}
+		// Global collision exists but filters isolate them — single summary line
+		fmt.Println()
+		ui.Info("%d duplicate skill names (isolated by target filters)", len(global))
 	}
 }
 
