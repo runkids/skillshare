@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.16.3] - 2026-02-27
+
+### Improvements
+
+- **`diff` output redesign** — actions are now labeled by what they do (`add`, `remove`, `update`, `restore`) with a grouped summary showing counts per action; overall summary line at the end
+- **Web UI log stats bar** — Log page now shows a stats bar with success rate and per-command breakdown
+- **Hub batch install progress** — multi-skill installs from `search --hub` now show real-time git clone progress (`cloning 45%`, `resolving 67%`) instead of a static "installing..." label; only the active install is shown to keep the display compact
+
+### Performance
+
+- **Batch install reconcile** — config reconciliation now runs once after all installs complete instead of after each skill, eliminating O(n²) directory walks that caused batch installs of large collections to appear stuck
+
+### Fixed
+
+- **Race condition in `sync`** — targets sharing the same filesystem path no longer produce duplicate or missing symlinks
+- **Race condition in `sync` group key** — canonicalized group key prevents non-deterministic sync results
+- **Web UI stats on "All" tab** — dashboard now computes stats from both ops and audit logs, not just ops
+- **Web UI last operation timestamp** — timestamps are compared as dates instead of strings, fixing incorrect "most recent" ordering
+- **`log --stats --cmd audit`** — now correctly reads from `audit.log` instead of `operations.log`
+- **`log max_entries: 0`** — setting max_entries to 0 now correctly means unlimited instead of deleting all entries
+- **Oplog data loss** — rewriteEntries now checks for write errors before truncating the original file
+- **TUI content clipping** — detail panels in `list` and `log` TUIs now hard-wrap content and account for padding, preventing text from being clipped at panel edges
+- **TUI footer spacing** — list and log TUI footers have proper breathing room between action hints
+
 ## [0.16.2] - 2026-02-26
 
 ### New Features
