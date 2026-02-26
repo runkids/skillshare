@@ -111,6 +111,18 @@ type listTUIModel struct {
 	filterInput textinput.Model // managed filter text input
 	filtering   bool            // true when filter input is focused
 	matchCount  int             // total matches (may exceed maxListItems)
+
+	// Content viewer overlay — dual-pane tree sidebar + content viewer
+	showContent     bool
+	contentScroll   int
+	contentText     string     // current file content (rendered)
+	contentSkillKey string     // RelPath of skill being viewed
+	termHeight      int
+	treeAllNodes    []treeNode // complete flat tree (includes collapsed children)
+	treeNodes       []treeNode // visible nodes (collapsed children hidden)
+	treeCursor      int        // selected index in treeNodes
+	treeScroll      int        // scroll offset for sidebar
+	sidebarFocused  bool       // true = left panel focused, false = right panel
 }
 
 // newListTUIModel creates a new TUI model.
@@ -223,6 +235,7 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
+		m.termHeight = msg.Height
 		// Reserve space for detail panel + filter bar + help
 		m.list.SetSize(msg.Width, msg.Height-17)
 		return m, nil
@@ -253,12 +266,93 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.list.SetItems(items)
 		return m, nil
 
+	case tea.MouseMsg:
+		if m.showContent && !m.loading {
+			return m.handleContentMouse(msg)
+		}
+
 	case tea.KeyMsg:
 		// Ignore keys while loading
 		if m.loading {
 			if msg.String() == "q" || msg.String() == "ctrl+c" {
 				m.quitting = true
 				return m, tea.Quit
+			}
+			return m, nil
+		}
+
+		// --- Content viewer mode: dual-pane tree + content ---
+		if m.showContent {
+			switch msg.String() {
+			case "esc":
+				if m.sidebarFocused {
+					m.sidebarFocused = false
+				} else {
+					m.showContent = false
+				}
+				return m, nil
+			case "q", "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			case "tab":
+				m.sidebarFocused = !m.sidebarFocused
+				return m, nil
+			case "h", "left":
+				if m.sidebarFocused {
+					// Collapse current dir or jump to parent
+					collapseOrParent(&m)
+				} else {
+					m.sidebarFocused = true
+				}
+				return m, nil
+			case "l", "right":
+				if m.sidebarFocused && len(m.treeNodes) > 0 && m.treeCursor < len(m.treeNodes) {
+					node := m.treeNodes[m.treeCursor]
+					if node.isDir {
+						expandDir(&m)
+					} else {
+						// File already previewed — switch to content for scrolling
+						m.sidebarFocused = false
+					}
+				} else {
+					m.sidebarFocused = false
+				}
+				return m, nil
+			case "j", "down":
+				if m.sidebarFocused {
+					if m.treeCursor < len(m.treeNodes)-1 {
+						m.treeCursor++
+						m.ensureTreeCursorVisible()
+						autoPreviewFile(&m)
+					}
+				} else {
+					max := m.contentMaxScroll()
+					if m.contentScroll < max {
+						m.contentScroll++
+					}
+				}
+				return m, nil
+			case "k", "up":
+				if m.sidebarFocused {
+					if m.treeCursor > 0 {
+						m.treeCursor--
+						m.ensureTreeCursorVisible()
+						autoPreviewFile(&m)
+					}
+				} else {
+					if m.contentScroll > 0 {
+						m.contentScroll--
+					}
+				}
+				return m, nil
+			case "enter":
+				if m.sidebarFocused && len(m.treeNodes) > 0 && m.treeCursor < len(m.treeNodes) {
+					node := m.treeNodes[m.treeCursor]
+					if node.isDir {
+						toggleTreeDir(&m)
+					}
+				}
+				return m, nil
 			}
 			return m, nil
 		}
@@ -296,6 +390,12 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.filtering = true
 			m.filterInput.Focus()
 			return m, textinput.Blink
+		case "enter", "D":
+			if item, ok := m.list.SelectedItem().(skillItem); ok {
+				loadContentForSkill(&m, item.entry)
+				m.showContent = true
+			}
+			return m, nil
 		case "A":
 			return m.quitWithAction("audit")
 		case "U":
@@ -329,6 +429,11 @@ func (m listTUIModel) View() string {
 		return fmt.Sprintf("\n  %s Loading skills...\n", m.loadSpinner.View())
 	}
 
+	// Content viewer overlay — full-screen
+	if m.showContent {
+		return renderContentOverlay(m)
+	}
+
 	var b strings.Builder
 
 	// List view
@@ -344,7 +449,7 @@ func (m listTUIModel) View() string {
 	}
 
 	// Help line
-	help := "↑↓ navigate  ←→ page  / filter  A audit  U update  X uninstall  q quit"
+	help := "↑↓ navigate  ←→ page  / filter  Enter view  A audit  U update  X uninstall  q quit"
 	b.WriteString(tuiHelpStyle.Render(help))
 	b.WriteString("\n")
 
@@ -565,7 +670,7 @@ func (m listTUIModel) findSyncedTargets(e skillEntry) []string {
 // Returns (action, skillName, error). action is "" on normal quit (q/ctrl+c).
 func runListTUI(loadFn listLoadFn, modeLabel, sourcePath string, targets map[string]config.TargetConfig) (string, string, error) {
 	model := newListTUIModel(loadFn, nil, 0, modeLabel, sourcePath, targets)
-	p := tea.NewProgram(model, tea.WithAltScreen())
+	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	finalModel, err := p.Run()
 	if err != nil {
 		return "", "", err
