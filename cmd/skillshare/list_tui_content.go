@@ -380,7 +380,7 @@ func renderContentOverlay(m listTUIModel) string {
 	if fileName != "" {
 		b.WriteString(dimStyle.Render(fmt.Sprintf("  ─  %s", fileName)))
 	}
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 
 	sw := sidebarWidth(m.termWidth)
 	// panelW is the lipgloss Width (includes PaddingLeft); textW is usable text width
@@ -416,7 +416,7 @@ func renderContentOverlay(m listTUIModel) string {
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
 	b.WriteString(body)
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 
 	help := "j/k browse  l/Enter expand  h collapse  Ctrl+d/u scroll  g/G top/bottom  Esc back  q quit"
 	if scrollInfo != "" {
@@ -579,9 +579,9 @@ func (m listTUIModel) handleContentMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) 
 // ─── Tree Navigation Helpers ─────────────────────────────────────────
 
 // contentViewHeight returns the usable height for the content area.
-// Reserves extra lines as breathing room above the help bar.
+// Overhead: leading(1) + title(1) + gap(1) + body-newline(1) + blank(1) + help(1) + trailing(1) = 7
 func (m *listTUIModel) contentViewHeight() int {
-	h := m.termHeight - 5
+	h := m.termHeight - 7
 	if h < 5 {
 		h = 5
 	}

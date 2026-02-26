@@ -480,7 +480,7 @@ func (m listTUIModel) renderDetailPanel(e skillEntry) string {
 
 	// License
 	if d.License != "" {
-		row("License:", d.License)
+		row("License:", tc.Green.Render(d.License))
 	}
 
 	// Disk path

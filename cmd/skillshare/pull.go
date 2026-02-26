@@ -58,6 +58,7 @@ func cmdPull(args []string) error {
 func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 	ui.Header("Pulling from remote")
 
+	pullStart := time.Now()
 	spinner := ui.StartSpinner("Checking repository...")
 
 	// Check if source is a git repo
@@ -129,7 +130,8 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 		}
 	}
 
-	spinner.Success("Pull complete")
+	spinner.Stop()
+	ui.SuccessMsg("Pull complete (%.1fs)", time.Since(pullStart).Seconds())
 
 	// Sync to all targets
 	fmt.Println()

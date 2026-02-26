@@ -542,9 +542,6 @@ func (m logTUIModel) View() string {
 	}
 
 	// ── Horizontal split layout ──
-	// Filter bar (full width, top)
-	b.WriteString(m.renderLogFilterBar())
-
 	// Panel height: terminal minus filter(1) + stats footer(1) + help(1) + newlines(2)
 	panelHeight := m.termHeight - 5
 	if panelHeight < 6 {
@@ -581,6 +578,9 @@ func (m logTUIModel) View() string {
 	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
 	b.WriteString(body)
 	b.WriteString("\n")
+
+	// Filter bar (below panels, matching list TUI layout)
+	b.WriteString(m.renderLogFilterBar())
 
 	// Stats footer
 	b.WriteString(m.renderStatsFooter())
@@ -651,14 +651,14 @@ func (m logTUIModel) renderLogFilterBar() string {
 }
 
 // logListWidth returns the left panel width for horizontal layout.
-// 40% of terminal, clamped to [30, 60].
+// 25% of terminal, clamped to [30, 45] — aligned with audit TUI proportions.
 func logListWidth(termWidth int) int {
-	w := termWidth * 2 / 5
+	w := termWidth / 4
 	if w < 30 {
 		w = 30
 	}
-	if w > 60 {
-		w = 60
+	if w > 45 {
+		w = 45
 	}
 	return w
 }

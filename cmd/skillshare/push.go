@@ -262,7 +262,8 @@ func cmdPush(args []string) error {
 		return nil // Error already displayed
 	}
 
-	spinner.Success("Push complete")
+	spinner.Stop()
+	ui.SuccessMsg("Push complete (%.1fs)", time.Since(start).Seconds())
 
 	e := oplog.NewEntry("push", "ok", time.Since(start))
 	e.Args = map[string]any{"message": opts.message}
