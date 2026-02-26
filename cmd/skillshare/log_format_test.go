@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -272,6 +273,65 @@ func TestFormatAuditLogDetail_IncludesExtendedFields(t *testing.T) {
 	}
 	if !strings.Contains(detail, "risk=HIGH(67/100)") {
 		t.Fatalf("expected risk score/label in detail, got: %s", detail)
+	}
+}
+
+func TestRenderLogDetailPanel_BulletListShort(t *testing.T) {
+	// ≤5 items: all shown as bullets, no "... and N more"
+	item := logItem{
+		entry: oplog.Entry{
+			Timestamp: "2026-02-10T10:00:00Z",
+			Command:   "install",
+			Status:    "ok",
+			Args: map[string]any{
+				"installed_skills": []any{"skill-a", "skill-b", "skill-c"},
+			},
+		},
+	}
+	out := stripANSI(renderLogDetailPanel(item))
+	if !strings.Contains(out, "- skill-a") {
+		t.Fatalf("expected bullet for skill-a, got:\n%s", out)
+	}
+	if !strings.Contains(out, "- skill-c") {
+		t.Fatalf("expected bullet for skill-c, got:\n%s", out)
+	}
+	if strings.Contains(out, "... and") {
+		t.Fatalf("did not expect condensed summary for short list, got:\n%s", out)
+	}
+}
+
+func TestRenderLogDetailPanel_BulletListCondensed(t *testing.T) {
+	// >5 items: first 5 shown, rest condensed into "... and N more"
+	skills := make([]any, 12)
+	for i := range skills {
+		skills[i] = fmt.Sprintf("skill-%02d", i+1)
+	}
+	item := logItem{
+		entry: oplog.Entry{
+			Timestamp: "2026-02-10T10:00:00Z",
+			Command:   "install",
+			Status:    "ok",
+			Args: map[string]any{
+				"installed_skills": skills,
+			},
+		},
+	}
+	out := stripANSI(renderLogDetailPanel(item))
+
+	// First 5 should be visible
+	for i := 1; i <= 5; i++ {
+		needle := fmt.Sprintf("- skill-%02d", i)
+		if !strings.Contains(out, needle) {
+			t.Fatalf("expected bullet for %s, got:\n%s", needle, out)
+		}
+	}
+	// 6th should NOT be visible as a bullet
+	if strings.Contains(out, "- skill-06") {
+		t.Fatalf("did not expect bullet for skill-06 (should be condensed), got:\n%s", out)
+	}
+	// Summary line
+	if !strings.Contains(out, "... and 7 more") {
+		t.Fatalf("expected '... and 7 more' summary, got:\n%s", out)
 	}
 }
 

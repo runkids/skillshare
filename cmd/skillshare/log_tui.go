@@ -85,7 +85,7 @@ func (m logTUIModel) Init() tea.Cmd {
 func (m logTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetSize(msg.Width, msg.Height-20)
+		m.list.SetSize(msg.Width, msg.Height-24)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -244,11 +244,31 @@ func renderLogDetailPanel(item logItem) string {
 
 	// Structured args via formatLogDetailPairs — colorize semantic values
 	pairs := formatLogDetailPairs(e)
+	const maxBulletItems = 5 // condense long lists to avoid flooding the panel
+
 	for _, p := range pairs {
-		value := p.value
+		// List fields: render as multi-line bullet list for readability
 		if p.isList && len(p.listValues) > 0 {
-			value = strings.Join(p.listValues, ", ")
+			b.WriteString("  ")
+			b.WriteString(logDetailLabelStyle.Render(p.key + ":"))
+			b.WriteString("\n")
+			show := p.listValues
+			remaining := 0
+			if len(show) > maxBulletItems {
+				remaining = len(show) - maxBulletItems
+				show = show[:maxBulletItems]
+			}
+			for _, v := range show {
+				b.WriteString("      - " + tuiDetailValueStyle.Render(v) + "\n")
+			}
+			if remaining > 0 {
+				summary := fmt.Sprintf("      ... and %d more", remaining)
+				b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Render(summary) + "\n")
+			}
+			continue
 		}
+
+		value := p.value
 		if value == "" {
 			continue
 		}

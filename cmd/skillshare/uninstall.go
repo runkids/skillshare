@@ -498,7 +498,7 @@ func cmdUninstall(args []string) error {
 
 	if mode == modeProject {
 		err := cmdUninstallProject(rest, cwd)
-		logUninstallOp(config.ProjectConfigPath(cwd), rest, start, err)
+		logUninstallOp(config.ProjectConfigPath(cwd), uninstallOpNames(rest), start, err)
 		return err
 	}
 
@@ -885,17 +885,7 @@ func cmdUninstall(args []string) error {
 		}
 	}
 
-	// Build names list for oplog
-	var opNames []string
-	if opts.all {
-		opNames = append(opNames, "--all")
-	}
-	for _, name := range opts.skillNames {
-		opNames = append(opNames, name)
-	}
-	for _, g := range opts.groups {
-		opNames = append(opNames, "--group="+g)
-	}
+	opNames := uninstallOpNames(rest)
 
 	var finalErr error
 	if len(failed) > 0 {
@@ -907,6 +897,24 @@ func cmdUninstall(args []string) error {
 
 	logUninstallOp(config.ConfigPath(), opNames, start, finalErr)
 	return finalErr
+}
+
+// uninstallOpNames parses raw args to build a clean oplog names list,
+// filtering out flags like --force so only skill names and semantic markers appear.
+func uninstallOpNames(args []string) []string {
+	opts, _, _ := parseUninstallArgs(args)
+	if opts == nil {
+		return args // fallback: return raw args if parsing fails
+	}
+	var names []string
+	if opts.all {
+		names = append(names, "--all")
+	}
+	names = append(names, opts.skillNames...)
+	for _, g := range opts.groups {
+		names = append(names, "--group="+g)
+	}
+	return names
 }
 
 func logUninstallOp(cfgPath string, names []string, start time.Time, cmdErr error) {
