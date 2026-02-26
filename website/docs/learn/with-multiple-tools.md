@@ -32,11 +32,10 @@ skillshare target list
 Example output:
 
 ```
-TARGET         MODE    PATH
-claude         merge   ~/.claude/skills
-cursor         merge   ~/.cursor/skills
-codex          merge   ~/.codex/skills
-opencode       merge   ~/.opencode/skills
+  claude       ~/.claude/skills (merge)
+  cursor       ~/.cursor/skills (merge)
+  codex        ~/.codex/skills (merge)
+  opencode     ~/.config/opencode/skills (merge)
 ```
 
 ## Step 3: Install Skills

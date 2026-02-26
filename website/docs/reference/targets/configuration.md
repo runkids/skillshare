@@ -11,10 +11,13 @@ Configuration file reference for skillshare.
 ```text
 ~/.config/skillshare/
 ├── config.yaml          ← Configuration file
+├── registry.yaml        ← Skill registry (auto-managed)
 ├── skills/              ← Source directory (your skills)
 │   ├── my-skill/
 │   ├── another/
 │   └── _team-repo/      ← Tracked repository
+
+~/.local/share/skillshare/
 └── backups/             ← Automatic backups
     └── 2026-01-20.../
 ```
@@ -341,6 +344,10 @@ skills:
 When you run `skillshare install` with no arguments, all listed skills that aren't already present are installed. This makes `config.yaml` a portable skill manifest — copy it to another machine and run `skillshare install && skillshare sync`.
 
 The `skills:` list is automatically updated after each `install` and `uninstall` operation. You don't need to edit it manually.
+
+:::note Migrated to registry.yaml
+Starting from v0.16.2, installed skill entries are stored in a separate `registry.yaml` file instead of inside `config.yaml`. Existing `skills:` entries in `config.yaml` are migrated automatically on first run. The schema and fields remain the same.
+:::
 
 ### `ignore`
 

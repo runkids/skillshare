@@ -54,7 +54,7 @@ Create `.gitlab-ci.yml`:
 
 ```yaml
 skill-validation:
-  image: ghcr.io/runkids/skillshare:latest
+  image: ghcr.io/runkids/skillshare-ci:latest
   stage: test
   script:
     - skillshare init

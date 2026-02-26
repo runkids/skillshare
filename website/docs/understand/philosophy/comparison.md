@@ -31,8 +31,8 @@ skillshare uses a declarative model — you define your desired state once, then
 source: ~/.config/skillshare/skills
 targets:
   claude: ~/.claude
-  cursor: ~/.cursor/rules
-  codex: ~/.codex
+  cursor: ~/.cursor/skills
+  codex: ~/.codex/skills
 ```
 
 ```bash
@@ -70,7 +70,7 @@ With skillshare, you configure targets once:
 ```yaml
 targets:
   claude: ~/.claude
-  cursor: ~/.cursor/rules
+  cursor: ~/.cursor/skills
 ```
 
 Then every `sync`, `install`, or `collect` knows where to go. No prompts.
@@ -84,7 +84,7 @@ skillshare's architecture prevents this entirely — the source directory is the
 ```
 Source: ~/.config/skillshare/skills/my-skill/SKILL.md  (always preserved)
   ├── ~/.claude/skills/my-skill → symlink to source  ✓
-  ├── ~/.cursor/rules/my-skill  → symlink to source  ✓  (unaffected)
+  ├── ~/.cursor/skills/my-skill  → symlink to source  ✓  (unaffected)
   └── ~/.codex/skills/my-skill  → symlink to source  ✓  (unaffected)
 ```
 
