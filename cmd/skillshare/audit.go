@@ -395,7 +395,7 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	// Phase 1: parallel scan with progress bar.
 	var progressBar *ui.ProgressBar
 	if !jsonOutput {
-		progressBar = ui.StartProgress("Scanning skills", len(skillPaths))
+		progressBar = ui.StartProgressWithMaxWidth("Scanning skills", len(skillPaths), headerMinWidth+4)
 	}
 	onDone := func() {
 		if progressBar != nil {
@@ -405,7 +405,6 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	scanResults := audit.ParallelScan(toAuditInputs(skillPaths), projectRoot, onDone)
 	if progressBar != nil {
 		progressBar.Stop()
-		fmt.Println()
 	}
 
 	// Collect results and their elapsed times together.
@@ -436,23 +435,8 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	summary.Mode = mode
 	summary.ScanErrors = scanErrors
 
-	// Always print results first so terminal retains output after TUI quits.
-	if !jsonOutput {
-		for i, r := range results {
-			if !opts.Quiet || len(r.Findings) > 0 {
-				printSkillResultLine(i+1, len(results), r, elapsed[i])
-			}
-		}
-		fmt.Println()
-		summaryLines := buildAuditSummaryLines(summary)
-		printAuditSummary(summary, summaryLines, headerMinWidth)
-	}
-
-	// Then launch TUI on top for interactive exploration.
-	if !jsonOutput && !opts.NoTUI && ui.IsTTY() && len(results) > 1 {
-		if err := runAuditTUI(results, scanResults, summary); err != nil {
-			return results, summary, err
-		}
+	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth); err != nil {
+		return results, summary, err
 	}
 
 	return results, summary, nil
@@ -537,7 +521,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	// Phase 1: parallel scan with progress bar.
 	var progressBar *ui.ProgressBar
 	if !jsonOutput {
-		progressBar = ui.StartProgress("Scanning skills", len(matched))
+		progressBar = ui.StartProgressWithMaxWidth("Scanning skills", len(matched), headerMinWidth+4)
 	}
 	onDone := func() {
 		if progressBar != nil {
@@ -547,7 +531,6 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	scanResults := audit.ParallelScan(toAuditInputs(matched), projectRoot, onDone)
 	if progressBar != nil {
 		progressBar.Stop()
-		fmt.Println()
 	}
 
 	// Collect results and their elapsed times together.
@@ -577,23 +560,8 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	summary.Mode = mode
 	summary.ScanErrors = scanErrors
 
-	// Always print results first so terminal retains output after TUI quits.
-	if !jsonOutput {
-		for i, r := range results {
-			if !opts.Quiet || len(r.Findings) > 0 {
-				printSkillResultLine(i+1, len(results), r, elapsed[i])
-			}
-		}
-		fmt.Println()
-		summaryLines := buildAuditSummaryLines(summary)
-		printAuditSummary(summary, summaryLines, headerMinWidth)
-	}
-
-	// Then launch TUI on top for interactive exploration.
-	if !jsonOutput && !opts.NoTUI && ui.IsTTY() && len(results) > 1 {
-		if err := runAuditTUI(results, scanResults, summary); err != nil {
-			return results, summary, err
-		}
+	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth); err != nil {
+		return results, summary, err
 	}
 
 	return results, summary, nil
@@ -815,6 +783,31 @@ func riskColor(label string) string {
 		return c
 	}
 	return ui.Gray
+}
+
+// presentAuditResults handles the common output path for audit scans:
+// prints per-skill list only when TUI is unavailable, always prints summary,
+// and launches TUI when conditions are met.
+func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanOutputs []audit.ScanOutput, summary auditRunSummary, jsonOutput bool, opts auditOptions, headerMinWidth int) error {
+	useTUI := !jsonOutput && !opts.NoTUI && ui.IsTTY() && len(results) > 1
+
+	if !jsonOutput {
+		if !useTUI {
+			for i, r := range results {
+				if !opts.Quiet || len(r.Findings) > 0 {
+					printSkillResultLine(i+1, len(results), r, elapsed[i])
+				}
+			}
+			fmt.Println()
+		}
+		summaryLines := buildAuditSummaryLines(summary)
+		printAuditSummary(summary, summaryLines, headerMinWidth)
+	}
+
+	if useTUI {
+		return runAuditTUI(results, scanOutputs, summary)
+	}
+	return nil
 }
 
 // printSkillResultLine prints a single-line result for a skill during batch scan.

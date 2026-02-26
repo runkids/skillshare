@@ -271,8 +271,9 @@ func (m auditTUIModel) View() string {
 	// ── Horizontal split layout ──
 	var b strings.Builder
 
-	// Panel height (matches WindowSizeMsg overhead)
-	panelHeight := m.termHeight - 6
+	// Panel height: terminal minus footer overhead.
+	// Footer: gap(1) + filter(1) + stats(1) + gap(1) + help(1) + trailing(1) = 6 + 2 gaps = 8
+	panelHeight := m.termHeight - 8
 	if panelHeight < 6 {
 		panelHeight = 6
 	}
@@ -306,13 +307,14 @@ func (m auditTUIModel) View() string {
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
 	b.WriteString(body)
-	b.WriteString("\n")
+	b.WriteString("\n\n")
 
 	// Filter bar (below panels, matching list TUI layout)
 	b.WriteString(m.renderFilterBar())
 
 	// Summary footer
 	b.WriteString(m.renderSummaryFooter())
+	b.WriteString("\n")
 
 	// Help line
 	b.WriteString(tc.Help.Render("↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll detail  q quit"))
