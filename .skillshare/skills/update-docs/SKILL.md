@@ -61,9 +61,9 @@ If changes affect user-visible CLI behavior:
 ### Step 5: Check README
 
 Review `README.md` for sections that may need updates:
-- Recent Updates section
-- Feature list
-- Usage examples
+- Recent Updates callout
+- Why skillshare bullet points (5 selling points)
+- Highlights section (core feature examples)
 
 ### Step 6: Build Verification
 

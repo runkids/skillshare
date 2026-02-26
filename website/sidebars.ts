@@ -22,6 +22,7 @@ const sidebars: SidebarsConfig = {
             'learn/with-multiple-tools',
             'learn/with-devcontainer',
             'learn/with-playground',
+            'learn/with-ai-coding-agents',
           ],
         },
       ],
