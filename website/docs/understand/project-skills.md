@@ -20,7 +20,7 @@ Use project skills when your team needs repo-specific AI instructions (coding st
 | **Project tooling** | CI/CD deployment knowledge, testing patterns, migration scripts specific to this repo |
 | **Onboarding acceleration** | "How does auth work here?" — the AI already knows, from committed project skills |
 | **Open source projects** | Maintainers commit `.skillshare/` so contributors get project-specific AI context on clone |
-| **Community skill curation** | A repo's `config.yaml` serves as a curated skill list — anyone can `install -p` to get the same setup |
+| **Community skill curation** | A repo's `registry.yaml` serves as a curated skill list — anyone can `install -p` to get the same setup |
 
 ---
 
@@ -85,7 +85,8 @@ skillshare sync -g       # Force global mode
 ```
 <project-root>/
 ├── .skillshare/
-│   ├── config.yaml              # Targets + remote skills list
+│   ├── config.yaml              # Targets + settings
+│   ├── registry.yaml            # Remote skills list (auto-managed)
 │   ├── .gitignore               # Ignores logs/ and cloned remote/tracked skill dirs
 │   └── skills/
 │       ├── my-local-skill/      # Created manually or via `skillshare new`
@@ -125,12 +126,21 @@ targets:
   - cursor                         # Known target
   - name: custom-ide               # Custom target with explicit path
     path: ./tools/ide/skills
-    mode: symlink                  # Optional: "merge" (default) or "symlink"
+    mode: symlink                  # Optional: "merge" (default), "copy", or "symlink"
   - name: codex                    # Optional filters (merge mode)
     include: [codex-*]
     exclude: [codex-experimental-*]
+```
 
-skills:                            # Remote skills (auto-managed by install/uninstall)
+**Targets** support two formats:
+- **Short**: Just the target name (e.g., `claude`). Uses known default path, merge mode.
+- **Long**: Object with `name`, optional `path`, optional `mode` (`merge`, `copy`, or `symlink`), and optional `include`/`exclude` filters. Supports relative paths (resolved from project root) and `~` expansion.
+
+Remote skill installations are tracked in a separate file, `.skillshare/registry.yaml`:
+
+```yaml
+# .skillshare/registry.yaml (auto-managed by install/uninstall)
+skills:
   - name: pdf-skill
     source: anthropic/skills/pdf
   - name: _team-skills
@@ -138,16 +148,12 @@ skills:                            # Remote skills (auto-managed by install/unin
     tracked: true                  # Tracked repo: cloned with git history
 ```
 
-**Targets** support two formats:
-- **Short**: Just the target name (e.g., `claude`). Uses known default path, merge mode.
-- **Long**: Object with `name`, optional `path`, optional `mode` (`merge` or `symlink`), and optional `include`/`exclude` filters. Supports relative paths (resolved from project root) and `~` expansion.
-
 **Skills** list tracks remote installations only. Local skills don't need entries here.
 
 - `tracked: true`: Installed with `--track` (git repo with `.git/` preserved). When someone runs `skillshare install -p`, tracked skills are cloned with full git history so `skillshare update` works correctly.
 
 :::tip Portable Skill Manifest
-`config.yaml` is a portable skill manifest in both global and project mode. In a project, commit it to git and anyone can run `skillshare install -p && skillshare sync`. For global mode, copy `config.yaml` to a new machine and run `skillshare install && skillshare sync`. This works for teams, open source contributors, community templates, and dotfiles across machines.
+`config.yaml` and `registry.yaml` together form a portable skill manifest in both global and project mode. In a project, commit them to git and anyone can run `skillshare install -p && skillshare sync`. For global mode, copy both files to a new machine and run `skillshare install && skillshare sync`. This works for teams, open source contributors, community templates, and dotfiles across machines.
 :::
 
 ---

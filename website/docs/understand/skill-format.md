@@ -65,7 +65,7 @@ name: my-skill
 
 **Rules:**
 - Lowercase letters, numbers, hyphens, underscores
-- Must start with a letter or underscore
+- Must start with a letter or number
 - Should be unique across all skills
 
 **Examples:**

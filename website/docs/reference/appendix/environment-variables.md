@@ -95,7 +95,7 @@ Starting from v0.13.0, skillshare follows the XDG Base Directory Specification f
 GitHub personal access token.
 
 **Used for:**
-- GitHub API requests (`skillshare search`, `skillshare upgrade`)
+- GitHub API requests (`skillshare search`, `skillshare upgrade`, version check)
 - **Git clone authentication** — automatically injected when installing private repos via HTTPS
 
 **Creating a token:**
@@ -119,6 +119,21 @@ $env:GITHUB_TOKEN = "ghp_your_token"
 
 # Permanent
 [Environment]::SetEnvironmentVariable("GITHUB_TOKEN", "ghp_your_token", "User")
+```
+
+---
+
+### GH_TOKEN
+
+Alternative GitHub token variable. Used by the [GitHub CLI (`gh`)](https://cli.github.com/) and recognized by skillshare as a fallback.
+
+**Token resolution order:** `GITHUB_TOKEN` → `GH_TOKEN` → `gh auth token`
+
+If you already use `gh` and have authenticated via `gh auth login`, skillshare picks up the token automatically — no extra env vars needed.
+
+```bash
+export GH_TOKEN=ghp_your_token_here
+skillshare search "react patterns"
 ```
 
 ---
@@ -288,6 +303,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `XDG_STATE_HOME` | State directory (logs) | `~/.local/state` |
 | `XDG_CACHE_HOME` | Cache directory (version check, UI) | `~/.cache` |
 | `GITHUB_TOKEN` | GitHub API + git clone auth | None |
+| `GH_TOKEN` | GitHub API (fallback for `GITHUB_TOKEN`) | None |
 | `GITLAB_TOKEN` | GitLab git clone auth | None |
 | `BITBUCKET_TOKEN` | Bitbucket git clone auth | None |
 | `BITBUCKET_USERNAME` | Bitbucket username for app password auth | None |

@@ -22,14 +22,14 @@ Add two things to your `.devcontainer/devcontainer.json`:
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && skillshare init && skillshare sync"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && skillshare init --no-copy --all-targets --no-skill && skillshare sync"
 }
 ```
 
 That's it. When a team member opens the project in VS Code and clicks "Reopen in Container":
 
 1. skillshare is installed automatically
-2. `init` detects AI CLIs in the container and sets up targets
+2. `init` runs non-interactively — adds all detected AI CLI targets, skips copy prompts and built-in skill installation
 3. `sync` delivers skills to all targets
 
 ## Adding Project Skills
@@ -46,7 +46,7 @@ Then commit and update `postCreateCommand` to also sync project skills:
 
 ```json
 {
-  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && skillshare init && skillshare sync && skillshare sync -p"
+  "postCreateCommand": "curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh && skillshare init --no-copy --all-targets --no-skill && skillshare sync && skillshare sync -p"
 }
 ```
 

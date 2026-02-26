@@ -24,7 +24,7 @@ flowchart LR
         ORG_SRC["~/.config/skillshare/skills/"]
         ORG_SRC -- sync --> ORG_T1["~/.claude/skills/"]
         ORG_SRC -- sync --> ORG_T2["~/.cursor/skills/"]
-        ORG_SRC -- sync --> ORG_T3["~/.opencode/"]
+        ORG_SRC -- sync --> ORG_T3["~/.config/opencode/skills/"]
         ORG_T1 -. collect .-> ORG_SRC
     end
 
@@ -57,6 +57,7 @@ flowchart LR
 
 ### Sync Modes
 - **Merge** (default): Each skill symlinked individually, local skills preserved
+- **Copy**: Each skill copied individually, local skills preserved
 - **Symlink**: Entire directory is one symlink
 
 ### Tracked Repos

@@ -18,7 +18,7 @@ These are auto-detected during `skillshare init`:
 
 <div className="target-grid">
   <a className="target-badge" href="#target-adal">AdaL</a>
-  <a className="target-badge" href="#target-agents">Agents</a>
+  <a className="target-badge" href="#target-universal">Universal</a>
   <a className="target-badge" href="#target-amp">Amp</a>
   <a className="target-badge" href="#target-antigravity">Antigravity</a>
   <a className="target-badge" href="#target-augment">Augment</a>
@@ -77,7 +77,7 @@ These are auto-detected during `skillshare init`:
 </thead>
 <tbody>
 <tr id="target-adal"><td>adal</td><td><code>&#126;/.adal/skills</code></td><td><code>.adal/skills</code></td></tr>
-<tr id="target-agents"><td>agents</td><td><code>&#126;/.config/agents/skills</code></td><td><code>.agents/skills</code></td></tr>
+<tr id="target-universal"><td>universal</td><td><code>&#126;/.config/agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-amp"><td>amp</td><td><code>&#126;/.config/agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-antigravity"><td>antigravity</td><td><code>&#126;/.gemini/antigravity/skills</code></td><td><code>.agent/skills</code></td></tr>
 <tr id="target-augment"><td>augment</td><td><code>&#126;/.augment/skills</code></td><td><code>.augment/skills</code></td></tr>
@@ -101,7 +101,7 @@ These are auto-detected during `skillshare init`:
 <tr id="target-iflow"><td>iflow</td><td><code>&#126;/.iflow/skills</code></td><td><code>.iflow/skills</code></td></tr>
 <tr id="target-junie"><td>junie</td><td><code>&#126;/.junie/skills</code></td><td><code>.junie/skills</code></td></tr>
 <tr id="target-kilocode"><td>kilocode</td><td><code>&#126;/.kilocode/skills</code></td><td><code>.kilocode/skills</code></td></tr>
-<tr id="target-kimi"><td>kimi</td><td><code>&#126;/.kimi/skills</code></td><td><code>.agents/skills</code></td></tr>
+<tr id="target-kimi"><td>kimi</td><td><code>&#126;/.config/agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-kiro"><td>kiro</td><td><code>&#126;/.kiro/skills</code></td><td><code>.kiro/skills</code></td></tr>
 <tr id="target-kode"><td>kode</td><td><code>&#126;/.kode/skills</code></td><td><code>.kode/skills</code></td></tr>
 <tr id="target-letta"><td>letta</td><td><code>&#126;/.letta/skills</code></td><td><code>.skills</code></td></tr>
@@ -115,7 +115,7 @@ These are auto-detected during `skillshare init`:
 <tr id="target-pochi"><td>pochi</td><td><code>&#126;/.pochi/skills</code></td><td><code>.pochi/skills</code></td></tr>
 <tr id="target-qoder"><td>qoder</td><td><code>&#126;/.qoder/skills</code></td><td><code>.qoder/skills</code></td></tr>
 <tr id="target-qwen"><td>qwen</td><td><code>&#126;/.qwen/skills</code></td><td><code>.qwen/skills</code></td></tr>
-<tr id="target-replit"><td>replit</td><td>—</td><td><code>.agents/skills</code></td></tr>
+<tr id="target-replit"><td>replit</td><td><code>&#126;/.config/agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-roo"><td>roo</td><td><code>&#126;/.roo/skills</code></td><td><code>.roo/skills</code></td></tr>
 <tr id="target-trae"><td>trae</td><td><code>&#126;/.trae/skills</code></td><td><code>.trae/skills</code></td></tr>
 <tr id="target-trae-cn"><td>trae-cn</td><td><code>&#126;/.trae-cn/skills</code></td><td><code>.trae/skills</code></td></tr>
@@ -133,11 +133,18 @@ Some targets have alternative names for backward compatibility or convenience:
 
 | Alias | Resolves To | Notes |
 |-------|-------------|-------|
+| `agents` | `universal` | Legacy name |
 | `claude-code` | `claude` | Legacy name |
 | `command-code` | `commandcode` | Hyphenated variant |
+| `deep-agents` | `deepagents` | Hyphenated variant |
+| `gemini-cli` | `gemini` | With CLI suffix |
 | `github-copilot` | `copilot` | Full product name |
-| `opencode-ai` | `opencode` | With suffix |
-| `trae-cn` | `traecn` | Hyphenated variant |
+| `iflow-cli` | `iflow` | With CLI suffix |
+| `kilo` | `kilocode` | Short name |
+| `kimi-cli` | `kimi` | With CLI suffix |
+| `kiro-cli` | `kiro` | With CLI suffix |
+| `mistral-vibe` | `vibe` | Full product name |
+| `qwen-code` | `qwen` | With code suffix |
 
 You can use either the alias or the canonical name in all commands:
 

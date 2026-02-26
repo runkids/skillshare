@@ -14,26 +14,36 @@ Your organization hosts internal skills in a private GitHub/GitLab repository. Y
 
 ### Step 1: Set up authentication
 
-skillshare uses the same token resolution as `git`:
+skillshare detects tokens from environment variables, with platform-specific vars taking priority over the generic fallback:
+
+| Platform | Environment Variable |
+|----------|---------------------|
+| GitHub / GitHub Enterprise | `GITHUB_TOKEN` |
+| GitLab / Self-hosted GitLab | `GITLAB_TOKEN` |
+| Bitbucket | `BITBUCKET_TOKEN` (+ optional `BITBUCKET_USERNAME`) |
+| Azure DevOps | `AZURE_DEVOPS_TOKEN` |
+| Any platform (fallback) | `SKILLSHARE_GIT_TOKEN` |
 
 ```bash
-# Option A: GitHub CLI (recommended)
-gh auth login
+# Option A: Git credential helper (recommended for GitHub)
+gh auth login   # sets up git credential helper for HTTPS
 
-# Option B: Environment variable
-export GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
+# Option B: Platform-specific environment variable
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxxx      # GitHub
+export GITLAB_TOKEN=glpat-xxxxxxxxxxxxx    # GitLab
+export AZURE_DEVOPS_TOKEN=your-pat-here    # Azure DevOps
 
-# Option C: For Azure DevOps
-export AZURE_DEVOPS_TOKEN=your-pat-here
+# Option C: Generic fallback (works with any HTTPS host)
+export SKILLSHARE_GIT_TOKEN=your-token-here
 ```
 
 ### Step 2: Install from private repo
 
 ```bash
-skillshare install your-org/internal-skills
+skillshare install your-org/internal-skills --track
 ```
 
-skillshare detects the token automatically from `gh auth token`, `GITHUB_TOKEN`, `GH_TOKEN`, or `AZURE_DEVOPS_TOKEN`.
+skillshare detects the token automatically from the environment variables listed above.
 
 ### Step 3: Verify tracking
 
@@ -44,7 +54,7 @@ skillshare list
 The installed repo appears with the `_` prefix (tracked repository):
 
 ```
-_your-org__internal-skills/
+_your-org-internal-skills/
 ├── code-review/
 ├── testing-standards/
 └── deployment-checklist/
@@ -66,10 +76,10 @@ skillshare sync     # Push to targets
 
 ## Variations
 
-- **Selective install**: `skillshare install your-org/internal-skills --skill code-review` installs only one skill
-- **CI/CD token**: In pipelines, use `GITHUB_TOKEN` from CI secrets
-- **Self-hosted GitLab**: Use HTTPS URL directly: `skillshare install https://gitlab.internal.com/team/skills.git`
-- **Gitee / AtomGit**: Supported via HTTPS URLs with token auth
+- **Selective install**: `skillshare install your-org/internal-skills --track --skill code-review` installs only one skill
+- **CI/CD token**: In pipelines, set the platform-specific env var (e.g., `GITHUB_TOKEN`) from CI secrets
+- **Self-hosted GitLab**: Set `GITLAB_TOKEN` and use HTTPS URL: `skillshare install https://gitlab.internal.com/team/skills.git --track`
+- **Gitee / AtomGit**: Supported via HTTPS URLs with `SKILLSHARE_GIT_TOKEN`
 
 ## Related
 

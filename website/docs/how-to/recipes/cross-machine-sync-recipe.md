@@ -70,7 +70,7 @@ skillshare push
 
 - **Auto-sync on login**: Add `skillshare pull && skillshare sync` to your shell profile (`.bashrc` / `.zshrc`)
 - **Conflict resolution**: If two machines modify the same skill, `pull` uses git merge — resolve conflicts in the source directory
-- **Selective sync**: Use the `ignore` field in `config.yaml` to exclude machine-specific skills from sync
+- **Selective sync**: Use per-target `include` / `exclude` filters in `config.yaml` to control which skills sync to each machine
 
 ## Related
 

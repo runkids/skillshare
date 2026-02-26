@@ -161,7 +161,7 @@ make playground-down
 | New contributor onboarding | `make playground` — one command, ready to go | No more "install Go, set PATH, clone, build" setup guide |
 | Automated skill quality gate in CI | `docker run ghcr.io/.../skillshare-ci audit /skills` | Previously required installing Go + building from source in every workflow |
 | "Works on my machine" across contributors | Docker pins Go 1.25.5 + all dependencies | Different local Go versions causing test flakes |
-| PR reviewer reproducing an issue | `make test-docker --cmd "go test -run TestXxx ..."` | Must clone + full local setup to reproduce |
+| PR reviewer reproducing an issue | `./scripts/test_docker.sh --cmd "go test -run TestXxx ..."` | Must clone + full local setup to reproduce |
 
 ### Enterprise and self-hosted deployment
 
