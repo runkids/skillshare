@@ -5,6 +5,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
+	"skillshare/internal/ui"
 )
 
 func cmdDiffProject(root, targetName string) error {
@@ -19,10 +20,13 @@ func cmdDiffProject(root, targetName string) error {
 		return err
 	}
 
+	spinner := ui.StartSpinner("Discovering skills")
 	discovered, err := sync.DiscoverSourceSkills(runtime.sourcePath)
 	if err != nil {
+		spinner.Fail("Discovery failed")
 		return fmt.Errorf("failed to discover skills: %w", err)
 	}
+	spinner.Success(fmt.Sprintf("Discovered %d skills", len(discovered)))
 
 	targets := make([]config.ProjectTargetEntry, len(runtime.config.Targets))
 	copy(targets, runtime.config.Targets)

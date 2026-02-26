@@ -79,6 +79,53 @@ func TestWriteReadManifest_Roundtrip(t *testing.T) {
 	}
 }
 
+func TestWriteReadManifest_MtimesRoundtrip(t *testing.T) {
+	dir := t.TempDir()
+	original := &Manifest{
+		Managed: map[string]string{
+			"skill-a": "abc123",
+		},
+		Mtimes: map[string]int64{
+			"skill-a": 1718449200000000000, // some UnixNano
+		},
+	}
+
+	if err := WriteManifest(dir, original); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := ReadManifest(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Mtimes["skill-a"] != 1718449200000000000 {
+		t.Errorf("expected mtime 1718449200000000000, got %d", loaded.Mtimes["skill-a"])
+	}
+}
+
+func TestReadManifest_OldFormat_NoMtimes(t *testing.T) {
+	dir := t.TempDir()
+	// Simulate old manifest without mtimes field
+	data := []byte(`{"managed":{"skill-a":"abc123"},"updated_at":"2025-01-01T00:00:00Z"}`)
+	if err := os.WriteFile(filepath.Join(dir, ManifestFile), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := ReadManifest(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Mtimes == nil {
+		t.Fatal("Mtimes should be initialized even for old format")
+	}
+	if len(loaded.Mtimes) != 0 {
+		t.Errorf("expected empty Mtimes for old format, got %d entries", len(loaded.Mtimes))
+	}
+	if loaded.Managed["skill-a"] != "abc123" {
+		t.Error("Managed should still work with old format")
+	}
+}
+
 func TestRemoveManifest(t *testing.T) {
 	dir := t.TempDir()
 

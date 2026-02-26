@@ -180,7 +180,7 @@ targets:
 	// Run diff WITHOUT syncing first — empty manifest, but mode is copy
 	result := sb.RunCLI("diff")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "missing")
+	result.AssertOutputContains(t, "source only")
 }
 
 func TestDiff_CopyMode_DetectsDeletedTargetDir(t *testing.T) {
@@ -205,11 +205,11 @@ targets:
 	// Manually delete the target skill directory
 	os.RemoveAll(filepath.Join(targetPath, "skill-a"))
 
-	// Diff should detect the missing directory, NOT report "Fully synced"
+	// Diff should detect the deleted directory, NOT report "Fully synced"
 	result := sb.RunCLI("diff")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "missing")
-	result.AssertOutputNotContains(t, "synced")
+	result.AssertOutputContains(t, "deleted from target")
+	result.AssertOutputNotContains(t, "Fully synced")
 }
 
 func TestDiff_CopyMode_DetectsNonDirectoryTargetEntry(t *testing.T) {

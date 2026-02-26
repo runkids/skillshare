@@ -88,10 +88,13 @@ func cmdDiffGlobal(targetName string) error {
 		return err
 	}
 
+	spinner := ui.StartSpinner("Discovering skills")
 	discovered, err := sync.DiscoverSourceSkills(cfg.Source)
 	if err != nil {
+		spinner.Fail("Discovery failed")
 		return fmt.Errorf("failed to discover skills: %w", err)
 	}
+	spinner.Success(fmt.Sprintf("Discovered %d skills", len(discovered)))
 
 	targets := cfg.Targets
 	if targetName != "" {
@@ -171,68 +174,74 @@ func showSymlinkDiff(targetPath, source string) {
 	}
 }
 
-func showCopyDiff(targetName, targetPath string, filtered []sync.DiscoveredSkill, sourceSkills map[string]bool, manifest *sync.Manifest) {
-	var syncCount, localCount int
+type copyDiffEntry struct {
+	action string // "add", "modify", "remove"
+	name   string
+	reason string
+	isSync bool // true = needs sync, false = local-only
+}
 
-	// Check each source skill
-	for _, skill := range filtered {
+func showCopyDiff(targetName, targetPath string, filtered []sync.DiscoveredSkill, sourceSkills map[string]bool, manifest *sync.Manifest) {
+	// Phase 1: scan — collect all diffs behind a spinner
+	spinner := ui.StartSpinner(fmt.Sprintf("%s: comparing %d skills", targetName, len(filtered)))
+
+	var items []copyDiffEntry
+
+	for i, skill := range filtered {
+		spinner.Update(fmt.Sprintf("%s: %d/%d %s", targetName, i+1, len(filtered), skill.FlatName))
 		oldChecksum, isManaged := manifest.Managed[skill.FlatName]
 		targetSkillPath := filepath.Join(targetPath, skill.FlatName)
 		if !isManaged {
-			// Not in manifest — missing or local entry
 			if info, err := os.Stat(targetSkillPath); err == nil {
 				if info.IsDir() {
-					ui.DiffItem("modify", skill.FlatName, "local copy (sync --force to replace)")
+					items = append(items, copyDiffEntry{"modify", skill.FlatName, "local copy (sync --force to replace)", true})
 				} else {
-					ui.DiffItem("modify", skill.FlatName, "target entry is not a directory")
+					items = append(items, copyDiffEntry{"modify", skill.FlatName, "target entry is not a directory", true})
 				}
 			} else if os.IsNotExist(err) {
-				ui.DiffItem("add", skill.FlatName, "missing")
+				items = append(items, copyDiffEntry{"add", skill.FlatName, "source only", true})
 			} else {
-				ui.DiffItem("modify", skill.FlatName, "cannot access target entry")
+				items = append(items, copyDiffEntry{"modify", skill.FlatName, "cannot access target entry", true})
 			}
-			syncCount++
 			continue
 		}
-		// Managed — verify target directory still exists
 		targetInfo, err := os.Stat(targetSkillPath)
 		if os.IsNotExist(err) {
-			ui.DiffItem("add", skill.FlatName, "missing (deleted from target)")
-			syncCount++
+			items = append(items, copyDiffEntry{"add", skill.FlatName, "deleted from target", true})
 			continue
 		}
 		if err != nil {
-			ui.DiffItem("modify", skill.FlatName, "cannot access target entry")
-			syncCount++
+			items = append(items, copyDiffEntry{"modify", skill.FlatName, "cannot access target entry", true})
 			continue
 		}
 		if !targetInfo.IsDir() {
-			ui.DiffItem("modify", skill.FlatName, "target entry is not a directory")
-			syncCount++
+			items = append(items, copyDiffEntry{"modify", skill.FlatName, "target entry is not a directory", true})
 			continue
 		}
-		// Compare checksums to detect content drift
+		// mtime fast-path
+		oldMtime := manifest.Mtimes[skill.FlatName]
+		currentMtime, mtimeErr := sync.DirMaxMtime(skill.SourcePath)
+		if mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
+			continue
+		}
 		srcChecksum, err := sync.DirChecksum(skill.SourcePath)
 		if err != nil {
-			ui.DiffItem("modify", skill.FlatName, "cannot compute checksum")
-			syncCount++
+			items = append(items, copyDiffEntry{"modify", skill.FlatName, "cannot compute checksum", true})
 			continue
 		}
 		if srcChecksum != oldChecksum {
-			ui.DiffItem("modify", skill.FlatName, "content changed")
-			syncCount++
+			items = append(items, copyDiffEntry{"modify", skill.FlatName, "content changed", true})
 		}
 	}
 
-	// Managed copies no longer in source (orphans)
+	// Orphan managed copies
 	for name := range manifest.Managed {
 		if !sourceSkills[name] {
-			ui.DiffItem("remove", name, "orphan (will be pruned)")
-			syncCount++
+			items = append(items, copyDiffEntry{"remove", name, "orphan (will be pruned)", true})
 		}
 	}
 
-	// Local directories not in source and not managed
+	// Local directories
 	entries, _ := os.ReadDir(targetPath)
 	for _, e := range entries {
 		if utils.IsHidden(e.Name()) || !e.IsDir() {
@@ -244,8 +253,20 @@ func showCopyDiff(targetName, targetPath string, filtered []sync.DiscoveredSkill
 		if _, isManaged := manifest.Managed[e.Name()]; isManaged {
 			continue
 		}
-		ui.DiffItem("remove", e.Name(), "local only")
-		localCount++
+		items = append(items, copyDiffEntry{"remove", e.Name(), "local only", false})
+	}
+
+	spinner.Stop()
+
+	// Phase 2: display results
+	var syncCount, localCount int
+	for _, item := range items {
+		ui.DiffItem(item.action, item.name, item.reason)
+		if item.isSync {
+			syncCount++
+		} else {
+			localCount++
+		}
 	}
 
 	if syncCount == 0 && localCount == 0 {
@@ -287,7 +308,7 @@ func showMergeDiff(targetName, targetPath, source string, sourceSkills map[strin
 	// Skills only in source (not synced)
 	for skill := range sourceSkills {
 		if !targetSkills[skill] {
-			ui.DiffItem("add", skill, "missing")
+			ui.DiffItem("add", skill, "source only")
 			syncCount++
 		} else if !targetSymlinks[skill] {
 			ui.DiffItem("modify", skill, "local copy (sync --force to replace)")

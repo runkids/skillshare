@@ -13,7 +13,8 @@ const ManifestFile = ".skillshare-manifest.json"
 // Manifest tracks which skills are managed by skillshare in a target directory.
 // Used by both merge mode (values: "symlink") and copy mode (values: SHA-256 checksum).
 type Manifest struct {
-	Managed   map[string]string `json:"managed"` // flatName → "symlink" (merge) or SHA-256 checksum (copy)
+	Managed   map[string]string `json:"managed"`            // flatName → "symlink" (merge) or SHA-256 checksum (copy)
+	Mtimes    map[string]int64  `json:"mtimes,omitempty"`   // flatName → source dir max mtime (UnixNano), copy mode only
 	UpdatedAt time.Time         `json:"updated_at"`
 }
 
@@ -24,7 +25,7 @@ func ReadManifest(targetPath string) (*Manifest, error) {
 	data, err := os.ReadFile(p)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &Manifest{Managed: make(map[string]string)}, nil
+			return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64)}, nil
 		}
 		return nil, err
 	}
@@ -32,10 +33,13 @@ func ReadManifest(targetPath string) (*Manifest, error) {
 	var m Manifest
 	if err := json.Unmarshal(data, &m); err != nil {
 		// Corrupt manifest — treat as empty so next sync rebuilds it.
-		return &Manifest{Managed: make(map[string]string)}, nil
+		return &Manifest{Managed: make(map[string]string), Mtimes: make(map[string]int64)}, nil
 	}
 	if m.Managed == nil {
 		m.Managed = make(map[string]string)
+	}
+	if m.Mtimes == nil {
+		m.Mtimes = make(map[string]int64)
 	}
 	return &m, nil
 }
