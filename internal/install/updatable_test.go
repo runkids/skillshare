@@ -3,6 +3,7 @@ package install
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -147,5 +148,134 @@ func TestGetTrackedRepos_FindsNested(t *testing.T) {
 	}
 	if repos[0] != filepath.Join("frontend", "_ui-skills") {
 		t.Errorf("expected 'frontend/_ui-skills', got %q", repos[0])
+	}
+}
+
+func TestFindRepoInstalls_MatchesByRepoURL(t *testing.T) {
+	src := t.TempDir()
+	// Skill installed from repo A
+	createSkillWithMeta(t, src, "skill-a", &SkillMeta{
+		Source:  "https://github.com/owner/repo-a",
+		Type:    "github",
+		RepoURL: "https://github.com/owner/repo-a.git",
+	})
+	// Skill installed from repo B (different)
+	createSkillWithMeta(t, src, "skill-b", &SkillMeta{
+		Source:  "https://github.com/owner/repo-b",
+		Type:    "github",
+		RepoURL: "https://github.com/owner/repo-b.git",
+	})
+
+	matches := FindRepoInstalls(src, "https://github.com/owner/repo-a.git")
+	if len(matches) != 1 || matches[0] != "skill-a" {
+		t.Errorf("expected [skill-a], got %v", matches)
+	}
+}
+
+func TestFindRepoInstalls_MatchesNested(t *testing.T) {
+	src := t.TempDir()
+	// Skills under group/
+	for _, name := range []string{"scan", "learn", "archive"} {
+		dir := filepath.Join(src, "feature-radar", name)
+		os.MkdirAll(dir, 0755)
+		os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# "+name), 0644)
+		WriteMeta(dir, &SkillMeta{
+			Source:  "https://github.com/runkids/feature-radar",
+			Type:    "github",
+			RepoURL: "https://github.com/runkids/feature-radar.git",
+		})
+	}
+
+	matches := FindRepoInstalls(src, "git@github.com:runkids/feature-radar.git")
+	if len(matches) != 3 {
+		t.Fatalf("expected 3 matches (SSH vs HTTPS normalised), got %d: %v", len(matches), matches)
+	}
+}
+
+func TestFindRepoInstalls_SkipsTrackedRepos(t *testing.T) {
+	src := t.TempDir()
+	dir := filepath.Join(src, "_tracked-repo", "sub-skill")
+	os.MkdirAll(dir, 0755)
+	WriteMeta(dir, &SkillMeta{
+		Source:  "https://github.com/owner/repo",
+		Type:    "github",
+		RepoURL: "https://github.com/owner/repo.git",
+	})
+
+	matches := FindRepoInstalls(src, "https://github.com/owner/repo.git")
+	if len(matches) != 0 {
+		t.Errorf("expected 0 matches (tracked repos skipped), got %v", matches)
+	}
+}
+
+func TestCheckCrossPathDuplicate_BlocksDifferentPath(t *testing.T) {
+	src := t.TempDir()
+	// Existing install under group/
+	dir := filepath.Join(src, "my-group", "skill-a")
+	os.MkdirAll(dir, 0755)
+	WriteMeta(dir, &SkillMeta{
+		Source: "https://github.com/owner/repo", Type: "github",
+		RepoURL: "https://github.com/owner/repo.git",
+	})
+
+	// Root install (no --into) should be blocked
+	err := CheckCrossPathDuplicate(src, "https://github.com/owner/repo.git", "")
+	if err == nil {
+		t.Fatal("expected error for cross-path duplicate")
+	}
+	if !strings.Contains(err.Error(), "my-group/skill-a") {
+		t.Errorf("expected location in error, got: %v", err)
+	}
+}
+
+func TestCheckCrossPathDuplicate_AllowsSamePrefix(t *testing.T) {
+	src := t.TempDir()
+	dir := filepath.Join(src, "my-group", "skill-a")
+	os.MkdirAll(dir, 0755)
+	WriteMeta(dir, &SkillMeta{
+		Source: "https://github.com/owner/repo", Type: "github",
+		RepoURL: "https://github.com/owner/repo.git",
+	})
+
+	// Same --into prefix should pass
+	err := CheckCrossPathDuplicate(src, "https://github.com/owner/repo.git", "my-group")
+	if err != nil {
+		t.Errorf("expected no error for same prefix, got: %v", err)
+	}
+}
+
+func TestCheckCrossPathDuplicate_RootToInto(t *testing.T) {
+	src := t.TempDir()
+	// Existing install at root level
+	createSkillWithMeta(t, src, "skill-a", &SkillMeta{
+		Source: "https://github.com/owner/repo", Type: "github",
+		RepoURL: "https://github.com/owner/repo.git",
+	})
+
+	// Install with --into should be blocked
+	err := CheckCrossPathDuplicate(src, "https://github.com/owner/repo.git", "new-group")
+	if err == nil {
+		t.Fatal("expected error when root install exists and using --into")
+	}
+}
+
+func TestCheckCrossPathDuplicate_ForceSkipsCheck(t *testing.T) {
+	// Empty cloneURL (local path) → no check
+	err := CheckCrossPathDuplicate(t.TempDir(), "", "")
+	if err != nil {
+		t.Errorf("expected nil for empty cloneURL, got: %v", err)
+	}
+}
+
+func TestFindRepoInstalls_EmptyCloneURL(t *testing.T) {
+	src := t.TempDir()
+	createSkillWithMeta(t, src, "local", &SkillMeta{
+		Source: "/some/path",
+		Type:   "local",
+	})
+
+	matches := FindRepoInstalls(src, "")
+	if len(matches) != 0 {
+		t.Errorf("expected 0 matches for empty cloneURL, got %v", matches)
 	}
 }

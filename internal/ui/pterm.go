@@ -578,6 +578,7 @@ const (
 	StepArrow  = "▸"
 	StepCheck  = "✓"
 	StepCross  = "✗"
+	StepSkipCh = "⊘"
 	StepBullet = "●"
 	StepLine   = "│"
 	StepBranch = "├"
@@ -846,6 +847,15 @@ func StepFail(label, value string) {
 		fmt.Printf("%s %-10s %s\n", pterm.Red(StepCross), styledLabel, value)
 	} else {
 		fmt.Printf("%s %-10s %s\n", StepCross, label, value)
+	}
+}
+
+// StepSkip prints a skipped step (yellow ⊘)
+func StepSkip(label, value string) {
+	if IsTTY() {
+		fmt.Printf("%s %-10s %s\n", pterm.Yellow(StepSkipCh), pterm.White(label), value)
+	} else {
+		fmt.Printf("%s %-10s %s\n", StepSkipCh, label, value)
 	}
 }
 

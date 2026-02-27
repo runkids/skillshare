@@ -49,7 +49,17 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 			return updateTrackedRepo(destPath, result, opts)
 		}
 		if !opts.Force {
-			return nil, fmt.Errorf("tracked repo '%s' already exists. To overwrite:\n       skillshare install %s --track --force", trackedName, source.Raw)
+			hint := buildForceHint(source.Raw, opts.Into) // includes --into if set
+			hint = strings.Replace(hint, " --force", " --track --force", 1)
+			// Tracked repos store a git remote; read it for comparison.
+			existingURL := getRemoteURL(destPath)
+			if existingURL != "" && repoURLsMatch(existingURL, source.CloneURL) {
+				return nil, fmt.Errorf("%w: tracked repo '%s'. Use 'skillshare update' or --force to overwrite", ErrSkipSameRepo, trackedName)
+			}
+			if existingURL != "" {
+				return nil, fmt.Errorf("tracked repo '%s' already exists (installed from %s). To overwrite: %s", trackedName, existingURL, hint)
+			}
+			return nil, fmt.Errorf("tracked repo '%s' already exists. To overwrite: %s", trackedName, hint)
 		}
 		// Force mode - remove existing
 		if !opts.DryRun {
