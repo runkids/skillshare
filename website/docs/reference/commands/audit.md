@@ -93,10 +93,9 @@ These patterns are **strong indicators of malicious intent** but may occasionall
 | `shell-execution` | Python shell invocation via system or subprocess calls |
 | `hidden-comment-injection` | Prompt injection keywords hidden inside HTML comments |
 | `fetch-with-pipe` | `curl`/`wget` output piped to `sh`, `bash`, `python`, `node`, or other interpreters — remote code execution |
-| `data-uri` | `data:` URI inside markdown links — may embed executable or obfuscated content |
 | `source-repository-link` | Markdown links labeled "source repo" or "source repository" pointing to external URLs — may be used for supply-chain redirects |
 
-> **Why high?** Hidden Unicode characters can make malicious instructions invisible during code review. Base64 obfuscation is a common technique to bypass human inspection. Destructive commands like `rm -rf /` can cause irreversible damage. `curl | bash` is the classic remote code execution vector — fetched content runs directly in your shell. `data:` URIs in markdown links can embed executable JavaScript or HTML. Source repository links can redirect users to malicious forks or repositories during supply-chain attacks.
+> **Why high?** Hidden Unicode characters can make malicious instructions invisible during code review. Base64 obfuscation is a common technique to bypass human inspection. Destructive commands like `rm -rf /` can cause irreversible damage. `curl | bash` is the classic remote code execution vector — fetched content runs directly in your shell. Source repository links can redirect users to malicious forks or repositories during supply-chain attacks.
 
 `source-repository-link` uses structural Markdown parsing, not plain regex matching:
 
@@ -115,9 +114,10 @@ These patterns are **suspicious in context** — they may be legitimate but dese
 | `system-writes` | Commands writing to `/usr`, `/etc`, `/var` |
 | `env-access` | Direct environment variable access via `process.env` (excludes `NODE_ENV`) |
 | `ip-address-url` | URLs with raw IP addresses (excludes private/loopback ranges) — may bypass DNS-based security controls |
+| `data-uri` | `data:` URI inside markdown links — may embed executable or obfuscated content |
 | `escape-obfuscation` | 3+ consecutive hex or unicode escape sequences |
 
-> **Why medium?** A skill that downloads from external URLs could be pulling malicious payloads. URLs with raw IP addresses may bypass DNS-based security controls and domain blocklists. System path writes can modify critical OS files. Environment variable access may expose secrets unintentionally.
+> **Why medium?** A skill that downloads from external URLs could be pulling malicious payloads. URLs with raw IP addresses may bypass DNS-based security controls and domain blocklists. `data:` URIs in markdown links can hide embedded HTML/JavaScript payloads behind innocent-looking labels. System path writes can modify critical OS files. Environment variable access may expose secrets unintentionally.
 
 ### MEDIUM: Content Integrity
 
@@ -198,7 +198,6 @@ This catches common quality issues like missing referenced files, renamed paths,
 **What the audit detects:**
 - `curl` or `wget` output piped to `sh`, `bash`, or `sudo sh/bash`
 - `curl` or `wget` piped to other interpreters: `python`, `node`, `ruby`, `perl`, `zsh`, `fish`
-- `data:` URIs embedded in markdown links (can contain executable HTML/JavaScript)
 
 **Defense:** While `curl | bash` is common in legitimate installation instructions, it should appear only in documentation code blocks (where the audit engine suppresses it), not as direct instructions. Skills that instruct an AI to pipe fetched content to an interpreter should be treated with suspicion.
 
@@ -793,7 +792,7 @@ Source of truth for regex-based rules:
 | `fetch-with-pipe-0` | fetch-with-pipe | HIGH |
 | `fetch-with-pipe-1` | fetch-with-pipe | HIGH |
 | `fetch-with-pipe-2` | fetch-with-pipe | HIGH |
-| `data-uri-0` | data-uri | HIGH |
+| `data-uri-0` | data-uri | MEDIUM |
 | `env-access-0` | env-access | MEDIUM |
 | `escape-obfuscation-0` | escape-obfuscation | MEDIUM |
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |

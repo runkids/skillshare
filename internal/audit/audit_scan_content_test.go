@@ -669,8 +669,8 @@ func TestScanContent_DataURI(t *testing.T) {
 			for _, f := range findings {
 				if f.Pattern == "data-uri" {
 					found = true
-					if f.Severity != SeverityHigh {
-						t.Errorf("expected HIGH, got %s", f.Severity)
+					if f.Severity != SeverityMedium {
+						t.Errorf("expected MEDIUM, got %s", f.Severity)
 					}
 				}
 			}
