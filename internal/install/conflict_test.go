@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -91,7 +92,7 @@ func TestCheckExistingConflict_DifferentRepo(t *testing.T) {
 		t.Error("expected error for different repo")
 	}
 	// Should mention the other repo URL
-	if got := err.Error(); !contains(got, "other/repo") {
+	if got := err.Error(); !strings.Contains(got, "other/repo") {
 		t.Errorf("error should mention existing repo, got: %s", got)
 	}
 }
@@ -143,18 +144,4 @@ func TestBuildForceHint(t *testing.T) {
 			t.Errorf("buildForceHint(%q, %q) = %q, want %q", tt.raw, tt.into, got, tt.want)
 		}
 	}
-}
-
-func contains(s, sub string) bool {
-	return len(s) >= len(sub) && (s == sub || len(sub) == 0 ||
-		(len(s) > 0 && len(sub) > 0 && containsStr(s, sub)))
-}
-
-func containsStr(s, sub string) bool {
-	for i := 0; i <= len(s)-len(sub); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }

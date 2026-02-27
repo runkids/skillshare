@@ -154,14 +154,17 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		skillTargetMap := make(map[string]string)
 		pathToTarget := make(map[string]updateTarget)
 		for _, t := range groupTargets {
-			if t.meta != nil {
-				subdir := t.meta.Subdir
-				if subdir == "" {
-					subdir = "."
-				}
-				skillTargetMap[subdir] = t.path
-				pathToTarget[subdir] = t
+			if t.meta == nil {
+				ui.Warning("Skipping %s: missing metadata", t.name)
+				result.skipped++
+				continue
 			}
+			subdir := t.meta.Subdir
+			if subdir == "" {
+				subdir = "."
+			}
+			skillTargetMap[subdir] = t.path
+			pathToTarget[subdir] = t
 		}
 
 		batchOpts := uc.makeInstallOpts()
@@ -211,6 +214,14 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 				auditEntries = append(auditEntries, batchAuditEntryFromInstallResult(t.name, res))
 			} else {
 				result.skipped++
+			}
+		}
+
+		// Non-TTY: increment progress bar for each skill in this group.
+		// In TTY mode, handleGroupedBatchProgress already increments via OnProgress.
+		if !ui.IsTTY() {
+			for range skillTargetMap {
+				progressBar.Increment()
 			}
 		}
 	}

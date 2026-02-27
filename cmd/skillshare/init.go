@@ -569,6 +569,16 @@ type detectedDir struct {
 	exists     bool // true if skills dir exists, false if only parent exists
 }
 
+// sliceHasName returns true if any element's name matches.
+func sliceHasName[T any](items []T, name string, getName func(T) string) bool {
+	for _, item := range items {
+		if getName(item) == name {
+			return true
+		}
+	}
+	return false
+}
+
 func detectCLIDirectories(home string) []detectedDir {
 	ui.Header("Detecting CLI skills directories")
 	defaultTargets := config.DefaultTargets()
@@ -616,21 +626,12 @@ func detectCLIDirectories(home string) []detectedDir {
 	// The universal path (~/.agents/skills/) is the cross-tool shared directory
 	// used by vercel-labs/skills (npx skills list). It won't exist on disk until
 	// we create it, so normal directory detection won't find it.
-	if len(detected) > 0 {
-		hasUniversal := false
-		for _, d := range detected {
-			if d.name == "universal" {
-				hasUniversal = true
-				break
-			}
-		}
-		if !hasUniversal {
-			if target, ok := defaultTargets["universal"]; ok {
-				detected = append(detected, detectedDir{
-					name: "universal", path: target.Path,
-				})
-				ui.Info("Found: %-12s %s (shared agent directory)", "universal", target.Path)
-			}
+	if len(detected) > 0 && !sliceHasName(detected, "universal", func(d detectedDir) string { return d.name }) {
+		if target, ok := defaultTargets["universal"]; ok {
+			detected = append(detected, detectedDir{
+				name: "universal", path: target.Path,
+			})
+			ui.Info("Found: %-12s %s (shared agent directory)", "universal", target.Path)
 		}
 	}
 
@@ -1352,14 +1353,7 @@ func detectNewAgents(existingCfg *config.Config) []agentInfo {
 	// already configured and not yet in the candidate list.
 	if len(newAgents) > 0 {
 		if _, configured := existingCfg.Targets["universal"]; !configured {
-			hasUniversal := false
-			for _, a := range newAgents {
-				if a.name == "universal" {
-					hasUniversal = true
-					break
-				}
-			}
-			if !hasUniversal {
+			if !sliceHasName(newAgents, "universal", func(a agentInfo) string { return a.name }) {
 				if target, ok := defaultTargets["universal"]; ok {
 					newAgents = append(newAgents, agentInfo{
 						name:        "universal",

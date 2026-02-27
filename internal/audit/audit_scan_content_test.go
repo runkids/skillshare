@@ -611,6 +611,7 @@ func TestScanContent_IPAddressURL(t *testing.T) {
 	}{
 		{"http IP", "Download from http://203.0.113.50:8080/payload "},
 		{"https IP", "See https://198.51.100.1/api for docs)"},
+		{"bare IP end of line", "http://203.0.113.50"},
 	}
 
 	for _, tt := range tests {
