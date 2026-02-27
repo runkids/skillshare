@@ -530,11 +530,11 @@ func cmdList(args []string) error {
 			ui.Info("Use 'skillshare install <source>' to install a skill")
 			return nil
 		case "audit":
-			return cmdAudit([]string{skillName})
+			return cmdAudit([]string{"-g", skillName})
 		case "update":
-			return cmdUpdate([]string{skillName})
+			return cmdUpdate([]string{"-g", skillName})
 		case "uninstall":
-			return cmdUninstall([]string{skillName})
+			return cmdUninstall([]string{"-g", "--force", skillName})
 		}
 		return nil
 	}

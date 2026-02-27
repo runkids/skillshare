@@ -83,6 +83,11 @@ type listTUIModel struct {
 	filtering   bool            // true when filter input is focused
 	matchCount  int             // total matches (may exceed maxListItems)
 
+	// In-TUI confirmation overlay
+	confirming    bool   // true when confirmation overlay is shown
+	confirmAction string // "audit", "update", "uninstall"
+	confirmSkill  string // skill name for confirmation display
+
 	// Content viewer overlay — dual-pane: left tree + right content
 	showContent     bool
 	contentScroll   int
@@ -250,6 +255,20 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleContentKey(msg)
 		}
 
+		// --- Confirmation overlay ---
+		if m.confirming {
+			switch msg.String() {
+			case "y", "Y", "enter":
+				return m.quitWithAction(m.confirmAction)
+			case "n", "N", "esc", "q":
+				m.confirming = false
+				m.confirmAction = ""
+				m.confirmSkill = ""
+				return m, nil
+			}
+			return m, nil
+		}
+
 		// --- Filter mode: route keys to filterInput ---
 		if m.filtering {
 			switch msg.String() {
@@ -290,17 +309,33 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "A":
-			return m.quitWithAction("audit")
+			return m.enterConfirm("audit")
 		case "U":
-			return m.quitWithAction("update")
+			return m.enterConfirm("update")
 		case "X":
-			return m.quitWithAction("uninstall")
+			return m.enterConfirm("uninstall")
 		}
 	}
 
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	return m, cmd
+}
+
+// enterConfirm shows the confirmation overlay for the given action.
+func (m listTUIModel) enterConfirm(action string) (tea.Model, tea.Cmd) {
+	item, ok := m.list.SelectedItem().(skillItem)
+	if !ok {
+		return m, nil
+	}
+	name := item.entry.RelPath
+	if name == "" {
+		name = item.entry.Name
+	}
+	m.confirming = true
+	m.confirmAction = action
+	m.confirmSkill = name
+	return m, nil
 }
 
 // quitWithAction sets the action on the selected skill and exits the TUI.
@@ -325,6 +360,16 @@ func (m listTUIModel) View() string {
 	// Content viewer — dual-pane
 	if m.showContent {
 		return renderContentOverlay(m)
+	}
+
+	// Confirmation overlay
+	if m.confirming {
+		flag := "-g"
+		if m.modeLabel == "project" {
+			flag = "-p"
+		}
+		cmd := fmt.Sprintf("skillshare %s %s %s", m.confirmAction, flag, m.confirmSkill)
+		return fmt.Sprintf("\n  → %s\n\n  Proceed? [Y/n] ", cmd)
 	}
 
 	var b strings.Builder

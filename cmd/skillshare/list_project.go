@@ -58,7 +58,7 @@ func cmdListProject(root string, opts listOptions) error {
 		case "update":
 			return cmdUpdateProject([]string{skillName}, root)
 		case "uninstall":
-			return cmdUninstallProject([]string{skillName}, root)
+			return cmdUninstallProject([]string{"--force", skillName}, root)
 		}
 		return nil
 	}
