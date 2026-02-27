@@ -6,10 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"skillshare/internal/install"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
-	"skillshare/internal/utils"
 )
 
 func cmdStatusProject(root string) error {
@@ -24,13 +22,16 @@ func cmdStatusProject(root string) error {
 		return err
 	}
 
+	sp := ui.StartSpinner("Discovering skills...")
 	discovered, discoverErr := sync.DiscoverSourceSkills(runtime.sourcePath)
 	if discoverErr != nil {
 		discovered = nil
 	}
+	trackedRepos := extractTrackedRepos(discovered)
+	sp.Stop()
 
-	printProjectSourceStatus(runtime.sourcePath)
-	printProjectTrackedReposStatus(runtime.sourcePath)
+	printProjectSourceStatus(runtime.sourcePath, len(discovered))
+	printProjectTrackedReposStatus(runtime.sourcePath, discovered, trackedRepos)
 	if err := printProjectTargetsStatus(runtime, discovered); err != nil {
 		return err
 	}
@@ -38,7 +39,7 @@ func cmdStatusProject(root string) error {
 	return nil
 }
 
-func printProjectSourceStatus(sourcePath string) {
+func printProjectSourceStatus(sourcePath string, skillCount int) {
 	ui.Header("Source (project)")
 	info, err := os.Stat(sourcePath)
 	if err != nil {
@@ -46,19 +47,11 @@ func printProjectSourceStatus(sourcePath string) {
 		return
 	}
 
-	entries, _ := os.ReadDir(sourcePath)
-	skillCount := 0
-	for _, e := range entries {
-		if e.IsDir() && !utils.IsHidden(e.Name()) {
-			skillCount++
-		}
-	}
 	ui.Success(".skillshare/skills/ (%d skills, %s)", skillCount, info.ModTime().Format("2006-01-02 15:04"))
 }
 
-func printProjectTrackedReposStatus(sourcePath string) {
-	trackedRepos, err := install.GetTrackedRepos(sourcePath)
-	if err != nil || len(trackedRepos) == 0 {
+func printProjectTrackedReposStatus(sourcePath string, discovered []sync.DiscoveredSkill, trackedRepos []string) {
+	if len(trackedRepos) == 0 {
 		return
 	}
 
@@ -66,7 +59,6 @@ func printProjectTrackedReposStatus(sourcePath string) {
 	for _, repoName := range trackedRepos {
 		repoPath := filepath.Join(sourcePath, repoName)
 
-		discovered, _ := sync.DiscoverSourceSkills(sourcePath)
 		skillCount := 0
 		for _, d := range discovered {
 			if d.IsInRepo && strings.HasPrefix(d.RelPath, repoName+"/") {
@@ -100,8 +92,8 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 			mode = "merge"
 		}
 
-		statusStr, detail := getTargetStatusDetail(target, runtime.sourcePath, mode)
-		ui.Status(entry.Name, statusStr, detail)
+		res := getTargetStatusDetail(target, runtime.sourcePath, mode)
+		ui.Status(entry.Name, res.statusStr, res.detail)
 
 		if mode == "merge" || mode == "copy" {
 			filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
@@ -111,14 +103,8 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 			filtered = sync.FilterSkillsByTarget(filtered, entry.Name)
 			expectedCount := len(filtered)
 
-			var syncedCount int
-			if mode == "copy" {
-				_, syncedCount, _ = sync.CheckStatusCopy(target.Path)
-			} else {
-				_, syncedCount, _ = sync.CheckStatusMerge(target.Path, runtime.sourcePath)
-			}
-			if syncedCount < expectedCount {
-				drift := expectedCount - syncedCount
+			if res.syncedCount < expectedCount {
+				drift := expectedCount - res.syncedCount
 				if drift > driftTotal {
 					driftTotal = drift
 				}
