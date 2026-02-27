@@ -937,6 +937,17 @@ type SkillDisplay struct {
 	Path        string
 }
 
+// PhaseHeader prints a phase label like "[1/3] Pulling 5 tracked repos..."
+// Used by batch operations to indicate progress across distinct phases.
+func PhaseHeader(current, total int, format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	if IsTTY() {
+		fmt.Printf("\n%s %s\n", pterm.Cyan(fmt.Sprintf("[%d/%d]", current, total)), msg)
+	} else {
+		fmt.Printf("\n[%d/%d] %s\n", current, total, msg)
+	}
+}
+
 // SectionLabel prints a dim section label for visual grouping in batch output.
 // Only used when the result set is large enough to benefit from sections (>10 items).
 func SectionLabel(label string) {

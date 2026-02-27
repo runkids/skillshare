@@ -108,7 +108,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 			if metaErr == nil && meta != nil && meta.Source != "" {
 				if !seen[skillPath] {
 					seen[skillPath] = true
-					targets = append(targets, updateTarget{name: name, path: skillPath, isRepo: false})
+					targets = append(targets, updateTarget{name: name, path: skillPath, isRepo: false, meta: meta})
 				}
 				continue
 			}
@@ -181,6 +181,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 func updateAllProjectSkills(uc *updateContext) error {
 	var targets []updateTarget
 
+	scanSpinner := ui.StartSpinner("Scanning skills...")
 	err := filepath.Walk(uc.sourcePath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
@@ -211,12 +212,13 @@ func updateAllProjectSkills(uc *updateContext) error {
 			if metaErr == nil && meta != nil && meta.Source != "" {
 				rel, _ := filepath.Rel(uc.sourcePath, skillDir)
 				if rel != "." {
-					targets = append(targets, updateTarget{name: rel, path: skillDir, isRepo: false})
+					targets = append(targets, updateTarget{name: rel, path: skillDir, isRepo: false, meta: meta})
 				}
 			}
 		}
 		return nil
 	})
+	scanSpinner.Stop()
 	if err != nil {
 		return fmt.Errorf("failed to scan skills: %w", err)
 	}

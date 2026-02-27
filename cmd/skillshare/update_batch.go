@@ -54,7 +54,9 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	total := len(targets)
 	start := time.Now()
 	fmt.Println()
-	progressBar := ui.StartProgress("Updating skills", total)
+	// Progress bar is started lazily — after the first phase header prints,
+	// so the header appears above the bar rather than below it.
+	var progressBar *ui.ProgressBar
 
 	var result updateResult
 	var auditEntries []batchAuditEntry
@@ -72,15 +74,36 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			trackedRepos = append(trackedRepos, t)
 			continue
 		}
-		meta, err := install.ReadMeta(t.path)
-		if err == nil && meta != nil && meta.RepoURL != "" {
-			repoGroups[meta.RepoURL] = append(repoGroups[meta.RepoURL], t)
+		if t.meta != nil && t.meta.RepoURL != "" {
+			repoGroups[t.meta.RepoURL] = append(repoGroups[t.meta.RepoURL], t)
 		} else {
 			standaloneSkills = append(standaloneSkills, t)
 		}
 	}
 
+	// Count non-empty phases for dynamic numbering
+	phaseTotal := 0
+	if len(trackedRepos) > 0 {
+		phaseTotal++
+	}
+	if len(repoGroups) > 0 {
+		phaseTotal++
+	}
+	if len(standaloneSkills) > 0 {
+		phaseTotal++
+	}
+	phaseCurrent := 0
+
 	// Phase 1: tracked repos (git pull)
+	if len(trackedRepos) > 0 {
+		phaseCurrent++
+		if phaseTotal > 1 {
+			ui.PhaseHeader(phaseCurrent, phaseTotal, "Pulling %d tracked repo(s)...", len(trackedRepos))
+		}
+		if progressBar == nil {
+			progressBar = ui.StartProgress("Updating skills", total)
+		}
+	}
 	for _, t := range trackedRepos {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
 		updated, auditResult, err := updateTrackedRepoQuick(uc, t.path)
@@ -103,6 +126,19 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	}
 
 	// Phase 2: grouped skills (one clone per repo)
+	if len(repoGroups) > 0 {
+		phaseCurrent++
+		groupedCount := 0
+		for _, g := range repoGroups {
+			groupedCount += len(g)
+		}
+		if phaseTotal > 1 {
+			ui.PhaseHeader(phaseCurrent, phaseTotal, "Updating %d grouped skill(s) from %d repo(s)...", groupedCount, len(repoGroups))
+		}
+		if progressBar == nil {
+			progressBar = ui.StartProgress("Updating skills", total)
+		}
+	}
 	for repoURL, groupTargets := range repoGroups {
 		if uc.opts.dryRun {
 			for _, t := range groupTargets {
@@ -118,9 +154,8 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		skillTargetMap := make(map[string]string)
 		pathToTarget := make(map[string]updateTarget)
 		for _, t := range groupTargets {
-			meta, _ := install.ReadMeta(t.path)
-			if meta != nil {
-				subdir := meta.Subdir
+			if t.meta != nil {
+				subdir := t.meta.Subdir
 				if subdir == "" {
 					subdir = "."
 				}
@@ -184,9 +219,18 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	}
 
 	// Phase 3: standalone skills
+	if len(standaloneSkills) > 0 {
+		phaseCurrent++
+		if phaseTotal > 1 {
+			ui.PhaseHeader(phaseCurrent, phaseTotal, "Updating %d standalone skill(s)...", len(standaloneSkills))
+		}
+		if progressBar == nil {
+			progressBar = ui.StartProgress("Updating skills", total)
+		}
+	}
 	for _, t := range standaloneSkills {
 		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
-		updated, installRes, err := updateSkillFromMeta(uc, t.path)
+		updated, installRes, err := updateSkillFromMeta(uc, t.path, t.meta)
 		if err != nil {
 			if isStaleError(err) {
 				if uc.opts.prune {
@@ -217,7 +261,9 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		progressBar.Increment()
 	}
 
-	progressBar.Stop()
+	if progressBar != nil {
+		progressBar.Stop()
+	}
 
 	// Registry cleanup for pruned skills
 	if len(prunedNames) > 0 {
