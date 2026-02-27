@@ -239,6 +239,7 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 		}
 		ui.Info("No tracked repositories or updatable skills found")
 		ui.Info("Use 'skillshare install <repo> --track' to add a tracked repository")
+		fmt.Println()
 		return nil
 	}
 
@@ -447,6 +448,7 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 			ui.SuccessMsg("Everything is up to date")
 		}
 	} else {
+		fmt.Println()
 		parts := []string{}
 		if updatableRepos > 0 {
 			parts = append(parts, fmt.Sprintf("%d repo(s)", updatableRepos))
@@ -457,6 +459,7 @@ func renderCheckResults(repoResults []checkRepoResult, skillResults []checkSkill
 		ui.Info("%s have updates available", strings.Join(parts, " + "))
 		ui.Info("Run 'skillshare update <name>' or 'skillshare update --all'")
 	}
+	fmt.Println()
 }
 
 func toRepoResults(outputs []check.RepoCheckOutput) []checkRepoResult {
@@ -783,6 +786,7 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 	if isSingle {
 		r := singleCheckStatus(repoResults, skillResults)
 		ui.StepResult(r.status, r.message, time.Since(startCheck))
+		fmt.Println()
 		return nil
 	}
 
@@ -834,17 +838,21 @@ func singleCheckStatus(repos []checkRepoResult, skills []checkSkillResult) singl
 }
 
 func warnUnknownSkillTargets(sourceDir string) {
+	sp := ui.StartSpinner("Validating skill targets...")
 	discovered, err := ssync.DiscoverSourceSkills(sourceDir)
 	if err != nil {
+		sp.Stop()
 		return
 	}
 
 	warnings := findUnknownSkillTargets(discovered)
+	sp.Stop()
 	if len(warnings) > 0 {
 		fmt.Println()
 		for _, w := range warnings {
 			ui.Warning("Skill targets: %s", w)
 		}
+		fmt.Println()
 	}
 }
 
