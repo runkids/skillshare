@@ -393,14 +393,14 @@ func (p *ProgressBar) Add(n int) {
 // truncated to a fixed width so that the bar width stays stable.
 func (p *ProgressBar) UpdateTitle(title string) {
 	const maxWidth = 40
-	// Truncate long titles with ellipsis
 	display := title
-	if len(display) > maxWidth {
-		display = display[:maxWidth-3] + "..."
+	w := runewidth.StringWidth(display)
+	if w > maxWidth {
+		display = runewidth.Truncate(display, maxWidth, "...")
+		w = runewidth.StringWidth(display)
 	}
-	// Pad to fixed width to prevent bar width from changing
-	if len(display) < maxWidth {
-		display += strings.Repeat(" ", maxWidth-len(display))
+	if w < maxWidth {
+		display += strings.Repeat(" ", maxWidth-w)
 	}
 
 	if p.bar != nil {
