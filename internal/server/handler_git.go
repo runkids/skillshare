@@ -213,6 +213,9 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 
 	// Auto-sync to targets (same logic as handleSync)
 	if !info.UpToDate {
+		// Invalidate stale cache — source repo just changed on disk
+		s.cache.Invalidate(src)
+
 		globalMode := s.cfg.Mode
 		if globalMode == "" {
 			globalMode = "merge"

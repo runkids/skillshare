@@ -145,6 +145,11 @@ func (s *Server) handleCollect(w http.ResponseWriter, r *http.Request) {
 		failed[k] = v.Error()
 	}
 
+	// Invalidate discovery cache — source skills changed
+	if len(result.Pulled) > 0 {
+		s.cache.Invalidate(s.cfg.Source)
+	}
+
 	status := "ok"
 	msg := ""
 	if len(result.Failed) > 0 {
