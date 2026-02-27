@@ -10,6 +10,8 @@ import (
 	gosync "sync"
 	"time"
 
+	"github.com/pterm/pterm"
+
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
@@ -648,6 +650,7 @@ func cmdUninstall(args []string) error {
 	}
 
 	// --- Phase 4: PRE-FLIGHT ---
+	var preflightSkipped int
 	if !opts.dryRun {
 		// Parallel git dirty checks for tracked repos
 		type dirtyResult struct {
@@ -710,18 +713,18 @@ func cmdUninstall(args []string) error {
 					ui.Info("Use --force to uninstall anyway, or commit/stash your changes first")
 					return fmt.Errorf("uncommitted changes detected, use --force to override")
 				}
-				ui.Warning("Skipping %s: uncommitted changes detected, use --force to override", t.name)
+				ui.StepSkip(t.name, "uncommitted changes, use --force")
 				continue
 			}
 			ui.Warning("Repository %s has uncommitted changes (proceeding with --force)", t.name)
 			preflight = append(preflight, t)
 		}
-		skippedCount := len(targets) - len(preflight)
+		preflightSkipped = len(targets) - len(preflight)
 		targets = preflight
 		summary = summarizeUninstallTargets(targets)
 
-		if skippedCount > 0 {
-			ui.Info("%d tracked repo%s skipped, %d remaining", skippedCount, pluralS(skippedCount), len(targets))
+		if preflightSkipped > 0 {
+			ui.Info("%d tracked repo%s skipped, %d remaining", preflightSkipped, pluralS(preflightSkipped), len(targets))
 			fmt.Println()
 		}
 
@@ -848,6 +851,12 @@ func cmdUninstall(args []string) error {
 		}
 
 		// Batch summary
+		ui.OperationSummary("Uninstall", time.Since(start),
+			ui.Metric{Label: "removed", Count: len(succeeded), HighlightColor: pterm.Green},
+			ui.Metric{Label: "skipped", Count: preflightSkipped, HighlightColor: pterm.Yellow},
+			ui.Metric{Label: "failed", Count: len(failed), HighlightColor: pterm.Red},
+		)
+
 		ui.SectionLabel("Next Steps")
 		ui.Info("Moved to trash (7 days).")
 		ui.Info("Run 'skillshare sync' to update all targets")

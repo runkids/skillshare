@@ -205,7 +205,11 @@ func (s *Spinner) Success(message string) {
 		msg = fmt.Sprintf("%s (%.1fs)", message, elapsed.Seconds())
 	}
 	if s.spinner != nil {
-		s.spinner.Success(msg)
+		// Stop first (clears animation via RemoveWhenDone), then print.
+		// pterm's spinner.Success() loses the message because Stop() clears
+		// the line after printing. We print a lightweight ✓ instead.
+		s.spinner.Stop() //nolint:errcheck
+		fmt.Printf("  %s %s\n", pterm.Green("✓"), msg)
 	} else {
 		fmt.Printf("✓ %s\n", msg)
 	}
@@ -214,7 +218,8 @@ func (s *Spinner) Success(message string) {
 // Fail stops spinner with failure (red)
 func (s *Spinner) Fail(message string) {
 	if s.spinner != nil {
-		s.spinner.Fail(message)
+		s.spinner.Stop() //nolint:errcheck
+		fmt.Printf("  %s %s\n", pterm.Red("✗"), message)
 	} else {
 		fmt.Printf("✗ %s\n", message)
 	}
@@ -228,7 +233,8 @@ func (s *Spinner) Warn(message string) {
 		msg = fmt.Sprintf("%s (%.1fs)", message, elapsed.Seconds())
 	}
 	if s.spinner != nil {
-		s.spinner.Warning(msg)
+		s.spinner.Stop() //nolint:errcheck
+		fmt.Printf("  %s %s\n", pterm.Yellow("!"), msg)
 	} else {
 		fmt.Printf("! %s\n", msg)
 	}
@@ -245,7 +251,7 @@ func (s *Spinner) Stop() {
 func SuccessMsg(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	if IsTTY() {
-		pterm.Success.Println(msg)
+		fmt.Printf("  %s %s\n", pterm.Green("✓"), msg)
 	} else {
 		fmt.Printf("✓ %s\n", msg)
 	}
@@ -255,7 +261,7 @@ func SuccessMsg(format string, args ...interface{}) {
 func ErrorMsg(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	if IsTTY() {
-		pterm.Error.Println(msg)
+		fmt.Printf("  %s %s\n", pterm.Red("✗"), msg)
 	} else {
 		fmt.Printf("✗ %s\n", msg)
 	}
@@ -460,31 +466,13 @@ func UpdateNotification(currentVersion, latestVersion string) {
 
 // SyncSummary prints a sync summary line.
 func SyncSummary(stats SyncStats) {
-	fmt.Println() // spacing
-
-	if !IsTTY() {
-		fmt.Printf("Sync complete: %d targets, %d linked, %d local, %d updated, %d pruned",
-			stats.Targets, stats.Linked, stats.Local, stats.Updated, stats.Pruned)
-		if stats.Duration > 0 {
-			fmt.Printf(" (%.1fs)", stats.Duration.Seconds())
-		}
-		fmt.Println()
-		return
-	}
-
-	line := fmt.Sprintf(
-		"%s  %s targets  %s linked  %s local  %s updated  %s pruned",
-		pterm.Green("✓ Sync complete"),
-		pterm.Cyan(fmt.Sprint(stats.Targets)),
-		pterm.Green(fmt.Sprint(stats.Linked)),
-		pterm.Blue(fmt.Sprint(stats.Local)),
-		pterm.Yellow(fmt.Sprint(stats.Updated)),
-		pterm.Gray(fmt.Sprint(stats.Pruned)),
+	OperationSummary("Sync", stats.Duration,
+		Metric{Label: "targets", Count: stats.Targets, HighlightColor: pterm.Cyan},
+		Metric{Label: "linked", Count: stats.Linked, HighlightColor: pterm.Green},
+		Metric{Label: "local", Count: stats.Local, HighlightColor: pterm.Blue},
+		Metric{Label: "updated", Count: stats.Updated, HighlightColor: pterm.Yellow},
+		Metric{Label: "pruned", Count: stats.Pruned, HighlightColor: pterm.Yellow},
 	)
-	if stats.Duration > 0 {
-		line += fmt.Sprintf("  %s", pterm.Gray(fmt.Sprintf("(%.1fs)", stats.Duration.Seconds())))
-	}
-	fmt.Println(line)
 }
 
 // SyncStats holds statistics for sync summary
@@ -499,38 +487,11 @@ type SyncStats struct {
 
 // UpdateSummary prints an update summary line matching SyncSummary style.
 func UpdateSummary(stats UpdateStats) {
-	fmt.Println() // spacing
-
-	if !IsTTY() {
-		fmt.Printf("Update complete: %d updated, %d skipped, %d pruned",
-			stats.Updated, stats.Skipped, stats.Pruned)
-		if stats.Duration > 0 {
-			fmt.Printf(" (%.1fs)", stats.Duration.Seconds())
-		}
-		fmt.Println()
-		if stats.SecurityFailed > 0 {
-			fmt.Printf("Warning: %d repo(s) blocked by security audit\n", stats.SecurityFailed)
-		}
-		return
-	}
-
-	skippedColor := pterm.Gray
-	if stats.Skipped > 0 {
-		skippedColor = pterm.Yellow
-	}
-
-	line := fmt.Sprintf(
-		"%s  %s updated  %s skipped  %s pruned",
-		pterm.Green("✓ Update complete"),
-		pterm.Green(fmt.Sprint(stats.Updated)),
-		skippedColor(fmt.Sprint(stats.Skipped)),
-		pterm.Yellow(fmt.Sprint(stats.Pruned)),
+	OperationSummary("Update", stats.Duration,
+		Metric{Label: "updated", Count: stats.Updated, HighlightColor: pterm.Green},
+		Metric{Label: "skipped", Count: stats.Skipped, HighlightColor: pterm.Yellow},
+		Metric{Label: "pruned", Count: stats.Pruned, HighlightColor: pterm.Yellow},
 	)
-	if stats.Duration > 0 {
-		line += fmt.Sprintf("  %s", pterm.Gray(fmt.Sprintf("(%.1fs)", stats.Duration.Seconds())))
-	}
-	fmt.Println(line)
-
 	if stats.SecurityFailed > 0 {
 		Warning("Blocked: %d repo(s) by security audit", stats.SecurityFailed)
 	}
@@ -543,6 +504,55 @@ type UpdateStats struct {
 	Pruned         int
 	SecurityFailed int
 	Duration       time.Duration
+}
+
+// Metric is a labeled count for OperationSummary.
+type Metric struct {
+	Label string
+	Count int
+	// HighlightColor is the pterm color func used when Count > 0 in TTY mode.
+	// When nil, defaults to pterm.Gray.
+	HighlightColor func(a ...any) string
+}
+
+// formatSummaryLine builds the plain-text (non-TTY) summary line.
+func formatSummaryLine(action string, duration time.Duration, metrics ...Metric) string {
+	parts := make([]string, len(metrics))
+	for i, m := range metrics {
+		parts[i] = fmt.Sprintf("%d %s", m.Count, m.Label)
+	}
+	line := fmt.Sprintf("%s complete: %s", action, strings.Join(parts, ", "))
+	if duration > 0 {
+		line += fmt.Sprintf(" (%.1fs)", duration.Seconds())
+	}
+	return line
+}
+
+// OperationSummary prints a generic operation summary line.
+//
+// TTY output:  ✓ Collect complete  5 collected  2 skipped  0 failed  (1.2s)
+// Pipe output: Collect complete: 5 collected, 2 skipped, 0 failed (1.2s)
+func OperationSummary(action string, duration time.Duration, metrics ...Metric) {
+	fmt.Println() // spacing before summary
+
+	if !IsTTY() {
+		fmt.Println(formatSummaryLine(action, duration, metrics...))
+		return
+	}
+
+	parts := []string{pterm.Green("✓ " + action + " complete")}
+	for _, m := range metrics {
+		colorFn := pterm.Gray
+		if m.Count > 0 && m.HighlightColor != nil {
+			colorFn = m.HighlightColor
+		}
+		parts = append(parts, colorFn(fmt.Sprint(m.Count))+" "+m.Label)
+	}
+	line := strings.Join(parts, "  ")
+	if duration > 0 {
+		line += "  " + pterm.Gray(fmt.Sprintf("(%.1fs)", duration.Seconds()))
+	}
+	fmt.Println(line)
 }
 
 // ListItem prints a list item with status
