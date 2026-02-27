@@ -418,17 +418,13 @@ func confirmUninstall(target *uninstallTarget) (bool, error) {
 	return input == "y" || input == "yes", nil
 }
 
-// performUninstallQuiet moves the skill to trash and cleans up without printing output.
+// performUninstallQuiet moves the skill to trash without printing output.
 // Used by batch mode; returns the type label for StepDone display.
-func performUninstallQuiet(target *uninstallTarget, cfg *config.Config) (typeLabel string, err error) {
+// Note: .gitignore cleanup is handled in batch by the caller.
+func performUninstallQuiet(target *uninstallTarget) (typeLabel string, err error) {
 	groupSkillCount := 0
 	if !target.isTrackedRepo {
 		groupSkillCount = len(countGroupSkills(target.path))
-	}
-
-	// For tracked repos, clean up .gitignore
-	if target.isTrackedRepo {
-		install.RemoveFromGitIgnore(cfg.Source, target.name) //nolint:errcheck
 	}
 
 	if _, err := trash.MoveToTrash(target.path, target.name, trash.TrashDir()); err != nil {
@@ -444,22 +440,14 @@ func performUninstallQuiet(target *uninstallTarget, cfg *config.Config) (typeLab
 	return "skill", nil
 }
 
-// performUninstall moves the skill to trash and cleans up (verbose single-target output)
-func performUninstall(target *uninstallTarget, cfg *config.Config) error {
+// performUninstall moves the skill to trash (verbose single-target output).
+// Note: .gitignore cleanup is handled in batch by the caller.
+func performUninstall(target *uninstallTarget) error {
 	// Read metadata before moving (for reinstall hint)
 	meta, _ := install.ReadMeta(target.path)
 	groupSkillCount := 0
 	if !target.isTrackedRepo {
 		groupSkillCount = len(countGroupSkills(target.path))
-	}
-
-	// For tracked repos, clean up .gitignore
-	if target.isTrackedRepo {
-		if removed, err := install.RemoveFromGitIgnore(cfg.Source, target.name); err != nil {
-			ui.Warning("Could not update .gitignore: %v", err)
-		} else if removed {
-			ui.Info("Removed %s from .gitignore", target.name)
-		}
 	}
 
 	trashPath, err := trash.MoveToTrash(target.path, target.name, trash.TrashDir())
@@ -789,13 +777,26 @@ func cmdUninstall(args []string) error {
 		var results []batchResult
 
 		for _, t := range targets {
-			typeLabel, err := performUninstallQuiet(t, cfg)
+			typeLabel, err := performUninstallQuiet(t)
 			if err != nil {
 				results = append(results, batchResult{target: t, errMsg: err.Error()})
 				failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
 			} else {
 				results = append(results, batchResult{target: t, typeLabel: typeLabel})
 				succeeded = append(succeeded, t)
+			}
+		}
+
+		// Batch-remove .gitignore entries for tracked repos (one read/write pass).
+		if len(succeeded) > 0 {
+			var gitignoreEntries []string
+			for _, t := range succeeded {
+				if t.isTrackedRepo {
+					gitignoreEntries = append(gitignoreEntries, t.name)
+				}
+			}
+			if len(gitignoreEntries) > 0 {
+				install.RemoveFromGitIgnoreBatch(cfg.Source, gitignoreEntries) //nolint:errcheck
 			}
 		}
 
@@ -867,10 +868,25 @@ func cmdUninstall(args []string) error {
 		}
 	} else {
 		for _, t := range targets {
-			if err := performUninstall(t, cfg); err != nil {
+			if err := performUninstall(t); err != nil {
 				failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
 			} else {
 				succeeded = append(succeeded, t)
+			}
+		}
+
+		// Batch-remove .gitignore entries for tracked repos after all targets processed.
+		if len(succeeded) > 0 {
+			var gitignoreEntries []string
+			for _, t := range succeeded {
+				if t.isTrackedRepo {
+					gitignoreEntries = append(gitignoreEntries, t.name)
+				}
+			}
+			if len(gitignoreEntries) > 0 {
+				if _, err := install.RemoveFromGitIgnoreBatch(cfg.Source, gitignoreEntries); err != nil {
+					ui.Warning("Could not update .gitignore: %v", err)
+				}
 			}
 		}
 	}

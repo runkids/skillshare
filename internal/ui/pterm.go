@@ -158,7 +158,9 @@ func StartSpinnerWithSteps(message string, totalSteps int) *Spinner {
 	}
 
 	stepPrefix := fmt.Sprintf("[1/%d] ", totalSteps)
-	s, _ := pterm.DefaultSpinner.Start(stepPrefix + message)
+	s, _ := pterm.DefaultSpinner.
+		WithRemoveWhenDone(true).
+		Start(stepPrefix + message)
 	return &Spinner{
 		spinner:     s,
 		start:       time.Now(),

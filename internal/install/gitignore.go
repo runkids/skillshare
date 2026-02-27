@@ -45,6 +45,53 @@ func UpdateGitIgnore(dir, entry string) error {
 	return writeGitignoreLines(gitignorePath, updated)
 }
 
+// UpdateGitIgnoreBatch adds multiple entries to the .gitignore file in one read/write pass.
+func UpdateGitIgnoreBatch(dir string, entries []string) error {
+	gitignorePath := filepath.Join(dir, ".gitignore")
+
+	lines, err := readGitignoreLines(gitignorePath)
+	if err != nil {
+		return err
+	}
+
+	lines, startIdx, endIdx := ensureMarkerBlock(lines)
+	managed := lines[startIdx+1 : endIdx]
+
+	// Build set of existing entries for O(1) lookup.
+	existing := make(map[string]struct{}, len(managed))
+	for _, line := range managed {
+		existing[strings.TrimSpace(line)] = struct{}{}
+	}
+
+	// Collect genuinely new entries.
+	var newEntries []string
+	for _, entry := range entries {
+		entry = strings.ReplaceAll(entry, "\\", "/")
+		if !strings.HasSuffix(entry, "/") {
+			entry += "/"
+		}
+		entryNoSlash := strings.TrimSuffix(entry, "/")
+		if _, ok := existing[entry]; ok {
+			continue
+		}
+		if _, ok := existing[entryNoSlash]; ok {
+			continue
+		}
+		newEntries = append(newEntries, entry)
+	}
+
+	if len(newEntries) == 0 {
+		return nil
+	}
+
+	updated := make([]string, 0, len(lines)+len(newEntries))
+	updated = append(updated, lines[:endIdx]...)
+	updated = append(updated, newEntries...)
+	updated = append(updated, lines[endIdx:]...)
+
+	return writeGitignoreLines(gitignorePath, updated)
+}
+
 // RemoveFromGitIgnore removes an entry from the .gitignore file.
 // Returns true if the entry was found and removed.
 func RemoveFromGitIgnore(dir, entry string) (bool, error) {
@@ -100,6 +147,58 @@ func RemoveFromGitIgnore(dir, entry string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// RemoveFromGitIgnoreBatch removes multiple entries from .gitignore in one read/write pass.
+// Returns the number of entries actually removed.
+func RemoveFromGitIgnoreBatch(dir string, entries []string) (int, error) {
+	gitignorePath := filepath.Join(dir, ".gitignore")
+
+	lines, err := readGitignoreLines(gitignorePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	startIdx, endIdx := findMarkerBlock(lines)
+	if startIdx == -1 || endIdx == -1 || startIdx >= endIdx {
+		return 0, nil
+	}
+
+	// Build set of entries to remove (both with and without trailing slash).
+	removeSet := make(map[string]struct{}, len(entries)*2)
+	for _, entry := range entries {
+		entry = strings.ReplaceAll(entry, "\\", "/")
+		if !strings.HasSuffix(entry, "/") {
+			entry += "/"
+		}
+		removeSet[entry] = struct{}{}
+		removeSet[strings.TrimSuffix(entry, "/")] = struct{}{}
+	}
+
+	removed := 0
+	updated := make([]string, 0, len(lines))
+	updated = append(updated, lines[:startIdx+1]...)
+	for i := startIdx + 1; i < endIdx; i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if _, ok := removeSet[trimmed]; ok {
+			removed++
+			continue
+		}
+		updated = append(updated, lines[i])
+	}
+	updated = append(updated, lines[endIdx:]...)
+
+	if removed == 0 {
+		return 0, nil
+	}
+
+	if err := writeGitignoreLines(gitignorePath, updated); err != nil {
+		return 0, err
+	}
+	return removed, nil
 }
 
 // gitignoreContains checks if an entry exists in .gitignore
