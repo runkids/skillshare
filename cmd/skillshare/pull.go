@@ -133,9 +133,9 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 	spinner.Stop()
 	ui.SuccessMsg("Pull complete (%.1fs)", time.Since(pullStart).Seconds())
 
-	// Sync to all targets
+	// Sync to all targets (always global — pull operates on the global source)
 	fmt.Println()
-	return cmdSync([]string{})
+	return cmdSync([]string{"--global"})
 }
 
 // firstPull handles the initial pull when no upstream tracking exists.
