@@ -85,9 +85,12 @@ func main() {
 	}
 
 	if err := handler(args); err != nil {
+		fmt.Println()
 		ui.Error("%v", err)
 		os.Exit(1)
 	}
+
+	fmt.Println()
 
 	// Check for updates (non-blocking, silent on errors)
 	// Skip for upgrade command since we just upgraded (current process still has old version)
