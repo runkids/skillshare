@@ -3,6 +3,9 @@
 package integration
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -52,7 +55,13 @@ func TestUpdateAll_AuditOutputParity_Antigravity(t *testing.T) {
 	installResult := sb.RunCLIInDir(projectRoot, "install", "sickn33/antigravity-awesome-skills/skills", "--all", "--force", "-p")
 	installResult.AssertSuccess(t)
 
-	// Step 2: update --all (nothing changed, should be clean)
+	// Step 2: invalidate one skill's metadata version so update treats it as
+	// needing re-install.  Without this, the skip-unchanged optimisation
+	// (ec81fc1) causes every skill to be skipped and no audit output is produced.
+	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	invalidateOneSkillMeta(t, skillsDir)
+
+	// Step 3: update --all — the invalidated skill gets re-installed, producing audit output
 	updateResult := sb.RunCLIInDir(projectRoot, "update", "--all", "-p")
 	updateResult.AssertSuccess(t)
 
@@ -66,10 +75,49 @@ func TestUpdateAll_AuditOutputParity_Antigravity(t *testing.T) {
 			updateResult.Stdout, updateResult.Stderr)
 	}
 
-	// Batch summary line
+	// Batch summary line (most skills are still skipped)
 	updateResult.AssertAnyOutputContains(t, "skipped")
 
-	// No blocked skills (nothing changed upstream)
+	// No blocked skills on re-install (--force was used initially)
 	updateResult.AssertOutputNotContains(t, "Blocked / Failed")
 	updateResult.AssertOutputNotContains(t, "Blocked / Rolled Back")
+}
+
+// invalidateOneSkillMeta finds the first skill with a .skillshare-meta.json file
+// and sets its "version" to a stale value, forcing the next update to re-install it.
+func invalidateOneSkillMeta(t *testing.T, skillsDir string) {
+	t.Helper()
+
+	entries, err := os.ReadDir(skillsDir)
+	if err != nil {
+		t.Fatalf("cannot read skills dir: %v", err)
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		metaPath := filepath.Join(skillsDir, e.Name(), ".skillshare-meta.json")
+		data, err := os.ReadFile(metaPath)
+		if err != nil {
+			continue
+		}
+		var meta map[string]any
+		if err := json.Unmarshal(data, &meta); err != nil {
+			continue
+		}
+		meta["version"] = "stale"
+		meta["tree_hash"] = "" // also clear tree hash so subdir fallback won't match
+		out, err := json.MarshalIndent(meta, "", "  ")
+		if err != nil {
+			t.Fatalf("marshal meta: %v", err)
+		}
+		if err := os.WriteFile(metaPath, out, 0644); err != nil {
+			t.Fatalf("write meta: %v", err)
+		}
+		t.Logf("invalidated metadata for skill %q to force re-install", e.Name())
+		return
+	}
+
+	t.Fatal("no skill with metadata found to invalidate")
 }
