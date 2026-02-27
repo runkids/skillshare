@@ -78,7 +78,7 @@ These are auto-detected during `skillshare init`:
 </thead>
 <tbody>
 <tr id="target-adal"><td>adal</td><td><code>&#126;/.adal/skills</code></td><td><code>.adal/skills</code></td></tr>
-<tr id="target-universal"><td>universal</td><td><code>&#126;/.config/agents/skills</code></td><td><code>.agents/skills</code></td></tr>
+<tr id="target-universal"><td>universal</td><td><code>&#126;/.agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-amp"><td>amp</td><td><code>&#126;/.config/agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-antigravity"><td>antigravity</td><td><code>&#126;/.gemini/antigravity/skills</code></td><td><code>.agent/skills</code></td></tr>
 <tr id="target-augment"><td>augment</td><td><code>&#126;/.augment/skills</code></td><td><code>.augment/skills</code></td></tr>

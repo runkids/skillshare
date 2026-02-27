@@ -135,25 +135,23 @@ skillshare check --json
 }
 ```
 
-## How It Checks
+## Status Indicators
 
-### Tracked Repos
+| Icon | Meaning |
+|------|---------|
+| `✓` | Up to date |
+| `⬇` | Update available (tracked repo: commits behind; skill: newer version) |
+| `⚠` | Stale — subdirectory deleted or renamed upstream |
+| `!` | Has uncommitted changes |
+| `•` | Local source (no remote to compare) |
 
-1. Run `git fetch` to get latest refs from origin
-2. Compare local HEAD with `origin/<branch>` using `git rev-list --count`
-3. Report number of commits behind
+:::info Stale skills
+When a skill's subdirectory was renamed or deleted upstream, `check` reports it as **stale**. Use `update --prune` to clean up stale skills.
+:::
 
-### Regular Skills (with metadata)
-
-1. Read `.skillshare-meta.json` for stored version and repo URL
-2. Run `git ls-remote <repo_url> HEAD` to get remote HEAD hash
-3. Compare with stored version hash
-
-When a skill's subdirectory no longer exists in the remote repository (renamed or deleted upstream), `check` reports it as **stale** instead of "update available". Use `update --prune` to clean up stale skills.
-
-### Local Skills
-
-Skills without metadata or with a local source are shown as "local source" — no remote check is possible.
+:::tip Monorepo awareness
+For skills installed from a subdirectory, `check` only reports "update available" when that specific directory changed — not when unrelated parts of the repo have new commits.
+:::
 
 ## Project Mode
 

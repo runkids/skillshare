@@ -32,6 +32,10 @@ flowchart TD
     TITLE --> S1 --> S2 --> S3 --> S4 --> S5 --> S6
 ```
 
+:::info Universal target
+When any AI CLI is detected, `init` automatically recommends the **universal** target (`~/.agents/skills`). This is the shared directory used by [vercel-labs/skills](https://github.com/vercel-labs/skills) (`npx skills list`) to provide skills to all compatible agents at once.
+:::
+
 ## Project Mode
 
 Initialize project-level skills with `-p`:
@@ -66,7 +70,7 @@ skillshare init --discover              # Interactive selection
 skillshare init --discover --select codex,opencode  # Non-interactive
 ```
 
-Scans for newly installed AI CLIs not yet in your config and prompts you to add them.
+Scans for newly installed AI CLIs not yet in your config and prompts you to add them. The `universal` target (`~/.agents/skills`) is automatically recommended whenever any CLI is detected.
 
 ### Project
 

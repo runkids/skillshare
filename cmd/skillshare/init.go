@@ -612,6 +612,28 @@ func detectCLIDirectories(home string) []detectedDir {
 		}
 	}
 
+	// Auto-include universal target when any CLI is detected.
+	// The universal path (~/.agents/skills/) is the cross-tool shared directory
+	// used by vercel-labs/skills (npx skills list). It won't exist on disk until
+	// we create it, so normal directory detection won't find it.
+	if len(detected) > 0 {
+		hasUniversal := false
+		for _, d := range detected {
+			if d.name == "universal" {
+				hasUniversal = true
+				break
+			}
+		}
+		if !hasUniversal {
+			if target, ok := defaultTargets["universal"]; ok {
+				detected = append(detected, detectedDir{
+					name: "universal", path: target.Path,
+				})
+				ui.Info("Found: %-12s %s (recommended)", "universal", target.Path)
+			}
+		}
+	}
+
 	return detected
 }
 
@@ -1322,6 +1344,29 @@ func detectNewAgents(existingCfg *config.Config) []agentInfo {
 			path:        target.Path,
 			description: status,
 		})
+	}
+
+	// Auto-include universal if any new agent is found but universal isn't
+	// already configured and not yet in the candidate list.
+	if len(newAgents) > 0 {
+		if _, configured := existingCfg.Targets["universal"]; !configured {
+			hasUniversal := false
+			for _, a := range newAgents {
+				if a.name == "universal" {
+					hasUniversal = true
+					break
+				}
+			}
+			if !hasUniversal {
+				if target, ok := defaultTargets["universal"]; ok {
+					newAgents = append(newAgents, agentInfo{
+						name:        "universal",
+						path:        target.Path,
+						description: "(recommended)",
+					})
+				}
+			}
+		}
 	}
 
 	return newAgents

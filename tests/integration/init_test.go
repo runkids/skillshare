@@ -493,10 +493,77 @@ func TestInit_AllTargets(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "--all-targets")
 
-	// Verify config has targets
+	// Verify config has targets (including auto-detected universal)
 	configContent := sb.ReadFile(sb.ConfigPath)
 	if !strings.Contains(configContent, "claude:") || !strings.Contains(configContent, "cursor:") {
 		t.Errorf("config should contain all detected targets, got: %s", configContent)
+	}
+	if !strings.Contains(configContent, "universal:") {
+		t.Errorf("config should auto-include universal target when any CLI is detected, got: %s", configContent)
+	}
+}
+
+func TestInit_UniversalAutoDetected(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+
+	// Create only a claude skills directory — universal path (~/.agents/) does
+	// NOT exist on disk, yet init should auto-include it as a recommended target.
+	claudeSkillsPath := filepath.Join(sb.Home, ".claude", "skills")
+	os.MkdirAll(claudeSkillsPath, 0755)
+
+	// Remove other sandbox defaults so only claude is detected
+	os.RemoveAll(filepath.Join(sb.Home, ".codex"))
+	os.RemoveAll(filepath.Join(sb.Home, ".cursor"))
+
+	result := sb.RunCLI("init", "--no-copy", "--all-targets", "--no-git", "--no-skill")
+
+	result.AssertSuccess(t)
+
+	// Verify config includes universal pointing to ~/.agents/skills
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(configContent, "universal:") {
+		t.Errorf("config should contain universal target, got:\n%s", configContent)
+	}
+
+	agentsPath := filepath.Join(sb.Home, ".agents", "skills")
+	if !strings.Contains(configContent, agentsPath) {
+		t.Errorf("universal target should point to %s, got:\n%s", agentsPath, configContent)
+	}
+}
+
+func TestInit_Discover_UniversalAutoAdded(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Config has claude only, no universal
+	claudeSkillsPath := filepath.Join(sb.Home, ".claude", "skills")
+	os.MkdirAll(claudeSkillsPath, 0755)
+
+	// Create a new agent directory so detectNewAgents finds something
+	cursorSkillsPath := filepath.Join(sb.Home, ".cursor", "skills")
+	os.MkdirAll(cursorSkillsPath, 0755)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeSkillsPath + `
+`)
+
+	// Run discover with --select cursor — universal should also appear as candidate
+	result := sb.RunCLI("init", "--discover", "--select", "cursor,universal")
+
+	result.AssertSuccess(t)
+
+	// Verify config now has both cursor and universal
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(configContent, "cursor:") {
+		t.Errorf("config should contain cursor target, got:\n%s", configContent)
+	}
+	if !strings.Contains(configContent, "universal:") {
+		t.Errorf("config should contain universal target (auto-added candidate), got:\n%s", configContent)
 	}
 }
 
