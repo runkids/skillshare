@@ -70,11 +70,6 @@ func cmdSync(args []string) error {
 		return fmt.Errorf("source directory does not exist: %s", cfg.Source)
 	}
 
-	// Backup targets before sync (only if not dry-run)
-	if !dryRun {
-		backupTargetsBeforeSync(cfg)
-	}
-
 	// Phase 1: Discovery — spinner
 	spinner := ui.StartSpinner("Discovering skills")
 	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
@@ -84,6 +79,12 @@ func cmdSync(args []string) error {
 	}
 	spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
 	reportCollisions(discoveredSkills, cfg.Targets)
+
+	// Backup targets before sync (only if not dry-run and there are skills)
+	if !dryRun && len(discoveredSkills) > 0 {
+		fmt.Println()
+		backupTargetsBeforeSync(cfg)
+	}
 
 	// Phase 2: Per-target sync (parallel)
 	ui.Header("Syncing skills")
