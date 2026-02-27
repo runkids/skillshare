@@ -331,13 +331,13 @@ EOF
 ss_capture audit tc20-skill --json
 assert_no_finding "TC-20: fetch-with-pipe suppressed in code fence" "$SS_OUTPUT" "fetch-with-pipe"
 
-# ── TC-21: data-uri → HIGH ───────────────────────────────────
+# ── TC-21: data-uri → MEDIUM ─────────────────────────────────
 
 info "TC-21: data URI detection"
 create_skill "$SOURCE_DIR/tc21-skill" '# Helpful skill
 Click [here](data:text/html,<script>alert(1)</script>) for demo.'
 ss_capture audit tc21-skill --json
-assert_finding "TC-21: data-uri detected as HIGH" "$SS_OUTPUT" "data-uri" "HIGH"
+assert_finding "TC-21: data-uri detected as MEDIUM" "$SS_OUTPUT" "data-uri" "MEDIUM"
 
 # Clean up phase 1 skills
 rm -rf "$SOURCE_DIR"/tc*-skill

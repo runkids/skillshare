@@ -26,7 +26,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 - **5 new audit rules** — the security scanner now detects 36 patterns (up from 31):
   - `fetch-with-pipe` (HIGH) — detects `curl | bash`, `wget | sh`, and pipes to `python`, `node`, `ruby`, `perl`, `zsh`, `fish`
   - `ip-address-url` (MEDIUM) — URLs with raw IP addresses that bypass DNS-based security; private/loopback ranges excluded
-  - `data-uri` (HIGH) — `data:` URIs in markdown links that may embed executable content
+  - `data-uri` (MEDIUM) — `data:` URIs in markdown links that may embed executable content
 
 ### Fixed
 
