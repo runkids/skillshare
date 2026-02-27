@@ -368,7 +368,7 @@ func TestDisplayInstallResults_VerboseLargeBatch_ShowsCompactThenHighCritical(t 
 
 	output := captureStdout(t, func() {
 		spinner := &ui.Spinner{}
-		displayInstallResults(results, spinner, true)
+		displayInstallResults(results, spinner, true, "")
 	})
 	output = stripANSIWarnings(output)
 
@@ -414,4 +414,115 @@ func captureStdout(t *testing.T, fn func()) string {
 func stripANSIWarnings(s string) string {
 	ansi := regexp.MustCompile(`\x1b\[[0-9;]*m`)
 	return ansi.ReplaceAllString(s, "")
+}
+
+func TestRepoLabelFromSource(t *testing.T) {
+	tests := []struct {
+		name   string
+		source *install.Source
+		want   string
+	}{
+		{"nil", nil, ""},
+		{"github https", &install.Source{
+			Type: install.SourceTypeGitHub, CloneURL: "https://github.com/runkids/feature-radar.git",
+		}, "runkids/feature-radar"},
+		{"github ssh", &install.Source{
+			Type: install.SourceTypeGitSSH, CloneURL: "git@github.com:runkids/feature-radar.git",
+		}, "runkids/feature-radar"},
+		{"generic https", &install.Source{
+			Type: install.SourceTypeGitHTTPS, CloneURL: "https://gitlab.com/team/skills.git",
+		}, "team/skills"},
+		{"local path fallback", &install.Source{
+			Type: install.SourceTypeLocalPath, Raw: "/home/user/my-skill",
+		}, "user/my-skill"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := repoLabelFromSource(tt.source)
+			if got != tt.want {
+				t.Errorf("repoLabelFromSource() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRenderSkippedByGroup_Flat(t *testing.T) {
+	skipped := []skillInstallResult{
+		{skill: install.SkillInfo{Name: "skill-a", Path: "skill-a"}},
+		{skill: install.SkillInfo{Name: "skill-b", Path: "skill-b"}},
+		{skill: install.SkillInfo{Name: "skill-c", Path: "skill-c"}},
+	}
+
+	output := captureStdout(t, func() {
+		renderSkippedByGroup(skipped)
+	})
+	output = stripANSIWarnings(output)
+
+	// Flat repo: single line with all names
+	if !strings.Contains(output, "skill-a, skill-b, skill-c") {
+		t.Errorf("expected flat comma-separated names, got:\n%s", output)
+	}
+	// Should NOT have directory prefix
+	if strings.Contains(output, "/") {
+		t.Errorf("expected no directory prefix for flat repo, got:\n%s", output)
+	}
+}
+
+func TestRenderSkippedByGroup_Nested(t *testing.T) {
+	skipped := []skillInstallResult{
+		{skill: install.SkillInfo{Name: "ui-kit", Path: "frontend/ui-kit"}},
+		{skill: install.SkillInfo{Name: "forms", Path: "frontend/forms"}},
+		{skill: install.SkillInfo{Name: "api", Path: "backend/api"}},
+	}
+
+	output := captureStdout(t, func() {
+		renderSkippedByGroup(skipped)
+	})
+	output = stripANSIWarnings(output)
+
+	// Should have two groups with directory prefixes
+	if !strings.Contains(output, "frontend/") {
+		t.Errorf("expected 'frontend/' group, got:\n%s", output)
+	}
+	if !strings.Contains(output, "backend/") {
+		t.Errorf("expected 'backend/' group, got:\n%s", output)
+	}
+	if !strings.Contains(output, "ui-kit, forms") {
+		t.Errorf("expected frontend skills grouped, got:\n%s", output)
+	}
+}
+
+func TestDisplayInstallResults_SkippedShowsRepoLabel(t *testing.T) {
+	results := []skillInstallResult{
+		{skill: install.SkillInfo{Name: "ok-skill", Path: "ok-skill"}, success: true, message: "installed"},
+		{skill: install.SkillInfo{Name: "skip-a", Path: "skip-a"}, skipped: true, message: "already installed from same repo"},
+		{skill: install.SkillInfo{Name: "skip-b", Path: "skip-b"}, skipped: true, message: "already installed from same repo"},
+	}
+
+	output := captureStdout(t, func() {
+		displayInstallResults(results, nil, false, "runkids/feature-radar")
+	})
+	output = stripANSIWarnings(output)
+
+	if !strings.Contains(output, "Skipped (runkids/feature-radar)") {
+		t.Errorf("expected repo label in Skipped header, got:\n%s", output)
+	}
+	if !strings.Contains(output, "skip-a, skip-b") {
+		t.Errorf("expected skipped names, got:\n%s", output)
+	}
+}
+
+func TestDisplayInstallResults_SkippedFallbackLabel(t *testing.T) {
+	results := []skillInstallResult{
+		{skill: install.SkillInfo{Name: "skip-x", Path: "skip-x"}, skipped: true, message: "already installed from same repo"},
+	}
+
+	output := captureStdout(t, func() {
+		displayInstallResults(results, nil, false, "")
+	})
+	output = stripANSIWarnings(output)
+
+	if !strings.Contains(output, "Skipped (same repo)") {
+		t.Errorf("expected fallback 'same repo' label, got:\n%s", output)
+	}
 }

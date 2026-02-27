@@ -57,6 +57,8 @@ func TestInstall_LocalPath_AlreadyExists(t *testing.T) {
 	srcDir := createLocalSkillSource(t, tmp, "my-skill")
 	destDir := filepath.Join(tmp, "dest", "my-skill")
 	os.MkdirAll(destDir, 0755)
+	// Write SKILL.md so it's treated as a real skill (empty dirs are auto-overwritten).
+	os.WriteFile(filepath.Join(destDir, "SKILL.md"), []byte("# existing"), 0644)
 
 	source := &Source{
 		Type: SourceTypeLocalPath,

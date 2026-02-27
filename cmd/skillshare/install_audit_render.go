@@ -26,6 +26,7 @@ var installAuditThresholdPattern = regexp.MustCompile(`at/above\s+([A-Z]+)\s+det
 type skillInstallResult struct {
 	skill          install.SkillInfo
 	success        bool
+	skipped        bool   // true when same-repo skip (not a failure)
 	message        string
 	warnings       []string
 	auditRiskLabel string

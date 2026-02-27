@@ -114,6 +114,14 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Cross-path duplicate detection
+	if !body.Force && source.CloneURL != "" {
+		if err := install.CheckCrossPathDuplicate(s.cfg.Source, source.CloneURL, body.Into); err != nil {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
+	}
+
 	results := make([]batchResultItem, 0, len(body.Skills))
 	installOpts := install.InstallOptions{
 		Force:          body.Force,
@@ -314,6 +322,14 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			"warnings":   result.Warnings,
 		})
 		return
+	}
+
+	// Cross-path duplicate detection
+	if !body.Force && source.CloneURL != "" {
+		if err := install.CheckCrossPathDuplicate(s.cfg.Source, source.CloneURL, body.Into); err != nil {
+			writeError(w, http.StatusConflict, err.Error())
+			return
+		}
 	}
 
 	// Regular install

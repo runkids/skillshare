@@ -1,6 +1,11 @@
 package install
 
-import "os"
+import (
+	"errors"
+	"fmt"
+	"os"
+	"strings"
+)
 
 // InstallOptions configures the install behavior
 type InstallOptions struct {
@@ -70,6 +75,84 @@ type TrackedRepoResult struct {
 	AuditRiskScore int
 	AuditRiskLabel string
 	AuditSkipped   bool
+}
+
+// ErrSkipSameRepo is returned when the destination skill already exists and
+// was installed from the same repository. Callers should treat this as a
+// friendly skip, not a hard failure.
+var ErrSkipSameRepo = errors.New("already installed from same repo")
+
+// checkExistingConflict reads the meta of an existing skill and compares
+// its repo_url with the incoming source. Returns:
+//   - nil when the directory is empty/invalid (caller should overwrite)
+//   - ErrSkipSameRepo when the repos match (caller should skip gracefully)
+//   - a descriptive error when they differ or meta is absent (real conflict)
+func checkExistingConflict(destPath string, incomingCloneURL string, forceHint string) error {
+	meta, err := ReadMeta(destPath)
+	if err != nil || meta == nil {
+		// No meta — check if directory is truly empty.
+		if dirIsEmpty(destPath) {
+			return nil
+		}
+		// Non-empty directory without meta — unknown origin.
+		return fmt.Errorf("already exists. To overwrite: %s", forceHint)
+	}
+
+	if repoURLsMatch(meta.RepoURL, incomingCloneURL) {
+		return fmt.Errorf("%w: use 'skillshare update' or --force to overwrite", ErrSkipSameRepo)
+	}
+
+	// Different repo — real conflict with provenance info.
+	return fmt.Errorf("already exists (installed from %s). To overwrite: %s", meta.RepoURL, forceHint)
+}
+
+// dirIsEmpty returns true if the directory has no entries (or only OS junk
+// like .DS_Store). Returns false for non-directories or read errors.
+func dirIsEmpty(path string) bool {
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.Name() == ".DS_Store" {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+// repoURLsMatch compares two clone URLs, normalizing trailing ".git" and
+// protocol differences (https vs git@). Returns false when either URL is empty.
+func repoURLsMatch(a, b string) bool {
+	na, nb := normalizeCloneURL(a), normalizeCloneURL(b)
+	return na != "" && nb != "" && na == nb
+}
+
+func normalizeCloneURL(u string) string {
+	u = strings.TrimSpace(u)
+	u = strings.TrimSuffix(u, ".git")
+	u = strings.TrimSuffix(u, "/")
+	// git@github.com:owner/repo → github.com/owner/repo
+	if strings.HasPrefix(u, "git@") {
+		u = strings.TrimPrefix(u, "git@")
+		u = strings.Replace(u, ":", "/", 1)
+	}
+	// https://github.com/owner/repo → github.com/owner/repo
+	u = strings.TrimPrefix(u, "https://")
+	u = strings.TrimPrefix(u, "http://")
+	return strings.ToLower(u)
+}
+
+// buildForceHint constructs a user-facing hint like
+// "skillshare install <source> --into <dir> --force".
+func buildForceHint(rawSource, into string) string {
+	cmd := "skillshare install " + rawSource
+	if into != "" {
+		cmd += " --into " + into
+	}
+	cmd += " --force"
+	return cmd
 }
 
 // removeAll is a test hook used by audit/install paths.

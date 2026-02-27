@@ -52,6 +52,10 @@ func handleTrackedRepoInstall(source *install.Source, cfg *config.Config, opts i
 
 	result, err := install.InstallTrackedRepo(source, cfg.Source, opts)
 	if err != nil {
+		if errors.Is(err, install.ErrSkipSameRepo) {
+			treeSpinner.Warn(firstWarningLine(err.Error()))
+			return logSummary, nil
+		}
 		if errors.Is(err, audit.ErrBlocked) {
 			treeSpinner.Fail("Blocked by security audit")
 			return logSummary, renderBlockedAuditError(err)
@@ -152,6 +156,14 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		}
 	}
 
+	// Cross-path duplicate detection: block if same repo is already installed
+	// at a different location (e.g. user forgot they used --into before).
+	if !opts.Force && source.CloneURL != "" {
+		if err := install.CheckCrossPathDuplicate(cfg.Source, source.CloneURL, opts.Into); err != nil {
+			return logSummary, err
+		}
+	}
+
 	// Subdir mode handles single skill before empty check (shows "1 skill: name")
 	if source.HasSubdir() && len(discovery.Skills) == 1 {
 		skill := discovery.Skills[0]
@@ -181,6 +193,10 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		result, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
 		if err != nil {
 			installSpinner.Stop()
+			if errors.Is(err, install.ErrSkipSameRepo) {
+				ui.Warning("%s: %s", skill.Name, firstWarningLine(err.Error()))
+				return logSummary, nil
+			}
 			if errors.Is(err, audit.ErrBlocked) {
 				return logSummary, renderBlockedAuditError(err)
 			}
@@ -254,6 +270,10 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		result, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
 		if err != nil {
 			installSpinner.Stop()
+			if errors.Is(err, install.ErrSkipSameRepo) {
+				ui.Warning("%s: %s", skill.Name, firstWarningLine(err.Error()))
+				return logSummary, nil
+			}
 			if errors.Is(err, audit.ErrBlocked) {
 				return logSummary, renderBlockedAuditError(err)
 			}
@@ -404,13 +424,19 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 			progressBar.UpdateTitle(fmt.Sprintf("Installing %s", skill.Name))
 		}
 
-		// Determine destination path
+		// Determine destination path and effective --into for force hints.
 		var destPath string
+		skillOpts := opts
 		if skill.Path == "." {
 			// Root skill - install directly
 			destPath = destWithInto(cfg.Source, opts, skill.Name)
 		} else if parentName != "" {
-			// Child skill with parent selected - nest under parent
+			// Child skill with parent selected - nest under parent group
+			effectiveInto := parentName
+			if opts.Into != "" {
+				effectiveInto = filepath.Join(opts.Into, parentName)
+			}
+			skillOpts.Into = effectiveInto
 			destPath = destWithInto(cfg.Source, opts, filepath.Join(parentName, skill.Name))
 		} else {
 			// Standalone child skill - install to root
@@ -426,9 +452,13 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 			continue
 		}
 
-		installResult, err := install.InstallFromDiscovery(discovery, skill, destPath, opts)
+		installResult, err := install.InstallFromDiscovery(discovery, skill, destPath, skillOpts)
 		if err != nil {
-			results = append(results, skillInstallResult{skill: skill, success: false, message: err.Error(), err: err})
+			r := skillInstallResult{skill: skill, success: false, message: err.Error(), err: err}
+			if errors.Is(err, install.ErrSkipSameRepo) {
+				r.skipped = true
+			}
+			results = append(results, r)
 			if progressBar != nil {
 				progressBar.Increment()
 			}
@@ -461,30 +491,63 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 		progressBar.Stop()
 	}
 
-	displayInstallResults(results, installSpinner, opts.AuditVerbose)
+	// Extract repo label for skipped display (e.g. "runkids/feature-radar")
+	repoLabel := repoLabelFromSource(discovery.Source)
+	displayInstallResults(results, installSpinner, opts.AuditVerbose, repoLabel)
 
 	summary := installBatchSummary{
 		InstalledSkills: make([]string, 0, len(results)),
 		FailedSkills:    make([]string, 0, len(results)),
 	}
 	for _, r := range results {
-		if r.success {
+		switch {
+		case r.success:
 			summary.InstalledSkills = append(summary.InstalledSkills, r.skill.Name)
-			continue
+		case r.skipped:
+			// Same-repo skips are not failures; exclude from FailedSkills.
+		default:
+			summary.FailedSkills = append(summary.FailedSkills, r.skill.Name)
 		}
-		summary.FailedSkills = append(summary.FailedSkills, r.skill.Name)
 	}
 	return summary
 }
 
-// displayInstallResults shows the final install results
-func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, auditVerbose bool) {
-	var successes, failures []skillInstallResult
+// repoLabelFromSource extracts a short "owner/repo" label from a Source's
+// CloneURL for display purposes. Falls back to Source.Raw if unparsable.
+func repoLabelFromSource(source *install.Source) string {
+	if source == nil {
+		return ""
+	}
+	if owner, repo := source.GitHubOwner(), source.GitHubRepo(); owner != "" && repo != "" {
+		return owner + "/" + repo
+	}
+	// Generic: use normalised clone URL and take last two segments
+	norm := source.CloneURL
+	if norm == "" {
+		norm = source.Raw
+	}
+	norm = strings.TrimSuffix(strings.TrimSuffix(strings.TrimSpace(norm), "/"), ".git")
+	if i := strings.LastIndex(norm, "/"); i >= 0 {
+		if j := strings.LastIndex(norm[:i], "/"); j >= 0 {
+			return norm[j+1:]
+		}
+		return norm[i+1:]
+	}
+	return norm
+}
+
+// displayInstallResults shows the final install results.
+// repoLabel is used in the Skipped section header (e.g. "owner/repo").
+func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, auditVerbose bool, repoLabel string) {
+	var successes, skipped, failures []skillInstallResult
 	totalWarnings := 0
 	for _, r := range results {
-		if r.success {
+		switch {
+		case r.success:
 			successes = append(successes, r)
-		} else {
+		case r.skipped:
+			skipped = append(skipped, r)
+		default:
 			failures = append(failures, r)
 		}
 		totalWarnings += len(r.warnings)
@@ -492,24 +555,28 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 
 	installed := len(successes)
 	failed := len(failures)
+	skippedCount := len(skipped)
 
+	// Summary line — skipped does not count as failure.
+	summaryMsg := buildInstallSummary(installed, failed, skippedCount)
 	if spinner != nil {
-		if failed > 0 && installed == 0 {
-			spinner.Fail(fmt.Sprintf("Failed to install %d skill(s)", failed))
-		} else if failed > 0 {
-			spinner.Warn(fmt.Sprintf("Installed %d, failed %d", installed, failed))
-		} else {
-			spinner.Success(fmt.Sprintf("Installed %d skill(s)", installed))
+		switch {
+		case failed > 0 && installed == 0:
+			spinner.Fail(summaryMsg)
+		case failed > 0:
+			spinner.Warn(summaryMsg)
+		case skippedCount > 0:
+			spinner.Success(summaryMsg)
+		default:
+			spinner.Success(summaryMsg)
 		}
 	} else {
 		// Progress bar mode — print summary line directly
 		fmt.Println()
 		if failed > 0 && installed == 0 {
-			ui.ErrorMsg("Failed to install %d skill(s)", failed)
-		} else if failed > 0 {
-			ui.SuccessMsg("Installed %d, failed %d", installed, failed)
+			ui.ErrorMsg("%s", summaryMsg)
 		} else {
-			ui.SuccessMsg("Installed %d skill(s)", installed)
+			ui.SuccessMsg("%s", summaryMsg)
 		}
 	}
 
@@ -566,6 +633,17 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 			}
 			ui.StepFail(r.skill.Name, msg)
 		}
+	}
+
+	// Show skipped (same-repo) — grouped by directory with repo label
+	if skippedCount > 0 {
+		label := "Skipped (same repo)"
+		if repoLabel != "" {
+			label = fmt.Sprintf("Skipped (%s)", repoLabel)
+		}
+		ui.SectionLabel(label)
+		renderSkippedByGroup(skipped)
+		ui.Info("Use 'skillshare update' to refresh, or --force to overwrite")
 	}
 
 	// Show successes — condensed when many
@@ -643,6 +721,69 @@ func displayInstallResults(results []skillInstallResult, spinner *ui.Spinner, au
 	}
 }
 
+// renderSkippedByGroup prints skipped skills grouped by their parent directory.
+// Flat repos (all skills at root) print a single line; nested repos show one
+// line per directory group.
+func renderSkippedByGroup(skipped []skillInstallResult) {
+	// Build ordered groups keyed by parent directory.
+	type group struct {
+		dir   string
+		names []string
+	}
+	groupIndex := map[string]int{}
+	var groups []group
+
+	for _, r := range skipped {
+		dir := filepath.Dir(r.skill.Path) // e.g. "." for root, "frontend" for "frontend/skill-a"
+		if dir == "." {
+			dir = ""
+		}
+		if idx, ok := groupIndex[dir]; ok {
+			groups[idx].names = append(groups[idx].names, r.skill.Name)
+		} else {
+			groupIndex[dir] = len(groups)
+			groups = append(groups, group{dir: dir, names: []string{r.skill.Name}})
+		}
+	}
+
+	if len(groups) == 1 {
+		// Single group (flat repo or all under one dir) — compact one-liner.
+		prefix := ""
+		if groups[0].dir != "" {
+			prefix = groups[0].dir + "/ "
+		}
+		ui.StepSkip(prefix+strings.Join(groups[0].names, ", "), "")
+		return
+	}
+
+	// Multiple groups — one line per directory.
+	for _, g := range groups {
+		label := strings.Join(g.names, ", ")
+		if g.dir != "" {
+			label = g.dir + "/ " + label
+		}
+		ui.StepSkip(label, "")
+	}
+}
+
+// buildInstallSummary formats the one-line summary for batch install results.
+func buildInstallSummary(installed, failed, skipped int) string {
+	parts := make([]string, 0, 3)
+	if installed > 0 {
+		parts = append(parts, fmt.Sprintf("Installed %d", installed))
+	}
+	if failed > 0 {
+		parts = append(parts, fmt.Sprintf("failed %d", failed))
+	}
+	if skipped > 0 {
+		parts = append(parts, fmt.Sprintf("%d skipped", skipped))
+	}
+	if len(parts) == 0 {
+		return "No skills installed"
+	}
+	return strings.Join(parts, ", ")
+}
+
 func handleDirectInstall(source *install.Source, cfg *config.Config, opts install.InstallOptions) (installLogSummary, error) {
 	logSummary := installLogSummary{
 		Source:         source.Raw,
@@ -680,6 +821,13 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 		return logSummary, fmt.Errorf("failed to create --into directory: %w", err)
 	}
 
+	// Cross-path duplicate detection (same as handleGitInstall)
+	if !opts.Force && source.CloneURL != "" {
+		if err := install.CheckCrossPathDuplicate(cfg.Source, source.CloneURL, opts.Into); err != nil {
+			return logSummary, err
+		}
+	}
+
 	// Show logo with version
 	ui.Logo(appversion.Version)
 
@@ -710,6 +858,10 @@ func handleDirectInstall(source *install.Source, cfg *config.Config, opts instal
 	// Execute installation
 	result, err := install.Install(source, destPath, opts)
 	if err != nil {
+		if errors.Is(err, install.ErrSkipSameRepo) {
+			treeSpinner.Warn(firstWarningLine(err.Error()))
+			return logSummary, nil
+		}
 		treeSpinner.Fail("Failed to install")
 		if errors.Is(err, audit.ErrBlocked) {
 			return logSummary, renderBlockedAuditError(err)

@@ -37,9 +37,13 @@ func installImpl(source *Source, destPath string, opts InstallOptions) (*Install
 			return handleUpdate(source, destPath, result, opts)
 		}
 		if !opts.Force {
-			return nil, fmt.Errorf("skill '%s' already exists. To overwrite:\n       skillshare install %s --force", source.Name, source.Raw)
+			hint := buildForceHint(source.Raw, opts.Into)
+			if err := checkExistingConflict(destPath, source.CloneURL, hint); err != nil {
+				return nil, err
+			}
+			// nil means empty/invalid dir — safe to overwrite, fall through.
 		}
-		// Force mode: remove existing
+		// Force mode (or empty dir): remove existing
 		if !opts.DryRun {
 			if err := os.RemoveAll(destPath); err != nil {
 				return nil, fmt.Errorf("failed to remove existing skill: %w", err)
@@ -184,7 +188,13 @@ func installFromDiscoveryImpl(discovery *DiscoveryResult, skill SkillInfo, destP
 	// Check if destination exists
 	if _, err := os.Stat(destPath); err == nil {
 		if !opts.Force {
-			return nil, fmt.Errorf("already exists. To overwrite:\n       skillshare install %s --force", fullSource)
+			// Use the original repo URL for force hints, not the per-skill
+			// fullSource URL (which isn't a valid install target).
+			hint := buildForceHint(discovery.Source.Raw, opts.Into)
+			if err := checkExistingConflict(destPath, discovery.Source.CloneURL, hint); err != nil {
+				return nil, err
+			}
+			// nil means empty/invalid dir — safe to overwrite, fall through.
 		}
 		if !opts.DryRun {
 			if err := os.RemoveAll(destPath); err != nil {
