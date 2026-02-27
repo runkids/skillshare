@@ -2,6 +2,8 @@ package install
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 )
 
 // BatchUpdateResult holds results for a batch of skills from the same repository
@@ -41,12 +43,19 @@ func UpdateSkillsFromRepo(repoURL string, skillTargets map[string]string, opts I
 		Results:    make(map[string]*InstallResult),
 		Errors:     make(map[string]error),
 	}
+	repoPath := filepath.Join(discovery.RepoPath, "repo")
+	if result.CommitHash == "" {
+		if hash, hashErr := getGitCommit(repoPath); hashErr == nil {
+			result.CommitHash = hash
+		}
+	}
 
 	// Create a map for quick lookup in discovery
 	discoveryMap := make(map[string]SkillInfo)
 	for _, s := range discovery.Skills {
 		discoveryMap[s.Path] = s
 	}
+	treeHashCache := make(map[string]string)
 
 	// 2. Install/Update each requested skill from the discovered repo
 	for repoSubdir, destPath := range skillTargets {
@@ -57,6 +66,13 @@ func UpdateSkillsFromRepo(repoURL string, skillTargets map[string]string, opts I
 		skillInfo, ok := discoveryMap[lookupKey]
 		if !ok {
 			result.Errors[repoSubdir] = fmt.Errorf("skill path %q not found in repository", repoSubdir)
+			continue
+		}
+		// Fast path for update --all on huge inventories:
+		// if installed metadata already points at this exact repo commit/tree,
+		// skip reinstall/copy entirely.
+		if opts.Update && !opts.DryRun &&
+			isSkillCurrentAtRepoState(destPath, repoSubdir, result.CommitHash, repoPath, treeHashCache) {
 			continue
 		}
 
@@ -73,4 +89,35 @@ func UpdateSkillsFromRepo(repoURL string, skillTargets map[string]string, opts I
 	}
 
 	return result, nil
+}
+
+// isSkillCurrentAtRepoState returns true when installed metadata already
+// matches the latest fetched repo state for this skill path.
+func isSkillCurrentAtRepoState(destPath, repoSubdir, commitHash, repoPath string, treeHashCache map[string]string) bool {
+	if commitHash == "" || repoPath == "" {
+		return false
+	}
+	meta, err := ReadMeta(destPath)
+	if err != nil || meta == nil {
+		return false
+	}
+	if strings.TrimSpace(meta.Version) != strings.TrimSpace(commitHash) {
+		return false
+	}
+
+	subdir := strings.TrimSpace(repoSubdir)
+	if subdir == "" || subdir == "." {
+		// Root installs don't have a stable tree hash field; commit match is enough.
+		return true
+	}
+	if strings.TrimSpace(meta.TreeHash) == "" {
+		return false
+	}
+
+	treeHash, ok := treeHashCache[subdir]
+	if !ok {
+		treeHash = getSubdirTreeHash(repoPath, subdir)
+		treeHashCache[subdir] = treeHash
+	}
+	return treeHash != "" && meta.TreeHash == treeHash
 }
