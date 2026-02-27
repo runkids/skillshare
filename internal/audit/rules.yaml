@@ -176,6 +176,40 @@ rules:
     regex: '\]\(https?://[^)]+\)'
     exclude: '(?i)(\]\(https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)[:/)]|\[source\s+repo(sitory)?\]\(https?://)'
 
+  # ── HIGH: remote code execution (pipe to interpreter) ──
+  - id: fetch-with-pipe-0
+    severity: HIGH
+    pattern: fetch-with-pipe
+    message: "Remote code execution: curl output piped to interpreter"
+    regex: '(?i)\bcurl\b[^|]*\|\s*(sudo\s+)?(ba)?sh\b'
+
+  - id: fetch-with-pipe-1
+    severity: HIGH
+    pattern: fetch-with-pipe
+    message: "Remote code execution: wget output piped to interpreter"
+    regex: '(?i)\bwget\b[^|]*\|\s*(sudo\s+)?(ba)?sh\b'
+
+  - id: fetch-with-pipe-2
+    severity: HIGH
+    pattern: fetch-with-pipe
+    message: "Remote code execution: fetched content piped to script interpreter"
+    regex: '(?i)\b(curl|wget)\b[^|]*\|\s*(sudo\s+)?(python[23]?|node|ruby|perl|zsh|fish)\b'
+
+  # ── MEDIUM: URL with raw IP address ──
+  - id: ip-address-url-0
+    severity: MEDIUM
+    pattern: ip-address-url
+    message: "URL with raw IP address — may bypass DNS-based security controls"
+    regex: 'https?://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}[:/\s)]'
+    exclude: '(?i)https?://(127\.0\.0\.1|0\.0\.0\.0|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})[:/\s)]'
+
+  # ── HIGH: data URI with embedded executable content ──
+  - id: data-uri-0
+    severity: HIGH
+    pattern: data-uri
+    message: "data: URI may embed executable or obfuscated content"
+    regex: '(?i)\]\(data:[^)]+\)'
+
   # ── INFO: risky shell chaining patterns (advisory) ──
   - id: shell-chain-0
     severity: INFO

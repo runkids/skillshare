@@ -23,6 +23,10 @@ All notable changes to skillshare are documented here. For the full commit histo
   ```
 - **Same-repo skip** — reinstalling a skill from the same repo now shows a friendly `⊘ skipped` indicator instead of an error; skipped skills are grouped by directory with repo label in the summary
 - **Web UI install dedup** — the Web UI install endpoints enforce the same cross-path duplicate check as the CLI, returning HTTP 409 when duplicates are found
+- **5 new audit rules** — the security scanner now detects 36 patterns (up from 31):
+  - `fetch-with-pipe` (HIGH) — detects `curl | bash`, `wget | sh`, and pipes to `python`, `node`, `ruby`, `perl`, `zsh`, `fish`
+  - `ip-address-url` (MEDIUM) — URLs with raw IP addresses that bypass DNS-based security; private/loopback ranges excluded
+  - `data-uri` (HIGH) — `data:` URIs in markdown links that may embed executable content
 
 ### Fixed
 
