@@ -50,7 +50,11 @@ func UpdateSkillsFromRepo(repoURL string, skillTargets map[string]string, opts I
 
 	// 2. Install/Update each requested skill from the discovered repo
 	for repoSubdir, destPath := range skillTargets {
-		skillInfo, ok := discoveryMap[repoSubdir]
+		lookupKey := repoSubdir
+		if lookupKey == "" {
+			lookupKey = "."
+		}
+		skillInfo, ok := discoveryMap[lookupKey]
 		if !ok {
 			result.Errors[repoSubdir] = fmt.Errorf("skill path %q not found in repository", repoSubdir)
 			continue

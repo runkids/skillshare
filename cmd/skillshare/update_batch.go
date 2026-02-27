@@ -119,8 +119,12 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		for _, t := range groupTargets {
 			meta, _ := install.ReadMeta(t.path)
 			if meta != nil {
-				skillTargetMap[meta.Subdir] = t.path
-				pathToTarget[meta.Subdir] = t
+				subdir := meta.Subdir
+				if subdir == "" {
+					subdir = "."
+				}
+				skillTargetMap[subdir] = t.path
+				pathToTarget[subdir] = t
 			}
 		}
 
