@@ -129,6 +129,12 @@ These are auto-detected during `skillshare init`:
 </tbody>
 </table>
 
+:::info Universal target
+The **universal** target (`&#126;/.agents/skills`) is a shared agent directory that multiple AI CLIs can read from. It is auto-detected during `skillshare init` when any other agent is found. In project mode, `amp`, `codex`, `kimi`, and `replit` share the same `.agents/skills` path and are grouped under `universal` automatically.
+
+This is the same path used by the [npx skills CLI](https://github.com/vercel-labs/skills). See [FAQ: Using universal alongside npx skills](/docs/troubleshooting/faq#using-universal-alongside-npx-skills) for coexistence details.
+:::
+
 ## Aliases
 
 Some targets have alternative names for backward compatibility or convenience:

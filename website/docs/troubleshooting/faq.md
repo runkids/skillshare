@@ -182,6 +182,35 @@ Both approaches can be combined — config filters are applied first, then the s
 
 ## Targets
 
+### Using universal alongside npx skills
+
+The `universal` target points to `~/.agents/skills`, the same directory used by the [npx skills CLI](https://github.com/vercel-labs/skills). Both tools can manage this directory simultaneously with some caveats:
+
+**What works:**
+- In merge mode (default), skillshare creates **symlinks** in `~/.agents/skills/`; npx skills creates **real directories**. They coexist as long as skill names don't collide.
+- skillshare's prune logic only removes entries it manages — it won't delete files installed by npx skills.
+- Agent CLIs (Claude Code, Cursor, etc.) read directories directly, so they see skills from both tools.
+
+**What to watch out for:**
+- **Name collision** — If both tools install a skill with the same name, the last sync/install wins. Avoid installing the same skill through both tools.
+- **Copy mode is more aggressive** — In copy mode (`skillshare target universal --mode copy`), skillshare overwrites managed directories on every sync. If npx skills modifies a same-named skill between syncs, skillshare will replace it. Merge mode (default) only creates symlinks, which is safer for coexistence.
+- **`npx skills list` won't show skillshare skills** — The npx skills CLI tracks installs via a lock file (`~/.agents/.skill-lock.json`), not by scanning the directory. Skills synced by skillshare won't appear in `npx skills list -g`, but they **are** visible to agent CLIs.
+- **Other agent-specific targets still useful** — `universal` and `claude` point to different paths (`~/.agents/skills` vs `~/.claude/skills`). Selecting both is safe and not redundant.
+
+**Recommended workflow:**
+```bash
+# Use skillshare as your primary skill manager
+skillshare install github.com/user/skills --track
+skillshare sync
+
+# Use npx skills only for one-off community installs you don't need to sync
+npx skills add someone/skill -g
+```
+
+:::tip
+Keep the universal target in **merge mode** (default) for the safest coexistence with npx skills. Avoid switching to copy mode unless you don't use npx skills at all.
+:::
+
 ### I used `claude-code` (or `gemini-cli`, etc.) as a project target — is that still valid?
 
 Yes. Old project target names like `claude-code`, `gemini-cli`, `github-copilot` still resolve via aliases. However, the canonical name is now the same as the global name (e.g., `claude`, `gemini`, `copilot`). We recommend updating your `.skillshare/config.yaml` to use the short name:

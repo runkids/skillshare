@@ -21,8 +21,9 @@
 
 ### Fixed
 
-- **`universal` target path** — corrected global path from `~/.config/agents/skills` to `~/.agents/skills` so that `npx skills list` picks up synced skills
-- **`init` auto-includes `universal`** — `init` and `init --discover` now automatically recommend the `universal` target whenever any AI CLI is detected, since `~/.agents/` doesn't exist on disk until skillshare creates it
+- **`universal` target path** — corrected global path from `~/.config/agents/skills` to `~/.agents/skills` (the shared agent directory used by multiple AI CLIs)
+- **`init` auto-includes `universal`** — `init` and `init --discover` now automatically include the `universal` target whenever any AI CLI is detected; labeled as "shared agent directory" so users understand what it is
+- **`universal` coexistence docs** — added FAQ section explaining how skillshare and `npx skills` coexist on the same `~/.agents/skills` path, including sync mode differences and name collision caveats
 - **`--force` hint accuracy** — the force hint now uses the actual repo URL (not per-skill subpath) and includes `--into` when applicable
 - **`update` root-level skills** — root-level skill repos (SKILL.md at repo root) no longer appear as stale/deleted during batch update; fixed `Subdir` normalization mismatch between metadata (`""`) and discovery (`"."`)
 

@@ -521,6 +521,7 @@ func TestInit_UniversalAutoDetected(t *testing.T) {
 	result := sb.RunCLI("init", "--no-copy", "--all-targets", "--no-git", "--no-skill")
 
 	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "shared agent directory")
 
 	// Verify config includes universal pointing to ~/.agents/skills
 	configContent := sb.ReadFile(sb.ConfigPath)
