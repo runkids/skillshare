@@ -444,7 +444,7 @@ The sandbox image is for local development and testing only (not published to GH
 
 Used by: `make test-docker`, `make test-docker-online`, `make playground`, `make dev-docker`.
 
-See the [Playground](#interactive-playground) and [Dev Profile](#dev-profile) sections above for usage.
+See the [Playground](#playground) and [Dev Profile](#dev-profile) sections above for usage.
 
 ### Image tags and versioning
 
