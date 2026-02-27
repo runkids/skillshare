@@ -37,6 +37,9 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 		}
 	}
 
+	// Collect gitignore entries during walk, then batch-update once at the end.
+	var gitignoreEntries []string
+
 	err := filepath.WalkDir(sourcePath, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -104,9 +107,7 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 			changed = true
 		}
 
-		if err := install.UpdateGitIgnore(filepath.Join(projectRoot, ".skillshare"), filepath.Join("skills", fullPath)); err != nil {
-			return fmt.Errorf("failed to update .skillshare/.gitignore: %w", err)
-		}
+		gitignoreEntries = append(gitignoreEntries, filepath.Join("skills", fullPath))
 
 		// If it's a tracked repo (has .git), don't recurse into it
 		if tracked {
@@ -122,6 +123,13 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 	})
 	if err != nil {
 		return fmt.Errorf("failed to scan project skills: %w", err)
+	}
+
+	// Batch-update .gitignore once (reads/writes the file only once instead of per-skill).
+	if len(gitignoreEntries) > 0 {
+		if err := install.UpdateGitIgnoreBatch(filepath.Join(projectRoot, ".skillshare"), gitignoreEntries); err != nil {
+			return fmt.Errorf("failed to update .skillshare/.gitignore: %w", err)
+		}
 	}
 
 	if changed {

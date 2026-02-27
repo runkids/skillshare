@@ -50,14 +50,12 @@ func resolveProjectUninstallTarget(skillName, sourceDir string) (*uninstallTarge
 
 // performProjectUninstallQuiet moves a project skill to trash without printing output.
 // Used by batch mode; returns the type label for StepDone display.
-func performProjectUninstallQuiet(target *uninstallTarget, root, trashDir string) (typeLabel string, err error) {
+// Note: .gitignore cleanup is handled in batch by the caller.
+func performProjectUninstallQuiet(target *uninstallTarget, trashDir string) (typeLabel string, err error) {
 	groupSkillCount := 0
 	if !target.isTrackedRepo {
 		groupSkillCount = len(countGroupSkills(target.path))
 	}
-
-	// Clean up .gitignore (all project skills have gitignore entries)
-	install.RemoveFromGitIgnore(filepath.Join(root, ".skillshare"), filepath.Join("skills", target.name)) //nolint:errcheck
 
 	if _, err := trash.MoveToTrash(target.path, target.name, trashDir); err != nil {
 		return "", fmt.Errorf("failed to move to trash: %w", err)
@@ -287,7 +285,7 @@ func cmdUninstallProject(args []string, root string) error {
 		var results []batchResult
 
 		for _, t := range targets {
-			typeLabel, err := performProjectUninstallQuiet(t, root, trashDir)
+			typeLabel, err := performProjectUninstallQuiet(t, trashDir)
 			if err != nil {
 				results = append(results, batchResult{target: t, errMsg: err.Error()})
 				failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
@@ -295,6 +293,15 @@ func cmdUninstallProject(args []string, root string) error {
 				results = append(results, batchResult{target: t, typeLabel: typeLabel})
 				succeeded = append(succeeded, t)
 			}
+		}
+
+		// Batch-remove .gitignore entries (one read/write pass for all succeeded targets).
+		if len(succeeded) > 0 {
+			entries := make([]string, len(succeeded))
+			for i, t := range succeeded {
+				entries[i] = filepath.Join("skills", t.name)
+			}
+			install.RemoveFromGitIgnoreBatch(filepath.Join(root, ".skillshare"), entries) //nolint:errcheck
 		}
 
 		// Spinner end state
@@ -365,11 +372,6 @@ func cmdUninstallProject(args []string, root string) error {
 				groupSkillCount = len(countGroupSkills(t.path))
 			}
 
-			// Clean up .gitignore (all project skills have gitignore entries)
-			if _, err := install.RemoveFromGitIgnore(filepath.Join(root, ".skillshare"), filepath.Join("skills", t.name)); err != nil {
-				ui.Warning("Could not update .skillshare/.gitignore: %v", err)
-			}
-
 			trashPath, err := trash.MoveToTrash(t.path, t.name, trashDir)
 			if err != nil {
 				failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
@@ -389,6 +391,17 @@ func cmdUninstallProject(args []string, root string) error {
 				ui.Info("Reinstall: skillshare install %s --project", meta.Source)
 			}
 			succeeded = append(succeeded, t)
+		}
+
+		// Batch-remove .gitignore entries after all targets processed.
+		if len(succeeded) > 0 {
+			entries := make([]string, len(succeeded))
+			for i, t := range succeeded {
+				entries[i] = filepath.Join("skills", t.name)
+			}
+			if _, err := install.RemoveFromGitIgnoreBatch(filepath.Join(root, ".skillshare"), entries); err != nil {
+				ui.Warning("Could not update .skillshare/.gitignore: %v", err)
+			}
 		}
 	}
 
