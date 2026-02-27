@@ -5,7 +5,7 @@ targets:
     project_path: ".adal/skills"
   - global_name: universal
     project_name: universal
-    global_path: "~/.config/agents/skills"
+    global_path: "~/.agents/skills"
     project_path: ".agents/skills"
     aliases: [agents]
   - global_name: amp
