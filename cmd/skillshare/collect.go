@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pterm/pterm"
+
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
@@ -102,12 +104,14 @@ func cmdCollect(args []string) error {
 	}
 
 	// Collect all local skills
+	ui.Header(ui.WithModeLabel("Collect"))
+	sp := ui.StartSpinner("Scanning for local skills...")
 	allLocalSkills := collectLocalSkills(targets, cfg.Source)
-
 	if len(allLocalSkills) == 0 {
-		ui.Info("No local skills to collect")
+		sp.Success("No local skills found")
 		return nil
 	}
+	sp.Success(fmt.Sprintf("Found %d local skill(s)", len(allLocalSkills)))
 
 	// Display found skills
 	displayLocalSkills(allLocalSkills)
@@ -181,14 +185,20 @@ func executeCollect(skills []sync.LocalSkillInfo, source string, dryRun, force b
 
 	// Display results
 	for _, name := range result.Pulled {
-		ui.Success("%s: copied to source", name)
+		ui.StepDone(name, "copied to source")
 	}
 	for _, name := range result.Skipped {
-		ui.Warning("%s: skipped (already exists in source, use --force to overwrite)", name)
+		ui.StepSkip(name, "already exists in source, use --force to overwrite")
 	}
 	for name, err := range result.Failed {
-		ui.Error("%s: %v", name, err)
+		ui.StepFail(name, err.Error())
 	}
+
+	ui.OperationSummary("Collect", 0,
+		ui.Metric{Label: "collected", Count: len(result.Pulled), HighlightColor: pterm.Green},
+		ui.Metric{Label: "skipped", Count: len(result.Skipped), HighlightColor: pterm.Yellow},
+		ui.Metric{Label: "failed", Count: len(result.Failed), HighlightColor: pterm.Red},
+	)
 
 	if len(result.Pulled) > 0 {
 		showCollectNextSteps(source)

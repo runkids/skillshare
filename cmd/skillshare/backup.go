@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pterm/pterm"
+
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
@@ -92,6 +94,7 @@ func createBackup(targetName string, dryRun bool) error {
 	}
 
 	created := 0
+	skipped := 0
 	for name, target := range targets {
 		backupPath, err := backup.Create(name, target.Path)
 		if err != nil {
@@ -99,25 +102,25 @@ func createBackup(targetName string, dryRun bool) error {
 			continue
 		}
 		if backupPath != "" {
-			ui.Success("%s -> %s", name, backupPath)
+			ui.StepDone(name, backupPath)
 			created++
 		} else {
-			ui.Info("%s: nothing to backup (empty or symlink)", name)
+			ui.StepSkip(name, "nothing to backup (empty or symlink)")
+			skipped++
 		}
 	}
 
-	if created == 0 {
-		ui.Info("No backups created")
-	}
+	ui.OperationSummary("Backup", 0,
+		ui.Metric{Label: "created", Count: created, HighlightColor: pterm.Green},
+		ui.Metric{Label: "skipped", Count: skipped, HighlightColor: pterm.Yellow},
+	)
 
 	// List recent backups
 	backups, _ := backup.List()
 	if len(backups) > 0 {
+		fmt.Println()
 		ui.Header("Recent backups")
-		limit := 5
-		if len(backups) < limit {
-			limit = len(backups)
-		}
+		limit := min(5, len(backups))
 		for i := 0; i < limit; i++ {
 			b := backups[i]
 			ui.ListItem("info", b.Timestamp, fmt.Sprintf("%s (%s)", strings.Join(b.Targets, ", "), b.Path))
@@ -136,20 +139,20 @@ func previewBackup(targetName, targetPath string) error {
 	info, err := os.Lstat(targetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			ui.Info("%s: nothing to backup (missing)", targetName)
+			ui.StepSkip(targetName, "nothing to backup (missing)")
 			return nil
 		}
 		return err
 	}
 
 	if info.Mode()&os.ModeSymlink != 0 {
-		ui.Info("%s: nothing to backup (symlink)", targetName)
+		ui.StepSkip(targetName, "nothing to backup (symlink)")
 		return nil
 	}
 
 	entries, err := os.ReadDir(targetPath)
 	if err != nil || len(entries) == 0 {
-		ui.Info("%s: nothing to backup (empty)", targetName)
+		ui.StepSkip(targetName, "nothing to backup (empty)")
 		return nil
 	}
 

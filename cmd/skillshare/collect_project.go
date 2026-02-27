@@ -42,12 +42,14 @@ func cmdCollectProject(args []string, root string) error {
 		return nil
 	}
 
+	ui.Header(ui.WithModeLabel("Collect"))
+	sp := ui.StartSpinner("Scanning for local skills...")
 	allLocalSkills := collectLocalSkills(targets, runtime.sourcePath)
-
 	if len(allLocalSkills) == 0 {
-		ui.Info("No local skills to collect")
+		sp.Success("No local skills found")
 		return nil
 	}
+	sp.Success(fmt.Sprintf("Found %d local skill(s)", len(allLocalSkills)))
 
 	displayLocalSkills(allLocalSkills)
 
