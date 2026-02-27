@@ -59,6 +59,9 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 
 	if body.All {
 		results := s.updateAll(body.Force, body.SkipAudit)
+		// Invalidate discovery cache — source skills may have changed
+		s.cache.Invalidate(s.cfg.Source)
+
 		total := len(results)
 		failed := 0
 		blocked := 0
@@ -102,6 +105,11 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := s.updateSingle(body.Name, body.Force, body.SkipAudit)
+	// Invalidate discovery cache — source skills may have changed
+	if result.Action == "updated" {
+		s.cache.Invalidate(s.cfg.Source)
+	}
+
 	status := "ok"
 	msg := ""
 	if result.Action == "error" {

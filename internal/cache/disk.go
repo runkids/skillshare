@@ -35,15 +35,16 @@ func diskCachePath(cacheDir, sourcePath string) string {
 }
 
 func saveDiskCache(path string, dc *DiskCache) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create cache dir: %w", err)
 	}
 
-	tmp := path + ".tmp"
-	f, err := os.Create(tmp)
+	f, err := os.CreateTemp(dir, ".discovery-*.tmp")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}
+	tmp := f.Name()
 	defer func() {
 		f.Close()
 		os.Remove(tmp)
