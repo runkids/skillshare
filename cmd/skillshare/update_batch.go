@@ -185,10 +185,6 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			t := pathToTarget[subdir]
 			progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
 
-			if ui.IsTTY() {
-				time.Sleep(50 * time.Millisecond)
-			}
-
 			if err := batchResult.Errors[subdir]; err != nil {
 				if isStaleError(err) {
 					if uc.opts.prune {
