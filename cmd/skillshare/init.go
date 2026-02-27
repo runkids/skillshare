@@ -629,7 +629,7 @@ func detectCLIDirectories(home string) []detectedDir {
 				detected = append(detected, detectedDir{
 					name: "universal", path: target.Path,
 				})
-				ui.Info("Found: %-12s %s (recommended)", "universal", target.Path)
+				ui.Info("Found: %-12s %s (shared agent directory)", "universal", target.Path)
 			}
 		}
 	}
@@ -804,7 +804,9 @@ func buildTargetsList(detected []detectedDir, copyFrom, copyFromName, targetsArg
 	items := make([]checklistItemData, len(detected))
 	for i, d := range detected {
 		status := ""
-		if d.exists {
+		if d.name == "universal" {
+			status = "(shared agent directory)"
+		} else if d.exists {
 			if d.skillCount > 0 {
 				status = fmt.Sprintf("(%d skills)", d.skillCount)
 			} else {
@@ -1362,7 +1364,7 @@ func detectNewAgents(existingCfg *config.Config) []agentInfo {
 					newAgents = append(newAgents, agentInfo{
 						name:        "universal",
 						path:        target.Path,
-						description: "(recommended)",
+						description: "(shared agent directory)",
 					})
 				}
 			}
