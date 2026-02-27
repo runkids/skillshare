@@ -35,6 +35,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 - **`update --all` grouped skip** — skills from the same repo are now skipped when installed metadata already matches remote state (commit or tree-hash match), avoiding redundant reinstall/copy; on large repos this eliminates the majority of work
 - **`update --all` batch speed** — removed a fixed 50ms per-skill delay in grouped batch iteration that dominated runtime on large skill sets (~90 min at 108K skills → seconds)
 - **`update --all` progress visibility** — batch progress bar now advances per-skill instead of per-repo, so it no longer appears stuck at 0% during large grouped updates; a scanning spinner and phase headers (`[1/3] Pulling N tracked repos...`) show which stage is running
+- **`status` and `doctor` at scale** — both commands now run a single skill discovery pass instead of repeating it per-section (status: 7× → 1×, doctor: 5× → 1×); target status checks are cached so drift detection reuses the first result; `doctor` overlaps its GitHub version check with local I/O; a spinner is shown during discovery so the CLI doesn't appear frozen
 - **`collect` scan speed** — directory size calculation is no longer run eagerly during skill discovery; deferred to the Web UI handler where it is actually needed
 
 ### Fixed
