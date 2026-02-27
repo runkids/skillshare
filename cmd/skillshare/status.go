@@ -7,14 +7,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"skillshare/internal/config"
-	"skillshare/internal/install"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
-	"skillshare/internal/utils"
 )
 
 func cmdStatus(args []string) error {
@@ -50,13 +49,16 @@ func cmdStatus(args []string) error {
 		return err
 	}
 
+	sp := ui.StartSpinner("Discovering skills...")
 	discovered, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
 	if discoverErr != nil {
 		discovered = nil
 	}
+	trackedRepos := extractTrackedRepos(discovered)
+	sp.Stop()
 
-	printSourceStatus(cfg)
-	printTrackedReposStatus(cfg)
+	printSourceStatus(cfg, len(discovered))
+	printTrackedReposStatus(cfg, discovered, trackedRepos)
 	if err := printTargetsStatus(cfg, discovered); err != nil {
 		return err
 	}
@@ -65,7 +67,7 @@ func cmdStatus(args []string) error {
 	return nil
 }
 
-func printSourceStatus(cfg *config.Config) {
+func printSourceStatus(cfg *config.Config, skillCount int) {
 	ui.Header("Source")
 	info, err := os.Stat(cfg.Source)
 	if err != nil {
@@ -73,28 +75,18 @@ func printSourceStatus(cfg *config.Config) {
 		return
 	}
 
-	entries, _ := os.ReadDir(cfg.Source)
-	skillCount := 0
-	for _, e := range entries {
-		if e.IsDir() && !utils.IsHidden(e.Name()) {
-			skillCount++
-		}
-	}
 	ui.Success("%s (%d skills, %s)", cfg.Source, skillCount, info.ModTime().Format("2006-01-02 15:04"))
 }
 
-func printTrackedReposStatus(cfg *config.Config) {
-	trackedRepos, err := install.GetTrackedRepos(cfg.Source)
-	if err != nil || len(trackedRepos) == 0 {
-		return // No tracked repos, skip this section
+func printTrackedReposStatus(cfg *config.Config, discovered []sync.DiscoveredSkill, trackedRepos []string) {
+	if len(trackedRepos) == 0 {
+		return
 	}
 
 	ui.Header("Tracked Repositories")
 	for _, repoName := range trackedRepos {
 		repoPath := filepath.Join(cfg.Source, repoName)
 
-		// Count skills in this repo
-		discovered, _ := sync.DiscoverSourceSkills(cfg.Source)
 		skillCount := 0
 		for _, d := range discovered {
 			if d.IsInRepo && strings.HasPrefix(d.RelPath, repoName+"/") {
@@ -102,7 +94,6 @@ func printTrackedReposStatus(cfg *config.Config) {
 			}
 		}
 
-		// Check git status
 		statusStr := "up-to-date"
 		statusIcon := "✓"
 		if isDirty, _ := checkRepoDirty(repoPath); isDirty {
@@ -112,6 +103,30 @@ func printTrackedReposStatus(cfg *config.Config) {
 
 		ui.Status(repoName, statusIcon, fmt.Sprintf("%d skills, %s", skillCount, statusStr))
 	}
+}
+
+// extractTrackedRepos derives tracked repo names from discovered skills.
+// Note: repos with zero skills will not appear (acceptable trade-off).
+func extractTrackedRepos(discovered []sync.DiscoveredSkill) []string {
+	seen := make(map[string]bool)
+	var repos []string
+	for _, d := range discovered {
+		if !d.IsInRepo {
+			continue
+		}
+		// First path segment is the repo name (e.g. "_team" from "_team/frontend/ui")
+		idx := strings.Index(d.RelPath, "/")
+		if idx <= 0 {
+			continue
+		}
+		repo := d.RelPath[:idx]
+		if !seen[repo] {
+			seen[repo] = true
+			repos = append(repos, repo)
+		}
+	}
+	sort.Strings(repos)
+	return repos
 }
 
 // checkRepoDirty checks if a git repository has uncommitted changes
@@ -125,13 +140,21 @@ func checkRepoDirty(repoPath string) (bool, error) {
 	return len(strings.TrimSpace(string(output))) > 0, nil
 }
 
+// targetStatusResult bundles status detail with synced count to avoid
+// duplicate CheckStatusMerge/Copy calls.
+type targetStatusResult struct {
+	statusStr   string
+	detail      string
+	syncedCount int // -1 for symlink mode (no drift check)
+}
+
 func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) error {
 	ui.Header("Targets")
 	driftTotal := 0
 	for name, target := range cfg.Targets {
 		mode := getTargetMode(target.Mode, cfg.Mode)
-		statusStr, detail := getTargetStatusDetail(target, cfg.Source, mode)
-		ui.Status(name, statusStr, detail)
+		res := getTargetStatusDetail(target, cfg.Source, mode)
+		ui.Status(name, res.statusStr, res.detail)
 
 		if mode == "merge" || mode == "copy" {
 			filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
@@ -141,14 +164,8 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 			filtered = sync.FilterSkillsByTarget(filtered, name)
 			expectedCount := len(filtered)
 
-			var syncedCount int
-			if mode == "copy" {
-				_, syncedCount, _ = sync.CheckStatusCopy(target.Path)
-			} else {
-				_, syncedCount, _ = sync.CheckStatusMerge(target.Path, cfg.Source)
-			}
-			if syncedCount < expectedCount {
-				drift := expectedCount - syncedCount
+			if res.syncedCount < expectedCount {
+				drift := expectedCount - res.syncedCount
 				if drift > driftTotal {
 					driftTotal = drift
 				}
@@ -163,14 +180,6 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 	return nil
 }
 
-func countSourceSkills(source string) int {
-	discovered, err := sync.DiscoverSourceSkills(source)
-	if err != nil {
-		return 0
-	}
-	return len(discovered)
-}
-
 func getTargetMode(targetMode, globalMode string) string {
 	if targetMode != "" {
 		return targetMode
@@ -181,7 +190,7 @@ func getTargetMode(targetMode, globalMode string) string {
 	return "merge"
 }
 
-func getTargetStatusDetail(target config.TargetConfig, source, mode string) (string, string) {
+func getTargetStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
 	switch mode {
 	case "merge":
 		return getMergeStatusDetail(target, source, mode)
@@ -192,34 +201,33 @@ func getTargetStatusDetail(target config.TargetConfig, source, mode string) (str
 	}
 }
 
-func getMergeStatusDetail(target config.TargetConfig, source, mode string) (string, string) {
+func getMergeStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
 	status, linkedCount, localCount := sync.CheckStatusMerge(target.Path, source)
 
 	switch status {
 	case sync.StatusMerged:
-		return "merged", fmt.Sprintf("[%s] %s (%d shared, %d local)", mode, target.Path, linkedCount, localCount)
+		return targetStatusResult{"merged", fmt.Sprintf("[%s] %s (%d shared, %d local)", mode, target.Path, linkedCount, localCount), linkedCount}
 	case sync.StatusLinked:
-		// Configured as merge but actually using symlink - needs resync
-		return "linked", fmt.Sprintf("[%s->needs sync] %s", mode, target.Path)
+		return targetStatusResult{"linked", fmt.Sprintf("[%s->needs sync] %s", mode, target.Path), linkedCount}
 	default:
-		return status.String(), fmt.Sprintf("[%s] %s (%d local)", mode, target.Path, localCount)
+		return targetStatusResult{status.String(), fmt.Sprintf("[%s] %s (%d local)", mode, target.Path, localCount), 0}
 	}
 }
 
-func getCopyStatusDetail(target config.TargetConfig, mode string) (string, string) {
+func getCopyStatusDetail(target config.TargetConfig, mode string) targetStatusResult {
 	status, managedCount, localCount := sync.CheckStatusCopy(target.Path)
 
 	switch status {
 	case sync.StatusCopied:
-		return "copied", fmt.Sprintf("[%s] %s (%d managed, %d local)", mode, target.Path, managedCount, localCount)
+		return targetStatusResult{"copied", fmt.Sprintf("[%s] %s (%d managed, %d local)", mode, target.Path, managedCount, localCount), managedCount}
 	case sync.StatusLinked:
-		return "linked", fmt.Sprintf("[%s->needs sync] %s", mode, target.Path)
+		return targetStatusResult{"linked", fmt.Sprintf("[%s->needs sync] %s", mode, target.Path), managedCount}
 	default:
-		return status.String(), fmt.Sprintf("[%s] %s (%d local)", mode, target.Path, localCount)
+		return targetStatusResult{status.String(), fmt.Sprintf("[%s] %s (%d local)", mode, target.Path, localCount), 0}
 	}
 }
 
-func getSymlinkStatusDetail(target config.TargetConfig, source, mode string) (string, string) {
+func getSymlinkStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
 	status := sync.CheckStatus(target.Path, source)
 	detail := fmt.Sprintf("[%s] %s", mode, target.Path)
 
@@ -232,7 +240,7 @@ func getSymlinkStatusDetail(target config.TargetConfig, source, mode string) (st
 		detail = fmt.Sprintf("[%s->needs sync] %s", mode, target.Path)
 	}
 
-	return status.String(), detail
+	return targetStatusResult{status.String(), detail, -1}
 }
 
 func checkSkillVersion(cfg *config.Config) {

@@ -68,6 +68,10 @@ func cmdDoctor(args []string) error {
 }
 
 func cmdDoctorGlobal() error {
+	// Start network check early so it overlaps with local I/O
+	updateCh := make(chan string, 1)
+	go func() { updateCh <- fetchUpdateMessage() }()
+
 	ui.Header("Checking environment")
 	result := &doctorResult{}
 
@@ -91,13 +95,16 @@ func cmdDoctorGlobal() error {
 	checkBackupStatus(false, backup.BackupDir())
 	checkTrashStatus(trash.TrashDir())
 	checkVersionDoctor(cfg)
-	checkForUpdates()
+	printUpdateAvailable(<-updateCh)
 	printDoctorSummary(result)
 
 	return nil
 }
 
 func cmdDoctorProject(root string) error {
+	updateCh := make(chan string, 1)
+	go func() { updateCh <- fetchUpdateMessage() }()
+
 	ui.Header("Checking environment")
 	result := &doctorResult{}
 
@@ -125,42 +132,35 @@ func cmdDoctorProject(root string) error {
 	checkBackupStatus(true, "")
 	checkTrashStatus(trash.ProjectTrashDir(root))
 	checkVersionDoctor(cfg)
-	checkForUpdates()
+	printUpdateAvailable(<-updateCh)
 	printDoctorSummary(result)
 
 	return nil
 }
 
 func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
-	// Check source exists
-	checkSource(cfg, result)
+	// Single discovery pass for all checks
+	sp := ui.StartSpinner("Discovering skills...")
+	discovered, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
+	if discoverErr != nil {
+		discovered = nil
+	}
+	sp.Stop()
 
-	// Check symlink support
+	checkSource(cfg, result, discovered, discoverErr)
 	checkSymlinkSupport(result)
 
-	// Check git status (skip in project mode — the project itself has version control)
 	if !isProject {
 		checkGitStatus(cfg.Source, result)
 	}
 
-	// Check skills validity
-	checkSkillsValidity(cfg.Source, result)
-
-	// Check skill-level targets field
-	checkSkillTargetsField(cfg.Source, result)
-
-	// Check each target
-	checkTargets(cfg, result)
+	checkSkillsValidity(cfg.Source, result, discovered)
+	checkSkillTargetsField(result, discovered)
+	targetCache := checkTargets(cfg, result)
 	printSymlinkCompatHint(cfg.Targets, cfg.Mode, isProject)
-
-	// Check sync drift
-	checkSyncDrift(cfg, result)
-
-	// Check broken symlinks
+	checkSyncDrift(cfg, result, discovered, targetCache)
 	checkBrokenSymlinks(cfg, result)
-
-	// Check duplicate skills
-	checkDuplicateSkills(cfg, result)
+	checkDuplicateSkills(cfg, result, discovered)
 }
 
 func printDoctorSummary(result *doctorResult) {
@@ -175,7 +175,7 @@ func printDoctorSummary(result *doctorResult) {
 
 }
 
-func checkSource(cfg *config.Config, result *doctorResult) {
+func checkSource(cfg *config.Config, result *doctorResult, discovered []sync.DiscoveredSkill, discoverErr error) {
 	info, err := os.Stat(cfg.Source)
 	if err != nil {
 		ui.Error("Source not found: %s", cfg.Source)
@@ -189,9 +189,8 @@ func checkSource(cfg *config.Config, result *doctorResult) {
 		return
 	}
 
-	// Count real skills (directories containing SKILL.md), including nested/grouped ones.
 	skillCount := 0
-	if discovered, err := sync.DiscoverSourceSkills(cfg.Source); err == nil {
+	if discoverErr == nil {
 		skillCount = len(discovered)
 	} else {
 		entries, _ := os.ReadDir(cfg.Source)
@@ -223,11 +222,19 @@ func checkSymlinkSupport(result *doctorResult) {
 	ui.Success("Link support: OK")
 }
 
-func checkTargets(cfg *config.Config, result *doctorResult) {
+// cachedTargetStatus stores CheckStatusMerge/Copy results so checkSyncDrift
+// can reuse them without a second call.
+type cachedTargetStatus struct {
+	syncedCount int
+	mode        string
+	status      sync.TargetStatus
+}
+
+func checkTargets(cfg *config.Config, result *doctorResult) map[string]cachedTargetStatus {
 	ui.Header("Checking targets")
+	cache := make(map[string]cachedTargetStatus)
 
 	for name, target := range cfg.Targets {
-		// Determine mode
 		mode := target.Mode
 		if mode == "" {
 			mode = cfg.Mode
@@ -251,9 +258,11 @@ func checkTargets(cfg *config.Config, result *doctorResult) {
 			ui.Error("%s [%s]: %s", name, mode, strings.Join(targetIssues, ", "))
 			result.addError()
 		} else {
-			displayTargetStatus(name, target, cfg.Source, mode)
+			cached := displayTargetStatus(name, target, cfg.Source, mode)
+			cache[name] = cached
 		}
 	}
+	return cache
 }
 
 func checkTargetIssues(target config.TargetConfig, source string) []string {
@@ -297,13 +306,17 @@ func checkTargetIssues(target config.TargetConfig, source string) []string {
 	return targetIssues
 }
 
-func displayTargetStatus(name string, target config.TargetConfig, source, mode string) {
+func displayTargetStatus(name string, target config.TargetConfig, source, mode string) cachedTargetStatus {
 	var statusStr string
+	var cached cachedTargetStatus
+	cached.mode = mode
 	needsSync := false
 
 	switch mode {
 	case "merge":
 		status, linkedCount, localCount := sync.CheckStatusMerge(target.Path, source)
+		cached.status = status
+		cached.syncedCount = linkedCount
 		switch status {
 		case sync.StatusMerged:
 			statusStr = fmt.Sprintf("merged (%d shared, %d local)", linkedCount, localCount)
@@ -315,6 +328,8 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 		}
 	case "copy":
 		status, managedCount, localCount := sync.CheckStatusCopy(target.Path)
+		cached.status = status
+		cached.syncedCount = managedCount
 		switch status {
 		case sync.StatusCopied:
 			statusStr = fmt.Sprintf("copied (%d managed, %d local)", managedCount, localCount)
@@ -326,6 +341,7 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 		}
 	default:
 		status := sync.CheckStatus(target.Path, source)
+		cached.status = status
 		statusStr = status.String()
 		if status == sync.StatusMerged {
 			statusStr = "merged (needs sync to apply symlink mode)"
@@ -338,23 +354,20 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 	} else {
 		ui.Success("%s [%s]: %s", name, mode, statusStr)
 	}
+	return cached
 }
 
-func checkSyncDrift(cfg *config.Config, result *doctorResult) {
-	discovered, err := sync.DiscoverSourceSkills(cfg.Source)
-	if err != nil {
+func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.DiscoveredSkill, targetCache map[string]cachedTargetStatus) {
+	if discovered == nil {
 		return
 	}
 
 	for name, target := range cfg.Targets {
-		mode := target.Mode
-		if mode == "" {
-			mode = cfg.Mode
+		cached, ok := targetCache[name]
+		if !ok {
+			continue // target had issues, skip drift check
 		}
-		if mode == "" {
-			mode = "merge"
-		}
-		if mode != "merge" && mode != "copy" {
+		if cached.mode != "merge" && cached.mode != "copy" {
 			continue
 		}
 		filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
@@ -369,24 +382,22 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult) {
 			continue
 		}
 
-		if mode == "copy" {
-			status, managedCount, _ := sync.CheckStatusCopy(target.Path)
-			if status != sync.StatusCopied {
+		if cached.mode == "copy" {
+			if cached.status != sync.StatusCopied {
 				continue
 			}
-			if managedCount < expectedCount {
-				drift := expectedCount - managedCount
-				ui.Warning("%s: %d skill(s) not synced (%d/%d copied)", name, drift, managedCount, expectedCount)
+			if cached.syncedCount < expectedCount {
+				drift := expectedCount - cached.syncedCount
+				ui.Warning("%s: %d skill(s) not synced (%d/%d copied)", name, drift, cached.syncedCount, expectedCount)
 				result.addWarning()
 			}
 		} else {
-			status, linkedCount, _ := sync.CheckStatusMerge(target.Path, cfg.Source)
-			if status != sync.StatusMerged {
+			if cached.status != sync.StatusMerged {
 				continue
 			}
-			if linkedCount < expectedCount {
-				drift := expectedCount - linkedCount
-				ui.Warning("%s: %d skill(s) not synced (%d/%d linked)", name, drift, linkedCount, expectedCount)
+			if cached.syncedCount < expectedCount {
+				drift := expectedCount - cached.syncedCount
+				ui.Warning("%s: %d skill(s) not synced (%d/%d linked)", name, drift, cached.syncedCount, expectedCount)
 				result.addWarning()
 			}
 		}
@@ -431,13 +442,12 @@ func checkGitStatus(source string, result *doctorResult) {
 }
 
 // checkSkillsValidity checks if all skills have valid SKILL.md files
-func checkSkillsValidity(source string, result *doctorResult) {
+func checkSkillsValidity(source string, result *doctorResult, discovered []sync.DiscoveredSkill) {
 	entries, err := os.ReadDir(source)
 	if err != nil {
 		return
 	}
 
-	discovered, _ := sync.DiscoverSourceSkills(source)
 	hasNestedSkills := make(map[string]bool)
 	for _, skill := range discovered {
 		if idx := strings.Index(skill.RelPath, "/"); idx > 0 {
@@ -476,9 +486,8 @@ func checkSkillsValidity(source string, result *doctorResult) {
 }
 
 // checkSkillTargetsField validates that skill-level targets values are known target names
-func checkSkillTargetsField(source string, result *doctorResult) {
-	discovered, err := sync.DiscoverSourceSkills(source)
-	if err != nil {
+func checkSkillTargetsField(result *doctorResult, discovered []sync.DiscoveredSkill) {
+	if discovered == nil {
 		return
 	}
 
@@ -530,12 +539,11 @@ func findBrokenSymlinks(dir string) []string {
 
 // checkDuplicateSkills finds skills with same name in multiple locations.
 // Merge mode is skipped because local skills are intentional.
-func checkDuplicateSkills(cfg *config.Config, result *doctorResult) {
+func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered []sync.DiscoveredSkill) {
 	skillLocations := make(map[string][]string)
 
 	// Collect from source
-	discovered, err := sync.DiscoverSourceSkills(cfg.Source)
-	if err == nil {
+	if discovered != nil {
 		for _, skill := range discovered {
 			skillLocations[skill.FlatName] = append(skillLocations[skill.FlatName], "source")
 		}
@@ -750,32 +758,40 @@ func checkVersionDoctor(cfg *config.Config) {
 	ui.Success("Skill: %s", localVersion)
 }
 
-// checkForUpdates checks if a newer version is available
-func checkForUpdates() {
-	// Use a short timeout for version check
+// fetchUpdateMessage checks if a newer version is available and returns
+// the message to display (empty string if up-to-date or network error).
+// Safe to call from a goroutine.
+func fetchUpdateMessage() string {
 	client := &http.Client{Timeout: 3 * time.Second}
 	resp, err := client.Get("https://api.github.com/repos/runkids/skillshare/releases/latest")
 	if err != nil {
-		return // Silently skip if network unavailable
+		return ""
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return
+		return ""
 	}
 
 	var release struct {
 		TagName string `json:"tag_name"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return
+		return ""
 	}
 
 	latestVersion := strings.TrimPrefix(release.TagName, "v")
 	currentVersion := strings.TrimPrefix(version, "v")
 
 	if latestVersion != currentVersion && latestVersion > currentVersion {
-		ui.Info("Update available: %s -> %s", version, release.TagName)
+		return release.TagName
+	}
+	return ""
+}
+
+func printUpdateAvailable(tagName string) {
+	if tagName != "" {
+		ui.Info("Update available: %s -> %s", version, tagName)
 		ui.Info("  brew upgrade skillshare  OR  curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh")
 	}
 }
