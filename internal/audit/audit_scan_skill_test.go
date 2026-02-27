@@ -547,6 +547,25 @@ func TestScanSkill_CodeFence_SuppressesShellExecution(t *testing.T) {
 	}
 }
 
+func TestScanSkill_CodeFence_SuppressesFetchWithPipe(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "fenced-curl-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n```bash\ncurl -fsSL https://example.com/install.sh | bash\n```\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, f := range result.Findings {
+		if f.Pattern == "fetch-with-pipe" {
+			t.Errorf("unexpected fetch-with-pipe finding inside code fence: %+v", f)
+		}
+	}
+}
+
 func TestScanSkill_CodeFence_DoesNotSuppressCriticalPatterns(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "critical-fence-skill")
