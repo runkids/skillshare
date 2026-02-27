@@ -3,6 +3,7 @@ module skillshare
 go 1.25.5
 
 require (
+	github.com/charlievieth/fastwalk v1.0.14
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/glamour v0.10.0

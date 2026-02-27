@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"skillshare/internal/cache"
 	"skillshare/internal/config"
 	"skillshare/internal/version"
 )
@@ -21,6 +22,7 @@ import (
 type Server struct {
 	cfg      *config.Config
 	registry *config.Registry
+	cache    *cache.DiscoveryCache
 	addr     string
 	mux      *http.ServeMux
 	handler  http.Handler
@@ -51,6 +53,7 @@ func New(cfg *config.Config, addr, uiDistDir string) *Server {
 	s := &Server{
 		cfg:       cfg,
 		registry:  reg,
+		cache:     cache.New(config.CacheDir()),
 		addr:      addr,
 		mux:       http.NewServeMux(),
 		uiDistDir: uiDistDir,
@@ -70,6 +73,7 @@ func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoo
 	s := &Server{
 		cfg:         cfg,
 		registry:    reg,
+		cache:       cache.New(config.CacheDir()),
 		addr:        addr,
 		mux:         http.NewServeMux(),
 		projectRoot: projectRoot,

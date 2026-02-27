@@ -3,9 +3,14 @@ package sync
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
+	gosync "sync"
+
+	"github.com/charlievieth/fastwalk"
 
 	"skillshare/internal/config"
 	"skillshare/internal/utils"
@@ -27,36 +32,44 @@ type DiscoveredSkill struct {
 //
 // Use this for commands like list/uninstall that don't need per-skill target filtering.
 func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, error) {
+	// Return error for non-existent source directory
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return nil, nil, fmt.Errorf("failed to walk source directory: %w", err)
+	}
+
+	var mu gosync.Mutex
 	var skills []DiscoveredSkill
 	var trackedRepos []string
 	trackedRepoPaths := make(map[string]bool) // track paths to detect nested tracked repos
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
 
-	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
+	err := fastwalk.Walk(nil, walkRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip inaccessible paths
 		}
 
 		// Skip .git directory
-		if info.IsDir() && info.Name() == ".git" {
-			return filepath.SkipDir
+		if d.IsDir() && d.Name() == ".git" {
+			return fastwalk.SkipDir
 		}
 
 		// Collect tracked repos: _-prefixed directories that are git repos
-		if info.IsDir() && info.Name() != "." && info.Name()[0] == '_' {
+		if d.IsDir() && d.Name() != "." && d.Name()[0] == '_' {
 			gitDir := filepath.Join(path, ".git")
 			if _, statErr := os.Stat(gitDir); statErr == nil {
 				relPath, relErr := filepath.Rel(walkRoot, path)
 				if relErr == nil && relPath != "." {
+					mu.Lock()
 					trackedRepos = append(trackedRepos, relPath)
 					trackedRepoPaths[path] = true
+					mu.Unlock()
 				}
 			}
 		}
 
 		// Look for SKILL.md files
-		if !info.IsDir() && info.Name() == "SKILL.md" {
+		if !d.IsDir() && d.Name() == "SKILL.md" {
 			skillDir := filepath.Dir(path)
 			relPath, err := filepath.Rel(walkRoot, skillDir)
 			if err != nil {
@@ -78,6 +91,7 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 			// Skip frontmatter parsing — Targets stays nil
 			// Use original sourcePath (not walkRoot) so SourcePath preserves
 			// the caller's logical path, even if sourcePath is a symlink.
+			mu.Lock()
 			skills = append(skills, DiscoveredSkill{
 				SourcePath: filepath.Join(sourcePath, relPath),
 				RelPath:    relPath,
@@ -85,6 +99,7 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 				IsInRepo:   isInRepo,
 				Targets:    nil,
 			})
+			mu.Unlock()
 		}
 
 		return nil
@@ -94,6 +109,12 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 		return nil, nil, fmt.Errorf("failed to walk source directory: %w", err)
 	}
 
+	// Sort for deterministic ordering (fastwalk is parallel)
+	sort.Slice(skills, func(i, j int) bool {
+		return skills[i].RelPath < skills[j].RelPath
+	})
+	sort.Strings(trackedRepos)
+
 	return skills, trackedRepos, nil
 }
 
@@ -101,23 +122,29 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 // A skill is identified by the presence of a SKILL.md file.
 // Returns all discovered skills with their metadata for syncing.
 func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
+	// Return error for non-existent source directory
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to walk source directory: %w", err)
+	}
+
+	var mu gosync.Mutex
 	var skills []DiscoveredSkill
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
 
-	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
+	err := fastwalk.Walk(nil, walkRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip inaccessible paths
 		}
 
 		// Skip .git directory only — other hidden directories (e.g., .curated/, .system/)
 		// may contain skills (like openai/skills repo structure)
-		if info.IsDir() && info.Name() == ".git" {
-			return filepath.SkipDir
+		if d.IsDir() && d.Name() == ".git" {
+			return fastwalk.SkipDir
 		}
 
 		// Look for SKILL.md files
-		if !info.IsDir() && info.Name() == "SKILL.md" {
+		if !d.IsDir() && d.Name() == "SKILL.md" {
 			skillDir := filepath.Dir(path)
 			relPath, err := filepath.Rel(walkRoot, skillDir)
 			if err != nil {
@@ -143,6 +170,7 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 			// logical path. Parse frontmatter from the resolved path.
 			targets := utils.ParseFrontmatterList(filepath.Join(skillDir, "SKILL.md"), "targets")
 
+			mu.Lock()
 			skills = append(skills, DiscoveredSkill{
 				SourcePath: filepath.Join(sourcePath, relPath),
 				RelPath:    relPath,
@@ -150,6 +178,7 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 				IsInRepo:   isInRepo,
 				Targets:    targets,
 			})
+			mu.Unlock()
 		}
 
 		return nil
@@ -158,6 +187,11 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk source directory: %w", err)
 	}
+
+	// Sort for deterministic ordering (fastwalk is parallel)
+	sort.Slice(skills, func(i, j int) bool {
+		return skills[i].RelPath < skills[j].RelPath
+	})
 
 	return skills, nil
 }

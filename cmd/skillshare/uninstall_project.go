@@ -444,6 +444,10 @@ func cmdUninstallProject(args []string, root string) error {
 		}
 	}
 
+	if len(succeeded) > 0 {
+		discoveryCache.Invalidate(sourceDir)
+	}
+
 	if !batch {
 		ui.SectionLabel("Next Steps")
 		ui.Info("Run 'skillshare sync' to clean up symlinks")

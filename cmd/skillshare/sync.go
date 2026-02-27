@@ -72,7 +72,7 @@ func cmdSync(args []string) error {
 
 	// Phase 1: Discovery — spinner
 	spinner := ui.StartSpinner("Discovering skills")
-	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
+	discoveredSkills, discoverErr := discoveryCache.Discover(cfg.Source)
 	if discoverErr != nil {
 		spinner.Fail("Discovery failed")
 		return discoverErr

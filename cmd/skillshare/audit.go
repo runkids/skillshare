@@ -11,7 +11,6 @@ import (
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
-	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
 	versionpkg "skillshare/internal/version"
@@ -306,7 +305,7 @@ func collectInstalledSkillPaths(sourcePath string) ([]struct {
 	name string
 	path string
 }, error) {
-	discovered, err := sync.DiscoverSourceSkills(sourcePath)
+	discovered, err := discoveryCache.Discover(sourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills: %w", err)
 	}

@@ -52,7 +52,11 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 			return summary, fmt.Errorf("flags --name, --into, --track, --skill, --exclude, --all, --yes, and --update require a source argument")
 		}
 		summary.Source = "project-config"
-		return installFromProjectConfig(runtime, parsed.opts)
+		summary, err = installFromProjectConfig(runtime, parsed.opts)
+		if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
+			discoveryCache.Invalidate(runtime.sourcePath)
+		}
+		return summary, err
 	}
 
 	cfg := &config.Config{Source: runtime.sourcePath}
@@ -67,7 +71,8 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 		if err != nil {
 			return summary, err
 		}
-		if !parsed.opts.DryRun {
+		if !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
+			discoveryCache.Invalidate(runtime.sourcePath)
 			return summary, reconcileProjectRemoteSkills(runtime)
 		}
 		return summary, nil
@@ -83,6 +88,9 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 		return summary, nil
 	}
 
+	if len(summary.InstalledSkills) > 0 {
+		discoveryCache.Invalidate(runtime.sourcePath)
+	}
 	return summary, reconcileProjectRemoteSkills(runtime)
 }
 

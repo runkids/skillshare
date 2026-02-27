@@ -23,7 +23,7 @@ func cmdStatusProject(root string) error {
 	}
 
 	sp := ui.StartSpinner("Discovering skills...")
-	discovered, discoverErr := sync.DiscoverSourceSkills(runtime.sourcePath)
+	discovered, discoverErr := discoveryCache.Discover(runtime.sourcePath)
 	if discoverErr != nil {
 		discovered = nil
 	}

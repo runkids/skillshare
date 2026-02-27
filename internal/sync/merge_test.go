@@ -493,11 +493,8 @@ func TestPruneOrphanLinks_ManifestCleanedAfterPrune(t *testing.T) {
 }
 
 func TestPruneOrphanLinks_NonExistentTarget(t *testing.T) {
-	result, err := PruneOrphanLinks("/nonexistent", "/nonexistent/src", nil, nil, "test", false, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(result.Removed) != 0 {
-		t.Errorf("expected 0 removed for non-existent target, got %d", len(result.Removed))
+	_, err := PruneOrphanLinks("/nonexistent", "/nonexistent/src", nil, nil, "test", false, false)
+	if err == nil {
+		t.Fatal("expected error for non-existent source, got nil")
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"skillshare/internal/install"
-	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/utils"
 )
@@ -28,7 +27,7 @@ type skillItem struct {
 }
 
 func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
-	discovered, err := sync.DiscoverSourceSkills(s.cfg.Source)
+	discovered, err := s.cache.Discover(s.cfg.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -64,7 +63,7 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 
 	// Find the skill by flat name or base name
-	discovered, err := sync.DiscoverSourceSkills(s.cfg.Source)
+	discovered, err := s.cache.Discover(s.cfg.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -140,7 +139,7 @@ func (s *Server) handleGetSkillFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find the skill
-	discovered, err := sync.DiscoverSourceSkills(s.cfg.Source)
+	discovered, err := s.cache.Discover(s.cfg.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -221,6 +220,8 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.cache.Invalidate(s.cfg.Source)
+
 	s.writeOpsLog("uninstall", "ok", start, map[string]any{
 		"name":  repoName,
 		"type":  "repo",
@@ -238,7 +239,7 @@ func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 
 	// Find skill path
-	discovered, err := sync.DiscoverSourceSkills(s.cfg.Source)
+	discovered, err := s.cache.Discover(s.cfg.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -260,6 +261,8 @@ func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "failed to trash skill: "+err.Error())
 			return
 		}
+
+		s.cache.Invalidate(s.cfg.Source)
 
 		s.writeOpsLog("uninstall", "ok", start, map[string]any{
 			"name":  baseName,

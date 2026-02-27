@@ -140,7 +140,7 @@ func cmdDoctorProject(root string) error {
 func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 	// Single discovery pass for all checks
 	sp := ui.StartSpinner("Discovering skills...")
-	discovered, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
+	discovered, discoverErr := discoveryCache.Discover(cfg.Source)
 	if discoverErr != nil {
 		discovered = nil
 	}

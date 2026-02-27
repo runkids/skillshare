@@ -5,7 +5,20 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	ssync "skillshare/internal/sync"
 )
+
+// buildIndex is a test helper that discovers skills then calls BuildIndex,
+// mirroring how callers are expected to use it after the signature change.
+func buildIndex(t *testing.T, sourcePath string, full, auditSkills bool) (*Index, error) {
+	t.Helper()
+	discovered, err := ssync.DiscoverSourceSkills(sourcePath)
+	if err != nil {
+		return nil, err
+	}
+	return BuildIndex(sourcePath, discovered, full, auditSkills)
+}
 
 func createSkill(t *testing.T, dir, name, content string) {
 	t.Helper()
@@ -23,7 +36,7 @@ func TestBuildIndex_BasicSkills(t *testing.T) {
 	createSkill(t, source, "alpha", "---\nname: alpha\ndescription: First skill\n---\n# Alpha")
 	createSkill(t, source, "beta", "---\nname: beta\ndescription: Second skill\n---\n# Beta")
 
-	idx, err := BuildIndex(source, false, false)
+	idx, err := buildIndex(t, source, false, false)
 	if err != nil {
 		t.Fatalf("BuildIndex: %v", err)
 	}
@@ -49,7 +62,7 @@ func TestBuildIndex_BasicSkills(t *testing.T) {
 
 func TestBuildIndex_EmptySource(t *testing.T) {
 	source := t.TempDir()
-	idx, err := BuildIndex(source, false, false)
+	idx, err := buildIndex(t, source, false, false)
 	if err != nil {
 		t.Fatalf("BuildIndex on empty dir: %v", err)
 	}
@@ -62,7 +75,7 @@ func TestBuildIndex_EmptySource(t *testing.T) {
 }
 
 func TestBuildIndex_MissingDirectory(t *testing.T) {
-	_, err := BuildIndex("/nonexistent/path/that/should/not/exist", false, false)
+	_, err := buildIndex(t, "/nonexistent/path/that/should/not/exist", false, false)
 	if err == nil {
 		t.Fatal("expected error for missing directory, got nil")
 	}
@@ -74,7 +87,7 @@ func TestBuildIndex_DeterministicSort(t *testing.T) {
 	createSkill(t, source, "alpha", "---\nname: alpha\n---\n# A")
 	createSkill(t, source, "mike", "---\nname: mike\n---\n# M")
 
-	idx, err := BuildIndex(source, false, false)
+	idx, err := buildIndex(t, source, false, false)
 	if err != nil {
 		t.Fatalf("BuildIndex: %v", err)
 	}
@@ -94,7 +107,7 @@ func TestBuildIndex_DescriptionPipeScalar(t *testing.T) {
 	source := t.TempDir()
 	createSkill(t, source, "pipe-skill", "---\nname: pipe-skill\ndescription: |\n---\n# Pipe")
 
-	idx, err := BuildIndex(source, false, false)
+	idx, err := buildIndex(t, source, false, false)
 	if err != nil {
 		t.Fatalf("BuildIndex: %v", err)
 	}
@@ -127,7 +140,7 @@ func TestBuildIndex_DescriptionVariants(t *testing.T) {
 			content := "---\nname: test\n" + tt.frontmatter + "\n---\n# Test"
 			createSkill(t, source, "test", content)
 
-			idx, err := BuildIndex(source, false, false)
+			idx, err := buildIndex(t, source, false, false)
 			if err != nil {
 				t.Fatalf("BuildIndex: %v", err)
 			}
@@ -145,7 +158,7 @@ func TestBuildIndex_MinimalOmitsMetadata(t *testing.T) {
 	source := t.TempDir()
 	createSkill(t, source, "my-skill", "---\nname: my-skill\ndescription: A skill\n---\n# Content")
 
-	idx, err := BuildIndex(source, false, false)
+	idx, err := buildIndex(t, source, false, false)
 	if err != nil {
 		t.Fatalf("BuildIndex: %v", err)
 	}
@@ -184,7 +197,7 @@ func TestBuildIndex_FullIncludesMetadata(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	idx, err := BuildIndex(source, true, false)
+	idx, err := buildIndex(t, source, true, false)
 	if err != nil {
 		t.Fatalf("BuildIndex: %v", err)
 	}
@@ -211,7 +224,7 @@ func TestBuildIndex_FullOmitsRedundant(t *testing.T) {
 	// Standalone skill — flatName == name, relPath == source.
 	createSkill(t, source, "standalone", "---\nname: standalone\n---\n# S")
 
-	idx, err := BuildIndex(source, true, false)
+	idx, err := buildIndex(t, source, true, false)
 	if err != nil {
 		t.Fatalf("BuildIndex: %v", err)
 	}
@@ -280,7 +293,7 @@ func TestBuildIndex_WithAudit(t *testing.T) {
 	// A clean skill — no dangerous patterns.
 	createSkill(t, source, "safe-skill", "---\nname: safe-skill\ndescription: A safe skill\n---\n# Safe content\nJust helpful tips.")
 
-	idx, err := BuildIndex(source, false, true)
+	idx, err := buildIndex(t, source, false, true)
 	if err != nil {
 		t.Fatalf("BuildIndex with audit: %v", err)
 	}
@@ -326,7 +339,7 @@ func TestBuildIndex_WithoutAudit(t *testing.T) {
 	source := t.TempDir()
 	createSkill(t, source, "my-skill", "---\nname: my-skill\n---\n# Content")
 
-	idx, err := BuildIndex(source, false, false)
+	idx, err := buildIndex(t, source, false, false)
 	if err != nil {
 		t.Fatalf("BuildIndex without audit: %v", err)
 	}

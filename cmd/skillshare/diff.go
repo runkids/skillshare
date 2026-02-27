@@ -334,7 +334,7 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts) error {
 	}
 
 	spinner := ui.StartSpinner("Discovering skills")
-	discovered, err := sync.DiscoverSourceSkills(cfg.Source)
+	discovered, err := discoveryCache.Discover(cfg.Source)
 	if err != nil {
 		spinner.Fail("Discovery failed")
 		return fmt.Errorf("failed to discover skills: %w", err)

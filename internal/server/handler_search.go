@@ -74,7 +74,12 @@ func (s *Server) searchBuiltinIndex(query string, limit int) ([]search.SearchRes
 	if s.IsProjectMode() {
 		sourcePath = filepath.Join(s.projectRoot, ".skillshare", "skills")
 	}
-	idx, err := hub.BuildIndex(sourcePath, false, false)
+	discovered, err := s.cache.Discover(sourcePath)
+	if err != nil {
+		return nil, err
+	}
+
+	idx, err := hub.BuildIndex(sourcePath, discovered, false, false)
 	if err != nil {
 		return nil, err
 	}

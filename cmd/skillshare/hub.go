@@ -181,7 +181,13 @@ func cmdHubIndex(args []string) error {
 
 	spinner := ui.StartTreeSpinner("Scanning source directory...", false)
 
-	idx, err := hub.BuildIndex(sourcePath, full, auditSkills)
+	discovered, err := discoveryCache.Discover(sourcePath)
+	if err != nil {
+		spinner.Fail("Failed to discover skills")
+		return err
+	}
+
+	idx, err := hub.BuildIndex(sourcePath, discovered, full, auditSkills)
 	if err != nil {
 		spinner.Fail("Failed to build index")
 		return err

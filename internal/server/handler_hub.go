@@ -13,7 +13,13 @@ func (s *Server) handleHubIndex(w http.ResponseWriter, r *http.Request) {
 		sourcePath = filepath.Join(s.projectRoot, ".skillshare", "skills")
 	}
 
-	idx, err := hub.BuildIndex(sourcePath, false, false)
+	discovered, err := s.cache.Discover(sourcePath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	idx, err := hub.BuildIndex(sourcePath, discovered, false, false)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

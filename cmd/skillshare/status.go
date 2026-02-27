@@ -50,7 +50,7 @@ func cmdStatus(args []string) error {
 	}
 
 	sp := ui.StartSpinner("Discovering skills...")
-	discovered, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
+	discovered, discoverErr := discoveryCache.Discover(cfg.Source)
 	if discoverErr != nil {
 		discovered = nil
 	}

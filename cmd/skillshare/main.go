@@ -6,12 +6,16 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"skillshare/internal/cache"
 	"skillshare/internal/config"
 	"skillshare/internal/ui"
 	versioncheck "skillshare/internal/version"
 )
 
 var version = "dev"
+
+// discoveryCache is the shared discovery cache for all commands.
+var discoveryCache *cache.DiscoveryCache
 
 // commands maps command names to their handler functions
 var commands = map[string]func([]string) error{
@@ -54,6 +58,9 @@ func main() {
 
 	// Set version for other packages to use
 	versioncheck.Version = version
+
+	// Initialize shared discovery cache
+	discoveryCache = cache.New(config.CacheDir())
 
 	if len(os.Args) < 2 {
 		printUsage()

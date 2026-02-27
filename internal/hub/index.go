@@ -48,22 +48,12 @@ type SkillEntry struct {
 	AuditedAt string `json:"auditedAt,omitempty"`
 }
 
-// BuildIndex scans the source directory and returns a hub index.
+// BuildIndex builds a hub index from pre-discovered skills.
 // If full is true, metadata fields are included; otherwise only
 // name, description, source are populated.
 // If auditSkills is true, each skill is scanned with audit.ScanSkill
 // and risk fields are populated.
-func BuildIndex(sourcePath string, full bool, auditSkills bool) (*Index, error) {
-	// Fail fast if source directory does not exist.
-	if _, err := os.Stat(sourcePath); err != nil {
-		return nil, fmt.Errorf("source directory: %w", err)
-	}
-
-	discovered, err := ssync.DiscoverSourceSkills(sourcePath)
-	if err != nil {
-		return nil, err
-	}
-
+func BuildIndex(sourcePath string, discovered []ssync.DiscoveredSkill, full bool, auditSkills bool) (*Index, error) {
 	entries := make([]SkillEntry, len(discovered))
 	for i, d := range discovered {
 		item := SkillEntry{

@@ -38,7 +38,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Discover skills once for all targets
-	allSkills, err := ssync.DiscoverSourceSkills(s.cfg.Source)
+	allSkills, err := s.cache.Discover(s.cfg.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 		return
@@ -119,6 +119,8 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		results = append(results, res)
 	}
 
+	s.cache.Invalidate(s.cfg.Source)
+
 	// Log the sync operation
 	s.writeOpsLog("sync", "ok", start, map[string]any{
 		"targets_total":  len(results),
@@ -150,7 +152,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		globalMode = "merge"
 	}
 
-	discovered, err := ssync.DiscoverSourceSkills(s.cfg.Source)
+	discovered, err := s.cache.Discover(s.cfg.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

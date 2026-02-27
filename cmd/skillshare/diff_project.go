@@ -22,7 +22,7 @@ func cmdDiffProject(root, targetName string, opts diffRenderOpts) error {
 	}
 
 	spinner := ui.StartSpinner("Discovering skills")
-	discovered, err := sync.DiscoverSourceSkills(runtime.sourcePath)
+	discovered, err := discoveryCache.Discover(runtime.sourcePath)
 	if err != nil {
 		spinner.Fail("Discovery failed")
 		return fmt.Errorf("failed to discover skills: %w", err)

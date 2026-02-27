@@ -27,7 +27,7 @@ type targetItem struct {
 
 func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 	items := make([]targetItem, 0, len(s.cfg.Targets))
-	discovered, discoveredErr := ssync.DiscoverSourceSkills(s.cfg.Source)
+	discovered, discoveredErr := s.cache.Discover(s.cfg.Source)
 
 	globalMode := s.cfg.Mode
 	if globalMode == "" {

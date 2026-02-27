@@ -21,7 +21,7 @@ type trackedRepoItem struct {
 
 func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	// Count skills
-	skills, err := sync.DiscoverSourceSkills(s.cfg.Source)
+	skills, err := s.cache.Discover(s.cfg.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -163,10 +163,16 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 
 	if len(targets) == 1 {
 		t := targets[0]
+		var updateErr error
 		if t.isRepo {
-			return updateTrackedRepo(uc, t.name)
+			updateErr = updateTrackedRepo(uc, t.name)
+		} else {
+			updateErr = updateRegularSkill(uc, t.name)
 		}
-		return updateRegularSkill(uc, t.name)
+		if updateErr == nil && !opts.dryRun {
+			discoveryCache.Invalidate(sourcePath)
+		}
+		return updateErr
 	}
 
 	// Batch mode
@@ -174,7 +180,10 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 		ui.Warning("[dry-run] No changes will be made")
 	}
 
-	_, batchErr := executeBatchUpdate(uc, targets)
+	batchResult, batchErr := executeBatchUpdate(uc, targets)
+	if batchResult.updated > 0 || batchResult.pruned > 0 {
+		discoveryCache.Invalidate(sourcePath)
+	}
 	return batchErr
 }
 
@@ -243,16 +252,25 @@ func updateAllProjectSkills(uc *updateContext) error {
 	// Single item: use verbose single-target path
 	if total == 1 {
 		t := targets[0]
+		var updateErr error
 		if t.isRepo {
-			return updateTrackedRepo(uc, t.name)
+			updateErr = updateTrackedRepo(uc, t.name)
+		} else {
+			updateErr = updateRegularSkill(uc, t.name)
 		}
-		return updateRegularSkill(uc, t.name)
+		if updateErr == nil && !uc.opts.dryRun {
+			discoveryCache.Invalidate(uc.sourcePath)
+		}
+		return updateErr
 	}
 
 	if uc.opts.dryRun {
 		ui.Warning("[dry-run] No changes will be made")
 	}
 
-	_, batchErr := executeBatchUpdate(uc, targets)
+	batchResult, batchErr := executeBatchUpdate(uc, targets)
+	if batchResult.updated > 0 || batchResult.pruned > 0 {
+		discoveryCache.Invalidate(uc.sourcePath)
+	}
 	return batchErr
 }

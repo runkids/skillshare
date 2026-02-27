@@ -219,7 +219,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Discover skills once for all targets
-		allSkills, discoverErr := ssync.DiscoverSourceSkills(src)
+		allSkills, discoverErr := s.cache.Discover(src)
 
 		for name, target := range s.cfg.Targets {
 			mode := target.Mode

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"skillshare/internal/config"
-	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 )
@@ -37,7 +36,7 @@ func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
 
 	// Phase 1: Discovery — spinner
 	spinner := ui.StartSpinner("Discovering skills")
-	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(runtime.sourcePath)
+	discoveredSkills, discoverErr := discoveryCache.Discover(runtime.sourcePath)
 	if discoverErr != nil {
 		spinner.Fail("Discovery failed")
 		return stats, discoverErr

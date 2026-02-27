@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"skillshare/internal/audit"
-	"skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
 
@@ -58,7 +57,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	threshold := s.auditThreshold()
 
 	// Discover all skills
-	discovered, err := sync.DiscoverSourceSkills(source)
+	discovered, err := s.cache.Discover(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

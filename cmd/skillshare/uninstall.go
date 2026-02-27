@@ -989,6 +989,10 @@ func cmdUninstall(args []string) error {
 		}
 	}
 
+	if len(succeeded) > 0 {
+		discoveryCache.Invalidate(cfg.Source)
+	}
+
 	opNames := uninstallOpNames(rest)
 
 	var finalErr error

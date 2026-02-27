@@ -300,6 +300,10 @@ func cmdUpdate(args []string) error {
 			updateErr = updateRegularSkill(uc, t.name)
 		}
 
+		if updateErr == nil && !opts.dryRun {
+			discoveryCache.Invalidate(cfg.Source)
+		}
+
 		var opNames []string
 		if opts.all {
 			opNames = []string{"--all"}
@@ -316,6 +320,10 @@ func cmdUpdate(args []string) error {
 	}
 
 	batchResult, batchErr := executeBatchUpdate(uc, targets)
+
+	if batchResult.updated > 0 || batchResult.pruned > 0 {
+		discoveryCache.Invalidate(cfg.Source)
+	}
 
 	// Build oplog names
 	var opNames []string
