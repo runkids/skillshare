@@ -6,6 +6,10 @@ import (
 	"strings"
 )
 
+// BatchUpdateProgressPrefix marks per-skill grouped update progress messages
+// emitted through InstallOptions.OnProgress.
+const BatchUpdateProgressPrefix = "skillshare:batch-update:"
+
 // BatchUpdateResult holds results for a batch of skills from the same repository
 type BatchUpdateResult struct {
 	RepoURL    string
@@ -56,6 +60,8 @@ func UpdateSkillsFromRepo(repoURL string, skillTargets map[string]string, opts I
 		discoveryMap[s.Path] = s
 	}
 	treeHashCache := make(map[string]string)
+	totalSkills := len(skillTargets)
+	processedSkills := 0
 
 	// 2. Install/Update each requested skill from the discovered repo
 	for repoSubdir, destPath := range skillTargets {
@@ -66,6 +72,8 @@ func UpdateSkillsFromRepo(repoURL string, skillTargets map[string]string, opts I
 		skillInfo, ok := discoveryMap[lookupKey]
 		if !ok {
 			result.Errors[repoSubdir] = fmt.Errorf("skill path %q not found in repository", repoSubdir)
+			processedSkills++
+			emitBatchSkillProgress(opts.OnProgress, processedSkills, totalSkills, repoSubdir)
 			continue
 		}
 		// Fast path for update --all on huge inventories:
@@ -73,6 +81,12 @@ func UpdateSkillsFromRepo(repoURL string, skillTargets map[string]string, opts I
 		// skip reinstall/copy entirely.
 		if opts.Update && !opts.DryRun &&
 			isSkillCurrentAtRepoState(destPath, repoSubdir, result.CommitHash, repoPath, treeHashCache) {
+			// Best-effort metadata refresh:
+			// when skipping by tree-hash match on a moved HEAD, keep meta.Version
+			// aligned to latest commit to avoid stale version reporting.
+			_ = refreshSkillMetaVersionIfNeeded(destPath, result.CommitHash)
+			processedSkills++
+			emitBatchSkillProgress(opts.OnProgress, processedSkills, totalSkills, repoSubdir)
 			continue
 		}
 
@@ -83,9 +97,13 @@ func UpdateSkillsFromRepo(repoURL string, skillTargets map[string]string, opts I
 		installResult, err := InstallFromDiscovery(discovery, skillInfo, destPath, skillOpts)
 		if err != nil {
 			result.Errors[repoSubdir] = err
+			processedSkills++
+			emitBatchSkillProgress(opts.OnProgress, processedSkills, totalSkills, repoSubdir)
 			continue
 		}
 		result.Results[repoSubdir] = installResult
+		processedSkills++
+		emitBatchSkillProgress(opts.OnProgress, processedSkills, totalSkills, repoSubdir)
 	}
 
 	return result, nil
@@ -101,14 +119,20 @@ func isSkillCurrentAtRepoState(destPath, repoSubdir, commitHash, repoPath string
 	if err != nil || meta == nil {
 		return false
 	}
-	if strings.TrimSpace(meta.Version) != strings.TrimSpace(commitHash) {
-		return false
-	}
 
 	subdir := strings.TrimSpace(repoSubdir)
-	if subdir == "" || subdir == "." {
-		// Root installs don't have a stable tree hash field; commit match is enough.
+	metaVersion := strings.TrimSpace(meta.Version)
+	commitHash = strings.TrimSpace(commitHash)
+
+	// Fast path: exact repo commit match means installed content is already current.
+	// This avoids per-skill git subtree lookups on very large batches.
+	if metaVersion != "" && metaVersion == commitHash {
 		return true
+	}
+
+	if subdir == "" || subdir == "." {
+		// Root installs don't have a stable tree hash field; require commit match.
+		return false
 	}
 	if strings.TrimSpace(meta.TreeHash) == "" {
 		return false
@@ -120,4 +144,31 @@ func isSkillCurrentAtRepoState(destPath, repoSubdir, commitHash, repoPath string
 		treeHashCache[subdir] = treeHash
 	}
 	return treeHash != "" && meta.TreeHash == treeHash
+}
+
+func emitBatchSkillProgress(onProgress ProgressCallback, done, total int, repoSubdir string) {
+	if onProgress == nil || total <= 0 {
+		return
+	}
+	label := strings.TrimSpace(repoSubdir)
+	if label == "" {
+		label = "."
+	}
+	onProgress(fmt.Sprintf("%s%d/%d %s", BatchUpdateProgressPrefix, done, total, label))
+}
+
+func refreshSkillMetaVersionIfNeeded(destPath, commitHash string) error {
+	commitHash = strings.TrimSpace(commitHash)
+	if commitHash == "" {
+		return nil
+	}
+	meta, err := ReadMeta(destPath)
+	if err != nil || meta == nil {
+		return err
+	}
+	if strings.TrimSpace(meta.Version) == commitHash {
+		return nil
+	}
+	meta.Version = commitHash
+	return WriteMeta(destPath, meta)
 }

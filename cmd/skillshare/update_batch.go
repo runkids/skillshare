@@ -167,6 +167,9 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		batchOpts := uc.makeInstallOpts()
 		if ui.IsTTY() {
 			batchOpts.OnProgress = func(line string) {
+				if handleGroupedBatchProgress(progressBar, line) {
+					return
+				}
 				progressBar.UpdateTitle(line)
 			}
 		}
@@ -183,7 +186,6 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 
 		for subdir := range skillTargetMap {
 			t := pathToTarget[subdir]
-			progressBar.UpdateTitle(fmt.Sprintf("Updating %s", t.name))
 
 			if err := batchResult.Errors[subdir]; err != nil {
 				if isStaleError(err) {
@@ -210,7 +212,6 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			} else {
 				result.skipped++
 			}
-			progressBar.Increment()
 		}
 	}
 
@@ -290,6 +291,27 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		return result, fmt.Errorf("%d repo(s) blocked by security audit", result.securityFailed)
 	}
 	return result, nil
+}
+
+func handleGroupedBatchProgress(progressBar *ui.ProgressBar, line string) bool {
+	if !strings.HasPrefix(line, install.BatchUpdateProgressPrefix) {
+		return false
+	}
+	payload := strings.TrimSpace(strings.TrimPrefix(line, install.BatchUpdateProgressPrefix))
+	if payload == "" {
+		progressBar.UpdateTitle("Updating skills")
+		progressBar.Increment()
+		return true
+	}
+
+	parts := strings.SplitN(payload, " ", 2)
+	if len(parts) == 2 && strings.TrimSpace(parts[1]) != "" {
+		progressBar.UpdateTitle(fmt.Sprintf("Updating %s", strings.TrimSpace(parts[1])))
+	} else {
+		progressBar.UpdateTitle("Updating skills")
+	}
+	progressBar.Increment()
+	return true
 }
 
 // isStaleError returns true if the error indicates a skill path was deleted
