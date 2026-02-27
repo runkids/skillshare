@@ -23,6 +23,10 @@
 ### Performance
 
 - **Batch gitignore operations** — `.gitignore` updates during `install` reconciliation and `uninstall` are now batched into a single file read/write instead of one per skill; eliminates hang when `.gitignore` grows large (100K+ lines)
+- **`update --all` grouped skip** — skills from the same repo are now skipped when installed metadata already matches remote state (commit or tree-hash match), avoiding redundant reinstall/copy; on large repos this eliminates the majority of work
+- **`update --all` batch speed** — removed a fixed 50ms per-skill delay in grouped batch iteration that dominated runtime on large skill sets (~90 min at 108K skills → seconds)
+- **`update --all` progress visibility** — batch progress bar now advances per-skill instead of per-repo, so it no longer appears stuck at 0% during large grouped updates; a scanning spinner and phase headers (`[1/3] Pulling N tracked repos...`) show which stage is running
+- **`collect` scan speed** — directory size calculation is no longer run eagerly during skill discovery; deferred to the Web UI handler where it is actually needed
 
 ### Fixed
 
