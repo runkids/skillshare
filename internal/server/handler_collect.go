@@ -57,7 +57,7 @@ func (s *Server) handleCollectScan(w http.ResponseWriter, r *http.Request) {
 				Name:       sk.Name,
 				Path:       sk.Path,
 				TargetName: name,
-				Size:       sk.Size,
+				Size:       ssync.CalculateDirSize(sk.Path),
 				ModTime:    sk.ModTime.Format(time.RFC3339),
 			})
 		}

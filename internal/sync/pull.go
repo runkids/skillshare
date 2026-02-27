@@ -104,7 +104,6 @@ func FindLocalSkills(targetPath, sourcePath string) ([]LocalSkillInfo, error) {
 			Name:    entry.Name(),
 			Path:    skillPath,
 			ModTime: skillInfo.ModTime(),
-			Size:    calculateDirSize(skillPath),
 		})
 	}
 
@@ -158,8 +157,8 @@ func PullSkills(skills []LocalSkillInfo, sourcePath string, opts PullOptions) (*
 	return result, nil
 }
 
-// calculateDirSize calculates total size of a directory
-func calculateDirSize(path string) int64 {
+// CalculateDirSize calculates total size of a directory by walking all files.
+func CalculateDirSize(path string) int64 {
 	var size int64
 	filepath.Walk(path, func(_ string, info os.FileInfo, err error) error {
 		if err != nil {
