@@ -9,7 +9,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
-## [0.16.4] - 2026-02-27
+## [0.16.4] - 2026-02-28
 
 ### New Features
 
@@ -27,6 +27,11 @@ All notable changes to skillshare are documented here. For the full commit histo
   - `fetch-with-pipe` (HIGH) — detects `curl | bash`, `wget | sh`, and pipes to `python`, `node`, `ruby`, `perl`, `zsh`, `fish`
   - `ip-address-url` (MEDIUM) — URLs with raw IP addresses that bypass DNS-based security; private/loopback ranges excluded
   - `data-uri` (MEDIUM) — `data:` URIs in markdown links that may embed executable content
+- **Unified batch summary** — `install`, `uninstall`, and `update` now share a consistent single-line summary format with color-coded counts and elapsed time
+
+### Performance
+
+- **Batch gitignore operations** — `.gitignore` updates during `install` reconciliation and `uninstall` are now batched into a single file read/write instead of one per skill; eliminates hang when `.gitignore` grows large (100K+ lines)
 
 ### Fixed
 
@@ -35,10 +40,13 @@ All notable changes to skillshare are documented here. For the full commit histo
 - **`universal` coexistence docs** — added FAQ section explaining how skillshare and `npx skills` coexist on the same `~/.agents/skills` path, including sync mode differences and name collision caveats
 - **`--force` hint accuracy** — the force hint now uses the actual repo URL (not per-skill subpath) and includes `--into` when applicable
 - **`update` root-level skills** — root-level skill repos (SKILL.md at repo root) no longer appear as stale/deleted during batch update; fixed `Subdir` normalization mismatch between metadata (`""`) and discovery (`"."`)
+- **`pull` project mode leak** — `pull` now forces `--global` for the post-pull sync, preventing unintended project-mode auto-detection when run inside a project directory
+- **`list` TUI action safety** — `audit`, `update`, and `uninstall` actions in the skill list TUI now show a confirmation overlay before executing; actions pass explicit `--global`/`--project` mode flags to prevent mode mismatch
 
 ### Improvements
 
 - **`update` batch summary** — batch update summary now uses the same single-line stats format as `sync` with color-coded counts
+- **Command output spacing** — commands now consistently print a trailing blank line after output for better terminal readability
 
 ## [0.16.3] - 2026-02-27
 
