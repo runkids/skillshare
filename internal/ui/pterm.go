@@ -211,7 +211,7 @@ func (s *Spinner) Success(message string) {
 		// pterm's spinner.Success() loses the message because Stop() clears
 		// the line after printing. We print a lightweight ✓ instead.
 		s.spinner.Stop() //nolint:errcheck
-		fmt.Printf("  %s %s\n", pterm.Green("✓"), msg)
+		fmt.Printf("%s %s\n", pterm.Green("✓"), msg)
 	} else {
 		fmt.Printf("✓ %s\n", msg)
 	}
@@ -221,7 +221,7 @@ func (s *Spinner) Success(message string) {
 func (s *Spinner) Fail(message string) {
 	if s.spinner != nil {
 		s.spinner.Stop() //nolint:errcheck
-		fmt.Printf("  %s %s\n", pterm.Red("✗"), message)
+		fmt.Printf("%s %s\n", pterm.Red("✗"), message)
 	} else {
 		fmt.Printf("✗ %s\n", message)
 	}
@@ -236,7 +236,7 @@ func (s *Spinner) Warn(message string) {
 	}
 	if s.spinner != nil {
 		s.spinner.Stop() //nolint:errcheck
-		fmt.Printf("  %s %s\n", pterm.Yellow("!"), msg)
+		fmt.Printf("%s %s\n", pterm.Yellow("!"), msg)
 	} else {
 		fmt.Printf("! %s\n", msg)
 	}
@@ -253,7 +253,7 @@ func (s *Spinner) Stop() {
 func SuccessMsg(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	if IsTTY() {
-		fmt.Printf("  %s %s\n", pterm.Green("✓"), msg)
+		fmt.Printf("%s %s\n", pterm.Green("✓"), msg)
 	} else {
 		fmt.Printf("✓ %s\n", msg)
 	}
@@ -263,7 +263,7 @@ func SuccessMsg(format string, args ...interface{}) {
 func ErrorMsg(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	if IsTTY() {
-		fmt.Printf("  %s %s\n", pterm.Red("✗"), msg)
+		fmt.Printf("%s %s\n", pterm.Red("✗"), msg)
 	} else {
 		fmt.Printf("✗ %s\n", msg)
 	}
