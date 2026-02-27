@@ -145,7 +145,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 			skillCount++
 		}
 	}
-	ui.StepContinue("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", repoCount, skillCount))
+	ui.StepEnd("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", repoCount, skillCount))
 
 	for _, w := range resolveWarnings {
 		ui.Warning("%s", w)
@@ -229,11 +229,11 @@ func updateAllProjectSkills(uc *updateContext) error {
 			skillCount++
 		}
 	}
-	ui.StepContinue("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", repoCount, skillCount))
+	ui.StepEnd("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", repoCount, skillCount))
 
 	total := len(targets)
 	if total == 0 {
-		ui.SuccessMsg("Updated 0, skipped 0 of 0 skill(s)")
+		ui.UpdateSummary(ui.UpdateStats{})
 		return nil
 	}
 

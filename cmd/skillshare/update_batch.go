@@ -52,6 +52,7 @@ func (uc *updateContext) makeInstallOpts() install.InstallOptions {
 // Returns combined updateResult and any security error.
 func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult, error) {
 	total := len(targets)
+	start := time.Now()
 	fmt.Println()
 	progressBar := ui.StartProgress("Updating skills", total)
 
@@ -229,15 +230,13 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		displayPrunedSection(prunedNames)
 		displayStaleWarning(staleNames)
 		displayUpdateAuditResults(auditEntries, uc.opts.auditVerbose)
-		fmt.Println()
-		parts := []string{fmt.Sprintf("Updated %d, skipped %d", result.updated, result.skipped)}
-		if result.pruned > 0 {
-			parts = append(parts, fmt.Sprintf("pruned %d", result.pruned))
-		}
-		ui.SuccessMsg("%s of %d skill(s)", strings.Join(parts, ", "), total)
-		if result.securityFailed > 0 {
-			ui.Warning("Blocked: %d (security)", result.securityFailed)
-		}
+		ui.UpdateSummary(ui.UpdateStats{
+			Updated:        result.updated,
+			Skipped:        result.skipped,
+			Pruned:         result.pruned,
+			SecurityFailed: result.securityFailed,
+			Duration:       time.Since(start),
+		})
 	}
 
 	if (result.updated > 0 || result.pruned > 0) && !uc.opts.dryRun {

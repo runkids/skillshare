@@ -246,7 +246,7 @@ func cmdUpdate(args []string) error {
 			skillCount++
 		}
 	}
-	ui.StepContinue("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", repoCount, skillCount))
+	ui.StepEnd("Items", fmt.Sprintf("%d tracked repo(s), %d skill(s)", repoCount, skillCount))
 
 	for _, w := range resolveWarnings {
 		ui.Warning("%s", w)
@@ -254,7 +254,7 @@ func cmdUpdate(args []string) error {
 
 	if len(targets) == 0 {
 		if opts.all {
-			ui.SuccessMsg("Updated 0, skipped 0 of 0 skill(s)")
+			ui.UpdateSummary(ui.UpdateStats{})
 			return nil
 		}
 		if len(resolveWarnings) > 0 {
