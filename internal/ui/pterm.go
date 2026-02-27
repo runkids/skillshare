@@ -363,8 +363,13 @@ func StartProgress(title string, total int) *ProgressBar {
 }
 
 // Increment increments progress by 1.
+// When the bar reaches 100%, the title is replaced with "Done" so the
+// final render does not freeze on the last item name.
 func (p *ProgressBar) Increment() {
 	if p.bar != nil {
+		if p.bar.Current+1 >= p.bar.Total {
+			p.UpdateTitle("Done")
+		}
 		p.bar.Increment()
 	}
 }
@@ -490,6 +495,54 @@ type SyncStats struct {
 	Updated  int
 	Pruned   int
 	Duration time.Duration
+}
+
+// UpdateSummary prints an update summary line matching SyncSummary style.
+func UpdateSummary(stats UpdateStats) {
+	fmt.Println() // spacing
+
+	if !IsTTY() {
+		fmt.Printf("Update complete: %d updated, %d skipped, %d pruned",
+			stats.Updated, stats.Skipped, stats.Pruned)
+		if stats.Duration > 0 {
+			fmt.Printf(" (%.1fs)", stats.Duration.Seconds())
+		}
+		fmt.Println()
+		if stats.SecurityFailed > 0 {
+			fmt.Printf("Warning: %d repo(s) blocked by security audit\n", stats.SecurityFailed)
+		}
+		return
+	}
+
+	skippedColor := pterm.Gray
+	if stats.Skipped > 0 {
+		skippedColor = pterm.Yellow
+	}
+
+	line := fmt.Sprintf(
+		"%s  %s updated  %s skipped  %s pruned",
+		pterm.Green("✓ Update complete"),
+		pterm.Green(fmt.Sprint(stats.Updated)),
+		skippedColor(fmt.Sprint(stats.Skipped)),
+		pterm.Yellow(fmt.Sprint(stats.Pruned)),
+	)
+	if stats.Duration > 0 {
+		line += fmt.Sprintf("  %s", pterm.Gray(fmt.Sprintf("(%.1fs)", stats.Duration.Seconds())))
+	}
+	fmt.Println(line)
+
+	if stats.SecurityFailed > 0 {
+		Warning("Blocked: %d repo(s) by security audit", stats.SecurityFailed)
+	}
+}
+
+// UpdateStats holds statistics for update summary
+type UpdateStats struct {
+	Updated        int
+	Skipped        int
+	Pruned         int
+	SecurityFailed int
+	Duration       time.Duration
 }
 
 // ListItem prints a list item with status
