@@ -10,9 +10,10 @@ import (
 )
 
 type updateTarget struct {
-	name   string // relative path from source dir (display name)
-	path   string // absolute path on disk
-	isRepo bool
+	name   string              // relative path from source dir (display name)
+	path   string              // absolute path on disk
+	isRepo bool                // true for tracked repos (_-prefixed git repos)
+	meta   *install.SkillMeta // cached metadata; nil for tracked repos
 }
 
 // resolveByBasename searches nested skills and tracked repos by their
@@ -88,7 +89,7 @@ func resolveGroupUpdatable(group, sourceDir string) ([]updateTarget, error) {
 
 		// Skill with metadata (has .skillshare-meta.json)
 		if meta, metaErr := install.ReadMeta(path); metaErr == nil && meta != nil && meta.Source != "" {
-			matches = append(matches, updateTarget{name: rel, path: path, isRepo: false})
+			matches = append(matches, updateTarget{name: rel, path: path, isRepo: false, meta: meta})
 			return filepath.SkipDir
 		}
 

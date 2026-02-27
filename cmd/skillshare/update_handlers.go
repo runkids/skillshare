@@ -336,8 +336,9 @@ func updateTrackedRepoQuick(uc *updateContext, repoPath string) (bool, *audit.Re
 
 // updateSkillFromMeta updates a skill using its metadata in batch mode.
 // Output is suppressed; caller handles display via progress bar.
+// If cachedMeta is non-nil it is used directly; otherwise metadata is read from disk.
 // Returns (updated, installResult, error).
-func updateSkillFromMeta(uc *updateContext, skillPath string) (bool, *install.InstallResult, error) {
+func updateSkillFromMeta(uc *updateContext, skillPath string, cachedMeta *install.SkillMeta) (bool, *install.InstallResult, error) {
 	if uc.opts.dryRun {
 		return false, nil, nil
 	}
@@ -346,9 +347,13 @@ func updateSkillFromMeta(uc *updateContext, skillPath string) (bool, *install.In
 		return false, nil, nil
 	}
 
-	meta, err := install.ReadMeta(skillPath)
-	if err != nil || meta == nil || meta.Source == "" {
-		return false, nil, nil
+	meta := cachedMeta
+	if meta == nil {
+		var readErr error
+		meta, readErr = install.ReadMeta(skillPath)
+		if readErr != nil || meta == nil || meta.Source == "" {
+			return false, nil, nil
+		}
 	}
 
 	source, err := install.ParseSource(meta.Source)

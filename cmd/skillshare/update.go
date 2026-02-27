@@ -144,6 +144,7 @@ func cmdUpdate(args []string) error {
 
 	if opts.all {
 		// Recursive discovery for --all
+		scanSpinner := ui.StartSpinner("Scanning skills...")
 		err := filepath.Walk(cfg.Source, func(path string, info os.FileInfo, err error) error {
 			if err != nil || path == cfg.Source {
 				return nil
@@ -175,12 +176,13 @@ func cmdUpdate(args []string) error {
 					rel, _ := filepath.Rel(cfg.Source, skillDir)
 					if rel != "." && !seen[rel] {
 						seen[rel] = true
-						targets = append(targets, updateTarget{name: rel, path: skillDir, isRepo: false})
+						targets = append(targets, updateTarget{name: rel, path: skillDir, isRepo: false, meta: meta})
 					}
 				}
 			}
 			return nil
 		})
+		scanSpinner.Stop()
 		if err != nil {
 			return fmt.Errorf("failed to scan skills: %w", err)
 		}
