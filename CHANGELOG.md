@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.16.4] - 2026-02-27
+
+### New Features
+
+- **Cross-path duplicate detection** — `install` now detects when a repo is already installed at a different location and blocks the operation with a clear hint:
+  ```bash
+  skillshare install runkids/feature-radar --into feature-radar
+  # later...
+  skillshare install runkids/feature-radar
+  # ✗ this repo is already installed at skills/feature-radar/scan (and 2 more)
+  #   Use 'skillshare update' to refresh, or reinstall with --force to allow duplicates
+  ```
+- **Same-repo skip** — reinstalling a skill from the same repo now shows a friendly `⊘ skipped` indicator instead of an error; skipped skills are grouped by directory with repo label in the summary
+- **Web UI install dedup** — the Web UI install endpoints enforce the same cross-path duplicate check as the CLI, returning HTTP 409 when duplicates are found
+
+### Fixed
+
+- **`--force` hint accuracy** — the force hint now uses the actual repo URL (not per-skill subpath) and includes `--into` when applicable
+- **`update` root-level skills** — root-level skill repos (SKILL.md at repo root) no longer appear as stale/deleted during batch update; fixed `Subdir` normalization mismatch between metadata (`""`) and discovery (`"."`)
+
+### Improvements
+
+- **`update` batch summary** — batch update summary now uses the same single-line stats format as `sync` with color-coded counts
+
 ## [0.16.3] - 2026-02-27
 
 ### Improvements

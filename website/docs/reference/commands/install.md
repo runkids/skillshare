@@ -241,7 +241,7 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 |------|-------|-------------|
 | `--name <name>` | | Override installed name when exactly one skill is installed |
 | `--into <dir>` | | Install into subdirectory (e.g. `--into frontend` or `--into frontend/react`) |
-| `--force` | `-f` | Overwrite existing skill; also override audit blocking |
+| `--force` | `-f` | Overwrite existing skill; override audit blocking and cross-path duplicate check |
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--track` | `-t` | Keep `.git` for tracked repos |
 | `--skill` | `-s` | Select specific skills from multi-skill repo (comma-separated) |
@@ -254,6 +254,52 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 | `--project` | `-p` | Install into project `.skillshare/skills/` |
 | `--global` | `-g` | Install into global `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | Preview only |
+
+## Duplicate Detection
+
+skillshare automatically detects when you're about to install something that already exists:
+
+### Same-repo reinstall
+
+If a skill already exists and was installed from the **same repo**, skillshare skips it with a warning instead of failing:
+
+```bash
+skillshare install anthropics/skills/skills/pdf
+# ✓ Installed pdf
+
+skillshare install anthropics/skills/skills/pdf
+# ⊘ pdf — already installed from same repo
+```
+
+Use `--update` to refresh, or `--force` to overwrite.
+
+### Cross-path duplicate
+
+If a repo is already installed at one location and you try to install it at a **different** location, skillshare blocks the operation:
+
+```bash
+# First install (into a subdirectory)
+skillshare install runkids/feature-radar --into feature-radar
+
+# Later, forget about the first install
+skillshare install runkids/feature-radar
+# ✗ this repo is already installed at skills/feature-radar/scan (and 2 more)
+#   Use 'skillshare update' to refresh, or reinstall with --force to allow duplicates
+```
+
+This prevents accidental duplicates across different paths. Use `--force` to allow it intentionally.
+
+### Conflict with different repo
+
+If the destination directory exists but was installed from a **different** repo, the error message includes the original source:
+
+```bash
+skillshare install owner/repo-b --name my-skill
+# ✗ my-skill already exists (installed from https://github.com/owner/repo-a.git).
+#   To overwrite: skillshare install owner/repo-b --name my-skill --force
+```
+
+The `--force` hint always includes the correct flags (including `--into` if applicable).
 
 ## Common Scenarios
 
