@@ -9,6 +9,33 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.16.5] - 2026-02-28
+
+### New Features
+
+- **Web UI: Dark theme** — toggle between light and dark mode via the sun/moon button; persists to localStorage and respects `prefers-color-scheme`
+- **Web UI: Update page** — dedicated page for batch-updating tracked skills with select-all, per-item progress tracking, and result summary
+- **Web UI: Security overview card** — dashboard now shows a risk-level badge and severity breakdown; highlights critical findings with an accent card
+- **Web UI: Sync mode selector** — change a target's sync mode (merge/symlink) directly from the Targets page dropdown
+- **Web UI: Install skill picker** — skill descriptions from SKILL.md frontmatter are now shown inline in the picker modal; search also matches descriptions
+- **`upgrade` version transition** — `skillshare upgrade` now shows clear before/after versions:
+  ```
+  Upgraded  v0.16.3 → v0.16.5
+  ```
+  Works for Homebrew, direct download, and skill installs
+
+### Fixed
+
+- **Custom targets flagged as unknown** — `check` and `doctor` no longer warn about user-defined targets in global or project config (fixes [#57](https://github.com/runkids/skillshare/issues/57))
+- **Web UI: Modal scroll-away** — clicking checkboxes in the skill picker no longer causes content to scroll out of view (replaced `overflow-hidden` with `overflow-clip`)
+- **Web UI: Subdir URL discovery** — install form now correctly discovers skills from git subdirectory URLs
+- **Web UI: Accessibility** — added `aria-labels`, `htmlFor`, focus trap for modals, and `ErrorBoundary` for graceful error recovery
+
+### New Targets
+
+- **omp** — [oh-my-pi](https://github.com/can1357/oh-my-pi) (`~/.omp/agent/skills`, `.omp/skills`; alias: `oh-my-pi`)
+- **lingma** — [Lingma / 通義靈碼](https://help.aliyun.com/zh/lingma/user-guide/skills) (`~/.lingma/skills`, `.lingma/skills`)
+
 ## [0.16.4] - 2026-02-28
 
 ### New Features

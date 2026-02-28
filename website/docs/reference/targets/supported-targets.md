@@ -46,6 +46,7 @@ These are auto-detected during `skillshare init`:
   <a className="target-badge" href="#target-kiro">Kiro</a>
   <a className="target-badge" href="#target-kode">Kode</a>
   <a className="target-badge" href="#target-letta">Letta</a>
+  <a className="target-badge" href="#target-lingma">Lingma</a>
   <a className="target-badge" href="#target-mcpjam">MCPJam</a>
   <a className="target-badge" href="#target-mux">Mux</a>
   <a className="target-badge" href="#target-neovate">Neovate</a>
@@ -107,6 +108,7 @@ These are auto-detected during `skillshare init`:
 <tr id="target-kiro"><td>kiro</td><td><code>&#126;/.kiro/skills</code></td><td><code>.kiro/skills</code></td></tr>
 <tr id="target-kode"><td>kode</td><td><code>&#126;/.kode/skills</code></td><td><code>.kode/skills</code></td></tr>
 <tr id="target-letta"><td>letta</td><td><code>&#126;/.letta/skills</code></td><td><code>.skills</code></td></tr>
+<tr id="target-lingma"><td>lingma</td><td><code>&#126;/.lingma/skills</code></td><td><code>.lingma/skills</code></td></tr>
 <tr id="target-mcpjam"><td>mcpjam</td><td><code>&#126;/.mcpjam/skills</code></td><td><code>.mcpjam/skills</code></td></tr>
 <tr id="target-mux"><td>mux</td><td><code>&#126;/.mux/skills</code></td><td><code>.mux/skills</code></td></tr>
 <tr id="target-neovate"><td>neovate</td><td><code>&#126;/.neovate/skills</code></td><td><code>.neovate/skills</code></td></tr>

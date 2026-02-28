@@ -125,6 +125,10 @@ targets:
     project_name: letta
     global_path: "~/.letta/skills"
     project_path: ".skills"
+  - global_name: lingma
+    project_name: lingma
+    global_path: "~/.lingma/skills"
+    project_path: ".lingma/skills"
   - global_name: mcpjam
     project_name: mcpjam
     global_path: "~/.mcpjam/skills"
