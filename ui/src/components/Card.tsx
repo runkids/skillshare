@@ -11,9 +11,9 @@ interface CardProps {
 }
 
 const variantStyles = {
-  default: 'bg-white border-2 border-pencil',
+  default: 'bg-surface border-2 border-pencil',
   postit: 'bg-postit border-2 border-pencil',
-  accent: 'bg-white border-[3px] border-accent',
+  accent: 'bg-surface border-[3px] border-accent',
   outlined: 'bg-transparent border-2 border-dashed border-pencil-light',
 };
 

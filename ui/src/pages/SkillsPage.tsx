@@ -27,18 +27,18 @@ import { wobbly, shadows } from '../design';
 /* -- Color palette -------------------------------- */
 
 const postitColors = [
-  { bg: '#fff9c4', border: '#e6d95a' }, // classic yellow
-  { bg: '#bbdefb', border: '#64b5f6' }, // sky blue
-  { bg: '#f8bbd0', border: '#f06292' }, // soft pink
-  { bg: '#ffe0b2', border: '#ffb74d' }, // peach
-  { bg: '#d1c4e9', border: '#9575cd' }, // lavender
-  { bg: '#c8e6c9', border: '#81c784' }, // mint green
+  { bg: 'var(--color-postit-1-bg)', border: 'var(--color-postit-1-border)' },
+  { bg: 'var(--color-postit-2-bg)', border: 'var(--color-postit-2-border)' },
+  { bg: 'var(--color-postit-3-bg)', border: 'var(--color-postit-3-border)' },
+  { bg: 'var(--color-postit-4-bg)', border: 'var(--color-postit-4-border)' },
+  { bg: 'var(--color-postit-5-bg)', border: 'var(--color-postit-5-border)' },
+  { bg: 'var(--color-postit-6-bg)', border: 'var(--color-postit-6-border)' },
 ];
 
 const trackedColors = [
-  { bg: '#e8f5e9', border: '#2e7d32' }, // deep green 1
-  { bg: '#c8e6c9', border: '#388e3c' }, // deep green 2
-  { bg: '#dcedc8', border: '#558b2f' }, // olive green
+  { bg: 'var(--color-tracked-1-bg)', border: 'var(--color-tracked-1-border)' },
+  { bg: 'var(--color-tracked-2-bg)', border: 'var(--color-tracked-2-border)' },
+  { bg: 'var(--color-tracked-3-bg)', border: 'var(--color-tracked-3-border)' },
 ];
 
 function getPostitColor(skill: Skill, index: number) {
@@ -132,14 +132,14 @@ function FilterChip({
         transition-all duration-150 cursor-pointer select-none
         ${
           active
-            ? 'bg-pencil text-white border-pencil'
-            : 'bg-white text-pencil-light border-muted hover:border-pencil hover:text-pencil'
+            ? 'bg-pencil text-white border-pencil dark:bg-blue dark:border-blue'
+            : 'bg-surface text-pencil-light border-muted hover:border-pencil hover:text-pencil'
         }
       `}
       style={{
         borderRadius: wobbly.full,
         fontFamily: 'var(--font-hand)',
-        boxShadow: active ? '2px 2px 0px 0px #2d2d2d' : 'none',
+        boxShadow: active ? shadows.hover : 'none',
       }}
     >
       {icon}
@@ -528,14 +528,14 @@ export default function SkillsPage() {
         <div className="flex items-center border-2 border-muted overflow-hidden" style={{ borderRadius: wobbly.sm }}>
           <button
             onClick={() => setViewType('grid')}
-            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grid' ? 'bg-pencil text-white' : 'bg-white text-pencil-light hover:text-pencil'}`}
+            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grid' ? 'bg-pencil text-white dark:bg-blue' : 'bg-surface text-pencil-light hover:text-pencil'}`}
             title="Grid view"
           >
             <LayoutGrid size={16} strokeWidth={2.5} />
           </button>
           <button
             onClick={() => setViewType('grouped')}
-            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grouped' ? 'bg-pencil text-white' : 'bg-white text-pencil-light hover:text-pencil'}`}
+            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grouped' ? 'bg-pencil text-white dark:bg-blue' : 'bg-surface text-pencil-light hover:text-pencil'}`}
             title="Grouped view"
           >
             <FolderOpen size={16} strokeWidth={2.5} />

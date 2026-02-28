@@ -230,7 +230,7 @@ type StatVariant = 'neutral' | 'success' | 'warning' | 'danger' | 'blue' | 'mute
 
 const statStyles: Record<StatVariant, { bg: string; border: string; iconBg: string; text: string; valueFaded: string }> = {
   neutral: {
-    bg: 'bg-white',
+    bg: 'bg-surface',
     border: 'border-pencil',
     iconBg: 'bg-paper-warm',
     text: 'text-pencil',
@@ -239,33 +239,33 @@ const statStyles: Record<StatVariant, { bg: string; border: string; iconBg: stri
   success: {
     bg: 'bg-success-light',
     border: 'border-success',
-    iconBg: 'bg-white',
+    iconBg: 'bg-surface',
     text: 'text-success',
     valueFaded: 'text-success/40',
   },
   warning: {
     bg: 'bg-warning-light',
     border: 'border-warning',
-    iconBg: 'bg-white',
+    iconBg: 'bg-surface',
     text: 'text-warning',
     valueFaded: 'text-warning/40',
   },
   danger: {
     bg: 'bg-danger-light',
     border: 'border-danger',
-    iconBg: 'bg-white',
+    iconBg: 'bg-surface',
     text: 'text-danger',
     valueFaded: 'text-danger/40',
   },
   blue: {
     bg: 'bg-info-light',
     border: 'border-blue',
-    iconBg: 'bg-white',
+    iconBg: 'bg-surface',
     text: 'text-blue',
     valueFaded: 'text-blue/40',
   },
   muted: {
-    bg: 'bg-white',
+    bg: 'bg-surface',
     border: 'border-pencil-light',
     iconBg: 'bg-paper-warm',
     text: 'text-pencil-light',
@@ -700,13 +700,11 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
           style={{ transform: 'rotate(-0.3deg)' }}
         >
           <code
-            className="text-xs text-pencil-light block px-3 py-2 border-2 border-dashed overflow-x-auto"
+            className="text-xs text-pencil-light block px-3 py-2 border-2 border-dashed border-muted overflow-x-auto bg-paper-warm"
             style={{
               fontFamily: "'Courier New', monospace",
               borderRadius: wobbly.sm,
-              borderColor: 'rgba(45, 45, 45, 0.15)',
-              backgroundColor: 'rgba(250, 246, 238, 0.7)',
-              boxShadow: '2px 2px 0px 0px rgba(45, 45, 45, 0.05)',
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             &quot;{finding.snippet}&quot;

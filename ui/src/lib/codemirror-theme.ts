@@ -1,7 +1,9 @@
 import { EditorView } from '@codemirror/view';
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
 
-/** Shared hand-drawn CodeMirror theme used across the Skillshare UI */
-export const handTheme = EditorView.theme({
+/** Editor chrome (gutters, cursor, selection, etc.) */
+const handEditorTheme = EditorView.theme({
   '&': {
     fontSize: '14px',
     fontFamily: "'Courier New', monospace",
@@ -33,7 +35,7 @@ export const handTheme = EditorView.theme({
     color: 'var(--color-pencil)',
   },
   '.cm-activeLine': {
-    backgroundColor: 'rgba(255, 249, 196, 0.3)',
+    backgroundColor: 'var(--color-postit)',
   },
   '.cm-selectionBackground': {
     backgroundColor: 'var(--color-postit) !important',
@@ -52,16 +54,28 @@ export const handTheme = EditorView.theme({
   '.cm-searchMatch.cm-searchMatch-selected': {
     backgroundColor: 'var(--color-info-light)',
   },
-  // Syntax colors
-  '.cm-atom': { color: 'var(--color-danger)' },
-  '.cm-number': { color: 'var(--color-warning)' },
-  '.cm-keyword': { color: 'var(--color-blue)' },
-  '.cm-string': { color: 'var(--color-success)' },
-  '.cm-comment': { color: 'var(--color-muted-dark)', fontStyle: 'italic' },
-  '.cm-meta': { color: 'var(--color-blue-light)' },
-  '.cm-propertyName': { color: 'var(--color-blue)' },
-  '.cm-variableName': { color: 'var(--color-pencil)' },
-  '.cm-typeName': { color: 'var(--color-warning)' },
-  '.cm-bool': { color: 'var(--color-accent)' },
-  '.cm-definition': { color: 'var(--color-blue)' },
 });
+
+/** Syntax highlighting colors — uses CSS custom properties so dark mode auto-switches */
+const handHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, color: 'var(--color-blue)' },
+  { tag: tags.atom, color: 'var(--color-danger)' },
+  { tag: tags.bool, color: 'var(--color-accent)' },
+  { tag: tags.number, color: 'var(--color-warning)' },
+  { tag: tags.string, color: 'var(--color-success)' },
+  { tag: tags.comment, color: 'var(--color-muted-dark)', fontStyle: 'italic' },
+  { tag: tags.meta, color: 'var(--color-blue-light)' },
+  { tag: tags.propertyName, color: 'var(--color-blue)' },
+  { tag: tags.variableName, color: 'var(--color-pencil)' },
+  { tag: tags.typeName, color: 'var(--color-warning)' },
+  { tag: tags.definition(tags.variableName), color: 'var(--color-blue)' },
+  { tag: tags.tagName, color: 'var(--color-accent)' },
+  { tag: tags.attributeName, color: 'var(--color-blue)' },
+  { tag: tags.attributeValue, color: 'var(--color-success)' },
+  { tag: tags.url, color: 'var(--color-blue-light)' },
+  { tag: tags.operator, color: 'var(--color-pencil)' },
+  { tag: tags.punctuation, color: 'var(--color-pencil-light)' },
+]);
+
+/** Combined theme: editor chrome + syntax highlighting */
+export const handTheme = [handEditorTheme, syntaxHighlighting(handHighlightStyle)];

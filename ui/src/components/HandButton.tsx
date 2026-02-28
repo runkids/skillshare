@@ -9,11 +9,11 @@ interface HandButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses = {
   primary:
-    'bg-white border-[3px] border-pencil text-pencil hover:bg-accent hover:text-white hover:border-accent',
+    'bg-surface border-[3px] border-pencil text-pencil hover:bg-accent hover:text-white hover:border-accent',
   secondary:
     'bg-muted border-2 border-pencil-light text-pencil hover:bg-blue hover:text-white hover:border-blue',
   danger:
-    'bg-white border-2 border-danger text-danger hover:bg-danger hover:text-white',
+    'bg-surface border-2 border-danger text-danger hover:bg-danger hover:text-white',
   ghost:
     'bg-transparent border-2 border-dashed border-pencil-light text-pencil-light hover:border-pencil hover:text-pencil',
 };

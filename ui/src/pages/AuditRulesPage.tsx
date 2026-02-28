@@ -29,7 +29,7 @@ export default function AuditRulesPage() {
   const { toast } = useToast();
   const { isProjectMode } = useAppContext();
 
-  const extensions = useMemo(() => [yaml(), EditorView.lineWrapping], []);
+  const extensions = useMemo(() => [yaml(), EditorView.lineWrapping, ...handTheme], []);
 
   useEffect(() => {
     if (data?.raw) {
@@ -166,7 +166,7 @@ export default function AuditRulesPage() {
               value={raw}
               onChange={handleChange}
               extensions={extensions}
-              theme={handTheme}
+              theme="none"
               height="500px"
               basicSetup={{
                 lineNumbers: true,

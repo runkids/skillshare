@@ -262,7 +262,7 @@ export default function SkillDetailPage() {
       <div className="flex items-center gap-3 mb-6 sticky top-0 z-20 bg-paper py-3 -mx-4 px-4 md:-mx-8 md:px-8 -mt-3">
         <button
           onClick={() => navigate('/skills')}
-          className="w-9 h-9 flex items-center justify-center bg-white border-2 border-pencil text-pencil-light hover:text-pencil transition-colors cursor-pointer"
+          className="w-9 h-9 flex items-center justify-center bg-surface border-2 border-pencil text-pencil-light hover:text-pencil transition-colors cursor-pointer"
           style={{
             borderRadius: wobbly.sm,
             boxShadow: shadows.sm,

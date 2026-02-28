@@ -19,19 +19,19 @@ export const wobbly = {
 
 export const shadows = {
   /** Subtle shadow for cards */
-  sm: '3px 3px 0px 0px rgba(45, 45, 45, 0.12)',
+  sm: 'var(--shadow-sm)',
   /** Standard hard offset shadow */
-  md: '4px 4px 0px 0px #2d2d2d',
+  md: 'var(--shadow-md)',
   /** Heavy emphasis shadow */
-  lg: '8px 8px 0px 0px #2d2d2d',
+  lg: 'var(--shadow-lg)',
   /** Hover state — slightly reduced offset */
-  hover: '2px 2px 0px 0px #2d2d2d',
+  hover: 'var(--shadow-hover)',
   /** Active — pressed flat, no shadow */
   active: 'none',
   /** Accent colored shadow */
-  accent: '4px 4px 0px 0px #ff4d4d',
+  accent: 'var(--shadow-accent)',
   /** Blue accent shadow */
-  blue: '4px 4px 0px 0px #2d5da1',
+  blue: 'var(--shadow-blue)',
 } as const;
 
 export const colors = {

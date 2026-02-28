@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './lib/queryClient';
 import { ToastProvider } from './components/Toast';
+import { ThemeProvider } from './context/ThemeContext';
 import { AppProvider } from './context/AppContext';
 import { PageSkeleton } from './components/Skeleton';
 import Layout from './components/Layout';
@@ -31,6 +32,7 @@ function Lazy({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
       <ToastProvider>
         <AppProvider>
           <BrowserRouter>
@@ -56,6 +58,7 @@ export default function App() {
           </BrowserRouter>
         </AppProvider>
       </ToastProvider>
+      </ThemeProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );

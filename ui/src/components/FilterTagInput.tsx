@@ -43,7 +43,7 @@ export default function FilterTagInput({ label, patterns, onChange, color }: Fil
         {label}
       </label>
       <div
-        className="flex flex-wrap items-center gap-1.5 p-2 bg-white border-2 border-pencil min-h-[2.5rem] cursor-text"
+        className="flex flex-wrap items-center gap-1.5 p-2 bg-surface border-2 border-pencil min-h-[2.5rem] cursor-text"
         style={{ borderRadius: wobbly.sm }}
         onClick={() => inputRef.current?.focus()}
       >

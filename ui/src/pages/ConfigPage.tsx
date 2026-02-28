@@ -26,7 +26,7 @@ export default function ConfigPage() {
   const { toast } = useToast();
   const { isProjectMode } = useAppContext();
 
-  const extensions = useMemo(() => [yaml(), EditorView.lineWrapping], []);
+  const extensions = useMemo(() => [yaml(), EditorView.lineWrapping, ...handTheme], []);
 
   useEffect(() => {
     if (data?.raw) {
@@ -119,7 +119,7 @@ export default function ConfigPage() {
             value={raw}
             onChange={handleChange}
             extensions={extensions}
-            theme={handTheme}
+            theme="none"
             height="500px"
             basicSetup={{
               lineNumbers: true,

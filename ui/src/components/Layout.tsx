@@ -16,9 +16,12 @@ import {
   Settings,
   Menu,
   X,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { wobbly, shadows } from '../design';
 import { useAppContext } from '../context/AppContext';
+import { useTheme } from '../context/ThemeContext';
 
 const allNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -39,6 +42,7 @@ const allNavItems = [
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isProjectMode } = useAppContext();
+  const { theme, toggleTheme } = useTheme();
 
   const navItems = useMemo(() => {
     if (isProjectMode) {
@@ -52,7 +56,7 @@ export default function Layout() {
       {/* Mobile menu button */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="fixed top-4 left-4 z-50 md:hidden w-10 h-10 flex items-center justify-center bg-white border-2 border-pencil"
+        className="fixed top-4 left-4 z-50 md:hidden w-10 h-10 flex items-center justify-center bg-surface border-2 border-pencil"
         style={{
           borderRadius: wobbly.sm,
           boxShadow: shadows.sm,
@@ -116,8 +120,8 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-2.5 mb-1 text-base transition-all duration-100 ${
                   isActive
-                    ? 'bg-white border-2 border-pencil text-pencil font-medium'
-                    : 'text-pencil-light hover:text-pencil hover:bg-white/60 border-2 border-transparent'
+                    ? 'bg-surface border-2 border-pencil text-pencil font-medium'
+                    : 'text-pencil-light hover:text-pencil hover:bg-surface/60 border-2 border-transparent'
                 }`
               }
               style={({ isActive }) => ({
@@ -135,7 +139,23 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0 p-4 md:p-8 pt-16 md:pt-8">
+      <main className="flex-1 min-w-0 p-4 md:p-8 pt-16 md:pt-8 relative">
+        {/* Theme toggle — top right */}
+        <button
+          onClick={toggleTheme}
+          className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center bg-surface border-2 border-pencil text-pencil-light hover:text-pencil transition-all duration-100 cursor-pointer"
+          style={{
+            borderRadius: wobbly.sm,
+            boxShadow: shadows.sm,
+          }}
+          title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+        >
+          {theme === 'light' ? (
+            <Moon size={18} strokeWidth={2.5} />
+          ) : (
+            <Sun size={18} strokeWidth={2.5} />
+          )}
+        </button>
         <div className="max-w-5xl mx-auto">
           <Outlet />
         </div>

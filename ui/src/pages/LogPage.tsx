@@ -367,7 +367,7 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
             {visible.map((entry, i) => (
               <tr
                 key={`${entry.ts}-${entry.cmd}-${start + i}`}
-                className="border-b border-dashed border-muted hover:bg-white/60 transition-colors"
+                className="border-b border-dashed border-muted hover:bg-surface/60 transition-colors"
               >
                 <td className="py-3 pr-4 text-pencil-light text-base whitespace-nowrap">
                   {formatTimestamp(entry.ts)}
@@ -404,8 +404,8 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
                 onClick={() => { setPageSize(size); setPage(0); }}
                 className={`px-2.5 py-1 text-base border-2 transition-all duration-100 ${
                   pageSize === size
-                    ? 'bg-white border-pencil text-pencil font-medium'
-                    : 'bg-transparent border-transparent text-pencil-light hover:text-pencil hover:bg-white/60'
+                    ? 'bg-surface border-pencil text-pencil font-medium'
+                    : 'bg-transparent border-transparent text-pencil-light hover:text-pencil hover:bg-surface/60'
                 }`}
                 style={{
                   borderRadius: wobbly.sm,
@@ -427,7 +427,7 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
               className={`p-1.5 border-2 transition-all duration-100 ${
                 page === 0
                   ? 'border-transparent text-muted-dark cursor-not-allowed'
-                  : 'border-transparent text-pencil-light hover:text-pencil hover:bg-white/60 hover:border-pencil'
+                  : 'border-transparent text-pencil-light hover:text-pencil hover:bg-surface/60 hover:border-pencil'
               }`}
               style={{ borderRadius: wobbly.sm }}
             >
@@ -442,7 +442,7 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
               className={`p-1.5 border-2 transition-all duration-100 ${
                 page >= totalPages - 1
                   ? 'border-transparent text-muted-dark cursor-not-allowed'
-                  : 'border-transparent text-pencil-light hover:text-pencil hover:bg-white/60 hover:border-pencil'
+                  : 'border-transparent text-pencil-light hover:text-pencil hover:bg-surface/60 hover:border-pencil'
               }`}
               style={{ borderRadius: wobbly.sm }}
             >
@@ -669,8 +669,8 @@ export default function LogPage() {
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-base border-2 transition-all duration-100 ${
               tab === t
-                ? 'bg-white border-pencil text-pencil font-medium'
-                : 'bg-transparent border-transparent text-pencil-light hover:text-pencil hover:bg-white/60'
+                ? 'bg-surface border-pencil text-pencil font-medium'
+                : 'bg-transparent border-transparent text-pencil-light hover:text-pencil hover:bg-surface/60'
             }`}
             style={{
               borderRadius: wobbly.sm,
@@ -721,8 +721,8 @@ export default function LogPage() {
                 onClick={() => setTimeRange(tr.value)}
                 className={`px-3 py-2 text-sm border-2 transition-all duration-100 ${
                   timeRange === tr.value
-                    ? 'bg-white border-pencil text-pencil font-medium'
-                    : 'bg-transparent border-transparent text-pencil-light hover:text-pencil hover:bg-white/60'
+                    ? 'bg-surface border-pencil text-pencil font-medium'
+                    : 'bg-transparent border-transparent text-pencil-light hover:text-pencil hover:bg-surface/60'
                 }`}
                 style={{
                   borderRadius: wobbly.sm,

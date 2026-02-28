@@ -46,7 +46,7 @@ export default function FileViewerModal({ skillName, filepath, onClose }: FileVi
 
   const cmExtensions = useMemo(() => {
     if (!data) return [];
-    const exts = [EditorView.lineWrapping, EditorView.editable.of(false)];
+    const exts = [EditorView.lineWrapping, EditorView.editable.of(false), ...handTheme];
     if (data.contentType === 'application/json') exts.push(json());
     else if (data.contentType === 'text/yaml') exts.push(yaml());
     // Infer language from filename extension
@@ -119,7 +119,7 @@ export default function FileViewerModal({ skillName, filepath, onClose }: FileVi
                   <CodeMirror
                     value={data.content}
                     extensions={cmExtensions}
-                    theme={handTheme}
+                    theme="none"
                     readOnly
                     editable={false}
                     basicSetup={{

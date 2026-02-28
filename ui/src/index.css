@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   /* Hand-Drawn Color Palette */
@@ -22,6 +23,7 @@
   --color-danger-light: #f8d7da;
   --color-info: #2d5da1;
   --color-info-light: #d6e4f0;
+  --color-surface: #ffffff;
 
   /* Typography */
   --font-hand: 'Inter', sans-serif;
@@ -31,7 +33,81 @@
   --shadow-sm: 3px 3px 0px 0px rgba(45, 45, 45, 0.12);
   --shadow-md: 4px 4px 0px 0px #2d2d2d;
   --shadow-lg: 8px 8px 0px 0px #2d2d2d;
+  --shadow-hover: 2px 2px 0px 0px #2d2d2d;
   --shadow-accent: 4px 4px 0px 0px #ff4d4d;
+  --shadow-blue: 4px 4px 0px 0px #2d5da1;
+
+  /* Post-it note colors (light) */
+  --color-postit-1-bg: #fff9c4;
+  --color-postit-1-border: #e6d95a;
+  --color-postit-2-bg: #bbdefb;
+  --color-postit-2-border: #64b5f6;
+  --color-postit-3-bg: #f8bbd0;
+  --color-postit-3-border: #f06292;
+  --color-postit-4-bg: #ffe0b2;
+  --color-postit-4-border: #ffb74d;
+  --color-postit-5-bg: #d1c4e9;
+  --color-postit-5-border: #9575cd;
+  --color-postit-6-bg: #c8e6c9;
+  --color-postit-6-border: #81c784;
+  --color-tracked-1-bg: #e8f5e9;
+  --color-tracked-1-border: #2e7d32;
+  --color-tracked-2-bg: #c8e6c9;
+  --color-tracked-2-border: #388e3c;
+  --color-tracked-3-bg: #dcedc8;
+  --color-tracked-3-border: #558b2f;
+}
+
+/* Dark theme overrides — aligned with website [data-theme='dark'] */
+.dark {
+  --color-paper: #1a1816;
+  --color-paper-warm: #2a2725;
+  --color-pencil: #f0ece1;
+  --color-pencil-light: #ccc8bc;
+  --color-muted: #4a4542;
+  --color-muted-dark: #9a918a;
+  --color-accent: #ff6b6b;
+  --color-accent-dark: #e05555;
+  --color-blue: #e8a84c;
+  --color-blue-light: #f0be6e;
+  --color-postit: rgba(232, 168, 76, 0.22);
+  --color-postit-dark: rgba(240, 190, 110, 0.28);
+  --color-success: #6dca8e;
+  --color-success-light: rgba(109, 202, 142, 0.2);
+  --color-warning: #f0b850;
+  --color-warning-light: rgba(240, 184, 80, 0.2);
+  --color-danger: #f06860;
+  --color-danger-light: rgba(240, 104, 96, 0.2);
+  --color-info: #7db8e8;
+  --color-info-light: rgba(125, 184, 232, 0.2);
+  --color-surface: #3a3633;
+
+  --shadow-sm: 3px 3px 0px 0px rgba(0, 0, 0, 0.4);
+  --shadow-md: 4px 4px 0px 0px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 8px 8px 0px 0px rgba(0, 0, 0, 0.55);
+  --shadow-hover: 2px 2px 0px 0px rgba(0, 0, 0, 0.4);
+  --shadow-accent: 4px 4px 0px 0px rgba(255, 107, 107, 0.5);
+  --shadow-blue: 4px 4px 0px 0px rgba(232, 168, 76, 0.5);
+
+  /* Post-it note colors (dark — muted/translucent) */
+  --color-postit-1-bg: rgba(255, 249, 196, 0.12);
+  --color-postit-1-border: rgba(230, 217, 90, 0.5);
+  --color-postit-2-bg: rgba(187, 222, 251, 0.12);
+  --color-postit-2-border: rgba(100, 181, 246, 0.5);
+  --color-postit-3-bg: rgba(248, 187, 208, 0.12);
+  --color-postit-3-border: rgba(240, 98, 146, 0.5);
+  --color-postit-4-bg: rgba(255, 224, 178, 0.12);
+  --color-postit-4-border: rgba(255, 183, 77, 0.5);
+  --color-postit-5-bg: rgba(209, 196, 233, 0.12);
+  --color-postit-5-border: rgba(149, 117, 205, 0.5);
+  --color-postit-6-bg: rgba(200, 230, 201, 0.12);
+  --color-postit-6-border: rgba(129, 199, 132, 0.5);
+  --color-tracked-1-bg: rgba(232, 245, 233, 0.12);
+  --color-tracked-1-border: rgba(46, 125, 50, 0.6);
+  --color-tracked-2-bg: rgba(200, 230, 201, 0.12);
+  --color-tracked-2-border: rgba(56, 142, 60, 0.6);
+  --color-tracked-3-bg: rgba(220, 237, 200, 0.12);
+  --color-tracked-3-border: rgba(85, 139, 47, 0.6);
 }
 
 /* Wobbly border-radius values as CSS custom properties (not theme tokens) */
@@ -89,7 +165,7 @@ body {
   ol { list-style-type: decimal; }
   li { margin-bottom: 0.25rem; }
   code {
-    background-color: #f3eee2;
+    background-color: var(--color-paper-warm);
     color: var(--color-blue);
     padding: 0.12rem 0.45rem;
     border-radius: 6px;
@@ -107,7 +183,7 @@ body {
     border-radius: var(--radius-wobbly-sm);
     overflow-x: auto;
     margin-bottom: 1rem;
-    box-shadow: 4px 4px 0px 0px #101827;
+    box-shadow: var(--shadow-md);
   }
   pre::before {
     content: 'code';
