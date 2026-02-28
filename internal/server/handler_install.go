@@ -34,8 +34,8 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Only git sources without a subdir can contain multiple skills
-	if !source.IsGit() || source.HasSubdir() {
+	// Non-git sources (local paths) don't need discovery
+	if !source.IsGit() {
 		writeJSON(w, map[string]any{
 			"needsSelection": false,
 			"skills":         []any{},
@@ -43,7 +43,13 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discovery, err := install.DiscoverFromGit(source)
+	// Use subdir-aware discovery when a subdirectory is specified
+	var discovery *install.DiscoveryResult
+	if source.HasSubdir() {
+		discovery, err = install.DiscoverFromGitSubdir(source)
+	} else {
+		discovery, err = install.DiscoverFromGit(source)
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -92,7 +98,12 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discovery, err := install.DiscoverFromGit(source)
+	var discovery *install.DiscoveryResult
+	if source.HasSubdir() {
+		discovery, err = install.DiscoverFromGitSubdir(source)
+	} else {
+		discovery, err = install.DiscoverFromGit(source)
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "discovery failed: "+err.Error())
 		return
