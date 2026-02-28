@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   LayoutDashboard,
   Puzzle,
@@ -51,6 +51,11 @@ export default function Layout() {
     return allNavItems;
   }, [isProjectMode]);
 
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
+
   return (
     <div className="flex min-h-screen">
       {/* Mobile menu button */}
@@ -61,6 +66,7 @@ export default function Layout() {
           borderRadius: wobbly.sm,
           boxShadow: shadows.sm,
         }}
+        aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
       >
         {mobileOpen ? <X size={20} strokeWidth={2.5} /> : <Menu size={20} strokeWidth={2.5} />}
       </button>
@@ -148,6 +154,7 @@ export default function Layout() {
             borderRadius: wobbly.sm,
             boxShadow: shadows.sm,
           }}
+          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
           title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
         >
           {theme === 'light' ? (

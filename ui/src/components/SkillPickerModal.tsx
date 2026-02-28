@@ -4,6 +4,7 @@ import Card from './Card';
 import HandButton from './HandButton';
 import { HandCheckbox } from './HandInput';
 import { wobbly } from '../design';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 import type { DiscoveredSkill } from '../api/client';
 
 interface SkillPickerModalProps {
@@ -26,6 +27,7 @@ export default function SkillPickerModal({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
   const filterRef = useRef<HTMLInputElement>(null);
+  const trapRef = useFocusTrap(open);
 
   const filtered = useMemo(() => {
     if (!filter) return skills;
@@ -40,7 +42,6 @@ export default function SkillPickerModal({
     if (open) {
       setSelected(new Set(skills.map((s) => s.path)));
       setFilter('');
-      setTimeout(() => filterRef.current?.focus(), 0);
     }
   }, [open, skills]);
 
@@ -87,6 +88,8 @@ export default function SkillPickerModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
       onClick={(e) => {
         if (e.target === e.currentTarget && !installing) onCancel();
       }}
@@ -96,6 +99,7 @@ export default function SkillPickerModal({
 
       {/* Dialog */}
       <div
+        ref={trapRef}
         className="relative w-full max-w-md animate-sketch-in"
         style={{ borderRadius: wobbly.md }}
       >

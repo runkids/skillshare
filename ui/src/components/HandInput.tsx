@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useId } from 'react';
 import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { wobbly, shadows } from '../design';
@@ -7,11 +7,15 @@ interface HandInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
 }
 
-export function HandInput({ label, className = '', style, ...props }: HandInputProps) {
+export function HandInput({ label, className = '', style, id, ...props }: HandInputProps) {
+  const autoId = useId();
+  const inputId = id ?? autoId;
+
   return (
     <div>
       {label && (
         <label
+          htmlFor={inputId}
           className="block text-base text-pencil-light mb-1"
           style={{ fontFamily: 'var(--font-hand)' }}
         >
@@ -19,6 +23,7 @@ export function HandInput({ label, className = '', style, ...props }: HandInputP
         </label>
       )}
       <input
+        id={inputId}
         className={`
           w-full px-4 py-2.5 bg-surface border-2 border-pencil text-pencil
           placeholder:text-muted-dark
@@ -42,11 +47,15 @@ interface HandTextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> 
   label?: string;
 }
 
-export function HandTextarea({ label, className = '', style, ...props }: HandTextareaProps) {
+export function HandTextarea({ label, className = '', style, id, ...props }: HandTextareaProps) {
+  const autoId = useId();
+  const inputId = id ?? autoId;
+
   return (
     <div>
       {label && (
         <label
+          htmlFor={inputId}
           className="block text-base text-pencil-light mb-1"
           style={{ fontFamily: 'var(--font-hand)' }}
         >
@@ -54,6 +63,7 @@ export function HandTextarea({ label, className = '', style, ...props }: HandTex
         </label>
       )}
       <textarea
+        id={inputId}
         className={`
           w-full px-4 py-3 bg-surface border-2 border-pencil text-pencil
           placeholder:text-muted-dark

@@ -7,6 +7,7 @@ import { ToastProvider } from './components/Toast';
 import { ThemeProvider } from './context/ThemeContext';
 import { AppProvider } from './context/AppContext';
 import { PageSkeleton } from './components/Skeleton';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import DashboardPage from './pages/DashboardPage';
 
@@ -36,6 +37,7 @@ export default function App() {
       <ToastProvider>
         <AppProvider>
           <BrowserRouter>
+            <ErrorBoundary>
             <Routes>
               <Route element={<Layout />}>
                 <Route index element={<DashboardPage />} />
@@ -55,6 +57,7 @@ export default function App() {
                 <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
               </Route>
             </Routes>
+            </ErrorBoundary>
           </BrowserRouter>
         </AppProvider>
       </ToastProvider>

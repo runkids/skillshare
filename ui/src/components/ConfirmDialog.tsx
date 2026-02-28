@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 import Card from './Card';
 import HandButton from './HandButton';
 import { wobbly } from '../design';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -28,6 +29,8 @@ export default function ConfirmDialog({
   loading = false,
   wide = false,
 }: ConfirmDialogProps) {
+  const trapRef = useFocusTrap(open);
+
   // Close on Escape
   useEffect(() => {
     if (!open) return;
@@ -43,6 +46,8 @@ export default function ConfirmDialog({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
       onClick={(e) => {
         if (e.target === e.currentTarget && !loading) onCancel();
       }}
@@ -52,6 +57,7 @@ export default function ConfirmDialog({
 
       {/* Dialog */}
       <div
+        ref={trapRef}
         className={`relative w-full ${wide ? 'max-w-lg' : 'max-w-sm'} animate-sketch-in`}
         style={{ borderRadius: wobbly.md }}
       >
