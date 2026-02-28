@@ -30,6 +30,7 @@ export const queryKeys = {
     ['log-stats', type, filters ?? {}] as const,
 
   config: ['config'] as const,
+  check: ['check'] as const,
 };
 
 // Stale times per data type
@@ -45,4 +46,5 @@ export const staleTimes = {
   auditRules: 5 * 60 * 1000,  // 5min
   backups: 2 * 60 * 1000,     // 2min
   trash: 2 * 60 * 1000,       // 2min
+  check: 60 * 1000,            // 1min
 };

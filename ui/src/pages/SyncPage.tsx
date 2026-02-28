@@ -6,10 +6,8 @@ import {
   Zap,
   ChevronDown,
   ChevronRight,
-  Link as LinkIcon,
-  ArrowUpCircle,
-  SkipForward,
-  Scissors,
+  Check,
+  Minus,
   CheckCircle,
   AlertCircle,
   Folder,
@@ -262,14 +260,14 @@ export default function SyncPage() {
       </Card>
 
       {/* Sync results */}
-      {results && (
-        <div className="mb-8 animate-sketch-in">
-          <h3
-            className="text-xl font-bold text-pencil mb-4"
+      {results && results.length > 0 && (
+        <div className="space-y-3 mt-6 mb-8">
+          <h2
+            className="text-lg font-bold text-pencil"
             style={{ fontFamily: 'var(--font-heading)' }}
           >
-            {dryRun ? 'Preview Results' : 'Sync Results'}
-          </h3>
+            {dryRun ? 'Preview Results' : 'Results'}
+          </h2>
           <SyncResults results={results} />
         </div>
       )}
@@ -297,7 +295,7 @@ export default function SyncPage() {
   );
 }
 
-/** Sync results visualization */
+/** Sync results visualization — compact per-target cards with badge counts */
 function SyncResults({ results }: { results: SyncResult[] }) {
   if (results.length === 0) {
     return (
@@ -308,131 +306,38 @@ function SyncResults({ results }: { results: SyncResult[] }) {
   }
 
   return (
-    <div className="space-y-4">
-      {results.map((r) => {
+    <div className="space-y-3">
+      {results.map((r, i) => {
         const linked = r.linked?.length ?? 0;
         const updated = r.updated?.length ?? 0;
         const skipped = r.skipped?.length ?? 0;
         const pruned = r.pruned?.length ?? 0;
-        const total = linked + updated + skipped + pruned;
+        const hasChanges = linked > 0 || updated > 0;
 
         return (
-          <Card key={r.target}>
-            <div className="flex items-center gap-3 mb-3">
-              <Target size={18} strokeWidth={2.5} className="text-success" />
-              <h4
-                className="font-bold text-pencil"
-                style={{ fontFamily: 'var(--font-heading)' }}
-              >
+          <Card
+            key={r.target}
+            style={{ animation: `fadeInUp 0.3s ease-out ${i * 100}ms both` }}
+          >
+            <div className="flex items-center gap-3">
+              {hasChanges ? (
+                <Check size={18} className="text-success shrink-0" />
+              ) : (
+                <Minus size={18} className="text-pencil-light shrink-0" />
+              )}
+              <span className="text-pencil font-medium flex-1" style={{ fontFamily: 'var(--font-hand)' }}>
                 {r.target}
-              </h4>
-              <Badge variant={total > 0 ? 'info' : 'success'}>
-                {total > 0 ? `${total} changes` : 'no changes'}
-              </Badge>
-            </div>
-
-            {total > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <ResultStat label="Linked" count={linked} icon={LinkIcon} variant="success" />
-                <ResultStat label="Updated" count={updated} icon={ArrowUpCircle} variant="info" />
-                <ResultStat label="Skipped" count={skipped} icon={SkipForward} variant="warning" />
-                <ResultStat label="Pruned" count={pruned} icon={Scissors} variant="danger" />
+              </span>
+              <div className="flex gap-2 flex-wrap">
+                {linked > 0 && <Badge variant="success">{linked} linked</Badge>}
+                {updated > 0 && <Badge variant="info">{updated} updated</Badge>}
+                {skipped > 0 && <Badge variant="default">{skipped} skipped</Badge>}
+                {pruned > 0 && <Badge variant="warning">{pruned} pruned</Badge>}
               </div>
-            )}
-
-            {/* Expandable details */}
-            {total > 0 && <ResultDetails result={r} />}
+            </div>
           </Card>
         );
       })}
-    </div>
-  );
-}
-
-function ResultStat({
-  label,
-  count,
-  icon: Icon,
-  variant,
-}: {
-  label: string;
-  count: number;
-  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
-  variant: 'success' | 'info' | 'warning' | 'danger';
-}) {
-  const bgMap = {
-    success: 'bg-success-light',
-    info: 'bg-info-light',
-    warning: 'bg-warning-light',
-    danger: 'bg-danger-light',
-  };
-  const colorMap = {
-    success: 'text-success',
-    info: 'text-blue',
-    warning: 'text-warning',
-    danger: 'text-danger',
-  };
-
-  return (
-    <div
-      className={`flex items-center gap-2 px-3 py-2 border border-dashed ${count > 0 ? bgMap[variant] : 'bg-muted/30'}`}
-      style={{ borderRadius: wobbly.sm }}
-    >
-      <Icon
-        size={16}
-        strokeWidth={2.5}
-        className={count > 0 ? colorMap[variant] : 'text-muted-dark'}
-      />
-      <div>
-        <p
-          className={`text-lg font-bold leading-none ${count > 0 ? colorMap[variant] : 'text-muted-dark'}`}
-          style={{ fontFamily: 'var(--font-heading)' }}
-        >
-          {count}
-        </p>
-        <p className="text-sm text-pencil-light">{label}</p>
-      </div>
-    </div>
-  );
-}
-
-function ResultDetails({ result }: { result: SyncResult }) {
-  const [open, setOpen] = useState(false);
-
-  const allItems = [
-    ...(result.linked ?? []).map((s) => ({ skill: s, action: 'linked' })),
-    ...(result.updated ?? []).map((s) => ({ skill: s, action: 'updated' })),
-    ...(result.skipped ?? []).map((s) => ({ skill: s, action: 'skipped' })),
-    ...(result.pruned ?? []).map((s) => ({ skill: s, action: 'pruned' })),
-  ];
-
-  if (allItems.length === 0) return null;
-
-  return (
-    <div className="mt-3">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-1 text-sm text-pencil-light hover:text-pencil cursor-pointer transition-colors"
-        style={{ fontFamily: 'var(--font-hand)' }}
-      >
-        {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        {open ? 'Hide details' : 'Show details'}
-      </button>
-      {open && (
-        <div className="mt-2 pl-4 border-l-2 border-dashed border-muted-dark space-y-1 animate-sketch-in">
-          {allItems.map((item, i) => (
-            <div key={i} className="flex items-center gap-2 text-base">
-              <ActionBadge action={item.action} />
-              <span
-                className="text-pencil-light truncate"
-                style={{ fontFamily: "'Courier New', monospace", fontSize: '0.875rem' }}
-              >
-                {item.skill}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

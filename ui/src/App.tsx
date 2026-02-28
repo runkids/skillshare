@@ -20,6 +20,7 @@ const BackupPage = lazy(() => import('./pages/BackupPage'));
 const GitSyncPage = lazy(() => import('./pages/GitSyncPage'));
 const SearchPage = lazy(() => import('./pages/SearchPage'));
 const InstallPage = lazy(() => import('./pages/InstallPage'));
+const UpdatePage = lazy(() => import('./pages/UpdatePage'));
 const TrashPage = lazy(() => import('./pages/TrashPage'));
 const AuditPage = lazy(() => import('./pages/AuditPage'));
 const AuditRulesPage = lazy(() => import('./pages/AuditRulesPage'));
@@ -51,6 +52,7 @@ export default function App() {
                 <Route path="git" element={<Lazy><GitSyncPage /></Lazy>} />
                 <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
                 <Route path="install" element={<Lazy><InstallPage /></Lazy>} />
+                <Route path="update" element={<Lazy><UpdatePage /></Lazy>} />
                 <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
                 <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
                 <Route path="log" element={<Lazy><LogPage /></Lazy>} />
