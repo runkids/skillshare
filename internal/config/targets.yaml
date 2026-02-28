@@ -137,6 +137,11 @@ targets:
     project_name: neovate
     global_path: "~/.neovate/skills"
     project_path: ".neovate/skills"
+  - global_name: omp
+    project_name: omp
+    global_path: "~/.omp/agent/skills"
+    project_path: ".omp/skills"
+    aliases: [oh-my-pi]
   - global_name: openclaw
     project_name: openclaw
     global_path: "~/.openclaw/skills"

@@ -49,6 +49,7 @@ These are auto-detected during `skillshare init`:
   <a className="target-badge" href="#target-mcpjam">MCPJam</a>
   <a className="target-badge" href="#target-mux">Mux</a>
   <a className="target-badge" href="#target-neovate">Neovate</a>
+  <a className="target-badge" href="#target-omp">oh-my-pi</a>
   <a className="target-badge" href="#target-openclaw">OpenClaw</a>
   <a className="target-badge" href="#target-opencode">OpenCode</a>
   <a className="target-badge" href="#target-openhands">OpenHands</a>
@@ -109,6 +110,7 @@ These are auto-detected during `skillshare init`:
 <tr id="target-mcpjam"><td>mcpjam</td><td><code>&#126;/.mcpjam/skills</code></td><td><code>.mcpjam/skills</code></td></tr>
 <tr id="target-mux"><td>mux</td><td><code>&#126;/.mux/skills</code></td><td><code>.mux/skills</code></td></tr>
 <tr id="target-neovate"><td>neovate</td><td><code>&#126;/.neovate/skills</code></td><td><code>.neovate/skills</code></td></tr>
+<tr id="target-omp"><td>omp</td><td><code>&#126;/.omp/agent/skills</code></td><td><code>.omp/skills</code></td></tr>
 <tr id="target-openclaw"><td>openclaw</td><td><code>&#126;/.openclaw/skills</code></td><td><code>skills</code></td></tr>
 <tr id="target-opencode"><td>opencode</td><td><code>&#126;/.config/opencode/skills</code></td><td><code>.opencode/skills</code></td></tr>
 <tr id="target-openhands"><td>openhands</td><td><code>&#126;/.openhands/skills</code></td><td><code>.openhands/skills</code></td></tr>
@@ -152,6 +154,7 @@ Some targets have alternative names for backward compatibility or convenience:
 | `kimi-cli` | `kimi` | With CLI suffix |
 | `kiro-cli` | `kiro` | With CLI suffix |
 | `mistral-vibe` | `vibe` | Full product name |
+| `oh-my-pi` | `omp` | Full product name |
 | `qwen-code` | `qwen` | With code suffix |
 
 You can use either the alias or the canonical name in all commands:
