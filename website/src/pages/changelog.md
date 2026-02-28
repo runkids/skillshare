@@ -34,7 +34,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 ### New Targets
 
 - **omp** — [oh-my-pi](https://github.com/can1357/oh-my-pi) (`~/.omp/agent/skills`, `.omp/skills`; alias: `oh-my-pi`)
-- **lingma** — [Lingma / 通義靈碼](https://help.aliyun.com/zh/lingma/user-guide/skills) (`~/.lingma/skills`, `.lingma/skills`)
+- **lingma** — [Lingma](https://help.aliyun.com/zh/lingma/user-guide/skills) (`~/.lingma/skills`, `.lingma/skills`)
 
 ## [0.16.4] - 2026-02-28
 
