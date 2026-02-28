@@ -593,6 +593,8 @@ func resolveSkillStatuses(
 }
 
 // runCheckFiltered checks only the specified targets (resolved from names/groups).
+// Note: unlike runCheck, this intentionally skips warnUnknownSkillTargets because
+// filtered checks only verify update status for explicitly named skills/groups.
 func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 	if !opts.json {
 		ui.Header(ui.WithModeLabel("Checking for updates"))

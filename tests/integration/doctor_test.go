@@ -452,3 +452,51 @@ func TestDoctor_ProjectMode_WithFlagUsesProjectConfig(t *testing.T) {
 	result.AssertOutputContains(t, ".skillshare/config.yaml")
 	result.AssertOutputContains(t, ".skillshare/skills")
 }
+
+func TestDoctor_CustomTarget_NoUnknownWarning(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	customPath := filepath.Join(sb.Home, ".custom-tool", "skills")
+	os.MkdirAll(customPath, 0755)
+
+	sb.CreateSkill("my-skill", map[string]string{
+		"SKILL.md": "---\nname: my-skill\ntargets: [claude, custom-tool]\n---\n# My Skill",
+	})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + sb.CreateTarget("claude") + `
+  custom-tool:
+    path: ` + customPath + `
+`)
+
+	result := sb.RunCLI("doctor")
+
+	result.AssertSuccess(t)
+	result.AssertOutputNotContains(t, "unknown target")
+}
+
+func TestDoctor_CustomTarget_ProjectMode_NoUnknownWarning(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	customPath := filepath.Join(sb.Home, ".custom-tool", "skills")
+	os.MkdirAll(customPath, 0755)
+
+	projectRoot := sb.SetupProjectDir("claude")
+	sb.CreateProjectSkill(projectRoot, "my-skill", map[string]string{
+		"SKILL.md": "---\nname: my-skill\ntargets: [claude, custom-tool]\n---\n# My Skill",
+	})
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+  - name: custom-tool
+    path: `+customPath+`
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "doctor", "-p")
+
+	result.AssertSuccess(t)
+	result.AssertOutputNotContains(t, "unknown target")
+}

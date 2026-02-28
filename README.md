@@ -205,6 +205,7 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/1am2syman"><img src="https://github.com/1am2syman.png" width="50" style="border-radius:50%" alt="1am2syman"></a>
 <a href="https://github.com/thealokkr"><img src="https://github.com/thealokkr.png" width="50" style="border-radius:50%" alt="thealokkr"></a>
 <a href="https://github.com/JasonLandbridge"><img src="https://github.com/JasonLandbridge.png" width="50" style="border-radius:50%" alt="JasonLandbridge"></a>
+<a href="https://github.com/masonc15"><img src="https://github.com/masonc15.png" width="50" style="border-radius:50%" alt="masonc15"></a>
 
 ---
 

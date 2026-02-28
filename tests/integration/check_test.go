@@ -622,6 +622,31 @@ func gitPush(t *testing.T, dir string) {
 	run(t, dir, "git", "push", "-u", "origin", branch)
 }
 
+func TestCheck_CustomTarget_NoUnknownWarning(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	customPath := filepath.Join(sb.Home, ".custom-tool", "skills")
+	os.MkdirAll(customPath, 0755)
+
+	sb.CreateSkill("my-skill", map[string]string{
+		"SKILL.md": "---\nname: my-skill\ntargets: [claude, custom-tool]\n---\n# My Skill",
+	})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + sb.CreateTarget("claude") + `
+  custom-tool:
+    path: ` + customPath + `
+`)
+
+	result := sb.RunCLI("check")
+
+	result.AssertSuccess(t)
+	result.AssertOutputNotContains(t, "unknown target")
+}
+
 func run(t *testing.T, dir string, name string, args ...string) {
 	t.Helper()
 	cmd := exec.Command(name, args...)

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"skillshare/internal/config"
+	"skillshare/internal/ui"
 )
 
 func cmdCheckProject(root string, opts *checkOptions) error {
@@ -18,7 +19,10 @@ func cmdCheckProject(root string, opts *checkOptions) error {
 	}
 
 	var extraNames []string
-	if projectCfg, err := config.LoadProject(root); err == nil {
+	projectCfg, err := config.LoadProject(root)
+	if err != nil {
+		ui.Warning("Failed to load project config for target validation: %v", err)
+	} else {
 		for _, t := range projectCfg.Targets {
 			if t.Name != "" {
 				extraNames = append(extraNames, t.Name)
