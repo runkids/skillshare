@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"skillshare/internal/config"
 )
 
 func cmdCheckProject(root string, opts *checkOptions) error {
@@ -16,9 +17,18 @@ func cmdCheckProject(root string, opts *checkOptions) error {
 		return fmt.Errorf("no project skills directory found")
 	}
 
+	var extraNames []string
+	if projectCfg, err := config.LoadProject(root); err == nil {
+		for _, t := range projectCfg.Targets {
+			if t.Name != "" {
+				extraNames = append(extraNames, t.Name)
+			}
+		}
+	}
+
 	// No names and no groups → check all (existing behavior)
 	if len(opts.names) == 0 && len(opts.groups) == 0 {
-		return runCheck(sourcePath, opts.json)
+		return runCheck(sourcePath, opts.json, extraNames)
 	}
 
 	// Filtered check

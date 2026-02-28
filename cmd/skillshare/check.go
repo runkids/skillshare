@@ -178,7 +178,7 @@ func cmdCheck(args []string) error {
 
 	// No names and no groups → check all (existing behavior)
 	if len(opts.names) == 0 && len(opts.groups) == 0 {
-		cmdErr := runCheck(cfg.Source, opts.json)
+		cmdErr := runCheck(cfg.Source, opts.json, targetNamesFromConfig(cfg.Targets))
 		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, cmdErr)
 		return cmdErr
 	}
@@ -204,7 +204,7 @@ func logCheckOp(cfgPath string, repos, skills, updatesAvailable, errors int, sco
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
-func runCheck(sourceDir string, jsonOutput bool) error {
+func runCheck(sourceDir string, jsonOutput bool, extraTargetNames []string) error {
 	if !jsonOutput {
 		ui.Header(ui.WithModeLabel("Checking for updates"))
 		ui.StepStart("Source", sourceDir)
@@ -327,7 +327,7 @@ func runCheck(sourceDir string, jsonOutput bool) error {
 	renderCheckResults(repoResults, skillResults, false)
 
 	// Warn about unknown target names in skill-level targets field
-	warnUnknownSkillTargets(sourceDir)
+	warnUnknownSkillTargets(sourceDir, extraTargetNames)
 
 	return nil
 }
@@ -837,7 +837,7 @@ func singleCheckStatus(repos []checkRepoResult, skills []checkSkillResult) singl
 	return singleCheckResult{"success", "Up to date"}
 }
 
-func warnUnknownSkillTargets(sourceDir string) {
+func warnUnknownSkillTargets(sourceDir string, extraTargetNames []string) {
 	sp := ui.StartSpinner("Validating skill targets...")
 	discovered, err := ssync.DiscoverSourceSkills(sourceDir)
 	if err != nil {
@@ -845,7 +845,7 @@ func warnUnknownSkillTargets(sourceDir string) {
 		return
 	}
 
-	warnings := findUnknownSkillTargets(discovered)
+	warnings := findUnknownSkillTargets(discovered, extraTargetNames)
 	sp.Stop()
 	if len(warnings) > 0 {
 		fmt.Println()

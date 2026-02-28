@@ -2,6 +2,8 @@ package main
 
 import (
 	"testing"
+
+	ssync "skillshare/internal/sync"
 )
 
 func TestParseFilterFlags(t *testing.T) {
@@ -220,6 +222,26 @@ func TestFilterUpdateOpts_HasUpdates(t *testing.T) {
 	}
 	if !(filterUpdateOpts{AddInclude: []string{"x"}}).hasUpdates() {
 		t.Error("opts with AddInclude should have updates")
+	}
+}
+
+func TestFindUnknownSkillTargets_CustomTargets(t *testing.T) {
+	discovered := []ssync.DiscoveredSkill{
+		{RelPath: "skill-a", Targets: []string{"claude", "custom-tool"}},
+		{RelPath: "skill-b", Targets: []string{"custom-tool"}},
+		{RelPath: "skill-c", Targets: nil}, // nil = all targets, should be skipped
+	}
+
+	// Without extra names, "custom-tool" is unknown
+	warnings := findUnknownSkillTargets(discovered, nil)
+	if len(warnings) != 2 {
+		t.Fatalf("expected 2 warnings without extra names, got %d: %v", len(warnings), warnings)
+	}
+
+	// With "custom-tool" as an extra name, no warnings
+	warnings = findUnknownSkillTargets(discovered, []string{"custom-tool"})
+	if len(warnings) != 0 {
+		t.Fatalf("expected 0 warnings with custom-tool as extra, got %d: %v", len(warnings), warnings)
 	}
 }
 
