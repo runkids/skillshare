@@ -99,7 +99,7 @@ export default function SkillPickerModal({
         className="relative w-full max-w-md animate-sketch-in"
         style={{ borderRadius: wobbly.md }}
       >
-        <Card decoration="tape">
+        <Card decoration="tape" className="!overflow-clip">
           <h3
             className="text-xl font-bold text-pencil mb-1"
             style={{ fontFamily: 'var(--font-heading)' }}
@@ -150,7 +150,7 @@ export default function SkillPickerModal({
           </div>
 
           {/* Skill list */}
-          <div className="max-h-64 overflow-y-auto space-y-1 mb-4">
+          <div className="overflow-y-auto space-y-1 mb-4" style={{ maxHeight: '16rem' }}>
             {filtered.map((skill) => (
               <div key={skill.path} className="flex items-start gap-2 py-1">
                 <HandCheckbox
