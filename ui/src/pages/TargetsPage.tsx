@@ -5,7 +5,7 @@ import { Trash2, Plus, Target, ArrowDownToLine, Search, CircleDot, PenLine, Aler
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
 import HandButton from '../components/HandButton';
-import { HandInput } from '../components/HandInput';
+import { HandInput, HandSelect } from '../components/HandInput';
 import FilterTagInput from '../components/FilterTagInput';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -16,6 +16,12 @@ import type { AvailableTarget } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { wobbly, shadows } from '../design';
 import { shortenHome } from '../lib/paths';
+
+const SYNC_MODE_OPTIONS = [
+  { value: 'merge', label: 'Merge' },
+  { value: 'symlink', label: 'Symlink' },
+  { value: 'copy', label: 'Copy' },
+];
 
 export default function TargetsPage() {
   const queryClient = useQueryClient();
@@ -370,7 +376,8 @@ export default function TargetsPage() {
             return (
               <Card
                 key={target.name}
-                className={i % 2 === 0 ? 'rotate-[-0.2deg]' : 'rotate-[0.2deg]'}
+                className={`!overflow-visible ${i % 2 === 0 ? 'rotate-[-0.2deg]' : 'rotate-[0.2deg]'}`}
+                style={{ position: 'relative', zIndex: targets.length - i }}
               >
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0 flex-1">
@@ -383,12 +390,6 @@ export default function TargetsPage() {
                         {target.name}
                       </span>
                       <StatusBadge status={target.status} />
-                      <span
-                        className="text-sm text-muted-dark border border-dashed border-muted-dark px-1.5 py-0.5"
-                        style={{ borderRadius: wobbly.sm }}
-                      >
-                        {target.mode}
-                      </span>
                     </div>
                     <p
                       className="text-sm text-pencil-light truncate"
@@ -396,6 +397,25 @@ export default function TargetsPage() {
                     >
                       {shortenHome(target.path)}
                     </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="text-sm text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+                        Sync mode:
+                      </span>
+                      <HandSelect
+                        value={target.mode || 'merge'}
+                        onChange={async (mode) => {
+                          try {
+                            await api.updateTarget(target.name, { mode });
+                            queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+                            toast(`Sync mode for ${target.name} changed to ${mode}`, 'success');
+                          } catch (e) {
+                            toast((e as Error).message, 'error');
+                          }
+                        }}
+                        options={SYNC_MODE_OPTIONS}
+                        className="w-32"
+                      />
+                    </div>
                     <div className="mt-1 flex flex-wrap items-center gap-1">
                       {target.include?.length > 0 && (
                         <span className="text-xs text-blue bg-info-light px-1.5 py-0.5" style={{ borderRadius: wobbly.sm }}>

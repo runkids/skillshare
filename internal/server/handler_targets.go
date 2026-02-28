@@ -236,6 +236,7 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Include *[]string `json:"include"` // null = no change, [] = clear
 		Exclude *[]string `json:"exclude"`
+		Mode    *string   `json:"mode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -258,6 +259,16 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		target.Exclude = *body.Exclude
 	}
 
+	if body.Mode != nil {
+		switch *body.Mode {
+		case "merge", "symlink", "copy":
+			target.Mode = *body.Mode
+		default:
+			writeError(w, http.StatusBadRequest, "invalid mode: "+*body.Mode+"; must be merge, symlink, or copy")
+			return
+		}
+	}
+
 	s.cfg.Targets[name] = target
 
 	// In project mode, also update the project config
@@ -270,6 +281,9 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 				if body.Exclude != nil {
 					s.projectCfg.Targets[i].Exclude = *body.Exclude
 				}
+				if body.Mode != nil {
+					s.projectCfg.Targets[i].Mode = *body.Mode
+				}
 				break
 			}
 		}
@@ -280,8 +294,15 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	hasFilter := body.Include != nil || body.Exclude != nil
+	action := "filter"
+	if body.Mode != nil && hasFilter {
+		action = "mode+filter"
+	} else if body.Mode != nil {
+		action = "mode"
+	}
 	s.writeOpsLog("target", "ok", start, map[string]any{
-		"action": "filter",
+		"action": action,
 		"name":   name,
 		"scope":  "ui",
 	}, "")

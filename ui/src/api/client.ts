@@ -41,7 +41,7 @@ export const api = {
     }),
   removeTarget: (name: string) =>
     apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  updateTarget: (name: string, opts: { include?: string[]; exclude?: string[] }) =>
+  updateTarget: (name: string, opts: { include?: string[]; exclude?: string[]; mode?: string }) =>
     apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}`, {
       method: 'PATCH',
       body: JSON.stringify(opts),
