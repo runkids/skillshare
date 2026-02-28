@@ -18,9 +18,9 @@ import { wobbly, shadows } from '../design';
 import { shortenHome } from '../lib/paths';
 
 const SYNC_MODE_OPTIONS = [
-  { value: 'merge', label: 'Merge' },
-  { value: 'symlink', label: 'Symlink' },
-  { value: 'copy', label: 'Copy' },
+  { value: 'merge', label: 'Merge (default)', description: 'Per-skill symlinks, preserves local skills' },
+  { value: 'symlink', label: 'Symlink', description: 'Entire directory symlinked to source' },
+  { value: 'copy', label: 'Copy', description: 'Physical file copies instead of symlinks' },
 ];
 
 export default function TargetsPage() {
@@ -397,7 +397,7 @@ export default function TargetsPage() {
                     >
                       {shortenHome(target.path)}
                     </p>
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className="mt-2 pt-2 border-t border-dashed border-muted-dark/40 flex items-center gap-2">
                       <span className="text-sm text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
                         Sync mode:
                       </span>
@@ -413,7 +413,7 @@ export default function TargetsPage() {
                           }
                         }}
                         options={SYNC_MODE_OPTIONS}
-                        className="w-32"
+                        className="w-44"
                       />
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-1">

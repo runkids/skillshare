@@ -86,6 +86,7 @@ export function HandTextarea({ label, className = '', style, id, ...props }: Han
 export interface SelectOption {
   value: string;
   label: string;
+  description?: string;
 }
 
 interface HandSelectProps {
@@ -203,13 +204,14 @@ export function HandSelect({ label, value, onChange, options, className = '' }: 
         <ul
           ref={listRef}
           role="listbox"
-          className="absolute z-50 mt-1 w-full bg-surface border-2 border-pencil overflow-auto py-1"
+          className="absolute z-50 mt-1 min-w-full bg-surface border-2 border-pencil overflow-auto py-1"
           style={{
             borderRadius: wobbly.sm,
             boxShadow: shadows.md,
             fontFamily: 'var(--font-hand)',
             fontSize: '1rem',
             maxHeight: '15rem',
+            minWidth: '14rem',
           }}
         >
           {options.map((opt, i) => (
@@ -218,7 +220,7 @@ export function HandSelect({ label, value, onChange, options, className = '' }: 
               role="option"
               aria-selected={opt.value === value}
               className={`
-                px-4 py-2 cursor-pointer flex items-center gap-2 transition-colors
+                px-4 py-2 cursor-pointer flex items-start gap-2 transition-colors
                 ${i === focusIdx ? 'bg-blue/10' : ''}
                 ${opt.value === value ? 'text-pencil font-medium' : 'text-pencil-light'}
                 hover:bg-blue/10
@@ -226,10 +228,15 @@ export function HandSelect({ label, value, onChange, options, className = '' }: 
               onMouseEnter={() => setFocusIdx(i)}
               onMouseDown={(e) => { e.preventDefault(); select(opt.value); }}
             >
-              <span className="w-4 shrink-0">
+              <span className="w-4 shrink-0 mt-0.5">
                 {opt.value === value && <Check size={14} strokeWidth={3} className="text-blue" />}
               </span>
-              <span>{opt.label}</span>
+              <span>
+                {opt.label}
+                {opt.description && (
+                  <span className="block text-xs text-pencil-light/70 font-normal">{opt.description}</span>
+                )}
+              </span>
             </li>
           ))}
         </ul>
