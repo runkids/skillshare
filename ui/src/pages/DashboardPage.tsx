@@ -16,6 +16,7 @@ import {
   Package,
   Zap,
   ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -593,6 +594,14 @@ function SkillUpdatesSection() {
 
 /* -- Security Audit Section --------------------------- */
 
+const riskLabelVariant: Record<string, 'success' | 'default' | 'info' | 'warning' | 'danger'> = {
+  clean: 'success',
+  low: 'default',
+  medium: 'info',
+  high: 'warning',
+  critical: 'danger',
+};
+
 function SecurityAuditSection() {
   const [auditData, setAuditData] = useState<AuditAllResponse | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -612,29 +621,46 @@ function SecurityAuditSection() {
     }
   };
 
+  const hasCritical = scanned && auditData && auditData.summary.critical > 0;
+  const hasFindings = scanned && auditData && (
+    auditData.summary.critical + auditData.summary.high + auditData.summary.medium +
+    auditData.summary.low + auditData.summary.info
+  ) > 0;
+  const ShieldIcon = hasCritical ? ShieldAlert : ShieldCheck;
+
+  const severityCounts: { label: string; count: number; variant: 'danger' | 'warning' | 'info' | 'default' }[] = scanned && auditData
+    ? [
+        { label: 'CRITICAL', count: auditData.summary.critical, variant: 'danger' },
+        { label: 'HIGH', count: auditData.summary.high, variant: 'warning' },
+        { label: 'MEDIUM', count: auditData.summary.medium, variant: 'info' },
+        { label: 'LOW', count: auditData.summary.low, variant: 'default' },
+        { label: 'INFO', count: auditData.summary.info, variant: 'default' },
+      ]
+    : [];
+
   return (
-    <Card className="mb-8">
+    <Card variant={hasCritical ? 'accent' : 'default'} className="mb-8">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <ShieldCheck size={20} strokeWidth={2.5} className="text-blue" />
+          <ShieldIcon
+            size={20}
+            strokeWidth={2.5}
+            className={hasCritical ? 'text-danger' : 'text-blue'}
+          />
           <h3
             className="text-lg font-bold text-pencil"
             style={{ fontFamily: 'var(--font-heading)' }}
           >
-            Security Audit
+            Security Overview
           </h3>
-          {scanned && auditData && auditData.summary.failed > 0 && (
-            <Badge variant="danger">{auditData.summary.failed} critical</Badge>
-          )}
-          {scanned && auditData && auditData.summary.failed === 0 && auditData.summary.warning > 0 && (
-            <Badge variant="warning">{auditData.summary.warning} warning(s)</Badge>
-          )}
-          {scanned && auditData && auditData.summary.failed === 0 && auditData.summary.warning === 0 && (
-            <Badge variant="success">All clear</Badge>
+          {scanned && auditData && (
+            <Badge variant={riskLabelVariant[auditData.summary.riskLabel] ?? 'default'}>
+              {auditData.summary.riskLabel}
+            </Badge>
           )}
         </div>
         <Link to="/audit" className="text-sm text-blue hover:underline" style={{ fontFamily: 'var(--font-hand)' }}>
-          {scanned ? 'View details' : 'Run scan'}
+          {scanned ? 'View Details' : 'Run scan'}
         </Link>
       </div>
 
@@ -661,46 +687,72 @@ function SecurityAuditSection() {
       )}
 
       {scanned && auditData && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div
-            className="py-2 px-3 bg-paper-warm border border-muted text-center"
-            style={{ borderRadius: wobbly.sm }}
-          >
-            <p className="text-lg font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
-              {auditData.summary.total}
-            </p>
-            <p className="text-xs text-pencil-light">Scanned</p>
-          </div>
-          <div
-            className="py-2 px-3 bg-paper-warm border border-muted text-center"
-            style={{ borderRadius: wobbly.sm }}
-          >
-            <p className="text-lg font-bold text-success" style={{ fontFamily: 'var(--font-heading)' }}>
-              {auditData.summary.passed}
-            </p>
-            <p className="text-xs text-pencil-light">Passed</p>
-          </div>
-          <div
-            className="py-2 px-3 bg-paper-warm border border-muted text-center"
-            style={{ borderRadius: wobbly.sm }}
-          >
-            <p className="text-lg font-bold text-warning" style={{ fontFamily: 'var(--font-heading)' }}>
-              {auditData.summary.warning}
-            </p>
-            <p className="text-xs text-pencil-light">Warnings</p>
-          </div>
-          <div
-            className={`py-2 px-3 bg-paper-warm border text-center ${auditData.summary.failed > 0 ? 'border-danger' : 'border-muted'}`}
-            style={{ borderRadius: wobbly.sm }}
-          >
-            <p
-              className={`text-lg font-bold ${auditData.summary.failed > 0 ? 'text-danger' : 'text-pencil'}`}
-              style={{ fontFamily: 'var(--font-heading)' }}
+        <div className="space-y-4">
+          {/* Summary stats row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div
+              className="py-2 px-3 bg-paper-warm border border-muted text-center"
+              style={{ borderRadius: wobbly.sm }}
             >
-              {auditData.summary.failed}
-            </p>
-            <p className="text-xs text-pencil-light">Critical</p>
+              <p className="text-lg font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+                {auditData.summary.total}
+              </p>
+              <p className="text-xs text-pencil-light">Scanned</p>
+            </div>
+            <div
+              className="py-2 px-3 bg-paper-warm border border-muted text-center"
+              style={{ borderRadius: wobbly.sm }}
+            >
+              <p className="text-lg font-bold text-success" style={{ fontFamily: 'var(--font-heading)' }}>
+                {auditData.summary.passed}
+              </p>
+              <p className="text-xs text-pencil-light">Passed</p>
+            </div>
+            <div
+              className="py-2 px-3 bg-paper-warm border border-muted text-center"
+              style={{ borderRadius: wobbly.sm }}
+            >
+              <p className="text-lg font-bold text-warning" style={{ fontFamily: 'var(--font-heading)' }}>
+                {auditData.summary.warning}
+              </p>
+              <p className="text-xs text-pencil-light">Warnings</p>
+            </div>
+            <div
+              className={`py-2 px-3 bg-paper-warm border text-center ${auditData.summary.failed > 0 ? 'border-danger' : 'border-muted'}`}
+              style={{ borderRadius: wobbly.sm }}
+            >
+              <p
+                className={`text-lg font-bold ${auditData.summary.failed > 0 ? 'text-danger' : 'text-pencil'}`}
+                style={{ fontFamily: 'var(--font-heading)' }}
+              >
+                {auditData.summary.failed}
+              </p>
+              <p className="text-xs text-pencil-light">Failed</p>
+            </div>
           </div>
+
+          {/* Severity breakdown */}
+          {hasFindings ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+                Findings:
+              </span>
+              {severityCounts
+                .filter((s) => s.count > 0)
+                .map((s) => (
+                  <Badge key={s.label} variant={s.variant}>
+                    {s.count} {s.label}
+                  </Badge>
+                ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-success">
+              <ShieldCheck size={16} strokeWidth={2.5} />
+              <span className="text-sm font-medium" style={{ fontFamily: 'var(--font-hand)' }}>
+                All Clear — no security findings detected
+              </span>
+            </div>
+          )}
         </div>
       )}
     </Card>
