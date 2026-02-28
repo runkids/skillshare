@@ -155,7 +155,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 	}
 
 	checkSkillsValidity(cfg.Source, result, discovered)
-	checkSkillTargetsField(result, discovered)
+	checkSkillTargetsField(result, discovered, targetNamesFromConfig(cfg.Targets))
 	targetCache := checkTargets(cfg, result)
 	printSymlinkCompatHint(cfg.Targets, cfg.Mode, isProject)
 	checkSyncDrift(cfg, result, discovered, targetCache)
@@ -486,12 +486,12 @@ func checkSkillsValidity(source string, result *doctorResult, discovered []sync.
 }
 
 // checkSkillTargetsField validates that skill-level targets values are known target names
-func checkSkillTargetsField(result *doctorResult, discovered []sync.DiscoveredSkill) {
+func checkSkillTargetsField(result *doctorResult, discovered []sync.DiscoveredSkill, extraTargetNames []string) {
 	if discovered == nil {
 		return
 	}
 
-	warnings := findUnknownSkillTargets(discovered)
+	warnings := findUnknownSkillTargets(discovered, extraTargetNames)
 	if len(warnings) > 0 {
 		for _, w := range warnings {
 			ui.Warning("Skill targets: %s", w)

@@ -9,6 +9,16 @@ import (
 	ssync "skillshare/internal/sync"
 )
 
+// targetNamesFromConfig extracts the target names from a global config's
+// Targets map so they can be passed to validation helpers.
+func targetNamesFromConfig(targets map[string]config.TargetConfig) []string {
+	names := make([]string, 0, len(targets))
+	for name := range targets {
+		names = append(names, name)
+	}
+	return names
+}
+
 // filterUpdateOpts holds parsed filter modification flags.
 type filterUpdateOpts struct {
 	AddInclude    []string
@@ -139,10 +149,16 @@ func formatFilterList(patterns []string) string {
 
 // findUnknownSkillTargets returns warnings for skills whose targets field
 // references unknown target names.  Shared by check and doctor commands.
-func findUnknownSkillTargets(discovered []ssync.DiscoveredSkill) []string {
+// extraTargetNames contains user-configured target names (from global or
+// project config) that should be treated as known in addition to the
+// built-in target list.
+func findUnknownSkillTargets(discovered []ssync.DiscoveredSkill, extraTargetNames []string) []string {
 	knownNames := config.KnownTargetNames()
-	knownSet := make(map[string]bool, len(knownNames))
+	knownSet := make(map[string]bool, len(knownNames)+len(extraTargetNames))
 	for _, n := range knownNames {
+		knownSet[n] = true
+	}
+	for _, n := range extraTargetNames {
 		knownSet[n] = true
 	}
 
