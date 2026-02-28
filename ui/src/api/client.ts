@@ -331,6 +331,7 @@ export interface SkillFileContent {
 export interface DiscoveredSkill {
   name: string;
   path: string;
+  description?: string;
 }
 
 export interface DiscoverResult {

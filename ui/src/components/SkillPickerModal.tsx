@@ -33,7 +33,10 @@ export default function SkillPickerModal({
     if (!filter) return skills;
     const q = filter.toLowerCase();
     return skills.filter(
-      (s) => s.name.toLowerCase().includes(q) || s.path.toLowerCase().includes(q),
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.path.toLowerCase().includes(q) ||
+        (s.description?.toLowerCase().includes(q) ?? false),
     );
   }, [skills, filter]);
 
@@ -162,7 +165,7 @@ export default function SkillPickerModal({
                   checked={selected.has(skill.path)}
                   onChange={() => toggle(skill.path)}
                 />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <span
                     className="font-bold text-pencil text-base"
                     style={{ fontFamily: 'var(--font-heading)' }}
@@ -175,6 +178,11 @@ export default function SkillPickerModal({
                       style={{ fontFamily: "'Courier New', monospace" }}
                     >
                       {skill.path}
+                    </span>
+                  )}
+                  {skill.description && (
+                    <span className="block text-sm text-pencil-light truncate">
+                      {skill.description}
                     </span>
                   )}
                 </div>
