@@ -111,7 +111,7 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 
 // updateTrackedRepo performs git pull on an existing tracked repo
 func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallOptions) (*TrackedRepoResult, error) {
-	if !isGitRepo(repoPath) {
+	if !IsGitRepo(repoPath) {
 		return nil, fmt.Errorf("'%s' is not a git repository", repoPath)
 	}
 
@@ -220,17 +220,26 @@ func cloneTrackedRepo(url, subdir, destPath string, onProgress ProgressCallback)
 	return cloneRepoFull(url, destPath, onProgress)
 }
 
+// isAuthOrAccessError returns true for auth failures and access denials that
+// should NOT trigger a fallback clone strategy (retrying won't help).
+func isAuthOrAccessError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	if IsAuthError(s) {
+		return true
+	}
+	low := strings.ToLower(s)
+	return strings.Contains(low, "permission denied") ||
+		strings.Contains(low, "repository not found")
+}
+
 func shouldFallbackSparseTrackedClone(err error) bool {
 	if err == nil {
 		return false
 	}
-
-	s := strings.ToLower(err.Error())
-	if strings.Contains(s, "authentication failed") ||
-		strings.Contains(s, "could not read username") ||
-		strings.Contains(s, "terminal prompts disabled") ||
-		strings.Contains(s, "permission denied") ||
-		strings.Contains(s, "repository not found") {
+	if isAuthOrAccessError(err) {
 		return false
 	}
 
@@ -243,16 +252,11 @@ func shouldFallbackTrackedClone(err error) bool {
 	if err == nil {
 		return false
 	}
-
-	s := strings.ToLower(err.Error())
-	if strings.Contains(s, "authentication failed") ||
-		strings.Contains(s, "could not read username") ||
-		strings.Contains(s, "terminal prompts disabled") ||
-		strings.Contains(s, "permission denied") ||
-		strings.Contains(s, "repository not found") {
+	if isAuthOrAccessError(err) {
 		return false
 	}
 
+	low := strings.ToLower(err.Error())
 	capabilityHints := []string{
 		"does not support",
 		"not support",
@@ -264,7 +268,7 @@ func shouldFallbackTrackedClone(err error) bool {
 		"dumb http",
 	}
 	for _, hint := range capabilityHints {
-		if strings.Contains(s, hint) {
+		if strings.Contains(low, hint) {
 			return true
 		}
 	}

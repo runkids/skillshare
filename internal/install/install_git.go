@@ -22,11 +22,6 @@ func IsGitRepo(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-// isGitRepo is an alias for IsGitRepo (for internal use)
-func isGitRepo(path string) bool {
-	return IsGitRepo(path)
-}
-
 // gitCommandTimeout is the maximum time for a git network operation.
 // Remote tracked-repo clones can take longer in constrained CI/Docker networks.
 const gitCommandTimeout = 180 * time.Second
@@ -65,9 +60,7 @@ func usedTokenAuth(extraEnv []string) bool {
 // wrapGitError inspects stderr output to produce actionable error messages.
 func wrapGitError(stderr string, err error, tokenAuthAttempted bool) error {
 	s := sanitizeTokens(strings.TrimSpace(stderr))
-	if strings.Contains(s, "Authentication failed") ||
-		strings.Contains(s, "could not read Username") ||
-		strings.Contains(s, "terminal prompts disabled") {
+	if IsAuthError(s) {
 		if tokenAuthAttempted {
 			return fmt.Errorf("authentication failed — token rejected, check permissions and expiry\n       %s", s)
 		}

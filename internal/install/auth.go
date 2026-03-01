@@ -80,6 +80,9 @@ func resolveToken(cloneURL string) (token, username string) {
 		if t := os.Getenv("GITHUB_TOKEN"); t != "" {
 			return t, "x-access-token"
 		}
+		if t := os.Getenv("GH_TOKEN"); t != "" {
+			return t, "x-access-token"
+		}
 	case PlatformGitLab:
 		if t := os.Getenv("GITLAB_TOKEN"); t != "" {
 			return t, "oauth2"
@@ -190,7 +193,7 @@ func originalPrefix(cloneURL, host string) string {
 // in error messages.
 func sanitizeTokens(text string) string {
 	vars := []string{
-		"GITHUB_TOKEN", "GITLAB_TOKEN", "BITBUCKET_TOKEN",
+		"GITHUB_TOKEN", "GH_TOKEN", "GITLAB_TOKEN", "BITBUCKET_TOKEN",
 		"AZURE_DEVOPS_TOKEN", "SKILLSHARE_GIT_TOKEN", "BITBUCKET_USERNAME",
 	}
 	for _, v := range vars {
@@ -214,4 +217,12 @@ func urlUsername(cloneURL string) string {
 // isHTTPS returns true if the URL uses the HTTPS scheme.
 func isHTTPS(cloneURL string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(cloneURL)), "https://")
+}
+
+// IsAuthError returns true when git stderr indicates an authentication failure.
+func IsAuthError(output string) bool {
+	return strings.Contains(output, "Authentication failed") ||
+		strings.Contains(output, "Access denied") ||
+		strings.Contains(output, "could not read Username") ||
+		strings.Contains(output, "terminal prompts disabled")
 }

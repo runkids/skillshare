@@ -12,7 +12,7 @@ func handleUpdate(source *Source, destPath string, result *InstallResult, opts I
 	result.SkillPath = destPath
 
 	// For git repos without subdir, try git pull
-	if source.IsGit() && !source.HasSubdir() && isGitRepo(destPath) {
+	if source.IsGit() && !source.HasSubdir() && IsGitRepo(destPath) {
 		if opts.DryRun {
 			result.Action = "would update (git pull)"
 			return result, nil

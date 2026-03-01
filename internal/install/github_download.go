@@ -110,7 +110,7 @@ func downloadDirRecursive(client *http.Client, owner, repo, apiBase, path, destD
 		if onProgress != nil {
 			onProgress(fmt.Sprintf("Downloading %s", item.Path))
 		}
-		return downloadFile(item.DownloadURL, target)
+		return downloadFile(client, item.DownloadURL, target)
 	}
 
 	// Directory path
@@ -138,7 +138,7 @@ func downloadDirRecursive(client *http.Client, owner, repo, apiBase, path, destD
 				if onProgress != nil {
 					onProgress(fmt.Sprintf("Downloading %s", item.Path))
 				}
-				if err := downloadFile(item.DownloadURL, target); err != nil {
+				if err := downloadFile(client, item.DownloadURL, target); err != nil {
 					return err
 				}
 			}
@@ -149,13 +149,12 @@ func downloadDirRecursive(client *http.Client, owner, repo, apiBase, path, destD
 	return fmt.Errorf("unexpected GitHub contents payload for %q", path)
 }
 
-func downloadFile(fileURL, destPath string) error {
+func downloadFile(client *http.Client, fileURL, destPath string) error {
 	req, err := ghclient.NewRequest(fileURL)
 	if err != nil {
 		return err
 	}
 
-	client := ghclient.NewClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -243,7 +242,7 @@ func gitHubAPIBase(source *Source) (string, error) {
 		return "", fmt.Errorf("nil source")
 	}
 
-	host := strings.ToLower(sourceHost(source.CloneURL))
+	host := strings.ToLower(extractHost(source.CloneURL))
 	if host == "" {
 		return "", fmt.Errorf("unable to determine source host")
 	}
@@ -254,23 +253,6 @@ func gitHubAPIBase(source *Source) (string, error) {
 		return "https://api.github.com", nil
 	}
 	return fmt.Sprintf("https://%s/api/v3", host), nil
-}
-
-func sourceHost(cloneURL string) string {
-	s := strings.TrimSpace(cloneURL)
-	if s == "" {
-		return ""
-	}
-
-	if ssh := gitSSHPattern.FindStringSubmatch(s); ssh != nil {
-		return ssh[1]
-	}
-
-	u, err := url.Parse(s)
-	if err != nil {
-		return ""
-	}
-	return u.Hostname()
 }
 
 func buildGitHubContentsURL(apiBase, owner, repo, path string) string {
