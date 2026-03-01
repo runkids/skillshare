@@ -10,6 +10,7 @@ import (
 
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
+	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
@@ -102,10 +103,7 @@ func stageAndCommit(sourcePath, message string, spinner *ui.Spinner) error {
 
 // isAuthError returns true when git output indicates an authentication failure.
 func isAuthError(output string) bool {
-	return strings.Contains(output, "Authentication failed") ||
-		strings.Contains(output, "Access denied") ||
-		strings.Contains(output, "could not read Username") ||
-		strings.Contains(output, "terminal prompts disabled")
+	return install.IsAuthError(output)
 }
 
 // hintGitRemoteError prints helpful hints based on common git remote errors.

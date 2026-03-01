@@ -75,6 +75,20 @@ func TestResolveToken(t *testing.T) {
 			wantUser: "x-access-token",
 		},
 		{
+			name:     "github GH_TOKEN fallback",
+			url:      "https://github.com/org/repo.git",
+			envVars:  map[string]string{"GH_TOKEN": "gho_fromcli"},
+			wantTok:  "gho_fromcli",
+			wantUser: "x-access-token",
+		},
+		{
+			name:     "GITHUB_TOKEN takes priority over GH_TOKEN",
+			url:      "https://github.com/org/repo.git",
+			envVars:  map[string]string{"GITHUB_TOKEN": "ghp_primary", "GH_TOKEN": "gho_secondary"},
+			wantTok:  "ghp_primary",
+			wantUser: "x-access-token",
+		},
+		{
 			name:     "gitlab token",
 			url:      "https://gitlab.com/org/repo.git",
 			envVars:  map[string]string{"GITLAB_TOKEN": "glpat-test"},
@@ -387,6 +401,12 @@ func TestSanitizeTokens(t *testing.T) {
 			text:    "fatal: auth failed for https://x-access-token:ado_secret@dev.azure.com/",
 			envVars: map[string]string{"AZURE_DEVOPS_TOKEN": "ado_secret"},
 			want:    "fatal: auth failed for https://x-access-token:[REDACTED]@dev.azure.com/",
+		},
+		{
+			name:    "redacts GH_TOKEN",
+			text:    "fatal: auth failed for https://x-access-token:gho_cli_tok@github.com/",
+			envVars: map[string]string{"GH_TOKEN": "gho_cli_tok"},
+			want:    "fatal: auth failed for https://x-access-token:[REDACTED]@github.com/",
 		},
 		{
 			name: "no token no change",

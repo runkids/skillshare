@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"sort"
 	"strings"
@@ -66,21 +67,23 @@ type gitHubContentResponse struct {
 	Encoding string `json:"encoding"`
 }
 
-// Search searches GitHub for skills matching the query
+// Search searches GitHub for skills matching the query.
+// A single HTTP client is shared across all API calls for connection reuse.
 func Search(query string, limit int) ([]SearchResult, error) {
 	limit = normalizeLimit(limit)
+	client := ghclient.NewClient()
 
-	searchResp, err := fetchCodeSearchResults(query)
+	searchResp, err := fetchCodeSearchResults(client, query)
 	if err != nil {
 		return nil, err
 	}
 
 	results := processSearchItems(searchResp.Items)
-	enrichWithStars(results)
+	enrichWithStars(client, results)
 	sortByStars(results)
 
 	// Enrich top candidates with descriptions before scoring
-	enrichWithDescriptions(results, 30)
+	enrichWithDescriptions(client, results, 30)
 
 	// For repo-scoped queries, score by subdir keyword (or stars-only if no subdir)
 	scoringQuery := query
@@ -152,7 +155,7 @@ func isValidGitHubName(s string) bool {
 }
 
 // fetchCodeSearchResults fetches results from GitHub code search API
-func fetchCodeSearchResults(query string) (*gitHubSearchResponse, error) {
+func fetchCodeSearchResults(client *http.Client, query string) (*gitHubSearchResponse, error) {
 	var searchQuery string
 	if query == "" {
 		searchQuery = "filename:SKILL.md"
@@ -176,7 +179,6 @@ func fetchCodeSearchResults(query string) (*gitHubSearchResponse, error) {
 		return nil, err
 	}
 
-	client := ghclient.NewClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("network error: %w", err)
@@ -260,7 +262,7 @@ func convertToSearchResult(item gitHubCodeItem, seen map[string]bool) (SearchRes
 }
 
 // enrichWithStars fetches and updates star counts for results in parallel.
-func enrichWithStars(results []SearchResult) {
+func enrichWithStars(client *http.Client, results []SearchResult) {
 	const maxRepoFetch = 30
 	const concurrency = 10
 
@@ -291,7 +293,7 @@ func enrichWithStars(results []SearchResult) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			if stars, err := fetchRepoStars(id.owner, id.repo); err == nil {
+			if stars, err := fetchRepoStars(client, id.owner, id.repo); err == nil {
 				ch <- starResult{id, stars}
 			}
 		}(id)
@@ -323,7 +325,7 @@ func sortByStars(results []SearchResult) {
 }
 
 // enrichWithDescriptions fetches descriptions and names for top results in parallel.
-func enrichWithDescriptions(results []SearchResult, limit int) {
+func enrichWithDescriptions(client *http.Client, results []SearchResult, limit int) {
 	const concurrency = 10
 
 	n := len(results)
@@ -346,7 +348,7 @@ func enrichWithDescriptions(results []SearchResult, limit int) {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			desc, name, err := fetchSkillMetadata(results[idx].Owner, results[idx].Repo, results[idx].Path)
+			desc, name, err := fetchSkillMetadata(client, results[idx].Owner, results[idx].Repo, results[idx].Path)
 			if err == nil {
 				ch <- metaResult{idx, name, desc}
 			}
@@ -379,7 +381,7 @@ func scoreAndSort(results []SearchResult, query string) {
 }
 
 // fetchRepoStars fetches the star count for a repository
-func fetchRepoStars(owner, repo string) (int, error) {
+func fetchRepoStars(client *http.Client, owner, repo string) (int, error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", owner, repo)
 
 	req, err := ghclient.NewRequest(apiURL)
@@ -387,7 +389,6 @@ func fetchRepoStars(owner, repo string) (int, error) {
 		return 0, err
 	}
 
-	client := ghclient.NewClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
@@ -409,7 +410,7 @@ func fetchRepoStars(owner, repo string) (int, error) {
 }
 
 // fetchSkillMetadata fetches SKILL.md and extracts description and name from frontmatter.
-func fetchSkillMetadata(owner, repo, path string) (desc, name string, err error) {
+func fetchSkillMetadata(client *http.Client, owner, repo, path string) (desc, name string, err error) {
 	skillPath := "SKILL.md"
 	if path != "" && path != "." {
 		skillPath = path + "/SKILL.md"
@@ -425,7 +426,6 @@ func fetchSkillMetadata(owner, repo, path string) (desc, name string, err error)
 		return "", "", err
 	}
 
-	client := ghclient.NewClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", "", err

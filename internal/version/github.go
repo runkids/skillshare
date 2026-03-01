@@ -3,31 +3,14 @@ package version
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"os"
 	"runtime"
 	"strings"
-	"time"
+
+	ghclient "skillshare/internal/github"
 )
 
-// RateLimitError indicates GitHub API rate limit was exceeded
-type RateLimitError struct {
-	Limit     string
-	Remaining string
-	Reset     string
-}
-
-func (e *RateLimitError) Error() string {
-	msg := "GitHub API rate limit exceeded"
-	if e.Remaining == "0" {
-		msg += fmt.Sprintf(" (0/%s remaining)", e.Limit)
-	}
-	msg += "\n\nTo fix this, either:\n"
-	msg += "  1. Wait for rate limit to reset\n"
-	msg += "  2. Set GITHUB_TOKEN environment variable for higher limits (5000/hr)\n"
-	msg += "     export GITHUB_TOKEN=ghp_your_token_here"
-	return msg
-}
+// RateLimitError is an alias for the canonical rate limit error type.
+type RateLimitError = ghclient.RateLimitError
 
 // Release holds GitHub release information
 type Release struct {
@@ -74,61 +57,25 @@ func BuildChecksumsURL(ver string) string {
 	return fmt.Sprintf("https://github.com/%s/releases/download/v%s/checksums.txt", githubRepo, ver)
 }
 
-// newGitHubClient creates an HTTP client with optional auth
-func newGitHubClient() *http.Client {
-	return &http.Client{Timeout: 10 * time.Second}
-}
-
-// newGitHubRequest creates a request with auth header if token is available
-func newGitHubRequest(url string) (*http.Request, error) {
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Accept", "application/vnd.github.v3+json")
-
-	// Check for GitHub token in environment
-	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-		req.Header.Set("Authorization", "token "+token)
-	} else if token := os.Getenv("GH_TOKEN"); token != "" {
-		// gh CLI uses GH_TOKEN
-		req.Header.Set("Authorization", "token "+token)
-	}
-
-	return req, nil
-}
-
-// checkRateLimit checks response for rate limit errors
-func checkRateLimit(resp *http.Response) error {
-	if resp.StatusCode == 403 || resp.StatusCode == 429 {
-		return &RateLimitError{
-			Limit:     resp.Header.Get("X-RateLimit-Limit"),
-			Remaining: resp.Header.Get("X-RateLimit-Remaining"),
-			Reset:     resp.Header.Get("X-RateLimit-Reset"),
-		}
-	}
-	return nil
-}
-
-// FetchLatestRelease fetches the latest release from GitHub with full asset info
+// FetchLatestRelease fetches the latest release from GitHub with full asset info.
+// Uses the centralized github client which supports GITHUB_TOKEN, GH_TOKEN,
+// and `gh auth token` fallback.
 func FetchLatestRelease() (*Release, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", githubRepo)
 
-	req, err := newGitHubRequest(url)
+	req, err := ghclient.NewRequest(url)
 	if err != nil {
 		return nil, err
 	}
 
-	client := newGitHubClient()
+	client := ghclient.NewClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("network error: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// Check for rate limiting
-	if err := checkRateLimit(resp); err != nil {
+	if err := ghclient.CheckRateLimit(resp); err != nil {
 		return nil, err
 	}
 
