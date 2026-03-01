@@ -1,5 +1,39 @@
 # Changelog
 
+## [0.16.6] - 2026-03-02
+
+### New Features
+
+- **`diff` interactive TUI** — new bubbletea-based split-panel interface for `skillshare diff`: left panel lists targets with status icons (✓/!/✗), right panel shows categorized file-level diffs for the selected target. Supports fuzzy filter (`/`), detail scrolling (`Ctrl+d/u`), and narrow terminal fallback. Add `--no-tui` for plain text output
+- **`diff --patch`** — show unified text diffs for each changed file:
+  ```
+  skillshare diff --patch
+  ```
+- **`diff --stat`** — show per-file change summary with added/removed line counts:
+  ```
+  skillshare diff --stat
+  ```
+- **`diff` file-level detail** — diff entries now include per-file data (added/removed/modified/renamed), source paths, modification times, and git-style status symbols (`+`/`−`/`≠`/`→`)
+- **`diff` statistics summary** — every diff run prints a summary line with total counts by category (e.g., `3 added, 1 modified, 2 removed`)
+- **Glob pattern matching** — `install`, `update`, and `uninstall` now accept glob patterns (`*`, `?`, `[...]`) in skill name arguments; matching is case-insensitive:
+  ```bash
+  skillshare install repo -s "core-*"
+  skillshare update "team-*"
+  skillshare uninstall "old-??"
+  ```
+- **`trash` interactive TUI** — bubbletea-based TUI with multi-select, fuzzy filter, and inline restore/delete/empty operations; includes SKILL.md preview in the detail panel
+- **`restore` interactive TUI** — two-phase TUI: target picker → version list with left-right split panel, showing skill diffs and descriptions in the detail panel. Add `--help` flag and delete-backup action from TUI
+- **`backup` version listing** — `backup` now lists available backup versions per target and correctly follows top-level symlinks in merge-mode targets
+- **Homebrew-aware version check** — Homebrew users no longer see false "update available" notifications; `doctor` and post-command checks now query `brew info` instead of the GitHub Release API when installed via Homebrew
+- **Devcontainer skill** — new built-in skill that teaches AI assistants when and how to run CLI commands, tests, and debugging inside the devcontainer
+- **Red destructive confirmations** — all destructive action confirmations (delete, empty, uninstall) now render in red across trash, restore, and list TUIs
+
+### Fixed
+
+- **`backup`/`restore` mode flags** — `-g` and `-p` flags now work correctly; previously `-g` was misinterpreted as a target name
+- **`diff` hides internal metadata** — `.skillshare-meta.json` is no longer shown in file-level diff output
+- **`diff --stat` implies `--no-tui`** — `--stat` now correctly skips the TUI and prints to stdout
+
 ## [0.16.5] - 2026-02-28
 
 ### New Features
