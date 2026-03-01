@@ -50,11 +50,14 @@ func cmdDiff(args []string) error {
 	}
 
 	var targetName string
+	var noTUI bool
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
 		case "--help", "-h":
 			printDiffHelp()
 			return nil
+		case "--no-tui":
+			noTUI = true
 		default:
 			targetName = rest[i]
 		}
@@ -62,9 +65,9 @@ func cmdDiff(args []string) error {
 
 	var cmdErr error
 	if mode == modeProject {
-		cmdErr = cmdDiffProject(cwd, targetName)
+		cmdErr = cmdDiffProject(cwd, targetName, noTUI)
 	} else {
-		cmdErr = cmdDiffGlobal(targetName)
+		cmdErr = cmdDiffGlobal(targetName, noTUI)
 	}
 	logDiffOp(cfgPath, targetName, scope, 0, start, cmdErr)
 	return cmdErr
@@ -279,7 +282,7 @@ func (dp *diffProgress) stop() {
 	}
 }
 
-func cmdDiffGlobal(targetName string) error {
+func cmdDiffGlobal(targetName string, noTUI bool) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -367,6 +370,10 @@ func cmdDiffGlobal(targetName string) error {
 	wg.Wait()
 
 	progress.stop()
+
+	if !noTUI && ui.IsTTY() && len(results) > 0 {
+		return runDiffTUI(results)
+	}
 	renderGroupedDiffs(results)
 	return nil
 }
@@ -772,6 +779,7 @@ Arguments:
 Options:
   --project, -p        Diff project-level skills (.skillshare/)
   --global, -g         Diff global skills (~/.config/skillshare)
+  --no-tui             Plain text output (skip interactive TUI)
   --help, -h           Show this help
 
 Examples:
