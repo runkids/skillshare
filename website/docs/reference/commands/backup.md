@@ -90,11 +90,12 @@ Default cleanup policy:
 ## What Gets Backed Up
 
 - Regular directories in targets (actual skill files)
-- **Not backed up**: Symlinks (they just point to source)
+- Per-skill symlinks in merge-mode targets are **resolved and followed** — the real content is backed up
 
 This means:
-- In merge mode: Only local-only skills are backed up
-- In symlink mode: Nothing is backed up (entire dir is symlink)
+- In merge mode: All skills are backed up (symlinks resolved, local copies included)
+- In copy mode: All managed skill directories are backed up
+- In symlink mode: Nothing is backed up (entire directory is a single symlink)
 
 ## See Also
 

@@ -88,6 +88,8 @@ skillshare update "_team-?"             # Single-character wildcard
 skillshare update "core-*" "util-*"     # Multiple patterns
 ```
 
+Glob patterns match against the **basename** (last path component) of each skill or tracked repo. For example, `"react-*"` matches `frontend/react-hooks` because the basename is `react-hooks`.
+
 Glob matching is case-insensitive: `"Core-*"` matches `core-auth`, `CORE-DB`, etc.
 
 :::tip Shell glob protection

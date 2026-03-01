@@ -123,10 +123,9 @@ Both `--stat` and `--patch` imply `--no-tui` (plain text output).
 ### Merge Mode Targets
 
 For targets using merge mode (default):
-- Lists skills in that target's expected set (after `include`/`exclude`) not yet synced
+- Lists skills in source not yet symlinked to target
 - Shows skills that exist as local copies instead of symlinks
-- Identifies orphan directories tracked by manifest (will be pruned on sync)
-- Identifies local-only skills in target (not in manifest — preserved)
+- Identifies local-only skills in target (not in source — preserved by sync)
 
 ### Copy Mode Targets
 

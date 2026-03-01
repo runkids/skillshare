@@ -38,6 +38,14 @@ Trash (global) — 5 items
   Size:         1.2 KB
   Path:         ~/.local/share/skillshare/trash/old-tool_...
 
+  ── SKILL.md ──────────────────────────────
+  ---
+  name: old-tool
+  description: A helpful tool
+  ---
+  # old-tool
+  ...
+
   ↑↓ navigate  / filter  space select  r restore(1)  d delete(1)  D empty  q quit
 ```
 
@@ -74,7 +82,7 @@ skillshare trash list --no-tui | less    # Pipe to pager manually
 
 ## Subcommands
 
-### list
+### list (alias: `ls`)
 
 Show all skills currently in the trash. Launches the interactive TUI in a terminal, or prints plain text with `--no-tui` or in non-TTY:
 
@@ -110,7 +118,7 @@ skillshare trash restore my-skill
 
 If a skill with the same name already exists in source, restore will fail. Uninstall the existing skill first or use a different name.
 
-### delete
+### delete (alias: `rm`)
 
 Permanently delete a single item from the trash:
 

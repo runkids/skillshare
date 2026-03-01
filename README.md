@@ -37,8 +37,7 @@
 
 > [!NOTE]
 > **Recent Updates**
-> - **[0.16.0](https://github.com/runkids/skillshare/releases/tag/v0.16.0)**: Performance overhaul (sparse checkout, parallel check, tree hash), interactive bubbletea TUI, registry separation, CLI visual refresh.
-> - **[0.15.x](https://github.com/runkids/skillshare/releases/tag/v0.15.5)**: Supply-chain security hardening, copy sync mode, HTTPS token auth.
+> - **[0.16.*](https://github.com/runkids/skillshare/releases/tag/v0.16.6)**: Performance overhaul, interactive TUI for diff/restore/trash, file-level diff, glob matching, Homebrew-aware upgrade.
 > - Full history: [All Releases](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare

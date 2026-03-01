@@ -141,6 +141,10 @@ skillshare install anthropics/skills --all -p
 
 Glob matching is case-insensitive: `"Core-*"` matches `core-auth`, `CORE-DB`, etc.
 
+:::tip Shell glob protection
+Always quote glob patterns (`"core-*"`) to prevent your shell from expanding `*` into file names in the current directory.
+:::
+
 Useful for CI/CD pipelines and scripted workflows.
 
 ## Direct Install (Specific Path)
