@@ -9,7 +9,7 @@ import (
 	"skillshare/internal/ui"
 )
 
-func cmdDiffProject(root, targetName string) error {
+func cmdDiffProject(root, targetName string, noTUI bool) error {
 	if !projectConfigExists(root) {
 		if err := performProjectInit(root, projectInitOptions{}); err != nil {
 			return err
@@ -100,6 +100,10 @@ func cmdDiffProject(root, targetName string) error {
 	wg.Wait()
 
 	progress.stop()
+
+	if !noTUI && ui.IsTTY() && len(results) > 0 {
+		return runDiffTUI(results)
+	}
 	renderGroupedDiffs(results)
 	return nil
 }
