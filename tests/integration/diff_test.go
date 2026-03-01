@@ -239,8 +239,8 @@ targets:
 
 	// Items should only appear once (not duplicated)
 	out := result.Stdout
-	countA := strings.Count(out,"skill-a")
-	countB := strings.Count(out,"skill-b")
+	countA := strings.Count(out, "skill-a")
+	countB := strings.Count(out, "skill-b")
 	if countA != 1 {
 		t.Errorf("expected skill-a to appear once, got %d times in:\n%s", countA, out)
 	}

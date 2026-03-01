@@ -1,7 +1,7 @@
 package main
 
 import (
-	"crypto/sha256"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
+
+	"skillshare/internal/install"
 )
 
 // fileDiffEntry represents a single file-level difference between source and destination.
@@ -97,7 +99,7 @@ func walkFiles(root string) map[string]os.FileInfo {
 			}
 			return nil
 		}
-		if info.Name() == ".skillshare-meta.json" {
+		if info.Name() == install.MetaFileName {
 			return nil
 		}
 		rel, relErr := filepath.Rel(root, path)
@@ -113,36 +115,52 @@ func walkFiles(root string) map[string]os.FileInfo {
 	return result
 }
 
-// fileContentsEqual compares two files by SHA-256 hash.
-// Returns false if either file is unreadable.
+// fileContentsEqual compares two files by streaming byte comparison.
+// Returns false if either file is unreadable or contents differ.
 func fileContentsEqual(pathA, pathB string) bool {
-	hashA := fileHash(pathA)
-	hashB := fileHash(pathB)
-	if hashA == "" || hashB == "" {
+	fA, err := os.Open(pathA)
+	if err != nil {
 		return false
 	}
-	return hashA == hashB
-}
+	defer fA.Close()
 
-// fileHash returns the SHA-256 hex hash of a file. Returns "" on error.
-func fileHash(path string) string {
-	f, err := os.Open(path)
+	fB, err := os.Open(pathB)
 	if err != nil {
-		return ""
+		return false
 	}
-	defer f.Close()
+	defer fB.Close()
 
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return ""
+	const bufSize = 32 * 1024
+	bufA := make([]byte, bufSize)
+	bufB := make([]byte, bufSize)
+	for {
+		nA, errA := fA.Read(bufA)
+		nB, errB := fB.Read(bufB)
+		if nA != nB || !bytes.Equal(bufA[:nA], bufB[:nB]) {
+			return false
+		}
+		if errA == io.EOF && errB == io.EOF {
+			return true
+		}
+		if errA != nil || errB != nil {
+			return false
+		}
 	}
-	return fmt.Sprintf("%x", h.Sum(nil))
 }
+
+// maxDiffFileSize is the maximum file size for generating unified diffs.
+// Files larger than this are skipped to avoid performance issues.
+const maxDiffFileSize = 1_000_000 // 1MB
 
 // generateUnifiedDiff produces a unified diff between two files.
 // dstContent is treated as "old", srcContent as "new".
 // Returns "(binary file differs)" if either file contains null bytes in the first 8000 chars.
+// Returns "(file too large for diff)" if either file exceeds maxDiffFileSize.
 func generateUnifiedDiff(srcPath, dstPath string) string {
+	if fileExceedsSize(srcPath, maxDiffFileSize) || fileExceedsSize(dstPath, maxDiffFileSize) {
+		return "(file too large for diff)"
+	}
+
 	srcContent := readFileString(srcPath)
 	dstContent := readFileString(dstPath)
 
@@ -168,6 +186,16 @@ func readFileString(path string) string {
 		return ""
 	}
 	return string(data)
+}
+
+// fileExceedsSize returns true if the file at path is larger than limit bytes.
+// Returns false if the file doesn't exist or can't be stat'd.
+func fileExceedsSize(path string, limit int64) bool {
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.Size() > limit
 }
 
 // isBinary checks whether a string contains null bytes in the first 8000 characters.

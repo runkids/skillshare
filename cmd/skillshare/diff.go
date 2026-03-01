@@ -19,8 +19,9 @@ import (
 	"skillshare/internal/utils"
 )
 
-// diffRenderOpts controls plain text rendering behavior.
+// diffRenderOpts controls diff output behavior.
 type diffRenderOpts struct {
+	noTUI     bool
 	showPatch bool
 	showStat  bool
 }
@@ -56,31 +57,30 @@ func cmdDiff(args []string) error {
 	}
 
 	var targetName string
-	var noTUI, showPatch, showStat bool
+	var opts diffRenderOpts
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
 		case "--help", "-h":
 			printDiffHelp()
 			return nil
 		case "--no-tui":
-			noTUI = true
+			opts.noTUI = true
 		case "--patch":
-			showPatch = true
-			noTUI = true // --patch implies no TUI
+			opts.showPatch = true
+			opts.noTUI = true // --patch implies no TUI
 		case "--stat":
-			showStat = true
-			noTUI = true
+			opts.showStat = true
+			opts.noTUI = true // --stat implies no TUI
 		default:
 			targetName = rest[i]
 		}
 	}
 
-	opts := diffRenderOpts{showPatch: showPatch, showStat: showStat}
 	var cmdErr error
 	if mode == modeProject {
-		cmdErr = cmdDiffProject(cwd, targetName, noTUI, opts)
+		cmdErr = cmdDiffProject(cwd, targetName, opts)
 	} else {
-		cmdErr = cmdDiffGlobal(targetName, noTUI, opts)
+		cmdErr = cmdDiffGlobal(targetName, opts)
 	}
 	logDiffOp(cfgPath, targetName, scope, 0, start, cmdErr)
 	return cmdErr
@@ -323,7 +323,7 @@ func (dp *diffProgress) stop() {
 	}
 }
 
-func cmdDiffGlobal(targetName string, noTUI bool, opts diffRenderOpts) error {
+func cmdDiffGlobal(targetName string, opts diffRenderOpts) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -412,7 +412,7 @@ func cmdDiffGlobal(targetName string, noTUI bool, opts diffRenderOpts) error {
 
 	progress.stop()
 
-	if !noTUI && ui.IsTTY() && len(results) > 0 {
+	if !opts.noTUI && ui.IsTTY() && len(results) > 0 {
 		return runDiffTUI(results)
 	}
 	renderGroupedDiffs(results, opts)

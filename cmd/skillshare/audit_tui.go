@@ -297,7 +297,7 @@ func (m auditTUIModel) View() string {
 	var detailStr string
 	if item, ok := m.list.SelectedItem().(auditItem); ok {
 		detailContent := m.renderDetailContent(item)
-		detailStr = m.applyDetailScroll(detailContent, panelHeight)
+		detailStr = applyDetailScroll(detailContent, m.detailScroll, panelHeight)
 	}
 	rightPanel := lipgloss.NewStyle().
 		Width(rightWidth).MaxWidth(rightWidth).
@@ -335,7 +335,7 @@ func (m auditTUIModel) viewVertical() string {
 	if item, ok := m.list.SelectedItem().(auditItem); ok {
 		detailContent := m.renderDetailContent(item)
 		detailHeight := m.termHeight - m.termHeight*2/5 - 7
-		b.WriteString(m.applyDetailScroll(detailContent, detailHeight))
+		b.WriteString(applyDetailScroll(detailContent, m.detailScroll, detailHeight))
 	}
 
 	b.WriteString(m.renderSummaryFooter())
@@ -508,48 +508,6 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 
 			b.WriteString("\n")
 		}
-	}
-
-	return b.String()
-}
-
-// applyDetailScroll wraps a detail panel string with height limit and scroll offset.
-func (m auditTUIModel) applyDetailScroll(content string, viewHeight int) string {
-	lines := strings.Split(content, "\n")
-
-	maxDetailLines := viewHeight
-	if maxDetailLines < 5 {
-		maxDetailLines = 5
-	}
-
-	totalLines := len(lines)
-	if totalLines <= maxDetailLines {
-		return content
-	}
-
-	// Clamp scroll offset
-	maxScroll := totalLines - maxDetailLines
-	offset := m.detailScroll
-	if offset > maxScroll {
-		offset = maxScroll
-	}
-
-	visible := lines[offset:]
-	if len(visible) > maxDetailLines {
-		visible = visible[:maxDetailLines]
-	}
-
-	var b strings.Builder
-	for _, line := range visible {
-		b.WriteString(line)
-		b.WriteString("\n")
-	}
-
-	// Scroll indicator
-	if offset > 0 || offset < maxScroll {
-		indicator := fmt.Sprintf("── Ctrl+d/u scroll (%d/%d) ──", offset+1, maxScroll+1)
-		b.WriteString(tc.Dim.Render(indicator))
-		b.WriteString("\n")
 	}
 
 	return b.String()

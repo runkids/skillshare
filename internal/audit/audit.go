@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -532,7 +531,7 @@ func ScanMarkdownContentWithRules(content []byte, filename string, activeRules [
 // isScannable returns true if the file should be scanned.
 func isScannable(name string) bool {
 	// Skip skillshare's own metadata files
-	if name == ".skillshare-meta.json" {
+	if name == ".skillshare-meta.json" { // install.MetaFileName (cycle prevents import)
 		return false
 	}
 
@@ -1233,7 +1232,7 @@ func checkContentIntegrity(skillPath string, cache map[string][]byte) []Finding 
 			actual = hex.EncodeToString(sum[:])
 		} else {
 			var hashErr error
-			actual, hashErr = fileHash(absPath)
+			actual, hashErr = utils.FileHash(absPath)
 			if hashErr != nil {
 				continue
 			}
@@ -1281,20 +1280,6 @@ func checkContentIntegrity(skillPath string, cache map[string][]byte) []Finding 
 	})
 
 	return findings
-}
-
-// fileHash returns the hex-encoded SHA-256 digest of a file.
-func fileHash(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // stripFragment removes #fragment and ?query from a link target.
