@@ -347,3 +347,99 @@ targets:
 	result.AssertOutputContains(t, "not a directory")
 	result.AssertOutputNotContains(t, "synced")
 }
+
+func TestDiff_CopyMode_ShowsFileStat(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{
+		"SKILL.md":  "# Original",
+		"prompt.md": "original prompt",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	// Modify source
+	os.WriteFile(filepath.Join(sb.SourcePath, "skill-a", "SKILL.md"), []byte("# Changed"), 0644)
+
+	result := sb.RunCLI("diff", "--stat")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "SKILL.md")
+}
+
+func TestDiff_PatchFlag_ShowsUnifiedDiff(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{
+		"SKILL.md": "# Original\nline2\nline3",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: copy
+`)
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	// Modify source
+	os.WriteFile(filepath.Join(sb.SourcePath, "skill-a", "SKILL.md"), []byte("# Modified\nline2\nnew line"), 0644)
+
+	result := sb.RunCLI("diff", "--patch")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Modified")
+	result.AssertOutputContains(t, "SKILL.md")
+}
+
+func TestDiff_NewLabels_ShowCorrectSymbols(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("new-skill", map[string]string{"SKILL.md": "# New"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("diff")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "New")
+}
+
+func TestDiff_ShowsSummary(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill-a", map[string]string{"SKILL.md": "# A"})
+	claudePath := sb.CreateTarget("claude")
+	agentsPath := sb.CreateTarget("agents")
+
+	// Sync agents only
+	os.Symlink(filepath.Join(sb.SourcePath, "skill-a"), filepath.Join(agentsPath, "skill-a"))
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  agents:
+    path: ` + agentsPath + `
+  claude:
+    path: ` + claudePath + `
+`)
+
+	result := sb.RunCLI("diff")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Summary")
+}
