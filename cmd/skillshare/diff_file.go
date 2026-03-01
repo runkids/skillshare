@@ -30,7 +30,7 @@ func diffSkillFiles(srcDir, dstDir string) []fileDiffEntry {
 	srcFiles := walkFiles(srcDir)
 	dstFiles := walkFiles(dstDir)
 
-	var entries []fileDiffEntry
+	entries := make([]fileDiffEntry, 0)
 
 	// Files in source
 	for rel, srcInfo := range srcFiles {
