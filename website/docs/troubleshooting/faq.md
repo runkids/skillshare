@@ -34,6 +34,10 @@ skillshare sync
 
 Then create skills directly in `~/.claude/skills/` — they won't be touched.
 
+### I use a dotfiles manager (stow/chezmoi/yadm) — will skillshare break my symlinks?
+
+No. Since v0.16.7, skillshare detects external symlinks on both source and target directories and preserves them. Sync resolves the symlinks and operates on the underlying directories without removing the links themselves. See [Dotfiles Manager Compatibility](/docs/reference/commands/sync#dotfiles-manager-compatibility) for details.
+
 ---
 
 ## Installation

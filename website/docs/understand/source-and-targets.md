@@ -83,6 +83,10 @@ This is where:
 - Skills are installed to
 - Git tracks changes (for cross-machine sync)
 
+:::tip Symlinked source directories
+The source directory can be a symlink — common when using dotfiles managers (GNU Stow, chezmoi, yadm). For example, `~/.config/skillshare/skills/ → ~/dotfiles/ss-skills/`. Skillshare resolves symlinks before scanning, so all commands work transparently. Chained symlinks are also supported.
+:::
+
 **Structure:**
 ```
 ~/.config/skillshare/skills/
