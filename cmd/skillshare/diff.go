@@ -19,6 +19,12 @@ import (
 	"skillshare/internal/utils"
 )
 
+// diffRenderOpts controls plain text rendering behavior.
+type diffRenderOpts struct {
+	showPatch bool
+	showStat  bool
+}
+
 func cmdDiff(args []string) error {
 	start := time.Now()
 
@@ -50,7 +56,7 @@ func cmdDiff(args []string) error {
 	}
 
 	var targetName string
-	var noTUI bool
+	var noTUI, showPatch, showStat bool
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
 		case "--help", "-h":
@@ -58,16 +64,22 @@ func cmdDiff(args []string) error {
 			return nil
 		case "--no-tui":
 			noTUI = true
+		case "--patch":
+			showPatch = true
+			noTUI = true // --patch implies no TUI
+		case "--stat":
+			showStat = true
 		default:
 			targetName = rest[i]
 		}
 	}
 
+	opts := diffRenderOpts{showPatch: showPatch, showStat: showStat}
 	var cmdErr error
 	if mode == modeProject {
-		cmdErr = cmdDiffProject(cwd, targetName, noTUI)
+		cmdErr = cmdDiffProject(cwd, targetName, noTUI, opts)
 	} else {
-		cmdErr = cmdDiffGlobal(targetName, noTUI)
+		cmdErr = cmdDiffGlobal(targetName, noTUI, opts)
 	}
 	logDiffOp(cfgPath, targetName, scope, 0, start, cmdErr)
 	return cmdErr
@@ -310,7 +322,7 @@ func (dp *diffProgress) stop() {
 	}
 }
 
-func cmdDiffGlobal(targetName string, noTUI bool) error {
+func cmdDiffGlobal(targetName string, noTUI bool, opts diffRenderOpts) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -402,7 +414,7 @@ func cmdDiffGlobal(targetName string, noTUI bool) error {
 	if !noTUI && ui.IsTTY() && len(results) > 0 {
 		return runDiffTUI(results)
 	}
-	renderGroupedDiffs(results)
+	renderGroupedDiffs(results, opts)
 	return nil
 }
 
@@ -680,7 +692,7 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 
 // renderGroupedDiffs groups targets with identical diff results and renders
 // merged output. Targets with errors are always shown individually.
-func renderGroupedDiffs(results []targetDiffResult) {
+func renderGroupedDiffs(results []targetDiffResult, opts diffRenderOpts) {
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].name < results[j].name
 	})
@@ -771,9 +783,41 @@ func renderGroupedDiffs(results []targetDiffResult) {
 				ui.ActionLine(cat.kind, fmt.Sprintf("%s %d %s:", cat.label, n, skillWord))
 				for _, name := range cat.names {
 					fmt.Printf("      %s\n", name)
+					if opts.showStat || opts.showPatch || cat.kind == "modified" {
+						item := findDiffItem(items, name)
+						if item != nil {
+							item.ensureFiles()
+							if len(item.files) > 0 {
+								fmt.Print(renderFileStat(item.files))
+							}
+							if opts.showPatch {
+								for _, f := range item.files {
+									if f.Action == "modify" && item.srcDir != "" {
+										srcFile := filepath.Join(item.srcDir, f.RelPath)
+										dstFile := filepath.Join(item.dstDir, f.RelPath)
+										diffText := generateUnifiedDiff(srcFile, dstFile)
+										if diffText != "" {
+											fmt.Printf("      --- %s\n", f.RelPath)
+											fmt.Print(colorizePlainDiff(diffText))
+										}
+									}
+								}
+							}
+						}
+					}
 				}
 			} else {
 				ui.ActionLine(cat.kind, fmt.Sprintf("%s %d %s", cat.label, n, skillWord))
+			}
+		}
+
+		// Time info
+		if !g.result.srcMtime.IsZero() || !g.result.dstMtime.IsZero() {
+			if !g.result.srcMtime.IsZero() {
+				fmt.Printf("  %sSource modified: %s%s\n", ui.Gray, g.result.srcMtime.Format("2006-01-02 15:04"), ui.Reset)
+			}
+			if !g.result.dstMtime.IsZero() {
+				fmt.Printf("  %sTarget modified: %s%s\n", ui.Gray, g.result.dstMtime.Format("2006-01-02 15:04"), ui.Reset)
 			}
 		}
 	}
@@ -798,6 +842,33 @@ func renderGroupedDiffs(results []targetDiffResult) {
 		sort.Strings(syncedNames)
 		ui.Success("%s: fully synced", strings.Join(syncedNames, ", "))
 	}
+}
+
+func findDiffItem(items []copyDiffEntry, name string) *copyDiffEntry {
+	for i := range items {
+		if items[i].name == name {
+			return &items[i]
+		}
+	}
+	return nil
+}
+
+func colorizePlainDiff(diff string) string {
+	if !ui.IsTTY() {
+		return diff
+	}
+	var b strings.Builder
+	for _, line := range strings.Split(strings.TrimRight(diff, "\n"), "\n") {
+		switch {
+		case strings.HasPrefix(line, "+ "):
+			b.WriteString(ui.Green + line + ui.Reset + "\n")
+		case strings.HasPrefix(line, "- "):
+			b.WriteString(ui.Red + line + ui.Reset + "\n")
+		default:
+			b.WriteString(line + "\n")
+		}
+	}
+	return b.String()
 }
 
 func renderOverallSummary(errCount, needCount, syncCount int) {
@@ -836,11 +907,15 @@ Arguments:
 Options:
   --project, -p        Diff project-level skills (.skillshare/)
   --global, -g         Diff global skills (~/.config/skillshare)
+  --stat               Show file-level changes for modified skills
+  --patch              Show full unified diff (implies --no-tui)
   --no-tui             Plain text output (skip interactive TUI)
   --help, -h           Show this help
 
 Examples:
   skillshare diff                      # Diff all targets
   skillshare diff claude               # Diff a single target
-  skillshare diff -p                   # Diff project-mode targets`)
+  skillshare diff -p                   # Diff project-mode targets
+  skillshare diff --stat               # Show file-level stat
+  skillshare diff --patch              # Show full text diff`)
 }
