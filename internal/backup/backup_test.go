@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestCopyDir_RegularFiles(t *testing.T) {
@@ -155,6 +156,116 @@ func TestValidateRestore_SymlinkTarget_IsAllowed(t *testing.T) {
 	err := ValidateRestore(backupPath, "claude", destPath, RestoreOptions{})
 	if err != nil {
 		t.Errorf("symlink target should be allowed without force, got: %v", err)
+	}
+}
+
+func TestListTargetsWithBackups_Empty(t *testing.T) {
+	dir := t.TempDir()
+
+	summaries, err := ListTargetsWithBackups(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(summaries) != 0 {
+		t.Errorf("expected 0 summaries, got %d", len(summaries))
+	}
+}
+
+func TestListTargetsWithBackups_NonExistentDir(t *testing.T) {
+	summaries, err := ListTargetsWithBackups("/nonexistent/path/backups")
+	if err != nil {
+		t.Fatalf("unexpected error for non-existent dir: %v", err)
+	}
+	if summaries != nil {
+		t.Errorf("expected nil, got %v", summaries)
+	}
+}
+
+func TestListTargetsWithBackups_MultiBacks(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create 3 timestamp directories with various targets
+	// Timestamp format matches backup.Create: 2006-01-02_15-04-05
+	timestamps := []string{
+		"2025-01-10_08-00-00",
+		"2025-02-15_12-30-00",
+		"2025-03-20_18-45-00",
+	}
+
+	// ts0: claude, cursor
+	os.MkdirAll(filepath.Join(dir, timestamps[0], "claude"), 0755)
+	os.MkdirAll(filepath.Join(dir, timestamps[0], "cursor"), 0755)
+
+	// ts1: claude, windsurf
+	os.MkdirAll(filepath.Join(dir, timestamps[1], "claude"), 0755)
+	os.MkdirAll(filepath.Join(dir, timestamps[1], "windsurf"), 0755)
+
+	// ts2: claude
+	os.MkdirAll(filepath.Join(dir, timestamps[2], "claude"), 0755)
+
+	summaries, err := ListTargetsWithBackups(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(summaries) != 3 {
+		t.Fatalf("expected 3 targets, got %d", len(summaries))
+	}
+
+	// Should be sorted by target name: claude, cursor, windsurf
+	if summaries[0].TargetName != "claude" {
+		t.Errorf("summaries[0].TargetName = %q, want %q", summaries[0].TargetName, "claude")
+	}
+	if summaries[1].TargetName != "cursor" {
+		t.Errorf("summaries[1].TargetName = %q, want %q", summaries[1].TargetName, "cursor")
+	}
+	if summaries[2].TargetName != "windsurf" {
+		t.Errorf("summaries[2].TargetName = %q, want %q", summaries[2].TargetName, "windsurf")
+	}
+
+	// claude: 3 backups, oldest=ts0, latest=ts2
+	if summaries[0].BackupCount != 3 {
+		t.Errorf("claude BackupCount = %d, want 3", summaries[0].BackupCount)
+	}
+	wantOldest := time.Date(2025, 1, 10, 8, 0, 0, 0, time.Local)
+	wantLatest := time.Date(2025, 3, 20, 18, 45, 0, 0, time.Local)
+	if !summaries[0].Oldest.Equal(wantOldest) {
+		t.Errorf("claude Oldest = %v, want %v", summaries[0].Oldest, wantOldest)
+	}
+	if !summaries[0].Latest.Equal(wantLatest) {
+		t.Errorf("claude Latest = %v, want %v", summaries[0].Latest, wantLatest)
+	}
+
+	// cursor: 1 backup
+	if summaries[1].BackupCount != 1 {
+		t.Errorf("cursor BackupCount = %d, want 1", summaries[1].BackupCount)
+	}
+
+	// windsurf: 1 backup
+	if summaries[2].BackupCount != 1 {
+		t.Errorf("windsurf BackupCount = %d, want 1", summaries[2].BackupCount)
+	}
+}
+
+func TestListTargetsWithBackups_SkipsFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create a timestamp dir with a target
+	os.MkdirAll(filepath.Join(dir, "2025-01-10_08-00-00", "claude"), 0755)
+	// Create a plain file at timestamp level (should be skipped)
+	os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("ignore"), 0644)
+	// Create a plain file inside timestamp dir (should be skipped as target)
+	os.WriteFile(filepath.Join(dir, "2025-01-10_08-00-00", "readme.txt"), []byte("ignore"), 0644)
+
+	summaries, err := ListTargetsWithBackups(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(summaries) != 1 {
+		t.Fatalf("expected 1 target, got %d", len(summaries))
+	}
+	if summaries[0].TargetName != "claude" {
+		t.Errorf("TargetName = %q, want %q", summaries[0].TargetName, "claude")
 	}
 }
 
