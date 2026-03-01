@@ -77,7 +77,7 @@ func diffSkillFiles(srcDir, dstDir string) []fileDiffEntry {
 }
 
 // walkFiles walks a directory and returns a map of relPath -> FileInfo.
-// Skips .git directories. Returns empty map if root doesn't exist.
+// Skips .git directories and .skillshare-meta.json. Returns empty map if root doesn't exist.
 func walkFiles(root string) map[string]os.FileInfo {
 	result := make(map[string]os.FileInfo)
 	if root == "" {
@@ -95,6 +95,9 @@ func walkFiles(root string) map[string]os.FileInfo {
 			if info.Name() == ".git" {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if info.Name() == ".skillshare-meta.json" {
 			return nil
 		}
 		rel, relErr := filepath.Rel(root, path)
