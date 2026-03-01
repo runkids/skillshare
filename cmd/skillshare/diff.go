@@ -128,8 +128,12 @@ type copyDiffEntry struct {
 }
 
 // ensureFiles lazily populates file-level diffs on first access.
+// Works for items with srcDir (full diff) or only dstDir (file listing).
 func (e *copyDiffEntry) ensureFiles() {
-	if e.files != nil || e.srcDir == "" {
+	if e.files != nil {
+		return
+	}
+	if e.srcDir == "" && e.dstDir == "" {
 		return
 	}
 	e.files = diffSkillFiles(e.srcDir, e.dstDir)
@@ -541,7 +545,7 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 	// Orphan managed copies
 	for name := range manifest.Managed {
 		if !sourceSkills[name] {
-			r.items = append(r.items, copyDiffEntry{action: "remove", name: name, reason: "orphan (will be pruned)", isSync: true})
+			r.items = append(r.items, copyDiffEntry{action: "remove", name: name, reason: "orphan (will be pruned)", isSync: true, dstDir: filepath.Join(targetPath, name)})
 		}
 	}
 
@@ -557,7 +561,7 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 		if _, isManaged := manifest.Managed[e.Name()]; isManaged {
 			continue
 		}
-		r.items = append(r.items, copyDiffEntry{action: "remove", name: e.Name(), reason: "local only", isSync: false})
+		r.items = append(r.items, copyDiffEntry{action: "remove", name: e.Name(), reason: "local only", isSync: false, dstDir: filepath.Join(targetPath, e.Name())})
 	}
 
 	// Compute counts
@@ -607,7 +611,7 @@ func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[s
 	// Skills only in target (local only)
 	for skill := range targetSkills {
 		if !sourceSkills[skill] && !targetSymlinks[skill] {
-			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: "local only", isSync: false})
+			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: "local only", isSync: false, dstDir: filepath.Join(targetPath, skill)})
 			r.localCount++
 		}
 	}
