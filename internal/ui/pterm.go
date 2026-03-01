@@ -607,6 +607,17 @@ func TreeLine() string {
 	return StepLine
 }
 
+// ClearLines moves the cursor up n lines and clears each, effectively
+// erasing the last n lines of terminal output. No-op when stdout is not a TTY.
+func ClearLines(n int) {
+	if !IsTTY() {
+		return
+	}
+	for range n {
+		fmt.Print("\033[A\033[2K")
+	}
+}
+
 // StepStart prints the first step (with arrow)
 func StepStart(label, value string) {
 	if IsTTY() {
