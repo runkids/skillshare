@@ -31,6 +31,7 @@ type CheckResult struct {
 	CurrentVersion  string
 	LatestVersion   string
 	UpdateAvailable bool
+	InstallMethod   InstallMethod
 }
 
 // getCachePath returns the path to the cache file
@@ -104,12 +105,6 @@ func saveCache(cache *Cache) error {
 	return os.WriteFile(cachePath, data, 0644)
 }
 
-// fetchLatestVersion fetches the latest version from GitHub
-// Uses the shared FetchLatestVersionOnly which supports GITHUB_TOKEN
-func fetchLatestVersion() (string, error) {
-	return FetchLatestVersionOnly()
-}
-
 // compareVersions returns true if v1 < v2 (proper semver comparison)
 func compareVersions(v1, v2 string) bool {
 	if v1 == "dev" || v1 == "" {
@@ -145,9 +140,11 @@ func compareVersions(v1, v2 string) bool {
 	return false // v1 == v2
 }
 
-// Check checks if a new version is available
-// Returns nil if no check is needed or if there's no update
-func Check(currentVersion string) *CheckResult {
+// Check checks if a new version is available.
+// method determines where to look: InstallBrew queries Homebrew,
+// InstallDirect queries the GitHub Release API.
+// Returns nil if no check is needed or if there's no update.
+func Check(currentVersion string, method InstallMethod) *CheckResult {
 	// Don't check for dev builds
 	if currentVersion == "dev" || currentVersion == "" {
 		return nil
@@ -168,8 +165,16 @@ func Check(currentVersion string) *CheckResult {
 	needsFetch := cache == nil || time.Since(cache.LastChecked) > checkInterval
 
 	if needsFetch {
-		// Fetch in foreground but with short timeout
-		latestVersion, err := fetchLatestVersion()
+		var latestVersion string
+		var err error
+
+		switch method {
+		case InstallBrew:
+			latestVersion, err = FetchBrewLatestVersion()
+		default:
+			latestVersion, err = FetchLatestVersionOnly()
+		}
+
 		if err != nil {
 			// Silently fail - don't bother user with network errors
 			return nil
@@ -193,6 +198,7 @@ func Check(currentVersion string) *CheckResult {
 			CurrentVersion:  currentVersion,
 			LatestVersion:   cache.LatestVersion,
 			UpdateAvailable: true,
+			InstallMethod:   method,
 		}
 	}
 

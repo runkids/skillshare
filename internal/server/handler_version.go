@@ -13,7 +13,7 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 	var cliLatest *string
 
 	// CLI version check (uses 24h cache)
-	if result := versioncheck.Check(cliVersion); result != nil {
+	if result := versioncheck.Check(cliVersion, versioncheck.InstallDirect); result != nil {
 		cliUpdateAvailable = result.UpdateAvailable
 		cliLatest = &result.LatestVersion
 	}

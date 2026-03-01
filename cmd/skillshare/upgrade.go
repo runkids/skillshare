@@ -137,7 +137,7 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 	}
 
 	// Check if installed via Homebrew
-	if isHomebrewInstall(execPath) {
+	if versionpkg.DetectInstallMethod(execPath) == versionpkg.InstallBrew {
 		ui.StepContinue("Install", "Homebrew")
 		if dryRun {
 			ui.StepEnd("Action", "Would run: brew upgrade skillshare")
@@ -449,21 +449,6 @@ func writeBinary(r io.Reader, destPath string) error {
 		return err
 	}
 	return nil
-}
-
-func isHomebrewInstall(execPath string) bool {
-	// Check common Homebrew paths
-	homebrewPaths := []string{
-		"/usr/local/Cellar/skillshare",
-		"/opt/homebrew/Cellar/skillshare",
-		"/home/linuxbrew/.linuxbrew/Cellar/skillshare",
-	}
-	for _, prefix := range homebrewPaths {
-		if strings.HasPrefix(execPath, prefix) {
-			return true
-		}
-	}
-	return false
 }
 
 func runBrewUpgrade() (string, error) {
