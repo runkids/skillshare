@@ -1,18 +1,18 @@
 package install
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"skillshare/internal/utils"
 )
 
-const metaFileName = ".skillshare-meta.json"
+// MetaFileName is the name of the skillshare metadata file stored in each skill directory.
+const MetaFileName = ".skillshare-meta.json"
 
 // SkillMeta contains metadata about an installed skill
 type SkillMeta struct {
@@ -28,7 +28,7 @@ type SkillMeta struct {
 
 // WriteMeta saves metadata to the skill directory
 func WriteMeta(skillPath string, meta *SkillMeta) error {
-	metaPath := filepath.Join(skillPath, metaFileName)
+	metaPath := filepath.Join(skillPath, MetaFileName)
 
 	data, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
@@ -44,7 +44,7 @@ func WriteMeta(skillPath string, meta *SkillMeta) error {
 
 // ReadMeta loads metadata from the skill directory
 func ReadMeta(skillPath string) (*SkillMeta, error) {
-	metaPath := filepath.Join(skillPath, metaFileName)
+	metaPath := filepath.Join(skillPath, MetaFileName)
 
 	data, err := os.ReadFile(metaPath)
 	if err != nil {
@@ -64,7 +64,7 @@ func ReadMeta(skillPath string) (*SkillMeta, error) {
 
 // HasMeta checks if a skill directory has metadata
 func HasMeta(skillPath string) bool {
-	metaPath := filepath.Join(skillPath, metaFileName)
+	metaPath := filepath.Join(skillPath, MetaFileName)
 	_, err := os.Stat(metaPath)
 	return err == nil
 }
@@ -84,7 +84,7 @@ func ComputeFileHashes(skillPath string) (map[string]string, error) {
 			}
 			return nil
 		}
-		if info.Name() == metaFileName {
+		if info.Name() == MetaFileName {
 			return nil
 		}
 
@@ -93,31 +93,18 @@ func ComputeFileHashes(skillPath string) (map[string]string, error) {
 			return fmt.Errorf("relative path for %s: %w", path, relErr)
 		}
 
-		h, hashErr := hashFile(path)
+		formatted, hashErr := utils.FileHashFormatted(path)
 		if hashErr != nil {
 			return fmt.Errorf("hashing %s: %w", path, hashErr)
 		}
 		// Normalize path separators to /
-		hashes[filepath.ToSlash(rel)] = "sha256:" + h
+		hashes[filepath.ToSlash(rel)] = formatted
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return hashes, nil
-}
-
-func hashFile(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // NewMetaFromSource creates a SkillMeta from a Source

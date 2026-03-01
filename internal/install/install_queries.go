@@ -26,7 +26,7 @@ func getUpdatableSkillsImpl(sourceDir string) ([]string, error) {
 			return filepath.SkipDir
 		}
 		// Look for metadata files
-		if !info.IsDir() && info.Name() == metaFileName {
+		if !info.IsDir() && info.Name() == MetaFileName {
 			skillDir := filepath.Dir(path)
 			relPath, relErr := filepath.Rel(sourceDir, skillDir)
 			if relErr != nil || relPath == "." {
@@ -65,7 +65,7 @@ func FindRepoInstalls(sourceDir, cloneURL string) []string {
 		if info.IsDir() && len(info.Name()) > 0 && info.Name()[0] == '_' {
 			return filepath.SkipDir
 		}
-		if !info.IsDir() && info.Name() == metaFileName {
+		if !info.IsDir() && info.Name() == MetaFileName {
 			skillDir := filepath.Dir(path)
 			relPath, relErr := filepath.Rel(sourceDir, skillDir)
 			if relErr != nil || relPath == "." {

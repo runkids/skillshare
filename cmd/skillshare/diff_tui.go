@@ -387,7 +387,7 @@ func (m diffTUIModel) viewDiffHorizontal() string {
 
 	// Right panel: detail
 	detailContent := m.buildDiffDetail()
-	detailStr := m.applyDiffDetailScroll(detailContent, panelHeight)
+	detailStr := applyDetailScroll(detailContent, m.detailScroll, panelHeight)
 
 	rightPanel := lipgloss.NewStyle().
 		Width(rightWidth).MaxWidth(rightWidth).
@@ -420,7 +420,7 @@ func (m diffTUIModel) viewDiffVertical() string {
 	// Detail below list
 	detailContent := m.buildDiffDetail()
 	detailHeight := max(m.termHeight/3, 6)
-	b.WriteString(m.applyDiffDetailScroll(detailContent, detailHeight))
+	b.WriteString(applyDetailScroll(detailContent, m.detailScroll, detailHeight))
 	b.WriteString("\n")
 
 	b.WriteString(tc.Help.Render("↑↓ navigate  / filter  Enter expand  Ctrl+d/u scroll  q quit"))
@@ -602,35 +602,6 @@ func (m diffTUIModel) buildDiffDetail() string {
 			b.WriteString(tc.Cyan.Render(fmt.Sprintf("  → skillshare %s", h)))
 			b.WriteString("\n")
 		}
-	}
-
-	return b.String()
-}
-
-// applyDiffDetailScroll applies vertical scrolling to detail content.
-func (m diffTUIModel) applyDiffDetailScroll(content string, viewHeight int) string {
-	lines := strings.Split(content, "\n")
-
-	if len(lines) <= viewHeight {
-		return content
-	}
-
-	maxScroll := len(lines) - viewHeight
-	offset := min(m.detailScroll, maxScroll)
-
-	end := min(offset+viewHeight, len(lines))
-	visible := lines[offset:end]
-
-	var b strings.Builder
-	for _, line := range visible {
-		b.WriteString(line)
-		b.WriteString("\n")
-	}
-
-	if offset > 0 || offset < maxScroll {
-		indicator := fmt.Sprintf("── Ctrl+d/u scroll (%d/%d) ──", offset+1, maxScroll+1)
-		b.WriteString(tc.Dim.Render(indicator))
-		b.WriteString("\n")
 	}
 
 	return b.String()

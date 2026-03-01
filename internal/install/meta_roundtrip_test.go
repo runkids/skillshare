@@ -66,7 +66,7 @@ func TestReadMeta_NoFile(t *testing.T) {
 
 func TestReadMeta_InvalidJSON(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, metaFileName), []byte("{bad json"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, MetaFileName), []byte("{bad json"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
