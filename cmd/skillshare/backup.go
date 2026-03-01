@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/pterm/pterm"
+	"golang.org/x/term"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 )
 
@@ -286,14 +288,11 @@ func planBackupCleanup(backups []backup.BackupInfo, cfg backup.CleanupConfig, no
 func cmdRestore(args []string) error {
 	start := time.Now()
 
-	if len(args) < 1 {
-		return fmt.Errorf("usage: skillshare restore <target> [--from <timestamp>] [--force] [--dry-run]")
-	}
-
 	var targetName string
 	var fromTimestamp string
 	force := false
 	dryRun := false
+	noTUI := false
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -306,11 +305,23 @@ func cmdRestore(args []string) error {
 			force = true
 		case "--dry-run", "-n":
 			dryRun = true
+		case "--no-tui":
+			noTUI = true
 		default:
 			if targetName == "" {
 				targetName = args[i]
 			}
 		}
+	}
+
+	// No target specified → TUI dispatch (or plain text fallback)
+	if targetName == "" && fromTimestamp == "" && !dryRun {
+		return restoreTUIDispatch(noTUI)
+	}
+
+	// Original CLI path (with target name)
+	if targetName == "" {
+		return fmt.Errorf("usage: skillshare restore <target> [--from <timestamp>] [--force] [--dry-run]")
 	}
 
 	cfg, err := config.Load()
@@ -356,6 +367,75 @@ func cmdRestore(args []string) error {
 	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
 	return restoreErr
+}
+
+// restoreTUIDispatch handles the no-args TUI flow for restore.
+func restoreTUIDispatch(noTUI bool) error {
+	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
+	if noTUI || !isTTY {
+		return backupList()
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	// Step 1: Source picker — Backup or Trash
+	selected, err := runChecklistTUI(checklistConfig{
+		title:        "Restore — choose source",
+		singleSelect: true,
+		itemName:     "source",
+		items: []checklistItemData{
+			{label: "Backup Restore", desc: "Restore a target from backup snapshot"},
+			{label: "Trash Restore", desc: "Restore deleted skills from trash"},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if selected == nil {
+		return nil // cancelled
+	}
+
+	switch selected[0] {
+	case 0: // Backup Restore
+		backupDir := backup.BackupDir()
+		summaries, err := backup.ListTargetsWithBackups(backupDir)
+		if err != nil {
+			return err
+		}
+		if len(summaries) == 0 {
+			ui.Info("No backups found")
+			return nil
+		}
+		return runRestoreTUI(summaries, backupDir, cfg.Targets, config.ConfigPath())
+
+	case 1: // Trash Restore
+		cwd, _ := os.Getwd()
+		mode := modeGlobal
+		if projectConfigExists(cwd) {
+			mode = modeProject
+		}
+		trashBase := resolveTrashBase(mode, cwd)
+		items := trash.List(trashBase)
+		if len(items) == 0 {
+			ui.Info("Trash is empty")
+			return nil
+		}
+		modeLabel := "global"
+		if mode == modeProject {
+			modeLabel = "project"
+		}
+		cfgPath := resolveTrashCfgPath(mode, cwd)
+		destDir, err := resolveSourceDir(mode, cwd)
+		if err != nil {
+			return err
+		}
+		return runTrashTUI(items, trashBase, destDir, cfgPath, modeLabel)
+	}
+
+	return nil
 }
 
 func restoreFromTimestamp(targetName, targetPath, timestamp string, opts backup.RestoreOptions) error {
