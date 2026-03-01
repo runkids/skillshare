@@ -448,13 +448,24 @@ type MergeResult struct {
 }
 
 // isSymlinkToSource checks whether targetPath is a symlink pointing to sourcePath.
+// Both sides are canonicalized (EvalSymlinks) so that symlink aliases of the same
+// physical directory are recognized as equal.
 func isSymlinkToSource(targetPath, sourcePath string) bool {
 	absLink, err := utils.ResolveLinkTarget(targetPath)
 	if err != nil {
 		return false
 	}
 	absSource, _ := filepath.Abs(sourcePath)
-	return utils.PathsEqual(absLink, absSource)
+
+	// Fast path: direct string comparison covers the common case.
+	if utils.PathsEqual(absLink, absSource) {
+		return true
+	}
+
+	// Slow path: canonicalize both sides to detect symlink aliases.
+	canonLink := resolveWalkRoot(absLink)
+	canonSource := resolveWalkRoot(absSource)
+	return utils.PathsEqual(canonLink, canonSource)
 }
 
 // SyncTargetMerge performs merge mode sync - creates symlinks for each skill individually

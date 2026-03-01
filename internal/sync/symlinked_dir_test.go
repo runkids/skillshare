@@ -523,3 +523,38 @@ func TestPullSkill_SourceIsSymlink(t *testing.T) {
 		t.Fatalf("skill should be accessible via symlinked source: %v", err)
 	}
 }
+
+// --- isSymlinkToSource: symlink alias equivalence ---
+
+func TestIsSymlinkToSource_AliasEquivalence(t *testing.T) {
+	tmp := t.TempDir()
+	realSource := filepath.Join(tmp, "real-source")
+	symlinkAlias := filepath.Join(tmp, "alias-source")
+
+	os.MkdirAll(realSource, 0755)
+
+	// symlinkAlias -> realSource
+	if err := os.Symlink(realSource, symlinkAlias); err != nil {
+		t.Fatal(err)
+	}
+
+	// Case 1: Target symlink points to the REAL path, source is the alias
+	targetLink1 := filepath.Join(tmp, "target1")
+	if err := os.Symlink(realSource, targetLink1); err != nil {
+		t.Fatal(err)
+	}
+
+	if !isSymlinkToSource(targetLink1, symlinkAlias) {
+		t.Error("isSymlinkToSource should return true when target points to the real path of a symlinked source alias")
+	}
+
+	// Case 2: Target points to alias, source is the real path
+	targetLink2 := filepath.Join(tmp, "target2")
+	if err := os.Symlink(symlinkAlias, targetLink2); err != nil {
+		t.Fatal(err)
+	}
+
+	if !isSymlinkToSource(targetLink2, realSource) {
+		t.Error("isSymlinkToSource should return true when target points to symlink alias of source")
+	}
+}
