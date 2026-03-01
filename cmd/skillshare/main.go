@@ -46,6 +46,7 @@ var commands = map[string]func([]string) error{
 	"hub":       cmdHub,
 	"log":       cmdLog,
 	"ui":        cmdUI,
+	"cache":     cmdCache,
 }
 
 func main() {
@@ -236,6 +237,8 @@ func printUsage() {
 	cmd("hub", "<subcommand>", "Manage hubs (add, list, remove, default, index)")
 	cmd("log", "", "View operation log")
 	cmd("ui", "", "Launch web dashboard")
+	cmd("cache", "list", "List cache entries and status")
+	cmd("cache", "clean", "Remove all cached data")
 	cmd("doctor", "", "Check environment and diagnose issues")
 	cmd("version", "", "Show version")
 	cmd("help", "", "Show this help")

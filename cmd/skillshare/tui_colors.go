@@ -26,6 +26,7 @@ var tc = struct {
 	Green    lipgloss.Style // ok, passed
 	Yellow   lipgloss.Style // warning
 	Red      lipgloss.Style // error, blocked
+	Magenta  lipgloss.Style // category accent (e.g. discovery cache)
 
 	// Detail panel
 	Label     lipgloss.Style // row labels (width 14)
@@ -66,6 +67,7 @@ var tc = struct {
 	Green:    lipgloss.NewStyle().Foreground(lipgloss.Color("2")),
 	Yellow:   lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
 	Red:      lipgloss.NewStyle().Foreground(lipgloss.Color("1")),
+	Magenta:  lipgloss.NewStyle().Foreground(lipgloss.Color("5")),
 
 	Label:     lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Width(14),
 	Value:     lipgloss.NewStyle(),
