@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.16.7] - 2026-03-02
+
+### Bug Fixes
+
+- **Preserve external symlinks during sync** — sync (merge/copy mode) no longer deletes target directory symlinks created by dotfiles managers (e.g., stow, chezmoi, yadm). Previously, switching from symlink mode to merge/copy mode would unconditionally remove the target symlink, breaking external link chains. Now skillshare checks whether the symlink points to the source directory before removing it — external symlinks are left intact and skills are synced into the resolved directory
+- **Symlinked source directory support** — `DiscoverSourceSkills` and `DiscoverSourceSkillsLite` now resolve symlinks on the source directory before walking, so skills managed through symlinked `~/.config/skillshare/skills/` (common with dotfiles managers) are discovered correctly. Chained symlinks (link → link → real dir) are also handled
+- **`status` recognizes external target symlinks** — `CheckStatusMerge` no longer reports external symlinks as "conflict"; it follows the symlink and counts linked/local skills in the resolved directory
+- **`collect` scans through external target symlinks** — `FindLocalSkills` now follows non-source symlinks instead of skipping them, so local skills in dotfiles-managed target directories can be collected
+
 ## [0.16.6] - 2026-03-02
 
 ### New Features
