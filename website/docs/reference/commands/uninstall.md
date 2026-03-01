@@ -68,6 +68,10 @@ skillshare uninstall "core-*" "util-*"     # Multiple patterns
 
 Glob matching is case-insensitive: `"Core-*"` matches `core-auth`, `CORE-DB`, etc.
 
+:::note Top-level matching only
+Glob patterns match against **top-level directory names** in the source folder. Nested skills (e.g. `frontend/react-hooks`) are not matched by `"react-*"` — use `--group frontend` to target skills within a subdirectory.
+:::
+
 ## Remove All
 
 Use `--all` to remove every skill from the source directory at once:

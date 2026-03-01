@@ -7,6 +7,7 @@ sidebar_position: 3
 Restore a target from a backup.
 
 ```bash
+skillshare restore                                     # Interactive TUI (browse + restore)
 skillshare restore claude                              # Latest backup
 skillshare restore claude --from 2026-01-19_10-00-00   # Specific backup
 skillshare restore claude --dry-run                    # Preview
@@ -16,6 +17,32 @@ skillshare restore claude --dry-run                    # Preview
 
 - A sync went wrong and you need to revert a target to its previous state
 - You accidentally removed skills from a target
+- Browse backup versions interactively and compare against current state
+
+## Interactive TUI
+
+On a TTY, `skillshare restore` (with no arguments) launches a unified restore TUI:
+
+1. **Source picker** — Choose between "Backup Restore" and "Trash Restore"
+2. **Backup Restore** — Select a target, then browse backup versions with a detail panel showing:
+   - Backup date, size, and skill count
+   - Diff vs current target (added/removed skills)
+   - Individual file listings
+3. **Trash Restore** — Opens the trash TUI to restore deleted skills
+
+### Key Bindings
+
+| Key | Action |
+|-----|--------|
+| `↑`/`↓` | Navigate targets / versions |
+| `Enter` | Select target / restore version |
+| `/` | Filter targets |
+| `d` | Delete a backup version |
+| `Ctrl+d`/`Ctrl+u` | Scroll detail panel |
+| `Esc` | Go back |
+| `q`/`Ctrl+C` | Quit |
+
+Use `--no-tui` to skip the TUI and show a plain backup list instead.
 
 ## What Happens
 
@@ -35,6 +62,7 @@ flowchart TD
 | `--from, -f <timestamp>` | Restore from specific backup |
 | `--force` | Overwrite without confirmation |
 | `--dry-run, -n` | Preview without making changes |
+| `--no-tui` | Skip interactive TUI, show backup list instead |
 
 ## Finding Backups
 
