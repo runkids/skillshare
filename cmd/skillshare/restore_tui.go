@@ -70,7 +70,8 @@ func (i restoreVersionItem) FilterValue() string { return i.version.Label }
 // --- Messages ---
 
 type restoreDoneMsg struct {
-	err error
+	err    error
+	action string // "restore" or "delete"
 }
 
 // --- Model ---
@@ -104,6 +105,9 @@ type restoreTUIModel struct {
 
 	// Detail scroll (right panel)
 	detailScroll int
+
+	// Confirm overlay
+	confirmAction string // "restore" or "delete"
 
 	// Execution
 	opSpinner spinner.Model
@@ -172,6 +176,22 @@ func (m restoreTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case restoreDoneMsg:
+		if msg.action == "delete" {
+			if msg.err != nil {
+				m.resultMsg = tc.Red.Render(fmt.Sprintf("Delete failed: %s", msg.err))
+				m.phase = phaseDone
+				return m, nil
+			}
+			// Show success, then reload version list
+			label := ""
+			if m.selectedVersion != nil {
+				label = m.selectedVersion.Label
+			}
+			m.resultMsg = tc.Green.Render(fmt.Sprintf("Deleted backup %s", label))
+			m.confirmAction = ""
+			m.selectedVersion = nil
+			return m.enterVersionPhase()
+		}
 		m.phase = phaseDone
 		if msg.err != nil {
 			m.resultMsg = tc.Red.Render(fmt.Sprintf("Error: %s", msg.err))
@@ -221,9 +241,13 @@ func (m restoreTUIModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.phase == phaseConfirm {
 		switch key {
 		case "y", "Y", "enter":
+			if m.confirmAction == "delete" {
+				return m.startDelete()
+			}
 			return m.startRestore()
 		case "n", "N", "esc":
 			m.phase = phaseVersionList
+			m.confirmAction = ""
 			return m, nil
 		}
 		return m, nil
@@ -286,6 +310,19 @@ func (m restoreTUIModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case "d":
+		if m.phase == phaseVersionList {
+			item, ok := m.versionList.SelectedItem().(restoreVersionItem)
+			if !ok {
+				break
+			}
+			m.selectedVersion = &item.version
+			m.confirmAction = "delete"
+			m.phase = phaseConfirm
+			m.resultMsg = ""
+			return m, nil
+		}
+
 	case "enter":
 		if m.phase == phaseTargetList {
 			item, ok := m.targetList.SelectedItem().(restoreTargetItem)
@@ -304,6 +341,7 @@ func (m restoreTUIModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				break
 			}
 			m.selectedVersion = &item.version
+			m.confirmAction = "restore"
 			m.phase = phaseConfirm
 			return m, nil
 		}
@@ -342,6 +380,8 @@ func (m restoreTUIModel) activeListIndex() int {
 func (m restoreTUIModel) enterVersionPhase() (tea.Model, tea.Cmd) {
 	versions, err := backup.ListBackupVersions(m.backupDir, m.selectedTarget)
 	if err != nil || len(versions) == 0 {
+		// No versions left — refresh target list and go back
+		m.refreshTargetList()
 		m.phase = phaseTargetList
 		m.selectedTarget = ""
 		return m, nil
@@ -401,6 +441,60 @@ func (m restoreTUIModel) startRestore() (tea.Model, tea.Cmd) {
 		oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
 		return restoreDoneMsg{err: err}
+	}
+
+	return m, tea.Batch(m.opSpinner.Tick, cmd)
+}
+
+func (m *restoreTUIModel) refreshTargetList() {
+	summaries, _ := backup.ListTargetsWithBackups(m.backupDir)
+	m.targetItems = summaries
+	items := make([]list.Item, len(summaries))
+	for i, s := range summaries {
+		items[i] = restoreTargetItem{summary: s}
+	}
+	m.targetList.SetItems(items)
+	m.matchCount = len(summaries)
+	m.targetList.Title = fmt.Sprintf("Backup Restore — %d target(s)", len(summaries))
+}
+
+func (m restoreTUIModel) startDelete() (tea.Model, tea.Cmd) {
+	m.phase = phaseExecuting
+	version := *m.selectedVersion
+	backupDir := m.backupDir
+
+	cmd := func() tea.Msg {
+		// version.Dir is e.g. .../backups/2024-01-15_14-04-05/claude
+		// Parent is the timestamp dir: .../backups/2024-01-15_14-04-05
+		tsDir := filepath.Dir(version.Dir)
+
+		// Check if other targets exist in this timestamp dir
+		entries, _ := os.ReadDir(tsDir)
+		otherTargets := 0
+		for _, e := range entries {
+			if e.IsDir() {
+				otherTargets++
+			}
+		}
+
+		var err error
+		if otherTargets <= 1 {
+			// Only this target — remove entire timestamp dir
+			err = os.RemoveAll(tsDir)
+		} else {
+			// Other targets exist — remove only this target's subdir
+			err = os.RemoveAll(version.Dir)
+		}
+
+		// Reload target summaries to check if target still has backups
+		if err == nil {
+			remaining, _ := backup.ListBackupVersions(backupDir, m.selectedTarget)
+			if len(remaining) == 0 {
+				// No more versions for this target — will go back to target list
+			}
+		}
+
+		return restoreDoneMsg{err: err, action: "delete"}
 	}
 
 	return m, tea.Batch(m.opSpinner.Tick, cmd)
@@ -490,8 +584,12 @@ func (m restoreTUIModel) View() string {
 
 	switch m.phase {
 	case phaseExecuting:
-		return fmt.Sprintf("\n  %s Restoring %s from %s...\n",
-			m.opSpinner.View(), m.selectedTarget, m.selectedVersion.Label)
+		verb := "Restoring"
+		if m.confirmAction == "delete" {
+			verb = "Deleting"
+		}
+		return fmt.Sprintf("\n  %s %s %s from %s...\n",
+			m.opSpinner.View(), verb, m.selectedTarget, m.selectedVersion.Label)
 
 	case phaseDone:
 		return fmt.Sprintf("\n  %s\n\n  %s\n",
@@ -548,7 +646,14 @@ func (m restoreTUIModel) viewHorizontal() string {
 
 	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
 	b.WriteString(body)
-	b.WriteString("\n\n")
+	b.WriteString("\n")
+
+	// Operation result message
+	if m.resultMsg != "" {
+		b.WriteString("  ")
+		b.WriteString(m.resultMsg)
+		b.WriteString("\n")
+	}
 
 	// Filter bar
 	b.WriteString(m.renderRestoreFilterBar())
@@ -571,7 +676,13 @@ func (m restoreTUIModel) viewVertical() string {
 	case phaseVersionList:
 		b.WriteString(m.versionList.View())
 	}
-	b.WriteString("\n\n")
+	b.WriteString("\n")
+
+	if m.resultMsg != "" {
+		b.WriteString("  ")
+		b.WriteString(m.resultMsg)
+		b.WriteString("\n")
+	}
 
 	b.WriteString(m.renderRestoreFilterBar())
 
@@ -643,7 +754,14 @@ func (m restoreTUIModel) applyRestoreDetailScroll(content string, viewHeight int
 func (m restoreTUIModel) viewRestoreConfirm() string {
 	var b strings.Builder
 	b.WriteString("\n")
-	fmt.Fprintf(&b, "  Restore %s from backup %s?\n\n", m.selectedTarget, m.selectedVersion.Label)
+
+	if m.confirmAction == "delete" {
+		fmt.Fprintf(&b, "  %s\n\n",
+			tc.Red.Render(fmt.Sprintf("Delete backup %s for %s?", m.selectedVersion.Label, m.selectedTarget)))
+	} else {
+		fmt.Fprintf(&b, "  Restore %s from backup %s?\n\n", m.selectedTarget, m.selectedVersion.Label)
+	}
+
 	fmt.Fprintf(&b, "    Skills: %d\n", m.selectedVersion.SkillCount)
 	fmt.Fprintf(&b, "    Size:   %s\n", formatBytes(m.selectedVersion.TotalSize))
 
@@ -691,7 +809,7 @@ func (m restoreTUIModel) restoreHelpText() string {
 	if m.phase == phaseTargetList {
 		help += "  enter select  esc quit"
 	} else {
-		help += "  enter restore  Ctrl+d/u scroll  esc back  q quit"
+		help += "  enter restore  d delete  Ctrl+d/u scroll  esc back  q quit"
 	}
 	return help
 }

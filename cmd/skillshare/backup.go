@@ -26,6 +26,9 @@ func cmdBackup(args []string) error {
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
+		case "--help", "-h":
+			printBackupHelp()
+			return nil
 		case "--list", "-l":
 			doList = true
 		case "--cleanup", "-c":
@@ -296,6 +299,9 @@ func cmdRestore(args []string) error {
 
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
+		case "--help", "-h":
+			printRestoreHelp()
+			return nil
 		case "--from", "-f":
 			if i+1 < len(args) {
 				fromTimestamp = args[i+1]
@@ -491,4 +497,52 @@ func previewRestoreFromLatest(targetName, targetPath string, opts backup.Restore
 
 	ui.Info("Would restore %s from latest backup (%s)", targetName, latest.Timestamp)
 	return nil
+}
+
+func printBackupHelp() {
+	fmt.Println(`Usage: skillshare backup [target] [options]
+
+Create a snapshot of target skill directories.
+Without arguments, backs up all targets.
+
+Arguments:
+  target               Target name to backup (optional; backs up all if omitted)
+
+Options:
+  --list, -l           List all existing backups
+  --cleanup, -c        Remove old backups based on retention policy
+  --dry-run, -n        Preview what would be backed up or cleaned up
+  --target, -t <name>  Specify target name (alternative to positional arg)
+  --help, -h           Show this help
+
+Examples:
+  skillshare backup                         # Backup all targets
+  skillshare backup claude                  # Backup only claude
+  skillshare backup --list                  # List all backups
+  skillshare backup --cleanup               # Remove old backups
+  skillshare backup --cleanup --dry-run     # Preview cleanup`)
+}
+
+func printRestoreHelp() {
+	fmt.Println(`Usage: skillshare restore [target] [options]
+
+Restore target skills from a backup snapshot.
+Without arguments, launches an interactive TUI.
+
+Arguments:
+  target               Target name to restore (optional)
+
+Options:
+  --from, -f <ts>      Restore from specific timestamp (e.g. 2024-01-15_14-30-45)
+  --force              Overwrite non-empty target directory
+  --dry-run, -n        Preview what would be restored without making changes
+  --no-tui             Skip interactive TUI, show backup list instead
+  --help, -h           Show this help
+
+Examples:
+  skillshare restore                        # Interactive TUI
+  skillshare restore claude                 # Restore claude from latest backup
+  skillshare restore claude --from 2024-01-15_14-30-45
+  skillshare restore claude --dry-run       # Preview restore
+  skillshare restore --no-tui               # List backups (no TUI)`)
 }
