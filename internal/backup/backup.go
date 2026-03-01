@@ -52,8 +52,10 @@ func Create(targetName, targetPath string) (string, error) {
 		return "", fmt.Errorf("failed to create backup directory: %w", err)
 	}
 
-	// Copy target contents to backup
-	if err := copyDir(targetPath, backupPath); err != nil {
+	// Copy target contents to backup.
+	// Use copyDirFollowTopSymlinks so that merge-mode targets (whose
+	// skills are symlinks) are resolved and their real content is copied.
+	if err := copyDirFollowTopSymlinks(targetPath, backupPath); err != nil {
 		return "", fmt.Errorf("failed to backup: %w", err)
 	}
 
@@ -198,6 +200,56 @@ func ListTargetsWithBackups(backupDir string) ([]TargetBackupSummary, error) {
 	})
 
 	return summaries, nil
+}
+
+// copyDirFollowTopSymlinks copies a directory, resolving symlinks at the
+// top level so that merge-mode targets (per-skill symlinks) are backed up.
+// Deeper levels use copyDir which skips symlinks to avoid circular refs.
+func copyDirFollowTopSymlinks(src, dst string) error {
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		// Resolve symlinks at this level — follow them to get real content
+		realPath := srcPath
+		info, err := os.Lstat(srcPath)
+		if err != nil {
+			continue
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			resolved, err := filepath.EvalSymlinks(srcPath)
+			if err != nil {
+				continue // broken symlink — skip
+			}
+			realPath = resolved
+			info, err = os.Stat(realPath)
+			if err != nil {
+				continue
+			}
+		}
+
+		if info.IsDir() {
+			// Use regular copyDir for deeper levels (no further symlink following)
+			if err := copyDir(realPath, dstPath); err != nil {
+				return err
+			}
+		} else if info.Mode().IsRegular() {
+			if err := copyFile(realPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // copyDir copies a directory recursively, skipping symlinks and junctions.

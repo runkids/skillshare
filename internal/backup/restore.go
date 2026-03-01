@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"time"
 )
 
 // RestoreOptions holds options for restore operation
@@ -140,4 +142,74 @@ func GetBackupByTimestamp(timestamp string) (*BackupInfo, error) {
 	}
 
 	return nil, fmt.Errorf("backup not found: %s", timestamp)
+}
+
+// BackupVersion describes a single timestamped backup for a target.
+type BackupVersion struct {
+	Timestamp  time.Time
+	Label      string   // formatted: "2006-01-02 15:04:05"
+	Dir        string   // full path to target dir inside this backup
+	SkillCount int
+	TotalSize  int64
+	SkillNames []string
+}
+
+// ListBackupVersions returns all backup versions for a target, newest first.
+// Returns nil, nil for a non-existent directory.
+func ListBackupVersions(backupDir, targetName string) ([]BackupVersion, error) {
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var versions []BackupVersion
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		ts, parseErr := time.ParseInLocation("2006-01-02_15-04-05", entry.Name(), time.Local)
+		if parseErr != nil {
+			continue
+		}
+
+		targetDir := filepath.Join(backupDir, entry.Name(), targetName)
+		info, statErr := os.Stat(targetDir)
+		if statErr != nil || !info.IsDir() {
+			continue
+		}
+
+		// Collect skill subdirectories
+		skillEntries, readErr := os.ReadDir(targetDir)
+		if readErr != nil {
+			continue
+		}
+
+		var skillNames []string
+		for _, se := range skillEntries {
+			if se.IsDir() {
+				skillNames = append(skillNames, se.Name())
+			}
+		}
+		sort.Strings(skillNames)
+
+		versions = append(versions, BackupVersion{
+			Timestamp:  ts,
+			Label:      ts.Format("2006-01-02 15:04:05"),
+			Dir:        targetDir,
+			SkillCount: len(skillNames),
+			TotalSize:  dirSize(targetDir),
+			SkillNames: skillNames,
+		})
+	}
+
+	// Sort newest first
+	sort.Slice(versions, func(i, j int) bool {
+		return versions[i].Timestamp.After(versions[j].Timestamp)
+	})
+
+	return versions, nil
 }
