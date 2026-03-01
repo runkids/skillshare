@@ -18,6 +18,14 @@ import (
 )
 
 func cmdBackup(args []string) error {
+	mode, args, err := parseModeArgs(args)
+	if err != nil {
+		return err
+	}
+	if mode == modeProject {
+		return fmt.Errorf("backup is not supported in project mode")
+	}
+
 	start := time.Now()
 	var targetName string
 	doList := false
@@ -56,7 +64,7 @@ func cmdBackup(args []string) error {
 		return backupCleanup()
 	}
 
-	err := createBackup(targetName, dryRun)
+	err = createBackup(targetName, dryRun)
 
 	if !dryRun {
 		e := oplog.NewEntry("backup", statusFromErr(err), time.Since(start))
@@ -289,6 +297,14 @@ func planBackupCleanup(backups []backup.BackupInfo, cfg backup.CleanupConfig, no
 }
 
 func cmdRestore(args []string) error {
+	mode, args, err := parseModeArgs(args)
+	if err != nil {
+		return err
+	}
+	if mode == modeProject {
+		return fmt.Errorf("restore is not supported in project mode")
+	}
+
 	start := time.Now()
 
 	var targetName string
