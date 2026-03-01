@@ -43,7 +43,7 @@ targets: {}
 	result.AssertAnyOutputContains(t, "not found")
 }
 
-func TestRestore_NoArgs_ReturnsUsage(t *testing.T) {
+func TestRestore_NoArgs_ListsBackups(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -51,10 +51,25 @@ func TestRestore_NoArgs_ReturnsUsage(t *testing.T) {
 targets: {}
 `)
 
+	// Non-TTY: falls back to backup list (no error)
 	result := sb.RunCLI("restore")
 
-	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "usage")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "No backups found")
+}
+
+func TestRestore_NoTUI_Flag(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("restore", "--no-tui")
+
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "No backups found")
 }
 
 func TestRestore_FromLatest_RestoresBackup(t *testing.T) {
