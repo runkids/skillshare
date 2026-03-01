@@ -164,19 +164,37 @@ func selectSkills(skills []install.SkillInfo, opts install.InstallOptions) ([]in
 }
 
 // applyExclude removes skills whose names appear in the exclude list.
+// Supports glob patterns (e.g. "test-*") for pattern-based exclusion.
 func applyExclude(skills []install.SkillInfo, exclude []string) []install.SkillInfo {
-	excludeSet := make(map[string]bool, len(exclude))
+	// Split into exact names and glob patterns
+	exactSet := make(map[string]bool)
+	var globPatterns []string
 	for _, name := range exclude {
-		excludeSet[name] = true
+		if isGlobPattern(name) {
+			globPatterns = append(globPatterns, name)
+		} else {
+			exactSet[name] = true
+		}
 	}
+
 	var excluded []string
 	filtered := make([]install.SkillInfo, 0, len(skills))
 	for _, s := range skills {
-		if excludeSet[s.Name] {
+		if exactSet[s.Name] {
 			excluded = append(excluded, s.Name)
 			continue
 		}
-		filtered = append(filtered, s)
+		var matched bool
+		for _, pattern := range globPatterns {
+			if matchGlob(pattern, s.Name) {
+				excluded = append(excluded, s.Name)
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			filtered = append(filtered, s)
+		}
 	}
 	if len(excluded) > 0 {
 		ui.Info("Excluded %d skill(s): %s", len(excluded), strings.Join(excluded, ", "))
@@ -185,7 +203,8 @@ func applyExclude(skills []install.SkillInfo, exclude []string) []install.SkillI
 }
 
 // filterSkillsByName matches requested names against discovered skills.
-// It tries exact match first, then falls back to case-insensitive substring matching.
+// It tries exact match first, then glob pattern matching (if the name
+// contains wildcards), then falls back to case-insensitive substring matching.
 func filterSkillsByName(skills []install.SkillInfo, names []string) (matched []install.SkillInfo, notFound []string) {
 	skillByName := make(map[string]install.SkillInfo, len(skills))
 	for _, s := range skills {
@@ -196,6 +215,22 @@ func filterSkillsByName(skills []install.SkillInfo, names []string) (matched []i
 		// Try exact match first
 		if s, ok := skillByName[name]; ok {
 			matched = append(matched, s)
+			continue
+		}
+
+		// Try glob pattern matching (e.g. "core-*", "test-?")
+		if isGlobPattern(name) {
+			var globMatches []install.SkillInfo
+			for _, s := range skills {
+				if matchGlob(name, s.Name) {
+					globMatches = append(globMatches, s)
+				}
+			}
+			if len(globMatches) > 0 {
+				matched = append(matched, globMatches...)
+				continue
+			}
+			notFound = append(notFound, name)
 			continue
 		}
 

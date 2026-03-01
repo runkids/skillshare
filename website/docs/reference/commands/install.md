@@ -119,11 +119,14 @@ skillshare install anthropics/skills --dry-run
 
 ## Selective Install (Non-Interactive)
 
-Pick specific skills from a multi-skill repo without prompts. The `--skill` flag supports **fuzzy matching** — if an exact name isn't found, it falls back to the closest match:
+Pick specific skills from a multi-skill repo without prompts. The `--skill` flag supports **fuzzy matching** and **glob patterns** — if an exact name isn't found, it tries glob matching (`*`, `?`, `[...]`), then falls back to the closest substring match:
 
 ```bash
 # Install specific skills by name (exact or fuzzy)
 skillshare install anthropics/skills -s pdf,commit
+
+# Install skills matching a glob pattern
+skillshare install anthropics/skills -s "core-*"
 
 # Install all discovered skills
 skillshare install anthropics/skills --all
@@ -135,6 +138,8 @@ skillshare install anthropics/skills -y
 skillshare install anthropics/skills -s pdf --dry-run
 skillshare install anthropics/skills --all -p
 ```
+
+Glob matching is case-insensitive: `"Core-*"` matches `core-auth`, `CORE-DB`, etc.
 
 Useful for CI/CD pipelines and scripted workflows.
 
@@ -244,8 +249,8 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 | `--force` | `-f` | Overwrite existing skill; override audit blocking and cross-path duplicate check |
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
 | `--track` | `-t` | Keep `.git` for tracked repos |
-| `--skill` | `-s` | Select specific skills from multi-skill repo (comma-separated) |
-| `--exclude` | | Skip specific skills during install (comma-separated names) |
+| `--skill` | `-s` | Select specific skills from multi-skill repo (comma-separated; supports glob patterns like `core-*`) |
+| `--exclude` | | Skip specific skills during install (comma-separated; supports glob patterns like `test-*`) |
 | `--all` | | Install all discovered skills without prompting |
 | `--yes` | `-y` | Auto-accept all prompts (CI/CD friendly) |
 | `--skip-audit` | | Skip security audit for this install |
@@ -521,11 +526,14 @@ Recommended usage:
 
 ### `--exclude` flag
 
-Skip specific skills when installing from a multi-skill repo:
+Skip specific skills when installing from a multi-skill repo. Supports both exact names and **glob patterns**:
 
 ```bash
 # Install all except specific skills
 skillshare install anthropics/skills --all --exclude cli-sentry,delayed-command
+
+# Exclude by glob pattern
+skillshare install anthropics/skills --all --exclude "test-*"
 
 # Works with -y too
 skillshare install org/skills -y --exclude internal-tool

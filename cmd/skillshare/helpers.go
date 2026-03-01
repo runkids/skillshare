@@ -4,7 +4,19 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
+
+// isGlobPattern returns true if the string contains glob metacharacters.
+func isGlobPattern(s string) bool {
+	return strings.ContainsAny(s, "*?[")
+}
+
+// matchGlob performs a case-insensitive glob match of name against pattern.
+func matchGlob(pattern, name string) bool {
+	ok, _ := filepath.Match(strings.ToLower(pattern), strings.ToLower(name))
+	return ok
+}
 
 // copyDir copies a directory recursively.
 func copyDir(src, dst string) error {

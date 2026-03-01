@@ -189,6 +189,27 @@ func cmdUpdate(args []string) error {
 	} else {
 		// Resolve by specific names/groups
 		for _, name := range opts.names {
+			// Glob pattern matching (e.g. "core-*", "_team-?")
+			if isGlobPattern(name) {
+				globMatches, globErr := resolveByGlob(cfg.Source, name)
+				if globErr != nil {
+					resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, globErr))
+					continue
+				}
+				if len(globMatches) == 0 {
+					resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no skills match pattern", name))
+					continue
+				}
+				ui.Info("Pattern '%s' matched %d item(s)", name, len(globMatches))
+				for _, m := range globMatches {
+					if !seen[m.name] {
+						seen[m.name] = true
+						targets = append(targets, m)
+					}
+				}
+				continue
+			}
+
 			if isGroupDir(name, cfg.Source) {
 				groupMatches, groupErr := resolveGroupUpdatable(name, cfg.Source)
 				if groupErr != nil {
@@ -388,6 +409,7 @@ Use --force to discard local changes and update.
 
 Arguments:
   name...             Skill name(s) or tracked repo name(s)
+                      Supports glob patterns (e.g. "core-*", "_team-?")
 
 Options:
   --all, -a           Update all tracked repos + skills with metadata
@@ -408,6 +430,7 @@ Options:
 Examples:
   skillshare update my-skill              # Update single skill from source
   skillshare update a b c                 # Update multiple skills at once
+  skillshare update "core-*"             # Update all matching a glob pattern
   skillshare update --group frontend      # Update all skills in frontend/
   skillshare update x -G backend          # Mix names and groups
   skillshare update _team-skills          # Update tracked repo (git pull)
