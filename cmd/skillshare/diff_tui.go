@@ -17,8 +17,8 @@ import (
 // detail showing sync/local differences. Browse-only (no mutating actions).
 // ---------------------------------------------------------------------------
 
-// Minimum terminal width for horizontal split; below this use vertical layout.
-const diffMinSplitWidth = 80
+// diffMinSplitWidth is the minimum terminal width for horizontal split.
+const diffMinSplitWidth = tuiMinSplitWidth
 
 // --- List item ---
 
@@ -373,29 +373,11 @@ func (m diffTUIModel) viewDiffHorizontal() string {
 	leftWidth := diffListWidth(m.termWidth)
 	rightWidth := diffDetailWidth(m.termWidth)
 
-	// Left panel: list
-	leftPanel := lipgloss.NewStyle().
-		Width(leftWidth).MaxWidth(leftWidth).
-		Height(panelHeight).MaxHeight(panelHeight).
-		Render(m.targetList.View())
-
-	// Border column
-	borderStyle := tc.Border.
-		Height(panelHeight).MaxHeight(panelHeight)
-	borderCol := strings.Repeat("│\n", panelHeight)
-	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
-
-	// Right panel: detail
+	// Detail
 	detailContent := m.buildDiffDetail()
 	detailStr := applyDetailScroll(detailContent, m.detailScroll, panelHeight)
 
-	rightPanel := lipgloss.NewStyle().
-		Width(rightWidth).MaxWidth(rightWidth).
-		Height(panelHeight).MaxHeight(panelHeight).
-		PaddingLeft(1).
-		Render(detailStr)
-
-	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
+	body := renderHorizontalSplit(m.targetList.View(), detailStr, leftWidth, rightWidth, panelHeight)
 	b.WriteString(body)
 	b.WriteString("\n")
 

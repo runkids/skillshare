@@ -12,7 +12,6 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
@@ -36,8 +35,8 @@ const (
 	phaseDone                            // restore complete
 )
 
-// Minimum terminal width for horizontal split; below this use vertical layout.
-const restoreMinSplitWidth = 80
+// restoreMinSplitWidth is the minimum terminal width for horizontal split.
+const restoreMinSplitWidth = tuiMinSplitWidth
 
 // --- List items ---
 
@@ -106,6 +105,11 @@ type restoreTUIModel struct {
 	// Detail scroll (right panel)
 	detailScroll int
 
+	// Cached detail content — recomputed only on selection change or mutation
+	cachedDetailIdx   int
+	cachedDetailPhase restorePhase
+	cachedDetailStr   string
+
 	// Confirm overlay
 	confirmAction string // "restore" or "delete"
 
@@ -166,6 +170,7 @@ func (m restoreTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.phase == phaseVersionList {
 			m.versionList.SetSize(lw, h)
 		}
+		m.refreshDetailCache()
 		return m, nil
 
 	case spinner.TickMsg:
@@ -361,6 +366,8 @@ func (m restoreTUIModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	if m.activeListIndex() != prevIdx {
 		m.detailScroll = 0
+		m.invalidateDetailCache()
+		m.refreshDetailCache()
 	}
 
 	return m, cmd
@@ -412,6 +419,8 @@ func (m restoreTUIModel) enterVersionPhase() (tea.Model, tea.Cmd) {
 	m.matchCount = len(versions)
 	m.phase = phaseVersionList
 	m.detailScroll = 0
+	m.invalidateDetailCache()
+	m.refreshDetailCache()
 	return m, nil
 }
 
@@ -456,12 +465,12 @@ func (m *restoreTUIModel) refreshTargetList() {
 	m.targetList.SetItems(items)
 	m.matchCount = len(summaries)
 	m.targetList.Title = fmt.Sprintf("Backup Restore — %d target(s)", len(summaries))
+	m.invalidateDetailCache()
 }
 
 func (m restoreTUIModel) startDelete() (tea.Model, tea.Cmd) {
 	m.phase = phaseExecuting
 	version := *m.selectedVersion
-	backupDir := m.backupDir
 
 	cmd := func() tea.Msg {
 		// version.Dir is e.g. .../backups/2024-01-15_14-04-05/claude
@@ -484,14 +493,6 @@ func (m restoreTUIModel) startDelete() (tea.Model, tea.Cmd) {
 		} else {
 			// Other targets exist — remove only this target's subdir
 			err = os.RemoveAll(version.Dir)
-		}
-
-		// Reload target summaries to check if target still has backups
-		if err == nil {
-			remaining, _ := backup.ListBackupVersions(backupDir, m.selectedTarget)
-			if len(remaining) == 0 {
-				// No more versions for this target — will go back to target list
-			}
 		}
 
 		return restoreDoneMsg{err: err, action: "delete"}
@@ -547,6 +548,7 @@ func (m *restoreTUIModel) applyRestoreFilter() {
 		m.versionList.SetItems(matched)
 		m.versionList.ResetSelected()
 	}
+	m.invalidateDetailCache()
 }
 
 // --- Layout helpers ---
@@ -614,7 +616,7 @@ func (m restoreTUIModel) viewHorizontal() string {
 	leftWidth := restoreListWidth(m.termWidth)
 	rightWidth := restoreDetailWidth(m.termWidth)
 
-	// Left panel: list
+	// Left panel: active list
 	var listView string
 	switch m.phase {
 	case phaseTargetList:
@@ -623,28 +625,10 @@ func (m restoreTUIModel) viewHorizontal() string {
 		listView = m.versionList.View()
 	}
 
-	leftPanel := lipgloss.NewStyle().
-		Width(leftWidth).MaxWidth(leftWidth).
-		Height(panelHeight).MaxHeight(panelHeight).
-		Render(listView)
+	// Right panel: detail (cached)
+	detailStr := applyDetailScroll(m.buildDetailContent(), m.detailScroll, panelHeight)
 
-	// Border column
-	borderStyle := tc.Border.
-		Height(panelHeight).MaxHeight(panelHeight)
-	borderCol := strings.Repeat("│\n", panelHeight)
-	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
-
-	// Right panel: detail
-	detailContent := m.buildDetailContent()
-	detailStr := m.applyRestoreDetailScroll(detailContent, panelHeight)
-
-	rightPanel := lipgloss.NewStyle().
-		Width(rightWidth).MaxWidth(rightWidth).
-		Height(panelHeight).MaxHeight(panelHeight).
-		PaddingLeft(1).
-		Render(detailStr)
-
-	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
+	body := renderHorizontalSplit(listView, detailStr, leftWidth, rightWidth, panelHeight)
 	b.WriteString(body)
 	b.WriteString("\n")
 
@@ -692,7 +676,7 @@ func (m restoreTUIModel) viewVertical() string {
 	if detailHeight < 6 {
 		detailHeight = 6
 	}
-	b.WriteString(m.applyRestoreDetailScroll(detailContent, detailHeight))
+	b.WriteString(applyDetailScroll(detailContent, m.detailScroll, detailHeight))
 	b.WriteString("\n")
 
 	help := m.restoreHelpText()
@@ -702,53 +686,39 @@ func (m restoreTUIModel) viewVertical() string {
 	return b.String()
 }
 
-// buildDetailContent returns the raw detail content string for the selected item.
-func (m restoreTUIModel) buildDetailContent() string {
+// refreshDetailCache recomputes the detail content only when the selection or phase changes.
+func (m *restoreTUIModel) refreshDetailCache() {
+	idx := m.activeListIndex()
+	if idx == m.cachedDetailIdx && m.phase == m.cachedDetailPhase && m.cachedDetailStr != "" {
+		return
+	}
+	m.cachedDetailIdx = idx
+	m.cachedDetailPhase = m.phase
 	switch m.phase {
 	case phaseTargetList:
 		if item, ok := m.targetList.SelectedItem().(restoreTargetItem); ok {
-			return m.renderTargetDetail(item.summary)
+			m.cachedDetailStr = m.renderTargetDetail(item.summary)
+			return
 		}
 	case phaseVersionList:
 		if item, ok := m.versionList.SelectedItem().(restoreVersionItem); ok {
-			return m.renderVersionDetail(item.version)
+			m.cachedDetailStr = m.renderVersionDetail(item.version)
+			return
 		}
 	}
-	return ""
+	m.cachedDetailStr = ""
 }
 
-// applyRestoreDetailScroll applies vertical scrolling to detail content.
-func (m restoreTUIModel) applyRestoreDetailScroll(content string, viewHeight int) string {
-	lines := strings.Split(content, "\n")
+// invalidateDetailCache forces the next refreshDetailCache call to recompute.
+func (m *restoreTUIModel) invalidateDetailCache() {
+	m.cachedDetailStr = ""
+	m.cachedDetailIdx = -1
+}
 
-	if len(lines) <= viewHeight {
-		return content
-	}
-
-	maxScroll := len(lines) - viewHeight
-	offset := m.detailScroll
-	if offset > maxScroll {
-		offset = maxScroll
-	}
-
-	visible := lines[offset:]
-	if len(visible) > viewHeight {
-		visible = visible[:viewHeight]
-	}
-
-	var b strings.Builder
-	for _, line := range visible {
-		b.WriteString(line)
-		b.WriteString("\n")
-	}
-
-	if offset > 0 || offset < maxScroll {
-		indicator := fmt.Sprintf("── Ctrl+d/u scroll (%d/%d) ──", offset+1, maxScroll+1)
-		b.WriteString(tc.Dim.Render(indicator))
-		b.WriteString("\n")
-	}
-
-	return b.String()
+// buildDetailContent returns the cached detail content string.
+// Called from View() (value receiver), so it reads the cache populated by Update().
+func (m restoreTUIModel) buildDetailContent() string {
+	return m.cachedDetailStr
 }
 
 func (m restoreTUIModel) viewRestoreConfirm() string {
@@ -939,28 +909,13 @@ func (m restoreTUIModel) renderVersionDetail(v backup.BackupVersion) string {
 
 // --- Helpers ---
 
-// timeAgo returns a human-readable relative time string.
+// timeAgo returns a human-readable relative time string like "5m ago".
 func timeAgo(t time.Time) string {
-	d := time.Since(t)
-	switch {
-	case d < time.Minute:
-		return "just now"
-	case d < time.Hour:
-		m := int(d.Minutes())
-		return fmt.Sprintf("%dm ago", m)
-	case d < 24*time.Hour:
-		h := int(d.Hours())
-		return fmt.Sprintf("%dh ago", h)
-	case d < 30*24*time.Hour:
-		days := int(d.Hours() / 24)
-		return fmt.Sprintf("%dd ago", days)
-	default:
-		months := int(d.Hours() / 24 / 30)
-		if months < 12 {
-			return fmt.Sprintf("%dmo ago", months)
-		}
-		return fmt.Sprintf("%dy ago", months/12)
+	s := formatDurationShort(time.Since(t))
+	if s == "just now" {
+		return s
 	}
+	return s + " ago"
 }
 
 // describeTargetState returns a human-readable description of the target path.
@@ -983,17 +938,6 @@ func describeTargetState(path string) string {
 // readSkillDescription reads the description field from a skill's SKILL.md frontmatter.
 func readSkillDescription(skillDir string) string {
 	return utils.ParseFrontmatterField(filepath.Join(skillDir, "SKILL.md"), "description")
-}
-
-// truncateStr truncates a string to maxLen, appending "..." if needed.
-func truncateStr(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	if maxLen <= 3 {
-		return s[:maxLen]
-	}
-	return s[:maxLen-3] + "..."
 }
 
 // listDirNames returns sorted subdirectory names in a directory.

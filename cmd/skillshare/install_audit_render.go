@@ -683,13 +683,10 @@ func summarizeBlockedThreshold(failures []skillInstallResult) string {
 }
 
 func truncateForInstallSummary(text string, max int) string {
-	if max <= 0 || len(text) <= max {
+	if max <= 0 {
 		return text
 	}
-	if max <= 3 {
-		return text[:max]
-	}
-	return text[:max-3] + "..."
+	return truncateStr(text, max)
 }
 
 func blockedSkillLabel(name, threshold string) string {

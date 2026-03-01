@@ -82,6 +82,10 @@ type trashTUIModel struct {
 
 	// Feedback
 	lastOpMsg string // green/red message after operation
+
+	// Cached detail panel — recomputed only on selection change
+	cachedDetailIdx int
+	cachedDetailStr string
 }
 
 func newTrashTUIModel(items []trash.TrashEntry, trashBase, destDir, cfgPath, modeLabel string) trashTUIModel {
@@ -140,6 +144,7 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
 		m.list.SetSize(msg.Width, msg.Height-14)
+		m.refreshTrashDetailCache()
 		return m, nil
 
 	case spinner.TickMsg:
@@ -162,8 +167,9 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			m.lastOpMsg = tc.Green.Render(fmt.Sprintf("%s %d item(s)", verb, msg.count))
 		}
-		// Reload items
+		// Reload items (rebuildFromEntries invalidates detail cache)
 		m.rebuildFromEntries(msg.reloadedItems)
+		m.refreshTrashDetailCache()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -301,8 +307,13 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	prevIdx := m.list.Index()
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
+	if m.list.Index() != prevIdx {
+		m.invalidateTrashDetailCache()
+		m.refreshTrashDetailCache()
+	}
 	return m, cmd
 }
 
@@ -330,6 +341,7 @@ func (m *trashTUIModel) applyTrashFilter() {
 	m.matchCount = len(matched)
 	m.list.SetItems(matched)
 	m.list.ResetSelected()
+	m.invalidateTrashDetailCache()
 }
 
 // refreshListItems rebuilds list items preserving cursor and checkbox state.
@@ -472,6 +484,26 @@ func (m *trashTUIModel) rebuildFromEntries(entries []trash.TrashEntry) {
 	m.list.SetItems(listItems)
 	m.list.ResetSelected()
 	m.list.Title = trashTUITitle(m.modeLabel, len(entries))
+	m.invalidateTrashDetailCache()
+}
+
+// refreshTrashDetailCache recomputes the detail panel only when the selection changes.
+func (m *trashTUIModel) refreshTrashDetailCache() {
+	idx := m.list.Index()
+	if idx == m.cachedDetailIdx && m.cachedDetailStr != "" {
+		return
+	}
+	m.cachedDetailIdx = idx
+	if item, ok := m.list.SelectedItem().(trashItem); ok {
+		m.cachedDetailStr = m.renderTrashDetailPanel(item.entry)
+	} else {
+		m.cachedDetailStr = ""
+	}
+}
+
+func (m *trashTUIModel) invalidateTrashDetailCache() {
+	m.cachedDetailStr = ""
+	m.cachedDetailIdx = -1
 }
 
 func (m trashTUIModel) View() string {
@@ -498,10 +530,8 @@ func (m trashTUIModel) View() string {
 	// Filter bar
 	b.WriteString(m.renderTrashFilterBar())
 
-	// Detail panel for selected item
-	if item, ok := m.list.SelectedItem().(trashItem); ok {
-		b.WriteString(m.renderTrashDetailPanel(item.entry))
-	}
+	// Detail panel for selected item (cached)
+	b.WriteString(m.cachedDetailStr)
 	b.WriteString("\n")
 
 	// Feedback message + help

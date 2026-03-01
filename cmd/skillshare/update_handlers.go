@@ -463,9 +463,4 @@ func isSecurityError(err error) bool {
 	return errors.Is(err, audit.ErrBlocked)
 }
 
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
-}
+func truncateString(s string, maxLen int) string { return truncateStr(s, maxLen) }

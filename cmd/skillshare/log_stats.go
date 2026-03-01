@@ -136,15 +136,7 @@ func renderStatsCLI(stats logStats) string {
 	return b.String()
 }
 
+// formatRelativeTime is an alias for the shared formatDurationShort.
 func formatRelativeTime(d time.Duration) string {
-	switch {
-	case d < time.Minute:
-		return "just now"
-	case d < time.Hour:
-		return fmt.Sprintf("%dm", int(d.Minutes()))
-	case d < 24*time.Hour:
-		return fmt.Sprintf("%dh", int(d.Hours()))
-	default:
-		return fmt.Sprintf("%dd", int(d.Hours()/24))
-	}
+	return formatDurationShort(d)
 }

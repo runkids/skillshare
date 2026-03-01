@@ -557,31 +557,14 @@ func (m logTUIModel) View() string {
 	leftWidth := logListWidth(m.termWidth)
 	rightWidth := logDetailPanelWidth(m.termWidth)
 
-	// Left panel: list
-	leftPanel := lipgloss.NewStyle().
-		Width(leftWidth).MaxWidth(leftWidth).
-		Height(panelHeight).MaxHeight(panelHeight).
-		Render(m.list.View())
-
-	// Border column
-	borderStyle := tc.Border.
-		Height(panelHeight).MaxHeight(panelHeight)
-	borderCol := strings.Repeat("│\n", panelHeight)
-	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
-
 	// Right panel: detail for selected item
 	var detailStr string
 	if item, ok := m.list.SelectedItem().(logItem); ok {
 		detailContent := renderLogDetailPanel(item)
 		detailStr = applyDetailScroll(detailContent, m.detailScroll, panelHeight)
 	}
-	rightPanel := lipgloss.NewStyle().
-		Width(rightWidth).MaxWidth(rightWidth).
-		Height(panelHeight).MaxHeight(panelHeight).
-		PaddingLeft(1).
-		Render(detailStr)
 
-	body := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, borderPanel, rightPanel)
+	body := renderHorizontalSplit(m.list.View(), detailStr, leftWidth, rightWidth, panelHeight)
 	b.WriteString(body)
 	b.WriteString("\n\n")
 
