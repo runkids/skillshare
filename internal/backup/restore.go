@@ -147,8 +147,8 @@ func GetBackupByTimestamp(timestamp string) (*BackupInfo, error) {
 // BackupVersion describes a single timestamped backup for a target.
 type BackupVersion struct {
 	Timestamp  time.Time
-	Label      string   // formatted: "2006-01-02 15:04:05"
-	Dir        string   // full path to target dir inside this backup
+	Label      string // formatted: "2006-01-02 15:04:05"
+	Dir        string // full path to target dir inside this backup
 	SkillCount int
 	TotalSize  int64
 	SkillNames []string

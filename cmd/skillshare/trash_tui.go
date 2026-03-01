@@ -41,9 +41,9 @@ func (i trashItem) FilterValue() string { return i.entry.Name }
 
 // trashOpDoneMsg is sent when an async operation (restore/delete/empty) completes.
 type trashOpDoneMsg struct {
-	action       string // "restore", "delete", "empty"
-	count        int
-	err          error
+	action        string // "restore", "delete", "empty"
+	count         int
+	err           error
 	reloadedItems []trash.TrashEntry
 }
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -44,8 +45,17 @@ func (i diffTargetItem) Description() string {
 	if r.synced {
 		return "synced"
 	}
-	total := r.syncCount + r.localCount
-	return fmt.Sprintf("%d diff(s)", total)
+	var parts []string
+	if r.syncCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d sync", r.syncCount))
+	}
+	if r.localCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d local", r.localCount))
+	}
+	if len(parts) == 0 {
+		return "0 diff(s)"
+	}
+	return strings.Join(parts, ", ")
 }
 
 func (i diffTargetItem) FilterValue() string { return i.result.name }
@@ -72,6 +82,10 @@ type diffTUIModel struct {
 
 	// Detail scroll (right panel)
 	detailScroll int
+
+	// Expand state — file-level diff for a specific skill
+	expandedSkill string // skill name currently expanded
+	expandedDiff  string // cached unified diff text
 }
 
 func newDiffTUIModel(results []targetDiffResult) diffTUIModel {
@@ -96,7 +110,28 @@ func newDiffTUIModel(results []targetDiffResult) diffTUIModel {
 	configureDelegate(&delegate, true)
 
 	tl := list.New(listItems, delegate, 0, 0)
-	tl.Title = fmt.Sprintf("Diff — %d target(s)", len(sorted))
+	var errN, diffN, syncN int
+	for _, r := range sorted {
+		switch {
+		case r.errMsg != "":
+			errN++
+		case !r.synced:
+			diffN++
+		default:
+			syncN++
+		}
+	}
+	var titleParts []string
+	if errN > 0 {
+		titleParts = append(titleParts, fmt.Sprintf("%d err", errN))
+	}
+	if diffN > 0 {
+		titleParts = append(titleParts, fmt.Sprintf("%d diff", diffN))
+	}
+	if syncN > 0 {
+		titleParts = append(titleParts, fmt.Sprintf("%d ok", syncN))
+	}
+	tl.Title = fmt.Sprintf("Diff — %s", strings.Join(titleParts, ", "))
 	tl.Styles.Title = tc.ListTitle
 	tl.SetShowStatusBar(false)
 	tl.SetFilteringEnabled(false)
@@ -186,6 +221,45 @@ func (m diffTUIModel) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.filterInput.Focus()
 		return m, textinput.Blink
 
+	case "enter":
+		item, ok := m.targetList.SelectedItem().(diffTargetItem)
+		if !ok {
+			return m, nil
+		}
+		r := item.result
+		if r.synced || r.errMsg != "" {
+			return m, nil
+		}
+		// Toggle expand
+		if m.expandedSkill != "" {
+			m.expandedSkill = ""
+			m.expandedDiff = ""
+		} else {
+			for i := range r.items {
+				if r.items[i].action == "modify" || r.items[i].action == "add" {
+					r.items[i].ensureFiles()
+					m.expandedSkill = r.items[i].name
+					// Build unified diff for all modified files
+					var diffBuf strings.Builder
+					for _, f := range r.items[i].files {
+						if f.Action == "modify" && r.items[i].srcDir != "" {
+							srcFile := filepath.Join(r.items[i].srcDir, f.RelPath)
+							dstFile := filepath.Join(r.items[i].dstDir, f.RelPath)
+							diffText := generateUnifiedDiff(srcFile, dstFile)
+							if diffText != "" {
+								diffBuf.WriteString(fmt.Sprintf("--- %s\n", f.RelPath))
+								diffBuf.WriteString(diffText)
+							}
+						}
+					}
+					m.expandedDiff = diffBuf.String()
+					break
+				}
+			}
+		}
+		m.detailScroll = 0
+		return m, nil
+
 	// Detail scroll
 	case "ctrl+d":
 		m.detailScroll += 5
@@ -206,6 +280,8 @@ func (m diffTUIModel) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	if m.targetList.Index() != prevIdx {
 		m.detailScroll = 0
+		m.expandedSkill = ""
+		m.expandedDiff = ""
 	}
 
 	return m, cmd
@@ -298,7 +374,7 @@ func (m diffTUIModel) viewDiffHorizontal() string {
 	b.WriteString(m.renderDiffFilterBar())
 
 	// Help
-	b.WriteString(tc.Help.Render("↑↓ navigate  / filter  Ctrl+d/u scroll  q quit"))
+	b.WriteString(tc.Help.Render("↑↓ navigate  / filter  Enter expand  Ctrl+d/u scroll  q quit"))
 	b.WriteString("\n")
 
 	return b.String()
@@ -318,7 +394,7 @@ func (m diffTUIModel) viewDiffVertical() string {
 	b.WriteString(m.applyDiffDetailScroll(detailContent, detailHeight))
 	b.WriteString("\n")
 
-	b.WriteString(tc.Help.Render("↑↓ navigate  / filter  Ctrl+d/u scroll  q quit"))
+	b.WriteString(tc.Help.Render("↑↓ navigate  / filter  Enter expand  Ctrl+d/u scroll  q quit"))
 	b.WriteString("\n")
 
 	return b.String()
@@ -356,6 +432,12 @@ func (m diffTUIModel) buildDiffDetail() string {
 	}
 	if len(r.exclude) > 0 {
 		row("Exclude: ", strings.Join(r.exclude, ", "))
+	}
+	if !r.srcMtime.IsZero() {
+		row("Source:   ", r.srcMtime.Format("2006-01-02 15:04"))
+	}
+	if !r.dstMtime.IsZero() {
+		row("Target:  ", r.dstMtime.Format("2006-01-02 15:04"))
 	}
 
 	b.WriteString("\n")
@@ -419,7 +501,59 @@ func (m diffTUIModel) buildDiffDetail() string {
 		}
 	}
 
-	// Hints
+	// File list + diff content (only shown after Enter toggle)
+	if m.expandedSkill != "" {
+		// File list for the expanded skill
+		for _, item := range items {
+			if item.name != m.expandedSkill {
+				continue
+			}
+			if len(item.files) > 0 {
+				b.WriteString("\n")
+				b.WriteString(tc.Separator.Render(fmt.Sprintf("── %s files ──", item.name)))
+				b.WriteString("\n")
+				for _, f := range item.files {
+					var icon string
+					var style lipgloss.Style
+					switch f.Action {
+					case "add":
+						icon, style = "+", tc.Green
+					case "delete":
+						icon, style = "-", tc.Red
+					case "modify":
+						icon, style = "~", tc.Cyan
+					default:
+						icon, style = "?", tc.Dim
+					}
+					b.WriteString(style.Render(fmt.Sprintf("  %s %s", icon, f.RelPath)))
+					b.WriteString("\n")
+				}
+			}
+			break
+		}
+
+		// Unified diff content
+		if m.expandedDiff != "" {
+			b.WriteString("\n")
+			b.WriteString(tc.Separator.Render(fmt.Sprintf("── %s diff ──", m.expandedSkill)))
+			b.WriteString("\n")
+			for _, line := range strings.Split(strings.TrimRight(m.expandedDiff, "\n"), "\n") {
+				switch {
+				case strings.HasPrefix(line, "+ "):
+					b.WriteString(tc.Green.Render(line))
+				case strings.HasPrefix(line, "- "):
+					b.WriteString(tc.Red.Render(line))
+				case strings.HasPrefix(line, "--- "):
+					b.WriteString(tc.Cyan.Render(line))
+				default:
+					b.WriteString(tc.Dim.Render(line))
+				}
+				b.WriteString("\n")
+			}
+		}
+	}
+
+	// Next Steps
 	var hints []string
 	for _, cat := range cats {
 		switch cat.kind {
@@ -433,7 +567,7 @@ func (m diffTUIModel) buildDiffDetail() string {
 	}
 	if len(hints) > 0 {
 		b.WriteString("\n")
-		b.WriteString(tc.Separator.Render("── Actions ───────────────────────────"))
+		b.WriteString(tc.Title.Render("── Next Steps ──"))
 		b.WriteString("\n")
 		seen := map[string]bool{}
 		for _, h := range hints {
@@ -441,7 +575,7 @@ func (m diffTUIModel) buildDiffDetail() string {
 				continue
 			}
 			seen[h] = true
-			b.WriteString(tc.Dim.Render(fmt.Sprintf("  skillshare %s", h)))
+			b.WriteString(tc.Cyan.Render(fmt.Sprintf("  → skillshare %s", h)))
 			b.WriteString("\n")
 		}
 	}
