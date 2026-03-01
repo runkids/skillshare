@@ -120,6 +120,86 @@ type BackupInfo struct {
 	Date      time.Time
 }
 
+// TargetBackupSummary holds aggregated backup info for a single target.
+type TargetBackupSummary struct {
+	TargetName  string
+	BackupCount int
+	Latest      time.Time
+	Oldest      time.Time
+}
+
+// ListTargetsWithBackups scans the backup directory and returns per-target
+// summaries (count, oldest, latest) sorted by target name.
+// Returns nil, nil for a non-existent directory.
+func ListTargetsWithBackups(backupDir string) ([]TargetBackupSummary, error) {
+	entries, err := os.ReadDir(backupDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// Aggregate per target: count and time range.
+	type accumulator struct {
+		count  int
+		latest time.Time
+		oldest time.Time
+	}
+	targets := make(map[string]*accumulator)
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		ts, parseErr := time.ParseInLocation("2006-01-02_15-04-05", entry.Name(), time.Local)
+		if parseErr != nil {
+			continue // skip directories that don't match the timestamp format
+		}
+
+		targetEntries, readErr := os.ReadDir(filepath.Join(backupDir, entry.Name()))
+		if readErr != nil {
+			continue
+		}
+
+		for _, te := range targetEntries {
+			if !te.IsDir() {
+				continue
+			}
+			name := te.Name()
+			acc, ok := targets[name]
+			if !ok {
+				acc = &accumulator{oldest: ts, latest: ts}
+				targets[name] = acc
+			}
+			acc.count++
+			if ts.Before(acc.oldest) {
+				acc.oldest = ts
+			}
+			if ts.After(acc.latest) {
+				acc.latest = ts
+			}
+		}
+	}
+
+	summaries := make([]TargetBackupSummary, 0, len(targets))
+	for name, acc := range targets {
+		summaries = append(summaries, TargetBackupSummary{
+			TargetName:  name,
+			BackupCount: acc.count,
+			Latest:      acc.latest,
+			Oldest:      acc.oldest,
+		})
+	}
+
+	sort.Slice(summaries, func(i, j int) bool {
+		return summaries[i].TargetName < summaries[j].TargetName
+	})
+
+	return summaries, nil
+}
+
 // copyDir copies a directory recursively, skipping symlinks and junctions.
 // Uses os.ReadDir + os.Lstat instead of filepath.Walk to avoid failures
 // when os.Lstat on Windows junctions returns nil info with an error.
