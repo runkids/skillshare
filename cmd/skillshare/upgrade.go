@@ -183,6 +183,7 @@ func upgradeCLIBinary(dryRun, force bool) (string, error) {
 		fmt.Printf("%s  Upgrade to v%s? [Y/n]: ", ui.TreeLine(), latestVersion)
 		var input string
 		fmt.Scanln(&input)
+		ui.ClearLines(2) // erase the prompt + tree-line above it
 		input = strings.ToLower(strings.TrimSpace(input))
 		if input == "n" || input == "no" {
 			ui.StepEnd("Status", "Cancelled")
@@ -250,10 +251,11 @@ func upgradeSkillshareSkill(dryRun, force bool) error {
 			return nil
 		}
 
-		fmt.Println()
-		fmt.Print("  Install built-in skillshare skill? [y/N]: ")
+		fmt.Printf("%s\n", ui.TreeLine())
+		fmt.Printf("%s  Install built-in skillshare skill? [y/N]: ", ui.TreeLine())
 		var input string
 		fmt.Scanln(&input)
+		ui.ClearLines(2) // erase the prompt + tree-line above it
 		input = strings.ToLower(strings.TrimSpace(input))
 
 		if input != "y" && input != "yes" {
