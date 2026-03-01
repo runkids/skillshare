@@ -7,7 +7,8 @@ sidebar_position: 4
 Manage uninstalled skills in the trash directory.
 
 ```bash
-skillshare trash list                    # List trashed skills
+skillshare trash list                    # Interactive TUI (in TTY)
+skillshare trash list --no-tui           # Plain text output
 skillshare trash restore my-skill        # Restore from trash
 skillshare trash restore my-skill -p     # Restore in project mode
 skillshare trash delete my-skill         # Permanently delete from trash
@@ -20,15 +21,69 @@ skillshare trash empty                   # Empty the trash
 - Permanently delete trashed skills to free space
 - Check what's in the trash before it auto-expires
 
+## Interactive TUI
+
+In a TTY, `trash list` launches an interactive TUI with multi-select, filtering, and inline restore/delete operations:
+
+```
+Trash (global) — 5 items
+
+  [ ] my-skill    (512 B, 2d ago)
+  [x] old-tool    (1.2 KB, 5d ago)
+  [ ] another     (128 B, 1d ago)
+
+  ─────────────────────────────────────────
+  Name:         old-tool
+  Trashed:      2026-02-27 14:30:05
+  Size:         1.2 KB
+  Path:         ~/.local/share/skillshare/trash/old-tool_...
+
+  ↑↓ navigate  / filter  space select  r restore(1)  d delete(1)  D empty  q quit
+```
+
+### Key Bindings
+
+| Key | Action |
+|-----|--------|
+| `↑`/`↓` | Navigate items |
+| `←`/`→` | Change page |
+| `/` | Enter filter mode (substring match on name) |
+| `Space` | Toggle select current item |
+| `a` | Toggle select all visible items |
+| `r` | Restore selected items (with confirmation) |
+| `d` | Permanently delete selected items (with confirmation) |
+| `D` | Empty all trash (ignores selection, with confirmation) |
+| `q`/`Ctrl+C` | Quit |
+
+In confirmation mode: `y`/`Enter` to confirm, `n`/`Esc` to cancel.
+
+### Batch Operations
+
+When multiple items are selected, `r` and `d` operate on all of them. If some items fail (e.g., restoring a skill whose name already exists in source), the TUI continues processing the remaining items and shows a combined result:
+
+```
+Restored 2 item(s)  Failed: my-skill: already exists
+```
+
+Use `--no-tui` to skip the TUI and print plain text instead:
+
+```bash
+skillshare trash list --no-tui           # Plain text output
+skillshare trash list --no-tui | less    # Pipe to pager manually
+```
+
 ## Subcommands
 
 ### list
 
-Show all skills currently in the trash:
+Show all skills currently in the trash. Launches the interactive TUI in a terminal, or prints plain text with `--no-tui` or in non-TTY:
 
 ```bash
 skillshare trash list
+skillshare trash list --no-tui
 ```
+
+Plain text output:
 
 ```
 Trash
@@ -97,6 +152,7 @@ These two safety mechanisms protect different things:
 
 | Flag | Description |
 |------|-------------|
+| `--no-tui` | Disable interactive TUI, use plain text output |
 | `--project, -p` | Use project-level trash (`.skillshare/trash/`) |
 | `--global, -g` | Use global trash |
 | `--help, -h` | Show help |

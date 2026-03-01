@@ -10,6 +10,8 @@ import (
 	"skillshare/internal/oplog"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
+
+	"golang.org/x/term"
 )
 
 func cmdTrash(args []string) error {
@@ -41,13 +43,24 @@ func cmdTrash(args []string) error {
 	sub := rest[0]
 	subArgs := rest[1:]
 
+	// Parse --no-tui from subArgs for list command
+	noTUI := false
+	var filteredArgs []string
+	for _, arg := range subArgs {
+		if arg == "--no-tui" {
+			noTUI = true
+		} else {
+			filteredArgs = append(filteredArgs, arg)
+		}
+	}
+
 	switch sub {
 	case "list", "ls":
-		return trashList(mode, cwd)
+		return trashList(mode, cwd, noTUI)
 	case "restore":
-		return trashRestore(mode, cwd, subArgs)
+		return trashRestore(mode, cwd, filteredArgs)
 	case "delete", "rm":
-		return trashDelete(mode, cwd, subArgs)
+		return trashDelete(mode, cwd, filteredArgs)
 	case "empty":
 		return trashEmpty(mode, cwd)
 	case "--help", "-h", "help":
@@ -59,7 +72,7 @@ func cmdTrash(args []string) error {
 	}
 }
 
-func trashList(mode runMode, cwd string) error {
+func trashList(mode runMode, cwd string, noTUI bool) error {
 	trashBase := resolveTrashBase(mode, cwd)
 	items := trash.List(trashBase)
 
@@ -68,6 +81,22 @@ func trashList(mode runMode, cwd string) error {
 		return nil
 	}
 
+	// TUI dispatch: TTY + items + not --no-tui
+	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
+	if !noTUI && isTTY {
+		modeLabel := "global"
+		if mode == modeProject {
+			modeLabel = "project"
+		}
+		cfgPath := resolveTrashCfgPath(mode, cwd)
+		destDir, err := resolveSourceDir(mode, cwd)
+		if err != nil {
+			return err
+		}
+		return runTrashTUI(items, trashBase, destDir, cfgPath, modeLabel)
+	}
+
+	// Plain text output (--no-tui or non-TTY)
 	ui.Header("Trash")
 	for _, item := range items {
 		age := time.Since(item.Date)
@@ -270,18 +299,20 @@ func printTrashHelp() {
 Manage uninstalled skills in the trash.
 
 Commands:
-  list, ls              List trashed skills
+  list, ls              List trashed skills (interactive TUI in TTY)
   restore <name>        Restore most recent trashed version to source
   delete, rm <name>     Permanently delete a single item from trash
   empty                 Permanently delete all items from trash
 
 Options:
+  --no-tui              Disable interactive TUI, use plain text output
   --project, -p         Use project-level trash
   --global, -g          Use global trash
   --help, -h            Show this help
 
 Examples:
-  skillshare trash list                    # List trashed skills
+  skillshare trash list                    # Interactive TUI (in TTY)
+  skillshare trash list --no-tui           # Plain text output
   skillshare trash restore my-skill        # Restore from trash
   skillshare trash restore my-skill -p     # Restore in project mode
   skillshare trash delete my-skill         # Permanently delete from trash

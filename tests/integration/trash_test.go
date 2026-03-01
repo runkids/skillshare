@@ -186,6 +186,25 @@ targets: {}
 	result.AssertAnyOutputContains(t, "already empty")
 }
 
+func TestTrash_List_NoTUI_Flag(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("notui-skill", map[string]string{"SKILL.md": "# NoTUI"})
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	// Uninstall to populate trash
+	sb.RunCLI("uninstall", "notui-skill", "--force")
+
+	// --no-tui should be accepted and produce plain text output
+	result := sb.RunCLI("trash", "list", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "notui-skill")
+	result.AssertAnyOutputContains(t, "1 item")
+}
+
 func TestTrash_Help(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
