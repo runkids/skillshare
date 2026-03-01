@@ -158,7 +158,7 @@ targets:
 	// Diff should now detect content drift
 	result = sb.RunCLI("diff")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "sync will update")
+	result.AssertOutputContains(t, "Modified")
 }
 
 func TestDiff_CopyMode_EmptyManifest(t *testing.T) {
@@ -180,7 +180,7 @@ targets:
 	// Run diff WITHOUT syncing first — empty manifest, but mode is copy
 	result := sb.RunCLI("diff")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "sync will add")
+	result.AssertOutputContains(t, "New")
 }
 
 func TestDiff_CopyMode_DetectsDeletedTargetDir(t *testing.T) {
@@ -208,7 +208,7 @@ targets:
 	// Diff should detect the deleted directory, NOT report "Fully synced"
 	result := sb.RunCLI("diff")
 	result.AssertSuccess(t)
-	result.AssertOutputContains(t, "sync will restore")
+	result.AssertOutputContains(t, "Restore")
 	result.AssertOutputNotContains(t, "Fully synced")
 }
 
