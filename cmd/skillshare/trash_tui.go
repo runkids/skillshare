@@ -527,9 +527,13 @@ func (m trashTUIModel) viewConfirm() string {
 	case "restore":
 		b.WriteString(fmt.Sprintf("  Restore %d item(s) to %s?\n\n", len(m.confirmNames), m.destDir))
 	case "delete":
-		b.WriteString(fmt.Sprintf("  Permanently delete %d item(s)?\n\n", len(m.confirmNames)))
+		b.WriteString("  ")
+		b.WriteString(tc.Red.Render(fmt.Sprintf("Permanently delete %d item(s)?", len(m.confirmNames))))
+		b.WriteString("\n\n")
 	case "empty":
-		b.WriteString(fmt.Sprintf("  Empty trash — permanently delete ALL %d item(s)?\n\n", len(m.confirmNames)))
+		b.WriteString("  ")
+		b.WriteString(tc.Red.Render(fmt.Sprintf("Empty trash — permanently delete ALL %d item(s)?", len(m.confirmNames))))
+		b.WriteString("\n\n")
 	}
 
 	// Show names (cap at 10)
