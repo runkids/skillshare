@@ -478,7 +478,10 @@ func (m restoreTUIModel) startDelete() (tea.Model, tea.Cmd) {
 		tsDir := filepath.Dir(version.Dir)
 
 		// Check if other targets exist in this timestamp dir
-		entries, _ := os.ReadDir(tsDir)
+		entries, err := os.ReadDir(tsDir)
+		if err != nil {
+			return restoreDoneMsg{err: fmt.Errorf("failed to inspect backup directory %s: %w", tsDir, err), action: "delete"}
+		}
 		otherTargets := 0
 		for _, e := range entries {
 			if e.IsDir() {
@@ -486,7 +489,6 @@ func (m restoreTUIModel) startDelete() (tea.Model, tea.Cmd) {
 			}
 		}
 
-		var err error
 		if otherTargets <= 1 {
 			// Only this target — remove entire timestamp dir
 			err = os.RemoveAll(tsDir)
