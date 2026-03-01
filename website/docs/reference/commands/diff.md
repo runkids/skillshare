@@ -7,28 +7,47 @@ sidebar_position: 2
 Show differences between source and targets.
 
 ```bash
-skillshare diff              # All targets
+skillshare diff              # All targets (interactive TUI)
 skillshare diff claude       # Specific target
+skillshare diff --stat       # File-level changes
+skillshare diff --patch      # Full unified diff
 ```
 
 ![diff demo](/img/diff-demo.png)
+
+## Interactive TUI
+
+On a TTY, `diff` launches an interactive TUI with a left-right panel layout:
+
+- **Left panel** — Target list with status icons (`✓` synced, `!` has diffs, `✗` error)
+- **Right panel** — Detail view for the selected target (mode, filters, categorized diffs)
+- Press **Enter** to expand file-level diff for a skill
+- Press **/** to filter targets, **Ctrl+d/u** to scroll detail, **q** to quit
+
+Use `--no-tui` for plain text output, or pipe to disable TUI automatically.
 
 ## When to Use
 
 - See exactly what's different between source and a target before syncing
 - Find skills that exist only in a target (local-only, not yet collected)
 - Identify local copies that could be replaced by symlinks
+- Inspect file-level changes with `--stat` or full text diff with `--patch`
 
 ## Example Output
 
 ```
 claude
-  + missing-skill       source only
-  ~ local-copy          local copy (sync --force to replace)
-  - local-only          local only
+  + New 2 skills:
+      missing-skill
+      another-skill
+  ! Local Override 1 skill:
+      local-copy
+  ← Local Only 1 skill:
+      my-local-skill
 
-  Run 'sync' to add missing, 'sync --force' to replace local copies
-  Run 'collect claude' to import local-only skills to source
+  2 new, 1 local override, 1 local only
+
+cursor: fully synced
 ```
 
 ### Grouped Multi-Target Output
@@ -37,15 +56,13 @@ When multiple targets have identical diff results, they are grouped into a singl
 
 ```
 claude, agents
-  + skill-1             source only
-  + skill-2             source only
-
-  Run 'sync' to add missing, 'sync --force' to replace local copies
+  + New 2 skills:
+      skill-1
+      skill-2
 
 cursor
-  + skill-1             source only
-
-  Run 'sync' to add missing, 'sync --force' to replace local copies
+  + New 1 skill:
+      skill-1
 
 codex, copilot: fully synced
 ```
@@ -54,11 +71,52 @@ Targets with different results (e.g. due to `include`/`exclude` filters) are sti
 
 ## Symbols
 
-| Symbol | Meaning | Action |
-|--------|---------|--------|
-| `+` | In source, missing in target | `sync` will add it |
-| `~` | In both, but target has local copy (not symlink) | `sync --force` to replace |
-| `-` | Only in target, not in source | `collect` to import |
+| Symbol | Label | Meaning | Action |
+|--------|-------|---------|--------|
+| `+` | New | In source, missing in target | `sync` will add it |
+| `+` | Restore | Was in target, deleted | `sync` will restore it |
+| `~` | Modified | Content changed (copy mode) | `sync` will update it |
+| `!` | Local Override | Local copy instead of symlink | `sync --force` to replace |
+| `-` | Orphan | In manifest but not in source | `sync` will prune it |
+| `←` | Local Only | Only in target, not in source | `collect` to import |
+
+## File-Level Details
+
+### `--stat`
+
+Shows which files differ within each skill:
+
+```bash
+skillshare diff --stat
+```
+
+```
+claude
+  ~ Modified 1 skill:
+      my-skill
+        + new-file.md
+        ~ SKILL.md
+        - old-file.md
+```
+
+### `--patch`
+
+Shows full unified text diff for modified files:
+
+```bash
+skillshare diff --patch
+```
+
+```
+claude
+  ~ Modified 1 skill:
+      my-skill
+        --- SKILL.md
+        - old line
+        + new line
+```
+
+Both `--stat` and `--patch` imply `--no-tui` (plain text output).
 
 ## What Diff Shows
 
@@ -74,6 +132,7 @@ For targets using merge mode (default):
 
 For targets using copy mode:
 - Lists skills in source not yet managed (missing from manifest)
+- Shows content changes via checksum comparison
 - Shows orphan managed copies no longer in source (will be pruned on sync)
 - Identifies local-only skills (not in source and not managed)
 
@@ -101,9 +160,18 @@ Discover skills you created directly in a target:
 
 ```bash
 skillshare diff claude
-# Shows: - my-local-skill    local only
+# Shows: ← Local Only 1 skill: my-local-skill
 
 skillshare collect claude  # Import to source
+```
+
+### Inspecting Changes
+
+See exactly what changed in a skill before syncing:
+
+```bash
+skillshare diff --patch claude   # Full text diff
+skillshare diff --stat claude    # File-level summary
 ```
 
 ### Troubleshooting
@@ -122,6 +190,9 @@ skillshare sync            # Fix it
 |------|-------------|
 | `--project, -p` | Use project mode |
 | `--global, -g` | Use global mode |
+| `--stat` | Show file-level changes (implies `--no-tui`) |
+| `--patch` | Show full unified diff (implies `--no-tui`) |
+| `--no-tui` | Plain text output (skip interactive TUI) |
 
 ## See Also
 
