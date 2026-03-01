@@ -145,7 +145,7 @@ func TestDiscoveryCache_L2_DiskPersistence(t *testing.T) {
 	}
 }
 
-func TestDiscoveryCache_L2_NewSkillRequiresInvalidate(t *testing.T) {
+func TestDiscoveryCache_L2_NewSkillDetectedByCountGuard(t *testing.T) {
 	src := t.TempDir()
 	cacheDir := t.TempDir()
 	writeSkill(t, filepath.Join(src, "skill-a"), "---\nname: a\n---\n# A")
@@ -155,7 +155,7 @@ func TestDiscoveryCache_L2_NewSkillRequiresInvalidate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Add skill externally (without Invalidate) — L2 targeted stat won't detect it
+	// Add skill externally — count guard detects the mismatch
 	writeSkill(t, filepath.Join(src, "skill-b"), "---\nname: b\n---\n# B")
 
 	dc2 := New(cacheDir)
@@ -163,18 +163,8 @@ func TestDiscoveryCache_L2_NewSkillRequiresInvalidate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(skills) != 1 {
-		t.Errorf("expected 1 (stale L2 hit — new skill not detected without Invalidate), got %d", len(skills))
-	}
-
-	// After explicit Invalidate, full walk picks up both skills
-	dc2.Invalidate(src)
-	skills, err = dc2.Discover(src)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if len(skills) != 2 {
-		t.Errorf("expected 2 after Invalidate, got %d", len(skills))
+		t.Errorf("expected 2 after new skill (count guard), got %d", len(skills))
 	}
 }
 

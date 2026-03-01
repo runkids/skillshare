@@ -1,9 +1,12 @@
 package cache
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	gosync "sync"
+
+	"github.com/charlievieth/fastwalk"
 
 	"skillshare/internal/sync"
 )
@@ -113,10 +116,9 @@ func (c *DiscoveryCache) Invalidate(sourcePath string) {
 	deleteDiskCache(diskCachePath(c.cacheDir, sourcePath))
 }
 
-// tryDiskCache loads and validates disk cache via targeted stats on known paths.
-// This stats only the cached SKILL.md files (O(N) on skills, not O(total files)).
-// Tradeoff: skills added outside the CLI (manual mkdir+touch) won't be detected
-// until the next Invalidate() call. All CLI mutation commands call Invalidate().
+// tryDiskCache loads and validates disk cache via count guard + targeted stats.
+// 1. Count guard: lightweight fastwalk to detect added/removed skills
+// 2. Targeted stat: stat only cached SKILL.md files (O(N) on skills, no frontmatter parsing)
 func (c *DiscoveryCache) tryDiskCache(sourcePath string) ([]sync.DiscoveredSkill, bool) {
 	dc, err := loadDiskCache(diskCachePath(c.cacheDir, sourcePath))
 	if err != nil {
@@ -127,8 +129,13 @@ func (c *DiscoveryCache) tryDiskCache(sourcePath string) ([]sync.DiscoveredSkill
 		return nil, false
 	}
 
-	// Targeted stat sweep: stat only the SKILL.md files the cache knows about.
-	// This is O(N) on cached skills, not O(total files in tree).
+	// Count guard: detect skills added or removed since cache was written.
+	// This is a lightweight fastwalk (no stat, no file reads — just counts SKILL.md).
+	if countSkillMDs(sourcePath) != len(dc.Entries) {
+		return nil, false
+	}
+
+	// Targeted stat: verify each cached SKILL.md is unchanged.
 	skills := make([]sync.DiscoveredSkill, len(dc.Entries))
 	for i, e := range dc.Entries {
 		skillMDPath := filepath.Join(sourcePath, e.RelPath, "SKILL.md")
@@ -149,6 +156,33 @@ func (c *DiscoveryCache) tryDiskCache(sourcePath string) ([]sync.DiscoveredSkill
 	}
 
 	return skills, true
+}
+
+// countSkillMDs counts SKILL.md files under sourcePath using fastwalk.
+// No stat collection, no file reads — just filename matching.
+func countSkillMDs(sourcePath string) int {
+	var mu gosync.Mutex
+	count := 0
+
+	fastwalk.Walk(nil, sourcePath, func(path string, d fs.DirEntry, err error) error { //nolint:errcheck
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() && d.Name() == ".git" {
+			return fastwalk.SkipDir
+		}
+		if !d.IsDir() && d.Name() == "SKILL.md" {
+			dir := filepath.Dir(path)
+			if rel, relErr := filepath.Rel(sourcePath, dir); relErr == nil && rel != "." {
+				mu.Lock()
+				count++
+				mu.Unlock()
+			}
+		}
+		return nil
+	})
+
+	return count
 }
 
 // writeDiskCache persists Full discovery results to disk.
