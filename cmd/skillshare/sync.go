@@ -257,7 +257,7 @@ func syncMergeMode(name string, target config.TargetConfig, source string, dryRu
 }
 
 func syncMergeModeWithSkills(name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, dryRun, force bool) (syncModeStats, error) {
-	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, dryRun, force)
+	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, source, dryRun, force)
 	if err != nil {
 		return syncModeStats{}, err
 	}
@@ -330,7 +330,7 @@ func syncCopyModeWithSkills(name string, target config.TargetConfig, source stri
 		spinner.Update(fmt.Sprintf("%s: %d/%d %s", name, cur, total, skill))
 	}
 
-	result, err := sync.SyncTargetCopyWithSkills(name, target, skills, dryRun, force, onProgress)
+	result, err := sync.SyncTargetCopyWithSkills(name, target, skills, source, dryRun, force, onProgress)
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("%s: copy failed", name))
 		return syncModeStats{}, err

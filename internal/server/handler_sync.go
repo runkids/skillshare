@@ -71,7 +71,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 		switch mode {
 		case "merge":
-			mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, body.DryRun, body.Force)
+			mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, s.cfg.Source, body.DryRun, body.Force)
 			if err != nil {
 				s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
 				writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
@@ -91,7 +91,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case "copy":
-			copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, body.DryRun, body.Force, nil)
+			copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, s.cfg.Source, body.DryRun, body.Force, nil)
 			if err != nil {
 				s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
 				writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())

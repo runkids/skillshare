@@ -20,6 +20,15 @@ type DiscoveredSkill struct {
 	Targets    []string // From SKILL.md frontmatter; nil = all targets
 }
 
+// resolveWalkRoot resolves symlinks on a directory path so filepath.Walk
+// enters symlinked directories. Falls back to the original path on error.
+func resolveWalkRoot(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved
+	}
+	return path
+}
+
 // DiscoverSourceSkillsLite recursively scans the source directory for skills
 // without parsing SKILL.md frontmatter. Targets is always nil for each skill.
 // It also collects tracked repo paths (directories starting with _ that contain
@@ -31,7 +40,9 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 	var trackedRepos []string
 	trackedRepoPaths := make(map[string]bool) // track paths to detect nested tracked repos
 
-	err := filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
+	walkRoot := resolveWalkRoot(sourcePath)
+
+	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Skip inaccessible paths
 		}
@@ -45,7 +56,7 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 		if info.IsDir() && info.Name() != "." && info.Name()[0] == '_' {
 			gitDir := filepath.Join(path, ".git")
 			if _, statErr := os.Stat(gitDir); statErr == nil {
-				relPath, relErr := filepath.Rel(sourcePath, path)
+				relPath, relErr := filepath.Rel(walkRoot, path)
 				if relErr == nil && relPath != "." {
 					trackedRepos = append(trackedRepos, relPath)
 					trackedRepoPaths[path] = true
@@ -56,7 +67,7 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 		// Look for SKILL.md files
 		if !info.IsDir() && info.Name() == "SKILL.md" {
 			skillDir := filepath.Dir(path)
-			relPath, err := filepath.Rel(sourcePath, skillDir)
+			relPath, err := filepath.Rel(walkRoot, skillDir)
 			if err != nil {
 				return nil
 			}
@@ -74,8 +85,10 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 			}
 
 			// Skip frontmatter parsing — Targets stays nil
+			// Use original sourcePath (not walkRoot) so SourcePath preserves
+			// the caller's logical path, even if sourcePath is a symlink.
 			skills = append(skills, DiscoveredSkill{
-				SourcePath: skillDir,
+				SourcePath: filepath.Join(sourcePath, relPath),
 				RelPath:    relPath,
 				FlatName:   utils.PathToFlatName(relPath),
 				IsInRepo:   isInRepo,
@@ -99,7 +112,9 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 	var skills []DiscoveredSkill
 
-	err := filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
+	walkRoot := resolveWalkRoot(sourcePath)
+
+	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Skip inaccessible paths
 		}
@@ -113,7 +128,7 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 		// Look for SKILL.md files
 		if !info.IsDir() && info.Name() == "SKILL.md" {
 			skillDir := filepath.Dir(path)
-			relPath, err := filepath.Rel(sourcePath, skillDir)
+			relPath, err := filepath.Rel(walkRoot, skillDir)
 			if err != nil {
 				return nil // Skip if we can't get relative path
 			}
@@ -133,10 +148,12 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 				isInRepo = true
 			}
 
+			// Use original sourcePath for SourcePath to preserve the caller's
+			// logical path. Parse frontmatter from the resolved path.
 			targets := utils.ParseFrontmatterList(filepath.Join(skillDir, "SKILL.md"), "targets")
 
 			skills = append(skills, DiscoveredSkill{
-				SourcePath: skillDir,
+				SourcePath: filepath.Join(sourcePath, relPath),
 				RelPath:    relPath,
 				FlatName:   utils.PathToFlatName(relPath),
 				IsInRepo:   isInRepo,
@@ -430,6 +447,16 @@ type MergeResult struct {
 	Updated []string // Skills that had broken symlinks fixed
 }
 
+// isSymlinkToSource checks whether targetPath is a symlink pointing to sourcePath.
+func isSymlinkToSource(targetPath, sourcePath string) bool {
+	absLink, err := utils.ResolveLinkTarget(targetPath)
+	if err != nil {
+		return false
+	}
+	absSource, _ := filepath.Abs(sourcePath)
+	return utils.PathsEqual(absLink, absSource)
+}
+
 // SyncTargetMerge performs merge mode sync - creates symlinks for each skill individually
 // while preserving target-specific skills.
 // Supports nested skills: source path "personal/writing/email" becomes target symlink "personal__writing__email"
@@ -439,25 +466,30 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills: %w", err)
 	}
-	return SyncTargetMergeWithSkills(name, target, skills, dryRun, force)
+	return SyncTargetMergeWithSkills(name, target, skills, sourcePath, dryRun, force)
 }
 
 // SyncTargetMergeWithSkills is like SyncTargetMerge but accepts pre-discovered skills,
 // avoiding redundant filesystem walks when syncing multiple targets.
-func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, dryRun, force bool) (*MergeResult, error) {
+// sourcePath is the skills source directory, used to detect symlink-mode targets.
+func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool) (*MergeResult, error) {
 	result := &MergeResult{}
 
-	// Check if target is currently a symlink/junction (symlink mode) - need to convert to merge mode
+	// Check if target is currently using "symlink mode" (entire directory symlinked
+	// to source). Only convert if the symlink actually points to the source
+	// directory — an external symlink (e.g., dotfiles manager) should be preserved.
 	info, err := os.Lstat(target.Path)
 	if err == nil && info != nil && utils.IsSymlinkOrJunction(target.Path) {
-		// Target is a symlink - remove it to convert to merge mode
-		if dryRun {
-			fmt.Printf("[dry-run] Would convert from symlink mode to merge mode: %s\n", target.Path)
-		} else {
-			if err := os.Remove(target.Path); err != nil {
-				return nil, fmt.Errorf("failed to remove symlink for merge conversion: %w", err)
+		if isSymlinkToSource(target.Path, sourcePath) {
+			if dryRun {
+				fmt.Printf("[dry-run] Would convert from symlink mode to merge mode: %s\n", target.Path)
+			} else {
+				if err := os.Remove(target.Path); err != nil {
+					return nil, fmt.Errorf("failed to remove symlink for merge conversion: %w", err)
+				}
 			}
 		}
+		// else: target is an external symlink (dotfiles manager, etc.) — keep it
 	}
 
 	// Ensure target directory exists
@@ -883,10 +915,14 @@ func CheckStatusMerge(targetPath, sourcePath string) (TargetStatus, int, int) {
 		if utils.PathsEqual(absLink, absSource) {
 			return StatusLinked, 0, 0
 		}
-		return StatusConflict, 0, 0
-	}
-
-	if !info.IsDir() {
+		// External symlink (e.g., dotfiles manager) — follow it and treat
+		// the resolved directory as a normal target directory.
+		resolved, statErr := os.Stat(targetPath)
+		if statErr != nil || !resolved.IsDir() {
+			return StatusConflict, 0, 0
+		}
+		// Fall through to count linked/local skills in the resolved directory
+	} else if !info.IsDir() {
 		return StatusUnknown, 0, 0
 	}
 
