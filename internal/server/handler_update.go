@@ -59,18 +59,23 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 
 	if body.All {
 		results := s.updateAll(body.Force, body.SkipAudit)
-		// Invalidate discovery cache — source skills may have changed
-		s.cache.Invalidate(s.cfg.Source)
 
 		total := len(results)
 		failed := 0
 		blocked := 0
+		hasUpdated := false
 		for _, item := range results {
 			if item.Action == "error" {
 				failed++
 			} else if item.Action == "blocked" {
 				blocked++
+			} else if item.Action == "updated" {
+				hasUpdated = true
 			}
+		}
+		// Only invalidate discovery cache if at least one skill was actually updated
+		if hasUpdated {
+			s.cache.Invalidate(s.cfg.Source)
 		}
 		status := "ok"
 		msg := ""

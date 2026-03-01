@@ -15,7 +15,6 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
-	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -564,7 +563,7 @@ func cmdUninstall(args []string) error {
 
 	if opts.all {
 		sp := ui.StartSpinner("Discovering skills...")
-		discovered, _, err := sync.DiscoverSourceSkillsLite(cfg.Source)
+		discovered, _, err := discoveryCache.DiscoverLite(cfg.Source)
 		if err != nil {
 			sp.Fail("Discovery failed")
 			return fmt.Errorf("failed to discover skills: %w", err)

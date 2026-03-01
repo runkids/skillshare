@@ -116,7 +116,8 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		results = append(results, res)
 	}
 
-	s.cache.Invalidate(s.cfg.Source)
+	// Note: sync only creates symlinks in target dirs — source is unchanged,
+	// so no cache invalidation is needed here.
 
 	// Log the sync operation
 	s.writeOpsLog("sync", "ok", start, map[string]any{

@@ -504,7 +504,7 @@ func cmdList(args []string) error {
 	// TTY + not JSON + TUI enabled → launch TUI with async loading (no blank screen)
 	if !opts.JSON && shouldLaunchTUI(opts.NoTUI, cfg) {
 		loadFn := func() listLoadResult {
-			discovered, _, err := sync.DiscoverSourceSkillsLite(cfg.Source)
+			discovered, _, err := discoveryCache.DiscoverLite(cfg.Source)
 			if err != nil {
 				return listLoadResult{err: fmt.Errorf("cannot discover skills: %w", err)}
 			}
@@ -540,7 +540,7 @@ func cmdList(args []string) error {
 	if !opts.JSON && ui.IsTTY() {
 		sp = ui.StartSpinner("Loading skills...")
 	}
-	discovered, trackedRepos, err := sync.DiscoverSourceSkillsLite(cfg.Source)
+	discovered, trackedRepos, err := discoveryCache.DiscoverLite(cfg.Source)
 	if err != nil {
 		if sp != nil {
 			sp.Fail("Discovery failed")

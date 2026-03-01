@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	gosync "sync"
-	"time"
 
 	"skillshare/internal/sync"
 )
@@ -13,21 +12,19 @@ import (
 //   - L1: in-process mutex-guarded maps (separate full/lite to prevent pollution)
 //   - L2: on-disk gob manifest (per-source-path, validated by per-entry stat sweep)
 type DiscoveryCache struct {
-	mu       gosync.Mutex
+	mu       gosync.RWMutex
 	full     map[string]*fullEntry // key: sourcePath
 	lite     map[string]*liteEntry // key: sourcePath
 	cacheDir string
 }
 
 type fullEntry struct {
-	skills   []sync.DiscoveredSkill
-	loadedAt time.Time
+	skills []sync.DiscoveredSkill
 }
 
 type liteEntry struct {
-	skills   []sync.DiscoveredSkill
-	repos    []string
-	loadedAt time.Time
+	skills []sync.DiscoveredSkill
+	repos  []string
 }
 
 // New creates a DiscoveryCache. cacheDir is typically config.CacheDir().
@@ -42,17 +39,26 @@ func New(cacheDir string) *DiscoveryCache {
 // Discover returns discovered skills with Targets parsed.
 // Checks L1 full → L2 disk → full walk. Never returns Lite data.
 func (c *DiscoveryCache) Discover(sourcePath string) ([]sync.DiscoveredSkill, error) {
+	// Fast path: L1 hit with read lock (concurrent readers allowed)
+	c.mu.RLock()
+	if entry, ok := c.full[sourcePath]; ok {
+		c.mu.RUnlock()
+		return entry.skills, nil
+	}
+	c.mu.RUnlock()
+
+	// Slow path: L2 or full walk with exclusive lock
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// L1: in-process hit (full only — never returns lite data)
+	// Re-check L1 after acquiring write lock (another goroutine may have populated it)
 	if entry, ok := c.full[sourcePath]; ok {
 		return entry.skills, nil
 	}
 
 	// L2: disk cache hit (per-entry stat sweep)
 	if skills, ok := c.tryDiskCache(sourcePath); ok {
-		c.full[sourcePath] = &fullEntry{skills: skills, loadedAt: time.Now()}
+		c.full[sourcePath] = &fullEntry{skills: skills}
 		return skills, nil
 	}
 
@@ -62,7 +68,7 @@ func (c *DiscoveryCache) Discover(sourcePath string) ([]sync.DiscoveredSkill, er
 		return nil, err
 	}
 
-	c.full[sourcePath] = &fullEntry{skills: skills, loadedAt: time.Now()}
+	c.full[sourcePath] = &fullEntry{skills: skills}
 	c.writeDiskCache(sourcePath, skills)
 
 	return skills, nil
@@ -71,9 +77,19 @@ func (c *DiscoveryCache) Discover(sourcePath string) ([]sync.DiscoveredSkill, er
 // DiscoverLite returns skills without frontmatter parsing + tracked repos.
 // Uses L1 lite cache only (not persisted to L2 — Lite lacks Targets data).
 func (c *DiscoveryCache) DiscoverLite(sourcePath string) ([]sync.DiscoveredSkill, []string, error) {
+	// Fast path: L1 hit with read lock
+	c.mu.RLock()
+	if entry, ok := c.lite[sourcePath]; ok {
+		c.mu.RUnlock()
+		return entry.skills, entry.repos, nil
+	}
+	c.mu.RUnlock()
+
+	// Slow path: walk with exclusive lock
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	// Re-check after acquiring write lock
 	if entry, ok := c.lite[sourcePath]; ok {
 		return entry.skills, entry.repos, nil
 	}
@@ -83,7 +99,7 @@ func (c *DiscoveryCache) DiscoverLite(sourcePath string) ([]sync.DiscoveredSkill
 		return nil, nil, err
 	}
 
-	c.lite[sourcePath] = &liteEntry{skills: skills, repos: repos, loadedAt: time.Now()}
+	c.lite[sourcePath] = &liteEntry{skills: skills, repos: repos}
 	return skills, repos, nil
 }
 
@@ -97,7 +113,10 @@ func (c *DiscoveryCache) Invalidate(sourcePath string) {
 	deleteDiskCache(diskCachePath(c.cacheDir, sourcePath))
 }
 
-// tryDiskCache loads and validates disk cache via per-entry stat sweep.
+// tryDiskCache loads and validates disk cache via targeted stats on known paths.
+// This stats only the cached SKILL.md files (O(N) on skills, not O(total files)).
+// Tradeoff: skills added outside the CLI (manual mkdir+touch) won't be detected
+// until the next Invalidate() call. All CLI mutation commands call Invalidate().
 func (c *DiscoveryCache) tryDiskCache(sourcePath string) ([]sync.DiscoveredSkill, bool) {
 	dc, err := loadDiskCache(diskCachePath(c.cacheDir, sourcePath))
 	if err != nil {
@@ -108,30 +127,18 @@ func (c *DiscoveryCache) tryDiskCache(sourcePath string) ([]sync.DiscoveredSkill
 		return nil, false
 	}
 
-	// Per-entry stat sweep: stat every SKILL.md, compare (mtime, size)
-	currentSkills := quickStatWalk(sourcePath)
-	if len(currentSkills) != len(dc.Entries) {
-		return nil, false // skill count changed
-	}
-
-	cached := make(map[string]DiskCacheEntry, len(dc.Entries))
-	for _, e := range dc.Entries {
-		cached[e.RelPath] = e
-	}
-
-	for relPath, cur := range currentSkills {
-		old, ok := cached[relPath]
-		if !ok {
-			return nil, false // new skill
-		}
-		if cur.Mtime != old.Mtime || cur.Size != old.Size {
-			return nil, false // content changed
-		}
-	}
-
-	// All match — convert
+	// Targeted stat sweep: stat only the SKILL.md files the cache knows about.
+	// This is O(N) on cached skills, not O(total files in tree).
 	skills := make([]sync.DiscoveredSkill, len(dc.Entries))
 	for i, e := range dc.Entries {
+		skillMDPath := filepath.Join(sourcePath, e.RelPath, "SKILL.md")
+		fi, err := os.Stat(skillMDPath)
+		if err != nil {
+			return nil, false // skill removed or inaccessible
+		}
+		if fi.ModTime().UnixNano() != e.Mtime || fi.Size() != e.Size {
+			return nil, false // content changed
+		}
 		skills[i] = sync.DiscoveredSkill{
 			SourcePath: filepath.Join(sourcePath, e.RelPath),
 			RelPath:    e.RelPath,
@@ -142,40 +149,6 @@ func (c *DiscoveryCache) tryDiskCache(sourcePath string) ([]sync.DiscoveredSkill
 	}
 
 	return skills, true
-}
-
-type statEntry struct {
-	Mtime int64
-	Size  int64
-}
-
-// quickStatWalk walks source dir collecting SKILL.md stat info only (no file reads).
-func quickStatWalk(sourcePath string) map[string]statEntry {
-	result := make(map[string]statEntry)
-
-	filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if info.IsDir() && info.Name() == ".git" {
-			return filepath.SkipDir
-		}
-		if !info.IsDir() && info.Name() == "SKILL.md" {
-			skillDir := filepath.Dir(path)
-			relPath, relErr := filepath.Rel(sourcePath, skillDir)
-			if relErr != nil || relPath == "." {
-				return nil
-			}
-			relPath = filepath.ToSlash(relPath)
-			result[relPath] = statEntry{
-				Mtime: info.ModTime().UnixNano(),
-				Size:  info.Size(),
-			}
-		}
-		return nil
-	})
-
-	return result
 }
 
 // writeDiskCache persists Full discovery results to disk.
