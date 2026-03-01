@@ -69,6 +69,7 @@ func cmdDiff(args []string) error {
 			noTUI = true // --patch implies no TUI
 		case "--stat":
 			showStat = true
+			noTUI = true
 		default:
 			targetName = rest[i]
 		}
@@ -907,7 +908,7 @@ Arguments:
 Options:
   --project, -p        Diff project-level skills (.skillshare/)
   --global, -g         Diff global skills (~/.config/skillshare)
-  --stat               Show file-level changes for modified skills
+  --stat               Show file-level changes (implies --no-tui)
   --patch              Show full unified diff (implies --no-tui)
   --no-tui             Plain text output (skip interactive TUI)
   --help, -h           Show this help
