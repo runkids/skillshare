@@ -2,9 +2,7 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,6 +16,7 @@ import (
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
+	versioncheck "skillshare/internal/version"
 )
 
 // doctorResult tracks issues and warnings
@@ -69,8 +68,8 @@ func cmdDoctor(args []string) error {
 
 func cmdDoctorGlobal() error {
 	// Start network check early so it overlaps with local I/O
-	updateCh := make(chan string, 1)
-	go func() { updateCh <- fetchUpdateMessage() }()
+	updateCh := make(chan *versioncheck.CheckResult, 1)
+	go func() { updateCh <- fetchDoctorUpdateResult() }()
 
 	ui.Header("Checking environment")
 	result := &doctorResult{}
@@ -102,8 +101,8 @@ func cmdDoctorGlobal() error {
 }
 
 func cmdDoctorProject(root string) error {
-	updateCh := make(chan string, 1)
-	go func() { updateCh <- fetchUpdateMessage() }()
+	updateCh := make(chan *versioncheck.CheckResult, 1)
+	go func() { updateCh <- fetchDoctorUpdateResult() }()
 
 	ui.Header("Checking environment")
 	result := &doctorResult{}
@@ -758,40 +757,18 @@ func checkVersionDoctor(cfg *config.Config) {
 	ui.Success("Skill: %s", localVersion)
 }
 
-// fetchUpdateMessage checks if a newer version is available and returns
-// the message to display (empty string if up-to-date or network error).
-// Safe to call from a goroutine.
-func fetchUpdateMessage() string {
-	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get("https://api.github.com/repos/runkids/skillshare/releases/latest")
-	if err != nil {
-		return ""
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return ""
-	}
-
-	var release struct {
-		TagName string `json:"tag_name"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return ""
-	}
-
-	latestVersion := strings.TrimPrefix(release.TagName, "v")
-	currentVersion := strings.TrimPrefix(version, "v")
-
-	if latestVersion != currentVersion && latestVersion > currentVersion {
-		return release.TagName
-	}
-	return ""
+// fetchDoctorUpdateResult checks if a newer version is available.
+// Uses the shared versioncheck.Check which handles caching, auth, and
+// proper semver comparison. Safe to call from a goroutine.
+func fetchDoctorUpdateResult() *versioncheck.CheckResult {
+	method := detectInstallMethod()
+	return versioncheck.Check(version, method)
 }
 
-func printUpdateAvailable(tagName string) {
-	if tagName != "" {
-		ui.Info("Update available: %s -> %s", version, tagName)
-		ui.Info("  brew upgrade skillshare  OR  curl -fsSL https://raw.githubusercontent.com/runkids/skillshare/main/install.sh | sh")
+func printUpdateAvailable(result *versioncheck.CheckResult) {
+	if result == nil || !result.UpdateAvailable {
+		return
 	}
+	ui.Info("Update available: %s -> %s", result.CurrentVersion, result.LatestVersion)
+	ui.Info("  Run: %s", result.InstallMethod.UpgradeCommand())
 }

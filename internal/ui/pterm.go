@@ -418,11 +418,13 @@ func (p *ProgressBar) Stop() {
 	}
 }
 
-// UpdateNotification prints a colorful update notification
-func UpdateNotification(currentVersion, latestVersion string) {
+// UpdateNotification prints a colorful update notification.
+// upgradeCmd is the command the user should run (e.g. "brew upgrade skillshare"
+// or "skillshare upgrade").
+func UpdateNotification(currentVersion, latestVersion, upgradeCmd string) {
 	if !IsTTY() {
 		fmt.Printf("\n! Update available: %s -> %s\n", currentVersion, latestVersion)
-		fmt.Println("  Run 'skillshare upgrade' to update")
+		fmt.Printf("  Run '%s' to update\n", upgradeCmd)
 		return
 	}
 
@@ -433,7 +435,7 @@ func UpdateNotification(currentVersion, latestVersion string) {
 		"",
 		fmt.Sprintf("  Version: %s -> %s", currentVersion, latestVersion),
 		"",
-		"  Run: skillshare upgrade",
+		fmt.Sprintf("  Run: %s", upgradeCmd),
 		"",
 	}
 
