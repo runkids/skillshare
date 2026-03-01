@@ -20,15 +20,6 @@ type DiscoveredSkill struct {
 	Targets    []string // From SKILL.md frontmatter; nil = all targets
 }
 
-// resolveWalkRoot resolves symlinks on a directory path so filepath.Walk
-// enters symlinked directories. Falls back to the original path on error.
-func resolveWalkRoot(path string) string {
-	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		return resolved
-	}
-	return path
-}
-
 // DiscoverSourceSkillsLite recursively scans the source directory for skills
 // without parsing SKILL.md frontmatter. Targets is always nil for each skill.
 // It also collects tracked repo paths (directories starting with _ that contain
@@ -40,7 +31,7 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 	var trackedRepos []string
 	trackedRepoPaths := make(map[string]bool) // track paths to detect nested tracked repos
 
-	walkRoot := resolveWalkRoot(sourcePath)
+	walkRoot := utils.ResolveSymlink(sourcePath)
 
 	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -112,7 +103,7 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 	var skills []DiscoveredSkill
 
-	walkRoot := resolveWalkRoot(sourcePath)
+	walkRoot := utils.ResolveSymlink(sourcePath)
 
 	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -463,8 +454,8 @@ func isSymlinkToSource(targetPath, sourcePath string) bool {
 	}
 
 	// Slow path: canonicalize both sides to detect symlink aliases.
-	canonLink := resolveWalkRoot(absLink)
-	canonSource := resolveWalkRoot(absSource)
+	canonLink := utils.ResolveSymlink(absLink)
+	canonSource := utils.ResolveSymlink(absSource)
 	return utils.PathsEqual(canonLink, canonSource)
 }
 

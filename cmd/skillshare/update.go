@@ -145,8 +145,9 @@ func cmdUpdate(args []string) error {
 	if opts.all {
 		// Recursive discovery for --all
 		scanSpinner := ui.StartSpinner("Scanning skills...")
-		err := filepath.Walk(cfg.Source, func(path string, info os.FileInfo, err error) error {
-			if err != nil || path == cfg.Source {
+		walkRoot := utils.ResolveSymlink(cfg.Source)
+		err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
+			if err != nil || path == walkRoot {
 				return nil
 			}
 			if info.IsDir() && utils.IsHidden(info.Name()) {
@@ -159,7 +160,7 @@ func cmdUpdate(args []string) error {
 			// Tracked repo
 			if info.IsDir() && strings.HasPrefix(info.Name(), "_") {
 				if install.IsGitRepo(path) {
-					rel, _ := filepath.Rel(cfg.Source, path)
+					rel, _ := filepath.Rel(walkRoot, path)
 					if !seen[rel] {
 						seen[rel] = true
 						targets = append(targets, updateTarget{name: rel, path: path, isRepo: true})
@@ -173,7 +174,7 @@ func cmdUpdate(args []string) error {
 				skillDir := filepath.Dir(path)
 				meta, metaErr := install.ReadMeta(skillDir)
 				if metaErr == nil && meta != nil && meta.Source != "" {
-					rel, _ := filepath.Rel(cfg.Source, skillDir)
+					rel, _ := filepath.Rel(walkRoot, skillDir)
 					if rel != "." && !seen[rel] {
 						seen[rel] = true
 						targets = append(targets, updateTarget{name: rel, path: skillDir, isRepo: false, meta: meta})

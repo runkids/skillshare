@@ -5,16 +5,19 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"skillshare/internal/utils"
 )
 
 func getUpdatableSkillsImpl(sourceDir string) ([]string, error) {
 	var skills []string
 
-	err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+	walkRoot := utils.ResolveSymlink(sourceDir)
+	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
-		if path == sourceDir {
+		if path == walkRoot {
 			return nil
 		}
 		// Skip .git directories
@@ -28,7 +31,7 @@ func getUpdatableSkillsImpl(sourceDir string) ([]string, error) {
 		// Look for metadata files
 		if !info.IsDir() && info.Name() == MetaFileName {
 			skillDir := filepath.Dir(path)
-			relPath, relErr := filepath.Rel(sourceDir, skillDir)
+			relPath, relErr := filepath.Rel(walkRoot, skillDir)
 			if relErr != nil || relPath == "." {
 				return nil
 			}
@@ -55,8 +58,9 @@ func FindRepoInstalls(sourceDir, cloneURL string) []string {
 	}
 	var matches []string
 
-	filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil || path == sourceDir {
+	walkRoot := utils.ResolveSymlink(sourceDir)
+	filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil || path == walkRoot {
 			return nil
 		}
 		if info.IsDir() && info.Name() == ".git" {
@@ -67,7 +71,7 @@ func FindRepoInstalls(sourceDir, cloneURL string) []string {
 		}
 		if !info.IsDir() && info.Name() == MetaFileName {
 			skillDir := filepath.Dir(path)
-			relPath, relErr := filepath.Rel(sourceDir, skillDir)
+			relPath, relErr := filepath.Rel(walkRoot, skillDir)
 			if relErr != nil || relPath == "." {
 				return nil
 			}
@@ -125,11 +129,12 @@ func CheckCrossPathDuplicate(sourceDir, cloneURL, targetPrefix string) error {
 func getTrackedReposImpl(sourceDir string) ([]string, error) {
 	var repos []string
 
-	err := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+	walkRoot := utils.ResolveSymlink(sourceDir)
+	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
-		if path == sourceDir {
+		if path == walkRoot {
 			return nil
 		}
 		// Skip .git directories
@@ -140,7 +145,7 @@ func getTrackedReposImpl(sourceDir string) ([]string, error) {
 		if info.IsDir() && len(info.Name()) > 0 && info.Name()[0] == '_' {
 			gitDir := filepath.Join(path, ".git")
 			if _, statErr := os.Stat(gitDir); statErr == nil {
-				relPath, relErr := filepath.Rel(sourceDir, path)
+				relPath, relErr := filepath.Rel(walkRoot, path)
 				if relErr == nil {
 					repos = append(repos, relPath)
 				}
