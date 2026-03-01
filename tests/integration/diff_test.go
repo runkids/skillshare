@@ -5,6 +5,7 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -238,8 +239,8 @@ targets:
 
 	// Items should only appear once (not duplicated)
 	out := result.Stdout
-	countA := countOccurrences(out, "skill-a")
-	countB := countOccurrences(out, "skill-b")
+	countA := strings.Count(out,"skill-a")
+	countB := strings.Count(out,"skill-b")
 	if countA != 1 {
 		t.Errorf("expected skill-a to appear once, got %d times in:\n%s", countA, out)
 	}
@@ -306,17 +307,6 @@ targets:
 
 	// Both fully synced targets should be merged into one line
 	result.AssertOutputContains(t, "agents, claude: fully synced")
-}
-
-func countOccurrences(s, substr string) int {
-	count := 0
-	for i := 0; i+len(substr) <= len(s); i++ {
-		if s[i:i+len(substr)] == substr {
-			count++
-			i += len(substr) - 1
-		}
-	}
-	return count
 }
 
 func TestDiff_CopyMode_DetectsNonDirectoryTargetEntry(t *testing.T) {

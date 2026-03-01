@@ -68,7 +68,6 @@ type diffTUIModel struct {
 	termHeight int
 
 	// Data — sorted: error → diff → synced
-	results  []targetDiffResult
 	allItems []targetDiffResult
 
 	// Target list
@@ -86,6 +85,11 @@ type diffTUIModel struct {
 	// Expand state — file-level diff for a specific skill
 	expandedSkill string // skill name currently expanded
 	expandedDiff  string // cached unified diff text
+
+	// Cached detail data — recomputed only on selection change
+	cachedIdx   int
+	cachedItems []copyDiffEntry
+	cachedCats  []actionCategory
 }
 
 func newDiffTUIModel(results []targetDiffResult) diffTUIModel {
@@ -144,7 +148,6 @@ func newDiffTUIModel(results []targetDiffResult) diffTUIModel {
 	fi.Cursor.Style = tc.Filter
 
 	return diffTUIModel{
-		results:     sorted,
 		allItems:    sorted,
 		targetList:  tl,
 		matchCount:  len(sorted),
@@ -163,6 +166,28 @@ func diffSortOrder(r targetDiffResult) int {
 	return 2
 }
 
+// refreshDetailCache recomputes sorted items and categories for the selected target.
+func (m *diffTUIModel) refreshDetailCache() {
+	idx := m.targetList.Index()
+	if idx == m.cachedIdx && m.cachedItems != nil {
+		return
+	}
+	m.cachedIdx = idx
+	item, ok := m.targetList.SelectedItem().(diffTargetItem)
+	if !ok || item.result.synced || item.result.errMsg != "" {
+		m.cachedItems = nil
+		m.cachedCats = nil
+		return
+	}
+	items := make([]copyDiffEntry, len(item.result.items))
+	copy(items, item.result.items)
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].name < items[j].name
+	})
+	m.cachedItems = items
+	m.cachedCats = categorizeItems(items)
+}
+
 func (m diffTUIModel) Init() tea.Cmd { return nil }
 
 func (m diffTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -173,6 +198,7 @@ func (m diffTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		lw := diffListWidth(m.termWidth)
 		h := m.diffPanelHeight()
 		m.targetList.SetSize(lw, h)
+		m.refreshDetailCache()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -282,6 +308,7 @@ func (m diffTUIModel) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.detailScroll = 0
 		m.expandedSkill = ""
 		m.expandedDiff = ""
+		m.refreshDetailCache()
 	}
 
 	return m, cmd
@@ -299,6 +326,7 @@ func (m *diffTUIModel) applyDiffFilter() {
 		m.matchCount = len(m.allItems)
 		m.targetList.SetItems(items)
 		m.targetList.ResetSelected()
+		m.cachedItems = nil // invalidate cache
 		return
 	}
 	var matched []list.Item
@@ -310,6 +338,7 @@ func (m *diffTUIModel) applyDiffFilter() {
 	m.matchCount = len(matched)
 	m.targetList.SetItems(matched)
 	m.targetList.ResetSelected()
+	m.cachedItems = nil // invalidate cache
 }
 
 // --- Layout helpers ---
@@ -456,14 +485,9 @@ func (m diffTUIModel) buildDiffDetail() string {
 		return b.String()
 	}
 
-	// Categorized diff items
-	items := make([]copyDiffEntry, len(r.items))
-	copy(items, r.items)
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].name < items[j].name
-	})
-
-	cats := categorizeItems(items)
+	// Use cached sorted items + categories (refreshed on selection change)
+	items := m.cachedItems
+	cats := m.cachedCats
 	for _, cat := range cats {
 		n := len(cat.names)
 		skillWord := "skills"

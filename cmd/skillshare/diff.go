@@ -458,16 +458,18 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 		dp.add(len(filtered))
 	}
 
-	// Compute mtime for source and target
-	r.dstMtime = latestMtime(target.Path)
-	var srcLatest time.Time
-	for _, skill := range filtered {
-		mt := latestMtime(skill.SourcePath)
-		if mt.After(srcLatest) {
-			srcLatest = mt
+	// Compute mtime only for copy mode (merge uses symlinks, mtime is misleading)
+	if mode == "copy" {
+		r.dstMtime = latestMtime(target.Path)
+		var srcLatest time.Time
+		for _, skill := range filtered {
+			mt := latestMtime(skill.SourcePath)
+			if mt.After(srcLatest) {
+				srcLatest = mt
+			}
 		}
+		r.srcMtime = srcLatest
 	}
-	r.srcMtime = srcLatest
 
 	return r
 }
