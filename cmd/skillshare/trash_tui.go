@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -592,6 +593,26 @@ func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry) string {
 	row("Trashed:", entry.Date.Format("2006-01-02 15:04:05"))
 	row("Size:", formatBytes(entry.Size))
 	row("Path:", entry.Path)
+
+	// SKILL.md preview — read first 15 lines
+	skillMD := filepath.Join(entry.Path, "SKILL.md")
+	if data, err := os.ReadFile(skillMD); err == nil {
+		lines := strings.SplitN(string(data), "\n", 16)
+		if len(lines) > 15 {
+			lines = lines[:15]
+		}
+		preview := strings.TrimRight(strings.Join(lines, "\n"), "\n")
+		if preview != "" {
+			b.WriteString("\n")
+			b.WriteString(tc.Separator.Render("  ── SKILL.md ──────────────────────────────"))
+			b.WriteString("\n")
+			for _, line := range strings.Split(preview, "\n") {
+				b.WriteString("  ")
+				b.WriteString(tc.Help.Render(line))
+				b.WriteString("\n")
+			}
+		}
+	}
 
 	return b.String()
 }
