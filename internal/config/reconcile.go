@@ -37,11 +37,12 @@ func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
 		}
 	}
 
-	err := filepath.WalkDir(sourcePath, func(path string, d os.DirEntry, err error) error {
+	walkRoot := utils.ResolveSymlink(sourcePath)
+	err := filepath.WalkDir(walkRoot, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if path == sourcePath {
+		if path == walkRoot {
 			return nil
 		}
 		if !d.IsDir() {
@@ -54,7 +55,7 @@ func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
 			return filepath.SkipDir
 		}
 
-		relPath, relErr := filepath.Rel(sourcePath, path)
+		relPath, relErr := filepath.Rel(walkRoot, path)
 		if relErr != nil {
 			return nil
 		}

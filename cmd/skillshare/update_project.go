@@ -182,11 +182,12 @@ func updateAllProjectSkills(uc *updateContext) error {
 	var targets []updateTarget
 
 	scanSpinner := ui.StartSpinner("Scanning skills...")
-	err := filepath.Walk(uc.sourcePath, func(path string, info os.FileInfo, err error) error {
+	walkRoot := utils.ResolveSymlink(uc.sourcePath)
+	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
-		if path == uc.sourcePath {
+		if path == walkRoot {
 			return nil
 		}
 		if info.IsDir() && utils.IsHidden(info.Name()) {
@@ -199,7 +200,7 @@ func updateAllProjectSkills(uc *updateContext) error {
 		// Tracked repo (_-prefixed)
 		if info.IsDir() && strings.HasPrefix(info.Name(), "_") {
 			if install.IsGitRepo(path) {
-				rel, _ := filepath.Rel(uc.sourcePath, path)
+				rel, _ := filepath.Rel(walkRoot, path)
 				targets = append(targets, updateTarget{name: rel, path: path, isRepo: true})
 				return filepath.SkipDir
 			}
@@ -210,7 +211,7 @@ func updateAllProjectSkills(uc *updateContext) error {
 			skillDir := filepath.Dir(path)
 			meta, metaErr := install.ReadMeta(skillDir)
 			if metaErr == nil && meta != nil && meta.Source != "" {
-				rel, _ := filepath.Rel(uc.sourcePath, skillDir)
+				rel, _ := filepath.Rel(walkRoot, skillDir)
 				if rel != "." {
 					targets = append(targets, updateTarget{name: rel, path: skillDir, isRepo: false, meta: meta})
 				}

@@ -204,7 +204,7 @@ If you use a dotfiles manager (GNU Stow, chezmoi, yadm, bare-git) that symlinks 
 ~/.claude/skills/            → ~/dotfiles/claude-skills/  # symlinked target
 ```
 
-- **Symlinked source** — `sync` resolves the symlink before walking, so skills are discovered correctly. Chained symlinks (link → link → real dir) also work.
+- **Symlinked source** — all commands (`sync`, `update`, `uninstall`, `list`, `diff`, `install`) resolve the symlink before walking, so skills are discovered correctly. Chained symlinks (link → link → real dir) also work.
 - **Symlinked target** — `sync` detects that the target symlink was **not** created by skillshare and preserves it. Skills are synced into the resolved directory.
 - **Status/collect** — `status` and `collect` follow external target symlinks instead of reporting conflicts.
 

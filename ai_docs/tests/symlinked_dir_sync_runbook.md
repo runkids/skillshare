@@ -1,7 +1,8 @@
-# CLI E2E Runbook: Symlinked Source/Target Directories (vercel/skills#456)
+# CLI E2E Runbook: Symlinked Source/Target Directories
 
-Validates that sync, status, diff, list, and collect work correctly when
-source and/or target directories are symlinks — the "dotfiles manager" scenario.
+Validates that all commands (sync, status, diff, list, collect, update, uninstall,
+reconcile) work correctly when source and/or target directories are symlinks —
+the "dotfiles manager" scenario.
 
 ## Scope
 
@@ -13,6 +14,10 @@ source and/or target directories are symlinks — the "dotfiles manager" scenari
 - Copy mode sync through symlinks
 - `ss status`, `ss diff`, `ss list` through symlinks
 - `ss collect` (pull local skills) through symlinked target
+- `ss update --all` discovers skills through symlinked source
+- `ss uninstall` resolves skills through symlinked source
+- `ss uninstall --group` walks group dirs through symlinked source
+- Reconcile (global) detects installed skills through symlinked source
 - Idempotency: re-sync doesn't break existing symlinks
 
 ## Environment
@@ -91,21 +96,7 @@ ss sync
 
 ```bash
 # Check that skill symlinks in the target resolve to real files
-TARGET_DIR=$(ss status --json 2>/dev/null | head -1 | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    for t in d.get('targets', []):
-        if t.get('mode') in ('merge', ''):
-            print(t['path'])
-            break
-except: pass
-" 2>/dev/null)
-
-if [ -z "$TARGET_DIR" ]; then
-  # Fallback: find a merge-mode target from config
-  TARGET_DIR="$HOME/.claude/skills"
-fi
+TARGET_DIR="$HOME/.claude/skills"
 
 # The symlink inside target should resolve to a real directory
 ls -la "$TARGET_DIR/alpha" 2>/dev/null || echo "alpha not found in $TARGET_DIR"
@@ -145,7 +136,7 @@ ss list --no-tui
 ```
 
 **Expected:**
-- Lists alpha, beta, group__nested (or group/nested)
+- Lists alpha, beta, group/nested (or group__nested)
 - No errors about walking source directory
 
 ## Step 6: Symlinked target directory — merge mode
@@ -169,7 +160,7 @@ ss sync
 
 **Expected:**
 - Sync completes without errors
-- Does NOT delete the target symlink (critical — this is the #456 fix)
+- Does NOT delete the target symlink
 
 ```bash
 # Verify symlinks were created inside the symlinked target
@@ -193,7 +184,6 @@ stat "$REAL_TARGET/alpha/SKILL.md" && echo "VIA REAL: OK" || echo "VIA REAL: BRO
 
 **Expected:**
 - Both print "OK" — symlinks resolve from both the symlinked and real target paths
-- This is exactly what vercel/skills#456 breaks (relative symlinks resolve from wrong location)
 
 ## Step 8: Copy mode with symlinked target
 
@@ -283,8 +273,8 @@ description: A skill created directly in the target
 # Local Only
 SKILLEOF
 
-# Collect should detect it
-ss collect --dry-run
+# Collect should detect it (specify target name since multiple targets exist)
+ss collect claude --dry-run
 ```
 
 **Expected:**
@@ -292,7 +282,244 @@ ss collect --dry-run
 - Shows it would be pulled to source
 - No errors about scanning symlinked directory
 
-## Step 12: Idempotency — re-sync preserves everything
+## Step 12: Update --all through symlinked source
+
+This step validates that `ss update --all` can walk the symlinked source
+directory to discover updatable skills. We simulate an installed skill with
+metadata so update can discover it.
+
+```bash
+# Create a skill with install metadata (simulates remote install)
+mkdir -p "$REAL_SOURCE/remote-skill"
+cat > "$REAL_SOURCE/remote-skill/SKILL.md" << 'SKILLEOF'
+---
+name: remote-skill
+description: Simulated remote skill
+---
+# Remote Skill
+SKILLEOF
+
+cat > "$REAL_SOURCE/remote-skill/.skillshare-meta.json" << 'METAEOF'
+{
+  "source": "github.com/example/skills/remote-skill",
+  "repo_url": "https://github.com/example/skills",
+  "installed_at": "2025-01-01T00:00:00Z"
+}
+METAEOF
+
+# Sync to pick up new skill
+ss sync
+
+# Update --all should discover remote-skill through the symlinked source
+ss update --all --dry-run 2>&1
+```
+
+**Expected:**
+- `update --all` scans the symlinked source directory
+- Discovers `remote-skill` as an updatable skill (has metadata)
+- No errors about walking/scanning the source directory
+- Output mentions `remote-skill` (even if update itself fails due to no actual remote — the discovery is what we test)
+
+## Step 13: Update --group through symlinked source
+
+```bash
+# The "group" directory contains "nested" — update --group should find it
+# Add metadata to nested skill so it's updatable
+cat > "$REAL_SOURCE/group/nested/.skillshare-meta.json" << 'METAEOF'
+{
+  "source": "github.com/example/group-skills/nested",
+  "repo_url": "https://github.com/example/group-skills",
+  "installed_at": "2025-01-01T00:00:00Z"
+}
+METAEOF
+
+ss update --group group --dry-run 2>&1
+```
+
+**Expected:**
+- Walks the `group` directory (which is inside the symlinked source) to find updatable items
+- Discovers `group/nested` as updatable
+- No "failed to walk group" errors
+
+## Step 14: Uninstall single skill through symlinked source
+
+```bash
+# Uninstall beta skill — should resolve through symlinked source
+ss uninstall beta --force --dry-run
+```
+
+**Expected:**
+- Resolves `beta` in the symlinked source directory
+- Shows it would remove `beta`
+- No errors about path resolution
+
+```bash
+# Actually uninstall
+ss uninstall beta --force
+```
+
+**Expected:**
+- Removes `beta` from the real source directory (through symlink)
+- No errors
+- `beta` no longer in `ss list --no-tui`
+
+```bash
+# Verify beta is gone
+test -d "$REAL_SOURCE/beta" && echo "STILL EXISTS" || echo "REMOVED OK"
+ss list --no-tui
+```
+
+**Expected:**
+- `REMOVED OK` — beta removed from real source dir
+- `ss list` no longer shows beta
+
+## Step 15: Uninstall --group through symlinked source
+
+```bash
+# Uninstall group — should walk the symlinked group dir
+ss uninstall --group group --force --dry-run
+```
+
+**Expected:**
+- Walks the `group` directory inside the symlinked source
+- Discovers `group/nested` as a skill to uninstall
+- No "failed to walk group" errors
+
+```bash
+# Actually uninstall the group
+ss uninstall --group group --force
+```
+
+**Expected:**
+- Removes `group/nested` from the real source dir
+- No errors
+
+```bash
+# Verify group is gone
+test -d "$REAL_SOURCE/group/nested" && echo "STILL EXISTS" || echo "REMOVED OK"
+```
+
+**Expected:**
+- `REMOVED OK`
+
+## Step 16: Uninstall by nested name resolution through symlinked source
+
+```bash
+# Re-create a nested skill for this test
+mkdir -p "$REAL_SOURCE/mygroup/deepskill"
+cat > "$REAL_SOURCE/mygroup/deepskill/SKILL.md" << 'SKILLEOF'
+---
+name: deepskill
+description: Deep nested skill
+---
+# Deep Skill
+SKILLEOF
+
+ss sync
+
+# Uninstall by short name — resolveNestedSkillDir must walk symlinked source
+ss uninstall deepskill --force
+```
+
+**Expected:**
+- Resolves `deepskill` to `mygroup/deepskill` by walking the symlinked source
+- Removes it successfully
+- No errors about searching for skill
+
+```bash
+test -d "$REAL_SOURCE/mygroup/deepskill" && echo "STILL EXISTS" || echo "REMOVED OK"
+```
+
+**Expected:**
+- `REMOVED OK`
+
+## Step 17: Reconcile discovers skills through symlinked source
+
+Reconcile is triggered by `ss install`. We install from a local `file://` bare
+repo so the install writes metadata into the symlinked source, then reconcile
+walks it to populate `registry.yaml`.
+
+```bash
+# Set up git identity for bare-repo operations
+git config --global user.email "test@test.com"
+git config --global user.name "Test"
+
+# Create a bare git repo as install source
+BARE_REPO="$HOME/test-repos/recon-repo.git"
+rm -rf "$HOME/test-repos"
+mkdir -p "$BARE_REPO"
+git init --bare "$BARE_REPO"
+
+WORK_DIR="$HOME/test-repos/work"
+git clone "$BARE_REPO" "$WORK_DIR"
+mkdir -p "$WORK_DIR/reconcile-skill"
+cat > "$WORK_DIR/reconcile-skill/SKILL.md" << 'SKILLEOF'
+---
+name: reconcile-skill
+description: Test reconcile through symlink
+---
+# Reconcile Skill
+SKILLEOF
+cd "$WORK_DIR"
+git add -A && git commit -m "add skill"
+git push origin HEAD:master
+
+# Install from file:// URL — installs into the symlinked source dir
+cd "$HOME"
+ss install "file://$BARE_REPO" --skip-audit --yes
+
+# Check registry.yaml — reconcile should have walked the symlinked source
+cat "$HOME/.config/skillshare/registry.yaml"
+```
+
+**Expected:**
+- Install succeeds: `reconcile-skill` installed into the symlinked source dir
+- `registry.yaml` lists `reconcile-skill` (and any other metadata skills)
+- Reconcile walked the symlinked source dir successfully (no errors)
+
+## Step 18: Containment guard — group symlink outside source is rejected
+
+If a group directory is a symlink pointing outside the source tree,
+`uninstall --group` and `update --group` must refuse to operate (to prevent
+accidental deletion/modification of external directories).
+
+```bash
+# Create a directory OUTSIDE the source tree
+EXTERNAL="$HOME/external-danger"
+mkdir -p "$EXTERNAL/victim-skill"
+cat > "$EXTERNAL/victim-skill/SKILL.md" << 'SKILLEOF'
+---
+name: victim
+description: Should NOT be uninstallable
+---
+# Victim
+SKILLEOF
+
+# Symlink a group inside source → external location
+ln -s "$EXTERNAL" "$REAL_SOURCE/evil-group"
+
+# Attempt group uninstall — should fail with containment error
+ss uninstall --group evil-group --force 2>&1
+echo "EXIT=$?"
+
+# Attempt group update — should also fail
+ss update --group evil-group --dry-run 2>&1
+echo "EXIT=$?"
+
+# Verify external directory was NOT touched
+test -f "$EXTERNAL/victim-skill/SKILL.md" && echo "EXTERNAL SAFE" || echo "EXTERNAL DAMAGED"
+
+# Cleanup
+rm -f "$REAL_SOURCE/evil-group"
+rm -rf "$EXTERNAL"
+```
+
+**Expected:**
+- Both commands fail with "resolves outside source directory" error
+- `EXTERNAL SAFE` is printed — the external directory was not touched
+- This prevents symlink-based path traversal attacks
+
+## Step 19: Idempotency — re-sync preserves everything
 
 ```bash
 # Sync twice more
@@ -318,9 +545,13 @@ ls "$REAL_TARGET/alpha/SKILL.md" && echo "STILL WORKS" || echo "BROKEN"
 
 ## Pass Criteria
 
-- All 13 steps (0-12) pass
+- All 20 steps (0-19) pass
 - No symlinks are incorrectly deleted during sync
-- Skills discovered through symlinked source directories
+- Skills discovered through symlinked source directories in all commands
+- `update --all` and `update --group` walk symlinked source correctly
+- `uninstall` (single, group, nested-name) resolves through symlinked source
+- Group operations reject symlinks pointing outside source tree (containment guard)
+- Reconcile discovers installed skills through symlinked source
 - Symlinks inside symlinked targets resolve from both logical and physical paths
 - Chained symlinks (2+ levels) work correctly
 - Copy mode preserves target symlinks (doesn't unconditionally delete)

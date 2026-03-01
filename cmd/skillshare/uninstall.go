@@ -18,6 +18,7 @@ import (
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
+	"skillshare/internal/utils"
 )
 
 // uninstallOptions holds parsed arguments for uninstall command
@@ -193,12 +194,21 @@ func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
 		return nil, fmt.Errorf("group '%s' not found in source", group)
 	}
 
+	walkRoot := utils.ResolveSymlink(groupPath)
+	resolvedSourceDir := utils.ResolveSymlink(sourceDir)
+
+	// Guard: walkRoot must be inside resolvedSourceDir to prevent
+	// symlinked groups from reaching outside the source tree.
+	if srcRel, relErr := filepath.Rel(resolvedSourceDir, walkRoot); relErr != nil || strings.HasPrefix(srcRel, "..") {
+		return nil, fmt.Errorf("group '%s' resolves outside source directory", group)
+	}
+
 	var targets []*uninstallTarget
-	if walkErr := filepath.Walk(groupPath, func(path string, fi os.FileInfo, err error) error {
+	if walkErr := filepath.Walk(walkRoot, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if path == groupPath || !fi.IsDir() {
+		if path == walkRoot || !fi.IsDir() {
 			return nil
 		}
 		if fi.Name() == ".git" {
@@ -213,8 +223,8 @@ func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
 		isRepo := install.IsGitRepo(path)
 
 		if hasSkillMD || isRepo {
-			rel, relErr := filepath.Rel(sourceDir, path)
-			if relErr == nil {
+			rel, relErr := filepath.Rel(resolvedSourceDir, path)
+			if relErr == nil && !strings.HasPrefix(rel, "..") {
 				targets = append(targets, &uninstallTarget{
 					name:          rel,
 					path:          path,
@@ -242,18 +252,19 @@ func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
 func resolveNestedSkillDir(sourceDir, name string) (string, error) {
 	var matches []string
 
-	if walkErr := filepath.Walk(sourceDir, func(path string, info os.FileInfo, err error) error {
+	walkRoot := utils.ResolveSymlink(sourceDir)
+	if walkErr := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if path == sourceDir || !info.IsDir() {
+		if path == walkRoot || !info.IsDir() {
 			return nil
 		}
 		if info.Name() == ".git" {
 			return filepath.SkipDir
 		}
 		if info.Name() == name || info.Name() == "_"+name {
-			if rel, relErr := filepath.Rel(sourceDir, path); relErr == nil && rel != "." {
+			if rel, relErr := filepath.Rel(walkRoot, path); relErr == nil && rel != "." {
 				matches = append(matches, rel)
 			}
 			return filepath.SkipDir
@@ -282,11 +293,12 @@ func resolveNestedSkillDir(sourceDir, name string) (string, error) {
 // Returns the list of relative skill names found, or nil if not a group.
 func countGroupSkills(dir string) []string {
 	var names []string
-	_ = filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+	walkRoot := utils.ResolveSymlink(dir)
+	_ = filepath.Walk(walkRoot, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if path == dir || !fi.IsDir() {
+		if path == walkRoot || !fi.IsDir() {
 			return nil
 		}
 		if fi.Name() == ".git" {

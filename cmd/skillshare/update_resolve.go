@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"skillshare/internal/install"
+	"skillshare/internal/utils"
 )
 
 type updateTarget struct {
@@ -89,20 +90,29 @@ func resolveGroupUpdatable(group, sourceDir string) ([]updateTarget, error) {
 		return nil, fmt.Errorf("group '%s' not found in source", group)
 	}
 
+	walkRoot := utils.ResolveSymlink(groupPath)
+	resolvedSourceDir := utils.ResolveSymlink(sourceDir)
+
+	// Guard: walkRoot must be inside resolvedSourceDir to prevent
+	// symlinked groups from reaching outside the source tree.
+	if srcRel, err := filepath.Rel(resolvedSourceDir, walkRoot); err != nil || strings.HasPrefix(srcRel, "..") {
+		return nil, fmt.Errorf("group '%s' resolves outside source directory", group)
+	}
+
 	var matches []updateTarget
-	if walkErr := filepath.Walk(groupPath, func(path string, fi os.FileInfo, err error) error {
+	if walkErr := filepath.Walk(walkRoot, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
-		if path == groupPath || !fi.IsDir() {
+		if path == walkRoot || !fi.IsDir() {
 			return nil
 		}
 		if fi.Name() == ".git" {
 			return filepath.SkipDir
 		}
 
-		rel, relErr := filepath.Rel(sourceDir, path)
-		if relErr != nil || rel == "." {
+		rel, relErr := filepath.Rel(resolvedSourceDir, path)
+		if relErr != nil || rel == "." || strings.HasPrefix(rel, "..") {
 			return nil
 		}
 

@@ -12,6 +12,7 @@ import (
 	"skillshare/internal/audit"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
+	"skillshare/internal/utils"
 )
 
 type updateRequest struct {
@@ -333,11 +334,12 @@ func (s *Server) updateAll(force, skipAudit bool) []updateResultItem {
 // It walks the source directory recursively to find nested skills (e.g. utils/ascii-box-check).
 func getServerUpdatableSkills(sourceDir string) ([]string, error) {
 	var skills []string
-	err := filepath.WalkDir(sourceDir, func(path string, d os.DirEntry, err error) error {
+	walkRoot := utils.ResolveSymlink(sourceDir)
+	err := filepath.WalkDir(walkRoot, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
-		if path == sourceDir {
+		if path == walkRoot {
 			return nil
 		}
 		if !d.IsDir() {
@@ -357,7 +359,7 @@ func getServerUpdatableSkills(sourceDir string) ([]string, error) {
 		if metaErr != nil || meta == nil || meta.Source == "" {
 			return nil // continue walking into subdirectories
 		}
-		relPath, relErr := filepath.Rel(sourceDir, path)
+		relPath, relErr := filepath.Rel(walkRoot, path)
 		if relErr == nil {
 			skills = append(skills, filepath.ToSlash(relPath))
 		}
