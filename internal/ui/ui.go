@@ -159,12 +159,24 @@ func CheckboxItem(checked bool, name, description string) {
 	}
 }
 
-// ActionLine prints an action-oriented diff line with arrow prefix.
+// ActionLine prints an action-oriented diff line with symbol prefix.
 //
-//	kind: "sync" (→ cyan), "force" (⚠ yellow), "collect" (← gray), "warn" (⚠ yellow)
+//	kind: "new"/"restore" (+ green), "modified" (~ cyan), "override" (! yellow),
+//	      "orphan" (- red), "local" (← gray), "warn" (⚠ yellow)
 func ActionLine(kind, text string) {
 	var icon, color string
 	switch kind {
+	case "new", "restore":
+		icon, color = "+", Green
+	case "modified":
+		icon, color = "~", Cyan
+	case "override":
+		icon, color = "!", Yellow
+	case "orphan":
+		icon, color = "-", Red
+	case "local":
+		icon, color = "←", Gray
+	// Legacy kinds for backward compatibility
 	case "sync":
 		icon, color = "→", Cyan
 	case "force":

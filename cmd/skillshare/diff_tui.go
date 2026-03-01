@@ -391,12 +391,16 @@ func (m diffTUIModel) buildDiffDetail() string {
 
 		var kindStyle lipgloss.Style
 		switch cat.kind {
-		case "sync":
-			kindStyle = tc.Cyan
-		case "force":
-			kindStyle = tc.Yellow
-		case "collect":
+		case "new", "restore":
 			kindStyle = tc.Green
+		case "modified":
+			kindStyle = tc.Cyan
+		case "override":
+			kindStyle = tc.Yellow
+		case "orphan":
+			kindStyle = tc.Red
+		case "local":
+			kindStyle = tc.Dim
 		case "warn":
 			kindStyle = tc.Red
 		default:
@@ -419,11 +423,11 @@ func (m diffTUIModel) buildDiffDetail() string {
 	var hints []string
 	for _, cat := range cats {
 		switch cat.kind {
-		case "sync":
+		case "new", "modified", "restore", "orphan":
 			hints = append(hints, "sync")
-		case "force":
+		case "override":
 			hints = append(hints, "sync --force")
-		case "collect":
+		case "local":
 			hints = append(hints, "collect")
 		}
 	}

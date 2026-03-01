@@ -620,8 +620,8 @@ func diffFingerprint(items []copyDiffEntry) string {
 
 // actionCategory groups diff items by the user action needed.
 type actionCategory struct {
-	kind   string // "sync", "force", "collect", "warn"
-	label  string // e.g. "sync will add"
+	kind   string // "new", "modified", "restore", "override", "orphan", "local", "warn"
+	label  string // e.g. "New", "Modified", "Local Override"
 	names  []string
 	expand bool // true = list skill names
 }
@@ -648,17 +648,17 @@ func categorizeItems(items []copyDiffEntry) []actionCategory {
 	for _, item := range items {
 		switch {
 		case item.reason == "source only":
-			add("sync-add", "sync", "sync will add", item.name)
+			add("new", "new", "New", item.name)
 		case item.reason == "deleted from target":
-			add("sync-restore", "sync", "sync will restore", item.name)
+			add("restore", "new", "Restore", item.name)
 		case item.reason == "content changed":
-			add("sync-update", "sync", "sync will update", item.name)
+			add("modified", "modified", "Modified", item.name)
 		case strings.Contains(item.reason, "local copy"):
-			add("force", "force", "local copies (sync --force to replace)", item.name)
+			add("override", "override", "Local Override", item.name)
 		case strings.Contains(item.reason, "orphan"):
-			add("sync-prune", "sync", "sync will prune", item.name)
+			add("orphan", "orphan", "Orphan", item.name)
 		case item.reason == "local only" || item.reason == "not in source":
-			add("collect", "collect", "collect will import", item.name)
+			add("local", "local", "Local Only", item.name)
 		default:
 			add("warn", "warn", item.reason, item.name)
 		}
@@ -741,14 +741,25 @@ func renderGroupedDiffs(results []targetDiffResult) {
 		})
 
 		cats := categorizeItems(items)
+
+		// Per-group stat line
+		var statParts []string
+		for _, cat := range cats {
+			n := len(cat.names)
+			statParts = append(statParts, fmt.Sprintf("%d %s", n, strings.ToLower(cat.label)))
+		}
+		if len(statParts) > 0 {
+			fmt.Printf("  %s%s%s\n", ui.Gray, strings.Join(statParts, ", "), ui.Reset)
+		}
+
 		for _, cat := range cats {
 			n := len(cat.names)
 			switch cat.kind {
-			case "sync":
+			case "new", "modified", "restore", "orphan":
 				anySyncNeeded = true
-			case "force":
+			case "override":
 				anyForceNeeded = true
-			case "collect":
+			case "local":
 				anyCollectNeeded = true
 			}
 
@@ -791,17 +802,18 @@ func renderGroupedDiffs(results []targetDiffResult) {
 
 func renderOverallSummary(errCount, needCount, syncCount int) {
 	var parts []string
+	total := errCount + needCount + syncCount
 	if errCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d target%s inaccessible", errCount, pluralS(errCount)))
+		parts = append(parts, fmt.Sprintf("%s%d error%s%s", ui.Red, errCount, pluralS(errCount), ui.Reset))
 	}
 	if needCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d target%s need sync", needCount, pluralS(needCount)))
+		parts = append(parts, fmt.Sprintf("%s%d need sync%s", ui.Yellow, needCount, ui.Reset))
 	}
 	if syncCount > 0 {
-		parts = append(parts, fmt.Sprintf("%d fully synced", syncCount))
+		parts = append(parts, fmt.Sprintf("%s%d synced%s", ui.Green, syncCount, ui.Reset))
 	}
 	if len(parts) > 0 {
-		fmt.Printf("\n%s\n", strings.Join(parts, ", "))
+		fmt.Printf("\n%sSummary:%s %d target%s — %s\n", ui.Bold, ui.Reset, total, pluralS(total), strings.Join(parts, ", "))
 	}
 }
 
