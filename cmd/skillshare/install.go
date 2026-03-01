@@ -434,8 +434,10 @@ Options:
   --force, -f         Overwrite existing skill; also continue if audit would block
   --update, -u        Update existing (git pull if possible, else reinstall)
   --track, -t         Install as tracked repo (preserves .git for updates)
-  --skill, -s <names> Select specific skills from multi-skill repo (comma-separated)
-  --exclude <names>   Skip specific skills during install (comma-separated)
+  --skill, -s <names> Select specific skills from multi-skill repo (comma-separated;
+                      supports glob patterns like "core-*", "test-?")
+  --exclude <names>   Skip specific skills during install (comma-separated;
+                      supports glob patterns like "test-*")
   --all               Install all discovered skills without prompting
   --yes, -y           Auto-accept all prompts (equivalent to --all for multi-skill repos)
   --dry-run, -n       Preview the installation without making changes
@@ -460,10 +462,12 @@ Examples:
 
 Selective install (non-interactive):
   skillshare install anthropics/skills -s pdf,commit     # Specific skills
+  skillshare install anthropics/skills -s "core-*"       # Glob pattern
   skillshare install anthropics/skills --all             # All skills
   skillshare install anthropics/skills -y                # Auto-accept
   skillshare install anthropics/skills -s pdf --dry-run  # Preview selection
   skillshare install repo --all --exclude cli-sentry     # All except specific
+  skillshare install repo --all --exclude "test-*"       # Exclude by pattern
 
 Organize into subdirectories:
   skillshare install anthropics/skills -s pdf --into frontend

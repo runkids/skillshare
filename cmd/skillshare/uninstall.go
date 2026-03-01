@@ -154,6 +154,31 @@ func resolveUninstallTarget(skillName string, cfg *config.Config) (*uninstallTar
 	}, nil
 }
 
+// resolveUninstallByGlob scans the source directory for top-level entries
+// whose names match the given glob pattern (e.g. "core-*", "_team-?").
+func resolveUninstallByGlob(pattern string, cfg *config.Config) ([]*uninstallTarget, error) {
+	entries, err := os.ReadDir(cfg.Source)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read source directory: %w", err)
+	}
+
+	var targets []*uninstallTarget
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		if matchGlob(pattern, e.Name()) {
+			skillPath := filepath.Join(cfg.Source, e.Name())
+			targets = append(targets, &uninstallTarget{
+				name:          e.Name(),
+				path:          skillPath,
+				isTrackedRepo: install.IsGitRepo(skillPath),
+			})
+		}
+	}
+	return targets, nil
+}
+
 // resolveGroupSkills finds all skills under a group directory (prefix match).
 // Returns uninstallTargets for each skill found.
 func resolveGroupSkills(group, sourceDir string) ([]*uninstallTarget, error) {
@@ -553,6 +578,27 @@ func cmdUninstall(args []string) error {
 	}
 
 	for _, name := range opts.skillNames {
+		// Glob pattern matching (e.g. "core-*", "_team-?")
+		if isGlobPattern(name) {
+			globMatches, globErr := resolveUninstallByGlob(name, cfg)
+			if globErr != nil {
+				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, globErr))
+				continue
+			}
+			if len(globMatches) == 0 {
+				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no skills match pattern", name))
+				continue
+			}
+			ui.Info("Pattern '%s' matched %d item(s)", name, len(globMatches))
+			for _, t := range globMatches {
+				if !seen[t.path] {
+					seen[t.path] = true
+					targets = append(targets, t)
+				}
+			}
+			continue
+		}
+
 		t, err := resolveUninstallTarget(name, cfg)
 		if err != nil {
 			resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: %v", name, err))
@@ -1008,6 +1054,8 @@ For tracked repositories (_repo-name):
   - Automatically removes the entry from .gitignore
   - The _ prefix is optional (automatically detected)
 
+Skill names support glob patterns (e.g. "core-*", "test-?").
+
 Options:
   --all               Remove ALL skills from source (requires confirmation)
   --group, -G <name>  Remove all skills in a group (prefix match, repeatable)
@@ -1020,6 +1068,7 @@ Options:
 Examples:
   skillshare uninstall my-skill              # Remove a single skill
   skillshare uninstall a b c --force         # Remove multiple skills at once
+  skillshare uninstall "core-*"             # Remove all matching a glob pattern
   skillshare uninstall --all                 # Remove all skills
   skillshare uninstall --all --force         # Remove all without confirmation
   skillshare uninstall --all -n              # Preview what would be removed

@@ -56,6 +56,18 @@ skillshare uninstall alpha beta gamma --force
 
 When some skills are not found, the command **skips them with a warning** and continues removing the rest. It only fails if **all** specified skills are invalid.
 
+### Glob Patterns
+
+Skill names support glob patterns (`*`, `?`, `[...]`) for batch removal:
+
+```bash
+skillshare uninstall "core-*"              # Remove all skills matching core-*
+skillshare uninstall "test-?" --force      # Single-character wildcard
+skillshare uninstall "core-*" "util-*"     # Multiple patterns
+```
+
+Glob matching is case-insensitive: `"Core-*"` matches `core-auth`, `CORE-DB`, etc.
+
 ## Remove All
 
 Use `--all` to remove every skill from the source directory at once:

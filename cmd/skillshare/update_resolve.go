@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"skillshare/internal/install"
@@ -51,6 +52,30 @@ func resolveByBasename(sourceDir, name string) (updateTarget, error) {
 	}
 	lines = append(lines, "Please specify the full path")
 	return updateTarget{}, fmt.Errorf("%s", strings.Join(lines, "\n"))
+}
+
+// resolveByGlob searches tracked repos and updatable skills whose basenames
+// match the given glob pattern (e.g. "core-*", "_team-?"). Returns all matches
+// sorted by name.
+func resolveByGlob(sourceDir, pattern string) ([]updateTarget, error) {
+	var matches []updateTarget
+
+	repos, _ := install.GetTrackedRepos(sourceDir)
+	for _, r := range repos {
+		if matchGlob(pattern, filepath.Base(r)) {
+			matches = append(matches, updateTarget{name: r, path: filepath.Join(sourceDir, r), isRepo: true})
+		}
+	}
+
+	skills, _ := install.GetUpdatableSkills(sourceDir)
+	for _, s := range skills {
+		if matchGlob(pattern, filepath.Base(s)) {
+			matches = append(matches, updateTarget{name: s, path: filepath.Join(sourceDir, s), isRepo: false})
+		}
+	}
+
+	sort.Slice(matches, func(i, j int) bool { return matches[i].name < matches[j].name })
+	return matches, nil
 }
 
 // resolveGroupUpdatable finds all updatable items (tracked repos or skills with

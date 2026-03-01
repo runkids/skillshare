@@ -78,6 +78,22 @@ skillshare update skill-a skill-b skill-c
 
 Only updatable skills (tracked repos or skills with metadata) are processed. Skills not found are warned but don't cause failure. However, if any skill is **blocked by the security audit gate**, the batch command exits with a non-zero code.
 
+### Glob Patterns
+
+Skill names support glob patterns (`*`, `?`, `[...]`) for batch operations:
+
+```bash
+skillshare update "core-*"              # Update all skills matching core-*
+skillshare update "_team-?"             # Single-character wildcard
+skillshare update "core-*" "util-*"     # Multiple patterns
+```
+
+Glob matching is case-insensitive: `"Core-*"` matches `core-auth`, `CORE-DB`, etc.
+
+:::tip Shell glob protection
+Always quote glob patterns (`"core-*"`) to prevent your shell from expanding `*` into file names in the current directory.
+:::
+
 ## Update Group
 
 Update all updatable skills within a group directory:
