@@ -200,7 +200,7 @@ func collectSyncResult(name string, target config.TargetConfig, source, mode str
 }
 
 func collectMergeSyncResult(r *syncTargetResult, name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, dryRun, force bool) {
-	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, dryRun, force)
+	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, source, dryRun, force)
 	if err != nil {
 		r.errMsg = err.Error()
 		return
@@ -248,7 +248,7 @@ func collectCopySyncResult(r *syncTargetResult, name string, target config.Targe
 		}
 	}
 
-	result, err := sync.SyncTargetCopyWithSkills(name, target, skills, dryRun, force, onProgress)
+	result, err := sync.SyncTargetCopyWithSkills(name, target, skills, source, dryRun, force, onProgress)
 	if err != nil {
 		r.errMsg = err.Error()
 		return

@@ -242,7 +242,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 
 			switch mode {
 			case "merge":
-				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, false, false)
+				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, src, false, false)
 				if err == nil {
 					res.Linked = mergeResult.Linked
 					res.Updated = mergeResult.Updated
@@ -256,7 +256,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 					res.Pruned = pruneResult.Removed
 				}
 			case "copy":
-				copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, false, false, nil)
+				copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, src, false, false, nil)
 				if err == nil {
 					res.Linked = copyResult.Copied
 					res.Updated = copyResult.Updated

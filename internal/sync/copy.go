@@ -27,24 +27,30 @@ func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills: %w", err)
 	}
-	return SyncTargetCopyWithSkills(name, target, skills, dryRun, force, nil)
+	return SyncTargetCopyWithSkills(name, target, skills, sourcePath, dryRun, force, nil)
 }
 
 // SyncTargetCopyWithSkills is like SyncTargetCopy but accepts pre-discovered skills
 // and an optional progress callback for per-skill UI updates.
-func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, dryRun, force bool, onProgress func(current, total int, skill string)) (*CopyResult, error) {
+// sourcePath is the skills source directory, used to detect symlink-mode targets.
+func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, onProgress func(current, total int, skill string)) (*CopyResult, error) {
 	result := &CopyResult{}
 
-	// If target is currently a symlink (symlink mode), remove it to convert
+	// If target is currently a symlink pointing to our source (symlink mode),
+	// remove it to convert to copy mode. External symlinks (e.g., dotfiles
+	// manager) are preserved.
 	info, err := os.Lstat(target.Path)
 	if err == nil && info != nil && utils.IsSymlinkOrJunction(target.Path) {
-		if dryRun {
-			fmt.Printf("[dry-run] Would convert from symlink mode to copy mode: %s\n", target.Path)
-		} else {
-			if err := os.Remove(target.Path); err != nil {
-				return nil, fmt.Errorf("failed to remove symlink for copy conversion: %w", err)
+		if isSymlinkToSource(target.Path, sourcePath) {
+			if dryRun {
+				fmt.Printf("[dry-run] Would convert from symlink mode to copy mode: %s\n", target.Path)
+			} else {
+				if err := os.Remove(target.Path); err != nil {
+					return nil, fmt.Errorf("failed to remove symlink for copy conversion: %w", err)
+				}
 			}
 		}
+		// else: target is an external symlink (dotfiles manager, etc.) — keep it
 	}
 
 	// Ensure target directory exists
