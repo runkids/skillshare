@@ -369,6 +369,10 @@ func (m listTUIModel) View() string {
 			flag = "-p"
 		}
 		cmd := fmt.Sprintf("skillshare %s %s %s", m.confirmAction, flag, m.confirmSkill)
+		if m.confirmAction == "uninstall" {
+			return fmt.Sprintf("\n  %s\n\n  → %s\n\n  Proceed? [Y/n] ",
+				tc.Red.Render("Uninstall "+m.confirmSkill+"?"), cmd)
+		}
 		return fmt.Sprintf("\n  → %s\n\n  Proceed? [Y/n] ", cmd)
 	}
 
