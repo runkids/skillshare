@@ -128,6 +128,66 @@ func TestCopyDir_EmptyDir(t *testing.T) {
 	}
 }
 
+func TestCopyDirFollowTopSymlinks_MergeMode(t *testing.T) {
+	// Simulate merge-mode target: directory with per-skill symlinks
+	source := t.TempDir() // acts as "source" skill repo
+	target := t.TempDir() // acts as merge-mode target
+	dst := t.TempDir()    // backup destination
+
+	// Create real skills in source
+	os.MkdirAll(filepath.Join(source, "skill-a"), 0755)
+	writeTestFile(t, filepath.Join(source, "skill-a", "SKILL.md"), "# Skill A")
+	writeTestFile(t, filepath.Join(source, "skill-a", "prompt.md"), "prompt content")
+
+	os.MkdirAll(filepath.Join(source, "skill-b"), 0755)
+	writeTestFile(t, filepath.Join(source, "skill-b", "SKILL.md"), "# Skill B")
+
+	// Create symlinks in target (merge mode)
+	if err := os.Symlink(
+		filepath.Join(source, "skill-a"),
+		filepath.Join(target, "skill-a"),
+	); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+	os.Symlink(filepath.Join(source, "skill-b"), filepath.Join(target, "skill-b"))
+
+	// Also add a local (non-symlink) skill
+	os.MkdirAll(filepath.Join(target, "local-skill"), 0755)
+	writeTestFile(t, filepath.Join(target, "local-skill", "SKILL.md"), "# Local")
+
+	if err := copyDirFollowTopSymlinks(target, dst); err != nil {
+		t.Fatalf("copyDirFollowTopSymlinks failed: %v", err)
+	}
+
+	// Symlinked skills should be resolved and copied
+	assertFileContent(t, filepath.Join(dst, "skill-a", "SKILL.md"), "# Skill A")
+	assertFileContent(t, filepath.Join(dst, "skill-a", "prompt.md"), "prompt content")
+	assertFileContent(t, filepath.Join(dst, "skill-b", "SKILL.md"), "# Skill B")
+
+	// Local skill should also be copied
+	assertFileContent(t, filepath.Join(dst, "local-skill", "SKILL.md"), "# Local")
+}
+
+func TestCopyDirFollowTopSymlinks_BrokenSymlink(t *testing.T) {
+	target := t.TempDir()
+	dst := t.TempDir()
+
+	// Create a broken symlink
+	if err := os.Symlink("/nonexistent/path", filepath.Join(target, "broken")); err != nil {
+		t.Skipf("symlink not supported: %v", err)
+	}
+
+	// Should not fail on broken symlink
+	if err := copyDirFollowTopSymlinks(target, dst); err != nil {
+		t.Fatalf("should not fail on broken symlink: %v", err)
+	}
+
+	// Broken link should be skipped
+	if _, err := os.Lstat(filepath.Join(dst, "broken")); !os.IsNotExist(err) {
+		t.Error("broken symlink should be skipped")
+	}
+}
+
 func TestBackupDir_RespectsXDGDataHome(t *testing.T) {
 	t.Setenv("XDG_DATA_HOME", "/custom/data")
 
@@ -266,6 +326,144 @@ func TestListTargetsWithBackups_SkipsFiles(t *testing.T) {
 	}
 	if summaries[0].TargetName != "claude" {
 		t.Errorf("TargetName = %q, want %q", summaries[0].TargetName, "claude")
+	}
+}
+
+func TestListBackupVersions_Empty(t *testing.T) {
+	dir := t.TempDir()
+
+	result, err := ListBackupVersions(dir, "claude")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 0 {
+		t.Errorf("expected 0 versions, got %d", len(result))
+	}
+}
+
+func TestListBackupVersions_NonExistentDir(t *testing.T) {
+	result, err := ListBackupVersions("/nonexistent/path/backups", "claude")
+	if err != nil {
+		t.Fatalf("unexpected error for non-existent dir: %v", err)
+	}
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
+}
+
+func TestListBackupVersions_ReturnsSkillInfo(t *testing.T) {
+	dir := t.TempDir()
+
+	// ts1 (older): claude with 1 skill
+	ts1 := "2025-01-10_08-00-00"
+	skillDir1 := filepath.Join(dir, ts1, "claude", "my-skill")
+	os.MkdirAll(skillDir1, 0755)
+	writeTestFile(t, filepath.Join(skillDir1, "SKILL.md"), "# My Skill")
+
+	// ts2 (newer): claude with 2 skills
+	ts2 := "2025-03-20_18-45-00"
+	skillDir2a := filepath.Join(dir, ts2, "claude", "skill-a")
+	skillDir2b := filepath.Join(dir, ts2, "claude", "skill-b")
+	os.MkdirAll(skillDir2a, 0755)
+	os.MkdirAll(skillDir2b, 0755)
+	writeTestFile(t, filepath.Join(skillDir2a, "SKILL.md"), "# Skill A")
+	writeTestFile(t, filepath.Join(skillDir2b, "SKILL.md"), "# Skill B content here")
+
+	result, err := ListBackupVersions(dir, "claude")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result) != 2 {
+		t.Fatalf("expected 2 versions, got %d", len(result))
+	}
+
+	// Should be sorted newest first
+	wantNewest := time.Date(2025, 3, 20, 18, 45, 0, 0, time.Local)
+	wantOldest := time.Date(2025, 1, 10, 8, 0, 0, 0, time.Local)
+
+	if !result[0].Timestamp.Equal(wantNewest) {
+		t.Errorf("result[0].Timestamp = %v, want %v", result[0].Timestamp, wantNewest)
+	}
+	if !result[1].Timestamp.Equal(wantOldest) {
+		t.Errorf("result[1].Timestamp = %v, want %v", result[1].Timestamp, wantOldest)
+	}
+
+	// Newer version: 2 skills
+	if result[0].SkillCount != 2 {
+		t.Errorf("result[0].SkillCount = %d, want 2", result[0].SkillCount)
+	}
+	if len(result[0].SkillNames) != 2 {
+		t.Errorf("result[0].SkillNames len = %d, want 2", len(result[0].SkillNames))
+	}
+
+	// Older version: 1 skill
+	if result[1].SkillCount != 1 {
+		t.Errorf("result[1].SkillCount = %d, want 1", result[1].SkillCount)
+	}
+	if len(result[1].SkillNames) != 1 || result[1].SkillNames[0] != "my-skill" {
+		t.Errorf("result[1].SkillNames = %v, want [my-skill]", result[1].SkillNames)
+	}
+
+	// Label format
+	wantLabel := "2025-03-20 18:45:00"
+	if result[0].Label != wantLabel {
+		t.Errorf("result[0].Label = %q, want %q", result[0].Label, wantLabel)
+	}
+
+	// Dir should point to the target subdir
+	wantDir := filepath.Join(dir, ts2, "claude")
+	if result[0].Dir != wantDir {
+		t.Errorf("result[0].Dir = %q, want %q", result[0].Dir, wantDir)
+	}
+
+	// TotalSize should be > 0 (we wrote files)
+	if result[0].TotalSize <= 0 {
+		t.Errorf("result[0].TotalSize = %d, want > 0", result[0].TotalSize)
+	}
+}
+
+func TestListBackupVersions_IgnoresOtherTargets(t *testing.T) {
+	dir := t.TempDir()
+
+	ts := "2025-06-01_10-00-00"
+	// claude and cursor both exist
+	os.MkdirAll(filepath.Join(dir, ts, "claude", "skill-x"), 0755)
+	os.MkdirAll(filepath.Join(dir, ts, "cursor", "skill-y"), 0755)
+
+	result, err := ListBackupVersions(dir, "claude")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 version, got %d", len(result))
+	}
+	if result[0].SkillCount != 1 {
+		t.Errorf("SkillCount = %d, want 1", result[0].SkillCount)
+	}
+	if result[0].SkillNames[0] != "skill-x" {
+		t.Errorf("SkillNames = %v, want [skill-x]", result[0].SkillNames)
+	}
+}
+
+func TestListBackupVersions_SkipsInvalidTimestamps(t *testing.T) {
+	dir := t.TempDir()
+
+	// Valid timestamp
+	os.MkdirAll(filepath.Join(dir, "2025-01-10_08-00-00", "claude", "skill"), 0755)
+	// Invalid timestamp directory name
+	os.MkdirAll(filepath.Join(dir, "not-a-timestamp", "claude", "skill"), 0755)
+	// Plain file at top level
+	writeTestFile(t, filepath.Join(dir, "notes.txt"), "ignore")
+
+	result, err := ListBackupVersions(dir, "claude")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(result) != 1 {
+		t.Fatalf("expected 1 version, got %d", len(result))
 	}
 }
 
