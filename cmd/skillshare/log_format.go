@@ -688,12 +688,7 @@ func formatLogDuration(ms int64) string {
 	return fmt.Sprintf("%.1fs", float64(ms)/1000)
 }
 
-func truncateLogString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
-}
+func truncateLogString(s string, maxLen int) string { return truncateStr(s, maxLen) }
 
 // logArg* helpers extract typed values from oplog.Entry.Args.
 

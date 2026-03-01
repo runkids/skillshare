@@ -259,15 +259,9 @@ func resolveSourceDir(mode runMode, cwd string) (string, error) {
 	return cfg.Source, nil
 }
 
+// formatAge is an alias for the shared formatDurationShort.
 func formatAge(d time.Duration) string {
-	switch {
-	case d < time.Hour:
-		return fmt.Sprintf("%dm", int(d.Minutes()))
-	case d < 24*time.Hour:
-		return fmt.Sprintf("%dh", int(d.Hours()))
-	default:
-		return fmt.Sprintf("%dd", int(d.Hours()/24))
-	}
+	return formatDurationShort(d)
 }
 
 func resolveTrashCfgPath(mode runMode, cwd string) string {

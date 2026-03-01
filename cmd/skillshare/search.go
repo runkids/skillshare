@@ -610,12 +610,7 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 	return nil
 }
 
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
-}
+func truncate(s string, maxLen int) string { return truncateStr(s, maxLen) }
 
 // formatRiskBadge returns a colored risk badge for TTY output.
 // Returns empty string when label is empty (not audited).
