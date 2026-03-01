@@ -17,16 +17,19 @@ Project mode output includes: source path, targets with sync mode, remote skills
 
 ## diff
 
-Show differences between source and targets.
+Show differences between source and targets. Interactive TUI on TTY, plain text otherwise.
 
 ```bash
-skillshare diff                # All targets (auto-detects mode)
+skillshare diff                # Interactive TUI (default on TTY)
 skillshare diff claude         # Specific target
+skillshare diff --stat         # File-level changes (plain text)
+skillshare diff --patch        # Full unified diff (plain text)
+skillshare diff --no-tui       # Plain text, skip TUI
 skillshare diff -p             # Project mode
 skillshare diff -g             # Force global
 ```
 
-Project mode shows filter info and skill-level target restrictions.
+TUI features: left panel target list with status icons (`✓`/`!`/`✗`), right panel detail with categorized diffs. Enter expands file-level diff. `--stat` and `--patch` imply `--no-tui`.
 
 ## list
 
