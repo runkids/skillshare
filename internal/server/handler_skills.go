@@ -196,6 +196,7 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.cache.Invalidate(s.cfg.Source)
 
 	name := r.PathValue("name")
 
@@ -220,8 +221,6 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.cache.Invalidate(s.cfg.Source)
-
 	s.writeOpsLog("uninstall", "ok", start, map[string]any{
 		"name":  repoName,
 		"type":  "repo",
@@ -235,6 +234,7 @@ func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.cache.Invalidate(s.cfg.Source)
 
 	name := r.PathValue("name")
 
@@ -261,8 +261,6 @@ func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "failed to trash skill: "+err.Error())
 			return
 		}
-
-		s.cache.Invalidate(s.cfg.Source)
 
 		s.writeOpsLog("uninstall", "ok", start, map[string]any{
 			"name":  baseName,

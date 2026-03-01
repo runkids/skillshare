@@ -18,6 +18,12 @@ func matchGlob(pattern, name string) bool {
 	return ok
 }
 
+// deferInvalidate returns a function suitable for defer that invalidates
+// the discovery cache. Usage: defer deferInvalidate(sourcePath)()
+func deferInvalidate(sourcePath string) func() {
+	return func() { discoveryCache.Invalidate(sourcePath) }
+}
+
 // copyDir copies a directory recursively.
 func copyDir(src, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {

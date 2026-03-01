@@ -85,6 +85,7 @@ func (s *Server) handleCollect(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.cache.Invalidate(s.cfg.Source)
 
 	var body struct {
 		Skills []collectSkillRef `json:"skills"`
@@ -143,11 +144,6 @@ func (s *Server) handleCollect(w http.ResponseWriter, r *http.Request) {
 	failed := make(map[string]string, len(result.Failed))
 	for k, v := range result.Failed {
 		failed[k] = v.Error()
-	}
-
-	// Invalidate discovery cache — source skills changed
-	if len(result.Pulled) > 0 {
-		s.cache.Invalidate(s.cfg.Source)
 	}
 
 	status := "ok"

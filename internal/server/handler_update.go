@@ -50,6 +50,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.cache.Invalidate(s.cfg.Source)
 
 	var body updateRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -63,19 +64,12 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		total := len(results)
 		failed := 0
 		blocked := 0
-		hasUpdated := false
 		for _, item := range results {
 			if item.Action == "error" {
 				failed++
 			} else if item.Action == "blocked" {
 				blocked++
-			} else if item.Action == "updated" {
-				hasUpdated = true
 			}
-		}
-		// Only invalidate discovery cache if at least one skill was actually updated
-		if hasUpdated {
-			s.cache.Invalidate(s.cfg.Source)
 		}
 		status := "ok"
 		msg := ""
@@ -110,10 +104,6 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := s.updateSingle(body.Name, body.Force, body.SkipAudit)
-	// Invalidate discovery cache — source skills may have changed
-	if result.Action == "updated" {
-		s.cache.Invalidate(s.cfg.Source)
-	}
 
 	status := "ok"
 	msg := ""

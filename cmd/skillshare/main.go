@@ -17,7 +17,10 @@ var version = "dev"
 // discoveryCache is the shared discovery cache for all commands.
 var discoveryCache *cache.DiscoveryCache
 
-// commands maps command names to their handler functions
+// commands maps command names to their handler functions.
+// NOTE: mutating commands (install, uninstall, update) must defer
+// discoveryCache.Invalidate() at their entry point after config load.
+// Search for deferInvalidate to find all CLI sites.
 var commands = map[string]func([]string) error{
 	"init":      cmdInit,
 	"install":   cmdInstall,

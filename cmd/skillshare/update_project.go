@@ -36,6 +36,7 @@ func cmdUpdateProject(args []string, root string) error {
 	if err != nil {
 		return err
 	}
+	defer deferInvalidate(runtime.sourcePath)()
 
 	sourcePath := runtime.sourcePath
 	if opts.threshold == "" {
@@ -169,9 +170,6 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 		} else {
 			updateErr = updateRegularSkill(uc, t.name)
 		}
-		if updateErr == nil && !opts.dryRun {
-			discoveryCache.Invalidate(sourcePath)
-		}
 		return updateErr
 	}
 
@@ -180,10 +178,7 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 		ui.Warning("[dry-run] No changes will be made")
 	}
 
-	batchResult, batchErr := executeBatchUpdate(uc, targets)
-	if batchResult.updated > 0 || batchResult.pruned > 0 {
-		discoveryCache.Invalidate(sourcePath)
-	}
+	_, batchErr := executeBatchUpdate(uc, targets)
 	return batchErr
 }
 
@@ -258,9 +253,6 @@ func updateAllProjectSkills(uc *updateContext) error {
 		} else {
 			updateErr = updateRegularSkill(uc, t.name)
 		}
-		if updateErr == nil && !uc.opts.dryRun {
-			discoveryCache.Invalidate(uc.sourcePath)
-		}
 		return updateErr
 	}
 
@@ -268,9 +260,6 @@ func updateAllProjectSkills(uc *updateContext) error {
 		ui.Warning("[dry-run] No changes will be made")
 	}
 
-	batchResult, batchErr := executeBatchUpdate(uc, targets)
-	if batchResult.updated > 0 || batchResult.pruned > 0 {
-		discoveryCache.Invalidate(uc.sourcePath)
-	}
+	_, batchErr := executeBatchUpdate(uc, targets)
 	return batchErr
 }

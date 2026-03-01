@@ -86,6 +86,7 @@ func cmdUninstallProject(args []string, root string) error {
 	}
 
 	sourceDir := filepath.Join(root, ".skillshare", "skills")
+	defer deferInvalidate(sourceDir)()
 	trashDir := trash.ProjectTrashDir(root)
 
 	// --- Phase 1: RESOLVE ---
@@ -441,10 +442,6 @@ func cmdUninstallProject(args []string, root string) error {
 				}
 			}
 		}
-	}
-
-	if len(succeeded) > 0 {
-		discoveryCache.Invalidate(sourceDir)
 	}
 
 	if !batch {

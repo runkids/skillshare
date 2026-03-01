@@ -72,6 +72,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.cache.Invalidate(s.cfg.Source)
 
 	var body struct {
 		Source string `json:"source"`
@@ -209,11 +210,6 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeOpsLog("install", status, start, args, firstErr)
 
-	// Invalidate discovery cache after install
-	if installed > 0 {
-		s.cache.Invalidate(s.cfg.Source)
-	}
-
 	// Reconcile config after install
 	if installed > 0 {
 		if s.IsProjectMode() {
@@ -237,6 +233,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer s.cache.Invalidate(s.cfg.Source)
 
 	var body struct {
 		Source    string `json:"source"`
@@ -299,9 +296,6 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		// Invalidate discovery cache after tracked repo install
-		s.cache.Invalidate(s.cfg.Source)
-
 		// Reconcile config after tracked repo install
 		if s.IsProjectMode() {
 			if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.registry, s.cfg.Source); rErr != nil {
@@ -384,9 +378,6 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-
-	// Invalidate discovery cache after single install
-	s.cache.Invalidate(s.cfg.Source)
 
 	// Reconcile config after single install
 	if s.IsProjectMode() {

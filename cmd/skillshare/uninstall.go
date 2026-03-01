@@ -555,6 +555,7 @@ func cmdUninstall(args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+	defer deferInvalidate(cfg.Source)()
 
 	// --- Phase 1: RESOLVE ---
 	var targets []*uninstallTarget
@@ -986,10 +987,6 @@ func cmdUninstall(args []string) error {
 				}
 			}
 		}
-	}
-
-	if len(succeeded) > 0 {
-		discoveryCache.Invalidate(cfg.Source)
 	}
 
 	opNames := uninstallOpNames(rest)

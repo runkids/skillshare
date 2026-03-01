@@ -38,6 +38,7 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 	if err != nil {
 		return summary, err
 	}
+	defer deferInvalidate(runtime.sourcePath)()
 	if parsed.opts.AuditThreshold == "" {
 		parsed.opts.AuditThreshold = runtime.config.Audit.BlockThreshold
 	}
@@ -53,9 +54,6 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 		}
 		summary.Source = "project-config"
 		summary, err = installFromProjectConfig(runtime, parsed.opts)
-		if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-			discoveryCache.Invalidate(runtime.sourcePath)
-		}
 		return summary, err
 	}
 
@@ -72,7 +70,6 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 			return summary, err
 		}
 		if !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-			discoveryCache.Invalidate(runtime.sourcePath)
 			return summary, reconcileProjectRemoteSkills(runtime)
 		}
 		return summary, nil
@@ -88,9 +85,6 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 		return summary, nil
 	}
 
-	if len(summary.InstalledSkills) > 0 {
-		discoveryCache.Invalidate(runtime.sourcePath)
-	}
 	return summary, reconcileProjectRemoteSkills(runtime)
 }
 

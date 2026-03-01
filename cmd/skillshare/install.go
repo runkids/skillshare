@@ -285,6 +285,7 @@ func cmdInstall(args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+	defer deferInvalidate(cfg.Source)()
 	if parsed.opts.AuditThreshold == "" {
 		parsed.opts.AuditThreshold = cfg.Audit.BlockThreshold
 	}
@@ -292,9 +293,6 @@ func cmdInstall(args []string) error {
 	// No source argument: install from global config
 	if parsed.sourceArg == "" {
 		summary, err := installFromGlobalConfig(cfg, parsed.opts)
-		if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-			discoveryCache.Invalidate(cfg.Source)
-		}
 		logInstallOp(config.ConfigPath(), rest, start, err, summary)
 		return err
 	}
@@ -329,7 +327,6 @@ func cmdInstall(args []string) error {
 			summary.Source = parsed.sourceArg
 		}
 		if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-			discoveryCache.Invalidate(cfg.Source)
 			reg, regErr := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
 			if regErr != nil {
 				ui.Warning("Failed to load registry: %v", regErr)
@@ -349,7 +346,6 @@ func cmdInstall(args []string) error {
 		summary.Source = parsed.sourceArg
 	}
 	if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-		discoveryCache.Invalidate(cfg.Source)
 		reg, regErr := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
 		if regErr != nil {
 			ui.Warning("Failed to load registry: %v", regErr)
