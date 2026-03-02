@@ -456,6 +456,15 @@ func disabledIDsForProject(projectRoot string) map[string]bool {
 	return extractDisabledIDs(base)
 }
 
+// ResetGlobalCache resets cached global/builtin rules so the next call to
+// Rules() or ListRules() re-reads from disk. Useful after ToggleRule/TogglePattern
+// mutations that change audit-rules.yaml.
+func ResetGlobalCache() {
+	globalOnce = sync.Once{}
+	globalRules = nil
+	globalRulesErr = nil
+}
+
 // resetForTest resets cached state for testing.
 func resetForTest() {
 	builtinOnce = sync.Once{}
