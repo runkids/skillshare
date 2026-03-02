@@ -19,8 +19,9 @@ import (
 var ErrBlocked = errors.New("blocked by security audit")
 
 const (
-	maxScanFileSize = 1_000_000 // 1MB
-	maxScanDepth    = 6
+	maxScanFileSize        = 1_000_000 // 1MB
+	maxScanDepth           = 6
+	analyzabilityThreshold = 0.70
 )
 
 // mdFileInfo holds data collected during the walk for structural checks.
@@ -50,13 +51,16 @@ type Finding struct {
 
 // Result holds all findings for a single skill.
 type Result struct {
-	SkillName  string    `json:"skillName"`
-	Findings   []Finding `json:"findings"`
-	RiskScore  int       `json:"riskScore"`
-	RiskLabel  string    `json:"riskLabel"` // "clean", "low", "medium", "high", "critical"
-	Threshold  string    `json:"threshold,omitempty"`
-	IsBlocked  bool      `json:"isBlocked,omitempty"`
-	ScanTarget string    `json:"scanTarget,omitempty"`
+	SkillName      string    `json:"skillName"`
+	Findings       []Finding `json:"findings"`
+	RiskScore      int       `json:"riskScore"`
+	RiskLabel      string    `json:"riskLabel"` // "clean", "low", "medium", "high", "critical"
+	Threshold      string    `json:"threshold,omitempty"`
+	IsBlocked      bool      `json:"isBlocked,omitempty"`
+	ScanTarget     string    `json:"scanTarget,omitempty"`
+	TotalBytes     int64   `json:"totalBytes"`
+	AuditableBytes int64   `json:"auditableBytes"`
+	Analyzability  float64 `json:"analyzability"` // AuditableBytes / TotalBytes (1.0 when TotalBytes == 0)
 }
 
 func (r *Result) updateRisk() {
@@ -268,6 +272,8 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	// checkContentIntegrity can reuse them instead of re-reading from disk.
 	fileCache := make(map[string][]byte)
 
+	var totalBytes, auditableBytes int64
+
 	err = filepath.Walk(skillPath, func(path string, fi os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return nil
@@ -292,9 +298,14 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		if depth > maxScanDepth {
 			return nil
 		}
+		// Files exceeding maxScanFileSize are excluded from totalBytes so that
+		// analyzability reflects the ratio among files the scanner considers,
+		// not raw on-disk size. Oversized files are a separate concern.
 		if fi.Size() > maxScanFileSize {
 			return nil
 		}
+
+		totalBytes += fi.Size()
 
 		if !isScannable(fi.Name()) {
 			return nil
@@ -307,6 +318,8 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		if isBinaryContent(data) {
 			return nil
 		}
+
+		auditableBytes += int64(len(data))
 
 		// Cache content for content-integrity check reuse.
 		fileCache[filepath.ToSlash(relPath)] = data
@@ -352,6 +365,24 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		result.Findings = append(result.Findings, checkContentIntegrity(skillPath, fileCache)...)
 	}
 
+	result.TotalBytes = totalBytes
+	result.AuditableBytes = auditableBytes
+	if totalBytes > 0 {
+		result.Analyzability = float64(auditableBytes) / float64(totalBytes)
+	} else {
+		result.Analyzability = 1.0
+	}
+
+	if totalBytes > 0 && result.Analyzability < analyzabilityThreshold {
+		result.Findings = append(result.Findings, Finding{
+			Severity: SeverityInfo,
+			Pattern:  "low-analyzability",
+			Message:  fmt.Sprintf("only %.0f%% of skill content is auditable (%.0f%% is binary/non-scannable)", result.Analyzability*100, (1-result.Analyzability)*100),
+			File:     ".",
+			Line:     0,
+		})
+	}
+
 	result.updateRisk()
 	return result, nil
 }
@@ -367,13 +398,21 @@ func ScanFileWithRules(filePath string, activeRules []rule) (*Result, error) {
 		return nil, fmt.Errorf("not a file: %s", filePath)
 	}
 
+	fileSize := info.Size()
 	result := &Result{
 		SkillName:  filepath.Base(filePath),
 		ScanTarget: filePath,
+		TotalBytes: fileSize,
 	}
 
 	// Keep parity with directory scan boundaries.
-	if info.Size() > maxScanFileSize || !isScannable(info.Name()) {
+	if fileSize > maxScanFileSize || !isScannable(info.Name()) {
+		// Non-scannable or oversized: nothing is auditable.
+		if fileSize > 0 {
+			result.Analyzability = 0.0
+		} else {
+			result.Analyzability = 1.0
+		}
 		result.updateRisk()
 		return result, nil
 	}
@@ -383,9 +422,14 @@ func ScanFileWithRules(filePath string, activeRules []rule) (*Result, error) {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
 	if isBinaryContent(data) {
+		// Binary content: counted in TotalBytes but not auditable.
+		result.Analyzability = 0.0
 		result.updateRisk()
 		return result, nil
 	}
+
+	result.AuditableBytes = int64(len(data))
+	result.Analyzability = 1.0
 
 	resolvedRules := activeRules
 	if resolvedRules == nil {

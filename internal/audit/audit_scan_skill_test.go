@@ -9,6 +9,17 @@ import (
 	"testing"
 )
 
+// filterOutPattern returns findings excluding those with the given pattern.
+func filterOutPattern(findings []Finding, pattern string) []Finding {
+	var out []Finding
+	for _, f := range findings {
+		if f.Pattern != pattern {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
 func TestScanSkill_CleanDirectory(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "my-skill"), 0755)
@@ -70,8 +81,9 @@ func TestScanSkill_SkipsMetaJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Findings) != 0 {
-		t.Errorf("expected 0 findings (.skillshare-meta.json should be skipped), got %d: %+v", len(result.Findings), result.Findings)
+	nonAnalyzability := filterOutPattern(result.Findings, "low-analyzability")
+	if len(nonAnalyzability) != 0 {
+		t.Errorf("expected 0 findings (.skillshare-meta.json should be skipped), got %d: %+v", len(nonAnalyzability), nonAnalyzability)
 	}
 }
 
@@ -86,8 +98,9 @@ func TestScanSkill_SkipsBinaryFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(result.Findings) != 0 {
-		t.Errorf("expected 0 findings (.png should be skipped), got %d", len(result.Findings))
+	nonAnalyzability := filterOutPattern(result.Findings, "low-analyzability")
+	if len(nonAnalyzability) != 0 {
+		t.Errorf("expected 0 findings (.png should be skipped), got %d", len(nonAnalyzability))
 	}
 }
 

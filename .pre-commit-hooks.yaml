@@ -1,0 +1,8 @@
+- id: skillshare-audit
+  name: Skillshare Audit
+  description: Scan skills for security threats before committing
+  entry: skillshare audit -p --format text
+  language: system
+  files: '(\.skillshare/|skills/)'
+  pass_filenames: false
+  stages: [pre-commit]

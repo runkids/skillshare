@@ -64,8 +64,9 @@ type auditRunSummary struct {
 	Mode        string   `json:"mode,omitempty"`
 	Threshold   string   `json:"threshold,omitempty"`
 	MaxSeverity string   `json:"maxSeverity,omitempty"`
-	RiskScore   int      `json:"riskScore"`
-	RiskLabel   string   `json:"riskLabel,omitempty"`
+	RiskScore        int      `json:"riskScore"`
+	RiskLabel        string   `json:"riskLabel,omitempty"`
+	AvgAnalyzability float64  `json:"avgAnalyzability"`
 }
 
 type auditJSONOutput struct {
@@ -755,6 +756,7 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 
 	maxRisk := 0
 	maxSeverity := ""
+	sumAnalyzability := 0.0
 	for _, r := range results {
 		c, h, m, l, i := r.CountBySeverityAll()
 		summary.Critical += c
@@ -788,10 +790,14 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 				maxSeverity = rs
 			}
 		}
+		sumAnalyzability += r.Analyzability
 	}
 	summary.RiskScore = maxRisk
 	summary.RiskLabel = audit.RiskLabelFromScoreAndMaxSeverity(maxRisk, maxSeverity)
 	summary.MaxSeverity = maxSeverity
+	if len(results) > 0 {
+		summary.AvgAnalyzability = sumAnalyzability / float64(len(results))
+	}
 	return summary
 }
 
@@ -923,9 +929,11 @@ func printSkillResult(result *audit.Result, elapsed time.Duration) {
 	}
 	if ui.IsTTY() {
 		fmt.Printf("%s→%s Aggregate risk: %s%s (%d/100)%s\n", ui.Cyan, ui.Reset, color, strings.ToUpper(result.RiskLabel), result.RiskScore, ui.Reset)
+		fmt.Printf("%s→%s Auditable: %.0f%%\n", ui.Cyan, ui.Reset, result.Analyzability*100)
 		fmt.Printf("%s→%s Block decision: %s (max severity %s %s threshold %s)\n", ui.Cyan, ui.Reset, decision, maxSeverity, compare, threshold)
 	} else {
 		fmt.Printf("→ Aggregate risk: %s (%d/100)\n", strings.ToUpper(result.RiskLabel), result.RiskScore)
+		fmt.Printf("→ Auditable: %.0f%%\n", result.Analyzability*100)
 		fmt.Printf("→ Block decision: %s (max severity %s %s threshold %s)\n", decision, maxSeverity, compare, threshold)
 	}
 }
@@ -960,6 +968,7 @@ func buildAuditSummaryLines(summary auditRunSummary) []string {
 	riskLabel := strings.ToUpper(summary.RiskLabel)
 	riskText := fmt.Sprintf("%s (%d/100)", riskLabel, summary.RiskScore)
 	lines = append(lines, fmt.Sprintf("  Aggregate: %s", ui.Colorize(riskColor(summary.RiskLabel), riskText)))
+	lines = append(lines, fmt.Sprintf("  Auditable: %.0f%% avg", summary.AvgAnalyzability*100))
 	lines = append(lines, "  Note:      Failed uses severity gate; aggregate is informational")
 	if summary.ScanErrors > 0 {
 		lines = append(lines, fmt.Sprintf("  Scan errs: %d", summary.ScanErrors))

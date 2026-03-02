@@ -534,6 +534,21 @@ This creates:
 - **Security tab** entries visible at Repository → Security → Code scanning alerts
 - **Historical tracking** of findings across commits
 
+### Pre-commit Hook
+
+Run `skillshare audit` automatically on every commit using the [pre-commit](https://pre-commit.com/) framework. The hook scans files matching `.skillshare/` or `skills/` directories and blocks the commit if findings exceed your configured threshold.
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/runkids/skillshare
+    rev: v0.16.8  # use latest release tag
+    hooks:
+      - id: skillshare-audit
+```
+
+See the [Pre-commit Hook recipe](/docs/how-to/recipes/pre-commit-hook) for full setup instructions.
+
 ## Best Practices
 
 ### For Individual Developers
@@ -552,9 +567,10 @@ This creates:
 
 1. **Install**: Skills are automatically scanned — blocked if threshold exceeded
 2. **Periodic scan**: Run `skillshare audit` regularly to catch rules updated after install
-3. **CI gate**: Add audit to your CI pipeline for shared skill repositories
-4. **Custom rules**: Tailor detection to your organization's threat model
-5. **Review reports**: Use `--format json` for compliance or `--format sarif` for GitHub Code Scanning
+3. **Pre-commit hook**: Catch issues before they're committed with the [pre-commit framework](/docs/how-to/recipes/pre-commit-hook)
+4. **CI gate**: Add audit to your CI pipeline for shared skill repositories
+5. **Custom rules**: Tailor detection to your organization's threat model
+6. **Review reports**: Use `--format json` for compliance or `--format sarif` for GitHub Code Scanning
 
 ### Threshold Configuration
 
@@ -903,3 +919,4 @@ Source of truth for regex-based rules:
 - [doctor](/docs/reference/commands/doctor) — Diagnose setup issues
 - [list](/docs/reference/commands/list) — List installed skills
 - [Securing Your Skills](/docs/how-to/advanced/security) — Security guide for teams and organizations
+- [Pre-commit Hook](/docs/how-to/recipes/pre-commit-hook) — Automatic audit on every commit
