@@ -603,14 +603,18 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	}
 
 	// Phase 1: parallel scan with progress bar.
-	fmt.Println()
+	if !jsonOutput {
+		fmt.Println()
+	}
 	progressBar := ui.StartProgress("Scanning skills", len(matched))
 	onDone := func() {
 		progressBar.Increment()
 	}
 	scanResults := audit.ParallelScan(toAuditInputs(matched), projectRoot, onDone)
 	progressBar.Stop()
-	fmt.Println()
+	if !jsonOutput {
+		fmt.Println()
+	}
 
 	// Collect results and their elapsed times together.
 	results := make([]*audit.Result, 0, len(matched))

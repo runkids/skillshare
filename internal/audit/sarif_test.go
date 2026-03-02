@@ -208,3 +208,56 @@ func TestToSARIF_ValidJSON(t *testing.T) {
 		t.Fatalf("expected 0 locations for finding without file, got %d", len(locs))
 	}
 }
+
+func TestToSARIF_OmitsRegionWhenLineZero(t *testing.T) {
+	t.Parallel()
+
+	results := []*Result{
+		{
+			SkillName: "tier-skill",
+			Findings: []Finding{
+				{Severity: SeverityMedium, Pattern: "command-tier", Message: "T3 network", File: "SKILL.md", Line: 0},
+				{Severity: SeverityHigh, Pattern: "shell-execution", Message: "exec", File: "SKILL.md", Line: 5},
+			},
+		},
+	}
+
+	log := ToSARIF(results, SARIFOptions{})
+	data, err := json.Marshal(log)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+
+	var roundtrip map[string]interface{}
+	if err := json.Unmarshal(data, &roundtrip); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+
+	runs := roundtrip["runs"].([]interface{})
+	run := runs[0].(map[string]interface{})
+	resultsArr := run["results"].([]interface{})
+
+	// First finding: File set but Line=0 → location present, region omitted
+	r0 := resultsArr[0].(map[string]interface{})
+	locs0 := r0["locations"].([]interface{})
+	if len(locs0) != 1 {
+		t.Fatalf("expected 1 location for line-0 finding, got %d", len(locs0))
+	}
+	phys0 := locs0[0].(map[string]interface{})["physicalLocation"].(map[string]interface{})
+	if _, hasRegion := phys0["region"]; hasRegion {
+		t.Fatal("expected no region for finding with Line=0")
+	}
+
+	// Second finding: File set and Line=5 → region present with startLine=5
+	r1 := resultsArr[1].(map[string]interface{})
+	locs1 := r1["locations"].([]interface{})
+	phys1 := locs1[0].(map[string]interface{})["physicalLocation"].(map[string]interface{})
+	region, hasRegion := phys1["region"]
+	if !hasRegion {
+		t.Fatal("expected region for finding with Line=5")
+	}
+	startLine := region.(map[string]interface{})["startLine"].(float64)
+	if startLine != 5 {
+		t.Fatalf("expected startLine=5, got %v", startLine)
+	}
+}

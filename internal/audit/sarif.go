@@ -64,7 +64,7 @@ type sarifLocation struct {
 
 type sarifPhysicalLoc struct {
 	ArtifactLocation sarifArtifactLoc `json:"artifactLocation"`
-	Region           sarifRegion      `json:"region"`
+	Region           *sarifRegion     `json:"region,omitempty"`
 }
 
 type sarifArtifactLoc struct {
@@ -130,14 +130,13 @@ func ToSARIF(results []*Result, opts SARIFOptions) *sarifLog {
 			}
 
 			if f.File != "" {
-				sr.Locations = []sarifLocation{
-					{
-						PhysicalLocation: sarifPhysicalLoc{
-							ArtifactLocation: sarifArtifactLoc{URI: f.File},
-							Region:           sarifRegion{StartLine: f.Line},
-						},
-					},
+				loc := sarifPhysicalLoc{
+					ArtifactLocation: sarifArtifactLoc{URI: f.File},
 				}
+				if f.Line > 0 {
+					loc.Region = &sarifRegion{StartLine: f.Line}
+				}
+				sr.Locations = []sarifLocation{{PhysicalLocation: loc}}
 			}
 
 			sarifResults = append(sarifResults, sr)

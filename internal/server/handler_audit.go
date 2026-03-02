@@ -94,6 +94,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var results []auditResultResponse
+	var rawResults []*audit.Result
 	summary := auditSummary{
 		Total:     len(skills),
 		Threshold: threshold,
@@ -130,6 +131,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 		result.Threshold = threshold
 		result.IsBlocked = result.HasSeverityAtOrAbove(threshold)
 
+		rawResults = append(rawResults, result)
 		resp := toAuditResponse(result)
 		results = append(results, resp)
 
@@ -213,6 +215,11 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	if len(infoSkills) > 0 {
 		args["info_skills"] = infoSkills
 	}
+	// Cross-skill analysis (after summary so counts are unaffected).
+	if xr := audit.CrossSkillAnalysis(rawResults); xr != nil {
+		results = append(results, toAuditResponse(xr))
+	}
+
 	s.writeAuditLog(status, start, args, msg)
 
 	writeJSON(w, map[string]any{
