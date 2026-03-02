@@ -19,16 +19,28 @@ import (
 
 const largeAuditThreshold = 1000
 
+// Output format constants for --format flag.
+const (
+	formatText  = "text"
+	formatJSON  = "json"
+	formatSARIF = "sarif"
+)
+
 type auditOptions struct {
 	Targets   []string
 	Groups    []string
 	InitRules bool
 	JSON      bool   // deprecated: use Format
-	Format    string // "text", "json", "sarif" (default: "text")
+	Format    string // formatText, formatJSON, or formatSARIF (default: formatText)
 	Quiet     bool
 	Yes       bool
 	NoTUI     bool
 	Threshold string
+}
+
+// isStructured returns true if the output format is machine-readable (json/sarif).
+func (o auditOptions) isStructured() bool {
+	return o.Format == formatJSON || o.Format == formatSARIF
 }
 
 type auditRunSummary struct {
@@ -95,11 +107,18 @@ func cmdAudit(args []string) error {
 	if opts.JSON {
 		fmt.Fprintln(os.Stderr, "warning: --json is deprecated, use --format json")
 		if opts.Format == "" {
-			opts.Format = "json"
+			opts.Format = formatJSON
 		}
 	}
 	if opts.Format == "" {
-		opts.Format = "text"
+		opts.Format = formatText
+	}
+	// Redirect spinner/progress output to stderr for structured formats
+	// so progress indicators don't corrupt JSON/SARIF on stdout.
+	if opts.isStructured() {
+		prev := ui.ProgressWriter
+		ui.SetProgressWriter(os.Stderr)
+		defer ui.SetProgressWriter(prev)
 	}
 	if opts.InitRules {
 		if mode == modeProject {
@@ -179,7 +198,7 @@ func cmdAudit(args []string) error {
 	logAuditOp(cfgPath, rest, summary, start, nil, blocked)
 
 	switch opts.Format {
-	case "sarif":
+	case formatSARIF:
 		log := audit.ToSARIF(results, audit.SARIFOptions{ToolVersion: versionpkg.Version})
 		out, _ := json.MarshalIndent(log, "", "  ")
 		fmt.Println(string(out))
@@ -187,7 +206,7 @@ func cmdAudit(args []string) error {
 			os.Exit(1)
 		}
 		return nil
-	case "json":
+	case formatJSON:
 		out, _ := json.MarshalIndent(auditJSONOutput{
 			Results: results,
 			Summary: summary,
@@ -230,7 +249,7 @@ func parseAuditArgs(args []string) (auditOptions, bool, error) {
 			}
 			i++
 			switch args[i] {
-			case "text", "json", "sarif":
+			case formatText, formatJSON, formatSARIF:
 				opts.Format = args[i]
 			default:
 				return opts, false, fmt.Errorf("unknown format: %s (supported: text, json, sarif)", args[i])
@@ -374,7 +393,7 @@ func scanPathTarget(targetPath, projectRoot string) (*audit.Result, error) {
 }
 
 func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditOptions) ([]*audit.Result, auditRunSummary, error) {
-	jsonOutput := opts.Format == "json" || opts.Format == "sarif"
+	jsonOutput := opts.isStructured()
 	base := auditRunSummary{
 		Scope:     "all",
 		Mode:      mode,
@@ -382,28 +401,17 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	}
 
 	// Phase 0: discover skills (with spinner).
-	var spinner *ui.Spinner
-	if !jsonOutput {
-		spinner = ui.StartSpinner("Discovering skills...")
-	}
+	spinner := ui.StartSpinner("Discovering skills...")
 	skillPaths, err := collectInstalledSkillPaths(sourcePath)
 	if err != nil {
-		if spinner != nil {
-			spinner.Fail("Discovery failed")
-		}
+		spinner.Fail("Discovery failed")
 		return nil, base, err
 	}
 	if len(skillPaths) == 0 {
-		if spinner != nil {
-			spinner.Success("No skills found")
-		} else {
-			ui.Info("No skills found in source directory")
-		}
+		spinner.Success("No skills found")
 		return []*audit.Result{}, base, nil
 	}
-	if spinner != nil {
-		spinner.Success(fmt.Sprintf("Found %d skill(s)", len(skillPaths)))
-	}
+	spinner.Success(fmt.Sprintf("Found %d skill(s)", len(skillPaths)))
 
 	// Phase 0.5: large audit confirmation prompt.
 	if len(skillPaths) > largeAuditThreshold && !jsonOutput && !opts.Yes && ui.IsTTY() {
@@ -426,19 +434,12 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	}
 
 	// Phase 1: parallel scan with progress bar.
-	var progressBar *ui.ProgressBar
-	if !jsonOutput {
-		progressBar = ui.StartProgress("Scanning skills", len(skillPaths))
-	}
+	progressBar := ui.StartProgress("Scanning skills", len(skillPaths))
 	onDone := func() {
-		if progressBar != nil {
-			progressBar.Increment()
-		}
+		progressBar.Increment()
 	}
 	scanResults := audit.ParallelScan(toAuditInputs(skillPaths), projectRoot, onDone)
-	if progressBar != nil {
-		progressBar.Stop()
-	}
+	progressBar.Stop()
 
 	// Collect results and their elapsed times together.
 	results := make([]*audit.Result, 0, len(skillPaths))
@@ -476,7 +477,7 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 }
 
 func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot, threshold string, opts auditOptions) ([]*audit.Result, auditRunSummary, error) {
-	jsonOutput := opts.Format == "json" || opts.Format == "sarif"
+	jsonOutput := opts.isStructured()
 	base := auditRunSummary{
 		Scope:     "filtered",
 		Mode:      mode,
@@ -552,19 +553,12 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	}
 
 	// Phase 1: parallel scan with progress bar.
-	var progressBar *ui.ProgressBar
-	if !jsonOutput {
-		progressBar = ui.StartProgress("Scanning skills", len(matched))
-	}
+	progressBar := ui.StartProgress("Scanning skills", len(matched))
 	onDone := func() {
-		if progressBar != nil {
-			progressBar.Increment()
-		}
+		progressBar.Increment()
 	}
 	scanResults := audit.ParallelScan(toAuditInputs(matched), projectRoot, onDone)
-	if progressBar != nil {
-		progressBar.Stop()
-	}
+	progressBar.Stop()
 
 	// Collect results and their elapsed times together.
 	results := make([]*audit.Result, 0, len(matched))
@@ -634,7 +628,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format str
 	summary.Scope = "single"
 	summary.Skill = name
 	summary.Mode = mode
-	if format == "text" {
+	if format == formatText {
 		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning skill: %s", name), mode, sourcePath, threshold)
 		summaryLines := buildAuditSummaryLines(summary)
 		minWidth := auditHeaderMinWidth(subtitle)
@@ -673,7 +667,7 @@ func auditPath(rawPath, mode, projectRoot, threshold, format string) ([]*audit.R
 	summary.Scope = "path"
 	summary.Path = absPath
 	summary.Mode = mode
-	if format == "text" {
+	if format == formatText {
 		subtitle := fmt.Sprintf("Scanning path target\nmode: %s\npath: %s\nblock rule: finding severity >= %s", mode, absPath, threshold)
 		summaryLines := buildAuditSummaryLines(summary)
 		minWidth := auditHeaderMinWidth(subtitle)

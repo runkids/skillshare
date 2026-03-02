@@ -37,11 +37,30 @@ func DisplayWidth(s string) int {
 	return runewidth.StringWidth(clean)
 }
 
-// IsTTY returns true if stdout is a terminal
-func IsTTY() bool {
-	fi, _ := os.Stdout.Stat()
+// fileTTY returns true if the given file descriptor is a terminal.
+func fileTTY(f *os.File) bool {
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
 	return (fi.Mode() & os.ModeCharDevice) != 0
 }
+
+// IsTTY returns true if stdout is a terminal.
+func IsTTY() bool { return fileTTY(os.Stdout) }
+
+// ProgressWriter is the destination for spinner and progress bar output.
+// Defaults to os.Stdout; set to os.Stderr for structured output modes
+// (e.g. --format json/sarif) so progress indicators don't corrupt data.
+var ProgressWriter *os.File = os.Stdout
+
+// SetProgressWriter redirects spinner and progress bar output.
+func SetProgressWriter(w *os.File) {
+	ProgressWriter = w
+}
+
+// isProgressTTY returns true if ProgressWriter is a terminal.
+func isProgressTTY() bool { return fileTTY(ProgressWriter) }
 
 // Box prints content in a styled box
 func Box(title string, lines ...string) {
@@ -139,27 +158,29 @@ type Spinner struct {
 
 // StartSpinner starts a spinner with message
 func StartSpinner(message string) *Spinner {
-	if !IsTTY() {
-		fmt.Printf("... %s\n", message)
+	if !isProgressTTY() {
+		fmt.Fprintf(ProgressWriter, "... %s\n", message)
 		return &Spinner{start: time.Now()}
 	}
 
 	s, _ := pterm.DefaultSpinner.
 		WithRemoveWhenDone(true).
+		WithWriter(ProgressWriter).
 		Start(message)
 	return &Spinner{spinner: s, start: time.Now()}
 }
 
 // StartSpinnerWithSteps starts a spinner that shows step progress
 func StartSpinnerWithSteps(message string, totalSteps int) *Spinner {
-	if !IsTTY() {
-		fmt.Printf("... [1/%d] %s\n", totalSteps, message)
+	if !isProgressTTY() {
+		fmt.Fprintf(ProgressWriter, "... [1/%d] %s\n", totalSteps, message)
 		return &Spinner{start: time.Now(), currentStep: 1, totalSteps: totalSteps}
 	}
 
 	stepPrefix := fmt.Sprintf("[1/%d] ", totalSteps)
 	s, _ := pterm.DefaultSpinner.
 		WithRemoveWhenDone(true).
+		WithWriter(ProgressWriter).
 		Start(stepPrefix + message)
 	return &Spinner{
 		spinner:     s,
@@ -183,9 +204,9 @@ func (s *Spinner) Update(message string) {
 		s.spinner.UpdateText(s.stepPrefix + message)
 	} else {
 		if s.totalSteps > 0 {
-			fmt.Printf("... [%d/%d] %s\n", s.currentStep, s.totalSteps, message)
+			fmt.Fprintf(ProgressWriter, "... [%d/%d] %s\n", s.currentStep, s.totalSteps, message)
 		} else {
-			fmt.Printf("... %s\n", message)
+			fmt.Fprintf(ProgressWriter, "... %s\n", message)
 		}
 	}
 }
@@ -207,13 +228,10 @@ func (s *Spinner) Success(message string) {
 		msg = fmt.Sprintf("%s (%.1fs)", message, elapsed.Seconds())
 	}
 	if s.spinner != nil {
-		// Stop first (clears animation via RemoveWhenDone), then print.
-		// pterm's spinner.Success() loses the message because Stop() clears
-		// the line after printing. We print a lightweight ✓ instead.
 		s.spinner.Stop() //nolint:errcheck
-		fmt.Printf("%s %s\n", pterm.Green("✓"), msg)
+		fmt.Fprintf(ProgressWriter, "%s %s\n", pterm.Green("✓"), msg)
 	} else {
-		fmt.Printf("✓ %s\n", msg)
+		fmt.Fprintf(ProgressWriter, "✓ %s\n", msg)
 	}
 }
 
@@ -221,9 +239,9 @@ func (s *Spinner) Success(message string) {
 func (s *Spinner) Fail(message string) {
 	if s.spinner != nil {
 		s.spinner.Stop() //nolint:errcheck
-		fmt.Printf("%s %s\n", pterm.Red("✗"), message)
+		fmt.Fprintf(ProgressWriter, "%s %s\n", pterm.Red("✗"), message)
 	} else {
-		fmt.Printf("✗ %s\n", message)
+		fmt.Fprintf(ProgressWriter, "✗ %s\n", message)
 	}
 }
 
@@ -236,9 +254,9 @@ func (s *Spinner) Warn(message string) {
 	}
 	if s.spinner != nil {
 		s.spinner.Stop() //nolint:errcheck
-		fmt.Printf("%s %s\n", pterm.Yellow("!"), msg)
+		fmt.Fprintf(ProgressWriter, "%s %s\n", pterm.Yellow("!"), msg)
 	} else {
-		fmt.Printf("! %s\n", msg)
+		fmt.Fprintf(ProgressWriter, "! %s\n", msg)
 	}
 }
 
@@ -358,14 +376,15 @@ type ProgressBar struct {
 
 // StartProgress starts a progress bar
 func StartProgress(title string, total int) *ProgressBar {
-	if !IsTTY() {
-		fmt.Printf("%s (0/%d)\n", title, total)
+	if !isProgressTTY() {
+		fmt.Fprintf(ProgressWriter, "%s (0/%d)\n", title, total)
 		return &ProgressBar{total: total}
 	}
 
 	bar, _ := pterm.DefaultProgressbar.
 		WithTotal(total).
 		WithTitle(title).
+		WithWriter(ProgressWriter).
 		Start()
 	return &ProgressBar{bar: bar, total: total}
 }
@@ -406,7 +425,7 @@ func (p *ProgressBar) UpdateTitle(title string) {
 	if p.bar != nil {
 		p.bar.UpdateTitle(display)
 	} else {
-		fmt.Printf("  %s\n", strings.TrimRight(display, " "))
+		fmt.Fprintf(ProgressWriter, "  %s\n", strings.TrimRight(display, " "))
 	}
 }
 
