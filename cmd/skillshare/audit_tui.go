@@ -51,7 +51,31 @@ func (i auditItem) Title() string {
 }
 
 func (i auditItem) Description() string { return "" }
-func (i auditItem) FilterValue() string { return i.result.SkillName }
+
+func (i auditItem) FilterValue() string {
+	// Searchable: skill name, risk label, status, max severity, finding patterns, finding files.
+	r := i.result
+	status := "clean"
+	if r.IsBlocked {
+		status = "blocked"
+	} else if len(r.Findings) > 0 {
+		status = "warning"
+	}
+	parts := []string{r.SkillName, r.RiskLabel, status, r.MaxSeverity()}
+
+	seen := map[string]bool{}
+	for _, f := range r.Findings {
+		if !seen[f.Pattern] {
+			parts = append(parts, f.Pattern)
+			seen[f.Pattern] = true
+		}
+		if !seen[f.File] {
+			parts = append(parts, f.File)
+			seen[f.File] = true
+		}
+	}
+	return strings.Join(parts, " ")
+}
 
 // auditTUIModel is the bubbletea model for interactive audit results.
 type auditTUIModel struct {
