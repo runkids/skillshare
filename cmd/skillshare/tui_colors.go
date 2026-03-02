@@ -60,30 +60,30 @@ var tc = struct {
 
 	Title:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6")),
 	Emphasis: lipgloss.NewStyle().Foreground(lipgloss.Color("15")),
-	Dim:      lipgloss.NewStyle().Foreground(lipgloss.Color("245")),
-	Faint:    lipgloss.NewStyle().Foreground(lipgloss.Color("239")),
+	Dim:      lipgloss.NewStyle().Foreground(lipgloss.Color("247")),
+	Faint:    lipgloss.NewStyle().Foreground(lipgloss.Color("242")),
 	Cyan:     lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
 	Green:    lipgloss.NewStyle().Foreground(lipgloss.Color("2")),
 	Yellow:   lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
 	Red:      lipgloss.NewStyle().Foreground(lipgloss.Color("1")),
 
-	Label:     lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Width(14),
+	Label:     lipgloss.NewStyle().Foreground(lipgloss.Color("247")).Width(14),
 	Value:     lipgloss.NewStyle(),
-	File:      lipgloss.NewStyle().Foreground(lipgloss.Color("245")),
+	File:      lipgloss.NewStyle().Foreground(lipgloss.Color("247")),
 	Target:    lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
-	Separator: lipgloss.NewStyle().Foreground(lipgloss.Color("239")),
-	Border:    lipgloss.NewStyle().Foreground(lipgloss.Color("239")),
+	Separator: lipgloss.NewStyle().Foreground(lipgloss.Color("242")),
+	Border:    lipgloss.NewStyle().Foreground(lipgloss.Color("242")),
 
 	Filter: lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
-	Help:   lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("239")),
+	Help:   lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("242")),
 
 	NormalTitle: lipgloss.NewStyle().PaddingLeft(2),
-	NormalDesc:  lipgloss.NewStyle().Foreground(lipgloss.Color("245")).PaddingLeft(2),
+	NormalDesc:  lipgloss.NewStyle().Foreground(lipgloss.Color("247")).PaddingLeft(2),
 	SelectedTitle: lipgloss.NewStyle().Bold(true).
 		Foreground(lipgloss.Color("#D4D93C")).
 		Border(lipgloss.NormalBorder(), false, false, false, true).
 		BorderForeground(lipgloss.Color("#D4D93C")).PaddingLeft(1),
-	SelectedDesc: lipgloss.NewStyle().Foreground(lipgloss.Color("245")).
+	SelectedDesc: lipgloss.NewStyle().Foreground(lipgloss.Color("247")).
 		Border(lipgloss.NormalBorder(), false, false, false, true).
 		BorderForeground(lipgloss.Color("#D4D93C")).PaddingLeft(1),
 

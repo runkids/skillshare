@@ -22,7 +22,7 @@ var lc = struct {
 	Label lipgloss.Style // row labels — wider (22) than tc.Label (14)
 }{
 	Bold:  lipgloss.NewStyle().Bold(true),
-	Label: lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Width(22),
+	Label: lipgloss.NewStyle().Foreground(lipgloss.Color("247")).Width(22),
 }
 
 // logLoadFn is a function that loads log items (runs in a goroutine inside the TUI).
