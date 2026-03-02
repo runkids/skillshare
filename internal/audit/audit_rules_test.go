@@ -212,6 +212,84 @@ func TestMergeRules_Override(t *testing.T) {
 	}
 }
 
+func TestMergeRules_PatternDisable(t *testing.T) {
+	resetForTest()
+	boolFalse := false
+	base := []yamlRule{
+		{ID: "pi-0", Severity: SeverityCritical, Pattern: "prompt-injection", Message: "m0", Regex: "r0"},
+		{ID: "pi-1", Severity: SeverityHigh, Pattern: "prompt-injection", Message: "m1", Regex: "r1"},
+		{ID: "dc-0", Severity: SeverityHigh, Pattern: "destructive-commands", Message: "m2", Regex: "r2"},
+	}
+	overlay := []yamlRule{
+		{Pattern: "prompt-injection", Enabled: &boolFalse},
+	}
+	merged := mergeYAMLRules(base, overlay)
+	compiled, err := compileRules(merged)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if len(compiled) != 1 {
+		t.Fatalf("want 1 rule, got %d", len(compiled))
+	}
+	if compiled[0].ID != "dc-0" {
+		t.Fatalf("want dc-0, got %s", compiled[0].ID)
+	}
+}
+
+func TestMergeRules_PatternSeverityOverride(t *testing.T) {
+	resetForTest()
+	base := []yamlRule{
+		{ID: "dc-0", Severity: SeverityHigh, Pattern: "destructive-commands", Message: "m0", Regex: "r0"},
+		{ID: "dc-1", Severity: SeverityHigh, Pattern: "destructive-commands", Message: "m1", Regex: "r1"},
+		{ID: "pi-0", Severity: SeverityCritical, Pattern: "prompt-injection", Message: "m2", Regex: "r2"},
+	}
+	overlay := []yamlRule{
+		{Pattern: "destructive-commands", Severity: SeverityMedium},
+	}
+	merged := mergeYAMLRules(base, overlay)
+	compiled, err := compileRules(merged)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if len(compiled) != 3 {
+		t.Fatalf("want 3 rules, got %d", len(compiled))
+	}
+	for _, r := range compiled {
+		if r.Pattern == "destructive-commands" && r.Severity != SeverityMedium {
+			t.Fatalf("want MEDIUM for %s, got %s", r.ID, r.Severity)
+		}
+	}
+	if compiled[2].Severity != SeverityCritical {
+		t.Fatalf("pi-0 severity should be unchanged, got %s", compiled[2].Severity)
+	}
+}
+
+func TestMergeRules_PatternDisableThenIDEnable(t *testing.T) {
+	resetForTest()
+	boolFalse := false
+	boolTrue := true
+	base := []yamlRule{
+		{ID: "ca-0", Severity: SeverityCritical, Pattern: "credential-access", Message: "m0", Regex: "r0"},
+		{ID: "ca-1", Severity: SeverityCritical, Pattern: "credential-access", Message: "m1", Regex: "r1"},
+		{ID: "ca-2", Severity: SeverityHigh, Pattern: "credential-access", Message: "m2", Regex: "r2"},
+	}
+	overlay := []yamlRule{
+		{Pattern: "credential-access", Enabled: &boolFalse},
+		{ID: "ca-1", Enabled: &boolTrue},
+	}
+	merged := mergeYAMLRules(base, overlay)
+	compiled, err := compileRules(merged)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if len(compiled) != 1 {
+		t.Fatalf("want 1 rule, got %d", len(compiled))
+	}
+	if compiled[0].ID != "ca-1" {
+		t.Fatalf("want ca-1, got %s", compiled[0].ID)
+	}
+}
+
 func TestLoadUserRules_NotFound(t *testing.T) {
 	rules, err := loadUserRules("/nonexistent/path/audit-rules.yaml")
 	if err != nil {

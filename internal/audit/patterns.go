@@ -260,12 +260,35 @@ func loadUserRules(path string) ([]yamlRule, error) {
 	return parseRulesYAML(data)
 }
 
+// isPatternLevel returns true when an overlay entry targets all rules
+// sharing a pattern name rather than a single rule by ID.
+func isPatternLevel(r yamlRule) bool {
+	return r.ID == "" && r.Pattern != "" && r.Regex == ""
+}
+
 // mergeYAMLRules merges overlay rules into base rules.
-// - Same ID + enabled:false → remove from result
-// - Same ID + other fields → replace entire rule
-// - New ID → append
+//
+// Overlay entries come in two flavours:
+//  1. Pattern-level (no id, has pattern, no regex): applied to every base
+//     rule whose Pattern field matches.
+//  2. ID-level (has id): matched to a single base rule, or appended as new.
+//
+// Processing order:
+//   - Phase 1: pattern-level overlays (bulk disable / severity override)
+//   - Phase 2: id-level overlays (can override pattern-level, e.g. re-enable
+//     an individual rule after a pattern-level disable)
 func mergeYAMLRules(base, overlay []yamlRule) []yamlRule {
-	// Index base rules by ID for fast lookup
+	// Separate overlay into pattern-level and id-level entries.
+	var patternOverlays, idOverlays []yamlRule
+	for _, o := range overlay {
+		if isPatternLevel(o) {
+			patternOverlays = append(patternOverlays, o)
+		} else {
+			idOverlays = append(idOverlays, o)
+		}
+	}
+
+	// Index base rules by ID for fast lookup.
 	idx := make(map[string]int, len(base))
 	result := make([]yamlRule, len(base))
 	copy(result, base)
@@ -273,16 +296,34 @@ func mergeYAMLRules(base, overlay []yamlRule) []yamlRule {
 		idx[r.ID] = i
 	}
 
-	for _, o := range overlay {
+	// Phase 1: apply pattern-level overlays to every matching base rule.
+	for _, po := range patternOverlays {
+		for i := range result {
+			if result[i].Pattern != po.Pattern {
+				continue
+			}
+			if po.Enabled != nil && !*po.Enabled {
+				result[i].Enabled = po.Enabled
+			}
+			if po.Severity != "" {
+				result[i].Severity = po.Severity
+			}
+		}
+	}
+
+	// Phase 2: apply id-level overlays (same logic as before).
+	for _, o := range idOverlays {
 		if pos, exists := idx[o.ID]; exists {
 			if o.Enabled != nil && !*o.Enabled {
-				// Mark for removal by setting empty regex
 				result[pos].Enabled = o.Enabled
+			} else if o.Enabled != nil && *o.Enabled {
+				// Explicit enabled:true clears a disabled flag (e.g. from pattern-level).
+				result[pos].Enabled = nil
 			} else {
 				result[pos] = o
 			}
 		} else {
-			// New rule — append
+			// New rule — append.
 			result = append(result, o)
 		}
 	}
