@@ -55,7 +55,18 @@ Source code is bind-mounted into the container at `/workspace`. The `ss` wrapper
 
 This also applies to `go test` — tests always compile against the latest source. The Web UI backend uses `air` for hot-reload (same zero-rebuild experience).
 
-## Step 0: Ensure Devcontainer is Running
+## Entering the Devcontainer
+
+The quickest way to get an interactive shell inside the devcontainer:
+
+```bash
+make devc                              # interactive bash shell
+./scripts/devcontainer_shell.sh make test  # run a command directly
+```
+
+The script auto-detects whether the container is running and prints setup instructions if it isn't.
+
+### Programmatic access (for `docker exec` workflows)
 
 ```bash
 CONTAINER=$(docker compose -f .devcontainer/docker-compose.yml ps -q skillshare-devcontainer 2>/dev/null)

@@ -16,6 +16,7 @@ echo "  mise run test:docker:online  # docker online install/update tests"
 echo "  mise run test:redteam   # red team supply-chain security tests"
 echo "  mise run playground     # start playground + enter shell (one step)"
 echo "  mise run playground:down  # stop and remove playground"
+echo "  mise run devc           # enter running devcontainer shell"
 echo "  mise run lint           # go vet"
 echo "  mise run fmt            # format Go files"
 echo "  mise run check          # fmt:check + lint + test"
@@ -84,6 +85,10 @@ run = """
 [tasks."playground:down"]
 description = "Stop and remove playground container"
 run = "./scripts/sandbox_playground_down.sh"
+
+[tasks.devc]
+description = "Enter running devcontainer shell"
+run = "./scripts/devcontainer_shell.sh"
 
 [tasks."dev:docker"]
 description = "Go API in Docker + auto-rebuild (pair with: cd ui && pnpm run dev)"

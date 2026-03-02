@@ -37,8 +37,7 @@
 
 > [!NOTE]
 > **Recent Updates**
-> - **[0.16.7](https://github.com/runkids/skillshare/releases/tag/v0.16.7)**: Dotfiles manager compatibility — sync preserves external symlinks on source and target directories (stow, chezmoi, yadm).
-> - **[0.16.*](https://github.com/runkids/skillshare/releases/tag/v0.16.6)**: Performance overhaul, interactive TUI for diff/restore/trash, file-level diff, glob matching, Homebrew-aware upgrade.
+> - **[0.16.*](https://github.com/runkids/skillshare/releases/tag/v0.16.7)**: Performance overhaul, interactive TUI for diff/restore/trash, file-level diff, glob matching, Homebrew-aware upgrade, dotfiles manager compatibility.
 > - Full history: [All Releases](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare

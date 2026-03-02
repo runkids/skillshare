@@ -1,4 +1,4 @@
-.PHONY: help build build-meta build-windows run test test-unit test-int test-docker test-docker-online test-redteam test-redteam-signal test-redteam-rules-signal playground playground-down dev-docker dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
+.PHONY: help build build-meta build-windows run test test-unit test-int test-docker test-docker-online test-redteam test-redteam-signal test-redteam-rules-signal playground playground-down devc dev-docker dev-docker-down docker-build docker-build-multiarch lint fmt fmt-check check install clean ui-install ui-build ui-dev build-all
 
 help:
 	@echo "Common tasks:"
@@ -14,6 +14,7 @@ help:
 	@echo "  make test-redteam-rules-signal  # verify red team test fails when critical builtin rules are disabled"
 	@echo "  make playground     # start playground + enter shell (one step)"
 	@echo "  make playground-down  # stop and remove playground"
+	@echo "  make devc           # enter running devcontainer shell"
 	@echo "  make lint           # go vet"
 	@echo "  make fmt            # format Go files"
 	@echo "  make check          # fmt-check + lint + test"
@@ -71,6 +72,9 @@ playground:
 
 playground-down:
 	./scripts/sandbox_playground_down.sh
+
+devc:
+	./scripts/devcontainer_shell.sh
 
 dev-docker:
 	docker compose -f docker-compose.sandbox.yml --profile dev watch
