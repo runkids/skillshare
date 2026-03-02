@@ -14,6 +14,7 @@ import (
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
+	versionpkg "skillshare/internal/version"
 )
 
 const largeAuditThreshold = 1000
@@ -22,7 +23,8 @@ type auditOptions struct {
 	Targets   []string
 	Groups    []string
 	InitRules bool
-	JSON      bool
+	JSON      bool   // deprecated: use Format
+	Format    string // "text", "json", "sarif" (default: "text")
 	Quiet     bool
 	Yes       bool
 	NoTUI     bool
@@ -88,6 +90,17 @@ func cmdAudit(args []string) error {
 	if err != nil {
 		return err
 	}
+
+	// Reconcile --json (deprecated) with --format.
+	if opts.JSON {
+		fmt.Fprintln(os.Stderr, "warning: --json is deprecated, use --format json")
+		if opts.Format == "" {
+			opts.Format = "json"
+		}
+	}
+	if opts.Format == "" {
+		opts.Format = "text"
+	}
 	if opts.InitRules {
 		if mode == modeProject {
 			return initAuditRules(audit.ProjectAuditRulesPath(cwd))
@@ -151,9 +164,9 @@ func cmdAudit(args []string) error {
 	case !hasTargets:
 		results, summary, err = auditInstalled(sourcePath, modeString(mode), projectRoot, threshold, opts)
 	case isSinglePath:
-		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.JSON)
+		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format)
 	case isSingleName:
-		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.JSON)
+		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format)
 	default:
 		results, summary, err = auditFiltered(sourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, opts)
 	}
@@ -165,7 +178,16 @@ func cmdAudit(args []string) error {
 	blocked := summary.Failed > 0
 	logAuditOp(cfgPath, rest, summary, start, nil, blocked)
 
-	if opts.JSON {
+	switch opts.Format {
+	case "sarif":
+		log := audit.ToSARIF(results, audit.SARIFOptions{ToolVersion: versionpkg.Version})
+		out, _ := json.MarshalIndent(log, "", "  ")
+		fmt.Println(string(out))
+		if blocked {
+			os.Exit(1)
+		}
+		return nil
+	case "json":
 		out, _ := json.MarshalIndent(auditJSONOutput{
 			Results: results,
 			Summary: summary,
@@ -202,6 +224,17 @@ func parseAuditArgs(args []string) (auditOptions, bool, error) {
 			opts.InitRules = true
 		case "--json":
 			opts.JSON = true
+		case "--format":
+			if i+1 >= len(args) {
+				return opts, false, fmt.Errorf("%s requires a value (text, json, sarif)", arg)
+			}
+			i++
+			switch args[i] {
+			case "text", "json", "sarif":
+				opts.Format = args[i]
+			default:
+				return opts, false, fmt.Errorf("unknown format: %s (supported: text, json, sarif)", args[i])
+			}
 		case "--quiet", "-q":
 			opts.Quiet = true
 		case "--yes", "-y":
@@ -341,7 +374,7 @@ func scanPathTarget(targetPath, projectRoot string) (*audit.Result, error) {
 }
 
 func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditOptions) ([]*audit.Result, auditRunSummary, error) {
-	jsonOutput := opts.JSON
+	jsonOutput := opts.Format == "json" || opts.Format == "sarif"
 	base := auditRunSummary{
 		Scope:     "all",
 		Mode:      mode,
@@ -443,7 +476,7 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 }
 
 func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot, threshold string, opts auditOptions) ([]*audit.Result, auditRunSummary, error) {
-	jsonOutput := opts.JSON
+	jsonOutput := opts.Format == "json" || opts.Format == "sarif"
 	base := auditRunSummary{
 		Scope:     "filtered",
 		Mode:      mode,
@@ -567,7 +600,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	return results, summary, nil
 }
 
-func auditSkillByName(sourcePath, name, mode, projectRoot, threshold string, jsonOutput bool) ([]*audit.Result, auditRunSummary, error) {
+func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format string) ([]*audit.Result, auditRunSummary, error) {
 	summary := auditRunSummary{
 		Scope:     "single",
 		Skill:     name,
@@ -601,7 +634,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold string, jso
 	summary.Scope = "single"
 	summary.Skill = name
 	summary.Mode = mode
-	if !jsonOutput {
+	if format == "text" {
 		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning skill: %s", name), mode, sourcePath, threshold)
 		summaryLines := buildAuditSummaryLines(summary)
 		minWidth := auditHeaderMinWidth(subtitle)
@@ -613,7 +646,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold string, jso
 	return []*audit.Result{result}, summary, nil
 }
 
-func auditPath(rawPath, mode, projectRoot, threshold string, jsonOutput bool) ([]*audit.Result, auditRunSummary, error) {
+func auditPath(rawPath, mode, projectRoot, threshold, format string) ([]*audit.Result, auditRunSummary, error) {
 	absPath, err := filepath.Abs(rawPath)
 	if err != nil {
 		absPath = rawPath
@@ -640,7 +673,7 @@ func auditPath(rawPath, mode, projectRoot, threshold string, jsonOutput bool) ([
 	summary.Scope = "path"
 	summary.Path = absPath
 	summary.Mode = mode
-	if !jsonOutput {
+	if format == "text" {
 		subtitle := fmt.Sprintf("Scanning path target\nmode: %s\npath: %s\nblock rule: finding severity >= %s", mode, absPath, threshold)
 		summaryLines := buildAuditSummaryLines(summary)
 		minWidth := auditHeaderMinWidth(subtitle)
@@ -992,7 +1025,8 @@ Options:
   -g, --global         Use global skills
   --threshold, -T <t>  Block by severity at/above: critical|high|medium|low|info
                        (also supports c|h|m|l|i)
-  --json               Output JSON
+  --format <f>         Output format: text (default), json, sarif
+  --json               Output JSON (deprecated: use --format json)
   --quiet, -q          Only show skills with findings + summary (skip clean ✓ lines)
   --yes, -y            Skip large-audit confirmation prompt
   --no-tui             Disable interactive TUI, use plain text output
@@ -1009,6 +1043,8 @@ Examples:
   skillshare audit ./skills/foo/SKILL.md     # Scan a single file
   skillshare audit --threshold high          # Block on HIGH+ findings
   skillshare audit -T h                      # Same, with shorthand alias
-  skillshare audit --json                    # Output machine-readable results
+  skillshare audit --format json              # Output machine-readable JSON
+  skillshare audit --format sarif            # Output SARIF 2.1.0 for GitHub Code Scanning
+  skillshare audit --json                    # Same as --format json (deprecated)
   skillshare audit -p --init-rules           # Create project custom rules file`)
 }
