@@ -14,7 +14,9 @@ skillshare audit --group frontend       # Scan all skills in a group
 skillshare audit <path>                 # Scan a file/directory path
 skillshare audit --threshold high       # Block on HIGH+ findings
 skillshare audit -T h                   # Same as --threshold high
-skillshare audit --json                 # JSON output
+skillshare audit --format json           # JSON output
+skillshare audit --format sarif         # SARIF 2.1.0 output (GitHub Code Scanning)
+skillshare audit --json                 # Same as --format json (deprecated)
 skillshare audit -p                     # Scan project skills
 skillshare audit --quiet                # Only show skills with findings
 skillshare audit --yes                  # Skip large-scan confirmation
@@ -61,8 +63,9 @@ The `audit` command acts as a **gatekeeper** — scanning skill content for know
 - Review security findings after installing a new skill
 - Scan all skills for prompt injection, data exfiltration, or credential access patterns
 - Customize audit rules for your organization's security policy
-- Generate audit reports for compliance (with `--json`)
+- Generate audit reports for compliance (`--format json`) or static analysis tools (`--format sarif`)
 - Integrate into CI/CD pipelines to gate skill deployments
+- Upload SARIF results to GitHub Code Scanning for PR-level annotations
 
 ## What It Detects
 
@@ -416,6 +419,36 @@ skillshare audit --threshold high
 echo $?  # 0 = clean, 1 = findings found
 ```
 
+### SARIF Output
+
+[SARIF (Static Analysis Results Interchange Format)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) is an OASIS standard consumed by GitHub Code Scanning, VS Code SARIF Viewer, Azure DevOps, SonarQube, and other static analysis tools.
+
+```bash
+# Output SARIF 2.1.0 to stdout
+skillshare audit --format sarif
+
+# Save to file for upload
+skillshare audit --format sarif > results.sarif
+
+# Combine with threshold
+skillshare audit --threshold high --format sarif > results.sarif
+```
+
+The SARIF output includes:
+- **Tool metadata** — tool name (`skillshare`), version, and information URI
+- **Rules** — deduplicated rule descriptors with `security-severity` scores
+- **Results** — each finding mapped to a SARIF result with file location and severity level
+
+Severity mapping to SARIF levels:
+
+| skillshare Severity | SARIF Level | security-severity |
+|---------------------|-------------|-------------------|
+| CRITICAL | `error` | 9.0 |
+| HIGH | `error` | 7.0 |
+| MEDIUM | `warning` | 4.0 |
+| LOW | `note` | 2.0 |
+| INFO | `note` | 0.5 |
+
 ### JSON Output with jq
 
 ```bash
@@ -449,7 +482,7 @@ jobs:
 
       - name: Run security audit
         run: |
-          skillshare audit --threshold high --json > audit-report.json
+          skillshare audit --threshold high --format json > audit-report.json
           skillshare audit --threshold high
 
       - name: Upload audit report
@@ -459,6 +492,47 @@ jobs:
           name: audit-report
           path: audit-report.json
 ```
+
+### GitHub Actions with Code Scanning (SARIF)
+
+Upload SARIF results to [GitHub Code Scanning](https://docs.github.com/en/code-security/code-scanning) for inline PR annotations and the Security tab dashboard:
+
+```yaml
+name: Skill Security Scan
+on:
+  pull_request:
+    paths: ['skills/**']
+  push:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write  # Required for SARIF upload
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install skillshare
+        run: |
+          curl -fsSL https://skillshare.runkids.cc/install.sh | bash
+
+      - name: Run security audit (SARIF)
+        run: |
+          skillshare audit --threshold high --format sarif > results.sarif || true
+
+      - name: Upload SARIF to GitHub Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: skillshare-audit
+```
+
+This creates:
+- **Inline annotations** on PR diffs showing exactly where findings are
+- **Security tab** entries visible at Repository → Security → Code scanning alerts
+- **Historical tracking** of findings across commits
 
 ## Best Practices
 
@@ -480,7 +554,7 @@ jobs:
 2. **Periodic scan**: Run `skillshare audit` regularly to catch rules updated after install
 3. **CI gate**: Add audit to your CI pipeline for shared skill repositories
 4. **Custom rules**: Tailor detection to your organization's threat model
-5. **Review reports**: Use `--json` output for compliance documentation
+5. **Review reports**: Use `--format json` for compliance or `--format sarif` for GitHub Code Scanning
 
 ### Threshold Configuration
 
@@ -814,7 +888,8 @@ Source of truth for regex-based rules:
 | `-p`, `--project` | Scan project-level skills |
 | `-g`, `--global` | Scan global skills |
 | `--threshold` `<t>`, `-T` `<t>` | Block threshold: `critical`\|`high`\|`medium`\|`low`\|`info` (shorthand: `c`\|`h`\|`m`\|`l`\|`i`, plus `crit`, `med`) |
-| `--json` | Output machine-readable JSON |
+| `--format` `<f>` | Output format: `text` (default), `json`, `sarif` |
+| `--json` | Output JSON (**deprecated**: use `--format json`) |
 | `--yes`, `-y` | Skip large-scan confirmation prompt (auto-confirms) |
 | `--quiet`, `-q` | Only show skills with findings + summary (suppress clean ✓ lines) |
 | `--no-tui` | Disable interactive TUI, print plain text output |
