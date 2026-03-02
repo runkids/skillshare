@@ -16,6 +16,10 @@ targets:
     project_name: antigravity
     global_path: "~/.gemini/antigravity/skills"
     project_path: ".agent/skills"
+  - global_name: astrbot
+    project_name: astrbot
+    global_path: "~/.astrbot/data/skills"
+    project_path: "data/skills"
   - global_name: augment
     project_name: augment
     global_path: "~/.augment/skills"
@@ -31,8 +35,8 @@ targets:
     aliases: [claude-code]
   - global_name: cline
     project_name: cline
-    global_path: "~/.cline/skills"
-    project_path: ".cline/skills"
+    global_path: "~/.agents/skills"
+    project_path: ".agents/skills"
   - global_name: codebuddy
     project_name: codebuddy
     global_path: "~/.codebuddy/skills"
