@@ -129,6 +129,7 @@ Skills installed or updated via `skillshare install` or `skillshare update` have
 | Pattern | Severity | Description |
 |---------|----------|------------|
 | `content-tampered` | MEDIUM | A file's SHA-256 hash no longer matches the recorded hash |
+| `content-oversize` | MEDIUM | A pinned file exceeds the 1 MB scan size limit |
 | `content-missing` | LOW | A file recorded in metadata no longer exists on disk |
 | `content-unexpected` | LOW | A new file exists that was not recorded in metadata |
 
@@ -143,6 +144,7 @@ These are lower-severity indicators that contribute to risk scoring and reportin
 - `LOW`: **dangling local links** — broken relative markdown links whose target file or directory does not exist on disk
 - `LOW`: **content-missing** / **content-unexpected** — content integrity issues (see above)
 - `INFO`: contextual hints like shell chaining patterns (for triage / visibility)
+- `INFO`: **low analyzability** — less than 70% of the skill's content is auditable text (see [Analyzability Score](#analyzability-score))
 
 > These findings don't block installation but raise the overall risk score. A skill with many LOW/INFO findings may warrant closer inspection.
 
@@ -354,6 +356,49 @@ Certain tier combinations generate additional findings that flag profile-level r
 | T2 + T3 present | `tier-destructive-network` | HIGH | Destructive and network commands together suggest data exfiltration risk |
 | T5 present | `tier-stealth` | CRITICAL | Detection evasion commands (e.g., clearing shell history) |
 | T3 count > 5 | `tier-network-heavy` | MEDIUM | Abnormally high density of network commands |
+
+## Analyzability Score
+
+Each scanned skill receives an **analyzability score** — the ratio of auditable plaintext bytes to total file bytes (0–100%). This tells you how much of the skill's content the scanner was able to inspect.
+
+| Score | Interpretation |
+|-------|---------------|
+| 100% | All content is scannable text (ideal) |
+| 70–99% | Most content is auditable; some binary assets present |
+| < 70% | Significant portion is opaque — manual review recommended |
+
+When analyzability drops below **70%**, the audit engine emits an `INFO`-level finding with pattern `low-analyzability`. This does not block installation but signals that the scanner's coverage is limited.
+
+Files excluded from the calculation:
+- Binary files (images, `.wasm`, etc.)
+- Files exceeding 1 MB
+- `.skillshare-meta.json` (internal metadata)
+
+### Output
+
+In single-skill text output:
+
+```
+→ Auditable: 85%
+```
+
+In multi-skill summary:
+
+```
+Auditable: 92% avg
+```
+
+In JSON output, each result includes:
+
+```json
+{
+  "totalBytes": 12480,
+  "auditableBytes": 10240,
+  "analyzability": 0.82
+}
+```
+
+The summary includes `avgAnalyzability` — the mean across all scanned skills.
 
 ## Example Output
 
@@ -901,7 +946,7 @@ Source of truth for regex-based rules:
 
 :::note Structural and tier-based checks
 
-`dangling-link`, `content-tampered`, `content-missing`, and `content-unexpected` are **structural checks** (filesystem lookups and hash comparisons, not regex). `tier-stealth`, `tier-destructive-network`, and `tier-network-heavy` are **tier combination findings** generated from [Command Safety Tiering](#command-safety-tiering) profiles. All of these appear in the table below but are not defined in `rules.yaml`.
+`dangling-link`, `content-tampered`, `content-oversize`, `content-missing`, and `content-unexpected` are **structural checks** (filesystem lookups and hash comparisons, not regex). `low-analyzability` is an **analyzability finding** generated from the [Analyzability Score](#analyzability-score). `tier-stealth`, `tier-destructive-network`, and `tier-network-heavy` are **tier combination findings** generated from [Command Safety Tiering](#command-safety-tiering) profiles. All of these appear in the table below but are not defined in `rules.yaml`.
 
 :::
 
@@ -940,9 +985,11 @@ Source of truth for regex-based rules:
 | `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
 | `content-tampered` | content-tampered | MEDIUM |
+| `content-oversize` | content-oversize | MEDIUM |
 | `content-missing` | content-missing | LOW |
 | `content-unexpected` | content-unexpected | LOW |
 | `shell-chain-0` | shell-chain | INFO |
+| `low-analyzability` | low-analyzability | INFO |
 | `tier-stealth` | tier-stealth | CRITICAL |
 | `tier-destructive-network` | tier-destructive-network | HIGH |
 | `tier-network-heavy` | tier-network-heavy | MEDIUM |
