@@ -360,6 +360,18 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 			skillTierProfile.Merge(DetectCommandTiers(data))
 		}
 
+		// Dataflow taint tracking: detect cross-line source→sink chains.
+		if !disabled[patternDataflowTaint] {
+			var dfFindings []Finding
+			if isMarkdown {
+				dfFindings = ScanMarkdownDataflow(data, relPath)
+			} else if isShellFile(fi.Name()) {
+				dfFindings = ScanShellDataflow(data, relPath)
+			}
+			result.Findings = append(result.Findings,
+				DeduplicateDataflow(dfFindings, findings)...)
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -474,6 +486,17 @@ func ScanFileWithRules(filePath string, activeRules []rule) (*Result, error) {
 		result.Findings = ScanContentWithRules(data, filepath.Base(filePath), resolvedRules)
 		result.TierProfile = DetectCommandTiers(data)
 	}
+
+	// Dataflow taint tracking for single-file scan.
+	var dfFindings []Finding
+	if isShellFile(info.Name()) {
+		dfFindings = ScanShellDataflow(data, filepath.Base(filePath))
+	} else if isMarkdown {
+		dfFindings = ScanMarkdownDataflow(data, filepath.Base(filePath))
+	}
+	result.Findings = append(result.Findings,
+		DeduplicateDataflow(dfFindings, result.Findings)...)
+
 	result.Findings = append(result.Findings, TierCombinationFindings(result.TierProfile)...)
 	result.updateRisk()
 	return result, nil
