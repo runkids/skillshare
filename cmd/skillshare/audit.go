@@ -342,7 +342,9 @@ func collectInstalledSkillPaths(sourcePath string) ([]struct {
 	name string
 	path string
 }, error) {
-	discovered, err := sync.DiscoverSourceSkills(sourcePath)
+	// Use Lite variant: audit does not need Targets (frontmatter parsing),
+	// saving ~2-5s on large source directories (skips 100k SKILL.md reads).
+	discovered, _, err := sync.DiscoverSourceSkillsLite(sourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills: %w", err)
 	}

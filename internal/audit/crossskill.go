@@ -1,6 +1,10 @@
 package audit
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+	"strings"
+)
 
 // skillCapability summarises the security-relevant capabilities of a single skill,
 // derived entirely from its existing Result (TierProfile + Findings).
@@ -15,8 +19,8 @@ type skillCapability struct {
 
 // credReadPatterns are the finding patterns that indicate credential reading.
 var credReadPatterns = map[string]bool{
-	"credential-access": true,
-	"dataflow-taint":    true,
+	"credential-access":  true,
+	patternDataflowTaint: true,
 }
 
 // extractCapability derives a skillCapability from a scan Result.
@@ -38,24 +42,73 @@ func extractCapability(r *Result) skillCapability {
 }
 
 // CrossSkillAnalysis checks for dangerous capability combinations across skills.
-// It returns a synthetic Result (SkillName="_cross-skill") with findings, or nil
-// if no cross-skill issues are detected. The caller should append the result to
-// the results slice *after* summariseAuditResults so summary counts stay correct.
+// It uses a set-based O(N) approach: one pass to build capability sets, then
+// each rule checks whether both sides are non-empty to produce a single summary
+// finding per rule.
+//
+// Returns a synthetic Result (SkillName="_cross-skill") with findings, or nil
+// if no cross-skill issues are detected.
 func CrossSkillAnalysis(results []*Result) *Result {
 	if len(results) < 2 {
 		return nil
 	}
 
-	caps := make([]skillCapability, len(results))
-	for i, r := range results {
-		caps[i] = extractCapability(r)
+	// Single pass: extract capabilities and classify into sets.
+	var (
+		credReadersOnly []string // HasCredReads && !HasNetSend
+		netNoCred       []string // HasNetSend && !HasCredReads
+		privilegeOnly   []string // HasPrivilege && !HasNetSend
+		netNoPrivilege  []string // HasNetSend && !HasPrivilege
+		stealthSkills   []string // HasStealth
+		highPlusSkills  []string // HasHighPlus
+	)
+
+	for _, r := range results {
+		cap := extractCapability(r)
+
+		if cap.HasCredReads && !cap.HasNetSend {
+			credReadersOnly = append(credReadersOnly, cap.Name)
+		}
+		if cap.HasNetSend && !cap.HasCredReads {
+			netNoCred = append(netNoCred, cap.Name)
+		}
+		if cap.HasPrivilege && !cap.HasNetSend {
+			privilegeOnly = append(privilegeOnly, cap.Name)
+		}
+		if cap.HasNetSend && !cap.HasPrivilege {
+			netNoPrivilege = append(netNoPrivilege, cap.Name)
+		}
+		if cap.HasStealth {
+			stealthSkills = append(stealthSkills, cap.Name)
+		}
+		if cap.HasHighPlus {
+			highPlusSkills = append(highPlusSkills, cap.Name)
+		}
 	}
 
 	var findings []Finding
 
-	for i := range caps {
-		for j := i + 1; j < len(caps); j++ {
-			findings = append(findings, checkPair(caps[i], caps[j])...)
+	// Rule 1: Source + Sink — credential readers × network senders.
+	if len(credReadersOnly) > 0 && len(netNoCred) > 0 {
+		findings = append(findings, crossFinding(SeverityHigh, "cross-skill-exfiltration",
+			fmt.Sprintf("cross-skill exfiltration vector: %s (reads credentials) × %s (has network access)",
+				formatNameList(credReadersOnly), formatNameList(netNoCred))))
+	}
+
+	// Rule 2: Privilege + Network — privilege commands × network access.
+	if len(privilegeOnly) > 0 && len(netNoPrivilege) > 0 {
+		findings = append(findings, crossFinding(SeverityMedium, "cross-skill-privilege-network",
+			fmt.Sprintf("cross-skill privilege escalation: %s (has privilege commands) × %s (has network access)",
+				formatNameList(privilegeOnly), formatNameList(netNoPrivilege))))
+	}
+
+	// Rule 3: Stealth + High-Risk — stealth skills alongside high-risk skills.
+	// Skip if the only overlap is a single skill appearing in both sets (self-pair).
+	if len(stealthSkills) > 0 && len(highPlusSkills) > 0 {
+		if !isSingleSelfPair(stealthSkills, highPlusSkills) {
+			findings = append(findings, crossFinding(SeverityHigh, "cross-skill-stealth",
+				fmt.Sprintf("stealth skill %s installed alongside high-risk skill %s — evasion risk",
+					formatNameList(stealthSkills), formatNameList(highPlusSkills))))
 		}
 	}
 
@@ -72,43 +125,26 @@ func CrossSkillAnalysis(results []*Result) *Result {
 	return r
 }
 
-// checkPair evaluates the three cross-skill rules for a pair of capabilities.
-func checkPair(a, b skillCapability) []Finding {
-	var findings []Finding
+// isSingleSelfPair returns true when both slices contain exactly one element
+// and it's the same name — i.e. the only "pair" is a skill with itself.
+func isSingleSelfPair(a, b []string) bool {
+	return len(a) == 1 && len(b) == 1 && a[0] == b[0]
+}
 
-	// Rule 1: Source + Sink — credential reader paired with network sender.
-	// Only fires when each skill lacks the other's capability (complementary pair).
-	if a.HasCredReads && !a.HasNetSend && b.HasNetSend && !b.HasCredReads {
-		findings = append(findings, crossFinding(SeverityHigh, "cross-skill-exfiltration",
-			fmt.Sprintf("cross-skill exfiltration vector: %s reads credentials, %s has network access", a.Name, b.Name)))
-	}
-	if b.HasCredReads && !b.HasNetSend && a.HasNetSend && !a.HasCredReads {
-		findings = append(findings, crossFinding(SeverityHigh, "cross-skill-exfiltration",
-			fmt.Sprintf("cross-skill exfiltration vector: %s reads credentials, %s has network access", b.Name, a.Name)))
-	}
+const maxNameListSize = 5
 
-	// Rule 2: Privilege + Network — privilege commands paired with network access.
-	if a.HasPrivilege && !a.HasNetSend && b.HasNetSend && !b.HasPrivilege {
-		findings = append(findings, crossFinding(SeverityMedium, "cross-skill-privilege-network",
-			fmt.Sprintf("cross-skill privilege escalation: %s has privilege commands, %s has network access", a.Name, b.Name)))
-	}
-	if b.HasPrivilege && !b.HasNetSend && a.HasNetSend && !a.HasPrivilege {
-		findings = append(findings, crossFinding(SeverityMedium, "cross-skill-privilege-network",
-			fmt.Sprintf("cross-skill privilege escalation: %s has privilege commands, %s has network access", b.Name, a.Name)))
-	}
+// formatNameList formats a list of skill names for cross-skill messages.
+// Shows up to 5 names; if more, appends "and N more".
+func formatNameList(names []string) string {
+	sorted := make([]string, len(names))
+	copy(sorted, names)
+	sort.Strings(sorted)
 
-	// Rule 3: Stealth + High-Risk — stealth skill alongside a high-risk skill.
-	// Only between different skills (same-skill stealth is caught by tier-stealth).
-	if a.HasStealth && b.HasHighPlus {
-		findings = append(findings, crossFinding(SeverityHigh, "cross-skill-stealth",
-			fmt.Sprintf("stealth skill %s installed alongside high-risk skill %s — evasion risk", a.Name, b.Name)))
+	if len(sorted) <= maxNameListSize {
+		return strings.Join(sorted, ", ")
 	}
-	if b.HasStealth && a.HasHighPlus {
-		findings = append(findings, crossFinding(SeverityHigh, "cross-skill-stealth",
-			fmt.Sprintf("stealth skill %s installed alongside high-risk skill %s — evasion risk", b.Name, a.Name)))
-	}
-
-	return findings
+	return strings.Join(sorted[:maxNameListSize], ", ") +
+		fmt.Sprintf(" and %d more", len(sorted)-maxNameListSize)
 }
 
 // crossFinding creates a Finding for cross-skill analysis (File=".", Line=0).
