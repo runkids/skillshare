@@ -6,9 +6,18 @@ sidebar_position: 3
 
 > Run `skillshare audit` automatically on every commit using the [pre-commit](https://pre-commit.com/) framework.
 
-## Scenario
+## When to Use
 
-You want to catch security issues in skills **before** they're committed, rather than relying solely on CI to catch problems after the fact.
+The pre-commit hook is most valuable when:
+
+- **Multiple contributors edit skills** — team members may inadvertently introduce dangerous commands (`curl | bash`, `sudo rm -rf`). The hook catches these before they enter version control.
+- **Skills come from external sources** — copying skills from GitHub, community repos, or AI-generated content makes manual review difficult. Automated scanning provides a safety net.
+- **You want instant feedback** — CI catches issues too, but only after push. The hook gives developers immediate, local feedback in seconds.
+
+You can skip it when:
+
+- You are the sole author and trust all your skills
+- Skills rarely change (the hook only runs when `.skillshare/` or `skills/` files are modified)
 
 ## Setup
 

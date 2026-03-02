@@ -13,14 +13,28 @@
 - **Analyzability score** — each audited skill now receives an analyzability percentage (how much of the skill's content can be statically analyzed). Shown per-skill in audit output and as an average in the summary
 - **Command safety tiering (T0–T5)** — audit classifies shell commands by behavioral tier: T0 read-only, T1 mutating, T2 destructive, T3 network, T4 privilege, T5 stealth. Tier labels appear alongside pattern-based findings for richer context
 - **Dataflow taint tracking** — audit detects cross-line exfiltration patterns: credential reads or environment variable access on one line followed by network sends (`curl`, `wget`, etc.) on a subsequent line
-- **Cross-skill interaction detection** — when auditing multiple skills, audit now checks for dangerous capability combinations across skills (e.g., one skill reads credentials while another has network access)
+- **Cross-skill interaction detection** — when auditing multiple skills, audit now checks for dangerous capability combinations across skills (e.g., one skill reads credentials while another has network access). Results are also exposed in the REST API (`GET /api/audit`)
+- **Audit TUI filter** — the `/` filter in the audit TUI now searches across risk level, status (blocked/warning/clean), max severity, finding pattern names, and file names — not just skill names
+- **Pre-commit hook** — `.pre-commit-hooks.yaml` for the [pre-commit](https://pre-commit.com/) framework. Runs `skillshare audit -p` on every commit to catch security issues before they land:
+  ```yaml
+  repos:
+    - repo: https://github.com/runkids/skillshare
+      rev: v0.16.8
+      hooks:
+        - id: skillshare-audit
+  ```
 - **AstrBot target** — new target for AstrBot AI assistant (`~/.astrbot/data/skills`)
 - **Cline target updated** — Cline now uses the universal `.agents/skills` project path
+
+### Performance
+
+- **Cross-skill analysis O(N) rewrite** — cross-skill interaction detection rewritten from O(N²) pair-wise comparison to O(N) capability-bucket approach, significantly faster for large skill collections
 
 ### Bug Fixes
 
 - **TUI gray text contrast** — improved gray text readability on dark terminals by increasing ANSI color contrast
 - **Spinner on structured output** — `audit` now shows progress spinner on stderr when using `--format json/sarif/markdown`, so structured stdout remains clean for piping
+- **SARIF line-0 region** — SARIF output no longer emits an invalid `region` object for findings at line 0
 
 ## [0.16.7] - 2026-03-02
 

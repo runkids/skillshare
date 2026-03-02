@@ -73,7 +73,8 @@ Prompt user (via AskUserQuestion):
    - Common mistakes to avoid:
      - `uninstall --yes` → **wrong**, use `--force` / `-f`
      - `init --target <name>` → **wrong**, `init` has no `--target` flag
-     - `init -p --no-skill --force` → `--force` is not an init flag; use `--no-copy`
+     - `init -p` has a **completely separate flag set** from global `init` — only supports `--targets`, `--discover`, `--select`, `--mode`, `--dry-run`. Global-only flags like `--no-copy`, `--no-skill`, `--no-git`, `--all-targets`, `--force` do NOT exist in project mode
+     - Audit custom rules: disable by **rule ID** (e.g. `prompt-injection-0`, `prompt-injection-1`), NOT pattern name (e.g. `prompt-injection`). Rule IDs are in `internal/audit/rules.yaml`
 4. Generate new runbook to `ai_docs/tests/<slug>_runbook.md`, following existing conventions:
    - YAML-free, pure Markdown
    - Has Scope, Environment, Steps (each with bash + Expected), Pass Criteria
@@ -132,6 +133,8 @@ Before executing a newly generated runbook, verify:
 - [ ] **Skill data in registry.yaml** — assertions about installed skills check `registry.yaml`, NOT `config.yaml`; config.yaml should never contain `skills:`
 - [ ] **File existence timing** — `registry.yaml` is only created after first install/reconcile, not on `ss init`
 - [ ] **Project mode paths** — project commands use `.skillshare/` not `~/.config/skillshare/`
+- [ ] **Project init flags** — `init -p` only supports `--targets`, `--discover`, `--select`, `--mode`, `--dry-run`; global-only flags (`--no-copy`, `--no-skill`, `--no-git`, `--all-targets`, `--force`) are not available
+- [ ] **Audit rule IDs** — custom rules in `audit-rules.yaml` use rule IDs (e.g. `prompt-injection-0`), not pattern names (e.g. `prompt-injection`). Verify IDs against `internal/audit/rules.yaml`
 
 ## Rules
 
@@ -180,10 +183,16 @@ Note: `ssenv enter` changes HOME, which may affect Go module resolution — alwa
 # Single command
 docker exec $CONTAINER ssenv enter "$ENV_NAME" -- ss status
 
-# Multi-line compound command (use bash -c)
+# Multi-line compound command (use bash -c) — global mode flags
 docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
   ss init --no-copy --all-targets --no-git --no-skill
   ss status
+'
+
+# Project mode init (different flag set!)
+docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
+  ssenv enter "$ENV_NAME" -- bash -c '
+  cd /tmp/test-project && ss init -p --targets claude
 '
 
 # Check files (HOME is set to isolated path by ssenv)
