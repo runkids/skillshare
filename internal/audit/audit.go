@@ -686,6 +686,7 @@ var tutorialSuppressedPatterns = map[string]bool{
 	"escape-obfuscation":   true,
 	"hidden-unicode":       true,
 	"fetch-with-pipe":      true,
+	"untrusted-install":    true,
 }
 
 type markdownLink struct {

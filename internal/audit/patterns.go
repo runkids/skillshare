@@ -110,7 +110,7 @@ var (
 	globalOnce     sync.Once
 )
 
-// loadBuiltinRules parses and compiles the embedded rules.yaml.
+// loadBuiltinRules parses and compiles the embedded rules.yaml + table-driven credential rules.
 func loadBuiltinRules() ([]rule, error) {
 	builtinOnce.Do(func() {
 		yr, err := parseRulesYAML(defaultRulesData)
@@ -118,6 +118,7 @@ func loadBuiltinRules() ([]rule, error) {
 			builtinRulesErr = fmt.Errorf("builtin rules: %w", err)
 			return
 		}
+		yr = append(yr, credentialYAMLRules()...)
 		builtinRules, builtinRulesErr = compileRules(yr)
 	})
 	return builtinRules, builtinRulesErr
@@ -191,11 +192,12 @@ func RulesWithProject(projectRoot string) ([]rule, error) {
 }
 
 // builtinYAML returns the parsed (not compiled) builtin rules for merging.
+// Includes both rules.yaml entries and table-driven credential rules.
 func builtinYAML() []yamlRule {
 	var f rulesFile
 	// Already validated in loadBuiltinRules, safe to ignore error
 	yaml.Unmarshal(defaultRulesData, &f) //nolint:errcheck
-	return f.Rules
+	return append(f.Rules, credentialYAMLRules()...)
 }
 
 // parseRulesYAML parses YAML bytes into yamlRule slice.

@@ -37,7 +37,7 @@
 
 > [!NOTE]
 > **Recent Updates**
-> - **[0.16.*](https://github.com/runkids/skillshare/releases/tag/v0.16.7)**: Performance overhaul, interactive TUI for diff/restore/trash, file-level diff, glob matching, Homebrew-aware upgrade, dotfiles manager compatibility.
+> - **[0.16.*](https://github.com/runkids/skillshare/releases/tag/v0.16.9)**: Security hardening — table-driven credential detection (30+ paths × 5 access methods), interpreter tier, prompt injection bypass fixes. Performance overhaul, interactive TUI, Homebrew-aware upgrade.
 > - Full history: [All Releases](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare

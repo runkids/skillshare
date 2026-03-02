@@ -1,6 +1,6 @@
 ---
 name: skillshare
-version: v0.16.7
+version: v0.16.9
 description: |
   Syncs skills across AI CLI tools from a single source of truth.
   Global (~/.config/skillshare/) or project (.skillshare/) mode.

@@ -28,12 +28,8 @@ type taintSource struct {
 // ── Source detection patterns ──
 
 // credentialPathRe matches paths to sensitive credential files.
-// Aligned with rules.yaml credential-access patterns.
-var credentialPathRe = regexp.MustCompile(
-	`(?i)(~/?\.ssh/(id_|known_hosts|authorized_keys|config)|` +
-		`\.env\b|~/?\.aws/(credentials|config)|` +
-		`~/?\.gnupg/|~/?\.kube/config|` +
-		`/etc/(passwd|shadow|sudoers))`)
+// Auto-generated from the credential table in credentials.go.
+var credentialPathRe = CredentialPathRegex()
 
 // sensitiveEnvRe matches sensitive environment variable references.
 // Aligned with data-exfiltration rule patterns.

@@ -43,60 +43,28 @@ rules:
     message: "Command sends environment variables externally"
     regex: '(?i)(curl|wget)\s+.*\$\{?(HOME|USER|PATH|SSH|GPG|AWS|GITHUB_TOKEN|OPENAI|ANTHROPIC)'
 
-  # ── CRITICAL: credential access ──
-  - id: credential-access-0
+  # ── CRITICAL/HIGH/MEDIUM/LOW: credential access ──
+  # Credential-access rules are now table-driven (see credentials.go).
+  # To disable a specific credential rule, use its descriptive ID in audit-rules.yaml:
+  #   - id: credential-access-ssh-private-key
+  #     enabled: false
+
+  # ── CRITICAL: invisible payload (Unicode tag characters U+E0001–E007F) ──
+  # Primary vector for Pillar Security "Rules File Backdoor" attack.
+  # Tag characters render 0px wide but are fully processed by LLMs.
+  - id: hidden-unicode-1
     severity: CRITICAL
-    pattern: credential-access
-    message: "Accessing SSH private keys"
-    regex: 'cat\s+~/?\.\s*ssh/(id_|known_hosts|authorized_keys|config)'
+    pattern: invisible-payload
+    message: "Unicode tag characters detected — may contain invisible payload"
+    regex: '[\x{E0001}-\x{E007F}]'
 
-  - id: credential-access-1
+  # ── CRITICAL: output suppression directives ──
+  # A skill that hides its actions from the user is a strong malicious signal.
+  - id: prompt-injection-4
     severity: CRITICAL
-    pattern: credential-access
-    message: "Accessing .env secrets file"
-    regex: 'cat\s+\.env\b'
-
-  - id: credential-access-2
-    severity: CRITICAL
-    pattern: credential-access
-    message: "Accessing AWS credentials"
-    regex: 'cat\s+~/?\.\s*aws/(credentials|config)'
-
-  - id: credential-access-3
-    severity: CRITICAL
-    pattern: credential-access
-    message: "Reading highly sensitive system credential file"
-    regex: '\b(cat|head|tail|less|more|bat|tac|strings|base64|xxd)\b\s+/etc/(shadow|gshadow|master\.passwd)\b'
-
-  - id: credential-access-4
-    severity: HIGH
-    pattern: credential-access
-    message: "Reading sensitive system account file"
-    regex: '\b(cat|head|tail|less|more|bat|tac|strings|base64|xxd)\b\s+/etc/(passwd|sudoers)\b'
-
-  - id: credential-access-5
-    severity: HIGH
-    pattern: credential-access
-    message: "Symlink or copy from sensitive credential file"
-    regex: '\b(ln|cp|install)\b\s+(-\w+\s+)*/etc/(shadow|gshadow|master\.passwd|passwd|sudoers)\b'
-
-  - id: credential-access-6
-    severity: HIGH
-    pattern: credential-access
-    message: "Input redirection from sensitive credential file"
-    regex: '<\s*/etc/(shadow|gshadow|master\.passwd|passwd|sudoers)\b'
-
-  - id: credential-access-7
-    severity: CRITICAL
-    pattern: credential-access
-    message: "dd reading from highly sensitive credential file"
-    regex: '\bdd\b\s+if=/etc/(shadow|gshadow|master\.passwd)\b'
-
-  - id: credential-access-8
-    severity: HIGH
-    pattern: credential-access
-    message: "dd reading from sensitive system account file"
-    regex: '\bdd\b\s+if=/etc/(passwd|sudoers)\b'
+    pattern: prompt-injection
+    message: "Output suppression directive — attempts to hide actions from user"
+    regex: '(?i)(don''t\s+tell\s+the\s+user|do\s+not\s+tell\s+the\s+user|do\s+not\s+(mention|reveal)\s+this\s+(instruction|change|action|to\s+the\s+user)|never\s+(mention|reveal)\s+this\s+instruction|hide\s+this\s+from\s+the\s+user|remove\s+(this\s+)?from\s+(chat|conversation)\s+history)'
 
   # ── HIGH: hidden unicode (zero-width characters) ──
   - id: hidden-unicode-0
@@ -104,6 +72,62 @@ rules:
     pattern: hidden-unicode
     message: "Hidden zero-width Unicode characters detected"
     regex: "[\u200B\u200C\u200D\u2060\uFEFF]"
+
+  # ── HIGH: bidirectional text control (Trojan Source CVE-2021-42574) ──
+  - id: hidden-unicode-2
+    severity: HIGH
+    pattern: hidden-unicode
+    message: "Bidirectional text control characters — may reorder visible text (Trojan Source)"
+    regex: "[\u202A-\u202E\u2066-\u2069]"
+
+  # ── HIGH: config/memory file poisoning ──
+  # Skills should not modify agent config files (MEMORY.md, CLAUDE.md, .cursorrules).
+  - id: config-manipulation-0
+    severity: HIGH
+    pattern: config-manipulation
+    message: "Instructions to modify AI agent configuration or memory files"
+    regex: '(?i)\b(write|modify|edit|update|append|add|insert|inject)\b.{0,20}(MEMORY\.md|SOUL\.md|CLAUDE\.md|\.cursorrules|\.windsurfrules|\.clinerules)\b'
+
+  # ── HIGH: prompt injection in markdown reference-link comment ──
+  - id: hidden-comment-injection-1
+    severity: HIGH
+    pattern: hidden-comment-injection
+    message: "Prompt injection hidden in markdown comment"
+    regex: '(?i)\[//\]:\s*#\s*\(.*?(ignore\s+(all\s+)?previous|disregard|you\s+are\s+now|forget\s+everything|override\s+safety|SYSTEM:|ADMIN:)'
+
+  # ── HIGH: DNS data exfiltration ──
+  - id: data-exfiltration-3
+    severity: HIGH
+    pattern: data-exfiltration
+    message: "Potential DNS data exfiltration via encoded subdomain"
+    regex: '(?i)\b(dig|nslookup|host)\b\s+.*(\$[({]|`)'
+
+  # ── HIGH: self-replication / propagation instructions ──
+  - id: self-propagation-0
+    severity: HIGH
+    pattern: self-propagation
+    message: "Self-replication instruction — may spread payload to other files"
+    regex: '(?i)(add|inject|insert|include)\s+(this|these)\s+(instruction|rule|directive|text)\s+(to|into|in)\s+(all|every|each|other)\b'
+
+  # ── MEDIUM: untrusted package execution ──
+  - id: untrusted-install-0
+    severity: MEDIUM
+    pattern: untrusted-install
+    message: "Auto-execute untrusted npm package without confirmation"
+    regex: '(?i)\bnpx\s+(-y\s+|--yes\s+)'
+
+  - id: untrusted-install-1
+    severity: MEDIUM
+    pattern: untrusted-install
+    message: "pip install from URL (not PyPI registry)"
+    regex: '(?i)\bpip3?\s+install\s+https?://'
+
+  # ── MEDIUM: additional invisible Unicode (soft hyphen, math operators, directional marks) ──
+  - id: hidden-unicode-3
+    severity: MEDIUM
+    pattern: hidden-unicode
+    message: "Invisible Unicode characters detected (soft hyphen, directional marks, math operators)"
+    regex: "[\u00AD\u200E\u200F\u2061-\u2064]"
 
   # ── HIGH: destructive commands ──
   - id: destructive-commands-0

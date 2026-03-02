@@ -6,14 +6,25 @@
 
 - **Interpreter tier (T6)** — audit now classifies Turing-complete runtimes (`python`, `node`, `ruby`, `perl`, `lua`, `php`, `bun`, `deno`, `npx`, `tsx`, `pwsh`, `powershell`) as T6:interpreter. Versioned binaries like `python3.11` are also recognized. Tier combination findings: `tier-interpreter` (INFO) and `tier-interpreter-network` (MEDIUM when combined with network commands)
 - **Expanded prompt injection detection** — new rules detect `OVERRIDE:`/`IGNORE:`/`ADMIN:`/`ROOT:` prefixes, agent directive tags (`<system>`, `</instructions>`), and jailbreak directives (`DEVELOPER MODE`, `DEV MODE`, `DAN MODE`, `JAILBREAK`)
-- **Expanded credential access detection** — new rules detect `ln -s /etc/shadow`, `cp /etc/passwd`, `< /etc/shadow` (input redirection), and `dd if=/etc/shadow`. System credential files (`/etc/shadow`, `/etc/gshadow`, `/etc/master.passwd`) at CRITICAL; account files (`/etc/passwd`, `/etc/sudoers`) at HIGH
+- **Table-driven credential access detection** — credential rules are now generated from a data table covering 30+ sensitive paths (SSH keys, AWS/Azure/GCloud credentials, GnuPG keyrings, Kubernetes config, Vault tokens, Terraform credentials, Docker config, GitHub CLI tokens, macOS Keychains, shell history, and more) across 5 access methods (read, copy, redirect, dd, exfil). Supports `~`, `$HOME`, `${HOME}` path variants. Includes an INFO-level heuristic catch-all for unknown home dotdirs. Rule IDs are now descriptive (e.g., `credential-access-ssh-private-key` instead of `credential-access-0`)
 - **Cross-skill credential × interpreter** — new cross-skill rule `cross-skill-cred-interpreter` (MEDIUM) flags when one skill reads credentials and another has interpreter access
 - **Markdown image exfiltration detection** — new rule detects external markdown images with query parameters (`![img](https://...?data=...)`) as a potential data exfiltration vector
+- **Invisible payload detection** — detects Unicode tag characters (U+E0001–U+E007F) that render at 0px width but are fully processed by LLMs. Primary vector for "Rules File Backdoor" attacks. Uses dedicated `invisible-payload` pattern to ensure CRITICAL findings are never suppressed in tutorial contexts
+- **Output suppression detection** — detects directives that hide actions from the user ("don't tell the user", "hide this from the user", "remove from conversation history"). Strong indicator of supply-chain attacks
+- **Bidirectional text detection** — detects Unicode bidi control characters (U+202A–U+202E, U+2066–U+2069) used in Trojan Source attacks (CVE-2021-42574) that reorder visible text
+- **Config/memory file poisoning** — detects instructions to modify AI agent configuration files (`MEMORY.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`)
+- **DNS exfiltration detection** — detects `dig`/`nslookup`/`host` commands with command substitution (`$(...)` or backticks) that encode stolen data in DNS subdomain queries
+- **Self-propagation detection** — detects instructions that tell AI to inject/insert payloads into all/every/other files, a repository worm pattern
+- **Markdown comment injection** — detects prompt injection keywords hidden inside markdown reference-link comments (`[//]: # (ignore previous instructions...)`)
+- **Untrusted package execution** — detects `npx -y`/`npx --yes` (auto-execute without confirmation) and `pip install https://` (install from URL, not PyPI registry)
+- **Additional invisible Unicode** — detects soft hyphens (U+00AD), directional marks (U+200E–U+200F), and invisible math operators (U+2061–U+2064) at MEDIUM severity
 - **`env` prefix handling** — command tier classifier now correctly classifies `env python3 script.py` as T6:interpreter instead of T0:read-only
 
 ### Bug Fixes
 
 - **Regex bypass vulnerabilities closed** — fixed prompt injection rules that could be bypassed with leading whitespace or mixed case; fixed data-exfiltration image rule whose exclude pattern allowed `.png?stolen_data` to pass; fixed `dd if=/etc/shadow` being mislabeled as `destructive-commands` instead of `credential-access`
+- **SSH public key false positive** — `~/.ssh/id_rsa.pub` and other `.pub` files no longer trigger CRITICAL credential-access findings (only private keys are flagged)
+- **Catch-all regex bypass** — fixed heuristic catch-all rule that could be silenced when a known credential path appeared on the same line as an unknown dotdir
 - **Structured output ANSI leak** — `audit --format json/sarif/markdown` no longer leaks pterm cursor hide/show ANSI codes into stdout
 
 ## [0.16.8] - 2026-03-02
