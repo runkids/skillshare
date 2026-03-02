@@ -16,6 +16,7 @@ skillshare audit --threshold high       # Block on HIGH+ findings
 skillshare audit -T h                   # Same as --threshold high
 skillshare audit --format json           # JSON output
 skillshare audit --format sarif         # SARIF 2.1.0 output (GitHub Code Scanning)
+skillshare audit --format markdown      # Markdown report (for GitHub Issues/PRs)
 skillshare audit --json                 # Same as --format json (deprecated)
 skillshare audit -p                     # Scan project skills
 skillshare audit --quiet                # Only show skills with findings
@@ -63,7 +64,7 @@ The `audit` command acts as a **gatekeeper** — scanning skill content for know
 - Review security findings after installing a new skill
 - Scan all skills for prompt injection, data exfiltration, or credential access patterns
 - Customize audit rules for your organization's security policy
-- Generate audit reports for compliance (`--format json`) or static analysis tools (`--format sarif`)
+- Generate audit reports for compliance (`--format json`), static analysis tools (`--format sarif`), or documentation (`--format markdown`)
 - Integrate into CI/CD pipelines to gate skill deployments
 - Upload SARIF results to GitHub Code Scanning for PR-level annotations
 
@@ -565,6 +566,27 @@ Severity mapping to SARIF levels:
 | LOW | `note` | 2.0 |
 | INFO | `note` | 0.5 |
 
+### Markdown Report
+
+Generate a self-contained Markdown report suitable for pasting into GitHub Issues, Pull Requests, or documentation:
+
+```bash
+# Print to stdout
+skillshare audit --format markdown
+
+# Save to file
+skillshare audit --format markdown > audit-report.md
+
+# Project mode
+skillshare audit -p --format markdown > report.md
+```
+
+The report includes:
+- **Header** — scanned count, mode, and threshold
+- **Summary table** — passed/warning/failed counts, severity breakdown, risk score, analyzability
+- **Findings** — per-skill tables with severity, pattern, message, and location; collapsible snippets
+- **Clean Skills** — comma-separated list of skills with no findings
+
 ### JSON Output with jq
 
 ```bash
@@ -686,7 +708,7 @@ See the [Pre-commit Hook recipe](/docs/how-to/recipes/pre-commit-hook) for full 
 3. **Pre-commit hook**: Catch issues before they're committed with the [pre-commit framework](/docs/how-to/recipes/pre-commit-hook)
 4. **CI gate**: Add audit to your CI pipeline for shared skill repositories
 5. **Custom rules**: Tailor detection to your organization's threat model
-6. **Review reports**: Use `--format json` for compliance or `--format sarif` for GitHub Code Scanning
+6. **Review reports**: Use `--format json` for compliance, `--format sarif` for GitHub Code Scanning, or `--format markdown` for GitHub Issues/PRs
 
 ### Threshold Configuration
 
@@ -1025,7 +1047,7 @@ Source of truth for regex-based rules:
 | `-p`, `--project` | Scan project-level skills |
 | `-g`, `--global` | Scan global skills |
 | `--threshold` `<t>`, `-T` `<t>` | Block threshold: `critical`\|`high`\|`medium`\|`low`\|`info` (shorthand: `c`\|`h`\|`m`\|`l`\|`i`, plus `crit`, `med`) |
-| `--format` `<f>` | Output format: `text` (default), `json`, `sarif` |
+| `--format` `<f>` | Output format: `text` (default), `json`, `sarif`, `markdown` |
 | `--json` | Output JSON (**deprecated**: use `--format json`) |
 | `--yes`, `-y` | Skip large-scan confirmation prompt (auto-confirms) |
 | `--quiet`, `-q` | Only show skills with findings + summary (suppress clean ✓ lines) |
