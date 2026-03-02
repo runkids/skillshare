@@ -35,6 +35,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { handTheme } from '../lib/codemirror-theme';
 import { wobbly, shadows } from '../design';
+import { severityColor, severityBgColor, severityBadgeVariant } from '../lib/severity';
 
 /* ──────────────────────────────────────────────────────────────────────
  * Constants & Types
@@ -53,43 +54,6 @@ const SEVERITY_TABS: { value: SeverityTab; label: string }[] = [
 ];
 
 type ViewMode = 'structured' | 'yaml';
-
-/* ──────────────────────────────────────────────────────────────────────
- * Color helpers
- * ────────────────────────────────────────────────────────────────────── */
-
-function severityColor(sev: string): string {
-  switch (sev) {
-    case 'CRITICAL': return 'var(--color-danger)';
-    case 'HIGH': return 'var(--color-warning)';
-    case 'MEDIUM': return 'var(--color-blue)';
-    case 'LOW': return 'var(--color-success)';
-    case 'INFO': return 'var(--color-pencil-light)';
-    default: return 'var(--color-pencil-light)';
-  }
-}
-
-function severityBgColor(sev: string): string {
-  switch (sev) {
-    case 'CRITICAL': return 'var(--color-danger-light)';
-    case 'HIGH': return 'var(--color-warning-light)';
-    case 'MEDIUM': return 'var(--color-info-light)';
-    case 'LOW': return 'var(--color-success-light)';
-    case 'INFO': return 'transparent';
-    default: return 'transparent';
-  }
-}
-
-function severityBadgeVariant(sev: string): 'danger' | 'warning' | 'info' | 'default' {
-  switch (sev) {
-    case 'CRITICAL': return 'danger';
-    case 'HIGH': return 'warning';
-    case 'MEDIUM': return 'info';
-    case 'LOW': return 'info';
-    case 'INFO': return 'default';
-    default: return 'default';
-  }
-}
 
 /* ──────────────────────────────────────────────────────────────────────
  * Main Page
@@ -216,30 +180,30 @@ export default function AuditRulesPage() {
   }, [filteredRules]);
 
   // Tab counts
-  const tabCounts = useMemo(() => {
-    if (!compiled.data) return {};
+  // Single-pass tab counts + stats (replaces 9 separate .filter() calls)
+  const { tabCounts, stats } = useMemo(() => {
+    if (!compiled.data) {
+      return {
+        tabCounts: {} as Record<string, number>,
+        stats: { total: 0, enabled: 0, disabled: 0, custom: 0, patterns: 0 },
+      };
+    }
     const rules = compiled.data.rules;
+    const tc: Record<string, number> = { ALL: rules.length, CRITICAL: 0, HIGH: 0, MEDIUM: 0, LOW: 0, INFO: 0, DISABLED: 0 };
+    let enabled = 0, disabled = 0, custom = 0;
+    for (const r of rules) {
+      if (!r.enabled) {
+        disabled++;
+        tc.DISABLED++;
+      } else {
+        enabled++;
+        if (r.severity in tc) tc[r.severity]++;
+      }
+      if (r.source !== 'builtin') custom++;
+    }
     return {
-      ALL: rules.length,
-      CRITICAL: rules.filter((r) => r.severity === 'CRITICAL').length,
-      HIGH: rules.filter((r) => r.severity === 'HIGH').length,
-      MEDIUM: rules.filter((r) => r.severity === 'MEDIUM').length,
-      LOW: rules.filter((r) => r.severity === 'LOW').length,
-      INFO: rules.filter((r) => r.severity === 'INFO').length,
-      DISABLED: rules.filter((r) => !r.enabled).length,
-    } as Record<string, number>;
-  }, [compiled.data]);
-
-  // Summary stats
-  const stats = useMemo(() => {
-    if (!compiled.data) return { total: 0, enabled: 0, disabled: 0, custom: 0, patterns: 0 };
-    const rules = compiled.data.rules;
-    return {
-      total: rules.length,
-      enabled: rules.filter((r) => r.enabled).length,
-      disabled: rules.filter((r) => !r.enabled).length,
-      custom: rules.filter((r) => r.source !== 'builtin').length,
-      patterns: compiled.data.patterns.length,
+      tabCounts: tc,
+      stats: { total: rules.length, enabled, disabled, custom, patterns: compiled.data.patterns.length },
     };
   }, [compiled.data]);
 

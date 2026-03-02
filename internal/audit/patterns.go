@@ -43,16 +43,31 @@ func DefaultThreshold() string {
 	return SeverityCritical
 }
 
+// severityAliases maps shorthand forms to canonical severity names.
+var severityAliases = map[string]string{
+	"CRIT": SeverityCritical,
+	"C":    SeverityCritical,
+	"H":    SeverityHigh,
+	"MED":  SeverityMedium,
+	"M":    SeverityMedium,
+	"L":    SeverityLow,
+	"I":    SeverityInfo,
+}
+
 // NormalizeSeverity normalizes and validates a severity-like value.
+// Accepts full names (CRITICAL, HIGH, …) and shorthands (CRIT, C, H, MED, M, L, I).
 func NormalizeSeverity(v string) (string, error) {
 	sev := strings.ToUpper(strings.TrimSpace(v))
 	if sev == "" {
 		return "", fmt.Errorf("empty severity")
 	}
-	if !validSeverities[sev] {
-		return "", fmt.Errorf("invalid severity %q", v)
+	if validSeverities[sev] {
+		return sev, nil
 	}
-	return sev, nil
+	if canonical, ok := severityAliases[sev]; ok {
+		return canonical, nil
+	}
+	return "", fmt.Errorf("invalid severity %q", v)
 }
 
 // NormalizeThreshold normalizes block threshold, defaulting to CRITICAL when empty.
@@ -104,6 +119,9 @@ var (
 	builtinRules    []rule
 	builtinRulesErr error
 	builtinOnce     sync.Once
+
+	builtinYAMLCache []yamlRule
+	builtinYAMLOnce  sync.Once
 
 	globalRules    []rule
 	globalRulesErr error
@@ -193,11 +211,17 @@ func RulesWithProject(projectRoot string) ([]rule, error) {
 
 // builtinYAML returns the parsed (not compiled) builtin rules for merging.
 // Includes both rules.yaml entries and table-driven credential rules.
+// Result is cached; returns a copy to prevent mutation of the cache.
 func builtinYAML() []yamlRule {
-	var f rulesFile
-	// Already validated in loadBuiltinRules, safe to ignore error
-	yaml.Unmarshal(defaultRulesData, &f) //nolint:errcheck
-	return append(f.Rules, credentialYAMLRules()...)
+	builtinYAMLOnce.Do(func() {
+		var f rulesFile
+		// Already validated in loadBuiltinRules, safe to ignore error
+		yaml.Unmarshal(defaultRulesData, &f) //nolint:errcheck
+		builtinYAMLCache = append(f.Rules, credentialYAMLRules()...)
+	})
+	result := make([]yamlRule, len(builtinYAMLCache))
+	copy(result, builtinYAMLCache)
+	return result
 }
 
 // parseRulesYAML parses YAML bytes into yamlRule slice.
@@ -470,6 +494,8 @@ func resetForTest() {
 	builtinOnce = sync.Once{}
 	builtinRules = nil
 	builtinRulesErr = nil
+	builtinYAMLOnce = sync.Once{}
+	builtinYAMLCache = nil
 	globalOnce = sync.Once{}
 	globalRules = nil
 	globalRulesErr = nil

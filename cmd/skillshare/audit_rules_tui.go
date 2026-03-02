@@ -77,15 +77,19 @@ func (i arRuleItem) FilterValue() string {
 	return i.rule.ID + " " + i.display + " " + i.rule.Message + " " + i.rule.Severity
 }
 
-
 // ── Model ──
 
 type arModel struct {
-	allRules []audit.CompiledRule
-	mode     runMode
+	allRules  []audit.CompiledRule
+	mode      runMode
+	rulesPath string // cached audit-rules.yaml path (cwd is constant during TUI)
 
 	list     list.Model
 	expanded map[string]bool // pattern → expanded
+
+	// Cached computed state — recomputed only in reloadRules/rebuildItems.
+	patterns  []audit.PatternGroup
+	sevCounts []int // one per sevTab
 
 	sevTab       int // index into sevTabs
 	detailScroll int
@@ -142,10 +146,13 @@ func (m *arModel) useSplit() bool {
 
 // newARModel creates the initial model with flat accordion list.
 func newARModel(rules []audit.CompiledRule, mode runMode) arModel {
+	cwd, _ := os.Getwd()
+
 	m := arModel{
-		allRules: rules,
-		mode:     mode,
-		expanded: make(map[string]bool),
+		allRules:  rules,
+		mode:      mode,
+		rulesPath: auditRulesPathForMode(mode, cwd),
+		expanded:  make(map[string]bool),
 	}
 
 	// Filter text input
@@ -155,15 +162,59 @@ func newARModel(rules []audit.CompiledRule, mode runMode) arModel {
 	fi.Cursor.Style = tc.Filter
 	m.filterInput = fi
 
-	// Build flat list
+	// Create the list model once — rebuildItems will populate via SetItems.
+	delegate := list.NewDefaultDelegate()
+	configureDelegate(&delegate, false)
+	m.list = list.New(nil, delegate, 0, 0)
+	m.list.Styles.Title = tc.ListTitle
+	m.list.SetShowStatusBar(false)
+	m.list.SetFilteringEnabled(false)
+	m.list.SetShowHelp(false)
+	m.list.SetShowPagination(false)
+
+	// Compute initial cached state and populate list items.
+	m.recomputeCache()
 	m.rebuildItems()
 	return m
+}
+
+// recomputeCache refreshes cached patterns and severity counts from allRules.
+// Call after allRules changes (i.e. in reloadRules).
+func (m *arModel) recomputeCache() {
+	m.patterns = audit.PatternSummary(m.allRules)
+
+	counts := make([]int, len(sevTabs))
+	for _, r := range m.allRules {
+		counts[0]++ // ALL
+		if !r.Enabled {
+			counts[6]++ // OFF
+			continue
+		}
+		switch r.Severity {
+		case "CRITICAL":
+			counts[1]++
+		case "HIGH":
+			counts[2]++
+		case "MEDIUM":
+			counts[3]++
+		case "LOW":
+			counts[4]++
+		case "INFO":
+			counts[5]++
+		}
+	}
+	m.sevCounts = counts
 }
 
 // rebuildItems reconstructs the flat list from current state.
 // Called after every state change: toggle, severity, filter, tab, expand/collapse.
 func (m *arModel) rebuildItems() {
-	patterns := audit.PatternSummary(m.allRules)
+	// Pre-index rules by pattern for O(P+R) instead of O(P*R).
+	rulesByPattern := make(map[string][]audit.CompiledRule)
+	for _, r := range m.allRules {
+		rulesByPattern[r.Pattern] = append(rulesByPattern[r.Pattern], r)
+	}
+
 	filterTerm := strings.ToLower(m.filterText)
 	activeSevTab := sevTabs[m.sevTab]
 
@@ -174,17 +225,9 @@ func (m *arModel) rebuildItems() {
 	}
 
 	var items []list.Item
-	var totalRuleCount int
 
-	for _, pg := range patterns {
-		// Collect rules for this pattern
-		var patternRules []audit.CompiledRule
-		for _, r := range m.allRules {
-			if r.Pattern != pg.Pattern {
-				continue
-			}
-			patternRules = append(patternRules, r)
-		}
+	for _, pg := range m.patterns {
+		patternRules := rulesByPattern[pg.Pattern]
 
 		// Filter by severity tab
 		var matchedRules []audit.CompiledRule
@@ -239,41 +282,24 @@ func (m *arModel) rebuildItems() {
 				items = append(items, arRuleItem{rule: r, display: display})
 			}
 		}
-		totalRuleCount += len(rulesForDisplay)
 	}
 
-	// Create or update list
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, false)
-
-	l := list.New(items, delegate, 0, 0)
-	l.Title = m.buildTitle()
-	l.Styles.Title = tc.ListTitle
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.SetShowHelp(false)
-	l.SetShowPagination(false)
+	// Update list items in-place (preserves delegate, styles, etc.)
+	m.list.SetItems(items)
+	m.list.Title = fmt.Sprintf("Audit Rules — %d patterns, %d rules", len(m.patterns), len(m.allRules))
 
 	if m.width > 0 {
 		if m.useSplit() {
-			l.SetSize(arListWidth(m.width), m.listHeight())
+			m.list.SetSize(arListWidth(m.width), m.listHeight())
 		} else {
-			l.SetSize(m.width, m.listHeight())
+			m.list.SetSize(m.width, m.listHeight())
 		}
 	}
-
-	m.list = l
 
 	// Restore cursor position
 	if savedIdx > 0 && savedIdx < len(items) {
 		m.list.Select(savedIdx)
 	}
-}
-
-// buildTitle returns the list title with counts.
-func (m *arModel) buildTitle() string {
-	patterns := audit.PatternSummary(m.allRules)
-	return fmt.Sprintf("Audit Rules — %d patterns, %d rules", len(patterns), len(m.allRules))
 }
 
 // ruleMatchesSevTab returns true if a rule matches the current severity tab filter.
@@ -285,31 +311,6 @@ func (m *arModel) ruleMatchesSevTab(r audit.CompiledRule, tab sevTab) bool {
 		return !r.Enabled
 	}
 	return strings.EqualFold(r.Severity, tab.sev)
-}
-
-// sevTabCounts returns the count for each severity tab.
-func (m *arModel) sevTabCounts() []int {
-	counts := make([]int, len(sevTabs))
-	for _, r := range m.allRules {
-		counts[0]++ // ALL
-		if !r.Enabled {
-			counts[6]++ // OFF
-			continue
-		}
-		switch strings.ToUpper(r.Severity) {
-		case "CRITICAL":
-			counts[1]++
-		case "HIGH":
-			counts[2]++
-		case "MEDIUM":
-			counts[3]++
-		case "LOW":
-			counts[4]++
-		case "INFO":
-			counts[5]++
-		}
-	}
-	return counts
 }
 
 // listHeight returns the height for the list widget.
@@ -459,23 +460,6 @@ func (m *arModel) toggleExpand() {
 	m.rebuildItems()
 }
 
-// expandAll expands all pattern headers.
-func (m *arModel) expandAll() {
-	patterns := audit.PatternSummary(m.allRules)
-	for _, pg := range patterns {
-		m.expanded[pg.Pattern] = true
-	}
-	m.rebuildItems()
-}
-
-// collapseAll collapses all pattern headers.
-func (m *arModel) collapseAll() {
-	for k := range m.expanded {
-		m.expanded[k] = false
-	}
-	m.rebuildItems()
-}
-
 // toggleSelected toggles the selected item.
 // Header → toggle all rules in pattern. Rule → toggle single rule.
 func (m *arModel) toggleSelected() {
@@ -487,19 +471,22 @@ func (m *arModel) toggleSelected() {
 	}
 }
 
-// togglePattern toggles all rules in the selected pattern.
-func (m *arModel) togglePattern(item arHeaderItem) {
-	allEnabled := item.group.Disabled == 0
-	cwd, _ := os.Getwd()
-	rulesPath := auditRulesPathForMode(m.mode, cwd)
-
-	err := audit.TogglePattern(rulesPath, item.group.Pattern, !allEnabled)
-	if err != nil {
+// execMutation runs a mutation function, shows flash feedback, and reloads rules.
+func (m *arModel) execMutation(fn func() error, successMsg string) {
+	if err := fn(); err != nil {
 		m.flashMsg = tc.Red.Render("✗ " + err.Error())
 		m.flashTicks = 3
 		return
 	}
+	m.flashMsg = tc.Green.Render("✓ " + successMsg)
+	m.flashTicks = 3
+	m.reloadRules()
+	m.rebuildItems()
+}
 
+// togglePattern toggles all rules in the selected pattern.
+func (m *arModel) togglePattern(item arHeaderItem) {
+	allEnabled := item.group.Disabled == 0
 	action := "Enabled"
 	if allEnabled {
 		action = "Disabled"
@@ -508,35 +495,23 @@ func (m *arModel) togglePattern(item arHeaderItem) {
 	if item.group.Total == 1 {
 		countStr = "1 rule"
 	}
-	m.flashMsg = tc.Green.Render(fmt.Sprintf("✓ %s %s (%s)", action, item.group.Pattern, countStr))
-	m.flashTicks = 3
-
-	m.reloadRules()
-	m.rebuildItems()
+	m.execMutation(
+		func() error { return audit.TogglePattern(m.rulesPath, item.group.Pattern, !allEnabled) },
+		fmt.Sprintf("%s %s (%s)", action, item.group.Pattern, countStr),
+	)
 }
 
 // toggleRule toggles a single rule.
 func (m *arModel) toggleRule(item arRuleItem) {
 	newEnabled := !item.rule.Enabled
-	cwd, _ := os.Getwd()
-	rulesPath := auditRulesPathForMode(m.mode, cwd)
-
-	err := audit.ToggleRule(rulesPath, item.rule.ID, newEnabled)
-	if err != nil {
-		m.flashMsg = tc.Red.Render("✗ " + err.Error())
-		m.flashTicks = 3
-		return
-	}
-
 	action := "Enabled"
 	if !newEnabled {
 		action = "Disabled"
 	}
-	m.flashMsg = tc.Green.Render("✓ " + action + " " + item.rule.ID)
-	m.flashTicks = 3
-
-	m.reloadRules()
-	m.rebuildItems()
+	m.execMutation(
+		func() error { return audit.ToggleRule(m.rulesPath, item.rule.ID, newEnabled) },
+		action+" "+item.rule.ID,
+	)
 }
 
 // updateSeverityPicker handles key input while the severity picker is active.
@@ -564,73 +539,40 @@ func (m arModel) updateSeverityPicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // setSeverityForRule sets the severity of a single rule.
 func (m *arModel) setSeverityForRule(item arRuleItem, sev string) {
-	cwd, _ := os.Getwd()
-	rulesPath := auditRulesPathForMode(m.mode, cwd)
-
-	err := audit.SetSeverity(rulesPath, item.rule.ID, sev)
-	if err != nil {
-		m.flashMsg = tc.Red.Render("✗ " + err.Error())
-		m.flashTicks = 3
-		return
-	}
-
-	m.flashMsg = tc.Green.Render(fmt.Sprintf("✓ %s → %s", item.rule.ID, sev))
-	m.flashTicks = 3
-
-	m.reloadRules()
-	m.rebuildItems()
+	m.execMutation(
+		func() error { return audit.SetSeverity(m.rulesPath, item.rule.ID, sev) },
+		fmt.Sprintf("%s → %s", item.rule.ID, sev),
+	)
 }
 
 // setSeverityForPattern sets the severity for all rules in a pattern.
 func (m *arModel) setSeverityForPattern(item arHeaderItem, sev string) {
-	cwd, _ := os.Getwd()
-	rulesPath := auditRulesPathForMode(m.mode, cwd)
-
-	err := audit.SetPatternSeverity(rulesPath, item.group.Pattern, sev)
-	if err != nil {
-		m.flashMsg = tc.Red.Render("✗ " + err.Error())
-		m.flashTicks = 3
-		return
-	}
-
 	countStr := fmt.Sprintf("all %d rules", item.group.Total)
 	if item.group.Total == 1 {
 		countStr = "1 rule"
 	}
-	m.flashMsg = tc.Green.Render(fmt.Sprintf("✓ %s → %s (%s)", item.group.Pattern, sev, countStr))
-	m.flashTicks = 3
-
-	m.reloadRules()
-	m.rebuildItems()
+	m.execMutation(
+		func() error { return audit.SetPatternSeverity(m.rulesPath, item.group.Pattern, sev) },
+		fmt.Sprintf("%s → %s (%s)", item.group.Pattern, sev, countStr),
+	)
 }
 
 // resetAllRules deletes audit-rules.yaml, restoring all rules to built-in defaults.
 func (m *arModel) resetAllRules() {
-	cwd, _ := os.Getwd()
-	rulesPath := auditRulesPathForMode(m.mode, cwd)
-
-	err := audit.ResetRules(rulesPath)
-	if err != nil {
-		m.flashMsg = tc.Red.Render("✗ " + err.Error())
-		m.flashTicks = 3
-		return
-	}
-
-	m.flashMsg = tc.Green.Render("✓ Reset all rules to built-in defaults")
-	m.flashTicks = 3
-
-	m.reloadRules()
-	m.rebuildItems()
+	m.execMutation(
+		func() error { return audit.ResetRules(m.rulesPath) },
+		"Reset all rules to built-in defaults",
+	)
 }
 
 // reloadRules re-reads all rules from disk after a toggle mutation.
 func (m *arModel) reloadRules() {
 	audit.ResetGlobalCache()
 
-	cwd, _ := os.Getwd()
 	var rules []audit.CompiledRule
 	var err error
 	if m.mode == modeProject {
+		cwd, _ := os.Getwd()
 		rules, err = audit.ListRulesWithProject(cwd)
 	} else {
 		rules, err = audit.ListRules()
@@ -639,6 +581,7 @@ func (m *arModel) reloadRules() {
 		return // keep existing rules on error
 	}
 	m.allRules = rules
+	m.recomputeCache()
 }
 
 // ── View ──
@@ -666,7 +609,7 @@ func (m arModel) View() string {
 
 // renderSevTabBar renders the severity tab bar at the top.
 func (m arModel) renderSevTabBar() string {
-	counts := m.sevTabCounts()
+	counts := m.sevCounts
 	var parts []string
 
 	activeStyle := lipgloss.NewStyle().Bold(true).Underline(true)

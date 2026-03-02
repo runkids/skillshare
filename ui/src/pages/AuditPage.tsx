@@ -24,6 +24,7 @@ import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { wobbly, shadows, colors } from '../design';
+import { severityBadgeVariant } from '../lib/severity';
 
 type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
 
@@ -718,14 +719,6 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
 /* ──────────────────────────────────────────────────────────────────────
  * Helper functions
  * ────────────────────────────────────────────────────────────────────── */
-
-function severityBadgeVariant(sev: string): 'danger' | 'warning' | 'info' {
-  switch (sev) {
-    case 'CRITICAL': return 'danger';
-    case 'HIGH': return 'warning';
-    default: return 'info';
-  }
-}
 
 function riskColor(risk: string): string {
   switch (risk) {

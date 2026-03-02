@@ -157,49 +157,21 @@ func parseAuditRulesListArgs(args []string) (auditRulesOptions, error) {
 }
 
 func cmdAuditRulesDisable(mode runMode, args []string) error {
-	cwd, _ := os.Getwd()
-	rulesPath := auditRulesPathForMode(mode, cwd)
-
-	var pattern string
-	var ids []string
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--pattern":
-			if i+1 >= len(args) {
-				return fmt.Errorf("--pattern requires a value")
-			}
-			i++
-			pattern = args[i]
-		default:
-			if !strings.HasPrefix(args[i], "-") {
-				ids = append(ids, args[i])
-			}
-		}
-	}
-
-	if pattern != "" {
-		if err := audit.TogglePattern(rulesPath, pattern, false); err != nil {
-			return err
-		}
-		ui.Success("Disabled all rules in pattern: %s", pattern)
-		return nil
-	}
-
-	if len(ids) == 0 {
-		return fmt.Errorf("specify a rule ID or --pattern <name>")
-	}
-	for _, id := range ids {
-		if err := audit.ToggleRule(rulesPath, id, false); err != nil {
-			return err
-		}
-		ui.Success("Disabled rule: %s", id)
-	}
-	return nil
+	return cmdAuditRulesToggle(mode, args, false)
 }
 
 func cmdAuditRulesEnable(mode runMode, args []string) error {
+	return cmdAuditRulesToggle(mode, args, true)
+}
+
+func cmdAuditRulesToggle(mode runMode, args []string, enabled bool) error {
 	cwd, _ := os.Getwd()
 	rulesPath := auditRulesPathForMode(mode, cwd)
+
+	verb := "Enabled"
+	if !enabled {
+		verb = "Disabled"
+	}
 
 	var pattern string
 	var ids []string
@@ -219,21 +191,21 @@ func cmdAuditRulesEnable(mode runMode, args []string) error {
 	}
 
 	if pattern != "" {
-		if err := audit.TogglePattern(rulesPath, pattern, true); err != nil {
+		if err := audit.TogglePattern(rulesPath, pattern, enabled); err != nil {
 			return err
 		}
-		ui.Success("Enabled all rules in pattern: %s", pattern)
+		ui.Success("%s all rules in pattern: %s", verb, pattern)
 		return nil
 	}
 
 	if len(ids) == 0 {
 		return fmt.Errorf("specify a rule ID or --pattern <name>")
 	}
+	if err := audit.ToggleRules(rulesPath, ids, enabled); err != nil {
+		return err
+	}
 	for _, id := range ids {
-		if err := audit.ToggleRule(rulesPath, id, true); err != nil {
-			return err
-		}
-		ui.Success("Enabled rule: %s", id)
+		ui.Success("%s rule: %s", verb, id)
 	}
 	return nil
 }
@@ -278,10 +250,11 @@ func cmdAuditRulesSeverity(mode runMode, args []string) error {
 		return fmt.Errorf("usage: audit rules severity <id> <level>")
 	}
 	severity = ids[len(ids)-1]
-	for _, id := range ids[:len(ids)-1] {
-		if err := audit.SetSeverity(rulesPath, id, severity); err != nil {
-			return err
-		}
+	ruleIDs := ids[:len(ids)-1]
+	if err := audit.SetSeverityBatch(rulesPath, ruleIDs, severity); err != nil {
+		return err
+	}
+	for _, id := range ruleIDs {
 		ui.Success("Set severity for %s → %s", id, strings.ToUpper(severity))
 	}
 	return nil

@@ -1059,6 +1059,8 @@ func TestScanContent_EscapeObfuscation(t *testing.T) {
 }
 
 func TestScanContent_InsecureHTTP(t *testing.T) {
+	resetForTest() // ensure clean global rules cache (prior tests may have polluted it)
+
 	tests := []struct {
 		name    string
 		content string

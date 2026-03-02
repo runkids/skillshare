@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -17,15 +16,22 @@ const rulesFileHeader = "# Custom audit rules for skillshare.\n# See: https://sk
 // If enabled=true, removes any existing disable entry for that ID.
 // Creates the file (with parent dirs) if it doesn't exist.
 func ToggleRule(path, id string, enabled bool) error {
-	rules, err := readOrCreateRulesFile(path)
+	return ToggleRules(path, []string{id}, enabled)
+}
+
+// ToggleRules enables or disables multiple rules by ID in a single read/write cycle.
+func ToggleRules(path string, ids []string, enabled bool) error {
+	rules, err := loadUserRules(path)
 	if err != nil {
 		return err
 	}
 
-	if enabled {
-		rules = removeEntryByID(rules, id)
-	} else {
-		rules = upsertDisableByID(rules, id)
+	for _, id := range ids {
+		if enabled {
+			rules = removeEntryByID(rules, id)
+		} else {
+			rules = upsertDisableByID(rules, id)
+		}
 	}
 
 	return writeRulesFile(path, rules)
@@ -36,7 +42,7 @@ func ToggleRule(path, id string, enabled bool) error {
 // If enabled=true, removes any pattern-level disable entry for that pattern.
 // Creates the file (with parent dirs) if it doesn't exist.
 func TogglePattern(path, pattern string, enabled bool) error {
-	rules, err := readOrCreateRulesFile(path)
+	rules, err := loadUserRules(path)
 	if err != nil {
 		return err
 	}
@@ -48,22 +54,6 @@ func TogglePattern(path, pattern string, enabled bool) error {
 	}
 
 	return writeRulesFile(path, rules)
-}
-
-// readOrCreateRulesFile reads existing rules or returns empty slice.
-func readOrCreateRulesFile(path string) ([]yamlRule, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	rules, err := parseRulesYAML(data)
-	if err != nil {
-		return nil, fmt.Errorf("parse %s: %w", path, err)
-	}
-	return rules, nil
 }
 
 // writeRulesFile writes rules back to YAML file with a header comment.
@@ -136,28 +126,35 @@ func upsertPatternDisable(rules []yamlRule, pattern string) []yamlRule {
 // SetSeverity overrides the severity of a single rule by ID.
 // Writes an entry with just id + severity (no enabled field) to the audit-rules.yaml.
 func SetSeverity(path, id, severity string) error {
-	sev := normalizeSeverity(severity)
-	if sev == "" {
+	return SetSeverityBatch(path, []string{id}, severity)
+}
+
+// SetSeverityBatch overrides the severity of multiple rules by ID in a single read/write cycle.
+func SetSeverityBatch(path string, ids []string, severity string) error {
+	sev, err := NormalizeSeverity(severity)
+	if err != nil {
 		return fmt.Errorf("invalid severity %q (use CRITICAL, HIGH, MEDIUM, LOW, INFO)", severity)
 	}
 
-	rules, err := readOrCreateRulesFile(path)
+	rules, err := loadUserRules(path)
 	if err != nil {
 		return err
 	}
 
-	rules = upsertSeverityByID(rules, id, sev)
+	for _, id := range ids {
+		rules = upsertSeverityByID(rules, id, sev)
+	}
 	return writeRulesFile(path, rules)
 }
 
 // SetPatternSeverity overrides the severity for all rules matching a pattern.
 func SetPatternSeverity(path, pattern, severity string) error {
-	sev := normalizeSeverity(severity)
-	if sev == "" {
+	sev, err := NormalizeSeverity(severity)
+	if err != nil {
 		return fmt.Errorf("invalid severity %q (use CRITICAL, HIGH, MEDIUM, LOW, INFO)", severity)
 	}
 
-	rules, err := readOrCreateRulesFile(path)
+	rules, err := loadUserRules(path)
 	if err != nil {
 		return err
 	}
@@ -195,22 +192,4 @@ func upsertPatternSeverity(rules []yamlRule, pattern, severity string) []yamlRul
 		}
 	}
 	return append(rules, yamlRule{Pattern: pattern, Severity: severity})
-}
-
-// normalizeSeverity normalizes severity input to uppercase canonical form.
-func normalizeSeverity(s string) string {
-	switch strings.ToUpper(strings.TrimSpace(s)) {
-	case "CRITICAL", "CRIT", "C":
-		return "CRITICAL"
-	case "HIGH", "H":
-		return "HIGH"
-	case "MEDIUM", "MED", "M":
-		return "MEDIUM"
-	case "LOW", "L":
-		return "LOW"
-	case "INFO", "I":
-		return "INFO"
-	default:
-		return ""
-	}
 }
