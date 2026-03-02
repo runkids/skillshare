@@ -58,12 +58,17 @@ ss() {
 }
 
 # Run skillshare, capture output + exit code
-# Sets: SS_OUTPUT, SS_EXIT
+# Sets: SS_OUTPUT, SS_EXIT, SS_STDERR
+# stdout and stderr are captured separately so structured output (JSON/SARIF)
+# is not polluted by warnings or progress output on stderr.
 ss_capture() {
   local cmd="$1"; shift
   SS_OUTPUT=""
+  SS_STDERR=""
   SS_EXIT=0
-  SS_OUTPUT="$(SKILLSHARE_CONFIG="$CONFIG_PATH" "$BIN" "$cmd" -g "$@" 2>&1)" || SS_EXIT=$?
+  local stderr_tmp="$TMPDIR_ROOT/ss_stderr.tmp"
+  SS_OUTPUT="$(SKILLSHARE_CONFIG="$CONFIG_PATH" "$BIN" "$cmd" -g "$@" 2>"$stderr_tmp")" || SS_EXIT=$?
+  SS_STDERR="$(cat "$stderr_tmp" 2>/dev/null)"
 }
 
 # ── Assertion helpers ──────────────────────────────────────────────

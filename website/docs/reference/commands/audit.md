@@ -14,7 +14,10 @@ skillshare audit --group frontend       # Scan all skills in a group
 skillshare audit <path>                 # Scan a file/directory path
 skillshare audit --threshold high       # Block on HIGH+ findings
 skillshare audit -T h                   # Same as --threshold high
-skillshare audit --json                 # JSON output
+skillshare audit --format json           # JSON output
+skillshare audit --format sarif         # SARIF 2.1.0 output (GitHub Code Scanning)
+skillshare audit --format markdown      # Markdown report (for GitHub Issues/PRs)
+skillshare audit --json                 # Same as --format json (deprecated)
 skillshare audit -p                     # Scan project skills
 skillshare audit --quiet                # Only show skills with findings
 skillshare audit --yes                  # Skip large-scan confirmation
@@ -61,8 +64,9 @@ The `audit` command acts as a **gatekeeper** — scanning skill content for know
 - Review security findings after installing a new skill
 - Scan all skills for prompt injection, data exfiltration, or credential access patterns
 - Customize audit rules for your organization's security policy
-- Generate audit reports for compliance (with `--json`)
+- Generate audit reports for compliance (`--format json`), static analysis tools (`--format sarif`), or documentation (`--format markdown`)
 - Integrate into CI/CD pipelines to gate skill deployments
+- Upload SARIF results to GitHub Code Scanning for PR-level annotations
 
 ## What It Detects
 
@@ -126,6 +130,7 @@ Skills installed or updated via `skillshare install` or `skillshare update` have
 | Pattern | Severity | Description |
 |---------|----------|------------|
 | `content-tampered` | MEDIUM | A file's SHA-256 hash no longer matches the recorded hash |
+| `content-oversize` | MEDIUM | A pinned file exceeds the 1 MB scan size limit |
 | `content-missing` | LOW | A file recorded in metadata no longer exists on disk |
 | `content-unexpected` | LOW | A new file exists that was not recorded in metadata |
 
@@ -140,6 +145,7 @@ These are lower-severity indicators that contribute to risk scoring and reportin
 - `LOW`: **dangling local links** — broken relative markdown links whose target file or directory does not exist on disk
 - `LOW`: **content-missing** / **content-unexpected** — content integrity issues (see above)
 - `INFO`: contextual hints like shell chaining patterns (for triage / visibility)
+- `INFO`: **low analyzability** — less than 70% of the skill's content is auditable text (see [Analyzability Score](#analyzability-score))
 
 > These findings don't block installation but raise the overall risk score. A skill with many LOW/INFO findings may warrant closer inspection.
 
@@ -304,6 +310,120 @@ This is why you can see:
 - no blocked findings at threshold, but an aggregate label of `critical` from accumulated lower-severity findings
 - a `high` risk label with low numeric score when a single HIGH finding triggers severity floor
 
+## Command Safety Tiering
+
+In addition to pattern-based findings, the audit engine classifies every shell command found in skill files into **behavioral safety tiers**. This provides a complementary dimension to severity — while severity answers "how dangerous is this specific pattern?", tiers answer "what kind of actions does this skill perform?"
+
+### Tier Definitions
+
+| Tier | Label | Example Commands | Risk Level |
+|------|-------|-----------------|------------|
+| T0 | `read-only` | `cat`, `ls`, `grep`, `echo` | INFO |
+| T1 | `mutating` | `mkdir`, `cp`, `mv`, `sed` | LOW |
+| T2 | `destructive` | `rm`, `dd`, `kill`, `truncate` | HIGH |
+| T3 | `network` | `curl`, `wget`, `ssh`, `nc` | MEDIUM |
+| T4 | `privilege` | `sudo`, `su`, `chown`, `systemctl` | HIGH |
+| T5 | `stealth` | `history -c`, `unset HISTFILE`, `shred` | CRITICAL |
+
+For Markdown files (`.md`), only commands inside fenced code blocks are analyzed — prose text mentioning commands is not counted.
+
+### Tier Profile Output
+
+Each audit result includes a **tier profile** summarizing the command types found. In CLI text output, it appears as:
+
+```
+→ Commands: destructive:2 network:3 privilege:1
+```
+
+In JSON output, the `tierProfile` field contains the counts array (indexed T0–T5) and total:
+
+```json
+{
+  "tierProfile": {
+    "counts": [5, 2, 2, 3, 1, 0],
+    "total": 13
+  }
+}
+```
+
+Skills with no detected commands omit the `Commands:` line in text output.
+
+### Tier Combination Findings
+
+Certain tier combinations generate additional findings that flag profile-level risk patterns. These are complementary to pattern-based rules — patterns catch specific dangerous invocations, while tier findings catch behavioral combinations.
+
+| Condition | Pattern ID | Severity | Description |
+|-----------|-----------|----------|-------------|
+| T2 + T3 present | `tier-destructive-network` | HIGH | Destructive and network commands together suggest data exfiltration risk |
+| T5 present | `tier-stealth` | CRITICAL | Detection evasion commands (e.g., clearing shell history) |
+| T3 count > 5 | `tier-network-heavy` | MEDIUM | Abnormally high density of network commands |
+
+### Cross-Skill Interaction Detection
+
+The tier combination checks above operate on a **single skill**. But two individually harmless skills can form an attack chain when installed together — for example, one skill reads credentials while another has network access.
+
+After all per-skill scans complete, the audit engine runs **cross-skill analysis**: it extracts a capability profile from each skill's results (credential reads, network access, privilege commands, stealth, destructive) and checks for dangerous combinations across skill pairs.
+
+| Condition | Pattern ID | Severity | Description |
+|-----------|-----------|----------|-------------|
+| Skill A reads credentials, Skill B has network | `cross-skill-exfiltration` | HIGH | Cross-skill exfiltration vector — credentials read by one skill could be sent by another |
+| Skill A has privilege commands, Skill B has network | `cross-skill-privilege-network` | MEDIUM | Privilege escalation paired with network access |
+| Skill A has stealth commands, Skill B has HIGH+ findings | `cross-skill-stealth` | HIGH | Stealth skill installed alongside a high-risk skill — evasion risk |
+
+**Deduplication**: Rules only fire when each skill in the pair _lacks_ the other's capability (complementary pair). If a single skill already has both credential access and network commands, the per-skill scan catches it — no cross-skill finding is generated.
+
+Cross-skill findings appear under the synthetic skill name `_cross-skill` in all output formats (text, JSON, SARIF, TUI).
+
+```bash
+# Example output
+_cross-skill
+  HIGH  cross-skill exfiltration vector: devtools reads credentials, deploy-helper has network access
+  HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
+```
+
+## Analyzability Score
+
+Each scanned skill receives an **analyzability score** — the ratio of auditable plaintext bytes to total file bytes (0–100%). This tells you how much of the skill's content the scanner was able to inspect.
+
+| Score | Interpretation |
+|-------|---------------|
+| 100% | All content is scannable text (ideal) |
+| 70–99% | Most content is auditable; some binary assets present |
+| < 70% | Significant portion is opaque — manual review recommended |
+
+When analyzability drops below **70%**, the audit engine emits an `INFO`-level finding with pattern `low-analyzability`. This does not block installation but signals that the scanner's coverage is limited.
+
+Files excluded from the calculation:
+- Binary files (images, `.wasm`, etc.)
+- Files exceeding 1 MB
+- `.skillshare-meta.json` (internal metadata)
+
+### Output
+
+In single-skill text output:
+
+```
+→ Auditable: 85%
+```
+
+In multi-skill summary:
+
+```
+Auditable: 92% avg
+```
+
+In JSON output, each result includes:
+
+```json
+{
+  "totalBytes": 12480,
+  "auditableBytes": 10240,
+  "analyzability": 0.82
+}
+```
+
+The summary includes `avgAnalyzability` — the mean across all scanned skills.
+
 ## Example Output
 
 ```
@@ -416,6 +536,57 @@ skillshare audit --threshold high
 echo $?  # 0 = clean, 1 = findings found
 ```
 
+### SARIF Output
+
+[SARIF (Static Analysis Results Interchange Format)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) is an OASIS standard consumed by GitHub Code Scanning, VS Code SARIF Viewer, Azure DevOps, SonarQube, and other static analysis tools.
+
+```bash
+# Output SARIF 2.1.0 to stdout
+skillshare audit --format sarif
+
+# Save to file for upload
+skillshare audit --format sarif > results.sarif
+
+# Combine with threshold
+skillshare audit --threshold high --format sarif > results.sarif
+```
+
+The SARIF output includes:
+- **Tool metadata** — tool name (`skillshare`), version, and information URI
+- **Rules** — deduplicated rule descriptors with `security-severity` scores
+- **Results** — each finding mapped to a SARIF result with file location and severity level
+
+Severity mapping to SARIF levels:
+
+| skillshare Severity | SARIF Level | security-severity |
+|---------------------|-------------|-------------------|
+| CRITICAL | `error` | 9.0 |
+| HIGH | `error` | 7.0 |
+| MEDIUM | `warning` | 4.0 |
+| LOW | `note` | 2.0 |
+| INFO | `note` | 0.5 |
+
+### Markdown Report
+
+Generate a self-contained Markdown report suitable for pasting into GitHub Issues, Pull Requests, or documentation:
+
+```bash
+# Print to stdout
+skillshare audit --format markdown
+
+# Save to file
+skillshare audit --format markdown > audit-report.md
+
+# Project mode
+skillshare audit -p --format markdown > report.md
+```
+
+The report includes:
+- **Header** — scanned count, mode, and threshold
+- **Summary table** — passed/warning/failed counts, severity breakdown, risk score, analyzability
+- **Findings** — per-skill tables with severity, pattern, message, and location; collapsible snippets
+- **Clean Skills** — comma-separated list of skills with no findings
+
 ### JSON Output with jq
 
 ```bash
@@ -449,7 +620,7 @@ jobs:
 
       - name: Run security audit
         run: |
-          skillshare audit --threshold high --json > audit-report.json
+          skillshare audit --threshold high --format json > audit-report.json
           skillshare audit --threshold high
 
       - name: Upload audit report
@@ -459,6 +630,62 @@ jobs:
           name: audit-report
           path: audit-report.json
 ```
+
+### GitHub Actions with Code Scanning (SARIF)
+
+Upload SARIF results to [GitHub Code Scanning](https://docs.github.com/en/code-security/code-scanning) for inline PR annotations and the Security tab dashboard:
+
+```yaml
+name: Skill Security Scan
+on:
+  pull_request:
+    paths: ['skills/**']
+  push:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write  # Required for SARIF upload
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install skillshare
+        run: |
+          curl -fsSL https://skillshare.runkids.cc/install.sh | bash
+
+      - name: Run security audit (SARIF)
+        run: |
+          skillshare audit --threshold high --format sarif > results.sarif || true
+
+      - name: Upload SARIF to GitHub Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+          category: skillshare-audit
+```
+
+This creates:
+- **Inline annotations** on PR diffs showing exactly where findings are
+- **Security tab** entries visible at Repository → Security → Code scanning alerts
+- **Historical tracking** of findings across commits
+
+### Pre-commit Hook
+
+Run `skillshare audit` automatically on every commit using the [pre-commit](https://pre-commit.com/) framework. The hook scans files matching `.skillshare/` or `skills/` directories and blocks the commit if findings exceed your configured threshold.
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/runkids/skillshare
+    rev: v0.16.8  # use latest release tag
+    hooks:
+      - id: skillshare-audit
+```
+
+See the [Pre-commit Hook recipe](/docs/how-to/recipes/pre-commit-hook) for full setup instructions.
 
 ## Best Practices
 
@@ -478,9 +705,10 @@ jobs:
 
 1. **Install**: Skills are automatically scanned — blocked if threshold exceeded
 2. **Periodic scan**: Run `skillshare audit` regularly to catch rules updated after install
-3. **CI gate**: Add audit to your CI pipeline for shared skill repositories
-4. **Custom rules**: Tailor detection to your organization's threat model
-5. **Review reports**: Use `--json` output for compliance documentation
+3. **Pre-commit hook**: Catch issues before they're committed with the [pre-commit framework](/docs/how-to/recipes/pre-commit-hook)
+4. **CI gate**: Add audit to your CI pipeline for shared skill repositories
+5. **Custom rules**: Tailor detection to your organization's threat model
+6. **Review reports**: Use `--format json` for compliance, `--format sarif` for GitHub Code Scanning, or `--format markdown` for GitHub Issues/PRs
 
 ### Threshold Configuration
 
@@ -761,9 +989,9 @@ Use `id` values to override or disable specific built-in rules:
 Source of truth for regex-based rules:
 [`internal/audit/rules.yaml`](https://github.com/runkids/skillshare/blob/main/internal/audit/rules.yaml)
 
-:::note Structural checks
+:::note Structural and tier-based checks
 
-`dangling-link`, `content-tampered`, `content-missing`, and `content-unexpected` are not defined in `rules.yaml` — they are **structural checks** (filesystem lookups and hash comparisons, not regex). They still appear in the table below and can be disabled via `audit-rules.yaml` like any other rule.
+`dangling-link`, `content-tampered`, `content-oversize`, `content-missing`, and `content-unexpected` are **structural checks** (filesystem lookups and hash comparisons, not regex). `low-analyzability` is an **analyzability finding** generated from the [Analyzability Score](#analyzability-score). `tier-stealth`, `tier-destructive-network`, and `tier-network-heavy` are **tier combination findings** generated from [Command Safety Tiering](#command-safety-tiering) profiles. All of these appear in the table below but are not defined in `rules.yaml`.
 
 :::
 
@@ -802,9 +1030,14 @@ Source of truth for regex-based rules:
 | `external-link-0` | external-link | LOW |
 | `dangling-link` | dangling-link | LOW |
 | `content-tampered` | content-tampered | MEDIUM |
+| `content-oversize` | content-oversize | MEDIUM |
 | `content-missing` | content-missing | LOW |
 | `content-unexpected` | content-unexpected | LOW |
 | `shell-chain-0` | shell-chain | INFO |
+| `low-analyzability` | low-analyzability | INFO |
+| `tier-stealth` | tier-stealth | CRITICAL |
+| `tier-destructive-network` | tier-destructive-network | HIGH |
+| `tier-network-heavy` | tier-network-heavy | MEDIUM |
 
 ## Options
 
@@ -814,7 +1047,8 @@ Source of truth for regex-based rules:
 | `-p`, `--project` | Scan project-level skills |
 | `-g`, `--global` | Scan global skills |
 | `--threshold` `<t>`, `-T` `<t>` | Block threshold: `critical`\|`high`\|`medium`\|`low`\|`info` (shorthand: `c`\|`h`\|`m`\|`l`\|`i`, plus `crit`, `med`) |
-| `--json` | Output machine-readable JSON |
+| `--format` `<f>` | Output format: `text` (default), `json`, `sarif`, `markdown` |
+| `--json` | Output JSON (**deprecated**: use `--format json`) |
 | `--yes`, `-y` | Skip large-scan confirmation prompt (auto-confirms) |
 | `--quiet`, `-q` | Only show skills with findings + summary (suppress clean ✓ lines) |
 | `--no-tui` | Disable interactive TUI, print plain text output |
@@ -828,3 +1062,4 @@ Source of truth for regex-based rules:
 - [doctor](/docs/reference/commands/doctor) — Diagnose setup issues
 - [list](/docs/reference/commands/list) — List installed skills
 - [Securing Your Skills](/docs/how-to/advanced/security) — Security guide for teams and organizations
+- [Pre-commit Hook](/docs/how-to/recipes/pre-commit-hook) — Automatic audit on every commit

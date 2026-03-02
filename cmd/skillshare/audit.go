@@ -14,19 +14,34 @@ import (
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
+	versionpkg "skillshare/internal/version"
 )
 
 const largeAuditThreshold = 1000
+
+// Output format constants for --format flag.
+const (
+	formatText     = "text"
+	formatJSON     = "json"
+	formatSARIF    = "sarif"
+	formatMarkdown = "markdown"
+)
 
 type auditOptions struct {
 	Targets   []string
 	Groups    []string
 	InitRules bool
-	JSON      bool
+	JSON      bool   // deprecated: use Format
+	Format    string // formatText, formatJSON, or formatSARIF (default: formatText)
 	Quiet     bool
 	Yes       bool
 	NoTUI     bool
 	Threshold string
+}
+
+// isStructured returns true if the output format is machine-readable (json/sarif/markdown).
+func (o auditOptions) isStructured() bool {
+	return o.Format == formatJSON || o.Format == formatSARIF || o.Format == formatMarkdown
 }
 
 type auditRunSummary struct {
@@ -50,8 +65,29 @@ type auditRunSummary struct {
 	Mode        string   `json:"mode,omitempty"`
 	Threshold   string   `json:"threshold,omitempty"`
 	MaxSeverity string   `json:"maxSeverity,omitempty"`
-	RiskScore   int      `json:"riskScore"`
-	RiskLabel   string   `json:"riskLabel,omitempty"`
+	RiskScore        int      `json:"riskScore"`
+	RiskLabel        string   `json:"riskLabel,omitempty"`
+	AvgAnalyzability float64  `json:"avgAnalyzability"`
+}
+
+func (s auditRunSummary) toMarkdownOptions() audit.MarkdownOptions {
+	return audit.MarkdownOptions{
+		Scanned:          s.Scanned,
+		Passed:           s.Passed,
+		Warning:          s.Warning,
+		Failed:           s.Failed,
+		Critical:         s.Critical,
+		High:             s.High,
+		Medium:           s.Medium,
+		Low:              s.Low,
+		Info:             s.Info,
+		ScanErrors:       s.ScanErrors,
+		RiskScore:        s.RiskScore,
+		RiskLabel:        s.RiskLabel,
+		Threshold:        s.Threshold,
+		Mode:             s.Mode,
+		AvgAnalyzability: s.AvgAnalyzability,
+	}
 }
 
 type auditJSONOutput struct {
@@ -87,6 +123,24 @@ func cmdAudit(args []string) error {
 	}
 	if err != nil {
 		return err
+	}
+
+	// Reconcile --json (deprecated) with --format.
+	if opts.JSON {
+		fmt.Fprintln(os.Stderr, "warning: --json is deprecated, use --format json")
+		if opts.Format == "" {
+			opts.Format = formatJSON
+		}
+	}
+	if opts.Format == "" {
+		opts.Format = formatText
+	}
+	// Redirect spinner/progress output to stderr for structured formats
+	// so progress indicators don't corrupt JSON/SARIF on stdout.
+	if opts.isStructured() {
+		prev := ui.ProgressWriter
+		ui.SetProgressWriter(os.Stderr)
+		defer ui.SetProgressWriter(prev)
 	}
 	if opts.InitRules {
 		if mode == modeProject {
@@ -151,9 +205,9 @@ func cmdAudit(args []string) error {
 	case !hasTargets:
 		results, summary, err = auditInstalled(sourcePath, modeString(mode), projectRoot, threshold, opts)
 	case isSinglePath:
-		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.JSON)
+		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format)
 	case isSingleName:
-		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.JSON)
+		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format)
 	default:
 		results, summary, err = auditFiltered(sourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, opts)
 	}
@@ -165,12 +219,28 @@ func cmdAudit(args []string) error {
 	blocked := summary.Failed > 0
 	logAuditOp(cfgPath, rest, summary, start, nil, blocked)
 
-	if opts.JSON {
+	switch opts.Format {
+	case formatSARIF:
+		log := audit.ToSARIF(results, audit.SARIFOptions{ToolVersion: versionpkg.Version})
+		out, _ := json.MarshalIndent(log, "", "  ")
+		fmt.Println(string(out))
+		if blocked {
+			os.Exit(1)
+		}
+		return nil
+	case formatJSON:
 		out, _ := json.MarshalIndent(auditJSONOutput{
 			Results: results,
 			Summary: summary,
 		}, "", "  ")
 		fmt.Println(string(out))
+		if blocked {
+			os.Exit(1)
+		}
+		return nil
+	case formatMarkdown:
+		md := audit.ToMarkdown(results, summary.toMarkdownOptions())
+		fmt.Print(md)
 		if blocked {
 			os.Exit(1)
 		}
@@ -202,6 +272,17 @@ func parseAuditArgs(args []string) (auditOptions, bool, error) {
 			opts.InitRules = true
 		case "--json":
 			opts.JSON = true
+		case "--format":
+			if i+1 >= len(args) {
+				return opts, false, fmt.Errorf("%s requires a value (text, json, sarif, markdown)", arg)
+			}
+			i++
+			switch args[i] {
+			case formatText, formatJSON, formatSARIF, formatMarkdown:
+				opts.Format = args[i]
+			default:
+				return opts, false, fmt.Errorf("unknown format: %s (supported: text, json, sarif, markdown)", args[i])
+			}
 		case "--quiet", "-q":
 			opts.Quiet = true
 		case "--yes", "-y":
@@ -240,6 +321,13 @@ func pathExists(path string) bool {
 	}
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+func auditHeaderTitle(mode string) string {
+	if mode == "project" {
+		return "skillshare audit (project)"
+	}
+	return "skillshare audit"
 }
 
 func auditHeaderSubtitle(scanLine, mode, sourcePath, threshold string) string {
@@ -341,7 +429,7 @@ func scanPathTarget(targetPath, projectRoot string) (*audit.Result, error) {
 }
 
 func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditOptions) ([]*audit.Result, auditRunSummary, error) {
-	jsonOutput := opts.JSON
+	jsonOutput := opts.isStructured()
 	base := auditRunSummary{
 		Scope:     "all",
 		Mode:      mode,
@@ -349,28 +437,17 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	}
 
 	// Phase 0: discover skills (with spinner).
-	var spinner *ui.Spinner
-	if !jsonOutput {
-		spinner = ui.StartSpinner("Discovering skills...")
-	}
+	spinner := ui.StartSpinner("Discovering skills...")
 	skillPaths, err := collectInstalledSkillPaths(sourcePath)
 	if err != nil {
-		if spinner != nil {
-			spinner.Fail("Discovery failed")
-		}
+		spinner.Fail("Discovery failed")
 		return nil, base, err
 	}
 	if len(skillPaths) == 0 {
-		if spinner != nil {
-			spinner.Success("No skills found")
-		} else {
-			ui.Info("No skills found in source directory")
-		}
+		spinner.Success("No skills found")
 		return []*audit.Result{}, base, nil
 	}
-	if spinner != nil {
-		spinner.Success(fmt.Sprintf("Found %d skill(s)", len(skillPaths)))
-	}
+	spinner.Success(fmt.Sprintf("Found %d skill(s)", len(skillPaths)))
 
 	// Phase 0.5: large audit confirmation prompt.
 	if len(skillPaths) > largeAuditThreshold && !jsonOutput && !opts.Yes && ui.IsTTY() {
@@ -387,24 +464,24 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	// Print header box before scan so user sees context while waiting.
 	var headerMinWidth int
 	if !jsonOutput {
+		fmt.Println()
 		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning %d skills for threats", len(skillPaths)), mode, sourcePath, threshold)
 		headerMinWidth = auditHeaderMinWidth(subtitle)
-		ui.HeaderBoxWithMinWidth("skillshare audit", subtitle, headerMinWidth)
+		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, headerMinWidth)
 	}
 
 	// Phase 1: parallel scan with progress bar.
-	var progressBar *ui.ProgressBar
 	if !jsonOutput {
-		progressBar = ui.StartProgress("Scanning skills", len(skillPaths))
+		fmt.Println()
 	}
+	progressBar := ui.StartProgress("Scanning skills", len(skillPaths))
 	onDone := func() {
-		if progressBar != nil {
-			progressBar.Increment()
-		}
+		progressBar.Increment()
 	}
 	scanResults := audit.ParallelScan(toAuditInputs(skillPaths), projectRoot, onDone)
-	if progressBar != nil {
-		progressBar.Stop()
+	progressBar.Stop()
+	if !jsonOutput {
+		fmt.Println()
 	}
 
 	// Collect results and their elapsed times together.
@@ -435,6 +512,12 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	summary.Mode = mode
 	summary.ScanErrors = scanErrors
 
+	// Cross-skill analysis (after summary so counts are unaffected).
+	if xr := audit.CrossSkillAnalysis(results); xr != nil {
+		results = append(results, xr)
+		elapsed = append(elapsed, 0) // synthetic result has no scan time
+	}
+
 	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth); err != nil {
 		return results, summary, err
 	}
@@ -443,7 +526,7 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 }
 
 func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot, threshold string, opts auditOptions) ([]*audit.Result, auditRunSummary, error) {
-	jsonOutput := opts.JSON
+	jsonOutput := opts.isStructured()
 	base := auditRunSummary{
 		Scope:     "filtered",
 		Mode:      mode,
@@ -513,25 +596,21 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	// Print header box before scan so user sees context while waiting.
 	var headerMinWidth int
 	if !jsonOutput {
+		fmt.Println()
 		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning %d skills for threats", len(matched)), mode, sourcePath, threshold)
 		headerMinWidth = auditHeaderMinWidth(subtitle)
-		ui.HeaderBoxWithMinWidth("skillshare audit", subtitle, headerMinWidth)
+		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, headerMinWidth)
 	}
 
 	// Phase 1: parallel scan with progress bar.
-	var progressBar *ui.ProgressBar
-	if !jsonOutput {
-		progressBar = ui.StartProgress("Scanning skills", len(matched))
-	}
+	fmt.Println()
+	progressBar := ui.StartProgress("Scanning skills", len(matched))
 	onDone := func() {
-		if progressBar != nil {
-			progressBar.Increment()
-		}
+		progressBar.Increment()
 	}
 	scanResults := audit.ParallelScan(toAuditInputs(matched), projectRoot, onDone)
-	if progressBar != nil {
-		progressBar.Stop()
-	}
+	progressBar.Stop()
+	fmt.Println()
 
 	// Collect results and their elapsed times together.
 	results := make([]*audit.Result, 0, len(matched))
@@ -560,6 +639,12 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	summary.Mode = mode
 	summary.ScanErrors = scanErrors
 
+	// Cross-skill analysis (after summary so counts are unaffected).
+	if xr := audit.CrossSkillAnalysis(results); xr != nil {
+		results = append(results, xr)
+		elapsed = append(elapsed, 0) // synthetic result has no scan time
+	}
+
 	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth); err != nil {
 		return results, summary, err
 	}
@@ -567,7 +652,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	return results, summary, nil
 }
 
-func auditSkillByName(sourcePath, name, mode, projectRoot, threshold string, jsonOutput bool) ([]*audit.Result, auditRunSummary, error) {
+func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format string) ([]*audit.Result, auditRunSummary, error) {
 	summary := auditRunSummary{
 		Scope:     "single",
 		Skill:     name,
@@ -601,11 +686,11 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold string, jso
 	summary.Scope = "single"
 	summary.Skill = name
 	summary.Mode = mode
-	if !jsonOutput {
+	if format == formatText {
 		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning skill: %s", name), mode, sourcePath, threshold)
 		summaryLines := buildAuditSummaryLines(summary)
 		minWidth := auditHeaderMinWidth(subtitle)
-		ui.HeaderBoxWithMinWidth("skillshare audit", subtitle, minWidth)
+		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, minWidth)
 		printSkillResult(result, elapsed)
 		printAuditSummary(summary, summaryLines, minWidth)
 	}
@@ -613,7 +698,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold string, jso
 	return []*audit.Result{result}, summary, nil
 }
 
-func auditPath(rawPath, mode, projectRoot, threshold string, jsonOutput bool) ([]*audit.Result, auditRunSummary, error) {
+func auditPath(rawPath, mode, projectRoot, threshold, format string) ([]*audit.Result, auditRunSummary, error) {
 	absPath, err := filepath.Abs(rawPath)
 	if err != nil {
 		absPath = rawPath
@@ -640,11 +725,11 @@ func auditPath(rawPath, mode, projectRoot, threshold string, jsonOutput bool) ([
 	summary.Scope = "path"
 	summary.Path = absPath
 	summary.Mode = mode
-	if !jsonOutput {
+	if format == formatText {
 		subtitle := fmt.Sprintf("Scanning path target\nmode: %s\npath: %s\nblock rule: finding severity >= %s", mode, absPath, threshold)
 		summaryLines := buildAuditSummaryLines(summary)
 		minWidth := auditHeaderMinWidth(subtitle)
-		ui.HeaderBoxWithMinWidth("skillshare audit", subtitle, minWidth)
+		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, minWidth)
 		printSkillResult(result, elapsed)
 		printAuditSummary(summary, summaryLines, minWidth)
 	}
@@ -728,6 +813,7 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 
 	maxRisk := 0
 	maxSeverity := ""
+	sumAnalyzability := 0.0
 	for _, r := range results {
 		c, h, m, l, i := r.CountBySeverityAll()
 		summary.Critical += c
@@ -761,10 +847,14 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 				maxSeverity = rs
 			}
 		}
+		sumAnalyzability += r.Analyzability
 	}
 	summary.RiskScore = maxRisk
 	summary.RiskLabel = audit.RiskLabelFromScoreAndMaxSeverity(maxRisk, maxSeverity)
 	summary.MaxSeverity = maxSeverity
+	if len(results) > 0 {
+		summary.AvgAnalyzability = sumAnalyzability / float64(len(results))
+	}
 	return summary
 }
 
@@ -896,9 +986,17 @@ func printSkillResult(result *audit.Result, elapsed time.Duration) {
 	}
 	if ui.IsTTY() {
 		fmt.Printf("%s→%s Aggregate risk: %s%s (%d/100)%s\n", ui.Cyan, ui.Reset, color, strings.ToUpper(result.RiskLabel), result.RiskScore, ui.Reset)
+		fmt.Printf("%s→%s Auditable: %.0f%%\n", ui.Cyan, ui.Reset, result.Analyzability*100)
+		if !result.TierProfile.IsEmpty() {
+			fmt.Printf("%s→%s Commands: %s\n", ui.Cyan, ui.Reset, result.TierProfile.String())
+		}
 		fmt.Printf("%s→%s Block decision: %s (max severity %s %s threshold %s)\n", ui.Cyan, ui.Reset, decision, maxSeverity, compare, threshold)
 	} else {
 		fmt.Printf("→ Aggregate risk: %s (%d/100)\n", strings.ToUpper(result.RiskLabel), result.RiskScore)
+		fmt.Printf("→ Auditable: %.0f%%\n", result.Analyzability*100)
+		if !result.TierProfile.IsEmpty() {
+			fmt.Printf("→ Commands: %s\n", result.TierProfile.String())
+		}
 		fmt.Printf("→ Block decision: %s (max severity %s %s threshold %s)\n", decision, maxSeverity, compare, threshold)
 	}
 }
@@ -933,6 +1031,7 @@ func buildAuditSummaryLines(summary auditRunSummary) []string {
 	riskLabel := strings.ToUpper(summary.RiskLabel)
 	riskText := fmt.Sprintf("%s (%d/100)", riskLabel, summary.RiskScore)
 	lines = append(lines, fmt.Sprintf("  Aggregate: %s", ui.Colorize(riskColor(summary.RiskLabel), riskText)))
+	lines = append(lines, fmt.Sprintf("  Auditable: %.0f%% avg", summary.AvgAnalyzability*100))
 	lines = append(lines, "  Note:      Failed uses severity gate; aggregate is informational")
 	if summary.ScanErrors > 0 {
 		lines = append(lines, fmt.Sprintf("  Scan errs: %d", summary.ScanErrors))
@@ -956,8 +1055,9 @@ func auditHeaderMinWidth(subtitle string) int {
 }
 
 // printAuditSummary prints the summary box with a shared minimum width.
-func printAuditSummary(summary auditRunSummary, lines []string, minWidth int) {
+func printAuditSummary(_ auditRunSummary, lines []string, minWidth int) {
 	ui.BoxWithMinWidth("Summary", minWidth, lines...)
+	fmt.Println()
 }
 
 func formatSeverity(sev string) string {
@@ -992,7 +1092,8 @@ Options:
   -g, --global         Use global skills
   --threshold, -T <t>  Block by severity at/above: critical|high|medium|low|info
                        (also supports c|h|m|l|i)
-  --json               Output JSON
+  --format <f>         Output format: text (default), json, sarif, markdown
+  --json               Output JSON (deprecated: use --format json)
   --quiet, -q          Only show skills with findings + summary (skip clean ✓ lines)
   --yes, -y            Skip large-audit confirmation prompt
   --no-tui             Disable interactive TUI, use plain text output
@@ -1009,6 +1110,9 @@ Examples:
   skillshare audit ./skills/foo/SKILL.md     # Scan a single file
   skillshare audit --threshold high          # Block on HIGH+ findings
   skillshare audit -T h                      # Same, with shorthand alias
-  skillshare audit --json                    # Output machine-readable results
+  skillshare audit --format json              # Output machine-readable JSON
+  skillshare audit --format sarif            # Output SARIF 2.1.0 for GitHub Code Scanning
+  skillshare audit --format markdown         # Output Markdown report (for GitHub Issues/PRs)
+  skillshare audit --json                    # Same as --format json (deprecated)
   skillshare audit -p --init-rules           # Create project custom rules file`)
 }

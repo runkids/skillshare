@@ -19,8 +19,9 @@ import (
 var ErrBlocked = errors.New("blocked by security audit")
 
 const (
-	maxScanFileSize = 1_000_000 // 1MB
-	maxScanDepth    = 6
+	maxScanFileSize        = 1_000_000 // 1MB
+	maxScanDepth           = 6
+	analyzabilityThreshold = 0.70
 )
 
 // mdFileInfo holds data collected during the walk for structural checks.
@@ -50,13 +51,17 @@ type Finding struct {
 
 // Result holds all findings for a single skill.
 type Result struct {
-	SkillName  string    `json:"skillName"`
-	Findings   []Finding `json:"findings"`
-	RiskScore  int       `json:"riskScore"`
-	RiskLabel  string    `json:"riskLabel"` // "clean", "low", "medium", "high", "critical"
-	Threshold  string    `json:"threshold,omitempty"`
-	IsBlocked  bool      `json:"isBlocked,omitempty"`
-	ScanTarget string    `json:"scanTarget,omitempty"`
+	SkillName      string      `json:"skillName"`
+	Findings       []Finding   `json:"findings"`
+	RiskScore      int         `json:"riskScore"`
+	RiskLabel      string      `json:"riskLabel"` // "clean", "low", "medium", "high", "critical"
+	Threshold      string      `json:"threshold,omitempty"`
+	IsBlocked      bool        `json:"isBlocked,omitempty"`
+	ScanTarget     string      `json:"scanTarget,omitempty"`
+	TotalBytes     int64       `json:"totalBytes"`
+	AuditableBytes int64       `json:"auditableBytes"`
+	Analyzability  float64     `json:"analyzability"` // AuditableBytes / TotalBytes (1.0 when TotalBytes == 0)
+	TierProfile    TierProfile `json:"tierProfile"`
 }
 
 func (r *Result) updateRisk() {
@@ -268,6 +273,9 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	// checkContentIntegrity can reuse them instead of re-reading from disk.
 	fileCache := make(map[string][]byte)
 
+	var totalBytes, auditableBytes int64
+	var skillTierProfile TierProfile
+
 	err = filepath.Walk(skillPath, func(path string, fi os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return nil
@@ -292,9 +300,20 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		if depth > maxScanDepth {
 			return nil
 		}
+		// Files exceeding maxScanFileSize are excluded from totalBytes so that
+		// analyzability reflects the ratio among files the scanner considers,
+		// not raw on-disk size. Oversized files are a separate concern.
 		if fi.Size() > maxScanFileSize {
 			return nil
 		}
+
+		// Exclude skillshare's own metadata from total bytes — it's not
+		// part of skill content and would skew the analyzability ratio.
+		if fi.Name() == ".skillshare-meta.json" {
+			return nil
+		}
+
+		totalBytes += fi.Size()
 
 		if !isScannable(fi.Name()) {
 			return nil
@@ -307,6 +326,8 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		if isBinaryContent(data) {
 			return nil
 		}
+
+		auditableBytes += int64(len(data))
 
 		// Cache content for content-integrity check reuse.
 		fileCache[filepath.ToSlash(relPath)] = data
@@ -332,6 +353,25 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		}
 		result.Findings = append(result.Findings, findings...)
 
+		// Tier detection: classify commands in parallel with pattern scan.
+		if isMarkdown {
+			skillTierProfile.Merge(DetectCommandTiersInMarkdown(data))
+		} else {
+			skillTierProfile.Merge(DetectCommandTiers(data))
+		}
+
+		// Dataflow taint tracking: detect cross-line source→sink chains.
+		if !disabled[patternDataflowTaint] {
+			var dfFindings []Finding
+			if isMarkdown {
+				dfFindings = ScanMarkdownDataflow(data, relPath)
+			} else if isShellFile(fi.Name()) {
+				dfFindings = ScanShellDataflow(data, relPath)
+			}
+			result.Findings = append(result.Findings,
+				DeduplicateDataflow(dfFindings, findings)...)
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -352,6 +392,28 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		result.Findings = append(result.Findings, checkContentIntegrity(skillPath, fileCache)...)
 	}
 
+	// Aggregate tier profile and generate combination findings.
+	result.TierProfile = skillTierProfile
+	result.Findings = append(result.Findings, TierCombinationFindings(skillTierProfile)...)
+
+	result.TotalBytes = totalBytes
+	result.AuditableBytes = auditableBytes
+	if totalBytes > 0 {
+		result.Analyzability = float64(auditableBytes) / float64(totalBytes)
+	} else {
+		result.Analyzability = 1.0
+	}
+
+	if totalBytes > 0 && result.Analyzability < analyzabilityThreshold {
+		result.Findings = append(result.Findings, Finding{
+			Severity: SeverityInfo,
+			Pattern:  "low-analyzability",
+			Message:  fmt.Sprintf("only %.0f%% of skill content is auditable (%.0f%% is binary/non-scannable)", result.Analyzability*100, (1-result.Analyzability)*100),
+			File:     ".",
+			Line:     0,
+		})
+	}
+
 	result.updateRisk()
 	return result, nil
 }
@@ -367,13 +429,21 @@ func ScanFileWithRules(filePath string, activeRules []rule) (*Result, error) {
 		return nil, fmt.Errorf("not a file: %s", filePath)
 	}
 
+	fileSize := info.Size()
 	result := &Result{
 		SkillName:  filepath.Base(filePath),
 		ScanTarget: filePath,
+		TotalBytes: fileSize,
 	}
 
 	// Keep parity with directory scan boundaries.
-	if info.Size() > maxScanFileSize || !isScannable(info.Name()) {
+	if fileSize > maxScanFileSize || !isScannable(info.Name()) {
+		// Non-scannable or oversized: nothing is auditable.
+		if fileSize > 0 {
+			result.Analyzability = 0.0
+		} else {
+			result.Analyzability = 1.0
+		}
 		result.updateRisk()
 		return result, nil
 	}
@@ -383,9 +453,14 @@ func ScanFileWithRules(filePath string, activeRules []rule) (*Result, error) {
 		return nil, fmt.Errorf("read file: %w", err)
 	}
 	if isBinaryContent(data) {
+		// Binary content: counted in TotalBytes but not auditable.
+		result.Analyzability = 0.0
 		result.updateRisk()
 		return result, nil
 	}
+
+	result.AuditableBytes = int64(len(data))
+	result.Analyzability = 1.0
 
 	resolvedRules := activeRules
 	if resolvedRules == nil {
@@ -395,7 +470,8 @@ func ScanFileWithRules(filePath string, activeRules []rule) (*Result, error) {
 		}
 	}
 
-	if strings.EqualFold(filepath.Ext(info.Name()), ".md") {
+	isMarkdown := strings.EqualFold(filepath.Ext(info.Name()), ".md")
+	if isMarkdown {
 		mdContentRules, mdLinkRules := splitMarkdownLinkRules(resolvedRules)
 		result.Findings = ScanMarkdownContentWithRules(data, filepath.Base(filePath), mdContentRules)
 		result.Findings = append(result.Findings, checkMarkdownLinkRules([]mdFileInfo{
@@ -405,9 +481,23 @@ func ScanFileWithRules(filePath string, activeRules []rule) (*Result, error) {
 				absDir:  filepath.Dir(filePath),
 			},
 		}, mdLinkRules)...)
+		result.TierProfile = DetectCommandTiersInMarkdown(data)
 	} else {
 		result.Findings = ScanContentWithRules(data, filepath.Base(filePath), resolvedRules)
+		result.TierProfile = DetectCommandTiers(data)
 	}
+
+	// Dataflow taint tracking for single-file scan.
+	var dfFindings []Finding
+	if isShellFile(info.Name()) {
+		dfFindings = ScanShellDataflow(data, filepath.Base(filePath))
+	} else if isMarkdown {
+		dfFindings = ScanMarkdownDataflow(data, filepath.Base(filePath))
+	}
+	result.Findings = append(result.Findings,
+		DeduplicateDataflow(dfFindings, result.Findings)...)
+
+	result.Findings = append(result.Findings, TierCombinationFindings(result.TierProfile)...)
 	result.updateRisk()
 	return result, nil
 }

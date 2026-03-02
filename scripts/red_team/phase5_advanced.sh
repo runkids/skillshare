@@ -27,7 +27,7 @@ cat > "$TRAVERSAL_DIR/.skillshare-meta.json" <<META_EOF
 }
 META_EOF
 
-ss_capture audit traversal-skill --json
+ss_capture audit traversal-skill --format json
 if echo "$SS_OUTPUT" | jq -e '
   .results[0].findings[] |
   select(.file == "../../../secret.txt" or .file == "../../secret.txt" or .file == "/etc/passwd")
@@ -59,7 +59,7 @@ META_EOF
 echo "outside file content" > "$TMPDIR_ROOT/outside.txt"
 ln -s "$TMPDIR_ROOT/outside.txt" "$SYMLINK_DIR/external-link.txt"
 
-ss_capture audit symlink-skill --json
+ss_capture audit symlink-skill --format json
 if echo "$SS_OUTPUT" | jq -e '
   .results[0].findings[] |
   select(.pattern == "content-unexpected" and .file == "external-link.txt" and .severity == "LOW")

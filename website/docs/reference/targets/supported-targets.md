@@ -21,6 +21,7 @@ These are auto-detected during `skillshare init`:
   <a className="target-badge" href="#target-universal">Universal</a>
   <a className="target-badge" href="#target-amp">Amp</a>
   <a className="target-badge" href="#target-antigravity">Antigravity</a>
+  <a className="target-badge" href="#target-astrbot">AstrBot</a>
   <a className="target-badge" href="#target-augment">Augment</a>
   <a className="target-badge" href="#target-bob">Bob</a>
   <a className="target-badge" href="#target-claude">Claude</a>
@@ -83,10 +84,11 @@ These are auto-detected during `skillshare init`:
 <tr id="target-universal"><td>universal</td><td><code>&#126;/.agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-amp"><td>amp</td><td><code>&#126;/.config/agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-antigravity"><td>antigravity</td><td><code>&#126;/.gemini/antigravity/skills</code></td><td><code>.agent/skills</code></td></tr>
+<tr id="target-astrbot"><td>astrbot</td><td><code>&#126;/.astrbot/data/skills</code></td><td><code>data/skills</code></td></tr>
 <tr id="target-augment"><td>augment</td><td><code>&#126;/.augment/skills</code></td><td><code>.augment/skills</code></td></tr>
 <tr id="target-bob"><td>bob</td><td><code>&#126;/.bob/skills</code></td><td><code>.bob/skills</code></td></tr>
 <tr id="target-claude"><td>claude</td><td><code>&#126;/.claude/skills</code></td><td><code>.claude/skills</code></td></tr>
-<tr id="target-cline"><td>cline</td><td><code>&#126;/.cline/skills</code></td><td><code>.cline/skills</code></td></tr>
+<tr id="target-cline"><td>cline</td><td><code>&#126;/.agents/skills</code></td><td><code>.agents/skills</code></td></tr>
 <tr id="target-codebuddy"><td>codebuddy</td><td><code>&#126;/.codebuddy/skills</code></td><td><code>.codebuddy/skills</code></td></tr>
 <tr id="target-comate"><td>comate</td><td><code>&#126;/.comate/skills</code></td><td><code>.comate/skills</code></td></tr>
 <tr id="target-codex"><td>codex</td><td><code>&#126;/.codex/skills</code></td><td><code>.agents/skills</code></td></tr>
@@ -134,7 +136,7 @@ These are auto-detected during `skillshare init`:
 </table>
 
 :::info Universal target
-The **universal** target (`&#126;/.agents/skills`) is a shared agent directory that multiple AI CLIs can read from. It is auto-detected during `skillshare init` when any other agent is found. In project mode, `amp`, `codex`, `kimi`, and `replit` share the same `.agents/skills` path and are grouped under `universal` automatically.
+The **universal** target (`&#126;/.agents/skills`) is a shared agent directory that multiple AI CLIs can read from. It is auto-detected during `skillshare init` when any other agent is found. In project mode, `amp`, `cline`, `codex`, `kimi`, and `replit` share the same `.agents/skills` path and are grouped under `universal` automatically.
 
 This is the same path used by the [npx skills CLI](https://github.com/vercel-labs/skills). See [FAQ: Using universal alongside npx skills](/docs/troubleshooting/faq#using-universal-alongside-npx-skills) for coexistence details.
 :::

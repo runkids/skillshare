@@ -37,19 +37,38 @@ func DisplayWidth(s string) int {
 	return runewidth.StringWidth(clean)
 }
 
-// IsTTY returns true if stdout is a terminal
-func IsTTY() bool {
-	fi, _ := os.Stdout.Stat()
+// fileTTY returns true if the given file descriptor is a terminal.
+func fileTTY(f *os.File) bool {
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
 	return (fi.Mode() & os.ModeCharDevice) != 0
 }
+
+// IsTTY returns true if stdout is a terminal.
+func IsTTY() bool { return fileTTY(os.Stdout) }
+
+// ProgressWriter is the destination for spinner and progress bar output.
+// Defaults to os.Stdout; set to os.Stderr for structured output modes
+// (e.g. --format json/sarif) so progress indicators don't corrupt data.
+var ProgressWriter *os.File = os.Stdout
+
+// SetProgressWriter redirects spinner and progress bar output.
+func SetProgressWriter(w *os.File) {
+	ProgressWriter = w
+}
+
+// isProgressTTY returns true if ProgressWriter is a terminal.
+func isProgressTTY() bool { return fileTTY(ProgressWriter) }
 
 // Box prints content in a styled box
 func Box(title string, lines ...string) {
 	BoxWithMinWidth(title, 0, lines...)
 }
 
-// BoxWithMinWidth prints a titled box, enforcing a minimum content width.
-// Use this to align multiple boxes to the same width.
+// BoxWithMinWidth prints a titled section with a separator line, enforcing a
+// minimum separator width. Use this to align multiple sections visually.
 func BoxWithMinWidth(title string, minWidth int, lines ...string) {
 	if !IsTTY() {
 		if title != "" {
@@ -61,31 +80,19 @@ func BoxWithMinWidth(title string, minWidth int, lines ...string) {
 		return
 	}
 
-	// Find max display width for consistent box width (excludes ANSI codes)
 	maxLen := minWidth
 	for _, line := range lines {
-		w := DisplayWidth(line)
-		if w > maxLen {
+		if w := DisplayWidth(line); w > maxLen {
 			maxLen = w
 		}
 	}
-
-	// Pad lines to same display width
-	content := ""
-	for i, line := range lines {
-		padded := line
-		w := DisplayWidth(line)
-		if w < maxLen {
-			padded = line + strings.Repeat(" ", maxLen-w)
-		}
-		content += padded
-		if i < len(lines)-1 {
-			content += "\n"
-		}
+	if title != "" {
+		fmt.Println(pterm.Cyan(title))
 	}
-
-	box := pterm.DefaultBox.WithTitle(title)
-	box.Println(content)
+	fmt.Println(pterm.Gray(strings.Repeat("─", maxLen)))
+	for _, line := range lines {
+		fmt.Println(line)
+	}
 }
 
 // HeaderBox prints command header box
@@ -93,37 +100,26 @@ func HeaderBox(command, subtitle string) {
 	HeaderBoxWithMinWidth(command, subtitle, 0)
 }
 
-// HeaderBoxWithMinWidth prints command header box with a minimum content width.
+// HeaderBoxWithMinWidth prints a command header with a separator line.
 func HeaderBoxWithMinWidth(command, subtitle string, minWidth int) {
 	if !IsTTY() {
 		fmt.Printf("%s\n%s\n", command, subtitle)
 		return
 	}
 
-	// Pad subtitle lines to at least minWidth.
-	if minWidth > 0 {
-		lines := strings.Split(subtitle, "\n")
-		maxLen := minWidth
-		for _, line := range lines {
-			if w := DisplayWidth(line); w > maxLen {
-				maxLen = w
-			}
+	maxLen := minWidth
+	for _, line := range strings.Split(subtitle, "\n") {
+		if w := DisplayWidth(line); w > maxLen {
+			maxLen = w
 		}
-		var padded []string
-		for _, line := range lines {
-			w := DisplayWidth(line)
-			if w < maxLen {
-				line = line + strings.Repeat(" ", maxLen-w)
-			}
-			padded = append(padded, line)
-		}
-		subtitle = strings.Join(padded, "\n")
+	}
+	if w := DisplayWidth(command); w > maxLen {
+		maxLen = w
 	}
 
-	box := pterm.DefaultBox.
-		WithTitle(pterm.Cyan(command)).
-		WithTitleTopLeft()
-	box.Println(subtitle)
+	fmt.Println(pterm.Cyan(command))
+	fmt.Println(pterm.Gray(strings.Repeat("─", maxLen)))
+	fmt.Println(subtitle)
 }
 
 // Spinner wraps pterm spinner with step tracking
@@ -139,27 +135,29 @@ type Spinner struct {
 
 // StartSpinner starts a spinner with message
 func StartSpinner(message string) *Spinner {
-	if !IsTTY() {
-		fmt.Printf("... %s\n", message)
+	if !isProgressTTY() {
+		fmt.Fprintf(ProgressWriter, "... %s\n", message)
 		return &Spinner{start: time.Now()}
 	}
 
 	s, _ := pterm.DefaultSpinner.
 		WithRemoveWhenDone(true).
+		WithWriter(ProgressWriter).
 		Start(message)
 	return &Spinner{spinner: s, start: time.Now()}
 }
 
 // StartSpinnerWithSteps starts a spinner that shows step progress
 func StartSpinnerWithSteps(message string, totalSteps int) *Spinner {
-	if !IsTTY() {
-		fmt.Printf("... [1/%d] %s\n", totalSteps, message)
+	if !isProgressTTY() {
+		fmt.Fprintf(ProgressWriter, "... [1/%d] %s\n", totalSteps, message)
 		return &Spinner{start: time.Now(), currentStep: 1, totalSteps: totalSteps}
 	}
 
 	stepPrefix := fmt.Sprintf("[1/%d] ", totalSteps)
 	s, _ := pterm.DefaultSpinner.
 		WithRemoveWhenDone(true).
+		WithWriter(ProgressWriter).
 		Start(stepPrefix + message)
 	return &Spinner{
 		spinner:     s,
@@ -183,9 +181,9 @@ func (s *Spinner) Update(message string) {
 		s.spinner.UpdateText(s.stepPrefix + message)
 	} else {
 		if s.totalSteps > 0 {
-			fmt.Printf("... [%d/%d] %s\n", s.currentStep, s.totalSteps, message)
+			fmt.Fprintf(ProgressWriter, "... [%d/%d] %s\n", s.currentStep, s.totalSteps, message)
 		} else {
-			fmt.Printf("... %s\n", message)
+			fmt.Fprintf(ProgressWriter, "... %s\n", message)
 		}
 	}
 }
@@ -207,13 +205,10 @@ func (s *Spinner) Success(message string) {
 		msg = fmt.Sprintf("%s (%.1fs)", message, elapsed.Seconds())
 	}
 	if s.spinner != nil {
-		// Stop first (clears animation via RemoveWhenDone), then print.
-		// pterm's spinner.Success() loses the message because Stop() clears
-		// the line after printing. We print a lightweight ✓ instead.
 		s.spinner.Stop() //nolint:errcheck
-		fmt.Printf("%s %s\n", pterm.Green("✓"), msg)
+		fmt.Fprintf(ProgressWriter, "%s %s\n", pterm.Green("✓"), msg)
 	} else {
-		fmt.Printf("✓ %s\n", msg)
+		fmt.Fprintf(ProgressWriter, "✓ %s\n", msg)
 	}
 }
 
@@ -221,9 +216,9 @@ func (s *Spinner) Success(message string) {
 func (s *Spinner) Fail(message string) {
 	if s.spinner != nil {
 		s.spinner.Stop() //nolint:errcheck
-		fmt.Printf("%s %s\n", pterm.Red("✗"), message)
+		fmt.Fprintf(ProgressWriter, "%s %s\n", pterm.Red("✗"), message)
 	} else {
-		fmt.Printf("✗ %s\n", message)
+		fmt.Fprintf(ProgressWriter, "✗ %s\n", message)
 	}
 }
 
@@ -236,9 +231,9 @@ func (s *Spinner) Warn(message string) {
 	}
 	if s.spinner != nil {
 		s.spinner.Stop() //nolint:errcheck
-		fmt.Printf("%s %s\n", pterm.Yellow("!"), msg)
+		fmt.Fprintf(ProgressWriter, "%s %s\n", pterm.Yellow("!"), msg)
 	} else {
-		fmt.Printf("! %s\n", msg)
+		fmt.Fprintf(ProgressWriter, "! %s\n", msg)
 	}
 }
 
@@ -269,7 +264,7 @@ func ErrorMsg(format string, args ...interface{}) {
 	}
 }
 
-// WarningBox prints warning in a box
+// WarningBox prints a warning section with a separator line.
 func WarningBox(title string, lines ...string) {
 	if !IsTTY() {
 		fmt.Printf("! %s\n", title)
@@ -279,75 +274,18 @@ func WarningBox(title string, lines ...string) {
 		return
 	}
 
-	// Find max display width for consistent box width (excludes ANSI codes)
 	maxLen := 0
 	for _, line := range lines {
-		w := DisplayWidth(line)
-		if w > maxLen {
+		if w := DisplayWidth(line); w > maxLen {
 			maxLen = w
 		}
 	}
 
-	// Pad lines to same display width
-	content := ""
-	for i, line := range lines {
-		padded := line
-		w := DisplayWidth(line)
-		if w < maxLen {
-			padded = line + strings.Repeat(" ", maxLen-w)
-		}
-		content += padded
-		if i < len(lines)-1 {
-			content += "\n"
-		}
-	}
-
-	box := pterm.DefaultBox.
-		WithTitle(pterm.Yellow(title)).
-		WithBoxStyle(pterm.NewStyle(pterm.FgYellow))
-	box.Println(content)
-}
-
-// SummaryBox prints a summary box with key-value pairs
-func SummaryBox(title string, items map[string]string) {
-	if !IsTTY() {
-		fmt.Printf("── %s ──\n", title)
-		for k, v := range items {
-			fmt.Printf("  %s: %s\n", k, v)
-		}
-		return
-	}
-
-	var lines []string
-	for k, v := range items {
-		lines = append(lines, fmt.Sprintf("  %-10s %s", k+":", v))
-	}
-
-	// Find max display width for consistent box width (excludes ANSI codes)
-	maxLen := 0
+	fmt.Println(pterm.Yellow(title))
+	fmt.Println(pterm.Yellow(strings.Repeat("─", maxLen)))
 	for _, line := range lines {
-		w := DisplayWidth(line)
-		if w > maxLen {
-			maxLen = w
-		}
+		fmt.Println(line)
 	}
-
-	// Pad lines to same display width
-	content := ""
-	for i, line := range lines {
-		padded := line
-		w := DisplayWidth(line)
-		if w < maxLen {
-			padded = line + strings.Repeat(" ", maxLen-w)
-		}
-		content += padded
-		if i < len(lines)-1 {
-			content += "\n"
-		}
-	}
-
-	box := pterm.DefaultBox.WithTitle(title)
-	box.Println(content)
 }
 
 // ProgressBar wraps pterm progress bar
@@ -358,14 +296,15 @@ type ProgressBar struct {
 
 // StartProgress starts a progress bar
 func StartProgress(title string, total int) *ProgressBar {
-	if !IsTTY() {
-		fmt.Printf("%s (0/%d)\n", title, total)
+	if !isProgressTTY() {
+		fmt.Fprintf(ProgressWriter, "%s (0/%d)\n", title, total)
 		return &ProgressBar{total: total}
 	}
 
 	bar, _ := pterm.DefaultProgressbar.
 		WithTotal(total).
 		WithTitle(title).
+		WithWriter(ProgressWriter).
 		Start()
 	return &ProgressBar{bar: bar, total: total}
 }
@@ -406,7 +345,7 @@ func (p *ProgressBar) UpdateTitle(title string) {
 	if p.bar != nil {
 		p.bar.UpdateTitle(display)
 	} else {
-		fmt.Printf("  %s\n", strings.TrimRight(display, " "))
+		fmt.Fprintf(ProgressWriter, "  %s\n", strings.TrimRight(display, " "))
 	}
 }
 
@@ -429,43 +368,17 @@ func UpdateNotification(currentVersion, latestVersion, upgradeCmd string) {
 	}
 
 	fmt.Println()
-
-	// Build content lines
-	lines := []string{
-		"",
-		fmt.Sprintf("  Version: %s -> %s", currentVersion, latestVersion),
-		"",
-		fmt.Sprintf("  Run: %s", upgradeCmd),
-		"",
+	versionLine := fmt.Sprintf("  Version: %s -> %s", currentVersion, latestVersion)
+	runLine := fmt.Sprintf("  Run: %s", upgradeCmd)
+	w := DisplayWidth(versionLine)
+	if rw := DisplayWidth(runLine); rw > w {
+		w = rw
 	}
 
-	// Find max display width for consistent box width (excludes ANSI codes)
-	maxLen := 0
-	for _, line := range lines {
-		w := DisplayWidth(line)
-		if w > maxLen {
-			maxLen = w
-		}
-	}
-
-	// Pad lines to same display width
-	content := ""
-	for i, line := range lines {
-		padded := line
-		w := DisplayWidth(line)
-		if w < maxLen {
-			padded = line + strings.Repeat(" ", maxLen-w)
-		}
-		content += padded
-		if i < len(lines)-1 {
-			content += "\n"
-		}
-	}
-
-	box := pterm.DefaultBox.
-		WithTitle(pterm.Yellow("Update Available")).
-		WithBoxStyle(pterm.NewStyle(pterm.FgYellow))
-	box.Println(content)
+	fmt.Println(pterm.Yellow("Update Available"))
+	fmt.Println(pterm.Yellow(strings.Repeat("─", w)))
+	fmt.Println(versionLine)
+	fmt.Println(runLine)
 }
 
 // SyncSummary prints a sync summary line.
@@ -884,43 +797,6 @@ func StepSkip(label, value string) {
 	}
 }
 
-// SkillBox prints a skill summary in a modern, compact card
-func SkillBox(name, description, location string) {
-	if !IsTTY() {
-		fmt.Printf("\n── %s ──\n", name)
-		if description != "" {
-			fmt.Printf("  %s\n", description)
-		}
-		fmt.Printf("  Location: %s\n", location)
-		return
-	}
-
-	var content strings.Builder
-
-	if description != "" {
-		wrapped := wrapText(description, 50)
-		for _, line := range wrapped {
-			content.WriteString(pterm.White("  " + line + "\n"))
-		}
-		content.WriteString("\n")
-	} else {
-		content.WriteString(pterm.Italic.Sprint("  Ready to use!\n\n"))
-	}
-
-	loc := location
-	if loc == "" || loc == "." {
-		loc = "(root)"
-	}
-	content.WriteString(pterm.Gray("  Location:  ") + pterm.LightCyan("skills/"+loc))
-
-	pterm.DefaultBox.
-		WithTitle(pterm.LightCyan(pterm.Bold.Sprint(name))).
-		WithTitleTopLeft().
-		WithBoxStyle(pterm.NewStyle(pterm.FgCyan)).
-		WithPadding(1).
-		Println(content.String())
-}
-
 // SkillBoxCompact prints a compact skill box (for multiple skills)
 func SkillBoxCompact(name, location string) {
 	loc := location
@@ -941,13 +817,6 @@ func SkillBoxCompact(name, location string) {
 		}
 		fmt.Printf("  %s %s (%s)\n", StepBullet, name, loc)
 	}
-}
-
-// SkillDisplay holds skill info for display
-type SkillDisplay struct {
-	Name        string
-	Description string
-	Path        string
 }
 
 // PhaseHeader prints a phase label like "[1/3] Pulling 5 tracked repos..."
@@ -971,30 +840,3 @@ func SectionLabel(label string) {
 	}
 }
 
-// wrapText wraps text to specified width
-func wrapText(text string, width int) []string {
-	if len(text) <= width {
-		return []string{text}
-	}
-
-	var lines []string
-	words := strings.Fields(text)
-	currentLine := ""
-
-	for _, word := range words {
-		if currentLine == "" {
-			currentLine = word
-		} else if len(currentLine)+1+len(word) <= width {
-			currentLine += " " + word
-		} else {
-			lines = append(lines, currentLine)
-			currentLine = word
-		}
-	}
-
-	if currentLine != "" {
-		lines = append(lines, currentLine)
-	}
-
-	return lines
-}

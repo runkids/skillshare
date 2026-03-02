@@ -22,29 +22,34 @@ type auditFindingResponse struct {
 }
 
 type auditResultResponse struct {
-	SkillName  string                 `json:"skillName"`
-	Findings   []auditFindingResponse `json:"findings"`
-	RiskScore  int                    `json:"riskScore"`
-	RiskLabel  string                 `json:"riskLabel"`
-	Threshold  string                 `json:"threshold"`
-	IsBlocked  bool                   `json:"isBlocked"`
-	ScanTarget string                 `json:"scanTarget,omitempty"`
+	SkillName      string                 `json:"skillName"`
+	Findings       []auditFindingResponse `json:"findings"`
+	RiskScore      int                    `json:"riskScore"`
+	RiskLabel      string                 `json:"riskLabel"`
+	Threshold      string                 `json:"threshold"`
+	IsBlocked      bool                   `json:"isBlocked"`
+	ScanTarget     string                 `json:"scanTarget,omitempty"`
+	TotalBytes     int64                  `json:"totalBytes"`
+	AuditableBytes int64                  `json:"auditableBytes"`
+	Analyzability  float64                `json:"analyzability"`
+	TierProfile    audit.TierProfile      `json:"tierProfile"`
 }
 
 type auditSummary struct {
-	Total      int    `json:"total"`
-	Passed     int    `json:"passed"`
-	Warning    int    `json:"warning"`
-	Failed     int    `json:"failed"`
-	Critical   int    `json:"critical"`
-	High       int    `json:"high"`
-	Medium     int    `json:"medium"`
-	Low        int    `json:"low"`
-	Info       int    `json:"info"`
-	Threshold  string `json:"threshold"`
-	RiskScore  int    `json:"riskScore"`
-	RiskLabel  string `json:"riskLabel"`
-	ScanErrors int    `json:"scanErrors,omitempty"`
+	Total            int     `json:"total"`
+	Passed           int     `json:"passed"`
+	Warning          int     `json:"warning"`
+	Failed           int     `json:"failed"`
+	Critical         int     `json:"critical"`
+	High             int     `json:"high"`
+	Medium           int     `json:"medium"`
+	Low              int     `json:"low"`
+	Info             int     `json:"info"`
+	Threshold        string  `json:"threshold"`
+	RiskScore        int     `json:"riskScore"`
+	RiskLabel        string  `json:"riskLabel"`
+	ScanErrors       int     `json:"scanErrors,omitempty"`
+	AvgAnalyzability float64 `json:"avgAnalyzability"`
 }
 
 type skillEntry struct {
@@ -105,6 +110,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	scanErrors := 0
 	maxRisk := 0
 	maxSeverity := ""
+	sumAnalyzability := 0.0
 
 	// Phase 1: parallel scan with bounded workers.
 	projectRoot := s.projectRoot
@@ -157,6 +163,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 				maxSeverity = ms
 			}
 		}
+		sumAnalyzability += result.Analyzability
 	}
 
 	status := "ok"
@@ -173,6 +180,9 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	summary.ScanErrors = scanErrors
 	summary.RiskScore = maxRisk
 	summary.RiskLabel = audit.RiskLabelFromScoreAndMaxSeverity(maxRisk, maxSeverity)
+	if len(results) > 0 {
+		summary.AvgAnalyzability = sumAnalyzability / float64(len(results))
+	}
 
 	args := map[string]any{
 		"scope":       "all",
@@ -302,18 +312,19 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"result": toAuditResponse(result),
 		"summary": auditSummary{
-			Total:     1,
-			Passed:    boolToInt(len(result.Findings) == 0),
-			Warning:   warningCount,
-			Failed:    failedCount,
-			Critical:  c,
-			High:      h,
-			Medium:    m,
-			Low:       l,
-			Info:      i,
-			Threshold: threshold,
-			RiskScore: result.RiskScore,
-			RiskLabel: result.RiskLabel,
+			Total:            1,
+			Passed:           boolToInt(len(result.Findings) == 0),
+			Warning:          warningCount,
+			Failed:           failedCount,
+			Critical:         c,
+			High:             h,
+			Medium:           m,
+			Low:              l,
+			Info:             i,
+			Threshold:        threshold,
+			RiskScore:        result.RiskScore,
+			RiskLabel:        result.RiskLabel,
+			AvgAnalyzability: result.Analyzability,
 		},
 	})
 }
@@ -444,12 +455,16 @@ func toAuditResponse(result *audit.Result) auditResultResponse {
 		})
 	}
 	return auditResultResponse{
-		SkillName:  result.SkillName,
-		Findings:   findings,
-		RiskScore:  result.RiskScore,
-		RiskLabel:  result.RiskLabel,
-		Threshold:  result.Threshold,
-		IsBlocked:  result.IsBlocked,
-		ScanTarget: result.ScanTarget,
+		SkillName:      result.SkillName,
+		Findings:       findings,
+		RiskScore:      result.RiskScore,
+		RiskLabel:      result.RiskLabel,
+		Threshold:      result.Threshold,
+		IsBlocked:      result.IsBlocked,
+		ScanTarget:     result.ScanTarget,
+		TotalBytes:     result.TotalBytes,
+		AuditableBytes: result.AuditableBytes,
+		Analyzability:  result.Analyzability,
+		TierProfile:    result.TierProfile,
 	}
 }

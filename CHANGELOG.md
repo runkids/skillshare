@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.16.8] - 2026-03-02
+
+### New Features
+
+- **`audit --format`** — new `--format` flag supports `text` (default), `json`, `sarif`, and `markdown` output formats. `--json` is now deprecated:
+  ```bash
+  skillshare audit --format sarif     # SARIF 2.1.0 for GitHub Code Scanning
+  skillshare audit --format markdown  # Markdown report for GitHub Issues/PRs
+  skillshare audit --format json      # Machine-readable JSON
+  ```
+- **Analyzability score** — each audited skill now receives an analyzability percentage (how much of the skill's content can be statically analyzed). Shown per-skill in audit output and as an average in the summary
+- **Command safety tiering (T0–T5)** — audit classifies shell commands by behavioral tier: T0 read-only, T1 mutating, T2 destructive, T3 network, T4 privilege, T5 stealth. Tier labels appear alongside pattern-based findings for richer context
+- **Dataflow taint tracking** — audit detects cross-line exfiltration patterns: credential reads or environment variable access on one line followed by network sends (`curl`, `wget`, etc.) on a subsequent line
+- **Cross-skill interaction detection** — when auditing multiple skills, audit now checks for dangerous capability combinations across skills (e.g., one skill reads credentials while another has network access)
+- **AstrBot target** — new target for AstrBot AI assistant (`~/.astrbot/data/skills`)
+- **Cline target updated** — Cline now uses the universal `.agents/skills` project path
+
+### Bug Fixes
+
+- **TUI gray text contrast** — improved gray text readability on dark terminals by increasing ANSI color contrast
+- **Spinner on structured output** — `audit` now shows progress spinner on stderr when using `--format json/sarif/markdown`, so structured stdout remains clean for piping
+
 ## [0.16.7] - 2026-03-02
 
 ### Bug Fixes
