@@ -70,7 +70,7 @@ The `audit` command acts as a **gatekeeper** — scanning skill content for know
 
 ## What It Detects
 
-The audit engine scans every text-based file in a skill directory against 36 built-in rules (regex patterns, structural checks, and content integrity verification), organized into 5 severity levels.
+The audit engine scans every text-based file in a skill directory against 38 built-in rules (regex patterns, structural checks, and content integrity verification), organized into 5 severity levels.
 
 ### CRITICAL (blocks installation and counted as Failed)
 
@@ -80,7 +80,7 @@ These patterns indicate **active exploitation attempts** — if found, the skill
 |---------|------------|
 | `prompt-injection` | "Ignore previous instructions", "SYSTEM:", "You are now", etc. |
 | `data-exfiltration` | `curl`/`wget` commands sending environment variables externally |
-| `credential-access` | Reading `~/.ssh/`, `.env`, `~/.aws/credentials` |
+| `credential-access` | Reading `~/.ssh/`, `.env`, `~/.aws/credentials`, `/etc/shadow`, `/etc/gshadow`, `/etc/master.passwd` (CRITICAL); `/etc/passwd`, `/etc/sudoers` (HIGH) |
 
 > **Why critical?** These patterns have no legitimate use in AI skill files. A skill that tells an AI to "ignore previous instructions" is attempting to hijack the AI's behavior. A skill that pipes environment variables to `curl` is exfiltrating secrets.
 
@@ -324,6 +324,7 @@ In addition to pattern-based findings, the audit engine classifies every shell c
 | T3 | `network` | `curl`, `wget`, `ssh`, `nc` | MEDIUM |
 | T4 | `privilege` | `sudo`, `su`, `chown`, `systemctl` | HIGH |
 | T5 | `stealth` | `history -c`, `unset HISTFILE`, `shred` | CRITICAL |
+| T6 | `interpreter` | `python`, `node`, `ruby`, `perl`, `lua`, `php` | INFO |
 
 For Markdown files (`.md`), only commands inside fenced code blocks are analyzed — prose text mentioning commands is not counted.
 
@@ -335,13 +336,13 @@ Each audit result includes a **tier profile** summarizing the command types foun
 → Commands: destructive:2 network:3 privilege:1
 ```
 
-In JSON output, the `tierProfile` field contains the counts array (indexed T0–T5) and total:
+In JSON output, the `tierProfile` field contains the counts array (indexed T0–T6) and total:
 
 ```json
 {
   "tierProfile": {
-    "counts": [5, 2, 2, 3, 1, 0],
-    "total": 13
+    "counts": [5, 2, 2, 3, 1, 0, 1],
+    "total": 14
   }
 }
 ```
@@ -357,6 +358,8 @@ Certain tier combinations generate additional findings that flag profile-level r
 | T2 + T3 present | `tier-destructive-network` | HIGH | Destructive and network commands together suggest data exfiltration risk |
 | T5 present | `tier-stealth` | CRITICAL | Detection evasion commands (e.g., clearing shell history) |
 | T3 count > 5 | `tier-network-heavy` | MEDIUM | Abnormally high density of network commands |
+| T6 present | `tier-interpreter` | INFO | Interpreter commands found — Turing-complete runtime can execute arbitrary operations |
+| T6 + T3 present | `tier-interpreter-network` | MEDIUM | Interpreter combined with network commands — interpreter can generate arbitrary network requests |
 
 ### Cross-Skill Interaction Detection
 
@@ -369,6 +372,7 @@ After all per-skill scans complete, the audit engine runs **cross-skill analysis
 | Skill A reads credentials, Skill B has network | `cross-skill-exfiltration` | HIGH | Cross-skill exfiltration vector — credentials read by one skill could be sent by another |
 | Skill A has privilege commands, Skill B has network | `cross-skill-privilege-network` | MEDIUM | Privilege escalation paired with network access |
 | Skill A has stealth commands, Skill B has HIGH+ findings | `cross-skill-stealth` | HIGH | Stealth skill installed alongside a high-risk skill — evasion risk |
+| Skill A reads credentials, Skill B has interpreter | `cross-skill-cred-interpreter` | MEDIUM | Credential reader paired with interpreter — interpreter can process stolen data |
 
 **Deduplication**: Rules only fire when each skill in the pair _lacks_ the other's capability (complementary pair). If a single skill already has both credential access and network commands, the per-skill scan catches it — no cross-skill finding is generated.
 

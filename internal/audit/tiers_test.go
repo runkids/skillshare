@@ -22,6 +22,13 @@ func TestClassifyCommand(t *testing.T) {
 		{"privilege sudo", "sudo", TierPrivilege, true},
 		{"privilege chown", "chown", TierPrivilege, true},
 		{"stealth shred", "shred", TierStealth, true},
+		{"interpreter python", "python", TierInterpreter, true},
+		{"interpreter python3", "python3", TierInterpreter, true},
+		{"interpreter node", "node", TierInterpreter, true},
+		{"interpreter ruby", "ruby", TierInterpreter, true},
+		{"interpreter perl", "perl", TierInterpreter, true},
+		{"interpreter lua", "lua", TierInterpreter, true},
+		{"interpreter php", "php", TierInterpreter, true},
 		{"unknown command", "foobar-unknown", TierReadOnly, false},
 		{"absolute path", "/usr/bin/curl", TierNetwork, true},
 	}
@@ -256,6 +263,46 @@ func TestTierCombinationFindings_NetworkHeavy(t *testing.T) {
 	}
 }
 
+func TestTierCombinationFindings_Interpreter(t *testing.T) {
+	p := TierProfile{}
+	p.Add(TierInterpreter)
+
+	findings := TierCombinationFindings(p)
+	found := false
+	for _, f := range findings {
+		if f.Pattern == "tier-interpreter" && f.Severity == SeverityInfo {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected tier-interpreter INFO finding")
+	}
+}
+
+func TestTierCombinationFindings_InterpreterNetwork(t *testing.T) {
+	p := TierProfile{}
+	p.Add(TierInterpreter)
+	p.Add(TierNetwork)
+
+	findings := TierCombinationFindings(p)
+	foundInfo := false
+	foundMedium := false
+	for _, f := range findings {
+		if f.Pattern == "tier-interpreter" && f.Severity == SeverityInfo {
+			foundInfo = true
+		}
+		if f.Pattern == "tier-interpreter-network" && f.Severity == SeverityMedium {
+			foundMedium = true
+		}
+	}
+	if !foundInfo {
+		t.Error("expected tier-interpreter INFO finding")
+	}
+	if !foundMedium {
+		t.Error("expected tier-interpreter-network MEDIUM finding")
+	}
+}
+
 func TestTierCombinationFindings_NoFindings(t *testing.T) {
 	p := TierProfile{}
 	p.Add(TierReadOnly)
@@ -278,6 +325,7 @@ func TestTierLabel(t *testing.T) {
 		{TierNetwork, "network"},
 		{TierPrivilege, "privilege"},
 		{TierStealth, "stealth"},
+		{TierInterpreter, "interpreter"},
 		{CommandTier(99), "unknown"},
 	}
 

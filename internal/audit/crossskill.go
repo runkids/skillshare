@@ -9,12 +9,13 @@ import (
 // skillCapability summarises the security-relevant capabilities of a single skill,
 // derived entirely from its existing Result (TierProfile + Findings).
 type skillCapability struct {
-	Name         string
-	HasCredReads bool // finding.Pattern ∈ {"credential-access", "dataflow-taint"}
-	HasNetSend   bool // TierProfile contains TierNetwork
-	HasPrivilege bool // TierProfile contains TierPrivilege
-	HasStealth   bool // TierProfile contains TierStealth
-	HasHighPlus  bool // any finding with severity >= HIGH
+	Name           string
+	HasCredReads   bool // finding.Pattern ∈ {"credential-access", "dataflow-taint"}
+	HasNetSend     bool // TierProfile contains TierNetwork
+	HasPrivilege   bool // TierProfile contains TierPrivilege
+	HasStealth     bool // TierProfile contains TierStealth
+	HasInterpreter bool // TierProfile contains TierInterpreter
+	HasHighPlus    bool // any finding with severity >= HIGH
 }
 
 // credReadPatterns are the finding patterns that indicate credential reading.
@@ -26,11 +27,12 @@ var credReadPatterns = map[string]bool{
 // extractCapability derives a skillCapability from a scan Result.
 func extractCapability(r *Result) skillCapability {
 	cap := skillCapability{
-		Name:        r.SkillName,
-		HasNetSend:  r.TierProfile.HasTier(TierNetwork),
-		HasPrivilege: r.TierProfile.HasTier(TierPrivilege),
-		HasStealth:  r.TierProfile.HasTier(TierStealth),
-		HasHighPlus: r.HasHigh(),
+		Name:           r.SkillName,
+		HasNetSend:     r.TierProfile.HasTier(TierNetwork),
+		HasPrivilege:   r.TierProfile.HasTier(TierPrivilege),
+		HasStealth:     r.TierProfile.HasTier(TierStealth),
+		HasInterpreter: r.TierProfile.HasTier(TierInterpreter),
+		HasHighPlus:    r.HasHigh(),
 	}
 	for _, f := range r.Findings {
 		if credReadPatterns[f.Pattern] {
@@ -55,12 +57,13 @@ func CrossSkillAnalysis(results []*Result) *Result {
 
 	// Single pass: extract capabilities and classify into sets.
 	var (
-		credReadersOnly []string // HasCredReads && !HasNetSend
-		netNoCred       []string // HasNetSend && !HasCredReads
-		privilegeOnly   []string // HasPrivilege && !HasNetSend
-		netNoPrivilege  []string // HasNetSend && !HasPrivilege
-		stealthSkills   []string // HasStealth
-		highPlusSkills  []string // HasHighPlus
+		credReadersOnly  []string // HasCredReads && !HasNetSend
+		netNoCred        []string // HasNetSend && !HasCredReads
+		privilegeOnly    []string // HasPrivilege && !HasNetSend
+		netNoPrivilege   []string // HasNetSend && !HasPrivilege
+		stealthSkills    []string // HasStealth
+		highPlusSkills   []string // HasHighPlus
+		interpreterOnly  []string // HasInterpreter && !HasNetSend
 	)
 
 	for _, r := range results {
@@ -83,6 +86,9 @@ func CrossSkillAnalysis(results []*Result) *Result {
 		}
 		if cap.HasHighPlus {
 			highPlusSkills = append(highPlusSkills, cap.Name)
+		}
+		if cap.HasInterpreter && !cap.HasNetSend {
+			interpreterOnly = append(interpreterOnly, cap.Name)
 		}
 	}
 
@@ -110,6 +116,13 @@ func CrossSkillAnalysis(results []*Result) *Result {
 				fmt.Sprintf("stealth skill %s installed alongside high-risk skill %s — evasion risk",
 					formatNameList(stealthSkills), formatNameList(highPlusSkills))))
 		}
+	}
+
+	// Rule 4: Credential readers × Interpreter — interpreter can process stolen credentials.
+	if len(credReadersOnly) > 0 && len(interpreterOnly) > 0 {
+		findings = append(findings, crossFinding(SeverityMedium, "cross-skill-cred-interpreter",
+			fmt.Sprintf("cross-skill credential processing: %s (reads credentials) × %s (has interpreter) — interpreter can process stolen data",
+				formatNameList(credReadersOnly), formatNameList(interpreterOnly))))
 	}
 
 	if len(findings) == 0 {

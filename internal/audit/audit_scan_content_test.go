@@ -80,17 +80,23 @@ func TestScanContent_DataExfiltration(t *testing.T) {
 }
 
 func TestScanContent_CredentialAccess(t *testing.T) {
-	tests := []struct {
+	// CRITICAL-level credential access patterns
+	critical := []struct {
 		name    string
 		content string
 	}{
 		{"ssh key", "cat ~/.ssh/id_rsa"},
 		{"env file", "cat .env"},
 		{"aws creds", "cat ~/.aws/credentials"},
+		{"etc shadow", "cat /etc/shadow"},
+		{"etc gshadow", "head /etc/gshadow"},
+		{"etc master.passwd", "tac /etc/master.passwd"},
+		{"base64 shadow", "base64 /etc/shadow"},
+		{"xxd shadow", "xxd /etc/shadow"},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, tt := range critical {
+		t.Run("critical/"+tt.name, func(t *testing.T) {
 			findings := ScanContent([]byte(tt.content), "SKILL.md")
 			found := false
 			for _, f := range findings {
@@ -103,6 +109,54 @@ func TestScanContent_CredentialAccess(t *testing.T) {
 			}
 			if !found {
 				t.Errorf("expected credential-access finding, got: %+v", findings)
+			}
+		})
+	}
+
+	// HIGH-level credential access patterns (system account files)
+	high := []struct {
+		name    string
+		content string
+	}{
+		{"etc passwd", "cat /etc/passwd"},
+		{"etc sudoers", "less /etc/sudoers"},
+	}
+
+	for _, tt := range high {
+		t.Run("high/"+tt.name, func(t *testing.T) {
+			findings := ScanContent([]byte(tt.content), "SKILL.md")
+			found := false
+			for _, f := range findings {
+				if f.Pattern == "credential-access" {
+					found = true
+					if f.Severity != SeverityHigh {
+						t.Errorf("expected HIGH, got %s", f.Severity)
+					}
+				}
+			}
+			if !found {
+				t.Errorf("expected credential-access finding, got: %+v", findings)
+			}
+		})
+	}
+
+	// These should NOT trigger credential-access
+	safe := []struct {
+		name    string
+		content string
+	}{
+		{"echo passwd path", "echo /etc/passwd"},
+		{"grep in passwd", "grep root /etc/passwd"},
+		{"cat hostname", "cat /etc/hostname"},
+		{"prose mention", "The /etc/passwd file contains user information"},
+	}
+	for _, tt := range safe {
+		t.Run("safe/"+tt.name, func(t *testing.T) {
+			findings := ScanContent([]byte(tt.content), "SKILL.md")
+			for _, f := range findings {
+				if f.Pattern == "credential-access" {
+					t.Errorf("should NOT trigger credential-access for %q", tt.content)
+				}
 			}
 		})
 	}

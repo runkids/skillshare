@@ -19,6 +19,7 @@ const (
 	TierNetwork                        // T3: curl, wget, ssh, nc
 	TierPrivilege                      // T4: sudo, su, chown, mount
 	TierStealth                        // T5: history -c, shred, unset HISTFILE
+	TierInterpreter                    // T6: python, node, ruby, perl, lua, php
 	tierCount                          // sentinel — must be last
 )
 
@@ -37,6 +38,8 @@ func (t CommandTier) TierLabel() string {
 		return "privilege"
 	case TierStealth:
 		return "stealth"
+	case TierInterpreter:
+		return "interpreter"
 	default:
 		return "unknown"
 	}
@@ -44,11 +47,11 @@ func (t CommandTier) TierLabel() string {
 
 // TierProfile accumulates command-tier counts for a skill.
 // Compile-time assertion: Counts array size must match tierCount.
-var _ [tierCount]int = [6]int{}
+var _ [tierCount]int = [7]int{}
 
 // TierProfile accumulates command-tier counts for a skill.
 type TierProfile struct {
-	Counts [tierCount]int `json:"counts"` // indexed by CommandTier (T0–T5)
+	Counts [tierCount]int `json:"counts"` // indexed by CommandTier (T0–T6)
 	Total  int            `json:"total"`
 }
 
@@ -79,7 +82,7 @@ func (p *TierProfile) HasTier(t CommandTier) bool {
 // IsEmpty returns true if no commands were classified.
 func (p *TierProfile) IsEmpty() bool { return p.Total == 0 }
 
-// NonZeroTiers returns the tier labels with non-zero counts, ordered T0→T5.
+// NonZeroTiers returns the tier labels with non-zero counts, ordered T0→T6.
 func (p *TierProfile) NonZeroTiers() []string {
 	var tiers []string
 	for i, c := range p.Counts {
@@ -134,8 +137,7 @@ var commandTiers = map[string]CommandTier{
 	"git": TierMutating, "npm": TierMutating, "yarn": TierMutating,
 	"pnpm": TierMutating, "pip": TierMutating, "pip3": TierMutating,
 	"go": TierMutating, "cargo": TierMutating, "make": TierMutating,
-	"cmake": TierMutating, "python": TierMutating, "python3": TierMutating,
-	"node": TierMutating, "ruby": TierMutating, "perl": TierMutating,
+	"cmake": TierMutating,
 	"rustc": TierMutating, "gcc": TierMutating, "clang": TierMutating,
 	"javac": TierMutating, "mvn": TierMutating, "gradle": TierMutating,
 
@@ -171,6 +173,12 @@ var commandTiers = map[string]CommandTier{
 
 	// T5: stealth
 	"shred": TierStealth,
+
+	// T6: interpreter (Turing-complete — can execute arbitrary operations)
+	"python": TierInterpreter, "python3": TierInterpreter,
+	"node": TierInterpreter, "ruby": TierInterpreter,
+	"perl": TierInterpreter, "lua": TierInterpreter,
+	"php": TierInterpreter,
 }
 
 // stealthPatterns detects stealth commands that need context beyond basename.
@@ -323,6 +331,28 @@ func TierCombinationFindings(p TierProfile) []Finding {
 			Severity: SeverityMedium,
 			Pattern:  "tier-network-heavy",
 			Message:  fmt.Sprintf("abnormally high density of network commands (%d)", p.Counts[TierNetwork]),
+			File:     ".",
+			Line:     0,
+		})
+	}
+
+	// T6 interpreter present → INFO (advisory: Turing-complete runtime).
+	if p.HasTier(TierInterpreter) {
+		findings = append(findings, Finding{
+			Severity: SeverityInfo,
+			Pattern:  "tier-interpreter",
+			Message:  fmt.Sprintf("interpreter commands found (%d occurrence(s)) — Turing-complete runtime can execute arbitrary operations", p.Counts[TierInterpreter]),
+			File:     ".",
+			Line:     0,
+		})
+	}
+
+	// T6 interpreter + T3 network → MEDIUM (interpreter can generate arbitrary requests).
+	if p.HasTier(TierInterpreter) && p.HasTier(TierNetwork) {
+		findings = append(findings, Finding{
+			Severity: SeverityMedium,
+			Pattern:  "tier-interpreter-network",
+			Message:  fmt.Sprintf("interpreter + network commands found (%d interpreter, %d network) — interpreter can generate arbitrary network requests", p.Counts[TierInterpreter], p.Counts[TierNetwork]),
 			File:     ".",
 			Line:     0,
 		})

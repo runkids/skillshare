@@ -42,12 +42,13 @@ func lowFinding() Finding {
 
 func TestExtractCapability(t *testing.T) {
 	tests := []struct {
-		name     string
-		result   *Result
-		wantCred bool
-		wantNet  bool
-		wantPriv bool
-		wantHigh bool
+		name            string
+		result          *Result
+		wantCred        bool
+		wantNet         bool
+		wantPriv        bool
+		wantInterpreter bool
+		wantHigh        bool
 	}{
 		{
 			name:     "credential finding sets HasCredReads",
@@ -75,6 +76,11 @@ func TestExtractCapability(t *testing.T) {
 			name:   "low-only findings do not set HasHighPlus",
 			result: makeResult("a", TierProfile{}, lowFinding()),
 		},
+		{
+			name:            "interpreter tier sets HasInterpreter",
+			result:          makeResult("a", tierWith(TierInterpreter)),
+			wantInterpreter: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -88,6 +94,9 @@ func TestExtractCapability(t *testing.T) {
 			}
 			if cap.HasPrivilege != tt.wantPriv {
 				t.Errorf("HasPrivilege = %v, want %v", cap.HasPrivilege, tt.wantPriv)
+			}
+			if cap.HasInterpreter != tt.wantInterpreter {
+				t.Errorf("HasInterpreter = %v, want %v", cap.HasInterpreter, tt.wantInterpreter)
 			}
 			if cap.HasHighPlus != tt.wantHigh {
 				t.Errorf("HasHighPlus = %v, want %v", cap.HasHighPlus, tt.wantHigh)
@@ -207,6 +216,23 @@ func TestCrossSkillAnalysis(t *testing.T) {
 				"cross-skill-exfiltration", // reader × sender
 				"cross-skill-stealth",      // sneaky × reader (reader has high finding)
 			},
+		},
+		{
+			name: "credential × interpreter basic pair",
+			results: []*Result{
+				makeResult("reader", TierProfile{}, credFinding()),        // cred read, no network
+				makeResult("scripting", tierWith(TierInterpreter)),        // interpreter, no network
+			},
+			wantPatterns: []string{"cross-skill-cred-interpreter"},
+		},
+		{
+			name: "credential × interpreter: interpreter also has network — no finding (interpreter is not in interpreterOnly)",
+			results: []*Result{
+				makeResult("reader", TierProfile{}, credFinding()),
+				makeResult("scripting", tierWith(TierInterpreter, TierNetwork)),
+			},
+			// interpreter has network → not in interpreterOnly set, but in netNoCred → exfiltration fires instead
+			wantPatterns: []string{"cross-skill-exfiltration"},
 		},
 	}
 

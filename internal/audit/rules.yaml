@@ -10,9 +10,28 @@ rules:
     severity: CRITICAL
     pattern: prompt-injection
     message: "SYSTEM: prompt override detected"
-    regex: '(?m)^SYSTEM:'
+    regex: '(?m)^(SYSTEM|OVERRIDE|IGNORE|ADMIN|ROOT):'
+
+  - id: prompt-injection-2
+    severity: HIGH
+    pattern: prompt-injection
+    message: "Agent directive tag detected"
+    regex: '(?i)<\/?(system|instructions|override|prompt|rules)\s*>'
+
+  - id: prompt-injection-3
+    severity: CRITICAL
+    pattern: prompt-injection
+    message: "Directive-style prompt override detected"
+    regex: '(?i)^(DEVELOPER\s*MODE|JAILBREAK|DAN\s*MODE)\b'
 
   # ── CRITICAL: data exfiltration (curl/wget + secrets) ──
+  - id: data-exfiltration-2
+    severity: MEDIUM
+    pattern: data-exfiltration
+    message: "External image with query parameters — potential data exfiltration vector"
+    regex: '!\[[^\]]*\]\(https?://[^)]*\?[^)]+\)'
+    exclude: '(?i)\.(png|jpg|jpeg|gif|svg|webp)\?'
+
   - id: data-exfiltration-0
     severity: CRITICAL
     pattern: data-exfiltration
@@ -43,6 +62,18 @@ rules:
     pattern: credential-access
     message: "Accessing AWS credentials"
     regex: 'cat\s+~/?\.\s*aws/(credentials|config)'
+
+  - id: credential-access-3
+    severity: CRITICAL
+    pattern: credential-access
+    message: "Reading highly sensitive system credential file"
+    regex: '(?i)\b(cat|head|tail|less|more|bat|tac|strings|base64|xxd)\b\s+/etc/(shadow|gshadow|master\.passwd)\b'
+
+  - id: credential-access-4
+    severity: HIGH
+    pattern: credential-access
+    message: "Reading sensitive system account file"
+    regex: '(?i)\b(cat|head|tail|less|more|bat|tac|strings|base64|xxd)\b\s+/etc/(passwd|sudoers)\b'
 
   # ── HIGH: hidden unicode (zero-width characters) ──
   - id: hidden-unicode-0
