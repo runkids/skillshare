@@ -386,6 +386,7 @@ func (m auditTUIModel) renderSummaryFooter() string {
 	}
 	sep := tc.Dim.Render("/")
 	parts = append(parts, tc.Dim.Render("c/h/m/l/i = ")+strings.Join(sevParts, sep))
+	parts = append(parts, tc.Dim.Render(fmt.Sprintf("Auditable: %.0f%% avg", s.AvgAnalyzability*100)))
 
 	return "  " + strings.Join(parts, tc.Dim.Render(" | ")) + "\n"
 }
@@ -437,6 +438,16 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 		row("Status:", tc.Green.Render("✓ Clean"))
 	} else {
 		row("Status:", tc.Yellow.Render("! Has findings (not blocked)"))
+	}
+
+	// Auditable — analyzability percentage
+	auditableText := fmt.Sprintf("%.0f%%", r.Analyzability*100)
+	if r.Analyzability >= 0.70 {
+		row("Auditable:", tc.Green.Render(auditableText))
+	} else if r.TotalBytes > 0 {
+		row("Auditable:", tc.Yellow.Render(auditableText))
+	} else {
+		row("Auditable:", tc.Dim.Render("—"))
 	}
 
 	// Threshold
