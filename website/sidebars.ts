@@ -71,6 +71,7 @@ const sidebars: SidebarsConfig = {
           items: [
             'how-to/recipes/index',
             'how-to/recipes/ci-cd-skill-validation',
+            'how-to/recipes/pre-commit-hook',
             'how-to/recipes/private-enterprise-skills',
             'how-to/recipes/skill-per-project-workflow',
             'how-to/recipes/cross-machine-sync-recipe',

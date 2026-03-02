@@ -135,12 +135,10 @@ func cmdAudit(args []string) error {
 	if opts.Format == "" {
 		opts.Format = formatText
 	}
-	// Redirect spinner/progress output to stderr for structured formats
-	// so progress indicators don't corrupt JSON/SARIF on stdout.
+	// Redirect progress output to stderr and suppress pterm TTY detection
+	// so cursor hide/show ANSI codes don't leak into structured stdout.
 	if opts.isStructured() {
-		prev := ui.ProgressWriter
-		ui.SetProgressWriter(os.Stderr)
-		defer ui.SetProgressWriter(prev)
+		defer ui.SuppressProgressToStderr()()
 	}
 	if opts.InitRules {
 		if mode == modeProject {

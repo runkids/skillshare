@@ -59,8 +59,35 @@ func SetProgressWriter(w *os.File) {
 	ProgressWriter = w
 }
 
-// isProgressTTY returns true if ProgressWriter is a terminal.
-func isProgressTTY() bool { return fileTTY(ProgressWriter) }
+// progressSuppressed disables all pterm spinners/progress bars, forcing
+// text-only fallback. This prevents pterm's cursor package from emitting
+// ANSI hide/show codes to os.Stdout (hardcoded upstream).
+var progressSuppressed bool
+
+// SuppressProgress forces all spinners and progress bars into non-TTY
+// (text-only) mode, preventing pterm from emitting ANSI cursor codes.
+func SuppressProgress() { progressSuppressed = true }
+
+// RestoreProgress re-enables TTY detection for progress output.
+func RestoreProgress() { progressSuppressed = false }
+
+// SuppressProgressToStderr redirects progress output to stderr and suppresses
+// pterm TTY detection. Returns a restore function suitable for defer.
+// Use this for structured output modes (--format json/sarif/markdown) to
+// prevent ANSI cursor codes from leaking into stdout.
+func SuppressProgressToStderr() func() {
+	prev := ProgressWriter
+	SetProgressWriter(os.Stderr)
+	SuppressProgress()
+	return func() {
+		SetProgressWriter(prev)
+		RestoreProgress()
+	}
+}
+
+// isProgressTTY returns true if ProgressWriter is a terminal and
+// progress output has not been suppressed.
+func isProgressTTY() bool { return !progressSuppressed && fileTTY(ProgressWriter) }
 
 // Box prints content in a styled box
 func Box(title string, lines ...string) {

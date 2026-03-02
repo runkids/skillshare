@@ -16,6 +16,15 @@ import (
 	"skillshare/internal/testutil"
 )
 
+// assertNoANSI fails if stdout contains ANSI escape codes, which would
+// corrupt structured output (JSON/SARIF/Markdown) piped to other tools.
+func assertNoANSI(t *testing.T, stdout string) {
+	t.Helper()
+	if strings.Contains(stdout, "\x1b[") {
+		t.Fatalf("stdout contains ANSI escape codes, structured output is corrupted:\n%q", stdout)
+	}
+}
+
 func TestAudit_CleanSkill(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -1085,6 +1094,8 @@ func TestAudit_FormatSARIF(t *testing.T) {
 	if uri == "" {
 		t.Fatal("expected non-empty artifact URI")
 	}
+
+	assertNoANSI(t, result.Stdout)
 }
 
 func TestAudit_FormatMarkdown(t *testing.T) {
@@ -1118,6 +1129,7 @@ func TestAudit_FormatMarkdown(t *testing.T) {
 	if !strings.Contains(stdout, "prompt-injection") {
 		t.Fatal("missing pattern name in findings table")
 	}
+	assertNoANSI(t, stdout)
 }
 
 func TestAudit_FormatJSON(t *testing.T) {
@@ -1148,6 +1160,7 @@ func TestAudit_FormatJSON(t *testing.T) {
 	if payload.Summary.High == 0 {
 		t.Fatal("expected high > 0")
 	}
+	assertNoANSI(t, result.Stdout)
 }
 
 func TestAudit_JSONDeprecation(t *testing.T) {
