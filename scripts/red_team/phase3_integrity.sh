@@ -24,7 +24,7 @@ cat > "$INTEGRITY_DIR/.skillshare-meta.json" <<META_EOF
 }
 META_EOF
 
-ss_capture audit integrity-skill --json
+ss_capture audit integrity-skill --format json
 HAS_INTEGRITY=false
 echo "$SS_OUTPUT" | jq -e '.results[0].findings[] | select(.pattern | startswith("content-"))' >/dev/null 2>&1 && HAS_INTEGRITY=true
 if [ "$HAS_INTEGRITY" = false ]; then
@@ -44,7 +44,7 @@ name: integrity-skill
 MODIFIED — this content does not match the pinned hash.
 SKILL_EOF
 
-ss_capture audit integrity-skill --json
+ss_capture audit integrity-skill --format json
 assert_finding "TC-26: content-tampered detected as MEDIUM" "$SS_OUTPUT" "content-tampered" "MEDIUM"
 
 # ── TC-27: Missing pinned file → content-missing (LOW) ────────
@@ -66,7 +66,7 @@ cat > "$INTEGRITY_DIR/.skillshare-meta.json" <<META_EOF
 }
 META_EOF
 
-ss_capture audit integrity-skill --json
+ss_capture audit integrity-skill --format json
 assert_finding "TC-27: content-missing detected as LOW" "$SS_OUTPUT" "content-missing" "LOW"
 
 # ── TC-28: Unexpected file → content-unexpected (LOW) ─────────
@@ -85,7 +85,7 @@ META_EOF
 
 echo "unexpected content" > "$INTEGRITY_DIR/sneaky.sh"
 
-ss_capture audit integrity-skill --json
+ss_capture audit integrity-skill --format json
 assert_finding "TC-28: content-unexpected detected as LOW" "$SS_OUTPUT" "content-unexpected" "LOW"
 
 # Clean up phase 3
