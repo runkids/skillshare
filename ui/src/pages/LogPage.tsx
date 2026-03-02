@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ScrollText, Trash2, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ScrollText, Trash2, RefreshCw, ChevronLeft, ChevronRight, Activity, Clock, Terminal, ShieldCheck } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { LogEntry, LogStatsResponse } from '../api/client';
@@ -13,6 +13,10 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { HandSelect } from '../components/HandInput';
 import { wobbly, shadows } from '../design';
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Constants & helpers
+ * ────────────────────────────────────────────────────────────────────── */
 
 type LogTab = 'all' | 'ops' | 'audit';
 type TimeRange = '' | '1h' | '24h' | '7d' | '30d';
@@ -39,12 +43,15 @@ function timeRangeToSince(range: TimeRange): string {
   return now.toISOString();
 }
 
-type AuditSkillLists = {
-  failed: string[];
-  warning: string[];
-  low: string[];
-  info: string[];
-};
+function statusColor(status: string): string {
+  switch (status) {
+    case 'ok': return 'var(--color-success)';
+    case 'error': return 'var(--color-danger)';
+    case 'partial': return 'var(--color-warning)';
+    case 'blocked': return 'var(--color-danger)';
+    default: return 'var(--color-pencil-light)';
+  }
+}
 
 function statusBadge(status: string) {
   switch (status) {
@@ -113,51 +120,40 @@ function summarizeNames(names: string[], limit = 3): string {
   return `${shown} (+${names.length - limit})`;
 }
 
+/* ── Detail formatters ─── */
+
 function formatSyncDetail(args: Record<string, any>): string {
   const parts: string[] = [];
-
   const total = asInt(args.targets_total ?? args.targets);
   if (total != null) parts.push(`targets=${total}`);
-
   const failed = asInt(args.targets_failed);
   if (failed != null && failed > 0) parts.push(`failed=${failed}`);
-
   if (args.dry_run === true || args.dry_run === 'true') parts.push('dry-run');
   if (args.force === true || args.force === 'true') parts.push('force');
-
   const scope = asString(args.scope);
   if (scope) parts.push(`scope=${scope}`);
-
   return parts.join(', ');
 }
 
 function formatAuditDetail(args: Record<string, any>): string {
   const parts: string[] = [];
-
   const scope = asString(args.scope);
   const name = asString(args.name);
   if (scope === 'single' && name) parts.push(`skill=${name}`);
   else if (scope === 'all') parts.push('all-skills');
   else if (name) parts.push(name);
-
   const mode = asString(args.mode);
   if (mode) parts.push(`mode=${mode}`);
-
   const threshold = asString(args.threshold);
   if (threshold) parts.push(`threshold=${threshold.toUpperCase()}`);
-
   const scanned = asInt(args.scanned);
   if (scanned != null) parts.push(`scanned=${scanned}`);
-
   const passed = asInt(args.passed);
   if (passed != null) parts.push(`passed=${passed}`);
-
   const warning = asInt(args.warning);
   if (warning != null && warning > 0) parts.push(`warning=${warning}`);
-
   const failed = asInt(args.failed);
   if (failed != null && failed > 0) parts.push(`failed=${failed}`);
-
   const critical = asInt(args.critical) ?? 0;
   const high = asInt(args.high) ?? 0;
   const medium = asInt(args.medium) ?? 0;
@@ -166,19 +162,23 @@ function formatAuditDetail(args: Record<string, any>): string {
   if (critical > 0 || high > 0 || medium > 0 || low > 0 || info > 0) {
     parts.push(`sev(c/h/m/l/i)=${critical}/${high}/${medium}/${low}/${info}`);
   }
-
   const riskScore = asInt(args.risk_score);
   const riskLabel = asString(args.risk_label);
   if (riskScore != null) {
     if (riskLabel) parts.push(`risk=${riskLabel.toUpperCase()}(${riskScore}/100)`);
     else parts.push(`risk=${riskScore}/100`);
   }
-
   const scanErrors = asInt(args.scan_errors);
   if (scanErrors != null && scanErrors > 0) parts.push(`scan-errors=${scanErrors}`);
-
   return parts.join(', ');
 }
+
+type AuditSkillLists = {
+  failed: string[];
+  warning: string[];
+  low: string[];
+  info: string[];
+};
 
 function getAuditSkillLists(entry: LogEntry): AuditSkillLists {
   if (entry.cmd !== 'audit' || !entry.args) {
@@ -194,26 +194,19 @@ function getAuditSkillLists(entry: LogEntry): AuditSkillLists {
 
 function formatUpdateDetail(args: Record<string, any>): string {
   const parts: string[] = [];
-
   const mode = asString(args.mode);
   if (mode) parts.push(`mode=${mode}`);
-
   if (args.all === true || args.all === 'true') parts.push('all');
-
   const name = asString(args.name);
   if (name) parts.push(name);
-
   const names = asStringArray(args.names);
   if (names.length > 0) parts.push(summarizeNames(names));
-
   const threshold = asString(args.threshold);
   if (threshold) parts.push(`threshold=${threshold.toUpperCase()}`);
-
   if (args.force === true || args.force === 'true') parts.push('force');
   if (args.dry_run === true || args.dry_run === 'true') parts.push('dry-run');
   if (args.skip_audit === true || args.skip_audit === 'true') parts.push('skip-audit');
   if (args.diff === true || args.diff === 'true') parts.push('diff');
-
   return parts.join(', ');
 }
 
@@ -238,7 +231,6 @@ function formatDetail(entry: LogEntry): string {
           ? formatAuditDetail(entry.args)
           : formatGenericDetail(entry.args)
     : '';
-
   if (entry.msg && detail) return `${detail} (${entry.msg})`;
   if (entry.msg) return entry.msg;
   return detail;
@@ -261,12 +253,12 @@ function renderDetail(entry: LogEntry) {
         </div>
       )}
       {lists.warning.length > 0 && (
-        <div className="text-xs text-yellow-700">
+        <div className="text-xs text-warning">
           warning skills: {summarizeNames(lists.warning, 6)}
         </div>
       )}
       {lists.low.length > 0 && (
-        <div className="text-xs text-blue-700">
+        <div className="text-xs text-blue">
           low skills: {summarizeNames(lists.low, 6)}
         </div>
       )}
@@ -279,10 +271,50 @@ function renderDetail(entry: LogEntry) {
   );
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+ * PillButton — reusable tab/filter button (dark-mode aware)
+ * ────────────────────────────────────────────────────────────────────── */
+
+function PillButton({
+  active,
+  onClick,
+  children,
+  className = '',
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        px-3 py-1.5 text-sm border-2 transition-all duration-150 cursor-pointer
+        ${active
+          ? 'bg-pencil text-paper border-pencil font-medium'
+          : 'bg-transparent text-pencil border-muted-dark hover:border-pencil'
+        }
+        ${className}
+      `}
+      style={{
+        borderRadius: wobbly.sm,
+        boxShadow: active ? shadows.sm : 'none',
+        fontFamily: 'var(--font-hand)',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+ * LogStatsBar — summary stat cards
+ * ────────────────────────────────────────────────────────────────────── */
+
 function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
   const commands = Object.entries(stats.by_command).sort((a, b) => b[1].total - a[1].total);
   const rate = stats.total > 0 ? Math.round(stats.success_rate * 100) : 0;
-  const rateColor = rate >= 90 ? 'text-success' : rate >= 70 ? 'text-warning' : 'text-danger';
 
   return (
     <div
@@ -290,60 +322,122 @@ function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
       style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}
     >
       {/* Success rate */}
-      <Card className="!py-3 !px-4 text-center">
-        <div className="text-pencil-light text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
-          Success Rate
+      <div
+        className="flex items-center gap-3 p-3 border-2 border-l-[4px] transition-all"
+        style={{
+          borderRadius: wobbly.md,
+          borderColor: 'var(--color-muted-dark)',
+          borderLeftColor: rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)',
+          boxShadow: shadows.sm,
+        }}
+      >
+        <div
+          className="w-9 h-9 flex items-center justify-center border-2 shrink-0"
+          style={{
+            borderRadius: wobbly.sm,
+            borderColor: rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)',
+            color: rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)',
+          }}
+        >
+          <Activity size={18} strokeWidth={2.5} />
         </div>
-        <div className={`text-2xl font-bold ${rateColor}`} style={{ fontFamily: 'var(--font-heading)' }}>
-          {rate}%
+        <div>
+          <p className="text-xl font-bold leading-tight" style={{
+            fontFamily: 'var(--font-heading)',
+            color: rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)',
+          }}>
+            {rate}%
+          </p>
+          <p className="text-xs text-pencil-light leading-tight" style={{ fontFamily: 'var(--font-hand)' }}>
+            {stats.total} total
+          </p>
         </div>
-        <div className="text-pencil-light text-xs" style={{ fontFamily: 'var(--font-hand)' }}>
-          {stats.total} total
-        </div>
-      </Card>
+      </div>
 
       {/* Top commands */}
-      {commands.slice(0, 4).map(([cmd, cs]) => (
-        <Card key={cmd} className="!py-3 !px-4 text-center">
-          <div className="text-pencil-light text-sm uppercase" style={{ fontFamily: 'var(--font-hand)' }}>
-            {cmd}
+      {commands.slice(0, 4).map(([cmd, cs]) => {
+        const hasErrors = cs.error > 0 || cs.blocked > 0;
+        return (
+          <div
+            key={cmd}
+            className="flex items-center gap-3 p-3 border-2 border-l-[4px] transition-all"
+            style={{
+              borderRadius: wobbly.md,
+              borderColor: 'var(--color-muted-dark)',
+              borderLeftColor: hasErrors ? 'var(--color-warning)' : 'var(--color-pencil-light)',
+              boxShadow: shadows.sm,
+            }}
+          >
+            <div
+              className="w-9 h-9 flex items-center justify-center border-2 shrink-0"
+              style={{
+                borderRadius: wobbly.sm,
+                borderColor: 'var(--color-pencil-light)',
+                color: 'var(--color-pencil-light)',
+              }}
+            >
+              {cmd === 'audit' ? <ShieldCheck size={18} strokeWidth={2.5} /> : <Terminal size={18} strokeWidth={2.5} />}
+            </div>
+            <div>
+              <p className="text-lg font-bold text-pencil leading-tight uppercase" style={{ fontFamily: 'var(--font-heading)' }}>
+                {cmd}
+              </p>
+              <div className="flex items-center gap-1.5 text-xs" style={{ fontFamily: 'var(--font-hand)' }}>
+                <span className="text-pencil-light">{cs.total}</span>
+                {cs.ok > 0 && <span className="text-success">{cs.ok} ok</span>}
+                {cs.error > 0 && <span className="text-danger">{cs.error} err</span>}
+                {cs.partial > 0 && <span className="text-warning">{cs.partial} partial</span>}
+              </div>
+            </div>
           </div>
-          <div className="text-2xl font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
-            {cs.total}
-          </div>
-          <div className="flex items-center justify-center gap-1.5 text-xs" style={{ fontFamily: 'var(--font-hand)' }}>
-            {cs.ok > 0 && <span className="text-success">{cs.ok} ok</span>}
-            {cs.error > 0 && <span className="text-danger">{cs.error} err</span>}
-            {cs.partial > 0 && <span className="text-warning">{cs.partial} partial</span>}
-          </div>
-        </Card>
-      ))}
+        );
+      })}
 
       {/* Last operation */}
       {stats.last_operation && (
-        <Card className="!py-3 !px-4 text-center">
-          <div className="text-pencil-light text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
-            Last Op
+        <div
+          className="flex items-center gap-3 p-3 border-2 border-l-[4px] transition-all"
+          style={{
+            borderRadius: wobbly.md,
+            borderColor: 'var(--color-muted-dark)',
+            borderLeftColor: statusColor(stats.last_operation.status),
+            boxShadow: shadows.sm,
+          }}
+        >
+          <div
+            className="w-9 h-9 flex items-center justify-center border-2 shrink-0"
+            style={{
+              borderRadius: wobbly.sm,
+              borderColor: 'var(--color-pencil-light)',
+              color: 'var(--color-pencil-light)',
+            }}
+          >
+            <Clock size={18} strokeWidth={2.5} />
           </div>
-          <div className="text-base font-bold text-pencil uppercase" style={{ fontFamily: 'var(--font-heading)' }}>
-            {stats.last_operation.cmd}
+          <div>
+            <p className="text-sm font-bold text-pencil uppercase leading-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+              {stats.last_operation.cmd}
+            </p>
+            <div className="text-xs mt-0.5">
+              {statusBadge(stats.last_operation.status)}
+            </div>
           </div>
-          <div className="text-xs" style={{ fontFamily: 'var(--font-hand)' }}>
-            {statusBadge(stats.last_operation.status)}
-          </div>
-        </Card>
+        </div>
       )}
     </div>
   );
 }
 
+/* ──────────────────────────────────────────────────────────────────────
+ * LogTable — paginated table with status-colored left stripes
+ * ────────────────────────────────────────────────────────────────────── */
+
 const PAGE_SIZES = [10, 25, 50] as const;
 
 function LogTable({ entries }: { entries: LogEntry[] }) {
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState<number>(25);
+  const [pageSize, setPageSize] = useState<number>(10);
 
-  // Reset to first page when entries change (e.g. filter applied)
   useEffect(() => { setPage(0); }, [entries]);
 
   const totalPages = Math.max(1, Math.ceil(entries.length / pageSize));
@@ -356,32 +450,41 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
         <table className="w-full text-left" style={{ fontFamily: 'var(--font-hand)' }}>
           <thead>
             <tr className="border-b-2 border-dashed border-muted-dark">
-              <th className="pb-3 pr-4 text-pencil-light text-base font-medium">Time</th>
-              <th className="pb-3 pr-4 text-pencil-light text-base font-medium">Command</th>
-              <th className="pb-3 pr-4 text-pencil-light text-base font-medium">Details</th>
-              <th className="pb-3 pr-4 text-pencil-light text-base font-medium">Status</th>
-              <th className="pb-3 text-pencil-light text-base font-medium text-right">Duration</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium w-0" />
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Time</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Command</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Details</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Status</th>
+              <th className="pb-3 text-pencil-light text-sm font-medium text-right">Duration</th>
             </tr>
           </thead>
           <tbody>
             {visible.map((entry, i) => (
               <tr
                 key={`${entry.ts}-${entry.cmd}-${start + i}`}
-                className="border-b border-dashed border-muted hover:bg-surface/60 transition-colors"
+                className="border-b border-dashed border-muted hover:bg-paper-warm/60 transition-colors"
               >
-                <td className="py-3 pr-4 text-pencil-light text-base whitespace-nowrap">
+                {/* Status stripe cell */}
+                <td className="py-3 pr-0 w-1">
+                  <div
+                    className="w-1 h-6 rounded-full"
+                    style={{ backgroundColor: statusColor(entry.status) }}
+                    title={entry.status}
+                  />
+                </td>
+                <td className="py-3 pr-4 text-pencil-light text-sm whitespace-nowrap">
                   {formatTimestamp(entry.ts)}
                 </td>
-                <td className="py-3 pr-4 font-medium text-pencil uppercase text-base">
+                <td className="py-3 pr-4 font-medium text-pencil uppercase text-sm">
                   {entry.cmd}
                 </td>
-                <td className="py-3 pr-4 text-pencil-light text-base max-w-2xl break-words">
+                <td className="py-3 pr-4 text-pencil-light text-sm max-w-2xl break-words">
                   {renderDetail(entry)}
                 </td>
                 <td className="py-3 pr-4">
                   {statusBadge(entry.status)}
                 </td>
-                <td className="py-3 text-pencil-light text-base text-right whitespace-nowrap">
+                <td className="py-3 text-pencil-light text-sm text-right whitespace-nowrap">
                   {formatDuration(entry.ms)}
                 </td>
               </tr>
@@ -396,24 +499,16 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
           className="flex items-center justify-between pt-4 mt-4 border-t-2 border-dashed border-muted"
           style={{ fontFamily: 'var(--font-hand)' }}
         >
-          <div className="flex items-center gap-2 text-base text-pencil-light">
+          <div className="flex items-center gap-2 text-sm text-pencil-light">
             <span>Show</span>
             {PAGE_SIZES.map((size) => (
-              <button
+              <PillButton
                 key={size}
+                active={pageSize === size}
                 onClick={() => { setPageSize(size); setPage(0); }}
-                className={`px-2.5 py-1 text-base border-2 transition-all duration-100 ${
-                  pageSize === size
-                    ? 'bg-surface border-pencil text-pencil font-medium'
-                    : 'bg-transparent border-transparent text-pencil-light hover:text-pencil hover:bg-surface/60'
-                }`}
-                style={{
-                  borderRadius: wobbly.sm,
-                  boxShadow: pageSize === size ? shadows.sm : 'none',
-                }}
               >
                 {size}
-              </button>
+              </PillButton>
             ))}
             <span className="ml-1">
               {start + 1}–{Math.min(start + pageSize, entries.length)} of {entries.length}
@@ -424,25 +519,25 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
             <button
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={page === 0}
-              className={`p-1.5 border-2 transition-all duration-100 ${
+              className={`p-1.5 border-2 transition-all duration-150 cursor-pointer ${
                 page === 0
                   ? 'border-transparent text-muted-dark cursor-not-allowed'
-                  : 'border-transparent text-pencil-light hover:text-pencil hover:bg-surface/60 hover:border-pencil'
+                  : 'border-transparent text-pencil hover:bg-paper-warm hover:border-muted-dark'
               }`}
               style={{ borderRadius: wobbly.sm }}
             >
               <ChevronLeft size={20} />
             </button>
-            <span className="text-base text-pencil px-2">
+            <span className="text-sm text-pencil px-2">
               {page + 1} / {totalPages}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={page >= totalPages - 1}
-              className={`p-1.5 border-2 transition-all duration-100 ${
+              className={`p-1.5 border-2 transition-all duration-150 cursor-pointer ${
                 page >= totalPages - 1
                   ? 'border-transparent text-muted-dark cursor-not-allowed'
-                  : 'border-transparent text-pencil-light hover:text-pencil hover:bg-surface/60 hover:border-pencil'
+                  : 'border-transparent text-pencil hover:bg-paper-warm hover:border-muted-dark'
               }`}
               style={{ borderRadius: wobbly.sm }}
             >
@@ -454,6 +549,10 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
     </Card>
   );
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+ * Section — titled group of log entries
+ * ────────────────────────────────────────────────────────────────────── */
 
 function Section({ title, entries, emptyLabel, filtered }: { title: string; entries: LogEntry[]; emptyLabel: string; filtered?: boolean }) {
   return (
@@ -475,6 +574,10 @@ function Section({ title, entries, emptyLabel, filtered }: { title: string; entr
     </div>
   );
 }
+
+/* ──────────────────────────────────────────────────────────────────────
+ * LogPage — main page
+ * ────────────────────────────────────────────────────────────────────── */
 
 export default function LogPage() {
   const { toast } = useToast();
@@ -528,7 +631,6 @@ export default function LogPage() {
   const mergedStats = useMemo((): LogStatsResponse | undefined => {
     if (tab === 'ops') return opsStatsQuery.data;
     if (tab === 'audit') return auditStatsQuery.data;
-    // tab === 'all': merge both
     const ops = opsStatsQuery.data;
     const audit = auditStatsQuery.data;
     if (!ops && !audit) return undefined;
@@ -547,7 +649,6 @@ export default function LogPage() {
     }
     const total = (ops?.total ?? 0) + (audit?.total ?? 0);
     const okTotal = Object.values(byCommand).reduce((sum, cs) => sum + cs.ok, 0);
-    // Pick the most recent last_operation from the two sources
     let lastOp = ops?.last_operation;
     if (audit?.last_operation) {
       if (!lastOp || new Date(audit.last_operation.ts).getTime() > new Date(lastOp.ts).getTime()) {
@@ -578,7 +679,6 @@ export default function LogPage() {
       ? opsEntries.length > 0
       : auditEntries.length > 0;
 
-  // Distinct commands from all (unfiltered) log entries, returned by the API
   const knownCommands = useMemo(() => {
     const cmds = new Set<string>();
     if (opsQuery.data?.commands) {
@@ -604,7 +704,7 @@ export default function LogPage() {
         await api.clearLog(tab);
       }
       queryClient.invalidateQueries({ queryKey: ['log'] });
-    queryClient.invalidateQueries({ queryKey: ['log-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['log-stats'] });
       toast('Log cleared', 'success');
     } catch (e: any) {
       toast(e.message, 'error');
@@ -634,7 +734,8 @@ export default function LogPage() {
   })();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-sketch-in">
+      {/* ─── Header ─── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2
@@ -662,31 +763,19 @@ export default function LogPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      {/* ─── Tabs ─── */}
+      <div className="flex flex-wrap items-center gap-2">
         {(['all', 'ops', 'audit'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-base border-2 transition-all duration-100 ${
-              tab === t
-                ? 'bg-surface border-pencil text-pencil font-medium'
-                : 'bg-transparent border-transparent text-pencil-light hover:text-pencil hover:bg-surface/60'
-            }`}
-            style={{
-              borderRadius: wobbly.sm,
-              boxShadow: tab === t ? shadows.sm : 'none',
-              fontFamily: 'var(--font-hand)',
-            }}
-          >
+          <PillButton key={t} active={tab === t} onClick={() => setTab(t)}>
             {t === 'all' ? 'All' : t === 'ops' ? 'Operations' : 'Audit'}
-          </button>
+          </PillButton>
         ))}
-        <span className="self-center text-sm text-pencil-light ml-2" style={{ fontFamily: 'var(--font-hand)' }}>
+        <span className="text-sm text-pencil-light ml-2" style={{ fontFamily: 'var(--font-hand)' }}>
           {totalLabel}
         </span>
       </div>
 
-      {/* Filters */}
+      {/* ─── Filters ─── */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-36">
           <HandSelect
@@ -709,38 +798,31 @@ export default function LogPage() {
         </div>
         <div>
           <span
-            className="block text-base text-pencil-light mb-1"
+            className="block text-sm text-pencil-light mb-1"
             style={{ fontFamily: 'var(--font-hand)' }}
           >
             Time
           </span>
           <div className="flex gap-1">
             {TIME_RANGES.map((tr) => (
-              <button
+              <PillButton
                 key={tr.value}
+                active={timeRange === tr.value}
                 onClick={() => setTimeRange(tr.value)}
-                className={`px-3 py-2 text-sm border-2 transition-all duration-100 ${
-                  timeRange === tr.value
-                    ? 'bg-surface border-pencil text-pencil font-medium'
-                    : 'bg-transparent border-transparent text-pencil-light hover:text-pencil hover:bg-surface/60'
-                }`}
-                style={{
-                  borderRadius: wobbly.sm,
-                  boxShadow: timeRange === tr.value ? shadows.sm : 'none',
-                  fontFamily: 'var(--font-hand)',
-                }}
               >
                 {tr.label}
-              </button>
+              </PillButton>
             ))}
           </div>
         </div>
       </div>
 
+      {/* ─── Stats ─── */}
       {mergedStats && mergedStats.total > 0 && (
         <LogStatsBar stats={mergedStats} />
       )}
 
+      {/* ─── Log entries ─── */}
       {tab === 'all' ? (
         <div className="space-y-6">
           <Section title="Operations" entries={opsEntries} emptyLabel="operation" filtered={hasFilter} />

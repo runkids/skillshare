@@ -467,9 +467,10 @@ func (s *Server) handleToggleRule(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 
 	var req struct {
-		ID      string `json:"id,omitempty"`
-		Pattern string `json:"pattern,omitempty"`
-		Enabled bool   `json:"enabled"`
+		ID       string `json:"id,omitempty"`
+		Pattern  string `json:"pattern,omitempty"`
+		Enabled  bool   `json:"enabled"`
+		Severity string `json:"severity,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -478,7 +479,18 @@ func (s *Server) handleToggleRule(w http.ResponseWriter, r *http.Request) {
 
 	path := s.auditRulesPath()
 	var err error
-	if req.Pattern != "" {
+
+	// Severity override takes precedence when provided
+	if req.Severity != "" {
+		if req.Pattern != "" {
+			err = audit.SetPatternSeverity(path, req.Pattern, req.Severity)
+		} else if req.ID != "" {
+			err = audit.SetSeverity(path, req.ID, req.Severity)
+		} else {
+			writeError(w, http.StatusBadRequest, "id or pattern required")
+			return
+		}
+	} else if req.Pattern != "" {
 		err = audit.TogglePattern(path, req.Pattern, req.Enabled)
 	} else if req.ID != "" {
 		err = audit.ToggleRule(path, req.ID, req.Enabled)
@@ -489,6 +501,20 @@ func (s *Server) handleToggleRule(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "toggle rule: "+err.Error())
+		return
+	}
+
+	audit.ResetGlobalCache()
+	writeJSON(w, map[string]any{"success": true})
+}
+
+func (s *Server) handleResetRules(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	path := s.auditRulesPath()
+	if err := audit.ResetRules(path); err != nil {
+		writeError(w, http.StatusInternalServerError, "reset rules: "+err.Error())
 		return
 	}
 

@@ -22,6 +22,7 @@ export const queryKeys = {
   audit: {
     all: ['audit'] as const,
     rules: ['audit', 'rules'] as const,
+    compiled: ['audit', 'rules', 'compiled'] as const,
   },
 
   log: (type: string, limit: number, filters?: Record<string, string>) =>

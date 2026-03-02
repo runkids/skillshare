@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -130,4 +131,86 @@ func upsertPatternDisable(rules []yamlRule, pattern string) []yamlRule {
 		}
 	}
 	return append(rules, yamlRule{Pattern: pattern, Enabled: &disabled})
+}
+
+// SetSeverity overrides the severity of a single rule by ID.
+// Writes an entry with just id + severity (no enabled field) to the audit-rules.yaml.
+func SetSeverity(path, id, severity string) error {
+	sev := normalizeSeverity(severity)
+	if sev == "" {
+		return fmt.Errorf("invalid severity %q (use CRITICAL, HIGH, MEDIUM, LOW, INFO)", severity)
+	}
+
+	rules, err := readOrCreateRulesFile(path)
+	if err != nil {
+		return err
+	}
+
+	rules = upsertSeverityByID(rules, id, sev)
+	return writeRulesFile(path, rules)
+}
+
+// SetPatternSeverity overrides the severity for all rules matching a pattern.
+func SetPatternSeverity(path, pattern, severity string) error {
+	sev := normalizeSeverity(severity)
+	if sev == "" {
+		return fmt.Errorf("invalid severity %q (use CRITICAL, HIGH, MEDIUM, LOW, INFO)", severity)
+	}
+
+	rules, err := readOrCreateRulesFile(path)
+	if err != nil {
+		return err
+	}
+
+	rules = upsertPatternSeverity(rules, pattern, sev)
+	return writeRulesFile(path, rules)
+}
+
+// ResetRules deletes the audit-rules.yaml file, restoring all rules to built-in defaults.
+// Returns nil if the file doesn't exist.
+func ResetRules(path string) error {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove %s: %w", path, err)
+	}
+	return nil
+}
+
+// upsertSeverityByID adds or updates a severity override entry for a rule ID.
+func upsertSeverityByID(rules []yamlRule, id, severity string) []yamlRule {
+	for i, r := range rules {
+		if r.ID == id {
+			rules[i].Severity = severity
+			return rules
+		}
+	}
+	return append(rules, yamlRule{ID: id, Severity: severity})
+}
+
+// upsertPatternSeverity adds or updates a pattern-level severity entry.
+func upsertPatternSeverity(rules []yamlRule, pattern, severity string) []yamlRule {
+	for i, r := range rules {
+		if isPatternLevel(r) && r.Pattern == pattern {
+			rules[i].Severity = severity
+			return rules
+		}
+	}
+	return append(rules, yamlRule{Pattern: pattern, Severity: severity})
+}
+
+// normalizeSeverity normalizes severity input to uppercase canonical form.
+func normalizeSeverity(s string) string {
+	switch strings.ToUpper(strings.TrimSpace(s)) {
+	case "CRITICAL", "CRIT", "C":
+		return "CRITICAL"
+	case "HIGH", "H":
+		return "HIGH"
+	case "MEDIUM", "MED", "M":
+		return "MEDIUM"
+	case "LOW", "L":
+		return "LOW"
+	case "INFO", "I":
+		return "INFO"
+	default:
+		return ""
+	}
 }

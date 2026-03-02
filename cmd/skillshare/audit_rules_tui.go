@@ -10,81 +10,89 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
-// ── Level enum ──
+// ── Severity tab definitions ──
 
-type arLevel int
-
-const (
-	arLevelPatterns arLevel = iota
-	arLevelRules
-)
-
-// ── Pattern item (Level 1) ──
-
-type arPatternItem struct {
-	group audit.PatternGroup
+type sevTab struct {
+	label string
+	sev   string // "" = ALL, "DISABLED" = disabled rules
 }
 
-func (i arPatternItem) Title() string {
-	status := tc.Green.Render("all enabled")
+var sevTabs = []sevTab{
+	{"ALL", ""},
+	{"CRIT", "CRITICAL"},
+	{"HIGH", "HIGH"},
+	{"MED", "MEDIUM"},
+	{"LOW", "LOW"},
+	{"INFO", "INFO"},
+	{"OFF", "DISABLED"},
+}
+
+// ── Item types for the flat accordion list ──
+
+// arHeaderItem represents a pattern group header (expandable).
+type arHeaderItem struct {
+	group    audit.PatternGroup
+	expanded bool
+}
+
+func (i arHeaderItem) Title() string {
+	arrow := "▸"
+	if i.expanded {
+		arrow = "▾"
+	}
+	countStr := fmt.Sprintf("%d", i.group.Total)
+	extra := ""
 	if i.group.Disabled > 0 {
-		status = tc.Yellow.Render(fmt.Sprintf("%d disabled", i.group.Disabled))
+		extra = tc.Yellow.Render(fmt.Sprintf(" %d off", i.group.Disabled))
 	}
-	countStr := fmt.Sprintf("%d rules", i.group.Total)
-	if i.group.Total == 1 {
-		countStr = "1 rule"
-	}
-	sev := tcSevStyle(i.group.MaxSeverity).Render(i.group.MaxSeverity)
-	return fmt.Sprintf("▸ %-26s %8s   %-16s max: %s", i.group.Pattern, countStr, status, sev)
+	return fmt.Sprintf("%s %s  %s%s", arrow, i.group.Pattern, tc.Dim.Render(countStr), extra)
 }
 
-func (i arPatternItem) Description() string { return "" }
+func (i arHeaderItem) Description() string { return "" }
 
-func (i arPatternItem) FilterValue() string {
+func (i arHeaderItem) FilterValue() string {
 	return i.group.Pattern + " " + i.group.MaxSeverity
 }
 
-// ── Rule item (Level 2) ──
-
+// arRuleItem represents a single rule under an expanded pattern.
 type arRuleItem struct {
 	rule    audit.CompiledRule
-	shortID string
+	display string // suffix after stripping pattern prefix (for compact list display)
 }
 
 func (i arRuleItem) Title() string {
-	sev := tcSevStyle(i.rule.Severity).Render(fmt.Sprintf("%-10s", i.rule.Severity))
-	status := tc.Green.Render("enabled")
+	dot := tcSevStyle(i.rule.Severity).Render("●")
 	if !i.rule.Enabled {
-		status = tc.Red.Render("disabled") + " ←"
+		return fmt.Sprintf("  %s %s  %s", dot, i.rule.ID, tc.Red.Render("off"))
 	}
-	return fmt.Sprintf("● %s %-34s %s", sev, i.shortID, status)
+	return fmt.Sprintf("  %s %s", dot, i.rule.ID)
 }
 
 func (i arRuleItem) Description() string { return "" }
 
 func (i arRuleItem) FilterValue() string {
-	return i.shortID + " " + i.rule.ID + " " + i.rule.Message + " " + i.rule.Severity
+	return i.rule.ID + " " + i.display + " " + i.rule.Message + " " + i.rule.Severity
 }
+
 
 // ── Model ──
 
 type arModel struct {
-	level    arLevel
 	allRules []audit.CompiledRule
 	mode     runMode
 
-	// Level 1
-	patternList  list.Model
-	patternItems []arPatternItem
+	list     list.Model
+	expanded map[string]bool // pattern → expanded
 
-	// Level 2
-	ruleList       list.Model
-	ruleItems      []arRuleItem
-	currentPattern string
+	sevTab       int // index into sevTabs
+	detailScroll int
 
-	// Shared
+	pickingSeverity bool
+	pendingReset    bool
+
 	width, height int
 	filterInput   textinput.Model
 	filterText    string
@@ -94,12 +102,50 @@ type arModel struct {
 	quitting      bool
 }
 
-// newARModel creates the initial model starting at Level 1 (pattern list).
+// severityOptions are the valid severity levels with their shortcut keys.
+var severityOptions = []struct {
+	key string
+	sev string
+}{
+	{"1", "CRITICAL"},
+	{"2", "HIGH"},
+	{"3", "MEDIUM"},
+	{"4", "LOW"},
+	{"5", "INFO"},
+}
+
+// arListWidth returns the left panel width for horizontal layout (40%).
+func arListWidth(termWidth int) int {
+	w := termWidth * 45 / 100
+	if w < 35 {
+		w = 35
+	}
+	if w > 65 {
+		w = 65
+	}
+	return w
+}
+
+// arDetailWidth returns the right detail panel width.
+func arDetailWidth(termWidth int) int {
+	w := termWidth - arListWidth(termWidth) - 3 // 3 = border column
+	if w < 30 {
+		w = 30
+	}
+	return w
+}
+
+// useSplit returns true if horizontal split layout should be used.
+func (m *arModel) useSplit() bool {
+	return m.width >= tuiMinSplitWidth
+}
+
+// newARModel creates the initial model with flat accordion list.
 func newARModel(rules []audit.CompiledRule, mode runMode) arModel {
 	m := arModel{
-		level:    arLevelPatterns,
 		allRules: rules,
 		mode:     mode,
+		expanded: make(map[string]bool),
 	}
 
 	// Filter text input
@@ -109,67 +155,99 @@ func newARModel(rules []audit.CompiledRule, mode runMode) arModel {
 	fi.Cursor.Style = tc.Filter
 	m.filterInput = fi
 
-	// Build pattern list
-	m.buildPatternList()
+	// Build flat list
+	m.rebuildItems()
 	return m
 }
 
-// buildPatternList constructs the Level 1 list from current allRules.
-func (m *arModel) buildPatternList() {
+// rebuildItems reconstructs the flat list from current state.
+// Called after every state change: toggle, severity, filter, tab, expand/collapse.
+func (m *arModel) rebuildItems() {
 	patterns := audit.PatternSummary(m.allRules)
-	m.patternItems = make([]arPatternItem, len(patterns))
-	items := make([]list.Item, len(patterns))
-	for i, pg := range patterns {
-		m.patternItems[i] = arPatternItem{group: pg}
-		items[i] = m.patternItems[i]
+	filterTerm := strings.ToLower(m.filterText)
+	activeSevTab := sevTabs[m.sevTab]
+
+	// Save current cursor position
+	var savedIdx int
+	if m.list.Items() != nil {
+		savedIdx = m.list.Index()
 	}
 
-	totalRules := len(m.allRules)
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, false)
+	var items []list.Item
+	var totalRuleCount int
 
-	l := list.New(items, delegate, 0, 0)
-	l.Title = fmt.Sprintf("Audit Rules — %d patterns, %d rules", len(patterns), totalRules)
-	l.Styles.Title = tc.ListTitle
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.SetShowHelp(false)
-	l.SetShowPagination(false)
+	for _, pg := range patterns {
+		// Collect rules for this pattern
+		var patternRules []audit.CompiledRule
+		for _, r := range m.allRules {
+			if r.Pattern != pg.Pattern {
+				continue
+			}
+			patternRules = append(patternRules, r)
+		}
 
-	if m.width > 0 {
-		l.SetSize(m.width, m.listHeight())
-	}
+		// Filter by severity tab
+		var matchedRules []audit.CompiledRule
+		for _, r := range patternRules {
+			if !m.ruleMatchesSevTab(r, activeSevTab) {
+				continue
+			}
+			matchedRules = append(matchedRules, r)
+		}
 
-	m.patternList = l
-}
-
-// buildRuleList constructs the Level 2 list for a specific pattern.
-func (m *arModel) buildRuleList(pattern string) {
-	m.currentPattern = pattern
-	var ruleItems []arRuleItem
-	prefix := pattern + "-"
-	for _, r := range m.allRules {
-		if r.Pattern != pattern {
+		// Skip pattern if no rules match the tab
+		if len(matchedRules) == 0 {
 			continue
 		}
-		shortID := r.ID
-		if strings.HasPrefix(r.ID, prefix) {
-			shortID = strings.TrimPrefix(r.ID, prefix)
+
+		// Apply text filter to rules
+		var filteredRules []audit.CompiledRule
+		for _, r := range matchedRules {
+			filterVal := r.ID + " " + r.Message + " " + r.Severity
+			if filterTerm != "" && !strings.Contains(strings.ToLower(filterVal), filterTerm) {
+				continue
+			}
+			filteredRules = append(filteredRules, r)
 		}
-		ruleItems = append(ruleItems, arRuleItem{rule: r, shortID: shortID})
-	}
-	m.ruleItems = ruleItems
 
-	items := make([]list.Item, len(ruleItems))
-	for i, ri := range ruleItems {
-		items[i] = ri
+		// Also check if the pattern name itself matches the filter
+		patternMatches := filterTerm == "" || strings.Contains(strings.ToLower(pg.Pattern+" "+pg.MaxSeverity), filterTerm)
+
+		// Skip if no filtered rules and pattern doesn't match
+		if len(filteredRules) == 0 && !patternMatches {
+			continue
+		}
+
+		// If pattern matches but no individual rules match, use matchedRules (before text filter)
+		rulesForDisplay := filteredRules
+		if len(filteredRules) == 0 && patternMatches {
+			rulesForDisplay = matchedRules
+		}
+
+		// Add header
+		isExpanded := m.expanded[pg.Pattern]
+		items = append(items, arHeaderItem{group: pg, expanded: isExpanded})
+
+		// Add rules if expanded
+		if isExpanded {
+			prefix := pg.Pattern + "-"
+			for _, r := range rulesForDisplay {
+				display := r.ID
+				if strings.HasPrefix(r.ID, prefix) {
+					display = strings.TrimPrefix(r.ID, prefix)
+				}
+				items = append(items, arRuleItem{rule: r, display: display})
+			}
+		}
+		totalRuleCount += len(rulesForDisplay)
 	}
 
+	// Create or update list
 	delegate := list.NewDefaultDelegate()
 	configureDelegate(&delegate, false)
 
 	l := list.New(items, delegate, 0, 0)
-	l.Title = fmt.Sprintf("%s — %d rules", pattern, len(ruleItems))
+	l.Title = m.buildTitle()
 	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
@@ -177,25 +255,67 @@ func (m *arModel) buildRuleList(pattern string) {
 	l.SetShowPagination(false)
 
 	if m.width > 0 {
-		l.SetSize(m.width, m.listHeight())
+		if m.useSplit() {
+			l.SetSize(arListWidth(m.width), m.listHeight())
+		} else {
+			l.SetSize(m.width, m.listHeight())
+		}
 	}
 
-	m.ruleList = l
+	m.list = l
+
+	// Restore cursor position
+	if savedIdx > 0 && savedIdx < len(items) {
+		m.list.Select(savedIdx)
+	}
 }
 
-// listHeight returns the height for the list widget, reserving space for
-// detail panel, filter bar, and help bar.
-func (m *arModel) listHeight() int {
-	if m.level == arLevelRules {
-		// Reserve ~12 lines for detail + filter + help + flash
-		h := m.height - 14
-		if h < 6 {
-			h = 6
-		}
-		return h
+// buildTitle returns the list title with counts.
+func (m *arModel) buildTitle() string {
+	patterns := audit.PatternSummary(m.allRules)
+	return fmt.Sprintf("Audit Rules — %d patterns, %d rules", len(patterns), len(m.allRules))
+}
+
+// ruleMatchesSevTab returns true if a rule matches the current severity tab filter.
+func (m *arModel) ruleMatchesSevTab(r audit.CompiledRule, tab sevTab) bool {
+	if tab.sev == "" {
+		return true // ALL tab
 	}
-	// Level 1: reserve ~4 lines for filter + help + flash
-	h := m.height - 4
+	if tab.sev == "DISABLED" {
+		return !r.Enabled
+	}
+	return strings.EqualFold(r.Severity, tab.sev)
+}
+
+// sevTabCounts returns the count for each severity tab.
+func (m *arModel) sevTabCounts() []int {
+	counts := make([]int, len(sevTabs))
+	for _, r := range m.allRules {
+		counts[0]++ // ALL
+		if !r.Enabled {
+			counts[6]++ // OFF
+			continue
+		}
+		switch strings.ToUpper(r.Severity) {
+		case "CRITICAL":
+			counts[1]++
+		case "HIGH":
+			counts[2]++
+		case "MEDIUM":
+			counts[3]++
+		case "LOW":
+			counts[4]++
+		case "INFO":
+			counts[5]++
+		}
+	}
+	return counts
+}
+
+// listHeight returns the height for the list widget.
+func (m *arModel) listHeight() int {
+	// Reserve: 1 sev tab bar + 1 filter + 1 flash + 1 help + 2 gaps = ~6
+	h := m.height - 6
 	if h < 6 {
 		h = 6
 	}
@@ -211,9 +331,10 @@ func (m arModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.patternList.SetSize(msg.Width, m.listHeight())
-		if m.level == arLevelRules {
-			m.ruleList.SetSize(msg.Width, m.listHeight())
+		if m.useSplit() {
+			m.list.SetSize(arListWidth(msg.Width), m.listHeight())
+		} else {
+			m.list.SetSize(msg.Width, m.listHeight())
 		}
 		return m, nil
 
@@ -226,6 +347,24 @@ func (m arModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
+		// --- Reset confirmation mode ---
+		if m.pendingReset {
+			if msg.String() == "R" {
+				m.pendingReset = false
+				m.resetAllRules()
+				return m, nil
+			}
+			m.pendingReset = false
+			m.flashMsg = ""
+			m.flashTicks = 0
+			// Fall through to normal key handling
+		}
+
+		// --- Severity picker mode ---
+		if m.pickingSeverity {
+			return m.updateSeverityPicker(msg)
+		}
+
 		// --- Filter mode ---
 		if m.filtering {
 			switch msg.String() {
@@ -233,7 +372,7 @@ func (m arModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.filtering = false
 				m.filterText = ""
 				m.filterInput.SetValue("")
-				m.applyFilter()
+				m.rebuildItems()
 				return m, nil
 			case "enter":
 				m.filtering = false
@@ -244,143 +383,140 @@ func (m arModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			newVal := m.filterInput.Value()
 			if newVal != m.filterText {
 				m.filterText = newVal
-				m.applyFilter()
+				m.rebuildItems()
 			}
 			return m, cmd
 		}
 
-		// --- Level-specific keys ---
-		switch m.level {
-		case arLevelPatterns:
-			return m.updatePatternLevel(msg)
-		case arLevelRules:
-			return m.updateRuleLevel(msg)
+		// --- Normal mode keys ---
+		switch msg.String() {
+		case "q", "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		case "esc":
+			m.quitting = true
+			return m, tea.Quit
+		case "/":
+			m.filtering = true
+			m.filterInput.Focus()
+			return m, textinput.Blink
+		case "tab":
+			m.sevTab = (m.sevTab + 1) % len(sevTabs)
+			m.rebuildItems()
+			return m, nil
+		case "shift+tab":
+			m.sevTab = (m.sevTab - 1 + len(sevTabs)) % len(sevTabs)
+			m.rebuildItems()
+			return m, nil
+		case "enter":
+			m.toggleExpand()
+			return m, nil
+		case " ":
+			m.toggleSelected()
+			return m, nil
+		case "s":
+			m.pickingSeverity = true
+			return m, nil
+		case "R":
+			m.pendingReset = true
+			m.flashMsg = tc.Yellow.Render("Press R again to reset all rules to defaults")
+			m.flashTicks = 5
+			return m, nil
+		case "ctrl+d":
+			m.detailScroll += 5
+			return m, nil
+		case "ctrl+u":
+			m.detailScroll -= 5
+			if m.detailScroll < 0 {
+				m.detailScroll = 0
+			}
+			return m, nil
 		}
+
+		// Track cursor movement to reset detail scroll
+		prevIdx := m.list.Index()
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		if m.list.Index() != prevIdx {
+			m.detailScroll = 0
+		}
+		return m, cmd
 	}
 
-	// Delegate to the active list
+	// Delegate non-key messages to the list
 	var cmd tea.Cmd
-	switch m.level {
-	case arLevelPatterns:
-		m.patternList, cmd = m.patternList.Update(msg)
-	case arLevelRules:
-		m.ruleList, cmd = m.ruleList.Update(msg)
-	}
+	m.list, cmd = m.list.Update(msg)
 	return m, cmd
 }
 
-func (m arModel) updatePatternLevel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "q", "ctrl+c":
-		m.quitting = true
-		return m, tea.Quit
-	case "esc":
-		m.quitting = true
-		return m, tea.Quit
-	case "/":
-		m.filtering = true
-		m.filterInput.Focus()
-		return m, textinput.Blink
-	case "enter":
-		m.drillDown()
-		return m, nil
-	case "d":
-		m.togglePattern()
-		return m, nil
-	}
-
-	var cmd tea.Cmd
-	m.patternList, cmd = m.patternList.Update(msg)
-	return m, cmd
-}
-
-func (m arModel) updateRuleLevel(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "q", "ctrl+c":
-		m.quitting = true
-		return m, tea.Quit
-	case "esc":
-		m.goBack()
-		return m, nil
-	case "/":
-		m.filtering = true
-		m.filterInput.Focus()
-		return m, textinput.Blink
-	case "d":
-		m.toggleRule()
-		return m, nil
-	case "D":
-		m.togglePatternFromRuleLevel()
-		return m, nil
-	}
-
-	var cmd tea.Cmd
-	m.ruleList, cmd = m.ruleList.Update(msg)
-	return m, cmd
-}
-
-// drillDown enters Level 2 for the selected pattern.
-func (m *arModel) drillDown() {
-	item, ok := m.patternList.SelectedItem().(arPatternItem)
+// toggleExpand expands/collapses the selected pattern header.
+func (m *arModel) toggleExpand() {
+	item, ok := m.list.SelectedItem().(arHeaderItem)
 	if !ok {
-		return
+		return // on a rule item, do nothing
 	}
-	// Clear filter state
-	m.filterText = ""
-	m.filterInput.SetValue("")
-	m.filtering = false
-
-	m.level = arLevelRules
-	m.buildRuleList(item.group.Pattern)
+	m.expanded[item.group.Pattern] = !m.expanded[item.group.Pattern]
+	m.rebuildItems()
 }
 
-// goBack returns to Level 1.
-func (m *arModel) goBack() {
-	// Clear filter state
-	m.filterText = ""
-	m.filterInput.SetValue("")
-	m.filtering = false
-
-	m.level = arLevelPatterns
-	m.buildPatternList()
+// expandAll expands all pattern headers.
+func (m *arModel) expandAll() {
+	patterns := audit.PatternSummary(m.allRules)
+	for _, pg := range patterns {
+		m.expanded[pg.Pattern] = true
+	}
+	m.rebuildItems()
 }
 
-// togglePattern toggles all rules in the selected pattern (Level 1).
-func (m *arModel) togglePattern() {
-	item, ok := m.patternList.SelectedItem().(arPatternItem)
-	if !ok {
-		return
+// collapseAll collapses all pattern headers.
+func (m *arModel) collapseAll() {
+	for k := range m.expanded {
+		m.expanded[k] = false
 	}
+	m.rebuildItems()
+}
 
+// toggleSelected toggles the selected item.
+// Header → toggle all rules in pattern. Rule → toggle single rule.
+func (m *arModel) toggleSelected() {
+	switch item := m.list.SelectedItem().(type) {
+	case arHeaderItem:
+		m.togglePattern(item)
+	case arRuleItem:
+		m.toggleRule(item)
+	}
+}
+
+// togglePattern toggles all rules in the selected pattern.
+func (m *arModel) togglePattern(item arHeaderItem) {
 	allEnabled := item.group.Disabled == 0
 	cwd, _ := os.Getwd()
 	rulesPath := auditRulesPathForMode(m.mode, cwd)
 
-	err := audit.TogglePattern(rulesPath, item.group.Pattern, allEnabled)
+	err := audit.TogglePattern(rulesPath, item.group.Pattern, !allEnabled)
 	if err != nil {
 		m.flashMsg = tc.Red.Render("✗ " + err.Error())
 		m.flashTicks = 3
 		return
 	}
 
-	action := "Disabled"
+	action := "Enabled"
 	if allEnabled {
-		action = "Enabled"
+		action = "Disabled"
 	}
-	m.flashMsg = tc.Green.Render("✓ " + action + " " + item.group.Pattern)
+	countStr := fmt.Sprintf("all %d rules", item.group.Total)
+	if item.group.Total == 1 {
+		countStr = "1 rule"
+	}
+	m.flashMsg = tc.Green.Render(fmt.Sprintf("✓ %s %s (%s)", action, item.group.Pattern, countStr))
 	m.flashTicks = 3
 
 	m.reloadRules()
-	m.buildPatternList()
+	m.rebuildItems()
 }
 
-// toggleRule toggles a single rule (Level 2).
-func (m *arModel) toggleRule() {
-	item, ok := m.ruleList.SelectedItem().(arRuleItem)
-	if !ok {
-		return
-	}
-
+// toggleRule toggles a single rule.
+func (m *arModel) toggleRule(item arRuleItem) {
 	newEnabled := !item.rule.Enabled
 	cwd, _ := os.Getwd()
 	rulesPath := auditRulesPathForMode(m.mode, cwd)
@@ -392,55 +528,99 @@ func (m *arModel) toggleRule() {
 		return
 	}
 
-	action := "Disabled"
-	if newEnabled {
-		action = "Enabled"
+	action := "Enabled"
+	if !newEnabled {
+		action = "Disabled"
 	}
-	m.flashMsg = tc.Green.Render("✓ " + action + " " + item.shortID)
+	m.flashMsg = tc.Green.Render("✓ " + action + " " + item.rule.ID)
 	m.flashTicks = 3
 
-	curIdx := m.ruleList.Index()
 	m.reloadRules()
-	m.buildRuleList(m.currentPattern)
-	if curIdx < len(m.ruleItems) {
-		m.ruleList.Select(curIdx)
-	}
+	m.rebuildItems()
 }
 
-// togglePatternFromRuleLevel toggles the entire current pattern (Level 2, D key).
-func (m *arModel) togglePatternFromRuleLevel() {
-	// Determine if all rules in current pattern are enabled
-	allEnabled := true
-	for _, ri := range m.ruleItems {
-		if !ri.rule.Enabled {
-			allEnabled = false
-			break
+// updateSeverityPicker handles key input while the severity picker is active.
+func (m arModel) updateSeverityPicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if msg.String() == "esc" {
+		m.pickingSeverity = false
+		return m, nil
+	}
+
+	for _, opt := range severityOptions {
+		if msg.String() == opt.key {
+			m.pickingSeverity = false
+			switch item := m.list.SelectedItem().(type) {
+			case arHeaderItem:
+				m.setSeverityForPattern(item, opt.sev)
+			case arRuleItem:
+				m.setSeverityForRule(item, opt.sev)
+			}
+			return m, nil
 		}
 	}
 
+	return m, nil
+}
+
+// setSeverityForRule sets the severity of a single rule.
+func (m *arModel) setSeverityForRule(item arRuleItem, sev string) {
 	cwd, _ := os.Getwd()
 	rulesPath := auditRulesPathForMode(m.mode, cwd)
 
-	err := audit.TogglePattern(rulesPath, m.currentPattern, allEnabled)
+	err := audit.SetSeverity(rulesPath, item.rule.ID, sev)
 	if err != nil {
 		m.flashMsg = tc.Red.Render("✗ " + err.Error())
 		m.flashTicks = 3
 		return
 	}
 
-	action := "Disabled"
-	if allEnabled {
-		action = "Enabled"
-	}
-	m.flashMsg = tc.Green.Render("✓ " + action + " " + m.currentPattern)
+	m.flashMsg = tc.Green.Render(fmt.Sprintf("✓ %s → %s", item.rule.ID, sev))
 	m.flashTicks = 3
 
-	curIdx := m.ruleList.Index()
 	m.reloadRules()
-	m.buildRuleList(m.currentPattern)
-	if curIdx < len(m.ruleItems) {
-		m.ruleList.Select(curIdx)
+	m.rebuildItems()
+}
+
+// setSeverityForPattern sets the severity for all rules in a pattern.
+func (m *arModel) setSeverityForPattern(item arHeaderItem, sev string) {
+	cwd, _ := os.Getwd()
+	rulesPath := auditRulesPathForMode(m.mode, cwd)
+
+	err := audit.SetPatternSeverity(rulesPath, item.group.Pattern, sev)
+	if err != nil {
+		m.flashMsg = tc.Red.Render("✗ " + err.Error())
+		m.flashTicks = 3
+		return
 	}
+
+	countStr := fmt.Sprintf("all %d rules", item.group.Total)
+	if item.group.Total == 1 {
+		countStr = "1 rule"
+	}
+	m.flashMsg = tc.Green.Render(fmt.Sprintf("✓ %s → %s (%s)", item.group.Pattern, sev, countStr))
+	m.flashTicks = 3
+
+	m.reloadRules()
+	m.rebuildItems()
+}
+
+// resetAllRules deletes audit-rules.yaml, restoring all rules to built-in defaults.
+func (m *arModel) resetAllRules() {
+	cwd, _ := os.Getwd()
+	rulesPath := auditRulesPathForMode(m.mode, cwd)
+
+	err := audit.ResetRules(rulesPath)
+	if err != nil {
+		m.flashMsg = tc.Red.Render("✗ " + err.Error())
+		m.flashTicks = 3
+		return
+	}
+
+	m.flashMsg = tc.Green.Render("✓ Reset all rules to built-in defaults")
+	m.flashTicks = 3
+
+	m.reloadRules()
+	m.rebuildItems()
 }
 
 // reloadRules re-reads all rules from disk after a toggle mutation.
@@ -461,51 +641,6 @@ func (m *arModel) reloadRules() {
 	m.allRules = rules
 }
 
-// applyFilter does a case-insensitive substring match and rebuilds the active list.
-func (m *arModel) applyFilter() {
-	term := strings.ToLower(m.filterText)
-
-	switch m.level {
-	case arLevelPatterns:
-		if term == "" {
-			items := make([]list.Item, len(m.patternItems))
-			for i, pi := range m.patternItems {
-				items[i] = pi
-			}
-			m.patternList.SetItems(items)
-			m.patternList.ResetSelected()
-			return
-		}
-		var matched []list.Item
-		for _, pi := range m.patternItems {
-			if strings.Contains(strings.ToLower(pi.FilterValue()), term) {
-				matched = append(matched, pi)
-			}
-		}
-		m.patternList.SetItems(matched)
-		m.patternList.ResetSelected()
-
-	case arLevelRules:
-		if term == "" {
-			items := make([]list.Item, len(m.ruleItems))
-			for i, ri := range m.ruleItems {
-				items[i] = ri
-			}
-			m.ruleList.SetItems(items)
-			m.ruleList.ResetSelected()
-			return
-		}
-		var matched []list.Item
-		for _, ri := range m.ruleItems {
-			if strings.Contains(strings.ToLower(ri.FilterValue()), term) {
-				matched = append(matched, ri)
-			}
-		}
-		m.ruleList.SetItems(matched)
-		m.ruleList.ResetSelected()
-	}
-}
-
 // ── View ──
 
 func (m arModel) View() string {
@@ -515,111 +650,189 @@ func (m arModel) View() string {
 
 	var b strings.Builder
 
-	switch m.level {
-	case arLevelPatterns:
-		b.WriteString(m.patternList.View())
-		b.WriteString("\n\n")
-		b.WriteString(m.renderFilterBar())
+	// Severity tab bar
+	b.WriteString(m.renderSevTabBar())
+	b.WriteString("\n\n")
 
-		// Flash message
-		if m.flashMsg != "" {
-			b.WriteString("  " + m.flashMsg + "\n")
-		}
-
-		help := "↑↓ navigate  ←→ page  / filter  Enter drill  d toggle pattern  q quit"
-		b.WriteString(tc.Help.Render(help))
-		b.WriteString("\n")
-
-	case arLevelRules:
-		b.WriteString(m.ruleList.View())
-		b.WriteString("\n\n")
-		b.WriteString(m.renderFilterBar())
-
-		// Detail panel for selected rule
-		if item, ok := m.ruleList.SelectedItem().(arRuleItem); ok {
-			b.WriteString(m.renderDetail(item))
-		}
-
-		// Flash message
-		if m.flashMsg != "" {
-			b.WriteString("  " + m.flashMsg + "\n")
-		}
-
-		help := "↑↓ navigate  ←→ page  / filter  d toggle rule  D toggle pattern  Esc back  q quit"
-		b.WriteString(tc.Help.Render(help))
-		b.WriteString("\n")
+	// Main content
+	if m.useSplit() {
+		b.WriteString(m.viewHorizontal())
+	} else {
+		b.WriteString(m.viewVertical())
 	}
 
 	return b.String()
 }
 
-// renderFilterBar renders filter input or status.
-func (m arModel) renderFilterBar() string {
-	var noun string
-	var matchCount, totalCount int
+// renderSevTabBar renders the severity tab bar at the top.
+func (m arModel) renderSevTabBar() string {
+	counts := m.sevTabCounts()
+	var parts []string
 
-	switch m.level {
-	case arLevelPatterns:
-		noun = "patterns"
-		totalCount = len(m.patternItems)
-		if m.filterText != "" {
-			matchCount = len(m.patternList.Items())
+	activeStyle := lipgloss.NewStyle().Bold(true).Underline(true)
+	inactiveStyle := tc.Dim
+
+	for i, tab := range sevTabs {
+		label := fmt.Sprintf("%s(%d)", tab.label, counts[i])
+		if i == m.sevTab {
+			// Color active tab by its severity
+			switch tab.sev {
+			case "CRITICAL":
+				parts = append(parts, activeStyle.Inherit(tc.Critical).Render(label))
+			case "HIGH":
+				parts = append(parts, activeStyle.Inherit(tc.High).Render(label))
+			case "MEDIUM":
+				parts = append(parts, activeStyle.Inherit(tc.Medium).Render(label))
+			case "LOW":
+				parts = append(parts, activeStyle.Inherit(tc.Low).Render(label))
+			case "INFO":
+				parts = append(parts, activeStyle.Inherit(tc.Info).Render(label))
+			case "DISABLED":
+				parts = append(parts, activeStyle.Inherit(tc.Red).Render(label))
+			default:
+				parts = append(parts, activeStyle.Inherit(tc.Cyan).Render(label))
+			}
 		} else {
-			matchCount = totalCount
-		}
-	case arLevelRules:
-		noun = "rules"
-		totalCount = len(m.ruleItems)
-		if m.filterText != "" {
-			matchCount = len(m.ruleList.Items())
-		} else {
-			matchCount = totalCount
+			parts = append(parts, inactiveStyle.Render(label))
 		}
 	}
 
-	return renderTUIFilterBar(
-		m.filterInput.View(), m.filtering, m.filterText,
-		matchCount, totalCount, 0,
-		noun, "",
-	)
+	return "  " + strings.Join(parts, "  ")
 }
 
-// renderDetail renders the detail panel for a selected rule in Level 2.
-func (m arModel) renderDetail(item arRuleItem) string {
+// viewHorizontal renders the list + detail side by side.
+func (m arModel) viewHorizontal() string {
 	var b strings.Builder
-	b.WriteString(tc.Separator.Render("  ─────────────────────────────────────────"))
-	b.WriteString("\n")
+
+	panelHeight := m.height - 6
+	if panelHeight < 6 {
+		panelHeight = 6
+	}
+
+	leftWidth := arListWidth(m.width)
+	rightWidth := arDetailWidth(m.width)
+
+	// Right panel: detail for selected item
+	detailStr := m.renderSelectedDetail()
+	if detailStr != "" {
+		detailStr = applyDetailScroll(detailStr, m.detailScroll, panelHeight)
+	}
+
+	body := renderHorizontalSplit(m.list.View(), detailStr, leftWidth, rightWidth, panelHeight)
+	b.WriteString(body)
+	b.WriteString("\n\n")
+
+	b.WriteString(m.renderFilterBar())
+	b.WriteString(m.renderFlashAndHelp())
+
+	return b.String()
+}
+
+// viewVertical renders the list with detail below (narrow terminal fallback).
+func (m arModel) viewVertical() string {
+	var b strings.Builder
+
+	b.WriteString(m.list.View())
+	b.WriteString("\n\n")
+	b.WriteString(m.renderFilterBar())
+
+	// Detail panel for selected item
+	detail := m.renderSelectedDetail()
+	if detail != "" {
+		b.WriteString(detail)
+	}
+
+	b.WriteString(m.renderFlashAndHelp())
+
+	return b.String()
+}
+
+// renderSelectedDetail renders detail for the currently selected item.
+func (m arModel) renderSelectedDetail() string {
+	switch item := m.list.SelectedItem().(type) {
+	case arHeaderItem:
+		return m.renderPatternDetail(item)
+	case arRuleItem:
+		return m.renderRuleDetail(item)
+	}
+	return ""
+}
+
+// renderPatternDetail renders the detail panel for a pattern header.
+func (m arModel) renderPatternDetail(item arHeaderItem) string {
+	var b strings.Builder
+	pg := item.group
 
 	row := func(label, value string) {
-		b.WriteString("  ")
 		b.WriteString(tc.Label.Render(label))
-		b.WriteString(tc.Value.Render(value))
+		b.WriteString(value)
+		b.WriteString("\n")
+	}
+
+	// Header
+	b.WriteString(tc.Title.Render(pg.Pattern))
+	b.WriteString("\n")
+	b.WriteString(tc.Dim.Render(strings.Repeat("─", 36)))
+	b.WriteString("\n\n")
+
+	row("Rules:", fmt.Sprintf("%d total", pg.Total))
+	row("Max Sev:", tcSevStyle(pg.MaxSeverity).Render(pg.MaxSeverity))
+	row("Enabled:", tc.Green.Render(fmt.Sprintf("%d", pg.Enabled)))
+	if pg.Disabled > 0 {
+		row("Disabled:", tc.Red.Render(fmt.Sprintf("%d", pg.Disabled)))
+	} else {
+		row("Disabled:", tc.Dim.Render("0"))
+	}
+
+	// Severity distribution
+	b.WriteString("\n")
+	b.WriteString(tc.Label.Render("Severity:"))
+	b.WriteString("\n")
+	sevCounts := make(map[string]int)
+	for _, r := range m.allRules {
+		if r.Pattern == pg.Pattern {
+			sevCounts[r.Severity]++
+		}
+	}
+	for _, sev := range []string{"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"} {
+		if count, ok := sevCounts[sev]; ok && count > 0 {
+			b.WriteString("  ")
+			b.WriteString(tcSevStyle(sev).Render(fmt.Sprintf("%-10s %d", sev, count)))
+			b.WriteString("\n")
+		}
+	}
+
+	return b.String()
+}
+
+// renderRuleDetail renders the detail panel for a single rule.
+func (m arModel) renderRuleDetail(item arRuleItem) string {
+	var b strings.Builder
+
+	row := func(label, value string) {
+		b.WriteString(tc.Label.Render(label))
+		b.WriteString(value)
 		b.WriteString("\n")
 	}
 
 	r := item.rule
 
+	// Header
+	b.WriteString(tc.Title.Render(item.rule.ID))
+	b.WriteString("\n")
+	b.WriteString(tc.Dim.Render(strings.Repeat("─", 36)))
+	b.WriteString("\n\n")
+
 	row("ID:", r.ID)
+	row("Pattern:", tc.Emphasis.Render(r.Pattern))
 	row("Severity:", tcSevStyle(r.Severity).Render(r.Severity))
 	row("Message:", r.Message)
+	row("Regex:", r.Regex)
 
-	// Regex — truncate at 80 chars
-	regex := r.Regex
-	if len(regex) > 80 {
-		regex = regex[:77] + "..."
-	}
-	row("Regex:", tc.Dim.Render(regex))
-
-	// Exclude
 	if r.Exclude != "" {
-		exclude := r.Exclude
-		if len(exclude) > 80 {
-			exclude = exclude[:77] + "..."
-		}
-		row("Exclude:", tc.Dim.Render(exclude))
+		row("Exclude:", r.Exclude)
 	}
 
-	// Status + source
 	statusStr := tc.Green.Render("enabled")
 	if !r.Enabled {
 		statusStr = tc.Red.Render("disabled")
@@ -636,6 +849,50 @@ func (m arModel) renderDetail(item arRuleItem) string {
 	row("Status:", statusStr+" "+tc.Dim.Render("("+sourceLabel+")"))
 
 	return b.String()
+}
+
+// renderFilterBar renders filter input or status.
+func (m arModel) renderFilterBar() string {
+	totalCount := len(m.list.Items())
+	matchCount := totalCount
+
+	return renderTUIFilterBar(
+		m.filterInput.View(), m.filtering, m.filterText,
+		matchCount, totalCount, 0,
+		"items", "",
+	)
+}
+
+// renderFlashAndHelp renders the flash message and help bar.
+func (m arModel) renderFlashAndHelp() string {
+	var b strings.Builder
+
+	if m.flashMsg != "" {
+		b.WriteString("  " + m.flashMsg + "\n")
+	}
+
+	if m.pickingSeverity {
+		b.WriteString(m.renderSeverityPicker())
+	} else {
+		help := "↑↓ nav  Space toggle  Enter expand  Tab severity  s sev  R reset  / filter  q quit"
+		if m.useSplit() {
+			help += "  Ctrl+d/u scroll"
+		}
+		b.WriteString(tc.Help.Render(help))
+	}
+	b.WriteString("\n")
+
+	return b.String()
+}
+
+// renderSeverityPicker renders the inline severity selection bar.
+func (m arModel) renderSeverityPicker() string {
+	var parts []string
+	for _, opt := range severityOptions {
+		badge := tcSevStyle(opt.sev).Render(opt.key + " " + opt.sev)
+		parts = append(parts, badge)
+	}
+	return tc.Help.Render("Set severity: ") + strings.Join(parts, tc.Dim.Render("  ")) + tc.Help.Render("  Esc cancel")
 }
 
 // runAuditRulesTUI starts the bubbletea TUI for browsing/toggling audit rules.

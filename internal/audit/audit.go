@@ -681,7 +681,7 @@ var tutorialSuppressedPatterns = map[string]bool{
 	"shell-execution":      true,
 	"destructive-commands": true,
 	"suspicious-fetch":     true,
-	"system-writes":        true,
+
 	"insecure-http":        true,
 	"escape-obfuscation":   true,
 	"hidden-unicode":       true,

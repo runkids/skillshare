@@ -121,7 +121,6 @@ These patterns are **suspicious in context** — they may be legitimate but dese
 |---------|------------|
 | `data-exfiltration` | External markdown images with query parameters — potential data exfiltration vector |
 | `suspicious-fetch` | URLs used in command context (`curl`, `wget`, `fetch`) |
-| `system-writes` | Commands writing to `/usr`, `/etc`, `/var` |
 | `env-access` | Direct environment variable access via `process.env` (excludes `NODE_ENV`) |
 | `ip-address-url` | URLs with raw IP addresses (excludes private/loopback ranges) — may bypass DNS-based security controls |
 | `data-uri` | `data:` URI inside markdown links — may embed executable or obfuscated content |
@@ -129,7 +128,7 @@ These patterns are **suspicious in context** — they may be legitimate but dese
 | `hidden-unicode` | Invisible Unicode characters: soft hyphens (U+00AD), directional marks (U+200E–U+200F), invisible math operators (U+2061–U+2064) |
 | `untrusted-install` | Auto-execute untrusted packages: `npx -y`/`npx --yes` (npm), `pip install https://` (non-PyPI URL) |
 
-> **Why medium?** A skill that downloads from external URLs could be pulling malicious payloads. URLs with raw IP addresses may bypass DNS-based security controls and domain blocklists. `data:` URIs in markdown links can hide embedded HTML/JavaScript payloads behind innocent-looking labels. System path writes can modify critical OS files. Environment variable access may expose secrets unintentionally. Untrusted package execution (`npx -y`) auto-installs and runs arbitrary npm packages without confirmation. Additional invisible Unicode characters can subtly alter text rendering or hide content.
+> **Why medium?** A skill that downloads from external URLs could be pulling malicious payloads. URLs with raw IP addresses may bypass DNS-based security controls and domain blocklists. `data:` URIs in markdown links can hide embedded HTML/JavaScript payloads behind innocent-looking labels. Environment variable access may expose secrets unintentionally. Untrusted package execution (`npx -y`) auto-installs and runs arbitrary npm packages without confirmation. Additional invisible Unicode characters can subtly alter text rendering or hide content.
 
 ### MEDIUM: Content Integrity
 
@@ -784,6 +783,48 @@ Scanning is recursive within each skill directory, so `SKILL.md`, nested `refere
 
 Binary files (images, `.wasm`, etc.) and hidden directories (`.git`) are skipped.
 
+## Managing Rules
+
+Use `audit rules` to browse, enable, and disable individual rules or entire pattern groups:
+
+```bash
+skillshare audit rules                          # Interactive TUI rule browser
+skillshare audit rules --no-tui                 # Plain text table
+skillshare audit rules --pattern credential-access  # Filter by pattern
+skillshare audit rules --severity high          # Filter by severity
+skillshare audit rules --disabled               # Show only disabled rules
+skillshare audit rules --format json            # JSON output
+
+skillshare audit rules disable prompt-injection-0           # Disable single rule
+skillshare audit rules disable --pattern credential-access  # Disable entire group
+skillshare audit rules enable prompt-injection-0            # Re-enable rule
+skillshare audit rules enable --pattern credential-access   # Re-enable group
+
+skillshare audit rules init                     # Create starter audit-rules.yaml
+skillshare audit rules init -p                  # Create project-level rules file
+```
+
+### Pattern-Level Rules
+
+You can disable or override entire pattern groups in `audit-rules.yaml`:
+
+```yaml
+rules:
+  # Disable all credential-access rules
+  - pattern: credential-access
+    enabled: false
+
+  # But keep .env detection
+  - id: credential-access-env-file
+    enabled: true
+
+  # Downgrade all destructive-commands to MEDIUM
+  - pattern: destructive-commands
+    severity: MEDIUM
+```
+
+Pattern-level entries use `pattern` without `id`. Merge order: pattern-level rules apply first, then id-level rules can override individual entries within a disabled group.
+
 ## Custom Rules
 
 You can add, override, or disable audit rules using YAML files. Rules are merged in order: **built-in → global user → project user**.
@@ -858,6 +899,9 @@ Each layer (global, then project) is applied on top of the previous:
 - **Same `id`** + `enabled: false` → disables the rule
 - **Same `id`** + other fields → replaces the entire rule
 - **New `id`** → appends as a custom rule
+- **`pattern` only** (no `id`) + `enabled: false` → disables all rules matching that pattern
+- **`pattern` only** + `severity` → overrides severity for all matching rules
+- **Pattern then id** → id-level entries can re-enable individual rules within a disabled pattern group
 
 ### Practical Templates
 
@@ -1118,6 +1162,17 @@ Source of truth for regex-based rules:
 | `--no-tui` | Disable interactive TUI, print plain text output |
 | `--init-rules` | Create a starter `audit-rules.yaml` (respects `-p`/`-g`) |
 | `-h`, `--help` | Show help |
+
+### Subcommands
+
+| Subcommand | Description |
+|-----------|-------------|
+| `rules` | Browse, enable, and disable audit rules (see [Managing Rules](#managing-rules)) |
+| `rules disable <id>` | Disable a single rule by ID |
+| `rules disable --pattern <p>` | Disable all rules matching a pattern |
+| `rules enable <id>` | Re-enable a single rule by ID |
+| `rules enable --pattern <p>` | Re-enable all rules matching a pattern |
+| `rules init` | Create a starter `audit-rules.yaml` (same as `--init-rules`) |
 
 ## See Also
 

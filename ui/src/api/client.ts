@@ -197,6 +197,16 @@ export const api = {
     apiFetch<{ success: boolean; path: string }>('/audit/rules', {
       method: 'POST',
     }),
+  getCompiledRules: () => apiFetch<CompiledRulesResponse>('/audit/rules/compiled'),
+  toggleRule: (req: { id?: string; pattern?: string; enabled: boolean; severity?: string }) =>
+    apiFetch<{ success: boolean }>('/audit/rules/toggle', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+  resetRules: () =>
+    apiFetch<{ success: boolean }>('/audit/rules/reset', {
+      method: 'POST',
+    }),
 
   // Git
   gitStatus: () => apiFetch<GitStatus>('/git/status'),
@@ -540,6 +550,30 @@ export interface AuditRulesResponse {
   exists: boolean;
   raw: string;
   path: string;
+}
+
+export interface CompiledRule {
+  id: string;
+  severity: string;
+  pattern: string;
+  message: string;
+  regex: string;
+  exclude?: string;
+  enabled: boolean;
+  source: string;
+}
+
+export interface PatternGroup {
+  pattern: string;
+  total: number;
+  enabled: number;
+  disabled: number;
+  maxSeverity: string;
+}
+
+export interface CompiledRulesResponse {
+  rules: CompiledRule[];
+  patterns: PatternGroup[];
 }
 
 // Hub saved config types

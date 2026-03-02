@@ -394,7 +394,7 @@ func TestGlobalUserRules_DisableBuiltin(t *testing.T) {
 
 	// Disable a builtin rule
 	os.WriteFile(filepath.Join(cfgDir, "audit-rules.yaml"), []byte(`rules:
-  - id: system-writes-0
+  - id: insecure-http-0
     enabled: false
 `), 0644)
 
@@ -409,8 +409,8 @@ func TestGlobalUserRules_DisableBuiltin(t *testing.T) {
 	}
 
 	for _, r := range rules {
-		if r.ID == "system-writes-0" {
-			t.Error("system-writes-0 should be disabled")
+		if r.ID == "insecure-http-0" {
+			t.Error("insecure-http-0 should be disabled")
 		}
 	}
 }

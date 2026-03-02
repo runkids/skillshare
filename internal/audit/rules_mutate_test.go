@@ -153,4 +153,85 @@ func TestWriteRulesFile_Header(t *testing.T) {
 	}
 }
 
+func TestSetSeverity_NewEntry(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audit-rules.yaml")
+	if err := SetSeverity(path, "prompt-injection-0", "medium"); err != nil {
+		t.Fatalf("SetSeverity: %v", err)
+	}
+	data, _ := os.ReadFile(path)
+	content := string(data)
+	if !strings.Contains(content, "prompt-injection-0") {
+		t.Fatal("expected rule ID in file")
+	}
+	if !strings.Contains(content, "severity: MEDIUM") {
+		t.Fatalf("expected severity: MEDIUM, got:\n%s", content)
+	}
+}
+
+func TestSetSeverity_UpdateExisting(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audit-rules.yaml")
+	os.WriteFile(path, []byte("rules:\n  - id: rule-1\n    severity: HIGH\n"), 0644)
+
+	if err := SetSeverity(path, "rule-1", "LOW"); err != nil {
+		t.Fatalf("SetSeverity: %v", err)
+	}
+	data, _ := os.ReadFile(path)
+	content := string(data)
+	if !strings.Contains(content, "severity: LOW") {
+		t.Fatalf("expected updated severity, got:\n%s", content)
+	}
+	if strings.Count(content, "rule-1") != 1 {
+		t.Fatalf("expected exactly one entry, got:\n%s", content)
+	}
+}
+
+func TestSetSeverity_InvalidLevel(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audit-rules.yaml")
+	err := SetSeverity(path, "rule-1", "BANANA")
+	if err == nil {
+		t.Fatal("expected error for invalid severity")
+	}
+}
+
+func TestSetPatternSeverity(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audit-rules.yaml")
+	if err := SetPatternSeverity(path, "destructive-commands", "medium"); err != nil {
+		t.Fatalf("SetPatternSeverity: %v", err)
+	}
+	data, _ := os.ReadFile(path)
+	content := string(data)
+	if !strings.Contains(content, "pattern: destructive-commands") {
+		t.Fatal("expected pattern entry")
+	}
+	if !strings.Contains(content, "severity: MEDIUM") {
+		t.Fatalf("expected severity: MEDIUM, got:\n%s", content)
+	}
+}
+
+func TestResetRules(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audit-rules.yaml")
+	os.WriteFile(path, []byte("rules:\n  - id: test\n    enabled: false\n"), 0644)
+
+	if err := ResetRules(path); err != nil {
+		t.Fatalf("ResetRules: %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("file should be deleted after reset")
+	}
+}
+
+func TestResetRules_NoFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "nonexistent.yaml")
+	// Should not error if file doesn't exist
+	if err := ResetRules(path); err != nil {
+		t.Fatalf("ResetRules should be no-op for missing file: %v", err)
+	}
+}
+
 func boolPtr(b bool) *bool { return &b }

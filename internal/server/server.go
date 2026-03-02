@@ -295,6 +295,7 @@ func (s *Server) registerRoutes() {
 	// Audit
 	s.mux.HandleFunc("GET /api/audit/rules/compiled", s.handleGetCompiledRules)
 	s.mux.HandleFunc("POST /api/audit/rules/toggle", s.handleToggleRule)
+	s.mux.HandleFunc("POST /api/audit/rules/reset", s.handleResetRules)
 	s.mux.HandleFunc("GET /api/audit/rules", s.handleGetAuditRules)
 	s.mux.HandleFunc("PUT /api/audit/rules", s.handlePutAuditRules)
 	s.mux.HandleFunc("POST /api/audit/rules", s.handleInitAuditRules)

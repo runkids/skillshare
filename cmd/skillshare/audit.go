@@ -117,6 +117,11 @@ func cmdAudit(args []string) error {
 	}
 	applyModeLabel(mode)
 
+	// Check for "rules" subcommand before standard audit arg parsing.
+	if len(rest) > 0 && rest[0] == "rules" {
+		return cmdAuditRules(mode, rest[1:])
+	}
+
 	opts, showHelp, err := parseAuditArgs(rest)
 	if showHelp {
 		return err
@@ -1103,6 +1108,9 @@ Options:
   --no-tui             Disable interactive TUI, use plain text output
   --init-rules         Create a starter audit-rules.yaml
   -h, --help           Show this help
+
+Subcommands:
+  rules                Browse, enable/disable rules (see: audit rules --help)
 
 Examples:
   skillshare audit                           # Scan all installed skills

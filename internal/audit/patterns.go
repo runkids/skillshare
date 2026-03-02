@@ -375,7 +375,7 @@ rules:
   #   regex: '(?i)\bTODO\b'
 
   # Example: disable a built-in rule by id
-  # - id: system-writes-0
+  # - id: insecure-http-0
   #   enabled: false
 
   # Example: disable the dangling-link structural check
