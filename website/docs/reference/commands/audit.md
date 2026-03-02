@@ -357,6 +357,29 @@ Certain tier combinations generate additional findings that flag profile-level r
 | T5 present | `tier-stealth` | CRITICAL | Detection evasion commands (e.g., clearing shell history) |
 | T3 count > 5 | `tier-network-heavy` | MEDIUM | Abnormally high density of network commands |
 
+### Cross-Skill Interaction Detection
+
+The tier combination checks above operate on a **single skill**. But two individually harmless skills can form an attack chain when installed together — for example, one skill reads credentials while another has network access.
+
+After all per-skill scans complete, the audit engine runs **cross-skill analysis**: it extracts a capability profile from each skill's results (credential reads, network access, privilege commands, stealth, destructive) and checks for dangerous combinations across skill pairs.
+
+| Condition | Pattern ID | Severity | Description |
+|-----------|-----------|----------|-------------|
+| Skill A reads credentials, Skill B has network | `cross-skill-exfiltration` | HIGH | Cross-skill exfiltration vector — credentials read by one skill could be sent by another |
+| Skill A has privilege commands, Skill B has network | `cross-skill-privilege-network` | MEDIUM | Privilege escalation paired with network access |
+| Skill A has stealth commands, Skill B has HIGH+ findings | `cross-skill-stealth` | HIGH | Stealth skill installed alongside a high-risk skill — evasion risk |
+
+**Deduplication**: Rules only fire when each skill in the pair _lacks_ the other's capability (complementary pair). If a single skill already has both credential access and network commands, the per-skill scan catches it — no cross-skill finding is generated.
+
+Cross-skill findings appear under the synthetic skill name `_cross-skill` in all output formats (text, JSON, SARIF, TUI).
+
+```bash
+# Example output
+_cross-skill
+  HIGH  cross-skill exfiltration vector: devtools reads credentials, deploy-helper has network access
+  HIGH  stealth skill cleaner installed alongside high-risk skill backdoor — evasion risk
+```
+
 ## Analyzability Score
 
 Each scanned skill receives an **analyzability score** — the ratio of auditable plaintext bytes to total file bytes (0–100%). This tells you how much of the skill's content the scanner was able to inspect.

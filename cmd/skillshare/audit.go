@@ -470,6 +470,11 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	summary.Mode = mode
 	summary.ScanErrors = scanErrors
 
+	// Cross-skill analysis (after summary so counts are unaffected).
+	if xr := audit.CrossSkillAnalysis(results); xr != nil {
+		results = append(results, xr)
+	}
+
 	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth); err != nil {
 		return results, summary, err
 	}
@@ -587,6 +592,11 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	summary.Scope = "filtered"
 	summary.Mode = mode
 	summary.ScanErrors = scanErrors
+
+	// Cross-skill analysis (after summary so counts are unaffected).
+	if xr := audit.CrossSkillAnalysis(results); xr != nil {
+		results = append(results, xr)
+	}
 
 	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth); err != nil {
 		return results, summary, err
