@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.16.9] - 2026-03-03
+
+### New Features
+
+- **Interpreter tier (T6)** — audit now classifies Turing-complete runtimes (`python`, `node`, `ruby`, `perl`, `lua`, `php`, `bun`, `deno`, `npx`, `tsx`, `pwsh`, `powershell`) as T6:interpreter. Versioned binaries like `python3.11` are also recognized. Tier combination findings: `tier-interpreter` (INFO) and `tier-interpreter-network` (MEDIUM when combined with network commands)
+- **Expanded prompt injection detection** — new rules detect `OVERRIDE:`/`IGNORE:`/`ADMIN:`/`ROOT:` prefixes, agent directive tags (`<system>`, `</instructions>`), and jailbreak directives (`DEVELOPER MODE`, `DEV MODE`, `DAN MODE`, `JAILBREAK`)
+- **Expanded credential access detection** — new rules detect `ln -s /etc/shadow`, `cp /etc/passwd`, `< /etc/shadow` (input redirection), and `dd if=/etc/shadow`. System credential files (`/etc/shadow`, `/etc/gshadow`, `/etc/master.passwd`) at CRITICAL; account files (`/etc/passwd`, `/etc/sudoers`) at HIGH
+- **Cross-skill credential × interpreter** — new cross-skill rule `cross-skill-cred-interpreter` (MEDIUM) flags when one skill reads credentials and another has interpreter access
+- **Markdown image exfiltration detection** — new rule detects external markdown images with query parameters (`![img](https://...?data=...)`) as a potential data exfiltration vector
+- **`env` prefix handling** — command tier classifier now correctly classifies `env python3 script.py` as T6:interpreter instead of T0:read-only
+
+### Bug Fixes
+
+- **Regex bypass vulnerabilities closed** — fixed prompt injection rules that could be bypassed with leading whitespace or mixed case; fixed data-exfiltration image rule whose exclude pattern allowed `.png?stolen_data` to pass; fixed `dd if=/etc/shadow` being mislabeled as `destructive-commands` instead of `credential-access`
+- **Structured output ANSI leak** — `audit --format json/sarif/markdown` no longer leaks pterm cursor hide/show ANSI codes into stdout
+
 ## [0.16.8] - 2026-03-02
 
 ### New Features

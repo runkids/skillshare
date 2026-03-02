@@ -78,7 +78,7 @@ These patterns indicate **active exploitation attempts** — if found, the skill
 
 | Pattern | Description |
 |---------|------------|
-| `prompt-injection` | "Ignore previous instructions", "SYSTEM:", "You are now", etc. |
+| `prompt-injection` | "Ignore previous instructions", "SYSTEM:"/"OVERRIDE:"/"ADMIN:", directive tags (`<system>`, `</instructions>`), "DEVELOPER MODE"/"DEV MODE"/"JAILBREAK"/"DAN MODE", etc. (CRITICAL); agent directive tags (HIGH) |
 | `data-exfiltration` | `curl`/`wget` commands sending environment variables externally |
 | `credential-access` | Reading `~/.ssh/`, `.env`, `~/.aws/credentials`, `/etc/shadow`, `/etc/gshadow`, `/etc/master.passwd`, `dd if=/etc/shadow` (CRITICAL); `/etc/passwd`, `/etc/sudoers`, `ln`/`cp` from credential files, input redirection `< /etc/shadow` (HIGH) |
 
@@ -97,6 +97,7 @@ These patterns are **strong indicators of malicious intent** but may occasionall
 | `shell-execution` | Python shell invocation via system or subprocess calls |
 | `hidden-comment-injection` | Prompt injection keywords hidden inside HTML comments |
 | `fetch-with-pipe` | `curl`/`wget` output piped to `sh`, `bash`, `python`, `node`, or other interpreters — remote code execution |
+| `prompt-injection` | Agent directive tags (`<system>`, `</instructions>`, `</override>`, `</prompt>`, `</rules>`) with optional HTML attributes |
 | `source-repository-link` | Markdown links labeled "source repo" or "source repository" pointing to external URLs — may be used for supply-chain redirects |
 
 > **Why high?** Hidden Unicode characters can make malicious instructions invisible during code review. Base64 obfuscation is a common technique to bypass human inspection. Destructive commands like `rm -rf /` can cause irreversible damage. `curl | bash` is the classic remote code execution vector — fetched content runs directly in your shell. Source repository links can redirect users to malicious forks or repositories during supply-chain attacks.
@@ -114,6 +115,7 @@ These patterns are **suspicious in context** — they may be legitimate but dese
 
 | Pattern | Description |
 |---------|------------|
+| `data-exfiltration` | External markdown images with query parameters — potential data exfiltration vector |
 | `suspicious-fetch` | URLs used in command context (`curl`, `wget`, `fetch`) |
 | `system-writes` | Commands writing to `/usr`, `/etc`, `/var` |
 | `env-access` | Direct environment variable access via `process.env` (excludes `NODE_ENV`) |
@@ -165,7 +167,9 @@ This catches common quality issues like missing referenced files, renamed paths,
 
 **What the audit detects:**
 - Direct injection phrases: "ignore previous instructions", "disregard all rules", "you are now"
-- `SYSTEM:` prompt overrides (mimicking system-level instructions)
+- Prompt override prefixes: `SYSTEM:`, `OVERRIDE:`, `IGNORE:`, `ADMIN:`, `ROOT:` (case-insensitive, whitespace-tolerant)
+- Agent directive tags: `<system>`, `</instructions>`, `</override>`, `</prompt>`, `</rules>` (with optional HTML attributes)
+- Jailbreak directives: `DEVELOPER MODE`, `DEV MODE`, `JAILBREAK`, `DAN MODE` (case-insensitive, whitespace-tolerant)
 - Injection hidden inside HTML comments (`<!-- ... -->`)
 
 **Defense:** Always review skill files before installing. Use `skillshare audit` to detect known injection patterns. For organizational deployments, set `audit.block_threshold: HIGH` to catch hidden comment injections too.
@@ -179,6 +183,7 @@ This catches common quality issues like missing referenced files, renamed paths,
 **What the audit detects:**
 - `curl`/`wget` commands combined with environment variable references (`$SECRET`, `$TOKEN`, `$API_KEY`, etc.)
 - Commands that reference sensitive environment variable prefixes (`$AWS_`, `$OPENAI_`, `$ANTHROPIC_`, etc.)
+- Markdown images with query parameters (`![img](https://...?data=...)`) — potential data exfiltration via image requests
 
 **Defense:** Block skills that combine network commands with secret references. Use custom rules to add organization-specific secret patterns to the detection list.
 
@@ -324,7 +329,7 @@ In addition to pattern-based findings, the audit engine classifies every shell c
 | T3 | `network` | `curl`, `wget`, `ssh`, `nc` | MEDIUM |
 | T4 | `privilege` | `sudo`, `su`, `chown`, `systemctl` | HIGH |
 | T5 | `stealth` | `history -c`, `unset HISTFILE`, `shred` | CRITICAL |
-| T6 | `interpreter` | `python`, `node`, `ruby`, `perl`, `lua`, `php`, `bun`, `deno`, `npx`, `tsx`, `pwsh` | INFO |
+| T6 | `interpreter` | `python`, `python3`, `node`, `ruby`, `perl`, `lua`, `php`, `bun`, `deno`, `npx`, `tsx`, `pwsh`, `powershell` | INFO |
 
 For Markdown files (`.md`), only commands inside fenced code blocks are analyzed — prose text mentioning commands is not counted.
 
@@ -995,7 +1000,7 @@ Source of truth for regex-based rules:
 
 :::note Structural and tier-based checks
 
-`dangling-link`, `content-tampered`, `content-oversize`, `content-missing`, and `content-unexpected` are **structural checks** (filesystem lookups and hash comparisons, not regex). `low-analyzability` is an **analyzability finding** generated from the [Analyzability Score](#analyzability-score). `tier-stealth`, `tier-destructive-network`, and `tier-network-heavy` are **tier combination findings** generated from [Command Safety Tiering](#command-safety-tiering) profiles. All of these appear in the table below but are not defined in `rules.yaml`.
+`dangling-link`, `content-tampered`, `content-oversize`, `content-missing`, and `content-unexpected` are **structural checks** (filesystem lookups and hash comparisons, not regex). `low-analyzability` is an **analyzability finding** generated from the [Analyzability Score](#analyzability-score). `tier-stealth`, `tier-destructive-network`, `tier-network-heavy`, `tier-interpreter`, and `tier-interpreter-network` are **tier combination findings** generated from [Command Safety Tiering](#command-safety-tiering) profiles. All of these appear in the table below but are not defined in `rules.yaml`.
 
 :::
 
@@ -1003,11 +1008,20 @@ Source of truth for regex-based rules:
 |----|---------|----------|
 | `prompt-injection-0` | prompt-injection | CRITICAL |
 | `prompt-injection-1` | prompt-injection | CRITICAL |
+| `prompt-injection-2` | prompt-injection | HIGH |
+| `prompt-injection-3` | prompt-injection | CRITICAL |
 | `data-exfiltration-0` | data-exfiltration | CRITICAL |
 | `data-exfiltration-1` | data-exfiltration | CRITICAL |
+| `data-exfiltration-2` | data-exfiltration | MEDIUM |
 | `credential-access-0` | credential-access | CRITICAL |
 | `credential-access-1` | credential-access | CRITICAL |
 | `credential-access-2` | credential-access | CRITICAL |
+| `credential-access-3` | credential-access | CRITICAL |
+| `credential-access-4` | credential-access | HIGH |
+| `credential-access-5` | credential-access | HIGH |
+| `credential-access-6` | credential-access | HIGH |
+| `credential-access-7` | credential-access | CRITICAL |
+| `credential-access-8` | credential-access | HIGH |
 | `hidden-unicode-0` | hidden-unicode | HIGH |
 | `destructive-commands-0` | destructive-commands | HIGH |
 | `destructive-commands-1` | destructive-commands | HIGH |
@@ -1042,6 +1056,8 @@ Source of truth for regex-based rules:
 | `tier-stealth` | tier-stealth | CRITICAL |
 | `tier-destructive-network` | tier-destructive-network | HIGH |
 | `tier-network-heavy` | tier-network-heavy | MEDIUM |
+| `tier-interpreter` | tier-interpreter | INFO |
+| `tier-interpreter-network` | tier-interpreter-network | MEDIUM |
 
 ## Options
 
