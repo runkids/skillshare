@@ -441,6 +441,61 @@ func (s *Server) handleInitAuditRules(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleGetCompiledRules(w http.ResponseWriter, r *http.Request) {
+	var rules []audit.CompiledRule
+	var err error
+
+	if s.IsProjectMode() {
+		rules, err = audit.ListRulesWithProject(s.projectRoot)
+	} else {
+		rules, err = audit.ListRules()
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list rules: "+err.Error())
+		return
+	}
+
+	patterns := audit.PatternSummary(rules)
+	writeJSON(w, map[string]any{
+		"rules":    rules,
+		"patterns": patterns,
+	})
+}
+
+func (s *Server) handleToggleRule(w http.ResponseWriter, r *http.Request) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var req struct {
+		ID      string `json:"id,omitempty"`
+		Pattern string `json:"pattern,omitempty"`
+		Enabled bool   `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	path := s.auditRulesPath()
+	var err error
+	if req.Pattern != "" {
+		err = audit.TogglePattern(path, req.Pattern, req.Enabled)
+	} else if req.ID != "" {
+		err = audit.ToggleRule(path, req.ID, req.Enabled)
+	} else {
+		writeError(w, http.StatusBadRequest, "id or pattern required")
+		return
+	}
+
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "toggle rule: "+err.Error())
+		return
+	}
+
+	audit.ResetGlobalCache()
+	writeJSON(w, map[string]any{"success": true})
+}
+
 func skillsToAuditInputs(skills []skillEntry) []audit.SkillInput {
 	inputs := make([]audit.SkillInput, len(skills))
 	for i, s := range skills {
