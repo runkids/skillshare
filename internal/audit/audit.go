@@ -51,16 +51,17 @@ type Finding struct {
 
 // Result holds all findings for a single skill.
 type Result struct {
-	SkillName      string    `json:"skillName"`
-	Findings       []Finding `json:"findings"`
-	RiskScore      int       `json:"riskScore"`
-	RiskLabel      string    `json:"riskLabel"` // "clean", "low", "medium", "high", "critical"
-	Threshold      string    `json:"threshold,omitempty"`
-	IsBlocked      bool      `json:"isBlocked,omitempty"`
-	ScanTarget     string    `json:"scanTarget,omitempty"`
-	TotalBytes     int64   `json:"totalBytes"`
-	AuditableBytes int64   `json:"auditableBytes"`
-	Analyzability  float64 `json:"analyzability"` // AuditableBytes / TotalBytes (1.0 when TotalBytes == 0)
+	SkillName      string      `json:"skillName"`
+	Findings       []Finding   `json:"findings"`
+	RiskScore      int         `json:"riskScore"`
+	RiskLabel      string      `json:"riskLabel"` // "clean", "low", "medium", "high", "critical"
+	Threshold      string      `json:"threshold,omitempty"`
+	IsBlocked      bool        `json:"isBlocked,omitempty"`
+	ScanTarget     string      `json:"scanTarget,omitempty"`
+	TotalBytes     int64       `json:"totalBytes"`
+	AuditableBytes int64       `json:"auditableBytes"`
+	Analyzability  float64     `json:"analyzability"` // AuditableBytes / TotalBytes (1.0 when TotalBytes == 0)
+	TierProfile    TierProfile `json:"tierProfile"`
 }
 
 func (r *Result) updateRisk() {
@@ -273,6 +274,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	fileCache := make(map[string][]byte)
 
 	var totalBytes, auditableBytes int64
+	var skillTierProfile TierProfile
 
 	err = filepath.Walk(skillPath, func(path string, fi os.FileInfo, walkErr error) error {
 		if walkErr != nil {
@@ -302,6 +304,12 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		// analyzability reflects the ratio among files the scanner considers,
 		// not raw on-disk size. Oversized files are a separate concern.
 		if fi.Size() > maxScanFileSize {
+			return nil
+		}
+
+		// Exclude skillshare's own metadata from total bytes — it's not
+		// part of skill content and would skew the analyzability ratio.
+		if fi.Name() == ".skillshare-meta.json" {
 			return nil
 		}
 
@@ -345,6 +353,13 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		}
 		result.Findings = append(result.Findings, findings...)
 
+		// Tier detection: classify commands in parallel with pattern scan.
+		if isMarkdown {
+			skillTierProfile.Merge(DetectCommandTiersInMarkdown(data))
+		} else {
+			skillTierProfile.Merge(DetectCommandTiers(data))
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -364,6 +379,10 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	if !disabled["content-integrity"] {
 		result.Findings = append(result.Findings, checkContentIntegrity(skillPath, fileCache)...)
 	}
+
+	// Aggregate tier profile and generate combination findings.
+	result.TierProfile = skillTierProfile
+	result.Findings = append(result.Findings, TierCombinationFindings(skillTierProfile)...)
 
 	result.TotalBytes = totalBytes
 	result.AuditableBytes = auditableBytes
@@ -439,7 +458,8 @@ func ScanFileWithRules(filePath string, activeRules []rule) (*Result, error) {
 		}
 	}
 
-	if strings.EqualFold(filepath.Ext(info.Name()), ".md") {
+	isMarkdown := strings.EqualFold(filepath.Ext(info.Name()), ".md")
+	if isMarkdown {
 		mdContentRules, mdLinkRules := splitMarkdownLinkRules(resolvedRules)
 		result.Findings = ScanMarkdownContentWithRules(data, filepath.Base(filePath), mdContentRules)
 		result.Findings = append(result.Findings, checkMarkdownLinkRules([]mdFileInfo{
@@ -449,9 +469,12 @@ func ScanFileWithRules(filePath string, activeRules []rule) (*Result, error) {
 				absDir:  filepath.Dir(filePath),
 			},
 		}, mdLinkRules)...)
+		result.TierProfile = DetectCommandTiersInMarkdown(data)
 	} else {
 		result.Findings = ScanContentWithRules(data, filepath.Base(filePath), resolvedRules)
+		result.TierProfile = DetectCommandTiers(data)
 	}
+	result.Findings = append(result.Findings, TierCombinationFindings(result.TierProfile)...)
 	result.updateRisk()
 	return result, nil
 }

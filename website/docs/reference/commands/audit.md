@@ -307,6 +307,54 @@ This is why you can see:
 - no blocked findings at threshold, but an aggregate label of `critical` from accumulated lower-severity findings
 - a `high` risk label with low numeric score when a single HIGH finding triggers severity floor
 
+## Command Safety Tiering
+
+In addition to pattern-based findings, the audit engine classifies every shell command found in skill files into **behavioral safety tiers**. This provides a complementary dimension to severity — while severity answers "how dangerous is this specific pattern?", tiers answer "what kind of actions does this skill perform?"
+
+### Tier Definitions
+
+| Tier | Label | Example Commands | Risk Level |
+|------|-------|-----------------|------------|
+| T0 | `read-only` | `cat`, `ls`, `grep`, `echo` | INFO |
+| T1 | `mutating` | `mkdir`, `cp`, `mv`, `sed` | LOW |
+| T2 | `destructive` | `rm`, `dd`, `kill`, `truncate` | HIGH |
+| T3 | `network` | `curl`, `wget`, `ssh`, `nc` | MEDIUM |
+| T4 | `privilege` | `sudo`, `su`, `chown`, `systemctl` | HIGH |
+| T5 | `stealth` | `history -c`, `unset HISTFILE`, `shred` | CRITICAL |
+
+For Markdown files (`.md`), only commands inside fenced code blocks are analyzed — prose text mentioning commands is not counted.
+
+### Tier Profile Output
+
+Each audit result includes a **tier profile** summarizing the command types found. In CLI text output, it appears as:
+
+```
+→ Commands: destructive:2 network:3 privilege:1
+```
+
+In JSON output, the `tierProfile` field contains the counts array (indexed T0–T5) and total:
+
+```json
+{
+  "tierProfile": {
+    "counts": [5, 2, 2, 3, 1, 0],
+    "total": 13
+  }
+}
+```
+
+Skills with no detected commands omit the `Commands:` line in text output.
+
+### Tier Combination Findings
+
+Certain tier combinations generate additional findings that flag profile-level risk patterns. These are complementary to pattern-based rules — patterns catch specific dangerous invocations, while tier findings catch behavioral combinations.
+
+| Condition | Pattern ID | Severity | Description |
+|-----------|-----------|----------|-------------|
+| T2 + T3 present | `tier-destructive-network` | HIGH | Destructive and network commands together suggest data exfiltration risk |
+| T5 present | `tier-stealth` | CRITICAL | Detection evasion commands (e.g., clearing shell history) |
+| T3 count > 5 | `tier-network-heavy` | MEDIUM | Abnormally high density of network commands |
+
 ## Example Output
 
 ```
@@ -851,9 +899,9 @@ Use `id` values to override or disable specific built-in rules:
 Source of truth for regex-based rules:
 [`internal/audit/rules.yaml`](https://github.com/runkids/skillshare/blob/main/internal/audit/rules.yaml)
 
-:::note Structural checks
+:::note Structural and tier-based checks
 
-`dangling-link`, `content-tampered`, `content-missing`, and `content-unexpected` are not defined in `rules.yaml` — they are **structural checks** (filesystem lookups and hash comparisons, not regex). They still appear in the table below and can be disabled via `audit-rules.yaml` like any other rule.
+`dangling-link`, `content-tampered`, `content-missing`, and `content-unexpected` are **structural checks** (filesystem lookups and hash comparisons, not regex). `tier-stealth`, `tier-destructive-network`, and `tier-network-heavy` are **tier combination findings** generated from [Command Safety Tiering](#command-safety-tiering) profiles. All of these appear in the table below but are not defined in `rules.yaml`.
 
 :::
 
@@ -895,6 +943,9 @@ Source of truth for regex-based rules:
 | `content-missing` | content-missing | LOW |
 | `content-unexpected` | content-unexpected | LOW |
 | `shell-chain-0` | shell-chain | INFO |
+| `tier-stealth` | tier-stealth | CRITICAL |
+| `tier-destructive-network` | tier-destructive-network | HIGH |
+| `tier-network-heavy` | tier-network-heavy | MEDIUM |
 
 ## Options
 

@@ -450,6 +450,11 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 		row("Auditable:", tc.Dim.Render("—"))
 	}
 
+	// Commands — tier profile
+	if !r.TierProfile.IsEmpty() {
+		row("Commands:", tc.Dim.Render(r.TierProfile.String()))
+	}
+
 	// Threshold
 	if r.Threshold != "" {
 		row("Threshold:", tc.Dim.Render("severity >= ")+tc.Emphasis.Render(strings.ToUpper(r.Threshold)))

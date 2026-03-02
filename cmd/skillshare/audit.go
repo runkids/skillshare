@@ -930,10 +930,16 @@ func printSkillResult(result *audit.Result, elapsed time.Duration) {
 	if ui.IsTTY() {
 		fmt.Printf("%s→%s Aggregate risk: %s%s (%d/100)%s\n", ui.Cyan, ui.Reset, color, strings.ToUpper(result.RiskLabel), result.RiskScore, ui.Reset)
 		fmt.Printf("%s→%s Auditable: %.0f%%\n", ui.Cyan, ui.Reset, result.Analyzability*100)
+		if !result.TierProfile.IsEmpty() {
+			fmt.Printf("%s→%s Commands: %s\n", ui.Cyan, ui.Reset, result.TierProfile.String())
+		}
 		fmt.Printf("%s→%s Block decision: %s (max severity %s %s threshold %s)\n", ui.Cyan, ui.Reset, decision, maxSeverity, compare, threshold)
 	} else {
 		fmt.Printf("→ Aggregate risk: %s (%d/100)\n", strings.ToUpper(result.RiskLabel), result.RiskScore)
 		fmt.Printf("→ Auditable: %.0f%%\n", result.Analyzability*100)
+		if !result.TierProfile.IsEmpty() {
+			fmt.Printf("→ Commands: %s\n", result.TierProfile.String())
+		}
 		fmt.Printf("→ Block decision: %s (max severity %s %s threshold %s)\n", decision, maxSeverity, compare, threshold)
 	}
 }

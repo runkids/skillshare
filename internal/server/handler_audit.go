@@ -32,6 +32,7 @@ type auditResultResponse struct {
 	TotalBytes     int64                  `json:"totalBytes"`
 	AuditableBytes int64                  `json:"auditableBytes"`
 	Analyzability  float64                `json:"analyzability"`
+	TierProfile    audit.TierProfile      `json:"tierProfile"`
 }
 
 type auditSummary struct {
@@ -464,5 +465,6 @@ func toAuditResponse(result *audit.Result) auditResultResponse {
 		TotalBytes:     result.TotalBytes,
 		AuditableBytes: result.AuditableBytes,
 		Analyzability:  result.Analyzability,
+		TierProfile:    result.TierProfile,
 	}
 }
