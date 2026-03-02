@@ -70,7 +70,7 @@ The `audit` command acts as a **gatekeeper** — scanning skill content for know
 
 ## What It Detects
 
-The audit engine scans every text-based file in a skill directory against 38 built-in rules (regex patterns, structural checks, and content integrity verification), organized into 5 severity levels.
+The audit engine scans every text-based file in a skill directory against 41 built-in rules (regex patterns, structural checks, and content integrity verification), organized into 5 severity levels.
 
 ### CRITICAL (blocks installation and counted as Failed)
 
@@ -80,7 +80,7 @@ These patterns indicate **active exploitation attempts** — if found, the skill
 |---------|------------|
 | `prompt-injection` | "Ignore previous instructions", "SYSTEM:", "You are now", etc. |
 | `data-exfiltration` | `curl`/`wget` commands sending environment variables externally |
-| `credential-access` | Reading `~/.ssh/`, `.env`, `~/.aws/credentials`, `/etc/shadow`, `/etc/gshadow`, `/etc/master.passwd` (CRITICAL); `/etc/passwd`, `/etc/sudoers` (HIGH) |
+| `credential-access` | Reading `~/.ssh/`, `.env`, `~/.aws/credentials`, `/etc/shadow`, `/etc/gshadow`, `/etc/master.passwd`, `dd if=/etc/shadow` (CRITICAL); `/etc/passwd`, `/etc/sudoers`, `ln`/`cp` from credential files, input redirection `< /etc/shadow` (HIGH) |
 
 > **Why critical?** These patterns have no legitimate use in AI skill files. A skill that tells an AI to "ignore previous instructions" is attempting to hijack the AI's behavior. A skill that pipes environment variables to `curl` is exfiltrating secrets.
 
@@ -324,7 +324,7 @@ In addition to pattern-based findings, the audit engine classifies every shell c
 | T3 | `network` | `curl`, `wget`, `ssh`, `nc` | MEDIUM |
 | T4 | `privilege` | `sudo`, `su`, `chown`, `systemctl` | HIGH |
 | T5 | `stealth` | `history -c`, `unset HISTFILE`, `shred` | CRITICAL |
-| T6 | `interpreter` | `python`, `node`, `ruby`, `perl`, `lua`, `php` | INFO |
+| T6 | `interpreter` | `python`, `node`, `ruby`, `perl`, `lua`, `php`, `bun`, `deno`, `npx`, `tsx`, `pwsh` | INFO |
 
 For Markdown files (`.md`), only commands inside fenced code blocks are analyzed — prose text mentioning commands is not counted.
 

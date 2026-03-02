@@ -10,19 +10,19 @@ rules:
     severity: CRITICAL
     pattern: prompt-injection
     message: "SYSTEM: prompt override detected"
-    regex: '(?m)^(SYSTEM|OVERRIDE|IGNORE|ADMIN|ROOT):'
+    regex: '(?im)^\s*(SYSTEM|OVERRIDE|IGNORE|ADMIN|ROOT):'
 
   - id: prompt-injection-2
     severity: HIGH
     pattern: prompt-injection
     message: "Agent directive tag detected"
-    regex: '(?i)<\/?(system|instructions|override|prompt|rules)\s*>'
+    regex: '(?i)<\/?(system|instructions|override|prompt|rules)\b[^>]*>'
 
   - id: prompt-injection-3
     severity: CRITICAL
     pattern: prompt-injection
     message: "Directive-style prompt override detected"
-    regex: '(?i)^(DEVELOPER\s*MODE|JAILBREAK|DAN\s*MODE)\b'
+    regex: '(?im)^\s*(DEV(ELOPER)?[\s_]*MODE|JAILBREAK|DAN[\s_.]*MODE)\b'
 
   # ── CRITICAL: data exfiltration (curl/wget + secrets) ──
   - id: data-exfiltration-2
@@ -30,7 +30,6 @@ rules:
     pattern: data-exfiltration
     message: "External image with query parameters — potential data exfiltration vector"
     regex: '!\[[^\]]*\]\(https?://[^)]*\?[^)]+\)'
-    exclude: '(?i)\.(png|jpg|jpeg|gif|svg|webp)\?'
 
   - id: data-exfiltration-0
     severity: CRITICAL
@@ -67,13 +66,37 @@ rules:
     severity: CRITICAL
     pattern: credential-access
     message: "Reading highly sensitive system credential file"
-    regex: '(?i)\b(cat|head|tail|less|more|bat|tac|strings|base64|xxd)\b\s+/etc/(shadow|gshadow|master\.passwd)\b'
+    regex: '\b(cat|head|tail|less|more|bat|tac|strings|base64|xxd)\b\s+/etc/(shadow|gshadow|master\.passwd)\b'
 
   - id: credential-access-4
     severity: HIGH
     pattern: credential-access
     message: "Reading sensitive system account file"
-    regex: '(?i)\b(cat|head|tail|less|more|bat|tac|strings|base64|xxd)\b\s+/etc/(passwd|sudoers)\b'
+    regex: '\b(cat|head|tail|less|more|bat|tac|strings|base64|xxd)\b\s+/etc/(passwd|sudoers)\b'
+
+  - id: credential-access-5
+    severity: HIGH
+    pattern: credential-access
+    message: "Symlink or copy from sensitive credential file"
+    regex: '\b(ln|cp|install)\b\s+(-\w+\s+)*/etc/(shadow|gshadow|master\.passwd|passwd|sudoers)\b'
+
+  - id: credential-access-6
+    severity: HIGH
+    pattern: credential-access
+    message: "Input redirection from sensitive credential file"
+    regex: '<\s*/etc/(shadow|gshadow|master\.passwd|passwd|sudoers)\b'
+
+  - id: credential-access-7
+    severity: CRITICAL
+    pattern: credential-access
+    message: "dd reading from highly sensitive credential file"
+    regex: '\bdd\b\s+if=/etc/(shadow|gshadow|master\.passwd)\b'
+
+  - id: credential-access-8
+    severity: HIGH
+    pattern: credential-access
+    message: "dd reading from sensitive system account file"
+    regex: '\bdd\b\s+if=/etc/(passwd|sudoers)\b'
 
   # ── HIGH: hidden unicode (zero-width characters) ──
   - id: hidden-unicode-0

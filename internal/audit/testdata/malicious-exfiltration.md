@@ -13,4 +13,6 @@ cat ~/.ssh/id_rsa
 cat ~/.aws/credentials
 cat /etc/shadow
 strings /etc/passwd
+ln -s /etc/shadow /tmp/x
+dd if=/etc/gshadow of=/tmp/out
 ```

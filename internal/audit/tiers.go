@@ -178,7 +178,10 @@ var commandTiers = map[string]CommandTier{
 	"python": TierInterpreter, "python3": TierInterpreter,
 	"node": TierInterpreter, "ruby": TierInterpreter,
 	"perl": TierInterpreter, "lua": TierInterpreter,
-	"php": TierInterpreter,
+	"php": TierInterpreter, "bun": TierInterpreter,
+	"deno": TierInterpreter, "npx": TierInterpreter,
+	"tsx": TierInterpreter, "pwsh": TierInterpreter,
+	"powershell": TierInterpreter,
 }
 
 // stealthPatterns detects stealth commands that need context beyond basename.
@@ -194,8 +197,16 @@ var stealthPatterns = []*regexp.Regexp{
 func ClassifyCommand(name string) (CommandTier, bool) {
 	// Strip path prefix (e.g. /usr/bin/curl → curl).
 	base := filepath.Base(name)
-	t, ok := commandTiers[base]
-	return t, ok
+	if t, ok := commandTiers[base]; ok {
+		return t, ok
+	}
+	// Try stripping version suffix (e.g. python3.11 → python3).
+	if idx := strings.LastIndex(base, "."); idx > 0 {
+		if t, ok := commandTiers[base[:idx]]; ok {
+			return t, ok
+		}
+	}
+	return TierReadOnly, false
 }
 
 // cmdSplitRe splits a line on shell operators: pipe, chain, semicolon, subshell.
@@ -233,6 +244,11 @@ func ExtractCommands(line string) []string {
 			continue
 		}
 		cmd := filepath.Base(fields[cmdIdx])
+		// Skip `env` prefix — classify the inner command instead.
+		if cmd == "env" && cmdIdx+1 < len(fields) {
+			cmdIdx++
+			cmd = filepath.Base(fields[cmdIdx])
+		}
 		if cmd == "" || cmd == "." || cmd == "-" {
 			continue
 		}
@@ -305,57 +321,32 @@ func TierCombinationFindings(p TierProfile) []Finding {
 
 	// T5 stealth → always CRITICAL.
 	if p.HasTier(TierStealth) {
-		findings = append(findings, Finding{
-			Severity: SeverityCritical,
-			Pattern:  "tier-stealth",
-			Message:  fmt.Sprintf("detection evasion commands found (%d occurrence(s))", p.Counts[TierStealth]),
-			File:     ".",
-			Line:     0,
-		})
+		findings = append(findings, syntheticFinding(SeverityCritical, "tier-stealth",
+			fmt.Sprintf("detection evasion commands found (%d occurrence(s))", p.Counts[TierStealth])))
 	}
 
 	// T2 destructive + T3 network → HIGH (data exfiltration risk).
 	if p.HasTier(TierDestructive) && p.HasTier(TierNetwork) {
-		findings = append(findings, Finding{
-			Severity: SeverityHigh,
-			Pattern:  "tier-destructive-network",
-			Message:  fmt.Sprintf("destructive + network commands found (%d destructive, %d network) — data exfiltration risk", p.Counts[TierDestructive], p.Counts[TierNetwork]),
-			File:     ".",
-			Line:     0,
-		})
+		findings = append(findings, syntheticFinding(SeverityHigh, "tier-destructive-network",
+			fmt.Sprintf("destructive + network commands found (%d destructive, %d network) — data exfiltration risk", p.Counts[TierDestructive], p.Counts[TierNetwork])))
 	}
 
 	// T3 network count > 5 → MEDIUM (abnormally high network usage).
 	if p.Counts[TierNetwork] > 5 {
-		findings = append(findings, Finding{
-			Severity: SeverityMedium,
-			Pattern:  "tier-network-heavy",
-			Message:  fmt.Sprintf("abnormally high density of network commands (%d)", p.Counts[TierNetwork]),
-			File:     ".",
-			Line:     0,
-		})
+		findings = append(findings, syntheticFinding(SeverityMedium, "tier-network-heavy",
+			fmt.Sprintf("abnormally high density of network commands (%d)", p.Counts[TierNetwork])))
 	}
 
 	// T6 interpreter present → INFO (advisory: Turing-complete runtime).
 	if p.HasTier(TierInterpreter) {
-		findings = append(findings, Finding{
-			Severity: SeverityInfo,
-			Pattern:  "tier-interpreter",
-			Message:  fmt.Sprintf("interpreter commands found (%d occurrence(s)) — Turing-complete runtime can execute arbitrary operations", p.Counts[TierInterpreter]),
-			File:     ".",
-			Line:     0,
-		})
+		findings = append(findings, syntheticFinding(SeverityInfo, "tier-interpreter",
+			fmt.Sprintf("interpreter commands found (%d occurrence(s)) — Turing-complete runtime can execute arbitrary operations", p.Counts[TierInterpreter])))
 	}
 
 	// T6 interpreter + T3 network → MEDIUM (interpreter can generate arbitrary requests).
 	if p.HasTier(TierInterpreter) && p.HasTier(TierNetwork) {
-		findings = append(findings, Finding{
-			Severity: SeverityMedium,
-			Pattern:  "tier-interpreter-network",
-			Message:  fmt.Sprintf("interpreter + network commands found (%d interpreter, %d network) — interpreter can generate arbitrary network requests", p.Counts[TierInterpreter], p.Counts[TierNetwork]),
-			File:     ".",
-			Line:     0,
-		})
+		findings = append(findings, syntheticFinding(SeverityMedium, "tier-interpreter-network",
+			fmt.Sprintf("interpreter + network commands found (%d interpreter, %d network) — interpreter can generate arbitrary network requests", p.Counts[TierInterpreter], p.Counts[TierNetwork])))
 	}
 
 	return findings

