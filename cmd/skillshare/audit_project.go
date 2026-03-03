@@ -22,10 +22,10 @@ func cmdAuditProject(root, specificSkill string) (auditRunSummary, bool, error) 
 	}
 
 	if specificSkill != "" {
-		_, summary, err := auditSkillByName(rt.sourcePath, specificSkill, "project", root, threshold, formatText)
+		_, summary, err := auditSkillByName(rt.sourcePath, specificSkill, "project", root, threshold, formatText, nil)
 		return summary, summary.Failed > 0, err
 	}
 
-	_, summary, err := auditInstalled(rt.sourcePath, "project", root, threshold, auditOptions{})
+	_, summary, err := auditInstalled(rt.sourcePath, "project", root, threshold, auditOptions{}, nil)
 	return summary, summary.Failed > 0, err
 }

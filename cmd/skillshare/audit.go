@@ -37,8 +37,9 @@ type auditOptions struct {
 	Yes       bool
 	NoTUI     bool
 	Threshold string
-	Profile   string // --profile: default/strict/permissive
-	Dedupe    string // --dedupe: legacy/global
+	Profile   string   // --profile: default/strict/permissive
+	Dedupe    string   // --dedupe: legacy/global
+	Analyzers []string // --analyzer: repeatable allowlist
 }
 
 // isStructured returns true if the output format is machine-readable (json/sarif/markdown).
@@ -72,6 +73,7 @@ type auditRunSummary struct {
 	AvgAnalyzability float64  `json:"avgAnalyzability"`
 	PolicyProfile    string   `json:"policyProfile,omitempty"`
 	PolicyDedupe     string   `json:"policyDedupe,omitempty"`
+	PolicyAnalyzers  []string `json:"policyAnalyzers,omitempty"`
 }
 
 func (s auditRunSummary) toMarkdownOptions() audit.MarkdownOptions {
@@ -163,6 +165,7 @@ func cmdAudit(args []string) error {
 		defaultThreshold string
 		configProfile    string
 		configDedupe     string
+		configAnalyzers  []string
 		cfgPath          string
 	)
 
@@ -185,6 +188,7 @@ func cmdAudit(args []string) error {
 		defaultThreshold = rt.config.Audit.BlockThreshold
 		configProfile = rt.config.Audit.Profile
 		configDedupe = rt.config.Audit.DedupeMode
+		configAnalyzers = rt.config.Audit.EnabledAnalyzers
 		cfgPath = config.ProjectConfigPath(cwd)
 	} else {
 		cfg, err := config.Load()
@@ -195,18 +199,22 @@ func cmdAudit(args []string) error {
 		defaultThreshold = cfg.Audit.BlockThreshold
 		configProfile = cfg.Audit.Profile
 		configDedupe = cfg.Audit.DedupeMode
+		configAnalyzers = cfg.Audit.EnabledAnalyzers
 		cfgPath = config.ConfigPath()
 	}
 
 	policy := audit.ResolvePolicy(audit.PolicyInputs{
-		Profile:         opts.Profile,
-		Threshold:       opts.Threshold,
-		Dedupe:          opts.Dedupe,
-		ConfigProfile:   configProfile,
-		ConfigThreshold: defaultThreshold,
-		ConfigDedupe:    configDedupe,
+		Profile:          opts.Profile,
+		Threshold:        opts.Threshold,
+		Dedupe:           opts.Dedupe,
+		EnabledAnalyzers: opts.Analyzers,
+		ConfigProfile:    configProfile,
+		ConfigThreshold:  defaultThreshold,
+		ConfigDedupe:     configDedupe,
+		ConfigAnalyzers:  configAnalyzers,
 	})
 	threshold := policy.Threshold
+	registry := audit.DefaultRegistry().ForPolicy(policy)
 
 	var (
 		results []*audit.Result
@@ -218,13 +226,13 @@ func cmdAudit(args []string) error {
 
 	switch {
 	case !hasTargets:
-		results, summary, err = auditInstalled(sourcePath, modeString(mode), projectRoot, threshold, opts)
+		results, summary, err = auditInstalled(sourcePath, modeString(mode), projectRoot, threshold, opts, registry)
 	case isSinglePath:
-		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format)
+		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, registry)
 	case isSingleName:
-		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format)
+		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, registry)
 	default:
-		results, summary, err = auditFiltered(sourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, opts)
+		results, summary, err = auditFiltered(sourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, opts, registry)
 	}
 	if err != nil {
 		logAuditOp(cfgPath, rest, summary, start, err, false)
@@ -244,6 +252,7 @@ func cmdAudit(args []string) error {
 
 	summary.PolicyProfile = string(policy.Profile)
 	summary.PolicyDedupe = string(policy.DedupeMode)
+	summary.PolicyAnalyzers = policy.EnabledAnalyzers
 
 	blocked := summary.Failed > 0
 	logAuditOp(cfgPath, rest, summary, start, nil, blocked)
@@ -356,6 +365,17 @@ func parseAuditArgs(args []string) (auditOptions, bool, error) {
 			default:
 				return opts, false, fmt.Errorf("unknown dedupe mode: %s (supported: legacy, global)", args[i])
 			}
+		case "--analyzer":
+			if i+1 >= len(args) {
+				return opts, false, fmt.Errorf("%s requires a value (static, dataflow, tier, integrity, structure, cross-skill)", arg)
+			}
+			i++
+			switch args[i] {
+			case "static", "dataflow", "tier", "integrity", "structure", "cross-skill":
+				opts.Analyzers = append(opts.Analyzers, args[i])
+			default:
+				return opts, false, fmt.Errorf("unknown analyzer: %s (supported: static, dataflow, tier, integrity, structure, cross-skill)", args[i])
+			}
 		default:
 			if strings.HasPrefix(arg, "-") {
 				return opts, false, fmt.Errorf("unknown option: %s", arg)
@@ -449,7 +469,17 @@ func resolveSkillPath(sourcePath, name string) string {
 	return ""
 }
 
-func scanSkillPath(skillPath, projectRoot string) (*audit.Result, error) {
+func scanSkillPath(skillPath, projectRoot string, reg ...*audit.Registry) (*audit.Result, error) {
+	var registry *audit.Registry
+	if len(reg) > 0 {
+		registry = reg[0]
+	}
+	if registry != nil {
+		if projectRoot != "" {
+			return audit.ScanSkillFilteredForProject(skillPath, projectRoot, registry)
+		}
+		return audit.ScanSkillFiltered(skillPath, registry)
+	}
 	if projectRoot != "" {
 		return audit.ScanSkillForProject(skillPath, projectRoot)
 	}
@@ -467,13 +497,13 @@ func toAuditInputs(skills []struct {
 	return inputs
 }
 
-func scanPathTarget(targetPath, projectRoot string) (*audit.Result, error) {
+func scanPathTarget(targetPath, projectRoot string, reg ...*audit.Registry) (*audit.Result, error) {
 	info, err := os.Stat(targetPath)
 	if err != nil {
 		return nil, err
 	}
 	if info.IsDir() {
-		return scanSkillPath(targetPath, projectRoot)
+		return scanSkillPath(targetPath, projectRoot, reg...)
 	}
 	if projectRoot != "" {
 		return audit.ScanFileForProject(targetPath, projectRoot)
@@ -481,7 +511,7 @@ func scanPathTarget(targetPath, projectRoot string) (*audit.Result, error) {
 	return audit.ScanFile(targetPath)
 }
 
-func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditOptions) ([]*audit.Result, auditRunSummary, error) {
+func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditOptions, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
 	jsonOutput := opts.isStructured()
 	base := auditRunSummary{
 		Scope:     "all",
@@ -531,7 +561,7 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	onDone := func() {
 		progressBar.Increment()
 	}
-	scanResults := audit.ParallelScan(toAuditInputs(skillPaths), projectRoot, onDone)
+	scanResults := audit.ParallelScan(toAuditInputs(skillPaths), projectRoot, onDone, reg)
 	progressBar.Stop()
 	if !jsonOutput {
 		fmt.Println()
@@ -578,7 +608,7 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	return results, summary, nil
 }
 
-func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot, threshold string, opts auditOptions) ([]*audit.Result, auditRunSummary, error) {
+func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot, threshold string, opts auditOptions, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
 	jsonOutput := opts.isStructured()
 	base := auditRunSummary{
 		Scope:     "filtered",
@@ -663,7 +693,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	onDone := func() {
 		progressBar.Increment()
 	}
-	scanResults := audit.ParallelScan(toAuditInputs(matched), projectRoot, onDone)
+	scanResults := audit.ParallelScan(toAuditInputs(matched), projectRoot, onDone, reg)
 	progressBar.Stop()
 	if !jsonOutput {
 		fmt.Println()
@@ -709,7 +739,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	return results, summary, nil
 }
 
-func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format string) ([]*audit.Result, auditRunSummary, error) {
+func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format string, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
 	summary := auditRunSummary{
 		Scope:     "single",
 		Skill:     name,
@@ -728,7 +758,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format str
 	}
 
 	start := time.Now()
-	result, err := scanSkillPath(skillPath, projectRoot)
+	result, err := scanSkillPath(skillPath, projectRoot, reg)
 	if err != nil {
 		return nil, summary, fmt.Errorf("scan error: %w", err)
 	}
@@ -755,7 +785,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format str
 	return []*audit.Result{result}, summary, nil
 }
 
-func auditPath(rawPath, mode, projectRoot, threshold, format string) ([]*audit.Result, auditRunSummary, error) {
+func auditPath(rawPath, mode, projectRoot, threshold, format string, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
 	absPath, err := filepath.Abs(rawPath)
 	if err != nil {
 		absPath = rawPath
@@ -769,7 +799,7 @@ func auditPath(rawPath, mode, projectRoot, threshold, format string) ([]*audit.R
 	}
 
 	start := time.Now()
-	result, err := scanPathTarget(absPath, projectRoot)
+	result, err := scanPathTarget(absPath, projectRoot, reg)
 	if err != nil {
 		return nil, summary, fmt.Errorf("scan error: %w", err)
 	}
@@ -1206,6 +1236,8 @@ Options:
                        (also supports c|h|m|l|i)
   --profile <p>        Audit profile preset: default, strict, permissive
   --dedupe <mode>      Dedup mode: legacy (default), global
+  --analyzer <id>      Only run specified analyzer (repeatable)
+                       IDs: static, dataflow, tier, integrity, structure, cross-skill
   --format <f>         Output format: text (default), json, sarif, markdown
   --json               Output JSON (deprecated: use --format json)
   --quiet, -q          Only show skills with findings + summary (skip clean ✓ lines)

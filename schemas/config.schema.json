@@ -102,6 +102,15 @@
           "description": "Finding deduplication mode. 'legacy' keeps existing behavior; 'global' applies full composite-key deduplication.",
           "enum": ["legacy", "global"],
           "default": "legacy"
+        },
+        "enabled_analyzers": {
+          "type": "array",
+          "description": "Analyzer allowlist. Only listed analyzers will run. Empty or omitted means all analyzers are enabled.",
+          "items": {
+            "type": "string",
+            "enum": ["static", "dataflow", "tier", "integrity", "structure", "cross-skill"]
+          },
+          "uniqueItems": true
         }
       }
     },

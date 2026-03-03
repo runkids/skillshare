@@ -22,6 +22,10 @@ skillshare audit -p                     # Scan project skills
 skillshare audit --quiet                # Only show skills with findings
 skillshare audit --yes                  # Skip large-scan confirmation
 skillshare audit --no-tui               # Plain text output (no interactive TUI)
+skillshare audit --profile strict       # Use strict profile (block on HIGH+)
+skillshare audit --dedupe global        # Full composite-key deduplication
+skillshare audit --analyzer static      # Run only the static analyzer
+skillshare audit --analyzer static --analyzer dataflow  # Multiple analyzers
 ```
 
 ## Why Security Scanning Matters
@@ -486,6 +490,74 @@ The TUI activates automatically when all conditions are met: interactive termina
 
 When scanning more than 1,000 skills in an interactive terminal, the command prompts for confirmation before proceeding. Use `--yes` to skip this prompt in TTY environments (e.g., local automation scripts). In CI/CD pipelines (non-TTY), the prompt is automatically skipped.
 
+## Policy & Profiles
+
+The audit command supports **policy-driven** configuration through profiles, deduplication modes, and analyzer selection. These can be set via CLI flags, project config, or global config.
+
+### Profiles
+
+Profiles are presets that set sensible defaults for threshold and deduplication:
+
+| Profile | Threshold | Dedupe | Use case |
+|---------|-----------|--------|----------|
+| `default` | `CRITICAL` | `global` | Standard behavior — block only critical threats |
+| `strict` | `HIGH` | `global` | Security-conscious teams — block high+ threats |
+| `permissive` | `CRITICAL` | `legacy` | Advisory-only — minimal blocking, no global dedup |
+
+```bash
+skillshare audit --profile strict       # Block on HIGH+, global dedup
+skillshare audit --profile permissive   # Advisory mode
+```
+
+Explicit flags always override profile defaults:
+
+```bash
+skillshare audit --profile strict --threshold medium  # strict profile but block on MEDIUM+
+```
+
+### Deduplication
+
+When the same finding is detected by multiple analyzers (e.g., both static and dataflow), deduplication removes redundant entries:
+
+| Mode | Behavior |
+|------|----------|
+| `global` | Full composite-key dedup across all findings (default) |
+| `legacy` | Per-analyzer dedup only (pre-v0.16.9 behavior) |
+
+### Analyzer Selection
+
+By default all analyzers run. Use `--analyzer` to run only specific ones:
+
+```bash
+skillshare audit --analyzer static                    # Static pattern matching only
+skillshare audit --analyzer static --analyzer dataflow # Multiple analyzers
+```
+
+| Analyzer | Scope | Description |
+|----------|-------|-------------|
+| `static` | Per-file | Regex-based pattern matching against audit rules |
+| `dataflow` | Per-file | Taint tracking for shell scripts and markdown code blocks |
+| `tier` | Per-skill | Capability tier combination risk analysis |
+| `integrity` | Per-skill | Content hash verification (`file_hashes` in SKILL.md) |
+| `structure` | Per-skill | Dangling markdown link detection |
+| `cross-skill` | Bundle | Cross-skill exfiltration and privilege escalation analysis |
+
+You can also set this in config:
+
+```yaml
+audit:
+  enabled_analyzers: [static, dataflow]
+```
+
+### Precedence
+
+Settings resolve in this order (first non-empty wins):
+
+1. CLI flags (`--profile`, `--threshold`, `--dedupe`, `--analyzer`)
+2. Project config (`.skillshare/config.yaml`)
+3. Global config (`~/.config/skillshare/config.yaml`)
+4. Profile defaults
+
 ## Automatic Scanning
 
 ### Install-time
@@ -603,6 +675,28 @@ skillshare audit --json | jq '.skills[] | {name: .skillName, score: .riskScore, 
 # Count findings by severity
 skillshare audit --json | jq '[.skills[].findings[].severity] | group_by(.) | map({(.[0]): length}) | add'
 ```
+
+### Finding Schema
+
+Each finding in JSON/SARIF output includes:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `severity` | string | `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO` |
+| `pattern` | string | Pattern category (e.g., `data-exfiltration`, `shell-execution`) |
+| `message` | string | Human-readable description |
+| `file` | string | Relative file path |
+| `line` | int | Line number (0 if not applicable) |
+| `snippet` | string | Matched code snippet |
+| `ruleId` | string | Unique rule identifier (e.g., `data-exfiltration-0`) |
+| `analyzer` | string | Source analyzer: `static`, `dataflow`, `tier`, `integrity`, `structure`, `cross-skill` |
+| `category` | string | Threat category: `injection`, `exfiltration`, `credential`, `obfuscation`, `privilege`, `integrity`, `structure`, `risk` |
+| `confidence` | float | Confidence score (0–1). Static: 0.95, Dataflow: 0.85 |
+| `fingerprint` | string | Stable SHA-256 hash for deduplication and tracking |
+
+Fields `ruleId`, `analyzer`, `category`, `confidence`, and `fingerprint` are omitted from JSON when empty (backward compatible).
+
+In SARIF output, `ruleId` maps to the SARIF `ruleId` field, and `fingerprint` is included in the `fingerprints` property of each result.
 
 ### GitHub Actions Example
 
@@ -1142,6 +1236,9 @@ Source of truth for regex-based rules:
 | `-p`, `--project` | Scan project-level skills |
 | `-g`, `--global` | Scan global skills |
 | `--threshold` `<t>`, `-T` `<t>` | Block threshold: `critical`\|`high`\|`medium`\|`low`\|`info` (shorthand: `c`\|`h`\|`m`\|`l`\|`i`, plus `crit`, `med`) |
+| `--profile` `<p>` | Audit profile preset: `default`, `strict`, `permissive` |
+| `--dedupe` `<mode>` | Dedup mode: `legacy`, `global` (default) |
+| `--analyzer` `<id>` | Only run specified analyzer (repeatable). IDs: `static`, `dataflow`, `tier`, `integrity`, `structure`, `cross-skill` |
 | `--format` `<f>` | Output format: `text` (default), `json`, `sarif`, `markdown` |
 | `--json` | Output JSON (**deprecated**: use `--format json`) |
 | `--yes`, `-y` | Skip large-scan confirmation prompt (auto-confirms) |

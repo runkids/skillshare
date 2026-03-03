@@ -36,10 +36,15 @@ type ScanOutput struct {
 // projectRoot being empty means global mode; non-empty means project mode.
 // onDone is called after each skill finishes (nil-safe); use it to drive a progress bar.
 // Returns []ScanOutput aligned by index with the input slice.
-func ParallelScan(skills []SkillInput, projectRoot string, onDone func()) []ScanOutput {
+func ParallelScan(skills []SkillInput, projectRoot string, onDone func(), reg ...*Registry) []ScanOutput {
 	outputs := make([]ScanOutput, len(skills))
 	if len(skills) == 0 {
 		return outputs
+	}
+
+	var registry *Registry
+	if len(reg) > 0 {
+		registry = reg[0]
 	}
 
 	sem := make(chan struct{}, workerCount())
@@ -54,10 +59,18 @@ func ParallelScan(skills []SkillInput, projectRoot string, onDone func()) []Scan
 			start := time.Now()
 			var res *Result
 			var err error
-			if projectRoot != "" {
-				res, err = ScanSkillForProject(path, projectRoot)
+			if registry != nil {
+				if projectRoot != "" {
+					res, err = ScanSkillFilteredForProject(path, projectRoot, registry)
+				} else {
+					res, err = ScanSkillFiltered(path, registry)
+				}
 			} else {
-				res, err = ScanSkill(path)
+				if projectRoot != "" {
+					res, err = ScanSkillForProject(path, projectRoot)
+				} else {
+					res, err = ScanSkill(path)
+				}
 			}
 			outputs[idx] = ScanOutput{
 				Result:  res,

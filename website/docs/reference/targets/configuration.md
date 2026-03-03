@@ -371,11 +371,29 @@ Security audit configuration.
 ```yaml
 audit:
   block_threshold: CRITICAL
+  profile: default
+  dedupe_mode: global
+  enabled_analyzers: [static, dataflow, tier, integrity]
 ```
 
 | Field | Values | Default | Description |
 |-------|--------|---------|-------------|
 | `block_threshold` | `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, `INFO` | `CRITICAL` | Minimum severity to block `skillshare install` |
+| `profile` | `default`, `strict`, `permissive` | `default` | Audit profile preset (sets defaults for threshold and dedupe) |
+| `dedupe_mode` | `legacy`, `global` | `global` | Finding deduplication mode |
+| `enabled_analyzers` | Array of analyzer IDs | *(all)* | Allowlist of analyzers to run (omit for all) |
+
+**Profiles** set sensible defaults that can be overridden by explicit field values:
+
+| Profile | Threshold | Dedupe | Description |
+|---------|-----------|--------|-------------|
+| `default` | `CRITICAL` | `global` | Same as current behavior |
+| `strict` | `HIGH` | `global` | Stricter blocking for security-conscious teams |
+| `permissive` | `CRITICAL` | `legacy` | Advisory-only, minimal blocking |
+
+**Analyzer IDs:** `static`, `dataflow`, `tier`, `integrity`, `structure`, `cross-skill`
+
+**Precedence:** CLI flags → project config → global config → profile defaults.
 
 - `block_threshold` only controls when install is **blocked** — scanning always runs
 - Use `--skip-audit` to bypass scanning for a single install
@@ -410,9 +428,10 @@ skills:
     source: github.com/team/skills
     tracked: true                  # Cloned with git history
 
-# Audit — same as global
+# Audit — same fields as global
 audit:
   block_threshold: HIGH
+  profile: strict
 ```
 
 ### `targets` (project)

@@ -356,6 +356,7 @@ func (s *Server) auditPolicy() audit.Policy {
 	in.ConfigThreshold = s.cfg.Audit.BlockThreshold
 	in.ConfigProfile = s.cfg.Audit.Profile
 	in.ConfigDedupe = s.cfg.Audit.DedupeMode
+	in.ConfigAnalyzers = s.cfg.Audit.EnabledAnalyzers
 	if s.IsProjectMode() && s.projectCfg != nil {
 		if s.projectCfg.Audit.BlockThreshold != "" {
 			in.ConfigThreshold = s.projectCfg.Audit.BlockThreshold
@@ -365,6 +366,9 @@ func (s *Server) auditPolicy() audit.Policy {
 		}
 		if s.projectCfg.Audit.DedupeMode != "" {
 			in.ConfigDedupe = s.projectCfg.Audit.DedupeMode
+		}
+		if len(s.projectCfg.Audit.EnabledAnalyzers) > 0 {
+			in.ConfigAnalyzers = s.projectCfg.Audit.EnabledAnalyzers
 		}
 	}
 	return audit.ResolvePolicy(in)
