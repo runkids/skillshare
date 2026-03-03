@@ -14,8 +14,6 @@ import (
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
-
-	"golang.org/x/term"
 )
 
 // listOptions holds parsed options for the list command.
@@ -503,10 +501,8 @@ func cmdList(args []string) error {
 		return err
 	}
 
-	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
-
-	// TTY + not JSON + not --no-tui → launch TUI with async loading (no blank screen)
-	if !opts.JSON && !opts.NoTUI && isTTY {
+	// TTY + not JSON + TUI enabled → launch TUI with async loading (no blank screen)
+	if !opts.JSON && shouldLaunchTUI(opts.NoTUI, cfg) {
 		loadFn := func() listLoadResult {
 			discovered, _, err := sync.DiscoverSourceSkillsLite(cfg.Source)
 			if err != nil {
@@ -541,7 +537,7 @@ func cmdList(args []string) error {
 
 	// Non-TUI path (JSON or plain text): synchronous loading with spinner
 	var sp *ui.Spinner
-	if !opts.JSON && isTTY {
+	if !opts.JSON && ui.IsTTY() {
 		sp = ui.StartSpinner("Loading skills...")
 	}
 	discovered, trackedRepos, err := sync.DiscoverSourceSkillsLite(cfg.Source)

@@ -6,7 +6,29 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"skillshare/internal/config"
+	"skillshare/internal/ui"
 )
+
+// shouldLaunchTUI determines whether to launch interactive TUI.
+// Priority: --no-tui flag (force off) > config tui field > default (true).
+// Pass cfg if already loaded; pass nil to auto-load best-effort.
+func shouldLaunchTUI(noTUI bool, cfg *config.Config) bool {
+	if noTUI {
+		return false
+	}
+	if !ui.IsTTY() {
+		return false
+	}
+	if cfg != nil {
+		return cfg.IsTUIEnabled()
+	}
+	c, err := config.Load()
+	if err != nil {
+		return true // config missing/broken → default to TUI enabled
+	}
+	return c.IsTUIEnabled()
+}
 
 // applyDetailScroll applies vertical scrolling to detail panel content.
 // detailScroll is the current scroll offset; viewHeight is the visible line count.

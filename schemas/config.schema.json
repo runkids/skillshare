@@ -47,6 +47,11 @@
     },
     "hub": {
       "$ref": "#/$defs/hubConfig"
+    },
+    "tui": {
+      "type": "boolean",
+      "description": "Enable or disable interactive TUI mode globally. When false, all commands use plain text output (equivalent to --no-tui on every command).",
+      "default": true
     }
   },
   "$defs": {

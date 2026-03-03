@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/pterm/pterm"
-	"golang.org/x/term"
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
@@ -393,8 +392,7 @@ func cmdRestore(args []string) error {
 
 // restoreTUIDispatch handles the no-args TUI flow for restore.
 func restoreTUIDispatch(noTUI bool) error {
-	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
-	if noTUI || !isTTY {
+	if !shouldLaunchTUI(noTUI, nil) {
 		return backupList()
 	}
 

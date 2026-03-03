@@ -10,8 +10,6 @@ import (
 	"skillshare/internal/oplog"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
-
-	"golang.org/x/term"
 )
 
 func cmdTrash(args []string) error {
@@ -81,9 +79,8 @@ func trashList(mode runMode, cwd string, noTUI bool) error {
 		return nil
 	}
 
-	// TUI dispatch: TTY + items + not --no-tui
-	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
-	if !noTUI && isTTY {
+	// TUI dispatch: TTY + items + TUI enabled
+	if shouldLaunchTUI(noTUI, nil) {
 		modeLabel := "global"
 		if mode == modeProject {
 			modeLabel = "project"

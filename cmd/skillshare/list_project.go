@@ -2,14 +2,11 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
-
-	"golang.org/x/term"
 )
 
 func cmdListProject(root string, opts listOptions) error {
@@ -20,10 +17,9 @@ func cmdListProject(root string, opts listOptions) error {
 	}
 
 	sourcePath := filepath.Join(root, ".skillshare", "skills")
-	isTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
-	// TTY + not JSON + not --no-tui → launch TUI with async loading (no blank screen)
-	if !opts.JSON && !opts.NoTUI && isTTY {
+	// TTY + not JSON + TUI enabled → launch TUI with async loading (no blank screen)
+	if !opts.JSON && shouldLaunchTUI(opts.NoTUI, nil) {
 		// Load project targets for TUI detail panel (synced-to info)
 		var targets map[string]config.TargetConfig
 		if rt, rtErr := loadProjectRuntime(root); rtErr == nil {
@@ -65,7 +61,7 @@ func cmdListProject(root string, opts listOptions) error {
 
 	// Non-TUI path (JSON or plain text): synchronous loading with spinner
 	var sp *ui.Spinner
-	if !opts.JSON && isTTY {
+	if !opts.JSON && ui.IsTTY() {
 		sp = ui.StartSpinner("Loading skills...")
 	}
 

@@ -39,6 +39,7 @@ var commands = map[string]func([]string) error{
 	"hub":       cmdHub,
 	"log":       cmdLog,
 	"ui":        cmdUI,
+	"tui":       cmdTUIToggle,
 }
 
 func main() {
@@ -225,6 +226,7 @@ func printUsage() {
 	cmd("audit", "[name]", "Scan skills for security threats")
 	cmd("hub", "<subcommand>", "Manage hubs (add, list, remove, default, index)")
 	cmd("log", "", "View operation log")
+	cmd("tui", "[on|off]", "Toggle interactive TUI mode")
 	cmd("ui", "", "Launch web dashboard")
 	cmd("doctor", "", "Check environment and diagnose issues")
 	cmd("version", "", "Show version")

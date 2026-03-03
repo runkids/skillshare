@@ -22,7 +22,7 @@ func riskColor(label string) string {
 // prints per-skill list only when TUI is unavailable, always prints summary,
 // and launches TUI when conditions are met.
 func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanOutputs []audit.ScanOutput, summary auditRunSummary, jsonOutput bool, opts auditOptions, headerMinWidth int) error {
-	useTUI := !jsonOutput && !opts.NoTUI && ui.IsTTY() && len(results) > 1
+	useTUI := !jsonOutput && shouldLaunchTUI(opts.NoTUI, nil) && len(results) > 1
 
 	if !jsonOutput {
 		if !useTUI {

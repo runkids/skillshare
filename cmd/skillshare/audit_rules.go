@@ -68,7 +68,7 @@ func cmdAuditRulesList(mode runMode, args []string) error {
 		return nil
 	}
 
-	if !opts.NoTUI && ui.IsTTY() && len(rules) > 0 {
+	if shouldLaunchTUI(opts.NoTUI, nil) && len(rules) > 0 {
 		return runAuditRulesTUI(rules, mode)
 	}
 

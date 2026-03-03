@@ -54,6 +54,16 @@ type Config struct {
 	Audit   AuditConfig             `yaml:"audit,omitempty"`
 	Hub     HubConfig               `yaml:"hub,omitempty"`
 	Log     LogConfig               `yaml:"log,omitempty"`
+	TUI     *bool                   `yaml:"tui,omitempty"` // nil = default true
+}
+
+// IsTUIEnabled reports whether interactive TUI is enabled.
+// nil (absent from config) is treated as true for backward compatibility.
+func (c *Config) IsTUIEnabled() bool {
+	if c.TUI == nil {
+		return true
+	}
+	return *c.TUI
 }
 
 const defaultAuditBlockThreshold = "CRITICAL"

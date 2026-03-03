@@ -120,8 +120,8 @@ func runLog(args []string, configPath string) error {
 		return runLogStats(configPath, auditOnly, filter)
 	}
 
-	// TUI dispatch: interactive viewer when TTY and not explicitly disabled
-	if !noTUI && !jsonOutput && ui.IsTTY() {
+	// TUI dispatch: interactive viewer when TTY and TUI enabled
+	if !jsonOutput && shouldLaunchTUI(noTUI, nil) {
 		return runLogTUIDispatch(configPath, auditOnly, limit, filter, modeLabel)
 	}
 

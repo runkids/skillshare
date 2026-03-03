@@ -416,7 +416,7 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts) error {
 
 	progress.stop()
 
-	if !opts.noTUI && ui.IsTTY() && len(results) > 0 {
+	if shouldLaunchTUI(opts.noTUI, nil) && len(results) > 0 {
 		return runDiffTUI(results)
 	}
 	renderGroupedDiffs(results, opts)
