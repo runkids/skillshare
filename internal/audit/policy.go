@@ -39,7 +39,7 @@ var profilePresets = map[Profile]struct {
 	Threshold  string
 	DedupeMode DedupeMode
 }{
-	ProfileDefault:    {SeverityCritical, DedupeLegacy},
+	ProfileDefault:    {SeverityCritical, DedupeGlobal},
 	ProfileStrict:     {SeverityHigh, DedupeGlobal},
 	ProfilePermissive: {SeverityCritical, DedupeLegacy},
 }

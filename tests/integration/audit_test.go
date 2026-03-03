@@ -1397,8 +1397,8 @@ func TestAudit_ProfileDefault_NoChange(t *testing.T) {
 	if payload.Summary.PolicyProfile != "default" {
 		t.Fatalf("expected policyProfile=default, got %s", payload.Summary.PolicyProfile)
 	}
-	if payload.Summary.PolicyDedupe != "legacy" {
-		t.Fatalf("expected policyDedupe=legacy, got %s", payload.Summary.PolicyDedupe)
+	if payload.Summary.PolicyDedupe != "global" {
+		t.Fatalf("expected policyDedupe=global (default), got %s", payload.Summary.PolicyDedupe)
 	}
 }
 
