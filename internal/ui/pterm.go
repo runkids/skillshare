@@ -646,6 +646,7 @@ func StartTreeSpinner(message string, isLast bool) *TreeSpinner {
 	// Custom spinner with tree prefix
 	s, _ := pterm.DefaultSpinner.
 		WithRemoveWhenDone(true).
+		WithWriter(ProgressWriter).
 		Start(message)
 
 	return &TreeSpinner{spinner: s, start: time.Now(), isLast: isLast}
