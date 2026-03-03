@@ -322,31 +322,36 @@ func TierCombinationFindings(p TierProfile) []Finding {
 	// T5 stealth → always CRITICAL.
 	if p.HasTier(TierStealth) {
 		findings = append(findings, syntheticFinding(SeverityCritical, "tier-stealth",
-			fmt.Sprintf("detection evasion commands found (%d occurrence(s))", p.Counts[TierStealth])))
+			fmt.Sprintf("detection evasion commands found (%d occurrence(s))", p.Counts[TierStealth]),
+			AnalyzerTier, CategoryObfuscation))
 	}
 
 	// T2 destructive + T3 network → HIGH (data exfiltration risk).
 	if p.HasTier(TierDestructive) && p.HasTier(TierNetwork) {
 		findings = append(findings, syntheticFinding(SeverityHigh, "tier-destructive-network",
-			fmt.Sprintf("destructive + network commands found (%d destructive, %d network) — data exfiltration risk", p.Counts[TierDestructive], p.Counts[TierNetwork])))
+			fmt.Sprintf("destructive + network commands found (%d destructive, %d network) — data exfiltration risk", p.Counts[TierDestructive], p.Counts[TierNetwork]),
+			AnalyzerTier, CategoryExfiltration))
 	}
 
 	// T3 network count > 5 → MEDIUM (abnormally high network usage).
 	if p.Counts[TierNetwork] > 5 {
 		findings = append(findings, syntheticFinding(SeverityMedium, "tier-network-heavy",
-			fmt.Sprintf("abnormally high density of network commands (%d)", p.Counts[TierNetwork])))
+			fmt.Sprintf("abnormally high density of network commands (%d)", p.Counts[TierNetwork]),
+			AnalyzerTier, CategoryRisk))
 	}
 
 	// T6 interpreter present → INFO (advisory: Turing-complete runtime).
 	if p.HasTier(TierInterpreter) {
 		findings = append(findings, syntheticFinding(SeverityInfo, "tier-interpreter",
-			fmt.Sprintf("interpreter commands found (%d occurrence(s)) — Turing-complete runtime can execute arbitrary operations", p.Counts[TierInterpreter])))
+			fmt.Sprintf("interpreter commands found (%d occurrence(s)) — Turing-complete runtime can execute arbitrary operations", p.Counts[TierInterpreter]),
+			AnalyzerTier, CategoryRisk))
 	}
 
 	// T6 interpreter + T3 network → MEDIUM (interpreter can generate arbitrary requests).
 	if p.HasTier(TierInterpreter) && p.HasTier(TierNetwork) {
 		findings = append(findings, syntheticFinding(SeverityMedium, "tier-interpreter-network",
-			fmt.Sprintf("interpreter + network commands found (%d interpreter, %d network) — interpreter can generate arbitrary network requests", p.Counts[TierInterpreter], p.Counts[TierNetwork])))
+			fmt.Sprintf("interpreter + network commands found (%d interpreter, %d network) — interpreter can generate arbitrary network requests", p.Counts[TierInterpreter], p.Counts[TierNetwork]),
+			AnalyzerTier, CategoryRisk))
 	}
 
 	return findings

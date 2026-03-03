@@ -47,11 +47,13 @@ type sarifRuleProps struct {
 }
 
 type sarifResult struct {
-	RuleID    string          `json:"ruleId"`
-	RuleIndex int             `json:"ruleIndex"`
-	Level     string          `json:"level"`
-	Message   sarifMessage    `json:"message"`
-	Locations []sarifLocation `json:"locations"`
+	RuleID       string            `json:"ruleId"`
+	RuleIndex    int               `json:"ruleIndex"`
+	Level        string            `json:"level"`
+	Message      sarifMessage      `json:"message"`
+	Locations    []sarifLocation   `json:"locations"`
+	Fingerprints map[string]string `json:"fingerprints,omitempty"`
+	Properties   map[string]any    `json:"properties,omitempty"`
 }
 
 type sarifMessage struct {
@@ -104,15 +106,21 @@ func ToSARIF(results []*Result, opts SARIFOptions) *sarifLog {
 
 	for _, r := range results {
 		for _, f := range r.Findings {
-			// Deduplicate rules by pattern
-			idx, exists := ruleIndex[f.Pattern]
+			// Use RuleID when available, fall back to Pattern.
+			ruleID := f.RuleID
+			if ruleID == "" {
+				ruleID = f.Pattern
+			}
+
+			// Deduplicate rules by ruleID
+			idx, exists := ruleIndex[ruleID]
 			if !exists {
 				idx = len(rules)
-				ruleIndex[f.Pattern] = idx
+				ruleIndex[ruleID] = idx
 
 				mapping := severityToSARIF[f.Severity]
 				rules = append(rules, sarifReportingDesc{
-					ID:               f.Pattern,
+					ID:               ruleID,
 					ShortDescription: sarifMessage{Text: f.Message},
 					DefaultConfig:    sarifDefaultConf{Level: mapping.level},
 					Properties:       sarifRuleProps{SecuritySeverity: mapping.secSev},
@@ -122,11 +130,29 @@ func ToSARIF(results []*Result, opts SARIFOptions) *sarifLog {
 			mapping := severityToSARIF[f.Severity]
 
 			sr := sarifResult{
-				RuleID:    f.Pattern,
+				RuleID:    ruleID,
 				RuleIndex: idx,
 				Level:     mapping.level,
 				Message:   sarifMessage{Text: f.Message},
 				Locations: []sarifLocation{}, // non-nil for clean JSON
+			}
+
+			if f.Fingerprint != "" {
+				sr.Fingerprints = map[string]string{"skillshare/v1": f.Fingerprint}
+			}
+
+			props := map[string]any{}
+			if f.Analyzer != "" {
+				props["analyzer"] = f.Analyzer
+			}
+			if f.Category != "" {
+				props["category"] = f.Category
+			}
+			if f.Confidence > 0 {
+				props["confidence"] = f.Confidence
+			}
+			if len(props) > 0 {
+				sr.Properties = props
 			}
 
 			if f.File != "" {

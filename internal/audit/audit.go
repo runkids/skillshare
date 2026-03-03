@@ -39,6 +39,55 @@ var riskWeights = map[string]int{
 	SeverityInfo:     1,
 }
 
+// Analyzer IDs — each maps to one analysis source.
+const (
+	AnalyzerStatic     = "static"
+	AnalyzerDataflow   = "dataflow"
+	AnalyzerTier       = "tier"
+	AnalyzerIntegrity  = "integrity"
+	AnalyzerStructure  = "structure"
+	AnalyzerCrossSkill = "cross-skill"
+)
+
+// Category classifies what a finding is about.
+const (
+	CategoryInjection    = "injection"
+	CategoryExfiltration = "exfiltration"
+	CategoryCredential   = "credential"
+	CategoryObfuscation  = "obfuscation"
+	CategoryPrivilege    = "privilege"
+	CategoryIntegrity    = "integrity"
+	CategoryStructure    = "structure"
+	CategoryRisk         = "risk"
+)
+
+// categoryForPattern maps a rule pattern name to a broad category.
+func categoryForPattern(pattern string) string {
+	switch {
+	case strings.Contains(pattern, "injection") || strings.Contains(pattern, "hidden-comment"):
+		return CategoryInjection
+	case strings.Contains(pattern, "exfiltration") || strings.Contains(pattern, "fetch-with-pipe"):
+		return CategoryExfiltration
+	case strings.Contains(pattern, "credential"):
+		return CategoryCredential
+	case strings.Contains(pattern, "obfuscation") || strings.Contains(pattern, "escape-obfuscation") ||
+		strings.Contains(pattern, "invisible-payload") || strings.Contains(pattern, "hidden-unicode") ||
+		strings.Contains(pattern, "data-uri"):
+		return CategoryObfuscation
+	case strings.Contains(pattern, "destructive") || strings.Contains(pattern, "shell-execution") ||
+		strings.Contains(pattern, "dynamic-code-exec") || strings.Contains(pattern, "shell-chain"):
+		return CategoryPrivilege
+	case strings.Contains(pattern, "content-"):
+		return CategoryIntegrity
+	case strings.Contains(pattern, "dangling-link"):
+		return CategoryStructure
+	case strings.Contains(pattern, "tier-") || strings.Contains(pattern, "low-analyzability"):
+		return CategoryRisk
+	default:
+		return CategoryRisk
+	}
+}
+
 // Finding represents a single security issue detected in a skill.
 type Finding struct {
 	Severity string `json:"severity"` // "CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"
@@ -47,6 +96,13 @@ type Finding struct {
 	File     string `json:"file"`
 	Line     int    `json:"line"`
 	Snippet  string `json:"snippet"` // trimmed matched line (no truncation)
+
+	// Phase 2 fields — analyzer traceability and deduplication.
+	RuleID      string  `json:"ruleId,omitempty"`      // stable rule identifier
+	Analyzer    string  `json:"analyzer,omitempty"`    // static|dataflow|tier|integrity|structure|cross-skill
+	Category    string  `json:"category,omitempty"`    // injection|exfiltration|credential|obfuscation|...
+	Confidence  float64 `json:"confidence,omitempty"`  // 0~1
+	Fingerprint string  `json:"fingerprint,omitempty"` // sha256 stable hash for deduplication
 }
 
 // Result holds all findings for a single skill.
@@ -406,14 +462,19 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 
 	if totalBytes > 0 && result.Analyzability < analyzabilityThreshold {
 		result.Findings = append(result.Findings, Finding{
-			Severity: SeverityInfo,
-			Pattern:  "low-analyzability",
-			Message:  fmt.Sprintf("only %.0f%% of skill content is auditable (%.0f%% is binary/non-scannable)", result.Analyzability*100, (1-result.Analyzability)*100),
-			File:     ".",
-			Line:     0,
+			Severity:   SeverityInfo,
+			Pattern:    "low-analyzability",
+			Message:    fmt.Sprintf("only %.0f%% of skill content is auditable (%.0f%% is binary/non-scannable)", result.Analyzability*100, (1-result.Analyzability)*100),
+			File:       ".",
+			Line:       0,
+			RuleID:     "low-analyzability",
+			Analyzer:   AnalyzerStatic,
+			Category:   CategoryRisk,
+			Confidence: 1.0,
 		})
 	}
 
+	StampFingerprints(result.Findings)
 	result.updateRisk()
 	return result, nil
 }
@@ -498,6 +559,7 @@ func ScanFileWithRules(filePath string, activeRules []rule) (*Result, error) {
 		DeduplicateDataflow(dfFindings, result.Findings)...)
 
 	result.Findings = append(result.Findings, TierCombinationFindings(result.TierProfile)...)
+	StampFingerprints(result.Findings)
 	result.updateRisk()
 	return result, nil
 }
@@ -539,12 +601,16 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 					continue
 				}
 				findings = append(findings, Finding{
-					Severity: r.Severity,
-					Pattern:  r.Pattern,
-					Message:  r.Message,
-					File:     filename,
-					Line:     lineNum,
-					Snippet:  strings.TrimSpace(line),
+					Severity:   r.Severity,
+					Pattern:    r.Pattern,
+					Message:    r.Message,
+					File:       filename,
+					Line:       lineNum,
+					Snippet:    strings.TrimSpace(line),
+					RuleID:     r.ID,
+					Analyzer:   AnalyzerStatic,
+					Category:   categoryForPattern(r.Pattern),
+					Confidence: 0.95,
 				})
 			}
 		}
@@ -605,12 +671,16 @@ func ScanMarkdownContentWithRules(content []byte, filename string, activeRules [
 				continue
 			}
 			findings = append(findings, Finding{
-				Severity: r.Severity,
-				Pattern:  r.Pattern,
-				Message:  r.Message,
-				File:     filename,
-				Line:     lineNum,
-				Snippet:  strings.TrimSpace(line),
+				Severity:   r.Severity,
+				Pattern:    r.Pattern,
+				Message:    r.Message,
+				File:       filename,
+				Line:       lineNum,
+				Snippet:    strings.TrimSpace(line),
+				RuleID:     r.ID,
+				Analyzer:   AnalyzerStatic,
+				Category:   categoryForPattern(r.Pattern),
+				Confidence: 0.95,
 			})
 		}
 	}
@@ -732,12 +802,16 @@ func checkMarkdownLinkRules(files []mdFileInfo, markdownLinkRules []rule) []Find
 					continue
 				}
 				findings = append(findings, Finding{
-					Severity: r.Severity,
-					Pattern:  r.Pattern,
-					Message:  r.Message,
-					File:     f.relPath,
-					Line:     link.line,
-					Snippet:  link.snippet,
+					Severity:   r.Severity,
+					Pattern:    r.Pattern,
+					Message:    r.Message,
+					File:       f.relPath,
+					Line:       link.line,
+					Snippet:    link.snippet,
+					RuleID:     r.ID,
+					Analyzer:   AnalyzerStatic,
+					Category:   categoryForPattern(r.Pattern),
+					Confidence: 0.95,
 				})
 			}
 		}
@@ -762,12 +836,16 @@ func checkDanglingLinks(files []mdFileInfo) []Finding {
 			abs := filepath.Join(f.absDir, cleaned)
 			if _, err := os.Stat(abs); err != nil {
 				findings = append(findings, Finding{
-					Severity: SeverityLow,
-					Pattern:  "dangling-link",
-					Message:  fmt.Sprintf("broken local link: %q not found", target),
-					File:     f.relPath,
-					Line:     link.line,
-					Snippet:  link.snippet,
+					Severity:   SeverityLow,
+					Pattern:    "dangling-link",
+					Message:    fmt.Sprintf("broken local link: %q not found", target),
+					File:       f.relPath,
+					Line:       link.line,
+					Snippet:    link.snippet,
+					RuleID:     "dangling-link",
+					Analyzer:   AnalyzerStructure,
+					Category:   CategoryStructure,
+					Confidence: 1.0,
 				})
 			}
 		}
@@ -1294,11 +1372,15 @@ func checkContentIntegrity(skillPath string, cache map[string][]byte) []Finding 
 		info, err := os.Stat(absPath)
 		if err != nil {
 			findings = append(findings, Finding{
-				Severity: SeverityLow,
-				Pattern:  "content-missing",
-				Message:  fmt.Sprintf("pinned file missing: %s", rel),
-				File:     rel,
-				Line:     0,
+				Severity:   SeverityLow,
+				Pattern:    "content-missing",
+				Message:    fmt.Sprintf("pinned file missing: %s", rel),
+				File:       rel,
+				Line:       0,
+				RuleID:     "content-missing",
+				Analyzer:   AnalyzerIntegrity,
+				Category:   CategoryIntegrity,
+				Confidence: 1.0,
 			})
 			continue
 		}
@@ -1307,11 +1389,15 @@ func checkContentIntegrity(skillPath string, cache map[string][]byte) []Finding 
 		}
 		if info.Size() > maxScanFileSize {
 			findings = append(findings, Finding{
-				Severity: SeverityMedium,
-				Pattern:  "content-oversize",
-				Message:  fmt.Sprintf("pinned file exceeds scan size limit (%d bytes): %s", info.Size(), rel),
-				File:     rel,
-				Line:     0,
+				Severity:   SeverityMedium,
+				Pattern:    "content-oversize",
+				Message:    fmt.Sprintf("pinned file exceeds scan size limit (%d bytes): %s", info.Size(), rel),
+				File:       rel,
+				Line:       0,
+				RuleID:     "content-oversize",
+				Analyzer:   AnalyzerIntegrity,
+				Category:   CategoryIntegrity,
+				Confidence: 1.0,
 			})
 			continue
 		}
@@ -1330,11 +1416,15 @@ func checkContentIntegrity(skillPath string, cache map[string][]byte) []Finding 
 		}
 		if "sha256:"+actual != expected {
 			findings = append(findings, Finding{
-				Severity: SeverityMedium,
-				Pattern:  "content-tampered",
-				Message:  fmt.Sprintf("file hash mismatch: %s", rel),
-				File:     rel,
-				Line:     0,
+				Severity:   SeverityMedium,
+				Pattern:    "content-tampered",
+				Message:    fmt.Sprintf("file hash mismatch: %s", rel),
+				File:       rel,
+				Line:       0,
+				RuleID:     "content-tampered",
+				Analyzer:   AnalyzerIntegrity,
+				Category:   CategoryIntegrity,
+				Confidence: 1.0,
 			})
 		}
 	}
@@ -1360,11 +1450,15 @@ func checkContentIntegrity(skillPath string, cache map[string][]byte) []Finding 
 		normalized := filepath.ToSlash(rel)
 		if _, ok := raw.FileHashes[normalized]; !ok {
 			findings = append(findings, Finding{
-				Severity: SeverityLow,
-				Pattern:  "content-unexpected",
-				Message:  fmt.Sprintf("file not in pinned hashes: %s", normalized),
-				File:     normalized,
-				Line:     0,
+				Severity:   SeverityLow,
+				Pattern:    "content-unexpected",
+				Message:    fmt.Sprintf("file not in pinned hashes: %s", normalized),
+				File:       normalized,
+				Line:       0,
+				RuleID:     "content-unexpected",
+				Analyzer:   AnalyzerIntegrity,
+				Category:   CategoryIntegrity,
+				Confidence: 1.0,
 			})
 		}
 		return nil

@@ -1,6 +1,8 @@
 package audit
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"regexp"
 	"strconv"
 	"strings"
@@ -17,8 +19,32 @@ func normalizeSnippet(s string) string {
 	return s
 }
 
+// ComputeFingerprint returns a stable sha256 hex hash for a finding.
+// Formula: sha256(lower(ruleId|pattern|analyzer|file|line|normalizedSnippet))
+func ComputeFingerprint(f Finding) string {
+	raw := strings.Join([]string{
+		f.RuleID, f.Pattern, f.Analyzer,
+		f.File, strconv.Itoa(f.Line),
+		normalizeSnippet(f.Snippet),
+	}, "|")
+	h := sha256.Sum256([]byte(strings.ToLower(raw)))
+	return hex.EncodeToString(h[:])
+}
+
 func dedupeKey(f Finding) string {
+	if f.Fingerprint != "" {
+		return f.Fingerprint
+	}
 	return f.Pattern + "|" + f.File + "|" + strconv.Itoa(f.Line) + "|" + normalizeSnippet(f.Snippet)
+}
+
+// StampFingerprints fills the Fingerprint field for every finding that lacks one.
+func StampFingerprints(findings []Finding) {
+	for i := range findings {
+		if findings[i].Fingerprint == "" {
+			findings[i].Fingerprint = ComputeFingerprint(findings[i])
+		}
+	}
 }
 
 // DeduplicateGlobal removes duplicate findings based on a composite key

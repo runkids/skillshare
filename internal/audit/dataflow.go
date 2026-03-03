@@ -456,12 +456,16 @@ func checkPipeChain(line string, lineNum int, filename string, taintMap map[stri
 		for _, cmd := range ExtractCommands(seg) {
 			if networkCommands[filepath.Base(cmd)] {
 				return &Finding{
-					Severity: SeverityHigh,
-					Pattern:  patternDataflowTaint,
-					Message:  fmt.Sprintf("tainted data piped to network command %q", cmd),
-					File:     filename,
-					Line:     lineNum,
-					Snippet:  strings.TrimSpace(line),
+					Severity:   SeverityHigh,
+					Pattern:    patternDataflowTaint,
+					Message:    fmt.Sprintf("tainted data piped to network command %q", cmd),
+					File:       filename,
+					Line:       lineNum,
+					Snippet:    strings.TrimSpace(line),
+					RuleID:     "dataflow-taint-pipe",
+					Analyzer:   AnalyzerDataflow,
+					Category:   CategoryExfiltration,
+					Confidence: 0.85,
 				}
 			}
 		}
@@ -501,12 +505,16 @@ func detectSinks(line string, lineNum int, filename string, taintMap map[string]
 		seen[key] = true
 
 		findings = append(findings, Finding{
-			Severity: SeverityHigh,
-			Pattern:  patternDataflowTaint,
-			Message:  buildTaintMessage(src, varName, lineNum),
-			File:     filename,
-			Line:     lineNum,
-			Snippet:  strings.TrimSpace(line),
+			Severity:   SeverityHigh,
+			Pattern:    patternDataflowTaint,
+			Message:    buildTaintMessage(src, varName, lineNum),
+			File:       filename,
+			Line:       lineNum,
+			Snippet:    strings.TrimSpace(line),
+			RuleID:     "dataflow-taint-var",
+			Analyzer:   AnalyzerDataflow,
+			Category:   CategoryExfiltration,
+			Confidence: 0.85,
 		})
 	}
 
@@ -524,12 +532,16 @@ func detectSinks(line string, lineNum int, filename string, taintMap map[string]
 		seen[key] = true
 
 		findings = append(findings, Finding{
-			Severity: SeverityHigh,
-			Pattern:  patternDataflowTaint,
-			Message:  fmt.Sprintf("tainted data flows from %s (line %d) to network send (line %d) via temp file %s", src.Kind, src.Line, lineNum, path),
-			File:     filename,
-			Line:     lineNum,
-			Snippet:  strings.TrimSpace(line),
+			Severity:   SeverityHigh,
+			Pattern:    patternDataflowTaint,
+			Message:    fmt.Sprintf("tainted data flows from %s (line %d) to network send (line %d) via temp file %s", src.Kind, src.Line, lineNum, path),
+			File:       filename,
+			Line:       lineNum,
+			Snippet:    strings.TrimSpace(line),
+			RuleID:     "dataflow-taint-file",
+			Analyzer:   AnalyzerDataflow,
+			Category:   CategoryExfiltration,
+			Confidence: 0.85,
 		})
 	}
 

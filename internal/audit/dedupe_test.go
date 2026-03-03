@@ -1,6 +1,9 @@
 package audit
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestDeduplicateGlobal_Empty(t *testing.T) {
 	result := DeduplicateGlobal(nil)
@@ -68,6 +71,64 @@ func TestDeduplicateGlobal_PreservesOrder(t *testing.T) {
 	}
 	if result[0].Pattern != "c" || result[1].Pattern != "a" || result[2].Pattern != "b" {
 		t.Errorf("order changed: %s, %s, %s", result[0].Pattern, result[1].Pattern, result[2].Pattern)
+	}
+}
+
+func TestComputeFingerprint_Stable(t *testing.T) {
+	f := Finding{
+		RuleID:   "shell-exec",
+		Pattern:  "shell-exec",
+		Analyzer: "static",
+		File:     "install.sh",
+		Line:     10,
+		Snippet:  "eval $USER_INPUT",
+	}
+	fp1 := ComputeFingerprint(f)
+	fp2 := ComputeFingerprint(f)
+	if fp1 != fp2 {
+		t.Errorf("fingerprint not stable: %s != %s", fp1, fp2)
+	}
+	if len(fp1) != 64 {
+		t.Errorf("expected 64-char hex, got %d chars", len(fp1))
+	}
+}
+
+func TestComputeFingerprint_CaseInsensitive(t *testing.T) {
+	f1 := Finding{Pattern: "Shell-Exec", File: "INSTALL.sh", Line: 1, Snippet: "Eval"}
+	f2 := Finding{Pattern: "shell-exec", File: "install.sh", Line: 1, Snippet: "eval"}
+	if ComputeFingerprint(f1) != ComputeFingerprint(f2) {
+		t.Error("fingerprint should be case-insensitive")
+	}
+}
+
+func TestComputeFingerprint_DifferentFields(t *testing.T) {
+	base := Finding{Pattern: "a", File: "f", Line: 1, Snippet: "s"}
+	diff := Finding{Pattern: "a", File: "f", Line: 2, Snippet: "s"}
+	if ComputeFingerprint(base) == ComputeFingerprint(diff) {
+		t.Error("different line should produce different fingerprint")
+	}
+}
+
+func TestComputeFingerprint_WhitespaceNormalized(t *testing.T) {
+	f1 := Finding{Pattern: "a", File: "f", Line: 1, Snippet: "  foo   bar  "}
+	f2 := Finding{Pattern: "a", File: "f", Line: 1, Snippet: "foo bar"}
+	if ComputeFingerprint(f1) != ComputeFingerprint(f2) {
+		t.Error("whitespace-normalized snippets should have same fingerprint")
+	}
+}
+
+func TestDeduplicateGlobal_PrefersFingerprint(t *testing.T) {
+	fp := strings.Repeat("a", 64) // fake fingerprint
+	findings := []Finding{
+		{Severity: SeverityHigh, Pattern: "x", File: "f1", Line: 1, Snippet: "s", Fingerprint: fp},
+		{Severity: SeverityCritical, Pattern: "y", File: "f2", Line: 2, Snippet: "t", Fingerprint: fp},
+	}
+	result := DeduplicateGlobal(findings)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 (same fingerprint), got %d", len(result))
+	}
+	if result[0].Severity != SeverityCritical {
+		t.Errorf("severity = %q, want CRITICAL", result[0].Severity)
 	}
 }
 

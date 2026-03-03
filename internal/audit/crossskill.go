@@ -98,14 +98,16 @@ func CrossSkillAnalysis(results []*Result) *Result {
 	if len(credReadersOnly) > 0 && len(netNoCred) > 0 {
 		findings = append(findings, syntheticFinding(SeverityHigh, "cross-skill-exfiltration",
 			fmt.Sprintf("cross-skill exfiltration vector: %s (reads credentials) × %s (has network access)",
-				formatNameList(credReadersOnly), formatNameList(netNoCred))))
+				formatNameList(credReadersOnly), formatNameList(netNoCred)),
+			AnalyzerCrossSkill, CategoryExfiltration))
 	}
 
 	// Rule 2: Privilege + Network — privilege commands × network access.
 	if len(privilegeOnly) > 0 && len(netNoPrivilege) > 0 {
 		findings = append(findings, syntheticFinding(SeverityMedium, "cross-skill-privilege-network",
 			fmt.Sprintf("cross-skill privilege escalation: %s (has privilege commands) × %s (has network access)",
-				formatNameList(privilegeOnly), formatNameList(netNoPrivilege))))
+				formatNameList(privilegeOnly), formatNameList(netNoPrivilege)),
+			AnalyzerCrossSkill, CategoryPrivilege))
 	}
 
 	// Rule 3: Stealth + High-Risk — stealth skills alongside high-risk skills.
@@ -114,7 +116,8 @@ func CrossSkillAnalysis(results []*Result) *Result {
 		if !isSingleSelfPair(stealthSkills, highPlusSkills) {
 			findings = append(findings, syntheticFinding(SeverityHigh, "cross-skill-stealth",
 				fmt.Sprintf("stealth skill %s installed alongside high-risk skill %s — evasion risk",
-					formatNameList(stealthSkills), formatNameList(highPlusSkills))))
+					formatNameList(stealthSkills), formatNameList(highPlusSkills)),
+				AnalyzerCrossSkill, CategoryObfuscation))
 		}
 	}
 
@@ -122,7 +125,8 @@ func CrossSkillAnalysis(results []*Result) *Result {
 	if len(credReadersOnly) > 0 && len(interpreterOnly) > 0 {
 		findings = append(findings, syntheticFinding(SeverityMedium, "cross-skill-cred-interpreter",
 			fmt.Sprintf("cross-skill credential processing: %s (reads credentials) × %s (has interpreter) — interpreter can process stolen data",
-				formatNameList(credReadersOnly), formatNameList(interpreterOnly))))
+				formatNameList(credReadersOnly), formatNameList(interpreterOnly)),
+			AnalyzerCrossSkill, CategoryCredential))
 	}
 
 	if len(findings) == 0 {
@@ -162,12 +166,16 @@ func formatNameList(names []string) string {
 
 // syntheticFinding creates a Finding not tied to a specific file (File=".", Line=0).
 // Used by cross-skill analysis and tier combination checks.
-func syntheticFinding(severity, pattern, message string) Finding {
+func syntheticFinding(severity, pattern, message, analyzer, category string) Finding {
 	return Finding{
-		Severity: severity,
-		Pattern:  pattern,
-		Message:  message,
-		File:     ".",
-		Line:     0,
+		Severity:   severity,
+		Pattern:    pattern,
+		Message:    message,
+		File:       ".",
+		Line:       0,
+		RuleID:     pattern,
+		Analyzer:   analyzer,
+		Category:   category,
+		Confidence: 1.0,
 	}
 }
