@@ -1318,3 +1318,150 @@ func TestAuditRules_SeverityThenScan(t *testing.T) {
 	// Verify the severity was actually changed for this rule.
 	auditResult.AssertAnyOutputContains(t, "inject-skill")
 }
+
+// ── audit policy & dedupe integration tests ────────────────────────
+
+func TestAudit_ProfileStrict(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// This skill triggers a HIGH finding (sudo apt-get) but NOT CRITICAL.
+	sb.CreateSkill("high-only", map[string]string{
+		"SKILL.md": "---\nname: high-only\n---\n# CI\nsudo apt-get install -y curl",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// With default profile, threshold=CRITICAL → HIGH finding should pass.
+	defaultResult := sb.RunCLI("audit", "high-only", "--format", "json")
+	defaultResult.AssertSuccess(t)
+
+	// With strict profile, threshold=HIGH → HIGH finding should block.
+	strictResult := sb.RunCLI("audit", "high-only", "--profile", "strict", "--format", "json")
+	strictResult.AssertExitCode(t, 1)
+
+	var payload struct {
+		Summary struct {
+			Threshold     string `json:"threshold"`
+			Failed        int    `json:"failed"`
+			PolicyProfile string `json:"policyProfile"`
+			PolicyDedupe  string `json:"policyDedupe"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(strictResult.Stdout)), &payload); err != nil {
+		t.Fatalf("failed to parse JSON: %v\nstdout=%s", err, strictResult.Stdout)
+	}
+	if payload.Summary.Threshold != "HIGH" {
+		t.Fatalf("expected threshold HIGH with strict profile, got %s", payload.Summary.Threshold)
+	}
+	if payload.Summary.Failed != 1 {
+		t.Fatalf("expected failed=1, got %d", payload.Summary.Failed)
+	}
+	if payload.Summary.PolicyProfile != "strict" {
+		t.Fatalf("expected policyProfile=strict, got %s", payload.Summary.PolicyProfile)
+	}
+	if payload.Summary.PolicyDedupe != "global" {
+		t.Fatalf("expected policyDedupe=global (strict default), got %s", payload.Summary.PolicyDedupe)
+	}
+}
+
+func TestAudit_ProfileDefault_NoChange(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("clean-default", map[string]string{
+		"SKILL.md": "---\nname: clean-default\n---\n# Safe skill\nFollow best practices.",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// No flags → default profile, threshold=CRITICAL, dedupe=legacy.
+	result := sb.RunCLI("audit", "clean-default", "--format", "json")
+	result.AssertSuccess(t)
+
+	var payload struct {
+		Summary struct {
+			Threshold     string `json:"threshold"`
+			Passed        int    `json:"passed"`
+			PolicyProfile string `json:"policyProfile"`
+			PolicyDedupe  string `json:"policyDedupe"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(result.Stdout)), &payload); err != nil {
+		t.Fatalf("failed to parse JSON: %v\nstdout=%s", err, result.Stdout)
+	}
+	if payload.Summary.Threshold != "CRITICAL" {
+		t.Fatalf("expected default threshold CRITICAL, got %s", payload.Summary.Threshold)
+	}
+	if payload.Summary.Passed != 1 {
+		t.Fatalf("expected passed=1, got %d", payload.Summary.Passed)
+	}
+	if payload.Summary.PolicyProfile != "default" {
+		t.Fatalf("expected policyProfile=default, got %s", payload.Summary.PolicyProfile)
+	}
+	if payload.Summary.PolicyDedupe != "legacy" {
+		t.Fatalf("expected policyDedupe=legacy, got %s", payload.Summary.PolicyDedupe)
+	}
+}
+
+func TestAudit_DedupeGlobal_JSON(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Skill with a HIGH finding.
+	sb.CreateSkill("dedupe-skill", map[string]string{
+		"SKILL.md": "---\nname: dedupe-skill\n---\n# CI\nsudo apt-get install -y jq",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	// Run with --dedupe global and verify the field appears in JSON output.
+	result := sb.RunCLI("audit", "dedupe-skill", "--dedupe", "global", "--format", "json")
+	result.AssertSuccess(t) // HIGH < CRITICAL (default threshold)
+
+	var payload struct {
+		Summary struct {
+			PolicyDedupe string `json:"policyDedupe"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(result.Stdout)), &payload); err != nil {
+		t.Fatalf("failed to parse JSON: %v\nstdout=%s", err, result.Stdout)
+	}
+	if payload.Summary.PolicyDedupe != "global" {
+		t.Fatalf("expected policyDedupe=global, got %s", payload.Summary.PolicyDedupe)
+	}
+	assertNoANSI(t, result.Stdout)
+}
+
+func TestAudit_ProfileInConfig(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Skill with HIGH finding (not CRITICAL).
+	sb.CreateSkill("config-profile", map[string]string{
+		"SKILL.md": "---\nname: config-profile\n---\n# CI\nsudo apt-get install -y curl",
+	})
+	// Config sets profile: strict → threshold=HIGH, dedupe=global by default.
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\naudit:\n  profile: strict\n")
+
+	// No CLI flags — should pick up profile from config.
+	result := sb.RunCLI("audit", "config-profile", "--format", "json")
+	result.AssertExitCode(t, 1) // strict → threshold HIGH → block on HIGH
+
+	var payload struct {
+		Summary struct {
+			Threshold     string `json:"threshold"`
+			PolicyProfile string `json:"policyProfile"`
+			PolicyDedupe  string `json:"policyDedupe"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(result.Stdout)), &payload); err != nil {
+		t.Fatalf("failed to parse JSON: %v\nstdout=%s", err, result.Stdout)
+	}
+	if payload.Summary.Threshold != "HIGH" {
+		t.Fatalf("expected threshold HIGH from config profile strict, got %s", payload.Summary.Threshold)
+	}
+	if payload.Summary.PolicyProfile != "strict" {
+		t.Fatalf("expected policyProfile=strict from config, got %s", payload.Summary.PolicyProfile)
+	}
+	if payload.Summary.PolicyDedupe != "global" {
+		t.Fatalf("expected policyDedupe=global from strict profile default, got %s", payload.Summary.PolicyDedupe)
+	}
+}

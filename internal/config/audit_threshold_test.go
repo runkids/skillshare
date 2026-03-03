@@ -21,8 +21,8 @@ func TestLoad_DefaultAuditThreshold(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load returned error: %v", err)
 	}
-	if cfg.Audit.BlockThreshold != "CRITICAL" {
-		t.Fatalf("expected default CRITICAL threshold, got %s", cfg.Audit.BlockThreshold)
+	if cfg.Audit.BlockThreshold != "" {
+		t.Fatalf("expected empty default threshold (callers apply defaults), got %s", cfg.Audit.BlockThreshold)
 	}
 }
 
@@ -61,8 +61,8 @@ func TestLoadProject_DefaultAuditThreshold(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadProject returned error: %v", err)
 	}
-	if cfg.Audit.BlockThreshold != "CRITICAL" {
-		t.Fatalf("expected default CRITICAL threshold, got %s", cfg.Audit.BlockThreshold)
+	if cfg.Audit.BlockThreshold != "" {
+		t.Fatalf("expected empty default threshold (callers apply defaults), got %s", cfg.Audit.BlockThreshold)
 	}
 }
 

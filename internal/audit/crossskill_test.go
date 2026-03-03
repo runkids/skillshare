@@ -125,8 +125,8 @@ func TestCrossSkillAnalysis(t *testing.T) {
 		{
 			name: "source + sink basic pair",
 			results: []*Result{
-				makeResult("reader", TierProfile{}, credFinding()),   // cred read, no network
-				makeResult("sender", tierWith(TierNetwork)),          // network, no cred read
+				makeResult("reader", TierProfile{}, credFinding()), // cred read, no network
+				makeResult("sender", tierWith(TierNetwork)),        // network, no cred read
 			},
 			wantPatterns: []string{"cross-skill-exfiltration"},
 		},
@@ -208,9 +208,9 @@ func TestCrossSkillAnalysis(t *testing.T) {
 		{
 			name: "combined rules: cred+net and stealth+high",
 			results: []*Result{
-				makeResult("reader", TierProfile{}, credFinding()),  // cred read, high finding
-				makeResult("sender", tierWith(TierNetwork)),         // network
-				makeResult("sneaky", tierWith(TierStealth)),         // stealth
+				makeResult("reader", TierProfile{}, credFinding()), // cred read, high finding
+				makeResult("sender", tierWith(TierNetwork)),        // network
+				makeResult("sneaky", tierWith(TierStealth)),        // stealth
 			},
 			wantPatterns: []string{
 				"cross-skill-exfiltration", // reader × sender
@@ -220,8 +220,8 @@ func TestCrossSkillAnalysis(t *testing.T) {
 		{
 			name: "credential × interpreter basic pair",
 			results: []*Result{
-				makeResult("reader", TierProfile{}, credFinding()),        // cred read, no network
-				makeResult("scripting", tierWith(TierInterpreter)),        // interpreter, no network
+				makeResult("reader", TierProfile{}, credFinding()), // cred read, no network
+				makeResult("scripting", tierWith(TierInterpreter)), // interpreter, no network
 			},
 			wantPatterns: []string{"cross-skill-cred-interpreter"},
 		},

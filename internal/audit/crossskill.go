@@ -57,13 +57,13 @@ func CrossSkillAnalysis(results []*Result) *Result {
 
 	// Single pass: extract capabilities and classify into sets.
 	var (
-		credReadersOnly  []string // HasCredReads && !HasNetSend
-		netNoCred        []string // HasNetSend && !HasCredReads
-		privilegeOnly    []string // HasPrivilege && !HasNetSend
-		netNoPrivilege   []string // HasNetSend && !HasPrivilege
-		stealthSkills    []string // HasStealth
-		highPlusSkills   []string // HasHighPlus
-		interpreterOnly  []string // HasInterpreter && !HasNetSend
+		credReadersOnly []string // HasCredReads && !HasNetSend
+		netNoCred       []string // HasNetSend && !HasCredReads
+		privilegeOnly   []string // HasPrivilege && !HasNetSend
+		netNoPrivilege  []string // HasNetSend && !HasPrivilege
+		stealthSkills   []string // HasStealth
+		highPlusSkills  []string // HasHighPlus
+		interpreterOnly []string // HasInterpreter && !HasNetSend
 	)
 
 	for _, r := range results {

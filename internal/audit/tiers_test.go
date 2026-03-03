@@ -6,10 +6,10 @@ import (
 
 func TestClassifyCommand(t *testing.T) {
 	tests := []struct {
-		name    string
-		cmd     string
-		want    CommandTier
-		wantOK  bool
+		name   string
+		cmd    string
+		want   CommandTier
+		wantOK bool
 	}{
 		{"read-only cat", "cat", TierReadOnly, true},
 		{"read-only grep", "grep", TierReadOnly, true},

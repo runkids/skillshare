@@ -866,4 +866,3 @@ func SectionLabel(label string) {
 		fmt.Printf("\n- %s\n", label)
 	}
 }
-

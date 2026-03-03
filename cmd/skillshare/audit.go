@@ -47,26 +47,26 @@ func (o auditOptions) isStructured() bool {
 }
 
 type auditRunSummary struct {
-	Scope       string   `json:"scope,omitempty"`
-	Skill       string   `json:"skill,omitempty"`
-	Path        string   `json:"path,omitempty"`
-	Scanned     int      `json:"scanned"`
-	Passed      int      `json:"passed"`
-	Warning     int      `json:"warning"`
-	Failed      int      `json:"failed"`
-	Critical    int      `json:"critical"`
-	High        int      `json:"high"`
-	Medium      int      `json:"medium"`
-	Low         int      `json:"low"`
-	Info        int      `json:"info"`
-	WarnSkills  []string `json:"warningSkills,omitempty"`
-	FailSkills  []string `json:"failedSkills,omitempty"`
-	LowSkills   []string `json:"lowSkills,omitempty"`
-	InfoSkills  []string `json:"infoSkills,omitempty"`
-	ScanErrors  int      `json:"scanErrors"`
-	Mode        string   `json:"mode,omitempty"`
-	Threshold   string   `json:"threshold,omitempty"`
-	MaxSeverity string   `json:"maxSeverity,omitempty"`
+	Scope            string   `json:"scope,omitempty"`
+	Skill            string   `json:"skill,omitempty"`
+	Path             string   `json:"path,omitempty"`
+	Scanned          int      `json:"scanned"`
+	Passed           int      `json:"passed"`
+	Warning          int      `json:"warning"`
+	Failed           int      `json:"failed"`
+	Critical         int      `json:"critical"`
+	High             int      `json:"high"`
+	Medium           int      `json:"medium"`
+	Low              int      `json:"low"`
+	Info             int      `json:"info"`
+	WarnSkills       []string `json:"warningSkills,omitempty"`
+	FailSkills       []string `json:"failedSkills,omitempty"`
+	LowSkills        []string `json:"lowSkills,omitempty"`
+	InfoSkills       []string `json:"infoSkills,omitempty"`
+	ScanErrors       int      `json:"scanErrors"`
+	Mode             string   `json:"mode,omitempty"`
+	Threshold        string   `json:"threshold,omitempty"`
+	MaxSeverity      string   `json:"maxSeverity,omitempty"`
 	RiskScore        int      `json:"riskScore"`
 	RiskLabel        string   `json:"riskLabel,omitempty"`
 	AvgAnalyzability float64  `json:"avgAnalyzability"`
