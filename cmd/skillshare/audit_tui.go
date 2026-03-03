@@ -411,6 +411,9 @@ func (m auditTUIModel) renderSummaryFooter() string {
 	sep := tc.Dim.Render("/")
 	parts = append(parts, tc.Dim.Render("c/h/m/l/i = ")+strings.Join(sevParts, sep))
 	parts = append(parts, tc.Dim.Render(fmt.Sprintf("Auditable: %.0f%% avg", s.AvgAnalyzability*100)))
+	if s.PolicyProfile != "" {
+		parts = append(parts, tc.Dim.Render(fmt.Sprintf("Policy: %s", s.PolicyProfile)))
+	}
 
 	return "  " + strings.Join(parts, tc.Dim.Render(" | ")) + "\n"
 }
@@ -482,6 +485,15 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 	// Threshold
 	if r.Threshold != "" {
 		row("Threshold:", tc.Dim.Render("severity >= ")+tc.Emphasis.Render(strings.ToUpper(r.Threshold)))
+	}
+
+	// Policy
+	if m.summary.PolicyProfile != "" {
+		policyText := fmt.Sprintf("%s / dedupe:%s", m.summary.PolicyProfile, m.summary.PolicyDedupe)
+		if len(m.summary.PolicyAnalyzers) > 0 {
+			policyText += " / analyzers:" + strings.Join(m.summary.PolicyAnalyzers, ",")
+		}
+		row("Policy:", tc.Dim.Render(policyText))
 	}
 
 	// Scan time

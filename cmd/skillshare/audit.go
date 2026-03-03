@@ -28,18 +28,19 @@ const (
 )
 
 type auditOptions struct {
-	Targets   []string
-	Groups    []string
-	InitRules bool
-	JSON      bool   // deprecated: use Format
-	Format    string // formatText, formatJSON, or formatSARIF (default: formatText)
-	Quiet     bool
-	Yes       bool
-	NoTUI     bool
-	Threshold string
-	Profile   string   // --profile: default/strict/permissive
-	Dedupe    string   // --dedupe: legacy/global
-	Analyzers []string // --analyzer: repeatable allowlist
+	Targets    []string
+	Groups     []string
+	InitRules  bool
+	JSON       bool   // deprecated: use Format
+	Format     string // formatText, formatJSON, or formatSARIF (default: formatText)
+	Quiet      bool
+	Yes        bool
+	NoTUI      bool
+	Threshold  string
+	Profile    string   // --profile: default/strict/permissive
+	Dedupe     string   // --dedupe: legacy/global
+	Analyzers  []string // --analyzer: repeatable allowlist
+	PolicyLine string   // computed: compact policy description for display
 }
 
 // isStructured returns true if the output format is machine-readable (json/sarif/markdown).
@@ -215,6 +216,7 @@ func cmdAudit(args []string) error {
 	})
 	threshold := policy.Threshold
 	registry := audit.DefaultRegistry().ForPolicy(policy)
+	opts.PolicyLine = formatPolicyLineFromPolicy(policy)
 
 	var (
 		results []*audit.Result
@@ -228,9 +230,9 @@ func cmdAudit(args []string) error {
 	case !hasTargets:
 		results, summary, err = auditInstalled(sourcePath, modeString(mode), projectRoot, threshold, opts, registry)
 	case isSinglePath:
-		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, registry)
+		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, registry)
 	case isSingleName:
-		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, registry)
+		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, registry)
 	default:
 		results, summary, err = auditFiltered(sourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, opts, registry)
 	}
@@ -401,12 +403,48 @@ func auditHeaderTitle(mode string) string {
 	return "skillshare audit"
 }
 
-func auditHeaderSubtitle(scanLine, mode, sourcePath, threshold string) string {
+func auditHeaderSubtitle(scanLine, mode, sourcePath, threshold, policyLine string) string {
 	displayPath := sourcePath
 	if abs, err := filepath.Abs(sourcePath); err == nil {
 		displayPath = abs
 	}
-	return fmt.Sprintf("%s\nmode: %s\npath: %s\nblock rule: finding severity >= %s", scanLine, mode, displayPath, threshold)
+	return fmt.Sprintf("%s\nmode: %s\npath: %s\nblock rule: finding severity >= %s\npolicy: %s",
+		scanLine, mode, displayPath, threshold, policyLine)
+}
+
+// formatPolicyLine returns a compact one-line policy description from summary fields.
+func formatPolicyLine(summary auditRunSummary) string {
+	profile := summary.PolicyProfile
+	if profile == "" {
+		profile = "default"
+	}
+	dedupe := summary.PolicyDedupe
+	if dedupe == "" {
+		dedupe = "global"
+	}
+	analyzers := "all"
+	if len(summary.PolicyAnalyzers) > 0 {
+		analyzers = strings.Join(summary.PolicyAnalyzers, ",")
+	}
+	return fmt.Sprintf("%s / dedupe:%s / analyzers:%s", profile, dedupe, analyzers)
+}
+
+// formatPolicyLineFromPolicy builds the policy line directly from a Policy struct
+// (used before scan when summary is not yet populated).
+func formatPolicyLineFromPolicy(p audit.Policy) string {
+	profile := string(p.Profile)
+	if profile == "" {
+		profile = "default"
+	}
+	dedupe := string(p.DedupeMode)
+	if dedupe == "" {
+		dedupe = "global"
+	}
+	analyzers := "all"
+	if len(p.EnabledAnalyzers) > 0 {
+		analyzers = strings.Join(p.EnabledAnalyzers, ",")
+	}
+	return fmt.Sprintf("%s / dedupe:%s / analyzers:%s", profile, dedupe, analyzers)
 }
 
 func collectInstalledSkillPaths(sourcePath string) ([]struct {
@@ -548,7 +586,7 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	var headerMinWidth int
 	if !jsonOutput {
 		fmt.Println()
-		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning %d skills for threats", len(skillPaths)), mode, sourcePath, threshold)
+		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning %d skills for threats", len(skillPaths)), mode, sourcePath, threshold, opts.PolicyLine)
 		headerMinWidth = auditHeaderMinWidth(subtitle)
 		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, headerMinWidth)
 	}
@@ -680,7 +718,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	var headerMinWidth int
 	if !jsonOutput {
 		fmt.Println()
-		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning %d skills for threats", len(matched)), mode, sourcePath, threshold)
+		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning %d skills for threats", len(matched)), mode, sourcePath, threshold, opts.PolicyLine)
 		headerMinWidth = auditHeaderMinWidth(subtitle)
 		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, headerMinWidth)
 	}
@@ -739,7 +777,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	return results, summary, nil
 }
 
-func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format string, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
+func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, policyLine string, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
 	summary := auditRunSummary{
 		Scope:     "single",
 		Skill:     name,
@@ -774,7 +812,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format str
 	summary.Skill = name
 	summary.Mode = mode
 	if format == formatText {
-		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning skill: %s", name), mode, sourcePath, threshold)
+		subtitle := auditHeaderSubtitle(fmt.Sprintf("Scanning skill: %s", name), mode, sourcePath, threshold, policyLine)
 		summaryLines := buildAuditSummaryLines(summary)
 		minWidth := auditHeaderMinWidth(subtitle)
 		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, minWidth)
@@ -785,7 +823,7 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format str
 	return []*audit.Result{result}, summary, nil
 }
 
-func auditPath(rawPath, mode, projectRoot, threshold, format string, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
+func auditPath(rawPath, mode, projectRoot, threshold, format, policyLine string, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
 	absPath, err := filepath.Abs(rawPath)
 	if err != nil {
 		absPath = rawPath
@@ -813,7 +851,7 @@ func auditPath(rawPath, mode, projectRoot, threshold, format string, reg *audit.
 	summary.Path = absPath
 	summary.Mode = mode
 	if format == formatText {
-		subtitle := fmt.Sprintf("Scanning path target\nmode: %s\npath: %s\nblock rule: finding severity >= %s", mode, absPath, threshold)
+		subtitle := fmt.Sprintf("Scanning path target\nmode: %s\npath: %s\nblock rule: finding severity >= %s\npolicy: %s", mode, absPath, threshold, policyLine)
 		summaryLines := buildAuditSummaryLines(summary)
 		minWidth := auditHeaderMinWidth(subtitle)
 		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, minWidth)
@@ -970,8 +1008,12 @@ func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanO
 
 	if !jsonOutput {
 		if !useTUI {
+			// In batch mode (multiple results), only show skills with findings
+			// to avoid flooding the terminal. Use --quiet=false explicitly or
+			// single-skill mode to see clean results.
+			suppressClean := len(results) > 1
 			for i, r := range results {
-				if !opts.Quiet || len(r.Findings) > 0 {
+				if len(r.Findings) > 0 || (!opts.Quiet && !suppressClean) {
 					printSkillResultLine(i+1, len(results), r, elapsed[i])
 				}
 			}
@@ -1096,6 +1138,7 @@ func buildAuditSummaryLines(summary auditRunSummary) []string {
 		maxSeverity = "NONE"
 	}
 	lines = append(lines, fmt.Sprintf("  Block:     severity >= %s", summary.Threshold))
+	lines = append(lines, fmt.Sprintf("  Policy:    %s", formatPolicyLine(summary)))
 	lines = append(lines, fmt.Sprintf("  Max sev:   %s", maxSeverity))
 	lines = append(lines, fmt.Sprintf("  Scanned:   %d skill(s)", summary.Scanned))
 	lines = append(lines, fmt.Sprintf("  Passed:    %s", ui.Colorize(ui.Green, fmt.Sprintf("%d", summary.Passed))))
