@@ -1,0 +1,75 @@
+package audit
+
+// Registry holds all registered analyzers and provides scope-filtered access.
+type Registry struct {
+	analyzers []Analyzer
+}
+
+// DefaultRegistry returns a registry with all built-in analyzers.
+func DefaultRegistry() *Registry {
+	return &Registry{
+		analyzers: []Analyzer{
+			&staticAnalyzer{},
+			&dataflowAnalyzer{},
+			&markdownLinkAnalyzer{},
+			&structureAnalyzer{},
+			&integrityAnalyzer{},
+			&tierAnalyzer{},
+			&crossSkillAnalyzer{},
+		},
+	}
+}
+
+// ForPolicy returns a filtered registry respecting policy.EnabledAnalyzers.
+// If EnabledAnalyzers is nil/empty, all analyzers are enabled (default behavior).
+func (r *Registry) ForPolicy(p Policy) *Registry {
+	if len(p.EnabledAnalyzers) == 0 {
+		return r
+	}
+	allowed := make(map[string]bool, len(p.EnabledAnalyzers))
+	for _, id := range p.EnabledAnalyzers {
+		allowed[id] = true
+	}
+	var filtered []Analyzer
+	for _, a := range r.analyzers {
+		if allowed[a.ID()] {
+			filtered = append(filtered, a)
+		}
+	}
+	return &Registry{analyzers: filtered}
+}
+
+// FileAnalyzers returns analyzers that run per-file.
+func (r *Registry) FileAnalyzers() []Analyzer {
+	return r.byScope(ScopeFile)
+}
+
+// SkillAnalyzers returns analyzers that run per-skill.
+func (r *Registry) SkillAnalyzers() []Analyzer {
+	return r.byScope(ScopeSkill)
+}
+
+// BundleAnalyzers returns analyzers that run per-bundle.
+func (r *Registry) BundleAnalyzers() []Analyzer {
+	return r.byScope(ScopeBundle)
+}
+
+// Has returns true if an analyzer with the given ID is in the registry.
+func (r *Registry) Has(id string) bool {
+	for _, a := range r.analyzers {
+		if a.ID() == id {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *Registry) byScope(scope AnalyzerScope) []Analyzer {
+	var out []Analyzer
+	for _, a := range r.analyzers {
+		if a.Scope() == scope {
+			out = append(out, a)
+		}
+	}
+	return out
+}

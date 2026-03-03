@@ -301,7 +301,30 @@ func ScanSkillWithRules(skillPath string, activeRules []rule) (*Result, error) {
 	return scanSkillImpl(skillPath, activeRules, nil)
 }
 
-func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]bool) (*Result, error) {
+// ScanSkillFiltered scans a skill using the given registry to control which
+// analyzers run. Pass a registry from DefaultRegistry().ForPolicy(policy).
+func ScanSkillFiltered(skillPath string, registry *Registry) (*Result, error) {
+	disabled := disabledIDsGlobal()
+	return scanSkillImpl(skillPath, nil, disabled, registry)
+}
+
+// ScanSkillFilteredForProject is like ScanSkillFiltered but uses project-mode rules.
+func ScanSkillFilteredForProject(skillPath, projectRoot string, registry *Registry) (*Result, error) {
+	rules, err := RulesWithProject(projectRoot)
+	if err != nil {
+		return nil, fmt.Errorf("load project rules: %w", err)
+	}
+	disabled := disabledIDsForProject(projectRoot)
+	return scanSkillImpl(skillPath, rules, disabled, registry)
+}
+
+func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]bool, reg ...*Registry) (*Result, error) {
+	var registry *Registry
+	if len(reg) > 0 && reg[0] != nil {
+		registry = reg[0]
+	} else {
+		registry = DefaultRegistry()
+	}
 	info, err := os.Stat(skillPath)
 	if err != nil {
 		return nil, fmt.Errorf("cannot access skill path: %w", err)
@@ -397,27 +420,29 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 			})
 		}
 
-		rulesForFile := resolvedRules
-		if isMarkdown {
-			rulesForFile = mdContentRules
-		}
+		// --- File-scope analyzers (gated by registry) ---
 		var findings []Finding
-		if isMarkdown {
-			findings = ScanMarkdownContentWithRules(data, relPath, rulesForFile)
-		} else {
-			findings = ScanContentWithRules(data, relPath, rulesForFile)
+		if registry.Has(AnalyzerStatic) {
+			rulesForFile := resolvedRules
+			if isMarkdown {
+				rulesForFile = mdContentRules
+			}
+			if isMarkdown {
+				findings = ScanMarkdownContentWithRules(data, relPath, rulesForFile)
+			} else {
+				findings = ScanContentWithRules(data, relPath, rulesForFile)
+			}
+			result.Findings = append(result.Findings, findings...)
 		}
-		result.Findings = append(result.Findings, findings...)
 
-		// Tier detection: classify commands in parallel with pattern scan.
+		// Tier detection always runs (data gathering, not direct findings).
 		if isMarkdown {
 			skillTierProfile.Merge(DetectCommandTiersInMarkdown(data))
 		} else {
 			skillTierProfile.Merge(DetectCommandTiers(data))
 		}
 
-		// Dataflow taint tracking: detect cross-line source→sink chains.
-		if !disabled[patternDataflowTaint] {
+		if registry.Has(AnalyzerDataflow) && !disabled[patternDataflowTaint] {
 			var dfFindings []Finding
 			if isMarkdown {
 				dfFindings = ScanMarkdownDataflow(data, relPath)
@@ -434,23 +459,23 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		return nil, fmt.Errorf("error scanning skill: %w", err)
 	}
 
-	// Markdown link rules are parsed structurally to support full Markdown syntax
-	// (title suffix, autolink, reference style, multiline).
-	result.Findings = append(result.Findings, checkMarkdownLinkRules(mdFiles, mdLinkRules)...)
-
-	// Structural check: scan collected .md files for dangling local links.
-	if !disabled["dangling-link"] {
-		result.Findings = append(result.Findings, checkDanglingLinks(mdFiles)...)
-	}
-
-	// Content integrity check against pinned hashes.
-	if !disabled["content-integrity"] {
-		result.Findings = append(result.Findings, checkContentIntegrity(skillPath, fileCache)...)
-	}
-
-	// Aggregate tier profile and generate combination findings.
+	// --- Skill-scope analyzers (via registry) ---
 	result.TierProfile = skillTierProfile
-	result.Findings = append(result.Findings, TierCombinationFindings(skillTierProfile)...)
+	skillCtx := &AnalyzeContext{
+		SkillPath:      skillPath,
+		MDFiles:        mdFiles,
+		FileCache:      fileCache,
+		TierProfile:    skillTierProfile,
+		Rules:          resolvedRules,
+		MDContentRules: mdContentRules,
+		MDLinkRules:    mdLinkRules,
+		DisabledIDs:    disabled,
+	}
+	for _, a := range registry.SkillAnalyzers() {
+		if af, err := a.Analyze(skillCtx); err == nil {
+			result.Findings = append(result.Findings, af...)
+		}
+	}
 
 	result.TotalBytes = totalBytes
 	result.AuditableBytes = auditableBytes

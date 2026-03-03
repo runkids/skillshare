@@ -19,9 +19,10 @@ const (
 
 // Policy holds resolved audit policy settings.
 type Policy struct {
-	Profile    Profile
-	Threshold  string
-	DedupeMode DedupeMode
+	Profile          Profile
+	Threshold        string
+	DedupeMode       DedupeMode
+	EnabledAnalyzers []string // nil = all enabled (default)
 }
 
 // PolicyInputs carries raw inputs from CLI flags and config for resolution.
@@ -33,6 +34,9 @@ type PolicyInputs struct {
 	ConfigProfile   string
 	ConfigThreshold string
 	ConfigDedupe    string
+
+	EnabledAnalyzers []string // CLI --analyzer (repeatable)
+	ConfigAnalyzers  []string // config.yaml audit.enabled_analyzers
 }
 
 var profilePresets = map[Profile]struct {
@@ -58,10 +62,16 @@ func ResolvePolicy(in PolicyInputs) Policy {
 		dedupe = preset.DedupeMode
 	}
 
+	analyzers := in.EnabledAnalyzers
+	if len(analyzers) == 0 {
+		analyzers = in.ConfigAnalyzers
+	}
+
 	return Policy{
-		Profile:    profile,
-		Threshold:  threshold,
-		DedupeMode: dedupe,
+		Profile:          profile,
+		Threshold:        threshold,
+		DedupeMode:       dedupe,
+		EnabledAnalyzers: analyzers,
 	}
 }
 
