@@ -21,7 +21,7 @@ Unlike traditional packages that run in sandboxed runtimes, AI skills operate th
 
 A single malicious skill can access anything your AI assistant can — environment variables, SSH keys, cloud credentials, source code. Automated scanning catches known patterns, but **human review remains essential**.
 
-For a detailed threat model and detection rules, see [Why Security Scanning Matters](/docs/reference/commands/audit#why-security-scanning-matters).
+For a detailed threat model and detection rules, see [Why Security Scanning Matters](/docs/understand/audit-engine#why-security-scanning-matters).
 
 :::
 
@@ -169,7 +169,7 @@ rules:
     regex: '(?i)\bsudo\s+'
 ```
 
-For the full custom rules reference (merge semantics, disabling rules, exclude patterns), see [`audit` — Custom Rules](/docs/reference/commands/audit#custom-rules).
+For the full custom rules reference (merge semantics, disabling rules, exclude patterns), see [`audit rules` — Custom Rules](/docs/reference/commands/audit-rules#custom-rules).
 
 ### Periodic Scanning
 
@@ -221,10 +221,12 @@ jobs:
 
 For the full workflow (including PR comment reporting and artifact upload), see the [validate-pr.yml source](https://github.com/runkids/skillshare-hub/blob/main/.github/workflows/validate-pr.yml).
 
-For more CI/CD patterns (JSON output with `jq`, GitHub Actions with artifact upload), see [`audit` — CI/CD Integration](/docs/reference/commands/audit#cicd-integration).
+For more CI/CD patterns (JSON output with `jq`, GitHub Actions with artifact upload, SARIF upload), see the [CI/CD Skill Validation recipe](/docs/how-to/recipes/ci-cd-skill-validation).
 
 ## See Also
 
-- [`audit`](/docs/reference/commands/audit) — Full command reference (detection rules, risk scoring, custom rules)
+- [`audit`](/docs/reference/commands/audit) — CLI command reference
+- [`audit rules`](/docs/reference/commands/audit-rules) — Rule management and customization
+- [Audit Engine](/docs/understand/audit-engine) — How the engine works (threat model, risk scoring, tiering)
 - [Best Practices](/docs/how-to/daily-tasks/best-practices) — Naming, organization, and security hygiene
 - [Project Setup](/docs/how-to/sharing/project-setup) — Project-scoped skill configuration
