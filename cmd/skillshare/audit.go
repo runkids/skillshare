@@ -37,6 +37,8 @@ type auditOptions struct {
 	Yes       bool
 	NoTUI     bool
 	Threshold string
+	Profile   string // --profile: default/strict/permissive
+	Dedupe    string // --dedupe: legacy/global
 }
 
 // isStructured returns true if the output format is machine-readable (json/sarif/markdown).
@@ -68,6 +70,8 @@ type auditRunSummary struct {
 	RiskScore        int      `json:"riskScore"`
 	RiskLabel        string   `json:"riskLabel,omitempty"`
 	AvgAnalyzability float64  `json:"avgAnalyzability"`
+	PolicyProfile    string   `json:"policyProfile,omitempty"`
+	PolicyDedupe     string   `json:"policyDedupe,omitempty"`
 }
 
 func (s auditRunSummary) toMarkdownOptions() audit.MarkdownOptions {
@@ -87,6 +91,7 @@ func (s auditRunSummary) toMarkdownOptions() audit.MarkdownOptions {
 		Threshold:        s.Threshold,
 		Mode:             s.Mode,
 		AvgAnalyzability: s.AvgAnalyzability,
+		Profile:          s.PolicyProfile,
 	}
 }
 
@@ -156,6 +161,8 @@ func cmdAudit(args []string) error {
 		sourcePath       string
 		projectRoot      string
 		defaultThreshold string
+		configProfile    string
+		configDedupe     string
 		cfgPath          string
 	)
 
@@ -176,6 +183,8 @@ func cmdAudit(args []string) error {
 		sourcePath = rt.sourcePath
 		projectRoot = cwd
 		defaultThreshold = rt.config.Audit.BlockThreshold
+		configProfile = rt.config.Audit.Profile
+		configDedupe = rt.config.Audit.DedupeMode
 		cfgPath = config.ProjectConfigPath(cwd)
 	} else {
 		cfg, err := config.Load()
@@ -184,17 +193,20 @@ func cmdAudit(args []string) error {
 		}
 		sourcePath = cfg.Source
 		defaultThreshold = cfg.Audit.BlockThreshold
+		configProfile = cfg.Audit.Profile
+		configDedupe = cfg.Audit.DedupeMode
 		cfgPath = config.ConfigPath()
 	}
 
-	threshold := defaultThreshold
-	if opts.Threshold != "" {
-		threshold = opts.Threshold
-	}
-	threshold, err = audit.NormalizeThreshold(threshold)
-	if err != nil {
-		return err
-	}
+	policy := audit.ResolvePolicy(audit.PolicyInputs{
+		Profile:         opts.Profile,
+		Threshold:       opts.Threshold,
+		Dedupe:          opts.Dedupe,
+		ConfigProfile:   configProfile,
+		ConfigThreshold: defaultThreshold,
+		ConfigDedupe:    configDedupe,
+	})
+	threshold := policy.Threshold
 
 	var (
 		results []*audit.Result
@@ -218,6 +230,20 @@ func cmdAudit(args []string) error {
 		logAuditOp(cfgPath, rest, summary, start, err, false)
 		return err
 	}
+
+	// Apply global deduplication if policy requests it.
+	if policy.DedupeMode == audit.DedupeGlobal {
+		for _, r := range results {
+			r.Findings = audit.DeduplicateGlobal(r.Findings)
+			r.RiskScore = audit.CalculateRiskScore(r.Findings)
+			r.RiskLabel = audit.RiskLabelFromScoreAndMaxSeverity(r.RiskScore, r.MaxSeverity())
+			r.IsBlocked = r.HasSeverityAtOrAbove(threshold)
+		}
+		summary = recountSummary(results, threshold, summary)
+	}
+
+	summary.PolicyProfile = string(policy.Profile)
+	summary.PolicyDedupe = string(policy.DedupeMode)
 
 	blocked := summary.Failed > 0
 	logAuditOp(cfgPath, rest, summary, start, nil, blocked)
@@ -308,6 +334,28 @@ func parseAuditArgs(args []string) (auditOptions, bool, error) {
 			}
 			i++
 			opts.Groups = append(opts.Groups, args[i])
+		case "--profile":
+			if i+1 >= len(args) {
+				return opts, false, fmt.Errorf("%s requires a value (default, strict, permissive)", arg)
+			}
+			i++
+			switch args[i] {
+			case "default", "strict", "permissive":
+				opts.Profile = args[i]
+			default:
+				return opts, false, fmt.Errorf("unknown profile: %s (supported: default, strict, permissive)", args[i])
+			}
+		case "--dedupe":
+			if i+1 >= len(args) {
+				return opts, false, fmt.Errorf("%s requires a value (legacy, global)", arg)
+			}
+			i++
+			switch args[i] {
+			case "legacy", "global":
+				opts.Dedupe = args[i]
+			default:
+				return opts, false, fmt.Errorf("unknown dedupe mode: %s (supported: legacy, global)", args[i])
+			}
 		default:
 			if strings.HasPrefix(arg, "-") {
 				return opts, false, fmt.Errorf("unknown option: %s", arg)
@@ -1069,6 +1117,61 @@ func printAuditSummary(_ auditRunSummary, lines []string, minWidth int) {
 	fmt.Println()
 }
 
+// recountSummary recalculates finding counts after deduplication.
+// It preserves fields not affected by dedupe (Scope, Mode, Path, Skill, ScanErrors, AvgAnalyzability).
+func recountSummary(results []*audit.Result, threshold string, prev auditRunSummary) auditRunSummary {
+	s := auditRunSummary{
+		Scanned:          prev.Scanned,
+		Scope:            prev.Scope,
+		Skill:            prev.Skill,
+		Path:             prev.Path,
+		Mode:             prev.Mode,
+		ScanErrors:       prev.ScanErrors,
+		Threshold:        threshold,
+		AvgAnalyzability: prev.AvgAnalyzability,
+		PolicyProfile:    prev.PolicyProfile,
+		PolicyDedupe:     prev.PolicyDedupe,
+	}
+	maxRisk := 0
+	maxSev := ""
+	for _, r := range results {
+		if r.IsBlocked {
+			s.Failed++
+			s.FailSkills = append(s.FailSkills, r.SkillName)
+		} else if len(r.Findings) > 0 {
+			s.Warning++
+			s.WarnSkills = append(s.WarnSkills, r.SkillName)
+		} else {
+			s.Passed++
+		}
+		for _, f := range r.Findings {
+			switch f.Severity {
+			case audit.SeverityCritical:
+				s.Critical++
+			case audit.SeverityHigh:
+				s.High++
+			case audit.SeverityMedium:
+				s.Medium++
+			case audit.SeverityLow:
+				s.Low++
+			case audit.SeverityInfo:
+				s.Info++
+			}
+		}
+		if r.RiskScore > maxRisk {
+			maxRisk = r.RiskScore
+		}
+		ms := r.MaxSeverity()
+		if ms != "" && (maxSev == "" || audit.SeverityRank(ms) < audit.SeverityRank(maxSev)) {
+			maxSev = ms
+		}
+	}
+	s.RiskScore = maxRisk
+	s.MaxSeverity = maxSev
+	s.RiskLabel = audit.RiskLabelFromScoreAndMaxSeverity(maxRisk, maxSev)
+	return s
+}
+
 func formatSeverity(sev string) string {
 	return ui.Colorize(ui.SeverityColor(sev), strings.ToUpper(sev))
 }
@@ -1101,6 +1204,8 @@ Options:
   -g, --global         Use global skills
   --threshold, -T <t>  Block by severity at/above: critical|high|medium|low|info
                        (also supports c|h|m|l|i)
+  --profile <p>        Audit profile preset: default, strict, permissive
+  --dedupe <mode>      Dedup mode: legacy (default), global
   --format <f>         Output format: text (default), json, sarif, markdown
   --json               Output JSON (deprecated: use --format json)
   --quiet, -q          Only show skills with findings + summary (skip clean ✓ lines)

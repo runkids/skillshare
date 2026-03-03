@@ -50,6 +50,8 @@ type auditSummary struct {
 	RiskLabel        string  `json:"riskLabel"`
 	ScanErrors       int     `json:"scanErrors,omitempty"`
 	AvgAnalyzability float64 `json:"avgAnalyzability"`
+	PolicyProfile    string  `json:"policyProfile,omitempty"`
+	PolicyDedupe     string  `json:"policyDedupe,omitempty"`
 }
 
 type skillEntry struct {
@@ -60,7 +62,8 @@ type skillEntry struct {
 func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	source := s.cfg.Source
-	threshold := s.auditThreshold()
+	policy := s.auditPolicy()
+	threshold := policy.Threshold
 
 	// Discover all skills
 	discovered, err := sync.DiscoverSourceSkills(source)
@@ -185,6 +188,8 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	if len(results) > 0 {
 		summary.AvgAnalyzability = sumAnalyzability / float64(len(results))
 	}
+	summary.PolicyProfile = string(policy.Profile)
+	summary.PolicyDedupe = string(policy.DedupeMode)
 
 	args := map[string]any{
 		"scope":       "all",
@@ -231,7 +236,8 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	name := r.PathValue("name")
-	threshold := s.auditThreshold()
+	policy := s.auditPolicy()
+	threshold := policy.Threshold
 	skillPath := filepath.Join(s.cfg.Source, name)
 
 	if _, err := os.Stat(skillPath); os.IsNotExist(err) {
@@ -332,6 +338,8 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 			RiskScore:        result.RiskScore,
 			RiskLabel:        result.RiskLabel,
 			AvgAnalyzability: result.Analyzability,
+			PolicyProfile:    string(policy.Profile),
+			PolicyDedupe:     string(policy.DedupeMode),
 		},
 	})
 }
@@ -343,16 +351,27 @@ func boolToInt(v bool) int {
 	return 0
 }
 
-func (s *Server) auditThreshold() string {
+func (s *Server) auditPolicy() audit.Policy {
+	var in audit.PolicyInputs
+	in.ConfigThreshold = s.cfg.Audit.BlockThreshold
+	in.ConfigProfile = s.cfg.Audit.Profile
+	in.ConfigDedupe = s.cfg.Audit.DedupeMode
 	if s.IsProjectMode() && s.projectCfg != nil {
-		if threshold, err := audit.NormalizeThreshold(s.projectCfg.Audit.BlockThreshold); err == nil {
-			return threshold
+		if s.projectCfg.Audit.BlockThreshold != "" {
+			in.ConfigThreshold = s.projectCfg.Audit.BlockThreshold
+		}
+		if s.projectCfg.Audit.Profile != "" {
+			in.ConfigProfile = s.projectCfg.Audit.Profile
+		}
+		if s.projectCfg.Audit.DedupeMode != "" {
+			in.ConfigDedupe = s.projectCfg.Audit.DedupeMode
 		}
 	}
-	if threshold, err := audit.NormalizeThreshold(s.cfg.Audit.BlockThreshold); err == nil {
-		return threshold
-	}
-	return audit.DefaultThreshold()
+	return audit.ResolvePolicy(in)
+}
+
+func (s *Server) auditThreshold() string {
+	return s.auditPolicy().Threshold
 }
 
 // auditRulesPath returns the correct audit-rules.yaml path for the current mode.

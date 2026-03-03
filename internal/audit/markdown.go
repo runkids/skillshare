@@ -24,6 +24,7 @@ type MarkdownOptions struct {
 	Mode       string
 
 	AvgAnalyzability float64
+	Profile          string
 }
 
 // ToMarkdown converts audit results into a Markdown report suitable for
@@ -88,6 +89,9 @@ func writeHeader(b *strings.Builder, opts MarkdownOptions) {
 	fmt.Fprintf(b, "- **Scanned**: %d skill(s)\n", opts.Scanned)
 	fmt.Fprintf(b, "- **Mode**: %s\n", opts.Mode)
 	fmt.Fprintf(b, "- **Threshold**: %s\n", opts.Threshold)
+	if opts.Profile != "" && opts.Profile != "default" {
+		fmt.Fprintf(b, "- **Profile**: %s\n", opts.Profile)
+	}
 }
 
 func writeSummaryTable(b *strings.Builder, opts MarkdownOptions) {
