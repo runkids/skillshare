@@ -233,7 +233,7 @@ Options:
   --threshold, -T <t>  Block by severity at/above: critical|high|medium|low|info
                        (also supports c|h|m|l|i)
   --profile <p>        Audit profile preset: default, strict, permissive
-  --dedupe <mode>      Dedup mode: legacy (default), global
+  --dedupe <mode>      Dedup mode: legacy, global (default)
   --analyzer <id>      Only run specified analyzer (repeatable)
                        IDs: static, dataflow, tier, integrity, structure, cross-skill
   --format <f>         Output format: text (default), json, sarif, markdown

@@ -15,6 +15,7 @@ skillshare status
 - Check if all targets are in sync after making changes
 - See which targets need a `sync` run
 - Verify tracked repos are up to date
+- Verify the active audit policy (profile, threshold, dedupe mode)
 - Check for CLI or skill updates
 
 ![status demo](/img/status-demo.png)
@@ -36,6 +37,12 @@ Targets
   ✓ copilot   [copy] ~/.copilot/skills (3 managed, 0 local)
   ! windsurf  [merge->needs sync] ~/.windsurf/skills
   ⚠ 2 skill(s) not synced — run 'skillshare sync'
+
+Audit
+  Profile:    DEFAULT
+  Block:      severity >= CRITICAL
+  Dedupe:     GLOBAL
+  Analyzers:  ALL
 
 Version
   ✓ CLI: 1.2.0
@@ -72,6 +79,23 @@ If a target is in symlink mode, `include`/`exclude` is ignored.
 | `unlinked` | Not yet synced |
 | `needs sync` | Mode changed, run `sync` to apply |
 | `not synced` | Some expected skills (after filters) are missing — run `sync` |
+
+### Audit
+
+Shows the active audit policy configuration (resolved from CLI flags, project config, or global config):
+
+- **Profile**: `DEFAULT`, `STRICT`, or `PERMISSIVE`
+- **Block**: severity threshold for blocking (`CRITICAL` by default)
+- **Dedupe**: deduplication mode (`GLOBAL` or `LEGACY`)
+- **Analyzers**: enabled analyzers (`ALL` or a filtered list)
+
+```
+Audit
+  Profile:    DEFAULT
+  Block:      severity >= CRITICAL
+  Dedupe:     GLOBAL
+  Analyzers:  ALL
+```
 
 ### Version
 

@@ -435,31 +435,30 @@ The summary includes `avgAnalyzability` — the mean across all scanned skills.
 ## Example Output
 
 ```
-┌─ skillshare audit ──────────────────────────────────────────┐
-│  Scanning 12 skills for threats                             │
-│  mode: global                                               │
-│  path: /Users/alice/.config/skillshare/skills               │
-└─────────────────────────────────────────────────────────────┘
+skillshare audit
+──────────────────────────────────────────────────────
+Scanning 12 skills for threats
+mode: global
+path: /Users/alice/.config/skillshare/skills
+block rule: finding severity >= CRITICAL
+policy: DEFAULT / dedupe:GLOBAL / analyzers:ALL
 
-[1/12] ✓ react-best-practices         0.1s
-[2/12] ✓ typescript-patterns           0.1s
-[3/12] ! ci-release-helper             0.2s
-       └─ HIGH: Destructive command pattern (SKILL.md:42)
-          "sudo apt-get install -y jq"
-[4/12] ✗ suspicious-skill              0.2s
-       ├─ CRITICAL: Prompt injection (SKILL.md:15)
-       │  "Ignore all previous instructions and..."
-       └─ HIGH: Destructive command (SKILL.md:42)
-          "rm -rf / # clean up"
-[5/12] ! frontend-utils                0.1s
-       └─ MEDIUM: URL in command context (SKILL.md:3)
+[3/12] ! ci-release-helper  (AGG MEDIUM 25/100, max HIGH)
+[4/12] ✗ suspicious-skill   (AGG HIGH 35/100, max CRITICAL)
 
-┌─ Summary ────────────────────────────┐
-│  Scanned:  12 skills                 │
-│  Passed:   9                         │
-│  Warning:  2 (1 high, 1 medium)      │
-│  Failed:   1 (1 critical)            │
-└──────────────────────────────────────┘
+Summary
+──────────────────────────────────────────────────────
+  Block:     severity >= CRITICAL
+  Policy:    DEFAULT / dedupe:GLOBAL / analyzers:ALL
+  Max sev:   CRITICAL
+  Scanned:   12 skill(s)
+  Passed:    9
+  Warning:   2
+  Failed:    1
+  Severity:  c/h/m/l/i = 1/2/1/0/0
+  Aggregate: HIGH (35/100)
+  Auditable: 100% avg
+  Note:      Failed uses severity gate; aggregate is informational
 ```
 
 `Failed` counts skills with findings at or above the active threshold (`--threshold` or config `audit.block_threshold`; default `CRITICAL`).

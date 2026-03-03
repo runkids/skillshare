@@ -581,6 +581,7 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 		elapsed = append(elapsed, 0) // synthetic result has no scan time
 	}
 
+	applyPolicyToSummary(&summary, opts)
 	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth); err != nil {
 		return results, summary, err
 	}
@@ -709,6 +710,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 		elapsed = append(elapsed, 0) // synthetic result has no scan time
 	}
 
+	applyPolicyToSummary(&summary, opts)
 	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth); err != nil {
 		return results, summary, err
 	}
