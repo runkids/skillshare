@@ -759,7 +759,9 @@ func auditSkillByName(sourcePath, name, mode, projectRoot, threshold, format, po
 		summaryLines := buildAuditSummaryLines(summary)
 		minWidth := auditHeaderMinWidth(subtitle)
 		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, minWidth)
+		fmt.Println()
 		printSkillResult(result, elapsed)
+		fmt.Println()
 		printAuditSummary(summary, summaryLines, minWidth)
 	}
 
@@ -798,7 +800,9 @@ func auditPath(rawPath, mode, projectRoot, threshold, format, policyLine string,
 		summaryLines := buildAuditSummaryLines(summary)
 		minWidth := auditHeaderMinWidth(subtitle)
 		ui.HeaderBoxWithMinWidth(auditHeaderTitle(mode), subtitle, minWidth)
+		fmt.Println()
 		printSkillResult(result, elapsed)
+		fmt.Println()
 		printAuditSummary(summary, summaryLines, minWidth)
 	}
 	return []*audit.Result{result}, summary, nil

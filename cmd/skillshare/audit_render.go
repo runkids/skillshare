@@ -161,9 +161,13 @@ func buildAuditSummaryLines(summary auditRunSummary) []string {
 	if maxSeverity == "" {
 		maxSeverity = "NONE"
 	}
+	// -- Policy settings --
 	lines = append(lines, fmt.Sprintf("  Block:     severity >= %s", ui.Colorize(ui.SeverityColor(summary.Threshold), summary.Threshold)))
 	lines = append(lines, fmt.Sprintf("  Policy:    %s", formatPolicyLine(summary.PolicyProfile, summary.PolicyDedupe, summary.PolicyAnalyzers)))
 	lines = append(lines, fmt.Sprintf("  Max sev:   %s", ui.Colorize(ui.SeverityColor(maxSeverity), maxSeverity)))
+
+	// -- Result counts --
+	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("  Scanned:   %d skill(s)", summary.Scanned))
 	lines = append(lines, fmt.Sprintf("  Passed:    %s", ui.Colorize(ui.Green, fmt.Sprintf("%d", summary.Passed))))
 	if summary.Warning > 0 {
@@ -176,6 +180,9 @@ func buildAuditSummaryLines(summary auditRunSummary) []string {
 	} else {
 		lines = append(lines, fmt.Sprintf("  Failed:    %d", summary.Failed))
 	}
+
+	// -- Severity & threat breakdown --
+	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("  Severity:  c/h/m/l/i = %s/%s/%s/%s/%s",
 		ui.Colorize(ui.SeverityColor("CRITICAL"), fmt.Sprintf("%d", summary.Critical)),
 		ui.Colorize(ui.SeverityColor("HIGH"), fmt.Sprintf("%d", summary.High)),
@@ -191,10 +198,16 @@ func buildAuditSummaryLines(summary auditRunSummary) []string {
 			lines = append(lines, fmt.Sprintf("  Threats:   %s", threatsLine))
 		}
 	}
+
+	// -- Aggregate risk --
+	lines = append(lines, "")
 	riskLabel := strings.ToUpper(summary.RiskLabel)
 	riskText := fmt.Sprintf("%s (%d/100)", riskLabel, summary.RiskScore)
 	lines = append(lines, fmt.Sprintf("  Aggregate: %s", ui.Colorize(riskColor(summary.RiskLabel), riskText)))
 	lines = append(lines, fmt.Sprintf("  Auditable: %.0f%% avg", summary.AvgAnalyzability*100))
+
+	// -- Note --
+	lines = append(lines, "")
 	lines = append(lines, "  Note:      Failed uses severity gate; aggregate is informational")
 	if summary.ScanErrors > 0 {
 		lines = append(lines, fmt.Sprintf("  Scan errs: %d", summary.ScanErrors))
