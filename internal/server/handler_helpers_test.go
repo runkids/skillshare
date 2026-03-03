@@ -16,6 +16,7 @@ func newTestServer(t *testing.T) (*Server, string) {
 	tmp := t.TempDir()
 	sourceDir := filepath.Join(tmp, "skills")
 	os.MkdirAll(sourceDir, 0755)
+	t.Setenv("XDG_STATE_HOME", filepath.Join(tmp, "state"))
 
 	cfgPath := filepath.Join(tmp, "config", "config.yaml")
 	t.Setenv("SKILLSHARE_CONFIG", cfgPath)
@@ -39,6 +40,7 @@ func newTestServerWithTargets(t *testing.T, targets map[string]string) (*Server,
 	tmp := t.TempDir()
 	sourceDir := filepath.Join(tmp, "skills")
 	os.MkdirAll(sourceDir, 0755)
+	t.Setenv("XDG_STATE_HOME", filepath.Join(tmp, "state"))
 
 	cfgPath := filepath.Join(tmp, "config", "config.yaml")
 	t.Setenv("SKILLSHARE_CONFIG", cfgPath)

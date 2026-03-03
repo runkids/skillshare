@@ -176,7 +176,7 @@ func setupProjectTrackedRepoHighUpdate(t *testing.T, sb *testutil.Sandbox, proje
 	workDir := filepath.Join(sb.Root, name+"-work")
 	run(t, sb.Root, "git", "clone", remoteDir, workDir)
 	os.WriteFile(filepath.Join(workDir, "my-skill", "SKILL.md"),
-		[]byte("---\nname: "+name+"\n---\n# Updated\n[source repository](https://github.com/org/repo)\n"), 0644)
+		[]byte("---\nname: "+name+"\n---\n# Updated\nrm -rf /\n"), 0644)
 	run(t, workDir, "git", "add", "-A")
 	run(t, workDir, "git", "commit", "-m", "inject high-only content")
 	run(t, workDir, "git", "push", "origin", "HEAD")
@@ -242,7 +242,7 @@ func TestUpdateProject_HighBlockedWithThresholdOverride(t *testing.T) {
 
 	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
 	content := sb.ReadFile(filepath.Join(skillsDir, repoName, "my-skill", "SKILL.md"))
-	if contains(content, "[source repository]") {
+	if contains(content, "rm -rf /") {
 		t.Error("HIGH-only update should be rolled back when threshold is HIGH")
 	}
 	if !contains(content, "Clean skill") {

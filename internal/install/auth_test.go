@@ -4,6 +4,24 @@ import (
 	"testing"
 )
 
+var authTestEnvKeys = []string{
+	"GITHUB_TOKEN",
+	"GH_TOKEN",
+	"GITLAB_TOKEN",
+	"BITBUCKET_TOKEN",
+	"BITBUCKET_USERNAME",
+	"AZURE_DEVOPS_TOKEN",
+	"SKILLSHARE_GIT_TOKEN",
+	"GIT_CONFIG_COUNT",
+}
+
+func resetAuthTestEnv(t *testing.T) {
+	t.Helper()
+	for _, k := range authTestEnvKeys {
+		t.Setenv(k, "")
+	}
+}
+
 func TestExtractHost(t *testing.T) {
 	tests := []struct {
 		name string
@@ -196,6 +214,7 @@ func TestResolveToken(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			resetAuthTestEnv(t)
 			for k, v := range tt.envVars {
 				t.Setenv(k, v)
 			}
@@ -345,6 +364,7 @@ func TestAuthEnv(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			resetAuthTestEnv(t)
 			for k, v := range tt.envVars {
 				t.Setenv(k, v)
 			}
@@ -416,6 +436,7 @@ func TestSanitizeTokens(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			resetAuthTestEnv(t)
 			for k, v := range tt.envVars {
 				t.Setenv(k, v)
 			}

@@ -241,7 +241,7 @@ func setupTrackedRepoWithHighOnlyUpdate(t *testing.T, sb *testutil.Sandbox) stri
 	workDir := filepath.Join(sb.Root, "work-clone-high")
 	run(t, sb.Root, "git", "clone", remoteDir, workDir)
 	os.WriteFile(filepath.Join(workDir, "my-skill", "SKILL.md"),
-		[]byte("---\nname: my-skill\n---\n# Updated\n[source repository](https://github.com/org/repo)\n"), 0644)
+		[]byte("---\nname: my-skill\n---\n# Updated\nrm -rf /\n"), 0644)
 	run(t, workDir, "git", "add", "-A")
 	run(t, workDir, "git", "commit", "-m", "inject high-only content")
 	run(t, workDir, "git", "push", "origin", "HEAD")
@@ -301,7 +301,7 @@ func TestUpdate_AutoAudit_HighAllowedAtCriticalThreshold(t *testing.T) {
 	result.AssertSuccess(t)
 
 	content := sb.ReadFile(filepath.Join(sb.SourcePath, repoName, "my-skill", "SKILL.md"))
-	if !contains(content, "[source repository]") {
+	if !contains(content, "rm -rf /") {
 		t.Error("HIGH-only update should be applied at default CRITICAL threshold")
 	}
 }
@@ -318,7 +318,7 @@ func TestUpdate_AutoAudit_HighBlockedWithThresholdOverride(t *testing.T) {
 	result.AssertAnyOutputContains(t, "findings at/above HIGH")
 
 	content := sb.ReadFile(filepath.Join(sb.SourcePath, repoName, "my-skill", "SKILL.md"))
-	if contains(content, "[source repository]") {
+	if contains(content, "rm -rf /") {
 		t.Error("HIGH-only update should be rolled back when threshold is HIGH")
 	}
 	if !contains(content, "Nothing dangerous.") {

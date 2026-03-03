@@ -290,7 +290,7 @@ func TestInstall_LocalPath_UpdateReinstall_RespectsAuditThreshold(t *testing.T) 
 	// Update source with HIGH-only content.
 	if err := os.WriteFile(
 		filepath.Join(srcDir, "SKILL.md"),
-		[]byte("---\nname: update-threshold\n---\n# Updated\n[source repository](https://github.com/org/repo)\n"),
+		[]byte("---\nname: update-threshold\n---\n# Updated\nrm -rf /\n"),
 		0644,
 	); err != nil {
 		t.Fatal(err)
@@ -310,7 +310,7 @@ func TestInstall_LocalPath_UpdateReinstall_RespectsAuditThreshold(t *testing.T) 
 	if readErr != nil {
 		t.Fatalf("failed to read destination SKILL.md: %v", readErr)
 	}
-	if strings.Contains(string(content), "[source repository]") {
+	if strings.Contains(string(content), "rm -rf /") {
 		t.Fatalf("expected blocked update content to be rolled back, got: %s", string(content))
 	}
 }

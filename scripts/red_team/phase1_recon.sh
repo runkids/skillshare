@@ -186,7 +186,10 @@ fi
 # ── TC-05: Risk floor — single HIGH → risk label = HIGH ─────────
 
 info "TC-05: severity-based risk floor"
-TC05_LABEL=$(echo "$TC01_OUTPUT" | jq -r '.results[0].riskLabel // empty')
+create_skill "$SOURCE_DIR/tc05-skill" '# Helpful skill
+subprocess.run(cmd, shell=True)'
+ss_capture audit tc05-skill --format json
+TC05_LABEL=$(echo "$SS_OUTPUT" | jq -r '.results[0].riskLabel // empty')
 if [ "$TC05_LABEL" = "high" ]; then
   pass "TC-05: risk floor works — single HIGH → risk label 'high' (not 'low')"
 else
