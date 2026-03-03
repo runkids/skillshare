@@ -606,7 +606,7 @@ func tuiColorizeProfile(profile string) string {
 func tuiColorizeDedupe(dedupe string) string {
 	label := policyDedupeLabel(dedupe)
 	if label == "LEGACY" {
-		return tc.Dim.Render(label)
+		return tc.Yellow.Render(label)
 	}
 	return tc.Cyan.Render(label)
 }

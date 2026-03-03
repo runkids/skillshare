@@ -55,7 +55,7 @@ func colorizeProfile(profile string) string {
 func colorizeDedupe(dedupe string) string {
 	label := policyDedupeLabel(dedupe)
 	if label == "LEGACY" {
-		return ui.Colorize(ui.Gray, label)
+		return ui.Colorize(ui.Yellow, label)
 	}
 	return ui.Colorize(ui.Cyan, label)
 }
@@ -67,7 +67,10 @@ func colorizeAnalyzers(analyzers []string) string {
 
 // formatPolicyLine returns a compact one-line ANSI-colored policy description.
 func formatPolicyLine(profile, dedupe string, analyzers []string) string {
-	return colorizeProfile(profile) + " / dedupe:" + colorizeDedupe(dedupe) + " / analyzers:" + colorizeAnalyzers(analyzers)
+	sep := ui.Colorize(ui.Gray, " / ")
+	return colorizeProfile(profile) +
+		sep + ui.Colorize(ui.Gray, "dedupe:") + colorizeDedupe(dedupe) +
+		sep + ui.Colorize(ui.Gray, "analyzers:") + colorizeAnalyzers(analyzers)
 }
 
 // applyPolicyToSummary copies resolved policy fields from opts to summary
