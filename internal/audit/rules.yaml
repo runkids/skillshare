@@ -195,20 +195,6 @@ rules:
     message: "Base64 decode pipe may hide malicious content"
     regex: '(?i)(base64\s+(-d|--decode)|\bbase64\b.*\|\s*(sh|bash|zsh|eval))'
 
-  - id: obfuscation-1
-    severity: HIGH
-    pattern: obfuscation
-    message: "Long base64-encoded string detected"
-    regex: '[A-Za-z0-9+/]{100,}={0,2}'
-
-  # ── MEDIUM: environment variable access (JS) ──
-  - id: env-access-0
-    severity: MEDIUM
-    pattern: env-access
-    message: "Direct environment variable access via process.env"
-    regex: '\bprocess\.env\.\w+'
-    exclude: '(?i)\bprocess\.env\.(NODE_ENV|npm_)'
-
   # ── MEDIUM: escape sequence obfuscation ──
   - id: escape-obfuscation-0
     severity: MEDIUM
@@ -232,20 +218,13 @@ rules:
     regex: '(?i)(curl|wget|invoke-webrequest|iwr)\s+http://'
     exclude: '(?i)http://(localhost|127\.0\.0\.1|0\.0\.0\.0)'
 
-  # ── HIGH: source repository link in markdown ──
-  - id: source-repository-link-0
-    severity: HIGH
-    pattern: source-repository-link
-    message: "Source repository link detected — may be used for supply-chain redirects"
-    regex: '(?i)\[source\s+repo(sitory)?\]\(https?://[^)]+\)'
-
   # ── LOW: external links in markdown ──
   - id: external-link-0
     severity: LOW
     pattern: external-link
     message: "External URL in markdown link"
     regex: '\]\(https?://[^)]+\)'
-    exclude: '(?i)(\]\(https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)[:/)]|\[source\s+repo(sitory)?\]\(https?://)'
+    exclude: '(?i)\]\(https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)[:/)]'
 
   # ── HIGH: remote code execution (pipe to interpreter) ──
   - id: fetch-with-pipe-0

@@ -398,7 +398,7 @@ func TestScanSkill_ExternalLink_ReferenceStyleDetected(t *testing.T) {
 	}
 }
 
-func TestScanSkill_SourceRepoLink_HIGH(t *testing.T) {
+func TestScanSkill_SourceRepoLink_FallsBackToExternalLinkLOW(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "repo-skill")
 	os.MkdirAll(skillDir, 0755)
@@ -410,31 +410,28 @@ func TestScanSkill_SourceRepoLink_HIGH(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var foundSourceRepo, foundExternal bool
+	var foundExternal bool
 	for _, f := range result.Findings {
-		if f.Pattern == "source-repository-link" && f.Severity == "HIGH" {
-			foundSourceRepo = true
+		if f.Pattern == "source-repository-link" {
+			t.Errorf("source-repository-link rule should be removed: %+v", f)
+		}
+		if f.Pattern == "external-link" && f.Severity == "LOW" {
+			foundExternal = true
 			if f.Line != 3 {
 				t.Errorf("expected line 3, got %d", f.Line)
 			}
 		}
-		if f.Pattern == "external-link" {
-			foundExternal = true
-		}
 	}
-	if !foundSourceRepo {
-		t.Errorf("expected HIGH source-repository-link finding, got: %+v", result.Findings)
+	if !foundExternal {
+		t.Errorf("expected LOW external-link finding for source repository link, got: %+v", result.Findings)
 	}
-	if foundExternal {
-		t.Error("source repository link should NOT also trigger external-link (overlap exclusion)")
-	}
-	// Risk label should be "high" due to severity floor, not "low" from score alone
-	if result.RiskLabel != "high" {
-		t.Errorf("expected risk label 'high', got %q (score=%d)", result.RiskLabel, result.RiskScore)
+	// Without source-repository-link HIGH rule, this falls back to external-link LOW.
+	if result.RiskLabel != "low" {
+		t.Errorf("expected risk label 'low', got %q (score=%d)", result.RiskLabel, result.RiskScore)
 	}
 }
 
-func TestScanSkill_SourceRepoLink_MultilineDetected(t *testing.T) {
+func TestScanSkill_SourceRepoLink_MultilineFallsBackToExternalLink(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "repo-skill")
 	os.MkdirAll(skillDir, 0755)
@@ -446,20 +443,17 @@ func TestScanSkill_SourceRepoLink_MultilineDetected(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var foundSourceRepo, foundExternal bool
+	var foundExternal bool
 	for _, f := range result.Findings {
-		if f.Pattern == "source-repository-link" && f.Severity == "HIGH" {
-			foundSourceRepo = true
+		if f.Pattern == "source-repository-link" {
+			t.Errorf("source-repository-link rule should be removed: %+v", f)
 		}
-		if f.Pattern == "external-link" {
+		if f.Pattern == "external-link" && f.Severity == "LOW" {
 			foundExternal = true
 		}
 	}
-	if !foundSourceRepo {
-		t.Errorf("expected HIGH source-repository-link finding for multiline markdown link, got: %+v", result.Findings)
-	}
-	if foundExternal {
-		t.Error("multiline source repository link should NOT also trigger external-link")
+	if !foundExternal {
+		t.Errorf("expected LOW external-link finding for multiline source repository link, got: %+v", result.Findings)
 	}
 }
 
@@ -476,7 +470,7 @@ func TestScanSkill_CodeFenceLinksIgnored(t *testing.T) {
 	}
 
 	for _, f := range result.Findings {
-		if f.Pattern == "source-repository-link" || f.Pattern == "dangling-link" || f.Pattern == "external-link" {
+		if f.Pattern == "dangling-link" || f.Pattern == "external-link" {
 			t.Errorf("unexpected markdown-link finding from code fence: %+v", f)
 		}
 	}
@@ -495,7 +489,7 @@ func TestScanSkill_InlineCodeLinksIgnored(t *testing.T) {
 	}
 
 	for _, f := range result.Findings {
-		if f.Pattern == "source-repository-link" || f.Pattern == "external-link" {
+		if f.Pattern == "external-link" {
 			t.Errorf("unexpected markdown-link finding from inline code: %+v", f)
 		}
 	}
@@ -615,7 +609,7 @@ func TestScanSkill_ImageLinkIgnored(t *testing.T) {
 	}
 
 	for _, f := range result.Findings {
-		if f.Pattern == "source-repository-link" || f.Pattern == "external-link" {
+		if f.Pattern == "external-link" {
 			t.Errorf("unexpected markdown-link finding from image link: %+v", f)
 		}
 	}
@@ -644,7 +638,7 @@ func TestScanSkill_HTMLAnchorDetectedAsExternalLink(t *testing.T) {
 	}
 }
 
-func TestScanSkill_SourceRepoLink_LocalNotTriggered(t *testing.T) {
+func TestScanSkill_SourceRepoLink_LocalNotTriggeredAsExternalLink(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "local-skill")
 	os.MkdirAll(skillDir, 0755)
@@ -657,8 +651,8 @@ func TestScanSkill_SourceRepoLink_LocalNotTriggered(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, f := range result.Findings {
-		if f.Pattern == "source-repository-link" {
-			t.Errorf("local link should NOT trigger source-repository-link: %+v", f)
+		if f.Pattern == "external-link" {
+			t.Errorf("local link should NOT trigger external-link: %+v", f)
 		}
 	}
 }
@@ -680,16 +674,13 @@ func TestScanSkill_DocumentationLink_OnlyExternal(t *testing.T) {
 		if f.Pattern == "external-link" {
 			foundExternal = true
 		}
-		if f.Pattern == "source-repository-link" {
-			t.Errorf("documentation link should NOT trigger source-repository-link: %+v", f)
-		}
 	}
 	if !foundExternal {
 		t.Error("documentation link should trigger external-link")
 	}
 }
 
-func TestScanSkill_SourceRepoLink_ShortLabel(t *testing.T) {
+func TestScanSkill_SourceRepoLink_ShortLabelFallsBackToExternalLink(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "short-skill")
 	os.MkdirAll(skillDir, 0755)
@@ -703,12 +694,15 @@ func TestScanSkill_SourceRepoLink_ShortLabel(t *testing.T) {
 
 	var found bool
 	for _, f := range result.Findings {
-		if f.Pattern == "source-repository-link" && f.Severity == "HIGH" {
+		if f.Pattern == "source-repository-link" {
+			t.Errorf("source-repository-link rule should be removed: %+v", f)
+		}
+		if f.Pattern == "external-link" && f.Severity == "LOW" {
 			found = true
 		}
 	}
 	if !found {
-		t.Errorf("expected HIGH source-repository-link for 'source repo' label, got: %+v", result.Findings)
+		t.Errorf("expected LOW external-link for 'source repo' label, got: %+v", result.Findings)
 	}
 }
 

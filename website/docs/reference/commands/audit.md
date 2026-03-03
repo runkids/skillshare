@@ -81,7 +81,7 @@ These patterns indicate **active exploitation attempts** — if found, the skill
 | `prompt-injection` | "Ignore previous instructions", "SYSTEM:"/"OVERRIDE:"/"ADMIN:", directive tags (`<system>`, `</instructions>`), "DEVELOPER MODE"/"DEV MODE"/"JAILBREAK"/"DAN MODE", output suppression ("don't tell the user", "hide this from the user"), etc. (CRITICAL); agent directive tags (HIGH) |
 | `invisible-payload` | Unicode tag characters (U+E0001–U+E007F) — render invisible (0px wide) but are fully processed by LLMs. Primary vector for "Rules File Backdoor" attacks |
 | `data-exfiltration` | `curl`/`wget` commands sending environment variables externally |
-| `credential-access` | Table-driven detection of 30+ sensitive paths across 5 access methods (read, copy, redirect, dd, exfil). **CRITICAL**: `~/.ssh/`, `.env`/`.envrc`, `~/.aws/`, `~/.gnupg/`, `~/.kube/`, `.git-credentials`, `.netrc`, `.npmrc`, `.pypirc`, `.pgpass`, `.my.cnf`, `/etc/shadow`, `/etc/ssl/private/`, etc. **HIGH**: `/etc/passwd`, `/etc/sudoers`, `~/.azure/`, `~/.gcloud/`, `~/.docker/config.json`, `~/.config/gh/hosts.yml`, `~/.cargo/credentials`, `~/.op/`, `~/.config/age/`, macOS Keychains, etc. **MEDIUM**: shell history, `/etc/openvpn/`. **LOW**: auth logs. **INFO**: heuristic catch-all for unknown home dotdirs. Supports `~`, `$HOME`, `${HOME}` path variants |
+| `credential-access` | Table-driven detection of 30+ sensitive paths across 5 access methods (read, copy, redirect, dd, exfil). **CRITICAL**: `~/.ssh/`, `.env`/`.envrc`, `~/.aws/`, `~/.gnupg/`, `~/.kube/`, `.git-credentials`, `.netrc`, `.npmrc`, `.pypirc`, `.pgpass`, `.my.cnf`, `/etc/shadow`, `/etc/ssl/private/`, etc. **HIGH**: `~/.azure/`, `~/.gcloud/`, `~/.docker/config.json`, `~/.config/gh/hosts.yml`, `~/.cargo/credentials`, `~/.op/`, `~/.config/age/`, macOS Keychains, etc. **MEDIUM**: `/etc/passwd`, `/etc/sudoers`. **LOW**: shell history, `/etc/openvpn/`. **INFO**: auth logs and heuristic catch-all for unknown home dotdirs. Supports `~`, `$HOME`, `${HOME}` path variants |
 
 > **Why critical?** These patterns have no legitimate use in AI skill files. A skill that tells an AI to "ignore previous instructions" is attempting to hijack the AI's behavior. A skill that pipes environment variables to `curl` is exfiltrating secrets. Unicode tag characters that are invisible to human reviewers can embed hidden payloads processed by LLMs. Output suppression directives that hide actions from the user are a hallmark of supply-chain attacks.
 
@@ -93,7 +93,7 @@ These patterns are **strong indicators of malicious intent** but may occasionall
 |---------|------------|
 | `hidden-unicode` | Zero-width characters (U+200B–U+FEFF) and bidirectional text control characters (U+202A–U+2069, Trojan Source CVE-2021-42574) that hide content from human review |
 | `destructive-commands` | `rm -rf /`, `chmod 777`, `sudo`, `dd if=`, `mkfs` |
-| `obfuscation` | Base64 decode pipes, long base64-encoded strings |
+| `obfuscation` | Base64 decode pipes |
 | `dynamic-code-exec` | Dynamic code evaluation via language built-ins |
 | `shell-execution` | Python shell invocation via system or subprocess calls |
 | `hidden-comment-injection` | Prompt injection keywords hidden inside HTML comments or markdown reference-link comments (`[//]: #`) |
@@ -102,16 +102,7 @@ These patterns are **strong indicators of malicious intent** but may occasionall
 | `config-manipulation` | Instructions to modify AI agent configuration or memory files (`MEMORY.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`) |
 | `data-exfiltration` | DNS data exfiltration via `dig`/`nslookup`/`host` with command substitution in subdomain |
 | `self-propagation` | Self-replication instructions that spread payload to other files or projects |
-| `source-repository-link` | Markdown links labeled "source repo" or "source repository" pointing to external URLs — may be used for supply-chain redirects |
-
-> **Why high?** Hidden Unicode characters can make malicious instructions invisible during code review. Bidirectional text control characters can reorder visible text to disguise malicious code (Trojan Source). Base64 obfuscation is a common technique to bypass human inspection. Destructive commands like `rm -rf /` can cause irreversible damage. `curl | bash` is the classic remote code execution vector — fetched content runs directly in your shell. Config/memory file poisoning persists across AI sessions. DNS exfiltration encodes stolen data in subdomain queries. Self-propagation instructions create repository worms. Source repository links can redirect users to malicious forks.
-
-`source-repository-link` uses structural Markdown parsing, not plain regex matching:
-
-- Detects both inline and multiline links such as `[source repository](https://...)` and `[source repository]\n(https://...)`
-- Label match is case-insensitive for `source repository` and `source repo`
-- Local relative links are excluded from this HIGH rule
-- Matching source-repo links are excluded from generic `external-link` to avoid duplicate findings
+> **Why high?** Hidden Unicode characters can make malicious instructions invisible during code review. Bidirectional text control characters can reorder visible text to disguise malicious code (Trojan Source). Base64 obfuscation is a common technique to bypass human inspection. Destructive commands like `rm -rf /` can cause irreversible damage. `curl | bash` is the classic remote code execution vector — fetched content runs directly in your shell. Config/memory file poisoning persists across AI sessions. DNS exfiltration encodes stolen data in subdomain queries. Self-propagation instructions create repository worms.
 
 ### MEDIUM (informational warning, counted as Warning)
 
@@ -121,14 +112,13 @@ These patterns are **suspicious in context** — they may be legitimate but dese
 |---------|------------|
 | `data-exfiltration` | External markdown images with query parameters — potential data exfiltration vector |
 | `suspicious-fetch` | URLs used in command context (`curl`, `wget`, `fetch`) |
-| `env-access` | Direct environment variable access via `process.env` (excludes `NODE_ENV`) |
 | `ip-address-url` | URLs with raw IP addresses (excludes private/loopback ranges) — may bypass DNS-based security controls |
 | `data-uri` | `data:` URI inside markdown links — may embed executable or obfuscated content |
 | `escape-obfuscation` | 3+ consecutive hex or unicode escape sequences |
 | `hidden-unicode` | Invisible Unicode characters: soft hyphens (U+00AD), directional marks (U+200E–U+200F), invisible math operators (U+2061–U+2064) |
 | `untrusted-install` | Auto-execute untrusted packages: `npx -y`/`npx --yes` (npm), `pip install https://` (non-PyPI URL) |
 
-> **Why medium?** A skill that downloads from external URLs could be pulling malicious payloads. URLs with raw IP addresses may bypass DNS-based security controls and domain blocklists. `data:` URIs in markdown links can hide embedded HTML/JavaScript payloads behind innocent-looking labels. Environment variable access may expose secrets unintentionally. Untrusted package execution (`npx -y`) auto-installs and runs arbitrary npm packages without confirmation. Additional invisible Unicode characters can subtly alter text rendering or hide content.
+> **Why medium?** A skill that downloads from external URLs could be pulling malicious payloads. URLs with raw IP addresses may bypass DNS-based security controls and domain blocklists. `data:` URIs in markdown links can hide embedded HTML/JavaScript payloads behind innocent-looking labels. Untrusted package execution (`npx -y`) auto-installs and runs arbitrary npm packages without confirmation. Additional invisible Unicode characters can subtly alter text rendering or hide content.
 
 ### MEDIUM: Content Integrity
 
@@ -1084,7 +1074,7 @@ Source of truth for regex-based rules:
 | `credential-access-ssh-host-key` | credential-access | CRITICAL |
 | `credential-access-pgpass` | credential-access | CRITICAL |
 | `credential-access-mysql-cnf` | credential-access | CRITICAL |
-| `credential-access-etc-passwd` | credential-access | HIGH |
+| `credential-access-etc-passwd` | credential-access | MEDIUM |
 | `credential-access-azure-creds` | credential-access | HIGH |
 | `credential-access-gcloud-creds` | credential-access | HIGH |
 | `credential-access-docker-config` | credential-access | HIGH |
@@ -1096,9 +1086,9 @@ Source of truth for regex-based rules:
 | `credential-access-cargo-credentials` | credential-access | HIGH |
 | `credential-access-op-cli` | credential-access | HIGH |
 | `credential-access-age-keys` | credential-access | HIGH |
-| `credential-access-shell-history` | credential-access | MEDIUM |
-| `credential-access-openvpn` | credential-access | MEDIUM |
-| `credential-access-auth-log` | credential-access | LOW |
+| `credential-access-shell-history` | credential-access | LOW |
+| `credential-access-openvpn` | credential-access | LOW |
+| `credential-access-auth-log` | credential-access | INFO |
 | `credential-access-unknown-dotdir` | credential-access | INFO |
 
 > **Note:** Each credential entry above also generates variant IDs per access method: `-copy`, `-redirect`, `-dd`, `-exfil` (e.g., `credential-access-ssh-private-key-copy`). To disable a specific variant, use its full ID in your `audit-rules.yaml`.
@@ -1118,13 +1108,10 @@ Source of truth for regex-based rules:
 | `shell-execution-0` | shell-execution | HIGH |
 | `hidden-comment-injection-0` | hidden-comment-injection | HIGH |
 | `obfuscation-0` | obfuscation | HIGH |
-| `obfuscation-1` | obfuscation | HIGH |
-| `source-repository-link-0` | source-repository-link | HIGH |
 | `fetch-with-pipe-0` | fetch-with-pipe | HIGH |
 | `fetch-with-pipe-1` | fetch-with-pipe | HIGH |
 | `fetch-with-pipe-2` | fetch-with-pipe | HIGH |
 | `data-uri-0` | data-uri | MEDIUM |
-| `env-access-0` | env-access | MEDIUM |
 | `escape-obfuscation-0` | escape-obfuscation | MEDIUM |
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
 | `ip-address-url-0` | ip-address-url | MEDIUM |

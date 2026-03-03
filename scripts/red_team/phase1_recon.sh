@@ -7,22 +7,22 @@
 
 phase "PHASE 1 — RECONNAISSANCE"
 
-# ── TC-01: [source repository](url) → HIGH ─────────────────────
+# ── TC-01: [source repository](url) → external-link LOW ───────
 
-info "TC-01: source repository link detection"
+info "TC-01: source repository link falls back to external-link"
 create_skill "$SOURCE_DIR/tc01-skill" "# Helpful skill
 Check [source repository](https://github.com/evil/repo) for details."
 ss_capture audit tc01-skill --format json
 TC01_OUTPUT="$SS_OUTPUT"
-assert_finding "TC-01: [source repository](url) detected as HIGH" "$TC01_OUTPUT" "source-repository-link" "HIGH"
+assert_finding "TC-01: [source repository](url) detected as LOW external-link" "$TC01_OUTPUT" "external-link" "LOW"
 
-# ── TC-02: [documentation](url) → no source-repository-link ────
+# ── TC-02: [documentation](url) → external-link LOW ────────────
 
-info "TC-02: documentation link not flagged as source-repository-link"
+info "TC-02: documentation link flagged as external-link"
 create_skill "$SOURCE_DIR/tc02-skill" "# Helpful skill
 See [documentation](https://docs.example.com/guide) for usage."
 ss_capture audit tc02-skill --format json
-assert_no_finding "TC-02: documentation link excluded" "$SS_OUTPUT" "source-repository-link"
+assert_finding "TC-02: documentation link detected as LOW external-link" "$SS_OUTPUT" "external-link" "LOW"
 
 # ── TC-03: [source repo](local.md) → no finding ────────────────
 
@@ -30,17 +30,16 @@ info "TC-03: local link not flagged"
 create_skill "$SOURCE_DIR/tc03-skill" "# Helpful skill
 See [source repo](local-docs.md) for details."
 ss_capture audit tc03-skill --format json
-assert_no_finding "TC-03: local link ignored" "$SS_OUTPUT" "source-repository-link"
+assert_no_finding "TC-03: local link ignored for external-link" "$SS_OUTPUT" "external-link"
 
-# ── TC-03b: multiline [source repository] + (url) → HIGH ───────
+# ── TC-03b: multiline [source repository] + (url) → LOW ────────
 
-info "TC-03b: multiline source repository link detection"
+info "TC-03b: multiline source repository link falls back to external-link"
 create_skill "$SOURCE_DIR/tc03b-skill" "# Helpful skill
 [source repository]
 (https://github.com/evil/repo)"
 ss_capture audit tc03b-skill --format json
-assert_finding "TC-03b: multiline source repository link detected as HIGH" "$SS_OUTPUT" "source-repository-link" "HIGH"
-assert_no_finding "TC-03b: source repository link excluded from external-link" "$SS_OUTPUT" "external-link"
+assert_finding "TC-03b: multiline source repository link detected as LOW external-link" "$SS_OUTPUT" "external-link" "LOW"
 
 # ── TC-03c: autolink <https://...> → external-link LOW ──────────
 
@@ -91,7 +90,7 @@ name: tc03f-skill
 ```
 EOF
 ss_capture audit tc03f-skill --format json
-assert_no_finding "TC-03f: code fence source repository link ignored" "$SS_OUTPUT" "source-repository-link"
+assert_no_finding "TC-03f: code fence external-link ignored" "$SS_OUTPUT" "external-link"
 assert_no_finding "TC-03f: code fence broken local link ignored" "$SS_OUTPUT" "dangling-link"
 
 # ── TC-03g: inline code links should be ignored ──────────────────
@@ -100,7 +99,6 @@ info "TC-03g: inline code markdown links are ignored"
 create_skill "$SOURCE_DIR/tc03g-skill" "# Helpful skill
 Use \`[source repository](https://github.com/evil/repo)\` as an example."
 ss_capture audit tc03g-skill --format json
-assert_no_finding "TC-03g: inline code source repository link ignored" "$SS_OUTPUT" "source-repository-link"
 assert_no_finding "TC-03g: inline code external-link ignored" "$SS_OUTPUT" "external-link"
 
 # ── TC-03h: image links should not trigger markdown link rules ───
@@ -109,7 +107,6 @@ info "TC-03h: image links are ignored by markdown link audit rules"
 create_skill "$SOURCE_DIR/tc03h-skill" "# Helpful skill
 ![source repository](https://github.com/evil/repo.png)"
 ss_capture audit tc03h-skill --format json
-assert_no_finding "TC-03h: image link source repository ignored" "$SS_OUTPUT" "source-repository-link"
 assert_no_finding "TC-03h: image link external-link ignored" "$SS_OUTPUT" "external-link"
 
 # ── TC-03i: HTML anchor links should be audited ──────────────────
@@ -251,13 +248,13 @@ Decode with: base64 --decode | bash'
 ss_capture audit tc11-skill --format json
 assert_finding "TC-11: obfuscation detected as HIGH" "$SS_OUTPUT" "obfuscation" "HIGH"
 
-# ── TC-12: env-access → MEDIUM ─────────────────────────────────
+# ── TC-12: env-access rule removed (no finding) ────────────────
 
-info "TC-12: environment variable access detection"
+info "TC-12: environment variable access no longer has dedicated rule"
 create_skill "$SOURCE_DIR/tc12-skill" '# Helpful skill
 Read the API key from process.env.API_KEY in your code.'
 ss_capture audit tc12-skill --format json
-assert_finding "TC-12: env-access detected as MEDIUM" "$SS_OUTPUT" "env-access" "MEDIUM"
+assert_no_finding "TC-12: env-access not detected (rule removed)" "$SS_OUTPUT" "env-access"
 
 # ── TC-13: suspicious-fetch → MEDIUM ───────────────────────────
 

@@ -682,11 +682,11 @@ var tutorialSuppressedPatterns = map[string]bool{
 	"destructive-commands": true,
 	"suspicious-fetch":     true,
 
-	"insecure-http":        true,
-	"escape-obfuscation":   true,
-	"hidden-unicode":       true,
-	"fetch-with-pipe":      true,
-	"untrusted-install":    true,
+	"insecure-http":      true,
+	"escape-obfuscation": true,
+	"hidden-unicode":     true,
+	"fetch-with-pipe":    true,
+	"untrusted-install":  true,
 }
 
 type markdownLink struct {
@@ -711,7 +711,7 @@ func splitMarkdownLinkRules(activeRules []rule) (contentRules []rule, markdownLi
 }
 
 func isMarkdownLinkRulePattern(pattern string) bool {
-	return pattern == "external-link" || pattern == "source-repository-link"
+	return pattern == "external-link"
 }
 
 func checkMarkdownLinkRules(files []mdFileInfo, markdownLinkRules []rule) []Finding {

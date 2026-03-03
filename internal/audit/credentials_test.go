@@ -23,6 +23,33 @@ func TestCredentialTable_ValidSeverities(t *testing.T) {
 	}
 }
 
+func TestCredentialTable_TargetedSeverityProfile(t *testing.T) {
+	want := map[string]string{
+		"etc-passwd":    SeverityMedium,
+		"shell-history": SeverityLow,
+		"openvpn":       SeverityLow,
+		"auth-log":      SeverityInfo,
+	}
+
+	got := make(map[string]string)
+	for _, e := range credentialPaths {
+		if _, ok := want[e.ID]; ok {
+			got[e.ID] = e.Severity
+		}
+	}
+
+	for id, wantSev := range want {
+		gotSev, ok := got[id]
+		if !ok {
+			t.Errorf("entry %s not found in credential table", id)
+			continue
+		}
+		if gotSev != wantSev {
+			t.Errorf("entry %s severity = %s, want %s", id, gotSev, wantSev)
+		}
+	}
+}
+
 func TestCredentialTable_RegexCompile(t *testing.T) {
 	for _, e := range credentialPaths {
 		pathRe := e.PathRe

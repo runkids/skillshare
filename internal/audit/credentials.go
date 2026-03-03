@@ -14,10 +14,10 @@ const (
 	mDD                         // dd if=path
 	mExfil                      // scp, rsync
 
-	mAll         = mRead | mCopy | mRedirect | mDD | mExfil
-	mReadCopyEx  = mRead | mCopy | mExfil
-	mReadCopy    = mRead | mCopy
-	mReadOnly    = mRead
+	mAll        = mRead | mCopy | mRedirect | mDD | mExfil
+	mReadCopyEx = mRead | mCopy | mExfil
+	mReadCopy   = mRead | mCopy
+	mReadOnly   = mRead
 )
 
 // credentialEntry defines a single sensitive path family.
@@ -66,7 +66,7 @@ var credentialPaths = []credentialEntry{
 	{ID: "mysql-cnf", PathRe: `\.my\.cnf\b`, Severity: SeverityCritical, Message: "Accessing MySQL client credentials", Methods: mReadOnly, IsHome: true},
 
 	// ── HIGH ──
-	{ID: "etc-passwd", PathRe: `/etc/(passwd|sudoers)\b`, Severity: SeverityHigh, Message: "Reading sensitive system account file", Methods: mAll},
+	{ID: "etc-passwd", PathRe: `/etc/(passwd|sudoers)\b`, Severity: SeverityMedium, Message: "Reading sensitive system account file", Methods: mAll},
 	{ID: "azure-creds", PathRe: `\.azure/`, Severity: SeverityHigh, Message: "Accessing Azure CLI credentials", Methods: mReadCopyEx, IsHome: true},
 	{ID: "gcloud-creds", PathRe: `\.gcloud/`, Severity: SeverityHigh, Message: "Accessing gcloud credentials", Methods: mReadCopyEx, IsHome: true},
 	{ID: "docker-config", PathRe: `\.docker/config\.json`, Severity: SeverityHigh, Message: "Accessing Docker config (may contain registry auth)", Methods: mReadCopy, IsHome: true},
@@ -80,11 +80,11 @@ var credentialPaths = []credentialEntry{
 	{ID: "age-keys", PathRe: `\.config/age/`, Severity: SeverityHigh, Message: "Accessing age encryption keys", Methods: mReadCopyEx, IsHome: true},
 
 	// ── MEDIUM ──
-	{ID: "shell-history", PathRe: `\.(bash_history|zsh_history|python_history|node_repl_history)`, Severity: SeverityMedium, Message: "Accessing shell/REPL history (may contain secrets)", Methods: mReadOnly, IsHome: true},
-	{ID: "openvpn", PathRe: `/etc/openvpn/`, Severity: SeverityMedium, Message: "Accessing OpenVPN configuration", Methods: mReadOnly},
+	{ID: "shell-history", PathRe: `\.(bash_history|zsh_history|python_history|node_repl_history)`, Severity: SeverityLow, Message: "Accessing shell/REPL history (may contain secrets)", Methods: mReadOnly, IsHome: true},
+	{ID: "openvpn", PathRe: `/etc/openvpn/`, Severity: SeverityLow, Message: "Accessing OpenVPN configuration", Methods: mReadOnly},
 
 	// ── LOW ──
-	{ID: "auth-log", PathRe: `/var/log/(auth\.log|secure)\b`, Severity: SeverityLow, Message: "Accessing authentication log", Methods: mReadOnly},
+	{ID: "auth-log", PathRe: `/var/log/(auth\.log|secure)\b`, Severity: SeverityInfo, Message: "Accessing authentication log", Methods: mReadOnly},
 }
 
 // safeDotfiles is the whitelist for the heuristic catch-all rule.

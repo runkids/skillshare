@@ -113,8 +113,7 @@ Summary box:
 | `dynamic-code-exec` | HIGH | Dynamic code evaluation calls | Excludes evaluate(), execFile() |
 | `shell-execution` | HIGH | Python shell invocation via stdlib | — |
 | `hidden-comment-injection` | HIGH | Prompt injection in HTML comments | — |
-| `obfuscation` | HIGH | Hidden unicode, long base64 strings | — |
-| `env-access` | MEDIUM | Environment variable references | Excludes NODE_ENV, npm_* |
+| `obfuscation` | HIGH | Base64 decode/execution pipelines | — |
 | `escape-obfuscation` | MEDIUM | 3+ consecutive hex/unicode escapes | — |
 | `suspicious-fetch` | MEDIUM | URLs used in command context | — |
 | `insecure-http` | LOW | HTTP URLs (non-HTTPS) | — |
