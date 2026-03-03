@@ -48,6 +48,13 @@ func applyModeLabel(mode runMode) {
 	}
 }
 
+func modeString(mode runMode) string {
+	if mode == modeProject {
+		return "project"
+	}
+	return "global"
+}
+
 func projectConfigExists(root string) bool {
 	_, err := os.Stat(filepath.Join(root, ".skillshare", "config.yaml"))
 	return err == nil

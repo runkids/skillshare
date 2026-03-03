@@ -18,6 +18,15 @@ func matchGlob(pattern, name string) bool {
 	return ok
 }
 
+// pathExists returns true if the given path exists on disk.
+func pathExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	_, err := os.Stat(path)
+	return err == nil
+}
+
 // copyDir copies a directory recursively.
 func copyDir(src, dst string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {

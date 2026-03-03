@@ -297,13 +297,6 @@ func cmdAudit(args []string) error {
 	return nil
 }
 
-func modeString(mode runMode) string {
-	if mode == modeProject {
-		return "project"
-	}
-	return "global"
-}
-
 func parseAuditArgs(args []string) (auditOptions, bool, error) {
 	opts := auditOptions{}
 	for i := 0; i < len(args); i++ {
@@ -392,14 +385,6 @@ func parseAuditArgs(args []string) (auditOptions, bool, error) {
 	return opts, false, nil
 }
 
-func pathExists(path string) bool {
-	if path == "" {
-		return false
-	}
-	_, err := os.Stat(path)
-	return err == nil
-}
-
 func auditHeaderTitle(mode string) string {
 	if mode == "project" {
 		return "skillshare audit (project)"
@@ -417,82 +402,13 @@ func auditHeaderSubtitle(scanLine, mode, sourcePath, threshold, policyLine strin
 		scanLine, mode, displayPath, coloredThreshold, policyLine)
 }
 
-// ── Policy label helpers (shared between CLI and TUI) ──
-
-// policyProfileLabel returns the UPPERCASE display label for a profile.
-func policyProfileLabel(profile string) string {
-	if upper := strings.ToUpper(profile); upper != "" {
-		return upper
-	}
-	return "DEFAULT"
-}
-
-// policyDedupeLabel returns the UPPERCASE display label for a dedupe mode.
-func policyDedupeLabel(dedupe string) string {
-	if upper := strings.ToUpper(dedupe); upper != "" {
-		return upper
-	}
-	return "GLOBAL"
-}
-
-// policyAnalyzersLabel returns the UPPERCASE display label for enabled analyzers.
-func policyAnalyzersLabel(analyzers []string) string {
-	if len(analyzers) == 0 {
-		return "ALL"
-	}
-	upper := make([]string, len(analyzers))
-	for i, a := range analyzers {
-		upper[i] = strings.ToUpper(a)
-	}
-	return strings.Join(upper, ", ")
-}
-
-// ── ANSI color helpers for audit policy values ──
-
-// colorizeProfile returns an ANSI-colored UPPERCASE profile name.
-func colorizeProfile(profile string) string {
-	label := policyProfileLabel(profile)
-	switch label {
-	case "STRICT":
-		return ui.Colorize(ui.Yellow, label)
-	case "PERMISSIVE":
-		return ui.Colorize(ui.Green, label)
-	default:
-		return ui.Colorize(ui.Cyan, label)
-	}
-}
-
-// colorizeDedupe returns an ANSI-colored UPPERCASE dedupe mode.
-func colorizeDedupe(dedupe string) string {
-	label := policyDedupeLabel(dedupe)
-	if label == "LEGACY" {
-		return ui.Colorize(ui.Gray, label)
-	}
-	return ui.Colorize(ui.Cyan, label)
-}
-
-// colorizeAnalyzers returns an ANSI-colored UPPERCASE analyzer list.
-func colorizeAnalyzers(analyzers []string) string {
-	return ui.Colorize(ui.Cyan, policyAnalyzersLabel(analyzers))
-}
-
-// formatPolicyLine returns a compact one-line ANSI-colored policy description.
-func formatPolicyLine(profile, dedupe string, analyzers []string) string {
-	return colorizeProfile(profile) + " / dedupe:" + colorizeDedupe(dedupe) + " / analyzers:" + colorizeAnalyzers(analyzers)
-}
-
-// applyPolicyToSummary copies resolved policy fields from opts to summary
-// so that TUI and text output can display them.
-func applyPolicyToSummary(s *auditRunSummary, opts auditOptions) {
-	s.PolicyProfile = opts.PolicyProfile
-	s.PolicyDedupe = opts.PolicyDedupe
-	s.PolicyAnalyzers = opts.PolicyAnalyzers
-}
-
-func collectInstalledSkillPaths(sourcePath string) ([]struct {
+// auditSkillRef is a lightweight name+path pair used during audit discovery.
+type auditSkillRef struct {
 	name string
 	path string
-}, error) {
+}
+
+func collectInstalledSkillPaths(sourcePath string) ([]auditSkillRef, error) {
 	// Use Lite variant: audit does not need Targets (frontmatter parsing),
 	// saving ~2-5s on large source directories (skips 100k SKILL.md reads).
 	discovered, _, err := sync.DiscoverSourceSkillsLite(sourcePath)
@@ -501,19 +417,13 @@ func collectInstalledSkillPaths(sourcePath string) ([]struct {
 	}
 
 	seen := make(map[string]bool)
-	var skillPaths []struct {
-		name string
-		path string
-	}
+	var skillPaths []auditSkillRef
 	for _, d := range discovered {
 		if seen[d.SourcePath] {
 			continue
 		}
 		seen[d.SourcePath] = true
-		skillPaths = append(skillPaths, struct {
-			name string
-			path string
-		}{d.FlatName, d.SourcePath})
+		skillPaths = append(skillPaths, auditSkillRef{d.FlatName, d.SourcePath})
 	}
 
 	entries, _ := os.ReadDir(sourcePath)
@@ -524,10 +434,7 @@ func collectInstalledSkillPaths(sourcePath string) ([]struct {
 		p := filepath.Join(sourcePath, e.Name())
 		if !seen[p] {
 			seen[p] = true
-			skillPaths = append(skillPaths, struct {
-				name string
-				path string
-			}{e.Name(), p})
+			skillPaths = append(skillPaths, auditSkillRef{e.Name(), p})
 		}
 	}
 
@@ -562,10 +469,7 @@ func scanSkillPath(skillPath, projectRoot string, registry *audit.Registry) (*au
 	return audit.ScanSkill(skillPath)
 }
 
-func toAuditInputs(skills []struct {
-	name string
-	path string
-}) []audit.SkillInput {
+func toAuditInputs(skills []auditSkillRef) []audit.SkillInput {
 	inputs := make([]audit.SkillInput, len(skills))
 	for i, s := range skills {
 		inputs[i] = audit.SkillInput{Name: s.name, Path: s.path}
@@ -705,10 +609,7 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 
 	// Filter skills by names and groups.
 	seen := make(map[string]bool)
-	var matched []struct {
-		name string
-		path string
-	}
+	var matched []auditSkillRef
 	resolvedNames := make(map[string]bool)
 
 	for _, sp := range allSkills {
@@ -1030,204 +931,6 @@ func containsSeverity(findings []audit.Finding, severity string) bool {
 	return false
 }
 
-// riskColor maps a risk label to an ANSI color, aligned with formatSeverity.
-func riskColor(label string) string {
-	if c := ui.SeverityColor(label); c != "" {
-		return c
-	}
-	return ui.Gray
-}
-
-// presentAuditResults handles the common output path for audit scans:
-// prints per-skill list only when TUI is unavailable, always prints summary,
-// and launches TUI when conditions are met.
-func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanOutputs []audit.ScanOutput, summary auditRunSummary, jsonOutput bool, opts auditOptions, headerMinWidth int) error {
-	useTUI := !jsonOutput && !opts.NoTUI && ui.IsTTY() && len(results) > 1
-
-	if !jsonOutput {
-		if !useTUI {
-			// In batch mode (multiple results), only show skills with findings
-			// to avoid flooding the terminal. Use --quiet=false explicitly or
-			// single-skill mode to see clean results.
-			suppressClean := len(results) > 1
-			for i, r := range results {
-				if len(r.Findings) > 0 || (!opts.Quiet && !suppressClean) {
-					printSkillResultLine(i+1, len(results), r, elapsed[i])
-				}
-			}
-			fmt.Println()
-		}
-		summaryLines := buildAuditSummaryLines(summary)
-		printAuditSummary(summary, summaryLines, headerMinWidth)
-	}
-
-	if useTUI {
-		return runAuditTUI(results, scanOutputs, summary)
-	}
-	return nil
-}
-
-// printSkillResultLine prints a single-line result for a skill during batch scan.
-func printSkillResultLine(index, total int, result *audit.Result, elapsed time.Duration) {
-	prefix := fmt.Sprintf("[%d/%d]", index, total)
-	name := result.SkillName
-	showTime := elapsed >= time.Second
-	timeStr := fmt.Sprintf("%.1fs", elapsed.Seconds())
-
-	if len(result.Findings) == 0 {
-		if ui.IsTTY() {
-			if showTime {
-				fmt.Printf("%s \033[32m✓\033[0m %s %s%s%s\n", prefix, name, ui.Gray, timeStr, ui.Reset)
-			} else {
-				fmt.Printf("%s \033[32m✓\033[0m %s\n", prefix, name)
-			}
-		} else {
-			if showTime {
-				fmt.Printf("%s ✓ %s %s\n", prefix, name, timeStr)
-			} else {
-				fmt.Printf("%s ✓ %s\n", prefix, name)
-			}
-		}
-		return
-	}
-
-	color := riskColor(result.RiskLabel)
-	symbol := "!"
-	if result.IsBlocked {
-		symbol = "✗"
-	}
-	maxSeverity := result.MaxSeverity()
-	if maxSeverity == "" {
-		maxSeverity = "NONE"
-	}
-	riskText := fmt.Sprintf("AGG %s %d/100, max %s", strings.ToUpper(result.RiskLabel), result.RiskScore, maxSeverity)
-
-	if ui.IsTTY() {
-		if showTime {
-			fmt.Printf("%s %s%s%s %s  %s(%s)%s  %s%s%s\n", prefix, color, symbol, ui.Reset, name, color, riskText, ui.Reset, ui.Gray, timeStr, ui.Reset)
-		} else {
-			fmt.Printf("%s %s%s%s %s  %s(%s)%s\n", prefix, color, symbol, ui.Reset, name, color, riskText, ui.Reset)
-		}
-	} else {
-		if showTime {
-			fmt.Printf("%s %s %s  (%s)  %s\n", prefix, symbol, name, riskText, timeStr)
-		} else {
-			fmt.Printf("%s %s %s  (%s)\n", prefix, symbol, name, riskText)
-		}
-	}
-}
-
-// printSkillResult prints detailed results for a single-skill audit.
-func printSkillResult(result *audit.Result, elapsed time.Duration) {
-	if len(result.Findings) == 0 {
-		ui.Success("No issues found in %s (%.1fs)", result.SkillName, elapsed.Seconds())
-		return
-	}
-
-	for _, f := range result.Findings {
-		sevLabel := formatSeverity(f.Severity)
-		loc := fmt.Sprintf("%s:%d", f.File, f.Line)
-		if ui.IsTTY() {
-			fmt.Printf("  %s: %s (%s)\n", sevLabel, f.Message, loc)
-			fmt.Printf("  \033[90m\"%s\"\033[0m\n\n", f.Snippet)
-		} else {
-			fmt.Printf("  %s: %s (%s)\n", f.Severity, f.Message, loc)
-			fmt.Printf("  \"%s\"\n\n", f.Snippet)
-		}
-	}
-
-	color := riskColor(result.RiskLabel)
-	threshold := result.Threshold
-	if threshold == "" {
-		threshold = audit.DefaultThreshold()
-	}
-	maxSeverity := result.MaxSeverity()
-	if maxSeverity == "" {
-		maxSeverity = "NONE"
-	}
-	decision := "ALLOW"
-	compare := "<"
-	if result.IsBlocked {
-		decision = "BLOCK"
-		compare = ">="
-	}
-	if ui.IsTTY() {
-		fmt.Printf("%s→%s Aggregate risk: %s%s (%d/100)%s\n", ui.Cyan, ui.Reset, color, strings.ToUpper(result.RiskLabel), result.RiskScore, ui.Reset)
-		fmt.Printf("%s→%s Auditable: %.0f%%\n", ui.Cyan, ui.Reset, result.Analyzability*100)
-		if !result.TierProfile.IsEmpty() {
-			fmt.Printf("%s→%s Commands: %s\n", ui.Cyan, ui.Reset, result.TierProfile.String())
-		}
-		fmt.Printf("%s→%s Block decision: %s (max severity %s %s threshold %s)\n", ui.Cyan, ui.Reset, decision, maxSeverity, compare, threshold)
-	} else {
-		fmt.Printf("→ Aggregate risk: %s (%d/100)\n", strings.ToUpper(result.RiskLabel), result.RiskScore)
-		fmt.Printf("→ Auditable: %.0f%%\n", result.Analyzability*100)
-		if !result.TierProfile.IsEmpty() {
-			fmt.Printf("→ Commands: %s\n", result.TierProfile.String())
-		}
-		fmt.Printf("→ Block decision: %s (max severity %s %s threshold %s)\n", decision, maxSeverity, compare, threshold)
-	}
-}
-
-// buildAuditSummaryLines builds the summary box lines (without printing).
-func buildAuditSummaryLines(summary auditRunSummary) []string {
-	var lines []string
-	maxSeverity := summary.MaxSeverity
-	if maxSeverity == "" {
-		maxSeverity = "NONE"
-	}
-	lines = append(lines, fmt.Sprintf("  Block:     severity >= %s", ui.Colorize(ui.SeverityColor(summary.Threshold), summary.Threshold)))
-	lines = append(lines, fmt.Sprintf("  Policy:    %s", formatPolicyLine(summary.PolicyProfile, summary.PolicyDedupe, summary.PolicyAnalyzers)))
-	lines = append(lines, fmt.Sprintf("  Max sev:   %s", ui.Colorize(ui.SeverityColor(maxSeverity), maxSeverity)))
-	lines = append(lines, fmt.Sprintf("  Scanned:   %d skill(s)", summary.Scanned))
-	lines = append(lines, fmt.Sprintf("  Passed:    %s", ui.Colorize(ui.Green, fmt.Sprintf("%d", summary.Passed))))
-	if summary.Warning > 0 {
-		lines = append(lines, fmt.Sprintf("  Warning:   %s", ui.Colorize(ui.Yellow, fmt.Sprintf("%d", summary.Warning))))
-	} else {
-		lines = append(lines, fmt.Sprintf("  Warning:   %d", summary.Warning))
-	}
-	if summary.Failed > 0 {
-		lines = append(lines, fmt.Sprintf("  Failed:    %s", ui.Colorize(ui.Red, fmt.Sprintf("%d", summary.Failed))))
-	} else {
-		lines = append(lines, fmt.Sprintf("  Failed:    %d", summary.Failed))
-	}
-	lines = append(lines, fmt.Sprintf("  Severity:  c/h/m/l/i = %s/%s/%s/%s/%s",
-		ui.Colorize(ui.SeverityColor("CRITICAL"), fmt.Sprintf("%d", summary.Critical)),
-		ui.Colorize(ui.SeverityColor("HIGH"), fmt.Sprintf("%d", summary.High)),
-		ui.Colorize(ui.SeverityColor("MEDIUM"), fmt.Sprintf("%d", summary.Medium)),
-		ui.Colorize(ui.SeverityColor("LOW"), fmt.Sprintf("%d", summary.Low)),
-		ui.Colorize(ui.SeverityColor("INFO"), fmt.Sprintf("%d", summary.Info))))
-	riskLabel := strings.ToUpper(summary.RiskLabel)
-	riskText := fmt.Sprintf("%s (%d/100)", riskLabel, summary.RiskScore)
-	lines = append(lines, fmt.Sprintf("  Aggregate: %s", ui.Colorize(riskColor(summary.RiskLabel), riskText)))
-	lines = append(lines, fmt.Sprintf("  Auditable: %.0f%% avg", summary.AvgAnalyzability*100))
-	lines = append(lines, "  Note:      Failed uses severity gate; aggregate is informational")
-	if summary.ScanErrors > 0 {
-		lines = append(lines, fmt.Sprintf("  Scan errs: %d", summary.ScanErrors))
-	}
-	return lines
-}
-
-// auditSummaryNoteLine is the longest fixed-content line in the summary box.
-const auditSummaryNoteLine = "  Note:      Failed uses severity gate; aggregate is informational"
-
-// auditHeaderMinWidth computes a minimum content width for the header box,
-// ensuring it is at least as wide as the summary box's fixed-content lines.
-func auditHeaderMinWidth(subtitle string) int {
-	minW := len(auditSummaryNoteLine)
-	for _, line := range strings.Split(subtitle, "\n") {
-		if w := ui.DisplayWidth(line); w > minW {
-			minW = w
-		}
-	}
-	return minW
-}
-
-// printAuditSummary prints the summary box with a shared minimum width.
-func printAuditSummary(_ auditRunSummary, lines []string, minWidth int) {
-	ui.BoxWithMinWidth("Summary", minWidth, lines...)
-	fmt.Println()
-}
-
 // recountSummary recalculates finding counts after deduplication.
 // It preserves fields not affected by dedupe (Scope, Mode, Path, Skill, ScanErrors, AvgAnalyzability).
 func recountSummary(results []*audit.Result, threshold string, prev auditRunSummary) auditRunSummary {
@@ -1242,6 +945,7 @@ func recountSummary(results []*audit.Result, threshold string, prev auditRunSumm
 		AvgAnalyzability: prev.AvgAnalyzability,
 		PolicyProfile:    prev.PolicyProfile,
 		PolicyDedupe:     prev.PolicyDedupe,
+		PolicyAnalyzers:  prev.PolicyAnalyzers,
 	}
 	maxRisk := 0
 	maxSev := ""
@@ -1283,66 +987,10 @@ func recountSummary(results []*audit.Result, threshold string, prev auditRunSumm
 	return s
 }
 
-func formatSeverity(sev string) string {
-	return ui.Colorize(ui.SeverityColor(sev), strings.ToUpper(sev))
-}
-
 func initAuditRules(path string) error {
 	if err := audit.InitRulesFile(path); err != nil {
 		return err
 	}
 	ui.Success("Created %s", path)
 	return nil
-}
-
-func printAuditHelp() {
-	fmt.Println(`Usage: skillshare audit [name...] [options]
-       skillshare audit --group <group> [options]
-       skillshare audit <path> [options]
-
-Scan installed skills (or a specific skill/path) for security threats.
-
-If no names or groups are specified, all installed skills are scanned.
-Block decisions use severity threshold; aggregate risk score is reported separately.
-
-Arguments:
-  name...              Skill name(s) to scan (optional)
-  path                 Existing file/directory path to scan (optional)
-
-Options:
-  --group, -G <name>   Scan all skills in a group (repeatable)
-  -p, --project        Use project-level skills
-  -g, --global         Use global skills
-  --threshold, -T <t>  Block by severity at/above: critical|high|medium|low|info
-                       (also supports c|h|m|l|i)
-  --profile <p>        Audit profile preset: default, strict, permissive
-  --dedupe <mode>      Dedup mode: legacy (default), global
-  --analyzer <id>      Only run specified analyzer (repeatable)
-                       IDs: static, dataflow, tier, integrity, structure, cross-skill
-  --format <f>         Output format: text (default), json, sarif, markdown
-  --json               Output JSON (deprecated: use --format json)
-  --quiet, -q          Only show skills with findings + summary (skip clean ✓ lines)
-  --yes, -y            Skip large-audit confirmation prompt
-  --no-tui             Disable interactive TUI, use plain text output
-  --init-rules         Create a starter audit-rules.yaml
-  -h, --help           Show this help
-
-Subcommands:
-  rules                Browse, enable/disable rules (see: audit rules --help)
-
-Examples:
-  skillshare audit                           # Scan all installed skills
-  skillshare audit react-patterns            # Scan a specific skill
-  skillshare audit a b c                     # Scan multiple skills
-  skillshare audit --group frontend          # Scan all skills in frontend/
-  skillshare audit x -G backend              # Mix names and groups
-  skillshare audit ./skills/my-skill         # Scan a directory path
-  skillshare audit ./skills/foo/SKILL.md     # Scan a single file
-  skillshare audit --threshold high          # Block on HIGH+ findings
-  skillshare audit -T h                      # Same, with shorthand alias
-  skillshare audit --format json              # Output machine-readable JSON
-  skillshare audit --format sarif            # Output SARIF 2.1.0 for GitHub Code Scanning
-  skillshare audit --format markdown         # Output Markdown report (for GitHub Issues/PRs)
-  skillshare audit --json                    # Same as --format json (deprecated)
-  skillshare audit -p --init-rules           # Create project custom rules file`)
 }
