@@ -625,7 +625,12 @@ func scanFileUnifiedMarkdown(
 
 		// Static regex: all non-fence-marker lines.
 		if hasStatic && len(line) > 0 {
+			lineLower := ""
+			lineLowerReady := false
 			for _, r := range activeRules {
+				if !rulePrefilterAllows(r, line, &lineLower, &lineLowerReady) {
+					continue
+				}
 				if !r.Regex.MatchString(line) {
 					continue
 				}
@@ -694,7 +699,12 @@ func scanFileUnifiedPlain(
 
 		// Static regex: all lines.
 		if hasStatic {
+			lineLower := ""
+			lineLowerReady := false
 			for _, r := range activeRules {
+				if !rulePrefilterAllows(r, line, &lineLower, &lineLowerReady) {
+					continue
+				}
 				if r.Regex.MatchString(line) {
 					if r.Exclude != nil && r.Exclude.MatchString(line) {
 						continue
@@ -722,6 +732,21 @@ func scanFileUnifiedPlain(
 	}
 
 	return staticFindings, dfFindings
+}
+
+// rulePrefilterAllows applies a conservative literal prefilter before regex.
+func rulePrefilterAllows(r rule, line string, lineLower *string, lineLowerReady *bool) bool {
+	if r.prefilter == "" {
+		return true
+	}
+	if !r.prefilterFold {
+		return strings.Contains(line, r.prefilter)
+	}
+	if !*lineLowerReady {
+		*lineLower = strings.ToLower(line)
+		*lineLowerReady = true
+	}
+	return strings.Contains(*lineLower, r.prefilter)
 }
 
 // ScanFileWithRules scans a single file using the given rules.
@@ -840,7 +865,12 @@ func ScanContentWithRules(content []byte, filename string, activeRules []rule) [
 			line = text[start : start+end]
 			start = start + end + 1
 		}
+		lineLower := ""
+		lineLowerReady := false
 		for _, r := range activeRules {
+			if !rulePrefilterAllows(r, line, &lineLower, &lineLowerReady) {
+				continue
+			}
 			if r.Regex.MatchString(line) {
 				if r.Exclude != nil && r.Exclude.MatchString(line) {
 					continue
@@ -905,7 +935,12 @@ func ScanMarkdownContentWithRules(content []byte, filename string, activeRules [
 			continue
 		}
 
+		lineLower := ""
+		lineLowerReady := false
 		for _, r := range activeRules {
+			if !rulePrefilterAllows(r, line, &lineLower, &lineLowerReady) {
+				continue
+			}
 			if !r.Regex.MatchString(line) {
 				continue
 			}
@@ -1044,7 +1079,12 @@ func checkMarkdownLinkRules(files []mdFileInfo, mdLinks map[string][]markdownLin
 		}
 		for _, link := range links {
 			canonical := fmt.Sprintf("[%s](%s)", link.label, link.target)
+			canonicalLower := ""
+			canonicalLowerReady := false
 			for _, r := range markdownLinkRules {
+				if !rulePrefilterAllows(r, canonical, &canonicalLower, &canonicalLowerReady) {
+					continue
+				}
 				if !r.Regex.MatchString(canonical) {
 					continue
 				}

@@ -95,6 +95,10 @@ type rule struct {
 	Message  string
 	Regex    *regexp.Regexp
 	Exclude  *regexp.Regexp // if non-nil, suppress match when this also matches
+	// prefilter is a conservative literal that must appear in a candidate line
+	// before running the full regex. Empty means no fast prefilter is available.
+	prefilter     string
+	prefilterFold bool
 }
 
 // yamlRule is the YAML deserialization type for a single rule.
@@ -259,6 +263,7 @@ func compileRules(yr []yamlRule) ([]rule, error) {
 			Message:  y.Message,
 			Regex:    re,
 		}
+		r.prefilter, r.prefilterFold = deriveRulePrefilter(y.Regex, re)
 		if y.Exclude != "" {
 			excl, err := regexp.Compile(y.Exclude)
 			if err != nil {
