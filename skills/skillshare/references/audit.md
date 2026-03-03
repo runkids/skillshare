@@ -1,6 +1,6 @@
 # Security Audit
 
-Scan skills for prompt injection, data exfiltration, credential access, destructive commands, obfuscation, suspicious URLs, and broken local links.
+Scan skills for prompt injection, data exfiltration, credential access, destructive commands, obfuscation, suspicious URLs, and broken local links. 100+ built-in rules across 6 analyzers.
 
 ## Usage
 
@@ -12,6 +12,9 @@ skillshare audit --group frontend  # Scan all skills in a group
 skillshare audit <path>            # Scan file or directory path
 skillshare audit -T h              # Block on HIGH+ findings
 skillshare audit -p                # Scan project skills
+skillshare audit --profile strict  # Use strict profile (block HIGH+)
+skillshare audit --dedupe global   # Full composite-key deduplication
+skillshare audit --analyzer static # Run only the static analyzer
 ```
 
 ## Flags
@@ -21,10 +24,27 @@ skillshare audit -p                # Scan project skills
 | `-G, --group <name>` | Scan all skills in a group (repeatable) |
 | `-p, --project` | Scan project-level skills |
 | `-g, --global` | Scan global skills |
-| `--threshold <t>`, `-T <t>` | Block threshold override: `critical\|high\|medium\|low\|info` (shorthand: `c\|h\|m\|l\|i`, plus `crit`, `med`) |
-| `--json` | Machine-readable JSON output with risk scores |
+| `--threshold <t>`, `-T <t>` | Block threshold: `critical\|high\|medium\|low\|info` (shorthand: `c\|h\|m\|l\|i`) |
+| `--profile <p>` | Audit profile preset: `default`, `strict`, `permissive` |
+| `--dedupe <mode>` | Dedup mode: `legacy`, `global` (default) |
+| `--analyzer <id>` | Only run specified analyzer (repeatable): `static`, `dataflow`, `tier`, `integrity`, `structure`, `cross-skill` |
+| `--format <f>` | Output format: `text` (default), `json`, `sarif`, `markdown` |
+| `--json` | Same as `--format json` (deprecated) |
+| `--quiet, -q` | Only show skills with findings + summary |
+| `--no-tui` | Disable interactive TUI, print plain text |
+| `--yes, -y` | Skip large-scan confirmation prompt |
 | `--init-rules` | Create a starter `audit-rules.yaml` |
 | `-h, --help` | Show help |
+
+## Profiles
+
+| Profile | Threshold | Dedupe | Use case |
+|---------|-----------|--------|----------|
+| `default` | `CRITICAL` | `global` | Standard — block only critical threats |
+| `strict` | `HIGH` | `global` | Security-conscious teams |
+| `permissive` | `CRITICAL` | `legacy` | Advisory-only — minimal blocking |
+
+Explicit flags always override profile defaults.
 
 ## Severity Levels
 
@@ -36,21 +56,18 @@ skillshare audit -p                # Scan project skills
 | **LOW** | Minor concerns, uncommon patterns | Warning shown |
 | **INFO** | Informational observations | Warning shown |
 
-## Configurable Block Threshold
+## Config
 
-The default threshold is `CRITICAL` — only CRITICAL findings block `install`. Override per-command or globally:
-
-```bash
-# Per-command override
-skillshare audit --threshold high          # Block on HIGH+ findings
-skillshare audit -T h                      # Same as --threshold high
-
-# Global config (config.yaml)
+```yaml
+# config.yaml
 audit:
-  block_threshold: HIGH                    # Block on HIGH+ for all installs
+  block_threshold: HIGH                         # Blocking severity gate
+  profile: strict                               # Profile preset
+  dedupe_mode: global                           # Dedup mode (global/legacy)
+  enabled_analyzers: [static, dataflow, tier]   # Limit to specific analyzers
 ```
 
-**Block vs aggregate risk:** blocking is based on finding severity vs threshold; aggregate risk score/label is reported separately for triage and does not by itself block installs.
+CLI flags override config values. Precedence: CLI > project config > global config > profile defaults.
 
 ## Install Integration
 
@@ -59,7 +76,6 @@ audit:
 - **Findings at/above threshold → install blocked.** User must `--force` to proceed.
 - **Findings below threshold → warning displayed** after successful install.
 - **`--skip-audit`** skips security scanning entirely for a single install.
-- Web UI shows a confirm dialog on blocked findings with "Force Install" option.
 
 ```bash
 skillshare install user/repo              # Auto-audit, block on threshold
@@ -67,102 +83,48 @@ skillshare install user/repo --force      # Override block
 skillshare install user/repo --skip-audit # Skip audit entirely
 ```
 
-## Output
+## Managing Rules
 
-Per-skill results with risk scoring:
-
+```bash
+skillshare audit rules                          # Interactive TUI rule browser
+skillshare audit rules --no-tui                 # Plain text table
+skillshare audit rules disable <id>             # Disable single rule
+skillshare audit rules disable --pattern <p>    # Disable entire pattern group
+skillshare audit rules enable <id>              # Re-enable rule
+skillshare audit rules severity <id> <level>    # Override severity
+skillshare audit rules reset                    # Restore built-in defaults
+skillshare audit rules init                     # Create starter audit-rules.yaml
 ```
-[1/5] ✓ my-skill 0.1s
-[2/5] ! risky-skill 0.1s  (HIGH 35/100)
-[3/5] ✗ bad-skill 0.1s  (CRITICAL 85/100)
-```
-
-Single-skill scan shows detailed findings:
-
-```
-  MEDIUM: URL used in command context (scripts/run.sh:14)
-  HIGH: base64 decode pipe may hide malicious content (SKILL.md:42)
-  Aggregate risk: HIGH (35/100)
-```
-
-Summary box:
-
-```
-┌─ Summary ───────────────────────┐
-│  Threshold: CRITICAL            │
-│  Scanned:   5 skill(s)         │
-│  Passed:    3                   │
-│  Warning:   1                   │
-│  Failed:    1                   │
-│  Severity:  c/h/m/l/i = 1/1/1/0/0 │
-│  Max sev:   CRITICAL            │
-│  Aggregate: CRITICAL (85/100)   │
-└─────────────────────────────────┘
-```
-
-`Failed` counts skills with findings at/above the threshold. `Warning` counts skills with findings below the threshold.
-
-## Built-In Detection Patterns
-
-| Pattern | Severity | Detects | False-Positive Guards |
-|---------|----------|---------|----------------------|
-| `prompt-injection` | CRITICAL | Direct prompt override attempts | — |
-| `data-exfiltration` | CRITICAL | Piping sensitive data to network | — |
-| `credential-access` | CRITICAL | Reads from ~/.ssh, ~/.aws, etc. | — |
-| `destructive-commands` | HIGH | rm -rf, mkfs, disk wipe | — |
-| `dynamic-code-exec` | HIGH | Dynamic code evaluation calls | Excludes evaluate(), execFile() |
-| `shell-execution` | HIGH | Python shell invocation via stdlib | — |
-| `hidden-comment-injection` | HIGH | Prompt injection in HTML comments | — |
-| `obfuscation` | HIGH | Base64 decode/execution pipelines | — |
-| `escape-obfuscation` | MEDIUM | 3+ consecutive hex/unicode escapes | — |
-| `suspicious-fetch` | MEDIUM | URLs used in command context | — |
-| `insecure-http` | LOW | HTTP URLs (non-HTTPS) | — |
-| `external-link` | LOW | External URLs in markdown links | Excludes localhost/127.0.0.1/0.0.0.0 |
-| `dangling-link` | LOW | Broken local markdown links | Skips external/anchor links |
-| `shell-chain` | INFO | Long shell pipe chains | — |
 
 ## Custom Audit Rules
-
-Create custom rules to extend or override built-in patterns.
-
-### Init
 
 ```bash
 skillshare audit --init-rules       # Global: ~/.config/skillshare/audit-rules.yaml
 skillshare audit --init-rules -p    # Project: .skillshare/audit-rules.yaml
 ```
 
-### Three-Layer Merge
-
-Rules merge in order (later overrides earlier):
-
-1. **Built-in** — shipped with skillshare binary
-2. **Global** — `~/.config/skillshare/audit-rules.yaml`
-3. **Project** — `.skillshare/audit-rules.yaml` (project mode only)
-
-### Rule Format
+Three-layer merge (later overrides earlier): built-in → global → project.
 
 ```yaml
 rules:
-  # Add a new rule
   - id: flag-todo
     severity: MEDIUM
     pattern: todo-comment
     message: "TODO comment found"
     regex: '(?i)\bTODO\b'
 
-  # Disable a built-in rule
   - id: insecure-http-0
-    enabled: false
+    enabled: false              # Disable a built-in rule
 
-  # Disable the dangling-link structural check
-  - id: dangling-link
-    enabled: false
-
-  # Override severity of a built-in rule
-  - id: destructive-commands-2
-    severity: LOW
+  - pattern: destructive-commands
+    severity: MEDIUM            # Downgrade entire pattern group
 ```
+
+## Output
+
+Summary includes severity breakdown (`c/h/m/l/i`) and threat category breakdown (`inj`, `exfil`, `cred`, `obfusc`, `priv`, `integ`, `struct`, `risk`).
+
+`Failed` counts skills at/above threshold. `Warning` counts skills with findings below threshold.
 
 ## Logging
 

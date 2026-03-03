@@ -4,7 +4,45 @@
 
 ### New Features
 
-- **Interpreter tier (T6)** — audit now classifies Turing-complete runtimes (`python`, `node`, `ruby`, `perl`, `lua`, `php`, `bun`, `deno`, `npx`, `tsx`, `pwsh`, `powershell`) as T6:interpreter. Versioned binaries like `python3.11` are also recognized. Tier combination findings: `tier-interpreter` (INFO) and `tier-interpreter-network` (MEDIUM when combined with network commands)
+#### Audit Rules Management
+
+- **`audit rules` subcommand** — browse, search, disable, enable, and override severity for individual rules or entire patterns:
+  ```bash
+  skillshare audit rules                          # interactive TUI browser
+  skillshare audit rules --format json             # machine-readable listing
+  skillshare audit rules disable credential-access-ssh-private-key
+  skillshare audit rules disable --pattern prompt-injection
+  skillshare audit rules severity my-rule HIGH
+  skillshare audit rules reset                     # restore built-in defaults
+  skillshare audit rules init                      # create starter audit-rules.yaml
+  ```
+- **Audit Rules TUI** — two-level interactive browser with accordion pattern groups, severity tabs (ALL/CRIT/HIGH/MED/LOW/INFO/OFF), text filter, and inline disable/enable/severity-override actions
+- **Pattern-level rule overrides** — `audit-rules.yaml` now supports pattern-level entries (e.g., `prompt-injection: disabled: true`) that apply to all rules under a pattern
+
+#### Security Policy & Deduplication
+
+- **`--profile` flag** — preset security profiles that set block threshold and deduplication mode in one flag:
+  ```bash
+  skillshare audit --profile strict      # blocks on HIGH+, global dedupe
+  skillshare audit --profile permissive  # blocks on CRITICAL only, legacy dedupe
+  ```
+  Profiles: `default` (CRITICAL threshold, global dedupe), `strict` (HIGH threshold, global dedupe), `permissive` (CRITICAL threshold, legacy dedupe)
+- **`--dedupe` flag** — control finding deduplication: `global` (default) deduplicates across all skills using SHA-256 fingerprints; `legacy` keeps per-skill behavior
+- **Policy display** — active policy (profile, threshold, dedupe mode) shown in audit header, summary box, and TUI footer
+
+#### Analyzer Pipeline
+
+- **`--analyzer` flag** — run only specific analyzers (repeatable): `static`, `dataflow`, `tier`, `integrity`, `structure`, `cross-skill`:
+  ```bash
+  skillshare audit --analyzer static --analyzer dataflow
+  ```
+- **Finding enrichment** — JSON, SARIF, and Markdown outputs now include `ruleId`, `analyzer`, `category`, `confidence`, and `fingerprint` fields per finding
+- **Category-based threat breakdown** — summary now shows threat counts by category (injection, exfiltration, credential, obfuscation, privilege, integrity, structure, risk) across all output channels (CLI, TUI, JSON, Markdown)
+- **Semantic coloring** — TUI summary footer and CLI summary box use per-category colors for the Threats breakdown line
+
+#### New Detection Rules
+
+- **Interpreter tier (T6)** — audit classifies Turing-complete runtimes (`python`, `node`, `ruby`, `perl`, `lua`, `php`, `bun`, `deno`, `npx`, `tsx`, `pwsh`, `powershell`) as T6:interpreter. Versioned binaries like `python3.11` are also recognized. Tier combination findings: `tier-interpreter` (INFO) and `tier-interpreter-network` (MEDIUM when combined with network commands)
 - **Expanded prompt injection detection** — new rules detect `OVERRIDE:`/`IGNORE:`/`ADMIN:`/`ROOT:` prefixes, agent directive tags (`<system>`, `</instructions>`), and jailbreak directives (`DEVELOPER MODE`, `DEV MODE`, `DAN MODE`, `JAILBREAK`)
 - **Table-driven credential access detection** — credential rules are now generated from a data table covering 30+ sensitive paths (SSH keys, AWS/Azure/GCloud credentials, GnuPG keyrings, Kubernetes config, Vault tokens, Terraform credentials, Docker config, GitHub CLI tokens, macOS Keychains, shell history, and more) across 5 access methods (read, copy, redirect, dd, exfil). Supports `~`, `$HOME`, `${HOME}` path variants. Includes an INFO-level heuristic catch-all for unknown home dotdirs. Rule IDs are now descriptive (e.g., `credential-access-ssh-private-key` instead of `credential-access-0`)
 - **Cross-skill credential × interpreter** — new cross-skill rule `cross-skill-cred-interpreter` (MEDIUM) flags when one skill reads credentials and another has interpreter access
@@ -20,12 +58,20 @@
 - **Additional invisible Unicode** — detects soft hyphens (U+00AD), directional marks (U+200E–U+200F), and invisible math operators (U+2061–U+2064) at MEDIUM severity
 - **`env` prefix handling** — command tier classifier now correctly classifies `env python3 script.py` as T6:interpreter instead of T0:read-only
 
+### Performance
+
+- **Regex prefilters** — static analyzer now applies conservative literal-substring prefilters before running regex, reducing scan time on large skills
+
 ### Bug Fixes
 
 - **Regex bypass vulnerabilities closed** — fixed prompt injection rules that could be bypassed with leading whitespace or mixed case; fixed data-exfiltration image rule whose exclude pattern allowed `.png?stolen_data` to pass; fixed `dd if=/etc/shadow` being mislabeled as `destructive-commands` instead of `credential-access`
 - **SSH public key false positive** — `~/.ssh/id_rsa.pub` and other `.pub` files no longer trigger CRITICAL credential-access findings (only private keys are flagged)
 - **Catch-all regex bypass** — fixed heuristic catch-all rule that could be silenced when a known credential path appeared on the same line as an unknown dotdir
 - **Structured output ANSI leak** — `audit --format json/sarif/markdown` no longer leaks pterm cursor hide/show ANSI codes into stdout
+- **Severity-only merge no longer wipes rules** — editing only severity in `audit-rules.yaml` no longer drops the rule's regex patterns
+- **Profile threshold fallback** — profile presets now correctly set block threshold when config has no explicit `block_threshold`
+- **TreeSpinner ghost cursor** — fixed missing `WithWriter` that caused cursor hide/show codes to leak on structured output
+- **TUI summary overflow** — category threat breakdown now renders on a separate line to prevent horizontal overflow on narrow terminals
 
 ## [0.16.8] - 2026-03-02
 

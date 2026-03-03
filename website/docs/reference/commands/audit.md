@@ -456,12 +456,15 @@ Summary
   Warning:   2
   Failed:    1
   Severity:  c/h/m/l/i = 1/2/1/0/0
+  Threats:   inj:1 exfil:1 cred:1 priv:1
   Aggregate: HIGH (35/100)
   Auditable: 100% avg
   Note:      Failed uses severity gate; aggregate is informational
 ```
 
 `Failed` counts skills with findings at or above the active threshold (`--threshold` or config `audit.block_threshold`; default `CRITICAL`).
+
+`Threats` shows a category breakdown of all findings using short names: `inj` (injection), `exfil` (exfiltration), `cred` (credential), `obfusc` (obfuscation), `priv` (privilege), `integ` (integrity), `struct` (structure), `risk` (risk). This line is omitted when there are no findings. In terminal output, each category is color-coded by threat type.
 
 `audit.block_threshold` only controls the blocking threshold. It does **not** disable scanning.
 
@@ -823,6 +826,23 @@ Or per-command:
 skillshare audit --threshold medium  # Block on MEDIUM or above
 ```
 
+### Full Audit Configuration
+
+All audit settings can be persisted in `config.yaml`:
+
+```yaml
+# ~/.config/skillshare/config.yaml (or .skillshare/config.yaml for project)
+audit:
+  block_threshold: HIGH                         # Blocking severity gate
+  profile: strict                               # Profile preset (default/strict/permissive)
+  dedupe_mode: global                           # Dedup mode (global/legacy)
+  enabled_analyzers: [static, dataflow, tier]   # Limit to specific analyzers
+```
+
+CLI flags override config values. See [Precedence](#precedence) for full resolution order.
+
+The `skillshare status` command displays the resolved audit policy, showing the effective profile, threshold, dedupe mode, and analyzer list after applying all precedence layers.
+
 ## Web UI
 
 The audit feature is also available in the web dashboard at `/audit`:
@@ -882,6 +902,10 @@ skillshare audit rules disable prompt-injection-0           # Disable single rul
 skillshare audit rules disable --pattern credential-access  # Disable entire group
 skillshare audit rules enable prompt-injection-0            # Re-enable rule
 skillshare audit rules enable --pattern credential-access   # Re-enable group
+
+skillshare audit rules severity destructive-commands-2 medium      # Downgrade one rule
+skillshare audit rules severity --pattern destructive-commands low  # Downgrade entire group
+skillshare audit rules reset                    # Remove all custom rules, restore defaults
 
 skillshare audit rules init                     # Create starter audit-rules.yaml
 skillshare audit rules init -p                  # Create project-level rules file
@@ -1255,6 +1279,9 @@ Source of truth for regex-based rules:
 | `rules disable --pattern <p>` | Disable all rules matching a pattern |
 | `rules enable <id>` | Re-enable a single rule by ID |
 | `rules enable --pattern <p>` | Re-enable all rules matching a pattern |
+| `rules severity <id> <level>` | Override severity for a single rule |
+| `rules severity --pattern <p> <level>` | Override severity for all rules in a pattern group |
+| `rules reset` | Remove all custom rules (restore built-in defaults) |
 | `rules init` | Create a starter `audit-rules.yaml` (same as `--init-rules`) |
 
 ## See Also

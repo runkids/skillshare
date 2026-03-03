@@ -32,7 +32,7 @@ No single layer catches everything. Combine manual review, automated scanning, c
 | Layer | Tool | What it does |
 |-------|------|-------------|
 | **Review** | Manual | Read SKILL.md before installing — check for suspicious commands |
-| **Audit** | `skillshare audit` | Automated pattern detection (32 built-in rules, 5 severity levels) |
+| **Audit** | `skillshare audit` | Automated pattern detection (100+ built-in rules, 5 severity levels, 6 analyzers) |
 | **Custom Rules** | `audit-rules.yaml` | Organization-specific patterns (internal secrets, allowlists) |
 | **CI/CD** | Pipeline gate | Block PRs that introduce risky skills |
 
