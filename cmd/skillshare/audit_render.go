@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -181,6 +182,9 @@ func buildAuditSummaryLines(summary auditRunSummary) []string {
 		ui.Colorize(ui.SeverityColor("MEDIUM"), fmt.Sprintf("%d", summary.Medium)),
 		ui.Colorize(ui.SeverityColor("LOW"), fmt.Sprintf("%d", summary.Low)),
 		ui.Colorize(ui.SeverityColor("INFO"), fmt.Sprintf("%d", summary.Info))))
+	if threatsLine := formatCategoryBreakdown(summary.ByCategory, false); threatsLine != "" {
+		lines = append(lines, fmt.Sprintf("  Threats:   %s", threatsLine))
+	}
 	riskLabel := strings.ToUpper(summary.RiskLabel)
 	riskText := fmt.Sprintf("%s (%d/100)", riskLabel, summary.RiskScore)
 	lines = append(lines, fmt.Sprintf("  Aggregate: %s", ui.Colorize(riskColor(summary.RiskLabel), riskText)))
@@ -232,6 +236,53 @@ func findingMetaCLI(f audit.Finding) string {
 		return ""
 	}
 	return strings.Join(parts, " / ")
+}
+
+// categoryShortNames maps full category names to compact abbreviations for TUI footer.
+var categoryShortNames = map[string]string{
+	"injection":    "inj",
+	"exfiltration": "exfil",
+	"credential":   "cred",
+	"obfuscation":  "obfusc",
+	"privilege":    "priv",
+	"integrity":    "integ",
+	"structure":    "struct",
+	"risk":         "risk",
+}
+
+// formatCategoryBreakdown formats a category count map as "cat:N cat:N ..."
+// sorted by count descending. If compact is true, uses short names.
+// Returns "" if the map is empty.
+func formatCategoryBreakdown(cats map[string]int, compact bool) string {
+	if len(cats) == 0 {
+		return ""
+	}
+	type catCount struct {
+		name  string
+		count int
+	}
+	sorted := make([]catCount, 0, len(cats))
+	for name, count := range cats {
+		sorted = append(sorted, catCount{name, count})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].count != sorted[j].count {
+			return sorted[i].count > sorted[j].count
+		}
+		return sorted[i].name < sorted[j].name
+	})
+
+	parts := make([]string, len(sorted))
+	for i, cc := range sorted {
+		label := cc.name
+		if compact {
+			if short, ok := categoryShortNames[cc.name]; ok {
+				label = short
+			}
+		}
+		parts[i] = fmt.Sprintf("%s:%d", label, cc.count)
+	}
+	return strings.Join(parts, " ")
 }
 
 func printAuditHelp() {

@@ -538,6 +538,7 @@ export interface AuditSummary {
   threshold: string;
   riskScore: number;
   riskLabel: 'clean' | 'low' | 'medium' | 'high' | 'critical';
+  byCategory?: Record<string, number>;
   scanErrors?: number;
 }
 

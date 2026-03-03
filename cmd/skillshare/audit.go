@@ -52,32 +52,33 @@ func (o auditOptions) isStructured() bool {
 }
 
 type auditRunSummary struct {
-	Scope            string   `json:"scope,omitempty"`
-	Skill            string   `json:"skill,omitempty"`
-	Path             string   `json:"path,omitempty"`
-	Scanned          int      `json:"scanned"`
-	Passed           int      `json:"passed"`
-	Warning          int      `json:"warning"`
-	Failed           int      `json:"failed"`
-	Critical         int      `json:"critical"`
-	High             int      `json:"high"`
-	Medium           int      `json:"medium"`
-	Low              int      `json:"low"`
-	Info             int      `json:"info"`
-	WarnSkills       []string `json:"warningSkills,omitempty"`
-	FailSkills       []string `json:"failedSkills,omitempty"`
-	LowSkills        []string `json:"lowSkills,omitempty"`
-	InfoSkills       []string `json:"infoSkills,omitempty"`
-	ScanErrors       int      `json:"scanErrors"`
-	Mode             string   `json:"mode,omitempty"`
-	Threshold        string   `json:"threshold,omitempty"`
-	MaxSeverity      string   `json:"maxSeverity,omitempty"`
-	RiskScore        int      `json:"riskScore"`
-	RiskLabel        string   `json:"riskLabel,omitempty"`
-	AvgAnalyzability float64  `json:"avgAnalyzability"`
-	PolicyProfile    string   `json:"policyProfile,omitempty"`
-	PolicyDedupe     string   `json:"policyDedupe,omitempty"`
-	PolicyAnalyzers  []string `json:"policyAnalyzers,omitempty"`
+	Scope            string         `json:"scope,omitempty"`
+	Skill            string         `json:"skill,omitempty"`
+	Path             string         `json:"path,omitempty"`
+	Scanned          int            `json:"scanned"`
+	Passed           int            `json:"passed"`
+	Warning          int            `json:"warning"`
+	Failed           int            `json:"failed"`
+	Critical         int            `json:"critical"`
+	High             int            `json:"high"`
+	Medium           int            `json:"medium"`
+	Low              int            `json:"low"`
+	Info             int            `json:"info"`
+	WarnSkills       []string       `json:"warningSkills,omitempty"`
+	FailSkills       []string       `json:"failedSkills,omitempty"`
+	LowSkills        []string       `json:"lowSkills,omitempty"`
+	InfoSkills       []string       `json:"infoSkills,omitempty"`
+	ScanErrors       int            `json:"scanErrors"`
+	Mode             string         `json:"mode,omitempty"`
+	Threshold        string         `json:"threshold,omitempty"`
+	MaxSeverity      string         `json:"maxSeverity,omitempty"`
+	RiskScore        int            `json:"riskScore"`
+	RiskLabel        string         `json:"riskLabel,omitempty"`
+	AvgAnalyzability float64        `json:"avgAnalyzability"`
+	ByCategory       map[string]int `json:"byCategory,omitempty"`
+	PolicyProfile    string         `json:"policyProfile,omitempty"`
+	PolicyDedupe     string         `json:"policyDedupe,omitempty"`
+	PolicyAnalyzers  []string       `json:"policyAnalyzers,omitempty"`
 }
 
 func (s auditRunSummary) toMarkdownOptions() audit.MarkdownOptions {
@@ -98,6 +99,7 @@ func (s auditRunSummary) toMarkdownOptions() audit.MarkdownOptions {
 		Mode:             s.Mode,
 		AvgAnalyzability: s.AvgAnalyzability,
 		Profile:          s.PolicyProfile,
+		ByCategory:       s.ByCategory,
 	}
 }
 
@@ -880,6 +882,7 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 	maxRisk := 0
 	maxSeverity := ""
 	sumAnalyzability := 0.0
+	catCounts := make(map[string]int)
 	for _, r := range results {
 		c, h, m, l, i := r.CountBySeverityAll()
 		summary.Critical += c
@@ -887,6 +890,10 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 		summary.Medium += m
 		summary.Low += l
 		summary.Info += i
+
+		for cat, n := range r.CountByCategory() {
+			catCounts[cat] += n
+		}
 
 		if containsSeverity(r.Findings, audit.SeverityLow) {
 			summary.LowSkills = append(summary.LowSkills, r.SkillName)
@@ -918,6 +925,9 @@ func summarizeAuditResults(total int, results []*audit.Result, threshold string)
 	summary.RiskScore = maxRisk
 	summary.RiskLabel = audit.RiskLabelFromScoreAndMaxSeverity(maxRisk, maxSeverity)
 	summary.MaxSeverity = maxSeverity
+	if len(catCounts) > 0 {
+		summary.ByCategory = catCounts
+	}
 	if len(results) > 0 {
 		summary.AvgAnalyzability = sumAnalyzability / float64(len(results))
 	}
@@ -986,6 +996,16 @@ func recountSummary(results []*audit.Result, threshold string, prev auditRunSumm
 	s.RiskScore = maxRisk
 	s.MaxSeverity = maxSev
 	s.RiskLabel = audit.RiskLabelFromScoreAndMaxSeverity(maxRisk, maxSev)
+
+	catCounts := make(map[string]int)
+	for _, r := range results {
+		for cat, n := range r.CountByCategory() {
+			catCounts[cat] += n
+		}
+	}
+	if len(catCounts) > 0 {
+		s.ByCategory = catCounts
+	}
 	return s
 }
 

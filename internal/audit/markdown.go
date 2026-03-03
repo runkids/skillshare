@@ -25,6 +25,7 @@ type MarkdownOptions struct {
 
 	AvgAnalyzability float64
 	Profile          string
+	ByCategory       map[string]int
 }
 
 // ToMarkdown converts audit results into a Markdown report suitable for
@@ -103,6 +104,9 @@ func writeSummaryTable(b *strings.Builder, opts MarkdownOptions) {
 	fmt.Fprintf(b, "| Failed | %d |\n", opts.Failed)
 	fmt.Fprintf(b, "| Severity | C:%d H:%d M:%d L:%d I:%d |\n",
 		opts.Critical, opts.High, opts.Medium, opts.Low, opts.Info)
+	if threatsLine := formatCategoryBreakdownPlain(opts.ByCategory); threatsLine != "" {
+		fmt.Fprintf(b, "| Threats | %s |\n", threatsLine)
+	}
 	fmt.Fprintf(b, "| Risk | %s (%d/100) |\n",
 		strings.ToUpper(opts.RiskLabel), opts.RiskScore)
 	fmt.Fprintf(b, "| Analyzability | %.0f%% avg |\n",
@@ -212,4 +216,31 @@ func escapeSnippetLine(s string) string {
 // escapeMarkdownTable replaces characters that would break a Markdown table cell.
 func escapeMarkdownTable(s string) string {
 	return strings.ReplaceAll(escapeSnippetLine(s), "|", "\\|")
+}
+
+// formatCategoryBreakdownPlain formats a category count map as "cat:N cat:N ..."
+// sorted by count descending, using full names. Returns "" if map is empty.
+func formatCategoryBreakdownPlain(cats map[string]int) string {
+	if len(cats) == 0 {
+		return ""
+	}
+	type catCount struct {
+		name  string
+		count int
+	}
+	sorted := make([]catCount, 0, len(cats))
+	for name, count := range cats {
+		sorted = append(sorted, catCount{name, count})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].count != sorted[j].count {
+			return sorted[i].count > sorted[j].count
+		}
+		return sorted[i].name < sorted[j].name
+	})
+	parts := make([]string, len(sorted))
+	for i, cc := range sorted {
+		parts[i] = fmt.Sprintf("%s:%d", cc.name, cc.count)
+	}
+	return strings.Join(parts, " ")
 }

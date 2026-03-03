@@ -81,6 +81,10 @@ func (i auditItem) FilterValue() string {
 			parts = append(parts, f.Analyzer)
 			seen[f.Analyzer] = true
 		}
+		if f.Category != "" && !seen[f.Category] {
+			parts = append(parts, f.Category)
+			seen[f.Category] = true
+		}
 	}
 	return strings.Join(parts, " ")
 }
@@ -418,6 +422,9 @@ func (m auditTUIModel) renderSummaryFooter() string {
 	}
 	sep := tc.Dim.Render("/")
 	parts = append(parts, tc.Dim.Render("c/h/m/l/i = ")+strings.Join(sevParts, sep))
+	if threatsLine := formatCategoryBreakdown(s.ByCategory, true); threatsLine != "" {
+		parts = append(parts, tc.Dim.Render("Threats: ")+tc.Yellow.Render(threatsLine))
+	}
 	parts = append(parts, tc.Dim.Render(fmt.Sprintf("Auditable: %.0f%% avg", s.AvgAnalyzability*100)))
 	if s.PolicyProfile != "" {
 		parts = append(parts, tc.Dim.Render("Policy: ")+tuiColorizeProfile(s.PolicyProfile))

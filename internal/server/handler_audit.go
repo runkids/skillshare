@@ -43,22 +43,23 @@ type auditResultResponse struct {
 }
 
 type auditSummary struct {
-	Total            int     `json:"total"`
-	Passed           int     `json:"passed"`
-	Warning          int     `json:"warning"`
-	Failed           int     `json:"failed"`
-	Critical         int     `json:"critical"`
-	High             int     `json:"high"`
-	Medium           int     `json:"medium"`
-	Low              int     `json:"low"`
-	Info             int     `json:"info"`
-	Threshold        string  `json:"threshold"`
-	RiskScore        int     `json:"riskScore"`
-	RiskLabel        string  `json:"riskLabel"`
-	ScanErrors       int     `json:"scanErrors,omitempty"`
-	AvgAnalyzability float64 `json:"avgAnalyzability"`
-	PolicyProfile    string  `json:"policyProfile,omitempty"`
-	PolicyDedupe     string  `json:"policyDedupe,omitempty"`
+	Total            int            `json:"total"`
+	Passed           int            `json:"passed"`
+	Warning          int            `json:"warning"`
+	Failed           int            `json:"failed"`
+	Critical         int            `json:"critical"`
+	High             int            `json:"high"`
+	Medium           int            `json:"medium"`
+	Low              int            `json:"low"`
+	Info             int            `json:"info"`
+	Threshold        string         `json:"threshold"`
+	RiskScore        int            `json:"riskScore"`
+	RiskLabel        string         `json:"riskLabel"`
+	ScanErrors       int            `json:"scanErrors,omitempty"`
+	AvgAnalyzability float64        `json:"avgAnalyzability"`
+	ByCategory       map[string]int `json:"byCategory,omitempty"`
+	PolicyProfile    string         `json:"policyProfile,omitempty"`
+	PolicyDedupe     string         `json:"policyDedupe,omitempty"`
 }
 
 type skillEntry struct {
@@ -122,6 +123,7 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	maxRisk := 0
 	maxSeverity := ""
 	sumAnalyzability := 0.0
+	catCounts := make(map[string]int)
 
 	// Phase 1: parallel scan with bounded workers.
 	projectRoot := s.projectRoot
@@ -161,6 +163,9 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 		mediumCount += m
 		lowCount += l
 		infoCount += i
+		for cat, n := range result.CountByCategory() {
+			catCounts[cat] += n
+		}
 		if l > 0 {
 			lowSkills = append(lowSkills, result.SkillName)
 		}
@@ -197,6 +202,9 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	}
 	summary.PolicyProfile = string(policy.Profile)
 	summary.PolicyDedupe = string(policy.DedupeMode)
+	if len(catCounts) > 0 {
+		summary.ByCategory = catCounts
+	}
 
 	args := map[string]any{
 		"scope":       "all",
@@ -329,6 +337,11 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeAuditLog(status, start, args, msg)
 
+	singleCats := result.CountByCategory()
+	var byCat map[string]int
+	if len(singleCats) > 0 {
+		byCat = singleCats
+	}
 	writeJSON(w, map[string]any{
 		"result": toAuditResponse(result),
 		"summary": auditSummary{
@@ -345,6 +358,7 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 			RiskScore:        result.RiskScore,
 			RiskLabel:        result.RiskLabel,
 			AvgAnalyzability: result.Analyzability,
+			ByCategory:       byCat,
 			PolicyProfile:    string(policy.Profile),
 			PolicyDedupe:     string(policy.DedupeMode),
 		},

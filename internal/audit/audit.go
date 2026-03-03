@@ -164,6 +164,18 @@ func (r *Result) MaxSeverity() string {
 	return max
 }
 
+// CountByCategory returns the count of findings per Category.
+// Only categories with count > 0 are included.
+func (r *Result) CountByCategory() map[string]int {
+	m := make(map[string]int)
+	for _, f := range r.Findings {
+		if f.Category != "" {
+			m[f.Category]++
+		}
+	}
+	return m
+}
+
 // CountBySeverity returns the count of findings at CRITICAL/HIGH/MEDIUM severities.
 func (r *Result) CountBySeverity() (critical, high, medium int) {
 	critical, high, medium, _, _ = r.CountBySeverityAll()
