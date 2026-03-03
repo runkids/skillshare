@@ -10,8 +10,8 @@ func TestResolvePolicy_Defaults(t *testing.T) {
 	if p.Threshold != SeverityCritical {
 		t.Errorf("threshold = %q, want %q", p.Threshold, SeverityCritical)
 	}
-	if p.DedupeMode != DedupeLegacy {
-		t.Errorf("dedupe = %q, want %q", p.DedupeMode, DedupeLegacy)
+	if p.DedupeMode != DedupeGlobal {
+		t.Errorf("dedupe = %q, want %q", p.DedupeMode, DedupeGlobal)
 	}
 }
 
