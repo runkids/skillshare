@@ -290,6 +290,42 @@ func TestMergeRules_PatternDisableThenIDEnable(t *testing.T) {
 	}
 }
 
+func TestMergeRules_SeverityOnlyOverride(t *testing.T) {
+	base := []yamlRule{
+		{ID: "rule-1", Severity: SeverityHigh, Pattern: "p1", Message: "msg", Regex: "r1"},
+	}
+	overlay := []yamlRule{
+		{ID: "rule-1", Severity: SeverityLow},
+	}
+	merged := mergeYAMLRules(base, overlay)
+	if len(merged) != 1 {
+		t.Fatalf("expected 1 rule, got %d", len(merged))
+	}
+	if merged[0].Severity != SeverityLow {
+		t.Errorf("severity: want LOW, got %s", merged[0].Severity)
+	}
+	if merged[0].Regex != "r1" {
+		t.Errorf("regex should be preserved, got %q", merged[0].Regex)
+	}
+	if merged[0].Message != "msg" {
+		t.Errorf("message should be preserved, got %q", merged[0].Message)
+	}
+	if merged[0].Pattern != "p1" {
+		t.Errorf("pattern should be preserved, got %q", merged[0].Pattern)
+	}
+	// Verify it compiles successfully.
+	compiled, err := compileRules(merged)
+	if err != nil {
+		t.Fatalf("compileRules should succeed: %v", err)
+	}
+	if len(compiled) != 1 {
+		t.Fatalf("expected 1 compiled rule, got %d", len(compiled))
+	}
+	if compiled[0].Severity != SeverityLow {
+		t.Errorf("compiled severity: want LOW, got %s", compiled[0].Severity)
+	}
+}
+
 func TestLoadUserRules_NotFound(t *testing.T) {
 	rules, err := loadUserRules("/nonexistent/path/audit-rules.yaml")
 	if err != nil {

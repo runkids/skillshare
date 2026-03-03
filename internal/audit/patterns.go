@@ -335,16 +335,26 @@ func mergeYAMLRules(base, overlay []yamlRule) []yamlRule {
 		}
 	}
 
-	// Phase 2: apply id-level overlays (same logic as before).
+	// Phase 2: apply id-level overlays with field-level merge.
 	for _, o := range idOverlays {
 		if pos, exists := idx[o.ID]; exists {
-			if o.Enabled != nil && !*o.Enabled {
-				result[pos].Enabled = o.Enabled
-			} else if o.Enabled != nil && *o.Enabled {
-				// Explicit enabled:true clears a disabled flag (e.g. from pattern-level).
-				result[pos].Enabled = nil
-			} else {
+			if o.Regex != "" {
+				// Full custom rule (has regex) → replace entirely.
 				result[pos] = o
+			} else {
+				// Partial overlay (toggle / severity override) → merge fields.
+				if o.Enabled != nil {
+					if *o.Enabled {
+						// Explicit enabled:true clears a disabled flag
+						// (e.g. from pattern-level).
+						result[pos].Enabled = nil
+					} else {
+						result[pos].Enabled = o.Enabled
+					}
+				}
+				if o.Severity != "" {
+					result[pos].Severity = o.Severity
+				}
 			}
 		} else {
 			// New rule — append.

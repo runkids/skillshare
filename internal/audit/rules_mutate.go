@@ -49,6 +49,7 @@ func TogglePattern(path, pattern string, enabled bool) error {
 
 	if enabled {
 		rules = removePatternEntry(rules, pattern)
+		rules = clearDisableForPattern(rules, pattern)
 	} else {
 		rules = upsertPatternDisable(rules, pattern)
 	}
@@ -192,4 +193,35 @@ func upsertPatternSeverity(rules []yamlRule, pattern, severity string) []yamlRul
 		}
 	}
 	return append(rules, yamlRule{Pattern: pattern, Severity: severity})
+}
+
+// builtinIDsForPattern returns all builtin rule IDs belonging to a pattern.
+func builtinIDsForPattern(pattern string) map[string]bool {
+	ids := make(map[string]bool)
+	for _, r := range builtinYAML() {
+		if r.Pattern == pattern {
+			ids[r.ID] = true
+		}
+	}
+	return ids
+}
+
+// clearDisableForPattern clears enabled:false on ID-level entries
+// belonging to the given pattern — both builtin and custom rules.
+// Entries that only had enabled:false (no other overrides) are removed entirely.
+func clearDisableForPattern(rules []yamlRule, pattern string) []yamlRule {
+	ids := builtinIDsForPattern(pattern)
+	result := make([]yamlRule, 0, len(rules))
+	for _, r := range rules {
+		belongsToPattern := ids[r.ID] || (r.Pattern == pattern && r.ID != "")
+		if belongsToPattern && r.Enabled != nil && !*r.Enabled {
+			r.Enabled = nil
+			// Drop entry if it has no other overrides.
+			if r.Severity == "" && r.Regex == "" {
+				continue
+			}
+		}
+		result = append(result, r)
+	}
+	return result
 }

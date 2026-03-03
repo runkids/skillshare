@@ -362,4 +362,203 @@ func TestSetSeverityBatch_Shorthand(t *testing.T) {
 	}
 }
 
+func TestSetSeverity_PreservesRegex(t *testing.T) {
+	resetForTest()
+
+	dir := t.TempDir()
+	t.Setenv("SKILLSHARE_CONFIG", filepath.Join(dir, "config.yaml"))
+	path := filepath.Join(dir, "audit-rules.yaml")
+
+	// Pick a known builtin rule ID.
+	builtins := builtinYAML()
+	if len(builtins) == 0 {
+		t.Fatal("no builtin rules")
+	}
+	target := builtins[0]
+
+	// Set severity override (writes only id+severity to YAML).
+	if err := SetSeverity(path, target.ID, "LOW"); err != nil {
+		t.Fatalf("SetSeverity: %v", err)
+	}
+
+	// Merge and compile — must not fail with "empty regex".
+	user, err := loadUserRules(path)
+	if err != nil {
+		t.Fatalf("loadUserRules: %v", err)
+	}
+	merged := mergeYAMLRules(builtinYAML(), user)
+	compiled, err := compileRules(merged)
+	if err != nil {
+		t.Fatalf("compileRules should succeed after severity override: %v", err)
+	}
+
+	// Find the target rule and verify severity was changed.
+	found := false
+	for _, r := range compiled {
+		if r.ID == target.ID {
+			found = true
+			if r.Severity != SeverityLow {
+				t.Errorf("severity: want LOW, got %s", r.Severity)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("rule %s not found in compiled rules", target.ID)
+	}
+}
+
+func TestTogglePattern_EnableClearsIDDisables(t *testing.T) {
+	resetForTest()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audit-rules.yaml")
+
+	// Find two rule IDs from the same pattern.
+	builtins := builtinYAML()
+	var pattern string
+	var ids []string
+	patternIDs := make(map[string][]string)
+	for _, r := range builtins {
+		patternIDs[r.Pattern] = append(patternIDs[r.Pattern], r.ID)
+	}
+	for p, pids := range patternIDs {
+		if len(pids) >= 2 {
+			pattern = p
+			ids = pids[:2]
+			break
+		}
+	}
+	if pattern == "" {
+		t.Skip("no pattern with 2+ rules found")
+	}
+
+	// Disable both IDs individually.
+	for _, id := range ids {
+		if err := ToggleRule(path, id, false); err != nil {
+			t.Fatalf("ToggleRule disable %s: %v", id, err)
+		}
+	}
+
+	// Verify they are disabled.
+	rules, _ := loadUserRules(path)
+	for _, r := range rules {
+		for _, id := range ids {
+			if r.ID == id && (r.Enabled == nil || *r.Enabled) {
+				t.Fatalf("expected %s to be disabled", id)
+			}
+		}
+	}
+
+	// Enable the whole pattern — should clear ID-level disables.
+	if err := TogglePattern(path, pattern, true); err != nil {
+		t.Fatalf("TogglePattern enable: %v", err)
+	}
+
+	// Verify no disabled entries remain.
+	rules, _ = loadUserRules(path)
+	for _, r := range rules {
+		if r.Enabled != nil && !*r.Enabled {
+			for _, id := range ids {
+				if r.ID == id {
+					t.Errorf("rule %s should no longer be disabled after pattern enable", id)
+				}
+			}
+		}
+	}
+}
+
+func TestTogglePattern_EnableKeepsSeverityOverride(t *testing.T) {
+	resetForTest()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audit-rules.yaml")
+
+	// Find a rule from a known pattern.
+	builtins := builtinYAML()
+	var target yamlRule
+	for _, r := range builtins {
+		if r.Pattern != "" {
+			target = r
+			break
+		}
+	}
+	if target.ID == "" {
+		t.Fatal("no builtin rule with pattern found")
+	}
+
+	// Disable the ID and set severity override.
+	if err := ToggleRule(path, target.ID, false); err != nil {
+		t.Fatalf("ToggleRule: %v", err)
+	}
+	if err := SetSeverity(path, target.ID, "INFO"); err != nil {
+		t.Fatalf("SetSeverity: %v", err)
+	}
+
+	// Enable the whole pattern.
+	if err := TogglePattern(path, target.Pattern, true); err != nil {
+		t.Fatalf("TogglePattern: %v", err)
+	}
+
+	// The severity override should be kept, enabled:false should be cleared.
+	rules, _ := loadUserRules(path)
+	found := false
+	for _, r := range rules {
+		if r.ID == target.ID {
+			found = true
+			if r.Enabled != nil && !*r.Enabled {
+				t.Error("enabled:false should have been cleared")
+			}
+			if r.Severity != "INFO" {
+				t.Errorf("severity override should be preserved, got %q", r.Severity)
+			}
+		}
+	}
+	if !found {
+		t.Error("entry with severity override should still exist")
+	}
+}
+
+func TestTogglePattern_EnableClearsCustomRuleDisables(t *testing.T) {
+	resetForTest()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "audit-rules.yaml")
+
+	// Write a custom rule in the same pattern as a builtin, then disable it.
+	disabled := false
+	writeRulesFile(path, []yamlRule{
+		{
+			ID:       "my-custom-cred-rule",
+			Severity: "HIGH",
+			Pattern:  "credential-access",
+			Message:  "Custom credential check",
+			Regex:    "SUPER_SECRET",
+			Enabled:  &disabled,
+		},
+	})
+
+	// Enable the whole pattern — custom rule should also be re-enabled.
+	if err := TogglePattern(path, "credential-access", true); err != nil {
+		t.Fatalf("TogglePattern enable: %v", err)
+	}
+
+	rules, _ := loadUserRules(path)
+	found := false
+	for _, r := range rules {
+		if r.ID == "my-custom-cred-rule" {
+			found = true
+			if r.Enabled != nil && !*r.Enabled {
+				t.Error("custom rule should no longer be disabled after pattern enable")
+			}
+			// Regex and other fields should still be intact.
+			if r.Regex != "SUPER_SECRET" {
+				t.Errorf("regex should be preserved, got %q", r.Regex)
+			}
+		}
+	}
+	if !found {
+		t.Error("custom rule entry should still exist (has regex)")
+	}
+}
+
 func boolPtr(b bool) *bool { return &b }
