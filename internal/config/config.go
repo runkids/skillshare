@@ -22,6 +22,8 @@ type TargetConfig struct {
 // AuditConfig holds security audit policy settings.
 type AuditConfig struct {
 	BlockThreshold string `yaml:"block_threshold,omitempty"` // CRITICAL/HIGH/MEDIUM/LOW/INFO
+	Profile        string `yaml:"profile,omitempty"`          // default/strict/permissive
+	DedupeMode     string `yaml:"dedupe_mode,omitempty"`      // legacy/global
 }
 
 // LogConfig holds log retention settings.

@@ -90,6 +90,18 @@
           "description": "Minimum severity level that blocks 'skillshare install'. Scanning always runs regardless of this setting.",
           "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"],
           "default": "CRITICAL"
+        },
+        "profile": {
+          "type": "string",
+          "description": "Audit profile preset. Sets default threshold and dedupe mode. Explicit settings override profile defaults.",
+          "enum": ["default", "strict", "permissive"],
+          "default": "default"
+        },
+        "dedupe_mode": {
+          "type": "string",
+          "description": "Finding deduplication mode. 'legacy' keeps existing behavior; 'global' applies full composite-key deduplication.",
+          "enum": ["legacy", "global"],
+          "default": "legacy"
         }
       }
     },
