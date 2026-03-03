@@ -16,9 +16,13 @@ const (
 	Blue    = "\033[34m"
 	Magenta = "\033[35m"
 	Cyan    = "\033[36m"
-	Orange  = "\033[38;5;208m"
-	Gray    = "\033[90m"
-	White   = "\033[97m"
+	Orange    = "\033[38;5;208m"
+	Purple    = "\033[38;5;135m"
+	BrightRed = "\033[38;5;9m"
+	OrangeAlt = "\033[38;5;214m"
+	BrightBlue = "\033[38;5;12m"
+	Gray      = "\033[90m"
+	White     = "\033[97m"
 )
 
 // Semantic color aliases for consistent theming

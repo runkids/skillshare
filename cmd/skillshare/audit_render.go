@@ -182,8 +182,14 @@ func buildAuditSummaryLines(summary auditRunSummary) []string {
 		ui.Colorize(ui.SeverityColor("MEDIUM"), fmt.Sprintf("%d", summary.Medium)),
 		ui.Colorize(ui.SeverityColor("LOW"), fmt.Sprintf("%d", summary.Low)),
 		ui.Colorize(ui.SeverityColor("INFO"), fmt.Sprintf("%d", summary.Info))))
-	if threatsLine := formatCategoryBreakdown(summary.ByCategory, false); threatsLine != "" {
-		lines = append(lines, fmt.Sprintf("  Threats:   %s", threatsLine))
+	if ui.IsTTY() {
+		if threatsLine := formatCategoryBreakdownCLI(summary.ByCategory); threatsLine != "" {
+			lines = append(lines, fmt.Sprintf("  Threats:   %s", threatsLine))
+		}
+	} else {
+		if threatsLine := formatCategoryBreakdown(summary.ByCategory, false); threatsLine != "" {
+			lines = append(lines, fmt.Sprintf("  Threats:   %s", threatsLine))
+		}
 	}
 	riskLabel := strings.ToUpper(summary.RiskLabel)
 	riskText := fmt.Sprintf("%s (%d/100)", riskLabel, summary.RiskScore)
@@ -281,6 +287,60 @@ func formatCategoryBreakdown(cats map[string]int, compact bool) string {
 			}
 		}
 		parts[i] = fmt.Sprintf("%s:%d", label, cc.count)
+	}
+	return strings.Join(parts, " ")
+}
+
+// categoryColorCLI returns an ANSI color code for a threat category,
+// matching the semantic palette used in the TUI (categoryStyle).
+func categoryColorCLI(cat string) string {
+	switch strings.ToLower(cat) {
+	case "injection":
+		return ui.BrightRed
+	case "exfiltration":
+		return ui.Orange
+	case "credential":
+		return ui.Magenta
+	case "obfuscation":
+		return ui.Purple
+	case "privilege":
+		return ui.Yellow
+	case "integrity":
+		return ui.Cyan
+	case "structure":
+		return ui.Blue
+	case "risk":
+		return ui.OrangeAlt
+	default:
+		return ui.Gray
+	}
+}
+
+// formatCategoryBreakdownCLI formats a category count map as ANSI-colored
+// "cat:N cat:N ..." for CLI summary box output. Returns "" if empty.
+func formatCategoryBreakdownCLI(cats map[string]int) string {
+	if len(cats) == 0 {
+		return ""
+	}
+	type catCount struct {
+		name  string
+		count int
+	}
+	sorted := make([]catCount, 0, len(cats))
+	for name, count := range cats {
+		sorted = append(sorted, catCount{name, count})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].count != sorted[j].count {
+			return sorted[i].count > sorted[j].count
+		}
+		return sorted[i].name < sorted[j].name
+	})
+
+	parts := make([]string, len(sorted))
+	for i, cc := range sorted {
+		color := categoryColorCLI(cc.name)
+		parts[i] = fmt.Sprintf("%s%s:%s%d%s", color, cc.name, ui.Bold, cc.count, ui.Reset)
 	}
 	return strings.Join(parts, " ")
 }
