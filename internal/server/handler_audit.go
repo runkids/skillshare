@@ -19,6 +19,13 @@ type auditFindingResponse struct {
 	File     string `json:"file"`
 	Line     int    `json:"line"`
 	Snippet  string `json:"snippet"`
+
+	// Phase 2 fields — analyzer traceability and deduplication.
+	RuleID      string  `json:"ruleId,omitempty"`
+	Analyzer    string  `json:"analyzer,omitempty"`
+	Category    string  `json:"category,omitempty"`
+	Confidence  float64 `json:"confidence,omitempty"`
+	Fingerprint string  `json:"fingerprint,omitempty"`
 }
 
 type auditResultResponse struct {
@@ -557,12 +564,17 @@ func toAuditResponse(result *audit.Result) auditResultResponse {
 	findings := make([]auditFindingResponse, 0, len(result.Findings))
 	for _, f := range result.Findings {
 		findings = append(findings, auditFindingResponse{
-			Severity: f.Severity,
-			Pattern:  f.Pattern,
-			Message:  f.Message,
-			File:     f.File,
-			Line:     f.Line,
-			Snippet:  f.Snippet,
+			Severity:    f.Severity,
+			Pattern:     f.Pattern,
+			Message:     f.Message,
+			File:        f.File,
+			Line:        f.Line,
+			Snippet:     f.Snippet,
+			RuleID:      f.RuleID,
+			Analyzer:    f.Analyzer,
+			Category:    f.Category,
+			Confidence:  f.Confidence,
+			Fingerprint: f.Fingerprint,
 		})
 	}
 	return auditResultResponse{

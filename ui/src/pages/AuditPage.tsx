@@ -695,6 +695,11 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
       >
         {finding.file}:{finding.line}
       </span>
+      {(finding.ruleId || finding.analyzer || finding.category) && (
+        <span className="text-xs text-pencil-light/60">
+          {[finding.ruleId, finding.analyzer, finding.category].filter(Boolean).join(' · ')}
+        </span>
+      )}
       {finding.snippet && (
         <div
           className="relative mt-1"

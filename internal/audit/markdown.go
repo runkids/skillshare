@@ -146,22 +146,32 @@ func writeSkillSection(b *strings.Builder, r *Result, blocked bool) {
 	}
 
 	// Findings table — also track whether any snippets exist.
-	b.WriteString("| # | Severity | Pattern | Analyzer | Message | Location |\n")
-	b.WriteString("|---|----------|---------|----------|---------|----------|\n")
+	b.WriteString("| # | Rule ID | Severity | Pattern | Analyzer | Category | Message | Location |\n")
+	b.WriteString("|---|---------|----------|---------|----------|----------|---------|----------|\n")
 	hasSnippets := false
 	for i, f := range r.Findings {
 		if f.Snippet != "" {
 			hasSnippets = true
 		}
+		ruleID := f.RuleID
+		if ruleID == "" {
+			ruleID = "-"
+		}
 		analyzer := f.Analyzer
 		if analyzer == "" {
 			analyzer = "-"
 		}
-		fmt.Fprintf(b, "| %d | %s | %s | %s | %s | %s |\n",
+		category := f.Category
+		if category == "" {
+			category = "-"
+		}
+		fmt.Fprintf(b, "| %d | %s | %s | %s | %s | %s | %s | %s |\n",
 			i+1,
+			escapeMarkdownTable(ruleID),
 			escapeMarkdownTable(f.Severity),
 			escapeMarkdownTable(f.Pattern),
 			escapeMarkdownTable(analyzer),
+			escapeMarkdownTable(category),
 			escapeMarkdownTable(f.Message),
 			escapeMarkdownTable(findingLocation(f)),
 		)

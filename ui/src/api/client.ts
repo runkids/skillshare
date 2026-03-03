@@ -508,6 +508,11 @@ export interface AuditFinding {
   file: string;
   line: number;
   snippet: string;
+  ruleId?: string;
+  analyzer?: string;
+  category?: string;
+  confidence?: number;
+  fingerprint?: string;
 }
 
 export interface AuditResult {

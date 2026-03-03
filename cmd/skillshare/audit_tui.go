@@ -73,6 +73,14 @@ func (i auditItem) FilterValue() string {
 			parts = append(parts, f.File)
 			seen[f.File] = true
 		}
+		if f.RuleID != "" && !seen[f.RuleID] {
+			parts = append(parts, f.RuleID)
+			seen[f.RuleID] = true
+		}
+		if f.Analyzer != "" && !seen[f.Analyzer] {
+			parts = append(parts, f.Analyzer)
+			seen[f.Analyzer] = true
+		}
 	}
 	return strings.Join(parts, " ")
 }
@@ -543,6 +551,13 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 			b.WriteString(tc.Dim.Render(f.Message))
 			b.WriteString("\n")
 
+			// Metadata: ruleID / analyzer / category
+			if meta := findingMetaTUI(f); meta != "" {
+				b.WriteString(tc.Dim.Render("    "))
+				b.WriteString(ac.File.Render(meta))
+				b.WriteString("\n")
+			}
+
 			// Location: file:line
 			loc := fmt.Sprintf("%s:%d", f.File, f.Line)
 			b.WriteString(tc.Dim.Render("    "))
@@ -614,6 +629,25 @@ func tuiColorizeDedupe(dedupe string) string {
 // tuiColorizeAnalyzers returns a lipgloss-styled UPPERCASE analyzer list.
 func tuiColorizeAnalyzers(analyzers []string) string {
 	return tc.Cyan.Render(policyAnalyzersLabel(analyzers))
+}
+
+// findingMetaTUI builds a compact "ruleID / analyzer / category" string for TUI detail.
+// Returns "" if no Phase 2 fields are set.
+func findingMetaTUI(f audit.Finding) string {
+	var parts []string
+	if f.RuleID != "" {
+		parts = append(parts, f.RuleID)
+	}
+	if f.Analyzer != "" {
+		parts = append(parts, f.Analyzer)
+	}
+	if f.Category != "" {
+		parts = append(parts, f.Category)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " / ")
 }
 
 // runAuditTUI starts the bubbletea TUI for audit results.

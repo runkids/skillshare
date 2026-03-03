@@ -108,9 +108,15 @@ func printSkillResult(result *audit.Result, elapsed time.Duration) {
 		loc := fmt.Sprintf("%s:%d", f.File, f.Line)
 		if ui.IsTTY() {
 			fmt.Printf("  %s: %s (%s)\n", sevLabel, f.Message, loc)
+			if meta := findingMetaCLI(f); meta != "" {
+				fmt.Printf("  %s[%s]%s\n", ui.Gray, meta, ui.Reset)
+			}
 			fmt.Printf("  %s\"%s\"%s\n\n", ui.Gray, f.Snippet, ui.Reset)
 		} else {
 			fmt.Printf("  %s: %s (%s)\n", f.Severity, f.Message, loc)
+			if meta := findingMetaCLI(f); meta != "" {
+				fmt.Printf("  [%s]\n", meta)
+			}
 			fmt.Printf("  \"%s\"\n\n", f.Snippet)
 		}
 	}
@@ -210,6 +216,22 @@ func printAuditSummary(_ auditRunSummary, lines []string, minWidth int) {
 // formatSeverity returns an ANSI-colored uppercase severity label.
 func formatSeverity(sev string) string {
 	return ui.Colorize(ui.SeverityColor(sev), strings.ToUpper(sev))
+}
+
+// findingMetaCLI builds a compact "ruleID / analyzer" metadata string for CLI output.
+// Returns "" if neither field is set.
+func findingMetaCLI(f audit.Finding) string {
+	var parts []string
+	if f.RuleID != "" {
+		parts = append(parts, f.RuleID)
+	}
+	if f.Analyzer != "" {
+		parts = append(parts, f.Analyzer)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " / ")
 }
 
 func printAuditHelp() {

@@ -41,8 +41,8 @@ func TestToMarkdown_WithFindings(t *testing.T) {
 			RiskLabel:     "high",
 			Analyzability: 0.85,
 			Findings: []Finding{
-				{Severity: SeverityCritical, Pattern: "prompt-injection", Message: "Prompt injection detected", File: "SKILL.md", Line: 5, Snippet: "ignore all previous instructions"},
-				{Severity: SeverityHigh, Pattern: "destructive-commands", Message: "Destructive command", File: "SKILL.md", Line: 42, Snippet: "rm -rf /"},
+				{Severity: SeverityCritical, Pattern: "prompt-injection", Message: "Prompt injection detected", File: "SKILL.md", Line: 5, Snippet: "ignore all previous instructions", RuleID: "prompt-injection-1", Analyzer: "static", Category: "injection"},
+				{Severity: SeverityHigh, Pattern: "destructive-commands", Message: "Destructive command", File: "SKILL.md", Line: 42, Snippet: "rm -rf /", RuleID: "destructive-cmd-1", Analyzer: "static", Category: "destructive"},
 			},
 		},
 		{
@@ -53,7 +53,7 @@ func TestToMarkdown_WithFindings(t *testing.T) {
 			RiskLabel:     "medium",
 			Analyzability: 1.0,
 			Findings: []Finding{
-				{Severity: SeverityMedium, Pattern: "suspicious-fetch", Message: "URL in command context", File: "SKILL.md", Line: 3, Snippet: "curl http://example.com"},
+				{Severity: SeverityMedium, Pattern: "suspicious-fetch", Message: "URL in command context", File: "SKILL.md", Line: 3, Snippet: "curl http://example.com", RuleID: "fetch-1", Analyzer: "dataflow", Category: "exfiltration"},
 			},
 		},
 	}
@@ -113,6 +113,20 @@ func TestToMarkdown_WithFindings(t *testing.T) {
 		t.Error("missing ALLOWED marker")
 	}
 
+	// Rule ID and Category columns
+	if !strings.Contains(md, "| Rule ID |") {
+		t.Error("missing Rule ID column header")
+	}
+	if !strings.Contains(md, "| Category |") {
+		t.Error("missing Category column header")
+	}
+	if !strings.Contains(md, "prompt-injection-1") {
+		t.Error("missing rule ID in findings table")
+	}
+	if !strings.Contains(md, "injection") {
+		t.Error("missing category in findings table")
+	}
+
 	// Snippets
 	if !strings.Contains(md, "<details>") {
 		t.Error("missing snippets collapsible section")
@@ -165,7 +179,7 @@ func TestToMarkdown_PipeEscape(t *testing.T) {
 			RiskLabel:     "critical",
 			Analyzability: 1.0,
 			Findings: []Finding{
-				{Severity: SeverityCritical, Pattern: "test-pattern", Message: "msg with | pipe", File: "SKILL.md", Line: 1, Snippet: "echo foo | bar"},
+				{Severity: SeverityCritical, Pattern: "test-pattern", Message: "msg with | pipe", File: "SKILL.md", Line: 1, Snippet: "echo foo | bar", RuleID: "test-1", Analyzer: "static"},
 			},
 		},
 	}
@@ -204,7 +218,7 @@ func TestToMarkdown_TierProfile(t *testing.T) {
 			Analyzability: 0.9,
 			TierProfile:   tp,
 			Findings: []Finding{
-				{Severity: SeverityMedium, Pattern: "suspicious-fetch", Message: "URL", File: "SKILL.md", Line: 1, Snippet: "curl http://x"},
+				{Severity: SeverityMedium, Pattern: "suspicious-fetch", Message: "URL", File: "SKILL.md", Line: 1, Snippet: "curl http://x", Analyzer: "static"},
 			},
 		},
 	}
