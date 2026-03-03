@@ -5,20 +5,22 @@ type Registry struct {
 	analyzers []Analyzer
 }
 
-// DefaultRegistry returns a registry with all built-in analyzers.
-func DefaultRegistry() *Registry {
-	return &Registry{
-		analyzers: []Analyzer{
-			&staticAnalyzer{},
-			&dataflowAnalyzer{},
-			&markdownLinkAnalyzer{},
-			&structureAnalyzer{},
-			&integrityAnalyzer{},
-			&tierAnalyzer{},
-			&crossSkillAnalyzer{},
-		},
-	}
+// defaultRegistry is a package-level singleton. All built-in analyzers are
+// stateless (zero-field structs), so sharing a single instance is safe.
+var defaultRegistry = &Registry{
+	analyzers: []Analyzer{
+		&staticAnalyzer{},
+		&dataflowAnalyzer{},
+		&markdownLinkAnalyzer{},
+		&structureAnalyzer{},
+		&integrityAnalyzer{},
+		&tierAnalyzer{},
+		&crossSkillAnalyzer{},
+	},
 }
+
+// DefaultRegistry returns a registry with all built-in analyzers.
+func DefaultRegistry() *Registry { return defaultRegistry }
 
 // ForPolicy returns a filtered registry respecting policy.EnabledAnalyzers.
 // If EnabledAnalyzers is nil/empty, all analyzers are enabled (default behavior).

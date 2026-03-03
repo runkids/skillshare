@@ -265,7 +265,7 @@ func RiskLabelFromScoreAndMaxSeverity(score int, maxSeverity string) string {
 // ScanSkill scans all scannable files in a skill directory using global rules.
 func ScanSkill(skillPath string) (*Result, error) {
 	disabled := disabledIDsGlobal()
-	return scanSkillImpl(skillPath, nil, disabled)
+	return scanSkillImpl(skillPath, nil, disabled, nil)
 }
 
 // ScanFile scans a single file using global rules.
@@ -290,7 +290,7 @@ func ScanSkillForProject(skillPath, projectRoot string) (*Result, error) {
 		return nil, fmt.Errorf("load project rules: %w", err)
 	}
 	disabled := disabledIDsForProject(projectRoot)
-	return scanSkillImpl(skillPath, rules, disabled)
+	return scanSkillImpl(skillPath, rules, disabled, nil)
 }
 
 // ScanSkillWithRules scans all scannable files using the given rules.
@@ -298,7 +298,7 @@ func ScanSkillForProject(skillPath, projectRoot string) (*Result, error) {
 // Structural checks (e.g. dangling-link) always run; to disable them
 // use ScanSkill / ScanSkillForProject which honour audit-rules.yaml.
 func ScanSkillWithRules(skillPath string, activeRules []rule) (*Result, error) {
-	return scanSkillImpl(skillPath, activeRules, nil)
+	return scanSkillImpl(skillPath, activeRules, nil, nil)
 }
 
 // ScanSkillFiltered scans a skill using the given registry to control which
@@ -318,11 +318,8 @@ func ScanSkillFilteredForProject(skillPath, projectRoot string, registry *Regist
 	return scanSkillImpl(skillPath, rules, disabled, registry)
 }
 
-func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]bool, reg ...*Registry) (*Result, error) {
-	var registry *Registry
-	if len(reg) > 0 && reg[0] != nil {
-		registry = reg[0]
-	} else {
+func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]bool, registry *Registry) (*Result, error) {
+	if registry == nil {
 		registry = DefaultRegistry()
 	}
 	info, err := os.Stat(skillPath)
@@ -354,6 +351,10 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 
 	var totalBytes, auditableBytes int64
 	var skillTierProfile TierProfile
+
+	// Pre-compute per-file analyzer checks to avoid O(n) linear scans per file.
+	hasStatic := registry.Has(AnalyzerStatic)
+	hasDataflow := registry.Has(AnalyzerDataflow)
 
 	err = filepath.Walk(skillPath, func(path string, fi os.FileInfo, walkErr error) error {
 		if walkErr != nil {
@@ -422,15 +423,11 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 
 		// --- File-scope analyzers (gated by registry) ---
 		var findings []Finding
-		if registry.Has(AnalyzerStatic) {
-			rulesForFile := resolvedRules
+		if hasStatic {
 			if isMarkdown {
-				rulesForFile = mdContentRules
-			}
-			if isMarkdown {
-				findings = ScanMarkdownContentWithRules(data, relPath, rulesForFile)
+				findings = ScanMarkdownContentWithRules(data, relPath, mdContentRules)
 			} else {
-				findings = ScanContentWithRules(data, relPath, rulesForFile)
+				findings = ScanContentWithRules(data, relPath, resolvedRules)
 			}
 			result.Findings = append(result.Findings, findings...)
 		}
@@ -442,7 +439,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 			skillTierProfile.Merge(DetectCommandTiers(data))
 		}
 
-		if registry.Has(AnalyzerDataflow) && !disabled[patternDataflowTaint] {
+		if hasDataflow && !disabled[patternDataflowTaint] {
 			var dfFindings []Finding
 			if isMarkdown {
 				dfFindings = ScanMarkdownDataflow(data, relPath)

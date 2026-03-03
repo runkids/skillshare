@@ -11,8 +11,13 @@ import (
 	"github.com/pterm/pterm"
 )
 
-// ansiRegex matches ANSI escape sequences
-var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+// ansiRegex matches ANSI escape sequences (CSI sequences ending with any letter).
+var ansiRegex = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+
+// StripANSI removes all ANSI escape sequences from a string.
+func StripANSI(s string) string {
+	return ansiRegex.ReplaceAllString(s, "")
+}
 
 // gitProgressPercentRegex extracts "Stage: NN%" from git progress lines.
 var gitProgressPercentRegex = regexp.MustCompile(`^([^:]+):\s*([0-9]{1,3}%)`)
@@ -32,9 +37,7 @@ func init() {
 
 // DisplayWidth returns the visible width of a string (excluding ANSI codes, handling wide chars)
 func DisplayWidth(s string) int {
-	// Remove ANSI codes first, then calculate Unicode-aware width
-	clean := ansiRegex.ReplaceAllString(s, "")
-	return runewidth.StringWidth(clean)
+	return runewidth.StringWidth(StripANSI(s))
 }
 
 // fileTTY returns true if the given file descriptor is a terminal.

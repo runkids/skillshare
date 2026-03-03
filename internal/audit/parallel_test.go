@@ -8,7 +8,7 @@ import (
 )
 
 func TestParallelScan_EmptyInput(t *testing.T) {
-	outputs := ParallelScan(nil, "", nil)
+	outputs := ParallelScan(nil, "", nil, nil)
 	if len(outputs) != 0 {
 		t.Errorf("expected 0 outputs, got %d", len(outputs))
 	}
@@ -21,7 +21,7 @@ func TestParallelScan_SingleSkill(t *testing.T) {
 	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("# Clean skill"), 0644)
 
 	inputs := []SkillInput{{Name: "clean-skill", Path: skillDir}}
-	outputs := ParallelScan(inputs, "", nil)
+	outputs := ParallelScan(inputs, "", nil, nil)
 
 	if len(outputs) != 1 {
 		t.Fatalf("expected 1 output, got %d", len(outputs))
@@ -52,7 +52,7 @@ func TestParallelScan_MultipleSkills_IndexAligned(t *testing.T) {
 		inputs = append(inputs, SkillInput{Name: name, Path: skillDir})
 	}
 
-	outputs := ParallelScan(inputs, "", nil)
+	outputs := ParallelScan(inputs, "", nil, nil)
 
 	if len(outputs) != 3 {
 		t.Fatalf("expected 3 outputs, got %d", len(outputs))
@@ -74,7 +74,7 @@ func TestParallelScan_ErrorHandling(t *testing.T) {
 		{Name: "missing", Path: "/does-not-exist-at-all"},
 	}
 
-	outputs := ParallelScan(inputs, "", nil)
+	outputs := ParallelScan(inputs, "", nil, nil)
 
 	if len(outputs) != 1 {
 		t.Fatalf("expected 1 output, got %d", len(outputs))
@@ -107,7 +107,7 @@ func TestParallelScan_MixedResults(t *testing.T) {
 		{Name: "dirty", Path: dirtyDir},
 	}
 
-	outputs := ParallelScan(inputs, "", nil)
+	outputs := ParallelScan(inputs, "", nil, nil)
 
 	if len(outputs) != 3 {
 		t.Fatalf("expected 3 outputs, got %d", len(outputs))
@@ -150,7 +150,7 @@ func TestParallelScan_OnDoneCalled(t *testing.T) {
 	var count atomic.Int64
 	onDone := func() { count.Add(1) }
 
-	outputs := ParallelScan(inputs, "", onDone)
+	outputs := ParallelScan(inputs, "", onDone, nil)
 
 	if len(outputs) != len(names) {
 		t.Fatalf("expected %d outputs, got %d", len(names), len(outputs))

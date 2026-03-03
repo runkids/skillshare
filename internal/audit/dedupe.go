@@ -6,14 +6,14 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-)
 
-var ansiPattern = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
+	"skillshare/internal/ui"
+)
 
 var whitespaceRun = regexp.MustCompile(`\s+`)
 
 func normalizeSnippet(s string) string {
-	s = ansiPattern.ReplaceAllString(s, "")
+	s = ui.StripANSI(s)
 	s = strings.TrimSpace(s)
 	s = whitespaceRun.ReplaceAllString(s, " ")
 	return s

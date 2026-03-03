@@ -587,45 +587,33 @@ func auditDetailPanelWidth(termWidth int) int {
 }
 
 // ── TUI (lipgloss) color helpers for audit policy values ──
+// Label logic is shared with CLI via policyProfileLabel/policyDedupeLabel/policyAnalyzersLabel.
 
 // tuiColorizeProfile returns a lipgloss-styled UPPERCASE profile name.
 func tuiColorizeProfile(profile string) string {
-	upper := strings.ToUpper(profile)
-	if upper == "" {
-		upper = "DEFAULT"
-	}
-	switch upper {
+	label := policyProfileLabel(profile)
+	switch label {
 	case "STRICT":
-		return tc.Yellow.Render(upper)
+		return tc.Yellow.Render(label)
 	case "PERMISSIVE":
-		return tc.Green.Render(upper)
+		return tc.Green.Render(label)
 	default:
-		return tc.Cyan.Render(upper)
+		return tc.Cyan.Render(label)
 	}
 }
 
 // tuiColorizeDedupe returns a lipgloss-styled UPPERCASE dedupe mode.
 func tuiColorizeDedupe(dedupe string) string {
-	upper := strings.ToUpper(dedupe)
-	if upper == "" {
-		upper = "GLOBAL"
+	label := policyDedupeLabel(dedupe)
+	if label == "LEGACY" {
+		return tc.Dim.Render(label)
 	}
-	if upper == "LEGACY" {
-		return tc.Dim.Render(upper)
-	}
-	return tc.Cyan.Render(upper)
+	return tc.Cyan.Render(label)
 }
 
 // tuiColorizeAnalyzers returns a lipgloss-styled UPPERCASE analyzer list.
 func tuiColorizeAnalyzers(analyzers []string) string {
-	if len(analyzers) == 0 {
-		return tc.Cyan.Render("ALL")
-	}
-	upper := make([]string, len(analyzers))
-	for i, a := range analyzers {
-		upper[i] = strings.ToUpper(a)
-	}
-	return tc.Cyan.Render(strings.Join(upper, ", "))
+	return tc.Cyan.Render(policyAnalyzersLabel(analyzers))
 }
 
 // runAuditTUI starts the bubbletea TUI for audit results.

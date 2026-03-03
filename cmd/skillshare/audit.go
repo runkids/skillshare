@@ -219,7 +219,7 @@ func cmdAudit(args []string) error {
 	})
 	threshold := policy.Threshold
 	registry := audit.DefaultRegistry().ForPolicy(policy)
-	opts.PolicyLine = formatPolicyLineFromPolicy(policy)
+	opts.PolicyLine = formatPolicyLine(string(policy.Profile), string(policy.DedupeMode), policy.EnabledAnalyzers)
 	opts.PolicyProfile = string(policy.Profile)
 	opts.PolicyDedupe = string(policy.DedupeMode)
 	opts.PolicyAnalyzers = policy.EnabledAnalyzers
@@ -417,51 +417,68 @@ func auditHeaderSubtitle(scanLine, mode, sourcePath, threshold, policyLine strin
 		scanLine, mode, displayPath, coloredThreshold, policyLine)
 }
 
-// ── ANSI color helpers for audit policy values ──
+// ── Policy label helpers (shared between CLI and TUI) ──
 
-// colorizeProfile returns an ANSI-colored UPPERCASE profile name.
-func colorizeProfile(profile string) string {
-	upper := strings.ToUpper(profile)
-	if upper == "" {
-		upper = "DEFAULT"
+// policyProfileLabel returns the UPPERCASE display label for a profile.
+func policyProfileLabel(profile string) string {
+	if upper := strings.ToUpper(profile); upper != "" {
+		return upper
 	}
-	switch upper {
-	case "STRICT":
-		return ui.Colorize(ui.Yellow, upper)
-	case "PERMISSIVE":
-		return ui.Colorize(ui.Green, upper)
-	default:
-		return ui.Colorize(ui.Cyan, upper)
-	}
+	return "DEFAULT"
 }
 
-// colorizeDedupe returns an ANSI-colored UPPERCASE dedupe mode.
-func colorizeDedupe(dedupe string) string {
-	upper := strings.ToUpper(dedupe)
-	if upper == "" {
-		upper = "GLOBAL"
+// policyDedupeLabel returns the UPPERCASE display label for a dedupe mode.
+func policyDedupeLabel(dedupe string) string {
+	if upper := strings.ToUpper(dedupe); upper != "" {
+		return upper
 	}
-	if upper == "LEGACY" {
-		return ui.Colorize(ui.Gray, upper)
-	}
-	return ui.Colorize(ui.Cyan, upper)
+	return "GLOBAL"
 }
 
-// colorizeAnalyzers returns an ANSI-colored UPPERCASE analyzer list.
-func colorizeAnalyzers(analyzers []string) string {
+// policyAnalyzersLabel returns the UPPERCASE display label for enabled analyzers.
+func policyAnalyzersLabel(analyzers []string) string {
 	if len(analyzers) == 0 {
-		return ui.Colorize(ui.Cyan, "ALL")
+		return "ALL"
 	}
 	upper := make([]string, len(analyzers))
 	for i, a := range analyzers {
 		upper[i] = strings.ToUpper(a)
 	}
-	return ui.Colorize(ui.Cyan, strings.Join(upper, ", "))
+	return strings.Join(upper, ", ")
 }
 
-// formatPolicyLine returns a compact one-line ANSI-colored policy description from summary fields.
-func formatPolicyLine(summary auditRunSummary) string {
-	return colorizeProfile(summary.PolicyProfile) + " / dedupe:" + colorizeDedupe(summary.PolicyDedupe) + " / analyzers:" + colorizeAnalyzers(summary.PolicyAnalyzers)
+// ── ANSI color helpers for audit policy values ──
+
+// colorizeProfile returns an ANSI-colored UPPERCASE profile name.
+func colorizeProfile(profile string) string {
+	label := policyProfileLabel(profile)
+	switch label {
+	case "STRICT":
+		return ui.Colorize(ui.Yellow, label)
+	case "PERMISSIVE":
+		return ui.Colorize(ui.Green, label)
+	default:
+		return ui.Colorize(ui.Cyan, label)
+	}
+}
+
+// colorizeDedupe returns an ANSI-colored UPPERCASE dedupe mode.
+func colorizeDedupe(dedupe string) string {
+	label := policyDedupeLabel(dedupe)
+	if label == "LEGACY" {
+		return ui.Colorize(ui.Gray, label)
+	}
+	return ui.Colorize(ui.Cyan, label)
+}
+
+// colorizeAnalyzers returns an ANSI-colored UPPERCASE analyzer list.
+func colorizeAnalyzers(analyzers []string) string {
+	return ui.Colorize(ui.Cyan, policyAnalyzersLabel(analyzers))
+}
+
+// formatPolicyLine returns a compact one-line ANSI-colored policy description.
+func formatPolicyLine(profile, dedupe string, analyzers []string) string {
+	return colorizeProfile(profile) + " / dedupe:" + colorizeDedupe(dedupe) + " / analyzers:" + colorizeAnalyzers(analyzers)
 }
 
 // applyPolicyToSummary copies resolved policy fields from opts to summary
@@ -470,12 +487,6 @@ func applyPolicyToSummary(s *auditRunSummary, opts auditOptions) {
 	s.PolicyProfile = opts.PolicyProfile
 	s.PolicyDedupe = opts.PolicyDedupe
 	s.PolicyAnalyzers = opts.PolicyAnalyzers
-}
-
-// formatPolicyLineFromPolicy builds the ANSI-colored policy line directly from a Policy struct
-// (used before scan when summary is not yet populated).
-func formatPolicyLineFromPolicy(p audit.Policy) string {
-	return colorizeProfile(string(p.Profile)) + " / dedupe:" + colorizeDedupe(string(p.DedupeMode)) + " / analyzers:" + colorizeAnalyzers(p.EnabledAnalyzers)
 }
 
 func collectInstalledSkillPaths(sourcePath string) ([]struct {
@@ -538,11 +549,7 @@ func resolveSkillPath(sourcePath, name string) string {
 	return ""
 }
 
-func scanSkillPath(skillPath, projectRoot string, reg ...*audit.Registry) (*audit.Result, error) {
-	var registry *audit.Registry
-	if len(reg) > 0 {
-		registry = reg[0]
-	}
+func scanSkillPath(skillPath, projectRoot string, registry *audit.Registry) (*audit.Result, error) {
 	if registry != nil {
 		if projectRoot != "" {
 			return audit.ScanSkillFilteredForProject(skillPath, projectRoot, registry)
@@ -566,13 +573,13 @@ func toAuditInputs(skills []struct {
 	return inputs
 }
 
-func scanPathTarget(targetPath, projectRoot string, reg ...*audit.Registry) (*audit.Result, error) {
+func scanPathTarget(targetPath, projectRoot string, registry *audit.Registry) (*audit.Result, error) {
 	info, err := os.Stat(targetPath)
 	if err != nil {
 		return nil, err
 	}
 	if info.IsDir() {
-		return scanSkillPath(targetPath, projectRoot, reg...)
+		return scanSkillPath(targetPath, projectRoot, registry)
 	}
 	if projectRoot != "" {
 		return audit.ScanFileForProject(targetPath, projectRoot)
@@ -670,7 +677,6 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 		elapsed = append(elapsed, 0) // synthetic result has no scan time
 	}
 
-	applyPolicyToSummary(&summary, opts)
 	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth); err != nil {
 		return results, summary, err
 	}
@@ -802,7 +808,6 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 		elapsed = append(elapsed, 0) // synthetic result has no scan time
 	}
 
-	applyPolicyToSummary(&summary, opts)
 	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth); err != nil {
 		return results, summary, err
 	}
@@ -1171,7 +1176,7 @@ func buildAuditSummaryLines(summary auditRunSummary) []string {
 		maxSeverity = "NONE"
 	}
 	lines = append(lines, fmt.Sprintf("  Block:     severity >= %s", ui.Colorize(ui.SeverityColor(summary.Threshold), summary.Threshold)))
-	lines = append(lines, fmt.Sprintf("  Policy:    %s", formatPolicyLine(summary)))
+	lines = append(lines, fmt.Sprintf("  Policy:    %s", formatPolicyLine(summary.PolicyProfile, summary.PolicyDedupe, summary.PolicyAnalyzers)))
 	lines = append(lines, fmt.Sprintf("  Max sev:   %s", ui.Colorize(ui.SeverityColor(maxSeverity), maxSeverity)))
 	lines = append(lines, fmt.Sprintf("  Scanned:   %d skill(s)", summary.Scanned))
 	lines = append(lines, fmt.Sprintf("  Passed:    %s", ui.Colorize(ui.Green, fmt.Sprintf("%d", summary.Passed))))
