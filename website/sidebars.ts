@@ -91,6 +91,7 @@ const sidebars: SidebarsConfig = {
         'understand/skill-format',
         'understand/project-skills',
         'understand/declarative-manifest',
+        'understand/audit-engine',
         {
           type: 'category',
           label: 'Design Philosophy',
@@ -163,6 +164,7 @@ const sidebars: SidebarsConfig = {
               label: 'Security & Utilities',
               items: [
                 'reference/commands/audit',
+                'reference/commands/audit-rules',
                 'reference/commands/hub',
                 'reference/commands/log',
                 'reference/commands/doctor',

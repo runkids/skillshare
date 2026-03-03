@@ -502,7 +502,7 @@ rules:
     regex: '(?i)\bTODO\b'
 
   # Disable a built-in rule
-  - id: system-writes-0
+  - id: insecure-http-0
     enabled: false
 ```
 

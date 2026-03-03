@@ -134,6 +134,71 @@ jobs:
       - run: skillshare init && skillshare audit --format json
 ```
 
+## Output Formats
+
+The `audit` command supports multiple output formats for different CI/CD integration needs.
+
+### Exit Codes
+
+```bash
+# Block deployment if any skill has findings at or above threshold
+skillshare audit --threshold high
+echo $?  # 0 = clean, 1 = findings found
+```
+
+### SARIF Output
+
+[SARIF (Static Analysis Results Interchange Format)](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) is an OASIS standard consumed by GitHub Code Scanning, VS Code SARIF Viewer, Azure DevOps, SonarQube, and other static analysis tools.
+
+```bash
+skillshare audit --format sarif              # Output to stdout
+skillshare audit --format sarif > results.sarif  # Save to file
+```
+
+The SARIF output includes:
+- **Tool metadata** — tool name (`skillshare`), version, and information URI
+- **Rules** — deduplicated rule descriptors with `security-severity` scores
+- **Results** — each finding mapped to a SARIF result with file location and severity level
+
+Severity mapping to SARIF levels:
+
+| skillshare Severity | SARIF Level | security-severity |
+|---------------------|-------------|-------------------|
+| CRITICAL | `error` | 9.0 |
+| HIGH | `error` | 7.0 |
+| MEDIUM | `warning` | 4.0 |
+| LOW | `note` | 2.0 |
+| INFO | `note` | 0.5 |
+
+### Markdown Report
+
+Generate a self-contained Markdown report suitable for pasting into GitHub Issues, Pull Requests, or documentation:
+
+```bash
+skillshare audit --format markdown               # Print to stdout
+skillshare audit --format markdown > report.md   # Save to file
+skillshare audit -p --format markdown > report.md  # Project mode
+```
+
+The report includes:
+- **Header** — scanned count, mode, and threshold
+- **Summary table** — passed/warning/failed counts, severity breakdown, risk score, analyzability
+- **Findings** — per-skill tables with severity, pattern, message, and location; collapsible snippets
+- **Clean Skills** — comma-separated list of skills with no findings
+
+### JSON Output with jq
+
+```bash
+# List all skills with CRITICAL findings
+skillshare audit --json | jq '[.skills[] | select(.findings[] | .severity == "CRITICAL")]'
+
+# Extract risk scores for all skills
+skillshare audit --json | jq '.skills[] | {name: .skillName, score: .riskScore, label: .riskLabel}'
+
+# Count findings by severity
+skillshare audit --json | jq '[.skills[].findings[].severity] | group_by(.) | map({(.[0]): length}) | add'
+```
+
 ## Verification
 
 - PR check passes: audit exits 0 (no findings at/above threshold)
@@ -152,4 +217,6 @@ jobs:
 
 - [Security audit guide](/docs/how-to/advanced/security)
 - [`audit` command reference](/docs/reference/commands/audit)
+- [`audit rules` reference](/docs/reference/commands/audit-rules)
+- [Audit Engine](/docs/understand/audit-engine) — How the engine works
 - [Docker sandbox guide](/docs/how-to/advanced/docker-sandbox)
