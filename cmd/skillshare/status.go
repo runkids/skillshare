@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
@@ -62,6 +63,7 @@ func cmdStatus(args []string) error {
 	if err := printTargetsStatus(cfg, discovered); err != nil {
 		return err
 	}
+	printAuditStatus(cfg.Audit)
 	checkSkillVersion(cfg)
 
 	return nil
@@ -241,6 +243,22 @@ func getSymlinkStatusDetail(target config.TargetConfig, source, mode string) tar
 	}
 
 	return targetStatusResult{status.String(), detail, -1}
+}
+
+func printAuditStatus(ac config.AuditConfig) {
+	ui.Header("Audit")
+
+	policy := audit.ResolvePolicy(audit.PolicyInputs{
+		ConfigProfile:   ac.Profile,
+		ConfigThreshold: ac.BlockThreshold,
+		ConfigDedupe:    ac.DedupeMode,
+		ConfigAnalyzers: ac.EnabledAnalyzers,
+	})
+
+	ui.Info("Profile:    %s", colorizeProfile(string(policy.Profile)))
+	ui.Info("Block:      severity >= %s", ui.Colorize(ui.SeverityColor(policy.Threshold), strings.ToUpper(policy.Threshold)))
+	ui.Info("Dedupe:     %s", colorizeDedupe(string(policy.DedupeMode)))
+	ui.Info("Analyzers:  %s", colorizeAnalyzers(policy.EnabledAnalyzers))
 }
 
 func checkSkillVersion(cfg *config.Config) {

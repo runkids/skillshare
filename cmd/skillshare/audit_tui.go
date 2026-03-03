@@ -412,7 +412,7 @@ func (m auditTUIModel) renderSummaryFooter() string {
 	parts = append(parts, tc.Dim.Render("c/h/m/l/i = ")+strings.Join(sevParts, sep))
 	parts = append(parts, tc.Dim.Render(fmt.Sprintf("Auditable: %.0f%% avg", s.AvgAnalyzability*100)))
 	if s.PolicyProfile != "" {
-		parts = append(parts, tc.Dim.Render(fmt.Sprintf("Policy: %s", s.PolicyProfile)))
+		parts = append(parts, tc.Dim.Render("Policy: ")+tuiColorizeProfile(s.PolicyProfile))
 	}
 
 	return "  " + strings.Join(parts, tc.Dim.Render(" | ")) + "\n"
@@ -484,16 +484,15 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 
 	// Threshold
 	if r.Threshold != "" {
-		row("Threshold:", tc.Dim.Render("severity >= ")+tc.Emphasis.Render(strings.ToUpper(r.Threshold)))
+		row("Threshold:", tc.Dim.Render("severity >= ")+tcSevStyle(r.Threshold).Render(strings.ToUpper(r.Threshold)))
 	}
 
 	// Policy
 	if m.summary.PolicyProfile != "" {
-		policyText := fmt.Sprintf("%s / dedupe:%s", m.summary.PolicyProfile, m.summary.PolicyDedupe)
-		if len(m.summary.PolicyAnalyzers) > 0 {
-			policyText += " / analyzers:" + strings.Join(m.summary.PolicyAnalyzers, ",")
-		}
-		row("Policy:", tc.Dim.Render(policyText))
+		policyText := tuiColorizeProfile(m.summary.PolicyProfile) +
+			tc.Dim.Render(" / dedupe:") + tuiColorizeDedupe(m.summary.PolicyDedupe) +
+			tc.Dim.Render(" / analyzers:") + tuiColorizeAnalyzers(m.summary.PolicyAnalyzers)
+		row("Policy:", policyText)
 	}
 
 	// Scan time
@@ -585,6 +584,48 @@ func auditDetailPanelWidth(termWidth int) int {
 		w = 30
 	}
 	return w
+}
+
+// ── TUI (lipgloss) color helpers for audit policy values ──
+
+// tuiColorizeProfile returns a lipgloss-styled UPPERCASE profile name.
+func tuiColorizeProfile(profile string) string {
+	upper := strings.ToUpper(profile)
+	if upper == "" {
+		upper = "DEFAULT"
+	}
+	switch upper {
+	case "STRICT":
+		return tc.Yellow.Render(upper)
+	case "PERMISSIVE":
+		return tc.Green.Render(upper)
+	default:
+		return tc.Cyan.Render(upper)
+	}
+}
+
+// tuiColorizeDedupe returns a lipgloss-styled UPPERCASE dedupe mode.
+func tuiColorizeDedupe(dedupe string) string {
+	upper := strings.ToUpper(dedupe)
+	if upper == "" {
+		upper = "GLOBAL"
+	}
+	if upper == "LEGACY" {
+		return tc.Dim.Render(upper)
+	}
+	return tc.Cyan.Render(upper)
+}
+
+// tuiColorizeAnalyzers returns a lipgloss-styled UPPERCASE analyzer list.
+func tuiColorizeAnalyzers(analyzers []string) string {
+	if len(analyzers) == 0 {
+		return tc.Cyan.Render("ALL")
+	}
+	upper := make([]string, len(analyzers))
+	for i, a := range analyzers {
+		upper[i] = strings.ToUpper(a)
+	}
+	return tc.Cyan.Render(strings.Join(upper, ", "))
 }
 
 // runAuditTUI starts the bubbletea TUI for audit results.

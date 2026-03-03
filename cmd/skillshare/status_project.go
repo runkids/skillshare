@@ -35,6 +35,7 @@ func cmdStatusProject(root string) error {
 	if err := printProjectTargetsStatus(runtime, discovered); err != nil {
 		return err
 	}
+	printAuditStatus(runtime.config.Audit)
 
 	return nil
 }
