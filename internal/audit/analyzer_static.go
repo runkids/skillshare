@@ -23,5 +23,5 @@ func (a *markdownLinkAnalyzer) Analyze(ctx *AnalyzeContext) ([]Finding, error) {
 	if len(ctx.MDFiles) == 0 || len(ctx.MDLinkRules) == 0 {
 		return nil, nil
 	}
-	return checkMarkdownLinkRules(ctx.MDFiles, ctx.MDLinkRules), nil
+	return checkMarkdownLinkRules(ctx.MDFiles, ctx.MDLinks, ctx.MDLinkRules), nil
 }

@@ -465,14 +465,24 @@ func extractDisabledIDs(yr []yamlRule) map[string]bool {
 	return m
 }
 
+var (
+	disabledGlobalOnce   sync.Once
+	disabledGlobalResult map[string]bool
+)
+
 // disabledIDsGlobal returns IDs disabled in global mode (builtin + global user overrides).
+// Result is cached; call ResetGlobalCache() after mutating audit-rules.yaml.
 func disabledIDsGlobal() map[string]bool {
-	base := builtinYAML()
-	user, err := loadUserRules(globalAuditRulesPath())
-	if err != nil || user == nil {
-		return extractDisabledIDs(base)
-	}
-	return extractDisabledIDs(mergeYAMLRules(base, user))
+	disabledGlobalOnce.Do(func() {
+		base := builtinYAML()
+		user, err := loadUserRules(globalAuditRulesPath())
+		if err != nil || user == nil {
+			disabledGlobalResult = extractDisabledIDs(base)
+			return
+		}
+		disabledGlobalResult = extractDisabledIDs(mergeYAMLRules(base, user))
+	})
+	return disabledGlobalResult
 }
 
 // disabledIDsForProject returns IDs disabled in project mode
@@ -497,6 +507,11 @@ func ResetGlobalCache() {
 	globalOnce = sync.Once{}
 	globalRules = nil
 	globalRulesErr = nil
+	disabledGlobalOnce = sync.Once{}
+	disabledGlobalResult = nil
+	splitGlobalOnce = sync.Once{}
+	splitGlobalContentRules = nil
+	splitGlobalLinkRules = nil
 }
 
 // resetForTest resets cached state for testing.
@@ -506,7 +521,5 @@ func resetForTest() {
 	builtinRulesErr = nil
 	builtinYAMLOnce = sync.Once{}
 	builtinYAMLCache = nil
-	globalOnce = sync.Once{}
-	globalRules = nil
-	globalRulesErr = nil
+	ResetGlobalCache()
 }

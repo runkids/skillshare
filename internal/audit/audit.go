@@ -10,9 +10,30 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"skillshare/internal/utils"
 )
+
+// splitGlobal* caches the split of global rules into content vs link rules.
+// Reset via ResetGlobalCache().
+var (
+	splitGlobalOnce         sync.Once
+	splitGlobalContentRules []rule
+	splitGlobalLinkRules    []rule
+)
+
+// globalSplitMarkdownLinkRules returns the cached split of global rules.
+func globalSplitMarkdownLinkRules() (contentRules []rule, linkRules []rule) {
+	splitGlobalOnce.Do(func() {
+		rules, err := Rules()
+		if err != nil {
+			return
+		}
+		splitGlobalContentRules, splitGlobalLinkRules = splitMarkdownLinkRules(rules)
+	})
+	return splitGlobalContentRules, splitGlobalLinkRules
+}
 
 // ErrBlocked is a sentinel error indicating that an operation was blocked
 // by the security audit. Use errors.Is(err, audit.ErrBlocked) to check.
@@ -348,18 +369,25 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	}
 
 	resolvedRules := activeRules
+	var mdContentRules, mdLinkRules []rule
 	if resolvedRules == nil {
 		rules, err := Rules()
 		if err == nil {
 			resolvedRules = rules
 		}
+		// Use cached split for global rules.
+		mdContentRules, mdLinkRules = globalSplitMarkdownLinkRules()
+	} else {
+		mdContentRules, mdLinkRules = splitMarkdownLinkRules(resolvedRules)
 	}
-	mdContentRules, mdLinkRules := splitMarkdownLinkRules(resolvedRules)
 
 	var mdFiles []mdFileInfo
 	// fileCache collects file contents read during walk so that
 	// checkContentIntegrity can reuse them instead of re-reading from disk.
 	fileCache := make(map[string][]byte)
+	// allFiles collects every encountered file relPath (including non-scannable)
+	// so checkContentIntegrity can skip its own filepath.Walk.
+	allFiles := make(map[string]bool)
 
 	var totalBytes, auditableBytes int64
 	var skillTierProfile TierProfile
@@ -367,6 +395,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	// Pre-compute per-file analyzer checks to avoid O(n) linear scans per file.
 	hasStatic := registry.Has(AnalyzerStatic)
 	hasDataflow := registry.Has(AnalyzerDataflow)
+	dfEnabled := hasDataflow && !disabled[patternDataflowTaint]
 
 	err = filepath.Walk(skillPath, func(path string, fi os.FileInfo, walkErr error) error {
 		if walkErr != nil {
@@ -392,16 +421,20 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		if depth > maxScanDepth {
 			return nil
 		}
+
+		// Exclude skillshare's own metadata — not part of skill content.
+		if fi.Name() == ".skillshare-meta.json" {
+			return nil
+		}
+
+		// Collect ALL non-meta files for integrity check (before size/scannable filters).
+		normalizedRel := filepath.ToSlash(relPath)
+		allFiles[normalizedRel] = true
+
 		// Files exceeding maxScanFileSize are excluded from totalBytes so that
 		// analyzability reflects the ratio among files the scanner considers,
 		// not raw on-disk size. Oversized files are a separate concern.
 		if fi.Size() > maxScanFileSize {
-			return nil
-		}
-
-		// Exclude skillshare's own metadata from total bytes — it's not
-		// part of skill content and would skew the analyzability ratio.
-		if fi.Name() == ".skillshare-meta.json" {
 			return nil
 		}
 
@@ -422,7 +455,7 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		auditableBytes += int64(len(data))
 
 		// Cache content for content-integrity check reuse.
-		fileCache[filepath.ToSlash(relPath)] = data
+		fileCache[normalizedRel] = data
 
 		isMarkdown := strings.EqualFold(filepath.Ext(fi.Name()), ".md")
 		if isMarkdown {
@@ -433,39 +466,32 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 			})
 		}
 
-		// --- File-scope analyzers (gated by registry) ---
-		var findings []Finding
-		if hasStatic {
-			if isMarkdown {
-				findings = ScanMarkdownContentWithRules(data, relPath, mdContentRules)
-			} else {
-				findings = ScanContentWithRules(data, relPath, resolvedRules)
-			}
-			result.Findings = append(result.Findings, findings...)
-		}
-
-		// Tier detection always runs (data gathering, not direct findings).
+		// --- Unified file scan: static + tier + dataflow in a single pass ---
+		var rulesForFile []rule
 		if isMarkdown {
-			skillTierProfile.Merge(DetectCommandTiersInMarkdown(data))
+			rulesForFile = mdContentRules
 		} else {
-			skillTierProfile.Merge(DetectCommandTiers(data))
+			rulesForFile = resolvedRules
 		}
-
-		if hasDataflow && !disabled[patternDataflowTaint] {
-			var dfFindings []Finding
-			if isMarkdown {
-				dfFindings = ScanMarkdownDataflow(data, relPath)
-			} else if isShellFile(fi.Name()) {
-				dfFindings = ScanShellDataflow(data, relPath)
-			}
-			result.Findings = append(result.Findings,
-				DeduplicateDataflow(dfFindings, findings)...)
-		}
+		staticFindings, dfFindings := scanFileUnified(
+			data, relPath, isMarkdown,
+			rulesForFile, &skillTierProfile,
+			hasStatic, dfEnabled, isShellFile(fi.Name()),
+		)
+		result.Findings = append(result.Findings, staticFindings...)
+		result.Findings = append(result.Findings,
+			DeduplicateDataflow(dfFindings, staticFindings)...)
 
 		return nil
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error scanning skill: %w", err)
+	}
+
+	// Pre-extract markdown links once for reuse by link rules + dangling link checks.
+	mdLinks := make(map[string][]markdownLink, len(mdFiles))
+	for _, mf := range mdFiles {
+		mdLinks[mf.relPath] = extractMarkdownLinks(mf.data)
 	}
 
 	// --- Skill-scope analyzers (via registry) ---
@@ -475,6 +501,8 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 		MDFiles:        mdFiles,
 		FileCache:      fileCache,
 		TierProfile:    skillTierProfile,
+		MDLinks:        mdLinks,
+		AllFiles:       allFiles,
 		Rules:          resolvedRules,
 		MDContentRules: mdContentRules,
 		MDLinkRules:    mdLinkRules,
@@ -511,6 +539,189 @@ func scanSkillImpl(skillPath string, activeRules []rule, disabled map[string]boo
 	StampFingerprints(result.Findings)
 	result.updateRisk()
 	return result, nil
+}
+
+// scanFileUnified merges static regex scanning, tier detection, and dataflow
+// collection into a single pass over the file content. This avoids 3 separate
+// string(content) conversions and 3 separate line iterations.
+//
+// activeRules should be mdContentRules for markdown files and resolvedRules
+// for non-markdown files. profile is modified in place.
+func scanFileUnified(
+	data []byte, relPath string, isMarkdown bool,
+	activeRules []rule, profile *TierProfile,
+	hasStatic, hasDataflow, isShell bool,
+) (staticFindings, dfFindings []Finding) {
+	text := string(data)
+
+	if isMarkdown {
+		return scanFileUnifiedMarkdown(text, relPath, activeRules, profile, hasStatic, hasDataflow)
+	}
+	return scanFileUnifiedPlain(text, relPath, activeRules, profile, hasStatic, hasDataflow, isShell)
+}
+
+// scanFileUnifiedMarkdown handles the markdown case: static rules apply to all
+// non-fence-marker lines, tier detection runs only inside code fences, and
+// shell code blocks are collected for dataflow analysis.
+func scanFileUnifiedMarkdown(
+	text, relPath string,
+	activeRules []rule, profile *TierProfile,
+	hasStatic, hasDataflow bool,
+) (staticFindings, dfFindings []Finding) {
+	inCodeFence := false
+	fenceMarker := ""
+	isShellFence := false
+	tutorialPath := isLikelyTutorialPath(relPath)
+	var blockLines []string
+	blockStart := 0
+
+	lineNum := 0
+	for start := 0; start <= len(text); {
+		lineNum++
+		end := strings.IndexByte(text[start:], '\n')
+		var line string
+		if end == -1 {
+			line = text[start:]
+			start = len(text) + 1
+		} else {
+			line = text[start : start+end]
+			start = start + end + 1
+		}
+
+		// Fence tracking.
+		if marker, ok := detectFenceMarker(line); ok {
+			if !inCodeFence {
+				inCodeFence = true
+				fenceMarker = marker
+				if hasDataflow {
+					isShellFence = isShellFenceLang(line)
+					blockLines = nil
+					blockStart = lineNum
+				}
+			} else if marker == fenceMarker {
+				// Fence close — analyse collected shell block.
+				if hasDataflow && isShellFence && len(blockLines) > 0 {
+					dfFindings = append(dfFindings,
+						analyzeShellBlock(blockLines, blockStart, relPath)...)
+				}
+				inCodeFence = false
+				fenceMarker = ""
+				isShellFence = false
+				blockLines = nil
+			}
+			continue // skip fence markers for regex (same as original)
+		}
+
+		// Tier detection: only inside code fences.
+		if inCodeFence {
+			if len(line) > 0 {
+				classifyLineCommands(line, profile)
+			}
+			// Collect shell block lines (including blank) for dataflow.
+			if hasDataflow && isShellFence {
+				blockLines = append(blockLines, line)
+			}
+		}
+
+		// Static regex: all non-fence-marker lines.
+		if hasStatic && len(line) > 0 {
+			for _, r := range activeRules {
+				if !r.Regex.MatchString(line) {
+					continue
+				}
+				if r.Exclude != nil && r.Exclude.MatchString(line) {
+					continue
+				}
+				if shouldSuppressTutorialExample(r.Pattern, line, inCodeFence, tutorialPath) {
+					continue
+				}
+				staticFindings = append(staticFindings, Finding{
+					Severity:   r.Severity,
+					Pattern:    r.Pattern,
+					Message:    r.Message,
+					File:       relPath,
+					Line:       lineNum,
+					Snippet:    strings.TrimSpace(line),
+					RuleID:     r.ID,
+					Analyzer:   AnalyzerStatic,
+					Category:   categoryForPattern(r.Pattern),
+					Confidence: 0.95,
+				})
+			}
+		}
+	}
+
+	return staticFindings, dfFindings
+}
+
+// scanFileUnifiedPlain handles non-markdown files: static rules and tier
+// detection run on every line in a single loop. Shell files also collect
+// lines for dataflow analysis.
+func scanFileUnifiedPlain(
+	text, relPath string,
+	activeRules []rule, profile *TierProfile,
+	hasStatic, hasDataflow, isShell bool,
+) (staticFindings, dfFindings []Finding) {
+	// For shell dataflow, collect all lines to pass to analyzeShellBlock.
+	var allLines []string
+	collectLines := hasDataflow && isShell
+
+	lineNum := 0
+	for start := 0; start <= len(text); {
+		lineNum++
+		end := strings.IndexByte(text[start:], '\n')
+		var line string
+		if end == -1 {
+			line = text[start:]
+			start = len(text) + 1
+		} else {
+			line = text[start : start+end]
+			start = start + end + 1
+		}
+
+		// Always collect for dataflow (including blank lines for correct offsets).
+		if collectLines {
+			allLines = append(allLines, line)
+		}
+
+		// Blank line: no regex will match, no commands to classify.
+		if len(line) == 0 {
+			continue
+		}
+
+		// Tier detection: all lines.
+		classifyLineCommands(line, profile)
+
+		// Static regex: all lines.
+		if hasStatic {
+			for _, r := range activeRules {
+				if r.Regex.MatchString(line) {
+					if r.Exclude != nil && r.Exclude.MatchString(line) {
+						continue
+					}
+					staticFindings = append(staticFindings, Finding{
+						Severity:   r.Severity,
+						Pattern:    r.Pattern,
+						Message:    r.Message,
+						File:       relPath,
+						Line:       lineNum,
+						Snippet:    strings.TrimSpace(line),
+						RuleID:     r.ID,
+						Analyzer:   AnalyzerStatic,
+						Category:   categoryForPattern(r.Pattern),
+						Confidence: 0.95,
+					})
+				}
+			}
+		}
+	}
+
+	// Shell dataflow: analyze the full file as one block.
+	if collectLines && len(allLines) > 0 {
+		dfFindings = analyzeShellBlock(allLines, 0, relPath)
+	}
+
+	return staticFindings, dfFindings
 }
 
 // ScanFileWithRules scans a single file using the given rules.
@@ -575,7 +786,7 @@ func ScanFileWithRules(filePath string, activeRules []rule) (*Result, error) {
 				data:    data,
 				absDir:  filepath.Dir(filePath),
 			},
-		}, mdLinkRules)...)
+		}, nil, mdLinkRules)...)
 		result.TierProfile = DetectCommandTiersInMarkdown(data)
 	} else {
 		result.Findings = ScanContentWithRules(data, filepath.Base(filePath), resolvedRules)
@@ -818,14 +1029,19 @@ func isMarkdownLinkRulePattern(pattern string) bool {
 	return pattern == "external-link"
 }
 
-func checkMarkdownLinkRules(files []mdFileInfo, markdownLinkRules []rule) []Finding {
+func checkMarkdownLinkRules(files []mdFileInfo, mdLinks map[string][]markdownLink, markdownLinkRules []rule) []Finding {
 	if len(markdownLinkRules) == 0 {
 		return nil
 	}
 
 	var findings []Finding
 	for _, f := range files {
-		links := extractMarkdownLinks(f.data)
+		var links []markdownLink
+		if mdLinks != nil {
+			links = mdLinks[f.relPath]
+		} else {
+			links = extractMarkdownLinks(f.data)
+		}
 		for _, link := range links {
 			canonical := fmt.Sprintf("[%s](%s)", link.label, link.target)
 			for _, r := range markdownLinkRules {
@@ -855,10 +1071,16 @@ func checkMarkdownLinkRules(files []mdFileInfo, markdownLinkRules []rule) []Find
 
 // checkDanglingLinks scans collected .md file data for local relative links
 // whose targets do not exist on disk. Returns LOW-severity findings.
-func checkDanglingLinks(files []mdFileInfo) []Finding {
+func checkDanglingLinks(files []mdFileInfo, mdLinks map[string][]markdownLink) []Finding {
 	var findings []Finding
 	for _, f := range files {
-		for _, link := range extractMarkdownLinks(f.data) {
+		var links []markdownLink
+		if mdLinks != nil {
+			links = mdLinks[f.relPath]
+		} else {
+			links = extractMarkdownLinks(f.data)
+		}
+		for _, link := range links {
 			target := link.target
 			if isExternalOrAnchor(target) {
 				continue
@@ -1373,7 +1595,9 @@ func isExternalOrAnchor(target string) bool {
 // .skillshare-meta.json. Backward-compatible: skips silently when meta or
 // file_hashes is absent. cache holds file contents already read during the
 // walk phase; files not in cache are read from disk as fallback.
-func checkContentIntegrity(skillPath string, cache map[string][]byte) []Finding {
+// allFiles (if non-nil) is the set of file relPaths collected during the main
+// walk, used to detect unexpected files without a second filepath.Walk.
+func checkContentIntegrity(skillPath string, cache map[string][]byte, allFiles map[string]bool) []Finding {
 	metaPath := filepath.Join(skillPath, ".skillshare-meta.json")
 	data, err := os.ReadFile(metaPath)
 	if err != nil {
@@ -1463,40 +1687,60 @@ func checkContentIntegrity(skillPath string, cache map[string][]byte) []Finding 
 		}
 	}
 
-	// Check for unexpected files not in the pinned set
-	filepath.Walk(skillPath, func(path string, fi os.FileInfo, walkErr error) error {
-		if walkErr != nil {
-			return nil
+	// Check for unexpected files not in the pinned set.
+	if allFiles != nil {
+		// Use pre-collected file set from the main walk (no second walk needed).
+		for relPath := range allFiles {
+			if _, ok := raw.FileHashes[relPath]; !ok {
+				findings = append(findings, Finding{
+					Severity:   SeverityLow,
+					Pattern:    "content-unexpected",
+					Message:    fmt.Sprintf("file not in pinned hashes: %s", relPath),
+					File:       relPath,
+					Line:       0,
+					RuleID:     "content-unexpected",
+					Analyzer:   AnalyzerIntegrity,
+					Category:   CategoryIntegrity,
+					Confidence: 1.0,
+				})
+			}
 		}
-		if fi.IsDir() {
-			if fi.Name() == ".git" {
-				return filepath.SkipDir
+	} else {
+		// Fallback: walk the directory (used by single-file scan paths).
+		filepath.Walk(skillPath, func(path string, fi os.FileInfo, walkErr error) error { //nolint:errcheck
+			if walkErr != nil {
+				return nil
+			}
+			if fi.IsDir() {
+				if fi.Name() == ".git" {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if fi.Name() == ".skillshare-meta.json" {
+				return nil
+			}
+			rel, relErr := filepath.Rel(skillPath, path)
+			if relErr != nil {
+				return nil
+			}
+			normalized := filepath.ToSlash(rel)
+			if _, ok := raw.FileHashes[normalized]; !ok {
+				findings = append(findings, Finding{
+					Severity:   SeverityLow,
+					Pattern:    "content-unexpected",
+					Message:    fmt.Sprintf("file not in pinned hashes: %s", normalized),
+					File:       normalized,
+					Line:       0,
+					RuleID:     "content-unexpected",
+					Analyzer:   AnalyzerIntegrity,
+					Category:   CategoryIntegrity,
+					Confidence: 1.0,
+				})
 			}
 			return nil
-		}
-		if fi.Name() == ".skillshare-meta.json" {
-			return nil
-		}
-		rel, relErr := filepath.Rel(skillPath, path)
-		if relErr != nil {
-			return nil
-		}
-		normalized := filepath.ToSlash(rel)
-		if _, ok := raw.FileHashes[normalized]; !ok {
-			findings = append(findings, Finding{
-				Severity:   SeverityLow,
-				Pattern:    "content-unexpected",
-				Message:    fmt.Sprintf("file not in pinned hashes: %s", normalized),
-				File:       normalized,
-				Line:       0,
-				RuleID:     "content-unexpected",
-				Analyzer:   AnalyzerIntegrity,
-				Category:   CategoryIntegrity,
-				Confidence: 1.0,
-			})
-		}
-		return nil
-	})
+		})
+	}
 
 	return findings
 }

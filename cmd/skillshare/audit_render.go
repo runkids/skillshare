@@ -285,6 +285,40 @@ func formatCategoryBreakdown(cats map[string]int, compact bool) string {
 	return strings.Join(parts, " ")
 }
 
+// formatCategoryBreakdownTUI formats a category count map as lipgloss-styled
+// "cat:N cat:N ..." using semantic category colors. Uses compact short names.
+// Returns "" if the map is empty.
+func formatCategoryBreakdownTUI(cats map[string]int) string {
+	if len(cats) == 0 {
+		return ""
+	}
+	type catCount struct {
+		name  string
+		count int
+	}
+	sorted := make([]catCount, 0, len(cats))
+	for name, count := range cats {
+		sorted = append(sorted, catCount{name, count})
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].count != sorted[j].count {
+			return sorted[i].count > sorted[j].count
+		}
+		return sorted[i].name < sorted[j].name
+	})
+
+	parts := make([]string, len(sorted))
+	for i, cc := range sorted {
+		label := cc.name
+		if short, ok := categoryShortNames[cc.name]; ok {
+			label = short
+		}
+		style := categoryStyle(cc.name)
+		parts[i] = style.Render(label) + tc.Dim.Render(":") + style.Bold(true).Render(fmt.Sprintf("%d", cc.count))
+	}
+	return strings.Join(parts, " ")
+}
+
 func printAuditHelp() {
 	fmt.Println(`Usage: skillshare audit [name...] [options]
        skillshare audit --group <group> [options]

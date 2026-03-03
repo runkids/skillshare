@@ -11,5 +11,5 @@ func (a *integrityAnalyzer) Analyze(ctx *AnalyzeContext) ([]Finding, error) {
 	if ctx.DisabledIDs["content-integrity"] {
 		return nil, nil
 	}
-	return checkContentIntegrity(ctx.SkillPath, ctx.FileCache), nil
+	return checkContentIntegrity(ctx.SkillPath, ctx.FileCache, ctx.AllFiles), nil
 }

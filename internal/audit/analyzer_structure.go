@@ -11,5 +11,5 @@ func (a *structureAnalyzer) Analyze(ctx *AnalyzeContext) ([]Finding, error) {
 	if ctx.DisabledIDs["dangling-link"] {
 		return nil, nil
 	}
-	return checkDanglingLinks(ctx.MDFiles), nil
+	return checkDanglingLinks(ctx.MDFiles, ctx.MDLinks), nil
 }

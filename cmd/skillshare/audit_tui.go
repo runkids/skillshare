@@ -213,8 +213,8 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
-		// Overhead: filter(1) + summary footer(1) + help(1) + newlines(3) = 6
-		panelHeight := msg.Height - 6
+		// Overhead: filter(1) + summary footer(2) + help(1) + newlines(3) = 7
+		panelHeight := msg.Height - 7
 		if panelHeight < 6 {
 			panelHeight = 6
 		}
@@ -308,8 +308,8 @@ func (m auditTUIModel) View() string {
 	var b strings.Builder
 
 	// Panel height: terminal minus footer overhead.
-	// Footer: gap(1) + filter(1) + stats(1) + gap(1) + help(1) + trailing(1) = 6 + 2 gaps = 8
-	panelHeight := m.termHeight - 8
+	// Footer: gap(1) + filter(1) + stats(2) + gap(1) + help(1) + trailing(1) = 7 + 2 gaps = 9
+	panelHeight := m.termHeight - 9
 	if panelHeight < 6 {
 		panelHeight = 6
 	}
@@ -370,7 +370,7 @@ func (m auditTUIModel) viewVertical() string {
 
 	if item, ok := m.list.SelectedItem().(auditItem); ok {
 		detailContent := m.renderDetailContent(item)
-		detailHeight := m.termHeight - m.termHeight*2/5 - 7
+		detailHeight := m.termHeight - m.termHeight*2/5 - 8
 		b.WriteString(applyDetailScroll(detailContent, m.detailScroll, detailHeight))
 	}
 
@@ -394,23 +394,28 @@ func (m auditTUIModel) renderPageInfo() string {
 	return renderPageInfoFromPaginator(m.list.Paginator)
 }
 
-// renderSummaryFooter renders the compact summary line above the help bar.
+// renderSummaryFooter renders the compact summary above the help bar.
+// Line 1: scan counts + severity breakdown.
+// Line 2 (if any): category threat breakdown.
 func (m auditTUIModel) renderSummaryFooter() string {
 	s := m.summary
+	pipe := tc.Dim.Render(" | ")
 
+	// ── Line 1: counts + severity ──
+	// Label is always dim; value uses semantic color + bold for non-zero emphasis.
 	parts := []string{
-		tc.Dim.Render(fmt.Sprintf("Scanned: %s", formatNumber(s.Scanned))),
-		tc.Green.Render(fmt.Sprintf("Passed: %s", formatNumber(s.Passed))),
+		tc.Dim.Render("Scanned: ") + tc.Emphasis.Render(formatNumber(s.Scanned)),
+		tc.Dim.Render("Passed: ") + tc.Green.Bold(true).Render(formatNumber(s.Passed)),
 	}
 	if s.Warning > 0 {
-		parts = append(parts, tc.Yellow.Render(fmt.Sprintf("Warning: %s", formatNumber(s.Warning))))
+		parts = append(parts, tc.Dim.Render("Warning: ")+tc.Yellow.Bold(true).Render(formatNumber(s.Warning)))
 	} else {
-		parts = append(parts, tc.Dim.Render(fmt.Sprintf("Warning: %s", formatNumber(s.Warning))))
+		parts = append(parts, tc.Dim.Render("Warning: ")+tc.Dim.Render(formatNumber(s.Warning)))
 	}
 	if s.Failed > 0 {
-		parts = append(parts, tc.Red.Render(fmt.Sprintf("Failed: %s", formatNumber(s.Failed))))
+		parts = append(parts, tc.Dim.Render("Failed: ")+tc.Red.Bold(true).Render(formatNumber(s.Failed)))
 	} else {
-		parts = append(parts, tc.Dim.Render(fmt.Sprintf("Failed: %s", formatNumber(s.Failed))))
+		parts = append(parts, tc.Dim.Render("Failed: ")+tc.Dim.Render(formatNumber(s.Failed)))
 	}
 
 	sevParts := []string{
@@ -422,15 +427,26 @@ func (m auditTUIModel) renderSummaryFooter() string {
 	}
 	sep := tc.Dim.Render("/")
 	parts = append(parts, tc.Dim.Render("c/h/m/l/i = ")+strings.Join(sevParts, sep))
-	if threatsLine := formatCategoryBreakdown(s.ByCategory, true); threatsLine != "" {
-		parts = append(parts, tc.Dim.Render("Threats: ")+tc.Yellow.Render(threatsLine))
-	}
+
 	parts = append(parts, tc.Dim.Render(fmt.Sprintf("Auditable: %.0f%% avg", s.AvgAnalyzability*100)))
 	if s.PolicyProfile != "" {
 		parts = append(parts, tc.Dim.Render("Policy: ")+tuiColorizeProfile(s.PolicyProfile))
 	}
 
-	return "  " + strings.Join(parts, tc.Dim.Render(" | ")) + "\n"
+	var b strings.Builder
+	b.WriteString("  ")
+	b.WriteString(strings.Join(parts, pipe))
+	b.WriteString("\n")
+
+	// ── Line 2: category breakdown with semantic colors ──
+	if threatsLine := formatCategoryBreakdownTUI(s.ByCategory); threatsLine != "" {
+		b.WriteString("  ")
+		b.WriteString(tc.Dim.Render("Threats: "))
+		b.WriteString(threatsLine)
+		b.WriteString("\n")
+	}
+
+	return b.String()
 }
 
 // renderDetailContent renders the full detail panel for the selected audit item.
