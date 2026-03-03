@@ -16,7 +16,7 @@ B --> D["Remote-source validation"]
 B --> E["Command exploration"]
 B --> F["Frontend development"]
 B --> G["Deployment / CI"]
-B --> H["VS Code / Codespaces"]
+B --> H["VS Code / CLI / Codespaces"]
 
 C --> C1["Offline test sandbox"]
 C1 --> C2["make test-docker"]
@@ -35,7 +35,7 @@ G1 --> G2["docker-build"]
 G1 --> G3["docker/ci/Dockerfile"]
 
 H --> H1["Devcontainer"]
-H1 --> H2["Reopen in Container"]
+H1 --> H2["make devc / Reopen in Container"]
 ```
 
 Command mapping:
@@ -47,6 +47,12 @@ Command mapping:
 | **Playground** (start + shell) | **`mise run playground`** | **`make playground`** |
 | Playground (stop) | `mise run playground:down` | `make playground-down` |
 | Sandbox (advanced) | — | `./scripts/sandbox.sh <up\|down\|shell\|reset\|status\|logs\|bare>` |
+| **Devcontainer** (start + shell) | **`mise run devc`** | **`make devc`** |
+| Devcontainer (start only) | `mise run devc:up` | `make devc-up` |
+| Devcontainer (stop) | `mise run devc:down` | `make devc-down` |
+| Devcontainer (restart) | `mise run devc:restart` | `make devc-restart` |
+| Devcontainer (full reset) | `mise run devc:reset` | `make devc-reset` |
+| Devcontainer (status) | `mise run devc:status` | `make devc-status` |
 | Dev API server | `mise run dev:docker` | `make dev-docker` |
 | Dev stop | `mise run dev:docker:down` | `make dev-docker-down` |
 | Docker build | `mise run docker:build` | `make docker-build` |
@@ -255,24 +261,45 @@ Both approaches give you instant HMR for `ui/` changes. The Docker variant pins 
 
 ---
 
-## Devcontainer (VS Code / Codespaces)
+## Devcontainer (VS Code / Codespaces / CLI)
 
-Open the project in a ready-to-code container — no local Go, Node, or pnpm needed.
+Open the project in a ready-to-code container — no local Go, Node, or pnpm needed. Works with **or without** VS Code.
 
 :::info Devcontainer vs Playground
-Both use the same base image and demo content. The **playground** (`make playground`) is a terminal-only environment for exploring commands. The **devcontainer** adds VS Code integration (IntelliSense, debugger, extensions) for developing the skillshare codebase itself.
+Both use the same base image and demo content. The **playground** (`make playground`) is a terminal-only environment for exploring commands. The **devcontainer** adds development tooling (Go, Node, pnpm, air) for developing the skillshare codebase itself — usable from VS Code, Codespaces, or a plain terminal.
 :::
 
 ### Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) running
-- VS Code with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension installed
+- **Option A (terminal):** No extra tools needed — `make devc` handles everything
+- **Option B (VS Code):** VS Code with the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension installed
 
 :::tip GitHub Codespaces
 On GitHub, click **Code → Codespaces → New codespace**. The devcontainer config is picked up automatically — no local Docker or extension needed.
 :::
 
 ### Getting started
+
+**From terminal** (no VS Code required):
+
+```bash
+make devc            # build image → start container → setup → enter shell
+```
+
+First run takes a few minutes (building image, installing deps). Subsequent runs detect the existing setup and skip straight to the shell.
+
+Other lifecycle commands:
+
+```bash
+make devc-up         # start only (no shell)
+make devc-down       # stop container
+make devc-restart    # restart + re-run start-dev.sh
+make devc-reset      # full reset (remove volumes), then make devc to re-init
+make devc-status     # show container status
+```
+
+**From VS Code:**
 
 1. Open the project folder in VS Code
 2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on macOS) and select **Dev Containers: Reopen in Container**
@@ -284,7 +311,7 @@ On GitHub, click **Code → Codespaces → New codespace**. The devcontainer con
 The devcontainer reuses the same `docker/sandbox/Dockerfile` as the sandbox, so you get:
 
 - Go 1.25 toolchain
-- Node.js 24 + pnpm (via [devcontainer feature](https://github.com/devcontainers/features/tree/main/src/node)) — enables `make ui-dev` and `cd website && pnpm start` inside the container
+- Node.js 24 + pnpm (bundled in the Docker image) — enables `make ui-dev` and `cd website && pnpm start` inside the container
 - VS Code extensions: Go, Tailwind CSS, ESLint, Prettier
 - Ports forwarded: `19420` (Web UI), `5173` (Vite HMR), `3000` (Docusaurus)
 - Source code mounted at `/workspace`
@@ -471,7 +498,7 @@ Browse published versions at [GitHub Packages](https://github.com/runkids/skills
 - **Playground and dev profile share port 19420** — run only one at a time. Stop the other first (`make playground-down` or `make dev-docker-down`).
 - Offline sandbox cannot validate network-dependent features (for example remote `install` from GitHub).
 - Playground uses container-local `HOME`, so it does not directly modify your real host home config.
-- Go code changes are picked up automatically (`go build` runs inside the container from mounted source). **Frontend (`ui/`) changes** are picked up instantly when running `make ui-dev` (Vite HMR) inside the devcontainer. For the playground, run `make ui-build` on the host first since the playground container does not include Node.js.
+- Go code changes are picked up automatically (`go build` runs inside the container from mounted source). **Frontend (`ui/`) changes** are picked up instantly when running `make ui-dev` (Vite HMR) inside the devcontainer. Both devcontainer and playground include Node.js and pnpm.
 - If you need custom experiments, pass commands directly:
 
 ```bash

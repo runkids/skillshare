@@ -57,14 +57,18 @@ This also applies to `go test` — tests always compile against the latest sourc
 
 ## Entering the Devcontainer
 
-The quickest way to get an interactive shell inside the devcontainer:
+The quickest way — one command builds, initialises, and enters the shell:
 
 ```bash
-make devc                              # interactive bash shell
-./scripts/devcontainer_shell.sh make test  # run a command directly
+make devc           # build + init + interactive shell (one step)
+make devc-up        # start only (no shell)
+make devc-down      # stop
+make devc-restart   # restart + re-run start-dev.sh
+make devc-reset     # full reset (remove volumes), then `make devc` to re-init
+make devc-status    # show container status
 ```
 
-The script auto-detects whether the container is running and prints setup instructions if it isn't.
+Works with **or without** VS Code — `make devc` handles the full lifecycle autonomously.
 
 ### Programmatic access (for `docker exec` workflows)
 
@@ -73,8 +77,7 @@ CONTAINER=$(docker compose -f .devcontainer/docker-compose.yml ps -q skillshare-
 ```
 
 If `$CONTAINER` is empty, tell the user:
-> Devcontainer is not running. Please start it with VS Code "Reopen in Container" or run:
-> `docker compose -f .devcontainer/docker-compose.yml up -d`
+> Devcontainer is not running. Start it with `make devc-up`.
 
 Then verify the binary:
 ```bash

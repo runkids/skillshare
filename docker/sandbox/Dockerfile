@@ -29,6 +29,15 @@ RUN apt-get update \
 RUN go install github.com/air-verse/air@latest \
     && go install github.com/go-delve/delve/cmd/dlv@latest
 
+# Copy node runtime from ui-builder stage (for devcontainer / interactive use)
+COPY --from=ui-builder /usr/local/bin/node /usr/local/bin/
+COPY --from=ui-builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -sf ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && ln -sf ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack
+ARG PNPM_VERSION
+RUN npm install -g pnpm@${PNPM_VERSION}
+
 # Copy pre-built frontend for playground UI cache
 COPY --from=ui-builder /ui/dist /ui-dist
 

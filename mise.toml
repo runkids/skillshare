@@ -16,7 +16,12 @@ echo "  mise run test:docker:online  # docker online install/update tests"
 echo "  mise run test:redteam   # red team supply-chain security tests"
 echo "  mise run playground     # start playground + enter shell (one step)"
 echo "  mise run playground:down  # stop and remove playground"
-echo "  mise run devc           # enter running devcontainer shell"
+echo "  mise run devc           # start devcontainer + enter shell (one step)"
+echo "  mise run devc:up        # start devcontainer (no shell)"
+echo "  mise run devc:down      # stop devcontainer"
+echo "  mise run devc:restart   # restart devcontainer"
+echo "  mise run devc:reset     # full reset (remove volumes)"
+echo "  mise run devc:status    # show devcontainer status"
 echo "  mise run lint           # go vet"
 echo "  mise run fmt            # format Go files"
 echo "  mise run check          # fmt:check + lint + test"
@@ -87,8 +92,31 @@ description = "Stop and remove playground container"
 run = "./scripts/sandbox_playground_down.sh"
 
 [tasks.devc]
-description = "Enter running devcontainer shell"
-run = "./scripts/devcontainer_shell.sh"
+description = "Start devcontainer + enter shell (one step)"
+run = """
+./scripts/devc.sh up
+./scripts/devc.sh shell
+"""
+
+[tasks."devc:up"]
+description = "Start devcontainer (no shell)"
+run = "./scripts/devc.sh up"
+
+[tasks."devc:down"]
+description = "Stop devcontainer"
+run = "./scripts/devc.sh down"
+
+[tasks."devc:restart"]
+description = "Restart devcontainer"
+run = "./scripts/devc.sh restart"
+
+[tasks."devc:reset"]
+description = "Full reset (remove volumes)"
+run = "./scripts/devc.sh reset"
+
+[tasks."devc:status"]
+description = "Show devcontainer status"
+run = "./scripts/devc.sh status"
 
 [tasks."dev:docker"]
 description = "Go API in Docker + auto-rebuild (pair with: cd ui && pnpm run dev)"

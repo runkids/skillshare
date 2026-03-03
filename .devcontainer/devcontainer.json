@@ -3,12 +3,6 @@
   "dockerComposeFile": "docker-compose.yml",
   "service": "skillshare-devcontainer",
   "workspaceFolder": "/workspace",
-  "features": {
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "24",
-      "pnpmVersion": "10.28.0"
-    }
-  },
   "forwardPorts": [5173, 19420, 3000],
   "portsAttributes": {
     "5173": { "label": "Dashboard (ui)" },

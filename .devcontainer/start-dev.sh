@@ -1,8 +1,35 @@
 #!/usr/bin/env bash
-# Resolve GITHUB_TOKEN and print available commands on container start.
+# Per-start container init: profile.d scripts, PATH, token detection.
+# Runs on every container start (VS Code postStartCommand / devc.sh).
 set -euo pipefail
 
-# Re-assert Linux-safe command entrypoints on every container start.
+# ── Profile.d: login-shell environment ───────────────────────────────
+# These live on the container filesystem (not volume) and must be
+# recreated after container recreation (docker compose down → up).
+
+# Token env: .env overrides host-passed env vars.
+cat > /etc/profile.d/skillshare-env.sh << 'PROFILE_EOF'
+if [ -f /workspace/.devcontainer/.env ]; then
+  set -a
+  . /workspace/.devcontainer/.env
+  set +a
+fi
+PROFILE_EOF
+
+# Restore Go toolchain paths (login shell resets PATH, dropping Docker ENV values)
+# and keep devcontainer command wrappers ahead of /usr/local/bin.
+cat > /etc/profile.d/skillshare-path.sh << 'PROFILE_EOF'
+case ":$PATH:" in
+  *:/usr/local/go/bin:*) ;;
+  *) export PATH="/go/bin:/usr/local/go/bin:$PATH" ;;
+esac
+case ":$PATH:" in
+  *:/workspace/.devcontainer/bin:*) ;;
+  *) export PATH="/workspace/.devcontainer/bin:/workspace/bin:$PATH" ;;
+esac
+PROFILE_EOF
+
+# ── Re-assert command entrypoints and shortcuts ──────────────────────
 if [ -x /workspace/.devcontainer/ensure-skillshare-linux-binary.sh ]; then
   /workspace/.devcontainer/ensure-skillshare-linux-binary.sh
 fi

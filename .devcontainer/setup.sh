@@ -12,29 +12,10 @@ if [[ "${HOME:-}" != "/tmp" && "${HOME:-}" != "/home/developer" ]] || [ ! -d /wo
 fi
 cd /workspace
 
-# ── 0. Token env: .env overrides host-passed env vars ────────────────
-# Docker-compose passes host tokens via environment (fallback).
-# If .devcontainer/.env exists, source it in every login shell to override.
-cat > /etc/profile.d/skillshare-env.sh << 'PROFILE_EOF'
-if [ -f /workspace/.devcontainer/.env ]; then
-  set -a
-  . /workspace/.devcontainer/.env
-  set +a
-fi
-PROFILE_EOF
-
-# Keep devcontainer command wrappers ahead of /usr/local/bin in login shells.
-cat > /etc/profile.d/skillshare-path.sh << 'PROFILE_EOF'
-case ":$PATH:" in
-  *:/workspace/.devcontainer/bin:*) ;;
-  *) export PATH="/workspace/.devcontainer/bin:/workspace/bin:$PATH" ;;
-esac
-PROFILE_EOF
-
-# Shortcuts for isolated env switching without memorizing eval commands.
-if [ -x /workspace/.devcontainer/install-ssenv-shortcuts.sh ]; then
-  /workspace/.devcontainer/install-ssenv-shortcuts.sh
-fi
+# ── 0. Container-level setup (profile.d, shortcuts) ──────────────────
+# Delegate to start-dev.sh which handles per-start container init.
+# This ensures profile.d scripts exist before any login-shell steps below.
+/workspace/.devcontainer/start-dev.sh
 
 # ── 1. Build CLI ────────────────────────────────────────────────────
 echo "▸ Building skillshare binary …"
@@ -68,6 +49,9 @@ SKILLS="$HOME/.config/skillshare/skills"
 CFG="$HOME/.config/skillshare"
 DEMO="$HOME/demo-project"
 /workspace/scripts/create-demo-content.sh "$SKILLS" "$CFG" "$DEMO"
+
+# ── Mark initialisation complete (sentinel on persistent volume) ─────
+touch "$HOME/.devcontainer-initialized"
 
 # ── Done ────────────────────────────────────────────────────────────
 echo ""
