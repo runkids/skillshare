@@ -14,6 +14,16 @@
   skillshare audit --analyzer metadata     # run metadata analyzer only
   ```
 
+#### Hardcoded Secret Detection
+
+- **10 new audit rules** (`hardcoded-secret-0` through `hardcoded-secret-9`) detect inline API keys, tokens, and passwords embedded in skill files:
+  - Google API keys, AWS access keys, GitHub PATs (classic + fine-grained), Slack tokens, OpenAI keys, Anthropic keys, Stripe keys, PEM private key blocks, and generic `api_key`/`password` assignments
+  - Severity: HIGH — blocks installation at default threshold
+  ```bash
+  skillshare audit                         # hardcoded secrets detected automatically
+  skillshare audit rules --pattern hardcoded-secret  # list all secret rules
+  ```
+
 #### Skill Integrity Verification
 
 - **`doctor` integrity check** — verifies installed skills haven't been tampered with by comparing current file hashes against stored `.skillshare-meta.json` hashes:

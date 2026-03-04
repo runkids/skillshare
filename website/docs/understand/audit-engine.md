@@ -19,6 +19,7 @@ Unlike traditional package managers where code runs in a sandboxed runtime, AI s
 - **Prompt injection** — hidden instructions that override user intent
 - **Data exfiltration** — commands that send secrets to external servers
 - **Credential theft** — reading SSH keys, API tokens, or cloud credentials
+- **Hardcoded secrets** — API keys, tokens, or passwords embedded directly in skill text
 - **Steganographic hiding** — zero-width Unicode or HTML comments that are invisible to human review
 
 A single compromised skill can instruct an AI to read your `.env`, SSH keys, or AWS credentials and send them to an attacker-controlled server — all while appearing to perform a legitimate task.
@@ -77,8 +78,9 @@ These patterns are **strong indicators of malicious intent** but may occasionall
 | `config-manipulation` | Instructions to modify AI agent configuration or memory files (`MEMORY.md`, `CLAUDE.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`) |
 | `data-exfiltration` | DNS data exfiltration via `dig`/`nslookup`/`host` with command substitution in subdomain |
 | `self-propagation` | Self-replication instructions that spread payload to other files or projects |
+| `hardcoded-secret` | Inline API keys, tokens, and passwords: Google API keys (`AIza...`), AWS access keys (`AKIA...`), GitHub PATs (`ghp_`/`ghs_`/`github_pat_`), Slack tokens (`xox[bporas]-`), OpenAI keys, Anthropic keys, Stripe keys, PEM private key blocks, and generic `api_key`/`secret_key`/`password` assignments with high-entropy values |
 
-> **Why high?** Hidden Unicode characters can make malicious instructions invisible during code review. Bidirectional text control characters can reorder visible text to disguise malicious code (Trojan Source). Base64 obfuscation is a common technique to bypass human inspection. Destructive commands like `rm -rf /` can cause irreversible damage. `curl | bash` is the classic remote code execution vector — fetched content runs directly in your shell. Config/memory file poisoning persists across AI sessions. DNS exfiltration encodes stolen data in subdomain queries. Self-propagation instructions create repository worms.
+> **Why high?** Hidden Unicode characters can make malicious instructions invisible during code review. Bidirectional text control characters can reorder visible text to disguise malicious code (Trojan Source). Base64 obfuscation is a common technique to bypass human inspection. Destructive commands like `rm -rf /` can cause irreversible damage. `curl | bash` is the classic remote code execution vector — fetched content runs directly in your shell. Config/memory file poisoning persists across AI sessions. DNS exfiltration encodes stolen data in subdomain queries. Self-propagation instructions create repository worms. Hardcoded secrets (API keys, tokens, private keys) in skill files indicate either leaked credentials or intentional credential exposure — both are supply-chain risks that should be reviewed.
 
 ### MEDIUM (informational warning, counted as Warning)
 

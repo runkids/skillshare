@@ -91,7 +91,7 @@ func categoryForPattern(pattern string) string {
 		return CategoryInjection
 	case strings.Contains(pattern, "exfiltration") || strings.Contains(pattern, "fetch-with-pipe"):
 		return CategoryExfiltration
-	case strings.Contains(pattern, "credential"):
+	case strings.Contains(pattern, "credential") || strings.Contains(pattern, "hardcoded-secret"):
 		return CategoryCredential
 	case strings.Contains(pattern, "obfuscation") || strings.Contains(pattern, "escape-obfuscation") ||
 		strings.Contains(pattern, "invisible-payload") || strings.Contains(pattern, "hidden-unicode") ||

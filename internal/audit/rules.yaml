@@ -260,6 +260,67 @@ rules:
     message: "data: URI may embed executable or obfuscated content"
     regex: '(?i)\]\(data:[^)]+\)'
 
+  # ── HIGH: hardcoded secrets (inline API keys, tokens, passwords) ──
+  - id: hardcoded-secret-0
+    severity: HIGH
+    pattern: hardcoded-secret
+    message: "Google API key detected"
+    regex: 'AIza[0-9A-Za-z\-_]{35}'
+
+  - id: hardcoded-secret-1
+    severity: HIGH
+    pattern: hardcoded-secret
+    message: "AWS access key detected"
+    regex: 'AKIA[0-9A-Z]{16}'
+
+  - id: hardcoded-secret-2
+    severity: HIGH
+    pattern: hardcoded-secret
+    message: "GitHub personal access token (classic) detected"
+    regex: 'gh[ps]_[A-Za-z0-9_]{36,}'
+
+  - id: hardcoded-secret-3
+    severity: HIGH
+    pattern: hardcoded-secret
+    message: "GitHub fine-grained personal access token detected"
+    regex: 'github_pat_[A-Za-z0-9_]{22,}'
+
+  - id: hardcoded-secret-4
+    severity: HIGH
+    pattern: hardcoded-secret
+    message: "Slack token detected"
+    regex: 'xox[bporas]-[A-Za-z0-9\-]{10,}'
+
+  - id: hardcoded-secret-5
+    severity: HIGH
+    pattern: hardcoded-secret
+    message: "OpenAI API key detected"
+    regex: 'sk-[A-Za-z0-9]{20,}T3BlbkFJ[A-Za-z0-9]{20,}'
+
+  - id: hardcoded-secret-6
+    severity: HIGH
+    pattern: hardcoded-secret
+    message: "Anthropic API key detected"
+    regex: 'sk-ant-[A-Za-z0-9\-_]{80,}'
+
+  - id: hardcoded-secret-7
+    severity: HIGH
+    pattern: hardcoded-secret
+    message: "Stripe secret or restricted key detected"
+    regex: '[sr]k_(live|test)_[A-Za-z0-9]{20,}'
+
+  - id: hardcoded-secret-8
+    severity: HIGH
+    pattern: hardcoded-secret
+    message: "Private key block detected"
+    regex: '-----BEGIN (RSA|DSA|EC|OPENSSH) PRIVATE KEY-----'
+
+  - id: hardcoded-secret-9
+    severity: HIGH
+    pattern: hardcoded-secret
+    message: "Hardcoded secret assignment detected"
+    regex: '(?i)(api[_-]?key|secret[_-]?key|access[_-]?token|auth[_-]?token|password)\s*[:=]\s*["\x27][A-Za-z0-9+/\-_]{20,}["\x27]'
+
   # ── INFO: risky shell chaining patterns (advisory) ──
   - id: shell-chain-0
     severity: INFO
