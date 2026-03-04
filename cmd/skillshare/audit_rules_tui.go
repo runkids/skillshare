@@ -656,9 +656,10 @@ func (m arModel) viewHorizontal() string {
 	rightWidth := arDetailWidth(m.width)
 
 	// Right panel: detail for selected item
+	var scrollInfo string
 	detailStr := m.renderSelectedDetail()
 	if detailStr != "" {
-		detailStr = applyDetailScroll(detailStr, m.detailScroll, panelHeight)
+		detailStr, scrollInfo = wrapAndScroll(detailStr, rightWidth-1, m.detailScroll, panelHeight)
 	}
 
 	body := renderHorizontalSplit(m.list.View(), detailStr, leftWidth, rightWidth, panelHeight)
@@ -666,7 +667,7 @@ func (m arModel) viewHorizontal() string {
 	b.WriteString("\n\n")
 
 	b.WriteString(m.renderFilterBar())
-	b.WriteString(m.renderFlashAndHelp())
+	b.WriteString(m.renderFlashAndHelp(scrollInfo))
 
 	return b.String()
 }
@@ -685,7 +686,7 @@ func (m arModel) viewVertical() string {
 		b.WriteString(detail)
 	}
 
-	b.WriteString(m.renderFlashAndHelp())
+	b.WriteString(m.renderFlashAndHelp(""))
 
 	return b.String()
 }
@@ -807,7 +808,7 @@ func (m arModel) renderFilterBar() string {
 }
 
 // renderFlashAndHelp renders the flash message and help bar.
-func (m arModel) renderFlashAndHelp() string {
+func (m arModel) renderFlashAndHelp(scrollInfo string) string {
 	var b strings.Builder
 
 	if m.flashMsg != "" {
@@ -821,7 +822,7 @@ func (m arModel) renderFlashAndHelp() string {
 		if m.useSplit() {
 			help += "  Ctrl+d/u scroll"
 		}
-		b.WriteString(tc.Help.Render(help))
+		b.WriteString(tc.Help.Render(appendScrollInfo(help, scrollInfo)))
 	}
 	b.WriteString("\n")
 

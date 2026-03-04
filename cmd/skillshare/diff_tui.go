@@ -409,8 +409,7 @@ func (m diffTUIModel) viewDiffHorizontal() string {
 	rightWidth := diffDetailWidth(m.termWidth)
 
 	// Detail
-	detailContent := m.buildDiffDetail()
-	detailStr := applyDetailScroll(detailContent, m.detailScroll, panelHeight)
+	detailStr, scrollInfo := wrapAndScroll(m.buildDiffDetail(), rightWidth-1, m.detailScroll, panelHeight)
 
 	body := renderHorizontalSplit(m.targetList.View(), detailStr, leftWidth, rightWidth, panelHeight)
 	b.WriteString(body)
@@ -420,7 +419,7 @@ func (m diffTUIModel) viewDiffHorizontal() string {
 	b.WriteString(m.renderDiffFilterBar())
 
 	// Help
-	b.WriteString(tc.Help.Render("↑↓ navigate  / filter  Enter expand  Ctrl+d/u scroll  q quit"))
+	b.WriteString(tc.Help.Render(appendScrollInfo("↑↓ navigate  / filter  Enter expand  Ctrl+d/u scroll  q quit", scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()
@@ -435,12 +434,12 @@ func (m diffTUIModel) viewDiffVertical() string {
 	b.WriteString(m.renderDiffFilterBar())
 
 	// Detail below list
-	detailContent := m.buildDiffDetail()
 	detailHeight := max(m.termHeight/3, 6)
-	b.WriteString(applyDetailScroll(detailContent, m.detailScroll, detailHeight))
+	detailStr, scrollInfo := wrapAndScroll(m.buildDiffDetail(), m.termWidth, m.detailScroll, detailHeight)
+	b.WriteString(detailStr)
 	b.WriteString("\n")
 
-	b.WriteString(tc.Help.Render("↑↓ navigate  / filter  Enter expand  Ctrl+d/u scroll  q quit"))
+	b.WriteString(tc.Help.Render(appendScrollInfo("↑↓ navigate  / filter  Enter expand  Ctrl+d/u scroll  q quit", scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()

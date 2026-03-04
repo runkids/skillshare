@@ -628,7 +628,7 @@ func (m restoreTUIModel) viewHorizontal() string {
 	}
 
 	// Right panel: detail (cached)
-	detailStr := applyDetailScroll(m.buildDetailContent(), m.detailScroll, panelHeight)
+	detailStr, scrollInfo := wrapAndScroll(m.buildDetailContent(), rightWidth-1, m.detailScroll, panelHeight)
 
 	body := renderHorizontalSplit(listView, detailStr, leftWidth, rightWidth, panelHeight)
 	b.WriteString(body)
@@ -645,8 +645,7 @@ func (m restoreTUIModel) viewHorizontal() string {
 	b.WriteString(m.renderRestoreFilterBar())
 
 	// Help
-	help := m.restoreHelpText()
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(tc.Help.Render(appendScrollInfo(m.restoreHelpText(), scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()
@@ -673,16 +672,15 @@ func (m restoreTUIModel) viewVertical() string {
 	b.WriteString(m.renderRestoreFilterBar())
 
 	// Detail below list (limited height)
-	detailContent := m.buildDetailContent()
 	detailHeight := m.termHeight / 3
 	if detailHeight < 6 {
 		detailHeight = 6
 	}
-	b.WriteString(applyDetailScroll(detailContent, m.detailScroll, detailHeight))
+	detailStr, scrollInfo := wrapAndScroll(m.buildDetailContent(), m.termWidth, m.detailScroll, detailHeight)
+	b.WriteString(detailStr)
 	b.WriteString("\n")
 
-	help := m.restoreHelpText()
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(tc.Help.Render(appendScrollInfo(m.restoreHelpText(), scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()

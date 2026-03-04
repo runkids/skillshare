@@ -558,10 +558,9 @@ func (m logTUIModel) View() string {
 	rightWidth := logDetailPanelWidth(m.termWidth)
 
 	// Right panel: detail for selected item
-	var detailStr string
+	var detailStr, scrollInfo string
 	if item, ok := m.list.SelectedItem().(logItem); ok {
-		detailContent := renderLogDetailPanel(item)
-		detailStr = applyDetailScroll(detailContent, m.detailScroll, panelHeight)
+		detailStr, scrollInfo = wrapAndScroll(renderLogDetailPanel(item), rightWidth-1, m.detailScroll, panelHeight)
 	}
 
 	body := renderHorizontalSplit(m.list.View(), detailStr, leftWidth, rightWidth, panelHeight)
@@ -575,7 +574,7 @@ func (m logTUIModel) View() string {
 	b.WriteString(m.renderStatsFooter())
 	b.WriteString("\n")
 
-	b.WriteString(tc.Help.Render(m.logHelpBar()))
+	b.WriteString(tc.Help.Render(appendScrollInfo(m.logHelpBar(), scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()
@@ -590,16 +589,17 @@ func (m logTUIModel) viewVertical() string {
 
 	b.WriteString(m.renderLogFilterBar())
 
+	var scrollInfo string
 	if item, ok := m.list.SelectedItem().(logItem); ok {
-		detailContent := renderLogDetailPanel(item)
-		// Vertical: detail takes remaining space below the list
 		detailHeight := m.termHeight - m.termHeight*2/5 - 7
-		b.WriteString(applyDetailScroll(detailContent, m.detailScroll, detailHeight))
+		var detailStr string
+		detailStr, scrollInfo = wrapAndScroll(renderLogDetailPanel(item), m.termWidth, m.detailScroll, detailHeight)
+		b.WriteString(detailStr)
 	}
 
 	b.WriteString(m.renderStatsFooter())
 
-	b.WriteString(tc.Help.Render(m.logHelpBar()))
+	b.WriteString(tc.Help.Render(appendScrollInfo(m.logHelpBar(), scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()

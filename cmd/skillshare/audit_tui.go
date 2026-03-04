@@ -330,10 +330,9 @@ func (m auditTUIModel) View() string {
 	borderPanel := borderStyle.Render(strings.TrimRight(borderCol, "\n"))
 
 	// Right panel: detail for selected item
-	var detailStr string
+	var detailStr, scrollInfo string
 	if item, ok := m.list.SelectedItem().(auditItem); ok {
-		detailContent := m.renderDetailContent(item)
-		detailStr = applyDetailScroll(detailContent, m.detailScroll, panelHeight)
+		detailStr, scrollInfo = wrapAndScroll(m.renderDetailContent(item), rightWidth-1, m.detailScroll, panelHeight)
 	}
 	rightPanel := lipgloss.NewStyle().
 		Width(rightWidth).MaxWidth(rightWidth).
@@ -353,7 +352,7 @@ func (m auditTUIModel) View() string {
 	b.WriteString("\n")
 
 	// Help line
-	b.WriteString(tc.Help.Render("↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll detail  q quit"))
+	b.WriteString(tc.Help.Render(appendScrollInfo("↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll detail  q quit", scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()
@@ -368,15 +367,17 @@ func (m auditTUIModel) viewVertical() string {
 
 	b.WriteString(m.renderFilterBar())
 
+	var scrollInfo string
 	if item, ok := m.list.SelectedItem().(auditItem); ok {
-		detailContent := m.renderDetailContent(item)
 		detailHeight := m.termHeight - m.termHeight*2/5 - 8
-		b.WriteString(applyDetailScroll(detailContent, m.detailScroll, detailHeight))
+		var detailStr string
+		detailStr, scrollInfo = wrapAndScroll(m.renderDetailContent(item), m.termWidth, m.detailScroll, detailHeight)
+		b.WriteString(detailStr)
 	}
 
 	b.WriteString(m.renderSummaryFooter())
 
-	b.WriteString(tc.Help.Render("↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll  q quit"))
+	b.WriteString(tc.Help.Render(appendScrollInfo("↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll  q quit", scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()

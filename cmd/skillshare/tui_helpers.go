@@ -30,10 +30,24 @@ func shouldLaunchTUI(noTUI bool, cfg *config.Config) bool {
 	return c.IsTUIEnabled()
 }
 
-// applyDetailScroll applies vertical scrolling to detail panel content.
-// detailScroll is the current scroll offset; viewHeight is the visible line count.
-// Returns the visible portion with a scroll indicator when needed.
-func applyDetailScroll(content string, detailScroll, viewHeight int) string {
+// wrapAndScroll hard-wraps content to width then applies vertical scrolling.
+// Returns (visible content, scroll info). Scroll indicator is returned separately
+// so it doesn't consume panel height — prevents bottom content from being clipped by MaxHeight.
+func wrapAndScroll(content string, width, detailScroll, viewHeight int) (string, string) {
+	content = hardWrapContent(content, width)
+	return applyDetailScrollSplit(content, detailScroll, viewHeight)
+}
+
+// appendScrollInfo appends scroll position info to help text when present.
+func appendScrollInfo(help, scrollInfo string) string {
+	if scrollInfo != "" {
+		return help + "  " + scrollInfo
+	}
+	return help
+}
+
+// applyDetailScrollSplit applies scrolling and returns (visible content, scroll info).
+func applyDetailScrollSplit(content string, detailScroll, viewHeight int) (string, string) {
 	lines := strings.Split(content, "\n")
 
 	maxDetailLines := viewHeight
@@ -43,7 +57,7 @@ func applyDetailScroll(content string, detailScroll, viewHeight int) string {
 
 	totalLines := len(lines)
 	if totalLines <= maxDetailLines {
-		return content
+		return content, ""
 	}
 
 	maxScroll := totalLines - maxDetailLines
@@ -52,19 +66,8 @@ func applyDetailScroll(content string, detailScroll, viewHeight int) string {
 	end := min(offset+maxDetailLines, totalLines)
 	visible := lines[offset:end]
 
-	var b strings.Builder
-	for _, line := range visible {
-		b.WriteString(line)
-		b.WriteString("\n")
-	}
-
-	if offset > 0 || offset < maxScroll {
-		indicator := fmt.Sprintf("── Ctrl+d/u scroll (%d/%d) ──", offset+1, maxScroll+1)
-		b.WriteString(tc.Dim.Render(indicator))
-		b.WriteString("\n")
-	}
-
-	return b.String()
+	scrollInfo := fmt.Sprintf("(%d/%d)", offset+1, maxScroll+1)
+	return strings.Join(visible, "\n"), scrollInfo
 }
 
 // formatDurationShort returns a compact human-readable duration string.
