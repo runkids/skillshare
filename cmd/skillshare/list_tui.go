@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // maxListItems is the maximum number of items passed to bubbles/list.
@@ -201,7 +202,7 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
 		// Reserve space for detail panel + filter bar + gap + help
-		m.list.SetSize(msg.Width, msg.Height-18)
+		m.list.SetSize(msg.Width, msg.Height-20)
 		return m, nil
 
 	case spinner.TickMsg:
@@ -494,23 +495,55 @@ func (m listTUIModel) getDetailData(e skillEntry) *detailData {
 	return d
 }
 
+// renderDetailGroup renders a titled section with indented rows (no border box).
+func renderDetailGroup(title string, rows []string, _ int) string {
+	// Filter out empty rows
+	var filtered []string
+	for _, r := range rows {
+		if r != "" {
+			filtered = append(filtered, r)
+		}
+	}
+	if len(filtered) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	b.WriteString(tc.Title.Render(title))
+	b.WriteString("\n")
+	for _, r := range filtered {
+		b.WriteString("  ")
+		b.WriteString(r)
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// detailRow formats a single label-value row for use inside a detail group.
+func detailRow(label, value string) string {
+	return tc.Label.Render(label) + tc.Value.Render(value)
+}
+
+// trackedBadge is the inline [tracked] badge style.
+var trackedBadge = lipgloss.NewStyle().
+	Background(lipgloss.Color("6")).
+	Foreground(lipgloss.Color("0")).
+	Padding(0, 1)
+
 // renderDetailPanel renders the detail section for the selected skill.
 func (m listTUIModel) renderDetailPanel(e skillEntry) string {
 	var b strings.Builder
 	b.WriteString(tc.Separator.Render("  ─────────────────────────────────────────"))
 	b.WriteString("\n")
 
-	row := func(label, value string) {
-		b.WriteString("  ")
-		b.WriteString(tc.Label.Render(label))
-		b.WriteString(tc.Value.Render(value))
-		b.WriteString("\n")
+	d := m.getDetailData(e)
+
+	boxWidth := m.termWidth - 4
+	if boxWidth < 40 {
+		boxWidth = 40
 	}
 
-	d := m.getDetailData(e)
-	skillDir := filepath.Join(m.sourcePath, e.RelPath)
-
-	// Description — word-wrapped to terminal width
+	// Description — word-wrapped, outside boxes
 	if d.Description != "" {
 		const labelOffset = 16
 		maxWidth := m.termWidth - labelOffset
@@ -524,46 +557,85 @@ func (m listTUIModel) renderDetailPanel(e skillEntry) string {
 			lines = lines[:maxDescLines]
 			lines[maxDescLines-1] += "..."
 		}
-		row("Description:", lines[0])
+		b.WriteString("  ")
+		b.WriteString(tc.Label.Render("Description:"))
+		b.WriteString(tc.Value.Render(lines[0]))
+		b.WriteString("\n")
 		indent := strings.Repeat(" ", labelOffset)
 		for _, line := range lines[1:] {
 			b.WriteString(indent)
 			b.WriteString(tc.Value.Render(line))
 			b.WriteString("\n")
 		}
-		b.WriteString("\n") // blank line after multi-line description
+		b.WriteString("\n")
+	}
+
+	// --- Source group box ---
+	var sourceRows []string
+
+	// Tracked
+	if e.RepoName != "" {
+		sourceRows = append(sourceRows, detailRow("Tracked:", tc.Cyan.Render(e.RepoName)))
+	}
+
+	// Source with inline badge
+	if e.Source != "" {
+		sourceVal := tc.Cyan.Render(e.Source)
+		if e.RepoName != "" {
+			sourceVal += " " + trackedBadge.Render("[tracked]")
+		}
+		sourceRows = append(sourceRows, detailRow("Source:", sourceVal))
+	} else {
+		sourceRows = append(sourceRows, detailRow("Source:", tc.Dim.Render("(local)")))
+	}
+
+	// Installed
+	if e.InstalledAt != "" {
+		sourceRows = append(sourceRows, detailRow("Installed:", e.InstalledAt))
 	}
 
 	// License
 	if d.License != "" {
-		row("License:", tc.Green.Render(d.License))
-	}
-
-	// Disk path
-	row("Path:", skillDir)
-
-	// Source info
-	if e.RepoName != "" {
-		row("Tracked:", tc.Cyan.Render(e.RepoName))
-	}
-	if e.Source != "" {
-		row("Source:", tc.Cyan.Render(e.Source))
+		sourceRows = append(sourceRows, detailRow("License:", tc.Green.Render(d.License)))
 	} else {
-		row("Source:", "(local)")
-	}
-	if e.InstalledAt != "" {
-		row("Installed:", e.InstalledAt)
+		sourceRows = append(sourceRows, detailRow("License:", tc.Dim.Render("(none)")))
 	}
 
-	// Files
+	b.WriteString("  ")
+	b.WriteString(renderDetailGroup("Source", sourceRows, boxWidth))
+	b.WriteString("\n")
+
+	// --- Sync group box ---
+	var syncRows []string
+
+	// Files with count, dot-separated, SKILL.md highlighted, truncated at 5
 	if len(d.Files) > 0 {
-		row("Files:", strings.Join(d.Files, "  "))
+		label := fmt.Sprintf("Files (%d):", len(d.Files))
+		const maxFiles = 5
+		displayFiles := d.Files
+		var suffix string
+		if len(displayFiles) > maxFiles {
+			suffix = tc.Dim.Render(fmt.Sprintf(" ... +%d more", len(displayFiles)-maxFiles))
+			displayFiles = displayFiles[:maxFiles]
+		}
+		var styled []string
+		for _, f := range displayFiles {
+			if f == "SKILL.md" {
+				styled = append(styled, tc.Cyan.Render(f))
+			} else {
+				styled = append(styled, tc.File.Render(f))
+			}
+		}
+		syncRows = append(syncRows, detailRow(label, strings.Join(styled, " · ")+suffix))
 	}
 
 	// Synced targets
 	if len(d.SyncedTargets) > 0 {
-		row("Synced to:", tc.Target.Render(strings.Join(d.SyncedTargets, ", ")))
+		syncRows = append(syncRows, detailRow("Synced to:", tc.Target.Render(strings.Join(d.SyncedTargets, ", "))))
 	}
+
+	b.WriteString("  ")
+	b.WriteString(renderDetailGroup("Sync", syncRows, boxWidth))
 
 	return b.String()
 }
