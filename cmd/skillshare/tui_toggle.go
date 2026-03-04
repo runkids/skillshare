@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/oplog"
 	"skillshare/internal/ui"
 )
 
@@ -30,26 +32,33 @@ func cmdTUIToggle(args []string) error {
 		return nil
 	}
 
+	start := time.Now()
+	var setErr error
+
 	switch args[0] {
 	case "on":
-		v := true
-		cfg.TUI = &v
+		cfg.TUI = boolPtr(true)
 		if err := cfg.Save(); err != nil {
-			return fmt.Errorf("failed to save config: %w", err)
+			setErr = fmt.Errorf("failed to save config: %w", err)
+		} else {
+			ui.Success("TUI enabled")
 		}
-		ui.Success("TUI enabled")
 	case "off":
-		v := false
-		cfg.TUI = &v
+		cfg.TUI = boolPtr(false)
 		if err := cfg.Save(); err != nil {
-			return fmt.Errorf("failed to save config: %w", err)
+			setErr = fmt.Errorf("failed to save config: %w", err)
+		} else {
+			ui.Success("TUI disabled")
 		}
-		ui.Success("TUI disabled")
 	default:
 		return fmt.Errorf("unknown argument %q: use 'tui on' or 'tui off'", args[0])
 	}
 
-	return nil
+	e := oplog.NewEntry("tui", statusFromErr(setErr), time.Since(start))
+	e.Args = map[string]any{"value": args[0]}
+	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+
+	return setErr
 }
 
 func printTUIToggleUsage() {

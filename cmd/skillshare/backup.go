@@ -392,13 +392,13 @@ func cmdRestore(args []string) error {
 
 // restoreTUIDispatch handles the no-args TUI flow for restore.
 func restoreTUIDispatch(noTUI bool) error {
-	if !shouldLaunchTUI(noTUI, nil) {
-		return backupList()
-	}
-
 	cfg, err := config.Load()
 	if err != nil {
 		return err
+	}
+
+	if !shouldLaunchTUI(noTUI, cfg) {
+		return backupList()
 	}
 
 	// Step 1: Source picker — Backup or Trash
