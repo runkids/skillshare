@@ -391,6 +391,27 @@ func TestAuthEnv(t *testing.T) {
 	}
 }
 
+func TestIsSSLError(t *testing.T) {
+	tests := []struct {
+		output string
+		want   bool
+	}{
+		{"fatal: unable to access 'https://gitlab.internal.com/': SSL certificate problem: self signed certificate", true},
+		{"SSL certificate problem: unable to get local issuer certificate", true},
+		{"fatal: unable to access 'https://git.company.com/': server certificate verification failed. CAfile: /etc/ssl/certs/ca-certificates.crt", true},
+		{"ssl certificate problem: self signed certificate in certificate chain", true},
+		{"fatal: Authentication failed for 'https://github.com/'", false},
+		{"fatal: repository not found", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		got := IsSSLError(tt.output)
+		if got != tt.want {
+			t.Errorf("IsSSLError(%q) = %v, want %v", tt.output, got, tt.want)
+		}
+	}
+}
+
 func TestSanitizeTokens(t *testing.T) {
 	tests := []struct {
 		name    string

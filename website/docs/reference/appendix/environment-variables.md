@@ -249,6 +249,38 @@ $env:SKILLSHARE_GIT_TOKEN = "your_token"
 
 ---
 
+## Git SSL / TLS
+
+These standard Git environment variables are passed through to all git operations. They are useful for self-hosted Git servers (GitLab, Gitea, etc.) with self-signed certificates or internal CAs.
+
+### GIT_SSL_CAINFO
+
+Path to a custom CA certificate bundle. Use this when your self-hosted Git server uses a certificate signed by an internal CA.
+
+```bash
+export GIT_SSL_CAINFO=/path/to/ca-bundle.crt
+skillshare install https://gitlab.internal.company.com/team/skills.git --track
+```
+
+### GIT_SSL_NO_VERIFY
+
+Disable SSL certificate verification entirely. Use as a last resort when CA certificate setup is not feasible.
+
+:::warning Security risk
+Disabling SSL verification makes connections vulnerable to man-in-the-middle attacks. Prefer `GIT_SSL_CAINFO` with a proper CA bundle, or use SSH instead.
+:::
+
+```bash
+GIT_SSL_NO_VERIFY=true skillshare install https://gitlab.internal.company.com/team/skills.git --track
+```
+
+**Alternative: use SSH to avoid SSL entirely:**
+```bash
+skillshare install git@gitlab.internal.company.com:team/skills.git --track
+```
+
+---
+
 ## Testing
 
 ### SKILLSHARE_TEST_BINARY
@@ -309,6 +341,8 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `BITBUCKET_USERNAME` | Bitbucket username for app password auth | None |
 | `AZURE_DEVOPS_TOKEN` | Azure DevOps git clone auth | None |
 | `SKILLSHARE_GIT_TOKEN` | Generic git clone auth (fallback) | None |
+| `GIT_SSL_CAINFO` | Custom CA certificate bundle path | System default |
+| `GIT_SSL_NO_VERIFY` | Disable SSL certificate verification | `false` |
 | `SKILLSHARE_TEST_BINARY` | Test binary path | `bin/skillshare` |
 
 ---

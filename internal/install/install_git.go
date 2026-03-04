@@ -60,6 +60,12 @@ func usedTokenAuth(extraEnv []string) bool {
 // wrapGitError inspects stderr output to produce actionable error messages.
 func wrapGitError(stderr string, err error, tokenAuthAttempted bool) error {
 	s := sanitizeTokens(strings.TrimSpace(stderr))
+	if IsSSLError(s) {
+		return fmt.Errorf("SSL certificate verification failed — options:\n"+
+			"       1. Custom CA bundle: GIT_SSL_CAINFO=/path/to/ca-bundle.crt skillshare install <url>\n"+
+			"       2. Skip verification: GIT_SSL_NO_VERIFY=true skillshare install <url>\n"+
+			"       3. Use SSH instead: git@<host>:<owner>/<repo>.git\n       %s", s)
+	}
 	if IsAuthError(s) {
 		if tokenAuthAttempted {
 			return fmt.Errorf("authentication failed — token rejected, check permissions and expiry\n       %s", s)

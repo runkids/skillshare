@@ -226,3 +226,13 @@ func IsAuthError(output string) bool {
 		strings.Contains(output, "could not read Username") ||
 		strings.Contains(output, "terminal prompts disabled")
 }
+
+// IsSSLError returns true when git stderr indicates a TLS/SSL certificate failure.
+func IsSSLError(output string) bool {
+	lower := strings.ToLower(output)
+	return strings.Contains(lower, "ssl certificate problem") ||
+		strings.Contains(lower, "unable to get local issuer certificate") ||
+		strings.Contains(lower, "self signed certificate") ||
+		strings.Contains(lower, "certificate verify failed") ||
+		strings.Contains(lower, "certificate verification failed")
+}

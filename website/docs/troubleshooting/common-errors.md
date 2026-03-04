@@ -229,6 +229,32 @@ Only **Personal Access Token** (`glpat-`) works for git operations. Feed Tokens 
 
 See [Environment Variables](/docs/reference/appendix/environment-variables#git-authentication) and [Private Repositories](/docs/reference/commands/install#private-repositories).
 
+### `SSL certificate problem` / `certificate verification failed`
+
+**Cause:** The Git server uses a self-signed certificate or an internal CA that your system doesn't trust. Common with self-hosted GitLab, Gitea, or Gogs instances.
+
+**Solution — Option 1: Custom CA bundle (recommended):**
+```bash
+export GIT_SSL_CAINFO=/path/to/company-ca-bundle.crt
+skillshare install https://gitlab.internal.company.com/team/skills.git --track
+```
+
+**Solution — Option 2: Use SSH instead (avoids SSL entirely):**
+```bash
+skillshare install git@gitlab.internal.company.com:team/skills.git --track
+```
+
+**Solution — Option 3: Disable SSL verification (not recommended):**
+```bash
+GIT_SSL_NO_VERIFY=true skillshare install https://gitlab.internal.company.com/team/skills.git --track
+```
+
+:::warning
+Disabling SSL verification is a security risk. Prefer Option 1 or 2.
+:::
+
+See [Environment Variables — Git SSL / TLS](/docs/reference/appendix/environment-variables#git-ssl--tls).
+
 ### `invalid skill: SKILL.md not found`
 
 **Cause:** The source doesn't have a valid SKILL.md file.

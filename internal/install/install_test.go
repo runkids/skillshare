@@ -289,6 +289,24 @@ func TestWrapGitError(t *testing.T) {
 			wantSubstr: "[REDACTED]",
 		},
 		{
+			name:       "ssl self-signed cert — shows SSL options",
+			stderr:     "fatal: unable to access 'https://gitlab.internal.com/': SSL certificate problem: self signed certificate",
+			err:        errors.New("exit status 128"),
+			wantSubstr: "GIT_SSL_CAINFO",
+		},
+		{
+			name:       "ssl unable to get issuer — shows SSL options",
+			stderr:     "fatal: unable to access 'https://gitlab.internal.com/': SSL certificate problem: unable to get local issuer certificate",
+			err:        errors.New("exit status 128"),
+			wantSubstr: "SSL certificate verification failed",
+		},
+		{
+			name:       "ssl certificate verify failed — shows SSL options",
+			stderr:     "fatal: unable to access 'https://git.company.com/': server certificate verification failed. CAfile: /etc/ssl/certs/ca-certificates.crt CRLfile: none",
+			err:        errors.New("exit status 128"),
+			wantSubstr: "GIT_SSL_NO_VERIFY",
+		},
+		{
 			name:       "other stderr",
 			stderr:     "fatal: repository not found",
 			err:        errors.New("exit status 128"),
