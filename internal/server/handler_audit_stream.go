@@ -1,0 +1,97 @@
+package server
+
+import (
+	"net/http"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"skillshare/internal/audit"
+)
+
+// handleAuditStream serves an SSE endpoint that streams audit progress in real time.
+// Events:
+//   - "start"    → {"total": N}           after skill discovery
+//   - "progress" → {"scanned": N}         every 200ms during scan
+//   - "done"     → {"results":…,"summary":…}  final payload (same shape as GET /api/audit)
+func (s *Server) handleAuditStream(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		writeError(w, http.StatusInternalServerError, "streaming not supported")
+		return
+	}
+
+	// Disable WriteTimeout for this long-lived SSE connection.
+	if rc := http.NewResponseController(w); rc != nil {
+		_ = rc.SetWriteDeadline(time.Time{}) // zero = no deadline
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	// Mutex protects all writes to the ResponseWriter (not goroutine-safe).
+	var mu sync.Mutex
+	safeSend := func(event string, data any) {
+		mu.Lock()
+		defer mu.Unlock()
+		sendSSE(w, flusher, event, data)
+	}
+
+	start := time.Now()
+	policy := s.auditPolicy()
+
+	// 1. Discover skills
+	skills, err := discoverAuditSkills(s.cfg.Source)
+	if err != nil {
+		safeSend("error", map[string]string{"error": err.Error()})
+		return
+	}
+
+	safeSend("start", map[string]int{"total": len(skills)})
+
+	// 2. Atomic counter + ticker for progress events
+	var scanned atomic.Int64
+	ctx := r.Context()
+	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		ticker := time.NewTicker(200 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				safeSend("progress", map[string]int64{"scanned": scanned.Load()})
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	onDone := func() { scanned.Add(1) }
+
+	projectRoot := s.projectRoot
+	if !s.IsProjectMode() {
+		projectRoot = ""
+	}
+
+	// 3. Parallel scan (blocks until all skills are scanned)
+	outputs := audit.ParallelScan(skillsToAuditInputs(skills), projectRoot, onDone, nil)
+	close(done) // signal ticker goroutine to stop
+	wg.Wait()   // wait for it to fully exit before writing to w
+
+	// 4. Process results
+	agg := processAuditResults(skills, outputs, policy)
+	s.writeAuditLog(agg.Status, start, agg.LogArgs, agg.Message)
+
+	// 5. Send final result (no concurrent writers at this point)
+	safeSend("done", map[string]any{
+		"results": agg.Results,
+		"summary": agg.Summary,
+	})
+}

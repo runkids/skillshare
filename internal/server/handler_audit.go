@@ -67,20 +67,13 @@ type skillEntry struct {
 	path string
 }
 
-func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	source := s.cfg.Source
-	policy := s.auditPolicy()
-	threshold := policy.Threshold
-
-	// Discover all skills
+// discoverAuditSkills discovers and deduplicates skills for audit scanning.
+func discoverAuditSkills(source string) ([]skillEntry, error) {
 	discovered, err := sync.DiscoverSourceSkills(source)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil, err
 	}
 
-	// Deduplicate and also pick up top-level dirs without SKILL.md
 	seen := make(map[string]bool)
 	var skills []skillEntry
 
@@ -104,6 +97,21 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	return skills, nil
+}
+
+// auditAggregation holds the aggregated audit results and summary.
+type auditAggregation struct {
+	Results []auditResultResponse
+	Summary auditSummary
+	LogArgs map[string]any
+	Status  string
+	Message string
+}
+
+// processAuditResults aggregates scan outputs into results, summary, and log args.
+func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy audit.Policy) auditAggregation {
+	threshold := policy.Threshold
 	var results []auditResultResponse
 	var rawResults []*audit.Result
 	summary := auditSummary{
@@ -125,14 +133,6 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 	sumAnalyzability := 0.0
 	catCounts := make(map[string]int)
 
-	// Phase 1: parallel scan with bounded workers.
-	projectRoot := s.projectRoot
-	if !s.IsProjectMode() {
-		projectRoot = ""
-	}
-	scanned := audit.ParallelScan(skillsToAuditInputs(skills), projectRoot, nil, nil)
-
-	// Phase 2: sequential result collection.
 	for i := range skills {
 		se := scanned[i]
 		if se.Err != nil {
@@ -240,11 +240,37 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 		results = append(results, toAuditResponse(xr))
 	}
 
-	s.writeAuditLog(status, start, args, msg)
+	return auditAggregation{
+		Results: results,
+		Summary: summary,
+		LogArgs: args,
+		Status:  status,
+		Message: msg,
+	}
+}
+
+func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	policy := s.auditPolicy()
+
+	skills, err := discoverAuditSkills(s.cfg.Source)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	projectRoot := s.projectRoot
+	if !s.IsProjectMode() {
+		projectRoot = ""
+	}
+	scanned := audit.ParallelScan(skillsToAuditInputs(skills), projectRoot, nil, nil)
+
+	agg := processAuditResults(skills, scanned, policy)
+	s.writeAuditLog(agg.Status, start, agg.LogArgs, agg.Message)
 
 	writeJSON(w, map[string]any{
-		"results": results,
-		"summary": summary,
+		"results": agg.Results,
+		"summary": agg.Summary,
 	})
 }
 

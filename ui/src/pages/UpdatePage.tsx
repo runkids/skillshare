@@ -195,7 +195,7 @@ export default function UpdatePage() {
               Check Now
             </HandButton>
           )}
-          {phase === 'idle' && totalSelected > 0 && (
+          {phase === 'idle' && hasUpdates && totalSelected > 0 && (
             <HandButton onClick={handleUpdate}>
               <ArrowUpCircle size={16} />
               Update Selected ({totalSelected})

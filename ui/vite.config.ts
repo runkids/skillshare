@@ -11,6 +11,11 @@ export default defineConfig({
     host: true,
     port: 5173,
     proxy: {
+      '/api/audit/stream': {
+        target: 'http://localhost:19420',
+        // SSE requires no response buffering; set Accept header to bypass compression.
+        headers: { Accept: 'text/event-stream' },
+      },
       '/api': 'http://localhost:19420',
     },
   },

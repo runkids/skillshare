@@ -21,6 +21,7 @@ export const queryKeys = {
 
   audit: {
     all: ['audit'] as const,
+    skill: (name: string) => ['audit', 'skill', name] as const,
     rules: ['audit', 'rules'] as const,
     compiled: ['audit', 'rules', 'compiled'] as const,
   },
@@ -47,5 +48,6 @@ export const staleTimes = {
   auditRules: 5 * 60 * 1000,  // 5min
   backups: 2 * 60 * 1000,     // 2min
   trash: 2 * 60 * 1000,       // 2min
+  auditSkill: 5 * 60 * 1000,   // 5min — per-skill audit, rarely changes
   check: 60 * 1000,            // 1min
 };

@@ -1,5 +1,10 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Trash2, ExternalLink, FileText, ArrowUpRight, RefreshCw, Target } from 'lucide-react';
+import {
+  ArrowLeft, Trash2, ExternalLink, FileText, ArrowUpRight, RefreshCw, Target,
+  Type, AlignLeft, Files, Scale,
+  FileCode2, Braces, Settings, BookOpen, File, FolderOpen,
+  ShieldCheck, Link2,
+} from 'lucide-react';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -13,6 +18,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { api, type Skill } from '../api/client';
 import { lazy, Suspense, useState, useMemo } from 'react';
 import { wobbly, shadows } from '../design';
+import { BlockStamp, RiskMeter } from '../components/audit';
+import { severityBadgeVariant } from '../lib/severity';
 
 const FileViewerModal = lazy(() => import('../components/FileViewerModal'));
 
@@ -89,6 +96,46 @@ function skillTypeLabel(type?: string): string | undefined {
   return type;
 }
 
+/** Returns a lucide icon component + color class for a filename */
+function getFileIcon(filename: string): { icon: typeof File; className: string } {
+  if (filename === 'SKILL.md') return { icon: FileText, className: 'text-blue' };
+  if (/\.(ts|tsx|js|jsx|go|py|rs|rb|sh|bash)$/i.test(filename)) return { icon: FileCode2, className: 'text-pencil-light' };
+  if (/\.json$/i.test(filename)) return { icon: Braces, className: 'text-pencil-light' };
+  if (/\.(yaml|yml|toml)$/i.test(filename)) return { icon: Settings, className: 'text-pencil-light' };
+  if (/\.md$/i.test(filename)) return { icon: BookOpen, className: 'text-pencil-light' };
+  if (filename.endsWith('/')) return { icon: FolderOpen, className: 'text-warning' };
+  return { icon: File, className: 'text-pencil-light' };
+}
+
+/** Content stats bar showing word count, line count, file count, license */
+function ContentStatsBar({ content, fileCount, license }: { content: string; fileCount: number; license?: string }) {
+  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
+  const lineCount = content.trim() ? content.trim().split(/\r?\n/).length : 0;
+
+  return (
+    <div className="flex items-center gap-4 flex-wrap text-sm text-pencil-light py-3 mb-4 border-b-2 border-dashed border-pencil-light/30">
+      <span className="inline-flex items-center gap-1.5">
+        <Type size={14} strokeWidth={2.5} />
+        {wordCount.toLocaleString()} words
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <AlignLeft size={14} strokeWidth={2.5} />
+        {lineCount.toLocaleString()} lines
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <Files size={14} strokeWidth={2.5} />
+        {fileCount} file{fileCount !== 1 ? 's' : ''}
+      </span>
+      {license && (
+        <span className="inline-flex items-center gap-1.5">
+          <Scale size={14} strokeWidth={2.5} />
+          {license}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function SkillDetailPage() {
   const { name } = useParams<{ name: string }>();
   const navigate = useNavigate();
@@ -103,6 +150,17 @@ export default function SkillDetailPage() {
     queryKey: queryKeys.skills.all,
     queryFn: () => api.listSkills(),
     staleTime: staleTimes.skills,
+  });
+  const auditQuery = useQuery({
+    queryKey: queryKeys.audit.skill(name!),
+    queryFn: () => api.auditSkill(name!),
+    staleTime: staleTimes.auditSkill,
+    enabled: !!name,
+  });
+  const diffQuery = useQuery({
+    queryKey: queryKeys.diff(),
+    queryFn: () => api.diff(),
+    staleTime: staleTimes.diff,
   });
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -332,6 +390,12 @@ export default function SkillDetailPage() {
                 </dl>
               </div>
             )}
+            {/* Stage 1: Content Stats Bar */}
+            <ContentStatsBar
+              content={skillMdContent ?? ''}
+              fileCount={files.length}
+              license={parsedDoc.manifest.license}
+            />
             <div className="prose-hand">
               {renderedMarkdown ? (
                 <Markdown remarkPlugins={[remarkGfm]} components={mdComponents}>
@@ -425,6 +489,9 @@ export default function SkillDetailPage() {
             </div>
           </Card>
 
+          {/* Stage 2: Security Audit Card */}
+          <SecurityAuditCard auditQuery={auditQuery} />
+
           <Card>
             <h3
               className="font-bold text-pencil mb-3 flex items-center gap-2"
@@ -438,12 +505,13 @@ export default function SkillDetailPage() {
                 {files.map((f) => {
                   const linkedSkill = resolveFileSkill(f);
                   const isSkillMd = f === 'SKILL.md';
+                  const { icon: FileIcon, className: iconClass } = getFileIcon(f);
                   return (
                     <li
                       key={f}
                       className="text-sm text-pencil-light truncate flex items-center gap-2"
                     >
-                      <span className="w-1.5 h-1.5 rounded-full bg-muted-dark shrink-0" />
+                      <FileIcon size={14} strokeWidth={2} className={`shrink-0 ${iconClass}`} />
                       {linkedSkill ? (
                         <Link
                           to={`/skills/${encodeURIComponent(linkedSkill.flatName)}`}
@@ -479,6 +547,9 @@ export default function SkillDetailPage() {
               <p className="text-sm text-muted-dark italic">No files.</p>
             )}
           </Card>
+
+          {/* Stage 4: Target Sync Status */}
+          <SyncStatusCard diffQuery={diffQuery} skillFlatName={skill.flatName} />
         </div>
       </div>
 
@@ -551,5 +622,151 @@ function MetaItem({
         {value}
       </dd>
     </div>
+  );
+}
+
+/** Security Audit sidebar card */
+function SecurityAuditCard({
+  auditQuery,
+}: {
+  auditQuery: ReturnType<typeof useQuery<Awaited<ReturnType<typeof api.auditSkill>>>>;
+}) {
+  if (auditQuery.isPending) {
+    return (
+      <Card variant="outlined">
+        <div className="flex items-center gap-2 animate-pulse">
+          <ShieldCheck size={16} strokeWidth={2.5} className="text-pencil-light" />
+          <span className="text-sm text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+            Scanning security...
+          </span>
+        </div>
+      </Card>
+    );
+  }
+
+  if (auditQuery.error || !auditQuery.data) return null;
+
+  const { result } = auditQuery.data;
+  const findingCounts = result.findings.reduce(
+    (acc, f) => {
+      acc[f.severity] = (acc[f.severity] || 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>,
+  );
+
+  return (
+    <Card variant="outlined">
+      <h3
+        className="font-bold text-pencil mb-3 flex items-center gap-2"
+        style={{ fontFamily: 'var(--font-heading)' }}
+      >
+        <ShieldCheck size={16} strokeWidth={2.5} />
+        Security
+      </h3>
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <BlockStamp isBlocked={result.isBlocked} />
+          <RiskMeter riskLabel={result.riskLabel} riskScore={result.riskScore} />
+        </div>
+        {result.findings.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pt-2 border-t border-dashed border-pencil-light/30">
+            {Object.entries(findingCounts)
+              .sort(([a], [b]) => sevOrder(a) - sevOrder(b))
+              .map(([sev, count]) => (
+                <Badge key={sev} variant={severityBadgeVariant(sev)}>
+                  {count} {sev}
+                </Badge>
+              ))}
+          </div>
+        )}
+        {result.findings.length === 0 && (
+          <p className="text-sm text-success" style={{ fontFamily: 'var(--font-hand)' }}>
+            No security issues detected
+          </p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function sevOrder(sev: string): number {
+  switch (sev) {
+    case 'CRITICAL': return 0;
+    case 'HIGH': return 1;
+    case 'MEDIUM': return 2;
+    case 'LOW': return 3;
+    case 'INFO': return 4;
+    default: return 5;
+  }
+}
+
+/** Sync Status sidebar card */
+function SyncStatusCard({
+  diffQuery,
+  skillFlatName,
+}: {
+  diffQuery: ReturnType<typeof useQuery<Awaited<ReturnType<typeof api.diff>>>>;
+  skillFlatName: string;
+}) {
+  if (diffQuery.isPending || !diffQuery.data) return null;
+
+  // Find which targets have this skill and their status
+  const targetStatuses: { name: string; status: 'linked' | 'missing' | 'excluded' | 'conflict' }[] = [];
+
+  for (const dt of diffQuery.data.diffs) {
+    const item = dt.items.find((i) => i.skill === skillFlatName);
+    if (item) {
+      const status = item.action === 'ok' || item.action === 'linked'
+        ? 'linked'
+        : item.action === 'excluded'
+          ? 'excluded'
+          : item.action === 'conflict' || item.action === 'broken'
+            ? 'conflict'
+            : 'missing';
+      targetStatuses.push({ name: dt.target, status });
+    } else {
+      // Skill not in diff for this target — check if it's because it's already synced (no diff entry = linked)
+      targetStatuses.push({ name: dt.target, status: 'linked' });
+    }
+  }
+
+  if (targetStatuses.length === 0) return null;
+
+  const statusDot: Record<string, string> = {
+    linked: 'bg-success',
+    missing: 'bg-warning',
+    conflict: 'bg-danger',
+    excluded: 'bg-muted-dark',
+  };
+
+  const statusLabel: Record<string, string> = {
+    linked: 'linked',
+    missing: 'not synced',
+    conflict: 'conflict',
+    excluded: 'excluded',
+  };
+
+  return (
+    <Card variant="outlined">
+      <h3
+        className="font-bold text-pencil mb-3 flex items-center gap-2"
+        style={{ fontFamily: 'var(--font-heading)' }}
+      >
+        <Link2 size={16} strokeWidth={2.5} />
+        Target Sync
+      </h3>
+      <ul className="space-y-1.5">
+        {targetStatuses.map((t) => (
+          <li key={t.name} className="flex items-center gap-2 text-sm">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot[t.status]}`} />
+            <span className="text-pencil font-medium" style={{ fontFamily: "'Courier New', monospace", fontSize: '0.8125rem' }}>
+              {t.name}
+            </span>
+            <span className="text-pencil-light text-xs">{statusLabel[t.status]}</span>
+          </li>
+        ))}
+      </ul>
+    </Card>
   );
 }

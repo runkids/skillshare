@@ -1,10 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ShieldCheck,
   ShieldAlert,
   ShieldX,
-  ShieldOff,
   AlertTriangle,
   Info,
   FileText,
@@ -25,6 +24,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { wobbly, shadows, colors } from '../design';
 import { severityBadgeVariant } from '../lib/severity';
+import { BlockStamp, RiskMeter, riskColor, riskBgColor } from '../components/audit';
 
 type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
 
@@ -42,6 +42,16 @@ export default function AuditPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [minSeverity, setMinSeverity] = useState<SeverityFilter>('MEDIUM');
+  const [progress, setProgress] = useState<{ scanned: number; total: number } | null>(null);
+  const esRef = useRef<EventSource | null>(null);
+  const startTimeRef = useRef<number>(0);
+
+  // Clean up EventSource on unmount
+  useEffect(() => {
+    return () => {
+      esRef.current?.close();
+    };
+  }, []);
 
   const totalFindings = useMemo(() => {
     if (!data) return 0;
@@ -69,28 +79,41 @@ export default function AuditPage() {
     [filteredResults],
   );
 
-  const runAudit = async () => {
+  const showAuditToast = useCallback((res: AuditAllResponse) => {
+    const { summary } = res;
+    if (summary.failed > 0) {
+      toast(`Audit complete: ${summary.failed} skill(s) blocked at ${summary.threshold}+`, 'warning');
+    } else if (summary.warning > 0) {
+      toast(`Audit complete: ${summary.warning} skill(s) with warnings`, 'warning');
+    } else if (summary.low > 0 || summary.info > 0) {
+      toast(`Audit complete: ${summary.low + summary.info} informational findings`, 'warning');
+    } else {
+      toast('Audit complete: all skills passed', 'success');
+    }
+  }, [toast]);
+
+  const runAudit = () => {
     setLoading(true);
     setError(null);
-    try {
-      const res = await api.auditAll();
-      setData(res);
-      const { summary } = res;
-      if (summary.failed > 0) {
-        toast(`Audit complete: ${summary.failed} skill(s) blocked at ${summary.threshold}+`, 'warning');
-      } else if (summary.warning > 0) {
-        toast(`Audit complete: ${summary.warning} skill(s) with warnings`, 'warning');
-      } else if (summary.low > 0 || summary.info > 0) {
-        toast(`Audit complete: ${summary.low + summary.info} informational findings`, 'warning');
-      } else {
-        toast('Audit complete: all skills passed', 'success');
-      }
-    } catch (e: any) {
-      setError(e.message);
-      toast(e.message, 'error');
-    } finally {
-      setLoading(false);
-    }
+    setProgress(null);
+    startTimeRef.current = Date.now();
+
+    esRef.current = api.auditAllStream(
+      (total) => setProgress({ scanned: 0, total }),
+      (scanned) => setProgress((p) => p ? { ...p, scanned } : null),
+      (res) => {
+        setData(res);
+        setLoading(false);
+        setProgress(null);
+        showAuditToast(res);
+      },
+      (err) => {
+        setError(err.message);
+        setLoading(false);
+        setProgress(null);
+        toast(err.message, 'error');
+      },
+    );
   };
 
   return (
@@ -131,8 +154,14 @@ export default function AuditPage() {
         </div>
       </div>
 
-      {/* Loading */}
-      {loading && <PageSkeleton />}
+      {/* Loading / Progress */}
+      {loading && (
+        progress ? (
+          <AuditProgressBar scanned={progress.scanned} total={progress.total} startTime={startTimeRef.current} />
+        ) : (
+          <PageSkeleton />
+        )
+      )}
 
       {/* Error */}
       {error && (
@@ -576,97 +605,7 @@ function SkillAuditCard({ result, index }: { result: AuditResult; index: number 
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────────
- * BlockStamp — alarming red stamp or reassuring green check
- * ────────────────────────────────────────────────────────────────────── */
-
-function BlockStamp({ isBlocked }: { isBlocked: boolean }) {
-  if (isBlocked) {
-    return (
-      <div
-        className="flex items-center gap-1.5 px-3 py-1.5 border-[3px] border-danger bg-danger-light"
-        style={{
-          borderRadius: wobbly.sm,
-          boxShadow: '3px 3px 0px 0px rgba(192, 57, 43, 0.3)',
-          transform: 'rotate(-2deg)',
-        }}
-      >
-        <ShieldOff size={16} strokeWidth={3} className="text-danger" />
-        <span
-          className="text-danger font-bold text-sm uppercase tracking-wider"
-          style={{ fontFamily: 'var(--font-heading)' }}
-        >
-          Blocked
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-success bg-success-light"
-      style={{
-        borderRadius: wobbly.sm,
-      }}
-    >
-      <CircleCheck size={14} strokeWidth={2.5} className="text-success" />
-      <span
-        className="text-success font-medium text-sm"
-        style={{ fontFamily: 'var(--font-hand)' }}
-      >
-        Pass
-      </span>
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────
- * RiskMeter — compact visual indicator for aggregate risk
- * ────────────────────────────────────────────────────────────────────── */
-
-function RiskMeter({ riskLabel, riskScore }: { riskLabel: string; riskScore: number }) {
-  const color = riskColor(riskLabel);
-
-  return (
-    <div
-      className="flex items-center gap-2 px-3 py-1.5 border-2 border-dashed"
-      style={{
-        borderRadius: wobbly.sm,
-        borderColor: color,
-        backgroundColor: riskBgColor(riskLabel),
-      }}
-    >
-      <div className="flex flex-col items-start gap-0.5">
-        <span className="text-[10px] text-pencil-light uppercase tracking-wide leading-none" style={{ fontFamily: 'var(--font-hand)' }}>
-          Risk
-        </span>
-        <span
-          className="text-sm font-bold leading-none"
-          style={{ fontFamily: 'var(--font-heading)', color }}
-        >
-          {riskLabel.toUpperCase()}
-        </span>
-      </div>
-      {/* Mini bar */}
-      <div className="flex flex-col items-end gap-0.5">
-        <div
-          className="w-12 h-1.5 bg-muted/50 overflow-hidden"
-          style={{ borderRadius: '999px' }}
-        >
-          <div
-            className="h-full"
-            style={{
-              width: `${riskScore}%`,
-              backgroundColor: color,
-              borderRadius: '999px',
-            }}
-          />
-        </div>
-        <span className="text-[10px] text-pencil-light leading-none font-mono">{riskScore}/100</span>
-      </div>
-    </div>
-  );
-}
+/* BlockStamp and RiskMeter imported from ../components/audit */
 
 /* ──────────────────────────────────────────────────────────────────────
  * FindingRow — severity color stripe + better visual hierarchy
@@ -722,28 +661,63 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
+ * AuditProgressBar — hand-drawn style scan progress
+ * ────────────────────────────────────────────────────────────────────── */
+
+function AuditProgressBar({ scanned, total, startTime }: { scanned: number; total: number; startTime: number }) {
+  const pct = total > 0 ? Math.min((scanned / total) * 100, 100) : 0;
+  const elapsed = (Date.now() - startTime) / 1000;
+  const eta = scanned > 0 && pct < 100
+    ? Math.round((elapsed / scanned) * (total - scanned))
+    : null;
+
+  return (
+    <Card variant="outlined">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={18} strokeWidth={2.5} className="text-pencil-light animate-pulse-gentle" />
+            <span className="font-medium text-pencil" style={{ fontFamily: 'var(--font-hand)' }}>
+              Scanning skills...
+            </span>
+          </div>
+          <span className="text-sm text-pencil-light font-mono">
+            {Math.round(pct)}%
+          </span>
+        </div>
+        {/* Progress bar */}
+        <div
+          className="h-4 border-2 border-dashed border-pencil-light/50 bg-paper-warm overflow-hidden"
+          style={{ borderRadius: wobbly.sm }}
+        >
+          <div
+            className="h-full transition-all duration-200 ease-out"
+            style={{
+              width: `${pct}%`,
+              backgroundColor: colors.blue,
+              borderRadius: wobbly.sm,
+            }}
+          />
+        </div>
+        {/* Stats line */}
+        <div className="flex items-center justify-between text-sm text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+          <span>
+            {scanned.toLocaleString()} / {total.toLocaleString()} skills
+          </span>
+          {eta !== null && (
+            <span>~{eta}s remaining</span>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
  * Helper functions
  * ────────────────────────────────────────────────────────────────────── */
 
-function riskColor(risk: string): string {
-  switch (risk) {
-    case 'critical': return colors.danger;
-    case 'high': return colors.warning;
-    case 'medium': return colors.blue;
-    case 'low': return colors.success;
-    default: return colors.success;
-  }
-}
-
-function riskBgColor(risk: string): string {
-  switch (risk) {
-    case 'critical': return 'rgba(192, 57, 43, 0.06)';
-    case 'high': return 'rgba(212, 135, 14, 0.06)';
-    case 'medium': return 'rgba(45, 93, 161, 0.06)';
-    case 'low': return 'rgba(46, 139, 87, 0.06)';
-    default: return 'rgba(46, 139, 87, 0.06)';
-  }
-}
+/* riskColor and riskBgColor imported from ../components/audit */
 
 function severityStripeColor(sev: string): string {
   switch (sev) {
