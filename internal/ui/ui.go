@@ -9,20 +9,20 @@ import (
 
 // Base colors for terminal output
 const (
-	Reset   = "\033[0m"
-	Red     = "\033[31m"
-	Green   = "\033[32m"
-	Yellow  = "\033[33m"
-	Blue    = "\033[34m"
-	Magenta = "\033[35m"
-	Cyan    = "\033[36m"
-	Orange    = "\033[38;5;208m"
-	Purple    = "\033[38;5;135m"
-	BrightRed = "\033[38;5;9m"
-	OrangeAlt = "\033[38;5;214m"
+	Reset      = "\033[0m"
+	Red        = "\033[31m"
+	Green      = "\033[32m"
+	Yellow     = "\033[33m"
+	Blue       = "\033[34m"
+	Magenta    = "\033[35m"
+	Cyan       = "\033[36m"
+	Orange     = "\033[38;5;208m"
+	Purple     = "\033[38;5;135m"
+	BrightRed  = "\033[38;5;9m"
+	OrangeAlt  = "\033[38;5;214m"
 	BrightBlue = "\033[38;5;12m"
-	Gray      = "\033[90m"
-	White     = "\033[97m"
+	Gray       = "\033[90m"
+	White      = "\033[97m"
 )
 
 // Semantic color aliases for consistent theming

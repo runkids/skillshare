@@ -46,7 +46,7 @@ func TestDiscoverExtraFiles(t *testing.T) {
 	}
 
 	expected := map[string]bool{
-		"flat.txt":       true,
+		"flat.txt":                         true,
 		filepath.Join("nested", "deep.md"): true,
 	}
 	for _, f := range files {
@@ -60,7 +60,7 @@ func TestDiscoverExtraFiles(t *testing.T) {
 
 func TestSyncExtra_MergeMode(t *testing.T) {
 	src, tgt := setupExtrasTest(t, map[string]string{
-		"rules.md":  "# Rules",
+		"rules.md":   "# Rules",
 		"config.yml": "key: value",
 	})
 
