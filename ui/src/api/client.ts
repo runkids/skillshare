@@ -13,7 +13,16 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     headers: { 'Content-Type': 'application/json' },
     ...init,
   });
-  const data = await res.json();
+  const text = await res.text();
+  if (!text) {
+    throw new ApiError(res.status || 502, 'Empty response from server (request may have timed out)');
+  }
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new ApiError(res.status || 502, `Invalid JSON response: ${text.slice(0, 200)}`);
+  }
   if (!res.ok) {
     throw new ApiError(res.status, data.error ?? res.statusText);
   }
@@ -185,6 +194,33 @@ export const api = {
   // Audit
   auditAll: () => apiFetch<AuditAllResponse>('/audit'),
   auditSkill: (name: string) => apiFetch<AuditSkillResponse>(`/audit/${encodeURIComponent(name)}`),
+  auditAllStream: (
+    onStart: (total: number) => void,
+    onProgress: (scanned: number) => void,
+    onDone: (data: AuditAllResponse) => void,
+    onError: (err: Error) => void,
+  ): EventSource => {
+    const es = new EventSource(BASE + '/audit/stream');
+    let completed = false;
+    es.addEventListener('start', (e) => {
+      onStart(JSON.parse((e as MessageEvent).data).total);
+    });
+    es.addEventListener('progress', (e) => {
+      onProgress(JSON.parse((e as MessageEvent).data).scanned);
+    });
+    es.addEventListener('done', (e) => {
+      completed = true;
+      es.close();
+      onDone(JSON.parse((e as MessageEvent).data));
+    });
+    es.addEventListener('error', () => {
+      // After 'done' closes the stream, the browser may still fire 'error'.
+      if (completed) return;
+      es.close();
+      onError(new Error('Audit stream failed'));
+    });
+    return es;
+  },
 
   // Audit Rules
   getAuditRules: () => apiFetch<AuditRulesResponse>('/audit/rules'),

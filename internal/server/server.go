@@ -293,6 +293,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/pull", s.handlePull)
 
 	// Audit
+	s.mux.HandleFunc("GET /api/audit/stream", s.handleAuditStream)
 	s.mux.HandleFunc("GET /api/audit/rules/compiled", s.handleGetCompiledRules)
 	s.mux.HandleFunc("POST /api/audit/rules/toggle", s.handleToggleRule)
 	s.mux.HandleFunc("POST /api/audit/rules/reset", s.handleResetRules)
