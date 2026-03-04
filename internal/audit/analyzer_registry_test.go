@@ -7,6 +7,7 @@ func TestDefaultRegistry_HasAllAnalyzers(t *testing.T) {
 	for _, id := range []string{
 		AnalyzerStatic, AnalyzerDataflow, AnalyzerTier,
 		AnalyzerIntegrity, AnalyzerStructure, AnalyzerCrossSkill,
+		AnalyzerMetadata,
 	} {
 		if !r.Has(id) {
 			t.Errorf("default registry missing analyzer %q", id)
@@ -19,8 +20,8 @@ func TestDefaultRegistry_ScopePartition(t *testing.T) {
 	if len(r.FileAnalyzers()) != 2 {
 		t.Errorf("file analyzers = %d, want 2 (static + dataflow)", len(r.FileAnalyzers()))
 	}
-	if len(r.SkillAnalyzers()) != 4 {
-		t.Errorf("skill analyzers = %d, want 4 (markdownLink + structure + integrity + tier)", len(r.SkillAnalyzers()))
+	if len(r.SkillAnalyzers()) != 5 {
+		t.Errorf("skill analyzers = %d, want 5 (markdownLink + structure + integrity + tier + metadata)", len(r.SkillAnalyzers()))
 	}
 	if len(r.BundleAnalyzers()) != 1 {
 		t.Errorf("bundle analyzers = %d, want 1 (cross-skill)", len(r.BundleAnalyzers()))

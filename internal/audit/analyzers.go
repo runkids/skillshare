@@ -36,6 +36,7 @@ type AnalyzeContext struct {
 
 	// --- Skill-scope fields (populated after Walk completes) ---
 	SkillPath   string
+	SourceURL   string // git clone URL from .skillshare-meta.json (empty for local)
 	MDFiles     []mdFileInfo
 	FileCache   map[string][]byte
 	TierProfile TierProfile
