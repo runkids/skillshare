@@ -12,6 +12,7 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
@@ -154,6 +155,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 	}
 
 	checkSkillsValidity(cfg.Source, result, discovered)
+	checkSkillIntegrity(result, discovered)
 	checkSkillTargetsField(result, discovered, targetNamesFromConfig(cfg.Targets))
 	targetCache := checkTargets(cfg, result)
 	printSymlinkCompatHint(cfg.Targets, cfg.Mode, isProject)
@@ -480,6 +482,110 @@ func checkSkillsValidity(source string, result *doctorResult, discovered []sync.
 
 	if len(invalid) > 0 {
 		ui.Warning("Skills without SKILL.md: %s", strings.Join(invalid, ", "))
+		result.addWarning()
+	}
+}
+
+// checkSkillIntegrity verifies installed skills haven't been tampered with by
+// comparing current file hashes against the stored .skillshare-meta.json hashes.
+func checkSkillIntegrity(result *doctorResult, discovered []sync.DiscoveredSkill) {
+	if discovered == nil {
+		return
+	}
+
+	// Phase 1: filter to skills that have meta with file hashes (cheap ReadMeta only)
+	type verifiable struct {
+		name   string
+		path   string
+		stored map[string]string
+	}
+	var toVerify []verifiable
+	var skippedCount int
+
+	for _, skill := range discovered {
+		meta, err := install.ReadMeta(skill.SourcePath)
+		if err != nil {
+			continue
+		}
+		if meta == nil || meta.FileHashes == nil {
+			skippedCount++
+			continue
+		}
+		toVerify = append(toVerify, verifiable{
+			name:   skill.RelPath,
+			path:   skill.SourcePath,
+			stored: meta.FileHashes,
+		})
+	}
+
+	if len(toVerify) == 0 {
+		if skippedCount > 0 {
+			ui.Warning("Skill integrity: %d skill(s) unverifiable (no metadata)", skippedCount)
+			result.addWarning()
+		}
+		return
+	}
+
+	// Phase 2: compute hashes and compare (expensive)
+	sp := ui.StartSpinner("Verifying skill integrity...")
+
+	var tampered []string
+	verified := 0
+
+	for _, v := range toVerify {
+		current, err := install.ComputeFileHashes(v.path)
+		if err != nil {
+			tampered = append(tampered, fmt.Sprintf("%s: hash error: %v", v.name, err))
+			continue
+		}
+
+		var modified, missing, added int
+		for file, storedHash := range v.stored {
+			currentHash, ok := current[file]
+			if !ok {
+				missing++
+			} else if currentHash != storedHash {
+				modified++
+			}
+		}
+		for file := range current {
+			if _, ok := v.stored[file]; !ok {
+				added++
+			}
+		}
+
+		if modified > 0 || missing > 0 || added > 0 {
+			var parts []string
+			if modified > 0 {
+				parts = append(parts, fmt.Sprintf("%d modified", modified))
+			}
+			if missing > 0 {
+				parts = append(parts, fmt.Sprintf("%d missing", missing))
+			}
+			if added > 0 {
+				parts = append(parts, fmt.Sprintf("%d added", added))
+			}
+			tampered = append(tampered, fmt.Sprintf("%s: %s", v.name, strings.Join(parts, ", ")))
+		} else {
+			verified++
+		}
+	}
+
+	sp.Stop()
+
+	if len(tampered) > 0 {
+		for _, t := range tampered {
+			ui.Warning(t)
+		}
+		result.addWarning()
+	}
+
+	if verified > 0 {
+		ui.Success("Skill integrity: %d/%d verified", verified, len(toVerify))
+	}
+
+	if skippedCount > 0 {
+		ui.Warning("Skill integrity: %d skill(s) unverifiable (no metadata)", skippedCount)
 		result.addWarning()
 	}
 }
