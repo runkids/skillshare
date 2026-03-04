@@ -16,6 +16,7 @@ var defaultRegistry = &Registry{
 		&integrityAnalyzer{},
 		&tierAnalyzer{},
 		&crossSkillAnalyzer{},
+		&metadataAnalyzer{},
 	},
 }
 

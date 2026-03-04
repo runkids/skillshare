@@ -68,6 +68,7 @@ const (
 	AnalyzerIntegrity  = "integrity"
 	AnalyzerStructure  = "structure"
 	AnalyzerCrossSkill = "cross-skill"
+	AnalyzerMetadata   = "metadata"
 )
 
 // Category classifies what a finding is about.
@@ -80,6 +81,7 @@ const (
 	CategoryIntegrity    = "integrity"
 	CategoryStructure    = "structure"
 	CategoryRisk         = "risk"
+	CategoryTrust        = "trust"
 )
 
 // categoryForPattern maps a rule pattern name to a broad category.
