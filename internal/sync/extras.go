@@ -1,7 +1,9 @@
 package sync
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -206,7 +208,18 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force bool) (int, i
 			// Wrong symlink — treat as conflict
 		}
 
-		// Conflict: target exists and is not our symlink
+		if mode == "copy" && info.Mode()&os.ModeSymlink == 0 && !info.IsDir() {
+			// Regular file — check if content matches source (idempotent)
+			srcInfo, srcErr := os.Stat(srcFile)
+			if srcErr == nil && srcInfo.Size() == info.Size() {
+				if contentEqual(srcFile, tgtFile) {
+					return 1, 0, nil
+				}
+			}
+			// Content differs — treat as conflict
+		}
+
+		// Conflict: target exists and is not our symlink / matching copy
 		if !force {
 			return 0, 1, nil
 		}
@@ -295,6 +308,37 @@ func pruneExtraOrphans(targetPath string, sourceFiles map[string]bool, mode stri
 	}
 
 	return pruned, errors
+}
+
+// contentEqual returns true if two files have identical content.
+func contentEqual(a, b string) bool {
+	fa, err := os.Open(a)
+	if err != nil {
+		return false
+	}
+	defer fa.Close()
+
+	fb, err := os.Open(b)
+	if err != nil {
+		return false
+	}
+	defer fb.Close()
+
+	bufA := make([]byte, 4096)
+	bufB := make([]byte, 4096)
+	for {
+		nA, errA := fa.Read(bufA)
+		nB, errB := fb.Read(bufB)
+		if !bytes.Equal(bufA[:nA], bufB[:nB]) {
+			return false
+		}
+		if errA == io.EOF && errB == io.EOF {
+			return true
+		}
+		if errA != nil || errB != nil {
+			return false
+		}
+	}
 }
 
 // cleanEmptyParents removes empty directories from dir up to (but not

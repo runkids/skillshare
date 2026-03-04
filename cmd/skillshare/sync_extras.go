@@ -59,6 +59,9 @@ func cmdSyncExtras(args []string) error {
 
 		for _, target := range extra.Targets {
 			mode := target.Mode
+			if mode == "" {
+				mode = "merge"
+			}
 			result, syncErr := sync.SyncExtra(extraSource, target.Path, mode, dryRun, force)
 			shortTarget := shortenPath(target.Path)
 
