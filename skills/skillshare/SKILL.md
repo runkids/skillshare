@@ -32,6 +32,8 @@ skillshare install user/repo --track             # Enable `update` later
 skillshare install user/repo -s pdf -p           # Install to project
 skillshare install                               # Reinstall all tracked remotes from config
 skillshare sync                                  # Always sync after install
+skillshare sync extras                           # Sync non-skill extras (rules, commands)
+skillshare sync --all                            # Sync skills + extras together
 ```
 ### Creating & Discovering Skills
 ```bash

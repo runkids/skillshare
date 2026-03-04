@@ -37,6 +37,7 @@
 
 > [!NOTE]
 > **Recent Updates**
+> - **[0.16.10](https://github.com/runkids/skillshare/releases/tag/v0.16.10)**: Extras sync — sync non-skill resources (rules, commands, prompts) alongside skills with `sync extras` or `sync --all`.
 > - **[0.16.*](https://github.com/runkids/skillshare/releases/tag/v0.16.9)**: Security hardening — table-driven credential detection (30+ paths × 5 access methods), interpreter tier, prompt injection bypass fixes. Performance overhaul, interactive TUI, Homebrew-aware upgrade.
 > - Full history: [All Releases](https://github.com/runkids/skillshare/releases)
 

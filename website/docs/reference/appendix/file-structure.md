@@ -13,20 +13,25 @@ Directory layout and file locations for skillshare.
 ├── config.yaml              # Configuration file
 ├── registry.yaml            # Installed skill registry (auto-managed)
 ├── audit-rules.yaml         # Custom audit rules (optional)
-└── skills/                  # Source directory
-    ├── my-skill/            # Regular skill
-    │   ├── SKILL.md         # Skill definition (required)
-    │   └── .skillshare-meta.json # Install metadata (auto-generated)
-    ├── code-review/         # Another skill
-    │   └── SKILL.md
-    └── _team-skills/        # Tracked repository
-        ├── .git/            # Git history preserved
-        ├── frontend/
-        │   └── ui/
-        │       └── SKILL.md
-        └── backend/
-            └── api/
-                └── SKILL.md
+├── skills/                  # Source directory (skills)
+│   ├── my-skill/            # Regular skill
+│   │   ├── SKILL.md         # Skill definition (required)
+│   │   └── .skillshare-meta.json # Install metadata (auto-generated)
+│   ├── code-review/         # Another skill
+│   │   └── SKILL.md
+│   └── _team-skills/        # Tracked repository
+│       ├── .git/            # Git history preserved
+│       ├── frontend/
+│       │   └── ui/
+│       │       └── SKILL.md
+│       └── backend/
+│           └── api/
+│               └── SKILL.md
+├── rules/                   # Extras source (if configured)
+│   ├── coding.md
+│   └── testing.md
+└── commands/                # Extras source (if configured)
+    └── deploy.md
 
 ~/.local/share/skillshare/   # XDG_DATA_HOME
 ├── backups/                 # Backup directory

@@ -106,6 +106,14 @@ skills:
     source: github.com/team/skills
     tracked: true
 
+# Non-skill resources to sync (global only)
+extras:
+  - name: rules
+    targets:
+      - path: ~/.claude/rules
+      - path: ~/.cursor/rules
+        mode: copy
+
 # Files to ignore during sync
 ignore:
   - "**/.DS_Store"
@@ -348,6 +356,44 @@ The `skills:` list is automatically updated after each `install` and `uninstall`
 :::note Migrated to registry.yaml
 Starting from v0.16.2, installed skill entries are stored in a separate `registry.yaml` file instead of inside `config.yaml`. Existing `skills:` entries in `config.yaml` are migrated automatically on first run. The schema and fields remain the same.
 :::
+
+### `extras` {#extras}
+
+Non-skill resources (rules, commands, prompts, etc.) to sync to arbitrary directories. Each extra has its own source directory under `~/.config/skillshare/`.
+
+```yaml
+extras:
+  - name: rules
+    targets:
+      - path: ~/.claude/rules
+      - path: ~/.cursor/rules
+        mode: copy
+  - name: commands
+    targets:
+      - path: ~/.claude/commands
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Directory name under `~/.config/skillshare/` (source) |
+| `targets` | Yes | List of target paths |
+| `targets[].path` | Yes | Destination directory |
+| `targets[].mode` | No | `merge` (default), `copy`, or `symlink` |
+
+**Source location:** `~/.config/skillshare/<name>/` (e.g., `~/.config/skillshare/rules/`)
+
+**Sync modes:**
+- `merge` (default) — per-file symlinks
+- `copy` — per-file copy
+- `symlink` — entire directory symlink
+
+Run `skillshare sync extras` to sync, or `skillshare sync --all` to sync skills + extras together.
+
+:::info Global only
+Extras are only available in global mode. The `extras` field is not supported in project config.
+:::
+
+See [sync extras](/docs/reference/commands/sync#sync-extras) for usage details.
 
 ### `ignore`
 

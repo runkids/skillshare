@@ -46,6 +46,8 @@ Command cheat sheet for skillshare.
 
 | Command | Description |
 |---------|-------------|
+| `sync extras` | Sync non-skill resources (rules, commands, etc.) |
+| `sync --all` | Sync skills + extras together |
 | `collect <target>` | Collect skills from target to source |
 | `collect --all` | Collect from all targets |
 | `backup [target]` | Create backup |

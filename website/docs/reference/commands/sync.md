@@ -85,7 +85,8 @@ skillshare sync -p       # Explicit project mode
 Push skills from source to all targets.
 
 ```bash
-skillshare sync              # Sync to all targets
+skillshare sync              # Sync skills to all targets
+skillshare sync --all        # Sync skills + extras
 skillshare sync --dry-run    # Preview changes
 skillshare sync -n           # Short form
 skillshare sync --force      # Overwrite all managed skills
@@ -94,6 +95,7 @@ skillshare sync -f           # Short form
 
 | Flag | Short | Description |
 |------|-------|-------------|
+| `--all` | | Also sync extras after skills (see [sync extras](#sync-extras) below) |
 | `--dry-run` | `-n` | Preview changes without writing |
 | `--force` | `-f` | Overwrite all managed entries regardless of checksum (copy mode) or replace existing directories with symlinks (merge mode) |
 
@@ -432,6 +434,100 @@ flowchart TD
 
 ---
 
+## Sync Extras {#sync-extras}
+
+Sync non-skill resources (rules, commands, prompts, etc.) to arbitrary directories. Extras are configured separately from skills and have their own source directories.
+
+```bash
+skillshare sync extras            # Sync all configured extras
+skillshare sync extras --dry-run  # Preview changes
+skillshare sync extras --force    # Overwrite conflicting files
+skillshare sync --all             # Sync skills + extras in one command
+```
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--dry-run` | `-n` | Preview changes without writing |
+| `--force` | `-f` | Overwrite conflicting files at target |
+
+:::info Global only
+`sync extras` is global-only. The `--all` flag is ignored in project mode.
+:::
+
+### Configuration
+
+Add an `extras` section to your global config (`~/.config/skillshare/config.yaml`):
+
+```yaml
+extras:
+  - name: rules
+    targets:
+      - path: ~/.claude/rules
+      - path: ~/.cursor/rules
+        mode: copy
+  - name: commands
+    targets:
+      - path: ~/.claude/commands
+```
+
+Each extra has:
+- **`name`** — directory name under `~/.config/skillshare/` (the source)
+- **`targets`** — list of target paths with optional `mode`
+
+Source files live alongside your skills directory:
+
+```
+~/.config/skillshare/
+├── config.yaml
+├── skills/          ← skill source
+├── rules/           ← extras source (name: rules)
+│   ├── coding.md
+│   └── testing.md
+└── commands/        ← extras source (name: commands)
+    └── deploy.md
+```
+
+### Sync modes
+
+| Mode | Behavior |
+|------|----------|
+| `merge` | Per-file symlink from target to source **(default)** |
+| `copy` | Per-file copy |
+| `symlink` | Entire source directory symlinked to target path |
+
+In merge mode, only symlinks are pruned — user-created local files at the target are preserved.
+
+### What happens
+
+```mermaid
+flowchart TD
+    CMD["skillshare sync extras"]
+    WALK["1. Discover files in source"]
+    EACH["2. For each target"]
+    SYNC["Sync files (symlink/copy)"]
+    PRUNE["3. Prune orphans"]
+    CMD --> WALK --> EACH --> SYNC --> PRUNE
+```
+
+1. Walks the source directory (`~/.config/skillshare/<name>/`)
+2. For each target, creates symlinks or copies per configured mode
+3. Removes orphan files in the target that no longer exist in source
+
+### Example output
+
+```
+$ skillshare sync extras
+
+Rules
+  ✔ ~/.claude/rules  2 files linked (merge)
+  ✔ ~/.cursor/rules  2 files copied (copy)
+
+Commands
+  ✔ ~/.claude/commands  1 files linked (merge)
+```
+
+---
+
 ## See Also
 
 - [status](/docs/reference/commands/status) — Show sync state
@@ -439,3 +535,4 @@ flowchart TD
 - [Targets](/docs/reference/targets) — Manage targets
 - [Cross-Machine Sync](/docs/how-to/sharing/cross-machine-sync) — Sync across computers
 - [install](/docs/reference/commands/install) — Install skills
+- [Configuration](/docs/reference/targets/configuration#extras) — Extras config reference
