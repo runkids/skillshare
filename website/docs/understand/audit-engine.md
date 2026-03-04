@@ -109,6 +109,21 @@ Skills installed or updated via `skillshare install` or `skillshare update` have
 
 > **Backward compatible:** Skills installed before this feature (without `file_hashes` in metadata) are silently skipped — no false positives.
 
+### MEDIUM: Metadata Trust Verification
+
+The `metadata` analyzer cross-references SKILL.md metadata against the actual git source URL from `.skillshare-meta.json` to detect social-engineering patterns in the supply chain:
+
+| Pattern | Severity | Description |
+|---------|----------|------------|
+| `publisher-mismatch` | HIGH | Skill description claims a publisher (e.g., "by Acme Corp") that doesn't match the actual repo owner |
+| `authority-language` | MEDIUM | Skill uses authority words ("official", "verified", "trusted", "authorized", "endorsed", "certified") but source is from an unrecognized organization |
+
+Publisher mismatch detection supports `from`, `by`, `made by`, `created by`, `published by`, `maintained by` prefixes, as well as `@handle` mentions. The claimed name is compared against the repo owner — matches (including substring) are allowed.
+
+Authority language checks are skipped for well-known organizations (Anthropic, OpenAI, Google, Microsoft, Vercel, etc.) and for local skills without a repo URL.
+
+> **Why this matters:** A skill claiming to be "Official Claude Helper by Anthropic" that's actually published by an unknown user is a social-engineering attack. The metadata analyzer catches this mismatch automatically during audit.
+
 ### LOW / INFO (non-blocking signal by default)
 
 These are lower-severity indicators that contribute to risk scoring and reporting:
@@ -417,8 +432,8 @@ Each finding in JSON/SARIF output includes:
 | `line` | int | Line number (0 if not applicable) |
 | `snippet` | string | Matched code snippet |
 | `ruleId` | string | Unique rule identifier (e.g., `data-exfiltration-0`) |
-| `analyzer` | string | Source analyzer: `static`, `dataflow`, `tier`, `integrity`, `structure`, `cross-skill` |
-| `category` | string | Threat category: `injection`, `exfiltration`, `credential`, `obfuscation`, `privilege`, `integrity`, `structure`, `risk` |
+| `analyzer` | string | Source analyzer: `static`, `dataflow`, `tier`, `integrity`, `metadata`, `structure`, `cross-skill` |
+| `category` | string | Threat category: `injection`, `exfiltration`, `credential`, `obfuscation`, `privilege`, `integrity`, `trust`, `structure`, `risk` |
 | `confidence` | float | Confidence score (0–1). Static: 0.95, Dataflow: 0.85 |
 | `fingerprint` | string | Stable SHA-256 hash for deduplication and tracking |
 

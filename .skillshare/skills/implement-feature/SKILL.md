@@ -1,6 +1,14 @@
 ---
 name: skillshare-implement-feature
-description: Implement a feature from a spec file or description using TDD workflow
+description: >-
+  Implement a feature from a spec file or description using TDD workflow. Use
+  this skill whenever the user asks to: add a new CLI command, implement a
+  feature from a spec, build new functionality, add a flag, create a new
+  internal package, or write Go code for skillshare. This skill enforces
+  test-first development, proper handler split conventions, oplog
+  instrumentation, and dual-mode (global/project) patterns. If the request
+  involves writing Go code and tests, use this skill — even if the user
+  doesn't explicitly say "implement".
 argument-hint: "[spec-file-path | feature description]"
 targets: [claude, codex]
 ---
@@ -95,6 +103,88 @@ make test-int
    make check  # fmt-check + lint + test
    ```
 3. Fix any formatting or lint issues
+
+## Project Patterns Reference
+
+These patterns appear throughout the codebase. Follow them when implementing new features.
+
+### Handler Split Convention
+
+Large commands are split by concern rather than kept in a single file. When a command handler grows beyond ~300 lines, split it:
+
+| Suffix | Purpose | Example |
+|--------|---------|---------|
+| `<cmd>.go` | Flag parsing + mode routing (dispatch) | `install.go` |
+| `_handlers.go` | Core handler logic | `install_handlers.go` |
+| `_render.go` / `_audit_render.go` | Output rendering | `audit_render.go` |
+| `_prompt.go` / `_prompt_tui.go` | Decision/prompt logic | `install_prompt.go` |
+| `_tui.go` | Full-screen TUI (bubbletea) | `list_tui.go` |
+| `_batch.go` | Batch operation orchestration | `update_batch.go` |
+| `_resolve.go` | Target/skill resolution | `update_resolve.go` |
+| `_context.go` | Mode-specific context struct | `install_context.go` |
+| `_format.go` | Output formatting helpers | `log_format.go` |
+
+**Principle**: dispatch file does ONLY flag parsing + mode routing. Logic goes in sub-files.
+
+### Dual-Mode Command Pattern
+
+Most commands support both global (`-g`) and project (`-p`) mode:
+
+```go
+func handleMyCommand(args []string) error {
+    mode, rest, err := parseModeArgs(args)
+    if err != nil { return err }
+
+    switch mode {
+    case modeProject:
+        return handleMyCommandProject(rest)
+    default:
+        return handleMyCommandGlobal(rest)
+    }
+}
+```
+
+Create `<cmd>_project.go` for project-mode handler. Use `parseModeArgs()` from `mode.go`.
+
+### TUI Components (bubbletea)
+
+All interactive prompts use **bubbletea** (not survey). Key components:
+
+- `checklist_tui.go` — shared checklist/radio picker
+- `list_tui.go` — filterable list with detail panel
+- `search_tui.go` — multi-select checkbox list
+
+Color palette: cyan `Color("6")`, gray `Color("8")`, yellow `#D4D93C`.
+
+Dispatch order: JSON output → TUI (if TTY + items + !`--no-tui`) → empty check → plain text.
+
+### Web API Endpoint
+
+If the feature needs a Web UI endpoint, add `internal/server/handler_<name>.go`:
+
+```go
+func (s *Server) handle<Name>(w http.ResponseWriter, r *http.Request) {
+    // ...
+    writeJSON(w, result)       // 200 OK with JSON
+    // writeError(w, 400, msg) // for errors
+}
+```
+
+Register in `server.go` route setup. Branch on `s.IsProjectMode()` for mode-specific behavior.
+
+### Oplog Instrumentation
+
+All mutating commands log to `operations.log` (JSONL):
+
+```go
+start := time.Now()
+// ... do work ...
+e := oplog.NewEntry("command-name", statusFromErr(err), time.Since(start))
+e.Args = map[string]any{"key": value}
+oplog.Write(configPath, oplog.OpsFile, e)
+```
+
+Security scans write to `oplog.AuditFile` instead.
 
 ### Step 6: E2E Runbook (Major Features Only)
 

@@ -15,7 +15,11 @@ func TestDoctor_AllGood_PassesAll(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
+	sb.CreateSkill("skill1", map[string]string{
+		"SKILL.md": "# Skill 1",
+		// Include meta with correct file hash so integrity check passes
+		".skillshare-meta.json": `{"source":"test","type":"local","installed_at":"2026-01-01T00:00:00Z","file_hashes":{"SKILL.md":"sha256:c90671f17f3b99f87d8fe1a542ee2d6829d2b2cfb7684d298e44c7591d8b0712"}}`,
+	})
 	targetPath := sb.CreateTarget("claude")
 
 	// Initialize git and commit to avoid warnings

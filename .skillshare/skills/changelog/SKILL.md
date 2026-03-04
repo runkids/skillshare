@@ -1,6 +1,14 @@
 ---
 name: skillshare-changelog
-description: Generate CHANGELOG.md entry from recent commits in conventional format. Also syncs the website changelog page.
+description: >-
+  Generate CHANGELOG.md entry from recent commits in conventional format. Also
+  syncs the website changelog page. Use this skill whenever the user asks to:
+  write release notes, generate a changelog, prepare a version release, document
+  what changed between tags, or create a new CHANGELOG entry. If you see
+  requests like "write the changelog for v0.17", "what changed since last
+  release", or "prepare release notes", this is the skill to use. Do NOT
+  manually edit CHANGELOG.md without this skill — it ensures proper formatting,
+  user-perspective writing, and website changelog sync.
 argument-hint: "[tag-version]"
 targets: [claude, codex]
 ---

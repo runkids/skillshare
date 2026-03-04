@@ -368,14 +368,14 @@ func parseAuditArgs(args []string) (auditOptions, bool, error) {
 			}
 		case "--analyzer":
 			if i+1 >= len(args) {
-				return opts, false, fmt.Errorf("%s requires a value (static, dataflow, tier, integrity, structure, cross-skill)", arg)
+				return opts, false, fmt.Errorf("%s requires a value (static, dataflow, tier, integrity, metadata, structure, cross-skill)", arg)
 			}
 			i++
 			switch args[i] {
-			case "static", "dataflow", "tier", "integrity", "structure", "cross-skill":
+			case "static", "dataflow", "tier", "integrity", "metadata", "structure", "cross-skill":
 				opts.Analyzers = append(opts.Analyzers, args[i])
 			default:
-				return opts, false, fmt.Errorf("unknown analyzer: %s (supported: static, dataflow, tier, integrity, structure, cross-skill)", args[i])
+				return opts, false, fmt.Errorf("unknown analyzer: %s (supported: static, dataflow, tier, integrity, metadata, structure, cross-skill)", args[i])
 			}
 		default:
 			if strings.HasPrefix(arg, "-") {

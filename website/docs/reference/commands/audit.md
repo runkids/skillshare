@@ -39,7 +39,7 @@ skillshare audit --analyzer static --analyzer dataflow  # Multiple analyzers
 
 ## What It Detects
 
-The audit engine scans every text-based file in a skill directory against 100+ built-in rules (regex patterns, table-driven credential detection, structural checks, and content integrity verification), organized into 5 severity levels: **CRITICAL**, **HIGH**, **MEDIUM**, **LOW**, and **INFO**.
+The audit engine scans every text-based file in a skill directory against 100+ built-in rules (regex patterns, table-driven credential detection, structural checks, content integrity verification, and supply-chain trust analysis), organized into 5 severity levels: **CRITICAL**, **HIGH**, **MEDIUM**, **LOW**, and **INFO**.
 
 For the full detection catalog, threat categories deep dive, risk scoring algorithm, command safety tiering, and cross-skill interaction analysis, see [Audit Engine](/docs/understand/audit-engine).
 
@@ -152,6 +152,7 @@ skillshare audit --analyzer static --analyzer dataflow # Multiple analyzers
 | `dataflow` | Per-file | Taint tracking for shell scripts and markdown code blocks |
 | `tier` | Per-skill | Capability tier combination risk analysis |
 | `integrity` | Per-skill | Content hash verification (`file_hashes` in SKILL.md) |
+| `metadata` | Per-skill | Supply-chain trust verification (publisher mismatch, authority claims) |
 | `structure` | Per-skill | Dangling markdown link detection |
 | `cross-skill` | Bundle | Cross-skill exfiltration and privilege escalation analysis |
 
@@ -227,7 +228,7 @@ Run `skillshare audit` automatically on every commit using the [pre-commit](http
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/runkids/skillshare
-    rev: v0.16.8  # use latest release tag
+    rev: v0.16.11  # use latest release tag
     hooks:
       - id: skillshare-audit
 ```
@@ -343,7 +344,7 @@ Binary files (images, `.wasm`, etc.) and hidden directories (`.git`) are skipped
 | `--threshold` `<t>`, `-T` `<t>` | Block threshold: `critical`\|`high`\|`medium`\|`low`\|`info` (shorthand: `c`\|`h`\|`m`\|`l`\|`i`, plus `crit`, `med`) |
 | `--profile` `<p>` | Audit profile preset: `default`, `strict`, `permissive` |
 | `--dedupe` `<mode>` | Dedup mode: `legacy`, `global` (default) |
-| `--analyzer` `<id>` | Only run specified analyzer (repeatable). IDs: `static`, `dataflow`, `tier`, `integrity`, `structure`, `cross-skill` |
+| `--analyzer` `<id>` | Only run specified analyzer (repeatable). IDs: `static`, `dataflow`, `tier`, `integrity`, `metadata`, `structure`, `cross-skill` |
 | `--format` `<f>` | Output format: `text` (default), `json`, `sarif`, `markdown` |
 | `--json` | Output JSON (**deprecated**: use `--format json`) |
 | `--yes`, `-y` | Skip large-scan confirmation prompt (auto-confirms) |

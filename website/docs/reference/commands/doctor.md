@@ -75,9 +75,24 @@ For each target:
 - skillshare skill version
 - Checks for available updates
 
+### Skill Integrity
+
+For tracked skills with `.skillshare-meta.json` file hashes, doctor verifies that no files have been tampered with since installation:
+
+- Compares current SHA-256 hashes against stored hashes
+- Reports modified, missing, and added files per skill
+- Skills without metadata are flagged as "unverifiable"
+
+```text
+⚠ _team-repo__api-helper: 1 modified, 1 missing
+✓ Skill integrity: 5/6 verified
+⚠ Skill integrity: 2 skill(s) unverifiable (no metadata)
+```
+
 ### Other
 
 - Skills without `SKILL.md` files
+- Skill-level `targets:` field validation (warns on unknown target names)
 - Last backup timestamp (global mode)
 - Trash status (item count, total size, oldest item age)
 - Broken symlinks in targets
@@ -152,13 +167,16 @@ Checking environment
   ✓ Link support: OK
   ⚠ Git: 3 uncommitted change(s)
 
+⚠ Skills without SKILL.md: test-dir, temp
+⚠ _team-repo__api-helper: 1 modified
+✓ Skill integrity: 5/6 verified
+⚠ Skill integrity: 1 skill(s) unverifiable (no metadata)
+
 Checking targets
   ✓ claude    [merge]: merged (8 shared, 2 local)
   ✗ cursor    [merge]: 2 broken symlink(s): old-skill, removed-skill
   ⚠ codex     [merge->needs sync]: linked (needs sync to apply merge mode)
   ⚠ claude: 1 skill(s) not synced (2/3 linked)
-
-⚠ Skills without SKILL.md: test-dir, temp
 
 Version
   ✓ CLI: 1.2.0

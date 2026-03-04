@@ -1,6 +1,14 @@
 ---
 name: skillshare-cli-e2e-test
-description: Run isolated E2E tests in devcontainer from ai_docs/tests runbooks
+description: >-
+  Run isolated E2E tests in devcontainer from ai_docs/tests runbooks. Use this
+  skill whenever the user asks to: run an E2E test, execute a test runbook,
+  validate a feature end-to-end, create a new runbook, or test CLI behavior in
+  isolation. If you need to run a multi-step CLI validation sequence (init →
+  install → sync → verify), this is the skill — it handles ssenv isolation,
+  flag verification, and structured reporting. Prefer this over ad-hoc docker
+  exec sequences for any test that follows a runbook or needs reproducible
+  isolation.
 argument-hint: "[runbook-name | new]"
 targets: [claude, codex]
 ---

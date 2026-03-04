@@ -1,5 +1,37 @@
 # Changelog
 
+## [0.16.11] - 2026-03-04
+
+### New Features
+
+#### Supply-Chain Trust Verification
+
+- **Metadata analyzer** — new audit analyzer that cross-references SKILL.md metadata against the actual git source URL to detect social-engineering attacks:
+  - `publisher-mismatch` (HIGH): skill claims an organization (e.g., "by Anthropic") but repo owner differs
+  - `authority-language` (MEDIUM): skill uses authority words ("official", "verified") from an unrecognized source
+  ```bash
+  skillshare audit                         # metadata analyzer runs by default
+  skillshare audit --analyzer metadata     # run metadata analyzer only
+  ```
+
+#### Skill Integrity Verification
+
+- **`doctor` integrity check** — verifies installed skills haven't been tampered with by comparing current file hashes against stored `.skillshare-meta.json` hashes:
+  ```
+  ✓ Skill integrity: 5/6 verified
+  ⚠ _team-repo__api-helper: 1 modified
+  ⚠ Skill integrity: 1 skill(s) unverifiable (no metadata)
+  ```
+
+#### Web UI Audit Streaming
+
+- **Real-time audit progress** — the web dashboard audit page now streams results via SSE, showing per-skill progress instead of waiting for the full batch
+- **Per-skill audit** — audit individual skills directly from the skill detail page
+
+### Improvements
+
+- **SSL error guidance** — `skillshare install` now detects SSL certificate errors and shows actionable options (custom CA bundle, SSH, or skip verification)
+
 ## [0.16.10] - 2026-03-04
 
 ### New Features
