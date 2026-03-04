@@ -651,14 +651,6 @@ func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry) string {
 	return b.String()
 }
 
-// capitalize returns the string with the first letter uppercased.
-func capitalize(s string) string {
-	if s == "" {
-		return s
-	}
-	return strings.ToUpper(s[:1]) + s[1:]
-}
-
 // runTrashTUI starts the bubbletea TUI for the trash viewer.
 func runTrashTUI(items []trash.TrashEntry, trashBase, destDir, cfgPath, modeLabel string) error {
 	model := newTrashTUIModel(items, trashBase, destDir, cfgPath, modeLabel)

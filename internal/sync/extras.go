@@ -168,7 +168,11 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force bool) (
 
 	// Prune orphans (only when not dry-run)
 	if !dryRun {
-		pruned, pruneErrors := pruneExtraOrphans(targetPath, absSrc, mode)
+		sourceSet := make(map[string]bool, len(files))
+		for _, f := range files {
+			sourceSet[f] = true
+		}
+		pruned, pruneErrors := pruneExtraOrphans(targetPath, sourceSet, mode)
 		result.Pruned = pruned
 		result.Errors = append(result.Errors, pruneErrors...)
 	}
@@ -202,11 +206,6 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force bool) (int, i
 			// Wrong symlink — treat as conflict
 		}
 
-		if mode == "copy" && info.Mode()&os.ModeSymlink == 0 && !info.IsDir() {
-			// Regular file exists in copy mode — check content match
-			// For simplicity, treat existing non-symlink file as conflict
-		}
-
 		// Conflict: target exists and is not our symlink
 		if !force {
 			return 0, 1, nil
@@ -230,7 +229,7 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force bool) (int, i
 			return 0, 0, fmt.Errorf("failed to create symlink: %w", err)
 		}
 	case "copy":
-		if err := copyExtraFile(srcFile, tgtFile); err != nil {
+		if err := copyFile(srcFile, tgtFile); err != nil {
 			return 0, 0, fmt.Errorf("failed to copy file: %w", err)
 		}
 	}
@@ -242,7 +241,7 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force bool) (int, i
 // corresponding source. In merge mode only symlinks are pruned; user-created
 // local files are preserved. Empty parent directories are cleaned up.
 // Hidden files (names starting with ".") are skipped.
-func pruneExtraOrphans(targetPath, absSourcePath, mode string) (pruned int, errors []string) {
+func pruneExtraOrphans(targetPath string, sourceFiles map[string]bool, mode string) (pruned int, errors []string) {
 	// Collect paths to prune (walk first, delete after to avoid mutation during walk)
 	var toRemove []string
 
@@ -268,8 +267,7 @@ func pruneExtraOrphans(targetPath, absSourcePath, mode string) (pruned int, erro
 		}
 
 		// Check if corresponding source file exists
-		srcFile := filepath.Join(absSourcePath, rel)
-		if _, statErr := os.Stat(srcFile); statErr == nil {
+		if sourceFiles[rel] {
 			return nil // source exists, keep it
 		}
 
@@ -310,9 +308,4 @@ func cleanEmptyParents(dir, stopAt string) {
 		os.Remove(dir)
 		dir = filepath.Dir(dir)
 	}
-}
-
-// copyExtraFile copies a single file from src to dst, preserving permissions.
-func copyExtraFile(src, dst string) error {
-	return copyFile(src, dst)
 }
