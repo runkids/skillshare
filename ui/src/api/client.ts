@@ -29,6 +29,38 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return data as T;
 }
 
+// createSSEStream creates an EventSource with the standard done/error lifecycle.
+// The `handlers` map registers named SSE event listeners; the special key "done"
+// is treated as the terminal event that closes the connection.
+function createSSEStream(
+  url: string,
+  handlers: Record<string, (data: any) => void>,
+  onError: (err: Error) => void,
+  errorMessage: string,
+): EventSource {
+  const es = new EventSource(url);
+  let completed = false;
+  for (const [event, handler] of Object.entries(handlers)) {
+    if (event === 'done') {
+      es.addEventListener('done', (e) => {
+        completed = true;
+        es.close();
+        handler(JSON.parse((e as MessageEvent).data));
+      });
+    } else {
+      es.addEventListener(event, (e) => {
+        handler(JSON.parse((e as MessageEvent).data));
+      });
+    }
+  }
+  es.addEventListener('error', () => {
+    if (completed) return;
+    es.close();
+    onError(new Error(errorMessage));
+  });
+  return es;
+}
+
 // Typed API helpers
 export const api = {
   // Overview
@@ -64,6 +96,19 @@ export const api = {
     }),
   diff: (target?: string) =>
     apiFetch<{ diffs: DiffTarget[] }>(`/diff${target ? '?target=' + encodeURIComponent(target) : ''}`),
+  diffStream: (
+    onDiscovering: () => void,
+    onStart: (total: number) => void,
+    onResult: (diff: DiffTarget, checked: number) => void,
+    onDone: (data: { diffs: DiffTarget[] }) => void,
+    onError: (err: Error) => void,
+  ): EventSource =>
+    createSSEStream(BASE + '/diff/stream', {
+      discovering: () => onDiscovering(),
+      start: (d) => onStart(d.total),
+      result: (d) => onResult(d.diff, d.checked),
+      done: onDone,
+    }, onError, 'Diff stream failed'),
 
   // Hub
   hubIndex: () => apiFetch<HubIndex>('/hub/index'),
@@ -89,6 +134,19 @@ export const api = {
   searchHub: (q: string, hubURL: string) =>
     apiFetch<{ results: SearchResult[] }>(`/search?q=${encodeURIComponent(q)}&hub=${encodeURIComponent(hubURL)}`),
   check: () => apiFetch<CheckResult>('/check'),
+  checkStream: (
+    onDiscovering: () => void,
+    onStart: (total: number) => void,
+    onProgress: (checked: number) => void,
+    onDone: (data: CheckResult) => void,
+    onError: (err: Error) => void,
+  ): EventSource =>
+    createSSEStream(BASE + '/check/stream', {
+      discovering: () => onDiscovering(),
+      start: (d) => onStart(d.total),
+      progress: (d) => onProgress(d.checked),
+      done: onDone,
+    }, onError, 'Check stream failed'),
   discover: (source: string) =>
     apiFetch<DiscoverResult>('/discover', {
       method: 'POST',
@@ -111,6 +169,23 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(opts),
     }),
+  updateAllStream: (
+    onStart: (total: number) => void,
+    onResult: (item: UpdateResultItem) => void,
+    onDone: (data: { results: UpdateResultItem[]; summary: UpdateStreamSummary }) => void,
+    onError: (err: Error) => void,
+    opts?: { names?: string[]; force?: boolean; skipAudit?: boolean },
+  ): EventSource => {
+    const params = new URLSearchParams();
+    if (opts?.names?.length) params.set('names', opts.names.join(','));
+    if (opts?.force) params.set('force', 'true');
+    if (opts?.skipAudit) params.set('skipAudit', 'true');
+    return createSSEStream(`${BASE}/update/stream?${params.toString()}`, {
+      start: (d) => onStart(d.total),
+      result: onResult,
+      done: onDone,
+    }, onError, 'Update stream failed');
+  },
 
   // Repo uninstall
   deleteRepo: (name: string) =>
@@ -199,28 +274,12 @@ export const api = {
     onProgress: (scanned: number) => void,
     onDone: (data: AuditAllResponse) => void,
     onError: (err: Error) => void,
-  ): EventSource => {
-    const es = new EventSource(BASE + '/audit/stream');
-    let completed = false;
-    es.addEventListener('start', (e) => {
-      onStart(JSON.parse((e as MessageEvent).data).total);
-    });
-    es.addEventListener('progress', (e) => {
-      onProgress(JSON.parse((e as MessageEvent).data).scanned);
-    });
-    es.addEventListener('done', (e) => {
-      completed = true;
-      es.close();
-      onDone(JSON.parse((e as MessageEvent).data));
-    });
-    es.addEventListener('error', () => {
-      // After 'done' closes the stream, the browser may still fire 'error'.
-      if (completed) return;
-      es.close();
-      onError(new Error('Audit stream failed'));
-    });
-    return es;
-  },
+  ): EventSource =>
+    createSSEStream(BASE + '/audit/stream', {
+      start: (d) => onStart(d.total),
+      progress: (d) => onProgress(d.scanned),
+      done: onDone,
+    }, onError, 'Audit stream failed'),
 
   // Audit Rules
   getAuditRules: () => apiFetch<AuditRulesResponse>('/audit/rules'),
@@ -359,6 +418,14 @@ export interface UpdateResultItem {
   isRepo: boolean;
   auditRiskScore?: number;
   auditRiskLabel?: string;
+}
+
+export interface UpdateStreamSummary {
+  updated: number;
+  upToDate: number;
+  blocked: number;
+  errors: number;
+  skipped: number;
 }
 
 export interface AvailableTarget {

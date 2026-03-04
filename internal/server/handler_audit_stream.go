@@ -15,27 +15,9 @@ import (
 //   - "progress" → {"scanned": N}         every 200ms during scan
 //   - "done"     → {"results":…,"summary":…}  final payload (same shape as GET /api/audit)
 func (s *Server) handleAuditStream(w http.ResponseWriter, r *http.Request) {
-	flusher, ok := w.(http.Flusher)
+	safeSend, ok := initSSE(w)
 	if !ok {
-		writeError(w, http.StatusInternalServerError, "streaming not supported")
 		return
-	}
-
-	// Disable WriteTimeout for this long-lived SSE connection.
-	if rc := http.NewResponseController(w); rc != nil {
-		_ = rc.SetWriteDeadline(time.Time{}) // zero = no deadline
-	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	// Mutex protects all writes to the ResponseWriter (not goroutine-safe).
-	var mu sync.Mutex
-	safeSend := func(event string, data any) {
-		mu.Lock()
-		defer mu.Unlock()
-		sendSSE(w, flusher, event, data)
 	}
 
 	start := time.Now()

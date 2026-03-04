@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sync"
+	"time"
 )
 
 // writeJSON writes a JSON response with 200 status
@@ -27,4 +29,27 @@ func sendSSE(w http.ResponseWriter, f http.Flusher, event string, data any) {
 	}
 	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, b)
 	f.Flush()
+}
+
+// initSSE sets SSE headers, disables the write deadline, and returns a
+// mutex-protected safeSend function. If the ResponseWriter does not support
+// flushing, an error response is written and ok is false.
+func initSSE(w http.ResponseWriter) (safeSend func(string, any), ok bool) {
+	flusher, isFlusher := w.(http.Flusher)
+	if !isFlusher {
+		writeError(w, http.StatusInternalServerError, "streaming not supported")
+		return nil, false
+	}
+	if rc := http.NewResponseController(w); rc != nil {
+		_ = rc.SetWriteDeadline(time.Time{})
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	var mu sync.Mutex
+	return func(event string, data any) {
+		mu.Lock()
+		defer mu.Unlock()
+		sendSSE(w, flusher, event, data)
+	}, true
 }

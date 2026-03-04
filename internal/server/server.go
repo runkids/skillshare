@@ -245,6 +245,7 @@ func (s *Server) registerRoutes() {
 
 	// Sync
 	s.mux.HandleFunc("POST /api/sync", s.handleSync)
+	s.mux.HandleFunc("GET /api/diff/stream", s.handleDiffStream)
 	s.mux.HandleFunc("GET /api/diff", s.handleDiff)
 
 	// Collect
@@ -266,6 +267,8 @@ func (s *Server) registerRoutes() {
 
 	// Update & Check
 	s.mux.HandleFunc("POST /api/update", s.handleUpdate)
+	s.mux.HandleFunc("GET /api/update/stream", s.handleUpdateStream)
+	s.mux.HandleFunc("GET /api/check/stream", s.handleCheckStream)
 	s.mux.HandleFunc("GET /api/check", s.handleCheck)
 
 	// Repo uninstall

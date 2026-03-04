@@ -22,6 +22,7 @@ import { HandSelect } from '../components/HandInput';
 import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
+import StreamProgressBar from '../components/StreamProgressBar';
 import { wobbly, shadows, colors } from '../design';
 import { severityBadgeVariant } from '../lib/severity';
 import { BlockStamp, RiskMeter, riskColor, riskBgColor } from '../components/audit';
@@ -35,6 +36,9 @@ const severityFilterOptions: { value: SeverityFilter; label: string }[] = [
   { value: 'HIGH', label: 'HIGH+' },
   { value: 'CRITICAL', label: 'CRITICAL only' },
 ];
+
+const AUDIT_PAGE_SIZE = 20;
+const FINDINGS_PAGE_SIZE = 10;
 
 export default function AuditPage() {
   const { toast } = useToast();
@@ -78,6 +82,11 @@ export default function AuditPage() {
     () => filteredResults.reduce((sum, result) => sum + result.findings.length, 0),
     [filteredResults],
   );
+
+  // Paginated display of skill cards
+  const [showCount, setShowCount] = useState(AUDIT_PAGE_SIZE);
+  // Reset pagination when filter changes
+  useEffect(() => { setShowCount(AUDIT_PAGE_SIZE); }, [minSeverity]);
 
   const showAuditToast = useCallback((res: AuditAllResponse) => {
     const { summary } = res;
@@ -157,7 +166,16 @@ export default function AuditPage() {
       {/* Loading / Progress */}
       {loading && (
         progress ? (
-          <AuditProgressBar scanned={progress.scanned} total={progress.total} startTime={startTimeRef.current} />
+          <StreamProgressBar
+            count={progress.scanned}
+            total={progress.total}
+            startTime={startTimeRef.current}
+            icon={ShieldCheck}
+            iconClassName="animate-pulse-gentle"
+            labelDiscovering="Scanning skills..."
+            labelRunning="Scanning skills..."
+            units="skills"
+          />
         ) : (
           <PageSkeleton />
         )
@@ -212,9 +230,18 @@ export default function AuditPage() {
             />
           ) : (
             <div className="space-y-5">
-              {filteredResults.map((result, i) => (
+              {filteredResults.slice(0, showCount).map((result, i) => (
                 <SkillAuditCard key={result.skillName} result={result} index={i} />
               ))}
+              {filteredResults.length > showCount && (
+                <button
+                  onClick={() => setShowCount((c) => c + AUDIT_PAGE_SIZE)}
+                  className="w-full text-center py-3 text-blue hover:underline cursor-pointer border-2 border-dashed border-pencil-light/30 bg-paper-warm/50"
+                  style={{ fontFamily: 'var(--font-hand)', borderRadius: wobbly.md }}
+                >
+                  Show more ({filteredResults.length - showCount} remaining)
+                </button>
+              )}
             </div>
           )}
 
@@ -545,6 +572,7 @@ function TriagePanel({
 
 function SkillAuditCard({ result, index }: { result: AuditResult; index: number }) {
   const maxSeverity = getMaxSeverity(result.findings);
+  const [findingShowCount, setFindingShowCount] = useState(FINDINGS_PAGE_SIZE);
 
   return (
     <Card
@@ -596,9 +624,18 @@ function SkillAuditCard({ result, index }: { result: AuditResult; index: number 
 
         {/* ── Findings list ── */}
         <div className="space-y-2 pt-3 border-t border-dashed border-pencil-light/30">
-          {result.findings.map((f, i) => (
+          {result.findings.slice(0, findingShowCount).map((f, i) => (
             <FindingRow key={`${f.file}-${f.line}-${i}`} finding={f} />
           ))}
+          {result.findings.length > findingShowCount && (
+            <button
+              onClick={() => setFindingShowCount((c) => c + FINDINGS_PAGE_SIZE)}
+              className="text-sm text-blue hover:underline cursor-pointer mt-1"
+              style={{ fontFamily: 'var(--font-hand)' }}
+            >
+              Show more ({result.findings.length - findingShowCount} remaining)
+            </button>
+          )}
         </div>
       </div>
     </Card>
@@ -660,58 +697,6 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────────
- * AuditProgressBar — hand-drawn style scan progress
- * ────────────────────────────────────────────────────────────────────── */
-
-function AuditProgressBar({ scanned, total, startTime }: { scanned: number; total: number; startTime: number }) {
-  const pct = total > 0 ? Math.min((scanned / total) * 100, 100) : 0;
-  const elapsed = (Date.now() - startTime) / 1000;
-  const eta = scanned > 0 && pct < 100
-    ? Math.round((elapsed / scanned) * (total - scanned))
-    : null;
-
-  return (
-    <Card variant="outlined">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ShieldCheck size={18} strokeWidth={2.5} className="text-pencil-light animate-pulse-gentle" />
-            <span className="font-medium text-pencil" style={{ fontFamily: 'var(--font-hand)' }}>
-              Scanning skills...
-            </span>
-          </div>
-          <span className="text-sm text-pencil-light font-mono">
-            {Math.round(pct)}%
-          </span>
-        </div>
-        {/* Progress bar */}
-        <div
-          className="h-4 border-2 border-dashed border-pencil-light/50 bg-paper-warm overflow-hidden"
-          style={{ borderRadius: wobbly.sm }}
-        >
-          <div
-            className="h-full transition-all duration-200 ease-out"
-            style={{
-              width: `${pct}%`,
-              backgroundColor: colors.blue,
-              borderRadius: wobbly.sm,
-            }}
-          />
-        </div>
-        {/* Stats line */}
-        <div className="flex items-center justify-between text-sm text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
-          <span>
-            {scanned.toLocaleString()} / {total.toLocaleString()} skills
-          </span>
-          {eta !== null && (
-            <span>~{eta}s remaining</span>
-          )}
-        </div>
-      </div>
-    </Card>
-  );
-}
 
 /* ──────────────────────────────────────────────────────────────────────
  * Helper functions
