@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	"unicode"
-	"unicode/utf8"
 
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
@@ -50,7 +48,7 @@ func cmdSyncExtras(args []string) error {
 	for _, extra := range cfg.Extras {
 		extraSource := filepath.Join(sourceRoot, extra.Name)
 
-		ui.Header(capitalizeFirst(extra.Name))
+		ui.Header(capitalize(extra.Name))
 
 		// Check if source directory exists
 		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {
@@ -61,10 +59,6 @@ func cmdSyncExtras(args []string) error {
 
 		for _, target := range extra.Targets {
 			mode := target.Mode
-			if mode == "" {
-				mode = "merge"
-			}
-
 			result, syncErr := sync.SyncExtra(extraSource, target.Path, mode, dryRun, force)
 			shortTarget := shortenPath(target.Path)
 
@@ -116,6 +110,9 @@ func cmdSyncExtras(args []string) error {
 	}
 	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
+	if totalErrors > 0 {
+		return fmt.Errorf("%d extras sync error(s)", totalErrors)
+	}
 	return nil
 }
 
@@ -131,23 +128,16 @@ func syncVerb(mode string) string {
 	}
 }
 
+// cachedHome caches the home directory for shortenPath.
+var cachedHome = func() string {
+	h, _ := os.UserHomeDir()
+	return h
+}()
+
 // shortenPath replaces the home directory prefix with ~.
 func shortenPath(p string) string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return p
-	}
-	if strings.HasPrefix(p, home) {
-		return "~" + p[len(home):]
+	if cachedHome != "" && strings.HasPrefix(p, cachedHome) {
+		return "~" + p[len(cachedHome):]
 	}
 	return p
-}
-
-// capitalizeFirst returns s with the first Unicode character upper-cased.
-func capitalizeFirst(s string) string {
-	if s == "" {
-		return s
-	}
-	r, size := utf8.DecodeRuneInString(s)
-	return string(unicode.ToUpper(r)) + s[size:]
 }

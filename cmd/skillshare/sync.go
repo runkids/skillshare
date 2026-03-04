@@ -71,6 +71,9 @@ func cmdSync(args []string) error {
 	dryRun, force := parseSyncFlags(rest)
 
 	if mode == modeProject {
+		if hasAll {
+			ui.Warning("--all is not supported in project mode (extras are global only)")
+		}
 		stats, err := cmdSyncProject(cwd, dryRun, force)
 		stats.ProjectScope = true
 		logSyncOp(config.ProjectConfigPath(cwd), stats, start, err)
@@ -163,7 +166,7 @@ func cmdSync(args []string) error {
 
 	if hasAll {
 		fmt.Println()
-		if extrasErr := cmdSyncExtras(args); extrasErr != nil {
+		if extrasErr := cmdSyncExtras(rest); extrasErr != nil {
 			ui.Warning("Extras sync: %v", extrasErr)
 		}
 	}
