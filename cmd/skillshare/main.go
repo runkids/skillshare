@@ -185,7 +185,7 @@ func printUsage() {
 	cmd("uninstall", "<name>...", "Remove skills from source directory")
 	cmd("list", "", "List all installed skills")
 	cmd("search", "[query]", "Search or browse GitHub for skills")
-	cmd("sync", "", "Sync skills to all targets")
+	cmd("sync", "[extras] [--all]", "Sync skills (or extras) to targets")
 	cmd("status", "", "Show status of all targets")
 	fmt.Println()
 

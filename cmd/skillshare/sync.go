@@ -29,6 +29,23 @@ type syncModeStats struct {
 }
 
 func cmdSync(args []string) error {
+	// Subcommand: sync extras
+	if len(args) > 0 && args[0] == "extras" {
+		return cmdSyncExtras(args[1:])
+	}
+
+	// Extract --all flag before mode parsing
+	hasAll := false
+	var filteredArgs []string
+	for _, a := range args {
+		if a == "--all" {
+			hasAll = true
+		} else {
+			filteredArgs = append(filteredArgs, a)
+		}
+	}
+	args = filteredArgs
+
 	start := time.Now()
 
 	mode, rest, err := parseModeArgs(args)
@@ -143,6 +160,14 @@ func cmdSync(args []string) error {
 		DryRun:  dryRun,
 		Force:   force,
 	}, start, syncErr)
+
+	if hasAll {
+		fmt.Println()
+		if extrasErr := cmdSyncExtras(args); extrasErr != nil {
+			ui.Warning("Extras sync: %v", extrasErr)
+		}
+	}
+
 	return syncErr
 }
 
