@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   RefreshCw,
   Eye,
@@ -19,10 +19,10 @@ import {
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import HandButton from '../components/HandButton';
-import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api, type SyncResult, type DiffTarget } from '../api/client';
-import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { queryKeys } from '../lib/queryKeys';
+import StreamProgressBar from '../components/StreamProgressBar';
 import { wobbly, shadows } from '../design';
 
 export default function SyncPage() {
@@ -33,12 +33,44 @@ export default function SyncPage() {
   const [results, setResults] = useState<SyncResult[] | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const { toast } = useToast();
+  const toastRef = useRef(toast);
+  useEffect(() => { toastRef.current = toast; });
 
-  const diffQuery = useQuery({
-    queryKey: queryKeys.diff(),
-    queryFn: () => api.diff(),
-    staleTime: staleTimes.diff,
-  });
+  // Diff state (SSE-based)
+  const [diffData, setDiffData] = useState<DiffTarget[] | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [diffProgress, setDiffProgress] = useState<{ checked: number; total: number } | null>(null);
+  const esRef = useRef<EventSource | null>(null);
+  const startTimeRef = useRef<number>(0);
+
+  useEffect(() => {
+    return () => { esRef.current?.close(); };
+  }, []);
+
+  const runDiff = useCallback(() => {
+    esRef.current?.close();
+    setDiffLoading(true);
+    setDiffProgress(null);
+    startTimeRef.current = Date.now();
+
+    esRef.current = api.diffStream(
+      () => setDiffProgress({ checked: 0, total: 0 }),
+      (total) => setDiffProgress({ checked: 0, total }),
+      (_diff, checked) => setDiffProgress((p) => p ? { ...p, checked } : null),
+      (data) => {
+        setDiffData(data.diffs);
+        setDiffLoading(false);
+        setDiffProgress(null);
+      },
+      (err) => {
+        toastRef.current(err.message, 'error');
+        setDiffLoading(false);
+        setDiffProgress(null);
+      },
+    );
+  }, []);
+
+  useEffect(() => { runDiff(); }, [runDiff]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -55,7 +87,7 @@ export default function SyncPage() {
           'success',
         );
       }
-      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
+      runDiff(); // Re-check diff after sync
       queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
     } catch (e: unknown) {
@@ -66,7 +98,7 @@ export default function SyncPage() {
   };
 
   // Calculate diff summary
-  const diffs = diffQuery.data?.diffs ?? [];
+  const diffs = diffData ?? [];
   const totalActions = diffs.reduce((sum, d) => sum + (d.items?.length ?? 0), 0);
   const pendingLinks = diffs.reduce(
     (sum, d) => sum + (d.items?.filter((i) => i.action === 'link').length ?? 0),
@@ -172,7 +204,7 @@ export default function SyncPage() {
       <Card variant="postit" className="mb-6 text-center">
         <div className="flex flex-col items-center gap-4">
           {/* Status indicator */}
-          {diffQuery.isPending ? (
+          {diffLoading ? (
             <p className="text-pencil-light text-base">Checking status...</p>
           ) : syncActions > 0 ? (
             <div className="flex flex-wrap items-center justify-center gap-3">
@@ -280,16 +312,18 @@ export default function SyncPage() {
         >
           Current Diff
         </h3>
-        {diffQuery.isPending && <PageSkeleton />}
-        {diffQuery.error && (
-          <Card variant="accent">
-            <div className="flex items-center gap-2 text-danger">
-              <AlertCircle size={18} strokeWidth={2.5} />
-              <span>{diffQuery.error.message}</span>
-            </div>
-          </Card>
+        {diffLoading && diffProgress && (
+          <StreamProgressBar
+            count={diffProgress.checked}
+            total={diffProgress.total}
+            startTime={startTimeRef.current}
+            icon={RefreshCw}
+            labelDiscovering="Discovering skills..."
+            labelRunning="Computing diff..."
+            units="targets"
+          />
         )}
-        {diffQuery.data && <DiffView diffs={diffQuery.data.diffs} />}
+        {!diffLoading && diffData && <DiffView diffs={diffData} />}
       </div>
     </div>
   );
@@ -382,9 +416,12 @@ function DiffView({ diffs: rawDiffs }: { diffs: DiffTarget[] }) {
   );
 }
 
+const DIFF_PAGE_SIZE = 50;
+
 function DiffTargetCard({ diff }: { diff: DiffTarget }) {
-  const [expanded, setExpanded] = useState(true);
   const items = diff.items ?? [];
+  const [expanded, setExpanded] = useState(items.length <= DIFF_PAGE_SIZE);
+  const [showCount, setShowCount] = useState(DIFF_PAGE_SIZE);
   const localOnly = items.filter((i) => i.action === 'local');
   const syncItems = items.filter((i) => i.action !== 'local');
   const inSync = items.length === 0;
@@ -425,7 +462,7 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
 
       {expanded && items.length > 0 && (
         <div className="mt-3 pl-8 space-y-1.5 animate-sketch-in">
-          {items.map((item, i) => (
+          {items.slice(0, showCount).map((item, i) => (
             <div key={i} className="flex items-center gap-2 text-base">
               <ActionBadge action={item.action} />
               <ArrowRight size={12} className="text-muted-dark shrink-0" />
@@ -440,6 +477,15 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
               )}
             </div>
           ))}
+          {items.length > showCount && (
+            <button
+              onClick={() => setShowCount((c) => c + DIFF_PAGE_SIZE)}
+              className="text-sm text-blue hover:underline cursor-pointer mt-1"
+              style={{ fontFamily: 'var(--font-hand)' }}
+            >
+              Show more ({items.length - showCount} remaining)
+            </button>
+          )}
 
           {/* Action hints */}
           {(hasSyncable || hasLocal) && (
@@ -473,3 +519,4 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
     </Card>
   );
 }
+

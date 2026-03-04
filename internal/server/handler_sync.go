@@ -3,12 +3,9 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	ssync "skillshare/internal/sync"
-	"skillshare/internal/utils"
 )
 
 type syncTargetResult struct {
@@ -157,175 +154,11 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 	}
 
 	diffs := make([]diffTarget, 0)
-
 	for name, target := range s.cfg.Targets {
 		if filterTarget != "" && filterTarget != name {
 			continue
 		}
-
-		mode := target.Mode
-		if mode == "" {
-			mode = globalMode
-		}
-
-		dt := diffTarget{Target: name, Items: make([]diffItem, 0)}
-		filtered := discovered
-
-		if mode == "symlink" {
-			status := ssync.CheckStatus(target.Path, s.cfg.Source)
-			if status != ssync.StatusLinked {
-				dt.Items = append(dt.Items, diffItem{Skill: "(entire directory)", Action: "link", Reason: "source only"})
-			}
-			diffs = append(diffs, dt)
-			continue
-		}
-		filtered, err = ssync.FilterSkills(discovered, target.Include, target.Exclude)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
-			return
-		}
-
-		if mode == "copy" {
-			// Copy mode: check via manifest + checksum comparison
-			manifest, _ := ssync.ReadManifest(target.Path)
-			for _, skill := range filtered {
-				oldChecksum, isManaged := manifest.Managed[skill.FlatName]
-				targetSkillPath := filepath.Join(target.Path, skill.FlatName)
-				if !isManaged {
-					if info, err := os.Stat(targetSkillPath); err == nil {
-						if info.IsDir() {
-							dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "skip", Reason: "local copy (sync --force to replace)"})
-						} else {
-							dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "target entry is not a directory"})
-						}
-					} else if os.IsNotExist(err) {
-						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "source only"})
-					} else {
-						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "cannot access target entry"})
-					}
-				} else {
-					// Verify target directory still exists
-					targetInfo, statErr := os.Stat(targetSkillPath)
-					if os.IsNotExist(statErr) {
-						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "missing (deleted from target)"})
-					} else if statErr != nil {
-						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "cannot access target entry"})
-					} else if !targetInfo.IsDir() {
-						dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "target entry is not a directory"})
-					} else {
-						// mtime fast-path: skip checksum if source mtime unchanged
-						oldMtime := manifest.Mtimes[skill.FlatName]
-						currentMtime, mtimeErr := ssync.DirMaxMtime(skill.SourcePath)
-						if mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
-							continue // unchanged
-						}
-						// Compare checksums to detect content drift
-						srcChecksum, err := ssync.DirChecksum(skill.SourcePath)
-						if err != nil {
-							dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "cannot compute checksum"})
-						} else if srcChecksum != oldChecksum {
-							dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "content changed"})
-						}
-					}
-				}
-			}
-			// Check for orphan managed copies
-			validNames := make(map[string]bool)
-			for _, skill := range filtered {
-				validNames[skill.FlatName] = true
-			}
-			for managedName := range manifest.Managed {
-				if !validNames[managedName] {
-					dt.Items = append(dt.Items, diffItem{Skill: managedName, Action: "prune", Reason: "orphan copy"})
-				}
-			}
-			diffs = append(diffs, dt)
-			continue
-		}
-
-		// Merge mode: check each skill
-		for _, skill := range filtered {
-			targetSkillPath := filepath.Join(target.Path, skill.FlatName)
-			_, err := os.Lstat(targetSkillPath)
-			if err != nil {
-				if os.IsNotExist(err) {
-					dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "link", Reason: "source only"})
-				}
-				continue
-			}
-
-			if utils.IsSymlinkOrJunction(targetSkillPath) {
-				absLink, err := utils.ResolveLinkTarget(targetSkillPath)
-				if err != nil {
-					dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "link target unreadable"})
-					continue
-				}
-				absSource, _ := filepath.Abs(skill.SourcePath)
-				if !utils.PathsEqual(absLink, absSource) {
-					dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "update", Reason: "symlink points elsewhere"})
-				}
-			} else {
-				dt.Items = append(dt.Items, diffItem{Skill: skill.FlatName, Action: "skip", Reason: "local copy (sync --force to replace)"})
-			}
-		}
-
-		// Check for orphans
-		entries, _ := os.ReadDir(target.Path)
-		validNames := make(map[string]bool)
-		for _, skill := range filtered {
-			validNames[skill.FlatName] = true
-		}
-		manifest, _ := ssync.ReadManifest(target.Path)
-		for _, entry := range entries {
-			eName := entry.Name()
-			if utils.IsHidden(eName) {
-				continue
-			}
-			managed, err := ssync.ShouldSyncFlatName(eName, target.Include, target.Exclude)
-			if err != nil {
-				writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
-				return
-			}
-			entryPath := filepath.Join(target.Path, eName)
-			if !managed {
-				if utils.IsSymlinkOrJunction(entryPath) {
-					absLink, err := utils.ResolveLinkTarget(entryPath)
-					if err == nil {
-						absSource, _ := filepath.Abs(s.cfg.Source)
-						if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
-							dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "excluded by filter"})
-						}
-					}
-				} else if _, inManifest := manifest.Managed[eName]; inManifest {
-					dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "excluded managed directory"})
-				}
-				continue
-			}
-			if !validNames[eName] {
-				info, err := os.Lstat(entryPath)
-				if err != nil {
-					continue
-				}
-				if utils.IsSymlinkOrJunction(entryPath) {
-					absLink, err := utils.ResolveLinkTarget(entryPath)
-					if err != nil {
-						continue
-					}
-					absSource, _ := filepath.Abs(s.cfg.Source)
-					if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
-						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan symlink"})
-					}
-				} else if info.IsDir() {
-					if _, inManifest := manifest.Managed[eName]; inManifest {
-						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan managed directory (manifest)"})
-					} else {
-						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "local", Reason: "local only"})
-					}
-				}
-			}
-		}
-
-		diffs = append(diffs, dt)
+		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode))
 	}
 
 	writeJSON(w, map[string]any{"diffs": diffs})

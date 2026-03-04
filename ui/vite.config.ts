@@ -2,6 +2,9 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+// SSE endpoints need explicit Accept header to prevent Vite proxy from buffering responses.
+const SSE_PROXY = { target: 'http://localhost:19420', headers: { Accept: 'text/event-stream' } }
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -11,11 +14,10 @@ export default defineConfig({
     host: true,
     port: 5173,
     proxy: {
-      '/api/audit/stream': {
-        target: 'http://localhost:19420',
-        // SSE requires no response buffering; set Accept header to bypass compression.
-        headers: { Accept: 'text/event-stream' },
-      },
+      '/api/audit/stream': SSE_PROXY,
+      '/api/update/stream': SSE_PROXY,
+      '/api/check/stream': SSE_PROXY,
+      '/api/diff/stream': SSE_PROXY,
       '/api': 'http://localhost:19420',
     },
   },

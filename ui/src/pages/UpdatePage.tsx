@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   RefreshCw, Check, ArrowUpCircle, Loader2,
   Circle, CheckCircle, XCircle, MinusCircle, ShieldAlert,
@@ -8,10 +8,11 @@ import Card from '../components/Card';
 import HandButton from '../components/HandButton';
 import { HandCheckbox } from '../components/HandInput';
 import Badge from '../components/Badge';
-import { PageSkeleton } from '../components/Skeleton';
-import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { queryKeys } from '../lib/queryKeys';
+import { useToast } from '../components/Toast';
 import { api } from '../api/client';
-import type { UpdateResultItem } from '../api/client';
+import type { CheckResult } from '../api/client';
+import StreamProgressBar from '../components/StreamProgressBar';
 import { wobbly } from '../design';
 
 type UpdatePhase = 'idle' | 'updating' | 'done';
@@ -50,21 +51,70 @@ function actionToStatus(action: string): ItemUpdateStatus['status'] {
 
 export default function UpdatePage() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [selectedRepos, setSelectedRepos] = useState<Set<string>>(new Set());
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
   const [phase, setPhase] = useState<UpdatePhase>('idle');
   const [itemStatuses, setItemStatuses] = useState<ItemUpdateStatus[]>([]);
 
-  const checkQuery = useQuery({
-    queryKey: queryKeys.check,
-    queryFn: () => api.check(),
-    staleTime: staleTimes.check,
-  });
+  // Check state (SSE-based instead of useQuery)
+  const [data, setData] = useState<CheckResult | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const [checkProgress, setCheckProgress] = useState<{ checked: number; total: number } | null>(null);
+  const esRef = useRef<EventSource | null>(null);
+  const startTimeRef = useRef<number>(0);
 
-  const { data, isPending, error } = checkQuery;
+  // Clean up EventSource on unmount
+  useEffect(() => {
+    return () => { esRef.current?.close(); };
+  }, []);
 
-  if (isPending) return <PageSkeleton />;
-  if (error) return <Card variant="accent"><p className="text-danger p-2" style={{ fontFamily: 'var(--font-hand)' }}>{(error as Error).message}</p></Card>;
+  const runCheck = useCallback(() => {
+    esRef.current?.close();
+    setChecking(true);
+    setCheckError(null);
+    setCheckProgress(null);
+    startTimeRef.current = Date.now();
+
+    esRef.current = api.checkStream(
+      // onDiscovering: show immediate feedback
+      () => setCheckProgress({ checked: 0, total: 0 }),
+      (total) => setCheckProgress({ checked: 0, total }),
+      (checked) => setCheckProgress((p) => p ? { ...p, checked } : null),
+      (result) => {
+        setData(result);
+        setChecking(false);
+        setCheckProgress(null);
+      },
+      (err) => {
+        setCheckError(err.message);
+        setChecking(false);
+        setCheckProgress(null);
+      },
+    );
+  }, []);
+
+  // Auto-run check on mount
+  useEffect(() => { runCheck(); }, [runCheck]);
+
+  if (checking) {
+    return (
+      <div className="space-y-6">
+        <UpdatePageHeader />
+        <StreamProgressBar
+          count={checkProgress?.checked ?? 0}
+          total={checkProgress?.total ?? 0}
+          startTime={startTimeRef.current}
+          icon={RefreshCw}
+          labelDiscovering="Discovering skills..."
+          labelRunning="Checking for updates..."
+          units="sources"
+        />
+      </div>
+    );
+  }
+  if (checkError) return <Card variant="accent"><p className="text-danger p-2" style={{ fontFamily: 'var(--font-hand)' }}>{checkError}</p></Card>;
   if (!data) return null;
 
   const updatableRepos = data.tracked_repos.filter((r) => r.status === 'behind');
@@ -101,59 +151,62 @@ export default function UpdatePage() {
 
   const totalSelected = selectedRepos.size + selectedSkills.size;
 
-  const handleUpdate = async () => {
+  const handleUpdate = () => {
     if (totalSelected === 0) return;
 
-    // Build items list with repo/skill distinction
-    const items: { name: string; isRepo: boolean }[] = [
-      ...[...selectedRepos].map((name) => ({ name, isRepo: true })),
-      ...[...selectedSkills].map((name) => ({ name, isRepo: false })),
+    // Build items list and initialize all as pending (visible immediately)
+    const items: ItemUpdateStatus[] = [
+      ...[...selectedRepos].map((name) => ({ name, isRepo: true, status: 'pending' as const })),
+      ...[...selectedSkills].map((name) => ({ name, isRepo: false, status: 'pending' as const })),
     ];
+    const names = items.map((it) => it.name);
 
-    // Initialize statuses
-    const initial: ItemUpdateStatus[] = items.map((it) => ({
-      name: it.name,
-      isRepo: it.isRepo,
-      status: 'pending',
-    }));
-    setItemStatuses(initial);
+    setItemStatuses(items);
     setPhase('updating');
 
-    for (let i = 0; i < items.length; i++) {
-      // Mark current as in-progress
-      setItemStatuses((prev) =>
-        prev.map((s, idx) => idx === i ? { ...s, status: 'in-progress' } : s)
-      );
+    let resultIndex = 0;
 
-      try {
-        const resp = await api.update({ name: items[i].name });
-        const result: UpdateResultItem | undefined = resp.results?.[0];
-        const status = result ? actionToStatus(result.action) : 'success';
+    api.updateAllStream(
+      // onStart: mark the first item as in-progress
+      () => {
         setItemStatuses((prev) =>
-          prev.map((s, idx) =>
-            idx === i
-              ? {
-                  ...s,
-                  status,
-                  message: result?.message,
-                  auditRiskLabel: result?.auditRiskLabel,
-                }
-              : s
-          )
+          prev.map((s, idx) => idx === 0 ? { ...s, status: 'in-progress' } : s)
         );
-      } catch (e) {
+      },
+      // onResult: update current item with result, mark next as in-progress
+      (item) => {
+        const i = resultIndex;
+        resultIndex++;
         setItemStatuses((prev) =>
-          prev.map((s, idx) =>
-            idx === i ? { ...s, status: 'error', message: (e as Error).message } : s
-          )
+          prev.map((s, idx) => {
+            if (idx === i) {
+              return {
+                ...s,
+                status: actionToStatus(item.action),
+                message: item.message,
+                auditRiskLabel: item.auditRiskLabel,
+              };
+            }
+            if (idx === i + 1) {
+              return { ...s, status: 'in-progress' };
+            }
+            return s;
+          })
         );
-      }
-    }
-
-    setPhase('done');
-    queryClient.invalidateQueries({ queryKey: queryKeys.check });
-    queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-    queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      },
+      // onDone
+      () => {
+        setPhase('done');
+        queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+        queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      },
+      // onError
+      (err) => {
+        toast(err.message, 'error');
+        setPhase('done');
+      },
+      { names },
+    );
   };
 
   const handleDone = () => {
@@ -161,6 +214,7 @@ export default function UpdatePage() {
     setItemStatuses([]);
     setSelectedRepos(new Set());
     setSelectedSkills(new Set());
+    runCheck(); // Re-check after updates
   };
 
   const upToDateRepos = data.tracked_repos.filter((r) => r.status === 'up_to_date').length;
@@ -188,10 +242,10 @@ export default function UpdatePage() {
             <HandButton
               variant="ghost"
               size="sm"
-              onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.check })}
-              disabled={checkQuery.isFetching}
+              onClick={runCheck}
+              disabled={checking}
             >
-              <RefreshCw size={16} className={checkQuery.isFetching ? 'animate-spin' : ''} />
+              <RefreshCw size={16} className={checking ? 'animate-spin' : ''} />
               Check Now
             </HandButton>
           )}
@@ -292,10 +346,10 @@ export default function UpdatePage() {
                   <HandButton
                     variant="secondary"
                     size="sm"
-                    onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.check })}
-                    disabled={checkQuery.isFetching}
+                    onClick={runCheck}
+                    disabled={checking}
                   >
-                    <RefreshCw size={16} className={checkQuery.isFetching ? 'animate-spin' : ''} />
+                    <RefreshCw size={16} className={checking ? 'animate-spin' : ''} />
                     Check Again
                   </HandButton>
                 </div>
@@ -419,3 +473,17 @@ function StatusBadge({ status }: { status: ItemUpdateStatus['status'] }) {
       return <Badge>Skipped</Badge>;
   }
 }
+
+function UpdatePageHeader() {
+  return (
+    <div>
+      <h1 className="text-2xl font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+        Updates
+      </h1>
+      <p className="text-pencil-light text-sm mt-1" style={{ fontFamily: 'var(--font-hand)' }}>
+        Check and apply updates for tracked repositories and installed skills.
+      </p>
+    </div>
+  );
+}
+
