@@ -1250,6 +1250,77 @@ func TestScanContent_DataURI(t *testing.T) {
 	}
 }
 
+func TestScanContent_HardcodedSecret(t *testing.T) {
+	resetForTest()
+
+	tests := []struct {
+		name    string
+		content string
+	}{
+		// All test keys use string concatenation to prevent GitHub secret scanning
+		// from flagging them as real secrets in source code.
+		{"google api key", "config: AIza" + "SyFakeKeyForTesting1234567890abcdef"},
+		{"aws access key", "aws_key = AKIA" + "IOSFODNN7EXAMPLE"},
+		{"github classic pat", "token: ghp_" + "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijkl"},
+		{"github secret pat", "secret: ghs_" + "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijkl"},
+		{"github fine-grained pat", "pat: github_pat_" + "11ABCDEFGH0123456789_abcdefghij"},
+		{"slack bot token", "SLACK_TOKEN=" + "xoxb-1234567890-abcdefghij"},
+		{"slack user token", "xoxp-" + "1234567890-abcdefghij"},
+		{"openai key", "sk-abcdefghijklmnopqrst" + "T3BlbkFJ" + "abcdefghijklmnopqrst"},
+		{"anthropic key", "sk-ant-" + strings.Repeat("a", 80)},
+		{"stripe live key", "sk_live_" + "abcdefghijklmnopqrst"},
+		{"stripe test key", "rk_test_" + "abcdefghijklmnopqrst"},
+		{"rsa private key", "-----BEGIN RSA PRIVATE KEY-----"},
+		{"ec private key", "-----BEGIN EC PRIVATE KEY-----"},
+		{"openssh private key", "-----BEGIN OPENSSH PRIVATE KEY-----"},
+		{"generic api_key assignment", `api_key = "abcdefghijklmnopqrstuvwxyz1234"`},
+		{"generic secret_key assignment", `secret_key: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcd"`},
+		{"generic access_token", `access_token = "abcdefghijklmnopqrstuvwxyz1234"`},
+		{"generic password", `password: "SuperSecretPassword1234567890ab"`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			findings := ScanContent([]byte(tt.content), "SKILL.md")
+			found := false
+			for _, f := range findings {
+				if f.Pattern == "hardcoded-secret" {
+					found = true
+					if f.Severity != SeverityHigh {
+						t.Errorf("expected HIGH, got %s", f.Severity)
+					}
+				}
+			}
+			if !found {
+				t.Errorf("expected hardcoded-secret finding for %q, got: %+v", tt.content, findings)
+			}
+		})
+	}
+
+	// These should NOT trigger hardcoded-secret.
+	safe := []struct {
+		name    string
+		content string
+	}{
+		{"short value", `api_key = "short"`},
+		{"placeholder", "Use your API key from the dashboard"},
+		{"env var reference", "export API_KEY=$SECRET"},
+		{"normal sk- prefix", "sk-short"},
+		{"prose about keys", "Generate an API key from settings page"},
+		{"github_pat short", "github_pat_short"},
+	}
+	for _, tt := range safe {
+		t.Run("safe/"+tt.name, func(t *testing.T) {
+			findings := ScanContent([]byte(tt.content), "SKILL.md")
+			for _, f := range findings {
+				if f.Pattern == "hardcoded-secret" {
+					t.Errorf("should NOT trigger hardcoded-secret for %q (got: %s)", tt.content, f.Message)
+				}
+			}
+		})
+	}
+}
+
 func TestScanContent_ShellChain(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -132,12 +132,9 @@ Use this as a starting point for real-world policy tuning:
 
 ```yaml
 rules:
-  # Team policy: detect obvious hardcoded API tokens
-  - id: hardcoded-token-policy
-    severity: HIGH
-    pattern: hardcoded-token
-    message: "Potential hardcoded token detected"
-    regex: '(?i)\b(ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,})\b'
+  # Downgrade hardcoded-secret to MEDIUM for educational/reference skills
+  - pattern: hardcoded-secret
+    severity: MEDIUM
 
   # Override built-in suspicious-fetch with internal allowlist
   - id: suspicious-fetch-0
@@ -346,6 +343,16 @@ Source of truth for regex-based rules:
 | `fetch-with-pipe-0` | fetch-with-pipe | HIGH |
 | `fetch-with-pipe-1` | fetch-with-pipe | HIGH |
 | `fetch-with-pipe-2` | fetch-with-pipe | HIGH |
+| `hardcoded-secret-0` | hardcoded-secret | HIGH |
+| `hardcoded-secret-1` | hardcoded-secret | HIGH |
+| `hardcoded-secret-2` | hardcoded-secret | HIGH |
+| `hardcoded-secret-3` | hardcoded-secret | HIGH |
+| `hardcoded-secret-4` | hardcoded-secret | HIGH |
+| `hardcoded-secret-5` | hardcoded-secret | HIGH |
+| `hardcoded-secret-6` | hardcoded-secret | HIGH |
+| `hardcoded-secret-7` | hardcoded-secret | HIGH |
+| `hardcoded-secret-8` | hardcoded-secret | HIGH |
+| `hardcoded-secret-9` | hardcoded-secret | HIGH |
 | `data-uri-0` | data-uri | MEDIUM |
 | `escape-obfuscation-0` | escape-obfuscation | MEDIUM |
 | `suspicious-fetch-0` | suspicious-fetch | MEDIUM |
