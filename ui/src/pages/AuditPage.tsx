@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Virtuoso } from 'react-virtuoso';
 import {
   ShieldCheck,
   ShieldAlert,
@@ -36,9 +37,6 @@ const severityFilterOptions: { value: SeverityFilter; label: string }[] = [
   { value: 'HIGH', label: 'HIGH+' },
   { value: 'CRITICAL', label: 'CRITICAL only' },
 ];
-
-const AUDIT_PAGE_SIZE = 20;
-const FINDINGS_PAGE_SIZE = 10;
 
 export default function AuditPage() {
   const { toast } = useToast();
@@ -82,11 +80,6 @@ export default function AuditPage() {
     () => filteredResults.reduce((sum, result) => sum + result.findings.length, 0),
     [filteredResults],
   );
-
-  // Paginated display of skill cards
-  const [showCount, setShowCount] = useState(AUDIT_PAGE_SIZE);
-  // Reset pagination when filter changes
-  useEffect(() => { setShowCount(AUDIT_PAGE_SIZE); }, [minSeverity]);
 
   const showAuditToast = useCallback((res: AuditAllResponse) => {
     const { summary } = res;
@@ -229,20 +222,16 @@ export default function AuditPage() {
               description={`Try lowering Min Severity below ${minSeverity}`}
             />
           ) : (
-            <div className="space-y-5">
-              {filteredResults.slice(0, showCount).map((result, i) => (
-                <SkillAuditCard key={result.skillName} result={result} index={i} />
-              ))}
-              {filteredResults.length > showCount && (
-                <button
-                  onClick={() => setShowCount((c) => c + AUDIT_PAGE_SIZE)}
-                  className="w-full text-center py-3 text-blue hover:underline cursor-pointer border-2 border-dashed border-pencil-light/30 bg-paper-warm/50"
-                  style={{ fontFamily: 'var(--font-hand)', borderRadius: wobbly.md }}
-                >
-                  Show more ({filteredResults.length - showCount} remaining)
-                </button>
+            <Virtuoso
+              useWindowScroll
+              totalCount={filteredResults.length}
+              overscan={400}
+              itemContent={(index) => (
+                <div className="pb-5">
+                  <SkillAuditCard key={filteredResults[index].skillName} result={filteredResults[index]} index={index} />
+                </div>
               )}
-            </div>
+            />
           )}
 
           {/* Passed skills summary */}
@@ -572,7 +561,6 @@ function TriagePanel({
 
 function SkillAuditCard({ result, index }: { result: AuditResult; index: number }) {
   const maxSeverity = getMaxSeverity(result.findings);
-  const [findingShowCount, setFindingShowCount] = useState(FINDINGS_PAGE_SIZE);
 
   return (
     <Card
@@ -624,18 +612,9 @@ function SkillAuditCard({ result, index }: { result: AuditResult; index: number 
 
         {/* ── Findings list ── */}
         <div className="space-y-2 pt-3 border-t border-dashed border-pencil-light/30">
-          {result.findings.slice(0, findingShowCount).map((f, i) => (
+          {result.findings.map((f, i) => (
             <FindingRow key={`${f.file}-${f.line}-${i}`} finding={f} />
           ))}
-          {result.findings.length > findingShowCount && (
-            <button
-              onClick={() => setFindingShowCount((c) => c + FINDINGS_PAGE_SIZE)}
-              className="text-sm text-blue hover:underline cursor-pointer mt-1"
-              style={{ fontFamily: 'var(--font-hand)' }}
-            >
-              Show more ({result.findings.length - findingShowCount} remaining)
-            </button>
-          )}
         </div>
       </div>
     </Card>

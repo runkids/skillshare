@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   RefreshCw,
@@ -16,6 +16,7 @@ import {
   FileText,
   Info,
 } from 'lucide-react';
+import { Virtuoso } from 'react-virtuoso';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
 import HandButton from '../components/HandButton';
@@ -416,19 +417,22 @@ function DiffView({ diffs: rawDiffs }: { diffs: DiffTarget[] }) {
   );
 }
 
-const DIFF_PAGE_SIZE = 50;
+/** Max items before switching from flat list to virtualized scroll */
+const VIRTUALIZE_THRESHOLD = 100;
+/** Height of the virtualized container */
+const VIRTUOSO_HEIGHT = 400;
 
 function DiffTargetCard({ diff }: { diff: DiffTarget }) {
   const items = diff.items ?? [];
-  const [expanded, setExpanded] = useState(items.length <= DIFF_PAGE_SIZE);
-  const [showCount, setShowCount] = useState(DIFF_PAGE_SIZE);
-  const localOnly = items.filter((i) => i.action === 'local');
-  const syncItems = items.filter((i) => i.action !== 'local');
+  const [expanded, setExpanded] = useState(items.length <= VIRTUALIZE_THRESHOLD);
+  const localOnly = useMemo(() => items.filter((i) => i.action === 'local'), [items]);
+  const syncItems = useMemo(() => items.filter((i) => i.action !== 'local'), [items]);
   const inSync = items.length === 0;
   const onlyLocal = syncItems.length === 0 && localOnly.length > 0;
 
   const hasSyncable = syncItems.some((i) => ['link', 'update', 'skip'].includes(i.action));
   const hasLocal = localOnly.length > 0;
+  const useVirtualized = items.length > VIRTUALIZE_THRESHOLD;
 
   return (
     <Card>
@@ -461,30 +465,20 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
       </button>
 
       {expanded && items.length > 0 && (
-        <div className="mt-3 pl-8 space-y-1.5 animate-sketch-in">
-          {items.slice(0, showCount).map((item, i) => (
-            <div key={i} className="flex items-center gap-2 text-base">
-              <ActionBadge action={item.action} />
-              <ArrowRight size={12} className="text-muted-dark shrink-0" />
-              <span
-                className="text-pencil-light truncate"
-                style={{ fontFamily: "'Courier New', monospace", fontSize: '0.875rem' }}
-              >
-                {item.skill}
-              </span>
-              {item.reason && (
-                <span className="text-pencil-light/60 text-xs shrink-0">({item.reason})</span>
-              )}
+        <div className="mt-3 pl-8 animate-sketch-in">
+          {useVirtualized ? (
+            <Virtuoso
+              style={{ height: VIRTUOSO_HEIGHT }}
+              totalCount={items.length}
+              overscan={200}
+              itemContent={(i) => <DiffItemRow item={items[i]} />}
+            />
+          ) : (
+            <div className="space-y-1.5">
+              {items.map((item, i) => (
+                <DiffItemRow key={i} item={item} />
+              ))}
             </div>
-          ))}
-          {items.length > showCount && (
-            <button
-              onClick={() => setShowCount((c) => c + DIFF_PAGE_SIZE)}
-              className="text-sm text-blue hover:underline cursor-pointer mt-1"
-              style={{ fontFamily: 'var(--font-hand)' }}
-            >
-              Show more ({items.length - showCount} remaining)
-            </button>
           )}
 
           {/* Action hints */}
@@ -517,6 +511,24 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
         </p>
       )}
     </Card>
+  );
+}
+
+function DiffItemRow({ item }: { item: { action: string; skill: string; reason?: string } }) {
+  return (
+    <div className="flex items-center gap-2 text-base py-0.5">
+      <ActionBadge action={item.action} />
+      <ArrowRight size={12} className="text-muted-dark shrink-0" />
+      <span
+        className="text-pencil-light truncate"
+        style={{ fontFamily: "'Courier New', monospace", fontSize: '0.875rem' }}
+      >
+        {item.skill}
+      </span>
+      {item.reason && (
+        <span className="text-pencil-light/60 text-xs shrink-0">({item.reason})</span>
+      )}
+    </div>
   );
 }
 

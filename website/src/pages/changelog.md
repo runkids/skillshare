@@ -9,7 +9,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
-## [0.16.11] - 2026-03-04
+## [0.16.11] - 2026-03-05
 
 ### New Features
 
@@ -32,14 +32,16 @@ All notable changes to skillshare are documented here. For the full commit histo
   ⚠ Skill integrity: 1 skill(s) unverifiable (no metadata)
   ```
 
-#### Web UI Audit Streaming
+#### Web UI Streaming & Virtualization
 
-- **Real-time audit progress** — the web dashboard audit page now streams results via SSE, showing per-skill progress instead of waiting for the full batch
+- **Real-time SSE streaming** — all long-running web dashboard operations (audit, update, check, diff) now stream results via Server-Sent Events with per-item progress bars instead of waiting for the full batch
 - **Per-skill audit** — audit individual skills directly from the skill detail page
+- **Virtualized scrolling** — audit results and diff item lists now use virtual scrolling for smooth performance with large datasets (replaces "Show more" pagination)
 
 ### Improvements
 
 - **SSL error guidance** — `skillshare install` now detects SSL certificate errors and shows actionable options (custom CA bundle, SSH, or skip verification)
+- **Cleaner TUI layout** — removed detail panel box borders in list/log views for a cleaner, less cluttered appearance
 
 ## [0.16.10] - 2026-03-04
 
