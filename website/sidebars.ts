@@ -168,6 +168,7 @@ const sidebars: SidebarsConfig = {
                 'reference/commands/hub',
                 'reference/commands/log',
                 'reference/commands/doctor',
+                'reference/commands/tui',
                 'reference/commands/ui',
                 'reference/commands/version',
               ],

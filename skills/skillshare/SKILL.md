@@ -1,6 +1,6 @@
 ---
 name: skillshare
-version: v0.16.9
+version: v0.16.10
 description: |
   Syncs skills across AI CLI tools from a single source of truth.
   Global (~/.config/skillshare/) or project (.skillshare/) mode.
@@ -89,14 +89,14 @@ See [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for more.
 | `install`, `uninstall`, `update`, `check`, `search`, `new` | ✓ (`-p`) |
 | `target`, `audit`, `trash`, `log` | ✓ (`-p`) |
 | `push`, `pull`, `backup`, `restore` | ✗ |
-| `ui`, `upgrade` | ✓ |
+| `tui`, `ui`, `upgrade` | ✓ |
 
 ## AI Caller Rules
 1. **Non-interactive** — AI cannot answer prompts. Use `--force`, `--all`, `-s`, `--targets`, `--no-copy`, `--all-targets`, `--yes`.
 2. **Sync after mutations** — `install`, `uninstall`, `update`, `collect`, `target` all need `sync`.
 3. **Audit** — `install` auto-scans; CRITICAL blocks. `--force` to override, `--skip-audit` to bypass.
 4. **Uninstall safely** — moves to trash (7 days). `trash restore <name>` to undo. **NEVER** `rm -rf` symlinks.
-5. **Output** — `--json` for structured data, `--no-tui` for plain text, `--dry-run` to preview.
+5. **Output** — `--json` for structured data, `--no-tui` for plain text, `tui off` to disable TUI globally, `--dry-run` to preview.
 
 ## References
 | Topic | File |

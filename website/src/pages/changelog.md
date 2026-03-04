@@ -9,6 +9,51 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.16.10] - 2026-03-04
+
+### New Features
+
+#### Sync Extras
+
+- **`sync extras` subcommand** — sync non-skill resources (rules, commands, memory files, etc.) from your config directory to arbitrary target paths:
+  ```bash
+  skillshare sync extras              # sync all configured extras
+  skillshare sync extras --dry-run    # preview without changes
+  skillshare sync extras --force      # overwrite existing files
+  ```
+  Each extra supports per-target sync modes (`symlink`, `copy`, or `merge`). Configure in `config.yaml`:
+  ```yaml
+  extras:
+    - name: rules
+      targets:
+        - path: ~/.claude/rules
+        - path: ~/.cursor/rules
+          mode: copy
+  ```
+- **`sync --all` flag** — run skill sync and extras sync together in one command:
+  ```bash
+  skillshare sync --all
+  ```
+
+#### TUI Preferences
+
+- **`tui` subcommand** — persistently enable or disable interactive TUI mode:
+  ```bash
+  skillshare tui          # show current setting
+  skillshare tui off      # disable TUI globally
+  skillshare tui on       # re-enable TUI
+  ```
+  When disabled, all commands fall back to plain text output. Setting is stored in `config.yaml`.
+
+### Bug Fixes
+
+- Fixed TUI detail panel bottom content being clipped in list view
+
+### Documentation
+
+- Added sync extras documentation to website, built-in skill, and README
+- Split monolith audit page into focused sub-pages for easier navigation
+
 ## [0.16.9] - 2026-03-03
 
 ### New Features

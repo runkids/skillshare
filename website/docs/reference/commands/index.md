@@ -31,7 +31,7 @@ Complete reference for all skillshare commands.
 | **Skill Management** | `new`, `check`, `update`, `upgrade` |
 | **Target Management** | `target`, `diff` |
 | **Sync Operations** | `collect`, `backup`, `restore`, `trash`, `push`, `pull` |
-| **Security & Utilities** | `audit`, `hub`, `log`, `doctor`, `ui`, `version` |
+| **Security & Utilities** | `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `version` |
 
 ---
 
@@ -81,6 +81,7 @@ Complete reference for all skillshare commands.
 | [audit](./audit.md) | Scan skills for security threats |
 | [log](./log.md) | View operations and audit logs |
 | [doctor](./doctor.md) | Diagnose issues |
+| [tui](./tui.md) | Toggle interactive TUI mode |
 | [ui](./ui.md) | Launch web dashboard |
 | [hub](./hub.md) | Manage skill hub sources |
 | [version](./version.md) | Show CLI version |
@@ -131,6 +132,11 @@ skillshare audit
 skillshare log
 skillshare doctor
 skillshare backup
+
+# TUI preferences
+skillshare tui            # Show current status
+skillshare tui off        # Disable interactive TUI
+skillshare tui on         # Re-enable TUI
 
 # Web UI
 skillshare ui
