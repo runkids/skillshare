@@ -52,7 +52,8 @@ func cmdListProject(root string, opts listOptions) error {
 		case "audit":
 			return cmdAudit([]string{"-p", skillName})
 		case "update":
-			return cmdUpdateProject([]string{skillName}, root)
+			_, updateErr := cmdUpdateProject([]string{skillName}, root)
+			return updateErr
 		case "uninstall":
 			return cmdUninstallProject([]string{"--force", skillName}, root)
 		}

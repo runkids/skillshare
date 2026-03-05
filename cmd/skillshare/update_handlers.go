@@ -89,7 +89,7 @@ func auditGateAfterPull(repoPath, beforeHash string, skipAudit bool, threshold s
 	return result, fmt.Errorf("security audit failed — findings at/above %s detected — rolled back (use --skip-audit to bypass): %w", normalizedThreshold, audit.ErrBlocked)
 }
 
-func updateTrackedRepo(uc *updateContext, repoName string) error {
+func updateTrackedRepo(uc *updateContext, repoName string) (updateResult, error) {
 	repoPath := filepath.Join(uc.sourcePath, repoName)
 	start := time.Now()
 
@@ -116,13 +116,13 @@ func updateTrackedRepo(uc *updateContext, repoName string) error {
 			ui.WarningBox("Warning", lines...)
 			fmt.Println()
 			ui.ErrorMsg("Update aborted")
-			return fmt.Errorf("uncommitted changes in repository")
+			return updateResult{skipped: 1}, fmt.Errorf("uncommitted changes in repository")
 		}
 
 		ui.Warning("Discarding local changes (--force)")
 		if !uc.opts.dryRun {
 			if err := git.Restore(repoPath); err != nil {
-				return fmt.Errorf("failed to discard changes: %w", err)
+				return updateResult{skipped: 1}, fmt.Errorf("failed to discard changes: %w", err)
 			}
 		}
 		spinner = ui.StartSpinner("Fetching from origin...")
@@ -131,7 +131,7 @@ func updateTrackedRepo(uc *updateContext, repoName string) error {
 	if uc.opts.dryRun {
 		spinner.Stop()
 		ui.Warning("[dry-run] Would run: git pull")
-		return nil
+		return updateResult{skipped: 1}, nil
 	}
 
 	spinner.Update("   Fetching from origin...")
@@ -153,13 +153,13 @@ func updateTrackedRepo(uc *updateContext, repoName string) error {
 	if err != nil {
 		spinner.Stop()
 		ui.StepResult("error", fmt.Sprintf("Failed: %v", err), 0)
-		return fmt.Errorf("git pull failed: %w", err)
+		return updateResult{skipped: 1}, fmt.Errorf("git pull failed: %w", err)
 	}
 
 	if info.UpToDate {
 		spinner.Stop()
 		ui.StepResult("success", "Already up to date", time.Since(startUpdate))
-		return nil
+		return updateResult{skipped: 1}, nil
 	}
 
 	spinner.Stop()
@@ -196,7 +196,7 @@ func updateTrackedRepo(uc *updateContext, repoName string) error {
 	// Post-pull audit gate
 	scanFn := uc.auditScanFn()
 	if _, err := auditGateAfterPull(repoPath, info.BeforeHash, uc.opts.skipAudit, uc.opts.threshold, scanFn); err != nil {
-		return err
+		return updateResult{securityFailed: 1}, err
 	}
 
 	ui.SuccessMsg("Updated %s", repoName)
@@ -205,19 +205,19 @@ func updateTrackedRepo(uc *updateContext, repoName string) error {
 	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to distribute changes")
 
-	return nil
+	return updateResult{updated: 1}, nil
 }
 
-func updateRegularSkill(uc *updateContext, skillName string) error {
+func updateRegularSkill(uc *updateContext, skillName string) (updateResult, error) {
 	skillPath := filepath.Join(uc.sourcePath, skillName)
 
 	// Read metadata to get source
 	meta, err := install.ReadMeta(skillPath)
 	if err != nil {
-		return fmt.Errorf("cannot read metadata for '%s': %w", skillName, err)
+		return updateResult{skipped: 1}, fmt.Errorf("cannot read metadata for '%s': %w", skillName, err)
 	}
 	if meta == nil || meta.Source == "" {
-		return fmt.Errorf("skill '%s' has no source metadata, cannot update", skillName)
+		return updateResult{skipped: 1}, fmt.Errorf("skill '%s' has no source metadata, cannot update", skillName)
 	}
 
 	ui.StepContinue("Skill", skillName)
@@ -225,14 +225,14 @@ func updateRegularSkill(uc *updateContext, skillName string) error {
 
 	if uc.opts.dryRun {
 		ui.Warning("[dry-run] Would reinstall from: %s", meta.Source)
-		return nil
+		return updateResult{skipped: 1}, nil
 	}
 
 	startUpdate := time.Now()
 	// Parse source and reinstall
 	source, err := install.ParseSource(meta.Source)
 	if err != nil {
-		return fmt.Errorf("invalid source in metadata: %w", err)
+		return updateResult{skipped: 1}, fmt.Errorf("invalid source in metadata: %w", err)
 	}
 
 	// Snapshot before update for --diff
@@ -260,17 +260,21 @@ func updateRegularSkill(uc *updateContext, skillName string) error {
 				if pruneErr := pruneSkill(skillPath, skillName, uc); pruneErr == nil {
 					pruneRegistry([]string{skillName}, uc)
 					ui.StepResult("warning", "Pruned — stale (deleted upstream)", 0)
-					return nil
+					return updateResult{pruned: 1}, nil
 				}
 			}
 			ui.StepResult("warning", "Stale (deleted upstream)", 0)
 			fmt.Println()
 			displayStaleWarning([]string{skillName})
-			return nil
+			return updateResult{skipped: 1}, nil
+		}
+
+		if isSecurityError(err) {
+			return updateResult{securityFailed: 1}, err
 		}
 
 		ui.StepResult("error", fmt.Sprintf("Failed: %v", err), 0)
-		return fmt.Errorf("update failed: %w", err)
+		return updateResult{skipped: 1}, fmt.Errorf("update failed: %w", err)
 	}
 
 	spinner.Stop()
@@ -287,7 +291,7 @@ func updateRegularSkill(uc *updateContext, skillName string) error {
 	ui.SectionLabel("Next Steps")
 	ui.Info("Run 'skillshare sync' to distribute changes")
 
-	return nil
+	return updateResult{updated: 1}, nil
 }
 
 // updateTrackedRepoQuick updates a single tracked repo in batch mode.

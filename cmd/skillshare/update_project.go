@@ -11,14 +11,14 @@ import (
 	"skillshare/internal/utils"
 )
 
-func cmdUpdateProject(args []string, root string) error {
+func cmdUpdateProject(args []string, root string) (*updateResult, error) {
 	opts, showHelp, parseErr := parseUpdateArgs(args)
 	if showHelp {
 		printUpdateHelp()
-		return parseErr
+		return nil, parseErr
 	}
 	if parseErr != nil {
-		return parseErr
+		return nil, parseErr
 	}
 
 	// Project mode default: no args and no groups → --all
@@ -28,13 +28,13 @@ func cmdUpdateProject(args []string, root string) error {
 
 	if !projectConfigExists(root) {
 		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	runtime, err := loadProjectRuntime(root)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	sourcePath := runtime.sourcePath
@@ -53,7 +53,7 @@ func cmdUpdateProject(args []string, root string) error {
 	return cmdUpdateProjectBatch(sourcePath, opts, root)
 }
 
-func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot string) error {
+func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot string) (*updateResult, error) {
 	// --- Resolve targets ---
 	var targets []updateTarget
 	seen := map[string]bool{}
@@ -153,9 +153,9 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 
 	if len(targets) == 0 {
 		if len(resolveWarnings) > 0 {
-			return fmt.Errorf("no valid skills to update")
+			return nil, fmt.Errorf("no valid skills to update")
 		}
-		return fmt.Errorf("no skills found")
+		return nil, fmt.Errorf("no skills found")
 	}
 
 	// --- Execute ---
@@ -163,10 +163,14 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 
 	if len(targets) == 1 {
 		t := targets[0]
+		var r updateResult
+		var updateErr error
 		if t.isRepo {
-			return updateTrackedRepo(uc, t.name)
+			r, updateErr = updateTrackedRepo(uc, t.name)
+		} else {
+			r, updateErr = updateRegularSkill(uc, t.name)
 		}
-		return updateRegularSkill(uc, t.name)
+		return &r, updateErr
 	}
 
 	// Batch mode
@@ -174,11 +178,11 @@ func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot s
 		ui.Warning("[dry-run] No changes will be made")
 	}
 
-	_, batchErr := executeBatchUpdate(uc, targets)
-	return batchErr
+	batchResult, batchErr := executeBatchUpdate(uc, targets)
+	return &batchResult, batchErr
 }
 
-func updateAllProjectSkills(uc *updateContext) error {
+func updateAllProjectSkills(uc *updateContext) (*updateResult, error) {
 	var targets []updateTarget
 
 	scanSpinner := ui.StartSpinner("Scanning skills...")
@@ -221,7 +225,7 @@ func updateAllProjectSkills(uc *updateContext) error {
 	})
 	scanSpinner.Stop()
 	if err != nil {
-		return fmt.Errorf("failed to scan skills: %w", err)
+		return nil, fmt.Errorf("failed to scan skills: %w", err)
 	}
 
 	var repoCount, skillCount int
@@ -237,22 +241,26 @@ func updateAllProjectSkills(uc *updateContext) error {
 	total := len(targets)
 	if total == 0 {
 		ui.UpdateSummary(ui.UpdateStats{})
-		return nil
+		return &updateResult{}, nil
 	}
 
 	// Single item: use verbose single-target path
 	if total == 1 {
 		t := targets[0]
+		var r updateResult
+		var updateErr error
 		if t.isRepo {
-			return updateTrackedRepo(uc, t.name)
+			r, updateErr = updateTrackedRepo(uc, t.name)
+		} else {
+			r, updateErr = updateRegularSkill(uc, t.name)
 		}
-		return updateRegularSkill(uc, t.name)
+		return &r, updateErr
 	}
 
 	if uc.opts.dryRun {
 		ui.Warning("[dry-run] No changes will be made")
 	}
 
-	_, batchErr := executeBatchUpdate(uc, targets)
-	return batchErr
+	batchResult, batchErr := executeBatchUpdate(uc, targets)
+	return &batchResult, batchErr
 }
