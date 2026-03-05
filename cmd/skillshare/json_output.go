@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"time"
 )
 
@@ -31,12 +32,7 @@ func formatDuration(start time.Time) string {
 
 // hasFlag checks if a flag is present in args.
 func hasFlag(args []string, flag string) bool {
-	for _, a := range args {
-		if a == flag {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(args, flag)
 }
 
 // ensureEmptySlices recursively walks exported struct fields and replaces nil

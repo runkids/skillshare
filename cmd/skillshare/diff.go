@@ -358,6 +358,9 @@ func (dp *diffProgress) doneTarget(name string, r targetDiffResult) {
 }
 
 func (dp *diffProgress) stop() {
+	if dp == nil {
+		return
+	}
 	if dp.stopCh != nil {
 		close(dp.stopCh)
 	}

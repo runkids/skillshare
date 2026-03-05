@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -79,6 +78,9 @@ func cmdStatus(args []string) error {
 	jsonOutput := hasFlag(rest, "--json")
 
 	if mode == modeProject {
+		if jsonOutput {
+			return fmt.Errorf("--json is not yet supported in project mode")
+		}
 		return cmdStatusProject(cwd)
 	}
 
@@ -235,15 +237,10 @@ func extractTrackedRepos(discovered []sync.DiscoveredSkill) []string {
 	return repos
 }
 
-// checkRepoDirty checks if a git repository has uncommitted changes
+// checkRepoDirty checks if a git repository has uncommitted changes.
+// Alias for isRepoDirty (defined in uninstall.go) for backward compatibility.
 func checkRepoDirty(repoPath string) (bool, error) {
-	cmd := exec.Command("git", "status", "--porcelain")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		return false, err
-	}
-	return len(strings.TrimSpace(string(output))) > 0, nil
+	return isRepoDirty(repoPath)
 }
 
 // targetStatusResult bundles status detail with synced count to avoid
