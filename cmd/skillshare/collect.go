@@ -108,6 +108,9 @@ func cmdCollect(args []string) error {
 
 	cfg, err := config.Load()
 	if err != nil {
+		if jsonOutput {
+			return writeJSONError(err)
+		}
 		return err
 	}
 
@@ -279,7 +282,10 @@ func collectOutputJSON(result *sync.PullResult, dryRun bool, start time.Time, co
 	if writeErr := writeJSON(&output); writeErr != nil {
 		return writeErr
 	}
-	return collectErr
+	if collectErr != nil {
+		return &jsonSilentError{cause: collectErr}
+	}
+	return nil
 }
 
 func showCollectNextSteps(source string) {

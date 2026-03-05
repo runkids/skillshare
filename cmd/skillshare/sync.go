@@ -147,10 +147,8 @@ func cmdSync(args []string) error {
 	}
 
 	// Backup targets before sync (only if not dry-run and there are skills)
-	if !dryRun && len(discoveredSkills) > 0 {
-		if !jsonOutput {
-			fmt.Println()
-		}
+	if !dryRun && len(discoveredSkills) > 0 && !jsonOutput {
+		fmt.Println()
 		backupTargetsBeforeSync(cfg)
 	}
 
@@ -295,7 +293,10 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, sy
 	if writeErr := writeJSON(&output); writeErr != nil {
 		return writeErr
 	}
-	return syncErr
+	if syncErr != nil {
+		return &jsonSilentError{cause: syncErr}
+	}
+	return nil
 }
 
 func backupTargetsBeforeSync(cfg *config.Config) {
