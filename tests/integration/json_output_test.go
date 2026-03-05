@@ -585,7 +585,33 @@ func TestUninstall_JSON_PreflightEmpty_ReturnsJSONError(t *testing.T) {
 	t.Skip("--json implies --force, cannot test preflight block in JSON mode")
 }
 
-// --- update --json single target (P1: verify suppressUIToStderr works) ---
+// --- status --project --json ---
+
+func TestStatus_Project_JSON(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectDir := sb.Root + "/status-project"
+	sb.WriteFile(projectDir+"/.skillshare/config.yaml",
+		"targets:\n  - name: claude\n    path: "+projectDir+"/.claude/commands\n")
+	sb.WriteFile(projectDir+"/.claude/commands/.gitkeep", "")
+	sb.WriteFile(projectDir+"/.skillshare/skills/alpha/SKILL.md", "# Alpha")
+
+	result := sb.RunCLIInDir(projectDir, "status", "--project", "--json")
+	result.AssertSuccess(t)
+
+	stdout := strings.TrimSpace(result.Stdout)
+	assertPureJSON(t, stdout)
+
+	output := parseJSON(t, result.Stdout)
+	for _, field := range []string{"source", "skill_count", "targets", "audit", "version"} {
+		if _, ok := output[field]; !ok {
+			t.Errorf("missing field %q in JSON output", field)
+		}
+	}
+}
+
+// --- update --json single target (P1: verify suppressUIToDevnull works) ---
 
 func TestUpdate_JSON_SingleTarget_PureJSON(t *testing.T) {
 	sb := testutil.NewSandbox(t)

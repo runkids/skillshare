@@ -18,17 +18,17 @@ import (
 
 // statusJSONOutput is the JSON representation for status --json output.
 type statusJSONOutput struct {
-	Source       statusJSONSource       `json:"source"`
-	SkillCount   int                    `json:"skill_count"`
-	TrackedRepos []statusJSONRepo       `json:"tracked_repos"`
-	Targets      []statusJSONTarget     `json:"targets"`
-	Audit        statusJSONAudit        `json:"audit"`
-	Version      string                 `json:"version"`
+	Source       statusJSONSource   `json:"source"`
+	SkillCount   int                `json:"skill_count"`
+	TrackedRepos []statusJSONRepo   `json:"tracked_repos"`
+	Targets      []statusJSONTarget `json:"targets"`
+	Audit        statusJSONAudit    `json:"audit"`
+	Version      string             `json:"version"`
 }
 
 type statusJSONSource struct {
-	Path     string `json:"path"`
-	Exists   bool   `json:"exists"`
+	Path   string `json:"path"`
+	Exists bool   `json:"exists"`
 }
 
 type statusJSONRepo struct {
@@ -78,14 +78,14 @@ func cmdStatus(args []string) error {
 	jsonOutput := hasFlag(rest, "--json")
 
 	if mode == modeProject {
-		if jsonOutput {
-			return fmt.Errorf("--json is not yet supported in project mode")
-		}
 		// Reject unexpected positional arguments in project mode
 		for _, arg := range rest {
 			if arg != "--json" {
 				return fmt.Errorf("unexpected arguments: %v", rest)
 			}
+		}
+		if jsonOutput {
+			return cmdStatusProjectJSON(cwd)
 		}
 		return cmdStatusProject(cwd)
 	}

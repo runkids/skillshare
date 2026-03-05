@@ -307,7 +307,7 @@ func cmdInstall(args []string) error {
 	// logo, spinner, step, and handler output don't corrupt stdout.
 	var restoreUI func()
 	if parsed.jsonOutput {
-		restoreUI = suppressUIToStderr()
+		restoreUI = suppressUIToDevnull()
 	}
 
 	cfg, err := config.Load()

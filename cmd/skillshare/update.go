@@ -31,18 +31,18 @@ type updateOptions struct {
 
 // updateJSONOutput is the JSON representation for update --json output.
 type updateJSONOutput struct {
-	Updated        int                `json:"updated"`
-	Skipped        int                `json:"skipped"`
-	SecurityFailed int                `json:"security_failed"`
-	Pruned         int                `json:"pruned"`
-	DryRun         bool               `json:"dry_run"`
-	Duration       string             `json:"duration"`
-	Items          []updateJSONItem   `json:"items"`
+	Updated        int              `json:"updated"`
+	Skipped        int              `json:"skipped"`
+	SecurityFailed int              `json:"security_failed"`
+	Pruned         int              `json:"pruned"`
+	DryRun         bool             `json:"dry_run"`
+	Duration       string           `json:"duration"`
+	Items          []updateJSONItem `json:"items"`
 }
 
 type updateJSONItem struct {
 	Name   string `json:"name"`
-	Type   string `json:"type"` // "repo" or "skill"
+	Type   string `json:"type"`   // "repo" or "skill"
 	Status string `json:"status"` // "updated", "skipped", "failed", "security_blocked"
 	Error  string `json:"error,omitempty"`
 }
@@ -133,11 +133,15 @@ func cmdUpdate(args []string) error {
 	if mode == modeProject {
 		// Parse opts for logging (cmdUpdateProject parses again internally)
 		projOpts, _, _ := parseUpdateArgs(rest)
-		err := cmdUpdateProject(rest, cwd)
-		logUpdateOp(config.ProjectConfigPath(cwd), rest, projOpts, "project", start, err, nil)
 		if projOpts != nil && projOpts.jsonOutput {
-			return updateOutputJSON(nil, projOpts.dryRun, start, err)
+			restore := suppressUIToDevnull()
+			result, err := cmdUpdateProject(rest, cwd)
+			restore()
+			logUpdateOp(config.ProjectConfigPath(cwd), rest, projOpts, "project", start, err, result)
+			return updateOutputJSON(result, projOpts.dryRun, start, err)
 		}
+		result, err := cmdUpdateProject(rest, cwd)
+		logUpdateOp(config.ProjectConfigPath(cwd), rest, projOpts, "project", start, err, result)
 		return err
 	}
 
@@ -159,6 +163,13 @@ func cmdUpdate(args []string) error {
 	}
 	if opts.threshold == "" {
 		opts.threshold = cfg.Audit.BlockThreshold
+	}
+
+	// In JSON mode, redirect all UI output to stderr early so the
+	// header, step, spinner, and handler output don't corrupt stdout.
+	var restoreUI func()
+	if opts.jsonOutput {
+		restoreUI = suppressUIToDevnull()
 	}
 
 	ui.Header(ui.WithModeLabel("Updating"))
@@ -330,11 +341,13 @@ func cmdUpdate(args []string) error {
 	if len(targets) == 1 {
 		// Single target: verbose path
 		t := targets[0]
+
+		var r updateResult
 		var updateErr error
 		if t.isRepo {
-			updateErr = updateTrackedRepo(uc, t.name)
+			r, updateErr = updateTrackedRepo(uc, t.name)
 		} else {
-			updateErr = updateRegularSkill(uc, t.name)
+			r, updateErr = updateRegularSkill(uc, t.name)
 		}
 
 		var opNames []string
@@ -343,15 +356,10 @@ func cmdUpdate(args []string) error {
 		} else {
 			opNames = opts.names
 		}
-		logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, updateErr, nil)
+		logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, updateErr, &r)
 		if opts.jsonOutput {
-			var r *updateResult
-			if updateErr == nil {
-				r = &updateResult{updated: 1}
-			} else {
-				r = &updateResult{skipped: 1}
-			}
-			return updateOutputJSON(r, opts.dryRun, start, updateErr)
+			restoreUI()
+			return updateOutputJSON(&r, opts.dryRun, start, updateErr)
 		}
 		return updateErr
 	}
@@ -376,6 +384,7 @@ func cmdUpdate(args []string) error {
 	logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, batchErr, &batchResult)
 
 	if opts.jsonOutput {
+		restoreUI()
 		return updateOutputJSON(&batchResult, opts.dryRun, start, batchErr)
 	}
 	return batchErr
@@ -396,7 +405,10 @@ func updateOutputJSON(result *updateResult, dryRun bool, start time.Time, update
 	if writeErr := writeJSON(&output); writeErr != nil {
 		return writeErr
 	}
-	return updateErr
+	if updateErr != nil {
+		return &jsonSilentError{cause: updateErr}
+	}
+	return nil
 }
 
 func logUpdateOp(cfgPath string, names []string, opts *updateOptions, mode string, start time.Time, cmdErr error, result *updateResult) {

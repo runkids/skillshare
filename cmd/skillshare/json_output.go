@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"slices"
 	"time"
+
+	"skillshare/internal/ui"
 )
 
 // writeJSON pretty-prints v as JSON to stdout.
@@ -37,6 +39,34 @@ func writeJSONError(err error) error {
 		fmt.Println(string(out))
 	}
 	return &jsonSilentError{cause: err}
+}
+
+// suppressUIToDevnull temporarily redirects os.Stdout and the progress
+// writer to /dev/null so that handler functions using fmt.Printf / ui.*
+// produce zero visible output.  This keeps --json output clean even when
+// stdout and stderr share the same terminal (e.g. docker exec).
+// Returns a restore function that MUST be called before writing JSON.
+func suppressUIToDevnull() func() {
+	devnull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		// Fallback: redirect to stderr (better than nothing)
+		devnull = os.Stderr
+	}
+	origStdout := os.Stdout
+	os.Stdout = devnull
+
+	prevProgress := ui.ProgressWriter
+	ui.SetProgressWriter(devnull)
+	ui.SuppressProgress()
+
+	return func() {
+		os.Stdout = origStdout
+		ui.SetProgressWriter(prevProgress)
+		ui.RestoreProgress()
+		if devnull != os.Stderr {
+			devnull.Close()
+		}
+	}
 }
 
 // formatDuration returns a human-readable duration string truncated to milliseconds.

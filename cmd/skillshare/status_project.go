@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/audit"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
@@ -38,6 +39,86 @@ func cmdStatusProject(root string) error {
 	printAuditStatus(runtime.config.Audit)
 
 	return nil
+}
+
+func cmdStatusProjectJSON(root string) error {
+	if !projectConfigExists(root) {
+		if err := performProjectInit(root, projectInitOptions{}); err != nil {
+			return writeJSONError(err)
+		}
+	}
+
+	runtime, err := loadProjectRuntime(root)
+	if err != nil {
+		return writeJSONError(err)
+	}
+
+	discovered, _ := sync.DiscoverSourceSkills(runtime.sourcePath)
+	trackedRepos := extractTrackedRepos(discovered)
+
+	output := statusJSONOutput{
+		Source: statusJSONSource{
+			Path:   runtime.sourcePath,
+			Exists: dirExists(runtime.sourcePath),
+		},
+		SkillCount: len(discovered),
+		Version:    version,
+	}
+
+	// Tracked repos
+	for _, repoName := range trackedRepos {
+		repoPath := filepath.Join(runtime.sourcePath, repoName)
+		skillCount := 0
+		for _, d := range discovered {
+			if d.IsInRepo && strings.HasPrefix(d.RelPath, repoName+"/") {
+				skillCount++
+			}
+		}
+		dirty, _ := isRepoDirty(repoPath)
+		output.TrackedRepos = append(output.TrackedRepos, statusJSONRepo{
+			Name:       repoName,
+			SkillCount: skillCount,
+			Dirty:      dirty,
+		})
+	}
+
+	// Targets
+	for _, entry := range runtime.config.Targets {
+		target, ok := runtime.targets[entry.Name]
+		if !ok {
+			continue
+		}
+		mode := target.Mode
+		if mode == "" {
+			mode = "merge"
+		}
+		res := getTargetStatusDetail(target, runtime.sourcePath, mode)
+		output.Targets = append(output.Targets, statusJSONTarget{
+			Name:        entry.Name,
+			Path:        target.Path,
+			Mode:        mode,
+			Status:      res.statusStr,
+			SyncedCount: res.syncedCount,
+			Include:     target.Include,
+			Exclude:     target.Exclude,
+		})
+	}
+
+	// Audit
+	policy := audit.ResolvePolicy(audit.PolicyInputs{
+		ConfigProfile:   runtime.config.Audit.Profile,
+		ConfigThreshold: runtime.config.Audit.BlockThreshold,
+		ConfigDedupe:    runtime.config.Audit.DedupeMode,
+		ConfigAnalyzers: runtime.config.Audit.EnabledAnalyzers,
+	})
+	output.Audit = statusJSONAudit{
+		Profile:   string(policy.Profile),
+		Threshold: policy.Threshold,
+		Dedupe:    string(policy.DedupeMode),
+		Analyzers: policy.EnabledAnalyzers,
+	}
+
+	return writeJSON(&output)
 }
 
 func printProjectSourceStatus(sourcePath string, skillCount int) {
