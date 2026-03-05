@@ -9,6 +9,7 @@ Overview of source, targets, and sync state.
 ```bash
 skillshare status          # Auto-detects mode
 skillshare status -g       # Force global
+skillshare status --json   # JSON output (global mode only)
 ```
 
 Project mode output includes: source path, targets with sync mode, remote skills list.
@@ -25,6 +26,7 @@ skillshare diff claude         # Specific target
 skillshare diff --stat         # File-level changes (plain text)
 skillshare diff --patch        # Full unified diff (plain text)
 skillshare diff --no-tui       # Plain text, skip TUI
+skillshare diff --json         # JSON output (implies --no-tui)
 skillshare diff -p             # Project mode
 skillshare diff -g             # Force global
 ```

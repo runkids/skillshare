@@ -18,6 +18,7 @@ skillshare sync                # Execute (auto-detects mode)
 skillshare sync --all          # Sync skills + extras
 skillshare sync --dry-run      # Preview
 skillshare sync --force        # Override conflicts
+skillshare sync --json         # JSON output
 skillshare sync -g             # Force global mode
 ```
 
@@ -62,6 +63,7 @@ Import skills from target(s) to source.
 skillshare collect claude      # From specific target
 skillshare collect --all       # From all targets
 skillshare collect --dry-run   # Preview
+skillshare collect claude --json   # JSON output (implies --force)
 
 # Project (auto-detected or -p)
 skillshare collect claude     # From project target
