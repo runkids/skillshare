@@ -108,8 +108,11 @@ func TestSearch_IndexURL_SpinnerText(t *testing.T) {
 
 	result := sb.RunCLI("search", "--hub", indexPath, "--json")
 	result.AssertSuccess(t)
-	// JSON mode shows progress on stderr
-	result.AssertAnyOutputContains(t, "Browsing popular skills")
+	// JSON mode is fully silent — no progress text on stdout or stderr.
+	combined := result.Stdout + result.Stderr
+	if strings.Contains(combined, "Browsing popular skills") {
+		t.Fatalf("expected no progress text in JSON mode, got:\nstdout: %s\nstderr: %s", result.Stdout, result.Stderr)
+	}
 }
 
 func TestSearch_HubLabel_ResolvesFromConfig(t *testing.T) {

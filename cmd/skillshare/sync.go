@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -91,6 +92,14 @@ func cmdSync(args []string) error {
 	applyModeLabel(mode)
 
 	dryRun, force, jsonOutput := parseSyncFlags(rest)
+
+	prevDiagOutput := sync.DiagOutput
+	if jsonOutput {
+		sync.DiagOutput = io.Discard
+		defer func() {
+			sync.DiagOutput = prevDiagOutput
+		}()
+	}
 
 	if mode == modeProject {
 		if hasAll && !jsonOutput {

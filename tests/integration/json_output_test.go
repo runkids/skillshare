@@ -1,3 +1,5 @@
+//go:build !online
+
 package integration
 
 import (
