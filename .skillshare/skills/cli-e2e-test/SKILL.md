@@ -69,6 +69,7 @@ Prompt user (via AskUserQuestion):
      ssenv enter "$ENV_NAME" -- <command>
    ```
 4. After each step, verify conditions in the Expected block
+   - **Prefer `--json` + `jq` for assertions** — structured output is more reliable than grep on human-readable text. See the JSON Reference below for which commands support `--json`.
 5. Mark each step PASS / FAIL
 
 #### Generating new runbook:
@@ -86,6 +87,7 @@ Prompt user (via AskUserQuestion):
 4. Generate new runbook to `ai_docs/tests/<slug>_runbook.md`, following existing conventions:
    - YAML-free, pure Markdown
    - Has Scope, Environment, Steps (each with bash + Expected), Pass Criteria
+   - **Use `--json` + `jq` for assertions** wherever possible — avoids brittle text matching
 5. **Run the runbook quality checklist** (see below) before executing
 6. Then execute the new runbook (same flow as above)
 
@@ -143,6 +145,7 @@ Before executing a newly generated runbook, verify:
 - [ ] **Project mode paths** — project commands use `.skillshare/` not `~/.config/skillshare/`
 - [ ] **Project init flags** — `init -p` only supports `--targets`, `--discover`, `--select`, `--mode`, `--dry-run`; global-only flags (`--no-copy`, `--no-skill`, `--no-git`, `--all-targets`, `--force`) are not available
 - [ ] **Audit rule IDs** — custom rules in `audit-rules.yaml` use rule IDs (e.g. `prompt-injection-0`), not pattern names (e.g. `prompt-injection`). Verify IDs against `internal/audit/rules.yaml`
+- [ ] **Use `--json` for assertions** — if the command supports `--json`, use it with `jq` instead of grepping human-readable output. Text output changes between versions; JSON structure is stable
 
 ## Rules
 
@@ -185,11 +188,68 @@ go test ./...
 Always run in devcontainer unless there is a documented exception.
 Note: `ssenv enter` changes HOME, which may affect Go module resolution — always `cd /workspace` before running `go test` or `go build`.
 
+## `--json` Quick Reference
+
+Most commands support `--json` for structured output, making assertions more reliable than text matching.
+
+| Command | `--json` | Notes |
+|---------|----------|-------|
+| `ss status` | `--json` | Skills, targets, sync status |
+| `ss list` | `--json` / `-j` | All skills with metadata |
+| `ss target list` | `--json` | Configured targets |
+| `ss install <src>` | `--json` | Implies `--force --all` (skip prompts) |
+| `ss uninstall <name>` | `--json` | Implies `--force` (skip prompts) |
+| `ss collect <path>` | `--json` | Implies `--force` (skip prompts) |
+| `ss check` | `--json` | Update availability per repo |
+| `ss update` | `--json` | Update results per skill |
+| `ss diff` | `--json` | Per-file diff details |
+| `ss sync` | `--json` | Sync stats per target |
+| `ss audit` | `--format json` | Also accepts `--json` (deprecated alias) |
+| `ss log` | `--json` | Raw JSONL (one object per line) |
+
+**Key behaviors:**
+- `--json` that implies `--force` / `--all` skips interactive prompts — safe for automation
+- Output goes to **stdout only** (progress/spinners suppressed)
+- `audit` prefers `--format json`; `--json` still works but is the deprecated form
+- `log --json` outputs JSONL (newline-delimited), not a JSON array
+
+### Assertion Patterns with `jq`
+
+```bash
+# Count installed skills
+ss list --json | jq 'length'
+
+# Check a specific skill exists
+ss list --json | jq -e '.[] | select(.name == "my-skill")'
+
+# Verify target is configured
+ss target list --json | jq -e '.[] | select(.name == "claude")'
+
+# Assert no critical audit findings
+ss audit --format json | jq -e '.summary.critical == 0'
+
+# Check update availability
+ss check --json | jq -e '.tracked_repos | length > 0'
+
+# Verify sync succeeded (zero errors)
+ss sync --json | jq -e '.errors == 0'
+
+# Install and verify result
+ss install https://github.com/user/repo --json | jq -e '.skills | length > 0'
+```
+
+When a `jq -e` expression fails (exit code 1 = false, 5 = no output), the step FAILs — no ambiguous text matching needed.
+
 ## Container Command Templates
 
 ```bash
 # Single command
 docker exec $CONTAINER ssenv enter "$ENV_NAME" -- ss status
+
+# JSON assertion (preferred for verification)
+docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
+  ss list --json | jq -e ".[] | select(.name == \"my-skill\")"
+'
 
 # Multi-line compound command (use bash -c) — global mode flags
 docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
