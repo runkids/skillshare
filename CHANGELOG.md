@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.16.12] - 2026-03-05
+
+### New Features
+
+#### Structured JSON Output
+
+- **`--json` flag on 8 more commands** — structured JSON output for agent and CI/CD consumption, bringing total coverage to 12 commands:
+  - Mutating: `sync`, `install`, `update`, `uninstall`, `collect`
+  - Read-only: `target list`, `status`, `diff`
+  ```bash
+  skillshare status --json                          # overview as JSON
+  skillshare list --json | jq '.[].name'            # extract skill names
+  skillshare sync --json | jq '.errors'             # check sync errors
+  skillshare install github.com/user/repo --json    # non-interactive install
+  ```
+  - For mutating commands, `--json` implies `--force` (skips interactive prompts)
+  - TUI and spinners are suppressed; progress goes to stderr, JSON to stdout
+  - Previously supported: `audit --format json`, `log --json`, `check --json`, `list --json`
+
 ## [0.16.11] - 2026-03-05
 
 ### New Features
