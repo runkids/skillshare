@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -88,7 +89,8 @@ func main() {
 	if err := handler(args); err != nil {
 		// jsonSilentError means JSON output was already written to stdout;
 		// exit non-zero without adding plain-text noise.
-		if _, ok := err.(*jsonSilentError); ok {
+		var silent *jsonSilentError
+		if errors.As(err, &silent) {
 			os.Exit(1)
 		}
 		fmt.Println()
