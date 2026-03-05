@@ -15,6 +15,15 @@ import (
 	"skillshare/internal/ui"
 )
 
+// collectJSONOutput is the JSON representation for collect --json output.
+type collectJSONOutput struct {
+	Pulled   []string          `json:"pulled"`
+	Skipped  []string          `json:"skipped"`
+	Failed   map[string]string `json:"failed"`
+	DryRun   bool              `json:"dry_run"`
+	Duration string            `json:"duration"`
+}
+
 // collectLocalSkills collects local skills from targets (non-symlinked)
 func collectLocalSkills(targets map[string]config.TargetConfig, source string) []sync.LocalSkillInfo {
 	var allLocalSkills []sync.LocalSkillInfo
@@ -72,6 +81,7 @@ func cmdCollect(args []string) error {
 	dryRun := false
 	force := false
 	collectAll := false
+	jsonOutput := false
 	var targetName string
 
 	for _, arg := range rest {
@@ -82,11 +92,18 @@ func cmdCollect(args []string) error {
 			force = true
 		case "--all", "-a":
 			collectAll = true
+		case "--json":
+			jsonOutput = true
 		default:
 			if targetName == "" && !strings.HasPrefix(arg, "-") {
 				targetName = arg
 			}
 		}
+	}
+
+	// --json implies --force (skip confirmation prompts)
+	if jsonOutput {
+		force = true
 	}
 
 	cfg, err := config.Load()
@@ -104,35 +121,63 @@ func cmdCollect(args []string) error {
 	}
 
 	// Collect all local skills
-	ui.Header(ui.WithModeLabel("Collect"))
-	sp := ui.StartSpinner("Scanning for local skills...")
-	allLocalSkills := collectLocalSkills(targets, cfg.Source)
-	if len(allLocalSkills) == 0 {
-		sp.Success("No local skills found")
-		return nil
-	}
-	sp.Success(fmt.Sprintf("Found %d local skill(s)", len(allLocalSkills)))
-
-	// Display found skills
-	displayLocalSkills(allLocalSkills)
-
-	if dryRun {
-		ui.Info("Dry run - no changes made")
-		return nil
-	}
-
-	// Confirm unless --force
-	if !force {
-		if !confirmCollect() {
-			ui.Info("Cancelled")
+	if !jsonOutput {
+		ui.Header(ui.WithModeLabel("Collect"))
+		sp := ui.StartSpinner("Scanning for local skills...")
+		allLocalSkills := collectLocalSkills(targets, cfg.Source)
+		if len(allLocalSkills) == 0 {
+			sp.Success("No local skills found")
 			return nil
 		}
+		sp.Success(fmt.Sprintf("Found %d local skill(s)", len(allLocalSkills)))
+
+		// Display found skills
+		displayLocalSkills(allLocalSkills)
+
+		if dryRun {
+			ui.Info("Dry run - no changes made")
+			return nil
+		}
+
+		// Confirm unless --force
+		if !force {
+			if !confirmCollect() {
+				ui.Info("Cancelled")
+				return nil
+			}
+		}
+
+		// Execute collect
+		err = executeCollect(allLocalSkills, cfg.Source, dryRun, force)
+		logCollectOp(config.ConfigPath(), start, err)
+		return err
 	}
 
-	// Execute collect
-	err = executeCollect(allLocalSkills, cfg.Source, dryRun, force)
-	logCollectOp(config.ConfigPath(), start, err)
-	return err
+	// JSON mode: suppress UI output
+	fmt.Fprintf(os.Stderr, "Scanning for local skills...\n")
+	allLocalSkills := collectLocalSkills(targets, cfg.Source)
+	if len(allLocalSkills) == 0 {
+		fmt.Fprintf(os.Stderr, "No local skills found\n")
+		return collectOutputJSON(nil, dryRun, start, nil)
+	}
+	fmt.Fprintf(os.Stderr, "Found %d local skill(s)\n", len(allLocalSkills))
+
+	if dryRun {
+		names := make([]string, len(allLocalSkills))
+		for i, s := range allLocalSkills {
+			names[i] = s.Name
+		}
+		logCollectOp(config.ConfigPath(), start, nil)
+		return collectOutputJSON(&sync.PullResult{Pulled: names}, true, start, nil)
+	}
+
+	// --json implies --force, so no confirmation needed
+	result, collectErr := sync.PullSkills(allLocalSkills, cfg.Source, sync.PullOptions{
+		DryRun: dryRun,
+		Force:  force,
+	})
+	logCollectOp(config.ConfigPath(), start, collectErr)
+	return collectOutputJSON(result, dryRun, start, collectErr)
 }
 
 func logCollectOp(cfgPath string, start time.Time, cmdErr error) {
@@ -205,6 +250,31 @@ func executeCollect(skills []sync.LocalSkillInfo, source string, dryRun, force b
 	}
 
 	return nil
+}
+
+// collectOutputJSON converts a collect result to JSON and writes to stdout.
+func collectOutputJSON(result *sync.PullResult, dryRun bool, start time.Time, collectErr error) error {
+	output := collectJSONOutput{
+		DryRun:   dryRun,
+		Duration: formatDuration(start),
+	}
+	if result != nil {
+		output.Pulled = result.Pulled
+		output.Skipped = result.Skipped
+		if len(result.Failed) > 0 {
+			output.Failed = make(map[string]string, len(result.Failed))
+			for k, v := range result.Failed {
+				output.Failed[k] = v.Error()
+			}
+		}
+	}
+	if output.Failed == nil {
+		output.Failed = make(map[string]string)
+	}
+	if writeErr := writeJSON(&output); writeErr != nil {
+		return writeErr
+	}
+	return collectErr
 }
 
 func showCollectNextSteps(source string) {

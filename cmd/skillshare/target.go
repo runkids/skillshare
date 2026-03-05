@@ -59,10 +59,11 @@ func cmdTarget(args []string) error {
 		}
 		return targetRemove(subargs)
 	case "list", "ls":
+		jsonOutput := hasFlag(subargs, "--json")
 		if mode == modeProject {
-			return targetListProject(cwd)
+			return targetListProjectWithJSON(cwd, jsonOutput)
 		}
-		return targetList()
+		return targetList(jsonOutput)
 	default:
 		// Assume it's a target name - show info or modify settings
 		if mode == modeProject {
@@ -85,6 +86,7 @@ Subcommands:
   <name>                 Show target info or modify settings
 
 Options:
+  --json                 Output list as JSON
   --project, -p          Use project-level config in current directory
   --global, -g           Use global config (~/.config/skillshare)
 
@@ -385,10 +387,23 @@ func unlinkMergeMode(targetPath, sourcePath string) error {
 	return nil
 }
 
-func targetList() error {
+// targetListJSONItem is the JSON representation for a single target.
+type targetListJSONItem struct {
+	Name    string   `json:"name"`
+	Path    string   `json:"path"`
+	Mode    string   `json:"mode"`
+	Include []string `json:"include"`
+	Exclude []string `json:"exclude"`
+}
+
+func targetList(jsonOutput bool) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
+	}
+
+	if jsonOutput {
+		return targetListJSON(cfg)
 	}
 
 	ui.Header("Configured Targets")
@@ -401,6 +416,23 @@ func targetList() error {
 	}
 
 	return nil
+}
+
+func targetListJSON(cfg *config.Config) error {
+	var items []targetListJSONItem
+	for name, target := range cfg.Targets {
+		items = append(items, targetListJSONItem{
+			Name:    name,
+			Path:    target.Path,
+			Mode:    getTargetMode(target.Mode, cfg.Mode),
+			Include: target.Include,
+			Exclude: target.Exclude,
+		})
+	}
+	output := struct {
+		Targets []targetListJSONItem `json:"targets"`
+	}{Targets: items}
+	return writeJSON(&output)
 }
 
 func targetInfo(name string, args []string) error {

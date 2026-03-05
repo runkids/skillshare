@@ -16,8 +16,20 @@ import (
 
 // installArgs holds parsed install command arguments
 type installArgs struct {
-	sourceArg string
-	opts      install.InstallOptions
+	sourceArg  string
+	opts       install.InstallOptions
+	jsonOutput bool
+}
+
+// installJSONOutput is the JSON representation for install --json output.
+type installJSONOutput struct {
+	Source   string   `json:"source"`
+	Tracked bool     `json:"tracked"`
+	DryRun  bool     `json:"dry_run"`
+	Into    string   `json:"into,omitempty"`
+	Skills  []string `json:"skills"`
+	Failed  []string `json:"failed"`
+	Duration string  `json:"duration"`
 }
 
 type installLogSummary struct {
@@ -97,6 +109,8 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			result.opts.All = true
 		case arg == "--yes" || arg == "-y":
 			result.opts.Yes = true
+		case arg == "--json":
+			result.jsonOutput = true
 		case arg == "--help" || arg == "-h":
 			return nil, true, nil // showHelp = true
 		case strings.HasPrefix(arg, "-"):
@@ -271,18 +285,29 @@ func cmdInstall(args []string) error {
 		return parseErr
 	}
 
+	// --json implies --force and --all (skip prompts for non-interactive use)
+	if parsed.jsonOutput {
+		parsed.opts.Force = true
+		if !parsed.opts.HasSkillFilter() {
+			parsed.opts.All = true
+		}
+	}
+
 	// When no source is given, only bare "install" is valid — reject incompatible flags
 	if parsed.sourceArg == "" {
 		hasSourceFlags := parsed.opts.Name != "" || parsed.opts.Into != "" ||
 			parsed.opts.Track || len(parsed.opts.Skills) > 0 ||
 			len(parsed.opts.Exclude) > 0 || parsed.opts.All || parsed.opts.Yes || parsed.opts.Update
-		if hasSourceFlags {
+		if hasSourceFlags && !parsed.jsonOutput {
 			return fmt.Errorf("flags --name, --into, --track, --skill, --exclude, --all, --yes, and --update require a source argument")
 		}
 	}
 
 	cfg, err := config.Load()
 	if err != nil {
+		if parsed.jsonOutput {
+			writeJSONError(err)
+		}
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 	if parsed.opts.AuditThreshold == "" {
@@ -293,6 +318,9 @@ func cmdInstall(args []string) error {
 	if parsed.sourceArg == "" {
 		summary, err := installFromGlobalConfig(cfg, parsed.opts)
 		logInstallOp(config.ConfigPath(), rest, start, err, summary)
+		if parsed.jsonOutput {
+			return installOutputJSON(summary, start, err)
+		}
 		return err
 	}
 
@@ -302,6 +330,9 @@ func cmdInstall(args []string) error {
 			Source: parsed.sourceArg,
 			Mode:   "global",
 		})
+		if parsed.jsonOutput {
+			writeJSONError(err)
+		}
 		return err
 	}
 
@@ -334,6 +365,9 @@ func cmdInstall(args []string) error {
 			}
 		}
 		logInstallOp(config.ConfigPath(), rest, start, err, summary)
+		if parsed.jsonOutput {
+			return installOutputJSON(summary, start, err)
+		}
 		return err
 	}
 
@@ -353,7 +387,27 @@ func cmdInstall(args []string) error {
 		}
 	}
 	logInstallOp(config.ConfigPath(), rest, start, err, summary)
+	if parsed.jsonOutput {
+		return installOutputJSON(summary, start, err)
+	}
 	return err
+}
+
+// installOutputJSON converts an install summary to JSON and writes to stdout.
+func installOutputJSON(summary installLogSummary, start time.Time, installErr error) error {
+	output := installJSONOutput{
+		Source:   summary.Source,
+		Tracked: summary.Tracked,
+		DryRun:  summary.DryRun,
+		Into:    summary.Into,
+		Skills:  summary.InstalledSkills,
+		Failed:  summary.FailedSkills,
+		Duration: formatDuration(start),
+	}
+	if writeErr := writeJSON(&output); writeErr != nil {
+		return writeErr
+	}
+	return installErr
 }
 
 func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, summary installLogSummary) {
@@ -446,6 +500,7 @@ Options:
   --audit-threshold, --threshold, -T <t>
                       Block install by severity at/above: critical|high|medium|low|info
                       (also supports c|h|m|l|i)
+  --json              Output results as JSON (implies --force --all)
   --project, -p       Use project-level config in current directory
   --global, -g        Use global config (~/.config/skillshare)
   --help, -h          Show this help

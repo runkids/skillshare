@@ -16,7 +16,7 @@ import (
 func cmdSyncExtras(args []string) error {
 	start := time.Now()
 
-	dryRun, force := parseSyncFlags(args)
+	dryRun, force, _ := parseSyncFlags(args)
 
 	cfg, err := config.Load()
 	if err != nil {

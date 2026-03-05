@@ -26,6 +26,25 @@ type updateOptions struct {
 	threshold    string
 	auditVerbose bool
 	prune        bool
+	jsonOutput   bool
+}
+
+// updateJSONOutput is the JSON representation for update --json output.
+type updateJSONOutput struct {
+	Updated        int                `json:"updated"`
+	Skipped        int                `json:"skipped"`
+	SecurityFailed int                `json:"security_failed"`
+	Pruned         int                `json:"pruned"`
+	DryRun         bool               `json:"dry_run"`
+	Duration       string             `json:"duration"`
+	Items          []updateJSONItem   `json:"items"`
+}
+
+type updateJSONItem struct {
+	Name   string `json:"name"`
+	Type   string `json:"type"` // "repo" or "skill"
+	Status string `json:"status"` // "updated", "skipped", "failed", "security_blocked"
+	Error  string `json:"error,omitempty"`
 }
 
 // parseUpdateArgs parses command line arguments for the update command.
@@ -60,6 +79,8 @@ func parseUpdateArgs(args []string) (*updateOptions, bool, error) {
 			opts.auditVerbose = true
 		case arg == "--prune":
 			opts.prune = true
+		case arg == "--json":
+			opts.jsonOutput = true
 		case arg == "--group" || arg == "-G":
 			i++
 			if i >= len(args) {
@@ -114,6 +135,9 @@ func cmdUpdate(args []string) error {
 		projOpts, _, _ := parseUpdateArgs(rest)
 		err := cmdUpdateProject(rest, cwd)
 		logUpdateOp(config.ProjectConfigPath(cwd), rest, projOpts, "project", start, err, nil)
+		if projOpts != nil && projOpts.jsonOutput {
+			return updateOutputJSON(nil, projOpts.dryRun, start, err)
+		}
 		return err
 	}
 
@@ -128,6 +152,9 @@ func cmdUpdate(args []string) error {
 
 	cfg, err := config.Load()
 	if err != nil {
+		if opts.jsonOutput {
+			writeJSONError(err)
+		}
 		return err
 	}
 	if opts.threshold == "" {
@@ -185,6 +212,9 @@ func cmdUpdate(args []string) error {
 		})
 		scanSpinner.Stop()
 		if err != nil {
+			if opts.jsonOutput {
+				writeJSONError(err)
+			}
 			return fmt.Errorf("failed to scan skills: %w", err)
 		}
 	} else {
@@ -278,13 +308,20 @@ func cmdUpdate(args []string) error {
 
 	if len(targets) == 0 {
 		if opts.all {
+			if opts.jsonOutput {
+				return updateOutputJSON(nil, opts.dryRun, start, nil)
+			}
 			ui.UpdateSummary(ui.UpdateStats{})
 			return nil
 		}
-		if len(resolveWarnings) > 0 {
-			return fmt.Errorf("no valid skills to update")
+		noTargetsErr := fmt.Errorf("no valid skills to update")
+		if len(resolveWarnings) == 0 {
+			noTargetsErr = fmt.Errorf("no skills found")
 		}
-		return fmt.Errorf("no skills found")
+		if opts.jsonOutput {
+			writeJSONError(noTargetsErr)
+		}
+		return noTargetsErr
 	}
 
 	// --- Execute ---
@@ -307,6 +344,15 @@ func cmdUpdate(args []string) error {
 			opNames = opts.names
 		}
 		logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, updateErr, nil)
+		if opts.jsonOutput {
+			var r *updateResult
+			if updateErr == nil {
+				r = &updateResult{updated: 1}
+			} else {
+				r = &updateResult{skipped: 1}
+			}
+			return updateOutputJSON(r, opts.dryRun, start, updateErr)
+		}
 		return updateErr
 	}
 
@@ -329,7 +375,28 @@ func cmdUpdate(args []string) error {
 	}
 	logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, batchErr, &batchResult)
 
+	if opts.jsonOutput {
+		return updateOutputJSON(&batchResult, opts.dryRun, start, batchErr)
+	}
 	return batchErr
+}
+
+// updateOutputJSON converts an update result to JSON and writes to stdout.
+func updateOutputJSON(result *updateResult, dryRun bool, start time.Time, updateErr error) error {
+	output := updateJSONOutput{
+		DryRun:   dryRun,
+		Duration: formatDuration(start),
+	}
+	if result != nil {
+		output.Updated = result.updated
+		output.Skipped = result.skipped
+		output.SecurityFailed = result.securityFailed
+		output.Pruned = result.pruned
+	}
+	if writeErr := writeJSON(&output); writeErr != nil {
+		return writeErr
+	}
+	return updateErr
 }
 
 func logUpdateOp(cfgPath string, names []string, opts *updateOptions, mode string, start time.Time, cmdErr error, result *updateResult) {
@@ -424,6 +491,7 @@ Options:
   --diff              Show file-level change summary after update
   --audit-verbose     Show detailed per-skill audit findings in batch mode
   --prune             Remove stale skills (deleted upstream) instead of warning
+  --json              Output results as JSON
   --project, -p       Use project-level config in current directory
   --global, -g        Use global config (~/.config/skillshare)
   --help, -h          Show this help

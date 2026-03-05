@@ -28,6 +28,16 @@ type uninstallOptions struct {
 	all        bool     // --all: remove ALL skills from source
 	force      bool
 	dryRun     bool
+	jsonOutput bool
+}
+
+// uninstallJSONOutput is the JSON representation for uninstall --json output.
+type uninstallJSONOutput struct {
+	Removed  []string `json:"removed"`
+	Failed   []string `json:"failed"`
+	Skipped  int      `json:"skipped"`
+	DryRun   bool     `json:"dry_run"`
+	Duration string   `json:"duration"`
 }
 
 // uninstallTarget holds resolved target information
@@ -57,6 +67,8 @@ func parseUninstallArgs(args []string) (*uninstallOptions, bool, error) {
 			opts.force = true
 		case arg == "--dry-run" || arg == "-n":
 			opts.dryRun = true
+		case arg == "--json":
+			opts.jsonOutput = true
 		case arg == "--group" || arg == "-G":
 			i++
 			if i >= len(args) {
@@ -552,6 +564,11 @@ func cmdUninstall(args []string) error {
 		return parseErr
 	}
 
+	// --json implies --force (skip confirmation prompts)
+	if opts.jsonOutput {
+		opts.force = true
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -781,6 +798,14 @@ func cmdUninstall(args []string) error {
 
 	// --- Phase 5: DRY-RUN or CONFIRM ---
 	if opts.dryRun {
+		if opts.jsonOutput {
+			dryRunNames := make([]string, len(targets))
+			for i, t := range targets {
+				dryRunNames[i] = t.name
+			}
+			logUninstallOp(config.ConfigPath(), uninstallOpNames(rest), 0, start, nil)
+			return uninstallOutputJSON(dryRunNames, nil, preflightSkipped, true, start, nil)
+		}
 		for _, t := range targets {
 			ui.Warning("[dry-run] would move to trash: %s", t.path)
 			if t.isTrackedRepo {
@@ -1000,7 +1025,30 @@ func cmdUninstall(args []string) error {
 	}
 
 	logUninstallOp(config.ConfigPath(), opNames, len(succeeded), start, finalErr)
+
+	if opts.jsonOutput {
+		removedNames := make([]string, len(succeeded))
+		for i, t := range succeeded {
+			removedNames[i] = t.name
+		}
+		return uninstallOutputJSON(removedNames, failed, preflightSkipped, opts.dryRun, start, finalErr)
+	}
 	return finalErr
+}
+
+// uninstallOutputJSON converts uninstall results to JSON and writes to stdout.
+func uninstallOutputJSON(removed, failed []string, skipped int, dryRun bool, start time.Time, uninstallErr error) error {
+	output := uninstallJSONOutput{
+		Removed:  removed,
+		Failed:   failed,
+		Skipped:  skipped,
+		DryRun:   dryRun,
+		Duration: formatDuration(start),
+	}
+	if writeErr := writeJSON(&output); writeErr != nil {
+		return writeErr
+	}
+	return uninstallErr
 }
 
 // uninstallOpNames parses raw args to build a clean oplog names list,
@@ -1073,6 +1121,7 @@ Options:
   --group, -G <name>  Remove all skills in a group (prefix match, repeatable)
   --force, -f         Skip confirmation and ignore uncommitted changes
   --dry-run, -n       Preview without making changes
+  --json              Output results as JSON (implies --force)
   --project, -p       Use project-level config in current directory
   --global, -g        Use global config (~/.config/skillshare)
   --help, -h          Show this help

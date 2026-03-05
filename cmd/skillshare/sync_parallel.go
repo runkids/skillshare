@@ -358,8 +358,21 @@ func runParallelSync(entries []syncTargetEntry, source string, skills []sync.Dis
 		names[i] = e.name
 	}
 	progress := newSyncProgress(names)
+	results, failedTargets := runParallelSyncCore(entries, source, skills, dryRun, force, progress)
+	progress.stop()
+	renderSyncResults(results)
+	return results, failedTargets
+}
 
-	// Group entries by resolved target path so shared-path targets run sequentially.
+// runParallelSyncQuiet executes sync for multiple targets without any UI output.
+// Used for --json mode where only structured output should go to stdout.
+func runParallelSyncQuiet(entries []syncTargetEntry, source string, skills []sync.DiscoveredSkill, dryRun, force bool) ([]syncTargetResult, int) {
+	return runParallelSyncCore(entries, source, skills, dryRun, force, nil)
+}
+
+// runParallelSyncCore is the shared implementation for parallel sync.
+// When progress is nil, no UI output is produced (quiet/JSON mode).
+func runParallelSyncCore(entries []syncTargetEntry, source string, skills []sync.DiscoveredSkill, dryRun, force bool, progress *syncProgress) ([]syncTargetResult, int) {
 	type indexedEntry struct {
 		idx   int
 		entry syncTargetEntry
@@ -385,20 +398,19 @@ func runParallelSync(entries []syncTargetEntry, source string, skills []sync.Dis
 		go func(members []indexedEntry) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			// Run all members of this path group sequentially.
 			for _, m := range members {
-				progress.startTarget(m.entry.name)
+				if progress != nil {
+					progress.startTarget(m.entry.name)
+				}
 				r := collectSyncResult(m.entry.name, m.entry.target, source, m.entry.mode, skills, dryRun, force, progress)
-				progress.doneTarget(m.entry.name, r)
+				if progress != nil {
+					progress.doneTarget(m.entry.name, r)
+				}
 				results[m.idx] = r
 			}
 		}(group)
 	}
 	wg.Wait()
-	progress.stop()
-
-	// Render results and compute stats
-	renderSyncResults(results)
 
 	failedTargets := 0
 	for _, r := range results {

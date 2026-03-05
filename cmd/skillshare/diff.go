@@ -21,9 +21,33 @@ import (
 
 // diffRenderOpts controls diff output behavior.
 type diffRenderOpts struct {
-	noTUI     bool
-	showPatch bool
-	showStat  bool
+	noTUI      bool
+	showPatch  bool
+	showStat   bool
+	jsonOutput bool
+}
+
+// diffJSONOutput is the JSON representation for diff --json output.
+type diffJSONOutput struct {
+	Targets  []diffJSONTarget `json:"targets"`
+	Duration string           `json:"duration"`
+}
+
+type diffJSONTarget struct {
+	Name      string          `json:"name"`
+	Mode      string          `json:"mode"`
+	Synced    bool            `json:"synced"`
+	Error     string          `json:"error,omitempty"`
+	Items     []diffJSONItem  `json:"items"`
+	Include   []string        `json:"include"`
+	Exclude   []string        `json:"exclude"`
+}
+
+type diffJSONItem struct {
+	Action string `json:"action"`
+	Name   string `json:"name"`
+	Reason string `json:"reason"`
+	IsSync bool   `json:"is_sync"`
 }
 
 func cmdDiff(args []string) error {
@@ -71,6 +95,9 @@ func cmdDiff(args []string) error {
 		case "--stat":
 			opts.showStat = true
 			opts.noTUI = true // --stat implies no TUI
+		case "--json":
+			opts.jsonOutput = true
+			opts.noTUI = true // --json implies no TUI
 		default:
 			targetName = rest[i]
 		}
@@ -80,7 +107,7 @@ func cmdDiff(args []string) error {
 	if mode == modeProject {
 		cmdErr = cmdDiffProject(cwd, targetName, opts)
 	} else {
-		cmdErr = cmdDiffGlobal(targetName, opts)
+		cmdErr = cmdDiffGlobal(targetName, opts, start)
 	}
 	logDiffOp(cfgPath, targetName, scope, 0, start, cmdErr)
 	return cmdErr
@@ -257,6 +284,9 @@ func (dp *diffProgress) renderBar() string {
 }
 
 func (dp *diffProgress) startTarget(name string) {
+	if dp == nil {
+		return
+	}
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 	for i, n := range dp.names {
@@ -272,6 +302,9 @@ func (dp *diffProgress) startTarget(name string) {
 }
 
 func (dp *diffProgress) update(targetName, skillName string) {
+	if dp == nil {
+		return
+	}
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 	dp.processedSkills++
@@ -284,12 +317,18 @@ func (dp *diffProgress) update(targetName, skillName string) {
 }
 
 func (dp *diffProgress) add(n int) {
+	if dp == nil {
+		return
+	}
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 	dp.processedSkills += n
 }
 
 func (dp *diffProgress) doneTarget(name string, r targetDiffResult) {
+	if dp == nil {
+		return
+	}
 	dp.mu.Lock()
 	defer dp.mu.Unlock()
 	for i, n := range dp.names {
@@ -327,19 +366,29 @@ func (dp *diffProgress) stop() {
 	}
 }
 
-func cmdDiffGlobal(targetName string, opts diffRenderOpts) error {
+func cmdDiffGlobal(targetName string, opts diffRenderOpts, start time.Time) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	spinner := ui.StartSpinner("Discovering skills")
-	discovered, err := sync.DiscoverSourceSkills(cfg.Source)
-	if err != nil {
-		spinner.Fail("Discovery failed")
-		return fmt.Errorf("failed to discover skills: %w", err)
+	var discovered []sync.DiscoveredSkill
+	if opts.jsonOutput {
+		var discoverErr error
+		discovered, discoverErr = sync.DiscoverSourceSkills(cfg.Source)
+		if discoverErr != nil {
+			return fmt.Errorf("failed to discover skills: %w", discoverErr)
+		}
+	} else {
+		spinner := ui.StartSpinner("Discovering skills")
+		var discoverErr error
+		discovered, discoverErr = sync.DiscoverSourceSkills(cfg.Source)
+		if discoverErr != nil {
+			spinner.Fail("Discovery failed")
+			return fmt.Errorf("failed to discover skills: %w", discoverErr)
+		}
+		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discovered)))
 	}
-	spinner.Success(fmt.Sprintf("Discovered %d skills", len(discovered)))
 
 	targets := cfg.Targets
 	if targetName != "" {
@@ -395,7 +444,11 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts) error {
 	for i, fe := range fentries {
 		names[i] = fe.name
 	}
-	progress := newDiffProgress(names, totalSkills, hasCopyMode)
+
+	var progress *diffProgress
+	if !opts.jsonOutput {
+		progress = newDiffProgress(names, totalSkills, hasCopyMode)
+	}
 
 	results := make([]targetDiffResult, len(fentries))
 	sem := make(chan struct{}, 8)
@@ -414,13 +467,44 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts) error {
 	}
 	wg.Wait()
 
-	progress.stop()
+	if progress != nil {
+		progress.stop()
+	}
 
+	if opts.jsonOutput {
+		return diffOutputJSON(results, start)
+	}
 	if shouldLaunchTUI(opts.noTUI, cfg) && len(results) > 0 {
 		return runDiffTUI(results)
 	}
 	renderGroupedDiffs(results, opts)
 	return nil
+}
+
+func diffOutputJSON(results []targetDiffResult, start time.Time) error {
+	output := diffJSONOutput{
+		Duration: formatDuration(start),
+	}
+	for _, r := range results {
+		jt := diffJSONTarget{
+			Name:    r.name,
+			Mode:    r.mode,
+			Synced:  r.synced,
+			Error:   r.errMsg,
+			Include: r.include,
+			Exclude: r.exclude,
+		}
+		for _, item := range r.items {
+			jt.Items = append(jt.Items, diffJSONItem{
+				Action: item.action,
+				Name:   item.name,
+				Reason: item.reason,
+				IsSync: item.isSync,
+			})
+		}
+		output.Targets = append(output.Targets, jt)
+	}
+	return writeJSON(&output)
 }
 
 func collectTargetDiff(name string, target config.TargetConfig, source, mode string, filtered []sync.DiscoveredSkill, dp *diffProgress) targetDiffResult {
@@ -916,6 +1000,7 @@ Options:
   --global, -g         Diff global skills (~/.config/skillshare)
   --stat               Show file-level changes (implies --no-tui)
   --patch              Show full unified diff (implies --no-tui)
+  --json               Output results as JSON
   --no-tui             Plain text output (skip interactive TUI)
   --help, -h           Show this help
 

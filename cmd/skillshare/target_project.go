@@ -253,6 +253,10 @@ func filterProjectTargets(targets []config.ProjectTargetEntry, remove []string) 
 }
 
 func targetListProject(root string) error {
+	return targetListProjectWithJSON(root, false)
+}
+
+func targetListProjectWithJSON(root string, jsonOutput bool) error {
 	if !projectConfigExists(root) {
 		if err := performProjectInit(root, projectInitOptions{}); err != nil {
 			return err
@@ -269,6 +273,23 @@ func targetListProject(root string) error {
 	sort.Slice(targets, func(i, j int) bool {
 		return targets[i].Name < targets[j].Name
 	})
+
+	if jsonOutput {
+		var items []targetListJSONItem
+		for _, entry := range targets {
+			items = append(items, targetListJSONItem{
+				Name:    entry.Name,
+				Path:    projectTargetDisplayPath(entry),
+				Mode:    getTargetMode(entry.Mode, ""),
+				Include: entry.Include,
+				Exclude: entry.Exclude,
+			})
+		}
+		output := struct {
+			Targets []targetListJSONItem `json:"targets"`
+		}{Targets: items}
+		return writeJSON(&output)
+	}
 
 	ui.Header("Configured Targets (project)")
 	for _, entry := range targets {

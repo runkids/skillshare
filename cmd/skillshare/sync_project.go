@@ -11,7 +11,7 @@ import (
 	"skillshare/internal/ui"
 )
 
-func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
+func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, []syncTargetResult, error) {
 	start := time.Now()
 	stats := syncLogStats{
 		DryRun:       dryRun,
@@ -21,34 +21,48 @@ func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
 
 	if !projectConfigExists(root) {
 		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return stats, err
+			return stats, nil, err
 		}
 	}
 
 	runtime, err := loadProjectRuntime(root)
 	if err != nil {
-		return stats, err
+		return stats, nil, err
 	}
 	stats.Targets = len(runtime.config.Targets)
 
 	if _, err := os.Stat(runtime.sourcePath); os.IsNotExist(err) {
-		return stats, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
+		return stats, nil, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
 	}
 
-	// Phase 1: Discovery — spinner
-	spinner := ui.StartSpinner("Discovering skills")
-	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(runtime.sourcePath)
-	if discoverErr != nil {
-		spinner.Fail("Discovery failed")
-		return stats, discoverErr
+	// Phase 1: Discovery
+	var discoveredSkills []sync.DiscoveredSkill
+	if jsonOutput {
+		fmt.Fprintf(os.Stderr, "Discovering skills...\n")
+		var discoverErr error
+		discoveredSkills, discoverErr = sync.DiscoverSourceSkills(runtime.sourcePath)
+		if discoverErr != nil {
+			return stats, nil, discoverErr
+		}
+		fmt.Fprintf(os.Stderr, "Discovered %d skills\n", len(discoveredSkills))
+	} else {
+		spinner := ui.StartSpinner("Discovering skills")
+		var discoverErr error
+		discoveredSkills, discoverErr = sync.DiscoverSourceSkills(runtime.sourcePath)
+		if discoverErr != nil {
+			spinner.Fail("Discovery failed")
+			return stats, nil, discoverErr
+		}
+		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
+		reportCollisions(discoveredSkills, runtime.targets)
 	}
-	spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
-	reportCollisions(discoveredSkills, runtime.targets)
 
-	// Phase 2: Per-target sync (parallel)
-	ui.Header("Syncing skills (project)")
-	if dryRun {
-		ui.Warning("Dry run mode - no changes will be made")
+	// Phase 2: Per-target sync
+	if !jsonOutput {
+		ui.Header("Syncing skills (project)")
+		if dryRun {
+			ui.Warning("Dry run mode - no changes will be made")
+		}
 	}
 
 	var entries []syncTargetEntry
@@ -57,7 +71,9 @@ func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
 		name := entry.Name
 		target, ok := runtime.targets[name]
 		if !ok {
-			ui.Error("%s: target not found", name)
+			if !jsonOutput {
+				ui.Error("%s: target not found", name)
+			}
 			notFoundCount++
 			continue
 		}
@@ -68,7 +84,13 @@ func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
 		entries = append(entries, syncTargetEntry{name: name, target: target, mode: mode})
 	}
 
-	results, failedTargets := runParallelSync(entries, runtime.sourcePath, discoveredSkills, dryRun, force)
+	var results []syncTargetResult
+	var failedTargets int
+	if jsonOutput {
+		results, failedTargets = runParallelSyncQuiet(entries, runtime.sourcePath, discoveredSkills, dryRun, force)
+	} else {
+		results, failedTargets = runParallelSync(entries, runtime.sourcePath, discoveredSkills, dryRun, force)
+	}
 	failedTargets += notFoundCount
 
 	var totals syncModeStats
@@ -80,28 +102,32 @@ func cmdSyncProject(root string, dryRun, force bool) (syncLogStats, error) {
 	}
 	stats.Failed = failedTargets
 
-	// Phase 3: Summary
-	ui.SyncSummary(ui.SyncStats{
-		Targets:  len(runtime.config.Targets),
-		Linked:   totals.linked,
-		Local:    totals.local,
-		Updated:  totals.updated,
-		Pruned:   totals.pruned,
-		Duration: time.Since(start),
-	})
+	if !jsonOutput {
+		// Phase 3: Summary
+		ui.SyncSummary(ui.SyncStats{
+			Targets:  len(runtime.config.Targets),
+			Linked:   totals.linked,
+			Local:    totals.local,
+			Updated:  totals.updated,
+			Pruned:   totals.pruned,
+			Duration: time.Since(start),
+		})
+	}
 
 	if failedTargets > 0 {
-		return stats, fmt.Errorf("some targets failed to sync")
+		return stats, results, fmt.Errorf("some targets failed to sync")
 	}
 
 	// Opportunistic cleanup of expired trash items
 	if !dryRun {
 		if n, _ := trash.Cleanup(trash.ProjectTrashDir(root), 0); n > 0 {
-			ui.Info("Cleaned up %d expired trash item(s)", n)
+			if !jsonOutput {
+				ui.Info("Cleaned up %d expired trash item(s)", n)
+			}
 		}
 	}
 
-	return stats, nil
+	return stats, results, nil
 }
 
 func projectTargetDisplayPath(entry config.ProjectTargetEntry) string {

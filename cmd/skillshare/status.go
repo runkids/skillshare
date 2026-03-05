@@ -17,6 +17,44 @@ import (
 	"skillshare/internal/ui"
 )
 
+// statusJSONOutput is the JSON representation for status --json output.
+type statusJSONOutput struct {
+	Source       statusJSONSource       `json:"source"`
+	SkillCount   int                    `json:"skill_count"`
+	TrackedRepos []statusJSONRepo       `json:"tracked_repos"`
+	Targets      []statusJSONTarget     `json:"targets"`
+	Audit        statusJSONAudit        `json:"audit"`
+	Version      string                 `json:"version"`
+}
+
+type statusJSONSource struct {
+	Path     string `json:"path"`
+	Exists   bool   `json:"exists"`
+}
+
+type statusJSONRepo struct {
+	Name       string `json:"name"`
+	SkillCount int    `json:"skill_count"`
+	Dirty      bool   `json:"dirty"`
+}
+
+type statusJSONTarget struct {
+	Name        string   `json:"name"`
+	Path        string   `json:"path"`
+	Mode        string   `json:"mode"`
+	Status      string   `json:"status"`
+	SyncedCount int      `json:"synced_count"`
+	Include     []string `json:"include"`
+	Exclude     []string `json:"exclude"`
+}
+
+type statusJSONAudit struct {
+	Profile   string   `json:"profile"`
+	Threshold string   `json:"threshold"`
+	Dedupe    string   `json:"dedupe"`
+	Analyzers []string `json:"analyzers"`
+}
+
 func cmdStatus(args []string) error {
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
@@ -38,10 +76,9 @@ func cmdStatus(args []string) error {
 
 	applyModeLabel(mode)
 
+	jsonOutput := hasFlag(rest, "--json")
+
 	if mode == modeProject {
-		if len(rest) > 0 {
-			return fmt.Errorf("unexpected arguments: %v", rest)
-		}
 		return cmdStatusProject(cwd)
 	}
 
@@ -50,23 +87,90 @@ func cmdStatus(args []string) error {
 		return err
 	}
 
-	sp := ui.StartSpinner("Discovering skills...")
-	discovered, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
-	if discoverErr != nil {
-		discovered = nil
+	if !jsonOutput {
+		sp := ui.StartSpinner("Discovering skills...")
+		discovered, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
+		if discoverErr != nil {
+			discovered = nil
+		}
+		trackedRepos := extractTrackedRepos(discovered)
+		sp.Stop()
+
+		printSourceStatus(cfg, len(discovered))
+		printTrackedReposStatus(cfg, discovered, trackedRepos)
+		if err := printTargetsStatus(cfg, discovered); err != nil {
+			return err
+		}
+		printAuditStatus(cfg.Audit)
+		checkSkillVersion(cfg)
+		return nil
 	}
+
+	// JSON mode
+	discovered, _ := sync.DiscoverSourceSkills(cfg.Source)
 	trackedRepos := extractTrackedRepos(discovered)
-	sp.Stop()
 
-	printSourceStatus(cfg, len(discovered))
-	printTrackedReposStatus(cfg, discovered, trackedRepos)
-	if err := printTargetsStatus(cfg, discovered); err != nil {
-		return err
+	output := statusJSONOutput{
+		Source: statusJSONSource{
+			Path:   cfg.Source,
+			Exists: dirExists(cfg.Source),
+		},
+		SkillCount: len(discovered),
+		Version:    version,
 	}
-	printAuditStatus(cfg.Audit)
-	checkSkillVersion(cfg)
 
-	return nil
+	// Tracked repos
+	for _, repoName := range trackedRepos {
+		repoPath := filepath.Join(cfg.Source, repoName)
+		skillCount := 0
+		for _, d := range discovered {
+			if d.IsInRepo && strings.HasPrefix(d.RelPath, repoName+"/") {
+				skillCount++
+			}
+		}
+		dirty, _ := checkRepoDirty(repoPath)
+		output.TrackedRepos = append(output.TrackedRepos, statusJSONRepo{
+			Name:       repoName,
+			SkillCount: skillCount,
+			Dirty:      dirty,
+		})
+	}
+
+	// Targets
+	for name, target := range cfg.Targets {
+		tMode := getTargetMode(target.Mode, cfg.Mode)
+		res := getTargetStatusDetail(target, cfg.Source, tMode)
+		output.Targets = append(output.Targets, statusJSONTarget{
+			Name:        name,
+			Path:        target.Path,
+			Mode:        tMode,
+			Status:      res.statusStr,
+			SyncedCount: res.syncedCount,
+			Include:     target.Include,
+			Exclude:     target.Exclude,
+		})
+	}
+
+	// Audit
+	policy := audit.ResolvePolicy(audit.PolicyInputs{
+		ConfigProfile:   cfg.Audit.Profile,
+		ConfigThreshold: cfg.Audit.BlockThreshold,
+		ConfigDedupe:    cfg.Audit.DedupeMode,
+		ConfigAnalyzers: cfg.Audit.EnabledAnalyzers,
+	})
+	output.Audit = statusJSONAudit{
+		Profile:   string(policy.Profile),
+		Threshold: policy.Threshold,
+		Dedupe:    string(policy.DedupeMode),
+		Analyzers: policy.EnabledAnalyzers,
+	}
+
+	return writeJSON(&output)
+}
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 func printSourceStatus(cfg *config.Config, skillCount int) {

@@ -23,6 +23,28 @@ type syncLogStats struct {
 	ProjectScope bool
 }
 
+// syncJSONOutput is the JSON representation for sync --json output.
+type syncJSONOutput struct {
+	Targets  int                    `json:"targets"`
+	Linked   int                    `json:"linked"`
+	Local    int                    `json:"local"`
+	Updated  int                    `json:"updated"`
+	Pruned   int                    `json:"pruned"`
+	DryRun   bool                   `json:"dry_run"`
+	Duration string                 `json:"duration"`
+	Details  []syncJSONTargetDetail `json:"details"`
+}
+
+type syncJSONTargetDetail struct {
+	Name    string `json:"name"`
+	Mode    string `json:"mode"`
+	Linked  int    `json:"linked"`
+	Local   int    `json:"local"`
+	Updated int    `json:"updated"`
+	Pruned  int    `json:"pruned"`
+	Error   string `json:"error,omitempty"`
+}
+
 // syncModeStats aggregates per-target sync results for UI summary.
 type syncModeStats struct {
 	linked, local, updated, pruned int
@@ -68,93 +90,139 @@ func cmdSync(args []string) error {
 
 	applyModeLabel(mode)
 
-	dryRun, force := parseSyncFlags(rest)
+	dryRun, force, jsonOutput := parseSyncFlags(rest)
 
 	if mode == modeProject {
 		if hasAll {
 			ui.Warning("--all is not supported in project mode (extras are global only)")
 		}
-		stats, err := cmdSyncProject(cwd, dryRun, force)
+		stats, results, err := cmdSyncProject(cwd, dryRun, force, jsonOutput)
 		stats.ProjectScope = true
 		logSyncOp(config.ProjectConfigPath(cwd), stats, start, err)
+		if jsonOutput {
+			return syncOutputJSON(results, dryRun, start, err)
+		}
 		return err
 	}
 
 	cfg, err := config.Load()
 	if err != nil {
+		if jsonOutput {
+			writeJSONError(err)
+			return err
+		}
 		return err
 	}
 
 	// Ensure source exists
 	if _, err := os.Stat(cfg.Source); os.IsNotExist(err) {
+		if jsonOutput {
+			writeJSONError(err)
+		}
 		return fmt.Errorf("source directory does not exist: %s", cfg.Source)
 	}
 
-	// Phase 1: Discovery — spinner
-	spinner := ui.StartSpinner("Discovering skills")
+	// Phase 1: Discovery
+	if !jsonOutput {
+		spinner := ui.StartSpinner("Discovering skills")
+		discoveredSkills, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
+		if discoverErr != nil {
+			spinner.Fail("Discovery failed")
+			return discoverErr
+		}
+		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
+		reportCollisions(discoveredSkills, cfg.Targets)
+
+		// Backup targets before sync (only if not dry-run and there are skills)
+		if !dryRun && len(discoveredSkills) > 0 {
+			fmt.Println()
+			backupTargetsBeforeSync(cfg)
+		}
+
+		// Phase 2: Per-target sync (parallel)
+		ui.Header("Syncing skills")
+		if dryRun {
+			ui.Warning("Dry run mode - no changes will be made")
+		}
+
+		var entries []syncTargetEntry
+		for name, target := range cfg.Targets {
+			entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.Mode, cfg.Mode)})
+		}
+
+		results, failedTargets := runParallelSync(entries, cfg.Source, discoveredSkills, dryRun, force)
+
+		var totals syncModeStats
+		for _, r := range results {
+			totals.linked += r.stats.linked
+			totals.local += r.stats.local
+			totals.updated += r.stats.updated
+			totals.pruned += r.stats.pruned
+		}
+
+		var syncErr error
+		if failedTargets > 0 {
+			syncErr = fmt.Errorf("some targets failed to sync")
+		}
+
+		// Phase 3: Summary
+		ui.SyncSummary(ui.SyncStats{
+			Targets:  len(cfg.Targets),
+			Linked:   totals.linked,
+			Local:    totals.local,
+			Updated:  totals.updated,
+			Pruned:   totals.pruned,
+			Duration: time.Since(start),
+		})
+
+		// Opportunistic cleanup of expired trash items
+		if !dryRun {
+			if n, _ := trash.Cleanup(trash.TrashDir(), 0); n > 0 {
+				ui.Info("Cleaned up %d expired trash item(s)", n)
+			}
+		}
+
+		logSyncOp(config.ConfigPath(), syncLogStats{
+			Targets: len(cfg.Targets),
+			Failed:  failedTargets,
+			DryRun:  dryRun,
+			Force:   force,
+		}, start, syncErr)
+
+		if hasAll {
+			fmt.Println()
+			if extrasErr := cmdSyncExtras(rest); extrasErr != nil {
+				ui.Warning("Extras sync: %v", extrasErr)
+			}
+		}
+
+		return syncErr
+	}
+
+	// JSON mode: suppress all UI output
+	fmt.Fprintf(os.Stderr, "Discovering skills...\n")
 	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
 	if discoverErr != nil {
-		spinner.Fail("Discovery failed")
+		writeJSONError(discoverErr)
 		return discoverErr
 	}
-	spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
-	reportCollisions(discoveredSkills, cfg.Targets)
+	fmt.Fprintf(os.Stderr, "Discovered %d skills\n", len(discoveredSkills))
 
-	// Backup targets before sync (only if not dry-run and there are skills)
+	// Backup targets before sync (same as non-JSON path)
 	if !dryRun && len(discoveredSkills) > 0 {
-		fmt.Println()
 		backupTargetsBeforeSync(cfg)
 	}
 
-	// Phase 2: Per-target sync (parallel)
-	ui.Header("Syncing skills")
-	if dryRun {
-		ui.Warning("Dry run mode - no changes will be made")
-	}
-
-	globalMode := cfg.Mode
-	if globalMode == "" {
-		globalMode = "merge"
-	}
 	var entries []syncTargetEntry
 	for name, target := range cfg.Targets {
-		mode := target.Mode
-		if mode == "" {
-			mode = globalMode
-		}
-		entries = append(entries, syncTargetEntry{name: name, target: target, mode: mode})
+		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.Mode, cfg.Mode)})
 	}
 
-	results, failedTargets := runParallelSync(entries, cfg.Source, discoveredSkills, dryRun, force)
-
-	var totals syncModeStats
-	for _, r := range results {
-		totals.linked += r.stats.linked
-		totals.local += r.stats.local
-		totals.updated += r.stats.updated
-		totals.pruned += r.stats.pruned
-	}
+	results, failedTargets := runParallelSyncQuiet(entries, cfg.Source, discoveredSkills, dryRun, force)
 
 	var syncErr error
 	if failedTargets > 0 {
 		syncErr = fmt.Errorf("some targets failed to sync")
-	}
-
-	// Phase 3: Summary
-	ui.SyncSummary(ui.SyncStats{
-		Targets:  len(cfg.Targets),
-		Linked:   totals.linked,
-		Local:    totals.local,
-		Updated:  totals.updated,
-		Pruned:   totals.pruned,
-		Duration: time.Since(start),
-	})
-
-	// Opportunistic cleanup of expired trash items
-	if !dryRun {
-		if n, _ := trash.Cleanup(trash.TrashDir(), 0); n > 0 {
-			ui.Info("Cleaned up %d expired trash item(s)", n)
-		}
 	}
 
 	logSyncOp(config.ConfigPath(), syncLogStats{
@@ -164,26 +232,21 @@ func cmdSync(args []string) error {
 		Force:   force,
 	}, start, syncErr)
 
-	if hasAll {
-		fmt.Println()
-		if extrasErr := cmdSyncExtras(rest); extrasErr != nil {
-			ui.Warning("Extras sync: %v", extrasErr)
-		}
-	}
-
-	return syncErr
+	return syncOutputJSON(results, dryRun, start, syncErr)
 }
 
-func parseSyncFlags(args []string) (dryRun bool, force bool) {
+func parseSyncFlags(args []string) (dryRun, force, jsonOutput bool) {
 	for _, arg := range args {
 		switch arg {
 		case "--dry-run", "-n":
 			dryRun = true
 		case "--force", "-f":
 			force = true
+		case "--json":
+			jsonOutput = true
 		}
 	}
-	return dryRun, force
+	return dryRun, force, jsonOutput
 }
 
 func logSyncOp(cfgPath string, stats syncLogStats, start time.Time, cmdErr error) {
@@ -206,6 +269,41 @@ func logSyncOp(cfgPath string, stats syncLogStats, start time.Time, cmdErr error
 		e.Message = cmdErr.Error()
 	}
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+}
+
+// syncOutputJSON converts sync results to JSON and writes to stdout.
+func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, syncErr error) error {
+	var totals syncModeStats
+	var details []syncJSONTargetDetail
+	for _, r := range results {
+		totals.linked += r.stats.linked
+		totals.local += r.stats.local
+		totals.updated += r.stats.updated
+		totals.pruned += r.stats.pruned
+		details = append(details, syncJSONTargetDetail{
+			Name:    r.name,
+			Mode:    r.mode,
+			Linked:  r.stats.linked,
+			Local:   r.stats.local,
+			Updated: r.stats.updated,
+			Pruned:  r.stats.pruned,
+			Error:   r.errMsg,
+		})
+	}
+	output := syncJSONOutput{
+		Targets:  len(results),
+		Linked:   totals.linked,
+		Local:    totals.local,
+		Updated:  totals.updated,
+		Pruned:   totals.pruned,
+		DryRun:   dryRun,
+		Duration: formatDuration(start),
+		Details:  details,
+	}
+	if writeErr := writeJSON(&output); writeErr != nil {
+		return writeErr
+	}
+	return syncErr
 }
 
 func backupTargetsBeforeSync(cfg *config.Config) {
