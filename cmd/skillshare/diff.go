@@ -34,13 +34,13 @@ type diffJSONOutput struct {
 }
 
 type diffJSONTarget struct {
-	Name      string          `json:"name"`
-	Mode      string          `json:"mode"`
-	Synced    bool            `json:"synced"`
-	Error     string          `json:"error,omitempty"`
-	Items     []diffJSONItem  `json:"items"`
-	Include   []string        `json:"include"`
-	Exclude   []string        `json:"exclude"`
+	Name    string         `json:"name"`
+	Mode    string         `json:"mode"`
+	Synced  bool           `json:"synced"`
+	Error   string         `json:"error,omitempty"`
+	Items   []diffJSONItem `json:"items"`
+	Include []string       `json:"include"`
+	Exclude []string       `json:"exclude"`
 }
 
 type diffJSONItem struct {
@@ -105,7 +105,7 @@ func cmdDiff(args []string) error {
 
 	var cmdErr error
 	if mode == modeProject {
-		cmdErr = cmdDiffProject(cwd, targetName, opts)
+		cmdErr = cmdDiffProject(cwd, targetName, opts, start)
 	} else {
 		cmdErr = cmdDiffGlobal(targetName, opts, start)
 	}

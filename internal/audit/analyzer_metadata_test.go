@@ -75,12 +75,12 @@ func TestParseFrontmatterNameDesc(t *testing.T) {
 
 func TestCheckPublisherMismatch(t *testing.T) {
 	tests := []struct {
-		name     string
-		skillN   string
-		desc     string
-		repoURL  string
-		wantNil  bool
-		wantSev  string
+		name    string
+		skillN  string
+		desc    string
+		repoURL string
+		wantNil bool
+		wantSev string
 	}{
 		{
 			name:    "mismatch: claims Acme but from random-user",

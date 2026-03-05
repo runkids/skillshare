@@ -12,7 +12,7 @@
   ```bash
   skillshare status --json                          # overview as JSON
   skillshare list --json | jq '.[].name'            # extract skill names
-  skillshare sync --json | jq '.errors'             # check sync errors
+  skillshare sync --json | jq '.details'             # per-target sync details
   skillshare install github.com/user/repo --json    # non-interactive install
   ```
   - For mutating commands, `--json` implies `--force` (skips interactive prompts)
