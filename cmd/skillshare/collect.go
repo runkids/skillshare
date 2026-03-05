@@ -128,8 +128,6 @@ func cmdCollect(args []string) error {
 	if !jsonOutput {
 		ui.Header(ui.WithModeLabel("Collect"))
 		sp = ui.StartSpinner("Scanning for local skills...")
-	} else {
-		fmt.Fprintf(os.Stderr, "Scanning for local skills...\n")
 	}
 
 	allLocalSkills := collectLocalSkills(targets, cfg.Source)
@@ -137,8 +135,6 @@ func cmdCollect(args []string) error {
 	if len(allLocalSkills) == 0 {
 		if sp != nil {
 			sp.Success("No local skills found")
-		} else {
-			fmt.Fprintf(os.Stderr, "No local skills found\n")
 		}
 		if jsonOutput {
 			return collectOutputJSON(nil, dryRun, start, nil)
@@ -149,8 +145,6 @@ func cmdCollect(args []string) error {
 	if sp != nil {
 		sp.Success(fmt.Sprintf("Found %d local skill(s)", len(allLocalSkills)))
 		displayLocalSkills(allLocalSkills)
-	} else {
-		fmt.Fprintf(os.Stderr, "Found %d local skill(s)\n", len(allLocalSkills))
 	}
 
 	if dryRun {

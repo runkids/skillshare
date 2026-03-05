@@ -9,7 +9,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
-## [0.16.12] - 2026-03-05
+## [0.16.12] - 2026-03-06
 
 ### New Features
 
@@ -21,12 +21,24 @@ All notable changes to skillshare are documented here. For the full commit histo
   ```bash
   skillshare status --json                          # overview as JSON
   skillshare list --json | jq '.[].name'            # extract skill names
-  skillshare sync --json | jq '.errors'             # check sync errors
+  skillshare sync --json | jq '.details'            # per-target sync details
   skillshare install github.com/user/repo --json    # non-interactive install
   ```
   - For mutating commands, `--json` implies `--force` (skips interactive prompts)
-  - TUI and spinners are suppressed; progress goes to stderr, JSON to stdout
+  - Fully silent: no spinners, no stderr progress — only pure JSON on stdout
   - Previously supported: `audit --format json`, `log --json`, `check --json`, `list --json`
+- **`status --project --json`** — project-mode status now supports `--json` output
+
+### Bug Fixes
+
+- Fixed `--json` mode leaking spinner and progress text to stderr, breaking `2>&1 | jq .` pipelines
+- Fixed non-zero exit codes being swallowed in `--json` error paths
+- Fixed `status --json` showing hardcoded analyzer list instead of actual active analyzers
+- Fixed argument validation being skipped in `status --project` mode
+
+### Performance
+
+- **Parallelized git dirty checks** — `status --json` now runs git status checks concurrently across tracked repos
 
 ## [0.16.11] - 2026-03-05
 

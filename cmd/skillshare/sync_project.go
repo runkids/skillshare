@@ -39,8 +39,6 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 	var spinner *ui.Spinner
 	if !jsonOutput {
 		spinner = ui.StartSpinner("Discovering skills")
-	} else {
-		fmt.Fprintf(os.Stderr, "Discovering skills...\n")
 	}
 	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(runtime.sourcePath)
 	if discoverErr != nil {
@@ -52,8 +50,6 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 	if spinner != nil {
 		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
 		reportCollisions(discoveredSkills, runtime.targets)
-	} else {
-		fmt.Fprintf(os.Stderr, "Discovered %d skills\n", len(discoveredSkills))
 	}
 
 	// Phase 2: Per-target sync

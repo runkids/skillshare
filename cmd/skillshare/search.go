@@ -126,13 +126,6 @@ func cmdSearch(args []string) error {
 }
 
 func searchJSON(query string, limit int, indexURL string) error {
-	// Show progress on stderr (so JSON output stays clean on stdout)
-	if query == "" {
-		fmt.Fprintf(os.Stderr, "Browsing popular skills...\n")
-	} else {
-		fmt.Fprintf(os.Stderr, "Searching for '%s'...\n", query)
-	}
-
 	var results []search.SearchResult
 	var err error
 	if indexURL != "" {
@@ -146,8 +139,6 @@ func searchJSON(query string, limit int, indexURL string) error {
 		fmt.Println(string(errJSON))
 		return nil
 	}
-
-	fmt.Fprintf(os.Stderr, "Found %d result(s)\n", len(results))
 
 	output, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {

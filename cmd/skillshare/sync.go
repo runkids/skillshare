@@ -126,8 +126,6 @@ func cmdSync(args []string) error {
 	var spinner *ui.Spinner
 	if !jsonOutput {
 		spinner = ui.StartSpinner("Discovering skills")
-	} else {
-		fmt.Fprintf(os.Stderr, "Discovering skills...\n")
 	}
 	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
 	if discoverErr != nil {
@@ -142,8 +140,6 @@ func cmdSync(args []string) error {
 	if spinner != nil {
 		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
 		reportCollisions(discoveredSkills, cfg.Targets)
-	} else {
-		fmt.Fprintf(os.Stderr, "Discovered %d skills\n", len(discoveredSkills))
 	}
 
 	// Backup targets before sync (only if not dry-run and there are skills)
