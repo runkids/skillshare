@@ -305,15 +305,31 @@ func cmdInstall(args []string) error {
 
 	// In JSON mode, redirect all UI output to stderr early so the
 	// logo, spinner, step, and handler output don't corrupt stdout.
+	var restoreJSONUI func()
+	restoreJSONUIIfNeeded := func() {
+		if restoreJSONUI != nil {
+			restoreJSONUI()
+			restoreJSONUI = nil
+		}
+	}
 	if parsed.jsonOutput {
-		restoreUI := suppressUIToDevnull()
-		defer restoreUI()
+		restoreJSONUI = suppressUIToDevnull()
+	}
+	defer restoreJSONUIIfNeeded()
+
+	jsonWriteError := func(err error) error {
+		restoreJSONUIIfNeeded()
+		return writeJSONError(err)
+	}
+	jsonWriteResult := func(summary installLogSummary, cmdErr error) error {
+		restoreJSONUIIfNeeded()
+		return installOutputJSON(summary, start, cmdErr)
 	}
 
 	cfg, err := config.Load()
 	if err != nil {
 		if parsed.jsonOutput {
-			return writeJSONError(err)
+			return jsonWriteError(err)
 		}
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -326,7 +342,7 @@ func cmdInstall(args []string) error {
 		summary, err := installFromGlobalConfig(cfg, parsed.opts)
 		logInstallOp(config.ConfigPath(), rest, start, err, summary)
 		if parsed.jsonOutput {
-			return installOutputJSON(summary, start, err)
+			return jsonWriteResult(summary, err)
 		}
 		return err
 	}
@@ -338,7 +354,7 @@ func cmdInstall(args []string) error {
 			Mode:   "global",
 		})
 		if parsed.jsonOutput {
-			return writeJSONError(err)
+			return jsonWriteError(err)
 		}
 		return err
 	}
@@ -373,7 +389,7 @@ func cmdInstall(args []string) error {
 		}
 		logInstallOp(config.ConfigPath(), rest, start, err, summary)
 		if parsed.jsonOutput {
-			return installOutputJSON(summary, start, err)
+			return jsonWriteResult(summary, err)
 		}
 		return err
 	}
@@ -395,7 +411,7 @@ func cmdInstall(args []string) error {
 	}
 	logInstallOp(config.ConfigPath(), rest, start, err, summary)
 	if parsed.jsonOutput {
-		return installOutputJSON(summary, start, err)
+		return jsonWriteResult(summary, err)
 	}
 	return err
 }

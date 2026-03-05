@@ -66,22 +66,8 @@ func cmdStatusProjectJSON(root string) error {
 		Version:    version,
 	}
 
-	// Tracked repos
-	for _, repoName := range trackedRepos {
-		repoPath := filepath.Join(runtime.sourcePath, repoName)
-		skillCount := 0
-		for _, d := range discovered {
-			if d.IsInRepo && strings.HasPrefix(d.RelPath, repoName+"/") {
-				skillCount++
-			}
-		}
-		dirty, _ := git.IsDirty(repoPath)
-		output.TrackedRepos = append(output.TrackedRepos, statusJSONRepo{
-			Name:       repoName,
-			SkillCount: skillCount,
-			Dirty:      dirty,
-		})
-	}
+	// Tracked repos (parallel dirty checks)
+	output.TrackedRepos = buildTrackedRepoJSON(runtime.sourcePath, trackedRepos, discovered)
 
 	// Targets
 	for _, entry := range runtime.config.Targets {

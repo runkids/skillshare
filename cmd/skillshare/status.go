@@ -8,11 +8,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	gosync "sync"
 	"time"
 
 	"skillshare/internal/audit"
-	"skillshare/internal/git"
 	"skillshare/internal/config"
+	"skillshare/internal/git"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
@@ -128,22 +129,8 @@ func cmdStatus(args []string) error {
 		Version:    version,
 	}
 
-	// Tracked repos
-	for _, repoName := range trackedRepos {
-		repoPath := filepath.Join(cfg.Source, repoName)
-		skillCount := 0
-		for _, d := range discovered {
-			if d.IsInRepo && strings.HasPrefix(d.RelPath, repoName+"/") {
-				skillCount++
-			}
-		}
-		dirty, _ := git.IsDirty(repoPath)
-		output.TrackedRepos = append(output.TrackedRepos, statusJSONRepo{
-			Name:       repoName,
-			SkillCount: skillCount,
-			Dirty:      dirty,
-		})
-	}
+	// Tracked repos (parallel dirty checks)
+	output.TrackedRepos = buildTrackedRepoJSON(cfg.Source, trackedRepos, discovered)
 
 	// Targets
 	for name, target := range cfg.Targets {
@@ -242,6 +229,41 @@ func extractTrackedRepos(discovered []sync.DiscoveredSkill) []string {
 	}
 	sort.Strings(repos)
 	return repos
+}
+
+// buildTrackedRepoJSON builds statusJSONRepo entries with parallel git.IsDirty checks.
+func buildTrackedRepoJSON(sourcePath string, trackedRepos []string, discovered []sync.DiscoveredSkill) []statusJSONRepo {
+	results := make([]statusJSONRepo, len(trackedRepos))
+
+	// Count skills per repo (single pass)
+	repoSkillCount := make(map[string]int, len(trackedRepos))
+	for _, d := range discovered {
+		if !d.IsInRepo {
+			continue
+		}
+		idx := strings.Index(d.RelPath, "/")
+		if idx > 0 {
+			repoSkillCount[d.RelPath[:idx]]++
+		}
+	}
+
+	// Parallel git.IsDirty checks
+	var wg gosync.WaitGroup
+	for i, repoName := range trackedRepos {
+		wg.Add(1)
+		go func(idx int, name string) {
+			defer wg.Done()
+			repoPath := filepath.Join(sourcePath, name)
+			dirty, _ := git.IsDirty(repoPath)
+			results[idx] = statusJSONRepo{
+				Name:       name,
+				SkillCount: repoSkillCount[name],
+				Dirty:      dirty,
+			}
+		}(i, repoName)
+	}
+	wg.Wait()
+	return results
 }
 
 // targetStatusResult bundles status detail with synced count to avoid

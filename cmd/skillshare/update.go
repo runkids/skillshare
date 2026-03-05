@@ -167,9 +167,25 @@ func cmdUpdate(args []string) error {
 
 	// In JSON mode, redirect all UI output to stderr early so the
 	// header, step, spinner, and handler output don't corrupt stdout.
+	var restoreJSONUI func()
+	restoreJSONUIIfNeeded := func() {
+		if restoreJSONUI != nil {
+			restoreJSONUI()
+			restoreJSONUI = nil
+		}
+	}
 	if opts.jsonOutput {
-		restoreUI := suppressUIToDevnull()
-		defer restoreUI()
+		restoreJSONUI = suppressUIToDevnull()
+	}
+	defer restoreJSONUIIfNeeded()
+
+	jsonWriteError := func(err error) error {
+		restoreJSONUIIfNeeded()
+		return writeJSONError(err)
+	}
+	jsonWriteResult := func(result *updateResult, cmdErr error) error {
+		restoreJSONUIIfNeeded()
+		return updateOutputJSON(result, opts.dryRun, start, cmdErr)
 	}
 
 	ui.Header(ui.WithModeLabel("Updating"))
@@ -224,7 +240,7 @@ func cmdUpdate(args []string) error {
 		scanSpinner.Stop()
 		if err != nil {
 			if opts.jsonOutput {
-				return writeJSONError(err)
+				return jsonWriteError(err)
 			}
 			return fmt.Errorf("failed to scan skills: %w", err)
 		}
@@ -320,7 +336,7 @@ func cmdUpdate(args []string) error {
 	if len(targets) == 0 {
 		if opts.all {
 			if opts.jsonOutput {
-				return updateOutputJSON(nil, opts.dryRun, start, nil)
+				return jsonWriteResult(nil, nil)
 			}
 			ui.UpdateSummary(ui.UpdateStats{})
 			return nil
@@ -330,7 +346,7 @@ func cmdUpdate(args []string) error {
 			noTargetsErr = fmt.Errorf("no skills found")
 		}
 		if opts.jsonOutput {
-			return writeJSONError(noTargetsErr)
+			return jsonWriteError(noTargetsErr)
 		}
 		return noTargetsErr
 	}
@@ -358,7 +374,7 @@ func cmdUpdate(args []string) error {
 		}
 		logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, updateErr, &r)
 		if opts.jsonOutput {
-			return updateOutputJSON(&r, opts.dryRun, start, updateErr)
+			return jsonWriteResult(&r, updateErr)
 		}
 		return updateErr
 	}
@@ -383,7 +399,7 @@ func cmdUpdate(args []string) error {
 	logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, batchErr, &batchResult)
 
 	if opts.jsonOutput {
-		return updateOutputJSON(&batchResult, opts.dryRun, start, batchErr)
+		return jsonWriteResult(&batchResult, batchErr)
 	}
 	return batchErr
 }

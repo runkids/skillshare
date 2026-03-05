@@ -93,7 +93,7 @@ func cmdSync(args []string) error {
 	dryRun, force, jsonOutput := parseSyncFlags(rest)
 
 	if mode == modeProject {
-		if hasAll {
+		if hasAll && !jsonOutput {
 			ui.Warning("--all is not supported in project mode (extras are global only)")
 		}
 		stats, results, err := cmdSyncProject(cwd, dryRun, force, jsonOutput)

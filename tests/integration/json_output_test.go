@@ -666,6 +666,23 @@ func TestSync_JSON_All_PureJSON(t *testing.T) {
 	assertPureJSON(t, stdout)
 }
 
+func TestSync_Project_JSON_All_PureJSON(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectDir := sb.Root + "/sync-project"
+	sb.WriteFile(projectDir+"/.skillshare/config.yaml",
+		"targets:\n  - name: claude\n    path: "+projectDir+"/.claude/commands\n")
+	sb.WriteFile(projectDir+"/.claude/commands/.gitkeep", "")
+	sb.WriteFile(projectDir+"/.skillshare/skills/alpha/SKILL.md", "# Alpha")
+
+	result := sb.RunCLIInDir(projectDir, "sync", "--project", "--all", "--json")
+	result.AssertSuccess(t)
+
+	stdout := strings.TrimSpace(result.Stdout)
+	assertPureJSON(t, stdout)
+}
+
 // --- test helpers ---
 
 // assertPureJSON verifies that s is a valid JSON object with no leading/trailing noise.
