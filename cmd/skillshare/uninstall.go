@@ -571,6 +571,9 @@ func cmdUninstall(args []string) error {
 
 	cfg, err := config.Load()
 	if err != nil {
+		if opts.jsonOutput {
+			return writeJSONError(fmt.Errorf("failed to load config: %w", err))
+		}
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
@@ -589,13 +592,21 @@ func cmdUninstall(args []string) error {
 			if sp != nil {
 				sp.Fail("Discovery failed")
 			}
-			return fmt.Errorf("failed to discover skills: %w", err)
+			discoverErr := fmt.Errorf("failed to discover skills: %w", err)
+			if opts.jsonOutput {
+				return writeJSONError(discoverErr)
+			}
+			return discoverErr
 		}
 		if sp != nil {
 			sp.Success(fmt.Sprintf("Found %d skills", len(discovered)))
 		}
 		if len(discovered) == 0 {
-			return fmt.Errorf("no skills found in source")
+			noSkillsErr := fmt.Errorf("no skills found in source")
+			if opts.jsonOutput {
+				return writeJSONError(noSkillsErr)
+			}
+			return noSkillsErr
 		}
 		// Collect unique top-level directories to avoid nested skill duplication
 		topDirs := map[string]bool{}
@@ -626,8 +637,8 @@ func cmdUninstall(args []string) error {
 				continue
 			}
 			if !opts.jsonOutput {
-			ui.Info("Pattern '%s' matched %d item(s)", name, len(globMatches))
-		}
+				ui.Info("Pattern '%s' matched %d item(s)", name, len(globMatches))
+			}
 			for _, t := range globMatches {
 				if !seen[t.path] {
 					seen[t.path] = true
@@ -671,17 +682,27 @@ func cmdUninstall(args []string) error {
 	// Shell glob detection: if positional args look like shell-expanded filenames,
 	// intercept early and suggest --all instead
 	if !opts.all && looksLikeShellGlob(opts.skillNames, resolveWarnings) {
+		globErr := fmt.Errorf("shell glob expansion detected")
+		if opts.jsonOutput {
+			return writeJSONError(globErr)
+		}
 		ui.Warning("It looks like '*' was expanded by your shell into file names.")
 		ui.Info("To uninstall all skills, use: skillshare uninstall --all")
-		return fmt.Errorf("shell glob expansion detected")
+		return globErr
 	}
 
 	// --- Phase 2: VALIDATE ---
 	if len(targets) == 0 {
+		var noTargetsErr error
 		if len(resolveWarnings) > 0 {
-			return fmt.Errorf("no valid skills to uninstall")
+			noTargetsErr = fmt.Errorf("no valid skills to uninstall")
+		} else {
+			noTargetsErr = fmt.Errorf("no skills found")
 		}
-		return fmt.Errorf("no skills found")
+		if opts.jsonOutput {
+			return writeJSONError(noTargetsErr)
+		}
+		return noTargetsErr
 	}
 
 	// --- Phase 3: DISPLAY ---
@@ -809,7 +830,11 @@ func cmdUninstall(args []string) error {
 		}
 
 		if len(targets) == 0 {
-			return fmt.Errorf("no skills to uninstall after pre-flight checks")
+			preflightErr := fmt.Errorf("no skills to uninstall after pre-flight checks")
+			if opts.jsonOutput {
+				return writeJSONError(preflightErr)
+			}
+			return preflightErr
 		}
 	}
 
@@ -1087,7 +1112,10 @@ func uninstallOutputJSON(removed, failed []string, skipped int, dryRun bool, sta
 	if writeErr := writeJSON(&output); writeErr != nil {
 		return writeErr
 	}
-	return uninstallErr
+	if uninstallErr != nil {
+		return &jsonSilentError{cause: uninstallErr}
+	}
+	return nil
 }
 
 // uninstallOpNames parses raw args to build a clean oplog names list,

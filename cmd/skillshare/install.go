@@ -24,12 +24,12 @@ type installArgs struct {
 // installJSONOutput is the JSON representation for install --json output.
 type installJSONOutput struct {
 	Source   string   `json:"source"`
-	Tracked bool     `json:"tracked"`
-	DryRun  bool     `json:"dry_run"`
-	Into    string   `json:"into,omitempty"`
-	Skills  []string `json:"skills"`
-	Failed  []string `json:"failed"`
-	Duration string  `json:"duration"`
+	Tracked  bool     `json:"tracked"`
+	DryRun   bool     `json:"dry_run"`
+	Into     string   `json:"into,omitempty"`
+	Skills   []string `json:"skills"`
+	Failed   []string `json:"failed"`
+	Duration string   `json:"duration"`
 }
 
 type installLogSummary struct {
@@ -303,9 +303,17 @@ func cmdInstall(args []string) error {
 		}
 	}
 
+	// In JSON mode, redirect all UI output to stderr early so the
+	// logo, spinner, step, and handler output don't corrupt stdout.
+	var restoreUI func()
+	if parsed.jsonOutput {
+		restoreUI = suppressUIToStderr()
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		if parsed.jsonOutput {
+			restoreUI()
 			return writeJSONError(err)
 		}
 		return fmt.Errorf("failed to load config: %w", err)
@@ -319,6 +327,7 @@ func cmdInstall(args []string) error {
 		summary, err := installFromGlobalConfig(cfg, parsed.opts)
 		logInstallOp(config.ConfigPath(), rest, start, err, summary)
 		if parsed.jsonOutput {
+			restoreUI()
 			return installOutputJSON(summary, start, err)
 		}
 		return err
@@ -331,6 +340,7 @@ func cmdInstall(args []string) error {
 			Mode:   "global",
 		})
 		if parsed.jsonOutput {
+			restoreUI()
 			return writeJSONError(err)
 		}
 		return err
@@ -366,6 +376,7 @@ func cmdInstall(args []string) error {
 		}
 		logInstallOp(config.ConfigPath(), rest, start, err, summary)
 		if parsed.jsonOutput {
+			restoreUI()
 			return installOutputJSON(summary, start, err)
 		}
 		return err
@@ -388,6 +399,7 @@ func cmdInstall(args []string) error {
 	}
 	logInstallOp(config.ConfigPath(), rest, start, err, summary)
 	if parsed.jsonOutput {
+		restoreUI()
 		return installOutputJSON(summary, start, err)
 	}
 	return err
@@ -397,17 +409,20 @@ func cmdInstall(args []string) error {
 func installOutputJSON(summary installLogSummary, start time.Time, installErr error) error {
 	output := installJSONOutput{
 		Source:   summary.Source,
-		Tracked: summary.Tracked,
-		DryRun:  summary.DryRun,
-		Into:    summary.Into,
-		Skills:  summary.InstalledSkills,
-		Failed:  summary.FailedSkills,
+		Tracked:  summary.Tracked,
+		DryRun:   summary.DryRun,
+		Into:     summary.Into,
+		Skills:   summary.InstalledSkills,
+		Failed:   summary.FailedSkills,
 		Duration: formatDuration(start),
 	}
 	if writeErr := writeJSON(&output); writeErr != nil {
 		return writeErr
 	}
-	return installErr
+	if installErr != nil {
+		return &jsonSilentError{cause: installErr}
+	}
+	return nil
 }
 
 func logInstallOp(cfgPath string, args []string, start time.Time, cmdErr error, summary installLogSummary) {
