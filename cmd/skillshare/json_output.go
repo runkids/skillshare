@@ -18,16 +18,25 @@ func writeJSON(v any) error {
 	return enc.Encode(v)
 }
 
-// writeJSONError writes a JSON error object to stdout.
-// Used when a command fails but we still need parseable JSON output.
-func writeJSONError(err error) {
+// jsonSilentError is a sentinel error that signals main() to exit with
+// code 1 without printing anything to stdout. The JSON error has already
+// been written by writeJSONError, so main must not add plain-text output.
+type jsonSilentError struct{ cause error }
+
+func (e *jsonSilentError) Error() string { return e.cause.Error() }
+func (e *jsonSilentError) Unwrap() error { return e.cause }
+
+// writeJSONError writes a JSON error object to stdout and returns a
+// jsonSilentError so that main() exits non-zero without extra output.
+func writeJSONError(err error) error {
 	out, merr := json.MarshalIndent(map[string]string{"error": err.Error()}, "", "  ")
 	if merr != nil {
 		fmt.Fprintf(os.Stderr, "json marshal error: %v\n", merr)
 		fmt.Printf("{\"error\": %q}\n", err.Error())
-		return
+	} else {
+		fmt.Println(string(out))
 	}
-	fmt.Println(string(out))
+	return &jsonSilentError{cause: err}
 }
 
 // formatDuration returns a human-readable duration string truncated to milliseconds.

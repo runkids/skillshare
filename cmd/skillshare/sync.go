@@ -108,8 +108,7 @@ func cmdSync(args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		if jsonOutput {
-			writeJSONError(err)
-			return nil
+			return writeJSONError(err)
 		}
 		return err
 	}
@@ -118,8 +117,7 @@ func cmdSync(args []string) error {
 	if _, err := os.Stat(cfg.Source); os.IsNotExist(err) {
 		sourceErr := fmt.Errorf("source directory does not exist: %s", cfg.Source)
 		if jsonOutput {
-			writeJSONError(sourceErr)
-			return nil
+			return writeJSONError(sourceErr)
 		}
 		return sourceErr
 	}
@@ -137,8 +135,7 @@ func cmdSync(args []string) error {
 			spinner.Fail("Discovery failed")
 		}
 		if jsonOutput {
-			writeJSONError(discoverErr)
-			return nil
+			return writeJSONError(discoverErr)
 		}
 		return discoverErr
 	}

@@ -86,6 +86,11 @@ func main() {
 	}
 
 	if err := handler(args); err != nil {
+		// jsonSilentError means JSON output was already written to stdout;
+		// exit non-zero without adding plain-text noise.
+		if _, ok := err.(*jsonSilentError); ok {
+			os.Exit(1)
+		}
 		fmt.Println()
 		ui.Error("%v", err)
 		os.Exit(1)

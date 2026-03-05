@@ -251,6 +251,48 @@ func TestDiff_JSON(t *testing.T) {
 	}
 }
 
+// --- error paths: exit code + valid JSON ---
+
+func TestSync_JSON_ErrorExitsNonZero(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Write config pointing to a non-existent source directory
+	sb.WriteConfig("source: /nonexistent/path\ntargets: {}\n")
+
+	result := sb.RunCLI("sync", "--json")
+	result.AssertFailure(t)
+
+	// stdout must be valid JSON with an "error" field
+	var output map[string]any
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("stdout should be valid JSON on error: %v\nStdout: %s", err, result.Stdout)
+	}
+	if _, ok := output["error"]; !ok {
+		t.Error("expected 'error' field in JSON output")
+	}
+}
+
+func TestInstall_JSON_ErrorExitsNonZero(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// No config file at all — config.Load() will fail
+	// (sandbox has SKILLSHARE_CONFIG pointing to an empty dir)
+
+	result := sb.RunCLI("install", "--json", "nonexistent-repo")
+	result.AssertFailure(t)
+
+	// stdout must be valid JSON with an "error" field
+	var output map[string]any
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("stdout should be valid JSON on error: %v\nStdout: %s", err, result.Stdout)
+	}
+	if _, ok := output["error"]; !ok {
+		t.Error("expected 'error' field in JSON output")
+	}
+}
+
 // --- collect --json ---
 
 func TestCollect_JSON_NoLocalSkills(t *testing.T) {

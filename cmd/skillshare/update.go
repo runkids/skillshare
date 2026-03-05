@@ -153,7 +153,7 @@ func cmdUpdate(args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		if opts.jsonOutput {
-			writeJSONError(err)
+			return writeJSONError(err)
 		}
 		return err
 	}
@@ -213,7 +213,7 @@ func cmdUpdate(args []string) error {
 		scanSpinner.Stop()
 		if err != nil {
 			if opts.jsonOutput {
-				writeJSONError(err)
+				return writeJSONError(err)
 			}
 			return fmt.Errorf("failed to scan skills: %w", err)
 		}
@@ -319,7 +319,7 @@ func cmdUpdate(args []string) error {
 			noTargetsErr = fmt.Errorf("no skills found")
 		}
 		if opts.jsonOutput {
-			writeJSONError(noTargetsErr)
+			return writeJSONError(noTargetsErr)
 		}
 		return noTargetsErr
 	}

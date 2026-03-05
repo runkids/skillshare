@@ -306,8 +306,7 @@ func cmdInstall(args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		if parsed.jsonOutput {
-			writeJSONError(err)
-			return nil
+			return writeJSONError(err)
 		}
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -332,7 +331,7 @@ func cmdInstall(args []string) error {
 			Mode:   "global",
 		})
 		if parsed.jsonOutput {
-			writeJSONError(err)
+			return writeJSONError(err)
 		}
 		return err
 	}
