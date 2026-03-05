@@ -10,6 +10,7 @@ import (
 	gosync "sync"
 
 	"skillshare/internal/config"
+	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
@@ -435,7 +436,7 @@ func displayTrackedRepos(trackedRepos []string, discovered []sync.DiscoveredSkil
 			defer wg.Done()
 			defer func() { <-sem }()
 			repoPath := filepath.Join(sourcePath, name)
-			dirty, _ := isRepoDirty(repoPath)
+			dirty, _ := git.IsDirty(repoPath)
 			results[idx] = repoStatus{dirty: dirty}
 		}(i, repoName)
 	}

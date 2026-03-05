@@ -28,6 +28,18 @@ type jsonSilentError struct{ cause error }
 func (e *jsonSilentError) Error() string { return e.cause.Error() }
 func (e *jsonSilentError) Unwrap() error { return e.cause }
 
+// writeJSONResult writes v as JSON, then wraps cmdErr (if non-nil) in
+// jsonSilentError so that main() exits non-zero without extra output.
+func writeJSONResult(v any, cmdErr error) error {
+	if writeErr := writeJSON(v); writeErr != nil {
+		return writeErr
+	}
+	if cmdErr != nil {
+		return &jsonSilentError{cause: cmdErr}
+	}
+	return nil
+}
+
 // writeJSONError writes a JSON error object to stdout and returns a
 // jsonSilentError so that main() exits non-zero without extra output.
 func writeJSONError(err error) error {
@@ -36,7 +48,8 @@ func writeJSONError(err error) error {
 		fmt.Fprintf(os.Stderr, "json marshal error: %v\n", merr)
 		fmt.Printf("{\"error\": %q}\n", err.Error())
 	} else {
-		fmt.Println(string(out))
+		os.Stdout.Write(out)    //nolint:errcheck
+		os.Stdout.Write([]byte("\n")) //nolint:errcheck
 	}
 	return &jsonSilentError{cause: err}
 }

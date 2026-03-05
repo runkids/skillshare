@@ -266,26 +266,15 @@ func collectOutputJSON(result *sync.PullResult, dryRun bool, start time.Time, co
 		DryRun:   dryRun,
 		Duration: formatDuration(start),
 	}
+	output.Failed = make(map[string]string)
 	if result != nil {
 		output.Pulled = result.Pulled
 		output.Skipped = result.Skipped
-		if len(result.Failed) > 0 {
-			output.Failed = make(map[string]string, len(result.Failed))
-			for k, v := range result.Failed {
-				output.Failed[k] = v.Error()
-			}
+		for k, v := range result.Failed {
+			output.Failed[k] = v.Error()
 		}
 	}
-	if output.Failed == nil {
-		output.Failed = make(map[string]string)
-	}
-	if writeErr := writeJSON(&output); writeErr != nil {
-		return writeErr
-	}
-	if collectErr != nil {
-		return &jsonSilentError{cause: collectErr}
-	}
-	return nil
+	return writeJSONResult(&output, collectErr)
 }
 
 func showCollectNextSteps(source string) {

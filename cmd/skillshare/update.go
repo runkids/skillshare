@@ -167,9 +167,9 @@ func cmdUpdate(args []string) error {
 
 	// In JSON mode, redirect all UI output to stderr early so the
 	// header, step, spinner, and handler output don't corrupt stdout.
-	var restoreUI func()
 	if opts.jsonOutput {
-		restoreUI = suppressUIToDevnull()
+		restoreUI := suppressUIToDevnull()
+		defer restoreUI()
 	}
 
 	ui.Header(ui.WithModeLabel("Updating"))
@@ -358,7 +358,6 @@ func cmdUpdate(args []string) error {
 		}
 		logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, updateErr, &r)
 		if opts.jsonOutput {
-			restoreUI()
 			return updateOutputJSON(&r, opts.dryRun, start, updateErr)
 		}
 		return updateErr
@@ -384,7 +383,6 @@ func cmdUpdate(args []string) error {
 	logUpdateOp(config.ConfigPath(), opNames, opts, "global", start, batchErr, &batchResult)
 
 	if opts.jsonOutput {
-		restoreUI()
 		return updateOutputJSON(&batchResult, opts.dryRun, start, batchErr)
 	}
 	return batchErr
@@ -402,13 +400,7 @@ func updateOutputJSON(result *updateResult, dryRun bool, start time.Time, update
 		output.SecurityFailed = result.securityFailed
 		output.Pruned = result.pruned
 	}
-	if writeErr := writeJSON(&output); writeErr != nil {
-		return writeErr
-	}
-	if updateErr != nil {
-		return &jsonSilentError{cause: updateErr}
-	}
-	return nil
+	return writeJSONResult(&output, updateErr)
 }
 
 func logUpdateOp(cfgPath string, names []string, opts *updateOptions, mode string, start time.Time, cmdErr error, result *updateResult) {

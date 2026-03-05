@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	gosync "sync"
@@ -13,6 +12,7 @@ import (
 	"github.com/pterm/pterm"
 
 	"skillshare/internal/config"
+	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/oplog"
 	"skillshare/internal/sync"
@@ -427,7 +427,7 @@ func checkTrackedRepoStatus(target *uninstallTarget, force bool) error {
 		return nil
 	}
 
-	isDirty, err := isRepoDirty(target.path)
+	isDirty, err := git.IsDirty(target.path)
 	if err != nil {
 		ui.Warning("Could not check git status: %v", err)
 		return nil
@@ -776,7 +776,7 @@ func cmdUninstall(args []string) error {
 				go func(slot int, t *uninstallTarget) {
 					defer wg.Done()
 					defer func() { <-sem }()
-					dirty, err := isRepoDirty(t.path)
+					dirty, err := git.IsDirty(t.path)
 					results[slot] = dirtyResult{dirty: dirty, err: err}
 				}(j, targets[idx])
 			}
@@ -1109,13 +1109,7 @@ func uninstallOutputJSON(removed, failed []string, skipped int, dryRun bool, sta
 		DryRun:   dryRun,
 		Duration: formatDuration(start),
 	}
-	if writeErr := writeJSON(&output); writeErr != nil {
-		return writeErr
-	}
-	if uninstallErr != nil {
-		return &jsonSilentError{cause: uninstallErr}
-	}
-	return nil
+	return writeJSONResult(&output, uninstallErr)
 }
 
 // uninstallOpNames parses raw args to build a clean oplog names list,
@@ -1156,16 +1150,6 @@ func logUninstallOp(cfgPath string, names []string, succeeded int, start time.Ti
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
-// isRepoDirty checks if a git repository has uncommitted changes
-func isRepoDirty(repoPath string) (bool, error) {
-	cmd := exec.Command("git", "status", "--porcelain")
-	cmd.Dir = repoPath
-	output, err := cmd.Output()
-	if err != nil {
-		return false, err
-	}
-	return len(strings.TrimSpace(string(output))) > 0, nil
-}
 
 func printUninstallHelp() {
 	fmt.Println(`Usage: skillshare uninstall <name>... [options]

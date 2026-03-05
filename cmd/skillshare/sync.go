@@ -290,13 +290,7 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, sy
 		Duration: formatDuration(start),
 		Details:  details,
 	}
-	if writeErr := writeJSON(&output); writeErr != nil {
-		return writeErr
-	}
-	if syncErr != nil {
-		return &jsonSilentError{cause: syncErr}
-	}
-	return nil
+	return writeJSONResult(&output, syncErr)
 }
 
 func backupTargetsBeforeSync(cfg *config.Config) {

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/git"
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
@@ -136,7 +137,7 @@ func cmdStatus(args []string) error {
 				skillCount++
 			}
 		}
-		dirty, _ := isRepoDirty(repoPath)
+		dirty, _ := git.IsDirty(repoPath)
 		output.TrackedRepos = append(output.TrackedRepos, statusJSONRepo{
 			Name:       repoName,
 			SkillCount: skillCount,
@@ -170,7 +171,7 @@ func cmdStatus(args []string) error {
 		Profile:   string(policy.Profile),
 		Threshold: policy.Threshold,
 		Dedupe:    string(policy.DedupeMode),
-		Analyzers: policy.EnabledAnalyzers,
+		Analyzers: policy.EffectiveAnalyzers(),
 	}
 
 	return writeJSON(&output)
@@ -210,7 +211,7 @@ func printTrackedReposStatus(cfg *config.Config, discovered []sync.DiscoveredSki
 
 		statusStr := "up-to-date"
 		statusIcon := "✓"
-		if isDirty, _ := isRepoDirty(repoPath); isDirty {
+		if isDirty, _ := git.IsDirty(repoPath); isDirty {
 			statusStr = "has uncommitted changes"
 			statusIcon = "!"
 		}

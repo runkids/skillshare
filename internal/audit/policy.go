@@ -66,11 +66,7 @@ func ResolvePolicy(in PolicyInputs) Policy {
 	if len(analyzers) == 0 {
 		analyzers = in.ConfigAnalyzers
 	}
-	// When no explicit filter is set, report all built-in analyzers
-	// so callers (e.g. status --json) see the actual active set.
-	if len(analyzers) == 0 {
-		analyzers = DefaultRegistry().IDs()
-	}
+	// Keep nil when no explicit filter — nil means "all enabled" for ForPolicy.
 
 	return Policy{
 		Profile:          profile,
@@ -78,6 +74,15 @@ func ResolvePolicy(in PolicyInputs) Policy {
 		DedupeMode:       dedupe,
 		EnabledAnalyzers: analyzers,
 	}
+}
+
+// EffectiveAnalyzers returns the active analyzer IDs.
+// If EnabledAnalyzers is nil (meaning "all"), it returns the full built-in set.
+func (p Policy) EffectiveAnalyzers() []string {
+	if len(p.EnabledAnalyzers) > 0 {
+		return p.EnabledAnalyzers
+	}
+	return DefaultRegistry().IDs()
 }
 
 func resolveProfile(cli, cfg string) Profile {
