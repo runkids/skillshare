@@ -57,6 +57,19 @@ func (r *Registry) BundleAnalyzers() []Analyzer {
 	return r.byScope(ScopeBundle)
 }
 
+// IDs returns the unique IDs of all analyzers in the registry.
+func (r *Registry) IDs() []string {
+	seen := make(map[string]bool, len(r.analyzers))
+	var ids []string
+	for _, a := range r.analyzers {
+		if !seen[a.ID()] {
+			seen[a.ID()] = true
+			ids = append(ids, a.ID())
+		}
+	}
+	return ids
+}
+
 // Has returns true if an analyzer with the given ID is in the registry.
 func (r *Registry) Has(id string) bool {
 	for _, a := range r.analyzers {

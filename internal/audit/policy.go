@@ -66,6 +66,11 @@ func ResolvePolicy(in PolicyInputs) Policy {
 	if len(analyzers) == 0 {
 		analyzers = in.ConfigAnalyzers
 	}
+	// When no explicit filter is set, report all built-in analyzers
+	// so callers (e.g. status --json) see the actual active set.
+	if len(analyzers) == 0 {
+		analyzers = DefaultRegistry().IDs()
+	}
 
 	return Policy{
 		Profile:          profile,
