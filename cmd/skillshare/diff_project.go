@@ -3,13 +3,14 @@ package main
 import (
 	"fmt"
 	gosync "sync"
+	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
 
-func cmdDiffProject(root, targetName string, opts diffRenderOpts) error {
+func cmdDiffProject(root, targetName string, opts diffRenderOpts, start time.Time) error {
 	if !projectConfigExists(root) {
 		if err := performProjectInit(root, projectInitOptions{}); err != nil {
 			return err
@@ -21,13 +22,20 @@ func cmdDiffProject(root, targetName string, opts diffRenderOpts) error {
 		return err
 	}
 
-	spinner := ui.StartSpinner("Discovering skills")
+	var spinner *ui.Spinner
+	if !opts.jsonOutput {
+		spinner = ui.StartSpinner("Discovering skills")
+	}
 	discovered, err := sync.DiscoverSourceSkills(runtime.sourcePath)
 	if err != nil {
-		spinner.Fail("Discovery failed")
+		if spinner != nil {
+			spinner.Fail("Discovery failed")
+		}
 		return fmt.Errorf("failed to discover skills: %w", err)
 	}
-	spinner.Success(fmt.Sprintf("Discovered %d skills", len(discovered)))
+	if spinner != nil {
+		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discovered)))
+	}
 
 	targets := make([]config.ProjectTargetEntry, len(runtime.config.Targets))
 	copy(targets, runtime.config.Targets)
@@ -80,7 +88,10 @@ func cmdDiffProject(root, targetName string, opts diffRenderOpts) error {
 	for i, rt := range resolved {
 		names[i] = rt.name
 	}
-	progress := newDiffProgress(names, totalSkills, hasCopyMode)
+	var progress *diffProgress
+	if !opts.jsonOutput {
+		progress = newDiffProgress(names, totalSkills, hasCopyMode)
+	}
 
 	results := make([]targetDiffResult, len(resolved))
 	sem := make(chan struct{}, 8)
@@ -101,6 +112,9 @@ func cmdDiffProject(root, targetName string, opts diffRenderOpts) error {
 
 	progress.stop()
 
+	if opts.jsonOutput {
+		return diffOutputJSON(results, start)
+	}
 	if shouldLaunchTUI(opts.noTUI, nil) && len(results) > 0 {
 		return runDiffTUI(results)
 	}
