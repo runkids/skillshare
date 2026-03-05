@@ -2,34 +2,10 @@ package integration
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
 )
-
-// extractJSON finds the first complete JSON object in a string that may
-// contain non-JSON text (e.g. dry-run messages from internal sync).
-func extractJSON(s string) string {
-	start := strings.Index(s, "{")
-	if start < 0 {
-		return s
-	}
-	// Find matching closing brace
-	depth := 0
-	for i := start; i < len(s); i++ {
-		switch s[i] {
-		case '{':
-			depth++
-		case '}':
-			depth--
-			if depth == 0 {
-				return s[start : i+1]
-			}
-		}
-	}
-	return s[start:]
-}
 
 // --- sync --json ---
 
@@ -77,11 +53,9 @@ func TestSync_JSON_DryRun(t *testing.T) {
 	result := sb.RunCLI("sync", "--json", "--dry-run")
 	result.AssertSuccess(t)
 
-	// Dry-run may include "[dry-run] Would create link..." from internal sync
-	// before the JSON object, so we extract the JSON portion
-	jsonStr := extractJSON(result.Stdout)
+	// stdout should be pure JSON — dry-run messages go to stderr now
 	var output map[string]any
-	if err := json.Unmarshal([]byte(jsonStr), &output); err != nil {
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
 		t.Fatalf("invalid JSON output: %v\nStdout: %q", err, result.Stdout)
 	}
 	if output["dry_run"] != true {
@@ -125,10 +99,9 @@ func TestUninstall_JSON_OutputsValidJSON(t *testing.T) {
 	result := sb.RunCLI("uninstall", "to-remove", "--json")
 	result.AssertSuccess(t)
 
-	// uninstall --json still prints UI output before JSON; extract JSON
-	jsonStr := extractJSON(result.Stdout)
+	// stdout should be pure JSON — UI output is suppressed in JSON mode
 	var output map[string]any
-	if err := json.Unmarshal([]byte(jsonStr), &output); err != nil {
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
 		t.Fatalf("invalid JSON output: %v\nStdout: %s", err, result.Stdout)
 	}
 
@@ -161,9 +134,8 @@ func TestUninstall_JSON_DryRun(t *testing.T) {
 	result := sb.RunCLI("uninstall", "keep-me", "--json", "--dry-run")
 	result.AssertSuccess(t)
 
-	jsonStr := extractJSON(result.Stdout)
 	var output map[string]any
-	if err := json.Unmarshal([]byte(jsonStr), &output); err != nil {
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
 		t.Fatalf("invalid JSON output: %v\nStdout: %q", err, result.Stdout)
 	}
 	if output["dry_run"] != true {
@@ -182,9 +154,8 @@ func TestUninstall_JSON_ImpliesForce(t *testing.T) {
 	result := sb.RunCLI("uninstall", "auto-force", "--json")
 	result.AssertSuccess(t)
 
-	jsonStr := extractJSON(result.Stdout)
 	var output map[string]any
-	if err := json.Unmarshal([]byte(jsonStr), &output); err != nil {
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
 		t.Fatalf("invalid JSON output: %v\nStdout: %s", err, result.Stdout)
 	}
 
@@ -296,9 +267,8 @@ func TestCollect_JSON_NoLocalSkills(t *testing.T) {
 	result := sb.RunCLI("collect", "--json", "--all")
 	result.AssertSuccess(t)
 
-	jsonStr := extractJSON(result.Stdout)
 	var output map[string]any
-	if err := json.Unmarshal([]byte(jsonStr), &output); err != nil {
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
 		t.Fatalf("invalid JSON output: %v\nStdout: %s", err, result.Stdout)
 	}
 

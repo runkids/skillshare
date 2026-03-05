@@ -21,7 +21,12 @@ func writeJSON(v any) error {
 // writeJSONError writes a JSON error object to stdout.
 // Used when a command fails but we still need parseable JSON output.
 func writeJSONError(err error) {
-	out, _ := json.MarshalIndent(map[string]string{"error": err.Error()}, "", "  ")
+	out, merr := json.MarshalIndent(map[string]string{"error": err.Error()}, "", "  ")
+	if merr != nil {
+		fmt.Fprintf(os.Stderr, "json marshal error: %v\n", merr)
+		fmt.Printf("{\"error\": %q}\n", err.Error())
+		return
+	}
 	fmt.Println(string(out))
 }
 

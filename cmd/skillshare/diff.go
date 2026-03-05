@@ -375,21 +375,18 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts, start time.Time) erro
 		return err
 	}
 
-	var discovered []sync.DiscoveredSkill
-	if opts.jsonOutput {
-		var discoverErr error
-		discovered, discoverErr = sync.DiscoverSourceSkills(cfg.Source)
-		if discoverErr != nil {
-			return fmt.Errorf("failed to discover skills: %w", discoverErr)
-		}
-	} else {
-		spinner := ui.StartSpinner("Discovering skills")
-		var discoverErr error
-		discovered, discoverErr = sync.DiscoverSourceSkills(cfg.Source)
-		if discoverErr != nil {
+	var spinner *ui.Spinner
+	if !opts.jsonOutput {
+		spinner = ui.StartSpinner("Discovering skills")
+	}
+	discovered, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
+	if discoverErr != nil {
+		if spinner != nil {
 			spinner.Fail("Discovery failed")
-			return fmt.Errorf("failed to discover skills: %w", discoverErr)
 		}
+		return fmt.Errorf("failed to discover skills: %w", discoverErr)
+	}
+	if spinner != nil {
 		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discovered)))
 	}
 

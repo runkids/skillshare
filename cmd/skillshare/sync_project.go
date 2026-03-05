@@ -36,25 +36,24 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 	}
 
 	// Phase 1: Discovery
-	var discoveredSkills []sync.DiscoveredSkill
-	if jsonOutput {
-		fmt.Fprintf(os.Stderr, "Discovering skills...\n")
-		var discoverErr error
-		discoveredSkills, discoverErr = sync.DiscoverSourceSkills(runtime.sourcePath)
-		if discoverErr != nil {
-			return stats, nil, discoverErr
-		}
-		fmt.Fprintf(os.Stderr, "Discovered %d skills\n", len(discoveredSkills))
+	var spinner *ui.Spinner
+	if !jsonOutput {
+		spinner = ui.StartSpinner("Discovering skills")
 	} else {
-		spinner := ui.StartSpinner("Discovering skills")
-		var discoverErr error
-		discoveredSkills, discoverErr = sync.DiscoverSourceSkills(runtime.sourcePath)
-		if discoverErr != nil {
+		fmt.Fprintf(os.Stderr, "Discovering skills...\n")
+	}
+	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(runtime.sourcePath)
+	if discoverErr != nil {
+		if spinner != nil {
 			spinner.Fail("Discovery failed")
-			return stats, nil, discoverErr
 		}
+		return stats, nil, discoverErr
+	}
+	if spinner != nil {
 		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
 		reportCollisions(discoveredSkills, runtime.targets)
+	} else {
+		fmt.Fprintf(os.Stderr, "Discovered %d skills\n", len(discoveredSkills))
 	}
 
 	// Phase 2: Per-target sync

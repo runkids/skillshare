@@ -43,7 +43,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 	if err == nil && info != nil && utils.IsSymlinkOrJunction(target.Path) {
 		if isSymlinkToSource(target.Path, sourcePath) {
 			if dryRun {
-				fmt.Printf("[dry-run] Would convert from symlink mode to copy mode: %s\n", target.Path)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would convert from symlink mode to copy mode: %s\n", target.Path)
 			} else {
 				if err := os.Remove(target.Path); err != nil {
 					return nil, fmt.Errorf("failed to remove symlink for copy conversion: %w", err)
@@ -108,7 +108,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 			// If it's a symlink (leftover from merge mode), remove it
 			if utils.IsSymlinkOrJunction(targetSkillPath) {
 				if dryRun {
-					fmt.Printf("[dry-run] Would replace symlink with copy: %s\n", skill.FlatName)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would replace symlink with copy: %s\n", skill.FlatName)
 				} else {
 					os.Remove(targetSkillPath)
 				}
@@ -119,7 +119,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 				if !targetInfo.IsDir() {
 					if isManaged || force {
 						if dryRun {
-							fmt.Printf("[dry-run] Would replace non-directory entry with copy: %s\n", skill.FlatName)
+							fmt.Fprintf(os.Stderr, "[dry-run] Would replace non-directory entry with copy: %s\n", skill.FlatName)
 						} else {
 							if err := os.RemoveAll(targetSkillPath); err != nil {
 								return nil, fmt.Errorf("failed to remove invalid entry %s: %w", skill.FlatName, err)
@@ -153,7 +153,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 				if isManaged || force {
 					// Managed or forced — overwrite
 					if dryRun {
-						fmt.Printf("[dry-run] Would update copy: %s\n", skill.FlatName)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would update copy: %s\n", skill.FlatName)
 					} else {
 						if err := os.RemoveAll(targetSkillPath); err != nil {
 							return nil, fmt.Errorf("failed to remove old copy %s: %w", skill.FlatName, err)
@@ -180,7 +180,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 
 		// Copy skill to target
 		if dryRun {
-			fmt.Printf("[dry-run] Would copy: %s -> %s\n", skill.SourcePath, targetSkillPath)
+			fmt.Fprintf(os.Stderr, "[dry-run] Would copy: %s -> %s\n", skill.SourcePath, targetSkillPath)
 		} else {
 			if err := copyDirectory(skill.SourcePath, targetSkillPath); err != nil {
 				return nil, fmt.Errorf("failed to copy skill %s: %w", skill.FlatName, err)
@@ -241,7 +241,7 @@ func PruneOrphanCopiesWithSkills(targetPath string, allSourceSkills []Discovered
 
 		entryPath := filepath.Join(targetPath, flatName)
 		if dryRun {
-			fmt.Printf("[dry-run] Would remove orphan copy: %s\n", entryPath)
+			fmt.Fprintf(os.Stderr, "[dry-run] Would remove orphan copy: %s\n", entryPath)
 		} else {
 			if err := os.RemoveAll(entryPath); err != nil {
 				result.Warnings = append(result.Warnings,

@@ -69,7 +69,7 @@ func printProjectTrackedReposStatus(sourcePath string, discovered []sync.Discove
 
 		statusStr := "up-to-date"
 		statusIcon := "✓"
-		if isDirty, _ := checkRepoDirty(repoPath); isDirty {
+		if isDirty, _ := isRepoDirty(repoPath); isDirty {
 			statusStr = "has uncommitted changes"
 			statusIcon = "!"
 		}

@@ -299,14 +299,14 @@ func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryR
 
 	case StatusNotExist:
 		if dryRun {
-			fmt.Printf("[dry-run] Would create symlink: %s -> %s\n", target.Path, sourcePath)
+			fmt.Fprintf(os.Stderr, "[dry-run] Would create symlink: %s -> %s\n", target.Path, sourcePath)
 			return nil
 		}
 		return CreateSymlink(target.Path, sourcePath)
 
 	case StatusHasFiles:
 		if dryRun {
-			fmt.Printf("[dry-run] Would migrate files from %s to %s, then create symlink\n", target.Path, sourcePath)
+			fmt.Fprintf(os.Stderr, "[dry-run] Would migrate files from %s to %s, then create symlink\n", target.Path, sourcePath)
 			return nil
 		}
 		if err := MigrateToSource(target.Path, sourcePath); err != nil {
@@ -323,7 +323,7 @@ func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryR
 
 	case StatusBroken:
 		if dryRun {
-			fmt.Printf("[dry-run] Would remove broken symlink and recreate: %s\n", target.Path)
+			fmt.Fprintf(os.Stderr, "[dry-run] Would remove broken symlink and recreate: %s\n", target.Path)
 			return nil
 		}
 		os.Remove(target.Path)
@@ -350,7 +350,7 @@ func mergeDirectories(src, dst string) error {
 
 		// Skip if destination exists
 		if _, err := os.Stat(dstPath); err == nil {
-			fmt.Printf("  skip (exists): %s\n", relPath)
+			fmt.Fprintf(os.Stderr, "  skip (exists): %s\n", relPath)
 			return nil
 		}
 
@@ -484,7 +484,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	if err == nil && info != nil && utils.IsSymlinkOrJunction(target.Path) {
 		if isSymlinkToSource(target.Path, sourcePath) {
 			if dryRun {
-				fmt.Printf("[dry-run] Would convert from symlink mode to merge mode: %s\n", target.Path)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would convert from symlink mode to merge mode: %s\n", target.Path)
 			} else {
 				if err := os.Remove(target.Path); err != nil {
 					return nil, fmt.Errorf("failed to remove symlink for merge conversion: %w", err)
@@ -532,7 +532,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 
 				// Symlink points elsewhere - broken or wrong
 				if dryRun {
-					fmt.Printf("[dry-run] Would fix symlink: %s\n", skill.FlatName)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would fix symlink: %s\n", skill.FlatName)
 				} else {
 					os.Remove(targetSkillPath)
 					if err := createLink(targetSkillPath, skill.SourcePath); err != nil {
@@ -545,7 +545,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 				if force {
 					// Force: replace local copy with symlink
 					if dryRun {
-						fmt.Printf("[dry-run] Would replace local copy: %s\n", skill.FlatName)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would replace local copy: %s\n", skill.FlatName)
 					} else {
 						if err := os.RemoveAll(targetSkillPath); err != nil {
 							return nil, fmt.Errorf("failed to remove local copy %s: %w", skill.FlatName, err)
@@ -563,7 +563,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 		} else if os.IsNotExist(err) {
 			// Doesn't exist - create link
 			if dryRun {
-				fmt.Printf("[dry-run] Would create link: %s -> %s\n", targetSkillPath, skill.SourcePath)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would create link: %s -> %s\n", targetSkillPath, skill.SourcePath)
 			} else {
 				if err := createLink(targetSkillPath, skill.SourcePath); err != nil {
 					return nil, fmt.Errorf("failed to create link for %s: %w", skill.FlatName, err)
@@ -719,7 +719,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 				}
 				if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
 					if dryRun {
-						fmt.Printf("[dry-run] Would remove excluded symlink: %s\n", entryPath)
+						fmt.Fprintf(os.Stderr, "[dry-run] Would remove excluded symlink: %s\n", entryPath)
 					} else if err := os.RemoveAll(entryPath); err != nil {
 						result.Warnings = append(result.Warnings,
 							fmt.Sprintf("%s: failed to remove excluded symlink: %v", name, err))
@@ -730,7 +730,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 			} else if inManifest && info.IsDir() {
 				// Real directory previously managed by skillshare, now excluded by filter — remove it
 				if dryRun {
-					fmt.Printf("[dry-run] Would remove excluded managed directory: %s\n", entryPath)
+					fmt.Fprintf(os.Stderr, "[dry-run] Would remove excluded managed directory: %s\n", entryPath)
 				} else if err := os.RemoveAll(entryPath); err != nil {
 					result.Warnings = append(result.Warnings,
 						fmt.Sprintf("%s: failed to remove excluded managed directory: %v", name, err))
@@ -795,7 +795,7 @@ func PruneOrphanLinksWithSkills(opts PruneOptions) (*PruneResult, error) {
 
 		if shouldRemove {
 			if dryRun {
-				fmt.Printf("[dry-run] Would remove %s: %s\n", reason, entryPath)
+				fmt.Fprintf(os.Stderr, "[dry-run] Would remove %s: %s\n", reason, entryPath)
 			} else {
 				if err := os.RemoveAll(entryPath); err != nil {
 					result.Warnings = append(result.Warnings,

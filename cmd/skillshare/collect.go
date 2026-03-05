@@ -121,63 +121,68 @@ func cmdCollect(args []string) error {
 	}
 
 	// Collect all local skills
+	var sp *ui.Spinner
 	if !jsonOutput {
 		ui.Header(ui.WithModeLabel("Collect"))
-		sp := ui.StartSpinner("Scanning for local skills...")
-		allLocalSkills := collectLocalSkills(targets, cfg.Source)
-		if len(allLocalSkills) == 0 {
-			sp.Success("No local skills found")
-			return nil
-		}
-		sp.Success(fmt.Sprintf("Found %d local skill(s)", len(allLocalSkills)))
-
-		// Display found skills
-		displayLocalSkills(allLocalSkills)
-
-		if dryRun {
-			ui.Info("Dry run - no changes made")
-			return nil
-		}
-
-		// Confirm unless --force
-		if !force {
-			if !confirmCollect() {
-				ui.Info("Cancelled")
-				return nil
-			}
-		}
-
-		// Execute collect
-		err = executeCollect(allLocalSkills, cfg.Source, dryRun, force)
-		logCollectOp(config.ConfigPath(), start, err)
-		return err
+		sp = ui.StartSpinner("Scanning for local skills...")
+	} else {
+		fmt.Fprintf(os.Stderr, "Scanning for local skills...\n")
 	}
 
-	// JSON mode: suppress UI output
-	fmt.Fprintf(os.Stderr, "Scanning for local skills...\n")
 	allLocalSkills := collectLocalSkills(targets, cfg.Source)
+
 	if len(allLocalSkills) == 0 {
-		fmt.Fprintf(os.Stderr, "No local skills found\n")
-		return collectOutputJSON(nil, dryRun, start, nil)
+		if sp != nil {
+			sp.Success("No local skills found")
+		} else {
+			fmt.Fprintf(os.Stderr, "No local skills found\n")
+		}
+		if jsonOutput {
+			return collectOutputJSON(nil, dryRun, start, nil)
+		}
+		return nil
 	}
-	fmt.Fprintf(os.Stderr, "Found %d local skill(s)\n", len(allLocalSkills))
+
+	if sp != nil {
+		sp.Success(fmt.Sprintf("Found %d local skill(s)", len(allLocalSkills)))
+		displayLocalSkills(allLocalSkills)
+	} else {
+		fmt.Fprintf(os.Stderr, "Found %d local skill(s)\n", len(allLocalSkills))
+	}
 
 	if dryRun {
-		names := make([]string, len(allLocalSkills))
-		for i, s := range allLocalSkills {
-			names[i] = s.Name
+		if jsonOutput {
+			names := make([]string, len(allLocalSkills))
+			for i, s := range allLocalSkills {
+				names[i] = s.Name
+			}
+			logCollectOp(config.ConfigPath(), start, nil)
+			return collectOutputJSON(&sync.PullResult{Pulled: names}, true, start, nil)
 		}
-		logCollectOp(config.ConfigPath(), start, nil)
-		return collectOutputJSON(&sync.PullResult{Pulled: names}, true, start, nil)
+		ui.Info("Dry run - no changes made")
+		return nil
 	}
 
-	// --json implies --force, so no confirmation needed
-	result, collectErr := sync.PullSkills(allLocalSkills, cfg.Source, sync.PullOptions{
-		DryRun: dryRun,
-		Force:  force,
-	})
-	logCollectOp(config.ConfigPath(), start, collectErr)
-	return collectOutputJSON(result, dryRun, start, collectErr)
+	// Confirm unless --force (JSON implies force)
+	if !force {
+		if !confirmCollect() {
+			ui.Info("Cancelled")
+			return nil
+		}
+	}
+
+	if jsonOutput {
+		result, collectErr := sync.PullSkills(allLocalSkills, cfg.Source, sync.PullOptions{
+			DryRun: dryRun,
+			Force:  force,
+		})
+		logCollectOp(config.ConfigPath(), start, collectErr)
+		return collectOutputJSON(result, dryRun, start, collectErr)
+	}
+
+	err = executeCollect(allLocalSkills, cfg.Source, dryRun, force)
+	logCollectOp(config.ConfigPath(), start, err)
+	return err
 }
 
 func logCollectOp(cfgPath string, start time.Time, cmdErr error) {

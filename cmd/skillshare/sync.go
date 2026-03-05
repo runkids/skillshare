@@ -109,7 +109,7 @@ func cmdSync(args []string) error {
 	if err != nil {
 		if jsonOutput {
 			writeJSONError(err)
-			return err
+			return nil
 		}
 		return err
 	}
@@ -119,40 +119,72 @@ func cmdSync(args []string) error {
 		sourceErr := fmt.Errorf("source directory does not exist: %s", cfg.Source)
 		if jsonOutput {
 			writeJSONError(sourceErr)
+			return nil
 		}
 		return sourceErr
 	}
 
 	// Phase 1: Discovery
+	var spinner *ui.Spinner
 	if !jsonOutput {
-		spinner := ui.StartSpinner("Discovering skills")
-		discoveredSkills, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
-		if discoverErr != nil {
+		spinner = ui.StartSpinner("Discovering skills")
+	} else {
+		fmt.Fprintf(os.Stderr, "Discovering skills...\n")
+	}
+	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
+	if discoverErr != nil {
+		if spinner != nil {
 			spinner.Fail("Discovery failed")
-			return discoverErr
 		}
+		if jsonOutput {
+			writeJSONError(discoverErr)
+			return nil
+		}
+		return discoverErr
+	}
+	if spinner != nil {
 		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
 		reportCollisions(discoveredSkills, cfg.Targets)
+	} else {
+		fmt.Fprintf(os.Stderr, "Discovered %d skills\n", len(discoveredSkills))
+	}
 
-		// Backup targets before sync (only if not dry-run and there are skills)
-		if !dryRun && len(discoveredSkills) > 0 {
+	// Backup targets before sync (only if not dry-run and there are skills)
+	if !dryRun && len(discoveredSkills) > 0 {
+		if !jsonOutput {
 			fmt.Println()
-			backupTargetsBeforeSync(cfg)
 		}
+		backupTargetsBeforeSync(cfg)
+	}
 
-		// Phase 2: Per-target sync (parallel)
+	// Phase 2: Per-target sync (parallel)
+	if !jsonOutput {
 		ui.Header("Syncing skills")
 		if dryRun {
 			ui.Warning("Dry run mode - no changes will be made")
 		}
+	}
 
-		var entries []syncTargetEntry
-		for name, target := range cfg.Targets {
-			entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.Mode, cfg.Mode)})
-		}
+	var entries []syncTargetEntry
+	for name, target := range cfg.Targets {
+		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.Mode, cfg.Mode)})
+	}
 
-		results, failedTargets := runParallelSync(entries, cfg.Source, discoveredSkills, dryRun, force)
+	var results []syncTargetResult
+	var failedTargets int
+	if jsonOutput {
+		results, failedTargets = runParallelSyncQuiet(entries, cfg.Source, discoveredSkills, dryRun, force)
+	} else {
+		results, failedTargets = runParallelSync(entries, cfg.Source, discoveredSkills, dryRun, force)
+	}
 
+	var syncErr error
+	if failedTargets > 0 {
+		syncErr = fmt.Errorf("some targets failed to sync")
+	}
+
+	if !jsonOutput {
+		// Phase 3: Summary
 		var totals syncModeStats
 		for _, r := range results {
 			totals.linked += r.stats.linked
@@ -160,13 +192,6 @@ func cmdSync(args []string) error {
 			totals.updated += r.stats.updated
 			totals.pruned += r.stats.pruned
 		}
-
-		var syncErr error
-		if failedTargets > 0 {
-			syncErr = fmt.Errorf("some targets failed to sync")
-		}
-
-		// Phase 3: Summary
 		ui.SyncSummary(ui.SyncStats{
 			Targets:  len(cfg.Targets),
 			Linked:   totals.linked,
@@ -182,48 +207,6 @@ func cmdSync(args []string) error {
 				ui.Info("Cleaned up %d expired trash item(s)", n)
 			}
 		}
-
-		logSyncOp(config.ConfigPath(), syncLogStats{
-			Targets: len(cfg.Targets),
-			Failed:  failedTargets,
-			DryRun:  dryRun,
-			Force:   force,
-		}, start, syncErr)
-
-		if hasAll {
-			fmt.Println()
-			if extrasErr := cmdSyncExtras(rest); extrasErr != nil {
-				ui.Warning("Extras sync: %v", extrasErr)
-			}
-		}
-
-		return syncErr
-	}
-
-	// JSON mode: suppress all UI output
-	fmt.Fprintf(os.Stderr, "Discovering skills...\n")
-	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
-	if discoverErr != nil {
-		writeJSONError(discoverErr)
-		return discoverErr
-	}
-	fmt.Fprintf(os.Stderr, "Discovered %d skills\n", len(discoveredSkills))
-
-	// Backup targets before sync (same as non-JSON path)
-	if !dryRun && len(discoveredSkills) > 0 {
-		backupTargetsBeforeSync(cfg)
-	}
-
-	var entries []syncTargetEntry
-	for name, target := range cfg.Targets {
-		entries = append(entries, syncTargetEntry{name: name, target: target, mode: getTargetMode(target.Mode, cfg.Mode)})
-	}
-
-	results, failedTargets := runParallelSyncQuiet(entries, cfg.Source, discoveredSkills, dryRun, force)
-
-	var syncErr error
-	if failedTargets > 0 {
-		syncErr = fmt.Errorf("some targets failed to sync")
 	}
 
 	logSyncOp(config.ConfigPath(), syncLogStats{
@@ -233,7 +216,18 @@ func cmdSync(args []string) error {
 		Force:   force,
 	}, start, syncErr)
 
-	return syncOutputJSON(results, dryRun, start, syncErr)
+	if jsonOutput {
+		return syncOutputJSON(results, dryRun, start, syncErr)
+	}
+
+	if hasAll {
+		fmt.Println()
+		if extrasErr := cmdSyncExtras(rest); extrasErr != nil {
+			ui.Warning("Extras sync: %v", extrasErr)
+		}
+	}
+
+	return syncErr
 }
 
 func parseSyncFlags(args []string) (dryRun, force, jsonOutput bool) {

@@ -580,13 +580,20 @@ func cmdUninstall(args []string) error {
 	var resolveWarnings []string
 
 	if opts.all {
-		sp := ui.StartSpinner("Discovering skills...")
+		var sp *ui.Spinner
+		if !opts.jsonOutput {
+			sp = ui.StartSpinner("Discovering skills...")
+		}
 		discovered, _, err := sync.DiscoverSourceSkillsLite(cfg.Source)
 		if err != nil {
-			sp.Fail("Discovery failed")
+			if sp != nil {
+				sp.Fail("Discovery failed")
+			}
 			return fmt.Errorf("failed to discover skills: %w", err)
 		}
-		sp.Success(fmt.Sprintf("Found %d skills", len(discovered)))
+		if sp != nil {
+			sp.Success(fmt.Sprintf("Found %d skills", len(discovered)))
+		}
 		if len(discovered) == 0 {
 			return fmt.Errorf("no skills found in source")
 		}
@@ -618,7 +625,9 @@ func cmdUninstall(args []string) error {
 				resolveWarnings = append(resolveWarnings, fmt.Sprintf("%s: no skills match pattern", name))
 				continue
 			}
+			if !opts.jsonOutput {
 			ui.Info("Pattern '%s' matched %d item(s)", name, len(globMatches))
+		}
 			for _, t := range globMatches {
 				if !seen[t.path] {
 					seen[t.path] = true
@@ -653,8 +662,10 @@ func cmdUninstall(args []string) error {
 		}
 	}
 
-	for _, w := range resolveWarnings {
-		ui.Warning("%s", w)
+	if !opts.jsonOutput {
+		for _, w := range resolveWarnings {
+			ui.Warning("%s", w)
+		}
 	}
 
 	// Shell glob detection: if positional args look like shell-expanded filenames,
@@ -676,7 +687,9 @@ func cmdUninstall(args []string) error {
 	// --- Phase 3: DISPLAY ---
 	single := len(targets) == 1
 	summary := summarizeUninstallTargets(targets)
-	if single {
+	if opts.jsonOutput {
+		// Skip display in JSON mode
+	} else if single {
 		displayUninstallInfo(targets[0])
 	} else {
 		ui.Header(fmt.Sprintf("Uninstalling %d %s", len(targets), summary.noun()))
@@ -761,7 +774,9 @@ func cmdUninstall(args []string) error {
 			}
 			dr := dirtyResults[i]
 			if dr.err != nil {
-				ui.Warning("Could not check git status for %s: %v", t.name, dr.err)
+				if !opts.jsonOutput {
+					ui.Warning("Could not check git status for %s: %v", t.name, dr.err)
+				}
 				preflight = append(preflight, t)
 				continue
 			}
@@ -779,14 +794,16 @@ func cmdUninstall(args []string) error {
 				ui.StepSkip(t.name, "uncommitted changes, use --force")
 				continue
 			}
-			ui.Warning("Repository %s has uncommitted changes (proceeding with --force)", t.name)
+			if !opts.jsonOutput {
+				ui.Warning("Repository %s has uncommitted changes (proceeding with --force)", t.name)
+			}
 			preflight = append(preflight, t)
 		}
 		preflightSkipped = len(targets) - len(preflight)
 		targets = preflight
 		summary = summarizeUninstallTargets(targets)
 
-		if preflightSkipped > 0 {
+		if preflightSkipped > 0 && !opts.jsonOutput {
 			ui.Info("%d tracked repo%s skipped, %d remaining", preflightSkipped, pluralS(preflightSkipped), len(targets))
 			fmt.Println()
 		}
@@ -855,7 +872,29 @@ func cmdUninstall(args []string) error {
 	var succeeded []*uninstallTarget
 	var failed []string
 
-	if batch {
+	if opts.jsonOutput {
+		// JSON mode: quiet execution, no UI output
+		for _, t := range targets {
+			if _, err := performUninstallQuiet(t); err != nil {
+				failed = append(failed, fmt.Sprintf("%s: %v", t.name, err))
+			} else {
+				succeeded = append(succeeded, t)
+			}
+		}
+
+		// Batch-remove .gitignore entries for tracked repos
+		if len(succeeded) > 0 {
+			var gitignoreEntries []string
+			for _, t := range succeeded {
+				if t.isTrackedRepo {
+					gitignoreEntries = append(gitignoreEntries, t.name)
+				}
+			}
+			if len(gitignoreEntries) > 0 {
+				install.RemoveFromGitIgnoreBatch(cfg.Source, gitignoreEntries) //nolint:errcheck
+			}
+		}
+	} else if batch {
 		sp := ui.StartSpinner(fmt.Sprintf("Uninstalling %d %s", len(targets), summary.noun()))
 		var results []batchResult
 

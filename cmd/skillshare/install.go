@@ -307,6 +307,7 @@ func cmdInstall(args []string) error {
 	if err != nil {
 		if parsed.jsonOutput {
 			writeJSONError(err)
+			return nil
 		}
 		return fmt.Errorf("failed to load config: %w", err)
 	}

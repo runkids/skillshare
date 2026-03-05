@@ -130,7 +130,7 @@ func cmdStatus(args []string) error {
 				skillCount++
 			}
 		}
-		dirty, _ := checkRepoDirty(repoPath)
+		dirty, _ := isRepoDirty(repoPath)
 		output.TrackedRepos = append(output.TrackedRepos, statusJSONRepo{
 			Name:       repoName,
 			SkillCount: skillCount,
@@ -204,7 +204,7 @@ func printTrackedReposStatus(cfg *config.Config, discovered []sync.DiscoveredSki
 
 		statusStr := "up-to-date"
 		statusIcon := "✓"
-		if isDirty, _ := checkRepoDirty(repoPath); isDirty {
+		if isDirty, _ := isRepoDirty(repoPath); isDirty {
 			statusStr = "has uncommitted changes"
 			statusIcon = "!"
 		}
@@ -235,12 +235,6 @@ func extractTrackedRepos(discovered []sync.DiscoveredSkill) []string {
 	}
 	sort.Strings(repos)
 	return repos
-}
-
-// checkRepoDirty checks if a git repository has uncommitted changes.
-// Alias for isRepoDirty (defined in uninstall.go) for backward compatibility.
-func checkRepoDirty(repoPath string) (bool, error) {
-	return isRepoDirty(repoPath)
 }
 
 // targetStatusResult bundles status detail with synced count to avoid
