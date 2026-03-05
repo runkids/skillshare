@@ -1,11 +1,17 @@
 ---
 name: skillshare
-version: v0.16.11
+version: v0.16.12
 description: |
-  Syncs skills across AI CLI tools from a single source of truth.
-  Global (~/.config/skillshare/) or project (.skillshare/) mode.
-  Install from any Git host. Use when: "skillshare" CLI, skill management, or troubleshooting.
-argument-hint: "[command] [target] [--dry-run] [-p|-g]"
+  Manages and syncs AI CLI skills across 50+ tools from a single source.
+  Use this skill whenever the user mentions "skillshare", runs skillshare commands,
+  manages skills (install, update, uninstall, sync, audit, check, diff, search),
+  or troubleshoots skill configuration (orphaned symlinks, broken targets, sync
+  issues). Covers both global (~/.config/skillshare/) and project (.skillshare/)
+  modes. Also use when: adding new AI tool targets (Claude, Cursor, Windsurf, etc.),
+  setting target include/exclude filters or copy vs symlink mode, using backup/restore
+  or trash recovery, piping skillshare output to scripts (--json), setting up CI/CD
+  audit pipelines, or building/sharing skill hubs (hub index, hub add).
+argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
 ---
 
 # Skillshare CLI
@@ -56,6 +62,15 @@ skillshare install github.com/team/repo --track -p        # Track shared repo
 skillshare push                                           # Cross-machine: push on A
 skillshare pull                                           # Cross-machine: pull on B
 ```
+### Skill Hubs
+```bash
+skillshare hub add https://example.com/hub.json          # Save a hub source
+skillshare hub add https://example.com/hub.json --label my-hub  # With custom label
+skillshare hub list                                      # List saved hubs
+skillshare hub default my-hub                            # Set default hub
+skillshare hub remove my-hub                             # Remove a hub
+skillshare hub index --source ~/.config/skillshare/skills/ --full --audit  # Build hub index
+```
 ### Controlling Where Skills Go
 ```bash
 # SKILL.md frontmatter: targets: [claude]        → only syncs to Claude
@@ -71,6 +86,21 @@ skillshare update my-skill && skillshare sync  # Update one
 skillshare update --all && skillshare sync     # Update all
 skillshare update --all --diff                 # Show what changed
 ```
+### Scripting & CI/CD
+```bash
+skillshare status --json                       # Full status as JSON
+skillshare check --json                        # Update status as JSON
+skillshare sync --json                         # Sync results as JSON
+skillshare diff --json                         # Diff results as JSON
+skillshare install user/repo --json            # Install result as JSON (implies --force --all)
+skillshare update --all --json                 # Update results as JSON
+skillshare uninstall my-skill --json           # Uninstall result as JSON (implies --force)
+skillshare collect claude --json               # Collect result as JSON (implies --force)
+skillshare target list --json                  # Target list as JSON
+skillshare list --json                         # Skill list as JSON
+skillshare search react --json                 # Search results as JSON
+skillshare audit --format json                 # Audit results as JSON
+```
 ### Recovery & Troubleshooting
 ```bash
 skillshare trash restore <name> && skillshare sync  # Undo delete
@@ -82,21 +112,22 @@ skillshare install user/repo --skip-audit            # Bypass scan entirely
 See [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for more.
 
 ## Quick Lookup
-| Commands | Project? |
-|----------|:--------:|
-| `status`, `diff`, `list`, `doctor` | ✓ (auto) |
-| `sync`, `collect` | ✓ (auto) |
-| `install`, `uninstall`, `update`, `check`, `search`, `new` | ✓ (`-p`) |
-| `target`, `audit`, `trash`, `log` | ✓ (`-p`) |
-| `push`, `pull`, `backup`, `restore` | ✗ |
-| `tui`, `ui`, `upgrade` | ✓ |
+| Commands | Project? | `--json`? |
+|----------|:--------:|:---------:|
+| `status`, `diff`, `list`, `doctor` | ✓ (auto) | ✓ (except doctor) |
+| `sync`, `collect` | ✓ (auto) | ✓ |
+| `install`, `uninstall`, `update`, `check`, `search`, `new` | ✓ (`-p`) | ✓ (except new) |
+| `target`, `audit`, `trash`, `log`, `hub` | ✓ (`-p`) | ✓ (target list, audit, log) |
+| `push`, `pull`, `backup`, `restore` | ✗ | ✗ |
+| `tui`, `upgrade` | ✗ | ✗ |
+| `ui` | ✓ (`-p`) | ✗ |
 
 ## AI Caller Rules
 1. **Non-interactive** — AI cannot answer prompts. Use `--force`, `--all`, `-s`, `--targets`, `--no-copy`, `--all-targets`, `--yes`.
 2. **Sync after mutations** — `install`, `uninstall`, `update`, `collect`, `target` all need `sync`.
-3. **Audit** — `install` auto-scans; CRITICAL blocks. `--force` to override, `--skip-audit` to bypass.
+3. **Audit** — `install` auto-scans; CRITICAL blocks. `--force` to override, `--skip-audit` to bypass. Detects hardcoded secrets (API keys, tokens, private keys).
 4. **Uninstall safely** — moves to trash (7 days). `trash restore <name>` to undo. **NEVER** `rm -rf` symlinks.
-5. **Output** — `--json` for structured data, `--no-tui` for plain text, `tui off` to disable TUI globally, `--dry-run` to preview.
+5. **Output** — `--json` for structured data (12 commands support it, see Quick Lookup). `--no-tui` for plain text on TUI commands (`list`, `log`, `audit`, `diff`, `trash list`, `backup list`). `tui off` disables TUI globally. `--dry-run` to preview.
 
 ## References
 | Topic | File |

@@ -73,6 +73,7 @@ skillshare install user/repo --skip-audit             # Skip security scan
 | `--exclude <name>` | Skip specific skills during multi-skill install (repeatable) |
 | `--skip-audit` | Skip security audit for this install |
 | `--audit-threshold <t>` / `--threshold <t>` / `-T <t>` | Override block threshold for this run (`critical\|high\|medium\|low\|info`; shorthand: `c\|h\|m\|l\|i`, plus `crit`, `med`) |
+| `--json` | JSON output (implies `--force` + `--all`, non-interactive) |
 | `--dry-run, -n` | Preview |
 
 **Fuzzy subdirectory resolution:** When a monorepo has nested skill directories, you can specify just the skill name — e.g., `user/repo/vue-best-practices` finds `skills/vue-best-practices/` automatically. Fails with an error if multiple matches exist.
@@ -142,6 +143,7 @@ skillshare update _repo --force -p  # Discard local changes
 | `--force, -f` | Discard local changes and force update |
 | `--dry-run, -n` | Preview without making changes |
 | `--skip-audit` | Skip post-update security audit gate |
+| `--json` | JSON output |
 | `--diff` | Show file-level change summary after update |
 
 **Safety:** Tracked repos with uncommitted changes are skipped. Use `--force` to override.
@@ -173,6 +175,9 @@ skillshare uninstall -G frontend -p --force
 
 # Preview
 skillshare uninstall --group frontend --dry-run
+
+# JSON output (implies --force)
+skillshare uninstall my-skill --json
 ```
 
 **Group auto-detection:** When uninstalling a directory that contains sub-skills, the confirmation prompt shows `Uninstalling group (N skills)` with a list of contained skills.
