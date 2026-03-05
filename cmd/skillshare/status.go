@@ -81,6 +81,12 @@ func cmdStatus(args []string) error {
 		if jsonOutput {
 			return fmt.Errorf("--json is not yet supported in project mode")
 		}
+		// Reject unexpected positional arguments in project mode
+		for _, arg := range rest {
+			if arg != "--json" {
+				return fmt.Errorf("unexpected arguments: %v", rest)
+			}
+		}
 		return cmdStatusProject(cwd)
 	}
 
