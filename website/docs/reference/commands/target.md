@@ -70,6 +70,33 @@ Configured Targets
   codex        ~/.openai-codex/skills (symlink)
 ```
 
+#### JSON Output
+
+```bash
+skillshare target list --json
+```
+
+```json
+{
+  "targets": [
+    {
+      "name": "claude",
+      "path": "~/.claude/skills",
+      "mode": "merge",
+      "include": [],
+      "exclude": []
+    },
+    {
+      "name": "cursor",
+      "path": "~/.cursor/skills",
+      "mode": "merge",
+      "include": [],
+      "exclude": []
+    }
+  ]
+}
+```
+
 ### target info / mode
 
 Show target details or change sync mode.

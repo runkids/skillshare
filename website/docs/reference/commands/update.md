@@ -66,7 +66,33 @@ flowchart TD
 | `--prune` | Remove stale skills (deleted upstream) instead of warning |
 | `--project, -p` | Use project-level config in current directory |
 | `--global, -g` | Use global config (`~/.config/skillshare`) |
+| `--json` | Output as JSON |
 | `--help, -h` | Show help |
+
+## JSON Output
+
+```bash
+skillshare update --all --json
+```
+
+```json
+{
+  "updated": 3,
+  "skipped": 1,
+  "security_failed": 0,
+  "pruned": 0,
+  "dry_run": false,
+  "duration": "4.567s",
+  "items": [
+    {"name": "_team-skills", "type": "repo", "status": "updated"},
+    {"name": "my-skill", "type": "skill", "status": "updated"},
+    {"name": "another-skill", "type": "skill", "status": "updated"},
+    {"name": "local-only", "type": "skill", "status": "skipped"}
+  ]
+}
+```
+
+Possible `status` values: `updated`, `skipped`, `failed`, `security_blocked`. When an item fails, the `error` field is included.
 
 ## Update Multiple
 

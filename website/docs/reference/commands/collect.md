@@ -39,6 +39,29 @@ flowchart TD
 | `--all, -a` | Collect from all targets |
 | `--force, -f` | Overwrite existing skills in source |
 | `--dry-run, -n` | Preview without making changes |
+| `--json` | Output as JSON (implies `--force`, skips confirmation) |
+
+## JSON Output
+
+```bash
+skillshare collect claude --json
+```
+
+```json
+{
+  "pulled": ["new-skill", "another-skill"],
+  "skipped": [],
+  "failed": {},
+  "dry_run": false,
+  "duration": "0.123s"
+}
+```
+
+Combine with `--dry-run` to preview without changes:
+
+```bash
+skillshare collect claude --json --dry-run
+```
 
 ## Example Output
 

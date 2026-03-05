@@ -44,7 +44,30 @@ flowchart TD
 | `--dry-run, -n` | Preview without making changes |
 | `--project, -p` | Use project-level config in current directory |
 | `--global, -g` | Use global config (`~/.config/skillshare`) |
+| `--json` | Output as JSON (implies `--force`, skips confirmation) |
 | `--help, -h` | Show help |
+
+## JSON Output
+
+```bash
+skillshare uninstall my-skill another-skill --json
+```
+
+```json
+{
+  "removed": ["my-skill", "another-skill"],
+  "failed": [],
+  "skipped": 0,
+  "dry_run": false,
+  "duration": "0.089s"
+}
+```
+
+Combine with `--dry-run` to preview:
+
+```bash
+skillshare uninstall --all --json --dry-run
+```
 
 ## Multiple Skills
 

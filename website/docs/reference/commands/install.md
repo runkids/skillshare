@@ -263,6 +263,42 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 | `--project` | `-p` | Install into project `.skillshare/skills/` |
 | `--global` | `-g` | Install into global `~/.config/skillshare/skills/` |
 | `--dry-run` | `-n` | Preview only |
+| `--json` | | Output as JSON (implies `--force` and `--all`, non-interactive) |
+
+## JSON Output
+
+```bash
+skillshare install anthropics/skills --json
+```
+
+```json
+{
+  "source": "anthropics/skills",
+  "tracked": false,
+  "dry_run": false,
+  "skills": ["pdf", "commit", "review"],
+  "failed": [],
+  "duration": "2.345s"
+}
+```
+
+When `--into` is used, the `into` field is included:
+
+```bash
+skillshare install anthropics/skills --json --into frontend
+```
+
+```json
+{
+  "source": "anthropics/skills",
+  "tracked": false,
+  "dry_run": false,
+  "into": "frontend",
+  "skills": ["pdf", "commit"],
+  "failed": [],
+  "duration": "1.890s"
+}
+```
 
 ## Duplicate Detection
 

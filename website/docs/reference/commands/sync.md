@@ -98,6 +98,43 @@ skillshare sync -f           # Short form
 | `--all` | | Also sync extras after skills (see [sync extras](#sync-extras) below) |
 | `--dry-run` | `-n` | Preview changes without writing |
 | `--force` | `-f` | Overwrite all managed entries regardless of checksum (copy mode) or replace existing directories with symlinks (merge mode) |
+| `--json` | | Output as JSON |
+
+### JSON Output
+
+```bash
+skillshare sync --json
+```
+
+```json
+{
+  "targets": 3,
+  "linked": 12,
+  "local": 2,
+  "updated": 0,
+  "pruned": 1,
+  "dry_run": false,
+  "duration": "0.234s",
+  "details": [
+    {
+      "name": "claude",
+      "mode": "merge",
+      "linked": 8,
+      "local": 2,
+      "updated": 0,
+      "pruned": 1
+    },
+    {
+      "name": "cursor",
+      "mode": "merge",
+      "linked": 4,
+      "local": 0,
+      "updated": 0,
+      "pruned": 0
+    }
+  ]
+}
+```
 
 ### What Happens
 

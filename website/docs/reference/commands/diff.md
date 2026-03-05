@@ -192,6 +192,32 @@ skillshare sync            # Fix it
 | `--stat` | Show file-level changes (implies `--no-tui`) |
 | `--patch` | Show full unified diff (implies `--no-tui`) |
 | `--no-tui` | Plain text output (skip interactive TUI) |
+| `--json` | Output as JSON (implies `--no-tui`) |
+
+## JSON Output
+
+```bash
+skillshare diff --json
+```
+
+```json
+{
+  "targets": [
+    {
+      "name": "claude",
+      "mode": "merge",
+      "synced": false,
+      "items": [
+        {"action": "link", "name": "missing-skill", "reason": "not in target", "is_sync": true},
+        {"action": "update", "name": "local-copy", "reason": "local override", "is_sync": true}
+      ],
+      "include": [],
+      "exclude": []
+    }
+  ],
+  "duration": "0.045s"
+}
+```
 
 ## See Also
 
