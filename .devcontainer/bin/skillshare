@@ -45,7 +45,7 @@ wants_machine_output() {
     fi
 
     case "$arg" in
-      --json)
+      --json|-j)
         return 0
         ;;
       --format)
