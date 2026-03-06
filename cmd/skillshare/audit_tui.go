@@ -406,7 +406,7 @@ func (m auditTUIModel) renderSummaryFooter() string {
 	// Label is always dim; value uses semantic color + bold for non-zero emphasis.
 	parts := []string{
 		tc.Dim.Render("Scanned: ") + tc.Emphasis.Render(formatNumber(s.Scanned)),
-		tc.Dim.Render("Passed: ") + tc.Green.Bold(true).Render(formatNumber(s.Passed)),
+		tc.Dim.Render("Passed: ") + tc.Dim.Render(formatNumber(s.Passed)),
 	}
 	if s.Warning > 0 {
 		parts = append(parts, tc.Dim.Render("Warning: ")+tc.Yellow.Bold(true).Render(formatNumber(s.Warning)))
@@ -629,16 +629,13 @@ func auditDetailPanelWidth(termWidth int) int {
 // Label logic is shared with CLI via policyProfileLabel/policyDedupeLabel/policyAnalyzersLabel.
 
 // tuiColorizeProfile returns a lipgloss-styled UPPERCASE profile name.
+// Only STRICT gets attention color; everything else is dim metadata.
 func tuiColorizeProfile(profile string) string {
 	label := policyProfileLabel(profile)
-	switch label {
-	case "STRICT":
+	if label == "STRICT" {
 		return tc.Yellow.Render(label)
-	case "PERMISSIVE":
-		return tc.Green.Render(label)
-	default:
-		return tc.Cyan.Render(label)
 	}
+	return tc.Dim.Render(label)
 }
 
 // tuiColorizeDedupe returns a lipgloss-styled UPPERCASE dedupe mode.
@@ -647,12 +644,12 @@ func tuiColorizeDedupe(dedupe string) string {
 	if label == "LEGACY" {
 		return tc.Yellow.Render(label)
 	}
-	return tc.Cyan.Render(label)
+	return tc.Dim.Render(label)
 }
 
 // tuiColorizeAnalyzers returns a lipgloss-styled UPPERCASE analyzer list.
 func tuiColorizeAnalyzers(analyzers []string) string {
-	return tc.Cyan.Render(policyAnalyzersLabel(analyzers))
+	return tc.Dim.Render(policyAnalyzersLabel(analyzers))
 }
 
 // findingMetaTUI builds a compact "ruleID / analyzer / category" string for TUI detail.

@@ -157,31 +157,6 @@ func riskLabelStyle(label string) lipgloss.Style {
 	}
 }
 
-// categoryStyle returns a lipgloss style for a threat category, providing
-// semantic color coding in the audit TUI summary footer.
-func categoryStyle(cat string) lipgloss.Style {
-	switch strings.ToLower(cat) {
-	case "injection":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("9")) // red
-	case "exfiltration":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("208")) // orange
-	case "credential":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("5")) // magenta
-	case "obfuscation":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("135")) // purple
-	case "privilege":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("3")) // yellow
-	case "integrity":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("6")) // cyan
-	case "structure":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("12")) // blue
-	case "risk":
-		return lipgloss.NewStyle().Foreground(lipgloss.Color("214")) // orange
-	default:
-		return tc.Dim
-	}
-}
-
 // formatRiskBadgeLipgloss returns a colored risk badge for TUI list items.
 func formatRiskBadgeLipgloss(label string) string {
 	if label == "" {

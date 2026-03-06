@@ -169,7 +169,7 @@ func buildAuditSummaryLines(summary auditRunSummary) []string {
 	// -- Result counts --
 	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("  Scanned:   %d skill(s)", summary.Scanned))
-	lines = append(lines, fmt.Sprintf("  Passed:    %s", ui.Colorize(ui.Green, fmt.Sprintf("%d", summary.Passed))))
+	lines = append(lines, fmt.Sprintf("  Passed:    %d", summary.Passed))
 	if summary.Warning > 0 {
 		lines = append(lines, fmt.Sprintf("  Warning:   %s", ui.Colorize(ui.Yellow, fmt.Sprintf("%d", summary.Warning))))
 	} else {
@@ -184,11 +184,11 @@ func buildAuditSummaryLines(summary auditRunSummary) []string {
 	// -- Severity & threat breakdown --
 	lines = append(lines, "")
 	lines = append(lines, fmt.Sprintf("  Severity:  c/h/m/l/i = %s/%s/%s/%s/%s",
-		ui.Colorize(ui.SeverityColor("CRITICAL"), fmt.Sprintf("%d", summary.Critical)),
-		ui.Colorize(ui.SeverityColor("HIGH"), fmt.Sprintf("%d", summary.High)),
-		ui.Colorize(ui.SeverityColor("MEDIUM"), fmt.Sprintf("%d", summary.Medium)),
-		ui.Colorize(ui.SeverityColor("LOW"), fmt.Sprintf("%d", summary.Low)),
-		ui.Colorize(ui.SeverityColor("INFO"), fmt.Sprintf("%d", summary.Info))))
+		colorizeNonZero(summary.Critical, ui.SeverityColor("CRITICAL")),
+		colorizeNonZero(summary.High, ui.SeverityColor("HIGH")),
+		colorizeNonZero(summary.Medium, ui.SeverityColor("MEDIUM")),
+		colorizeNonZero(summary.Low, ui.SeverityColor("LOW")),
+		colorizeNonZero(summary.Info, ui.SeverityColor("INFO"))))
 	if ui.IsTTY() {
 		if threatsLine := formatCategoryBreakdownCLI(summary.ByCategory); threatsLine != "" {
 			lines = append(lines, fmt.Sprintf("  Threats:   %s", threatsLine))
@@ -234,6 +234,15 @@ func auditHeaderMinWidth(subtitle string) int {
 func printAuditSummary(_ auditRunSummary, lines []string, minWidth int) {
 	ui.BoxWithMinWidth("Summary", minWidth, lines...)
 	fmt.Println()
+}
+
+// colorizeNonZero returns a colored number string when n > 0, gray otherwise.
+func colorizeNonZero(n int, color string) string {
+	s := fmt.Sprintf("%d", n)
+	if n == 0 {
+		return ui.Colorize(ui.Gray, s)
+	}
+	return ui.Colorize(color, s)
 }
 
 // formatSeverity returns an ANSI-colored uppercase severity label.
@@ -304,33 +313,9 @@ func formatCategoryBreakdown(cats map[string]int, compact bool) string {
 	return strings.Join(parts, " ")
 }
 
-// categoryColorCLI returns an ANSI color code for a threat category,
-// matching the semantic palette used in the TUI (categoryStyle).
-func categoryColorCLI(cat string) string {
-	switch strings.ToLower(cat) {
-	case "injection":
-		return ui.BrightRed
-	case "exfiltration":
-		return ui.Orange
-	case "credential":
-		return ui.Magenta
-	case "obfuscation":
-		return ui.Purple
-	case "privilege":
-		return ui.Yellow
-	case "integrity":
-		return ui.Cyan
-	case "structure":
-		return ui.Blue
-	case "risk":
-		return ui.OrangeAlt
-	default:
-		return ui.Gray
-	}
-}
-
-// formatCategoryBreakdownCLI formats a category count map as ANSI-colored
-// "cat:N cat:N ..." for CLI summary box output. Returns "" if empty.
+// formatCategoryBreakdownCLI formats a category count map as
+// "cat:N cat:N ..." for CLI summary box output. High-count categories
+// (>50) are bold white; the rest are dim. Returns "" if empty.
 func formatCategoryBreakdownCLI(cats map[string]int) string {
 	if len(cats) == 0 {
 		return ""
@@ -352,15 +337,18 @@ func formatCategoryBreakdownCLI(cats map[string]int) string {
 
 	parts := make([]string, len(sorted))
 	for i, cc := range sorted {
-		color := categoryColorCLI(cc.name)
-		parts[i] = fmt.Sprintf("%s%s:%s%d%s", color, cc.name, ui.Bold, cc.count, ui.Reset)
+		if cc.count > 50 {
+			parts[i] = fmt.Sprintf("%s%s%s:%d%s", ui.Bold, ui.White, cc.name, cc.count, ui.Reset)
+		} else {
+			parts[i] = fmt.Sprintf("%s%s:%d%s", ui.Gray, cc.name, cc.count, ui.Reset)
+		}
 	}
 	return strings.Join(parts, " ")
 }
 
 // formatCategoryBreakdownTUI formats a category count map as lipgloss-styled
-// "cat:N cat:N ..." using semantic category colors. Uses compact short names.
-// Returns "" if the map is empty.
+// "cat:N cat:N ..." using dim/emphasis (no per-category colors).
+// Uses compact short names. Returns "" if the map is empty.
 func formatCategoryBreakdownTUI(cats map[string]int) string {
 	if len(cats) == 0 {
 		return ""
@@ -386,8 +374,11 @@ func formatCategoryBreakdownTUI(cats map[string]int) string {
 		if short, ok := categoryShortNames[cc.name]; ok {
 			label = short
 		}
-		style := categoryStyle(cc.name)
-		parts[i] = style.Render(label) + tc.Dim.Render(":") + style.Bold(true).Render(fmt.Sprintf("%d", cc.count))
+		if cc.count > 50 {
+			parts[i] = tc.Emphasis.Bold(true).Render(label+":") + tc.Emphasis.Bold(true).Render(fmt.Sprintf("%d", cc.count))
+		} else {
+			parts[i] = tc.Dim.Render(label+":"+fmt.Sprintf("%d", cc.count))
+		}
 	}
 	return strings.Join(parts, " ")
 }

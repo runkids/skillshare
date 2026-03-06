@@ -39,16 +39,13 @@ func policyAnalyzersLabel(analyzers []string) string {
 // ── ANSI color helpers for audit policy values ──
 
 // colorizeProfile returns an ANSI-colored UPPERCASE profile name.
+// Only STRICT gets a warning color; everything else is dim metadata.
 func colorizeProfile(profile string) string {
 	label := policyProfileLabel(profile)
-	switch label {
-	case "STRICT":
+	if label == "STRICT" {
 		return ui.Colorize(ui.Yellow, label)
-	case "PERMISSIVE":
-		return ui.Colorize(ui.Green, label)
-	default:
-		return ui.Colorize(ui.Cyan, label)
 	}
+	return ui.Colorize(ui.Gray, label)
 }
 
 // colorizeDedupe returns an ANSI-colored UPPERCASE dedupe mode.
@@ -57,15 +54,16 @@ func colorizeDedupe(dedupe string) string {
 	if label == "LEGACY" {
 		return ui.Colorize(ui.Yellow, label)
 	}
-	return ui.Colorize(ui.Cyan, label)
+	return ui.Colorize(ui.Gray, label)
 }
 
 // colorizeAnalyzers returns an ANSI-colored UPPERCASE analyzer list.
 func colorizeAnalyzers(analyzers []string) string {
-	return ui.Colorize(ui.Cyan, policyAnalyzersLabel(analyzers))
+	return ui.Colorize(ui.Gray, policyAnalyzersLabel(analyzers))
 }
 
-// formatPolicyLine returns a compact one-line ANSI-colored policy description.
+// formatPolicyLine returns a compact one-line policy description.
+// Uses dim/gray for metadata; only non-default values get attention color.
 func formatPolicyLine(profile, dedupe string, analyzers []string) string {
 	sep := ui.Colorize(ui.Gray, " / ")
 	return colorizeProfile(profile) +
