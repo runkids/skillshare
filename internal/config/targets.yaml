@@ -170,6 +170,11 @@ targets:
     project_name: pochi
     global_path: "~/.pochi/skills"
     project_path: ".pochi/skills"
+  - global_name: purecode
+    project_name: purecode
+    global_path: "~/.purecode/skills"
+    project_path: ".agents/skills"
+    aliases: [purecode-ai]
   - global_name: qoder
     project_name: qoder
     global_path: "~/.qoder/skills"
@@ -200,10 +205,18 @@ targets:
     project_name: verdent
     global_path: "~/.verdent/skills"
     project_path: ".verdent/skills"
+  - global_name: warp
+    project_name: warp
+    global_path: "~/.agents/skills"
+    project_path: ".agents/skills"
   - global_name: windsurf
     project_name: windsurf
     global_path: "~/.codeium/windsurf/skills"
     project_path: ".windsurf/skills"
+  - global_name: witsy
+    project_name: witsy
+    global_path: "~/.agents/skills"
+    project_path: ".agents/skills"
   - global_name: xcode-claude
     project_name: xcode-claude
     global_path: "~/Library/Developer/Xcode/CodingAssistant/ClaudeAgentConfig/skills"

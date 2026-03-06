@@ -402,7 +402,7 @@ const supportedCLIs = [
   'Cursor',
   'Gemini CLI',
   'Codex',
-  '50+ more',
+  '55+ more',
 ];
 
 function SupportedSection() {
