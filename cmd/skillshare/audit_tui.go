@@ -89,7 +89,25 @@ func auditRepoKey(name string) string {
 }
 
 // buildGroupedAuditItems inserts auditGroupItem separators.
+// If all items belong to a single group, no separators are added.
 func buildGroupedAuditItems(items []auditItem) []list.Item {
+	// Check if there are multiple groups.
+	groups := map[string]bool{}
+	for _, item := range items {
+		groups[auditRepoKey(item.result.SkillName)] = true
+		if len(groups) > 1 {
+			break
+		}
+	}
+
+	if len(groups) <= 1 {
+		result := make([]list.Item, len(items))
+		for i, item := range items {
+			result[i] = item
+		}
+		return result
+	}
+
 	var result []list.Item
 	var currentGroup string
 	groupCount := 0
@@ -158,8 +176,12 @@ func (auditDelegate) Render(w io.Writer, m list.Model, index int, item list.Item
 		if bodyWidth < 10 {
 			bodyWidth = 10
 		}
-		line = truncateANSI(line, bodyWidth)
-		fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, prefixStyle.Render("▌"), bodyStyle.Width(bodyWidth).Render(line)))
+		textWidth := bodyWidth - bodyStyle.GetPaddingLeft() - bodyStyle.GetPaddingRight()
+		if textWidth < 8 {
+			textWidth = 8
+		}
+		line = truncateANSI(line, textWidth)
+		fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, prefixStyle.Render("▌"), bodyStyle.Width(bodyWidth).MaxWidth(bodyWidth).Render(line)))
 	}
 }
 

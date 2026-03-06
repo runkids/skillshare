@@ -96,6 +96,21 @@ func TestBuildGroupedItems(t *testing.T) {
 	}
 }
 
+func TestBuildGroupedItems_SingleGroup(t *testing.T) {
+	skills := []skillItem{
+		{entry: skillEntry{Name: "a", RelPath: "a"}},
+		{entry: skillEntry{Name: "b", RelPath: "b"}},
+	}
+	items := buildGroupedItems(skills)
+	// All standalone — no separators expected.
+	if len(items) != 2 {
+		t.Fatalf("buildGroupedItems single group: got %d items, want 2", len(items))
+	}
+	if _, isGroup := items[0].(groupItem); isGroup {
+		t.Error("items[0] should NOT be groupItem when single group")
+	}
+}
+
 func TestSkillItem_Description_Tracked(t *testing.T) {
 	item := skillItem{entry: skillEntry{RepoName: "team-repo"}}
 	if got := item.Description(); got != "" {

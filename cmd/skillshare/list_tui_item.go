@@ -80,10 +80,15 @@ func renderSkillRow(w io.Writer, skill skillItem, width int, selected bool) {
 	if bodyWidth < 10 {
 		bodyWidth = 10
 	}
+	// Subtract padding so text + padding fits within bodyWidth.
+	textWidth := bodyWidth - bodyStyle.GetPaddingLeft() - bodyStyle.GetPaddingRight()
+	if textWidth < 8 {
+		textWidth = 8
+	}
 
-	line1 = truncateANSI(line1, bodyWidth)
+	line1 = truncateANSI(line1, textWidth)
 
-	fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, prefixStyle.Render("▌"), bodyStyle.Width(bodyWidth).Render(line1)))
+	fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, prefixStyle.Render("▌"), bodyStyle.Width(bodyWidth).MaxWidth(bodyWidth).Render(line1)))
 }
 
 // FilterValue returns the searchable text for bubbletea's built-in fuzzy filter.
@@ -229,14 +234,7 @@ func truncateANSI(s string, width int) string {
 	if lipgloss.Width(s) <= width {
 		return s
 	}
-	runes := []rune(xansi.Strip(s))
-	if width <= 1 {
-		return string(runes[:width])
-	}
-	if len(runes) > width-1 {
-		runes = runes[:width-1]
-	}
-	return string(runes) + "…"
+	return xansi.Truncate(s, width, "…")
 }
 
 // toSkillItems converts a slice of skillEntry to skillItem slice.
@@ -250,7 +248,31 @@ func toSkillItems(entries []skillEntry) []skillItem {
 
 // buildGroupedItems inserts groupItem separators before each repo/local group.
 // Skills must be sorted by RelPath (tracked repos with "_" prefix sort first).
+// If all skills belong to a single group (e.g. all standalone), no separators are added.
 func buildGroupedItems(skills []skillItem) []list.Item {
+	// Check if there are multiple groups.
+	hasTracked := false
+	hasStandalone := false
+	for _, s := range skills {
+		if s.entry.RepoName != "" {
+			hasTracked = true
+		} else {
+			hasStandalone = true
+		}
+		if hasTracked && hasStandalone {
+			break
+		}
+	}
+	multiGroup := hasTracked && hasStandalone || countRepoGroups(skills) > 1
+
+	if !multiGroup {
+		items := make([]list.Item, len(skills))
+		for i, s := range skills {
+			items[i] = s
+		}
+		return items
+	}
+
 	var items []list.Item
 	var currentGroup string
 	groupCount := 0
@@ -285,6 +307,15 @@ func buildGroupedItems(skills []skillItem) []list.Item {
 	}
 	flush()
 	return items
+}
+
+// countRepoGroups returns the number of distinct repo groups (by RepoName).
+func countRepoGroups(skills []skillItem) int {
+	seen := map[string]bool{}
+	for _, s := range skills {
+		seen[s.entry.RepoName] = true
+	}
+	return len(seen)
 }
 
 // skipGroupItem advances the list selection past groupItem separators.
