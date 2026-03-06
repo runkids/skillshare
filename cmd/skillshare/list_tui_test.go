@@ -123,3 +123,64 @@ func TestListViewSplit_HeaderKeepsSkillNameWhenDetailScrolled(t *testing.T) {
 		t.Fatalf("expected skill name before date; output: %q", got)
 	}
 }
+
+func TestApplyFilter_WithTags(t *testing.T) {
+	items := []skillItem{
+		{entry: skillEntry{Name: "local-skill", RelPath: "local-skill"}},
+		{entry: skillEntry{Name: "react-tips", RelPath: "frontend/react-tips"}},
+		{entry: skillEntry{Name: "audit", RelPath: "_team-repo/security/audit", RepoName: "team/repo"}},
+		{entry: skillEntry{Name: "lint", RelPath: "_team-repo/lint", RepoName: "team/repo"}},
+		{entry: skillEntry{Name: "remote-a", RelPath: "remote-a", Source: "github.com/foo/bar"}},
+	}
+
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), nil)
+
+	// Filter by type:tracked — should match 2 items
+	m.filterText = "t:tracked"
+	m.applyFilter()
+	if m.matchCount != 2 {
+		t.Fatalf("type:tracked matchCount = %d, want 2", m.matchCount)
+	}
+
+	// Filter by type:local — should match 2 items (local-skill + react-tips)
+	m.filterText = "t:local"
+	m.applyFilter()
+	if m.matchCount != 2 {
+		t.Fatalf("type:local matchCount = %d, want 2", m.matchCount)
+	}
+
+	// Filter by group:security — should match 1 item
+	m.filterText = "g:security"
+	m.applyFilter()
+	if m.matchCount != 1 {
+		t.Fatalf("group:security matchCount = %d, want 1", m.matchCount)
+	}
+
+	// Filter by repo:team — should match 2 tracked items
+	m.filterText = "r:team"
+	m.applyFilter()
+	if m.matchCount != 2 {
+		t.Fatalf("repo:team matchCount = %d, want 2", m.matchCount)
+	}
+
+	// Combined: type:tracked + group:security — should match 1
+	m.filterText = "t:tracked g:security"
+	m.applyFilter()
+	if m.matchCount != 1 {
+		t.Fatalf("combined tag matchCount = %d, want 1", m.matchCount)
+	}
+
+	// Free text only — should match react-tips
+	m.filterText = "react"
+	m.applyFilter()
+	if m.matchCount != 1 {
+		t.Fatalf("free text matchCount = %d, want 1", m.matchCount)
+	}
+
+	// Clear filter — should restore all
+	m.filterText = ""
+	m.applyFilter()
+	if m.matchCount != len(items) {
+		t.Fatalf("cleared matchCount = %d, want %d", m.matchCount, len(items))
+	}
+}

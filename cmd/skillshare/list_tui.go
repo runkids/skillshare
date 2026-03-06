@@ -135,6 +135,7 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 	fi.Prompt = "/ "
 	fi.PromptStyle = tc.Filter
 	fi.Cursor.Style = tc.Filter
+	fi.Placeholder = "filter or t:tracked g:group r:repo"
 
 	m := listTUIModel{
 		list:        l,
@@ -164,26 +165,28 @@ func (m listTUIModel) Init() tea.Cmd {
 	return nil
 }
 
-// applyFilter does a case-insensitive substring match over allItems.
-// When filtering, results are capped at maxListItems to keep bubbles/list fast.
+// applyFilter parses tag syntax (t:type g:group r:repo) and free text,
+// then matches all non-empty conditions with AND logic.
+// Results are capped at maxListItems to keep bubbles/list fast.
 // When filter is empty, all items are restored (full pagination).
 func (m *listTUIModel) applyFilter() {
-	term := strings.ToLower(m.filterText)
 	m.detailScroll = 0
 
 	// No filter — restore full item set with group separators
-	if term == "" {
+	if m.filterText == "" {
 		m.matchCount = len(m.allItems)
 		m.list.SetItems(buildGroupedItems(m.allItems))
 		m.list.ResetSelected()
 		return
 	}
 
-	// Substring match, capped at maxListItems
+	q := parseFilterQuery(m.filterText)
+
+	// Structured match, capped at maxListItems
 	var matched []list.Item
 	count := 0
 	for _, item := range m.allItems {
-		if strings.Contains(strings.ToLower(item.FilterValue()), term) {
+		if matchSkillItem(item, q) {
 			count++
 			if len(matched) < maxListItems {
 				matched = append(matched, item)
@@ -509,7 +512,11 @@ func (m listTUIModel) viewSplit() string {
 	b.WriteString(m.renderFilterBar())
 	b.WriteString(m.renderSummaryFooter())
 	b.WriteString("\n")
-	help := appendScrollInfo("↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  X uninstall  q quit", scrollInfo)
+	helpText := "↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  X uninstall  q quit"
+	if m.filtering {
+		helpText = "t:type g:group r:repo  Enter lock  Esc clear  q quit"
+	}
+	help := appendScrollInfo(helpText, scrollInfo)
 	b.WriteString(tc.Help.Render(help))
 	b.WriteString("\n")
 
@@ -544,7 +551,11 @@ func (m listTUIModel) viewVertical() string {
 
 	b.WriteString(m.renderSummaryFooter())
 	b.WriteString("\n")
-	help := appendScrollInfo("↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  X uninstall  q quit", scrollInfo)
+	helpText := "↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  X uninstall  q quit"
+	if m.filtering {
+		helpText = "t:type g:group r:repo  Enter lock  Esc clear  q quit"
+	}
+	help := appendScrollInfo(helpText, scrollInfo)
 	b.WriteString(tc.Help.Render(help))
 	b.WriteString("\n")
 
