@@ -112,10 +112,7 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 	var items []list.Item
 	var allItems []skillItem
 	if loadFn == nil {
-		items = make([]list.Item, len(skills))
-		for i, s := range skills {
-			items[i] = s
-		}
+		items = buildGroupedItems(skills)
 		allItems = skills
 	}
 
@@ -139,7 +136,7 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 	fi.PromptStyle = tc.Filter
 	fi.Cursor.Style = tc.Filter
 
-	return listTUIModel{
+	m := listTUIModel{
 		list:        l,
 		totalCount:  totalCount,
 		modeLabel:   modeLabel,
@@ -153,6 +150,11 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 		matchCount:  len(allItems),
 		filterInput: fi,
 	}
+	// Skip initial group header (index 0)
+	if loadFn == nil {
+		skipGroupItem(&m.list, 1)
+	}
+	return m
 }
 
 func (m listTUIModel) Init() tea.Cmd {
@@ -169,14 +171,10 @@ func (m *listTUIModel) applyFilter() {
 	term := strings.ToLower(m.filterText)
 	m.detailScroll = 0
 
-	// No filter — restore full item set
+	// No filter — restore full item set with group separators
 	if term == "" {
-		all := make([]list.Item, len(m.allItems))
-		for i, item := range m.allItems {
-			all[i] = item
-		}
 		m.matchCount = len(m.allItems)
-		m.list.SetItems(all)
+		m.list.SetItems(buildGroupedItems(m.allItems))
 		m.list.ResetSelected()
 		return
 	}
@@ -228,12 +226,9 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.allItems = msg.result.skills
 		m.totalCount = msg.result.totalCount
 		m.matchCount = len(msg.result.skills)
-		// Populate list
-		items := make([]list.Item, len(msg.result.skills))
-		for i, s := range msg.result.skills {
-			items[i] = s
-		}
-		m.list.SetItems(items)
+		// Populate list with group separators
+		m.list.SetItems(buildGroupedItems(msg.result.skills))
+		skipGroupItem(&m.list, 1)
 		return m, nil
 
 	case tea.MouseMsg:
@@ -343,8 +338,19 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
+	prevIdx := m.list.Index()
 	prevSelected := selectedSkillKey(m.list.SelectedItem())
 	m.list, cmd = m.list.Update(msg)
+
+	// Auto-skip group separator items
+	if _, isGroup := m.list.SelectedItem().(groupItem); isGroup {
+		dir := 1
+		if m.list.Index() < prevIdx {
+			dir = -1
+		}
+		skipGroupItem(&m.list, dir)
+	}
+
 	if selectedSkillKey(m.list.SelectedItem()) != prevSelected {
 		m.detailScroll = 0
 	}
@@ -442,12 +448,12 @@ func listSplitActive(termWidth int) bool {
 }
 
 func listPanelWidth(termWidth int) int {
-	width := termWidth * 42 / 100
+	width := termWidth * 36 / 100
 	if width < 30 {
 		width = 30
 	}
-	if width > 52 {
-		width = 52
+	if width > 46 {
+		width = 46
 	}
 	return width
 }
@@ -723,20 +729,26 @@ func (m listTUIModel) renderDetailBody(e skillEntry, d *detailData, width int) s
 		b.WriteString("\n\n")
 	}
 
-	var detailsRows []string
-	if d.License != "" {
-		detailsRows = append(detailsRows, renderFactRow("License", tc.Green.Bold(true).Render(d.License)))
+	// Source section (Installed date and Synced-to targets are in the header)
+	var sourceRows []string
+	if e.Source != "" {
+		sourceRows = append(sourceRows, renderFactRow("Source", tc.Cyan.Render(e.Source)))
+	} else if e.RepoName != "" {
+		sourceRows = append(sourceRows, renderFactRow("Repo", e.RepoName))
 	}
-	if e.RepoName != "" {
-		detailsRows = append(detailsRows, renderFactRow("Repo", e.RepoName))
-	} else if e.Source != "" {
-		detailsRows = append(detailsRows, renderFactRow("Source", strings.TrimPrefix(strings.TrimPrefix(e.Source, "https://"), "http://")))
+	if d.License != "" {
+		sourceRows = append(sourceRows, renderFactRow("License", tc.Green.Bold(true).Render(d.License)))
+	}
+	if len(d.Files) > 0 {
+		fileLabel := fmt.Sprintf("Files (%d)", len(d.Files))
+		sourceRows = append(sourceRows, renderFactRow(fileLabel, tc.Cyan.Render(strings.Join(d.Files, " · "))))
 	}
 	if len(d.SyncedTargets) > 0 {
-		detailsRows = append(detailsRows, renderFactRow("Targets", tc.Cyan.Render(strings.Join(d.SyncedTargets, ", "))))
+		sourceRows = append(sourceRows, renderFactRow("Synced to", tc.Cyan.Render(strings.Join(d.SyncedTargets, ", "))))
 	}
-
-	b.WriteString(renderDetailSection("Quick Facts", strings.Join(detailsRows, "\n"), cardWidth))
+	if len(sourceRows) > 0 {
+		b.WriteString(renderDetailSection("Details", strings.Join(sourceRows, "\n"), cardWidth))
+	}
 
 	return b.String()
 }
@@ -786,8 +798,8 @@ func detailStatusBits(e skillEntry) string {
 }
 
 func renderFactRow(label, value string) string {
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("247")).Width(9)
-	return labelStyle.Render(label+":") + tc.Value.Render(value)
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("247")).Width(12)
+	return labelStyle.Render(label+":") + " " + tc.Value.Render(value)
 }
 
 // listSkillFiles returns visible file names in the skill directory.

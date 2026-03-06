@@ -17,11 +17,11 @@ func TestListSplitActive(t *testing.T) {
 }
 
 func TestListPanelWidthBounds(t *testing.T) {
-	if got := listPanelWidth(80); got != 33 {
-		t.Fatalf("listPanelWidth(80) = %d, want 33", got)
+	if got := listPanelWidth(80); got != 30 {
+		t.Fatalf("listPanelWidth(80) = %d, want 30", got)
 	}
-	if got := listPanelWidth(200); got != 52 {
-		t.Fatalf("listPanelWidth(200) = %d, want capped 52", got)
+	if got := listPanelWidth(200); got != 46 {
+		t.Fatalf("listPanelWidth(200) = %d, want capped 46", got)
 	}
 }
 

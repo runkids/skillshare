@@ -16,6 +16,16 @@ type skillItem struct {
 	entry skillEntry
 }
 
+// groupItem is a non-selectable visual separator in the skill list.
+type groupItem struct {
+	label string // display name (repo name without "_" prefix, or "local")
+	count int    // number of skills in this group
+}
+
+func (g groupItem) FilterValue() string { return "" }
+func (g groupItem) Title() string       { return g.label }
+func (g groupItem) Description() string { return "" }
+
 // listSkillDelegate renders a compact single-line browser row for the list TUI.
 type listSkillDelegate struct{}
 
@@ -26,17 +36,37 @@ func (listSkillDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd {
 }
 
 func (listSkillDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
-	skill, ok := item.(skillItem)
-	if !ok {
-		return
-	}
-
 	width := m.Width()
 	if width <= 0 {
 		width = 40
 	}
 
-	selected := index == m.Index()
+	switch v := item.(type) {
+	case groupItem:
+		renderGroupRow(w, v, width)
+	case skillItem:
+		selected := index == m.Index()
+		renderSkillRow(w, v, width, selected)
+	}
+}
+
+func renderGroupRow(w io.Writer, g groupItem, width int) {
+	label := g.label
+	if g.count > 0 {
+		label += fmt.Sprintf(" (%d)", g.count)
+	}
+	label = tc.Dim.Render(label)
+
+	lineWidth := width - lipgloss.Width(label) - 3 // "─ " prefix + " "
+	if lineWidth < 2 {
+		lineWidth = 2
+	}
+	line := strings.Repeat("─", lineWidth)
+
+	fmt.Fprint(w, tc.Dim.Render("─ ")+label+" "+tc.Dim.Render(line))
+}
+
+func renderSkillRow(w io.Writer, skill skillItem, width int, selected bool) {
 	line1 := skillTitleLine(skill.entry)
 
 	prefixStyle := tc.ListRowPrefix
@@ -72,10 +102,8 @@ func (i skillItem) FilterValue() string {
 // Title returns the skill name with a type badge for tests and non-custom render paths.
 func (i skillItem) Title() string {
 	title := baseSkillPath(i.entry)
-	if i.entry.RepoName != "" {
-		title += "  [tracked]"
-	} else if i.entry.Source == "" {
-		title += "  [local]"
+	if badge := skillTypeBadge(i.entry); badge != "" {
+		title += "  " + badge
 	}
 	return title
 }
@@ -86,11 +114,29 @@ func (i skillItem) Description() string {
 }
 
 func skillTitleLine(e skillEntry) string {
-	title := colorSkillPath(baseSkillPath(e))
+	title := colorSkillPath(compactSkillPath(e))
 	if badge := skillTypeBadge(e); badge != "" {
 		return title + "  " + badge
 	}
 	return title
+}
+
+// compactSkillPath returns a short display path for list rows.
+// For tracked repos, strips the repo prefix (first segment) then shows
+// at most 2 trailing segments. The full path is in the detail panel header.
+func compactSkillPath(e skillEntry) string {
+	full := baseSkillPath(e)
+	segments := strings.Split(full, "/")
+
+	// Tracked repos: first segment is the repo dir (e.g. "_runkids-my-skills").
+	if e.RepoName != "" && len(segments) > 1 {
+		segments = segments[1:]
+	}
+
+	if len(segments) > 2 {
+		segments = segments[len(segments)-2:]
+	}
+	return strings.Join(segments, "/")
 }
 
 func baseSkillPath(e skillEntry) string {
@@ -104,12 +150,10 @@ func baseSkillPath(e skillEntry) string {
 }
 
 func skillTypeBadge(e skillEntry) string {
-	switch {
-	case e.RepoName == "" && e.Source == "":
-		return tc.BadgeLocal.Render("loc")
-	default:
-		return ""
+	if e.RepoName == "" && e.Source == "" {
+		return tc.BadgeLocal.Render("local")
 	}
+	return ""
 }
 
 // colorSkillPath renders a skill path with progressive luminance:
@@ -142,7 +186,7 @@ func colorSkillPath(path string) string {
 		}
 	}
 
-	sep := tc.Faint.Render(" / ")
+	sep := tc.Faint.Render("/")
 	return strings.Join(parts, sep) + sep + tc.Emphasis.Render(name)
 }
 
@@ -177,7 +221,7 @@ func colorSkillPathBold(path string) string {
 		}
 	}
 
-	sep := tc.Faint.Render(" / ")
+	sep := tc.Faint.Render("/")
 	return strings.Join(parts, sep) + sep + boldName.Render(name)
 }
 
@@ -202,4 +246,68 @@ func toSkillItems(entries []skillEntry) []skillItem {
 		items[i] = skillItem{entry: e}
 	}
 	return items
+}
+
+// buildGroupedItems inserts groupItem separators before each repo/local group.
+// Skills must be sorted by RelPath (tracked repos with "_" prefix sort first).
+func buildGroupedItems(skills []skillItem) []list.Item {
+	var items []list.Item
+	var currentGroup string
+	groupCount := 0
+
+	flush := func() {
+		if groupCount > 0 {
+			// Patch the count into the last group header
+			for i := len(items) - 1 - groupCount; i >= 0; i-- {
+				if g, ok := items[i].(groupItem); ok {
+					g.count = groupCount
+					items[i] = g
+					break
+				}
+			}
+		}
+	}
+
+	for _, s := range skills {
+		key := s.entry.RepoName // "" for local
+		if key != currentGroup {
+			flush()
+			label := "standalone"
+			if key != "" {
+				label = strings.TrimPrefix(key, "_")
+			}
+			items = append(items, groupItem{label: label})
+			currentGroup = key
+			groupCount = 0
+		}
+		items = append(items, s)
+		groupCount++
+	}
+	flush()
+	return items
+}
+
+// skipGroupItem advances the list selection past groupItem separators.
+// direction: +1 for down, -1 for up.
+func skipGroupItem(l *list.Model, direction int) {
+	items := l.Items()
+	idx := l.Index()
+	n := len(items)
+	for {
+		if idx < 0 || idx >= n {
+			break
+		}
+		if _, isGroup := items[idx].(groupItem); !isGroup {
+			break
+		}
+		idx += direction
+	}
+	// Clamp
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= n {
+		idx = n - 1
+	}
+	l.Select(idx)
 }
