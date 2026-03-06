@@ -143,20 +143,14 @@ func cmdAudit(args []string) error {
 		return err
 	}
 
-	// Reconcile --json (deprecated) with --format.
+	// Reconcile legacy --json with --format.
 	if opts.JSON {
-		fmt.Fprintln(os.Stderr, "warning: --json is deprecated, use --format json")
 		if opts.Format == "" {
 			opts.Format = formatJSON
 		}
 	}
 	if opts.Format == "" {
 		opts.Format = formatText
-	}
-	// Redirect progress output to stderr and suppress pterm TTY detection
-	// so cursor hide/show ANSI codes don't leak into structured stdout.
-	if opts.isStructured() {
-		defer ui.SuppressProgressToStderr()()
 	}
 	if opts.InitRules {
 		if mode == modeProject {
@@ -501,18 +495,27 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 		Threshold: threshold,
 	}
 
-	// Phase 0: discover skills (with spinner).
-	spinner := ui.StartSpinner("Discovering skills...")
+	// Phase 0: discover skills.
+	var spinner *ui.Spinner
+	if !jsonOutput {
+		spinner = ui.StartSpinner("Discovering skills...")
+	}
 	skillPaths, err := collectInstalledSkillPaths(sourcePath)
 	if err != nil {
-		spinner.Fail("Discovery failed")
+		if spinner != nil {
+			spinner.Fail("Discovery failed")
+		}
 		return nil, base, err
 	}
 	if len(skillPaths) == 0 {
-		spinner.Success("No skills found")
+		if spinner != nil {
+			spinner.Success("No skills found")
+		}
 		return []*audit.Result{}, base, nil
 	}
-	spinner.Success(fmt.Sprintf("Found %d skill(s)", len(skillPaths)))
+	if spinner != nil {
+		spinner.Success(fmt.Sprintf("Found %d skill(s)", len(skillPaths)))
+	}
 
 	// Phase 0.5: large audit confirmation prompt.
 	if len(skillPaths) > largeAuditThreshold && !jsonOutput && !opts.Yes && ui.IsTTY() {
@@ -539,12 +542,19 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, opts auditO
 	if !jsonOutput {
 		fmt.Println()
 	}
-	progressBar := ui.StartProgress("Scanning skills", len(skillPaths))
+	var progressBar *ui.ProgressBar
+	if !jsonOutput {
+		progressBar = ui.StartProgress("Scanning skills", len(skillPaths))
+	}
 	onDone := func() {
-		progressBar.Increment()
+		if progressBar != nil {
+			progressBar.Increment()
+		}
 	}
 	scanResults := audit.ParallelScan(toAuditInputs(skillPaths), projectRoot, onDone, reg)
-	progressBar.Stop()
+	if progressBar != nil {
+		progressBar.Stop()
+	}
 	if !jsonOutput {
 		fmt.Println()
 	}
@@ -669,12 +679,19 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	if !jsonOutput {
 		fmt.Println()
 	}
-	progressBar := ui.StartProgress("Scanning skills", len(matched))
+	var progressBar *ui.ProgressBar
+	if !jsonOutput {
+		progressBar = ui.StartProgress("Scanning skills", len(matched))
+	}
 	onDone := func() {
-		progressBar.Increment()
+		if progressBar != nil {
+			progressBar.Increment()
+		}
 	}
 	scanResults := audit.ParallelScan(toAuditInputs(matched), projectRoot, onDone, reg)
-	progressBar.Stop()
+	if progressBar != nil {
+		progressBar.Stop()
+	}
 	if !jsonOutput {
 		fmt.Println()
 	}

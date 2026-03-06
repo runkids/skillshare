@@ -39,6 +39,17 @@ var tc = struct {
 	Filter lipgloss.Style // filter prompt/cursor — cyan
 	Help   lipgloss.Style // help bar — faint, left margin
 
+	// List browser chrome
+	ListRow               lipgloss.Style
+	ListMeta              lipgloss.Style
+	ListRowSelected       lipgloss.Style
+	ListMetaSelected      lipgloss.Style
+	ListRowPrefix         lipgloss.Style
+	ListRowPrefixSelected lipgloss.Style
+	BadgeLocal            lipgloss.Style
+	BadgeRemote           lipgloss.Style
+	BadgeTracked          lipgloss.Style
+
 	// Delegate styles — shared by all list TUIs
 	NormalTitle   lipgloss.Style
 	NormalDesc    lipgloss.Style
@@ -76,6 +87,19 @@ var tc = struct {
 
 	Filter: lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
 	Help:   lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("242")),
+
+	ListRow:               lipgloss.NewStyle().PaddingLeft(1),
+	ListMeta:              lipgloss.NewStyle().PaddingLeft(1).Foreground(lipgloss.Color("245")),
+	ListRowSelected:       lipgloss.NewStyle().PaddingLeft(1).Foreground(lipgloss.Color("15")).Background(lipgloss.Color("237")).Bold(true),
+	ListMetaSelected:      lipgloss.NewStyle().PaddingLeft(1).Foreground(lipgloss.Color("250")).Background(lipgloss.Color("237")),
+	ListRowPrefix:         lipgloss.NewStyle().Foreground(lipgloss.Color("235")),
+	ListRowPrefixSelected: lipgloss.NewStyle().Foreground(tuiBrandYellow),
+	BadgeLocal: lipgloss.NewStyle().Foreground(lipgloss.Color("250")).Background(lipgloss.Color("237")).
+		Padding(0, 1),
+	BadgeRemote: lipgloss.NewStyle().Foreground(lipgloss.Color("228")).Background(lipgloss.Color("239")).
+		Padding(0, 1),
+	BadgeTracked: lipgloss.NewStyle().Foreground(lipgloss.Color("159")).Background(lipgloss.Color("239")).
+		Padding(0, 1),
 
 	NormalTitle: lipgloss.NewStyle().PaddingLeft(2),
 	NormalDesc:  lipgloss.NewStyle().Foreground(lipgloss.Color("247")).PaddingLeft(2),

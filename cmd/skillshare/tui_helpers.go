@@ -109,7 +109,6 @@ func renderHorizontalSplit(leftContent, rightContent string, leftWidth, rightWid
 
 	rightPanel := lipgloss.NewStyle().
 		Width(rightWidth).MaxWidth(rightWidth).
-		Height(panelHeight).MaxHeight(panelHeight).
 		PaddingLeft(1).
 		Render(rightContent)
 

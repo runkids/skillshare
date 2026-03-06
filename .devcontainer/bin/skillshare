@@ -32,6 +32,39 @@ resolve_mode() {
   echo "$mode"
 }
 
+wants_machine_output() {
+  local args=("$@")
+  local next=""
+  for arg in "${args[@]}"; do
+    if [ -n "$next" ]; then
+      if [ "$next" = "format" ] && [ "$arg" = "json" -o "$arg" = "sarif" -o "$arg" = "markdown" ]; then
+        return 0
+      fi
+      next=""
+      continue
+    fi
+
+    case "$arg" in
+      --json)
+        return 0
+        ;;
+      --format)
+        next="format"
+        ;;
+      --format=json)
+        return 0
+        ;;
+      --format=sarif)
+        return 0
+        ;;
+      --format=markdown)
+        return 0
+        ;;
+    esac
+  done
+  return 1
+}
+
 wants_project_mode() {
   [ "$(resolve_mode "$@")" = "project" ]
 }
@@ -56,7 +89,9 @@ if [ "$(resolve_mode "$@")" != "global" ] \
   && [ "$CURRENT_DIR" = "$WORKSPACE_DIR" ]; then
   
   if [ -d "$PROJECT_ROOT" ]; then
-    echo "devcontainer: redirecting workspace execution to $PROJECT_ROOT" >&2
+    if ! wants_machine_output "$@"; then
+      echo "devcontainer: redirecting workspace execution to $PROJECT_ROOT" >&2
+    fi
     cd "$PROJECT_ROOT"
   fi
 fi

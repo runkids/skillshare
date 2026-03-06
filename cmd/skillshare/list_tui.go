@@ -78,11 +78,12 @@ type listTUIModel struct {
 
 	// Application-level filter — replaces bubbles/list built-in fuzzy filter
 	// to avoid O(N*M) fuzzy scan on 100k+ items every keystroke.
-	allItems    []skillItem     // full item set (kept in memory, never passed to list)
-	filterText  string          // current filter string
-	filterInput textinput.Model // managed filter text input
-	filtering   bool            // true when filter input is focused
-	matchCount  int             // total matches (may exceed maxListItems)
+	allItems     []skillItem     // full item set (kept in memory, never passed to list)
+	filterText   string          // current filter string
+	filterInput  textinput.Model // managed filter text input
+	filtering    bool            // true when filter input is focused
+	matchCount   int             // total matches (may exceed maxListItems)
+	detailScroll int
 
 	// In-TUI confirmation overlay
 	confirming    bool   // true when confirmation overlay is shown
@@ -105,8 +106,7 @@ type listTUIModel struct {
 // When loadFn is non-nil, skills are loaded asynchronously inside the TUI (spinner shown).
 // When loadFn is nil, skills/totalCount are used directly (pre-loaded).
 func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, modeLabel, sourcePath string, targets map[string]config.TargetConfig) listTUIModel {
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, false)
+	delegate := listSkillDelegate{}
 
 	// Build initial item set (empty if async loading)
 	var items []list.Item
@@ -167,6 +167,7 @@ func (m listTUIModel) Init() tea.Cmd {
 // When filter is empty, all items are restored (full pagination).
 func (m *listTUIModel) applyFilter() {
 	term := strings.ToLower(m.filterText)
+	m.detailScroll = 0
 
 	// No filter — restore full item set
 	if term == "" {
@@ -201,8 +202,7 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
-		// Reserve space for detail panel + filter bar + gap + help
-		m.list.SetSize(msg.Width, msg.Height-20)
+		m.syncListSize()
 		return m, nil
 
 	case spinner.TickMsg:
@@ -239,6 +239,21 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseMsg:
 		if m.showContent && !m.loading {
 			return m.handleContentMouse(msg)
+		}
+		if listSplitActive(m.termWidth) && !m.loading {
+			leftWidth := listPanelWidth(m.termWidth)
+			if msg.X > leftWidth {
+				switch msg.Button {
+				case tea.MouseButtonWheelUp:
+					if m.detailScroll > 0 {
+						m.detailScroll--
+					}
+					return m, nil
+				case tea.MouseButtonWheelDown:
+					m.detailScroll++
+					return m, nil
+				}
+			}
 		}
 
 	case tea.KeyMsg:
@@ -299,6 +314,15 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "ctrl+d":
+			m.detailScroll += 8
+			return m, nil
+		case "ctrl+u":
+			m.detailScroll -= 8
+			if m.detailScroll < 0 {
+				m.detailScroll = 0
+			}
+			return m, nil
 		case "/":
 			m.filtering = true
 			m.filterInput.Focus()
@@ -319,7 +343,11 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmd tea.Cmd
+	prevSelected := selectedSkillKey(m.list.SelectedItem())
 	m.list, cmd = m.list.Update(msg)
+	if selectedSkillKey(m.list.SelectedItem()) != prevSelected {
+		m.detailScroll = 0
+	}
 	return m, cmd
 }
 
@@ -377,27 +405,10 @@ func (m listTUIModel) View() string {
 		return fmt.Sprintf("\n  → %s\n\n  Proceed? [Y/n] ", cmd)
 	}
 
-	var b strings.Builder
-
-	// List view
-	b.WriteString(m.list.View())
-	b.WriteString("\n\n")
-
-	// Filter bar (always visible — shows input when filtering, status when not)
-	b.WriteString(m.renderFilterBar())
-
-	// Detail panel for selected item
-	if item, ok := m.list.SelectedItem().(skillItem); ok {
-		b.WriteString(m.renderDetailPanel(item.entry))
+	if listSplitActive(m.termWidth) {
+		return m.viewSplit()
 	}
-	b.WriteString("\n")
-
-	// Help line
-	help := "↑↓ navigate  ←→ page  / filter  Enter view  A audit  U update  X uninstall  q quit"
-	b.WriteString(tc.Help.Render(help))
-	b.WriteString("\n")
-
-	return b.String()
+	return m.viewVertical()
 }
 
 // renderFilterBar renders the status line for the list TUI.
@@ -407,6 +418,155 @@ func (m listTUIModel) renderFilterBar() string {
 		m.matchCount, len(m.allItems), maxListItems,
 		"skills", m.renderPageInfo(),
 	)
+}
+
+func (m *listTUIModel) syncListSize() {
+	if listSplitActive(m.termWidth) {
+		panelHeight := m.termHeight - 5
+		if panelHeight < 6 {
+			panelHeight = 6
+		}
+		m.list.SetSize(listPanelWidth(m.termWidth), panelHeight)
+		return
+	}
+
+	listHeight := m.termHeight - 20
+	if listHeight < 6 {
+		listHeight = 6
+	}
+	m.list.SetSize(m.termWidth, listHeight)
+}
+
+func listSplitActive(termWidth int) bool {
+	return termWidth >= tuiMinSplitWidth
+}
+
+func listPanelWidth(termWidth int) int {
+	width := termWidth * 42 / 100
+	if width < 30 {
+		width = 30
+	}
+	if width > 52 {
+		width = 52
+	}
+	return width
+}
+
+func listDetailPanelWidth(termWidth int) int {
+	width := termWidth - listPanelWidth(termWidth) - 1
+	if width < 28 {
+		width = 28
+	}
+	return width
+}
+
+func selectedSkillKey(item list.Item) string {
+	skill, ok := item.(skillItem)
+	if !ok {
+		return ""
+	}
+	if skill.entry.RelPath != "" {
+		return skill.entry.RelPath
+	}
+	return skill.entry.Name
+}
+
+func (m listTUIModel) viewSplit() string {
+	var b strings.Builder
+
+	panelHeight := m.termHeight - 5
+	if panelHeight < 6 {
+		panelHeight = 6
+	}
+
+	leftWidth := listPanelWidth(m.termWidth)
+	rightWidth := listDetailPanelWidth(m.termWidth)
+
+	var detailStr, scrollInfo string
+	if item, ok := m.list.SelectedItem().(skillItem); ok {
+		detailData := m.getDetailData(item.entry)
+		header := renderDetailHeader(item.entry, detailData, rightWidth-1)
+		// Leading "\n" pushes the detail content below the list title line
+		// so the skill name is visible (not hidden on the same row as the title).
+		bodyHeight := panelHeight - lipgloss.Height(header) - 2
+		if bodyHeight < 4 {
+			bodyHeight = 4
+		}
+		body, bodyScrollInfo := wrapAndScroll(m.renderDetailBody(item.entry, detailData, rightWidth-1), rightWidth-1, m.detailScroll, bodyHeight)
+		scrollInfo = bodyScrollInfo
+		detailStr = "\n" + header + "\n\n" + body
+	}
+
+	body := renderHorizontalSplit(m.list.View(), detailStr, leftWidth, rightWidth, panelHeight)
+	b.WriteString(body)
+	b.WriteString("\n\n")
+	b.WriteString(m.renderFilterBar())
+	b.WriteString(m.renderSummaryFooter())
+	b.WriteString("\n")
+	help := appendScrollInfo("↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  X uninstall  q quit", scrollInfo)
+	b.WriteString(tc.Help.Render(help))
+	b.WriteString("\n")
+
+	return b.String()
+}
+
+func (m listTUIModel) viewVertical() string {
+	var b strings.Builder
+
+	b.WriteString(m.list.View())
+	b.WriteString("\n\n")
+	b.WriteString(m.renderFilterBar())
+
+	var scrollInfo string
+	if item, ok := m.list.SelectedItem().(skillItem); ok {
+		detailHeight := m.termHeight - m.termHeight*2/5 - 8
+		if detailHeight < 6 {
+			detailHeight = 6
+		}
+		detailData := m.getDetailData(item.entry)
+		header := renderDetailHeader(item.entry, detailData, m.termWidth)
+		bodyHeight := detailHeight - lipgloss.Height(header) - 1
+		if bodyHeight < 4 {
+			bodyHeight = 4
+		}
+		body, bodyScrollInfo := wrapAndScroll(m.renderDetailBody(item.entry, detailData, m.termWidth), m.termWidth, m.detailScroll, bodyHeight)
+		scrollInfo = bodyScrollInfo
+		b.WriteString(header)
+		b.WriteString("\n\n")
+		b.WriteString(body)
+	}
+
+	b.WriteString(m.renderSummaryFooter())
+	b.WriteString("\n")
+	help := appendScrollInfo("↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  X uninstall  q quit", scrollInfo)
+	b.WriteString(tc.Help.Render(help))
+	b.WriteString("\n")
+
+	return b.String()
+}
+
+func (m listTUIModel) renderSummaryFooter() string {
+	localCount := 0
+	trackedCount := 0
+	remoteCount := 0
+	for _, item := range m.allItems {
+		switch {
+		case item.entry.RepoName != "":
+			trackedCount++
+		case item.entry.Source != "":
+			remoteCount++
+		default:
+			localCount++
+		}
+	}
+
+	parts := []string{
+		tc.Emphasis.Render(formatNumber(m.matchCount)) + tc.Dim.Render("/") + tc.Dim.Render(formatNumber(len(m.allItems))) + tc.Dim.Render(" visible"),
+		tc.Cyan.Render(formatNumber(localCount)) + tc.Dim.Render(" local"),
+		tc.Green.Render(formatNumber(trackedCount)) + tc.Dim.Render(" tracked"),
+		tc.Yellow.Render(formatNumber(remoteCount)) + tc.Dim.Render(" remote"),
+	}
+	return tc.Help.Render(strings.Join(parts, tc.Dim.Render(" | "))) + "\n"
 }
 
 // renderTUIFilterBar renders a unified filter + status line shared by all TUIs.
@@ -519,125 +679,115 @@ func renderDetailGroup(title string, rows []string, _ int) string {
 	return b.String()
 }
 
-// detailRow formats a single label-value row for use inside a detail group.
-func detailRow(label, value string) string {
-	return tc.Label.Render(label) + tc.Value.Render(value)
+func renderDetailCard(title string, body string, width int) string {
+	style := lipgloss.NewStyle().
+		Width(width).
+		Align(lipgloss.Left).
+		Padding(0, 0)
+	if title == "" {
+		return style.Render(body)
+	}
+	return style.Render(tc.Title.Render(title) + "\n" + body)
 }
 
-// trackedBadge is the inline [tracked] badge style.
-var trackedBadge = lipgloss.NewStyle().
-	Background(lipgloss.Color("6")).
-	Foreground(lipgloss.Color("0")).
-	Padding(0, 1)
+func renderDetailSection(title string, body string, width int) string {
+	style := lipgloss.NewStyle().
+		Width(width).
+		Align(lipgloss.Left).
+		Padding(0, 0)
+	return style.Render(tc.Title.Render(title) + "\n" + body)
+}
 
-// renderDetailPanel renders the detail section for the selected skill.
-func (m listTUIModel) renderDetailPanel(e skillEntry) string {
+// renderDetailBody renders the scrollable detail body for the selected skill.
+func (m listTUIModel) renderDetailBody(e skillEntry, d *detailData, width int) string {
 	var b strings.Builder
-	b.WriteString(tc.Separator.Render("  ─────────────────────────────────────────"))
-	b.WriteString("\n")
-
-	d := m.getDetailData(e)
-
-	boxWidth := m.termWidth - 4
-	if boxWidth < 40 {
-		boxWidth = 40
+	cardWidth := width
+	if cardWidth < 38 {
+		cardWidth = 38
 	}
 
-	// Description — word-wrapped, outside boxes
+	// Description
 	if d.Description != "" {
-		const labelOffset = 16
-		maxWidth := m.termWidth - labelOffset
-		if maxWidth < 40 {
-			maxWidth = 40
+		maxWidth := cardWidth - 4
+		if maxWidth < 32 {
+			maxWidth = 32
 		}
 		lines := wordWrapLines(d.Description, maxWidth)
-		const maxDescLines = 3
-		truncated := len(lines) > maxDescLines
-		if truncated {
-			lines = lines[:maxDescLines]
-			lines[maxDescLines-1] += "..."
+		const maxOverviewLines = 4
+		if len(lines) > maxOverviewLines {
+			lines = lines[:maxOverviewLines]
+			lines[len(lines)-1] += "..."
 		}
-		b.WriteString("  ")
-		b.WriteString(tc.Label.Render("Description:"))
-		b.WriteString(tc.Value.Render(lines[0]))
-		b.WriteString("\n")
-		indent := strings.Repeat(" ", labelOffset)
-		for _, line := range lines[1:] {
-			b.WriteString(indent)
-			b.WriteString(tc.Value.Render(line))
-			b.WriteString("\n")
-		}
-		b.WriteString("\n")
+		body := strings.Join(renderDetailParagraph(lines), "\n")
+		b.WriteString(renderDetailSection("Overview", body, cardWidth))
+		b.WriteString("\n\n")
 	}
 
-	// --- Source group box ---
-	var sourceRows []string
-
-	// Tracked
-	if e.RepoName != "" {
-		sourceRows = append(sourceRows, detailRow("Tracked:", tc.Cyan.Render(e.RepoName)))
-	}
-
-	// Source with inline badge
-	if e.Source != "" {
-		sourceVal := tc.Cyan.Render(e.Source)
-		if e.RepoName != "" {
-			sourceVal += " " + trackedBadge.Render("[tracked]")
-		}
-		sourceRows = append(sourceRows, detailRow("Source:", sourceVal))
-	} else {
-		sourceRows = append(sourceRows, detailRow("Source:", tc.Dim.Render("(local)")))
-	}
-
-	// Installed
-	if e.InstalledAt != "" {
-		sourceRows = append(sourceRows, detailRow("Installed:", e.InstalledAt))
-	}
-
-	// License
+	var detailsRows []string
 	if d.License != "" {
-		sourceRows = append(sourceRows, detailRow("License:", tc.Green.Render(d.License)))
-	} else {
-		sourceRows = append(sourceRows, detailRow("License:", tc.Dim.Render("(none)")))
+		detailsRows = append(detailsRows, renderFactRow("License", tc.Green.Bold(true).Render(d.License)))
 	}
-
-	b.WriteString("  ")
-	b.WriteString(renderDetailGroup("Source", sourceRows, boxWidth))
-	b.WriteString("\n")
-
-	// --- Sync group box ---
-	var syncRows []string
-
-	// Files with count, dot-separated, SKILL.md highlighted, truncated at 5
-	if len(d.Files) > 0 {
-		label := fmt.Sprintf("Files (%d):", len(d.Files))
-		const maxFiles = 5
-		displayFiles := d.Files
-		var suffix string
-		if len(displayFiles) > maxFiles {
-			suffix = tc.Dim.Render(fmt.Sprintf(" ... +%d more", len(displayFiles)-maxFiles))
-			displayFiles = displayFiles[:maxFiles]
-		}
-		var styled []string
-		for _, f := range displayFiles {
-			if f == "SKILL.md" {
-				styled = append(styled, tc.Cyan.Render(f))
-			} else {
-				styled = append(styled, tc.File.Render(f))
-			}
-		}
-		syncRows = append(syncRows, detailRow(label, strings.Join(styled, " · ")+suffix))
+	if e.RepoName != "" {
+		detailsRows = append(detailsRows, renderFactRow("Repo", e.RepoName))
+	} else if e.Source != "" {
+		detailsRows = append(detailsRows, renderFactRow("Source", strings.TrimPrefix(strings.TrimPrefix(e.Source, "https://"), "http://")))
 	}
-
-	// Synced targets
 	if len(d.SyncedTargets) > 0 {
-		syncRows = append(syncRows, detailRow("Synced to:", tc.Target.Render(strings.Join(d.SyncedTargets, ", "))))
+		detailsRows = append(detailsRows, renderFactRow("Targets", tc.Cyan.Render(strings.Join(d.SyncedTargets, ", "))))
 	}
 
-	b.WriteString("  ")
-	b.WriteString(renderDetailGroup("Sync", syncRows, boxWidth))
+	b.WriteString(renderDetailSection("Quick Facts", strings.Join(detailsRows, "\n"), cardWidth))
 
 	return b.String()
+}
+
+func renderDetailHeader(e skillEntry, d *detailData, width int) string {
+	// Line 1: Skill path — colored same as left panel (group/name with progressive luminance)
+	path := baseSkillPath(e)
+	title := colorSkillPath(path)
+
+	var body strings.Builder
+	body.WriteString(title)
+
+	// Line 2: Compact metadata — status · date · targets on one line
+	var metaParts []string
+	metaParts = append(metaParts, detailStatusBits(e))
+	if e.InstalledAt != "" {
+		metaParts = append(metaParts, tc.Dim.Render(e.InstalledAt))
+	}
+	if len(d.SyncedTargets) > 0 {
+		metaParts = append(metaParts, tc.Cyan.Render(fmt.Sprintf("%d target(s)", len(d.SyncedTargets))))
+	}
+	body.WriteString("\n")
+	body.WriteString(strings.Join(metaParts, tc.Dim.Render("  ·  ")))
+
+	return renderDetailCard("", body.String(), width)
+}
+
+func renderDetailParagraph(lines []string) []string {
+	rendered := make([]string, 0, len(lines))
+	for _, line := range lines {
+		rendered = append(rendered, tc.Value.Render(line))
+	}
+	return rendered
+}
+
+func detailStatusBits(e skillEntry) string {
+	var bits []string
+	switch {
+	case e.RepoName != "":
+		bits = append(bits, tc.Green.Render("tracked"))
+	case e.Source != "":
+		bits = append(bits, tc.Yellow.Render("remote"))
+	default:
+		bits = append(bits, tc.Dim.Render("local"))
+	}
+	return strings.Join(bits, "  ")
+}
+
+func renderFactRow(label, value string) string {
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("247")).Width(9)
+	return labelStyle.Render(label+":") + tc.Value.Render(value)
 }
 
 // listSkillFiles returns visible file names in the skill directory.

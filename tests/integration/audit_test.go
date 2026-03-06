@@ -1131,6 +1131,46 @@ func TestAudit_FormatMarkdown(t *testing.T) {
 	assertNoANSI(t, stdout)
 }
 
+func TestAudit_FormatMarkdown_IsSilent(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("safe-one", map[string]string{
+		"SKILL.md": "---\nname: safe-one\n---\n# Safe\nFollow the instructions.",
+	})
+	sb.CreateSkill("safe-two", map[string]string{
+		"SKILL.md": "---\nname: safe-two\n---\n# Also Safe\nUse best practices.",
+	})
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
+
+	result := sb.RunCLI("audit", "--format", "markdown")
+	result.AssertSuccess(t)
+
+	if strings.TrimSpace(result.Stderr) != "" {
+		t.Fatalf("expected no stderr noise in markdown mode, got:\n%s", result.Stderr)
+	}
+
+	combined := result.Stdout + result.Stderr
+	for _, noise := range []string{
+		"Discovering skills",
+		"Scanning skills",
+		"Found 2 skill(s)",
+	} {
+		if strings.Contains(combined, noise) {
+			t.Fatalf("expected pure markdown output without %q, got:\nstdout=%s\nstderr=%s", noise, result.Stdout, result.Stderr)
+		}
+	}
+
+	stdout := result.Stdout
+	if !strings.Contains(stdout, "# Skillshare Audit Report") {
+		t.Fatal("missing report title in markdown output")
+	}
+	if !strings.Contains(stdout, "## Summary") {
+		t.Fatal("missing Summary section")
+	}
+	assertNoANSI(t, stdout)
+}
+
 func TestAudit_FormatJSON(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -1162,18 +1202,49 @@ func TestAudit_FormatJSON(t *testing.T) {
 	assertNoANSI(t, result.Stdout)
 }
 
-func TestAudit_JSONDeprecation(t *testing.T) {
+func TestAudit_JSONMode_IsSilent(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
 	sb.CreateSkill("dep-skill", map[string]string{
 		"SKILL.md": "---\nname: dep-skill\n---\n# Safe skill",
 	})
+	sb.CreateSkill("safe-two", map[string]string{
+		"SKILL.md": "---\nname: safe-two\n---\n# Also safe",
+	})
 	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets: {}\n")
 
-	result := sb.RunCLI("audit", "dep-skill", "--json")
+	result := sb.RunCLI("audit", "--json")
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "--json is deprecated")
+
+	if strings.TrimSpace(result.Stderr) != "" {
+		t.Fatalf("expected no stderr noise in JSON mode, got:\n%s", result.Stderr)
+	}
+
+	combined := result.Stdout + result.Stderr
+	for _, noise := range []string{
+		"Discovering skills",
+		"Scanning skills",
+		"Found 2 skill(s)",
+		"--json is deprecated",
+	} {
+		if strings.Contains(combined, noise) {
+			t.Fatalf("expected pure JSON output without %q, got:\nstdout=%s\nstderr=%s", noise, result.Stdout, result.Stderr)
+		}
+	}
+
+	var payload struct {
+		Results []json.RawMessage `json:"results"`
+		Summary struct {
+			Scanned int `json:"scanned"`
+		} `json:"summary"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(result.Stdout)), &payload); err != nil {
+		t.Fatalf("failed to parse JSON output: %v\nstdout=%s", err, result.Stdout)
+	}
+	if payload.Summary.Scanned != 2 {
+		t.Fatalf("expected scanned=2, got %d", payload.Summary.Scanned)
+	}
 }
 
 // ── audit rules integration tests ──────────────────────────────────

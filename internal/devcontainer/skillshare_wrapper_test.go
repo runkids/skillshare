@@ -186,3 +186,43 @@ func TestSkillshareWrapper_ProjectModeRedirectsFromWorkspaceRoot(t *testing.T) {
 		t.Fatalf("expected args %v, got %v", wantArgs, gotArgs)
 	}
 }
+
+func TestSkillshareWrapper_StructuredOutputRedirectsSilentlyFromWorkspaceRoot(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "json", args: []string{"audit", "--json"}},
+		{name: "sarif", args: []string{"audit", "--format", "sarif"}},
+		{name: "markdown", args: []string{"audit", "--format=markdown"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wrapper, workspace, demo, tmpBin, argsFile, fakeGo, home := prepareWrapperEnv(t)
+			env := append(os.Environ(),
+				"HOME="+home,
+				"SKILLSHARE_DEV_WORKSPACE_ROOT="+workspace,
+				"SKILLSHARE_DEV_PROJECT_ROOT="+demo,
+				"SKILLSHARE_DEV_TMP_BINARY="+tmpBin,
+				"SKILLSHARE_DEV_GO_BIN="+fakeGo,
+				"SKILLSHARE_TEST_ARGS_FILE="+argsFile,
+			)
+
+			stdout, stderr := runWrapper(t, wrapper, workspace, env, tt.args...)
+			expectedDemo := canonicalExistingDir(t, demo)
+			actualCWD := canonicalExistingDir(t, stdout)
+			if actualCWD != expectedDemo {
+				t.Fatalf("expected cwd %q, got %q", expectedDemo, actualCWD)
+			}
+			if stderr != "" {
+				t.Fatalf("expected no redirect stderr in structured mode, got: %q", stderr)
+			}
+
+			gotArgs := readCapturedArgs(t, argsFile)
+			if strings.Join(gotArgs, " ") != strings.Join(tt.args, " ") {
+				t.Fatalf("expected args %v, got %v", tt.args, gotArgs)
+			}
+		})
+	}
+}

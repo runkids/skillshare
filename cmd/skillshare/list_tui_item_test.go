@@ -46,14 +46,14 @@ func TestSkillItem_Title_SameNameAsRelPath(t *testing.T) {
 
 func TestSkillItem_Description_Tracked(t *testing.T) {
 	item := skillItem{entry: skillEntry{RepoName: "team-repo"}}
-	if got := item.Description(); got != "tracked: team-repo" {
+	if got := item.Description(); got != "" {
 		t.Errorf("Description() = %q", got)
 	}
 }
 
 func TestSkillItem_Description_Remote(t *testing.T) {
 	item := skillItem{entry: skillEntry{Source: "github.com/user/repo"}}
-	if got := item.Description(); got != "github.com/user/repo" {
+	if got := item.Description(); got != "" {
 		t.Errorf("Description() = %q", got)
 	}
 }
