@@ -1,17 +1,23 @@
 ---
 slug: e2e-testing-for-ai-agents
-title: "How We Let AI Agents Develop and Verify Our CLI — E2E Runbooks + Docker Sandbox"
+title: "What I Learned Building a Testing Infrastructure for AI-Driven CLI Development"
 authors: [runkids]
 tags: [testing, ai-agents, devcontainer, e2e]
 ---
 
-CLIs are the lowest-friction interface for AI agents. Text in, text out, no GUI to wrestle with. But there's a less obvious advantage: **CLIs are also the best thing for agents to _develop and verify_.**
+Over the past few months building [skillshare](https://github.com/runkids/skillshare), I've been experimenting with letting AI agents (Claude Code, mainly) handle more and more of the development cycle — writing features, fixing bugs, even running verification.
 
-We build [skillshare](https://github.com/runkids/skillshare) — a CLI that manages AI skills across 50+ tools (Claude Code, Cursor, OpenCode, and more). Along the way, we built a testing infrastructure that lets AI agents go from spec to verified PR with minimal human intervention. Here's how.
+Along the way I learned some things about what makes AI agents productive (and what doesn't). Sharing here in case it's useful to others building CLI tools.
 
 <!-- truncate -->
 
-## The Testing Pyramid for CLI Tools
+## The Problem I Kept Hitting
+
+AI agents write code fast. But "fast" doesn't mean "correct." I kept finding myself manually verifying things the agent said were done — re-running commands, checking files, eyeballing output. The bottleneck wasn't code generation. **It was verification.**
+
+So I started building infrastructure to let the agent verify its own work.
+
+## Three Layers of Testing
 
 ```
         E2E (Docker Sandbox)
@@ -21,26 +27,20 @@ We build [skillshare](https://github.com/runkids/skillshare) — a CLI that mana
     Unit Tests (go test)
 ```
 
-Each layer solves a different confidence problem:
+Nothing revolutionary here. The key was making **every layer runnable by the agent itself** — no human in the loop for verification.
 
-- **Unit tests** — Is the logic correct?
-- **Integration tests** — Does the CLI command behave correctly?
-- **E2E tests** — Does it actually work in a clean environment?
+### Layer 1: Unit Tests
 
-The key insight: **every layer is something an AI agent can run autonomously**.
-
-## Layer 1: Unit Tests
-
-Nothing special here — standard `go test` for pure functions. AI agents can write and run these instantly.
+Standard `go test` for pure functions. AI agents can write and run these instantly.
 
 ```bash
 go test ./internal/sync/...
 go test ./internal/audit/...
 ```
 
-## Layer 2: Integration Tests with `testutil.Sandbox`
+### Layer 2: Integration Tests with `testutil.Sandbox`
 
-This is where it gets interesting. Our `testutil.Sandbox` creates a **fully isolated fake HOME directory** for each test — complete with `.claude/`, `.cursor/`, and 50+ other AI CLI target directories.
+This is where things started clicking. `testutil.Sandbox` creates a **fully isolated fake HOME directory** for each test — complete with `.claude/`, `.cursor/`, and 50+ other AI CLI target directories.
 
 ```go
 sb := testutil.NewSandbox(t)
@@ -62,11 +62,11 @@ Why this matters for AI agents:
 - **Fast feedback** — `go test -run TestXxx` takes seconds
 - **Self-contained** — no external dependencies, no network, no cleanup needed
 
-An AI agent writes a feature, adds an integration test, runs it, and gets immediate pass/fail feedback. No human needed.
+The agent writes a feature, adds an integration test, runs it, gets immediate pass/fail. No human needed.
 
-## Layer 3: E2E with Docker Sandbox
+### Layer 3: E2E with Docker Sandbox
 
-Integration tests run on the host, which may have a different environment than real users. The top layer is a **Docker-based devcontainer** — a clean Debian environment that simulates a real user's first experience.
+Integration tests run on the host, which may have a different environment than real users. So the top layer is a **Docker-based devcontainer** — a clean Debian environment that simulates a real user's first experience.
 
 ```bash
 make devc          # Start devcontainer + enter shell (one step)
@@ -75,9 +75,9 @@ make devc-reset    # Full reset if something breaks
 
 Inside the devcontainer, the AI agent can run any command in complete isolation — install skills from Git repos, sync to targets, run the full CLI — without any risk to the host environment.
 
-## The Secret Sauce: E2E Runbooks
+## The Thing I Didn't Expect: Runbooks
 
-Here's what ties it all together. We maintain **E2E runbooks** in `ai_docs/tests/` — human-readable, AI-executable test scripts:
+I started writing **E2E runbooks** — step-by-step test scripts in `ai_docs/tests/` — mostly for my own documentation. Turns out they're exactly what AI agents need:
 
 ```markdown
 ## Test: Install a tracked skill
@@ -98,18 +98,13 @@ Here's what ties it all together. We maintain **E2E runbooks** in `ai_docs/tests
 - Skill is installed, tracked, and synced to all targets
 ```
 
-An AI agent reads the runbook and knows exactly:
-- What to do
-- What to check
-- What success looks like
+Explicit steps + expected results = no ambiguity. The agent stops guessing and just follows the script. **The runbook became the spec.**
 
-No ambiguity. No hallucination about expected behavior. **The runbook is the spec.**
+## Eating Our Own Dog Food
 
-## The Glue: Built-in Skills
+The part I'm most happy about. The runbooks and devcontainer don't work by magic — the AI agent needs to know _how_ to use them. That's where **built-in skills** come in.
 
-The runbooks and devcontainer don't work by magic — the AI agent needs to know _how_ to use them. That's where **built-in skills** come in.
-
-skillshare ships project-level skills in `.skillshare/skills/` that teach AI agents the entire workflow:
+skillshare uses its own skill system to teach AI agents the entire workflow:
 
 ```
 .skillshare/skills/
@@ -130,13 +125,11 @@ The **cli-e2e-test skill** orchestrates the full E2E flow:
 - Phase 3: Execute steps with `ssenv` isolation, verify each assertion
 - Phase 4: Report results, clean up, and run a retrospective
 
-This is the meta part: **a skill management tool that uses its own skill system to teach AI agents how to develop and test itself.** The skills are the documentation, the workflow guide, and the guardrails — all in one.
-
-When we update the testing workflow, we update the skills. The next time an AI agent picks up a task, it automatically gets the latest instructions. No stale docs, no out-of-date READMEs.
+A skill management tool that uses its own skill system to teach AI agents how to develop and test itself. When I improve the testing workflow, I update the skill. Next time the agent picks up a task, it gets the updated instructions. No stale READMEs.
 
 ## The Full Loop
 
-Here's the complete development cycle an AI agent executes autonomously:
+Here's the development cycle the agent runs autonomously:
 
 ```
 Spec / Issue
@@ -160,7 +153,7 @@ Execute E2E runbook
 All green? -> Open PR
 ```
 
-The human's job becomes:
+My job becomes:
 
 1. **Write the spec** — what should the feature do?
 2. **Write the runbook** — how do we verify it works?
@@ -177,14 +170,16 @@ This workflow works _because_ skillshare is a CLI:
 
 GUIs need screenshot comparison, browser automation, and flaky selectors. CLIs need `assert output contains "success"`. The verification surface is fundamentally simpler.
 
-## Takeaways
+## What I'd Tell Someone Starting Out
 
-If you're building a CLI and want AI agents to help develop it:
+1. **Invest in test isolation early** — agents need a sandbox they can't break
+2. **Write runbooks** — explicit verification beats vague expectations
+3. **Teach agents your workflow via skills/context files** — not just your API
+4. **Use containers** — cheaper than debugging environment differences
+5. **Add `--json` flags** — structured output lets agents verify programmatically
 
-1. **Invest in test isolation** — give agents a sandbox they can't break
-2. **Write E2E runbooks** — explicit verification steps, not vague expectations
-3. **Ship built-in skills** — teach agents your workflow, not just your API
-4. **Use containers** — a clean environment is cheaper than debugging "works on my machine"
-5. **Keep output parseable** — structured output + JSON flags let agents verify programmatically
+## Honest Takeaway
 
-AI agents are fast, confident, and wrong in new ways. We don't assume they write perfect code — we assume they can fix their own mistakes, **as long as the feedback loop is fast enough.** Runbooks, sandboxes, and built-in skills are that feedback loop.
+AI agents are fast, confident, and wrong in new ways. I don't assume they write perfect code — I assume they can fix their own mistakes, **as long as the feedback loop is fast enough.** Runbooks, sandboxes, and built-in skills are that feedback loop.
+
+Still learning and iterating on this. If you're building CLI tools with AI agents, I'd love to hear what's working for you.

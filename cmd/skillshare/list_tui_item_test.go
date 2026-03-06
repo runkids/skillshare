@@ -51,10 +51,10 @@ func TestSkillItem_Title_SameNameAsRelPath(t *testing.T) {
 func TestSkillItem_Title_Tracked(t *testing.T) {
 	item := skillItem{entry: skillEntry{Name: "my-skill", RelPath: "_repo/my-skill", RepoName: "_repo"}}
 	got := item.Title()
-	if !strings.Contains(got, "my-skill") || !strings.Contains(got, "repo") {
-		t.Errorf("Title() = %q, want my-skill + repo badge", got)
+	if !strings.Contains(got, "my-skill") {
+		t.Errorf("Title() = %q, want my-skill in title", got)
 	}
-	// Should NOT contain "local" badge
+	// Tracked skills should not have "local" badge (group header provides context)
 	if strings.Contains(got, "local") {
 		t.Errorf("Title() = %q, tracked skill should not have local badge", got)
 	}

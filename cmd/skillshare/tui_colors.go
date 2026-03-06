@@ -48,7 +48,6 @@ var tc = struct {
 	ListRowPrefixSelected lipgloss.Style
 	BadgeLocal            lipgloss.Style
 	BadgeRemote           lipgloss.Style
-	BadgeTracked          lipgloss.Style
 
 	// Delegate styles — shared by all list TUIs
 	NormalTitle   lipgloss.Style
@@ -97,8 +96,6 @@ var tc = struct {
 	BadgeLocal: lipgloss.NewStyle().Foreground(lipgloss.Color("250")).Background(lipgloss.Color("237")).
 		Padding(0, 1),
 	BadgeRemote: lipgloss.NewStyle().Foreground(lipgloss.Color("228")).Background(lipgloss.Color("239")).
-		Padding(0, 1),
-	BadgeTracked: lipgloss.NewStyle().Foreground(lipgloss.Color("159")).Background(lipgloss.Color("239")).
 		Padding(0, 1),
 
 	NormalTitle: lipgloss.NewStyle().PaddingLeft(2),

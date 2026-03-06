@@ -158,9 +158,6 @@ func skillTypeBadge(e skillEntry) string {
 	if e.RepoName == "" && e.Source == "" {
 		return tc.BadgeLocal.Render("local")
 	}
-	if e.RepoName != "" {
-		return tc.BadgeTracked.Render(strings.TrimPrefix(e.RepoName, "_"))
-	}
 	return ""
 }
 

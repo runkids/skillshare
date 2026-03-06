@@ -37,28 +37,23 @@ wants_machine_output() {
   local next=""
   for arg in "${args[@]}"; do
     if [ -n "$next" ]; then
-      if [ "$next" = "format" ] && [ "$arg" = "json" -o "$arg" = "sarif" -o "$arg" = "markdown" ]; then
-        return 0
+      if [ "$next" = "format" ]; then
+        case "$arg" in
+          json|sarif|markdown)
+            return 0
+            ;;
+        esac
       fi
       next=""
       continue
     fi
 
     case "$arg" in
-      --json|-j)
+      --json|-j|--format=json|--format=sarif|--format=markdown)
         return 0
         ;;
       --format)
         next="format"
-        ;;
-      --format=json)
-        return 0
-        ;;
-      --format=sarif)
-        return 0
-        ;;
-      --format=markdown)
-        return 0
         ;;
     esac
   done

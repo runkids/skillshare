@@ -6,14 +6,21 @@
 
 #### TUI Grouped Layout
 
-- **Grouped skill list** — `skillshare list` TUI now groups skills by tracked repo with visual separators showing repo name and skill count. Standalone skills appear in their own group. Compact paths strip redundant prefixes for cleaner rows
-- **Grouped audit results** — `skillshare audit` TUI now uses the same grouped layout with dynamic panel height that adjusts to content
+- **Grouped skill list** — `skillshare list` TUI now groups skills by tracked repo with visual separators. Each group shows the repo name and skill count. Standalone (local) skills appear in their own section. When only one group exists, separators are omitted for a cleaner view
+  ```
+  ── runkids-my-skills (42) ──────────────
+    ✓ security/skill-improver
+    ! security/audit-demo-debug-exfil
+  ── standalone (27) ─────────────────────
+    ! react-best-practices
+  ```
+- **Grouped audit results** — `skillshare audit` TUI uses the same grouped layout. Panel height dynamically adjusts based on footer content, maximizing visible rows
 - **Structured filter tags** — filter skills precisely with `key:value` tags in the `/` filter input:
   ```
   t:tracked g:security audit
   → type=tracked AND group contains "security" AND free text "audit"
   ```
-  Available tags: `t:`/`type:` (tracked/remote/local/github), `g:`/`group:` (substring), `r:`/`repo:` (substring). Multiple tags use AND logic
+  Available tags: `t:`/`type:` (tracked/remote/local/github), `g:`/`group:` (substring), `r:`/`repo:` (substring). Multiple tags use AND logic. Tracked skills now show a repo-name badge so they remain identifiable even in filtered results without group headers
 
 #### New Targets
 
@@ -21,10 +28,11 @@
 
 ### Bug Fixes
 
-- Fixed row truncation in list TUI when skill paths exceeded available width
-- Fixed unnecessary group separator showing when only one group exists
-- Reduced color noise in audit CLI and TUI output for better readability
-- Fixed detail panel not showing skill name and group information
+- Fixed long skill names wrapping to multiple lines in list and audit TUIs — names now truncate with `…` when exceeding column width
+- Fixed items at the bottom of the audit TUI list being hidden behind the footer
+- Fixed detail panel showing duplicate information (installed date, repo name repeated across sections)
+- Reduced color noise in audit CLI and TUI output — non-zero counts use semantic severity colors, zero counts are dimmed
+- Fixed devcontainer wrapper not suppressing redirect banner for `-j` short flag
 
 ## [0.16.12] - 2026-03-06
 
