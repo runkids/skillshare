@@ -719,7 +719,7 @@ func (m listTUIModel) renderDetailBody(e skillEntry, d *detailData, width int) s
 			lines[len(lines)-1] += "..."
 		}
 		body := strings.Join(renderDetailParagraph(lines), "\n")
-		b.WriteString(renderDetailSection("Overview", body, cardWidth))
+		b.WriteString(renderDetailSection("Description", body, cardWidth))
 		b.WriteString("\n\n")
 	}
 
@@ -742,9 +742,9 @@ func (m listTUIModel) renderDetailBody(e skillEntry, d *detailData, width int) s
 }
 
 func renderDetailHeader(e skillEntry, d *detailData, width int) string {
-	// Line 1: Skill path — colored same as left panel (group/name with progressive luminance)
+	// Line 1: Skill path — bold name for prominence in the detail panel
 	path := baseSkillPath(e)
-	title := colorSkillPath(path)
+	title := colorSkillPathBold(path)
 
 	var body strings.Builder
 	body.WriteString(title)
@@ -758,7 +758,7 @@ func renderDetailHeader(e skillEntry, d *detailData, width int) string {
 	if len(d.SyncedTargets) > 0 {
 		metaParts = append(metaParts, tc.Cyan.Render(fmt.Sprintf("%d target(s)", len(d.SyncedTargets))))
 	}
-	body.WriteString("\n")
+	body.WriteString("\n\n")
 	body.WriteString(strings.Join(metaParts, tc.Dim.Render("  ·  ")))
 
 	return renderDetailCard("", body.String(), width)
