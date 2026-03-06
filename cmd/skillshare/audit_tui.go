@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"time"
@@ -40,7 +41,7 @@ type auditItem struct {
 }
 
 func (i auditItem) Title() string {
-	name := colorSkillPath(i.result.SkillName)
+	name := colorSkillPath(compactAuditPath(i.result.SkillName))
 	if len(i.result.Findings) == 0 {
 		return tc.Green.Render("✓") + " " + name
 	}
@@ -48,6 +49,141 @@ func (i auditItem) Title() string {
 		return tc.Red.Render("✗") + " " + name
 	}
 	return tc.Yellow.Render("!") + " " + name
+}
+
+// auditGroupItem is a non-selectable visual separator in the audit list.
+type auditGroupItem struct {
+	label string
+	count int
+}
+
+func (g auditGroupItem) FilterValue() string { return "" }
+func (g auditGroupItem) Title() string       { return g.label }
+func (g auditGroupItem) Description() string { return "" }
+
+// compactAuditPath strips tracked repo prefix (first segment starting with "_")
+// and keeps at most the last 2 segments.
+func compactAuditPath(name string) string {
+	segments := strings.Split(name, "/")
+	if strings.HasPrefix(segments[0], "_") {
+		if len(segments) > 1 {
+			segments = segments[1:]
+		} else {
+			// Repo-root skill: "_repo-name" → "repo-name"
+			segments[0] = strings.TrimPrefix(segments[0], "_")
+		}
+	}
+	if len(segments) > 2 {
+		segments = segments[len(segments)-2:]
+	}
+	return strings.Join(segments, "/")
+}
+
+// auditRepoKey extracts the grouping key from a skill name.
+func auditRepoKey(name string) string {
+	segments := strings.Split(name, "/")
+	if strings.HasPrefix(segments[0], "_") {
+		return segments[0]
+	}
+	return ""
+}
+
+// buildGroupedAuditItems inserts auditGroupItem separators.
+func buildGroupedAuditItems(items []auditItem) []list.Item {
+	var result []list.Item
+	var currentGroup string
+	groupCount := 0
+
+	flush := func() {
+		if groupCount > 0 {
+			for i := len(result) - 1 - groupCount; i >= 0; i-- {
+				if g, ok := result[i].(auditGroupItem); ok {
+					g.count = groupCount
+					result[i] = g
+					break
+				}
+			}
+		}
+	}
+
+	for _, item := range items {
+		key := auditRepoKey(item.result.SkillName)
+		if key != currentGroup {
+			flush()
+			label := "standalone"
+			if key != "" {
+				label = strings.TrimPrefix(key, "_")
+			}
+			result = append(result, auditGroupItem{label: label})
+			currentGroup = key
+			groupCount = 0
+		}
+		result = append(result, item)
+		groupCount++
+	}
+	flush()
+	return result
+}
+
+// auditDelegate renders a compact single-line row for the audit TUI.
+type auditDelegate struct{}
+
+func (auditDelegate) Height() int  { return 1 }
+func (auditDelegate) Spacing() int { return 0 }
+func (auditDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd {
+	return nil
+}
+
+func (auditDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+	width := m.Width()
+	if width <= 0 {
+		width = 40
+	}
+
+	switch v := item.(type) {
+	case auditGroupItem:
+		renderGroupRow(w, groupItem{label: v.label, count: v.count}, width)
+	case auditItem:
+		selected := index == m.Index()
+		line := v.Title()
+
+		prefixStyle := tc.ListRowPrefix
+		bodyStyle := tc.ListRow
+		if selected {
+			prefixStyle = tc.ListRowPrefixSelected
+			bodyStyle = tc.ListRowSelected
+		}
+
+		bodyWidth := width - lipgloss.Width(prefixStyle.Render("▌"))
+		if bodyWidth < 10 {
+			bodyWidth = 10
+		}
+		line = truncateANSI(line, bodyWidth)
+		fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, prefixStyle.Render("▌"), bodyStyle.Width(bodyWidth).Render(line)))
+	}
+}
+
+// skipAuditGroupItem advances past auditGroupItem separators.
+func skipAuditGroupItem(l *list.Model, direction int) {
+	items := l.Items()
+	idx := l.Index()
+	n := len(items)
+	for {
+		if idx < 0 || idx >= n {
+			break
+		}
+		if _, isGroup := items[idx].(auditGroupItem); !isGroup {
+			break
+		}
+		idx += direction
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= n {
+		idx = n - 1
+	}
+	l.Select(idx)
 }
 
 func (i auditItem) Description() string { return "" }
@@ -120,7 +256,17 @@ func newAuditTUIModel(results []*audit.Result, scanOutputs []audit.ScanOutput, s
 	}
 	sort.Slice(items, func(i, j int) bool {
 		ri, rj := items[i].result, items[j].result
-		// Skills with findings come first.
+		// Primary: group by repo key (tracked repos first, then standalone).
+		ki, kj := auditRepoKey(ri.SkillName), auditRepoKey(rj.SkillName)
+		if ki != kj {
+			// Both tracked: alphabetical
+			if ki != "" && kj != "" {
+				return ki < kj
+			}
+			// Tracked before standalone
+			return ki != ""
+		}
+		// Secondary: skills with findings come first.
 		hasI, hasJ := len(ri.Findings) > 0, len(rj.Findings) > 0
 		if hasI != hasJ {
 			return hasI
@@ -147,15 +293,9 @@ func newAuditTUIModel(results []*audit.Result, scanOutputs []audit.ScanOutput, s
 		displayItems = displayItems[:maxListItems]
 	}
 
-	listItems := make([]list.Item, len(displayItems))
-	for i, item := range displayItems {
-		listItems[i] = item
-	}
+	listItems := buildGroupedAuditItems(displayItems)
 
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, false)
-
-	l := list.New(listItems, delegate, 0, 0)
+	l := list.New(listItems, auditDelegate{}, 0, 0)
 	l.Title = fmt.Sprintf("Audit results (%d scanned)", summary.Scanned)
 	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)
@@ -168,13 +308,15 @@ func newAuditTUIModel(results []*audit.Result, scanOutputs []audit.ScanOutput, s
 	fi.PromptStyle = tc.Filter
 	fi.Cursor.Style = tc.Filter
 
-	return auditTUIModel{
+	m := auditTUIModel{
 		list:        l,
 		allItems:    allItems,
 		matchCount:  len(allItems),
 		filterInput: fi,
 		summary:     summary,
 	}
+	skipAuditGroupItem(&m.list, 1)
+	return m
 }
 
 func (m auditTUIModel) Init() tea.Cmd { return nil }
@@ -183,13 +325,14 @@ func (m *auditTUIModel) applyFilter() {
 	term := strings.ToLower(m.filterText)
 
 	if term == "" {
-		all := make([]list.Item, min(len(m.allItems), maxListItems))
-		for i := range all {
-			all[i] = m.allItems[i]
+		displayItems := m.allItems
+		if len(displayItems) > maxListItems {
+			displayItems = displayItems[:maxListItems]
 		}
 		m.matchCount = len(m.allItems)
-		m.list.SetItems(all)
+		m.list.SetItems(buildGroupedAuditItems(displayItems))
 		m.list.ResetSelected()
+		skipAuditGroupItem(&m.list, 1)
 		return
 	}
 
@@ -213,11 +356,7 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
 		m.termHeight = msg.Height
-		// Overhead: filter(1) + summary footer(2) + help(1) + newlines(3) = 7
-		panelHeight := msg.Height - 7
-		if panelHeight < 6 {
-			panelHeight = 6
-		}
+		panelHeight := m.auditPanelHeight()
 		if m.termWidth >= 70 {
 			m.list.SetSize(auditListWidth(m.termWidth), panelHeight)
 		} else {
@@ -288,6 +427,16 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	prevIdx := m.list.Index()
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
+
+	// Auto-skip group separator items
+	if _, isGroup := m.list.SelectedItem().(auditGroupItem); isGroup {
+		dir := 1
+		if m.list.Index() < prevIdx {
+			dir = -1
+		}
+		skipAuditGroupItem(&m.list, dir)
+	}
+
 	if m.list.Index() != prevIdx {
 		m.detailScroll = 0 // reset scroll when selection changes
 	}
@@ -307,12 +456,7 @@ func (m auditTUIModel) View() string {
 	// ── Horizontal split layout ──
 	var b strings.Builder
 
-	// Panel height: terminal minus footer overhead.
-	// Footer: gap(1) + filter(1) + stats(2) + gap(1) + help(1) + trailing(1) = 7 + 2 gaps = 9
-	panelHeight := m.termHeight - 9
-	if panelHeight < 6 {
-		panelHeight = 6
-	}
+	panelHeight := m.auditPanelHeight()
 
 	leftWidth := auditListWidth(m.termWidth)
 	rightWidth := auditDetailPanelWidth(m.termWidth)
@@ -344,16 +488,14 @@ func (m auditTUIModel) View() string {
 	b.WriteString(body)
 	b.WriteString("\n\n")
 
-	// Filter bar (below panels, matching list TUI layout)
+	// Filter bar (below panels)
 	b.WriteString(m.renderFilterBar())
 
 	// Summary footer
 	b.WriteString(m.renderSummaryFooter())
-	b.WriteString("\n")
 
 	// Help line
 	b.WriteString(tc.Help.Render(appendScrollInfo("↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll detail  q quit", scrollInfo)))
-	b.WriteString("\n")
 
 	return b.String()
 }
@@ -603,15 +745,34 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 	return b.String()
 }
 
-// auditListWidth returns the left panel width for horizontal layout.
-// 25% of terminal, clamped to [25, 45].
-func auditListWidth(termWidth int) int {
-	w := termWidth / 4
-	if w < 25 {
-		w = 25
+// auditFooterLines returns the number of lines the footer occupies below the panel.
+// gap(2) + filter(1) + summary(1-2) + help(1) = 5 or 6
+func (m auditTUIModel) auditFooterLines() int {
+	n := 5 // gap(2) + filter + summary-line1 + help
+	if formatCategoryBreakdownTUI(m.summary.ByCategory) != "" {
+		n++ // summary-line2 (threats)
 	}
-	if w > 45 {
-		w = 45
+	return n
+}
+
+// auditPanelHeight returns the panel height for both SetSize and View.
+func (m auditTUIModel) auditPanelHeight() int {
+	h := m.termHeight - m.auditFooterLines()
+	if h < 6 {
+		h = 6
+	}
+	return h
+}
+
+// auditListWidth returns the left panel width for horizontal layout.
+// 36% of terminal, clamped to [30, 46].
+func auditListWidth(termWidth int) int {
+	w := termWidth * 36 / 100
+	if w < 30 {
+		w = 30
+	}
+	if w > 46 {
+		w = 46
 	}
 	return w
 }
