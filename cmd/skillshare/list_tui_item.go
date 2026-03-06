@@ -67,8 +67,12 @@ func renderGroupRow(w io.Writer, g groupItem, width int) {
 }
 
 func renderSkillRow(w io.Writer, skill skillItem, width int, selected bool) {
-	line1 := skillTitleLine(skill.entry)
+	renderPrefixRow(w, skillTitleLine(skill.entry), width, selected)
+}
 
+// renderPrefixRow renders a single-line list row with a "▌" prefix bar.
+// Shared by list TUI and audit TUI delegates.
+func renderPrefixRow(w io.Writer, line string, width int, selected bool) {
 	prefixStyle := tc.ListRowPrefix
 	bodyStyle := tc.ListRow
 	if selected {
@@ -80,15 +84,14 @@ func renderSkillRow(w io.Writer, skill skillItem, width int, selected bool) {
 	if bodyWidth < 10 {
 		bodyWidth = 10
 	}
-	// Subtract padding so text + padding fits within bodyWidth.
 	textWidth := bodyWidth - bodyStyle.GetPaddingLeft() - bodyStyle.GetPaddingRight()
 	if textWidth < 8 {
 		textWidth = 8
 	}
 
-	line1 = truncateANSI(line1, textWidth)
+	line = truncateANSI(line, textWidth)
 
-	fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, prefixStyle.Render("▌"), bodyStyle.Width(bodyWidth).MaxWidth(bodyWidth).Render(line1)))
+	fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, prefixStyle.Render("▌"), bodyStyle.Width(bodyWidth).MaxWidth(bodyWidth).Render(line)))
 }
 
 // FilterValue returns the searchable text for bubbletea's built-in fuzzy filter.
@@ -145,9 +148,6 @@ func compactSkillPath(e skillEntry) string {
 }
 
 func baseSkillPath(e skillEntry) string {
-	if e.RelPath != "" && e.RelPath != e.Name {
-		return e.RelPath
-	}
 	if e.RelPath != "" {
 		return e.RelPath
 	}
@@ -251,21 +251,15 @@ func toSkillItems(entries []skillEntry) []skillItem {
 // If all skills belong to a single group (e.g. all standalone), no separators are added.
 func buildGroupedItems(skills []skillItem) []list.Item {
 	// Check if there are multiple groups.
-	hasTracked := false
-	hasStandalone := false
+	groups := map[string]bool{}
 	for _, s := range skills {
-		if s.entry.RepoName != "" {
-			hasTracked = true
-		} else {
-			hasStandalone = true
-		}
-		if hasTracked && hasStandalone {
+		groups[s.entry.RepoName] = true
+		if len(groups) > 1 {
 			break
 		}
 	}
-	multiGroup := hasTracked && hasStandalone || countRepoGroups(skills) > 1
 
-	if !multiGroup {
+	if len(groups) <= 1 {
 		items := make([]list.Item, len(skills))
 		for i, s := range skills {
 			items[i] = s
@@ -307,15 +301,6 @@ func buildGroupedItems(skills []skillItem) []list.Item {
 	}
 	flush()
 	return items
-}
-
-// countRepoGroups returns the number of distinct repo groups (by RepoName).
-func countRepoGroups(skills []skillItem) int {
-	seen := map[string]bool{}
-	for _, s := range skills {
-		seen[s.entry.RepoName] = true
-	}
-	return len(seen)
 }
 
 // skipGroupItem advances the list selection past groupItem separators.

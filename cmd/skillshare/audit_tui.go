@@ -51,15 +51,6 @@ func (i auditItem) Title() string {
 	return tc.Yellow.Render("!") + " " + name
 }
 
-// auditGroupItem is a non-selectable visual separator in the audit list.
-type auditGroupItem struct {
-	label string
-	count int
-}
-
-func (g auditGroupItem) FilterValue() string { return "" }
-func (g auditGroupItem) Title() string       { return g.label }
-func (g auditGroupItem) Description() string { return "" }
 
 // compactAuditPath strips tracked repo prefix (first segment starting with "_")
 // and keeps at most the last 2 segments.
@@ -88,7 +79,7 @@ func auditRepoKey(name string) string {
 	return ""
 }
 
-// buildGroupedAuditItems inserts auditGroupItem separators.
+// buildGroupedAuditItems inserts groupItem separators.
 // If all items belong to a single group, no separators are added.
 func buildGroupedAuditItems(items []auditItem) []list.Item {
 	// Check if there are multiple groups.
@@ -115,7 +106,7 @@ func buildGroupedAuditItems(items []auditItem) []list.Item {
 	flush := func() {
 		if groupCount > 0 {
 			for i := len(result) - 1 - groupCount; i >= 0; i-- {
-				if g, ok := result[i].(auditGroupItem); ok {
+				if g, ok := result[i].(groupItem); ok {
 					g.count = groupCount
 					result[i] = g
 					break
@@ -132,7 +123,7 @@ func buildGroupedAuditItems(items []auditItem) []list.Item {
 			if key != "" {
 				label = strings.TrimPrefix(key, "_")
 			}
-			result = append(result, auditGroupItem{label: label})
+			result = append(result, groupItem{label: label})
 			currentGroup = key
 			groupCount = 0
 		}
@@ -159,53 +150,11 @@ func (auditDelegate) Render(w io.Writer, m list.Model, index int, item list.Item
 	}
 
 	switch v := item.(type) {
-	case auditGroupItem:
-		renderGroupRow(w, groupItem{label: v.label, count: v.count}, width)
+	case groupItem:
+		renderGroupRow(w, v, width)
 	case auditItem:
-		selected := index == m.Index()
-		line := v.Title()
-
-		prefixStyle := tc.ListRowPrefix
-		bodyStyle := tc.ListRow
-		if selected {
-			prefixStyle = tc.ListRowPrefixSelected
-			bodyStyle = tc.ListRowSelected
-		}
-
-		bodyWidth := width - lipgloss.Width(prefixStyle.Render("▌"))
-		if bodyWidth < 10 {
-			bodyWidth = 10
-		}
-		textWidth := bodyWidth - bodyStyle.GetPaddingLeft() - bodyStyle.GetPaddingRight()
-		if textWidth < 8 {
-			textWidth = 8
-		}
-		line = truncateANSI(line, textWidth)
-		fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, prefixStyle.Render("▌"), bodyStyle.Width(bodyWidth).MaxWidth(bodyWidth).Render(line)))
+		renderPrefixRow(w, v.Title(), width, index == m.Index())
 	}
-}
-
-// skipAuditGroupItem advances past auditGroupItem separators.
-func skipAuditGroupItem(l *list.Model, direction int) {
-	items := l.Items()
-	idx := l.Index()
-	n := len(items)
-	for {
-		if idx < 0 || idx >= n {
-			break
-		}
-		if _, isGroup := items[idx].(auditGroupItem); !isGroup {
-			break
-		}
-		idx += direction
-	}
-	if idx < 0 {
-		idx = 0
-	}
-	if idx >= n {
-		idx = n - 1
-	}
-	l.Select(idx)
 }
 
 func (i auditItem) Description() string { return "" }
@@ -337,7 +286,7 @@ func newAuditTUIModel(results []*audit.Result, scanOutputs []audit.ScanOutput, s
 		filterInput: fi,
 		summary:     summary,
 	}
-	skipAuditGroupItem(&m.list, 1)
+	skipGroupItem(&m.list, 1)
 	return m
 }
 
@@ -354,7 +303,7 @@ func (m *auditTUIModel) applyFilter() {
 		m.matchCount = len(m.allItems)
 		m.list.SetItems(buildGroupedAuditItems(displayItems))
 		m.list.ResetSelected()
-		skipAuditGroupItem(&m.list, 1)
+		skipGroupItem(&m.list, 1)
 		return
 	}
 
@@ -451,12 +400,12 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.list, cmd = m.list.Update(msg)
 
 	// Auto-skip group separator items
-	if _, isGroup := m.list.SelectedItem().(auditGroupItem); isGroup {
+	if _, isGroup := m.list.SelectedItem().(groupItem); isGroup {
 		dir := 1
 		if m.list.Index() < prevIdx {
 			dir = -1
 		}
-		skipAuditGroupItem(&m.list, dir)
+		skipGroupItem(&m.list, dir)
 	}
 
 	if m.list.Index() != prevIdx {
@@ -771,7 +720,7 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 // gap(2) + filter(1) + summary(1-2) + help(1) = 5 or 6
 func (m auditTUIModel) auditFooterLines() int {
 	n := 5 // gap(2) + filter + summary-line1 + help
-	if formatCategoryBreakdownTUI(m.summary.ByCategory) != "" {
+	if len(m.summary.ByCategory) > 0 {
 		n++ // summary-line2 (threats)
 	}
 	return n
