@@ -9,6 +9,32 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.16.13] - 2026-03-06
+
+### New Features
+
+#### TUI Grouped Layout
+
+- **Grouped skill list** — `skillshare list` TUI now groups skills by tracked repo with visual separators showing repo name and skill count. Standalone skills appear in their own group. Compact paths strip redundant prefixes for cleaner rows
+- **Grouped audit results** — `skillshare audit` TUI now uses the same grouped layout with dynamic panel height that adjusts to content
+- **Structured filter tags** — filter skills precisely with `key:value` tags in the `/` filter input:
+  ```
+  t:tracked g:security audit
+  → type=tracked AND group contains "security" AND free text "audit"
+  ```
+  Available tags: `t:`/`type:` (tracked/remote/local/github), `g:`/`group:` (substring), `r:`/`repo:` (substring). Multiple tags use AND logic
+
+#### New Targets
+
+- **3 new AI agent targets** — Warp, Purecode AI (`purecode`), and Witsy, bringing supported tools to 55+
+
+### Bug Fixes
+
+- Fixed row truncation in list TUI when skill paths exceeded available width
+- Fixed unnecessary group separator showing when only one group exists
+- Reduced color noise in audit CLI and TUI output for better readability
+- Fixed detail panel not showing skill name and group information
+
 ## [0.16.12] - 2026-03-06
 
 ### New Features

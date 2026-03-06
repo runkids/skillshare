@@ -25,7 +25,20 @@ skillshare list --json       # JSON output for CI/scripts
 
 On a TTY, `skillshare list` launches an interactive terminal UI with:
 
-- **Fuzzy filtering** — type to filter by name, path, or source
+- **Smart filtering** — press `/` to filter by name, path, or source. Supports tag syntax for precise filtering:
+
+  | Tag | Short | Values | Example |
+  |-----|-------|--------|---------|
+  | `type:` | `t:` | `tracked`, `remote`, `local`, `github` | `t:tracked` |
+  | `group:` | `g:` | any directory name | `g:security` |
+  | `repo:` | `r:` | any repo name | `r:team` |
+
+  Tags can be combined with free text (AND logic):
+  ```
+  t:tracked g:security audit
+  ```
+  This shows only tracked skills in the "security" group whose name contains "audit".
+
 - **Keyboard navigation** — arrow keys to browse, `q` to quit
 - **Detail panel** — shows description, disk path, files, and synced targets for the selected skill
 - **Content viewer** — press `Enter` to open a dual-pane viewer with a file tree on the left and Markdown-rendered content on the right. `j`/`k` browse files (auto-preview), `l`/`Enter` expand directories, `h` collapse. `Ctrl+d`/`u` scroll content half-page, `g`/`G` jump to top/bottom. Mouse wheel and click are also supported.

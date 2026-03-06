@@ -48,6 +48,18 @@ func TestSkillItem_Title_SameNameAsRelPath(t *testing.T) {
 	}
 }
 
+func TestSkillItem_Title_Tracked(t *testing.T) {
+	item := skillItem{entry: skillEntry{Name: "my-skill", RelPath: "_repo/my-skill", RepoName: "_repo"}}
+	got := item.Title()
+	if !strings.Contains(got, "my-skill") || !strings.Contains(got, "repo") {
+		t.Errorf("Title() = %q, want my-skill + repo badge", got)
+	}
+	// Should NOT contain "local" badge
+	if strings.Contains(got, "local") {
+		t.Errorf("Title() = %q, tracked skill should not have local badge", got)
+	}
+}
+
 func TestCompactSkillPath_TrackedDeep(t *testing.T) {
 	e := skillEntry{Name: "skill-name", RelPath: "_repo/security/skill-name", RepoName: "org/repo"}
 	if got := compactSkillPath(e); got != "security/skill-name" {
