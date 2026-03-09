@@ -114,6 +114,9 @@ func fmtDur(ms int64) string {
 func plainFailReason(r StepResult) string {
 	for _, a := range r.Assertions {
 		if !a.Matched {
+			if a.Negated {
+				return fmt.Sprintf("unexpected match: %q", a.Pattern)
+			}
 			return fmt.Sprintf("expected %q not found", a.Pattern)
 		}
 	}

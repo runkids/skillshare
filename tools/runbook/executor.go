@@ -18,7 +18,7 @@ func Execute(ctx context.Context, s Step) StepResult {
 	// Merge consecutive code blocks separated by "---".
 	command = strings.ReplaceAll(command, "\n---\n", "\n")
 
-	cmd := exec.CommandContext(ctx, "bash", "-e", "-c", command)
+	cmd := exec.CommandContext(ctx, "bash", "-eo", "pipefail", "-c", command)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

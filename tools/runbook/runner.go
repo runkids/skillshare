@@ -10,7 +10,6 @@ import (
 type RunOptions struct {
 	DryRun     bool
 	JSONOutput io.Writer
-	TUI        bool
 	Timeout    time.Duration
 }
 
