@@ -29,7 +29,8 @@ docker exec $CONTAINER ssenv create "$ENV_NAME" --init
 ```
 
 Expected:
-- Environment created with all targets
+- exit_code: 0
+- Environment created
 
 ### 2. Initialize project with clean skill
 
@@ -61,8 +62,8 @@ SKILL_EOF
 ```
 
 Expected:
-- Project initialized with `.skillshare/config.yaml`
-- Clean skill created in `.skillshare/skills/`
+- exit_code: 0
+- Initialized
 
 ### 3. Audit clean project — should pass (exit 0)
 
@@ -75,9 +76,9 @@ docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
 ```
 
 Expected:
-- Exit code 0 (no findings)
-- Output contains "Passed" or checkmark for clean skill
-- No "Failed" in summary
+- EXIT_CODE=0
+- clean-tool
+- Not Failed
 
 Verify:
 
@@ -119,9 +120,9 @@ SKILL_EOF
 ```
 
 Expected:
-- Exit code 1 (CRITICAL findings block by default)
-- Output contains CRITICAL or HIGH severity labels
-- Output contains "Failed"
+- EXIT_CODE=1
+- regex: CRITICAL|HIGH
+- Failed
 
 Verify:
 
@@ -172,8 +173,8 @@ SKILL_EOF
 ```
 
 Expected:
-- Default threshold: likely exit 0 (no CRITICAL findings)
-- Low threshold: exit 1 if any LOW+ findings detected
+- EXIT_CODE_DEFAULT=0
+- EXIT_CODE_LOW=1
 
 Verify:
 
@@ -196,9 +197,9 @@ docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
 ```
 
 Expected:
-- Valid JSON output on stdout
-- Contains `"results"` and `"summary"` keys
-- Summary has `"mode": "project"`
+- exit_code: 0
+- regex: "results"
+- regex: "summary"
 
 > **Note**: The spinner writes ANSI escape codes (`[?25l`/`[?25h`) to stdout even
 > with `2>/dev/null`. Strip them with `sed` before JSON parsing.
@@ -255,8 +256,7 @@ CFG_EOF
 ```
 
 Expected:
-- With `block_threshold: info`, even INFO findings cause exit 1
-- Exit code 1
+- EXIT_CODE_INFO=1
 
 Verify:
 
@@ -298,8 +298,8 @@ RULES_EOF
 ```
 
 Expected:
-- With prompt-injection disabled, the evil skill may still fail on other patterns (destructive-commands, external-link)
-- But the prompt-injection finding is suppressed
+- evil-skill
+- Not prompt-injection
 
 Verify:
 
@@ -330,8 +330,8 @@ docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
 ```
 
 Expected:
-- `audit -p clean-tool` → exit 0
-- `audit -p evil-skill` → exit 1
+- EXIT_CODE_CLEAN=0
+- EXIT_CODE_EVIL=1
 
 Verify:
 
@@ -396,9 +396,8 @@ CFG_EOF
 ```
 
 Expected:
-- `pre-commit install` succeeds
-- Commit succeeds (exit 0) — hook runs and passes on clean skill
-- Output contains `Skillshare Audit...Passed`
+- EXIT_CODE_PRECOMMIT_CLEAN=0
+- Skillshare Audit
 
 Verify:
 
@@ -445,9 +444,9 @@ SKILL_EOF
 ```
 
 Expected:
-- Commit fails (exit 1) — hook detects CRITICAL findings and blocks
-- Output contains `Skillshare Audit...Failed` from pre-commit framework
-- `git log --oneline -1` still shows the Step 10 commit (no new commit created)
+- EXIT_CODE_PRECOMMIT_EVIL=1
+- Skillshare Audit
+- Failed
 
 Verify:
 

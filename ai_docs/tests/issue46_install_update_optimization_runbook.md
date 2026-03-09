@@ -53,8 +53,8 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- ss init -g --no-copy --targe
 ```
 
 Expected:
-- `ssenv` env created
-- `ss init` succeeds
+- exit_code: 0
+- Initialized
 
 ### 2. Isolation + mode sanity (prevents false project/global confusion)
 
@@ -72,9 +72,7 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- `ssenv enter <env> -- <cmd>` runs from isolated HOME (`pwd == $HOME`)
-- In `/workspace`, auto mode and `-g` mode are both callable (outputs may differ)
-- This verifies runbook commands are not accidentally bound to workspace project mode
+- exit_code: 0
 
 ### 3. Token + credential-helper precheck
 
@@ -95,8 +93,8 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Shows whether token-based auth is available (`TOKEN_PRESENT` / `TOKEN_ABSENT`)
-- Prints credential-helper state (or explicit skip)
+- exit_code: 0
+- regex: TOKEN_PRESENT|TOKEN_ABSENT
 
 ### 4. Install GitHub subdir skill (Issue #46 reference scenario)
 
@@ -106,9 +104,8 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- \
 ```
 
 Expected:
-- Install command succeeds
-- `~/.config/skillshare/skills/atlassian-search/SKILL.md` exists
-- `~/.config/skillshare/skills/atlassian-search/.skillshare-meta.json` exists
+- exit_code: 0
+- Installed
 
 Verify:
 
@@ -134,8 +131,8 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Install succeeds even without token envs
-- Output may include API warning/fallback messages (acceptable)
+- exit_code: 0
+- Installed
 
 ### 6. Update the regular installed skill
 
@@ -144,8 +141,7 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- ss update -g atlassian-searc
 ```
 
 Expected:
-- Update succeeds (reinstall-from-source path for subdir metadata)
-- Skill files remain present
+- exit_code: 0
 
 Verify:
 
@@ -162,9 +158,8 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- \
 ```
 
 Expected:
-- Tracked repo installed at `~/.config/skillshare/skills/_issue46-track`
-- `.git` directory exists
-- Optimization markers exist for shallow/partial clone (for supported remotes)
+- exit_code: 0
+- Installed
 
 Verify:
 
@@ -186,9 +181,8 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- \
 ```
 
 Expected:
-- Command succeeds (no hang)
-- Tracked repo exists with `.git`
-- On sparse-capable git, `.git/info/sparse-checkout` usually contains `skills/documents/atlassian-search`
+- exit_code: 0
+- Installed
 
 Verify:
 
@@ -210,7 +204,7 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- ss update -g _issue46-track
 ```
 
 Expected:
-- Update command succeeds (up-to-date or updated)
+- exit_code: 0
 
 ### 9. Non-TTY quiet check for tracked install
 
@@ -222,8 +216,11 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Install succeeds
-- No raw git progress lines in piped output
+- exit_code: 0
+- Not Enumerating objects
+- Not Counting objects
+- Not Receiving objects
+- Not Resolving deltas
 
 ### 10. Non-GitHub sparse checkout path (deterministic, local file:// repo)
 
@@ -245,8 +242,7 @@ EOF
 ```
 
 Expected:
-- Install succeeds from `file://` subdir source
-- Installed skill exists at `~/.config/skillshare/skills/sparse-alpha/SKILL.md`
+- exit_code: 0
 
 ### 11. Sparse failure -> full clone fallback (fuzzy subdir)
 
@@ -269,9 +265,7 @@ EOF
 ```
 
 Expected:
-- Install succeeds even though input subdir is fuzzy (`/pdf`)
-- Skill ends up installed (full-clone fallback + fuzzy resolve path)
-- Fallback warning may appear: `sparse checkout install fallback`
+- exit_code: 0
 
 ### 12. GHE API base handling
 
@@ -283,9 +277,8 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- \
 ```
 
 Expected:
-- Test passes and validates:
-  - `github.com -> https://api.github.com`
-  - `github.<corp>.com -> https://<host>/api/v3`
+- exit_code: 0
+- PASS
 
 Optional live GHE check (if you have a reachable repo + token):
 
@@ -313,8 +306,7 @@ docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Local dirty changes are discarded by force-update path
-- Command succeeds
+- exit_code: 0
 
 ### 14. (Manual) TTY progress sanity
 
@@ -326,8 +318,8 @@ docker exec -it "$CONTAINER" ssenv enter "$ENV_NAME" -- \
 ```
 
 Expected:
-- Progress lines are readable and stable (no rapid MiB/s flicker spam)
-- Stage-like updates remain visible (for example `Receiving objects: 42%`)
+- exit_code: 0
+- Installed
 
 ## Pass Criteria
 

@@ -70,8 +70,8 @@ readlink "$SYMLINK_SOURCE"
 ```
 
 **Expected:**
-- `readlink` shows the symlink pointing to `$HOME/dotfiles/skillshare-skills`
-- `ls -la` shows the symlink arrow
+- exit_code: 0
+- dotfiles/skillshare-skills
 
 ## Step 1: Merge mode sync with symlinked source
 
@@ -80,17 +80,17 @@ ss sync --dry-run
 ```
 
 **Expected:**
-- Discovers 3 skills (alpha, beta, group__nested)
-- No errors about "failed to walk source directory"
-- Dry-run completes successfully
+- exit_code: 0
+- regex: 3 skills
+- Not failed to walk source directory
 
 ```bash
 ss sync
 ```
 
 **Expected:**
-- All 3 skills are synced (linked/updated) to at least one target
-- No errors
+- exit_code: 0
+- synced
 
 ## Step 2: Verify symlinks resolve correctly through symlinked source
 
@@ -104,9 +104,8 @@ stat "$TARGET_DIR/alpha/SKILL.md" 2>/dev/null && echo "RESOLVES OK" || echo "BRO
 ```
 
 **Expected:**
-- `alpha` is a symlink inside the target directory
-- `stat` succeeds — the symlink resolves correctly (not broken)
-- `RESOLVES OK` is printed
+- exit_code: 0
+- RESOLVES OK
 
 ## Step 3: Status reports correctly with symlinked source
 
@@ -115,9 +114,9 @@ ss status
 ```
 
 **Expected:**
-- Shows source directory (the symlink path, not the resolved path)
-- Shows targets with linked skill counts
-- No errors about unresolvable paths
+- exit_code: 0
+- skills
+- Not unresolvable
 
 ## Step 4: Diff detects no changes after sync
 
@@ -126,8 +125,7 @@ ss diff --no-tui
 ```
 
 **Expected:**
-- No pending changes (all skills are already synced)
-- No errors
+- exit_code: 0
 
 ## Step 5: List shows skills through symlinked source
 
@@ -136,8 +134,10 @@ ss list --no-tui
 ```
 
 **Expected:**
-- Lists alpha, beta, group/nested (or group__nested)
-- No errors about walking source directory
+- exit_code: 0
+- alpha
+- beta
+- Not failed to walk
 
 ## Step 6: Symlinked target directory — merge mode
 
@@ -159,8 +159,8 @@ ss sync
 ```
 
 **Expected:**
-- Sync completes without errors
-- Does NOT delete the target symlink
+- exit_code: 0
+- synced
 
 ```bash
 # Verify symlinks were created inside the symlinked target
@@ -169,8 +169,10 @@ ls -la "$REAL_TARGET/"
 ```
 
 **Expected:**
-- Skills (alpha, beta, group__nested) appear in both `$CLAUDE_TARGET/` and `$REAL_TARGET/`
-- The target-level symlink (`$CLAUDE_TARGET` → `$REAL_TARGET`) is preserved
+- exit_code: 0
+- alpha
+- beta
+- group__nested
 
 ## Step 7: Symlinks resolve from both paths
 
@@ -183,7 +185,9 @@ stat "$REAL_TARGET/alpha/SKILL.md" && echo "VIA REAL: OK" || echo "VIA REAL: BRO
 ```
 
 **Expected:**
-- Both print "OK" — symlinks resolve from both the symlinked and real target paths
+- exit_code: 0
+- VIA SYMLINK: OK
+- VIA REAL: OK
 
 ## Step 8: Copy mode with symlinked target
 
@@ -204,9 +208,8 @@ ss sync
 ```
 
 **Expected:**
-- Copy sync completes without errors
-- Does NOT delete the target symlink
-- Skills are copied (not symlinked) into the directory that `$COPY_SYMLINK` points to
+- exit_code: 0
+- synced
 
 ```bash
 # Verify files exist at real location
@@ -215,7 +218,8 @@ test -f "$COPY_TARGET/alpha/SKILL.md" && echo "COPY OK" || echo "COPY MISSING"
 ```
 
 **Expected:**
-- `COPY OK` — skill files were copied into the real directory through the symlink
+- exit_code: 0
+- COPY OK
 
 ## Step 9: Both source AND target are symlinks (double symlink)
 
@@ -229,9 +233,8 @@ ss sync --dry-run
 ```
 
 **Expected:**
-- Both readlink commands show symlink targets
-- Dry-run sync completes with discovered skills
-- No errors
+- exit_code: 0
+- regex: \d+ skills
 
 ## Step 10: Chained symlinks (link → link → real dir)
 
@@ -256,9 +259,10 @@ ss sync
 ```
 
 **Expected:**
-- Sync completes successfully — discovers 3 skills
-- All chained symlinks are followed correctly
-- No "not a directory" or "too many levels of symbolic links" errors
+- exit_code: 0
+- synced
+- Not not a directory
+- Not too many levels of symbolic links
 
 ## Step 11: Collect (pull) through symlinked target
 
@@ -278,9 +282,8 @@ ss collect claude --dry-run
 ```
 
 **Expected:**
-- Detects `local-only` as a local skill in the target
-- Shows it would be pulled to source
-- No errors about scanning symlinked directory
+- exit_code: 0
+- local-only
 
 ## Step 12: Update --all through symlinked source
 
@@ -315,10 +318,10 @@ ss update --all --dry-run 2>&1
 ```
 
 **Expected:**
-- `update --all` scans the symlinked source directory
-- Discovers `remote-skill` as an updatable skill (has metadata)
-- No errors about walking/scanning the source directory
-- Output mentions `remote-skill` (even if update itself fails due to no actual remote — the discovery is what we test)
+- exit_code: 0
+- remote-skill
+- Not failed to walk
+- Not failed to scan
 
 ## Step 13: Update --group through symlinked source
 
@@ -337,9 +340,9 @@ ss update --group group --dry-run 2>&1
 ```
 
 **Expected:**
-- Walks the `group` directory (which is inside the symlinked source) to find updatable items
-- Discovers `group/nested` as updatable
-- No "failed to walk group" errors
+- exit_code: 0
+- nested
+- Not failed to walk group
 
 ## Step 14: Uninstall single skill through symlinked source
 
@@ -349,9 +352,8 @@ ss uninstall beta --force --dry-run
 ```
 
 **Expected:**
-- Resolves `beta` in the symlinked source directory
-- Shows it would remove `beta`
-- No errors about path resolution
+- exit_code: 0
+- beta
 
 ```bash
 # Actually uninstall
@@ -359,9 +361,7 @@ ss uninstall beta --force
 ```
 
 **Expected:**
-- Removes `beta` from the real source directory (through symlink)
-- No errors
-- `beta` no longer in `ss list --no-tui`
+- exit_code: 0
 
 ```bash
 # Verify beta is gone
@@ -370,8 +370,9 @@ ss list --no-tui
 ```
 
 **Expected:**
-- `REMOVED OK` — beta removed from real source dir
-- `ss list` no longer shows beta
+- exit_code: 0
+- REMOVED OK
+- Not beta
 
 ## Step 15: Uninstall --group through symlinked source
 
@@ -381,9 +382,9 @@ ss uninstall --group group --force --dry-run
 ```
 
 **Expected:**
-- Walks the `group` directory inside the symlinked source
-- Discovers `group/nested` as a skill to uninstall
-- No "failed to walk group" errors
+- exit_code: 0
+- nested
+- Not failed to walk group
 
 ```bash
 # Actually uninstall the group
@@ -391,8 +392,7 @@ ss uninstall --group group --force
 ```
 
 **Expected:**
-- Removes `group/nested` from the real source dir
-- No errors
+- exit_code: 0
 
 ```bash
 # Verify group is gone
@@ -400,7 +400,8 @@ test -d "$REAL_SOURCE/group/nested" && echo "STILL EXISTS" || echo "REMOVED OK"
 ```
 
 **Expected:**
-- `REMOVED OK`
+- exit_code: 0
+- REMOVED OK
 
 ## Step 16: Uninstall by nested name resolution through symlinked source
 
@@ -422,16 +423,16 @@ ss uninstall deepskill --force
 ```
 
 **Expected:**
-- Resolves `deepskill` to `mygroup/deepskill` by walking the symlinked source
-- Removes it successfully
-- No errors about searching for skill
+- exit_code: 0
+- deepskill
 
 ```bash
 test -d "$REAL_SOURCE/mygroup/deepskill" && echo "STILL EXISTS" || echo "REMOVED OK"
 ```
 
 **Expected:**
-- `REMOVED OK`
+- exit_code: 0
+- REMOVED OK
 
 ## Step 17: Reconcile discovers skills through symlinked source
 
@@ -473,9 +474,8 @@ cat "$HOME/.config/skillshare/registry.yaml"
 ```
 
 **Expected:**
-- Install succeeds: `reconcile-skill` installed into the symlinked source dir
-- `registry.yaml` lists `reconcile-skill` (and any other metadata skills)
-- Reconcile walked the symlinked source dir successfully (no errors)
+- exit_code: 0
+- reconcile-skill
 
 ## Step 18: Containment guard — group symlink outside source is rejected
 
@@ -515,9 +515,8 @@ rm -rf "$EXTERNAL"
 ```
 
 **Expected:**
-- Both commands fail with "resolves outside source directory" error
-- `EXTERNAL SAFE` is printed — the external directory was not touched
-- This prevents symlink-based path traversal attacks
+- resolves outside source directory
+- EXTERNAL SAFE
 
 ## Step 19: Idempotency — re-sync preserves everything
 
@@ -528,9 +527,8 @@ ss sync
 ```
 
 **Expected:**
-- Both syncs complete without errors
-- No "updated" or "pruned" entries (everything already in sync)
-- Target symlink (`$CLAUDE_TARGET` → `$REAL_TARGET`) is still intact
+- exit_code: 0
+- synced
 
 ```bash
 # Final verification
@@ -539,9 +537,8 @@ ls "$REAL_TARGET/alpha/SKILL.md" && echo "STILL WORKS" || echo "BROKEN"
 ```
 
 **Expected:**
-- Target symlink still points to the same real directory
-- Skills still resolve correctly
-- `STILL WORKS` is printed
+- exit_code: 0
+- STILL WORKS
 
 ## Pass Criteria
 

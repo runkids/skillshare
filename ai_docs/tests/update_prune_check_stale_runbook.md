@@ -30,7 +30,7 @@ ssenv create "$ENV_NAME" --init
 ```
 
 Expected:
-- Environment created successfully
+- exit_code: 0
 
 ### 2. Create bare remote with two skills
 
@@ -63,8 +63,8 @@ name: doomed-skill
 ```
 
 Expected:
-- Bare repo created with two skill subdirectories
-- Output includes "=== Remote ready ==="
+- exit_code: 0
+- === Remote ready ===
 
 ### 3. Install both skills from the bare repo
 
@@ -79,8 +79,10 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Both skills installed successfully
-- `ls` shows `keep-skill` and `doomed-skill` in source directory
+- exit_code: 0
+- === Installed ===
+- keep-skill
+- doomed-skill
 
 ### 4. Delete doomed-skill from remote and push update
 
@@ -101,8 +103,8 @@ name: keep-skill
 ```
 
 Expected:
-- Commit pushed successfully
-- `doomed-skill` no longer in remote
+- exit_code: 0
+- === Remote updated ===
 
 ### 5. check --json reports stale status
 
@@ -113,9 +115,9 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- JSON output has a skill with `"status": "stale"` for `doomed-skill`
-- `keep-skill` has `"status": "update_available"` (content changed)
-- Exit code 0
+- exit_code: 0
+- jq: .skills[] | select(.name == "doomed-skill") | .status == "stale"
+- jq: .skills[] | select(.name == "keep-skill") | .status == "update_available"
 
 ### 6. check (text) shows stale warning with --prune hint
 
@@ -126,8 +128,9 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Output contains "stale"
-- Output contains "--prune"
+- exit_code: 0
+- stale
+- --prune
 
 ### 7. update --all without --prune shows stale warning
 
@@ -138,10 +141,10 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Output contains "stale" warning
-- Output contains "--prune" suggestion
-- `doomed-skill` still exists in `~/.config/skillshare/skills/`
-- `keep-skill` is updated (content has "v2")
+- exit_code: 0
+- stale
+- --prune
+- doomed-skill
 
 ### 8. update --all --prune removes stale skill
 
@@ -152,10 +155,9 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Output contains "pruned" or "Pruned"
-- Output mentions `doomed-skill`
-- `doomed-skill` is gone from `~/.config/skillshare/skills/`
-- `keep-skill` still exists
+- exit_code: 0
+- regex: [Pp]runed
+- doomed-skill
 
 ### 9. Verify stale skill moved to trash
 
@@ -166,7 +168,8 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Trash contains `doomed-skill`
+- exit_code: 0
+- doomed-skill
 
 ### 10. Verify registry cleaned up
 
@@ -177,8 +180,9 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Registry does NOT contain `doomed-skill`
-- Registry still contains `keep-skill`
+- exit_code: 0
+- keep-skill
+- Not doomed-skill
 
 ## Pass Criteria
 

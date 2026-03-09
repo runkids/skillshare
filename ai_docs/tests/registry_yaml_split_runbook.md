@@ -23,13 +23,18 @@ ss init --no-copy --all-targets --no-git --no-skill
 ```
 
 **Expected:**
-- `~/.config/skillshare/config.yaml` exists and does NOT contain `skills:`
-- `~/.config/skillshare/registry.yaml` exists (may be empty or minimal)
+- exit_code: 0
+- Initialized successfully
 
 ```bash
 cat ~/.config/skillshare/config.yaml
 cat ~/.config/skillshare/registry.yaml 2>/dev/null || echo "MISSING"
 ```
+
+**Expected:**
+- exit_code: 0
+- Not skills:
+- Not MISSING
 
 ### Step 2: Install a local skill — verify registry.yaml updated
 
@@ -44,14 +49,18 @@ ss install /tmp/test-skill
 ```
 
 **Expected:**
-- `~/.config/skillshare/skills/test-skill/SKILL.md` exists
-- `~/.config/skillshare/registry.yaml` contains `name: test-skill`
-- `~/.config/skillshare/config.yaml` does NOT contain `skills:` or `test-skill`
+- exit_code: 0
+- Installed
 
 ```bash
 cat ~/.config/skillshare/registry.yaml
 grep -c "skills:" ~/.config/skillshare/config.yaml && echo "FAIL: config has skills" || echo "PASS: config clean"
 ```
+
+**Expected:**
+- name: test-skill
+- PASS: config clean
+- Not FAIL
 
 ### Step 3: Migration — old config with skills[] auto-migrates
 
@@ -73,13 +82,17 @@ ss status
 ```
 
 **Expected:**
-- `~/.config/skillshare/registry.yaml` created with `name: legacy-skill`
-- `~/.config/skillshare/config.yaml` no longer contains `skills:`
+- exit_code: 0
 
 ```bash
 cat ~/.config/skillshare/registry.yaml
 grep -c "skills:" ~/.config/skillshare/config.yaml && echo "FAIL: skills still in config" || echo "PASS: migration ok"
 ```
+
+**Expected:**
+- name: legacy-skill
+- PASS: migration ok
+- Not FAIL
 
 ### Step 4: Migration preserves existing registry
 
@@ -104,13 +117,17 @@ ss status
 ```
 
 **Expected:**
-- `registry.yaml` still has `real-skill`, NOT `stale-skill`
-- `config.yaml` may still have `skills:` (registry existed so migration skipped the write)
+- exit_code: 0
 
 ```bash
 grep "real-skill" ~/.config/skillshare/registry.yaml && echo "PASS" || echo "FAIL"
 grep "stale-skill" ~/.config/skillshare/registry.yaml && echo "FAIL: stale leaked" || echo "PASS: no leak"
 ```
+
+**Expected:**
+- PASS
+- PASS: no leak
+- Not FAIL: stale leaked
 
 ### Step 5: Uninstall removes from registry.yaml
 
@@ -129,11 +146,15 @@ ss uninstall remove-me --yes
 ```
 
 **Expected:**
-- `registry.yaml` does NOT contain `remove-me`
+- exit_code: 0
 
 ```bash
 grep "remove-me" ~/.config/skillshare/registry.yaml && echo "FAIL: still present" || echo "PASS: removed"
 ```
+
+**Expected:**
+- PASS: removed
+- Not FAIL: still present
 
 ### Step 6: Install with --into records group in registry
 
@@ -150,13 +171,19 @@ ss install /tmp/grouped-skill --into frontend
 ```
 
 **Expected:**
-- `registry.yaml` contains `group: frontend` and `name: grouped-skill`
-- `config.yaml` does NOT contain `group:` or `grouped-skill`
+- exit_code: 0
+- Installed
 
 ```bash
 cat ~/.config/skillshare/registry.yaml
 grep "group: frontend" ~/.config/skillshare/registry.yaml && echo "PASS" || echo "FAIL"
 ```
+
+**Expected:**
+- name: grouped-skill
+- group: frontend
+- PASS
+- Not FAIL
 
 ### Step 7: Project mode — registry in .skillshare/
 
@@ -175,13 +202,18 @@ SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 ss install /tmp/proj-skill -p
 ```
 
 **Expected:**
-- `.skillshare/registry.yaml` contains `name: proj-skill`
-- `.skillshare/config.yaml` does NOT contain `skills:`
+- exit_code: 0
+- Installed
 
 ```bash
 cat /tmp/project-test/.skillshare/registry.yaml
 grep -c "skills:" /tmp/project-test/.skillshare/config.yaml && echo "FAIL" || echo "PASS"
 ```
+
+**Expected:**
+- name: proj-skill
+- PASS
+- Not FAIL
 
 ## Pass Criteria
 

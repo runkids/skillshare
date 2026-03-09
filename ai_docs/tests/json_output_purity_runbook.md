@@ -33,7 +33,9 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: Skills synced successfully.
+Expected:
+- exit_code: 0
+- Synced
 
 ### Step 2: status --json outputs pure JSON
 
@@ -50,7 +52,13 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK. Output starts with `{`.
+Expected:
+- exit_code: 0
+- FIELD_CHECK=OK
+- TARGETS=OK
+- AUDIT=OK
+- VERSION=OK
+- PURE_JSON=OK
 
 ### Step 3: sync --json outputs pure JSON
 
@@ -66,7 +74,13 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK.
+Expected:
+- exit_code: 0
+- TARGETS=OK
+- LINKED=OK
+- DETAILS=OK
+- DURATION=OK
+- PURE_JSON=OK
 
 ### Step 4: sync --all --json outputs pure JSON
 
@@ -79,7 +93,10 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK. `--all` flag does not leak extras sync text.
+Expected:
+- exit_code: 0
+- VALID_JSON=OK
+- PURE_JSON=OK
 
 ### Step 5: list --json outputs pure JSON
 
@@ -93,7 +110,11 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK. List outputs a JSON array.
+Expected:
+- exit_code: 0
+- COUNT=OK
+- HAS_NAME=OK
+- PURE_JSON=OK
 
 ### Step 6: diff --json outputs pure JSON
 
@@ -107,7 +128,11 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK.
+Expected:
+- exit_code: 0
+- TARGETS=OK
+- DURATION=OK
+- PURE_JSON=OK
 
 ### Step 7: install --json (local path) outputs pure JSON
 
@@ -124,7 +149,10 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK. No logo/spinner in stdout. Installed skill name = `ext-skill` (directory name).
+Expected:
+- exit_code: 0
+- SKILLS=OK
+- PURE_JSON=OK
 
 ### Step 8: uninstall --json outputs pure JSON
 
@@ -137,7 +165,10 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK. Use directory name `ext-skill`, not SKILL.md `name` field.
+Expected:
+- exit_code: 0
+- REMOVED=OK
+- PURE_JSON=OK
 
 ### Step 9: uninstall --json error path returns JSON error envelope
 
@@ -152,7 +183,11 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: Non-zero exit code, JSON error object with `error` field, pure JSON.
+Expected:
+- exit_code: 0
+- EXIT_CODE=OK
+- ERROR_FIELD=OK
+- PURE_JSON=OK
 
 ### Step 10: collect --json outputs pure JSON (no local skills)
 
@@ -166,7 +201,11 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK.
+Expected:
+- exit_code: 0
+- VALID_JSON=OK
+- PULLED=OK
+- PURE_JSON=OK
 
 ### Step 11: update --json --dry-run outputs pure JSON
 
@@ -180,7 +219,11 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK.
+Expected:
+- exit_code: 0
+- DRY_RUN=OK
+- SKIPPED=OK
+- PURE_JSON=OK
 
 ### Step 12: Non-JSON regression — status still shows human-readable output
 
@@ -196,7 +239,12 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK. Human-readable output is preserved.
+Expected:
+- exit_code: 0
+- BANNER=OK
+- SOURCE=OK
+- TARGET=OK
+- NOT_JSON=OK
 
 ### Step 13: Non-JSON regression — sync still shows human-readable output
 
@@ -209,7 +257,10 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK.
+Expected:
+- exit_code: 0
+- NOT_JSON=OK
+- READABLE=OK
 
 ### Step 14: Non-JSON regression — list still shows human-readable output
 
@@ -222,7 +273,10 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK.
+Expected:
+- exit_code: 0
+- NOT_JSON=OK
+- SKILLS_SHOWN=OK
 
 ### Step 15: status --project --json in project mode
 
@@ -245,7 +299,11 @@ EOF
 '
 ```
 
-**Expected**: All checks = OK.
+Expected:
+- exit_code: 0
+- SKILL_COUNT=OK
+- VERSION=OK
+- PURE_JSON=OK
 
 ### Step 16: target list --json outputs pure JSON
 
@@ -258,7 +316,10 @@ ssenv enter json-purity -- bash -c '
 '
 ```
 
-**Expected**: All checks = OK.
+Expected:
+- exit_code: 0
+- HAS_TARGETS=OK
+- PURE_JSON=OK
 
 ## Pass Criteria
 

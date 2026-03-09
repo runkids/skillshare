@@ -30,7 +30,7 @@ docker exec "$CONTAINER" ssenv create "$ENV_NAME" --init
 ```
 
 Expected:
-- Environment created successfully
+- exit_code: 0
 
 ### 2. Create a bare monorepo with skills nested under `skills/` subdirectory
 
@@ -61,7 +61,7 @@ SKILL
 ```
 
 Expected:
-- Bare repo created with `skills/alpha`, `skills/beta`, `skills/gamma`
+- exit_code: 0
 
 ### 3. Set up a project with skills installed at flat paths (simulating --into or manual placement)
 
@@ -107,8 +107,11 @@ META
 ```
 
 Expected:
-- 3 skills at `alpha/`, `beta/`, `gamma/`
-- No `skills/` subdirectory exists under `.skillshare/skills/`
+- exit_code: 0
+- alpha
+- beta
+- gamma
+- PASS: no skills/skills/ dir
 
 ### 4. First `update --all` — verify no path leakage
 
@@ -142,9 +145,10 @@ docker exec "$CONTAINER" env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
 ```
 
 Expected:
-- `update --all` succeeds
-- No `skills/` subdirectory leaked under `.skillshare/skills/`
-- Skill count remains exactly 3
+- exit_code: 0
+- PASS: no leaked skills/ subdirectory
+- SKILL_COUNT=3
+- PASS: skill count is 3
 
 ### 5. Second `update --all` — verify count is stable (no doubling)
 
@@ -175,8 +179,10 @@ docker exec "$CONTAINER" env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
 ```
 
 Expected:
-- Second run produces same skill count (3, not 6)
-- No leaked directory
+- exit_code: 0
+- PASS: no leaked skills/ subdirectory
+- SKILL_COUNT=3
+- PASS: skill count stable at 3 (no doubling)
 
 ### 6. Third `update --all` — triple-check stability
 
@@ -197,7 +203,9 @@ docker exec "$CONTAINER" env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
 ```
 
 Expected:
-- Count remains 3 across all 3 runs
+- exit_code: 0
+- SKILL_COUNT=3
+- PASS: stable after 3 consecutive runs
 
 ### 7. Verify skills were actually updated (not just skipped)
 
@@ -250,8 +258,11 @@ docker exec "$CONTAINER" env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
 ```
 
 Expected:
-- All 3 skills show v2 content
-- Still no leaked `skills/` directory
+- exit_code: 0
+- PASS: alpha updated to v2
+- PASS: beta updated to v2
+- PASS: gamma updated to v2
+- PASS: all skills updated, no leaks
 
 ### 8. Global mode: same pattern verification
 
@@ -297,8 +308,8 @@ META
 ```
 
 Expected:
-- Global mode also has no leaked `skills/` subdirectory
-- Skill count is exactly 3
+- exit_code: 0
+- PASS: global mode no leak, count stable
 
 ## Pass Criteria
 

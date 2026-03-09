@@ -36,7 +36,8 @@ echo "# Error handling" > ~/.config/skillshare/rules/errors.md
 echo "# Deploy command" > ~/.config/skillshare/commands/deploy.md
 ```
 
-**Expected**: Source directories and files created under `~/.config/skillshare/`.
+Expected:
+- exit_code: 0
 
 ### 2. Configure extras in config.yaml
 
@@ -56,7 +57,8 @@ extras:
 CONF
 ```
 
-**Expected**: Config file updated with extras section containing 3 targets across 2 extras.
+Expected:
+- exit_code: 0
 
 ### 3. Dry run: verify sync extras --dry-run shows plan without changes
 
@@ -64,16 +66,18 @@ CONF
 ss sync extras --dry-run
 ```
 
-**Expected**:
-- Output contains "Dry run mode"
-- Output contains "Rules" header
-- Output contains "files synced" or "files copied" for each target
-- No actual symlinks or copies created yet:
+Expected:
+- exit_code: 0
+- regex: dry.run|Dry run
+- Rules
 
 ```bash
 ls ~/.claude/rules/ 2>/dev/null && echo "EXISTS" || echo "NOT YET"
-# Should print: NOT YET
 ```
+
+Expected:
+- exit_code: 0
+- NOT YET
 
 ### 4. Sync extras: merge mode (per-file symlinks)
 
@@ -81,42 +85,52 @@ ls ~/.claude/rules/ 2>/dev/null && echo "EXISTS" || echo "NOT YET"
 ss sync extras
 ```
 
-**Expected**:
-- Output contains "Rules" and "Commands" headers
-- `~/.claude/rules` target shows merge mode with 2 files synced
-- `~/.continue/rules` target shows copy mode with 2 files synced
-- `~/.claude/commands` target shows symlink mode
+Expected:
+- exit_code: 0
+- Rules
+- Commands
 
 Verify merge mode (per-file symlinks):
 
 ```bash
 ls -la ~/.claude/rules/
-# Should show tdd.md and errors.md as symlinks
 readlink ~/.claude/rules/tdd.md
-# Should point to absolute path under ~/.config/skillshare/rules/tdd.md
 ```
+
+Expected:
+- exit_code: 0
+- tdd.md
+- errors.md
+- regex: skillshare/rules/tdd\.md
 
 ### 5. Verify copy mode (real file copies)
 
 ```bash
 ls -la ~/.continue/rules/
-# Should show tdd.md and errors.md as regular files (not symlinks)
 file ~/.continue/rules/tdd.md
-# Should NOT contain "symbolic link"
 cat ~/.continue/rules/tdd.md
-# Should contain "# Always use TDD"
 ```
+
+Expected:
+- exit_code: 0
+- tdd.md
+- errors.md
+- Not symbolic link
+- Always use TDD
 
 ### 6. Verify symlink mode (entire directory linked)
 
 ```bash
 ls -la ~/.claude/ | grep commands
-# Should show commands as a symlink to the source directory
 readlink ~/.claude/commands
-# Should point to absolute path of ~/.config/skillshare/commands/
 cat ~/.claude/commands/deploy.md
-# Should contain "# Deploy command"
 ```
+
+Expected:
+- exit_code: 0
+- commands
+- regex: skillshare/commands
+- Deploy command
 
 ### 7. Idempotent re-sync: running again produces no errors
 
@@ -124,10 +138,10 @@ cat ~/.claude/commands/deploy.md
 ss sync extras
 ```
 
-**Expected**:
-- All targets report "files synced" or "up to date"
-- No errors or warnings
-- File counts remain the same
+Expected:
+- exit_code: 0
+- Rules
+- Commands
 
 ### 8. Add new source file and re-sync
 
@@ -136,16 +150,17 @@ echo "# Code review rules" > ~/.config/skillshare/rules/review.md
 ss sync extras
 ```
 
-**Expected**:
-- `~/.claude/rules` now has 3 files (tdd.md, errors.md, review.md)
-- `~/.continue/rules` now has 3 files (copies)
+Expected:
+- exit_code: 0
 
 ```bash
-ls ~/.claude/rules/ | wc -l
-# Should be 3
-ls ~/.continue/rules/ | wc -l
-# Should be 3
+ls ~/.claude/rules/ | wc -l | tr -d ' '
+ls ~/.continue/rules/ | wc -l | tr -d ' '
 ```
+
+Expected:
+- exit_code: 0
+- 3
 
 ### 9. Prune orphans: remove source file and re-sync
 
@@ -154,17 +169,20 @@ rm ~/.config/skillshare/rules/errors.md
 ss sync extras
 ```
 
-**Expected**:
-- Output shows "1 pruned" for merge-mode target (`~/.claude/rules`)
-- `~/.claude/rules/errors.md` symlink is removed
-- `~/.continue/rules/errors.md` copy is removed
+Expected:
+- exit_code: 0
+- pruned
 
 ```bash
 ls ~/.claude/rules/
-# Should only have tdd.md and review.md
 ls ~/.continue/rules/
-# Should only have tdd.md and review.md
 ```
+
+Expected:
+- exit_code: 0
+- tdd.md
+- review.md
+- Not errors.md
 
 ### 10. Conflict handling: existing file without --force
 
@@ -178,14 +196,17 @@ echo "my local notes" > ~/.claude/rules/tdd.md
 ss sync extras
 ```
 
-**Expected**:
-- Output warns about skipped file(s) with "use --force to override"
-- The user's local file is preserved (not overwritten)
+Expected:
+- exit_code: 0
+- regex: skip|conflict|--force
 
 ```bash
 cat ~/.claude/rules/tdd.md
-# Should still contain "my local notes"
 ```
+
+Expected:
+- exit_code: 0
+- my local notes
 
 ### 11. Conflict handling: --force overwrites
 
@@ -193,16 +214,18 @@ cat ~/.claude/rules/tdd.md
 ss sync extras --force
 ```
 
-**Expected**:
-- Output shows successful sync (no skipped)
-- `~/.claude/rules/tdd.md` is now a symlink again
+Expected:
+- exit_code: 0
 
 ```bash
 readlink ~/.claude/rules/tdd.md
-# Should point to source
 cat ~/.claude/rules/tdd.md
-# Should contain "# Always use TDD"
 ```
+
+Expected:
+- exit_code: 0
+- regex: skillshare/rules/tdd\.md
+- Always use TDD
 
 ### 12. sync --all: syncs both skills and extras
 
@@ -210,10 +233,10 @@ cat ~/.claude/rules/tdd.md
 ss sync --all
 ```
 
-**Expected**:
-- Output contains skill sync section (targets)
-- Output contains extras section (Rules, Commands)
-- Both skills and extras synced in a single command
+Expected:
+- exit_code: 0
+- Rules
+- Commands
 
 ### 13. No extras configured: helpful hint
 
@@ -224,14 +247,17 @@ sed -i '/^extras:/,$d' ~/.config/skillshare/config.yaml
 ss sync extras
 ```
 
-**Expected**:
-- Output contains "No extras configured"
-- Output shows YAML example for adding extras
+Expected:
+- exit_code: 0
+- No extras configured
 
 ```bash
 # Restore config
 cp ~/.config/skillshare/config.yaml.bak ~/.config/skillshare/config.yaml
 ```
+
+Expected:
+- exit_code: 0
 
 ### 14. Source directory missing: friendly message
 
@@ -245,10 +271,10 @@ CONF
 ss sync extras
 ```
 
-**Expected**:
-- Output for "nonexistent" extra says source directory does not exist
-- Output suggests creating the directory
-- Other extras (rules, commands) still sync successfully
+Expected:
+- exit_code: 0
+- regex: not exist|not found|missing
+- Rules
 
 ### 15. Nested directory structure preserved
 
@@ -258,15 +284,18 @@ echo "# Go style" > ~/.config/skillshare/rules/lang/go/style.md
 ss sync extras
 ```
 
-**Expected**:
-- Nested structure is preserved in target:
+Expected:
+- exit_code: 0
 
 ```bash
 cat ~/.claude/rules/lang/go/style.md
-# Should contain "# Go style"
 readlink ~/.claude/rules/lang/go/style.md
-# Should point to source
 ```
+
+Expected:
+- exit_code: 0
+- Go style
+- regex: skillshare/rules/lang/go/style\.md
 
 ## Pass Criteria
 

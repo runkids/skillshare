@@ -24,8 +24,9 @@ grep -A4 'global_name: universal' /workspace/internal/config/targets.yaml
 ```
 
 **Expected:**
-- `global_path` is `~/.agents/skills`
-- `project_path` is `.agents/skills`
+- exit_code: 0
+- ~/.agents/skills
+- .agents/skills
 
 ### Step 2: Install skills globally via npx skills
 
@@ -34,8 +35,9 @@ npx -y skills@latest add runkids/feature-radar -g --all
 ```
 
 **Expected:**
-- Command succeeds (exit 0)
-- Output mentions installing to `~/.agents/skills/` (not `~/.config/agents/skills/`)
+- exit_code: 0
+- .agents/skills
+- Not .config/agents/skills
 
 ### Step 3: Verify skills installed to ~/.agents/skills
 
@@ -44,8 +46,8 @@ ls -la ~/.agents/skills/
 ```
 
 **Expected:**
-- Directory exists and contains installed skill directories
-- Each skill has a `SKILL.md` file
+- exit_code: 0
+- SKILL.md
 
 ### Step 4: Verify ~/.config/agents/skills was NOT created
 
@@ -54,8 +56,7 @@ ls ~/.config/agents/skills/ 2>&1
 ```
 
 **Expected:**
-- Directory does not exist or is empty
-- Error message like "No such file or directory"
+- No such file or directory
 
 ### Step 5: Verify npx skills list sees the skills
 
@@ -64,9 +65,9 @@ npx -y skills@latest list -g
 ```
 
 **Expected:**
-- Lists all installed skills
-- Shows path as `~/.agents/skills/`
-- Output includes "universal:" line listing covered agents (Amp, Cline, Codex, Cursor, etc.)
+- exit_code: 0
+- .agents/skills
+- universal
 
 ### Step 6: Verify symlinks to agent-specific directories
 
@@ -76,8 +77,8 @@ ls -la ~/.cursor/skills/ 2>/dev/null
 ```
 
 **Expected:**
-- Agent-specific directories contain symlinks pointing back to `../../.agents/skills/`
-- Symlinks are valid (not broken)
+- exit_code: 0
+- .agents/skills
 
 ### Step 7: Verify skillshare init auto-includes universal
 
@@ -90,8 +91,9 @@ cat ~/.config/skillshare/config.yaml
 ```
 
 **Expected:**
-- Config contains `universal:` target entry
-- Universal target path resolves to `~/.agents/skills`
+- exit_code: 0
+- universal
+- .agents/skills
 
 ### Step 8: Verify skillshare sync creates universal target directory
 
@@ -106,8 +108,8 @@ ls -la ~/.agents/skills/
 ```
 
 **Expected:**
-- `~/.agents/skills/` directory created by sync
-- Contains symlink `test-skill` → source directory
+- exit_code: 0
+- test-skill
 
 ### Step 9: Verify agent CLI can read skillshare-synced skill
 
@@ -119,8 +121,8 @@ cat ~/.agents/skills/test-skill/SKILL.md
 ```
 
 **Expected:**
-- Both paths resolve to the SKILL.md content ("# Test Skill")
-- Confirms round-trip: skillshare sync → universal path + agent path → readable by agent CLI
+- exit_code: 0
+- # Test
 
 ## Pass Criteria
 

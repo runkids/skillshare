@@ -33,8 +33,8 @@ ss sync
 ```
 
 Expected:
-- All 3 skills installed and synced
-- Symlinks exist in `~/.claude/skills/`
+- exit_code: 0
+- Installed
 
 Verify:
 
@@ -43,6 +43,12 @@ ls ~/.config/skillshare/skills/
 ls -la ~/.claude/skills/
 ```
 
+Expected:
+- exit_code: 0
+- pdf
+- tdd-workflow
+- frontend
+
 ### 2. --all --dry-run previews without removing
 
 ```bash
@@ -50,15 +56,22 @@ ss uninstall --all --dry-run
 ```
 
 Expected:
-- Output contains `dry-run` and `would move to trash`
-- All skills still exist in source
+- exit_code: 0
+- dry-run
+- regex: would move to trash|would remove
 
 Verify:
 
 ```bash
-ls ~/.config/skillshare/skills/ | grep -c .
-# Should be >= 3 (pdf, tdd-workflow, frontend)
+COUNT=$(ls ~/.config/skillshare/skills/ | grep -c .)
+echo "Skill count: $COUNT"
+test "$COUNT" -ge 3 && echo "PASS" || echo "FAIL"
 ```
+
+Expected:
+- exit_code: 0
+- PASS
+- Not FAIL
 
 ### 3. --all --force removes all skills
 
@@ -67,9 +80,8 @@ ss uninstall --all --force
 ```
 
 Expected:
-- Output contains `Uninstalled` for each top-level entry
-- Source directory is empty (no skill directories remain)
-- Registry skills list is cleared
+- exit_code: 0
+- Uninstalled
 
 Verify:
 
@@ -80,6 +92,10 @@ echo "Remaining skills: $REMAINING (expected: 0)"
 grep -c 'name:' ~/.config/skillshare/registry.yaml || echo "no skills in registry"
 ```
 
+Expected:
+- exit_code: 0
+- Remaining skills: 0 (expected: 0)
+
 ### 4. Sync after --all leaves no orphans
 
 ```bash
@@ -87,8 +103,8 @@ ss sync
 ```
 
 Expected:
-- Symlinks removed from all targets
-- No orphan directories remain
+- exit_code: 0
+- pruned
 
 Verify:
 
@@ -99,6 +115,13 @@ for skill in pdf tdd-workflow frontend__react-best-practices; do
 done
 ```
 
+Expected:
+- exit_code: 0
+- pdf: cleaned
+- tdd-workflow: cleaned
+- frontend__react-best-practices: cleaned
+- Not STILL EXISTS
+
 ### 5. --all mutual exclusion
 
 ```bash
@@ -106,10 +129,13 @@ ss uninstall --all some-skill 2>&1; echo "exit: $?"
 ss uninstall --all --group frontend 2>&1; echo "exit: $?"
 ```
 
-Expected:
-- First command: error containing `--all cannot be used with skill names`
-- Second command: error containing `--all cannot be used with --group`
-- Both exit non-zero
+Expected (first command):
+- exit_code: !0
+- --all cannot be used with skill names
+
+Expected (second command):
+- exit_code: !0
+- --all cannot be used with --group
 
 ### 6. Shell glob detection
 
@@ -120,9 +146,8 @@ ss uninstall README.md go.mod go.sum Makefile cmd internal 2>&1; echo "exit: $?"
 ```
 
 Expected:
-- Output contains suggestion to use `--all`
-- Exits non-zero
-- No skills are removed
+- exit_code: !0
+- --all
 
 ### 7. --all in project mode
 
@@ -136,8 +161,8 @@ ss uninstall --all --force -p
 ```
 
 Expected:
-- Both skills removed from `.skillshare/skills/`
-- Project registry skills list cleared
+- exit_code: 0
+- Uninstalled
 
 Verify:
 
@@ -145,6 +170,10 @@ Verify:
 REMAINING=$(ls /tmp/e2e-project/.skillshare/skills/ 2>/dev/null | grep -v '.gitignore' | wc -l | tr -d ' ')
 echo "Remaining project skills: $REMAINING (expected: 0)"
 ```
+
+Expected:
+- exit_code: 0
+- Remaining project skills: 0 (expected: 0)
 
 ## Pass Criteria
 

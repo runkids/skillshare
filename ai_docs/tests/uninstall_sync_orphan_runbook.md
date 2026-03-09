@@ -40,16 +40,21 @@ ss install sickn33/antigravity-awesome-skills/skills/react-best-practices --into
 ss sync
 ```
 
+Expected:
+- exit_code: 0
+
 Verify manifest exists in at least one target:
 
 ```bash
 cat ~/.claude/skills/.skillshare-manifest.json
-# Should contain:
-#   "pdf": "symlink"
-#   "smart-debug": "symlink"
-#   "tdd-workflow": "symlink"
-#   "frontend__react-best-practices": "symlink"
 ```
+
+Expected:
+- exit_code: 0
+- "pdf"
+- "smart-debug"
+- "tdd-workflow"
+- "frontend__react-best-practices"
 
 ### 2. Replace symlinks with real directories (simulate copy-mode residue)
 
@@ -69,11 +74,19 @@ done
 ls -la "$TARGET/pdf" "$TARGET/smart-debug" "$TARGET/tdd-workflow"
 ```
 
+Expected:
+- exit_code: 0
+- SKILL.md
+
 ### 3. Uninstall all skills
 
 ```bash
 ss uninstall pdf smart-debug tdd-workflow react-best-practices
 ```
+
+Expected:
+- exit_code: 0
+- Uninstalled
 
 ### 4. Sync and verify orphan cleanup
 
@@ -82,20 +95,33 @@ ss sync
 ```
 
 Expected:
-- All 4 orphan entries **removed** (3 real directories + 1 nested symlink)
-- No "unknown directory (not from skillshare), kept" warnings for these entries
-- Output shows `X pruned`
+- exit_code: 0
+- pruned
+- Not unknown directory (not from skillshare), kept
 
 Verify:
 
 ```bash
+TARGET=~/.claude/skills
 for skill in pdf smart-debug tdd-workflow frontend__react-best-practices; do
   [ ! -e "$TARGET/$skill" ] && echo "$skill: removed" || echo "$skill: STILL EXISTS (FAIL)"
 done
-
-cat "$TARGET/.skillshare-manifest.json"
-# managed map should be empty: {}
 ```
+
+Expected:
+- exit_code: 0
+- pdf: removed
+- smart-debug: removed
+- tdd-workflow: removed
+- frontend__react-best-practices: removed
+- Not STILL EXISTS
+
+```bash
+cat ~/.claude/skills/.skillshare-manifest.json
+```
+
+Expected:
+- exit_code: 0
 
 ### 5. Verify user-created directories are preserved
 
@@ -105,6 +131,7 @@ ss install sickn33/antigravity-awesome-skills/skills/pdf-official --name pdf
 ss sync
 
 # Create a user directory (never managed by skillshare)
+TARGET=~/.claude/skills
 mkdir -p "$TARGET/my-custom-skill"
 echo "# My custom" > "$TARGET/my-custom-skill/SKILL.md"
 
@@ -114,18 +141,24 @@ ss sync
 ```
 
 Expected:
-- `my-custom-skill` directory is **preserved** (not in manifest)
-- Warning: `my-custom-skill: unknown directory (not from skillshare), kept`
+- exit_code: 0
+- my-custom-skill
 
 Verify:
 
 ```bash
-[ -f "$TARGET/my-custom-skill/SKILL.md" ] && echo "user dir preserved" || echo "FAIL"
+[ -f ~/.claude/skills/my-custom-skill/SKILL.md ] && echo "user dir preserved" || echo "FAIL"
 ```
+
+Expected:
+- exit_code: 0
+- user dir preserved
+- Not FAIL
 
 ### 6. Verify dry-run does not write/modify manifest
 
 ```bash
+TARGET=~/.claude/skills
 ss install sickn33/antigravity-awesome-skills/skills/pdf-official --name pdf
 ss sync
 
@@ -137,12 +170,19 @@ ss sync --dry-run
 cmp -s "$MANIFEST" /tmp/manifest-before.json && echo "manifest unchanged in dry-run" || echo "FAIL"
 ```
 
+Expected:
+- exit_code: 0
+- manifest unchanged in dry-run
+- Not FAIL
+
 ### 7. Verify exclude filter prunes managed real directories
 
 This tests the edge case where a filter change should clean up
 previously-managed entries even if they are real directories:
 
 ```bash
+TARGET=~/.claude/skills
+
 # Start clean
 ss uninstall pdf 2>/dev/null; ss sync
 
@@ -180,6 +220,15 @@ else
   echo "FAIL: pdf still in manifest"
 fi
 ```
+
+Expected:
+- exit_code: 0
+- pdf in manifest
+- tdd-workflow in manifest
+- pdf removed by exclude
+- tdd-workflow still linked
+- pdf disowned from manifest
+- Not FAIL
 
 ### 8. Bulk install/uninstall stress test (original #45 scenario)
 
@@ -221,6 +270,18 @@ done
 REMAINING=$(jq '.managed | length' "$TARGET/.skillshare-manifest.json")
 echo "Remaining managed entries: $REMAINING (expected: 0)"
 ```
+
+Expected:
+- exit_code: 0
+- regex: Managed skills in manifest: \d+
+- pdf: removed
+- smart-debug: removed
+- tdd-workflow: removed
+- frontend__react-best-practices: removed
+- code-reviewer: removed
+- debugger: removed
+- Not STILL EXISTS
+- Remaining managed entries: 0 (expected: 0)
 
 ## Pass Criteria
 

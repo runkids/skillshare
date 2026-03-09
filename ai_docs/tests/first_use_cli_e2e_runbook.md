@@ -54,9 +54,9 @@ ss version
 ```
 
 Expected:
-
-- `ss version` runs successfully
-- No `Exec format error`
+- exit_code: 0
+- regex: v\d+\.\d+
+- Not Exec format error
 
 If you see `Cannot run macOS (Mach-O) executable in Docker`, run:
 
@@ -80,9 +80,9 @@ HOME="$E2E_HOME" ss init --no-copy --targets claude,cursor --mode merge --no-git
 ```
 
 Expected:
-
-- Output contains `Initialized successfully`
-- Output contains `Config: $E2E_HOME/.config/skillshare/config.yaml`
+- exit_code: 0
+- Initialized successfully
+- regex: Config:.*\.config/skillshare/config\.yaml
 
 ## Step 3: Verify config was created
 
@@ -92,12 +92,12 @@ cat "$E2E_HOME/.config/skillshare/config.yaml"
 ```
 
 Expected:
-
-- `config_created=yes`
-- YAML includes:
-  - `source: $E2E_HOME/.config/skillshare/skills`
-  - `mode: merge`
-  - `targets:` with `claude` and `cursor`
+- exit_code: 0
+- config_created=yes
+- regex: source:.*\.config/skillshare/skills
+- mode: merge
+- claude
+- cursor
 
 ## Step 4: Add one demo skill to source
 
@@ -117,10 +117,9 @@ HOME="$E2E_HOME" ss sync
 ```
 
 Expected:
-
-- Sync output includes both targets:
-  - `claude: ...`
-  - `cursor: ...`
+- exit_code: 0
+- claude
+- cursor
 
 ## Step 6: Verify skill reached both targets
 
@@ -130,9 +129,9 @@ test -f "$E2E_HOME/.cursor/skills/hello-world/SKILL.md" && echo "cursor_ok=yes"
 ```
 
 Expected:
-
-- `claude_ok=yes`
-- `cursor_ok=yes`
+- exit_code: 0
+- claude_ok=yes
+- cursor_ok=yes
 
 ## Step 7: Simulate per-target compatibility tuning
 
@@ -145,9 +144,8 @@ grep -n "mode: copy" "$E2E_HOME/.config/skillshare/config.yaml"
 ```
 
 Expected:
-
-- Command succeeds
-- Config now contains `mode: copy` under cursor target override
+- exit_code: 0
+- mode: copy
 
 ## Step 8: Run doctor
 
@@ -156,8 +154,7 @@ HOME="$E2E_HOME" ss doctor
 ```
 
 Expected:
-
-- Doctor completes without fatal errors
+- exit_code: 0
 
 ## Pass/Fail Criteria
 

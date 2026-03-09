@@ -29,7 +29,7 @@ docker exec $CONTAINER ssenv create "$ENV_NAME" --init
 ```
 
 Expected:
-- Environment created with all targets
+- exit_code: 0
 
 ### 2. Install --all (default threshold = CRITICAL)
 
@@ -40,13 +40,13 @@ docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
 ```
 
 Expected:
-- Exit code 0 (batch succeeds when some skills install; blocked count shown as warning)
-- Output contains `Blocked / Failed` section
-- Output contains `blocked by security audit`
-- Output contains `CRITICAL` severity label
-- Output contains `Installed` section (many skills pass audit)
-- Output contains `--audit-verbose` hint
-- No raw git progress lines (Enumerating objects, etc.)
+- exit_code: 0
+- Blocked / Failed
+- blocked by security audit
+- CRITICAL
+- Installed
+- --audit-verbose
+- Not Enumerating objects
 
 Verify:
 
@@ -63,6 +63,16 @@ docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
 '
 ```
 
+Expected:
+- exit_code: 0
+- PASS: blocked section
+- PASS: blocked message
+- PASS: CRITICAL label
+- PASS: installed section
+- PASS: verbose hint
+- PASS: no git progress
+- Not FAIL
+
 ### 3. Count installed vs blocked skills
 
 ```bash
@@ -74,7 +84,9 @@ docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- At least some skills installed (hundreds expected from ~920 in repo)
+- exit_code: 0
+- PASS: skills installed
+- Not FAIL
 
 ### 4. Reinstall with --force (prepare for update test)
 
@@ -85,9 +97,8 @@ docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
 ```
 
 Expected:
-- Exit code 0 (--force bypasses audit blocks)
-- Output contains `Installed`
-- Output may contain `Audit Warnings` section
+- exit_code: 0
+- Installed
 
 Verify:
 
@@ -99,6 +110,12 @@ docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
 '
 ```
 
+Expected:
+- exit_code: 0
+- PASS: installed section
+- PASS: no blocked (forced)
+- Not FAIL
+
 ### 5. Update --all (nothing changed upstream)
 
 ```bash
@@ -108,11 +125,11 @@ docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
 ```
 
 Expected:
-- Exit code 0 (nothing changed, no new findings)
-- Output contains `Audit` (audit section present)
-- Output contains `skipped` (already up to date)
-- No `Blocked / Failed` section (nothing changed)
-- No `Blocked / Rolled Back` section (nothing changed)
+- exit_code: 0
+- regex: (?i)audit
+- skipped
+- Not Blocked / Failed
+- Not Blocked / Rolled Back
 
 Verify:
 
@@ -126,6 +143,14 @@ docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
 '
 ```
 
+Expected:
+- exit_code: 0
+- PASS: audit present
+- PASS: skipped present
+- PASS: no install block
+- PASS: no update block
+- Not FAIL
+
 ### 6. Install --all with --audit-verbose --force
 
 Note: needs `--force` because skills already exist from Steps 2-4.
@@ -137,10 +162,9 @@ docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
 ```
 
 Expected:
-- Verbose output expands HIGH/CRITICAL detail per skill
-- Finding lines contain severity + message + file:line format (e.g., `audit HIGH: Disk overwrite command (CHANGELOG.md:737)`)
-- HIGH findings appear (not just CRITICAL)
-- Audit section header: `Audit Warnings`
+- exit_code: 0
+- regex: HIGH|CRITICAL
+- Audit Warnings
 
 Verify:
 
@@ -154,6 +178,12 @@ docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
 '
 ```
 
+Expected:
+- exit_code: 0
+- PASS: severity labels
+- PASS: verbose detail
+- Not FAIL
+
 ### 7. Verify audit output has structured sections (no raw dumps)
 
 ```bash
@@ -166,8 +196,10 @@ docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- `Next Steps` section present
-- `finding(s)` structured format present
+- exit_code: 0
+- PASS: next steps section
+- regex: PASS: finding\(s\) format
+- Not FAIL
 
 ## Pass Criteria
 

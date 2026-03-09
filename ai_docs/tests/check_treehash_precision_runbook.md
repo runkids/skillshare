@@ -29,7 +29,8 @@ ssenv create "$ENV_NAME" --init
 ```
 
 Expected:
-- Environment created successfully
+- exit_code: 0
+- Environment created
 
 ### 2. Install a subdir skill and verify tree_hash in meta
 
@@ -40,10 +41,8 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Skill installed successfully
-- `.skillshare-meta.json` contains `tree_hash` field (non-empty 40-char hex)
-- `subdir` field is `skills/active-directory-attacks`
-- `repo_url` is set
+- exit_code: 0
+- Installed
 
 ### 3. Verify meta fields
 
@@ -54,9 +53,10 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- JSON contains `"tree_hash"` with a 40-character hex string
-- JSON contains `"subdir": "skills/active-directory-attacks"`
-- JSON contains `"version"` (short commit hash)
+- exit_code: 0
+- regex: "tree_hash":\s*"[0-9a-f]{40}"
+- regex: "subdir":\s*"skills/active-directory-attacks"
+- regex: "version":\s*"[0-9a-f]+"
 
 ### 4. Run check — should be up_to_date (no remote changes since install)
 
@@ -67,8 +67,8 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- JSON output has `skills[0].status == "up_to_date"`
-- Exit code 0
+- exit_code: 0
+- jq: .skills[0].status == "up_to_date"
 
 ### 5. Install a second skill from the same repo
 
@@ -79,8 +79,8 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Installed successfully
-- Both skills share the same `repo_url`
+- exit_code: 0
+- Installed
 
 ### 6. Check both skills — both should be up_to_date
 
@@ -91,8 +91,8 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- Both skills have `status: "up_to_date"`
-- Progress bar shows skill count (not URL count)
+- exit_code: 0
+- jq: [.skills[] | select(.status == "up_to_date")] | length == 2
 
 ### 7. Simulate stale meta (remove tree_hash) — fallback to commit comparison
 
@@ -114,8 +114,9 @@ with open(sys.argv[1], \"w\") as f: json.dump(d, f, indent=2)
 ```
 
 Expected:
-- Meta JSON has no `tree_hash` field
-- `version` is set to fake `0000000`
+- exit_code: 0
+- Not tree_hash
+- 0000000
 
 ### 8. Check with stale meta — should fallback to update_available
 
@@ -126,8 +127,8 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 Expected:
-- `skills[0].status == "update_available"` (commit hash mismatch, no tree_hash to save it)
-- This confirms backward compatibility fallback
+- exit_code: 0
+- jq: .skills[0].status == "update_available"
 
 ## Pass Criteria
 

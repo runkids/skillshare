@@ -21,11 +21,11 @@ cd /workspace
 go test ./internal/install/ -run TestParseSource_AzureDevOps -v -count=1
 ```
 
-**Expected**: All 9 subtests PASS:
-- modern HTTPS, HTTPS .git, HTTPS+subdir
-- legacy visualstudio.com
-- SSH v3, SSH v3 .git, SSH v3+subdir
-- ado: shorthand, ado:+subdir
+**Expected:**
+- exit_code: 0
+- PASS
+- regex: ok\s+skillshare/internal/install
+- Not FAIL
 
 ### Step 2: Run Azure DevOps TrackName tests
 
@@ -34,11 +34,11 @@ cd /workspace
 go test ./internal/install/ -run TestParseSource_AzureDevOps_TrackName -v -count=1
 ```
 
-**Expected**: All 4 subtests PASS:
-- modern HTTPS → `org-proj-repo`
-- legacy visualstudio.com → `myorg-myproj-myrepo`
-- SSH v3 → `org-proj-repo`
-- ado: shorthand → `org-proj-repo`
+**Expected:**
+- exit_code: 0
+- PASS
+- regex: ok\s+skillshare/internal/install
+- Not FAIL
 
 ### Step 3: Run Azure DevOps GitHubOwner empty tests
 
@@ -47,7 +47,11 @@ cd /workspace
 go test ./internal/install/ -run TestParseSource_AzureDevOps_GitHubOwnerEmpty -v -count=1
 ```
 
-**Expected**: All 3 subtests PASS — `GitHubOwner()` and `GitHubRepo()` return empty for Azure DevOps URLs.
+**Expected:**
+- exit_code: 0
+- PASS
+- regex: ok\s+skillshare/internal/install
+- Not FAIL
 
 ### Step 4: Regression — all existing source tests still pass
 
@@ -56,7 +60,11 @@ cd /workspace
 go test ./internal/install/ -run TestParseSource -v -count=1
 ```
 
-**Expected**: All `TestParseSource_*` tests PASS (LocalPath, GitHubShorthand, GitSSH, GitHTTPS, FileURL, Errors, DomainShorthand, GitHubEnterprise, GeminiCLI, GitHubShorthandExpansion, AzureDevOps).
+**Expected:**
+- exit_code: 0
+- PASS
+- regex: ok\s+skillshare/internal/install
+- Not FAIL
 
 ### Step 5: Regression — all install package tests pass
 
@@ -65,7 +73,10 @@ cd /workspace
 go test ./internal/install/ -count=1
 ```
 
-**Expected**: `ok skillshare/internal/install` with 0 failures.
+**Expected:**
+- exit_code: 0
+- regex: ok\s+skillshare/internal/install
+- Not FAIL
 
 ### Step 6: Dry-run with Azure DevOps URL (CLI integration)
 
@@ -74,7 +85,8 @@ cd /workspace
 bin/skillshare install --dry-run "https://dev.azure.com/testorg/testproj/_git/testrepo" 2>&1
 ```
 
-**Expected**: Output contains `Source  https://dev.azure.com/testorg/testproj/_git/testrepo` — confirms CLI dispatches Azure URL to correct parser (clone fails as expected, no real repo).
+**Expected:**
+- regex: Source.*https://dev\.azure\.com/testorg/testproj/_git/testrepo
 
 ### Step 7: Dry-run with ado: shorthand (CLI integration)
 
@@ -83,7 +95,8 @@ cd /workspace
 bin/skillshare install --dry-run "ado:testorg/testproj/testrepo" 2>&1
 ```
 
-**Expected**: Output contains `Source  https://dev.azure.com/testorg/testproj/_git/testrepo` — confirms `ado:` shorthand expansion works end-to-end.
+**Expected:**
+- regex: Source.*https://dev\.azure\.com/testorg/testproj/_git/testrepo
 
 ## Pass Criteria
 

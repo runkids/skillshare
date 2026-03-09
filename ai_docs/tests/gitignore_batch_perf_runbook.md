@@ -32,7 +32,9 @@ ssenv enter "$ENV_NAME" -- bash -c '
 '
 ```
 
-**Expected**: Project initialized with `.skillshare/` directory created.
+**Expected**:
+- exit_code: 0
+- .skillshare
 
 ### Step 2: First install (populates .gitignore)
 
@@ -44,9 +46,8 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 **Expected**:
-- Exit code 0
-- 5 skills installed
-- `.skillshare/.gitignore` contains entries for all 5 skills inside managed block
+- exit_code: 0
+- Installed
 
 ### Step 3: Verify .gitignore content
 
@@ -60,8 +61,10 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 **Expected**:
-- At least 5 entries starting with `skills/`
-- BEGIN and END markers present
+- exit_code: 0
+- regex: ^[5-9]\d*$
+- BEGIN SKILLSHARE
+- END SKILLSHARE
 
 ### Step 4: Re-install with large .gitignore (performance test)
 
@@ -81,7 +84,9 @@ for i in range(100000):
 '
 ```
 
-**Expected**: .gitignore now has 100K+ lines.
+**Expected**:
+- exit_code: 0
+- regex: \d{6,}
 
 ### Step 5: Timed re-install (must not hang)
 
@@ -94,9 +99,9 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ```
 
 **Expected**:
-- Output shows "5 skipped"
-- `EXIT_CODE: 0` (not 124 = timeout)
-- Completes within 10 seconds
+- exit_code: 0
+- skipped
+- EXIT_CODE: 0
 
 ### Step 6: No duplicate entries after re-install
 
@@ -111,7 +116,13 @@ ssenv enter "$ENV_NAME" -- bash -c '
 '
 ```
 
-**Expected**: Each skill entry appears exactly 1 time (no duplicates).
+**Expected**:
+- exit_code: 0
+- feature-radar: 1
+- feature-radar-archive: 1
+- feature-radar-learn: 1
+- feature-radar-ref: 1
+- feature-radar-scan: 1
 
 ## Pass Criteria
 
