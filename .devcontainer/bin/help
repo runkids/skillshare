@@ -32,6 +32,7 @@ ${BLUE}Environment Management (Isolated HOME)${NC}
   ${BOLD}ssenv${NC} <cmd>          Advanced environment management.
 
 ${BLUE}Testing${NC}
+  ${BOLD}runbook${NC} <file|dir>  Run E2E test runbooks. Builds from source.
   ${BOLD}test-brew-upgrade${NC}  Simulate Homebrew upgrade path (mock brew).
 
 ${BLUE}Authentication & Security${NC}

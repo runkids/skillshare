@@ -4,18 +4,27 @@
 
 ## Quick Start
 
+Inside the devcontainer, the `runbook` command auto-builds from source:
+
 ```bash
-# Build
-go build -o bin/runbook ./tools/runbook
+# Run a single runbook
+runbook ai_docs/tests/atomgit_install_runbook.md
+
+# Run all runbooks in a directory
+runbook ai_docs/tests/
 
 # Dry-run (parse only, no execution)
-bin/runbook --dry-run --report json ai_docs/tests/atomgit_install_runbook.md
+runbook --dry-run --report json ai_docs/tests/atomgit_install_runbook.md
 
-# Execute inside a container (required for execution)
-bin/runbook --report json --no-tui ai_docs/tests/atomgit_install_runbook.md
+# JSON report
+runbook --report json --no-tui ai_docs/tests/atomgit_install_runbook.md
+```
 
-# Batch execute an entire directory
-bin/runbook --report json --no-tui ai_docs/tests/
+Outside the devcontainer, build manually:
+
+```bash
+go build -o bin/runbook ./tools/runbook
+bin/runbook --dry-run --report json ai_docs/tests/  # dry-run only on host
 ```
 
 ## CLI Flags
