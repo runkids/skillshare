@@ -14,6 +14,8 @@ type RunOptions struct {
 }
 
 // RunRunbook parses, classifies, executes, and reports a runbook.
+// Non-dry-run execution uses a session executor that preserves shell
+// variables across steps (single bash process with env file persistence).
 func RunRunbook(r io.Reader, name string, opts RunOptions) (Report, error) {
 	if opts.Timeout == 0 {
 		opts.Timeout = 2 * time.Minute
@@ -27,24 +29,17 @@ func RunRunbook(r io.Reader, name string, opts RunOptions) (Report, error) {
 	steps := ClassifyAll(rb.Steps)
 
 	start := time.Now()
-	results := make([]StepResult, 0, len(steps))
+	var results []StepResult
 
-	for _, s := range steps {
-		if opts.DryRun || s.Executor == ExecutorManual {
-			results = append(results, StepResult{
-				Step:   s,
-				Status: StatusSkipped,
-			})
-			continue
+	if opts.DryRun {
+		// Dry-run: skip all steps.
+		results = make([]StepResult, len(steps))
+		for i, s := range steps {
+			results[i] = StepResult{Step: s, Status: StatusSkipped}
 		}
-
-		ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
-		result := Execute(ctx, s)
-		cancel()
-
-		checkAssertions(&result, s)
-
-		results = append(results, result)
+	} else {
+		// Session execution: single bash process, variables persist across steps.
+		results = ExecuteSession(context.Background(), steps, opts.Timeout)
 	}
 
 	report := Report{
