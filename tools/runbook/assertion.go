@@ -137,10 +137,18 @@ func checkExitCode(pat, arg string, exitCode int) AssertionResult {
 }
 
 // checkRegex matches a Go regex pattern against output.
+// Automatically prepends (?m) for multi-line mode so ^ and $ match line
+// boundaries instead of string boundaries — unless the pattern already
+// contains explicit flags.
 func checkRegex(pat, pattern, output string) AssertionResult {
 	r := AssertionResult{Pattern: pat, Type: AssertRegex}
 
-	re, err := regexp.Compile(pattern)
+	p := pattern
+	if !strings.HasPrefix(p, "(?") {
+		p = "(?m)" + p
+	}
+
+	re, err := regexp.Compile(p)
 	if err != nil {
 		r.Detail = fmt.Sprintf("invalid regex: %v", err)
 		return r

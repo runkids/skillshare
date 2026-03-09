@@ -91,3 +91,45 @@ func TestMatchAssertions_EmptyExpected(t *testing.T) {
 		t.Fatalf("empty expected should return empty results, got %d", len(results))
 	}
 }
+
+func TestRunAssertions_RegexMultilineDefault(t *testing.T) {
+	// ^pattern$ should match individual lines, not just the whole string.
+	result := &StepResult{
+		Stdout:   "line1\n42\nline3",
+		Stderr:   "",
+		ExitCode: 0,
+	}
+	results := RunAssertions(result, []string{`regex: ^42$`})
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if !results[0].Matched {
+		t.Fatal("regex ^42$ should match line '42' in multi-line output with auto (?m)")
+	}
+}
+
+func TestRunAssertions_RegexExplicitFlags(t *testing.T) {
+	// When pattern already has (? flags, don't prepend (?m).
+	result := &StepResult{
+		Stdout:   "ABC\ndef",
+		Stderr:   "",
+		ExitCode: 0,
+	}
+	results := RunAssertions(result, []string{`regex: (?i)abc`})
+	if len(results) != 1 || !results[0].Matched {
+		t.Fatal("regex with explicit (?i) flag should still work")
+	}
+}
+
+func TestRunAssertions_RegexWithoutMultiline(t *testing.T) {
+	// Verify ^ matches line boundary (not just string start).
+	result := &StepResult{
+		Stdout:   "header\nfoo=bar\ntrailer",
+		Stderr:   "",
+		ExitCode: 0,
+	}
+	results := RunAssertions(result, []string{`regex: ^foo=bar$`})
+	if len(results) != 1 || !results[0].Matched {
+		t.Fatal("regex ^foo=bar$ should match middle line with auto (?m)")
+	}
+}

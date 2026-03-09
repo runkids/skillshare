@@ -578,5 +578,92 @@ Expected:
 	t.Logf("Description: %q", rb.Steps[0].Description)
 }
 
+func TestParseRunbook_HeredocWithEmbeddedCodeFence(t *testing.T) {
+	// A heredoc containing ``` should NOT terminate the code block.
+	input := "# Heredoc Runbook\n\n## Scope\n\nTest.\n\n### Step 1: Create script\n\n" +
+		"```bash\n" +
+		"cat << 'EOF' > /tmp/test.md\n" +
+		"# My Document\n" +
+		"```bash\n" +
+		"echo hello\n" +
+		"```\n" +
+		"EOF\n" +
+		"echo done\n" +
+		"```\n" +
+		"\nExpected:\n\n- done\n"
+
+	rb, err := ParseRunbook(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("ParseRunbook error: %v", err)
+	}
+
+	if len(rb.Steps) != 1 {
+		t.Fatalf("got %d steps, want 1", len(rb.Steps))
+	}
+	cmd := rb.Steps[0].Command
+	if !strings.Contains(cmd, "cat << 'EOF'") {
+		t.Error("command should contain the heredoc start")
+	}
+	if !strings.Contains(cmd, "echo done") {
+		t.Errorf("command should include 'echo done' after heredoc, got:\n%s", cmd)
+	}
+	if !strings.Contains(cmd, "echo hello") {
+		t.Errorf("command should include heredoc body with 'echo hello', got:\n%s", cmd)
+	}
+}
+
+func TestParseRunbook_HeredocDoubleQuoted(t *testing.T) {
+	// <<-"DELIM" variant.
+	input := "# Heredoc Runbook\n\n### Step 1: Test\n\n" +
+		"```bash\n" +
+		"cat <<-\"MARKER\" > /tmp/out\n" +
+		"```python\n" +
+		"print('hi')\n" +
+		"```\n" +
+		"MARKER\n" +
+		"echo ok\n" +
+		"```\n" +
+		"\nExpected:\n\n- ok\n"
+
+	rb, err := ParseRunbook(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("ParseRunbook error: %v", err)
+	}
+
+	if len(rb.Steps) != 1 {
+		t.Fatalf("got %d steps, want 1", len(rb.Steps))
+	}
+	if !strings.Contains(rb.Steps[0].Command, "echo ok") {
+		t.Errorf("command should include 'echo ok', got:\n%s", rb.Steps[0].Command)
+	}
+}
+
+func TestParseRunbook_NoHeredocRegularFenceStillWorks(t *testing.T) {
+	// Ensure regular code blocks without heredocs still parse correctly.
+	input := "# Regular Runbook\n\n### Step 1: Simple\n\n" +
+		"```bash\n" +
+		"echo hello\n" +
+		"```\n" +
+		"\n### Step 2: Also simple\n\n" +
+		"```bash\n" +
+		"echo world\n" +
+		"```\n"
+
+	rb, err := ParseRunbook(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("ParseRunbook error: %v", err)
+	}
+
+	if len(rb.Steps) != 2 {
+		t.Fatalf("got %d steps, want 2", len(rb.Steps))
+	}
+	if rb.Steps[0].Command != "echo hello" {
+		t.Errorf("Step 1 command = %q, want %q", rb.Steps[0].Command, "echo hello")
+	}
+	if rb.Steps[1].Command != "echo world" {
+		t.Errorf("Step 2 command = %q, want %q", rb.Steps[1].Command, "echo world")
+	}
+}
+
 // Runbook is the parsed output from ParseRunbook — defined here for test clarity.
 // The actual struct lives in parser.go.

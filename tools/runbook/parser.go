@@ -41,6 +41,10 @@ var codeFenceOpenRe = regexp.MustCompile("^```(\\w*)\\s*$")
 // codeFenceCloseRe matches closing code fences.
 var codeFenceCloseRe = regexp.MustCompile("^```\\s*$")
 
+// heredocStartRe detects heredoc start: <<EOF, <<'EOF', <<"EOF", <<-EOF, etc.
+// Captures the delimiter word (without quotes or leading dash).
+var heredocStartRe = regexp.MustCompile(`<<-?\s*['"]?(\w+)['"]?`)
+
 // sectionHeadingRe matches ## level headings for metadata sections.
 var sectionHeadingRe = regexp.MustCompile(`^##\s+(.+)`)
 
@@ -61,6 +65,7 @@ func ParseRunbook(r io.Reader) (*Runbook, error) {
 	var metaLines []string
 	inOptional := false
 	stopParsing := false
+	var heredocDelim string // non-empty when inside a heredoc
 
 	flushStep := func() {
 		if currentStep != nil {
@@ -112,10 +117,25 @@ func ParseRunbook(r io.Reader) (*Runbook, error) {
 
 		// --- State: inside code block ---
 		if state == stateInCode {
+			// Track heredoc boundaries so embedded ``` inside heredocs
+			// don't terminate the code block prematurely.
+			if heredocDelim != "" {
+				// Inside heredoc — check for closing delimiter.
+				if strings.TrimSpace(line) == heredocDelim {
+					heredocDelim = ""
+				}
+				codeLines = append(codeLines, line)
+				continue
+			}
+
 			if codeFenceCloseRe.MatchString(line) {
 				appendCode()
 				state = stateInStep
 			} else {
+				// Check if this line starts a heredoc.
+				if m := heredocStartRe.FindStringSubmatch(line); m != nil {
+					heredocDelim = m[1]
+				}
 				codeLines = append(codeLines, line)
 			}
 			continue

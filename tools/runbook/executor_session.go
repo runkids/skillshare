@@ -27,7 +27,8 @@ type indexedStep struct {
 
 // ExecuteSession runs all auto steps in a single bash session, preserving
 // shell variables across steps via an env file. Each step runs in a subshell
-// with set -eo pipefail; an EXIT trap saves exported variables for the next step.
+// with pipefail; an EXIT trap saves exported variables for the next step.
+// The step's exit code is the exit code of the last command in the subshell.
 func ExecuteSession(ctx context.Context, steps []Step, timeout time.Duration) []StepResult {
 	if timeout == 0 {
 		timeout = 10 * time.Minute
@@ -144,9 +145,11 @@ func buildSessionScript(steps []indexedStep, tmpDir string) string {
 		fmt.Fprintf(&sb, "echo '@@RB:BEGIN:%d@@'\n", n)
 		fmt.Fprintf(&sb, "__rb_t0=$(__rb_now_ms)\n")
 
-		// Subshell: isolates set -e failures while env file + trap persist variables.
+		// Subshell: isolates failures while env file + trap persist variables.
+		// No set -e: the step's exit code is the last command's exit code,
+		// so authors don't need workarounds like `cmd || EXIT=$?`.
 		fmt.Fprintf(&sb, "(\n")
-		fmt.Fprintf(&sb, "  set -eo pipefail -a\n")
+		fmt.Fprintf(&sb, "  set -o pipefail -a\n")
 		fmt.Fprintf(&sb, "  [ -f %q ] && source %q\n", envFile, envFile)
 		fmt.Fprintf(&sb, "  __rb_save_env() { export -p > %q 2>/dev/null; }\n", envFile)
 		fmt.Fprintf(&sb, "  trap __rb_save_env EXIT\n")
