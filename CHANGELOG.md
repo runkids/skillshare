@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.16.14] - 2026-03-09
+
+### New Features
+
+#### Terminal Rendering Improvements
+
+- **SGR dim for consistent gray text** — all dim/gray text across CLI and TUI now uses the SGR dim attribute (`\x1b[0;2m`) instead of bright-black (`\033[90m`) or fixed 256-color grays. This adapts to any terminal theme — dark, light, or custom — instead of rendering too dark or invisible on certain configurations
+- **Progress bar counter visibility** — the file counter (e.g. `0/63947`) now appears at a fixed position right after the percentage, preventing it from being pushed off-screen by long titles on narrow terminals:
+  ```
+  ■■■■■■■■■■■■･････ 69%  0/63947  Updating files
+  ```
+- **Progress bar accent color** — progress bar now uses cyan (the project accent color) instead of orange, matching spinners, titles, and other interactive elements
+
+### Bug Fixes
+
+- Fixed progress bar getting stuck at 99% on large scans (e.g. 63k+ skills) — parallel scan workers could race past the final frame, leaving the bar one tick short of 100%
+- Fixed skill path segments (e.g. `security/` in `security/sarif-parsing`) rendering as fixed 256-color gray in TUI list and audit views — now uses theme-adaptive dim
+
 ## [0.16.13] - 2026-03-06
 
 ### New Features

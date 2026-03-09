@@ -172,22 +172,12 @@ func colorSkillPath(path string) string {
 	dirs := segments[:len(segments)-1]
 	name := segments[len(segments)-1]
 
-	const (
-		grayStart = 241
-		grayEnd   = 249
-	)
-
 	var parts []string
 	for idx, dir := range dirs {
 		if idx == 0 {
 			parts = append(parts, tc.Cyan.Render(dir))
 		} else {
-			gray := grayStart
-			if subCount := len(dirs) - 1; subCount > 1 {
-				gray = grayStart + (idx-1)*(grayEnd-grayStart)/(subCount-1)
-			}
-			style := lipgloss.NewStyle().Foreground(lipgloss.Color(fmt.Sprintf("%d", gray)))
-			parts = append(parts, style.Render(dir))
+			parts = append(parts, tc.Dim.Render(dir))
 		}
 	}
 
@@ -207,22 +197,12 @@ func colorSkillPathBold(path string) string {
 	dirs := segments[:len(segments)-1]
 	name := segments[len(segments)-1]
 
-	const (
-		grayStart = 241
-		grayEnd   = 249
-	)
-
 	var parts []string
 	for idx, dir := range dirs {
 		if idx == 0 {
 			parts = append(parts, tc.Cyan.Render(dir))
 		} else {
-			gray := grayStart
-			if subCount := len(dirs) - 1; subCount > 1 {
-				gray = grayStart + (idx-1)*(grayEnd-grayStart)/(subCount-1)
-			}
-			style := lipgloss.NewStyle().Foreground(lipgloss.Color(fmt.Sprintf("%d", gray)))
-			parts = append(parts, style.Render(dir))
+			parts = append(parts, tc.Dim.Render(dir))
 		}
 	}
 

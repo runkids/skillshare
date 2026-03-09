@@ -5,6 +5,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mattn/go-runewidth"
@@ -330,6 +331,7 @@ func WarningBox(title string, lines ...string) {
 //
 // Non-TTY output falls back to plain text lines.
 type ProgressBar struct {
+	mu         sync.Mutex
 	total      int
 	current    int
 	title      string
@@ -343,9 +345,9 @@ const (
 	barWidth         = 36              // fixed visible width (character count)
 	barFill          = "■"             // U+25A0 filled block
 	barEmpty         = "･"             // U+FF65 half-width dot
-	barColor         = "\033[0;38;5;214m" // reset + orange (clears dim)
-	barDim           = "\033[38;5;214;2m" // orange + dim for empty dots
-	barMuted         = "\x1b[0;2m"       // dim attribute for label + count
+	barColor         = "\033[0;36m"    // reset + cyan (project accent)
+	barDim           = "\033[36;2m"    // cyan + dim for empty dots
+	barMuted         = "\x1b[0;2m"     // dim attribute for label + count
 	barReset         = Reset
 	hideCursor       = "\x1b[?25l"
 	showCursor       = "\x1b[?25h"
@@ -368,8 +370,10 @@ func StartProgress(title string, total int) *ProgressBar {
 	return p
 }
 
-// Increment increments progress by 1.
+// Increment increments progress by 1. Safe for concurrent use.
 func (p *ProgressBar) Increment() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.stopped {
 		return
 	}
@@ -384,8 +388,10 @@ func (p *ProgressBar) Increment() {
 	}
 }
 
-// Add increments progress by n.
+// Add increments progress by n. Safe for concurrent use.
 func (p *ProgressBar) Add(n int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.stopped {
 		return
 	}
@@ -400,8 +406,10 @@ func (p *ProgressBar) Add(n int) {
 
 // UpdateTitle updates the label shown after the percentage.
 // Git progress messages are automatically normalized (strip "remote:" prefix,
-// transfer rates, and verbose object counts).
+// transfer rates, and verbose object counts). Safe for concurrent use.
 func (p *ProgressBar) UpdateTitle(title string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.title = strings.TrimSpace(normalizeGitProgressMessage(title))
 
 	if p.tty {
@@ -412,8 +420,10 @@ func (p *ProgressBar) UpdateTitle(title string) {
 }
 
 // Stop finishes the progress bar, restores the cursor, and moves to the next line.
-// The final bar state remains visible on screen.
+// The final bar state remains visible on screen. Safe for concurrent use.
 func (p *ProgressBar) Stop() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	if p.stopped {
 		return
 	}
