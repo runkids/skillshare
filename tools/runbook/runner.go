@@ -30,10 +30,10 @@ func RunRunbook(r io.Reader, name string, opts RunOptions) (Report, error) {
 	results := make([]StepResult, 0, len(steps))
 
 	for _, s := range steps {
-		if opts.DryRun || s.Executor == "manual" {
+		if opts.DryRun || s.Executor == ExecutorManual {
 			results = append(results, StepResult{
 				Step:   s,
-				Status: "skipped",
+				Status: StatusSkipped,
 			})
 			continue
 		}
@@ -42,14 +42,7 @@ func RunRunbook(r io.Reader, name string, opts RunOptions) (Report, error) {
 		result := Execute(ctx, s)
 		cancel()
 
-		// Run assertions when exit code is 0 and expected patterns exist.
-		if result.ExitCode == 0 && len(s.Expected) > 0 {
-			combined := result.Stdout + "\n" + result.Stderr
-			result.Assertions = MatchAssertions(combined, s.Expected)
-			if !AllPassed(result.Assertions) {
-				result.Status = "failed"
-			}
-		}
+		checkAssertions(&result, s)
 
 		results = append(results, result)
 	}
@@ -77,11 +70,11 @@ func computeSummary(results []StepResult) Summary {
 	s.Total = len(results)
 	for _, r := range results {
 		switch r.Status {
-		case "passed":
+		case StatusPassed:
 			s.Passed++
-		case "failed":
+		case StatusFailed:
 			s.Failed++
-		case "skipped":
+		case StatusSkipped:
 			s.Skipped++
 		}
 	}

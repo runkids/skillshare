@@ -3,13 +3,13 @@ package main
 // Classify determines execution mode for a step.
 func Classify(s Step) string {
 	if s.Command == "" {
-		return "manual"
+		return ExecutorManual
 	}
 	switch s.Lang {
 	case "bash", "sh", "":
-		return "auto"
+		return ExecutorAuto
 	default:
-		return "manual"
+		return ExecutorManual
 	}
 }
 

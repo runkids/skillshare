@@ -32,8 +32,7 @@ type tuiModel struct {
 	results []StepResult
 	execFn  func(Step) StepResult
 
-	done bool // all steps finished
-	start   time.Time
+	start time.Time
 }
 
 // newTUIModel creates a TUI model with injected execution function.
@@ -72,7 +71,6 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if next < len(m.steps) {
 			return m, m.runStep(next)
 		}
-		m.done = true
 		return m, tea.Quit
 	}
 
@@ -89,17 +87,17 @@ func (m tuiModel) View() string {
 	// Step list
 	for _, r := range m.results {
 		icon := statusIcon(r.Status)
-		title := truncate(r.Step.Title, 38)
+		title := truncateText(r.Step.Title, 38)
 		line := fmt.Sprintf(" %s %2d. %s", icon, r.Step.Number, title)
 
-		if r.Status == "passed" || r.Status == "failed" {
-			line += tuiDim.Render(fmt.Sprintf("  %s", formatDuration(r.DurationMs)))
+		if r.Status == StatusPassed || r.Status == StatusFailed {
+			line += tuiDim.Render(fmt.Sprintf("  %s", formatDurationMs(r.DurationMs)))
 		}
 		b.WriteString(line + "\n")
 
 		// Show failure reason
-		if r.Status == "failed" {
-			reason := failureReason(r)
+		if r.Status == StatusFailed {
+			reason := stepFailReason(r)
 			if reason != "" {
 				b.WriteString(tuiRed.Render("      "+reason) + "\n")
 			}
@@ -126,35 +124,15 @@ func (m tuiModel) runStep(i int) tea.Cmd {
 // statusIcon returns the colored icon for a step status.
 func statusIcon(status string) string {
 	switch status {
-	case "passed":
+	case StatusPassed:
 		return tuiGreen.Render("✓")
-	case "failed":
+	case StatusFailed:
 		return tuiRed.Render("✗")
-	case "running":
+	case StatusRunning:
 		return tuiCyan.Render("●")
 	default: // pending
 		return tuiDim.Render("○")
 	}
-}
-
-// failureReason extracts a concise failure reason from a StepResult.
-func failureReason(r StepResult) string {
-	// Check for failed assertions first.
-	for _, a := range r.Assertions {
-		if !a.Matched {
-			if a.Negated {
-				return fmt.Sprintf("unexpected match: %s", a.Pattern)
-			}
-			return fmt.Sprintf("expected: %s", a.Pattern)
-		}
-	}
-	if r.Error != "" {
-		return r.Error
-	}
-	if r.ExitCode != 0 {
-		return fmt.Sprintf("exit code %d", r.ExitCode)
-	}
-	return ""
 }
 
 // summaryLine returns the footer summary string.
@@ -162,11 +140,11 @@ func (m tuiModel) summaryLine() string {
 	var passed, failed, running int
 	for _, r := range m.results {
 		switch r.Status {
-		case "passed":
+		case StatusPassed:
 			passed++
-		case "failed":
+		case StatusFailed:
 			failed++
-		case "running":
+		case StatusRunning:
 			running++
 		}
 	}
@@ -188,21 +166,3 @@ func (m tuiModel) summaryLine() string {
 	return strings.Join(parts, "  ")
 }
 
-// truncate shortens s to max characters, adding ellipsis if needed.
-func truncate(s string, max int) string {
-	if len(s) <= max {
-		return s
-	}
-	if max <= 1 {
-		return "…"
-	}
-	return s[:max-1] + "…"
-}
-
-// formatDuration formats milliseconds into a human-readable string.
-func formatDuration(ms int64) string {
-	if ms < 1000 {
-		return fmt.Sprintf("%dms", ms)
-	}
-	return fmt.Sprintf("%.1fs", float64(ms)/1000)
-}

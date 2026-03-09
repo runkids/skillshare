@@ -121,12 +121,12 @@ func runWithTUI(path, name string, timeout time.Duration) (Report, error) {
 	var autoSteps []Step
 	var skippedResults []StepResult
 	for _, s := range steps {
-		if s.Executor == "auto" {
+		if s.Executor == ExecutorAuto {
 			autoSteps = append(autoSteps, s)
 		} else {
 			skippedResults = append(skippedResults, StepResult{
 				Step:   s,
-				Status: "skipped",
+				Status: StatusSkipped,
 				Error:  "manual step",
 			})
 		}
@@ -142,13 +142,7 @@ func runWithTUI(path, name string, timeout time.Duration) (Report, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		result := Execute(ctx, s)
-		if result.ExitCode == 0 && len(s.Expected) > 0 {
-			combined := result.Stdout + "\n" + result.Stderr
-			result.Assertions = MatchAssertions(combined, s.Expected)
-			if !AllPassed(result.Assertions) {
-				result.Status = "failed"
-			}
-		}
+		checkAssertions(&result, s)
 		return result
 	}
 

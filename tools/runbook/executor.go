@@ -42,21 +42,21 @@ func Execute(ctx context.Context, s Step) StepResult {
 			} else {
 				result.ExitCode = exitErr.ExitCode()
 			}
-			result.Status = "failed"
+			result.Status = StatusFailed
 		} else if ctx.Err() != nil {
 			// Context timeout or cancellation.
-			result.Status = "failed"
+			result.Status = StatusFailed
 			result.ExitCode = -1
 			result.Error = ctx.Err().Error()
 		} else {
-			result.Status = "failed"
+			result.Status = StatusFailed
 			result.ExitCode = -1
 			result.Error = err.Error()
 		}
 		return result
 	}
 
-	result.Status = "passed"
+	result.Status = StatusPassed
 	result.ExitCode = 0
 	return result
 }

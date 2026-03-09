@@ -17,15 +17,15 @@ func WriteSingleReport(w io.Writer, r Report) {
 	fmt.Fprintf(w, " %s\n", strings.Repeat("─", 50))
 
 	for _, s := range r.Steps {
-		sIcon := stepStatusIcon(s.Status)
-		fmt.Fprintf(w, " %s  Step %-2d %-38s", sIcon, s.Step.Number, truncTitle(s.Step.Title))
-		if s.Status == "passed" || s.Status == "failed" {
-			fmt.Fprintf(w, " %s", fmtDur(s.DurationMs))
+		sIcon := plainStatusIcon(s.Status)
+		fmt.Fprintf(w, " %s  Step %-2d %-38s", sIcon, s.Step.Number, truncateText(s.Step.Title, 38))
+		if s.Status == StatusPassed || s.Status == StatusFailed {
+			fmt.Fprintf(w, " %s", formatDurationMs(s.DurationMs))
 		}
 		fmt.Fprintln(w)
 
-		if s.Status == "failed" {
-			reason := plainFailReason(s)
+		if s.Status == StatusFailed {
+			reason := stepFailReason(s)
 			if reason != "" {
 				fmt.Fprintf(w, "          └─ %s\n", reason)
 			}
@@ -59,8 +59,8 @@ func WritePlainSummary(w io.Writer, reports []Report) {
 			float64(r.DurationMs)/1000)
 
 		for _, s := range r.Steps {
-			if s.Status == "failed" {
-				fmt.Fprintf(w, "    └─ Step %d: %s\n", s.Step.Number, plainFailReason(s))
+			if s.Status == StatusFailed {
+				fmt.Fprintf(w, "    └─ Step %d: %s\n", s.Step.Number, stepFailReason(s))
 			}
 		}
 	}
@@ -84,47 +84,15 @@ func WritePlainSummary(w io.Writer, reports []Report) {
 	fmt.Fprintln(w)
 }
 
-func stepStatusIcon(status string) string {
+func plainStatusIcon(status string) string {
 	switch status {
-	case "passed":
+	case StatusPassed:
 		return "✓"
-	case "failed":
+	case StatusFailed:
 		return "✗"
-	case "skipped":
+	case StatusSkipped:
 		return "○"
 	default:
 		return "●"
 	}
-}
-
-func truncTitle(s string) string {
-	if len(s) > 38 {
-		return s[:35] + "..."
-	}
-	return s
-}
-
-func fmtDur(ms int64) string {
-	if ms < 1000 {
-		return fmt.Sprintf("%dms", ms)
-	}
-	return fmt.Sprintf("%.1fs", float64(ms)/1000)
-}
-
-func plainFailReason(r StepResult) string {
-	for _, a := range r.Assertions {
-		if !a.Matched {
-			if a.Negated {
-				return fmt.Sprintf("unexpected match: %q", a.Pattern)
-			}
-			return fmt.Sprintf("expected %q not found", a.Pattern)
-		}
-	}
-	if r.Error != "" {
-		return r.Error
-	}
-	if r.ExitCode != 0 {
-		return fmt.Sprintf("exit code %d", r.ExitCode)
-	}
-	return "unknown"
 }
