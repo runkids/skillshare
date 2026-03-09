@@ -18,6 +18,12 @@ runbook --dry-run --report json ai_docs/tests/atomgit_install_runbook.md
 
 # JSON report
 runbook --report json --no-tui ai_docs/tests/atomgit_install_runbook.md
+
+# Run only steps 1 and 3
+runbook --steps 1,3 ai_docs/tests/first_use_cli_e2e_runbook.md
+
+# Run from step 4 onwards (skip steps 1-3)
+runbook --from 4 ai_docs/tests/first_use_cli_e2e_runbook.md
 ```
 
 Outside the devcontainer, build manually:
@@ -35,11 +41,15 @@ bin/runbook --dry-run --report json ai_docs/tests/  # dry-run only on host
 | `--report json` | Output a JSON report |
 | `--no-tui` | Disable interactive TUI; use plain text output |
 | `--timeout 5m` | Per-step timeout (default: 2m, or from runbook.json) |
+| `--steps 1,3,5` | Only run specific steps (comma-separated); others are skipped |
+| `--from N` | Run from step N onwards; earlier steps are skipped |
 | `--build "cmd"` | Command to run once before all runbooks |
 | `--setup "cmd"` | Command to run before each runbook |
 | `--teardown "cmd"` | Command to run after each runbook |
 
 Input can be a single `.md` file or a directory (auto-discovers `*_runbook.md` / `*-runbook.md`).
+
+`--steps` and `--from` are mutually exclusive. Filtered-out steps appear as `skipped` in the report.
 
 ## Lifecycle Hooks
 
@@ -402,6 +412,23 @@ All 5 steps pass.
 ---
 
 ## Common Patterns
+
+### Selective Execution (Debugging)
+
+When iterating on a specific step, skip the rest to save time:
+
+```bash
+# Re-run only step 5 after fixing the command
+runbook --steps 5 ai_docs/tests/my_runbook.md
+
+# Run the last 3 steps (skip setup steps)
+runbook --from 4 ai_docs/tests/my_runbook.md
+
+# Run steps 2 and 5, get JSON for analysis
+runbook --steps 2,5 --report json --no-tui ai_docs/tests/my_runbook.md
+```
+
+Skipped steps still appear in the report with `status: "skipped"`, so the step numbering stays consistent.
 
 ### Verify File Exists
 
