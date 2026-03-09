@@ -1,0 +1,5 @@
+{
+  "setup": "ss init -g --no-copy --all-targets --no-git --no-skill --force",
+  "teardown": "ss uninstall --all --force 2>/dev/null || true",
+  "timeout": "5m"
+}

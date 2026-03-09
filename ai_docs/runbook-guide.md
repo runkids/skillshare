@@ -34,9 +34,46 @@ bin/runbook --dry-run --report json ai_docs/tests/  # dry-run only on host
 | `--dry-run` | Parse the runbook only; do not execute any commands |
 | `--report json` | Output a JSON report |
 | `--no-tui` | Disable interactive TUI; use plain text output |
-| `--timeout 5m` | Per-step timeout (default: 2 minutes) |
+| `--timeout 5m` | Per-step timeout (default: 2m, or from runbook.json) |
+| `--setup "cmd"` | Command to run before each runbook |
+| `--teardown "cmd"` | Command to run after each runbook |
 
 Input can be a single `.md` file or a directory (auto-discovers `*_runbook.md` / `*-runbook.md`).
+
+## Lifecycle Hooks
+
+### Config File (`runbook.json`)
+
+Place a `runbook.json` in the runbook directory for persistent defaults:
+
+```json
+{
+  "setup": "ss init -g --no-copy --all-targets --no-git --no-skill --force",
+  "teardown": "ss uninstall --all --force 2>/dev/null || true",
+  "timeout": "5m"
+}
+```
+
+The runner auto-discovers `runbook.json` in the target directory (or parent directory of a single file).
+
+### Priority
+
+CLI flags override config file values:
+
+```bash
+# Uses runbook.json setup, but overrides timeout
+runbook --timeout 10m ai_docs/tests/
+
+# Overrides setup from runbook.json
+runbook --setup "echo custom-init" ai_docs/tests/my_runbook.md
+```
+
+### Behavior
+
+- **Setup**: Runs before each runbook as a synthetic step. Environment variables set in setup persist to all runbook steps (same session executor). If setup fails, all runbook steps are skipped.
+- **Teardown**: Runs after each runbook. Teardown failure is logged but does not affect the runbook's pass/fail result.
+- **Dry-run**: Hooks are ignored in `--dry-run` mode.
+- Setup and teardown are not included in the step count or report steps.
 
 ## Safety Mechanism
 

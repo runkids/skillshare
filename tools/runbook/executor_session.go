@@ -16,7 +16,8 @@ import (
 
 // stepEndPattern matches the end-of-step marker emitted by the session script.
 // Format: @@RB:END:<step_number>:<exit_code>:<duration_ms>@@
-var stepEndPattern = regexp.MustCompile(`^@@RB:END:(\d+):(-?\d+):(\d+)@@$`)
+// Step number can be negative (synthetic setup/teardown steps use -1, -2).
+var stepEndPattern = regexp.MustCompile(`^@@RB:END:(-?\d+):(-?\d+):(\d+)@@$`)
 
 // indexedStep pairs a Step with its position in the original steps slice.
 type indexedStep struct {

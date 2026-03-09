@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 )
@@ -11,6 +12,8 @@ type RunOptions struct {
 	DryRun     bool
 	JSONOutput io.Writer
 	Timeout    time.Duration
+	Setup      string // command to run before the runbook
+	Teardown   string // command to run after the runbook
 }
 
 // RunRunbook parses, classifies, executes, and reports a runbook.
@@ -38,8 +41,76 @@ func RunRunbook(r io.Reader, name string, opts RunOptions) (Report, error) {
 			results[i] = StepResult{Step: s, Status: StatusSkipped}
 		}
 	} else {
-		// Session execution: single bash process, variables persist across steps.
-		results = ExecuteSession(context.Background(), steps, opts.Timeout)
+		// Inject setup/teardown as synthetic steps.
+		execSteps := steps
+		setupIdx, teardownIdx := -1, -1
+		if opts.Setup != "" {
+			setupStep := Step{
+				Number:   -1,
+				Title:    "[setup]",
+				Command:  opts.Setup,
+				Lang:     "bash",
+				Executor: ExecutorAuto,
+			}
+			setupIdx = 0
+			execSteps = append([]Step{setupStep}, execSteps...)
+		}
+		if opts.Teardown != "" {
+			teardownStep := Step{
+				Number:   -2,
+				Title:    "[teardown]",
+				Command:  opts.Teardown,
+				Lang:     "bash",
+				Executor: ExecutorAuto,
+			}
+			teardownIdx = len(execSteps)
+			execSteps = append(execSteps, teardownStep)
+		}
+
+		allResults := ExecuteSession(context.Background(), execSteps, opts.Timeout)
+
+		// Extract setup result — if setup failed, mark all runbook steps skipped.
+		var setupResult *StepResult
+		if setupIdx >= 0 {
+			sr := allResults[setupIdx]
+			setupResult = &sr
+		}
+
+		// Extract teardown result.
+		var teardownResult *StepResult
+		if teardownIdx >= 0 {
+			// teardownIdx was computed before prepend; adjust if setup was added.
+			actualIdx := teardownIdx
+			tr := allResults[actualIdx]
+			teardownResult = &tr
+		}
+
+		// Collect runbook step results (skip synthetic steps).
+		startIdx := 0
+		if setupIdx >= 0 {
+			startIdx = 1
+		}
+		endIdx := len(allResults)
+		if teardownIdx >= 0 {
+			endIdx = len(allResults) - 1
+		}
+		results = allResults[startIdx:endIdx]
+
+		// If setup failed, mark all runbook steps as skipped.
+		if setupResult != nil && setupResult.Status == StatusFailed {
+			for i := range results {
+				if results[i].Status != StatusSkipped {
+					results[i].Status = StatusSkipped
+					results[i].Error = "setup failed: " + setupResult.Error
+					if setupResult.ExitCode != 0 && results[i].Error == "setup failed: " {
+						results[i].Error = fmt.Sprintf("setup failed (exit code %d)", setupResult.ExitCode)
+					}
+				}
+			}
+		}
+
+		// Include setup/teardown in report metadata (not in steps).
+		_ = teardownResult // teardown failure is informational only
 	}
 
 	report := Report{

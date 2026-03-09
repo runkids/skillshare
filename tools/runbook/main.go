@@ -14,16 +14,20 @@ import (
 
 func main() {
 	var (
-		reportFmt string
-		dryRun    bool
-		timeout   time.Duration
-		noTUI     bool
+		reportFmt    string
+		dryRun       bool
+		timeout      time.Duration
+		noTUI        bool
+		cliSetup     string
+		cliTeardown  string
 	)
 
 	flag.StringVar(&reportFmt, "report", "", "output format: json")
 	flag.BoolVar(&dryRun, "dry-run", false, "parse and classify only, don't execute")
-	flag.DurationVar(&timeout, "timeout", 2*time.Minute, "per-step timeout")
+	flag.DurationVar(&timeout, "timeout", 0, "per-step timeout (default: 2m, or from runbook.json)")
 	flag.BoolVar(&noTUI, "no-tui", false, "disable TUI, use plain text output")
+	flag.StringVar(&cliSetup, "setup", "", "command to run before each runbook")
+	flag.StringVar(&cliTeardown, "teardown", "", "command to run after each runbook")
 	flag.Parse()
 
 	args := flag.Args()
@@ -50,6 +54,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Load config: runbook.json in target directory, CLI flags override.
+	configDir := target
+	if info, err := os.Stat(target); err == nil && !info.IsDir() {
+		configDir = filepath.Dir(target)
+	}
+	fileCfg, err := loadConfig(configDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+	}
+	cfg := mergeConfig(fileCfg, cliSetup, cliTeardown, timeout)
+
+	effectiveTimeout := cfg.TimeoutDuration()
+	if effectiveTimeout == 0 {
+		effectiveTimeout = 2 * time.Minute
+	}
+
 	useTUI := !noTUI && !dryRun && reportFmt == ""
 	exitCode := 0
 	var reports []Report
@@ -60,9 +80,9 @@ func main() {
 		var runErr error
 
 		if useTUI && len(files) == 1 {
-			report, runErr = runWithTUI(file, name, timeout)
+			report, runErr = runWithTUI(file, name, effectiveTimeout)
 		} else {
-			report, runErr = runPlain(file, name, dryRun, timeout)
+			report, runErr = runPlain(file, name, dryRun, effectiveTimeout, cfg)
 		}
 
 		if runErr != nil {
@@ -95,7 +115,7 @@ func main() {
 }
 
 // runPlain runs a runbook without TUI.
-func runPlain(path, name string, dryRun bool, timeout time.Duration) (Report, error) {
+func runPlain(path, name string, dryRun bool, timeout time.Duration, cfg RunbookConfig) (Report, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return Report{}, err
@@ -103,8 +123,10 @@ func runPlain(path, name string, dryRun bool, timeout time.Duration) (Report, er
 	defer f.Close()
 
 	return RunRunbook(f, name, RunOptions{
-		DryRun:  dryRun,
-		Timeout: timeout,
+		DryRun:   dryRun,
+		Timeout:  timeout,
+		Setup:    cfg.Setup,
+		Teardown: cfg.Teardown,
 	})
 }
 

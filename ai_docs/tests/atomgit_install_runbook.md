@@ -40,12 +40,12 @@ ss list --no-tui
 ### Step 3: Verify skill files exist on disk
 
 ```bash
-ls ~/.config/skillshare/skills/
+find ~/.config/skillshare/skills/ -name "SKILL.md" -path "*cangjie*" | head -1
 ```
 
 **Expected:**
 - exit_code: 0
-- cangjie-docs-navigator
+- regex: cangjie.*SKILL\.md
 
 ### Step 4: Verify sync distributes to targets
 
@@ -61,12 +61,12 @@ ss sync
 ### Step 5: Verify symlinks created in Claude target
 
 ```bash
-ls -la ~/.claude/skills/
+ls ~/.claude/skills/ | grep cangjie
 ```
 
 **Expected:**
 - exit_code: 0
-- cangjie-docs-navigator
+- cangjie
 
 ### Step 6: Uninstall the skill
 
