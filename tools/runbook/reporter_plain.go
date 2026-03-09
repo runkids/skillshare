@@ -7,7 +7,8 @@ import (
 )
 
 // WriteSingleReport prints a single runbook result in plain text.
-func WriteSingleReport(w io.Writer, r Report) {
+// verbosity: 0=default, 1=show assertions, 2=assertions+stdout/stderr.
+func WriteSingleReport(w io.Writer, r Report, verbosity int) {
 	icon := "✓"
 	if r.Summary.Failed > 0 {
 		icon = "✗"
@@ -33,11 +34,22 @@ func WriteSingleReport(w io.Writer, r Report) {
 		}
 		fmt.Fprintln(w)
 
-		if s.Status == StatusFailed {
+		if s.Status == StatusFailed && verbosity == 0 {
 			reason := stepFailReason(s)
 			if reason != "" {
 				fmt.Fprintf(w, "          └─ %s\n", reason)
 			}
+		}
+
+		// -v: show all assertions
+		if verbosity >= 1 {
+			writeAssertionDetails(w, s)
+		}
+
+		// -vv: show stdout/stderr snippets
+		if verbosity >= 2 {
+			writeOutputSnippet(w, "stdout", s.Stdout)
+			writeOutputSnippet(w, "stderr", s.Stderr)
 		}
 	}
 
@@ -59,7 +71,7 @@ func WriteSingleReport(w io.Writer, r Report) {
 }
 
 // WritePlainSummary prints a multi-runbook batch summary.
-func WritePlainSummary(w io.Writer, reports []Report) {
+func WritePlainSummary(w io.Writer, reports []Report, verbosity int) {
 	fmt.Fprintf(w, "\n Runbook Results (%d files)\n", len(reports))
 	fmt.Fprintf(w, " %s\n", strings.Repeat("─", 55))
 
@@ -97,6 +109,51 @@ func WritePlainSummary(w io.Writer, reports []Report) {
 		fmt.Fprintf(w, "  %d skipped", totalS)
 	}
 	fmt.Fprintln(w)
+}
+
+// writeAssertionDetails prints assertion results for a step (-v).
+func writeAssertionDetails(w io.Writer, s StepResult) {
+	if len(s.Assertions) == 0 && s.Status == StatusFailed {
+		reason := stepFailReason(s)
+		if reason != "" {
+			fmt.Fprintf(w, "          ✗ %s\n", reason)
+		}
+		return
+	}
+	for _, a := range s.Assertions {
+		icon := "✓"
+		if !a.Matched {
+			icon = "✗"
+		}
+		label := a.Pattern
+		if a.Type != "" && a.Type != AssertSubstring {
+			label = a.Type + ": " + a.Pattern
+		}
+		fmt.Fprintf(w, "          %s %s\n", icon, label)
+	}
+}
+
+// writeOutputSnippet prints first/last 5 lines of output (-vv).
+func writeOutputSnippet(w io.Writer, label, output string) {
+	output = strings.TrimSpace(output)
+	if output == "" {
+		return
+	}
+	lines := strings.Split(output, "\n")
+	fmt.Fprintf(w, "          %s (%d lines):\n", label, len(lines))
+	if len(lines) <= 10 {
+		for _, l := range lines {
+			fmt.Fprintf(w, "            %s\n", l)
+		}
+	} else {
+		for _, l := range lines[:5] {
+			fmt.Fprintf(w, "            %s\n", l)
+		}
+		fmt.Fprintf(w, "            ... (%d lines omitted)\n", len(lines)-10)
+		for _, l := range lines[len(lines)-5:] {
+			fmt.Fprintf(w, "            %s\n", l)
+		}
+	}
 }
 
 func plainStatusIcon(status string) string {

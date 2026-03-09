@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 // Status constants
 const (
@@ -71,3 +74,23 @@ func checkAssertions(result *StepResult, step Step) {
 		result.Status = StatusFailed
 	}
 }
+
+// countFlag implements flag.Value for counting repeated -v flags.
+// Supports: -v (=1), -v -v (=2), -v=2 (=2).
+type countFlag int
+
+func (c *countFlag) String() string { return strconv.Itoa(int(*c)) }
+func (c *countFlag) Set(s string) error {
+	if s == "true" || s == "" {
+		// Called as a boolean-style flag: -v
+		*c++
+		return nil
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return fmt.Errorf("invalid verbosity %q", s)
+	}
+	*c = countFlag(n)
+	return nil
+}
+func (c *countFlag) IsBoolFlag() bool { return true }
