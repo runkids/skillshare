@@ -24,4 +24,18 @@ if ! (cd "$WORKSPACE_ROOT" && "$GO_BIN" build -o "$TMP_BIN" ./tools/runbook); th
   exit 1
 fi
 
-exec "$TMP_BIN" "$@"
+# Resolve relative runbook paths against workspace root.
+# ssenv changes HOME, so relative paths like "ai_docs/tests/..." won't
+# resolve from the isolated HOME. Rewrite them to absolute workspace paths.
+args=()
+for arg in "$@"; do
+  if [[ "$arg" != -* ]] && [[ "$arg" != /* ]]; then
+    candidate="$WORKSPACE_ROOT/$arg"
+    if [ -e "$candidate" ]; then
+      arg="$candidate"
+    fi
+  fi
+  args+=("$arg")
+done
+
+exec "$TMP_BIN" "${args[@]}"
