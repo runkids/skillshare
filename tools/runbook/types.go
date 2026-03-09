@@ -47,6 +47,7 @@ type Report struct {
 	Version     string            `json:"version"`
 	Runbook     string            `json:"runbook"`
 	Environment map[string]string `json:"environment,omitempty"`
+	Hooks       map[string]string `json:"hooks,omitempty"` // setup/teardown status
 	DurationMs  int64             `json:"duration_ms"`
 	Summary     Summary           `json:"summary"`
 	Steps       []StepResult      `json:"steps"`

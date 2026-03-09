@@ -16,6 +16,15 @@ func WriteSingleReport(w io.Writer, r Report) {
 	fmt.Fprintf(w, "\n %s %s\n", icon, r.Runbook)
 	fmt.Fprintf(w, " %s\n", strings.Repeat("─", 50))
 
+	// Show hook status if present.
+	if status, ok := r.Hooks["setup"]; ok {
+		hIcon := plainStatusIcon(status)
+		fmt.Fprintf(w, " %s  [setup]\n", hIcon)
+		if status == StatusFailed {
+			fmt.Fprintf(w, "          └─ setup failed, all steps skipped\n")
+		}
+	}
+
 	for _, s := range r.Steps {
 		sIcon := plainStatusIcon(s.Status)
 		fmt.Fprintf(w, " %s  Step %-2d %-38s", sIcon, s.Step.Number, truncateText(s.Step.Title, 38))
@@ -30,6 +39,12 @@ func WriteSingleReport(w io.Writer, r Report) {
 				fmt.Fprintf(w, "          └─ %s\n", reason)
 			}
 		}
+	}
+
+	// Show teardown status if present.
+	if status, ok := r.Hooks["teardown"]; ok {
+		hIcon := plainStatusIcon(status)
+		fmt.Fprintf(w, " %s  [teardown]\n", hIcon)
 	}
 
 	fmt.Fprintf(w, " %s\n", strings.Repeat("─", 50))

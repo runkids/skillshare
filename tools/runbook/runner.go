@@ -33,6 +33,7 @@ func RunRunbook(r io.Reader, name string, opts RunOptions) (Report, error) {
 
 	start := time.Now()
 	var results []StepResult
+	var setupResult, teardownResult *StepResult
 
 	if opts.DryRun {
 		// Dry-run: skip all steps.
@@ -70,18 +71,14 @@ func RunRunbook(r io.Reader, name string, opts RunOptions) (Report, error) {
 		allResults := ExecuteSession(context.Background(), execSteps, opts.Timeout)
 
 		// Extract setup result — if setup failed, mark all runbook steps skipped.
-		var setupResult *StepResult
 		if setupIdx >= 0 {
 			sr := allResults[setupIdx]
 			setupResult = &sr
 		}
 
 		// Extract teardown result.
-		var teardownResult *StepResult
 		if teardownIdx >= 0 {
-			// teardownIdx was computed before prepend; adjust if setup was added.
-			actualIdx := teardownIdx
-			tr := allResults[actualIdx]
+			tr := allResults[teardownIdx]
 			teardownResult = &tr
 		}
 
@@ -98,13 +95,14 @@ func RunRunbook(r io.Reader, name string, opts RunOptions) (Report, error) {
 
 		// If setup failed, mark all runbook steps as skipped.
 		if setupResult != nil && setupResult.Status == StatusFailed {
+			reason := setupResult.Error
+			if reason == "" && setupResult.ExitCode != 0 {
+				reason = fmt.Sprintf("exit code %d", setupResult.ExitCode)
+			}
 			for i := range results {
 				if results[i].Status != StatusSkipped {
 					results[i].Status = StatusSkipped
-					results[i].Error = "setup failed: " + setupResult.Error
-					if setupResult.ExitCode != 0 && results[i].Error == "setup failed: " {
-						results[i].Error = fmt.Sprintf("setup failed (exit code %d)", setupResult.ExitCode)
-					}
+					results[i].Error = "setup failed: " + reason
 				}
 			}
 		}
@@ -113,12 +111,24 @@ func RunRunbook(r io.Reader, name string, opts RunOptions) (Report, error) {
 		_ = teardownResult // teardown failure is informational only
 	}
 
+	// Build hooks metadata for the report.
+	hooks := make(map[string]string)
+	if setupResult != nil {
+		hooks["setup"] = setupResult.Status
+	}
+	if teardownResult != nil {
+		hooks["teardown"] = teardownResult.Status
+	}
+
 	report := Report{
 		Version:    "1",
 		Runbook:    name,
 		DurationMs: msDuration(time.Since(start)),
 		Summary:    computeSummary(results),
 		Steps:      results,
+	}
+	if len(hooks) > 0 {
+		report.Hooks = hooks
 	}
 
 	if opts.JSONOutput != nil {

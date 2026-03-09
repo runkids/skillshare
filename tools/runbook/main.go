@@ -70,7 +70,9 @@ func main() {
 		effectiveTimeout = 2 * time.Minute
 	}
 
-	useTUI := !noTUI && !dryRun && reportFmt == ""
+	// Hooks require session executor for env persistence, so disable TUI when active.
+	hasHooks := cfg.Setup != "" || cfg.Teardown != ""
+	useTUI := !noTUI && !dryRun && reportFmt == "" && !hasHooks
 	exitCode := 0
 	var reports []Report
 
