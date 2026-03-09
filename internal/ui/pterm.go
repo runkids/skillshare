@@ -318,73 +318,158 @@ func WarningBox(title string, lines ...string) {
 	}
 }
 
-// ProgressBar wraps pterm progress bar
+// ProgressBar renders a fixed-width progress bar with block characters.
+//
+// TTY output (single-line, \r overwrite):
+//
+//	■■■■■■■■■■■■■■■■■■■■･････････ 69%  Scanning skills       5/10
+//
+// Non-TTY output falls back to plain text lines.
 type ProgressBar struct {
-	bar   *pterm.ProgressbarPrinter
-	total int
+	total      int
+	current    int
+	title      string
+	tty        bool
+	stopped    bool
+	lastRender time.Time
+	dirty      bool // state changed since last render
 }
 
-// StartProgress starts a progress bar
+const (
+	barWidth         = 36              // fixed visible width (character count)
+	barFill          = "■"             // U+25A0 filled block
+	barEmpty         = "･"             // U+FF65 half-width dot
+	barColor         = "\033[0;38;5;214m" // reset + orange (clears dim)
+	barDim           = "\033[38;5;214;2m" // orange + dim for empty dots
+	barMuted         = "\x1b[0;2m"       // dim attribute for label + count
+	barReset         = Reset
+	hideCursor       = "\x1b[?25l"
+	showCursor       = "\x1b[?25h"
+	clearLine        = "\r\x1b[2K"
+	barThrottleMs    = 50 * time.Millisecond // min interval between renders
+	barFixedOverhead = barWidth + 8    // bar chars + " NNN%  " + padding
+)
+
+// StartProgress starts a progress bar with the given title and total count.
 func StartProgress(title string, total int) *ProgressBar {
-	if !isProgressTTY() {
+	tty := isProgressTTY()
+	if !tty {
 		fmt.Fprintf(ProgressWriter, "%s (0/%d)\n", title, total)
-		return &ProgressBar{total: total}
+		return &ProgressBar{total: total, title: title}
 	}
 
-	bar, _ := pterm.DefaultProgressbar.
-		WithTotal(total).
-		WithTitle(title).
-		WithWriter(ProgressWriter).
-		Start()
-	return &ProgressBar{bar: bar, total: total}
+	fmt.Fprint(ProgressWriter, hideCursor)
+	p := &ProgressBar{total: total, title: title, tty: true}
+	p.renderNow()
+	return p
 }
 
 // Increment increments progress by 1.
-// When the bar reaches 100%, the title is replaced with "Done" so the
-// final render does not freeze on the last item name.
 func (p *ProgressBar) Increment() {
-	if p.bar != nil {
-		if p.bar.Current+1 >= p.bar.Total {
-			p.UpdateTitle("Done")
-		}
-		p.bar.Increment()
+	if p.stopped {
+		return
+	}
+	p.current++
+	if p.current >= p.total {
+		p.title = "Done"
+		p.renderNow() // always render the final frame
+		return
+	}
+	if p.tty {
+		p.renderThrottled()
 	}
 }
 
 // Add increments progress by n.
 func (p *ProgressBar) Add(n int) {
-	if p.bar != nil {
-		p.bar.Add(n)
+	if p.stopped {
+		return
+	}
+	p.current += n
+	if p.current > p.total {
+		p.current = p.total
+	}
+	if p.tty {
+		p.renderThrottled()
 	}
 }
 
-// UpdateTitle updates progress bar title. The title is padded or
-// truncated to a fixed width so that the bar width stays stable.
+// UpdateTitle updates the label shown after the percentage.
+// Git progress messages are automatically normalized (strip "remote:" prefix,
+// transfer rates, and verbose object counts).
 func (p *ProgressBar) UpdateTitle(title string) {
-	const maxWidth = 40
-	display := title
-	w := runewidth.StringWidth(display)
-	if w > maxWidth {
-		display = runewidth.Truncate(display, maxWidth, "...")
-		w = runewidth.StringWidth(display)
-	}
-	if w < maxWidth {
-		display += strings.Repeat(" ", maxWidth-w)
-	}
+	p.title = strings.TrimSpace(normalizeGitProgressMessage(title))
 
-	if p.bar != nil {
-		p.bar.UpdateTitle(display)
+	if p.tty {
+		p.renderThrottled()
 	} else {
-		fmt.Fprintf(ProgressWriter, "  %s\n", strings.TrimRight(display, " "))
+		fmt.Fprintf(ProgressWriter, "  %s\n", p.title)
 	}
 }
 
-// Stop stops the progress bar. It's safe to call even if the bar already
-// stopped itself (pterm auto-stops when Current >= Total).
+// Stop finishes the progress bar, restores the cursor, and moves to the next line.
+// The final bar state remains visible on screen.
 func (p *ProgressBar) Stop() {
-	if p.bar != nil && p.bar.IsActive {
-		p.bar.Stop()
+	if p.stopped {
+		return
 	}
+	p.stopped = true
+	if p.tty {
+		// Flush any pending dirty state so the final frame is accurate.
+		if p.dirty {
+			p.renderNow()
+		}
+		fmt.Fprintf(ProgressWriter, "\n%s", showCursor)
+	}
+}
+
+// renderThrottled renders at most once per barThrottleMs. Marks dirty if skipped.
+func (p *ProgressBar) renderThrottled() {
+	now := time.Now()
+	if now.Sub(p.lastRender) < barThrottleMs {
+		p.dirty = true
+		return
+	}
+	p.renderNow()
+}
+
+// renderNow draws the progress bar unconditionally.
+func (p *ProgressBar) renderNow() {
+	p.dirty = false
+	p.lastRender = time.Now()
+
+	pct := 0
+	if p.total > 0 {
+		pct = p.current * 100 / p.total
+	}
+	if pct > 100 {
+		pct = 100
+	}
+
+	fill := pct * barWidth / 100
+	empty := barWidth - fill
+
+	// Dynamic title width: fill remaining space between pct and count.
+	countStr := fmt.Sprintf("%d/%d", p.current, p.total)
+	// visible: bar(36) + " NNN%  "(7) + title + " " + count = termWidth
+	titleWidth := pterm.GetTerminalWidth() - barFixedOverhead - len(countStr) - 1
+	if titleWidth < 12 {
+		titleWidth = 12
+	}
+
+	// Format: ■■■■■■■■■■■■･････････  100%  label        22653/22653
+	// Bar + percentage: orange. Label + count: dim.
+	fmt.Fprintf(ProgressWriter, "%s%s%s%s%s%s %3d%%%s  %-*s %s%s",
+		clearLine,
+		barColor, strings.Repeat(barFill, fill),
+		barDim, strings.Repeat(barEmpty, empty),
+		barColor,
+		pct,
+		barMuted,
+		titleWidth, runewidth.Truncate(p.title, titleWidth, "..."),
+		countStr,
+		barReset,
+	)
 }
 
 // UpdateNotification prints a colorful update notification.

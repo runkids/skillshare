@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"io"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -52,6 +54,94 @@ func TestNormalizeGitProgressMessage(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestProgressBarRender(t *testing.T) {
+	t.Run("zero progress", func(t *testing.T) {
+		p := &ProgressBar{total: 10, title: "Scanning"}
+		out := captureRender(p)
+		if !strings.Contains(out, "0%") {
+			t.Fatalf("expected 0%%, got %q", out)
+		}
+		if !strings.Contains(out, "0/10") {
+			t.Fatalf("expected 0/10, got %q", out)
+		}
+		// Should have 36 empty dots and 0 fill blocks
+		stripped := StripANSI(out)
+		fillCount := strings.Count(stripped, barFill)
+		emptyCount := strings.Count(stripped, barEmpty)
+		if fillCount != 0 {
+			t.Fatalf("expected 0 fill blocks at 0%%, got %d", fillCount)
+		}
+		if emptyCount != barWidth {
+			t.Fatalf("expected %d empty dots at 0%%, got %d", barWidth, emptyCount)
+		}
+	})
+
+	t.Run("50 percent", func(t *testing.T) {
+		p := &ProgressBar{total: 100, current: 50, title: "Installing"}
+		out := captureRender(p)
+		if !strings.Contains(out, "50%") {
+			t.Fatalf("expected 50%%, got %q", out)
+		}
+		stripped := StripANSI(out)
+		fillCount := strings.Count(stripped, barFill)
+		emptyCount := strings.Count(stripped, barEmpty)
+		if fillCount+emptyCount != barWidth {
+			t.Fatalf("expected %d total chars, got fill=%d empty=%d", barWidth, fillCount, emptyCount)
+		}
+		if fillCount != 18 { // 50% of 36
+			t.Fatalf("expected 18 fill at 50%%, got %d", fillCount)
+		}
+	})
+
+	t.Run("100 percent", func(t *testing.T) {
+		p := &ProgressBar{total: 5, current: 5, title: "Done"}
+		out := captureRender(p)
+		if !strings.Contains(out, "100%") {
+			t.Fatalf("expected 100%%, got %q", out)
+		}
+		stripped := StripANSI(out)
+		fillCount := strings.Count(stripped, barFill)
+		emptyCount := strings.Count(stripped, barEmpty)
+		if fillCount != barWidth {
+			t.Fatalf("expected all %d fill at 100%%, got %d", barWidth, fillCount)
+		}
+		if emptyCount != 0 {
+			t.Fatalf("expected 0 empty at 100%%, got %d", emptyCount)
+		}
+	})
+
+	t.Run("increment changes title to Done", func(t *testing.T) {
+		p := &ProgressBar{total: 1, title: "Working"}
+		p.Increment()
+		if p.title != "Done" {
+			t.Fatalf("expected title 'Done' after reaching total, got %q", p.title)
+		}
+	})
+
+	t.Run("stopped bar ignores increment", func(t *testing.T) {
+		p := &ProgressBar{total: 10, current: 5, stopped: true}
+		p.Increment()
+		if p.current != 5 {
+			t.Fatalf("expected current unchanged at 5, got %d", p.current)
+		}
+	})
+}
+
+// captureRender calls render on a non-TTY bar and returns the raw output.
+func captureRender(p *ProgressBar) string {
+	// render writes to ProgressWriter; capture by temporarily replacing it.
+	r, w, _ := os.Pipe()
+	prev := ProgressWriter
+	ProgressWriter = w
+	p.tty = true // enable render path
+	p.renderNow()
+	w.Close()
+	ProgressWriter = prev
+
+	buf, _ := io.ReadAll(r)
+	return string(buf)
 }
 
 func TestNormalizeSpinnerUpdate(t *testing.T) {
