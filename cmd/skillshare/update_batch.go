@@ -54,9 +54,6 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	total := len(targets)
 	start := time.Now()
 	fmt.Println()
-	// Progress bar is started lazily — after the first phase header prints,
-	// so the header appears above the bar rather than below it.
-	var progressBar *ui.ProgressBar
 
 	var result updateResult
 	var auditEntries []batchAuditEntry
@@ -94,14 +91,15 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	}
 	phaseCurrent := 0
 
+	// Create a single progress bar up front — phase headers are rendered
+	// inline via SetHeader so the bar never duplicates on screen.
+	progressBar := ui.StartProgress("Updating skills", total)
+
 	// Phase 1: tracked repos (git pull)
 	if len(trackedRepos) > 0 {
 		phaseCurrent++
 		if phaseTotal > 1 {
-			ui.PhaseHeader(phaseCurrent, phaseTotal, "Pulling %d tracked repo(s)...", len(trackedRepos))
-		}
-		if progressBar == nil {
-			progressBar = ui.StartProgress("Updating skills", total)
+			progressBar.SetHeader(ui.FormatPhaseHeader(phaseCurrent, phaseTotal, "Pulling %d tracked repo(s)...", len(trackedRepos)))
 		}
 	}
 	for _, t := range trackedRepos {
@@ -133,10 +131,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 			groupedCount += len(g)
 		}
 		if phaseTotal > 1 {
-			ui.PhaseHeader(phaseCurrent, phaseTotal, "Updating %d grouped skill(s) from %d repo(s)...", groupedCount, len(repoGroups))
-		}
-		if progressBar == nil {
-			progressBar = ui.StartProgress("Updating skills", total)
+			progressBar.SetHeader(ui.FormatPhaseHeader(phaseCurrent, phaseTotal, "Updating %d grouped skill(s) from %d repo(s)...", groupedCount, len(repoGroups)))
 		}
 	}
 	for repoURL, groupTargets := range repoGroups {
@@ -230,10 +225,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 	if len(standaloneSkills) > 0 {
 		phaseCurrent++
 		if phaseTotal > 1 {
-			ui.PhaseHeader(phaseCurrent, phaseTotal, "Updating %d standalone skill(s)...", len(standaloneSkills))
-		}
-		if progressBar == nil {
-			progressBar = ui.StartProgress("Updating skills", total)
+			progressBar.SetHeader(ui.FormatPhaseHeader(phaseCurrent, phaseTotal, "Updating %d standalone skill(s)...", len(standaloneSkills)))
 		}
 	}
 	for _, t := range standaloneSkills {
@@ -269,9 +261,7 @@ func executeBatchUpdate(uc *updateContext, targets []updateTarget) (updateResult
 		progressBar.Increment()
 	}
 
-	if progressBar != nil {
-		progressBar.Stop()
-	}
+	progressBar.Stop()
 
 	// Registry cleanup for pruned skills
 	if len(prunedNames) > 0 {

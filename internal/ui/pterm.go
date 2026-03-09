@@ -335,6 +335,8 @@ type ProgressBar struct {
 	total      int
 	current    int
 	title      string
+	header     string // optional phase header rendered above the bar
+	hasHeader  bool   // true once SetHeader has been called
 	tty        bool
 	stopped    bool
 	lastRender time.Time
@@ -419,6 +421,30 @@ func (p *ProgressBar) UpdateTitle(title string) {
 	}
 }
 
+// SetHeader sets (or updates) a phase header line rendered above the progress bar.
+// On the first call it pushes the bar down one line to make room for the header.
+// Subsequent calls update the header in place. Safe for concurrent use.
+func (p *ProgressBar) SetHeader(header string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.stopped {
+		return
+	}
+	if !p.hasHeader {
+		// First header: push bar down one line so the header can occupy the line above.
+		if p.tty {
+			fmt.Fprint(ProgressWriter, "\n")
+		}
+		p.hasHeader = true
+	}
+	p.header = header
+	if p.tty {
+		p.renderNow()
+	} else {
+		fmt.Fprintf(ProgressWriter, "%s\n", header)
+	}
+}
+
 // Stop finishes the progress bar, restores the cursor, and moves to the next line.
 // The final bar state remains visible on screen. Safe for concurrent use.
 func (p *ProgressBar) Stop() {
@@ -448,6 +474,7 @@ func (p *ProgressBar) renderThrottled() {
 }
 
 // renderNow draws the progress bar unconditionally.
+// In 2-line mode (hasHeader), it also rewrites the header line above the bar.
 func (p *ProgressBar) renderNow() {
 	p.dirty = false
 	p.lastRender = time.Now()
@@ -472,10 +499,7 @@ func (p *ProgressBar) renderNow() {
 		titleWidth = 12
 	}
 
-	// Format: ■■■■■■■■■■■■･････ 69%  0/63947  Updating files
-	// Bar + percentage: orange. Count + title: dim.
-	fmt.Fprintf(ProgressWriter, "%s%s%s%s%s%s %3d%%%s  %s  %s%s",
-		clearLine,
+	bar := fmt.Sprintf("%s%s%s%s%s %3d%%%s  %s  %s%s",
 		barColor, strings.Repeat(barFill, fill),
 		barDim, strings.Repeat(barEmpty, empty),
 		barColor,
@@ -485,6 +509,14 @@ func (p *ProgressBar) renderNow() {
 		runewidth.Truncate(p.title, titleWidth, "..."),
 		barReset,
 	)
+
+	if p.hasHeader && p.tty {
+		// 2-line mode: cursor is on bar line (N+1).
+		// Move up to header line (N), clear & print header, move back down, clear & print bar.
+		fmt.Fprintf(ProgressWriter, "\x1b[1A%s%s\n%s%s", clearLine, p.header, clearLine, bar)
+	} else {
+		fmt.Fprintf(ProgressWriter, "%s%s", clearLine, bar)
+	}
 }
 
 // RenderInlineBar renders a compact inline progress bar for TUI area printers.
@@ -965,6 +997,16 @@ func SkillBoxCompact(name, location string) {
 		}
 		fmt.Printf("  %s %s (%s)\n", StepBullet, name, loc)
 	}
+}
+
+// FormatPhaseHeader returns a formatted phase label string without printing.
+// Suitable for use with ProgressBar.SetHeader().
+func FormatPhaseHeader(current, total int, format string, args ...any) string {
+	msg := fmt.Sprintf(format, args...)
+	if IsTTY() {
+		return fmt.Sprintf("%s %s", pterm.Cyan(fmt.Sprintf("[%d/%d]", current, total)), msg)
+	}
+	return fmt.Sprintf("[%d/%d] %s", current, total, msg)
 }
 
 // PhaseHeader prints a phase label like "[1/3] Pulling 5 tracked repos..."
