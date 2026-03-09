@@ -380,6 +380,9 @@ func (p *ProgressBar) Increment() {
 		return
 	}
 	p.current++
+	if p.current > p.total {
+		p.current = p.total
+	}
 	if p.current >= p.total {
 		p.title = "Done"
 		p.renderNow() // always render the final frame
@@ -524,6 +527,10 @@ func (p *ProgressBar) renderNow() {
 // (diff, search install) where the bar is embedded in a multi-line area update.
 func RenderInlineBar(done, total int) string {
 	const barWidth = 30
+	if total <= 0 {
+		emptyBar := DimText(strings.Repeat("█", barWidth))
+		return fmt.Sprintf("%s %s 0%%", emptyBar, DimText("0/0"))
+	}
 	filled := done * barWidth / total
 	if filled > barWidth {
 		filled = barWidth
