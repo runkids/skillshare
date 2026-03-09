@@ -237,7 +237,7 @@ func printFindingGroup(skillName string, g auditFindingGroup) {
 	prefix := ui.Colorize(color, "!")
 	fmt.Printf("%s %s\n", prefix, formatWarningWithSkill(skillName, formatFindingGroup(g)))
 	if locs := formatFindingLocations(g); locs != "" {
-		fmt.Printf("  %s\n", ui.Colorize(ui.Gray, locs))
+		fmt.Printf("  %s\n", ui.Colorize(ui.Dim, locs))
 	}
 }
 

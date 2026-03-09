@@ -50,7 +50,7 @@ func TestComputeLogStats_Empty(t *testing.T) {
 func TestRenderStatsCLI_Empty(t *testing.T) {
 	stats := computeLogStats(nil)
 	output := renderStatsCLI(stats)
-	want := ui.Gray + "No log entries" + ui.Reset + "\n"
+	want := ui.Dim + "No log entries" + ui.Reset + "\n"
 	if output != want {
 		t.Errorf("got %q, want %q", output, want)
 	}

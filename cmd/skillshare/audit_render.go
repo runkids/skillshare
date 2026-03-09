@@ -15,7 +15,7 @@ func riskColor(label string) string {
 	if c := ui.SeverityColor(label); c != "" {
 		return c
 	}
-	return ui.Gray
+	return ui.Dim
 }
 
 // presentAuditResults handles the common output path for audit scans:
@@ -57,7 +57,7 @@ func printSkillResultLine(index, total int, result *audit.Result, elapsed time.D
 	if len(result.Findings) == 0 {
 		if ui.IsTTY() {
 			if showTime {
-				fmt.Printf("%s %s✓%s %s %s%s%s\n", prefix, ui.Green, ui.Reset, name, ui.Gray, timeStr, ui.Reset)
+				fmt.Printf("%s %s✓%s %s %s%s%s\n", prefix, ui.Green, ui.Reset, name, ui.Dim, timeStr, ui.Reset)
 			} else {
 				fmt.Printf("%s %s✓%s %s\n", prefix, ui.Green, ui.Reset, name)
 			}
@@ -84,7 +84,7 @@ func printSkillResultLine(index, total int, result *audit.Result, elapsed time.D
 
 	if ui.IsTTY() {
 		if showTime {
-			fmt.Printf("%s %s%s%s %s  %s(%s)%s  %s%s%s\n", prefix, color, symbol, ui.Reset, name, color, riskText, ui.Reset, ui.Gray, timeStr, ui.Reset)
+			fmt.Printf("%s %s%s%s %s  %s(%s)%s  %s%s%s\n", prefix, color, symbol, ui.Reset, name, color, riskText, ui.Reset, ui.Dim, timeStr, ui.Reset)
 		} else {
 			fmt.Printf("%s %s%s%s %s  %s(%s)%s\n", prefix, color, symbol, ui.Reset, name, color, riskText, ui.Reset)
 		}
@@ -110,9 +110,9 @@ func printSkillResult(result *audit.Result, elapsed time.Duration) {
 		if ui.IsTTY() {
 			fmt.Printf("  %s: %s (%s)\n", sevLabel, f.Message, loc)
 			if meta := findingMetaCLI(f); meta != "" {
-				fmt.Printf("  %s[%s]%s\n", ui.Gray, meta, ui.Reset)
+				fmt.Printf("  %s[%s]%s\n", ui.Dim, meta, ui.Reset)
 			}
-			fmt.Printf("  %s\"%s\"%s\n\n", ui.Gray, f.Snippet, ui.Reset)
+			fmt.Printf("  %s\"%s\"%s\n\n", ui.Dim, f.Snippet, ui.Reset)
 		} else {
 			fmt.Printf("  %s: %s (%s)\n", f.Severity, f.Message, loc)
 			if meta := findingMetaCLI(f); meta != "" {
@@ -240,7 +240,7 @@ func printAuditSummary(_ auditRunSummary, lines []string, minWidth int) {
 func colorizeNonZero(n int, color string) string {
 	s := fmt.Sprintf("%d", n)
 	if n == 0 {
-		return ui.Colorize(ui.Gray, s)
+		return ui.Colorize(ui.Dim, s)
 	}
 	return ui.Colorize(color, s)
 }
@@ -340,7 +340,7 @@ func formatCategoryBreakdownCLI(cats map[string]int) string {
 		if cc.count > 50 {
 			parts[i] = fmt.Sprintf("%s%s%s:%d%s", ui.Bold, ui.White, cc.name, cc.count, ui.Reset)
 		} else {
-			parts[i] = fmt.Sprintf("%s%s:%d%s", ui.Gray, cc.name, cc.count, ui.Reset)
+			parts[i] = fmt.Sprintf("%s%s:%d%s", ui.Dim, cc.name, cc.count, ui.Reset)
 		}
 	}
 	return strings.Join(parts, " ")

@@ -45,7 +45,7 @@ func colorizeProfile(profile string) string {
 	if label == "STRICT" {
 		return ui.Colorize(ui.Yellow, label)
 	}
-	return ui.Colorize(ui.Gray, label)
+	return ui.Colorize(ui.Dim, label)
 }
 
 // colorizeDedupe returns an ANSI-colored UPPERCASE dedupe mode.
@@ -54,21 +54,21 @@ func colorizeDedupe(dedupe string) string {
 	if label == "LEGACY" {
 		return ui.Colorize(ui.Yellow, label)
 	}
-	return ui.Colorize(ui.Gray, label)
+	return ui.Colorize(ui.Dim, label)
 }
 
 // colorizeAnalyzers returns an ANSI-colored UPPERCASE analyzer list.
 func colorizeAnalyzers(analyzers []string) string {
-	return ui.Colorize(ui.Gray, policyAnalyzersLabel(analyzers))
+	return ui.Colorize(ui.Dim, policyAnalyzersLabel(analyzers))
 }
 
 // formatPolicyLine returns a compact one-line policy description.
 // Uses dim/gray for metadata; only non-default values get attention color.
 func formatPolicyLine(profile, dedupe string, analyzers []string) string {
-	sep := ui.Colorize(ui.Gray, " / ")
+	sep := ui.Colorize(ui.Dim, " / ")
 	return colorizeProfile(profile) +
-		sep + ui.Colorize(ui.Gray, "dedupe:") + colorizeDedupe(dedupe) +
-		sep + ui.Colorize(ui.Gray, "analyzers:") + colorizeAnalyzers(analyzers)
+		sep + ui.Colorize(ui.Dim, "dedupe:") + colorizeDedupe(dedupe) +
+		sep + ui.Colorize(ui.Dim, "analyzers:") + colorizeAnalyzers(analyzers)
 }
 
 // applyPolicyToSummary copies resolved policy fields from opts to summary

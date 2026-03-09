@@ -20,8 +20,8 @@ var tc = struct {
 	// Semantic
 	Title    lipgloss.Style // section headings — bold cyan
 	Emphasis lipgloss.Style // primary values, bright text — bright white (15)
-	Dim      lipgloss.Style // secondary info, labels, descriptions — gray
-	Faint    lipgloss.Style // decorative chrome, borders, help — darker gray
+	Dim      lipgloss.Style // secondary info, labels, descriptions — SGR dim
+	Faint    lipgloss.Style // decorative chrome, borders, help — SGR dim
 	Cyan     lipgloss.Style // emphasis, targets — cyan
 	Green    lipgloss.Style // ok, passed
 	Yellow   lipgloss.Style // warning
@@ -30,7 +30,7 @@ var tc = struct {
 	// Detail panel
 	Label     lipgloss.Style // row labels (width 14)
 	Value     lipgloss.Style // default foreground
-	File      lipgloss.Style // file names — dim gray
+	File      lipgloss.Style // file names — dim
 	Target    lipgloss.Style // target names — cyan
 	Separator lipgloss.Style // horizontal rules — faint
 	Border    lipgloss.Style // panel borders — faint
@@ -70,25 +70,25 @@ var tc = struct {
 
 	Title:    lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6")),
 	Emphasis: lipgloss.NewStyle().Foreground(lipgloss.Color("15")),
-	Dim:      lipgloss.NewStyle().Foreground(lipgloss.Color("247")),
-	Faint:    lipgloss.NewStyle().Foreground(lipgloss.Color("242")),
+	Dim:      lipgloss.NewStyle().Faint(true),
+	Faint:    lipgloss.NewStyle().Faint(true),
 	Cyan:     lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
 	Green:    lipgloss.NewStyle().Foreground(lipgloss.Color("2")),
 	Yellow:   lipgloss.NewStyle().Foreground(lipgloss.Color("3")),
 	Red:      lipgloss.NewStyle().Foreground(lipgloss.Color("1")),
 
-	Label:     lipgloss.NewStyle().Foreground(lipgloss.Color("247")).Width(14),
+	Label:     lipgloss.NewStyle().Faint(true).Width(14),
 	Value:     lipgloss.NewStyle(),
-	File:      lipgloss.NewStyle().Foreground(lipgloss.Color("247")),
+	File:      lipgloss.NewStyle().Faint(true),
 	Target:    lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
-	Separator: lipgloss.NewStyle().Foreground(lipgloss.Color("242")),
-	Border:    lipgloss.NewStyle().Foreground(lipgloss.Color("242")),
+	Separator: lipgloss.NewStyle().Faint(true),
+	Border:    lipgloss.NewStyle().Faint(true),
 
 	Filter: lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
-	Help:   lipgloss.NewStyle().MarginLeft(2).Foreground(lipgloss.Color("242")),
+	Help:   lipgloss.NewStyle().MarginLeft(2).Faint(true),
 
 	ListRow:               lipgloss.NewStyle().PaddingLeft(1),
-	ListMeta:              lipgloss.NewStyle().PaddingLeft(1).Foreground(lipgloss.Color("245")),
+	ListMeta:              lipgloss.NewStyle().PaddingLeft(1).Faint(true),
 	ListRowSelected:       lipgloss.NewStyle().PaddingLeft(1).Foreground(lipgloss.Color("15")).Background(lipgloss.Color("237")).Bold(true),
 	ListMetaSelected:      lipgloss.NewStyle().PaddingLeft(1).Foreground(lipgloss.Color("250")).Background(lipgloss.Color("237")),
 	ListRowPrefix:         lipgloss.NewStyle().Foreground(lipgloss.Color("235")),
@@ -99,12 +99,12 @@ var tc = struct {
 		Padding(0, 1),
 
 	NormalTitle: lipgloss.NewStyle().PaddingLeft(2),
-	NormalDesc:  lipgloss.NewStyle().Foreground(lipgloss.Color("247")).PaddingLeft(2),
+	NormalDesc:  lipgloss.NewStyle().Faint(true).PaddingLeft(2),
 	SelectedTitle: lipgloss.NewStyle().Bold(true).
 		Foreground(lipgloss.Color("#D4D93C")).
 		Border(lipgloss.NormalBorder(), false, false, false, true).
 		BorderForeground(lipgloss.Color("#D4D93C")).PaddingLeft(1),
-	SelectedDesc: lipgloss.NewStyle().Foreground(lipgloss.Color("247")).
+	SelectedDesc: lipgloss.NewStyle().Faint(true).
 		Border(lipgloss.NormalBorder(), false, false, false, true).
 		BorderForeground(lipgloss.Color("#D4D93C")).PaddingLeft(1),
 

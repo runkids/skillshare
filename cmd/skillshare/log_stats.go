@@ -73,14 +73,14 @@ const (
 
 func renderStatsCLI(stats logStats) string {
 	if stats.Total == 0 {
-		return ui.Gray + "No log entries" + ui.Reset + "\n"
+		return ui.Dim + "No log entries" + ui.Reset + "\n"
 	}
 
 	var b strings.Builder
 	b.WriteString(ui.Cyan + ui.Bold + "Operation Log Summary" + ui.Reset + "\n")
-	b.WriteString(ui.Gray + strings.Repeat("─", 45) + ui.Reset + "\n")
+	b.WriteString(ui.Dim + strings.Repeat("─", 45) + ui.Reset + "\n")
 	b.WriteString(fmt.Sprintf("%s%-10s%s %s%3d%s operations\n",
-		ui.Gray, "Total:", ui.Reset, ui.Bold, stats.Total, ui.Reset))
+		ui.Dim, "Total:", ui.Reset, ui.Bold, stats.Total, ui.Reset))
 
 	// Sort commands by count descending
 	type cmdEntry struct {
@@ -103,7 +103,7 @@ func renderStatsCLI(stats logStats) string {
 			ratioColor = statsRed
 		}
 		b.WriteString(fmt.Sprintf("%s%-10s%s %s%3d%s (%4.1f%%)  %s%s%s\n",
-			ui.Gray, cmd.name, ui.Reset,
+			ui.Dim, cmd.name, ui.Reset,
 			ui.Cyan, cmd.stats.Total, ui.Reset,
 			pct, ratioColor, okRatio, ui.Reset))
 	}
@@ -120,8 +120,8 @@ func renderStatsCLI(stats logStats) string {
 		rateColor = statsYellow
 	}
 	b.WriteString(fmt.Sprintf("\n%sOK:%s %s%s%d/%d%s %s(%.1f%%)%s\n",
-		ui.Gray, ui.Reset, rateColor, ui.Bold, okTotal, stats.Total, ui.Reset,
-		ui.Gray, stats.SuccessRate*100, ui.Reset))
+		ui.Dim, ui.Reset, rateColor, ui.Bold, okTotal, stats.Total, ui.Reset,
+		ui.Dim, stats.SuccessRate*100, ui.Reset))
 
 	if stats.LastOperation != nil {
 		ts, err := time.Parse(time.RFC3339, stats.LastOperation.Timestamp)
@@ -130,7 +130,7 @@ func renderStatsCLI(stats logStats) string {
 			ago = formatRelativeTime(time.Since(ts))
 		}
 		b.WriteString(fmt.Sprintf("%sLast operation:%s %s%s%s (%s ago)\n",
-			ui.Gray, ui.Reset, ui.Cyan, stats.LastOperation.Command, ui.Reset, ago))
+			ui.Dim, ui.Reset, ui.Cyan, stats.LastOperation.Command, ui.Reset, ago))
 	}
 
 	return b.String()

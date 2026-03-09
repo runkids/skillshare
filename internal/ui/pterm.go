@@ -35,6 +35,10 @@ func init() {
 	pterm.DefaultSpinner.ShowTimer = false
 }
 
+// DimText wraps text with SGR dim attribute. Use instead of pterm.Gray()
+// for consistent appearance across terminal themes.
+func DimText(s string) string { return Dim + s + Reset }
+
 // DisplayWidth returns the visible width of a string (excluding ANSI codes, handling wide chars)
 func DisplayWidth(s string) int {
 	return runewidth.StringWidth(StripANSI(s))
@@ -119,7 +123,7 @@ func BoxWithMinWidth(title string, minWidth int, lines ...string) {
 	if title != "" {
 		fmt.Println(pterm.Cyan(title))
 	}
-	fmt.Println(pterm.Gray(strings.Repeat("─", maxLen)))
+	fmt.Println(DimText(strings.Repeat("─", maxLen)))
 	for _, line := range lines {
 		fmt.Println(line)
 	}
@@ -148,7 +152,7 @@ func HeaderBoxWithMinWidth(command, subtitle string, minWidth int) {
 	}
 
 	fmt.Println(pterm.Cyan(command))
-	fmt.Println(pterm.Gray(strings.Repeat("─", maxLen)))
+	fmt.Println(DimText(strings.Repeat("─", maxLen)))
 	fmt.Println(subtitle)
 }
 
@@ -449,27 +453,44 @@ func (p *ProgressBar) renderNow() {
 	fill := pct * barWidth / 100
 	empty := barWidth - fill
 
-	// Dynamic title width: fill remaining space between pct and count.
+	// Layout: bar(36) + " NNN%" (5) + "  " + count + "  " + title
+	// Count is at a fixed position right after %, title fills remaining space.
 	countStr := fmt.Sprintf("%d/%d", p.current, p.total)
-	// visible: bar(36) + " NNN%  "(7) + title + " " + count = termWidth
-	titleWidth := pterm.GetTerminalWidth() - barFixedOverhead - len(countStr) - 1
+	// barFixedOverhead covers bar(36) + " NNN%  "(8); add count + "  " gap
+	titleWidth := pterm.GetTerminalWidth() - barFixedOverhead - len(countStr) - 4
 	if titleWidth < 12 {
 		titleWidth = 12
 	}
 
-	// Format: ■■■■■■■■■■■■･････････  100%  label        22653/22653
-	// Bar + percentage: orange. Label + count: dim.
-	fmt.Fprintf(ProgressWriter, "%s%s%s%s%s%s %3d%%%s  %-*s %s%s",
+	// Format: ■■■■■■■■■■■■･････ 69%  0/63947  Updating files
+	// Bar + percentage: orange. Count + title: dim.
+	fmt.Fprintf(ProgressWriter, "%s%s%s%s%s%s %3d%%%s  %s  %s%s",
 		clearLine,
 		barColor, strings.Repeat(barFill, fill),
 		barDim, strings.Repeat(barEmpty, empty),
 		barColor,
 		pct,
 		barMuted,
-		titleWidth, runewidth.Truncate(p.title, titleWidth, "..."),
 		countStr,
+		runewidth.Truncate(p.title, titleWidth, "..."),
 		barReset,
 	)
+}
+
+// RenderInlineBar renders a compact inline progress bar for TUI area printers.
+// Style: cyan filled + dim empty, 30 chars wide. Used by batch operations
+// (diff, search install) where the bar is embedded in a multi-line area update.
+func RenderInlineBar(done, total int) string {
+	const barWidth = 30
+	filled := done * barWidth / total
+	if filled > barWidth {
+		filled = barWidth
+	}
+	pct := (done*100 + total/2) / total // rounded integer division
+	filledBar := pterm.Cyan(strings.Repeat("█", filled))
+	emptyBar := DimText(strings.Repeat("█", barWidth-filled))
+	count := fmt.Sprintf("%d/%d", done, total)
+	return fmt.Sprintf("%s%s %s %d%%", filledBar, emptyBar, DimText(count), pct)
 }
 
 // UpdateNotification prints a colorful update notification.
@@ -573,8 +594,9 @@ func OperationSummary(action string, duration time.Duration, metrics ...Metric) 
 	}
 
 	parts := []string{pterm.Green("✓ " + action + " complete")}
+	dimFn := func(a ...any) string { return DimText(fmt.Sprint(a...)) }
 	for _, m := range metrics {
-		colorFn := pterm.Gray
+		colorFn := dimFn
 		if m.Count > 0 && m.HighlightColor != nil {
 			colorFn = m.HighlightColor
 		}
@@ -582,7 +604,7 @@ func OperationSummary(action string, duration time.Duration, metrics ...Metric) 
 	}
 	line := strings.Join(parts, "  ")
 	if duration > 0 {
-		line += "  " + pterm.Gray(fmt.Sprintf("(%.1fs)", duration.Seconds()))
+		line += "  " + DimText(fmt.Sprintf("(%.1fs)", duration.Seconds()))
 	}
 	fmt.Println(line)
 }
@@ -608,7 +630,7 @@ func ListItem(status, name, detail string) {
 	}
 
 	if IsTTY() {
-		fmt.Printf("  %s %-20s %s\n", style.Sprint(statusIcon), name, pterm.Gray(detail))
+		fmt.Printf("  %s %-20s %s\n", style.Sprint(statusIcon), name, DimText(detail))
 	} else {
 		fmt.Printf("  %s %-20s %s\n", statusIcon, name, detail)
 	}
@@ -630,7 +652,7 @@ const (
 // TreeLine returns the tree continuation character (│) with TTY coloring
 func TreeLine() string {
 	if IsTTY() {
-		return pterm.Gray(StepLine)
+		return DimText(StepLine)
 	}
 	return StepLine
 }
@@ -658,8 +680,8 @@ func StepStart(label, value string) {
 // StepContinue prints a middle step (with branch)
 func StepContinue(label, value string) {
 	if IsTTY() {
-		fmt.Printf("%s\n", pterm.Gray(StepLine))
-		fmt.Printf("%s %-10s  %s\n", pterm.Gray(StepBranch+"─"), pterm.Gray(label), pterm.White(value))
+		fmt.Printf("%s\n", DimText(StepLine))
+		fmt.Printf("%s %-10s  %s\n", DimText(StepBranch+"─"), DimText(label), pterm.White(value))
 	} else {
 		fmt.Printf("%s\n", StepLine)
 		fmt.Printf("%s─ %s  %s\n", StepBranch, label, value)
@@ -684,12 +706,12 @@ func StepResult(status, message string, duration time.Duration) {
 
 	timeStr := ""
 	if duration > 0 {
-		timeStr = pterm.Gray(fmt.Sprintf(" (%.1fs)", duration.Seconds()))
+		timeStr = DimText(fmt.Sprintf(" (%.1fs)", duration.Seconds()))
 	}
 
 	if IsTTY() {
-		fmt.Printf("%s\n", pterm.Gray(StepLine))
-		fmt.Printf("%s %s %s  %s%s\n", pterm.Gray(StepCorner+"─"), style.Sprint(icon), style.Sprint(strings.ToUpper(status)), message, timeStr)
+		fmt.Printf("%s\n", DimText(StepLine))
+		fmt.Printf("%s %s %s  %s%s\n", DimText(StepCorner+"─"), style.Sprint(icon), style.Sprint(strings.ToUpper(status)), message, timeStr)
 	} else {
 		fmt.Printf("%s\n", StepLine)
 		fmt.Printf("%s─ %s %s  %s%s\n", StepCorner, icon, strings.ToUpper(status), message, timeStr)
@@ -699,8 +721,8 @@ func StepResult(status, message string, duration time.Duration) {
 // StepEnd prints the last step (with corner)
 func StepEnd(label, value string) {
 	if IsTTY() {
-		fmt.Printf("%s\n", pterm.Gray(StepLine))
-		fmt.Printf("%s %s  %s\n", pterm.Gray(StepCorner+"─"), pterm.White(label), value)
+		fmt.Printf("%s\n", DimText(StepLine))
+		fmt.Printf("%s %s  %s\n", DimText(StepCorner+"─"), pterm.White(label), value)
 	} else {
 		fmt.Printf("%s\n", StepLine)
 		fmt.Printf("%s─ %s  %s\n", StepCorner, label, value)
@@ -729,7 +751,7 @@ func StartTreeSpinner(message string, isLast bool) *TreeSpinner {
 		return &TreeSpinner{start: time.Now(), isLast: isLast}
 	}
 
-	fmt.Printf("%s\n", pterm.Gray(StepLine))
+	fmt.Printf("%s\n", DimText(StepLine))
 
 	// Custom spinner with tree prefix
 	s, _ := pterm.DefaultSpinner.
@@ -754,7 +776,7 @@ func (ts *TreeSpinner) Success(message string) {
 	}
 
 	if IsTTY() {
-		fmt.Printf("%s %s  %s\n", pterm.Gray(prefix), pterm.Green(message), pterm.Gray(fmt.Sprintf("(%.1fs)", elapsed.Seconds())))
+		fmt.Printf("%s %s  %s\n", DimText(prefix), pterm.Green(message), DimText(fmt.Sprintf("(%.1fs)", elapsed.Seconds())))
 	} else {
 		fmt.Printf("%s %s (%.1fs)\n", prefix, message, elapsed.Seconds())
 	}
@@ -772,7 +794,7 @@ func (ts *TreeSpinner) Fail(message string) {
 	}
 
 	if IsTTY() {
-		fmt.Printf("%s %s\n", pterm.Gray(prefix), pterm.Red(message))
+		fmt.Printf("%s %s\n", DimText(prefix), pterm.Red(message))
 	} else {
 		fmt.Printf("%s %s\n", prefix, message)
 	}
@@ -792,7 +814,7 @@ func (ts *TreeSpinner) Warn(message string) {
 	}
 
 	if IsTTY() {
-		fmt.Printf("%s %s  %s\n", pterm.Gray(prefix), pterm.Yellow(message), pterm.Gray(fmt.Sprintf("(%.1fs)", elapsed.Seconds())))
+		fmt.Printf("%s %s  %s\n", DimText(prefix), pterm.Yellow(message), DimText(fmt.Sprintf("(%.1fs)", elapsed.Seconds())))
 	} else {
 		fmt.Printf("%s %s (%.1fs)\n", prefix, message, elapsed.Seconds())
 	}
@@ -925,7 +947,7 @@ func SkillBoxCompact(name, location string) {
 			fmt.Printf("  %s %s\n", pterm.Cyan(StepBullet), pterm.White(name))
 			return
 		}
-		fmt.Printf("  %s %s %s\n", pterm.Cyan(StepBullet), pterm.White(name), pterm.Gray("("+loc+")"))
+		fmt.Printf("  %s %s %s\n", pterm.Cyan(StepBullet), pterm.White(name), DimText("("+loc+")"))
 	} else {
 		if loc == "" {
 			fmt.Printf("  %s %s\n", StepBullet, name)
@@ -950,7 +972,7 @@ func PhaseHeader(current, total int, format string, args ...interface{}) {
 // Only used when the result set is large enough to benefit from sections (>10 items).
 func SectionLabel(label string) {
 	if IsTTY() {
-		fmt.Printf("\n  %s\n", pterm.Gray(label))
+		fmt.Printf("\n  %s\n", DimText(label))
 	} else {
 		fmt.Printf("\n- %s\n", label)
 	}

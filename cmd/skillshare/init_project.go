@@ -217,8 +217,8 @@ func performProjectInit(root string, opts projectInitOptions) error {
 	ui.Success("Config: %s", config.ProjectConfigPath(root))
 	fmt.Println()
 	ui.Info("Next steps:")
-	fmt.Printf("  %sskillshare install <skill> -p%s    %s# Install a skill%s\n", ui.Yellow, ui.Reset, ui.Gray, ui.Reset)
-	fmt.Printf("  %sskillshare sync%s                  %s# Sync to all targets%s\n", ui.Yellow, ui.Reset, ui.Gray, ui.Reset)
+	fmt.Printf("  %sskillshare install <skill> -p%s    %s# Install a skill%s\n", ui.Yellow, ui.Reset, ui.Dim, ui.Reset)
+	fmt.Printf("  %sskillshare sync%s                  %s# Sync to all targets%s\n", ui.Yellow, ui.Reset, ui.Dim, ui.Reset)
 
 	return nil
 }

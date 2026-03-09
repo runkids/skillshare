@@ -49,7 +49,7 @@ func printLogEntriesTTYTwoLine(w io.Writer, entries []oplog.Entry, termWidth int
 		durCell := padLogCell(dur, logDurationWidth)
 
 		fmt.Fprintf(w, "  %s%s%s | %s | %s | %s\n",
-			ui.Gray,
+			ui.Dim,
 			padLogCell(ts, logTimeWidth),
 			ui.Reset,
 			cmd,
@@ -82,7 +82,7 @@ func printLogDetailMultiLine(w io.Writer, e oplog.Entry, termWidth int) {
 	const maxBulletItems = 5 // plain text is not scrollable — keep compact
 	for _, p := range pairs {
 		if p.isList && len(p.listValues) > 0 {
-			fmt.Fprintf(w, "%s%s%s:%s\n", indent, ui.Gray, p.key, ui.Reset)
+			fmt.Fprintf(w, "%s%s%s:%s\n", indent, ui.Dim, p.key, ui.Reset)
 			show := p.listValues
 			remaining := 0
 			if len(show) > maxBulletItems {
@@ -90,13 +90,13 @@ func printLogDetailMultiLine(w io.Writer, e oplog.Entry, termWidth int) {
 				show = show[:maxBulletItems]
 			}
 			for _, v := range show {
-				fmt.Fprintf(w, "%s%s%s%s%s\n", indent, ui.Gray, listIndent, ui.Reset, v)
+				fmt.Fprintf(w, "%s%s%s%s%s\n", indent, ui.Dim, listIndent, ui.Reset, v)
 			}
 			if remaining > 0 {
-				fmt.Fprintf(w, "%s%s%s... and %d more%s\n", indent, ui.Gray, listIndent, remaining, ui.Reset)
+				fmt.Fprintf(w, "%s%s%s... and %d more%s\n", indent, ui.Dim, listIndent, remaining, ui.Reset)
 			}
 		} else if p.value != "" {
-			fmt.Fprintf(w, "%s%s%s:%s %s\n", indent, ui.Gray, p.key, ui.Reset, p.value)
+			fmt.Fprintf(w, "%s%s%s:%s %s\n", indent, ui.Dim, p.key, ui.Reset, p.value)
 		}
 	}
 }
@@ -160,7 +160,7 @@ func printLogTableHeaderTTY(w io.Writer) {
 	)
 
 	fmt.Fprintf(w, "%s%s%s\n", ui.Cyan, header, ui.Reset)
-	fmt.Fprintf(w, "%s%s%s\n", ui.Gray, separator, ui.Reset)
+	fmt.Fprintf(w, "%s%s%s\n", ui.Dim, separator, ui.Reset)
 }
 
 func colorizeLogStatusCell(cell, status string) string {

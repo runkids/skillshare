@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -95,7 +94,7 @@ func (sp *searchInstallProgress) render() {
 		if status == "" {
 			status = "installing..."
 		}
-		lines = append(lines, fmt.Sprintf("  %s %s  %s", spin, pterm.Cyan(name), pterm.Gray(status)))
+		lines = append(lines, fmt.Sprintf("  %s %s  %s", spin, pterm.Cyan(name), ui.DimText(status)))
 	}
 
 	// When no skill is actively installing, show a summary line so the area isn't blank.
@@ -117,7 +116,7 @@ func (sp *searchInstallProgress) render() {
 			parts = append(parts, fmt.Sprintf("%d skipped", skipped))
 		}
 		if len(parts) > 0 {
-			lines = append(lines, "  "+pterm.Gray(strings.Join(parts, ", ")))
+			lines = append(lines, "  "+ui.DimText(strings.Join(parts, ", ")))
 		}
 	}
 
@@ -129,16 +128,7 @@ func (sp *searchInstallProgress) render() {
 }
 
 func (sp *searchInstallProgress) renderBar() string {
-	const barWidth = 30
-	filled := sp.done * barWidth / sp.total
-	if filled > barWidth {
-		filled = barWidth
-	}
-	pct := int(math.Round(float64(sp.done) * 100 / float64(sp.total)))
-	filledBar := pterm.Cyan(strings.Repeat("█", filled))
-	emptyBar := pterm.Gray(strings.Repeat("█", barWidth-filled))
-	count := fmt.Sprintf("%d/%d", sp.done, sp.total)
-	return fmt.Sprintf("%s%s %s %d%%", filledBar, emptyBar, pterm.Gray(count), pct)
+	return ui.RenderInlineBar(sp.done, sp.total)
 }
 
 func (sp *searchInstallProgress) startSkill(name string) {
@@ -463,9 +453,9 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 	msg := fmt.Sprintf("%d skill(s)", len(selected))
 	if ui.IsTTY() {
 		fmt.Print("\033[A") // cursor up — overwrite TUI's trailing blank line
-		fmt.Printf("%s\n", pterm.Gray(ui.StepLine))
+		fmt.Printf("%s\n", ui.DimText(ui.StepLine))
 		fmt.Printf("%s %s  %s\n",
-			pterm.Gray(ui.StepBranch+"─"), pterm.Gray("Installing"), pterm.White(msg))
+			ui.DimText(ui.StepBranch+"─"), ui.DimText("Installing"), pterm.White(msg))
 	} else {
 		fmt.Printf("%s─ %s  %s\n", ui.StepBranch, "Installing", msg)
 	}
@@ -768,9 +758,9 @@ func renderBatchSearchInstallSummary(results []searchInstallResult, mode runMode
 			fmt.Printf("  %s%s%s %s%s%s  %s%s%s\n",
 				color, icon, ui.Reset,
 				ui.White, r.name, ui.Reset,
-				ui.Gray, summary, ui.Reset)
+				ui.Dim, summary, ui.Reset)
 			for _, line := range subLines {
-				fmt.Printf("    %s%s%s\n", ui.Gray, line, ui.Reset)
+				fmt.Printf("    %s%s%s\n", ui.Dim, line, ui.Reset)
 			}
 			if len(subLines) > 0 {
 				fmt.Println() // breathing room between multi-line entries

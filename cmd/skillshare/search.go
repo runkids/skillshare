@@ -229,10 +229,10 @@ func doSearch(query string, limit int, listOnly bool, indexURL string, mode runM
 				ui.Warning("GitHub Code Search API requires authentication")
 				fmt.Println()
 				ui.Info("Option 1: Login with GitHub CLI (recommended)")
-				fmt.Printf("  %sgh auth login%s\n", ui.Gray, ui.Reset)
+				fmt.Printf("  %sgh auth login%s\n", ui.Dim, ui.Reset)
 				fmt.Println()
 				ui.Info("Option 2: Set GITHUB_TOKEN environment variable")
-				fmt.Printf("  %sexport GITHUB_TOKEN=ghp_your_token_here%s\n", ui.Gray, ui.Reset)
+				fmt.Printf("  %sexport GITHUB_TOKEN=ghp_your_token_here%s\n", ui.Dim, ui.Reset)
 				return false, nil
 			}
 
@@ -245,7 +245,7 @@ func doSearch(query string, limit int, listOnly bool, indexURL string, mode runM
 				}
 				fmt.Println()
 				ui.Info("To increase rate limit, set GITHUB_TOKEN:")
-				fmt.Printf("  %sexport GITHUB_TOKEN=ghp_your_token_here%s\n", ui.Gray, ui.Reset)
+				fmt.Printf("  %sexport GITHUB_TOKEN=ghp_your_token_here%s\n", ui.Dim, ui.Reset)
 				return false, nil
 			}
 		}
@@ -321,14 +321,14 @@ func printSearchResults(results []search.SearchResult, isHub bool) {
 	if ui.IsTTY() {
 		if isHub {
 			fmt.Printf("  %s#   %-24s %-40s%s\n",
-				ui.Gray, "Name", "Source", ui.Reset)
+				ui.Dim, "Name", "Source", ui.Reset)
 			fmt.Printf("  %s─── ──────────────────────── ────────────────────────────────────────%s\n",
-				ui.Gray, ui.Reset)
+				ui.Dim, ui.Reset)
 		} else {
 			fmt.Printf("  %s#   %-24s %-40s %s%s\n",
-				ui.Gray, "Name", "Source", "Stars", ui.Reset)
+				ui.Dim, "Name", "Source", "Stars", ui.Reset)
 			fmt.Printf("  %s─── ──────────────────────── ──────────────────────────────────────── ─────%s\n",
-				ui.Gray, ui.Reset)
+				ui.Dim, ui.Reset)
 		}
 	}
 
@@ -347,24 +347,24 @@ func printSearchResults(results []search.SearchResult, isHub bool) {
 				fmt.Printf("  %s%-3s%s %-24s %s%s%s%s\n",
 					ui.Cyan, num, ui.Reset,
 					truncate(r.Name, 24),
-					ui.Gray, source, ui.Reset, riskBadge)
+					ui.Dim, source, ui.Reset, riskBadge)
 			} else {
 				stars := search.FormatStars(r.Stars)
 				fmt.Printf("  %s%-3s%s %-24s %s%-40s%s %s★ %s%s\n",
 					ui.Yellow, num, ui.Reset,
 					truncate(r.Name, 24),
-					ui.Gray, source, ui.Reset,
+					ui.Dim, source, ui.Reset,
 					ui.Yellow, stars, ui.Reset)
 			}
 
 			// Show description if available
 			if r.Description != "" {
 				desc := truncate(r.Description, 70)
-				fmt.Printf("      %s%s%s\n", ui.Gray, desc, ui.Reset)
+				fmt.Printf("      %s%s%s\n", ui.Dim, desc, ui.Reset)
 			}
 			// Show tags if available
 			if len(r.Tags) > 0 {
-				fmt.Printf("      %s", ui.Gray)
+				fmt.Printf("      %s", ui.Dim)
 				for j, tag := range r.Tags {
 					if j > 0 {
 						fmt.Print(" ")
@@ -620,7 +620,7 @@ func formatRiskBadge(label string) string {
 	case "high", "critical":
 		color = ui.Red
 	default:
-		color = ui.Gray
+		color = ui.Dim
 	}
 	return fmt.Sprintf(" %s[%s]%s", color, label, ui.Reset)
 }

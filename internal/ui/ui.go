@@ -22,6 +22,7 @@ const (
 	OrangeAlt  = "\033[38;5;214m"
 	BrightBlue = "\033[38;5;12m"
 	Gray       = "\033[90m"
+	Dim        = "\x1b[0;2m" // SGR dim — works across all terminal themes
 	White      = "\033[97m"
 )
 
@@ -32,7 +33,7 @@ const (
 	// Accent color for interactive elements
 	Accent = Cyan
 	// Muted color for secondary information
-	Muted = Gray
+	Muted = Dim
 	// Status colors
 	StatusSuccess = Green
 	StatusError   = Red
@@ -68,7 +69,7 @@ func SeverityColor(severity string) string {
 	case "LOW":
 		return Blue
 	case "INFO":
-		return Gray
+		return Dim
 	default:
 		return ""
 	}
@@ -136,13 +137,13 @@ func Status(name, status, detail string) {
 		statusColor = Red
 	}
 
-	fmt.Printf("  %-12s %s%-12s%s %s\n", name, statusColor, status, Reset, Gray+detail+Reset)
+	fmt.Printf("  %-12s %s%-12s%s %s\n", name, statusColor, status, Reset, Dim+detail+Reset)
 }
 
 // Header prints a section header
 func Header(text string) {
 	fmt.Printf("\n%s%s%s\n", Cyan, text, Reset)
-	fmt.Println(Gray + "─────────────────────────────────────────" + Reset)
+	fmt.Println(Dim + "─────────────────────────────────────────" + Reset)
 }
 
 // Checkbox returns a formatted checkbox string
@@ -157,7 +158,7 @@ func Checkbox(checked bool) string {
 func CheckboxItem(checked bool, name, description string) {
 	checkbox := Checkbox(checked)
 	if description != "" {
-		fmt.Printf("  %s %-12s %s%s%s\n", checkbox, name, Gray, description, Reset)
+		fmt.Printf("  %s %-12s %s%s%s\n", checkbox, name, Dim, description, Reset)
 	} else {
 		fmt.Printf("  %s %s\n", checkbox, name)
 	}
@@ -179,14 +180,14 @@ func ActionLine(kind, text string) {
 	case "orphan":
 		icon, color = "-", Red
 	case "local":
-		icon, color = "←", Gray
+		icon, color = "←", Dim
 	// Legacy kinds for backward compatibility
 	case "sync":
 		icon, color = "→", Cyan
 	case "force":
 		icon, color = "⚠", Yellow
 	case "collect":
-		icon, color = "←", Gray
+		icon, color = "←", Dim
 	case "warn":
 		icon, color = "⚠", Yellow
 	default:

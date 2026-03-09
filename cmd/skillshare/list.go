@@ -318,7 +318,7 @@ func displaySkillsVerbose(skills []skillEntry) {
 			if i > 0 {
 				fmt.Println()
 			}
-			fmt.Printf("  %s%s/%s\n", ui.Gray, dir, ui.Reset)
+			fmt.Printf("  %s%s/%s\n", ui.Dim, dir, ui.Reset)
 		} else if i > 0 {
 			fmt.Println()
 		}
@@ -339,14 +339,14 @@ func displaySkillsVerbose(skills []skillEntry) {
 
 func printVerboseDetails(s skillEntry, indent string) {
 	if s.RepoName != "" {
-		fmt.Printf("%s%sTracked repo:%s %s\n", indent, ui.Gray, ui.Reset, s.RepoName)
+		fmt.Printf("%s%sTracked repo:%s %s\n", indent, ui.Dim, ui.Reset, s.RepoName)
 	}
 	if s.Source != "" {
-		fmt.Printf("%s%sSource:%s      %s\n", indent, ui.Gray, ui.Reset, s.Source)
-		fmt.Printf("%s%sType:%s        %s\n", indent, ui.Gray, ui.Reset, s.Type)
-		fmt.Printf("%s%sInstalled:%s   %s\n", indent, ui.Gray, ui.Reset, s.InstalledAt)
+		fmt.Printf("%s%sSource:%s      %s\n", indent, ui.Dim, ui.Reset, s.Source)
+		fmt.Printf("%s%sType:%s        %s\n", indent, ui.Dim, ui.Reset, s.Type)
+		fmt.Printf("%s%sInstalled:%s   %s\n", indent, ui.Dim, ui.Reset, s.InstalledAt)
 	} else {
-		fmt.Printf("%s%sSource:%s      (local - no metadata)\n", indent, ui.Gray, ui.Reset)
+		fmt.Printf("%s%sSource:%s      (local - no metadata)\n", indent, ui.Dim, ui.Reset)
 	}
 	fmt.Println()
 }
@@ -363,7 +363,7 @@ func displaySkillsCompact(skills []skillEntry) {
 		}
 		for _, s := range skills {
 			suffix := getSkillSuffix(s)
-			format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Gray, ui.Reset)
+			format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Dim, ui.Reset)
 			fmt.Printf(format, s.Name, suffix)
 		}
 		return
@@ -375,7 +375,7 @@ func displaySkillsCompact(skills []skillEntry) {
 			if i > 0 {
 				fmt.Println()
 			}
-			fmt.Printf("  %s%s/%s\n", ui.Gray, dir, ui.Reset)
+			fmt.Printf("  %s%s/%s\n", ui.Dim, dir, ui.Reset)
 		} else if i > 0 {
 			fmt.Println()
 		}
@@ -393,10 +393,10 @@ func displaySkillsCompact(skills []skillEntry) {
 			name := displayName(s, dir)
 			suffix := getSkillSuffix(s)
 			if dir != "" {
-				format := fmt.Sprintf("    %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Gray, ui.Reset)
+				format := fmt.Sprintf("    %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Dim, ui.Reset)
 				fmt.Printf(format, name, suffix)
 			} else {
-				format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Gray, ui.Reset)
+				format := fmt.Sprintf("  %s→%s %%-%ds  %s%%s%s\n", ui.Cyan, ui.Reset, maxNameLen, ui.Dim, ui.Reset)
 				fmt.Printf(format, name, suffix)
 			}
 		}

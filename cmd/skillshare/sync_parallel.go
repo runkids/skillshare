@@ -91,18 +91,18 @@ func (sp *syncProgress) render() {
 		var line string
 		switch sp.states[i] {
 		case "queued":
-			line = fmt.Sprintf("  %s  %s", pterm.Gray(name), pterm.Gray("queued"))
+			line = fmt.Sprintf("  %s  %s", ui.DimText(name), ui.DimText("queued"))
 		case "syncing":
 			spin := pterm.Cyan(sp.frames[sp.frame])
 			detail := sp.details[i]
 			if detail == "" {
 				detail = "syncing..."
 			}
-			line = fmt.Sprintf("  %s %s  %s", spin, pterm.Cyan(name), pterm.Gray(detail))
+			line = fmt.Sprintf("  %s %s  %s", spin, pterm.Cyan(name), ui.DimText(detail))
 		case "done":
-			line = fmt.Sprintf("  %s %s  %s", pterm.Green("✓"), name, pterm.Gray(sp.details[i]))
+			line = fmt.Sprintf("  %s %s  %s", pterm.Green("✓"), name, ui.DimText(sp.details[i]))
 		case "error":
-			line = fmt.Sprintf("  %s %s  %s", pterm.Red("✗"), name, pterm.Gray(sp.details[i]))
+			line = fmt.Sprintf("  %s %s  %s", pterm.Red("✗"), name, ui.DimText(sp.details[i]))
 		}
 		lines = append(lines, line)
 	}

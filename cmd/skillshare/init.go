@@ -465,7 +465,7 @@ func printInitSuccess(sourcePath string, dryRun bool, skillInstalled bool) {
 	ui.Success("Config: %s", config.ConfigPath())
 	fmt.Println()
 	ui.Info("Next steps:")
-	fmt.Printf("  %sskillshare sync%s              %s# Sync to all targets%s\n", ui.Yellow, ui.Reset, ui.Gray, ui.Reset)
+	fmt.Printf("  %sskillshare sync%s              %s# Sync to all targets%s\n", ui.Yellow, ui.Reset, ui.Dim, ui.Reset)
 	if skillInstalled {
 		fmt.Println()
 		ui.Info("Pro tip: Let AI manage your skills!")

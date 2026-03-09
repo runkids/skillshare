@@ -809,7 +809,7 @@ func detailStatusBits(e skillEntry) string {
 }
 
 func renderFactRow(label, value string) string {
-	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("247")).Width(12)
+	labelStyle := lipgloss.NewStyle().Faint(true).Width(12)
 	return labelStyle.Render(label+":") + " " + tc.Value.Render(value)
 }
 

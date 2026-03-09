@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -250,14 +249,14 @@ func (dp *diffProgress) render() {
 		var line string
 		switch dp.states[i] {
 		case "queued":
-			line = fmt.Sprintf("  %s  %s", pterm.Gray(name), pterm.Gray("queued"))
+			line = fmt.Sprintf("  %s  %s", ui.DimText(name), ui.DimText("queued"))
 		case "scanning":
 			spin := pterm.Cyan(dp.frames[dp.frame])
-			line = fmt.Sprintf("  %s %s  %s", spin, pterm.Cyan(name), pterm.Gray(dp.details[i]))
+			line = fmt.Sprintf("  %s %s  %s", spin, pterm.Cyan(name), ui.DimText(dp.details[i]))
 		case "done":
-			line = fmt.Sprintf("  %s %s  %s", pterm.Green("✓"), name, pterm.Gray(dp.details[i]))
+			line = fmt.Sprintf("  %s %s  %s", pterm.Green("✓"), name, ui.DimText(dp.details[i]))
 		case "error":
-			line = fmt.Sprintf("  %s %s  %s", pterm.Red("✗"), name, pterm.Gray(dp.details[i]))
+			line = fmt.Sprintf("  %s %s  %s", pterm.Red("✗"), name, ui.DimText(dp.details[i]))
 		}
 		lines = append(lines, line)
 	}
@@ -269,18 +268,7 @@ func (dp *diffProgress) render() {
 }
 
 func (dp *diffProgress) renderBar() string {
-	const barWidth = 30
-	current := dp.processedSkills
-	total := dp.totalSkills
-	filled := current * barWidth / total
-	if filled > barWidth {
-		filled = barWidth
-	}
-	pct := int(math.Round(float64(current) * 100 / float64(total)))
-	filledBar := pterm.Cyan(strings.Repeat("█", filled))
-	emptyBar := pterm.Gray(strings.Repeat("█", barWidth-filled))
-	count := fmt.Sprintf("%d/%d", current, total)
-	return fmt.Sprintf("%s%s %s %d%%", filledBar, emptyBar, pterm.Gray(count), pct)
+	return ui.RenderInlineBar(dp.processedSkills, dp.totalSkills)
 }
 
 func (dp *diffProgress) startTarget(name string) {
@@ -852,7 +840,7 @@ func renderGroupedDiffs(results []targetDiffResult, opts diffRenderOpts) {
 			statParts = append(statParts, fmt.Sprintf("%d %s", n, strings.ToLower(cat.label)))
 		}
 		if len(statParts) > 0 {
-			fmt.Printf("  %s%s%s\n", ui.Gray, strings.Join(statParts, ", "), ui.Reset)
+			fmt.Printf("  %s%s%s\n", ui.Dim, strings.Join(statParts, ", "), ui.Reset)
 		}
 
 		for _, cat := range cats {
@@ -905,10 +893,10 @@ func renderGroupedDiffs(results []targetDiffResult, opts diffRenderOpts) {
 		// Time info
 		if !g.result.srcMtime.IsZero() || !g.result.dstMtime.IsZero() {
 			if !g.result.srcMtime.IsZero() {
-				fmt.Printf("  %sSource modified: %s%s\n", ui.Gray, g.result.srcMtime.Format("2006-01-02 15:04"), ui.Reset)
+				fmt.Printf("  %sSource modified: %s%s\n", ui.Dim, g.result.srcMtime.Format("2006-01-02 15:04"), ui.Reset)
 			}
 			if !g.result.dstMtime.IsZero() {
-				fmt.Printf("  %sTarget modified: %s%s\n", ui.Gray, g.result.dstMtime.Format("2006-01-02 15:04"), ui.Reset)
+				fmt.Printf("  %sTarget modified: %s%s\n", ui.Dim, g.result.dstMtime.Format("2006-01-02 15:04"), ui.Reset)
 			}
 		}
 	}

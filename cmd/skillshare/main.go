@@ -145,7 +145,7 @@ func printUsage() {
 	// Colors
 	y := "\033[33m" // yellow - commands
 	c := "\033[36m" // cyan - arguments
-	g := "\033[90m" // gray
+	g := ui.Dim // dim
 	r := "\033[0m"  // reset
 
 	// ASCII art logo
