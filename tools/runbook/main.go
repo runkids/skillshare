@@ -44,6 +44,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Safety: refuse to execute commands outside a container.
+	if !dryRun && !IsContainerEnv() {
+		fmt.Fprintln(os.Stderr, ErrNotInContainer)
+		os.Exit(1)
+	}
+
 	useTUI := !noTUI && !dryRun && reportFmt == ""
 	exitCode := 0
 	var reports []Report

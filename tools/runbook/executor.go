@@ -11,7 +11,16 @@ import (
 )
 
 // Execute runs a bash command from a Step and returns the result.
+// Refuses to execute outside a container unless RUNBOOK_ALLOW_EXECUTE is set.
 func Execute(ctx context.Context, s Step) StepResult {
+	if !IsContainerEnv() {
+		return StepResult{
+			Step:   s,
+			Status: StatusFailed,
+			Error:  ErrNotInContainer.Error(),
+		}
+	}
+
 	start := time.Now()
 
 	command := s.Command
