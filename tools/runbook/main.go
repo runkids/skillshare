@@ -22,6 +22,9 @@ func main() {
 		cliBuild     string
 		cliSetup     string
 		cliTeardown  string
+		failFast     bool
+		outputFile   string
+		verbose      countFlag
 	)
 
 	flag.StringVar(&reportFmt, "report", "", "output format: json")
@@ -31,9 +34,15 @@ func main() {
 	flag.StringVar(&cliBuild, "build", "", "command to run once before all runbooks")
 	flag.StringVar(&cliSetup, "setup", "", "command to run before each runbook")
 	flag.StringVar(&cliTeardown, "teardown", "", "command to run after each runbook")
+	flag.BoolVar(&failFast, "fail-fast", false, "stop after first failed step")
+	flag.StringVar(&outputFile, "output", "", "write JSON report to file")
+	flag.StringVar(&outputFile, "o", "", "write JSON report to file (shorthand)")
+	flag.Var(&verbose, "v", "verbosity level (-v or -v -v)")
 
-	var stepsFlag string
-	var fromFlag int
+	var (
+		stepsFlag string
+		fromFlag  int
+	)
 	flag.StringVar(&stepsFlag, "steps", "", "only run specific steps (comma-separated: 1,3,5)")
 	flag.IntVar(&fromFlag, "from", 0, "run from step N onwards")
 	flag.Parse()
@@ -120,7 +129,7 @@ func main() {
 		var report Report
 		var runErr error
 
-		stepFilter := RunOptions{Steps: stepNums, From: fromFlag}
+		stepFilter := RunOptions{Steps: stepNums, From: fromFlag, FailFast: failFast}
 		if useTUI && len(files) == 1 {
 			report, runErr = runWithTUI(file, name, effectiveTimeout, stepFilter)
 		} else {
@@ -146,11 +155,27 @@ func main() {
 
 	// Print summary for non-JSON, non-TUI modes.
 	if reportFmt != "json" {
+		verbosity := int(verbose)
 		if len(reports) > 1 {
-			WritePlainSummary(os.Stdout, reports)
+			WritePlainSummary(os.Stdout, reports, verbosity)
 		} else if len(reports) == 1 && !useTUI {
-			WriteSingleReport(os.Stdout, reports[0])
+			WriteSingleReport(os.Stdout, reports[0], verbosity)
 		}
+	}
+
+	// Write JSON report to file if --output is specified.
+	if outputFile != "" && len(reports) > 0 {
+		outF, err := os.Create(outputFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: cannot write output file: %v\n", err)
+			os.Exit(1)
+		}
+		if len(reports) == 1 {
+			WriteJSONReport(outF, reports[0])
+		} else {
+			WriteJSONReports(outF, reports)
+		}
+		outF.Close()
 	}
 
 	os.Exit(exitCode)
@@ -171,6 +196,7 @@ func runPlain(path, name string, dryRun bool, timeout time.Duration, cfg Runbook
 		Teardown: cfg.Teardown,
 		Steps:    filter.Steps,
 		From:     filter.From,
+		FailFast: filter.FailFast,
 	})
 }
 

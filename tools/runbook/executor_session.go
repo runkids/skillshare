@@ -29,7 +29,7 @@ type indexedStep struct {
 // shell variables across steps via an env file. Each step runs in a subshell
 // with pipefail; an EXIT trap saves exported variables for the next step.
 // The step's exit code is the exit code of the last command in the subshell.
-func ExecuteSession(ctx context.Context, steps []Step, timeout time.Duration) []StepResult {
+func ExecuteSession(ctx context.Context, steps []Step, timeout time.Duration, failFast bool) []StepResult {
 	if timeout == 0 {
 		timeout = 10 * time.Minute
 	}
@@ -75,7 +75,7 @@ func ExecuteSession(ctx context.Context, steps []Step, timeout time.Duration) []
 	}
 	defer os.RemoveAll(tmpDir)
 
-	script := buildSessionScript(autoSteps, tmpDir)
+	script := buildSessionScript(autoSteps, tmpDir, failFast)
 
 	scriptFile := filepath.Join(tmpDir, "session.sh")
 	if err := os.WriteFile(scriptFile, []byte(script), 0700); err != nil {
@@ -104,10 +104,20 @@ func ExecuteSession(ctx context.Context, steps []Step, timeout time.Duration) []
 	// Run assertions on each completed step.
 	// If assertions are defined, they always run (regardless of exit code)
 	// and determine the final pass/fail status.
+	// Layer 2 fail-fast: if a step fails after assertions, skip remaining steps.
+	failFastTriggered := false
 	for _, as := range autoSteps {
 		r := &results[as.idx]
+		if failFast && failFastTriggered && r.Status != StatusSkipped {
+			r.Status = StatusSkipped
+			r.Error = "skipped: earlier step failed (--fail-fast)"
+			continue
+		}
 		if r.Status == StatusPassed || r.Status == StatusFailed {
 			checkAssertions(r, as.step)
+		}
+		if failFast && r.Status == StatusFailed {
+			failFastTriggered = true
 		}
 	}
 
@@ -116,7 +126,9 @@ func ExecuteSession(ctx context.Context, steps []Step, timeout time.Duration) []
 
 // buildSessionScript generates a single bash script that executes all steps
 // sequentially, emitting markers to stdout for per-step output parsing.
-func buildSessionScript(steps []indexedStep, tmpDir string) string {
+// When failFast is true, a step failure sets __rb_stop=1 and subsequent steps
+// emit skip markers (exit code -1) without executing.
+func buildSessionScript(steps []indexedStep, tmpDir string, failFast bool) string {
 	envFile := filepath.Join(tmpDir, "env")
 
 	var sb strings.Builder
@@ -134,6 +146,10 @@ func buildSessionScript(steps []indexedStep, tmpDir string) string {
 	sb.WriteString("  fi\n")
 	sb.WriteString("}\n\n")
 
+	if failFast {
+		sb.WriteString("__rb_stop=0\n\n")
+	}
+
 	for _, as := range steps {
 		n := as.step.Number
 		errFile := filepath.Join(tmpDir, fmt.Sprintf("step_%d_err", n))
@@ -142,6 +158,11 @@ func buildSessionScript(steps []indexedStep, tmpDir string) string {
 		command = strings.ReplaceAll(command, "\n---\n", "\n")
 
 		fmt.Fprintf(&sb, "# Step %d: %s\n", n, as.step.Title)
+
+		if failFast {
+			fmt.Fprintf(&sb, "if [ \"$__rb_stop\" = \"0\" ]; then\n")
+		}
+
 		fmt.Fprintf(&sb, "echo '@@RB:BEGIN:%d@@'\n", n)
 		fmt.Fprintf(&sb, "__rb_t0=$(__rb_now_ms)\n")
 
@@ -159,7 +180,17 @@ func buildSessionScript(steps []indexedStep, tmpDir string) string {
 		fmt.Fprintf(&sb, "__rb_rc=$?\n")
 		fmt.Fprintf(&sb, "__rb_t1=$(__rb_now_ms)\n")
 		fmt.Fprintf(&sb, "__rb_dur=$(( __rb_t1 - __rb_t0 ))\n")
-		fmt.Fprintf(&sb, "echo \"@@RB:END:%d:${__rb_rc}:${__rb_dur}@@\"\n\n", n)
+		fmt.Fprintf(&sb, "echo \"@@RB:END:%d:${__rb_rc}:${__rb_dur}@@\"\n", n)
+
+		if failFast {
+			fmt.Fprintf(&sb, "[ $__rb_rc -ne 0 ] && __rb_stop=1\n")
+			fmt.Fprintf(&sb, "else\n")
+			// Emit skip marker: exit code -1 sentinel for skipped.
+			fmt.Fprintf(&sb, "echo '@@RB:END:%d:-1:0@@'\n", n)
+			fmt.Fprintf(&sb, "fi\n")
+		}
+
+		sb.WriteByte('\n')
 	}
 
 	return sb.String()
@@ -199,20 +230,27 @@ func parseSessionResults(stdout *bytes.Buffer, autoSteps []indexedStep, results 
 				as := autoSteps[asIdx]
 				r := &results[as.idx]
 				r.Step = as.step
-				r.ExitCode = exitCode
-				r.DurationMs = durationMs
-				r.Stdout = currentBuf.String()
 
-				// Read stderr from temp file.
-				errFile := filepath.Join(tmpDir, fmt.Sprintf("step_%d_err", stepNum))
-				if data, err := os.ReadFile(errFile); err == nil {
-					r.Stderr = string(data)
-				}
-
-				if exitCode == 0 {
-					r.Status = StatusPassed
+				// Exit code -1 is a sentinel for fail-fast skipped steps.
+				if exitCode == -1 {
+					r.Status = StatusSkipped
+					r.Error = "skipped: earlier step failed (--fail-fast)"
 				} else {
-					r.Status = StatusFailed
+					r.ExitCode = exitCode
+					r.DurationMs = durationMs
+					r.Stdout = currentBuf.String()
+
+					// Read stderr from temp file.
+					errFile := filepath.Join(tmpDir, fmt.Sprintf("step_%d_err", stepNum))
+					if data, err := os.ReadFile(errFile); err == nil {
+						r.Stderr = string(data)
+					}
+
+					if exitCode == 0 {
+						r.Status = StatusPassed
+					} else {
+						r.Status = StatusFailed
+					}
 				}
 			}
 			inStep = false

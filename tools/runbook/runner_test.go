@@ -259,6 +259,85 @@ echo three
 	}
 }
 
+func TestRunRunbook_FailFast(t *testing.T) {
+	md := makeRunbook(`### Step 1: Fail early
+
+` + "```bash" + `
+echo "step1" && exit 1
+` + "```" + `
+
+### Step 2: Should skip
+
+` + "```bash" + `
+echo "step2"
+` + "```" + `
+
+### Step 3: Should also skip
+
+` + "```bash" + `
+echo "step3"
+` + "```" + `
+`)
+
+	report, err := RunRunbook(strings.NewReader(md), "test", RunOptions{FailFast: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if report.Summary.Total != 3 {
+		t.Fatalf("expected 3 steps, got %d", report.Summary.Total)
+	}
+	if report.Steps[0].Status != StatusFailed {
+		t.Errorf("step 1: expected failed, got %s", report.Steps[0].Status)
+	}
+	if report.Steps[1].Status != StatusSkipped {
+		t.Errorf("step 2: expected skipped, got %s", report.Steps[1].Status)
+	}
+	if report.Steps[2].Status != StatusSkipped {
+		t.Errorf("step 3: expected skipped, got %s", report.Steps[2].Status)
+	}
+	if report.Summary.Failed != 1 {
+		t.Errorf("expected 1 failed, got %d", report.Summary.Failed)
+	}
+	if report.Summary.Skipped != 2 {
+		t.Errorf("expected 2 skipped, got %d", report.Summary.Skipped)
+	}
+}
+
+func TestRunRunbook_FailFastAssertionOnly(t *testing.T) {
+	md := makeRunbook(`### Step 1: Exit 0 but assertion fails
+
+` + "```bash" + `
+echo "apple"
+` + "```" + `
+
+**Expected:**
+- banana
+
+### Step 2: Should skip
+
+` + "```bash" + `
+echo "step2"
+` + "```" + `
+`)
+
+	report, err := RunRunbook(strings.NewReader(md), "test", RunOptions{FailFast: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if report.Steps[0].Status != StatusFailed {
+		t.Errorf("step 1: expected failed (assertion), got %s", report.Steps[0].Status)
+	}
+	if report.Steps[1].Status != StatusSkipped {
+		t.Errorf("step 2: expected skipped, got %s", report.Steps[1].Status)
+	}
+	if report.Summary.Failed != 1 {
+		t.Errorf("expected 1 failed, got %d", report.Summary.Failed)
+	}
+	if report.Summary.Skipped != 1 {
+		t.Errorf("expected 1 skipped, got %d", report.Summary.Skipped)
+	}
+}
+
 func TestRunRunbook_JSONOutput(t *testing.T) {
 	md := makeRunbook(`### Step 1: Echo
 
