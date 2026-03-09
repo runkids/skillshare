@@ -6,9 +6,7 @@ Verify that skillshare can install skills from AtomGit (Chinese git platform) us
 
 ## Known Limitation
 
-AtomGit's git protocol (clone/ls-remote) returns **403** for non-China IPs. The HTTPS web interface (curl) returns 200, but `git clone` is geo-blocked. This means this runbook **can only run from a China-based machine or VPN**. The devcontainer (US/EU) cannot complete Steps 1-7.
-
-**Verified via unit tests**: `gitHTTPSPattern` correctly parses `https://atomgit.com/owner/repo` — the URL parsing layer is fully covered.
+AtomGit's git protocol (clone/ls-remote) may return **403** for non-China IPs. If `git clone` is geo-blocked, Step 1 will fail with a clone error. The URL parsing layer is fully covered via unit tests (`gitHTTPSPattern`).
 
 ## Environment
 
@@ -25,9 +23,9 @@ ss install https://atomgit.com/Cangjie-SIG/cangjie-docs-mcp --all
 ```
 
 **Expected:**
-- Install completes without error
-- Output contains "Installed" or skill name
-- Exit code 0
+- exit_code: 0
+- Installed
+- cangjie-docs
 
 ### Step 2: Verify skill appears in list
 
@@ -36,8 +34,8 @@ ss list --no-tui
 ```
 
 **Expected:**
-- Output contains at least one skill name from the installed repo
-- Skills are listed under source directory
+- exit_code: 0
+- cangjie-docs-navigator
 
 ### Step 3: Verify skill files exist on disk
 
@@ -46,8 +44,8 @@ ls ~/.config/skillshare/skills/
 ```
 
 **Expected:**
-- At least one directory exists (skill from AtomGit repo)
-- Directory contains a `SKILL.md` or markdown files
+- exit_code: 0
+- cangjie-docs-navigator
 
 ### Step 4: Verify sync distributes to targets
 
@@ -56,8 +54,9 @@ ss sync
 ```
 
 **Expected:**
-- Sync completes without error
-- Exit code 0
+- exit_code: 0
+- Sync complete
+- regex: \d+ linked
 
 ### Step 5: Verify symlinks created in Claude target
 
@@ -66,19 +65,18 @@ ls -la ~/.claude/skills/
 ```
 
 **Expected:**
-- Symlinks exist pointing to `~/.config/skillshare/skills/` source
-- At least one symlink from the AtomGit-installed skill
+- exit_code: 0
+- cangjie-docs-navigator
 
 ### Step 6: Uninstall the skill
 
 ```bash
-ss uninstall cangjie-docs-mcp --force
+ss uninstall cangjie-docs-navigator --force
 ```
 
 **Expected:**
-- Uninstall completes without error
-- Skill moved to trash
-- Exit code 0
+- exit_code: 0
+- Moved to trash
 
 ### Step 7: Verify cleanup
 
@@ -87,7 +85,8 @@ ss list --no-tui
 ```
 
 **Expected:**
-- The uninstalled skill no longer appears in the list
+- exit_code: 0
+- Not cangjie-docs-navigator
 
 ## Pass Criteria
 

@@ -32,14 +32,25 @@ Run isolated E2E tests in devcontainer. $ARGUMENTS specifies runbook name or "ne
      '/workspace/.devcontainer/ensure-skillshare-linux-binary.sh && ss version'
    ```
 
+3. Build runbook CLI for Linux inside the container:
+   ```bash
+   docker exec $CONTAINER bash -c 'cd /workspace && go build -o bin/runbook ./tools/runbook'
+   ```
+   **Warning**: This overwrites `bin/runbook` on the host (workspace is mounted). The binary is now Linux ELF — **do NOT run `bin/runbook` directly on the host** after this step. All subsequent runbook commands must go through `docker exec`.
+
 ### Phase 1: Detect Scope
 
-1. Read all `*_runbook.md` files under `ai_docs/tests/` to list available runbooks
+1. Preview all available runbooks via the container (the binary is Linux ELF after Phase 0):
+   ```bash
+   docker exec $CONTAINER /workspace/bin/runbook --dry-run --report json /workspace/ai_docs/tests/
+   ```
+   This returns JSON with every runbook's steps, commands, and expected assertions — no manual markdown parsing needed. Use this to understand what each runbook covers.
+
 2. Identify recent changes (unstaged + recent commits):
    ```bash
    git diff --name-only HEAD~3
    ```
-3. Match changes to relevant runbooks.
+3. Match changes to relevant runbooks (compare changed file paths against step commands in the JSON output).
 
 ### Phase 2: Select Tests
 
@@ -53,8 +64,7 @@ Prompt user (via AskUserQuestion):
 
 #### Running existing runbook:
 
-1. Read the selected runbook `.md` file
-2. Create isolated environment with **auto-initialization**:
+1. Create isolated environment with **auto-initialization**:
    ```bash
    ENV_NAME="e2e-$(date +%Y%m%d-%H%M%S)"
 
@@ -62,15 +72,47 @@ Prompt user (via AskUserQuestion):
    docker exec $CONTAINER ssenv create "$ENV_NAME" --init
    ```
 
-3. Execute each step from runbook:
+2. Execute the entire runbook via the runbook CLI inside the container:
    ```bash
-   # Use SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 to prevent redirection to demo-project
    docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-     ssenv enter "$ENV_NAME" -- <command>
+     ssenv enter "$ENV_NAME" -- \
+     /workspace/bin/runbook --report json --no-tui \
+     /workspace/ai_docs/tests/<runbook_file>.md
    ```
-4. After each step, verify conditions in the Expected block
-   - **Prefer `--json` + `jq` for assertions** — structured output is more reliable than grep on human-readable text. See the JSON Reference below for which commands support `--json`.
-5. Mark each step PASS / FAIL
+   The runbook CLI executes each step (`bash -c <command>`) in the ssenv-isolated HOME, then returns structured JSON:
+   ```json
+   {
+     "version": "1",
+     "runbook": "<runbook_file>.md",
+     "duration_ms": 12345,
+     "summary": { "total": 7, "passed": 5, "failed": 1, "skipped": 1 },
+     "steps": [
+       {
+         "step": { "number": 1, "title": "...", "command": "...", "expected": ["..."] },
+         "status": "passed",    // "passed" | "failed" | "skipped"
+         "exit_code": 0,
+         "stdout": "...",
+         "stderr": "..."
+       }
+     ]
+   }
+   ```
+
+3. Analyze the JSON output:
+   - **All passed** → proceed to Phase 4
+   - **Any failed** → inspect `stdout`, `stderr`, and `exit_code` for each failed step
+   - **Skipped steps** (executor=`manual`) → these need manual verification, run them individually:
+     ```bash
+     docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
+       ssenv enter "$ENV_NAME" -- <command from step.command>
+     ```
+
+4. For failed steps, debug individually using manual docker exec (same as before):
+   ```bash
+   docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
+     ssenv enter "$ENV_NAME" -- bash -c '<failed step command>'
+   ```
+   - **Prefer `--json` + `jq` for assertions** — see the JSON Reference below
 
 #### Generating new runbook:
 
@@ -102,21 +144,22 @@ Prompt user (via AskUserQuestion):
    docker exec $CONTAINER ssenv delete "$ENV_NAME" --force
    ```
 
-3. Output summary:
+3. Output summary (derived from the runbook JSON output):
    ```
    ── E2E Test Report ──
 
    Runbook:  {runbook name}
    Env:      {ENV_NAME}
-   Duration: {time}
+   Duration: {duration_ms}ms
 
-   Step 1: {description}  PASS
-   Step 2: {description}  PASS
-   Step 3: {description}  FAIL ← {error detail}
+   Step 1: {title}  PASS
+   Step 2: {title}  PASS
+   Step 3: {title}  FAIL ← exit_code={N}, stderr: {error detail}
    ...
 
-   Result: {N}/{total} passed
+   Result: {passed}/{total} passed ({skipped} skipped)
    ```
+   All values come directly from the runbook CLI JSON — `summary.passed`, `summary.total`, `steps[].step.title`, `steps[].status`.
 
 4. If any FAIL → distinguish between runbook bug vs real bug:
    - **Runbook bug**: wrong flag, wrong file path, stale assertion → fix runbook, re-run step
@@ -146,6 +189,8 @@ Before executing a newly generated runbook, verify:
 - [ ] **Project init flags** — `init -p` only supports `--targets`, `--discover`, `--select`, `--mode`, `--dry-run`; global-only flags (`--no-copy`, `--no-skill`, `--no-git`, `--all-targets`, `--force`) are not available
 - [ ] **Audit rule IDs** — custom rules in `audit-rules.yaml` use rule IDs (e.g. `prompt-injection-0`), not pattern names (e.g. `prompt-injection`). Verify IDs against `internal/audit/rules.yaml`
 - [ ] **Use `--json` for assertions** — if the command supports `--json`, use it with `jq` instead of grepping human-readable output. Text output changes between versions; JSON structure is stable
+- [ ] **Expected = actual substrings, NOT descriptions** — the runbook assertion engine does case-insensitive substring matching. Write `- Installed` or `- cangjie-docs-navigator`, NOT `- Install completes without error` or `- Output contains at least one skill`. Negation: use `Not <substring>` prefix (e.g. `- Not cangjie-docs-navigator`)
+- [ ] **Skill name ≠ repo name** — after `ss install <repo>`, the actual skill name may differ from the repo name (e.g. repo `cangjie-docs-mcp` → skill `cangjie-docs-navigator`). Always verify the installed skill name via `ss list` before writing uninstall/check steps
 
 ## Rules
 
