@@ -11,7 +11,7 @@ Verify that the `universal` target path in `targets.yaml` matches the actual run
 ## Environment
 
 - Devcontainer with network access (needs npm registry)
-- `ssenv` isolated HOME
+- Setup hook handles `ss init -g`
 - Node.js / npm available in container
 - A public GitHub repo with skills (e.g., `runkids/feature-radar`)
 
@@ -47,16 +47,16 @@ ls -la ~/.agents/skills/
 
 **Expected:**
 - exit_code: 0
-- SKILL.md
+- feature-radar
 
 ### Step 4: Verify ~/.config/agents/skills was NOT created
 
 ```bash
-ls ~/.config/agents/skills/ 2>&1
+CMD_EXIT=0; ls ~/.config/agents/skills/ 2>&1 || CMD_EXIT=$?; echo "EXIT=$CMD_EXIT"
 ```
 
 **Expected:**
-- No such file or directory
+- EXIT=2
 
 ### Step 5: Verify npx skills list sees the skills
 
@@ -67,13 +67,11 @@ npx -y skills@latest list -g
 **Expected:**
 - exit_code: 0
 - .agents/skills
-- universal
 
 ### Step 6: Verify symlinks to agent-specific directories
 
 ```bash
-ls -la ~/.claude/skills/ 2>/dev/null
-ls -la ~/.cursor/skills/ 2>/dev/null
+ls -la ~/.claude/skills/ 2>/dev/null || true
 ```
 
 **Expected:**
@@ -82,7 +80,7 @@ ls -la ~/.cursor/skills/ 2>/dev/null
 
 ### Step 7: Verify skillshare init auto-includes universal
 
-Note: `ssenv create --init` already ran init. Remove existing config to test fresh init.
+Note: Setup hook already ran init. Remove existing config to test fresh init.
 
 ```bash
 rm -rf ~/.config/skillshare

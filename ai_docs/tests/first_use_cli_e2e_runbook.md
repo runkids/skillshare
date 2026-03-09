@@ -55,7 +55,7 @@ ss version
 
 Expected:
 - exit_code: 0
-- regex: v\d+\.\d+
+- regex: v(dev|\d+\.\d+)
 - Not Exec format error
 
 If you see `Cannot run macOS (Mach-O) executable in Docker`, run:
@@ -70,6 +70,12 @@ If you see `Cannot run macOS (Mach-O) executable in Docker`, run:
 export E2E_HOME="/tmp/ss-e2e-first-$(date +%s)"
 rm -rf "$E2E_HOME"
 mkdir -p "$E2E_HOME"
+# Override ssenv's XDG vars so ss uses E2E_HOME-based resolution
+export SKILLSHARE_CONFIG=
+export XDG_CONFIG_HOME="$E2E_HOME/.config"
+export XDG_DATA_HOME="$E2E_HOME/.local/share"
+export XDG_STATE_HOME="$E2E_HOME/.local/state"
+export XDG_CACHE_HOME="$E2E_HOME/.cache"
 echo "E2E_HOME=$E2E_HOME"
 ```
 

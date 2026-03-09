@@ -16,16 +16,15 @@ using a large real-world skill repo (`sickn33/antigravity-awesome-skills`).
 
 ## Environment
 
-Run inside devcontainer with `ssenv` HOME isolation.
+Run inside devcontainer with ssenv session executor. Setup hook handles `ss init -g`.
 Requires network access (GitHub clone).
 
 ## Steps
 
-### 1. Create isolated environment
+### 1. Verify baseline init
 
 ```bash
-ENV_NAME="e2e-audit-output-$(date +%Y%m%d-%H%M%S)"
-docker exec $CONTAINER ssenv create "$ENV_NAME" --init
+ss status -g
 ```
 
 Expected:
@@ -34,9 +33,7 @@ Expected:
 ### 2. Install --all (default threshold = CRITICAL)
 
 ```bash
-docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-  ssenv enter "$ENV_NAME" -- \
-  ss install -g sickn33/antigravity-awesome-skills/skills --all 2>&1 | tee /tmp/audit-install.log
+ss install -g sickn33/antigravity-awesome-skills/skills --all 2>&1 | tee /tmp/audit-install.log
 ```
 
 Expected:
@@ -51,16 +48,14 @@ Expected:
 Verify:
 
 ```bash
-docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
-  LOG=/tmp/audit-install.log
-  grep -q "Blocked / Failed" "$LOG"          && echo "PASS: blocked section"      || echo "FAIL: no blocked section"
-  grep -q "blocked by security audit" "$LOG" && echo "PASS: blocked message"      || echo "FAIL: no blocked message"
-  grep -q "CRITICAL" "$LOG"                  && echo "PASS: CRITICAL label"       || echo "FAIL: no CRITICAL label"
-  grep -q "Installed" "$LOG"                 && echo "PASS: installed section"    || echo "FAIL: no installed section"
-  grep -q "\-\-audit-verbose" "$LOG"         && echo "PASS: verbose hint"         || echo "FAIL: no verbose hint"
-  ! grep -qE "(Enumerating objects|Counting objects|Receiving objects)" "$LOG" \
-                                             && echo "PASS: no git progress"      || echo "FAIL: git progress leaked"
-'
+LOG=/tmp/audit-install.log
+grep -q "Blocked / Failed" "$LOG"          && echo "PASS: blocked section"      || echo "FAIL: no blocked section"
+grep -q "blocked by security audit" "$LOG" && echo "PASS: blocked message"      || echo "FAIL: no blocked message"
+grep -q "CRITICAL" "$LOG"                  && echo "PASS: CRITICAL label"       || echo "FAIL: no CRITICAL label"
+grep -q "Installed" "$LOG"                 && echo "PASS: installed section"    || echo "FAIL: no installed section"
+grep -q "\-\-audit-verbose" "$LOG"         && echo "PASS: verbose hint"         || echo "FAIL: no verbose hint"
+! grep -qE "(Enumerating objects|Counting objects|Receiving objects)" "$LOG" \
+                                           && echo "PASS: no git progress"      || echo "FAIL: git progress leaked"
 ```
 
 Expected:
@@ -71,29 +66,23 @@ Expected:
 - PASS: installed section
 - PASS: verbose hint
 - PASS: no git progress
-- Not FAIL
 
 ### 3. Count installed vs blocked skills
 
 ```bash
-docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
-  SKILLS=$(find ~/.config/skillshare/skills -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
-  echo "Installed skill dirs: $SKILLS"
-  test "$SKILLS" -gt 0 && echo "PASS: skills installed" || echo "FAIL: no skills installed"
-'
+SKILLS=$(find ~/.config/skillshare/skills -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+echo "Installed skill dirs: $SKILLS"
+test "$SKILLS" -gt 0 && echo "PASS: skills installed" || echo "FAIL: no skills installed"
 ```
 
 Expected:
 - exit_code: 0
 - PASS: skills installed
-- Not FAIL
 
 ### 4. Reinstall with --force (prepare for update test)
 
 ```bash
-docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-  ssenv enter "$ENV_NAME" -- \
-  ss install -g sickn33/antigravity-awesome-skills/skills --all --force 2>&1 | tee /tmp/audit-force-install.log
+ss install -g sickn33/antigravity-awesome-skills/skills --all --force 2>&1 | tee /tmp/audit-force-install.log
 ```
 
 Expected:
@@ -103,30 +92,24 @@ Expected:
 Verify:
 
 ```bash
-docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
-  LOG=/tmp/audit-force-install.log
-  grep -q "Installed" "$LOG"                   && echo "PASS: installed section"    || echo "FAIL: no installed section"
-  ! grep -q "Blocked / Failed" "$LOG"          && echo "PASS: no blocked (forced)" || echo "FAIL: blocked despite --force"
-'
+LOG=/tmp/audit-force-install.log
+grep -q "Installed" "$LOG"                   && echo "PASS: installed section"    || echo "FAIL: no installed section"
+! grep -q "Blocked / Failed" "$LOG"          && echo "PASS: no blocked (forced)" || echo "FAIL: blocked despite --force"
 ```
 
 Expected:
 - exit_code: 0
 - PASS: installed section
 - PASS: no blocked (forced)
-- Not FAIL
 
 ### 5. Update --all (nothing changed upstream)
 
 ```bash
-docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-  ssenv enter "$ENV_NAME" -- \
-  ss update -g --all 2>&1 | tee /tmp/audit-update.log
+ss update -g --all 2>&1 | tee /tmp/audit-update.log
 ```
 
 Expected:
 - exit_code: 0
-- regex: (?i)audit
 - skipped
 - Not Blocked / Failed
 - Not Blocked / Rolled Back
@@ -134,31 +117,24 @@ Expected:
 Verify:
 
 ```bash
-docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
-  LOG=/tmp/audit-update.log
-  grep -qi "audit" "$LOG"                       && echo "PASS: audit present"     || echo "FAIL: no audit section"
-  grep -q "skipped" "$LOG"                      && echo "PASS: skipped present"   || echo "FAIL: no skipped"
-  ! grep -q "Blocked / Failed" "$LOG"           && echo "PASS: no install block"  || echo "FAIL: install block in update"
-  ! grep -q "Blocked / Rolled Back" "$LOG"      && echo "PASS: no update block"   || echo "FAIL: update blocked"
-'
+LOG=/tmp/audit-update.log
+grep -q "skipped" "$LOG"                      && echo "PASS: skipped present"   || echo "FAIL: no skipped"
+! grep -q "Blocked / Failed" "$LOG"           && echo "PASS: no install block"  || echo "FAIL: install block in update"
+! grep -q "Blocked / Rolled Back" "$LOG"      && echo "PASS: no update block"   || echo "FAIL: update blocked"
 ```
 
 Expected:
 - exit_code: 0
-- PASS: audit present
 - PASS: skipped present
 - PASS: no install block
 - PASS: no update block
-- Not FAIL
 
 ### 6. Install --all with --audit-verbose --force
 
 Note: needs `--force` because skills already exist from Steps 2-4.
 
 ```bash
-docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-  ssenv enter "$ENV_NAME" -- \
-  ss install -g sickn33/antigravity-awesome-skills/skills --all --audit-verbose --force 2>&1 | tee /tmp/audit-verbose.log
+ss install -g sickn33/antigravity-awesome-skills/skills --all --audit-verbose --force 2>&1 | tee /tmp/audit-verbose.log
 ```
 
 Expected:
@@ -169,41 +145,35 @@ Expected:
 Verify:
 
 ```bash
-docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
-  LOG=/tmp/audit-verbose.log
-  grep -qE "HIGH|CRITICAL" "$LOG"                  && echo "PASS: severity labels"     || echo "FAIL: no severity labels"
-  grep -q "audit HIGH:" "$LOG"                     && echo "PASS: verbose detail"      || echo "FAIL: no verbose detail"
-  grep -q "audit finding line(s)" "$LOG"           && echo "PASS: finding line count"  || echo "FAIL: no finding count"
-  grep -q "HIGH/CRITICAL detail" "$LOG"            && echo "PASS: expanded section"    || echo "FAIL: no expanded section"
-'
+LOG=/tmp/audit-verbose.log
+grep -qE "HIGH|CRITICAL" "$LOG"                  && echo "PASS: severity labels"     || echo "FAIL: no severity labels"
+grep -q "audit HIGH:" "$LOG"                     && echo "PASS: verbose detail"      || echo "FAIL: no verbose detail"
+grep -q "audit finding line(s)" "$LOG"           && echo "PASS: finding line count"  || echo "FAIL: no finding count"
+grep -q "HIGH/CRITICAL detail" "$LOG"            && echo "PASS: expanded section"    || echo "FAIL: no expanded section"
 ```
 
 Expected:
 - exit_code: 0
 - PASS: severity labels
 - PASS: verbose detail
-- Not FAIL
 
 ### 7. Verify audit output has structured sections (no raw dumps)
 
 ```bash
-docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
-  LOG=/tmp/audit-install.log
-  # Should have section labels, not raw error text
-  grep -q "Next Steps" "$LOG"           && echo "PASS: next steps section"  || echo "FAIL: no next steps"
-  grep -qE "finding\(s\)" "$LOG"        && echo "PASS: finding(s) format"  || echo "FAIL: no finding(s) format"
-'
+LOG=/tmp/audit-install.log
+# Should have section labels, not raw error text
+grep -q "Next Steps" "$LOG"           && echo "PASS: next steps section"  || echo "FAIL: no next steps"
+grep -qE "finding\(s\)" "$LOG"        && echo "PASS: finding(s) format"  || echo "FAIL: no finding(s) format"
 ```
 
 Expected:
 - exit_code: 0
 - PASS: next steps section
 - regex: PASS: finding\(s\) format
-- Not FAIL
 
 ## Pass Criteria
 
-- [ ] Step 1: Environment created
+- [ ] Step 1: Environment verified
 - [ ] Step 2: `install --all` produces Blocked/Failed + Installed sections + CRITICAL label + verbose hint
 - [ ] Step 3: Skills installed to disk
 - [ ] Step 4: `install --all --force` succeeds, no blocked section

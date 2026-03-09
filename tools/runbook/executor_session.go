@@ -101,9 +101,11 @@ func ExecuteSession(ctx context.Context, steps []Step, timeout time.Duration) []
 	parseSessionResults(&stdout, autoSteps, results, tmpDir)
 
 	// Run assertions on each completed step.
+	// If assertions are defined, they always run (regardless of exit code)
+	// and determine the final pass/fail status.
 	for _, as := range autoSteps {
 		r := &results[as.idx]
-		if r.Status == StatusPassed {
+		if r.Status == StatusPassed || r.Status == StatusFailed {
 			checkAssertions(r, as.step)
 		}
 	}

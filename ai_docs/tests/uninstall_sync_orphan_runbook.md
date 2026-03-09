@@ -16,138 +16,83 @@ using the merge-mode manifest to identify skillshare-managed entries.
 
 ## Environment
 
-Run inside devcontainer.
-If `ss` alias is unavailable, replace `ss` with `skillshare`.
-
-## Optional: use `ssenv` for isolated HOME
-
-```bash
-ssnew orphan-test
-```
+Run inside devcontainer. Setup hook runs `ss init -g`.
 
 ## Steps
 
-### 1. Setup: install from antigravity repo and sync
-
-Install a batch of skills (the same repo that triggered #45):
+### 1. Install skills and verify manifest
 
 ```bash
-ss init
-ss install sickn33/antigravity-awesome-skills/skills/pdf-official --name pdf
-ss install sickn33/antigravity-awesome-skills/skills/debugging-toolkit-smart-debug --name smart-debug
-ss install sickn33/antigravity-awesome-skills/skills/tdd-workflow
-ss install sickn33/antigravity-awesome-skills/skills/react-best-practices --into frontend
+ss install sickn33/antigravity-awesome-skills -s pdf-official,debugging-toolkit-smart-debug,tdd-workflow
+ss install sickn33/antigravity-awesome-skills -s react-best-practices --into frontend --force
 ss sync
+ls ~/.config/skillshare/skills/
+ls ~/.claude/skills/
 ```
 
 Expected:
 - exit_code: 0
-
-Verify manifest exists in at least one target:
-
-```bash
-cat ~/.claude/skills/.skillshare-manifest.json
-```
-
-Expected:
-- exit_code: 0
-- "pdf"
-- "smart-debug"
-- "tdd-workflow"
-- "frontend__react-best-practices"
+- pdf-official
+- debugging-toolkit-smart-debug
+- tdd-workflow
+- frontend
 
 ### 2. Replace symlinks with real directories (simulate copy-mode residue)
 
-This simulates what happens when a target previously used copy mode,
-or when symlinks were replaced by real directories for any reason:
-
 ```bash
 TARGET=~/.claude/skills
-
-for skill in pdf smart-debug tdd-workflow; do
+for skill in pdf-official debugging-toolkit-smart-debug tdd-workflow; do
   rm "$TARGET/$skill"
   mkdir -p "$TARGET/$skill"
   echo "# Copy residue" > "$TARGET/$skill/SKILL.md"
 done
-
-# Verify they are real directories, not symlinks
-ls -la "$TARGET/pdf" "$TARGET/smart-debug" "$TARGET/tdd-workflow"
+ls -la "$TARGET/pdf-official" "$TARGET/debugging-toolkit-smart-debug" "$TARGET/tdd-workflow"
 ```
 
 Expected:
 - exit_code: 0
 - SKILL.md
 
-### 3. Uninstall all skills
+### 3. Uninstall all and sync
 
 ```bash
-ss uninstall pdf smart-debug tdd-workflow react-best-practices
-```
-
-Expected:
-- exit_code: 0
-- Uninstalled
-
-### 4. Sync and verify orphan cleanup
-
-```bash
+ss uninstall pdf-official debugging-toolkit-smart-debug tdd-workflow react-best-practices --force
 ss sync
 ```
 
 Expected:
 - exit_code: 0
+- Uninstalled
 - pruned
-- Not unknown directory (not from skillshare), kept
 
-Verify:
+### 4. Verify orphan directories removed
 
 ```bash
 TARGET=~/.claude/skills
-for skill in pdf smart-debug tdd-workflow frontend__react-best-practices; do
+for skill in pdf-official debugging-toolkit-smart-debug tdd-workflow frontend__react-best-practices; do
   [ ! -e "$TARGET/$skill" ] && echo "$skill: removed" || echo "$skill: STILL EXISTS (FAIL)"
 done
 ```
 
 Expected:
 - exit_code: 0
-- pdf: removed
-- smart-debug: removed
+- pdf-official: removed
+- debugging-toolkit-smart-debug: removed
 - tdd-workflow: removed
 - frontend__react-best-practices: removed
 - Not STILL EXISTS
 
-```bash
-cat ~/.claude/skills/.skillshare-manifest.json
-```
-
-Expected:
-- exit_code: 0
-
-### 5. Verify user-created directories are preserved
+### 5. User-created directories preserved
 
 ```bash
-# Re-install one skill
-ss install sickn33/antigravity-awesome-skills/skills/pdf-official --name pdf
+ss install sickn33/antigravity-awesome-skills -s pdf-official
 ss sync
-
-# Create a user directory (never managed by skillshare)
 TARGET=~/.claude/skills
 mkdir -p "$TARGET/my-custom-skill"
 echo "# My custom" > "$TARGET/my-custom-skill/SKILL.md"
-
-# Uninstall and sync
-ss uninstall pdf
+ss uninstall pdf-official --force
 ss sync
-```
-
-Expected:
-- exit_code: 0
-- my-custom-skill
-
-Verify:
-
-```bash
-[ -f ~/.claude/skills/my-custom-skill/SKILL.md ] && echo "user dir preserved" || echo "FAIL"
+[ -f "$TARGET/my-custom-skill/SKILL.md" ] && echo "user dir preserved" || echo "FAIL: user dir gone"
 ```
 
 Expected:
@@ -155,19 +100,16 @@ Expected:
 - user dir preserved
 - Not FAIL
 
-### 6. Verify dry-run does not write/modify manifest
+### 6. Dry-run does not modify manifest
 
 ```bash
-TARGET=~/.claude/skills
-ss install sickn33/antigravity-awesome-skills/skills/pdf-official --name pdf
+ss install sickn33/antigravity-awesome-skills -s pdf-official
 ss sync
-
+TARGET=~/.claude/skills
 MANIFEST="$TARGET/.skillshare-manifest.json"
 cp "$MANIFEST" /tmp/manifest-before.json
-
 ss sync --dry-run
-
-cmp -s "$MANIFEST" /tmp/manifest-before.json && echo "manifest unchanged in dry-run" || echo "FAIL"
+cmp -s "$MANIFEST" /tmp/manifest-before.json && echo "manifest unchanged in dry-run" || echo "FAIL: manifest changed"
 ```
 
 Expected:
@@ -175,94 +117,92 @@ Expected:
 - manifest unchanged in dry-run
 - Not FAIL
 
-### 7. Verify exclude filter prunes managed real directories
-
-This tests the edge case where a filter change should clean up
-previously-managed entries even if they are real directories:
+### 7. Exclude filter prunes managed real directories
 
 ```bash
-TARGET=~/.claude/skills
-
-# Start clean
-ss uninstall pdf 2>/dev/null; ss sync
-
-# Install two skills and sync
-ss install sickn33/antigravity-awesome-skills/skills/pdf-official --name pdf
-ss install sickn33/antigravity-awesome-skills/skills/tdd-workflow
+# Clean up from previous steps
+ss uninstall --all --force 2>/dev/null || true
 ss sync
 
-# Confirm both in manifest
-grep '"pdf"' "$TARGET/.skillshare-manifest.json" && echo "pdf in manifest"
+# Install two skills fresh
+ss install sickn33/antigravity-awesome-skills -s pdf-official,tdd-workflow
+ss sync
+
+TARGET=~/.claude/skills
+grep '"pdf-official"' "$TARGET/.skillshare-manifest.json" && echo "pdf-official in manifest"
 grep '"tdd-workflow"' "$TARGET/.skillshare-manifest.json" && echo "tdd-workflow in manifest"
 
-# Replace pdf symlink with real directory
-rm "$TARGET/pdf"
-mkdir -p "$TARGET/pdf"
-echo "# residue" > "$TARGET/pdf/SKILL.md"
+# Replace pdf-official symlink with real directory
+rm "$TARGET/pdf-official"
+mkdir -p "$TARGET/pdf-official"
+echo "# residue" > "$TARGET/pdf-official/SKILL.md"
 
-# Add exclude for pdf in config (edit the claude target):
-CONFIG=$(skillshare doctor 2>/dev/null | grep "Config:" | awk '{print $2}')
-# Add under targets → claude → exclude: ["pdf"]
-# (manual edit or use sed)
+# Add exclude for pdf-official in claude target config
+CONFIG="$HOME/.config/skillshare/config.yaml"
+sed -i '/^    claude:/,/^    [^ ]/{/path:/a\        exclude:\n            - pdf-official
+}' "$CONFIG"
 
 ss sync
 
-# pdf should be removed (excluded + was in manifest + real dir)
-[ ! -e "$TARGET/pdf" ] && echo "pdf removed by exclude" || echo "FAIL: pdf still exists"
+# pdf-official should be removed (excluded + was in manifest + real dir)
+[ ! -e "$TARGET/pdf-official" ] && echo "pdf-official removed by exclude" || echo "FAIL: pdf-official still exists"
 
 # tdd-workflow should still be linked
-[ -L "$TARGET/tdd-workflow" ] && echo "tdd-workflow still linked" || echo "FAIL"
+[ -L "$TARGET/tdd-workflow" ] && echo "tdd-workflow still linked" || echo "FAIL: tdd-workflow missing"
 
-# pdf should NOT be in manifest
-if ! grep -q '"pdf"' "$TARGET/.skillshare-manifest.json"; then
-  echo "pdf disowned from manifest"
+# pdf-official should NOT be in manifest
+if ! grep -q '"pdf-official"' "$TARGET/.skillshare-manifest.json"; then
+  echo "pdf-official disowned from manifest"
 else
-  echo "FAIL: pdf still in manifest"
+  echo "FAIL: pdf-official still in manifest"
 fi
 ```
 
 Expected:
 - exit_code: 0
-- pdf in manifest
+- pdf-official in manifest
 - tdd-workflow in manifest
-- pdf removed by exclude
+- pdf-official removed by exclude
 - tdd-workflow still linked
-- pdf disowned from manifest
+- pdf-official disowned from manifest
 - Not FAIL
 
 ### 8. Bulk install/uninstall stress test (original #45 scenario)
 
-This approximates the original issue: many skills installed then removed.
-
 ```bash
-TARGET=~/.claude/skills
-
-# Install a larger batch
-ss install sickn33/antigravity-awesome-skills/skills/pdf-official --name pdf
-ss install sickn33/antigravity-awesome-skills/skills/tdd-workflow
-ss install sickn33/antigravity-awesome-skills/skills/debugging-toolkit-smart-debug --name smart-debug
-ss install sickn33/antigravity-awesome-skills/skills/react-best-practices --into frontend
-ss install sickn33/antigravity-awesome-skills/skills/code-reviewer
-ss install sickn33/antigravity-awesome-skills/skills/debugger
+# Clean slate: remove exclude from config, uninstall all
+ss uninstall --all --force 2>/dev/null || true
+CONFIG="$HOME/.config/skillshare/config.yaml"
+sed -i '/exclude:/d; /- pdf-official/d' "$CONFIG"
 ss sync
 
-# Count managed entries in manifest
+# Remove leftover user dirs from step 5
+rm -rf ~/.claude/skills/my-custom-skill
+
+TARGET=~/.claude/skills
+
+# Install a fresh batch
+ss install sickn33/antigravity-awesome-skills -s pdf-official,tdd-workflow,debugging-toolkit-smart-debug,code-reviewer,debugger
+ss install sickn33/antigravity-awesome-skills -s react-best-practices --into frontend --force
+ss sync
+
+# Count managed entries
 MANAGED=$(jq '.managed | length' "$TARGET/.skillshare-manifest.json")
 echo "Managed skills in manifest: $MANAGED"
 
 # Replace some symlinks with real directories
-for skill in pdf smart-debug code-reviewer; do
+for skill in pdf-official debugging-toolkit-smart-debug code-reviewer; do
   rm "$TARGET/$skill"
   mkdir -p "$TARGET/$skill"
   echo "# residue" > "$TARGET/$skill/SKILL.md"
 done
 
 # Uninstall everything
-ss uninstall pdf smart-debug tdd-workflow react-best-practices code-reviewer debugger
+ss uninstall --all --force
 ss sync
 
-# Verify ALL orphans are cleaned up — no "unknown directory, kept" warnings
-for skill in pdf smart-debug tdd-workflow frontend__react-best-practices code-reviewer debugger; do
+# Verify ALL orphans are cleaned up
+for skill in pdf-official debugging-toolkit-smart-debug tdd-workflow frontend__react-best-practices code-reviewer debugger; do
   [ ! -e "$TARGET/$skill" ] && echo "$skill: removed" || echo "$skill: STILL EXISTS (FAIL)"
 done
 
@@ -274,8 +214,8 @@ echo "Remaining managed entries: $REMAINING (expected: 0)"
 Expected:
 - exit_code: 0
 - regex: Managed skills in manifest: \d+
-- pdf: removed
-- smart-debug: removed
+- pdf-official: removed
+- debugging-toolkit-smart-debug: removed
 - tdd-workflow: removed
 - frontend__react-best-practices: removed
 - code-reviewer: removed

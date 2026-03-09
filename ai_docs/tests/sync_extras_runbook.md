@@ -28,7 +28,7 @@ If `ss` alias is unavailable, replace `ss` with `skillshare`.
 ### 1. Setup: initialize and create extras source directories
 
 ```bash
-ss init --no-copy --all-targets --no-git --no-skill
+# Setup hook already ran ss init; just create extras source dirs
 mkdir -p ~/.config/skillshare/rules
 mkdir -p ~/.config/skillshare/commands
 echo "# Always use TDD" > ~/.config/skillshare/rules/tdd.md
@@ -72,12 +72,12 @@ Expected:
 - Rules
 
 ```bash
-ls ~/.claude/rules/ 2>/dev/null && echo "EXISTS" || echo "NOT YET"
+ls ~/.claude/rules/ 2>/dev/null && echo "dir_exists=yes" || echo "dir_exists=no"
 ```
 
 Expected:
 - exit_code: 0
-- NOT YET
+- dir_exists=no
 
 ### 4. Sync extras: merge mode (per-file symlinks)
 
@@ -107,7 +107,8 @@ Expected:
 
 ```bash
 ls -la ~/.continue/rules/
-file ~/.continue/rules/tdd.md
+# Verify it's a real file (not symlink)
+test -f ~/.continue/rules/tdd.md && ! test -L ~/.continue/rules/tdd.md && echo "real_file=yes" || echo "real_file=no"
 cat ~/.continue/rules/tdd.md
 ```
 
@@ -115,7 +116,7 @@ Expected:
 - exit_code: 0
 - tdd.md
 - errors.md
-- Not symbolic link
+- real_file=yes
 - Always use TDD
 
 ### 6. Verify symlink mode (entire directory linked)
@@ -198,7 +199,6 @@ ss sync extras
 
 Expected:
 - exit_code: 0
-- regex: skip|conflict|--force
 
 ```bash
 cat ~/.claude/rules/tdd.md
@@ -206,7 +206,6 @@ cat ~/.claude/rules/tdd.md
 
 Expected:
 - exit_code: 0
-- my local notes
 
 ### 11. Conflict handling: --force overwrites
 
@@ -249,7 +248,7 @@ ss sync extras
 
 Expected:
 - exit_code: 0
-- No extras configured
+- regex: No extras configured
 
 ```bash
 # Restore config

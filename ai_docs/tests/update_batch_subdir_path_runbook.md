@@ -19,75 +19,61 @@ skill count on the next scan.
 ## Environment
 
 Run inside devcontainer with `ssenv` HOME isolation.
+Setup hook handles `ss init -g`.
 
 ## Steps
 
-### 1. Create isolated environment
+### 1. Create a bare monorepo with skills nested under `skills/` subdirectory
 
 ```bash
-ENV_NAME="e2e-update-subdir-$(date +%Y%m%d-%H%M%S)"
-docker exec "$CONTAINER" ssenv create "$ENV_NAME" --init
-```
+REPO=~/monorepo-remote.git
+WORK=~/monorepo-work
 
-Expected:
-- exit_code: 0
+git init --bare "$REPO"
+git clone "$REPO" "$WORK"
 
-### 2. Create a bare monorepo with skills nested under `skills/` subdirectory
-
-```bash
-docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- bash -c '
-  set -e
-  REPO=~/monorepo-remote.git
-  WORK=~/monorepo-work
-
-  git init --bare "$REPO"
-  git clone "$REPO" "$WORK"
-
-  for name in alpha beta gamma; do
-    mkdir -p "$WORK/skills/$name"
-    cat > "$WORK/skills/$name/SKILL.md" <<SKILL
----
+for name in alpha beta gamma; do
+  mkdir -p "$WORK/skills/$name"
+  echo "---
 name: $name
 ---
-# $name skill v1
-SKILL
-  done
+# $name skill v1" > "$WORK/skills/$name/SKILL.md"
+done
 
-  cd "$WORK"
-  git add -A
-  git -c user.name=e2e -c user.email=e2e@test.com commit -m "init 3 skills"
-  git push origin HEAD
-'
+cd "$WORK"
+git add -A
+git -c user.name=e2e -c user.email=e2e@test.com commit -m "init 3 skills"
+git push origin HEAD
+echo "=== Remote ready ==="
 ```
 
 Expected:
 - exit_code: 0
+- === Remote ready ===
 
-### 3. Set up a project with skills installed at flat paths (simulating --into or manual placement)
+### 2. Set up a project with skills installed at flat paths
 
 The key scenario: skills are installed locally at `alpha/`, `beta/`, `gamma/`
 (without the `skills/` prefix), but `meta.Subdir` records `skills/alpha` etc.
 
 ```bash
-docker exec "$CONTAINER" env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-  ssenv enter "$ENV_NAME" -- bash -c '
-  set -e
-  PROJECT=~/test-project
-  mkdir -p "$PROJECT/.skillshare/skills" "$PROJECT/.claude"
-  cat > "$PROJECT/.skillshare/config.yaml" <<CFG
+PROJECT=~/test-project
+REPO_URL="file://$HOME/monorepo-remote.git"
+mkdir -p "$PROJECT/.skillshare/skills" "$PROJECT/.claude"
+cat > "$PROJECT/.skillshare/config.yaml" <<CFG
 targets:
   - claude
 CFG
+mkdir -p "$PROJECT/.claude/skills"
 
-  SKILLS_DIR="$PROJECT/.skillshare/skills"
-  REPO_URL="file://$HOME/monorepo-remote.git"
+SKILLS_DIR="$PROJECT/.skillshare/skills"
 
-  for name in alpha beta gamma; do
-    LOCAL="$SKILLS_DIR/$name"
-    mkdir -p "$LOCAL"
-    cp "$HOME/monorepo-work/skills/$name/SKILL.md" "$LOCAL/"
+for name in alpha beta gamma; do
+  LOCAL="$SKILLS_DIR/$name"
+  mkdir -p "$LOCAL"
+  cp "$HOME/monorepo-work/skills/$name/SKILL.md" "$LOCAL/"
 
-    cat > "$LOCAL/.skillshare-meta.json" <<META
+  cat > "$LOCAL/.skillshare-meta.json" <<META
 {
   "source": "${REPO_URL}//skills/${name}",
   "type": "git",
@@ -96,14 +82,12 @@ CFG
   "installed_at": "2025-01-01T00:00:00Z"
 }
 META
-  done
+done
 
-  echo "Installed skills:"
-  ls -1 "$SKILLS_DIR"
-  echo "---"
-  echo "No leaked skills/ subdirectory:"
-  test ! -d "$SKILLS_DIR/skills" && echo "PASS: no skills/skills/ dir"
-'
+echo "Installed skills:"
+ls -1 "$SKILLS_DIR"
+echo "---"
+test ! -d "$SKILLS_DIR/skills" && echo "PASS: no skills/skills/ dir"
 ```
 
 Expected:
@@ -113,35 +97,29 @@ Expected:
 - gamma
 - PASS: no skills/skills/ dir
 
-### 4. First `update --all` — verify no path leakage
+### 3. First `update --all` — verify no path leakage
 
 ```bash
-docker exec "$CONTAINER" env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-  ssenv enter "$ENV_NAME" -- bash -c '
-  set -e
-  cd ~/test-project
-  ss update --all -p --skip-audit 2>&1 | tee /tmp/update-run1.log
+PROJECT=~/test-project
+cd "$PROJECT"
+SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 ss update --all -p --skip-audit 2>&1
 
-  SKILLS_DIR=~/test-project/.skillshare/skills
+SKILLS_DIR="$PROJECT/.skillshare/skills"
 
-  echo "=== Post-update directory listing ==="
-  find "$SKILLS_DIR" -maxdepth 2 -type d | sort
+echo "=== Leak check ==="
+if [ -d "$SKILLS_DIR/skills" ]; then
+  echo "FAIL: leaked skills/ subdirectory found!"
+  ls -la "$SKILLS_DIR/skills/"
+  exit 1
+else
+  echo "PASS: no leaked skills/ subdirectory"
+fi
 
-  echo "=== Leak check ==="
-  if [ -d "$SKILLS_DIR/skills" ]; then
-    echo "FAIL: leaked skills/ subdirectory found!"
-    ls -la "$SKILLS_DIR/skills/"
-    exit 1
-  else
-    echo "PASS: no leaked skills/ subdirectory"
-  fi
-
-  echo "=== Skill count ==="
-  COUNT=$(find "$SKILLS_DIR" -name "SKILL.md" | wc -l | tr -d " ")
-  echo "SKILL_COUNT=$COUNT"
-  test "$COUNT" -eq 3 || { echo "FAIL: expected 3 skills, got $COUNT"; exit 1; }
-  echo "PASS: skill count is 3"
-'
+echo "=== Skill count ==="
+COUNT=$(find "$SKILLS_DIR" -name "SKILL.md" | wc -l | tr -d " ")
+echo "SKILL_COUNT=$COUNT"
+test "$COUNT" -eq 3 || { echo "FAIL: expected 3 skills, got $COUNT"; exit 1; }
+echo "PASS: skill count is 3"
 ```
 
 Expected:
@@ -150,32 +128,27 @@ Expected:
 - SKILL_COUNT=3
 - PASS: skill count is 3
 
-### 5. Second `update --all` — verify count is stable (no doubling)
+### 4. Second `update --all` — verify count is stable (no doubling)
 
 ```bash
-docker exec "$CONTAINER" env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-  ssenv enter "$ENV_NAME" -- bash -c '
-  set -e
-  cd ~/test-project
-  ss update --all -p --skip-audit 2>&1 | tee /tmp/update-run2.log
+PROJECT=~/test-project
+cd "$PROJECT"
+SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 ss update --all -p --skip-audit 2>&1
 
-  SKILLS_DIR=~/test-project/.skillshare/skills
+SKILLS_DIR="$PROJECT/.skillshare/skills"
 
-  echo "=== Leak check (run 2) ==="
-  if [ -d "$SKILLS_DIR/skills" ]; then
-    echo "FAIL: leaked skills/ subdirectory found after second run!"
-    find "$SKILLS_DIR/skills" -name "SKILL.md" | wc -l
-    exit 1
-  else
-    echo "PASS: no leaked skills/ subdirectory"
-  fi
+echo "=== Leak check (run 2) ==="
+if [ -d "$SKILLS_DIR/skills" ]; then
+  echo "FAIL: leaked skills/ subdirectory found after second run!"
+  exit 1
+else
+  echo "PASS: no leaked skills/ subdirectory"
+fi
 
-  echo "=== Skill count (run 2) ==="
-  COUNT=$(find "$SKILLS_DIR" -name "SKILL.md" | wc -l | tr -d " ")
-  echo "SKILL_COUNT=$COUNT"
-  test "$COUNT" -eq 3 || { echo "FAIL: expected 3 skills, got $COUNT (doubling bug!)"; exit 1; }
-  echo "PASS: skill count stable at 3 (no doubling)"
-'
+COUNT=$(find "$SKILLS_DIR" -name "SKILL.md" | wc -l | tr -d " ")
+echo "SKILL_COUNT=$COUNT"
+test "$COUNT" -eq 3 || { echo "FAIL: expected 3, got $COUNT (doubling bug!)"; exit 1; }
+echo "PASS: skill count stable at 3 (no doubling)"
 ```
 
 Expected:
@@ -184,22 +157,19 @@ Expected:
 - SKILL_COUNT=3
 - PASS: skill count stable at 3 (no doubling)
 
-### 6. Third `update --all` — triple-check stability
+### 5. Third `update --all` — triple-check stability
 
 ```bash
-docker exec "$CONTAINER" env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-  ssenv enter "$ENV_NAME" -- bash -c '
-  set -e
-  cd ~/test-project
-  ss update --all -p --skip-audit 2>&1 | tee /tmp/update-run3.log
+PROJECT=~/test-project
+cd "$PROJECT"
+SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 ss update --all -p --skip-audit 2>&1
 
-  SKILLS_DIR=~/test-project/.skillshare/skills
-  COUNT=$(find "$SKILLS_DIR" -name "SKILL.md" | wc -l | tr -d " ")
-  echo "SKILL_COUNT=$COUNT"
-  test "$COUNT" -eq 3 || { echo "FAIL: expected 3, got $COUNT"; exit 1; }
-  test ! -d "$SKILLS_DIR/skills" || { echo "FAIL: leaked dir"; exit 1; }
-  echo "PASS: stable after 3 consecutive runs"
-'
+SKILLS_DIR="$PROJECT/.skillshare/skills"
+COUNT=$(find "$SKILLS_DIR" -name "SKILL.md" | wc -l | tr -d " ")
+echo "SKILL_COUNT=$COUNT"
+test "$COUNT" -eq 3 || { echo "FAIL: expected 3, got $COUNT"; exit 1; }
+test ! -d "$SKILLS_DIR/skills" || { echo "FAIL: leaked dir"; exit 1; }
+echo "PASS: stable after 3 consecutive runs"
 ```
 
 Expected:
@@ -207,54 +177,46 @@ Expected:
 - SKILL_COUNT=3
 - PASS: stable after 3 consecutive runs
 
-### 7. Verify skills were actually updated (not just skipped)
-
-Push changes to the remote, then update and verify content changed.
+### 6. Push v2 and verify skills were actually updated
 
 ```bash
-docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- bash -c '
-  set -e
-  WORK=~/monorepo-work
-  cd "$WORK"
+WORK=~/monorepo-work
+cd "$WORK"
 
-  for name in alpha beta gamma; do
-    cat > "skills/$name/SKILL.md" <<SKILL
----
+for name in alpha beta gamma; do
+  echo "---
 name: $name
 ---
-# $name skill v2 (updated)
-SKILL
-  done
+# $name skill v2 (updated)" > "skills/$name/SKILL.md"
+done
 
-  git add -A
-  git -c user.name=e2e -c user.email=e2e@test.com commit -m "bump to v2"
-  git push origin HEAD
-'
+git add -A
+git -c user.name=e2e -c user.email=e2e@test.com commit -m "bump to v2"
+git push origin HEAD
 ```
 
+Expected:
+- exit_code: 0
+
 ```bash
-docker exec "$CONTAINER" env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
-  ssenv enter "$ENV_NAME" -- bash -c '
-  set -e
-  cd ~/test-project
-  ss update --all -p --skip-audit 2>&1
+PROJECT=~/test-project
+cd "$PROJECT"
+SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 ss update --all -p --skip-audit 2>&1
 
-  SKILLS_DIR=~/test-project/.skillshare/skills
+SKILLS_DIR="$PROJECT/.skillshare/skills"
 
-  for name in alpha beta gamma; do
-    if grep -q "v2 (updated)" "$SKILLS_DIR/$name/SKILL.md"; then
-      echo "PASS: $name updated to v2"
-    else
-      echo "FAIL: $name not updated"
-      cat "$SKILLS_DIR/$name/SKILL.md"
-      exit 1
-    fi
-  done
+for name in alpha beta gamma; do
+  if grep -q "v2 (updated)" "$SKILLS_DIR/$name/SKILL.md"; then
+    echo "PASS: $name updated to v2"
+  else
+    echo "FAIL: $name not updated"
+    cat "$SKILLS_DIR/$name/SKILL.md"
+    exit 1
+  fi
+done
 
-  # Final leak check
-  test ! -d "$SKILLS_DIR/skills" || { echo "FAIL: leaked dir after content update"; exit 1; }
-  echo "PASS: all skills updated, no leaks"
-'
+test ! -d "$SKILLS_DIR/skills" || { echo "FAIL: leaked dir after content update"; exit 1; }
+echo "PASS: all skills updated, no leaks"
 ```
 
 Expected:
@@ -264,24 +226,20 @@ Expected:
 - PASS: gamma updated to v2
 - PASS: all skills updated, no leaks
 
-### 8. Global mode: same pattern verification
+### 7. Global mode: same pattern verification
 
 ```bash
-docker exec "$CONTAINER" ssenv enter "$ENV_NAME" -- bash -c '
-  set -e
-  SOURCE=~/.config/skillshare/skills
-  REPO_URL="file://$HOME/monorepo-remote.git"
+SOURCE=~/.config/skillshare/skills
+REPO_URL="file://$HOME/monorepo-remote.git"
 
-  for name in alpha beta gamma; do
-    LOCAL="$SOURCE/$name"
-    mkdir -p "$LOCAL"
-    cat > "$LOCAL/SKILL.md" <<SKILL
----
+for name in alpha beta gamma; do
+  LOCAL="$SOURCE/$name"
+  mkdir -p "$LOCAL"
+  echo "---
 name: $name
 ---
-# $name global v1
-SKILL
-    cat > "$LOCAL/.skillshare-meta.json" <<META
+# $name global v1" > "$LOCAL/SKILL.md"
+  cat > "$LOCAL/.skillshare-meta.json" <<META
 {
   "source": "${REPO_URL}//skills/${name}",
   "type": "git",
@@ -290,21 +248,20 @@ SKILL
   "installed_at": "2025-01-01T00:00:00Z"
 }
 META
-  done
+done
 
-  COUNT_BEFORE=$(find "$SOURCE" -name "SKILL.md" | wc -l | tr -d " ")
-  ss update --all -g --skip-audit 2>&1 | tee /tmp/update-global.log
+COUNT_BEFORE=$(find "$SOURCE" -name "SKILL.md" | wc -l | tr -d " ")
+ss update --all -g --skip-audit 2>&1
 
-  if [ -d "$SOURCE/skills" ]; then
-    echo "FAIL: leaked skills/ in global source"
-    exit 1
-  fi
+if [ -d "$SOURCE/skills" ]; then
+  echo "FAIL: leaked skills/ in global source"
+  exit 1
+fi
 
-  COUNT_AFTER=$(find "$SOURCE" -name "SKILL.md" | wc -l | tr -d " ")
-  echo "Global SKILL_COUNT before=$COUNT_BEFORE after=$COUNT_AFTER"
-  test "$COUNT_BEFORE" -eq "$COUNT_AFTER" || { echo "FAIL: count changed ($COUNT_BEFORE -> $COUNT_AFTER)"; exit 1; }
-  echo "PASS: global mode no leak, count stable"
-'
+COUNT_AFTER=$(find "$SOURCE" -name "SKILL.md" | wc -l | tr -d " ")
+echo "Global SKILL_COUNT before=$COUNT_BEFORE after=$COUNT_AFTER"
+test "$COUNT_BEFORE" -eq "$COUNT_AFTER" || { echo "FAIL: count changed"; exit 1; }
+echo "PASS: global mode no leak, count stable"
 ```
 
 Expected:
@@ -313,11 +270,9 @@ Expected:
 
 ## Pass Criteria
 
-- [ ] Step 1: Environment created
-- [ ] Step 2: Bare monorepo with 3 nested skills
-- [ ] Step 3: Project skills installed at flat paths with divergent meta.Subdir
-- [ ] Step 4: First `update --all` — no leak, count=3
-- [ ] Step 5: Second `update --all` — count stable at 3 (no doubling)
-- [ ] Step 6: Third `update --all` — still stable
-- [ ] Step 7: Skills actually updated to v2, no leaks
-- [ ] Step 8: Global mode same pattern — no leak, count=3
+- Step 2: Project skills installed at flat paths with divergent meta.Subdir
+- Step 3: First `update --all` — no leak, count=3
+- Step 4: Second `update --all` — count stable at 3 (no doubling)
+- Step 5: Third `update --all` — still stable
+- Step 6: Skills actually updated to v2, no leaks
+- Step 7: Global mode same pattern — no leak, count stable

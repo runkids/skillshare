@@ -18,6 +18,7 @@ func main() {
 		dryRun       bool
 		timeout      time.Duration
 		noTUI        bool
+		cliBuild     string
 		cliSetup     string
 		cliTeardown  string
 	)
@@ -26,6 +27,7 @@ func main() {
 	flag.BoolVar(&dryRun, "dry-run", false, "parse and classify only, don't execute")
 	flag.DurationVar(&timeout, "timeout", 0, "per-step timeout (default: 2m, or from runbook.json)")
 	flag.BoolVar(&noTUI, "no-tui", false, "disable TUI, use plain text output")
+	flag.StringVar(&cliBuild, "build", "", "command to run once before all runbooks")
 	flag.StringVar(&cliSetup, "setup", "", "command to run before each runbook")
 	flag.StringVar(&cliTeardown, "teardown", "", "command to run after each runbook")
 	flag.Parse()
@@ -63,11 +65,24 @@ func main() {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
 	}
-	cfg := mergeConfig(fileCfg, cliSetup, cliTeardown, timeout)
+	cfg := mergeConfig(fileCfg, cliBuild, cliSetup, cliTeardown, timeout)
 
 	effectiveTimeout := cfg.TimeoutDuration()
 	if effectiveTimeout == 0 {
 		effectiveTimeout = 2 * time.Minute
+	}
+
+	// Run build hook once before all runbooks.
+	var buildResult *HookResult
+	if cfg.Build != "" && !dryRun {
+		buildResult = runBuildHook(cfg.Build)
+		if !buildResult.OK {
+			fmt.Fprintf(os.Stderr, "build failed (exit %d), aborting\n", buildResult.ExitCode)
+			if buildResult.Output != "" {
+				fmt.Fprintln(os.Stderr, buildResult.Output)
+			}
+			os.Exit(1)
+		}
 	}
 
 	// Hooks require session executor for env persistence, so disable TUI when active.

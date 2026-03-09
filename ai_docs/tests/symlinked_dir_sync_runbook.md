@@ -90,7 +90,7 @@ ss sync
 
 **Expected:**
 - exit_code: 0
-- synced
+- merged
 
 ## Step 2: Verify symlinks resolve correctly through symlinked source
 
@@ -160,7 +160,7 @@ ss sync
 
 **Expected:**
 - exit_code: 0
-- synced
+- merged
 
 ```bash
 # Verify symlinks were created inside the symlinked target
@@ -209,7 +209,7 @@ ss sync
 
 **Expected:**
 - exit_code: 0
-- synced
+- merged
 
 ```bash
 # Verify files exist at real location
@@ -260,7 +260,7 @@ ss sync
 
 **Expected:**
 - exit_code: 0
-- synced
+- merged
 - Not not a directory
 - Not too many levels of symbolic links
 
@@ -372,7 +372,7 @@ ss list --no-tui
 **Expected:**
 - exit_code: 0
 - REMOVED OK
-- Not beta
+- Not STILL EXISTS
 
 ## Step 15: Uninstall --group through symlinked source
 
@@ -499,12 +499,10 @@ SKILLEOF
 ln -s "$EXTERNAL" "$REAL_SOURCE/evil-group"
 
 # Attempt group uninstall — should fail with containment error
-ss uninstall --group evil-group --force 2>&1
-echo "EXIT=$?"
+ss uninstall --group evil-group --force 2>&1 || true
 
 # Attempt group update — should also fail
-ss update --group evil-group --dry-run 2>&1
-echo "EXIT=$?"
+ss update --group evil-group --dry-run 2>&1 || true
 
 # Verify external directory was NOT touched
 test -f "$EXTERNAL/victim-skill/SKILL.md" && echo "EXTERNAL SAFE" || echo "EXTERNAL DAMAGED"
@@ -528,7 +526,7 @@ ss sync
 
 **Expected:**
 - exit_code: 0
-- synced
+- merged
 
 ```bash
 # Final verification

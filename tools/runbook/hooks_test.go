@@ -120,6 +120,26 @@ func TestRunRunbook_SetupAndTeardown(t *testing.T) {
 	}
 }
 
+func TestRunBuildHook_Success(t *testing.T) {
+	result := runBuildHook("echo building && echo done")
+	if !result.OK {
+		t.Errorf("expected OK, got exit %d", result.ExitCode)
+	}
+	if result.Duration == 0 {
+		t.Error("expected non-zero duration")
+	}
+}
+
+func TestRunBuildHook_Failure(t *testing.T) {
+	result := runBuildHook("exit 42")
+	if result.OK {
+		t.Error("expected failure")
+	}
+	if result.ExitCode != 42 {
+		t.Errorf("exit code = %d, want 42", result.ExitCode)
+	}
+}
+
 func TestRunRunbook_DryRunIgnoresHooks(t *testing.T) {
 	md := `# Test
 ## Steps

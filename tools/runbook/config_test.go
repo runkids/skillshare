@@ -7,6 +7,29 @@ import (
 	"time"
 )
 
+func TestLoadConfig_WithBuild(t *testing.T) {
+	dir := t.TempDir()
+	data := `{"build": "make build", "setup": "echo setup", "timeout": "5m"}`
+	if err := os.WriteFile(filepath.Join(dir, "runbook.json"), []byte(data), 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := loadConfig(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Build != "make build" {
+		t.Errorf("build = %q, want %q", cfg.Build, "make build")
+	}
+}
+
+func TestMergeConfig_CLIBuildOverrides(t *testing.T) {
+	file := RunbookConfig{Build: "file-build"}
+	merged := mergeConfig(file, "cli-build", "", "", 0)
+	if merged.Build != "cli-build" {
+		t.Errorf("build = %q, want %q", merged.Build, "cli-build")
+	}
+}
+
 func TestLoadConfig_FileExists(t *testing.T) {
 	dir := t.TempDir()
 	data := `{"setup": "echo setup", "teardown": "echo teardown", "timeout": "5m"}`
@@ -58,7 +81,7 @@ func TestMergeConfig_CLIOverrides(t *testing.T) {
 		Timeout:  "1m",
 	}
 
-	merged := mergeConfig(file, "cli-setup", "", 0)
+	merged := mergeConfig(file, "", "cli-setup", "", 0)
 	if merged.Setup != "cli-setup" {
 		t.Errorf("setup = %q, want %q", merged.Setup, "cli-setup")
 	}
@@ -69,7 +92,7 @@ func TestMergeConfig_CLIOverrides(t *testing.T) {
 
 func TestMergeConfig_CLITimeoutOverrides(t *testing.T) {
 	file := RunbookConfig{Timeout: "1m"}
-	merged := mergeConfig(file, "", "", 5*time.Minute)
+	merged := mergeConfig(file, "", "", "", 5*time.Minute)
 	if merged.Timeout != "5m0s" {
 		t.Errorf("timeout = %q, want %q", merged.Timeout, "5m0s")
 	}

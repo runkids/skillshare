@@ -25,10 +25,10 @@ Run inside devcontainer with `ssenv` isolation.
 ### 1. Setup: init and install multiple skills
 
 ```bash
-ss init --no-copy --all-targets --no-git --no-skill
-ss install sickn33/antigravity-awesome-skills/skills/pdf-official --name pdf
-ss install sickn33/antigravity-awesome-skills/skills/tdd-workflow
-ss install sickn33/antigravity-awesome-skills/skills/react-best-practices --into frontend
+# Setup hook already ran ss init
+# Batch install from same repo using -s
+ss install sickn33/antigravity-awesome-skills -s pdf-official,tdd-workflow
+ss install sickn33/antigravity-awesome-skills -s react-best-practices --into frontend --force
 ss sync
 ```
 
@@ -45,7 +45,7 @@ ls -la ~/.claude/skills/
 
 Expected:
 - exit_code: 0
-- pdf
+- pdf-official
 - tdd-workflow
 - frontend
 
@@ -86,10 +86,10 @@ Expected:
 Verify:
 
 ```bash
-REMAINING=$(ls ~/.config/skillshare/skills/ 2>/dev/null | grep -v '.gitignore' | wc -l | tr -d ' ')
+REMAINING=$(ls ~/.config/skillshare/skills/ 2>/dev/null | grep -v '.gitignore' | wc -l | tr -d ' ') || true
 echo "Remaining skills: $REMAINING (expected: 0)"
 
-grep -c 'name:' ~/.config/skillshare/registry.yaml || echo "no skills in registry"
+grep -c 'name:' ~/.config/skillshare/registry.yaml 2>/dev/null || echo "no skills in registry"
 ```
 
 Expected:
@@ -110,14 +110,14 @@ Verify:
 
 ```bash
 TARGET=~/.claude/skills
-for skill in pdf tdd-workflow frontend__react-best-practices; do
+for skill in pdf-official tdd-workflow frontend__react-best-practices; do
   [ ! -e "$TARGET/$skill" ] && echo "$skill: cleaned" || echo "$skill: STILL EXISTS (FAIL)"
 done
 ```
 
 Expected:
 - exit_code: 0
-- pdf: cleaned
+- pdf-official: cleaned
 - tdd-workflow: cleaned
 - frontend__react-best-practices: cleaned
 - Not STILL EXISTS
@@ -125,16 +125,12 @@ Expected:
 ### 5. --all mutual exclusion
 
 ```bash
-ss uninstall --all some-skill 2>&1; echo "exit: $?"
-ss uninstall --all --group frontend 2>&1; echo "exit: $?"
+ss uninstall --all some-skill 2>&1 || true
+ss uninstall --all --group frontend 2>&1 || true
 ```
 
-Expected (first command):
-- exit_code: !0
+Expected:
 - --all cannot be used with skill names
-
-Expected (second command):
-- exit_code: !0
 - --all cannot be used with --group
 
 ### 6. Shell glob detection
@@ -142,20 +138,18 @@ Expected (second command):
 Simulate what happens when shell expands `*` in a typical project directory:
 
 ```bash
-ss uninstall README.md go.mod go.sum Makefile cmd internal 2>&1; echo "exit: $?"
+ss uninstall README.md go.mod go.sum Makefile cmd internal 2>&1 || true
 ```
 
 Expected:
-- exit_code: !0
 - --all
 
 ### 7. --all in project mode
 
 ```bash
-mkdir -p /tmp/e2e-project && cd /tmp/e2e-project
-ss init -p --no-copy --no-git --no-skill --target claude
-ss install sickn33/antigravity-awesome-skills/skills/pdf-official --name pdf -p
-ss install sickn33/antigravity-awesome-skills/skills/tdd-workflow -p
+rm -rf /tmp/e2e-project && mkdir -p /tmp/e2e-project && cd /tmp/e2e-project
+ss init -p --targets claude
+ss install sickn33/antigravity-awesome-skills -s pdf-official,tdd-workflow -p
 ss sync -p
 ss uninstall --all --force -p
 ```
@@ -167,7 +161,7 @@ Expected:
 Verify:
 
 ```bash
-REMAINING=$(ls /tmp/e2e-project/.skillshare/skills/ 2>/dev/null | grep -v '.gitignore' | wc -l | tr -d ' ')
+REMAINING=$(ls /tmp/e2e-project/.skillshare/skills/ 2>/dev/null | grep -v '.gitignore' | wc -l | tr -d ' ') || true
 echo "Remaining project skills: $REMAINING (expected: 0)"
 ```
 

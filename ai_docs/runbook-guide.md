@@ -35,6 +35,7 @@ bin/runbook --dry-run --report json ai_docs/tests/  # dry-run only on host
 | `--report json` | Output a JSON report |
 | `--no-tui` | Disable interactive TUI; use plain text output |
 | `--timeout 5m` | Per-step timeout (default: 2m, or from runbook.json) |
+| `--build "cmd"` | Command to run once before all runbooks |
 | `--setup "cmd"` | Command to run before each runbook |
 | `--teardown "cmd"` | Command to run after each runbook |
 
@@ -48,6 +49,7 @@ Place a `runbook.json` in the runbook directory for persistent defaults:
 
 ```json
 {
+  "build": "cd /workspace && make build && go build -o /usr/local/bin/runbook ./tools/runbook/",
   "setup": "ss init -g --no-copy --all-targets --no-git --no-skill --force",
   "teardown": "ss uninstall --all --force 2>/dev/null || true",
   "timeout": "5m"
@@ -70,10 +72,13 @@ runbook --setup "echo custom-init" ai_docs/tests/my_runbook.md
 
 ### Behavior
 
+- **Build**: Runs once before all runbooks (not per-runbook). Uses `os/exec` directly. If build fails, the runner exits immediately — no runbooks are executed.
 - **Setup**: Runs before each runbook as a synthetic step. Environment variables set in setup persist to all runbook steps (same session executor). If setup fails, all runbook steps are skipped.
 - **Teardown**: Runs after each runbook. Teardown failure is logged but does not affect the runbook's pass/fail result.
 - **Dry-run**: Hooks are ignored in `--dry-run` mode.
 - Setup and teardown are not included in the step count or report steps.
+
+Lifecycle: `build (once) → [per runbook: setup → steps → teardown]`
 
 ## Safety Mechanism
 

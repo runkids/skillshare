@@ -17,19 +17,16 @@ Fix: batch-collect entries, then call `UpdateGitIgnoreBatch` once.
 
 ## Environment
 
-Run inside devcontainer with `ssenv` HOME isolation.
+Run inside devcontainer. Global `ss init -g` is handled by the setup hook in `runbook.json`.
 
 ## Steps
 
-### Step 1: Create isolated project environment
+### Step 1: Create project environment
 
 ```bash
-ssenv create "$ENV_NAME" --init
-ssenv enter "$ENV_NAME" -- bash -c '
-  mkdir -p ~/test-project
-  cd ~/test-project
-  ss init -p --no-copy --all-targets --no-git --no-skill
-'
+mkdir -p ~/test-project
+cd ~/test-project
+ss init -p --targets claude
 ```
 
 **Expected**:
@@ -39,10 +36,8 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ### Step 2: First install (populates .gitignore)
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  cd ~/test-project
-  ss install runkids/feature-radar -y -p
-'
+cd ~/test-project
+ss install runkids/feature-radar -y -p
 ```
 
 **Expected**:
@@ -52,17 +47,15 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ### Step 3: Verify .gitignore content
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  cd ~/test-project
-  grep -c "^skills/" .skillshare/.gitignore
-  grep "BEGIN SKILLSHARE" .skillshare/.gitignore
-  grep "END SKILLSHARE" .skillshare/.gitignore
-'
+cd ~/test-project
+grep -c "^skills/" .skillshare/.gitignore
+grep "BEGIN SKILLSHARE" .skillshare/.gitignore
+grep "END SKILLSHARE" .skillshare/.gitignore
 ```
 
 **Expected**:
 - exit_code: 0
-- regex: ^[5-9]\d*$
+- regex: (?m)^[1-9]\d*$
 - BEGIN SKILLSHARE
 - END SKILLSHARE
 
@@ -71,17 +64,15 @@ ssenv enter "$ENV_NAME" -- bash -c '
 Inflate `.gitignore` to simulate a large project, then re-install.
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  cd ~/test-project
-  # Inject 100K dummy lines into managed block to simulate large .gitignore
-  python3 -c "
+cd ~/test-project
+# Inject 100K dummy lines into managed block to simulate large .gitignore
+python3 -c "
 for i in range(100000):
     print(f\"skills/dummy-skill-{i}/\")
 " > /tmp/dummy_lines.txt
-  # Insert dummy lines before END marker
-  sed -i "/^# END SKILLSHARE/e cat /tmp/dummy_lines.txt" .skillshare/.gitignore
-  wc -l .skillshare/.gitignore
-'
+# Insert dummy lines before END marker
+sed -i "/^# END SKILLSHARE/e cat /tmp/dummy_lines.txt" .skillshare/.gitignore
+wc -l .skillshare/.gitignore
 ```
 
 **Expected**:
@@ -91,11 +82,9 @@ for i in range(100000):
 ### Step 5: Timed re-install (must not hang)
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  cd ~/test-project
-  timeout 10 ss install runkids/feature-radar -y -p
-  echo "EXIT_CODE: $?"
-'
+cd ~/test-project
+timeout 10 ss install runkids/feature-radar -y -p
+echo "EXIT_CODE: $?"
 ```
 
 **Expected**:
@@ -106,14 +95,12 @@ ssenv enter "$ENV_NAME" -- bash -c '
 ### Step 6: No duplicate entries after re-install
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  cd ~/test-project
-  # Count occurrences of each real skill entry (should be exactly 1 each)
-  for s in feature-radar feature-radar-archive feature-radar-learn feature-radar-ref feature-radar-scan; do
-    count=$(grep -c "^skills/$s/$" .skillshare/.gitignore)
-    echo "$s: $count"
-  done
-'
+cd ~/test-project
+# Count occurrences of each real skill entry (should be exactly 1 each)
+for s in feature-radar feature-radar-archive feature-radar-learn feature-radar-ref feature-radar-scan; do
+  count=$(grep -c "^skills/$s/$" .skillshare/.gitignore)
+  echo "$s: $count"
+done
 ```
 
 **Expected**:

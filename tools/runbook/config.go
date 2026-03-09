@@ -12,6 +12,7 @@ const ConfigFileName = "runbook.json"
 
 // RunbookConfig holds lifecycle hooks and defaults for runbook execution.
 type RunbookConfig struct {
+	Build    string `json:"build,omitempty"`    // command to run once before all runbooks
 	Setup    string `json:"setup,omitempty"`    // command to run before each runbook
 	Teardown string `json:"teardown,omitempty"` // command to run after each runbook
 	Timeout  string `json:"timeout,omitempty"`  // per-step timeout (e.g., "5m")
@@ -51,8 +52,11 @@ func loadConfig(dir string) (RunbookConfig, error) {
 
 // mergeConfig applies CLI flag overrides on top of file-based config.
 // CLI flags take precedence when non-empty.
-func mergeConfig(file RunbookConfig, cliSetup, cliTeardown string, cliTimeout time.Duration) RunbookConfig {
+func mergeConfig(file RunbookConfig, cliBuild, cliSetup, cliTeardown string, cliTimeout time.Duration) RunbookConfig {
 	merged := file
+	if cliBuild != "" {
+		merged.Build = cliBuild
+	}
 	if cliSetup != "" {
 		merged.Setup = cliSetup
 	}

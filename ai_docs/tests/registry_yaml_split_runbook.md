@@ -16,25 +16,18 @@ Run inside devcontainer with ssenv isolation.
 
 ## Steps
 
-### Step 1: Fresh init — verify registry.yaml exists
+### Step 1: Verify init — config.yaml has no skills section
 
 ```bash
-ss init --no-copy --all-targets --no-git --no-skill
-```
-
-**Expected:**
-- exit_code: 0
-- Initialized successfully
-
-```bash
+# Setup hook already ran ss init; verify config is clean
 cat ~/.config/skillshare/config.yaml
-cat ~/.config/skillshare/registry.yaml 2>/dev/null || echo "MISSING"
+# registry.yaml may not exist yet (created on first install) — that is OK
+ls ~/.config/skillshare/registry.yaml 2>/dev/null || echo "registry not yet created (expected)"
 ```
 
 **Expected:**
 - exit_code: 0
 - Not skills:
-- Not MISSING
 
 ### Step 2: Install a local skill — verify registry.yaml updated
 
@@ -132,9 +125,6 @@ grep "stale-skill" ~/.config/skillshare/registry.yaml && echo "FAIL: stale leake
 ### Step 5: Uninstall removes from registry.yaml
 
 ```bash
-# Reset clean state
-ss init --no-copy --all-targets --no-git --no-skill --force
-
 mkdir -p /tmp/remove-me
 echo "---
 name: remove-me
@@ -142,7 +132,7 @@ name: remove-me
 # Remove Me" > /tmp/remove-me/SKILL.md
 
 ss install /tmp/remove-me
-ss uninstall remove-me --yes
+ss uninstall remove-me --force
 ```
 
 **Expected:**
@@ -159,8 +149,6 @@ grep "remove-me" ~/.config/skillshare/registry.yaml && echo "FAIL: still present
 ### Step 6: Install with --into records group in registry
 
 ```bash
-ss init --no-copy --all-targets --no-git --no-skill --force
-
 mkdir -p /tmp/grouped-skill
 echo "---
 name: grouped-skill
@@ -190,7 +178,7 @@ grep "group: frontend" ~/.config/skillshare/registry.yaml && echo "PASS" || echo
 ```bash
 mkdir -p /tmp/project-test
 cd /tmp/project-test
-ss init -p --target claude --no-git --no-skill
+ss init -p --targets claude
 
 mkdir -p /tmp/proj-skill
 echo "---

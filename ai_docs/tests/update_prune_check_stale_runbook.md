@@ -20,62 +20,50 @@ and that `skillshare update --prune` removes stale skills (moved to trash).
 
 Run inside devcontainer with `ssenv` HOME isolation.
 Offline test — uses `file://` bare repo, no network required.
+Setup hook handles `ss init -g`.
 
 ## Steps
 
-### 1. Create isolated environment
+### 1. Create bare remote with two skills
 
 ```bash
-ssenv create "$ENV_NAME" --init
-```
+REMOTE=~/remote-multi.git
+WORK=~/work-clone
 
-Expected:
-- exit_code: 0
+git init --bare "$REMOTE"
+git clone "$REMOTE" "$WORK"
+cd "$WORK"
+git config user.email "test@test.com"
+git config user.name "test"
 
-### 2. Create bare remote with two skills
-
-```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  REMOTE=~/remote-multi.git
-  WORK=~/work-clone
-
-  git init --bare "$REMOTE"
-  git clone "$REMOTE" "$WORK"
-  cd "$WORK"
-  git config user.email "test@test.com"
-  git config user.name "test"
-
-  mkdir -p skills/keep-skill skills/doomed-skill
-  echo "---
+mkdir -p skills/keep-skill skills/doomed-skill
+echo "---
 name: keep-skill
 ---
 # Keep Skill v1" > skills/keep-skill/SKILL.md
-  echo "---
+echo "---
 name: doomed-skill
 ---
 # Doomed Skill" > skills/doomed-skill/SKILL.md
 
-  git add -A
-  git commit -m "add two skills"
-  git push origin HEAD
-  echo "=== Remote ready ==="
-'
+git add -A
+git commit -m "add two skills"
+git push origin HEAD
+echo "=== Remote ready ==="
 ```
 
 Expected:
 - exit_code: 0
 - === Remote ready ===
 
-### 3. Install both skills from the bare repo
+### 2. Install both skills from the bare repo
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  REMOTE=~/remote-multi.git
-  ss install "file://$REMOTE//skills/keep-skill" -g --skip-audit
-  ss install "file://$REMOTE//skills/doomed-skill" -g --skip-audit
-  echo "=== Installed ==="
-  ls ~/.config/skillshare/skills/
-'
+REMOTE=~/remote-multi.git
+ss install "file://$REMOTE//skills/keep-skill" -g --skip-audit
+ss install "file://$REMOTE//skills/doomed-skill" -g --skip-audit
+echo "=== Installed ==="
+ls ~/.config/skillshare/skills/
 ```
 
 Expected:
@@ -84,34 +72,30 @@ Expected:
 - keep-skill
 - doomed-skill
 
-### 4. Delete doomed-skill from remote and push update
+### 3. Delete doomed-skill from remote and push update
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  WORK=~/work-clone
-  cd "$WORK"
-  rm -rf skills/doomed-skill
-  echo "---
+WORK=~/work-clone
+cd "$WORK"
+rm -rf skills/doomed-skill
+echo "---
 name: keep-skill
 ---
 # Keep Skill v2 — updated" > skills/keep-skill/SKILL.md
-  git add -A
-  git commit -m "remove doomed-skill, update keep-skill"
-  git push origin HEAD
-  echo "=== Remote updated ==="
-'
+git add -A
+git commit -m "remove doomed-skill, update keep-skill"
+git push origin HEAD
+echo "=== Remote updated ==="
 ```
 
 Expected:
 - exit_code: 0
 - === Remote updated ===
 
-### 5. check --json reports stale status
+### 4. check --json reports stale status
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  ss check --json -g
-'
+ss check --json -g
 ```
 
 Expected:
@@ -119,12 +103,10 @@ Expected:
 - jq: .skills[] | select(.name == "doomed-skill") | .status == "stale"
 - jq: .skills[] | select(.name == "keep-skill") | .status == "update_available"
 
-### 6. check (text) shows stale warning with --prune hint
+### 5. check (text) shows stale warning with --prune hint
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  ss check -g
-'
+ss check -g
 ```
 
 Expected:
@@ -132,12 +114,10 @@ Expected:
 - stale
 - --prune
 
-### 7. update --all without --prune shows stale warning
+### 6. update --all without --prune shows stale warning
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  ss update --all -g --skip-audit
-'
+ss update --all -g --skip-audit
 ```
 
 Expected:
@@ -146,12 +126,10 @@ Expected:
 - --prune
 - doomed-skill
 
-### 8. update --all --prune removes stale skill
+### 7. update --all --prune removes stale skill
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  ss update --all -g --prune --skip-audit
-'
+ss update --all -g --prune --skip-audit
 ```
 
 Expected:
@@ -159,24 +137,20 @@ Expected:
 - regex: [Pp]runed
 - doomed-skill
 
-### 9. Verify stale skill moved to trash
+### 8. Verify stale skill moved to trash
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  ss trash list -g
-'
+ss trash list -g
 ```
 
 Expected:
 - exit_code: 0
 - doomed-skill
 
-### 10. Verify registry cleaned up
+### 9. Verify registry cleaned up
 
 ```bash
-ssenv enter "$ENV_NAME" -- bash -c '
-  cat ~/.config/skillshare/registry.yaml
-'
+cat ~/.config/skillshare/registry.yaml
 ```
 
 Expected:
@@ -186,9 +160,9 @@ Expected:
 
 ## Pass Criteria
 
-- Step 5: `check --json` shows `stale` for deleted skill
-- Step 6: Text output includes stale warning + `--prune` hint
-- Step 7: Without `--prune`, stale skill survives + warning shown
-- Step 8: With `--prune`, stale skill removed
-- Step 9: Stale skill in trash (not permanently deleted)
-- Step 10: Registry cleaned of pruned skill
+- Step 4: `check --json` shows `stale` for deleted skill
+- Step 5: Text output includes stale warning + `--prune` hint
+- Step 6: Without `--prune`, stale skill survives + warning shown
+- Step 7: With `--prune`, stale skill removed
+- Step 8: Stale skill in trash (not permanently deleted)
+- Step 9: Registry cleaned of pruned skill
