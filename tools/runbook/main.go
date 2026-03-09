@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,7 +31,30 @@ func main() {
 	flag.StringVar(&cliBuild, "build", "", "command to run once before all runbooks")
 	flag.StringVar(&cliSetup, "setup", "", "command to run before each runbook")
 	flag.StringVar(&cliTeardown, "teardown", "", "command to run after each runbook")
+
+	var stepsFlag string
+	var fromFlag int
+	flag.StringVar(&stepsFlag, "steps", "", "only run specific steps (comma-separated: 1,3,5)")
+	flag.IntVar(&fromFlag, "from", 0, "run from step N onwards")
 	flag.Parse()
+
+	// Parse and validate step filter flags.
+	var stepNums []int
+	if stepsFlag != "" {
+		if fromFlag > 0 {
+			fmt.Fprintln(os.Stderr, "error: --steps and --from are mutually exclusive")
+			os.Exit(1)
+		}
+		for _, s := range strings.Split(stepsFlag, ",") {
+			s = strings.TrimSpace(s)
+			n, err := strconv.Atoi(s)
+			if err != nil || n < 1 {
+				fmt.Fprintf(os.Stderr, "error: invalid step number %q\n", s)
+				os.Exit(1)
+			}
+			stepNums = append(stepNums, n)
+		}
+	}
 
 	args := flag.Args()
 	if len(args) == 0 {
@@ -96,10 +120,11 @@ func main() {
 		var report Report
 		var runErr error
 
+		stepFilter := RunOptions{Steps: stepNums, From: fromFlag}
 		if useTUI && len(files) == 1 {
-			report, runErr = runWithTUI(file, name, effectiveTimeout)
+			report, runErr = runWithTUI(file, name, effectiveTimeout, stepFilter)
 		} else {
-			report, runErr = runPlain(file, name, dryRun, effectiveTimeout, cfg)
+			report, runErr = runPlain(file, name, dryRun, effectiveTimeout, cfg, stepFilter)
 		}
 
 		if runErr != nil {
@@ -132,7 +157,7 @@ func main() {
 }
 
 // runPlain runs a runbook without TUI.
-func runPlain(path, name string, dryRun bool, timeout time.Duration, cfg RunbookConfig) (Report, error) {
+func runPlain(path, name string, dryRun bool, timeout time.Duration, cfg RunbookConfig, filter RunOptions) (Report, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return Report{}, err
@@ -144,11 +169,13 @@ func runPlain(path, name string, dryRun bool, timeout time.Duration, cfg Runbook
 		Timeout:  timeout,
 		Setup:    cfg.Setup,
 		Teardown: cfg.Teardown,
+		Steps:    filter.Steps,
+		From:     filter.From,
 	})
 }
 
 // runWithTUI runs a runbook with bubbletea TUI.
-func runWithTUI(path, name string, timeout time.Duration) (Report, error) {
+func runWithTUI(path, name string, timeout time.Duration, filter RunOptions) (Report, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return Report{}, err
@@ -161,6 +188,13 @@ func runWithTUI(path, name string, timeout time.Duration) (Report, error) {
 	}
 
 	steps := ClassifyAll(rb.Steps)
+
+	// Apply step filter: mark filtered-out auto steps as manual so they get skipped.
+	for i, s := range steps {
+		if s.Executor == ExecutorAuto && !filter.shouldRun(s.Number) {
+			steps[i].Executor = ExecutorManual
+		}
+	}
 
 	// Separate auto and manual steps.
 	var autoSteps []Step

@@ -142,6 +142,123 @@ echo "apple orange"
 	}
 }
 
+func TestShouldRun_NoFilter(t *testing.T) {
+	opts := RunOptions{}
+	for _, n := range []int{1, 2, 3, 10} {
+		if !opts.shouldRun(n) {
+			t.Errorf("shouldRun(%d) = false, want true (no filter)", n)
+		}
+	}
+}
+
+func TestShouldRun_StepsFilter(t *testing.T) {
+	opts := RunOptions{Steps: []int{1, 3}}
+	cases := []struct {
+		step int
+		want bool
+	}{
+		{1, true}, {2, false}, {3, true}, {4, false},
+	}
+	for _, tc := range cases {
+		if got := opts.shouldRun(tc.step); got != tc.want {
+			t.Errorf("shouldRun(%d) = %v, want %v", tc.step, got, tc.want)
+		}
+	}
+}
+
+func TestShouldRun_FromFilter(t *testing.T) {
+	opts := RunOptions{From: 3}
+	cases := []struct {
+		step int
+		want bool
+	}{
+		{1, false}, {2, false}, {3, true}, {4, true}, {10, true},
+	}
+	for _, tc := range cases {
+		if got := opts.shouldRun(tc.step); got != tc.want {
+			t.Errorf("shouldRun(%d) = %v, want %v", tc.step, got, tc.want)
+		}
+	}
+}
+
+func TestRunRunbook_StepsFilter(t *testing.T) {
+	md := makeRunbook(`### Step 1: First
+
+` + "```bash" + `
+echo one
+` + "```" + `
+
+### Step 2: Second
+
+` + "```bash" + `
+echo two
+` + "```" + `
+
+### Step 3: Third
+
+` + "```bash" + `
+echo three
+` + "```" + `
+`)
+
+	report, err := RunRunbook(strings.NewReader(md), "test", RunOptions{Steps: []int{1, 3}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if report.Summary.Total != 3 {
+		t.Fatalf("expected 3 steps, got %d", report.Summary.Total)
+	}
+	if report.Summary.Passed != 2 {
+		t.Errorf("expected 2 passed, got %d", report.Summary.Passed)
+	}
+	if report.Summary.Skipped != 1 {
+		t.Errorf("expected 1 skipped, got %d", report.Summary.Skipped)
+	}
+	// Step 2 should be skipped.
+	if report.Steps[1].Status != StatusSkipped {
+		t.Errorf("step 2: expected skipped, got %s", report.Steps[1].Status)
+	}
+}
+
+func TestRunRunbook_FromFilter(t *testing.T) {
+	md := makeRunbook(`### Step 1: First
+
+` + "```bash" + `
+echo one
+` + "```" + `
+
+### Step 2: Second
+
+` + "```bash" + `
+echo two
+` + "```" + `
+
+### Step 3: Third
+
+` + "```bash" + `
+echo three
+` + "```" + `
+`)
+
+	report, err := RunRunbook(strings.NewReader(md), "test", RunOptions{From: 2})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if report.Summary.Total != 3 {
+		t.Fatalf("expected 3 steps, got %d", report.Summary.Total)
+	}
+	if report.Summary.Passed != 2 {
+		t.Errorf("expected 2 passed, got %d", report.Summary.Passed)
+	}
+	if report.Summary.Skipped != 1 {
+		t.Errorf("expected 1 skipped, got %d", report.Summary.Skipped)
+	}
+	// Step 1 should be skipped.
+	if report.Steps[0].Status != StatusSkipped {
+		t.Errorf("step 1: expected skipped, got %s", report.Steps[0].Status)
+	}
+}
+
 func TestRunRunbook_JSONOutput(t *testing.T) {
 	md := makeRunbook(`### Step 1: Echo
 

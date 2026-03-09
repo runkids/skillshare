@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"time"
 )
 
@@ -14,6 +15,19 @@ type RunOptions struct {
 	Timeout    time.Duration
 	Setup      string // command to run before the runbook
 	Teardown   string // command to run after the runbook
+	Steps      []int  // only run these step numbers (empty = all)
+	From       int    // run from this step number onwards (0 = disabled)
+}
+
+// shouldRun reports whether stepNum should execute given the filter flags.
+func (o RunOptions) shouldRun(stepNum int) bool {
+	if len(o.Steps) > 0 {
+		return slices.Contains(o.Steps, stepNum)
+	}
+	if o.From > 0 {
+		return stepNum >= o.From
+	}
+	return true
 }
 
 // RunRunbook parses, classifies, executes, and reports a runbook.
@@ -30,6 +44,13 @@ func RunRunbook(r io.Reader, name string, opts RunOptions) (Report, error) {
 	}
 
 	steps := ClassifyAll(rb.Steps)
+
+	// Apply step filter: mark filtered-out auto steps as manual so they get skipped.
+	for i, s := range steps {
+		if s.Executor == ExecutorAuto && !opts.shouldRun(s.Number) {
+			steps[i].Executor = ExecutorManual
+		}
+	}
 
 	start := time.Now()
 	var results []StepResult
