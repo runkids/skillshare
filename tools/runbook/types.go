@@ -1,0 +1,63 @@
+package main
+
+import "time"
+
+// Step represents a single test step in a runbook.
+type Step struct {
+	Number      int      `json:"number"`
+	Title       string   `json:"title"`
+	Description string   `json:"description,omitempty"`
+	Command     string   `json:"command,omitempty"`
+	Lang        string   `json:"lang,omitempty"`
+	Expected    []string `json:"expected,omitempty"`
+	Executor    string   `json:"executor,omitempty"` // "auto", "ai-delegate", "manual"
+}
+
+// StepResult represents the execution result of a single step.
+type StepResult struct {
+	Step       Step              `json:"step"`
+	Status     string            `json:"status"` // "passed", "failed", "skipped", "running"
+	DurationMs int64             `json:"duration_ms"`
+	Stdout     string            `json:"stdout,omitempty"`
+	Stderr     string            `json:"stderr,omitempty"`
+	ExitCode   int               `json:"exit_code"`
+	Assertions []AssertionResult `json:"assertions,omitempty"`
+	Error      string            `json:"error,omitempty"`
+}
+
+// AssertionResult represents the result of a single assertion check.
+type AssertionResult struct {
+	Pattern string `json:"pattern"`
+	Matched bool   `json:"matched"`
+	Negated bool   `json:"negated,omitempty"`
+}
+
+// Report represents the full execution report for a runbook.
+type Report struct {
+	Version     string            `json:"version"`
+	Runbook     string            `json:"runbook"`
+	Environment map[string]string `json:"environment,omitempty"`
+	DurationMs  int64             `json:"duration_ms"`
+	Summary     Summary           `json:"summary"`
+	Steps       []StepResult      `json:"steps"`
+}
+
+// Summary represents execution summary counts.
+type Summary struct {
+	Total   int `json:"total"`
+	Passed  int `json:"passed"`
+	Failed  int `json:"failed"`
+	Skipped int `json:"skipped"`
+}
+
+// RunbookMeta represents metadata extracted from runbook headings.
+type RunbookMeta struct {
+	Title string
+	Scope string
+	Env   string
+}
+
+// msDuration converts time.Duration to milliseconds.
+func msDuration(d time.Duration) int64 {
+	return d.Milliseconds()
+}
