@@ -25,11 +25,21 @@ type StepResult struct {
 	Error      string            `json:"error,omitempty"`
 }
 
+// Assertion type constants.
+const (
+	AssertSubstring = "substring"
+	AssertExitCode  = "exit_code"
+	AssertRegex     = "regex"
+	AssertJQ        = "jq"
+)
+
 // AssertionResult represents the result of a single assertion check.
 type AssertionResult struct {
 	Pattern string `json:"pattern"`
+	Type    string `json:"type,omitempty"` // "substring", "exit_code", "regex", "jq"
 	Matched bool   `json:"matched"`
 	Negated bool   `json:"negated,omitempty"`
+	Detail  string `json:"detail,omitempty"` // extra info on failure (e.g., "got exit_code=1")
 }
 
 // Report represents the full execution report for a runbook.

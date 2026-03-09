@@ -56,12 +56,18 @@ func stepFailReason(r StepResult) string {
 }
 
 // checkAssertions runs assertion matching on a step result.
+// If assertions are defined, they always run (regardless of exit code)
+// and determine the final pass/fail status. If no assertions are defined,
+// exit code alone determines the result (0=pass, non-zero=fail).
 func checkAssertions(result *StepResult, step Step) {
-	if result.ExitCode == 0 && len(step.Expected) > 0 {
-		combined := result.Stdout + "\n" + result.Stderr
-		result.Assertions = MatchAssertions(combined, step.Expected)
-		if !AllPassed(result.Assertions) {
-			result.Status = StatusFailed
-		}
+	if len(step.Expected) == 0 {
+		return
+	}
+
+	result.Assertions = RunAssertions(result, step.Expected)
+	if AllPassed(result.Assertions) {
+		result.Status = StatusPassed
+	} else {
+		result.Status = StatusFailed
 	}
 }
