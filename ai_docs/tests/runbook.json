@@ -1,5 +1,5 @@
 {
-  "build": "cd /workspace && make build && go build -o /usr/local/bin/runbook ./tools/runbook/",
+  "build": "cd /workspace && make build && /workspace/.devcontainer/ensure-mdproof.sh",
   "setup": "ss init -g --no-copy --all-targets --no-git --no-skill --force 2>/dev/null || ss init -g --discover --all-targets 2>/dev/null || true",
   "teardown": "ss uninstall --all --force 2>/dev/null || true",
   "timeout": "5m"

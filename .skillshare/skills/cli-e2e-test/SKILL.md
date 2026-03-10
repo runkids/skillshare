@@ -32,17 +32,17 @@ Run isolated E2E tests in devcontainer. $ARGUMENTS specifies runbook name or "ne
      '/workspace/.devcontainer/ensure-skillshare-linux-binary.sh && ss version'
    ```
 
-3. Build runbook CLI for Linux inside the container:
+3. Confirm mdproof is installed:
    ```bash
-   docker exec $CONTAINER bash -c 'cd /workspace && go build -o bin/runbook ./tools/runbook'
+   docker exec $CONTAINER /workspace/.devcontainer/ensure-mdproof.sh
    ```
-   **Warning**: This overwrites `bin/runbook` on the host (workspace is mounted). The binary is now Linux ELF — **do NOT run `bin/runbook` directly on the host** after this step. All subsequent runbook commands must go through `docker exec`.
+   This auto-installs from GitHub release, or falls back to `/workspace/bin/mdproof` (local dev binary).
 
 ### Phase 1: Detect Scope
 
-1. Preview all available runbooks via the container (the binary is Linux ELF after Phase 0):
+1. Preview all available runbooks via the container:
    ```bash
-   docker exec $CONTAINER /workspace/bin/runbook --dry-run --report json /workspace/ai_docs/tests/
+   docker exec $CONTAINER mdproof --dry-run --report json /workspace/ai_docs/tests/
    ```
    This returns JSON with every runbook's steps, commands, and expected assertions — no manual markdown parsing needed. Use this to understand what each runbook covers.
 
@@ -72,14 +72,14 @@ Prompt user (via AskUserQuestion):
    docker exec $CONTAINER ssenv create "$ENV_NAME" --init
    ```
 
-2. Execute the entire runbook via the runbook CLI inside the container:
+2. Execute the entire runbook via mdproof inside the container:
    ```bash
    docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
      ssenv enter "$ENV_NAME" -- \
-     /workspace/bin/runbook --report json --no-tui \
+     mdproof --report json \
      /workspace/ai_docs/tests/<runbook_file>.md
    ```
-   The runbook CLI executes each step (`bash -c <command>`) in the ssenv-isolated HOME, then returns structured JSON:
+   mdproof executes each step (`bash -c <command>`) in the ssenv-isolated HOME, then returns structured JSON:
    ```json
    {
      "version": "1",
@@ -159,7 +159,7 @@ Prompt user (via AskUserQuestion):
 
    Result: {passed}/{total} passed ({skipped} skipped)
    ```
-   All values come directly from the runbook CLI JSON — `summary.passed`, `summary.total`, `steps[].step.title`, `steps[].status`.
+   All values come directly from mdproof's JSON output — `summary.passed`, `summary.total`, `steps[].step.title`, `steps[].status`.
 
 4. If any FAIL → distinguish between runbook bug vs real bug:
    - **Runbook bug**: wrong flag, wrong file path, stale assertion → fix runbook, re-run step

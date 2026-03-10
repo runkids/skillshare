@@ -65,7 +65,7 @@ Verify:
 ```bash
 COUNT=$(ls ~/.config/skillshare/skills/ | grep -c .)
 echo "Skill count: $COUNT"
-test "$COUNT" -ge 3 && echo "PASS" || echo "FAIL"
+test "$COUNT" -ge 3 && echo "PASS" || echo "FAIL: count too low"
 ```
 
 Expected:

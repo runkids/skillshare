@@ -113,14 +113,14 @@ ss status
 - exit_code: 0
 
 ```bash
-grep "real-skill" ~/.config/skillshare/registry.yaml && echo "PASS" || echo "FAIL"
+grep "real-skill" ~/.config/skillshare/registry.yaml && echo "PASS" || echo "FAIL: real-skill missing"
 grep "stale-skill" ~/.config/skillshare/registry.yaml && echo "FAIL: stale leaked" || echo "PASS: no leak"
 ```
 
 **Expected:**
 - PASS
 - PASS: no leak
-- Not FAIL: stale leaked
+- Not FAIL stale leaked
 
 ### Step 5: Uninstall removes from registry.yaml
 
@@ -144,7 +144,7 @@ grep "remove-me" ~/.config/skillshare/registry.yaml && echo "FAIL: still present
 
 **Expected:**
 - PASS: removed
-- Not FAIL: still present
+- Not FAIL still present
 
 ### Step 6: Install with --into records group in registry
 
@@ -164,7 +164,7 @@ ss install /tmp/grouped-skill --into frontend
 
 ```bash
 cat ~/.config/skillshare/registry.yaml
-grep "group: frontend" ~/.config/skillshare/registry.yaml && echo "PASS" || echo "FAIL"
+grep "group: frontend" ~/.config/skillshare/registry.yaml && echo "PASS" || echo "FAIL: group missing"
 ```
 
 **Expected:**
@@ -195,7 +195,7 @@ SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 ss install /tmp/proj-skill -p
 
 ```bash
 cat /tmp/project-test/.skillshare/registry.yaml
-grep -c "skills:" /tmp/project-test/.skillshare/config.yaml && echo "FAIL" || echo "PASS"
+grep -c "skills:" /tmp/project-test/.skillshare/config.yaml && echo "FAIL: config has skills" || echo "PASS"
 ```
 
 **Expected:**
