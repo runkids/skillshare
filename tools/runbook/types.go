@@ -4,13 +4,14 @@ import "time"
 
 // Step represents a single test step in a runbook.
 type Step struct {
-	Number      int      `json:"number"`
-	Title       string   `json:"title"`
-	Description string   `json:"description,omitempty"`
-	Command     string   `json:"command,omitempty"`
-	Lang        string   `json:"lang,omitempty"`
-	Expected    []string `json:"expected,omitempty"`
-	Executor    string   `json:"executor,omitempty"` // "auto", "ai-delegate", "manual"
+	Number      int           `json:"number"`
+	Title       string        `json:"title"`
+	Description string        `json:"description,omitempty"`
+	Command     string        `json:"command,omitempty"`
+	Lang        string        `json:"lang,omitempty"`
+	Expected    []string      `json:"expected,omitempty"`
+	Executor    string        `json:"executor,omitempty"` // "auto", "ai-delegate", "manual"
+	Timeout     time.Duration `json:"timeout,omitempty"`  // per-step timeout override (0 = use global)
 }
 
 // StepResult represents the execution result of a single step.

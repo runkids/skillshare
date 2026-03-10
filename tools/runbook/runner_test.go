@@ -338,6 +338,28 @@ echo "step2"
 	}
 }
 
+func TestRunRunbook_EnvSeeding(t *testing.T) {
+	md := makeRunbook(`### Step 1: Check env
+
+` + "```bash" + `
+echo "MY_VAR=$MY_VAR"
+` + "```" + `
+
+**Expected:**
+- MY_VAR=hello
+`)
+
+	report, err := RunRunbook(strings.NewReader(md), "test", RunOptions{
+		Env: map[string]string{"MY_VAR": "hello"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if report.Steps[0].Status != StatusPassed {
+		t.Errorf("expected passed, got %s (stdout=%q)", report.Steps[0].Status, report.Steps[0].Stdout)
+	}
+}
+
 func TestRunRunbook_JSONOutput(t *testing.T) {
 	md := makeRunbook(`### Step 1: Echo
 

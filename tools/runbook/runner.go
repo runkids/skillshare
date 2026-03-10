@@ -17,7 +17,8 @@ type RunOptions struct {
 	Teardown   string // command to run after the runbook
 	Steps      []int  // only run these step numbers (empty = all)
 	From       int    // run from this step number onwards (0 = disabled)
-	FailFast   bool   // stop after first failed step
+	FailFast   bool              // stop after first failed step
+	Env        map[string]string // environment variables seeded into all steps
 }
 
 // shouldRun reports whether stepNum should execute given the filter flags.
@@ -90,7 +91,7 @@ func RunRunbook(r io.Reader, name string, opts RunOptions) (Report, error) {
 			execSteps = append(execSteps, teardownStep)
 		}
 
-		allResults := ExecuteSession(context.Background(), execSteps, opts.Timeout, opts.FailFast)
+		allResults := ExecuteSession(context.Background(), execSteps, opts.Timeout, opts.FailFast, opts.Env)
 
 		// Extract setup result — if setup failed, mark all runbook steps skipped.
 		if setupIdx >= 0 {

@@ -29,7 +29,7 @@ type indexedStep struct {
 // shell variables across steps via an env file. Each step runs in a subshell
 // with pipefail; an EXIT trap saves exported variables for the next step.
 // The step's exit code is the exit code of the last command in the subshell.
-func ExecuteSession(ctx context.Context, steps []Step, timeout time.Duration, failFast bool) []StepResult {
+func ExecuteSession(ctx context.Context, steps []Step, timeout time.Duration, failFast bool, envVars map[string]string) []StepResult {
 	if timeout == 0 {
 		timeout = 10 * time.Minute
 	}
@@ -75,7 +75,7 @@ func ExecuteSession(ctx context.Context, steps []Step, timeout time.Duration, fa
 	}
 	defer os.RemoveAll(tmpDir)
 
-	script := buildSessionScript(autoSteps, tmpDir, failFast)
+	script := buildSessionScript(autoSteps, tmpDir, failFast, envVars)
 
 	scriptFile := filepath.Join(tmpDir, "session.sh")
 	if err := os.WriteFile(scriptFile, []byte(script), 0700); err != nil {
@@ -128,12 +128,21 @@ func ExecuteSession(ctx context.Context, steps []Step, timeout time.Duration, fa
 // sequentially, emitting markers to stdout for per-step output parsing.
 // When failFast is true, a step failure sets __rb_stop=1 and subsequent steps
 // emit skip markers (exit code -1) without executing.
-func buildSessionScript(steps []indexedStep, tmpDir string, failFast bool) string {
+func buildSessionScript(steps []indexedStep, tmpDir string, failFast bool, envVars map[string]string) string {
 	envFile := filepath.Join(tmpDir, "env")
 
 	var sb strings.Builder
 	sb.WriteString("#!/bin/bash\n")
 	sb.WriteString("set -o pipefail\n\n")
+
+	// Seed environment variables from config.
+	if len(envVars) > 0 {
+		keys := sortedKeys(envVars)
+		for _, k := range keys {
+			fmt.Fprintf(&sb, "export %s=%q\n", k, envVars[k])
+		}
+		sb.WriteByte('\n')
+	}
 
 	// Timing helper: works on Linux (date +%s%N) and macOS (date +%s).
 	sb.WriteString("__rb_now_ms() {\n")
@@ -174,7 +183,21 @@ func buildSessionScript(steps []indexedStep, tmpDir string, failFast bool) strin
 		fmt.Fprintf(&sb, "  [ -f %q ] && source %q\n", envFile, envFile)
 		fmt.Fprintf(&sb, "  __rb_save_env() { export -p > %q 2>/dev/null; }\n", envFile)
 		fmt.Fprintf(&sb, "  trap __rb_save_env EXIT\n")
-		fmt.Fprintf(&sb, "  %s\n", command)
+
+		if as.step.Timeout > 0 {
+			// Per-step timeout: wrap command in `timeout` with heredoc to avoid quoting issues.
+			// Exit code 124 = timeout killed the process.
+			secs := int(as.step.Timeout.Seconds())
+			if secs < 1 {
+				secs = 1
+			}
+			fmt.Fprintf(&sb, "  timeout %d bash <<'__RB_STEP_%d__'\n", secs, n)
+			fmt.Fprintf(&sb, "%s\n", command)
+			fmt.Fprintf(&sb, "__RB_STEP_%d__\n", n)
+		} else {
+			fmt.Fprintf(&sb, "  %s\n", command)
+		}
+
 		fmt.Fprintf(&sb, ") 2>%q\n", errFile)
 
 		fmt.Fprintf(&sb, "__rb_rc=$?\n")

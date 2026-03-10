@@ -197,6 +197,7 @@ func runPlain(path, name string, dryRun bool, timeout time.Duration, cfg Runbook
 		Steps:    filter.Steps,
 		From:     filter.From,
 		FailFast: filter.FailFast,
+		Env:      cfg.Env,
 	})
 }
 

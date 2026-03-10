@@ -11,7 +11,7 @@ func TestExecuteSession_SimpleEcho(t *testing.T) {
 	steps := []Step{
 		{Number: 1, Title: "echo", Command: "echo hello", Executor: ExecutorAuto},
 	}
-	results := ExecuteSession(context.Background(), steps, 30*time.Second, false)
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, nil)
 
 	if results[0].Status != StatusPassed {
 		t.Fatalf("expected passed, got %s (err=%s stderr=%q)", results[0].Status, results[0].Error, results[0].Stderr)
@@ -26,7 +26,7 @@ func TestExecuteSession_VariablePersistence(t *testing.T) {
 		{Number: 1, Title: "set var", Command: "MY_VAR=fromstep1\necho \"set MY_VAR=$MY_VAR\"", Executor: ExecutorAuto},
 		{Number: 2, Title: "read var", Command: "echo \"got MY_VAR=$MY_VAR\"", Executor: ExecutorAuto},
 	}
-	results := ExecuteSession(context.Background(), steps, 30*time.Second, false)
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, nil)
 
 	if results[0].Status != StatusPassed {
 		t.Fatalf("step 1: expected passed, got %s (err=%s stderr=%q)", results[0].Status, results[0].Error, results[0].Stderr)
@@ -44,7 +44,7 @@ func TestExecuteSession_StepFailureContinues(t *testing.T) {
 		{Number: 1, Title: "fail", Command: "echo before_fail && exit 1", Executor: ExecutorAuto},
 		{Number: 2, Title: "still runs", Command: "echo after_fail", Executor: ExecutorAuto},
 	}
-	results := ExecuteSession(context.Background(), steps, 30*time.Second, false)
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, nil)
 
 	if results[0].Status != StatusFailed {
 		t.Fatalf("step 1: expected failed, got %s", results[0].Status)
@@ -65,7 +65,7 @@ func TestExecuteSession_SkipsManual(t *testing.T) {
 		{Number: 1, Title: "auto", Command: "echo ok", Executor: ExecutorAuto},
 		{Number: 2, Title: "manual", Command: "echo skip", Executor: ExecutorManual},
 	}
-	results := ExecuteSession(context.Background(), steps, 30*time.Second, false)
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, nil)
 
 	if results[0].Status != StatusPassed {
 		t.Fatalf("step 1: expected passed, got %s", results[0].Status)
@@ -79,7 +79,7 @@ func TestExecuteSession_CapturesStderr(t *testing.T) {
 	steps := []Step{
 		{Number: 1, Title: "stderr", Command: "echo out && echo err >&2", Executor: ExecutorAuto},
 	}
-	results := ExecuteSession(context.Background(), steps, 30*time.Second, false)
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, nil)
 
 	if results[0].Status != StatusPassed {
 		t.Fatalf("expected passed, got %s (err=%s)", results[0].Status, results[0].Error)
@@ -97,7 +97,7 @@ func TestExecuteSession_VariableSurvivedFailedStep(t *testing.T) {
 		{Number: 1, Title: "set and fail", Command: "SURV=yes\necho set_surv\nfalse", Executor: ExecutorAuto},
 		{Number: 2, Title: "check surv", Command: "echo \"SURV=$SURV\"", Executor: ExecutorAuto},
 	}
-	results := ExecuteSession(context.Background(), steps, 30*time.Second, false)
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, nil)
 
 	if results[0].Status != StatusFailed {
 		t.Fatalf("step 1: expected failed, got %s", results[0].Status)
@@ -121,7 +121,7 @@ func TestExecuteSession_Assertions(t *testing.T) {
 			Executor: ExecutorAuto,
 		},
 	}
-	results := ExecuteSession(context.Background(), steps, 30*time.Second, false)
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, nil)
 
 	// Command succeeds but assertion for "cherry" fails.
 	if results[0].Status != StatusFailed {
@@ -139,7 +139,7 @@ func TestExecuteSession_Assertions(t *testing.T) {
 }
 
 func TestExecuteSession_EmptySteps(t *testing.T) {
-	results := ExecuteSession(context.Background(), nil, 30*time.Second, false)
+	results := ExecuteSession(context.Background(), nil, 30*time.Second, false, nil)
 	if len(results) != 0 {
 		t.Fatalf("expected 0 results, got %d", len(results))
 	}
@@ -149,7 +149,7 @@ func TestExecuteSession_MergedCodeBlocks(t *testing.T) {
 	steps := []Step{
 		{Number: 1, Title: "merged", Command: "echo first\n---\necho second", Executor: ExecutorAuto},
 	}
-	results := ExecuteSession(context.Background(), steps, 30*time.Second, false)
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, nil)
 
 	if results[0].Status != StatusPassed {
 		t.Fatalf("expected passed, got %s (err=%s stderr=%q)", results[0].Status, results[0].Error, results[0].Stderr)

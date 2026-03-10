@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseRunbook_BasicTwoStep(t *testing.T) {
@@ -662,6 +663,49 @@ func TestParseRunbook_NoHeredocRegularFenceStillWorks(t *testing.T) {
 	}
 	if rb.Steps[1].Command != "echo world" {
 		t.Errorf("Step 2 command = %q, want %q", rb.Steps[1].Command, "echo world")
+	}
+}
+
+func TestParseRunbook_TimeoutDirective(t *testing.T) {
+	input := "# Timeout Test\n\n" +
+		"### Step 1: Quick step\n\n" +
+		"```bash\necho fast\n```\n\n" +
+		"### Step 2: Slow build (timeout: 10m)\n\n" +
+		"```bash\necho slow\n```\n\n" +
+		"### Step 3: Short timeout (timeout: 30s)\n\n" +
+		"```bash\necho short\n```\n"
+
+	rb, err := ParseRunbook(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("ParseRunbook error: %v", err)
+	}
+
+	if len(rb.Steps) != 3 {
+		t.Fatalf("got %d steps, want 3", len(rb.Steps))
+	}
+
+	// Step 1: no timeout directive.
+	if rb.Steps[0].Timeout != 0 {
+		t.Errorf("step 1: expected no timeout, got %v", rb.Steps[0].Timeout)
+	}
+	if rb.Steps[0].Title != "Quick step" {
+		t.Errorf("step 1: title = %q, want %q", rb.Steps[0].Title, "Quick step")
+	}
+
+	// Step 2: 10m timeout, directive stripped from title.
+	if rb.Steps[1].Timeout != 10*time.Minute {
+		t.Errorf("step 2: expected 10m timeout, got %v", rb.Steps[1].Timeout)
+	}
+	if rb.Steps[1].Title != "Slow build" {
+		t.Errorf("step 2: title = %q, want %q", rb.Steps[1].Title, "Slow build")
+	}
+
+	// Step 3: 30s timeout.
+	if rb.Steps[2].Timeout != 30*time.Second {
+		t.Errorf("step 3: expected 30s timeout, got %v", rb.Steps[2].Timeout)
+	}
+	if rb.Steps[2].Title != "Short timeout" {
+		t.Errorf("step 3: title = %q, want %q", rb.Steps[2].Title, "Short timeout")
 	}
 }
 

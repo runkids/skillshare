@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Runbook is the fully parsed representation of an E2E runbook Markdown file.
@@ -34,6 +35,9 @@ const (
 var stepHeadingRe = regexp.MustCompile(
 	`^#{2,3}\s+(?:Step\s+)?(\d+)[b-z]?[\.:]\s*(?:Step\s+\d+:\s*)?(.+)`,
 )
+
+// directiveTimeoutRe matches (timeout: Xm) or (timeout: Xs) in step titles.
+var directiveTimeoutRe = regexp.MustCompile(`\(timeout:\s*([^)]+)\)`)
 
 // codeFenceOpenRe matches opening code fences like ```bash, ```sh, etc.
 var codeFenceOpenRe = regexp.MustCompile("^```(\\w*)\\s*$")
@@ -199,9 +203,11 @@ func ParseRunbook(r io.Reader) (*Runbook, error) {
 				flushStep()
 				inOptional = false
 				num, _ := strconv.Atoi(sm[1])
+				title, stepTimeout := parseStepDirectives(strings.TrimSpace(sm[2]))
 				currentStep = &Step{
-					Number: num,
-					Title:  strings.TrimSpace(sm[2]),
+					Number:  num,
+					Title:   title,
+					Timeout: stepTimeout,
 				}
 				descLines = nil
 				state = stateInStep
@@ -224,9 +230,11 @@ func ParseRunbook(r io.Reader) (*Runbook, error) {
 			flushMeta()
 			flushStep()
 			num, _ := strconv.Atoi(sm[1])
+			title, stepTimeout := parseStepDirectives(strings.TrimSpace(sm[2]))
 			currentStep = &Step{
-				Number: num,
-				Title:  strings.TrimSpace(sm[2]),
+				Number:  num,
+				Title:   title,
+				Timeout: stepTimeout,
 			}
 			descLines = nil
 			state = stateInStep
@@ -312,6 +320,20 @@ func isExpectedLabel(s string) bool {
 	s = strings.TrimRight(s, ":")
 	s = strings.TrimSpace(s)
 	return strings.EqualFold(s, "expected")
+}
+
+// parseStepDirectives extracts inline directives from a step title.
+// Currently supports: (timeout: 5m), (timeout: 30s).
+// Returns the cleaned title (directive removed) and the parsed timeout.
+func parseStepDirectives(title string) (string, time.Duration) {
+	var timeout time.Duration
+	if m := directiveTimeoutRe.FindStringSubmatch(title); m != nil {
+		if d, err := time.ParseDuration(strings.TrimSpace(m[1])); err == nil {
+			timeout = d
+		}
+		title = strings.TrimSpace(directiveTimeoutRe.ReplaceAllString(title, ""))
+	}
+	return title, timeout
 }
 
 // stripInlineMarkdown removes backticks and bold markers from text.

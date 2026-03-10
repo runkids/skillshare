@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 )
 
@@ -94,3 +95,13 @@ func (c *countFlag) Set(s string) error {
 	return nil
 }
 func (c *countFlag) IsBoolFlag() bool { return true }
+
+// sortedKeys returns map keys in sorted order for deterministic output.
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}

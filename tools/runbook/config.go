@@ -12,10 +12,11 @@ const ConfigFileName = "runbook.json"
 
 // RunbookConfig holds lifecycle hooks and defaults for runbook execution.
 type RunbookConfig struct {
-	Build    string `json:"build,omitempty"`    // command to run once before all runbooks
-	Setup    string `json:"setup,omitempty"`    // command to run before each runbook
-	Teardown string `json:"teardown,omitempty"` // command to run after each runbook
-	Timeout  string `json:"timeout,omitempty"`  // per-step timeout (e.g., "5m")
+	Build    string            `json:"build,omitempty"`    // command to run once before all runbooks
+	Setup    string            `json:"setup,omitempty"`    // command to run before each runbook
+	Teardown string            `json:"teardown,omitempty"` // command to run after each runbook
+	Timeout  string            `json:"timeout,omitempty"`  // per-step timeout (e.g., "5m")
+	Env      map[string]string `json:"env,omitempty"`      // environment variables seeded into all steps
 }
 
 // TimeoutDuration parses the timeout string into a time.Duration.
