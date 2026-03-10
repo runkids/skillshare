@@ -34,10 +34,14 @@ func WriteSingleReport(w io.Writer, r Report, verbosity int) {
 		}
 		fmt.Fprintln(w)
 
-		if s.Status == StatusFailed && verbosity == 0 {
-			reason := stepFailReason(s)
-			if reason != "" {
-				fmt.Fprintf(w, "          └─ %s\n", reason)
+		if verbosity == 0 {
+			if s.Status == StatusFailed {
+				reason := stepFailReason(s)
+				if reason != "" {
+					fmt.Fprintf(w, "          └─ %s\n", reason)
+				}
+			} else if s.Status == StatusSkipped && s.Error != "" && s.Error != "manual step" {
+				fmt.Fprintf(w, "          └─ %s\n", s.Error)
 			}
 		}
 
@@ -113,6 +117,11 @@ func WritePlainSummary(w io.Writer, reports []Report, verbosity int) {
 
 // writeAssertionDetails prints assertion results for a step (-v).
 func writeAssertionDetails(w io.Writer, s StepResult) {
+	// Show skip reason.
+	if s.Status == StatusSkipped && s.Error != "" && s.Error != "manual step" {
+		fmt.Fprintf(w, "          ○ %s\n", s.Error)
+		return
+	}
 	if len(s.Assertions) == 0 && s.Status == StatusFailed {
 		reason := stepFailReason(s)
 		if reason != "" {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -9,28 +8,24 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
 	var (
-		reportFmt    string
-		dryRun       bool
-		timeout      time.Duration
-		noTUI        bool
-		cliBuild     string
-		cliSetup     string
-		cliTeardown  string
-		failFast     bool
-		outputFile   string
-		verbose      countFlag
+		reportFmt   string
+		dryRun      bool
+		timeout     time.Duration
+		cliBuild    string
+		cliSetup    string
+		cliTeardown string
+		failFast    bool
+		outputFile  string
+		verbose     countFlag
 	)
 
 	flag.StringVar(&reportFmt, "report", "", "output format: json")
 	flag.BoolVar(&dryRun, "dry-run", false, "parse and classify only, don't execute")
 	flag.DurationVar(&timeout, "timeout", 0, "per-step timeout (default: 2m, or from runbook.json)")
-	flag.BoolVar(&noTUI, "no-tui", false, "disable TUI, use plain text output")
 	flag.StringVar(&cliBuild, "build", "", "command to run once before all runbooks")
 	flag.StringVar(&cliSetup, "setup", "", "command to run before each runbook")
 	flag.StringVar(&cliTeardown, "teardown", "", "command to run after each runbook")
@@ -106,9 +101,8 @@ func main() {
 	}
 
 	// Run build hook once before all runbooks.
-	var buildResult *HookResult
 	if cfg.Build != "" && !dryRun {
-		buildResult = runBuildHook(cfg.Build)
+		buildResult := runBuildHook(cfg.Build)
 		if !buildResult.OK {
 			fmt.Fprintf(os.Stderr, "build failed (exit %d), aborting\n", buildResult.ExitCode)
 			if buildResult.Output != "" {
@@ -118,23 +112,17 @@ func main() {
 		}
 	}
 
-	// Hooks require session executor for env persistence, so disable TUI when active.
-	hasHooks := cfg.Setup != "" || cfg.Teardown != ""
-	useTUI := !noTUI && !dryRun && reportFmt == "" && !hasHooks
 	exitCode := 0
 	var reports []Report
 
 	for _, file := range files {
 		name := filepath.Base(file)
-		var report Report
-		var runErr error
 
-		stepFilter := RunOptions{Steps: stepNums, From: fromFlag, FailFast: failFast}
-		if useTUI && len(files) == 1 {
-			report, runErr = runWithTUI(file, name, effectiveTimeout, stepFilter)
-		} else {
-			report, runErr = runPlain(file, name, dryRun, effectiveTimeout, cfg, stepFilter)
-		}
+		report, runErr := runPlain(file, name, dryRun, effectiveTimeout, cfg, RunOptions{
+			Steps:    stepNums,
+			From:     fromFlag,
+			FailFast: failFast,
+		})
 
 		if runErr != nil {
 			fmt.Fprintf(os.Stderr, "error running %s: %v\n", file, runErr)
@@ -153,12 +141,12 @@ func main() {
 		}
 	}
 
-	// Print summary for non-JSON, non-TUI modes.
+	// Print summary.
 	if reportFmt != "json" {
 		verbosity := int(verbose)
 		if len(reports) > 1 {
 			WritePlainSummary(os.Stdout, reports, verbosity)
-		} else if len(reports) == 1 && !useTUI {
+		} else if len(reports) == 1 {
 			WriteSingleReport(os.Stdout, reports[0], verbosity)
 		}
 	}
@@ -181,7 +169,7 @@ func main() {
 	os.Exit(exitCode)
 }
 
-// runPlain runs a runbook without TUI.
+// runPlain runs a runbook with plain text output.
 func runPlain(path, name string, dryRun bool, timeout time.Duration, cfg RunbookConfig, filter RunOptions) (Report, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -199,78 +187,6 @@ func runPlain(path, name string, dryRun bool, timeout time.Duration, cfg Runbook
 		FailFast: filter.FailFast,
 		Env:      cfg.Env,
 	})
-}
-
-// runWithTUI runs a runbook with bubbletea TUI.
-func runWithTUI(path, name string, timeout time.Duration, filter RunOptions) (Report, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return Report{}, err
-	}
-	defer f.Close()
-
-	rb, err := ParseRunbook(f)
-	if err != nil {
-		return Report{}, err
-	}
-
-	steps := ClassifyAll(rb.Steps)
-
-	// Apply step filter: mark filtered-out auto steps as manual so they get skipped.
-	for i, s := range steps {
-		if s.Executor == ExecutorAuto && !filter.shouldRun(s.Number) {
-			steps[i].Executor = ExecutorManual
-		}
-	}
-
-	// Separate auto and manual steps.
-	var autoSteps []Step
-	var skippedResults []StepResult
-	for _, s := range steps {
-		if s.Executor == ExecutorAuto {
-			autoSteps = append(autoSteps, s)
-		} else {
-			skippedResults = append(skippedResults, StepResult{
-				Step:   s,
-				Status: StatusSkipped,
-				Error:  "manual step",
-			})
-		}
-	}
-
-	if timeout == 0 {
-		timeout = 2 * time.Minute
-	}
-
-	start := time.Now()
-
-	execFn := func(s Step) StepResult {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		result := Execute(ctx, s)
-		checkAssertions(&result, s)
-		return result
-	}
-
-	model := newTUIModel(name, autoSteps, execFn)
-	p := tea.NewProgram(model)
-	finalModel, err := p.Run()
-	if err != nil {
-		return Report{}, err
-	}
-
-	m := finalModel.(tuiModel)
-	allResults := append(m.results, skippedResults...)
-
-	report := Report{
-		Version:    "1",
-		Runbook:    name,
-		DurationMs: msDuration(time.Since(start)),
-		Steps:      allResults,
-		Summary:    computeSummary(allResults),
-	}
-
-	return report, nil
 }
 
 // resolveFiles finds runbook files from a path (file or directory).

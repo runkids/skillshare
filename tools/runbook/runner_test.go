@@ -360,6 +360,124 @@ echo "MY_VAR=$MY_VAR"
 	}
 }
 
+func TestRunRunbook_DependsOn(t *testing.T) {
+	md := makeRunbook(`### Step 1: Fail
+
+` + "```bash" + `
+echo "step1" && exit 1
+` + "```" + `
+
+### Step 2: Depends on step 1
+
+<!-- runbook: depends=1 -->
+
+` + "```bash" + `
+echo "step2"
+` + "```" + `
+
+### Step 3: Independent
+
+` + "```bash" + `
+echo "step3"
+` + "```" + `
+`)
+
+	report, err := RunRunbook(strings.NewReader(md), "test", RunOptions{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if report.Summary.Total != 3 {
+		t.Fatalf("expected 3 steps, got %d", report.Summary.Total)
+	}
+	// Step 1: fails.
+	if report.Steps[0].Status != StatusFailed {
+		t.Errorf("step 1: expected failed, got %s", report.Steps[0].Status)
+	}
+	// Step 2: skipped because depends on step 1.
+	if report.Steps[1].Status != StatusSkipped {
+		t.Errorf("step 2: expected skipped (depends), got %s", report.Steps[1].Status)
+	}
+	if !strings.Contains(report.Steps[1].Error, "depends") {
+		t.Errorf("step 2 error should mention depends, got: %q", report.Steps[1].Error)
+	}
+	// Step 3: independent, should pass.
+	if report.Steps[2].Status != StatusPassed {
+		t.Errorf("step 3: expected passed (independent), got %s", report.Steps[2].Status)
+	}
+}
+
+func TestRunRunbook_Retry(t *testing.T) {
+	// Step uses a counter file to fail on first attempt and pass on second.
+	md := makeRunbook(`### Step 1: Retry step
+
+<!-- runbook: retry=2 -->
+
+` + "```bash" + `
+F="/tmp/runbook_retry_test_$$"
+if [ -f "$F" ]; then
+  echo "passed"
+  rm -f "$F"
+else
+  touch "$F"
+  echo "failed" && exit 1
+fi
+` + "```" + `
+
+**Expected:**
+- passed
+`)
+
+	report, err := RunRunbook(strings.NewReader(md), "test", RunOptions{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if report.Steps[0].Status != StatusPassed {
+		t.Errorf("expected passed after retry, got %s (stdout=%q, stderr=%q)",
+			report.Steps[0].Status, report.Steps[0].Stdout, report.Steps[0].Stderr)
+	}
+}
+
+func TestRunRunbook_DependsOnWithFailFast(t *testing.T) {
+	// Ensure depends-skip doesn't cascade via fail-fast.
+	md := makeRunbook(`### Step 1: Fail
+
+` + "```bash" + `
+echo "step1" && exit 1
+` + "```" + `
+
+### Step 2: Depends on step 1
+
+<!-- runbook: depends=1 -->
+
+` + "```bash" + `
+echo "step2"
+` + "```" + `
+
+### Step 3: Independent
+
+` + "```bash" + `
+echo "step3"
+` + "```" + `
+`)
+
+	report, err := RunRunbook(strings.NewReader(md), "test", RunOptions{FailFast: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// Step 1 fails → fail-fast triggers.
+	if report.Steps[0].Status != StatusFailed {
+		t.Errorf("step 1: expected failed, got %s", report.Steps[0].Status)
+	}
+	// Step 2: skipped (fail-fast, since step 1 already failed).
+	if report.Steps[1].Status != StatusSkipped {
+		t.Errorf("step 2: expected skipped, got %s", report.Steps[1].Status)
+	}
+	// Step 3: also skipped via fail-fast.
+	if report.Steps[2].Status != StatusSkipped {
+		t.Errorf("step 3: expected skipped, got %s", report.Steps[2].Status)
+	}
+}
+
 func TestRunRunbook_JSONOutput(t *testing.T) {
 	md := makeRunbook(`### Step 1: Echo
 

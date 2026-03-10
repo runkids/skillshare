@@ -158,3 +158,117 @@ func TestExecuteSession_MergedCodeBlocks(t *testing.T) {
 		t.Fatalf("expected both 'first' and 'second', got %q", results[0].Stdout)
 	}
 }
+
+func TestExecuteSession_FailFast(t *testing.T) {
+	steps := []Step{
+		{Number: 1, Title: "fail", Command: "echo step1 && exit 1", Executor: ExecutorAuto},
+		{Number: 2, Title: "skip", Command: "echo step2", Executor: ExecutorAuto},
+		{Number: 3, Title: "skip", Command: "echo step3", Executor: ExecutorAuto},
+	}
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, true, nil)
+
+	if results[0].Status != StatusFailed {
+		t.Errorf("step 1: expected failed, got %s", results[0].Status)
+	}
+	if results[1].Status != StatusSkipped {
+		t.Errorf("step 2: expected skipped, got %s", results[1].Status)
+	}
+	if results[2].Status != StatusSkipped {
+		t.Errorf("step 3: expected skipped, got %s", results[2].Status)
+	}
+}
+
+func TestExecuteSession_EnvSeeding(t *testing.T) {
+	steps := []Step{
+		{Number: 1, Title: "check env", Command: "echo MY_VAR=$MY_VAR", Executor: ExecutorAuto},
+	}
+	env := map[string]string{"MY_VAR": "seeded"}
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, env)
+
+	if results[0].Status != StatusPassed {
+		t.Fatalf("expected passed, got %s (err=%s)", results[0].Status, results[0].Error)
+	}
+	if !strings.Contains(results[0].Stdout, "MY_VAR=seeded") {
+		t.Errorf("expected MY_VAR=seeded, got %q", results[0].Stdout)
+	}
+}
+
+func TestExecuteSession_Retry(t *testing.T) {
+	// Uses a temp file as counter: first attempt creates file + fails,
+	// second attempt sees file + passes.
+	steps := []Step{
+		{
+			Number:  1,
+			Title:   "retry step",
+			Command: "F=/tmp/rb_test_retry_$$\nif [ -f \"$F\" ]; then\n  echo passed\n  rm -f \"$F\"\nelse\n  touch \"$F\"\n  echo failed && exit 1\nfi",
+			Retry:   1,
+			Executor: ExecutorAuto,
+		},
+	}
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, nil)
+
+	if results[0].Status != StatusPassed {
+		t.Errorf("expected passed after retry, got %s (stdout=%q stderr=%q)",
+			results[0].Status, results[0].Stdout, results[0].Stderr)
+	}
+}
+
+func TestExecuteSession_DependsOn(t *testing.T) {
+	steps := []Step{
+		{Number: 1, Title: "fail", Command: "exit 1", Executor: ExecutorAuto},
+		{Number: 2, Title: "depends", Command: "echo should_not_run", DependsOn: 1, Executor: ExecutorAuto},
+		{Number: 3, Title: "independent", Command: "echo ok", Executor: ExecutorAuto},
+	}
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, nil)
+
+	if results[0].Status != StatusFailed {
+		t.Errorf("step 1: expected failed, got %s", results[0].Status)
+	}
+	if results[1].Status != StatusSkipped {
+		t.Errorf("step 2: expected skipped (depends), got %s", results[1].Status)
+	}
+	if !strings.Contains(results[1].Error, "depends") {
+		t.Errorf("step 2 error should mention depends, got: %q", results[1].Error)
+	}
+	if results[2].Status != StatusPassed {
+		t.Errorf("step 3: expected passed, got %s (err=%s)", results[2].Status, results[2].Error)
+	}
+}
+
+func TestExecuteSession_DependsOnPasses(t *testing.T) {
+	steps := []Step{
+		{Number: 1, Title: "pass", Command: "echo ok", Executor: ExecutorAuto},
+		{Number: 2, Title: "depends", Command: "echo depends_ok", DependsOn: 1, Executor: ExecutorAuto},
+	}
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, nil)
+
+	if results[0].Status != StatusPassed {
+		t.Errorf("step 1: expected passed, got %s", results[0].Status)
+	}
+	if results[1].Status != StatusPassed {
+		t.Errorf("step 2: expected passed (depends satisfied), got %s (err=%s)", results[1].Status, results[1].Error)
+	}
+	if !strings.Contains(results[1].Stdout, "depends_ok") {
+		t.Errorf("step 2: expected 'depends_ok', got %q", results[1].Stdout)
+	}
+}
+
+func TestExecuteSession_PerStepTimeout(t *testing.T) {
+	steps := []Step{
+		{
+			Number:   1,
+			Title:    "slow step",
+			Command:  "sleep 10 && echo done",
+			Timeout:  1 * time.Second,
+			Executor: ExecutorAuto,
+		},
+	}
+	results := ExecuteSession(context.Background(), steps, 30*time.Second, false, nil)
+
+	if results[0].Status != StatusFailed {
+		t.Errorf("expected failed (timeout), got %s", results[0].Status)
+	}
+	if results[0].ExitCode == 0 {
+		t.Errorf("expected non-zero exit code from timeout")
+	}
+}

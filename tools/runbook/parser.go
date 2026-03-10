@@ -39,6 +39,9 @@ var stepHeadingRe = regexp.MustCompile(
 // directiveTimeoutRe matches (timeout: Xm) or (timeout: Xs) in step titles.
 var directiveTimeoutRe = regexp.MustCompile(`\(timeout:\s*([^)]+)\)`)
 
+// directiveCommentRe matches HTML comment directives: <!-- runbook: key=value ... -->
+var directiveCommentRe = regexp.MustCompile(`^<!--\s*runbook:\s*(.+?)\s*-->$`)
+
 // codeFenceOpenRe matches opening code fences like ```bash, ```sh, etc.
 var codeFenceOpenRe = regexp.MustCompile("^```(\\w*)\\s*$")
 
@@ -249,6 +252,11 @@ func ParseRunbook(r io.Reader) (*Runbook, error) {
 
 		// --- State: in step ---
 		if state == stateInStep || state == stateInExpected {
+			// Check for directive comment: <!-- runbook: key=value ... -->
+			if currentStep != nil && applyDirectiveComment(currentStep, strings.TrimSpace(line)) {
+				continue
+			}
+
 			// Check for code fence opening
 			if cm := codeFenceOpenRe.FindStringSubmatch(line); cm != nil {
 				if state == stateInExpected {
@@ -334,6 +342,41 @@ func parseStepDirectives(title string) (string, time.Duration) {
 		title = strings.TrimSpace(directiveTimeoutRe.ReplaceAllString(title, ""))
 	}
 	return title, timeout
+}
+
+// applyDirectiveComment parses <!-- runbook: key=value ... --> and applies to step.
+// Supported keys: timeout, retry, delay, depends.
+func applyDirectiveComment(step *Step, line string) bool {
+	m := directiveCommentRe.FindStringSubmatch(line)
+	if m == nil {
+		return false
+	}
+	for _, part := range strings.Fields(m[1]) {
+		kv := strings.SplitN(part, "=", 2)
+		if len(kv) != 2 {
+			continue
+		}
+		key, val := kv[0], kv[1]
+		switch key {
+		case "timeout":
+			if d, err := time.ParseDuration(val); err == nil {
+				step.Timeout = d
+			}
+		case "retry":
+			if n, err := strconv.Atoi(val); err == nil && n > 0 {
+				step.Retry = n
+			}
+		case "delay":
+			if d, err := time.ParseDuration(val); err == nil {
+				step.RetryDelay = d
+			}
+		case "depends":
+			if n, err := strconv.Atoi(val); err == nil && n > 0 {
+				step.DependsOn = n
+			}
+		}
+	}
+	return true
 }
 
 // stripInlineMarkdown removes backticks and bold markers from text.

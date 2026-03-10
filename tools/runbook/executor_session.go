@@ -172,38 +172,48 @@ func buildSessionScript(steps []indexedStep, tmpDir string, failFast bool, envVa
 			fmt.Fprintf(&sb, "if [ \"$__rb_stop\" = \"0\" ]; then\n")
 		}
 
+		// depends directive: skip if the depended-on step failed.
+		if as.step.DependsOn > 0 {
+			fmt.Fprintf(&sb, "if [ \"${__rb_status_%d:-1}\" = \"0\" ]; then\n", as.step.DependsOn)
+		}
+
 		fmt.Fprintf(&sb, "echo '@@RB:BEGIN:%d@@'\n", n)
 		fmt.Fprintf(&sb, "__rb_t0=$(__rb_now_ms)\n")
 
-		// Subshell: isolates failures while env file + trap persist variables.
-		// No set -e: the step's exit code is the last command's exit code,
-		// so authors don't need workarounds like `cmd || EXIT=$?`.
-		fmt.Fprintf(&sb, "(\n")
-		fmt.Fprintf(&sb, "  set -o pipefail -a\n")
-		fmt.Fprintf(&sb, "  [ -f %q ] && source %q\n", envFile, envFile)
-		fmt.Fprintf(&sb, "  __rb_save_env() { export -p > %q 2>/dev/null; }\n", envFile)
-		fmt.Fprintf(&sb, "  trap __rb_save_env EXIT\n")
+		// Build the subshell body.
+		subshell := buildStepSubshell(as.step, command, envFile, errFile)
 
-		if as.step.Timeout > 0 {
-			// Per-step timeout: wrap command in `timeout` with heredoc to avoid quoting issues.
-			// Exit code 124 = timeout killed the process.
-			secs := int(as.step.Timeout.Seconds())
-			if secs < 1 {
-				secs = 1
+		// retry directive: wrap subshell in a for loop.
+		if as.step.Retry > 0 {
+			attempts := as.step.Retry + 1
+			fmt.Fprintf(&sb, "for __rb_attempt in $(seq 1 %d); do\n", attempts)
+			fmt.Fprintf(&sb, "%s", subshell)
+			fmt.Fprintf(&sb, "__rb_rc=$?\n")
+			fmt.Fprintf(&sb, "[ $__rb_rc -eq 0 ] && break\n")
+			if as.step.RetryDelay > 0 {
+				fmt.Fprintf(&sb, "[ $__rb_attempt -lt %d ] && sleep %d\n", attempts, int(as.step.RetryDelay.Seconds()))
 			}
-			fmt.Fprintf(&sb, "  timeout %d bash <<'__RB_STEP_%d__'\n", secs, n)
-			fmt.Fprintf(&sb, "%s\n", command)
-			fmt.Fprintf(&sb, "__RB_STEP_%d__\n", n)
+			sb.WriteString("done\n")
 		} else {
-			fmt.Fprintf(&sb, "  %s\n", command)
+			fmt.Fprintf(&sb, "%s", subshell)
+			fmt.Fprintf(&sb, "__rb_rc=$?\n")
 		}
 
-		fmt.Fprintf(&sb, ") 2>%q\n", errFile)
-
-		fmt.Fprintf(&sb, "__rb_rc=$?\n")
 		fmt.Fprintf(&sb, "__rb_t1=$(__rb_now_ms)\n")
 		fmt.Fprintf(&sb, "__rb_dur=$(( __rb_t1 - __rb_t0 ))\n")
 		fmt.Fprintf(&sb, "echo \"@@RB:END:%d:${__rb_rc}:${__rb_dur}@@\"\n", n)
+
+		// Track step status for depends directives.
+		fmt.Fprintf(&sb, "__rb_status_%d=$__rb_rc\n", n)
+
+		// Close depends block.
+		if as.step.DependsOn > 0 {
+			fmt.Fprintf(&sb, "else\n")
+			fmt.Fprintf(&sb, "echo '@@RB:END:%d:-2:0@@'\n", n)
+			fmt.Fprintf(&sb, "__rb_status_%d=-2\n", n)
+			fmt.Fprintf(&sb, "__rb_rc=0\n") // prevent stale __rb_rc from triggering fail-fast
+			fmt.Fprintf(&sb, "fi\n")
+		}
 
 		if failFast {
 			fmt.Fprintf(&sb, "[ $__rb_rc -ne 0 ] && __rb_stop=1\n")
@@ -216,6 +226,32 @@ func buildSessionScript(steps []indexedStep, tmpDir string, failFast bool, envVa
 		sb.WriteByte('\n')
 	}
 
+	return sb.String()
+}
+
+// buildStepSubshell generates the subshell block for a single step.
+// Returns the subshell string WITHOUT the trailing `__rb_rc=$?`.
+func buildStepSubshell(step Step, command, envFile, errFile string) string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "(\n")
+	fmt.Fprintf(&sb, "  set -o pipefail -a\n")
+	fmt.Fprintf(&sb, "  [ -f %q ] && source %q\n", envFile, envFile)
+	fmt.Fprintf(&sb, "  __rb_save_env() { export -p > %q 2>/dev/null; }\n", envFile)
+	fmt.Fprintf(&sb, "  trap __rb_save_env EXIT\n")
+
+	if step.Timeout > 0 {
+		secs := int(step.Timeout.Seconds())
+		if secs < 1 {
+			secs = 1
+		}
+		fmt.Fprintf(&sb, "  timeout %d bash <<'__RB_STEP_%d__'\n", secs, step.Number)
+		fmt.Fprintf(&sb, "%s\n", command)
+		fmt.Fprintf(&sb, "__RB_STEP_%d__\n", step.Number)
+	} else {
+		fmt.Fprintf(&sb, "  %s\n", command)
+	}
+
+	fmt.Fprintf(&sb, ") 2>%q\n", errFile)
 	return sb.String()
 }
 
@@ -255,9 +291,13 @@ func parseSessionResults(stdout *bytes.Buffer, autoSteps []indexedStep, results 
 				r.Step = as.step
 
 				// Exit code -1 is a sentinel for fail-fast skipped steps.
+				// Exit code -2 is a sentinel for depends-skipped steps.
 				if exitCode == -1 {
 					r.Status = StatusSkipped
 					r.Error = "skipped: earlier step failed (--fail-fast)"
+				} else if exitCode == -2 {
+					r.Status = StatusSkipped
+					r.Error = fmt.Sprintf("skipped: depends on step %d (failed)", as.step.DependsOn)
 				} else {
 					r.ExitCode = exitCode
 					r.DurationMs = durationMs

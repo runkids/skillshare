@@ -12,6 +12,9 @@ type Step struct {
 	Expected    []string      `json:"expected,omitempty"`
 	Executor    string        `json:"executor,omitempty"` // "auto", "ai-delegate", "manual"
 	Timeout     time.Duration `json:"timeout,omitempty"`  // per-step timeout override (0 = use global)
+	Retry       int           `json:"retry,omitempty"`    // retry count on failure (0 = no retry)
+	RetryDelay  time.Duration `json:"retry_delay,omitempty"`
+	DependsOn   int           `json:"depends_on,omitempty"` // skip if this step number failed (0 = none)
 }
 
 // StepResult represents the execution result of a single step.

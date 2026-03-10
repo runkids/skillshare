@@ -709,5 +709,47 @@ func TestParseRunbook_TimeoutDirective(t *testing.T) {
 	}
 }
 
+func TestParseRunbook_DirectiveComment(t *testing.T) {
+	input := "# Directive Comment Runbook\n\n" +
+		"### Step 1: Quick check\n\n" +
+		"```bash\necho ok\n```\n\n" +
+		"### Step 2: Flaky service call\n\n" +
+		"<!-- runbook: retry=3 delay=5s -->\n\n" +
+		"```bash\ncurl http://example.com\n```\n\n" +
+		"### Step 3: Depends on step 1\n\n" +
+		"<!-- runbook: depends=1 timeout=2m -->\n\n" +
+		"```bash\necho depends\n```\n"
+
+	rb, err := ParseRunbook(strings.NewReader(input))
+	if err != nil {
+		t.Fatalf("ParseRunbook error: %v", err)
+	}
+
+	if len(rb.Steps) != 3 {
+		t.Fatalf("got %d steps, want 3", len(rb.Steps))
+	}
+
+	// Step 1: no directives.
+	if rb.Steps[0].Retry != 0 {
+		t.Errorf("step 1: expected no retry, got %d", rb.Steps[0].Retry)
+	}
+
+	// Step 2: retry=3, delay=5s.
+	if rb.Steps[1].Retry != 3 {
+		t.Errorf("step 2: expected retry=3, got %d", rb.Steps[1].Retry)
+	}
+	if rb.Steps[1].RetryDelay != 5*time.Second {
+		t.Errorf("step 2: expected delay=5s, got %v", rb.Steps[1].RetryDelay)
+	}
+
+	// Step 3: depends=1, timeout=2m.
+	if rb.Steps[2].DependsOn != 1 {
+		t.Errorf("step 3: expected depends=1, got %d", rb.Steps[2].DependsOn)
+	}
+	if rb.Steps[2].Timeout != 2*time.Minute {
+		t.Errorf("step 3: expected timeout=2m, got %v", rb.Steps[2].Timeout)
+	}
+}
+
 // Runbook is the parsed output from ParseRunbook — defined here for test clarity.
 // The actual struct lives in parser.go.
