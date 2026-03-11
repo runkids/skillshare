@@ -111,6 +111,22 @@ func cmdStatus(args []string) error {
 		if err := printTargetsStatus(cfg, discovered); err != nil {
 			return err
 		}
+
+		// Extras
+		if len(cfg.Extras) > 0 {
+			fmt.Println()
+			ui.Header("Extras")
+			for _, extra := range cfg.Extras {
+				sourceDir := config.ExtrasSourceDir(cfg.Source, extra.Name)
+				files, err := sync.DiscoverExtraFiles(sourceDir)
+				if err != nil {
+					ui.Warning("  %s: source not found", extra.Name)
+					continue
+				}
+				ui.Success("  %s: %d files → %d targets", extra.Name, len(files), len(extra.Targets))
+			}
+		}
+
 		printAuditStatus(cfg.Audit)
 		checkSkillVersion(cfg)
 		return nil

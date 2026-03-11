@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"skillshare/internal/audit"
+	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
@@ -37,6 +38,22 @@ func cmdStatusProject(root string) error {
 	if err := printProjectTargetsStatus(runtime, discovered); err != nil {
 		return err
 	}
+
+	// Extras
+	if len(runtime.config.Extras) > 0 {
+		fmt.Println()
+		ui.Header("Extras")
+		for _, extra := range runtime.config.Extras {
+			sourceDir := config.ExtrasSourceDirProject(root, extra.Name)
+			files, err := sync.DiscoverExtraFiles(sourceDir)
+			if err != nil {
+				ui.Warning("  %s: source not found", extra.Name)
+				continue
+			}
+			ui.Success("  %s: %d files → %d targets", extra.Name, len(files), len(extra.Targets))
+		}
+	}
+
 	printAuditStatus(runtime.config.Audit)
 
 	return nil
