@@ -92,6 +92,7 @@ func cmdDoctorGlobal() error {
 	}
 
 	runDoctorChecks(cfg, result, false)
+	checkExtras(cfg.Extras, result, false, cfg.Source, "")
 	checkBackupStatus(false, backup.BackupDir())
 	checkTrashStatus(trash.TrashDir())
 	checkVersionDoctor(cfg)
@@ -129,6 +130,7 @@ func cmdDoctorProject(root string) error {
 	}
 
 	runDoctorChecks(cfg, result, true)
+	checkExtras(rt.config.Extras, result, true, "", root)
 	checkBackupStatus(true, "")
 	checkTrashStatus(trash.ProjectTrashDir(root))
 	checkVersionDoctor(cfg)
@@ -729,6 +731,50 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered [
 		ui.Info("  These exist in both source and target as separate copies.")
 		ui.Info("  Fix: manually delete target copies, then run 'skillshare sync'")
 		result.addWarning()
+	}
+}
+
+// checkExtras verifies extras source directories exist and targets are reachable.
+func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bool, source, projectRoot string) {
+	if len(extras) == 0 {
+		return
+	}
+
+	ui.Header("Extras")
+
+	for _, extra := range extras {
+		var sourceDir string
+		if isProject {
+			sourceDir = config.ExtrasSourceDirProject(projectRoot, extra.Name)
+		} else {
+			sourceDir = config.ExtrasSourceDir(source, extra.Name)
+		}
+
+		if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
+			result.addError()
+			ui.Error("%s: source directory missing (%s)", extra.Name, sourceDir)
+			continue
+		}
+
+		files, _ := sync.DiscoverExtraFiles(sourceDir)
+		ui.Success("  %s: source exists (%d files)", extra.Name, len(files))
+
+		reachable := 0
+		for _, t := range extra.Targets {
+			targetPath := t.Path
+			if isProject && !filepath.IsAbs(targetPath) {
+				targetPath = filepath.Join(projectRoot, targetPath)
+			}
+			if _, err := os.Stat(filepath.Dir(targetPath)); err == nil {
+				reachable++
+			}
+		}
+		if reachable == len(extra.Targets) {
+			ui.Success("  %s: all targets reachable (%d/%d)", extra.Name, reachable, len(extra.Targets))
+		} else {
+			result.addWarning()
+			ui.Warning("  %s: some targets unreachable (%d/%d)", extra.Name, reachable, len(extra.Targets))
+		}
 	}
 }
 
