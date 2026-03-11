@@ -8,6 +8,8 @@ import { useAppContext } from '../context/AppContext';
 import { useToast } from '../components/Toast';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import IconButton from '../components/IconButton';
+import DialogShell from '../components/DialogShell';
 import { Input, Select } from '../components/Input';
 import Badge from '../components/Badge';
 import EmptyState from '../components/EmptyState';
@@ -76,21 +78,7 @@ function AddExtraModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !saving) onClose();
-      }}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-pencil/30" />
-
-      {/* Dialog */}
-      <div
-        className="relative w-full max-w-2xl animate-fade-in"
-      >
+    <DialogShell open={true} onClose={onClose} maxWidth="2xl" preventClose={saving}>
         <Card overflow className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3
@@ -98,14 +86,14 @@ function AddExtraModal({
             >
               Add Extra
             </h3>
-            <button
+            <IconButton
+              icon={<X size={20} strokeWidth={2.5} />}
+              label="Close"
+              size="sm"
+              variant="ghost"
               onClick={onClose}
               disabled={saving}
-              className="text-pencil-light hover:text-pencil transition-colors disabled:opacity-50"
-              aria-label="Close"
-            >
-              <X size={20} strokeWidth={2.5} />
-            </button>
+            />
           </div>
 
           <div className="space-y-4">
@@ -144,14 +132,15 @@ function AddExtraModal({
                       />
                     </div>
                     {targets.length > 1 && (
-                      <button
+                      <IconButton
+                        icon={<X size={16} strokeWidth={2.5} />}
+                        label="Remove target"
+                        size="sm"
+                        variant="ghost"
                         onClick={() => removeTarget(i)}
                         disabled={saving}
-                        className="mt-2.5 text-pencil-light hover:text-danger transition-colors disabled:opacity-50"
-                        aria-label="Remove target"
-                      >
-                        <X size={16} strokeWidth={2.5} />
-                      </button>
+                        className="mt-2.5 hover:text-danger"
+                      />
                     )}
                   </div>
                 ))}
@@ -169,7 +158,7 @@ function AddExtraModal({
           </div>
 
           <div className="flex gap-3 justify-end mt-6">
-            <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>
+            <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
               Cancel
             </Button>
             <Button variant="primary" size="sm" onClick={handleCreate} disabled={saving}>
@@ -177,8 +166,7 @@ function AddExtraModal({
             </Button>
           </div>
         </Card>
-      </div>
-    </div>
+    </DialogShell>
   );
 }
 

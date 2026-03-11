@@ -1,8 +1,7 @@
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import Card from './Card';
 import Button from './Button';
-import { radius } from '../design';
-import { useFocusTrap } from '../hooks/useFocusTrap';
+import DialogShell from './DialogShell';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -29,67 +28,41 @@ export default function ConfirmDialog({
   loading = false,
   wide = false,
 }: ConfirmDialogProps) {
-  const trapRef = useFocusTrap(open);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !loading) onCancel();
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [open, loading, onCancel]);
-
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !loading) onCancel();
-      }}
+    <DialogShell
+      open={open}
+      onClose={onCancel}
+      maxWidth={wide ? '2xl' : 'lg'}
+      preventClose={loading}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-pencil/30" />
-
-      {/* Dialog */}
-      <div
-        ref={trapRef}
-        className={`relative w-full ${wide ? 'max-w-2xl' : 'max-w-lg'} animate-fade-in`}
-        style={{ borderRadius: radius.md }}
-      >
-        <Card className="text-center">
-          <h3 className="text-xl font-bold text-pencil mb-2">
-            {title}
-          </h3>
-          <div className="text-pencil-light mb-6">
-            {message}
-          </div>
-          <div className="flex gap-3 justify-center">
-            {cancelText && (
-              <Button
-                variant="ghost"
-                size="md"
-                onClick={onCancel}
-                disabled={loading}
-              >
-                {cancelText}
-              </Button>
-            )}
+      <Card className="text-center">
+        <h3 className="text-xl font-bold text-pencil mb-2">
+          {title}
+        </h3>
+        <div className="text-pencil-light mb-6">
+          {message}
+        </div>
+        <div className="flex gap-3 justify-center">
+          {cancelText && (
             <Button
-              variant={variant === 'danger' ? 'danger' : 'primary'}
+              variant="secondary"
               size="md"
-              onClick={onConfirm}
+              onClick={onCancel}
               disabled={loading}
             >
-              {loading ? 'Working...' : confirmText}
+              {cancelText}
             </Button>
-          </div>
-        </Card>
-      </div>
-    </div>
+          )}
+          <Button
+            variant={variant === 'danger' ? 'danger' : 'primary'}
+            size="md"
+            onClick={onConfirm}
+            disabled={loading}
+          >
+            {loading ? 'Working...' : confirmText}
+          </Button>
+        </div>
+      </Card>
+    </DialogShell>
   );
 }

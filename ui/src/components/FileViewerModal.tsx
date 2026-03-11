@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -11,9 +11,9 @@ import { EditorView } from '@codemirror/view';
 import Card from './Card';
 import CopyButton from './CopyButton';
 import Button from './Button';
+import DialogShell from './DialogShell';
 import { api, type SkillFileContent } from '../api/client';
 import { handTheme } from '../lib/codemirror-theme';
-import { radius } from '../design';
 
 interface FileViewerModalProps {
   skillName: string;
@@ -38,15 +38,6 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
       .finally(() => setLoading(false));
   }, [skillName, filepath]);
 
-  // Close on Escape
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [onClose]);
-
   const cmExtensions = useMemo(() => {
     if (!data) return [];
     const exts = [EditorView.lineWrapping, EditorView.editable.of(false), ...handTheme];
@@ -63,21 +54,8 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
   }, [data, filepath]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-pencil/30" />
-
-      {/* Modal */}
-      <div
-        className="relative w-full max-w-3xl max-h-[85vh] flex flex-col animate-fade-in"
-        style={{ borderRadius: radius.md }}
-      >
-        <Card className="flex flex-col h-full overflow-hidden">
+    <DialogShell open={true} onClose={onClose} maxWidth="3xl" className="max-h-[85vh] flex flex-col">
+      <Card className="flex flex-col h-full overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between mb-3 pt-2">
             <h3
@@ -140,7 +118,6 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
             )}
           </div>
         </Card>
-      </div>
-    </div>
+    </DialogShell>
   );
 }

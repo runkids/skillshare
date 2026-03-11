@@ -200,6 +200,16 @@ body {
   animation: fadeInUp 0.2s ease-out;
 }
 
+/* Dropdown open animation */
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-dropdown-in {
+  animation: dropdownIn 0.15s ease-out;
+}
+
 /* Subtle underline link — border-bottom style like oMLX */
 .link-subtle {
   color: var(--color-pencil-light);

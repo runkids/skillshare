@@ -148,10 +148,10 @@ export default function TrashPage() {
           {items.length > 0 && (
             <Button
               variant="danger"
-              size="lg"
+              size="sm"
               onClick={() => setEmptyOpen(true)}
             >
-              <Trash2 size={18} strokeWidth={2.5} /> Empty Trash
+              <Trash2 size={16} strokeWidth={2.5} /> Empty Trash
             </Button>
           )}
         </div>

@@ -5,6 +5,7 @@ import { Trash2, Plus, Target, ArrowDownToLine, Search, CircleDot, PenLine, Aler
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
 import Button from '../components/Button';
+import IconButton from '../components/IconButton';
 import { Input, Select } from '../components/Input';
 import FilterTagInput from '../components/FilterTagInput';
 import EmptyState from '../components/EmptyState';
@@ -130,10 +131,10 @@ export default function TargetsPage() {
               setAdding(true);
             }
           }}
-          variant={adding ? 'ghost' : 'secondary'}
+          variant={adding ? 'secondary' : 'primary'}
           size="sm"
         >
-          <Plus size={16} strokeWidth={2.5} />
+          {adding ? null : <Plus size={16} strokeWidth={2.5} />}
           {adding ? 'Cancel' : 'Add Target'}
         </Button>
       </div>
@@ -187,18 +188,6 @@ export default function TargetsPage() {
                   <Plus size={16} strokeWidth={2.5} />
                   Add Target
                 </Button>
-                <Button
-                  onClick={() => {
-                    setAdding(false);
-                    setNewTarget({ name: '', path: '' });
-                    setSearchQuery('');
-                    setCustomMode(false);
-                  }}
-                  variant="ghost"
-                  size="sm"
-                >
-                  Cancel
-                </Button>
               </div>
             </div>
           ) : customMode ? (
@@ -232,18 +221,6 @@ export default function TargetsPage() {
                   size="sm"
                 >
                   Back to picker
-                </Button>
-                <Button
-                  onClick={() => {
-                    setAdding(false);
-                    setNewTarget({ name: '', path: '' });
-                    setSearchQuery('');
-                    setCustomMode(false);
-                  }}
-                  variant="ghost"
-                  size="sm"
-                >
-                  Cancel
                 </Button>
               </div>
             </div>
@@ -279,10 +256,9 @@ export default function TargetsPage() {
                 {/* Detected section */}
                 {detected.length > 0 && (
                   <div>
-                    <div
-                      className="px-3 py-2 bg-success-light/50 border-b border-dashed border-muted-dark sticky top-0"
-                    >
-                      <span className="text-sm font-bold text-success flex items-center gap-1.5">
+                    <div className="px-3 py-2 border-b border-dashed border-muted-dark sticky top-0 z-10 bg-surface relative">
+                      <div className="absolute inset-0 bg-success-light pointer-events-none" />
+                      <span className="relative text-sm font-bold text-success flex items-center gap-1.5">
                         <CircleDot size={14} strokeWidth={3} />
                         Detected on your system
                       </span>
@@ -304,9 +280,7 @@ export default function TargetsPage() {
                 {/* All available section */}
                 {others.length > 0 && (
                   <div>
-                    <div
-                      className="px-3 py-2 bg-muted/40 border-b border-dashed border-muted-dark sticky top-0"
-                    >
+                    <div className="px-3 py-2 border-b border-dashed border-muted-dark sticky top-0 z-10 bg-surface">
                       <span className="text-sm font-bold text-pencil-light">
                         All available targets
                       </span>
@@ -334,24 +308,13 @@ export default function TargetsPage() {
 
               {/* Custom target link */}
               <div className="flex items-center justify-between">
-                <button
+                <Button
+                  variant="link"
                   onClick={() => setCustomMode(true)}
-                  className="inline-flex items-center gap-1.5 text-sm text-blue hover:text-pencil transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5"
                 >
                   <PenLine size={14} strokeWidth={2.5} />
                   Enter custom target
-                </button>
-                <Button
-                  onClick={() => {
-                    setAdding(false);
-                    setNewTarget({ name: '', path: '' });
-                    setSearchQuery('');
-                    setCustomMode(false);
-                  }}
-                  variant="ghost"
-                  size="sm"
-                >
-                  Cancel
                 </Button>
               </div>
             </div>
@@ -404,6 +367,7 @@ export default function TargetsPage() {
                           }
                         }}
                         options={SYNC_MODE_OPTIONS}
+                        size="sm"
                         className="w-44"
                       />
                     </div>
@@ -419,7 +383,11 @@ export default function TargetsPage() {
                         </span>
                       )}
                       {(target.mode === 'merge' || target.mode === 'copy') && (
-                        <button
+                        <IconButton
+                          icon={<Filter size={13} strokeWidth={2.5} />}
+                          label="Edit filters"
+                          size="sm"
+                          variant="ghost"
                           onClick={() => {
                             setEditingFilter(target.name);
                             setFilterDraft({
@@ -427,11 +395,7 @@ export default function TargetsPage() {
                               exclude: [...(target.exclude || [])],
                             });
                           }}
-                          className="w-6 h-6 flex items-center justify-center text-muted-dark hover:text-blue transition-colors cursor-pointer"
-                          title="Edit filters"
-                        >
-                          <Filter size={13} strokeWidth={2.5} />
-                        </button>
+                        />
                       )}
                     </div>
                     {editingFilter === target.name && (
@@ -475,7 +439,7 @@ export default function TargetsPage() {
                             </Button>
                             <Button
                               onClick={() => setEditingFilter(null)}
-                              variant="ghost"
+                              variant="secondary"
                               size="sm"
                             >
                               Cancel
@@ -499,23 +463,22 @@ export default function TargetsPage() {
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {(target.mode === 'merge' || target.mode === 'copy') && target.localCount > 0 && (
-                      <button
+                      <IconButton
+                        icon={<ArrowDownToLine size={16} strokeWidth={2.5} />}
+                        label="Collect local skills"
+                        size="md"
+                        variant="outline"
                         onClick={() => setCollecting(target.name)}
-                        className="w-8 h-8 flex items-center justify-center text-muted-dark hover:text-blue transition-colors cursor-pointer border-2 border-transparent hover:border-blue"
-                        style={{ borderRadius: radius.sm }}
-                        title="Collect local skills"
-                      >
-                        <ArrowDownToLine size={16} strokeWidth={2.5} />
-                      </button>
+                        className="hover:text-blue hover:border-blue"
+                      />
                     )}
-                    <button
+                    <IconButton
+                      icon={<Trash2 size={16} strokeWidth={2.5} />}
+                      label="Remove target"
+                      size="md"
+                      variant="danger-outline"
                       onClick={() => setRemoving(target.name)}
-                      className="w-8 h-8 flex items-center justify-center text-muted-dark hover:text-danger transition-colors cursor-pointer border-2 border-transparent hover:border-danger"
-                      style={{ borderRadius: radius.sm }}
-                      title="Remove target"
-                    >
-                      <Trash2 size={16} strokeWidth={2.5} />
-                    </button>
+                    />
                   </div>
                 </div>
               </Card>

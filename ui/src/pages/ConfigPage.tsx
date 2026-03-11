@@ -94,7 +94,7 @@ export default function ConfigPage() {
             onClick={handleSave}
             disabled={saving || !dirty}
             variant="primary"
-            size="md"
+            size="sm"
           >
             <Save size={16} strokeWidth={2.5} />
             {saving ? 'Saving...' : 'Save'}

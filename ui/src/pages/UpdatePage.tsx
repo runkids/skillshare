@@ -250,7 +250,7 @@ export default function UpdatePage() {
             </Button>
           )}
           {phase === 'idle' && hasUpdates && totalSelected > 0 && (
-            <Button onClick={handleUpdate}>
+            <Button variant="primary" size="sm" onClick={handleUpdate}>
               <ArrowUpCircle size={16} />
               Update Selected ({totalSelected})
             </Button>

@@ -94,7 +94,7 @@ export default function Layout() {
       {/* Mobile menu button */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="fixed top-4 left-4 z-50 md:hidden w-10 h-10 flex items-center justify-center bg-surface border-2 border-pencil"
+        className="fixed top-4 left-4 z-50 md:hidden w-10 h-10 flex items-center justify-center bg-surface border-2 border-pencil cursor-pointer"
         style={{ borderRadius: radius.sm }}
         aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
       >
@@ -180,7 +180,7 @@ export default function Layout() {
         <div className="mt-auto border-t border-muted px-3 py-3 flex items-center justify-between">
           <button
             onClick={toggleTheme}
-            className="flex items-center gap-2 text-pencil-light hover:text-pencil transition-colors"
+            className="flex items-center gap-2 text-pencil-light hover:text-pencil transition-colors cursor-pointer"
             aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
           >
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}

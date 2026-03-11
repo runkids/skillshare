@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ScrollText, Trash2, RefreshCw, ChevronLeft, ChevronRight, Activity, Clock, Terminal, ShieldCheck } from 'lucide-react';
+import { ScrollText, Trash2, RefreshCw, Activity, Clock, Terminal, ShieldCheck } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { LogEntry, LogStatsResponse } from '../api/client';
@@ -12,6 +12,8 @@ import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { Select } from '../components/Input';
+import SegmentedControl from '../components/SegmentedControl';
+import Pagination from '../components/Pagination';
 import { radius, shadows } from '../design';
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -272,42 +274,6 @@ function renderDetail(entry: LogEntry) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * PillButton — reusable tab/filter button (dark-mode aware)
- * ────────────────────────────────────────────────────────────────────── */
-
-function PillButton({
-  active,
-  onClick,
-  children,
-  className = '',
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`
-        px-3 py-1.5 text-sm border-2 transition-all duration-150 cursor-pointer
-        ${active
-          ? 'bg-pencil text-paper border-pencil font-medium'
-          : 'bg-transparent text-pencil border-muted-dark hover:border-pencil'
-        }
-        ${className}
-      `}
-      style={{
-        borderRadius: radius.sm,
-        boxShadow: active ? shadows.sm : 'none',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────
  * LogStatsBar — summary stat cards
  * ────────────────────────────────────────────────────────────────────── */
 
@@ -493,55 +459,17 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
 
       {/* Pagination */}
       {entries.length > PAGE_SIZES[0] && (
-        <div
-          className="flex items-center justify-between pt-4 mt-4 border-t-2 border-dashed border-muted"
-        >
-          <div className="flex items-center gap-2 text-sm text-pencil-light">
-            <span>Show</span>
-            {PAGE_SIZES.map((size) => (
-              <PillButton
-                key={size}
-                active={pageSize === size}
-                onClick={() => { setPageSize(size); setPage(0); }}
-              >
-                {size}
-              </PillButton>
-            ))}
-            <span className="ml-1">
-              {start + 1}–{Math.min(start + pageSize, entries.length)} of {entries.length}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className={`p-1.5 border-2 transition-all duration-150 cursor-pointer ${
-                page === 0
-                  ? 'border-transparent text-muted-dark cursor-not-allowed'
-                  : 'border-transparent text-pencil hover:bg-paper-warm hover:border-muted-dark'
-              }`}
-              style={{ borderRadius: radius.sm }}
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <span className="text-sm text-pencil px-2">
-              {page + 1} / {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
-              className={`p-1.5 border-2 transition-all duration-150 cursor-pointer ${
-                page >= totalPages - 1
-                  ? 'border-transparent text-muted-dark cursor-not-allowed'
-                  : 'border-transparent text-pencil hover:bg-paper-warm hover:border-muted-dark'
-              }`}
-              style={{ borderRadius: radius.sm }}
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={(p) => setPage(p)}
+          rangeText={`${start + 1}–${Math.min(start + pageSize, entries.length)} of ${entries.length}`}
+          pageSize={{
+            value: pageSize,
+            options: PAGE_SIZES,
+            onChange: (s) => { setPageSize(s); setPage(0); },
+          }}
+        />
       )}
     </Card>
   );
@@ -761,11 +689,15 @@ export default function LogPage() {
 
       {/* ─── Tabs ─── */}
       <div className="flex flex-wrap items-center gap-2">
-        {(['all', 'ops', 'audit'] as const).map((t) => (
-          <PillButton key={t} active={tab === t} onClick={() => setTab(t)}>
-            {t === 'all' ? 'All' : t === 'ops' ? 'Operations' : 'Audit'}
-          </PillButton>
-        ))}
+        <SegmentedControl
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'ops', label: 'Operations' },
+            { value: 'audit', label: 'Audit' },
+          ]}
+        />
         <span className="text-sm text-pencil-light ml-2">
           {totalLabel}
         </span>
@@ -778,6 +710,7 @@ export default function LogPage() {
             label="Command"
             value={cmdFilter}
             onChange={setCmdFilter}
+            size="sm"
             options={[
               { value: '', label: 'All' },
               ...knownCommands.map((cmd) => ({ value: cmd, label: cmd })),
@@ -789,6 +722,7 @@ export default function LogPage() {
             label="Status"
             value={statusFilter}
             onChange={setStatusFilter}
+            size="sm"
             options={STATUS_OPTIONS.map((s) => ({ value: s, label: s || 'All' }))}
           />
         </div>
@@ -798,17 +732,11 @@ export default function LogPage() {
           >
             Time
           </span>
-          <div className="flex gap-1">
-            {TIME_RANGES.map((tr) => (
-              <PillButton
-                key={tr.value}
-                active={timeRange === tr.value}
-                onClick={() => setTimeRange(tr.value)}
-              >
-                {tr.label}
-              </PillButton>
-            ))}
-          </div>
+          <SegmentedControl
+            value={timeRange}
+            onChange={setTimeRange}
+            options={TIME_RANGES.map((tr) => ({ value: tr.value, label: tr.label }))}
+          />
         </div>
       </div>
 

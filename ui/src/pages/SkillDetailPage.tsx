@@ -13,6 +13,7 @@ import Badge from '../components/Badge';
 import Card from '../components/Card';
 import CopyButton from '../components/CopyButton';
 import Button from '../components/Button';
+import IconButton from '../components/IconButton';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -241,13 +242,14 @@ export default function SkillDetailPage() {
           const matchedFile = files.find((f) => f === href || f.endsWith('/' + href));
           if (matchedFile) {
             return (
-              <button
+              <Button
+                variant="link"
                 onClick={() => setViewingFile(matchedFile)}
-                className="link-subtle inline-flex items-center gap-0.5 cursor-pointer"
-                style={{ background: 'none', padding: 0, font: 'inherit' }}
+                className="link-subtle inline-flex items-center gap-0.5"
+                style={{ font: 'inherit' }}
               >
                 {children}
-              </button>
+              </Button>
             );
           }
         }
@@ -318,16 +320,15 @@ export default function SkillDetailPage() {
     <div className="animate-fade-in">
       {/* Header — sticky */}
       <div className="flex items-center gap-3 mb-6 sticky top-0 z-20 bg-paper py-3 -mx-4 px-4 md:-mx-8 md:px-8 -mt-3">
-        <button
+        <IconButton
+          icon={<ArrowLeft size={18} strokeWidth={2.5} />}
+          label="Back to skills"
+          size="lg"
+          variant="outline"
           onClick={() => navigate('/skills')}
-          className="w-9 h-9 flex items-center justify-center bg-surface border border-muted text-pencil-light hover:text-pencil transition-colors cursor-pointer"
-          style={{
-            borderRadius: radius.sm,
-            boxShadow: shadows.sm,
-          }}
-        >
-          <ArrowLeft size={18} strokeWidth={2.5} />
-        </button>
+          className="bg-surface"
+          style={{ boxShadow: shadows.sm }}
+        />
         <div className="flex items-center gap-3 flex-wrap">
           <h2
             className="text-2xl md:text-3xl font-bold text-pencil"
@@ -523,14 +524,15 @@ export default function SkillDetailPage() {
                           {f}
                         </span>
                       ) : (
-                        <button
+                        <Button
+                          variant="link"
                           onClick={() => setViewingFile(f)}
-                          className="font-mono link-subtle text-left truncate cursor-pointer inline-flex items-center gap-1"
-                          style={{ fontSize: '0.8125rem', background: 'none' }}
+                          className="font-mono link-subtle text-left truncate inline-flex items-center gap-1"
+                          style={{ fontSize: '0.8125rem' }}
                           title={`View file: ${f}`}
                         >
                           {f}
-                        </button>
+                        </Button>
                       )}
                     </li>
                   );
