@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Search, Star, Download, Globe, Database, Settings } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import Card from '../components/Card';
+import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import Button from '../components/Button';
 import { Input, Select } from '../components/Input';
@@ -317,17 +318,7 @@ export default function SearchPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
-      <div className="mb-6">
-        <h2
-          className="text-3xl md:text-4xl font-bold text-pencil mb-2"
-        >
-          Search Skills
-        </h2>
-        <p className="text-pencil-light">
-          Discover and install skills
-        </p>
-      </div>
+      <PageHeader icon={<Search size={24} strokeWidth={2.5} />} title="Search Skills" subtitle="Discover and install skills" />
 
       {/* Mode tabs */}
       <div className="flex gap-2 mb-4">

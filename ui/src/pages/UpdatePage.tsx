@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import PageHeader from '../components/PageHeader';
 import { Checkbox } from '../components/Input';
 import Badge from '../components/Badge';
 import { queryKeys } from '../lib/queryKeys';
@@ -228,35 +229,32 @@ export default function UpdatePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-pencil">
-            Updates
-          </h1>
-          <p className="text-pencil-light text-sm mt-1">
-            Check and apply updates for tracked repositories and installed skills.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {phase === 'idle' && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={runCheck}
-              disabled={checking}
-            >
-              <RefreshCw size={16} className={checking ? 'animate-spin' : ''} />
-              Check Now
-            </Button>
-          )}
-          {phase === 'idle' && hasUpdates && totalSelected > 0 && (
-            <Button variant="primary" size="sm" onClick={handleUpdate}>
-              <ArrowUpCircle size={16} />
-              Update Selected ({totalSelected})
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        icon={<ArrowUpCircle size={24} strokeWidth={2.5} />}
+        title="Updates"
+        subtitle="Check and apply updates for tracked repositories and installed skills."
+        actions={
+          <>
+            {phase === 'idle' && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={runCheck}
+                disabled={checking}
+              >
+                <RefreshCw size={16} className={checking ? 'animate-spin' : ''} />
+                Check Now
+              </Button>
+            )}
+            {phase === 'idle' && hasUpdates && totalSelected > 0 && (
+              <Button variant="primary" size="sm" onClick={handleUpdate}>
+                <ArrowUpCircle size={16} />
+                Update Selected ({totalSelected})
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {/* Update results panel */}
       {phase !== 'idle' && (
@@ -475,14 +473,11 @@ function StatusBadge({ status }: { status: ItemUpdateStatus['status'] }) {
 
 function UpdatePageHeader() {
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-pencil">
-        Updates
-      </h1>
-      <p className="text-pencil-light text-sm mt-1">
-        Check and apply updates for tracked repositories and installed skills.
-      </p>
-    </div>
+    <PageHeader
+      icon={<ArrowUpCircle size={24} strokeWidth={2.5} />}
+      title="Updates"
+      subtitle="Check and apply updates for tracked repositories and installed skills."
+    />
   );
 }
 

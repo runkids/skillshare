@@ -17,6 +17,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { formatSize } from '../lib/format';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
@@ -170,18 +171,11 @@ export default function BackupPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2
-          className="text-3xl font-bold text-pencil"
-        >
-          Backup & Restore
-        </h2>
-        <p
-          className="text-pencil-light mt-1"
-        >
-          Create snapshots of your targets and restore them when needed
-        </p>
-      </div>
+      <PageHeader
+        icon={<Archive size={24} strokeWidth={2.5} />}
+        title="Backup & Restore"
+        subtitle="Create snapshots of your targets and restore them when needed"
+      />
 
       {/* Action Card */}
       <Card>

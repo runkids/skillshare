@@ -18,6 +18,7 @@ import { api } from '../api/client';
 import type { AuditAllResponse, AuditResult, AuditFinding } from '../api/client';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import { Select } from '../components/Input';
 import EmptyState from '../components/EmptyState';
@@ -121,38 +122,30 @@ export default function AuditPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2
-            className="text-3xl font-bold text-pencil flex items-center gap-2"
-          >
-            <ShieldCheck size={28} strokeWidth={2.5} />
-            Security Audit
-          </h2>
-          <p
-            className="text-pencil-light mt-1"
-          >
-            Scan installed skills for malicious patterns and security threats
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link to="/audit/rules">
-            <Button variant="secondary" size="sm">
-              <FileEdit size={16} strokeWidth={2.5} />
-              Custom Rules
+      <PageHeader
+        icon={<ShieldCheck size={24} strokeWidth={2.5} />}
+        title="Security Audit"
+        subtitle="Scan installed skills for malicious patterns and security threats"
+        actions={
+          <>
+            <Link to="/audit/rules">
+              <Button variant="secondary" size="sm">
+                <FileEdit size={16} strokeWidth={2.5} />
+                Custom Rules
+              </Button>
+            </Link>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={runAudit}
+              disabled={loading}
+            >
+              <ShieldCheck size={16} strokeWidth={2.5} />
+              {loading ? 'Scanning...' : 'Run Audit'}
             </Button>
-          </Link>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={runAudit}
-            disabled={loading}
-          >
-            <ShieldCheck size={16} strokeWidth={2.5} />
-            {loading ? 'Scanning...' : 'Run Audit'}
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* Loading / Progress */}
       {loading && (

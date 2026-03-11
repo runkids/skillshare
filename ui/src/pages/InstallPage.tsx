@@ -1,18 +1,11 @@
+import { Download } from 'lucide-react';
 import InstallForm from '../components/InstallForm';
+import PageHeader from '../components/PageHeader';
 
 export default function InstallPage() {
   return (
     <div className="animate-fade-in">
-      <div className="mb-6">
-        <h2
-          className="text-3xl md:text-4xl font-bold text-pencil mb-2"
-        >
-          Install Skill
-        </h2>
-        <p className="text-pencil-light">
-          Install a skill from a GitHub URL, owner/repo, or local path
-        </p>
-      </div>
+      <PageHeader icon={<Download size={24} strokeWidth={2.5} />} title="Install Skill" subtitle="Install a skill from a GitHub URL, owner/repo, or local path" />
 
       <InstallForm collapsible={false} defaultOpen />
     </div>

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Virtuoso } from 'react-virtuoso';
 import Card from '../components/Card';
+import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import Button from '../components/Button';
 import { useToast } from '../components/Toast';
@@ -125,17 +126,7 @@ export default function SyncPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Page header */}
-      <div className="mb-8">
-        <h2
-          className="text-3xl md:text-4xl font-bold text-pencil mb-2"
-        >
-          Sync
-        </h2>
-        <p className="text-pencil-light text-base">
-          Push your skills from source to all configured targets
-        </p>
-      </div>
+      <PageHeader icon={<RefreshCw size={24} strokeWidth={2.5} />} title="Sync" subtitle="Push your skills from source to all configured targets" />
 
       {/* Visual Pipeline */}
       <div className="hidden md:flex items-center justify-center gap-4 mb-8">

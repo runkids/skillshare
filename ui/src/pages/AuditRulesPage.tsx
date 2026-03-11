@@ -23,6 +23,7 @@ import { EditorView } from '@codemirror/view';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { Input } from '../components/Input';
@@ -290,70 +291,67 @@ export default function AuditRulesPage() {
   return (
     <div className="animate-fade-in">
       {/* ─── Header ─── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link
-              to="/audit"
-              className="text-pencil-light hover:text-pencil transition-colors"
-              aria-label="Back to Security Audit"
-            >
-              <ArrowLeft size={20} strokeWidth={2.5} />
-            </Link>
-            <h2
-              className="text-3xl font-bold text-pencil flex items-center gap-2"
-            >
-              <ShieldCheck size={28} strokeWidth={2.5} />
-              Audit Rules
-            </h2>
-          </div>
-          <p className="text-pencil-light">
-            {isProjectMode
-              ? 'Browse and manage project-level audit rules'
-              : 'Browse and manage global audit rules'}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            onClick={() => setViewMode(viewMode === 'structured' ? 'yaml' : 'structured')}
-            variant="secondary"
-            size="sm"
-          >
-            {viewMode === 'structured' ? (
-              <><FileEdit size={16} strokeWidth={2.5} /> Edit YAML</>
-            ) : (
-              <><List size={16} strokeWidth={2.5} /> Rule Browser</>
-            )}
-          </Button>
-          {viewMode === 'structured' && stats.custom > 0 && (
+      <div className="flex items-center gap-2 mb-1">
+        <Link
+          to="/audit"
+          className="text-pencil-light hover:text-pencil transition-colors"
+          aria-label="Back to Security Audit"
+        >
+          <ArrowLeft size={20} strokeWidth={2.5} />
+        </Link>
+      </div>
+      <PageHeader
+        icon={<ShieldCheck size={24} strokeWidth={2.5} />}
+        title="Audit Rules"
+        subtitle={
+          isProjectMode
+            ? 'Browse and manage project-level audit rules'
+            : 'Browse and manage global audit rules'
+        }
+        className="mb-6"
+        actions={
+          <>
             <Button
-              onClick={() => setShowResetConfirm(true)}
-              disabled={resetMutation.isPending}
-              variant="danger"
+              onClick={() => setViewMode(viewMode === 'structured' ? 'yaml' : 'structured')}
+              variant="secondary"
               size="sm"
             >
-              <RotateCcw size={16} strokeWidth={2.5} />
-              {resetMutation.isPending ? 'Resetting...' : 'Reset All'}
-            </Button>
-          )}
-          {viewMode === 'yaml' && rawQuery.data?.exists && (
-            <>
-              {dirty && (
-                <span
-                  className="text-sm text-warning px-2 py-1 bg-warning-light border border-warning"
-                  style={{ borderRadius: radius.sm }}
-                >
-                  unsaved changes
-                </span>
+              {viewMode === 'structured' ? (
+                <><FileEdit size={16} strokeWidth={2.5} /> Edit YAML</>
+              ) : (
+                <><List size={16} strokeWidth={2.5} /> Rule Browser</>
               )}
-              <Button onClick={handleSave} disabled={saving || !dirty} variant="primary" size="sm">
-                <Save size={16} strokeWidth={2.5} />
-                {saving ? 'Saving...' : 'Save'}
+            </Button>
+            {viewMode === 'structured' && stats.custom > 0 && (
+              <Button
+                onClick={() => setShowResetConfirm(true)}
+                disabled={resetMutation.isPending}
+                variant="danger"
+                size="sm"
+              >
+                <RotateCcw size={16} strokeWidth={2.5} />
+                {resetMutation.isPending ? 'Resetting...' : 'Reset All'}
               </Button>
-            </>
-          )}
-        </div>
-      </div>
+            )}
+            {viewMode === 'yaml' && rawQuery.data?.exists && (
+              <>
+                {dirty && (
+                  <span
+                    className="text-sm text-warning px-2 py-1 bg-warning-light border border-warning"
+                    style={{ borderRadius: radius.sm }}
+                  >
+                    unsaved changes
+                  </span>
+                )}
+                <Button onClick={handleSave} disabled={saving || !dirty} variant="primary" size="sm">
+                  <Save size={16} strokeWidth={2.5} />
+                  {saving ? 'Saving...' : 'Save'}
+                </Button>
+              </>
+            )}
+          </>
+        }
+      />
 
       {/* ─── Structured View ─── */}
       {viewMode === 'structured' && compiled.data && (

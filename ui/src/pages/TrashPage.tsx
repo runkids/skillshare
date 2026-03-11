@@ -12,6 +12,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { formatSize } from '../lib/format';
 import Card from '../components/Card';
+import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -112,21 +113,7 @@ export default function TrashPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2
-          className="text-3xl font-bold text-pencil"
-        >
-          Trash
-        </h2>
-        <p
-          className="text-pencil-light mt-1"
-        >
-          {isProjectMode
-            ? 'Recently deleted project skills are kept for 7 days before automatic cleanup'
-            : 'Recently deleted skills are kept for 7 days before automatic cleanup'}
-        </p>
-      </div>
+      <PageHeader icon={<Trash2 size={24} strokeWidth={2.5} />} title="Trash" subtitle={isProjectMode ? 'Recently deleted project skills are kept for 7 days before automatic cleanup' : 'Recently deleted skills are kept for 7 days before automatic cleanup'} />
 
       {/* Summary Card */}
       <Card>

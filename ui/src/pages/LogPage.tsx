@@ -6,6 +6,7 @@ import type { LogEntry, LogStatsResponse } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
@@ -661,31 +662,25 @@ export default function LogPage() {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* ─── Header ─── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h2
-            className="text-3xl font-bold text-pencil flex items-center gap-2"
-          >
-            <ScrollText size={28} strokeWidth={2.5} />
-            Operations & Audit Log
-          </h2>
-          <p className="text-pencil-light mt-1">
-            Persistent record of CLI and UI operations, including audit findings by skill
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={handleRefresh} variant="secondary" size="sm" disabled={loading}>
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </Button>
-          {hasEntries && (
-            <Button onClick={() => setConfirmOpen(true)} variant="danger" size="sm" disabled={clearing}>
-              <Trash2 size={16} />
-              Clear
+      <PageHeader
+        icon={<ScrollText size={24} strokeWidth={2.5} />}
+        title="Operations & Audit Log"
+        subtitle="Persistent record of CLI and UI operations, including audit findings by skill"
+        actions={
+          <>
+            <Button onClick={handleRefresh} variant="secondary" size="sm" disabled={loading}>
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+              Refresh
             </Button>
-          )}
-        </div>
-      </div>
+            {hasEntries && (
+              <Button onClick={() => setConfirmOpen(true)} variant="danger" size="sm" disabled={clearing}>
+                <Trash2 size={16} />
+                Clear
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {/* ─── Tabs ─── */}
       <div className="flex flex-wrap items-center gap-2">

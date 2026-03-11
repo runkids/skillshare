@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   FolderPlus,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -27,6 +28,7 @@ import IconButton from '../components/IconButton';
 import Skeleton from '../components/Skeleton';
 import { PageSkeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
+import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
@@ -147,17 +149,7 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Page header */}
-      <div className="mb-8">
-        <h2
-          className="text-3xl md:text-4xl font-bold text-pencil mb-2"
-        >
-          Dashboard
-        </h2>
-        <p className="text-pencil-light text-base">
-          Your skill management overview at a glance
-        </p>
-      </div>
+      <PageHeader icon={<LayoutDashboard size={24} strokeWidth={2.5} />} title="Dashboard" subtitle="Your skill management overview at a glance" />
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">

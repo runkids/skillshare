@@ -13,6 +13,7 @@ import DialogShell from '../components/DialogShell';
 import { Input, Select } from '../components/Input';
 import Badge from '../components/Badge';
 import EmptyState from '../components/EmptyState';
+import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
 import { radius } from '../design';
@@ -322,14 +323,14 @@ export default function ExtrasPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <div className="flex items-center justify-between">
-          <h2
-            className="text-3xl font-bold text-pencil"
-          >
-            Extras
-          </h2>
-          <div className="flex gap-2">
+      <PageHeader
+        icon={<FolderPlus size={24} strokeWidth={2.5} />}
+        title="Extras"
+        subtitle={isProjectMode
+          ? 'Sync arbitrary directories to project targets'
+          : 'Sync arbitrary directories to AI tool targets'}
+        actions={
+          <>
             {extras.length > 0 && (
               <Button variant="secondary" size="sm" onClick={handleSyncAll}>
                 <RefreshCw size={14} strokeWidth={2.5} /> Sync All
@@ -338,16 +339,9 @@ export default function ExtrasPage() {
             <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
               <Plus size={14} strokeWidth={2.5} /> Add Extra
             </Button>
-          </div>
-        </div>
-        <p
-          className="text-pencil-light mt-1"
-        >
-          {isProjectMode
-            ? 'Sync arbitrary directories to project targets'
-            : 'Sync arbitrary directories to AI tool targets'}
-        </p>
-      </div>
+          </>
+        }
+      />
 
       {/* Loading */}
       {isPending && <PageSkeleton />}

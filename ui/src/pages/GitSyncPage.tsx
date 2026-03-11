@@ -23,6 +23,7 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import { Input, Checkbox } from '../components/Input';
 import Badge from '../components/Badge';
+import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 
@@ -145,18 +146,11 @@ export default function GitSyncPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2
-          className="text-3xl font-bold text-pencil"
-        >
-          Git Sync
-        </h2>
-        <p
-          className="text-pencil-light mt-1"
-        >
-          Push and pull your skills source directory via git
-        </p>
-      </div>
+      <PageHeader
+        icon={<GitBranch size={24} strokeWidth={2.5} />}
+        title="Git Sync"
+        subtitle="Push and pull your skills source directory via git"
+      />
 
       {/* Repo Status Card */}
       <Card>
@@ -276,15 +270,14 @@ export default function GitSyncPage() {
               />
               <Button
                 variant="primary"
-                size="lg"
+                size="sm"
                 onClick={handlePush}
                 disabled={pushing || (!status?.isDirty && !pushDryRun)}
-                className="w-full md:w-auto"
               >
                 {pushing ? (
-                  <><RefreshCw size={18} strokeWidth={2.5} className="animate-spin" /> Pushing...</>
+                  <><RefreshCw size={16} strokeWidth={2.5} className="animate-spin" /> Pushing...</>
                 ) : (
-                  <><ArrowUpCircle size={18} strokeWidth={2.5} /> Push</>
+                  <><ArrowUpCircle size={16} strokeWidth={2.5} /> Push</>
                 )}
               </Button>
             </div>
@@ -327,15 +320,14 @@ export default function GitSyncPage() {
               />
               <Button
                 variant="secondary"
-                size="lg"
+                size="sm"
                 onClick={handlePull}
                 disabled={pulling || (!!status?.isDirty && !pullDryRun)}
-                className="w-full md:w-auto"
               >
                 {pulling ? (
-                  <><RefreshCw size={18} strokeWidth={2.5} className="animate-spin" /> Pulling...</>
+                  <><RefreshCw size={16} strokeWidth={2.5} className="animate-spin" /> Pulling...</>
                 ) : (
-                  <><ArrowDownCircle size={18} strokeWidth={2.5} /> Pull</>
+                  <><ArrowDownCircle size={16} strokeWidth={2.5} /> Pull</>
                 )}
               </Button>
             </div>

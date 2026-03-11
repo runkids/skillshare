@@ -11,6 +11,7 @@ import FilterTagInput from '../components/FilterTagInput';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
+import PageHeader from '../components/PageHeader';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
 import type { AvailableTarget } from '../api/client';
@@ -109,35 +110,30 @@ export default function TargetsPage() {
   return (
     <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2
-            className="text-3xl md:text-4xl font-bold text-pencil mb-1"
+      <PageHeader
+        icon={<Target size={24} strokeWidth={2.5} />}
+        title="Targets"
+        subtitle={`${targets.length} target${targets.length !== 1 ? 's' : ''} configured`}
+        actions={
+          <Button
+            onClick={() => {
+              if (adding) {
+                setAdding(false);
+                setNewTarget({ name: '', path: '' });
+                setSearchQuery('');
+                setCustomMode(false);
+              } else {
+                setAdding(true);
+              }
+            }}
+            variant={adding ? 'secondary' : 'primary'}
+            size="sm"
           >
-            Targets
-          </h2>
-          <p className="text-pencil-light">
-            {targets.length} target{targets.length !== 1 ? 's' : ''} configured
-          </p>
-        </div>
-        <Button
-          onClick={() => {
-            if (adding) {
-              setAdding(false);
-              setNewTarget({ name: '', path: '' });
-              setSearchQuery('');
-              setCustomMode(false);
-            } else {
-              setAdding(true);
-            }
-          }}
-          variant={adding ? 'secondary' : 'primary'}
-          size="sm"
-        >
-          {adding ? null : <Plus size={16} strokeWidth={2.5} />}
-          {adding ? 'Cancel' : 'Add Target'}
-        </Button>
-      </div>
+            {adding ? null : <Plus size={16} strokeWidth={2.5} />}
+            {adding ? 'Cancel' : 'Add Target'}
+          </Button>
+        }
+      />
 
       {/* Add target form */}
       {adding && (
@@ -335,7 +331,7 @@ export default function TargetsPage() {
                 className={`!overflow-visible ${i % 2 === 0 ? 'rotate-[-0.2deg]' : 'rotate-[0.2deg]'}`}
                 style={{ position: 'relative', zIndex: targets.length - i }}
               >
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <Target size={16} strokeWidth={2.5} className="text-success shrink-0" />
@@ -351,7 +347,7 @@ export default function TargetsPage() {
                     >
                       {shortenHome(target.path)}
                     </p>
-                    <div className="mt-3 flex items-center gap-2">
+                    <div className="mt-3 pt-3 border-t border-dashed border-muted-dark/30 flex items-center gap-2">
                       <Select
                         value={target.mode || 'merge'}
                         onChange={async (mode) => {

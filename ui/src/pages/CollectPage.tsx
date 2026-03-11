@@ -15,6 +15,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import Card from '../components/Card';
+import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
@@ -122,17 +123,7 @@ export default function CollectPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Page header */}
-      <div className="mb-8">
-        <h2
-          className="text-3xl md:text-4xl font-bold text-pencil mb-2"
-        >
-          Collect
-        </h2>
-        <p className="text-pencil-light text-base">
-          Pull local skills from targets back to source
-        </p>
-      </div>
+      <PageHeader icon={<ArrowDownToLine size={24} strokeWidth={2.5} />} title="Collect" subtitle="Pull local skills from targets back to source" />
 
       {/* Visual Pipeline (reverse direction) */}
       <div className="hidden md:flex items-center justify-center gap-4 mb-8">

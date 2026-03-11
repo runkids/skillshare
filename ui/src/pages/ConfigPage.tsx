@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, FileCode } from 'lucide-react';
+import { Save, FileCode, Settings } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView } from '@codemirror/view';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
@@ -71,36 +72,31 @@ export default function ConfigPage() {
   return (
     <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2
-            className="text-3xl md:text-4xl font-bold text-pencil mb-1"
-          >
-            Config
-          </h2>
-          <p className="text-pencil-light">
-            {isProjectMode ? 'Edit your project configuration' : 'Edit your skillshare configuration'}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          {dirty && (
-            <span
-              className="text-sm text-warning px-2 py-1 bg-warning-light rounded-full border border-warning"
+      <PageHeader
+        icon={<Settings size={24} strokeWidth={2.5} />}
+        title="Config"
+        subtitle={isProjectMode ? 'Edit your project configuration' : 'Edit your skillshare configuration'}
+        actions={
+          <>
+            {dirty && (
+              <span
+                className="text-sm text-warning px-2 py-1 bg-warning-light rounded-full border border-warning"
+              >
+                unsaved changes
+              </span>
+            )}
+            <Button
+              onClick={handleSave}
+              disabled={saving || !dirty}
+              variant="primary"
+              size="sm"
             >
-              unsaved changes
-            </span>
-          )}
-          <Button
-            onClick={handleSave}
-            disabled={saving || !dirty}
-            variant="primary"
-            size="sm"
-          >
-            <Save size={16} strokeWidth={2.5} />
-            {saving ? 'Saving...' : 'Save'}
-          </Button>
-        </div>
-      </div>
+              <Save size={16} strokeWidth={2.5} />
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          </>
+        }
+      />
 
       <Card>
         <div className="flex items-center gap-2 mb-3">

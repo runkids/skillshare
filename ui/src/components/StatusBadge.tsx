@@ -1,9 +1,9 @@
 import Badge from './Badge';
 
 const statusVariant: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
-  merged: 'success',
-  copied: 'success',
-  linked: 'success',
+  merged: 'default',
+  copied: 'default',
+  linked: 'default',
   'not exist': 'warning',
   'has files': 'info',
   conflict: 'danger',

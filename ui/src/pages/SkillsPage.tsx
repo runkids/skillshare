@@ -24,6 +24,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import PageHeader from '../components/PageHeader';
 import SegmentedControl from '../components/SegmentedControl';
 import Pagination from '../components/Pagination';
 import { api, type Skill } from '../api/client';
@@ -332,18 +333,11 @@ export default function SkillsPage() {
   return (
     <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2
-            className="text-3xl md:text-4xl font-bold text-pencil mb-1"
-          >
-            Skills
-          </h2>
-          <p className="text-pencil-light">
-            {skills.length} skill{skills.length !== 1 ? 's' : ''} installed
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={<Puzzle size={24} strokeWidth={2.5} />}
+        title="Skills"
+        subtitle={`${skills.length} skill${skills.length !== 1 ? 's' : ''} installed`}
+      />
 
       {/* Search + Sort row */}
       <div className="flex flex-col sm:flex-row gap-3 mb-4">
