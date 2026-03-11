@@ -14,6 +14,7 @@ import DashboardPage from './pages/DashboardPage';
 const SkillsPage = lazy(() => import('./pages/SkillsPage'));
 const SkillDetailPage = lazy(() => import('./pages/SkillDetailPage'));
 const TargetsPage = lazy(() => import('./pages/TargetsPage'));
+const ExtrasPage = lazy(() => import('./pages/ExtrasPage'));
 const SyncPage = lazy(() => import('./pages/SyncPage'));
 const CollectPage = lazy(() => import('./pages/CollectPage'));
 const BackupPage = lazy(() => import('./pages/BackupPage'));
@@ -45,6 +46,7 @@ export default function App() {
                 <Route path="skills" element={<Lazy><SkillsPage /></Lazy>} />
                 <Route path="skills/:name" element={<Lazy><SkillDetailPage /></Lazy>} />
                 <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
+                <Route path="extras" element={<Lazy><ExtrasPage /></Lazy>} />
                 <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
                 <Route path="collect" element={<Lazy><CollectPage /></Lazy>} />
                 <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />

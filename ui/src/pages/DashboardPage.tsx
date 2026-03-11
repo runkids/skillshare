@@ -17,6 +17,7 @@ import {
   Zap,
   ShieldCheck,
   ShieldAlert,
+  FolderPlus,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -28,7 +29,7 @@ import StatusBadge from '../components/StatusBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
-import type { Target as TargetType, CheckResult, AuditAllResponse } from '../api/client';
+import type { Target as TargetType, CheckResult, AuditAllResponse, Extra } from '../api/client';
 import { useAppContext } from '../context/AppContext';
 import { wobbly, shadows } from '../design';
 import { shortenHome } from '../lib/paths';
@@ -40,6 +41,11 @@ export default function DashboardPage() {
     queryKey: queryKeys.overview,
     queryFn: () => api.getOverview(),
     staleTime: staleTimes.overview,
+  });
+  const { data: extrasData } = useQuery({
+    queryKey: queryKeys.extras,
+    queryFn: () => api.listExtras(),
+    staleTime: staleTimes.extras,
   });
   const queryClient = useQueryClient();
   const [updatingAll, setUpdatingAll] = useState(false);
@@ -96,6 +102,9 @@ export default function DashboardPage() {
     window.localStorage.setItem(STAR_CTA_DISMISSED_KEY, '1');
   };
 
+  const totalExtraFiles = extrasData?.extras?.reduce((sum: number, e: Extra) => sum + e.file_count, 0) ?? 0;
+  const totalExtraTargets = extrasData?.extras?.reduce((sum: number, e: Extra) => sum + e.targets.length, 0) ?? 0;
+
   const stats = [
     {
       label: 'Skills',
@@ -132,6 +141,15 @@ export default function DashboardPage() {
       color: 'text-pencil-light',
       bg: 'bg-muted',
       to: '/config',
+    },
+    {
+      label: 'Extras',
+      value: extrasData?.extras?.length ?? 0,
+      subtitle: `${totalExtraFiles} files · ${totalExtraTargets} targets`,
+      icon: FolderPlus,
+      color: 'text-lime-600',
+      bg: 'bg-lime-100',
+      to: '/extras',
     },
   ];
 

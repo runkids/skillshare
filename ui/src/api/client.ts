@@ -61,6 +61,47 @@ function createSSEStream(
   return es;
 }
 
+// Extras types
+export interface ExtraTarget {
+  path: string;
+  mode: string;
+  status: string;  // "synced" | "drift" | "not synced" | "no source"
+}
+
+export interface Extra {
+  name: string;
+  source_dir: string;
+  file_count: number;
+  source_exists: boolean;
+  targets: ExtraTarget[];
+}
+
+export interface ExtraDiffItem {
+  action: string;  // "create" | "update" | "prune"
+  file: string;
+  reason: string;
+}
+
+export interface ExtraDiffResult {
+  name: string;
+  target: string;
+  mode: string;
+  synced: boolean;
+  items: ExtraDiffItem[];
+}
+
+export interface ExtrasSyncResult {
+  name: string;
+  targets: Array<{
+    path: string;
+    mode: string;
+    synced: number;
+    skipped: number;
+    pruned: number;
+    error?: string;
+  }>;
+}
+
 // Typed API helpers
 export const api = {
   // Overview
@@ -244,6 +285,23 @@ export const api = {
     apiFetch<{ success: boolean }>(`/trash/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   emptyTrash: () =>
     apiFetch<{ success: boolean; removed: number }>('/trash/empty', { method: 'POST' }),
+
+  // Extras
+  listExtras: () => apiFetch<{ extras: Extra[] }>('/extras'),
+  diffExtras: (name?: string) =>
+    apiFetch<{ extras: ExtraDiffResult[] }>(`/extras/diff${name ? '?name=' + encodeURIComponent(name) : ''}`),
+  createExtra: (data: { name: string; targets: Array<{ path: string; mode: string }> }) =>
+    apiFetch<{ success: boolean }>('/extras', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  syncExtras: (opts?: { name?: string; dry_run?: boolean; force?: boolean }) =>
+    apiFetch<{ extras: ExtrasSyncResult[] }>('/extras/sync', {
+      method: 'POST',
+      body: JSON.stringify(opts ?? {}),
+    }),
+  deleteExtra: (name: string) =>
+    apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}`, { method: 'DELETE' }),
 
   // Log
   listLog: (type?: string, limit?: number, filters?: { cmd?: string; status?: string; since?: string }) => {
