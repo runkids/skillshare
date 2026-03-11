@@ -85,9 +85,12 @@ skillshare sync -g       # Force global mode
 ```
 <project-root>/
 ├── .skillshare/
-│   ├── config.yaml              # Targets + settings
+│   ├── config.yaml              # Targets + settings (incl. extras)
 │   ├── registry.yaml            # Remote skills list (auto-managed)
 │   ├── .gitignore               # Ignores logs/ and cloned remote/tracked skill dirs
+│   ├── extras/                  # Extras source directories
+│   │   └── rules/               # e.g. extras init rules --target .claude/rules -p
+│   │       └── coding.md
 │   └── skills/
 │       ├── my-local-skill/      # Created manually or via `skillshare new`
 │       │   └── SKILL.md
@@ -171,6 +174,7 @@ Project mode has some intentional limitations:
 | `--discover` | ✓ | Detect and add new targets to existing project config |
 | `push` / `pull` | ✗ | Use git directly on the project repo |
 | `collect` | ✓ | Collect local skills from project targets to `.skillshare/skills/` |
+| `extras` | ✓ | Extras sync, init, list, remove, collect — all support `-p` |
 | `backup` / `restore` | ✗ | Not needed (project targets are reproducible) |
 
 ---

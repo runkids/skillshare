@@ -89,6 +89,13 @@ For tracked skills with `.skillshare-meta.json` file hashes, doctor verifies tha
 ⚠ Skill integrity: 2 skill(s) unverifiable (no metadata)
 ```
 
+### Extras
+
+When extras are configured, verifies:
+- Source directory exists for each extra
+- Target directories are reachable
+- Reports missing source directories or unreachable targets
+
 ### Other
 
 - Skills without `SKILL.md` files

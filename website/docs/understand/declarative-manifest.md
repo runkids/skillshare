@@ -138,6 +138,21 @@ Contributors clone and run `skillshare install -p` to get project-specific AI co
 4. Run `skillshare sync`        →  distribute to all targets
 ```
 
+## Extras Configuration
+
+In addition to skills, `config.yaml` can declare **extras** — non-skill resources (rules, commands, prompts) synced to separate directories. Extras are configured in the `extras:` section of `config.yaml` (both global and project):
+
+```yaml
+extras:
+  - name: rules
+    targets:
+      - path: ~/.claude/rules
+      - path: ~/.cursor/rules
+        mode: copy
+```
+
+See [sync extras](/docs/reference/commands/sync#sync-extras) for details.
+
 ## Related
 
 - [Install command](/docs/reference/commands/install) — `skillshare install` with and without arguments

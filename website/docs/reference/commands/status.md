@@ -80,6 +80,18 @@ If a target is in symlink mode, `include`/`exclude` is ignored.
 | `needs sync` | Mode changed, run `sync` to apply |
 | `not synced` | Some expected skills (after filters) are missing — run `sync` |
 
+### Extras
+
+When extras are configured, shows each extra's sync status:
+
+```
+Extras
+  ✓ rules       2 files → ~/.claude/rules (merge)
+  ✓ commands    1 file  → ~/.cursor/commands (copy)
+```
+
+Each entry shows the file count, target path, and sync mode.
+
 ### Audit
 
 Shows the active audit policy configuration (resolved from CLI flags, project config, or global config):

@@ -258,6 +258,23 @@ $ skillshare sync
 
 ---
 
+## Extras Sync Modes
+
+Extras (non-skill resources like rules, commands, prompts) also use merge and copy modes. Each extras target can specify its own mode:
+
+```yaml
+extras:
+  - name: rules
+    targets:
+      - path: ~/.claude/rules          # merge (default): per-file symlinks
+      - path: ~/.cursor/rules
+        mode: copy                     # copy: real file copies
+```
+
+The behavior is the same as skill sync modes — merge creates per-file symlinks, copy creates real file copies.
+
+---
+
 ## See Also
 
 - [sync](/docs/reference/commands/sync) — Run sync to apply mode changes

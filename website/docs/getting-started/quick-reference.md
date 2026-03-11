@@ -42,6 +42,15 @@ Command cheat sheet for skillshare.
 | `target remove <name>` | Remove target safely |
 | `diff [target]` | Show differences |
 
+## Extras Management
+
+| Command | Description |
+|---------|-------------|
+| `extras init <name> --target <path>` | Add an extras entry to config |
+| `extras list` | List configured extras with sync status |
+| `extras remove <name>` | Remove an extras entry from config |
+| `extras collect <name>` | Collect local files from extras target into source |
+
 ## Sync Operations
 
 | Command | Description |
@@ -147,6 +156,7 @@ make playground-down     # stop container
 | `~/.config/skillshare/config.yaml` | Configuration file |
 | `~/.config/skillshare/registry.yaml` | Installed skill registry (auto-managed) |
 | `~/.config/skillshare/skills/` | Source directory |
+| `~/.config/skillshare/extras/<name>/` | Extras source directories |
 | `~/.local/state/skillshare/logs/` | Operation and audit logs |
 | `~/.local/share/skillshare/backups/` | Backup directory |
 
