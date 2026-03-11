@@ -10,8 +10,9 @@ v0.17.0 promotes **extras** from a sync sub-feature to a **first-class citizen**
 2. **Interactive TUI wizard** — `extras init` with step-by-step name → target → mode flow
 3. **Project mode** — all extras commands support `-p` for `.skillshare/`-scoped extras
 4. **Deep integration** — `status`, `doctor`, `diff`, `sync` all gain extras awareness
-5. **Web UI** — new Extras management page + Dashboard card + REST API endpoints
-6. **Auto-migration** — legacy flat directories (`configDir/rules/`) automatically move to `configDir/extras/rules/`
+5. **Web UI redesign** — complete visual overhaul with clean design, table view, keyboard shortcuts, onboarding tour
+6. **Web UI Extras page** — new Extras management page + Dashboard card + REST API endpoints
+7. **Auto-migration** — legacy flat directories (`configDir/rules/`) automatically move to `configDir/extras/rules/`
 
 ### Breaking Change
 
@@ -111,6 +112,18 @@ Project-mode `--all` now includes extras sync alongside skills.
 
 ## Web UI
 
+### Visual Redesign
+
+The web dashboard received a complete visual overhaul — replacing the hand-drawn aesthetic with a clean, minimal design:
+
+- **New design system** — DM Sans typography, clean border-radius, streamlined color palette with proper dark mode support
+- **Table view with pagination** — skills and search results offer a table view alongside card/grouped views, with client-side pagination
+- **Sticky search and filters** — SkillsPage toolbar stays pinned at the top, with grouped view sticky headers
+- **Keyboard modifier shortcuts** — press `?` to see available shortcuts, with on-screen HUD overlay
+- **Sync progress animation** — visual feedback during sync operations
+- **Onboarding tour** — step-by-step spotlight tour for first-time users
+- **Shared UI components** — DialogShell, IconButton, Pagination, SegmentedControl for consistent interactions
+
 ### Extras Page
 
 New page at `/extras` in the web dashboard:
@@ -197,6 +210,8 @@ Also included from v0.16.15:
 - **`SKILLSHARE_GITLAB_HOSTS` env var** — comma-separated list for CI/CD pipelines without a config file; merged with config values
 - **GitLab nested subgroup URL fix** — URLs like `gitlab.com/group/subgroup/project` are now treated as the full repo path
 - **HTTPS fallback fix** — platform-aware HTTPS URL parsing no longer misroutes GitHub Enterprise and Gitea URLs
+- **Skill discovery in projects** — `install` now skips known AI tool config directories (`.claude/`, `.cursor/`, etc.) during project scanning, preventing circular discovery
+- **Sync collision message** — `sync` now shows both duplicate skill names in collision warnings
 
 ---
 

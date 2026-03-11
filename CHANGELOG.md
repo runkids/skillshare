@@ -33,6 +33,18 @@ Extras (non-skill resources like rules, prompts, commands) are now a first-class
 - **`sync extras --json`** — structured JSON output for programmatic consumption
 - **`sync --all -p`** — project-mode `--all` now includes extras sync
 
+#### Web UI Redesign
+
+The web dashboard (`skillshare ui`) received a complete visual overhaul — replacing the hand-drawn aesthetic with a clean, minimal design:
+
+- **Redesigned design system** — new DM Sans typography, clean border-radius, streamlined color palette with proper dark mode support
+- **Table view with pagination** — skills and search results now offer a table view alongside the existing card/grouped views, with client-side pagination for large collections
+- **Sticky search and filters** — SkillsPage toolbar stays pinned at the top while scrolling, with grouped view sticky headers
+- **Keyboard modifier shortcuts** — press `?` to see available shortcuts, with an on-screen HUD overlay showing active modifiers
+- **Sync progress animation** — visual feedback during sync operations
+- **Onboarding tour** — step-by-step spotlight tour for first-time users, highlighting key features
+- **Shared UI components** — new DialogShell, IconButton, Pagination, and SegmentedControl components for consistent interactions across pages
+
 #### Web UI Extras Page
 
 - New **Extras page** in the web dashboard with list, sync, remove, and add-extra modal
@@ -77,6 +89,8 @@ Extras (non-skill resources like rules, prompts, commands) are now a first-class
   ```
   Non-GitLab hosts (GHE, Gitea, etc.) retain the original `owner/repo` + subdir behavior. GitLab web URLs with `/-/tree/` and Bitbucket `/src/` markers continue to work as before. `--track` mode generates correct names for subgroup paths (e.g., `group-subgroup-project`)
 - **HTTPS fallback on non-GitLab hosts** — fixed platform-aware HTTPS URL parsing that could misroute GitHub Enterprise and Gitea URLs with subdirectory paths
+- **Skill discovery in projects** — `skillshare install` now skips known AI tool config directories (`.claude/`, `.cursor/`, etc.) when scanning a project directory for skills, preventing circular discovery and false duplicates
+- **Sync collision message** — `skillshare sync` now shows both duplicate skill names in collision warning messages for easier troubleshooting
 
 ## [0.16.14] - 2026-03-09
 
