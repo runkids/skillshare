@@ -118,6 +118,11 @@ type ProjectConfig struct {
 	GitLabHosts []string             `yaml:"gitlab_hosts,omitempty"`
 }
 
+// EffectiveGitLabHosts returns GitLabHosts merged with SKILLSHARE_GITLAB_HOSTS env var.
+func (c *ProjectConfig) EffectiveGitLabHosts() []string {
+	return mergeGitLabHostsFromEnv(c.GitLabHosts)
+}
+
 // ProjectConfigPath returns the project config path for the given root.
 func ProjectConfigPath(projectRoot string) string {
 	return filepath.Join(projectRoot, ".skillshare", "config.yaml")
@@ -149,12 +154,12 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 	}
 	cfg.Audit.BlockThreshold = threshold
 
-	// Validate and normalize gitlab_hosts (config file + env var, merged)
+	// Validate and normalize gitlab_hosts (config file only; env var merged at read time)
 	hosts, err := normalizeGitLabHosts(cfg.GitLabHosts)
 	if err != nil {
 		return nil, fmt.Errorf("project config: %w", err)
 	}
-	cfg.GitLabHosts = mergeGitLabHostsFromEnv(hosts)
+	cfg.GitLabHosts = hosts
 
 	for _, target := range cfg.Targets {
 		if strings.TrimSpace(target.Name) == "" {

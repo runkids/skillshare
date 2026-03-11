@@ -88,12 +88,12 @@ func (s *Server) IsProjectMode() bool {
 }
 
 // parseOpts returns install.ParseOptions with GitLabHosts from the current config.
+// In project mode, project config is used unconditionally (not a fallback to global).
 func (s *Server) parseOpts() install.ParseOptions {
-	hosts := s.cfg.GitLabHosts
-	if s.IsProjectMode() && s.projectCfg != nil && len(s.projectCfg.GitLabHosts) > 0 {
-		hosts = s.projectCfg.GitLabHosts
+	if s.IsProjectMode() && s.projectCfg != nil {
+		return install.ParseOptions{GitLabHosts: s.projectCfg.EffectiveGitLabHosts()}
 	}
-	return install.ParseOptions{GitLabHosts: hosts}
+	return install.ParseOptions{GitLabHosts: s.cfg.EffectiveGitLabHosts()}
 }
 
 // configPath returns the config file path for the current mode

@@ -71,6 +71,13 @@ type Config struct {
 	GitLabHosts []string                `yaml:"gitlab_hosts,omitempty"`
 }
 
+// EffectiveGitLabHosts returns GitLabHosts merged with SKILLSHARE_GITLAB_HOSTS env var.
+// Use this instead of accessing GitLabHosts directly for runtime behavior;
+// GitLabHosts contains only config-file values and is safe to persist via Save().
+func (c *Config) EffectiveGitLabHosts() []string {
+	return mergeGitLabHostsFromEnv(c.GitLabHosts)
+}
+
 // IsTUIEnabled reports whether interactive TUI is enabled.
 // nil (absent from config) is treated as true for backward compatibility.
 func (c *Config) IsTUIEnabled() bool {
@@ -198,12 +205,12 @@ func Load() (*Config, error) {
 	}
 	cfg.Audit.BlockThreshold = threshold
 
-	// Validate and normalize gitlab_hosts (config file + env var, merged)
+	// Validate and normalize gitlab_hosts (config file only; env var merged at read time)
 	hosts, err := normalizeGitLabHosts(cfg.GitLabHosts)
 	if err != nil {
 		return nil, err
 	}
-	cfg.GitLabHosts = mergeGitLabHostsFromEnv(hosts)
+	cfg.GitLabHosts = hosts
 
 	// Expand ~ in paths
 	cfg.Source = expandPath(cfg.Source)
