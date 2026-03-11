@@ -20,7 +20,6 @@ import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import { Select } from '../components/Input';
 import EmptyState from '../components/EmptyState';
-import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import StreamProgressBar from '../components/StreamProgressBar';
 import { radius, palette } from '../design';
@@ -148,20 +147,16 @@ export default function AuditPage() {
 
       {/* Loading / Progress */}
       {loading && (
-        progress ? (
-          <StreamProgressBar
-            count={progress.scanned}
-            total={progress.total}
-            startTime={startTimeRef.current}
-            icon={ShieldCheck}
-            iconClassName="animate-pulse"
-            labelDiscovering="Scanning skills..."
-            labelRunning="Scanning skills..."
-            units="skills"
-          />
-        ) : (
-          <PageSkeleton />
-        )
+        <StreamProgressBar
+          count={progress?.scanned ?? 0}
+          total={progress?.total ?? 0}
+          startTime={startTimeRef.current}
+          icon={ShieldCheck}
+          iconClassName="animate-pulse"
+          labelDiscovering="Scanning skills..."
+          labelRunning="Scanning skills..."
+          units="skills"
+        />
       )}
 
       {/* Error */}
@@ -441,7 +436,7 @@ function TriagePanel({
               options={severityFilterOptions}
             />
           </div>
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-4 flex-wrap py-1.5">
             {scanErrors > 0 && (
               <span className="text-danger text-sm flex items-center gap-1">
                 <AlertTriangle size={14} strokeWidth={2.5} />

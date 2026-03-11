@@ -521,9 +521,9 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
 
   return (
     <Card>
-      <div className="overflow-x-auto">
+      <div className="overflow-auto max-h-[calc(100vh-320px)]">
         <table className="w-full text-left">
-          <thead>
+          <thead className="sticky top-0 z-10 bg-surface">
             <tr className="border-b-2 border-dashed border-muted-dark">
               <th className="pb-3 pr-4 text-pencil-light text-sm font-medium w-0" />
               <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Name</th>

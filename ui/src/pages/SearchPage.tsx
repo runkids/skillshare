@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Search, Star, Download, Globe, Database, Settings } from 'lucide-react';
+import { Search, Star, Download, Globe, Database, Settings, LayoutGrid, List } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import Card from '../components/Card';
 import PageHeader from '../components/PageHeader';
@@ -9,12 +9,17 @@ import SegmentedControl from '../components/SegmentedControl';
 import { Input, Select } from '../components/Input';
 import SkillPickerModal from '../components/SkillPickerModal';
 import HubManagerModal, { type SavedHub } from '../components/HubManagerModal';
+import Pagination from '../components/Pagination';
+import Tooltip from '../components/Tooltip';
 import EmptyState from '../components/EmptyState';
 import { useToast } from '../components/Toast';
 import { api, type SearchResult, type DiscoveredSkill } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
 
 type SearchMode = 'github' | 'hub';
+type SearchViewType = 'card' | 'table';
+
+const TABLE_PAGE_SIZES = [10, 25, 50] as const;
 
 const COMMUNITY_HUB: SavedHub = {
   label: 'Skillshare Hub',
@@ -45,8 +50,23 @@ export default function SearchPage() {
   const [showHubManager, setShowHubManager] = useState(false);
   const [hubLoaded, setHubLoaded] = useState(false);
 
+  // View type (card vs table) — persisted in localStorage
+  const [viewType, setViewType] = useState<SearchViewType>(() => {
+    const saved = localStorage.getItem('skillshare:search-view');
+    return saved === 'table' ? 'table' : 'card';
+  });
+  const changeViewType = useCallback((v: string) => {
+    const vt = v as SearchViewType;
+    setViewType(vt);
+    localStorage.setItem('skillshare:search-view', vt);
+  }, []);
+
   // Install state
   const [installing, setInstalling] = useState<string | null>(null);
+
+  // Table pagination
+  const [tablePage, setTablePage] = useState(0);
+  const [tablePageSize, setTablePageSize] = useState<number>(10);
 
   // Incremental rendering
   const PAGE_SIZE = 20;
@@ -78,9 +98,10 @@ export default function SearchPage() {
     fetchHubConfig();
   }, []);
 
-  // Reset visible count when results or filter change
+  // Reset visible count / table page when results or filter change
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
+    setTablePage(0);
   }, [filteredResults]);
 
   // IntersectionObserver: load more when sentinel scrolls into view
@@ -318,7 +339,7 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       <PageHeader icon={<Search size={24} strokeWidth={2.5} />} title="Search Skills" subtitle="Discover and install skills" />
 
       {/* Mode tabs + search */}
@@ -423,77 +444,101 @@ export default function SearchPage() {
         )}
       </Card>
 
-      {/* Summary + filter */}
+      {/* Sticky toolbar: summary + filter + view toggle */}
       {results && results.length > 0 && (
-        <>
-          <div className="flex items-center gap-3 flex-wrap">
-            <p className="text-sm text-pencil-light whitespace-nowrap">
-              {filteredResults.length} result{filteredResults.length !== 1 ? 's' : ''}
-            </p>
-            <div className="relative flex-1 min-w-[200px]">
-              <Search
-                size={14}
-                strokeWidth={2.5}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
-              />
-              <Input
-                type="text"
-                placeholder="Filter by name, description, or tag..."
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="!pl-8 !py-1.5 !text-sm"
+        <div className="space-y-2">
+          <div className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 py-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <p className="text-sm text-pencil-light whitespace-nowrap">
+                {filteredResults.length} result{filteredResults.length !== 1 ? 's' : ''}
+              </p>
+              <div className="relative flex-1 min-w-[200px]">
+                <Search
+                  size={14}
+                  strokeWidth={2.5}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
+                />
+                <Input
+                  type="text"
+                  placeholder="Filter by name, description, or tag..."
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  className="!pl-8 !py-1.5 !text-sm"
+                />
+              </div>
+              <SegmentedControl
+                value={viewType}
+                onChange={changeViewType}
+                options={[
+                  { value: 'card', label: <LayoutGrid size={16} strokeWidth={2.5} /> },
+                  { value: 'table', label: <List size={16} strokeWidth={2.5} /> },
+                ]}
+                size="sm"
+                connected
               />
             </div>
           </div>
 
-          {/* Result cards */}
-          <div className="space-y-3">
-            {visible.map((r) => (
-              <Card key={r.source} tilt>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-bold text-pencil text-lg">
-                        {r.name}
-                      </span>
-                      {r.stars > 0 && (
-                        <span className="flex items-center gap-1 text-sm text-warning">
-                          <Star size={14} strokeWidth={2.5} fill="currentColor" />
-                          {r.stars}
+          {/* Results: card view or table view */}
+          {viewType === 'card' ? (
+            <div className="space-y-3">
+              {visible.map((r) => (
+                <Card key={r.source} tilt>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="font-bold text-pencil text-lg">
+                          {r.name}
                         </span>
-                      )}
-                      {r.owner && <Badge>{r.owner}</Badge>}
-                    </div>
-                    {r.description && (
-                      <p className="text-pencil-light mb-2">{r.description}</p>
-                    )}
-                    {r.tags && r.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mb-2">
-                        {r.tags.map((tag) => (
-                          <Badge key={tag} variant="accent" size="sm">#{tag}</Badge>
-                        ))}
+                        {r.stars > 0 && (
+                          <span className="flex items-center gap-1 text-sm text-warning">
+                            <Star size={14} strokeWidth={2.5} fill="currentColor" />
+                            {r.stars}
+                          </span>
+                        )}
+                        {r.owner && <Badge>{r.owner}</Badge>}
                       </div>
-                    )}
-                    <p className="font-mono text-xs text-muted-dark truncate">
-                      {r.source}
-                    </p>
+                      {r.description && (
+                        <p className="text-pencil-light mb-2">{r.description}</p>
+                      )}
+                      {r.tags && r.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {r.tags.map((tag) => (
+                            <Badge key={tag} variant="info" size="sm">#{tag}</Badge>
+                          ))}
+                        </div>
+                      )}
+                      <p className="font-mono text-xs text-muted-dark truncate">
+                        {r.source}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={() => handleInstall(r.source, r.skill)}
+                      variant="secondary"
+                      size="sm"
+                      loading={installing === r.source}
+                      className="shrink-0"
+                    >
+                      {installing !== r.source && <Download size={14} strokeWidth={2.5} />}
+                      Install
+                    </Button>
                   </div>
-                  <Button
-                    onClick={() => handleInstall(r.source, r.skill)}
-                    variant="secondary"
-                    size="sm"
-                    loading={installing === r.source}
-                    className="shrink-0"
-                  >
-                    {installing !== r.source && <Download size={14} strokeWidth={2.5} />}
-                    Install
-                  </Button>
-                </div>
-              </Card>
-            ))}
-            {hasMore && <div ref={sentinelRef} className="h-4" />}
-          </div>
-        </>
+                </Card>
+              ))}
+              {hasMore && <div ref={sentinelRef} className="h-4" />}
+            </div>
+          ) : (
+            <SearchResultsTable
+              results={filteredResults}
+              page={tablePage}
+              pageSize={tablePageSize}
+              onPageChange={setTablePage}
+              onPageSizeChange={(s) => { setTablePageSize(s); setTablePage(0); }}
+              installing={installing}
+              onInstall={handleInstall}
+            />
+          )}
+        </div>
       )}
 
       {results && results.length === 0 && (
@@ -549,5 +594,122 @@ export default function SearchPage() {
         installing={batchInstalling}
       />
     </div>
+  );
+}
+
+/* -- Table view with pagination ------------------- */
+
+function SearchResultsTable({
+  results,
+  page,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  installing,
+  onInstall,
+}: {
+  results: SearchResult[];
+  page: number;
+  pageSize: number;
+  onPageChange: (p: number) => void;
+  onPageSizeChange: (s: number) => void;
+  installing: string | null;
+  onInstall: (source: string, skill?: string) => void;
+}) {
+  const totalPages = Math.max(1, Math.ceil(results.length / pageSize));
+  const start = page * pageSize;
+  const visible = results.slice(start, start + pageSize);
+
+  return (
+    <Card>
+      <div className="overflow-auto max-h-[calc(100vh-320px)]">
+        <table className="w-full text-left">
+          <thead className="sticky top-0 z-10 bg-surface">
+            <tr className="border-b-2 border-dashed border-muted-dark">
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Name</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium hidden md:table-cell">Description</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Owner</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Stars</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium hidden lg:table-cell">Tags</th>
+              <th className="pb-3 text-pencil-light text-sm font-medium w-[100px]" />
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((r) => (
+              <tr
+                key={r.source}
+                className="border-b border-dashed border-muted hover:bg-paper-warm/60 transition-colors"
+              >
+                {/* Name + source */}
+                <td className="py-3 pr-4">
+                  <span className="font-medium text-pencil">{r.name}</span>
+                  <p className="font-mono text-xs text-muted-dark truncate max-w-[200px]">
+                    {r.source}
+                  </p>
+                </td>
+                {/* Description */}
+                <td className="py-3 pr-4 text-sm text-pencil-light max-w-[300px] hidden md:table-cell">
+                  <Tooltip content={r.description || '—'}>
+                    <span className="block truncate">{r.description || '—'}</span>
+                  </Tooltip>
+                </td>
+                {/* Owner */}
+                <td className="py-3 pr-4">
+                  {r.owner ? <Badge>{r.owner}</Badge> : <span className="text-muted-dark">—</span>}
+                </td>
+                {/* Stars */}
+                <td className="py-3 pr-4">
+                  {r.stars > 0 ? (
+                    <span className="flex items-center gap-1 text-sm text-warning">
+                      <Star size={14} strokeWidth={2.5} fill="currentColor" />
+                      {r.stars}
+                    </span>
+                  ) : (
+                    <span className="text-muted-dark">—</span>
+                  )}
+                </td>
+                {/* Tags */}
+                <td className="py-3 pr-4 hidden lg:table-cell">
+                  <div className="flex flex-wrap gap-1 max-w-[200px]">
+                    {(r.tags ?? []).slice(0, 3).map((tag) => (
+                      <Badge key={tag} variant="info" size="sm">#{tag}</Badge>
+                    ))}
+                    {(r.tags ?? []).length > 3 && (
+                      <Badge variant="default" size="sm">+{r.tags!.length - 3}</Badge>
+                    )}
+                  </div>
+                </td>
+                {/* Install */}
+                <td className="py-3">
+                  <Button
+                    onClick={() => onInstall(r.source, r.skill)}
+                    variant="secondary"
+                    size="sm"
+                    loading={installing === r.source}
+                  >
+                    {installing !== r.source && <Download size={14} strokeWidth={2.5} />}
+                    Install
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {results.length > TABLE_PAGE_SIZES[0] && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={onPageChange}
+          rangeText={`${start + 1}–${Math.min(start + pageSize, results.length)} of ${results.length}`}
+          pageSize={{
+            value: pageSize,
+            options: TABLE_PAGE_SIZES,
+            onChange: onPageSizeChange,
+          }}
+        />
+      )}
+    </Card>
   );
 }
