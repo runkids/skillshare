@@ -45,8 +45,5 @@ Options:
   --help, -h         Show this help`)
 }
 
-// Stub handlers — replaced in subsequent tasks
-func cmdExtrasInit(args []string) error    { return fmt.Errorf("not implemented") }
-func cmdExtrasList(args []string) error    { return fmt.Errorf("not implemented") }
-func cmdExtrasRemove(args []string) error  { return fmt.Errorf("not implemented") }
+// cmdExtrasCollect stub — replaced in Task 19
 func cmdExtrasCollect(args []string) error { return fmt.Errorf("not implemented") }

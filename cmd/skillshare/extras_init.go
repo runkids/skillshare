@@ -1,0 +1,194 @@
+package main
+
+import (
+	"fmt"
+	"os"
+	"time"
+
+	"skillshare/internal/config"
+	"skillshare/internal/oplog"
+	"skillshare/internal/ui"
+)
+
+func cmdExtrasInit(args []string) error {
+	start := time.Now()
+
+	mode, rest, err := parseModeArgs(args)
+	if err != nil {
+		return err
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("cannot determine working directory: %w", err)
+	}
+
+	if mode == modeAuto {
+		if projectConfigExists(cwd) {
+			mode = modeProject
+		} else {
+			mode = modeGlobal
+		}
+	}
+
+	applyModeLabel(mode)
+
+	// Parse flags
+	var name string
+	var targets []string
+	var syncMode string
+	for i := 0; i < len(rest); i++ {
+		switch rest[i] {
+		case "--target":
+			if i+1 >= len(rest) {
+				return fmt.Errorf("--target requires a path argument")
+			}
+			i++
+			targets = append(targets, rest[i])
+		case "--mode":
+			if i+1 >= len(rest) {
+				return fmt.Errorf("--mode requires an argument (merge/copy/symlink)")
+			}
+			i++
+			syncMode = rest[i]
+		case "--help", "-h":
+			printExtrasInitHelp()
+			return nil
+		default:
+			if name == "" {
+				name = rest[i]
+			} else {
+				return fmt.Errorf("unexpected argument: %s", rest[i])
+			}
+		}
+	}
+
+	if name == "" {
+		return fmt.Errorf("extras name is required: skillshare extras init <name> --target <path>")
+	}
+	if len(targets) == 0 {
+		return fmt.Errorf("at least one --target is required")
+	}
+
+	// Validate name
+	if err := config.ValidateExtraName(name); err != nil {
+		return err
+	}
+
+	// Validate sync mode
+	if syncMode != "" && syncMode != "merge" && syncMode != "copy" && syncMode != "symlink" {
+		return fmt.Errorf("invalid mode %q: must be merge, copy, or symlink", syncMode)
+	}
+
+	if mode == modeProject {
+		return extrasInitProject(cwd, name, targets, syncMode, start)
+	}
+	return extrasInitGlobal(name, targets, syncMode, start)
+}
+
+func extrasInitGlobal(name string, targets []string, syncMode string, start time.Time) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	if err := config.ValidateExtraNameUnique(name, cfg.Extras); err != nil {
+		return err
+	}
+
+	// Build extra config
+	extra := config.ExtraConfig{Name: name}
+	for _, t := range targets {
+		et := config.ExtraTargetConfig{Path: t}
+		if syncMode != "" {
+			et.Mode = syncMode
+		}
+		extra.Targets = append(extra.Targets, et)
+	}
+
+	// Create source directory
+	sourceDir := config.ExtrasSourceDir(cfg.Source, name)
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		return fmt.Errorf("failed to create extras source directory: %w", err)
+	}
+
+	// Add to config and save
+	cfg.Extras = append(cfg.Extras, extra)
+	if err := cfg.Save(); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	ui.Success("Created extras/%s/ with %d target(s)", name, len(targets))
+	ui.Info("Add files to extras/%s/ then run 'skillshare sync extras'", name)
+
+	// Oplog
+	e := oplog.NewEntry("extras-init", "ok", time.Since(start))
+	e.Args = map[string]any{"name": name, "targets": len(targets), "scope": "global"}
+	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+
+	return nil
+}
+
+func extrasInitProject(cwd, name string, targets []string, syncMode string, start time.Time) error {
+	projCfg, err := config.LoadProject(cwd)
+	if err != nil {
+		return err
+	}
+
+	if err := config.ValidateExtraNameUnique(name, projCfg.Extras); err != nil {
+		return err
+	}
+
+	extra := config.ExtraConfig{Name: name}
+	for _, t := range targets {
+		et := config.ExtraTargetConfig{Path: t}
+		if syncMode != "" {
+			et.Mode = syncMode
+		}
+		extra.Targets = append(extra.Targets, et)
+	}
+
+	// Create source directory
+	sourceDir := config.ExtrasSourceDirProject(cwd, name)
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		return fmt.Errorf("failed to create extras source directory: %w", err)
+	}
+
+	// Add to config and save
+	projCfg.Extras = append(projCfg.Extras, extra)
+	if err := projCfg.Save(cwd); err != nil {
+		return fmt.Errorf("failed to save project config: %w", err)
+	}
+
+	ui.Success("Created .skillshare/extras/%s/ with %d target(s)", name, len(targets))
+	ui.Info("Add files to .skillshare/extras/%s/ then run 'skillshare sync extras -p'", name)
+
+	// Oplog
+	cfgPath := config.ProjectConfigPath(cwd)
+	e := oplog.NewEntry("extras-init", "ok", time.Since(start))
+	e.Args = map[string]any{"name": name, "targets": len(targets), "scope": "project"}
+	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+
+	return nil
+}
+
+func printExtrasInitHelp() {
+	fmt.Println(`Usage: skillshare extras init <name> [options]
+
+Create a new extra resource type.
+
+Arguments:
+  name                Name for the extra (e.g., rules, commands, prompts)
+
+Options:
+  --target <path>     Target directory (repeatable)
+  --mode <mode>       Sync mode: merge (default), copy, symlink
+  --project, -p       Create in project mode (.skillshare/)
+  --global, -g        Create in global mode (~/.config/skillshare/)
+  --help, -h          Show this help
+
+Examples:
+  skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
+  skillshare extras init commands --target ~/.claude/commands --mode copy
+  skillshare extras init prompts --target .claude/prompts -p`)
+}
