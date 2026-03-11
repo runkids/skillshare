@@ -22,7 +22,7 @@ func TestSyncExtras_MergeMode(t *testing.T) {
 
 	// Create extras source: rules directory with 2 .md files
 	sourceRoot := filepath.Dir(sb.SourcePath) // ~/.config/skillshare/
-	rulesSource := filepath.Join(sourceRoot, "rules")
+	rulesSource := filepath.Join(sourceRoot, "extras", "rules")
 	os.MkdirAll(rulesSource, 0755)
 	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding Rules"), 0644)
 	os.WriteFile(filepath.Join(rulesSource, "testing.md"), []byte("# Testing Rules"), 0644)
@@ -76,7 +76,7 @@ func TestSyncExtras_CopyMode(t *testing.T) {
 
 	// Create extras source
 	sourceRoot := filepath.Dir(sb.SourcePath)
-	rulesSource := filepath.Join(sourceRoot, "rules")
+	rulesSource := filepath.Join(sourceRoot, "extras", "rules")
 	os.MkdirAll(rulesSource, 0755)
 	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding Rules"), 0644)
 
@@ -149,7 +149,7 @@ func TestSyncExtras_PrunesOrphans(t *testing.T) {
 
 	// Create extras source with 1 file
 	sourceRoot := filepath.Dir(sb.SourcePath)
-	rulesSource := filepath.Join(sourceRoot, "rules")
+	rulesSource := filepath.Join(sourceRoot, "extras", "rules")
 	os.MkdirAll(rulesSource, 0755)
 	os.WriteFile(filepath.Join(rulesSource, "keep.md"), []byte("# Keep"), 0644)
 
@@ -199,7 +199,7 @@ func TestSync_AllFlag(t *testing.T) {
 
 	// Setup extras
 	sourceRoot := filepath.Dir(sb.SourcePath)
-	rulesSource := filepath.Join(sourceRoot, "rules")
+	rulesSource := filepath.Join(sourceRoot, "extras", "rules")
 	os.MkdirAll(rulesSource, 0755)
 	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding"), 0644)
 

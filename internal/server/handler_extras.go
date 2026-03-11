@@ -67,10 +67,7 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 
 		entry.Targets = make([]extrasTargetInfo, 0, len(extra.Targets))
 		for _, t := range extra.Targets {
-			m := t.Mode
-			if m == "" {
-				m = "merge"
-			}
+			m := syncpkg.EffectiveMode(t.Mode)
 			ti := extrasTargetInfo{
 				Path: t.Path,
 				Mode: m,
@@ -81,7 +78,7 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 			} else if _, statErr := os.Stat(t.Path); os.IsNotExist(statErr) {
 				ti.Status = "not synced"
 			} else {
-				ti.Status = checkExtrasSyncStatus(files, sourceDir, t.Path, m)
+				ti.Status = syncpkg.CheckSyncStatus(files, sourceDir, t.Path, m)
 			}
 
 			entry.Targets = append(entry.Targets, ti)
@@ -141,10 +138,7 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, t := range extra.Targets {
-			m := t.Mode
-			if m == "" {
-				m = "merge"
-			}
+			m := syncpkg.EffectiveMode(t.Mode)
 
 			items := buildExtrasDiffItems(files, sourceDir, t.Path, m)
 			synced := len(items) == 0
@@ -241,8 +235,8 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 
 	// Validate mode values
 	for _, t := range body.Targets {
-		if t.Mode != "" && t.Mode != "merge" && t.Mode != "copy" && t.Mode != "symlink" {
-			writeError(w, http.StatusBadRequest, "invalid mode "+t.Mode+": must be merge, copy, or symlink")
+		if err := config.ValidateExtraMode(t.Mode); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 	}
@@ -308,8 +302,9 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 		DryRun bool   `json:"dry_run"`
 		Force  bool   `json:"force"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		// Use defaults (empty name = all, dryRun=false, force=false)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && r.ContentLength > 0 {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
 	}
 
 	extras := s.extrasConfig()
@@ -342,10 +337,7 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, t := range extra.Targets {
-			m := t.Mode
-			if m == "" {
-				m = "merge"
-			}
+			m := syncpkg.EffectiveMode(t.Mode)
 
 			tr := targetSyncResult{
 				Target: t.Path,
@@ -435,43 +427,3 @@ func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"success": true, "name": name})
 }
 
-// checkExtrasSyncStatus mirrors the same function in cmd/skillshare/extras_list.go.
-// It compares source files against the target directory and returns a status string.
-func checkExtrasSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string) string {
-	allSynced := true
-	for _, rel := range sourceFiles {
-		targetFile := filepath.Join(targetDir, rel)
-		sourceFile := filepath.Join(sourceDir, rel)
-
-		tInfo, err := os.Lstat(targetFile)
-		if err != nil {
-			allSynced = false
-			break
-		}
-
-		switch mode {
-		case "symlink", "merge":
-			if tInfo.Mode()&os.ModeSymlink != 0 {
-				link, readErr := os.Readlink(targetFile)
-				if readErr != nil || link != sourceFile {
-					allSynced = false
-				}
-			} else {
-				allSynced = false
-			}
-		case "copy":
-			if !tInfo.Mode().IsRegular() {
-				allSynced = false
-			}
-		}
-
-		if !allSynced {
-			break
-		}
-	}
-
-	if allSynced {
-		return "synced"
-	}
-	return "drift"
-}

@@ -34,6 +34,7 @@ type syncJSONOutput struct {
 	DryRun   bool                   `json:"dry_run"`
 	Duration string                 `json:"duration"`
 	Details  []syncJSONTargetDetail `json:"details"`
+	Extras   []syncExtrasJSONEntry  `json:"extras,omitempty"`
 }
 
 type syncJSONTargetDetail struct {
@@ -102,14 +103,12 @@ func cmdSync(args []string) error {
 	}
 
 	if mode == modeProject {
-		if hasAll {
-			// Run project extras sync after project skills sync
+		if hasAll && !jsonOutput {
+			// Run project extras sync after project skills sync (text mode)
 			defer func() {
 				fmt.Println()
 				if extrasErr := cmdSyncExtras(append([]string{"-p"}, rest...)); extrasErr != nil {
-					if !jsonOutput {
-						ui.Warning("Extras sync: %v", extrasErr)
-					}
+					ui.Warning("Extras sync: %v", extrasErr)
 				}
 			}()
 		}
@@ -117,6 +116,15 @@ func cmdSync(args []string) error {
 		stats.ProjectScope = true
 		logSyncOp(config.ProjectConfigPath(cwd), stats, start, err)
 		if jsonOutput {
+			if hasAll {
+				projCfg, loadErr := config.LoadProject(cwd)
+				if loadErr == nil && len(projCfg.Extras) > 0 {
+					extrasEntries := runExtrasSyncEntries(projCfg.Extras, func(name string) string {
+						return config.ExtrasSourceDirProject(cwd, name)
+					}, dryRun, force)
+					return syncOutputJSON(results, dryRun, start, err, extrasEntries)
+				}
+			}
 			return syncOutputJSON(results, dryRun, start, err)
 		}
 		return err
@@ -225,6 +233,12 @@ func cmdSync(args []string) error {
 	}, start, syncErr)
 
 	if jsonOutput {
+		if hasAll && len(cfg.Extras) > 0 {
+			extrasEntries := runExtrasSyncEntries(cfg.Extras, func(name string) string {
+				return config.ExtrasSourceDir(cfg.Source, name)
+			}, dryRun, force)
+			return syncOutputJSON(results, dryRun, start, syncErr, extrasEntries)
+		}
 		return syncOutputJSON(results, dryRun, start, syncErr)
 	}
 
@@ -275,7 +289,8 @@ func logSyncOp(cfgPath string, stats syncLogStats, start time.Time, cmdErr error
 }
 
 // syncOutputJSON converts sync results to JSON and writes to stdout.
-func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, syncErr error) error {
+// extras is optional and included when --all is used.
+func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, syncErr error, extras ...[]syncExtrasJSONEntry) error {
 	var totals syncModeStats
 	var details []syncJSONTargetDetail
 	for _, r := range results {
@@ -302,6 +317,9 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, sy
 		DryRun:   dryRun,
 		Duration: formatDuration(start),
 		Details:  details,
+	}
+	if len(extras) > 0 && extras[0] != nil {
+		output.Extras = extras[0]
 	}
 	return writeJSONResult(&output, syncErr)
 }

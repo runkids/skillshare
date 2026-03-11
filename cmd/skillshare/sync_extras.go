@@ -361,6 +361,47 @@ func syncVerb(mode string) string {
 	}
 }
 
+// runExtrasSync runs extras sync and returns JSON entries without printing.
+// Used by sync --all --json to merge extras into the skills JSON output.
+func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(string) string, dryRun, force bool) []syncExtrasJSONEntry {
+	entries := make([]syncExtrasJSONEntry, 0, len(extras))
+	for _, extra := range extras {
+		extraSource := sourceFunc(extra.Name)
+		entry := syncExtrasJSONEntry{Name: extra.Name}
+
+		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {
+			entry.Targets = []syncExtrasJSONTarget{}
+			entries = append(entries, entry)
+			continue
+		}
+
+		for _, target := range extra.Targets {
+			mode := target.Mode
+			if mode == "" {
+				mode = "merge"
+			}
+			targetPath := target.Path
+
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force)
+			jt := syncExtrasJSONTarget{Path: targetPath, Mode: mode}
+			if syncErr != nil {
+				jt.Error = syncErr.Error()
+			} else {
+				jt.Synced = result.Synced
+				jt.Skipped = result.Skipped
+				jt.Pruned = result.Pruned
+				if len(result.Errors) > 0 {
+					jt.Error = strings.Join(result.Errors, "; ")
+				}
+			}
+			entry.Targets = append(entry.Targets, jt)
+		}
+
+		entries = append(entries, entry)
+	}
+	return entries
+}
+
 // cachedHome caches the home directory for shortenPath.
 var cachedHome = func() string {
 	h, _ := os.UserHomeDir()

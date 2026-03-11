@@ -76,8 +76,8 @@ func cmdExtrasInit(args []string) error {
 	}
 
 	// Validate sync mode
-	if syncMode != "" && syncMode != "merge" && syncMode != "copy" && syncMode != "symlink" {
-		return fmt.Errorf("invalid mode %q: must be merge, copy, or symlink", syncMode)
+	if err := config.ValidateExtraMode(syncMode); err != nil {
+		return err
 	}
 
 	if mode == modeProject {

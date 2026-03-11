@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
@@ -104,10 +103,7 @@ func cmdExtrasList(args []string) error {
 
 		// Check each target
 		for _, t := range extra.Targets {
-			m := t.Mode
-			if m == "" {
-				m = "merge"
-			}
+			m := sync.EffectiveMode(t.Mode)
 			ti := extrasTargetInfo{
 				Path: t.Path,
 				Mode: m,
@@ -118,7 +114,7 @@ func cmdExtrasList(args []string) error {
 			} else if _, err := os.Stat(t.Path); os.IsNotExist(err) {
 				ti.Status = "not synced"
 			} else {
-				ti.Status = checkExtrasSyncStatus(files, sourceDir, t.Path, m)
+				ti.Status = sync.CheckSyncStatus(files, sourceDir, t.Path, m)
 			}
 
 			entry.Targets = append(entry.Targets, ti)
@@ -164,44 +160,3 @@ func cmdExtrasList(args []string) error {
 	return nil
 }
 
-// checkExtrasSyncStatus compares source files against target directory.
-func checkExtrasSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string) string {
-	allSynced := true
-	for _, rel := range sourceFiles {
-		targetFile := filepath.Join(targetDir, rel)
-		sourceFile := filepath.Join(sourceDir, rel)
-
-		tInfo, err := os.Lstat(targetFile)
-		if err != nil {
-			allSynced = false
-			break
-		}
-
-		switch mode {
-		case "symlink", "merge":
-			// Check if it's a symlink pointing to source
-			if tInfo.Mode()&os.ModeSymlink != 0 {
-				link, err := os.Readlink(targetFile)
-				if err != nil || link != sourceFile {
-					allSynced = false
-				}
-			} else {
-				allSynced = false
-			}
-		case "copy":
-			// Check file exists (basic check)
-			if !tInfo.Mode().IsRegular() {
-				allSynced = false
-			}
-		}
-
-		if !allSynced {
-			break
-		}
-	}
-
-	if allSynced {
-		return "synced"
-	}
-	return "drift"
-}

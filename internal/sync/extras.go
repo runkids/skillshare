@@ -341,6 +341,45 @@ func contentEqual(a, b string) bool {
 	}
 }
 
+// EffectiveMode returns the mode to use for sync, defaulting to "merge".
+func EffectiveMode(mode string) string {
+	if mode == "" {
+		return "merge"
+	}
+	return mode
+}
+
+// CheckSyncStatus compares source files against the target directory and
+// returns a status string: "synced" or "drift".
+func CheckSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string) string {
+	for _, rel := range sourceFiles {
+		targetFile := filepath.Join(targetDir, rel)
+		sourceFile := filepath.Join(sourceDir, rel)
+
+		tInfo, err := os.Lstat(targetFile)
+		if err != nil {
+			return "drift"
+		}
+
+		switch mode {
+		case "symlink", "merge":
+			if tInfo.Mode()&os.ModeSymlink != 0 {
+				link, readErr := os.Readlink(targetFile)
+				if readErr != nil || link != sourceFile {
+					return "drift"
+				}
+			} else {
+				return "drift"
+			}
+		case "copy":
+			if !tInfo.Mode().IsRegular() {
+				return "drift"
+			}
+		}
+	}
+	return "synced"
+}
+
 // cleanEmptyParents removes empty directories from dir up to (but not
 // including) stopAt.
 func cleanEmptyParents(dir, stopAt string) {
@@ -390,12 +429,7 @@ func CollectExtraFiles(sourceDir, targetDir string, dryRun bool) (*ExtraCollectR
 			return nil
 		}
 
-		// Skip symlinks (already synced)
-		if info.Mode()&os.ModeSymlink != 0 {
-			return nil
-		}
-
-		// Also check via Lstat since Walk follows symlinks
+		// filepath.Walk follows symlinks, so check via Lstat to detect them
 		linfo, err := os.Lstat(path)
 		if err != nil {
 			return nil

@@ -29,6 +29,17 @@ func ValidateExtraName(name string) error {
 	return nil
 }
 
+// ValidateExtraMode checks that mode is a valid sync mode.
+// Empty string is allowed (defaults to "merge" at runtime).
+func ValidateExtraMode(mode string) error {
+	switch mode {
+	case "", "merge", "copy", "symlink":
+		return nil
+	default:
+		return fmt.Errorf("invalid mode %q: must be merge, copy, or symlink", mode)
+	}
+}
+
 // ValidateExtraNameUnique checks that the name doesn't duplicate an existing extra.
 func ValidateExtraNameUnique(name string, existing []ExtraConfig) error {
 	for _, e := range existing {
