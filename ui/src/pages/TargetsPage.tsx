@@ -351,10 +351,7 @@ export default function TargetsPage() {
                     >
                       {shortenHome(target.path)}
                     </p>
-                    <div className="mt-2 pt-2 border-t border-dashed border-muted-dark/40 flex items-center gap-2">
-                      <span className="text-sm text-pencil-light">
-                        Sync mode:
-                      </span>
+                    <div className="mt-3 flex items-center gap-2">
                       <Select
                         value={target.mode || 'merge'}
                         onChange={async (mode) => {
@@ -370,8 +367,37 @@ export default function TargetsPage() {
                         size="sm"
                         className="w-44"
                       />
+                      {/* Inline filter link when no filters set */}
+                      {(target.mode === 'merge' || target.mode === 'copy') && editingFilter !== target.name && !(target.include?.length || target.exclude?.length) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingFilter(target.name);
+                            setFilterDraft({
+                              include: [...(target.include || [])],
+                              exclude: [...(target.exclude || [])],
+                            });
+                          }}
+                        >
+                          <Filter size={13} strokeWidth={2.5} /> Filters
+                        </Button>
+                      )}
+                      {/* Skill count — pushed to the right */}
+                      {(target.mode === 'merge' || target.mode === 'copy') && (
+                        <span className={`text-sm ml-auto ${hasDrift ? 'text-warning' : 'text-muted-dark'}`}>
+                          {hasDrift ? (
+                            <span className="flex items-center gap-1">
+                              <AlertTriangle size={12} strokeWidth={2.5} />
+                              {target.linkedCount}/{expectedCount} {target.mode === 'copy' ? 'managed' : 'shared'}, {target.localCount} local
+                            </span>
+                          ) : (
+                            <>{target.linkedCount} {target.mode === 'copy' ? 'managed' : 'shared'}, {target.localCount} local</>
+                          )}
+                        </span>
+                      )}
                     </div>
-                    {/* Filters section */}
+                    {/* Filters section — editing panel or existing filter tags */}
                     {(target.mode === 'merge' || target.mode === 'copy') && (
                       editingFilter === target.name ? (
                         <div className="mt-3 p-4 bg-muted/10 border-2 border-muted-dark animate-fade-in" style={{ borderRadius: radius.md }}>
@@ -426,10 +452,24 @@ export default function TargetsPage() {
                             </div>
                           </div>
                         </div>
-                      ) : (
+                      ) : (target.include?.length || target.exclude?.length) ? (
                         <div className="mt-2 flex items-center gap-2 flex-wrap">
-                          <button
-                            className="inline-flex items-center gap-1.5 text-sm text-pencil-light hover:text-pencil transition-colors cursor-pointer"
+                          <span className="text-sm text-pencil-light flex items-center gap-1">
+                            <Filter size={13} strokeWidth={2.5} />
+                            Filters:
+                          </span>
+                          {target.include?.map((p, pi) => (
+                            <span key={`inc-${pi}`} className="text-xs font-bold text-blue bg-info-light px-2 py-0.5 border border-blue/30" style={{ borderRadius: radius.sm }}>
+                              + {p}
+                            </span>
+                          ))}
+                          {target.exclude?.map((p, pi) => (
+                            <span key={`exc-${pi}`} className="text-xs font-bold text-danger bg-danger-light px-2 py-0.5 border border-danger/30" style={{ borderRadius: radius.sm }}>
+                              − {p}
+                            </span>
+                          ))}
+                          <Button
+                            variant="link"
                             onClick={() => {
                               setEditingFilter(target.name);
                               setFilterDraft({
@@ -438,36 +478,10 @@ export default function TargetsPage() {
                               });
                             }}
                           >
-                            <Filter size={14} strokeWidth={2.5} />
-                            <span className="font-medium">Filters</span>
-                          </button>
-                          {target.include?.length > 0 && target.include.map((p, pi) => (
-                            <span key={`inc-${pi}`} className="text-xs font-bold text-blue bg-info-light px-2 py-0.5 border border-blue/30" style={{ borderRadius: radius.sm }}>
-                              + {p}
-                            </span>
-                          ))}
-                          {target.exclude?.length > 0 && target.exclude.map((p, pi) => (
-                            <span key={`exc-${pi}`} className="text-xs font-bold text-danger bg-danger-light px-2 py-0.5 border border-danger/30" style={{ borderRadius: radius.sm }}>
-                              − {p}
-                            </span>
-                          ))}
-                          {!target.include?.length && !target.exclude?.length && (
-                            <span className="text-xs text-muted-dark italic">no filters</span>
-                          )}
+                            Edit
+                          </Button>
                         </div>
-                      )
-                    )}
-                    {(target.mode === 'merge' || target.mode === 'copy') && (
-                      <p className={`text-sm mt-1 ${hasDrift ? 'text-warning' : 'text-muted-dark'}`}>
-                        {hasDrift ? (
-                          <span className="flex items-center gap-1">
-                            <AlertTriangle size={12} strokeWidth={2.5} />
-                            {target.linkedCount}/{expectedCount} {target.mode === 'copy' ? 'managed' : 'shared'}, {target.localCount} local
-                          </span>
-                        ) : (
-                          <>{target.linkedCount} {target.mode === 'copy' ? 'managed' : 'shared'}, {target.localCount} local</>
-                        )}
-                      </p>
+                      ) : null
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">

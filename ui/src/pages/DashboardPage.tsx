@@ -4,7 +4,6 @@ import {
   Puzzle,
   Target,
   FolderSync,
-  Info,
   ArrowRight,
   RefreshCw,
   Star,
@@ -134,15 +133,6 @@ export default function DashboardPage() {
       color: 'text-warning',
       bg: 'bg-warning-light',
       to: '/sync',
-    },
-    {
-      label: 'Version',
-      value: data.version,
-      subtitle: 'skillshare',
-      icon: Info,
-      color: 'text-pencil-light',
-      bg: 'bg-muted',
-      to: '/config',
     },
     {
       label: 'Extras',
