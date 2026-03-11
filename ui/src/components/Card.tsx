@@ -4,22 +4,19 @@ import { radius, shadows } from '../design';
 interface CardProps {
   children: ReactNode;
   className?: string;
-  variant?: 'default' | 'postit' | 'accent' | 'outlined';
-  decoration?: 'none' | 'tape' | 'tack';
+  variant?: 'default' | 'accent' | 'outlined';
   hover?: boolean;
   style?: CSSProperties;
 }
 
 const variantStyles = {
   default: 'bg-surface border border-muted',
-  postit: 'bg-surface border border-muted',
   accent: 'bg-surface border border-muted border-l-[3px] border-l-accent',
   outlined: 'border border-muted',
 };
 
 const variantShadows = {
   default: shadows.sm,
-  postit: shadows.sm,
   accent: shadows.sm,
   outlined: 'none',
 };
@@ -28,7 +25,6 @@ export default function Card({
   children,
   className = '',
   variant = 'default',
-  decoration: _decoration = 'none',
   hover = false,
   style,
 }: CardProps) {

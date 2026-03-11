@@ -37,27 +37,6 @@
   --shadow-accent: 0 2px 6px rgba(220, 69, 56, 0.15);
   --shadow-blue: 0 2px 6px rgba(45, 93, 161, 0.15);
 
-  /* Stub values for backward compat — will be removed in final cleanup */
-  --color-postit: #f7f6f3;
-  --color-postit-dark: #f0ede6;
-  --color-postit-1-bg: #f7f6f3;
-  --color-postit-1-border: #e2dfd8;
-  --color-postit-2-bg: #f7f6f3;
-  --color-postit-2-border: #e2dfd8;
-  --color-postit-3-bg: #f7f6f3;
-  --color-postit-3-border: #e2dfd8;
-  --color-postit-4-bg: #f7f6f3;
-  --color-postit-4-border: #e2dfd8;
-  --color-postit-5-bg: #f7f6f3;
-  --color-postit-5-border: #e2dfd8;
-  --color-postit-6-bg: #f7f6f3;
-  --color-postit-6-border: #e2dfd8;
-  --color-tracked-1-bg: #f7f6f3;
-  --color-tracked-1-border: #e2dfd8;
-  --color-tracked-2-bg: #f7f6f3;
-  --color-tracked-2-border: #e2dfd8;
-  --color-tracked-3-bg: #f7f6f3;
-  --color-tracked-3-border: #e2dfd8;
 }
 
 /* Dark theme overrides */
@@ -91,27 +70,6 @@
   --shadow-accent: 0 2px 6px rgba(232, 86, 74, 0.3);
   --shadow-blue: 0 2px 6px rgba(74, 126, 199, 0.3);
 
-  /* Stub values for backward compat */
-  --color-postit: #1c1b19;
-  --color-postit-dark: #2e2d2a;
-  --color-postit-1-bg: #1c1b19;
-  --color-postit-1-border: #2e2d2a;
-  --color-postit-2-bg: #1c1b19;
-  --color-postit-2-border: #2e2d2a;
-  --color-postit-3-bg: #1c1b19;
-  --color-postit-3-border: #2e2d2a;
-  --color-postit-4-bg: #1c1b19;
-  --color-postit-4-border: #2e2d2a;
-  --color-postit-5-bg: #1c1b19;
-  --color-postit-5-border: #2e2d2a;
-  --color-postit-6-bg: #1c1b19;
-  --color-postit-6-border: #2e2d2a;
-  --color-tracked-1-bg: #1c1b19;
-  --color-tracked-1-border: #2e2d2a;
-  --color-tracked-2-bg: #1c1b19;
-  --color-tracked-2-border: #2e2d2a;
-  --color-tracked-3-bg: #1c1b19;
-  --color-tracked-3-border: #2e2d2a;
 }
 
 /* Base styles */

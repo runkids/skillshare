@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { useState, useMemo, useEffect } from 'react';
+import { useState } from 'react';
 import {
   LayoutDashboard,
   Puzzle,
@@ -21,26 +21,62 @@ import {
   Sun,
   Moon,
 } from 'lucide-react';
-import { wobbly, shadows } from '../design';
+import { radius } from '../design';
 import { useAppContext } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 
-const allNavItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/skills', icon: Puzzle, label: 'Skills' },
-  { to: '/targets', icon: Target, label: 'Targets' },
-  { to: '/extras', icon: FolderPlus, label: 'Extras' },
-  { to: '/search', icon: Search, label: 'Search' },
-  { to: '/install', icon: Download, label: 'Install' },
-  { to: '/update', icon: ArrowUpCircle, label: 'Update' },
-  { to: '/collect', icon: ArrowDownToLine, label: 'Collect' },
-  { to: '/sync', icon: RefreshCw, label: 'Sync' },
-  { to: '/git', icon: GitBranch, label: 'Git Sync' },
-  { to: '/backup', icon: Archive, label: 'Backup' },
-  { to: '/trash', icon: Trash2, label: 'Trash' },
-  { to: '/audit', icon: ShieldCheck, label: 'Audit' },
-  { to: '/log', icon: ScrollText, label: 'Log' },
-  { to: '/config', icon: Settings, label: 'Config' },
+interface NavItem {
+  to: string;
+  icon: React.ElementType;
+  label: string;
+  hideInProject?: boolean;
+}
+
+interface NavGroup {
+  label?: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    items: [
+      { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+    ],
+  },
+  {
+    label: 'MANAGE',
+    items: [
+      { to: '/skills', icon: Puzzle, label: 'Skills' },
+      { to: '/extras', icon: FolderPlus, label: 'Extras' },
+      { to: '/targets', icon: Target, label: 'Targets' },
+      { to: '/search', icon: Search, label: 'Search' },
+    ],
+  },
+  {
+    label: 'OPERATIONS',
+    items: [
+      { to: '/sync', icon: RefreshCw, label: 'Sync' },
+      { to: '/collect', icon: ArrowDownToLine, label: 'Collect' },
+      { to: '/install', icon: Download, label: 'Install' },
+      { to: '/update', icon: ArrowUpCircle, label: 'Update' },
+    ],
+  },
+  {
+    label: 'SECURITY & MAINTENANCE',
+    items: [
+      { to: '/audit', icon: ShieldCheck, label: 'Audit' },
+      { to: '/git', icon: GitBranch, label: 'Git Sync', hideInProject: true },
+      { to: '/backup', icon: Archive, label: 'Backup', hideInProject: true },
+      { to: '/trash', icon: Trash2, label: 'Trash' },
+    ],
+  },
+  {
+    label: 'SYSTEM',
+    items: [
+      { to: '/log', icon: ScrollText, label: 'Log' },
+      { to: '/config', icon: Settings, label: 'Config' },
+    ],
+  },
 ];
 
 export default function Layout() {
@@ -48,17 +84,10 @@ export default function Layout() {
   const { isProjectMode } = useAppContext();
   const { theme, toggleTheme } = useTheme();
 
-  const navItems = useMemo(() => {
-    if (isProjectMode) {
-      return allNavItems.filter((item) => item.to !== '/git' && item.to !== '/backup');
-    }
-    return allNavItems;
-  }, [isProjectMode]);
-
-  useEffect(() => {
-    document.body.style.overflow = mobileOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [mobileOpen]);
+  const filteredGroups = navGroups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !(isProjectMode && item.hideInProject)),
+  })).filter((group) => group.items.length > 0);
 
   return (
     <div className="flex min-h-screen">
@@ -66,10 +95,7 @@ export default function Layout() {
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
         className="fixed top-4 left-4 z-50 md:hidden w-10 h-10 flex items-center justify-center bg-surface border-2 border-pencil"
-        style={{
-          borderRadius: wobbly.sm,
-          boxShadow: shadows.sm,
-        }}
+        style={{ borderRadius: radius.sm }}
         aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
       >
         {mobileOpen ? <X size={20} strokeWidth={2.5} /> : <Menu size={20} strokeWidth={2.5} />}
@@ -111,7 +137,7 @@ export default function Layout() {
             {isProjectMode && (
               <span
                 className="text-xs px-1.5 py-0.5 bg-info-light text-blue border border-blue font-medium"
-                style={{ borderRadius: wobbly.sm, fontFamily: 'var(--font-hand)' }}
+                style={{ borderRadius: radius.sm, fontFamily: 'var(--font-hand)' }}
               >
                 Project
               </span>
@@ -120,54 +146,56 @@ export default function Layout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 min-h-0 overflow-y-auto py-3 px-2">
-          {navItems.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              onClick={() => setMobileOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2.5 mb-1 text-base transition-all duration-100 ${
-                  isActive
-                    ? 'bg-surface border-2 border-pencil text-pencil font-medium'
-                    : 'text-pencil-light hover:text-pencil hover:bg-surface/60 border-2 border-transparent'
-                }`
-              }
-              style={({ isActive }) => ({
-                borderRadius: wobbly.sm,
-                boxShadow: isActive ? shadows.sm : 'none',
-                fontFamily: 'var(--font-hand)',
-              })}
-            >
-              <Icon size={18} strokeWidth={2.5} />
-              {label}
-            </NavLink>
+        <nav className="flex-1 min-h-0 overflow-y-auto py-2 px-2">
+          {filteredGroups.map((group, groupIdx) => (
+            <div key={groupIdx}>
+              {group.label && (
+                <div className="px-3 pt-4 pb-1 text-xs font-medium tracking-wider text-muted-dark uppercase">
+                  {group.label}
+                </div>
+              )}
+              {group.items.map(({ to, icon: Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={to === '/'}
+                  onClick={() => setMobileOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 mb-0.5 text-sm transition-colors duration-100 ${
+                      isActive
+                        ? 'bg-muted/40 text-accent font-medium'
+                        : 'text-pencil-light hover:text-pencil hover:bg-muted/20'
+                    }`
+                  }
+                  style={{ fontFamily: 'var(--font-hand)' }}
+                >
+                  <Icon size={16} strokeWidth={2.5} />
+                  {label}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
 
+        {/* Theme toggle at sidebar bottom */}
+        <div className="mt-auto border-t border-muted px-3 py-3 flex items-center justify-between">
+          <button
+            onClick={toggleTheme}
+            className="flex items-center gap-2 text-pencil-light hover:text-pencil transition-colors"
+            aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          >
+            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            <span className="text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
+              {theme === 'dark' ? 'Light' : 'Dark'}
+            </span>
+          </button>
+          <span className="text-xs text-muted-dark">v0.17</span>
+        </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0 p-4 md:p-8 pt-16 md:pt-8 relative">
-        {/* Theme toggle — top right */}
-        <button
-          onClick={toggleTheme}
-          className="fixed top-4 right-4 z-50 w-10 h-10 flex items-center justify-center bg-surface border-2 border-pencil text-pencil-light hover:text-pencil transition-all duration-100 cursor-pointer"
-          style={{
-            borderRadius: wobbly.sm,
-            boxShadow: shadows.sm,
-          }}
-          aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
-        >
-          {theme === 'light' ? (
-            <Moon size={18} strokeWidth={2.5} />
-          ) : (
-            <Sun size={18} strokeWidth={2.5} />
-          )}
-        </button>
-        <div className="max-w-5xl mx-auto">
+      <main className="flex-1 min-w-0 p-4 md:p-8 pt-16 md:pt-8">
+        <div className="max-w-6xl mx-auto">
           <Outlet />
         </div>
       </main>
