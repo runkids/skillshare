@@ -113,6 +113,7 @@ func (s SkillEntry) EffectiveParts() (group, name string) {
 // ProjectConfig holds project-level config (.skillshare/config.yaml).
 type ProjectConfig struct {
 	Targets     []ProjectTargetEntry `yaml:"targets"`
+	Extras      []ExtraConfig        `yaml:"extras,omitempty"`
 	Audit       AuditConfig          `yaml:"audit,omitempty"`
 	Hub         HubConfig            `yaml:"hub,omitempty"`
 	GitLabHosts []string             `yaml:"gitlab_hosts,omitempty"`
