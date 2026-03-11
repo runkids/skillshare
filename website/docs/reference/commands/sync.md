@@ -487,13 +487,13 @@ skillshare sync --all             # Sync skills + extras in one command
 | `--dry-run` | `-n` | Preview changes without writing |
 | `--force` | `-f` | Overwrite conflicting files at target |
 
-:::info Global only
-`sync extras` is global-only. The `--all` flag is ignored in project mode.
+:::info Both modes supported
+`sync extras` works in both global and project mode. Use `sync --all` to sync skills + extras together, or `sync extras` to sync extras only. In project mode, extras source is `.skillshare/extras/<name>/`.
 :::
 
 ### Configuration
 
-Add an `extras` section to your global config (`~/.config/skillshare/config.yaml`):
+Add an `extras` section to your config (`~/.config/skillshare/config.yaml` for global, `.skillshare/config.yaml` for project):
 
 ```yaml
 extras:
@@ -508,20 +508,21 @@ extras:
 ```
 
 Each extra has:
-- **`name`** — directory name under `~/.config/skillshare/` (the source)
+- **`name`** — directory name under `extras/` in your config directory
 - **`targets`** — list of target paths with optional `mode`
 
-Source files live alongside your skills directory:
+Source files live under the `extras/` subdirectory:
 
 ```
 ~/.config/skillshare/
 ├── config.yaml
-├── skills/          ← skill source
-├── rules/           ← extras source (name: rules)
-│   ├── coding.md
-│   └── testing.md
-└── commands/        ← extras source (name: commands)
-    └── deploy.md
+├── skills/              ← skill source
+└── extras/              ← extras source root
+    ├── rules/           ← extras: rules
+    │   ├── coding.md
+    │   └── testing.md
+    └── commands/        ← extras: commands
+        └── deploy.md
 ```
 
 ### Sync modes
@@ -546,7 +547,7 @@ flowchart TD
     CMD --> WALK --> EACH --> SYNC --> PRUNE
 ```
 
-1. Walks the source directory (`~/.config/skillshare/<name>/`)
+1. Walks the source directory (`~/.config/skillshare/extras/<name>/`)
 2. For each target, creates symlinks or copies per configured mode
 3. Removes orphan files in the target that no longer exist in source
 

@@ -12,7 +12,7 @@ Extras are additional resource types managed by skillshare — think of them as 
 
 Each extra has:
 - A **name** (e.g., `rules`, `prompts`, `commands`)
-- A **source directory** under `~/.config/skillshare/<name>/` in your config directory
+- A **source directory** under `~/.config/skillshare/extras/<name>/` (global) or `.skillshare/extras/<name>/` (project)
 - One or more **targets** where files are synced to
 
 ## Commands
@@ -65,11 +65,11 @@ skillshare extras list [--json] [-p|-g]
 ```
 $ skillshare extras list
 
-Rules            ~/.config/skillshare/rules/  (2 files)
+Rules            ~/.config/skillshare/extras/rules/  (2 files)
   ✔ ~/.claude/rules   merge   synced
   ✔ ~/.cursor/rules   copy    synced
 
-Prompts          ~/.config/skillshare/prompts/  (1 file)
+Prompts          ~/.config/skillshare/extras/prompts/  (1 file)
   ✔ ~/.claude/prompts  merge  synced
 ```
 
@@ -174,7 +174,7 @@ See [sync extras](/docs/reference/commands/sync#sync-extras) for full sync docum
 skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
 
 # 2. Add files to the source directory
-# (edit ~/.config/skillshare/rules/coding.md)
+# (edit ~/.config/skillshare/extras/rules/coding.md)
 
 # 3. Sync to targets
 skillshare sync extras

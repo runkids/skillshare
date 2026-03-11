@@ -18,6 +18,7 @@ Complete reference for all skillshare commands.
 | Search for community skills | [`search`](./search.md) |
 | Update installed skills | [`check`](./check.md) then [`update`](./update.md) |
 | Sync across machines | [`push`](./push.md) / [`pull`](./pull.md) |
+| Manage non-skill resources (rules, commands) | [`extras`](./extras.md) |
 | Fix something broken | [`doctor`](./doctor.md) |
 | Open the web dashboard | [`ui`](./ui.md) |
 
@@ -30,6 +31,7 @@ Complete reference for all skillshare commands.
 | **Core** | `init`, `install`, `uninstall`, `list`, `search`, `sync`, `status` |
 | **Skill Management** | `new`, `check`, `update`, `upgrade` |
 | **Target Management** | `target`, `diff` |
+| **Extras Management** | `extras` (`init`, `list`, `remove`, `collect`) |
 | **Sync Operations** | `collect`, `backup`, `restore`, `trash`, `push`, `pull` |
 | **Security & Utilities** | `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `version` |
 
@@ -62,6 +64,12 @@ Complete reference for all skillshare commands.
 |---------|-------------|
 | [target](./target.md) | Manage targets |
 | [diff](./diff.md) | Show differences between source and targets |
+
+## Extras Management
+
+| Command | Description |
+|---------|-------------|
+| [extras](./extras.md) | Manage non-skill resources (rules, commands, prompts) |
 
 ## Sync Operations
 

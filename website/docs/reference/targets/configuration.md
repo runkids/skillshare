@@ -16,6 +16,8 @@ Configuration file reference for skillshare.
 │   ├── my-skill/
 │   ├── another/
 │   └── _team-repo/      ← Tracked repository
+├── extras/              ← Extras source root
+│   └── rules/           ← Extra resource (e.g., rules)
 
 ~/.local/share/skillshare/
 └── backups/             ← Automatic backups
@@ -106,7 +108,7 @@ skills:
     source: github.com/team/skills
     tracked: true
 
-# Non-skill resources to sync (global only)
+# Non-skill resources to sync
 extras:
   - name: rules
     targets:
@@ -359,7 +361,7 @@ Starting from v0.16.2, installed skill entries are stored in a separate `registr
 
 ### `extras` {#extras}
 
-Non-skill resources (rules, commands, prompts, etc.) to sync to arbitrary directories. Each extra has its own source directory under `~/.config/skillshare/`.
+Non-skill resources (rules, commands, prompts, etc.) to sync to arbitrary directories. Each extra has its own source directory under `~/.config/skillshare/extras/` (global) or `.skillshare/extras/` (project).
 
 ```yaml
 extras:
@@ -375,12 +377,12 @@ extras:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | Directory name under `~/.config/skillshare/` (source) |
+| `name` | Yes | Directory name under `~/.config/skillshare/extras/` (source) |
 | `targets` | Yes | List of target paths |
 | `targets[].path` | Yes | Destination directory |
 | `targets[].mode` | No | `merge` (default), `copy`, or `symlink` |
 
-**Source location:** `~/.config/skillshare/<name>/` (e.g., `~/.config/skillshare/rules/`)
+**Source location:** `~/.config/skillshare/extras/<name>/` (e.g., `~/.config/skillshare/extras/rules/`)
 
 **Sync modes:**
 - `merge` (default) — per-file symlinks
@@ -389,8 +391,8 @@ extras:
 
 Run `skillshare sync extras` to sync, or `skillshare sync --all` to sync skills + extras together.
 
-:::info Global only
-Extras are only available in global mode. The `extras` field is not supported in project config.
+:::info Both modes supported
+Extras work in both global and project mode. In project mode, source is `.skillshare/extras/<name>/`.
 :::
 
 See [sync extras](/docs/reference/commands/sync#sync-extras) for usage details.
