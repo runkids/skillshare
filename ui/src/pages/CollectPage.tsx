@@ -191,7 +191,7 @@ export default function CollectPage() {
 
       {/* Scan control area */}
       <Card className="text-center">
-        <div className="flex flex-col items-center gap-4">
+        <div data-tour="collect-scan" className="flex flex-col items-center gap-4">
           <Button
             onClick={() => handleScan(presetTarget)}
             loading={phase === 'scanning'}

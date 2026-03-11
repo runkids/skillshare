@@ -320,7 +320,7 @@ export default function TargetsPage() {
 
       {/* Targets list */}
       {targets.length > 0 ? (
-        <div className="space-y-4">
+        <div data-tour="targets-grid" className="space-y-4">
           {targets.map((target, i) => {
             const expectedCount = target.expectedSkillCount || sourceSkillCount;
             const isMergeOrCopy = target.mode === 'merge' && target.status === 'merged' || target.mode === 'copy' && target.status === 'copied';
@@ -366,6 +366,7 @@ export default function TargetsPage() {
                       {/* Inline filter link when no filters set */}
                       {(target.mode === 'merge' || target.mode === 'copy') && editingFilter !== target.name && !(target.include?.length || target.exclude?.length) && (
                         <Button
+                          data-tour="skill-filters"
                           variant="ghost"
                           size="sm"
                           onClick={() => {

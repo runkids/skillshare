@@ -299,7 +299,7 @@ export default function SkillsPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div data-tour="skills-view" className="animate-fade-in">
       {/* Header */}
       <PageHeader
         icon={<Puzzle size={24} strokeWidth={2.5} />}

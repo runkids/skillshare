@@ -173,6 +173,7 @@ export default function AuditPage() {
           <AuditSummaryLine summary={data.summary} />
 
           {/* Triage Panel */}
+          <div data-tour="audit-summary">
           <TriagePanel
             threshold={data.summary.threshold}
             riskLabel={data.summary.riskLabel}
@@ -185,6 +186,7 @@ export default function AuditPage() {
             minSeverity={minSeverity}
             onSeverityChange={(v) => setMinSeverity(v as SeverityFilter)}
           />
+          </div>
 
           {/* Findings list */}
           {totalFindings === 0 ? (

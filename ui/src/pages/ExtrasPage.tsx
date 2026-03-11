@@ -369,7 +369,7 @@ export default function ExtrasPage() {
 
       {/* Extras list */}
       {!isPending && !error && extras.length > 0 && (
-        <div className="space-y-4">
+        <div data-tour="extras-list" className="space-y-4">
           {extras.map((extra, i) => (
             <ExtraCard
               key={extra.name}

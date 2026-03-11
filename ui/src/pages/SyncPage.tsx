@@ -197,7 +197,7 @@ export default function SyncPage() {
 
       {/* Sync control area */}
       <Card className="text-center">
-        <div className="flex flex-col items-center gap-4">
+        <div data-tour="sync-actions" className="flex flex-col items-center gap-4">
           {/* Status indicator */}
           {diffLoading ? (
             <p className="text-pencil-light text-base">Checking status...</p>

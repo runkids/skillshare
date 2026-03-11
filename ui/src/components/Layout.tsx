@@ -21,6 +21,7 @@ import {
   Sun,
   Moon,
   Keyboard,
+  Compass,
 } from 'lucide-react';
 import { radius } from '../design';
 import { useAppContext } from '../context/AppContext';
@@ -28,6 +29,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import ShortcutHUD from './ShortcutHUD';
+import { useTour } from './tour';
 
 interface NavItem {
   to: string;
@@ -88,6 +90,7 @@ export default function Layout() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const { isProjectMode } = useAppContext();
   const { theme, toggleTheme } = useTheme();
+  const { startTour } = useTour();
 
   const nav = useNavigate();
   const toggleShortcuts = useCallback(() => setShortcutsOpen((v) => !v), []);
@@ -201,6 +204,15 @@ export default function Layout() {
             {theme === 'dark' ? 'Light mode' : 'Dark mode'}
           </button>
           <button
+            onClick={startTour}
+            className="flex items-center gap-3 px-3 py-1.5 text-sm text-pencil-light hover:text-pencil hover:bg-muted/20 transition-colors cursor-pointer"
+            aria-label="Quick Tour"
+          >
+            <Compass size={16} strokeWidth={2.5} />
+            Quick Tour
+          </button>
+          <button
+            data-tour="shortcuts-btn"
             onClick={toggleShortcuts}
             className="flex items-center gap-3 px-3 py-1.5 text-sm text-pencil-light hover:text-pencil hover:bg-muted/20 transition-colors cursor-pointer"
             aria-label="Keyboard shortcuts"

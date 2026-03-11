@@ -409,6 +409,7 @@ export default function SearchPage() {
       )}
 
       {/* Search box */}
+      <div data-tour="search-input">
       <Card>
         <div className="flex gap-3">
           <div className="relative flex-1">
@@ -443,6 +444,7 @@ export default function SearchPage() {
           </p>
         )}
       </Card>
+      </div>
 
       {/* Sticky toolbar: summary + filter + view toggle */}
       {results && results.length > 0 && (

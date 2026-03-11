@@ -18,7 +18,9 @@ export default function InstallPage() {
         subtitle="Install from any git repository or local path"
       />
 
-      <InstallForm collapsible={false} defaultOpen />
+      <div data-tour="install-form">
+        <InstallForm collapsible={false} defaultOpen />
+      </div>
 
       {/* Quick reference */}
       <div className="flex flex-wrap gap-4">

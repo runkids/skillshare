@@ -9,6 +9,7 @@ import { AppProvider } from './context/AppContext';
 import { PageSkeleton } from './components/Skeleton';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import Layout from './components/Layout';
+import { TourProvider, TourOverlay, TourTooltip } from './components/tour';
 import DashboardPage from './pages/DashboardPage';
 
 const SkillsPage = lazy(() => import('./pages/SkillsPage'));
@@ -40,6 +41,9 @@ export default function App() {
         <AppProvider>
           <BrowserRouter>
             <ErrorBoundary>
+            <TourProvider>
+            <TourOverlay />
+            <TourTooltip />
             <Routes>
               <Route element={<Layout />}>
                 <Route index element={<DashboardPage />} />
@@ -61,6 +65,7 @@ export default function App() {
                 <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
               </Route>
             </Routes>
+            </TourProvider>
             </ErrorBoundary>
           </BrowserRouter>
         </AppProvider>

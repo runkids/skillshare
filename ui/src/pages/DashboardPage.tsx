@@ -152,7 +152,7 @@ export default function DashboardPage() {
       <PageHeader icon={<LayoutDashboard size={24} strokeWidth={2.5} />} title="Dashboard" subtitle="Your skill management overview at a glance" />
 
       {/* Stats grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+      <div data-tour="stats-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         {stats.map(({ label, value, subtitle, icon: Icon, color, bg, to }) => (
           <Link key={label} to={to}>
             <Card
@@ -261,7 +261,7 @@ export default function DashboardPage() {
       <VersionStatusSection />
 
       {/* Quick actions */}
-      <div className="mb-4">
+      <div data-tour="quick-actions" className="mb-4">
         <h3
           className="text-xl font-bold text-pencil mb-4"
         >

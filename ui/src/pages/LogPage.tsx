@@ -464,7 +464,7 @@ export default function LogPage() {
       />
 
       {/* Toolbar: Tabs + Filters in one row */}
-      <div className="flex flex-wrap items-end gap-3">
+      <div data-tour="log-filters" className="flex flex-wrap items-end gap-3">
         <SegmentedControl
           value={tab}
           onChange={setTab}

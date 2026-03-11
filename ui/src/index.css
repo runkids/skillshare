@@ -73,6 +73,11 @@
 
 }
 
+/* Promote toast z-index during tour so it's visible above overlay */
+.tour-active [data-toast-container] {
+  z-index: 80 !important;
+}
+
 /* Base styles */
 body {
   background-color: var(--color-paper);

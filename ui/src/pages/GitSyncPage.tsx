@@ -219,6 +219,7 @@ export default function GitSyncPage() {
 
       {/* Push / Pull Grid */}
       <div
+        data-tour="git-actions"
         className={`grid grid-cols-1 md:grid-cols-2 gap-5 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
       >
         {/* Push Section */}
