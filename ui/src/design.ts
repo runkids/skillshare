@@ -14,7 +14,7 @@ export const radius = {
   /** Large elements — modals, panels */
   lg: '12px',
   /** Buttons */
-  btn: '6px',
+  btn: '8px',
   /** Full round — avatars, pills */
   full: '9999px',
 } as const;

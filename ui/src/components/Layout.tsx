@@ -113,25 +113,24 @@ export default function Layout() {
       <aside
         className={`
           fixed md:sticky top-0 left-0 z-40 h-screen w-60 shrink-0
-          bg-paper-warm border-r-2 border-dashed border-pencil-light
+          bg-paper-warm border-r border-muted
           flex flex-col
           transition-transform duration-200 md:translate-x-0
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
         {/* Logo */}
-        <div className="p-5 pb-4 border-b-2 border-dashed border-muted-dark">
+        <div className="p-5 pb-4 border-b border-muted">
           <h1
             className="text-2xl font-bold text-pencil tracking-wide"
-            style={{ fontFamily: 'var(--font-heading)' }}
+
           >
             skillshare
           </h1>
           <div className="flex items-center gap-2 mt-0.5">
             <p
               className="text-sm text-pencil-light"
-              style={{ fontFamily: 'var(--font-hand)' }}
-            >
+                         >
               Web Dashboard
             </p>
             {isProjectMode && (
@@ -163,11 +162,11 @@ export default function Layout() {
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2 mb-0.5 text-sm transition-colors duration-100 ${
                       isActive
-                        ? 'bg-muted/40 text-accent font-medium'
+                        ? 'bg-muted/40 text-pencil font-semibold'
                         : 'text-pencil-light hover:text-pencil hover:bg-muted/20'
                     }`
                   }
-                  style={{ fontFamily: 'var(--font-hand)' }}
+
                 >
                   <Icon size={16} strokeWidth={2.5} />
                   {label}
