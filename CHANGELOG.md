@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.17.0] - 2026-03-11
+
+### Breaking Changes
+
+- **Extras directory structure** — extras source files are now stored under `extras/<name>/` instead of directly under the config root. Existing directories are **auto-migrated** on first `sync extras` run. No manual action required
+
+### New Features
+
+#### First-Class Extras Command Group
+
+Extras (non-skill resources like rules, prompts, commands) are now a first-class feature with their own command group:
+
+- **`extras init`** — create a new extra with interactive TUI wizard or CLI flags:
+  ```bash
+  skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
+  skillshare extras init prompts --target .claude/prompts --mode copy -p
+  ```
+- **`extras list`** — view all configured extras with sync status (`synced`, `drift`, `not synced`, `no source`). Supports `--json` output
+- **`extras remove`** — remove an extra from config (source files and synced targets are preserved)
+- **`extras collect`** — reverse-sync local files from a target back into the extras source directory:
+  ```bash
+  skillshare extras collect rules --from ~/.claude/rules --dry-run
+  ```
+- **Project mode** — all extras commands support `--project`/`-p` for `.skillshare/` scoped extras
+
+#### Extras Integration with Existing Commands
+
+- **`status`** — shows extras file count and target count per extra
+- **`doctor`** — checks that extras source directories exist and target parent directories are reachable
+- **`diff --extras`** — per-file diff for extras targets; `diff --all` shows combined skills + extras diff
+- **`sync extras --json`** — structured JSON output for programmatic consumption
+- **`sync --all -p`** — project-mode `--all` now includes extras sync
+
+#### Web UI Extras Page
+
+- New **Extras page** in the web dashboard with list, sync, remove, and add-extra modal
+- **Dashboard card** showing extras count, total files, and total targets
+- REST API: `GET /api/extras`, `GET /api/extras/diff`, `POST /api/extras`, `POST /api/extras/sync`, `DELETE /api/extras/{name}`
+
 ## [0.16.15] - 2026-03-11
 
 ### New Features
