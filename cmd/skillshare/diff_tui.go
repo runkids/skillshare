@@ -29,11 +29,47 @@ type diffExpandMsg struct {
 // diffMinSplitWidth is the minimum terminal width for horizontal split.
 const diffMinSplitWidth = tuiMinSplitWidth
 
-// --- List item ---
+// --- List items ---
 
 type diffTargetItem struct {
 	result targetDiffResult
 }
+
+// diffExtraItem wraps an extraDiffResult for the bubbletea list.
+type diffExtraItem struct {
+	result extraDiffResult
+}
+
+func (i diffExtraItem) Title() string {
+	icon := "✓"
+	if i.result.errMsg != "" {
+		icon = "✗"
+	} else if !i.result.synced {
+		icon = "~"
+	}
+	return fmt.Sprintf("%s %s → %s", icon, i.result.extraName, shortenPath(i.result.targetPath))
+}
+
+func (i diffExtraItem) Description() string {
+	if i.result.errMsg != "" {
+		return i.result.errMsg
+	}
+	if i.result.synced {
+		return fmt.Sprintf("synced (%s)", i.result.mode)
+	}
+	return fmt.Sprintf("%d difference(s) (%s)", len(i.result.items), i.result.mode)
+}
+
+func (i diffExtraItem) FilterValue() string { return i.result.extraName }
+
+// diffSeparatorItem is a visual separator between skills and extras in the TUI list.
+type diffSeparatorItem struct {
+	label string
+}
+
+func (s diffSeparatorItem) Title() string       { return "── " + s.label + " ──" }
+func (s diffSeparatorItem) Description() string { return "" }
+func (s diffSeparatorItem) FilterValue() string { return "" }
 
 func (i diffTargetItem) Title() string {
 	r := i.result
@@ -77,7 +113,8 @@ type diffTUIModel struct {
 	termHeight int
 
 	// Data — sorted: error → diff → synced
-	allItems []targetDiffResult
+	allItems  []targetDiffResult
+	allExtras []extraDiffResult
 
 	// Target list
 	targetList list.Model
@@ -106,7 +143,7 @@ type diffTUIModel struct {
 	cachedCats  []actionCategory
 }
 
-func newDiffTUIModel(results []targetDiffResult) diffTUIModel {
+func newDiffTUIModel(results []targetDiffResult, extrasSlice ...[]extraDiffResult) diffTUIModel {
 	// Sort: error first, then diffs, then synced
 	sorted := make([]targetDiffResult, len(results))
 	copy(sorted, results)
@@ -119,9 +156,21 @@ func newDiffTUIModel(results []targetDiffResult) diffTUIModel {
 		return ri.name < rj.name
 	})
 
+	var extras []extraDiffResult
+	if len(extrasSlice) > 0 {
+		extras = extrasSlice[0]
+	}
+
 	listItems := make([]list.Item, len(sorted))
 	for i, r := range sorted {
 		listItems[i] = diffTargetItem{result: r}
+	}
+	// Append extras with a separator
+	if len(extras) > 0 {
+		listItems = append(listItems, diffSeparatorItem{label: "Extras"})
+		for _, r := range extras {
+			listItems = append(listItems, diffExtraItem{result: r})
+		}
 	}
 
 	delegate := list.NewDefaultDelegate()
@@ -167,8 +216,9 @@ func newDiffTUIModel(results []targetDiffResult) diffTUIModel {
 
 	return diffTUIModel{
 		allItems:    sorted,
+		allExtras:   extras,
 		targetList:  tl,
-		matchCount:  len(sorted),
+		matchCount:  len(listItems),
 		filterInput: fi,
 		loadSpinner: sp,
 	}
@@ -358,7 +408,13 @@ func (m *diffTUIModel) applyDiffFilter() {
 		for i, r := range m.allItems {
 			items[i] = diffTargetItem{result: r}
 		}
-		m.matchCount = len(m.allItems)
+		if len(m.allExtras) > 0 {
+			items = append(items, diffSeparatorItem{label: "Extras"})
+			for _, r := range m.allExtras {
+				items = append(items, diffExtraItem{result: r})
+			}
+		}
+		m.matchCount = len(items)
 		m.targetList.SetItems(items)
 		m.targetList.ResetSelected()
 		m.cachedItems = nil // invalidate cache
@@ -368,6 +424,11 @@ func (m *diffTUIModel) applyDiffFilter() {
 	for _, r := range m.allItems {
 		if strings.Contains(strings.ToLower(r.name), needle) {
 			matched = append(matched, diffTargetItem{result: r})
+		}
+	}
+	for _, r := range m.allExtras {
+		if strings.Contains(strings.ToLower(r.extraName), needle) {
+			matched = append(matched, diffExtraItem{result: r})
 		}
 	}
 	m.matchCount = len(matched)
@@ -455,11 +516,66 @@ func (m diffTUIModel) renderDiffFilterBar() string {
 
 // --- Detail renderer ---
 
+func (m diffTUIModel) buildExtraDetail(selected diffExtraItem) string {
+	r := selected.result
+	var b strings.Builder
+
+	row := func(label, value string) {
+		b.WriteString(tc.Label.Render(label))
+		b.WriteString(tc.Value.Render(value))
+		b.WriteString("\n")
+	}
+
+	row("Extra:  ", r.extraName)
+	row("Target: ", shortenPath(r.targetPath))
+	row("Mode:   ", r.mode)
+	b.WriteString("\n")
+
+	if r.errMsg != "" {
+		b.WriteString(tc.Red.Render("  " + r.errMsg))
+		b.WriteString("\n")
+		return b.String()
+	}
+	if r.synced {
+		b.WriteString(tc.Green.Render("  ✓ Fully synced"))
+		b.WriteString("\n")
+		return b.String()
+	}
+
+	b.WriteString(tc.Yellow.Render(fmt.Sprintf("  %d difference(s):", len(r.items))))
+	b.WriteString("\n")
+	for _, item := range r.items {
+		var prefix string
+		var style lipgloss.Style
+		switch item.action {
+		case "add":
+			prefix, style = "+ ", tc.Green
+		case "remove":
+			prefix, style = "- ", tc.Red
+		case "modify":
+			prefix, style = "~ ", tc.Cyan
+		default:
+			prefix, style = "  ", tc.Dim
+		}
+		b.WriteString(style.Render(fmt.Sprintf("  %s%s  %s", prefix, item.file, item.reason)))
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
 func (m diffTUIModel) buildDiffDetail() string {
-	item, ok := m.targetList.SelectedItem().(diffTargetItem)
-	if !ok {
+	selectedItem := m.targetList.SelectedItem()
+	switch selected := selectedItem.(type) {
+	case diffExtraItem:
+		return m.buildExtraDetail(selected)
+	case diffSeparatorItem:
+		return ""
+	case diffTargetItem:
+		// handled below
+	default:
 		return ""
 	}
+	item := selectedItem.(diffTargetItem)
 	r := item.result
 
 	var b strings.Builder
@@ -681,8 +797,8 @@ func expandDiffCmd(entry *copyDiffEntry) tea.Cmd {
 
 // --- Entry point ---
 
-func runDiffTUI(results []targetDiffResult) error {
-	model := newDiffTUIModel(results)
+func runDiffTUI(results []targetDiffResult, extrasResults ...[]extraDiffResult) error {
+	model := newDiffTUIModel(results, extrasResults...)
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	_, err := p.Run()
 	return err

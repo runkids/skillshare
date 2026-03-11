@@ -477,8 +477,8 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts, start time.Time) erro
 	if opts.jsonOutput {
 		return diffOutputJSONWithExtras(results, extrasResults, start)
 	}
-	if shouldLaunchTUI(opts.noTUI, cfg) && len(results) > 0 && !opts.showExtras && !opts.showAll {
-		return runDiffTUI(results)
+	if shouldLaunchTUI(opts.noTUI, cfg) && len(results) > 0 {
+		return runDiffTUI(results, extrasResults)
 	}
 	renderGroupedDiffs(results, opts)
 	if len(extrasResults) > 0 {
