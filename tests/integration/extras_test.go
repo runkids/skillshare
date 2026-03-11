@@ -244,3 +244,329 @@ extras:
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "already exists")
 }
+
+// TestExtras_Collect verifies that "extras collect" moves local (non-symlink) files
+// from a target directory into the extras source and replaces them with symlinks.
+func TestExtras_Collect(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create extras source directory.
+	rulesSource := filepath.Join(sb.Home, ".config", "skillshare", "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+
+	// Create target directory with a local (non-symlink) file.
+	rulesTarget := filepath.Join(sb.Home, ".claude", "rules")
+	os.MkdirAll(rulesTarget, 0755)
+	localFile := filepath.Join(rulesTarget, "local-rule.md")
+	os.WriteFile(localFile, []byte("# Local Rule"), 0644)
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+`)
+
+	result := sb.RunCLI("extras", "collect", "rules", "-g")
+
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "collected")
+
+	// File should now exist in source.
+	sourceFile := filepath.Join(rulesSource, "local-rule.md")
+	if !sb.FileExists(sourceFile) {
+		t.Error("collected file should exist in extras source directory")
+	}
+
+	// Original location should now be a symlink.
+	if !sb.IsSymlink(localFile) {
+		t.Error("original file should be replaced with a symlink after collect")
+	}
+
+	// Symlink should point to the source file.
+	if got := sb.SymlinkTarget(localFile); got != sourceFile {
+		t.Errorf("symlink target = %q, want %q", got, sourceFile)
+	}
+}
+
+// TestExtras_Collect_DryRun verifies that "extras collect --dry-run" reports what
+// would be collected without actually moving any files.
+func TestExtras_Collect_DryRun(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create extras source directory.
+	rulesSource := filepath.Join(sb.Home, ".config", "skillshare", "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+
+	// Create target directory with a local file.
+	rulesTarget := filepath.Join(sb.Home, ".claude", "rules")
+	os.MkdirAll(rulesTarget, 0755)
+	localFile := filepath.Join(rulesTarget, "dry-rule.md")
+	os.WriteFile(localFile, []byte("# Dry Rule"), 0644)
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+`)
+
+	result := sb.RunCLI("extras", "collect", "rules", "--dry-run", "-g")
+
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "would collect")
+
+	// File should NOT have been moved to source.
+	sourceFile := filepath.Join(rulesSource, "dry-rule.md")
+	if sb.FileExists(sourceFile) {
+		t.Error("dry run should not move file to source")
+	}
+
+	// Original file should still be a regular file, not a symlink.
+	if sb.IsSymlink(localFile) {
+		t.Error("dry run should not replace file with symlink")
+	}
+}
+
+// TestExtras_Status verifies that "status" shows extras information when extras are configured.
+func TestExtras_Status(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create extras source with files.
+	rulesSource := filepath.Join(sb.Home, ".config", "skillshare", "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding"), 0644)
+	os.WriteFile(filepath.Join(rulesSource, "testing.md"), []byte("# Testing"), 0644)
+
+	rulesTarget := filepath.Join(sb.Home, ".claude", "rules")
+	os.MkdirAll(rulesTarget, 0755)
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+`)
+
+	result := sb.RunCLI("status", "-g")
+
+	result.AssertSuccess(t)
+	// Status should show an "Extras" section.
+	result.AssertAnyOutputContains(t, "Extras")
+	// Should report file and target counts.
+	result.AssertAnyOutputContains(t, "2 files")
+	result.AssertAnyOutputContains(t, "1 targets")
+}
+
+// TestExtras_DiffExtras verifies that "diff --extras" shows files that need syncing.
+func TestExtras_DiffExtras(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create extras source with a file.
+	rulesSource := filepath.Join(sb.Home, ".config", "skillshare", "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+	os.WriteFile(filepath.Join(rulesSource, "pending.md"), []byte("# Pending"), 0644)
+
+	// Create target directory but do NOT sync yet.
+	rulesTarget := filepath.Join(sb.Home, ".claude", "rules")
+	os.MkdirAll(rulesTarget, 0755)
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+`)
+
+	result := sb.RunCLI("diff", "--extras", "--no-tui", "-g")
+
+	result.AssertSuccess(t)
+	// Output should show the extras diff section.
+	result.AssertAnyOutputContains(t, "Extras")
+	// Should indicate file needs syncing.
+	result.AssertAnyOutputContains(t, "pending.md")
+}
+
+// TestExtras_SyncExtras_JSON verifies that "sync extras --json" produces valid JSON
+// output with an extras array.
+func TestExtras_SyncExtras_JSON(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create extras source with a file.
+	rulesSource := filepath.Join(sb.Home, ".config", "skillshare", "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding"), 0644)
+
+	rulesTarget := filepath.Join(sb.Home, ".claude", "rules")
+	os.MkdirAll(rulesTarget, 0755)
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+`)
+
+	result := sb.RunCLI("sync", "extras", "--json", "-g")
+
+	result.AssertSuccess(t)
+	// Verify JSON structure.
+	if !strings.Contains(result.Stdout, `"extras"`) {
+		t.Errorf("expected JSON to contain 'extras' key, got:\n%s", result.Stdout)
+	}
+	if !strings.Contains(result.Stdout, `"rules"`) {
+		t.Errorf("expected JSON to contain 'rules' entry, got:\n%s", result.Stdout)
+	}
+	if !strings.Contains(result.Stdout, `"duration"`) {
+		t.Errorf("expected JSON to contain 'duration' key, got:\n%s", result.Stdout)
+	}
+}
+
+// TestExtras_SyncAll_Project verifies that "sync --all -p" syncs both skills and extras
+// in project mode.
+func TestExtras_SyncAll_Project(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Set up a project directory with a claude target.
+	projectRoot := sb.SetupProjectDir("claude")
+
+	// Create a project skill.
+	sb.CreateProjectSkill(projectRoot, "proj-skill", map[string]string{
+		"SKILL.md": "# Project Skill",
+	})
+
+	// Create project extras source.
+	extrasSource := filepath.Join(projectRoot, ".skillshare", "extras", "rules")
+	os.MkdirAll(extrasSource, 0755)
+	os.WriteFile(filepath.Join(extrasSource, "proj-rule.md"), []byte("# Project Rule"), 0644)
+
+	// Create extras target directory.
+	extrasTarget := filepath.Join(projectRoot, ".claude", "rules")
+	os.MkdirAll(extrasTarget, 0755)
+
+	// Write project config with both skills target and extras using absolute path.
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+extras:
+  - name: rules
+    targets:
+      - path: `+extrasTarget+`
+`)
+
+	result := sb.RunCLIInDir(projectRoot, "sync", "--all", "-p")
+
+	result.AssertSuccess(t)
+
+	// Verify extras were synced (symlink created in target).
+	ruleLink := filepath.Join(extrasTarget, "proj-rule.md")
+	if !sb.IsSymlink(ruleLink) {
+		t.Errorf("project extras should be synced as symlink after sync --all -p\nstdout: %s\nstderr: %s",
+			result.Stdout, result.Stderr)
+	}
+}
+
+// TestExtras_Doctor verifies that "doctor" reports a missing extras source directory as an error.
+func TestExtras_Doctor(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	rulesTarget := filepath.Join(sb.Home, ".claude", "rules")
+	os.MkdirAll(rulesTarget, 0755)
+
+	claudeTarget := sb.CreateTarget("claude")
+	// Config references extras "rules" but we do NOT create the source directory.
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+`)
+
+	result := sb.RunCLI("doctor", "-g")
+
+	result.AssertSuccess(t)
+	// Doctor should report the missing extras source.
+	result.AssertAnyOutputContains(t, "rules")
+	result.AssertAnyOutputContains(t, "missing")
+}
+
+// TestExtras_Migration verifies that "sync extras" migrates a legacy flat extras directory
+// (configDir/name/) to the new location (configDir/extras/name/).
+func TestExtras_Migration(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create the OLD-style (legacy) directory: configDir/rules/ (not extras/rules/).
+	configDir := filepath.Join(sb.Home, ".config", "skillshare")
+	legacySource := filepath.Join(configDir, "rules")
+	os.MkdirAll(legacySource, 0755)
+	os.WriteFile(filepath.Join(legacySource, "legacy.md"), []byte("# Legacy Rule"), 0644)
+
+	rulesTarget := filepath.Join(sb.Home, ".claude", "rules")
+	os.MkdirAll(rulesTarget, 0755)
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+`)
+
+	result := sb.RunCLI("sync", "extras", "-g")
+
+	result.AssertSuccess(t)
+
+	// After migration, the new location should exist and legacy should be gone.
+	newSource := filepath.Join(configDir, "extras", "rules")
+	if _, err := os.Stat(newSource); os.IsNotExist(err) {
+		t.Errorf("expected migrated directory at %s to exist", newSource)
+	}
+	if _, err := os.Stat(legacySource); err == nil {
+		t.Errorf("expected legacy directory %s to be removed after migration", legacySource)
+	}
+
+	// The file should be accessible from the new location.
+	migratedFile := filepath.Join(newSource, "legacy.md")
+	if !sb.FileExists(migratedFile) {
+		t.Error("migrated file should exist in new extras directory")
+	}
+
+	// File should be synced as symlink in target.
+	ruleLink := filepath.Join(rulesTarget, "legacy.md")
+	if !sb.IsSymlink(ruleLink) {
+		t.Error("migrated file should be synced as symlink in target")
+	}
+}
