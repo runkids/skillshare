@@ -59,6 +59,24 @@
       "items": { "type": "string" },
       "uniqueItems": true,
       "examples": [["git.company.com", "code.internal.io"]]
+    },
+    "extras": {
+      "type": "array",
+      "description": "Non-skill resources (rules, commands, etc.) to sync to specific target paths.",
+      "items": {
+        "$ref": "#/$defs/extraConfig"
+      },
+      "examples": [
+        [
+          {
+            "name": "rules",
+            "targets": [
+              { "path": "~/.claude/rules" },
+              { "path": "~/.cursor/rules", "mode": "copy" }
+            ]
+          }
+        ]
+      ]
     }
   },
   "$defs": {
@@ -164,6 +182,45 @@
           "type": "boolean",
           "description": "Whether this hub is built-in (auto-added on init).",
           "default": false
+        }
+      }
+    },
+    "extraConfig": {
+      "type": "object",
+      "description": "Configuration for a non-skill resource type (rules, commands, etc.).",
+      "required": ["name", "targets"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the extra resource (matches a subdirectory under the source extras directory).",
+          "examples": ["rules", "commands"]
+        },
+        "targets": {
+          "type": "array",
+          "description": "Target directories to sync this extra resource to.",
+          "items": {
+            "$ref": "#/$defs/extraTargetConfig"
+          }
+        }
+      }
+    },
+    "extraTargetConfig": {
+      "type": "object",
+      "description": "Configuration for one target of an extra resource.",
+      "required": ["path"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the target directory. Supports ~ for home directory.",
+          "examples": ["~/.claude/rules", "~/.cursor/rules"]
+        },
+        "mode": {
+          "type": "string",
+          "description": "Sync mode for this extra target. Defaults to merge.",
+          "enum": ["merge", "symlink", "copy"],
+          "default": "merge"
         }
       }
     }

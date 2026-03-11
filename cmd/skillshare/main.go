@@ -41,6 +41,7 @@ var commands = map[string]func([]string) error{
 	"log":       cmdLog,
 	"ui":        cmdUI,
 	"tui":       cmdTUIToggle,
+	"extras":    cmdExtras,
 }
 
 func main() {
@@ -220,6 +221,14 @@ func printUsage() {
 	cmd("restore", "<target>", "Restore target from latest backup")
 	cmd("trash", "list", "List trashed skills")
 	cmd("trash", "restore <name>", "Restore a skill from trash")
+	fmt.Println()
+
+	// Extras
+	fmt.Println("EXTRAS")
+	cmd("extras", "init <name>", "Create a new extra resource type")
+	cmd("extras", "list", "List all configured extras and sync status")
+	cmd("extras", "remove <name>", "Remove an extra resource type")
+	cmd("extras", "collect <name>", "Collect local files into extras source")
 	fmt.Println()
 
 	// Git Remote
