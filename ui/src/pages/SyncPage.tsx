@@ -21,6 +21,8 @@ import Card from '../components/Card';
 import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import Button from '../components/Button';
+import { Checkbox } from '../components/Input';
+import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
 import { api, type SyncResult, type DiffTarget } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
@@ -158,11 +160,11 @@ export default function SyncPage() {
           className="flex items-center gap-2 px-4 py-2 bg-info-light border-2 border-pencil"
           style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
         >
-          <RefreshCw
-            size={18}
-            strokeWidth={2.5}
-            className={`text-blue ${syncing ? 'animate-spin' : ''}`}
-          />
+          {syncing ? (
+            <Spinner size="sm" className="text-blue" />
+          ) : (
+            <RefreshCw size={18} strokeWidth={2.5} className="text-blue" />
+          )}
           <span className="text-base font-medium">
             Sync Engine
           </span>
@@ -237,11 +239,7 @@ export default function SyncPage() {
             size="lg"
             className="min-w-[200px]"
           >
-            <RefreshCw
-              size={22}
-              strokeWidth={2.5}
-              className={syncing ? 'animate-spin' : ''}
-            />
+            {syncing ? <Spinner size="md" /> : <RefreshCw size={22} strokeWidth={2.5} />}
             {syncing ? 'Syncing...' : dryRun ? 'Preview Sync' : 'Sync Now'}
           </Button>
 
@@ -270,27 +268,23 @@ export default function SyncPage() {
           {/* Advanced options */}
           {showAdvanced && (
             <div className="flex items-center gap-6 animate-fade-in">
-              <label className="flex items-center gap-2 text-base cursor-pointer select-none">
-                <input
-                  type="checkbox"
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  label="Dry Run"
                   checked={dryRun}
-                  onChange={(e) => setDryRun(e.target.checked)}
-                  className="w-4 h-4 accent-blue"
+                  onChange={setDryRun}
                 />
                 <Eye size={16} strokeWidth={2.5} className="text-blue" />
-                <span>Dry Run</span>
-              </label>
+              </div>
 
-              <label className="flex items-center gap-2 text-base cursor-pointer select-none">
-                <input
-                  type="checkbox"
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  label="Force"
                   checked={force}
-                  onChange={(e) => setForce(e.target.checked)}
-                  className="w-4 h-4 accent-accent"
+                  onChange={setForce}
                 />
                 <Zap size={16} strokeWidth={2.5} className="text-accent" />
-                <span>Force</span>
-              </label>
+              </div>
             </div>
           )}
         </div>

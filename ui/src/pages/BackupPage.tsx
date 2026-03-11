@@ -6,13 +6,13 @@ import {
   Clock,
   RotateCcw,
   Trash2,
-  RefreshCw,
   Target,
   Plus,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { BackupInfo, RestoreValidateResponse } from '../api/client';
 import { useAppContext } from '../context/AppContext';
+import Spinner from '../components/Spinner';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { formatSize } from '../lib/format';
 import Card from '../components/Card';
@@ -202,7 +202,7 @@ export default function BackupPage() {
               disabled={creating}
             >
               {creating ? (
-                <><RefreshCw size={16} strokeWidth={2.5} className="animate-spin" /> Creating...</>
+                <><Spinner size="sm" /> Creating...</>
               ) : (
                 <><Plus size={16} strokeWidth={2.5} /> Create Backup</>
               )}

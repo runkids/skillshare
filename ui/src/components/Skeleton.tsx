@@ -3,16 +3,17 @@ import { radius } from '../design';
 interface SkeletonProps {
   className?: string;
   variant?: 'text' | 'card' | 'circle';
+  style?: React.CSSProperties;
 }
 
-export default function Skeleton({ className = '', variant = 'text' }: SkeletonProps) {
-  const base = 'animate-pulse bg-muted';
+export default function Skeleton({ className = '', variant = 'text', style }: SkeletonProps) {
+  const base = 'animate-skeleton';
 
   if (variant === 'circle') {
     return (
       <div
         className={`${base} w-12 h-12 ${className}`}
-        style={{ borderRadius: '50%' }}
+        style={{ borderRadius: '50%', ...style }}
       />
     );
   }
@@ -20,8 +21,8 @@ export default function Skeleton({ className = '', variant = 'text' }: SkeletonP
   if (variant === 'card') {
     return (
       <div
-        className={`${base} border-2 border-muted-dark p-4 h-32 ${className}`}
-        style={{ borderRadius: radius.md }}
+        className={`${base} border border-muted p-4 h-32 ${className}`}
+        style={{ borderRadius: radius.md, ...style }}
       />
     );
   }
@@ -29,7 +30,7 @@ export default function Skeleton({ className = '', variant = 'text' }: SkeletonP
   return (
     <div
       className={`${base} h-4 ${className}`}
-      style={{ borderRadius: radius.sm }}
+      style={{ borderRadius: radius.sm, ...style }}
     />
   );
 }
@@ -40,13 +41,22 @@ export function PageSkeleton() {
     <div className="space-y-6 animate-fade-in">
       <Skeleton className="w-48 h-8" />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Skeleton variant="card" />
-        <Skeleton variant="card" />
-        <Skeleton variant="card" />
+        {[0, 1, 2].map((i) => (
+          <Skeleton
+            key={i}
+            variant="card"
+            className="animate-skeleton"
+            style={{ animationDelay: `${i * 50}ms` } as React.CSSProperties}
+          />
+        ))}
       </div>
-      <Skeleton className="w-full h-4" />
-      <Skeleton className="w-3/4 h-4" />
-      <Skeleton className="w-1/2 h-4" />
+      {[0, 1, 2].map((i) => (
+        <Skeleton
+          key={i}
+          className={i === 0 ? 'w-full h-4' : i === 1 ? 'w-3/4 h-4' : 'w-1/2 h-4'}
+          style={{ animationDelay: `${(i + 3) * 50}ms` } as React.CSSProperties}
+        />
+      ))}
     </div>
   );
 }

@@ -55,6 +55,7 @@ export function useGlobalShortcuts({ onToggleHelp, onRefresh, onSync }: UseGloba
   const pendingChordRef = useRef<string | null>(null);
   const chordTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [modifierHeld, setModifierHeld] = useState(false);
+  const modifierTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearChord = useCallback(() => {
     pendingChordRef.current = null;
@@ -71,6 +72,9 @@ export function useGlobalShortcuts({ onToggleHelp, onRefresh, onSync }: UseGloba
         const key = e.key.toLowerCase();
         if (key === 's') {
           e.preventDefault();
+          // Reset modifier state immediately — macOS often swallows the
+          // Meta keyup after a Cmd+key shortcut, leaving the HUD stuck.
+          setModifierHeld(false);
           if (onSync) {
             onSync();
           } else {
@@ -134,19 +138,31 @@ export function useGlobalShortcuts({ onToggleHelp, onRefresh, onSync }: UseGloba
     };
 
     // Modifier held detection (for HUD overlay)
+    const clearModifierTimer = () => {
+      if (modifierTimerRef.current) {
+        clearTimeout(modifierTimerRef.current);
+        modifierTimerRef.current = null;
+      }
+    };
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Meta' || e.key === 'Control') {
         setModifierHeld(true);
+        // Auto-dismiss after 2s in case keyup is never received
+        clearModifierTimer();
+        modifierTimerRef.current = setTimeout(() => setModifierHeld(false), 2000);
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Meta' || e.key === 'Control') {
+        clearModifierTimer();
         setModifierHeld(false);
       }
     };
 
     const handleBlur = () => {
+      clearModifierTimer();
       setModifierHeld(false);
     };
 
@@ -161,6 +177,7 @@ export function useGlobalShortcuts({ onToggleHelp, onRefresh, onSync }: UseGloba
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('blur', handleBlur);
       clearChord();
+      clearModifierTimer();
     };
   }, [navigate, onToggleHelp, onRefresh, onSync, clearChord]);
 

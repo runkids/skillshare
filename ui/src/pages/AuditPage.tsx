@@ -524,21 +524,21 @@ function SkillAuditCard({ result }: { result: AuditResult; index?: number }) {
 /* BlockStamp and RiskMeter imported from ../components/audit */
 
 /* ──────────────────────────────────────────────────────────────────────
- * FindingRow — severity color stripe + better visual hierarchy
+ * FindingRow — severity dot + badge for visual hierarchy
  * ────────────────────────────────────────────────────────────────────── */
 
 function FindingRow({ finding }: { finding: AuditFinding }) {
-  const stripeColor = severityStripeColor(finding.severity);
+  const dotColor = severityStripeColor(finding.severity);
 
   return (
     <div
-      className="flex flex-col gap-1.5 text-sm border-l-[3px] pl-3 py-2 transition-colors duration-100 hover:bg-paper-warm/60"
-      style={{
-        borderLeftColor: stripeColor,
-        borderRadius: '0 6px 6px 0',
-      }}
+      className="flex flex-col gap-1.5 text-sm pl-3 py-2 transition-colors duration-100 hover:bg-paper-warm/60 rounded-md"
     >
       <div className="flex items-start gap-2 flex-wrap">
+        <span
+          className="w-2 h-2 rounded-full shrink-0 mt-1.5"
+          style={{ backgroundColor: dotColor }}
+        />
         <Badge variant={severityBadgeVariant(finding.severity)}>
           {finding.severity}
         </Badge>

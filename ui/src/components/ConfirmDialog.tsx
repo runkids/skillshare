@@ -35,14 +35,14 @@ export default function ConfirmDialog({
       maxWidth={wide ? '2xl' : 'lg'}
       preventClose={loading}
     >
-      <Card className="text-center">
-        <h3 className="text-xl font-bold text-pencil mb-2">
+      <Card>
+        <h3 className="text-lg font-bold text-pencil mb-2">
           {title}
         </h3>
         <div className="text-pencil-light mb-6">
           {message}
         </div>
-        <div className="flex gap-3 justify-center">
+        <div className="flex gap-3 justify-end">
           {cancelText && (
             <Button
               variant="secondary"
@@ -57,9 +57,9 @@ export default function ConfirmDialog({
             variant={variant === 'danger' ? 'danger' : 'primary'}
             size="md"
             onClick={onConfirm}
-            disabled={loading}
+            loading={loading}
           >
-            {loading ? 'Working...' : confirmText}
+            {confirmText}
           </Button>
         </div>
       </Card>

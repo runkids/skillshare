@@ -7,7 +7,6 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   GitCommit,
-  RefreshCw,
   AlertTriangle,
   CheckCircle,
   ChevronDown,
@@ -26,6 +25,7 @@ import Badge from '../components/Badge';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
+import Spinner from '../components/Spinner';
 
 function fileStatusBadge(line: string) {
   const code = line.trim().substring(0, 2).trim();
@@ -275,7 +275,7 @@ export default function GitSyncPage() {
                 disabled={pushing || (!status?.isDirty && !pushDryRun)}
               >
                 {pushing ? (
-                  <><RefreshCw size={16} strokeWidth={2.5} className="animate-spin" /> Pushing...</>
+                  <><Spinner size="sm" /> Pushing...</>
                 ) : (
                   <><ArrowUpCircle size={16} strokeWidth={2.5} /> Push</>
                 )}
@@ -292,9 +292,7 @@ export default function GitSyncPage() {
         </Card>
 
         {/* Pull Section */}
-        <Card
-          style={{ borderLeft: '3px solid var(--color-info, #2563eb)' }}
-        >
+        <Card>
           <div className="space-y-4">
             <h3
               className="text-xl font-bold text-pencil flex items-center gap-2"
@@ -325,7 +323,7 @@ export default function GitSyncPage() {
                 disabled={pulling || (!!status?.isDirty && !pullDryRun)}
               >
                 {pulling ? (
-                  <><RefreshCw size={16} strokeWidth={2.5} className="animate-spin" /> Pulling...</>
+                  <><Spinner size="sm" /> Pulling...</>
                 ) : (
                   <><ArrowDownCircle size={16} strokeWidth={2.5} /> Pull</>
                 )}

@@ -467,15 +467,19 @@ export default function InstallForm({
                 <div
                   key={i}
                   className="border border-muted bg-paper p-3 space-y-1.5"
-                  style={{ borderRadius: radius.md, borderLeftWidth: '3px', borderLeftColor: s.color }}
+                  style={{ borderRadius: radius.md }}
                 >
                   {f.skillName && <div className="text-xs text-pencil-light font-mono">{f.skillName}</div>}
                   <div className="flex items-start gap-2">
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0 mt-1.5"
+                      style={{ backgroundColor: s.color }}
+                    />
                     <Badge variant={s.variant}>{f.severity}</Badge>
                     <span className="text-sm pt-0.5 leading-relaxed">{f.description}</span>
                   </div>
                   {f.snippets.length > 0 && (
-                    <div className="ml-1 pl-3 border-l border-muted space-y-0.5">
+                    <div className="ml-1 pl-3 space-y-0.5">
                       {f.snippets.map((sn, j) => (
                         <div key={j} className="text-xs text-pencil-light font-mono break-all">{sn}</div>
                       ))}
@@ -526,15 +530,19 @@ export default function InstallForm({
                 <div
                   key={i}
                   className="border border-muted bg-paper p-3 space-y-1.5"
-                  style={{ borderRadius: radius.md, borderLeftWidth: '3px', borderLeftColor: s.color }}
+                  style={{ borderRadius: radius.md }}
                 >
                   {f.skillName && <div className="text-xs text-pencil-light font-mono">{f.skillName}</div>}
                   <div className="flex items-start gap-2">
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0 mt-1.5"
+                      style={{ backgroundColor: s.color }}
+                    />
                     <Badge variant={s.variant}>{f.severity}</Badge>
                     <span className="text-sm pt-0.5 leading-relaxed">{f.description}</span>
                   </div>
                   {f.snippets.length > 0 && (
-                    <div className="ml-1 pl-3 border-l border-muted space-y-0.5">
+                    <div className="ml-1 pl-3 space-y-0.5">
                       {f.snippets.map((sn, j) => (
                         <div key={j} className="text-xs text-pencil-light font-mono break-all">{sn}</div>
                       ))}

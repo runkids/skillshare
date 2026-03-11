@@ -16,7 +16,7 @@ const sizeClasses = {
 };
 
 const variantClasses = {
-  ghost: 'text-pencil-light hover:text-pencil border border-transparent hover:border-muted',
+  ghost: 'text-pencil-light hover:text-pencil border border-transparent hover:border-muted hover:bg-muted/30',
   outline: 'border-2 border-transparent hover:border-muted-dark text-pencil-light hover:text-pencil',
   'danger-outline': 'border-2 border-transparent hover:border-danger text-muted-dark hover:text-danger',
 };
@@ -36,7 +36,9 @@ export default function IconButton({
       title={label}
       className={`
         inline-flex items-center justify-center shrink-0
-        transition-colors duration-150 cursor-pointer
+        transition-all duration-150 cursor-pointer
+        active:scale-95
+        focus-visible:ring-2 focus-visible:ring-pencil/20
         disabled:opacity-50 disabled:cursor-not-allowed
         ${sizeClasses[size]}
         ${variantClasses[variant]}

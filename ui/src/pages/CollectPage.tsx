@@ -18,6 +18,8 @@ import Card from '../components/Card';
 import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import Button from '../components/Button';
+import { Checkbox } from '../components/Input';
+import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
@@ -200,7 +202,7 @@ export default function CollectPage() {
           >
             {phase === 'scanning' ? (
               <>
-                <RefreshCw size={22} strokeWidth={2.5} className="animate-spin" />
+                <Spinner size="md" />
                 Scanning...
               </>
             ) : (
@@ -219,18 +221,14 @@ export default function CollectPage() {
 
           {/* Force toggle */}
           {(phase === 'scanned' || phase === 'done') && (
-            <label className="flex items-center gap-2 text-base cursor-pointer select-none">
-              <input
-                type="checkbox"
+            <div className="flex items-center gap-2">
+              <Checkbox
+                label="Force (overwrite existing in source)"
                 checked={force}
-                onChange={(e) => setForce(e.target.checked)}
-                className="w-4 h-4 accent-accent"
+                onChange={setForce}
               />
               <Zap size={16} strokeWidth={2.5} className="text-accent" />
-              <span>
-                Force (overwrite existing in source)
-              </span>
-            </label>
+            </div>
           )}
         </div>
       </Card>
@@ -301,7 +299,7 @@ export default function CollectPage() {
                   >
                     {phase === 'collecting' ? (
                       <>
-                        <RefreshCw size={22} strokeWidth={2.5} className="animate-spin" />
+                        <Spinner size="md" />
                         Collecting...
                       </>
                     ) : (
@@ -560,7 +558,7 @@ function DetailList({
         <span className={colorMap[variant]}>{title}</span> ({items.length})
       </button>
       {open && (
-        <div className="mt-2 pl-4 border-l-2 border-dashed border-muted-dark space-y-1 animate-fade-in">
+        <div className="mt-2 pl-6 space-y-1 animate-fade-in">
           {items.map((item) => (
             <p
               key={item}
