@@ -1,4 +1,4 @@
-import { useState, useMemo, forwardRef, memo, useEffect } from 'react';
+import { useState, useMemo, useRef, useCallback, forwardRef, memo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
@@ -15,7 +15,7 @@ import {
   Target,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
+import { VirtuosoGrid, GroupedVirtuoso } from 'react-virtuoso';
 import type { GridComponents } from 'react-virtuoso';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Badge from '../components/Badge';
@@ -257,6 +257,14 @@ export default function SkillsPage() {
     queryFn: () => api.listSkills(),
     staleTime: staleTimes.skills,
   });
+  const [toolbarH, setToolbarH] = useState(0);
+  const toolbarRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      const ro = new ResizeObserver(() => setToolbarH(node.offsetHeight));
+      ro.observe(node);
+      return () => ro.disconnect();
+    }
+  }, []);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('name-asc');
@@ -340,7 +348,7 @@ export default function SkillsPage() {
       />
 
       {/* Sticky toolbar */}
-      <div className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 pt-2 pb-4">
+      <div ref={toolbarRef} className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 pt-2 pb-4">
         {/* Search + Sort row */}
         <div className="flex flex-col sm:flex-row gap-3 mb-2">
           <div className="relative flex-1">
@@ -440,7 +448,7 @@ export default function SkillsPage() {
             )}
           />
         ) : viewType === 'grouped' ? (
-          <VirtualizedGroupedView dirs={grouped.dirs} groups={grouped.groups} />
+          <GroupedView dirs={grouped.dirs} groups={grouped.groups} stickyOffset={toolbarH} />
         ) : (
           <SkillsTable skills={filtered} />
         )
@@ -459,54 +467,67 @@ export default function SkillsPage() {
   );
 }
 
-/* -- Virtualized grouped view --------------------- */
+/* -- Grouped view (GroupedVirtuoso for sticky headers + virtualization) -- */
 
-type GroupRow =
-  | { type: 'header'; dir: string; count: number; showHeader: boolean }
-  | { type: 'cards'; skills: Skill[] };
+function GroupedView({ dirs, groups, stickyOffset = 0 }: { dirs: string[]; groups: Map<string, Skill[]>; stickyOffset?: number }) {
+  const showHeaders = dirs.length > 1 || (dirs.length === 1 && dirs[0] !== '');
 
-function VirtualizedGroupedView({ dirs, groups }: { dirs: string[]; groups: Map<string, Skill[]> }) {
-  const rows = useMemo(() => {
-    const result: GroupRow[] = [];
-    const showHeaders = dirs.length > 1 || (dirs.length === 1 && dirs[0] !== '');
+  // Chunk each group's skills into rows of 3 for GroupedVirtuoso
+  const { groupCounts, rows, dirCounts } = useMemo(() => {
+    const counts: number[] = [];
+    const allRows: Skill[][] = [];
+    const dc: number[] = [];
     for (const dir of dirs) {
       const skills = groups.get(dir) ?? [];
-      result.push({ type: 'header', dir, count: skills.length, showHeader: showHeaders });
-      // Chunk skills into rows of 3
+      dc.push(skills.length);
+      let rowCount = 0;
       for (let i = 0; i < skills.length; i += 3) {
-        result.push({ type: 'cards', skills: skills.slice(i, i + 3) });
+        allRows.push(skills.slice(i, i + 3));
+        rowCount++;
       }
+      counts.push(rowCount || 1); // at least 1 row so group header shows
+      if (skills.length === 0) allRows.push([]); // empty placeholder row
     }
-    return result;
+    return { groupCounts: counts, rows: allRows, dirCounts: dc };
   }, [dirs, groups]);
 
   return (
-    <Virtuoso
+    <GroupedVirtuoso
       useWindowScroll
-      totalCount={rows.length}
+      groupCounts={groupCounts}
       overscan={200}
+      components={{
+        TopItemList: ({ style, ...props }) => (
+          <div {...props} style={{ ...style, top: stickyOffset, zIndex: 10 }} />
+        ),
+      }}
+      groupContent={(index) => {
+        if (!showHeaders) return <div />;
+        const dir = dirs[index];
+        return (
+          <div
+            className="bg-paper -mx-4 px-4 md:-mx-8 md:px-8 flex items-center gap-2 py-2"
+            style={{ marginTop: index === 0 ? 0 : '1.5rem' }}
+          >
+            <Folder size={18} strokeWidth={2.5} className="text-pencil-light" />
+            <h3 className="text-lg font-bold text-pencil">
+              {dir || '(root)'}
+            </h3>
+            <span
+              className="text-sm text-pencil-light px-2 py-0.5 bg-muted"
+              style={{ borderRadius: radius.sm }}
+            >
+              {dirCounts[index]}
+            </span>
+          </div>
+        );
+      }}
       itemContent={(index) => {
         const row = rows[index];
-        if (row.type === 'header') {
-          if (!row.showHeader) return <div />;
-          return (
-            <div className="flex items-center gap-2 mb-4 mt-8 first:mt-0" style={index === 0 ? { marginTop: 0 } : undefined}>
-              <Folder size={18} strokeWidth={2.5} className="text-pencil-light" />
-              <h3 className="text-lg font-bold text-pencil">
-                {row.dir || '(root)'}
-              </h3>
-              <span
-                className="text-sm text-pencil-light px-2 py-0.5 bg-muted"
-                style={{ borderRadius: radius.sm }}
-              >
-                {row.count}
-              </span>
-            </div>
-          );
-        }
+        if (!row || row.length === 0) return <div />;
         return (
           <div className="flex flex-wrap gap-5 mb-5">
-            {row.skills.map((skill) => (
+            {row.map((skill) => (
               <div
                 key={skill.flatName}
                 className="!w-full md:!w-[calc(50%-0.625rem)] xl:!w-[calc(33.333%-0.834rem)]"
