@@ -47,8 +47,8 @@ export default function SegmentedControl<T extends string>({
               className={`
                 ${sizeClasses[size]} transition-colors cursor-pointer font-medium
                 ${isActive
-                  ? color ? '' : 'bg-surface text-pencil shadow-sm'
-                  : 'text-pencil-light hover:text-pencil'
+                  ? color ? '' : 'bg-surface text-pencil shadow-sm border border-muted'
+                  : 'text-pencil-light hover:text-pencil border border-transparent'
                 }
               `}
               style={{

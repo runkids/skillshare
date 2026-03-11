@@ -340,7 +340,7 @@ export default function SkillsPage() {
       />
 
       {/* Sticky toolbar */}
-      <div className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 pt-2 pb-2">
+      <div className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 pt-2 pb-4">
         {/* Search + Sort row */}
         <div className="flex flex-col sm:flex-row gap-3 mb-2">
           <div className="relative flex-1">
