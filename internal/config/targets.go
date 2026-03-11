@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v3"
@@ -285,6 +286,30 @@ func resolveTargetPaths(specs []targetSpec, name string) []string {
 		}
 	}
 	return paths
+}
+
+// ProjectTargetDotDirs returns the set of hidden directory names (e.g. ".claude",
+// ".cursor") that are first path segments in any project target path. These are
+// well-known AI-tool config directories that should be skipped during skill
+// discovery to avoid counting target-synced copies as source skills.
+// ".skillshare" is always included.
+func ProjectTargetDotDirs() map[string]bool {
+	specs, err := loadTargetSpecs()
+	if err != nil {
+		return map[string]bool{".skillshare": true}
+	}
+
+	dirs := map[string]bool{".skillshare": true}
+	for _, spec := range specs {
+		if spec.ProjectPath == "" {
+			continue
+		}
+		first := strings.SplitN(spec.ProjectPath, "/", 2)[0]
+		if strings.HasPrefix(first, ".") {
+			dirs[first] = true
+		}
+	}
+	return dirs
 }
 
 func normalizeTargetPath(path string) string {
