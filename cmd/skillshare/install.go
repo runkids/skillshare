@@ -195,6 +195,11 @@ func parseOptsFromConfig(cfg *config.Config) install.ParseOptions {
 	return install.ParseOptions{GitLabHosts: cfg.GitLabHosts}
 }
 
+// parseOptsFromProjectConfig builds install.ParseOptions from a project config.
+func parseOptsFromProjectConfig(cfg *config.ProjectConfig) install.ParseOptions {
+	return install.ParseOptions{GitLabHosts: cfg.GitLabHosts}
+}
+
 // resolveSkillFromName resolves a skill name to source using metadata
 func resolveSkillFromName(skillName string, cfg *config.Config) (*install.Source, error) {
 	skillPath := filepath.Join(cfg.Source, skillName)

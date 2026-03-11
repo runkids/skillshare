@@ -441,6 +441,16 @@ skillshare install git.company.com/team/frontend/ui.git
 
 Entries must be bare hostnames (no scheme, path, or port). They are normalized to lowercase.
 
+#### Environment variable
+
+For CI/CD pipelines that don't have a config file, use `SKILLSHARE_GITLAB_HOSTS` (comma-separated):
+
+```bash
+SKILLSHARE_GITLAB_HOSTS=git.company.com,code.internal.io skillshare install git.company.com/team/frontend/ui
+```
+
+When both the config file and env var are set, their values are **merged** (deduplicated). Invalid entries in the env var are silently skipped.
+
 ### `audit`
 
 Security audit configuration.

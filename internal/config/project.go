@@ -149,12 +149,12 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 	}
 	cfg.Audit.BlockThreshold = threshold
 
-	// Validate and normalize gitlab_hosts
+	// Validate and normalize gitlab_hosts (config file + env var, merged)
 	hosts, err := normalizeGitLabHosts(cfg.GitLabHosts)
 	if err != nil {
 		return nil, fmt.Errorf("project config: %w", err)
 	}
-	cfg.GitLabHosts = hosts
+	cfg.GitLabHosts = mergeGitLabHostsFromEnv(hosts)
 
 	for _, target := range cfg.Targets {
 		if strings.TrimSpace(target.Name) == "" {

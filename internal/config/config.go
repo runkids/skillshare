@@ -198,12 +198,12 @@ func Load() (*Config, error) {
 	}
 	cfg.Audit.BlockThreshold = threshold
 
-	// Validate and normalize gitlab_hosts
+	// Validate and normalize gitlab_hosts (config file + env var, merged)
 	hosts, err := normalizeGitLabHosts(cfg.GitLabHosts)
 	if err != nil {
 		return nil, err
 	}
-	cfg.GitLabHosts = hosts
+	cfg.GitLabHosts = mergeGitLabHostsFromEnv(hosts)
 
 	// Expand ~ in paths
 	cfg.Source = expandPath(cfg.Source)
@@ -307,6 +307,15 @@ func migrateSkillsToRegistry(configPath string) error {
 	return os.WriteFile(configPath, cleaned, 0644)
 }
 
+// isValidGitLabHostname reports whether h is a bare hostname
+// (no scheme, path, port, or empty after trim).
+func isValidGitLabHostname(h string) bool {
+	return h != "" &&
+		!strings.Contains(h, "://") &&
+		!strings.Contains(h, "/") &&
+		!strings.Contains(h, ":")
+}
+
 // normalizeGitLabHosts validates and normalizes gitlab_hosts entries.
 // Rejects entries containing "://", "/", ":", or empty after trim.
 // Returns lowercased, trimmed hostnames.
@@ -317,21 +326,48 @@ func normalizeGitLabHosts(hosts []string) ([]string, error) {
 	out := make([]string, 0, len(hosts))
 	for _, h := range hosts {
 		h = strings.TrimSpace(h)
-		if h == "" {
-			return nil, fmt.Errorf("gitlab_hosts: empty entry")
-		}
-		if strings.Contains(h, "://") {
-			return nil, fmt.Errorf("gitlab_hosts: entry %q must be a hostname, not a URL (remove scheme)", h)
-		}
-		if strings.Contains(h, "/") {
-			return nil, fmt.Errorf("gitlab_hosts: entry %q must be a hostname without path", h)
-		}
-		if strings.Contains(h, ":") {
+		if !isValidGitLabHostname(h) {
+			if h == "" {
+				return nil, fmt.Errorf("gitlab_hosts: empty entry")
+			}
+			if strings.Contains(h, "://") {
+				return nil, fmt.Errorf("gitlab_hosts: entry %q must be a hostname, not a URL (remove scheme)", h)
+			}
+			if strings.Contains(h, "/") {
+				return nil, fmt.Errorf("gitlab_hosts: entry %q must be a hostname without path", h)
+			}
 			return nil, fmt.Errorf("gitlab_hosts: entry %q must be a hostname without port", h)
 		}
 		out = append(out, strings.ToLower(h))
 	}
 	return out, nil
+}
+
+// mergeGitLabHostsFromEnv merges SKILLSHARE_GITLAB_HOSTS env var entries
+// with the already-normalized config file hosts. Returns deduplicated list.
+// Invalid entries in the env var are silently skipped (unlike normalizeGitLabHosts
+// which returns errors for config file entries).
+func mergeGitLabHostsFromEnv(configHosts []string) []string {
+	envVal := os.Getenv("SKILLSHARE_GITLAB_HOSTS")
+	if envVal == "" {
+		return configHosts
+	}
+	seen := make(map[string]bool, len(configHosts))
+	for _, h := range configHosts {
+		seen[h] = true
+	}
+	merged := append([]string(nil), configHosts...)
+	for _, raw := range strings.Split(envVal, ",") {
+		h := strings.ToLower(strings.TrimSpace(raw))
+		if !isValidGitLabHostname(h) {
+			continue // silently skip invalid entries from env
+		}
+		if !seen[h] {
+			seen[h] = true
+			merged = append(merged, h)
+		}
+	}
+	return merged
 }
 
 func normalizeAuditBlockThreshold(v string) (string, error) {

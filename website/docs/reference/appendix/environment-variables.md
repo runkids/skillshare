@@ -88,6 +88,20 @@ Starting from v0.13.0, skillshare follows the XDG Base Directory Specification f
 
 ---
 
+### SKILLSHARE_GITLAB_HOSTS
+
+Comma-separated list of self-managed GitLab hostnames to treat with nested subgroup support. Useful in CI/CD where you may not have a config file.
+
+```bash
+SKILLSHARE_GITLAB_HOSTS=git.company.com,code.internal.io skillshare install git.company.com/team/frontend/ui
+```
+
+When both the env var and config file [`gitlab_hosts`](/docs/reference/targets/configuration#gitlab_hosts) are set, their values are **merged** (deduplicated). Invalid entries (containing scheme, path, port, or empty) are silently skipped.
+
+**Default:** None (only config file values are used)
+
+---
+
 ## GitHub API
 
 ### GITHUB_TOKEN
@@ -330,6 +344,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `SKILLSHARE_CONFIG` | Config file path | `~/.config/skillshare/config.yaml` |
+| `SKILLSHARE_GITLAB_HOSTS` | Custom GitLab hostnames (comma-separated) | None |
 | `XDG_CONFIG_HOME` | Base config directory | `~/.config` (Linux/macOS), `%AppData%` (Windows) |
 | `XDG_DATA_HOME` | Data directory (backups, trash) | `~/.local/share` |
 | `XDG_STATE_HOME` | State directory (logs) | `~/.local/state` |

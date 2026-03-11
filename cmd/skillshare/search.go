@@ -453,7 +453,7 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 		return fmt.Errorf("failed to load project config: %w", err)
 	}
 
-	source, err := install.ParseSourceWithOptions(result.Source, install.ParseOptions{GitLabHosts: runtime.config.GitLabHosts})
+	source, err := install.ParseSourceWithOptions(result.Source, parseOptsFromProjectConfig(runtime.config))
 	if err != nil {
 		return fmt.Errorf("invalid source: %w", err)
 	}

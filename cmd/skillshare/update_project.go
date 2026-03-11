@@ -46,11 +46,11 @@ func cmdUpdateProject(args []string, root string) (*updateResult, error) {
 	ui.StepStart("Source", sourcePath)
 
 	if opts.all {
-		uc := &updateContext{sourcePath: sourcePath, projectRoot: root, opts: opts, parseOpts: install.ParseOptions{GitLabHosts: runtime.config.GitLabHosts}}
+		uc := &updateContext{sourcePath: sourcePath, projectRoot: root, opts: opts, parseOpts: parseOptsFromProjectConfig(runtime.config)}
 		return updateAllProjectSkills(uc)
 	}
 
-	return cmdUpdateProjectBatch(sourcePath, opts, root, install.ParseOptions{GitLabHosts: runtime.config.GitLabHosts})
+	return cmdUpdateProjectBatch(sourcePath, opts, root, parseOptsFromProjectConfig(runtime.config))
 }
 
 func cmdUpdateProjectBatch(sourcePath string, opts *updateOptions, projectRoot string, pOpts install.ParseOptions) (*updateResult, error) {

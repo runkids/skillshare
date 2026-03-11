@@ -406,9 +406,8 @@ func isGitLabHost(host string, extraHosts []string) bool {
 	if strings.Contains(host, "gitlab") {
 		return true
 	}
-	h := strings.ToLower(host)
 	for _, eh := range extraHosts {
-		if strings.EqualFold(eh, h) {
+		if strings.EqualFold(eh, host) {
 			return true
 		}
 	}
