@@ -210,6 +210,26 @@ body {
   animation: dropdownIn 0.15s ease-out;
 }
 
+/* Sync progress shimmer animation */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Pipeline flow animation — dashed line movement */
+@keyframes flow {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -16; }
+}
+
+.animate-flow {
+  animation: flow 0.6s linear infinite;
+}
+
 /* Subtle underline link — border-bottom style like oMLX */
 .link-subtle {
   color: var(--color-pencil-light);

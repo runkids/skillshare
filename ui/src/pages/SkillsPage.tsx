@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback, forwardRef, memo, useEffect } from 'react';
+import { useState, useMemo, useCallback, forwardRef, memo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
@@ -29,6 +29,7 @@ import SegmentedControl from '../components/SegmentedControl';
 import Pagination from '../components/Pagination';
 import { api, type Skill } from '../api/client';
 import { radius, shadows } from '../design';
+import ScrollToTop from '../components/ScrollToTop';
 
 /* -- Filter, Sort & View types -------------------- */
 
@@ -463,6 +464,8 @@ export default function SkillsPage() {
           }
         />
       )}
+
+      <ScrollToTop />
     </div>
   );
 }

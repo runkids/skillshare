@@ -260,7 +260,7 @@ export default function UpdatePage() {
       {phase !== 'idle' && (
         <div className="space-y-4 animate-fade-in">
           {/* Summary bar */}
-          <Card className="rotate-[-0.3deg]">
+          <Card className="rotate-[-0.15deg]">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2 flex-wrap">
                 {phase === 'updating' && (
@@ -326,7 +326,7 @@ export default function UpdatePage() {
       {phase === 'idle' && (
         <>
           {!hasUpdates ? (
-            <Card className="rotate-[-0.5deg]">
+            <Card className="rotate-[-0.15deg]">
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="w-14 h-14 bg-success-light border-2 border-success rounded-full flex items-center justify-center mb-4">
                   <Check size={28} strokeWidth={2.5} className="text-success" />

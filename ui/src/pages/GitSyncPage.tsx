@@ -237,7 +237,7 @@ export default function GitSyncPage() {
                   Changed Files ({status.files.length})
                 </button>
                 {filesExpanded && (
-                  <div className="mt-2 space-y-1 p-2 border border-dashed border-pencil-light/40 rounded">
+                  <div className="mt-2 space-y-1 p-2 border border-dashed border-pencil-light/30 rounded">
                     {status.files.map((f, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
                         {fileStatusBadge(f)}
@@ -334,7 +334,7 @@ export default function GitSyncPage() {
 
             {/* Pull Results */}
             {pullResult && !pullResult.dryRun && !pullResult.upToDate && (
-              <div className="space-y-2 border-t border-dashed border-pencil-light/40 pt-3">
+              <div className="space-y-2 border-t border-dashed border-pencil-light/30 pt-3">
                 {pullResult.commits?.length > 0 && (
                   <div className="space-y-1">
                     {pullResult.commits.map((c, i) => (

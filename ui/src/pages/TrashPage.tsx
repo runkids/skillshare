@@ -263,7 +263,7 @@ function TrashCard({
         </div>
 
         {/* Actions */}
-        <div className="border-t border-dashed border-pencil-light/40 pt-3 flex gap-2">
+        <div className="border-t border-dashed border-pencil-light/30 pt-3 flex gap-2">
           <Button variant="secondary" size="sm" onClick={onRestore}>
             <RotateCcw size={14} strokeWidth={2.5} /> Restore
           </Button>

@@ -149,6 +149,7 @@ export default function SyncPage() {
               strokeWidth="2"
               strokeLinecap="round"
               strokeDasharray="4 4"
+              className={syncing ? 'animate-flow' : ''}
             />
           </svg>
         </div>
@@ -176,6 +177,7 @@ export default function SyncPage() {
               strokeWidth="2"
               strokeLinecap="round"
               strokeDasharray="4 4"
+              className={syncing ? 'animate-flow' : ''}
             />
           </svg>
         </div>
@@ -242,6 +244,19 @@ export default function SyncPage() {
             />
             {syncing ? 'Syncing...' : dryRun ? 'Preview Sync' : 'Sync Now'}
           </Button>
+
+          {/* Indeterminate progress bar during sync */}
+          {syncing && (
+            <div
+              className="w-full max-w-[300px] h-2 border border-pencil-light/50 bg-paper-warm overflow-hidden"
+              style={{ borderRadius: radius.sm }}
+            >
+              <div
+                className="h-full bg-blue animate-shimmer"
+                style={{ width: '40%', borderRadius: radius.sm }}
+              />
+            </div>
+          )}
 
           {/* Advanced options toggle */}
           <button

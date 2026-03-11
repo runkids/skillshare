@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useState, useCallback } from 'react';
 import {
   LayoutDashboard,
@@ -27,6 +27,7 @@ import { useAppContext } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
 import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
+import ShortcutHUD from './ShortcutHUD';
 
 interface NavItem {
   to: string;
@@ -85,12 +86,17 @@ const navGroups: NavGroup[] = [
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const { isProjectMode, version } = useAppContext();
+  const { isProjectMode } = useAppContext();
   const { theme, toggleTheme } = useTheme();
 
+  const nav = useNavigate();
   const toggleShortcuts = useCallback(() => setShortcutsOpen((v) => !v), []);
+  const handleSync = useCallback(() => nav('/sync'), [nav]);
 
-  useGlobalShortcuts({ onToggleHelp: toggleShortcuts });
+  const { modifierHeld } = useGlobalShortcuts({
+    onToggleHelp: toggleShortcuts,
+    onSync: handleSync,
+  });
 
   const filteredGroups = navGroups.map((group) => ({
     ...group,
@@ -215,6 +221,9 @@ export default function Layout() {
 
       {/* Keyboard shortcuts modal */}
       <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+      {/* Modifier-held HUD overlay */}
+      <ShortcutHUD visible={modifierHeld} />
     </div>
   );
 }

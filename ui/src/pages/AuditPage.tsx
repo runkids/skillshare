@@ -4,10 +4,8 @@ import { Virtuoso } from 'react-virtuoso';
 import {
   ShieldCheck,
   ShieldAlert,
-  ShieldX,
   AlertTriangle,
   Info,
-  FileText,
   FileEdit,
   Ban,
   CircleCheck,
@@ -25,9 +23,10 @@ import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import StreamProgressBar from '../components/StreamProgressBar';
-import { radius, shadows, palette } from '../design';
+import { radius, palette } from '../design';
 import { severityBadgeVariant } from '../lib/severity';
 import { BlockStamp, RiskMeter, riskColor, riskBgColor } from '../components/audit';
+import ScrollToTop from '../components/ScrollToTop';
 
 type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
 
@@ -175,15 +174,8 @@ export default function AuditPage() {
       {/* Results */}
       {data && !loading && (
         <>
-          {/* Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            <StatCard label="Total" value={data.summary.total} icon={FileText} variant="neutral" />
-            <StatCard label="Passed" value={data.summary.passed} icon={ShieldCheck} variant="success" />
-            <StatCard label="Warnings" value={data.summary.warning} icon={AlertTriangle} variant="warning" />
-            <StatCard label="Blocked" value={data.summary.failed} icon={ShieldX} variant="danger" />
-            <StatCard label="Low" value={data.summary.low} icon={Info} variant="blue" />
-            <StatCard label="Info" value={data.summary.info} icon={Info} variant="muted" />
-          </div>
+          {/* Inline summary */}
+          <AuditSummaryLine summary={data.summary} />
 
           {/* Triage Panel */}
           <TriagePanel
@@ -254,112 +246,36 @@ export default function AuditPage() {
           }
         />
       )}
+
+      <ScrollToTop />
     </div>
   );
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * StatCard — color-coded, bold, zero-muted
+ * AuditSummaryLine — compact inline summary (omlx.ai style)
  * ────────────────────────────────────────────────────────────────────── */
 
-type StatVariant = 'neutral' | 'success' | 'warning' | 'danger' | 'blue' | 'muted';
-
-const statStyles: Record<StatVariant, { bg: string; border: string; iconBg: string; text: string; valueFaded: string }> = {
-  neutral: {
-    bg: 'bg-surface',
-    border: 'border-pencil',
-    iconBg: 'bg-paper-warm',
-    text: 'text-pencil',
-    valueFaded: 'text-pencil-light',
-  },
-  success: {
-    bg: 'bg-success-light',
-    border: 'border-success',
-    iconBg: 'bg-surface',
-    text: 'text-success',
-    valueFaded: 'text-success/40',
-  },
-  warning: {
-    bg: 'bg-warning-light',
-    border: 'border-warning',
-    iconBg: 'bg-surface',
-    text: 'text-warning',
-    valueFaded: 'text-warning/40',
-  },
-  danger: {
-    bg: 'bg-danger-light',
-    border: 'border-danger',
-    iconBg: 'bg-surface',
-    text: 'text-danger',
-    valueFaded: 'text-danger/40',
-  },
-  blue: {
-    bg: 'bg-info-light',
-    border: 'border-blue',
-    iconBg: 'bg-surface',
-    text: 'text-blue',
-    valueFaded: 'text-blue/40',
-  },
-  muted: {
-    bg: 'bg-surface',
-    border: 'border-pencil-light',
-    iconBg: 'bg-paper-warm',
-    text: 'text-pencil-light',
-    valueFaded: 'text-pencil-light/40',
-  },
-};
-
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  variant,
-}: {
-  label: string;
-  value: number;
-  icon: typeof ShieldCheck;
-  variant: StatVariant;
-}) {
-  const isZero = value === 0;
-  // When zero: muted styling; when non-zero and danger/warning: bold tinted background
-  const activeVariant = isZero ? 'muted' : variant;
-  const s = statStyles[activeVariant];
-
+function AuditSummaryLine({ summary }: { summary: AuditAllResponse['summary'] }) {
   return (
-    <div
-      className={`relative p-4 border-2 ${s.bg} ${s.border} transition-all duration-100 ${isZero ? 'opacity-60' : ''}`}
-      style={{
-        borderRadius: radius.md,
-        boxShadow: isZero ? 'none' : shadows.sm,
-      }}
-    >
-      <div className="flex items-center gap-3">
-        <div
-          className={`w-10 h-10 flex items-center justify-center border-2 ${s.border} ${s.iconBg} ${s.text}`}
-          style={{ borderRadius: radius.sm, boxShadow: isZero ? 'none' : shadows.sm }}
-        >
-          <Icon size={20} strokeWidth={2.5} />
-        </div>
-        <div>
-          <p
-            className={`text-2xl font-bold ${isZero ? s.valueFaded : s.text}`}
-          >
-            {value}
-          </p>
-          <p
-            className={`text-sm ${isZero ? 'text-pencil-light/50' : 'text-pencil-light'}`}
-          >
-            {label}
-          </p>
-        </div>
-      </div>
-      {/* Pulse dot for non-zero danger/warning */}
-      {!isZero && (variant === 'danger' || variant === 'warning') && (
-        <div className="absolute top-2 right-2">
-          <span className={`block w-2.5 h-2.5 rounded-full ${variant === 'danger' ? 'bg-danger' : 'bg-warning'} animate-pulse`} />
-        </div>
+    <p className="text-sm text-pencil-light">
+      <span className="font-medium text-pencil">{summary.total}</span> scanned
+      {summary.passed > 0 && (
+        <>{' · '}<span className="font-medium text-success">{summary.passed}</span> passed</>
       )}
-    </div>
+      {summary.failed > 0 && (
+        <>{' · '}<span className="font-medium text-danger">{summary.failed}</span> blocked</>
+      )}
+      {summary.warning > 0 && (
+        <>{' · '}<span className="font-medium text-warning">{summary.warning}</span> warnings</>
+      )}
+      {summary.low > 0 && (
+        <>{' · '}<span className="font-medium text-blue">{summary.low}</span> low</>
+      )}
+      {summary.info > 0 && (
+        <>{' · '}<span className="text-pencil-light">{summary.info}</span> info</>
+      )}
+    </p>
   );
 }
 
@@ -488,7 +404,7 @@ function TriagePanel({
 
           {/* Visibility + Filter */}
           <div
-            className="flex items-center gap-3 p-3 border-2 border-dashed border-pencil-light/40"
+            className="flex items-center gap-3 p-3 border-2 border-dashed border-pencil-light/30"
             style={{
               borderRadius: radius.sm,
               backgroundColor: 'rgba(229, 224, 216, 0.15)',
@@ -550,9 +466,12 @@ function SkillAuditCard({ result }: { result: AuditResult; index?: number }) {
   const maxSeverity = getMaxSeverity(result.findings);
 
   return (
-    <Card>
-      <div className="space-y-3">
-        {/* ── Header: skill name (left) + block/risk indicators (right) ── */}
+    <Card overflow>
+      {/* ── Sticky header: skill name (left) + block/risk indicators (right) ── */}
+      <div
+        className="sticky top-0 z-20 -mx-4 -mt-4 px-4 py-3 bg-surface border-b border-dashed border-pencil-light/30"
+        style={{ borderRadius: `${radius.md} ${radius.md} 0 0` }}
+      >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Left: skill icon + name + issue count */}
           <div className="flex items-center gap-2.5 min-w-0">
@@ -590,13 +509,13 @@ function SkillAuditCard({ result }: { result: AuditResult; index?: number }) {
             <RiskMeter riskLabel={result.riskLabel} riskScore={result.riskScore} />
           </div>
         </div>
+      </div>
 
-        {/* ── Findings list ── */}
-        <div className="space-y-2 pt-3 border-t border-dashed border-pencil-light/30">
-          {result.findings.map((f, i) => (
-            <FindingRow key={`${f.file}-${f.line}-${i}`} finding={f} />
-          ))}
-        </div>
+      {/* ── Findings list ── */}
+      <div className="space-y-2 pt-3">
+        {result.findings.map((f, i) => (
+          <FindingRow key={`${f.file}-${f.line}-${i}`} finding={f} />
+        ))}
       </div>
     </Card>
   );

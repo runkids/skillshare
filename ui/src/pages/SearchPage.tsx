@@ -519,32 +519,25 @@ export default function SearchPage() {
 
       {/* Initial state before any search */}
       {!results && !searching && (
-        <div className="text-center py-12">
-          <div
-            className="inline-flex items-center justify-center w-20 h-20 bg-paper border-2 border-dashed border-pencil-light mb-4"
-            style={{ borderRadius: '50%' }}
-          >
-            <Search size={32} strokeWidth={2} className="text-pencil-light" />
-          </div>
-          <p
-            className="text-xl text-pencil mb-1"
-          >
-            Start searching
-          </p>
-          <p className="text-base text-pencil-light mb-4">
-            {mode === 'github'
+        <EmptyState
+          icon={Search}
+          title="Start searching"
+          description={
+            mode === 'github'
               ? 'Type a query above to find skills on GitHub'
-              : 'Type a query above, or search with empty query to browse all'}
-          </p>
-          <Button
-            onClick={() => handleSearch('')}
-            variant="secondary"
-            size="sm"
-          >
-            <Star size={14} strokeWidth={2.5} />
-            {mode === 'github' ? 'Browse Popular Skills' : 'Browse All Skills'}
-          </Button>
-        </div>
+              : 'Type a query above, or search with empty query to browse all'
+          }
+          action={
+            <Button
+              onClick={() => handleSearch('')}
+              variant="secondary"
+              size="sm"
+            >
+              <Star size={14} strokeWidth={2.5} />
+              {mode === 'github' ? 'Browse Popular Skills' : 'Browse All Skills'}
+            </Button>
+          }
+        />
       )}
 
       {/* Hub Manager Modal */}

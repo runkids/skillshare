@@ -370,7 +370,7 @@ function BackupCard({
         </div>
 
         {/* Actions */}
-        <div className="border-t border-dashed border-pencil-light/40 pt-3 flex gap-2">
+        <div className="border-t border-dashed border-pencil-light/30 pt-3 flex gap-2">
           {backup.targets.map((t) => (
             <Button
               key={t}

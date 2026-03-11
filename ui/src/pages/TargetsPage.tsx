@@ -328,7 +328,7 @@ export default function TargetsPage() {
             return (
               <Card
                 key={target.name}
-                className={`!overflow-visible ${i % 2 === 0 ? 'rotate-[-0.2deg]' : 'rotate-[0.2deg]'}`}
+                className={`!overflow-visible ${i % 2 === 0 ? 'rotate-[-0.15deg]' : 'rotate-[0.15deg]'}`}
                 style={{ position: 'relative', zIndex: targets.length - i }}
               >
                 <div className="flex items-start justify-between gap-4">
@@ -347,7 +347,7 @@ export default function TargetsPage() {
                     >
                       {shortenHome(target.path)}
                     </p>
-                    <div className="mt-3 pt-3 border-t border-dashed border-muted-dark/30 flex items-center gap-2">
+                    <div className="mt-3 pt-3 border-t border-dashed border-pencil-light/30 flex items-center gap-2">
                       <Select
                         value={target.mode || 'merge'}
                         onChange={async (mode) => {

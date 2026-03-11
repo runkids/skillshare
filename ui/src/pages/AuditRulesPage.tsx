@@ -682,7 +682,7 @@ function PatternAccordion({
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="border-t-2 border-dashed border-pencil-light/20">
+        <div className="border-t-2 border-dashed border-pencil-light/30">
           {/* Group controls bar */}
           <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-paper-warm/30">
             <span className="text-sm text-pencil-light">
@@ -717,7 +717,7 @@ function PatternAccordion({
           </div>
 
           {/* Rule rows */}
-          <div className="divide-y divide-dashed divide-pencil-light/15">
+          <div className="divide-y divide-dashed divide-pencil-light/30">
             {rules.map((rule) => (
               <RuleRow
                 key={rule.id}
@@ -806,7 +806,7 @@ function RuleRow({
       {/* Expanded detail */}
       {isExpanded && (
         <div
-          className="mx-4 mb-3 ml-9 p-3 border-2 border-dashed border-pencil-light/20 space-y-2"
+          className="mx-4 mb-3 ml-9 p-3 border-2 border-dashed border-pencil-light/30 space-y-2"
           style={{
             borderRadius: radius.sm,
             backgroundColor: severityBgColor(rule.severity),
@@ -826,7 +826,7 @@ function RuleRow({
                 Regex
               </span>
               <code
-                className="font-mono text-xs text-pencil px-2 py-1 border border-pencil-light/20 bg-paper-warm break-all"
+                className="font-mono text-xs text-pencil px-2 py-1 border border-pencil-light/30 bg-paper-warm break-all"
                 style={{ borderRadius: radius.sm }}
               >
                 {rule.regex}
@@ -839,7 +839,7 @@ function RuleRow({
                 Exclude
               </span>
               <code
-                className="font-mono text-xs text-pencil px-2 py-1 border border-pencil-light/20 bg-paper-warm break-all"
+                className="font-mono text-xs text-pencil px-2 py-1 border border-pencil-light/30 bg-paper-warm break-all"
                 style={{ borderRadius: radius.sm }}
               >
                 {rule.exclude}
