@@ -51,8 +51,8 @@ var githubPattern = regexp.MustCompile(`^(?:https?://)?github\.com/([^/]+)/([^/]
 // Git SSH pattern: git@host:owner/repo[.git][//subdir]
 var gitSSHPattern = regexp.MustCompile(`^git@([^:]+):([^/]+)/(.+?)(?:\.git)?(?://(.+))?$`)
 
-// Git HTTPS pattern: https://host/owner/repo[.git]
-var gitHTTPSPattern = regexp.MustCompile(`^https?://([^/]+)/([^/]+)/([^/]+?)(?:\.git)?(?:/(.+))?$`)
+// Git HTTPS pattern: https://host/path (flexible path for GitLab subgroups)
+var gitHTTPSPattern = regexp.MustCompile(`^https?://([^/]+)/(.+)$`)
 
 // File URL pattern: file:///path/to/repo[//subdir]
 var fileURLPattern = regexp.MustCompile(`^file://(.+?)(?://(.+))?$`)
@@ -319,13 +319,38 @@ func parseAzureSSH(org, project, repo, subdir string, source *Source) (*Source, 
 }
 
 func parseGitHTTPS(matches []string, source *Source) (*Source, error) {
-	// matches: [full, host, owner, repo, subdir]
+	// matches: [full, host, path]
 	host := matches[1]
-	owner := matches[2]
-	repo := strings.TrimSuffix(matches[3], ".git")
-	subdir := ""
-	if len(matches) > 4 {
-		subdir = matches[4]
+	// Trim trailing slashes first, then /. — order matters:
+	// "foo/.//" → "foo/." → "foo"
+	path := strings.TrimRight(matches[2], "/")
+	path = strings.TrimSuffix(path, "/.")
+
+	var repoPath, subdir string
+
+	if strings.HasSuffix(path, ".git") {
+		// Explicit .git suffix marks end of repo path, no subdir
+		repoPath = strings.TrimSuffix(path, ".git")
+	} else if idx := strings.Index(path, ".git/"); idx >= 0 {
+		// .git/ in the middle splits repo from subdir
+		repoPath = path[:idx]
+		subdir = path[idx+len(".git/"):]
+	} else if idx := strings.Index(path, "/-/"); idx >= 0 {
+		// GitLab web URL marker: /-/tree/branch/path or /-/blob/branch/path
+		repoPath = path[:idx]
+		subdir = "-/" + path[idx+len("/-/"):]
+	} else if strings.Contains(host, "bitbucket") {
+		if idx := strings.Index(path, "/src/"); idx >= 0 {
+			// Bitbucket web URL: owner/repo/src/branch/path
+			repoPath = path[:idx]
+			subdir = path[idx+1:] // keep "src/..." for stripGitBranchPrefix
+		} else {
+			repoPath = path
+		}
+	} else {
+		// No explicit boundary — entire path is the repo.
+		// This correctly handles GitLab subgroups: group/subgroup/project
+		repoPath = path
 	}
 
 	// Strip platform-specific branch prefixes from web URLs
@@ -337,13 +362,13 @@ func parseGitHTTPS(matches []string, source *Source) (*Source, error) {
 	}
 
 	source.Type = SourceTypeGitHTTPS
-	source.CloneURL = fmt.Sprintf("https://%s/%s/%s.git", host, owner, repo)
+	source.CloneURL = fmt.Sprintf("https://%s/%s.git", host, repoPath)
 
 	if subdir != "" {
 		source.Subdir = subdir
 		source.Name = filepath.Base(subdir)
 	} else {
-		source.Name = repo
+		source.Name = filepath.Base(repoPath)
 	}
 
 	return source, nil
@@ -452,13 +477,14 @@ func (s *Source) gitHubOwnerRepo() (owner, repo string) {
 	return owner, repo
 }
 
-// TrackName returns a unique name for --track mode in "owner-repo" format.
-// For GitHub:    https://github.com/openai/skills.git           → "openai-skills"
-// For SSH:       git@github.com:openai/skills.git               → "openai-skills"
-// For HTTPS:     https://gitlab.com/team/repo.git               → "team-repo"
-// For Azure SSH: git@ssh.dev.azure.com:v3/org/proj/repo         → "org-proj-repo"
-// For Azure:     https://dev.azure.com/org/proj/_git/repo       → "org-proj-repo"
-// Falls back to source.Name if owner cannot be extracted.
+// TrackName returns a unique name for --track mode by joining path segments with "-".
+// For GitHub:    https://github.com/openai/skills.git                      → "openai-skills"
+// For SSH:       git@github.com:openai/skills.git                          → "openai-skills"
+// For HTTPS:     https://gitlab.com/team/repo.git                          → "team-repo"
+// For subgroups: https://gitlab.com/group/subgroup/project.git             → "group-subgroup-project"
+// For Azure SSH: git@ssh.dev.azure.com:v3/org/proj/repo                    → "org-proj-repo"
+// For Azure:     https://dev.azure.com/org/proj/_git/repo                  → "org-proj-repo"
+// Falls back to source.Name if path cannot be extracted.
 func (s *Source) TrackName() string {
 	cloneURL := s.CloneURL
 	if cloneURL == "" {
@@ -486,19 +512,16 @@ func (s *Source) TrackName() string {
 	if sshMatches := gitSSHPattern.FindStringSubmatch(s.Raw); sshMatches != nil {
 		owner := sshMatches[2]
 		repo := strings.TrimSuffix(sshMatches[3], ".git")
-		return owner + "-" + repo
+		// Replace / with - to handle subgroup paths (e.g., group/subgroup/repo)
+		return owner + "-" + strings.ReplaceAll(repo, "/", "-")
 	}
 
-	// Try extracting owner/repo from HTTPS clone URL
-	// Format: https://host/owner/repo.git
+	// Try extracting full path from HTTPS clone URL
 	cloneURL = strings.TrimSuffix(cloneURL, ".git")
-	parts := strings.Split(cloneURL, "/")
-	if len(parts) >= 2 {
-		repo := parts[len(parts)-1]
-		owner := parts[len(parts)-2]
-		// Avoid host-only segments (e.g., "github.com")
-		if owner != "" && repo != "" && !strings.Contains(owner, ".") {
-			return owner + "-" + repo
+	if u, err := url.Parse(cloneURL); err == nil {
+		pathStr := strings.Trim(u.Path, "/")
+		if pathStr != "" {
+			return strings.ReplaceAll(pathStr, "/", "-")
 		}
 	}
 

@@ -509,6 +509,16 @@ func TestSource_TrackName(t *testing.T) {
 			raw:  "openai/skills/skills/pdf",
 			want: "openai-skills",
 		},
+		{
+			name: "gitlab subgroup HTTPS",
+			raw:  "https://gitlab.com/group/subgroup/project",
+			want: "group-subgroup-project",
+		},
+		{
+			name: "gitlab deep subgroup shorthand",
+			raw:  "onprem.gitlab.internal/org/sub1/sub2/project",
+			want: "org-sub1-sub2-project",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -576,8 +586,16 @@ func TestParseSource_DomainShorthand(t *testing.T) {
 			wantName:     "repo",
 		},
 		{
-			name:         "gitlab with subdir",
+			name:         "gitlab multi-segment path (treated as repo)",
 			input:        "gitlab.com/user/repo/path/to/skill",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://gitlab.com/user/repo/path/to/skill.git",
+			wantSubdir:   "",
+			wantName:     "skill",
+		},
+		{
+			name:         "gitlab with .git subdir boundary",
+			input:        "gitlab.com/user/repo.git/path/to/skill",
 			wantType:     SourceTypeGitHTTPS,
 			wantCloneURL: "https://gitlab.com/user/repo.git",
 			wantSubdir:   "path/to/skill",
@@ -646,8 +664,16 @@ func TestParseSource_GitHubEnterprise(t *testing.T) {
 			wantName:     "repo",
 		},
 		{
-			name:         "GHE Server with subdir",
+			name:         "GHE Server multi-segment path (treated as repo)",
 			input:        "https://github.mycompany.com/org/repo/skills/my-skill",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://github.mycompany.com/org/repo/skills/my-skill.git",
+			wantSubdir:   "",
+			wantName:     "my-skill",
+		},
+		{
+			name:         "GHE Server with .git subdir boundary",
+			input:        "https://github.mycompany.com/org/repo.git/skills/my-skill",
 			wantType:     SourceTypeGitHTTPS,
 			wantCloneURL: "https://github.mycompany.com/org/repo.git",
 			wantSubdir:   "skills/my-skill",
@@ -676,8 +702,16 @@ func TestParseSource_GitHubEnterprise(t *testing.T) {
 			wantName:     "repo",
 		},
 		{
-			name:         "GHE Cloud with subdir",
+			name:         "GHE Cloud multi-segment path (treated as repo)",
 			input:        "https://enterprise.github.com/team/skills/frontend/react",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://enterprise.github.com/team/skills/frontend/react.git",
+			wantSubdir:   "",
+			wantName:     "react",
+		},
+		{
+			name:         "GHE Cloud with .git subdir boundary",
+			input:        "https://enterprise.github.com/team/skills.git/frontend/react",
 			wantType:     SourceTypeGitHTTPS,
 			wantCloneURL: "https://enterprise.github.com/team/skills.git",
 			wantSubdir:   "frontend/react",
@@ -811,6 +845,83 @@ func TestSource_GitHubOwnerRepo(t *testing.T) {
 			}
 			if got := source.GitHubRepo(); got != tt.wantRepo {
 				t.Fatalf("GitHubRepo() = %q, want %q", got, tt.wantRepo)
+			}
+		})
+	}
+}
+
+func TestParseSource_GitLabSubgroups(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		wantType     SourceType
+		wantCloneURL string
+		wantSubdir   string
+		wantName     string
+	}{
+		{
+			name:         "gitlab two-level subgroup",
+			input:        "https://gitlab.com/group/subgroup/project",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://gitlab.com/group/subgroup/project.git",
+			wantName:     "project",
+		},
+		{
+			name:         "onprem gitlab deep subgroup (issue #72)",
+			input:        "onprem.gitlab.internal/org-group/subgroup-1/subgroup-2/project",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://onprem.gitlab.internal/org-group/subgroup-1/subgroup-2/project.git",
+			wantName:     "project",
+		},
+		{
+			name:         "gitlab subgroup with .git subdir boundary",
+			input:        "https://gitlab.com/group/subgroup/project.git/skills/my-skill",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://gitlab.com/group/subgroup/project.git",
+			wantSubdir:   "skills/my-skill",
+			wantName:     "my-skill",
+		},
+		{
+			name:         "gitlab subgroup shorthand",
+			input:        "gitlab.com/group/subgroup/project",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://gitlab.com/group/subgroup/project.git",
+			wantName:     "project",
+		},
+		{
+			name:         "gitlab subgroup with .git suffix",
+			input:        "https://gitlab.com/group/subgroup/project.git",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://gitlab.com/group/subgroup/project.git",
+			wantName:     "project",
+		},
+		{
+			name:         "gitlab subgroup web URL with -/tree",
+			input:        "https://gitlab.com/group/subgroup/project/-/tree/main/skills/react",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://gitlab.com/group/subgroup/project.git",
+			wantSubdir:   "skills/react",
+			wantName:     "react",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			source, err := ParseSource(tt.input)
+			if err != nil {
+				t.Fatalf("ParseSource(%q) error = %v", tt.input, err)
+			}
+			if source.Type != tt.wantType {
+				t.Errorf("Type = %v, want %v", source.Type, tt.wantType)
+			}
+			if source.CloneURL != tt.wantCloneURL {
+				t.Errorf("CloneURL = %q, want %q", source.CloneURL, tt.wantCloneURL)
+			}
+			if source.Subdir != tt.wantSubdir {
+				t.Errorf("Subdir = %q, want %q", source.Subdir, tt.wantSubdir)
+			}
+			if source.Name != tt.wantName {
+				t.Errorf("Name = %q, want %q", source.Name, tt.wantName)
 			}
 		})
 	}

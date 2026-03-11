@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.16.15] - 2026-03-11
+
+### Bug Fixes
+
+- **GitLab subgroup URL parsing** — `skillshare install` now correctly handles GitLab nested subgroup URLs with arbitrary depth. Previously, URLs like `gitlab.com/group/subgroup/project` were misinterpreted as repo `group/subgroup` with subdir `project`. Now the entire path is treated as the repo path:
+  ```bash
+  # These all work now (previously failed)
+  skillshare install gitlab.com/group/subgroup/project
+  skillshare install onprem.gitlab.internal/org/sub1/sub2/project
+  skillshare install https://gitlab.com/group/subgroup/project.git
+  ```
+  To specify a subdir within a multi-segment repo, use `.git` as the explicit boundary:
+  ```bash
+  # Clone group/subgroup/project, install from skills/my-skill subdir
+  skillshare install gitlab.com/group/subgroup/project.git/skills/my-skill
+  ```
+  GitLab web URLs with `/-/tree/` and Bitbucket `/src/` markers continue to work as before. `--track` mode generates correct names for subgroup paths (e.g., `group-subgroup-project`)
+
 ## [0.16.14] - 2026-03-09
 
 ### New Features
