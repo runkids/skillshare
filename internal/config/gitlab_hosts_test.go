@@ -246,3 +246,38 @@ gitlab_hosts:
 		t.Errorf("expected git.company.com, got %s", cfg.GitLabHosts[0])
 	}
 }
+
+func TestLoadProject_GitLabHosts_EffectiveGitLabHosts(t *testing.T) {
+	dir := t.TempDir()
+	projDir := filepath.Join(dir, ".skillshare")
+	os.MkdirAll(projDir, 0755)
+
+	os.WriteFile(filepath.Join(projDir, "config.yaml"), []byte(`
+targets:
+  - claude
+gitlab_hosts:
+  - git.company.com
+`), 0644)
+
+	t.Setenv("SKILLSHARE_GITLAB_HOSTS", "ci-only.host, Git.Company.Com")
+
+	cfg, err := LoadProject(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// GitLabHosts (persisted) should only have config-file value
+	if len(cfg.GitLabHosts) != 1 {
+		t.Fatalf("GitLabHosts (persisted) expected 1, got %d: %v", len(cfg.GitLabHosts), cfg.GitLabHosts)
+	}
+	// EffectiveGitLabHosts should merge config + env (deduped)
+	effective := cfg.EffectiveGitLabHosts()
+	if len(effective) != 2 {
+		t.Fatalf("EffectiveGitLabHosts expected 2, got %d: %v", len(effective), effective)
+	}
+	if effective[0] != "git.company.com" {
+		t.Errorf("EffectiveGitLabHosts[0] = %s, want git.company.com", effective[0])
+	}
+	if effective[1] != "ci-only.host" {
+		t.Errorf("EffectiveGitLabHosts[1] = %s, want ci-only.host", effective[1])
+	}
+}
