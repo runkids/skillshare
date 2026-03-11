@@ -1,5 +1,5 @@
 import type { ReactNode, ButtonHTMLAttributes } from 'react';
-import { wobbly, shadows } from '../design';
+import { radius } from '../design';
 
 interface HandButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
@@ -8,14 +8,10 @@ interface HandButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses = {
-  primary:
-    'bg-surface border-[3px] border-pencil text-pencil hover:bg-accent hover:text-white hover:border-accent',
-  secondary:
-    'bg-muted border-2 border-pencil-light text-pencil hover:bg-blue hover:text-white hover:border-blue',
-  danger:
-    'bg-surface border-2 border-danger text-danger hover:bg-danger hover:text-white',
-  ghost:
-    'bg-transparent border-2 border-dashed border-pencil-light text-pencil-light hover:border-pencil hover:text-pencil',
+  primary: 'bg-accent text-white border border-accent hover:brightness-90',
+  secondary: 'bg-transparent text-pencil border border-muted hover:bg-muted/30',
+  danger: 'bg-danger text-white border border-danger hover:brightness-90',
+  ghost: 'bg-transparent text-pencil hover:bg-muted/30',
 };
 
 const sizeClasses = {
@@ -37,7 +33,7 @@ export default function HandButton({
     <button
       className={`
         inline-flex items-center justify-center gap-2
-        font-[var(--font-hand)] font-medium
+        font-medium
         transition-all duration-100 cursor-pointer
         active:translate-x-[4px] active:translate-y-[4px]
         disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0
@@ -46,32 +42,8 @@ export default function HandButton({
         ${className}
       `}
       style={{
-        borderRadius: wobbly.btn,
-        boxShadow: disabled ? shadows.sm : shadows.md,
-        fontFamily: 'var(--font-hand)',
+        borderRadius: radius.btn,
         ...style,
-      }}
-      onMouseEnter={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.boxShadow = shadows.hover;
-          e.currentTarget.style.transform = 'translate(2px, 2px)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.boxShadow = shadows.md;
-          e.currentTarget.style.transform = 'translate(0, 0)';
-        }
-      }}
-      onMouseDown={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.boxShadow = shadows.active;
-        }
-      }}
-      onMouseUp={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.boxShadow = shadows.hover;
-        }
       }}
       disabled={disabled}
       {...props}

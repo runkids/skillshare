@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useId } from 'react';
 import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
-import { wobbly, shadows } from '../design';
+import { radius, shadows } from '../design';
 
 interface HandInputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -17,7 +17,6 @@ export function HandInput({ label, className = '', style, id, ...props }: HandIn
         <label
           htmlFor={inputId}
           className="block text-base text-pencil-light mb-1"
-          style={{ fontFamily: 'var(--font-hand)' }}
         >
           {label}
         </label>
@@ -25,15 +24,14 @@ export function HandInput({ label, className = '', style, id, ...props }: HandIn
       <input
         id={inputId}
         className={`
-          w-full px-4 py-2.5 bg-surface border-2 border-pencil text-pencil
+          w-full px-4 py-2.5 bg-surface border border-muted text-pencil
           placeholder:text-muted-dark
           focus:outline-none focus:border-blue focus:ring-2 focus:ring-blue/20
           transition-colors
           ${className}
         `}
         style={{
-          borderRadius: wobbly.sm,
-          fontFamily: 'var(--font-hand)',
+          borderRadius: radius.sm,
           fontSize: '1rem',
           ...style,
         }}
@@ -57,7 +55,6 @@ export function HandTextarea({ label, className = '', style, id, ...props }: Han
         <label
           htmlFor={inputId}
           className="block text-base text-pencil-light mb-1"
-          style={{ fontFamily: 'var(--font-hand)' }}
         >
           {label}
         </label>
@@ -65,15 +62,14 @@ export function HandTextarea({ label, className = '', style, id, ...props }: Han
       <textarea
         id={inputId}
         className={`
-          w-full px-4 py-3 bg-surface border-2 border-pencil text-pencil
+          w-full px-4 py-3 bg-surface border border-muted text-pencil
           placeholder:text-muted-dark
           focus:outline-none focus:border-blue focus:ring-2 focus:ring-blue/20
           transition-colors resize-y
           ${className}
         `}
         style={{
-          borderRadius: wobbly.md,
-          fontFamily: "'Courier New', monospace",
+          borderRadius: radius.md,
           fontSize: '0.95rem',
           ...style,
         }}
@@ -169,7 +165,6 @@ export function HandSelect({ label, value, onChange, options, className = '' }: 
       {label && (
         <label
           className="block text-base text-pencil-light mb-1"
-          style={{ fontFamily: 'var(--font-hand)' }}
         >
           {label}
         </label>
@@ -179,14 +174,13 @@ export function HandSelect({ label, value, onChange, options, className = '' }: 
         onClick={() => { setOpen(!open); setFocusIdx(options.findIndex((o) => o.value === value)); }}
         onKeyDown={handleKeyDown}
         className={`
-          w-full px-4 py-2.5 bg-surface border-2 border-pencil text-pencil text-left
+          w-full px-4 py-2.5 bg-surface border border-muted text-pencil text-left
           flex items-center justify-between gap-2
           focus:outline-none focus:border-blue focus:ring-2 focus:ring-blue/20
           transition-colors cursor-pointer
         `}
         style={{
-          borderRadius: wobbly.sm,
-          fontFamily: 'var(--font-hand)',
+          borderRadius: radius.sm,
           fontSize: '1rem',
         }}
         role="combobox"
@@ -204,11 +198,10 @@ export function HandSelect({ label, value, onChange, options, className = '' }: 
         <ul
           ref={listRef}
           role="listbox"
-          className="absolute z-50 mt-1 min-w-full bg-surface border-2 border-pencil overflow-auto py-1"
+          className="absolute z-50 mt-1 min-w-full bg-surface border border-muted overflow-auto py-1"
           style={{
-            borderRadius: wobbly.sm,
+            borderRadius: radius.sm,
             boxShadow: shadows.md,
-            fontFamily: 'var(--font-hand)',
             fontSize: '1rem',
             maxHeight: '15rem',
             minWidth: '14rem',
@@ -256,7 +249,6 @@ export function HandCheckbox({ label, checked, onChange, className = '' }: HandC
   return (
     <label
       className={`inline-flex items-center gap-2 cursor-pointer select-none ${className}`}
-      style={{ fontFamily: 'var(--font-hand)' }}
     >
       <input
         type="checkbox"
@@ -266,10 +258,10 @@ export function HandCheckbox({ label, checked, onChange, className = '' }: HandC
       />
       <span
         className={`
-          w-5 h-5 flex items-center justify-center border-2 transition-colors
-          ${checked ? 'bg-blue border-blue' : 'bg-surface border-pencil'}
+          w-5 h-5 flex items-center justify-center border transition-colors
+          ${checked ? 'bg-blue border-blue' : 'bg-surface border-muted'}
         `}
-        style={{ borderRadius: wobbly.sm }}
+        style={{ borderRadius: radius.sm }}
       >
         {checked && <Check size={14} strokeWidth={3} className="text-white" />}
       </span>

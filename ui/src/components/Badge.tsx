@@ -1,4 +1,4 @@
-import { wobbly } from '../design';
+import { radius } from '../design';
 
 interface BadgeProps {
   children: React.ReactNode;
@@ -17,10 +17,9 @@ const variants: Record<string, string> = {
 export default function Badge({ children, variant = 'default' }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-1 border text-sm font-[var(--font-hand)] ${variants[variant]}`}
+      className={`inline-flex items-center px-2.5 py-1 border text-sm ${variants[variant]}`}
       style={{
-        borderRadius: wobbly.sm,
-        fontFamily: 'var(--font-hand)',
+        borderRadius: radius.sm,
       }}
     >
       {children}
