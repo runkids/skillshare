@@ -427,18 +427,20 @@ export default function Home(): ReactNode {
       title="AI CLI Skills Sync Tool"
       description={siteConfig.tagline}
     >
-      <HeroSection />
-      <ScenarioSection />
-      <WavyDivider />
-      <main>
-        <WhySection />
+      <div className={styles.homePage}>
+        <HeroSection />
+        <ScenarioSection />
         <WavyDivider />
-        <DemoSection />
-        <WavyDivider />
-        <UIHighlightsSection />
-        <WavyDivider />
-        <SupportedSection />
-      </main>
+        <main>
+          <WhySection />
+          <WavyDivider />
+          <DemoSection />
+          <WavyDivider />
+          <UIHighlightsSection />
+          <WavyDivider />
+          <SupportedSection />
+        </main>
+      </div>
     </Layout>
   );
 }

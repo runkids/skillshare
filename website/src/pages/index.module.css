@@ -1,4 +1,16 @@
 /* ========================================
+   Homepage — Dot grid background (moved from body)
+   ======================================== */
+.homePage {
+  background-image: radial-gradient(var(--color-muted) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+:global([data-theme='dark']) .homePage {
+  background-image: radial-gradient(rgba(61, 56, 53, 0.6) 1px, transparent 1px);
+}
+
+/* ========================================
    Hero Section — Hand-drawn
    ======================================== */
 .hero {

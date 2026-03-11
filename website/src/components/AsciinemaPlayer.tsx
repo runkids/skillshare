@@ -46,9 +46,9 @@ export default function AsciinemaPlayer({
   return (
     <div
       style={{
-        border: '2px solid var(--ifm-color-emphasis-300)',
-        borderRadius: '12px 8px 14px 10px',
-        boxShadow: '4px 4px 0 var(--ifm-color-emphasis-200)',
+        border: '1px solid var(--ifm-color-emphasis-300)',
+        borderRadius: '8px',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.06)',
         overflow: 'hidden',
         margin: '1.5rem 0',
       }}
