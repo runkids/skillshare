@@ -368,9 +368,9 @@ extras:
 	result.AssertSuccess(t)
 	// Status should show an "Extras" section.
 	result.AssertAnyOutputContains(t, "Extras")
-	// Should report file and target counts.
+	// Should report file count and target path.
 	result.AssertAnyOutputContains(t, "2 files")
-	result.AssertAnyOutputContains(t, "1 targets")
+	result.AssertAnyOutputContains(t, rulesTarget)
 }
 
 // TestExtras_DiffExtras verifies that "diff --extras" shows files that need syncing.

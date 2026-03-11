@@ -114,17 +114,10 @@ func cmdStatus(args []string) error {
 
 		// Extras
 		if len(cfg.Extras) > 0 {
-			fmt.Println()
 			ui.Header("Extras")
-			for _, extra := range cfg.Extras {
-				sourceDir := config.ExtrasSourceDir(cfg.Source, extra.Name)
-				files, err := sync.DiscoverExtraFiles(sourceDir)
-				if err != nil {
-					ui.Warning("  %s: source not found", extra.Name)
-					continue
-				}
-				ui.Success("  %s: %d files → %d targets", extra.Name, len(files), len(extra.Targets))
-			}
+			printExtrasStatus(cfg.Extras, func(name string) string {
+				return config.ExtrasSourceDir(cfg.Source, name)
+			})
 		}
 
 		printAuditStatus(cfg.Audit)
@@ -183,6 +176,25 @@ func cmdStatus(args []string) error {
 func dirExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && info.IsDir()
+}
+
+func printExtrasStatus(extras []config.ExtraConfig, sourceDirFn func(string) string) {
+	for _, extra := range extras {
+		sourceDir := sourceDirFn(extra.Name)
+		files, err := sync.DiscoverExtraFiles(sourceDir)
+		if err != nil {
+			ui.Warning("  %s: source not found", extra.Name)
+			continue
+		}
+		if len(extra.Targets) == 0 {
+			ui.Warning("  %s: no targets configured", extra.Name)
+			continue
+		}
+		for _, t := range extra.Targets {
+			detail := fmt.Sprintf("[%s] %s (%d files)", sync.EffectiveMode(t.Mode), t.Path, len(files))
+			ui.Status(extra.Name, "has files", detail)
+		}
+	}
 }
 
 func printSourceStatus(cfg *config.Config, skillCount int) {

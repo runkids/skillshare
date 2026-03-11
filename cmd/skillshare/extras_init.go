@@ -37,6 +37,7 @@ func cmdExtrasInit(args []string) error {
 	var name string
 	var targets []string
 	var syncMode string
+	var noTUI bool
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
 		case "--target":
@@ -51,6 +52,8 @@ func cmdExtrasInit(args []string) error {
 			}
 			i++
 			syncMode = rest[i]
+		case "--no-tui":
+			noTUI = true
 		case "--help", "-h":
 			printExtrasInitHelp()
 			return nil
@@ -63,6 +66,10 @@ func cmdExtrasInit(args []string) error {
 		}
 	}
 
+	// No arguments at all → launch interactive TUI wizard
+	if name == "" && len(targets) == 0 && syncMode == "" && shouldLaunchTUI(noTUI, nil) {
+		return cmdExtrasInitTUI(mode, cwd)
+	}
 	if name == "" {
 		return fmt.Errorf("extras name is required: skillshare extras init <name> --target <path>")
 	}
@@ -185,6 +192,7 @@ Options:
   --mode <mode>       Sync mode: merge (default), copy, symlink
   --project, -p       Create in project mode (.skillshare/)
   --global, -g        Create in global mode (~/.config/skillshare/)
+  --no-tui            Skip interactive wizard
   --help, -h          Show this help
 
 Examples:

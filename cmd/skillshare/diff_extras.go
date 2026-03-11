@@ -55,7 +55,7 @@ func collectExtrasDiff(extras []config.ExtraConfig, sourceResolver func(string) 
 				results = append(results, extraDiffResult{
 					extraName:  extra.Name,
 					targetPath: t.Path,
-					mode:       extrasEffectiveMode(t.Mode),
+					mode:       sync.EffectiveMode(t.Mode),
 					errMsg:     "source directory not found",
 				})
 			}
@@ -63,7 +63,7 @@ func collectExtrasDiff(extras []config.ExtraConfig, sourceResolver func(string) 
 		}
 
 		for _, t := range extra.Targets {
-			mode := extrasEffectiveMode(t.Mode)
+			mode := sync.EffectiveMode(t.Mode)
 			r := extraDiffResult{
 				extraName:  extra.Name,
 				targetPath: t.Path,
@@ -140,12 +140,6 @@ func collectExtrasDiff(extras []config.ExtraConfig, sourceResolver func(string) 
 	return results
 }
 
-func extrasEffectiveMode(mode string) string {
-	if mode == "" {
-		return "merge"
-	}
-	return mode
-}
 
 // renderExtrasDiffPlain renders extras diff in plain text.
 func renderExtrasDiffPlain(results []extraDiffResult) {

@@ -750,13 +750,12 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 			sourceDir = config.ExtrasSourceDir(source, extra.Name)
 		}
 
-		if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
+		files, err := sync.DiscoverExtraFiles(sourceDir)
+		if err != nil {
 			result.addError()
 			ui.Error("%s: source directory missing (%s)", extra.Name, sourceDir)
 			continue
 		}
-
-		files, _ := sync.DiscoverExtraFiles(sourceDir)
 		ui.Success("  %s: source exists (%d files)", extra.Name, len(files))
 
 		reachable := 0

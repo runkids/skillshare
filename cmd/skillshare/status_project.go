@@ -41,17 +41,10 @@ func cmdStatusProject(root string) error {
 
 	// Extras
 	if len(runtime.config.Extras) > 0 {
-		fmt.Println()
-		ui.Header("Extras")
-		for _, extra := range runtime.config.Extras {
-			sourceDir := config.ExtrasSourceDirProject(root, extra.Name)
-			files, err := sync.DiscoverExtraFiles(sourceDir)
-			if err != nil {
-				ui.Warning("  %s: source not found", extra.Name)
-				continue
-			}
-			ui.Success("  %s: %d files → %d targets", extra.Name, len(files), len(extra.Targets))
-		}
+		ui.Header("Extras (project)")
+		printExtrasStatus(runtime.config.Extras, func(name string) string {
+			return config.ExtrasSourceDirProject(root, name)
+		})
 	}
 
 	printAuditStatus(runtime.config.Audit)
