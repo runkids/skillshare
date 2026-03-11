@@ -76,7 +76,7 @@ skillshare install git@gitlab.com:user/repo.git
 ```
 
 :::tip Self-managed GitLab on custom domains
-Hosts containing `gitlab` in the name are automatically detected with nested subgroup support. For self-managed GitLab instances on custom domains (e.g., `git.company.com`), add the hostname to [`gitlab_hosts`](/docs/reference/targets/configuration#gitlab_hosts) in your config so skillshare treats the full URL path as the repository. Without config, you can append `.git` as a workaround: `git.company.com/team/frontend/ui.git`.
+Hosts containing `gitlab` or `jihulab` in the name are automatically detected with nested subgroup support. For other self-managed GitLab instances on custom domains (e.g., `git.company.com`), add the hostname to [`gitlab_hosts`](/docs/reference/targets/configuration#gitlab_hosts) in your config so skillshare treats the full URL path as the repository. Without config, you can append `.git` as a workaround: `git.company.com/team/frontend/ui.git`.
 :::
 
 ### Azure DevOps

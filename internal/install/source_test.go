@@ -903,6 +903,28 @@ func TestParseSource_GitLabSubgroups(t *testing.T) {
 			wantSubdir:   "skills/react",
 			wantName:     "react",
 		},
+		{
+			name:         "jihulab nested subgroup",
+			input:        "https://jihulab.com/group/subgroup/project",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://jihulab.com/group/subgroup/project.git",
+			wantName:     "project",
+		},
+		{
+			name:         "jihulab shorthand",
+			input:        "jihulab.com/team/frontend/ui",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://jihulab.com/team/frontend/ui.git",
+			wantName:     "ui",
+		},
+		{
+			name:         "jihulab web URL with -/tree",
+			input:        "https://jihulab.com/org/sub/project/-/tree/main/skills/x",
+			wantType:     SourceTypeGitHTTPS,
+			wantCloneURL: "https://jihulab.com/org/sub/project.git",
+			wantSubdir:   "skills/x",
+			wantName:     "x",
+		},
 	}
 
 	for _, tt := range tests {

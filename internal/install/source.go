@@ -400,10 +400,11 @@ func parseGitHTTPS(matches []string, source *Source, opts ParseOptions) (*Source
 }
 
 // isGitLabHost returns true if the host should be treated as a GitLab instance.
-// Built-in detection checks for "gitlab" in the hostname; extraHosts provides
-// additional hostnames for self-managed GitLab instances on custom domains.
+// Built-in detection checks for "gitlab" or "jihulab" in the hostname;
+// extraHosts provides additional hostnames for self-managed instances on
+// custom domains.
 func isGitLabHost(host string, extraHosts []string) bool {
-	if strings.Contains(host, "gitlab") {
+	if strings.Contains(host, "gitlab") || strings.Contains(host, "jihulab") {
 		return true
 	}
 	for _, eh := range extraHosts {

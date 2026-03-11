@@ -412,7 +412,7 @@ ignore:
 
 ### `gitlab_hosts`
 
-Hostnames of self-managed GitLab instances that use nested subgroups. Hosts containing `gitlab` in the name are detected automatically — this field is only needed for custom domains.
+Hostnames of self-managed GitLab instances that use nested subgroups. Hosts containing `gitlab` or `jihulab` in the name are detected automatically — this field is only needed for other custom domains.
 
 ```yaml
 gitlab_hosts:

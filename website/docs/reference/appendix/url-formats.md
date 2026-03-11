@@ -202,7 +202,7 @@ If you get an authentication error with HTTPS, switch to SSH URLs. skillshare se
 
 ## Custom GitLab Domains {#custom-gitlab-domains}
 
-Hosts containing `gitlab` in the name (e.g., `gitlab.com`, `onprem.gitlab.internal`) are automatically detected and parsed with nested subgroup support.
+Hosts containing `gitlab` or `jihulab` in the name (e.g., `gitlab.com`, `jihulab.com`, `onprem.gitlab.internal`) are automatically detected and parsed with nested subgroup support.
 
 For self-managed GitLab instances on custom domains (e.g., `git.company.com`), add the hostname to [`gitlab_hosts`](../targets/configuration.md#gitlab_hosts) in your config:
 
