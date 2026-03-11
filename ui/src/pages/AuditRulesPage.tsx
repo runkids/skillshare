@@ -1,17 +1,14 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Save,
   FileCode,
   ShieldCheck,
-  ArrowLeft,
   FilePlus,
   Search,
   ChevronRight,
   List,
   FileEdit,
   RotateCcw,
-  Settings2,
   Eye,
   EyeOff,
   ChevronsDownUp,
@@ -71,6 +68,20 @@ export default function AuditRulesPage() {
   const [expandedPatterns, setExpandedPatterns] = useState<Set<string>>(new Set());
   const [expandedRules, setExpandedRules] = useState<Set<string>>(new Set());
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  // Measure sticky toolbar height for nested sticky group headers
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [toolbarHeight, setToolbarHeight] = useState(0);
+
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    const update = () => setToolbarHeight(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [viewMode]);
 
   // Compiled rules query (structured view)
   const compiled = useQuery({
@@ -291,15 +302,6 @@ export default function AuditRulesPage() {
   return (
     <div className="animate-fade-in">
       {/* ─── Header ─── */}
-      <div className="flex items-center gap-2 mb-1">
-        <Link
-          to="/audit"
-          className="text-pencil-light hover:text-pencil transition-colors"
-          aria-label="Back to Security Audit"
-        >
-          <ArrowLeft size={20} strokeWidth={2.5} />
-        </Link>
-      </div>
       <PageHeader
         icon={<ShieldCheck size={24} strokeWidth={2.5} />}
         title="Audit Rules"
@@ -308,7 +310,8 @@ export default function AuditRulesPage() {
             ? 'Browse and manage project-level audit rules'
             : 'Browse and manage global audit rules'
         }
-        className="mb-6"
+        className="mb-5"
+        backTo="/audit"
         actions={
           <>
             <Button
@@ -356,40 +359,24 @@ export default function AuditRulesPage() {
       {/* ─── Structured View ─── */}
       {viewMode === 'structured' && compiled.data && (
         <>
-          {/* Summary stat cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-            <MiniStat
-              label="Total Rules"
-              value={stats.total}
-              icon={ShieldCheck}
-              color="var(--color-pencil)"
-              bg="transparent"
-            />
-            <MiniStat
-              label="Enabled"
-              value={stats.enabled}
-              icon={Eye}
-              color="var(--color-success)"
-              bg="var(--color-success-light)"
-            />
-            <MiniStat
-              label="Disabled"
-              value={stats.disabled}
-              icon={EyeOff}
-              color={stats.disabled > 0 ? 'var(--color-warning)' : 'var(--color-pencil-light)'}
-              bg={stats.disabled > 0 ? 'var(--color-warning-light)' : 'transparent'}
-            />
-            <MiniStat
-              label="Custom"
-              value={stats.custom}
-              icon={Settings2}
-              color={stats.custom > 0 ? 'var(--color-blue)' : 'var(--color-pencil-light)'}
-              bg={stats.custom > 0 ? 'var(--color-info-light)' : 'transparent'}
-            />
-          </div>
+          {/* Sticky toolbar: summary + tabs + search */}
+          <div ref={toolbarRef} className="sticky top-0 z-20 bg-paper pt-4 pb-4 -mx-1 px-1 space-y-3">
+            {/* Inline summary */}
+            <p className="text-sm text-pencil-light">
+              <span className="font-medium text-pencil">{stats.total}</span> rules
+              {' '}&middot;{' '}
+              <span className="text-success">{stats.enabled} enabled</span>
+              {stats.disabled > 0 && (
+                <>{' '}&middot;{' '}<span className="text-warning">{stats.disabled} disabled</span></>
+              )}
+              {stats.custom > 0 && (
+                <>{' '}&middot;{' '}<span className="text-blue">{stats.custom} custom</span></>
+              )}
+              {' '}&middot;{' '}
+              {stats.patterns} patterns
+            </p>
 
-          {/* Severity tabs */}
-          <div className="mb-4">
+            {/* Severity tabs */}
             <SegmentedControl
               value={activeTab}
               onChange={setActiveTab}
@@ -406,38 +393,37 @@ export default function AuditRulesPage() {
                     : severityColor(v)
               }
             />
-          </div>
 
-          {/* Toolbar: search + expand/collapse */}
-          <div className="flex items-center gap-3 mb-5">
-            <div className="relative flex-1">
-              <Search
-                size={16}
-                strokeWidth={2.5}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-pencil-light pointer-events-none"
-              />
-              <Input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by ID, message, regex, or pattern..."
-                className="!pl-9"
-              />
+            {/* Search + expand/collapse */}
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search
+                  size={16}
+                  strokeWidth={2.5}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-pencil-light pointer-events-none"
+                />
+                <Input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by ID, message, regex, or pattern..."
+                  className="!pl-9"
+                />
+              </div>
+              {groupedRules.length > 1 && (
+                <Button
+                  onClick={allExpanded ? collapseAll : expandAll}
+                  variant="secondary"
+                  size="sm"
+                >
+                  {allExpanded ? (
+                    <><ChevronsDownUp size={16} strokeWidth={2.5} /> Collapse</>
+                  ) : (
+                    <><ChevronsUpDown size={16} strokeWidth={2.5} /> Expand</>
+                  )}
+                </Button>
+              )}
             </div>
-            {groupedRules.length > 1 && (
-              <button
-                onClick={allExpanded ? collapseAll : expandAll}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm text-pencil-light hover:text-pencil border-2 border-pencil-light/30 hover:border-pencil transition-all duration-150 cursor-pointer"
-                style={{ borderRadius: radius.sm }}
-                title={allExpanded ? 'Collapse all groups' : 'Expand all groups'}
-              >
-                {allExpanded ? (
-                  <><ChevronsDownUp size={16} strokeWidth={2.5} /> Collapse</>
-                ) : (
-                  <><ChevronsUpDown size={16} strokeWidth={2.5} /> Expand</>
-                )}
-              </button>
-            )}
           </div>
 
           {/* Pattern accordion list */}
@@ -448,13 +434,14 @@ export default function AuditRulesPage() {
               description="Try adjusting your filter or search terms"
             />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4 pt-1">
               {groupedRules.map(([pattern, rules]) => (
                 <PatternAccordion
                   key={pattern}
                   pattern={pattern}
                   rules={rules}
                   allPatterns={compiled.data!.patterns}
+                  stickyTop={toolbarHeight}
                   isExpanded={expandedPatterns.has(pattern)}
                   expandedRules={expandedRules}
                   onToggleExpand={() => togglePatternExpanded(pattern)}
@@ -539,59 +526,6 @@ export default function AuditRulesPage() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * MiniStat — compact stat card for summary row
- * ────────────────────────────────────────────────────────────────────── */
-
-function MiniStat({
-  label,
-  value,
-  icon: Icon,
-  color,
-  bg,
-}: {
-  label: string;
-  value: number;
-  icon: typeof ShieldCheck;
-  color: string;
-  bg: string;
-}) {
-  const isZero = value === 0;
-  return (
-    <div
-      className={`flex items-center gap-3 p-3 border-2 border-pencil-light/30 transition-all duration-150 ${isZero ? 'opacity-50' : ''}`}
-      style={{
-        borderRadius: radius.md,
-        backgroundColor: bg,
-        boxShadow: isZero ? 'none' : shadows.sm,
-      }}
-    >
-      <div
-        className="w-9 h-9 flex items-center justify-center border-2 shrink-0"
-        style={{
-          borderRadius: radius.sm,
-          borderColor: color,
-          color,
-          backgroundColor: isZero ? 'transparent' : `${color}10`,
-        }}
-      >
-        <Icon size={18} strokeWidth={2.5} />
-      </div>
-      <div className="min-w-0">
-        <p
-          className="text-xl font-bold leading-tight"
-          style={{ color }}
-        >
-          {value}
-        </p>
-        <p className="text-xs text-pencil-light leading-tight truncate">
-          {label}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────
  * PatternAccordion — collapsible group with severity stripe
  * ────────────────────────────────────────────────────────────────────── */
 
@@ -607,6 +541,7 @@ function PatternAccordion({
   onTogglePattern,
   onSetSeverity,
   onSetPatternSeverity,
+  stickyTop,
   isToggling,
 }: {
   pattern: string;
@@ -620,6 +555,7 @@ function PatternAccordion({
   onTogglePattern: (pattern: string, enabled: boolean) => void;
   onSetSeverity: (id: string, severity: string) => void;
   onSetPatternSeverity: (pattern: string, severity: string) => void;
+  stickyTop: number;
   isToggling: boolean;
 }) {
   const group = allPatterns.find((p) => p.pattern === pattern);
@@ -632,24 +568,34 @@ function PatternAccordion({
 
   return (
     <div
-      className="border-2 border-pencil-light/30 border-l-[4px] transition-all duration-150"
+      className="border-2 border-pencil-light/30 transition-all duration-150"
       style={{
         borderRadius: radius.md,
-        borderLeftColor: stripeColor,
         boxShadow: isExpanded ? shadows.sm : 'none',
         backgroundColor: isExpanded ? 'var(--color-paper-warm)' : 'transparent',
       }}
     >
-      {/* Header */}
+      {/* Header — sticky within its accordion when expanded */}
       <button
         onClick={onToggleExpand}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-paper-warm/40 transition-colors cursor-pointer"
-        style={{ borderRadius: `0 ${radius.md} ${radius.md} 0` }}
+        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer${isExpanded ? ' sticky z-10' : ' hover:bg-paper-warm/40'}`}
+        style={{
+          borderRadius: isExpanded ? `${radius.md} ${radius.md} 0 0` : radius.md,
+          ...(isExpanded ? {
+            top: `${stickyTop}px`,
+            backgroundColor: 'var(--color-paper-warm)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+          } : {}),
+        }}
       >
         <ChevronRight
           size={16}
           strokeWidth={2.5}
           className={`text-pencil-light shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+        />
+        <span
+          className="w-2.5 h-2.5 rounded-full shrink-0"
+          style={{ backgroundColor: stripeColor }}
         />
         <span className="font-bold text-pencil text-base flex-1">
           {pattern}
@@ -765,8 +711,7 @@ function RuleRow({
 
   return (
     <div
-      className={`border-l-[3px] transition-all duration-150 ${!rule.enabled ? 'opacity-50' : ''}`}
-      style={{ borderLeftColor: stripeColor }}
+      className={`transition-all duration-150 ${!rule.enabled ? 'opacity-50' : ''}`}
     >
       {/* Main row */}
       <div
@@ -777,6 +722,10 @@ function RuleRow({
           size={14}
           strokeWidth={2.5}
           className={`text-pencil-light/50 shrink-0 transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`}
+        />
+        <span
+          className="w-2 h-2 rounded-full shrink-0"
+          style={{ backgroundColor: stripeColor }}
         />
         <Badge variant={severityBadgeVariant(rule.severity)}>{rule.severity}</Badge>
         <div className="flex-1 min-w-0">

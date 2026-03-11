@@ -52,12 +52,12 @@ export default function DialogShell({
       }}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-pencil/30" />
+      <div className="absolute inset-0 bg-pencil/30 backdrop-blur-[2px]" />
 
       {/* Content */}
       <div
         ref={trapRef as RefObject<HTMLDivElement>}
-        className={`relative w-full ${maxWidthClass[maxWidth]} animate-fade-in ${className}`}
+        className={`relative w-full ${maxWidthClass[maxWidth]} animate-dialog-in ${className}`}
         style={{ borderRadius: radius.md }}
       >
         {children}

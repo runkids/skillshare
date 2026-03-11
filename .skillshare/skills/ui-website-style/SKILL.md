@@ -71,7 +71,7 @@ palette.accent / .info / .success / .warning / .danger
 | Page bg | `bg-paper` | Root background |
 | Borders | `border-muted` | Default borders |
 
-**Rule**: Max one accent color per visual region. If a card has a colored left-border stripe, don't add a colored badge for the same status inside it.
+**Rule**: Max one accent color per visual region. Don't double up — if a row has a colored dot, skip the colored badge (or vice versa).
 
 ### Typography
 
@@ -109,22 +109,24 @@ Every page follows this layout:
 
 | Component | File | API |
 |-----------|------|-----|
-| `Card` | `Card.tsx` | `variant="default\|accent\|outlined"`, `hover`, `overflow` |
-| `Button` | `Button.tsx` | `variant="primary\|secondary\|danger\|ghost\|link"`, `size="sm\|md\|lg"` |
-| `Badge` | `Badge.tsx` | `variant="default\|success\|warning\|danger\|info\|accent"` |
-| `PageHeader` | `PageHeader.tsx` | `icon`, `title`, `subtitle?`, `actions?` |
+| `Card` | `Card.tsx` | `variant="default\|accent\|outlined"`, `hover`, `overflow`, `tilt?`, `padding="none\|sm\|md"` — accent uses thicker border for emphasis (no stripe) |
+| `Button` | `Button.tsx` | `variant="primary\|secondary\|danger\|ghost\|link"`, `size="sm\|md\|lg"`, `loading?` |
+| `Badge` | `Badge.tsx` | `variant="default\|success\|warning\|danger\|info\|accent"`, `size="sm\|md"`, `dot?` |
+| `PageHeader` | `PageHeader.tsx` | `icon`, `title`, `subtitle?`, `actions?`, `backTo?` (styled back arrow) |
 | `EmptyState` | `EmptyState.tsx` | `icon` (LucideIcon), `title`, `description?`, `action?` |
 | `ConfirmDialog` | `ConfirmDialog.tsx` | `open`, `onConfirm`, `onCancel`, `title`, `message`, `variant="default\|danger"` |
-| `DialogShell` | `DialogShell.tsx` | `open`, `onClose`, `maxWidth`, `preventClose` |
-| `Input` | `Input.tsx` | `label?` + standard input props |
+| `DialogShell` | `DialogShell.tsx` | `open`, `onClose`, `maxWidth`, `preventClose` (backdrop blur + dialog-in animation) |
+| `Input` | `Input.tsx` | `label?` + standard input props (re-exports Checkbox, Select) |
 | `Textarea` | `Input.tsx` | `label?` + standard textarea props |
-| `Select` | `Input.tsx` | `label?`, `value`, `onChange`, `options[]`, `size="sm\|md"` |
-| `Checkbox` | `Input.tsx` | `label`, `checked`, `onChange` |
+| `Select` | `Select.tsx` | `label?`, `value`, `onChange`, `options[]`, `size="sm\|md"` |
+| `Checkbox` | `Checkbox.tsx` | `label`, `checked`, `onChange`, `indeterminate?`, `disabled?`, `size="sm\|md"` |
+| `Spinner` | `Spinner.tsx` | `size="sm\|md\|lg"` — use instead of `<RefreshCw className="animate-spin">` |
+| `Tooltip` | `Tooltip.tsx` | `content: string`, `side="top\|bottom"` — portal-based, 200ms delay |
 | `SegmentedControl` | `SegmentedControl.tsx` | `value`, `onChange`, `options[]`, `connected?`, `colorFn?` |
 | `Pagination` | `Pagination.tsx` | `page`, `totalPages`, `onPageChange`, `rangeText?`, `pageSize?` |
 | `StatusBadge` | `StatusBadge.tsx` | Status display |
-| `Skeleton` / `PageSkeleton` | `Skeleton.tsx` | Loading states |
-| `Toast` / `useToast` | `Toast.tsx` | `toast(message, 'success'\|'error')` |
+| `Skeleton` / `PageSkeleton` | `Skeleton.tsx` | Shimmer animation loading states |
+| `Toast` / `useToast` | `Toast.tsx` | `toast(message, 'success'\|'error')` — exit animation, progress bar, hover pause |
 | `FilterTagInput` | `FilterTagInput.tsx` | Tag-based filter input |
 | `IconButton` | `IconButton.tsx` | Icon-only button with `aria-label` |
 
@@ -139,9 +141,8 @@ Every page follows this layout:
 
 | Pattern | Markup | When |
 |---------|--------|------|
-| Colored dot | `w-2 h-2 rounded-full` | Table rows, list items |
+| Colored dot | `w-2 h-2 rounded-full` | Table rows, list items, audit findings/rules |
 | Badge | `<Badge variant="...">` | Standalone labels |
-| Left-border stripe | `border-l-2 border-{color}` | Audit finding cards only |
 
 ### List Patterns
 
@@ -264,6 +265,7 @@ See `website/src/css/custom.css` for full list. Key additions beyond shared pale
 |-------|------------|
 | Emojis as status icons | Colored dots, badges, or semantic icons |
 | Stat cards for 1-3 values | Inline summary text |
+| Left-border colored stripes (`border-l-*`) | Colored dots or badges — never use left stripe for emphasis or status |
 | Stripe + badge for same status | Pick one per element |
 | Mixed separator opacity (`/20`, `/40`) | Always `border-pencil-light/30` |
 | `window.confirm()` | `<ConfirmDialog>` component |

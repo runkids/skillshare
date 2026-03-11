@@ -241,3 +241,41 @@ body {
   color: var(--color-pencil);
   border-bottom-color: var(--color-pencil);
 }
+
+/* Dialog entrance */
+@keyframes dialogIn {
+  from { opacity: 0; transform: scale(0.97) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-dialog-in {
+  animation: dialogIn 0.2s ease-out;
+}
+
+/* Skeleton shimmer */
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.animate-skeleton {
+  background: linear-gradient(90deg, var(--color-muted) 25%, color-mix(in srgb, var(--color-muted-dark) 40%, transparent) 37%, var(--color-muted) 63%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+/* Toast exit */
+@keyframes toastOut {
+  to { opacity: 0; transform: translateX(100%); }
+}
+.animate-toast-out {
+  animation: toastOut 0.3s ease-in forwards;
+}
+
+/* Toast progress bar */
+@keyframes toastProgress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+/* Card tilt */
+.card-tilt:nth-child(odd) { transform: rotate(-0.15deg); }
+.card-tilt:nth-child(even) { transform: rotate(0.15deg); }

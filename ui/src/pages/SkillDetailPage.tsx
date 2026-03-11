@@ -16,6 +16,7 @@ import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
+import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { api, type Skill } from '../api/client';
 import { lazy, Suspense, useState, useMemo } from 'react';
@@ -464,7 +465,7 @@ export default function SkillDetailPage() {
                   size="sm"
                   className="flex-1"
                 >
-                  <RefreshCw size={14} strokeWidth={2.5} className={updating ? 'animate-spin' : ''} />
+                  {updating ? <Spinner size="sm" /> : <RefreshCw size={14} strokeWidth={2.5} />}
                   {updating ? 'Updating...' : 'Update'}
                 </Button>
               )}

@@ -11,6 +11,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
+import Spinner from '../components/Spinner';
 import { Select } from '../components/Input';
 import SegmentedControl from '../components/SegmentedControl';
 import Pagination from '../components/Pagination';
@@ -449,7 +450,7 @@ export default function LogPage() {
         actions={
           <>
             <Button onClick={handleRefresh} variant="secondary" size="sm" disabled={loading}>
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+              {loading ? <Spinner size="sm" /> : <RefreshCw size={16} />}
               Refresh
             </Button>
             {hasEntries && (

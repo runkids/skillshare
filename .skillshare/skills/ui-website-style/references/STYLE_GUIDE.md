@@ -24,7 +24,7 @@ Reference implementation: `src/pages/LogPage.tsx`
 | Danger | `text-danger` | Failed, blocked, critical |
 | Info / Blue | `text-blue` | Links, info badge, repo URLs |
 
-**Rule**: Max one accent color per visual region. If a card already has a colored left-border stripe, don't add a colored badge inside it for the same status.
+**Rule**: Max one accent color per visual region. Don't double up — if a row has a colored dot, skip the colored badge (or vice versa).
 
 ---
 
@@ -64,11 +64,10 @@ Do not use stat cards for simple counts — prefer inline summary text.
 
 | Pattern | Markup | When |
 |---------|--------|------|
-| **Colored dot** | `w-2 h-2 rounded-full` | Table rows, list items |
+| **Colored dot** | `w-2 h-2 rounded-full` | Table rows, list items, audit findings/rules |
 | **Badge** | `<Badge variant="...">` | Standalone labels |
-| **Left-border stripe** | `border-l-2 border-{color}` | Audit finding cards only |
 
-Never combine stripe + badge for the same status on the same element.
+Never use left-border colored stripes (`border-l-*`) for status or emphasis — always use colored dots or badges instead.
 
 ### 5.3 Lists — choose by data shape
 
@@ -172,7 +171,8 @@ Keep animations subtle. They should feel hand-drawn, not bouncy.
 |-------|------------|
 | Emojis as status icons | Use colored dots, badges, or semantic icons |
 | Stat cards for 1–3 values | Inline summary text |
-| Stripe + badge for same status | Pick one — stripe for cards, badge for standalone |
+| Left-border colored stripes (`border-l-*`) | Colored dots or badges — never use left stripes |
+| Stripe + badge for same status | Pick one per element |
 | Mixed separator opacity (`/20`, `/40`) | Always `border-pencil-light/30` |
 | `window.confirm()` | `<ConfirmDialog>` component |
 | Custom empty-state markup | `<EmptyState>` component |

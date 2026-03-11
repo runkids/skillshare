@@ -1,5 +1,4 @@
 import { useState, useMemo, useCallback, forwardRef, memo } from 'react';
-import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
   Search,
@@ -30,6 +29,13 @@ import Pagination from '../components/Pagination';
 import { api, type Skill } from '../api/client';
 import { radius, shadows } from '../design';
 import ScrollToTop from '../components/ScrollToTop';
+import Tooltip from '../components/Tooltip';
+
+/** Extract owner/repo from a GitHub URL, e.g. "https://github.com/foo/bar" → "foo/bar" */
+function shortSource(source: string): string {
+  const m = source.match(/github\.com\/([^/]+\/[^/]+)/);
+  return m ? m[1] : source;
+}
 
 /* -- Filter, Sort & View types -------------------- */
 
@@ -85,52 +91,6 @@ function sortSkills(skills: Skill[], sortType: SortType): Skill[] {
         return new Date(a.installedAt).getTime() - new Date(b.installedAt).getTime();
       });
   }
-}
-
-/* -- Filter chip component ------------------------ */
-
-function FilterChip({
-  label,
-  icon,
-  active,
-  count,
-  onClick,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  active: boolean;
-  count: number;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`
-        inline-flex items-center gap-1.5 px-3 py-1.5 border-2 text-sm
-        transition-all duration-150 cursor-pointer select-none
-        ${
-          active
-            ? 'bg-pencil text-paper border-pencil'
-            : 'bg-surface text-pencil-light border-muted hover:border-pencil hover:text-pencil'
-        }
-      `}
-      style={{
-        borderRadius: radius.full,
-        boxShadow: active ? shadows.hover : 'none',
-      }}
-    >
-      {icon}
-      <span>{label}</span>
-      <span
-        className={`
-          text-xs px-1.5 py-0.5 rounded-full min-w-[20px] text-center
-          ${active ? 'bg-paper/20 text-paper' : 'bg-muted text-pencil-light'}
-        `}
-      >
-        {count}
-      </span>
-    </button>
-  );
 }
 
 /* -- VirtuosoGrid components (OUTSIDE component function) -- */
@@ -193,7 +153,6 @@ const SkillPostit = memo(function SkillPostit({
         style={{
           borderRadius: radius.md,
           boxShadow: shadows.sm,
-          ...(skill.isInRepo ? { borderLeftWidth: '3px', borderLeftColor: 'var(--color-pencil-light)' } : {}),
         }}
       >
         {/* Skill name row */}
@@ -227,7 +186,7 @@ const SkillPostit = memo(function SkillPostit({
         {/* Bottom row */}
         <div className="flex items-center justify-between gap-2 mt-auto">
           {skill.source ? (
-            <span className="text-sm text-pencil-light truncate flex-1">{skill.source}</span>
+            <span className="text-sm text-pencil-light truncate flex-1">{shortSource(skill.source)}</span>
           ) : (
             <span />
           )}
@@ -394,43 +353,40 @@ export default function SkillsPage() {
           />
         </div>
 
-        {/* Filter chips */}
-        <div className="flex flex-wrap gap-2 mb-0">
-          {filterOptions.map((opt) => (
-            <FilterChip
-              key={opt.key}
-              label={opt.label}
-              icon={opt.icon}
-              active={filterType === opt.key}
-              count={filterCounts[opt.key]}
-              onClick={() => setFilterType(filterType === opt.key ? 'all' : opt.key)}
-            />
-          ))}
-        </div>
-
-        {/* Result count when filtered */}
-        {(filterType !== 'all' || search) && (
-          <p className="text-pencil-light text-sm mb-4">
-            Showing {filtered.length} of {skills.length} skills
-            {filterType !== 'all' && (
-              <>
-                {' '}
-                &middot;{' '}
-                <Button
-                  variant="link"
-                  className="link-subtle"
-                  onClick={() => {
-                    setFilterType('all');
-                    setSearch('');
-                  }}
-                >
-                  Clear filters
-                </Button>
-              </>
-            )}
-          </p>
-        )}
+        {/* Filter tabs */}
+        <SegmentedControl
+          value={filterType}
+          onChange={setFilterType}
+          options={filterOptions.map((opt) => ({
+            value: opt.key,
+            label: <span className="inline-flex items-center gap-1.5">{opt.icon}{opt.label}</span>,
+            count: filterCounts[opt.key],
+          }))}
+          connected
+        />
       </div>
+
+      {/* Result count — outside sticky toolbar for natural spacing */}
+      {(filterType !== 'all' || search) && (
+        <p className="text-pencil-light text-sm mb-3">
+          Showing {filtered.length} of {skills.length} skills
+          {filterType !== 'all' && (
+            <>
+              {' '}
+              &middot;{' '}
+              <Button
+                variant="link"
+                onClick={() => {
+                  setFilterType('all');
+                  setSearch('');
+                }}
+              >
+                Clear filters
+              </Button>
+            </>
+          )}
+        </p>
+      )}
 
       {/* Skills grid / grouped / table view */}
       {filtered.length > 0 ? (
@@ -550,34 +506,6 @@ function GroupedView({ dirs, groups, stickyOffset = 0 }: { dirs: string[]; group
 
 const TABLE_PAGE_SIZES = [10, 25, 50] as const;
 
-function TruncateWithTip({ text }: { text: string }) {
-  const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
-
-  return (
-    <>
-      <span
-        className="block truncate"
-        onMouseEnter={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          setTip({ x: rect.left, y: rect.bottom + 4 });
-        }}
-        onMouseLeave={() => setTip(null)}
-      >
-        {text}
-      </span>
-      {tip && createPortal(
-        <div
-          className="fixed z-[9999] max-w-sm break-all whitespace-normal bg-pencil px-2.5 py-1.5 text-xs text-paper shadow-lg pointer-events-none"
-          style={{ left: tip.x, top: tip.y, borderRadius: radius.sm }}
-        >
-          {text}
-        </div>,
-        document.body,
-      )}
-    </>
-  );
-}
-
 function SkillsTable({ skills }: { skills: Skill[] }) {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState<number>(10);
@@ -633,7 +561,7 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
                 </td>
                 {/* Path */}
                 <td className="py-3 pr-4 font-mono text-sm text-pencil-light max-w-[200px]">
-                  <TruncateWithTip text={skill.relPath} />
+                  <Tooltip content={skill.relPath}><span className="block truncate">{skill.relPath}</span></Tooltip>
                 </td>
                 {/* Type badge */}
                 <td className="py-3 pr-4">
@@ -647,7 +575,7 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
                 </td>
                 {/* Source */}
                 <td className="py-3 text-sm text-pencil-light max-w-[280px]">
-                  <TruncateWithTip text={skill.source ?? '—'} />
+                  <Tooltip content={skill.source ?? '—'}><span className="block truncate">{skill.source ? shortSource(skill.source) : '—'}</span></Tooltip>
                 </td>
               </tr>
             ))}

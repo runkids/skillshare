@@ -11,6 +11,7 @@ import { Checkbox } from '../components/Input';
 import Badge from '../components/Badge';
 import { queryKeys } from '../lib/queryKeys';
 import { useToast } from '../components/Toast';
+import Spinner from '../components/Spinner';
 import { api } from '../api/client';
 import type { CheckResult } from '../api/client';
 import StreamProgressBar from '../components/StreamProgressBar';
@@ -242,7 +243,7 @@ export default function UpdatePage() {
                 onClick={runCheck}
                 disabled={checking}
               >
-                <RefreshCw size={16} className={checking ? 'animate-spin' : ''} />
+                {checking ? <Spinner size="sm" /> : <RefreshCw size={16} />}
                 Check Now
               </Button>
             )}
@@ -346,7 +347,7 @@ export default function UpdatePage() {
                     onClick={runCheck}
                     disabled={checking}
                   >
-                    <RefreshCw size={16} className={checking ? 'animate-spin' : ''} />
+                    {checking ? <Spinner size="sm" /> : <RefreshCw size={16} />}
                     Check Again
                   </Button>
                 </div>

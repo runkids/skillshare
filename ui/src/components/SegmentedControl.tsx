@@ -45,7 +45,7 @@ export default function SegmentedControl<T extends string>({
               key={opt.value}
               onClick={() => onChange(opt.value)}
               className={`
-                ${sizeClasses[size]} transition-colors cursor-pointer font-medium
+                inline-flex items-center ${sizeClasses[size]} transition-colors cursor-pointer font-medium
                 ${isActive
                   ? color ? '' : 'bg-surface text-pencil shadow-sm border border-muted'
                   : 'text-pencil-light hover:text-pencil border border-transparent'
@@ -79,7 +79,7 @@ export default function SegmentedControl<T extends string>({
             key={opt.value}
             onClick={() => onChange(opt.value)}
             className={`
-              ${sizeClasses[size]} border-2 transition-all duration-150 cursor-pointer font-medium
+              inline-flex items-center ${sizeClasses[size]} border-2 transition-all duration-150 cursor-pointer font-medium
               ${isActive
                 ? color ? '' : 'bg-pencil text-paper border-pencil'
                 : 'bg-transparent text-pencil border-muted-dark hover:border-pencil'
