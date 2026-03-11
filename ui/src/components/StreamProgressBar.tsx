@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import Card from './Card';
-import { wobbly, colors } from '../design';
+import { radius, palette } from '../design';
 
 interface StreamProgressBarProps {
   count: number;
@@ -30,7 +30,7 @@ export default function StreamProgressBar({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Icon size={18} strokeWidth={2.5} className={`text-pencil-light ${iconClassName}`} />
-            <span className="font-medium text-pencil" style={{ fontFamily: 'var(--font-hand)' }}>
+            <span className="font-medium text-pencil">
               {total > 0 ? labelRunning : labelDiscovering}
             </span>
           </div>
@@ -43,19 +43,19 @@ export default function StreamProgressBar({
         {total > 0 && (
           <>
             <div
-              className="h-4 border-2 border-dashed border-pencil-light/50 bg-paper-warm overflow-hidden"
-              style={{ borderRadius: wobbly.sm }}
+              className="h-4 border-2 border-pencil-light/50 bg-paper-warm overflow-hidden"
+              style={{ borderRadius: radius.sm }}
             >
               <div
                 className="h-full transition-all duration-200 ease-out"
                 style={{
                   width: `${pct}%`,
-                  backgroundColor: colors.blue,
-                  borderRadius: wobbly.sm,
+                  backgroundColor: palette.info,
+                  borderRadius: radius.sm,
                 }}
               />
             </div>
-            <div className="flex items-center justify-between text-sm text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+            <div className="flex items-center justify-between text-sm text-pencil-light">
               <span>{count} / {total} {units}</span>
               {eta !== null && <span>~{eta}s remaining</span>}
             </div>

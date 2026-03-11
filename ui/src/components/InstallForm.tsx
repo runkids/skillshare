@@ -304,7 +304,7 @@ export default function InstallForm({
   };
 
   const formContent = (
-    <Card variant="postit" className="animate-sketch-in">
+    <Card variant="postit" className="animate-fade-in">
       <div className="space-y-4">
         <HandInput
           label="Source (GitHub URL, owner/repo, or local path)"
@@ -470,7 +470,6 @@ export default function InstallForm({
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 text-pencil-light hover:text-pencil transition-colors cursor-pointer mb-3"
         style={{
-          fontFamily: 'var(--font-hand)',
           background: 'none',
           border: 'none',
           padding: 0,

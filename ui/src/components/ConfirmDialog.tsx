@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from 'react';
 import Card from './Card';
 import HandButton from './HandButton';
-import { wobbly } from '../design';
+import { radius } from '../design';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface ConfirmDialogProps {
@@ -58,20 +58,14 @@ export default function ConfirmDialog({
       {/* Dialog */}
       <div
         ref={trapRef}
-        className={`relative w-full ${wide ? 'max-w-lg' : 'max-w-sm'} animate-sketch-in`}
-        style={{ borderRadius: wobbly.md }}
+        className={`relative w-full ${wide ? 'max-w-lg' : 'max-w-sm'} animate-fade-in`}
+        style={{ borderRadius: radius.md }}
       >
-        <Card decoration="tape" className="text-center">
-          <h3
-            className="text-xl font-bold text-pencil mb-2"
-            style={{ fontFamily: 'var(--font-heading)' }}
-          >
+        <Card className="text-center">
+          <h3 className="text-xl font-bold text-pencil mb-2">
             {title}
           </h3>
-          <div
-            className="text-pencil-light mb-6"
-            style={{ fontFamily: 'var(--font-hand)' }}
-          >
+          <div className="text-pencil-light mb-6">
             {message}
           </div>
           <div className="flex gap-3 justify-center">

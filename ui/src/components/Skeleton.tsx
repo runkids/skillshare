@@ -1,4 +1,4 @@
-import { wobbly } from '../design';
+import { radius } from '../design';
 
 interface SkeletonProps {
   className?: string;
@@ -6,7 +6,7 @@ interface SkeletonProps {
 }
 
 export default function Skeleton({ className = '', variant = 'text' }: SkeletonProps) {
-  const base = 'animate-pulse-gentle bg-muted';
+  const base = 'animate-pulse bg-muted';
 
   if (variant === 'circle') {
     return (
@@ -21,7 +21,7 @@ export default function Skeleton({ className = '', variant = 'text' }: SkeletonP
     return (
       <div
         className={`${base} border-2 border-muted-dark p-4 h-32 ${className}`}
-        style={{ borderRadius: wobbly.md }}
+        style={{ borderRadius: radius.md }}
       />
     );
   }
@@ -29,7 +29,7 @@ export default function Skeleton({ className = '', variant = 'text' }: SkeletonP
   return (
     <div
       className={`${base} h-4 ${className}`}
-      style={{ borderRadius: wobbly.sm }}
+      style={{ borderRadius: radius.sm }}
     />
   );
 }
@@ -37,7 +37,7 @@ export default function Skeleton({ className = '', variant = 'text' }: SkeletonP
 /** A full loading skeleton for a page */
 export function PageSkeleton() {
   return (
-    <div className="space-y-6 animate-sketch-in">
+    <div className="space-y-6 animate-fade-in">
       <Skeleton className="w-48 h-8" />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Skeleton variant="card" />

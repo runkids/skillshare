@@ -3,7 +3,7 @@ import { Download, Search } from 'lucide-react';
 import Card from './Card';
 import HandButton from './HandButton';
 import { HandCheckbox } from './HandInput';
-import { wobbly } from '../design';
+import { radius } from '../design';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import type { DiscoveredSkill } from '../api/client';
 
@@ -103,20 +103,14 @@ export default function SkillPickerModal({
       {/* Dialog */}
       <div
         ref={trapRef}
-        className="relative w-full max-w-md animate-sketch-in"
-        style={{ borderRadius: wobbly.md }}
+        className="relative w-full max-w-md animate-fade-in"
+        style={{ borderRadius: radius.md }}
       >
-        <Card decoration="tape" className="!overflow-clip">
-          <h3
-            className="text-xl font-bold text-pencil mb-1"
-            style={{ fontFamily: 'var(--font-heading)' }}
-          >
+        <Card className="!overflow-clip">
+          <h3 className="text-xl font-bold text-pencil mb-1">
             Select Skills to Install
           </h3>
-          <p
-            className="text-sm text-pencil-light mb-4 truncate"
-            style={{ fontFamily: "'Courier New', monospace" }}
-          >
+          <p className="text-sm text-pencil-light mb-4 truncate font-mono">
             {source}
           </p>
 
@@ -133,10 +127,9 @@ export default function SkillPickerModal({
                 placeholder="Filter skills..."
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-sm border-2 border-muted bg-paper text-pencil placeholder:text-muted-dark outline-none focus:border-pencil-light"
+                className="w-full pl-8 pr-3 py-1.5 text-sm border-2 border-muted bg-paper text-pencil placeholder:text-muted-dark outline-none focus:border-pencil-light font-mono"
                 style={{
-                  borderRadius: wobbly.sm,
-                  fontFamily: "'Courier New', monospace",
+                  borderRadius: radius.sm,
                 }}
               />
             </div>
@@ -166,17 +159,11 @@ export default function SkillPickerModal({
                   onChange={() => toggle(skill.path)}
                 />
                 <div className="min-w-0 flex-1">
-                  <span
-                    className="font-bold text-pencil text-base"
-                    style={{ fontFamily: 'var(--font-heading)' }}
-                  >
+                  <span className="font-bold text-pencil text-base">
                     {skill.name}
                   </span>
                   {skill.path !== '.' && skill.path !== skill.name && (
-                    <span
-                      className="block text-xs text-muted-dark truncate"
-                      style={{ fontFamily: "'Courier New', monospace" }}
-                    >
+                    <span className="block text-xs text-muted-dark truncate font-mono">
                       {skill.path}
                     </span>
                   )}

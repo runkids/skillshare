@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { X, CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react';
-import { wobbly } from '../design';
+import { radius, shadows } from '../design';
 
 interface Toast {
   id: number;
@@ -61,11 +61,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           return (
             <div
               key={t.id}
-              className={`flex items-start gap-3 px-4 py-3 border-2 font-[var(--font-hand)] text-base animate-sketch-in ${typeStyles[t.type]}`}
+              className={`flex items-start gap-3 px-4 py-3 border-2 text-base animate-fade-in ${typeStyles[t.type]}`}
               style={{
-                borderRadius: wobbly.sm,
-                boxShadow: '3px 3px 0px 0px rgba(45, 45, 45, 0.15)',
-                fontFamily: 'var(--font-hand)',
+                borderRadius: radius.sm,
+                boxShadow: shadows.md,
               }}
             >
               <Icon size={18} strokeWidth={2.5} className="shrink-0 mt-0.5" />

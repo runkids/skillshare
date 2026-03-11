@@ -13,7 +13,7 @@ import CopyButton from './CopyButton';
 import HandButton from './HandButton';
 import { api, type SkillFileContent } from '../api/client';
 import { handTheme } from '../lib/codemirror-theme';
-import { wobbly } from '../design';
+import { radius } from '../design';
 
 interface FileViewerModalProps {
   skillName: string;
@@ -74,15 +74,15 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
 
       {/* Modal */}
       <div
-        className="relative w-full max-w-3xl max-h-[85vh] flex flex-col"
-        style={{ borderRadius: wobbly.md }}
+        className="relative w-full max-w-3xl max-h-[85vh] flex flex-col animate-fade-in"
+        style={{ borderRadius: radius.md }}
       >
-        <Card decoration="tape" className="flex flex-col h-full overflow-hidden">
+        <Card className="flex flex-col h-full overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between mb-3 pt-2">
             <h3
-              className="font-bold text-pencil truncate flex items-center gap-1.5"
-              style={{ fontFamily: "'Courier New', monospace", fontSize: '0.95rem' }}
+              className="font-bold text-pencil truncate font-mono flex items-center gap-1.5"
+              style={{ fontSize: '0.95rem' }}
             >
               {filepath}
               <CopyButton
@@ -100,10 +100,7 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
           <div className="overflow-auto flex-1 min-h-0 -mx-4 -mb-4 px-4 pb-4">
             {loading && (
               <div className="py-12 text-center">
-                <p
-                  className="text-pencil-light animate-pulse"
-                  style={{ fontFamily: 'var(--font-hand)' }}
-                >
+                <p className="text-pencil-light animate-pulse">
                   Loading...
                 </p>
               </div>
@@ -111,7 +108,7 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
 
             {error && (
               <div className="py-8 text-center">
-                <p className="text-danger" style={{ fontFamily: 'var(--font-hand)' }}>
+                <p className="text-danger">
                   {error}
                 </p>
               </div>

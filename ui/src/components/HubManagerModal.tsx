@@ -3,7 +3,7 @@ import { Plus, Trash2, Server } from 'lucide-react';
 import Card from './Card';
 import HandButton from './HandButton';
 import { HandInput } from './HandInput';
-import { wobbly } from '../design';
+import { radius } from '../design';
 
 export interface SavedHub {
   label: string;
@@ -105,17 +105,14 @@ export default function HubManagerModal({
 
       {/* Dialog */}
       <div
-        className="relative w-full max-w-md animate-sketch-in"
-        style={{ borderRadius: wobbly.md }}
+        className="relative w-full max-w-md animate-fade-in"
+        style={{ borderRadius: radius.md }}
       >
-        <Card decoration="tape">
+        <Card>
           {/* Header */}
           <div className="flex items-center gap-2 mb-4">
             <Server size={18} strokeWidth={2.5} className="text-pencil-light" />
-            <h3
-              className="text-xl font-bold text-pencil"
-              style={{ fontFamily: 'var(--font-heading)' }}
-            >
+            <h3 className="text-xl font-bold text-pencil">
               Manage Hubs
             </h3>
           </div>
@@ -127,19 +124,13 @@ export default function HubManagerModal({
                 <div
                   key={hub.url}
                   className="flex items-center gap-2 py-2 px-3 border-2 border-muted bg-paper-warm"
-                  style={{ borderRadius: wobbly.sm }}
+                  style={{ borderRadius: radius.sm }}
                 >
                   <div className="flex-1 min-w-0">
-                    <span
-                      className="font-bold text-pencil text-base block"
-                      style={{ fontFamily: 'var(--font-heading)' }}
-                    >
+                    <span className="font-bold text-pencil text-base block">
                       {hub.label}
                     </span>
-                    <span
-                      className="text-xs text-muted-dark block truncate"
-                      style={{ fontFamily: "'Courier New', monospace" }}
-                    >
+                    <span className="text-xs text-muted-dark block truncate font-mono">
                       {hub.url}
                     </span>
                   </div>
@@ -181,11 +172,8 @@ export default function HubManagerModal({
           )}
 
           {/* Add hub form */}
-          <div className="border-t-2 border-dashed border-muted pt-3">
-            <p
-              className="text-base font-bold text-pencil mb-2"
-              style={{ fontFamily: 'var(--font-heading)' }}
-            >
+          <div className="border-t-2 border-muted pt-3">
+            <p className="text-base font-bold text-pencil mb-2">
               Add Hub
             </p>
             <div className="space-y-2 mb-2">

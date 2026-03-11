@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { X } from 'lucide-react';
-import { wobbly } from '../design';
+import { radius } from '../design';
 
 interface FilterTagInputProps {
   label: string;
@@ -38,20 +38,19 @@ export default function FilterTagInput({ label, patterns, onChange, color }: Fil
     <div>
       <label
         className="block text-sm font-bold text-pencil-light mb-1"
-        style={{ fontFamily: 'var(--font-hand)' }}
       >
         {label}
       </label>
       <div
         className="flex flex-wrap items-center gap-1.5 p-2 bg-surface border-2 border-pencil min-h-[2.5rem] cursor-text"
-        style={{ borderRadius: wobbly.sm }}
+        style={{ borderRadius: radius.sm }}
         onClick={() => inputRef.current?.focus()}
       >
         {patterns.map((p, i) => (
           <span
             key={p + i}
             className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 border ${colorClasses.chip}`}
-            style={{ borderRadius: wobbly.sm }}
+            style={{ borderRadius: radius.sm }}
           >
             {p}
             <button
@@ -72,8 +71,7 @@ export default function FilterTagInput({ label, patterns, onChange, color }: Fil
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={patterns.length === 0 ? 'Type pattern + Enter' : ''}
-          className={`flex-1 min-w-[8rem] text-sm text-pencil bg-transparent border-none outline-none placeholder:text-muted-dark ${colorClasses.ring}`}
-          style={{ fontFamily: "'Courier New', monospace" }}
+          className={`flex-1 min-w-[8rem] text-sm text-pencil bg-transparent border-none outline-none placeholder:text-muted-dark font-mono ${colorClasses.ring}`}
         />
       </div>
     </div>

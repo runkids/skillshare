@@ -1,4 +1,4 @@
-import { wobbly } from '../../design';
+import { radius } from '../../design';
 import { riskColor, riskBgColor } from './helpers';
 
 export default function RiskMeter({ riskLabel, riskScore }: { riskLabel: string; riskScore: number }) {
@@ -6,20 +6,20 @@ export default function RiskMeter({ riskLabel, riskScore }: { riskLabel: string;
 
   return (
     <div
-      className="flex items-center gap-2 px-3 py-1.5 border-2 border-dashed"
+      className="flex items-center gap-2 px-3 py-1.5 border"
       style={{
-        borderRadius: wobbly.sm,
+        borderRadius: radius.sm,
         borderColor: color,
         backgroundColor: riskBgColor(riskLabel),
       }}
     >
       <div className="flex flex-col items-start gap-0.5">
-        <span className="text-[10px] text-pencil-light uppercase tracking-wide leading-none" style={{ fontFamily: 'var(--font-hand)' }}>
+        <span className="text-[10px] text-pencil-light uppercase tracking-wide leading-none">
           Risk
         </span>
         <span
           className="text-sm font-bold leading-none"
-          style={{ fontFamily: 'var(--font-heading)', color }}
+          style={{ color }}
         >
           {riskLabel.toUpperCase()}
         </span>
