@@ -89,10 +89,9 @@ function AddExtraModal({
 
       {/* Dialog */}
       <div
-        className="relative w-full max-w-lg animate-fade-in"
-        style={{ borderRadius: radius.md }}
+        className="relative w-full max-w-2xl animate-fade-in"
       >
-        <Card>
+        <Card overflow className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3
               className="text-xl font-bold text-pencil"
@@ -224,8 +223,7 @@ function ExtraCard({
 
       {/* Source path */}
       <p
-        className="text-sm text-pencil-light mb-3"
-        style={{ fontFamily: "'Courier New', monospace" }}
+        className="font-mono text-sm text-pencil-light mb-3"
       >
         {extra.source_dir}
       </p>
@@ -240,8 +238,7 @@ function ExtraCard({
               style={{ borderRadius: radius.sm }}
             >
               <span
-                style={{ fontFamily: "'Courier New', monospace" }}
-                className="text-sm truncate text-pencil-light mr-2"
+                className="font-mono text-sm truncate text-pencil-light mr-2"
               >
                 {t.path}
               </span>

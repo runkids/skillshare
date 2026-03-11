@@ -7,6 +7,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 interface AppContextValue {
   isProjectMode: boolean;
   projectRoot?: string;
+  version?: string;
 }
 
 const AppContext = createContext<AppContextValue>({ isProjectMode: false });
@@ -25,6 +26,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const value: AppContextValue = {
     isProjectMode: data?.isProjectMode ?? false,
     projectRoot: data?.projectRoot,
+    version: data?.version,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

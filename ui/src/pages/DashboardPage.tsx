@@ -208,8 +208,7 @@ export default function DashboardPage() {
           Source Directory
         </h3>
         <p
-          className="text-base text-pencil-light break-all"
-          style={{ fontFamily: "'Courier New', monospace" }}
+          className="font-mono text-base text-pencil-light break-all"
         >
           {shortenHome(data.source)}
         </p>
@@ -892,8 +891,8 @@ function VersionStatusSection() {
                 CLI
               </span>
               <span
-                className="font-medium text-pencil"
-                style={{ fontFamily: "'Courier New', monospace", fontSize: '0.85rem' }}
+                className="font-mono font-medium text-pencil"
+                style={{ fontSize: '0.85rem' }}
               >
                 {data.cliVersion}
               </span>
@@ -916,8 +915,8 @@ function VersionStatusSection() {
                 Skill
               </span>
               <span
-                className="font-medium text-pencil"
-                style={{ fontFamily: "'Courier New', monospace", fontSize: '0.85rem' }}
+                className="font-mono font-medium text-pencil"
+                style={{ fontSize: '0.85rem' }}
               >
                 {data.skillVersion || 'N/A'}
               </span>

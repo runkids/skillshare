@@ -160,8 +160,7 @@ export default function TargetsPage() {
                     {newTarget.name}
                   </p>
                   <p
-                    className="text-sm text-pencil-light truncate"
-                    style={{ fontFamily: "'Courier New', monospace" }}
+                    className="font-mono text-sm text-pencil-light truncate"
                   >
                     {shortenHome(newTarget.path)}
                   </p>
@@ -385,8 +384,7 @@ export default function TargetsPage() {
                       <StatusBadge status={target.status} />
                     </div>
                     <p
-                      className="text-sm text-pencil-light truncate"
-                      style={{ fontFamily: "'Courier New', monospace" }}
+                      className="font-mono text-sm text-pencil-light truncate"
                     >
                       {shortenHome(target.path)}
                     </p>
@@ -592,8 +590,7 @@ function TargetPickerItem({
           {target.name}
         </span>
         <p
-          className="text-xs text-pencil-light truncate mt-0.5"
-          style={{ fontFamily: "'Courier New', monospace" }}
+          className="font-mono text-xs text-pencil-light truncate mt-0.5"
         >
           {shortenHome(target.path)}
         </p>

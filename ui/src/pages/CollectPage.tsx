@@ -364,7 +364,7 @@ export default function CollectPage() {
                 return (
                   <li key={key} className="flex items-center gap-2 text-sm">
                     <Folder size={12} strokeWidth={2.5} className="text-warning shrink-0" />
-                    <span style={{ fontFamily: "'Courier New', monospace" }}>{rest.join('/')}</span>
+                    <span className="font-mono">{rest.join('/')}</span>
                     <span className="text-pencil-light">← {targetName}</span>
                   </li>
                 );
@@ -445,8 +445,8 @@ function ScanTargetCard({
                 />
                 <Folder size={14} strokeWidth={2.5} className="text-warning shrink-0" />
                 <span
-                  className="font-medium text-pencil"
-                  style={{ fontFamily: "'Courier New', monospace", fontSize: '0.875rem' }}
+                  className="font-mono font-medium text-pencil"
+                  style={{ fontSize: '0.875rem' }}
                 >
                   {sk.name}
                 </span>
@@ -573,8 +573,7 @@ function DetailList({
           {items.map((item) => (
             <p
               key={item}
-              className="text-pencil-light text-sm"
-              style={{ fontFamily: "'Courier New', monospace" }}
+              className="font-mono text-pencil-light text-sm"
             >
               {item}
             </p>

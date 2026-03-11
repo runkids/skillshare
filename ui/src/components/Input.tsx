@@ -198,13 +198,12 @@ export function Select({ label, value, onChange, options, className = '' }: Sele
         <ul
           ref={listRef}
           role="listbox"
-          className="absolute z-50 mt-1 min-w-full bg-surface border border-muted overflow-auto py-1"
+          className="absolute z-50 mt-1 w-full bg-surface border border-muted overflow-auto py-1"
           style={{
             borderRadius: radius.sm,
             boxShadow: shadows.md,
             fontSize: '1rem',
             maxHeight: '15rem',
-            minWidth: '14rem',
           }}
         >
           {options.map((opt, i) => (

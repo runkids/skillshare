@@ -13,8 +13,8 @@ export const radius = {
   md: '8px',
   /** Large elements — modals, panels */
   lg: '12px',
-  /** Buttons */
-  btn: '8px',
+  /** Buttons — pill shape like oMLX */
+  btn: '9999px',
   /** Full round — avatars, pills */
   full: '9999px',
 } as const;

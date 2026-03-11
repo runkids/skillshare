@@ -382,7 +382,7 @@ export default function InstallForm({
             <span>Critical issues found during security audit</span>
           </div>
           <div
-            className="bg-paper border border-danger/30 p-3 space-y-1 text-sm text-pencil font-mono max-h-48 overflow-y-auto"
+            className="bg-paper border border-danger/30 p-4 space-y-3 text-sm text-pencil max-h-64 overflow-y-auto"
             style={{ borderRadius: '6px' }}
           >
             {auditDialog?.findings.map((line, i) => (
@@ -423,7 +423,7 @@ export default function InstallForm({
             <span>Skill installed with audit warnings</span>
           </div>
           <div
-            className="bg-paper border border-warning/30 p-3 space-y-2 text-sm text-pencil font-mono max-h-48 overflow-y-auto"
+            className="bg-paper border border-warning/30 p-4 space-y-3 text-sm text-pencil max-h-64 overflow-y-auto"
             style={{ borderRadius: '6px' }}
           >
             {warningDialog?.map((w, i) => {

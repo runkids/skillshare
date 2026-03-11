@@ -492,8 +492,7 @@ export default function SearchPage() {
                     </div>
                   )}
                   <p
-                    className="text-sm text-muted-dark truncate"
-                    style={{ fontFamily: "'Courier New', monospace" }}
+                    className="font-mono text-sm text-muted-dark truncate"
                   >
                     {r.source}
                   </p>
