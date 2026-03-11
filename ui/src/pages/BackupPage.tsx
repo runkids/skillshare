@@ -59,12 +59,11 @@ export default function BackupPage() {
 
   if (isProjectMode) {
     return (
-      <div className="animate-sketch-in">
-        <Card decoration="tape" className="text-center py-12">
+      <div className="animate-fade-in">
+        <Card className="text-center py-12">
           <Archive size={40} strokeWidth={2} className="text-pencil-light mx-auto mb-4" />
           <h2
             className="text-2xl font-bold text-pencil mb-2"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             Backup & Restore is not available in project mode
           </h2>
@@ -74,7 +73,6 @@ export default function BackupPage() {
           <Link
             to="/"
             className="text-blue hover:underline"
-            style={{ fontFamily: 'var(--font-hand)' }}
           >
             Back to Dashboard
           </Link>
@@ -175,25 +173,22 @@ export default function BackupPage() {
       <div>
         <h2
           className="text-3xl font-bold text-pencil"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           Backup & Restore
         </h2>
         <p
           className="text-pencil-light mt-1"
-          style={{ fontFamily: 'var(--font-hand)' }}
         >
           Create snapshots of your targets and restore them when needed
         </p>
       </div>
 
       {/* Action Card */}
-      <Card variant="postit">
+      <Card>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <p
               className="text-lg font-medium text-pencil"
-              style={{ fontFamily: 'var(--font-hand)' }}
             >
               {backups.length === 0
                 ? 'No backups yet'
@@ -342,22 +337,15 @@ export default function BackupPage() {
 
 function BackupCard({
   backup,
-  isNewest,
-  index,
   onRestore,
 }: {
   backup: BackupInfo;
-  isNewest: boolean;
-  index: number;
+  isNewest?: boolean;
+  index?: number;
   onRestore: (target: string) => void;
 }) {
   return (
-    <Card
-      decoration={isNewest ? 'tape' : 'none'}
-      style={{
-        transform: `rotate(${index % 2 === 0 ? '-0.2' : '0.2'}deg)`,
-      }}
-    >
+    <Card>
       <div className="space-y-3">
         {/* Timestamp row */}
         <div className="flex items-center justify-between">
@@ -365,7 +353,6 @@ function BackupCard({
             <Clock size={16} strokeWidth={2.5} />
             <span
               className="font-medium"
-              style={{ fontFamily: 'var(--font-hand)' }}
             >
               {formatDate(backup.date)}
             </span>

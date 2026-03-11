@@ -34,7 +34,7 @@ import type { CompiledRule, PatternGroup } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { handTheme } from '../lib/codemirror-theme';
-import { wobbly, shadows } from '../design';
+import { radius, shadows } from '../design';
 import { severityColor, severityBgColor, severityBadgeVariant } from '../lib/severity';
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ export default function AuditRulesPage() {
   if (error) {
     return (
       <Card variant="accent" className="text-center py-8">
-        <p className="text-danger text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
+        <p className="text-danger text-lg">
           Failed to load audit rules
         </p>
         <p className="text-pencil-light text-sm mt-1">{error.message}</p>
@@ -287,7 +287,7 @@ export default function AuditRulesPage() {
   }
 
   return (
-    <div className="animate-sketch-in">
+    <div className="animate-fade-in">
       {/* ─── Header ─── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
@@ -301,13 +301,12 @@ export default function AuditRulesPage() {
             </Link>
             <h2
               className="text-3xl font-bold text-pencil flex items-center gap-2"
-              style={{ fontFamily: 'var(--font-heading)' }}
             >
               <ShieldCheck size={28} strokeWidth={2.5} />
               Audit Rules
             </h2>
           </div>
-          <p className="text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+          <p className="text-pencil-light">
             {isProjectMode
               ? 'Browse and manage project-level audit rules'
               : 'Browse and manage global audit rules'}
@@ -341,7 +340,7 @@ export default function AuditRulesPage() {
               {dirty && (
                 <span
                   className="text-sm text-warning px-2 py-1 bg-warning-light border border-warning"
-                  style={{ borderRadius: wobbly.sm, fontFamily: 'var(--font-hand)' }}
+                  style={{ borderRadius: radius.sm }}
                 >
                   unsaved changes
                 </span>
@@ -412,8 +411,7 @@ export default function AuditRulesPage() {
                     }
                   `}
                   style={{
-                    borderRadius: wobbly.sm,
-                    fontFamily: 'var(--font-hand)',
+                    borderRadius: radius.sm,
                     ...(isActive
                       ? { backgroundColor: tabColor, borderColor: tabColor, color: 'var(--color-paper)', boxShadow: shadows.sm }
                       : {}),
@@ -450,7 +448,7 @@ export default function AuditRulesPage() {
               <button
                 onClick={allExpanded ? collapseAll : expandAll}
                 className="shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm text-pencil-light hover:text-pencil border-2 border-pencil-light/30 hover:border-pencil transition-all duration-150 cursor-pointer"
-                style={{ borderRadius: wobbly.sm, fontFamily: 'var(--font-hand)' }}
+                style={{ borderRadius: radius.sm }}
                 title={allExpanded ? 'Collapse all groups' : 'Expand all groups'}
               >
                 {allExpanded ? (
@@ -511,10 +509,10 @@ export default function AuditRulesPage() {
           )}
 
           {rawQuery.data?.exists && (
-            <Card decoration="tape">
+            <Card>
               <div className="flex items-center gap-2 mb-3">
                 <FileCode size={16} strokeWidth={2.5} className="text-blue" />
-                <span className="text-base text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+                <span className="text-base text-pencil-light">
                   {rawQuery.data.path}
                 </span>
               </div>
@@ -582,7 +580,7 @@ function MiniStat({
     <div
       className={`flex items-center gap-3 p-3 border-2 border-pencil-light/30 transition-all duration-150 ${isZero ? 'opacity-50' : ''}`}
       style={{
-        borderRadius: wobbly.md,
+        borderRadius: radius.md,
         backgroundColor: bg,
         boxShadow: isZero ? 'none' : shadows.sm,
       }}
@@ -590,7 +588,7 @@ function MiniStat({
       <div
         className="w-9 h-9 flex items-center justify-center border-2 shrink-0"
         style={{
-          borderRadius: wobbly.sm,
+          borderRadius: radius.sm,
           borderColor: color,
           color,
           backgroundColor: isZero ? 'transparent' : `${color}10`,
@@ -601,11 +599,11 @@ function MiniStat({
       <div className="min-w-0">
         <p
           className="text-xl font-bold leading-tight"
-          style={{ fontFamily: 'var(--font-heading)', color }}
+          style={{ color }}
         >
           {value}
         </p>
-        <p className="text-xs text-pencil-light leading-tight truncate" style={{ fontFamily: 'var(--font-hand)' }}>
+        <p className="text-xs text-pencil-light leading-tight truncate">
           {label}
         </p>
       </div>
@@ -656,7 +654,7 @@ function PatternAccordion({
     <div
       className="border-2 border-pencil-light/30 border-l-[4px] transition-all duration-150"
       style={{
-        borderRadius: wobbly.md,
+        borderRadius: radius.md,
         borderLeftColor: stripeColor,
         boxShadow: isExpanded ? shadows.sm : 'none',
         backgroundColor: isExpanded ? 'var(--color-paper-warm)' : 'transparent',
@@ -666,14 +664,14 @@ function PatternAccordion({
       <button
         onClick={onToggleExpand}
         className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-paper-warm/40 transition-colors cursor-pointer"
-        style={{ borderRadius: `0 ${wobbly.md.split(' ')[1]} ${wobbly.md.split(' ')[2]} 0` }}
+        style={{ borderRadius: `0 ${radius.md} ${radius.md} 0` }}
       >
         <ChevronRight
           size={16}
           strokeWidth={2.5}
           className={`text-pencil-light shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
         />
-        <span className="font-bold text-pencil text-base flex-1" style={{ fontFamily: 'var(--font-heading)' }}>
+        <span className="font-bold text-pencil text-base flex-1">
           {pattern}
         </span>
 
@@ -695,7 +693,7 @@ function PatternAccordion({
           </div>
         </div>
 
-        <span className="text-sm text-pencil-light shrink-0" style={{ fontFamily: 'var(--font-hand)' }}>
+        <span className="text-sm text-pencil-light shrink-0">
           {rules.length} rule{rules.length !== 1 ? 's' : ''}
         </span>
         {disabledCount > 0 && <Badge variant="warning">{disabledCount} off</Badge>}
@@ -707,7 +705,7 @@ function PatternAccordion({
         <div className="border-t-2 border-dashed border-pencil-light/20">
           {/* Group controls bar */}
           <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-paper-warm/30">
-            <span className="text-sm text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+            <span className="text-sm text-pencil-light">
               {enabledCount}/{rules.length} enabled
             </span>
             <div className="flex-1" />
@@ -725,8 +723,7 @@ function PatternAccordion({
               disabled={isToggling}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border-2 transition-all duration-150 hover:bg-surface disabled:opacity-50 cursor-pointer"
               style={{
-                borderRadius: wobbly.sm,
-                fontFamily: 'var(--font-hand)',
+                borderRadius: radius.sm,
                 borderColor: allEnabled ? 'var(--color-warning)' : 'var(--color-success)',
                 color: allEnabled ? 'var(--color-warning)' : 'var(--color-success)',
               }}
@@ -803,17 +800,17 @@ function RuleRow({
         />
         <Badge variant={severityBadgeVariant(rule.severity)}>{rule.severity}</Badge>
         <div className="flex-1 min-w-0">
-          <span className="text-sm text-pencil truncate block" style={{ fontFamily: 'var(--font-hand)' }}>
+          <span className="text-sm text-pencil truncate block">
             {shortId}
           </span>
-          <span className="text-xs text-pencil-light truncate block" style={{ fontFamily: 'var(--font-hand)' }}>
+          <span className="text-xs text-pencil-light truncate block">
             {rule.message}
           </span>
         </div>
         {rule.source !== 'builtin' && (
           <span
             className="text-xs text-pencil-light px-1.5 py-0.5 border border-pencil-light/30 shrink-0"
-            style={{ borderRadius: wobbly.sm, fontFamily: 'var(--font-hand)' }}
+            style={{ borderRadius: radius.sm }}
           >
             {rule.source}
           </span>
@@ -831,13 +828,13 @@ function RuleRow({
         <div
           className="mx-4 mb-3 ml-9 p-3 border-2 border-dashed border-pencil-light/20 space-y-2"
           style={{
-            borderRadius: wobbly.sm,
+            borderRadius: radius.sm,
             backgroundColor: severityBgColor(rule.severity),
           }}
         >
           <DetailRow label="Full ID" value={rule.id} mono />
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-pencil-light shrink-0 w-20" style={{ fontFamily: 'var(--font-hand)' }}>
+            <span className="text-pencil-light shrink-0 w-20">
               Severity
             </span>
             <SeverityPicker current={rule.severity} onSelect={onSetSeverity} disabled={isToggling} />
@@ -845,12 +842,12 @@ function RuleRow({
           <DetailRow label="Message" value={rule.message} />
           {rule.regex && (
             <div className="flex items-start gap-2 text-sm">
-              <span className="text-pencil-light shrink-0 w-20" style={{ fontFamily: 'var(--font-hand)' }}>
+              <span className="text-pencil-light shrink-0 w-20">
                 Regex
               </span>
               <code
                 className="text-xs text-pencil px-2 py-1 border border-pencil-light/20 bg-paper-warm break-all"
-                style={{ borderRadius: wobbly.sm, fontFamily: "'Courier New', monospace" }}
+                style={{ borderRadius: radius.sm, fontFamily: "'Courier New', monospace" }}
               >
                 {rule.regex}
               </code>
@@ -858,12 +855,12 @@ function RuleRow({
           )}
           {rule.exclude && (
             <div className="flex items-start gap-2 text-sm">
-              <span className="text-pencil-light shrink-0 w-20" style={{ fontFamily: 'var(--font-hand)' }}>
+              <span className="text-pencil-light shrink-0 w-20">
                 Exclude
               </span>
               <code
                 className="text-xs text-pencil px-2 py-1 border border-pencil-light/20 bg-paper-warm break-all"
-                style={{ borderRadius: wobbly.sm, fontFamily: "'Courier New', monospace" }}
+                style={{ borderRadius: radius.sm, fontFamily: "'Courier New', monospace" }}
               >
                 {rule.exclude}
               </code>
@@ -903,7 +900,7 @@ function ToggleSwitch({
         disabled:opacity-50 disabled:cursor-not-allowed
       `}
       style={{
-        borderRadius: wobbly.full,
+        borderRadius: radius.full,
         backgroundColor: enabled ? 'var(--color-success)' : 'var(--color-muted)',
         borderColor: enabled ? 'var(--color-success)' : 'var(--color-muted-dark)',
       }}
@@ -912,7 +909,7 @@ function ToggleSwitch({
       <span
         className="absolute top-0.5 w-4 h-4 bg-white border border-pencil-light/30 transition-all duration-200"
         style={{
-          borderRadius: wobbly.full,
+          borderRadius: radius.full,
           left: enabled ? '18px' : '2px',
           boxShadow: '1px 1px 0 rgba(0,0,0,0.1)',
         }}
@@ -928,12 +925,12 @@ function ToggleSwitch({
 function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-start gap-2 text-sm">
-      <span className="text-pencil-light shrink-0 w-20" style={{ fontFamily: 'var(--font-hand)' }}>
+      <span className="text-pencil-light shrink-0 w-20">
         {label}
       </span>
       <span
         className="text-pencil break-all"
-        style={{ fontFamily: mono ? "'Courier New', monospace" : 'var(--font-hand)' }}
+        style={mono ? { fontFamily: "'Courier New', monospace" } : undefined}
       >
         {value}
       </span>
@@ -969,7 +966,7 @@ function SeverityPicker({
   return (
     <div className="flex items-center gap-1" role="radiogroup" aria-label={label ?? 'Set severity'}>
       {label && (
-        <span className="text-xs text-pencil-light mr-1" style={{ fontFamily: 'var(--font-hand)' }}>
+        <span className="text-xs text-pencil-light mr-1">
           {label}
         </span>
       )}
@@ -995,8 +992,7 @@ function SeverityPicker({
               disabled:cursor-default
             `}
             style={{
-              borderRadius: wobbly.sm,
-              fontFamily: 'var(--font-hand)',
+              borderRadius: radius.sm,
               color: isActive ? 'var(--color-paper)' : color,
               borderColor: isActive ? color : `color-mix(in srgb, ${color} 35%, transparent)`,
               backgroundColor: isActive ? color : 'transparent',

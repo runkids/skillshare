@@ -53,12 +53,11 @@ export default function GitSyncPage() {
 
   if (isProjectMode) {
     return (
-      <div className="animate-sketch-in">
-        <Card decoration="tape" className="text-center py-12">
+      <div className="animate-fade-in">
+        <Card className="text-center py-12">
           <GitBranch size={40} strokeWidth={2} className="text-pencil-light mx-auto mb-4" />
           <h2
             className="text-2xl font-bold text-pencil mb-2"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             Git Sync is not available in project mode
           </h2>
@@ -68,7 +67,6 @@ export default function GitSyncPage() {
           <Link
             to="/"
             className="text-blue hover:underline"
-            style={{ fontFamily: 'var(--font-hand)' }}
           >
             Back to Dashboard
           </Link>
@@ -150,25 +148,23 @@ export default function GitSyncPage() {
       <div>
         <h2
           className="text-3xl font-bold text-pencil"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           Git Sync
         </h2>
         <p
           className="text-pencil-light mt-1"
-          style={{ fontFamily: 'var(--font-hand)' }}
         >
           Push and pull your skills source directory via git
         </p>
       </div>
 
       {/* Repo Status Card */}
-      <Card decoration="tape">
+      <Card>
         <div className="space-y-3">
           {!status?.isRepo ? (
             <div className="flex items-center gap-2 text-pencil">
               <AlertTriangle size={18} strokeWidth={2.5} className="text-danger" />
-              <span style={{ fontFamily: 'var(--font-hand)' }}>
+              <span>
                 Source directory is not a git repository
               </span>
               <Badge variant="danger">not a repo</Badge>
@@ -178,7 +174,7 @@ export default function GitSyncPage() {
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <GitBranch size={16} strokeWidth={2.5} className="text-pencil-light" />
-                  <span style={{ fontFamily: 'var(--font-hand)' }}>
+                  <span>
                     Branch: <strong>{status.branch || 'unknown'}</strong>
                   </span>
                   {status.isDirty ? (
@@ -189,7 +185,7 @@ export default function GitSyncPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Globe size={16} strokeWidth={2.5} className="text-pencil-light" />
-                  <span style={{ fontFamily: 'var(--font-hand)' }}>Remote</span>
+                  <span>Remote</span>
                   {status.hasRemote ? (
                     <Badge variant="success">connected</Badge>
                   ) : (
@@ -216,11 +212,10 @@ export default function GitSyncPage() {
         className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
       >
         {/* Push Section */}
-        <Card variant="postit">
+        <Card>
           <div className="space-y-4">
             <h3
               className="text-xl font-bold text-pencil flex items-center gap-2"
-              style={{ fontFamily: 'var(--font-heading)' }}
             >
               <ArrowUpCircle size={20} strokeWidth={2.5} />
               Push Changes
@@ -240,7 +235,6 @@ export default function GitSyncPage() {
                 <button
                   className="flex items-center gap-1 text-sm text-pencil-light hover:text-pencil transition-colors"
                   onClick={() => setFilesExpanded(!filesExpanded)}
-                  style={{ fontFamily: 'var(--font-hand)' }}
                 >
                   {filesExpanded ? (
                     <ChevronDown size={14} strokeWidth={2.5} />
@@ -270,7 +264,6 @@ export default function GitSyncPage() {
             {status && !status.isDirty && (
               <p
                 className="text-sm text-pencil-light flex items-center gap-1"
-                style={{ fontFamily: 'var(--font-hand)' }}
               >
                 <CheckCircle size={14} strokeWidth={2.5} className="text-success" />
                 Working tree clean
@@ -314,7 +307,6 @@ export default function GitSyncPage() {
           <div className="space-y-4">
             <h3
               className="text-xl font-bold text-pencil flex items-center gap-2"
-              style={{ fontFamily: 'var(--font-heading)' }}
             >
               <ArrowDownCircle size={20} strokeWidth={2.5} />
               Pull Changes
@@ -323,7 +315,6 @@ export default function GitSyncPage() {
             {status?.isDirty && (
               <p
                 className="text-sm text-warning flex items-center gap-1"
-                style={{ fontFamily: 'var(--font-hand)' }}
               >
                 <AlertTriangle size={14} strokeWidth={2.5} />
                 Commit or stash local changes before pulling
@@ -382,7 +373,6 @@ export default function GitSyncPage() {
                 {pullResult.syncResults?.length > 0 && (
                   <p
                     className="text-sm text-pencil-light flex items-center gap-1"
-                    style={{ fontFamily: 'var(--font-hand)' }}
                   >
                     <CheckCircle size={14} strokeWidth={2.5} className="text-success" />
                     Auto-synced to {pullResult.syncResults.length} target(s)

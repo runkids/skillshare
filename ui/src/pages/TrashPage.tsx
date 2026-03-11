@@ -116,13 +116,11 @@ export default function TrashPage() {
       <div>
         <h2
           className="text-3xl font-bold text-pencil"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           Trash
         </h2>
         <p
           className="text-pencil-light mt-1"
-          style={{ fontFamily: 'var(--font-hand)' }}
         >
           {isProjectMode
             ? 'Recently deleted project skills are kept for 7 days before automatic cleanup'
@@ -131,12 +129,11 @@ export default function TrashPage() {
       </div>
 
       {/* Summary Card */}
-      <Card variant="postit">
+      <Card>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <p
               className="text-lg font-medium text-pencil"
-              style={{ fontFamily: 'var(--font-hand)' }}
             >
               {items.length === 0
                 ? 'Trash is empty'
@@ -239,22 +236,16 @@ export default function TrashPage() {
 
 function TrashCard({
   item,
-  index,
   onRestore,
   onDelete,
 }: {
   item: TrashedSkill;
-  index: number;
+  index?: number;
   onRestore: () => void;
   onDelete: () => void;
 }) {
   return (
-    <Card
-      decoration={index === 0 ? 'tape' : 'none'}
-      style={{
-        transform: `rotate(${index % 2 === 0 ? '-0.2' : '0.2'}deg)`,
-      }}
-    >
+    <Card>
       <div className="space-y-3">
         {/* Name + time */}
         <div className="flex items-center justify-between">
@@ -262,7 +253,6 @@ function TrashCard({
             <Trash2 size={16} strokeWidth={2.5} />
             <span
               className="font-medium"
-              style={{ fontFamily: 'var(--font-hand)' }}
             >
               {item.name}
             </span>

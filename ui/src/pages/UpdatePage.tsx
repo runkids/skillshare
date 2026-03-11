@@ -13,7 +13,7 @@ import { useToast } from '../components/Toast';
 import { api } from '../api/client';
 import type { CheckResult } from '../api/client';
 import StreamProgressBar from '../components/StreamProgressBar';
-import { wobbly } from '../design';
+import { radius } from '../design';
 
 type UpdatePhase = 'idle' | 'updating' | 'done';
 
@@ -114,7 +114,7 @@ export default function UpdatePage() {
       </div>
     );
   }
-  if (checkError) return <Card variant="accent"><p className="text-danger p-2" style={{ fontFamily: 'var(--font-hand)' }}>{checkError}</p></Card>;
+  if (checkError) return <Card variant="accent"><p className="text-danger p-2">{checkError}</p></Card>;
   if (!data) return null;
 
   const updatableRepos = data.tracked_repos.filter((r) => r.status === 'behind');
@@ -230,10 +230,10 @@ export default function UpdatePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+          <h1 className="text-2xl font-bold text-pencil">
             Updates
           </h1>
-          <p className="text-pencil-light text-sm mt-1" style={{ fontFamily: 'var(--font-hand)' }}>
+          <p className="text-pencil-light text-sm mt-1">
             Check and apply updates for tracked repositories and installed skills.
           </p>
         </div>
@@ -260,13 +260,13 @@ export default function UpdatePage() {
 
       {/* Update results panel */}
       {phase !== 'idle' && (
-        <div className="space-y-4 animate-sketch-in">
+        <div className="space-y-4 animate-fade-in">
           {/* Summary bar */}
-          <Card variant="postit" decoration="tape" className="rotate-[-0.3deg]">
+          <Card className="rotate-[-0.3deg]">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2 flex-wrap">
                 {phase === 'updating' && (
-                  <span className="flex items-center gap-1.5 text-pencil font-medium" style={{ fontFamily: 'var(--font-hand)' }}>
+                  <span className="flex items-center gap-1.5 text-pencil font-medium">
                     <Loader2 size={16} className="animate-spin text-blue" />
                     Updating...
                   </span>
@@ -293,16 +293,16 @@ export default function UpdatePage() {
             {itemStatuses.map((item, i) => (
               <div
                 key={item.name}
-                className="flex items-center gap-3 px-3 py-2 border border-pencil/10 animate-sketch-in"
+                className="flex items-center gap-3 px-3 py-2 border border-pencil/10 animate-fade-in"
                 style={{
-                  borderRadius: wobbly.sm,
+                  borderRadius: radius.sm,
                   animationDelay: `${i * 50}ms`,
                   animationFillMode: 'backwards',
                 }}
               >
                 <StatusIcon status={item.status} />
                 <div className="flex-1 min-w-0">
-                  <span className="text-pencil font-medium block" style={{ fontFamily: 'var(--font-hand)' }}>
+                  <span className="text-pencil font-medium block">
                     {item.name}
                   </span>
                   {item.message && (
@@ -328,18 +328,17 @@ export default function UpdatePage() {
       {phase === 'idle' && (
         <>
           {!hasUpdates ? (
-            <Card variant="postit" decoration="tape" className="rotate-[-0.5deg]">
+            <Card className="rotate-[-0.5deg]">
               <div className="flex flex-col items-center py-6 text-center">
                 <div className="w-14 h-14 bg-success-light border-2 border-success rounded-full flex items-center justify-center mb-4">
                   <Check size={28} strokeWidth={2.5} className="text-success" />
                 </div>
                 <h3
                   className="text-xl text-pencil mb-1"
-                  style={{ fontFamily: 'var(--font-heading)' }}
                 >
                   Everything is up to date
                 </h3>
-                <p className="text-pencil-light text-base max-w-xs" style={{ fontFamily: 'var(--font-hand)' }}>
+                <p className="text-pencil-light text-base max-w-xs">
                   All tracked repositories and skills are at their latest versions.
                 </p>
                 <div className="mt-4">
@@ -360,7 +359,7 @@ export default function UpdatePage() {
               {updatableRepos.length > 0 && (
                 <Card>
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+                    <h2 className="text-lg font-bold text-pencil">
                       Tracked Repositories ({updatableRepos.length})
                     </h2>
                     <HandButton variant="ghost" size="sm" onClick={selectAllRepos}>
@@ -372,11 +371,11 @@ export default function UpdatePage() {
                       <div
                         key={repo.name}
                         className="flex items-center gap-3 px-3 py-2 border border-pencil/10"
-                        style={{ borderRadius: wobbly.sm }}
+                        style={{ borderRadius: radius.sm }}
                       >
                         <HandCheckbox label="" checked={selectedRepos.has(repo.name)} onChange={() => toggleRepo(repo.name)} />
                         <div className="flex-1 min-w-0">
-                          <span className="text-pencil font-medium block" style={{ fontFamily: 'var(--font-hand)' }}>
+                          <span className="text-pencil font-medium block">
                             {repo.name}
                           </span>
                           {repo.message && (
@@ -393,7 +392,7 @@ export default function UpdatePage() {
               {updatableSkills.length > 0 && (
                 <Card>
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+                    <h2 className="text-lg font-bold text-pencil">
                       Skills with Updates ({updatableSkills.length})
                     </h2>
                     <HandButton variant="ghost" size="sm" onClick={selectAllSkills}>
@@ -405,11 +404,11 @@ export default function UpdatePage() {
                       <div
                         key={skill.name}
                         className="flex items-center gap-3 px-3 py-2 border border-pencil/10"
-                        style={{ borderRadius: wobbly.sm }}
+                        style={{ borderRadius: radius.sm }}
                       >
                         <HandCheckbox label="" checked={selectedSkills.has(skill.name)} onChange={() => toggleSkill(skill.name)} />
                         <div className="flex-1 min-w-0">
-                          <span className="text-pencil font-medium block" style={{ fontFamily: 'var(--font-hand)' }}>
+                          <span className="text-pencil font-medium block">
                             {skill.name}
                           </span>
                           <span className="text-pencil-light text-sm truncate block">
@@ -429,7 +428,7 @@ export default function UpdatePage() {
 
           {(upToDateRepos + upToDateSkills > 0) && (
             <Card variant="outlined">
-              <p className="text-pencil-light text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
+              <p className="text-pencil-light text-sm">
                 {upToDateRepos} repo(s) and {upToDateSkills} skill(s) already up to date.
               </p>
             </Card>
@@ -477,10 +476,10 @@ function StatusBadge({ status }: { status: ItemUpdateStatus['status'] }) {
 function UpdatePageHeader() {
   return (
     <div>
-      <h1 className="text-2xl font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+      <h1 className="text-2xl font-bold text-pencil">
         Updates
       </h1>
-      <p className="text-pencil-light text-sm mt-1" style={{ fontFamily: 'var(--font-hand)' }}>
+      <p className="text-pencil-light text-sm mt-1">
         Check and apply updates for tracked repositories and installed skills.
       </p>
     </div>

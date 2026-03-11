@@ -18,7 +18,7 @@ import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { api, type Skill } from '../api/client';
 import { lazy, Suspense, useState, useMemo } from 'react';
-import { wobbly, shadows } from '../design';
+import { radius, shadows } from '../design';
 import { BlockStamp, RiskMeter } from '../components/audit';
 import { severityBadgeVariant } from '../lib/severity';
 
@@ -186,7 +186,7 @@ export default function SkillDetailPage() {
   if (error) {
     return (
       <Card variant="accent" className="text-center py-8">
-        <p className="text-danger text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
+        <p className="text-danger text-lg">
           Failed to load skill
         </p>
         <p className="text-pencil-light text-sm mt-1">{error.message}</p>
@@ -316,14 +316,14 @@ export default function SkillDetailPage() {
   };
 
   return (
-    <div className="animate-sketch-in">
+    <div className="animate-fade-in">
       {/* Header — sticky */}
       <div className="flex items-center gap-3 mb-6 sticky top-0 z-20 bg-paper py-3 -mx-4 px-4 md:-mx-8 md:px-8 -mt-3">
         <button
           onClick={() => navigate('/skills')}
           className="w-9 h-9 flex items-center justify-center bg-surface border-2 border-pencil text-pencil-light hover:text-pencil transition-colors cursor-pointer"
           style={{
-            borderRadius: wobbly.sm,
+            borderRadius: radius.sm,
             boxShadow: shadows.sm,
           }}
         >
@@ -332,7 +332,6 @@ export default function SkillDetailPage() {
         <div className="flex items-center gap-3 flex-wrap">
           <h2
             className="text-2xl md:text-3xl font-bold text-pencil"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             {skill.name}
           </h2>
@@ -352,15 +351,14 @@ export default function SkillDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content: SKILL.md */}
         <div className="lg:col-span-2">
-          <Card decoration="tape">
+          <Card>
             {hasManifest && (
               <div
                 className="mb-4 p-4 border-2 border-dashed border-pencil-light/40 bg-postit/35"
-                style={{ borderRadius: wobbly.sm }}
+                style={{ borderRadius: radius.sm }}
               >
                 <p
                   className="text-sm uppercase tracking-wider text-pencil-light mb-2"
-                  style={{ fontFamily: 'var(--font-heading)' }}
                 >
                   SKILL.md Manifest
                 </p>
@@ -370,7 +368,6 @@ export default function SkillDetailPage() {
                       <dt className="text-sm text-muted-dark uppercase tracking-wide">Name</dt>
                       <dd
                         className="text-xl font-bold text-pencil"
-                        style={{ fontFamily: 'var(--font-heading)' }}
                       >
                         {parsedDoc.manifest.name}
                       </dd>
@@ -413,10 +410,9 @@ export default function SkillDetailPage() {
 
         {/* Sidebar: metadata + files — sticky */}
         <div className="space-y-5 lg:sticky lg:top-16 lg:self-start">
-          <Card variant="postit">
+          <Card>
             <h3
               className="font-bold text-pencil mb-3"
-              style={{ fontFamily: 'var(--font-heading)' }}
             >
               Metadata
             </h3>
@@ -496,7 +492,6 @@ export default function SkillDetailPage() {
           <Card>
             <h3
               className="font-bold text-pencil mb-3 flex items-center gap-2"
-              style={{ fontFamily: 'var(--font-heading)' }}
             >
               <FileText size={16} strokeWidth={2.5} />
               Files ({files.length})
@@ -651,7 +646,7 @@ function SecurityAuditCard({
       <Card variant="outlined">
         <div className="flex items-center gap-2 animate-pulse">
           <ShieldCheck size={16} strokeWidth={2.5} className="text-pencil-light" />
-          <span className="text-sm text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+          <span className="text-sm text-pencil-light">
             Scanning security...
           </span>
         </div>
@@ -674,7 +669,6 @@ function SecurityAuditCard({
     <Card variant="outlined">
       <h3
         className="font-bold text-pencil mb-3 flex items-center gap-2"
-        style={{ fontFamily: 'var(--font-heading)' }}
       >
         <ShieldCheck size={16} strokeWidth={2.5} />
         Security
@@ -696,7 +690,7 @@ function SecurityAuditCard({
           </div>
         )}
         {result.findings.length === 0 && (
-          <p className="text-sm text-success" style={{ fontFamily: 'var(--font-hand)' }}>
+          <p className="text-sm text-success">
             No security issues detected
           </p>
         )}
@@ -766,7 +760,6 @@ function SyncStatusCard({
     <Card variant="outlined">
       <h3
         className="font-bold text-pencil mb-3 flex items-center gap-2"
-        style={{ fontFamily: 'var(--font-heading)' }}
       >
         <Link2 size={16} strokeWidth={2.5} />
         Target Sync

@@ -316,12 +316,11 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="animate-sketch-in">
+    <div className="animate-fade-in">
       {/* Header */}
       <div className="mb-6">
         <h2
           className="text-3xl md:text-4xl font-bold text-pencil mb-2"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           Search Skills
         </h2>
@@ -471,7 +470,6 @@ export default function SearchPage() {
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span
                       className="font-bold text-pencil"
-                      style={{ fontFamily: 'var(--font-heading)' }}
                     >
                       {r.name}
                     </span>
@@ -540,7 +538,6 @@ export default function SearchPage() {
           </div>
           <p
             className="text-xl text-pencil mb-1"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             Start searching
           </p>

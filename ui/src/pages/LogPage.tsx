@@ -12,7 +12,7 @@ import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { HandSelect } from '../components/HandInput';
-import { wobbly, shadows } from '../design';
+import { radius, shadows } from '../design';
 
 /* ──────────────────────────────────────────────────────────────────────
  * Constants & helpers
@@ -298,9 +298,8 @@ function PillButton({
         ${className}
       `}
       style={{
-        borderRadius: wobbly.sm,
+        borderRadius: radius.sm,
         boxShadow: active ? shadows.sm : 'none',
-        fontFamily: 'var(--font-hand)',
       }}
     >
       {children}
@@ -325,7 +324,7 @@ function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
       <div
         className="flex items-center gap-3 p-3 border-2 border-l-[4px] transition-all"
         style={{
-          borderRadius: wobbly.md,
+          borderRadius: radius.md,
           borderColor: 'var(--color-muted-dark)',
           borderLeftColor: rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)',
           boxShadow: shadows.sm,
@@ -334,7 +333,7 @@ function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
         <div
           className="w-9 h-9 flex items-center justify-center border-2 shrink-0"
           style={{
-            borderRadius: wobbly.sm,
+            borderRadius: radius.sm,
             borderColor: rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)',
             color: rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)',
           }}
@@ -343,12 +342,11 @@ function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
         </div>
         <div>
           <p className="text-xl font-bold leading-tight" style={{
-            fontFamily: 'var(--font-heading)',
             color: rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)',
           }}>
             {rate}%
           </p>
-          <p className="text-xs text-pencil-light leading-tight" style={{ fontFamily: 'var(--font-hand)' }}>
+          <p className="text-xs text-pencil-light leading-tight">
             {stats.total} total
           </p>
         </div>
@@ -362,7 +360,7 @@ function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
             key={cmd}
             className="flex items-center gap-3 p-3 border-2 border-l-[4px] transition-all"
             style={{
-              borderRadius: wobbly.md,
+              borderRadius: radius.md,
               borderColor: 'var(--color-muted-dark)',
               borderLeftColor: hasErrors ? 'var(--color-warning)' : 'var(--color-pencil-light)',
               boxShadow: shadows.sm,
@@ -371,7 +369,7 @@ function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
             <div
               className="w-9 h-9 flex items-center justify-center border-2 shrink-0"
               style={{
-                borderRadius: wobbly.sm,
+                borderRadius: radius.sm,
                 borderColor: 'var(--color-pencil-light)',
                 color: 'var(--color-pencil-light)',
               }}
@@ -379,10 +377,10 @@ function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
               {cmd === 'audit' ? <ShieldCheck size={18} strokeWidth={2.5} /> : <Terminal size={18} strokeWidth={2.5} />}
             </div>
             <div>
-              <p className="text-lg font-bold text-pencil leading-tight uppercase" style={{ fontFamily: 'var(--font-heading)' }}>
+              <p className="text-lg font-bold text-pencil leading-tight uppercase">
                 {cmd}
               </p>
-              <div className="flex items-center gap-1.5 text-xs" style={{ fontFamily: 'var(--font-hand)' }}>
+              <div className="flex items-center gap-1.5 text-xs">
                 <span className="text-pencil-light">{cs.total}</span>
                 {cs.ok > 0 && <span className="text-success">{cs.ok} ok</span>}
                 {cs.error > 0 && <span className="text-danger">{cs.error} err</span>}
@@ -398,7 +396,7 @@ function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
         <div
           className="flex items-center gap-3 p-3 border-2 border-l-[4px] transition-all"
           style={{
-            borderRadius: wobbly.md,
+            borderRadius: radius.md,
             borderColor: 'var(--color-muted-dark)',
             borderLeftColor: statusColor(stats.last_operation.status),
             boxShadow: shadows.sm,
@@ -407,7 +405,7 @@ function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
           <div
             className="w-9 h-9 flex items-center justify-center border-2 shrink-0"
             style={{
-              borderRadius: wobbly.sm,
+              borderRadius: radius.sm,
               borderColor: 'var(--color-pencil-light)',
               color: 'var(--color-pencil-light)',
             }}
@@ -415,7 +413,7 @@ function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
             <Clock size={18} strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-sm font-bold text-pencil uppercase leading-tight" style={{ fontFamily: 'var(--font-heading)' }}>
+            <p className="text-sm font-bold text-pencil uppercase leading-tight">
               {stats.last_operation.cmd}
             </p>
             <div className="text-xs mt-0.5">
@@ -447,7 +445,7 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
   return (
     <Card>
       <div className="overflow-x-auto">
-        <table className="w-full text-left" style={{ fontFamily: 'var(--font-hand)' }}>
+        <table className="w-full text-left">
           <thead>
             <tr className="border-b-2 border-dashed border-muted-dark">
               <th className="pb-3 pr-4 text-pencil-light text-sm font-medium w-0" />
@@ -497,7 +495,6 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
       {entries.length > PAGE_SIZES[0] && (
         <div
           className="flex items-center justify-between pt-4 mt-4 border-t-2 border-dashed border-muted"
-          style={{ fontFamily: 'var(--font-hand)' }}
         >
           <div className="flex items-center gap-2 text-sm text-pencil-light">
             <span>Show</span>
@@ -524,7 +521,7 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
                   ? 'border-transparent text-muted-dark cursor-not-allowed'
                   : 'border-transparent text-pencil hover:bg-paper-warm hover:border-muted-dark'
               }`}
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
               <ChevronLeft size={20} />
             </button>
@@ -539,7 +536,7 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
                   ? 'border-transparent text-muted-dark cursor-not-allowed'
                   : 'border-transparent text-pencil hover:bg-paper-warm hover:border-muted-dark'
               }`}
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
               <ChevronRight size={20} />
             </button>
@@ -557,7 +554,7 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
 function Section({ title, entries, emptyLabel, filtered }: { title: string; entries: LogEntry[]; emptyLabel: string; filtered?: boolean }) {
   return (
     <div className="space-y-3">
-      <h3 className="text-xl font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+      <h3 className="text-xl font-bold text-pencil">
         {title}
       </h3>
       {entries.length === 0 ? (
@@ -734,18 +731,17 @@ export default function LogPage() {
   })();
 
   return (
-    <div className="space-y-6 animate-sketch-in">
+    <div className="space-y-6 animate-fade-in">
       {/* ─── Header ─── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2
             className="text-3xl font-bold text-pencil flex items-center gap-2"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             <ScrollText size={28} strokeWidth={2.5} />
             Operations & Audit Log
           </h2>
-          <p className="text-pencil-light mt-1" style={{ fontFamily: 'var(--font-hand)' }}>
+          <p className="text-pencil-light mt-1">
             Persistent record of CLI and UI operations, including audit findings by skill
           </p>
         </div>
@@ -770,7 +766,7 @@ export default function LogPage() {
             {t === 'all' ? 'All' : t === 'ops' ? 'Operations' : 'Audit'}
           </PillButton>
         ))}
-        <span className="text-sm text-pencil-light ml-2" style={{ fontFamily: 'var(--font-hand)' }}>
+        <span className="text-sm text-pencil-light ml-2">
           {totalLabel}
         </span>
       </div>
@@ -799,7 +795,6 @@ export default function LogPage() {
         <div>
           <span
             className="block text-sm text-pencil-light mb-1"
-            style={{ fontFamily: 'var(--font-hand)' }}
           >
             Time
           </span>

@@ -14,7 +14,7 @@ import { useToast } from '../components/Toast';
 import { api } from '../api/client';
 import type { AvailableTarget } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
-import { wobbly, shadows } from '../design';
+import { radius, shadows } from '../design';
 import { shortenHome } from '../lib/paths';
 
 const SYNC_MODE_OPTIONS = [
@@ -63,7 +63,7 @@ export default function TargetsPage() {
   if (error) {
     return (
       <Card variant="accent" className="text-center py-8">
-        <p className="text-danger text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
+        <p className="text-danger text-lg">
           Failed to load targets
         </p>
         <p className="text-pencil-light text-sm mt-1">{error.message}</p>
@@ -106,13 +106,12 @@ export default function TargetsPage() {
   };
 
   return (
-    <div className="animate-sketch-in">
+    <div className="animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2
             className="text-3xl md:text-4xl font-bold text-pencil mb-1"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             Targets
           </h2>
@@ -141,24 +140,23 @@ export default function TargetsPage() {
 
       {/* Add target form */}
       {adding && (
-        <Card variant="postit" className="mb-6 animate-sketch-in">
+        <Card className="mb-6 animate-fade-in">
           <h3
             className="font-bold text-pencil text-lg mb-4"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             Add New Target
           </h3>
 
           {/* Selected target preview + path + actions */}
           {newTarget.name && !customMode ? (
-            <div className="space-y-4 animate-sketch-in">
+            <div className="space-y-4 animate-fade-in">
               <div
                 className="flex items-center gap-3 bg-surface border-2 border-blue px-4 py-3"
-                style={{ borderRadius: wobbly.sm, boxShadow: shadows.sm }}
+                style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
               >
                 <Target size={18} strokeWidth={2.5} className="text-blue shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+                  <p className="font-bold text-pencil">
                     {newTarget.name}
                   </p>
                   <p
@@ -206,7 +204,7 @@ export default function TargetsPage() {
             </div>
           ) : customMode ? (
             /* Custom target entry mode */
-            <div className="space-y-4 animate-sketch-in">
+            <div className="space-y-4 animate-fade-in">
               <HandInput
                 label="Target Name"
                 type="text"
@@ -267,8 +265,7 @@ export default function TargetsPage() {
                   placeholder="Search targets..."
                   className="w-full pl-10 pr-4 py-2.5 bg-surface border-2 border-pencil text-pencil placeholder:text-muted-dark focus:outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 transition-colors"
                   style={{
-                    borderRadius: wobbly.sm,
-                    fontFamily: 'var(--font-hand)',
+                    borderRadius: radius.sm,
                     fontSize: '1rem',
                   }}
                   autoFocus
@@ -278,14 +275,13 @@ export default function TargetsPage() {
               {/* Scrollable target list */}
               <div
                 className="max-h-72 overflow-y-auto border-2 border-dashed border-muted-dark bg-surface"
-                style={{ borderRadius: wobbly.md }}
+                style={{ borderRadius: radius.md }}
               >
                 {/* Detected section */}
                 {detected.length > 0 && (
                   <div>
                     <div
                       className="px-3 py-2 bg-success-light/50 border-b border-dashed border-muted-dark sticky top-0"
-                      style={{ fontFamily: 'var(--font-hand)' }}
                     >
                       <span className="text-sm font-bold text-success flex items-center gap-1.5">
                         <CircleDot size={14} strokeWidth={3} />
@@ -311,7 +307,6 @@ export default function TargetsPage() {
                   <div>
                     <div
                       className="px-3 py-2 bg-muted/40 border-b border-dashed border-muted-dark sticky top-0"
-                      style={{ fontFamily: 'var(--font-hand)' }}
                     >
                       <span className="text-sm font-bold text-pencil-light">
                         All available targets
@@ -332,7 +327,7 @@ export default function TargetsPage() {
 
                 {/* No results */}
                 {detected.length === 0 && others.length === 0 && (
-                  <div className="px-4 py-8 text-center text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+                  <div className="px-4 py-8 text-center text-pencil-light">
                     {searchQuery ? `No targets matching "${searchQuery}"` : 'No available targets'}
                   </div>
                 )}
@@ -343,7 +338,6 @@ export default function TargetsPage() {
                 <button
                   onClick={() => setCustomMode(true)}
                   className="inline-flex items-center gap-1.5 text-sm text-blue hover:text-pencil transition-colors cursor-pointer"
-                  style={{ fontFamily: 'var(--font-hand)' }}
                 >
                   <PenLine size={14} strokeWidth={2.5} />
                   Enter custom target
@@ -385,7 +379,6 @@ export default function TargetsPage() {
                       <Target size={16} strokeWidth={2.5} className="text-success shrink-0" />
                       <span
                         className="font-bold text-pencil"
-                        style={{ fontFamily: 'var(--font-heading)' }}
                       >
                         {target.name}
                       </span>
@@ -398,7 +391,7 @@ export default function TargetsPage() {
                       {shortenHome(target.path)}
                     </p>
                     <div className="mt-2 pt-2 border-t border-dashed border-muted-dark/40 flex items-center gap-2">
-                      <span className="text-sm text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+                      <span className="text-sm text-pencil-light">
                         Sync mode:
                       </span>
                       <HandSelect
@@ -418,12 +411,12 @@ export default function TargetsPage() {
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-1">
                       {target.include?.length > 0 && (
-                        <span className="text-xs text-blue bg-info-light px-1.5 py-0.5" style={{ borderRadius: wobbly.sm }}>
+                        <span className="text-xs text-blue bg-info-light px-1.5 py-0.5" style={{ borderRadius: radius.sm }}>
                           include: {target.include.join(', ')}
                         </span>
                       )}
                       {target.exclude?.length > 0 && (
-                        <span className="text-xs text-danger bg-danger-light px-1.5 py-0.5" style={{ borderRadius: wobbly.sm }}>
+                        <span className="text-xs text-danger bg-danger-light px-1.5 py-0.5" style={{ borderRadius: radius.sm }}>
                           exclude: {target.exclude.join(', ')}
                         </span>
                       )}
@@ -444,7 +437,7 @@ export default function TargetsPage() {
                       )}
                     </div>
                     {editingFilter === target.name && (
-                      <div className="mt-3 p-3 bg-postit/40 border-2 border-dashed border-muted-dark animate-sketch-in" style={{ borderRadius: wobbly.md }}>
+                      <div className="mt-3 p-3 bg-postit/40 border-2 border-dashed border-muted-dark animate-fade-in" style={{ borderRadius: radius.md }}>
                         <div className="space-y-3">
                           <FilterTagInput
                             label="Include patterns"
@@ -511,7 +504,7 @@ export default function TargetsPage() {
                       <button
                         onClick={() => setCollecting(target.name)}
                         className="w-8 h-8 flex items-center justify-center text-muted-dark hover:text-blue transition-colors cursor-pointer border-2 border-transparent hover:border-blue"
-                        style={{ borderRadius: wobbly.sm }}
+                        style={{ borderRadius: radius.sm }}
                         title="Collect local skills"
                       >
                         <ArrowDownToLine size={16} strokeWidth={2.5} />
@@ -520,7 +513,7 @@ export default function TargetsPage() {
                     <button
                       onClick={() => setRemoving(target.name)}
                       className="w-8 h-8 flex items-center justify-center text-muted-dark hover:text-danger transition-colors cursor-pointer border-2 border-transparent hover:border-danger"
-                      style={{ borderRadius: wobbly.sm }}
+                      style={{ borderRadius: radius.sm }}
                       title="Remove target"
                     >
                       <Trash2 size={16} strokeWidth={2.5} />
@@ -588,7 +581,6 @@ function TargetPickerItem({
     <button
       onClick={() => onSelect(target)}
       className="w-full text-left px-3 py-2.5 flex items-center gap-3 border-b border-muted/60 hover:bg-postit/40 transition-colors cursor-pointer group"
-      style={{ fontFamily: 'var(--font-hand)' }}
     >
       {isDetected ? (
         <span className="w-2.5 h-2.5 rounded-full bg-success shrink-0" />
@@ -609,7 +601,7 @@ function TargetPickerItem({
       {isDetected && (
         <span
           className="text-xs text-success bg-success-light px-2 py-0.5 shrink-0"
-          style={{ borderRadius: wobbly.sm, fontFamily: 'var(--font-hand)' }}
+          style={{ borderRadius: radius.sm }}
         >
           detected
         </span>

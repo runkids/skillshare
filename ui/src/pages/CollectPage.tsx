@@ -23,7 +23,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api, type CollectScanTarget, type CollectResult } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
-import { wobbly, shadows } from '../design';
+import { radius, shadows } from '../design';
 import { formatSize } from '../lib/format';
 
 type Phase = 'idle' | 'scanning' | 'scanned' | 'collecting' | 'done';
@@ -121,12 +121,11 @@ export default function CollectPage() {
   };
 
   return (
-    <div className="animate-sketch-in">
+    <div className="animate-fade-in">
       {/* Page header */}
       <div className="mb-8">
         <h2
           className="text-3xl md:text-4xl font-bold text-pencil mb-2"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           Collect
         </h2>
@@ -139,10 +138,10 @@ export default function CollectPage() {
       <div className="hidden md:flex items-center justify-center gap-4 mb-8">
         <div
           className="flex items-center gap-2 px-4 py-2 bg-success-light border-2 border-pencil"
-          style={{ borderRadius: wobbly.sm, boxShadow: shadows.sm }}
+          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
         >
           <Target size={18} strokeWidth={2.5} className="text-success" />
-          <span className="text-base font-medium" style={{ fontFamily: 'var(--font-hand)' }}>
+          <span className="text-base font-medium">
             Targets
           </span>
         </div>
@@ -162,14 +161,14 @@ export default function CollectPage() {
 
         <div
           className="flex items-center gap-2 px-4 py-2 bg-info-light border-2 border-pencil"
-          style={{ borderRadius: wobbly.sm, boxShadow: shadows.sm }}
+          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
         >
           <ArrowDownToLine
             size={18}
             strokeWidth={2.5}
             className={`text-blue ${phase === 'collecting' ? 'animate-bounce' : ''}`}
           />
-          <span className="text-base font-medium" style={{ fontFamily: 'var(--font-hand)' }}>
+          <span className="text-base font-medium">
             Collect Engine
           </span>
         </div>
@@ -189,17 +188,17 @@ export default function CollectPage() {
 
         <div
           className="flex items-center gap-2 px-4 py-2 bg-postit border-2 border-pencil"
-          style={{ borderRadius: wobbly.sm, boxShadow: shadows.sm }}
+          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
         >
           <Folder size={18} strokeWidth={2.5} className="text-warning" />
-          <span className="text-base font-medium" style={{ fontFamily: 'var(--font-hand)' }}>
+          <span className="text-base font-medium">
             Source
           </span>
         </div>
       </div>
 
       {/* Scan control area */}
-      <Card variant="postit" className="mb-6 text-center">
+      <Card className="mb-6 text-center">
         <div className="flex flex-col items-center gap-4">
           <HandButton
             onClick={() => handleScan(presetTarget)}
@@ -222,7 +221,7 @@ export default function CollectPage() {
           </HandButton>
 
           {presetTarget && (
-            <p className="text-sm text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+            <p className="text-sm text-pencil-light">
               Filtering: <Badge variant="info">{presetTarget}</Badge>
             </p>
           )}
@@ -237,7 +236,7 @@ export default function CollectPage() {
                 className="w-4 h-4 accent-accent"
               />
               <Zap size={16} strokeWidth={2.5} className="text-accent" />
-              <span style={{ fontFamily: 'var(--font-hand)' }}>
+              <span>
                 Force (overwrite existing in source)
               </span>
             </label>
@@ -263,7 +262,6 @@ export default function CollectPage() {
               <div className="flex items-center justify-between mb-4">
                 <h3
                   className="text-xl font-bold text-pencil"
-                  style={{ fontFamily: 'var(--font-heading)' }}
                 >
                   Found {totalCount} local skill{totalCount !== 1 ? 's' : ''}
                 </h3>
@@ -334,11 +332,10 @@ export default function CollectPage() {
 
       {/* Post-collect suggestion */}
       {phase === 'done' && result && (result.pulled?.length ?? 0) > 0 && (
-        <Card variant="accent" className="mt-6 text-center animate-sketch-in">
+        <Card variant="accent" className="mt-6 text-center animate-fade-in">
           <div className="flex flex-col items-center gap-3">
             <p
               className="text-base text-pencil"
-              style={{ fontFamily: 'var(--font-hand)' }}
             >
               Skills collected to source! Run Sync to distribute them to all targets.
             </p>
@@ -416,7 +413,6 @@ function ScanTargetCard({
         <Target size={16} strokeWidth={2.5} className="text-success shrink-0" />
         <h4
           className="font-bold text-pencil text-left flex-1"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           {target.targetName}
         </h4>
@@ -426,7 +422,7 @@ function ScanTargetCard({
       </button>
 
       {expanded && skills.length > 0 && (
-        <div className="mt-3 pl-8 space-y-2 animate-sketch-in">
+        <div className="mt-3 pl-8 space-y-2 animate-fade-in">
           {skills.map((sk) => {
             const key = `${target.targetName}/${sk.name}`;
             const isSelected = selected.has(key);
@@ -438,7 +434,7 @@ function ScanTargetCard({
                     ? 'border-blue bg-info-light/50'
                     : 'border-transparent hover:border-muted-dark'
                 } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
-                style={{ borderRadius: wobbly.sm }}
+                style={{ borderRadius: radius.sm }}
               >
                 <input
                   type="checkbox"
@@ -477,10 +473,9 @@ function CollectResults({ result }: { result: CollectResult }) {
   if (total === 0) return null;
 
   return (
-    <div className="animate-sketch-in">
+    <div className="animate-fade-in">
       <h3
         className="text-xl font-bold text-pencil mb-4"
-        style={{ fontFamily: 'var(--font-heading)' }}
       >
         Collect Results
       </h3>
@@ -502,7 +497,6 @@ function CollectResults({ result }: { result: CollectResult }) {
         <Card variant="accent" className="mt-3">
           <h4
             className="font-bold text-danger mb-2"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             <AlertCircle size={16} strokeWidth={2.5} className="inline mr-1" />
             Failed
@@ -538,13 +532,12 @@ function ResultStat({
   return (
     <div
       className={`flex items-center gap-2 px-3 py-2 border border-dashed ${count > 0 ? bgMap[variant] : 'bg-muted/30'}`}
-      style={{ borderRadius: wobbly.sm }}
+      style={{ borderRadius: radius.sm }}
     >
       <Icon size={16} strokeWidth={2.5} className={count > 0 ? colorMap[variant] : 'text-muted-dark'} />
       <div>
         <p
           className={`text-lg font-bold leading-none ${count > 0 ? colorMap[variant] : 'text-muted-dark'}`}
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           {count}
         </p>
@@ -571,13 +564,12 @@ function DetailList({
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center gap-1 text-sm text-pencil-light hover:text-pencil cursor-pointer transition-colors"
-        style={{ fontFamily: 'var(--font-hand)' }}
       >
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         <span className={colorMap[variant]}>{title}</span> ({items.length})
       </button>
       {open && (
-        <div className="mt-2 pl-4 border-l-2 border-dashed border-muted-dark space-y-1 animate-sketch-in">
+        <div className="mt-2 pl-4 border-l-2 border-dashed border-muted-dark space-y-1 animate-fade-in">
           {items.map((item) => (
             <p
               key={item}

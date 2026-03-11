@@ -60,7 +60,7 @@ export default function ConfigPage() {
   if (error) {
     return (
       <Card variant="accent" className="text-center py-8">
-        <p className="text-danger text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
+        <p className="text-danger text-lg">
           Failed to load config
         </p>
         <p className="text-pencil-light text-sm mt-1">{error.message}</p>
@@ -69,13 +69,12 @@ export default function ConfigPage() {
   }
 
   return (
-    <div className="animate-sketch-in">
+    <div className="animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2
             className="text-3xl md:text-4xl font-bold text-pencil mb-1"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             Config
           </h2>
@@ -87,7 +86,6 @@ export default function ConfigPage() {
           {dirty && (
             <span
               className="text-sm text-warning px-2 py-1 bg-warning-light rounded-full border border-warning"
-              style={{ fontFamily: 'var(--font-hand)' }}
             >
               unsaved changes
             </span>
@@ -104,12 +102,11 @@ export default function ConfigPage() {
         </div>
       </div>
 
-      <Card decoration="tape">
+      <Card>
         <div className="flex items-center gap-2 mb-3">
           <FileCode size={16} strokeWidth={2.5} className="text-blue" />
           <span
             className="text-base text-pencil-light"
-            style={{ fontFamily: 'var(--font-hand)' }}
           >
             {isProjectMode ? '.skillshare/config.yaml' : 'config.yaml'}
           </span>

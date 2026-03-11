@@ -31,7 +31,7 @@ import { useToast } from '../components/Toast';
 import { api } from '../api/client';
 import type { Target as TargetType, CheckResult, AuditAllResponse, Extra } from '../api/client';
 import { useAppContext } from '../context/AppContext';
-import { wobbly, shadows } from '../design';
+import { radius, shadows } from '../design';
 import { shortenHome } from '../lib/paths';
 
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
@@ -61,7 +61,7 @@ export default function DashboardPage() {
   if (error) {
     return (
       <Card variant="accent" className="text-center py-8">
-        <p className="text-danger text-lg" style={{ fontFamily: 'var(--font-heading)' }}>
+        <p className="text-danger text-lg">
           Oops! Something went wrong.
         </p>
         <p className="text-pencil-light text-sm mt-1">{error.message}</p>
@@ -154,12 +154,11 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="animate-sketch-in">
+    <div className="animate-fade-in">
       {/* Page header */}
       <div className="mb-8">
         <h2
           className="text-3xl md:text-4xl font-bold text-pencil mb-2"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           Dashboard
         </h2>
@@ -170,11 +169,10 @@ export default function DashboardPage() {
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        {stats.map(({ label, value, subtitle, icon: Icon, color, bg, to }, i) => (
+        {stats.map(({ label, value, subtitle, icon: Icon, color, bg, to }) => (
           <Link key={label} to={to}>
             <Card
               hover
-              className={i % 2 === 0 ? 'rotate-[-0.5deg]' : 'rotate-[0.5deg]'}
             >
               <div className="flex items-start gap-3">
                 <div
@@ -186,13 +184,11 @@ export default function DashboardPage() {
                 <div className="min-w-0">
                   <p
                     className="text-sm text-pencil-light uppercase tracking-wider"
-                    style={{ fontFamily: 'var(--font-hand)' }}
                   >
                     {label}
                   </p>
                   <p
                     className="text-2xl font-bold text-pencil leading-tight"
-                    style={{ fontFamily: 'var(--font-heading)' }}
                   >
                     {value}
                   </p>
@@ -205,10 +201,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Source path card */}
-      <Card decoration="tape" className="mb-8">
+      <Card className="mb-8">
         <h3
           className="text-lg font-bold text-pencil mb-2"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           Source Directory
         </h3>
@@ -225,7 +220,7 @@ export default function DashboardPage() {
 
       {/* Support CTA */}
       {showStarCta && (
-        <Card variant="postit" className="mb-8">
+        <Card className="mb-8">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-start gap-3">
               <div
@@ -237,7 +232,6 @@ export default function DashboardPage() {
               <div>
                 <h3
                   className="text-lg font-bold text-pencil"
-                  style={{ fontFamily: 'var(--font-heading)' }}
                 >
                   Enjoying skillshare?
                 </h3>
@@ -259,7 +253,7 @@ export default function DashboardPage() {
               type="button"
               onClick={dismissStarCta}
               className="shrink-0 p-1 text-pencil-light hover:text-pencil border border-transparent hover:border-muted transition-colors"
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
               aria-label="Dismiss star reminder"
               title="Dismiss"
             >
@@ -290,7 +284,6 @@ export default function DashboardPage() {
       <div className="mb-4">
         <h3
           className="text-xl font-bold text-pencil mb-4"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           Quick Actions
         </h3>
@@ -299,7 +292,7 @@ export default function DashboardPage() {
             <div
               className="flex items-center gap-3 px-5 py-4 h-full bg-postit border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer group"
               style={{
-                borderRadius: wobbly.md,
+                borderRadius: radius.md,
                 boxShadow: shadows.md,
               }}
               onMouseEnter={(e) => {
@@ -315,7 +308,7 @@ export default function DashboardPage() {
                 className="text-pencil group-hover:animate-spin-slow"
               />
               <div className="flex-1">
-                <p className="font-medium text-pencil" style={{ fontFamily: 'var(--font-hand)' }}>
+                <p className="font-medium text-pencil">
                   Sync Now
                 </p>
                 <p className="text-sm text-pencil-light">Push skills to all targets</p>
@@ -328,7 +321,7 @@ export default function DashboardPage() {
             <div
               className="flex items-center gap-3 px-5 py-4 h-full bg-info-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer"
               style={{
-                borderRadius: wobbly.md,
+                borderRadius: radius.md,
                 boxShadow: shadows.md,
               }}
               onMouseEnter={(e) => {
@@ -340,7 +333,7 @@ export default function DashboardPage() {
             >
               <ShieldCheck size={22} strokeWidth={2.5} className="text-blue" />
               <div className="flex-1">
-                <p className="font-medium text-pencil" style={{ fontFamily: 'var(--font-hand)' }}>
+                <p className="font-medium text-pencil">
                   Security Audit
                 </p>
                 <p className="text-sm text-pencil-light">Scan skills for threats</p>
@@ -353,7 +346,7 @@ export default function DashboardPage() {
             <div
               className="flex items-center gap-3 px-5 py-4 h-full bg-success-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer"
               style={{
-                borderRadius: wobbly.md,
+                borderRadius: radius.md,
                 boxShadow: shadows.md,
               }}
               onMouseEnter={(e) => {
@@ -365,7 +358,7 @@ export default function DashboardPage() {
             >
               <Puzzle size={22} strokeWidth={2.5} className="text-success" />
               <div className="flex-1">
-                <p className="font-medium text-pencil" style={{ fontFamily: 'var(--font-hand)' }}>
+                <p className="font-medium text-pencil">
                   Browse Skills
                 </p>
                 <p className="text-sm text-pencil-light">View and manage your skills</p>
@@ -382,7 +375,7 @@ export default function DashboardPage() {
             <div
               className="flex items-center gap-3 px-5 py-4 h-full bg-warning-light border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer"
               style={{
-                borderRadius: wobbly.md,
+                borderRadius: radius.md,
                 boxShadow: shadows.md,
                 opacity: updatingAll ? 0.6 : 1,
               }}
@@ -399,7 +392,7 @@ export default function DashboardPage() {
                 className={`text-warning ${updatingAll ? 'animate-bounce' : ''}`}
               />
               <div className="flex-1">
-                <p className="font-medium text-pencil" style={{ fontFamily: 'var(--font-hand)' }}>
+                <p className="font-medium text-pencil">
                   {updatingAll ? 'Updating...' : 'Update All'}
                 </p>
                 <p className="text-sm text-pencil-light">Pull latest for all tracked repos</p>
@@ -448,7 +441,6 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
         <GitBranch size={20} strokeWidth={2.5} className="text-blue" />
         <h3
           className="text-lg font-bold text-pencil"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           Tracked Repositories
         </h3>
@@ -460,13 +452,12 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
             <div
               key={repo.name}
               className="flex items-center justify-between py-2 px-3 bg-paper-warm border border-muted"
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
               <div className="flex items-center gap-2 min-w-0">
                 <GitBranch size={16} className="text-pencil-light shrink-0" />
                 <span
                   className="font-medium text-pencil truncate"
-                  style={{ fontFamily: 'var(--font-hand)' }}
                 >
                   {displayName}
                 </span>
@@ -476,12 +467,12 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
                 {repo.dirty ? (
                   <span className="flex items-center gap-1 text-warning text-sm">
                     <AlertTriangle size={14} strokeWidth={2.5} />
-                    <span style={{ fontFamily: 'var(--font-hand)' }}>modified</span>
+                    <span>modified</span>
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 text-success text-sm">
                     <Check size={14} strokeWidth={2.5} />
-                    <span style={{ fontFamily: 'var(--font-hand)' }}>clean</span>
+                    <span>clean</span>
                   </span>
                 )}
               </div>
@@ -526,7 +517,6 @@ function SkillUpdatesSection() {
           <Download size={20} strokeWidth={2.5} className="text-blue" />
           <h3
             className="text-lg font-bold text-pencil"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             Skill Updates
           </h3>
@@ -541,7 +531,6 @@ function SkillUpdatesSection() {
           onClick={handleCheck}
           disabled={checking}
           className="text-sm text-blue hover:underline disabled:opacity-50"
-          style={{ fontFamily: 'var(--font-hand)' }}
         >
           {checking ? 'Checking...' : checked ? 'Re-check' : 'Run Check'}
         </button>
@@ -566,11 +555,11 @@ function SkillUpdatesSection() {
             <div
               key={repo.name}
               className="flex items-center justify-between py-2 px-3 bg-paper-warm border border-muted"
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
               <div className="flex items-center gap-2">
                 <GitBranch size={14} className="text-pencil-light" />
-                <span className="text-pencil text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
+                <span className="text-pencil text-sm">
                   {repo.name.replace(/^_/, '')}
                 </span>
               </div>
@@ -584,11 +573,11 @@ function SkillUpdatesSection() {
             <div
               key={skill.name}
               className="flex items-center justify-between py-2 px-3 bg-paper-warm border border-muted"
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
               <div className="flex items-center gap-2">
                 <Puzzle size={14} className="text-pencil-light" />
-                <span className="text-pencil text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
+                <span className="text-pencil text-sm">
                   {skill.name}
                 </span>
                 {skill.source && (
@@ -667,7 +656,6 @@ function SecurityAuditSection() {
           />
           <h3
             className="text-lg font-bold text-pencil"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             Security Overview
           </h3>
@@ -677,7 +665,7 @@ function SecurityAuditSection() {
             </Badge>
           )}
         </div>
-        <Link to="/audit" className="text-sm text-blue hover:underline" style={{ fontFamily: 'var(--font-hand)' }}>
+        <Link to="/audit" className="text-sm text-blue hover:underline">
           {scanned ? 'View Details' : 'Run scan'}
         </Link>
       </div>
@@ -690,7 +678,6 @@ function SecurityAuditSection() {
           <button
             onClick={handleScan}
             className="text-sm text-blue hover:underline disabled:opacity-50 shrink-0 ml-4"
-            style={{ fontFamily: 'var(--font-hand)' }}
           >
             Quick Scan
           </button>
@@ -710,38 +697,37 @@ function SecurityAuditSection() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div
               className="py-2 px-3 bg-paper-warm border border-muted text-center"
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
-              <p className="text-lg font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+              <p className="text-lg font-bold text-pencil">
                 {auditData.summary.total}
               </p>
               <p className="text-xs text-pencil-light">Scanned</p>
             </div>
             <div
               className="py-2 px-3 bg-paper-warm border border-muted text-center"
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
-              <p className="text-lg font-bold text-success" style={{ fontFamily: 'var(--font-heading)' }}>
+              <p className="text-lg font-bold text-success">
                 {auditData.summary.passed}
               </p>
               <p className="text-xs text-pencil-light">Passed</p>
             </div>
             <div
               className="py-2 px-3 bg-paper-warm border border-muted text-center"
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
-              <p className="text-lg font-bold text-warning" style={{ fontFamily: 'var(--font-heading)' }}>
+              <p className="text-lg font-bold text-warning">
                 {auditData.summary.warning}
               </p>
               <p className="text-xs text-pencil-light">Warnings</p>
             </div>
             <div
               className={`py-2 px-3 bg-paper-warm border text-center ${auditData.summary.failed > 0 ? 'border-danger' : 'border-muted'}`}
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
               <p
                 className={`text-lg font-bold ${auditData.summary.failed > 0 ? 'text-danger' : 'text-pencil'}`}
-                style={{ fontFamily: 'var(--font-heading)' }}
               >
                 {auditData.summary.failed}
               </p>
@@ -752,7 +738,7 @@ function SecurityAuditSection() {
           {/* Severity breakdown */}
           {hasFindings ? (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+              <span className="text-sm text-pencil-light">
                 Findings:
               </span>
               {severityCounts
@@ -766,7 +752,7 @@ function SecurityAuditSection() {
           ) : (
             <div className="flex items-center gap-2 text-success">
               <ShieldCheck size={16} strokeWidth={2.5} />
-              <span className="text-sm font-medium" style={{ fontFamily: 'var(--font-hand)' }}>
+              <span className="text-sm font-medium">
                 All Clear — no security findings detected
               </span>
             </div>
@@ -805,7 +791,6 @@ function TargetsHealthSection() {
           <Target size={20} strokeWidth={2.5} className="text-success" />
           <h3
             className="text-lg font-bold text-pencil"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             Targets Health
           </h3>
@@ -813,7 +798,7 @@ function TargetsHealthSection() {
             <Badge variant="warning">{maxDrift} not synced</Badge>
           )}
         </div>
-        <Link to="/targets" className="text-sm text-blue hover:underline" style={{ fontFamily: 'var(--font-hand)' }}>
+        <Link to="/targets" className="text-sm text-blue hover:underline">
           View all
         </Link>
       </div>
@@ -833,13 +818,12 @@ function TargetsHealthSection() {
                 <Link key={t.name} to="/targets">
                   <div
                     className={`flex items-center justify-between py-2 px-3 bg-paper-warm border ${hasDrift ? 'border-warning' : 'border-muted'} hover:border-pencil-light transition-colors`}
-                    style={{ borderRadius: wobbly.sm }}
+                    style={{ borderRadius: radius.sm }}
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <Target size={14} className="text-pencil-light shrink-0" />
                       <span
                         className="font-medium text-pencil truncate"
-                        style={{ fontFamily: 'var(--font-hand)' }}
                       >
                         {t.name}
                       </span>
@@ -858,7 +842,7 @@ function TargetsHealthSection() {
             })}
           </div>
           {maxDrift > 0 && (
-            <div className="mt-3 flex items-center gap-2 text-warning text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
+            <div className="mt-3 flex items-center gap-2 text-warning text-sm">
               <AlertTriangle size={14} strokeWidth={2.5} />
               <span>{maxDrift} skill(s) not synced — <Link to="/sync" className="underline hover:text-pencil">go to Sync page</Link></span>
             </div>
@@ -886,7 +870,6 @@ function VersionStatusSection() {
         <Package size={20} strokeWidth={2.5} className="text-pencil-light" />
         <h3
           className="text-lg font-bold text-pencil"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           Version Status
         </h3>
@@ -901,11 +884,11 @@ function VersionStatusSection() {
           {/* CLI Version */}
           <div
             className="flex items-center justify-between py-2 px-3 bg-paper-warm border border-muted"
-            style={{ borderRadius: wobbly.sm }}
+            style={{ borderRadius: radius.sm }}
           >
             <div className="flex items-center gap-2">
               <Zap size={14} className="text-pencil-light" />
-              <span className="text-pencil text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
+              <span className="text-pencil text-sm">
                 CLI
               </span>
               <span
@@ -925,11 +908,11 @@ function VersionStatusSection() {
           {/* Skill Version */}
           <div
             className="flex items-center justify-between py-2 px-3 bg-paper-warm border border-muted"
-            style={{ borderRadius: wobbly.sm }}
+            style={{ borderRadius: radius.sm }}
           >
             <div className="flex items-center gap-2">
               <Puzzle size={14} className="text-pencil-light" />
-              <span className="text-pencil text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
+              <span className="text-pencil text-sm">
                 Skill
               </span>
               <span

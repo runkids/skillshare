@@ -24,7 +24,7 @@ import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import StreamProgressBar from '../components/StreamProgressBar';
-import { wobbly, shadows, colors } from '../design';
+import { radius, shadows, palette } from '../design';
 import { severityBadgeVariant } from '../lib/severity';
 import { BlockStamp, RiskMeter, riskColor, riskBgColor } from '../components/audit';
 
@@ -125,14 +125,12 @@ export default function AuditPage() {
         <div>
           <h2
             className="text-3xl font-bold text-pencil flex items-center gap-2"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             <ShieldCheck size={28} strokeWidth={2.5} />
             Security Audit
           </h2>
           <p
             className="text-pencil-light mt-1"
-            style={{ fontFamily: 'var(--font-hand)' }}
           >
             Scan installed skills for malicious patterns and security threats
           </p>
@@ -241,7 +239,6 @@ export default function AuditPage() {
                 <ShieldCheck size={18} strokeWidth={2.5} />
                 <span
                   className="font-medium"
-                  style={{ fontFamily: 'var(--font-hand)' }}
                 >
                   {data.summary.passed} skill{data.summary.passed !== 1 ? 's' : ''} passed with no issues
                 </span>
@@ -339,27 +336,25 @@ function StatCard({
     <div
       className={`relative p-4 border-2 ${s.bg} ${s.border} transition-all duration-100 ${isZero ? 'opacity-60' : ''}`}
       style={{
-        borderRadius: wobbly.md,
+        borderRadius: radius.md,
         boxShadow: isZero ? 'none' : shadows.sm,
       }}
     >
       <div className="flex items-center gap-3">
         <div
           className={`w-10 h-10 flex items-center justify-center border-2 ${s.border} ${s.iconBg} ${s.text}`}
-          style={{ borderRadius: wobbly.sm, boxShadow: isZero ? 'none' : shadows.sm }}
+          style={{ borderRadius: radius.sm, boxShadow: isZero ? 'none' : shadows.sm }}
         >
           <Icon size={20} strokeWidth={2.5} />
         </div>
         <div>
           <p
             className={`text-2xl font-bold ${isZero ? s.valueFaded : s.text}`}
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             {value}
           </p>
           <p
             className={`text-sm ${isZero ? 'text-pencil-light/50' : 'text-pencil-light'}`}
-            style={{ fontFamily: 'var(--font-hand)' }}
           >
             {label}
           </p>
@@ -413,8 +408,8 @@ function TriagePanel({
           <div
             className="flex items-center gap-3 p-3 border-2 border-dashed"
             style={{
-              borderRadius: wobbly.sm,
-              borderColor: overallStatus === 'blocked' ? colors.danger : overallStatus === 'warning' ? colors.warning : colors.success,
+              borderRadius: radius.sm,
+              borderColor: overallStatus === 'blocked' ? palette.danger : overallStatus === 'warning' ? palette.warning : palette.success,
               backgroundColor: overallStatus === 'blocked' ? 'rgba(192, 57, 43, 0.06)' : overallStatus === 'warning' ? 'rgba(212, 135, 14, 0.06)' : 'rgba(46, 139, 87, 0.06)',
             }}
           >
@@ -426,7 +421,7 @@ function TriagePanel({
                     ? 'bg-warning text-white border-warning'
                     : 'bg-success text-white border-success'
               }`}
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
               {overallStatus === 'blocked' ? (
                 <Ban size={20} strokeWidth={3} />
@@ -437,12 +432,11 @@ function TriagePanel({
               )}
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-pencil-light uppercase tracking-wide" style={{ fontFamily: 'var(--font-hand)' }}>
+              <p className="text-xs text-pencil-light uppercase tracking-wide">
                 Block Threshold
               </p>
               <p
                 className={`text-base font-bold ${overallStatus === 'blocked' ? 'text-danger' : overallStatus === 'warning' ? 'text-warning' : 'text-success'}`}
-                style={{ fontFamily: 'var(--font-heading)' }}
               >
                 {threshold}
                 {overallStatus === 'blocked' && ` (${failed} blocked)`}
@@ -454,7 +448,7 @@ function TriagePanel({
           <div
             className="flex items-center gap-3 p-3 border-2 border-dashed"
             style={{
-              borderRadius: wobbly.sm,
+              borderRadius: radius.sm,
               borderColor: riskColor(riskLabel),
               backgroundColor: riskBgColor(riskLabel),
             }}
@@ -462,7 +456,7 @@ function TriagePanel({
             <div
               className="w-10 h-10 flex items-center justify-center border-2 shrink-0 text-white"
               style={{
-                borderRadius: wobbly.sm,
+                borderRadius: radius.sm,
                 backgroundColor: riskColor(riskLabel),
                 borderColor: riskColor(riskLabel),
               }}
@@ -470,13 +464,13 @@ function TriagePanel({
               <Gauge size={20} strokeWidth={2.5} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs text-pencil-light uppercase tracking-wide" style={{ fontFamily: 'var(--font-hand)' }}>
+              <p className="text-xs text-pencil-light uppercase tracking-wide">
                 Aggregate Risk
               </p>
               <div className="flex items-center gap-2">
                 <p
                   className="text-base font-bold"
-                  style={{ fontFamily: 'var(--font-heading)', color: riskColor(riskLabel) }}
+                  style={{ color: riskColor(riskLabel) }}
                 >
                   {riskLabel.toUpperCase()}
                 </p>
@@ -503,23 +497,22 @@ function TriagePanel({
           <div
             className="flex items-center gap-3 p-3 border-2 border-dashed border-pencil-light/40"
             style={{
-              borderRadius: wobbly.sm,
+              borderRadius: radius.sm,
               backgroundColor: 'rgba(229, 224, 216, 0.15)',
             }}
           >
             <div
               className="w-10 h-10 flex items-center justify-center border-2 border-pencil-light bg-paper-warm text-pencil-light shrink-0"
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
               <Eye size={20} strokeWidth={2.5} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-pencil-light uppercase tracking-wide" style={{ fontFamily: 'var(--font-hand)' }}>
+              <p className="text-xs text-pencil-light uppercase tracking-wide">
                 Visible Findings
               </p>
               <p
                 className="text-base font-bold text-pencil"
-                style={{ fontFamily: 'var(--font-heading)' }}
               >
                 {visibleFindings}
                 <span className="text-pencil-light font-normal text-sm"> / {totalFindings}</span>
@@ -545,7 +538,7 @@ function TriagePanel({
                 {scanErrors} scan error{scanErrors !== 1 ? 's' : ''}
               </span>
             )}
-            <p className="text-xs text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+            <p className="text-xs text-pencil-light">
               Block = any finding at/above threshold. Aggregate = overall risk score for triage.
             </p>
           </div>
@@ -559,16 +552,11 @@ function TriagePanel({
  * SkillAuditCard — prominent block/risk header
  * ────────────────────────────────────────────────────────────────────── */
 
-function SkillAuditCard({ result, index }: { result: AuditResult; index: number }) {
+function SkillAuditCard({ result }: { result: AuditResult; index?: number }) {
   const maxSeverity = getMaxSeverity(result.findings);
 
   return (
-    <Card
-      decoration={index === 0 ? 'tape' : 'none'}
-      style={{
-        transform: `rotate(${index % 2 === 0 ? '-0.15' : '0.15'}deg)`,
-      }}
-    >
+    <Card>
       <div className="space-y-3">
         {/* ── Header: skill name (left) + block/risk indicators (right) ── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -582,7 +570,7 @@ function SkillAuditCard({ result, index }: { result: AuditResult; index: number 
                     ? 'bg-warning-light border-warning text-warning'
                     : 'bg-info-light border-blue text-blue'
               }`}
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
               {result.isBlocked ? (
                 <ShieldAlert size={16} strokeWidth={2.5} />
@@ -592,7 +580,6 @@ function SkillAuditCard({ result, index }: { result: AuditResult; index: number 
             </div>
             <span
               className="font-bold text-pencil text-lg truncate"
-              style={{ fontFamily: 'var(--font-heading)' }}
             >
               {result.skillName}
             </span>
@@ -656,15 +643,12 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
         </span>
       )}
       {finding.snippet && (
-        <div
-          className="relative mt-1"
-          style={{ transform: 'rotate(-0.3deg)' }}
-        >
+        <div className="relative mt-1">
           <code
             className="text-xs text-pencil-light block px-3 py-2 border-2 border-dashed border-muted overflow-x-auto bg-paper-warm"
             style={{
               fontFamily: "'Courier New', monospace",
-              borderRadius: wobbly.sm,
+              borderRadius: radius.sm,
               boxShadow: 'var(--shadow-sm)',
             }}
           >
@@ -685,12 +669,12 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
 
 function severityStripeColor(sev: string): string {
   switch (sev) {
-    case 'CRITICAL': return colors.danger;
-    case 'HIGH': return colors.warning;
-    case 'MEDIUM': return colors.blue;
-    case 'LOW': return colors.blue;
-    case 'INFO': return colors.muted;
-    default: return colors.muted;
+    case 'CRITICAL': return palette.danger;
+    case 'HIGH': return palette.warning;
+    case 'MEDIUM': return palette.info;
+    case 'LOW': return palette.info;
+    case 'INFO': return '#e2dfd8';
+    default: return '#e2dfd8';
   }
 }
 

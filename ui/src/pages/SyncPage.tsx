@@ -24,7 +24,7 @@ import { useToast } from '../components/Toast';
 import { api, type SyncResult, type DiffTarget } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
 import StreamProgressBar from '../components/StreamProgressBar';
-import { wobbly, shadows } from '../design';
+import { radius, shadows } from '../design';
 
 export default function SyncPage() {
   const queryClient = useQueryClient();
@@ -124,12 +124,11 @@ export default function SyncPage() {
   const syncActions = totalActions - pendingLocal;
 
   return (
-    <div className="animate-sketch-in">
+    <div className="animate-fade-in">
       {/* Page header */}
       <div className="mb-8">
         <h2
           className="text-3xl md:text-4xl font-bold text-pencil mb-2"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           Sync
         </h2>
@@ -142,10 +141,10 @@ export default function SyncPage() {
       <div className="hidden md:flex items-center justify-center gap-4 mb-8">
         <div
           className="flex items-center gap-2 px-4 py-2 bg-postit border-2 border-pencil"
-          style={{ borderRadius: wobbly.sm, boxShadow: shadows.sm }}
+          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
         >
           <Folder size={18} strokeWidth={2.5} className="text-warning" />
-          <span className="text-base font-medium" style={{ fontFamily: 'var(--font-hand)' }}>
+          <span className="text-base font-medium">
             Source
           </span>
         </div>
@@ -165,14 +164,14 @@ export default function SyncPage() {
 
         <div
           className="flex items-center gap-2 px-4 py-2 bg-info-light border-2 border-pencil"
-          style={{ borderRadius: wobbly.sm, boxShadow: shadows.sm }}
+          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
         >
           <RefreshCw
             size={18}
             strokeWidth={2.5}
             className={`text-blue ${syncing ? 'animate-spin' : ''}`}
           />
-          <span className="text-base font-medium" style={{ fontFamily: 'var(--font-hand)' }}>
+          <span className="text-base font-medium">
             Sync Engine
           </span>
         </div>
@@ -192,24 +191,24 @@ export default function SyncPage() {
 
         <div
           className="flex items-center gap-2 px-4 py-2 bg-success-light border-2 border-pencil"
-          style={{ borderRadius: wobbly.sm, boxShadow: shadows.sm }}
+          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
         >
           <Target size={18} strokeWidth={2.5} className="text-success" />
-          <span className="text-base font-medium" style={{ fontFamily: 'var(--font-hand)' }}>
+          <span className="text-base font-medium">
             Targets ({diffs.length})
           </span>
         </div>
       </div>
 
       {/* Sync control area */}
-      <Card variant="postit" className="mb-6 text-center">
+      <Card className="mb-6 text-center">
         <div className="flex flex-col items-center gap-4">
           {/* Status indicator */}
           {diffLoading ? (
             <p className="text-pencil-light text-base">Checking status...</p>
           ) : syncActions > 0 ? (
             <div className="flex flex-wrap items-center justify-center gap-3">
-              <span className="text-base text-pencil" style={{ fontFamily: 'var(--font-hand)' }}>
+              <span className="text-base text-pencil">
                 Pending changes:
               </span>
               {pendingLinks > 0 && <Badge variant="success">{pendingLinks} to link</Badge>}
@@ -222,7 +221,7 @@ export default function SyncPage() {
             <div className="flex flex-wrap items-center justify-center gap-3">
               <div className="flex items-center gap-2 text-success">
                 <CheckCircle size={18} strokeWidth={2.5} />
-                <span className="text-base font-medium" style={{ fontFamily: 'var(--font-hand)' }}>
+                <span className="text-base font-medium">
                   All targets are in sync!
                 </span>
               </div>
@@ -231,7 +230,7 @@ export default function SyncPage() {
           ) : (
             <div className="flex items-center gap-2 text-success">
               <CheckCircle size={18} strokeWidth={2.5} />
-              <span className="text-base font-medium" style={{ fontFamily: 'var(--font-hand)' }}>
+              <span className="text-base font-medium">
                 All targets are in sync!
               </span>
             </div>
@@ -257,7 +256,6 @@ export default function SyncPage() {
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="flex items-center gap-1 text-base text-pencil-light hover:text-pencil transition-colors cursor-pointer"
-            style={{ fontFamily: 'var(--font-hand)' }}
           >
             {showAdvanced ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             Advanced options
@@ -265,7 +263,7 @@ export default function SyncPage() {
 
           {/* Advanced options */}
           {showAdvanced && (
-            <div className="flex items-center gap-6 animate-sketch-in">
+            <div className="flex items-center gap-6 animate-fade-in">
               <label className="flex items-center gap-2 text-base cursor-pointer select-none">
                 <input
                   type="checkbox"
@@ -274,7 +272,7 @@ export default function SyncPage() {
                   className="w-4 h-4 accent-blue"
                 />
                 <Eye size={16} strokeWidth={2.5} className="text-blue" />
-                <span style={{ fontFamily: 'var(--font-hand)' }}>Dry Run</span>
+                <span>Dry Run</span>
               </label>
 
               <label className="flex items-center gap-2 text-base cursor-pointer select-none">
@@ -285,7 +283,7 @@ export default function SyncPage() {
                   className="w-4 h-4 accent-accent"
                 />
                 <Zap size={16} strokeWidth={2.5} className="text-accent" />
-                <span style={{ fontFamily: 'var(--font-hand)' }}>Force</span>
+                <span>Force</span>
               </label>
             </div>
           )}
@@ -297,7 +295,6 @@ export default function SyncPage() {
         <div className="space-y-3 mt-6 mb-8">
           <h2
             className="text-lg font-bold text-pencil"
-            style={{ fontFamily: 'var(--font-heading)' }}
           >
             {dryRun ? 'Preview Results' : 'Results'}
           </h2>
@@ -309,7 +306,6 @@ export default function SyncPage() {
       <div>
         <h3
           className="text-xl font-bold text-pencil mb-4"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           Current Diff
         </h3>
@@ -360,7 +356,7 @@ function SyncResults({ results }: { results: SyncResult[] }) {
               ) : (
                 <Minus size={18} className="text-pencil-light shrink-0" />
               )}
-              <span className="text-pencil font-medium flex-1" style={{ fontFamily: 'var(--font-hand)' }}>
+              <span className="text-pencil font-medium flex-1">
                 {r.target}
               </span>
               <div className="flex gap-2 flex-wrap">
@@ -448,7 +444,6 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
         <Target size={16} strokeWidth={2.5} className="text-success shrink-0" />
         <h4
           className="font-bold text-pencil text-left flex-1"
-          style={{ fontFamily: 'var(--font-heading)' }}
         >
           {diff.target}
         </h4>
@@ -465,7 +460,7 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
       </button>
 
       {expanded && items.length > 0 && (
-        <div className="mt-3 pl-8 animate-sketch-in">
+        <div className="mt-3 pl-8 animate-fade-in">
           {useVirtualized ? (
             <Virtuoso
               style={{ height: VIRTUOSO_HEIGHT }}
@@ -487,7 +482,7 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
               {hasSyncable && (
                 <div className="flex items-center gap-1.5 text-xs text-pencil-light">
                   <Info size={12} className="shrink-0" />
-                  <span style={{ fontFamily: 'var(--font-hand)' }}>
+                  <span>
                     Run sync (or sync --force) to fix pending items
                   </span>
                 </div>
@@ -495,7 +490,7 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
               {hasLocal && (
                 <div className="flex items-center gap-1.5 text-xs text-pencil-light">
                   <FileText size={12} className="shrink-0" />
-                  <span style={{ fontFamily: 'var(--font-hand)' }}>
+                  <span>
                     Use collect to import local-only skills to source
                   </span>
                 </div>
@@ -506,7 +501,7 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
       )}
 
       {expanded && inSync && (
-        <p className="mt-2 pl-8 text-base text-pencil-light" style={{ fontFamily: 'var(--font-hand)' }}>
+        <p className="mt-2 pl-8 text-base text-pencil-light">
           Everything looks good! No changes needed.
         </p>
       )}

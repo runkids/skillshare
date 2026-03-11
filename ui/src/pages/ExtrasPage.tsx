@@ -13,7 +13,7 @@ import Badge from '../components/Badge';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
-import { wobbly } from '../design';
+import { radius } from '../design';
 
 // ─── AddExtraModal ────────────────────────────────────────────────────────────
 
@@ -89,14 +89,13 @@ function AddExtraModal({
 
       {/* Dialog */}
       <div
-        className="relative w-full max-w-lg animate-sketch-in"
-        style={{ borderRadius: wobbly.md }}
+        className="relative w-full max-w-lg animate-fade-in"
+        style={{ borderRadius: radius.md }}
       >
-        <Card decoration="tape">
+        <Card>
           <div className="flex items-center justify-between mb-4">
             <h3
               className="text-xl font-bold text-pencil"
-              style={{ fontFamily: 'var(--font-heading)' }}
             >
               Add Extra
             </h3>
@@ -124,7 +123,6 @@ function AddExtraModal({
             <div>
               <label
                 className="block text-base text-pencil-light mb-2"
-                style={{ fontFamily: 'var(--font-hand)' }}
               >
                 Targets
               </label>
@@ -189,25 +187,20 @@ function AddExtraModal({
 
 function ExtraCard({
   extra,
-  index,
   onSync,
   onRemove,
 }: {
   extra: Extra;
-  index: number;
+  index?: number;
   onSync: (name: string) => void;
   onRemove: (name: string) => void;
 }) {
   return (
-    <Card
-      decoration={index === 0 ? 'tape' : 'none'}
-      style={{ transform: `rotate(${index % 2 === 0 ? -0.3 : 0.3}deg)` }}
-    >
+    <Card>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <FolderPlus size={18} strokeWidth={2.5} className="text-blue shrink-0" />
           <h3
-            style={{ fontFamily: 'var(--font-heading)' }}
             className="text-lg font-bold text-pencil"
           >
             {extra.name}
@@ -244,7 +237,7 @@ function ExtraCard({
             <div
               key={ti}
               className="flex items-center justify-between py-1.5 px-3 bg-paper-warm border border-muted"
-              style={{ borderRadius: wobbly.sm }}
+              style={{ borderRadius: radius.sm }}
             >
               <span
                 style={{ fontFamily: "'Courier New', monospace" }}
@@ -272,7 +265,6 @@ function ExtraCard({
       ) : (
         <p
           className="text-sm text-pencil-light italic"
-          style={{ fontFamily: 'var(--font-hand)' }}
         >
           No targets configured
         </p>
@@ -348,7 +340,6 @@ export default function ExtrasPage() {
       <div>
         <div className="flex items-center justify-between">
           <h2
-            style={{ fontFamily: 'var(--font-heading)' }}
             className="text-3xl font-bold text-pencil"
           >
             Extras
@@ -366,7 +357,6 @@ export default function ExtrasPage() {
         </div>
         <p
           className="text-pencil-light mt-1"
-          style={{ fontFamily: 'var(--font-hand)' }}
         >
           {isProjectMode
             ? 'Sync arbitrary directories to project targets'
