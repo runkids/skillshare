@@ -102,8 +102,16 @@ func cmdSync(args []string) error {
 	}
 
 	if mode == modeProject {
-		if hasAll && !jsonOutput {
-			ui.Warning("--all is not supported in project mode (extras are global only)")
+		if hasAll {
+			// Run project extras sync after project skills sync
+			defer func() {
+				fmt.Println()
+				if extrasErr := cmdSyncExtras(append([]string{"-p"}, rest...)); extrasErr != nil {
+					if !jsonOutput {
+						ui.Warning("Extras sync: %v", extrasErr)
+					}
+				}
+			}()
 		}
 		stats, results, err := cmdSyncProject(cwd, dryRun, force, jsonOutput)
 		stats.ProjectScope = true
