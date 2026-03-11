@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   LayoutDashboard,
   Puzzle,
@@ -20,10 +20,13 @@ import {
   X,
   Sun,
   Moon,
+  Keyboard,
 } from 'lucide-react';
 import { radius } from '../design';
 import { useAppContext } from '../context/AppContext';
 import { useTheme } from '../context/ThemeContext';
+import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts';
+import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 
 interface NavItem {
   to: string;
@@ -81,8 +84,13 @@ const navGroups: NavGroup[] = [
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const { isProjectMode, version } = useAppContext();
   const { theme, toggleTheme } = useTheme();
+
+  const toggleShortcuts = useCallback(() => setShortcutsOpen((v) => !v), []);
+
+  useGlobalShortcuts({ onToggleHelp: toggleShortcuts });
 
   const filteredGroups = navGroups.map((group) => ({
     ...group,
@@ -176,19 +184,25 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Theme toggle at sidebar bottom */}
-        <div className="mt-auto border-t border-muted px-3 py-3 flex items-center justify-between">
+        {/* Bottom bar — match nav item style */}
+        <div className="mt-auto border-t border-muted px-2 py-2 flex flex-col gap-0.5">
           <button
             onClick={toggleTheme}
-            className="flex items-center gap-2 text-pencil-light hover:text-pencil transition-colors cursor-pointer"
+            className="flex items-center gap-3 px-3 py-1.5 text-sm text-pencil-light hover:text-pencil hover:bg-muted/20 transition-colors cursor-pointer"
             aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
           >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            <span className="text-sm" style={{ fontFamily: 'var(--font-hand)' }}>
-              {theme === 'dark' ? 'Light' : 'Dark'}
-            </span>
+            {theme === 'dark' ? <Sun size={16} strokeWidth={2.5} /> : <Moon size={16} strokeWidth={2.5} />}
+            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
           </button>
-          <span className="text-xs text-muted-dark">{version ? `v${version}` : ''}</span>
+          <button
+            onClick={toggleShortcuts}
+            className="flex items-center gap-3 px-3 py-1.5 text-sm text-pencil-light hover:text-pencil hover:bg-muted/20 transition-colors cursor-pointer"
+            aria-label="Keyboard shortcuts"
+            aria-keyshortcuts="?"
+          >
+            <Keyboard size={16} strokeWidth={2.5} />
+            Shortcuts
+          </button>
         </div>
       </aside>
 
@@ -198,6 +212,9 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+
+      {/* Keyboard shortcuts modal */}
+      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   );
 }
