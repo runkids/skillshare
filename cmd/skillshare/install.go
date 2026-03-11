@@ -190,6 +190,11 @@ func ensureIntoDirExists(sourceDir string, opts install.InstallOptions) error {
 	return os.MkdirAll(filepath.Join(sourceDir, opts.Into), 0755)
 }
 
+// parseOptsFromConfig builds install.ParseOptions from the global config.
+func parseOptsFromConfig(cfg *config.Config) install.ParseOptions {
+	return install.ParseOptions{GitLabHosts: cfg.GitLabHosts}
+}
+
 // resolveSkillFromName resolves a skill name to source using metadata
 func resolveSkillFromName(skillName string, cfg *config.Config) (*install.Source, error) {
 	skillPath := filepath.Join(cfg.Source, skillName)
@@ -202,7 +207,7 @@ func resolveSkillFromName(skillName string, cfg *config.Config) (*install.Source
 		return nil, fmt.Errorf("skill '%s' has no metadata, cannot update", skillName)
 	}
 
-	source, err := install.ParseSource(meta.Source)
+	source, err := install.ParseSourceWithOptions(meta.Source, parseOptsFromConfig(cfg))
 	if err != nil {
 		return nil, fmt.Errorf("invalid source in metadata: %w", err)
 	}
@@ -213,7 +218,7 @@ func resolveSkillFromName(skillName string, cfg *config.Config) (*install.Source
 
 // resolveInstallSource parses and resolves the install source
 func resolveInstallSource(sourceArg string, opts install.InstallOptions, cfg *config.Config) (*install.Source, bool, error) {
-	source, err := install.ParseSource(sourceArg)
+	source, err := install.ParseSourceWithOptions(sourceArg, parseOptsFromConfig(cfg))
 	if err == nil {
 		return source, false, nil
 	}

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/version"
 )
 
@@ -84,6 +85,15 @@ func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoo
 // IsProjectMode returns true when serving a project-scoped dashboard
 func (s *Server) IsProjectMode() bool {
 	return s.projectRoot != ""
+}
+
+// parseOpts returns install.ParseOptions with GitLabHosts from the current config.
+func (s *Server) parseOpts() install.ParseOptions {
+	hosts := s.cfg.GitLabHosts
+	if s.IsProjectMode() && s.projectCfg != nil && len(s.projectCfg.GitLabHosts) > 0 {
+		hosts = s.projectCfg.GitLabHosts
+	}
+	return install.ParseOptions{GitLabHosts: hosts}
 }
 
 // configPath returns the config file path for the current mode

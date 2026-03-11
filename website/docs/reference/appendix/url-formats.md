@@ -200,6 +200,26 @@ skillshare install git@ssh.dev.azure.com:v3/org/project/repo
 If you get an authentication error with HTTPS, switch to SSH URLs. skillshare sets `GIT_TERMINAL_PROMPT=0` to prevent hanging credential prompts, so interactive HTTPS auth won't work.
 :::
 
+## Custom GitLab Domains {#custom-gitlab-domains}
+
+Hosts containing `gitlab` in the name (e.g., `gitlab.com`, `onprem.gitlab.internal`) are automatically detected and parsed with nested subgroup support.
+
+For self-managed GitLab instances on custom domains (e.g., `git.company.com`), add the hostname to [`gitlab_hosts`](../targets/configuration.md#gitlab_hosts) in your config:
+
+```yaml
+gitlab_hosts:
+  - git.company.com
+```
+
+This tells skillshare to treat the full URL path as the repository, matching GitLab's nested subgroup behavior.
+
+**Without config**, you can use `.git` to mark the end of the repo path:
+
+```bash
+# Installs from git.company.com/team/frontend/ui (full path as repo)
+skillshare install git.company.com/team/frontend/ui.git
+```
+
 ## Platform Support
 
 | Feature | GitHub | GitLab | Bitbucket | Gitea | GHE | Azure DevOps | AtomGit/Gitee |

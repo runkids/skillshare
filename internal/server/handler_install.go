@@ -28,7 +28,7 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	source, err := install.ParseSource(body.Source)
+	source, err := install.ParseSourceWithOptions(body.Source, s.parseOpts())
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid source: "+err.Error())
 		return
@@ -92,7 +92,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	source, err := install.ParseSource(body.Source)
+	source, err := install.ParseSourceWithOptions(body.Source, s.parseOpts())
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid source: "+err.Error())
 		return
@@ -251,7 +251,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	source, err := install.ParseSource(body.Source)
+	source, err := install.ParseSourceWithOptions(body.Source, s.parseOpts())
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid source: "+err.Error())
 		return

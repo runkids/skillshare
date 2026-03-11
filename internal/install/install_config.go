@@ -101,6 +101,8 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 
 	sourcePath := ctx.SourcePath()
 
+	parseOpts := ParseOptions{GitLabHosts: ctx.GitLabHosts()}
+
 	// ── Classify skills: tracked / plain (groupable vs singles) ──
 	var tracked []SkillEntryDTO
 	var plain []configSkillEntry
@@ -123,7 +125,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 			continue
 		}
 
-		source, err := ParseSource(skill.Source)
+		source, err := ParseSourceWithOptions(skill.Source, parseOpts)
 		if err != nil {
 			if !opts.Quiet {
 				ui.StepFail(displayName, fmt.Sprintf("invalid source: %v", err))
@@ -147,7 +149,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 		groupDir, bareName := skill.EffectiveParts()
 		displayName := skill.FullName()
 
-		source, err := ParseSource(skill.Source)
+		source, err := ParseSourceWithOptions(skill.Source, parseOpts)
 		if err != nil {
 			if !opts.Quiet {
 				ui.StepFail(displayName, fmt.Sprintf("invalid source: %v", err))

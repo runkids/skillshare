@@ -352,7 +352,7 @@ func cmdUpdate(args []string) error {
 	}
 
 	// --- Execute ---
-	uc := &updateContext{sourcePath: cfg.Source, opts: opts}
+	uc := &updateContext{sourcePath: cfg.Source, opts: opts, parseOpts: parseOptsFromConfig(cfg)}
 
 	if len(targets) == 1 {
 		// Single target: verbose path

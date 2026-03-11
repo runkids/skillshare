@@ -26,6 +26,13 @@
     },
     "hub": {
       "$ref": "#/$defs/hubConfig"
+    },
+    "gitlab_hosts": {
+      "type": "array",
+      "description": "Hostnames of self-managed GitLab instances that use nested subgroups. Hosts containing 'gitlab' are detected automatically.",
+      "items": { "type": "string" },
+      "uniqueItems": true,
+      "examples": [["git.company.com", "code.internal.io"]]
     }
   },
   "$defs": {

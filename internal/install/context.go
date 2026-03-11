@@ -55,6 +55,9 @@ type InstallContext interface {
 
 	// Mode returns "global" or "project".
 	Mode() string
+
+	// GitLabHosts returns extra hostnames to treat as GitLab instances.
+	GitLabHosts() []string
 }
 
 // ConfigInstallResult summarises the outcome of InstallFromConfig.

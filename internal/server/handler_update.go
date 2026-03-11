@@ -267,7 +267,7 @@ func (s *Server) auditGateTrackedRepo(name, repoPath, beforeHash, threshold stri
 
 func (s *Server) updateRegularSkill(name, skillPath string, skipAudit bool) updateResultItem {
 	meta, _ := install.ReadMeta(skillPath)
-	source, err := install.ParseSource(meta.Source)
+	source, err := install.ParseSourceWithOptions(meta.Source, s.parseOpts())
 	if err != nil {
 		return updateResultItem{
 			Name:    name,

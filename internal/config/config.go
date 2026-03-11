@@ -67,7 +67,8 @@ type Config struct {
 	Audit   AuditConfig             `yaml:"audit,omitempty"`
 	Hub     HubConfig               `yaml:"hub,omitempty"`
 	Log     LogConfig               `yaml:"log,omitempty"`
-	TUI     *bool                   `yaml:"tui,omitempty"` // nil = default true
+	TUI         *bool                   `yaml:"tui,omitempty"` // nil = default true
+	GitLabHosts []string                `yaml:"gitlab_hosts,omitempty"`
 }
 
 // IsTUIEnabled reports whether interactive TUI is enabled.
@@ -197,6 +198,13 @@ func Load() (*Config, error) {
 	}
 	cfg.Audit.BlockThreshold = threshold
 
+	// Validate and normalize gitlab_hosts
+	hosts, err := normalizeGitLabHosts(cfg.GitLabHosts)
+	if err != nil {
+		return nil, err
+	}
+	cfg.GitLabHosts = hosts
+
 	// Expand ~ in paths
 	cfg.Source = expandPath(cfg.Source)
 	for name, target := range cfg.Targets {
@@ -297,6 +305,33 @@ func migrateSkillsToRegistry(configPath string) error {
 	}
 	cleaned = append(schemaComment, cleaned...)
 	return os.WriteFile(configPath, cleaned, 0644)
+}
+
+// normalizeGitLabHosts validates and normalizes gitlab_hosts entries.
+// Rejects entries containing "://", "/", ":", or empty after trim.
+// Returns lowercased, trimmed hostnames.
+func normalizeGitLabHosts(hosts []string) ([]string, error) {
+	if len(hosts) == 0 {
+		return nil, nil
+	}
+	out := make([]string, 0, len(hosts))
+	for _, h := range hosts {
+		h = strings.TrimSpace(h)
+		if h == "" {
+			return nil, fmt.Errorf("gitlab_hosts: empty entry")
+		}
+		if strings.Contains(h, "://") {
+			return nil, fmt.Errorf("gitlab_hosts: entry %q must be a hostname, not a URL (remove scheme)", h)
+		}
+		if strings.Contains(h, "/") {
+			return nil, fmt.Errorf("gitlab_hosts: entry %q must be a hostname without path", h)
+		}
+		if strings.Contains(h, ":") {
+			return nil, fmt.Errorf("gitlab_hosts: entry %q must be a hostname without port", h)
+		}
+		out = append(out, strings.ToLower(h))
+	}
+	return out, nil
 }
 
 func normalizeAuditBlockThreshold(v string) (string, error) {

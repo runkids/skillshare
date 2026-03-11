@@ -69,8 +69,20 @@ var azureVSPattern = regexp.MustCompile(
 var azureSSHPattern = regexp.MustCompile(
 	`^git@ssh\.dev\.azure\.com:v3/([^/]+)/([^/]+)/(.+?)(?:\.git)?(?://(.+))?$`)
 
-// ParseSource analyzes the input string and returns a Source struct
+// ParseOptions holds optional configuration that affects source parsing.
+type ParseOptions struct {
+	GitLabHosts []string // extra hostnames to treat as GitLab (nested subgroup support)
+}
+
+// ParseSource analyzes the input string and returns a Source struct.
+// Uses default (zero) ParseOptions.
 func ParseSource(input string) (*Source, error) {
+	return ParseSourceWithOptions(input, ParseOptions{})
+}
+
+// ParseSourceWithOptions analyzes the input string with the given options
+// and returns a Source struct.
+func ParseSourceWithOptions(input string, opts ParseOptions) (*Source, error) {
 	input = strings.TrimSpace(input)
 	if input == "" {
 		return nil, fmt.Errorf("source cannot be empty")
@@ -114,7 +126,7 @@ func ParseSource(input string) (*Source, error) {
 
 	// Try Git HTTPS pattern (non-GitHub)
 	if matches := gitHTTPSPattern.FindStringSubmatch(input); matches != nil {
-		return parseGitHTTPS(matches, source)
+		return parseGitHTTPS(matches, source, opts)
 	}
 
 	return nil, fmt.Errorf("unrecognized source format: %s", input)
@@ -318,7 +330,7 @@ func parseAzureSSH(org, project, repo, subdir string, source *Source) (*Source, 
 	return source, nil
 }
 
-func parseGitHTTPS(matches []string, source *Source) (*Source, error) {
+func parseGitHTTPS(matches []string, source *Source, opts ParseOptions) (*Source, error) {
 	// matches: [full, host, path]
 	host := matches[1]
 	// Trim trailing slashes first, then /. — order matters:
@@ -347,7 +359,7 @@ func parseGitHTTPS(matches []string, source *Source) (*Source, error) {
 		} else {
 			repoPath = path
 		}
-	} else if strings.Contains(host, "gitlab") {
+	} else if isGitLabHost(host, opts.GitLabHosts) {
 		// GitLab hosts (including on-prem like onprem.gitlab.internal)
 		// may have nested subgroups up to 20 levels deep.
 		// Without .git, treat entire path as repo.
@@ -385,6 +397,22 @@ func parseGitHTTPS(matches []string, source *Source) (*Source, error) {
 	}
 
 	return source, nil
+}
+
+// isGitLabHost returns true if the host should be treated as a GitLab instance.
+// Built-in detection checks for "gitlab" in the hostname; extraHosts provides
+// additional hostnames for self-managed GitLab instances on custom domains.
+func isGitLabHost(host string, extraHosts []string) bool {
+	if strings.Contains(host, "gitlab") {
+		return true
+	}
+	h := strings.ToLower(host)
+	for _, eh := range extraHosts {
+		if strings.EqualFold(eh, h) {
+			return true
+		}
+	}
+	return false
 }
 
 // stripGitBranchPrefix removes platform-specific branch path segments from web URLs.

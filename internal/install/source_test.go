@@ -1243,6 +1243,75 @@ func TestParseSource_AzureDevOps_TrackName(t *testing.T) {
 	}
 }
 
+func TestParseSourceWithOptions_GitLabHosts(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		hosts    []string
+		wantURL  string
+		wantName string
+	}{
+		{
+			name:     "custom host treated as GitLab",
+			input:    "git.company.com/group/sub/project",
+			hosts:    []string{"git.company.com"},
+			wantURL:  "https://git.company.com/group/sub/project.git",
+			wantName: "project",
+		},
+		{
+			name:     "same URL without opts uses 2-segment split",
+			input:    "git.company.com/group/sub/project",
+			hosts:    nil,
+			wantURL:  "https://git.company.com/group/sub.git",
+			wantName: "project", // "project" is treated as subdir of owner/repo
+		},
+		{
+			name:     "case-insensitive host match",
+			input:    "Git.Company.Com/group/sub/project",
+			hosts:    []string{"git.company.com"},
+			wantURL:  "https://Git.Company.Com/group/sub/project.git", // host case preserved in URL
+			wantName: "project",
+		},
+		{
+			name:     ".git suffix still wins over host heuristic",
+			input:    "git.company.com/owner/repo.git/subdir",
+			hosts:    []string{"git.company.com"},
+			wantURL:  "https://git.company.com/owner/repo.git",
+			wantName: "subdir",
+		},
+		{
+			name:     "/-/ marker still wins over host heuristic",
+			input:    "git.company.com/group/sub/project/-/tree/main/skills/pdf",
+			hosts:    []string{"git.company.com"},
+			wantURL:  "https://git.company.com/group/sub/project.git",
+			wantName: "pdf",
+		},
+		{
+			name:     "built-in gitlab.com detection unchanged",
+			input:    "gitlab.com/group/sub/project",
+			hosts:    nil,
+			wantURL:  "https://gitlab.com/group/sub/project.git",
+			wantName: "project",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := ParseOptions{GitLabHosts: tt.hosts}
+			source, err := ParseSourceWithOptions(tt.input, opts)
+			if err != nil {
+				t.Fatalf("ParseSourceWithOptions(%q) error = %v", tt.input, err)
+			}
+			if source.CloneURL != tt.wantURL {
+				t.Errorf("CloneURL = %q, want %q", source.CloneURL, tt.wantURL)
+			}
+			if source.Name != tt.wantName {
+				t.Errorf("Name = %q, want %q", source.Name, tt.wantName)
+			}
+		})
+	}
+}
+
 func TestParseSource_AzureDevOps_GitHubOwnerEmpty(t *testing.T) {
 	// Azure DevOps sources should return empty GitHubOwner/GitHubRepo
 	inputs := []string{

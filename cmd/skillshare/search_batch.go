@@ -263,7 +263,7 @@ func repoSourceForGroupedClone(src *install.Source) install.Source {
 	repoSource.Raw = repoSource.CloneURL
 
 	// Re-parse CloneURL to get a canonical root-level name/type.
-	if root, err := install.ParseSource(repoSource.CloneURL); err == nil {
+	if root, err := install.ParseSourceWithOptions(repoSource.CloneURL, install.ParseOptions{}); err == nil {
 		repoSource.Type = root.Type
 		repoSource.Raw = root.Raw
 		repoSource.Name = root.Name
@@ -281,7 +281,7 @@ func groupByRepo(selected []search.SearchResult) (groups []sourceGroup, singles 
 	var order []string                       // preserve insertion order
 
 	for _, sr := range selected {
-		src, err := install.ParseSource(sr.Source)
+		src, err := install.ParseSourceWithOptions(sr.Source, install.ParseOptions{})
 		if err != nil || !src.IsGit() || src.Subdir == "" {
 			// Cannot group: parse failure, local path, or root-level repo skill
 			singles = append(singles, sr)
@@ -316,7 +316,7 @@ func groupByRepo(selected []search.SearchResult) (groups []sourceGroup, singles 
 // matchDiscoveredSkill finds a SkillInfo in the discovery result that matches
 // the given search result's expected subdir path.
 func matchDiscoveredSkill(discovery *install.DiscoveryResult, sr search.SearchResult) (install.SkillInfo, bool) {
-	src, err := install.ParseSource(sr.Source)
+	src, err := install.ParseSourceWithOptions(sr.Source, install.ParseOptions{})
 	if err != nil {
 		return install.SkillInfo{}, false
 	}
@@ -341,7 +341,7 @@ func collectSearchInstallGlobal(result search.SearchResult, cfg *config.Config, 
 		source: result.Source,
 	}
 
-	source, err := install.ParseSource(result.Source)
+	source, err := install.ParseSourceWithOptions(result.Source, parseOptsFromConfig(cfg))
 	if err != nil {
 		r.status = "failed"
 		r.detail = fmt.Sprintf("invalid source: %v", err)
@@ -397,7 +397,7 @@ func collectSearchInstallProject(result search.SearchResult, cwd string, onProgr
 		return r
 	}
 
-	source, err := install.ParseSource(result.Source)
+	source, err := install.ParseSourceWithOptions(result.Source, install.ParseOptions{GitLabHosts: runtime.config.GitLabHosts})
 	if err != nil {
 		r.status = "failed"
 		r.detail = fmt.Sprintf("invalid source: %v", err)

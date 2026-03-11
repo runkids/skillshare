@@ -19,6 +19,7 @@ type updateContext struct {
 	sourcePath  string
 	projectRoot string
 	opts        *updateOptions
+	parseOpts   install.ParseOptions
 }
 
 func (uc *updateContext) isProject() bool {

@@ -410,6 +410,37 @@ ignore:
 - `**/.DS_Store`
 - `**/.git/**`
 
+### `gitlab_hosts`
+
+Hostnames of self-managed GitLab instances that use nested subgroups. Hosts containing `gitlab` in the name are detected automatically — this field is only needed for custom domains.
+
+```yaml
+gitlab_hosts:
+  - git.company.com
+  - code.internal.io
+```
+
+When a hostname is listed here, `skillshare install` treats the full URL path as the repository (supporting nested subgroups up to 20 levels), instead of assuming the standard `owner/repo` two-segment split.
+
+**Without `gitlab_hosts`:**
+```bash
+# git.company.com/team/frontend/ui → clones "team/frontend", subdir "ui"
+skillshare install git.company.com/team/frontend/ui
+```
+
+**With `gitlab_hosts: [git.company.com]`:**
+```bash
+# git.company.com/team/frontend/ui → clones "team/frontend/ui" (full path)
+skillshare install git.company.com/team/frontend/ui
+```
+
+**Workaround without config:** append `.git` to mark the end of the repo path:
+```bash
+skillshare install git.company.com/team/frontend/ui.git
+```
+
+Entries must be bare hostnames (no scheme, path, or port). They are normalized to lowercase.
+
 ### `audit`
 
 Security audit configuration.

@@ -112,9 +112,10 @@ func (s SkillEntry) EffectiveParts() (group, name string) {
 
 // ProjectConfig holds project-level config (.skillshare/config.yaml).
 type ProjectConfig struct {
-	Targets []ProjectTargetEntry `yaml:"targets"`
-	Audit   AuditConfig          `yaml:"audit,omitempty"`
-	Hub     HubConfig            `yaml:"hub,omitempty"`
+	Targets     []ProjectTargetEntry `yaml:"targets"`
+	Audit       AuditConfig          `yaml:"audit,omitempty"`
+	Hub         HubConfig            `yaml:"hub,omitempty"`
+	GitLabHosts []string             `yaml:"gitlab_hosts,omitempty"`
 }
 
 // ProjectConfigPath returns the project config path for the given root.
@@ -147,6 +148,13 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 		return nil, fmt.Errorf("project config has invalid audit.block_threshold: %w", err)
 	}
 	cfg.Audit.BlockThreshold = threshold
+
+	// Validate and normalize gitlab_hosts
+	hosts, err := normalizeGitLabHosts(cfg.GitLabHosts)
+	if err != nil {
+		return nil, fmt.Errorf("project config: %w", err)
+	}
+	cfg.GitLabHosts = hosts
 
 	for _, target := range cfg.Targets {
 		if strings.TrimSpace(target.Name) == "" {
