@@ -6,14 +6,12 @@ import { tags } from '@lezer/highlight';
 const handEditorTheme = EditorView.theme({
   '&': {
     fontSize: '14px',
-    fontFamily: "'Courier New', monospace",
+    fontFamily: "'SFMono-Regular', Menlo, Consolas, monospace",
     backgroundColor: 'var(--color-paper-warm)',
     border: 'none',
     borderRadius: '0',
   },
-  '&.cm-focused': {
-    outline: 'none',
-  },
+  '&.cm-focused': { outline: 'none' },
   '.cm-content': {
     caretColor: 'var(--color-pencil)',
     padding: '8px 0',
@@ -26,29 +24,29 @@ const handEditorTheme = EditorView.theme({
     backgroundColor: 'var(--color-paper)',
     color: 'var(--color-muted-dark)',
     border: 'none',
-    borderRight: '2px dashed var(--color-muted)',
-    fontFamily: "'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace",
+    borderRight: '1px solid var(--color-muted)',
+    fontFamily: "'SFMono-Regular', Menlo, Consolas, monospace",
     fontSize: '13px',
   },
   '.cm-activeLineGutter': {
-    backgroundColor: 'var(--color-postit)',
+    backgroundColor: 'var(--color-info-light)',
     color: 'var(--color-pencil)',
   },
   '.cm-activeLine': {
-    backgroundColor: 'var(--color-postit)',
+    backgroundColor: 'var(--color-info-light)',
   },
   '.cm-selectionBackground': {
-    backgroundColor: 'var(--color-postit) !important',
+    backgroundColor: 'var(--color-info-light) !important',
   },
   '&.cm-focused .cm-selectionBackground': {
-    backgroundColor: 'var(--color-postit-dark) !important',
+    backgroundColor: 'rgba(45, 93, 161, 0.15) !important',
   },
   '.cm-matchingBracket': {
-    backgroundColor: 'var(--color-postit)',
+    backgroundColor: 'var(--color-info-light)',
     outline: '1px solid var(--color-blue)',
   },
   '.cm-searchMatch': {
-    backgroundColor: 'var(--color-postit-dark)',
+    backgroundColor: 'var(--color-warning-light)',
     borderRadius: '2px',
   },
   '.cm-searchMatch.cm-searchMatch-selected': {

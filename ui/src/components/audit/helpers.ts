@@ -1,12 +1,12 @@
-import { colors } from '../../design';
+import { palette } from '../../design';
 
 export function riskColor(risk: string): string {
   switch (risk) {
-    case 'critical': return colors.danger;
-    case 'high': return colors.warning;
-    case 'medium': return colors.blue;
-    case 'low': return colors.success;
-    default: return colors.success;
+    case 'critical': return palette.danger;
+    case 'high': return palette.warning;
+    case 'medium': return palette.info;
+    case 'low': return palette.success;
+    default: return palette.success;
   }
 }
 
