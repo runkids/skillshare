@@ -6,12 +6,21 @@ Release date: 2026-03-11
 
 v0.16.15 adds **custom GitLab domain support** and fixes **nested subgroup URL parsing** (Issue #72):
 
-1. **`gitlab_hosts` config** — declare self-managed GitLab hostnames (e.g., `git.company.com`) so URLs are parsed with nested subgroup support
-2. **`SKILLSHARE_GITLAB_HOSTS` env var** — comma-separated list for CI/CD pipelines without a config file; merged with config values, invalid entries silently skipped
-3. **GitLab nested subgroups** — URLs like `group/subgroup/project` are now treated as the full repo path instead of being split at the 2nd segment
-4. **`.git` boundary** — use `.git` suffix to explicitly mark where the repo path ends and the subdir begins
+1. **JihuLab auto-detection** — hosts containing `jihulab` (e.g., `jihulab.com`) are now auto-detected alongside `gitlab` for nested subgroup support
+2. **`gitlab_hosts` config** — declare self-managed GitLab hostnames (e.g., `git.company.com`) so URLs are parsed with nested subgroup support
+3. **`SKILLSHARE_GITLAB_HOSTS` env var** — comma-separated list for CI/CD pipelines without a config file; merged with config values, invalid entries silently skipped
+4. **GitLab nested subgroups** — URLs like `group/subgroup/project` are now treated as the full repo path instead of being split at the 2nd segment
+5. **`.git` boundary** — use `.git` suffix to explicitly mark where the repo path ends and the subdir begins
 
 No breaking changes. Drop-in upgrade from v0.16.14.
+
+---
+
+## JihuLab Auto-Detection
+
+JihuLab (`jihulab.com`) is GitLab's official Chinese distribution with full nested subgroup support, but its hostname doesn't contain `"gitlab"`. Built-in detection now checks for both `"gitlab"` and `"jihulab"` in the hostname via `isGitLabHost()`, so URLs like `jihulab.com/group/sub/project` work without any `gitlab_hosts` config.
+
+Other GitLab-like platforms (e.g., OneDev) that use nested paths but have unrelated hostnames still require `gitlab_hosts` as a workaround.
 
 ---
 

@@ -6,7 +6,8 @@
 
 #### Custom GitLab Domain Support
 
-- **`gitlab_hosts` config** — declare self-managed GitLab hostnames so skillshare treats URLs with nested subgroup paths correctly. Hosts containing `gitlab` in the name are detected automatically; this config is for custom domains like `git.company.com`:
+- **JihuLab auto-detection** — hosts containing `jihulab` in the name (e.g., `jihulab.com`) are now automatically detected alongside `gitlab`, so nested subgroup URLs work without any config
+- **`gitlab_hosts` config** — declare self-managed GitLab hostnames so skillshare treats URLs with nested subgroup paths correctly. Hosts containing `gitlab` or `jihulab` in the name are detected automatically; this config is for other custom domains like `git.company.com`:
   ```yaml
   # ~/.config/skillshare/config.yaml (or .skillshare/config.yaml)
   gitlab_hosts:
