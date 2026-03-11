@@ -8,10 +8,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantClasses = {
-  primary: 'bg-accent text-white border border-accent hover:brightness-90',
-  secondary: 'bg-transparent text-pencil border border-muted hover:bg-muted/30',
-  danger: 'bg-danger text-white border border-danger hover:brightness-90',
-  ghost: 'bg-transparent text-pencil hover:bg-muted/30',
+  primary: 'bg-pencil text-paper border border-pencil hover:opacity-80',
+  secondary: 'bg-transparent text-pencil border border-muted hover:border-pencil hover:text-pencil',
+  danger: 'bg-danger text-white border border-danger hover:opacity-80',
+  ghost: 'bg-transparent text-pencil-light hover:text-pencil',
 };
 
 const sizeClasses = {
@@ -34,9 +34,8 @@ export default function Button({
       className={`
         inline-flex items-center justify-center gap-2
         font-medium
-        transition-all duration-100 cursor-pointer
-        active:translate-x-[4px] active:translate-y-[4px]
-        disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-x-0 disabled:translate-y-0
+        transition-all duration-150 cursor-pointer
+        disabled:opacity-50 disabled:cursor-not-allowed
         ${variantClasses[variant]}
         ${sizeClasses[size]}
         ${className}
