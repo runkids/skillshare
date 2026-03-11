@@ -34,6 +34,51 @@ function isAuditBlock(msg: string): boolean {
   return msg.includes('security audit failed');
 }
 
+/** Severity → badge variant + left-border color */
+const severityStyle = (sev: string) => {
+  if (sev === 'CRITICAL') return { variant: 'danger' as const, color: 'var(--color-danger)' };
+  if (sev === 'HIGH') return { variant: 'warning' as const, color: 'var(--color-warning)' };
+  return { variant: 'default' as const, color: 'var(--color-muted-dark)' };
+};
+
+interface GroupedFinding {
+  skillName?: string;
+  severity: string;
+  description: string;
+  snippets: string[];
+}
+
+/** Group flat audit lines into structured card data */
+function groupAuditFindings(lines: string[]): GroupedFinding[] {
+  const groups: GroupedFinding[] = [];
+  let skill: string | undefined;
+  for (const line of lines) {
+    if (line.endsWith(':') && !/^(CRITICAL|HIGH|MEDIUM|LOW|INFO):/.test(line)) {
+      skill = line.replace(/:$/, '');
+    } else {
+      const m = line.match(/^(CRITICAL|HIGH|MEDIUM|LOW|INFO):\s*(.*)/);
+      if (m) groups.push({ skillName: skill, severity: m[1], description: m[2], snippets: [] });
+      else if (line.startsWith('"') && groups.length > 0) groups[groups.length - 1].snippets.push(line);
+    }
+  }
+  return groups;
+}
+
+/** Parse warning strings into structured card data */
+function parseWarnings(warnings: string[]): GroupedFinding[] {
+  return warnings.map((w) => {
+    const lines = w.split('\n');
+    const header = lines[0];
+    const snippets = lines.slice(1).map((l) => l.trim()).filter(Boolean);
+    const sm = header.match(/^(.+?):\s*(audit\s+.*)/);
+    const skillName = sm ? sm[1] : undefined;
+    const h = sm ? sm[2] : header;
+    const severity = h.includes('CRITICAL') ? 'CRITICAL' : h.includes('HIGH') ? 'HIGH' : 'MEDIUM';
+    const description = h.replace(/^audit\s+(HIGH|MEDIUM|CRITICAL|INFO):\s*/, '');
+    return { skillName, severity, description, snippets };
+  });
+}
+
 /** Saved install params for force-retry */
 interface PendingInstall {
   type: 'single' | 'batch' | 'track';
@@ -73,6 +118,7 @@ export default function InstallForm({
   } | null>(null);
   const [auditForcing, setAuditForcing] = useState(false);
   const [warningDialog, setWarningDialog] = useState<string[] | null>(null);
+  const [severityFilter, setSeverityFilter] = useState<string | null>(null);
 
   const resetForm = () => {
     setSource('');
@@ -167,6 +213,7 @@ export default function InstallForm({
     } finally {
       setAuditForcing(false);
       setAuditDialog(null);
+      setSeverityFilter(null);
     }
   };
 
@@ -303,6 +350,28 @@ export default function InstallForm({
     }
   };
 
+  // Pre-compute grouped findings for card-based rendering
+  const auditFindings = auditDialog ? groupAuditFindings(auditDialog.findings) : [];
+  const auditCounts: Record<string, number> = {};
+  for (const f of auditFindings) auditCounts[f.severity] = (auditCounts[f.severity] ?? 0) + 1;
+  const warningFindings = warningDialog ? parseWarnings(warningDialog) : [];
+  const warningCounts: Record<string, number> = {};
+  for (const f of warningFindings) warningCounts[f.severity] = (warningCounts[f.severity] ?? 0) + 1;
+
+  const filteredAudit = severityFilter ? auditFindings.filter((f) => f.severity === severityFilter) : auditFindings;
+  const filteredWarnings = severityFilter ? warningFindings.filter((f) => f.severity === severityFilter) : warningFindings;
+
+  const filterBadge = (severity: string, count: number | undefined, variant: 'danger' | 'warning' | 'default', label: string) =>
+    count ? (
+      <button
+        onClick={() => setSeverityFilter(severityFilter === severity ? null : severity)}
+        className={`cursor-pointer transition-opacity ${severityFilter && severityFilter !== severity ? 'opacity-40' : ''}`}
+        style={{ background: 'none', border: 'none', padding: 0 }}
+      >
+        <Badge variant={variant}>{count} {label}</Badge>
+      </button>
+    ) : null;
+
   const formContent = (
     <Card variant="default" className="animate-fade-in">
       <div className="space-y-4">
@@ -376,28 +445,46 @@ export default function InstallForm({
       wide
       title="Security Threats Detected"
       message={
-        <div className="text-left space-y-2">
-          <div className="flex items-center gap-2 justify-center mb-3">
+        <div className="text-left space-y-3">
+          <div className="flex items-center gap-2 justify-center mb-1">
             <ShieldAlert size={20} className="text-danger" />
             <span>Critical issues found during security audit</span>
           </div>
-          <div
-            className="bg-paper border border-danger/30 p-4 space-y-3 text-sm text-pencil max-h-64 overflow-y-auto"
-            style={{ borderRadius: '6px' }}
-          >
-            {auditDialog?.findings.map((line, i) => (
-              <div key={i} className={line.startsWith('"') ? 'text-pencil-light pl-4' : ''}>
-                {line.startsWith('CRITICAL:') ? (
-                  <span><Badge variant="danger">CRITICAL</Badge> {line.replace('CRITICAL: ', '')}</span>
-                ) : line.startsWith('HIGH:') ? (
-                  <span><Badge variant="warning">HIGH</Badge> {line.replace('HIGH: ', '')}</span>
-                ) : (
-                  line
-                )}
-              </div>
-            ))}
+          <div className="flex flex-wrap gap-1.5 items-center text-xs text-pencil-light">
+            <span>{auditFindings.length} {auditFindings.length === 1 ? 'finding' : 'findings'}:</span>
+            {filterBadge('CRITICAL', auditCounts.CRITICAL, 'danger', 'Critical')}
+            {filterBadge('HIGH', auditCounts.HIGH, 'warning', 'High')}
+            {filterBadge('MEDIUM', auditCounts.MEDIUM, 'default', 'Medium')}
+            {severityFilter && (
+              <span className="text-pencil-light">— showing {filteredAudit.length}</span>
+            )}
           </div>
-          <p className="text-xs text-pencil-light mt-2">
+          <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
+            {filteredAudit.map((f, i) => {
+              const s = severityStyle(f.severity);
+              return (
+                <div
+                  key={i}
+                  className="border border-muted bg-paper p-3 space-y-1.5"
+                  style={{ borderRadius: '6px', borderLeftWidth: '3px', borderLeftColor: s.color }}
+                >
+                  {f.skillName && <div className="text-xs text-pencil-light font-mono">{f.skillName}</div>}
+                  <div className="flex items-start gap-2">
+                    <Badge variant={s.variant}>{f.severity}</Badge>
+                    <span className="text-sm pt-0.5 leading-relaxed">{f.description}</span>
+                  </div>
+                  {f.snippets.length > 0 && (
+                    <div className="ml-1 pl-3 border-l border-muted space-y-0.5">
+                      {f.snippets.map((sn, j) => (
+                        <div key={j} className="text-xs text-pencil-light font-mono break-all">{sn}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-pencil-light">
             Force install will bypass the security check. Proceed with caution.
           </p>
         </div>
@@ -405,7 +492,7 @@ export default function InstallForm({
       confirmText="Force Install"
       cancelText="Cancel"
       onConfirm={handleAuditForce}
-      onCancel={() => setAuditDialog(null)}
+      onCancel={() => { setAuditDialog(null); setSeverityFilter(null); }}
       loading={auditForcing}
     />
   );
@@ -417,29 +504,41 @@ export default function InstallForm({
       wide
       title="Security Warnings"
       message={
-        <div className="text-left space-y-2">
-          <div className="flex items-center gap-2 justify-center mb-3">
+        <div className="text-left space-y-3">
+          <div className="flex items-center gap-2 justify-center mb-1">
             <ShieldCheck size={20} className="text-warning" />
             <span>Skill installed with audit warnings</span>
           </div>
-          <div
-            className="bg-paper border border-warning/30 p-4 space-y-3 text-sm text-pencil max-h-64 overflow-y-auto"
-            style={{ borderRadius: '6px' }}
-          >
-            {warningDialog?.map((w, i) => {
-              const lines = w.split('\n');
-              const header = lines[0];
-              const snippet = lines.slice(1).map((l) => l.trim()).filter(Boolean).join(' ');
-              const isHigh = header.includes('HIGH');
+          <div className="flex flex-wrap gap-1.5 items-center text-xs text-pencil-light">
+            <span>{warningFindings.length} {warningFindings.length === 1 ? 'warning' : 'warnings'}:</span>
+            {filterBadge('CRITICAL', warningCounts.CRITICAL, 'danger', 'Critical')}
+            {filterBadge('HIGH', warningCounts.HIGH, 'warning', 'High')}
+            {filterBadge('MEDIUM', warningCounts.MEDIUM, 'default', 'Medium')}
+            {severityFilter && (
+              <span className="text-pencil-light">— showing {filteredWarnings.length}</span>
+            )}
+          </div>
+          <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
+            {filteredWarnings.map((f, i) => {
+              const s = severityStyle(f.severity);
               return (
-                <div key={i}>
-                  <div>
-                    <Badge variant={isHigh ? 'warning' : 'info'}>
-                      {isHigh ? 'HIGH' : 'MEDIUM'}
-                    </Badge>{' '}
-                    {header.replace(/^audit\s+(HIGH|MEDIUM|CRITICAL):\s*/, '')}
+                <div
+                  key={i}
+                  className="border border-muted bg-paper p-3 space-y-1.5"
+                  style={{ borderRadius: '6px', borderLeftWidth: '3px', borderLeftColor: s.color }}
+                >
+                  {f.skillName && <div className="text-xs text-pencil-light font-mono">{f.skillName}</div>}
+                  <div className="flex items-start gap-2">
+                    <Badge variant={s.variant}>{f.severity}</Badge>
+                    <span className="text-sm pt-0.5 leading-relaxed">{f.description}</span>
                   </div>
-                  {snippet && <div className="text-pencil-light pl-4 text-xs">{snippet}</div>}
+                  {f.snippets.length > 0 && (
+                    <div className="ml-1 pl-3 border-l border-muted space-y-0.5">
+                      {f.snippets.map((sn, j) => (
+                        <div key={j} className="text-xs text-pencil-light font-mono break-all">{sn}</div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -448,8 +547,8 @@ export default function InstallForm({
       }
       confirmText="OK"
       cancelText=""
-      onConfirm={() => setWarningDialog(null)}
-      onCancel={() => setWarningDialog(null)}
+      onConfirm={() => { setWarningDialog(null); setSeverityFilter(null); }}
+      onCancel={() => { setWarningDialog(null); setSeverityFilter(null); }}
     />
   );
 

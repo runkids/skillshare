@@ -72,7 +72,7 @@ export default function ConfirmDialog({
             {cancelText && (
               <Button
                 variant="ghost"
-                size="sm"
+                size="md"
                 onClick={onCancel}
                 disabled={loading}
               >
@@ -81,7 +81,7 @@ export default function ConfirmDialog({
             )}
             <Button
               variant={variant === 'danger' ? 'danger' : 'primary'}
-              size="sm"
+              size="md"
               onClick={onConfirm}
               disabled={loading}
             >

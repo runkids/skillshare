@@ -1,4 +1,5 @@
-import { useState, useMemo, forwardRef, memo } from 'react';
+import { useState, useMemo, forwardRef, memo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
   Search,
@@ -10,10 +11,13 @@ import {
   Globe,
   FolderOpen,
   LayoutGrid,
+  List,
   Target,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { VirtuosoGrid } from 'react-virtuoso';
+import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
 import type { GridComponents } from 'react-virtuoso';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Badge from '../components/Badge';
@@ -28,7 +32,7 @@ import { radius, shadows } from '../design';
 
 type FilterType = 'all' | 'tracked' | 'github' | 'local';
 type SortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
-type ViewType = 'grid' | 'grouped';
+type ViewType = 'grid' | 'grouped' | 'table';
 
 const filterOptions: { key: FilterType; label: string; icon: React.ReactNode }[] = [
   { key: 'all', label: 'All', icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
@@ -254,7 +258,15 @@ export default function SkillsPage() {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('name-asc');
-  const [viewType, setViewType] = useState<ViewType>('grid');
+  const [viewType, setViewType] = useState<ViewType>(() => {
+    const saved = localStorage.getItem('skillshare:skills-view');
+    return (saved === 'grid' || saved === 'grouped' || saved === 'table') ? saved : 'grid';
+  });
+
+  const changeViewType = (v: ViewType) => {
+    setViewType(v);
+    localStorage.setItem('skillshare:skills-view', v);
+  };
 
   const skills = data?.skills ?? [];
 
@@ -364,18 +376,25 @@ export default function SkillsPage() {
         {/* View toggle */}
         <div className="flex items-center border-2 border-muted overflow-hidden" style={{ borderRadius: radius.sm }}>
           <button
-            onClick={() => setViewType('grid')}
+            onClick={() => changeViewType('grid')}
             className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grid' ? 'bg-pencil text-paper' : 'bg-surface text-pencil-light hover:text-pencil'}`}
             title="Grid view"
           >
             <LayoutGrid size={16} strokeWidth={2.5} />
           </button>
           <button
-            onClick={() => setViewType('grouped')}
+            onClick={() => changeViewType('grouped')}
             className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grouped' ? 'bg-pencil text-paper' : 'bg-surface text-pencil-light hover:text-pencil'}`}
             title="Grouped view"
           >
             <FolderOpen size={16} strokeWidth={2.5} />
+          </button>
+          <button
+            onClick={() => changeViewType('table')}
+            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'table' ? 'bg-pencil text-paper' : 'bg-surface text-pencil-light hover:text-pencil'}`}
+            title="Table view"
+          >
+            <List size={16} strokeWidth={2.5} />
           </button>
         </div>
       </div>
@@ -416,7 +435,7 @@ export default function SkillsPage() {
         </p>
       )}
 
-      {/* Skills grid / grouped view */}
+      {/* Skills grid / grouped / table view */}
       {filtered.length > 0 ? (
         viewType === 'grid' ? (
           <VirtuosoGrid
@@ -432,8 +451,10 @@ export default function SkillsPage() {
               <SkillPostit skill={filtered[index]} index={index} />
             )}
           />
+        ) : viewType === 'grouped' ? (
+          <VirtualizedGroupedView dirs={grouped.dirs} groups={grouped.groups} />
         ) : (
-          <GroupedView dirs={grouped.dirs} groups={grouped.groups} />
+          <SkillsTable skills={filtered} />
         )
       ) : (
         <EmptyState
@@ -450,45 +471,254 @@ export default function SkillsPage() {
   );
 }
 
-/* -- Grouped view --------------------------------- */
+/* -- Virtualized grouped view --------------------- */
 
-function GroupedView({ dirs, groups }: { dirs: string[]; groups: Map<string, Skill[]> }) {
-  let globalIndex = 0;
+type GroupRow =
+  | { type: 'header'; dir: string; count: number; showHeader: boolean }
+  | { type: 'cards'; skills: Skill[] };
+
+function VirtualizedGroupedView({ dirs, groups }: { dirs: string[]; groups: Map<string, Skill[]> }) {
+  const rows = useMemo(() => {
+    const result: GroupRow[] = [];
+    const showHeaders = dirs.length > 1 || (dirs.length === 1 && dirs[0] !== '');
+    for (const dir of dirs) {
+      const skills = groups.get(dir) ?? [];
+      result.push({ type: 'header', dir, count: skills.length, showHeader: showHeaders });
+      // Chunk skills into rows of 3
+      for (let i = 0; i < skills.length; i += 3) {
+        result.push({ type: 'cards', skills: skills.slice(i, i + 3) });
+      }
+    }
+    return result;
+  }, [dirs, groups]);
 
   return (
-    <div className="space-y-8">
-      {dirs.map((dir) => {
-        const skills = groups.get(dir) ?? [];
-        const sectionLabel = dir || '(root)';
-        const showHeader = dirs.length > 1 || dir !== '';
-
-        return (
-          <div key={dir || '__root'}>
-            {showHeader && (
-              <div className="flex items-center gap-2 mb-4">
-                <Folder size={18} strokeWidth={2.5} className="text-pencil-light" />
-                <h3
-                  className="text-lg font-bold text-pencil"
-                >
-                  {sectionLabel}
-                </h3>
-                <span
-                  className="text-sm text-pencil-light px-2 py-0.5 bg-muted"
-                  style={{ borderRadius: radius.sm }}
-                >
-                  {skills.length}
-                </span>
-              </div>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-              {skills.map((skill) => {
-                const idx = globalIndex++;
-                return <SkillPostit key={skill.flatName} skill={skill} index={idx} />;
-              })}
+    <Virtuoso
+      useWindowScroll
+      totalCount={rows.length}
+      overscan={200}
+      itemContent={(index) => {
+        const row = rows[index];
+        if (row.type === 'header') {
+          if (!row.showHeader) return <div />;
+          return (
+            <div className="flex items-center gap-2 mb-4 mt-8 first:mt-0" style={index === 0 ? { marginTop: 0 } : undefined}>
+              <Folder size={18} strokeWidth={2.5} className="text-pencil-light" />
+              <h3 className="text-lg font-bold text-pencil">
+                {row.dir || '(root)'}
+              </h3>
+              <span
+                className="text-sm text-pencil-light px-2 py-0.5 bg-muted"
+                style={{ borderRadius: radius.sm }}
+              >
+                {row.count}
+              </span>
             </div>
+          );
+        }
+        return (
+          <div className="flex flex-wrap gap-5 mb-5">
+            {row.skills.map((skill) => (
+              <div
+                key={skill.flatName}
+                className="!w-full md:!w-[calc(50%-0.625rem)] xl:!w-[calc(33.333%-0.834rem)]"
+                style={{ display: 'flex', flex: 'none', boxSizing: 'border-box' }}
+              >
+                <SkillPostit skill={skill} />
+              </div>
+            ))}
           </div>
         );
-      })}
-    </div>
+      }}
+    />
+  );
+}
+
+/* -- Table view with pagination ------------------- */
+
+const TABLE_PAGE_SIZES = [10, 25, 50] as const;
+
+function TablePillButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`
+        px-3 py-1.5 text-sm border-2 transition-all duration-150 cursor-pointer
+        ${active
+          ? 'bg-pencil text-paper border-pencil font-medium'
+          : 'bg-transparent text-pencil border-muted-dark hover:border-pencil'
+        }
+      `}
+      style={{
+        borderRadius: radius.sm,
+        boxShadow: active ? shadows.sm : 'none',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function TruncateWithTip({ text }: { text: string }) {
+  const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
+
+  return (
+    <>
+      <span
+        className="block truncate"
+        onMouseEnter={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          setTip({ x: rect.left, y: rect.bottom + 4 });
+        }}
+        onMouseLeave={() => setTip(null)}
+      >
+        {text}
+      </span>
+      {tip && createPortal(
+        <div
+          className="fixed z-[9999] max-w-sm break-all whitespace-normal bg-pencil px-2.5 py-1.5 text-xs text-paper shadow-lg pointer-events-none"
+          style={{ left: tip.x, top: tip.y, borderRadius: radius.sm }}
+        >
+          {text}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+}
+
+function SkillsTable({ skills }: { skills: Skill[] }) {
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState<number>(10);
+
+  useEffect(() => { setPage(0); }, [skills]);
+
+  const totalPages = Math.max(1, Math.ceil(skills.length / pageSize));
+  const start = page * pageSize;
+  const visible = skills.slice(start, start + pageSize);
+
+  return (
+    <Card>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left">
+          <thead>
+            <tr className="border-b-2 border-dashed border-muted-dark">
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium w-0" />
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Name</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Path</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Type</th>
+              <th className="pb-3 text-pencil-light text-sm font-medium">Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visible.map((skill) => (
+              <tr
+                key={skill.flatName}
+                className="border-b border-dashed border-muted hover:bg-paper-warm/60 transition-colors"
+              >
+                {/* Status stripe */}
+                <td className="py-3 pr-0 w-1">
+                  <div
+                    className="w-1 h-6 rounded-full"
+                    style={{
+                      backgroundColor: skill.isInRepo
+                        ? 'var(--color-pencil-light)'
+                        : 'var(--color-muted)',
+                    }}
+                    title={skill.isInRepo ? 'tracked' : 'local'}
+                  />
+                </td>
+                {/* Name */}
+                <td className="py-3 pr-4">
+                  <Link
+                    to={`/skills/${encodeURIComponent(skill.flatName)}`}
+                    className="font-medium text-pencil hover:underline"
+                  >
+                    {skill.name}
+                  </Link>
+                </td>
+                {/* Path */}
+                <td className="py-3 pr-4 font-mono text-sm text-pencil-light max-w-[200px]">
+                  <TruncateWithTip text={skill.relPath} />
+                </td>
+                {/* Type badge */}
+                <td className="py-3 pr-4">
+                  {skill.isInRepo ? (
+                    <Badge variant="default">tracked</Badge>
+                  ) : getTypeLabel(skill.type) ? (
+                    <Badge variant="info">{getTypeLabel(skill.type)}</Badge>
+                  ) : (
+                    <Badge variant="default">local</Badge>
+                  )}
+                </td>
+                {/* Source */}
+                <td className="py-3 text-sm text-pencil-light max-w-[280px]">
+                  <TruncateWithTip text={skill.source ?? '—'} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {skills.length > TABLE_PAGE_SIZES[0] && (
+        <div className="flex items-center justify-between pt-4 mt-4 border-t-2 border-dashed border-muted">
+          <div className="flex items-center gap-2 text-sm text-pencil-light">
+            <span>Show</span>
+            {TABLE_PAGE_SIZES.map((size) => (
+              <TablePillButton
+                key={size}
+                active={pageSize === size}
+                onClick={() => { setPageSize(size); setPage(0); }}
+              >
+                {size}
+              </TablePillButton>
+            ))}
+            <span className="ml-1">
+              {start + 1}–{Math.min(start + pageSize, skills.length)} of {skills.length}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className={`p-1.5 border-2 transition-all duration-150 cursor-pointer ${
+                page === 0
+                  ? 'border-transparent text-muted-dark cursor-not-allowed'
+                  : 'border-transparent text-pencil hover:bg-paper-warm hover:border-muted-dark'
+              }`}
+              style={{ borderRadius: radius.sm }}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <span className="text-sm text-pencil px-2">
+              {page + 1} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              className={`p-1.5 border-2 transition-all duration-150 cursor-pointer ${
+                page >= totalPages - 1
+                  ? 'border-transparent text-muted-dark cursor-not-allowed'
+                  : 'border-transparent text-pencil hover:bg-paper-warm hover:border-muted-dark'
+              }`}
+              style={{ borderRadius: radius.sm }}
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
