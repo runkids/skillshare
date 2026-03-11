@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, forwardRef, memo, useEffect } from 'react';
+import { useState, useMemo, useCallback, forwardRef, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
@@ -581,8 +581,11 @@ function TruncateWithTip({ text }: { text: string }) {
 function SkillsTable({ skills }: { skills: Skill[] }) {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState<number>(10);
-
-  useEffect(() => { setPage(0); }, [skills]);
+  const [prevSkills, setPrevSkills] = useState(skills);
+  if (skills !== prevSkills) {
+    setPrevSkills(skills);
+    setPage(0);
+  }
 
   const totalPages = Math.max(1, Math.ceil(skills.length / pageSize));
   const start = page * pageSize;
