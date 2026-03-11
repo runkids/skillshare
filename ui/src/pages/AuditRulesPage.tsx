@@ -73,16 +73,6 @@ export default function AuditRulesPage() {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [toolbarHeight, setToolbarHeight] = useState(0);
 
-  useEffect(() => {
-    const el = toolbarRef.current;
-    if (!el) return;
-    const update = () => setToolbarHeight(el.offsetHeight);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [viewMode]);
-
   // Compiled rules query (structured view)
   const compiled = useQuery({
     queryKey: queryKeys.audit.compiled,
@@ -97,6 +87,17 @@ export default function AuditRulesPage() {
     staleTime: staleTimes.auditRules,
     enabled: viewMode === 'yaml',
   });
+
+  // Must be after query declarations (compiled/rawQuery used in deps)
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    const update = () => setToolbarHeight(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [viewMode, compiled.isPending, rawQuery.isPending]);
 
   // YAML editor state
   const [raw, setRaw] = useState('');
@@ -360,7 +361,7 @@ export default function AuditRulesPage() {
       {viewMode === 'structured' && compiled.data && (
         <>
           {/* Sticky toolbar: summary + tabs + search */}
-          <div ref={toolbarRef} className="sticky top-0 z-20 bg-paper pt-4 pb-4 -mx-1 px-1 space-y-3">
+          <div ref={toolbarRef} className="sticky top-0 z-20 bg-paper pt-4 pb-4 -mx-1 px-1 space-y-3" style={{ boxShadow: '0 12px 0 0 var(--color-paper)' }}>
             {/* Inline summary */}
             <p className="text-sm text-pencil-light">
               <span className="font-medium text-pencil">{stats.total}</span> rules
@@ -566,11 +567,36 @@ function PatternAccordion({
   const allEnabled = disabledCount === 0;
   const enabledRatio = rules.length > 0 ? (enabledCount / rules.length) * 100 : 100;
 
+  // Scroll accordion into view on expand/collapse transitions
+  const accordionRef = useRef<HTMLDivElement>(null);
+  const wasExpandedRef = useRef(isExpanded);
+
+  useEffect(() => {
+    if (!accordionRef.current) return;
+
+    if (!wasExpandedRef.current && isExpanded) {
+      // Expanding: scroll so the header + first items are visible
+      // Use requestAnimationFrame to wait for DOM to update with expanded content
+      requestAnimationFrame(() => {
+        accordionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    } else if (wasExpandedRef.current && !isExpanded) {
+      // Collapsing: scroll back if accordion ended up off-screen
+      const rect = accordionRef.current.getBoundingClientRect();
+      if (rect.top < 0 || rect.top > window.innerHeight * 0.5) {
+        accordionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+    wasExpandedRef.current = isExpanded;
+  }, [isExpanded]);
+
   return (
     <div
+      ref={accordionRef}
       className="border-2 border-pencil-light/30 transition-all duration-150"
       style={{
         borderRadius: radius.md,
+        scrollMarginTop: `${stickyTop + 28}px`,
         boxShadow: isExpanded ? shadows.sm : 'none',
         backgroundColor: isExpanded ? 'var(--color-paper-warm)' : 'transparent',
       }}
@@ -582,9 +608,17 @@ function PatternAccordion({
         style={{
           borderRadius: isExpanded ? `${radius.md} ${radius.md} 0 0` : radius.md,
           ...(isExpanded ? {
-            top: `${stickyTop}px`,
+            top: `${stickyTop + 12}px`,
             backgroundColor: 'var(--color-paper-warm)',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+            boxShadow: [
+              // Simulate top/left/right border via inset shadow (avoids layout shift from real border)
+              'inset 0 2px 0 0 color-mix(in srgb, var(--color-pencil-light) 30%, transparent)',
+              'inset 2px 0 0 0 color-mix(in srgb, var(--color-pencil-light) 30%, transparent)',
+              'inset -2px 0 0 0 color-mix(in srgb, var(--color-pencil-light) 30%, transparent)',
+              // Drop shadow for depth
+              '0 2px 8px rgba(0,0,0,0.12)',
+            ].join(', '),
+            borderBottom: '2px dashed color-mix(in srgb, var(--color-pencil-light) 30%, transparent)',
           } : {}),
         }}
       >
@@ -628,7 +662,7 @@ function PatternAccordion({
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="border-t-2 border-dashed border-pencil-light/30">
+        <div>
           {/* Group controls bar */}
           <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-paper-warm/30">
             <span className="text-sm text-pencil-light">
@@ -663,7 +697,7 @@ function PatternAccordion({
           </div>
 
           {/* Rule rows */}
-          <div className="divide-y divide-dashed divide-pencil-light/30">
+          <div className="divide-y divide-dashed divide-pencil-light/30 border-t-2 border-dashed border-pencil-light/30 pt-1">
             {rules.map((rule) => (
               <RuleRow
                 key={rule.id}

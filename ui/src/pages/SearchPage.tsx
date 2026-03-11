@@ -5,6 +5,7 @@ import Card from '../components/Card';
 import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import Button from '../components/Button';
+import SegmentedControl from '../components/SegmentedControl';
 import { Input, Select } from '../components/Input';
 import SkillPickerModal from '../components/SkillPickerModal';
 import HubManagerModal, { type SavedHub } from '../components/HubManagerModal';
@@ -317,32 +318,25 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       <PageHeader icon={<Search size={24} strokeWidth={2.5} />} title="Search Skills" subtitle="Discover and install skills" />
 
-      {/* Mode tabs */}
-      <div className="flex gap-2 mb-4">
-        <Button
-          onClick={() => switchMode('github')}
-          variant={mode === 'github' ? 'primary' : 'secondary'}
-          size="sm"
-        >
-          <Globe size={14} strokeWidth={2.5} />
-          GitHub
-        </Button>
-        <Button
-          onClick={() => switchMode('hub')}
-          variant={mode === 'hub' ? 'primary' : 'secondary'}
-          size="sm"
-        >
-          <Database size={14} strokeWidth={2.5} />
-          Hub
-        </Button>
+      {/* Mode tabs + search */}
+      <div className="flex flex-wrap items-end gap-3">
+        <SegmentedControl
+          value={mode}
+          onChange={(v) => switchMode(v as SearchMode)}
+          options={[
+            { value: 'github', label: <span className="inline-flex items-center gap-1.5"><Globe size={14} strokeWidth={2.5} />GitHub</span> },
+            { value: 'hub', label: <span className="inline-flex items-center gap-1.5"><Database size={14} strokeWidth={2.5} />Hub</span> },
+          ]}
+          connected
+        />
       </div>
 
       {/* Hub selector (only in hub mode) */}
       {mode === 'hub' && hubLoaded && (
-        <Card className="mb-4 !overflow-visible">
+        <Card className="!overflow-visible">
           {savedHubs.length > 0 ? (
             <div className="flex items-center gap-2">
               <Select
@@ -394,7 +388,7 @@ export default function SearchPage() {
       )}
 
       {/* Search box */}
-      <Card className="mb-6">
+      <Card>
         <div className="flex gap-3">
           <div className="relative flex-1">
             <Search
@@ -416,9 +410,10 @@ export default function SearchPage() {
             disabled={searching}
             variant="primary"
             size="md"
+            loading={searching}
           >
             <Search size={16} strokeWidth={2.5} />
-            {searching ? 'Searching...' : 'Search'}
+            Search
           </Button>
         </div>
         {mode === 'github' && (
@@ -429,12 +424,12 @@ export default function SearchPage() {
         )}
       </Card>
 
-      {/* Results */}
+      {/* Summary + filter */}
       {results && results.length > 0 && (
-        <div className="space-y-4">
+        <>
           <div className="flex items-center gap-3 flex-wrap">
-            <p className="text-base text-pencil-light whitespace-nowrap">
-              {filteredResults.length} result{filteredResults.length !== 1 ? 's' : ''} found
+            <p className="text-sm text-pencil-light whitespace-nowrap">
+              {filteredResults.length} result{filteredResults.length !== 1 ? 's' : ''}
             </p>
             <div className="relative flex-1 min-w-[200px]">
               <Search
@@ -451,58 +446,56 @@ export default function SearchPage() {
               />
             </div>
           </div>
-          {visible.map((r) => (
-            <Card
-              key={r.source}
-              className="odd:rotate-[-0.15deg] even:rotate-[0.15deg]"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span
-                      className="font-bold text-pencil"
-                    >
-                      {r.name}
-                    </span>
-                    {r.stars > 0 && (
-                      <span className="flex items-center gap-1 text-sm text-warning">
-                        <Star size={14} strokeWidth={2.5} fill="currentColor" />
-                        {r.stars}
+
+          {/* Result cards */}
+          <div className="space-y-3">
+            {visible.map((r) => (
+              <Card key={r.source} tilt>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-bold text-pencil text-lg">
+                        {r.name}
                       </span>
-                    )}
-                    {r.owner && <Badge>{r.owner}</Badge>}
-                  </div>
-                  {r.description && (
-                    <p className="text-base text-pencil-light mb-1.5">{r.description}</p>
-                  )}
-                  {r.tags && r.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-1.5">
-                      {r.tags.map((tag) => (
-                        <Badge key={tag} variant="accent">#{tag}</Badge>
-                      ))}
+                      {r.stars > 0 && (
+                        <span className="flex items-center gap-1 text-sm text-warning">
+                          <Star size={14} strokeWidth={2.5} fill="currentColor" />
+                          {r.stars}
+                        </span>
+                      )}
+                      {r.owner && <Badge>{r.owner}</Badge>}
                     </div>
-                  )}
-                  <p
-                    className="font-mono text-sm text-muted-dark truncate"
+                    {r.description && (
+                      <p className="text-pencil-light mb-2">{r.description}</p>
+                    )}
+                    {r.tags && r.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {r.tags.map((tag) => (
+                          <Badge key={tag} variant="accent" size="sm">#{tag}</Badge>
+                        ))}
+                      </div>
+                    )}
+                    <p className="font-mono text-xs text-muted-dark truncate">
+                      {r.source}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => handleInstall(r.source, r.skill)}
+                    disabled={installing === r.source}
+                    variant="secondary"
+                    size="sm"
+                    loading={installing === r.source}
+                    className="shrink-0"
                   >
-                    {r.source}
-                  </p>
+                    <Download size={14} strokeWidth={2.5} />
+                    Install
+                  </Button>
                 </div>
-                <Button
-                  onClick={() => handleInstall(r.source, r.skill)}
-                  disabled={installing === r.source}
-                  variant="secondary"
-                  size="sm"
-                  className="shrink-0"
-                >
-                  <Download size={14} strokeWidth={2.5} />
-                  {installing === r.source ? 'Installing...' : 'Install'}
-                </Button>
-              </div>
-            </Card>
-          ))}
-          {hasMore && <div ref={sentinelRef} className="h-4" />}
-        </div>
+              </Card>
+            ))}
+            {hasMore && <div ref={sentinelRef} className="h-4" />}
+          </div>
+        </>
       )}
 
       {results && results.length === 0 && (

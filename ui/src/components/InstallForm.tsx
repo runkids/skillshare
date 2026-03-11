@@ -375,54 +375,76 @@ export default function InstallForm({
 
   const formContent = (
     <Card variant="default" className="animate-fade-in">
-      <div className="space-y-4">
-        <Input
-          label="Source (GitHub URL, owner/repo, or local path)"
-          type="text"
-          placeholder="owner/repo or https://github.com/..."
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleInstall()}
-        />
-        <Input
-          label="Name override (optional)"
-          type="text"
-          placeholder="custom-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <Input
-          label="Into directory (optional)"
-          type="text"
-          placeholder="frontend or frontend/react"
-          value={into}
-          onChange={(e) => setInto(e.target.value)}
-        />
-        <div className="flex items-center gap-6">
-          <Checkbox
-            label="Track (git repo)"
-            checked={track}
-            onChange={setTrack}
+      <div className="space-y-5">
+        {/* Source — primary input */}
+        <div>
+          <Input
+            label="Source"
+            type="text"
+            placeholder="owner/repo, git URL, or local path"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleInstall()}
           />
-          <Checkbox
-            label="Force overwrite"
-            checked={force}
-            onChange={setForce}
+          <p className="text-xs text-muted-dark mt-1.5">
+            e.g. <span className="font-mono">owner/repo</span>, <span className="font-mono">https://github.com/…</span>, <span className="font-mono">https://gitlab.com/…</span>, or <span className="font-mono">~/local/path</span>
+            <br />
+            Private repos: use SSH <span className="font-mono">git@host:org/repo</span> or configure an access token
+          </p>
+        </div>
+
+        {/* Optional overrides */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input
+            label="Custom name"
+            type="text"
+            placeholder="my-skill"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
           />
-          <Checkbox
-            label="Skip audit"
-            checked={skipAudit}
-            onChange={setSkipAudit}
+          <Input
+            label="Into directory"
+            type="text"
+            placeholder="frontend/react"
+            value={into}
+            onChange={(e) => setInto(e.target.value)}
           />
         </div>
+
+        {/* Options */}
+        <div className="border-t border-dashed border-pencil-light/30 pt-4">
+          <div className="flex items-center gap-6 flex-wrap">
+            <Checkbox
+              label="Track"
+              checked={track}
+              onChange={setTrack}
+            />
+            <Checkbox
+              label="Force overwrite"
+              checked={force}
+              onChange={setForce}
+            />
+            <Checkbox
+              label="Skip audit"
+              checked={skipAudit}
+              onChange={setSkipAudit}
+            />
+          </div>
+          <p className="text-xs text-muted-dark mt-2">
+            Track keeps the git repo linked for updates · Force overwrites existing skills · Skip audit bypasses security scan
+          </p>
+        </div>
+
+        {/* Install button */}
         <Button
           onClick={handleInstall}
           disabled={installing || !source.trim()}
           variant="primary"
-          size="sm"
+          size="md"
+          loading={installing}
         >
-          <Download size={14} strokeWidth={2.5} />
-          {installing ? 'Installing...' : 'Install'}
+          <Download size={16} strokeWidth={2.5} />
+          Install
         </Button>
       </div>
     </Card>

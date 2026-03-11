@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Download, Search } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
 import DialogShell from './DialogShell';
-import { Checkbox } from './Input';
+import { Input, Checkbox } from './Input';
 import { radius } from '../design';
 import type { DiscoveredSkill } from '../api/client';
 
@@ -26,7 +26,6 @@ export default function SkillPickerModal({
 }: SkillPickerModalProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
-  const filterRef = useRef<HTMLInputElement>(null);
 
   const filtered = useMemo(() => {
     if (!filter) return skills;
@@ -92,24 +91,21 @@ export default function SkillPickerModal({
             <div className="relative mb-3">
               <Search
                 size={14}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
+                strokeWidth={2.5}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
               />
-              <input
-                ref={filterRef}
+              <Input
                 type="text"
                 placeholder="Filter skills..."
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-sm border-2 border-muted bg-paper text-pencil placeholder:text-muted-dark outline-none focus:border-pencil-light font-mono"
-                style={{
-                  borderRadius: radius.sm,
-                }}
+                className="!pl-8 !py-1.5 !text-sm font-mono"
               />
             </div>
           )}
 
           {/* Select All */}
-          <div className="flex items-center justify-between border-b-2 border-dashed border-muted pb-2 mb-2">
+          <div className="flex items-center justify-between border-b border-dashed border-pencil-light/30 pb-2 mb-2">
             <Checkbox
               label={allFilteredSelected ? 'Deselect All' : 'Select All'}
               checked={allFilteredSelected}
@@ -125,11 +121,16 @@ export default function SkillPickerModal({
           {/* Skill list */}
           <div className="overflow-y-auto space-y-1 mb-4" style={{ maxHeight: '16rem' }}>
             {filtered.map((skill) => (
-              <div key={skill.path} className="flex items-start gap-2 py-1">
+              <label
+                key={skill.path}
+                className="flex items-start gap-2 py-1.5 px-1 rounded-md cursor-pointer hover:bg-muted/30 transition-colors"
+                style={{ borderRadius: radius.sm }}
+              >
                 <Checkbox
                   label=""
                   checked={selected.has(skill.path)}
                   onChange={() => toggle(skill.path)}
+                  size="sm"
                 />
                 <div className="min-w-0 flex-1">
                   <span className="font-bold text-pencil text-base">
@@ -146,14 +147,14 @@ export default function SkillPickerModal({
                     </span>
                   )}
                 </div>
-              </div>
+              </label>
             ))}
           </div>
 
           {/* Footer */}
-          <div className="flex gap-3 justify-end">
+          <div className="flex gap-3 justify-end border-t border-dashed border-pencil-light/30 pt-3">
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
               onClick={onCancel}
               disabled={installing}
@@ -165,11 +166,10 @@ export default function SkillPickerModal({
               size="sm"
               onClick={handleInstall}
               disabled={installing || selected.size === 0}
+              loading={installing}
             >
               <Download size={14} strokeWidth={2.5} />
-              {installing
-                ? 'Installing...'
-                : `Install Selected (${selected.size})`}
+              Install Selected ({selected.size})
             </Button>
           </div>
         </Card>

@@ -7,11 +7,11 @@ import {
 import Card from '../components/Card';
 import Button from '../components/Button';
 import PageHeader from '../components/PageHeader';
+import EmptyState from '../components/EmptyState';
 import { Checkbox } from '../components/Input';
 import Badge from '../components/Badge';
 import { queryKeys } from '../lib/queryKeys';
 import { useToast } from '../components/Toast';
-import Spinner from '../components/Spinner';
 import { api } from '../api/client';
 import type { CheckResult } from '../api/client';
 import StreamProgressBar from '../components/StreamProgressBar';
@@ -102,8 +102,12 @@ export default function UpdatePage() {
 
   if (checking) {
     return (
-      <div className="space-y-6">
-        <UpdatePageHeader />
+      <div className="space-y-5 animate-fade-in">
+        <PageHeader
+          icon={<ArrowUpCircle size={24} strokeWidth={2.5} />}
+          title="Updates"
+          subtitle="Check and apply updates for tracked repositories and installed skills."
+        />
         <StreamProgressBar
           count={checkProgress?.checked ?? 0}
           total={checkProgress?.total ?? 0}
@@ -116,7 +120,28 @@ export default function UpdatePage() {
       </div>
     );
   }
-  if (checkError) return <Card variant="accent"><p className="text-danger p-2">{checkError}</p></Card>;
+
+  if (checkError) {
+    return (
+      <div className="space-y-5 animate-fade-in">
+        <PageHeader
+          icon={<ArrowUpCircle size={24} strokeWidth={2.5} />}
+          title="Updates"
+          subtitle="Check and apply updates for tracked repositories and installed skills."
+        />
+        <Card variant="accent">
+          <p className="text-danger">{checkError}</p>
+          <div className="mt-3">
+            <Button variant="secondary" size="sm" onClick={runCheck}>
+              <RefreshCw size={16} />
+              Retry
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   if (!data) return null;
 
   const updatableRepos = data.tracked_repos.filter((r) => r.status === 'behind');
@@ -229,7 +254,7 @@ export default function UpdatePage() {
   const errorCount = itemStatuses.filter((s) => s.status === 'error').length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 animate-fade-in">
       <PageHeader
         icon={<ArrowUpCircle size={24} strokeWidth={2.5} />}
         title="Updates"
@@ -241,14 +266,18 @@ export default function UpdatePage() {
                 variant="ghost"
                 size="sm"
                 onClick={runCheck}
-                disabled={checking}
+                loading={checking}
               >
-                {checking ? <Spinner size="sm" /> : <RefreshCw size={16} />}
+                <RefreshCw size={16} />
                 Check Now
               </Button>
             )}
             {phase === 'idle' && hasUpdates && totalSelected > 0 && (
-              <Button variant="primary" size="sm" onClick={handleUpdate}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleUpdate}
+              >
                 <ArrowUpCircle size={16} />
                 Update Selected ({totalSelected})
               </Button>
@@ -261,7 +290,7 @@ export default function UpdatePage() {
       {phase !== 'idle' && (
         <div className="space-y-4 animate-fade-in">
           {/* Summary bar */}
-          <Card className="rotate-[-0.15deg]">
+          <Card tilt>
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2 flex-wrap">
                 {phase === 'updating' && (
@@ -292,7 +321,7 @@ export default function UpdatePage() {
             {itemStatuses.map((item, i) => (
               <div
                 key={item.name}
-                className="flex items-center gap-3 px-3 py-2 border border-pencil/10 animate-fade-in"
+                className="flex items-center gap-3 px-3 py-2 border border-muted hover:bg-muted/30 transition-colors animate-fade-in"
                 style={{
                   borderRadius: radius.sm,
                   animationDelay: `${i * 50}ms`,
@@ -327,32 +356,22 @@ export default function UpdatePage() {
       {phase === 'idle' && (
         <>
           {!hasUpdates ? (
-            <Card className="rotate-[-0.15deg]">
-              <div className="flex flex-col items-center py-6 text-center">
-                <div className="w-14 h-14 bg-success-light border-2 border-success rounded-full flex items-center justify-center mb-4">
-                  <Check size={28} strokeWidth={2.5} className="text-success" />
-                </div>
-                <h3
-                  className="text-xl text-pencil mb-1"
+            <EmptyState
+              icon={Check}
+              title="Everything is up to date"
+              description="All tracked repositories and skills are at their latest versions."
+              action={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={runCheck}
+                  loading={checking}
                 >
-                  Everything is up to date
-                </h3>
-                <p className="text-pencil-light text-base max-w-xs">
-                  All tracked repositories and skills are at their latest versions.
-                </p>
-                <div className="mt-4">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={runCheck}
-                    disabled={checking}
-                  >
-                    {checking ? <Spinner size="sm" /> : <RefreshCw size={16} />}
-                    Check Again
-                  </Button>
-                </div>
-              </div>
-            </Card>
+                  <RefreshCw size={16} />
+                  Check Again
+                </Button>
+              }
+            />
           ) : (
             <>
               {updatableRepos.length > 0 && (
@@ -369,10 +388,13 @@ export default function UpdatePage() {
                     {updatableRepos.map((repo) => (
                       <div
                         key={repo.name}
-                        className="flex items-center gap-3 px-3 py-2 border border-pencil/10"
+                        className="flex items-center gap-3 px-3 py-2 border border-muted hover:bg-muted/30 transition-colors cursor-pointer"
                         style={{ borderRadius: radius.sm }}
+                        onClick={() => toggleRepo(repo.name)}
                       >
-                        <Checkbox label="" checked={selectedRepos.has(repo.name)} onChange={() => toggleRepo(repo.name)} />
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <Checkbox label="" checked={selectedRepos.has(repo.name)} onChange={() => toggleRepo(repo.name)} />
+                        </span>
                         <div className="flex-1 min-w-0">
                           <span className="text-pencil font-medium block">
                             {repo.name}
@@ -386,6 +408,10 @@ export default function UpdatePage() {
                     ))}
                   </div>
                 </Card>
+              )}
+
+              {updatableRepos.length > 0 && updatableSkills.length > 0 && (
+                <div className="border-t border-dashed border-pencil-light/30" />
               )}
 
               {updatableSkills.length > 0 && (
@@ -402,10 +428,13 @@ export default function UpdatePage() {
                     {updatableSkills.map((skill) => (
                       <div
                         key={skill.name}
-                        className="flex items-center gap-3 px-3 py-2 border border-pencil/10"
+                        className="flex items-center gap-3 px-3 py-2 border border-muted hover:bg-muted/30 transition-colors cursor-pointer"
                         style={{ borderRadius: radius.sm }}
+                        onClick={() => toggleSkill(skill.name)}
                       >
-                        <Checkbox label="" checked={selectedSkills.has(skill.name)} onChange={() => toggleSkill(skill.name)} />
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <Checkbox label="" checked={selectedSkills.has(skill.name)} onChange={() => toggleSkill(skill.name)} />
+                        </span>
                         <div className="flex-1 min-w-0">
                           <span className="text-pencil font-medium block">
                             {skill.name}
@@ -426,11 +455,9 @@ export default function UpdatePage() {
           )}
 
           {(upToDateRepos + upToDateSkills > 0) && (
-            <Card variant="outlined">
-              <p className="text-pencil-light text-sm">
-                {upToDateRepos} repo(s) and {upToDateSkills} skill(s) already up to date.
-              </p>
-            </Card>
+            <p className="text-sm text-pencil-light text-center">
+              {upToDateRepos} repo(s) and {upToDateSkills} skill(s) already up to date.
+            </p>
           )}
         </>
       )}
@@ -471,14 +498,3 @@ function StatusBadge({ status }: { status: ItemUpdateStatus['status'] }) {
       return <Badge>Skipped</Badge>;
   }
 }
-
-function UpdatePageHeader() {
-  return (
-    <PageHeader
-      icon={<ArrowUpCircle size={24} strokeWidth={2.5} />}
-      title="Updates"
-      subtitle="Check and apply updates for tracked repositories and installed skills."
-    />
-  );
-}
-

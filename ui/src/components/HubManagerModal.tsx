@@ -158,7 +158,7 @@ export default function HubManagerModal({
           )}
 
           {/* Add hub form */}
-          <div className="border-t-2 border-muted pt-3">
+          <div className="border-t border-dashed border-pencil-light/30 pt-3">
             <p className="text-base font-bold text-pencil mb-2">
               Add Hub
             </p>

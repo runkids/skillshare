@@ -19,7 +19,6 @@ import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import Button from '../components/Button';
 import { Checkbox } from '../components/Input';
-import Spinner from '../components/Spinner';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
@@ -124,11 +123,11 @@ export default function CollectPage() {
   };
 
   return (
-    <div className="animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       <PageHeader icon={<ArrowDownToLine size={24} strokeWidth={2.5} />} title="Collect" subtitle="Pull local skills from targets back to source" />
 
       {/* Visual Pipeline (reverse direction) */}
-      <div className="hidden md:flex items-center justify-center gap-4 mb-8">
+      <div className="hidden md:flex items-center justify-center gap-4">
         <div
           className="flex items-center gap-2 px-4 py-2 bg-success-light border-2 border-pencil"
           style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
@@ -191,26 +190,18 @@ export default function CollectPage() {
       </div>
 
       {/* Scan control area */}
-      <Card className="mb-6 text-center">
+      <Card className="text-center">
         <div className="flex flex-col items-center gap-4">
           <Button
             onClick={() => handleScan(presetTarget)}
-            disabled={phase === 'scanning' || phase === 'collecting'}
+            loading={phase === 'scanning'}
+            disabled={phase === 'collecting'}
             variant="primary"
             size="lg"
             className="min-w-[200px]"
           >
-            {phase === 'scanning' ? (
-              <>
-                <Spinner size="md" />
-                Scanning...
-              </>
-            ) : (
-              <>
-                <ArrowDownToLine size={22} strokeWidth={2.5} />
-                {phase === 'idle' ? 'Scan for Local Skills' : 'Re-scan'}
-              </>
-            )}
+            {phase !== 'scanning' && <ArrowDownToLine size={22} strokeWidth={2.5} />}
+            {phase === 'scanning' ? 'Scanning...' : phase === 'idle' ? 'Scan for Local Skills' : 'Re-scan'}
           </Button>
 
           {presetTarget && (
@@ -246,7 +237,7 @@ export default function CollectPage() {
               description="All skills in your targets are synced from source. Nothing to collect."
             />
           ) : (
-            <div className="mb-6">
+            <div>
               {/* Select all / none controls */}
               <div className="flex items-center justify-between mb-4">
                 <h3
@@ -292,22 +283,16 @@ export default function CollectPage() {
                 <div className="mt-6 text-center">
                   <Button
                     onClick={() => setConfirming(true)}
-                    disabled={selected.size === 0 || phase === 'collecting'}
+                    loading={phase === 'collecting'}
+                    disabled={selected.size === 0}
                     variant="primary"
                     size="lg"
                     className="min-w-[200px]"
                   >
-                    {phase === 'collecting' ? (
-                      <>
-                        <Spinner size="md" />
-                        Collecting...
-                      </>
-                    ) : (
-                      <>
-                        <ArrowDownToLine size={22} strokeWidth={2.5} />
-                        Collect {selected.size} Skill{selected.size !== 1 ? 's' : ''}
-                      </>
-                    )}
+                    {phase !== 'collecting' && <ArrowDownToLine size={22} strokeWidth={2.5} />}
+                    {phase === 'collecting'
+                      ? 'Collecting...'
+                      : `Collect ${selected.size} Skill${selected.size !== 1 ? 's' : ''}`}
                   </Button>
                 </div>
               )}
@@ -321,7 +306,7 @@ export default function CollectPage() {
 
       {/* Post-collect suggestion */}
       {phase === 'done' && result && (result.pulled?.length ?? 0) > 0 && (
-        <Card variant="accent" className="mt-6 text-center animate-fade-in">
+        <Card variant="accent" className="text-center animate-fade-in">
           <div className="flex flex-col items-center gap-3">
             <p
               className="text-base text-pencil"
@@ -416,33 +401,27 @@ function ScanTargetCard({
             const key = `${target.targetName}/${sk.name}`;
             const isSelected = selected.has(key);
             return (
-              <label
+              <div
                 key={key}
-                className={`flex items-center gap-3 px-3 py-2 cursor-pointer border-2 border-dashed transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2 cursor-pointer border border-dashed transition-colors ${
                   isSelected
                     ? 'border-blue bg-info-light/50'
                     : 'border-transparent hover:border-muted-dark'
                 } ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
                 style={{ borderRadius: radius.sm }}
+                onClick={() => onToggle(key)}
               >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => onToggle(key)}
-                  className="w-4 h-4 accent-blue shrink-0"
-                  disabled={disabled}
-                />
+                <span onClick={(e) => e.stopPropagation()}>
+                  <Checkbox label="" checked={isSelected} onChange={() => onToggle(key)} size="sm" disabled={disabled} />
+                </span>
                 <Folder size={14} strokeWidth={2.5} className="text-warning shrink-0" />
-                <span
-                  className="font-mono font-medium text-pencil"
-                  style={{ fontSize: '0.875rem' }}
-                >
+                <span className="font-mono font-medium text-pencil text-sm">
                   {sk.name}
                 </span>
                 <span className="text-sm text-pencil-light ml-auto">
                   {formatSize(sk.size)}
                 </span>
-              </label>
+              </div>
             );
           })}
         </div>
@@ -520,7 +499,7 @@ function ResultStat({
 
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-2 border border-dashed ${count > 0 ? bgMap[variant] : 'bg-muted/30'}`}
+      className={`flex items-center gap-2 px-3 py-2 border border-dashed border-muted ${count > 0 ? bgMap[variant] : 'bg-muted/30'}`}
       style={{ borderRadius: radius.sm }}
     >
       <Icon size={16} strokeWidth={2.5} className={count > 0 ? colorMap[variant] : 'text-muted-dark'} />

@@ -127,11 +127,11 @@ export default function SyncPage() {
   const syncActions = totalActions - pendingLocal;
 
   return (
-    <div className="animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       <PageHeader icon={<RefreshCw size={24} strokeWidth={2.5} />} title="Sync" subtitle="Push your skills from source to all configured targets" />
 
       {/* Visual Pipeline */}
-      <div className="hidden md:flex items-center justify-center gap-4 mb-8">
+      <div className="hidden md:flex items-center justify-center gap-4">
         <div
           className="flex items-center gap-2 px-4 py-2 bg-paper border-2 border-pencil"
           style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
@@ -196,7 +196,7 @@ export default function SyncPage() {
       </div>
 
       {/* Sync control area */}
-      <Card className="mb-6 text-center">
+      <Card className="text-center">
         <div className="flex flex-col items-center gap-4">
           {/* Status indicator */}
           {diffLoading ? (
@@ -234,12 +234,12 @@ export default function SyncPage() {
           {/* Big sync button */}
           <Button
             onClick={handleSync}
-            disabled={syncing}
+            loading={syncing}
             variant="primary"
             size="lg"
             className="min-w-[200px]"
           >
-            {syncing ? <Spinner size="md" /> : <RefreshCw size={22} strokeWidth={2.5} />}
+            {!syncing && <RefreshCw size={22} strokeWidth={2.5} />}
             {syncing ? 'Syncing...' : dryRun ? 'Preview Sync' : 'Sync Now'}
           </Button>
 
@@ -292,7 +292,7 @@ export default function SyncPage() {
 
       {/* Sync results */}
       {results && results.length > 0 && (
-        <div className="space-y-3 mt-6 mb-8">
+        <div className="space-y-3">
           <h2
             className="text-lg font-bold text-pencil"
           >
@@ -470,15 +470,15 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
             />
           ) : (
             <div className="space-y-1.5">
-              {items.map((item, i) => (
-                <DiffItemRow key={i} item={item} />
+              {items.map((item) => (
+                <DiffItemRow key={`${item.action}:${item.skill}`} item={item} />
               ))}
             </div>
           )}
 
           {/* Action hints */}
           {(hasSyncable || hasLocal) && (
-            <div className="mt-3 pt-2 border-t border-dashed border-muted-dark space-y-1">
+            <div className="mt-3 pt-2 border-t border-dashed border-pencil-light/30 space-y-1">
               {hasSyncable && (
                 <div className="flex items-center gap-1.5 text-xs text-pencil-light">
                   <Info size={12} className="shrink-0" />
@@ -514,10 +514,7 @@ function DiffItemRow({ item }: { item: { action: string; skill: string; reason?:
     <div className="flex items-center gap-2 text-base py-0.5">
       <ActionBadge action={item.action} />
       <ArrowRight size={12} className="text-muted-dark shrink-0" />
-      <span
-        className="font-mono text-pencil-light truncate"
-        style={{ fontSize: '0.875rem' }}
-      >
+      <span className="font-mono text-pencil-light text-sm truncate">
         {item.skill}
       </span>
       {item.reason && (
@@ -526,4 +523,3 @@ function DiffItemRow({ item }: { item: { action: string; skill: string; reason?:
     </div>
   );
 }
-
