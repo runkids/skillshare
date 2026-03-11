@@ -6,6 +6,7 @@ interface CardProps {
   className?: string;
   variant?: 'default' | 'accent' | 'outlined';
   hover?: boolean;
+  overflow?: boolean;
   style?: CSSProperties;
 }
 
@@ -26,11 +27,12 @@ export default function Card({
   className = '',
   variant = 'default',
   hover = false,
+  overflow = false,
   style,
 }: CardProps) {
   return (
     <div
-      className={`relative p-4 overflow-hidden transition-shadow duration-150 ${variantStyles[variant]} ${
+      className={`relative p-4 ${overflow ? 'overflow-visible' : 'overflow-hidden'} transition-shadow duration-150 ${variantStyles[variant]} ${
         hover ? 'cursor-pointer hover:shadow-md' : ''
       } ${className}`}
       style={{

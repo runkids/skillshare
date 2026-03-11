@@ -28,6 +28,7 @@
   /* Typography */
   --font-hand: 'DM Sans', sans-serif;
   --font-heading: 'DM Sans', sans-serif;
+  --font-mono: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
 
   /* Shadows — subtle, no hard offset */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04);
@@ -47,18 +48,18 @@
   --color-pencil-light: #a3a09a;
   --color-muted: #2e2d2a;
   --color-muted-dark: #706c66;
-  --color-accent: #e8564a;
-  --color-accent-dark: #d44a3f;
-  --color-blue: #4a7ec7;
-  --color-blue-light: #6a9ad8;
-  --color-success: #3da86e;
-  --color-success-light: rgba(61, 168, 110, 0.15);
-  --color-warning: #f0b040;
-  --color-warning-light: rgba(240, 176, 64, 0.15);
-  --color-danger: #e04d42;
-  --color-danger-light: rgba(224, 77, 66, 0.15);
-  --color-info: #4a7ec7;
-  --color-info-light: rgba(74, 126, 199, 0.15);
+  --color-accent: #dc4538;
+  --color-accent-dark: #c43d31;
+  --color-blue: #a3a09a;
+  --color-blue-light: #c0bdb7;
+  --color-success: #5cc98a;
+  --color-success-light: rgba(92, 201, 138, 0.15);
+  --color-warning: #f0b840;
+  --color-warning-light: rgba(240, 184, 64, 0.15);
+  --color-danger: #e8564a;
+  --color-danger-light: rgba(232, 86, 74, 0.15);
+  --color-info: #a3a09a;
+  --color-info-light: rgba(163, 160, 154, 0.12);
   --color-surface: #1c1b19;
   --color-border-light: #242320;
   --color-accent-light: rgba(232, 86, 74, 0.1);
@@ -68,7 +69,7 @@
   --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.5);
   --shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.5);
   --shadow-accent: 0 2px 6px rgba(232, 86, 74, 0.3);
-  --shadow-blue: 0 2px 6px rgba(74, 126, 199, 0.3);
+  --shadow-blue: 0 2px 6px rgba(0, 0, 0, 0.3);
 
 }
 
@@ -197,4 +198,16 @@ body {
 
 .animate-fade-in {
   animation: fadeInUp 0.2s ease-out;
+}
+
+/* Subtle underline link — border-bottom style like oMLX */
+.link-subtle {
+  color: var(--color-pencil-light);
+  border-bottom: 1px solid var(--color-muted);
+  padding-bottom: 1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.link-subtle:hover {
+  color: var(--color-pencil);
+  border-bottom-color: var(--color-pencil);
 }

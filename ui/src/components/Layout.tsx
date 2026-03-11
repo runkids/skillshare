@@ -81,7 +81,7 @@ const navGroups: NavGroup[] = [
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isProjectMode } = useAppContext();
+  const { isProjectMode, version } = useAppContext();
   const { theme, toggleTheme } = useTheme();
 
   const filteredGroups = navGroups.map((group) => ({
@@ -188,7 +188,7 @@ export default function Layout() {
               {theme === 'dark' ? 'Light' : 'Dark'}
             </span>
           </button>
-          <span className="text-xs text-muted-dark">v0.17</span>
+          <span className="text-xs text-muted-dark">{version ? `v${version}` : ''}</span>
         </div>
       </aside>
 

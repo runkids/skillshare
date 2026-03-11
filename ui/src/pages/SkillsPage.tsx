@@ -103,7 +103,7 @@ function FilterChip({
         transition-all duration-150 cursor-pointer select-none
         ${
           active
-            ? 'bg-pencil text-white border-pencil dark:bg-blue dark:border-blue'
+            ? 'bg-pencil text-paper border-pencil'
             : 'bg-surface text-pencil-light border-muted hover:border-pencil hover:text-pencil'
         }
       `}
@@ -117,7 +117,7 @@ function FilterChip({
       <span
         className={`
           text-xs px-1.5 py-0.5 rounded-full min-w-[20px] text-center
-          ${active ? 'bg-white/20 text-white' : 'bg-muted text-pencil-light'}
+          ${active ? 'bg-paper/20 text-paper' : 'bg-muted text-pencil-light'}
         `}
       >
         {count}
@@ -186,14 +186,14 @@ const SkillPostit = memo(function SkillPostit({
         style={{
           borderRadius: radius.md,
           boxShadow: shadows.sm,
-          ...(skill.isInRepo ? { borderLeftWidth: '3px', borderLeftColor: 'var(--color-accent)' } : {}),
+          ...(skill.isInRepo ? { borderLeftWidth: '3px', borderLeftColor: 'var(--color-pencil-light)' } : {}),
         }}
       >
         {/* Skill name row */}
         <div className="flex items-center gap-2 mb-2">
           <div className="shrink-0">
             {skill.isInRepo
-              ? <GitBranch size={18} strokeWidth={2.5} className="text-accent" />
+              ? <GitBranch size={18} strokeWidth={2.5} className="text-pencil-light" />
               : <Folder size={18} strokeWidth={2.5} className="text-pencil-light" />
             }
           </div>
@@ -212,8 +212,7 @@ const SkillPostit = memo(function SkillPostit({
 
         {/* Path */}
         <p
-          className="text-sm text-pencil-light truncate mb-2"
-          style={{ fontFamily: "'Courier New', monospace" }}
+          className="font-mono text-sm text-pencil-light truncate mb-2"
         >
           {skill.relPath}
         </p>
@@ -235,7 +234,7 @@ const SkillPostit = memo(function SkillPostit({
                 <span className="text-xs text-pencil-light">{skill.targets.length}</span>
               </span>
             )}
-            {skill.isInRepo && <Badge variant="success">tracked</Badge>}
+            {skill.isInRepo && <Badge variant="default">tracked</Badge>}
             {!skill.isInRepo && getTypeLabel(skill.type) && <Badge variant="info">{getTypeLabel(skill.type)}</Badge>}
           </div>
         </div>
@@ -366,14 +365,14 @@ export default function SkillsPage() {
         <div className="flex items-center border-2 border-muted overflow-hidden" style={{ borderRadius: radius.sm }}>
           <button
             onClick={() => setViewType('grid')}
-            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grid' ? 'bg-pencil text-white dark:bg-blue' : 'bg-surface text-pencil-light hover:text-pencil'}`}
+            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grid' ? 'bg-pencil text-paper' : 'bg-surface text-pencil-light hover:text-pencil'}`}
             title="Grid view"
           >
             <LayoutGrid size={16} strokeWidth={2.5} />
           </button>
           <button
             onClick={() => setViewType('grouped')}
-            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grouped' ? 'bg-pencil text-white dark:bg-blue' : 'bg-surface text-pencil-light hover:text-pencil'}`}
+            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grouped' ? 'bg-pencil text-paper' : 'bg-surface text-pencil-light hover:text-pencil'}`}
             title="Grouped view"
           >
             <FolderOpen size={16} strokeWidth={2.5} />
@@ -404,7 +403,7 @@ export default function SkillsPage() {
               {' '}
               &middot;{' '}
               <button
-                className="underline text-blue cursor-pointer hover:text-pencil transition-colors"
+                className="link-subtle cursor-pointer"
                 onClick={() => {
                   setFilterType('all');
                   setSearch('');

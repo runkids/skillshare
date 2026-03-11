@@ -632,8 +632,7 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
         <span className="text-pencil flex-1">{finding.message}</span>
       </div>
       <span
-        className="text-xs text-pencil-light"
-        style={{ fontFamily: "'Courier New', monospace" }}
+        className="font-mono text-xs text-pencil-light"
       >
         {finding.file}:{finding.line}
       </span>
@@ -645,9 +644,8 @@ function FindingRow({ finding }: { finding: AuditFinding }) {
       {finding.snippet && (
         <div className="relative mt-1">
           <code
-            className="text-xs text-pencil-light block px-3 py-2 border-2 border-dashed border-muted overflow-x-auto bg-paper-warm"
+            className="font-mono text-xs text-pencil-light block px-3 py-2 border-2 border-dashed border-muted overflow-x-auto bg-paper-warm"
             style={{
-              fontFamily: "'Courier New', monospace",
               borderRadius: radius.sm,
               boxShadow: 'var(--shadow-sm)',
             }}

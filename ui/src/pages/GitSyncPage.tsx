@@ -196,8 +196,7 @@ export default function GitSyncPage() {
               <div className="flex items-center gap-2 text-sm text-pencil-light">
                 <Folder size={14} strokeWidth={2.5} />
                 <span
-                  className="break-all"
-                  style={{ fontFamily: "'Courier New', monospace" }}
+                  className="font-mono break-all"
                 >
                   {shortenHome(status.sourceDir)}
                 </span>
@@ -249,8 +248,7 @@ export default function GitSyncPage() {
                       <div key={i} className="flex items-center gap-2 text-sm">
                         {fileStatusBadge(f)}
                         <span
-                          className="truncate"
-                          style={{ fontFamily: "'Courier New', monospace" }}
+                          className="font-mono truncate"
                         >
                           {fileName(f)}
                         </span>
@@ -351,8 +349,7 @@ export default function GitSyncPage() {
                       <div key={i} className="flex items-center gap-2 text-sm">
                         <GitCommit size={14} strokeWidth={2.5} className="text-info" />
                         <code
-                          className="text-info"
-                          style={{ fontFamily: "'Courier New', monospace" }}
+                          className="font-mono text-info"
                         >
                           {c.hash}
                         </code>

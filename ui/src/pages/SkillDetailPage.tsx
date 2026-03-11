@@ -114,7 +114,7 @@ function ContentStatsBar({ content, fileCount, license }: { content: string; fil
   const lineCount = content.trim() ? content.trim().split(/\r?\n/).length : 0;
 
   return (
-    <div className="flex items-center gap-4 flex-wrap text-sm text-pencil-light py-3 mb-4 border-b-2 border-dashed border-pencil-light/30">
+    <div className="flex items-center gap-4 flex-wrap text-sm text-pencil-light py-3 mb-4 border-b border-muted">
       <span className="inline-flex items-center gap-1.5">
         <Type size={12} strokeWidth={2.5} />
         {wordCount.toLocaleString()} words
@@ -230,8 +230,7 @@ export default function SkillDetailPage() {
             return (
               <Link
                 to={`/skills/${encodeURIComponent(resolved.flatName)}`}
-                className="text-blue inline-flex items-center gap-0.5 hover:text-accent transition-colors"
-                style={{ textDecoration: 'underline', textDecorationStyle: 'wavy', textUnderlineOffset: '3px' }}
+                className="link-subtle inline-flex items-center gap-0.5"
               >
                 {children}
                 <ArrowUpRight size={12} strokeWidth={2.5} className="shrink-0" />
@@ -244,8 +243,8 @@ export default function SkillDetailPage() {
             return (
               <button
                 onClick={() => setViewingFile(matchedFile)}
-                className="text-blue inline-flex items-center gap-0.5 hover:text-accent transition-colors cursor-pointer"
-                style={{ textDecoration: 'underline', textDecorationStyle: 'wavy', textUnderlineOffset: '3px', background: 'none', border: 'none', padding: 0, font: 'inherit' }}
+                className="link-subtle inline-flex items-center gap-0.5 cursor-pointer"
+                style={{ background: 'none', padding: 0, font: 'inherit' }}
               >
                 {children}
               </button>
@@ -321,7 +320,7 @@ export default function SkillDetailPage() {
       <div className="flex items-center gap-3 mb-6 sticky top-0 z-20 bg-paper py-3 -mx-4 px-4 md:-mx-8 md:px-8 -mt-3">
         <button
           onClick={() => navigate('/skills')}
-          className="w-9 h-9 flex items-center justify-center bg-surface border-2 border-pencil text-pencil-light hover:text-pencil transition-colors cursor-pointer"
+          className="w-9 h-9 flex items-center justify-center bg-surface border border-muted text-pencil-light hover:text-pencil transition-colors cursor-pointer"
           style={{
             borderRadius: radius.sm,
             boxShadow: shadows.sm,
@@ -354,7 +353,7 @@ export default function SkillDetailPage() {
           <Card>
             {hasManifest && (
               <div
-                className="mb-4 p-4 border-2 border-dashed border-pencil-light/40 bg-surface"
+                className="mb-4 p-4 border border-muted bg-surface"
                 style={{ borderRadius: radius.sm }}
               >
                 <p
@@ -444,8 +443,7 @@ export default function SkillDetailPage() {
                       href={skill.repoUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue text-base inline-flex items-center gap-1 hover:text-accent transition-colors"
-                      style={{ textDecoration: 'underline', textDecorationStyle: 'wavy' }}
+                      className="link-subtle text-base inline-flex items-center gap-1"
                     >
                       <ExternalLink size={12} strokeWidth={2.5} />
                       {skill.repoUrl.replace('https://', '').replace('.git', '')}
@@ -456,7 +454,7 @@ export default function SkillDetailPage() {
             </dl>
 
             {/* Actions */}
-            <div className="flex gap-2 mt-4 pt-4 border-t-2 border-dashed border-pencil-light/30">
+            <div className="flex gap-2 mt-4 pt-4 border-t border-muted">
               {(skill.isInRepo || skill.source) && (
                 <Button
                   onClick={() => handleUpdate()}
@@ -511,8 +509,8 @@ export default function SkillDetailPage() {
                       {linkedSkill ? (
                         <Link
                           to={`/skills/${encodeURIComponent(linkedSkill.flatName)}`}
-                          className="text-blue hover:text-accent transition-colors inline-flex items-center gap-1"
-                          style={{ fontFamily: "'Courier New', monospace", textDecoration: 'underline', textDecorationStyle: 'wavy', textUnderlineOffset: '2px' }}
+                          className="font-mono link-subtle inline-flex items-center gap-1"
+                          style={{ fontSize: '0.8125rem' }}
                           title={`View skill: ${linkedSkill.name}`}
                         >
                           {f}
@@ -520,16 +518,15 @@ export default function SkillDetailPage() {
                         </Link>
                       ) : isSkillMd ? (
                         <span
-                          className="truncate"
-                          style={{ fontFamily: "'Courier New', monospace" }}
+                          className="font-mono truncate"
                         >
                           {f}
                         </span>
                       ) : (
                         <button
                           onClick={() => setViewingFile(f)}
-                          className="text-blue hover:text-accent transition-colors text-left truncate cursor-pointer inline-flex items-center gap-1"
-                          style={{ fontFamily: "'Courier New', monospace", textDecoration: 'underline', textDecorationStyle: 'wavy', textUnderlineOffset: '2px', background: 'none', border: 'none', padding: 0 }}
+                          className="font-mono link-subtle text-left truncate cursor-pointer inline-flex items-center gap-1"
+                          style={{ fontSize: '0.8125rem', background: 'none' }}
                           title={`View file: ${f}`}
                         >
                           {f}
@@ -626,8 +623,8 @@ function MetaItem({
         )}
       </dt>
       <dd
-        className="text-base text-pencil break-all"
-        style={mono ? { fontFamily: "'Courier New', monospace", fontSize: '0.875rem' } : undefined}
+        className={`text-base text-pencil break-all${mono ? ' font-mono' : ''}`}
+        style={mono ? { fontSize: '0.875rem' } : undefined}
       >
         {value}
       </dd>
@@ -674,12 +671,12 @@ function SecurityAuditCard({
         Security
       </h3>
       <div className="space-y-3">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-stretch gap-2 flex-wrap">
           <BlockStamp isBlocked={result.isBlocked} />
           <RiskMeter riskLabel={result.riskLabel} riskScore={result.riskScore} />
         </div>
         {result.findings.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-2 border-t border-dashed border-pencil-light/30">
+          <div className="flex flex-wrap gap-1.5 pt-2 border-t border-muted">
             {Object.entries(findingCounts)
               .sort(([a], [b]) => sevOrder(a) - sevOrder(b))
               .map(([sev, count]) => (
@@ -768,7 +765,7 @@ function SyncStatusCard({
         {targetStatuses.map((t) => (
           <li key={t.name} className="flex items-center gap-2 text-sm">
             <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot[t.status]}`} />
-            <span className="text-pencil font-medium" style={{ fontFamily: "'Courier New', monospace", fontSize: '0.8125rem' }}>
+            <span className="font-mono text-pencil font-medium" style={{ fontSize: '0.8125rem' }}>
               {t.name}
             </span>
             <span className="text-pencil-light text-xs">{statusLabel[t.status]}</span>

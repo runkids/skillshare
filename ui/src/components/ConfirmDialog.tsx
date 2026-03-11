@@ -58,7 +58,7 @@ export default function ConfirmDialog({
       {/* Dialog */}
       <div
         ref={trapRef}
-        className={`relative w-full ${wide ? 'max-w-lg' : 'max-w-sm'} animate-fade-in`}
+        className={`relative w-full ${wide ? 'max-w-2xl' : 'max-w-lg'} animate-fade-in`}
         style={{ borderRadius: radius.md }}
       >
         <Card className="text-center">

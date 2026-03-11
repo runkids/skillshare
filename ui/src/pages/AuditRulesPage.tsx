@@ -846,8 +846,8 @@ function RuleRow({
                 Regex
               </span>
               <code
-                className="text-xs text-pencil px-2 py-1 border border-pencil-light/20 bg-paper-warm break-all"
-                style={{ borderRadius: radius.sm, fontFamily: "'Courier New', monospace" }}
+                className="font-mono text-xs text-pencil px-2 py-1 border border-pencil-light/20 bg-paper-warm break-all"
+                style={{ borderRadius: radius.sm }}
               >
                 {rule.regex}
               </code>
@@ -859,8 +859,8 @@ function RuleRow({
                 Exclude
               </span>
               <code
-                className="text-xs text-pencil px-2 py-1 border border-pencil-light/20 bg-paper-warm break-all"
-                style={{ borderRadius: radius.sm, fontFamily: "'Courier New', monospace" }}
+                className="font-mono text-xs text-pencil px-2 py-1 border border-pencil-light/20 bg-paper-warm break-all"
+                style={{ borderRadius: radius.sm }}
               >
                 {rule.exclude}
               </code>
@@ -929,8 +929,7 @@ function DetailRow({ label, value, mono }: { label: string; value: string; mono?
         {label}
       </span>
       <span
-        className="text-pencil break-all"
-        style={mono ? { fontFamily: "'Courier New', monospace" } : undefined}
+        className={`text-pencil break-all${mono ? ' font-mono' : ''}`}
       >
         {value}
       </span>

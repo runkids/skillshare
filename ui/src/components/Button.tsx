@@ -9,9 +9,9 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses = {
   primary: 'bg-pencil text-paper border border-pencil hover:opacity-80',
-  secondary: 'bg-transparent text-pencil border border-muted hover:border-pencil hover:text-pencil',
-  danger: 'bg-danger text-white border border-danger hover:opacity-80',
-  ghost: 'bg-transparent text-pencil-light hover:text-pencil',
+  secondary: 'bg-transparent text-pencil border border-muted hover:bg-muted/30 hover:border-muted-dark',
+  danger: 'bg-transparent text-danger border border-danger hover:bg-danger hover:text-white',
+  ghost: 'bg-transparent text-pencil-light hover:text-pencil hover:bg-muted/20',
 };
 
 const sizeClasses = {

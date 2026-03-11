@@ -515,8 +515,8 @@ function DiffItemRow({ item }: { item: { action: string; skill: string; reason?:
       <ActionBadge action={item.action} />
       <ArrowRight size={12} className="text-muted-dark shrink-0" />
       <span
-        className="text-pencil-light truncate"
-        style={{ fontFamily: "'Courier New', monospace", fontSize: '0.875rem' }}
+        className="font-mono text-pencil-light truncate"
+        style={{ fontSize: '0.875rem' }}
       >
         {item.skill}
       </span>
