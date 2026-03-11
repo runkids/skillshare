@@ -3,7 +3,7 @@ import {
   ArrowLeft, Trash2, ExternalLink, FileText, ArrowUpRight, RefreshCw, Target,
   Type, AlignLeft, Files, Scale,
   FileCode2, Braces, Settings, BookOpen, File, FolderOpen,
-  ShieldCheck, Link2,
+  ShieldCheck, Link2, Copy, Check,
 } from 'lucide-react';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -115,20 +115,20 @@ function ContentStatsBar({ content, fileCount, license }: { content: string; fil
   return (
     <div className="flex items-center gap-4 flex-wrap text-sm text-pencil-light py-3 mb-4 border-b-2 border-dashed border-pencil-light/30">
       <span className="inline-flex items-center gap-1.5">
-        <Type size={14} strokeWidth={2.5} />
+        <Type size={12} strokeWidth={2.5} />
         {wordCount.toLocaleString()} words
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <AlignLeft size={14} strokeWidth={2.5} />
+        <AlignLeft size={12} strokeWidth={2.5} />
         {lineCount.toLocaleString()} lines
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <Files size={14} strokeWidth={2.5} />
+        <Files size={12} strokeWidth={2.5} />
         {fileCount} file{fileCount !== 1 ? 's' : ''}
       </span>
       {license && (
         <span className="inline-flex items-center gap-1.5">
-          <Scale size={14} strokeWidth={2.5} />
+          <Scale size={12} strokeWidth={2.5} />
           {license}
         </span>
       )}
@@ -420,7 +420,7 @@ export default function SkillDetailPage() {
               Metadata
             </h3>
             <dl className="space-y-3">
-              <MetaItem label="Path" value={skill.relPath} mono />
+              <MetaItem label="Path" value={skill.relPath} mono copyable copyValue={skill.sourcePath} />
               {skill.source && <MetaItem label="Source" value={skill.source} mono />}
               {skill.version && <MetaItem label="Version" value={skill.version} mono />}
               {skill.installedAt && (
@@ -479,7 +479,7 @@ export default function SkillDetailPage() {
                 size="sm"
                 className="flex-1"
               >
-                <Trash2 size={14} strokeWidth={2.5} />
+                <Trash2 size={12} strokeWidth={2.5} />
                 {deleting
                   ? 'Uninstalling...'
                   : skill.isInRepo
@@ -559,6 +559,7 @@ export default function SkillDetailPage() {
           <FileViewerModal
             skillName={skill.flatName}
             filepath={viewingFile}
+            sourcePath={skill.sourcePath}
             onClose={() => setViewingFile(null)}
           />
         </Suspense>
@@ -607,14 +608,21 @@ function MetaItem({
   label,
   value,
   mono,
+  copyable,
+  copyValue,
 }: {
   label: string;
   value: string;
   mono?: boolean;
+  copyable?: boolean;
+  copyValue?: string;
 }) {
   return (
     <div>
-      <dt className="text-sm text-pencil-light uppercase tracking-wider">{label}</dt>
+      <dt className="text-sm text-pencil-light uppercase tracking-wider flex items-center gap-1">
+        {label}
+        {copyable && <CopyButton value={copyValue ?? value} />}
+      </dt>
       <dd
         className="text-base text-pencil break-all"
         style={mono ? { fontFamily: "'Courier New', monospace", fontSize: '0.875rem' } : undefined}
@@ -622,6 +630,26 @@ function MetaItem({
         {value}
       </dd>
     </div>
+  );
+}
+
+function CopyButton({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard.writeText(value).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      }}
+      className="inline-flex items-center gap-0.5 align-middle ml-1.5 text-pencil-light hover:text-pencil transition-colors cursor-pointer shrink-0"
+      style={{ position: 'relative', top: '1px' }}
+      title="Copy to clipboard"
+    >
+      {copied ? <><Check size={12} strokeWidth={2.5} /> <span className="text-xs">Copied!</span></> : <Copy size={12} strokeWidth={2.5} />}
+    </button>
   );
 }
 
