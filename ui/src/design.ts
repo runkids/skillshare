@@ -13,7 +13,7 @@ export const radius = {
   md: '8px',
   /** Large elements — modals, panels */
   lg: '12px',
-  /** Buttons — pill shape like oMLX */
+  /** Buttons — pill shape */
   btn: '9999px',
   /** Full round — avatars, pills */
   full: '9999px',

@@ -230,7 +230,7 @@ body {
   animation: flow 0.6s linear infinite;
 }
 
-/* Subtle underline link — border-bottom style like oMLX */
+/* Subtle underline link — border-bottom style */
 .link-subtle {
   color: var(--color-pencil-light);
   border-bottom: 1px solid var(--color-muted);

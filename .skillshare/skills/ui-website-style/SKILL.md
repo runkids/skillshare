@@ -28,7 +28,7 @@ The project has **two distinct design systems** sharing semantic color names but
 | Border-radius | Clean: `4px`/`8px`/`12px`/pill | Wobbly: `255px 15px 225px 15px / ...` |
 | Shadows | Subtle blur: `0 1px 3px rgba(...)` | Hard offset: `4px 4px 0px 0px #2d2d2d` |
 | Background | Flat `#f7f6f3` | Dot grid on `#fdfbf7` |
-| Philosophy | oMLX.ai-inspired minimal | Hand-drawn sketchy organic |
+| Philosophy | skillshare-inspired minimal | Hand-drawn sketchy organic |
 
 ---
 
@@ -49,7 +49,7 @@ import { radius, shadows, palette } from '../design';
 radius.sm   // '4px'  — badges, chips
 radius.md   // '8px'  — cards, containers
 radius.lg   // '12px' — modals, panels
-radius.btn  // '9999px' — pill buttons (oMLX style)
+radius.btn  // '9999px' — pill buttons (skillshare style)
 radius.full // '9999px' — avatars
 
 shadows.sm / .md / .lg / .hover / .active / .accent / .blue

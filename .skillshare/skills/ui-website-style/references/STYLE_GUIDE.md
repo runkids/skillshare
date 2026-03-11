@@ -6,7 +6,7 @@ Reference implementation: `src/pages/LogPage.tsx`
 
 ## 1. Design Philosophy
 
-- **omlx.ai-inspired**: whitespace over decoration, typography hierarchy over color coding
+- **skillshare-inspired**: whitespace over decoration, typography hierarchy over color coding
 - **"Less is more"**: every visual element must earn its place — if removing it doesn't hurt comprehension, remove it
 - LogPage redesign is the canonical reference: clean summary text, dashed separators, minimal color, monospace where data demands it
 
