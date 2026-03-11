@@ -25,7 +25,7 @@ All notable changes to skillshare are documented here. For the full commit histo
   # Clone group/subgroup/project, install from skills/my-skill subdir
   skillshare install gitlab.com/group/subgroup/project.git/skills/my-skill
   ```
-  GitLab web URLs with `/-/tree/` and Bitbucket `/src/` markers continue to work as before. `--track` mode generates correct names for subgroup paths (e.g., `group-subgroup-project`)
+  Non-GitLab hosts (GHE, Gitea, etc.) retain the original `owner/repo` + subdir behavior. GitLab web URLs with `/-/tree/` and Bitbucket `/src/` markers continue to work as before. `--track` mode generates correct names for subgroup paths (e.g., `group-subgroup-project`)
 
 ## [0.16.14] - 2026-03-09
 

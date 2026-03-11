@@ -347,10 +347,23 @@ func parseGitHTTPS(matches []string, source *Source) (*Source, error) {
 		} else {
 			repoPath = path
 		}
-	} else {
-		// No explicit boundary — entire path is the repo.
-		// This correctly handles GitLab subgroups: group/subgroup/project
+	} else if strings.Contains(host, "gitlab") {
+		// GitLab hosts (including on-prem like onprem.gitlab.internal)
+		// may have nested subgroups up to 20 levels deep.
+		// Without .git, treat entire path as repo.
 		repoPath = path
+	} else {
+		// Default for GHE, Gitea, Gogs, and other platforms:
+		// assume owner/repo (2 segments), remainder is subdir.
+		parts := strings.SplitN(path, "/", 3)
+		if len(parts) >= 2 {
+			repoPath = parts[0] + "/" + parts[1]
+			if len(parts) == 3 {
+				subdir = parts[2]
+			}
+		} else {
+			repoPath = path
+		}
 	}
 
 	// Strip platform-specific branch prefixes from web URLs

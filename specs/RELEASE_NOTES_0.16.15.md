@@ -45,11 +45,13 @@ The `parseGitHTTPS` function now uses explicit markers to determine where the re
 | `.git/` in path | Split at `.git/` | `group/sub/project.git/skills/x` → clone `group/sub/project`, subdir `skills/x` |
 | `/-/` in path | GitLab web URL | `group/sub/project/-/tree/main/x` → clone `group/sub/project`, subdir `x` |
 | `/src/` on Bitbucket | Bitbucket web URL | `team/repo/src/main/x` → clone `team/repo`, subdir `x` |
-| None of above | Entire path = repo | `group/sub/project` → clone `group/sub/project` |
+| GitLab host (no markers) | Entire path = repo | `group/sub/project` → clone `group/sub/project` |
+| Other hosts (no markers) | 2-segment owner/repo split | `org/repo/skills/x` → clone `org/repo`, subdir `skills/x` |
 
 ### Design decisions
 
-- **`.git` as the canonical boundary** — without `.git`, it's genuinely ambiguous whether extra segments are subgroups or subdirs. `.git` is the standard git URL suffix and resolves this ambiguity cleanly. This is a behavioral change: `gitlab.com/user/repo/path/skill` previously cloned `user/repo` with subdir `path/skill`; now it clones the entire path as a repo. Users who need subdirs must add `.git` explicitly.
+- **Platform-aware fallback** — hosts containing `"gitlab"` (including on-prem like `onprem.gitlab.internal`) use full-path-as-repo behavior; all other hosts (GHE, Gitea, Gogs, generic) retain the original 2-segment `owner/repo` split with the remainder as subdir. This avoids regressing existing GHE subdir installs.
+- **`.git` as the canonical boundary** — on GitLab hosts without `.git`, it's genuinely ambiguous whether extra segments are subgroups or subdirs. `.git` is the standard git URL suffix and resolves this ambiguity cleanly for GitLab URLs. Non-GitLab hosts don't need this since they use the 2-segment default.
 - **Platform-specific markers preserved** — `/-/` (GitLab web) and `/src/` (Bitbucket web) are checked before the fallback, maintaining correct behavior for browser-copied URLs.
 - **`url.Parse` in TrackName** — replaced manual `strings.Split` with `url.Parse` for the HTTPS fallback, correctly extracting the full path for any depth of nesting.
 - **SSH subgroups** — the existing SSH regex (`git@host:owner/repo.git`) already captures multi-segment repo names via `.+?` non-greedy match. Only the `TrackName` formatting needed updating (`/` → `-` in the repo portion).

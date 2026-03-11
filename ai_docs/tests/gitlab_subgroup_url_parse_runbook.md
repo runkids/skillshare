@@ -46,7 +46,7 @@ go test ./internal/install/ -run TestParseSource_DomainShorthand -v -count=1
 - gitlab_with_.git_subdir_boundary
 - Not FAIL
 
-### Step 3: Run GHE subdir tests (updated behavior)
+### Step 3: Run GHE subdir tests (preserved 2-segment behavior)
 
 ```bash
 cd /workspace
@@ -56,9 +56,9 @@ go test ./internal/install/ -run TestParseSource_GitHubEnterprise -v -count=1
 **Expected:**
 - exit_code: 0
 - PASS
-- GHE_Server_multi-segment_path
+- GHE_Server_with_subdir
 - GHE_Server_with_.git_subdir_boundary
-- GHE_Cloud_multi-segment_path
+- GHE_Cloud_with_subdir
 - GHE_Cloud_with_.git_subdir_boundary
 - Not FAIL
 

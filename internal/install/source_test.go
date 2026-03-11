@@ -664,11 +664,11 @@ func TestParseSource_GitHubEnterprise(t *testing.T) {
 			wantName:     "repo",
 		},
 		{
-			name:         "GHE Server multi-segment path (treated as repo)",
+			name:         "GHE Server with subdir",
 			input:        "https://github.mycompany.com/org/repo/skills/my-skill",
 			wantType:     SourceTypeGitHTTPS,
-			wantCloneURL: "https://github.mycompany.com/org/repo/skills/my-skill.git",
-			wantSubdir:   "",
+			wantCloneURL: "https://github.mycompany.com/org/repo.git",
+			wantSubdir:   "skills/my-skill",
 			wantName:     "my-skill",
 		},
 		{
@@ -702,11 +702,11 @@ func TestParseSource_GitHubEnterprise(t *testing.T) {
 			wantName:     "repo",
 		},
 		{
-			name:         "GHE Cloud multi-segment path (treated as repo)",
+			name:         "GHE Cloud with subdir",
 			input:        "https://enterprise.github.com/team/skills/frontend/react",
 			wantType:     SourceTypeGitHTTPS,
-			wantCloneURL: "https://enterprise.github.com/team/skills/frontend/react.git",
-			wantSubdir:   "",
+			wantCloneURL: "https://enterprise.github.com/team/skills.git",
+			wantSubdir:   "frontend/react",
 			wantName:     "react",
 		},
 		{
