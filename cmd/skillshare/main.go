@@ -8,6 +8,7 @@ import (
 	"runtime"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 	"skillshare/internal/ui"
 	versioncheck "skillshare/internal/version"
 )
@@ -57,6 +58,9 @@ func main() {
 
 	// Set version for other packages to use
 	versioncheck.Version = version
+
+	// Inject target dotdirs for skill discovery (avoids circular import)
+	install.TargetDotDirs = config.ProjectTargetDotDirs()
 
 	if len(os.Args) < 2 {
 		printUsage()

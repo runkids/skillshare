@@ -120,10 +120,53 @@ func TestDiscoverSkills_SkipsGitDir(t *testing.T) {
 	}
 }
 
-func TestDiscoverSkills_FindsHiddenDirs(t *testing.T) {
+func TestDiscoverSkills_SkipsTargetDotDirs(t *testing.T) {
+	// Simulate target dotdirs being set (as main.go does at startup)
+	origDirs := TargetDotDirs
+	TargetDotDirs = map[string]bool{".claude": true, ".cursor": true, ".skillshare": true}
+	defer func() { TargetDotDirs = origDirs }()
+
+	repoPath := t.TempDir()
+
+	// Create source skills (should be found)
+	for _, name := range []string{"adapt", "polish"} {
+		dir := filepath.Join(repoPath, "source", "skills", name)
+		os.MkdirAll(dir, 0755)
+		os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: "+name+"\n---"), 0644)
+	}
+
+	// Create target directory copies (should be skipped)
+	for _, name := range []string{"adapt", "polish"} {
+		dir := filepath.Join(repoPath, ".claude", "skills", name)
+		os.MkdirAll(dir, 0755)
+		os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: "+name+"\n---"), 0644)
+	}
+
+	// Create .skillshare dir (should also be skipped)
+	os.MkdirAll(filepath.Join(repoPath, ".skillshare"), 0755)
+	os.WriteFile(filepath.Join(repoPath, ".skillshare", "config.yaml"), []byte(""), 0644)
+
+	skills := discoverSkills(repoPath, false)
+	if len(skills) != 2 {
+		t.Fatalf("expected 2 skills (source only), got %d: %v", len(skills), skills)
+	}
+	for _, s := range skills {
+		if strings.HasPrefix(s.Path, ".claude") {
+			t.Errorf("found target dir skill that should have been skipped: %s", s.Path)
+		}
+	}
+}
+
+func TestDiscoverSkills_FindsNonTargetHiddenDirs(t *testing.T) {
+	// Simulate target dotdirs being set
+	origDirs := TargetDotDirs
+	TargetDotDirs = map[string]bool{".claude": true, ".cursor": true}
+	defer func() { TargetDotDirs = origDirs }()
+
 	repoPath := t.TempDir()
 
 	// Create hidden dirs with skills (like openai/skills .curated/, .system/)
+	// These are NOT target dirs and should be discovered.
 	for _, name := range []string{".curated", ".system"} {
 		dir := filepath.Join(repoPath, name, "skill-a")
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -143,9 +186,14 @@ func TestDiscoverSkills_FindsHiddenDirs(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Create .claude target dir (should be skipped)
+	dir := filepath.Join(repoPath, ".claude", "skills", "my-skill")
+	os.MkdirAll(dir, 0755)
+	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: my-skill\n---"), 0644)
+
 	skills := discoverSkills(repoPath, false)
 	if len(skills) != 2 {
-		t.Fatalf("expected 2 skills from hidden dirs, got %d: %v", len(skills), skills)
+		t.Fatalf("expected 2 skills from non-target hidden dirs, got %d: %v", len(skills), skills)
 	}
 }
 

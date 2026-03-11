@@ -9,6 +9,11 @@ import (
 	"skillshare/internal/utils"
 )
 
+// TargetDotDirs is the set of hidden directory names (e.g. ".claude", ".cursor")
+// to skip during skill discovery. Set by the CLI entrypoint from config data
+// to avoid a circular import between install and config packages.
+var TargetDotDirs map[string]bool
+
 func discoverFromGitWithProgressImpl(source *Source, onProgress ProgressCallback) (*DiscoveryResult, error) {
 	if !isGitInstalled() {
 		return nil, fmt.Errorf("git is not installed or not in PATH")
@@ -137,9 +142,13 @@ func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
 			return nil
 		}
 
-		// Skip .git directory
-		if info.IsDir() && info.Name() == ".git" {
-			return filepath.SkipDir
+		// Skip .git and known target dotdirs (.claude, .cursor, .skillshare, etc.)
+		// to avoid counting target-synced copies as source skills.
+		if info.IsDir() {
+			name := info.Name()
+			if name == ".git" || TargetDotDirs[name] {
+				return filepath.SkipDir
+			}
 		}
 
 		// Check if this is a SKILL.md file
