@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
-import HandButton from '../components/HandButton';
+import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
@@ -187,7 +187,7 @@ export default function CollectPage() {
         </div>
 
         <div
-          className="flex items-center gap-2 px-4 py-2 bg-postit border-2 border-pencil"
+          className="flex items-center gap-2 px-4 py-2 bg-paper border-2 border-pencil"
           style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
         >
           <Folder size={18} strokeWidth={2.5} className="text-warning" />
@@ -200,7 +200,7 @@ export default function CollectPage() {
       {/* Scan control area */}
       <Card className="mb-6 text-center">
         <div className="flex flex-col items-center gap-4">
-          <HandButton
+          <Button
             onClick={() => handleScan(presetTarget)}
             disabled={phase === 'scanning' || phase === 'collecting'}
             variant="primary"
@@ -218,7 +218,7 @@ export default function CollectPage() {
                 {phase === 'idle' ? 'Scan for Local Skills' : 'Re-scan'}
               </>
             )}
-          </HandButton>
+          </Button>
 
           {presetTarget && (
             <p className="text-sm text-pencil-light">
@@ -266,22 +266,22 @@ export default function CollectPage() {
                   Found {totalCount} local skill{totalCount !== 1 ? 's' : ''}
                 </h3>
                 <div className="flex gap-2">
-                  <HandButton
+                  <Button
                     onClick={() => toggleAll(true)}
                     variant="ghost"
                     size="sm"
                     disabled={phase === 'collecting'}
                   >
                     Select All
-                  </HandButton>
-                  <HandButton
+                  </Button>
+                  <Button
                     onClick={() => toggleAll(false)}
                     variant="ghost"
                     size="sm"
                     disabled={phase === 'collecting'}
                   >
                     Select None
-                  </HandButton>
+                  </Button>
                 </div>
               </div>
 
@@ -301,7 +301,7 @@ export default function CollectPage() {
               {/* Collect button */}
               {phase !== 'done' && (
                 <div className="mt-6 text-center">
-                  <HandButton
+                  <Button
                     onClick={() => setConfirming(true)}
                     disabled={selected.size === 0 || phase === 'collecting'}
                     variant="primary"
@@ -319,7 +319,7 @@ export default function CollectPage() {
                         Collect {selected.size} Skill{selected.size !== 1 ? 's' : ''}
                       </>
                     )}
-                  </HandButton>
+                  </Button>
                 </div>
               )}
             </div>
@@ -340,10 +340,10 @@ export default function CollectPage() {
               Skills collected to source! Run Sync to distribute them to all targets.
             </p>
             <Link to="/sync">
-              <HandButton variant="primary" size="sm">
+              <Button variant="primary" size="sm">
                 <RefreshCw size={16} strokeWidth={2.5} />
                 Go to Sync
-              </HandButton>
+              </Button>
             </Link>
           </div>
         </Card>

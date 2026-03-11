@@ -3,11 +3,11 @@ import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { radius, shadows } from '../design';
 
-interface HandInputProps extends InputHTMLAttributes<HTMLInputElement> {
+interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
 }
 
-export function HandInput({ label, className = '', style, id, ...props }: HandInputProps) {
+export function Input({ label, className = '', style, id, ...props }: InputProps) {
   const autoId = useId();
   const inputId = id ?? autoId;
 
@@ -41,11 +41,11 @@ export function HandInput({ label, className = '', style, id, ...props }: HandIn
   );
 }
 
-interface HandTextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
 }
 
-export function HandTextarea({ label, className = '', style, id, ...props }: HandTextareaProps) {
+export function Textarea({ label, className = '', style, id, ...props }: TextareaProps) {
   const autoId = useId();
   const inputId = id ?? autoId;
 
@@ -85,7 +85,7 @@ export interface SelectOption {
   description?: string;
 }
 
-interface HandSelectProps {
+interface SelectProps {
   label?: string;
   value: string;
   onChange: (value: string) => void;
@@ -93,7 +93,7 @@ interface HandSelectProps {
   className?: string;
 }
 
-export function HandSelect({ label, value, onChange, options, className = '' }: HandSelectProps) {
+export function Select({ label, value, onChange, options, className = '' }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -238,14 +238,14 @@ export function HandSelect({ label, value, onChange, options, className = '' }: 
   );
 }
 
-interface HandCheckboxProps {
+interface CheckboxProps {
   label: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
   className?: string;
 }
 
-export function HandCheckbox({ label, checked, onChange, className = '' }: HandCheckboxProps) {
+export function Checkbox({ label, checked, onChange, className = '' }: CheckboxProps) {
   return (
     <label
       className={`inline-flex items-center gap-2 cursor-pointer select-none ${className}`}

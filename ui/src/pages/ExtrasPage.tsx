@@ -7,8 +7,8 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../components/Toast';
 import Card from '../components/Card';
-import HandButton from '../components/HandButton';
-import { HandInput, HandSelect } from '../components/HandInput';
+import Button from '../components/Button';
+import { Input, Select } from '../components/Input';
 import Badge from '../components/Badge';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -111,7 +111,7 @@ function AddExtraModal({
 
           <div className="space-y-4">
             {/* Name */}
-            <HandInput
+            <Input
               label="Name"
               placeholder="e.g. my-scripts"
               value={name}
@@ -130,7 +130,7 @@ function AddExtraModal({
                 {targets.map((t, i) => (
                   <div key={i} className="flex gap-2 items-start">
                     <div className="flex-1">
-                      <HandInput
+                      <Input
                         placeholder="Target path (e.g. ~/.cursor/scripts)"
                         value={t.path}
                         onChange={(e) => updateTarget(i, 'path', e.target.value)}
@@ -138,7 +138,7 @@ function AddExtraModal({
                       />
                     </div>
                     <div className="w-36 shrink-0">
-                      <HandSelect
+                      <Select
                         value={t.mode}
                         onChange={(v) => updateTarget(i, 'mode', v)}
                         options={MODE_OPTIONS}
@@ -157,7 +157,7 @@ function AddExtraModal({
                   </div>
                 ))}
               </div>
-              <HandButton
+              <Button
                 variant="ghost"
                 size="sm"
                 onClick={addTarget}
@@ -165,17 +165,17 @@ function AddExtraModal({
                 className="mt-2"
               >
                 <Plus size={14} strokeWidth={2.5} /> Add Target
-              </HandButton>
+              </Button>
             </div>
           </div>
 
           <div className="flex gap-3 justify-end mt-6">
-            <HandButton variant="ghost" size="sm" onClick={onClose} disabled={saving}>
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>
               Cancel
-            </HandButton>
-            <HandButton variant="primary" size="sm" onClick={handleCreate} disabled={saving}>
+            </Button>
+            <Button variant="primary" size="sm" onClick={handleCreate} disabled={saving}>
               {saving ? 'Creating...' : 'Create'}
-            </HandButton>
+            </Button>
           </div>
         </Card>
       </div>
@@ -213,12 +213,12 @@ function ExtraCard({
           )}
         </div>
         <div className="flex gap-2 shrink-0">
-          <HandButton variant="secondary" size="sm" onClick={() => onSync(extra.name)}>
+          <Button variant="secondary" size="sm" onClick={() => onSync(extra.name)}>
             <RefreshCw size={12} strokeWidth={2.5} /> Sync
-          </HandButton>
-          <HandButton variant="danger" size="sm" onClick={() => onRemove(extra.name)}>
+          </Button>
+          <Button variant="danger" size="sm" onClick={() => onRemove(extra.name)}>
             <Trash2 size={12} strokeWidth={2.5} />
-          </HandButton>
+          </Button>
         </div>
       </div>
 
@@ -346,13 +346,13 @@ export default function ExtrasPage() {
           </h2>
           <div className="flex gap-2">
             {extras.length > 0 && (
-              <HandButton variant="secondary" size="sm" onClick={handleSyncAll}>
+              <Button variant="secondary" size="sm" onClick={handleSyncAll}>
                 <RefreshCw size={14} strokeWidth={2.5} /> Sync All
-              </HandButton>
+              </Button>
             )}
-            <HandButton variant="primary" size="sm" onClick={() => setShowAdd(true)}>
+            <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
               <Plus size={14} strokeWidth={2.5} /> Add Extra
-            </HandButton>
+            </Button>
           </div>
         </div>
         <p
@@ -381,9 +381,9 @@ export default function ExtrasPage() {
           title="No extras configured"
           description="Extras let you sync any directory to your AI tool targets alongside your skills."
           action={
-            <HandButton variant="primary" size="md" onClick={() => setShowAdd(true)}>
+            <Button variant="primary" size="md" onClick={() => setShowAdd(true)}>
               <Plus size={16} strokeWidth={2.5} /> Add Extra
-            </HandButton>
+            </Button>
           }
         />
       )}

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Server } from 'lucide-react';
 import Card from './Card';
-import HandButton from './HandButton';
-import { HandInput } from './HandInput';
+import Button from './Button';
+import { Input } from './Input';
 import { radius } from '../design';
 
 export interface SavedHub {
@@ -138,20 +138,20 @@ export default function HubManagerModal({
                     <span className="text-xs text-muted-dark shrink-0 px-1.5">Built-in</span>
                   ) : confirmDelete === hub.url ? (
                     <div className="flex items-center gap-1 shrink-0">
-                      <HandButton
+                      <Button
                         variant="danger"
                         size="sm"
                         onClick={() => handleDelete(hub.url)}
                       >
                         Confirm
-                      </HandButton>
-                      <HandButton
+                      </Button>
+                      <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setConfirmDelete(null)}
                       >
                         Cancel
-                      </HandButton>
+                      </Button>
                     </div>
                   ) : (
                     <button
@@ -177,13 +177,13 @@ export default function HubManagerModal({
               Add Hub
             </p>
             <div className="space-y-2 mb-2">
-              <HandInput
+              <Input
                 type="text"
                 placeholder="Label (optional)"
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
               />
-              <HandInput
+              <Input
                 type="text"
                 placeholder="URL or file path"
                 value={newURL}
@@ -201,13 +201,13 @@ export default function HubManagerModal({
               Enter a URL or local path to a skillshare-hub.json file.
             </p>
             <div className="flex justify-between">
-              <HandButton variant="primary" size="sm" onClick={handleAdd}>
+              <Button variant="primary" size="sm" onClick={handleAdd}>
                 <Plus size={14} strokeWidth={2.5} />
                 Add
-              </HandButton>
-              <HandButton variant="ghost" size="sm" onClick={onClose}>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={onClose}>
                 Close
-              </HandButton>
+              </Button>
             </div>
           </div>
         </Card>

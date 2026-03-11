@@ -17,9 +17,9 @@ import {
 import { api } from '../api/client';
 import type { AuditAllResponse, AuditResult, AuditFinding } from '../api/client';
 import Card from '../components/Card';
-import HandButton from '../components/HandButton';
+import Button from '../components/Button';
 import Badge from '../components/Badge';
-import { HandSelect } from '../components/HandInput';
+import { Select } from '../components/Input';
 import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
@@ -137,12 +137,12 @@ export default function AuditPage() {
         </div>
         <div className="flex items-center gap-3">
           <Link to="/audit/rules">
-            <HandButton variant="secondary" size="lg">
+            <Button variant="secondary" size="lg">
               <FileEdit size={18} strokeWidth={2.5} />
               Custom Rules
-            </HandButton>
+            </Button>
           </Link>
-          <HandButton
+          <Button
             variant="primary"
             size="lg"
             onClick={runAudit}
@@ -150,7 +150,7 @@ export default function AuditPage() {
           >
             <ShieldCheck size={18} strokeWidth={2.5} />
             {loading ? 'Scanning...' : 'Run Audit'}
-          </HandButton>
+          </Button>
         </div>
       </div>
 
@@ -162,7 +162,7 @@ export default function AuditPage() {
             total={progress.total}
             startTime={startTimeRef.current}
             icon={ShieldCheck}
-            iconClassName="animate-pulse-gentle"
+            iconClassName="animate-pulse"
             labelDiscovering="Scanning skills..."
             labelRunning="Scanning skills..."
             units="skills"
@@ -255,9 +255,9 @@ export default function AuditPage() {
           title="No audit results yet"
           description="Click 'Run Audit' to scan your installed skills for security threats"
           action={
-            <HandButton variant="primary" onClick={runAudit}>
+            <Button variant="primary" onClick={runAudit}>
               <ShieldCheck size={16} strokeWidth={2.5} /> Run Audit
-            </HandButton>
+            </Button>
           }
         />
       )}
@@ -363,7 +363,7 @@ function StatCard({
       {/* Pulse dot for non-zero danger/warning */}
       {!isZero && (variant === 'danger' || variant === 'warning') && (
         <div className="absolute top-2 right-2">
-          <span className={`block w-2.5 h-2.5 rounded-full ${variant === 'danger' ? 'bg-danger' : 'bg-warning'} animate-pulse-gentle`} />
+          <span className={`block w-2.5 h-2.5 rounded-full ${variant === 'danger' ? 'bg-danger' : 'bg-warning'} animate-pulse`} />
         </div>
       )}
     </div>
@@ -524,7 +524,7 @@ function TriagePanel({
         {/* Bottom row: filter + help */}
         <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 pt-2 border-t border-dashed border-pencil-light/30">
           <div className="w-full sm:w-56">
-            <HandSelect
+            <Select
               label="Min Severity"
               value={minSeverity}
               onChange={(value) => onSeverityChange(value)}

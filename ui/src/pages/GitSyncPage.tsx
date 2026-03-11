@@ -20,8 +20,8 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { shortenHome } from '../lib/paths';
 import Card from '../components/Card';
-import HandButton from '../components/HandButton';
-import { HandInput, HandCheckbox } from '../components/HandInput';
+import Button from '../components/Button';
+import { Input, Checkbox } from '../components/Input';
 import Badge from '../components/Badge';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
@@ -222,7 +222,7 @@ export default function GitSyncPage() {
             </h3>
 
             {/* Commit Message */}
-            <HandInput
+            <Input
               label="Commit Message"
               placeholder="Describe your changes..."
               value={commitMsg}
@@ -271,12 +271,12 @@ export default function GitSyncPage() {
             )}
 
             <div className="flex items-center justify-between gap-4 pt-2">
-              <HandCheckbox
+              <Checkbox
                 label="Dry Run"
                 checked={pushDryRun}
                 onChange={setPushDryRun}
               />
-              <HandButton
+              <Button
                 variant="primary"
                 size="lg"
                 onClick={handlePush}
@@ -288,7 +288,7 @@ export default function GitSyncPage() {
                 ) : (
                   <><ArrowUpCircle size={18} strokeWidth={2.5} /> Push</>
                 )}
-              </HandButton>
+              </Button>
             </div>
 
             {pushResult && (
@@ -322,12 +322,12 @@ export default function GitSyncPage() {
             )}
 
             <div className="flex items-center justify-between gap-4 pt-2">
-              <HandCheckbox
+              <Checkbox
                 label="Dry Run"
                 checked={pullDryRun}
                 onChange={setPullDryRun}
               />
-              <HandButton
+              <Button
                 variant="secondary"
                 size="lg"
                 onClick={handlePull}
@@ -339,7 +339,7 @@ export default function GitSyncPage() {
                 ) : (
                   <><ArrowDownCircle size={18} strokeWidth={2.5} /> Pull</>
                 )}
-              </HandButton>
+              </Button>
             </div>
 
             {/* Pull Results */}

@@ -12,7 +12,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { formatSize } from '../lib/format';
 import Card from '../components/Card';
-import HandButton from '../components/HandButton';
+import Button from '../components/Button';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
@@ -146,13 +146,13 @@ export default function TrashPage() {
             )}
           </div>
           {items.length > 0 && (
-            <HandButton
+            <Button
               variant="danger"
               size="lg"
               onClick={() => setEmptyOpen(true)}
             >
               <Trash2 size={18} strokeWidth={2.5} /> Empty Trash
-            </HandButton>
+            </Button>
           )}
         </div>
       </Card>
@@ -277,12 +277,12 @@ function TrashCard({
 
         {/* Actions */}
         <div className="border-t border-dashed border-pencil-light/40 pt-3 flex gap-2">
-          <HandButton variant="secondary" size="sm" onClick={onRestore}>
+          <Button variant="secondary" size="sm" onClick={onRestore}>
             <RotateCcw size={14} strokeWidth={2.5} /> Restore
-          </HandButton>
-          <HandButton variant="ghost" size="sm" onClick={onDelete}>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onDelete}>
             <X size={14} strokeWidth={2.5} /> Delete
-          </HandButton>
+          </Button>
         </div>
       </div>
     </Card>

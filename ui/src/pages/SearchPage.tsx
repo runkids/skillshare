@@ -3,8 +3,8 @@ import { Search, Star, Download, Globe, Database, Settings } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
-import HandButton from '../components/HandButton';
-import { HandInput, HandSelect } from '../components/HandInput';
+import Button from '../components/Button';
+import { Input, Select } from '../components/Input';
 import SkillPickerModal from '../components/SkillPickerModal';
 import HubManagerModal, { type SavedHub } from '../components/HubManagerModal';
 import EmptyState from '../components/EmptyState';
@@ -331,22 +331,22 @@ export default function SearchPage() {
 
       {/* Mode tabs */}
       <div className="flex gap-2 mb-4">
-        <HandButton
+        <Button
           onClick={() => switchMode('github')}
           variant={mode === 'github' ? 'primary' : 'secondary'}
           size="sm"
         >
           <Globe size={14} strokeWidth={2.5} />
           GitHub
-        </HandButton>
-        <HandButton
+        </Button>
+        <Button
           onClick={() => switchMode('hub')}
           variant={mode === 'hub' ? 'primary' : 'secondary'}
           size="sm"
         >
           <Database size={14} strokeWidth={2.5} />
           Hub
-        </HandButton>
+        </Button>
       </div>
 
       {/* Hub selector (only in hub mode) */}
@@ -354,13 +354,13 @@ export default function SearchPage() {
         <Card className="mb-4 !overflow-visible">
           {savedHubs.length > 0 ? (
             <div className="flex items-center gap-2">
-              <HandSelect
+              <Select
                 value={selectedHub}
                 onChange={handleSelectHub}
                 options={savedHubs.map((h) => ({ value: h.url, label: h.label }))}
                 className="flex-1"
               />
-              <HandButton
+              <Button
                 onClick={() => setShowHubManager(true)}
                 variant="ghost"
                 size="sm"
@@ -368,21 +368,21 @@ export default function SearchPage() {
               >
                 <Settings size={14} strokeWidth={2.5} />
                 Manage
-              </HandButton>
+              </Button>
             </div>
           ) : (
             <div className="text-center py-3">
               <p className="text-base text-muted-dark mb-3">
                 No hubs configured. Add one to get started.
               </p>
-              <HandButton
+              <Button
                 onClick={() => setShowHubManager(true)}
                 variant="secondary"
                 size="sm"
               >
                 <Settings size={14} strokeWidth={2.5} />
                 Manage Hubs
-              </HandButton>
+              </Button>
             </div>
           )}
           <p className="text-sm text-muted-dark mt-3 flex items-center gap-1.5">
@@ -411,7 +411,7 @@ export default function SearchPage() {
               strokeWidth={2.5}
               className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
             />
-            <HandInput
+            <Input
               type="text"
               placeholder={mode === 'github' ? 'Search GitHub for skills...' : 'Search hub...'}
               value={query}
@@ -420,7 +420,7 @@ export default function SearchPage() {
               className="!pl-11"
             />
           </div>
-          <HandButton
+          <Button
             onClick={() => handleSearch(query)}
             disabled={searching}
             variant="primary"
@@ -428,7 +428,7 @@ export default function SearchPage() {
           >
             <Search size={16} strokeWidth={2.5} />
             {searching ? 'Searching...' : 'Search'}
-          </HandButton>
+          </Button>
         </div>
         {mode === 'github' && (
           <p className="text-sm text-muted-dark mt-3 flex items-center gap-1">
@@ -451,7 +451,7 @@ export default function SearchPage() {
                 strokeWidth={2.5}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
               />
-              <HandInput
+              <Input
                 type="text"
                 placeholder="Filter by name, description, or tag..."
                 value={filter}
@@ -498,7 +498,7 @@ export default function SearchPage() {
                     {r.source}
                   </p>
                 </div>
-                <HandButton
+                <Button
                   onClick={() => handleInstall(r.source, r.skill)}
                   disabled={installing === r.source}
                   variant="secondary"
@@ -507,7 +507,7 @@ export default function SearchPage() {
                 >
                   <Download size={14} strokeWidth={2.5} />
                   {installing === r.source ? 'Installing...' : 'Install'}
-                </HandButton>
+                </Button>
               </div>
             </Card>
           ))}
@@ -531,7 +531,7 @@ export default function SearchPage() {
       {!results && !searching && (
         <div className="text-center py-12">
           <div
-            className="inline-flex items-center justify-center w-20 h-20 bg-postit border-2 border-dashed border-pencil-light mb-4"
+            className="inline-flex items-center justify-center w-20 h-20 bg-paper border-2 border-dashed border-pencil-light mb-4"
             style={{ borderRadius: '50%' }}
           >
             <Search size={32} strokeWidth={2} className="text-pencil-light" />
@@ -546,14 +546,14 @@ export default function SearchPage() {
               ? 'Type a query above to find skills on GitHub'
               : 'Type a query above, or search with empty query to browse all'}
           </p>
-          <HandButton
+          <Button
             onClick={() => handleSearch('')}
             variant="secondary"
             size="sm"
           >
             <Star size={14} strokeWidth={2.5} />
             {mode === 'github' ? 'Browse Popular Skills' : 'Browse All Skills'}
-          </HandButton>
+          </Button>
         </div>
       )}
 

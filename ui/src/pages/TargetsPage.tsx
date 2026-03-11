@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trash2, Plus, Target, ArrowDownToLine, Search, CircleDot, PenLine, AlertTriangle, Filter } from 'lucide-react';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
-import HandButton from '../components/HandButton';
-import { HandInput, HandSelect } from '../components/HandInput';
+import Button from '../components/Button';
+import { Input, Select } from '../components/Input';
 import FilterTagInput from '../components/FilterTagInput';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -119,7 +119,7 @@ export default function TargetsPage() {
             {targets.length} target{targets.length !== 1 ? 's' : ''} configured
           </p>
         </div>
-        <HandButton
+        <Button
           onClick={() => {
             if (adding) {
               setAdding(false);
@@ -135,7 +135,7 @@ export default function TargetsPage() {
         >
           <Plus size={16} strokeWidth={2.5} />
           {adding ? 'Cancel' : 'Add Target'}
-        </HandButton>
+        </Button>
       </div>
 
       {/* Add target form */}
@@ -166,16 +166,16 @@ export default function TargetsPage() {
                     {shortenHome(newTarget.path)}
                   </p>
                 </div>
-                <HandButton
+                <Button
                   onClick={() => setNewTarget({ name: '', path: '' })}
                   variant="ghost"
                   size="sm"
                 >
                   Change
-                </HandButton>
+                </Button>
               </div>
 
-              <HandInput
+              <Input
                 label="Path (customize if needed)"
                 type="text"
                 value={newTarget.path}
@@ -184,11 +184,11 @@ export default function TargetsPage() {
               />
 
               <div className="flex gap-3">
-                <HandButton onClick={handleAdd} variant="primary" size="sm">
+                <Button onClick={handleAdd} variant="primary" size="sm">
                   <Plus size={16} strokeWidth={2.5} />
                   Add Target
-                </HandButton>
-                <HandButton
+                </Button>
+                <Button
                   onClick={() => {
                     setAdding(false);
                     setNewTarget({ name: '', path: '' });
@@ -199,20 +199,20 @@ export default function TargetsPage() {
                   size="sm"
                 >
                   Cancel
-                </HandButton>
+                </Button>
               </div>
             </div>
           ) : customMode ? (
             /* Custom target entry mode */
             <div className="space-y-4 animate-fade-in">
-              <HandInput
+              <Input
                 label="Target Name"
                 type="text"
                 value={newTarget.name}
                 onChange={(e) => setNewTarget({ ...newTarget, name: e.target.value })}
                 placeholder="my-custom-target"
               />
-              <HandInput
+              <Input
                 label="Path"
                 type="text"
                 value={newTarget.path}
@@ -220,11 +220,11 @@ export default function TargetsPage() {
                 placeholder="/path/to/target/skills"
               />
               <div className="flex gap-3">
-                <HandButton onClick={handleAdd} variant="primary" size="sm">
+                <Button onClick={handleAdd} variant="primary" size="sm">
                   <Plus size={16} strokeWidth={2.5} />
                   Add Target
-                </HandButton>
-                <HandButton
+                </Button>
+                <Button
                   onClick={() => {
                     setCustomMode(false);
                     setNewTarget({ name: '', path: '' });
@@ -233,8 +233,8 @@ export default function TargetsPage() {
                   size="sm"
                 >
                   Back to picker
-                </HandButton>
-                <HandButton
+                </Button>
+                <Button
                   onClick={() => {
                     setAdding(false);
                     setNewTarget({ name: '', path: '' });
@@ -245,7 +245,7 @@ export default function TargetsPage() {
                   size="sm"
                 >
                   Cancel
-                </HandButton>
+                </Button>
               </div>
             </div>
           ) : (
@@ -342,7 +342,7 @@ export default function TargetsPage() {
                   <PenLine size={14} strokeWidth={2.5} />
                   Enter custom target
                 </button>
-                <HandButton
+                <Button
                   onClick={() => {
                     setAdding(false);
                     setNewTarget({ name: '', path: '' });
@@ -353,7 +353,7 @@ export default function TargetsPage() {
                   size="sm"
                 >
                   Cancel
-                </HandButton>
+                </Button>
               </div>
             </div>
           )}
@@ -394,7 +394,7 @@ export default function TargetsPage() {
                       <span className="text-sm text-pencil-light">
                         Sync mode:
                       </span>
-                      <HandSelect
+                      <Select
                         value={target.mode || 'merge'}
                         onChange={async (mode) => {
                           try {
@@ -437,7 +437,7 @@ export default function TargetsPage() {
                       )}
                     </div>
                     {editingFilter === target.name && (
-                      <div className="mt-3 p-3 bg-postit/40 border-2 border-dashed border-muted-dark animate-fade-in" style={{ borderRadius: radius.md }}>
+                      <div className="mt-3 p-3 bg-surface border-2 border-dashed border-muted-dark animate-fade-in" style={{ borderRadius: radius.md }}>
                         <div className="space-y-3">
                           <FilterTagInput
                             label="Include patterns"
@@ -452,7 +452,7 @@ export default function TargetsPage() {
                             color="danger"
                           />
                           <div className="flex gap-2">
-                            <HandButton
+                            <Button
                               onClick={async () => {
                                 setSavingFilter(true);
                                 try {
@@ -474,14 +474,14 @@ export default function TargetsPage() {
                               disabled={savingFilter}
                             >
                               {savingFilter ? 'Saving...' : 'Save'}
-                            </HandButton>
-                            <HandButton
+                            </Button>
+                            <Button
                               onClick={() => setEditingFilter(null)}
                               variant="ghost"
                               size="sm"
                             >
                               Cancel
-                            </HandButton>
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -531,10 +531,10 @@ export default function TargetsPage() {
           description="Add a target to start syncing your skills."
           action={
             !adding ? (
-              <HandButton onClick={() => setAdding(true)} variant="secondary" size="sm">
+              <Button onClick={() => setAdding(true)} variant="secondary" size="sm">
                 <Plus size={16} strokeWidth={2.5} />
                 Add Your First Target
-              </HandButton>
+              </Button>
             ) : undefined
           }
         />
@@ -580,7 +580,7 @@ function TargetPickerItem({
   return (
     <button
       onClick={() => onSelect(target)}
-      className="w-full text-left px-3 py-2.5 flex items-center gap-3 border-b border-muted/60 hover:bg-postit/40 transition-colors cursor-pointer group"
+      className="w-full text-left px-3 py-2.5 flex items-center gap-3 border-b border-muted/60 hover:bg-muted/20 transition-colors cursor-pointer group"
     >
       {isDetected ? (
         <span className="w-2.5 h-2.5 rounded-full bg-success shrink-0" />

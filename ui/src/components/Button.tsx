@@ -1,7 +1,7 @@
 import type { ReactNode, ButtonHTMLAttributes } from 'react';
 import { radius } from '../design';
 
-interface HandButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
@@ -20,7 +20,7 @@ const sizeClasses = {
   lg: 'px-8 py-3.5 text-lg',
 };
 
-export default function HandButton({
+export default function Button({
   children,
   variant = 'primary',
   size = 'md',
@@ -28,7 +28,7 @@ export default function HandButton({
   disabled,
   style,
   ...props
-}: HandButtonProps) {
+}: ButtonProps) {
   return (
     <button
       className={`
