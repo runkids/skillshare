@@ -36,7 +36,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: [v0.16](https://github.com/runkids/skillshare/releases/tag/v0.16.11) — supply-chain trust, interactive TUI, security hardening. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: [v0.17.0](https://github.com/runkids/skillshare/releases/tag/v0.17.0) — first-class extras, Web UI redesign, GitLab custom domain support. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
