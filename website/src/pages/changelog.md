@@ -11,6 +11,29 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ## [0.16.15] - 2026-03-11
 
+### New Features
+
+#### Custom GitLab Domain Support
+
+- **`gitlab_hosts` config** — declare self-managed GitLab hostnames so skillshare treats URLs with nested subgroup paths correctly. Hosts containing `gitlab` in the name are detected automatically; this config is for custom domains like `git.company.com`:
+  ```yaml
+  # ~/.config/skillshare/config.yaml (or .skillshare/config.yaml)
+  gitlab_hosts:
+    - git.company.com
+    - code.internal.io
+  ```
+  ```bash
+  # With config above, full path is treated as repo (not owner/repo + subdir)
+  skillshare install git.company.com/team/frontend/ui
+  ```
+  Without config, append `.git` as a workaround: `git.company.com/team/frontend/ui.git`
+
+- **`SKILLSHARE_GITLAB_HOSTS` env var** — comma-separated list of GitLab hostnames for CI/CD pipelines that don't have a config file:
+  ```bash
+  SKILLSHARE_GITLAB_HOSTS=git.company.com,code.internal.io skillshare install git.company.com/team/frontend/ui
+  ```
+  When both the env var and config file are set, their values are merged (deduplicated). Invalid entries in the env var are silently skipped
+
 ### Bug Fixes
 
 - **GitLab subgroup URL parsing** — `skillshare install` now correctly handles GitLab nested subgroup URLs with arbitrary depth. Previously, URLs like `gitlab.com/group/subgroup/project` were misinterpreted as repo `group/subgroup` with subdir `project`. Now the entire path is treated as the repo path:
@@ -26,6 +49,7 @@ All notable changes to skillshare are documented here. For the full commit histo
   skillshare install gitlab.com/group/subgroup/project.git/skills/my-skill
   ```
   Non-GitLab hosts (GHE, Gitea, etc.) retain the original `owner/repo` + subdir behavior. GitLab web URLs with `/-/tree/` and Bitbucket `/src/` markers continue to work as before. `--track` mode generates correct names for subgroup paths (e.g., `group-subgroup-project`)
+- **HTTPS fallback on non-GitLab hosts** — fixed platform-aware HTTPS URL parsing that could misroute GitHub Enterprise and Gitea URLs with subdirectory paths
 
 ## [0.16.14] - 2026-03-09
 

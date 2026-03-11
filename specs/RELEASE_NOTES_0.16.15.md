@@ -4,13 +4,65 @@ Release date: 2026-03-11
 
 ## TL;DR
 
-v0.16.15 fixes **GitLab subgroup URL parsing** (Issue #72) — the only user-facing change in this release:
+v0.16.15 adds **custom GitLab domain support** and fixes **nested subgroup URL parsing** (Issue #72):
 
-1. **GitLab nested subgroups** — URLs like `group/subgroup/project` are now treated as the full repo path instead of being split at the 2nd segment
-2. **`.git` boundary** — use `.git` suffix to explicitly mark where the repo path ends and the subdir begins
-3. **TrackName** — `--track` mode produces correct hyphenated names for subgroup paths (e.g., `group-subgroup-project`)
+1. **`gitlab_hosts` config** — declare self-managed GitLab hostnames (e.g., `git.company.com`) so URLs are parsed with nested subgroup support
+2. **`SKILLSHARE_GITLAB_HOSTS` env var** — comma-separated list for CI/CD pipelines without a config file; merged with config values, invalid entries silently skipped
+3. **GitLab nested subgroups** — URLs like `group/subgroup/project` are now treated as the full repo path instead of being split at the 2nd segment
+4. **`.git` boundary** — use `.git` suffix to explicitly mark where the repo path ends and the subdir begins
 
 No breaking changes. Drop-in upgrade from v0.16.14.
+
+---
+
+## Custom GitLab Domain Support
+
+### The problem
+
+v0.16.15's subgroup fix introduced platform-aware URL parsing: hosts containing `"gitlab"` treat the full path as repo (for nested subgroups), while other hosts use 2-segment `owner/repo` split. Self-managed GitLab instances on custom domains (e.g., `git.company.com`) without `"gitlab"` in the hostname still fell back to the 2-segment split, breaking nested subgroup URLs.
+
+### Solution
+
+New `gitlab_hosts` config field in both global and project config. Entries must be bare hostnames (no scheme, path, or port), normalized to lowercase.
+
+```yaml
+# ~/.config/skillshare/config.yaml
+gitlab_hosts:
+  - git.company.com
+  - code.internal.io
+```
+
+For CI/CD without a config file, use the `SKILLSHARE_GITLAB_HOSTS` env var:
+
+```bash
+SKILLSHARE_GITLAB_HOSTS=git.company.com skillshare install git.company.com/team/frontend/ui
+```
+
+### Design decisions
+
+- **`EffectiveGitLabHosts()` method pattern** — the `GitLabHosts` field on `Config`/`ProjectConfig` stores only config-file values and is safe to persist via `Save()`. The `EffectiveGitLabHosts()` method merges the env var at read time, preventing env-only hosts from leaking into the config file on save
+- **`ParseOptions` struct** — `ParseSourceWithOptions(input, opts)` threads `GitLabHosts` through the parser without changing `ParseSource()` call sites that don't need custom hosts
+- **`isGitLabHost()` helper** — checked after explicit markers (`.git`, `/-/`, `/src/`) but before the 2-segment fallback, so markers always win over the host heuristic
+- **Project mode isolation** — in project mode, `parseOpts()` uses project config unconditionally (never falls back to global config), matching the dual-mode design principle
+- **Env var is additive** — merges with config file entries (deduplicated), never replaces them. Invalid entries (scheme, path, port, empty) are silently skipped in env var but hard-error in config file
+- **Validation** — `isValidGitLabHostname()` shared by both `normalizeGitLabHosts()` (config file, strict) and `mergeGitLabHostsFromEnv()` (env var, lenient)
+
+### Usage patterns
+
+```bash
+# Config-based (persistent)
+gitlab_hosts:
+  - git.company.com
+
+skillshare install git.company.com/team/frontend/ui
+# → clones https://git.company.com/team/frontend/ui.git (full path as repo)
+
+# Env-based (ephemeral, CI/CD)
+SKILLSHARE_GITLAB_HOSTS=git.company.com skillshare install git.company.com/team/frontend/ui
+
+# Without config, .git workaround still works
+skillshare install git.company.com/team/frontend/ui.git
+```
 
 ---
 
@@ -45,19 +97,16 @@ The `parseGitHTTPS` function now uses explicit markers to determine where the re
 | `.git/` in path | Split at `.git/` | `group/sub/project.git/skills/x` → clone `group/sub/project`, subdir `skills/x` |
 | `/-/` in path | GitLab web URL | `group/sub/project/-/tree/main/x` → clone `group/sub/project`, subdir `x` |
 | `/src/` on Bitbucket | Bitbucket web URL | `team/repo/src/main/x` → clone `team/repo`, subdir `x` |
-| GitLab host (no markers) | Entire path = repo | `group/sub/project` → clone `group/sub/project` |
+| `gitlab_hosts` match | Entire path = repo | `team/frontend/ui` → clone `team/frontend/ui` |
+| `"gitlab"` in hostname | Entire path = repo | `group/sub/project` → clone `group/sub/project` |
 | Other hosts (no markers) | 2-segment owner/repo split | `org/repo/skills/x` → clone `org/repo`, subdir `skills/x` |
-
-### Design decisions
-
-- **Platform-aware fallback** — hosts containing `"gitlab"` (including on-prem like `onprem.gitlab.internal`) use full-path-as-repo behavior; all other hosts (GHE, Gitea, Gogs, generic) retain the original 2-segment `owner/repo` split with the remainder as subdir. This avoids regressing existing GHE subdir installs.
-- **`.git` as the canonical boundary** — on GitLab hosts without `.git`, it's genuinely ambiguous whether extra segments are subgroups or subdirs. `.git` is the standard git URL suffix and resolves this ambiguity cleanly for GitLab URLs. Non-GitLab hosts don't need this since they use the 2-segment default.
-- **Platform-specific markers preserved** — `/-/` (GitLab web) and `/src/` (Bitbucket web) are checked before the fallback, maintaining correct behavior for browser-copied URLs.
-- **`url.Parse` in TrackName** — replaced manual `strings.Split` with `url.Parse` for the HTTPS fallback, correctly extracting the full path for any depth of nesting.
-- **SSH subgroups** — the existing SSH regex (`git@host:owner/repo.git`) already captures multi-segment repo names via `.+?` non-greedy match. Only the `TrackName` formatting needed updating (`/` → `-` in the repo portion).
 
 ### Scope
 
-2 files changed:
-- `internal/install/source.go` — regex, `parseGitHTTPS` rewrite, `TrackName` SSH and HTTPS fallback
-- `internal/install/source_test.go` — 3 existing tests updated, 8 new tests added (6 subgroup + 2 TrackName)
+Key files:
+- `internal/install/source.go` — regex, `parseGitHTTPS` rewrite, `ParseOptions`/`ParseSourceWithOptions`, `isGitLabHost`
+- `internal/install/source_test.go` — subgroup and `ParseSourceWithOptions` tests
+- `internal/config/config.go` — `GitLabHosts` field, `EffectiveGitLabHosts()`, `normalizeGitLabHosts()`, `mergeGitLabHostsFromEnv()`
+- `internal/config/project.go` — same for project config
+- `internal/server/server.go` — `parseOpts()` with project-mode isolation
+- `schemas/config.schema.json`, `schemas/project-config.schema.json` — JSON schemas
