@@ -203,7 +203,7 @@ export function Select({ label, value, onChange, options, className = '', size =
           ref={listRef}
           role="listbox"
           className={`
-            absolute z-50 mt-1 w-full bg-surface border border-muted overflow-auto py-1 animate-dropdown-in
+            absolute z-50 mt-1 min-w-full bg-surface border border-muted overflow-auto py-1 animate-dropdown-in
             ${size === 'sm' ? 'text-xs' : 'text-sm'}
           `}
           style={{
@@ -237,7 +237,7 @@ export function Select({ label, value, onChange, options, className = '', size =
                     {opt.label}
                   </span>
                   {opt.description && (
-                    <span className="block text-xs text-pencil-light/60 truncate mt-0.5">
+                    <span className="block text-xs text-pencil-light/60 mt-0.5">
                       {opt.description}
                     </span>
                   )}

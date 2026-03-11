@@ -371,82 +371,91 @@ export default function TargetsPage() {
                         className="w-44"
                       />
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-1">
-                      {target.include?.length > 0 && (
-                        <span className="text-xs text-blue bg-info-light px-1.5 py-0.5" style={{ borderRadius: radius.sm }}>
-                          include: {target.include.join(', ')}
-                        </span>
-                      )}
-                      {target.exclude?.length > 0 && (
-                        <span className="text-xs text-danger bg-danger-light px-1.5 py-0.5" style={{ borderRadius: radius.sm }}>
-                          exclude: {target.exclude.join(', ')}
-                        </span>
-                      )}
-                      {(target.mode === 'merge' || target.mode === 'copy') && (
-                        <IconButton
-                          icon={<Filter size={13} strokeWidth={2.5} />}
-                          label="Edit filters"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setEditingFilter(target.name);
-                            setFilterDraft({
-                              include: [...(target.include || [])],
-                              exclude: [...(target.exclude || [])],
-                            });
-                          }}
-                        />
-                      )}
-                    </div>
-                    {editingFilter === target.name && (
-                      <div className="mt-3 p-3 bg-surface border-2 border-dashed border-muted-dark animate-fade-in" style={{ borderRadius: radius.md }}>
-                        <div className="space-y-3">
-                          <FilterTagInput
-                            label="Include patterns"
-                            patterns={filterDraft.include}
-                            onChange={(p) => setFilterDraft({ ...filterDraft, include: p })}
-                            color="blue"
-                          />
-                          <FilterTagInput
-                            label="Exclude patterns"
-                            patterns={filterDraft.exclude}
-                            onChange={(p) => setFilterDraft({ ...filterDraft, exclude: p })}
-                            color="danger"
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={async () => {
-                                setSavingFilter(true);
-                                try {
-                                  await api.updateTarget(target.name, {
-                                    include: filterDraft.include,
-                                    exclude: filterDraft.exclude,
-                                  });
-                                  toast('Filters updated. Run sync to apply.', 'success');
-                                  setEditingFilter(null);
-                                  queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
-                                } catch (e: unknown) {
-                                  toast((e as Error).message, 'error');
-                                } finally {
-                                  setSavingFilter(false);
-                                }
-                              }}
-                              variant="primary"
-                              size="sm"
-                              disabled={savingFilter}
-                            >
-                              {savingFilter ? 'Saving...' : 'Save'}
-                            </Button>
-                            <Button
-                              onClick={() => setEditingFilter(null)}
-                              variant="secondary"
-                              size="sm"
-                            >
-                              Cancel
-                            </Button>
+                    {/* Filters section */}
+                    {(target.mode === 'merge' || target.mode === 'copy') && (
+                      editingFilter === target.name ? (
+                        <div className="mt-3 p-4 bg-muted/10 border-2 border-muted-dark animate-fade-in" style={{ borderRadius: radius.md }}>
+                          <div className="flex items-center gap-2 mb-3">
+                            <Filter size={14} strokeWidth={2.5} className="text-pencil-light" />
+                            <span className="text-sm font-bold text-pencil">Skill Filters</span>
+                          </div>
+                          <div className="space-y-3">
+                            <FilterTagInput
+                              label="Include patterns"
+                              patterns={filterDraft.include}
+                              onChange={(p) => setFilterDraft({ ...filterDraft, include: p })}
+                              color="blue"
+                            />
+                            <FilterTagInput
+                              label="Exclude patterns"
+                              patterns={filterDraft.exclude}
+                              onChange={(p) => setFilterDraft({ ...filterDraft, exclude: p })}
+                              color="danger"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                onClick={async () => {
+                                  setSavingFilter(true);
+                                  try {
+                                    await api.updateTarget(target.name, {
+                                      include: filterDraft.include,
+                                      exclude: filterDraft.exclude,
+                                    });
+                                    toast('Filters updated. Run sync to apply.', 'success');
+                                    setEditingFilter(null);
+                                    queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+                                  } catch (e: unknown) {
+                                    toast((e as Error).message, 'error');
+                                  } finally {
+                                    setSavingFilter(false);
+                                  }
+                                }}
+                                variant="primary"
+                                size="sm"
+                                disabled={savingFilter}
+                              >
+                                {savingFilter ? 'Saving...' : 'Save'}
+                              </Button>
+                              <Button
+                                onClick={() => setEditingFilter(null)}
+                                variant="secondary"
+                                size="sm"
+                              >
+                                Cancel
+                              </Button>
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="mt-2 flex items-center gap-2 flex-wrap">
+                          <button
+                            className="inline-flex items-center gap-1.5 text-sm text-pencil-light hover:text-pencil transition-colors cursor-pointer"
+                            onClick={() => {
+                              setEditingFilter(target.name);
+                              setFilterDraft({
+                                include: [...(target.include || [])],
+                                exclude: [...(target.exclude || [])],
+                              });
+                            }}
+                          >
+                            <Filter size={14} strokeWidth={2.5} />
+                            <span className="font-medium">Filters</span>
+                          </button>
+                          {target.include?.length > 0 && target.include.map((p, pi) => (
+                            <span key={`inc-${pi}`} className="text-xs font-bold text-blue bg-info-light px-2 py-0.5 border border-blue/30" style={{ borderRadius: radius.sm }}>
+                              + {p}
+                            </span>
+                          ))}
+                          {target.exclude?.length > 0 && target.exclude.map((p, pi) => (
+                            <span key={`exc-${pi}`} className="text-xs font-bold text-danger bg-danger-light px-2 py-0.5 border border-danger/30" style={{ borderRadius: radius.sm }}>
+                              − {p}
+                            </span>
+                          ))}
+                          {!target.include?.length && !target.exclude?.length && (
+                            <span className="text-xs text-muted-dark italic">no filters</span>
+                          )}
+                        </div>
+                      )
                     )}
                     {(target.mode === 'merge' || target.mode === 'copy') && (
                       <p className={`text-sm mt-1 ${hasDrift ? 'text-warning' : 'text-muted-dark'}`}>
