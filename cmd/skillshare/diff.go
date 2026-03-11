@@ -24,6 +24,8 @@ type diffRenderOpts struct {
 	showPatch  bool
 	showStat   bool
 	jsonOutput bool
+	showExtras bool // show extras diff
+	showAll    bool // show all (skills + extras)
 }
 
 // diffJSONOutput is the JSON representation for diff --json output.
@@ -97,6 +99,11 @@ func cmdDiff(args []string) error {
 		case "--json":
 			opts.jsonOutput = true
 			opts.noTUI = true // --json implies no TUI
+		case "--extras":
+			opts.showExtras = true
+		case "--all":
+			opts.showAll = true
+			opts.showExtras = true // --all implies --extras
 		default:
 			targetName = rest[i]
 		}
@@ -459,13 +466,24 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts, start time.Time) erro
 		progress.stop()
 	}
 
-	if opts.jsonOutput {
-		return diffOutputJSON(results, start)
+	// Extras diff
+	var extrasResults []extraDiffResult
+	if opts.showExtras || opts.showAll {
+		extrasResults = collectExtrasDiff(cfg.Extras, func(name string) string {
+			return config.ExtrasSourceDir(cfg.Source, name)
+		})
 	}
-	if shouldLaunchTUI(opts.noTUI, cfg) && len(results) > 0 {
+
+	if opts.jsonOutput {
+		return diffOutputJSONWithExtras(results, extrasResults, start)
+	}
+	if shouldLaunchTUI(opts.noTUI, cfg) && len(results) > 0 && !opts.showExtras && !opts.showAll {
 		return runDiffTUI(results)
 	}
 	renderGroupedDiffs(results, opts)
+	if len(extrasResults) > 0 {
+		renderExtrasDiffPlain(extrasResults)
+	}
 	return nil
 }
 
@@ -493,6 +511,38 @@ func diffOutputJSON(results []targetDiffResult, start time.Time) error {
 		output.Targets = append(output.Targets, jt)
 	}
 	return writeJSON(&output)
+}
+
+func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraDiffResult, start time.Time) error {
+	type outputWithExtras struct {
+		Targets  []diffJSONTarget    `json:"targets"`
+		Extras   []extraDiffJSONEntry `json:"extras,omitempty"`
+		Duration string              `json:"duration"`
+	}
+	o := outputWithExtras{
+		Duration: formatDuration(start),
+		Extras:   extrasDiffToJSON(extrasResults),
+	}
+	for _, r := range results {
+		jt := diffJSONTarget{
+			Name:    r.name,
+			Mode:    r.mode,
+			Synced:  r.synced,
+			Error:   r.errMsg,
+			Include: r.include,
+			Exclude: r.exclude,
+		}
+		for _, item := range r.items {
+			jt.Items = append(jt.Items, diffJSONItem{
+				Action: item.action,
+				Name:   item.name,
+				Reason: item.reason,
+				IsSync: item.isSync,
+			})
+		}
+		o.Targets = append(o.Targets, jt)
+	}
+	return writeJSON(&o)
 }
 
 func collectTargetDiff(name string, target config.TargetConfig, source, mode string, filtered []sync.DiscoveredSkill, dp *diffProgress) targetDiffResult {
