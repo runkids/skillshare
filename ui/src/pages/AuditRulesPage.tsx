@@ -26,6 +26,7 @@ import Button from '../components/Button';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { Input } from '../components/Input';
+import SegmentedControl from '../components/SegmentedControl';
 import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
@@ -316,7 +317,7 @@ export default function AuditRulesPage() {
           <Button
             onClick={() => setViewMode(viewMode === 'structured' ? 'yaml' : 'structured')}
             variant="secondary"
-            size="md"
+            size="sm"
           >
             {viewMode === 'structured' ? (
               <><FileEdit size={16} strokeWidth={2.5} /> Edit YAML</>
@@ -329,7 +330,7 @@ export default function AuditRulesPage() {
               onClick={() => setShowResetConfirm(true)}
               disabled={resetMutation.isPending}
               variant="danger"
-              size="md"
+              size="sm"
             >
               <RotateCcw size={16} strokeWidth={2.5} />
               {resetMutation.isPending ? 'Resetting...' : 'Reset All'}
@@ -345,7 +346,7 @@ export default function AuditRulesPage() {
                   unsaved changes
                 </span>
               )}
-              <Button onClick={handleSave} disabled={saving || !dirty} variant="primary" size="md">
+              <Button onClick={handleSave} disabled={saving || !dirty} variant="primary" size="sm">
                 <Save size={16} strokeWidth={2.5} />
                 {saving ? 'Saving...' : 'Save'}
               </Button>
@@ -390,42 +391,23 @@ export default function AuditRulesPage() {
           </div>
 
           {/* Severity tabs */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {SEVERITY_TABS.map((tab) => {
-              const count = tabCounts[tab.value] ?? 0;
-              const isActive = activeTab === tab.value;
-              const tabColor = tab.value === 'ALL'
-                ? 'var(--color-pencil)'
-                : tab.value === 'DISABLED'
-                  ? 'var(--color-warning)'
-                  : severityColor(tab.value);
-              return (
-                <button
-                  key={tab.value}
-                  onClick={() => setActiveTab(tab.value)}
-                  className={`
-                    px-3 py-1.5 border-2 text-sm font-medium transition-all duration-150 cursor-pointer
-                    ${isActive
-                      ? ''
-                      : 'bg-transparent text-pencil border-muted-dark hover:border-pencil'
-                    }
-                  `}
-                  style={{
-                    borderRadius: radius.sm,
-                    ...(isActive
-                      ? { backgroundColor: tabColor, borderColor: tabColor, color: 'var(--color-paper)', boxShadow: shadows.sm }
-                      : {}),
-                  }}
-                >
-                  {tab.label}
-                  {count > 0 && (
-                    <span className={`ml-1.5 ${isActive ? 'opacity-80' : 'opacity-50'}`}>
-                      {count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="mb-4">
+            <SegmentedControl
+              value={activeTab}
+              onChange={setActiveTab}
+              options={SEVERITY_TABS.map((tab) => ({
+                value: tab.value,
+                label: tab.label,
+                count: tabCounts[tab.value] ?? 0,
+              }))}
+              colorFn={(v) =>
+                v === 'ALL'
+                  ? 'var(--color-pencil)'
+                  : v === 'DISABLED'
+                    ? 'var(--color-warning)'
+                    : severityColor(v)
+              }
+            />
           </div>
 
           {/* Toolbar: search + expand/collapse */}

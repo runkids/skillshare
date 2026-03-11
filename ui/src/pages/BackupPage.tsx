@@ -203,14 +203,14 @@ export default function BackupPage() {
           <div className="flex gap-3">
             <Button
               variant="primary"
-              size="lg"
+              size="sm"
               onClick={handleCreate}
               disabled={creating}
             >
               {creating ? (
-                <><RefreshCw size={18} strokeWidth={2.5} className="animate-spin" /> Creating...</>
+                <><RefreshCw size={16} strokeWidth={2.5} className="animate-spin" /> Creating...</>
               ) : (
-                <><Plus size={18} strokeWidth={2.5} /> Create Backup</>
+                <><Plus size={16} strokeWidth={2.5} /> Create Backup</>
               )}
             </Button>
             {backups.length > 0 && (

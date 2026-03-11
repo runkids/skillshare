@@ -232,7 +232,7 @@ export default function GitSyncPage() {
             {status && status.files?.length > 0 && (
               <div>
                 <button
-                  className="flex items-center gap-1 text-sm text-pencil-light hover:text-pencil transition-colors"
+                  className="flex items-center gap-1 text-sm text-pencil-light hover:text-pencil transition-colors cursor-pointer"
                   onClick={() => setFilesExpanded(!filesExpanded)}
                 >
                   {filesExpanded ? (

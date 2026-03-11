@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, Server } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
+import IconButton from './IconButton';
+import DialogShell from './DialogShell';
 import { Input } from './Input';
 import { radius } from '../design';
 
@@ -45,23 +47,19 @@ export default function HubManagerModal({
     }
   }, [open, hubs]);
 
-  // Close on Escape
+  // Close confirmDelete on Escape before closing modal
   useEffect(() => {
-    if (!open) return;
+    if (!open || !confirmDelete) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        if (confirmDelete) {
-          setConfirmDelete(null);
-        } else {
-          onClose();
-        }
+        e.stopPropagation();
+        setConfirmDelete(null);
       }
     };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [open, confirmDelete, onClose]);
-
-  if (!open) return null;
+    // Use capture to intercept before DialogShell's handler
+    document.addEventListener('keydown', handleKey, true);
+    return () => document.removeEventListener('keydown', handleKey, true);
+  }, [open, confirmDelete]);
 
   const handleAdd = () => {
     const url = normalizeURL(newURL);
@@ -94,21 +92,8 @@ export default function HubManagerModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-pencil/30" />
-
-      {/* Dialog */}
-      <div
-        className="relative w-full max-w-md animate-fade-in"
-        style={{ borderRadius: radius.md }}
-      >
-        <Card>
+    <DialogShell open={open} onClose={onClose} maxWidth="md">
+      <Card>
           {/* Header */}
           <div className="flex items-center gap-2 mb-4">
             <Server size={18} strokeWidth={2.5} className="text-pencil-light" />
@@ -154,13 +139,14 @@ export default function HubManagerModal({
                       </Button>
                     </div>
                   ) : (
-                    <button
+                    <IconButton
+                      icon={<Trash2 size={16} strokeWidth={2.5} />}
+                      label="Remove hub"
+                      size="sm"
+                      variant="ghost"
                       onClick={() => handleDelete(hub.url)}
-                      className="text-pencil-light hover:text-danger transition-colors p-1.5 shrink-0"
-                      title="Remove hub"
-                    >
-                      <Trash2 size={16} strokeWidth={2.5} />
-                    </button>
+                      className="hover:text-danger"
+                    />
                   )}
                 </div>
               ))}
@@ -211,7 +197,6 @@ export default function HubManagerModal({
             </div>
           </div>
         </Card>
-      </div>
-    </div>
+    </DialogShell>
   );
 }

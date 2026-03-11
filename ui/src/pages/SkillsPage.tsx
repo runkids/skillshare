@@ -13,8 +13,6 @@ import {
   LayoutGrid,
   List,
   Target,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Virtuoso, VirtuosoGrid } from 'react-virtuoso';
@@ -25,6 +23,9 @@ import { Input, Select } from '../components/Input';
 import { PageSkeleton } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import Card from '../components/Card';
+import Button from '../components/Button';
+import SegmentedControl from '../components/SegmentedControl';
+import Pagination from '../components/Pagination';
 import { api, type Skill } from '../api/client';
 import { radius, shadows } from '../design';
 
@@ -365,6 +366,7 @@ export default function SkillsPage() {
           <Select
             value={sortType}
             onChange={(v) => setSortType(v as SortType)}
+            size="sm"
             options={[
               { value: 'name-asc', label: 'Name A → Z' },
               { value: 'name-desc', label: 'Name Z → A' },
@@ -374,29 +376,17 @@ export default function SkillsPage() {
           />
         </div>
         {/* View toggle */}
-        <div className="flex items-center border-2 border-muted overflow-hidden" style={{ borderRadius: radius.sm }}>
-          <button
-            onClick={() => changeViewType('grid')}
-            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grid' ? 'bg-pencil text-paper' : 'bg-surface text-pencil-light hover:text-pencil'}`}
-            title="Grid view"
-          >
-            <LayoutGrid size={16} strokeWidth={2.5} />
-          </button>
-          <button
-            onClick={() => changeViewType('grouped')}
-            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'grouped' ? 'bg-pencil text-paper' : 'bg-surface text-pencil-light hover:text-pencil'}`}
-            title="Grouped view"
-          >
-            <FolderOpen size={16} strokeWidth={2.5} />
-          </button>
-          <button
-            onClick={() => changeViewType('table')}
-            className={`px-4 py-2 transition-colors cursor-pointer ${viewType === 'table' ? 'bg-pencil text-paper' : 'bg-surface text-pencil-light hover:text-pencil'}`}
-            title="Table view"
-          >
-            <List size={16} strokeWidth={2.5} />
-          </button>
-        </div>
+        <SegmentedControl
+          value={viewType}
+          onChange={changeViewType}
+          options={[
+            { value: 'grid', label: <LayoutGrid size={16} strokeWidth={2.5} /> },
+            { value: 'grouped', label: <FolderOpen size={16} strokeWidth={2.5} /> },
+            { value: 'table', label: <List size={16} strokeWidth={2.5} /> },
+          ]}
+          size="md"
+          connected
+        />
       </div>
 
       {/* Filter chips */}
@@ -421,15 +411,16 @@ export default function SkillsPage() {
             <>
               {' '}
               &middot;{' '}
-              <button
-                className="link-subtle cursor-pointer"
+              <Button
+                variant="link"
+                className="link-subtle"
                 onClick={() => {
                   setFilterType('all');
                   setSearch('');
                 }}
               >
                 Clear filters
-              </button>
+              </Button>
             </>
           )}
         </p>
@@ -538,35 +529,6 @@ function VirtualizedGroupedView({ dirs, groups }: { dirs: string[]; groups: Map<
 
 const TABLE_PAGE_SIZES = [10, 25, 50] as const;
 
-function TablePillButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`
-        px-3 py-1.5 text-sm border-2 transition-all duration-150 cursor-pointer
-        ${active
-          ? 'bg-pencil text-paper border-pencil font-medium'
-          : 'bg-transparent text-pencil border-muted-dark hover:border-pencil'
-        }
-      `}
-      style={{
-        borderRadius: radius.sm,
-        boxShadow: active ? shadows.sm : 'none',
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
 function TruncateWithTip({ text }: { text: string }) {
   const [tip, setTip] = useState<{ x: number; y: number } | null>(null);
 
@@ -671,53 +633,17 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
 
       {/* Pagination */}
       {skills.length > TABLE_PAGE_SIZES[0] && (
-        <div className="flex items-center justify-between pt-4 mt-4 border-t-2 border-dashed border-muted">
-          <div className="flex items-center gap-2 text-sm text-pencil-light">
-            <span>Show</span>
-            {TABLE_PAGE_SIZES.map((size) => (
-              <TablePillButton
-                key={size}
-                active={pageSize === size}
-                onClick={() => { setPageSize(size); setPage(0); }}
-              >
-                {size}
-              </TablePillButton>
-            ))}
-            <span className="ml-1">
-              {start + 1}–{Math.min(start + pageSize, skills.length)} of {skills.length}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className={`p-1.5 border-2 transition-all duration-150 cursor-pointer ${
-                page === 0
-                  ? 'border-transparent text-muted-dark cursor-not-allowed'
-                  : 'border-transparent text-pencil hover:bg-paper-warm hover:border-muted-dark'
-              }`}
-              style={{ borderRadius: radius.sm }}
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <span className="text-sm text-pencil px-2">
-              {page + 1} / {totalPages}
-            </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
-              className={`p-1.5 border-2 transition-all duration-150 cursor-pointer ${
-                page >= totalPages - 1
-                  ? 'border-transparent text-muted-dark cursor-not-allowed'
-                  : 'border-transparent text-pencil hover:bg-paper-warm hover:border-muted-dark'
-              }`}
-              style={{ borderRadius: radius.sm }}
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={(p) => setPage(p)}
+          rangeText={`${start + 1}–${Math.min(start + pageSize, skills.length)} of ${skills.length}`}
+          pageSize={{
+            value: pageSize,
+            options: TABLE_PAGE_SIZES,
+            onChange: (s) => { setPageSize(s); setPage(0); },
+          }}
+        />
       )}
     </Card>
   );

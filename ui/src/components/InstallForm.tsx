@@ -10,6 +10,7 @@ import ConfirmDialog from './ConfirmDialog';
 import { useToast } from './Toast';
 import { api, type InstallResult, type DiscoveredSkill } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
+import { radius } from '../design';
 
 interface InstallFormProps {
   /** Called after a successful install with the result */
@@ -466,7 +467,7 @@ export default function InstallForm({
                 <div
                   key={i}
                   className="border border-muted bg-paper p-3 space-y-1.5"
-                  style={{ borderRadius: '6px', borderLeftWidth: '3px', borderLeftColor: s.color }}
+                  style={{ borderRadius: radius.md, borderLeftWidth: '3px', borderLeftColor: s.color }}
                 >
                   {f.skillName && <div className="text-xs text-pencil-light font-mono">{f.skillName}</div>}
                   <div className="flex items-start gap-2">
@@ -525,7 +526,7 @@ export default function InstallForm({
                 <div
                   key={i}
                   className="border border-muted bg-paper p-3 space-y-1.5"
-                  style={{ borderRadius: '6px', borderLeftWidth: '3px', borderLeftColor: s.color }}
+                  style={{ borderRadius: radius.md, borderLeftWidth: '3px', borderLeftColor: s.color }}
                 >
                   {f.skillName && <div className="text-xs text-pencil-light font-mono">{f.skillName}</div>}
                   <div className="flex items-start gap-2">

@@ -91,15 +91,22 @@ interface SelectProps {
   onChange: (value: string) => void;
   options: SelectOption[];
   className?: string;
+  size?: 'sm' | 'md';
 }
 
-export function Select({ label, value, onChange, options, className = '' }: SelectProps) {
+const selectTriggerSizes = {
+  sm: 'px-3 py-1.5 text-xs',
+  md: 'px-4 py-2 text-sm',
+};
+
+export function Select({ label, value, onChange, options, className = '', size = 'md' }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  const selectedLabel = options.find((o) => o.value === value)?.label ?? value;
+  const selected = options.find((o) => o.value === value);
+  const selectedLabel = selected?.label ?? value;
 
   // Close on outside click
   useEffect(() => {
@@ -163,9 +170,7 @@ export function Select({ label, value, onChange, options, className = '' }: Sele
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       {label && (
-        <label
-          className="block text-base text-pencil-light mb-1"
-        >
+        <label className="block text-xs font-medium text-pencil-light mb-1">
           {label}
         </label>
       )}
@@ -174,63 +179,72 @@ export function Select({ label, value, onChange, options, className = '' }: Sele
         onClick={() => { setOpen(!open); setFocusIdx(options.findIndex((o) => o.value === value)); }}
         onKeyDown={handleKeyDown}
         className={`
-          w-full px-4 py-2.5 bg-surface border border-muted text-pencil text-left
+          w-full bg-surface border text-pencil text-left
           flex items-center justify-between gap-2
-          focus:outline-none focus:border-blue focus:ring-2 focus:ring-blue/20
-          transition-colors cursor-pointer
+          focus:outline-none focus:ring-2 focus:ring-pencil/10 focus:border-pencil-light
+          transition-all duration-150 cursor-pointer
+          ${selectTriggerSizes[size]}
+          ${open ? 'border-pencil-light' : 'border-muted hover:border-muted-dark'}
         `}
-        style={{
-          borderRadius: radius.sm,
-          fontSize: '1rem',
-        }}
+        style={{ borderRadius: radius.sm }}
         role="combobox"
         aria-expanded={open}
         aria-haspopup="listbox"
       >
         <span className="truncate">{selectedLabel}</span>
         <ChevronDown
-          size={16}
-          strokeWidth={2.5}
-          className={`shrink-0 text-pencil-light transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+          size={size === 'sm' ? 13 : 15}
+          strokeWidth={2}
+          className={`shrink-0 text-muted-dark transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
         />
       </button>
       {open && (
         <ul
           ref={listRef}
           role="listbox"
-          className="absolute z-50 mt-1 w-full bg-surface border border-muted overflow-auto py-1"
+          className={`
+            absolute z-50 mt-1 w-full bg-surface border border-muted overflow-auto py-1 animate-dropdown-in
+            ${size === 'sm' ? 'text-xs' : 'text-sm'}
+          `}
           style={{
-            borderRadius: radius.sm,
-            boxShadow: shadows.md,
-            fontSize: '1rem',
-            maxHeight: '15rem',
+            borderRadius: radius.md,
+            boxShadow: shadows.lg,
+            maxHeight: '16rem',
           }}
         >
-          {options.map((opt, i) => (
-            <li
-              key={opt.value}
-              role="option"
-              aria-selected={opt.value === value}
-              className={`
-                px-4 py-2 cursor-pointer flex items-start gap-2 transition-colors
-                ${i === focusIdx ? 'bg-blue/10' : ''}
-                ${opt.value === value ? 'text-pencil font-medium' : 'text-pencil-light'}
-                hover:bg-blue/10
-              `}
-              onMouseEnter={() => setFocusIdx(i)}
-              onMouseDown={(e) => { e.preventDefault(); select(opt.value); }}
-            >
-              <span className="w-4 shrink-0 mt-0.5">
-                {opt.value === value && <Check size={14} strokeWidth={3} className="text-blue" />}
-              </span>
-              <span>
-                {opt.label}
-                {opt.description && (
-                  <span className="block text-xs text-pencil-light/70 font-normal">{opt.description}</span>
-                )}
-              </span>
-            </li>
-          ))}
+          {options.map((opt, i) => {
+            const isSelected = opt.value === value;
+            const isFocused = i === focusIdx;
+            return (
+              <li
+                key={opt.value}
+                role="option"
+                aria-selected={isSelected}
+                className={`
+                  ${size === 'sm' ? 'px-3 py-1.5' : 'px-3.5 py-2'} cursor-pointer flex items-center gap-2 transition-colors duration-100
+                  ${isFocused ? 'bg-muted/60' : ''}
+                  ${isSelected ? 'text-pencil' : 'text-pencil-light'}
+                  hover:bg-muted/60
+                `}
+                onMouseEnter={() => setFocusIdx(i)}
+                onMouseDown={(e) => { e.preventDefault(); select(opt.value); }}
+              >
+                <span className="w-4 shrink-0 flex items-center justify-center">
+                  {isSelected && <Check size={size === 'sm' ? 12 : 14} strokeWidth={2.5} className="text-pencil" />}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className={`block truncate ${isSelected ? 'font-medium' : ''}`}>
+                    {opt.label}
+                  </span>
+                  {opt.description && (
+                    <span className="block text-xs text-pencil-light/60 truncate mt-0.5">
+                      {opt.description}
+                    </span>
+                  )}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

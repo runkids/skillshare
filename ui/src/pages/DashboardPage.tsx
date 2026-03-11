@@ -23,6 +23,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
+import Button from '../components/Button';
+import IconButton from '../components/IconButton';
 import Skeleton from '../components/Skeleton';
 import { PageSkeleton } from '../components/Skeleton';
 import StatusBadge from '../components/StatusBadge';
@@ -248,16 +250,13 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
+            <IconButton
+              icon={<X size={16} strokeWidth={2.5} />}
+              label="Dismiss star reminder"
+              size="sm"
+              variant="ghost"
               onClick={dismissStarCta}
-              className="shrink-0 p-1 text-pencil-light hover:text-pencil border border-transparent hover:border-muted transition-colors"
-              style={{ borderRadius: radius.sm }}
-              aria-label="Dismiss star reminder"
-              title="Dismiss"
-            >
-              <X size={16} strokeWidth={2.5} />
-            </button>
+            />
           </div>
         </Card>
       )}
@@ -526,13 +525,9 @@ function SkillUpdatesSection() {
             <Badge variant="success">All up to date</Badge>
           )}
         </div>
-        <button
-          onClick={handleCheck}
-          disabled={checking}
-          className="text-sm text-blue hover:underline disabled:opacity-50"
-        >
+        <Button variant="link" onClick={handleCheck} disabled={checking}>
           {checking ? 'Checking...' : checked ? 'Re-check' : 'Run Check'}
-        </button>
+        </Button>
       </div>
 
       {!checked && !checking && (
@@ -674,12 +669,9 @@ function SecurityAuditSection() {
           <p className="text-pencil-light text-sm">
             Scan your installed skills for malicious patterns and security threats.
           </p>
-          <button
-            onClick={handleScan}
-            className="text-sm text-blue hover:underline disabled:opacity-50 shrink-0 ml-4"
-          >
+          <Button variant="link" onClick={handleScan} className="shrink-0 ml-4">
             Quick Scan
-          </button>
+          </Button>
         </div>
       )}
 

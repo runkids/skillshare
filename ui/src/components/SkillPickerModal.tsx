@@ -2,9 +2,9 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Download, Search } from 'lucide-react';
 import Card from './Card';
 import Button from './Button';
+import DialogShell from './DialogShell';
 import { Checkbox } from './Input';
 import { radius } from '../design';
-import { useFocusTrap } from '../hooks/useFocusTrap';
 import type { DiscoveredSkill } from '../api/client';
 
 interface SkillPickerModalProps {
@@ -27,7 +27,6 @@ export default function SkillPickerModal({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
   const filterRef = useRef<HTMLInputElement>(null);
-  const trapRef = useFocusTrap(open);
 
   const filtered = useMemo(() => {
     if (!filter) return skills;
@@ -47,16 +46,6 @@ export default function SkillPickerModal({
       setFilter('');
     }
   }, [open, skills]);
-
-  // Close on Escape
-  useEffect(() => {
-    if (!open) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !installing) onCancel();
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [open, installing, onCancel]);
 
   if (!open) return null;
 
@@ -89,24 +78,8 @@ export default function SkillPickerModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !installing) onCancel();
-      }}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-pencil/30" />
-
-      {/* Dialog */}
-      <div
-        ref={trapRef}
-        className="relative w-full max-w-md animate-fade-in"
-        style={{ borderRadius: radius.md }}
-      >
-        <Card className="!overflow-clip">
+    <DialogShell open={open} onClose={onCancel} maxWidth="md" preventClose={installing}>
+      <Card className="!overflow-clip">
           <h3 className="text-xl font-bold text-pencil mb-1">
             Select Skills to Install
           </h3>
@@ -180,7 +153,7 @@ export default function SkillPickerModal({
           {/* Footer */}
           <div className="flex gap-3 justify-end">
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={onCancel}
               disabled={installing}
@@ -200,7 +173,6 @@ export default function SkillPickerModal({
             </Button>
           </div>
         </Card>
-      </div>
-    </div>
+    </DialogShell>
   );
 }

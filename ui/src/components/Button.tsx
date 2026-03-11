@@ -3,15 +3,16 @@ import { radius } from '../design';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'link';
   size?: 'sm' | 'md' | 'lg';
 }
 
 const variantClasses = {
-  primary: 'bg-pencil text-paper border border-pencil hover:opacity-80',
-  secondary: 'bg-transparent text-pencil border border-muted hover:bg-muted/30 hover:border-muted-dark',
-  danger: 'bg-transparent text-danger border border-danger hover:bg-danger hover:text-white',
+  primary: 'bg-pencil text-paper border-2 border-pencil hover:opacity-80',
+  secondary: 'bg-transparent text-pencil border-2 border-muted-dark hover:bg-muted/30 hover:border-pencil',
+  danger: 'bg-transparent text-danger border-2 border-danger hover:bg-danger hover:text-white',
   ghost: 'bg-transparent text-pencil-light hover:text-pencil hover:bg-muted/20',
+  link: 'bg-transparent text-blue hover:underline border-none',
 };
 
 const sizeClasses = {
@@ -29,6 +30,7 @@ export default function Button({
   style,
   ...props
 }: ButtonProps) {
+  const isLink = variant === 'link';
   return (
     <button
       className={`
@@ -37,11 +39,11 @@ export default function Button({
         transition-all duration-150 cursor-pointer
         disabled:opacity-50 disabled:cursor-not-allowed
         ${variantClasses[variant]}
-        ${sizeClasses[size]}
+        ${isLink ? 'text-sm p-0' : sizeClasses[size]}
         ${className}
       `}
       style={{
-        borderRadius: radius.btn,
+        borderRadius: isLink ? 0 : radius.btn,
         ...style,
       }}
       disabled={disabled}

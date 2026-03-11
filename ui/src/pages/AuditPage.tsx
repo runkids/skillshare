@@ -137,18 +137,18 @@ export default function AuditPage() {
         </div>
         <div className="flex items-center gap-3">
           <Link to="/audit/rules">
-            <Button variant="secondary" size="lg">
-              <FileEdit size={18} strokeWidth={2.5} />
+            <Button variant="secondary" size="sm">
+              <FileEdit size={16} strokeWidth={2.5} />
               Custom Rules
             </Button>
           </Link>
           <Button
             variant="primary"
-            size="lg"
+            size="sm"
             onClick={runAudit}
             disabled={loading}
           >
-            <ShieldCheck size={18} strokeWidth={2.5} />
+            <ShieldCheck size={16} strokeWidth={2.5} />
             {loading ? 'Scanning...' : 'Run Audit'}
           </Button>
         </div>
@@ -528,6 +528,7 @@ function TriagePanel({
               label="Min Severity"
               value={minSeverity}
               onChange={(value) => onSeverityChange(value)}
+              size="sm"
               options={severityFilterOptions}
             />
           </div>
