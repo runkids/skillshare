@@ -25,7 +25,6 @@ import Badge from '../components/Badge';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
-import Spinner from '../components/Spinner';
 
 function fileStatusBadge(line: string) {
   const code = line.trim().substring(0, 2).trim();
@@ -54,7 +53,7 @@ export default function GitSyncPage() {
 
   if (isProjectMode) {
     return (
-      <div className="animate-fade-in">
+      <div className="space-y-5 animate-fade-in">
         <Card className="text-center py-12">
           <GitBranch size={40} strokeWidth={2} className="text-pencil-light mx-auto mb-4" />
           <h2
@@ -133,18 +132,36 @@ export default function GitSyncPage() {
     }
   };
 
-  if (isPending) return <PageSkeleton />;
+  if (isPending) {
+    return (
+      <div className="space-y-5 animate-fade-in">
+        <PageHeader
+          icon={<GitBranch size={24} strokeWidth={2.5} />}
+          title="Git Sync"
+          subtitle="Push and pull your skills source directory via git"
+        />
+        <PageSkeleton />
+      </div>
+    );
+  }
 
   if (error) {
     return (
-      <Card>
-        <p className="text-danger">{error.message}</p>
-      </Card>
+      <div className="space-y-5 animate-fade-in">
+        <PageHeader
+          icon={<GitBranch size={24} strokeWidth={2.5} />}
+          title="Git Sync"
+          subtitle="Push and pull your skills source directory via git"
+        />
+        <Card variant="accent">
+          <p className="text-danger">{error.message}</p>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 animate-fade-in">
       {/* Header */}
       <PageHeader
         icon={<GitBranch size={24} strokeWidth={2.5} />}
@@ -202,7 +219,7 @@ export default function GitSyncPage() {
 
       {/* Push / Pull Grid */}
       <div
-        className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
+        className={`grid grid-cols-1 md:grid-cols-2 gap-5 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
       >
         {/* Push Section */}
         <Card>
@@ -272,13 +289,11 @@ export default function GitSyncPage() {
                 variant="primary"
                 size="sm"
                 onClick={handlePush}
-                disabled={pushing || (!status?.isDirty && !pushDryRun)}
+                loading={pushing}
+                disabled={!status?.isDirty && !pushDryRun}
               >
-                {pushing ? (
-                  <><Spinner size="sm" /> Pushing...</>
-                ) : (
-                  <><ArrowUpCircle size={16} strokeWidth={2.5} /> Push</>
-                )}
+                {!pushing && <ArrowUpCircle size={16} strokeWidth={2.5} />}
+                {pushing ? 'Pushing...' : 'Push'}
               </Button>
             </div>
 
@@ -320,13 +335,11 @@ export default function GitSyncPage() {
                 variant="secondary"
                 size="sm"
                 onClick={handlePull}
-                disabled={pulling || (!!status?.isDirty && !pullDryRun)}
+                loading={pulling}
+                disabled={!!status?.isDirty && !pullDryRun}
               >
-                {pulling ? (
-                  <><Spinner size="sm" /> Pulling...</>
-                ) : (
-                  <><ArrowDownCircle size={16} strokeWidth={2.5} /> Pull</>
-                )}
+                {!pulling && <ArrowDownCircle size={16} strokeWidth={2.5} />}
+                {pulling ? 'Pulling...' : 'Pull'}
               </Button>
             </div>
 

@@ -336,7 +336,7 @@ export default function SearchPage() {
 
       {/* Hub selector (only in hub mode) */}
       {mode === 'hub' && hubLoaded && (
-        <Card className="!overflow-visible">
+        <Card overflow>
           {savedHubs.length > 0 ? (
             <div className="flex items-center gap-2">
               <Select
@@ -407,12 +407,11 @@ export default function SearchPage() {
           </div>
           <Button
             onClick={() => handleSearch(query)}
-            disabled={searching}
             variant="primary"
             size="md"
             loading={searching}
           >
-            <Search size={16} strokeWidth={2.5} />
+            {!searching && <Search size={16} strokeWidth={2.5} />}
             Search
           </Button>
         </div>
@@ -481,13 +480,12 @@ export default function SearchPage() {
                   </div>
                   <Button
                     onClick={() => handleInstall(r.source, r.skill)}
-                    disabled={installing === r.source}
                     variant="secondary"
                     size="sm"
                     loading={installing === r.source}
                     className="shrink-0"
                   >
-                    <Download size={14} strokeWidth={2.5} />
+                    {installing !== r.source && <Download size={14} strokeWidth={2.5} />}
                     Install
                   </Button>
                 </div>

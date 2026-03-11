@@ -4,6 +4,7 @@ import {
   Clock,
   RotateCcw,
   X,
+  RefreshCw,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
@@ -53,6 +54,11 @@ export default function TrashPage() {
   const [emptying, setEmptying] = useState(false);
 
   const items = data?.items ?? [];
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.trash });
+    queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+  };
 
   const handleRestore = async () => {
     if (!restoreName) return;
@@ -112,39 +118,36 @@ export default function TrashPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <PageHeader icon={<Trash2 size={24} strokeWidth={2.5} />} title="Trash" subtitle={isProjectMode ? 'Recently deleted project skills are kept for 7 days before automatic cleanup' : 'Recently deleted skills are kept for 7 days before automatic cleanup'} />
-
-      {/* Summary Card */}
-      <Card>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <p
-              className="text-lg font-medium text-pencil"
-            >
-              {items.length === 0
-                ? 'Trash is empty'
-                : `${items.length} item${items.length !== 1 ? 's' : ''} in trash`}
-            </p>
-            {data && data.totalSize > 0 && (
-              <p className="text-sm text-pencil-light">
-                Total size: {formatSize(data.totalSize)}
-              </p>
-            )}
-          </div>
-          {items.length > 0 && (
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => setEmptyOpen(true)}
-            >
-              <Trash2 size={16} strokeWidth={2.5} /> Empty Trash
+    <div className="space-y-5 animate-fade-in">
+      <PageHeader
+        icon={<Trash2 size={24} strokeWidth={2.5} />}
+        title="Trash"
+        subtitle={isProjectMode
+          ? 'Recently deleted project skills are kept for 7 days before automatic cleanup'
+          : 'Recently deleted skills are kept for 7 days before automatic cleanup'}
+        actions={
+          <>
+            <Button onClick={handleRefresh} variant="secondary" size="sm">
+              <RefreshCw size={16} /> Refresh
             </Button>
-          )}
-        </div>
-      </Card>
+            {items.length > 0 && (
+              <Button variant="danger" size="sm" onClick={() => setEmptyOpen(true)}>
+                <Trash2 size={16} strokeWidth={2.5} /> Empty Trash
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      {/* Item List */}
+      {/* Summary line */}
+      {items.length > 0 && (
+        <p className="text-sm text-pencil-light">
+          {items.length} item{items.length !== 1 ? 's' : ''} in trash
+          {data && data.totalSize > 0 && ` · ${formatSize(data.totalSize)}`}
+        </p>
+      )}
+
+      {/* Content */}
       {items.length === 0 ? (
         <EmptyState
           icon={Trash2}
@@ -153,11 +156,10 @@ export default function TrashPage() {
         />
       ) : (
         <div className="space-y-4">
-          {items.map((item, i) => (
+          {items.map((item) => (
             <TrashCard
               key={`${item.name}-${item.timestamp}`}
               item={item}
-              index={i}
               onRestore={() => setRestoreName(item.name)}
               onDelete={() => setDeleteName(item.name)}
             />
@@ -227,7 +229,6 @@ function TrashCard({
   onDelete,
 }: {
   item: TrashedSkill;
-  index?: number;
   onRestore: () => void;
   onDelete: () => void;
 }) {
@@ -238,11 +239,7 @@ function TrashCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-pencil">
             <Trash2 size={16} strokeWidth={2.5} />
-            <span
-              className="font-medium"
-            >
-              {item.name}
-            </span>
+            <span className="font-medium">{item.name}</span>
             <span className="text-sm text-pencil-light">
               {timeAgo(item.date)}
             </span>

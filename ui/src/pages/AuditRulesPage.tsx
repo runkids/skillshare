@@ -435,7 +435,7 @@ export default function AuditRulesPage() {
               description="Try adjusting your filter or search terms"
             />
           ) : (
-            <div className="space-y-4 pt-1">
+            <div className="space-y-4 pt-3">
               {groupedRules.map(([pattern, rules]) => (
                 <PatternAccordion
                   key={pattern}
@@ -593,7 +593,7 @@ function PatternAccordion({
   return (
     <div
       ref={accordionRef}
-      className="border-2 border-pencil-light/30 transition-all duration-150"
+      className="border border-pencil-light/30 transition-all duration-150"
       style={{
         borderRadius: radius.md,
         scrollMarginTop: `${stickyTop + 28}px`,
@@ -601,70 +601,72 @@ function PatternAccordion({
         backgroundColor: isExpanded ? 'var(--color-paper-warm)' : 'transparent',
       }}
     >
-      {/* Header — sticky within its accordion when expanded */}
-      <button
-        onClick={onToggleExpand}
-        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer${isExpanded ? ' sticky z-10' : ' hover:bg-paper-warm/40'}`}
+      {/* Sticky group: header + controls bar stick together when expanded */}
+      <div
+        className={isExpanded ? 'sticky z-10' : ''}
         style={{
           borderRadius: isExpanded ? `${radius.md} ${radius.md} 0 0` : radius.md,
           ...(isExpanded ? {
             top: `${stickyTop + 12}px`,
             backgroundColor: 'var(--color-paper-warm)',
             boxShadow: [
-              // Simulate top/left/right border via inset shadow (avoids layout shift from real border)
-              'inset 0 2px 0 0 color-mix(in srgb, var(--color-pencil-light) 30%, transparent)',
-              'inset 2px 0 0 0 color-mix(in srgb, var(--color-pencil-light) 30%, transparent)',
-              'inset -2px 0 0 0 color-mix(in srgb, var(--color-pencil-light) 30%, transparent)',
-              // Drop shadow for depth
+              'inset 0 1px 0 0 color-mix(in srgb, var(--color-pencil-light) 30%, transparent)',
+              'inset 1px 0 0 0 color-mix(in srgb, var(--color-pencil-light) 30%, transparent)',
+              'inset -1px 0 0 0 color-mix(in srgb, var(--color-pencil-light) 30%, transparent)',
               '0 2px 8px rgba(0,0,0,0.12)',
             ].join(', '),
-            borderBottom: '2px dashed color-mix(in srgb, var(--color-pencil-light) 30%, transparent)',
+            borderBottom: '1px dashed color-mix(in srgb, var(--color-pencil-light) 30%, transparent)',
           } : {}),
         }}
       >
-        <ChevronRight
-          size={16}
-          strokeWidth={2.5}
-          className={`text-pencil-light shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
-        />
-        <span
-          className="w-2.5 h-2.5 rounded-full shrink-0"
-          style={{ backgroundColor: stripeColor }}
-        />
-        <span className="font-bold text-pencil text-base flex-1">
-          {pattern}
-        </span>
+        <button
+          onClick={onToggleExpand}
+          className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer${!isExpanded ? ' hover:bg-paper-warm/40' : ''}`}
+          style={{
+            borderRadius: isExpanded ? `${radius.md} ${radius.md} 0 0` : radius.md,
+          }}
+        >
+          <ChevronRight
+            size={16}
+            strokeWidth={2.5}
+            className={`text-pencil-light shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+          />
+          <span
+            className="w-2.5 h-2.5 rounded-full shrink-0"
+            style={{ backgroundColor: stripeColor }}
+          />
+          <span className="font-bold text-pencil text-base flex-1">
+            {pattern}
+          </span>
 
-        {/* Mini enabled/disabled bar */}
-        <div className="hidden sm:flex items-center gap-2">
-          <div
-            className="w-16 h-1.5 bg-muted/50 overflow-hidden"
-            style={{ borderRadius: '999px' }}
-            title={`${enabledCount} enabled / ${disabledCount} disabled`}
-          >
+          {/* Mini enabled/disabled bar */}
+          <div className="hidden sm:flex items-center gap-2">
             <div
-              className="h-full transition-all duration-300"
-              style={{
-                width: `${enabledRatio}%`,
-                backgroundColor: enabledRatio === 100 ? 'var(--color-success)' : 'var(--color-warning)',
-                borderRadius: '999px',
-              }}
-            />
+              className="w-16 h-1.5 bg-muted/50 overflow-hidden"
+              style={{ borderRadius: '999px' }}
+              title={`${enabledCount} enabled / ${disabledCount} disabled`}
+            >
+              <div
+                className="h-full transition-all duration-300"
+                style={{
+                  width: `${enabledRatio}%`,
+                  backgroundColor: enabledRatio === 100 ? 'var(--color-success)' : 'var(--color-warning)',
+                  borderRadius: '999px',
+                }}
+              />
+            </div>
           </div>
-        </div>
 
-        <span className="text-sm text-pencil-light shrink-0">
-          {rules.length} rule{rules.length !== 1 ? 's' : ''}
-        </span>
-        {disabledCount > 0 && <Badge variant="warning">{disabledCount} off</Badge>}
-        <Badge variant={severityBadgeVariant(maxSev)}>{maxSev}</Badge>
-      </button>
+          <span className="text-sm text-pencil-light shrink-0">
+            {rules.length} rule{rules.length !== 1 ? 's' : ''}
+          </span>
+          {disabledCount > 0 && <Badge variant="warning">{disabledCount} off</Badge>}
+          <Badge variant={severityBadgeVariant(maxSev)}>{maxSev}</Badge>
+        </button>
 
-      {/* Expanded content */}
-      {isExpanded && (
-        <div>
-          {/* Group controls bar */}
-          <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-paper-warm/30">
+        {/* Group controls bar — inside sticky group so it stays visible */}
+        {isExpanded && (
+          <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-paper-warm/30 border-t-2 border-dashed border-pencil-light/30">
             <span className="text-sm text-pencil-light">
               {enabledCount}/{rules.length} enabled
             </span>
@@ -695,9 +697,12 @@ function PatternAccordion({
               )}
             </button>
           </div>
+        )}
+      </div>
 
-          {/* Rule rows */}
-          <div className="divide-y divide-dashed divide-pencil-light/30 border-t-2 border-dashed border-pencil-light/30 pt-1">
+      {/* Rule rows — scroll below the sticky header+controls group */}
+      {isExpanded && (
+        <div className="divide-y divide-dashed divide-pencil-light/30">
             {rules.map((rule) => (
               <RuleRow
                 key={rule.id}
@@ -710,7 +715,6 @@ function PatternAccordion({
                 isToggling={isToggling}
               />
             ))}
-          </div>
         </div>
       )}
     </div>

@@ -8,6 +8,7 @@ import {
   Trash2,
   Target,
   Plus,
+  RefreshCw,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { BackupInfo, RestoreValidateResponse } from '../api/client';
@@ -52,36 +53,14 @@ export default function BackupPage() {
   const { isProjectMode } = useAppContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.backups,
     queryFn: () => api.listBackups(),
     staleTime: staleTimes.backups,
   });
 
-  if (isProjectMode) {
-    return (
-      <div className="animate-fade-in">
-        <Card className="text-center py-12">
-          <Archive size={40} strokeWidth={2} className="text-pencil-light mx-auto mb-4" />
-          <h2
-            className="text-2xl font-bold text-pencil mb-2"
-          >
-            Backup & Restore is not available in project mode
-          </h2>
-          <p className="text-pencil-light mb-4">
-            Project skills are managed through your project's own version control.
-          </p>
-          <Link
-            to="/"
-            className="text-blue hover:underline"
-          >
-            Back to Dashboard
-          </Link>
-        </Card>
-      </div>
-    );
-  }
-
+  // All hooks must be called before any conditional return
   const [creating, setCreating] = useState(false);
   const [cleanupOpen, setCleanupOpen] = useState(false);
   const [cleaningUp, setCleaningUp] = useState(false);
@@ -93,6 +72,10 @@ export default function BackupPage() {
   }>({ loading: false, result: null });
 
   const backups = data?.backups ?? [];
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.backups });
+  };
 
   const handleCreate = async () => {
     setCreating(true);
@@ -158,6 +141,29 @@ export default function BackupPage() {
     }
   };
 
+  // Project mode guard — after all hooks
+  if (isProjectMode) {
+    return (
+      <div className="animate-fade-in">
+        <Card className="text-center py-12">
+          <Archive size={40} strokeWidth={2} className="text-pencil-light mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-pencil mb-2">
+            Backup & Restore is not available in project mode
+          </h2>
+          <p className="text-pencil-light mb-4">
+            Project skills are managed through your project's own version control.
+          </p>
+          <Link
+            to="/"
+            className="text-blue hover:underline"
+          >
+            Back to Dashboard
+          </Link>
+        </Card>
+      </div>
+    );
+  }
+
   if (isPending) return <PageSkeleton />;
 
   if (error) {
@@ -169,32 +175,16 @@ export default function BackupPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-5 animate-fade-in">
       <PageHeader
         icon={<Archive size={24} strokeWidth={2.5} />}
         title="Backup & Restore"
         subtitle="Create snapshots of your targets and restore them when needed"
-      />
-
-      {/* Action Card */}
-      <Card>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <p
-              className="text-lg font-medium text-pencil"
-            >
-              {backups.length === 0
-                ? 'No backups yet'
-                : `${backups.length} backup${backups.length !== 1 ? 's' : ''} on file`}
-            </p>
-            {data && data.totalSizeBytes > 0 && (
-              <p className="text-sm text-pencil-light">
-                Total size: {formatSize(data.totalSizeBytes)}
-              </p>
-            )}
-          </div>
-          <div className="flex gap-3">
+        actions={
+          <>
+            <Button onClick={handleRefresh} variant="secondary" size="sm">
+              <RefreshCw size={16} /> Refresh
+            </Button>
             <Button
               variant="primary"
               size="sm"
@@ -216,11 +206,19 @@ export default function BackupPage() {
                 <Trash2 size={16} strokeWidth={2.5} /> Cleanup
               </Button>
             )}
-          </div>
-        </div>
-      </Card>
+          </>
+        }
+      />
 
-      {/* Backup List */}
+      {/* Summary line */}
+      {backups.length > 0 && (
+        <p className="text-sm text-pencil-light">
+          {backups.length} backup{backups.length !== 1 ? 's' : ''} on file
+          {data && data.totalSizeBytes > 0 && ` · ${formatSize(data.totalSizeBytes)}`}
+        </p>
+      )}
+
+      {/* Content */}
       {backups.length === 0 ? (
         <EmptyState
           icon={Archive}
@@ -234,12 +232,10 @@ export default function BackupPage() {
         />
       ) : (
         <div className="space-y-4">
-          {backups.map((backup, i) => (
+          {backups.map((backup) => (
             <BackupCard
               key={backup.timestamp}
               backup={backup}
-              isNewest={i === 0}
-              index={i}
               onRestore={(target) =>
                 openRestoreDialog(backup.timestamp, target)
               }
@@ -334,8 +330,6 @@ function BackupCard({
   onRestore,
 }: {
   backup: BackupInfo;
-  isNewest?: boolean;
-  index?: number;
   onRestore: (target: string) => void;
 }) {
   return (
@@ -345,11 +339,7 @@ function BackupCard({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-pencil">
             <Clock size={16} strokeWidth={2.5} />
-            <span
-              className="font-medium"
-            >
-              {formatDate(backup.date)}
-            </span>
+            <span className="font-medium">{formatDate(backup.date)}</span>
             <span className="text-sm text-pencil-light">
               {timeAgo(backup.date)}
             </span>
