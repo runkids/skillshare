@@ -34,7 +34,7 @@ export default function SegmentedControl<T extends string>({
   if (connected) {
     return (
       <div
-        className="inline-flex items-center border-2 border-muted overflow-hidden"
+        className="inline-flex items-center gap-0.5 p-1 border border-muted bg-muted/40"
         style={{ borderRadius: radius.sm }}
       >
         {options.map((opt) => {
@@ -47,11 +47,14 @@ export default function SegmentedControl<T extends string>({
               className={`
                 ${sizeClasses[size]} transition-colors cursor-pointer font-medium
                 ${isActive
-                  ? color ? '' : 'bg-pencil text-paper'
-                  : 'bg-surface text-pencil-light hover:text-pencil'
+                  ? color ? '' : 'bg-surface text-pencil shadow-sm'
+                  : 'text-pencil-light hover:text-pencil'
                 }
               `}
-              style={isActive && color ? { backgroundColor: color, color: 'var(--color-paper)' } : undefined}
+              style={{
+                borderRadius: radius.sm,
+                ...(isActive && color ? { backgroundColor: color, color: 'var(--color-paper)' } : {}),
+              }}
             >
               {opt.label}
               {opt.count != null && (

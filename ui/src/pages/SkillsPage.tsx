@@ -340,9 +340,9 @@ export default function SkillsPage() {
       />
 
       {/* Sticky toolbar */}
-      <div className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 pt-2 pb-1">
+      <div className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 pt-2 pb-2">
         {/* Search + Sort row */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row gap-3 mb-2">
           <div className="relative flex-1">
             <Search
               size={18}
@@ -386,7 +386,7 @@ export default function SkillsPage() {
         </div>
 
         {/* Filter chips */}
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-0">
           {filterOptions.map((opt) => (
             <FilterChip
               key={opt.key}
