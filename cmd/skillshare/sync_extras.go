@@ -37,7 +37,14 @@ func cmdSyncExtras(args []string) error {
 		return nil
 	}
 
-	sourceRoot := filepath.Dir(cfg.Source) // ~/.config/skillshare/
+	configDir := filepath.Dir(cfg.Source)
+
+	// Auto-migrate legacy extras directories (flat → extras/<name>/)
+	if warnings := config.MigrateExtrasDir(configDir, cfg.Extras); len(warnings) > 0 {
+		for _, w := range warnings {
+			ui.Warning(w)
+		}
+	}
 
 	if dryRun {
 		ui.Warning("Dry run mode - no changes will be made")
@@ -46,7 +53,7 @@ func cmdSyncExtras(args []string) error {
 	var totalSynced, totalSkipped, totalPruned, totalErrors int
 
 	for _, extra := range cfg.Extras {
-		extraSource := filepath.Join(sourceRoot, extra.Name)
+		extraSource := config.ExtrasSourceDir(cfg.Source, extra.Name)
 
 		ui.Header(capitalize(extra.Name))
 
