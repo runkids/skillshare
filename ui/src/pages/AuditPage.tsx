@@ -253,7 +253,7 @@ export default function AuditPage() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
- * AuditSummaryLine — compact inline summary (omlx.ai style)
+ * AuditSummaryLine — compact inline summary
  * ────────────────────────────────────────────────────────────────────── */
 
 function AuditSummaryLine({ summary }: { summary: AuditAllResponse['summary'] }) {
