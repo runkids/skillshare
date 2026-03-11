@@ -152,6 +152,7 @@ const sidebars: SidebarsConfig = {
               label: 'Sync Operations',
               items: [
                 'reference/commands/collect',
+                'reference/commands/extras',
                 'reference/commands/backup',
                 'reference/commands/restore',
                 'reference/commands/trash',
