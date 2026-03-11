@@ -300,6 +300,13 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("DELETE /api/trash/{name}", s.handleDeleteTrash)
 	s.mux.HandleFunc("POST /api/trash/empty", s.handleEmptyTrash)
 
+	// Extras
+	s.mux.HandleFunc("GET /api/extras", s.handleExtras)
+	s.mux.HandleFunc("GET /api/extras/diff", s.handleExtrasDiff)
+	s.mux.HandleFunc("POST /api/extras", s.handleExtrasCreate)
+	s.mux.HandleFunc("POST /api/extras/sync", s.handleExtrasSync)
+	s.mux.HandleFunc("DELETE /api/extras/{name}", s.handleExtrasDelete)
+
 	// Git
 	s.mux.HandleFunc("GET /api/git/status", s.handleGitStatus)
 	s.mux.HandleFunc("POST /api/push", s.handlePush)
