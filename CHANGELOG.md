@@ -39,10 +39,6 @@ Extras (non-skill resources like rules, prompts, commands) are now a first-class
 - **Dashboard card** showing extras count, total files, and total targets
 - REST API: `GET /api/extras`, `GET /api/extras/diff`, `POST /api/extras`, `POST /api/extras/sync`, `DELETE /api/extras/{name}`
 
-## [0.16.15] - 2026-03-11
-
-### New Features
-
 #### Custom GitLab Domain Support
 
 - **JihuLab auto-detection** — hosts containing `jihulab` in the name (e.g., `jihulab.com`) are now automatically detected alongside `gitlab`, so nested subgroup URLs work without any config

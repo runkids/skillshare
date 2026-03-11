@@ -183,6 +183,23 @@ The migration is idempotent — running it multiple times is safe. A warning is 
 
 ---
 
+## Custom GitLab Domain Support
+
+Also included from v0.16.15:
+
+- **JihuLab auto-detection** — hosts containing `jihulab` (e.g., `jihulab.com`) are now auto-detected alongside `gitlab` for nested subgroup support
+- **`gitlab_hosts` config** — declare self-managed GitLab hostnames so URLs are parsed with nested subgroup support:
+  ```yaml
+  gitlab_hosts:
+    - git.company.com
+    - code.internal.io
+  ```
+- **`SKILLSHARE_GITLAB_HOSTS` env var** — comma-separated list for CI/CD pipelines without a config file; merged with config values
+- **GitLab nested subgroup URL fix** — URLs like `gitlab.com/group/subgroup/project` are now treated as the full repo path
+- **HTTPS fallback fix** — platform-aware HTTPS URL parsing no longer misroutes GitHub Enterprise and Gitea URLs
+
+---
+
 ## Upgrade
 
 ```bash
