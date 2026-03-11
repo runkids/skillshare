@@ -353,3 +353,114 @@ func cleanEmptyParents(dir, stopAt string) {
 		dir = filepath.Dir(dir)
 	}
 }
+
+// ExtraCollectResult holds results from collecting extra files.
+type ExtraCollectResult struct {
+	Collected int
+	Skipped   int
+	Errors    []string
+}
+
+// CollectExtraFiles scans targetDir for non-symlink local files,
+// copies them to sourceDir, and replaces originals with symlinks.
+func CollectExtraFiles(sourceDir, targetDir string, dryRun bool) (*ExtraCollectResult, error) {
+	result := &ExtraCollectResult{}
+
+	if _, err := os.Stat(targetDir); os.IsNotExist(err) {
+		return nil, fmt.Errorf("target directory does not exist: %s", targetDir)
+	}
+
+	// Ensure source directory exists
+	if !dryRun {
+		if err := os.MkdirAll(sourceDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create source directory: %w", err)
+		}
+	}
+
+	err := filepath.Walk(targetDir, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return nil
+		}
+
+		// Skip directories and .git
+		if info.IsDir() {
+			if info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Skip symlinks (already synced)
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil
+		}
+
+		// Also check via Lstat since Walk follows symlinks
+		linfo, err := os.Lstat(path)
+		if err != nil {
+			return nil
+		}
+		if linfo.Mode()&os.ModeSymlink != 0 {
+			result.Skipped++
+			return nil
+		}
+
+		rel, err := filepath.Rel(targetDir, path)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("cannot compute relative path: %s", path))
+			return nil
+		}
+
+		destPath := filepath.Join(sourceDir, rel)
+
+		// Skip if already exists in source
+		if _, err := os.Stat(destPath); err == nil {
+			result.Skipped++
+			return nil
+		}
+
+		if dryRun {
+			result.Collected++
+			return nil
+		}
+
+		// Create parent directory
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("mkdir failed: %v", err))
+			return nil
+		}
+
+		// Read source content
+		content, err := os.ReadFile(path)
+		if err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("read failed: %v", err))
+			return nil
+		}
+
+		// Write to source dir
+		if err := os.WriteFile(destPath, content, info.Mode().Perm()); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("write failed: %v", err))
+			return nil
+		}
+
+		// Remove original and create symlink
+		if err := os.Remove(path); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("remove original failed: %v", err))
+			return nil
+		}
+
+		if err := os.Symlink(destPath, path); err != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("symlink failed: %v", err))
+			return nil
+		}
+
+		result.Collected++
+		return nil
+	})
+
+	if err != nil {
+		return result, fmt.Errorf("walk error: %w", err)
+	}
+
+	return result, nil
+}

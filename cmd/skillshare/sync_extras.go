@@ -13,6 +13,25 @@ import (
 	"skillshare/internal/ui"
 )
 
+type syncExtrasJSONOutput struct {
+	Extras   []syncExtrasJSONEntry `json:"extras"`
+	Duration string                `json:"duration"`
+}
+
+type syncExtrasJSONEntry struct {
+	Name    string                 `json:"name"`
+	Targets []syncExtrasJSONTarget `json:"targets"`
+}
+
+type syncExtrasJSONTarget struct {
+	Path    string `json:"path"`
+	Mode    string `json:"mode"`
+	Synced  int    `json:"synced"`
+	Skipped int    `json:"skipped"`
+	Pruned  int    `json:"pruned"`
+	Error   string `json:"error,omitempty"`
+}
+
 func cmdSyncExtras(args []string) error {
 	start := time.Now()
 
@@ -21,7 +40,7 @@ func cmdSyncExtras(args []string) error {
 		return err
 	}
 
-	dryRun, force, _ := parseSyncFlags(rest)
+	dryRun, force, jsonOutput := parseSyncFlags(rest)
 
 	cwd, _ := os.Getwd()
 	if mode == modeAuto {
@@ -35,18 +54,21 @@ func cmdSyncExtras(args []string) error {
 	applyModeLabel(mode)
 
 	if mode == modeProject {
-		return cmdSyncExtrasProject(cwd, dryRun, force, start)
+		return cmdSyncExtrasProject(cwd, dryRun, force, jsonOutput, start)
 	}
-	return cmdSyncExtrasGlobal(dryRun, force, start)
+	return cmdSyncExtrasGlobal(dryRun, force, jsonOutput, start)
 }
 
-func cmdSyncExtrasGlobal(dryRun, force bool, start time.Time) error {
+func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
 	if len(cfg.Extras) == 0 {
+		if jsonOutput {
+			return writeJSON(&syncExtrasJSONOutput{Extras: []syncExtrasJSONEntry{}, Duration: formatDuration(start)})
+		}
 		ui.Info("No extras configured.")
 		fmt.Println()
 		ui.Info("Add extras to your config.yaml:")
@@ -69,23 +91,33 @@ func cmdSyncExtrasGlobal(dryRun, force bool, start time.Time) error {
 		}
 	}
 
-	if dryRun {
+	if dryRun && !jsonOutput {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
 	var totalSynced, totalSkipped, totalPruned, totalErrors int
+	var jsonEntries []syncExtrasJSONEntry
 
 	for _, extra := range cfg.Extras {
 		extraSource := config.ExtrasSourceDir(cfg.Source, extra.Name)
 
-		ui.Header(capitalize(extra.Name))
+		if !jsonOutput {
+			ui.Header(capitalize(extra.Name))
+		}
 
 		// Check if source directory exists
 		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {
-			ui.Info("Source directory does not exist: %s", shortenPath(extraSource))
-			ui.Info("Create it to start syncing %s", extra.Name)
+			if !jsonOutput {
+				ui.Info("Source directory does not exist: %s", shortenPath(extraSource))
+				ui.Info("Create it to start syncing %s", extra.Name)
+			}
+			if jsonOutput {
+				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}})
+			}
 			continue
 		}
+
+		jsonEntry := syncExtrasJSONEntry{Name: extra.Name}
 
 		for _, target := range extra.Targets {
 			mode := target.Mode
@@ -95,8 +127,17 @@ func cmdSyncExtrasGlobal(dryRun, force bool, start time.Time) error {
 			result, syncErr := sync.SyncExtra(extraSource, target.Path, mode, dryRun, force)
 			shortTarget := shortenPath(target.Path)
 
+			jsonTarget := syncExtrasJSONTarget{
+				Path: target.Path,
+				Mode: mode,
+			}
+
 			if syncErr != nil {
-				ui.Warning("  %s: %v", shortTarget, syncErr)
+				if !jsonOutput {
+					ui.Warning("  %s: %v", shortTarget, syncErr)
+				}
+				jsonTarget.Error = syncErr.Error()
+				jsonEntry.Targets = append(jsonEntry.Targets, jsonTarget)
 				totalErrors++
 				continue
 			}
@@ -106,24 +147,36 @@ func cmdSyncExtrasGlobal(dryRun, force bool, start time.Time) error {
 			totalPruned += result.Pruned
 			totalErrors += len(result.Errors)
 
-			// Report result
-			verb := syncVerb(mode)
-			if result.Synced > 0 {
-				parts := []string{fmt.Sprintf("%d files %s", result.Synced, verb)}
-				if result.Pruned > 0 {
-					parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
-				}
-				ui.Success("  %s  %s (%s)", shortTarget, strings.Join(parts, ", "), mode)
-			} else if result.Skipped > 0 {
-				ui.Warning("  %s  %d files skipped (use --force to override)", shortTarget, result.Skipped)
-			} else {
-				ui.Success("  %s  up to date (%s)", shortTarget, mode)
+			jsonTarget.Synced = result.Synced
+			jsonTarget.Skipped = result.Skipped
+			jsonTarget.Pruned = result.Pruned
+			if len(result.Errors) > 0 {
+				jsonTarget.Error = strings.Join(result.Errors, "; ")
 			}
+			jsonEntry.Targets = append(jsonEntry.Targets, jsonTarget)
 
-			for _, e := range result.Errors {
-				ui.Warning("    %s", e)
+			if !jsonOutput {
+				// Report result
+				verb := syncVerb(mode)
+				if result.Synced > 0 {
+					parts := []string{fmt.Sprintf("%d files %s", result.Synced, verb)}
+					if result.Pruned > 0 {
+						parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
+					}
+					ui.Success("  %s  %s (%s)", shortTarget, strings.Join(parts, ", "), mode)
+				} else if result.Skipped > 0 {
+					ui.Warning("  %s  %d files skipped (use --force to override)", shortTarget, result.Skipped)
+				} else {
+					ui.Success("  %s  up to date (%s)", shortTarget, mode)
+				}
+
+				for _, e := range result.Errors {
+					ui.Warning("    %s", e)
+				}
 			}
 		}
+
+		jsonEntries = append(jsonEntries, jsonEntry)
 	}
 
 	// Oplog
@@ -143,40 +196,61 @@ func cmdSyncExtrasGlobal(dryRun, force bool, start time.Time) error {
 	}
 	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
+	if jsonOutput {
+		output := syncExtrasJSONOutput{
+			Extras:   jsonEntries,
+			Duration: formatDuration(start),
+		}
+		return writeJSON(&output)
+	}
+
 	if totalErrors > 0 {
 		return fmt.Errorf("%d extras sync error(s)", totalErrors)
 	}
 	return nil
 }
 
-func cmdSyncExtrasProject(cwd string, dryRun, force bool, start time.Time) error {
+func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time.Time) error {
 	projCfg, err := config.LoadProject(cwd)
 	if err != nil {
 		return err
 	}
 
 	if len(projCfg.Extras) == 0 {
+		if jsonOutput {
+			return writeJSON(&syncExtrasJSONOutput{Extras: []syncExtrasJSONEntry{}, Duration: formatDuration(start)})
+		}
 		ui.Info("No extras configured in project.")
 		ui.Info("Run 'skillshare extras init <name> --target <path> -p' to add one.")
 		return nil
 	}
 
-	if dryRun {
+	if dryRun && !jsonOutput {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
 	var totalSynced, totalSkipped, totalPruned, totalErrors int
+	var jsonEntries []syncExtrasJSONEntry
 
 	for _, extra := range projCfg.Extras {
 		extraSource := config.ExtrasSourceDirProject(cwd, extra.Name)
 
-		ui.Header(capitalize(extra.Name))
+		if !jsonOutput {
+			ui.Header(capitalize(extra.Name))
+		}
 
 		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {
-			ui.Info("Source directory does not exist: %s", extraSource)
-			ui.Info("Create it to start syncing %s", extra.Name)
+			if !jsonOutput {
+				ui.Info("Source directory does not exist: %s", extraSource)
+				ui.Info("Create it to start syncing %s", extra.Name)
+			}
+			if jsonOutput {
+				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}})
+			}
 			continue
 		}
+
+		jsonEntry := syncExtrasJSONEntry{Name: extra.Name}
 
 		for _, target := range extra.Targets {
 			mode := target.Mode
@@ -193,8 +267,17 @@ func cmdSyncExtrasProject(cwd string, dryRun, force bool, start time.Time) error
 			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force)
 			shortTarget := shortenPath(targetPath)
 
+			jsonTarget := syncExtrasJSONTarget{
+				Path: targetPath,
+				Mode: mode,
+			}
+
 			if syncErr != nil {
-				ui.Warning("  %s: %v", shortTarget, syncErr)
+				if !jsonOutput {
+					ui.Warning("  %s: %v", shortTarget, syncErr)
+				}
+				jsonTarget.Error = syncErr.Error()
+				jsonEntry.Targets = append(jsonEntry.Targets, jsonTarget)
 				totalErrors++
 				continue
 			}
@@ -204,23 +287,35 @@ func cmdSyncExtrasProject(cwd string, dryRun, force bool, start time.Time) error
 			totalPruned += result.Pruned
 			totalErrors += len(result.Errors)
 
-			verb := syncVerb(mode)
-			if result.Synced > 0 {
-				parts := []string{fmt.Sprintf("%d files %s", result.Synced, verb)}
-				if result.Pruned > 0 {
-					parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
-				}
-				ui.Success("  %s  %s (%s)", shortTarget, strings.Join(parts, ", "), mode)
-			} else if result.Skipped > 0 {
-				ui.Warning("  %s  %d files skipped (use --force to override)", shortTarget, result.Skipped)
-			} else {
-				ui.Success("  %s  up to date (%s)", shortTarget, mode)
+			jsonTarget.Synced = result.Synced
+			jsonTarget.Skipped = result.Skipped
+			jsonTarget.Pruned = result.Pruned
+			if len(result.Errors) > 0 {
+				jsonTarget.Error = strings.Join(result.Errors, "; ")
 			}
+			jsonEntry.Targets = append(jsonEntry.Targets, jsonTarget)
 
-			for _, e := range result.Errors {
-				ui.Warning("    %s", e)
+			if !jsonOutput {
+				verb := syncVerb(mode)
+				if result.Synced > 0 {
+					parts := []string{fmt.Sprintf("%d files %s", result.Synced, verb)}
+					if result.Pruned > 0 {
+						parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
+					}
+					ui.Success("  %s  %s (%s)", shortTarget, strings.Join(parts, ", "), mode)
+				} else if result.Skipped > 0 {
+					ui.Warning("  %s  %d files skipped (use --force to override)", shortTarget, result.Skipped)
+				} else {
+					ui.Success("  %s  up to date (%s)", shortTarget, mode)
+				}
+
+				for _, e := range result.Errors {
+					ui.Warning("    %s", e)
+				}
 			}
 		}
+
+		jsonEntries = append(jsonEntries, jsonEntry)
 	}
 
 	status := "ok"
@@ -239,6 +334,14 @@ func cmdSyncExtrasProject(cwd string, dryRun, force bool, start time.Time) error
 		"scope":        "project",
 	}
 	oplog.WriteWithLimit(config.ProjectConfigPath(cwd), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+
+	if jsonOutput {
+		output := syncExtrasJSONOutput{
+			Extras:   jsonEntries,
+			Duration: formatDuration(start),
+		}
+		return writeJSON(&output)
+	}
 
 	if totalErrors > 0 {
 		return fmt.Errorf("%d extras sync error(s)", totalErrors)

@@ -45,5 +45,3 @@ Options:
   --help, -h         Show this help`)
 }
 
-// cmdExtrasCollect stub — replaced in Task 19
-func cmdExtrasCollect(args []string) error { return fmt.Errorf("not implemented") }

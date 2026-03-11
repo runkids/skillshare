@@ -318,6 +318,98 @@ func TestSyncExtra_PrunesOrphans(t *testing.T) {
 	}
 }
 
+// --- CollectExtraFiles tests ---
+
+func TestCollectExtraFiles(t *testing.T) {
+	sourceDir := filepath.Join(t.TempDir(), "source")
+	targetDir := filepath.Join(t.TempDir(), "target")
+
+	// Create target with a local file
+	os.MkdirAll(targetDir, 0755)
+	os.WriteFile(filepath.Join(targetDir, "rule1.md"), []byte("# Rule 1"), 0644)
+
+	result, err := CollectExtraFiles(sourceDir, targetDir, false)
+	if err != nil {
+		t.Fatalf("CollectExtraFiles: %v", err)
+	}
+
+	if result.Collected != 1 {
+		t.Errorf("Collected = %d, want 1", result.Collected)
+	}
+
+	// Verify file moved to source
+	data, err := os.ReadFile(filepath.Join(sourceDir, "rule1.md"))
+	if err != nil {
+		t.Fatalf("Read source file: %v", err)
+	}
+	if string(data) != "# Rule 1" {
+		t.Errorf("Source content = %q, want %q", string(data), "# Rule 1")
+	}
+
+	// Verify target is now a symlink
+	info, err := os.Lstat(filepath.Join(targetDir, "rule1.md"))
+	if err != nil {
+		t.Fatalf("Lstat target: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Error("Target should be a symlink after collect")
+	}
+}
+
+func TestCollectExtraFiles_DryRun(t *testing.T) {
+	sourceDir := filepath.Join(t.TempDir(), "source")
+	targetDir := filepath.Join(t.TempDir(), "target")
+
+	os.MkdirAll(targetDir, 0755)
+	os.WriteFile(filepath.Join(targetDir, "rule1.md"), []byte("# Rule 1"), 0644)
+
+	result, err := CollectExtraFiles(sourceDir, targetDir, true)
+	if err != nil {
+		t.Fatalf("CollectExtraFiles dry run: %v", err)
+	}
+
+	if result.Collected != 1 {
+		t.Errorf("Collected = %d, want 1", result.Collected)
+	}
+
+	// Verify file NOT moved (dry run)
+	if _, err := os.Stat(filepath.Join(sourceDir, "rule1.md")); !os.IsNotExist(err) {
+		t.Error("Source file should not exist in dry run")
+	}
+
+	// Verify target is still a regular file
+	info, err := os.Lstat(filepath.Join(targetDir, "rule1.md"))
+	if err != nil {
+		t.Fatalf("Lstat target: %v", err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		t.Error("Target should NOT be a symlink in dry run")
+	}
+}
+
+func TestCollectExtraFiles_SkipsExisting(t *testing.T) {
+	sourceDir := filepath.Join(t.TempDir(), "source")
+	targetDir := filepath.Join(t.TempDir(), "target")
+
+	// Create both source and target with same file
+	os.MkdirAll(sourceDir, 0755)
+	os.MkdirAll(targetDir, 0755)
+	os.WriteFile(filepath.Join(sourceDir, "rule1.md"), []byte("source version"), 0644)
+	os.WriteFile(filepath.Join(targetDir, "rule1.md"), []byte("target version"), 0644)
+
+	result, err := CollectExtraFiles(sourceDir, targetDir, false)
+	if err != nil {
+		t.Fatalf("CollectExtraFiles: %v", err)
+	}
+
+	if result.Skipped != 1 {
+		t.Errorf("Skipped = %d, want 1", result.Skipped)
+	}
+	if result.Collected != 0 {
+		t.Errorf("Collected = %d, want 0", result.Collected)
+	}
+}
+
 // --- Symlink mode (entire directory) test ---
 
 func TestSyncExtra_SymlinkMode(t *testing.T) {
