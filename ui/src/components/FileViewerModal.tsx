@@ -10,7 +10,7 @@ import { javascript } from '@codemirror/lang-javascript';
 import { EditorView } from '@codemirror/view';
 import Card from './Card';
 import CopyButton from './CopyButton';
-import HandButton from './HandButton';
+import Button from './Button';
 import { api, type SkillFileContent } from '../api/client';
 import { handTheme } from '../lib/codemirror-theme';
 import { radius } from '../design';
@@ -91,9 +91,9 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
                 copiedLabelClassName="text-xs font-normal"
               />
             </h3>
-            <HandButton variant="ghost" size="sm" onClick={onClose} className="shrink-0 ml-2">
+            <Button variant="ghost" size="sm" onClick={onClose} className="shrink-0 ml-2">
               <X size={16} strokeWidth={2.5} />
-            </HandButton>
+            </Button>
           </div>
 
           {/* Content */}

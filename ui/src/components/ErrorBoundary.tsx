@@ -1,7 +1,7 @@
 import { Component, type ReactNode } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import Card from './Card';
-import HandButton from './HandButton';
+import Button from './Button';
 
 interface Props {
   children: ReactNode;
@@ -36,9 +36,9 @@ export class ErrorBoundary extends Component<Props, State> {
                 >
                   {this.state.error?.message || 'An unexpected error occurred.'}
                 </p>
-                <HandButton variant="secondary" onClick={() => window.location.reload()}>
+                <Button variant="secondary" onClick={() => window.location.reload()}>
                   Reload page
-                </HandButton>
+                </Button>
               </div>
             </div>
           </Card>

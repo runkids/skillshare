@@ -19,7 +19,7 @@ import {
 import { Virtuoso } from 'react-virtuoso';
 import Card from '../components/Card';
 import Badge from '../components/Badge';
-import HandButton from '../components/HandButton';
+import Button from '../components/Button';
 import { useToast } from '../components/Toast';
 import { api, type SyncResult, type DiffTarget } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
@@ -140,7 +140,7 @@ export default function SyncPage() {
       {/* Visual Pipeline */}
       <div className="hidden md:flex items-center justify-center gap-4 mb-8">
         <div
-          className="flex items-center gap-2 px-4 py-2 bg-postit border-2 border-pencil"
+          className="flex items-center gap-2 px-4 py-2 bg-paper border-2 border-pencil"
           style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
         >
           <Folder size={18} strokeWidth={2.5} className="text-warning" />
@@ -237,7 +237,7 @@ export default function SyncPage() {
           )}
 
           {/* Big sync button */}
-          <HandButton
+          <Button
             onClick={handleSync}
             disabled={syncing}
             variant="primary"
@@ -250,7 +250,7 @@ export default function SyncPage() {
               className={syncing ? 'animate-spin' : ''}
             />
             {syncing ? 'Syncing...' : dryRun ? 'Preview Sync' : 'Sync Now'}
-          </HandButton>
+          </Button>
 
           {/* Advanced options toggle */}
           <button

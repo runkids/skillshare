@@ -16,7 +16,7 @@ import { useAppContext } from '../context/AppContext';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { formatSize } from '../lib/format';
 import Card from '../components/Card';
-import HandButton from '../components/HandButton';
+import Button from '../components/Button';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
@@ -201,7 +201,7 @@ export default function BackupPage() {
             )}
           </div>
           <div className="flex gap-3">
-            <HandButton
+            <Button
               variant="primary"
               size="lg"
               onClick={handleCreate}
@@ -212,15 +212,15 @@ export default function BackupPage() {
               ) : (
                 <><Plus size={18} strokeWidth={2.5} /> Create Backup</>
               )}
-            </HandButton>
+            </Button>
             {backups.length > 0 && (
-              <HandButton
+              <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setCleanupOpen(true)}
               >
                 <Trash2 size={16} strokeWidth={2.5} /> Cleanup
-              </HandButton>
+              </Button>
             )}
           </div>
         </div>
@@ -233,9 +233,9 @@ export default function BackupPage() {
           title="No backups found"
           description="Create your first backup to protect your target configurations"
           action={
-            <HandButton variant="primary" onClick={handleCreate} disabled={creating}>
+            <Button variant="primary" onClick={handleCreate} disabled={creating}>
               <Archive size={16} strokeWidth={2.5} /> Create First Backup
-            </HandButton>
+            </Button>
           }
         />
       ) : (
@@ -378,14 +378,14 @@ function BackupCard({
         {/* Actions */}
         <div className="border-t border-dashed border-pencil-light/40 pt-3 flex gap-2">
           {backup.targets.map((t) => (
-            <HandButton
+            <Button
               key={t}
               variant="secondary"
               size="sm"
               onClick={() => onRestore(t)}
             >
               <RotateCcw size={14} strokeWidth={2.5} /> Restore {t}
-            </HandButton>
+            </Button>
           ))}
         </div>
       </div>

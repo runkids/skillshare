@@ -22,10 +22,10 @@ import { yaml } from '@codemirror/lang-yaml';
 import { EditorView } from '@codemirror/view';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import Card from '../components/Card';
-import HandButton from '../components/HandButton';
+import Button from '../components/Button';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { HandInput } from '../components/HandInput';
+import { Input } from '../components/Input';
 import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
@@ -313,7 +313,7 @@ export default function AuditRulesPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <HandButton
+          <Button
             onClick={() => setViewMode(viewMode === 'structured' ? 'yaml' : 'structured')}
             variant="secondary"
             size="md"
@@ -323,9 +323,9 @@ export default function AuditRulesPage() {
             ) : (
               <><List size={16} strokeWidth={2.5} /> Rule Browser</>
             )}
-          </HandButton>
+          </Button>
           {viewMode === 'structured' && stats.custom > 0 && (
-            <HandButton
+            <Button
               onClick={() => setShowResetConfirm(true)}
               disabled={resetMutation.isPending}
               variant="danger"
@@ -333,7 +333,7 @@ export default function AuditRulesPage() {
             >
               <RotateCcw size={16} strokeWidth={2.5} />
               {resetMutation.isPending ? 'Resetting...' : 'Reset All'}
-            </HandButton>
+            </Button>
           )}
           {viewMode === 'yaml' && rawQuery.data?.exists && (
             <>
@@ -345,10 +345,10 @@ export default function AuditRulesPage() {
                   unsaved changes
                 </span>
               )}
-              <HandButton onClick={handleSave} disabled={saving || !dirty} variant="primary" size="md">
+              <Button onClick={handleSave} disabled={saving || !dirty} variant="primary" size="md">
                 <Save size={16} strokeWidth={2.5} />
                 {saving ? 'Saving...' : 'Save'}
-              </HandButton>
+              </Button>
             </>
           )}
         </div>
@@ -436,7 +436,7 @@ export default function AuditRulesPage() {
                 strokeWidth={2.5}
                 className="absolute left-3 top-1/2 -translate-y-1/2 text-pencil-light pointer-events-none"
               />
-              <HandInput
+              <Input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -500,10 +500,10 @@ export default function AuditRulesPage() {
               title="No custom rules file"
               description={`Create ${isProjectMode ? 'a project-level' : 'a global'} audit-rules.yaml to add or override security rules`}
               action={
-                <HandButton variant="primary" onClick={handleCreate} disabled={creating}>
+                <Button variant="primary" onClick={handleCreate} disabled={creating}>
                   <FilePlus size={16} strokeWidth={2.5} />
                   {creating ? 'Creating...' : 'Create Rules File'}
-                </HandButton>
+                </Button>
               }
             />
           )}

@@ -5,7 +5,7 @@ import { yaml } from '@codemirror/lang-yaml';
 import { EditorView } from '@codemirror/view';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Card from '../components/Card';
-import HandButton from '../components/HandButton';
+import Button from '../components/Button';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
@@ -90,7 +90,7 @@ export default function ConfigPage() {
               unsaved changes
             </span>
           )}
-          <HandButton
+          <Button
             onClick={handleSave}
             disabled={saving || !dirty}
             variant="primary"
@@ -98,7 +98,7 @@ export default function ConfigPage() {
           >
             <Save size={16} strokeWidth={2.5} />
             {saving ? 'Saving...' : 'Save'}
-          </HandButton>
+          </Button>
         </div>
       </div>
 

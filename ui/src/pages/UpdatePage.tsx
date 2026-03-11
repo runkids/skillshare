@@ -5,8 +5,8 @@ import {
   Circle, CheckCircle, XCircle, MinusCircle, ShieldAlert,
 } from 'lucide-react';
 import Card from '../components/Card';
-import HandButton from '../components/HandButton';
-import { HandCheckbox } from '../components/HandInput';
+import Button from '../components/Button';
+import { Checkbox } from '../components/Input';
 import Badge from '../components/Badge';
 import { queryKeys } from '../lib/queryKeys';
 import { useToast } from '../components/Toast';
@@ -239,7 +239,7 @@ export default function UpdatePage() {
         </div>
         <div className="flex gap-2">
           {phase === 'idle' && (
-            <HandButton
+            <Button
               variant="ghost"
               size="sm"
               onClick={runCheck}
@@ -247,13 +247,13 @@ export default function UpdatePage() {
             >
               <RefreshCw size={16} className={checking ? 'animate-spin' : ''} />
               Check Now
-            </HandButton>
+            </Button>
           )}
           {phase === 'idle' && hasUpdates && totalSelected > 0 && (
-            <HandButton onClick={handleUpdate}>
+            <Button onClick={handleUpdate}>
               <ArrowUpCircle size={16} />
               Update Selected ({totalSelected})
-            </HandButton>
+            </Button>
           )}
         </div>
       </div>
@@ -281,9 +281,9 @@ export default function UpdatePage() {
                 )}
               </div>
               {phase === 'done' && (
-                <HandButton variant="ghost" size="sm" onClick={handleDone}>
+                <Button variant="ghost" size="sm" onClick={handleDone}>
                   Done
-                </HandButton>
+                </Button>
               )}
             </div>
           </Card>
@@ -342,7 +342,7 @@ export default function UpdatePage() {
                   All tracked repositories and skills are at their latest versions.
                 </p>
                 <div className="mt-4">
-                  <HandButton
+                  <Button
                     variant="secondary"
                     size="sm"
                     onClick={runCheck}
@@ -350,7 +350,7 @@ export default function UpdatePage() {
                   >
                     <RefreshCw size={16} className={checking ? 'animate-spin' : ''} />
                     Check Again
-                  </HandButton>
+                  </Button>
                 </div>
               </div>
             </Card>
@@ -362,9 +362,9 @@ export default function UpdatePage() {
                     <h2 className="text-lg font-bold text-pencil">
                       Tracked Repositories ({updatableRepos.length})
                     </h2>
-                    <HandButton variant="ghost" size="sm" onClick={selectAllRepos}>
+                    <Button variant="ghost" size="sm" onClick={selectAllRepos}>
                       {selectedRepos.size === updatableRepos.length ? 'Deselect All' : 'Select All'}
-                    </HandButton>
+                    </Button>
                   </div>
                   <div className="space-y-2">
                     {updatableRepos.map((repo) => (
@@ -373,7 +373,7 @@ export default function UpdatePage() {
                         className="flex items-center gap-3 px-3 py-2 border border-pencil/10"
                         style={{ borderRadius: radius.sm }}
                       >
-                        <HandCheckbox label="" checked={selectedRepos.has(repo.name)} onChange={() => toggleRepo(repo.name)} />
+                        <Checkbox label="" checked={selectedRepos.has(repo.name)} onChange={() => toggleRepo(repo.name)} />
                         <div className="flex-1 min-w-0">
                           <span className="text-pencil font-medium block">
                             {repo.name}
@@ -395,9 +395,9 @@ export default function UpdatePage() {
                     <h2 className="text-lg font-bold text-pencil">
                       Skills with Updates ({updatableSkills.length})
                     </h2>
-                    <HandButton variant="ghost" size="sm" onClick={selectAllSkills}>
+                    <Button variant="ghost" size="sm" onClick={selectAllSkills}>
                       {selectedSkills.size === updatableSkills.length ? 'Deselect All' : 'Select All'}
-                    </HandButton>
+                    </Button>
                   </div>
                   <div className="space-y-2">
                     {updatableSkills.map((skill) => (
@@ -406,7 +406,7 @@ export default function UpdatePage() {
                         className="flex items-center gap-3 px-3 py-2 border border-pencil/10"
                         style={{ borderRadius: radius.sm }}
                       >
-                        <HandCheckbox label="" checked={selectedSkills.has(skill.name)} onChange={() => toggleSkill(skill.name)} />
+                        <Checkbox label="" checked={selectedSkills.has(skill.name)} onChange={() => toggleSkill(skill.name)} />
                         <div className="flex-1 min-w-0">
                           <span className="text-pencil font-medium block">
                             {skill.name}

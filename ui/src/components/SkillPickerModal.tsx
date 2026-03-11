@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Download, Search } from 'lucide-react';
 import Card from './Card';
-import HandButton from './HandButton';
-import { HandCheckbox } from './HandInput';
+import Button from './Button';
+import { Checkbox } from './Input';
 import { radius } from '../design';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import type { DiscoveredSkill } from '../api/client';
@@ -137,7 +137,7 @@ export default function SkillPickerModal({
 
           {/* Select All */}
           <div className="flex items-center justify-between border-b-2 border-dashed border-muted pb-2 mb-2">
-            <HandCheckbox
+            <Checkbox
               label={allFilteredSelected ? 'Deselect All' : 'Select All'}
               checked={allFilteredSelected}
               onChange={toggleAll}
@@ -153,7 +153,7 @@ export default function SkillPickerModal({
           <div className="overflow-y-auto space-y-1 mb-4" style={{ maxHeight: '16rem' }}>
             {filtered.map((skill) => (
               <div key={skill.path} className="flex items-start gap-2 py-1">
-                <HandCheckbox
+                <Checkbox
                   label=""
                   checked={selected.has(skill.path)}
                   onChange={() => toggle(skill.path)}
@@ -179,15 +179,15 @@ export default function SkillPickerModal({
 
           {/* Footer */}
           <div className="flex gap-3 justify-end">
-            <HandButton
+            <Button
               variant="ghost"
               size="sm"
               onClick={onCancel}
               disabled={installing}
             >
               Cancel
-            </HandButton>
-            <HandButton
+            </Button>
+            <Button
               variant="primary"
               size="sm"
               onClick={handleInstall}
@@ -197,7 +197,7 @@ export default function SkillPickerModal({
               {installing
                 ? 'Installing...'
                 : `Install Selected (${selected.size})`}
-            </HandButton>
+            </Button>
           </div>
         </Card>
       </div>

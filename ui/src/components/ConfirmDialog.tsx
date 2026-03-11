@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react';
 import Card from './Card';
-import HandButton from './HandButton';
+import Button from './Button';
 import { radius } from '../design';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
@@ -70,23 +70,23 @@ export default function ConfirmDialog({
           </div>
           <div className="flex gap-3 justify-center">
             {cancelText && (
-              <HandButton
+              <Button
                 variant="ghost"
                 size="sm"
                 onClick={onCancel}
                 disabled={loading}
               >
                 {cancelText}
-              </HandButton>
+              </Button>
             )}
-            <HandButton
+            <Button
               variant={variant === 'danger' ? 'danger' : 'primary'}
               size="sm"
               onClick={onConfirm}
               disabled={loading}
             >
               {loading ? 'Working...' : confirmText}
-            </HandButton>
+            </Button>
           </div>
         </Card>
       </div>

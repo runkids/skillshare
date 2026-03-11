@@ -38,30 +38,3 @@ export const palette = {
   warning: '#d4870e',
   danger: '#c0392b',
 } as const;
-
-// ── Backward compatibility aliases ──────────────────────
-// These will be removed after all files are migrated.
-// DO NOT use in new code.
-/** @deprecated Use `radius` instead */
-export const wobbly = {
-  full: radius.full,
-  md: radius.md,
-  sm: radius.sm,
-  btn: radius.btn,
-} as const;
-
-/** @deprecated Use `palette` instead */
-export const colors = {
-  paper: '#f7f6f3',
-  paperWarm: '#ffffff',
-  pencil: '#141312',
-  pencilLight: '#5a5750',
-  muted: '#e2dfd8',
-  mutedDark: '#9e9b94',
-  accent: '#dc4538',
-  blue: '#2d5da1',
-  postit: '#fff9c4',
-  success: '#2e8b57',
-  warning: '#d4870e',
-  danger: '#c0392b',
-} as const;

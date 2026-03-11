@@ -17,7 +17,7 @@ import { VirtuosoGrid } from 'react-virtuoso';
 import type { GridComponents } from 'react-virtuoso';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Badge from '../components/Badge';
-import { HandInput, HandSelect } from '../components/HandInput';
+import { Input, Select } from '../components/Input';
 import { PageSkeleton } from '../components/Skeleton';
 import EmptyState from '../components/EmptyState';
 import Card from '../components/Card';
@@ -341,7 +341,7 @@ export default function SkillsPage() {
             strokeWidth={2.5}
             className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
           />
-          <HandInput
+          <Input
             type="text"
             placeholder="Filter skills..."
             value={search}
@@ -351,7 +351,7 @@ export default function SkillsPage() {
         </div>
         <div className="flex items-center gap-2 sm:w-52">
           <ArrowUpDown size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-          <HandSelect
+          <Select
             value={sortType}
             onChange={(v) => setSortType(v as SortType)}
             options={[

@@ -290,7 +290,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link to="/sync" className="h-full">
             <div
-              className="flex items-center gap-3 px-5 py-4 h-full bg-postit border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer group"
+              className="flex items-center gap-3 px-5 py-4 h-full bg-paper border-2 border-pencil transition-all duration-100 hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer group"
               style={{
                 borderRadius: radius.md,
                 boxShadow: shadows.md,
@@ -305,7 +305,7 @@ export default function DashboardPage() {
               <RefreshCw
                 size={22}
                 strokeWidth={2.5}
-                className="text-pencil group-hover:animate-spin-slow"
+                className="text-pencil group-hover:animate-spin"
               />
               <div className="flex-1">
                 <p className="font-medium text-pencil">

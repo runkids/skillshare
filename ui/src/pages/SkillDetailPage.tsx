@@ -12,7 +12,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Badge from '../components/Badge';
 import Card from '../components/Card';
 import CopyButton from '../components/CopyButton';
-import HandButton from '../components/HandButton';
+import Button from '../components/Button';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -354,7 +354,7 @@ export default function SkillDetailPage() {
           <Card>
             {hasManifest && (
               <div
-                className="mb-4 p-4 border-2 border-dashed border-pencil-light/40 bg-postit/35"
+                className="mb-4 p-4 border-2 border-dashed border-pencil-light/40 bg-surface"
                 style={{ borderRadius: radius.sm }}
               >
                 <p
@@ -458,7 +458,7 @@ export default function SkillDetailPage() {
             {/* Actions */}
             <div className="flex gap-2 mt-4 pt-4 border-t-2 border-dashed border-pencil-light/30">
               {(skill.isInRepo || skill.source) && (
-                <HandButton
+                <Button
                   onClick={() => handleUpdate()}
                   disabled={updating}
                   variant="secondary"
@@ -467,9 +467,9 @@ export default function SkillDetailPage() {
                 >
                   <RefreshCw size={14} strokeWidth={2.5} className={updating ? 'animate-spin' : ''} />
                   {updating ? 'Updating...' : 'Update'}
-                </HandButton>
+                </Button>
               )}
-              <HandButton
+              <Button
                 onClick={() => setConfirmDelete(true)}
                 disabled={deleting}
                 variant="danger"
@@ -482,7 +482,7 @@ export default function SkillDetailPage() {
                   : skill.isInRepo
                     ? 'Uninstall Repo'
                     : 'Uninstall'}
-              </HandButton>
+              </Button>
             </div>
           </Card>
 

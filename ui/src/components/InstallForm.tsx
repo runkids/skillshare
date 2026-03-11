@@ -2,9 +2,9 @@ import { useState, useCallback } from 'react';
 import { Download, Package, ChevronDown, ChevronUp, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import Card from './Card';
-import HandButton from './HandButton';
+import Button from './Button';
 import Badge from './Badge';
-import { HandInput, HandCheckbox } from './HandInput';
+import { Input, Checkbox } from './Input';
 import SkillPickerModal from './SkillPickerModal';
 import ConfirmDialog from './ConfirmDialog';
 import { useToast } from './Toast';
@@ -304,9 +304,9 @@ export default function InstallForm({
   };
 
   const formContent = (
-    <Card variant="postit" className="animate-fade-in">
+    <Card variant="default" className="animate-fade-in">
       <div className="space-y-4">
-        <HandInput
+        <Input
           label="Source (GitHub URL, owner/repo, or local path)"
           type="text"
           placeholder="owner/repo or https://github.com/..."
@@ -314,14 +314,14 @@ export default function InstallForm({
           onChange={(e) => setSource(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleInstall()}
         />
-        <HandInput
+        <Input
           label="Name override (optional)"
           type="text"
           placeholder="custom-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <HandInput
+        <Input
           label="Into directory (optional)"
           type="text"
           placeholder="frontend or frontend/react"
@@ -329,23 +329,23 @@ export default function InstallForm({
           onChange={(e) => setInto(e.target.value)}
         />
         <div className="flex items-center gap-6">
-          <HandCheckbox
+          <Checkbox
             label="Track (git repo)"
             checked={track}
             onChange={setTrack}
           />
-          <HandCheckbox
+          <Checkbox
             label="Force overwrite"
             checked={force}
             onChange={setForce}
           />
-          <HandCheckbox
+          <Checkbox
             label="Skip audit"
             checked={skipAudit}
             onChange={setSkipAudit}
           />
         </div>
-        <HandButton
+        <Button
           onClick={handleInstall}
           disabled={installing || !source.trim()}
           variant="primary"
@@ -353,7 +353,7 @@ export default function InstallForm({
         >
           <Download size={14} strokeWidth={2.5} />
           {installing ? 'Installing...' : 'Install'}
-        </HandButton>
+        </Button>
       </div>
     </Card>
   );

@@ -5,13 +5,13 @@ import { api } from '../api/client';
 import type { LogEntry, LogStatsResponse } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Card from '../components/Card';
-import HandButton from '../components/HandButton';
+import Button from '../components/Button';
 import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
-import { HandSelect } from '../components/HandInput';
+import { Select } from '../components/Input';
 import { radius, shadows } from '../design';
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -746,15 +746,15 @@ export default function LogPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <HandButton onClick={handleRefresh} variant="secondary" size="sm" disabled={loading}>
+          <Button onClick={handleRefresh} variant="secondary" size="sm" disabled={loading}>
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             Refresh
-          </HandButton>
+          </Button>
           {hasEntries && (
-            <HandButton onClick={() => setConfirmOpen(true)} variant="danger" size="sm" disabled={clearing}>
+            <Button onClick={() => setConfirmOpen(true)} variant="danger" size="sm" disabled={clearing}>
               <Trash2 size={16} />
               Clear
-            </HandButton>
+            </Button>
           )}
         </div>
       </div>
@@ -774,7 +774,7 @@ export default function LogPage() {
       {/* ─── Filters ─── */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-36">
-          <HandSelect
+          <Select
             label="Command"
             value={cmdFilter}
             onChange={setCmdFilter}
@@ -785,7 +785,7 @@ export default function LogPage() {
           />
         </div>
         <div className="w-32">
-          <HandSelect
+          <Select
             label="Status"
             value={statusFilter}
             onChange={setStatusFilter}
