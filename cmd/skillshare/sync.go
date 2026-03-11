@@ -169,7 +169,6 @@ func cmdSync(args []string) error {
 
 	// Backup targets before sync (only if not dry-run and there are skills)
 	if !dryRun && len(discoveredSkills) > 0 && !jsonOutput {
-		fmt.Println()
 		backupTargetsBeforeSync(cfg)
 	}
 
@@ -568,8 +567,12 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 		fmt.Println()
 	} else {
 		// Global collision exists but filters isolate them — single summary line
+		names := make([]string, len(global))
+		for i, c := range global {
+			names[i] = c.Name
+		}
 		fmt.Println()
-		ui.Info("%d duplicate skill names (isolated by target filters)", len(global))
+		ui.Info("%d duplicate skill names (isolated by target filters): %s", len(global), strings.Join(names, ", "))
 	}
 }
 
