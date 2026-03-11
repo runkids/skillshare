@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ScrollText, Trash2, RefreshCw, Activity, Clock, Terminal, ShieldCheck } from 'lucide-react';
+import { ScrollText, Trash2, RefreshCw } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { LogEntry, LogStatsResponse } from '../api/client';
@@ -7,7 +7,6 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import PageHeader from '../components/PageHeader';
-import Badge from '../components/Badge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
@@ -15,11 +14,8 @@ import { useToast } from '../components/Toast';
 import { Select } from '../components/Input';
 import SegmentedControl from '../components/SegmentedControl';
 import Pagination from '../components/Pagination';
-import { radius, shadows } from '../design';
 
-/* ──────────────────────────────────────────────────────────────────────
- * Constants & helpers
- * ────────────────────────────────────────────────────────────────────── */
+/* ─── Types & Constants ─── */
 
 type LogTab = 'all' | 'ops' | 'audit';
 type TimeRange = '' | '1h' | '24h' | '7d' | '30d';
@@ -33,6 +29,9 @@ const TIME_RANGES: { label: string; value: TimeRange }[] = [
 ];
 
 const STATUS_OPTIONS = ['', 'ok', 'error', 'partial', 'blocked'] as const;
+const PAGE_SIZES = [10, 25, 50] as const;
+
+/* ─── Helpers ─── */
 
 function timeRangeToSince(range: TimeRange): string {
   if (!range) return '';
@@ -56,39 +55,31 @@ function statusColor(status: string): string {
   }
 }
 
-function statusBadge(status: string) {
-  switch (status) {
-    case 'ok':
-      return <Badge variant="success">ok</Badge>;
-    case 'error':
-      return <Badge variant="danger">error</Badge>;
-    case 'partial':
-      return <Badge variant="warning">partial</Badge>;
-    case 'blocked':
-      return <Badge variant="danger">blocked</Badge>;
-    default:
-      return <Badge>{status}</Badge>;
-  }
-}
-
 function formatTimestamp(ts: string): string {
   try {
     const d = new Date(ts);
     return d.toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+      month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
     });
-  } catch {
-    return ts;
-  }
+  } catch { return ts; }
 }
 
 function formatDuration(ms?: number): string {
   if (!ms || ms <= 0) return '';
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function timeAgo(ts: string): string {
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 function asInt(v: unknown): number | undefined {
@@ -110,17 +101,14 @@ function asString(v: unknown): string | undefined {
 }
 
 function asStringArray(v: unknown): string[] {
-  if (Array.isArray(v)) {
-    return v.map((it) => String(it).trim()).filter(Boolean);
-  }
+  if (Array.isArray(v)) return v.map((it) => String(it).trim()).filter(Boolean);
   const s = asString(v);
   return s ? [s] : [];
 }
 
 function summarizeNames(names: string[], limit = 3): string {
   if (names.length <= limit) return names.join(', ');
-  const shown = names.slice(0, limit).join(', ');
-  return `${shown} (+${names.length - limit})`;
+  return `${names.slice(0, limit).join(', ')} (+${names.length - limit})`;
 }
 
 /* ── Detail formatters ─── */
@@ -176,25 +164,6 @@ function formatAuditDetail(args: Record<string, any>): string {
   return parts.join(', ');
 }
 
-type AuditSkillLists = {
-  failed: string[];
-  warning: string[];
-  low: string[];
-  info: string[];
-};
-
-function getAuditSkillLists(entry: LogEntry): AuditSkillLists {
-  if (entry.cmd !== 'audit' || !entry.args) {
-    return { failed: [], warning: [], low: [], info: [] };
-  }
-  return {
-    failed: asStringArray(entry.args.failed_skills),
-    warning: asStringArray(entry.args.warning_skills),
-    low: asStringArray(entry.args.low_skills),
-    info: asStringArray(entry.args.info_skills),
-  };
-}
-
 function formatUpdateDetail(args: Record<string, any>): string {
   const parts: string[] = [];
   const mode = asString(args.mode);
@@ -234,170 +203,12 @@ function formatDetail(entry: LogEntry): string {
           ? formatAuditDetail(entry.args)
           : formatGenericDetail(entry.args)
     : '';
-  if (entry.msg && detail) return `${detail} (${entry.msg})`;
+  if (entry.msg && detail) return `${detail} — ${entry.msg}`;
   if (entry.msg) return entry.msg;
   return detail;
 }
 
-function renderDetail(entry: LogEntry) {
-  const summary = formatDetail(entry);
-  const lists = getAuditSkillLists(entry);
-
-  if (lists.failed.length === 0 && lists.warning.length === 0 && lists.low.length === 0 && lists.info.length === 0) {
-    return summary;
-  }
-
-  return (
-    <div className="space-y-1">
-      <div>{summary}</div>
-      {lists.failed.length > 0 && (
-        <div className="text-xs text-danger">
-          failed skills: {summarizeNames(lists.failed, 6)}
-        </div>
-      )}
-      {lists.warning.length > 0 && (
-        <div className="text-xs text-warning">
-          warning skills: {summarizeNames(lists.warning, 6)}
-        </div>
-      )}
-      {lists.low.length > 0 && (
-        <div className="text-xs text-blue">
-          low skills: {summarizeNames(lists.low, 6)}
-        </div>
-      )}
-      {lists.info.length > 0 && (
-        <div className="text-xs text-pencil-light">
-          info skills: {summarizeNames(lists.info, 6)}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────
- * LogStatsBar — summary stat cards
- * ────────────────────────────────────────────────────────────────────── */
-
-function LogStatsBar({ stats }: { stats: LogStatsResponse }) {
-  const commands = Object.entries(stats.by_command).sort((a, b) => b[1].total - a[1].total);
-  const rate = stats.total > 0 ? Math.round(stats.success_rate * 100) : 0;
-
-  return (
-    <div
-      className="grid gap-3"
-      style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}
-    >
-      {/* Success rate */}
-      <div
-        className="flex items-center gap-3 p-3 border-2 border-l-[4px] transition-all"
-        style={{
-          borderRadius: radius.md,
-          borderColor: 'var(--color-muted-dark)',
-          borderLeftColor: rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)',
-          boxShadow: shadows.sm,
-        }}
-      >
-        <div
-          className="w-9 h-9 flex items-center justify-center border-2 shrink-0"
-          style={{
-            borderRadius: radius.sm,
-            borderColor: rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)',
-            color: rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)',
-          }}
-        >
-          <Activity size={18} strokeWidth={2.5} />
-        </div>
-        <div>
-          <p className="text-xl font-bold leading-tight" style={{
-            color: rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)',
-          }}>
-            {rate}%
-          </p>
-          <p className="text-xs text-pencil-light leading-tight">
-            {stats.total} total
-          </p>
-        </div>
-      </div>
-
-      {/* Top commands */}
-      {commands.slice(0, 4).map(([cmd, cs]) => {
-        const hasErrors = cs.error > 0 || cs.blocked > 0;
-        return (
-          <div
-            key={cmd}
-            className="flex items-center gap-3 p-3 border-2 border-l-[4px] transition-all"
-            style={{
-              borderRadius: radius.md,
-              borderColor: 'var(--color-muted-dark)',
-              borderLeftColor: hasErrors ? 'var(--color-warning)' : 'var(--color-pencil-light)',
-              boxShadow: shadows.sm,
-            }}
-          >
-            <div
-              className="w-9 h-9 flex items-center justify-center border-2 shrink-0"
-              style={{
-                borderRadius: radius.sm,
-                borderColor: 'var(--color-pencil-light)',
-                color: 'var(--color-pencil-light)',
-              }}
-            >
-              {cmd === 'audit' ? <ShieldCheck size={18} strokeWidth={2.5} /> : <Terminal size={18} strokeWidth={2.5} />}
-            </div>
-            <div>
-              <p className="text-lg font-bold text-pencil leading-tight uppercase">
-                {cmd}
-              </p>
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className="text-pencil-light">{cs.total}</span>
-                {cs.ok > 0 && <span className="text-success">{cs.ok} ok</span>}
-                {cs.error > 0 && <span className="text-danger">{cs.error} err</span>}
-                {cs.partial > 0 && <span className="text-warning">{cs.partial} partial</span>}
-              </div>
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Last operation */}
-      {stats.last_operation && (
-        <div
-          className="flex items-center gap-3 p-3 border-2 border-l-[4px] transition-all"
-          style={{
-            borderRadius: radius.md,
-            borderColor: 'var(--color-muted-dark)',
-            borderLeftColor: statusColor(stats.last_operation.status),
-            boxShadow: shadows.sm,
-          }}
-        >
-          <div
-            className="w-9 h-9 flex items-center justify-center border-2 shrink-0"
-            style={{
-              borderRadius: radius.sm,
-              borderColor: 'var(--color-pencil-light)',
-              color: 'var(--color-pencil-light)',
-            }}
-          >
-            <Clock size={18} strokeWidth={2.5} />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-pencil uppercase leading-tight">
-              {stats.last_operation.cmd}
-            </p>
-            <div className="text-xs mt-0.5">
-              {statusBadge(stats.last_operation.status)}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────
- * LogTable — paginated table with status-colored left stripes
- * ────────────────────────────────────────────────────────────────────── */
-
-const PAGE_SIZES = [10, 25, 50] as const;
+/* ─── LogTable — clean, minimal table ─── */
 
 function LogTable({ entries }: { entries: LogEntry[] }) {
   const [page, setPage] = useState(0);
@@ -412,15 +223,14 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
   return (
     <Card>
       <div className="overflow-x-auto">
-        <table className="w-full text-left">
+        <table className="w-full text-left text-sm">
           <thead>
-            <tr className="border-b-2 border-dashed border-muted-dark">
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium w-0" />
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Time</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Command</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Details</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Status</th>
-              <th className="pb-3 text-pencil-light text-sm font-medium text-right">Duration</th>
+            <tr className="border-b-2 border-dashed border-muted-dark text-pencil-light">
+              <th className="pb-3 pr-4 font-medium">Time</th>
+              <th className="pb-3 pr-4 font-medium">Command</th>
+              <th className="pb-3 pr-4 font-medium">Details</th>
+              <th className="pb-3 pr-4 font-medium">Status</th>
+              <th className="pb-3 font-medium text-right">Duration</th>
             </tr>
           </thead>
           <tbody>
@@ -429,27 +239,25 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
                 key={`${entry.ts}-${entry.cmd}-${start + i}`}
                 className="border-b border-dashed border-muted hover:bg-paper-warm/60 transition-colors"
               >
-                {/* Status stripe cell */}
-                <td className="py-3 pr-0 w-1">
-                  <div
-                    className="w-1 h-6 rounded-full"
-                    style={{ backgroundColor: statusColor(entry.status) }}
-                    title={entry.status}
-                  />
-                </td>
-                <td className="py-3 pr-4 text-pencil-light text-sm whitespace-nowrap">
+                <td className="py-3 pr-4 text-pencil-light whitespace-nowrap font-mono text-xs">
                   {formatTimestamp(entry.ts)}
                 </td>
-                <td className="py-3 pr-4 font-medium text-pencil uppercase text-sm">
+                <td className="py-3 pr-4 font-medium text-pencil uppercase whitespace-nowrap">
                   {entry.cmd}
                 </td>
-                <td className="py-3 pr-4 text-pencil-light text-sm max-w-2xl break-words">
-                  {renderDetail(entry)}
+                <td className="py-3 pr-4 text-pencil-light max-w-md break-words">
+                  {formatDetail(entry) || <span className="text-muted-dark">—</span>}
                 </td>
-                <td className="py-3 pr-4">
-                  {statusBadge(entry.status)}
+                <td className="py-3 pr-4 whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: statusColor(entry.status) }}
+                    />
+                    <span className="text-pencil-light text-xs">{entry.status}</span>
+                  </span>
                 </td>
-                <td className="py-3 text-pencil-light text-sm text-right whitespace-nowrap">
+                <td className="py-3 text-pencil-light text-right whitespace-nowrap font-mono text-xs">
                   {formatDuration(entry.ms)}
                 </td>
               </tr>
@@ -458,12 +266,11 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
         </table>
       </div>
 
-      {/* Pagination */}
       {entries.length > PAGE_SIZES[0] && (
         <Pagination
           page={page}
           totalPages={totalPages}
-          onPageChange={(p) => setPage(p)}
+          onPageChange={setPage}
           rangeText={`${start + 1}–${Math.min(start + pageSize, entries.length)} of ${entries.length}`}
           pageSize={{
             value: pageSize,
@@ -476,34 +283,33 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────────
- * Section — titled group of log entries
- * ────────────────────────────────────────────────────────────────────── */
+/* ─── SummaryLine — compact stats in one line ─── */
 
-function Section({ title, entries, emptyLabel, filtered }: { title: string; entries: LogEntry[]; emptyLabel: string; filtered?: boolean }) {
+function SummaryLine({ stats, filtered }: { stats?: LogStatsResponse; filtered: boolean }) {
+  if (!stats || stats.total === 0) return null;
+
+  const rate = Math.round(stats.success_rate * 100);
+  const rateColor = rate >= 90 ? 'var(--color-success)' : rate >= 70 ? 'var(--color-warning)' : 'var(--color-danger)';
+
   return (
-    <div className="space-y-3">
-      <h3 className="text-xl font-bold text-pencil">
-        {title}
-      </h3>
-      {entries.length === 0 ? (
-        <EmptyState
-          icon={ScrollText}
-          title={filtered ? 'No matching entries' : 'No entries yet'}
-          description={filtered
-            ? `No ${emptyLabel} log entries match the current filters.`
-            : `No ${emptyLabel} log entries recorded.`}
-        />
-      ) : (
-        <LogTable entries={entries} />
+    <p className="text-sm text-pencil-light">
+      <span className="font-medium" style={{ color: rateColor }}>{rate}%</span>
+      {' success · '}
+      {stats.total} entries
+      {stats.last_operation && (
+        <>
+          {' · Last: '}
+          <span className="font-medium text-pencil">{stats.last_operation.cmd}</span>
+          {' '}
+          {timeAgo(stats.last_operation.ts)}
+        </>
       )}
-    </div>
+      {filtered && ' · filtered'}
+    </p>
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────────
- * LogPage — main page
- * ────────────────────────────────────────────────────────────────────── */
+/* ─── LogPage ─── */
 
 export default function LogPage() {
   const { toast } = useToast();
@@ -511,8 +317,6 @@ export default function LogPage() {
   const [tab, setTab] = useState<LogTab>('all');
   const [clearing, setClearing] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-
-  // Filter state
   const [cmdFilter, setCmdFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [timeRange, setTimeRange] = useState<TimeRange>('');
@@ -581,38 +385,30 @@ export default function LogPage() {
         lastOp = audit.last_operation;
       }
     }
-    return {
-      total,
-      success_rate: total > 0 ? okTotal / total : 0,
-      by_command: byCommand,
-      last_operation: lastOp,
-    };
+    return { total, success_rate: total > 0 ? okTotal / total : 0, by_command: byCommand, last_operation: lastOp };
   }, [tab, opsStatsQuery.data, auditStatsQuery.data]);
 
   const opsEntries = opsQuery.data?.entries ?? [];
-  const opsTotal = opsQuery.data?.total ?? 0;
-  const opsTotalAll = opsQuery.data?.totalAll ?? 0;
   const auditEntries = auditQuery.data?.entries ?? [];
-  const auditTotal = auditQuery.data?.total ?? 0;
-  const auditTotalAll = auditQuery.data?.totalAll ?? 0;
+
+  /* Merged timeline for "all" tab — single chronological view */
+  const displayEntries = useMemo(() => {
+    if (tab === 'ops') return opsEntries;
+    if (tab === 'audit') return auditEntries;
+    const merged = [...opsEntries, ...auditEntries];
+    merged.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+    return merged;
+  }, [tab, opsEntries, auditEntries]);
 
   const loading = (tab === 'all' || tab === 'ops') && opsQuery.isPending
     || (tab === 'all' || tab === 'audit') && auditQuery.isPending;
 
-  const hasEntries = tab === 'all'
-    ? opsEntries.length > 0 || auditEntries.length > 0
-    : tab === 'ops'
-      ? opsEntries.length > 0
-      : auditEntries.length > 0;
+  const hasEntries = displayEntries.length > 0;
 
   const knownCommands = useMemo(() => {
     const cmds = new Set<string>();
-    if (opsQuery.data?.commands) {
-      for (const cmd of opsQuery.data.commands) cmds.add(cmd);
-    }
-    if (auditQuery.data?.commands) {
-      for (const cmd of auditQuery.data.commands) cmds.add(cmd);
-    }
+    if (opsQuery.data?.commands) for (const cmd of opsQuery.data.commands) cmds.add(cmd);
+    if (auditQuery.data?.commands) for (const cmd of auditQuery.data.commands) cmds.add(cmd);
     return Array.from(cmds).sort();
   }, [opsQuery.data?.commands, auditQuery.data?.commands]);
 
@@ -644,28 +440,12 @@ export default function LogPage() {
 
   const hasFilter = !!filters;
 
-  const totalLabel = (() => {
-    if (tab === 'all') {
-      if (hasFilter) {
-        return `${opsTotal} of ${opsTotalAll} ops / ${auditTotal} of ${auditTotalAll} audit`;
-      }
-      return `${opsTotal} ops / ${auditTotal} audit`;
-    }
-    const secTotal = tab === 'ops' ? opsTotal : auditTotal;
-    const secTotalAll = tab === 'ops' ? opsTotalAll : auditTotalAll;
-    if (hasFilter) {
-      return `${secTotal} of ${secTotalAll} entries`;
-    }
-    return `${secTotal} entries`;
-  })();
-
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* ─── Header ─── */}
+    <div className="space-y-5 animate-fade-in">
       <PageHeader
         icon={<ScrollText size={24} strokeWidth={2.5} />}
         title="Operations & Audit Log"
-        subtitle="Persistent record of CLI and UI operations, including audit findings by skill"
+        subtitle="Record of CLI and UI operations"
         actions={
           <>
             <Button onClick={handleRefresh} variant="secondary" size="sm" disabled={loading}>
@@ -682,8 +462,8 @@ export default function LogPage() {
         }
       />
 
-      {/* ─── Tabs ─── */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Toolbar: Tabs + Filters in one row */}
+      <div className="flex flex-wrap items-end gap-3">
         <SegmentedControl
           value={tab}
           onChange={setTab}
@@ -693,13 +473,6 @@ export default function LogPage() {
             { value: 'audit', label: 'Audit' },
           ]}
         />
-        <span className="text-sm text-pencil-light ml-2">
-          {totalLabel}
-        </span>
-      </div>
-
-      {/* ─── Filters ─── */}
-      <div className="flex flex-wrap items-end gap-3">
         <div className="w-36">
           <Select
             label="Command"
@@ -712,7 +485,7 @@ export default function LogPage() {
             ]}
           />
         </div>
-        <div className="w-32">
+        <div className="w-28">
           <Select
             label="Status"
             value={statusFilter}
@@ -722,11 +495,7 @@ export default function LogPage() {
           />
         </div>
         <div>
-          <span
-            className="block text-sm text-pencil-light mb-1"
-          >
-            Time
-          </span>
+          <span className="block text-sm text-pencil-light mb-1">Time</span>
           <SegmentedControl
             value={timeRange}
             onChange={setTimeRange}
@@ -735,21 +504,20 @@ export default function LogPage() {
         </div>
       </div>
 
-      {/* ─── Stats ─── */}
-      {mergedStats && mergedStats.total > 0 && (
-        <LogStatsBar stats={mergedStats} />
-      )}
+      {/* Compact summary */}
+      <SummaryLine stats={mergedStats} filtered={hasFilter} />
 
-      {/* ─── Log entries ─── */}
-      {tab === 'all' ? (
-        <div className="space-y-6">
-          <Section title="Operations" entries={opsEntries} emptyLabel="operation" filtered={hasFilter} />
-          <Section title="Audit" entries={auditEntries} emptyLabel="audit" filtered={hasFilter} />
-        </div>
-      ) : tab === 'ops' ? (
-        <Section title="Operations" entries={opsEntries} emptyLabel="operation" filtered={hasFilter} />
+      {/* Single unified log table */}
+      {!hasEntries ? (
+        <EmptyState
+          icon={ScrollText}
+          title={hasFilter ? 'No matching entries' : 'No entries yet'}
+          description={hasFilter
+            ? 'Try adjusting filters or expanding the time range.'
+            : 'Operations and audit events will appear here.'}
+        />
       ) : (
-        <Section title="Audit" entries={auditEntries} emptyLabel="audit" filtered={hasFilter} />
+        <LogTable entries={displayEntries} />
       )}
 
       <ConfirmDialog

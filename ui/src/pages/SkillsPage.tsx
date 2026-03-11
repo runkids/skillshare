@@ -339,86 +339,89 @@ export default function SkillsPage() {
         subtitle={`${skills.length} skill${skills.length !== 1 ? 's' : ''} installed`}
       />
 
-      {/* Search + Sort row */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="relative flex-1">
-          <Search
-            size={18}
-            strokeWidth={2.5}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
-          />
-          <Input
-            type="text"
-            placeholder="Filter skills..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="!pl-11"
-          />
-        </div>
-        <div className="flex items-center gap-2 sm:w-52">
-          <ArrowUpDown size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
-          <Select
-            value={sortType}
-            onChange={(v) => setSortType(v as SortType)}
-            size="sm"
+      {/* Sticky toolbar */}
+      <div className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 pt-2 pb-1">
+        {/* Search + Sort row */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <div className="relative flex-1">
+            <Search
+              size={18}
+              strokeWidth={2.5}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
+            />
+            <Input
+              type="text"
+              placeholder="Filter skills..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="!pl-11"
+            />
+          </div>
+          <div className="flex items-center gap-2 sm:w-52">
+            <ArrowUpDown size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
+            <Select
+              value={sortType}
+              onChange={(v) => setSortType(v as SortType)}
+              size="sm"
+              options={[
+                { value: 'name-asc', label: 'Name A → Z' },
+                { value: 'name-desc', label: 'Name Z → A' },
+                { value: 'newest', label: 'Newest first' },
+                { value: 'oldest', label: 'Oldest first' },
+              ]}
+            />
+          </div>
+          {/* View toggle */}
+          <SegmentedControl
+            value={viewType}
+            onChange={changeViewType}
             options={[
-              { value: 'name-asc', label: 'Name A → Z' },
-              { value: 'name-desc', label: 'Name Z → A' },
-              { value: 'newest', label: 'Newest first' },
-              { value: 'oldest', label: 'Oldest first' },
+              { value: 'grid', label: <LayoutGrid size={16} strokeWidth={2.5} /> },
+              { value: 'grouped', label: <FolderOpen size={16} strokeWidth={2.5} /> },
+              { value: 'table', label: <List size={16} strokeWidth={2.5} /> },
             ]}
+            size="md"
+            connected
           />
         </div>
-        {/* View toggle */}
-        <SegmentedControl
-          value={viewType}
-          onChange={changeViewType}
-          options={[
-            { value: 'grid', label: <LayoutGrid size={16} strokeWidth={2.5} /> },
-            { value: 'grouped', label: <FolderOpen size={16} strokeWidth={2.5} /> },
-            { value: 'table', label: <List size={16} strokeWidth={2.5} /> },
-          ]}
-          size="md"
-          connected
-        />
-      </div>
 
-      {/* Filter chips */}
-      <div className="flex flex-wrap gap-2 mb-6">
-        {filterOptions.map((opt) => (
-          <FilterChip
-            key={opt.key}
-            label={opt.label}
-            icon={opt.icon}
-            active={filterType === opt.key}
-            count={filterCounts[opt.key]}
-            onClick={() => setFilterType(filterType === opt.key ? 'all' : opt.key)}
-          />
-        ))}
-      </div>
+        {/* Filter chips */}
+        <div className="flex flex-wrap gap-2 mb-6">
+          {filterOptions.map((opt) => (
+            <FilterChip
+              key={opt.key}
+              label={opt.label}
+              icon={opt.icon}
+              active={filterType === opt.key}
+              count={filterCounts[opt.key]}
+              onClick={() => setFilterType(filterType === opt.key ? 'all' : opt.key)}
+            />
+          ))}
+        </div>
 
-      {/* Result count when filtered */}
-      {(filterType !== 'all' || search) && (
-        <p className="text-pencil-light text-sm mb-4">
-          Showing {filtered.length} of {skills.length} skills
-          {filterType !== 'all' && (
-            <>
-              {' '}
-              &middot;{' '}
-              <Button
-                variant="link"
-                className="link-subtle"
-                onClick={() => {
-                  setFilterType('all');
-                  setSearch('');
-                }}
-              >
-                Clear filters
-              </Button>
-            </>
-          )}
-        </p>
-      )}
+        {/* Result count when filtered */}
+        {(filterType !== 'all' || search) && (
+          <p className="text-pencil-light text-sm mb-4">
+            Showing {filtered.length} of {skills.length} skills
+            {filterType !== 'all' && (
+              <>
+                {' '}
+                &middot;{' '}
+                <Button
+                  variant="link"
+                  className="link-subtle"
+                  onClick={() => {
+                    setFilterType('all');
+                    setSearch('');
+                  }}
+                >
+                  Clear filters
+                </Button>
+              </>
+            )}
+          </p>
+        )}
+      </div>
 
       {/* Skills grid / grouped / table view */}
       {filtered.length > 0 ? (
