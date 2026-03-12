@@ -413,7 +413,7 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.
 func checkGitStatus(source string, result *doctorResult) {
 	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
 	cmd.Dir = source
-	if _, err := cmd.Output(); err != nil {
+	if err := cmd.Run(); err != nil {
 		ui.Warning("Git: not initialized (recommended for backup)")
 		result.addWarning()
 		return

@@ -51,8 +51,7 @@ func parsePushArgs(args []string) *pushOptions {
 func checkGitRepo(sourcePath string, spinner *ui.Spinner) error {
 	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
 	cmd.Dir = sourcePath
-	_, err := cmd.Output()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		spinner.Fail("Source is not a git repository")
 		ui.Info("  Run: skillshare init --remote <url>")
 		return fmt.Errorf("not a git repository")
