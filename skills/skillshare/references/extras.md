@@ -9,7 +9,7 @@ Manage non-skill resources (rules, commands, prompts) that sync to arbitrary dir
 | `extras remove <name>` | Remove an extra from config | ✓ (auto) | ✗ |
 | `extras collect <name>` | Collect target files into source | ✓ (auto) | ✗ |
 | `sync extras` | Sync all extras to targets | ✓ (auto) | ✓ |
-| `diff --extras` | Show extras diff | ✓ (auto) | ✓ |
+| `diff` | Includes extras diff automatically | ✓ (auto) | ✓ |
 
 **Source directories:**
 - Global: `~/.config/skillshare/extras/<name>/`
@@ -107,14 +107,13 @@ Sync modes (per-target):
 - `copy`: real-file copies
 - `symlink`: entire directory symlinked
 
-## diff --extras
+## diff (extras included)
 
-Show what would change if you ran `sync extras`.
+`skillshare diff` automatically includes extras when configured — no extra flags needed.
 
 ```bash
-skillshare diff --extras            # Extras only
-skillshare diff --all               # Skills + extras
-skillshare diff --extras --json     # JSON output
+skillshare diff                     # Skills + extras (if configured)
+skillshare diff --json              # JSON output includes extras
 ```
 
 ## Config format

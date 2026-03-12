@@ -374,7 +374,7 @@ extras:
 	result.AssertAnyOutputContains(t, rulesTarget)
 }
 
-// TestExtras_DiffExtras verifies that "diff --extras" shows files that need syncing.
+// TestExtras_DiffExtras verifies that "diff" automatically shows extras that need syncing.
 func TestExtras_DiffExtras(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
@@ -399,7 +399,7 @@ extras:
       - path: ` + rulesTarget + `
 `)
 
-	result := sb.RunCLI("diff", "--extras", "--no-tui", "-g")
+	result := sb.RunCLI("diff", "--no-tui", "-g")
 
 	result.AssertSuccess(t)
 	// Output should show the extras diff section.

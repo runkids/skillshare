@@ -29,7 +29,7 @@ Extras (non-skill resources like rules, prompts, commands) are now a first-class
 
 - **`status`** — shows extras file count and target count per extra
 - **`doctor`** — checks that extras source directories exist and target parent directories are reachable
-- **`diff --extras`** — per-file diff for extras targets; `diff --all` shows combined skills + extras diff
+- **`diff`** — automatically includes per-file diff for extras targets when configured
 - **`sync extras --json`** — structured JSON output for programmatic consumption
 - **`sync --all -p`** — project-mode `--all` now includes extras sync
 

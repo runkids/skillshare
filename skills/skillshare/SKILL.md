@@ -51,7 +51,6 @@ skillshare extras remove rules                       # Remove from config (sourc
 skillshare sync extras                               # Sync all extras to targets
 skillshare sync extras --dry-run --force             # Preview / overwrite conflicts
 skillshare sync --all                                # Sync skills + extras together
-skillshare diff --extras                             # Show extras diff
 ```
 See [extras.md](references/extras.md) for details.
 ### Creating & Discovering Skills

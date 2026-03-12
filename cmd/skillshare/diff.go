@@ -24,8 +24,6 @@ type diffRenderOpts struct {
 	showPatch  bool
 	showStat   bool
 	jsonOutput bool
-	showExtras bool // show extras diff
-	showAll    bool // show all (skills + extras)
 }
 
 // diffJSONOutput is the JSON representation for diff --json output.
@@ -99,11 +97,6 @@ func cmdDiff(args []string) error {
 		case "--json":
 			opts.jsonOutput = true
 			opts.noTUI = true // --json implies no TUI
-		case "--extras":
-			opts.showExtras = true
-		case "--all":
-			opts.showAll = true
-			opts.showExtras = true // --all implies --extras
 		default:
 			targetName = rest[i]
 		}
@@ -466,9 +459,9 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts, start time.Time) erro
 		progress.stop()
 	}
 
-	// Extras diff
+	// Extras diff (always included when extras are configured)
 	var extrasResults []extraDiffResult
-	if opts.showExtras || opts.showAll {
+	if len(cfg.Extras) > 0 {
 		extrasResults = collectExtrasDiff(cfg.Extras, func(name string) string {
 			return config.ExtrasSourceDir(cfg.Source, name)
 		})

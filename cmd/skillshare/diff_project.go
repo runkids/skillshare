@@ -112,9 +112,9 @@ func cmdDiffProject(root, targetName string, opts diffRenderOpts, start time.Tim
 
 	progress.stop()
 
-	// Extras diff
+	// Extras diff (always included when extras are configured)
 	var extrasResults []extraDiffResult
-	if opts.showExtras || opts.showAll {
+	if len(runtime.config.Extras) > 0 {
 		extrasResults = collectExtrasDiff(runtime.config.Extras, func(name string) string {
 			return config.ExtrasSourceDirProject(root, name)
 		})

@@ -11,8 +11,7 @@ skillshare diff              # All targets (interactive TUI)
 skillshare diff claude       # Specific target
 skillshare diff --stat       # File-level changes
 skillshare diff --patch      # Full unified diff
-skillshare diff --extras     # Extras diff only
-skillshare diff --all        # Skills + extras diff
+skillshare diff              # Includes extras automatically
 ```
 
 ![diff demo](/img/diff-demo.png)
@@ -191,8 +190,6 @@ skillshare sync            # Fix it
 |------|-------------|
 | `--project, -p` | Use project mode |
 | `--global, -g` | Use global mode |
-| `--extras` | Show extras diff (non-skill resources like rules, commands) |
-| `--all` | Show both skills and extras diff (implies `--extras`) |
 | `--stat` | Show file-level changes (implies `--no-tui`) |
 | `--patch` | Show full unified diff (implies `--no-tui`) |
 | `--no-tui` | Plain text output (skip interactive TUI) |
