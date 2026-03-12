@@ -50,20 +50,48 @@ skillshare extras init prompts --target .claude/prompts --mode copy -p
 
 ### `extras list`
 
-List all configured extras and their sync status.
+List all configured extras and their sync status. Launches an interactive TUI by default.
 
 ```bash
-skillshare extras list [--json] [-p|-g]
+skillshare extras list [--json] [--no-tui] [-p|-g]
 ```
 
-**Output columns:**
-- Source directory and file count
-- Per-target: path, mode, and sync status (`synced`, `drift`, `not synced`, `no source`)
+**Options:**
 
-**Example output:**
+| Flag | Description |
+|------|-------------|
+| `--json` | JSON output |
+| `--no-tui` | Disable interactive TUI, use plain text output |
+| `--project, -p` | Use project-mode extras (`.skillshare/`) |
+| `--global, -g` | Use global extras (`~/.config/skillshare/`) |
+
+#### Interactive TUI
+
+The TUI provides a split-pane interface with extras list on the left and detail panel on the right. Key bindings:
+
+| Key | Action |
+|-----|--------|
+| `↑↓` | Navigate list |
+| `/` | Filter by name |
+| `Enter` / `D` | Content viewer (browse source files) |
+| `X` | Remove extra (with confirmation) |
+| `S` | Sync extra to target(s) |
+| `C` | Collect from target(s) |
+| `Ctrl+U/D` | Scroll detail panel |
+| `q` / `Ctrl+C` | Quit |
+
+The color bar on each row reflects aggregate sync status: cyan = all synced, yellow = drift, red = not synced, gray = no source.
+
+For extras with multiple targets, `S` and `C` open a target sub-menu to select a specific target or all targets.
+
+The TUI can be permanently disabled with `skillshare tui off`.
+
+#### Plain text output
+
+When TUI is disabled (via `--no-tui`, `skillshare tui off`, or piped output):
 
 ```
-$ skillshare extras list
+$ skillshare extras list --no-tui
 
 Rules            ~/.config/skillshare/extras/rules/  (2 files)
   ✔ ~/.claude/rules   merge   synced
