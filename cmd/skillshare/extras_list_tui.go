@@ -85,6 +85,12 @@ type extrasListTUIModel struct {
 	targetCursor    int
 	targetAction    string
 
+	// Mode picker
+	showModePicker   bool
+	modePickerTarget string // target path being edited
+	modePickerExtra  string
+	modeCursor       int
+
 	// Action feedback
 	lastActionMsg string
 }
@@ -230,6 +236,10 @@ func (m extrasListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleTargetMenuKey(msg)
 		}
 
+		if m.showModePicker {
+			return m.handleModePickerKey(msg)
+		}
+
 		if m.filtering {
 			switch msg.String() {
 			case "esc":
@@ -285,6 +295,8 @@ func (m extrasListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.enterTargetMenu("sync")
 		case "C":
 			return m.enterTargetMenu("collect")
+		case "M":
+			return m.enterTargetMenu("mode")
 		}
 	}
 
@@ -315,6 +327,9 @@ func (m extrasListTUIModel) View() string {
 	}
 	if m.showTargetMenu {
 		return m.renderTargetMenu()
+	}
+	if m.showModePicker {
+		return m.renderModePicker()
 	}
 	if extrasSplitActive(m.termWidth) {
 		return m.viewExtrasSplit()
@@ -432,6 +447,7 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 	if len(e.Targets) == 0 {
 		b.WriteString(tc.Dim.Render("  No targets configured") + "\n")
 	} else {
+		hasDrift := false
 		for _, t := range e.Targets {
 			var icon string
 			var style lipgloss.Style
@@ -442,9 +458,11 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 			case "drift":
 				icon = "△"
 				style = tc.Yellow
+				hasDrift = true
 			case "not synced":
 				icon = "✗"
 				style = tc.Red
+				hasDrift = true
 			default:
 				icon = "-"
 				style = tc.Dim
@@ -455,6 +473,9 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 			}
 			fmt.Fprintf(&b, "  %s %s (%s)%s\n",
 				style.Render(icon), shortenPath(t.Path), t.Mode, tc.Dim.Render(statusText))
+		}
+		if hasDrift {
+			b.WriteString("\n" + tc.Yellow.Render("hint:") + " press S to sync, or use --force to overwrite conflicts\n")
 		}
 	}
 
@@ -499,7 +520,7 @@ func (m extrasListTUIModel) renderExtrasFilterBar() string {
 }
 
 func (m extrasListTUIModel) renderExtrasHelp(scrollInfo string) string {
-	helpText := "↑↓ navigate  / filter  Enter view  N new  X remove  S sync  C collect  q quit"
+	helpText := "↑↓ navigate  / filter  Enter view  N new  X remove  S sync  C collect  M mode  q quit"
 	if m.filtering {
 		helpText = "Enter lock  Esc clear  q quit"
 	}
@@ -629,7 +650,7 @@ func (m extrasListTUIModel) renderConfirmOverlay() string {
 		body = fmt.Sprintf("Collect from %s into %q?", target, m.confirmExtra)
 	}
 
-	return fmt.Sprintf("\n  %s\n\n  %s\n\n  Proceed? [Y/n] ",
+	return fmt.Sprintf("\n%s\n\n%s\n\nProceed? [Y/n] ",
 		tc.Title.Render(title), body)
 }
 
@@ -644,7 +665,11 @@ func (m extrasListTUIModel) enterTargetMenu(action string) (tea.Model, tea.Cmd) 
 		m.lastActionMsg = "✗ No targets configured"
 		return m, nil
 	}
+	// Single target: skip menu for sync/collect/mode
 	if len(item.entry.Targets) == 1 {
+		if action == "mode" {
+			return m.openModePicker(item.entry.Name, item.entry.Targets[0])
+		}
 		m.confirmExtra = item.entry.Name
 		m.confirmAction = action
 		m.confirmTarget = item.entry.Targets[0].Path
@@ -661,7 +686,11 @@ func (m extrasListTUIModel) enterTargetMenu(action string) (tea.Model, tea.Cmd) 
 }
 
 func (m extrasListTUIModel) handleTargetMenuKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// "mode" has no "All targets" row
 	totalItems := len(m.targetMenuItems) + 1
+	if m.targetAction == "mode" {
+		totalItems = len(m.targetMenuItems)
+	}
 
 	switch msg.String() {
 	case "q", "esc":
@@ -685,6 +714,13 @@ func (m extrasListTUIModel) handleTargetMenuKey(msg tea.KeyMsg) (tea.Model, tea.
 			return m, nil
 		}
 		m.showTargetMenu = false
+
+		// Mode action: no "All targets", go directly to mode picker
+		if m.targetAction == "mode" {
+			t := m.targetMenuItems[m.targetCursor]
+			return m.openModePicker(item.entry.Name, t)
+		}
+
 		m.confirmExtra = item.entry.Name
 		m.confirmAction = m.targetAction
 		if m.targetCursor == 0 {
@@ -702,28 +738,149 @@ func (m extrasListTUIModel) renderTargetMenu() string {
 	var b strings.Builder
 
 	title := "Sync targets"
-	if m.targetAction == "collect" {
+	switch m.targetAction {
+	case "collect":
 		title = "Collect from"
+	case "mode":
+		title = "Change mode"
 	}
 
-	fmt.Fprintf(&b, "\n  %s\n\n", tc.Title.Render(title))
+	fmt.Fprintf(&b, "\n%s\n\n", tc.Title.Render(title))
 
-	for i := 0; i <= len(m.targetMenuItems); i++ {
-		prefix := "  "
-		if i == m.targetCursor {
-			prefix = tc.Cyan.Render(">") + " "
+	if m.targetAction == "mode" {
+		// No "All targets" for mode — list targets directly
+		for i, t := range m.targetMenuItems {
+			prefix := "  "
+			if i == m.targetCursor {
+				prefix = tc.Cyan.Render(">") + " "
+			}
+			fmt.Fprintf(&b, "%s%s  (%s)\n", prefix, shortenPath(t.Path), t.Mode)
 		}
-		if i == 0 {
-			fmt.Fprintf(&b, "  %s%s\n", prefix, "All targets")
-		} else {
-			t := m.targetMenuItems[i-1]
-			fmt.Fprintf(&b, "  %s%s  (%s)\n", prefix, shortenPath(t.Path), t.Mode)
+	} else {
+		for i := 0; i <= len(m.targetMenuItems); i++ {
+			prefix := "  "
+			if i == m.targetCursor {
+				prefix = tc.Cyan.Render(">") + " "
+			}
+			if i == 0 {
+				fmt.Fprintf(&b, "%s%s\n", prefix, "All targets")
+			} else {
+				t := m.targetMenuItems[i-1]
+				fmt.Fprintf(&b, "%s%s  (%s)\n", prefix, shortenPath(t.Path), t.Mode)
+			}
 		}
 	}
 
-	fmt.Fprintf(&b, "\n  %s\n", tc.Help.Render("↑↓ select  Enter confirm  Esc cancel"))
+	fmt.Fprintf(&b, "\n%s\n", tc.Help.Render("↑↓ select  Enter confirm  Esc cancel"))
 
 	return b.String()
+}
+
+// ─── Mode Picker ─────────────────────────────────────────────────────
+
+var extrasSyncModes = config.ExtraSyncModes
+
+func (m extrasListTUIModel) openModePicker(extraName string, t extrasTargetInfo) (tea.Model, tea.Cmd) {
+	m.showModePicker = true
+	m.modePickerExtra = extraName
+	m.modePickerTarget = t.Path
+	m.modeCursor = 0
+	current := sync.EffectiveMode(t.Mode)
+	for i, mode := range extrasSyncModes {
+		if mode == current {
+			m.modeCursor = i
+			break
+		}
+	}
+	m.lastActionMsg = ""
+	return m, nil
+}
+
+func (m extrasListTUIModel) handleModePickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "esc":
+		m.showModePicker = false
+		return m, nil
+	case "up", "k":
+		if m.modeCursor > 0 {
+			m.modeCursor--
+		}
+		return m, nil
+	case "down", "j":
+		if m.modeCursor < len(extrasSyncModes)-1 {
+			m.modeCursor++
+		}
+		return m, nil
+	case "enter":
+		m.showModePicker = false
+		newMode := extrasSyncModes[m.modeCursor]
+		name := m.modePickerExtra
+		target := m.modePickerTarget
+		return m, func() tea.Msg {
+			msg, err := m.doSetMode(name, target, newMode)
+			return extrasActionDoneMsg{msg: msg, err: err}
+		}
+	}
+	return m, nil
+}
+
+func (m extrasListTUIModel) renderModePicker() string {
+	var b strings.Builder
+
+	fmt.Fprintf(&b, "\n%s\n", tc.Title.Render("Change mode"))
+	fmt.Fprintf(&b, "%s  %s\n\n", tc.Dim.Render("Extra:"), m.modePickerExtra)
+	fmt.Fprintf(&b, "%s  %s\n\n", tc.Dim.Render("Target:"), shortenPath(m.modePickerTarget))
+
+	for i, mode := range extrasSyncModes {
+		cursor := "  "
+		if i == m.modeCursor {
+			cursor = tc.Cyan.Render(">") + " "
+		}
+		var desc string
+		switch mode {
+		case "merge":
+			desc = " (per-file symlinks)"
+		case "copy":
+			desc = " (file copies)"
+		case "symlink":
+			desc = " (directory symlink)"
+		}
+		if i == m.modeCursor {
+			fmt.Fprintf(&b, "%s%s%s\n", cursor, tc.Cyan.Render(mode), tc.Dim.Render(desc))
+		} else {
+			fmt.Fprintf(&b, "%s%s%s\n", cursor, mode, tc.Dim.Render(desc))
+		}
+	}
+
+	fmt.Fprintf(&b, "\n%s\n", tc.Help.Render("↑↓ select  Enter confirm  Esc cancel"))
+	return b.String()
+}
+
+func (m extrasListTUIModel) doSetMode(name, targetPath, newMode string) (string, error) {
+	if m.projCfg != nil {
+		projCfg, err := config.LoadProject(m.cwd)
+		if err != nil {
+			return "", err
+		}
+		if err := setExtraTargetMode(projCfg.Extras, name, targetPath, newMode); err != nil {
+			return "", err
+		}
+		if err := projCfg.Save(m.cwd); err != nil {
+			return "", err
+		}
+	} else {
+		cfg, err := config.Load()
+		if err != nil {
+			return "", err
+		}
+		if err := setExtraTargetMode(cfg.Extras, name, targetPath, newMode); err != nil {
+			return "", err
+		}
+		if err := cfg.Save(); err != nil {
+			return "", err
+		}
+	}
+	return fmt.Sprintf("✓ Set %s → %s to %s", name, shortenPath(targetPath), newMode), nil
 }
 
 // ─── Action Execution ────────────────────────────────────────────────

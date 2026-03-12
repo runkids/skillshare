@@ -37,7 +37,7 @@ type extrasInitTUIModel struct {
 	err       error
 }
 
-var syncModes = []string{"merge", "copy", "symlink"}
+var syncModes = config.ExtraSyncModes
 
 func newExtrasInitTUIModel() extrasInitTUIModel {
 	ti := textinput.New()

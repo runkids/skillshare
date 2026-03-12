@@ -194,37 +194,31 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force bool) (int, i
 	// Check if target already exists
 	info, lstatErr := os.Lstat(tgtFile)
 	if lstatErr == nil {
-		// Target exists
-		if mode == "merge" && info.Mode()&os.ModeSymlink != 0 {
-			// It's a symlink — check if it points to our source
+		isSymlink := info.Mode()&os.ModeSymlink != 0
+
+		// Already correct? → skip (idempotent)
+		if mode == "merge" && isSymlink {
 			dest, readErr := os.Readlink(tgtFile)
 			if readErr == nil {
 				absDest, _ := filepath.Abs(dest)
 				if absDest == srcFile {
-					// Already correct symlink
 					return 1, 0, nil
 				}
 			}
-			// Wrong symlink — treat as conflict
 		}
-
-		if mode == "copy" && info.Mode()&os.ModeSymlink == 0 && !info.IsDir() {
-			// Regular file — check if content matches source (idempotent)
+		if mode == "copy" && !isSymlink && !info.IsDir() {
 			srcInfo, srcErr := os.Stat(srcFile)
-			if srcErr == nil && srcInfo.Size() == info.Size() {
-				if contentEqual(srcFile, tgtFile) {
-					return 1, 0, nil
-				}
+			if srcErr == nil && srcInfo.Size() == info.Size() && contentEqual(srcFile, tgtFile) {
+				return 1, 0, nil
 			}
-			// Content differs — treat as conflict
 		}
 
-		// Conflict: target exists and is not our symlink / matching copy
-		if !force {
+		// Symlinks left over from a different mode are safe to replace
+		autoReplace := isSymlink
+		if !autoReplace && !force {
 			return 0, 1, nil
 		}
 
-		// Force: remove and replace
 		if !dryRun {
 			if err := os.Remove(tgtFile); err != nil {
 				return 0, 0, fmt.Errorf("failed to remove conflicting file: %w", err)

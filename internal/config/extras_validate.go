@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"regexp"
+	"slices"
 )
 
 var extraNameRegex = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
@@ -29,15 +30,19 @@ func ValidateExtraName(name string) error {
 	return nil
 }
 
+// ExtraSyncModes is the authoritative list of valid extras sync modes.
+var ExtraSyncModes = []string{"merge", "copy", "symlink"}
+
 // ValidateExtraMode checks that mode is a valid sync mode.
 // Empty string is allowed (defaults to "merge" at runtime).
 func ValidateExtraMode(mode string) error {
-	switch mode {
-	case "", "merge", "copy", "symlink":
+	if mode == "" {
 		return nil
-	default:
+	}
+	if !slices.Contains(ExtraSyncModes, mode) {
 		return fmt.Errorf("invalid mode %q: must be merge, copy, or symlink", mode)
 	}
+	return nil
 }
 
 // ValidateExtraNameUnique checks that the name doesn't duplicate an existing extra.

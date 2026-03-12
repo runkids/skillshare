@@ -20,10 +20,16 @@ func cmdExtras(args []string) error {
 		return cmdExtrasRemove(rest)
 	case "collect":
 		return cmdExtrasCollect(rest)
+	case "mode":
+		return cmdExtrasMode(rest)
 	case "--help", "-h":
 		printExtrasHelp()
 		return nil
 	default:
+		// Shorthand: skillshare extras <name> --mode <mode>
+		if hasFlag(args, "--mode") {
+			return cmdExtrasMode(args)
+		}
 		return fmt.Errorf("unknown extras subcommand: %s (run 'skillshare extras --help')", sub)
 	}
 }
@@ -38,6 +44,7 @@ Commands:
   list               List all configured extras and sync status (interactive TUI)
   remove <name>      Remove an extra resource type
   collect <name>     Collect local files from a target into extras source
+  mode <name>        Change sync mode of an extra's target
 
 Options:
   --project, -p      Use project-mode extras (.skillshare/)

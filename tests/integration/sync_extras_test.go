@@ -238,6 +238,148 @@ extras:
 	}
 }
 
+// TestSyncExtras_ModeSwitchMergeToCopy verifies that switching mode from merge
+// to copy and re-syncing replaces symlinks with copies without needing --force.
+func TestSyncExtras_ModeSwitchMergeToCopy(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("placeholder", map[string]string{
+		"SKILL.md": "# Placeholder",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	// Create extras source
+	sourceRoot := filepath.Dir(sb.SourcePath)
+	rulesSource := filepath.Join(sourceRoot, "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding Rules"), 0644)
+
+	rulesTarget := filepath.Join(sb.Home, ".claude", "rules")
+	os.MkdirAll(rulesTarget, 0755)
+
+	// Step 1: Sync with merge mode (creates symlinks)
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+`)
+
+	result := sb.RunCLI("sync", "extras")
+	result.AssertSuccess(t)
+
+	codingFile := filepath.Join(rulesTarget, "coding.md")
+	if !sb.IsSymlink(codingFile) {
+		t.Fatal("coding.md should be a symlink after merge sync")
+	}
+
+	// Step 2: Change mode to copy and re-sync
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+        mode: copy
+`)
+
+	result = sb.RunCLI("sync", "extras")
+	result.AssertSuccess(t)
+
+	// Verify: file should now be a regular copy, not a symlink
+	if sb.IsSymlink(codingFile) {
+		t.Error("coding.md should be a regular file after switching to copy mode, but is still a symlink")
+	}
+	if !sb.FileExists(codingFile) {
+		t.Fatal("coding.md should exist in target after copy sync")
+	}
+
+	content := sb.ReadFile(codingFile)
+	if content != "# Coding Rules" {
+		t.Errorf("copied file content = %q, want %q", content, "# Coding Rules")
+	}
+}
+
+// TestSyncExtras_ModeSwitchCopyToMerge verifies that switching mode from copy
+// to merge and re-syncing replaces copies with symlinks (requires --force since
+// regular files are not auto-replaced).
+func TestSyncExtras_ModeSwitchCopyToMerge(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("placeholder", map[string]string{
+		"SKILL.md": "# Placeholder",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	// Create extras source
+	sourceRoot := filepath.Dir(sb.SourcePath)
+	rulesSource := filepath.Join(sourceRoot, "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding Rules"), 0644)
+
+	rulesTarget := filepath.Join(sb.Home, ".claude", "rules")
+	os.MkdirAll(rulesTarget, 0755)
+
+	// Step 1: Sync with copy mode
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+        mode: copy
+`)
+
+	result := sb.RunCLI("sync", "extras")
+	result.AssertSuccess(t)
+
+	codingFile := filepath.Join(rulesTarget, "coding.md")
+	if sb.IsSymlink(codingFile) {
+		t.Fatal("coding.md should be a regular file after copy sync")
+	}
+
+	// Step 2: Change mode to merge and sync WITHOUT --force (should skip)
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+`)
+
+	result = sb.RunCLI("sync", "extras")
+	result.AssertSuccess(t)
+
+	// File should still be a regular file (skipped because no --force)
+	if sb.IsSymlink(codingFile) {
+		t.Error("coding.md should still be a regular file without --force")
+	}
+
+	// Step 3: Sync WITH --force (should replace with symlink)
+	result = sb.RunCLI("sync", "extras", "--force")
+	result.AssertSuccess(t)
+
+	if !sb.IsSymlink(codingFile) {
+		t.Error("coding.md should be a symlink after --force sync with merge mode")
+	}
+
+	expectedTarget := filepath.Join(rulesSource, "coding.md")
+	if got := sb.SymlinkTarget(codingFile); got != expectedTarget {
+		t.Errorf("symlink target = %q, want %q", got, expectedTarget)
+	}
+}
+
 func TestSyncExtras_SourceNotExist(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

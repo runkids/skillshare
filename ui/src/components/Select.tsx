@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { radius, shadows } from '../design';
 
@@ -15,6 +15,7 @@ interface SelectProps {
   options: SelectOption[];
   className?: string;
   size?: 'sm' | 'md';
+  disabled?: boolean;
 }
 
 const selectTriggerSizes = {
@@ -22,9 +23,11 @@ const selectTriggerSizes = {
   md: 'px-4 py-2.5 text-sm',
 };
 
-export function Select({ label, value, onChange, options, className = '', size = 'md' }: SelectProps) {
+export function Select({ label, value, onChange, options, className = '', size = 'md', disabled = false }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(-1);
+  const [dropUp, setDropUp] = useState(false);
+  const [dropRight, setDropRight] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -42,6 +45,23 @@ export function Select({ label, value, onChange, options, className = '', size =
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
+
+  // Collision detection: determine dropdown direction (up/down, left/right)
+  // useLayoutEffect blocks paint until position is computed, preventing visual flash
+  useLayoutEffect(() => {
+    if (!open || !containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const dropdownHeight = Math.min(options.length * 48, 256); // rough est, max 16rem
+    const dropdownWidth = 240; // rough min-width for description options
+
+    // Vertical: prefer below, flip up if not enough space below but enough above
+    const spaceBelow = window.innerHeight - rect.bottom;
+    setDropUp(spaceBelow < dropdownHeight + 8 && rect.top > dropdownHeight);
+
+    // Horizontal: default is left-aligned (left: 0). If dropdown overflows right edge, right-align instead.
+    const spaceRight = window.innerWidth - rect.left;
+    setDropRight(spaceRight < dropdownWidth);
+  }, [open, options.length]);
 
   // Scroll focused item into view
   useEffect(() => {
@@ -99,13 +119,15 @@ export function Select({ label, value, onChange, options, className = '', size =
       )}
       <button
         type="button"
-        onClick={() => { setOpen(!open); setFocusIdx(options.findIndex((o) => o.value === value)); }}
+        disabled={disabled}
+        onClick={() => { if (!disabled) { setOpen(!open); setFocusIdx(options.findIndex((o) => o.value === value)); } }}
         onKeyDown={handleKeyDown}
         className={`
           w-full bg-surface border text-pencil text-left
           flex items-center justify-between gap-2
           focus:outline-none focus:ring-2 focus:ring-pencil/10 focus:border-pencil-light
-          transition-all duration-150 cursor-pointer
+          transition-all duration-150
+          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           ${selectTriggerSizes[size]}
           ${open ? 'border-pencil-light shadow-md' : 'border-muted hover:border-muted-dark'}
         `}
@@ -126,7 +148,9 @@ export function Select({ label, value, onChange, options, className = '', size =
           ref={listRef}
           role="listbox"
           className={`
-            absolute z-50 mt-1 min-w-full bg-surface border border-muted overflow-auto py-1 animate-dropdown-in
+            absolute z-50 min-w-full bg-surface border border-muted overflow-auto py-1 animate-dropdown-in
+            ${dropUp ? 'bottom-full mb-1' : 'top-full mt-1'}
+            ${dropRight ? 'right-0' : 'left-0'}
             ${size === 'sm' ? 'text-xs' : 'text-sm'}
           `}
           style={{

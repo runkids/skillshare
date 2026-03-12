@@ -176,13 +176,16 @@ function ExtraCard({
   extra,
   onSync,
   onRemove,
+  onModeChange,
 }: {
   extra: Extra;
   index?: number;
   onSync: (name: string) => Promise<void>;
   onRemove: (name: string) => void;
+  onModeChange: (name: string, target: string, mode: string) => Promise<void>;
 }) {
   const [syncing, setSyncing] = useState(false);
+  const [changingMode, setChangingMode] = useState<string | null>(null);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -194,7 +197,7 @@ function ExtraCard({
   };
 
   return (
-    <Card>
+    <Card overflow>
       {/* Header */}
       <div className="flex items-center justify-between gap-4 mb-1">
         <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -239,10 +242,9 @@ function ExtraCard({
       <div className="ml-5 mt-1 space-y-1.5">
         {extra.targets.length > 0 ? (
           extra.targets.map((t, ti) => (
-            <div key={ti} className="flex items-center justify-between">
-              <span className="font-mono text-sm truncate text-pencil-light mr-2">{t.path}</span>
-              <div className="flex items-center gap-2 shrink-0">
-                <Badge variant="default">{t.mode}</Badge>
+            <div key={ti} className="flex items-center gap-3">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="font-mono text-sm truncate text-pencil-light">{t.path}</span>
                 <Badge
                   variant={
                     t.status === 'synced'
@@ -251,10 +253,27 @@ function ExtraCard({
                       ? 'warning'
                       : 'danger'
                   }
+                  size="sm"
                 >
                   {t.status}
                 </Badge>
               </div>
+              <Select
+                value={t.mode}
+                onChange={async (v) => {
+                  if (v === t.mode) return;
+                  setChangingMode(t.path);
+                  try {
+                    await onModeChange(extra.name, t.path, v);
+                  } finally {
+                    setChangingMode(null);
+                  }
+                }}
+                options={MODE_OPTIONS}
+                size="sm"
+                className="w-36 shrink-0"
+                disabled={changingMode === t.path}
+              />
             </div>
           ))
         ) : (
@@ -323,6 +342,16 @@ export default function ExtrasPage() {
     }
   };
 
+  const handleModeChange = async (name: string, target: string, mode: string) => {
+    try {
+      await api.setExtraMode(name, target, mode);
+      toast(`Mode changed to "${mode}"`, 'success');
+      invalidate();
+    } catch (err: any) {
+      toast(err.message, 'error');
+    }
+  };
+
   const handleCreated = () => {
     setShowAdd(false);
     invalidate();
@@ -388,6 +417,7 @@ export default function ExtrasPage() {
               index={i}
               onSync={handleSync}
               onRemove={(name) => setRemoveName(name)}
+              onModeChange={handleModeChange}
             />
           ))}
         </div>

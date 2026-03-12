@@ -380,6 +380,77 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"results": results})
 }
 
+// handleExtrasMode — PATCH /api/extras/{name}/mode
+func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	name := r.PathValue("name")
+
+	var body struct {
+		Target string `json:"target"`
+		Mode   string `json:"mode"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	if body.Target == "" {
+		writeError(w, http.StatusBadRequest, "target is required")
+		return
+	}
+	if err := config.ValidateExtraMode(body.Mode); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	extras := s.extrasConfig()
+
+	// Find extra and target, update mode in-place
+	found := false
+	for i, extra := range extras {
+		if extra.Name != name {
+			continue
+		}
+		for j, t := range extra.Targets {
+			if t.Path == body.Target {
+				extras[i].Targets[j].Mode = body.Mode
+				found = true
+				break
+			}
+		}
+		if !found {
+			writeError(w, http.StatusNotFound, "target not found: "+body.Target)
+			return
+		}
+		break
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, "extra not found: "+name)
+		return
+	}
+
+	if err := s.saveConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
+		return
+	}
+	if err := s.reloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to reload config: "+err.Error())
+		return
+	}
+
+	s.writeOpsLog("extras-mode", "ok", start, map[string]any{
+		"name":   name,
+		"target": body.Target,
+		"mode":   body.Mode,
+		"scope":  "ui",
+	}, "")
+
+	writeJSON(w, map[string]any{"success": true, "name": name, "target": body.Target, "mode": body.Mode})
+}
+
 // handleExtrasDelete — DELETE /api/extras/{name}
 func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()

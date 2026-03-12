@@ -17,7 +17,12 @@ Extras (non-skill resources like rules, prompts, commands) are now a first-class
   skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
   skillshare extras init prompts --target .claude/prompts --mode copy -p
   ```
-- **`extras list`** — view all configured extras with sync status (`synced`, `drift`, `not synced`, `no source`). Supports `--json` output
+- **`extras list`** — view all configured extras with sync status (`synced`, `drift`, `not synced`, `no source`). Interactive TUI with split-pane detail view, or `--json` / `--no-tui` output
+- **`extras mode`** — change sync mode of an extra's target from CLI, TUI (`M` key), or Web UI:
+  ```bash
+  skillshare extras rules --mode copy                   # single target auto-resolved
+  skillshare extras mode rules --target ~/.claude/rules --mode copy
+  ```
 - **`extras remove`** — remove an extra from config (source files and synced targets are preserved)
 - **`extras collect`** — reverse-sync local files from a target back into the extras source directory:
   ```bash
@@ -47,9 +52,9 @@ The web dashboard (`skillshare ui`) received a complete visual overhaul — repl
 
 #### Web UI Extras Page
 
-- New **Extras page** in the web dashboard with list, sync, remove, and add-extra modal
+- New **Extras page** in the web dashboard with list, sync, remove, add-extra modal, and inline mode dropdown per target
 - **Dashboard card** showing extras count, total files, and total targets
-- REST API: `GET /api/extras`, `GET /api/extras/diff`, `POST /api/extras`, `POST /api/extras/sync`, `DELETE /api/extras/{name}`
+- REST API: `GET /api/extras`, `GET /api/extras/diff`, `POST /api/extras`, `POST /api/extras/sync`, `PATCH /api/extras/{name}/mode`, `DELETE /api/extras/{name}`
 
 #### Custom GitLab Domain Support
 
@@ -91,6 +96,7 @@ The web dashboard (`skillshare ui`) received a complete visual overhaul — repl
 - **HTTPS fallback on non-GitLab hosts** — fixed platform-aware HTTPS URL parsing that could misroute GitHub Enterprise and Gitea URLs with subdirectory paths
 - **Skill discovery in projects** — `skillshare install` now skips known AI tool config directories (`.claude/`, `.cursor/`, etc.) when scanning a project directory for skills, preventing circular discovery and false duplicates
 - **Sync collision message** — `skillshare sync` now shows both duplicate skill names in collision warning messages for easier troubleshooting
+- **Extras mode switch without `--force`** — changing an extra's sync mode (e.g., from `merge` to `copy`) and re-syncing now automatically replaces old symlinks. Previously, leftover symlinks from the old mode were treated as conflicts requiring `--force`
 
 ## [0.16.14] - 2026-03-09
 

@@ -302,6 +302,11 @@ export const api = {
     }),
   deleteExtra: (name: string) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  setExtraMode: (name: string, target: string, mode: string) =>
+    apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/mode`, {
+      method: 'PATCH',
+      body: JSON.stringify({ target, mode }),
+    }),
 
   // Log
   listLog: (type?: string, limit?: number, filters?: { cmd?: string; status?: string; since?: string }) => {

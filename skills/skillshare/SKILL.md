@@ -48,6 +48,7 @@ skillshare extras list                               # Show status per target
 skillshare extras list --json                        # JSON output
 skillshare extras collect rules                      # Pull local files into source
 skillshare extras remove rules                       # Remove from config (source preserved)
+skillshare extras rules --mode copy                  # Change sync mode of a target
 skillshare sync extras                               # Sync all extras to targets
 skillshare sync extras --dry-run --force             # Preview / overwrite conflicts
 skillshare sync --all                                # Sync skills + extras together
@@ -130,7 +131,7 @@ See [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for more.
 | `sync`, `collect` | ✓ (auto) | ✓ |
 | `install`, `uninstall`, `update`, `check`, `search`, `new` | ✓ (`-p`) | ✓ (except new) |
 | `target`, `audit`, `trash`, `log`, `hub` | ✓ (`-p`) | ✓ (target list, audit, log) |
-| `extras init/list/remove/collect` | ✓ (`-p`) | ✓ (list) |
+| `extras init/list/remove/collect/mode` | ✓ (`-p`) | ✓ (list, mode) |
 | `push`, `pull`, `backup`, `restore` | ✗ | ✗ |
 | `tui`, `upgrade` | ✗ | ✗ |
 | `ui` | ✓ (`-p`) | ✗ |

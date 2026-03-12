@@ -571,3 +571,185 @@ extras:
 		t.Error("migrated file should be synced as symlink in target")
 	}
 }
+
+// TestExtras_Mode_SingleTarget verifies that "extras mode" changes the sync mode
+// of an extra's target when the extra has only one target (auto-resolved).
+func TestExtras_Mode_SingleTarget(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	rulesTarget := filepath.Join(sb.Home, ".claude", "rules")
+	os.MkdirAll(rulesTarget, 0755)
+
+	rulesSource := filepath.Join(sb.Home, ".config", "skillshare", "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+	os.WriteFile(filepath.Join(rulesSource, "coding.md"), []byte("# Coding"), 0644)
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+`)
+
+	// Change mode from merge (default) to copy
+	result := sb.RunCLI("extras", "mode", "rules", "--mode", "copy", "-g")
+
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "copy")
+
+	// Verify config was updated
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(configContent, "mode: copy") {
+		t.Errorf("expected config to contain 'mode: copy', got:\n%s", configContent)
+	}
+}
+
+// TestExtras_Mode_Shorthand verifies the shorthand form:
+// "extras <name> --mode <mode>" (without the "mode" subcommand).
+func TestExtras_Mode_Shorthand(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	rulesTarget := filepath.Join(sb.Home, ".claude", "rules")
+	os.MkdirAll(rulesTarget, 0755)
+
+	rulesSource := filepath.Join(sb.Home, ".config", "skillshare", "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+`)
+
+	// Use shorthand: extras rules --mode symlink
+	result := sb.RunCLI("extras", "rules", "--mode", "symlink", "-g")
+
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "symlink")
+
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(configContent, "mode: symlink") {
+		t.Errorf("expected config to contain 'mode: symlink', got:\n%s", configContent)
+	}
+}
+
+// TestExtras_Mode_WithTarget verifies that "extras mode" with --target
+// changes the mode on a specific target when multiple targets exist.
+func TestExtras_Mode_WithTarget(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	rulesTarget1 := filepath.Join(sb.Home, ".claude", "rules")
+	rulesTarget2 := filepath.Join(sb.Home, ".cursor", "rules")
+	os.MkdirAll(rulesTarget1, 0755)
+	os.MkdirAll(rulesTarget2, 0755)
+
+	rulesSource := filepath.Join(sb.Home, ".config", "skillshare", "extras", "rules")
+	os.MkdirAll(rulesSource, 0755)
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget1 + `
+      - path: ` + rulesTarget2 + `
+`)
+
+	// Change mode of second target only
+	result := sb.RunCLI("extras", "mode", "rules", "--target", rulesTarget2, "--mode", "copy", "-g")
+
+	result.AssertSuccess(t)
+
+	configContent := sb.ReadFile(sb.ConfigPath)
+	// The second target should have mode: copy, first should remain default (merge)
+	if !strings.Contains(configContent, "mode: copy") {
+		t.Errorf("expected config to contain 'mode: copy' for second target, got:\n%s", configContent)
+	}
+}
+
+// TestExtras_Mode_MultipleTargets_NoTarget verifies that "extras mode" errors
+// when the extra has multiple targets and --target is not specified.
+func TestExtras_Mode_MultipleTargets_NoTarget(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	rulesTarget1 := filepath.Join(sb.Home, ".claude", "rules")
+	rulesTarget2 := filepath.Join(sb.Home, ".cursor", "rules")
+	os.MkdirAll(rulesTarget1, 0755)
+	os.MkdirAll(rulesTarget2, 0755)
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget1 + `
+      - path: ` + rulesTarget2 + `
+`)
+
+	result := sb.RunCLI("extras", "mode", "rules", "--mode", "copy", "-g")
+
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--target")
+}
+
+// TestExtras_Mode_InvalidMode verifies that an invalid mode is rejected.
+func TestExtras_Mode_InvalidMode(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	rulesTarget := filepath.Join(sb.Home, ".claude", "rules")
+	os.MkdirAll(rulesTarget, 0755)
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + rulesTarget + `
+`)
+
+	result := sb.RunCLI("extras", "mode", "rules", "--mode", "invalid", "-g")
+
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "invalid")
+}
+
+// TestExtras_Mode_UnknownExtra verifies that mode change on non-existent extra fails.
+func TestExtras_Mode_UnknownExtra(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+`)
+
+	result := sb.RunCLI("extras", "mode", "nonexistent", "--mode", "copy", "-g")
+
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "not found")
+}

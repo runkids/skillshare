@@ -74,15 +74,17 @@ The TUI provides a split-pane interface with extras list on the left and detail 
 | `↑↓` | Navigate list |
 | `/` | Filter by name |
 | `Enter` | Content viewer (browse source files) |
+| `N` | Create new extra |
 | `X` | Remove extra (with confirmation) |
 | `S` | Sync extra to target(s) |
 | `C` | Collect from target(s) |
+| `M` | Change sync mode of a target |
 | `Ctrl+U/D` | Scroll detail panel |
 | `q` / `Ctrl+C` | Quit |
 
 The color bar on each row reflects aggregate sync status: cyan = all synced, yellow = drift, red = not synced, gray = no source.
 
-For extras with multiple targets, `S` and `C` open a target sub-menu to select a specific target or all targets.
+For extras with multiple targets, `S`, `C`, and `M` open a target sub-menu. `S` and `C` allow selecting all targets at once; `M` requires picking a specific target.
 
 The TUI can be permanently disabled with `skillshare tui off`.
 
@@ -100,6 +102,40 @@ Rules            ~/.config/skillshare/extras/rules/  (2 files)
 Prompts          ~/.config/skillshare/extras/prompts/  (1 file)
   ✔ ~/.claude/prompts  merge  synced
 ```
+
+### `extras mode`
+
+Change the sync mode of an extra's target.
+
+```bash
+skillshare extras mode <name> --mode <mode> [--target <path>] [-p|-g]
+# Shorthand (no "mode" subcommand):
+skillshare extras <name> --mode <mode> [--target <path>]
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `--mode <mode>` | New sync mode: `merge`, `copy`, or `symlink` (required) |
+| `--target <path>` | Target directory path (optional if extra has only one target) |
+| `--project, -p` | Use project-mode extras (`.skillshare/`) |
+| `--global, -g` | Use global extras (`~/.config/skillshare/`) |
+
+**Examples:**
+
+```bash
+# Change rules mode (single target — auto-resolved)
+skillshare extras rules --mode copy
+
+# Specify target explicitly (required for multi-target extras)
+skillshare extras mode rules --target ~/.claude/rules --mode copy
+
+# Change to symlink in project mode
+skillshare extras mode commands --target ~/.cursor/commands --mode symlink -p
+```
+
+Also available via the TUI (`M` key) and Web UI (mode dropdown on each target).
 
 ### `extras remove`
 
@@ -145,6 +181,8 @@ skillshare extras collect rules --from ~/.claude/rules --dry-run
 | `merge` (default) | Per-file symlinks from target to source |
 | `copy` | Per-file copies |
 | `symlink` | Entire directory symlink |
+
+When switching modes (e.g., from `merge` to `copy`), the next `sync` automatically replaces existing symlinks with the new mode's format. No `--force` is needed — symlinks are always safe to replace. Regular files created locally require `--force` to overwrite.
 
 ---
 
