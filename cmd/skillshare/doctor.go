@@ -760,12 +760,14 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 
 		reachable := 0
 		for _, t := range extra.Targets {
-			targetPath := t.Path
+			targetPath := config.ExpandPath(t.Path)
 			if isProject && !filepath.IsAbs(targetPath) {
 				targetPath = filepath.Join(projectRoot, targetPath)
 			}
 			if _, err := os.Stat(filepath.Dir(targetPath)); err == nil {
 				reachable++
+			} else {
+				ui.Warning("  %s: target %s not reachable (parent dir missing: %s)", extra.Name, t.Path, filepath.Dir(targetPath))
 			}
 		}
 		if reachable == len(extra.Targets) {

@@ -241,7 +241,7 @@ ss sync extras 2>&1
 
 Expected:
 - exit_code: 0
-- Prompts
+- Sync Extras
 
 ```bash
 test -d ~/.config/skillshare/extras/prompts && echo "migrated=yes" || echo "migrated=no"
@@ -284,6 +284,7 @@ Expected:
 ### 15. Project mode: extras init -p creates .skillshare/extras/<name>/
 
 ```bash
+rm -rf /tmp/test-project
 mkdir -p /tmp/test-project
 cd /tmp/test-project
 ss init -p --targets claude
@@ -313,7 +314,7 @@ ss sync extras -p
 
 Expected:
 - exit_code: 0
-- regex: Proj-rules|proj-rules|Proj_rules
+- Sync Extras
 
 ```bash
 cd /tmp/test-project

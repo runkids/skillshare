@@ -1,7 +1,7 @@
 import { useTour } from './TourProvider';
 
 export default function TourOverlay() {
-  const { isActive, targetRect, isWaiting, skipTour } = useTour();
+  const { isActive, currentStep, targetRect, isWaiting, skipTour } = useTour();
 
   if (!isActive) return null;
 
@@ -10,12 +10,13 @@ export default function TourOverlay() {
   };
 
   const PADDING = 8;
+  const showSpinner = isWaiting && currentStep === 0;
 
   return (
     <div className="fixed inset-0 z-[60]" onClick={handleClick} aria-hidden="true">
       {!targetRect || isWaiting ? (
         <div className="absolute inset-0 bg-black/50 transition-opacity duration-200">
-          {isWaiting && (
+          {showSpinner && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-pencil-light border-t-transparent rounded-full animate-spin" />
             </div>

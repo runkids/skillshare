@@ -100,7 +100,23 @@ Prompt user (via AskUserQuestion):
 
 3. Analyze the JSON output:
    - **All passed** → proceed to Phase 4
-   - **Any failed** → inspect `stdout`, `stderr`, and `exit_code` for each failed step
+   - **Any failed** → filter for failures only (full JSON can be too large for terminal output):
+     ```bash
+     mdproof --report json runbook.md 2>&1 | python3 -c "
+     import sys, json
+     data = json.loads(sys.stdin.read())
+     print(f'Total: {data[\"summary\"][\"total\"]}, Passed: {data[\"summary\"][\"passed\"]}, Failed: {data[\"summary\"][\"failed\"]}')
+     for s in data['steps']:
+         status = '✓' if s['status'] == 'passed' else '✗'
+         print(f'  {status} Step {s[\"step\"][\"number\"]}: {s[\"step\"][\"title\"]}')
+         if s['status'] == 'failed':
+             for a in s.get('assertions', []):
+                 if not a['matched']:
+                     print(f'    FAIL: {a[\"pattern\"]} - {a.get(\"detail\", \"\")}')
+             if s.get('stderr'):
+                 print(f'    stderr: {s[\"stderr\"][:200]}')
+     "
+     ```
    - **Skipped steps** (executor=`manual`) → these need manual verification, run them individually:
      ```bash
      docker exec $CONTAINER env SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 \
@@ -191,11 +207,17 @@ Before executing a newly generated runbook, verify:
 - [ ] **Use `--json` for assertions** — if the command supports `--json`, use it with `jq` instead of grepping human-readable output. Text output changes between versions; JSON structure is stable
 - [ ] **Expected = actual substrings, NOT descriptions** — the runbook assertion engine does case-insensitive substring matching. Write `- Installed` or `- cangjie-docs-navigator`, NOT `- Install completes without error` or `- Output contains at least one skill`. Negation: use `Not <substring>` prefix (e.g. `- Not cangjie-docs-navigator`)
 - [ ] **Skill name ≠ repo name** — after `ss install <repo>`, the actual skill name may differ from the repo name (e.g. repo `cangjie-docs-mcp` → skill `cangjie-docs-navigator`). Always verify the installed skill name via `ss list` before writing uninstall/check steps
+- [ ] **`/tmp/` cleanup** — ssenv only isolates `$HOME`; `/tmp/` is shared across runs. Any step using `/tmp/<path>` must start with `rm -rf /tmp/<path>` to avoid stale state from previous runs
+- [ ] **`echo > symlink` writes through** — `echo "content" > path` where `path` is a symlink writes to the symlink's target, it does NOT replace the symlink with a real file. To create a local (non-managed) file at a symlinked path: either use a different filename, or `rm` the symlink first then `echo`
+- [ ] **`cat >>` is not idempotent** — appending to config files (`cat >> config.yaml`) will duplicate sections on re-run. Prefer `ss extras init` (which validates duplicates) or full file replacement over `cat >>` when possible
+- [ ] **Extras source path layout** — extras use `~/.config/skillshare/extras/<name>/` (not the legacy flat path `~/.config/skillshare/<name>/`). Symlink assertions must include `extras/` in the path regex (e.g. `regex: skillshare/extras/rules/tdd\.md`)
 
 ## Rules
 
 - **Always execute inside devcontainer** — use `docker exec`, never run CLI on host
 - **Always use `ssenv` for HOME isolation** — don't pollute container default HOME
+- **Always create fresh ssenv environments** — never reuse an environment from a previous run; stale config/state causes confusing cascade failures (e.g. duplicate YAML keys, "already exists" errors)
+- **ssenv only isolates `$HOME`** — `/tmp/`, `/var/`, and other system paths are shared across all environments. Runbook steps using `/tmp/` must include `rm -rf` cleanup at the start
 - **Verify every step** — never skip Expected checks
 - **Don't abort on failure** — record FAIL, continue to next step, summarize at end
 - **Ask before cleanup** — Phase 4 must prompt user before deleting ssenv environment

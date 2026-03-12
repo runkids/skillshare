@@ -130,8 +130,9 @@ extras:
 	result := sb.RunCLI("extras", "list", "-g")
 
 	result.AssertSuccess(t)
-	// Header for the extra should be present.
-	result.AssertAnyOutputContains(t, "Rules")
+	// Header and extra name should be present.
+	result.AssertAnyOutputContains(t, "Extras")
+	result.AssertAnyOutputContains(t, "rules")
 	// File count should be shown in the source line.
 	result.AssertAnyOutputContains(t, "2 files")
 }
@@ -206,8 +207,8 @@ extras:
 	result := sb.RunCLI("sync", "extras", "-g")
 
 	result.AssertSuccess(t)
-	// Header for extra name
-	result.AssertAnyOutputContains(t, "Rules")
+	// Header should show "Sync Extras"
+	result.AssertAnyOutputContains(t, "Sync Extras")
 	// Sync verb or file count should appear
 	result.AssertAnyOutputContains(t, "synced")
 

@@ -78,6 +78,7 @@ func extrasCollectGlobal(name, fromPath string, dryRun bool, start time.Time) er
 		return err
 	}
 
+	targetPath = config.ExpandPath(targetPath)
 	sourceDir := config.ExtrasSourceDir(cfg.Source, extra.Name)
 	return runCollect(sourceDir, targetPath, extra.Name, dryRun, "global", config.ConfigPath(), start)
 }
@@ -93,7 +94,8 @@ func extrasCollectProject(cwd, name, fromPath string, dryRun bool, start time.Ti
 		return err
 	}
 
-	// Resolve relative target path
+	// Expand ~ and resolve relative target path
+	targetPath = config.ExpandPath(targetPath)
 	if !filepath.IsAbs(targetPath) {
 		targetPath = filepath.Join(cwd, targetPath)
 	}

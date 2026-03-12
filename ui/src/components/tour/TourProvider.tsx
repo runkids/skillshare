@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAppContext } from '../../context/AppContext';
-import { api } from '../../api/client';
+import type { Overview } from '../../api/client';
+import { queryKeys } from '../../lib/queryKeys';
 import { buildSteps, TOUR_STORAGE_KEY, type TourStep } from './tourSteps';
 
 interface TourContextValue {
@@ -30,6 +32,7 @@ const POLL_TIMEOUT = 3000;
 export function TourProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { isProjectMode } = useAppContext();
 
   const [isActive, setIsActive] = useState(false);
@@ -119,22 +122,18 @@ export function TourProvider({ children }: { children: ReactNode }) {
     return () => document.body.classList.remove('tour-active');
   }, [isActive]);
 
-  const startTour = useCallback(async () => {
-    try {
-      const overview = await api.getOverview();
-      const builtSteps = buildSteps({ isProjectMode, skillCount: overview.skillCount ?? 0 });
-      setSteps(builtSteps);
-      setCurrentStep(0);
-      setIsActive(true);
-      const first = builtSteps[0];
-      if (first && location.pathname !== first.page) navigate(first.page);
-    } catch {
-      const builtSteps = buildSteps({ isProjectMode, skillCount: 0 });
-      setSteps(builtSteps);
-      setCurrentStep(0);
-      setIsActive(true);
-    }
-  }, [isProjectMode, location.pathname, navigate]);
+  const startTour = useCallback(() => {
+    // Use cached overview from react-query; fall back to API call only if not cached
+    const cached = queryClient.getQueryData<Overview>(queryKeys.overview);
+    const skillCount = cached?.skillCount ?? 0;
+
+    const builtSteps = buildSteps({ isProjectMode, skillCount });
+    setSteps(builtSteps);
+    setCurrentStep(0);
+    setIsActive(true);
+    const first = builtSteps[0];
+    if (first && location.pathname !== first.page) navigate(first.page);
+  }, [isProjectMode, location.pathname, navigate, queryClient]);
 
   const nextStepFn = useCallback(() => {
     const next = currentStep + 1;

@@ -104,6 +104,7 @@ func cmdExtrasList(args []string) error {
 		// Check each target
 		for _, t := range extra.Targets {
 			m := sync.EffectiveMode(t.Mode)
+			resolvedPath := config.ExpandPath(t.Path)
 			ti := extrasTargetInfo{
 				Path: t.Path,
 				Mode: m,
@@ -111,10 +112,10 @@ func cmdExtrasList(args []string) error {
 
 			if !entry.SourceExists {
 				ti.Status = "no source"
-			} else if _, err := os.Stat(t.Path); os.IsNotExist(err) {
+			} else if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
 				ti.Status = "not synced"
 			} else {
-				ti.Status = sync.CheckSyncStatus(files, sourceDir, t.Path, m)
+				ti.Status = sync.CheckSyncStatus(files, sourceDir, resolvedPath, m)
 			}
 
 			entry.Targets = append(entry.Targets, ti)
@@ -130,31 +131,39 @@ func cmdExtrasList(args []string) error {
 	}
 
 	// Pretty print
-	for _, entry := range entries {
-		ui.Header(capitalize(entry.Name))
-		if !entry.SourceExists {
-			ui.Warning("  Source: not found (%s)", shortenPath(entry.SourceDir))
-		} else {
-			ui.Success("  Source: %s (%d files)", shortenPath(entry.SourceDir), entry.FileCount)
+	ui.Header(ui.WithModeLabel("Extras"))
+
+	for i, entry := range entries {
+		if i > 0 {
+			fmt.Println()
 		}
 
-		for _, t := range entry.Targets {
-			statusIcon := "✓"
-			printFn := ui.Success
-			switch t.Status {
-			case "drift":
-				statusIcon = "~"
-				printFn = ui.Warning
-			case "not synced":
-				statusIcon = "✗"
-				printFn = ui.Warning
-			case "no source":
-				statusIcon = "-"
-				printFn = ui.Info
+		// Name + source on same line
+		if !entry.SourceExists {
+			fmt.Printf("  %-12s %s\n", entry.Name, ui.Dim+"source not found"+ui.Reset)
+		} else {
+			fileLabel := fmt.Sprintf("%d files", entry.FileCount)
+			if entry.FileCount == 1 {
+				fileLabel = "1 file"
 			}
-			printFn("  %s %s  %s (%s)", statusIcon, shortenPath(t.Path), t.Status, t.Mode)
+			fmt.Printf("  %-12s %s (%s)\n", entry.Name, shortenPath(entry.SourceDir), fileLabel)
 		}
-		fmt.Println()
+
+		// Targets indented below
+		for _, t := range entry.Targets {
+			var icon, color, statusText string
+			switch t.Status {
+			case "synced":
+				icon, color = "✓", ui.Green
+			case "drift":
+				icon, color, statusText = "~", ui.Yellow, "  drift"
+			case "not synced":
+				icon, color, statusText = "✗", ui.Yellow, "  not synced"
+			case "no source":
+				icon, color, statusText = "-", ui.Cyan, "  no source"
+			}
+			fmt.Printf("    %s%s%s %s%s (%s)\n", color, icon, ui.Reset, shortenPath(t.Path), statusText, t.Mode)
+		}
 	}
 
 	return nil

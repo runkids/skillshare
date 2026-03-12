@@ -253,6 +253,11 @@ func (c *Config) Save() error {
 	return nil
 }
 
+// ExpandPath expands ~ to home directory.
+func ExpandPath(path string) string {
+	return expandPath(path)
+}
+
 // expandPath expands ~ to home directory
 func expandPath(path string) string {
 	if utils.HasTildePrefix(path) {

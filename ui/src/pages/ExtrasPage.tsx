@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderPlus, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { FolderOpen, FolderPlus, Plus, RefreshCw, Target, Trash2, X } from 'lucide-react';
 import { api } from '../api/client';
 import type { Extra } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -16,7 +16,6 @@ import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
-import { radius } from '../design';
 
 // ─── AddExtraModal ────────────────────────────────────────────────────────────
 
@@ -180,19 +179,27 @@ function ExtraCard({
 }: {
   extra: Extra;
   index?: number;
-  onSync: (name: string) => void;
+  onSync: (name: string) => Promise<void>;
   onRemove: (name: string) => void;
 }) {
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await onSync(extra.name);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <Card>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <FolderPlus size={18} strokeWidth={2.5} className="text-blue shrink-0" />
-          <h3
-            className="text-lg font-bold text-pencil"
-          >
-            {extra.name}
-          </h3>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-4 mb-1">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <FolderPlus size={16} strokeWidth={2.5} className="text-blue shrink-0" />
+          <span className="font-bold text-pencil">{extra.name}</span>
           <Badge variant={extra.source_exists ? 'success' : 'warning'}>
             {extra.file_count} {extra.file_count === 1 ? 'file' : 'files'}
           </Badge>
@@ -200,9 +207,10 @@ function ExtraCard({
             <Badge variant="danger">source missing</Badge>
           )}
         </div>
-        <div className="flex gap-2 shrink-0">
-          <Button variant="secondary" size="sm" onClick={() => onSync(extra.name)}>
-            <RefreshCw size={12} strokeWidth={2.5} /> Sync
+        <div className="flex items-center gap-2 shrink-0">
+          <Button variant="secondary" size="sm" onClick={handleSync} disabled={syncing}>
+            <RefreshCw size={12} strokeWidth={2.5} className={syncing ? 'animate-spin' : ''} />
+            {syncing ? 'Syncing...' : 'Sync'}
           </Button>
           <IconButton
             icon={<Trash2 size={16} strokeWidth={2.5} />}
@@ -214,29 +222,27 @@ function ExtraCard({
         </div>
       </div>
 
-      {/* Source path */}
-      <p
-        className="font-mono text-sm text-pencil-light mb-3"
-      >
-        {extra.source_dir}
-      </p>
+      {/* Source */}
+      <div className="flex items-center gap-1.5 mt-3">
+        <FolderOpen size={13} strokeWidth={2.5} className="text-warning shrink-0" />
+        <span className="text-xs text-pencil-light uppercase tracking-wider">Source</span>
+      </div>
+      <p className="font-mono text-sm text-pencil-light truncate ml-5 mt-1">{extra.source_dir}</p>
 
       {/* Targets */}
-      {extra.targets.length > 0 ? (
-        <div className="space-y-1.5">
-          {extra.targets.map((t, ti) => (
-            <div
-              key={ti}
-              className="flex items-center justify-between py-1.5 px-3 bg-paper-warm border border-muted"
-              style={{ borderRadius: radius.sm }}
-            >
-              <span
-                className="font-mono text-sm truncate text-pencil-light mr-2"
-              >
-                {t.path}
-              </span>
+      <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-dashed border-pencil-light/30">
+        <Target size={13} strokeWidth={2.5} className="text-success shrink-0" />
+        <span className="text-xs text-pencil-light uppercase tracking-wider">
+          {extra.targets.length > 0 ? `Targets (${extra.targets.length})` : 'Targets'}
+        </span>
+      </div>
+      <div className="ml-5 mt-1 space-y-1.5">
+        {extra.targets.length > 0 ? (
+          extra.targets.map((t, ti) => (
+            <div key={ti} className="flex items-center justify-between">
+              <span className="font-mono text-sm truncate text-pencil-light mr-2">{t.path}</span>
               <div className="flex items-center gap-2 shrink-0">
-                <Badge variant="info">{t.mode}</Badge>
+                <Badge variant="default">{t.mode}</Badge>
                 <Badge
                   variant={
                     t.status === 'synced'
@@ -250,15 +256,11 @@ function ExtraCard({
                 </Badge>
               </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <p
-          className="text-sm text-pencil-light italic"
-        >
-          No targets configured
-        </p>
-      )}
+          ))
+        ) : (
+          <p className="text-sm text-pencil-light italic">No targets configured</p>
+        )}
+      </div>
     </Card>
   );
 }
@@ -279,16 +281,20 @@ export default function ExtrasPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [removeName, setRemoveName] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [syncingAll, setSyncingAll] = useState(false);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.extras });
 
   const handleSyncAll = async () => {
+    setSyncingAll(true);
     try {
       await api.syncExtras();
       toast('All extras synced', 'success');
       invalidate();
     } catch (err: any) {
       toast(err.message, 'error');
+    } finally {
+      setSyncingAll(false);
     }
   };
 
@@ -336,8 +342,9 @@ export default function ExtrasPage() {
         actions={
           <>
             {extras.length > 0 && (
-              <Button variant="secondary" size="sm" onClick={handleSyncAll}>
-                <RefreshCw size={14} strokeWidth={2.5} /> Sync All
+              <Button variant="secondary" size="sm" onClick={handleSyncAll} disabled={syncingAll}>
+                <RefreshCw size={14} strokeWidth={2.5} className={syncingAll ? 'animate-spin' : ''} />
+                {syncingAll ? 'Syncing...' : 'Sync All'}
               </Button>
             )}
             <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>

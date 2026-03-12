@@ -98,12 +98,12 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 	var totalSynced, totalSkipped, totalPruned, totalErrors int
 	var jsonEntries []syncExtrasJSONEntry
 
+	if !jsonOutput {
+		ui.Header(ui.WithModeLabel("Sync Extras"))
+	}
+
 	for _, extra := range cfg.Extras {
 		extraSource := config.ExtrasSourceDir(cfg.Source, extra.Name)
-
-		if !jsonOutput {
-			ui.Header(capitalize(extra.Name))
-		}
 
 		// Check if source directory exists
 		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {
@@ -124,8 +124,9 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 			if mode == "" {
 				mode = "merge"
 			}
-			result, syncErr := sync.SyncExtra(extraSource, target.Path, mode, dryRun, force)
-			shortTarget := shortenPath(target.Path)
+			targetPath := config.ExpandPath(target.Path)
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force)
+			shortTarget := shortenPath(targetPath)
 
 			jsonTarget := syncExtrasJSONTarget{
 				Path: target.Path,
@@ -232,12 +233,12 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 	var totalSynced, totalSkipped, totalPruned, totalErrors int
 	var jsonEntries []syncExtrasJSONEntry
 
+	if !jsonOutput {
+		ui.Header(ui.WithModeLabel("Sync Extras"))
+	}
+
 	for _, extra := range projCfg.Extras {
 		extraSource := config.ExtrasSourceDirProject(cwd, extra.Name)
-
-		if !jsonOutput {
-			ui.Header(capitalize(extra.Name))
-		}
 
 		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {
 			if !jsonOutput {
@@ -258,8 +259,8 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 				mode = "merge"
 			}
 
-			// Resolve relative paths against project root
-			targetPath := target.Path
+			// Expand ~ and resolve relative paths against project root
+			targetPath := config.ExpandPath(target.Path)
 			if !filepath.IsAbs(targetPath) {
 				targetPath = filepath.Join(cwd, targetPath)
 			}
@@ -380,7 +381,7 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(string) s
 			if mode == "" {
 				mode = "merge"
 			}
-			targetPath := target.Path
+			targetPath := config.ExpandPath(target.Path)
 
 			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force)
 			jt := syncExtrasJSONTarget{Path: targetPath, Mode: mode}
