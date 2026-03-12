@@ -1,6 +1,7 @@
 {
-  "build": "cd /workspace && make build && /workspace/.devcontainer/ensure-mdproof.sh",
-  "setup": "rm -rf /tmp/test-project /tmp/test-proj /tmp/extras-proj /tmp/copy-target /tmp/sym-target /tmp/test 2>/dev/null; ss init -g --no-copy --all-targets --no-git --no-skill --force 2>/dev/null || ss init -g --discover --all-targets 2>/dev/null || true",
-  "teardown": "ss uninstall --all --force 2>/dev/null || true",
+  "build": "cd /workspace && make build && /workspace/.devcontainer/ensure-skillshare-linux-binary.sh && /workspace/.devcontainer/ensure-mdproof.sh",
+  "isolation": "per-runbook",
+  "setup": "rm -rf /tmp/test-project /tmp/test-proj /tmp/extras-proj /tmp/copy-target /tmp/sym-target /tmp/test /tmp/bad-config.yaml /tmp/config-before.yaml 2>/dev/null; mkdir -p ~/.config ~/.local/share ~/.local/state ~/.cache ~/.claude ~/.codex; /workspace/bin/skillshare init -g --force --all-targets --no-git --no-skill",
+  "teardown": "/workspace/bin/skillshare uninstall --all -g --force 2>/dev/null || true",
   "timeout": "5m"
 }
