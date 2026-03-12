@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -61,28 +60,16 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 	pullStart := time.Now()
 	spinner := ui.StartSpinner("Checking repository...")
 
-	// Check if source is a git repo
-	gitDir := filepath.Join(cfg.Source, ".git")
-	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
-		spinner.Fail("Source is not a git repository")
-		ui.Info("  Run: skillshare init --remote <url>")
-		return nil
-	}
-
-	// Check if remote exists
-	cmd := exec.Command("git", "remote")
-	cmd.Dir = cfg.Source
-	output, err := cmd.Output()
-	if err != nil || strings.TrimSpace(string(output)) == "" {
-		spinner.Fail("No git remote configured")
-		ui.Info("  Run: skillshare init --remote <url>")
+	// Check if source is a git repo with a configured remote
+	err := checkGitRepo(cfg.Source, spinner)
+	if err != nil {
 		return nil
 	}
 
 	// Check for uncommitted changes
-	cmd = exec.Command("git", "status", "--porcelain")
+	cmd := exec.Command("git", "status", "--porcelain")
 	cmd.Dir = cfg.Source
-	output, err = cmd.Output()
+	output, err := cmd.Output()
 	if err != nil {
 		spinner.Fail("Failed to check git status")
 		return fmt.Errorf("failed to check git status: %w", err)
