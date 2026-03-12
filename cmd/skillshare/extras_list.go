@@ -24,6 +24,51 @@ type extrasTargetInfo struct {
 	Status string `json:"status"` // "synced", "drift", "not synced", "no source"
 }
 
+// buildExtrasListEntries builds list entries for all configured extras.
+func buildExtrasListEntries(extras []config.ExtraConfig, sourceFunc func(name string) string) []extrasListEntry {
+	entries := make([]extrasListEntry, 0, len(extras))
+
+	for _, extra := range extras {
+		sourceDir := sourceFunc(extra.Name)
+		entry := extrasListEntry{
+			Name:      extra.Name,
+			SourceDir: sourceDir,
+		}
+
+		files, discoverErr := sync.DiscoverExtraFiles(sourceDir)
+		if discoverErr != nil {
+			entry.SourceExists = false
+			entry.FileCount = 0
+		} else {
+			entry.SourceExists = true
+			entry.FileCount = len(files)
+		}
+
+		for _, t := range extra.Targets {
+			m := sync.EffectiveMode(t.Mode)
+			resolvedPath := config.ExpandPath(t.Path)
+			ti := extrasTargetInfo{
+				Path: t.Path,
+				Mode: m,
+			}
+
+			if !entry.SourceExists {
+				ti.Status = "no source"
+			} else if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
+				ti.Status = "not synced"
+			} else {
+				ti.Status = sync.CheckSyncStatus(files, sourceDir, resolvedPath, m)
+			}
+
+			entry.Targets = append(entry.Targets, ti)
+		}
+
+		entries = append(entries, entry)
+	}
+
+	return entries
+}
+
 func cmdExtrasList(args []string) error {
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
@@ -82,47 +127,7 @@ func cmdExtrasList(args []string) error {
 		return nil
 	}
 
-	entries := make([]extrasListEntry, 0, len(extras))
-
-	for _, extra := range extras {
-		sourceDir := sourceFunc(extra.Name)
-		entry := extrasListEntry{
-			Name:      extra.Name,
-			SourceDir: sourceDir,
-		}
-
-		// Check source
-		files, discoverErr := sync.DiscoverExtraFiles(sourceDir)
-		if discoverErr != nil {
-			entry.SourceExists = false
-			entry.FileCount = 0
-		} else {
-			entry.SourceExists = true
-			entry.FileCount = len(files)
-		}
-
-		// Check each target
-		for _, t := range extra.Targets {
-			m := sync.EffectiveMode(t.Mode)
-			resolvedPath := config.ExpandPath(t.Path)
-			ti := extrasTargetInfo{
-				Path: t.Path,
-				Mode: m,
-			}
-
-			if !entry.SourceExists {
-				ti.Status = "no source"
-			} else if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
-				ti.Status = "not synced"
-			} else {
-				ti.Status = sync.CheckSyncStatus(files, sourceDir, resolvedPath, m)
-			}
-
-			entry.Targets = append(entry.Targets, ti)
-		}
-
-		entries = append(entries, entry)
-	}
+	entries := buildExtrasListEntries(extras, sourceFunc)
 
 	if jsonOutput {
 		data, _ := json.MarshalIndent(entries, "", "  ")
