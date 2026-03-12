@@ -41,6 +41,7 @@ Expected:
 ### 2. Configure extras in config.yaml
 
 ```bash
+sed -i '/^extras:/,$d' ~/.config/skillshare/config.yaml
 cat >> ~/.config/skillshare/config.yaml << 'CONF'
 
 extras:
@@ -56,40 +57,24 @@ Expected:
 ### 3. sync extras --json: valid JSON output
 
 ```bash
-ss sync extras --json | python3 -c "import sys,json; d=json.load(sys.stdin); print('valid_json=yes'); print(f'extras_count={len(d[\"extras\"])}')"
+ss sync extras --json
 ```
 
 Expected:
 - exit_code: 0
-- valid_json=yes
-- extras_count=1
+- jq: .extras | length == 1
 
 ### 4. sync --all --json: single valid JSON with embedded extras
 
 ```bash
-ss sync --all --json 2>/dev/null | python3 -c "
-import sys, json
-data = sys.stdin.read().strip()
-obj = json.loads(data)
-print('single_json=yes')
-has_targets = 'targets' in obj
-has_extras = 'extras' in obj
-print(f'has_targets={has_targets}')
-print(f'has_extras={has_extras}')
-if has_extras:
-    print(f'extras_len={len(obj[\"extras\"])}')
-    for e in obj['extras']:
-        print(f'extra_name={e[\"name\"]}')
-"
+ss sync --all --json 2>/dev/null
 ```
 
 Expected:
 - exit_code: 0
-- single_json=yes
-- has_targets=True
-- has_extras=True
-- extras_len=1
-- extra_name=rules
+- jq: .targets != null
+- jq: .extras | length == 1
+- jq: .extras[0].name == "rules"
 
 ### 5. Verify extras source path uses extras/<name>/ layout
 
@@ -117,32 +102,22 @@ Expected:
 ### 7. extras list --json: valid JSON with sync status
 
 ```bash
-ss extras list --json | python3 -c "
-import sys, json
-entries = json.load(sys.stdin)
-print('valid_json=yes')
-for e in entries:
-    print(f'name={e[\"name\"]}')
-    print(f'source_exists={e[\"source_exists\"]}')
-    print(f'file_count={e[\"file_count\"]}')
-    for t in e.get('targets', []):
-        print(f'target_status={t[\"status\"]}')
-        print(f'target_mode={t[\"mode\"]}')
-"
+ss extras list --json
 ```
 
 Expected:
 - exit_code: 0
-- valid_json=yes
-- name=rules
-- source_exists=True
-- file_count=2
-- target_status=synced
-- target_mode=merge
+- jq: length == 1
+- jq: .[0].name == "rules"
+- jq: .[0].source_exists == true
+- jq: .[0].file_count == 2
+- jq: .[0].targets[0].status == "synced"
+- jq: .[0].targets[0].mode == "merge"
 
 ### 8. extras init: rejects invalid mode
 
 ```bash
+rm -rf /tmp/test /tmp/copy-target /tmp/sym-target
 ss extras init test-extra --target /tmp/test --mode invalid 2>&1 || true
 ```
 
@@ -171,42 +146,25 @@ Expected:
 
 ```bash
 echo "# Copy content" > ~/.config/skillshare/extras/copy-test/content.md
-ss sync --all --json 2>/dev/null | python3 -c "
-import sys, json
-obj = json.loads(sys.stdin.read().strip())
-extras = obj.get('extras', [])
-names = sorted([e['name'] for e in extras])
-print(f'extras_count={len(extras)}')
-for n in names:
-    print(f'extra={n}')
-"
+ss sync --all --json 2>/dev/null
 ```
 
 Expected:
 - exit_code: 0
-- extras_count=3
-- extra=copy-test
-- extra=rules
-- extra=symlink-test
+- jq: .extras | length == 3
+- jq: [.extras[].name] | sort | . == ["copy-test","rules","symlink-test"]
 
 ### 11. No extras field when none configured
 
 ```bash
 cp ~/.config/skillshare/config.yaml ~/.config/skillshare/config.yaml.bak
 sed -i '/^extras:/,$d' ~/.config/skillshare/config.yaml
-ss sync --all --json 2>/dev/null | python3 -c "
-import sys, json
-obj = json.loads(sys.stdin.read().strip())
-has_extras = 'extras' in obj and obj['extras'] is not None
-print(f'has_extras={has_extras}')
-print('valid_json=yes')
-"
+ss sync --all --json 2>/dev/null
 ```
 
 Expected:
 - exit_code: 0
-- valid_json=yes
-- has_extras=False
+- jq: .extras == null
 
 ```bash
 cp ~/.config/skillshare/config.yaml.bak ~/.config/skillshare/config.yaml
@@ -331,51 +289,28 @@ Expected:
 
 ```bash
 cd /tmp/test-project
-ss extras list --json -p | python3 -c "
-import sys, json
-entries = json.load(sys.stdin)
-print('valid_json=yes')
-for e in entries:
-    print(f'name={e[\"name\"]}')
-    print(f'source_exists={e[\"source_exists\"]}')
-    print(f'file_count={e[\"file_count\"]}')
-    for t in e.get('targets', []):
-        print(f'target_status={t[\"status\"]}')
-"
+ss extras list --json -p
 ```
 
 Expected:
 - exit_code: 0
-- valid_json=yes
-- name=proj-rules
-- source_exists=True
-- file_count=1
-- target_status=synced
+- jq: length == 1
+- jq: .[0].name == "proj-rules"
+- jq: .[0].source_exists == true
+- jq: .[0].file_count == 1
+- jq: .[0].targets[0].status == "synced"
 
 ### 18. Project mode: sync --all --json -p produces single JSON with extras
 
 ```bash
 cd /tmp/test-project
-ss sync --all --json -p 2>/dev/null | python3 -c "
-import sys, json
-data = sys.stdin.read().strip()
-obj = json.loads(data)
-print('single_json=yes')
-has_extras = 'extras' in obj
-print(f'has_extras={has_extras}')
-if has_extras:
-    print(f'extras_len={len(obj[\"extras\"])}')
-    for e in obj['extras']:
-        print(f'extra_name={e[\"name\"]}')
-"
+ss sync --all --json -p 2>/dev/null
 ```
 
 Expected:
 - exit_code: 0
-- single_json=yes
-- has_extras=True
-- extras_len=1
-- extra_name=proj-rules
+- jq: .extras | length == 1
+- jq: .extras[0].name == "proj-rules"
 
 ## Pass Criteria
 

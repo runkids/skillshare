@@ -28,7 +28,10 @@ If `ss` alias is unavailable, replace `ss` with `skillshare`.
 ### 1. Setup: initialize and create extras source directories
 
 ```bash
-# Setup hook already ran ss init; just create extras source dirs using new layout
+# Clean pre-existing extras and target dirs from ssenv --init
+ss extras remove rules --force -g 2>/dev/null || true
+rm -rf ~/.claude/rules ~/.continue/rules ~/.claude/commands 2>/dev/null || true
+# Create extras source dirs using new layout
 mkdir -p ~/.config/skillshare/extras/rules
 mkdir -p ~/.config/skillshare/extras/commands
 echo "# Always use TDD" > ~/.config/skillshare/extras/rules/tdd.md
@@ -42,6 +45,7 @@ Expected:
 ### 2. Configure extras in config.yaml
 
 ```bash
+sed -i '/^extras:/,$d' ~/.config/skillshare/config.yaml
 cat >> ~/.config/skillshare/config.yaml << 'CONF'
 
 extras:
@@ -261,12 +265,10 @@ Expected:
 ### 14. Source directory missing: friendly message
 
 ```bash
-# Add an extra with non-existent source
-cat >> ~/.config/skillshare/config.yaml << 'CONF'
-  - name: nonexistent
-    targets:
-      - path: ~/.claude/nonexistent
-CONF
+# Add an extra with non-existent source (idempotent: remove if exists, then init)
+ss extras remove nonexistent --force -g 2>/dev/null || true
+ss extras init nonexistent --target ~/.claude/nonexistent -g
+rm -rf ~/.config/skillshare/extras/nonexistent
 ss sync extras
 ```
 
@@ -279,7 +281,7 @@ Expected:
 
 ```bash
 # Remove the nonexistent extra from step 14 first
-sed -i '/- name: nonexistent/,/path:.*nonexistent/d' ~/.config/skillshare/config.yaml
+ss extras remove nonexistent --force -g 2>/dev/null || true
 # Add a new extra via ss extras init
 ss extras init migrate-test --target ~/.claude/migrate-rules -g
 # Remove the new-style directory that init created

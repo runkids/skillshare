@@ -31,6 +31,9 @@ If `ss` alias is unavailable, replace `ss` with `skillshare`.
 ### 1. Setup: clean environment with no extras
 
 ```bash
+# Clean any pre-existing extras from ssenv --init
+ss extras remove rules --force -g 2>/dev/null || true
+rm -rf ~/.claude/rules 2>/dev/null || true
 ss extras list -g --json
 ```
 

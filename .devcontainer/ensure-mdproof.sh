@@ -6,10 +6,14 @@ set -euo pipefail
 REPO="runkids/mdproof"
 BINARY_NAME="mdproof"
 
-# Already installed and working?
-if command -v "$BINARY_NAME" >/dev/null 2>&1 && "$BINARY_NAME" --version >/dev/null 2>&1; then
-  echo "✓ mdproof already installed: $("$BINARY_NAME" --version)"
-  exit 0
+# Already installed and working? Skip only if it's a proper release (not dev).
+if command -v "$BINARY_NAME" >/dev/null 2>&1; then
+  current=$("$BINARY_NAME" --version 2>/dev/null || echo "")
+  if [ -n "$current" ] && [ "$current" != "mdproof dev" ]; then
+    echo "✓ mdproof already installed: $current"
+    exit 0
+  fi
+  # dev binary or unknown version — try upgrading to latest release
 fi
 
 # Try installing from GitHub release

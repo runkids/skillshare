@@ -26,6 +26,7 @@ docs/superpowers/
 .skillshare/*
 !.skillshare/skills/
 !.skillshare/config.yaml
+!.skillshare/registry.yaml
 !.skillshare/.gitignore
 /specs/
 .pnpm-store/

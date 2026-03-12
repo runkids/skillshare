@@ -38,6 +38,12 @@ Run isolated E2E tests in devcontainer. $ARGUMENTS specifies runbook name or "ne
    ```
    This auto-installs from GitHub release, or falls back to `/workspace/bin/mdproof` (local dev binary).
 
+4. Check for lessons learned from previous runs:
+   ```bash
+   test -f /workspace/.mdproof/lessons-learned.md && cat /workspace/.mdproof/lessons-learned.md
+   ```
+   If the file exists, read it before writing or debugging runbooks — it contains known gotchas and assertion patterns.
+
 ### Phase 1: Detect Scope
 
 1. Preview all available runbooks via the container:
@@ -102,20 +108,15 @@ Prompt user (via AskUserQuestion):
    - **All passed** → proceed to Phase 4
    - **Any failed** → filter for failures only (full JSON can be too large for terminal output):
      ```bash
-     mdproof --report json runbook.md 2>&1 | python3 -c "
-     import sys, json
-     data = json.loads(sys.stdin.read())
-     print(f'Total: {data[\"summary\"][\"total\"]}, Passed: {data[\"summary\"][\"passed\"]}, Failed: {data[\"summary\"][\"failed\"]}')
-     for s in data['steps']:
-         status = '✓' if s['status'] == 'passed' else '✗'
-         print(f'  {status} Step {s[\"step\"][\"number\"]}: {s[\"step\"][\"title\"]}')
-         if s['status'] == 'failed':
-             for a in s.get('assertions', []):
-                 if not a['matched']:
-                     print(f'    FAIL: {a[\"pattern\"]} - {a.get(\"detail\", \"\")}')
-             if s.get('stderr'):
-                 print(f'    stderr: {s[\"stderr\"][:200]}')
-     "
+     mdproof --report json runbook.md 2>&1 | jq '{
+       summary: .summary,
+       failed: [.steps[] | select(.status == "failed") | {
+         step: .step.number, title: .step.title,
+         exit_code: .exit_code,
+         failed_assertions: [.assertions[]? | select(.matched == false) | .pattern],
+         stderr: (.stderr // "" | .[0:200])
+       }]
+     }'
      ```
    - **Skipped steps** (executor=`manual`) → these need manual verification, run them individually:
      ```bash
@@ -145,7 +146,11 @@ Prompt user (via AskUserQuestion):
 4. Generate new runbook to `ai_docs/tests/<slug>_runbook.md`, following existing conventions:
    - YAML-free, pure Markdown
    - Has Scope, Environment, Steps (each with bash + Expected), Pass Criteria
-   - **Use `--json` + `jq` for assertions** wherever possible — avoids brittle text matching
+   - **Use `jq:` assertions in Expected blocks** for JSON commands — e.g. `- jq: .extras | length == 1`. This is a native mdproof assertion type, NOT a bash `jq` pipe
+   - **Use `--json` + `jq -e` in bash** for inline verification within multi-command steps
+   - **Config idempotency** — never bare `cat >> config.yaml`; always prepend `sed -i '/^section:/,$d'` to remove existing section first, or use CLI commands (`ss extras init`, `ss extras remove --force`) that handle duplicates
+   - **Check `ai_docs/tests/runbook.json`** for project-level config (build, setup, teardown, step_setup, timeout) that affects all runbooks
+   - **Check `.mdproof/lessons-learned.md`** for known assertion patterns and gotchas
 5. **Run the runbook quality checklist** (see below) before executing
 6. Then execute the new runbook (same flow as above)
 
@@ -198,6 +203,7 @@ Before executing a newly generated runbook, verify:
 
 - [ ] **All CLI flags exist** — every `ss <cmd> --flag` was grep-verified against source
 - [ ] **`--init` interaction** — if runbook has `ss init`, account for `ssenv create --init` already initializing (add `--force` to re-init, or skip init step)
+- [ ] **`--init` creates default extras** — `ssenv create --init` creates a `rules` extra by default. Runbooks that assume an empty extras list must add cleanup first: `ss extras remove rules --force -g 2>/dev/null || true` + `rm -rf ~/.claude/rules`
 - [ ] **Correct confirmation flags** — `uninstall` uses `--force` (not `--yes`); `init` re-run needs no flag (just fails gracefully)
 - [ ] **Skill data in registry.yaml** — assertions about installed skills check `registry.yaml`, NOT `config.yaml`; config.yaml should never contain `skills:`
 - [ ] **File existence timing** — `registry.yaml` is only created after first install/reconcile, not on `ss init`
@@ -211,6 +217,43 @@ Before executing a newly generated runbook, verify:
 - [ ] **`echo > symlink` writes through** — `echo "content" > path` where `path` is a symlink writes to the symlink's target, it does NOT replace the symlink with a real file. To create a local (non-managed) file at a symlinked path: either use a different filename, or `rm` the symlink first then `echo`
 - [ ] **`cat >>` is not idempotent** — appending to config files (`cat >> config.yaml`) will duplicate sections on re-run. Prefer `ss extras init` (which validates duplicates) or full file replacement over `cat >>` when possible
 - [ ] **Extras source path layout** — extras use `~/.config/skillshare/extras/<name>/` (not the legacy flat path `~/.config/skillshare/<name>/`). Symlink assertions must include `extras/` in the path regex (e.g. `regex: skillshare/extras/rules/tdd\.md`)
+- [ ] **Prefer `jq:` over `python3 -c`** — for JSON output validation, use mdproof's native `jq:` assertion type (e.g. `- jq: .extras | length == 1`) instead of piping to `python3 -c`. It's one line vs 10, and mdproof handles failure reporting automatically
+- [ ] **Config append idempotency** — when appending YAML sections with `cat >>`, always prepend `sed -i '/^section_key:/,$d'` to remove existing section. Or prefer CLI commands (`ss extras init`, `ss extras remove --force`) over manual config editing
+- [ ] **Check lessons-learned** — read `.mdproof/lessons-learned.md` before writing new runbooks for known gotchas and proven assertion patterns
+
+## Runbook Assertion Types
+
+mdproof supports 6 assertion types under `Expected:` blocks. Use the most specific type for each check:
+
+| Type | Syntax | When to use | Example |
+|------|--------|-------------|---------|
+| Substring | plain text | Simple output check | `- hello world` |
+| Negated | `Not`/`Should NOT` prefix | Verify absence | `- Not FAIL` |
+| Exit code | `exit_code: N` | Every step should have this | `- exit_code: 0` |
+| Regex | `regex:` prefix | Pattern matching | `- regex: v\d+\.\d+` |
+| jq | `jq:` prefix | **JSON output (preferred)** | `- jq: .extras \| length == 1` |
+| Snapshot | `snapshot:` prefix | Stable output comparison | `- snapshot: api-response` |
+
+**`jq:` best practices:**
+```markdown
+# Simple field check
+- jq: .name == "rules"
+
+# Array length
+- jq: .extras | length == 3
+
+# Sorted array comparison
+- jq: [.extras[].name] | sort | . == ["a","b","c"]
+
+# Null/missing field (omitempty)
+- jq: .extras == null
+
+# Nested access
+- jq: .[0].targets[0].status == "synced"
+
+# Boolean
+- jq: .source_exists == true
+```
 
 ## Rules
 
@@ -347,3 +390,29 @@ docker exec $CONTAINER ssenv enter "$ENV_NAME" -- bash -c '
   go test ./internal/install -run TestParseSource -count=1
 '
 ```
+
+## Relationship with `/mdproof` Skill
+
+This skill (`/cli-e2e-test`) and the `/mdproof` skill are **complementary**, not competing:
+
+| Concern | `/cli-e2e-test` | `/mdproof` |
+|---------|-----------------|------------|
+| **Scope** | Skillshare project-specific E2E | General-purpose runbook authoring |
+| **Infrastructure** | Devcontainer, ssenv, binary build | None — format and assertions only |
+| **Config** | `ai_docs/tests/runbook.json` (build, setup, teardown) | Assertion types, snapshot, coverage |
+| **Lessons** | Checklist items, CLI flag gotchas | `.mdproof/lessons-learned.md` |
+| **When** | Running or debugging a test | Writing or improving a runbook |
+
+### How they work together
+
+1. **Writing a new runbook** → invoke `/mdproof` first for format guidance (assertion types, `jq:` patterns, snapshot usage), then `/cli-e2e-test` to execute it in isolation
+2. **Improving existing runbooks** → invoke `/mdproof` for assertion quality review (python3 → jq:, idempotency), then `/cli-e2e-test` to verify changes pass
+3. **Debugging failures** → `/cli-e2e-test` Phase 3 step 4 handles manual docker exec; `/mdproof` lessons-learned captures recurring patterns
+4. **After a test run** → `/mdproof` Self-Learning section guides recording discoveries to `.mdproof/lessons-learned.md`
+
+### Rule of thumb
+
+- Need to **run** tests or **debug** in devcontainer? → `/cli-e2e-test`
+- Need to **write** assertions or **improve** runbook quality? → `/mdproof`
+- User says "run extras E2E" → `/cli-e2e-test`
+- User says "improve runbook assertions" → `/mdproof` then `/cli-e2e-test` to verify

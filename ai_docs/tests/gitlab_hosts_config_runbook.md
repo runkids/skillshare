@@ -175,6 +175,7 @@ go test ./internal/server/ -run TestParseOpts -v -count=1
 ### Step 12: Append gitlab_hosts to config and verify CLI loads it
 
 ```bash
+sed -i '/^gitlab_hosts:/,$d' ~/.config/skillshare/config.yaml
 cat >> ~/.config/skillshare/config.yaml <<'EOF'
 gitlab_hosts:
   - git.company.com
@@ -229,6 +230,7 @@ diff /tmp/config-before.yaml ~/.config/skillshare/config.yaml
 ### Step 16: Project mode loads gitlab_hosts
 
 ```bash
+rm -rf /tmp/test-proj
 mkdir -p /tmp/test-proj/.skillshare
 cat > /tmp/test-proj/.skillshare/config.yaml <<'EOF'
 targets:

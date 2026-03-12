@@ -1,0 +1,6 @@
+{
+  "build": "cd /workspace && make build && /workspace/.devcontainer/ensure-mdproof.sh",
+  "setup": "rm -rf /tmp/test-project /tmp/test-proj /tmp/extras-proj /tmp/copy-target /tmp/sym-target /tmp/test 2>/dev/null; ss init -g --no-copy --all-targets --no-git --no-skill --force 2>/dev/null || ss init -g --discover --all-targets 2>/dev/null || true",
+  "teardown": "ss uninstall --all --force 2>/dev/null || true",
+  "timeout": "5m"
+}
