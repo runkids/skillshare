@@ -449,8 +449,8 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry, width int) str
 			if t.Status != "synced" {
 				statusText = "  " + t.Status
 			}
-			b.WriteString(fmt.Sprintf("  %s %s (%s)%s\n",
-				style.Render(icon), shortenPath(t.Path), t.Mode, tc.Dim.Render(statusText)))
+			fmt.Fprintf(&b, "  %s %s (%s)%s\n",
+				style.Render(icon), shortenPath(t.Path), t.Mode, tc.Dim.Render(statusText))
 		}
 	}
 
@@ -693,7 +693,7 @@ func (m extrasListTUIModel) renderTargetMenu() string {
 		title = "Collect from"
 	}
 
-	b.WriteString(fmt.Sprintf("\n  %s\n\n", tc.Title.Render(title)))
+	fmt.Fprintf(&b, "\n  %s\n\n", tc.Title.Render(title))
 
 	for i := 0; i <= len(m.targetMenuItems); i++ {
 		prefix := "  "
@@ -701,14 +701,14 @@ func (m extrasListTUIModel) renderTargetMenu() string {
 			prefix = tc.Cyan.Render(">") + " "
 		}
 		if i == 0 {
-			b.WriteString(fmt.Sprintf("  %s%s\n", prefix, "All targets"))
+			fmt.Fprintf(&b, "  %s%s\n", prefix, "All targets")
 		} else {
 			t := m.targetMenuItems[i-1]
-			b.WriteString(fmt.Sprintf("  %s%s  (%s)\n", prefix, shortenPath(t.Path), t.Mode))
+			fmt.Fprintf(&b, "  %s%s  (%s)\n", prefix, shortenPath(t.Path), t.Mode)
 		}
 	}
 
-	b.WriteString(fmt.Sprintf("\n  %s\n", tc.Help.Render("↑↓ select  Enter confirm  Esc cancel")))
+	fmt.Fprintf(&b, "\n  %s\n", tc.Help.Render("↑↓ select  Enter confirm  Esc cancel"))
 
 	return b.String()
 }
@@ -1133,13 +1133,8 @@ func (m extrasListTUIModel) renderExtrasSidebarStr(width, height int) string {
 	fileStyle := lipgloss.NewStyle()
 
 	total := len(m.treeNodes)
-	start := m.treeScroll
-	if start > total-height {
-		start = total - height
-	}
-	if start < 0 {
-		start = 0
-	}
+	start := min(m.treeScroll, total-height)
+	start = max(start, 0)
 	end := min(start+height, total)
 
 	var lines []string
