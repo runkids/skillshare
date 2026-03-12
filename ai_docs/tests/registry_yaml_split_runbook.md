@@ -19,6 +19,8 @@ Run inside devcontainer with ssenv isolation.
 ### Step 1: Verify init — config.yaml has no skills section
 
 ```bash
+# Cleanup /tmp/ from previous runs to ensure isolation
+rm -rf /tmp/test-skill /tmp/proj-skill /tmp/project-test /tmp/remove-me /tmp/grouped-skill 2>/dev/null || true
 # Setup hook already ran ss init; verify config is clean
 cat ~/.config/skillshare/config.yaml
 # registry.yaml may not exist yet (created on first install) — that is OK

@@ -163,6 +163,8 @@ ss sync
 - merged
 
 ```bash
+REAL_TARGET="$HOME/dotfiles/claude-skills"
+CLAUDE_TARGET="$HOME/.claude/skills"
 # Verify symlinks were created inside the symlinked target
 ls -la "$CLAUDE_TARGET/"
 ls -la "$REAL_TARGET/"
@@ -177,6 +179,8 @@ ls -la "$REAL_TARGET/"
 ## Step 7: Symlinks resolve from both paths
 
 ```bash
+REAL_TARGET="$HOME/dotfiles/claude-skills"
+CLAUDE_TARGET="$HOME/.claude/skills"
 # Access through symlink path
 stat "$CLAUDE_TARGET/alpha/SKILL.md" && echo "VIA SYMLINK: OK" || echo "VIA SYMLINK: BROKEN"
 
@@ -212,6 +216,7 @@ ss sync
 - merged
 
 ```bash
+COPY_TARGET="$HOME/dotfiles/agents-skills"
 # Verify files exist at real location
 ls "$COPY_TARGET/" | head -5
 test -f "$COPY_TARGET/alpha/SKILL.md" && echo "COPY OK" || echo "COPY MISSING"
@@ -224,6 +229,7 @@ test -f "$COPY_TARGET/alpha/SKILL.md" && echo "COPY OK" || echo "COPY MISSING"
 ## Step 9: Both source AND target are symlinks (double symlink)
 
 ```bash
+CLAUDE_TARGET="$HOME/.claude/skills"
 # Both are already symlinks from previous steps
 readlink "$HOME/.config/skillshare/skills"
 readlink "$CLAUDE_TARGET"
@@ -239,6 +245,8 @@ ss sync --dry-run
 ## Step 10: Chained symlinks (link → link → real dir)
 
 ```bash
+REAL_SOURCE="$HOME/dotfiles/skillshare-skills"
+SYMLINK_SOURCE="$HOME/.config/skillshare/skills"
 # Create a chain: link2 → link1 → real_source
 CHAIN_DIR="$HOME/chain-test"
 mkdir -p "$CHAIN_DIR"
@@ -267,6 +275,7 @@ ss sync
 ## Step 11: Collect (pull) through symlinked target
 
 ```bash
+CLAUDE_TARGET="$HOME/.claude/skills"
 # Create a local-only skill in the symlinked target
 mkdir -p "$CLAUDE_TARGET/local-only"
 cat > "$CLAUDE_TARGET/local-only/SKILL.md" << 'SKILLEOF'
@@ -292,6 +301,7 @@ directory to discover updatable skills. We simulate an installed skill with
 metadata so update can discover it.
 
 ```bash
+REAL_SOURCE="$HOME/dotfiles/skillshare-skills"
 # Create a skill with install metadata (simulates remote install)
 mkdir -p "$REAL_SOURCE/remote-skill"
 cat > "$REAL_SOURCE/remote-skill/SKILL.md" << 'SKILLEOF'
@@ -326,6 +336,7 @@ ss update --all --dry-run 2>&1
 ## Step 13: Update --group through symlinked source
 
 ```bash
+REAL_SOURCE="$HOME/dotfiles/skillshare-skills"
 # The "group" directory contains "nested" — update --group should find it
 # Add metadata to nested skill so it's updatable
 cat > "$REAL_SOURCE/group/nested/.skillshare-meta.json" << 'METAEOF'
@@ -364,6 +375,7 @@ ss uninstall beta --force
 - exit_code: 0
 
 ```bash
+REAL_SOURCE="$HOME/dotfiles/skillshare-skills"
 # Verify beta is gone
 test -d "$REAL_SOURCE/beta" && echo "STILL EXISTS" || echo "REMOVED OK"
 ss list --no-tui
@@ -395,6 +407,7 @@ ss uninstall --group group --force
 - exit_code: 0
 
 ```bash
+REAL_SOURCE="$HOME/dotfiles/skillshare-skills"
 # Verify group is gone
 test -d "$REAL_SOURCE/group/nested" && echo "STILL EXISTS" || echo "REMOVED OK"
 ```
@@ -406,6 +419,7 @@ test -d "$REAL_SOURCE/group/nested" && echo "STILL EXISTS" || echo "REMOVED OK"
 ## Step 16: Uninstall by nested name resolution through symlinked source
 
 ```bash
+REAL_SOURCE="$HOME/dotfiles/skillshare-skills"
 # Re-create a nested skill for this test
 mkdir -p "$REAL_SOURCE/mygroup/deepskill"
 cat > "$REAL_SOURCE/mygroup/deepskill/SKILL.md" << 'SKILLEOF'
@@ -427,6 +441,7 @@ ss uninstall deepskill --force
 - deepskill
 
 ```bash
+REAL_SOURCE="$HOME/dotfiles/skillshare-skills"
 test -d "$REAL_SOURCE/mygroup/deepskill" && echo "STILL EXISTS" || echo "REMOVED OK"
 ```
 
@@ -484,6 +499,7 @@ If a group directory is a symlink pointing outside the source tree,
 accidental deletion/modification of external directories).
 
 ```bash
+REAL_SOURCE="$HOME/dotfiles/skillshare-skills"
 # Create a directory OUTSIDE the source tree
 EXTERNAL="$HOME/external-danger"
 mkdir -p "$EXTERNAL/victim-skill"
@@ -529,6 +545,8 @@ ss sync
 - merged
 
 ```bash
+REAL_TARGET="$HOME/dotfiles/claude-skills"
+CLAUDE_TARGET="$HOME/.claude/skills"
 # Final verification
 readlink "$CLAUDE_TARGET"
 ls "$REAL_TARGET/alpha/SKILL.md" && echo "STILL WORKS" || echo "BROKEN"

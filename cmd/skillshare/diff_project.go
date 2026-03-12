@@ -112,12 +112,23 @@ func cmdDiffProject(root, targetName string, opts diffRenderOpts, start time.Tim
 
 	progress.stop()
 
+	// Extras diff
+	var extrasResults []extraDiffResult
+	if opts.showExtras || opts.showAll {
+		extrasResults = collectExtrasDiff(runtime.config.Extras, func(name string) string {
+			return config.ExtrasSourceDirProject(root, name)
+		})
+	}
+
 	if opts.jsonOutput {
-		return diffOutputJSON(results, start)
+		return diffOutputJSONWithExtras(results, extrasResults, start)
 	}
 	if shouldLaunchTUI(opts.noTUI, nil) && len(results) > 0 {
-		return runDiffTUI(results)
+		return runDiffTUI(results, extrasResults)
 	}
 	renderGroupedDiffs(results, opts)
+	if len(extrasResults) > 0 {
+		renderExtrasDiffPlain(extrasResults)
+	}
 	return nil
 }

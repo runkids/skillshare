@@ -30,6 +30,7 @@ If `ss` alias is unavailable, replace `ss` with `skillshare`.
 ### 1. Setup: create extras source with new path layout
 
 ```bash
+rm -rf ~/.config/skillshare/extras/rules
 mkdir -p ~/.config/skillshare/extras/rules
 echo "# TDD rules" > ~/.config/skillshare/extras/rules/tdd.md
 echo "# Error handling" > ~/.config/skillshare/extras/rules/errors.md

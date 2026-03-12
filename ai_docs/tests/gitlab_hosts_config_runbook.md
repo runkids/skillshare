@@ -262,6 +262,7 @@ go test ./internal/install/ -run TestParseSource_GitLabSubgroups -v -count=1
 
 ```bash
 cd /workspace
+rm -rf ~/.local/share/skillshare/trash/* 2>/dev/null || true
 go test ./internal/config/ ./internal/install/ ./internal/server/ -count=1
 ```
 

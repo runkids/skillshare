@@ -25,6 +25,8 @@ skillshare diff                # Interactive TUI (default on TTY)
 skillshare diff claude         # Specific target
 skillshare diff --stat         # File-level changes (plain text)
 skillshare diff --patch        # Full unified diff (plain text)
+skillshare diff --extras       # Include extras diff
+skillshare diff --all          # Skills + extras
 skillshare diff --no-tui       # Plain text, skip TUI
 skillshare diff --json         # JSON output (implies --no-tui)
 skillshare diff -p             # Project mode

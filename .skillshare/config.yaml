@@ -2,5 +2,9 @@
 targets:
     - universal
     - claude
+extras:
+    - name: rules
+      targets:
+        - path: /home/developer/.claude/rules
 audit:
     block_threshold: CRITICAL

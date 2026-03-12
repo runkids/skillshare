@@ -93,6 +93,7 @@ func cmdDoctorGlobal() error {
 
 	runDoctorChecks(cfg, result, false)
 	checkExtras(cfg.Extras, result, false, cfg.Source, "")
+	ui.Header("Storage")
 	checkBackupStatus(false, backup.BackupDir())
 	checkTrashStatus(trash.TrashDir())
 	checkVersionDoctor(cfg)
@@ -131,6 +132,7 @@ func cmdDoctorProject(root string) error {
 
 	runDoctorChecks(cfg, result, true)
 	checkExtras(rt.config.Extras, result, true, "", root)
+	ui.Header("Storage")
 	checkBackupStatus(true, "")
 	checkTrashStatus(trash.ProjectTrashDir(root))
 	checkVersionDoctor(cfg)
@@ -756,7 +758,7 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 			ui.Error("%s: source directory missing (%s)", extra.Name, sourceDir)
 			continue
 		}
-		ui.Success("  %s: source exists (%d files)", extra.Name, len(files))
+		ui.Success("%s: source exists (%d files)", extra.Name, len(files))
 
 		reachable := 0
 		for _, t := range extra.Targets {
@@ -767,14 +769,14 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 			if _, err := os.Stat(filepath.Dir(targetPath)); err == nil {
 				reachable++
 			} else {
-				ui.Warning("  %s: target %s not reachable (parent dir missing: %s)", extra.Name, t.Path, filepath.Dir(targetPath))
+				ui.Warning("%s: target %s not reachable (parent dir missing: %s)", extra.Name, t.Path, filepath.Dir(targetPath))
 			}
 		}
 		if reachable == len(extra.Targets) {
-			ui.Success("  %s: all targets reachable (%d/%d)", extra.Name, reachable, len(extra.Targets))
+			ui.Success("%s: all targets reachable (%d/%d)", extra.Name, reachable, len(extra.Targets))
 		} else {
 			result.addWarning()
-			ui.Warning("  %s: some targets unreachable (%d/%d)", extra.Name, reachable, len(extra.Targets))
+			ui.Warning("%s: some targets unreachable (%d/%d)", extra.Name, reachable, len(extra.Targets))
 		}
 	}
 }

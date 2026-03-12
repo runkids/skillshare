@@ -34,7 +34,7 @@ Copy mode note:
 
 ## sync extras
 
-Sync non-skill resources (rules, commands, prompts) to arbitrary directories. **Global only.**
+Sync non-skill resources (rules, commands, prompts) to arbitrary directories. Supports both global and project mode.
 
 ```bash
 skillshare sync extras            # Sync all configured extras
@@ -52,7 +52,9 @@ extras:
         mode: copy
 ```
 
-Source: `~/.config/skillshare/<name>/`. Modes: `merge` (default, per-file symlinks), `copy`, `symlink`.
+Source: `~/.config/skillshare/extras/<name>/` (global) or `.skillshare/extras/<name>/` (project). Modes: `merge` (default, per-file symlinks), `copy`, `symlink`.
+
+For full extras management (`init`, `list`, `remove`, `collect`), see [extras.md](extras.md).
 
 ## collect
 

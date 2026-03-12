@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -62,14 +63,63 @@ func (i diffExtraItem) Description() string {
 
 func (i diffExtraItem) FilterValue() string { return i.result.extraName }
 
-// diffSeparatorItem is a visual separator between skills and extras in the TUI list.
+// diffSeparatorItem is a non-selectable visual separator between skills and extras.
 type diffSeparatorItem struct {
 	label string
 }
 
-func (s diffSeparatorItem) Title() string       { return "── " + s.label + " ──" }
+func (s diffSeparatorItem) Title() string       { return s.label }
 func (s diffSeparatorItem) Description() string { return "" }
 func (s diffSeparatorItem) FilterValue() string { return "" }
+
+// diffItemDelegate wraps DefaultDelegate to render separators as group headers.
+type diffItemDelegate struct {
+	inner list.DefaultDelegate
+}
+
+func (d diffItemDelegate) Height() int  { return d.inner.Height() }
+func (d diffItemDelegate) Spacing() int { return d.inner.Spacing() }
+func (d diffItemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
+	return d.inner.Update(msg, m)
+}
+
+func (d diffItemDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+	if sep, ok := item.(diffSeparatorItem); ok {
+		width := m.Width()
+		if width <= 0 {
+			width = 40
+		}
+		renderDiffSeparatorRow(w, sep, width)
+		return
+	}
+	d.inner.Render(w, m, index, item)
+}
+
+func renderDiffSeparatorRow(w io.Writer, sep diffSeparatorItem, width int) {
+	label := tc.Dim.Render(sep.label)
+	lineWidth := width - lipgloss.Width(label) - 3
+	if lineWidth < 2 {
+		lineWidth = 2
+	}
+	line := strings.Repeat("─", lineWidth)
+	fmt.Fprint(w, tc.Dim.Render("─ ")+label+" "+tc.Dim.Render(line))
+}
+
+// skipDiffSeparator advances the list selection past diffSeparatorItem entries.
+func skipDiffSeparator(l *list.Model, direction int) {
+	items := l.Items()
+	idx := l.Index()
+	n := len(items)
+	for idx >= 0 && idx < n {
+		if _, isSep := items[idx].(diffSeparatorItem); !isSep {
+			break
+		}
+		idx += direction
+	}
+	if idx >= 0 && idx < n {
+		l.Select(idx)
+	}
+}
 
 func (i diffTargetItem) Title() string {
 	r := i.result
@@ -173,8 +223,9 @@ func newDiffTUIModel(results []targetDiffResult, extrasSlice ...[]extraDiffResul
 		}
 	}
 
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, true)
+	inner := list.NewDefaultDelegate()
+	configureDelegate(&inner, true)
+	delegate := diffItemDelegate{inner: inner}
 
 	tl := list.New(listItems, delegate, 0, 0)
 	var errN, diffN, syncN int
@@ -387,7 +438,14 @@ func (m diffTUIModel) handleDiffKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.targetList, cmd = m.targetList.Update(msg)
 
+	// Skip separator items
 	if m.targetList.Index() != prevIdx {
+		direction := 1
+		if m.targetList.Index() < prevIdx {
+			direction = -1
+		}
+		skipDiffSeparator(&m.targetList, direction)
+
 		m.detailScroll = 0
 		m.expandedSkill = ""
 		m.expandedDiff = ""
@@ -544,6 +602,7 @@ func (m diffTUIModel) buildExtraDetail(selected diffExtraItem) string {
 
 	b.WriteString(tc.Yellow.Render(fmt.Sprintf("  %d difference(s):", len(r.items))))
 	b.WriteString("\n")
+	hasLocal := false
 	for _, item := range r.items {
 		var prefix string
 		var style lipgloss.Style
@@ -554,12 +613,27 @@ func (m diffTUIModel) buildExtraDetail(selected diffExtraItem) string {
 			prefix, style = "- ", tc.Red
 		case "modify":
 			prefix, style = "~ ", tc.Cyan
+			if item.reason == "not a symlink (local file)" {
+				hasLocal = true
+			}
 		default:
 			prefix, style = "  ", tc.Dim
 		}
 		b.WriteString(style.Render(fmt.Sprintf("  %s%s  %s", prefix, item.file, item.reason)))
 		b.WriteString("\n")
 	}
+
+	// Next Steps
+	b.WriteString("\n")
+	b.WriteString(tc.Title.Render("── Next Steps ──"))
+	b.WriteString("\n")
+	b.WriteString(tc.Cyan.Render("  → skillshare sync extras"))
+	b.WriteString("\n")
+	if hasLocal {
+		b.WriteString(tc.Cyan.Render("  → skillshare extras collect " + r.extraName))
+		b.WriteString("\n")
+	}
+
 	return b.String()
 }
 

@@ -38,9 +38,22 @@ skillshare install user/repo --track             # Enable `update` later
 skillshare install user/repo -s pdf -p           # Install to project
 skillshare install                               # Reinstall all tracked remotes from config
 skillshare sync                                  # Always sync after install
-skillshare sync extras                           # Sync non-skill extras (rules, commands)
-skillshare sync --all                            # Sync skills + extras together
 ```
+### Extras (Rules, Commands, Prompts)
+```bash
+skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
+skillshare extras init commands --target ~/.claude/commands --mode copy
+skillshare extras init                               # Interactive TUI wizard
+skillshare extras list                               # Show status per target
+skillshare extras list --json                        # JSON output
+skillshare extras collect rules                      # Pull local files into source
+skillshare extras remove rules                       # Remove from config (source preserved)
+skillshare sync extras                               # Sync all extras to targets
+skillshare sync extras --dry-run --force             # Preview / overwrite conflicts
+skillshare sync --all                                # Sync skills + extras together
+skillshare diff --extras                             # Show extras diff
+```
+See [extras.md](references/extras.md) for details.
 ### Creating & Discovering Skills
 ```bash
 skillshare new my-skill                          # Create a new skill from template
@@ -141,5 +154,6 @@ See [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for more.
 | Trash | [trash.md](references/trash.md) |
 | Operation log | [log.md](references/log.md) |
 | Targets | [targets.md](references/targets.md) |
+| Extras (rules/commands/prompts) | [extras.md](references/extras.md) |
 | Backup/restore | [backup.md](references/backup.md) |
 | Troubleshooting | [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) |
