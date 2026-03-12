@@ -3,7 +3,7 @@ import {
   ArrowLeft, Trash2, ExternalLink, FileText, ArrowUpRight, RefreshCw, Target,
   Type, AlignLeft, Files, Scale,
   FileCode2, Braces, Settings, BookOpen, File, FolderOpen,
-  ShieldCheck, Link2, Copy, Check,
+  ShieldCheck, Link2,
 } from 'lucide-react';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Badge from '../components/Badge';
 import Card from '../components/Card';
+import CopyButton from '../components/CopyButton';
 import HandButton from '../components/HandButton';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
@@ -621,7 +622,13 @@ function MetaItem({
     <div>
       <dt className="text-sm text-pencil-light uppercase tracking-wider flex items-center gap-1">
         {label}
-        {copyable && <CopyButton value={copyValue ?? value} />}
+        {copyable && (
+          <CopyButton
+            value={copyValue ?? value}
+            className="align-middle ml-1.5"
+            style={{ position: 'relative', top: '1px' }}
+          />
+        )}
       </dt>
       <dd
         className="text-base text-pencil break-all"
@@ -630,26 +637,6 @@ function MetaItem({
         {value}
       </dd>
     </div>
-  );
-}
-
-function CopyButton({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        navigator.clipboard.writeText(value).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        });
-      }}
-      className="inline-flex items-center gap-0.5 align-middle ml-1.5 text-pencil-light hover:text-pencil transition-colors cursor-pointer shrink-0"
-      style={{ position: 'relative', top: '1px' }}
-      title="Copy to clipboard"
-    >
-      {copied ? <><Check size={12} strokeWidth={2.5} /> <span className="text-xs">Copied!</span></> : <Copy size={12} strokeWidth={2.5} />}
-    </button>
   );
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { X, Copy, Check } from 'lucide-react';
+import { X } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import CodeMirror from '@uiw/react-codemirror';
@@ -9,6 +9,7 @@ import { python } from '@codemirror/lang-python';
 import { javascript } from '@codemirror/lang-javascript';
 import { EditorView } from '@codemirror/view';
 import Card from './Card';
+import CopyButton from './CopyButton';
 import HandButton from './HandButton';
 import { api, type SkillFileContent } from '../api/client';
 import { handTheme } from '../lib/codemirror-theme';
@@ -22,14 +23,7 @@ interface FileViewerModalProps {
 }
 
 export default function FileViewerModal({ skillName, filepath, sourcePath, onClose }: FileViewerModalProps) {
-  const [copied, setCopied] = useState(false);
   const fullPath = sourcePath ? `${sourcePath}/${filepath}` : filepath;
-  const handleCopy = () => {
-    navigator.clipboard.writeText(fullPath).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
   const [data, setData] = useState<SkillFileContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,14 +85,11 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
               style={{ fontFamily: "'Courier New', monospace", fontSize: '0.95rem' }}
             >
               {filepath}
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="inline-flex items-center gap-0.5 text-pencil-light hover:text-pencil transition-colors cursor-pointer shrink-0"
+              <CopyButton
+                value={fullPath}
                 title="Copy file path"
-              >
-                {copied ? <><Check size={12} strokeWidth={2.5} /> <span className="text-xs font-normal">Copied!</span></> : <Copy size={12} strokeWidth={2.5} />}
-              </button>
+                copiedLabelClassName="text-xs font-normal"
+              />
             </h3>
             <HandButton variant="ghost" size="sm" onClick={onClose} className="shrink-0 ml-2">
               <X size={16} strokeWidth={2.5} />
