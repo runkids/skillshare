@@ -411,7 +411,7 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.
 
 // checkGitStatus checks if source is a git repo and its status
 func checkGitStatus(source string, result *doctorResult) {
-	cmd := exec.Command("git", "status")
+	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
 	cmd.Dir = source
 	if _, err := cmd.Output(); err != nil {
 		ui.Warning("Git: not initialized (recommended for backup)")

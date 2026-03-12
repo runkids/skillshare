@@ -49,7 +49,7 @@ func parsePushArgs(args []string) *pushOptions {
 
 // checkGitRepo verifies source is a git repo with remote
 func checkGitRepo(sourcePath string, spinner *ui.Spinner) error {
-	cmd := exec.Command("git", "status")
+	cmd := exec.Command("git", "rev-parse", "--is-inside-work-tree")
 	cmd.Dir = sourcePath
 	_, err := cmd.Output()
 	if err != nil {
