@@ -194,7 +194,7 @@ func cmdExtrasList(args []string) error {
 			case "synced":
 				icon, color = "✓", ui.Green
 			case "drift":
-				icon, color, statusText = "~", ui.Yellow, "  drift"
+				icon, color, statusText = "△", ui.Yellow, "  drift"
 			case "not synced":
 				icon, color, statusText = "✗", ui.Yellow, "  not synced"
 			case "no source":

@@ -73,7 +73,7 @@ The TUI provides a split-pane interface with extras list on the left and detail 
 |-----|--------|
 | `↑↓` | Navigate list |
 | `/` | Filter by name |
-| `Enter` / `D` | Content viewer (browse source files) |
+| `Enter` | Content viewer (browse source files) |
 | `X` | Remove extra (with confirmation) |
 | `S` | Sync extra to target(s) |
 | `C` | Collect from target(s) |

@@ -36,6 +36,7 @@ type extrasListTUIModel struct {
 	allItems   []extrasListEntry
 	modeLabel  string
 	quitting   bool
+	wantsNew   bool
 	termWidth  int
 	termHeight int
 
@@ -269,12 +270,15 @@ func (m extrasListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.filterInput.Focus()
 			m.lastActionMsg = ""
 			return m, textinput.Blink
-		case "enter", "D":
+		case "enter":
 			if item, ok := m.list.SelectedItem().(extraTUIItem); ok {
 				m.loadExtrasContent(item.entry)
 				m.showContent = true
 			}
 			return m, nil
+		case "N":
+			m.wantsNew = true
+			return m, tea.Quit
 		case "X":
 			return m.enterExtrasConfirm("remove")
 		case "S":
@@ -352,7 +356,7 @@ func (m extrasListTUIModel) viewExtrasSplit() string {
 
 	var detailStr, scrollInfo string
 	if item, ok := m.list.SelectedItem().(extraTUIItem); ok {
-		detail := m.renderExtrasDetail(item.entry, rightWidth-1)
+		detail := m.renderExtrasDetail(item.entry)
 		bodyHeight := max(panelHeight-1, 4)
 		detailStr, scrollInfo = wrapAndScroll(detail, rightWidth-1, m.detailScroll, bodyHeight)
 		detailStr = "\n" + detailStr
@@ -363,7 +367,7 @@ func (m extrasListTUIModel) viewExtrasSplit() string {
 	b.WriteString("\n\n")
 	b.WriteString(m.renderExtrasFilterBar())
 	if m.lastActionMsg != "" {
-		b.WriteString(tc.Help.Render("  " + m.lastActionMsg))
+		b.WriteString(renderExtrasActionMsg(m.lastActionMsg))
 		b.WriteString("\n")
 	}
 	b.WriteString(m.renderExtrasHelp(scrollInfo))
@@ -382,7 +386,7 @@ func (m extrasListTUIModel) viewExtrasVertical() string {
 	var scrollInfo string
 	if item, ok := m.list.SelectedItem().(extraTUIItem); ok {
 		detailHeight := max(m.termHeight-m.termHeight*2/5-8, 6)
-		detail := m.renderExtrasDetail(item.entry, m.termWidth)
+		detail := m.renderExtrasDetail(item.entry)
 		body, bodyScrollInfo := wrapAndScroll(detail, m.termWidth, m.detailScroll, detailHeight)
 		scrollInfo = bodyScrollInfo
 		b.WriteString(body)
@@ -390,7 +394,7 @@ func (m extrasListTUIModel) viewExtrasVertical() string {
 
 	if m.lastActionMsg != "" {
 		b.WriteString("\n")
-		b.WriteString(tc.Help.Render("  " + m.lastActionMsg))
+		b.WriteString(renderExtrasActionMsg(m.lastActionMsg))
 	}
 	b.WriteString("\n")
 	b.WriteString(m.renderExtrasHelp(scrollInfo))
@@ -401,7 +405,7 @@ func (m extrasListTUIModel) viewExtrasVertical() string {
 
 // ─── Detail Panel ────────────────────────────────────────────────────
 
-func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry, width int) string {
+func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 	var b strings.Builder
 
 	b.WriteString(tc.Title.Render(e.Name))
@@ -436,7 +440,7 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry, width int) str
 				icon = "✓"
 				style = tc.Green
 			case "drift":
-				icon = "~"
+				icon = "△"
 				style = tc.Yellow
 			case "not synced":
 				icon = "✗"
@@ -473,7 +477,6 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry, width int) str
 		}
 	}
 
-	_ = width
 	return b.String()
 }
 
@@ -496,11 +499,21 @@ func (m extrasListTUIModel) renderExtrasFilterBar() string {
 }
 
 func (m extrasListTUIModel) renderExtrasHelp(scrollInfo string) string {
-	helpText := "↑↓ navigate  / filter  D view  X remove  S sync  C collect  q quit"
+	helpText := "↑↓ navigate  / filter  Enter view  N new  X remove  S sync  C collect  q quit"
 	if m.filtering {
 		helpText = "Enter lock  Esc clear  q quit"
 	}
 	return tc.Help.Render(appendScrollInfo(helpText, scrollInfo))
+}
+
+func renderExtrasActionMsg(msg string) string {
+	if strings.HasPrefix(msg, "✓") {
+		return tc.Green.Render(msg)
+	}
+	if strings.HasPrefix(msg, "✗") {
+		return tc.Red.Render(msg)
+	}
+	return tc.Yellow.Render(msg)
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -741,10 +754,19 @@ func (m extrasListTUIModel) doRemove(name string) (string, error) {
 	var sourceDir string
 	var err error
 
+	// Load fresh config to avoid mutating the TUI model's copy in a background goroutine.
 	if m.projCfg != nil {
-		sourceDir, err = removeExtraFromProjectConfig(m.projCfg, m.cwd, name)
+		projCfg, loadErr := config.LoadProject(m.cwd)
+		if loadErr != nil {
+			return "", loadErr
+		}
+		sourceDir, err = removeExtraFromProjectConfig(projCfg, m.cwd, name)
 	} else {
-		sourceDir, err = removeExtraFromGlobalConfig(m.cfg, name)
+		cfg, loadErr := config.Load()
+		if loadErr != nil {
+			return "", loadErr
+		}
+		sourceDir, err = removeExtraFromGlobalConfig(cfg, name)
 	}
 	if err != nil {
 		return "", err
@@ -753,7 +775,8 @@ func (m extrasListTUIModel) doRemove(name string) (string, error) {
 	return fmt.Sprintf("✓ Removed %q", name), nil
 }
 
-func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
+// resolveExtraTargets finds the extra config by name and filters targets.
+func (m extrasListTUIModel) resolveExtraTargets(name, targetPath string) ([]config.ExtraTargetConfig, error) {
 	var extras []config.ExtraConfig
 	if m.projCfg != nil {
 		extras = m.projCfg.Extras
@@ -769,22 +792,28 @@ func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
 		}
 	}
 	if extra == nil {
-		return "", fmt.Errorf("extra %q not found", name)
+		return nil, fmt.Errorf("extra %q not found", name)
+	}
+
+	if targetPath == "" {
+		return extra.Targets, nil
+	}
+	for _, t := range extra.Targets {
+		if t.Path == targetPath {
+			return []config.ExtraTargetConfig{t}, nil
+		}
+	}
+	return extra.Targets, nil
+}
+
+func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
+	targets, err := m.resolveExtraTargets(name, targetPath)
+	if err != nil {
+		return "", err
 	}
 
 	sourceDir := m.sourceFunc(name)
 	synced := 0
-
-	targets := extra.Targets
-	if targetPath != "" {
-		for _, t := range extra.Targets {
-			if t.Path == targetPath {
-				targets = []config.ExtraTargetConfig{t}
-				break
-			}
-		}
-	}
-
 	for _, t := range targets {
 		mode := sync.EffectiveMode(t.Mode)
 		resolved := config.ExpandPath(t.Path)
@@ -794,42 +823,17 @@ func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
 		}
 		synced++
 	}
-
 	return fmt.Sprintf("✓ Synced %q to %d target(s)", name, synced), nil
 }
 
 func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
-	var extras []config.ExtraConfig
-	if m.projCfg != nil {
-		extras = m.projCfg.Extras
-	} else {
-		extras = m.cfg.Extras
-	}
-
-	var extra *config.ExtraConfig
-	for i, e := range extras {
-		if e.Name == name {
-			extra = &extras[i]
-			break
-		}
-	}
-	if extra == nil {
-		return "", fmt.Errorf("extra %q not found", name)
+	targets, err := m.resolveExtraTargets(name, targetPath)
+	if err != nil {
+		return "", err
 	}
 
 	sourceDir := m.sourceFunc(name)
 	collected := 0
-
-	targets := extra.Targets
-	if targetPath != "" {
-		for _, t := range extra.Targets {
-			if t.Path == targetPath {
-				targets = []config.ExtraTargetConfig{t}
-				break
-			}
-		}
-	}
-
 	for _, t := range targets {
 		resolved := config.ExpandPath(t.Path)
 		result, err := sync.CollectExtraFiles(sourceDir, resolved, false)
@@ -1087,11 +1091,10 @@ func (m extrasListTUIModel) renderExtrasContentOverlay() string {
 
 	sw := sidebarWidth(m.termWidth)
 	panelW := max(m.termWidth-sw-5, 20)
-	textW := max(panelW-1, 20)
 	contentHeight := m.extrasContentViewHeight()
 
 	sidebarStr := m.renderExtrasSidebarStr(sw, contentHeight)
-	contentStr, scrollInfo := m.renderExtrasContentPanelStr(textW, contentHeight)
+	contentStr, scrollInfo := m.renderExtrasContentPanelStr(contentHeight)
 
 	leftPanel := lipgloss.NewStyle().
 		Width(sw).MaxWidth(sw).
@@ -1180,7 +1183,7 @@ func (m extrasListTUIModel) renderExtrasSidebarStr(width, height int) string {
 	return strings.Join(lines, "\n")
 }
 
-func (m extrasListTUIModel) renderExtrasContentPanelStr(width, height int) (string, string) {
+func (m extrasListTUIModel) renderExtrasContentPanelStr(height int) (string, string) {
 	lines := strings.Split(m.contentText, "\n")
 	totalLines := len(lines)
 
@@ -1196,8 +1199,6 @@ func (m extrasListTUIModel) renderExtrasContentPanelStr(width, height int) (stri
 	copy(result, visible)
 
 	scrollInfo := fmt.Sprintf("(%d/%d)", offset+1, maxScroll+1)
-	_ = width
-
 	return strings.Join(result, "\n"), scrollInfo
 }
 
@@ -1211,23 +1212,38 @@ func runExtrasListTUI(
 	cwd, configPath string,
 	sourceFunc func(name string) string,
 ) error {
-	model := newExtrasListTUIModel(loadFn, modeLabel, cfg, projCfg, cwd, configPath, sourceFunc)
-	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
-	finalModel, err := p.Run()
-	if err != nil {
-		return err
-	}
+	for {
+		model := newExtrasListTUIModel(loadFn, modeLabel, cfg, projCfg, cwd, configPath, sourceFunc)
+		p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
+		finalModel, err := p.Run()
+		if err != nil {
+			return err
+		}
 
-	m, ok := finalModel.(extrasListTUIModel)
-	if !ok {
-		return nil
+		m, ok := finalModel.(extrasListTUIModel)
+		if !ok {
+			return nil
+		}
+		if m.loadErr != nil {
+			return m.loadErr
+		}
+		if m.emptyResult {
+			ui.Info("No extras configured.")
+			ui.Info("Run 'skillshare extras init <name> --target <path>' to add one.")
+			return nil
+		}
+
+		if !m.wantsNew {
+			return nil
+		}
+
+		// Launch init wizard, then loop back to list TUI
+		mode := modeGlobal
+		if projCfg != nil {
+			mode = modeProject
+		}
+		if err := cmdExtrasInitTUI(mode, cwd); err != nil {
+			return err
+		}
 	}
-	if m.loadErr != nil {
-		return m.loadErr
-	}
-	if m.emptyResult {
-		ui.Info("No extras configured.")
-		ui.Info("Run 'skillshare extras init <name> --target <path>' to add one.")
-	}
-	return nil
 }

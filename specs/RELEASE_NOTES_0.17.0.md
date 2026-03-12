@@ -86,14 +86,13 @@ Now shows an Extras section with file count and target count per configured extr
 
 Checks that extras source directories exist and target parent directories are reachable. Reports warnings for missing sources.
 
-### `diff --extras`
+### `diff` includes extras
 
-Per-file diff for extras targets. Shows which files need to be created, updated, or pruned.
+`diff` automatically includes per-file extras diff when extras are configured. No extra flags needed.
 
 ```bash
-skillshare diff --extras          # extras only
-skillshare diff --all             # skills + extras
-skillshare diff --extras --json   # JSON output
+skillshare diff                   # skills + extras (if configured)
+skillshare diff --json            # JSON output includes extras
 ```
 
 ### `sync extras --json`
