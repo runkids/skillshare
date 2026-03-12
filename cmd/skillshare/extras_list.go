@@ -86,19 +86,28 @@ func cmdExtrasList(args []string) error {
 
 	applyModeLabel(mode)
 
-	// Check for --json flag
 	jsonOutput := false
+	noTUI := false
 	for _, a := range rest {
-		if a == "--json" {
+		switch a {
+		case "--json":
 			jsonOutput = true
+		case "--no-tui":
+			noTUI = true
+		case "--help", "-h":
+			printExtrasListHelp()
+			return nil
 		}
 	}
 
 	var extras []config.ExtraConfig
 	var sourceFunc func(name string) string
+	var cfg *config.Config
+	var projCfg *config.ProjectConfig
+	var configPath string
 
 	if mode == modeProject {
-		projCfg, err := config.LoadProject(cwd)
+		projCfg, err = config.LoadProject(cwd)
 		if err != nil {
 			return err
 		}
@@ -106,8 +115,9 @@ func cmdExtrasList(args []string) error {
 		sourceFunc = func(name string) string {
 			return config.ExtrasSourceDirProject(cwd, name)
 		}
+		configPath = config.ProjectConfigPath(cwd)
 	} else {
-		cfg, err := config.Load()
+		cfg, err = config.Load()
 		if err != nil {
 			return err
 		}
@@ -115,35 +125,60 @@ func cmdExtrasList(args []string) error {
 		sourceFunc = func(name string) string {
 			return config.ExtrasSourceDir(cfg.Source, name)
 		}
+		configPath = config.ConfigPath()
 	}
 
-	if len(extras) == 0 {
-		if jsonOutput {
+	if jsonOutput {
+		if len(extras) == 0 {
 			fmt.Println("[]")
 			return nil
 		}
-		ui.Info("No extras configured.")
-		ui.Info("Run 'skillshare extras init <name> --target <path>' to add one.")
-		return nil
-	}
-
-	entries := buildExtrasListEntries(extras, sourceFunc)
-
-	if jsonOutput {
+		entries := buildExtrasListEntries(extras, sourceFunc)
 		data, _ := json.MarshalIndent(entries, "", "  ")
 		fmt.Println(string(data))
 		return nil
 	}
 
-	// Pretty print
+	// TUI dispatch
+	if shouldLaunchTUI(noTUI, cfg) && len(extras) > 0 {
+		modeLabel := "global"
+		if mode == modeProject {
+			modeLabel = "project"
+		}
+		loadFn := func() ([]extrasListEntry, error) {
+			var ex []config.ExtraConfig
+			if mode == modeProject {
+				p, loadErr := config.LoadProject(cwd)
+				if loadErr != nil {
+					return nil, loadErr
+				}
+				ex = p.Extras
+			} else {
+				c, loadErr := config.Load()
+				if loadErr != nil {
+					return nil, loadErr
+				}
+				ex = c.Extras
+			}
+			return buildExtrasListEntries(ex, sourceFunc), nil
+		}
+		return runExtrasListTUI(loadFn, modeLabel, cfg, projCfg, cwd, configPath, sourceFunc)
+	}
+
+	if len(extras) == 0 {
+		ui.Info("No extras configured.")
+		ui.Info("Run 'skillshare extras init <name> --target <path>' to add one.")
+		return nil
+	}
+
+	// Plain text output
+	entries := buildExtrasListEntries(extras, sourceFunc)
 	ui.Header(ui.WithModeLabel("Extras"))
 
 	for i, entry := range entries {
 		if i > 0 {
 			fmt.Println()
 		}
-
-		// Name + source on same line
 		if !entry.SourceExists {
 			fmt.Printf("  %-12s %s\n", entry.Name, ui.Dim+"source not found"+ui.Reset)
 		} else {
@@ -153,8 +188,6 @@ func cmdExtrasList(args []string) error {
 			}
 			fmt.Printf("  %-12s %s (%s)\n", entry.Name, shortenPath(entry.SourceDir), fileLabel)
 		}
-
-		// Targets indented below
 		for _, t := range entry.Targets {
 			var icon, color, statusText string
 			switch t.Status {
@@ -172,5 +205,18 @@ func cmdExtrasList(args []string) error {
 	}
 
 	return nil
+}
+
+func printExtrasListHelp() {
+	fmt.Println(`Usage: skillshare extras list [options]
+
+List all configured extras and their sync status.
+
+Options:
+  --json               JSON output
+  --no-tui             Disable interactive TUI, use plain text output
+  --project, -p        Use project-mode extras (.skillshare/)
+  --global, -g         Use global extras (~/.config/skillshare/)
+  --help, -h           Show this help`)
 }
 

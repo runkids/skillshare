@@ -35,7 +35,7 @@ Manage non-skill resources (rules, commands, prompts, etc.).
 
 Commands:
   init <name>        Create a new extra resource type
-  list               List all configured extras and sync status
+  list               List all configured extras and sync status (interactive TUI)
   remove <name>      Remove an extra resource type
   collect <name>     Collect local files from a target into extras source
 
