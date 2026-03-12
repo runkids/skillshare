@@ -60,13 +60,7 @@ func cmdExtrasRemove(args []string) error {
 	return extrasRemoveGlobal(name, force, start)
 }
 
-func extrasRemoveGlobal(name string, force bool, start time.Time) error {
-	cfg, err := config.Load()
-	if err != nil {
-		return err
-	}
-
-	// Find the extra
+func removeExtraFromGlobalConfig(cfg *config.Config, name string) (string, error) {
 	idx := -1
 	for i, e := range cfg.Extras {
 		if e.Name == name {
@@ -75,7 +69,54 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 		}
 	}
 	if idx == -1 {
-		return fmt.Errorf("extra %q not found in config", name)
+		return "", fmt.Errorf("extra %q not found in config", name)
+	}
+
+	cfg.Extras = append(cfg.Extras[:idx], cfg.Extras[idx+1:]...)
+	if err := cfg.Save(); err != nil {
+		return "", fmt.Errorf("failed to save config: %w", err)
+	}
+
+	sourceDir := config.ExtrasSourceDir(cfg.Source, name)
+
+	e := oplog.NewEntry("extras-remove", "ok", 0)
+	e.Args = map[string]any{"name": name, "scope": "global"}
+	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+
+	return sourceDir, nil
+}
+
+func removeExtraFromProjectConfig(projCfg *config.ProjectConfig, cwd, name string) (string, error) {
+	idx := -1
+	for i, e := range projCfg.Extras {
+		if e.Name == name {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		return "", fmt.Errorf("extra %q not found in project config", name)
+	}
+
+	projCfg.Extras = append(projCfg.Extras[:idx], projCfg.Extras[idx+1:]...)
+	if err := projCfg.Save(cwd); err != nil {
+		return "", fmt.Errorf("failed to save project config: %w", err)
+	}
+
+	sourceDir := config.ExtrasSourceDirProject(cwd, name)
+
+	cfgPath := config.ProjectConfigPath(cwd)
+	e := oplog.NewEntry("extras-remove", "ok", 0)
+	e.Args = map[string]any{"name": name, "scope": "project"}
+	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+
+	return sourceDir, nil
+}
+
+func extrasRemoveGlobal(name string, force bool, start time.Time) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return err
 	}
 
 	if !force {
@@ -93,24 +134,15 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 		}
 	}
 
-	// Remove from slice
-	cfg.Extras = append(cfg.Extras[:idx], cfg.Extras[idx+1:]...)
-	if err := cfg.Save(); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+	sourceDir, err := removeExtraFromGlobalConfig(cfg, name)
+	if err != nil {
+		return err
 	}
 
 	ui.Success("Removed %q from extras config", name)
-
-	sourceDir := config.ExtrasSourceDir(cfg.Source, name)
 	cleanEmptyExtrasDir(sourceDir)
-
 	ui.Info("Run 'skillshare sync extras' to clean up orphaned links.")
-
-	// Oplog
-	e := oplog.NewEntry("extras-remove", "ok", time.Since(start))
-	e.Args = map[string]any{"name": name, "scope": "global"}
-	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
-
+	_ = start
 	return nil
 }
 
@@ -118,18 +150,6 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 	projCfg, err := config.LoadProject(cwd)
 	if err != nil {
 		return err
-	}
-
-	// Find the extra
-	idx := -1
-	for i, e := range projCfg.Extras {
-		if e.Name == name {
-			idx = i
-			break
-		}
-	}
-	if idx == -1 {
-		return fmt.Errorf("extra %q not found in project config", name)
 	}
 
 	if !force {
@@ -147,25 +167,15 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 		}
 	}
 
-	// Remove from slice
-	projCfg.Extras = append(projCfg.Extras[:idx], projCfg.Extras[idx+1:]...)
-	if err := projCfg.Save(cwd); err != nil {
-		return fmt.Errorf("failed to save project config: %w", err)
+	sourceDir, err := removeExtraFromProjectConfig(projCfg, cwd, name)
+	if err != nil {
+		return err
 	}
 
 	ui.Success("Removed %q from project extras config", name)
-
-	sourceDir := config.ExtrasSourceDirProject(cwd, name)
 	cleanEmptyExtrasDir(sourceDir)
-
 	ui.Info("Run 'skillshare sync extras -p' to clean up orphaned links.")
-
-	// Oplog
-	cfgPath := config.ProjectConfigPath(cwd)
-	e := oplog.NewEntry("extras-remove", "ok", time.Since(start))
-	e.Args = map[string]any{"name": name, "scope": "project"}
-	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
-
+	_ = start
 	return nil
 }
 
@@ -184,6 +194,18 @@ func cleanEmptyExtrasDir(dir string) {
 	}
 
 	// Clean parent extras/ directory if empty
+	removeEmptyDir(filepath.Dir(dir))
+}
+
+// cleanEmptyExtrasDirQuiet is the quiet variant of cleanEmptyExtrasDir for TUI use (no stdout writes).
+func cleanEmptyExtrasDirQuiet(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	if len(entries) == 0 {
+		os.Remove(dir)
+	}
 	removeEmptyDir(filepath.Dir(dir))
 }
 
