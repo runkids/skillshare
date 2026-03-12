@@ -409,8 +409,8 @@ export default function SkillDetailPage() {
           </Card>
         </div>
 
-        {/* Sidebar: metadata + files — sticky */}
-        <div className="space-y-5 lg:sticky lg:top-16 lg:self-start">
+        {/* Sidebar: metadata + files — sticky + independently scrollable */}
+        <div className="space-y-5 lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:-mr-2 lg:pr-2">
           <Card>
             <h3
               className="font-bold text-pencil mb-3"
@@ -620,8 +620,7 @@ function MetaItem({
         {copyable && (
           <CopyButton
             value={copyValue ?? value}
-            className="align-middle ml-1.5"
-            style={{ position: 'relative', top: '1px' }}
+            className="ml-1"
           />
         )}
       </dt>

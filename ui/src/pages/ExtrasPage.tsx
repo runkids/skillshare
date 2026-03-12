@@ -204,9 +204,13 @@ function ExtraCard({
           <Button variant="secondary" size="sm" onClick={() => onSync(extra.name)}>
             <RefreshCw size={12} strokeWidth={2.5} /> Sync
           </Button>
-          <Button variant="danger" size="sm" onClick={() => onRemove(extra.name)}>
-            <Trash2 size={12} strokeWidth={2.5} />
-          </Button>
+          <IconButton
+            icon={<Trash2 size={16} strokeWidth={2.5} />}
+            label="Remove extra"
+            size="md"
+            variant="danger-outline"
+            onClick={() => onRemove(extra.name)}
+          />
         </div>
       </div>
 

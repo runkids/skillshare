@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { useToast } from './Toast';
 
@@ -6,7 +6,6 @@ interface CopyButtonProps {
   value: string;
   title?: string;
   className?: string;
-  style?: CSSProperties;
   copiedLabel?: string;
   copiedLabelClassName?: string;
   errorMessage?: string;
@@ -14,13 +13,12 @@ interface CopyButtonProps {
   strokeWidth?: number;
 }
 
-const baseClassName = 'inline-flex items-center gap-0.5 text-pencil-light hover:text-pencil transition-colors cursor-pointer shrink-0';
+const baseClassName = 'inline-flex items-center gap-0.5 text-pencil-light hover:text-pencil transition-all duration-150 cursor-pointer shrink-0 active:scale-95 focus-visible:ring-2 focus-visible:ring-pencil/20 rounded-sm';
 
 export default function CopyButton({
   value,
   title = 'Copy to clipboard',
   className,
-  style,
   copiedLabel = 'Copied!',
   copiedLabelClassName = 'text-xs',
   errorMessage = 'Failed to copy to clipboard.',
@@ -65,7 +63,6 @@ export default function CopyButton({
       type="button"
       onClick={handleCopy}
       className={className ? `${baseClassName} ${className}` : baseClassName}
-      style={style}
       title={title}
       aria-label={title}
     >

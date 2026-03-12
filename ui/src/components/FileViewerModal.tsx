@@ -10,7 +10,8 @@ import { javascript } from '@codemirror/lang-javascript';
 import { EditorView } from '@codemirror/view';
 import Card from './Card';
 import CopyButton from './CopyButton';
-import Button from './Button';
+import IconButton from './IconButton';
+import Spinner from './Spinner';
 import DialogShell from './DialogShell';
 import { api, type SkillFileContent } from '../api/client';
 import { handTheme } from '../lib/codemirror-theme';
@@ -69,18 +70,20 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
                 copiedLabelClassName="text-xs font-normal"
               />
             </h3>
-            <Button variant="ghost" size="sm" onClick={onClose} className="shrink-0 ml-2">
-              <X size={16} strokeWidth={2.5} />
-            </Button>
+            <IconButton
+              icon={<X size={16} strokeWidth={2.5} />}
+              label="Close"
+              size="md"
+              onClick={onClose}
+              className="shrink-0 ml-2"
+            />
           </div>
 
           {/* Content */}
           <div className="overflow-auto flex-1 min-h-0 -mx-4 -mb-4 px-4 pb-4">
             {loading && (
-              <div className="py-12 text-center">
-                <p className="text-pencil-light animate-pulse">
-                  Loading...
-                </p>
+              <div className="py-12 flex justify-center">
+                <Spinner size="md" />
               </div>
             )}
 
