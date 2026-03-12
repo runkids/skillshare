@@ -35,8 +35,10 @@ help:
 	@echo "  ./scripts/test_install.sh"
 	@echo "  docker compose -f docker-compose.sandbox.yml --profile dev up -d  # start without watch"
 
+BINARY ?= bin/skillshare
+
 build:
-	mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare
+	mkdir -p $(dir $(BINARY)) && go build -o $(BINARY) ./cmd/skillshare
 
 build-meta:
 	./scripts/build.sh
@@ -45,7 +47,7 @@ build-windows:
 	./scripts/build-windows.sh $(SHARED)
 
 run: build
-	./bin/skillshare --help
+	$(BINARY) --help
 
 test:
 	./scripts/test.sh
@@ -136,4 +138,4 @@ ui-dev:
 build-all: ui-build build
 
 clean:
-	rm -rf bin coverage.out
+	rm -rf bin $(BINARY) coverage.out

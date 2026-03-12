@@ -40,7 +40,10 @@ echo "  docker compose -f docker-compose.sandbox.yml --profile dev up -d  # star
 
 [tasks.build]
 description = "Build the skillshare binary"
-run = "mkdir -p bin && go build -o bin/skillshare ./cmd/skillshare"
+run = """
+BINARY="${SKILLSHARE_BINARY:-bin/skillshare}"
+mkdir -p "$(dirname "$BINARY")" && go build -o "$BINARY" ./cmd/skillshare
+"""
 
 [tasks."build:meta"]
 description = "Build with version metadata"
@@ -53,7 +56,7 @@ run = "./scripts/build-windows.sh ${1:-}"
 [tasks.run]
 description = "Run skillshare help using the local binary"
 depends = ["build"]
-run = "./bin/skillshare --help"
+run = "${SKILLSHARE_BINARY:-./bin/skillshare} --help"
 
 [tasks.test]
 description = "Run unit and integration tests"

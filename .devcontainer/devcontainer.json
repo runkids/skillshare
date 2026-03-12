@@ -10,8 +10,11 @@
     "3000": { "label": "Docs (docs)" }
   },
   "remoteEnv": {
-    "PATH": "/workspace/.devcontainer/bin:/workspace/bin:${containerEnv:PATH}",
-    "SKILLSHARE_UI_HOST": "0.0.0.0"
+    "PATH": "/workspace/.devcontainer/bin:/usr/local/bin:${containerEnv:PATH}",
+    "SKILLSHARE_UI_HOST": "0.0.0.0",
+    "BINARY": "/usr/local/bin/skillshare",
+    "SKILLSHARE_BINARY": "/usr/local/bin/skillshare",
+    "SKILLSHARE_TEST_BINARY": "/usr/local/bin/skillshare"
   },
   "postCreateCommand": ".devcontainer/setup.sh",
   "postStartCommand": ".devcontainer/start-dev.sh",
