@@ -16,3 +16,8 @@ func ExtrasSourceDirProject(projectRoot, name string) string {
 func ExtrasParentDir(skillsSource string) string {
 	return filepath.Join(filepath.Dir(skillsSource), "extras")
 }
+
+// ExtrasParentDirProject returns the extras parent directory in project mode.
+func ExtrasParentDirProject(projectRoot string) string {
+	return filepath.Join(projectRoot, ".skillshare", "extras")
+}

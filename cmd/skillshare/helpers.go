@@ -29,6 +29,14 @@ func pathExists(path string) bool {
 	return err == nil
 }
 
+// removeEmptyDir removes a directory only if it exists and is empty.
+func removeEmptyDir(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err == nil && len(entries) == 0 {
+		os.Remove(dir)
+	}
+}
+
 // capitalize returns s with the first Unicode character upper-cased.
 func capitalize(s string) string {
 	if s == "" {

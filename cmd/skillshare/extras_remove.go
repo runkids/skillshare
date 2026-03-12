@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -82,8 +84,13 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 		ui.Info("Source files in %s will NOT be deleted.", shortenPath(sourceDir))
 		ui.Info("Existing symlinks in targets will become orphaned.")
 		fmt.Println()
-		ui.Info("Use --force to skip this warning.")
-		return nil
+		fmt.Print("Remove? [y/N]: ")
+		var input string
+		fmt.Scanln(&input)
+		if input = strings.ToLower(strings.TrimSpace(input)); input != "y" && input != "yes" {
+			ui.Info("Cancelled.")
+			return nil
+		}
 	}
 
 	// Remove from slice
@@ -93,7 +100,11 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 	}
 
 	ui.Success("Removed %q from extras config", name)
-	ui.Info("Source files were preserved. Run 'skillshare sync extras' to clean up orphaned links.")
+
+	sourceDir := config.ExtrasSourceDir(cfg.Source, name)
+	cleanEmptyExtrasDir(sourceDir)
+
+	ui.Info("Run 'skillshare sync extras' to clean up orphaned links.")
 
 	// Oplog
 	e := oplog.NewEntry("extras-remove", "ok", time.Since(start))
@@ -127,8 +138,13 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 		ui.Info("Source files in %s will NOT be deleted.", shortenPath(sourceDir))
 		ui.Info("Existing symlinks in targets will become orphaned.")
 		fmt.Println()
-		ui.Info("Use --force to skip this warning.")
-		return nil
+		fmt.Print("Remove? [y/N]: ")
+		var input string
+		fmt.Scanln(&input)
+		if input = strings.ToLower(strings.TrimSpace(input)); input != "y" && input != "yes" {
+			ui.Info("Cancelled.")
+			return nil
+		}
 	}
 
 	// Remove from slice
@@ -138,7 +154,11 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 	}
 
 	ui.Success("Removed %q from project extras config", name)
-	ui.Info("Source files were preserved. Run 'skillshare sync extras -p' to clean up orphaned links.")
+
+	sourceDir := config.ExtrasSourceDirProject(cwd, name)
+	cleanEmptyExtrasDir(sourceDir)
+
+	ui.Info("Run 'skillshare sync extras -p' to clean up orphaned links.")
 
 	// Oplog
 	cfgPath := config.ProjectConfigPath(cwd)
@@ -147,6 +167,24 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
 	return nil
+}
+
+// cleanEmptyExtrasDir removes the source directory if it exists and is empty.
+// Also removes the parent extras/ directory if it becomes empty.
+func cleanEmptyExtrasDir(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return // doesn't exist or unreadable — nothing to do
+	}
+	if len(entries) == 0 {
+		os.Remove(dir)
+		ui.Info("Removed empty source directory %s", shortenPath(dir))
+	} else {
+		ui.Info("Source files preserved in %s (%d files)", shortenPath(dir), len(entries))
+	}
+
+	// Clean parent extras/ directory if empty
+	removeEmptyDir(filepath.Dir(dir))
 }
 
 func printExtrasRemoveHelp() {
@@ -161,7 +199,7 @@ Arguments:
   name                Name of the extra to remove
 
 Options:
-  --force, -f         Skip confirmation warning
+  --force, -f         Skip confirmation prompt
   --project, -p       Remove from project config (.skillshare/)
   --global, -g        Remove from global config (~/.config/skillshare/)
   --help, -h          Show this help`)

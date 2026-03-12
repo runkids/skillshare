@@ -66,6 +66,9 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 	}
 
 	if len(cfg.Extras) == 0 {
+		// Clean up empty extras directory
+		removeEmptyDir(config.ExtrasParentDir(cfg.Source))
+
 		if jsonOutput {
 			return writeJSON(&syncExtrasJSONOutput{Extras: []syncExtrasJSONEntry{}, Duration: formatDuration(start)})
 		}
@@ -218,6 +221,9 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 	}
 
 	if len(projCfg.Extras) == 0 {
+		// Clean up empty extras directory
+		removeEmptyDir(config.ExtrasParentDirProject(cwd))
+
 		if jsonOutput {
 			return writeJSON(&syncExtrasJSONOutput{Extras: []syncExtrasJSONEntry{}, Duration: formatDuration(start)})
 		}
