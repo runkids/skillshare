@@ -46,6 +46,7 @@ type initOptions struct {
 	discover     bool
 	selectArg    string
 	mode         string
+	subdir       string
 }
 
 // parseInitArgs parses command line arguments into initOptions
@@ -139,6 +140,12 @@ func parseInitArgs(args []string) (*initOptions, error) {
 			opts.skillFlagSet = true
 		case "--no-skill":
 			opts.noSkill = true
+		case "--subdir":
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("--subdir requires a directory name")
+			}
+			opts.subdir = args[i+1]
+			i++
 		case "--discover", "-d":
 			opts.discover = true
 		case "--select":
@@ -409,8 +416,11 @@ func performFreshInit(opts *initOptions, home string) error {
 	// Set up git remote for cross-machine sync
 	setupGitRemote(sourcePath, opts.remoteURL, opts.dryRun)
 
-	// Prompt user for subdirectory
-	subDir := useSourceSubdir()
+	// Subdirectory: use --subdir flag or prompt interactively
+	subDir := opts.subdir
+	if subDir == "" {
+		subDir = useSourceSubdir()
+	}
 	if subDir != "" {
 		sourcePath = filepath.Join(sourcePath, subDir)
 		if err := createSourceDir(sourcePath, opts.dryRun); err != nil {
@@ -1230,23 +1240,36 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 	return true
 }
 
-// Specify a subdirectory to be the source and store the skills
-// This allows users to have skills stored in a subdirectory of their repo and not the root
-// Returns a string representing the name of the subdirectory, empty if none was selected
+// useSourceSubdir specifies a subdirectory to be the source and store the skills.
+// This allows users to have skills stored in a subdirectory of their repo and not the root.
+// Returns the name of the subdirectory, or "" if skipped or non-interactive.
 func useSourceSubdir() string {
+	if !runningInInteractiveTTY() {
+		return ""
+	}
+
 	fmt.Println()
-	fmt.Println("  Specifying a subdirectory as the source will store skills in the subdirectory (e.g. skills/) instead of in the root")
+	ui.Info("Specifying a subdirectory as the source will store skills in the subdirectory (e.g. skills/) instead of in the root")
 	fmt.Print("  Specify a subdirectory as the source (e.g. skills)? [y/N]: ")
-	var input string
-	fmt.Scanln(&input)
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
 	input = strings.ToLower(strings.TrimSpace(input))
 
-	if input == "y" || input == "yes" {
-		fmt.Print("  Enter subdirectory name: ")
-		dirNameInput, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-		return strings.TrimSpace(dirNameInput)
+	if input != "y" && input != "yes" {
+		ui.Success("Using repo root as source")
+		return ""
 	}
-	return ""
+
+	fmt.Print("  Enter subdirectory name: ")
+	dirName, _ := reader.ReadString('\n')
+	dirName = strings.TrimSpace(dirName)
+
+	if dirName == "" {
+		return ""
+	}
+
+	ui.Success("Source subdirectory: %s/", dirName)
+	return dirName
 }
 
 const fallbackSkillContent = `---
