@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   LayoutDashboard,
   Puzzle,
@@ -20,6 +20,8 @@ import {
   X,
   Keyboard,
   Compass,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { radius } from '../design';
 import { useAppContext } from '../context/AppContext';
@@ -86,6 +88,12 @@ const navGroups: NavGroup[] = [
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(() => {
+    try { return localStorage.getItem('ss-sidebar-tools') !== 'closed'; } catch { return true; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem('ss-sidebar-tools', toolsOpen ? 'open' : 'closed'); } catch {}
+  }, [toolsOpen]);
   const { isProjectMode } = useAppContext();
   const { startTour } = useTour();
 
@@ -190,27 +198,42 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Bottom bar — match nav item style */}
-        <div className="mt-auto border-t border-muted px-2 py-2 flex flex-col gap-0.5">
-          <ThemePopover />
+        {/* Bottom bar — collapsible tools */}
+        <div className="mt-auto border-t border-muted">
           <button
-            onClick={startTour}
-            className="flex items-center gap-3 px-3 py-1.5 text-sm text-pencil-light hover:text-pencil hover:bg-muted/20 transition-colors cursor-pointer"
-            aria-label="Quick Tour"
+            onClick={() => setToolsOpen((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-1.5 text-xs font-medium tracking-wider text-muted-dark uppercase hover:text-pencil-light transition-colors cursor-pointer"
+            aria-expanded={toolsOpen}
+            aria-label={toolsOpen ? 'Collapse tools' : 'Expand tools'}
           >
-            <Compass size={16} strokeWidth={2.5} />
-            Quick Tour
+            Tools
+            {toolsOpen
+              ? <ChevronDown size={14} strokeWidth={2.5} />
+              : <ChevronUp size={14} strokeWidth={2.5} />}
           </button>
-          <button
-            data-tour="shortcuts-btn"
-            onClick={toggleShortcuts}
-            className="flex items-center gap-3 px-3 py-1.5 text-sm text-pencil-light hover:text-pencil hover:bg-muted/20 transition-colors cursor-pointer"
-            aria-label="Keyboard shortcuts"
-            aria-keyshortcuts="?"
-          >
-            <Keyboard size={16} strokeWidth={2.5} />
-            Shortcuts
-          </button>
+          {toolsOpen && (
+            <div className="px-2 pb-2 flex flex-col gap-0.5">
+              <ThemePopover />
+              <button
+                onClick={startTour}
+                className="flex items-center gap-3 px-3 py-1.5 text-sm text-pencil-light hover:text-pencil hover:bg-muted/20 transition-colors cursor-pointer"
+                aria-label="Quick Tour"
+              >
+                <Compass size={16} strokeWidth={2.5} />
+                Quick Tour
+              </button>
+              <button
+                data-tour="shortcuts-btn"
+                onClick={toggleShortcuts}
+                className="flex items-center gap-3 px-3 py-1.5 text-sm text-pencil-light hover:text-pencil hover:bg-muted/20 transition-colors cursor-pointer"
+                aria-label="Keyboard shortcuts"
+                aria-keyshortcuts="?"
+              >
+                <Keyboard size={16} strokeWidth={2.5} />
+                Shortcuts
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 

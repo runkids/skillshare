@@ -1,4 +1,4 @@
-import type { ReactNode, ButtonHTMLAttributes } from 'react';
+import type { ReactNode, ButtonHTMLAttributes, Ref } from 'react';
 import Spinner from './Spinner';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -6,6 +6,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'link';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
+  ref?: Ref<HTMLButtonElement>;
 }
 
 const variantClasses = {
@@ -30,6 +31,7 @@ export default function Button({
   disabled,
   loading = false,
   style,
+  ref,
   ...props
 }: ButtonProps) {
   const isLink = variant === 'link';
@@ -37,6 +39,7 @@ export default function Button({
   const isDisabled = disabled || loading;
   return (
     <button
+      ref={ref}
       className={`
         ${isGhostOrLink ? '' : 'ss-btn'}
         inline-flex items-center justify-center gap-2

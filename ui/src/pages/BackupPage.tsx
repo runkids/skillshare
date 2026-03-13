@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -9,6 +9,7 @@ import {
   Target,
   Plus,
   RefreshCw,
+  ChevronDown,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { BackupInfo, RestoreValidateResponse } from '../api/client';
@@ -332,8 +333,36 @@ function BackupCard({
   backup: BackupInfo;
   onRestore: (target: string) => void;
 }) {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [dropdownOpen]);
+
+  const toggleDropdown = () => {
+    if (!dropdownOpen && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const estimatedHeight = backup.targets.length * 36 + 8;
+      setOpenUpward(spaceBelow < estimatedHeight + 8);
+    }
+    setDropdownOpen((prev) => !prev);
+  };
+
+  const hasManyTargets = backup.targets.length > 3;
+
   return (
-    <Card>
+    <Card overflow className={dropdownOpen ? 'z-10' : ''}>
       <div className="space-y-3">
         {/* Timestamp row */}
         <div className="flex items-center justify-between">
@@ -360,17 +389,53 @@ function BackupCard({
         </div>
 
         {/* Actions */}
-        <div className="border-t border-dashed border-pencil-light/30 pt-3 flex gap-2">
-          {backup.targets.map((t) => (
-            <Button
-              key={t}
-              variant="secondary"
-              size="sm"
-              onClick={() => onRestore(t)}
-            >
-              <RotateCcw size={14} strokeWidth={2.5} /> Restore {t}
-            </Button>
-          ))}
+        <div className="border-t border-dashed border-pencil-light/30 pt-3 flex gap-2 flex-wrap">
+          {hasManyTargets ? (
+            <div className="relative" ref={dropdownRef}>
+              <Button
+                ref={btnRef}
+                variant="secondary"
+                size="sm"
+                onClick={toggleDropdown}
+              >
+                <RotateCcw size={14} strokeWidth={2.5} />
+                Restore target
+                <ChevronDown
+                  size={14}
+                  strokeWidth={2.5}
+                  className={`transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`}
+                />
+              </Button>
+              {dropdownOpen && (
+                <div className={`absolute left-0 z-50 min-w-[180px] bg-surface border border-muted rounded-[var(--radius-md)] shadow-md py-1 animate-fade-in ${openUpward ? 'bottom-full mb-1' : 'top-full mt-1'}`}>
+                  {backup.targets.map((t) => (
+                    <button
+                      key={t}
+                      className="w-full text-left px-3 py-2 text-sm text-pencil hover:bg-muted/40 transition-colors cursor-pointer flex items-center gap-2"
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        onRestore(t);
+                      }}
+                    >
+                      <RotateCcw size={12} strokeWidth={2.5} className="text-pencil-light" />
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            backup.targets.map((t) => (
+              <Button
+                key={t}
+                variant="secondary"
+                size="sm"
+                onClick={() => onRestore(t)}
+              >
+                <RotateCcw size={14} strokeWidth={2.5} /> Restore {t}
+              </Button>
+            ))
+          )}
         </div>
       </div>
     </Card>
