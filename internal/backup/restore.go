@@ -157,6 +157,23 @@ type BackupVersion struct {
 // ListBackupVersions returns all backup versions for a target, newest first.
 // Returns nil, nil for a non-existent directory.
 func ListBackupVersions(backupDir, targetName string) ([]BackupVersion, error) {
+	return listBackupVersions(backupDir, targetName, true)
+}
+
+// ListBackupVersionsLite is like ListBackupVersions but skips the expensive
+// dirSize() walk. Versions will have TotalSize = -1. Use this for TUI list
+// population where size is computed lazily on demand.
+func ListBackupVersionsLite(backupDir, targetName string) ([]BackupVersion, error) {
+	return listBackupVersions(backupDir, targetName, false)
+}
+
+// DirSize calculates the total size of a directory by walking all files.
+// Exported so callers (e.g. TUI) can compute size on demand for a single version.
+func DirSize(path string) int64 {
+	return dirSize(path)
+}
+
+func listBackupVersions(backupDir, targetName string, computeSize bool) ([]BackupVersion, error) {
 	entries, err := os.ReadDir(backupDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -196,12 +213,17 @@ func ListBackupVersions(backupDir, targetName string) ([]BackupVersion, error) {
 		}
 		sort.Strings(skillNames)
 
+		var totalSize int64 = -1
+		if computeSize {
+			totalSize = dirSize(targetDir)
+		}
+
 		versions = append(versions, BackupVersion{
 			Timestamp:  ts,
 			Label:      ts.Format("2006-01-02 15:04:05"),
 			Dir:        targetDir,
 			SkillCount: len(skillNames),
-			TotalSize:  dirSize(targetDir),
+			TotalSize:  totalSize,
 			SkillNames: skillNames,
 		})
 	}

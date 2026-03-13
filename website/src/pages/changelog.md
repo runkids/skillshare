@@ -9,6 +9,33 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.17.2] - 2026-03-14
+
+### New Features
+
+#### Web UI Git Sync Enhancements
+
+- **Repository Info Card** — the Git Sync page now displays a card showing the current repository URL, branch, and latest commit at the top of the page
+- **Branch switcher** — switch between git branches directly from the Git Sync page without leaving the web dashboard
+
+#### Web UI Backup & Sidebar
+
+- **Backup page restore UX** — improved restore flow with clearer action buttons and confirmation dialogs
+- **Collapsible sidebar tools** — sidebar tool sections can now be collapsed/expanded to reduce visual clutter
+
+#### CLI TUI Improvements
+
+- **Trash TUI split panel** — the trash list now uses the same left-right split panel layout as other TUIs, with a detail panel showing item info alongside the list
+
+### Bug Fixes
+
+- **Backup command spinner** — `skillshare backup` now shows a progress spinner during backup operations instead of appearing frozen
+- **Git Sync footer layout** — Push/Pull action buttons are now pinned to the bottom of the page and no longer shift when content changes
+
+### Performance
+
+- **Restore TUI async size calculation** — backup version sizes are now computed asynchronously in the background instead of blocking the TUI. Large backups with many versions no longer freeze the interface when browsing or selecting versions. Detail panel I/O is capped at 20 skills to prevent lag on large backups
+
 ## [0.17.1] - 2026-03-13
 
 ### New Features

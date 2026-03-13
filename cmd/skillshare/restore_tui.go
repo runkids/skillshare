@@ -61,6 +61,9 @@ func (i restoreVersionItem) Title() string {
 	return i.version.Label
 }
 func (i restoreVersionItem) Description() string {
+	if i.version.TotalSize < 0 {
+		return fmt.Sprintf("%d skill(s)", i.version.SkillCount)
+	}
 	return fmt.Sprintf("%d skill(s), %s",
 		i.version.SkillCount, formatBytes(i.version.TotalSize))
 }
@@ -71,6 +74,18 @@ func (i restoreVersionItem) FilterValue() string { return i.version.Label }
 type restoreDoneMsg struct {
 	err    error
 	action string // "restore" or "delete"
+}
+
+// versionSizeMsg delivers an asynchronously computed directory size.
+type versionSizeMsg struct {
+	dir  string
+	size int64
+}
+
+func computeVersionSizeCmd(dir string) tea.Cmd {
+	return func() tea.Msg {
+		return versionSizeMsg{dir: dir, size: backup.DirSize(dir)}
+	}
 }
 
 // --- Model ---
@@ -104,6 +119,9 @@ type restoreTUIModel struct {
 
 	// Detail scroll (right panel)
 	detailScroll int
+
+	// Lazy size cache: version.Dir → computed size (populated on demand)
+	versionSizeCache map[string]int64
 
 	// Cached detail content — recomputed only on selection change or mutation
 	cachedDetailIdx   int
@@ -142,15 +160,16 @@ func newRestoreTUIModel(summaries []backup.TargetBackupSummary, backupDir string
 	fi.Cursor.Style = tc.Filter
 
 	return restoreTUIModel{
-		phase:       phaseTargetList,
-		backupDir:   backupDir,
-		targets:     targets,
-		cfgPath:     cfgPath,
-		targetList:  tl,
-		targetItems: summaries,
-		matchCount:  len(summaries),
-		filterInput: fi,
-		opSpinner:   sp,
+		phase:            phaseTargetList,
+		backupDir:        backupDir,
+		targets:          targets,
+		cfgPath:          cfgPath,
+		targetList:       tl,
+		targetItems:      summaries,
+		matchCount:       len(summaries),
+		filterInput:      fi,
+		opSpinner:        sp,
+		versionSizeCache: make(map[string]int64),
 	}
 }
 
@@ -167,8 +186,8 @@ func (m restoreTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.phase == phaseVersionList {
 			m.versionList.SetSize(lw, h)
 		}
-		m.refreshDetailCache()
-		return m, nil
+		sizeCmd := m.refreshDetailCache()
+		return m, sizeCmd
 
 	case spinner.TickMsg:
 		if m.phase == phaseExecuting {
@@ -199,6 +218,19 @@ func (m restoreTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.resultMsg = tc.Red.Render(fmt.Sprintf("Error: %s", msg.err))
 		} else {
 			m.resultMsg = tc.Green.Render(fmt.Sprintf("Restored %s from %s", m.selectedTarget, m.selectedVersion.Label))
+		}
+		return m, nil
+
+	case versionSizeMsg:
+		m.versionSizeCache[msg.dir] = msg.size
+		// Re-render detail if still viewing the version whose size just arrived
+		if m.phase == phaseVersionList {
+			if item, ok := m.versionList.SelectedItem().(restoreVersionItem); ok {
+				if item.version.Dir == msg.dir {
+					m.invalidateDetailCache()
+					m.refreshDetailCache() // size is cached now, won't dispatch another cmd
+				}
+			}
 		}
 		return m, nil
 
@@ -364,7 +396,9 @@ func (m restoreTUIModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.activeListIndex() != prevIdx {
 		m.detailScroll = 0
 		m.invalidateDetailCache()
-		m.refreshDetailCache()
+		if sizeCmd := m.refreshDetailCache(); sizeCmd != nil {
+			return m, tea.Batch(cmd, sizeCmd)
+		}
 	}
 
 	return m, cmd
@@ -382,7 +416,7 @@ func (m restoreTUIModel) activeListIndex() int {
 }
 
 func (m restoreTUIModel) enterVersionPhase() (tea.Model, tea.Cmd) {
-	versions, err := backup.ListBackupVersions(m.backupDir, m.selectedTarget)
+	versions, err := backup.ListBackupVersionsLite(m.backupDir, m.selectedTarget)
 	if err != nil || len(versions) == 0 {
 		// No versions left — refresh target list and go back
 		m.refreshTargetList()
@@ -391,6 +425,7 @@ func (m restoreTUIModel) enterVersionPhase() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.versionItems = versions
+	m.versionSizeCache = make(map[string]int64) // reset for new target
 
 	listItems := make([]list.Item, len(versions))
 	for i, v := range versions {
@@ -414,8 +449,8 @@ func (m restoreTUIModel) enterVersionPhase() (tea.Model, tea.Cmd) {
 	m.phase = phaseVersionList
 	m.detailScroll = 0
 	m.invalidateDetailCache()
-	m.refreshDetailCache()
-	return m, nil
+	sizeCmd := m.refreshDetailCache()
+	return m, sizeCmd
 }
 
 func (m restoreTUIModel) startRestore() (tea.Model, tea.Cmd) {
@@ -681,10 +716,11 @@ func (m restoreTUIModel) viewVertical() string {
 }
 
 // refreshDetailCache recomputes the detail content only when the selection or phase changes.
-func (m *restoreTUIModel) refreshDetailCache() {
+// Returns a tea.Cmd if an async size computation is needed (nil otherwise).
+func (m *restoreTUIModel) refreshDetailCache() tea.Cmd {
 	idx := m.activeListIndex()
 	if idx == m.cachedDetailIdx && m.phase == m.cachedDetailPhase && m.cachedDetailStr != "" {
-		return
+		return nil
 	}
 	m.cachedDetailIdx = idx
 	m.cachedDetailPhase = m.phase
@@ -692,15 +728,26 @@ func (m *restoreTUIModel) refreshDetailCache() {
 	case phaseTargetList:
 		if item, ok := m.targetList.SelectedItem().(restoreTargetItem); ok {
 			m.cachedDetailStr = m.renderTargetDetail(item.summary)
-			return
+			return nil
 		}
 	case phaseVersionList:
 		if item, ok := m.versionList.SelectedItem().(restoreVersionItem); ok {
-			m.cachedDetailStr = m.renderVersionDetail(item.version)
-			return
+			v := item.version
+			if v.TotalSize < 0 {
+				if cached, ok := m.versionSizeCache[v.Dir]; ok {
+					v.TotalSize = cached
+				} else {
+					// Render now without size; dispatch async computation
+					m.cachedDetailStr = m.renderVersionDetail(v)
+					return computeVersionSizeCmd(v.Dir)
+				}
+			}
+			m.cachedDetailStr = m.renderVersionDetail(v)
+			return nil
 		}
 	}
 	m.cachedDetailStr = ""
+	return nil
 }
 
 // invalidateDetailCache forces the next refreshDetailCache call to recompute.
@@ -727,7 +774,14 @@ func (m restoreTUIModel) viewRestoreConfirm() string {
 	}
 
 	fmt.Fprintf(&b, "    Skills: %d\n", m.selectedVersion.SkillCount)
-	fmt.Fprintf(&b, "    Size:   %s\n", formatBytes(m.selectedVersion.TotalSize))
+	// Read size from cache (populated async); never block in View()
+	if sz, ok := m.versionSizeCache[m.selectedVersion.Dir]; ok {
+		fmt.Fprintf(&b, "    Size:   %s\n", formatBytes(sz))
+	} else if m.selectedVersion.TotalSize >= 0 {
+		fmt.Fprintf(&b, "    Size:   %s\n", formatBytes(m.selectedVersion.TotalSize))
+	} else {
+		fmt.Fprintf(&b, "    Size:   calculating...\n")
+	}
 
 	if len(m.selectedVersion.SkillNames) > 0 {
 		b.WriteString("\n    Contents:\n")
@@ -805,22 +859,41 @@ func (m restoreTUIModel) renderTargetDetail(s backup.TargetBackupSummary) string
 	row("Latest:  ", fmt.Sprintf("%s (%s)", s.Latest.Format("2006-01-02 15:04:05"), timeAgo(s.Latest)))
 	row("Oldest:  ", fmt.Sprintf("%s (%s)", s.Oldest.Format("2006-01-02 15:04:05"), timeAgo(s.Oldest)))
 
-	// Preview skills from latest backup
-	latestVersions, _ := backup.ListBackupVersions(m.backupDir, s.TargetName)
-	if len(latestVersions) > 0 {
-		latest := latestVersions[0]
-		b.WriteString("\n")
-		b.WriteString(tc.Separator.Render("── Latest backup skills ──────────────"))
-		b.WriteString("\n")
-		for _, name := range latest.SkillNames {
-			desc := readSkillDescription(filepath.Join(latest.Dir, name))
-			if desc != "" {
-				b.WriteString(tc.Value.Render("  " + name))
-				b.WriteString("\n")
-				b.WriteString(tc.Dim.Render("    " + truncateStr(desc, 60)))
-				b.WriteString("\n")
-			} else {
-				b.WriteString(tc.Value.Render("  " + name))
+	// Preview skills from latest backup — read directory directly instead of
+	// calling ListBackupVersions (which would walk all versions + dirSize).
+	latestDir := filepath.Join(m.backupDir, s.Latest.Format("2006-01-02_15-04-05"), s.TargetName)
+	if skillEntries, err := os.ReadDir(latestDir); err == nil {
+		var skillNames []string
+		for _, se := range skillEntries {
+			if se.IsDir() {
+				skillNames = append(skillNames, se.Name())
+			}
+		}
+		sort.Strings(skillNames)
+
+		if len(skillNames) > 0 {
+			b.WriteString("\n")
+			b.WriteString(tc.Separator.Render("── Latest backup skills ──────────────"))
+			b.WriteString("\n")
+			const maxPreview = 20
+			show := skillNames
+			if len(show) > maxPreview {
+				show = show[:maxPreview]
+			}
+			for _, name := range show {
+				desc := readSkillDescription(filepath.Join(latestDir, name))
+				if desc != "" {
+					b.WriteString(tc.Value.Render("  " + name))
+					b.WriteString("\n")
+					b.WriteString(tc.Dim.Render("    " + truncateStr(desc, 60)))
+					b.WriteString("\n")
+				} else {
+					b.WriteString(tc.Value.Render("  " + name))
+					b.WriteString("\n")
+				}
+			}
+			if len(skillNames) > maxPreview {
+				b.WriteString(tc.Dim.Render(fmt.Sprintf("  ... and %d more", len(skillNames)-maxPreview)))
 				b.WriteString("\n")
 			}
 		}
@@ -840,7 +913,11 @@ func (m restoreTUIModel) renderVersionDetail(v backup.BackupVersion) string {
 
 	row("Date:    ", fmt.Sprintf("%s (%s)", v.Label, timeAgo(v.Timestamp)))
 	row("Skills:  ", fmt.Sprintf("%d", v.SkillCount))
-	row("Size:    ", formatBytes(v.TotalSize))
+	if v.TotalSize >= 0 {
+		row("Size:    ", formatBytes(v.TotalSize))
+	} else {
+		row("Size:    ", "calculating...")
+	}
 
 	// Diff with current target
 	if t, ok := m.targets[m.selectedTarget]; ok {
@@ -877,24 +954,34 @@ func (m restoreTUIModel) renderVersionDetail(v backup.BackupVersion) string {
 		}
 	}
 
-	// Skill list with descriptions
+	// Skill list with descriptions (cap I/O at 20 skills)
 	if len(v.SkillNames) > 0 {
 		b.WriteString("\n")
 		b.WriteString(tc.Separator.Render("── Contents ──────────────────────────"))
 		b.WriteString("\n")
-		for _, name := range v.SkillNames {
-			desc := readSkillDescription(filepath.Join(v.Dir, name))
-			files := listSkillFiles(filepath.Join(v.Dir, name))
-			b.WriteString(tc.Value.Render("  " + name))
+		const maxDetail = 20
+		for i, name := range v.SkillNames {
+			if i < maxDetail {
+				desc := readSkillDescription(filepath.Join(v.Dir, name))
+				files := listSkillFiles(filepath.Join(v.Dir, name))
+				b.WriteString(tc.Value.Render("  " + name))
+				b.WriteString("\n")
+				if desc != "" {
+					b.WriteString(tc.Dim.Render("    " + truncateStr(desc, 60)))
+					b.WriteString("\n")
+				}
+				if len(files) > 0 {
+					b.WriteString(tc.Dim.Render("    " + strings.Join(files, "  ")))
+					b.WriteString("\n")
+				}
+			} else {
+				b.WriteString(tc.Dim.Render("  " + name))
+				b.WriteString("\n")
+			}
+		}
+		if len(v.SkillNames) > maxDetail {
+			b.WriteString(tc.Dim.Render(fmt.Sprintf("  ... %d skill(s) above shown without details", len(v.SkillNames)-maxDetail)))
 			b.WriteString("\n")
-			if desc != "" {
-				b.WriteString(tc.Dim.Render("    " + truncateStr(desc, 60)))
-				b.WriteString("\n")
-			}
-			if len(files) > 0 {
-				b.WriteString(tc.Dim.Render("    " + strings.Join(files, "  ")))
-				b.WriteString("\n")
-			}
 		}
 	}
 
