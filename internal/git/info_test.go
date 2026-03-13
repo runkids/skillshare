@@ -469,6 +469,133 @@ func TestForcePullWithProgress(t *testing.T) {
 	}
 }
 
+func TestListLocalBranches(t *testing.T) {
+	repo := initTestRepo(t)
+
+	branches, err := ListLocalBranches(repo)
+	if err != nil {
+		t.Fatalf("ListLocalBranches failed: %v", err)
+	}
+	if len(branches) != 1 {
+		t.Fatalf("expected 1 branch, got %d: %v", len(branches), branches)
+	}
+
+	// Create another branch
+	runGit(t, repo, "branch", "feature-x")
+	branches, err = ListLocalBranches(repo)
+	if err != nil {
+		t.Fatalf("ListLocalBranches failed: %v", err)
+	}
+	if len(branches) != 2 {
+		t.Fatalf("expected 2 branches, got %d: %v", len(branches), branches)
+	}
+	found := false
+	for _, b := range branches {
+		if b == "feature-x" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected to find feature-x in %v", branches)
+	}
+}
+
+func TestListRemoteBranches(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "main", map[string]string{
+		"README.md": "# test\n",
+	})
+	repo := cloneRepo(t, remote)
+
+	// Push a second branch to remote
+	updater := filepath.Join(t.TempDir(), "updater")
+	runGit(t, "", "clone", remote, updater)
+	runGit(t, updater, "config", "user.email", "test@test.com")
+	runGit(t, updater, "config", "user.name", "test")
+	runGit(t, updater, "checkout", "-b", "develop")
+	os.WriteFile(filepath.Join(updater, "dev.txt"), []byte("dev"), 0644)
+	runGit(t, updater, "add", "-A")
+	runGit(t, updater, "commit", "-m", "dev branch")
+	runGit(t, updater, "push", "origin", "develop")
+
+	// Fetch so repo knows about remote develop
+	runGit(t, repo, "fetch")
+
+	remoteBranches, err := ListRemoteBranches(repo)
+	if err != nil {
+		t.Fatalf("ListRemoteBranches failed: %v", err)
+	}
+
+	// "main" is local, so only "develop" should appear as remote-only
+	found := false
+	for _, b := range remoteBranches {
+		if b == "main" {
+			t.Error("main should not be in remote-only list (it exists locally)")
+		}
+		if b == "develop" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected develop in remote branches, got: %v", remoteBranches)
+	}
+}
+
+func TestCheckout_LocalBranch(t *testing.T) {
+	repo := initTestRepo(t)
+
+	// Create a local branch and switch back
+	runGit(t, repo, "branch", "feature-a")
+
+	if err := Checkout(repo, "feature-a"); err != nil {
+		t.Fatalf("Checkout local branch failed: %v", err)
+	}
+
+	branch, _ := GetCurrentBranch(repo)
+	if branch != "feature-a" {
+		t.Errorf("expected branch feature-a, got %s", branch)
+	}
+}
+
+func TestCheckout_RemoteBranch(t *testing.T) {
+	remote := createBareRemoteWithBranch(t, "main", map[string]string{
+		"README.md": "# test\n",
+	})
+	repo := cloneRepo(t, remote)
+
+	// Push a develop branch to remote via another clone
+	updater := filepath.Join(t.TempDir(), "updater")
+	runGit(t, "", "clone", remote, updater)
+	runGit(t, updater, "config", "user.email", "test@test.com")
+	runGit(t, updater, "config", "user.name", "test")
+	runGit(t, updater, "checkout", "-b", "develop")
+	os.WriteFile(filepath.Join(updater, "dev.txt"), []byte("dev"), 0644)
+	runGit(t, updater, "add", "-A")
+	runGit(t, updater, "commit", "-m", "dev branch")
+	runGit(t, updater, "push", "origin", "develop")
+
+	// Fetch so repo sees origin/develop
+	runGit(t, repo, "fetch")
+
+	// Checkout remote-only branch
+	if err := Checkout(repo, "develop"); err != nil {
+		t.Fatalf("Checkout remote branch failed: %v", err)
+	}
+
+	branch, _ := GetCurrentBranch(repo)
+	if branch != "develop" {
+		t.Errorf("expected branch develop, got %s", branch)
+	}
+}
+
+func TestCheckout_NonexistentBranch(t *testing.T) {
+	repo := initTestRepo(t)
+
+	err := Checkout(repo, "does-not-exist")
+	if err == nil {
+		t.Error("expected error for non-existent branch")
+	}
+}
+
 func TestGetRemoteURL(t *testing.T) {
 	dir := initTestRepo(t)
 

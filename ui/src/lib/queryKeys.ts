@@ -18,6 +18,7 @@ export const queryKeys = {
   backups: ['backups'] as const,
   trash: ['trash'] as const,
   gitStatus: ['git-status'] as const,
+  gitBranches: ['git-branches'] as const,
 
   audit: {
     all: ['audit'] as const,

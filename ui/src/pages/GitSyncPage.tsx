@@ -12,8 +12,10 @@ import {
   Github,
   Gitlab,
   ExternalLink,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { PullResponse } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -24,6 +26,8 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import CopyButton from '../components/CopyButton';
 import { Input, Checkbox } from '../components/Input';
+import { Select } from '../components/Select';
+import type { SelectOption } from '../components/Select';
 import Badge from '../components/Badge';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
@@ -98,6 +102,38 @@ export default function GitSyncPage() {
     );
   }
 
+  const { data: branches } = useQuery({
+    queryKey: queryKeys.gitBranches,
+    queryFn: () => api.gitBranches(),
+    staleTime: staleTimes.gitStatus,
+    enabled: !!status?.isRepo,
+  });
+
+  const fetchBranchesMutation = useMutation({
+    mutationFn: () => api.gitBranches({ fetch: true }),
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.gitBranches, data);
+      toast('Branch list refreshed', 'info');
+    },
+    onError: (err: any) => {
+      toast(err.message, 'error');
+    },
+  });
+
+  const checkoutMutation = useMutation({
+    mutationFn: (branch: string) => api.gitCheckout(branch),
+    onSuccess: (res) => {
+      toast(`Switched to ${res.branch}`, 'success');
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitBranches });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+    },
+    onError: (err: any) => {
+      toast(err.message, 'error');
+    },
+  });
+
   const [commitMsg, setCommitMsg] = useState('');
   const [pushDryRun, setPushDryRun] = useState(false);
   const [pullDryRun, setPullDryRun] = useState(false);
@@ -108,6 +144,17 @@ export default function GitSyncPage() {
   const [pullResult, setPullResult] = useState<PullResponse | null>(null);
 
   const disabled = !status?.isRepo || !status?.hasRemote;
+
+  // Build branch options for Select
+  const branchOptions: SelectOption[] = [];
+  if (branches) {
+    for (const b of branches.local) {
+      branchOptions.push({ value: b, label: b });
+    }
+    for (const b of branches.remote) {
+      branchOptions.push({ value: b, label: `${b} (remote)`, description: 'Remote-only branch' });
+    }
+  }
 
   const handlePush = async () => {
     setPushing(true);
@@ -192,8 +239,8 @@ export default function GitSyncPage() {
         subtitle="Push and pull your skills source directory via git"
       />
 
-      {/* Repository Info Card */}
-      <Card>
+      {/* Repository Info Card — z-10 so branch dropdown renders above cards below */}
+      <Card overflow className="relative z-10">
         <div className="space-y-3">
           {!status?.isRepo ? (
             <div className="flex items-center gap-2 text-pencil">
@@ -238,16 +285,64 @@ export default function GitSyncPage() {
                   </div>
                 )}
 
-                {/* Branch / HEAD / Status */}
-                <div className="flex items-center gap-x-6 gap-y-2 flex-wrap text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className="text-pencil-light">Branch</span>
-                    <strong>{status.branch || 'unknown'}</strong>
-                    {status.trackingBranch && (
-                      <span className="text-pencil-light">→ {status.trackingBranch}</span>
-                    )}
-                  </div>
+                {/* Branch selector (own row so dropdown doesn't overlap) */}
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-pencil-light">Branch</span>
+                  {branchOptions.length > 1 ? (
+                    <>
+                      <Select
+                        value={status.branch || ''}
+                        onChange={(val) => {
+                          if (val !== status.branch) {
+                            checkoutMutation.mutate(val);
+                          }
+                        }}
+                        options={branchOptions}
+                        size="sm"
+                        disabled={!!branches?.isDirty || checkoutMutation.isPending}
+                        className="min-w-[140px]"
+                      />
+                      <button
+                        type="button"
+                        title="Fetch remote branches"
+                        disabled={fetchBranchesMutation.isPending}
+                        onClick={() => fetchBranchesMutation.mutate()}
+                        className="p-1 rounded text-pencil-light hover:text-pencil hover:bg-muted/60 transition-colors disabled:opacity-50 cursor-pointer"
+                      >
+                        <RefreshCw size={14} strokeWidth={2.5} className={fetchBranchesMutation.isPending ? 'animate-spin' : ''} />
+                      </button>
+                      {checkoutMutation.isPending && (
+                        <Loader2 size={14} className="animate-spin text-pencil-light" />
+                      )}
+                      {branches?.isDirty && (
+                        <span className="text-xs text-warning" title="Commit or stash changes before switching branches">
+                          dirty
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <strong>{status.branch || 'unknown'}</strong>
+                      {status.hasRemote && (
+                        <button
+                          type="button"
+                          title="Fetch remote branches"
+                          disabled={fetchBranchesMutation.isPending}
+                          onClick={() => fetchBranchesMutation.mutate()}
+                          className="p-1 rounded text-pencil-light hover:text-pencil hover:bg-muted/60 transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          <RefreshCw size={14} strokeWidth={2.5} className={fetchBranchesMutation.isPending ? 'animate-spin' : ''} />
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {status.trackingBranch && (
+                    <span className="text-pencil-light">→ {status.trackingBranch}</span>
+                  )}
+                </div>
 
+                {/* HEAD / Status */}
+                <div className="flex items-center gap-x-6 gap-y-2 flex-wrap text-sm">
                   {status.headHash && (
                     <div className="flex items-center gap-2">
                       <span className="text-pencil-light">HEAD</span>

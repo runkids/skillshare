@@ -756,6 +756,81 @@ func GetHeadMessage(repoPath string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// ListLocalBranches returns local branch names sorted alphabetically.
+func ListLocalBranches(repoPath string) ([]string, error) {
+	cmd := exec.Command("git", "branch", "--format=%(refname:short)")
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	var branches []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if b := strings.TrimSpace(line); b != "" {
+			branches = append(branches, b)
+		}
+	}
+	return branches, nil
+}
+
+// ListRemoteBranches returns remote-only branch names (stripping "origin/" prefix).
+// Branches that already exist locally are excluded.
+func ListRemoteBranches(repoPath string) ([]string, error) {
+	cmd := exec.Command("git", "branch", "-r", "--format=%(refname:short)")
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+
+	locals, _ := ListLocalBranches(repoPath)
+	localSet := make(map[string]struct{}, len(locals))
+	for _, l := range locals {
+		localSet[l] = struct{}{}
+	}
+
+	var branches []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		ref := strings.TrimSpace(line)
+		if ref == "" || ref == "origin/HEAD" || strings.Contains(ref, "->") {
+			continue
+		}
+		name := strings.TrimPrefix(ref, "origin/")
+		if _, exists := localSet[name]; exists {
+			continue
+		}
+		branches = append(branches, name)
+	}
+	return branches, nil
+}
+
+// Checkout switches to the given branch. If the branch exists only on
+// the remote, a new local tracking branch is created automatically.
+func Checkout(repoPath, branch string) error {
+	// Check if local branch exists
+	check := exec.Command("git", "rev-parse", "--verify", "refs/heads/"+branch)
+	check.Dir = repoPath
+	if check.Run() == nil {
+		// Local branch exists — simple checkout
+		cmd := exec.Command("git", "checkout", branch)
+		cmd.Dir = repoPath
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("git checkout failed: %s", strings.TrimSpace(string(out)))
+		}
+		return nil
+	}
+
+	// Try remote tracking branch
+	cmd := exec.Command("git", "checkout", "-b", branch, "origin/"+branch)
+	cmd.Dir = repoPath
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git checkout failed: %s", strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 // GetTrackingBranch returns the upstream tracking branch (e.g. "origin/main").
 // Returns empty string (no error) if no upstream is set.
 func GetTrackingBranch(repoPath string) (string, error) {

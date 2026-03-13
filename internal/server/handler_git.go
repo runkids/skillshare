@@ -69,6 +69,139 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
+type gitBranchesResponse struct {
+	Current    string   `json:"current"`
+	Local      []string `json:"local"`
+	Remote     []string `json:"remote"`
+	IsDirty    bool     `json:"isDirty"`
+	DirtyFiles []string `json:"dirtyFiles"`
+}
+
+// handleGitBranches returns local/remote branches for the source directory.
+// Pass ?fetch=true to run git fetch first (discovers new remote branches).
+func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
+	src := s.cfg.Source
+
+	if !git.IsRepo(src) {
+		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
+		return
+	}
+
+	// Optional: fetch from remote first to discover new branches
+	if r.URL.Query().Get("fetch") == "true" && git.HasRemote(src) {
+		_ = git.FetchWithEnv(src, git.AuthEnvForRepo(src))
+	}
+
+	resp := gitBranchesResponse{
+		Local:      make([]string, 0),
+		Remote:     make([]string, 0),
+		DirtyFiles: make([]string, 0),
+	}
+
+	if branch, err := git.GetCurrentBranch(src); err == nil {
+		resp.Current = branch
+	}
+
+	if local, err := git.ListLocalBranches(src); err == nil && len(local) > 0 {
+		resp.Local = local
+	}
+
+	if remote, err := git.ListRemoteBranches(src); err == nil && len(remote) > 0 {
+		resp.Remote = remote
+	}
+
+	if dirty, err := git.IsDirty(src); err == nil {
+		resp.IsDirty = dirty
+	}
+
+	if resp.IsDirty {
+		if files, err := git.GetDirtyFiles(src); err == nil && len(files) > 0 {
+			resp.DirtyFiles = files
+		}
+	}
+
+	writeJSON(w, resp)
+}
+
+type checkoutRequest struct {
+	Branch string `json:"branch"`
+}
+
+type checkoutResponse struct {
+	Success bool   `json:"success"`
+	Branch  string `json:"branch"`
+	Message string `json:"message"`
+}
+
+// handleGitCheckout switches to a different branch
+func (s *Server) handleGitCheckout(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var body checkoutRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if body.Branch == "" {
+		writeError(w, http.StatusBadRequest, "branch is required")
+		return
+	}
+
+	src := s.cfg.Source
+
+	if !git.IsRepo(src) {
+		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
+		return
+	}
+
+	// Dirty check
+	dirty, err := git.IsDirty(src)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to check git status: "+err.Error())
+		return
+	}
+	if dirty {
+		files, _ := git.GetDirtyFiles(src)
+		resp := map[string]any{
+			"error":      "working tree has uncommitted changes — commit or stash before switching branches",
+			"isDirty":    true,
+			"dirtyFiles": files,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(resp)
+		return
+	}
+
+	// Fetch before checkout to ensure remote refs are up to date
+	if git.HasRemote(src) {
+		_ = git.FetchWithEnv(src, git.AuthEnvForRepo(src))
+	}
+
+	// Checkout
+	if err := git.Checkout(src, body.Branch); err != nil {
+		s.writeOpsLog("checkout", "error", start, map[string]any{
+			"branch": body.Branch,
+			"scope":  "ui",
+		}, err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeOpsLog("checkout", "ok", start, map[string]any{
+		"branch": body.Branch,
+		"scope":  "ui",
+	}, "")
+
+	writeJSON(w, checkoutResponse{
+		Success: true,
+		Branch:  body.Branch,
+		Message: "switched to branch " + body.Branch,
+	})
+}
+
 type pushRequest struct {
 	Message string `json:"message"`
 	DryRun  bool   `json:"dryRun"`

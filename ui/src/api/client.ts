@@ -368,6 +368,13 @@ export const api = {
 
   // Git
   gitStatus: () => apiFetch<GitStatus>('/git/status'),
+  gitBranches: (opts?: { fetch?: boolean }) =>
+    apiFetch<GitBranches>(`/git/branches${opts?.fetch ? '?fetch=true' : ''}`),
+  gitCheckout: (branch: string) =>
+    apiFetch<GitCheckoutResponse>('/git/checkout', {
+      method: 'POST',
+      body: JSON.stringify({ branch }),
+    }),
   push: (opts: { message?: string; dryRun?: boolean }) =>
     apiFetch<PushResponse>('/push', {
       method: 'POST',
@@ -620,6 +627,20 @@ export interface GitStatus {
   headHash?: string;
   headMessage?: string;
   trackingBranch?: string;
+}
+
+export interface GitBranches {
+  current: string;
+  local: string[];
+  remote: string[];
+  isDirty: boolean;
+  dirtyFiles: string[];
+}
+
+export interface GitCheckoutResponse {
+  success: boolean;
+  branch: string;
+  message: string;
 }
 
 export interface PushResponse {
