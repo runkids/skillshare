@@ -120,6 +120,9 @@
   --accent-3: #d4870e;
   --accent-4: #2e8b57;
 
+  /* Sidebar — warm paper instead of plain white */
+  --color-paper-warm: var(--color-paper);
+
   /* Heading scale (Caveat renders larger than DM Sans) */
   --heading-scale: 0.92;
 }

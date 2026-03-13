@@ -379,144 +379,152 @@ export default function GitSyncPage() {
       <Card className={disabled ? 'opacity-50 pointer-events-none' : ''} padding="none">
         <div data-tour="git-actions" className="grid grid-cols-1 md:grid-cols-2">
           {/* Push Section */}
-          <div className="p-4 space-y-4">
-            <h3 className="text-xl font-bold text-pencil flex items-center gap-2">
-              <ArrowUpCircle size={20} strokeWidth={2.5} />
-              Push Changes
-            </h3>
+          <div className="p-4 flex flex-col">
+            <div className="space-y-4 flex-1">
+              <h3 className="text-xl font-bold text-pencil flex items-center gap-2">
+                <ArrowUpCircle size={20} strokeWidth={2.5} />
+                Push Changes
+              </h3>
 
-            <Input
-              label="Commit Message"
-              placeholder="Describe your changes..."
-              value={commitMsg}
-              onChange={(e) => setCommitMsg(e.target.value)}
-            />
+              <Input
+                label="Commit Message"
+                placeholder="Describe your changes..."
+                value={commitMsg}
+                onChange={(e) => setCommitMsg(e.target.value)}
+              />
 
-            {status && status.files?.length > 0 && (
-              <div>
-                <button
-                  className="flex items-center gap-1 text-sm text-pencil-light hover:text-pencil transition-colors cursor-pointer"
-                  onClick={() => setFilesExpanded(!filesExpanded)}
-                >
-                  {filesExpanded ? (
-                    <ChevronDown size={14} strokeWidth={2.5} />
-                  ) : (
-                    <ChevronRight size={14} strokeWidth={2.5} />
+              {status && status.files?.length > 0 && (
+                <div>
+                  <button
+                    className="flex items-center gap-1 text-sm text-pencil-light hover:text-pencil transition-colors cursor-pointer"
+                    onClick={() => setFilesExpanded(!filesExpanded)}
+                  >
+                    {filesExpanded ? (
+                      <ChevronDown size={14} strokeWidth={2.5} />
+                    ) : (
+                      <ChevronRight size={14} strokeWidth={2.5} />
+                    )}
+                    Changed Files ({status.files.length})
+                  </button>
+                  {filesExpanded && (
+                    <div className="mt-2 space-y-1 p-2 border border-dashed border-pencil-light/30 rounded">
+                      {status.files.map((f, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm">
+                          {fileStatusBadge(f)}
+                          <span className="font-mono truncate">{fileName(f)}</span>
+                        </div>
+                      ))}
+                    </div>
                   )}
-                  Changed Files ({status.files.length})
-                </button>
-                {filesExpanded && (
-                  <div className="mt-2 space-y-1 p-2 border border-dashed border-pencil-light/30 rounded">
-                    {status.files.map((f, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm">
-                        {fileStatusBadge(f)}
-                        <span className="font-mono truncate">{fileName(f)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
 
-            {status && !status.isDirty && !pushResult && (
-              <p className="text-sm text-pencil-light">
-                No uncommitted changes. Edit skills in the source directory to push.
-              </p>
-            )}
+              {status && !status.isDirty && !pushResult && (
+                <p className="text-sm text-pencil-light">
+                  No uncommitted changes. Edit skills in the source directory to push.
+                </p>
+              )}
 
-            <div className="flex items-center justify-between gap-4 pt-2">
-              <Checkbox label="Dry Run" checked={pushDryRun} onChange={setPushDryRun} />
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handlePush}
-                loading={pushing}
-                disabled={!status?.isDirty && !pushDryRun}
-              >
-                {!pushing && <ArrowUpCircle size={16} strokeWidth={2.5} />}
-                {pushing ? 'Pushing...' : 'Push'}
-              </Button>
+              {pushResult && (
+                <p className="text-sm flex items-center gap-1 text-success">
+                  <CheckCircle size={14} strokeWidth={2.5} />
+                  {pushResult}
+                </p>
+              )}
             </div>
 
-            {pushResult && (
-              <p className="text-sm flex items-center gap-1 text-success">
-                <CheckCircle size={14} strokeWidth={2.5} />
-                {pushResult}
-              </p>
-            )}
+            <div className="space-y-3 mt-4 border-t border-dashed border-pencil-light/20 pt-3">
+              <div className="flex items-center justify-between gap-4">
+                <Checkbox label="Dry Run" checked={pushDryRun} onChange={setPushDryRun} />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handlePush}
+                  loading={pushing}
+                  disabled={!status?.isDirty && !pushDryRun}
+                >
+                  {!pushing && <ArrowUpCircle size={16} strokeWidth={2.5} />}
+                  {pushing ? 'Pushing...' : 'Push'}
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Divider */}
-          <div className="border-t md:border-t-0 md:border-l border-dashed border-pencil-light/20 p-4 space-y-4">
+          <div className="border-t md:border-t-0 md:border-l border-dashed border-pencil-light/20 p-4 flex flex-col">
             {/* Pull Section */}
-            <h3 className="text-xl font-bold text-pencil flex items-center gap-2">
-              <ArrowDownCircle size={20} strokeWidth={2.5} />
-              Pull Changes
-            </h3>
+            <div className="space-y-4 flex-1">
+              <h3 className="text-xl font-bold text-pencil flex items-center gap-2">
+                <ArrowDownCircle size={20} strokeWidth={2.5} />
+                Pull Changes
+              </h3>
 
-            {status?.isDirty ? (
-              <p className="text-sm text-warning flex items-center gap-1">
-                <AlertTriangle size={14} strokeWidth={2.5} />
-                Commit or stash local changes before pulling
-              </p>
-            ) : (
-              <p className="text-sm text-pencil-light">
-                Fetch latest commits from remote and auto-sync to all targets.
-              </p>
-            )}
+              {status?.isDirty ? (
+                <p className="text-sm text-warning flex items-center gap-1">
+                  <AlertTriangle size={14} strokeWidth={2.5} />
+                  Commit or stash local changes before pulling
+                </p>
+              ) : (
+                <p className="text-sm text-pencil-light">
+                  Fetch latest commits from remote and auto-sync to all targets.
+                </p>
+              )}
 
-            <div className="flex items-center justify-between gap-4 pt-2">
-              <Checkbox label="Dry Run" checked={pullDryRun} onChange={setPullDryRun} />
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handlePull}
-                loading={pulling}
-                disabled={!!status?.isDirty && !pullDryRun}
-              >
-                {!pulling && <ArrowDownCircle size={16} strokeWidth={2.5} />}
-                {pulling ? 'Pulling...' : 'Pull'}
-              </Button>
+              {/* Pull Results — in content area, above the action footer */}
+              {pullResult && !pullResult.dryRun && !pullResult.upToDate && (
+                <div className="space-y-2 border-t border-dashed border-pencil-light/30 pt-3">
+                  {pullResult.commits?.length > 0 && (
+                    <div className="space-y-1">
+                      {pullResult.commits.map((c, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm">
+                          <GitCommit size={14} strokeWidth={2.5} className="text-info" />
+                          <code className="font-mono text-info">{c.hash}</code>
+                          <span className="truncate">{c.message}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {pullResult.stats && (
+                    <p className="text-sm text-pencil-light">
+                      <span className="text-success">+{pullResult.stats.insertions}</span>
+                      {' '}
+                      <span className="text-danger">-{pullResult.stats.deletions}</span>
+                      {' across '}
+                      {pullResult.stats.filesChanged} file(s)
+                    </p>
+                  )}
+                  {pullResult.syncResults?.length > 0 && (
+                    <p className="text-sm text-pencil-light flex items-center gap-1">
+                      <CheckCircle size={14} strokeWidth={2.5} className="text-success" />
+                      Auto-synced to {pullResult.syncResults.length} target(s)
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {pullResult && pullResult.upToDate && (
+                <p className="text-sm text-pencil-light flex items-center gap-1">
+                  <CheckCircle size={14} strokeWidth={2.5} className="text-success" />
+                  Already up to date
+                </p>
+              )}
             </div>
 
-            {/* Pull Results */}
-            {pullResult && !pullResult.dryRun && !pullResult.upToDate && (
-              <div className="space-y-2 border-t border-dashed border-pencil-light/30 pt-3">
-                {pullResult.commits?.length > 0 && (
-                  <div className="space-y-1">
-                    {pullResult.commits.map((c, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm">
-                        <GitCommit size={14} strokeWidth={2.5} className="text-info" />
-                        <code className="font-mono text-info">{c.hash}</code>
-                        <span className="truncate">{c.message}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {pullResult.stats && (
-                  <p className="text-sm text-pencil-light">
-                    <span className="text-success">+{pullResult.stats.insertions}</span>
-                    {' '}
-                    <span className="text-danger">-{pullResult.stats.deletions}</span>
-                    {' across '}
-                    {pullResult.stats.filesChanged} file(s)
-                  </p>
-                )}
-                {pullResult.syncResults?.length > 0 && (
-                  <p className="text-sm text-pencil-light flex items-center gap-1">
-                    <CheckCircle size={14} strokeWidth={2.5} className="text-success" />
-                    Auto-synced to {pullResult.syncResults.length} target(s)
-                  </p>
-                )}
+            <div className="space-y-3 mt-4 border-t border-dashed border-pencil-light/20 pt-3">
+              <div className="flex items-center justify-between gap-4">
+                <Checkbox label="Dry Run" checked={pullDryRun} onChange={setPullDryRun} />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handlePull}
+                  loading={pulling}
+                  disabled={!!status?.isDirty && !pullDryRun}
+                >
+                  {!pulling && <ArrowDownCircle size={16} strokeWidth={2.5} />}
+                  {pulling ? 'Pulling...' : 'Pull'}
+                </Button>
               </div>
-            )}
-
-            {pullResult && pullResult.upToDate && (
-              <p className="text-sm text-pencil-light flex items-center gap-1">
-                <CheckCircle size={14} strokeWidth={2.5} className="text-success" />
-                Already up to date
-              </p>
-            )}
+            </div>
           </div>
         </div>
       </Card>
