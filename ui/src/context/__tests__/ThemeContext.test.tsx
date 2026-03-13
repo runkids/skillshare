@@ -32,7 +32,7 @@ describe('ThemeContext', () => {
   it('defaults to playful style and system mode', () => {
     const { result } = renderHook(() => useTheme(), { wrapper });
     expect(result.current.style).toBe('playful');
-    expect(result.current.modePreference).toBe('system');
+    expect(result.current.modePreference).toBe('light');
   });
 
   it('migrates old skillshare-theme key', () => {

@@ -240,54 +240,70 @@ export default function GitSyncPage() {
       />
 
       {/* Repository Info Card — z-10 so branch dropdown renders above cards below */}
-      <Card overflow className="relative z-10">
-        <div className="space-y-3">
-          {!status?.isRepo ? (
-            <div className="flex items-center gap-2 text-pencil">
-              <AlertTriangle size={18} strokeWidth={2.5} className="text-danger" />
-              <span>Source directory is not a git repository</span>
-              <Badge variant="danger">not a repo</Badge>
-            </div>
-          ) : (() => {
-            const parsed = parseRemoteURL(status.remoteURL);
-            const linkLabel = parsed ? platformLabel(parsed.platform) : null;
-            return (
-              <>
-                {/* Remote URL section */}
-                {status.hasRemote && status.remoteURL && (
-                  <div className="space-y-1">
-                    {parsed ? (
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {platformIcon(parsed.platform)}
-                        <span className="font-bold text-pencil">{parsed.ownerRepo}</span>
-                        {parsed.webURL && linkLabel && (
-                          <a
-                            href={parsed.webURL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-sm text-blue hover:underline"
-                          >
-                            {linkLabel}
-                            <ExternalLink size={12} strokeWidth={2.5} />
-                          </a>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <GitBranch size={16} strokeWidth={2.5} />
-                        <span className="font-bold text-pencil">{status.remoteURL}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1 text-sm text-pencil-light">
-                      <span className="font-mono break-all">{status.remoteURL}</span>
-                      <CopyButton value={status.remoteURL} title="Copy remote URL" />
+      <Card overflow className="relative z-10" padding="none">
+        {!status?.isRepo ? (
+          <div className="flex items-center gap-2 text-pencil p-4">
+            <AlertTriangle size={18} strokeWidth={2.5} className="text-danger" />
+            <span>Source directory is not a git repository</span>
+            <Badge variant="danger">not a repo</Badge>
+          </div>
+        ) : (() => {
+          const parsed = parseRemoteURL(status.remoteURL);
+          const linkLabel = parsed ? platformLabel(parsed.platform) : null;
+          return (
+            <>
+              {/* ── Header: repo identity ── */}
+              <div className="px-4 pt-4 pb-3 space-y-1.5">
+                {status.hasRemote && status.remoteURL ? (
+                  parsed ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {platformIcon(parsed.platform)}
+                      <span className="font-bold text-pencil text-base">{parsed.ownerRepo}</span>
+                      {parsed.webURL && linkLabel && (
+                        <a
+                          href={parsed.webURL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-blue hover:underline"
+                        >
+                          {linkLabel}
+                          <ExternalLink size={12} strokeWidth={2.5} />
+                        </a>
+                      )}
+                      {status.isDirty ? (
+                        <Badge variant="warning">{status.files?.length ?? 0} dirty</Badge>
+                      ) : (
+                        <Badge variant="success">clean</Badge>
+                      )}
                     </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <GitBranch size={16} strokeWidth={2.5} />
+                      <span className="font-bold text-pencil">{status.remoteURL}</span>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <GitBranch size={16} strokeWidth={2.5} />
+                    <span className="font-bold text-pencil">Local repository</span>
+                    <Badge variant="danger">no remote</Badge>
                   </div>
                 )}
 
-                {/* Branch selector (own row so dropdown doesn't overlap) */}
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-pencil-light">Branch</span>
+                {/* Raw URL — compact inline with copy */}
+                {status.hasRemote && status.remoteURL && (
+                  <div className="flex items-center gap-1 text-xs text-pencil-light">
+                    <span className="font-mono truncate max-w-[400px]">{status.remoteURL}</span>
+                    <CopyButton value={status.remoteURL} title="Copy remote URL" />
+                  </div>
+                )}
+              </div>
+
+              {/* ── Status bar: branch / HEAD / tracking ── */}
+              <div className="px-4 py-2.5 border-t border-dashed border-pencil-light/20 bg-muted/30 flex items-center gap-x-5 gap-y-2 flex-wrap text-sm">
+                {/* Branch */}
+                <div className="flex items-center gap-2">
+                  <GitBranch size={14} strokeWidth={2.5} className="text-pencil-light" />
                   {branchOptions.length > 1 ? (
                     <>
                       <Select
@@ -314,11 +330,6 @@ export default function GitSyncPage() {
                       {checkoutMutation.isPending && (
                         <Loader2 size={14} className="animate-spin text-pencil-light" />
                       )}
-                      {branches?.isDirty && (
-                        <span className="text-xs text-warning" title="Commit or stash changes before switching branches">
-                          dirty
-                        </span>
-                      )}
                     </>
                   ) : (
                     <>
@@ -341,64 +352,39 @@ export default function GitSyncPage() {
                   )}
                 </div>
 
-                {/* HEAD / Status */}
-                <div className="flex items-center gap-x-6 gap-y-2 flex-wrap text-sm">
-                  {status.headHash && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-pencil-light">HEAD</span>
-                      <code className="font-mono text-info">{status.headHash}</code>
-                      {status.headMessage && (
-                        <span className="text-pencil-light truncate max-w-[300px]" title={status.headMessage}>
-                          {status.headMessage.length > 60
-                            ? status.headMessage.slice(0, 60) + '…'
-                            : status.headMessage}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
+                {/* Separator */}
+                {status.headHash && <span className="hidden sm:inline text-pencil-light/30">|</span>}
 
-                {/* Status badges */}
-                <div className="flex items-center gap-4 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-pencil-light">Status</span>
-                    {status.isDirty ? (
-                      <Badge variant="warning">{status.files?.length ?? 0} dirty</Badge>
-                    ) : (
-                      <Badge variant="success">clean</Badge>
+                {/* HEAD */}
+                {status.headHash && (
+                  <div className="flex items-center gap-1.5">
+                    <GitCommit size={14} strokeWidth={2.5} className="text-pencil-light" />
+                    <code className="font-mono text-info">{status.headHash}</code>
+                    {status.headMessage && (
+                      <span className="text-pencil-light truncate max-w-[260px]" title={status.headMessage}>
+                        {status.headMessage.length > 50
+                          ? status.headMessage.slice(0, 50) + '…'
+                          : status.headMessage}
+                      </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-pencil-light">Remote</span>
-                    {status.hasRemote ? (
-                      <Badge variant="success">connected</Badge>
-                    ) : (
-                      <Badge variant="danger">no remote</Badge>
-                    )}
-                  </div>
-                </div>
-              </>
-            );
-          })()}
-        </div>
+                )}
+              </div>
+            </>
+          );
+        })()}
       </Card>
 
-      {/* Push / Pull Grid */}
-      <div
-        data-tour="git-actions"
-        className={`grid grid-cols-1 md:grid-cols-2 gap-5 ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
-      >
-        {/* Push Section */}
-        <Card>
-          <div className="space-y-4">
-            <h3
-              className="text-xl font-bold text-pencil flex items-center gap-2"
-            >
+      {/* Push / Pull Actions */}
+      <Card className={disabled ? 'opacity-50 pointer-events-none' : ''} padding="none">
+        <div data-tour="git-actions" className="grid grid-cols-1 md:grid-cols-2">
+          {/* Push Section */}
+          <div className="p-4 space-y-4">
+            <h3 className="text-xl font-bold text-pencil flex items-center gap-2">
               <ArrowUpCircle size={20} strokeWidth={2.5} />
               Push Changes
             </h3>
 
-            {/* Commit Message */}
             <Input
               label="Commit Message"
               placeholder="Describe your changes..."
@@ -406,7 +392,6 @@ export default function GitSyncPage() {
               onChange={(e) => setCommitMsg(e.target.value)}
             />
 
-            {/* Changed Files */}
             {status && status.files?.length > 0 && (
               <div>
                 <button
@@ -425,11 +410,7 @@ export default function GitSyncPage() {
                     {status.files.map((f, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
                         {fileStatusBadge(f)}
-                        <span
-                          className="font-mono truncate"
-                        >
-                          {fileName(f)}
-                        </span>
+                        <span className="font-mono truncate">{fileName(f)}</span>
                       </div>
                     ))}
                   </div>
@@ -437,21 +418,14 @@ export default function GitSyncPage() {
               </div>
             )}
 
-            {status && !status.isDirty && (
-              <p
-                className="text-sm text-pencil-light flex items-center gap-1"
-              >
-                <CheckCircle size={14} strokeWidth={2.5} className="text-success" />
-                Working tree clean
+            {status && !status.isDirty && !pushResult && (
+              <p className="text-sm text-pencil-light">
+                No uncommitted changes. Edit skills in the source directory to push.
               </p>
             )}
 
             <div className="flex items-center justify-between gap-4 pt-2">
-              <Checkbox
-                label="Dry Run"
-                checked={pushDryRun}
-                onChange={setPushDryRun}
-              />
+              <Checkbox label="Dry Run" checked={pushDryRun} onChange={setPushDryRun} />
               <Button
                 variant="primary"
                 size="sm"
@@ -471,33 +445,28 @@ export default function GitSyncPage() {
               </p>
             )}
           </div>
-        </Card>
 
-        {/* Pull Section */}
-        <Card>
-          <div className="space-y-4">
-            <h3
-              className="text-xl font-bold text-pencil flex items-center gap-2"
-            >
+          {/* Divider */}
+          <div className="border-t md:border-t-0 md:border-l border-dashed border-pencil-light/20 p-4 space-y-4">
+            {/* Pull Section */}
+            <h3 className="text-xl font-bold text-pencil flex items-center gap-2">
               <ArrowDownCircle size={20} strokeWidth={2.5} />
               Pull Changes
             </h3>
 
-            {status?.isDirty && (
-              <p
-                className="text-sm text-warning flex items-center gap-1"
-              >
+            {status?.isDirty ? (
+              <p className="text-sm text-warning flex items-center gap-1">
                 <AlertTriangle size={14} strokeWidth={2.5} />
                 Commit or stash local changes before pulling
+              </p>
+            ) : (
+              <p className="text-sm text-pencil-light">
+                Fetch latest commits from remote and auto-sync to all targets.
               </p>
             )}
 
             <div className="flex items-center justify-between gap-4 pt-2">
-              <Checkbox
-                label="Dry Run"
-                checked={pullDryRun}
-                onChange={setPullDryRun}
-              />
+              <Checkbox label="Dry Run" checked={pullDryRun} onChange={setPullDryRun} />
               <Button
                 variant="secondary"
                 size="sm"
@@ -518,11 +487,7 @@ export default function GitSyncPage() {
                     {pullResult.commits.map((c, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
                         <GitCommit size={14} strokeWidth={2.5} className="text-info" />
-                        <code
-                          className="font-mono text-info"
-                        >
-                          {c.hash}
-                        </code>
+                        <code className="font-mono text-info">{c.hash}</code>
                         <span className="truncate">{c.message}</span>
                       </div>
                     ))}
@@ -538,9 +503,7 @@ export default function GitSyncPage() {
                   </p>
                 )}
                 {pullResult.syncResults?.length > 0 && (
-                  <p
-                    className="text-sm text-pencil-light flex items-center gap-1"
-                  >
+                  <p className="text-sm text-pencil-light flex items-center gap-1">
                     <CheckCircle size={14} strokeWidth={2.5} className="text-success" />
                     Auto-synced to {pullResult.syncResults.length} target(s)
                   </p>
@@ -555,8 +518,8 @@ export default function GitSyncPage() {
               </p>
             )}
           </div>
-        </Card>
-      </div>
+        </div>
+      </Card>
     </div>
   );
 }

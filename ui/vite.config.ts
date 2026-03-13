@@ -28,32 +28,36 @@ export default defineConfig({
     },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return;
-          // React core — rarely changes, cache separately
-          if (id.includes('/react-dom/') || id.includes('/react/') || id.includes('/scheduler/')) {
-            return 'vendor-react';
-          }
-          // CodeMirror ecosystem — heavy, only used in FileViewerModal + ConfigPage
-          if (id.includes('@codemirror') || id.includes('@uiw/') || id.includes('@lezer/')) {
-            return 'vendor-codemirror';
-          }
-          // Markdown ecosystem — only used in SkillDetailPage + FileViewerModal
-          if (
-            id.includes('react-markdown') || id.includes('remark-') ||
-            id.includes('micromark') || id.includes('mdast-') ||
-            id.includes('unified') || id.includes('unist-') ||
-            id.includes('hast-') || id.includes('vfile') ||
-            id.includes('devlop')
-          ) {
-            return 'vendor-markdown';
-          }
-          // TanStack Query — shared across all pages
-          if (id.includes('@tanstack/react-query')) {
-            return 'vendor-tanstack-query';
-          }
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor-react',
+              test: /\/react-dom\/|\/react\/|\/scheduler\//,
+              priority: 20,
+            },
+            {
+              name: 'vendor-codemirror',
+              test: /@codemirror\/(?!lang-)|@uiw\/|codemirror/,
+              priority: 15,
+            },
+            {
+              name: 'vendor-codemirror-lang',
+              test: /@codemirror\/lang-|@lezer\//,
+              priority: 16,
+            },
+            {
+              name: 'vendor-markdown',
+              test: /react-markdown|remark-|micromark|mdast-|unified|unist-|hast-|vfile|devlop/,
+              priority: 15,
+            },
+            {
+              name: 'vendor-tanstack-query',
+              test: /@tanstack\/react-query/,
+              priority: 10,
+            },
+          ],
         },
       },
     },
