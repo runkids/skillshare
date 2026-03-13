@@ -599,13 +599,13 @@ func TestCheckout_NonexistentBranch(t *testing.T) {
 func TestGetRemoteURL(t *testing.T) {
 	dir := initTestRepo(t)
 
-	// No remote → empty string, no error
+	// No remote → error (git exits non-zero when no remote configured)
 	url, err := GetRemoteURL(dir)
-	if err != nil {
-		t.Fatalf("GetRemoteURL() error: %v", err)
+	if err == nil {
+		t.Fatal("GetRemoteURL() expected error for repo with no remote, got nil")
 	}
 	if url != "" {
-		t.Errorf("GetRemoteURL() = %q, want empty (no remote)", url)
+		t.Errorf("GetRemoteURL() = %q, want empty on error", url)
 	}
 
 	// Add remote

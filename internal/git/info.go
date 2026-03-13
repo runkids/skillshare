@@ -734,13 +734,12 @@ func AuthEnvForRepo(repoPath string) []string {
 }
 
 // GetRemoteURL returns the fetch URL for the "origin" remote.
-// Returns empty string (no error) if no remote is configured.
 func GetRemoteURL(repoPath string) (string, error) {
 	cmd := exec.Command("git", "remote", "get-url", "origin")
 	cmd.Dir = repoPath
 	out, err := cmd.Output()
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
 }
