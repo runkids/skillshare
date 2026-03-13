@@ -105,20 +105,40 @@ func createBackup(targetName string, dryRun bool) error {
 		return nil
 	}
 
+	type backupResult struct {
+		name       string
+		backupPath string
+		errMsg     string
+	}
+
+	spinner := ui.StartSpinner("Backing up targets...")
+	var results []backupResult
 	created := 0
 	skipped := 0
 	for name, target := range targets {
+		spinner.Update(fmt.Sprintf("Backing up %s...", name))
 		backupPath, err := backup.Create(name, target.Path)
 		if err != nil {
-			ui.Warning("Failed to backup %s: %v", name, err)
+			results = append(results, backupResult{name: name, errMsg: err.Error()})
 			continue
 		}
 		if backupPath != "" {
-			ui.StepDone(name, backupPath)
+			results = append(results, backupResult{name: name, backupPath: backupPath})
 			created++
 		} else {
-			ui.StepSkip(name, "nothing to backup (empty or symlink)")
+			results = append(results, backupResult{name: name})
 			skipped++
+		}
+	}
+	spinner.Stop()
+
+	for _, r := range results {
+		if r.errMsg != "" {
+			ui.Warning("Failed to backup %s: %s", r.name, r.errMsg)
+		} else if r.backupPath != "" {
+			ui.StepDone(r.name, r.backupPath)
+		} else {
+			ui.StepSkip(r.name, "nothing to backup (empty or symlink)")
 		}
 	}
 
@@ -135,7 +155,9 @@ func createBackup(targetName string, dryRun bool) error {
 		limit := min(5, len(backups))
 		for i := 0; i < limit; i++ {
 			b := backups[i]
-			ui.ListItem("info", b.Timestamp, fmt.Sprintf("%s (%s)", strings.Join(b.Targets, ", "), b.Path))
+			detail := fmt.Sprintf("%s (%s)", strings.Join(b.Targets, ", "), b.Path)
+			arrow := pterm.NewStyle(pterm.FgCyan).Sprint("→")
+			fmt.Printf("%s %-20s %s\n", arrow, b.Timestamp, ui.DimText(detail))
 		}
 	}
 
