@@ -5,7 +5,6 @@ import (
 
 	"skillshare/internal/ui"
 
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -49,12 +48,6 @@ var tc = struct {
 	BadgeLocal            lipgloss.Style
 	BadgeRemote           lipgloss.Style
 
-	// Delegate styles — shared by all list TUIs
-	NormalTitle   lipgloss.Style
-	NormalDesc    lipgloss.Style
-	SelectedTitle lipgloss.Style
-	SelectedDesc  lipgloss.Style
-
 	// Severity — shared across all TUIs (audit, log, etc.)
 	Critical lipgloss.Style // red, bold
 	High     lipgloss.Style // orange
@@ -97,16 +90,6 @@ var tc = struct {
 		Padding(0, 1),
 	BadgeRemote: lipgloss.NewStyle().Foreground(lipgloss.Color("228")).Background(lipgloss.Color("239")).
 		Padding(0, 1),
-
-	NormalTitle: lipgloss.NewStyle().PaddingLeft(2),
-	NormalDesc:  lipgloss.NewStyle().Faint(true).PaddingLeft(2),
-	SelectedTitle: lipgloss.NewStyle().Bold(true).
-		Foreground(lipgloss.Color("#D4D93C")).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(lipgloss.Color("#D4D93C")).PaddingLeft(1),
-	SelectedDesc: lipgloss.NewStyle().Faint(true).
-		Border(lipgloss.NormalBorder(), false, false, false, true).
-		BorderForeground(lipgloss.Color("#D4D93C")).PaddingLeft(1),
 
 	Critical: lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDCritical)).Bold(true),
 	High:     lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDHigh)),
@@ -162,17 +145,3 @@ func formatRiskBadgeLipgloss(label string) string {
 	return " " + riskLabelStyle(label).Render("["+label+"]")
 }
 
-// configureDelegate applies shared delegate styles to a list.DefaultDelegate.
-// showDesc toggles description row (2-line items when true, 1-line when false).
-func configureDelegate(d *list.DefaultDelegate, showDesc bool) {
-	d.ShowDescription = showDesc
-	d.SetSpacing(0)
-	d.Styles.NormalTitle = tc.NormalTitle
-	d.Styles.SelectedTitle = tc.SelectedTitle
-	if showDesc {
-		d.Styles.NormalDesc = tc.NormalDesc
-		d.Styles.SelectedDesc = tc.SelectedDesc
-	} else {
-		d.SetHeight(1)
-	}
-}

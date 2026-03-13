@@ -163,9 +163,7 @@ func newARModel(rules []audit.CompiledRule, mode runMode) arModel {
 	m.filterInput = fi
 
 	// Create the list model once — rebuildItems will populate via SetItems.
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, false)
-	m.list = list.New(nil, delegate, 0, 0)
+	m.list = list.New(nil, newPrefixDelegate(false), 0, 0)
 	m.list.Styles.Title = tc.ListTitle
 	m.list.SetShowStatusBar(false)
 	m.list.SetFilteringEnabled(false)

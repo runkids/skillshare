@@ -78,6 +78,9 @@ func (i searchSelectItem) FilterValue() string {
 	for _, tag := range i.result.Tags {
 		parts = append(parts, tag)
 	}
+	if i.isHub && i.result.RiskLabel != "" {
+		parts = append(parts, i.result.RiskLabel)
+	}
 	return strings.Join(parts, " ")
 }
 
@@ -111,10 +114,7 @@ func newSearchSelectModel(results []search.SearchResult, isHub bool) searchSelec
 		allItems[i] = item.(searchSelectItem)
 	}
 
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, true)
-
-	l := list.New(items, delegate, 0, 0)
+	l := list.New(items, newPrefixDelegate(true), 0, 0)
 	l.Title = searchSelectTitle(0, len(results))
 	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)    // custom status line

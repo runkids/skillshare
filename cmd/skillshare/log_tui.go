@@ -93,10 +93,7 @@ func newLogTUIModel(loadFn logLoadFn, items []logItem, logLabel, modeLabel, conf
 		allItems = items
 	}
 
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, false)
-
-	l := list.New(listItems, delegate, 0, 0)
+	l := list.New(listItems, newPrefixDelegate(false), 0, 0)
 	l.Title = fmt.Sprintf("Log: %s (%s)", logLabel, modeLabel)
 	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)    // custom status line

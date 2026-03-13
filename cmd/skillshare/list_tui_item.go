@@ -78,6 +78,10 @@ func renderPrefixRow(w io.Writer, line string, width int, selected bool) {
 	if selected {
 		prefixStyle = tc.ListRowPrefixSelected
 		bodyStyle = tc.ListRowSelected
+		// Strip embedded ANSI so ListRowSelected's background fills the full
+		// row width — compound ANSI sequences (e.g. icon + name) contain
+		// resets that break the parent background propagation in lipgloss.
+		line = xansi.Strip(line)
 	}
 
 	bodyWidth := width - lipgloss.Width(prefixStyle.Render("▌"))
@@ -92,6 +96,82 @@ func renderPrefixRow(w io.Writer, line string, width int, selected bool) {
 	line = truncateANSI(line, textWidth)
 
 	fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top, prefixStyle.Render("▌"), bodyStyle.Width(bodyWidth).MaxWidth(bodyWidth).Render(line)))
+}
+
+// prefixItemDelegate is a generic list delegate that renders items with the "▌"
+// prefix bar style. It works with any item implementing list.DefaultItem
+// (Title() + Description()). Use newPrefixDelegate(showDesc) to create one.
+type prefixItemDelegate struct {
+	showDesc bool
+}
+
+func newPrefixDelegate(showDesc bool) prefixItemDelegate {
+	return prefixItemDelegate{showDesc: showDesc}
+}
+
+func (d prefixItemDelegate) Height() int {
+	if d.showDesc {
+		return 2
+	}
+	return 1
+}
+
+func (d prefixItemDelegate) Spacing() int { return 0 }
+
+func (d prefixItemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+
+func (d prefixItemDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+	width := m.Width()
+	if width <= 0 {
+		width = 40
+	}
+	selected := index == m.Index()
+
+	di, ok := item.(list.DefaultItem)
+	if !ok {
+		return
+	}
+
+	if d.showDesc {
+		renderPrefixRowWithDesc(w, di.Title(), di.Description(), width, selected)
+	} else {
+		renderPrefixRow(w, di.Title(), width, selected)
+	}
+}
+
+// renderPrefixRowWithDesc renders a 2-line list row with a "▌" prefix bar.
+// Line 1: title (same as renderPrefixRow). Line 2: description in muted style.
+func renderPrefixRowWithDesc(w io.Writer, title, desc string, width int, selected bool) {
+	prefixStyle := tc.ListRowPrefix
+	bodyStyle := tc.ListRow
+	descStyle := tc.ListMeta
+	if selected {
+		prefixStyle = tc.ListRowPrefixSelected
+		bodyStyle = tc.ListRowSelected
+		descStyle = tc.ListMetaSelected
+		title = xansi.Strip(title)
+		desc = xansi.Strip(desc)
+	}
+
+	bodyWidth := width - lipgloss.Width(prefixStyle.Render("▌"))
+	if bodyWidth < 10 {
+		bodyWidth = 10
+	}
+	textWidth := bodyWidth - bodyStyle.GetPaddingLeft() - bodyStyle.GetPaddingRight()
+	if textWidth < 8 {
+		textWidth = 8
+	}
+
+	title = truncateANSI(title, textWidth)
+	desc = truncateANSI(desc, textWidth)
+
+	titleLine := bodyStyle.Width(bodyWidth).MaxWidth(bodyWidth).Render(title)
+	descLine := descStyle.Width(bodyWidth).MaxWidth(bodyWidth).Render(desc)
+
+	fmt.Fprint(w, lipgloss.JoinHorizontal(lipgloss.Top,
+		prefixStyle.Render("▌\n▌"),
+		titleLine+"\n"+descLine,
+	))
 }
 
 // FilterValue returns the searchable text for bubbletea's built-in fuzzy filter.

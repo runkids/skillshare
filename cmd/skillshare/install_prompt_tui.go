@@ -84,10 +84,7 @@ func newDirPickerModel(skills []install.SkillInfo) dirPickerModel {
 
 	items := m.buildItems(skills, "")
 
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, true)
-
-	l := list.New(items, delegate, 0, 0)
+	l := list.New(items, newPrefixDelegate(true), 0, 0)
 	l.Title = "Select directory"
 	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)
@@ -405,16 +402,13 @@ func newSkillSelectModel(skills []install.SkillInfo) skillSelectModel {
 	sel := make(map[int]bool, len(sorted))
 	items := makeSkillSelectItems(sorted, locs, sel)
 
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, false)
-
 	// Keep typed allItems for filter
 	allItems := make([]skillSelectItem, len(items))
 	for i, item := range items {
 		allItems[i] = item.(skillSelectItem)
 	}
 
-	l := list.New(items, delegate, 0, 0)
+	l := list.New(items, newPrefixDelegate(false), 0, 0)
 	l.Title = skillSelectTitle(0, len(sorted))
 	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)

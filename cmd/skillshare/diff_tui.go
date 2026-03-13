@@ -72,9 +72,9 @@ func (s diffSeparatorItem) Title() string       { return s.label }
 func (s diffSeparatorItem) Description() string { return "" }
 func (s diffSeparatorItem) FilterValue() string { return "" }
 
-// diffItemDelegate wraps DefaultDelegate to render separators as group headers.
+// diffItemDelegate wraps prefixItemDelegate to render separators as group headers.
 type diffItemDelegate struct {
-	inner list.DefaultDelegate
+	inner prefixItemDelegate
 }
 
 func (d diffItemDelegate) Height() int  { return d.inner.Height() }
@@ -223,9 +223,7 @@ func newDiffTUIModel(results []targetDiffResult, extrasSlice ...[]extraDiffResul
 		}
 	}
 
-	inner := list.NewDefaultDelegate()
-	configureDelegate(&inner, true)
-	delegate := diffItemDelegate{inner: inner}
+	delegate := diffItemDelegate{inner: newPrefixDelegate(true)}
 
 	tl := list.New(listItems, delegate, 0, 0)
 	var errN, diffN, syncN int

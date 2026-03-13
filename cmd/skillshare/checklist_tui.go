@@ -92,10 +92,7 @@ func newChecklistModel(cfg checklistConfig) checklistModel {
 
 	listItems := makeChecklistItems(cfg.items, sel, cfg.singleSelect)
 
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, hasDesc)
-
-	l := list.New(listItems, delegate, 0, 0)
+	l := list.New(listItems, newPrefixDelegate(hasDesc), 0, 0)
 	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(true)
 	l.SetFilteringEnabled(true)

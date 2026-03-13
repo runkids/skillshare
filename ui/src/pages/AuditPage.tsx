@@ -306,7 +306,7 @@ function TriagePanel({
   const overallStatus = failed > 0 ? 'blocked' : warning > 0 ? 'warning' : 'clean';
 
   return (
-    <Card variant="outlined" className="overflow-visible z-30">
+    <Card variant="outlined" overflow className="z-30">
       <div className="flex flex-col gap-4">
         {/* Top row: three indicator columns */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -463,11 +463,10 @@ function SkillAuditCard({ result }: { result: AuditResult; index?: number }) {
   const maxSeverity = getMaxSeverity(result.findings);
 
   return (
-    <Card overflow>
+    <Card className="!overflow-clip">
       {/* ── Sticky header: skill name (left) + block/risk indicators (right) ── */}
       <div
         className="sticky top-0 z-20 -mx-4 -mt-4 px-4 py-3 bg-surface border-b border-dashed border-pencil-light/30"
-        style={{ borderRadius: `${radius.md} ${radius.md} 0 0` }}
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Left: skill icon + name + issue count */}

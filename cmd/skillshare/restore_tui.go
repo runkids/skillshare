@@ -45,7 +45,7 @@ type restoreTargetItem struct {
 }
 
 func (i restoreTargetItem) Title() string {
-	return fmt.Sprintf("  %s", i.summary.TargetName)
+	return i.summary.TargetName
 }
 func (i restoreTargetItem) Description() string {
 	return fmt.Sprintf("%d backup(s), latest: %s",
@@ -58,7 +58,7 @@ type restoreVersionItem struct {
 }
 
 func (i restoreVersionItem) Title() string {
-	return fmt.Sprintf("  %s", i.version.Label)
+	return i.version.Label
 }
 func (i restoreVersionItem) Description() string {
 	return fmt.Sprintf("%d skill(s), %s",
@@ -124,10 +124,7 @@ func newRestoreTUIModel(summaries []backup.TargetBackupSummary, backupDir string
 		listItems[i] = restoreTargetItem{summary: s}
 	}
 
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, true)
-
-	tl := list.New(listItems, delegate, 0, 0)
+	tl := list.New(listItems, newPrefixDelegate(true), 0, 0)
 	tl.Title = fmt.Sprintf("Backup Restore — %d target(s)", len(summaries))
 	tl.Styles.Title = tc.ListTitle
 	tl.SetShowStatusBar(false)
@@ -400,11 +397,8 @@ func (m restoreTUIModel) enterVersionPhase() (tea.Model, tea.Cmd) {
 		listItems[i] = restoreVersionItem{version: v}
 	}
 
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, true)
-
 	lw := restoreListWidth(m.termWidth)
-	vl := list.New(listItems, delegate, 0, 0)
+	vl := list.New(listItems, newPrefixDelegate(true), 0, 0)
 	vl.Title = fmt.Sprintf("%s — select version", m.selectedTarget)
 	vl.Styles.Title = tc.ListTitle
 	vl.SetShowStatusBar(false)

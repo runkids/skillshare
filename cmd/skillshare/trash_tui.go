@@ -99,10 +99,7 @@ func newTrashTUIModel(items []trash.TrashEntry, trashBase, destDir, cfgPath, mod
 		listItems[i] = ti
 	}
 
-	delegate := list.NewDefaultDelegate()
-	configureDelegate(&delegate, false)
-
-	l := list.New(listItems, delegate, 0, 0)
+	l := list.New(listItems, newPrefixDelegate(false), 0, 0)
 	l.Title = trashTUITitle(modeLabel, len(items))
 	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)
