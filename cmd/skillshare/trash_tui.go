@@ -11,12 +11,14 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"skillshare/internal/trash"
 )
 
 // ---------------------------------------------------------------------------
 // Trash TUI — interactive multi-select with restore / delete / empty
+// Left-right split layout: list on left, detail panel on right.
 // ---------------------------------------------------------------------------
 
 // trashItem is a list item for the trash TUI. 1-line with checkbox.
@@ -49,13 +51,14 @@ type trashOpDoneMsg struct {
 
 // trashTUIModel is the bubbletea model for the interactive trash viewer.
 type trashTUIModel struct {
-	list      list.Model
-	modeLabel string // "global" or "project"
-	trashBase string
-	destDir   string
-	cfgPath   string
-	quitting  bool
-	termWidth int
+	list       list.Model
+	modeLabel  string // "global" or "project"
+	trashBase  string
+	destDir    string
+	cfgPath    string
+	quitting   bool
+	termWidth  int
+	termHeight int
 
 	// All items (source of truth for filter + selection)
 	allItems []trashItem
@@ -83,9 +86,8 @@ type trashTUIModel struct {
 	// Feedback
 	lastOpMsg string // green/red message after operation
 
-	// Cached detail panel — recomputed only on selection change
-	cachedDetailIdx int
-	cachedDetailStr string
+	// Detail scroll for right panel
+	detailScroll int
 }
 
 func newTrashTUIModel(items []trash.TrashEntry, trashBase, destDir, cfgPath, modeLabel string) trashTUIModel {
@@ -137,15 +139,79 @@ func trashTUITitle(modeLabel string, count int) string {
 	return fmt.Sprintf("Trash (%s) — %d items", modeLabel, count)
 }
 
+// ---------------------------------------------------------------------------
+// Panel width helpers
+// ---------------------------------------------------------------------------
+
+func trashSplitActive(termWidth int) bool {
+	return termWidth >= tuiMinSplitWidth
+}
+
+func trashListWidth(termWidth int) int {
+	w := termWidth * 36 / 100
+	if w < 30 {
+		w = 30
+	}
+	if w > 46 {
+		w = 46
+	}
+	return w
+}
+
+func trashDetailPanelWidth(termWidth int) int {
+	w := termWidth - trashListWidth(termWidth) - 3
+	if w < 28 {
+		w = 28
+	}
+	return w
+}
+
+func (m *trashTUIModel) syncTrashListSize() {
+	if trashSplitActive(m.termWidth) {
+		panelHeight := m.termHeight - 5
+		if panelHeight < 6 {
+			panelHeight = 6
+		}
+		m.list.SetSize(trashListWidth(m.termWidth), panelHeight)
+		return
+	}
+	listHeight := m.termHeight - 14
+	if listHeight < 6 {
+		listHeight = 6
+	}
+	m.list.SetSize(m.termWidth, listHeight)
+}
+
+// ---------------------------------------------------------------------------
+// Init / Update
+// ---------------------------------------------------------------------------
+
 func (m trashTUIModel) Init() tea.Cmd { return nil }
 
 func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.termWidth = msg.Width
-		m.list.SetSize(msg.Width, msg.Height-14)
-		m.refreshTrashDetailCache()
+		m.termHeight = msg.Height
+		m.syncTrashListSize()
 		return m, nil
+
+	case tea.MouseMsg:
+		if trashSplitActive(m.termWidth) && !m.operating && !m.confirming {
+			leftWidth := trashListWidth(m.termWidth)
+			if msg.X > leftWidth {
+				switch msg.Button {
+				case tea.MouseButtonWheelUp:
+					if m.detailScroll > 0 {
+						m.detailScroll--
+					}
+					return m, nil
+				case tea.MouseButtonWheelDown:
+					m.detailScroll++
+					return m, nil
+				}
+			}
+		}
 
 	case spinner.TickMsg:
 		if m.operating {
@@ -159,7 +225,6 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		verb := capitalize(msg.action) + "d"
 		switch {
 		case msg.err != nil && msg.count > 0:
-			// Partial success: some succeeded, some failed
 			m.lastOpMsg = tc.Green.Render(fmt.Sprintf("%s %d item(s)", verb, msg.count)) +
 				"  " + tc.Red.Render(fmt.Sprintf("Failed: %s", msg.err))
 		case msg.err != nil:
@@ -167,9 +232,7 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			m.lastOpMsg = tc.Green.Render(fmt.Sprintf("%s %d item(s)", verb, msg.count))
 		}
-		// Reload items (rebuildFromEntries invalidates detail cache)
 		m.rebuildFromEntries(msg.reloadedItems)
-		m.refreshTrashDetailCache()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -230,6 +293,16 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.filterInput.Focus()
 			m.lastOpMsg = ""
 			return m, textinput.Blink
+
+		case "ctrl+d":
+			m.detailScroll += 5
+			return m, nil
+		case "ctrl+u":
+			m.detailScroll -= 5
+			if m.detailScroll < 0 {
+				m.detailScroll = 0
+			}
+			return m, nil
 
 		case " ": // toggle select current item
 			item, ok := m.list.SelectedItem().(trashItem)
@@ -311,11 +384,14 @@ func (m trashTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
 	if m.list.Index() != prevIdx {
-		m.invalidateTrashDetailCache()
-		m.refreshTrashDetailCache()
+		m.detailScroll = 0
 	}
 	return m, cmd
 }
+
+// ---------------------------------------------------------------------------
+// Filter & selection helpers
+// ---------------------------------------------------------------------------
 
 // applyTrashFilter does a case-insensitive substring match over allItems.
 func (m *trashTUIModel) applyTrashFilter() {
@@ -341,7 +417,6 @@ func (m *trashTUIModel) applyTrashFilter() {
 	m.matchCount = len(matched)
 	m.list.SetItems(matched)
 	m.list.ResetSelected()
-	m.invalidateTrashDetailCache()
 }
 
 // refreshListItems rebuilds list items preserving cursor and checkbox state.
@@ -398,6 +473,10 @@ func (m *trashTUIModel) selectedEntries() []trash.TrashEntry {
 	}
 	return entries
 }
+
+// ---------------------------------------------------------------------------
+// Async operations
+// ---------------------------------------------------------------------------
 
 // startOperation begins the async operation (restore/delete/empty).
 func (m trashTUIModel) startOperation() (tea.Model, tea.Cmd) {
@@ -484,27 +563,12 @@ func (m *trashTUIModel) rebuildFromEntries(entries []trash.TrashEntry) {
 	m.list.SetItems(listItems)
 	m.list.ResetSelected()
 	m.list.Title = trashTUITitle(m.modeLabel, len(entries))
-	m.invalidateTrashDetailCache()
+	m.detailScroll = 0
 }
 
-// refreshTrashDetailCache recomputes the detail panel only when the selection changes.
-func (m *trashTUIModel) refreshTrashDetailCache() {
-	idx := m.list.Index()
-	if idx == m.cachedDetailIdx && m.cachedDetailStr != "" {
-		return
-	}
-	m.cachedDetailIdx = idx
-	if item, ok := m.list.SelectedItem().(trashItem); ok {
-		m.cachedDetailStr = m.renderTrashDetailPanel(item.entry)
-	} else {
-		m.cachedDetailStr = ""
-	}
-}
-
-func (m *trashTUIModel) invalidateTrashDetailCache() {
-	m.cachedDetailStr = ""
-	m.cachedDetailIdx = -1
-}
+// ---------------------------------------------------------------------------
+// View — split dispatch
+// ---------------------------------------------------------------------------
 
 func (m trashTUIModel) View() string {
 	if m.quitting {
@@ -521,26 +585,80 @@ func (m trashTUIModel) View() string {
 		return m.viewConfirm()
 	}
 
+	if trashSplitActive(m.termWidth) {
+		return m.viewTrashSplit()
+	}
+	return m.viewTrashVertical()
+}
+
+// viewTrashSplit renders the horizontal left-right split layout.
+func (m trashTUIModel) viewTrashSplit() string {
 	var b strings.Builder
 
-	// List view
-	b.WriteString(m.list.View())
+	panelHeight := m.termHeight - 5
+	if panelHeight < 6 {
+		panelHeight = 6
+	}
+
+	leftWidth := trashListWidth(m.termWidth)
+	rightWidth := trashDetailPanelWidth(m.termWidth)
+
+	var detailStr, scrollInfo string
+	if item, ok := m.list.SelectedItem().(trashItem); ok {
+		raw := m.renderTrashDetailPanel(item.entry, rightWidth-1)
+		detailStr, scrollInfo = wrapAndScroll(raw, rightWidth-1, m.detailScroll, panelHeight)
+	}
+
+	body := renderHorizontalSplit(m.list.View(), detailStr, leftWidth, rightWidth, panelHeight)
+	b.WriteString(body)
 	b.WriteString("\n\n")
 
-	// Filter bar
 	b.WriteString(m.renderTrashFilterBar())
+	b.WriteString(m.renderTrashSummaryFooter())
 
-	// Detail panel for selected item (cached)
-	b.WriteString(m.cachedDetailStr)
-	b.WriteString("\n")
-
-	// Feedback message + help
-	help := m.trashHelpBar()
 	if m.lastOpMsg != "" {
 		b.WriteString("  ")
 		b.WriteString(m.lastOpMsg)
 		b.WriteString("\n")
 	}
+
+	help := appendScrollInfo(m.trashHelpBar(), scrollInfo)
+	b.WriteString(tc.Help.Render(help))
+	b.WriteString("\n")
+
+	return b.String()
+}
+
+// viewTrashVertical renders the vertical stacked layout for narrow terminals.
+func (m trashTUIModel) viewTrashVertical() string {
+	var b strings.Builder
+
+	b.WriteString(m.list.View())
+	b.WriteString("\n\n")
+	b.WriteString(m.renderTrashFilterBar())
+
+	var scrollInfo string
+	if item, ok := m.list.SelectedItem().(trashItem); ok {
+		detailHeight := m.termHeight - m.termHeight*2/5 - 7
+		if detailHeight < 6 {
+			detailHeight = 6
+		}
+		raw := m.renderTrashDetailPanel(item.entry, m.termWidth-4)
+		var detailStr string
+		detailStr, scrollInfo = wrapAndScroll(raw, m.termWidth-4, m.detailScroll, detailHeight)
+		b.WriteString(detailStr)
+		b.WriteString("\n")
+	}
+
+	b.WriteString(m.renderTrashSummaryFooter())
+
+	if m.lastOpMsg != "" {
+		b.WriteString("  ")
+		b.WriteString(m.lastOpMsg)
+		b.WriteString("\n")
+	}
+
+	help := appendScrollInfo(m.trashHelpBar(), scrollInfo)
 	b.WriteString(tc.Help.Render(help))
 	b.WriteString("\n")
 
@@ -585,10 +703,14 @@ func (m trashTUIModel) viewConfirm() string {
 	return b.String()
 }
 
+// ---------------------------------------------------------------------------
+// Rendering helpers
+// ---------------------------------------------------------------------------
+
 // trashHelpBar returns the context-sensitive help text.
 func (m trashTUIModel) trashHelpBar() string {
 	var parts []string
-	parts = append(parts, "↑↓ navigate  ←→ page  / filter")
+	parts = append(parts, "↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail")
 
 	if m.selCount > 0 {
 		parts = append(parts, fmt.Sprintf("r restore(%d)  d delete(%d)", m.selCount, m.selCount))
@@ -610,23 +732,48 @@ func (m trashTUIModel) renderTrashFilterBar() string {
 	)
 }
 
-// renderTrashDetailPanel renders the detail section for the selected trash entry.
-func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry) string {
-	var b strings.Builder
-	b.WriteString(tc.Separator.Render("  ─────────────────────────────────────────"))
-	b.WriteString("\n")
+// renderTrashSummaryFooter renders item count and total size summary.
+func (m trashTUIModel) renderTrashSummaryFooter() string {
+	var totalSize int64
+	for _, item := range m.allItems {
+		totalSize += item.entry.Size
+	}
+	parts := []string{
+		tc.Emphasis.Render(formatNumber(m.matchCount)) + tc.Dim.Render("/") +
+			tc.Dim.Render(formatNumber(len(m.allItems))) + tc.Dim.Render(" items"),
+		tc.Dim.Render("Total: ") + tc.Cyan.Render(formatBytes(totalSize)),
+	}
+	return tc.Help.Render(strings.Join(parts, tc.Dim.Render(" | "))) + "\n"
+}
 
+// renderTrashDetailPanel renders the detail section for the selected trash entry.
+func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry, width int) string {
+	var b strings.Builder
+
+	// Header: bold skill name
+	b.WriteString(tc.Title.Render(entry.Name))
+	b.WriteString("\n\n")
+
+	// Metadata rows
+	labelStyle := lipgloss.NewStyle().Faint(true).Width(12)
 	row := func(label, value string) {
-		b.WriteString("  ")
-		b.WriteString(tc.Label.Render(label))
+		b.WriteString(labelStyle.Render(label + ":"))
+		b.WriteString(" ")
 		b.WriteString(tc.Value.Render(value))
 		b.WriteString("\n")
 	}
 
-	row("Name:", entry.Name)
-	row("Trashed:", entry.Date.Format("2006-01-02 15:04:05"))
-	row("Size:", formatBytes(entry.Size))
-	row("Path:", entry.Path)
+	row("Trashed", entry.Date.Format("2006-01-02 15:04:05"))
+	row("Age", formatAge(time.Since(entry.Date))+" ago")
+	row("Size", formatBytes(entry.Size))
+
+	// Truncate path to panel width if needed
+	pathStr := entry.Path
+	maxPathLen := width - 14
+	if maxPathLen > 10 && len(pathStr) > maxPathLen {
+		pathStr = "..." + pathStr[len(pathStr)-maxPathLen+3:]
+	}
+	row("Path", pathStr)
 
 	// SKILL.md preview — read first 15 lines
 	skillMD := filepath.Join(entry.Path, "SKILL.md")
@@ -638,11 +785,10 @@ func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry) string {
 		preview := strings.TrimRight(strings.Join(lines, "\n"), "\n")
 		if preview != "" {
 			b.WriteString("\n")
-			b.WriteString(tc.Separator.Render("  ── SKILL.md ──────────────────────────────"))
+			b.WriteString(tc.Title.Render("SKILL.md"))
 			b.WriteString("\n")
 			for _, line := range strings.Split(preview, "\n") {
-				b.WriteString("  ")
-				b.WriteString(tc.Help.Render(line))
+				b.WriteString(tc.Dim.Render(line))
 				b.WriteString("\n")
 			}
 		}
@@ -651,10 +797,14 @@ func (m trashTUIModel) renderTrashDetailPanel(entry trash.TrashEntry) string {
 	return b.String()
 }
 
+// ---------------------------------------------------------------------------
+// Entry point
+// ---------------------------------------------------------------------------
+
 // runTrashTUI starts the bubbletea TUI for the trash viewer.
 func runTrashTUI(items []trash.TrashEntry, trashBase, destDir, cfgPath, modeLabel string) error {
 	model := newTrashTUIModel(items, trashBase, destDir, cfgPath, modeLabel)
-	p := tea.NewProgram(model, tea.WithAltScreen())
+	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	_, err := p.Run()
 	return err
 }
