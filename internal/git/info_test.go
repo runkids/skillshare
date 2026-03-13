@@ -469,6 +469,55 @@ func TestForcePullWithProgress(t *testing.T) {
 	}
 }
 
+func TestGetRemoteURL(t *testing.T) {
+	dir := initTestRepo(t)
+
+	// No remote → empty string, no error
+	url, err := GetRemoteURL(dir)
+	if err != nil {
+		t.Fatalf("GetRemoteURL() error: %v", err)
+	}
+	if url != "" {
+		t.Errorf("GetRemoteURL() = %q, want empty (no remote)", url)
+	}
+
+	// Add remote
+	addRemote(t, dir, "https://github.com/test/repo.git")
+
+	url, err = GetRemoteURL(dir)
+	if err != nil {
+		t.Fatalf("GetRemoteURL() error: %v", err)
+	}
+	if url != "https://github.com/test/repo.git" {
+		t.Errorf("GetRemoteURL() = %q, want %q", url, "https://github.com/test/repo.git")
+	}
+}
+
+func TestGetHeadMessage(t *testing.T) {
+	dir := initTestRepo(t) // commits "initial"
+
+	msg, err := GetHeadMessage(dir)
+	if err != nil {
+		t.Fatalf("GetHeadMessage() error: %v", err)
+	}
+	if msg != "initial" {
+		t.Errorf("GetHeadMessage() = %q, want %q", msg, "initial")
+	}
+}
+
+func TestGetTrackingBranch(t *testing.T) {
+	dir := initTestRepo(t)
+
+	// No upstream → empty string, no error
+	branch, err := GetTrackingBranch(dir)
+	if err != nil {
+		t.Fatalf("GetTrackingBranch() error: %v", err)
+	}
+	if branch != "" {
+		t.Errorf("GetTrackingBranch() = %q, want empty", branch)
+	}
+}
+
 func runGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 

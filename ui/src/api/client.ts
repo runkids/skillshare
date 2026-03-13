@@ -616,6 +616,10 @@ export interface GitStatus {
   isDirty: boolean;
   files: string[];
   sourceDir: string;
+  remoteURL?: string;
+  headHash?: string;
+  headMessage?: string;
+  trackingBranch?: string;
 }
 
 export interface PushResponse {

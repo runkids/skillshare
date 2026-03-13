@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   GitBranch,
-  Globe,
-  Folder,
   ArrowUpCircle,
   ArrowDownCircle,
   GitCommit,
@@ -11,15 +9,20 @@ import {
   CheckCircle,
   ChevronDown,
   ChevronRight,
+  Github,
+  Gitlab,
+  ExternalLink,
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { PullResponse } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
-import { shortenHome } from '../lib/paths';
+import { parseRemoteURL } from '../lib/parseRemoteURL';
+import type { Platform } from '../lib/parseRemoteURL';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import CopyButton from '../components/CopyButton';
 import { Input, Checkbox } from '../components/Input';
 import Badge from '../components/Badge';
 import PageHeader from '../components/PageHeader';
@@ -38,6 +41,26 @@ function fileStatusBadge(line: string) {
 
 function fileName(line: string): string {
   return line.trim().substring(2).trim();
+}
+
+function platformIcon(platform: Platform) {
+  switch (platform) {
+    case 'github':
+      return <Github size={16} strokeWidth={2.5} />;
+    case 'gitlab':
+      return <Gitlab size={16} strokeWidth={2.5} />;
+    default:
+      return <GitBranch size={16} strokeWidth={2.5} />;
+  }
+}
+
+function platformLabel(platform: Platform): string | null {
+  switch (platform) {
+    case 'github': return 'Open on GitHub';
+    case 'gitlab': return 'Open on GitLab';
+    case 'bitbucket': return 'Open on Bitbucket';
+    default: return null;
+  }
 }
 
 export default function GitSyncPage() {
@@ -169,51 +192,99 @@ export default function GitSyncPage() {
         subtitle="Push and pull your skills source directory via git"
       />
 
-      {/* Repo Status Card */}
+      {/* Repository Info Card */}
       <Card>
         <div className="space-y-3">
           {!status?.isRepo ? (
             <div className="flex items-center gap-2 text-pencil">
               <AlertTriangle size={18} strokeWidth={2.5} className="text-danger" />
-              <span>
-                Source directory is not a git repository
-              </span>
+              <span>Source directory is not a git repository</span>
               <Badge variant="danger">not a repo</Badge>
             </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <GitBranch size={16} strokeWidth={2.5} className="text-pencil-light" />
-                  <span>
-                    Branch: <strong>{status.branch || 'unknown'}</strong>
-                  </span>
-                  {status.isDirty ? (
-                    <Badge variant="warning">{status.files?.length ?? 0} dirty</Badge>
-                  ) : (
-                    <Badge variant="success">clean</Badge>
+          ) : (() => {
+            const parsed = parseRemoteURL(status.remoteURL);
+            const linkLabel = parsed ? platformLabel(parsed.platform) : null;
+            return (
+              <>
+                {/* Remote URL section */}
+                {status.hasRemote && status.remoteURL && (
+                  <div className="space-y-1">
+                    {parsed ? (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {platformIcon(parsed.platform)}
+                        <span className="font-bold text-pencil">{parsed.ownerRepo}</span>
+                        {parsed.webURL && linkLabel && (
+                          <a
+                            href={parsed.webURL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-sm text-blue hover:underline"
+                          >
+                            {linkLabel}
+                            <ExternalLink size={12} strokeWidth={2.5} />
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <GitBranch size={16} strokeWidth={2.5} />
+                        <span className="font-bold text-pencil">{status.remoteURL}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1 text-sm text-pencil-light">
+                      <span className="font-mono break-all">{status.remoteURL}</span>
+                      <CopyButton value={status.remoteURL} title="Copy remote URL" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Branch / HEAD / Status */}
+                <div className="flex items-center gap-x-6 gap-y-2 flex-wrap text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-pencil-light">Branch</span>
+                    <strong>{status.branch || 'unknown'}</strong>
+                    {status.trackingBranch && (
+                      <span className="text-pencil-light">→ {status.trackingBranch}</span>
+                    )}
+                  </div>
+
+                  {status.headHash && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-pencil-light">HEAD</span>
+                      <code className="font-mono text-info">{status.headHash}</code>
+                      {status.headMessage && (
+                        <span className="text-pencil-light truncate max-w-[300px]" title={status.headMessage}>
+                          {status.headMessage.length > 60
+                            ? status.headMessage.slice(0, 60) + '…'
+                            : status.headMessage}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
-                  <Globe size={16} strokeWidth={2.5} className="text-pencil-light" />
-                  <span>Remote</span>
-                  {status.hasRemote ? (
-                    <Badge variant="success">connected</Badge>
-                  ) : (
-                    <Badge variant="danger">no remote</Badge>
-                  )}
+
+                {/* Status badges */}
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-pencil-light">Status</span>
+                    {status.isDirty ? (
+                      <Badge variant="warning">{status.files?.length ?? 0} dirty</Badge>
+                    ) : (
+                      <Badge variant="success">clean</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-pencil-light">Remote</span>
+                    {status.hasRemote ? (
+                      <Badge variant="success">connected</Badge>
+                    ) : (
+                      <Badge variant="danger">no remote</Badge>
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-pencil-light">
-                <Folder size={14} strokeWidth={2.5} />
-                <span
-                  className="font-mono break-all"
-                >
-                  {shortenHome(status.sourceDir)}
-                </span>
-              </div>
-            </>
-          )}
+              </>
+            );
+          })()}
         </div>
       </Card>
 

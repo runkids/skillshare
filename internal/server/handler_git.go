@@ -10,12 +10,16 @@ import (
 )
 
 type gitStatusResponse struct {
-	IsRepo    bool     `json:"isRepo"`
-	HasRemote bool     `json:"hasRemote"`
-	Branch    string   `json:"branch"`
-	IsDirty   bool     `json:"isDirty"`
-	Files     []string `json:"files"`
-	SourceDir string   `json:"sourceDir"`
+	IsRepo         bool     `json:"isRepo"`
+	HasRemote      bool     `json:"hasRemote"`
+	Branch         string   `json:"branch"`
+	IsDirty        bool     `json:"isDirty"`
+	Files          []string `json:"files"`
+	SourceDir      string   `json:"sourceDir"`
+	RemoteURL      string   `json:"remoteURL,omitempty"`
+	HeadHash       string   `json:"headHash,omitempty"`
+	HeadMessage    string   `json:"headMessage,omitempty"`
+	TrackingBranch string   `json:"trackingBranch,omitempty"`
 }
 
 // handleGitStatus returns the git status of the source directory
@@ -44,6 +48,22 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 
 	if files, err := git.GetDirtyFiles(src); err == nil && len(files) > 0 {
 		resp.Files = files
+	}
+
+	if url, err := git.GetRemoteURL(src); err == nil {
+		resp.RemoteURL = url
+	}
+
+	if hash, err := git.GetCurrentHash(src); err == nil {
+		resp.HeadHash = hash
+	}
+
+	if msg, err := git.GetHeadMessage(src); err == nil {
+		resp.HeadMessage = msg
+	}
+
+	if tb, err := git.GetTrackingBranch(src); err == nil {
+		resp.TrackingBranch = tb
 	}
 
 	writeJSON(w, resp)

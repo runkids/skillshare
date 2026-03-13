@@ -729,15 +729,41 @@ func ForcePullWithEnv(repoPath string, extraEnv []string) (*UpdateInfo, error) {
 
 // AuthEnvForRepo returns HTTPS token auth env vars for the repo's origin remote.
 func AuthEnvForRepo(repoPath string) []string {
-	return install.AuthEnvForURL(getRemoteURL(repoPath))
+	url, _ := GetRemoteURL(repoPath)
+	return install.AuthEnvForURL(url)
 }
 
-func getRemoteURL(repoPath string) string {
+// GetRemoteURL returns the fetch URL for the "origin" remote.
+// Returns empty string (no error) if no remote is configured.
+func GetRemoteURL(repoPath string) (string, error) {
 	cmd := exec.Command("git", "remote", "get-url", "origin")
 	cmd.Dir = repoPath
 	out, err := cmd.Output()
 	if err != nil {
-		return ""
+		return "", nil
 	}
-	return strings.TrimSpace(string(out))
+	return strings.TrimSpace(string(out)), nil
+}
+
+// GetHeadMessage returns the subject line of the HEAD commit.
+func GetHeadMessage(repoPath string) (string, error) {
+	cmd := exec.Command("git", "log", "-1", "--format=%s")
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// GetTrackingBranch returns the upstream tracking branch (e.g. "origin/main").
+// Returns empty string (no error) if no upstream is set.
+func GetTrackingBranch(repoPath string) (string, error) {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "@{upstream}")
+	cmd.Dir = repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return "", nil
+	}
+	return strings.TrimSpace(string(out)), nil
 }
