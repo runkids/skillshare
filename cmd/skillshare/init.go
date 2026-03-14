@@ -72,6 +72,7 @@ func printInitUsage() {
 	fmt.Println("  --no-git                  Skip git initialization")
 	fmt.Println("  --skill                   Install built-in skillshare skill")
 	fmt.Println("  --no-skill                Skip built-in skill installation")
+	fmt.Println("  --subdir <name>           Use a subdirectory as the source (e.g. skills/)")
 	fmt.Println("  --discover, -d            Detect and add new AI CLI agents to existing config")
 	fmt.Println("  --select <list>           Select specific agents to add (requires --discover)")
 	fmt.Println("  --dry-run, -n             Preview without making changes")
