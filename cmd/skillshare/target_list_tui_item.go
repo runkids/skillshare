@@ -33,8 +33,12 @@ func (targetListDelegate) Render(w io.Writer, m list.Model, index int, item list
 	if !ok {
 		return
 	}
+	width := m.Width()
+	if width <= 0 {
+		width = 40
+	}
 	mode := sync.EffectiveMode(ti.target.Mode)
 	line := fmt.Sprintf("%s  (%s)", ti.name, mode)
 	selected := index == m.Index()
-	renderPrefixRow(w, line, m.Width(), selected)
+	renderPrefixRow(w, line, width, selected)
 }

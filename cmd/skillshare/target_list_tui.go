@@ -12,7 +12,6 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // ---- Messages ---------------------------------------------------------------
@@ -206,14 +205,21 @@ func (m targetListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case targetListActionDoneMsg:
 		if msg.err != nil {
-			m.lastActionMsg = tc.Red.Render("✗ " + msg.err.Error())
+			m.lastActionMsg = "✗ " + msg.err.Error()
 		} else {
-			m.lastActionMsg = tc.Green.Render(msg.msg)
+			m.lastActionMsg = msg.msg
 		}
 		m.reloadTargetItems()
 		return m, nil
 
 	case tea.KeyMsg:
+		if m.loading {
+			if msg.String() == "q" || msg.String() == "ctrl+c" {
+				m.quitting = true
+				return m, tea.Quit
+			}
+			return m, nil
+		}
 		if m.showModePicker {
 			return m.handleModePickerKey(msg)
 		}
@@ -226,7 +232,7 @@ func (m targetListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleNormalKey(msg)
 
 	case tea.MouseMsg:
-		if targetSplitActive(m.termWidth) {
+		if targetSplitActive(m.termWidth) && !m.loading {
 			pw := targetPanelWidth(m.termWidth)
 			if msg.X > pw {
 				switch msg.Button {
@@ -257,11 +263,11 @@ func (m targetListTUIModel) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		m.quitting = true
 		return m, tea.Quit
 	case "ctrl+d":
-		m.detailScroll += 5
+		m.detailScroll += 8
 		return m, nil
 	case "ctrl+u":
-		if m.detailScroll >= 5 {
-			m.detailScroll -= 5
+		if m.detailScroll >= 8 {
+			m.detailScroll -= 8
 		} else {
 			m.detailScroll = 0
 		}
@@ -270,7 +276,7 @@ func (m targetListTUIModel) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		m.filtering = true
 		m.filterInput.Focus()
 		m.lastActionMsg = ""
-		return m, nil
+		return m, textinput.Blink
 	case "M":
 		if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
 			return m.openModePicker(item.name, item.target)
@@ -299,10 +305,9 @@ func (m targetListTUIModel) handleFilterInputKey(msg tea.KeyMsg) (tea.Model, tea
 	switch msg.String() {
 	case "esc":
 		m.filtering = false
-		m.filterInput.Blur()
-		if m.filterText == "" {
-			m.applyTargetFilter()
-		}
+		m.filterText = ""
+		m.filterInput.SetValue("")
+		m.applyTargetFilter()
 		return m, nil
 	case "enter":
 		m.filtering = false
@@ -327,6 +332,7 @@ func (m *targetListTUIModel) applyTargetFilter() {
 		}
 	}
 	m.list.SetItems(filtered)
+	m.list.ResetSelected()
 	m.matchCount = len(filtered)
 	m.detailScroll = 0
 }
@@ -638,59 +644,85 @@ func (m targetListTUIModel) View() string {
 }
 
 func (m targetListTUIModel) viewTargetSplit() string {
+	var b strings.Builder
+
+	panelHeight := max(m.termHeight-5, 6)
 	leftWidth := targetPanelWidth(m.termWidth)
 	rightWidth := targetDetailPanelWidth(m.termWidth)
-	panelHeight := max(m.termHeight-5, 6)
 
-	leftContent := m.list.View()
-	filterBar := m.renderTargetFilterBar()
-
-	var rightContent string
+	var detailStr, scrollInfo string
 	if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
 		if m.editingFilter {
-			rightContent = m.renderFilterEditPanel(rightWidth, panelHeight)
+			detailStr = "\n" + m.renderFilterEditPanel(rightWidth, panelHeight)
 		} else {
 			detail := m.renderTargetDetail(item)
-			var scrollInfo string
-			detail, scrollInfo = wrapAndScroll(detail, rightWidth, m.detailScroll, panelHeight-2)
-			help := tc.Help.Render("M mode  I include  E exclude")
-			rightContent = detail + "\n\n" + appendScrollInfo(help, scrollInfo)
+			bodyHeight := max(panelHeight-1, 4)
+			detailStr, scrollInfo = wrapAndScroll(detail, rightWidth-1, m.detailScroll, bodyHeight)
+			detailStr = "\n" + detailStr
 		}
 	}
 
-	split := renderHorizontalSplit(leftContent, rightContent, leftWidth, rightWidth, panelHeight)
-
-	var b strings.Builder
-	b.WriteString(split)
-	b.WriteString("\n")
-	b.WriteString(filterBar)
+	body := renderHorizontalSplit(m.list.View(), detailStr, leftWidth, rightWidth, panelHeight)
+	b.WriteString(body)
+	b.WriteString("\n\n")
+	b.WriteString(m.renderTargetFilterBar())
 	if m.lastActionMsg != "" {
+		b.WriteString(renderTargetActionMsg(m.lastActionMsg))
 		b.WriteString("\n")
-		b.WriteString(m.lastActionMsg)
 	}
+	b.WriteString(m.renderTargetHelp(scrollInfo))
+	b.WriteString("\n")
+
 	return b.String()
 }
 
 func (m targetListTUIModel) viewTargetVertical() string {
 	var b strings.Builder
-	b.WriteString(m.list.View())
-	b.WriteString("\n")
 
+	b.WriteString(m.list.View())
+	b.WriteString("\n\n")
+	b.WriteString(m.renderTargetFilterBar())
+
+	var scrollInfo string
 	if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
 		if m.editingFilter {
 			b.WriteString(m.renderFilterEditPanel(m.termWidth, 10))
 		} else {
-			b.WriteString(m.renderTargetDetail(item))
+			detailHeight := max(m.termHeight-m.termHeight*2/5-8, 6)
+			detail := m.renderTargetDetail(item)
+			body, bodyScrollInfo := wrapAndScroll(detail, m.termWidth, m.detailScroll, detailHeight)
+			scrollInfo = bodyScrollInfo
+			b.WriteString(body)
 		}
 	}
 
-	b.WriteString("\n")
-	b.WriteString(m.renderTargetFilterBar())
 	if m.lastActionMsg != "" {
 		b.WriteString("\n")
-		b.WriteString(m.lastActionMsg)
+		b.WriteString(renderTargetActionMsg(m.lastActionMsg))
 	}
+	b.WriteString("\n")
+	b.WriteString(m.renderTargetHelp(scrollInfo))
+	b.WriteString("\n")
+
 	return b.String()
+}
+
+func renderTargetActionMsg(msg string) string {
+	if strings.HasPrefix(msg, "✓") {
+		return tc.Green.Render(msg)
+	}
+	if strings.HasPrefix(msg, "✗") {
+		return tc.Red.Render(msg)
+	}
+	return tc.Yellow.Render(msg)
+}
+
+func (m targetListTUIModel) renderTargetHelp(scrollInfo string) string {
+	helpText := "↑↓ navigate  / filter  M mode  I include  E exclude  q quit"
+	if m.filtering {
+		helpText = "Enter lock  Esc clear  q quit"
+	}
+	return tc.Help.Render(appendScrollInfo(helpText, scrollInfo))
 }
 
 func (m targetListTUIModel) renderTargetFilterBar() string {
@@ -737,8 +769,7 @@ func (m *targetListTUIModel) syncTargetListSize() {
 func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
 	var b strings.Builder
 
-	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(tc.BrandYellow)
-	fmt.Fprintf(&b, "%s\n\n", nameStyle.Render(item.name))
+	fmt.Fprintf(&b, "%s\n\n", tc.Title.Render(item.name))
 
 	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Path:"), shortenPath(item.target.Path))
 	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Mode:"), sync.EffectiveMode(item.target.Mode))
