@@ -60,10 +60,20 @@ func cmdTarget(args []string) error {
 		return targetRemove(subargs)
 	case "list", "ls":
 		jsonOutput := hasFlag(subargs, "--json")
-		if mode == modeProject {
-			return targetListProjectWithJSON(cwd, jsonOutput)
+		noTUI := hasFlag(subargs, "--no-tui")
+		if jsonOutput {
+			if mode == modeProject {
+				return targetListProjectWithJSON(cwd, true)
+			}
+			return targetList(true)
 		}
-		return targetList(jsonOutput)
+		if shouldLaunchTUI(noTUI, nil) {
+			return runTargetListTUI(mode, cwd)
+		}
+		if mode == modeProject {
+			return targetListProjectWithJSON(cwd, false)
+		}
+		return targetList(false)
 	default:
 		// Assume it's a target name - show info or modify settings
 		if mode == modeProject {

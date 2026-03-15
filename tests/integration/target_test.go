@@ -424,6 +424,25 @@ targets:
 	result.AssertAnyOutputContains(t, "invalid mode")
 }
 
+func TestTargetList_NoTUI_FallsBackToPlainText(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	claudePath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudePath + `
+`)
+
+	result := sb.RunCLI("target", "list", "--no-tui")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "claude")
+	result.AssertOutputContains(t, "(merge)")
+}
+
 func TestTarget_NoSubcommand_ShowsUsage(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
