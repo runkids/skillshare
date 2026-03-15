@@ -24,8 +24,8 @@ func (i targetTUIItem) Description() string { return "" }
 // targetListDelegate renders each target row in the list.
 type targetListDelegate struct{}
 
-func (targetListDelegate) Height() int                              { return 1 }
-func (targetListDelegate) Spacing() int                             { return 1 }
+func (targetListDelegate) Height() int                             { return 1 }
+func (targetListDelegate) Spacing() int                            { return 1 }
 func (targetListDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
 func (targetListDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {

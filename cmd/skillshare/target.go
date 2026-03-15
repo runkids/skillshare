@@ -97,6 +97,7 @@ Subcommands:
 
 Options:
   --json                 Output list as JSON
+  --no-tui               Skip interactive TUI, show plain text list
   --project, -p          Use project-level config in current directory
   --global, -g           Use global config (~/.config/skillshare)
 
