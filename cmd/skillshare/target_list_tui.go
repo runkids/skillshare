@@ -3,13 +3,16 @@ package main
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/sync"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // ---- Messages ---------------------------------------------------------------
@@ -161,11 +164,226 @@ func (m targetListTUIModel) loadTargets() tea.Cmd {
 	}
 }
 
-// ---- Stub Update & View -----------------------------------------------------
+// ---- Update -----------------------------------------------------------------
 
 func (m targetListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m, nil
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.termWidth = msg.Width
+		m.termHeight = msg.Height
+		m.syncTargetListSize()
+		return m, nil
+
+	case spinner.TickMsg:
+		if m.loading {
+			var cmd tea.Cmd
+			m.loadSpinner, cmd = m.loadSpinner.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case targetListLoadedMsg:
+		m.loading = false
+		if msg.err != nil {
+			m.loadErr = msg.err
+			m.quitting = true
+			return m, tea.Quit
+		}
+		if len(msg.items) == 0 {
+			m.emptyResult = true
+			m.quitting = true
+			return m, tea.Quit
+		}
+		m.allItems = msg.items
+		items := make([]list.Item, len(msg.items))
+		for i, it := range msg.items {
+			items[i] = it
+		}
+		m.list.SetItems(items)
+		m.matchCount = len(msg.items)
+		m.syncTargetListSize()
+		return m, nil
+
+	case targetListActionDoneMsg:
+		if msg.err != nil {
+			m.lastActionMsg = tc.Red.Render("✗ " + msg.err.Error())
+		} else {
+			m.lastActionMsg = tc.Green.Render(msg.msg)
+		}
+		m.reloadTargetItems()
+		return m, nil
+
+	case tea.KeyMsg:
+		if m.showModePicker {
+			return m.handleModePickerKey(msg)
+		}
+		if m.editingFilter {
+			return m.handleFilterEditKey(msg)
+		}
+		if m.filtering {
+			return m.handleFilterInputKey(msg)
+		}
+		return m.handleNormalKey(msg)
+
+	case tea.MouseMsg:
+		if targetSplitActive(m.termWidth) {
+			pw := targetPanelWidth(m.termWidth)
+			if msg.X > pw {
+				switch msg.Button {
+				case tea.MouseButtonWheelUp:
+					if m.detailScroll > 0 {
+						m.detailScroll--
+					}
+					return m, nil
+				case tea.MouseButtonWheelDown:
+					m.detailScroll++
+					return m, nil
+				}
+			}
+		}
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		return m, cmd
+	}
+
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
 }
+
+func (m targetListTUIModel) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "ctrl+c":
+		m.quitting = true
+		return m, tea.Quit
+	case "ctrl+d":
+		m.detailScroll += 5
+		return m, nil
+	case "ctrl+u":
+		if m.detailScroll >= 5 {
+			m.detailScroll -= 5
+		} else {
+			m.detailScroll = 0
+		}
+		return m, nil
+	case "/":
+		m.filtering = true
+		m.filterInput.Focus()
+		m.lastActionMsg = ""
+		return m, nil
+	case "M":
+		if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
+			return m.openModePicker(item.name, item.target)
+		}
+		return m, nil
+	case "I":
+		if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
+			return m.openFilterEdit(item.name, "include", item.target.Include)
+		}
+		return m, nil
+	case "E":
+		if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
+			return m.openFilterEdit(item.name, "exclude", item.target.Exclude)
+		}
+		return m, nil
+	}
+
+	m.lastActionMsg = ""
+	m.detailScroll = 0
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
+}
+
+func (m targetListTUIModel) handleFilterInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.filtering = false
+		m.filterInput.Blur()
+		if m.filterText == "" {
+			m.applyTargetFilter()
+		}
+		return m, nil
+	case "enter":
+		m.filtering = false
+		m.filterInput.Blur()
+		m.filterText = m.filterInput.Value()
+		m.applyTargetFilter()
+		return m, nil
+	}
+	var cmd tea.Cmd
+	m.filterInput, cmd = m.filterInput.Update(msg)
+	m.filterText = m.filterInput.Value()
+	m.applyTargetFilter()
+	return m, cmd
+}
+
+func (m *targetListTUIModel) applyTargetFilter() {
+	query := strings.ToLower(m.filterText)
+	var filtered []list.Item
+	for _, it := range m.allItems {
+		if query == "" || strings.Contains(strings.ToLower(it.name), query) {
+			filtered = append(filtered, it)
+		}
+	}
+	m.list.SetItems(filtered)
+	m.matchCount = len(filtered)
+	m.detailScroll = 0
+}
+
+func (m *targetListTUIModel) reloadTargetItems() {
+	var items []targetTUIItem
+	if m.projCfg != nil {
+		projCfg, err := config.LoadProject(m.cwd)
+		if err == nil {
+			m.projCfg = projCfg
+			for _, entry := range projCfg.Targets {
+				items = append(items, targetTUIItem{
+					name: entry.Name,
+					target: config.TargetConfig{
+						Path:    projectTargetDisplayPath(entry),
+						Mode:    entry.Mode,
+						Include: entry.Include,
+						Exclude: entry.Exclude,
+					},
+				})
+			}
+		}
+	} else {
+		cfg, err := config.Load()
+		if err == nil {
+			m.cfg = cfg
+			for name, t := range cfg.Targets {
+				items = append(items, targetTUIItem{name: name, target: t})
+			}
+		}
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].name < items[j].name
+	})
+	m.allItems = items
+	m.applyTargetFilter()
+}
+
+// ---- Overlay stubs (implemented in later tasks) -----------------------------
+
+func (m targetListTUIModel) openModePicker(name string, target config.TargetConfig) (tea.Model, tea.Cmd) {
+	return m, nil // stub
+}
+
+func (m targetListTUIModel) handleModePickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	return m, nil // stub
+}
+
+func (m targetListTUIModel) openFilterEdit(name, filterType string, patterns []string) (tea.Model, tea.Cmd) {
+	return m, nil // stub
+}
+
+func (m targetListTUIModel) handleFilterEditKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	return m, nil // stub
+}
+
+// ---- View -------------------------------------------------------------------
 
 func (m targetListTUIModel) View() string {
 	if m.quitting {
@@ -174,7 +392,149 @@ func (m targetListTUIModel) View() string {
 	if m.loading {
 		return fmt.Sprintf("\n  %s Loading targets...\n", m.loadSpinner.View())
 	}
-	return "target list TUI placeholder"
+	if m.showModePicker {
+		return m.renderModePicker()
+	}
+	if targetSplitActive(m.termWidth) {
+		return m.viewTargetSplit()
+	}
+	return m.viewTargetVertical()
+}
+
+func (m targetListTUIModel) viewTargetSplit() string {
+	leftWidth := targetPanelWidth(m.termWidth)
+	rightWidth := targetDetailPanelWidth(m.termWidth)
+	panelHeight := max(m.termHeight-5, 6)
+
+	leftContent := m.list.View()
+	filterBar := m.renderTargetFilterBar()
+
+	var rightContent string
+	if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
+		if m.editingFilter {
+			rightContent = m.renderFilterEditPanel(rightWidth, panelHeight)
+		} else {
+			detail := m.renderTargetDetail(item)
+			var scrollInfo string
+			detail, scrollInfo = wrapAndScroll(detail, rightWidth, m.detailScroll, panelHeight-2)
+			help := tc.Help.Render("M mode  I include  E exclude")
+			rightContent = detail + "\n\n" + appendScrollInfo(help, scrollInfo)
+		}
+	}
+
+	split := renderHorizontalSplit(leftContent, rightContent, leftWidth, rightWidth, panelHeight)
+
+	var b strings.Builder
+	b.WriteString(split)
+	b.WriteString("\n")
+	b.WriteString(filterBar)
+	if m.lastActionMsg != "" {
+		b.WriteString("\n")
+		b.WriteString(m.lastActionMsg)
+	}
+	return b.String()
+}
+
+func (m targetListTUIModel) viewTargetVertical() string {
+	var b strings.Builder
+	b.WriteString(m.list.View())
+	b.WriteString("\n")
+
+	if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
+		if m.editingFilter {
+			b.WriteString(m.renderFilterEditPanel(m.termWidth, 10))
+		} else {
+			b.WriteString(m.renderTargetDetail(item))
+		}
+	}
+
+	b.WriteString("\n")
+	b.WriteString(m.renderTargetFilterBar())
+	if m.lastActionMsg != "" {
+		b.WriteString("\n")
+		b.WriteString(m.lastActionMsg)
+	}
+	return b.String()
+}
+
+func (m targetListTUIModel) renderTargetFilterBar() string {
+	return renderTUIFilterBar(
+		m.filterInput.View(),
+		m.filtering,
+		m.filterText,
+		m.matchCount,
+		len(m.allItems),
+		0,
+		"targets",
+		renderPageInfoFromPaginator(m.list.Paginator),
+	)
+}
+
+// ---- Layout -----------------------------------------------------------------
+
+func targetSplitActive(termWidth int) bool {
+	return termWidth >= tuiMinSplitWidth
+}
+
+func targetPanelWidth(termWidth int) int {
+	w := termWidth * 36 / 100
+	return max(min(w, 40), 26)
+}
+
+func targetDetailPanelWidth(termWidth int) int {
+	return max(termWidth-targetPanelWidth(termWidth)-1, 28)
+}
+
+func (m *targetListTUIModel) syncTargetListSize() {
+	if targetSplitActive(m.termWidth) {
+		pw := targetPanelWidth(m.termWidth)
+		ph := max(m.termHeight-5, 6)
+		m.list.SetSize(pw, ph)
+	} else {
+		lh := max(m.termHeight-20, 6)
+		m.list.SetSize(m.termWidth, lh)
+	}
+}
+
+// ---- Detail panel -----------------------------------------------------------
+
+func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
+	var b strings.Builder
+
+	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(tc.BrandYellow)
+	fmt.Fprintf(&b, "%s\n\n", nameStyle.Render(item.name))
+
+	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Path:"), shortenPath(item.target.Path))
+	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Mode:"), sync.EffectiveMode(item.target.Mode))
+
+	if len(item.target.Include) > 0 {
+		fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("Include:"))
+		for _, p := range item.target.Include {
+			fmt.Fprintf(&b, "  %s\n", p)
+		}
+	}
+	if len(item.target.Exclude) > 0 {
+		fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("Exclude:"))
+		for _, p := range item.target.Exclude {
+			fmt.Fprintf(&b, "  %s\n", p)
+		}
+	}
+
+	if len(item.target.Include) == 0 && len(item.target.Exclude) == 0 {
+		fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("No include/exclude filters"))
+	}
+
+	return b.String()
+}
+
+// ---- Overlay placeholders ---------------------------------------------------
+
+func (m targetListTUIModel) renderModePicker() string {
+	return "mode picker placeholder"
+}
+
+func (m targetListTUIModel) renderFilterEditPanel(width, height int) string {
+	return "filter edit placeholder"
 }
 
 // ---- Runner -----------------------------------------------------------------
