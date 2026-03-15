@@ -365,22 +365,258 @@ func (m *targetListTUIModel) reloadTargetItems() {
 	m.applyTargetFilter()
 }
 
-// ---- Overlay stubs (implemented in later tasks) -----------------------------
+// ─── Mode Picker ─────────────────────────────────────────────────────
+
+var targetSyncModes = config.ExtraSyncModes // ["merge", "copy", "symlink"]
 
 func (m targetListTUIModel) openModePicker(name string, target config.TargetConfig) (tea.Model, tea.Cmd) {
-	return m, nil // stub
+	m.showModePicker = true
+	m.modePickerTarget = name
+	m.modeCursor = 0
+	current := sync.EffectiveMode(target.Mode)
+	for i, mode := range targetSyncModes {
+		if mode == current {
+			m.modeCursor = i
+			break
+		}
+	}
+	m.lastActionMsg = ""
+	return m, nil
 }
 
 func (m targetListTUIModel) handleModePickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return m, nil // stub
+	switch msg.String() {
+	case "q", "esc":
+		m.showModePicker = false
+		return m, nil
+	case "up", "k":
+		if m.modeCursor > 0 {
+			m.modeCursor--
+		}
+		return m, nil
+	case "down", "j":
+		if m.modeCursor < len(targetSyncModes)-1 {
+			m.modeCursor++
+		}
+		return m, nil
+	case "enter":
+		m.showModePicker = false
+		newMode := targetSyncModes[m.modeCursor]
+		name := m.modePickerTarget
+		return m, func() tea.Msg {
+			msg, err := m.doSetTargetMode(name, newMode)
+			return targetListActionDoneMsg{msg: msg, err: err}
+		}
+	}
+	return m, nil
+}
+
+func (m targetListTUIModel) doSetTargetMode(name, newMode string) (string, error) {
+	if m.projCfg != nil {
+		projCfg, err := config.LoadProject(m.cwd)
+		if err != nil {
+			return "", err
+		}
+		for i, entry := range projCfg.Targets {
+			if entry.Name == name {
+				projCfg.Targets[i].Mode = newMode
+				break
+			}
+		}
+		if err := projCfg.Save(m.cwd); err != nil {
+			return "", err
+		}
+	} else {
+		cfg, err := config.Load()
+		if err != nil {
+			return "", err
+		}
+		t := cfg.Targets[name]
+		t.Mode = newMode
+		cfg.Targets[name] = t
+		if err := cfg.Save(); err != nil {
+			return "", err
+		}
+	}
+	return fmt.Sprintf("✓ Set %s mode to %s", name, newMode), nil
+}
+
+// ─── Include/Exclude Edit Sub-Panel ──────────────────────────────────
+
+func capitalizeFilterType(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 func (m targetListTUIModel) openFilterEdit(name, filterType string, patterns []string) (tea.Model, tea.Cmd) {
-	return m, nil // stub
+	m.editingFilter = true
+	m.editFilterType = filterType
+	m.editFilterTarget = name
+	m.editPatterns = make([]string, len(patterns))
+	copy(m.editPatterns, patterns)
+	m.editCursor = 0
+	m.editAdding = false
+	m.editInput.Reset()
+	m.lastActionMsg = ""
+	return m, nil
 }
 
 func (m targetListTUIModel) handleFilterEditKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	return m, nil // stub
+	if m.editAdding {
+		return m.handleFilterEditAddKey(msg)
+	}
+
+	switch msg.String() {
+	case "esc":
+		m.editingFilter = false
+		return m, nil
+	case "up", "k":
+		if m.editCursor > 0 {
+			m.editCursor--
+		}
+		return m, nil
+	case "down", "j":
+		if m.editCursor < len(m.editPatterns)-1 {
+			m.editCursor++
+		}
+		return m, nil
+	case "a":
+		m.editAdding = true
+		m.editInput.Reset()
+		m.editInput.Focus()
+		return m, nil
+	case "d":
+		if len(m.editPatterns) > 0 && m.editCursor < len(m.editPatterns) {
+			pattern := m.editPatterns[m.editCursor]
+			m.editPatterns = append(m.editPatterns[:m.editCursor], m.editPatterns[m.editCursor+1:]...)
+			if m.editCursor >= len(m.editPatterns) && m.editCursor > 0 {
+				m.editCursor--
+			}
+			name := m.editFilterTarget
+			filterType := m.editFilterType
+			return m, func() tea.Msg {
+				msg, err := m.doRemovePattern(name, filterType, pattern)
+				return targetListActionDoneMsg{msg: msg, err: err}
+			}
+		}
+		return m, nil
+	}
+	return m, nil
+}
+
+func (m targetListTUIModel) handleFilterEditAddKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.editAdding = false
+		m.editInput.Blur()
+		return m, nil
+	case "enter":
+		pattern := strings.TrimSpace(m.editInput.Value())
+		m.editAdding = false
+		m.editInput.Blur()
+		if pattern == "" {
+			return m, nil
+		}
+		m.editPatterns = append(m.editPatterns, pattern)
+		m.editCursor = len(m.editPatterns) - 1
+		name := m.editFilterTarget
+		filterType := m.editFilterType
+		return m, func() tea.Msg {
+			msg, err := m.doAddPattern(name, filterType, pattern)
+			return targetListActionDoneMsg{msg: msg, err: err}
+		}
+	}
+	var cmd tea.Cmd
+	m.editInput, cmd = m.editInput.Update(msg)
+	return m, cmd
+}
+
+func (m targetListTUIModel) doAddPattern(name, filterType, pattern string) (string, error) {
+	if m.projCfg != nil {
+		projCfg, err := config.LoadProject(m.cwd)
+		if err != nil {
+			return "", err
+		}
+		for i, entry := range projCfg.Targets {
+			if entry.Name == name {
+				if filterType == "include" {
+					projCfg.Targets[i].Include = append(projCfg.Targets[i].Include, pattern)
+				} else {
+					projCfg.Targets[i].Exclude = append(projCfg.Targets[i].Exclude, pattern)
+				}
+				break
+			}
+		}
+		if err := projCfg.Save(m.cwd); err != nil {
+			return "", err
+		}
+	} else {
+		cfg, err := config.Load()
+		if err != nil {
+			return "", err
+		}
+		t := cfg.Targets[name]
+		if filterType == "include" {
+			t.Include = append(t.Include, pattern)
+		} else {
+			t.Exclude = append(t.Exclude, pattern)
+		}
+		cfg.Targets[name] = t
+		if err := cfg.Save(); err != nil {
+			return "", err
+		}
+	}
+	return fmt.Sprintf("✓ Added %s pattern: %s", filterType, pattern), nil
+}
+
+func (m targetListTUIModel) doRemovePattern(name, filterType, pattern string) (string, error) {
+	removeFromSlice := func(slice []string, val string) []string {
+		var result []string
+		for _, s := range slice {
+			if s != val {
+				result = append(result, s)
+			}
+		}
+		return result
+	}
+
+	if m.projCfg != nil {
+		projCfg, err := config.LoadProject(m.cwd)
+		if err != nil {
+			return "", err
+		}
+		for i, entry := range projCfg.Targets {
+			if entry.Name == name {
+				if filterType == "include" {
+					projCfg.Targets[i].Include = removeFromSlice(entry.Include, pattern)
+				} else {
+					projCfg.Targets[i].Exclude = removeFromSlice(entry.Exclude, pattern)
+				}
+				break
+			}
+		}
+		if err := projCfg.Save(m.cwd); err != nil {
+			return "", err
+		}
+	} else {
+		cfg, err := config.Load()
+		if err != nil {
+			return "", err
+		}
+		t := cfg.Targets[name]
+		if filterType == "include" {
+			t.Include = removeFromSlice(t.Include, pattern)
+		} else {
+			t.Exclude = removeFromSlice(t.Exclude, pattern)
+		}
+		cfg.Targets[name] = t
+		if err := cfg.Save(); err != nil {
+			return "", err
+		}
+	}
+	return fmt.Sprintf("✓ Removed %s pattern: %s", filterType, pattern), nil
 }
 
 // ---- View -------------------------------------------------------------------
@@ -527,14 +763,70 @@ func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
 	return b.String()
 }
 
-// ---- Overlay placeholders ---------------------------------------------------
+// ---- Overlay renders --------------------------------------------------------
 
 func (m targetListTUIModel) renderModePicker() string {
-	return "mode picker placeholder"
+	var b strings.Builder
+
+	fmt.Fprintf(&b, "\n%s\n", tc.Title.Render("Change mode"))
+	fmt.Fprintf(&b, "%s  %s\n\n", tc.Dim.Render("Target:"), m.modePickerTarget)
+
+	for i, mode := range targetSyncModes {
+		cursor := "  "
+		if i == m.modeCursor {
+			cursor = tc.Cyan.Render(">") + " "
+		}
+		var desc string
+		switch mode {
+		case "merge":
+			desc = " (per-file symlinks)"
+		case "copy":
+			desc = " (file copies)"
+		case "symlink":
+			desc = " (directory symlink)"
+		}
+		if i == m.modeCursor {
+			fmt.Fprintf(&b, "%s%s%s\n", cursor, tc.Cyan.Render(mode), tc.Dim.Render(desc))
+		} else {
+			fmt.Fprintf(&b, "%s%s%s\n", cursor, mode, tc.Dim.Render(desc))
+		}
+	}
+
+	fmt.Fprintf(&b, "\n%s\n", tc.Help.Render("↑↓ select  Enter confirm  Esc cancel"))
+	return b.String()
 }
 
 func (m targetListTUIModel) renderFilterEditPanel(width, height int) string {
-	return "filter edit placeholder"
+	var b strings.Builder
+
+	title := capitalizeFilterType(m.editFilterType)
+	fmt.Fprintf(&b, "%s %s\n", tc.Title.Render(title+" patterns"), tc.Dim.Render("("+m.editFilterTarget+")"))
+	fmt.Fprintln(&b)
+
+	if len(m.editPatterns) == 0 {
+		fmt.Fprintf(&b, "  %s\n", tc.Dim.Render("(empty)"))
+	} else {
+		for i, p := range m.editPatterns {
+			if i == m.editCursor {
+				fmt.Fprintf(&b, "  %s %s\n", tc.Cyan.Render(">"), tc.Cyan.Render(p))
+			} else {
+				fmt.Fprintf(&b, "    %s\n", p)
+			}
+		}
+	}
+
+	if m.editAdding {
+		fmt.Fprintln(&b)
+		fmt.Fprintf(&b, "  %s\n", m.editInput.View())
+	}
+
+	fmt.Fprintln(&b)
+	if m.editAdding {
+		fmt.Fprintf(&b, "%s\n", tc.Help.Render("Enter confirm  Esc cancel"))
+	} else {
+		fmt.Fprintf(&b, "%s\n", tc.Help.Render("a add  d delete  esc back"))
+	}
+	return b.String()
 }
 
 // ---- Runner -----------------------------------------------------------------
