@@ -1150,7 +1150,6 @@ func logUninstallOp(cfgPath string, names []string, succeeded int, start time.Ti
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 }
 
-
 func printUninstallHelp() {
 	fmt.Println(`Usage: skillshare uninstall <name>... [options]
        skillshare uninstall --group <group> [options]

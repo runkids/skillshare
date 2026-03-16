@@ -219,4 +219,3 @@ Options:
   --global, -g         Use global extras (~/.config/skillshare/)
   --help, -h           Show this help`)
 }
-

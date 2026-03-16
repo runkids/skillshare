@@ -140,7 +140,6 @@ func collectExtrasDiff(extras []config.ExtraConfig, sourceResolver func(string) 
 	return results
 }
 
-
 // renderExtrasDiffPlain renders extras diff in plain text.
 func renderExtrasDiffPlain(results []extraDiffResult) {
 	fmt.Println()

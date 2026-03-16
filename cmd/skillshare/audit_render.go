@@ -377,7 +377,7 @@ func formatCategoryBreakdownTUI(cats map[string]int) string {
 		if cc.count > 50 {
 			parts[i] = tc.Emphasis.Bold(true).Render(label+":") + tc.Emphasis.Bold(true).Render(fmt.Sprintf("%d", cc.count))
 		} else {
-			parts[i] = tc.Dim.Render(label+":"+fmt.Sprintf("%d", cc.count))
+			parts[i] = tc.Dim.Render(label + ":" + fmt.Sprintf("%d", cc.count))
 		}
 	}
 	return strings.Join(parts, " ")

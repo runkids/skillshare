@@ -144,4 +144,3 @@ func formatRiskBadgeLipgloss(label string) string {
 	}
 	return " " + riskLabelStyle(label).Render("["+label+"]")
 }
-

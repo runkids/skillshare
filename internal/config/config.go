@@ -59,14 +59,14 @@ type ExtraConfig struct {
 
 // Config holds the application configuration
 type Config struct {
-	Source  string                  `yaml:"source"`
-	Mode    string                  `yaml:"mode,omitempty"` // default mode: merge
-	Targets map[string]TargetConfig `yaml:"targets"`
-	Extras  []ExtraConfig           `yaml:"extras,omitempty"`
-	Ignore  []string                `yaml:"ignore,omitempty"`
-	Audit   AuditConfig             `yaml:"audit,omitempty"`
-	Hub     HubConfig               `yaml:"hub,omitempty"`
-	Log     LogConfig               `yaml:"log,omitempty"`
+	Source      string                  `yaml:"source"`
+	Mode        string                  `yaml:"mode,omitempty"` // default mode: merge
+	Targets     map[string]TargetConfig `yaml:"targets"`
+	Extras      []ExtraConfig           `yaml:"extras,omitempty"`
+	Ignore      []string                `yaml:"ignore,omitempty"`
+	Audit       AuditConfig             `yaml:"audit,omitempty"`
+	Hub         HubConfig               `yaml:"hub,omitempty"`
+	Log         LogConfig               `yaml:"log,omitempty"`
 	TUI         *bool                   `yaml:"tui,omitempty"` // nil = default true
 	GitLabHosts []string                `yaml:"gitlab_hosts,omitempty"`
 }

@@ -344,18 +344,18 @@ type ProgressBar struct {
 }
 
 const (
-	barWidth         = 36              // fixed visible width (character count)
-	barFill          = "■"             // U+25A0 filled block
-	barEmpty         = "･"             // U+FF65 half-width dot
-	barColor         = "\033[0;36m"    // reset + cyan (project accent)
-	barDim           = "\033[36;2m"    // cyan + dim for empty dots
-	barMuted         = "\x1b[0;2m"     // dim attribute for label + count
+	barWidth         = 36           // fixed visible width (character count)
+	barFill          = "■"          // U+25A0 filled block
+	barEmpty         = "･"          // U+FF65 half-width dot
+	barColor         = "\033[0;36m" // reset + cyan (project accent)
+	barDim           = "\033[36;2m" // cyan + dim for empty dots
+	barMuted         = "\x1b[0;2m"  // dim attribute for label + count
 	barReset         = Reset
 	hideCursor       = "\x1b[?25l"
 	showCursor       = "\x1b[?25h"
 	clearLine        = "\r\x1b[2K"
 	barThrottleMs    = 50 * time.Millisecond // min interval between renders
-	barFixedOverhead = barWidth + 8    // bar chars + " NNN%  " + padding
+	barFixedOverhead = barWidth + 8          // bar chars + " NNN%  " + padding
 )
 
 // StartProgress starts a progress bar with the given title and total count.

@@ -51,7 +51,6 @@ func (i auditItem) Title() string {
 	return tc.Yellow.Render("!") + " " + name
 }
 
-
 // compactAuditPath strips tracked repo prefix (first segment starting with "_")
 // and keeps at most the last 2 segments.
 func compactAuditPath(name string) string {

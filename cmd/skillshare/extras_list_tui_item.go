@@ -21,7 +21,7 @@ func (i extraTUIItem) Description() string { return "" }
 type extrasListDelegate struct{}
 
 func (extrasListDelegate) Height() int                             { return 1 }
-func (extrasListDelegate) Spacing() int                           { return 1 }
+func (extrasListDelegate) Spacing() int                            { return 1 }
 func (extrasListDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
 func (extrasListDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {

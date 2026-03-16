@@ -48,7 +48,7 @@ func writeJSONError(err error) error {
 		fmt.Fprintf(os.Stderr, "json marshal error: %v\n", merr)
 		fmt.Printf("{\"error\": %q}\n", err.Error())
 	} else {
-		os.Stdout.Write(out)    //nolint:errcheck
+		os.Stdout.Write(out)          //nolint:errcheck
 		os.Stdout.Write([]byte("\n")) //nolint:errcheck
 	}
 	return &jsonSilentError{cause: err}

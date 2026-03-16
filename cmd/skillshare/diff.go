@@ -508,9 +508,9 @@ func diffOutputJSON(results []targetDiffResult, start time.Time) error {
 
 func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraDiffResult, start time.Time) error {
 	type outputWithExtras struct {
-		Targets  []diffJSONTarget    `json:"targets"`
+		Targets  []diffJSONTarget     `json:"targets"`
 		Extras   []extraDiffJSONEntry `json:"extras,omitempty"`
-		Duration string              `json:"duration"`
+		Duration string               `json:"duration"`
 	}
 	o := outputWithExtras{
 		Duration: formatDuration(start),

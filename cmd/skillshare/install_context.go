@@ -47,7 +47,7 @@ func (g *globalInstallContext) Reconcile() error {
 }
 func (g *globalInstallContext) PostInstallSkill(string) error { return nil }
 func (g *globalInstallContext) Mode() string                  { return "global" }
-func (g *globalInstallContext) GitLabHosts() []string          { return g.cfg.EffectiveGitLabHosts() }
+func (g *globalInstallContext) GitLabHosts() []string         { return g.cfg.EffectiveGitLabHosts() }
 
 // ---------------------------------------------------------------------------
 // projectInstallContext
@@ -71,5 +71,7 @@ func (p *projectInstallContext) PostInstallSkill(displayName string) error {
 		filepath.Join("skills", displayName),
 	)
 }
-func (p *projectInstallContext) Mode() string          { return "project" }
-func (p *projectInstallContext) GitLabHosts() []string { return p.runtime.config.EffectiveGitLabHosts() }
+func (p *projectInstallContext) Mode() string { return "project" }
+func (p *projectInstallContext) GitLabHosts() []string {
+	return p.runtime.config.EffectiveGitLabHosts()
+}

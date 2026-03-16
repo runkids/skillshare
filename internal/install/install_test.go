@@ -382,9 +382,9 @@ func TestWrapGitError(t *testing.T) {
 
 func TestExtractGitFatal(t *testing.T) {
 	tests := []struct {
-		name    string
-		stderr  string
-		want    string
+		name   string
+		stderr string
+		want   string
 	}{
 		{
 			name:   "fatal line only",

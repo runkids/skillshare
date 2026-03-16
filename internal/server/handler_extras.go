@@ -310,13 +310,13 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 	extras := s.extrasConfig()
 
 	type targetSyncResult struct {
-		Target  string `json:"target"`
-		Mode    string `json:"mode"`
-		Synced  int    `json:"synced"`
-		Skipped int    `json:"skipped"`
-		Pruned  int    `json:"pruned"`
+		Target  string   `json:"target"`
+		Mode    string   `json:"mode"`
+		Synced  int      `json:"synced"`
+		Skipped int      `json:"skipped"`
+		Pruned  int      `json:"pruned"`
 		Errors  []string `json:"errors,omitempty"`
-		Error   string `json:"error,omitempty"`
+		Error   string   `json:"error,omitempty"`
 	}
 	type extraSyncResult struct {
 		Name    string             `json:"name"`
@@ -370,11 +370,11 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeOpsLog("extras-sync", "ok", start, map[string]any{
-		"name":    body.Name,
-		"dryRun":  body.DryRun,
-		"force":   body.Force,
-		"count":   len(results),
-		"scope":   "ui",
+		"name":   body.Name,
+		"dryRun": body.DryRun,
+		"force":  body.Force,
+		"count":  len(results),
+		"scope":  "ui",
 	}, "")
 
 	writeJSON(w, map[string]any{"results": results})
@@ -497,4 +497,3 @@ func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, map[string]any{"success": true, "name": name})
 }
-
