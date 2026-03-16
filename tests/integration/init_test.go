@@ -1005,6 +1005,19 @@ func TestInit_Fresh_ConfigHasSchemaComment(t *testing.T) {
 	}
 }
 
+func TestInit_SuccessMessage_ContainsSourceHint(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+
+	result := sb.RunCLI("init", "--no-copy", "--no-targets", "--no-git", "--no-skill")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Tip:")
+	result.AssertOutputContains(t, "--source")
+}
+
 func TestInit_MutualExclusion_SkillFlags(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

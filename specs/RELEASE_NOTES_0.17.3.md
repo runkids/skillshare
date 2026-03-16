@@ -7,11 +7,12 @@ Release date: 2026-03-16
 v0.17.3 brings the **target list** command into the interactive TUI family, adds **centralized skills repo** support, and fixes a couple of paper cuts:
 
 1. **Centralized skills repo** — `init -p --config local` enables one repo for skills, each developer manages own targets
-2. **Target list TUI** — full-screen interactive browser with split layout, fuzzy filter, and inline editing
-3. **Mode picker** — change a target's sync mode (`M` key) without leaving the TUI
-4. **Include/Exclude editor** — add/remove filter patterns (`I`/`E` keys) directly from the TUI
-5. **Web UI error guidance** — network failures now show actionable "restart `skillshare ui`" message
-6. **`init --help` fix** — `--subdir` flag now visible, flag ordering matches documentation
+2. **Init source path prompt** — `init` now asks whether to customize source directory path instead of silently defaulting
+3. **Target list TUI** — full-screen interactive browser with split layout, fuzzy filter, and inline editing
+4. **Mode picker** — change a target's sync mode (`M` key) without leaving the TUI
+5. **Include/Exclude editor** — add/remove filter patterns (`I`/`E` keys) directly from the TUI
+6. **Web UI error guidance** — network failures now show actionable "restart `skillshare ui`" message
+7. **`init --help` fix** — `--subdir` flag now visible, flag ordering matches documentation
 
 ---
 
@@ -62,6 +63,32 @@ TUI keybindings:
 | `E` | Edit exclude patterns |
 | `Ctrl+d`/`Ctrl+u` | Scroll detail panel |
 | `q` | Quit |
+
+---
+
+## Init Source Path Prompt
+
+### The problem
+
+`skillshare init` silently set the source directory to `~/.config/skillshare/skills/` without telling the user this was customizable. Only users who read the docs or knew about `--source` could change it. First-time users had no opportunity to choose a different location.
+
+### Solution
+
+In interactive mode, `init` now displays the default source path and asks whether to customize it:
+
+```
+ℹ Source directory stores your skills (single source of truth)
+  Default: /home/user/.config/skillshare/skills
+  Customize source path? [y/N]:
+```
+
+If the user says yes, they enter a custom path (with `~` expansion). The success message also now includes a hint about `--source` and the config file location.
+
+### Design decisions
+
+- **TTY guard** — `runningInInteractiveTTY()` ensures the prompt only appears in real terminal sessions. Piped stdin (tests, scripts) skips automatically
+- **`--source` priority** — when `--source` is provided on the CLI, `promptSourcePath()` is never called. Zero behavior change for non-interactive workflows
+- **Same Y/N pattern** — reuses the `bufio.NewReader` + `ReadString('\n')` gate pattern from `useSourceSubdir()`, keeping the UX consistent
 
 ---
 

@@ -28,6 +28,14 @@ All notable changes to skillshare are documented here. For the full commit histo
   ```
 - **Smart shared repo detection** — when a teammate clones a shared skills repo and runs `skillshare init -p`, skillshare auto-detects the shared repo pattern (config.yaml in .gitignore) and creates an empty config with guided next steps. No `--config local` flag needed for cloners
 
+#### Init Source Path Prompt
+
+- **Interactive source path customization** — `skillshare init` now asks whether you want to customize the source directory path instead of silently using the default (`~/.config/skillshare/skills/`). Use `--source` to skip the prompt in scripts:
+  ```bash
+  skillshare init                          # Prompts for source path
+  skillshare init --source ~/my-skills     # Skips prompt
+  ```
+
 #### Target List Interactive TUI
 
 - **Interactive target browser** — `skillshare target list` now launches a full-screen TUI with a split panel layout (target list on the left, detail panel on the right). Includes fuzzy filtering via `/` and keyboard navigation:

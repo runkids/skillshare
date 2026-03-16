@@ -55,10 +55,11 @@ skillshare init
 </p>
 
 This:
-1. Creates your source directory (`~/.config/skillshare/skills/`)
-2. Auto-detects installed AI CLIs
-3. Sets up configuration
-4. Optionally installs the built-in skillshare skill (adds `/skillshare` command to AI CLIs)
+1. Lets you customize the source directory path (default: `~/.config/skillshare/skills/`)
+2. Creates your source directory
+3. Auto-detects installed AI CLIs
+4. Sets up configuration
+5. Optionally installs the built-in skillshare skill (adds `/skillshare` command to AI CLIs)
 
 ### Init mode tip
 

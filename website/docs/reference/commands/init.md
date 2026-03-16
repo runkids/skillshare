@@ -23,6 +23,7 @@ skillshare init --dry-run    # Preview without changes
 ```mermaid
 flowchart TD
     TITLE["skillshare init"]
+    S0["0. Source path prompt"]
     S1["1. Create source directory"]
     S2["2. Auto-detect AI CLIs"]
     S3["3. Initialize git"]
@@ -30,7 +31,7 @@ flowchart TD
     S4b["5. Subdirectory prompt"]
     S5["6. Create config.yaml"]
     S6["7. Built-in skill"]
-    TITLE --> S1 --> S2 --> S3 --> S4 --> S4b --> S5 --> S6
+    TITLE --> S0 --> S1 --> S2 --> S3 --> S4 --> S4b --> S5 --> S6
 ```
 
 :::info Universal target
@@ -103,7 +104,7 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 
 | Flag | Description |
 |------|-------------|
-| `--source, -s <path>` | Custom source directory |
+| `--source, -s <path>` | Custom source directory (interactive mode prompts if not set) |
 | `--remote <url>` | Set git remote (implies `--git`; auto-pulls if remote has skills) |
 | `--project, -p` | Initialize project-level skills in current directory |
 | `--copy-from, -c <name\|path>` | Copy skills from a specific CLI or path |

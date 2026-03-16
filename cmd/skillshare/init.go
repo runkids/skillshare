@@ -359,7 +359,8 @@ func performFreshInit(opts *initOptions, home string) error {
 	// Default source path (same location as config)
 	sourcePath := opts.sourcePath
 	if sourcePath == "" {
-		sourcePath = filepath.Join(config.BaseDir(), "skills")
+		defaultPath := filepath.Join(config.BaseDir(), "skills")
+		sourcePath = promptSourcePath(defaultPath, home)
 	}
 
 	// Find directories with skills to potentially copy from
@@ -494,6 +495,8 @@ func printInitSuccess(sourcePath string, dryRun bool, skillInstalled bool) {
 		fmt.Println("  \"Pull my new skill from Claude and sync to all targets\"")
 		fmt.Println("  \"Show me skillshare status\"")
 	}
+	fmt.Println()
+	fmt.Printf("  %sTip: edit %s or re-run with --source to change source path%s\n", ui.Dim, config.ConfigPath(), ui.Reset)
 }
 
 // hasGlobalOnlyInitFlags returns true if args contain flags only valid for global init
@@ -1239,6 +1242,48 @@ func tryPullAfterRemoteSetup(sourcePath, remoteURL string) bool {
 
 	spinner.Success(fmt.Sprintf("Pulled %d skill(s) from remote", skillCount))
 	return true
+}
+
+// promptSourcePath asks the user whether they want to customize the source directory path.
+// Returns defaultPath if non-interactive, user declines, or input is empty.
+func promptSourcePath(defaultPath, home string) string {
+	if !runningInInteractiveTTY() {
+		return defaultPath
+	}
+
+	fmt.Println()
+	ui.Info("Source directory stores your skills (single source of truth)")
+	fmt.Printf("  Default: %s\n", defaultPath)
+	fmt.Print("  Customize source path? [y/N]: ")
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+	input = strings.ToLower(strings.TrimSpace(input))
+
+	if input != "y" && input != "yes" {
+		return defaultPath
+	}
+
+	fmt.Print("  Enter source path: ")
+	path, _ := reader.ReadString('\n')
+	path = strings.TrimSpace(path)
+
+	if path == "" {
+		return defaultPath
+	}
+
+	// Expand ~ prefix
+	if utils.HasTildePrefix(path) {
+		path = filepath.Join(home, path[1:])
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		ui.Warning("Invalid path, using default")
+		return defaultPath
+	}
+
+	ui.Success("Source path: %s", absPath)
+	return absPath
 }
 
 // useSourceSubdir specifies a subdirectory to be the source and store the skills.
