@@ -265,6 +265,10 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("PATCH /api/targets/{name}", s.handleUpdateTarget)
 	s.mux.HandleFunc("DELETE /api/targets/{name}", s.handleRemoveTarget)
 
+	// Sync matrix
+	s.mux.HandleFunc("GET /api/sync-matrix", s.handleSyncMatrix)
+	s.mux.HandleFunc("POST /api/sync-matrix/preview", s.handleSyncMatrixPreview)
+
 	// Sync
 	s.mux.HandleFunc("POST /api/sync", s.handleSync)
 	s.mux.HandleFunc("GET /api/diff/stream", s.handleDiffStream)

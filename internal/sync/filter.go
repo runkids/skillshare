@@ -69,16 +69,22 @@ func normalizePatterns(patterns []string) ([]string, error) {
 }
 
 func matchesAnyPattern(name string, patterns []string) bool {
+	_, matched := firstMatchingPattern(name, patterns)
+	return matched
+}
+
+// firstMatchingPattern returns the first pattern that matches name, or ("", false).
+func firstMatchingPattern(name string, patterns []string) (string, bool) {
 	for _, pattern := range patterns {
 		matched, err := filepath.Match(pattern, name)
 		if err != nil {
 			continue
 		}
 		if matched {
-			return true
+			return pattern, true
 		}
 	}
-	return false
+	return "", false
 }
 
 func shouldSyncFlatName(name string, includePatterns, excludePatterns []string) bool {
