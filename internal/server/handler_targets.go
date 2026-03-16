@@ -154,6 +154,10 @@ func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
 		return
 	}
+	if err := s.reloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to reload config: "+err.Error())
+		return
+	}
 
 	s.writeOpsLog("target", "ok", start, map[string]any{
 		"action": "add",
@@ -207,6 +211,10 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.saveConfig(); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
+		return
+	}
+	if err := s.reloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to reload config: "+err.Error())
 		return
 	}
 
@@ -291,6 +299,10 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.saveConfig(); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
+		return
+	}
+	if err := s.reloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to reload config: "+err.Error())
 		return
 	}
 

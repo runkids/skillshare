@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"skillshare/internal/config"
 )
 
 func TestHandleListTargets_Empty(t *testing.T) {
@@ -143,5 +145,128 @@ func TestHandleUpdateTarget_NotFound(t *testing.T) {
 
 	if rr.Code != http.StatusNotFound {
 		t.Errorf("expected 404, got %d", rr.Code)
+	}
+}
+
+func TestHandleUpdateTarget_IncludeExclude_Persisted(t *testing.T) {
+	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
+	s, _ := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
+
+	// PATCH include/exclude
+	body := `{"include":["my-skill","other-*"],"exclude":["tmp-*"]}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/targets/claude", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("PATCH expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Verify disk persistence
+	diskCfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("failed to load config from disk: %v", err)
+	}
+	tgt, ok := diskCfg.Targets["claude"]
+	if !ok {
+		t.Fatal("target 'claude' not found in disk config")
+	}
+	if len(tgt.Include) != 2 || tgt.Include[0] != "my-skill" || tgt.Include[1] != "other-*" {
+		t.Errorf("disk include mismatch: got %v", tgt.Include)
+	}
+	if len(tgt.Exclude) != 1 || tgt.Exclude[0] != "tmp-*" {
+		t.Errorf("disk exclude mismatch: got %v", tgt.Exclude)
+	}
+
+	// Verify in-memory state was reloaded correctly
+	memTgt, ok := s.cfg.Targets["claude"]
+	if !ok {
+		t.Fatal("target 'claude' not in in-memory config")
+	}
+	if len(memTgt.Include) != 2 || memTgt.Include[0] != "my-skill" {
+		t.Errorf("in-memory include mismatch: got %v", memTgt.Include)
+	}
+	if len(memTgt.Exclude) != 1 || memTgt.Exclude[0] != "tmp-*" {
+		t.Errorf("in-memory exclude mismatch: got %v", memTgt.Exclude)
+	}
+
+	// Verify GET /api/targets returns the filters
+	req2 := httptest.NewRequest(http.MethodGet, "/api/targets", nil)
+	rr2 := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr2, req2)
+
+	var resp struct {
+		Targets []struct {
+			Name    string   `json:"name"`
+			Include []string `json:"include"`
+			Exclude []string `json:"exclude"`
+		} `json:"targets"`
+	}
+	json.Unmarshal(rr2.Body.Bytes(), &resp)
+	if len(resp.Targets) != 1 {
+		t.Fatalf("expected 1 target, got %d", len(resp.Targets))
+	}
+	if len(resp.Targets[0].Include) != 2 {
+		t.Errorf("GET include mismatch: got %v", resp.Targets[0].Include)
+	}
+	if len(resp.Targets[0].Exclude) != 1 {
+		t.Errorf("GET exclude mismatch: got %v", resp.Targets[0].Exclude)
+	}
+}
+
+func TestHandleUpdateTarget_ClearFilters(t *testing.T) {
+	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
+	s, _ := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
+
+	// First set filters
+	body := `{"include":["a"],"exclude":["b"]}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/targets/claude", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("set filters: expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Clear filters by sending empty arrays
+	body2 := `{"include":[],"exclude":[]}`
+	req2 := httptest.NewRequest(http.MethodPatch, "/api/targets/claude", strings.NewReader(body2))
+	rr2 := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr2, req2)
+	if rr2.Code != http.StatusOK {
+		t.Fatalf("clear filters: expected 200, got %d: %s", rr2.Code, rr2.Body.String())
+	}
+
+	// Verify disk config has empty filters
+	diskCfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("failed to load config from disk: %v", err)
+	}
+	tgt := diskCfg.Targets["claude"]
+	if len(tgt.Include) != 0 {
+		t.Errorf("expected empty include after clear, got %v", tgt.Include)
+	}
+	if len(tgt.Exclude) != 0 {
+		t.Errorf("expected empty exclude after clear, got %v", tgt.Exclude)
+	}
+
+	// Verify GET also returns empty filters
+	req3 := httptest.NewRequest(http.MethodGet, "/api/targets", nil)
+	rr3 := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr3, req3)
+
+	var resp struct {
+		Targets []struct {
+			Include []string `json:"include"`
+			Exclude []string `json:"exclude"`
+		} `json:"targets"`
+	}
+	json.Unmarshal(rr3.Body.Bytes(), &resp)
+	if len(resp.Targets) != 1 {
+		t.Fatalf("expected 1 target, got %d", len(resp.Targets))
+	}
+	if len(resp.Targets[0].Include) != 0 {
+		t.Errorf("GET include should be empty after clear, got %v", resp.Targets[0].Include)
+	}
+	if len(resp.Targets[0].Exclude) != 0 {
+		t.Errorf("GET exclude should be empty after clear, got %v", resp.Targets[0].Exclude)
 	}
 }
