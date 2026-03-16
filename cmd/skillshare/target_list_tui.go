@@ -37,10 +37,9 @@ type targetListTUIModel struct {
 	termHeight int
 
 	// Config context (dual-mode)
-	cfg        *config.Config
-	projCfg    *config.ProjectConfig
-	cwd        string
-	configPath string
+	cfg     *config.Config
+	projCfg *config.ProjectConfig
+	cwd     string
 
 	// Async loading
 	loading     bool
@@ -79,7 +78,7 @@ func newTargetListTUIModel(
 	modeLabel string,
 	cfg *config.Config,
 	projCfg *config.ProjectConfig,
-	cwd, configPath string,
+	cwd string,
 ) targetListTUIModel {
 	delegate := targetListDelegate{}
 
@@ -113,7 +112,6 @@ func newTargetListTUIModel(
 		cfg:         cfg,
 		projCfg:     projCfg,
 		cwd:         cwd,
-		configPath:  configPath,
 		loading:     true,
 		loadSpinner: sp,
 		filterInput: fi,
@@ -130,37 +128,42 @@ func (m targetListTUIModel) Init() tea.Cmd {
 
 func (m targetListTUIModel) loadTargets() tea.Cmd {
 	return func() tea.Msg {
-		var items []targetTUIItem
-		if m.projCfg != nil {
-			projCfg, err := config.LoadProject(m.cwd)
-			if err != nil {
-				return targetListLoadedMsg{err: err}
-			}
-			for _, entry := range projCfg.Targets {
-				items = append(items, targetTUIItem{
-					name: entry.Name,
-					target: config.TargetConfig{
-						Path:    projectTargetDisplayPath(entry),
-						Mode:    entry.Mode,
-						Include: entry.Include,
-						Exclude: entry.Exclude,
-					},
-				})
-			}
-		} else {
-			cfg, err := config.Load()
-			if err != nil {
-				return targetListLoadedMsg{err: err}
-			}
-			for name, t := range cfg.Targets {
-				items = append(items, targetTUIItem{name: name, target: t})
-			}
-		}
-		sort.Slice(items, func(i, j int) bool {
-			return items[i].name < items[j].name
-		})
-		return targetListLoadedMsg{items: items}
+		items, err := buildTargetTUIItems(m.projCfg != nil, m.cwd)
+		return targetListLoadedMsg{items: items, err: err}
 	}
+}
+
+func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
+	var items []targetTUIItem
+	if isProject {
+		projCfg, err := config.LoadProject(cwd)
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range projCfg.Targets {
+			items = append(items, targetTUIItem{
+				name: entry.Name,
+				target: config.TargetConfig{
+					Path:    projectTargetDisplayPath(entry),
+					Mode:    entry.Mode,
+					Include: entry.Include,
+					Exclude: entry.Exclude,
+				},
+			})
+		}
+	} else {
+		cfg, err := config.Load()
+		if err != nil {
+			return nil, err
+		}
+		for name, t := range cfg.Targets {
+			items = append(items, targetTUIItem{name: name, target: t})
+		}
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].name < items[j].name
+	})
+	return items, nil
 }
 
 // ---- Update -----------------------------------------------------------------
@@ -294,11 +297,21 @@ func (m targetListTUIModel) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		return m, nil
 	}
 
-	m.lastActionMsg = ""
-	m.detailScroll = 0
+	prevName := targetSelectedName(m.list.SelectedItem())
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
+	if targetSelectedName(m.list.SelectedItem()) != prevName {
+		m.detailScroll = 0
+		m.lastActionMsg = ""
+	}
 	return m, cmd
+}
+
+func targetSelectedName(item list.Item) string {
+	if ti, ok := item.(targetTUIItem); ok {
+		return ti.name
+	}
+	return ""
 }
 
 func (m targetListTUIModel) handleFilterInputKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -338,37 +351,11 @@ func (m *targetListTUIModel) applyTargetFilter() {
 }
 
 func (m *targetListTUIModel) reloadTargetItems() {
-	var items []targetTUIItem
-	if m.projCfg != nil {
-		projCfg, err := config.LoadProject(m.cwd)
-		if err == nil {
-			m.projCfg = projCfg
-			for _, entry := range projCfg.Targets {
-				items = append(items, targetTUIItem{
-					name: entry.Name,
-					target: config.TargetConfig{
-						Path:    projectTargetDisplayPath(entry),
-						Mode:    entry.Mode,
-						Include: entry.Include,
-						Exclude: entry.Exclude,
-					},
-				})
-			}
-		}
-	} else {
-		cfg, err := config.Load()
-		if err == nil {
-			m.cfg = cfg
-			for name, t := range cfg.Targets {
-				items = append(items, targetTUIItem{name: name, target: t})
-			}
-		}
+	items, err := buildTargetTUIItems(m.projCfg != nil, m.cwd)
+	if err == nil {
+		m.allItems = items
+		m.applyTargetFilter()
 	}
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].name < items[j].name
-	})
-	m.allItems = items
-	m.applyTargetFilter()
 }
 
 // ─── Mode Picker ─────────────────────────────────────────────────────
@@ -448,13 +435,6 @@ func (m targetListTUIModel) doSetTargetMode(name, newMode string) (string, error
 }
 
 // ─── Include/Exclude Edit Sub-Panel ──────────────────────────────────
-
-func capitalizeFilterType(s string) string {
-	if s == "" {
-		return s
-	}
-	return strings.ToUpper(s[:1]) + s[1:]
-}
 
 func (m targetListTUIModel) openFilterEdit(name, filterType string, patterns []string) (tea.Model, tea.Cmd) {
 	m.editingFilter = true
@@ -653,7 +633,7 @@ func (m targetListTUIModel) viewTargetSplit() string {
 	var detailStr, scrollInfo string
 	if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
 		if m.editingFilter {
-			detailStr = "\n" + m.renderFilterEditPanel(rightWidth, panelHeight)
+			detailStr = "\n" + m.renderFilterEditPanel()
 		} else {
 			detail := m.renderTargetDetail(item)
 			bodyHeight := max(panelHeight-1, 4)
@@ -686,7 +666,7 @@ func (m targetListTUIModel) viewTargetVertical() string {
 	var scrollInfo string
 	if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
 		if m.editingFilter {
-			b.WriteString(m.renderFilterEditPanel(m.termWidth, 10))
+			b.WriteString(m.renderFilterEditPanel())
 		} else {
 			detailHeight := max(m.termHeight-m.termHeight*2/5-8, 6)
 			detail := m.renderTargetDetail(item)
@@ -827,10 +807,10 @@ func (m targetListTUIModel) renderModePicker() string {
 	return b.String()
 }
 
-func (m targetListTUIModel) renderFilterEditPanel(width, height int) string {
+func (m targetListTUIModel) renderFilterEditPanel() string {
 	var b strings.Builder
 
-	title := capitalizeFilterType(m.editFilterType)
+	title := capitalize(m.editFilterType)
 	fmt.Fprintf(&b, "%s %s\n", tc.Title.Render(title+" patterns"), tc.Dim.Render("("+m.editFilterTarget+")"))
 	fmt.Fprintln(&b)
 
@@ -864,10 +844,9 @@ func (m targetListTUIModel) renderFilterEditPanel(width, height int) string {
 
 func runTargetListTUI(mode runMode, cwd string) error {
 	var (
-		cfg        *config.Config
-		projCfg    *config.ProjectConfig
-		configPath string
-		modeLabel  string
+		cfg       *config.Config
+		projCfg   *config.ProjectConfig
+		modeLabel string
 	)
 
 	if mode == modeProject {
@@ -880,7 +859,6 @@ func runTargetListTUI(mode runMode, cwd string) error {
 			return targetListProject(cwd)
 		}
 		projCfg = pc
-		configPath = config.ProjectConfigPath(cwd)
 	} else {
 		modeLabel = "global"
 		c, err := config.Load()
@@ -891,10 +869,9 @@ func runTargetListTUI(mode runMode, cwd string) error {
 			return targetList(false)
 		}
 		cfg = c
-		configPath = config.ConfigPath()
 	}
 
-	model := newTargetListTUIModel(modeLabel, cfg, projCfg, cwd, configPath)
+	model := newTargetListTUIModel(modeLabel, cfg, projCfg, cwd)
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	finalModel, err := p.Run()
 	if err != nil {
