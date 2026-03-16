@@ -698,7 +698,7 @@ func renderTargetActionMsg(msg string) string {
 }
 
 func (m targetListTUIModel) renderTargetHelp(scrollInfo string) string {
-	helpText := "↑↓ navigate  ^d/^u scroll  / filter  M mode  I include  E exclude  q quit"
+	helpText := "↑↓ navigate  Ctrl+d/u scroll  / filter  M mode  I include  E exclude  q quit"
 	if m.filtering {
 		helpText = "Enter lock  Esc clear  q quit"
 	}
