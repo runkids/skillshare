@@ -169,6 +169,13 @@ func performProjectInit(root string, opts projectInitOptions) error {
 				selected = append(selected, config.ProjectTargetEntry{Name: name})
 			}
 		}
+	} else if partialInitRepair {
+		// Partial repair: auto-select all detected targets without prompting
+		detected := detectProjectCLIDirectories(root)
+		selected = make([]config.ProjectTargetEntry, 0, len(detected))
+		for _, d := range detected {
+			selected = append(selected, config.ProjectTargetEntry{Name: d.name})
+		}
 	} else {
 		detected := detectProjectCLIDirectories(root)
 		available := detected
