@@ -49,7 +49,7 @@ export default function FilterStudioPage() {
   // Debounced preview
   const [preview, setPreview] = useState<SyncMatrixEntry[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const fetchPreview = useCallback(
     async (inc: string[], exc: string[]) => {
