@@ -107,7 +107,7 @@ func TestGitignoreContains_Found(t *testing.T) {
 	gi := filepath.Join(dir, ".gitignore")
 	os.WriteFile(gi, []byte("node_modules/\n_team/\n"), 0644)
 
-	found, err := gitignoreContains(gi, "_team/")
+	found, err := GitignoreContains(gi, "_team/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestGitignoreContains_NotFound(t *testing.T) {
 	gi := filepath.Join(dir, ".gitignore")
 	os.WriteFile(gi, []byte("node_modules/\n"), 0644)
 
-	found, err := gitignoreContains(gi, "_team/")
+	found, err := GitignoreContains(gi, "_team/")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestGitignoreContains_NotFound(t *testing.T) {
 }
 
 func TestGitignoreContains_NoFile(t *testing.T) {
-	found, err := gitignoreContains(filepath.Join(t.TempDir(), ".gitignore"), "_team/")
+	found, err := GitignoreContains(filepath.Join(t.TempDir(), ".gitignore"), "_team/")
 	if err != nil {
 		t.Fatal(err)
 	}

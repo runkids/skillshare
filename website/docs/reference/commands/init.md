@@ -118,6 +118,7 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 | `--no-skill` | Skip built-in skill installation |
 | `--discover, -d` | Detect and add new AI CLI targets to existing config |
 | `--select <list>` | Comma-separated targets to add (requires `--discover`) |
+| `--config local` | Gitignore `config.yaml` so each developer manages own targets (project mode only). See [Centralized Skills Repo](/docs/how-to/recipes/centralized-skills-repo) recipe. |
 | `--subdir <name>` | Use a subdirectory as the source path (e.g. `skills`) |
 | `--dry-run, -n` | Preview without changes |
 
@@ -177,6 +178,18 @@ Non-interactive (no prompts, and import existing Claude skills now):
 
 ```bash
 skillshare init --remote git@github.com:you/my-skills.git --copy-from claude --all-targets --no-skill
+```
+
+### Centralized skills repo
+
+```bash
+# Creator: set up shared repo with local config
+skillshare init -p --config local --targets claude
+
+# Teammate: clone and auto-detect shared repo
+git clone <repo> && cd <repo>
+skillshare init -p
+skillshare target add myproject ~/DEV/myproject/.claude/skills -p
 ```
 
 ### Other scenarios

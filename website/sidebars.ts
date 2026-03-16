@@ -76,6 +76,7 @@ const sidebars: SidebarsConfig = {
             'how-to/recipes/skill-per-project-workflow',
             'how-to/recipes/cross-machine-sync-recipe',
             'how-to/recipes/team-onboarding-recipe',
+            'how-to/recipes/centralized-skills-repo',
           ],
         },
       ],

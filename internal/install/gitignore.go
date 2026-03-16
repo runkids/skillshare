@@ -45,8 +45,34 @@ func UpdateGitIgnore(dir, entry string) error {
 	return writeGitignoreLines(gitignorePath, updated)
 }
 
-// UpdateGitIgnoreBatch adds multiple entries to the .gitignore file in one read/write pass.
+// UpdateGitIgnoreBatch adds multiple directory entries to the .gitignore file in one read/write pass.
+// Each entry gets a trailing "/" appended (directory mode).
 func UpdateGitIgnoreBatch(dir string, entries []string) error {
+	normalized := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		entry = strings.ReplaceAll(entry, "\\", "/")
+		if !strings.HasSuffix(entry, "/") {
+			entry += "/"
+		}
+		normalized = append(normalized, entry)
+	}
+	return addGitIgnoreEntries(dir, normalized)
+}
+
+// UpdateGitIgnoreFiles adds file entries (not directories) to .gitignore without appending
+// a trailing slash. Use this instead of UpdateGitIgnoreBatch when ignoring specific files
+// like "config.yaml" rather than directories.
+func UpdateGitIgnoreFiles(dir string, entries []string) error {
+	normalized := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		normalized = append(normalized, strings.ReplaceAll(entry, "\\", "/"))
+	}
+	return addGitIgnoreEntries(dir, normalized)
+}
+
+// addGitIgnoreEntries is the shared implementation for adding entries to .gitignore.
+// Entries must be pre-normalized (slashes, trailing slash policy already applied).
+func addGitIgnoreEntries(dir string, entries []string) error {
 	gitignorePath := filepath.Join(dir, ".gitignore")
 
 	lines, err := readGitignoreLines(gitignorePath)
@@ -57,25 +83,26 @@ func UpdateGitIgnoreBatch(dir string, entries []string) error {
 	lines, startIdx, endIdx := ensureMarkerBlock(lines)
 	managed := lines[startIdx+1 : endIdx]
 
-	// Build set of existing entries for O(1) lookup.
 	existing := make(map[string]struct{}, len(managed))
 	for _, line := range managed {
 		existing[strings.TrimSpace(line)] = struct{}{}
 	}
 
-	// Collect genuinely new entries.
 	var newEntries []string
 	for _, entry := range entries {
-		entry = strings.ReplaceAll(entry, "\\", "/")
-		if !strings.HasSuffix(entry, "/") {
-			entry += "/"
-		}
+		// Check both with and without trailing slash to handle either form.
 		entryNoSlash := strings.TrimSuffix(entry, "/")
 		if _, ok := existing[entry]; ok {
 			continue
 		}
-		if _, ok := existing[entryNoSlash]; ok {
-			continue
+		if entry != entryNoSlash {
+			if _, ok := existing[entryNoSlash]; ok {
+				continue
+			}
+		} else {
+			if _, ok := existing[entry+"/"]; ok {
+				continue
+			}
 		}
 		newEntries = append(newEntries, entry)
 	}
@@ -201,8 +228,8 @@ func RemoveFromGitIgnoreBatch(dir string, entries []string) (int, error) {
 	return removed, nil
 }
 
-// gitignoreContains checks if an entry exists in .gitignore
-func gitignoreContains(path, entry string) (bool, error) {
+// GitignoreContains checks if an entry exists in .gitignore (with or without trailing slash).
+func GitignoreContains(path, entry string) (bool, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {

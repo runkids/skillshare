@@ -151,6 +151,111 @@ func TestInitProject_ConfigHasSchemaComment(t *testing.T) {
 	}
 }
 
+func TestInitProject_ConfigLocal(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := filepath.Join(sb.Root, "project")
+	os.MkdirAll(projectRoot, 0755)
+
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--config", "local", "--targets", "claude")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Initialized successfully")
+
+	// .gitignore should contain config.yaml (without trailing slash)
+	gitignore := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", ".gitignore"))
+	if !strings.Contains(gitignore, "config.yaml") {
+		t.Errorf(".gitignore should contain config.yaml, got:\n%s", gitignore)
+	}
+	// config.yaml should NOT be listed as config.yaml/ (directory form)
+	if strings.Contains(gitignore, "config.yaml/") {
+		t.Errorf(".gitignore should not add trailing slash to config.yaml, got:\n%s", gitignore)
+	}
+
+	// config.yaml should still be generated
+	if !sb.FileExists(filepath.Join(projectRoot, ".skillshare", "config.yaml")) {
+		t.Error(".skillshare/config.yaml should exist")
+	}
+
+	// Output should mention config gitignored
+	result.AssertAnyOutputContains(t, "Config gitignored")
+}
+
+func TestInitProject_SharedRepoClone(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := filepath.Join(sb.Root, "project")
+
+	// Simulate a git clone: .skillshare/skills/ exists + .gitignore has config.yaml, but no config.yaml
+	skillshareDir := filepath.Join(projectRoot, ".skillshare")
+	os.MkdirAll(filepath.Join(skillshareDir, "skills", "my-skill"), 0755)
+	os.WriteFile(filepath.Join(skillshareDir, "skills", "my-skill", "SKILL.md"), []byte("# test"), 0644)
+	os.WriteFile(filepath.Join(skillshareDir, ".gitignore"), []byte(
+		"# BEGIN SKILLSHARE MANAGED - DO NOT EDIT\nlogs/\ntrash/\nconfig.yaml\n# END SKILLSHARE MANAGED\n",
+	), 0644)
+
+	// Run init -p WITHOUT --config local (simulating teammate clone)
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "shared skills directory")
+
+	// config.yaml should be generated with empty targets
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if strings.Contains(cfg, "claude") {
+		t.Errorf("shared repo clone should have empty targets, got:\n%s", cfg)
+	}
+}
+
+func TestInitProject_PartialRepair_WithTargets(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := filepath.Join(sb.Root, "project")
+
+	// Setup partial init: .skillshare/skills/ exists + .gitignore WITHOUT config.yaml
+	skillshareDir := filepath.Join(projectRoot, ".skillshare")
+	os.MkdirAll(filepath.Join(skillshareDir, "skills"), 0755)
+	os.WriteFile(filepath.Join(skillshareDir, ".gitignore"), []byte(
+		"# BEGIN SKILLSHARE MANAGED - DO NOT EDIT\nlogs/\ntrash/\n# END SKILLSHARE MANAGED\n",
+	), 0644)
+
+	// Run init -p --targets claude (non-interactive partial repair)
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--targets", "claude")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "repairing missing config")
+
+	// config.yaml should contain claude target
+	cfg := sb.ReadFile(filepath.Join(projectRoot, ".skillshare", "config.yaml"))
+	if !strings.Contains(cfg, "claude") {
+		t.Errorf("repaired config should contain claude target, got:\n%s", cfg)
+	}
+}
+
+func TestInitProject_ConfigFlag_InvalidValue(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := filepath.Join(sb.Root, "project")
+	os.MkdirAll(projectRoot, 0755)
+
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--config", "remote")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--config only supports 'local'")
+}
+
+func TestInitProject_ConfigFlag_MissingValue(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := filepath.Join(sb.Root, "project")
+	os.MkdirAll(projectRoot, 0755)
+
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--config")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--config requires a value")
+}
+
 func TestInitProject_GitignoreIncludesLogsDirectory(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

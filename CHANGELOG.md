@@ -4,6 +4,21 @@
 
 ### New Features
 
+#### Centralized Skills Repo
+
+- **`--config local` for project init** — `skillshare init -p --config local` gitignores `config.yaml` so each developer manages their own targets independently. Skills are shared via git, config stays local:
+  ```bash
+  # Creator: set up shared skills repo
+  skillshare init -p --config local --targets claude
+  skillshare install <skill> -p && git push
+
+  # Teammate: clone and configure own targets
+  git clone <repo> && cd <repo>
+  skillshare init -p
+  skillshare target add myproject ~/DEV/myproject/.claude/skills -p
+  ```
+- **Smart shared repo detection** — when a teammate clones a shared skills repo and runs `skillshare init -p`, skillshare auto-detects the shared repo pattern (config.yaml in .gitignore) and creates an empty config with guided next steps. No `--config local` flag needed for cloners
+
 #### Target List Interactive TUI
 
 - **Interactive target browser** — `skillshare target list` now launches a full-screen TUI with a split panel layout (target list on the left, detail panel on the right). Includes fuzzy filtering via `/` and keyboard navigation:
