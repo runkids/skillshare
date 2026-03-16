@@ -61,11 +61,7 @@ func (s *Server) handlePutHubSaved(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.setHubConfig(hubCfg)
-	if err := s.saveConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if err := s.reloadConfig(); err != nil {
+	if err := s.saveAndReloadConfig(); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -96,11 +92,7 @@ func (s *Server) handlePostHubSaved(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.setHubConfig(*hubCfg)
-	if err := s.saveConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if err := s.reloadConfig(); err != nil {
+	if err := s.saveAndReloadConfig(); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -128,11 +120,7 @@ func (s *Server) handleDeleteHubSaved(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.setHubConfig(*hubCfg)
-	if err := s.saveConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if err := s.reloadConfig(); err != nil {
+	if err := s.saveAndReloadConfig(); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

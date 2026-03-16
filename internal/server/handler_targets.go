@@ -150,12 +150,8 @@ func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
 		s.projectCfg.Targets = append(s.projectCfg.Targets, config.ProjectTargetEntry{Name: body.Name})
 	}
 
-	if err := s.saveConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
-		return
-	}
-	if err := s.reloadConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to reload config: "+err.Error())
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -209,12 +205,8 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 		s.projectCfg.Targets = filtered
 	}
 
-	if err := s.saveConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
-		return
-	}
-	if err := s.reloadConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to reload config: "+err.Error())
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -297,12 +289,8 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := s.saveConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
-		return
-	}
-	if err := s.reloadConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to reload config: "+err.Error())
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 

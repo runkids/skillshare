@@ -432,12 +432,8 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.saveConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
-		return
-	}
-	if err := s.reloadConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to reload config: "+err.Error())
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -480,13 +476,8 @@ func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 		s.cfg.Extras = append(s.cfg.Extras[:idx], s.cfg.Extras[idx+1:]...)
 	}
 
-	if err := s.saveConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to save config: "+err.Error())
-		return
-	}
-
-	if err := s.reloadConfig(); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to reload config: "+err.Error())
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 

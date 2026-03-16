@@ -112,6 +112,18 @@ func (s *Server) saveConfig() error {
 	return s.cfg.Save()
 }
 
+// saveAndReloadConfig persists config to disk then reloads it into memory.
+// Callers must hold s.mu.
+func (s *Server) saveAndReloadConfig() error {
+	if err := s.saveConfig(); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+	if err := s.reloadConfig(); err != nil {
+		return fmt.Errorf("failed to reload config: %w", err)
+	}
+	return nil
+}
+
 // reloadConfig reloads the config for the current mode
 func (s *Server) reloadConfig() error {
 	if s.IsProjectMode() {
