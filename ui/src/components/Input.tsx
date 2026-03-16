@@ -27,10 +27,10 @@ export function Input({ label, className = '', style, id, ...props }: InputProps
         id={inputId}
         className={`
           ss-input
-          w-full px-4 py-2.5 bg-surface border border-muted text-pencil
+          w-full px-4 py-2.5 bg-surface border-2 border-muted text-pencil
           placeholder:text-muted-dark
           hover:border-muted-dark
-          focus:outline-none focus:border-pencil-light focus:ring-2 focus:ring-pencil/10 focus:shadow-sm
+          focus:outline-none focus:border-pencil
           transition-all
           rounded-[var(--radius-md)]
           ${className}
@@ -67,10 +67,10 @@ export function Textarea({ label, className = '', style, id, ...props }: Textare
         id={inputId}
         className={`
           ss-input
-          w-full px-4 py-3 bg-surface border border-muted text-pencil
+          w-full px-4 py-3 bg-surface border-2 border-muted text-pencil
           placeholder:text-muted-dark
           hover:border-muted-dark
-          focus:outline-none focus:border-pencil-light focus:ring-2 focus:ring-pencil/10 focus:shadow-sm
+          focus:outline-none focus:border-pencil
           transition-all resize-y
           rounded-[var(--radius-md)]
           ${className}

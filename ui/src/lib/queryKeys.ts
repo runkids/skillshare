@@ -34,6 +34,7 @@ export const queryKeys = {
 
   config: ['config'] as const,
   check: ['check'] as const,
+  syncMatrix: (target?: string) => ['sync-matrix', target ?? '__all'] as const,
 
   extras: ['extras'] as const,
   extrasDiff: (name?: string) => ['extras-diff', name ?? '__all'] as const,
@@ -54,5 +55,6 @@ export const staleTimes = {
   trash: 2 * 60 * 1000,       // 2min
   auditSkill: 5 * 60 * 1000,   // 5min — per-skill audit, rarely changes
   check: 60 * 1000,            // 1min
+  syncMatrix: 30 * 1000,       // 30s — changes after filter edits
   extras: 30 * 1000,        // 30s — fast-changing like diff
 };

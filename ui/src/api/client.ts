@@ -107,6 +107,13 @@ export interface ExtrasSyncResult {
   }>;
 }
 
+export interface SyncMatrixEntry {
+  skill: string;
+  target: string;
+  status: 'synced' | 'excluded' | 'not_included' | 'skill_target_mismatch' | 'na';
+  reason: string;
+}
+
 // Typed API helpers
 export const api = {
   // Overview
@@ -132,6 +139,17 @@ export const api = {
     apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}`, {
       method: 'PATCH',
       body: JSON.stringify(opts),
+    }),
+
+  // Sync Matrix
+  getSyncMatrix: (target?: string) =>
+    apiFetch<{ entries: SyncMatrixEntry[] }>(
+      `/sync-matrix${target ? '?target=' + encodeURIComponent(target) : ''}`
+    ),
+  previewSyncMatrix: (target: string, include: string[], exclude: string[]) =>
+    apiFetch<{ entries: SyncMatrixEntry[] }>('/sync-matrix/preview', {
+      method: 'POST',
+      body: JSON.stringify({ target, include, exclude }),
     }),
 
   // Sync

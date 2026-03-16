@@ -124,14 +124,14 @@ export function Select({ label, value, onChange, options, className = '', size =
         onKeyDown={handleKeyDown}
         className={`
           ss-select
-          w-full bg-surface border text-pencil text-left
+          w-full bg-surface border-2 text-pencil text-left
           flex items-center justify-between gap-2
-          focus:outline-none focus:ring-2 focus:ring-pencil/10 focus:border-pencil-light
+          focus:outline-none focus:border-pencil
           transition-all duration-150
           rounded-[var(--radius-sm)]
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           ${selectTriggerSizes[size]}
-          ${open ? 'border-pencil-light shadow-md' : 'border-muted hover:border-muted-dark'}
+          ${open ? 'border-pencil' : 'border-muted hover:border-muted-dark'}
         `}
         role="combobox"
         aria-expanded={open}
@@ -149,7 +149,7 @@ export function Select({ label, value, onChange, options, className = '', size =
           ref={listRef}
           role="listbox"
           className={`
-            absolute z-50 min-w-full bg-surface border border-muted overflow-auto py-1 animate-dropdown-in
+            absolute z-50 min-w-full bg-surface border-2 border-muted overflow-auto py-1 animate-dropdown-in
             ${dropUp ? 'bottom-full mb-1' : 'top-full mt-1'}
             ${dropRight ? 'right-0' : 'left-0'}
             ${size === 'sm' ? 'text-xs' : 'text-sm'}

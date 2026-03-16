@@ -1,13 +1,12 @@
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Trash2, Plus, Target, ArrowDownToLine, Search, CircleDot, PenLine, AlertTriangle, Filter } from 'lucide-react';
+import { Trash2, Plus, Target, ArrowDownToLine, Search, CircleDot, PenLine, AlertTriangle } from 'lucide-react';
 import Card from '../components/Card';
 import StatusBadge from '../components/StatusBadge';
 import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import { Input, Select } from '../components/Input';
-import FilterTagInput from '../components/FilterTagInput';
 import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
@@ -18,6 +17,7 @@ import type { AvailableTarget } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { radius, shadows } from '../design';
 import { shortenHome } from '../lib/paths';
+import { useSyncMatrix } from '../hooks/useSyncMatrix';
 
 const SYNC_MODE_OPTIONS = [
   { value: 'merge', label: 'Merge (default)', description: 'Per-skill symlinks, preserves local skills' },
@@ -43,10 +43,8 @@ export default function TargetsPage() {
   const [customMode, setCustomMode] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
   const [collecting, setCollecting] = useState<string | null>(null);
-  const [editingFilter, setEditingFilter] = useState<string | null>(null);
-  const [filterDraft, setFilterDraft] = useState<{ include: string[]; exclude: string[] }>({ include: [], exclude: [] });
-  const [savingFilter, setSavingFilter] = useState(false);
   const navigate = useNavigate();
+  const { getTargetSummary } = useSyncMatrix();
   const { toast } = useToast();
 
   // Compute filtered & sectioned available targets
@@ -235,7 +233,7 @@ export default function TargetsPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search targets..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-surface border-2 border-pencil text-pencil placeholder:text-muted-dark focus:outline-none focus:border-blue focus:ring-2 focus:ring-blue/20 transition-colors"
+                  className="w-full pl-10 pr-4 py-2.5 bg-surface border-2 border-muted text-pencil placeholder:text-muted-dark focus:outline-none focus:border-pencil transition-all"
                   style={{
                     borderRadius: radius.sm,
                     fontSize: '1rem',
@@ -331,155 +329,17 @@ export default function TargetsPage() {
                 className={`!overflow-visible ${i % 2 === 0 ? 'rotate-[-0.15deg]' : 'rotate-[0.15deg]'}`}
                 style={{ position: 'relative', zIndex: targets.length - i }}
               >
+                {/* Top row: name + path + action icons */}
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <Target size={16} strokeWidth={2.5} className="text-success shrink-0" />
-                      <span
-                        className="font-bold text-pencil"
-                      >
-                        {target.name}
-                      </span>
+                      <span className="font-bold text-pencil">{target.name}</span>
                       <StatusBadge status={target.status} />
                     </div>
-                    <p
-                      className="font-mono text-sm text-pencil-light truncate"
-                    >
+                    <p className="font-mono text-sm text-pencil-light truncate">
                       {shortenHome(target.path)}
                     </p>
-                    <div className="mt-3 pt-3 border-t border-dashed border-pencil-light/30 flex items-center gap-2">
-                      <Select
-                        value={target.mode || 'merge'}
-                        onChange={async (mode) => {
-                          try {
-                            await api.updateTarget(target.name, { mode });
-                            queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
-                            toast(`Sync mode for ${target.name} changed to ${mode}`, 'success');
-                          } catch (e) {
-                            toast((e as Error).message, 'error');
-                          }
-                        }}
-                        options={SYNC_MODE_OPTIONS}
-                        size="sm"
-                        className="w-44"
-                      />
-                      {/* Inline filter link when no filters set */}
-                      {(target.mode === 'merge' || target.mode === 'copy') && editingFilter !== target.name && !(target.include?.length || target.exclude?.length) && (
-                        <Button
-                          data-tour="skill-filters"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setEditingFilter(target.name);
-                            setFilterDraft({
-                              include: [...(target.include || [])],
-                              exclude: [...(target.exclude || [])],
-                            });
-                          }}
-                        >
-                          <Filter size={13} strokeWidth={2.5} /> Filters
-                        </Button>
-                      )}
-                      {/* Skill count — pushed to the right */}
-                      {(target.mode === 'merge' || target.mode === 'copy') && (
-                        <span className={`text-sm ml-auto ${hasDrift ? 'text-warning' : 'text-muted-dark'}`}>
-                          {hasDrift ? (
-                            <span className="flex items-center gap-1">
-                              <AlertTriangle size={12} strokeWidth={2.5} />
-                              {target.linkedCount}/{expectedCount} {target.mode === 'copy' ? 'managed' : 'shared'}, {target.localCount} local
-                            </span>
-                          ) : (
-                            <>{target.linkedCount} {target.mode === 'copy' ? 'managed' : 'shared'}, {target.localCount} local</>
-                          )}
-                        </span>
-                      )}
-                    </div>
-                    {/* Filters section — editing panel or existing filter tags */}
-                    {(target.mode === 'merge' || target.mode === 'copy') && (
-                      editingFilter === target.name ? (
-                        <div className="mt-3 p-4 bg-muted/10 border-2 border-muted-dark animate-fade-in" style={{ borderRadius: radius.md }}>
-                          <div className="flex items-center gap-2 mb-3">
-                            <Filter size={14} strokeWidth={2.5} className="text-pencil-light" />
-                            <span className="text-sm font-bold text-pencil">Skill Filters</span>
-                          </div>
-                          <div className="space-y-3">
-                            <FilterTagInput
-                              label="Include patterns"
-                              patterns={filterDraft.include}
-                              onChange={(p) => setFilterDraft({ ...filterDraft, include: p })}
-                              color="blue"
-                            />
-                            <FilterTagInput
-                              label="Exclude patterns"
-                              patterns={filterDraft.exclude}
-                              onChange={(p) => setFilterDraft({ ...filterDraft, exclude: p })}
-                              color="danger"
-                            />
-                            <div className="flex gap-2">
-                              <Button
-                                onClick={async () => {
-                                  setSavingFilter(true);
-                                  try {
-                                    await api.updateTarget(target.name, {
-                                      include: filterDraft.include,
-                                      exclude: filterDraft.exclude,
-                                    });
-                                    toast('Filters updated. Run sync to apply.', 'success');
-                                    setEditingFilter(null);
-                                    queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
-                                  } catch (e: unknown) {
-                                    toast((e as Error).message, 'error');
-                                  } finally {
-                                    setSavingFilter(false);
-                                  }
-                                }}
-                                variant="primary"
-                                size="sm"
-                                disabled={savingFilter}
-                              >
-                                {savingFilter ? 'Saving...' : 'Save'}
-                              </Button>
-                              <Button
-                                onClick={() => setEditingFilter(null)}
-                                variant="secondary"
-                                size="sm"
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ) : (target.include?.length || target.exclude?.length) ? (
-                        <div className="mt-2 flex items-center gap-2 flex-wrap">
-                          <span className="text-sm text-pencil-light flex items-center gap-1">
-                            <Filter size={13} strokeWidth={2.5} />
-                            Filters:
-                          </span>
-                          {target.include?.map((p, pi) => (
-                            <span key={`inc-${pi}`} className="text-xs font-bold text-blue bg-info-light px-2 py-0.5 border border-blue/30" style={{ borderRadius: radius.sm }}>
-                              + {p}
-                            </span>
-                          ))}
-                          {target.exclude?.map((p, pi) => (
-                            <span key={`exc-${pi}`} className="text-xs font-bold text-danger bg-danger-light px-2 py-0.5 border border-danger/30" style={{ borderRadius: radius.sm }}>
-                              − {p}
-                            </span>
-                          ))}
-                          <Button
-                            variant="link"
-                            onClick={() => {
-                              setEditingFilter(target.name);
-                              setFilterDraft({
-                                include: [...(target.include || [])],
-                                exclude: [...(target.exclude || [])],
-                              });
-                            }}
-                          >
-                            Edit
-                          </Button>
-                        </div>
-                      ) : null
-                    )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {(target.mode === 'merge' || target.mode === 'copy') && target.localCount > 0 && (
@@ -501,6 +361,81 @@ export default function TargetsPage() {
                     />
                   </div>
                 </div>
+                {/* Full-width separator + sync controls */}
+                <div className="mt-3 pt-3 border-t border-dashed border-pencil-light/30 flex items-center gap-2">
+                  <Select
+                    value={target.mode || 'merge'}
+                    onChange={async (mode) => {
+                      try {
+                        await api.updateTarget(target.name, { mode });
+                        queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+                        toast(`Sync mode for ${target.name} changed to ${mode}`, 'success');
+                      } catch (e) {
+                        toast((e as Error).message, 'error');
+                      }
+                    }}
+                    options={SYNC_MODE_OPTIONS}
+                    size="sm"
+                    className="w-44"
+                  />
+                  {(target.mode === 'merge' || target.mode === 'copy') && (
+                    <span className={`text-sm ml-auto ${hasDrift ? 'text-warning' : 'text-muted-dark'}`}>
+                      {hasDrift ? (
+                        <span className="flex items-center gap-1">
+                          <AlertTriangle size={12} strokeWidth={2.5} />
+                          {target.linkedCount}/{expectedCount} {target.mode === 'copy' ? 'managed' : 'shared'}, {target.localCount} local
+                        </span>
+                      ) : (
+                        <>{target.linkedCount} {target.mode === 'copy' ? 'managed' : 'shared'}, {target.localCount} local</>
+                      )}
+                    </span>
+                  )}
+                </div>
+                {/* Filter summary line */}
+                {(target.mode === 'merge' || target.mode === 'copy') && (
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
+                    <span className="text-sm text-pencil-light">
+                      {(() => {
+                        const summary = getTargetSummary(target.name);
+                        const hasFilters = target.include?.length || target.exclude?.length;
+                        if (summary.total === 0) return 'No skills';
+                        if (!hasFilters) return `All ${summary.total} skills`;
+                        return `${summary.synced}/${summary.total} skills`;
+                      })()}
+                    </span>
+                    {(() => {
+                      const inc = target.include ?? [];
+                      const exc = target.exclude ?? [];
+                      const MAX_TAGS = 3;
+                      const visibleInc = inc.slice(0, MAX_TAGS);
+                      const visibleExc = exc.slice(0, Math.max(0, MAX_TAGS - visibleInc.length));
+                      const overflow = (inc.length + exc.length) - (visibleInc.length + visibleExc.length);
+                      return (
+                        <>
+                          {visibleInc.map((p, pi) => (
+                            <span key={`inc-${pi}`} className="text-xs font-bold text-blue bg-info-light px-2 py-0.5 border border-blue/30" style={{ borderRadius: radius.sm }}>
+                              + {p}
+                            </span>
+                          ))}
+                          {visibleExc.map((p, pi) => (
+                            <span key={`exc-${pi}`} className="text-xs font-bold text-danger bg-danger-light px-2 py-0.5 border border-danger/30" style={{ borderRadius: radius.sm }}>
+                              − {p}
+                            </span>
+                          ))}
+                          {overflow > 0 && (
+                            <span className="text-xs text-pencil-light">+{overflow} more</span>
+                          )}
+                        </>
+                      );
+                    })()}
+                    <Link
+                      to={`/targets/${encodeURIComponent(target.name)}/filters`}
+                      className="text-xs font-bold text-blue hover:underline"
+                    >
+                      {(target.include?.length || target.exclude?.length) ? 'Edit in Filter Studio →' : 'Customize filters →'}
+                    </Link>
+                  </div>
+                )}
               </Card>
             );
           })}

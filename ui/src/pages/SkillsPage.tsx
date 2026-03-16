@@ -11,7 +11,6 @@ import {
   FolderOpen,
   LayoutGrid,
   List,
-  Target,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { VirtuosoGrid, GroupedVirtuoso } from 'react-virtuoso';
@@ -26,7 +25,8 @@ import Button from '../components/Button';
 import PageHeader from '../components/PageHeader';
 import SegmentedControl from '../components/SegmentedControl';
 import Pagination from '../components/Pagination';
-import { api, type Skill } from '../api/client';
+import { api } from '../api/client';
+import type { Skill } from '../api/client';
 import { radius } from '../design';
 import ScrollToTop from '../components/ScrollToTop';
 import Tooltip from '../components/Tooltip';
@@ -214,15 +214,6 @@ const SkillPostit = memo(function SkillPostit({
             <span />
           )}
           <div className="flex items-center gap-1.5 shrink-0">
-            {skill.targets && skill.targets.length > 0 && (
-              <span
-                className="inline-flex items-center gap-0.5"
-                title={`Targets: ${skill.targets.join(', ')}`}
-              >
-                <Target size={13} strokeWidth={2.5} className="text-pencil-light" />
-                <span className="text-xs text-pencil-light">{skill.targets.length}</span>
-              </span>
-            )}
             {skill.isInRepo && <Badge variant="default">tracked</Badge>}
             {!skill.isInRepo && getTypeLabel(skill.type) && <Badge variant="info">{getTypeLabel(skill.type)}</Badge>}
           </div>
@@ -240,6 +231,7 @@ export default function SkillsPage() {
     queryFn: () => api.listSkills(),
     staleTime: staleTimes.skills,
   });
+
   const [toolbarH, setToolbarH] = useState(0);
   const toolbarRef = useCallback((node: HTMLDivElement | null) => {
     if (node) {

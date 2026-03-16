@@ -484,6 +484,150 @@
   border-style: dashed;
 }
 
+/* ── Skill Detail Page — clean theme: neutral gray backgrounds ── */
+:root:not([data-theme]) .ss-detail-manifest,
+:root:not([data-theme]) .ss-detail-pinned,
+:root:not([data-theme]) .ss-detail-pinned-blue,
+:root:not([data-theme]) .ss-detail-pinned-cyan,
+:root:not([data-theme]) .ss-detail-pinned-green { background-color: #ffffff !important; }
+:root:not([data-theme]).dark .ss-detail-manifest,
+:root:not([data-theme]).dark .ss-detail-pinned,
+:root:not([data-theme]).dark .ss-detail-pinned-blue,
+:root:not([data-theme]).dark .ss-detail-pinned-cyan,
+:root:not([data-theme]).dark .ss-detail-pinned-green { background-color: rgba(255,255,255,0.06) !important; }
+
+/* ── Playful: Skill Detail Page — bulletin board aesthetic ── */
+/*
+ * The detail page sidebar cards look like sticky notes pinned to a corkboard.
+ * Manifest block = yellow post-it with tape. Metadata/Files = pinned notes.
+ * Stats bar = dashed pencil divider. Section headings = Caveat font.
+ */
+
+/* Manifest block — sketchy dashed border, tape strip, slight tilt */
+[data-theme="playful"] .ss-detail-manifest {
+  background-color: #fffde7 !important;
+  border: 2.5px dashed var(--color-pencil) !important;
+  border-radius: 240px 12px 220px 18px / 14px 230px 10px 245px !important;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.12);
+  position: relative;
+  overflow: visible;
+}
+/* Tape strip on manifest */
+[data-theme="playful"] .ss-detail-manifest::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 24%;
+  transform: rotate(-2.5deg);
+  width: 72px;
+  height: 22px;
+  background: rgba(215, 210, 190, 0.55);
+  border-radius: 2px 3px 3px 1px;
+  border-top: 1px solid rgba(190, 185, 165, 0.35);
+  border-bottom: 1px solid rgba(190, 185, 165, 0.25);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  z-index: 2;
+}
+/* Manifest label text — Caveat heading font */
+[data-theme="playful"] .ss-detail-manifest dt {
+  font-family: var(--font-heading) !important;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* Sidebar pinned card — thumbtack pin decoration + per-card pastel colors */
+[data-theme="playful"] .ss-detail-pinned {
+  position: relative;
+  overflow: visible;
+  margin-top: 12px;
+  background-color: #fffde7 !important;
+}
+/* Semantic pastel variants — keep pin decoration, override background only */
+[data-theme="playful"] .ss-detail-pinned-blue  { background-color: #eaf3fd !important; }
+[data-theme="playful"] .ss-detail-pinned-cyan  { background-color: #ecfafb !important; }
+[data-theme="playful"] .ss-detail-pinned-green { background-color: #ecf6ed !important; }
+/* Red thumbtack pin */
+[data-theme="playful"] .ss-detail-pinned::before {
+  content: '';
+  position: absolute;
+  top: -7px;
+  right: 18px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid var(--color-pencil);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+  z-index: 2;
+}
+/* Pin variety — alternating position */
+[data-theme="playful"] .ss-detail-pinned:nth-child(even)::before {
+  right: auto;
+  left: 22px;
+}
+
+/* Sidebar section headings — Caveat font for hand-drawn feel */
+[data-theme="playful"] .ss-detail-heading {
+  font-family: var(--font-heading) !important;
+  font-size: 1.25rem !important;
+  font-weight: 700;
+}
+
+/* Stats bar — sketchy dashed pencil divider */
+[data-theme="playful"] .ss-detail-stats {
+  border-bottom: 2px dashed var(--color-pencil) !important;
+}
+
+/* Tone down buttons inside pinned cards */
+[data-theme="playful"] .ss-detail-pinned .ss-btn {
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.08) !important;
+  border-width: 1.5px !important;
+}
+
+/* Skill name in header — wavy underline accent */
+[data-theme="playful"] .ss-detail-title {
+  font-family: var(--font-heading) !important;
+  font-size: 2.2rem !important;
+  text-decoration: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--color-accent);
+  text-underline-offset: 6px;
+  text-decoration-thickness: 2px;
+}
+
+/* Target Distribution / Sync Status — dashed left accent border */
+[data-theme="playful"] .ss-detail-outlined {
+  border-left: 3px dashed var(--color-blue) !important;
+}
+
+/* Dark mode adjustments for detail page decorations */
+[data-theme="playful"].dark .ss-detail-manifest {
+  background-color: rgba(255,249,196,0.08) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 3px 3px 0 var(--color-shadow);
+}
+[data-theme="playful"].dark .ss-detail-manifest::before {
+  background: rgba(180, 175, 155, 0.25);
+  border-color: rgba(150, 145, 125, 0.2);
+}
+[data-theme="playful"].dark .ss-detail-pinned {
+  background-color: rgba(255,249,196,0.08) !important;
+}
+[data-theme="playful"].dark .ss-detail-pinned::before {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.4);
+}
+/* Dark pastel variants — low-opacity tints */
+[data-theme="playful"].dark .ss-detail-pinned-blue  { background-color: rgba(220,238,251,0.08) !important; }
+[data-theme="playful"].dark .ss-detail-pinned-cyan  { background-color: rgba(224,247,250,0.08) !important; }
+[data-theme="playful"].dark .ss-detail-pinned-green { background-color: rgba(224,242,225,0.08) !important; }
+[data-theme="playful"].dark .ss-detail-outlined {
+  border-left-color: var(--color-blue-light) !important;
+}
+
 /* ── Playful Dark: refinements ── */
 [data-theme="playful"].dark .ss-card,
 [data-theme="playful"].dark .ss-btn,

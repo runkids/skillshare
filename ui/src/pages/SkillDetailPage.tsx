@@ -23,6 +23,7 @@ import { lazy, Suspense, useState, useMemo } from 'react';
 import { radius, shadows } from '../design';
 import { BlockStamp, RiskMeter } from '../components/audit';
 import { severityBadgeVariant } from '../lib/severity';
+import { useSyncMatrix } from '../hooks/useSyncMatrix';
 
 const FileViewerModal = lazy(() => import('../components/FileViewerModal'));
 
@@ -116,7 +117,7 @@ function ContentStatsBar({ content, fileCount, license }: { content: string; fil
   const lineCount = content.trim() ? content.trim().split(/\r?\n/).length : 0;
 
   return (
-    <div className="flex items-center gap-4 flex-wrap text-sm text-pencil-light py-3 mb-4 border-b border-muted">
+    <div className="ss-detail-stats flex items-center gap-4 flex-wrap text-sm text-pencil-light py-3 mb-4 border-b border-muted">
       <span className="inline-flex items-center gap-1.5">
         <Type size={12} strokeWidth={2.5} />
         {wordCount.toLocaleString()} words
@@ -332,7 +333,7 @@ export default function SkillDetailPage() {
         />
         <div className="flex items-center gap-3 flex-wrap">
           <h2
-            className="text-2xl md:text-3xl font-bold text-pencil"
+            className="ss-detail-title text-2xl md:text-3xl font-bold text-pencil"
           >
             {skill.name}
           </h2>
@@ -355,23 +356,14 @@ export default function SkillDetailPage() {
           <Card>
             {hasManifest && (
               <div
-                className="mb-4 p-4 border border-muted bg-surface"
+                className="ss-detail-manifest mb-4 p-4 pt-5 border-2 border-dashed border-pencil-light/30"
                 style={{ borderRadius: radius.sm }}
               >
-                <p
-                  className="text-sm uppercase tracking-wider text-pencil-light mb-2"
-                >
-                  SKILL.md Manifest
-                </p>
                 <dl className="space-y-2">
                   {parsedDoc.manifest.name && (
                     <div>
                       <dt className="text-sm text-muted-dark uppercase tracking-wide">Name</dt>
-                      <dd
-                        className="text-xl font-bold text-pencil"
-                      >
-                        {parsedDoc.manifest.name}
-                      </dd>
+                      <dd className="text-xl font-bold text-pencil">{parsedDoc.manifest.name}</dd>
                     </div>
                   )}
                   {parsedDoc.manifest.description && (
@@ -411,9 +403,9 @@ export default function SkillDetailPage() {
 
         {/* Sidebar: metadata + files — sticky + independently scrollable */}
         <div className="space-y-5 lg:sticky lg:top-16 lg:self-start lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:-mr-2 lg:pr-2">
-          <Card>
+          <Card className="ss-detail-pinned" overflow >
             <h3
-              className="font-bold text-pencil mb-3"
+              className="ss-detail-heading font-bold text-pencil mb-3"
             >
               Metadata
             </h3>
@@ -456,7 +448,7 @@ export default function SkillDetailPage() {
             </dl>
 
             {/* Actions */}
-            <div className="flex gap-2 mt-4 pt-4 border-t border-muted">
+            <div className="flex gap-2 mt-4 pt-4 border-t border-dashed border-pencil-light/30">
               {(skill.isInRepo || skill.source) && (
                 <Button
                   onClick={() => handleUpdate()}
@@ -486,12 +478,9 @@ export default function SkillDetailPage() {
             </div>
           </Card>
 
-          {/* Stage 2: Security Audit Card */}
-          <SecurityAuditCard auditQuery={auditQuery} />
-
-          <Card>
+          <Card className="ss-detail-pinned" overflow>
             <h3
-              className="font-bold text-pencil mb-3 flex items-center gap-2"
+              className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2"
             >
               <FileText size={16} strokeWidth={2.5} />
               Files ({files.length})
@@ -544,7 +533,13 @@ export default function SkillDetailPage() {
             )}
           </Card>
 
-          {/* Stage 4: Target Sync Status */}
+          {/* Security Audit */}
+          <SecurityAuditCard auditQuery={auditQuery} />
+
+          {/* Target Distribution */}
+          <TargetDistribution flatName={skill.flatName} />
+
+          {/* Target Sync Status */}
           <SyncStatusCard diffQuery={diffQuery} skillFlatName={skill.flatName} />
         </div>
       </div>
@@ -665,9 +660,9 @@ function SecurityAuditCard({
   );
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" className="ss-detail-pinned ss-detail-pinned-green ss-detail-outlined">
       <h3
-        className="font-bold text-pencil mb-3 flex items-center gap-2"
+        className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2"
       >
         <ShieldCheck size={16} strokeWidth={2.5} />
         Security
@@ -678,7 +673,7 @@ function SecurityAuditCard({
           <RiskMeter riskLabel={result.riskLabel} riskScore={result.riskScore} />
         </div>
         {result.findings.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pt-2 border-t border-muted">
+          <div className="flex flex-wrap gap-1.5 pt-2" style={{ borderTop: '1px dashed rgba(139,132,120,0.3)' }}>
             {Object.entries(findingCounts)
               .sort(([a], [b]) => sevOrder(a) - sevOrder(b))
               .map(([sev, count]) => (
@@ -707,6 +702,56 @@ function sevOrder(sev: string): number {
     case 'INFO': return 4;
     default: return 5;
   }
+}
+
+/** Target Distribution sidebar card */
+function TargetDistribution({ flatName }: { flatName: string }) {
+  const { getSkillTargets } = useSyncMatrix();
+  const entries = getSkillTargets(flatName);
+
+  if (entries.length === 0) return null;
+
+  return (
+    <Card className="ss-detail-pinned ss-detail-pinned-blue ss-detail-outlined">
+      <h3 className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2">
+        <Target size={16} strokeWidth={2.5} />
+        Target Distribution
+      </h3>
+      <div className="space-y-3">
+        {entries.map(e => (
+          <div key={e.target} className="text-sm border-b border-dashed border-pencil-light/30 pb-2 last:border-0 last:pb-0">
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full shrink-0 ${
+                e.status === 'synced' ? 'bg-success' :
+                e.status === 'na' ? 'bg-muted' : 'bg-danger'
+              }`} />
+              <Link to={`/targets/${encodeURIComponent(e.target)}/filters`}
+                    className="font-bold text-pencil hover:text-blue truncate">
+                {e.target}
+              </Link>
+            </div>
+            <div className="flex items-center justify-between mt-1 pl-4">
+              <span className={`text-xs ${
+                e.status === 'synced' ? 'text-success' :
+                e.status === 'skill_target_mismatch' ? 'text-purple-600' :
+                e.status === 'na' ? 'text-muted-dark' : 'text-danger'
+              }`}>
+                {e.status === 'synced' && '\u2713 Synced'}
+                {e.status === 'excluded' && `\u2717 Excluded (${e.reason})`}
+                {e.status === 'not_included' && '\u2717 Not included'}
+                {e.status === 'skill_target_mismatch' && `Targets: ${e.reason}`}
+                {e.status === 'na' && '\u2014 Symlink mode'}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-pencil-light mt-3">
+        Filters only apply to merge/copy mode targets.{' '}
+        <Link to="/targets" className="text-blue hover:underline">Manage targets &rarr;</Link>
+      </p>
+    </Card>
+  );
 }
 
 /** Sync Status sidebar card */
@@ -756,9 +801,9 @@ function SyncStatusCard({
   };
 
   return (
-    <Card variant="outlined">
+    <Card variant="outlined" className="ss-detail-pinned ss-detail-pinned-cyan ss-detail-outlined">
       <h3
-        className="font-bold text-pencil mb-3 flex items-center gap-2"
+        className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2"
       >
         <Link2 size={16} strokeWidth={2.5} />
         Target Sync

@@ -17,14 +17,18 @@ export default function FilterTagInput({ label, patterns, onChange, color }: Fil
     ? { chip: 'bg-info-light text-blue border-blue', ring: 'focus:border-blue focus:ring-blue/20' }
     : { chip: 'bg-danger-light text-danger border-danger', ring: 'focus:border-danger focus:ring-danger/20' };
 
+  const commitInput = () => {
+    const val = input.trim();
+    if (val && !patterns.includes(val)) {
+      onChange([...patterns, val]);
+    }
+    setInput('');
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && input.trim()) {
       e.preventDefault();
-      const val = input.trim();
-      if (!patterns.includes(val)) {
-        onChange([...patterns, val]);
-      }
-      setInput('');
+      commitInput();
     } else if (e.key === 'Backspace' && !input && patterns.length > 0) {
       onChange(patterns.slice(0, -1));
     }
@@ -42,7 +46,7 @@ export default function FilterTagInput({ label, patterns, onChange, color }: Fil
         {label}
       </label>
       <div
-        className="flex flex-wrap items-center gap-1.5 p-2 bg-surface border-2 border-pencil min-h-[2.5rem] cursor-text"
+        className="flex flex-wrap items-center gap-1.5 p-2 bg-surface border-2 border-muted focus-within:border-pencil min-h-[2.5rem] cursor-text transition-all"
         style={{ borderRadius: radius.sm }}
         onClick={() => inputRef.current?.focus()}
       >
@@ -70,6 +74,7 @@ export default function FilterTagInput({ label, patterns, onChange, color }: Fil
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
+          onBlur={commitInput}
           placeholder={patterns.length === 0 ? 'Type pattern + Enter' : ''}
           className={`flex-1 min-w-[8rem] text-sm text-pencil bg-transparent border-none outline-none placeholder:text-muted-dark font-mono ${colorClasses.ring}`}
         />
