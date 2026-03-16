@@ -62,6 +62,9 @@
 - **Project trash gitignore** — `skillshare init -p` now automatically adds `trash/` to `.skillshare/.gitignore`, preventing soft-deleted skills from being accidentally committed. Existing projects are patched on the next `uninstall` run
 - **Web UI target filter persistence** — target include/exclude filters set via the web dashboard are now correctly persisted; previously, in-memory state could drift from disk after saving, causing subsequent page loads to show stale filter values
 - **Web UI extras list empty state** — the extras list page now renders correctly when no extras are configured, fixing a missing tour target in the empty state
+- **Partial init repair auto-select** — `skillshare init -p` now automatically selects all detected targets when repairing a partial initialization (`.skillshare/` exists but `config.yaml` is missing), instead of prompting you to pick from a checklist
+- **Target list TUI help bar** — scroll hints (`Ctrl+d/u`) and help bar key ordering now follow the same convention as other TUIs (navigate → filter → scroll → actions → quit)
+- **Web UI server stability** — fixed a potential crash when concurrent API requests (e.g., multiple browser tabs) hit the dashboard while target config was being modified
 
 ## [0.17.2] - 2026-03-14
 

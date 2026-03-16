@@ -146,8 +146,16 @@ If maintainer:
   - Title: `# skillshare vX.Y.Z Release Notes`
   - TL;DR section with numbered highlights
   - Feature sections with "The problem" / "Solution" / "Design decisions" / "Usage patterns" structure
-  - Bug Fixes section with bold labels and technical context
+  - Bug Fixes section with bold labels
 - Include migration guide if breaking changes exist
+
+**RELEASE_NOTES wording rules** (same user-facing standard as CHANGELOG):
+- Bug Fixes describe **what the user experiences**, not how the code changed
+- **Never mention**: function names, variable names, struct fields, file paths, Go syntax, internal APIs
+- ✅ Good: "fixed a potential crash when multiple browser tabs hit the dashboard"
+- ❌ Bad: "upgraded `Server.mu` from `sync.Mutex` to `sync.RWMutex` and applied a snapshot pattern across 30 handlers"
+- Feature sections ("The problem" / "Solution") may reference CLI flags and commands but not internal implementation
+- "Design decisions" can be slightly more technical but should still focus on *what* was chosen and *why*, not *how* the code works
 
 If not maintainer:
 - Skip RELEASE_NOTES generation
