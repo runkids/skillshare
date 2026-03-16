@@ -37,6 +37,24 @@
 - **Mode picker** — press `M` on any target to change its sync mode (merge, copy, symlink) without leaving the TUI. Changes are saved to config immediately
 - **Include/Exclude editor** — press `I` or `E` to open an inline pattern editor for the selected target. Add patterns with `a`, delete with `d` — changes persist to config on each action
 
+#### Web UI — Filter Studio
+
+- **Filter Studio page** — new dedicated page for managing target include/exclude filters at `/targets/{name}/filters`. Two-column layout: edit glob patterns on the left, see a live preview of which skills will sync on the right. Click any skill in the preview to toggle it between include/exclude:
+  ```
+  Dashboard → Targets → Customize filters → (Filter Studio opens)
+  ```
+- **Always-visible filter summary** — every target card on the Targets page now permanently displays a skill count line (`All 18 skills` or `12/18 skills`) with filter tag previews (max 3 tags, `+N more` for overflow). Replaces the hidden ghost "Filters" button that nobody noticed
+- **Skill Detail — Target Distribution** — the skill detail sidebar now shows a "Target Distribution" card listing which targets this skill syncs to, with status indicators (synced, excluded, not included, SKILL.md targets mismatch). Links to Filter Studio for editing
+- **Live preview with search** — Filter Studio's preview panel includes a search box to quickly find skills in the list, and updates in real-time (500ms debounce) as you add or remove patterns
+- **`GET /api/sync-matrix`** — new API endpoint returning the authoritative skill × target sync matrix with status and reason for each entry. Supports `?target=` filter. `POST /api/sync-matrix/preview` accepts draft patterns for what-if preview without saving
+- **Auto-commit on blur** — `FilterTagInput` now automatically adds the typed pattern when the input loses focus, preventing the common mistake of typing a pattern but forgetting to press Enter
+
+#### Web UI — Skill Detail Styling
+
+- **Post-it sidebar cards** — Metadata, Files, Security, Target Distribution, and Target Sync cards in the skill detail sidebar now use semantic pastel backgrounds in playful theme (yellow, green, blue, cyan) with thumbtack pin decorations. Clean theme uses white backgrounds
+- **Hand-drawn manifest block** — the SKILL.md manifest area uses a sketchy dashed border with tape decoration in playful theme
+- **Unified input borders** — all text inputs, textareas, selects, and tag inputs now use consistent `border-2 border-muted` styling with `focus:border-pencil` across the dashboard
+
 ### Bug Fixes
 
 - **Web UI network error guidance** — the web dashboard now shows a clear "restart `skillshare ui`" message when the API server is unreachable, instead of a generic "Failed to fetch" error

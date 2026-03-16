@@ -11,8 +11,10 @@ v0.17.3 brings the **target list** command into the interactive TUI family, adds
 3. **Target list TUI** — full-screen interactive browser with split layout, fuzzy filter, and inline editing
 4. **Mode picker** — change a target's sync mode (`M` key) without leaving the TUI
 5. **Include/Exclude editor** — add/remove filter patterns (`I`/`E` keys) directly from the TUI
-6. **Web UI error guidance** — network failures now show actionable "restart `skillshare ui`" message
-7. **`init --help` fix** — `--subdir` flag now visible, flag ordering matches documentation
+6. **Filter Studio** — dedicated web UI page for managing target include/exclude filters with live preview
+7. **Skill Detail sidebar** — Target Distribution, post-it styling, and semantic pastel cards
+8. **Web UI error guidance** — network failures now show actionable "restart `skillshare ui`" message
+9. **`init --help` fix** — `--subdir` flag now visible, flag ordering matches documentation
 
 ---
 
@@ -129,6 +131,51 @@ skillshare init -p                                    # Auto-detects shared repo
 skillshare target add projB ~/DEV/projB/.cursor/skills -p
 skillshare sync -p
 ```
+
+---
+
+## Web UI — Filter Studio
+
+### The problem
+
+The target include/exclude filter feature was nearly invisible. The only entry point was a small ghost "Filters" button next to the sync mode dropdown — users never noticed it. There was no way to see filter effects in advance, no way to discover filters from the Skills page, and no education about what filters could do (routing different skills to different targets).
+
+### Solution
+
+A multi-surface approach to make filters discoverable and usable:
+
+1. **Filter Studio page** (`/targets/{name}/filters`) — two-column layout with filter pattern editing on the left and live preview on the right. The preview shows all skills with their sync status (synced/excluded/not included) and updates in real-time as patterns change (500ms debounce via `POST /api/sync-matrix/preview`). Click any skill in the preview to toggle it between include/exclude
+2. **Always-visible summary line** — every target card on the Targets page shows a permanent skill count (`All 18 skills` or `12/18 skills`) with filter tag previews (capped at 3, `+N more` for overflow) and a link to Filter Studio. Replaces the hidden ghost button
+3. **Skill Detail — Target Distribution** — read-only sidebar card showing which targets a skill syncs to, with status indicators and links to each target's Filter Studio
+4. **`GET /api/sync-matrix`** — new backend endpoint computing the authoritative skill × target matrix. `ClassifySkillForTarget()` in `internal/sync/classify.go` determines status (synced/excluded/not_included/skill_target_mismatch) with reason strings. Reuses `matchesAnyPattern` and `firstMatchingPattern` from the existing filter engine
+
+### Design decisions
+
+- **Backend-authoritative matrix** — all sync status computation happens server-side via `ClassifySkillForTarget`, avoiding the need to replicate Go's `filepath.Match` + target alias resolution + SKILL.md `targets` field logic in the frontend
+- **Pattern normalization** — `ClassifySkillForTarget` runs patterns through `normalizedFilterPatterns` (same path as the real sync engine), ensuring preview results match actual sync behavior
+- **Preview without persistence** — `POST /api/sync-matrix/preview` accepts draft patterns and returns what-if results without saving to config, enabling real-time editing feedback
+- **Click-to-toggle deduplication** — clicking a skill to include it also removes it from exclude (and vice versa), preventing contradictory filter states
+- **Auto-commit on blur** — `FilterTagInput` commits the typed value when focus leaves the input, preventing the common "forgot to press Enter" data loss
+
+---
+
+## Web UI — Skill Detail Styling
+
+### The problem
+
+The skill detail sidebar cards (Metadata, Files, Security, etc.) were visually flat and indistinct. In playful theme, they didn't match the hand-drawn aesthetic used elsewhere in the dashboard.
+
+### Solution
+
+- **Semantic pastel backgrounds** — sidebar cards use different pastel colors by card type: yellow for Metadata/Files, blue for Target Distribution, cyan for Target Sync, green for Security. Clean theme uses white backgrounds
+- **Hand-drawn decorations** (playful only) — thumbtack pins on sidebar cards, tape strip on the manifest block, wobbly dashed borders, Caveat heading font, wavy underline on skill name
+- **Unified input borders** — all form inputs (Input, Textarea, Select, FilterTagInput) unified to `border-2 border-muted` with `focus:border-pencil`
+
+### Design decisions
+
+- **Playful-only decorations** — all hand-drawn elements are scoped under `[data-theme="playful"]`. Clean theme stays black and white with no color tints
+- **Per-card CSS classes** — `ss-detail-pinned`, `ss-detail-pinned-blue`, etc. allow each card to have its own background while sharing the pin decoration via `::before` pseudo-element
+- **Dark mode** — pastel backgrounds use `rgba(..., 0.08)` opacity in dark mode to avoid jarring bright colors on dark backgrounds
 
 ---
 
