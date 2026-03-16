@@ -1018,6 +1018,125 @@ func TestInit_SuccessMessage_ContainsSourceHint(t *testing.T) {
 	result.AssertOutputContains(t, "--source")
 }
 
+// ============================================
+// --subdir flag tests (global mode only)
+// ============================================
+
+func TestInit_Subdir_SetsSourcePath(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+
+	result := sb.RunCLI("init", "--subdir", "skills", "--no-copy", "--no-targets", "--no-git", "--no-skill")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Initialized successfully")
+
+	// Verify config source ends with /skills (the subdir)
+	configContent := sb.ReadFile(sb.ConfigPath)
+	expectedSuffix := filepath.Join("skillshare", "skills", "skills")
+	if !strings.Contains(configContent, expectedSuffix) {
+		t.Errorf("config source should end with skills/skills (subdir appended), got:\n%s", configContent)
+	}
+
+	// Verify subdirectory was created
+	subdirPath := filepath.Join(sb.SourcePath, "skills")
+	if !sb.FileExists(subdirPath) {
+		t.Error("subdir should be created inside source path")
+	}
+}
+
+func TestInit_Subdir_ListFindsSkillsInSubdir(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+
+	// Init with --subdir
+	result := sb.RunCLI("init", "--subdir", "skills", "--no-copy", "--no-targets", "--no-git", "--no-skill")
+	result.AssertSuccess(t)
+
+	// Create a skill inside the subdir
+	subdirSkillPath := filepath.Join(sb.SourcePath, "skills", "subdir-skill")
+	os.MkdirAll(subdirSkillPath, 0755)
+	os.WriteFile(filepath.Join(subdirSkillPath, "SKILL.md"), []byte("---\nname: subdir-skill\ndescription: test\n---\n# Test"), 0644)
+
+	// List should find the skill
+	listResult := sb.RunCLI("list", "--no-tui")
+	listResult.AssertSuccess(t)
+	listResult.AssertOutputContains(t, "subdir-skill")
+}
+
+func TestInit_Subdir_SyncWorksWithSubdir(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+
+	// Create a claude target directory
+	claudeSkillsPath := filepath.Join(sb.Home, ".claude", "skills")
+	os.MkdirAll(claudeSkillsPath, 0755)
+
+	// Init with --subdir and a target
+	result := sb.RunCLI("init", "--subdir", "myskills", "--no-copy", "--targets", "claude", "--no-git", "--no-skill")
+	result.AssertSuccess(t)
+
+	// Create a skill inside the subdir
+	subdirSkillPath := filepath.Join(sb.SourcePath, "myskills", "sync-test")
+	os.MkdirAll(subdirSkillPath, 0755)
+	os.WriteFile(filepath.Join(subdirSkillPath, "SKILL.md"), []byte("---\nname: sync-test\ndescription: test\n---\n# Sync Test"), 0644)
+
+	// Sync should work
+	syncResult := sb.RunCLI("sync", "--no-tui")
+	syncResult.AssertSuccess(t)
+	syncResult.AssertOutputContains(t, "Sync complete")
+
+	// Verify symlink was created in target
+	symlinkPath := filepath.Join(claudeSkillsPath, "sync-test")
+	if _, err := os.Lstat(symlinkPath); os.IsNotExist(err) {
+		t.Error("skill symlink should be created in target after sync")
+	}
+}
+
+func TestInit_Subdir_ForcesGlobalModeInProjectDir(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Simulate a project directory with .skillshare/config.yaml
+	projectDir := filepath.Join(sb.Home, "myproject")
+	os.MkdirAll(filepath.Join(projectDir, ".skillshare"), 0755)
+	os.WriteFile(filepath.Join(projectDir, ".skillshare", "config.yaml"), []byte("skills: []\ntargets: {}\n"), 0644)
+
+	// Remove global config so init can run fresh
+	os.Remove(sb.ConfigPath)
+
+	// Run init --subdir from inside the project directory
+	// Without the fix, this would route to project mode and fail with "unknown option"
+	result := sb.RunCLIInDir(projectDir, "init", "--subdir", "skills", "--no-copy", "--no-targets", "--no-git", "--no-skill")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Initialized successfully")
+}
+
+func TestInit_Subdir_DryRunDoesNotCreate(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	os.Remove(sb.ConfigPath)
+	os.RemoveAll(sb.SourcePath)
+
+	result := sb.RunCLI("init", "--subdir", "skills", "--no-copy", "--no-targets", "--no-git", "--no-skill", "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Dry run")
+
+	// Config should not exist
+	if sb.FileExists(sb.ConfigPath) {
+		t.Error("dry-run should not create config")
+	}
+}
+
 func TestInit_MutualExclusion_SkillFlags(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

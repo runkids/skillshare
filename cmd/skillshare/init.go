@@ -505,7 +505,7 @@ func hasGlobalOnlyInitFlags(args []string) bool {
 	for _, arg := range args {
 		switch arg {
 		case "--remote", "--source", "-s", "--copy-from", "-c", "--no-copy",
-			"--git", "--no-git", "--skill", "--no-skill":
+			"--git", "--no-git", "--skill", "--no-skill", "--subdir":
 			return true
 		}
 	}
