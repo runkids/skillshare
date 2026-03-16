@@ -24,6 +24,9 @@ type gitStatusResponse struct {
 
 // handleGitStatus returns the git status of the source directory
 func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	src := s.cfg.Source
 	resp := gitStatusResponse{
 		SourceDir: src,
@@ -80,6 +83,9 @@ type gitBranchesResponse struct {
 // handleGitBranches returns local/remote branches for the source directory.
 // Pass ?fetch=true to run git fetch first (discovers new remote branches).
 func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	src := s.cfg.Source
 
 	if !git.IsRepo(src) {

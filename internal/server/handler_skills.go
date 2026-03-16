@@ -28,6 +28,9 @@ type skillItem struct {
 }
 
 func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	discovered, err := sync.DiscoverSourceSkills(s.cfg.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -61,6 +64,9 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	name := r.PathValue("name")
 
 	// Find the skill by flat name or base name
@@ -130,6 +136,9 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetSkillFile(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	name := r.PathValue("name")
 	fp := r.PathValue("filepath")
 

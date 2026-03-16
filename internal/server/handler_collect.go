@@ -35,6 +35,9 @@ type collectSkillRef struct {
 // handleCollectScan scans targets for local (non-symlinked) skills.
 // GET /api/collect/scan?target=<name>  (optional filter)
 func (s *Server) handleCollectScan(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	filterTarget := r.URL.Query().Get("target")
 
 	var scanTargets []scanTarget

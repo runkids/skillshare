@@ -15,6 +15,9 @@ type syncMatrixEntry struct {
 }
 
 func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	skills, err := ssync.DiscoverSourceSkills(s.cfg.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
@@ -54,6 +57,9 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	var body struct {
 		Target  string   `json:"target"`
 		Include []string `json:"include"`

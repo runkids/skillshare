@@ -8,6 +8,9 @@ import (
 )
 
 func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	cliVersion := versioncheck.Version
 	cliUpdateAvailable := false
 	var cliLatest *string

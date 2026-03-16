@@ -46,6 +46,9 @@ func (s *Server) extrasConfig() []config.ExtraConfig {
 
 // handleExtras — GET /api/extras
 func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	extras := s.extrasConfig()
 
 	entries := make([]extrasListEntry, 0, len(extras))
@@ -108,6 +111,9 @@ type extrasDiffEntry struct {
 
 // handleExtrasDiff — GET /api/extras/diff
 func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	filterName := r.URL.Query().Get("name")
 	extras := s.extrasConfig()
 

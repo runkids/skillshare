@@ -8,6 +8,9 @@ import (
 )
 
 func (s *Server) handleHubIndex(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	sourcePath := s.cfg.Source
 	if s.IsProjectMode() {
 		sourcePath = filepath.Join(s.projectRoot, ".skillshare", "skills")

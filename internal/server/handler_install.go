@@ -16,6 +16,9 @@ import (
 // handleDiscover clones a git repo to a temp dir, discovers skills, then cleans up.
 // Returns whether the caller needs to present a selection UI.
 func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	var body struct {
 		Source string `json:"source"`
 	}

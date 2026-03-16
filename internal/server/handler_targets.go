@@ -26,6 +26,9 @@ type targetItem struct {
 }
 
 func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	items := make([]targetItem, 0, len(s.cfg.Targets))
 	discovered, discoveredErr := ssync.DiscoverSourceSkills(s.cfg.Source)
 

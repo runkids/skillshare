@@ -25,7 +25,7 @@ type Server struct {
 	addr     string
 	mux      *http.ServeMux
 	handler  http.Handler
-	mu       sync.Mutex // protects write operations and config reloads
+	mu       sync.RWMutex // protects config: Lock for writes/reloads, RLock for reads
 
 	startTime time.Time // for uptime reporting in health check
 

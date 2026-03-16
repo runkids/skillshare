@@ -26,6 +26,9 @@ type skillCheckResult struct {
 }
 
 func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	sourceDir := s.cfg.Source
 	if s.IsProjectMode() {
 		sourceDir = filepath.Join(s.projectRoot, ".skillshare", "skills")

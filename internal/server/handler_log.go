@@ -11,6 +11,9 @@ import (
 )
 
 func (s *Server) handleListLog(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	logType := r.URL.Query().Get("type")
 	limitStr := r.URL.Query().Get("limit")
 
@@ -91,6 +94,9 @@ func (s *Server) handleListLog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogStats(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	logType := r.URL.Query().Get("type")
 	filename := oplog.OpsFile
 	if logType == "audit" {

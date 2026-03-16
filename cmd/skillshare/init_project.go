@@ -144,7 +144,11 @@ func performProjectInit(root string, opts projectInitOptions) error {
 
 	sharedRepoFlow := false
 	if partialInitRepair {
-		if isConfigGitignored(root) {
+		gitignored, err := isConfigGitignored(root)
+		if err != nil {
+			ui.Warning("Could not check for shared repo config: %v", err)
+		}
+		if gitignored {
 			// Shared skills repo: cloned from a teammate who used --config local.
 			// Generate empty config so each developer manages their own targets.
 			sharedRepoFlow = true
@@ -526,10 +530,9 @@ func findGroupedTarget(targets []detectedProjectTarget, name string) *detectedPr
 
 // isConfigGitignored checks if config.yaml is gitignored in .skillshare/.gitignore,
 // indicating this is a shared skills repo where each developer manages their own config.
-func isConfigGitignored(root string) bool {
+func isConfigGitignored(root string) (bool, error) {
 	path := filepath.Join(root, ".skillshare", ".gitignore")
-	ok, _ := install.GitignoreContains(path, "config.yaml")
-	return ok
+	return install.GitignoreContains(path, "config.yaml")
 }
 
 func ensureProjectGitignore(root string, gitignoreConfig bool) error {

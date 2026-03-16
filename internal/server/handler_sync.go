@@ -140,6 +140,9 @@ type diffTarget struct {
 }
 
 func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	filterTarget := r.URL.Query().Get("target")
 
 	globalMode := s.cfg.Mode

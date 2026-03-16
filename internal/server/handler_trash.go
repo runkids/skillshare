@@ -26,6 +26,9 @@ func (s *Server) trashBase() string {
 
 // handleListTrash returns all trashed items with total size.
 func (s *Server) handleListTrash(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	base := s.trashBase()
 	items := trash.List(base)
 

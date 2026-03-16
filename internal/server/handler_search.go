@@ -11,6 +11,9 @@ import (
 )
 
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	query := r.URL.Query().Get("q")
 	hubParam := r.URL.Query().Get("hub")
 

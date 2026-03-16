@@ -250,6 +250,9 @@ func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy
 }
 
 func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	start := time.Now()
 	policy := s.auditPolicy()
 
@@ -275,6 +278,9 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	start := time.Now()
 	name := r.PathValue("name")
 	policy := s.auditPolicy()
@@ -434,6 +440,9 @@ func (s *Server) auditRulesPath() string {
 }
 
 func (s *Server) handleGetAuditRules(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	path := s.auditRulesPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -512,6 +521,9 @@ func (s *Server) handleInitAuditRules(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetCompiledRules(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	var rules []audit.CompiledRule
 	var err error
 

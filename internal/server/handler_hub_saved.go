@@ -21,6 +21,9 @@ type hubEntryJSON struct {
 }
 
 func (s *Server) handleGetHubSaved(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	hub := s.hubConfig()
 	resp := hubConfigResponse{
 		Default: hub.Default,

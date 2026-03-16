@@ -188,6 +188,9 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 
 // handleValidateRestore checks if a restore would succeed and returns conflict info.
 func (s *Server) handleValidateRestore(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	var body struct {
 		Timestamp string `json:"timestamp"`
 		Target    string `json:"target"`

@@ -80,6 +80,9 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAvailableTargets(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	var defaults map[string]config.TargetConfig
 	if s.IsProjectMode() {
 		defaults = config.ProjectTargets()
