@@ -393,33 +393,34 @@ export default function ExtrasPage() {
         </Card>
       )}
 
-      {/* Empty state */}
-      {!isPending && !error && extras.length === 0 && (
-        <EmptyState
-          icon={FolderPlus}
-          title="No extras configured"
-          description="Extras let you sync any directory to your AI tool targets alongside your skills."
-          action={
-            <Button variant="primary" size="md" onClick={() => setShowAdd(true)}>
-              <Plus size={16} strokeWidth={2.5} /> Add Extra
-            </Button>
-          }
-        />
-      )}
-
-      {/* Extras list */}
-      {!isPending && !error && extras.length > 0 && (
-        <div data-tour="extras-list" className="space-y-4">
-          {extras.map((extra, i) => (
-            <ExtraCard
-              key={extra.name}
-              extra={extra}
-              index={i}
-              onSync={handleSync}
-              onRemove={(name) => setRemoveName(name)}
-              onModeChange={handleModeChange}
+      {/* Empty state / Extras list */}
+      {!isPending && !error && (
+        <div data-tour="extras-list">
+          {extras.length === 0 ? (
+            <EmptyState
+              icon={FolderPlus}
+              title="No extras configured"
+              description="Extras let you sync any directory to your AI tool targets alongside your skills."
+              action={
+                <Button variant="primary" size="md" onClick={() => setShowAdd(true)}>
+                  <Plus size={16} strokeWidth={2.5} /> Add Extra
+                </Button>
+              }
             />
-          ))}
+          ) : (
+            <div className="space-y-4">
+              {extras.map((extra, i) => (
+                <ExtraCard
+                  key={extra.name}
+                  extra={extra}
+                  index={i}
+                  onSync={handleSync}
+                  onRemove={(name) => setRemoveName(name)}
+                  onModeChange={handleModeChange}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
