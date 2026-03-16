@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.17.3] - 2026-03-16
+
+### New Features
+
+#### Target List Interactive TUI
+
+- **Interactive target browser** — `skillshare target list` now launches a full-screen TUI with a split panel layout (target list on the left, detail panel on the right). Includes fuzzy filtering via `/` and keyboard navigation:
+  ```bash
+  skillshare target list           # Interactive TUI (default on TTY)
+  skillshare target list --no-tui  # Plain text output
+  ```
+- **Mode picker** — press `M` on any target to change its sync mode (merge, copy, symlink) without leaving the TUI. Changes are saved to config immediately
+- **Include/Exclude editor** — press `I` or `E` to open an inline pattern editor for the selected target. Add patterns with `a`, delete with `d` — changes persist to config on each action
+
+### Bug Fixes
+
+- **Web UI network error guidance** — the web dashboard now shows a clear "restart `skillshare ui`" message when the API server is unreachable, instead of a generic "Failed to fetch" error
+- **`init --help` completeness** — `skillshare init --help` now shows the `--subdir` flag and lists flags in the same order as the documentation
+- **Project trash gitignore** — `skillshare init -p` now automatically adds `trash/` to `.skillshare/.gitignore`, preventing soft-deleted skills from being accidentally committed. Existing projects are patched on the next `uninstall` run
+
 ## [0.17.2] - 2026-03-14
 
 ### New Features

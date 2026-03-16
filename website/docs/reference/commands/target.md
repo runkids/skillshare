@@ -60,8 +60,24 @@ skillshare target remove cursor --dry-run # Preview
 List all configured targets.
 
 ```bash
-skillshare target list
+skillshare target list                 # Interactive TUI (default on TTY)
+skillshare target list --no-tui        # Plain text output
+skillshare target list --json          # JSON output for CI/scripts
 ```
+
+#### Interactive TUI
+
+On a TTY, `target list` launches an interactive terminal UI with:
+
+- **Split layout** — target list on the left, detail panel on the right (falls back to vertical layout on narrow terminals)
+- **Fuzzy filter** — press `/` to filter targets by name
+- **Mode picker** — press `M` to change the sync mode (merge, copy, symlink) for the selected target
+- **Include/Exclude editor** — press `I` or `E` to open the filter pattern editor for the selected target. Use `a` to add patterns, `d` to delete
+- **Keyboard navigation** — `↑`/`↓` to browse, `Ctrl+d`/`Ctrl+u` to scroll the detail panel, `q` to quit
+
+Changes made through the TUI (mode, include/exclude) are saved to config immediately. Run `skillshare sync` to apply.
+
+Use `--no-tui` to skip the TUI and print plain text instead:
 
 ```
 Configured Targets
@@ -172,6 +188,13 @@ No additional options.
 |------|-------------|
 | `--all, -a` | Remove all targets |
 | `--dry-run, -n` | Preview without making changes |
+
+### target list
+
+| Flag | Description |
+|------|-------------|
+| `--json` | Output as JSON |
+| `--no-tui` | Disable interactive TUI, use plain text output |
 
 ### target info / filters
 
