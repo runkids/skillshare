@@ -545,9 +545,9 @@
   background-color: #fffde7 !important;
 }
 /* Semantic pastel variants — keep pin decoration, override background only */
-[data-theme="playful"] .ss-detail-pinned-blue  { background-color: #eaf3fd !important; }
-[data-theme="playful"] .ss-detail-pinned-cyan  { background-color: #ecfafb !important; }
-[data-theme="playful"] .ss-detail-pinned-green { background-color: #ecf6ed !important; }
+[data-theme="playful"] .ss-detail-pinned-blue  { background-color: #ffffff !important; }
+[data-theme="playful"] .ss-detail-pinned-cyan  { background-color: #ffffff !important; }
+[data-theme="playful"] .ss-detail-pinned-green { background-color: #ffffff !important; }
 /* Red thumbtack pin */
 [data-theme="playful"] .ss-detail-pinned::before {
   content: '';
@@ -600,7 +600,7 @@
 
 /* Target Distribution / Sync Status — dashed left accent border */
 [data-theme="playful"] .ss-detail-outlined {
-  border-left: 3px dashed var(--color-blue) !important;
+  border-left: 3px dashed var(--color-pencil-light) !important;
 }
 
 /* Dark mode adjustments for detail page decorations */
@@ -625,7 +625,7 @@
 [data-theme="playful"].dark .ss-detail-pinned-cyan  { background-color: rgba(224,247,250,0.08) !important; }
 [data-theme="playful"].dark .ss-detail-pinned-green { background-color: rgba(224,242,225,0.08) !important; }
 [data-theme="playful"].dark .ss-detail-outlined {
-  border-left-color: var(--color-blue-light) !important;
+  border-left-color: var(--color-pencil-light) !important;
 }
 
 /* ── Playful Dark: refinements ── */
