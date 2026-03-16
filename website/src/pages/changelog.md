@@ -51,6 +51,8 @@ All notable changes to skillshare are documented here. For the full commit histo
 - **Web UI network error guidance** — the web dashboard now shows a clear "restart `skillshare ui`" message when the API server is unreachable, instead of a generic "Failed to fetch" error
 - **`init --help` completeness** — `skillshare init --help` now shows the `--subdir` flag and lists flags in the same order as the documentation
 - **Project trash gitignore** — `skillshare init -p` now automatically adds `trash/` to `.skillshare/.gitignore`, preventing soft-deleted skills from being accidentally committed. Existing projects are patched on the next `uninstall` run
+- **Web UI target filter persistence** — target include/exclude filters set via the web dashboard are now correctly persisted; previously, in-memory state could drift from disk after saving, causing subsequent page loads to show stale filter values
+- **Web UI extras list empty state** — the extras list page now renders correctly when no extras are configured, fixing a missing tour target in the empty state
 
 ## [0.17.2] - 2026-03-14
 
