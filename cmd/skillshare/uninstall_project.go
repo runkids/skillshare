@@ -89,6 +89,9 @@ func cmdUninstallProject(args []string, root string) error {
 	sourceDir := filepath.Join(root, ".skillshare", "skills")
 	trashDir := trash.ProjectTrashDir(root)
 
+	// Backward compat: ensure operational dirs are gitignored for projects created before v0.17.3.
+	_ = ensureProjectGitignore(root)
+
 	// --- Phase 1: RESOLVE ---
 	var targets []*uninstallTarget
 	seen := map[string]bool{}
