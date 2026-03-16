@@ -140,28 +140,31 @@ type diffTarget struct {
 }
 
 func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before slow I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	filterTarget := r.URL.Query().Get("target")
-
+	source := s.cfg.Source
 	globalMode := s.cfg.Mode
+	targets := s.cloneTargets()
+	s.mu.RUnlock()
+
 	if globalMode == "" {
 		globalMode = "merge"
 	}
 
-	discovered, err := ssync.DiscoverSourceSkills(s.cfg.Source)
+	filterTarget := r.URL.Query().Get("target")
+
+	discovered, err := ssync.DiscoverSourceSkills(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	diffs := make([]diffTarget, 0)
-	for name, target := range s.cfg.Targets {
+	for name, target := range targets {
 		if filterTarget != "" && filterTarget != name {
 			continue
 		}
-		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode))
+		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source))
 	}
 
 	writeJSON(w, map[string]any{"diffs": diffs})

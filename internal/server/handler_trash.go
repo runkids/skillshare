@@ -26,10 +26,10 @@ func (s *Server) trashBase() string {
 
 // handleListTrash returns all trashed items with total size.
 func (s *Server) handleListTrash(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	base := s.trashBase()
+	s.mu.RUnlock()
 	items := trash.List(base)
 
 	out := make([]trashItemJSON, 0, len(items))

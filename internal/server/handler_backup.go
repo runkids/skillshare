@@ -188,8 +188,10 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 
 // handleValidateRestore checks if a restore would succeed and returns conflict info.
 func (s *Server) handleValidateRestore(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	targets := s.cloneTargets()
+	s.mu.RUnlock()
 
 	var body struct {
 		Timestamp string `json:"timestamp"`
@@ -205,7 +207,7 @@ func (s *Server) handleValidateRestore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t, ok := s.cfg.Targets[body.Target]
+	t, ok := targets[body.Target]
 	if !ok {
 		writeError(w, http.StatusBadRequest, "target not found: "+body.Target)
 		return

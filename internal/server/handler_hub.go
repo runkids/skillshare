@@ -8,12 +8,14 @@ import (
 )
 
 func (s *Server) handleHubIndex(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	sourcePath := s.cfg.Source
-	if s.IsProjectMode() {
-		sourcePath = filepath.Join(s.projectRoot, ".skillshare", "skills")
+	projectRoot := s.projectRoot
+	s.mu.RUnlock()
+
+	if projectRoot != "" {
+		sourcePath = filepath.Join(projectRoot, ".skillshare", "skills")
 	}
 
 	idx, err := hub.BuildIndex(sourcePath, false, false)

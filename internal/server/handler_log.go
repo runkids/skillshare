@@ -11,8 +11,10 @@ import (
 )
 
 func (s *Server) handleListLog(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	cfgPath := s.configPath()
+	s.mu.RUnlock()
 
 	logType := r.URL.Query().Get("type")
 	limitStr := r.URL.Query().Get("limit")
@@ -47,7 +49,7 @@ func (s *Server) handleListLog(w http.ResponseWriter, r *http.Request) {
 		readLimit = 0
 	}
 
-	entries, err := oplog.Read(s.configPath(), filename, readLimit)
+	entries, err := oplog.Read(cfgPath, filename, readLimit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to read log: "+err.Error())
 		return
@@ -65,7 +67,7 @@ func (s *Server) handleListLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Count totals and collect distinct commands from unfiltered data
-	all, _ := oplog.Read(s.configPath(), filename, 0)
+	all, _ := oplog.Read(cfgPath, filename, 0)
 	totalAll := len(all)
 	total := totalAll
 
@@ -94,8 +96,10 @@ func (s *Server) handleListLog(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogStats(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	cfgPath := s.configPath()
+	s.mu.RUnlock()
 
 	logType := r.URL.Query().Get("type")
 	filename := oplog.OpsFile
@@ -103,7 +107,7 @@ func (s *Server) handleLogStats(w http.ResponseWriter, r *http.Request) {
 		filename = oplog.AuditFile
 	}
 
-	entries, err := oplog.Read(s.configPath(), filename, 0)
+	entries, err := oplog.Read(cfgPath, filename, 0)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to read log: "+err.Error())
 		return

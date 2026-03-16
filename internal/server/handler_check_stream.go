@@ -30,10 +30,13 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
+	// Snapshot config under RLock, then release before slow I/O.
+	s.mu.RLock()
 	sourceDir := s.cfg.Source
 	if s.IsProjectMode() {
 		sourceDir = filepath.Join(s.projectRoot, ".skillshare", "skills")
 	}
+	s.mu.RUnlock()
 
 	// Immediate feedback before the potentially slow discovery walk.
 	safeSend("discovering", map[string]string{"phase": "scanning source directory"})

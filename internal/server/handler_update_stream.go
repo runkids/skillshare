@@ -29,6 +29,11 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 	force := r.URL.Query().Get("force") == "true"
 	skipAudit := r.URL.Query().Get("skipAudit") == "true"
 
+	// Snapshot source under RLock, then release before slow I/O.
+	s.mu.RLock()
+	source := s.cfg.Source
+	s.mu.RUnlock()
+
 	// Collect items to update based on "names" query param.
 	// If names is empty, update all updatable items.
 	namesParam := r.URL.Query().Get("names")
@@ -53,40 +58,40 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 			if !strings.HasPrefix(repoName, "_") {
 				repoName = "_" + name
 			}
-			repoPath := filepath.Join(s.cfg.Source, repoName)
+			repoPath := filepath.Join(source, repoName)
 			if install.IsGitRepo(repoPath) {
 				items = append(items, updateItem{name: repoName, isRepo: true, path: repoPath})
 				continue
 			}
 			// Check original name as repo
-			origPath := filepath.Join(s.cfg.Source, name)
+			origPath := filepath.Join(source, name)
 			if install.IsGitRepo(origPath) {
 				items = append(items, updateItem{name: name, isRepo: true, path: origPath})
 				continue
 			}
 			// Regular skill
-			skillPath := filepath.Join(s.cfg.Source, name)
+			skillPath := filepath.Join(source, name)
 			items = append(items, updateItem{name: name, isRepo: false, path: skillPath})
 		}
 	} else {
 		// Update all: tracked repos + regular skills
-		repos, err := install.GetTrackedRepos(s.cfg.Source)
+		repos, err := install.GetTrackedRepos(source)
 		if err == nil {
 			for _, repo := range repos {
 				items = append(items, updateItem{
 					name:   repo,
 					isRepo: true,
-					path:   filepath.Join(s.cfg.Source, repo),
+					path:   filepath.Join(source, repo),
 				})
 			}
 		}
-		skills, err := getServerUpdatableSkills(s.cfg.Source)
+		skills, err := getServerUpdatableSkills(source)
 		if err == nil {
 			for _, skill := range skills {
 				items = append(items, updateItem{
 					name:   skill,
 					isRepo: false,
-					path:   filepath.Join(s.cfg.Source, skill),
+					path:   filepath.Join(source, skill),
 				})
 			}
 		}

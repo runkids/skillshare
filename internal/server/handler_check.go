@@ -26,12 +26,17 @@ type skillCheckResult struct {
 }
 
 func (s *Server) handleCheck(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	source := s.cfg.Source
+	projectRoot := s.projectRoot
+	s.mu.RUnlock()
 
-	sourceDir := s.cfg.Source
-	if s.IsProjectMode() {
-		sourceDir = filepath.Join(s.projectRoot, ".skillshare", "skills")
+	isProjectMode := projectRoot != ""
+
+	sourceDir := source
+	if isProjectMode {
+		sourceDir = filepath.Join(projectRoot, ".skillshare", "skills")
 	}
 
 	repos, _ := install.GetTrackedRepos(sourceDir)

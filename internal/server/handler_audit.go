@@ -250,26 +250,32 @@ func processAuditResults(skills []skillEntry, scanned []audit.ScanOutput, policy
 }
 
 func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	source := s.cfg.Source
+	policy := s.auditPolicy()
+	projectRoot := s.projectRoot
+	cfgPath := s.configPath()
+	s.mu.RUnlock()
+
+	isProjectMode := projectRoot != ""
 
 	start := time.Now()
-	policy := s.auditPolicy()
 
-	skills, err := discoverAuditSkills(s.cfg.Source)
+	skills, err := discoverAuditSkills(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	projectRoot := s.projectRoot
-	if !s.IsProjectMode() {
-		projectRoot = ""
+	auditProjectRoot := projectRoot
+	if !isProjectMode {
+		auditProjectRoot = ""
 	}
-	scanned := audit.ParallelScan(skillsToAuditInputs(skills), projectRoot, nil, nil)
+	scanned := audit.ParallelScan(skillsToAuditInputs(skills), auditProjectRoot, nil, nil)
 
 	agg := processAuditResults(skills, scanned, policy)
-	s.writeAuditLog(agg.Status, start, agg.LogArgs, agg.Message)
+	writeAuditLogTo(cfgPath, agg.Status, start, agg.LogArgs, agg.Message)
 
 	writeJSON(w, map[string]any{
 		"results": agg.Results,
@@ -278,14 +284,20 @@ func (s *Server) handleAuditAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	source := s.cfg.Source
+	policy := s.auditPolicy()
+	projectRoot := s.projectRoot
+	cfgPath := s.configPath()
+	s.mu.RUnlock()
+
+	isProjectMode := projectRoot != ""
 
 	start := time.Now()
 	name := r.PathValue("name")
-	policy := s.auditPolicy()
 	threshold := policy.Threshold
-	skillPath := filepath.Join(s.cfg.Source, name)
+	skillPath := filepath.Join(source, name)
 
 	if _, err := os.Stat(skillPath); os.IsNotExist(err) {
 		writeError(w, http.StatusNotFound, "skill not found: "+name)
@@ -296,8 +308,8 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 		result *audit.Result
 		err    error
 	)
-	if s.IsProjectMode() {
-		result, err = audit.ScanSkillForProject(skillPath, s.projectRoot)
+	if isProjectMode {
+		result, err = audit.ScanSkillForProject(skillPath, projectRoot)
 	} else {
 		result, err = audit.ScanSkill(skillPath)
 	}
@@ -367,7 +379,7 @@ func (s *Server) handleAuditSkill(w http.ResponseWriter, r *http.Request) {
 	if len(infoSkills) > 0 {
 		args["info_skills"] = infoSkills
 	}
-	s.writeAuditLog(status, start, args, msg)
+	writeAuditLogTo(cfgPath, status, start, args, msg)
 
 	singleCats := result.CountByCategory()
 	var byCat map[string]int
@@ -440,10 +452,10 @@ func (s *Server) auditRulesPath() string {
 }
 
 func (s *Server) handleGetAuditRules(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	path := s.auditRulesPath()
+	s.mu.RUnlock()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -521,14 +533,18 @@ func (s *Server) handleInitAuditRules(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetCompiledRules(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	projectRoot := s.projectRoot
+	s.mu.RUnlock()
+
+	isProjectMode := projectRoot != ""
 
 	var rules []audit.CompiledRule
 	var err error
 
-	if s.IsProjectMode() {
-		rules, err = audit.ListRulesWithProject(s.projectRoot)
+	if isProjectMode {
+		rules, err = audit.ListRulesWithProject(projectRoot)
 	} else {
 		rules, err = audit.ListRules()
 	}

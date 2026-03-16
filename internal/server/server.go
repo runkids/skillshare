@@ -87,6 +87,16 @@ func (s *Server) IsProjectMode() bool {
 	return s.projectRoot != ""
 }
 
+// cloneTargets returns a shallow copy of the Targets map.
+// Callers must hold s.mu (RLock or Lock).
+func (s *Server) cloneTargets() map[string]config.TargetConfig {
+	targets := make(map[string]config.TargetConfig, len(s.cfg.Targets))
+	for k, v := range s.cfg.Targets {
+		targets[k] = v
+	}
+	return targets
+}
+
 // parseOpts returns install.ParseOptions with GitLabHosts from the current config.
 // In project mode, project config is used unconditionally (not a fallback to global).
 func (s *Server) parseOpts() install.ParseOptions {

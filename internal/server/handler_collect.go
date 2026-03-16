@@ -35,20 +35,23 @@ type collectSkillRef struct {
 // handleCollectScan scans targets for local (non-symlinked) skills.
 // GET /api/collect/scan?target=<name>  (optional filter)
 func (s *Server) handleCollectScan(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	source := s.cfg.Source
+	targets := s.cloneTargets()
+	s.mu.RUnlock()
 
 	filterTarget := r.URL.Query().Get("target")
 
 	var scanTargets []scanTarget
 	totalCount := 0
 
-	for name, target := range s.cfg.Targets {
+	for name, target := range targets {
 		if filterTarget != "" && filterTarget != name {
 			continue
 		}
 
-		locals, err := ssync.FindLocalSkills(target.Path, s.cfg.Source)
+		locals, err := ssync.FindLocalSkills(target.Path, source)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "scan failed for "+name+": "+err.Error())
 			return

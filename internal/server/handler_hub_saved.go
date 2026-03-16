@@ -21,10 +21,10 @@ type hubEntryJSON struct {
 }
 
 func (s *Server) handleGetHubSaved(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	hub := s.hubConfig()
+	s.mu.RUnlock()
 	resp := hubConfigResponse{
 		Default: hub.Default,
 		Hubs:    make([]hubEntryJSON, 0, len(hub.Hubs)),

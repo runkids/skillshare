@@ -28,10 +28,12 @@ type skillItem struct {
 }
 
 func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	source := s.cfg.Source
+	s.mu.RUnlock()
 
-	discovered, err := sync.DiscoverSourceSkills(s.cfg.Source)
+	discovered, err := sync.DiscoverSourceSkills(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -64,13 +66,15 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	source := s.cfg.Source
+	s.mu.RUnlock()
 
 	name := r.PathValue("name")
 
 	// Find the skill by flat name or base name
-	discovered, err := sync.DiscoverSourceSkills(s.cfg.Source)
+	discovered, err := sync.DiscoverSourceSkills(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -136,8 +140,10 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleGetSkillFile(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	source := s.cfg.Source
+	s.mu.RUnlock()
 
 	name := r.PathValue("name")
 	fp := r.PathValue("filepath")
@@ -149,7 +155,7 @@ func (s *Server) handleGetSkillFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Find the skill
-	discovered, err := sync.DiscoverSourceSkills(s.cfg.Source)
+	discovered, err := sync.DiscoverSourceSkills(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

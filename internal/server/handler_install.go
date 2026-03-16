@@ -16,8 +16,10 @@ import (
 // handleDiscover clones a git repo to a temp dir, discovers skills, then cleans up.
 // Returns whether the caller needs to present a selection UI.
 func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	parseOpts := s.parseOpts()
+	s.mu.RUnlock()
 
 	var body struct {
 		Source string `json:"source"`
@@ -31,7 +33,7 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	source, err := install.ParseSourceWithOptions(body.Source, s.parseOpts())
+	source, err := install.ParseSourceWithOptions(body.Source, parseOpts)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "invalid source: "+err.Error())
 		return

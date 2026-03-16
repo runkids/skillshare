@@ -23,20 +23,25 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	safeSend("discovering", map[string]string{"phase": "scanning source directory"})
-
+	// Snapshot config under RLock, then release before slow I/O.
+	s.mu.RLock()
+	source := s.cfg.Source
 	globalMode := s.cfg.Mode
+	targets := s.cloneTargets()
+	s.mu.RUnlock()
+
 	if globalMode == "" {
 		globalMode = "merge"
 	}
 
-	discovered, err := ssync.DiscoverSourceSkills(s.cfg.Source)
+	safeSend("discovering", map[string]string{"phase": "scanning source directory"})
+
+	discovered, err := ssync.DiscoverSourceSkills(source)
 	if err != nil {
 		safeSend("error", map[string]string{"error": err.Error()})
 		return
 	}
 
-	targets := s.cfg.Targets
 	safeSend("start", map[string]int{"total": len(targets)})
 
 	var diffs []diffTarget
@@ -49,7 +54,7 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 		default:
 		}
 
-		dt := s.computeTargetDiff(name, target, discovered, globalMode)
+		dt := s.computeTargetDiff(name, target, discovered, globalMode, source)
 		diffs = append(diffs, dt)
 		checked++
 
@@ -69,7 +74,7 @@ func (s *Server) computeTargetDiff(name string, target struct {
 	Mode    string   `yaml:"mode,omitempty"`
 	Include []string `yaml:"include,omitempty"`
 	Exclude []string `yaml:"exclude,omitempty"`
-}, discovered []ssync.DiscoveredSkill, globalMode string) diffTarget {
+}, discovered []ssync.DiscoveredSkill, globalMode, source string) diffTarget {
 	mode := target.Mode
 	if mode == "" {
 		mode = globalMode
@@ -78,7 +83,7 @@ func (s *Server) computeTargetDiff(name string, target struct {
 	dt := diffTarget{Target: name, Items: make([]diffItem, 0)}
 
 	if mode == "symlink" {
-		status := ssync.CheckStatus(target.Path, s.cfg.Source)
+		status := ssync.CheckStatus(target.Path, source)
 		if status != ssync.StatusLinked {
 			dt.Items = append(dt.Items, diffItem{Skill: "(entire directory)", Action: "link", Reason: "source only"})
 		}
@@ -189,7 +194,7 @@ func (s *Server) computeTargetDiff(name string, target struct {
 			if utils.IsSymlinkOrJunction(entryPath) {
 				absLink, linkErr := utils.ResolveLinkTarget(entryPath)
 				if linkErr == nil {
-					absSource, _ := filepath.Abs(s.cfg.Source)
+					absSource, _ := filepath.Abs(source)
 					if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
 						dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "excluded by filter"})
 					}
@@ -209,7 +214,7 @@ func (s *Server) computeTargetDiff(name string, target struct {
 				if linkErr != nil {
 					continue
 				}
-				absSource, _ := filepath.Abs(s.cfg.Source)
+				absSource, _ := filepath.Abs(source)
 				if utils.PathHasPrefix(absLink, absSource+string(filepath.Separator)) {
 					dt.Items = append(dt.Items, diffItem{Skill: eName, Action: "prune", Reason: "orphan symlink"})
 				}

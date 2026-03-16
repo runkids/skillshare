@@ -46,14 +46,23 @@ func (s *Server) extrasConfig() []config.ExtraConfig {
 
 // handleExtras — GET /api/extras
 func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
-
 	extras := s.extrasConfig()
+	projectRoot := s.projectRoot
+	source := s.cfg.Source
+	s.mu.RUnlock()
+
+	isProjectMode := projectRoot != ""
 
 	entries := make([]extrasListEntry, 0, len(extras))
 	for _, extra := range extras {
-		sourceDir := s.extrasSourceDir(extra.Name)
+		var sourceDir string
+		if isProjectMode {
+			sourceDir = config.ExtrasSourceDirProject(projectRoot, extra.Name)
+		} else {
+			sourceDir = config.ExtrasSourceDir(source, extra.Name)
+		}
 		entry := extrasListEntry{
 			Name:      extra.Name,
 			SourceDir: sourceDir,
@@ -111,11 +120,16 @@ type extrasDiffEntry struct {
 
 // handleExtrasDiff — GET /api/extras/diff
 func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	extras := s.extrasConfig()
+	projectRoot := s.projectRoot
+	source := s.cfg.Source
+	s.mu.RUnlock()
+
+	isProjectMode := projectRoot != ""
 
 	filterName := r.URL.Query().Get("name")
-	extras := s.extrasConfig()
 
 	out := make([]extrasDiffEntry, 0)
 	for _, extra := range extras {
@@ -123,7 +137,12 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		sourceDir := s.extrasSourceDir(extra.Name)
+		var sourceDir string
+		if isProjectMode {
+			sourceDir = config.ExtrasSourceDirProject(projectRoot, extra.Name)
+		} else {
+			sourceDir = config.ExtrasSourceDir(source, extra.Name)
+		}
 		files, err := syncpkg.DiscoverExtraFiles(sourceDir)
 		if err != nil {
 			// Source doesn't exist — report every target as needing creation

@@ -8,8 +8,13 @@ import (
 )
 
 func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	source := s.cfg.Source
+	projectRoot := s.projectRoot
+	s.mu.RUnlock()
+
+	isProjectMode := projectRoot != ""
 
 	cliVersion := versioncheck.Version
 	cliUpdateAvailable := false
@@ -22,8 +27,8 @@ func (s *Server) handleVersionCheck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Skill version (local) — always check global source for built-in skill
-	skillSourceDir := s.cfg.Source
-	if s.IsProjectMode() {
+	skillSourceDir := source
+	if isProjectMode {
 		if globalCfg, err := config.Load(); err == nil {
 			skillSourceDir = globalCfg.Source
 		}

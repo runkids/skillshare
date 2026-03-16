@@ -80,11 +80,16 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAvailableTargets(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	projectRoot := s.projectRoot
+	targets := s.cloneTargets()
+	s.mu.RUnlock()
+
+	isProjectMode := projectRoot != ""
 
 	var defaults map[string]config.TargetConfig
-	if s.IsProjectMode() {
+	if isProjectMode {
 		defaults = config.ProjectTargets()
 	} else {
 		defaults = config.DefaultTargets()
@@ -99,7 +104,7 @@ func (s *Server) handleAvailableTargets(w http.ResponseWriter, r *http.Request) 
 
 	items := make([]availTarget, 0, len(defaults))
 	for name, tc := range defaults {
-		_, installed := s.cfg.Targets[name]
+		_, installed := targets[name]
 		// Check if the tool's config directory exists (parent of skills path)
 		detected := false
 		if !installed {

@@ -20,11 +20,18 @@ type trackedRepoItem struct {
 }
 
 func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	source := s.cfg.Source
+	cfgMode := s.cfg.Mode
+	targetCount := len(s.cfg.Targets)
+	projectRoot := s.projectRoot
+	s.mu.RUnlock()
+
+	isProjectMode := projectRoot != ""
 
 	// Count skills
-	skills, err := sync.DiscoverSourceSkills(s.cfg.Source)
+	skills, err := sync.DiscoverSourceSkills(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -32,33 +39,33 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 
 	// Count top-level source entries (for display)
 	topLevelCount := 0
-	entries, _ := os.ReadDir(s.cfg.Source)
+	entries, _ := os.ReadDir(source)
 	for _, e := range entries {
 		if e.IsDir() && !utils.IsHidden(e.Name()) {
 			topLevelCount++
 		}
 	}
 
-	mode := s.cfg.Mode
+	mode := cfgMode
 	if mode == "" {
 		mode = "merge"
 	}
 
 	// Tracked repos
-	trackedRepos := buildTrackedRepos(s.cfg.Source, skills)
+	trackedRepos := buildTrackedRepos(source, skills)
 
 	resp := map[string]any{
-		"source":        s.cfg.Source,
+		"source":        source,
 		"skillCount":    len(skills),
 		"topLevelCount": topLevelCount,
-		"targetCount":   len(s.cfg.Targets),
+		"targetCount":   targetCount,
 		"mode":          mode,
 		"version":       versioncheck.Version,
 		"trackedRepos":  trackedRepos,
-		"isProjectMode": s.IsProjectMode(),
+		"isProjectMode": isProjectMode,
 	}
-	if s.IsProjectMode() {
-		resp["projectRoot"] = s.projectRoot
+	if isProjectMode {
+		resp["projectRoot"] = projectRoot
 	}
 
 	writeJSON(w, resp)

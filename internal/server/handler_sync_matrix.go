@@ -15,10 +15,13 @@ type syncMatrixEntry struct {
 }
 
 func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	source := s.cfg.Source
+	targets := s.cloneTargets()
+	s.mu.RUnlock()
 
-	skills, err := ssync.DiscoverSourceSkills(s.cfg.Source)
+	skills, err := ssync.DiscoverSourceSkills(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 		return
@@ -27,7 +30,7 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 	targetFilter := r.URL.Query().Get("target")
 
 	var entries []syncMatrixEntry
-	for name, target := range s.cfg.Targets {
+	for name, target := range targets {
 		if targetFilter != "" && name != targetFilter {
 			continue
 		}
@@ -57,8 +60,10 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	source := s.cfg.Source
+	s.mu.RUnlock()
 
 	var body struct {
 		Target  string   `json:"target"`
@@ -84,7 +89,7 @@ func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	skills, err := ssync.DiscoverSourceSkills(s.cfg.Source)
+	skills, err := ssync.DiscoverSourceSkills(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 		return

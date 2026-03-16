@@ -26,18 +26,22 @@ type targetItem struct {
 }
 
 func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
+	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	source := s.cfg.Source
+	cfgMode := s.cfg.Mode
+	targets := s.cloneTargets()
+	s.mu.RUnlock()
 
-	items := make([]targetItem, 0, len(s.cfg.Targets))
-	discovered, discoveredErr := ssync.DiscoverSourceSkills(s.cfg.Source)
-
-	globalMode := s.cfg.Mode
+	globalMode := cfgMode
 	if globalMode == "" {
 		globalMode = "merge"
 	}
 
-	for name, target := range s.cfg.Targets {
+	items := make([]targetItem, 0, len(targets))
+	discovered, discoveredErr := ssync.DiscoverSourceSkills(source)
+
+	for name, target := range targets {
 		mode := target.Mode
 		if mode == "" {
 			mode = globalMode
@@ -72,7 +76,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 				filtered = ssync.FilterSkillsByTarget(filtered, name)
 				item.ExpectedSkillCount = len(filtered)
 			}
-			status, linked, local := ssync.CheckStatusMerge(target.Path, s.cfg.Source)
+			status, linked, local := ssync.CheckStatusMerge(target.Path, source)
 			item.Status = status.String()
 			item.LinkedCount = linked
 			item.LocalCount = local
@@ -91,7 +95,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 			item.LinkedCount = managed // reuse field for managed count
 			item.LocalCount = local
 		default:
-			status := ssync.CheckStatus(target.Path, s.cfg.Source)
+			status := ssync.CheckStatus(target.Path, source)
 			item.Status = status.String()
 		}
 
