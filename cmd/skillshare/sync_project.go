@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"skillshare/internal/config"
+	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 )
 
-func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, []syncTargetResult, error) {
+func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, []syncTargetResult, *skillignore.IgnoreStats, error) {
 	start := time.Now()
 	stats := syncLogStats{
 		DryRun:       dryRun,
@@ -21,18 +22,18 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 
 	if !projectConfigExists(root) {
 		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return stats, nil, err
+			return stats, nil, nil, err
 		}
 	}
 
 	runtime, err := loadProjectRuntime(root)
 	if err != nil {
-		return stats, nil, err
+		return stats, nil, nil, err
 	}
 	stats.Targets = len(runtime.config.Targets)
 
 	if _, err := os.Stat(runtime.sourcePath); os.IsNotExist(err) {
-		return stats, nil, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
+		return stats, nil, nil, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
 	}
 
 	// Phase 1: Discovery
@@ -40,12 +41,12 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 	if !jsonOutput {
 		spinner = ui.StartSpinner("Discovering skills")
 	}
-	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(runtime.sourcePath)
+	discoveredSkills, ignoreStats, discoverErr := sync.DiscoverSourceSkillsWithStats(runtime.sourcePath)
 	if discoverErr != nil {
 		if spinner != nil {
 			spinner.Fail("Discovery failed")
 		}
-		return stats, nil, discoverErr
+		return stats, nil, nil, discoverErr
 	}
 	if spinner != nil {
 		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
@@ -107,10 +108,19 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 			Pruned:   totals.pruned,
 			Duration: time.Since(start),
 		})
+
+		// Show ignored skills from .skillignore
+		if ignoreStats != nil && ignoreStats.IgnoredCount() > 0 {
+			fmt.Println()
+			fmt.Printf(ui.Dim+"%d skill(s) ignored by .skillignore:"+ui.Reset+"\n", ignoreStats.IgnoredCount())
+			for _, name := range ignoreStats.IgnoredSkills {
+				fmt.Printf(ui.Dim+"  • %s"+ui.Reset+"\n", name)
+			}
+		}
 	}
 
 	if failedTargets > 0 {
-		return stats, results, fmt.Errorf("some targets failed to sync")
+		return stats, results, ignoreStats, fmt.Errorf("some targets failed to sync")
 	}
 
 	// Opportunistic cleanup of expired trash items
@@ -122,7 +132,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 		}
 	}
 
-	return stats, results, nil
+	return stats, results, ignoreStats, nil
 }
 
 func projectTargetDisplayPath(entry config.ProjectTargetEntry) string {

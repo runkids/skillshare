@@ -10,6 +10,7 @@ import (
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/oplog"
+	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
@@ -26,15 +27,17 @@ type syncLogStats struct {
 
 // syncJSONOutput is the JSON representation for sync --json output.
 type syncJSONOutput struct {
-	Targets  int                    `json:"targets"`
-	Linked   int                    `json:"linked"`
-	Local    int                    `json:"local"`
-	Updated  int                    `json:"updated"`
-	Pruned   int                    `json:"pruned"`
-	DryRun   bool                   `json:"dry_run"`
-	Duration string                 `json:"duration"`
-	Details  []syncJSONTargetDetail `json:"details"`
-	Extras   []syncExtrasJSONEntry  `json:"extras,omitempty"`
+	Targets       int                    `json:"targets"`
+	Linked        int                    `json:"linked"`
+	Local         int                    `json:"local"`
+	Updated       int                    `json:"updated"`
+	Pruned        int                    `json:"pruned"`
+	IgnoredCount  int                    `json:"ignored_count"`
+	IgnoredSkills []string               `json:"ignored_skills"`
+	DryRun        bool                   `json:"dry_run"`
+	Duration      string                 `json:"duration"`
+	Details       []syncJSONTargetDetail `json:"details"`
+	Extras        []syncExtrasJSONEntry  `json:"extras,omitempty"`
 }
 
 type syncJSONTargetDetail struct {
@@ -112,7 +115,7 @@ func cmdSync(args []string) error {
 				}
 			}()
 		}
-		stats, results, err := cmdSyncProject(cwd, dryRun, force, jsonOutput)
+		stats, results, projIgnoreStats, err := cmdSyncProject(cwd, dryRun, force, jsonOutput)
 		stats.ProjectScope = true
 		logSyncOp(config.ProjectConfigPath(cwd), stats, start, err)
 		if jsonOutput {
@@ -122,10 +125,10 @@ func cmdSync(args []string) error {
 					extrasEntries := runExtrasSyncEntries(projCfg.Extras, func(name string) string {
 						return config.ExtrasSourceDirProject(cwd, name)
 					}, dryRun, force)
-					return syncOutputJSON(results, dryRun, start, err, extrasEntries)
+					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, extrasEntries)
 				}
 			}
-			return syncOutputJSON(results, dryRun, start, err)
+			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err)
 		}
 		return err
 	}
@@ -152,7 +155,7 @@ func cmdSync(args []string) error {
 	if !jsonOutput {
 		spinner = ui.StartSpinner("Discovering skills")
 	}
-	discoveredSkills, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
+	discoveredSkills, ignoreStats, discoverErr := sync.DiscoverSourceSkillsWithStats(cfg.Source)
 	if discoverErr != nil {
 		if spinner != nil {
 			spinner.Fail("Discovery failed")
@@ -216,6 +219,15 @@ func cmdSync(args []string) error {
 			Duration: time.Since(start),
 		})
 
+		// Show ignored skills from .skillignore
+		if ignoreStats != nil && ignoreStats.IgnoredCount() > 0 {
+			fmt.Println()
+			fmt.Printf(ui.Dim+"%d skill(s) ignored by .skillignore:"+ui.Reset+"\n", ignoreStats.IgnoredCount())
+			for _, name := range ignoreStats.IgnoredSkills {
+				fmt.Printf(ui.Dim+"  • %s"+ui.Reset+"\n", name)
+			}
+		}
+
 		// Opportunistic cleanup of expired trash items
 		if !dryRun {
 			if n, _ := trash.Cleanup(trash.TrashDir(), 0); n > 0 {
@@ -236,9 +248,9 @@ func cmdSync(args []string) error {
 			extrasEntries := runExtrasSyncEntries(cfg.Extras, func(name string) string {
 				return config.ExtrasSourceDir(cfg.Source, name)
 			}, dryRun, force)
-			return syncOutputJSON(results, dryRun, start, syncErr, extrasEntries)
+			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, extrasEntries)
 		}
-		return syncOutputJSON(results, dryRun, start, syncErr)
+		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr)
 	}
 
 	if hasAll {
@@ -289,7 +301,7 @@ func logSyncOp(cfgPath string, stats syncLogStats, start time.Time, cmdErr error
 
 // syncOutputJSON converts sync results to JSON and writes to stdout.
 // extras is optional and included when --all is used.
-func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, syncErr error, extras ...[]syncExtrasJSONEntry) error {
+func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iStats *skillignore.IgnoreStats, syncErr error, extras ...[]syncExtrasJSONEntry) error {
 	var totals syncModeStats
 	var details []syncJSONTargetDetail
 	for _, r := range results {
@@ -317,6 +329,12 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, sy
 		Duration: formatDuration(start),
 		Details:  details,
 	}
+	ignoredSkills := []string{}
+	if iStats != nil && len(iStats.IgnoredSkills) > 0 {
+		ignoredSkills = iStats.IgnoredSkills
+	}
+	output.IgnoredCount = len(ignoredSkills)
+	output.IgnoredSkills = ignoredSkills
 	if len(extras) > 0 && extras[0] != nil {
 		output.Extras = extras[0]
 	}
