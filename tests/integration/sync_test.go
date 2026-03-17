@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -806,4 +807,89 @@ targets:
 	result := sb.RunCLI("sync")
 	result.AssertFailure(t)
 	result.AssertAnyOutputContains(t, "invalid include pattern")
+}
+
+func TestSync_IgnoredSkillsTextOutput(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("keep-me", map[string]string{
+		"SKILL.md": "---\nname: keep-me\n---\nKeep",
+	})
+	sb.CreateSkill("ignore-me", map[string]string{
+		"SKILL.md": "---\nname: ignore-me\n---\nIgnored",
+	})
+	targetPath := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	os.WriteFile(filepath.Join(sb.SourcePath, ".skillignore"), []byte("ignore-me\n"), 0644)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "1 skill(s) ignored by .skillignore")
+	result.AssertAnyOutputContains(t, "ignore-me")
+}
+
+func TestSync_IgnoredSkillsJSONOutput(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("keep-me", map[string]string{
+		"SKILL.md": "---\nname: keep-me\n---\nKeep",
+	})
+	sb.CreateSkill("ignore-me", map[string]string{
+		"SKILL.md": "---\nname: ignore-me\n---\nIgnored",
+	})
+	targetPath := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	os.WriteFile(filepath.Join(sb.SourcePath, ".skillignore"), []byte("ignore-me\n"), 0644)
+
+	result := sb.RunCLI("sync", "--json")
+	result.AssertSuccess(t)
+
+	var output map[string]any
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+
+	ignoredCount := int(output["ignored_count"].(float64))
+	if ignoredCount != 1 {
+		t.Errorf("expected ignored_count=1, got %d", ignoredCount)
+	}
+
+	ignoredSkills := output["ignored_skills"].([]any)
+	if len(ignoredSkills) != 1 || ignoredSkills[0].(string) != "ignore-me" {
+		t.Errorf("expected ignored_skills=[ignore-me], got %v", ignoredSkills)
+	}
+}
+
+func TestSync_NoSkillignore_NoIgnoredOutput(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("my-skill", map[string]string{
+		"SKILL.md": "---\nname: my-skill\n---\nContent",
+	})
+	targetPath := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+	result.AssertOutputNotContains(t, "ignored by .skillignore")
 }
