@@ -24,6 +24,7 @@ import (
 type doctorResult struct {
 	errors   int
 	warnings int
+	checks   []doctorCheck
 }
 
 func (r *doctorResult) addError() {
@@ -34,11 +35,29 @@ func (r *doctorResult) addWarning() {
 	r.warnings++
 }
 
+func (r *doctorResult) addCheck(name, status, message string, details []string) {
+	r.checks = append(r.checks, doctorCheck{
+		Name: name, Status: status, Message: message, Details: details,
+	})
+}
+
 func cmdDoctor(args []string) error {
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
 		return err
 	}
+
+	// Extract --json before checking for unexpected arguments
+	var jsonMode bool
+	var filtered []string
+	for _, arg := range rest {
+		if arg == "--json" {
+			jsonMode = true
+		} else {
+			filtered = append(filtered, arg)
+		}
+	}
+	rest = filtered
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -59,24 +78,35 @@ func cmdDoctor(args []string) error {
 		return fmt.Errorf("unexpected arguments: %v", rest)
 	}
 
-	ui.Logo(version)
+	if !jsonMode {
+		ui.Logo(version)
+	}
 
 	if mode == modeProject {
-		return cmdDoctorProject(cwd)
+		return cmdDoctorProject(cwd, jsonMode)
 	}
-	return cmdDoctorGlobal()
+	return cmdDoctorGlobal(jsonMode)
 }
 
-func cmdDoctorGlobal() error {
+func cmdDoctorGlobal(jsonMode bool) error {
 	// Start network check early so it overlaps with local I/O
 	updateCh := make(chan *versioncheck.CheckResult, 1)
 	go func() { updateCh <- fetchDoctorUpdateResult() }()
+
+	var restoreUI func()
+	if jsonMode {
+		restoreUI = suppressUIToDevnull()
+	}
 
 	ui.Header("Checking environment")
 	result := &doctorResult{}
 
 	// Check config exists
 	if _, err := os.Stat(config.ConfigPath()); os.IsNotExist(err) {
+		if jsonMode {
+			restoreUI()
+			return writeJSONError(fmt.Errorf("config not found: run 'skillshare init' first"))
+		}
 		ui.Error("Config not found: run 'skillshare init' first")
 		return nil
 	}
@@ -87,6 +117,10 @@ func cmdDoctorGlobal() error {
 
 	cfg, err := config.Load()
 	if err != nil {
+		if jsonMode {
+			restoreUI()
+			return writeJSONError(fmt.Errorf("config error: %w", err))
+		}
 		ui.Error("Config error: %v", err)
 		return nil
 	}
@@ -94,24 +128,49 @@ func cmdDoctorGlobal() error {
 	runDoctorChecks(cfg, result, false)
 	checkExtras(cfg.Extras, result, false, cfg.Source, "")
 	ui.Header("Storage")
-	checkBackupStatus(false, backup.BackupDir())
-	checkTrashStatus(trash.TrashDir())
-	checkVersionDoctor(cfg)
+	checkBackupStatus(result, false, backup.BackupDir())
+	checkTrashStatus(result, trash.TrashDir())
+	checkVersionDoctor(cfg, result)
+
+	if jsonMode {
+		restoreUI()
+		output := buildDoctorOutput(result)
+		updateResult := <-updateCh
+		output.Version = &doctorVersion{Current: version}
+		if updateResult != nil && updateResult.UpdateAvailable {
+			output.Version.Latest = updateResult.LatestVersion
+			output.Version.UpdateAvailable = true
+		}
+		if result.errors > 0 {
+			return writeJSONResult(output, fmt.Errorf("doctor found %d error(s)", result.errors))
+		}
+		return writeJSON(output)
+	}
+
 	printUpdateAvailable(<-updateCh)
 	printDoctorSummary(result)
 
 	return nil
 }
 
-func cmdDoctorProject(root string) error {
+func cmdDoctorProject(root string, jsonMode bool) error {
 	updateCh := make(chan *versioncheck.CheckResult, 1)
 	go func() { updateCh <- fetchDoctorUpdateResult() }()
+
+	var restoreUI func()
+	if jsonMode {
+		restoreUI = suppressUIToDevnull()
+	}
 
 	ui.Header("Checking environment")
 	result := &doctorResult{}
 
 	cfgPath := config.ProjectConfigPath(root)
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
+		if jsonMode {
+			restoreUI()
+			return writeJSONError(fmt.Errorf("project config not found: run 'skillshare init -p' first"))
+		}
 		ui.Error("Project config not found: run 'skillshare init -p' first")
 		return nil
 	}
@@ -119,6 +178,10 @@ func cmdDoctorProject(root string) error {
 
 	rt, err := loadProjectRuntime(root)
 	if err != nil {
+		if jsonMode {
+			restoreUI()
+			return writeJSONError(fmt.Errorf("config error: %w", err))
+		}
 		ui.Error("Config error: %v", err)
 		return nil
 	}
@@ -133,9 +196,25 @@ func cmdDoctorProject(root string) error {
 	runDoctorChecks(cfg, result, true)
 	checkExtras(rt.config.Extras, result, true, "", root)
 	ui.Header("Storage")
-	checkBackupStatus(true, "")
-	checkTrashStatus(trash.ProjectTrashDir(root))
-	checkVersionDoctor(cfg)
+	checkBackupStatus(result, true, "")
+	checkTrashStatus(result, trash.ProjectTrashDir(root))
+	checkVersionDoctor(cfg, result)
+
+	if jsonMode {
+		restoreUI()
+		output := buildDoctorOutput(result)
+		updateResult := <-updateCh
+		output.Version = &doctorVersion{Current: version}
+		if updateResult != nil && updateResult.UpdateAvailable {
+			output.Version.Latest = updateResult.LatestVersion
+			output.Version.UpdateAvailable = true
+		}
+		if result.errors > 0 {
+			return writeJSONResult(output, fmt.Errorf("doctor found %d error(s)", result.errors))
+		}
+		return writeJSON(output)
+	}
+
 	printUpdateAvailable(<-updateCh)
 	printDoctorSummary(result)
 
@@ -185,12 +264,14 @@ func checkSource(cfg *config.Config, result *doctorResult, discovered []sync.Dis
 	if err != nil {
 		ui.Error("Source not found: %s", cfg.Source)
 		result.addError()
+		result.addCheck("source", "error", fmt.Sprintf("Source not found: %s", cfg.Source), nil)
 		return
 	}
 
 	if !info.IsDir() {
 		ui.Error("Source is not a directory: %s", cfg.Source)
 		result.addError()
+		result.addCheck("source", "error", fmt.Sprintf("Source is not a directory: %s", cfg.Source), nil)
 		return
 	}
 
@@ -206,6 +287,7 @@ func checkSource(cfg *config.Config, result *doctorResult, discovered []sync.Dis
 		}
 	}
 	ui.Success("Source: %s (%d skills)", cfg.Source, skillCount)
+	result.addCheck("source", "pass", fmt.Sprintf("Source: %s (%d skills)", cfg.Source, skillCount), nil)
 }
 
 func checkSymlinkSupport(result *doctorResult) {
@@ -221,10 +303,12 @@ func checkSymlinkSupport(result *doctorResult) {
 	if err := sync.CreateSymlink(testLink, testTarget); err != nil {
 		ui.Error("Link not supported: %v", err)
 		result.addError()
+		result.addCheck("symlink_support", "error", fmt.Sprintf("Link not supported: %v", err), nil)
 		return
 	}
 
 	ui.Success("Link support: OK")
+	result.addCheck("symlink_support", "pass", "Link support: OK", nil)
 }
 
 // cachedTargetStatus stores CheckStatusMerge/Copy results so checkSyncDrift
@@ -239,6 +323,9 @@ func checkTargets(cfg *config.Config, result *doctorResult) map[string]cachedTar
 	ui.Header("Checking targets")
 	cache := make(map[string]cachedTargetStatus)
 
+	var details []string
+	hasError := false
+
 	for name, target := range cfg.Targets {
 		mode := target.Mode
 		if mode == "" {
@@ -250,6 +337,8 @@ func checkTargets(cfg *config.Config, result *doctorResult) map[string]cachedTar
 		if _, err := sync.FilterSkills(nil, target.Include, target.Exclude); err != nil {
 			ui.Error("%s [%s]: invalid include/exclude config: %v", name, mode, err)
 			result.addError()
+			details = append(details, fmt.Sprintf("%s: invalid include/exclude config: %v", name, err))
+			hasError = true
 			continue
 		}
 		if mode == "symlink" && (len(target.Include) > 0 || len(target.Exclude) > 0) {
@@ -262,11 +351,22 @@ func checkTargets(cfg *config.Config, result *doctorResult) map[string]cachedTar
 		if len(targetIssues) > 0 {
 			ui.Error("%s [%s]: %s", name, mode, strings.Join(targetIssues, ", "))
 			result.addError()
+			details = append(details, fmt.Sprintf("%s: %s", name, strings.Join(targetIssues, ", ")))
+			hasError = true
 		} else {
 			cached := displayTargetStatus(name, target, cfg.Source, mode)
 			cache[name] = cached
 		}
 	}
+
+	if hasError {
+		result.addCheck("targets", "error", "Some targets have issues", details)
+	} else if len(cfg.Targets) > 0 {
+		result.addCheck("targets", "pass", fmt.Sprintf("All %d target(s) OK", len(cfg.Targets)), nil)
+	} else {
+		result.addCheck("targets", "warning", "No targets configured", nil)
+	}
+
 	return cache
 }
 
@@ -364,9 +464,11 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 
 func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.DiscoveredSkill, targetCache map[string]cachedTargetStatus) {
 	if discovered == nil {
+		result.addCheck("sync_drift", "pass", "No skills discovered, skipping drift check", nil)
 		return
 	}
 
+	var driftDetails []string
 	for name, target := range cfg.Targets {
 		cached, ok := targetCache[name]
 		if !ok {
@@ -393,8 +495,10 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.
 			}
 			if cached.syncedCount < expectedCount {
 				drift := expectedCount - cached.syncedCount
+				msg := fmt.Sprintf("%s: %d skill(s) not synced (%d/%d copied)", name, drift, cached.syncedCount, expectedCount)
 				ui.Warning("%s: %d skill(s) not synced (%d/%d copied)", name, drift, cached.syncedCount, expectedCount)
 				result.addWarning()
+				driftDetails = append(driftDetails, msg)
 			}
 		} else {
 			if cached.status != sync.StatusMerged {
@@ -402,10 +506,18 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.
 			}
 			if cached.syncedCount < expectedCount {
 				drift := expectedCount - cached.syncedCount
+				msg := fmt.Sprintf("%s: %d skill(s) not synced (%d/%d linked)", name, drift, cached.syncedCount, expectedCount)
 				ui.Warning("%s: %d skill(s) not synced (%d/%d linked)", name, drift, cached.syncedCount, expectedCount)
 				result.addWarning()
+				driftDetails = append(driftDetails, msg)
 			}
 		}
+	}
+
+	if len(driftDetails) > 0 {
+		result.addCheck("sync_drift", "warning", "Sync drift detected", driftDetails)
+	} else {
+		result.addCheck("sync_drift", "pass", "No sync drift detected", nil)
 	}
 }
 
@@ -416,6 +528,7 @@ func checkGitStatus(source string, result *doctorResult) {
 	if err := cmd.Run(); err != nil {
 		ui.Warning("Git: not initialized (recommended for backup)")
 		result.addWarning()
+		result.addCheck("git_status", "warning", "Git: not initialized (recommended for backup)", nil)
 		return
 	}
 
@@ -426,6 +539,7 @@ func checkGitStatus(source string, result *doctorResult) {
 	if err != nil {
 		ui.Warning("Git: unable to check status")
 		result.addWarning()
+		result.addCheck("git_status", "warning", "Git: unable to check status", nil)
 		return
 	}
 
@@ -433,6 +547,7 @@ func checkGitStatus(source string, result *doctorResult) {
 		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 		ui.Warning("Git: %d uncommitted change(s)", len(lines))
 		result.addWarning()
+		result.addCheck("git_status", "warning", fmt.Sprintf("Git: %d uncommitted change(s)", len(lines)), nil)
 		return
 	}
 
@@ -442,8 +557,10 @@ func checkGitStatus(source string, result *doctorResult) {
 	output, err = cmd.Output()
 	if err == nil && len(strings.TrimSpace(string(output))) == 0 {
 		ui.Success("Git: initialized (no remote configured)")
+		result.addCheck("git_status", "pass", "Git: initialized (no remote configured)", nil)
 	} else {
 		ui.Success("Git: initialized with remote")
+		result.addCheck("git_status", "pass", "Git: initialized with remote", nil)
 	}
 }
 
@@ -488,6 +605,9 @@ func checkSkillsValidity(source string, result *doctorResult, discovered []sync.
 	if len(invalid) > 0 {
 		ui.Warning("Skills without SKILL.md: %s", strings.Join(invalid, ", "))
 		result.addWarning()
+		result.addCheck("skills_validity", "warning", fmt.Sprintf("Skills without SKILL.md: %s", strings.Join(invalid, ", ")), invalid)
+	} else {
+		result.addCheck("skills_validity", "pass", "All skills have valid SKILL.md", nil)
 	}
 }
 
@@ -527,6 +647,9 @@ func checkSkillIntegrity(result *doctorResult, discovered []sync.DiscoveredSkill
 		if skippedCount > 0 {
 			ui.Warning("Skill integrity: %d skill(s) unverifiable (no metadata)", skippedCount)
 			result.addWarning()
+			result.addCheck("skill_integrity", "warning", fmt.Sprintf("%d skill(s) unverifiable (no metadata)", skippedCount), nil)
+		} else {
+			result.addCheck("skill_integrity", "pass", "No tracked skills to verify", nil)
 		}
 		return
 	}
@@ -583,10 +706,16 @@ func checkSkillIntegrity(result *doctorResult, discovered []sync.DiscoveredSkill
 			ui.Warning(t)
 		}
 		result.addWarning()
+		result.addCheck("skill_integrity", "warning",
+			fmt.Sprintf("%d skill(s) with integrity issues", len(tampered)), tampered)
 	}
 
 	if verified > 0 {
 		ui.Success("Skill integrity: %d/%d verified", verified, len(toVerify))
+		if len(tampered) == 0 {
+			result.addCheck("skill_integrity", "pass",
+				fmt.Sprintf("Skill integrity: %d/%d verified", verified, len(toVerify)), nil)
+		}
 	}
 
 	if skippedCount > 0 {
@@ -607,17 +736,30 @@ func checkSkillTargetsField(result *doctorResult, discovered []sync.DiscoveredSk
 			ui.Warning("Skill targets: %s", w)
 		}
 		result.addWarning()
+		result.addCheck("skill_targets_field", "warning", "Skills reference unknown targets", warnings)
+	} else {
+		result.addCheck("skill_targets_field", "pass", "All skill target references are valid", nil)
 	}
 }
 
 // checkBrokenSymlinks finds broken symlinks in targets
 func checkBrokenSymlinks(cfg *config.Config, result *doctorResult) {
+	var allBroken []string
 	for name, target := range cfg.Targets {
 		broken := findBrokenSymlinks(target.Path)
 		if len(broken) > 0 {
 			ui.Error("%s: %d broken symlink(s): %s", name, len(broken), strings.Join(broken, ", "))
 			result.addError()
+			for _, b := range broken {
+				allBroken = append(allBroken, fmt.Sprintf("%s/%s", name, b))
+			}
 		}
+	}
+	if len(allBroken) > 0 {
+		result.addCheck("broken_symlinks", "error",
+			fmt.Sprintf("%d broken symlink(s) found", len(allBroken)), allBroken)
+	} else {
+		result.addCheck("broken_symlinks", "pass", "No broken symlinks", nil)
 	}
 }
 
@@ -734,6 +876,9 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered [
 		ui.Info("  These exist in both source and target as separate copies.")
 		ui.Info("  Fix: manually delete target copies, then run 'skillshare sync'")
 		result.addWarning()
+		result.addCheck("duplicate_skills", "warning", "Duplicate skills found", duplicates)
+	} else {
+		result.addCheck("duplicate_skills", "pass", "No duplicate skills", nil)
 	}
 }
 
@@ -744,6 +889,9 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 	}
 
 	ui.Header("Extras")
+
+	var details []string
+	hasIssue := false
 
 	for _, extra := range extras {
 		var sourceDir string
@@ -757,6 +905,8 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 		if err != nil {
 			result.addError()
 			ui.Error("%s: source directory missing (%s)", extra.Name, sourceDir)
+			details = append(details, fmt.Sprintf("%s: source directory missing", extra.Name))
+			hasIssue = true
 			continue
 		}
 		ui.Success("%s: source exists (%d files)", extra.Name, len(files))
@@ -778,19 +928,29 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 		} else {
 			result.addWarning()
 			ui.Warning("%s: some targets unreachable (%d/%d)", extra.Name, reachable, len(extra.Targets))
+			details = append(details, fmt.Sprintf("%s: %d/%d targets unreachable", extra.Name, len(extra.Targets)-reachable, len(extra.Targets)))
+			hasIssue = true
 		}
+	}
+
+	if hasIssue {
+		result.addCheck("extras", "warning", "Some extras have issues", details)
+	} else {
+		result.addCheck("extras", "pass", fmt.Sprintf("All %d extra(s) OK", len(extras)), nil)
 	}
 }
 
 // checkBackupStatus shows last backup time
-func checkBackupStatus(isProject bool, backupDir string) {
+func checkBackupStatus(result *doctorResult, isProject bool, backupDir string) {
 	if isProject {
 		ui.Info("Backups: not used in project mode")
+		result.addCheck("backup", "pass", "Backups: not used in project mode", nil)
 		return
 	}
 	entries, err := os.ReadDir(backupDir)
 	if err != nil || len(entries) == 0 {
 		ui.Info("Backups: none found")
+		result.addCheck("backup", "pass", "Backups: none found", nil)
 		return
 	}
 
@@ -823,18 +983,23 @@ func checkBackupStatus(isProject bool, backupDir string) {
 			ageStr = fmt.Sprintf("%d days ago", int(age.Hours()/24))
 		}
 		ui.Info("Backups: last backup %s (%s)", latest, ageStr)
+		result.addCheck("backup", "pass", fmt.Sprintf("Backups: last backup %s (%s)", latest, ageStr), nil)
+	} else {
+		result.addCheck("backup", "pass", "Backups: none found", nil)
 	}
 }
 
 // checkTrashStatus shows trash directory status
-func checkTrashStatus(trashBase string) {
+func checkTrashStatus(result *doctorResult, trashBase string) {
 	if trashBase == "" {
+		result.addCheck("trash", "pass", "Trash: not configured", nil)
 		return
 	}
 
 	items := trash.List(trashBase)
 	if len(items) == 0 {
 		ui.Info("Trash: empty")
+		result.addCheck("trash", "pass", "Trash: empty", nil)
 		return
 	}
 
@@ -846,11 +1011,14 @@ func checkTrashStatus(trashBase string) {
 	age := time.Since(oldest.Date)
 	days := int(age.Hours() / 24)
 
+	var msg string
 	if days > 0 {
-		ui.Info("Trash: %d item(s) (%s), oldest %d day(s)", len(items), sizeStr, days)
+		msg = fmt.Sprintf("Trash: %d item(s) (%s), oldest %d day(s)", len(items), sizeStr, days)
 	} else {
-		ui.Info("Trash: %d item(s) (%s), oldest <1 day", len(items), sizeStr)
+		msg = fmt.Sprintf("Trash: %d item(s) (%s), oldest <1 day", len(items), sizeStr)
 	}
+	ui.Info("%s", msg)
+	result.addCheck("trash", "pass", msg, nil)
 }
 
 // formatBytes formats bytes into a human-readable string.
@@ -870,11 +1038,12 @@ func formatBytes(b int64) string {
 }
 
 // checkVersionDoctor checks CLI and skill versions
-func checkVersionDoctor(cfg *config.Config) {
+func checkVersionDoctor(cfg *config.Config, result *doctorResult) {
 	ui.Header("Version")
 
 	// CLI version
 	ui.Success("CLI: %s", version)
+	result.addCheck("cli_version", "pass", fmt.Sprintf("CLI: %s", version), nil)
 
 	// Skill version
 	skillFile := filepath.Join(cfg.Source, "skillshare", "SKILL.md")
@@ -883,6 +1052,7 @@ func checkVersionDoctor(cfg *config.Config) {
 	if err != nil {
 		ui.Warning("Skill: not found")
 		ui.Info("  Run: skillshare upgrade --skill")
+		result.addCheck("skill_version", "warning", "Skill: not found", nil)
 		return
 	}
 	defer file.Close()
@@ -907,10 +1077,12 @@ func checkVersionDoctor(cfg *config.Config) {
 
 	if localVersion == "" {
 		ui.Warning("Skill: missing version")
+		result.addCheck("skill_version", "warning", "Skill: missing version", nil)
 		return
 	}
 
 	ui.Success("Skill: %s", localVersion)
+	result.addCheck("skill_version", "pass", fmt.Sprintf("Skill: %s", localVersion), nil)
 }
 
 // fetchDoctorUpdateResult checks if a newer version is available.
