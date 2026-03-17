@@ -175,21 +175,33 @@ Instructions for the AI...
 
 See [Skill Format](/docs/understand/skill-format) for details.
 
-### .skillignore (Optional, repo-level)
+### .skillignore (Optional)
 
-A file in the **root of a skill repository** that excludes skills from discovery during `skillshare install`:
+Excludes skills from discovery. Supports two locations:
 
-```text
-# Hide internal tooling from discovery
+**Repo-level** — at the root of a tracked skill repository. Affects install discovery and all post-install commands (`doctor`, `status`, `list`, `sync`, etc.):
+
+```text title="_team-skills/.skillignore"
+# Hide vendored packages from discovery
+.venv
+node_modules
+
+# Exclude internal tooling
 validation-scripts
-scaffold-template
 prompt-eval-*
-
-# Exclude an entire group directory
-internal-tools
 ```
 
-One pattern per line. Patterns match against skill paths — a group name like `internal-tools` excludes all skills under that directory, while `internal-tools/helper` excludes only a specific skill. Also supports trailing wildcard (`prefix-*`). Lines starting with `#` are comments. Only applies to discovery — already-installed skills are not affected.
+**Source-root** — at your source directory root (`~/.config/skillshare/skills/.skillignore`). Applies globally to all skills (tracked and non-tracked):
+
+```text title="~/.config/skillshare/skills/.skillignore"
+# Temporarily mute a skill
+my-experimental-skill
+
+# Exclude all drafts
+draft-*
+```
+
+One pattern per line. Patterns match against skill paths — a group name like `internal-tools` excludes all skills under that directory, while `internal-tools/helper` excludes only a specific skill. Also supports trailing wildcard (`prefix-*`). Lines starting with `#` are comments. Both layers apply — if either matches, the skill is excluded.
 
 ### .skillshare-meta.json (Auto-generated)
 

@@ -641,8 +641,10 @@ skillshare install runkids/my-skills --exclude seo
 
 `.skillignore` is applied during git repo discovery, so it affects all discovery-based install paths: `--all`, `--skill`, `--yes`, and interactive selection. It does **not** apply to direct local-path installs (which skip discovery entirely).
 
-:::tip Where to place .skillignore
-The `.skillignore` file must be at the **repository root**, not inside individual skill directories. It controls which skills are discoverable when users install from your repo.
+:::tip .skillignore scope
+**Repo-level** `.skillignore` (in a repository root) controls which skills are discoverable when users install from your repo. After installation, tracked repos retain their `.skillignore` — it is also respected by `doctor`, `status`, `list`, `sync`, `audit`, `diff`, and `check`.
+
+**Source-root** `.skillignore` (`~/.config/skillshare/skills/.skillignore`) applies globally to all skills — tracked and non-tracked. Use it to temporarily mute skills or exclude patterns (e.g., `draft-*`) without uninstalling.
 :::
 
 ### `.skillignore` vs `--exclude`
