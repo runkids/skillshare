@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 	"time"
 
@@ -19,10 +20,9 @@ func ignorePayload(stats *skillignore.IgnoreStats) map[string]any {
 			skills = stats.IgnoredSkills
 		}
 		rootFile = stats.RootFile
-		repoFiles = stats.RepoFiles
-	}
-	if repoFiles == nil {
-		repoFiles = []string{}
+		if stats.RepoFiles != nil {
+			repoFiles = stats.RepoFiles
+		}
 	}
 	return map[string]any{
 		"ignored_count":  len(skills),
@@ -150,9 +150,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	}, "")
 
 	resp := map[string]any{"results": results}
-	for k, v := range ignorePayload(ignoreStats) {
-		resp[k] = v
-	}
+	maps.Copy(resp, ignorePayload(ignoreStats))
 	writeJSON(w, resp)
 }
 
@@ -196,8 +194,6 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := map[string]any{"diffs": diffs}
-	for k, v := range ignorePayload(ignoreStats) {
-		resp[k] = v
-	}
+	maps.Copy(resp, ignorePayload(ignoreStats))
 	writeJSON(w, resp)
 }

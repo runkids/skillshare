@@ -1,6 +1,7 @@
 package server
 
 import (
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -65,9 +66,7 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	donePayload := map[string]any{"diffs": diffs}
-	for k, v := range ignorePayload(ignoreStats) {
-		donePayload[k] = v
-	}
+	maps.Copy(donePayload, ignorePayload(ignoreStats))
 	safeSend("done", donePayload)
 }
 

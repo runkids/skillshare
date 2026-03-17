@@ -253,15 +253,15 @@ func checkSkillignore(result *doctorResult, stats *skillignore.IgnoreStats) {
 		return
 	}
 
-	msg := fmt.Sprintf(".skillignore: %d patterns, %d skills ignored", stats.PatternCount(), stats.IgnoredCount())
-	ui.Success("Skillignore: %d patterns, %d skills ignored", stats.PatternCount(), stats.IgnoredCount())
+	msg := fmt.Sprintf("%d patterns, %d skills ignored", stats.PatternCount(), stats.IgnoredCount())
+	ui.Success("Skillignore: %s", msg)
 	var details []string
 	details = append(details, stats.Patterns...)
 	if len(stats.IgnoredSkills) > 0 {
 		details = append(details, "---")
 		details = append(details, stats.IgnoredSkills...)
 	}
-	result.addCheck("skillignore", checkPass, msg, details)
+	result.addCheck("skillignore", checkPass, ".skillignore: "+msg, details)
 }
 
 func checkSource(cfg *config.Config, result *doctorResult, discovered []sync.DiscoveredSkill, discoverErr error) {

@@ -30,6 +30,15 @@ import { queryKeys } from '../lib/queryKeys';
 import StreamProgressBar from '../components/StreamProgressBar';
 import { radius, shadows } from '../design';
 
+function extractIgnoreSources(data: IgnoreSources): IgnoreSources {
+  return {
+    ignored_count: data.ignored_count,
+    ignored_skills: data.ignored_skills ?? [],
+    ignore_root: data.ignore_root ?? '',
+    ignore_repos: data.ignore_repos ?? [],
+  };
+}
+
 export default function SyncPage() {
   const queryClient = useQueryClient();
   const [dryRun, setDryRun] = useState(false);
@@ -67,12 +76,7 @@ export default function SyncPage() {
       (_diff, checked) => setDiffProgress((p) => p ? { ...p, checked } : null),
       (data) => {
         setDiffData(data.diffs);
-        setIgnoreSources({
-          ignored_count: data.ignored_count,
-          ignored_skills: data.ignored_skills ?? [],
-          ignore_root: data.ignore_root ?? '',
-          ignore_repos: data.ignore_repos ?? [],
-        });
+        setIgnoreSources(extractIgnoreSources(data));
         setDiffLoading(false);
         setDiffProgress(null);
       },
@@ -91,12 +95,7 @@ export default function SyncPage() {
     try {
       const res = await api.sync({ dryRun, force });
       setResults(res.results);
-      setIgnoreSources({
-        ignored_count: res.ignored_count,
-        ignored_skills: res.ignored_skills ?? [],
-        ignore_root: res.ignore_root ?? '',
-        ignore_repos: res.ignore_repos ?? [],
-      });
+      setIgnoreSources(extractIgnoreSources(res));
       if (dryRun) {
         toast('Dry run complete -- no changes were made.', 'info');
       } else {
