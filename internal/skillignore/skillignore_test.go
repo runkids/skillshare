@@ -213,12 +213,12 @@ func TestMatcherMatch(t *testing.T) {
 
 func TestParseRule(t *testing.T) {
 	tests := []struct {
-		name    string
-		line    string
-		wantOK  bool
-		negated bool
+		name     string
+		line     string
+		wantOK   bool
+		negated  bool
 		anchored bool
-		dirOnly bool
+		dirOnly  bool
 	}{
 		{"blank line", "", false, false, false, false},
 		{"whitespace only", "   ", false, false, false, false},

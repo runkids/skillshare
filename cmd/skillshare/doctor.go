@@ -246,11 +246,13 @@ func printDoctorSummary(result *doctorResult) {
 // checkSkillignore reports .skillignore status as an info or pass check.
 func checkSkillignore(result *doctorResult, stats *skillignore.IgnoreStats) {
 	if stats == nil || !stats.Active() {
+		ui.Info("Skillignore: not configured")
 		result.addInfo("skillignore", "No .skillignore found — you can create one to hide skills from discovery")
 		return
 	}
 
 	msg := fmt.Sprintf(".skillignore: %d patterns, %d skills ignored", stats.PatternCount(), stats.IgnoredCount())
+	ui.Success("Skillignore: %d patterns, %d skills ignored", stats.PatternCount(), stats.IgnoredCount())
 	var details []string
 	details = append(details, stats.Patterns...)
 	if len(stats.IgnoredSkills) > 0 {
