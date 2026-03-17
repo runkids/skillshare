@@ -8,8 +8,9 @@ Check environment and diagnose issues with your skillshare setup.
 
 ```bash
 skillshare doctor
-skillshare doctor -p     # Project mode (.skillshare/config.yaml)
-skillshare doctor -g     # Force global mode
+skillshare doctor -p        # Project mode (.skillshare/config.yaml)
+skillshare doctor -g        # Force global mode
+skillshare doctor --json    # Structured JSON output for CI
 ```
 
 ![doctor demo](/img/doctor-demo.png)
@@ -199,6 +200,47 @@ Backups: last backup 2026-01-18_09-00-00 (3 days ago)
 Summary
   ✗ 1 error(s), 4 warning(s)
 ```
+
+## JSON Output
+
+Use `--json` for machine-readable output in CI pipelines and automation:
+
+```bash
+skillshare doctor --json
+```
+
+```json
+{
+  "checks": [
+    { "name": "source", "status": "pass", "message": "Source: ~/.config/skillshare/skills (12 skills)" },
+    { "name": "sync_drift", "status": "warning", "message": "claude: 1 skill(s) not synced (7/8 linked)", "details": ["new-skill"] },
+    { "name": "broken_symlinks", "status": "error", "message": "cursor: 1 broken symlink(s)", "details": ["old-skill"] }
+  ],
+  "summary": { "total": 13, "pass": 11, "warnings": 1, "errors": 1 },
+  "version": { "current": "0.17.4", "latest": "0.18.0", "update_available": true }
+}
+```
+
+### Exit Codes
+
+| Condition | Exit Code |
+|-----------|-----------|
+| All checks pass (or warnings only) | `0` |
+| Any check has `error` status | `1` |
+
+### CI Example
+
+```bash
+# Fail pipeline if doctor finds errors
+skillshare doctor --json | jq -e '.summary.errors == 0'
+
+# Extract warnings for notification
+skillshare doctor --json | jq '[.checks[] | select(.status == "warning")]'
+```
+
+:::tip Web Dashboard
+The **Health Check** page in the web dashboard (`skillshare ui`) provides a visual version of `doctor --json` with filter toggles and expandable details.
+:::
 
 ## See Also
 

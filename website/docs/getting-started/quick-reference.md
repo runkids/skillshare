@@ -72,6 +72,7 @@ Command cheat sheet for skillshare.
 | Command | Description |
 |---------|-------------|
 | `doctor` | Diagnose issues |
+| `doctor --json` | Diagnose issues (JSON output for CI) |
 | `log` | View operations and audit logs |
 | `ui` | Launch web dashboard on `localhost:19420` |
 | `ui -p` | Launch web dashboard in project mode |
