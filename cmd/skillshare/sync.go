@@ -306,10 +306,14 @@ func printIgnoredSkills(stats *skillignore.IgnoreStats) {
 	// Show source hint
 	hasRoot := stats.RootFile != ""
 	hasRepo := len(stats.RepoFiles) > 0
+	repoPlural := "file"
+	if len(stats.RepoFiles) > 1 {
+		repoPlural = "files"
+	}
 	if hasRoot && hasRepo {
-		fmt.Printf(ui.Dim+"  (from root .skillignore + %d repo-level file(s))"+ui.Reset+"\n", len(stats.RepoFiles))
+		fmt.Printf(ui.Dim+"  (from root .skillignore + %d repo-level %s)"+ui.Reset+"\n", len(stats.RepoFiles), repoPlural)
 	} else if hasRepo {
-		fmt.Printf(ui.Dim+"  (from %d repo-level .skillignore file(s))"+ui.Reset+"\n", len(stats.RepoFiles))
+		fmt.Printf(ui.Dim+"  (from %d repo-level .skillignore %s)"+ui.Reset+"\n", len(stats.RepoFiles), repoPlural)
 	}
 }
 
