@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   RefreshCw,
   Eye,
+  EyeOff,
   Zap,
   ChevronDown,
   ChevronRight,
@@ -318,27 +319,44 @@ export default function SyncPage() {
         </div>
       )}
 
-      {/* Ignored skills collapsible */}
+      {/* Ignored skills collapsible card */}
       {ignoredSkills.length > 0 && (
-        <div className="space-y-2">
+        <Card>
           <button
-            type="button"
-            className="flex items-center gap-2 text-sm text-pencil-light hover:text-pencil transition-colors"
             onClick={() => setIgnoredExpanded((prev) => !prev)}
+            className="w-full flex items-center gap-3 cursor-pointer"
           >
-            <span className="text-xs">{ignoredExpanded ? '\u25BC' : '\u25B6'}</span>
-            <span>Ignored by .skillignore ({ignoredSkills.length})</span>
+            {ignoredExpanded ? (
+              <ChevronDown size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
+            ) : (
+              <ChevronRight size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
+            )}
+            <EyeOff size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
+            <span className="font-medium text-pencil-light text-left flex-1">
+              Ignored by .skillignore
+            </span>
+            <Badge variant="default">{ignoredSkills.length} skill{ignoredSkills.length !== 1 && 's'}</Badge>
           </button>
+
           {ignoredExpanded && (
-            <div className="ml-5 space-y-1">
+            <div className="mt-3 pl-8 space-y-1.5 animate-fade-in">
               {ignoredSkills.map((skill) => (
-                <div key={skill} className="text-sm text-pencil-light font-mono">
-                  {skill}
+                <div key={skill} className="flex items-center gap-2 text-base py-0.5">
+                  <EyeOff size={12} className="text-pencil-light/50 shrink-0" />
+                  <span className="font-mono text-pencil-light text-sm truncate">
+                    {skill}
+                  </span>
                 </div>
               ))}
+              <div className="mt-2 pt-2 border-t border-dashed border-pencil-light/30">
+                <div className="flex items-center gap-1.5 text-xs text-pencil-light">
+                  <Info size={12} className="shrink-0" />
+                  <span>Edit .skillignore in Config to change which skills are excluded</span>
+                </div>
+              </div>
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Diff preview */}
