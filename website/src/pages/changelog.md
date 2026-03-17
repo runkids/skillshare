@@ -9,6 +9,39 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.17.4] - 2026-03-17
+
+### New Features
+
+#### Doctor JSON Output
+
+- **`doctor --json`** — structured JSON output for CI pipelines and automation. Returns per-check results with status, message, and details:
+  ```bash
+  skillshare doctor --json
+  skillshare doctor --json | jq '.summary'          # Quick summary
+  skillshare doctor --json | jq -e '.summary.errors == 0'  # CI gate
+  ```
+  Exit code 1 when errors are found, 0 for warnings-only or all-pass
+
+#### Web UI — Health Check Page
+
+- **Health Check page** — new dashboard page at `/doctor` showing environment diagnostics with summary cards (pass/warnings/errors), filter toggles, expandable check details, and version info. Access from the sidebar under "System → Health Check"
+- **`GET /api/doctor`** — new API endpoint returning the same structured JSON as `doctor --json`
+
+#### Root-Level .skillignore
+
+- **Root-level `.skillignore`** — place a `.skillignore` file in the source root (e.g. `~/.config/skillshare/skills/.skillignore`) to hide skills and directories from all commands. Previously `.skillignore` only worked inside tracked repos (`_repo/.skillignore`); now it works at both levels:
+  ```bash
+  # ~/.config/skillshare/skills/.skillignore
+  draft-*          # Hide all draft skills
+  _archived/       # Hide entire directory
+  ```
+- **SkipDir optimization** — directories matching `.skillignore` patterns are now skipped entirely during discovery (not entered), improving performance for large source trees
+
+### Bug Fixes
+
+- **Doctor check labels** — the web UI Health Check page shows human-readable labels ("Source Directory", "Sync Status") instead of raw identifiers (`source`, `sync_drift`)
+
 ## [0.17.3] - 2026-03-16
 
 ### New Features
