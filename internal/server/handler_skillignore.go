@@ -40,11 +40,19 @@ func (s *Server) handleGetSkillignore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if discoverErr == nil && stats != nil {
+		patterns := stats.Patterns
+		if patterns == nil {
+			patterns = []string{}
+		}
+		ignoredSkills := stats.IgnoredSkills
+		if ignoredSkills == nil {
+			ignoredSkills = []string{}
+		}
 		resp["stats"] = map[string]any{
 			"pattern_count":  stats.PatternCount(),
 			"ignored_count":  stats.IgnoredCount(),
-			"patterns":       stats.Patterns,
-			"ignored_skills": stats.IgnoredSkills,
+			"patterns":       patterns,
+			"ignored_skills": ignoredSkills,
 		}
 	}
 
