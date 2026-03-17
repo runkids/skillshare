@@ -110,13 +110,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 		})
 
 		// Show ignored skills from .skillignore
-		if ignoreStats != nil && ignoreStats.IgnoredCount() > 0 {
-			fmt.Println()
-			fmt.Printf(ui.Dim+"%d skill(s) ignored by .skillignore:"+ui.Reset+"\n", ignoreStats.IgnoredCount())
-			for _, name := range ignoreStats.IgnoredSkills {
-				fmt.Printf(ui.Dim+"  • %s"+ui.Reset+"\n", name)
-			}
-		}
+		printIgnoredSkills(ignoreStats)
 	}
 
 	if failedTargets > 0 {

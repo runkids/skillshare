@@ -220,13 +220,7 @@ func cmdSync(args []string) error {
 		})
 
 		// Show ignored skills from .skillignore
-		if ignoreStats != nil && ignoreStats.IgnoredCount() > 0 {
-			fmt.Println()
-			fmt.Printf(ui.Dim+"%d skill(s) ignored by .skillignore:"+ui.Reset+"\n", ignoreStats.IgnoredCount())
-			for _, name := range ignoreStats.IgnoredSkills {
-				fmt.Printf(ui.Dim+"  • %s"+ui.Reset+"\n", name)
-			}
-		}
+		printIgnoredSkills(ignoreStats)
 
 		// Opportunistic cleanup of expired trash items
 		if !dryRun {
@@ -297,6 +291,26 @@ func logSyncOp(cfgPath string, stats syncLogStats, start time.Time, cmdErr error
 		e.Message = cmdErr.Error()
 	}
 	oplog.WriteWithLimit(cfgPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+}
+
+// printIgnoredSkills prints the list of .skillignore-excluded skills with source hints.
+func printIgnoredSkills(stats *skillignore.IgnoreStats) {
+	if stats == nil || stats.IgnoredCount() == 0 {
+		return
+	}
+	fmt.Println()
+	fmt.Printf(ui.Dim+"%d skill(s) ignored by .skillignore:"+ui.Reset+"\n", stats.IgnoredCount())
+	for _, name := range stats.IgnoredSkills {
+		fmt.Printf(ui.Dim+"  • %s"+ui.Reset+"\n", name)
+	}
+	// Show source hint
+	hasRoot := stats.RootFile != ""
+	hasRepo := len(stats.RepoFiles) > 0
+	if hasRoot && hasRepo {
+		fmt.Printf(ui.Dim+"  (from root .skillignore + %d repo-level file(s))"+ui.Reset+"\n", len(stats.RepoFiles))
+	} else if hasRepo {
+		fmt.Printf(ui.Dim+"  (from %d repo-level .skillignore file(s))"+ui.Reset+"\n", len(stats.RepoFiles))
+	}
 }
 
 // syncOutputJSON converts sync results to JSON and writes to stdout.
