@@ -75,12 +75,32 @@
 
 - **SegmentedControl filter** — the Doctor page filter toggles (All/Error/Warning/Pass) now use the same `SegmentedControl` component as the Skills page, replacing the previous hand-styled buttons for visual consistency
 
+#### Sync — .skillignore Ignored Skills
+
+- **`sync` shows ignored skills** — after sync completes, the CLI now lists skills excluded by `.skillignore` with a source hint showing whether ignores come from the root-level file, repo-level files, or both:
+  ```
+  7 skill(s) ignored by .skillignore:
+    • _team/vendor/lib
+    • _team/feature-radar
+    • draft-wip
+    (from root .skillignore + 1 repo-level file)
+  ```
+- **`sync --json` includes `ignored_count` and `ignored_skills`** — JSON output now includes the full list of ignored skills for automation and scripting
+- **`doctor` shows skillignore status** — the Checking Environment section now displays `.skillignore` pattern count and ignored skill count (was previously JSON-only)
+- **Web UI Sync page** — a collapsible "Ignored by .skillignore" card appears on the Sync page showing which skills were excluded and whether the ignores come from root or repo-level files. An "ignored" badge also appears in the pending changes summary
+
+#### Doctor Output Readability
+
+- **Visual spacing in `doctor` output** — config directory paths, source/environment checks, and skill validation checks are now separated by blank lines for easier scanning
+- **Duplicate skill names truncated** — when targets have overlapping skills isolated by filters, `sync` now shows only the first 5 names instead of dumping all (e.g., 14000+) on a single line
+
 ### Bug Fixes
 
 - **`.skillignore` respected in all discovery paths** — `.skillignore` patterns were not applied during source discovery, causing `doctor` to report false "unverifiable (no metadata)" warnings for intentionally excluded directories (e.g., `.venv/` inside tracked repos). Discovery now consistently honors `.skillignore` across all commands ([#83](https://github.com/runkids/skillshare/issues/83))
 - **`.skillignore` directory-only patterns during install** — patterns with trailing slash (e.g., `demo/`) now correctly match directories during `skillshare install` discovery, not just during sync
 - **Quieter integrity checks** — `doctor` no longer warns about locally-created skills missing metadata (this is expected). Only installed skills with incomplete metadata are flagged, with skill names listed for easy identification
 - **Doctor check labels** — the web UI Health Check page shows human-readable labels ("Source Directory", "Sync Status") instead of raw identifiers (`source`, `sync_drift`)
+- **Doctor global mode in web UI** — `skillshare ui -g` now correctly passes `-g` to the doctor subprocess, preventing it from auto-detecting project mode when the server's working directory contains `.skillshare/config.yaml`
 
 ## [0.17.3] - 2026-03-16
 
