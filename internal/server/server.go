@@ -313,6 +313,9 @@ func (s *Server) registerRoutes() {
 	// Version check
 	s.mux.HandleFunc("GET /api/version", s.handleVersionCheck)
 
+	// Doctor (health check)
+	s.mux.HandleFunc("GET /api/doctor", s.handleDoctor)
+
 	// Backups
 	s.mux.HandleFunc("GET /api/backups", s.handleListBackups)
 	s.mux.HandleFunc("POST /api/backup", s.handleCreateBackup)
