@@ -11,6 +11,7 @@ const (
 	checkPass    = "pass"
 	checkWarning = "warning"
 	checkError   = "error"
+	checkInfo    = "info"
 )
 
 // doctorCheck represents a single health check result for JSON output.
@@ -32,6 +33,7 @@ type doctorSummary struct {
 	Pass     int `json:"pass"`
 	Warnings int `json:"warnings"`
 	Errors   int `json:"errors"`
+	Info     int `json:"info"`
 }
 
 type doctorVersion struct {
@@ -45,7 +47,7 @@ type doctorVersion struct {
 // because check-level counts may differ from the text-mode counters when a
 // single check function calls addError/addWarning multiple times.
 func buildDoctorOutput(result *doctorResult) doctorOutput {
-	var pass, warnings, errors int
+	var pass, warnings, errors, info int
 	for _, c := range result.checks {
 		switch c.Status {
 		case checkPass:
@@ -54,6 +56,8 @@ func buildDoctorOutput(result *doctorResult) doctorOutput {
 			warnings++
 		case checkError:
 			errors++
+		case checkInfo:
+			info++
 		}
 	}
 	return doctorOutput{
@@ -63,6 +67,7 @@ func buildDoctorOutput(result *doctorResult) doctorOutput {
 			Pass:     pass,
 			Warnings: warnings,
 			Errors:   errors,
+			Info:     info,
 		},
 	}
 }

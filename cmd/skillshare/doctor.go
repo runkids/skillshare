@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
@@ -39,6 +40,10 @@ func (r *doctorResult) addCheck(name, status, message string, details []string) 
 	r.checks = append(r.checks, doctorCheck{
 		Name: name, Status: status, Message: message, Details: details,
 	})
+}
+
+func (r *doctorResult) addInfo(name, message string) {
+	r.addCheck(name, checkInfo, message, nil)
 }
 
 func cmdDoctor(args []string) error {
@@ -200,15 +205,16 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 }
 
 func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
-	// Single discovery pass for all checks
+	// Single discovery pass for all checks (with .skillignore stats)
 	sp := ui.StartSpinner("Discovering skills...")
-	discovered, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
+	discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(cfg.Source)
 	if discoverErr != nil {
 		discovered = nil
 	}
 	sp.Stop()
 
 	checkSource(cfg, result, discovered, discoverErr)
+	checkSkillignore(result, stats)
 	checkSymlinkSupport(result)
 
 	if !isProject {
@@ -235,6 +241,23 @@ func printDoctorSummary(result *doctorResult) {
 		ui.Error("%d error(s), %d warning(s)", result.errors, result.warnings)
 	}
 
+}
+
+// checkSkillignore reports .skillignore status as an info or pass check.
+func checkSkillignore(result *doctorResult, stats *skillignore.IgnoreStats) {
+	if stats == nil || !stats.Active() {
+		result.addInfo("skillignore", "No .skillignore found — you can create one to hide skills from discovery")
+		return
+	}
+
+	msg := fmt.Sprintf(".skillignore: %d patterns, %d skills ignored", stats.PatternCount(), stats.IgnoredCount())
+	var details []string
+	details = append(details, stats.Patterns...)
+	if len(stats.IgnoredSkills) > 0 {
+		details = append(details, "---")
+		details = append(details, stats.IgnoredSkills...)
+	}
+	result.addCheck("skillignore", checkPass, msg, details)
 }
 
 func checkSource(cfg *config.Config, result *doctorResult, discovered []sync.DiscoveredSkill, discoverErr error) {

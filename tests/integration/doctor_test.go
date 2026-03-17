@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -527,6 +528,7 @@ type doctorJSONSummary struct {
 	Pass     int `json:"pass"`
 	Warnings int `json:"warnings"`
 	Errors   int `json:"errors"`
+	Info     int `json:"info"`
 }
 
 type doctorJSONVersion struct {
@@ -726,5 +728,83 @@ targets:
 	}
 	if !hasTrash {
 		t.Error("expected checks to contain an entry with name \"trash\"")
+	}
+}
+
+func TestDoctor_JSON_SkillignorePresent(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("visible-skill", map[string]string{"SKILL.md": "# Visible"})
+	sb.CreateSkill("hidden-skill", map[string]string{"SKILL.md": "# Hidden"})
+
+	// Create .skillignore that hides one skill
+	os.WriteFile(filepath.Join(sb.SourcePath, ".skillignore"), []byte("hidden-skill\n"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("doctor", "--json")
+
+	result.AssertSuccess(t)
+	out := parseDoctorJSON(t, result.Stdout)
+
+	found := false
+	for _, c := range out.Checks {
+		if c.Name == "skillignore" {
+			found = true
+			if c.Status != "pass" {
+				t.Errorf("expected skillignore status \"pass\", got %q", c.Status)
+			}
+			if c.Message == "" {
+				t.Error("expected non-empty message for skillignore check")
+			}
+			// Message should mention patterns and ignored count
+			if !strings.Contains(c.Message, "1 patterns") || !strings.Contains(c.Message, "1 skills ignored") {
+				t.Errorf("expected message to mention pattern/ignored counts, got: %s", c.Message)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("expected checks to contain an entry with name \"skillignore\"")
+	}
+}
+
+func TestDoctor_JSON_SkillignoreAbsent(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("doctor", "--json")
+
+	result.AssertSuccess(t)
+	out := parseDoctorJSON(t, result.Stdout)
+
+	found := false
+	for _, c := range out.Checks {
+		if c.Name == "skillignore" {
+			found = true
+			if c.Status != "info" {
+				t.Errorf("expected skillignore status \"info\", got %q", c.Status)
+			}
+			if c.Message == "" {
+				t.Error("expected non-empty message for skillignore check")
+			}
+			// Info count should be reflected in summary
+			break
+		}
+	}
+	if !found {
+		t.Error("expected checks to contain an entry with name \"skillignore\"")
+	}
+	if out.Summary.Info == 0 {
+		t.Error("expected summary.info > 0 when .skillignore is absent")
 	}
 }
