@@ -88,10 +88,16 @@ function CheckRow({ check }: { check: DoctorCheck }) {
         <div className="px-4 pb-3 pl-11">
           <ul className="space-y-1">
             {check.details!.map((detail, i) => (
-              <li key={i} className="text-sm text-pencil-light flex items-start gap-2">
-                <span className="text-muted-dark mt-0.5 shrink-0">&bull;</span>
-                <span>{detail}</span>
-              </li>
+              detail === '---' ? (
+                <li key={i} className="border-t border-muted my-2 pt-2">
+                  <span className="text-xs font-medium text-pencil-light uppercase tracking-wide">Ignored Skills</span>
+                </li>
+              ) : (
+                <li key={i} className="text-sm text-pencil-light flex items-start gap-2">
+                  <span className="text-muted-dark mt-0.5 shrink-0">&bull;</span>
+                  <span className="font-mono">{detail}</span>
+                </li>
+              )
             ))}
           </ul>
         </div>
