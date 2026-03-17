@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/skillignore"
 	"skillshare/internal/utils"
 )
 
@@ -33,7 +34,8 @@ type DiscoveredSkill struct {
 func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, error) {
 	var skills []DiscoveredSkill
 	var trackedRepos []string
-	trackedRepoPaths := make(map[string]bool) // track paths to detect nested tracked repos
+	trackedRepoPaths := make(map[string]bool)   // track paths to detect nested tracked repos
+	ignorePatterns := make(map[string][]string) // tracked repo abs path → .skillignore patterns
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
 
@@ -56,6 +58,9 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 					trackedRepos = append(trackedRepos, relPath)
 					trackedRepoPaths[path] = true
 				}
+				if patterns := skillignore.ReadPatterns(path); len(patterns) > 0 {
+					ignorePatterns[path] = patterns
+				}
 			}
 		}
 
@@ -77,6 +82,17 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 			parts := strings.Split(relPath, "/")
 			if len(parts) > 0 && utils.IsTrackedRepoDir(parts[0]) {
 				isInRepo = true
+			}
+
+			// Check .skillignore for tracked repos
+			if isInRepo && len(parts) > 1 {
+				repoAbsPath := filepath.Join(walkRoot, parts[0])
+				if patterns, ok := ignorePatterns[repoAbsPath]; ok {
+					repoRelPath := strings.Join(parts[1:], "/")
+					if skillignore.Match(repoRelPath, patterns) {
+						return nil
+					}
+				}
 			}
 
 			// Skip frontmatter parsing — Targets stays nil
@@ -106,6 +122,7 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 // Returns all discovered skills with their metadata for syncing.
 func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 	var skills []DiscoveredSkill
+	ignorePatterns := make(map[string][]string) // tracked repo abs path → .skillignore patterns
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
 
@@ -118,6 +135,16 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 		// may contain skills (like openai/skills repo structure)
 		if info.IsDir() && info.Name() == ".git" {
 			return filepath.SkipDir
+		}
+
+		// Load .skillignore for tracked repos
+		if info.IsDir() && info.Name() != "." && utils.IsTrackedRepoDir(info.Name()) {
+			gitDir := filepath.Join(path, ".git")
+			if _, statErr := os.Stat(gitDir); statErr == nil {
+				if patterns := skillignore.ReadPatterns(path); len(patterns) > 0 {
+					ignorePatterns[path] = patterns
+				}
+			}
 		}
 
 		// Look for SKILL.md files
@@ -141,6 +168,17 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 			parts := strings.Split(relPath, "/")
 			if len(parts) > 0 && utils.IsTrackedRepoDir(parts[0]) {
 				isInRepo = true
+			}
+
+			// Check .skillignore for tracked repos
+			if isInRepo && len(parts) > 1 {
+				repoAbsPath := filepath.Join(walkRoot, parts[0])
+				if patterns, ok := ignorePatterns[repoAbsPath]; ok {
+					repoRelPath := strings.Join(parts[1:], "/")
+					if skillignore.Match(repoRelPath, patterns) {
+						return nil
+					}
+				}
 			}
 
 			// Use original sourcePath for SourcePath to preserve the caller's

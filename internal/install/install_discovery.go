@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/skillignore"
 	"skillshare/internal/utils"
 )
 
@@ -97,41 +98,6 @@ func resolveSubdir(repoPath, subdir string) (string, error) {
 	}
 }
 
-// readSkillIgnore reads a .skillignore file from the given directory.
-// Returns a list of patterns (exact names or trailing-wildcard like "prefix-*").
-// Lines starting with # and empty lines are skipped.
-func readSkillIgnore(dir string) []string {
-	data, err := os.ReadFile(filepath.Join(dir, ".skillignore"))
-	if err != nil {
-		return nil
-	}
-	var patterns []string
-	for _, line := range strings.Split(string(data), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-		patterns = append(patterns, line)
-	}
-	return patterns
-}
-
-// matchSkillIgnore returns true if skillPath matches any pattern.
-// Matching is path-based: exact path, group prefix (pattern matches a
-// directory prefix of skillPath), and trailing wildcard ("prefix-*").
-func matchSkillIgnore(skillPath string, patterns []string) bool {
-	for _, p := range patterns {
-		if strings.HasSuffix(p, "*") {
-			if strings.HasPrefix(skillPath, strings.TrimSuffix(p, "*")) {
-				return true
-			}
-		} else if skillPath == p || strings.HasPrefix(skillPath, p+"/") {
-			return true
-		}
-	}
-	return false
-}
-
 // discoverSkills finds directories containing SKILL.md
 // If includeRoot is true, root-level SKILL.md is also included (with Path=".")
 func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
@@ -181,11 +147,11 @@ func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
 	})
 
 	// Apply .skillignore filtering
-	patterns := readSkillIgnore(repoPath)
+	patterns := skillignore.ReadPatterns(repoPath)
 	if len(patterns) > 0 {
 		filtered := skills[:0]
 		for _, s := range skills {
-			if !matchSkillIgnore(s.Path, patterns) {
+			if !skillignore.Match(s.Path, patterns) {
 				filtered = append(filtered, s)
 			}
 		}

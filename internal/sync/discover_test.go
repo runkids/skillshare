@@ -3,6 +3,7 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -229,6 +230,69 @@ func TestDiscoverSourceSkillsLite_BasicDiscovery(t *testing.T) {
 	}
 	if !names["group__skill-b"] {
 		t.Error("missing group__skill-b")
+	}
+}
+
+// --- .skillignore tests (Issue #83) ---
+
+func TestDiscoverSourceSkills_RespectsSkillIgnore(t *testing.T) {
+	src := t.TempDir()
+
+	// Create a tracked repo with .skillignore excluding .venv
+	repoDir := filepath.Join(src, "_team-skills")
+	os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)
+	os.WriteFile(filepath.Join(repoDir, ".skillignore"), []byte(".venv\n"), 0644)
+
+	// Vendored SKILL.md inside .venv — should be ignored
+	venvSkill := filepath.Join(repoDir, ".venv", "lib", "python3.13", "site-packages", "fastapi", ".agents", "skills", "fastapi")
+	writeSkillMD(t, venvSkill, "not a real skill")
+
+	// Normal skill — should be discovered
+	writeSkillMD(t, filepath.Join(repoDir, "my-skill"), "---\nname: my-skill\n---\n# My Skill")
+
+	skills, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, s := range skills {
+		if strings.Contains(s.RelPath, ".venv") {
+			t.Errorf("expected .venv skill to be filtered by .skillignore, got %s", s.RelPath)
+		}
+	}
+	if len(skills) != 1 {
+		t.Errorf("expected 1 skill, got %d", len(skills))
+	}
+}
+
+func TestDiscoverSourceSkillsLite_RespectsSkillIgnore(t *testing.T) {
+	src := t.TempDir()
+
+	// Same layout as above
+	repoDir := filepath.Join(src, "_team-skills")
+	os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)
+	os.WriteFile(filepath.Join(repoDir, ".skillignore"), []byte(".venv\n"), 0644)
+
+	venvSkill := filepath.Join(repoDir, ".venv", "lib", "fastapi")
+	writeSkillMD(t, venvSkill, "not a real skill")
+
+	writeSkillMD(t, filepath.Join(repoDir, "my-skill"), "---\nname: my-skill\n---\n# My Skill")
+
+	skills, repos, err := DiscoverSourceSkillsLite(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, s := range skills {
+		if strings.Contains(s.RelPath, ".venv") {
+			t.Errorf("expected .venv skill to be filtered by .skillignore, got %s", s.RelPath)
+		}
+	}
+	if len(skills) != 1 {
+		t.Errorf("expected 1 skill, got %d", len(skills))
+	}
+	if len(repos) != 1 || repos[0] != "_team-skills" {
+		t.Errorf("expected tracked repo [_team-skills], got %v", repos)
 	}
 }
 
