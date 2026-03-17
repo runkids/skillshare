@@ -296,6 +296,129 @@ func TestDiscoverSourceSkillsLite_RespectsSkillIgnore(t *testing.T) {
 	}
 }
 
+// --- SkipDir + root-level .skillignore tests ---
+
+func TestDiscoverSourceSkills_SkipDirDoesNotDescend(t *testing.T) {
+	src := t.TempDir()
+
+	repoDir := filepath.Join(src, "_team")
+	os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)
+	os.WriteFile(filepath.Join(repoDir, ".skillignore"), []byte(".venv\n"), 0644)
+
+	// Deep nested SKILL.md inside .venv
+	deepPath := filepath.Join(repoDir, ".venv", "a", "b", "c", "d", "e")
+	writeSkillMD(t, deepPath, "deep vendored skill")
+
+	writeSkillMD(t, filepath.Join(repoDir, "real-skill"), "---\nname: real\n---\n# Real")
+
+	skills, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 {
+		t.Errorf("expected 1 skill, got %d", len(skills))
+	}
+}
+
+func TestDiscoverSourceSkills_RootLevelSkillIgnore(t *testing.T) {
+	src := t.TempDir()
+
+	os.WriteFile(filepath.Join(src, ".skillignore"), []byte("draft-*\nmy-hidden\n"), 0644)
+
+	writeSkillMD(t, filepath.Join(src, "draft-feature"), "---\nname: draft-feature\n---\n")
+	writeSkillMD(t, filepath.Join(src, "draft-experiment"), "---\nname: draft-experiment\n---\n")
+	writeSkillMD(t, filepath.Join(src, "my-hidden"), "---\nname: my-hidden\n---\n")
+	writeSkillMD(t, filepath.Join(src, "visible-skill"), "---\nname: visible\n---\n")
+
+	skills, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 {
+		t.Errorf("expected 1 skill (visible-skill), got %d", len(skills))
+	}
+	if len(skills) == 1 && skills[0].FlatName != "visible-skill" {
+		t.Errorf("expected 'visible-skill', got %q", skills[0].FlatName)
+	}
+}
+
+func TestDiscoverSourceSkillsLite_RootLevelSkillIgnore(t *testing.T) {
+	src := t.TempDir()
+
+	os.WriteFile(filepath.Join(src, ".skillignore"), []byte("hidden\n"), 0644)
+
+	writeSkillMD(t, filepath.Join(src, "hidden"), "---\nname: hidden\n---\n")
+	writeSkillMD(t, filepath.Join(src, "visible"), "---\nname: visible\n---\n")
+
+	skills, _, err := DiscoverSourceSkillsLite(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 {
+		t.Errorf("expected 1 skill, got %d", len(skills))
+	}
+}
+
+func TestDiscoverSourceSkills_RootSkipsEntireTrackedRepo(t *testing.T) {
+	src := t.TempDir()
+
+	os.WriteFile(filepath.Join(src, ".skillignore"), []byte("_unwanted\n"), 0644)
+
+	repoDir := filepath.Join(src, "_unwanted")
+	os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)
+	writeSkillMD(t, filepath.Join(repoDir, "skill-a"), "---\nname: a\n---\n")
+	writeSkillMD(t, filepath.Join(repoDir, "skill-b"), "---\nname: b\n---\n")
+
+	writeSkillMD(t, filepath.Join(src, "kept"), "---\nname: kept\n---\n")
+
+	skills, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 {
+		t.Errorf("expected 1 skill, got %d", len(skills))
+	}
+}
+
+func TestDiscoverSourceSkills_RootAndRepoLayering(t *testing.T) {
+	src := t.TempDir()
+
+	os.WriteFile(filepath.Join(src, ".skillignore"), []byte("draft-*\n"), 0644)
+
+	repoDir := filepath.Join(src, "_team")
+	os.MkdirAll(filepath.Join(repoDir, ".git"), 0755)
+	os.WriteFile(filepath.Join(repoDir, ".skillignore"), []byte(".venv\n"), 0644)
+
+	writeSkillMD(t, filepath.Join(src, "draft-wip"), "---\nname: wip\n---\n")
+	writeSkillMD(t, filepath.Join(repoDir, ".venv", "pkg"), "vendored")
+	writeSkillMD(t, filepath.Join(repoDir, "real"), "---\nname: real\n---\n")
+
+	skills, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 {
+		t.Errorf("expected 1 skill (real), got %d", len(skills))
+	}
+}
+
+func TestDiscoverSourceSkills_EmptyRootSkillIgnore(t *testing.T) {
+	src := t.TempDir()
+
+	os.WriteFile(filepath.Join(src, ".skillignore"), []byte("# just a comment\n\n"), 0644)
+
+	writeSkillMD(t, filepath.Join(src, "skill-a"), "---\nname: a\n---\n")
+	writeSkillMD(t, filepath.Join(src, "skill-b"), "---\nname: b\n---\n")
+
+	skills, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 2 {
+		t.Errorf("expected 2 skills, got %d", len(skills))
+	}
+}
+
 func TestDiscoverSourceSkillsLite_EmptyDir(t *testing.T) {
 	src := t.TempDir()
 
