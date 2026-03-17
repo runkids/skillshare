@@ -98,6 +98,7 @@ export default function ConfigPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.skillignore });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
