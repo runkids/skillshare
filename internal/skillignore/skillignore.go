@@ -23,6 +23,7 @@ func normalizePath(p string) string {
 // Matcher holds compiled .skillignore rules.
 type Matcher struct {
 	rules       []rule
+	patterns    []string // original non-blank, non-comment pattern strings
 	hasNegation bool
 }
 
@@ -92,6 +93,7 @@ func parseRule(line string) (rule, bool) {
 func Compile(lines []string) *Matcher {
 	m := &Matcher{}
 	for _, line := range lines {
+		trimmed := strings.TrimRight(line, " \t")
 		r, ok := parseRule(line)
 		if !ok {
 			continue
@@ -100,6 +102,7 @@ func Compile(lines []string) *Matcher {
 			m.hasNegation = true
 		}
 		m.rules = append(m.rules, r)
+		m.patterns = append(m.patterns, trimmed)
 	}
 	return m
 }
@@ -117,6 +120,17 @@ func ReadMatcher(dir string) *Matcher {
 // HasRules reports whether the matcher has any compiled rules.
 func (m *Matcher) HasRules() bool {
 	return m != nil && len(m.rules) > 0
+}
+
+// Patterns returns the original non-blank, non-comment pattern strings
+// that were compiled into rules. Returns nil for a nil or empty matcher.
+func (m *Matcher) Patterns() []string {
+	if m == nil || len(m.patterns) == 0 {
+		return nil
+	}
+	out := make([]string, len(m.patterns))
+	copy(out, m.patterns)
+	return out
 }
 
 // Match returns true if the given path should be ignored.

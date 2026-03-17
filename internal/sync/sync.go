@@ -47,234 +47,36 @@ func isSkillIgnored(parts []string, walkRoot string, ignoreMatchers map[string]*
 //
 // Use this for commands like list/uninstall that don't need per-skill target filtering.
 func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, error) {
-	var skills []DiscoveredSkill
-	var trackedRepos []string
-	trackedRepoPaths := make(map[string]bool)              // track paths to detect nested tracked repos
-	ignoreMatchers := make(map[string]*skillignore.Matcher) // tracked repo abs path → .skillignore matcher
-
-	walkRoot := utils.ResolveSymlink(sourcePath)
-	rootMatcher := skillignore.ReadMatcher(walkRoot)
-
-	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil // Skip inaccessible paths
-		}
-
-		// Skip .git directory
-		if info.IsDir() && info.Name() == ".git" {
-			return filepath.SkipDir
-		}
-
-		// Skip directories matching root-level .skillignore
-		if info.IsDir() {
-			relPath, relErr := filepath.Rel(walkRoot, path)
-			if relErr == nil && relPath != "." {
-				relPath = strings.ReplaceAll(relPath, "\\", "/")
-				if rootMatcher.CanSkipDir(relPath) {
-					return filepath.SkipDir
-				}
-			}
-		}
-
-		// Collect tracked repos: _-prefixed directories that are git repos
-		if info.IsDir() && info.Name() != "." && utils.IsTrackedRepoDir(info.Name()) {
-			gitDir := filepath.Join(path, ".git")
-			if _, statErr := os.Stat(gitDir); statErr == nil {
-				relPath, relErr := filepath.Rel(walkRoot, path)
-				if relErr == nil && relPath != "." {
-					trackedRepos = append(trackedRepos, relPath)
-					trackedRepoPaths[path] = true
-				}
-				m := skillignore.ReadMatcher(path)
-				if m.HasRules() {
-					ignoreMatchers[path] = m
-				}
-			}
-		}
-
-		// Skip directories matching repo-level .skillignore inside tracked repos
-		if info.IsDir() {
-			relPath, relErr := filepath.Rel(walkRoot, path)
-			if relErr == nil && relPath != "." {
-				relPath = strings.ReplaceAll(relPath, "\\", "/")
-				parts := strings.Split(relPath, "/")
-				if len(parts) > 1 && utils.IsTrackedRepoDir(parts[0]) {
-					repoAbsPath := filepath.Join(walkRoot, parts[0])
-					if m, ok := ignoreMatchers[repoAbsPath]; ok {
-						repoRelPath := strings.Join(parts[1:], "/")
-						if m.CanSkipDir(repoRelPath) {
-							return filepath.SkipDir
-						}
-					}
-				}
-			}
-		}
-
-		// Look for SKILL.md files
-		if !info.IsDir() && info.Name() == "SKILL.md" {
-			skillDir := filepath.Dir(path)
-			relPath, err := filepath.Rel(walkRoot, skillDir)
-			if err != nil {
-				return nil
-			}
-
-			if relPath == "." {
-				return nil
-			}
-
-			relPath = strings.ReplaceAll(relPath, "\\", "/")
-
-			// Root-level .skillignore fallback (for files in non-skipped dirs)
-			if rootMatcher.Match(relPath, false) {
-				return nil
-			}
-
-			isInRepo := false
-			parts := strings.Split(relPath, "/")
-			if len(parts) > 0 && utils.IsTrackedRepoDir(parts[0]) {
-				isInRepo = true
-			}
-
-			if isInRepo && isSkillIgnored(parts, walkRoot, ignoreMatchers) {
-				return nil
-			}
-
-			// Skip frontmatter parsing — Targets stays nil
-			// Use original sourcePath (not walkRoot) so SourcePath preserves
-			// the caller's logical path, even if sourcePath is a symlink.
-			skills = append(skills, DiscoveredSkill{
-				SourcePath: filepath.Join(sourcePath, relPath),
-				RelPath:    relPath,
-				FlatName:   utils.PathToFlatName(relPath),
-				IsInRepo:   isInRepo,
-				Targets:    nil,
-			})
-		}
-
-		return nil
+	skills, trackedRepos, _, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
+		parseFrontmatter: false,
+		collectIgnored:   false,
+		collectTracked:   true,
 	})
-
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to walk source directory: %w", err)
-	}
-
-	return skills, trackedRepos, nil
+	return skills, trackedRepos, err
 }
 
 // DiscoverSourceSkills recursively scans the source directory for skills.
 // A skill is identified by the presence of a SKILL.md file.
 // Returns all discovered skills with their metadata for syncing.
 func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
-	var skills []DiscoveredSkill
-	ignoreMatchers := make(map[string]*skillignore.Matcher) // tracked repo abs path → .skillignore matcher
-
-	walkRoot := utils.ResolveSymlink(sourcePath)
-	rootMatcher := skillignore.ReadMatcher(walkRoot)
-
-	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil // Skip inaccessible paths
-		}
-
-		// Skip .git directory only — other hidden directories (e.g., .curated/, .system/)
-		// may contain skills (like openai/skills repo structure)
-		if info.IsDir() && info.Name() == ".git" {
-			return filepath.SkipDir
-		}
-
-		// Skip directories matching root-level .skillignore
-		if info.IsDir() {
-			relPath, relErr := filepath.Rel(walkRoot, path)
-			if relErr == nil && relPath != "." {
-				relPath = strings.ReplaceAll(relPath, "\\", "/")
-				if rootMatcher.CanSkipDir(relPath) {
-					return filepath.SkipDir
-				}
-			}
-		}
-
-		// Load .skillignore for tracked repos
-		if info.IsDir() && info.Name() != "." && utils.IsTrackedRepoDir(info.Name()) {
-			gitDir := filepath.Join(path, ".git")
-			if _, statErr := os.Stat(gitDir); statErr == nil {
-				m := skillignore.ReadMatcher(path)
-				if m.HasRules() {
-					ignoreMatchers[path] = m
-				}
-			}
-		}
-
-		// Skip directories matching repo-level .skillignore inside tracked repos
-		if info.IsDir() {
-			relPath, relErr := filepath.Rel(walkRoot, path)
-			if relErr == nil && relPath != "." {
-				relPath = strings.ReplaceAll(relPath, "\\", "/")
-				parts := strings.Split(relPath, "/")
-				if len(parts) > 1 && utils.IsTrackedRepoDir(parts[0]) {
-					repoAbsPath := filepath.Join(walkRoot, parts[0])
-					if m, ok := ignoreMatchers[repoAbsPath]; ok {
-						repoRelPath := strings.Join(parts[1:], "/")
-						if m.CanSkipDir(repoRelPath) {
-							return filepath.SkipDir
-						}
-					}
-				}
-			}
-		}
-
-		// Look for SKILL.md files
-		if !info.IsDir() && info.Name() == "SKILL.md" {
-			skillDir := filepath.Dir(path)
-			relPath, err := filepath.Rel(walkRoot, skillDir)
-			if err != nil {
-				return nil // Skip if we can't get relative path
-			}
-
-			// Skip root level (source directory itself)
-			if relPath == "." {
-				return nil
-			}
-
-			// Normalize path separators
-			relPath = strings.ReplaceAll(relPath, "\\", "/")
-
-			// Root-level .skillignore fallback
-			if rootMatcher.Match(relPath, false) {
-				return nil
-			}
-
-			// Check if this skill is inside a tracked repo
-			isInRepo := false
-			parts := strings.Split(relPath, "/")
-			if len(parts) > 0 && utils.IsTrackedRepoDir(parts[0]) {
-				isInRepo = true
-			}
-
-			if isInRepo && isSkillIgnored(parts, walkRoot, ignoreMatchers) {
-				return nil
-			}
-
-			// Use original sourcePath for SourcePath to preserve the caller's
-			// logical path. Parse frontmatter from the resolved path.
-			targets := utils.ParseFrontmatterList(filepath.Join(skillDir, "SKILL.md"), "targets")
-
-			skills = append(skills, DiscoveredSkill{
-				SourcePath: filepath.Join(sourcePath, relPath),
-				RelPath:    relPath,
-				FlatName:   utils.PathToFlatName(relPath),
-				IsInRepo:   isInRepo,
-				Targets:    targets,
-			})
-		}
-
-		return nil
+	skills, _, _, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
+		parseFrontmatter: true,
+		collectIgnored:   false,
+		collectTracked:   false,
 	})
+	return skills, err
+}
 
-	if err != nil {
-		return nil, fmt.Errorf("failed to walk source directory: %w", err)
-	}
-
-	return skills, nil
+// DiscoverSourceSkillsWithStats recursively scans the source directory for skills
+// and collects .skillignore statistics (which files are active, patterns, ignored paths).
+// Use this for commands like doctor/status that need to report on .skillignore state.
+func DiscoverSourceSkillsWithStats(sourcePath string) ([]DiscoveredSkill, *skillignore.IgnoreStats, error) {
+	skills, _, stats, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
+		parseFrontmatter: true,
+		collectIgnored:   true,
+		collectTracked:   false,
+	})
+	return skills, stats, err
 }
 
 // TargetStatus represents the state of a target
