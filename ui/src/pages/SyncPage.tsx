@@ -338,24 +338,44 @@ export default function SyncPage() {
             <Badge variant="default">{ignoredSkills.length} skill{ignoredSkills.length !== 1 && 's'}</Badge>
           </button>
 
-          {ignoredExpanded && (
-            <div className="mt-3 pl-8 space-y-1.5 animate-fade-in">
-              {ignoredSkills.map((skill) => (
-                <div key={skill} className="flex items-center gap-2 text-base py-0.5">
-                  <EyeOff size={12} className="text-pencil-light/50 shrink-0" />
-                  <span className="font-mono text-pencil-light text-sm truncate">
-                    {skill}
-                  </span>
-                </div>
-              ))}
-              <div className="mt-2 pt-2 border-t border-dashed border-pencil-light/30">
-                <div className="flex items-center gap-1.5 text-xs text-pencil-light">
-                  <Info size={12} className="shrink-0" />
-                  <span>Edit .skillignore in Config to change which skills are excluded</span>
+          {ignoredExpanded && (() => {
+            const repoSkills = ignoredSkills.filter((s) => s.startsWith('_'));
+            const rootSkills = ignoredSkills.filter((s) => !s.startsWith('_'));
+            const hasRepo = repoSkills.length > 0;
+            const hasRoot = rootSkills.length > 0;
+            return (
+              <div className="mt-3 pl-8 space-y-1.5 animate-fade-in">
+                {ignoredSkills.map((skill) => (
+                  <div key={skill} className="flex items-center gap-2 text-base py-0.5">
+                    <EyeOff size={12} className="text-pencil-light/50 shrink-0" />
+                    <span className="font-mono text-pencil-light text-sm truncate">
+                      {skill}
+                    </span>
+                  </div>
+                ))}
+                <div className="mt-2 pt-2 border-t border-dashed border-pencil-light/30 space-y-1">
+                  {hasRoot && (
+                    <div className="flex items-center gap-1.5 text-xs text-pencil-light">
+                      <Info size={12} className="shrink-0" />
+                      <span>Edit .skillignore in Config to change root-level exclusions</span>
+                    </div>
+                  )}
+                  {hasRepo && (
+                    <div className="flex items-center gap-1.5 text-xs text-pencil-light">
+                      <Info size={12} className="shrink-0" />
+                      <span>Tracked repo skills (_{'{repo}'}) are excluded by .skillignore inside the repo</span>
+                    </div>
+                  )}
+                  {!hasRoot && hasRepo && (
+                    <div className="flex items-center gap-1.5 text-xs text-pencil-light">
+                      <Info size={12} className="shrink-0" />
+                      <span>Root .skillignore is empty — all exclusions come from repo-level files</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </Card>
       )}
 
