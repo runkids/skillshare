@@ -260,7 +260,7 @@ function SkillignoreTab({
         </div>
       </Card>
 
-      {stats && stats.ignored_skills.length > 0 && (
+      {stats && stats.ignored_skills && stats.ignored_skills.length > 0 && (
         <Card>
           <div className="flex items-center gap-2 mb-3">
             <EyeOff size={16} strokeWidth={2.5} className="text-pencil-light" />
