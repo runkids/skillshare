@@ -365,6 +365,10 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("PUT /api/config", s.handlePutConfig)
 	s.mux.HandleFunc("GET /api/config/available-targets", s.handleAvailableTargets)
 
+	// Skillignore
+	s.mux.HandleFunc("GET /api/skillignore", s.handleGetSkillignore)
+	s.mux.HandleFunc("PUT /api/skillignore", s.handlePutSkillignore)
+
 	// SPA fallback — must be last
 	if s.uiDistDir != "" {
 		s.mux.Handle("/", spaHandlerFromDisk(s.uiDistDir))
