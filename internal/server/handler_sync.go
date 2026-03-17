@@ -35,7 +35,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Discover skills once for all targets
-	allSkills, err := ssync.DiscoverSourceSkills(s.cfg.Source)
+	allSkills, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(s.cfg.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 		return
@@ -125,7 +125,15 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		"scope":          "ui",
 	}, "")
 
-	writeJSON(w, map[string]any{"results": results})
+	ignoredSkills := []string{}
+	if ignoreStats != nil && len(ignoreStats.IgnoredSkills) > 0 {
+		ignoredSkills = ignoreStats.IgnoredSkills
+	}
+	writeJSON(w, map[string]any{
+		"results":        results,
+		"ignored_count":  len(ignoredSkills),
+		"ignored_skills": ignoredSkills,
+	})
 }
 
 type diffItem struct {
@@ -153,7 +161,7 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 
 	filterTarget := r.URL.Query().Get("target")
 
-	discovered, err := ssync.DiscoverSourceSkills(source)
+	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -167,5 +175,13 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source))
 	}
 
-	writeJSON(w, map[string]any{"diffs": diffs})
+	ignoredSkills := []string{}
+	if ignoreStats != nil && len(ignoreStats.IgnoredSkills) > 0 {
+		ignoredSkills = ignoreStats.IgnoredSkills
+	}
+	writeJSON(w, map[string]any{
+		"diffs":          diffs,
+		"ignored_count":  len(ignoredSkills),
+		"ignored_skills": ignoredSkills,
+	})
 }

@@ -36,7 +36,7 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 
 	safeSend("discovering", map[string]string{"phase": "scanning source directory"})
 
-	discovered, err := ssync.DiscoverSourceSkills(source)
+	discovered, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(source)
 	if err != nil {
 		safeSend("error", map[string]string{"error": err.Error()})
 		return
@@ -64,7 +64,15 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	safeSend("done", map[string]any{"diffs": diffs})
+	ignoredSkills := []string{}
+	if ignoreStats != nil && len(ignoreStats.IgnoredSkills) > 0 {
+		ignoredSkills = ignoreStats.IgnoredSkills
+	}
+	safeSend("done", map[string]any{
+		"diffs":          diffs,
+		"ignored_count":  len(ignoredSkills),
+		"ignored_skills": ignoredSkills,
+	})
 }
 
 // computeTargetDiff computes the diff for a single target.
