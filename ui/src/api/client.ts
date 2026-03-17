@@ -154,17 +154,17 @@ export const api = {
 
   // Sync
   sync: (opts: { dryRun?: boolean; force?: boolean }) =>
-    apiFetch<{ results: SyncResult[] }>('/sync', {
+    apiFetch<SyncResponse>('/sync', {
       method: 'POST',
       body: JSON.stringify(opts),
     }),
   diff: (target?: string) =>
-    apiFetch<{ diffs: DiffTarget[] }>(`/diff${target ? '?target=' + encodeURIComponent(target) : ''}`),
+    apiFetch<{ diffs: DiffTarget[]; ignored_count: number; ignored_skills: string[] }>(`/diff${target ? '?target=' + encodeURIComponent(target) : ''}`),
   diffStream: (
     onDiscovering: () => void,
     onStart: (total: number) => void,
     onResult: (diff: DiffTarget, checked: number) => void,
-    onDone: (data: { diffs: DiffTarget[] }) => void,
+    onDone: (data: { diffs: DiffTarget[]; ignored_count: number; ignored_skills: string[] }) => void,
     onError: (err: Error) => void,
   ): EventSource =>
     createSSEStream(BASE + '/diff/stream', {
@@ -481,6 +481,12 @@ export interface SyncResult {
   updated: string[];
   skipped: string[];
   pruned: string[];
+}
+
+export interface SyncResponse {
+  results: SyncResult[];
+  ignored_count: number;
+  ignored_skills: string[];
 }
 
 export interface DiffTarget {
