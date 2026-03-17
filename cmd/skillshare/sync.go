@@ -602,13 +602,21 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 		ui.Info("Rename one in SKILL.md or adjust include/exclude filters")
 		fmt.Println()
 	} else {
-		// Global collision exists but filters isolate them — single summary line
-		names := make([]string, len(global))
+		// Global collision exists but filters isolate them — show first few names
+		const maxShow = 5
+		names := make([]string, 0, maxShow)
 		for i, c := range global {
-			names[i] = c.Name
+			if i >= maxShow {
+				break
+			}
+			names = append(names, c.Name)
 		}
 		fmt.Println()
-		ui.Info("%d duplicate skill names (isolated by target filters): %s", len(global), strings.Join(names, ", "))
+		if len(global) <= maxShow {
+			ui.Info("%d duplicate skill names (isolated by target filters): %s", len(global), strings.Join(names, ", "))
+		} else {
+			ui.Info("%d duplicate skill names (isolated by target filters): %s, ... and %d more", len(global), strings.Join(names, ", "), len(global)-maxShow)
+		}
 	}
 }
 
