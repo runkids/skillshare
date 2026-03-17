@@ -70,7 +70,7 @@ skillshare ui --no-open &
 | **Audit Rules** | Create and edit custom `audit-rules.yaml` with YAML editor |
 | **Trash** | View soft-deleted skills, restore or permanently delete |
 | **Log** | Operations and audit logs with command/status/time filters |
-| **Config** | YAML config editor with validation |
+| **Config** | YAML config editor + `.skillignore` editor (tab switching) |
 
 ### Theme System
 
@@ -91,7 +91,7 @@ When running in project mode (`-p`), the dashboard adapts:
 - **Git Sync page** is hidden (project skills use the project's own git)
 - **Backup & Restore page** is hidden (use version control instead)
 - **Tracked Repos section** is hidden from Dashboard (not applicable)
-- **Config page** shows `.skillshare/config.yaml` instead of the global config
+- **Config page** shows `.skillshare/config.yaml` and project-level `.skillignore` instead of the global versions
 - **Available targets** lists project-level targets (e.g., `.claude/skills/` relative to project root)
 - **Install** automatically reconciles `skills:` entries in the project config
 
@@ -130,6 +130,9 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | GET | `/api/log` | List log entries with optional filters |
 | GET | `/api/config` | Get config as YAML |
 | PUT | `/api/config` | Update config YAML |
+| GET | `/api/skillignore` | Get `.skillignore` content + ignore stats |
+| PUT | `/api/skillignore` | Update `.skillignore` content |
+| GET | `/api/doctor` | Run all health checks (JSON) |
 
 ## Docker Usage
 

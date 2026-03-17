@@ -132,7 +132,14 @@ skillshare status --json
 {
   "source": {
     "path": "~/.config/skillshare/skills",
-    "exists": true
+    "exists": true,
+    "skillignore": {
+      "active": true,
+      "files": [".skillignore", "_team-skills/.skillignore"],
+      "patterns": ["test-*", "vendor/"],
+      "ignored_count": 2,
+      "ignored_skills": ["test-draft", "vendor/lib"]
+    }
   },
   "skill_count": 12,
   "tracked_repos": [
@@ -159,6 +166,8 @@ skillshare status --json
   "version": "0.16.12"
 }
 ```
+
+The `source.skillignore` field is present only when at least one `.skillignore` file exists. When absent: `"skillignore": { "active": false }`.
 
 :::note
 `--json` is only supported in global mode. In project mode, it returns an error.

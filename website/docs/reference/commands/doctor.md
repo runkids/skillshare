@@ -213,13 +213,16 @@ skillshare doctor --json
 {
   "checks": [
     { "name": "source", "status": "pass", "message": "Source: ~/.config/skillshare/skills (12 skills)" },
+    { "name": "skillignore", "status": "pass", "message": ".skillignore: 3 patterns, 2 skills ignored", "details": ["test-*", "vendor/", "!important", "---", "test-draft", "vendor/lib"] },
     { "name": "sync_drift", "status": "warning", "message": "claude: 1 skill(s) not synced (7/8 linked)", "details": ["new-skill"] },
     { "name": "broken_symlinks", "status": "error", "message": "cursor: 1 broken symlink(s)", "details": ["old-skill"] }
   ],
-  "summary": { "total": 13, "pass": 11, "warnings": 1, "errors": 1 },
+  "summary": { "total": 14, "pass": 12, "warnings": 1, "errors": 1, "info": 0 },
   "version": { "current": "0.17.4", "latest": "0.18.0", "update_available": true }
 }
 ```
+
+Check statuses: `pass`, `warning`, `error`, `info`. The `info` status is used for informational checks (e.g., `.skillignore` not found) that are neither passing nor failing. Info checks count toward `total` but not toward `pass`, `warnings`, or `errors`.
 
 ### Exit Codes
 
