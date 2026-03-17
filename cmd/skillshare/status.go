@@ -224,7 +224,7 @@ func printSkillignoreLine(stats *skillignore.IgnoreStats) {
 	if stats == nil || !stats.Active() {
 		return
 	}
-	ui.Info("  .skillignore: %d patterns, %d skills ignored", stats.PatternCount(), stats.IgnoredCount())
+	ui.Info(".skillignore: %d patterns, %d skills ignored", stats.PatternCount(), stats.IgnoredCount())
 }
 
 func buildSkillignoreJSON(stats *skillignore.IgnoreStats) *statusJSONSourceIgnore {

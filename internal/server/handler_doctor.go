@@ -14,6 +14,8 @@ func (s *Server) handleDoctor(w http.ResponseWriter, r *http.Request) {
 
 	if s.IsProjectMode() {
 		args = append(args, "-p")
+	} else {
+		args = append(args, "-g")
 	}
 
 	path, err := os.Executable()
