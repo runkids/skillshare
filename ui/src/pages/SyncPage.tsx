@@ -36,6 +36,8 @@ export default function SyncPage() {
   const [syncing, setSyncing] = useState(false);
   const [results, setResults] = useState<SyncResult[] | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [ignoredSkills, setIgnoredSkills] = useState<string[]>([]);
+  const [ignoredExpanded, setIgnoredExpanded] = useState(false);
   const { toast } = useToast();
   const toastRef = useRef(toast);
   useEffect(() => { toastRef.current = toast; });
@@ -55,6 +57,7 @@ export default function SyncPage() {
     esRef.current?.close();
     setDiffLoading(true);
     setDiffProgress(null);
+    setIgnoredSkills([]);
     startTimeRef.current = Date.now();
 
     esRef.current = api.diffStream(
@@ -63,6 +66,7 @@ export default function SyncPage() {
       (_diff, checked) => setDiffProgress((p) => p ? { ...p, checked } : null),
       (data) => {
         setDiffData(data.diffs);
+        setIgnoredSkills(data.ignored_skills ?? []);
         setDiffLoading(false);
         setDiffProgress(null);
       },
@@ -81,6 +85,7 @@ export default function SyncPage() {
     try {
       const res = await api.sync({ dryRun, force });
       setResults(res.results);
+      setIgnoredSkills(res.ignored_skills ?? []);
       if (dryRun) {
         toast('Dry run complete -- no changes were made.', 'info');
       } else {
@@ -211,6 +216,9 @@ export default function SyncPage() {
               {pendingSkips > 0 && <Badge variant="warning">{pendingSkips} skipped</Badge>}
               {pendingPrunes > 0 && <Badge variant="danger">{pendingPrunes} to prune</Badge>}
               {pendingLocal > 0 && <Badge variant="default">{pendingLocal} local only</Badge>}
+              {ignoredSkills.length > 0 && (
+                <Badge variant="default">{ignoredSkills.length} ignored</Badge>
+              )}
             </div>
           ) : pendingLocal > 0 ? (
             <div className="flex flex-wrap items-center justify-center gap-3">
@@ -221,13 +229,21 @@ export default function SyncPage() {
                 </span>
               </div>
               <Badge variant="default">{pendingLocal} local only</Badge>
+              {ignoredSkills.length > 0 && (
+                <Badge variant="default">{ignoredSkills.length} ignored</Badge>
+              )}
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-success">
-              <CheckCircle size={18} strokeWidth={2.5} />
-              <span className="text-base font-medium">
-                All targets are in sync!
-              </span>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <div className="flex items-center gap-2 text-success">
+                <CheckCircle size={18} strokeWidth={2.5} />
+                <span className="text-base font-medium">
+                  All targets are in sync!
+                </span>
+              </div>
+              {ignoredSkills.length > 0 && (
+                <Badge variant="default">{ignoredSkills.length} ignored</Badge>
+              )}
             </div>
           )}
 
@@ -299,6 +315,29 @@ export default function SyncPage() {
             {dryRun ? 'Preview Results' : 'Results'}
           </h2>
           <SyncResults results={results} />
+        </div>
+      )}
+
+      {/* Ignored skills collapsible */}
+      {ignoredSkills.length > 0 && (
+        <div className="space-y-2">
+          <button
+            type="button"
+            className="flex items-center gap-2 text-sm text-pencil-light hover:text-pencil transition-colors"
+            onClick={() => setIgnoredExpanded((prev) => !prev)}
+          >
+            <span className="text-xs">{ignoredExpanded ? '\u25BC' : '\u25B6'}</span>
+            <span>Ignored by .skillignore ({ignoredSkills.length})</span>
+          </button>
+          {ignoredExpanded && (
+            <div className="ml-5 space-y-1">
+              {ignoredSkills.map((skill) => (
+                <div key={skill} className="text-sm text-pencil-light font-mono">
+                  {skill}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
