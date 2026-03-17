@@ -54,6 +54,27 @@
 - **Parent directory inheritance** — if a directory is ignored, all its contents are automatically ignored too. `vendor` in `.skillignore` will exclude `vendor/lib/deep/skill` without needing `vendor/**`
 - **Safe directory skipping with negation** — when negation patterns (`!`) are present, skillshare avoids skipping parent directories prematurely, ensuring negated skills inside ignored directories are still discovered
 
+#### .skillignore Visibility
+
+- **`status` shows .skillignore info** — when a `.skillignore` file exists, `status` now displays an extra line below the source path showing active pattern count and ignored skill count:
+  ```
+  Source: ~/.config/skillshare/skills (12 skills)
+    .skillignore: 5 patterns, 3 skills ignored
+  ```
+- **`status --json` includes skillignore field** — the `source` object in JSON output now includes a `skillignore` field with `active`, `files`, `patterns`, `ignored_count`, and `ignored_skills`
+- **`doctor --json` skillignore check** — a new `skillignore` check appears in the doctor output. Shows `pass` with pattern/ignored counts when `.skillignore` exists, or `info` status when absent
+- **`info` status in doctor** — new fourth status alongside `pass`/`warning`/`error` for informational checks that are neither passing nor failing. Does not count toward errors or warnings
+
+#### Web UI — .skillignore Editor
+
+- **Config page tabs** — the Config page now has two tabs: `config.yaml` and `.skillignore`, switchable via the same pill toggle used on the Skills and Doctor pages. Each tab has independent save state
+- **`.skillignore` editor** — full CodeMirror text editor for `.skillignore` with live stats showing how many skills are currently ignored. Below the editor, an "Ignored Skills" summary shows which skills are excluded
+- **`GET/PUT /api/skillignore`** — new API endpoints for reading and writing the `.skillignore` file with ignore statistics
+
+#### Web UI — Doctor Page Unification
+
+- **SegmentedControl filter** — the Doctor page filter toggles (All/Error/Warning/Pass) now use the same `SegmentedControl` component as the Skills page, replacing the previous hand-styled buttons for visual consistency
+
 ### Bug Fixes
 
 - **`.skillignore` respected in all discovery paths** — `.skillignore` patterns were not applied during source discovery, causing `doctor` to report false "unverifiable (no metadata)" warnings for intentionally excluded directories (e.g., `.venv/` inside tracked repos). Discovery now consistently honors `.skillignore` across all commands ([#83](https://github.com/runkids/skillshare/issues/83))
