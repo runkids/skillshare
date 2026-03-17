@@ -1,9 +1,22 @@
 package main
 
+import (
+	"fmt"
+
+	versioncheck "skillshare/internal/version"
+)
+
+// Check status constants.
+const (
+	checkPass    = "pass"
+	checkWarning = "warning"
+	checkError   = "error"
+)
+
 // doctorCheck represents a single health check result for JSON output.
 type doctorCheck struct {
 	Name    string   `json:"name"`
-	Status  string   `json:"status"` // "pass", "warning", "error"
+	Status  string   `json:"status"` // checkPass, checkWarning, checkError
 	Message string   `json:"message"`
 	Details []string `json:"details,omitempty"`
 }
@@ -27,15 +40,19 @@ type doctorVersion struct {
 	UpdateAvailable bool   `json:"update_available"`
 }
 
+// buildDoctorOutput assembles the final JSON from collected checks.
+// Counts are derived from the checks slice (not from result.errors/warnings)
+// because check-level counts may differ from the text-mode counters when a
+// single check function calls addError/addWarning multiple times.
 func buildDoctorOutput(result *doctorResult) doctorOutput {
 	var pass, warnings, errors int
 	for _, c := range result.checks {
 		switch c.Status {
-		case "pass":
+		case checkPass:
 			pass++
-		case "warning":
+		case checkWarning:
 			warnings++
-		case "error":
+		case checkError:
 			errors++
 		}
 	}
@@ -48,4 +65,21 @@ func buildDoctorOutput(result *doctorResult) doctorOutput {
 			Errors:   errors,
 		},
 	}
+}
+
+// finalizeDoctorJSON writes the JSON output and returns an appropriate error.
+// Shared by cmdDoctorGlobal and cmdDoctorProject.
+func finalizeDoctorJSON(restoreUI func(), result *doctorResult, updateCh <-chan *versioncheck.CheckResult) error {
+	restoreUI()
+	output := buildDoctorOutput(result)
+	updateResult := <-updateCh
+	output.Version = &doctorVersion{Current: version}
+	if updateResult != nil && updateResult.UpdateAvailable {
+		output.Version.Latest = updateResult.LatestVersion
+		output.Version.UpdateAvailable = true
+	}
+	if result.errors > 0 {
+		return writeJSONResult(output, fmt.Errorf("doctor found %d error(s)", result.errors))
+	}
+	return writeJSON(output)
 }

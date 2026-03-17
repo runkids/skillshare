@@ -1,3 +1,5 @@
+// TODO: Move doctor check logic from cmd/skillshare/ to internal/doctor/
+// so the server can call it directly instead of shelling out to the CLI binary.
 package server
 
 import (
