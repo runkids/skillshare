@@ -220,10 +220,95 @@ Expected:
 - 4 skills)
 - exit_code: 0
 
+### Step 12: Create root-level .skillignore with wildcard pattern
+
+```bash
+SOURCE=~/.config/skillshare/skills
+
+mkdir -p "$SOURCE/draft-wip"
+cat > "$SOURCE/draft-wip/SKILL.md" << 'SKILL'
+---
+name: draft-wip
+description: Work in progress
+---
+# Draft
+SKILL
+
+mkdir -p "$SOURCE/draft-experiment"
+cat > "$SOURCE/draft-experiment/SKILL.md" << 'SKILL'
+---
+name: draft-experiment
+description: Experiment
+---
+# Experiment
+SKILL
+
+printf "draft-*\n" > "$SOURCE/.skillignore"
+echo "ROOT SKILLIGNORE CREATED"
+cat "$SOURCE/.skillignore"
+```
+
+Expected:
+- ROOT SKILLIGNORE CREATED
+- draft-*
+- exit_code: 0
+
+### Step 13: Verify root .skillignore hides matching skills from list
+
+```bash
+ss list --json -g | jq -r '[.[] | select(.name | test("draft")) | .name] | length'
+```
+
+Expected:
+- 0
+- exit_code: 0
+
+### Step 14: Root .skillignore skips entire tracked repo
+
+```bash
+SOURCE=~/.config/skillshare/skills
+
+printf "draft-*\n_team-skills\n" > "$SOURCE/.skillignore"
+
+ss list --json -g | jq -r '[.[] | select(.name | test("_team-skills")) | .name] | length'
+```
+
+Expected:
+- 0
+- exit_code: 0
+
+### Step 15: Doctor source count drops with root .skillignore
+
+```bash
+ss doctor -g 2>&1 | grep -oP '\d+ skills\)' | head -1
+```
+
+Expected:
+- regex: \d+ skills\)
+- exit_code: 0
+
+### Step 16: Remove root .skillignore — everything comes back
+
+```bash
+SOURCE=~/.config/skillshare/skills
+rm -f "$SOURCE/.skillignore"
+
+ss list --json -g | jq -r '[.[] | select(.name | test("draft|_team-skills")) | .name] | sort | join(",")'
+```
+
+Expected:
+- _team-skills__coding-standards
+- _team-skills__production-tool
+- draft-experiment
+- draft-wip
+- exit_code: 0
+
 ## Pass Criteria
 
-- All 11 steps pass
+- All 16 steps pass
 - `.skillignore` patterns (exact and wildcard) are respected by list, status, doctor, sync
 - Vendored SKILL.md files in `.venv/` and `test-*` dirs never appear in any command output
-- Non-tracked repos are unaffected by `.skillignore`
+- Non-tracked repos are unaffected by repo-level `.skillignore`
+- Root-level `.skillignore` hides skills globally (tracked and non-tracked)
+- Removing root `.skillignore` restores all skills
 - Target directories only receive symlinks for non-ignored skills
