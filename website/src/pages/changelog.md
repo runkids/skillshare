@@ -40,6 +40,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ### Bug Fixes
 
+- **`.skillignore` respected in all discovery paths** — `.skillignore` patterns were not applied during source discovery, causing `doctor` to report false "unverifiable (no metadata)" warnings for intentionally excluded directories (e.g., `.venv/` inside tracked repos). Discovery now consistently honors `.skillignore` across all commands ([#83](https://github.com/runkids/skillshare/issues/83))
 - **Doctor check labels** — the web UI Health Check page shows human-readable labels ("Source Directory", "Sync Status") instead of raw identifiers (`source`, `sync_drift`)
 
 ## [0.17.3] - 2026-03-16
