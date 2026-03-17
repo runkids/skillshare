@@ -20,7 +20,7 @@ func ReadPatterns(dir string) []string {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		patterns = append(patterns, line)
+		patterns = append(patterns, strings.TrimRight(line, "/"))
 	}
 	return patterns
 }
