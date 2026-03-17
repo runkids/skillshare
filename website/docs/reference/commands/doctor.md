@@ -82,12 +82,13 @@ For tracked skills with `.skillshare-meta.json` file hashes, doctor verifies tha
 
 - Compares current SHA-256 hashes against stored hashes
 - Reports modified, missing, and added files per skill
-- Skills without metadata are flagged as "unverifiable"
+- Local skills (no `.skillshare-meta.json`) are silently skipped — this is expected
+- Installed skills with metadata but missing `file_hashes` are flagged with their names
 
 ```text
 ⚠ _team-repo__api-helper: 1 modified, 1 missing
 ✓ Skill integrity: 5/6 verified
-⚠ Skill integrity: 2 skill(s) unverifiable (no metadata)
+⚠ Skill integrity: 1 skill(s) missing file hashes: _old-repo__legacy-skill
 ```
 
 ### Extras
@@ -178,7 +179,6 @@ Checking environment
 ⚠ Skills without SKILL.md: test-dir, temp
 ⚠ _team-repo__api-helper: 1 modified
 ✓ Skill integrity: 5/6 verified
-⚠ Skill integrity: 1 skill(s) unverifiable (no metadata)
 
 Checking targets
   ✓ claude    [merge]: merged (8 shared, 2 local)
