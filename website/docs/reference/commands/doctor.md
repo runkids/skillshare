@@ -29,7 +29,12 @@ skillshare doctor
 
 Checking environment
   ✓ Config: ~/.config/skillshare/config.yaml
+  → Config directory: ~/.config/skillshare
+  → Data directory:   ~/.local/share/skillshare
+  → State directory:  ~/.local/state/skillshare
+
   ✓ Source: ~/.config/skillshare/skills (12 skills)
+  ✓ Skillignore: 2 patterns, 1 skills ignored
   ✓ Link support: OK
   ✓ Git: initialized with remote
 
@@ -54,6 +59,7 @@ Summary
 |-------|-----------------|
 | Config | Config file exists and is valid |
 | Source | Source directory exists and is readable |
+| Skillignore | `.skillignore` active patterns and ignored skill count |
 | Link support | System can create symlinks |
 | Git | Repository status and remote configuration |
 

@@ -113,6 +113,8 @@ skillshare sync --json
   "local": 2,
   "updated": 0,
   "pruned": 1,
+  "ignored_count": 2,
+  "ignored_skills": ["_team/vendor/lib", "test-draft"],
   "dry_run": false,
   "duration": "0.234s",
   "details": [
@@ -135,6 +137,8 @@ skillshare sync --json
   ]
 }
 ```
+
+The `ignored_count` and `ignored_skills` fields show skills excluded by `.skillignore`. These are filtered at discovery time and never reach any target. See [.skillignore](/docs/reference/targets/configuration#skillignore) for pattern syntax.
 
 ### What Happens
 
