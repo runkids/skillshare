@@ -201,7 +201,7 @@ my-experimental-skill
 draft-*
 ```
 
-One pattern per line. Patterns match against skill paths — a group name like `internal-tools` excludes all skills under that directory, while `internal-tools/helper` excludes only a specific skill. Also supports trailing wildcard (`prefix-*`). Lines starting with `#` are comments. Both layers apply — if either matches, the skill is excluded.
+Uses [gitignore syntax](https://git-scm.com/docs/gitignore) — one pattern per line. Supports `*` (single segment), `**` (any depth), `?`, `[abc]` (character class), `!pattern` (negation), `/pattern` (anchored), `pattern/` (directory-only), and `\#`/`\!` (escaped literals). Lines starting with `#` are comments. A group name like `internal-tools` excludes all skills under that directory; `internal-tools/helper` excludes only a specific skill. Both layers apply — if either matches, the skill is excluded.
 
 ### .skillshare-meta.json (Auto-generated)
 

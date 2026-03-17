@@ -146,12 +146,13 @@ func discoverSkills(repoPath string, includeRoot bool) []SkillInfo {
 		return nil
 	})
 
-	// Apply .skillignore filtering
-	patterns := skillignore.ReadPatterns(repoPath)
-	if len(patterns) > 0 {
+	// Apply .skillignore filtering.
+	// Skill paths are directories (they contain SKILL.md), so pass isDir=true.
+	matcher := skillignore.ReadMatcher(repoPath)
+	if matcher.HasRules() {
 		filtered := skills[:0]
 		for _, s := range skills {
-			if !skillignore.Match(s.Path, patterns) {
+			if !matcher.Match(s.Path, true) {
 				filtered = append(filtered, s)
 			}
 		}

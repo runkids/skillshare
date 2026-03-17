@@ -549,7 +549,7 @@ func TestDoctor_JSON_AllGood(t *testing.T) {
 	defer sb.Cleanup()
 
 	sb.CreateSkill("skill1", map[string]string{
-		"SKILL.md": "# Skill 1",
+		"SKILL.md":              "# Skill 1",
 		".skillshare-meta.json": `{"source":"test","type":"local","installed_at":"2026-01-01T00:00:00Z","file_hashes":{"SKILL.md":"sha256:c90671f17f3b99f87d8fe1a542ee2d6829d2b2cfb7684d298e44c7591d8b0712"}}`,
 	})
 	targetPath := sb.CreateTarget("claude")

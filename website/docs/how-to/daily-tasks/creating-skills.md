@@ -307,13 +307,20 @@ validation-scripts
 scaffold-template
 
 # Exclude an entire group directory
-internal-tools
+internal-tools/
 
 # Work in progress
 prompt-eval-*
+
+# Ignore temp at any depth
+**/temp
+
+# Exclude tests but keep test-critical
+test-*
+!test-critical
 ```
 
-Patterns match against skill paths, so a group name like `internal-tools` excludes **all** skills under that directory. Use a precise path like `internal-tools/helper` to exclude only a specific skill within a group.
+`.skillignore` uses [gitignore syntax](https://git-scm.com/docs/gitignore) — supports `*`, `**`, `?`, `[abc]`, `!negation`, `/anchored`, `pattern/` (dir-only), and `\#`/`\!` escapes. A group name like `internal-tools` excludes **all** skills under that directory. Use a precise path like `internal-tools/helper` to exclude only a specific skill within a group.
 
 Skills matching these patterns won't appear in `skillshare install <repo>` discovery. This is applied server-side (in the repo), so all users benefit automatically. See [`runkids/my-skills`](https://github.com/runkids/my-skills) for a real-world example, and [install --exclude](/docs/reference/commands/install#excluding-skills) for user-side exclusion.
 
@@ -326,10 +333,14 @@ You can also place a `.skillignore` at your **source root** (`~/.config/skillsha
 my-experimental-skill
 
 # Exclude all draft skills
-draft-*
+[Dd]raft*
 
 # Hide an entire tracked repo
 _archived-team-skills
+
+# Ignore vendored deps at any depth
+**/node_modules
+*.venv
 ```
 
 Both layers apply: source-root patterns affect all skills (tracked and non-tracked), while repo-level patterns affect only that repo's skills. If either layer matches, the skill is excluded.

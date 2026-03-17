@@ -29,9 +29,35 @@
   ```
 - **SkipDir optimization** — directories matching `.skillignore` patterns are now skipped entirely during discovery (not entered), improving performance for large source trees
 
+#### Full Gitignore Syntax for .skillignore
+
+- **Gitignore-compatible pattern matching** — `.skillignore` now supports the full gitignore syntax instead of just exact names, prefixes, and trailing `*`. New supported features:
+
+  | Pattern | Example | Behavior |
+  |---------|---------|----------|
+  | `**` | `**/test` | Match at any directory depth |
+  | `?` | `?.md` | Match a single character |
+  | `[abc]` | `[Tt]est` | Character class |
+  | `!pattern` | `!important` | Negation — un-ignore a previously ignored skill |
+  | `/pattern` | `/root-only` | Anchored to the .skillignore location |
+  | `pattern/` | `build/` | Match directories only |
+  | `\#`, `\!` | `\#file` | Escaped literal characters |
+
+  ```bash
+  # .skillignore — now supports gitignore syntax
+  **/temp              # Ignore "temp" at any depth
+  test-*               # Ignore all test- prefixed skills
+  !test-important      # But keep test-important
+  vendor/              # Ignore vendor directories only
+  [Dd]raft*            # Character class matching
+  ```
+- **Parent directory inheritance** — if a directory is ignored, all its contents are automatically ignored too. `vendor` in `.skillignore` will exclude `vendor/lib/deep/skill` without needing `vendor/**`
+- **Safe directory skipping with negation** — when negation patterns (`!`) are present, skillshare avoids skipping parent directories prematurely, ensuring negated skills inside ignored directories are still discovered
+
 ### Bug Fixes
 
 - **`.skillignore` respected in all discovery paths** — `.skillignore` patterns were not applied during source discovery, causing `doctor` to report false "unverifiable (no metadata)" warnings for intentionally excluded directories (e.g., `.venv/` inside tracked repos). Discovery now consistently honors `.skillignore` across all commands ([#83](https://github.com/runkids/skillshare/issues/83))
+- **`.skillignore` directory-only patterns during install** — patterns with trailing slash (e.g., `demo/`) now correctly match directories during `skillshare install` discovery, not just during sync
 - **Quieter integrity checks** — `doctor` no longer warns about locally-created skills missing metadata (this is expected). Only installed skills with incomplete metadata are flagged, with skill names listed for easy identification
 - **Doctor check labels** — the web UI Health Check page shows human-readable labels ("Source Directory", "Sync Status") instead of raw identifiers (`source`, `sync_drift`)
 

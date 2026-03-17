@@ -26,18 +26,18 @@ type DiscoveredSkill struct {
 }
 
 // isSkillIgnored checks whether a skill inside a tracked repo should be
-// skipped based on the repo's .skillignore patterns.
+// skipped based on the repo's .skillignore matcher.
 // parts is strings.Split(relPath, "/"), where relPath is relative to source root.
-func isSkillIgnored(parts []string, walkRoot string, ignorePatterns map[string][]string) bool {
+func isSkillIgnored(parts []string, walkRoot string, ignoreMatchers map[string]*skillignore.Matcher) bool {
 	if len(parts) < 2 {
 		return false
 	}
 	repoAbsPath := filepath.Join(walkRoot, parts[0])
-	patterns, ok := ignorePatterns[repoAbsPath]
+	m, ok := ignoreMatchers[repoAbsPath]
 	if !ok {
 		return false
 	}
-	return skillignore.Match(strings.Join(parts[1:], "/"), patterns)
+	return m.Match(strings.Join(parts[1:], "/"), false)
 }
 
 // DiscoverSourceSkillsLite recursively scans the source directory for skills
@@ -49,11 +49,11 @@ func isSkillIgnored(parts []string, walkRoot string, ignorePatterns map[string][
 func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, error) {
 	var skills []DiscoveredSkill
 	var trackedRepos []string
-	trackedRepoPaths := make(map[string]bool)   // track paths to detect nested tracked repos
-	ignorePatterns := make(map[string][]string) // tracked repo abs path → .skillignore patterns
+	trackedRepoPaths := make(map[string]bool)              // track paths to detect nested tracked repos
+	ignoreMatchers := make(map[string]*skillignore.Matcher) // tracked repo abs path → .skillignore matcher
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
-	rootPatterns := skillignore.ReadPatterns(walkRoot)
+	rootMatcher := skillignore.ReadMatcher(walkRoot)
 
 	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -66,11 +66,11 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 		}
 
 		// Skip directories matching root-level .skillignore
-		if info.IsDir() && len(rootPatterns) > 0 {
+		if info.IsDir() {
 			relPath, relErr := filepath.Rel(walkRoot, path)
 			if relErr == nil && relPath != "." {
 				relPath = strings.ReplaceAll(relPath, "\\", "/")
-				if skillignore.Match(relPath, rootPatterns) {
+				if rootMatcher.CanSkipDir(relPath) {
 					return filepath.SkipDir
 				}
 			}
@@ -85,8 +85,9 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 					trackedRepos = append(trackedRepos, relPath)
 					trackedRepoPaths[path] = true
 				}
-				if patterns := skillignore.ReadPatterns(path); len(patterns) > 0 {
-					ignorePatterns[path] = patterns
+				m := skillignore.ReadMatcher(path)
+				if m.HasRules() {
+					ignoreMatchers[path] = m
 				}
 			}
 		}
@@ -99,9 +100,9 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 				parts := strings.Split(relPath, "/")
 				if len(parts) > 1 && utils.IsTrackedRepoDir(parts[0]) {
 					repoAbsPath := filepath.Join(walkRoot, parts[0])
-					if patterns, ok := ignorePatterns[repoAbsPath]; ok {
+					if m, ok := ignoreMatchers[repoAbsPath]; ok {
 						repoRelPath := strings.Join(parts[1:], "/")
-						if skillignore.Match(repoRelPath, patterns) {
+						if m.CanSkipDir(repoRelPath) {
 							return filepath.SkipDir
 						}
 					}
@@ -124,7 +125,7 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 			relPath = strings.ReplaceAll(relPath, "\\", "/")
 
 			// Root-level .skillignore fallback (for files in non-skipped dirs)
-			if skillignore.Match(relPath, rootPatterns) {
+			if rootMatcher.Match(relPath, false) {
 				return nil
 			}
 
@@ -134,7 +135,7 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 				isInRepo = true
 			}
 
-			if isInRepo && isSkillIgnored(parts, walkRoot, ignorePatterns) {
+			if isInRepo && isSkillIgnored(parts, walkRoot, ignoreMatchers) {
 				return nil
 			}
 
@@ -165,10 +166,10 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 // Returns all discovered skills with their metadata for syncing.
 func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 	var skills []DiscoveredSkill
-	ignorePatterns := make(map[string][]string) // tracked repo abs path → .skillignore patterns
+	ignoreMatchers := make(map[string]*skillignore.Matcher) // tracked repo abs path → .skillignore matcher
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
-	rootPatterns := skillignore.ReadPatterns(walkRoot)
+	rootMatcher := skillignore.ReadMatcher(walkRoot)
 
 	err := filepath.Walk(walkRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -182,11 +183,11 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 		}
 
 		// Skip directories matching root-level .skillignore
-		if info.IsDir() && len(rootPatterns) > 0 {
+		if info.IsDir() {
 			relPath, relErr := filepath.Rel(walkRoot, path)
 			if relErr == nil && relPath != "." {
 				relPath = strings.ReplaceAll(relPath, "\\", "/")
-				if skillignore.Match(relPath, rootPatterns) {
+				if rootMatcher.CanSkipDir(relPath) {
 					return filepath.SkipDir
 				}
 			}
@@ -196,8 +197,9 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 		if info.IsDir() && info.Name() != "." && utils.IsTrackedRepoDir(info.Name()) {
 			gitDir := filepath.Join(path, ".git")
 			if _, statErr := os.Stat(gitDir); statErr == nil {
-				if patterns := skillignore.ReadPatterns(path); len(patterns) > 0 {
-					ignorePatterns[path] = patterns
+				m := skillignore.ReadMatcher(path)
+				if m.HasRules() {
+					ignoreMatchers[path] = m
 				}
 			}
 		}
@@ -210,9 +212,9 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 				parts := strings.Split(relPath, "/")
 				if len(parts) > 1 && utils.IsTrackedRepoDir(parts[0]) {
 					repoAbsPath := filepath.Join(walkRoot, parts[0])
-					if patterns, ok := ignorePatterns[repoAbsPath]; ok {
+					if m, ok := ignoreMatchers[repoAbsPath]; ok {
 						repoRelPath := strings.Join(parts[1:], "/")
-						if skillignore.Match(repoRelPath, patterns) {
+						if m.CanSkipDir(repoRelPath) {
 							return filepath.SkipDir
 						}
 					}
@@ -237,7 +239,7 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 			relPath = strings.ReplaceAll(relPath, "\\", "/")
 
 			// Root-level .skillignore fallback
-			if skillignore.Match(relPath, rootPatterns) {
+			if rootMatcher.Match(relPath, false) {
 				return nil
 			}
 
@@ -248,7 +250,7 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 				isInRepo = true
 			}
 
-			if isInRepo && isSkillIgnored(parts, walkRoot, ignorePatterns) {
+			if isInRepo && isSkillIgnored(parts, walkRoot, ignoreMatchers) {
 				return nil
 			}
 

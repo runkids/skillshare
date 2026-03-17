@@ -621,14 +621,23 @@ Combined with `--exclude`, users can further narrow the selection:
 skillshare install runkids/my-skills --exclude seo
 ```
 
-**Format:**
-- One pattern per line
-- Lines starting with `#` are comments
-- Empty lines are ignored
-- Exact path match: `validation-scripts` (matches a skill at that path)
-- Group match: `feature-radar` (matches **all** skills under `feature-radar/`)
-- Precise path: `feature-radar/feature-radar` (matches only that specific skill, not the whole group)
-- Trailing wildcard: `prompt-eval-*` (matches any path starting with `prompt-eval-`)
+**Format** — uses [gitignore syntax](https://git-scm.com/docs/gitignore):
+
+| Pattern | Example | Behavior |
+|---------|---------|----------|
+| Exact name | `validation-scripts` | Matches a skill at that path |
+| Group match | `feature-radar` | Matches **all** skills under `feature-radar/` |
+| Precise path | `feature-radar/feature-radar` | Only that specific skill |
+| `*` wildcard | `prompt-eval-*` | Matches one segment (does not cross `/`) |
+| `**` | `**/temp` | Matches at any directory depth |
+| `?` | `?.md` | Matches a single character |
+| `[abc]` | `[Tt]est` | Character class |
+| `!pattern` | `!important` | Negation — un-ignore a previously matched skill |
+| `/pattern` | `/root-only` | Anchored to the `.skillignore` location |
+| `pattern/` | `build/` | Directory-only match |
+| `\#`, `\!` | `\#file` | Escaped literal characters |
+
+Lines starting with `#` are comments. Empty lines are ignored.
 
 **Recommended scenarios:**
 - Publishing a multi-skill repository while hiding internal tools or work-in-progress skills
