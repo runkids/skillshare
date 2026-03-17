@@ -40,7 +40,9 @@ func TestMatch_NoMatch(t *testing.T) {
 func TestReadPatterns_ParsesFile(t *testing.T) {
 	dir := t.TempDir()
 	content := "# Comment line\n\ndebug-tool\ntest-*\nexperimental\n"
-	os.WriteFile(filepath.Join(dir, ".skillignore"), []byte(content), 0644)
+	if err := os.WriteFile(filepath.Join(dir, ".skillignore"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	patterns := ReadPatterns(dir)
 	if len(patterns) != 3 {

@@ -25,6 +25,21 @@ type DiscoveredSkill struct {
 	Targets    []string // From SKILL.md frontmatter; nil = all targets
 }
 
+// isSkillIgnored checks whether a skill inside a tracked repo should be
+// skipped based on the repo's .skillignore patterns.
+// parts is strings.Split(relPath, "/"), where relPath is relative to source root.
+func isSkillIgnored(parts []string, walkRoot string, ignorePatterns map[string][]string) bool {
+	if len(parts) < 2 {
+		return false
+	}
+	repoAbsPath := filepath.Join(walkRoot, parts[0])
+	patterns, ok := ignorePatterns[repoAbsPath]
+	if !ok {
+		return false
+	}
+	return skillignore.Match(strings.Join(parts[1:], "/"), patterns)
+}
+
 // DiscoverSourceSkillsLite recursively scans the source directory for skills
 // without parsing SKILL.md frontmatter. Targets is always nil for each skill.
 // It also collects tracked repo paths (directories starting with _ that contain
@@ -50,7 +65,7 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 		}
 
 		// Collect tracked repos: _-prefixed directories that are git repos
-		if info.IsDir() && info.Name() != "." && info.Name()[0] == '_' {
+		if info.IsDir() && info.Name() != "." && utils.IsTrackedRepoDir(info.Name()) {
 			gitDir := filepath.Join(path, ".git")
 			if _, statErr := os.Stat(gitDir); statErr == nil {
 				relPath, relErr := filepath.Rel(walkRoot, path)
@@ -84,15 +99,8 @@ func DiscoverSourceSkillsLite(sourcePath string) ([]DiscoveredSkill, []string, e
 				isInRepo = true
 			}
 
-			// Check .skillignore for tracked repos
-			if isInRepo && len(parts) > 1 {
-				repoAbsPath := filepath.Join(walkRoot, parts[0])
-				if patterns, ok := ignorePatterns[repoAbsPath]; ok {
-					repoRelPath := strings.Join(parts[1:], "/")
-					if skillignore.Match(repoRelPath, patterns) {
-						return nil
-					}
-				}
+			if isInRepo && isSkillIgnored(parts, walkRoot, ignorePatterns) {
+				return nil
 			}
 
 			// Skip frontmatter parsing — Targets stays nil
@@ -170,15 +178,8 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 				isInRepo = true
 			}
 
-			// Check .skillignore for tracked repos
-			if isInRepo && len(parts) > 1 {
-				repoAbsPath := filepath.Join(walkRoot, parts[0])
-				if patterns, ok := ignorePatterns[repoAbsPath]; ok {
-					repoRelPath := strings.Join(parts[1:], "/")
-					if skillignore.Match(repoRelPath, patterns) {
-						return nil
-					}
-				}
+			if isInRepo && isSkillIgnored(parts, walkRoot, ignorePatterns) {
+				return nil
 			}
 
 			// Use original sourcePath for SourcePath to preserve the caller's
