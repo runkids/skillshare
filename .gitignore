@@ -33,6 +33,7 @@ docs/superpowers/
 .feature-radar/
 .cache/
 .playwright-mcp
+.superpowers/
 
 
 # Worktrees
