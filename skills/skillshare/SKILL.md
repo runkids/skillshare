@@ -113,6 +113,7 @@ skillshare target list --json                  # Target list as JSON
 skillshare list --json                         # Skill list as JSON
 skillshare search react --json                 # Search results as JSON
 skillshare audit --format json                 # Audit results as JSON
+skillshare doctor --json                       # Health check as JSON (exit 1 on errors)
 ```
 ### Recovery & Troubleshooting
 ```bash
@@ -127,7 +128,7 @@ See [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for more.
 ## Quick Lookup
 | Commands | Project? | `--json`? |
 |----------|:--------:|:---------:|
-| `status`, `diff`, `list`, `doctor` | ✓ (auto) | ✓ (except doctor) |
+| `status`, `diff`, `list`, `doctor` | ✓ (auto) | ✓ |
 | `sync`, `collect` | ✓ (auto) | ✓ |
 | `install`, `uninstall`, `update`, `check`, `search`, `new` | ✓ (`-p`) | ✓ (except new) |
 | `target`, `audit`, `trash`, `log`, `hub` | ✓ (`-p`) | ✓ (target list, audit, log) |
