@@ -411,6 +411,14 @@ export const api = {
 
   // Doctor
   doctor: () => apiFetch<DoctorResponse>('/doctor'),
+
+  // Skillignore
+  getSkillignore: () => apiFetch<SkillignoreResponse>('/skillignore'),
+  putSkillignore: (raw: string) =>
+    apiFetch<{ success: boolean }>('/skillignore', {
+      method: 'PUT',
+      body: JSON.stringify({ raw }),
+    }),
 };
 
 // Types
@@ -837,4 +845,19 @@ export interface HubSavedEntry {
 export interface HubConfigResponse {
   hubs: HubSavedEntry[];
   default: string;
+}
+
+// Skillignore types
+export interface SkillignoreStats {
+  pattern_count: number;
+  ignored_count: number;
+  patterns: string[];
+  ignored_skills: string[];
+}
+
+export interface SkillignoreResponse {
+  exists: boolean;
+  path: string;
+  raw: string;
+  stats?: SkillignoreStats;
 }

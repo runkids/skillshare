@@ -39,6 +39,7 @@ export const queryKeys = {
   extras: ['extras'] as const,
   extrasDiff: (name?: string) => ['extras-diff', name ?? '__all'] as const,
   doctor: ['doctor'] as const,
+  skillignore: ['skillignore'] as const,
 };
 
 // Stale times per data type
@@ -59,4 +60,5 @@ export const staleTimes = {
   syncMatrix: 30 * 1000,       // 30s — changes after filter edits
   extras: 30 * 1000,        // 30s — fast-changing like diff
   doctor: 60 * 1000,        // 1min — health checks
+  skillignore: 5 * 60 * 1000, // 5min — rarely changes
 };
