@@ -29,6 +29,7 @@ const AuditRulesPage = lazy(() => import('./pages/AuditRulesPage'));
 const LogPage = lazy(() => import('./pages/LogPage'));
 const ConfigPage = lazy(() => import('./pages/ConfigPage'));
 const FilterStudioPage = lazy(() => import('./pages/FilterStudioPage'));
+const DoctorPage = lazy(() => import('./pages/DoctorPage'));
 
 function Lazy({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageSkeleton />}>{children}</Suspense>;
@@ -65,6 +66,7 @@ export default function App() {
                 <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
                 <Route path="log" element={<Lazy><LogPage /></Lazy>} />
                 <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
+                <Route path="doctor" element={<Lazy><DoctorPage /></Lazy>} />
               </Route>
             </Routes>
             </TourProvider>

@@ -408,6 +408,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(opts ?? {}),
     }),
+
+  // Doctor
+  doctor: () => apiFetch<DoctorResponse>('/doctor'),
 };
 
 // Types
@@ -794,6 +797,33 @@ export interface PatternGroup {
 export interface CompiledRulesResponse {
   rules: CompiledRule[];
   patterns: PatternGroup[];
+}
+
+// Doctor health check types
+export interface DoctorCheck {
+  name: string;
+  status: 'pass' | 'warning' | 'error';
+  message: string;
+  details?: string[];
+}
+
+export interface DoctorSummary {
+  total: number;
+  pass: number;
+  warnings: number;
+  errors: number;
+}
+
+export interface DoctorVersion {
+  current: string;
+  latest?: string;
+  update_available: boolean;
+}
+
+export interface DoctorResponse {
+  checks: DoctorCheck[];
+  summary: DoctorSummary;
+  version?: DoctorVersion;
 }
 
 // Hub saved config types

@@ -22,6 +22,7 @@ import {
   Compass,
   ChevronUp,
   ChevronDown,
+  Stethoscope,
 } from 'lucide-react';
 import { radius } from '../design';
 import { useAppContext } from '../context/AppContext';
@@ -81,6 +82,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/log', icon: ScrollText, label: 'Log' },
       { to: '/config', icon: Settings, label: 'Config' },
+      { to: '/doctor', icon: Stethoscope, label: 'Health Check' },
     ],
   },
 ];
