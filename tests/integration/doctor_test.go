@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -503,4 +504,227 @@ func TestDoctor_CustomTarget_ProjectMode_NoUnknownWarning(t *testing.T) {
 
 	result.AssertSuccess(t)
 	result.AssertOutputNotContains(t, "unknown target")
+}
+
+// --- JSON output tests ---
+
+// doctorJSON mirrors the JSON structure emitted by `doctor --json`.
+type doctorJSON struct {
+	Checks  []doctorJSONCheck  `json:"checks"`
+	Summary doctorJSONSummary  `json:"summary"`
+	Version *doctorJSONVersion `json:"version,omitempty"`
+}
+
+type doctorJSONCheck struct {
+	Name    string   `json:"name"`
+	Status  string   `json:"status"`
+	Message string   `json:"message"`
+	Details []string `json:"details,omitempty"`
+}
+
+type doctorJSONSummary struct {
+	Total    int `json:"total"`
+	Pass     int `json:"pass"`
+	Warnings int `json:"warnings"`
+	Errors   int `json:"errors"`
+}
+
+type doctorJSONVersion struct {
+	Current         string `json:"current"`
+	Latest          string `json:"latest,omitempty"`
+	UpdateAvailable bool   `json:"update_available"`
+}
+
+func parseDoctorJSON(t *testing.T, stdout string) doctorJSON {
+	t.Helper()
+	var out doctorJSON
+	if err := json.Unmarshal([]byte(stdout), &out); err != nil {
+		t.Fatalf("failed to parse doctor JSON: %v\nraw output:\n%s", err, stdout)
+	}
+	return out
+}
+
+func TestDoctor_JSON_AllGood(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{
+		"SKILL.md": "# Skill 1",
+		".skillshare-meta.json": `{"source":"test","type":"local","installed_at":"2026-01-01T00:00:00Z","file_hashes":{"SKILL.md":"sha256:c90671f17f3b99f87d8fe1a542ee2d6829d2b2cfb7684d298e44c7591d8b0712"}}`,
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	// Initialize git and commit to avoid warnings
+	cmd := exec.Command("git", "init")
+	cmd.Dir = sb.SourcePath
+	if err := cmd.Run(); err != nil {
+		t.Skip("git not available")
+	}
+
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = sb.SourcePath
+	cmd.Run()
+
+	cmd = exec.Command("git", "config", "user.name", "Test")
+	cmd.Dir = sb.SourcePath
+	cmd.Run()
+
+	cmd = exec.Command("git", "add", "-A")
+	cmd.Dir = sb.SourcePath
+	cmd.Run()
+
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = sb.SourcePath
+	cmd.Run()
+
+	// Create synced symlink
+	os.Symlink(filepath.Join(sb.SourcePath, "skill1"), filepath.Join(targetPath, "skill1"))
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("doctor", "--json")
+
+	result.AssertSuccess(t)
+	out := parseDoctorJSON(t, result.Stdout)
+	if out.Summary.Errors != 0 {
+		t.Errorf("expected 0 errors, got %d", out.Summary.Errors)
+	}
+	if out.Summary.Pass == 0 {
+		t.Error("expected at least one passing check")
+	}
+	if out.Version == nil || out.Version.Current == "" {
+		t.Error("expected non-empty version.current")
+	}
+}
+
+func TestDoctor_JSON_WithErrors(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
+
+	// Point target to non-existent path with non-existent parent
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  broken:
+    path: /nonexistent/path/skills
+`)
+
+	result := sb.RunCLI("doctor", "--json")
+
+	if result.ExitCode == 0 {
+		t.Error("expected non-zero exit code when errors are present")
+	}
+	out := parseDoctorJSON(t, result.Stdout)
+	if out.Summary.Errors == 0 {
+		t.Error("expected summary.errors > 0")
+	}
+}
+
+func TestDoctor_JSON_WithWarnings(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Create a directory without SKILL.md to trigger skills_validity warning
+	invalidSkill := filepath.Join(sb.SourcePath, "no-skillmd")
+	os.MkdirAll(invalidSkill, 0755)
+	os.WriteFile(filepath.Join(invalidSkill, "README.md"), []byte("# No SKILL.md"), 0644)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets: {}
+`)
+
+	result := sb.RunCLI("doctor", "--json")
+
+	// Warnings don't cause failure
+	result.AssertSuccess(t)
+	out := parseDoctorJSON(t, result.Stdout)
+	if out.Summary.Warnings == 0 {
+		t.Error("expected summary.warnings > 0")
+	}
+}
+
+func TestDoctor_JSON_ProjectMode(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude")
+	sb.CreateProjectSkill(projectRoot, "project-skill", map[string]string{"SKILL.md": "# Project Skill"})
+
+	result := sb.RunCLIInDir(projectRoot, "doctor", "--json")
+
+	result.AssertSuccess(t)
+	out := parseDoctorJSON(t, result.Stdout)
+
+	// Project mode should not include git_status check
+	for _, c := range out.Checks {
+		if c.Name == "git_status" {
+			t.Error("expected no git_status check in project mode")
+		}
+	}
+}
+
+func TestDoctor_JSON_HasVersionField(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("doctor", "--json")
+
+	result.AssertSuccess(t)
+	out := parseDoctorJSON(t, result.Stdout)
+	if out.Version == nil {
+		t.Fatal("expected version field to be present")
+	}
+	if out.Version.Current == "" {
+		t.Error("expected version.current to be non-empty")
+	}
+}
+
+func TestDoctor_JSON_HasBackupTrash(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("doctor", "--json")
+
+	result.AssertSuccess(t)
+	out := parseDoctorJSON(t, result.Stdout)
+
+	hasBackup := false
+	hasTrash := false
+	for _, c := range out.Checks {
+		if c.Name == "backup" {
+			hasBackup = true
+		}
+		if c.Name == "trash" {
+			hasTrash = true
+		}
+	}
+	if !hasBackup {
+		t.Error("expected checks to contain an entry with name \"backup\"")
+	}
+	if !hasTrash {
+		t.Error("expected checks to contain an entry with name \"trash\"")
+	}
 }
