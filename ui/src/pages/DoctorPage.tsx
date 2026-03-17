@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
+  Info,
   ChevronDown,
   ChevronRight,
   ArrowUpCircle,
@@ -17,6 +18,7 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Badge from '../components/Badge';
+import SegmentedControl from '../components/SegmentedControl';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
 import { palette } from '../design';
@@ -39,6 +41,7 @@ const checkLabels: Record<string, string> = {
   trash: 'Trash',
   cli_version: 'CLI Version',
   skill_version: 'Skill Version',
+  skillignore: 'Skillignore',
 };
 
 function checkLabel(name: string): string {
@@ -53,6 +56,8 @@ function statusIcon(status: DoctorCheck['status'], size = 16) {
       return <AlertTriangle size={size} strokeWidth={2.5} style={{ color: palette.warning }} />;
     case 'error':
       return <XCircle size={size} strokeWidth={2.5} style={{ color: palette.danger }} />;
+    case 'info':
+      return <Info size={size} strokeWidth={2.5} style={{ color: palette.info }} />;
   }
 }
 
@@ -106,6 +111,7 @@ export default function DoctorPage() {
   const filteredChecks = useMemo(() => {
     if (!data) return [];
     if (filter === 'all') return data.checks;
+    if (filter === 'pass') return data.checks.filter((c) => c.status === 'pass' || c.status === 'info');
     return data.checks.filter((c) => c.status === filter);
   }, [data, filter]);
 
@@ -201,32 +207,16 @@ export default function DoctorPage() {
       )}
 
       {/* Filter toggles */}
-      <div className="flex items-center gap-2 flex-wrap">
-        {(['all', 'error', 'warning', 'pass'] as StatusFilter[]).map((f) => {
-          const isActive = filter === f;
-          const count = f === 'all'
-            ? data!.summary.total
-            : f === 'error'
-              ? data!.summary.errors
-              : f === 'warning'
-                ? data!.summary.warnings
-                : data!.summary.pass;
-          return (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-[var(--radius-btn)] border-2 transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-pencil text-paper border-pencil'
-                  : 'bg-transparent text-pencil-light border-muted hover:border-muted-dark'
-              }`}
-            >
-              {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-              <span className="ml-1.5 opacity-70">{count}</span>
-            </button>
-          );
-        })}
-      </div>
+      <SegmentedControl<StatusFilter>
+        value={filter}
+        onChange={setFilter}
+        options={[
+          { value: 'all', label: 'All', count: data!.summary.total },
+          { value: 'error', label: 'Error', count: data!.summary.errors },
+          { value: 'warning', label: 'Warning', count: data!.summary.warnings },
+          { value: 'pass', label: 'Pass', count: data!.summary.pass },
+        ]}
+      />
 
       {/* Checks list */}
       <Card padding="none">

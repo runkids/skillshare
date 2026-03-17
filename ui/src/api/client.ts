@@ -802,7 +802,7 @@ export interface CompiledRulesResponse {
 // Doctor health check types
 export interface DoctorCheck {
   name: string;
-  status: 'pass' | 'warning' | 'error';
+  status: 'pass' | 'warning' | 'error' | 'info';
   message: string;
   details?: string[];
 }
@@ -812,6 +812,7 @@ export interface DoctorSummary {
   pass: number;
   warnings: number;
   errors: number;
+  info: number;
 }
 
 export interface DoctorVersion {
