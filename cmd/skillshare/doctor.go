@@ -603,15 +603,18 @@ func checkSkillIntegrity(result *doctorResult, discovered []sync.DiscoveredSkill
 		stored map[string]string
 	}
 	var toVerify []verifiable
-	var skippedCount int
+	var skippedNames []string
 
 	for _, skill := range discovered {
 		meta, err := install.ReadMeta(skill.SourcePath)
 		if err != nil {
 			continue
 		}
-		if meta == nil || meta.FileHashes == nil {
-			skippedCount++
+		if meta == nil {
+			continue // Local skill without meta — expected, skip silently
+		}
+		if meta.FileHashes == nil {
+			skippedNames = append(skippedNames, skill.RelPath)
 			continue
 		}
 		toVerify = append(toVerify, verifiable{
@@ -622,10 +625,10 @@ func checkSkillIntegrity(result *doctorResult, discovered []sync.DiscoveredSkill
 	}
 
 	if len(toVerify) == 0 {
-		if skippedCount > 0 {
-			ui.Warning("Skill integrity: %d skill(s) unverifiable (no metadata)", skippedCount)
+		if len(skippedNames) > 0 {
+			ui.Warning("Skill integrity: %d skill(s) missing file hashes: %s", len(skippedNames), strings.Join(skippedNames, ", "))
 			result.addWarning()
-			result.addCheck("skill_integrity", checkWarning, fmt.Sprintf("%d skill(s) unverifiable (no metadata)", skippedCount), nil)
+			result.addCheck("skill_integrity", checkWarning, fmt.Sprintf("%d skill(s) missing file hashes", len(skippedNames)), skippedNames)
 		} else {
 			result.addCheck("skill_integrity", checkPass, "No tracked skills to verify", nil)
 		}
@@ -696,8 +699,8 @@ func checkSkillIntegrity(result *doctorResult, discovered []sync.DiscoveredSkill
 		}
 	}
 
-	if skippedCount > 0 {
-		ui.Warning("Skill integrity: %d skill(s) unverifiable (no metadata)", skippedCount)
+	if len(skippedNames) > 0 {
+		ui.Warning("Skill integrity: %d skill(s) missing file hashes: %s", len(skippedNames), strings.Join(skippedNames, ", "))
 		result.addWarning()
 	}
 }
