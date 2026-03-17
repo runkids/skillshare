@@ -11,6 +11,20 @@ import (
 	"skillshare/internal/sync"
 )
 
+type skillignoreStats struct {
+	PatternCount  int      `json:"pattern_count"`
+	IgnoredCount  int      `json:"ignored_count"`
+	Patterns      []string `json:"patterns"`
+	IgnoredSkills []string `json:"ignored_skills"`
+}
+
+type skillignoreResponse struct {
+	Exists bool              `json:"exists"`
+	Path   string            `json:"path"`
+	Raw    string            `json:"raw"`
+	Stats  *skillignoreStats `json:"stats,omitempty"`
+}
+
 func (s *Server) handleGetSkillignore(w http.ResponseWriter, r *http.Request) {
 	// Snapshot source path under RLock, then release before I/O.
 	s.mu.RLock()
@@ -21,24 +35,20 @@ func (s *Server) handleGetSkillignore(w http.ResponseWriter, r *http.Request) {
 
 	raw, err := os.ReadFile(ignorePath)
 	if err != nil {
-		// File doesn't exist — return minimal response
-		writeJSON(w, map[string]any{
-			"exists": false,
-			"path":   ignorePath,
-			"raw":    "",
+		writeJSON(w, skillignoreResponse{
+			Path: ignorePath,
 		})
 		return
 	}
 
-	// Discover skills with stats to get ignore information
-	_, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(source)
-
-	resp := map[string]any{
-		"exists": true,
-		"path":   ignorePath,
-		"raw":    string(raw),
+	resp := skillignoreResponse{
+		Exists: true,
+		Path:   ignorePath,
+		Raw:    string(raw),
 	}
 
+	// Discover skills with stats to get ignore information
+	_, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(source)
 	if discoverErr == nil && stats != nil {
 		patterns := stats.Patterns
 		if patterns == nil {
@@ -48,11 +58,11 @@ func (s *Server) handleGetSkillignore(w http.ResponseWriter, r *http.Request) {
 		if ignoredSkills == nil {
 			ignoredSkills = []string{}
 		}
-		resp["stats"] = map[string]any{
-			"pattern_count":  stats.PatternCount(),
-			"ignored_count":  stats.IgnoredCount(),
-			"patterns":       patterns,
-			"ignored_skills": ignoredSkills,
+		resp.Stats = &skillignoreStats{
+			PatternCount:  stats.PatternCount(),
+			IgnoredCount:  stats.IgnoredCount(),
+			Patterns:      patterns,
+			IgnoredSkills: ignoredSkills,
 		}
 	}
 
@@ -76,13 +86,11 @@ func (s *Server) handlePutSkillignore(w http.ResponseWriter, r *http.Request) {
 	ignorePath := filepath.Join(source, ".skillignore")
 
 	if body.Raw == "" {
-		// Empty raw → delete the file
 		if err := os.Remove(ignorePath); err != nil && !errors.Is(err, os.ErrNotExist) {
 			writeError(w, http.StatusInternalServerError, "failed to delete .skillignore: "+err.Error())
 			return
 		}
 	} else {
-		// Write .skillignore
 		if err := os.WriteFile(ignorePath, []byte(body.Raw), 0644); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to write .skillignore: "+err.Error())
 			return

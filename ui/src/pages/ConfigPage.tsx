@@ -69,6 +69,7 @@ export default function ConfigPage() {
     queryKey: queryKeys.skillignore,
     queryFn: () => api.getSkillignore(),
     staleTime: staleTimes.skillignore,
+    enabled: tab === 'skillignore',
   });
   const [ignoreRaw, setIgnoreRaw] = useState('');
   const [ignoreDirty, setIgnoreDirty] = useState(false);
