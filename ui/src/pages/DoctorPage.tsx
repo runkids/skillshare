@@ -86,23 +86,59 @@ function CheckRow({ check }: { check: DoctorCheck }) {
       </button>
       {expanded && hasDetails && (
         <div className="px-4 pb-3 pl-11">
-          <ul className="space-y-1">
-            {check.details!.map((detail, i) => (
-              detail === '---' ? (
-                <li key={i} className="border-t border-muted my-2 pt-2">
-                  <span className="text-xs font-medium text-pencil-light uppercase tracking-wide">Ignored Skills</span>
-                </li>
-              ) : (
-                <li key={i} className="text-sm text-pencil-light flex items-start gap-2">
-                  <span className="text-muted-dark mt-0.5 shrink-0">&bull;</span>
-                  <span className="font-mono">{detail}</span>
-                </li>
-              )
-            ))}
-          </ul>
+          <CheckDetails details={check.details!} name={check.name} />
         </div>
       )}
     </div>
+  );
+}
+
+function CheckDetails({ details, name }: { details: string[]; name: string }) {
+  // Skillignore check uses --- to separate patterns from ignored skills
+  const sepIdx = details.indexOf('---');
+  if (name === 'skillignore' && sepIdx !== -1) {
+    const patterns = details.slice(0, sepIdx);
+    const ignored = details.slice(sepIdx + 1);
+    return (
+      <div className="space-y-3">
+        {patterns.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-pencil-light mb-1.5">Patterns</p>
+            <div className="flex flex-wrap gap-1.5">
+              {patterns.map((p, i) => (
+                <span key={i} className="font-mono text-xs px-2 py-0.5 rounded bg-muted/60 text-pencil-light border border-muted">
+                  {p}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+        {ignored.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-pencil-light mb-1.5">Ignored Skills</p>
+            <div className="flex flex-wrap gap-1.5">
+              {ignored.map((s, i) => (
+                <span key={i} className="font-mono text-xs px-2 py-0.5 rounded bg-warning-light/50 text-pencil-light border border-warning/30">
+                  {s}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Default: bullet list for all other checks
+  return (
+    <ul className="space-y-1">
+      {details.map((detail, i) => (
+        <li key={i} className="text-sm text-pencil-light flex items-start gap-2">
+          <span className="text-muted-dark mt-0.5 shrink-0">&bull;</span>
+          <span>{detail}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
