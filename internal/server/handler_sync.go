@@ -5,8 +5,32 @@ import (
 	"net/http"
 	"time"
 
+	"skillshare/internal/skillignore"
 	ssync "skillshare/internal/sync"
 )
+
+// ignorePayload builds the common ignored-skills fields for JSON responses.
+func ignorePayload(stats *skillignore.IgnoreStats) map[string]any {
+	skills := []string{}
+	rootFile := ""
+	repoFiles := []string{}
+	if stats != nil {
+		if len(stats.IgnoredSkills) > 0 {
+			skills = stats.IgnoredSkills
+		}
+		rootFile = stats.RootFile
+		repoFiles = stats.RepoFiles
+	}
+	if repoFiles == nil {
+		repoFiles = []string{}
+	}
+	return map[string]any{
+		"ignored_count":  len(skills),
+		"ignored_skills": skills,
+		"ignore_root":    rootFile,
+		"ignore_repos":   repoFiles,
+	}
+}
 
 type syncTargetResult struct {
 	Target  string   `json:"target"`
@@ -125,15 +149,11 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		"scope":          "ui",
 	}, "")
 
-	ignoredSkills := []string{}
-	if ignoreStats != nil && len(ignoreStats.IgnoredSkills) > 0 {
-		ignoredSkills = ignoreStats.IgnoredSkills
+	resp := map[string]any{"results": results}
+	for k, v := range ignorePayload(ignoreStats) {
+		resp[k] = v
 	}
-	writeJSON(w, map[string]any{
-		"results":        results,
-		"ignored_count":  len(ignoredSkills),
-		"ignored_skills": ignoredSkills,
-	})
+	writeJSON(w, resp)
 }
 
 type diffItem struct {
@@ -175,13 +195,9 @@ func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
 		diffs = append(diffs, s.computeTargetDiff(name, target, discovered, globalMode, source))
 	}
 
-	ignoredSkills := []string{}
-	if ignoreStats != nil && len(ignoreStats.IgnoredSkills) > 0 {
-		ignoredSkills = ignoreStats.IgnoredSkills
+	resp := map[string]any{"diffs": diffs}
+	for k, v := range ignorePayload(ignoreStats) {
+		resp[k] = v
 	}
-	writeJSON(w, map[string]any{
-		"diffs":          diffs,
-		"ignored_count":  len(ignoredSkills),
-		"ignored_skills": ignoredSkills,
-	})
+	writeJSON(w, resp)
 }

@@ -25,7 +25,7 @@ import Button from '../components/Button';
 import { Checkbox } from '../components/Input';
 import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
-import { api, type SyncResult, type DiffTarget } from '../api/client';
+import { api, type SyncResult, type DiffTarget, type IgnoreSources } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
 import StreamProgressBar from '../components/StreamProgressBar';
 import { radius, shadows } from '../design';
@@ -37,7 +37,7 @@ export default function SyncPage() {
   const [syncing, setSyncing] = useState(false);
   const [results, setResults] = useState<SyncResult[] | null>(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [ignoredSkills, setIgnoredSkills] = useState<string[]>([]);
+  const [ignoreSources, setIgnoreSources] = useState<IgnoreSources | null>(null);
   const [ignoredExpanded, setIgnoredExpanded] = useState(false);
   const { toast } = useToast();
   const toastRef = useRef(toast);
@@ -58,7 +58,7 @@ export default function SyncPage() {
     esRef.current?.close();
     setDiffLoading(true);
     setDiffProgress(null);
-    setIgnoredSkills([]);
+    setIgnoreSources(null);
     startTimeRef.current = Date.now();
 
     esRef.current = api.diffStream(
@@ -67,7 +67,12 @@ export default function SyncPage() {
       (_diff, checked) => setDiffProgress((p) => p ? { ...p, checked } : null),
       (data) => {
         setDiffData(data.diffs);
-        setIgnoredSkills(data.ignored_skills ?? []);
+        setIgnoreSources({
+          ignored_count: data.ignored_count,
+          ignored_skills: data.ignored_skills ?? [],
+          ignore_root: data.ignore_root ?? '',
+          ignore_repos: data.ignore_repos ?? [],
+        });
         setDiffLoading(false);
         setDiffProgress(null);
       },
@@ -86,7 +91,12 @@ export default function SyncPage() {
     try {
       const res = await api.sync({ dryRun, force });
       setResults(res.results);
-      setIgnoredSkills(res.ignored_skills ?? []);
+      setIgnoreSources({
+        ignored_count: res.ignored_count,
+        ignored_skills: res.ignored_skills ?? [],
+        ignore_root: res.ignore_root ?? '',
+        ignore_repos: res.ignore_repos ?? [],
+      });
       if (dryRun) {
         toast('Dry run complete -- no changes were made.', 'info');
       } else {
@@ -106,6 +116,9 @@ export default function SyncPage() {
       setSyncing(false);
     }
   };
+
+  // Derived ignored skills list
+  const ignoredSkills = ignoreSources?.ignored_skills ?? [];
 
   // Calculate diff summary
   const diffs = diffData ?? [];
@@ -339,10 +352,8 @@ export default function SyncPage() {
           </button>
 
           {ignoredExpanded && (() => {
-            const repoSkills = ignoredSkills.filter((s) => s.startsWith('_'));
-            const rootSkills = ignoredSkills.filter((s) => !s.startsWith('_'));
-            const hasRepo = repoSkills.length > 0;
-            const hasRoot = rootSkills.length > 0;
+            const hasRoot = !!ignoreSources?.ignore_root;
+            const repoCount = ignoreSources?.ignore_repos?.length ?? 0;
             return (
               <div className="mt-3 pl-8 space-y-1.5 animate-fade-in">
                 {ignoredSkills.map((skill) => (
@@ -357,19 +368,19 @@ export default function SyncPage() {
                   {hasRoot && (
                     <div className="flex items-center gap-1.5 text-xs text-pencil-light">
                       <Info size={12} className="shrink-0" />
-                      <span>Edit .skillignore in Config to change root-level exclusions</span>
+                      <span>Root .skillignore active — edit in Config page</span>
                     </div>
                   )}
-                  {hasRepo && (
+                  {repoCount > 0 && (
                     <div className="flex items-center gap-1.5 text-xs text-pencil-light">
                       <Info size={12} className="shrink-0" />
-                      <span>Tracked repo skills (_{'{repo}'}) are excluded by .skillignore inside the repo</span>
+                      <span>{repoCount} repo-level .skillignore {repoCount === 1 ? 'file' : 'files'} active</span>
                     </div>
                   )}
-                  {!hasRoot && hasRepo && (
+                  {!hasRoot && repoCount === 0 && (
                     <div className="flex items-center gap-1.5 text-xs text-pencil-light">
                       <Info size={12} className="shrink-0" />
-                      <span>Root .skillignore is empty — all exclusions come from repo-level files</span>
+                      <span>Edit .skillignore in Config to manage exclusions</span>
                     </div>
                   )}
                 </div>

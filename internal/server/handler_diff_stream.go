@@ -64,15 +64,11 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	ignoredSkills := []string{}
-	if ignoreStats != nil && len(ignoreStats.IgnoredSkills) > 0 {
-		ignoredSkills = ignoreStats.IgnoredSkills
+	donePayload := map[string]any{"diffs": diffs}
+	for k, v := range ignorePayload(ignoreStats) {
+		donePayload[k] = v
 	}
-	safeSend("done", map[string]any{
-		"diffs":          diffs,
-		"ignored_count":  len(ignoredSkills),
-		"ignored_skills": ignoredSkills,
-	})
+	safeSend("done", donePayload)
 }
 
 // computeTargetDiff computes the diff for a single target.

@@ -159,12 +159,12 @@ export const api = {
       body: JSON.stringify(opts),
     }),
   diff: (target?: string) =>
-    apiFetch<{ diffs: DiffTarget[]; ignored_count: number; ignored_skills: string[] }>(`/diff${target ? '?target=' + encodeURIComponent(target) : ''}`),
+    apiFetch<{ diffs: DiffTarget[] } & IgnoreSources>(`/diff${target ? '?target=' + encodeURIComponent(target) : ''}`),
   diffStream: (
     onDiscovering: () => void,
     onStart: (total: number) => void,
     onResult: (diff: DiffTarget, checked: number) => void,
-    onDone: (data: { diffs: DiffTarget[]; ignored_count: number; ignored_skills: string[] }) => void,
+    onDone: (data: { diffs: DiffTarget[] } & IgnoreSources) => void,
     onError: (err: Error) => void,
   ): EventSource =>
     createSSEStream(BASE + '/diff/stream', {
@@ -483,10 +483,15 @@ export interface SyncResult {
   pruned: string[];
 }
 
-export interface SyncResponse {
-  results: SyncResult[];
+export interface IgnoreSources {
   ignored_count: number;
   ignored_skills: string[];
+  ignore_root: string;
+  ignore_repos: string[];
+}
+
+export interface SyncResponse extends IgnoreSources {
+  results: SyncResult[];
 }
 
 export interface DiffTarget {
