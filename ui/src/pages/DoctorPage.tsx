@@ -23,6 +23,28 @@ import { palette } from '../design';
 
 type StatusFilter = 'all' | 'error' | 'warning' | 'pass';
 
+const checkLabels: Record<string, string> = {
+  source: 'Source Directory',
+  symlink_support: 'Symlink Support',
+  git_status: 'Git Status',
+  skills_validity: 'Skill Files',
+  skill_integrity: 'Skill Integrity',
+  skill_targets_field: 'Target References',
+  targets: 'Targets',
+  sync_drift: 'Sync Status',
+  broken_symlinks: 'Broken Symlinks',
+  duplicate_skills: 'Duplicate Skills',
+  extras: 'Extras',
+  backup: 'Backups',
+  trash: 'Trash',
+  cli_version: 'CLI Version',
+  skill_version: 'Skill Version',
+};
+
+function checkLabel(name: string): string {
+  return checkLabels[name] ?? name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function statusIcon(status: DoctorCheck['status'], size = 16) {
   switch (status) {
     case 'pass':
@@ -54,12 +76,7 @@ function CheckRow({ check }: { check: DoctorCheck }) {
       >
         {statusIcon(check.status)}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-pencil text-sm">{check.name}</span>
-            <Badge variant={statusBadgeVariant(check.status)} size="sm">
-              {check.status}
-            </Badge>
-          </div>
+          <span className="font-medium text-pencil text-sm">{checkLabel(check.name)}</span>
           <p className="text-pencil-light text-sm mt-0.5 truncate">{check.message}</p>
         </div>
         {hasDetails && (
