@@ -14,6 +14,7 @@ import (
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/git"
+	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
@@ -29,8 +30,17 @@ type statusJSONOutput struct {
 }
 
 type statusJSONSource struct {
-	Path   string `json:"path"`
-	Exists bool   `json:"exists"`
+	Path        string                  `json:"path"`
+	Exists      bool                    `json:"exists"`
+	Skillignore *statusJSONSourceIgnore `json:"skillignore"`
+}
+
+type statusJSONSourceIgnore struct {
+	Active        bool     `json:"active"`
+	Files         []string `json:"files,omitempty"`
+	Patterns      []string `json:"patterns,omitempty"`
+	IgnoredCount  int      `json:"ignored_count"`
+	IgnoredSkills []string `json:"ignored_skills,omitempty"`
 }
 
 type statusJSONRepo struct {
@@ -99,14 +109,14 @@ func cmdStatus(args []string) error {
 
 	if !jsonOutput {
 		sp := ui.StartSpinner("Discovering skills...")
-		discovered, discoverErr := sync.DiscoverSourceSkills(cfg.Source)
+		discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(cfg.Source)
 		if discoverErr != nil {
 			discovered = nil
 		}
 		trackedRepos := extractTrackedRepos(discovered)
 		sp.Stop()
 
-		printSourceStatus(cfg, len(discovered))
+		printSourceStatus(cfg, len(discovered), stats)
 		printTrackedReposStatus(cfg, discovered, trackedRepos)
 		if err := printTargetsStatus(cfg, discovered); err != nil {
 			return err
@@ -126,13 +136,14 @@ func cmdStatus(args []string) error {
 	}
 
 	// JSON mode
-	discovered, _ := sync.DiscoverSourceSkills(cfg.Source)
+	discovered, stats, _ := sync.DiscoverSourceSkillsWithStats(cfg.Source)
 	trackedRepos := extractTrackedRepos(discovered)
 
 	output := statusJSONOutput{
 		Source: statusJSONSource{
-			Path:   cfg.Source,
-			Exists: dirExists(cfg.Source),
+			Path:        cfg.Source,
+			Exists:      dirExists(cfg.Source),
+			Skillignore: buildSkillignoreJSON(stats),
 		},
 		SkillCount: len(discovered),
 		Version:    version,
@@ -197,7 +208,7 @@ func printExtrasStatus(extras []config.ExtraConfig, sourceDirFn func(string) str
 	}
 }
 
-func printSourceStatus(cfg *config.Config, skillCount int) {
+func printSourceStatus(cfg *config.Config, skillCount int, stats *skillignore.IgnoreStats) {
 	ui.Header("Source")
 	info, err := os.Stat(cfg.Source)
 	if err != nil {
@@ -206,6 +217,34 @@ func printSourceStatus(cfg *config.Config, skillCount int) {
 	}
 
 	ui.Success("%s (%d skills, %s)", cfg.Source, skillCount, info.ModTime().Format("2006-01-02 15:04"))
+	printSkillignoreLine(stats)
+}
+
+func printSkillignoreLine(stats *skillignore.IgnoreStats) {
+	if stats == nil || !stats.Active() {
+		return
+	}
+	ui.Info("  .skillignore: %d patterns, %d skills ignored", stats.PatternCount(), stats.IgnoredCount())
+}
+
+func buildSkillignoreJSON(stats *skillignore.IgnoreStats) *statusJSONSourceIgnore {
+	if stats == nil || !stats.Active() {
+		return &statusJSONSourceIgnore{Active: false}
+	}
+
+	var files []string
+	if stats.RootFile != "" {
+		files = append(files, stats.RootFile)
+	}
+	files = append(files, stats.RepoFiles...)
+
+	return &statusJSONSourceIgnore{
+		Active:        true,
+		Files:         files,
+		Patterns:      stats.Patterns,
+		IgnoredCount:  stats.IgnoredCount(),
+		IgnoredSkills: stats.IgnoredSkills,
+	}
 }
 
 func printTrackedReposStatus(cfg *config.Config, discovered []sync.DiscoveredSkill, trackedRepos []string) {

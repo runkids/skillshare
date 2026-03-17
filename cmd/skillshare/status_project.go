@@ -9,6 +9,7 @@ import (
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/git"
+	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
 )
@@ -26,14 +27,14 @@ func cmdStatusProject(root string) error {
 	}
 
 	sp := ui.StartSpinner("Discovering skills...")
-	discovered, discoverErr := sync.DiscoverSourceSkills(runtime.sourcePath)
+	discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(runtime.sourcePath)
 	if discoverErr != nil {
 		discovered = nil
 	}
 	trackedRepos := extractTrackedRepos(discovered)
 	sp.Stop()
 
-	printProjectSourceStatus(runtime.sourcePath, len(discovered))
+	printProjectSourceStatus(runtime.sourcePath, len(discovered), stats)
 	printProjectTrackedReposStatus(runtime.sourcePath, discovered, trackedRepos)
 	if err := printProjectTargetsStatus(runtime, discovered); err != nil {
 		return err
@@ -64,13 +65,14 @@ func cmdStatusProjectJSON(root string) error {
 		return writeJSONError(err)
 	}
 
-	discovered, _ := sync.DiscoverSourceSkills(runtime.sourcePath)
+	discovered, stats, _ := sync.DiscoverSourceSkillsWithStats(runtime.sourcePath)
 	trackedRepos := extractTrackedRepos(discovered)
 
 	output := statusJSONOutput{
 		Source: statusJSONSource{
-			Path:   runtime.sourcePath,
-			Exists: dirExists(runtime.sourcePath),
+			Path:        runtime.sourcePath,
+			Exists:      dirExists(runtime.sourcePath),
+			Skillignore: buildSkillignoreJSON(stats),
 		},
 		SkillCount: len(discovered),
 		Version:    version,
@@ -118,7 +120,7 @@ func cmdStatusProjectJSON(root string) error {
 	return writeJSON(&output)
 }
 
-func printProjectSourceStatus(sourcePath string, skillCount int) {
+func printProjectSourceStatus(sourcePath string, skillCount int, stats *skillignore.IgnoreStats) {
 	ui.Header("Source (project)")
 	info, err := os.Stat(sourcePath)
 	if err != nil {
@@ -127,6 +129,7 @@ func printProjectSourceStatus(sourcePath string, skillCount int) {
 	}
 
 	ui.Success(".skillshare/skills/ (%d skills, %s)", skillCount, info.ModTime().Format("2006-01-02 15:04"))
+	printSkillignoreLine(stats)
 }
 
 func printProjectTrackedReposStatus(sourcePath string, discovered []sync.DiscoveredSkill, trackedRepos []string) {
