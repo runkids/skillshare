@@ -119,6 +119,7 @@ func cmdDoctorGlobal(jsonMode bool) error {
 	ui.Info("Config directory: %s", config.BaseDir())
 	ui.Info("Data directory:   %s", config.DataDir())
 	ui.Info("State directory:  %s", config.StateDir())
+	fmt.Println()
 
 	cfg, err := config.Load()
 	if err != nil {
