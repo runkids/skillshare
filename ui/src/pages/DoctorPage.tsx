@@ -10,9 +10,9 @@ import {
   ArrowUpCircle,
   PartyPopper,
 } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { DoctorCheck, DoctorResponse } from '../api/client';
+import type { DoctorCheck } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -56,14 +56,6 @@ function statusIcon(status: DoctorCheck['status'], size = 16) {
   }
 }
 
-function statusBadgeVariant(status: DoctorCheck['status']): 'success' | 'warning' | 'danger' {
-  switch (status) {
-    case 'pass': return 'success';
-    case 'warning': return 'warning';
-    case 'error': return 'danger';
-  }
-}
-
 function CheckRow({ check }: { check: DoctorCheck }) {
   const [expanded, setExpanded] = useState(false);
   const hasDetails = check.details && check.details.length > 0;
@@ -104,7 +96,6 @@ function CheckRow({ check }: { check: DoctorCheck }) {
 }
 
 export default function DoctorPage() {
-  const queryClient = useQueryClient();
   const { data, isPending, error, isFetching, refetch } = useQuery({
     queryKey: queryKeys.doctor,
     queryFn: () => api.doctor(),
