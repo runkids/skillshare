@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,6 +20,7 @@ func cmdNew(args []string) error {
 
 	var skillName string
 	var dryRun bool
+	var patternFlag string
 
 	// Parse arguments
 	i := 0
@@ -30,6 +32,19 @@ func cmdNew(args []string) error {
 		case arg == "--help" || arg == "-h":
 			printNewHelp()
 			return nil
+		case arg == "--pattern" || arg == "-P":
+			i++
+			if i >= len(rest) {
+				return fmt.Errorf("--pattern requires a value")
+			}
+			patternFlag = rest[i]
+			if findPattern(patternFlag) == nil {
+				validNames := make([]string, len(skillPatterns))
+				for j, p := range skillPatterns {
+					validNames[j] = p.Name
+				}
+				return fmt.Errorf("unknown pattern: %s (valid: %s)", patternFlag, strings.Join(validNames, ", "))
+			}
 		case strings.HasPrefix(arg, "-"):
 			return fmt.Errorf("unknown option: %s", arg)
 		default:
@@ -87,13 +102,60 @@ func cmdNew(args []string) error {
 		return fmt.Errorf("skill '%s' already exists at %s", skillName, skillDir)
 	}
 
-	// Generate template
-	template := generateSkillTemplate(skillName)
+	// Determine pattern
+	selectedPattern := patternFlag
+	var selectedCategory string
+	createDirs := patternFlag != "" && patternFlag != "none"
+
+	isTTY := runningInInteractiveTTY()
+
+	if selectedPattern == "" && isTTY {
+		p, err := promptPattern()
+		if err != nil {
+			return fmt.Errorf("pattern selection: %w", err)
+		}
+		if p == "" {
+			return nil // cancelled
+		}
+		selectedPattern = p
+	}
+
+	if selectedPattern == "" {
+		selectedPattern = "none"
+	}
+
+	pattern := findPattern(selectedPattern)
+
+	if selectedPattern != "none" && isTTY {
+		c, err := promptCategory()
+		if err != nil {
+			return fmt.Errorf("category selection: %w", err)
+		}
+		selectedCategory = c
+	}
+
+	if selectedPattern != "none" && !createDirs && isTTY {
+		yes, err := promptScaffoldDirs(pattern)
+		if errors.Is(err, errCancelled) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("scaffold selection: %w", err)
+		}
+		createDirs = yes
+	}
+
+	template := generatePatternTemplate(skillName, selectedPattern, selectedCategory)
 
 	if dryRun {
 		ui.Header(ui.WithModeLabel("New Skill (dry-run)"))
 		ui.Info("Would create: %s", skillDir)
 		ui.Info("Would write: %s", skillFile)
+		if createDirs && pattern != nil && len(pattern.ScaffoldDirs) > 0 {
+			for _, dir := range pattern.ScaffoldDirs {
+				ui.Info("Would create: %s/", filepath.Join(skillDir, dir))
+			}
+		}
 		fmt.Println()
 		ui.Info("Template preview:")
 		fmt.Println(template)
@@ -110,6 +172,17 @@ func cmdNew(args []string) error {
 		// Clean up directory on failure
 		os.RemoveAll(skillDir)
 		return fmt.Errorf("failed to write SKILL.md: %w", err)
+	}
+
+	if createDirs && pattern != nil {
+		for _, dir := range pattern.ScaffoldDirs {
+			dirPath := filepath.Join(skillDir, dir)
+			if err := os.MkdirAll(dirPath, 0755); err != nil {
+				return fmt.Errorf("failed to create %s: %w", dir, err)
+			}
+			gitkeep := filepath.Join(dirPath, ".gitkeep")
+			os.WriteFile(gitkeep, []byte{}, 0644)
+		}
 	}
 
 	ui.Header(ui.WithModeLabel("New Skill Created"))
@@ -220,16 +293,19 @@ func printNewHelp() {
 Create a new skill with a SKILL.md template.
 
 Options:
-  --project, -p   Create in project (.skillshare/skills/)
-  --global, -g    Create in global (~/.config/skillshare/skills/)
-  --dry-run, -n   Preview without creating files
-  --help, -h      Show this help
+  --pattern, -P <name>  Use a design pattern (tool-wrapper, generator, reviewer, inversion, pipeline, none)
+  --project, -p         Create in project (.skillshare/skills/)
+  --global, -g          Create in global (~/.config/skillshare/skills/)
+  --dry-run, -n         Preview without creating files
+  --help, -h            Show this help
 
 Arguments:
   <name>          Skill name (lowercase, hyphens allowed)
 
 Examples:
-  skillshare new my-skill              # Create a new skill
-  skillshare new my-skill -p           # Create in project
-  skillshare new my-skill --dry-run    # Preview first`)
+  skillshare new my-skill                  # Create with interactive pattern selection
+  skillshare new my-skill -P reviewer      # Use reviewer pattern directly
+  skillshare new my-skill -P none          # Plain template, no pattern
+  skillshare new my-skill -p               # Create in project
+  skillshare new my-skill --dry-run        # Preview first`)
 }
