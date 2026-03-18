@@ -26,7 +26,7 @@ export default function SyncResultList({ results, detailed = false }: SyncResult
         const updated = r.updated?.length ?? 0;
         const skipped = r.skipped?.length ?? 0;
         const pruned = r.pruned?.length ?? 0;
-        const hasChanges = linked > 0 || updated > 0;
+        const hasChanges = linked > 0 || updated > 0 || pruned > 0;
 
         return (
           <Card key={r.target} style={{ animation: `fadeInUp 0.3s ease-out ${i * 100}ms both` }}>
