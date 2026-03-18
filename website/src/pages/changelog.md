@@ -9,6 +9,20 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.17.5] - 2026-03-18
+
+### New Features
+
+#### Web UI — Config Save → Sync Preview
+
+- **Preview Sync from Config page** — after saving `config.yaml` or `.skillignore`, a banner appears above the editor offering to preview what sync will do. Click "Preview Sync" to open a modal showing a dry-run per target — which skills will be linked, updated, or pruned — before committing to the real sync:
+  ```
+  Save config → Banner: "Config updated — preview what sync will do?"
+    → Modal shows dry-run results per target (compact badge view)
+    → "Sync Now" to confirm, or Cancel to walk away
+  ```
+  The banner auto-dismisses when you start editing again. Handles edge cases: no targets configured, everything already in sync, API errors with retry, and a refresh button to re-run the dry-run
+
 ## [0.17.4] - 2026-03-17
 
 ### New Features
