@@ -12,6 +12,8 @@ import Layout from './components/Layout';
 import { TourProvider, TourOverlay, TourTooltip } from './components/tour';
 import DashboardPage from './pages/DashboardPage';
 
+const basePath = (window as any).__BASE_PATH__ || '';
+
 const SkillsPage = lazy(() => import('./pages/SkillsPage'));
 const SkillDetailPage = lazy(() => import('./pages/SkillDetailPage'));
 const TargetsPage = lazy(() => import('./pages/TargetsPage'));
@@ -41,7 +43,7 @@ export default function App() {
       <ThemeProvider>
       <ToastProvider>
         <AppProvider>
-          <BrowserRouter>
+          <BrowserRouter basename={basePath}>
             <ErrorBoundary>
             <TourProvider>
             <TourOverlay />

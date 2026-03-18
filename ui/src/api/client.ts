@@ -1,4 +1,5 @@
-const BASE = '/api';
+const BASE_PATH = (window as any).__BASE_PATH__ || '';
+const BASE = BASE_PATH + '/api';
 
 export class ApiError extends Error {
   status: number;

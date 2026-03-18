@@ -8,6 +8,7 @@ import tailwindcss from '@tailwindcss/vite'
 const SSE_PROXY = { target: 'http://localhost:19420', headers: { Accept: 'text/event-stream' } }
 
 export default defineConfig({
+  base: './',
   plugins: [react(), tailwindcss()],
   test: {
     environment: 'jsdom',
