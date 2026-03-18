@@ -190,7 +190,7 @@ export default function NewSkillPage() {
       <PageHeader
         icon={<Wand2 size={24} strokeWidth={2.5} />}
         title="Create New Skill"
-        subtitle={isProjectMode ? 'Add a skill to this project' : 'Add a skill to your source directory'}
+        subtitle={isProjectMode ? 'Creating in: Project' : 'Creating in: Global'}
         backTo="/skills"
       />
 
