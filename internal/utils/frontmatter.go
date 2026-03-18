@@ -60,6 +60,24 @@ func isYAMLBlockIndicator(s string) bool {
 	return false
 }
 
+// resolveField looks up a field in the frontmatter map.
+// Priority: metadata.<field> > top-level <field>.
+// Returns nil when the field is absent in both locations.
+func resolveField(fm map[string]any, field string) any {
+	if md, ok := fm["metadata"]; ok {
+		if mdMap, ok := md.(map[string]any); ok {
+			if val, ok := mdMap[field]; ok {
+				return val
+			}
+		}
+	}
+	val, ok := fm[field]
+	if !ok {
+		return nil
+	}
+	return val
+}
+
 // ParseFrontmatterList reads a SKILL.md file and extracts a YAML list field from frontmatter.
 // Supports both inline [a, b] and block (- a\n- b) formats.
 // Returns nil when the field is absent or the file cannot be read.
@@ -74,8 +92,8 @@ func ParseFrontmatterList(filePath, field string) []string {
 		return nil
 	}
 
-	val, ok := fm[field]
-	if !ok || val == nil {
+	val := resolveField(fm, field)
+	if val == nil {
 		return nil
 	}
 
