@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/config"
@@ -119,5 +120,54 @@ func TestBasePath_MultiLevel(t *testing.T) {
 	s.handler.ServeHTTP(rr, req)
 	if rr.Code != http.StatusOK {
 		t.Fatalf("GET /tools/skillshare/api/health: expected 200, got %d", rr.Code)
+	}
+}
+
+func TestBasePath_IndexHtmlInjection(t *testing.T) {
+	tmp := t.TempDir()
+	indexHTML := `<!DOCTYPE html><html><head><title>Test</title></head><body></body></html>`
+	os.WriteFile(filepath.Join(tmp, "index.html"), []byte(indexHTML), 0644)
+
+	handler := spaHandlerFromDisk(tmp, "/app")
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	body := rr.Body.String()
+	if !strings.Contains(body, `window.__BASE_PATH__='/app'`) {
+		t.Errorf("expected __BASE_PATH__ injection, got:\n%s", body)
+	}
+}
+
+func TestBasePath_IndexHtmlNoInjectionWhenEmpty(t *testing.T) {
+	tmp := t.TempDir()
+	indexHTML := `<!DOCTYPE html><html><head><title>Test</title></head><body></body></html>`
+	os.WriteFile(filepath.Join(tmp, "index.html"), []byte(indexHTML), 0644)
+
+	handler := spaHandlerFromDisk(tmp, "")
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	body := rr.Body.String()
+	if strings.Contains(body, "__BASE_PATH__") {
+		t.Error("expected no __BASE_PATH__ injection when basePath is empty")
+	}
+}
+
+func TestBasePath_SPAFallbackWithInjection(t *testing.T) {
+	tmp := t.TempDir()
+	indexHTML := `<!DOCTYPE html><html><head><title>Test</title></head><body></body></html>`
+	os.WriteFile(filepath.Join(tmp, "index.html"), []byte(indexHTML), 0644)
+
+	handler := spaHandlerFromDisk(tmp, "/myapp")
+	// Request a non-existent path — should serve injected index.html (SPA fallback)
+	req := httptest.NewRequest(http.MethodGet, "/skills/my-skill", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	body := rr.Body.String()
+	if !strings.Contains(body, `window.__BASE_PATH__='/myapp'`) {
+		t.Errorf("SPA fallback should inject __BASE_PATH__, got:\n%s", body)
 	}
 }

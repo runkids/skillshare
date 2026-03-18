@@ -417,7 +417,7 @@ func (s *Server) registerRoutes() {
 
 	// SPA fallback — must be last
 	if s.uiDistDir != "" {
-		s.mux.Handle("/", spaHandlerFromDisk(s.uiDistDir))
+		s.mux.Handle("/", spaHandlerFromDisk(s.uiDistDir, s.basePath))
 	} else {
 		s.mux.Handle("/", uiPlaceholderHandler())
 	}

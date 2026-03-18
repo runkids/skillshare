@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -34,8 +35,20 @@ pre{background:#f0f0f0;padding:12px 16px;border-radius:6px;overflow-x:auto}</sty
 
 // spaHandlerFromDisk serves a SPA from a directory on disk.
 // Unknown paths fall back to index.html for client-side routing.
-func spaHandlerFromDisk(dir string) http.Handler {
+// When basePath is non-empty, a <script> tag injecting window.__BASE_PATH__
+// is inserted into index.html after <head>.
+func spaHandlerFromDisk(dir, basePath string) http.Handler {
 	fileServer := http.FileServer(http.Dir(dir))
+
+	// Pre-compute injected index.html if basePath is set
+	var cachedIndex []byte
+	if basePath != "" {
+		indexPath := filepath.Join(dir, "index.html")
+		if raw, err := os.ReadFile(indexPath); err == nil {
+			injection := fmt.Sprintf("<script>window.__BASE_PATH__='%s'</script>", basePath)
+			cachedIndex = []byte(strings.Replace(string(raw), "<head>", "<head>"+injection, 1))
+		}
+	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Try to serve the file directly
@@ -46,11 +59,21 @@ func spaHandlerFromDisk(dir string) http.Handler {
 
 		fullPath := filepath.Join(dir, path)
 		if _, err := os.Stat(fullPath); err == nil {
+			if path == "index.html" && cachedIndex != nil {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Write(cachedIndex)
+				return
+			}
 			fileServer.ServeHTTP(w, r)
 			return
 		}
 
-		// SPA fallback: serve index.html
+		// SPA fallback: serve index.html (possibly injected)
+		if cachedIndex != nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Write(cachedIndex)
+			return
+		}
 		indexPath := filepath.Join(dir, "index.html")
 		index, err := os.ReadFile(indexPath)
 		if err != nil {
