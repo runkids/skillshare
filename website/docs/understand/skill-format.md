@@ -105,9 +105,20 @@ Tags are also searchable — `skillshare search workflow --hub ...` matches skil
 
 Restrict which targets this skill syncs to. When omitted, the skill syncs to **all** targets.
 
+Supports two placement styles — under `metadata:` (recommended) or at the top level:
+
 ```yaml
+# Recommended: under metadata
+metadata:
+  targets: [claude, cursor]
+
+# Legacy: top-level (still fully supported)
 targets: [claude, cursor]
 ```
+
+:::info Priority rule
+If both are present, `metadata.targets` takes priority over the top-level `targets`. This lets you migrate gradually — adding `metadata:` won't conflict with a leftover top-level field.
+:::
 
 | Value | Behavior |
 |-------|----------|
@@ -125,7 +136,8 @@ targets: [claude, cursor]
 ---
 name: claude-prompts
 description: Prompt patterns for Claude Code
-targets: [claude]
+metadata:
+  targets: [claude]
 ---
 
 # Claude Prompts
@@ -171,9 +183,26 @@ This is purely informational — it does not block installation. Common values: 
 
 ---
 
-## Custom Metadata
+## The `metadata` Block
 
-You can add any custom fields:
+The `metadata:` block is a structured YAML object for deployment and behavioral fields. This aligns with the [Agent Skills ecosystem convention](https://developers.googleblog.com/en/5-agent-skill-design-patterns-every-adk-developer-should-know/) used across 30+ AI CLI tools.
+
+```yaml
+---
+name: my-skill
+description: My custom skill
+metadata:
+  targets: [claude]
+  pattern: reviewer
+  domain: python
+---
+```
+
+Currently, `targets` is the only `metadata` field that skillshare processes. Other fields (like `pattern`, `domain`, `interaction`) are preserved in the frontmatter but not used by skillshare — they may be consumed by other tools in the ecosystem.
+
+## Custom Fields
+
+You can add any custom top-level fields:
 
 ```yaml
 ---
@@ -184,7 +213,7 @@ version: 1.0.0
 ---
 ```
 
-Custom fields are stored in the frontmatter but not used by skillshare itself.
+Custom top-level fields are stored in the frontmatter but not used by skillshare itself.
 
 ---
 
