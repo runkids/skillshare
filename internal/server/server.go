@@ -311,6 +311,7 @@ func (s *Server) registerRoutes() {
 
 	// Skills
 	s.mux.HandleFunc("GET /api/skills", s.handleListSkills)
+	s.mux.HandleFunc("GET /api/skills/templates", s.handleGetTemplates)
 	s.mux.HandleFunc("GET /api/skills/{name}", s.handleGetSkill)
 	s.mux.HandleFunc("GET /api/skills/{name}/files/{filepath...}", s.handleGetSkillFile)
 	s.mux.HandleFunc("DELETE /api/skills/{name}", s.handleUninstallSkill)
