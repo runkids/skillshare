@@ -71,7 +71,7 @@ func promptCategory() (string, error) {
 
 // runNewWizard runs the full pattern → category → scaffold TUI wizard.
 // Esc at pattern = cancel. Esc at category = back to pattern. Esc at scaffold = back to category.
-// Prints breadcrumbs showing previous selections before each step.
+// Previous selections are shown in the TUI title (inside alt screen).
 // Returns ("", "", false) if cancelled at pattern step.
 func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) {
 	step := 0 // 0=pattern, 1=category, 2=scaffold
@@ -89,8 +89,8 @@ func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) 
 			step = 1
 
 		case 1: // Category selection
-			printWizardBreadcrumbs(selectedPattern, "", false)
-			c, err := promptCategory()
+			title := wizardTitle("Select a category", selectedPattern, "")
+			c, err := promptCategoryWithTitle(title)
 			if errors.Is(err, errCancelled) {
 				step = 0 // back to pattern
 				continue
@@ -107,9 +107,9 @@ func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) 
 			}
 
 		case 2: // Scaffold dirs
-			printWizardBreadcrumbs(selectedPattern, selectedCategory, false)
+			title := wizardTitle("Create recommended directories?", selectedPattern, selectedCategory)
 			pat := findPattern(selectedPattern)
-			yes, err := promptScaffoldDirs(pat)
+			yes, err := promptScaffoldDirsWithTitle(pat, title)
 			if errors.Is(err, errCancelled) {
 				step = 1 // back to category
 				continue
@@ -122,17 +122,18 @@ func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) 
 	}
 }
 
-// printWizardBreadcrumbs shows what has been selected so far above the next TUI step.
-func printWizardBreadcrumbs(pattern, category string, scaffold bool) {
+// wizardTitle builds a TUI title that includes breadcrumbs of previous selections.
+func wizardTitle(current, pattern, category string) string {
 	check := tc.Green.Render("✓")
 	dim := tc.Dim
 
+	var lines []string
 	if pattern != "" {
 		desc := ""
 		if p := findPattern(pattern); p != nil {
-			desc = " — " + p.Description
+			desc = dim.Render(" — " + p.Description)
 		}
-		fmt.Printf("  %s %s%s\n", check, dim.Render("Pattern:"), " "+pattern+dim.Render(desc))
+		lines = append(lines, fmt.Sprintf("%s Pattern: %s%s", check, pattern, desc))
 	}
 	if category != "" {
 		label := category
@@ -142,11 +143,72 @@ func printWizardBreadcrumbs(pattern, category string, scaffold bool) {
 				break
 			}
 		}
-		fmt.Printf("  %s %s%s\n", check, dim.Render("Category:"), " "+label)
+		lines = append(lines, fmt.Sprintf("%s Category: %s", check, label))
 	}
-	if scaffold {
-		fmt.Printf("  %s %s\n", check, dim.Render("Directories: Yes"))
+	lines = append(lines, current)
+	return strings.Join(lines, "\n")
+}
+
+// promptCategoryWithTitle runs promptCategory with a custom title including breadcrumbs.
+func promptCategoryWithTitle(title string) (string, error) {
+	items := make([]checklistItemData, len(skillCategories)+1)
+	for i, c := range skillCategories {
+		items[i] = checklistItemData{
+			label: c.Key,
+			desc:  c.Label,
+		}
 	}
+	items[len(skillCategories)] = checklistItemData{
+		label: "(skip)",
+		desc:  "No category",
+	}
+
+	indices, err := runChecklistTUI(checklistConfig{
+		title:        title,
+		items:        items,
+		singleSelect: true,
+		itemName:     "category",
+	})
+	if err != nil {
+		return "", err
+	}
+	if indices == nil {
+		return "", errCancelled
+	}
+	idx := indices[0]
+	if idx == len(skillCategories) {
+		return "", nil
+	}
+	return skillCategories[idx].Key, nil
+}
+
+// promptScaffoldDirsWithTitle runs promptScaffoldDirs with a custom title including breadcrumbs.
+func promptScaffoldDirsWithTitle(pattern *skillPattern, title string) (bool, error) {
+	if pattern == nil || len(pattern.ScaffoldDirs) == 0 {
+		return false, nil
+	}
+
+	dirList := strings.Join(pattern.ScaffoldDirs, ", ")
+	desc := fmt.Sprintf("Directories: %s", dirList)
+
+	items := []checklistItemData{
+		{label: "Yes", desc: desc},
+		{label: "No", desc: "Skip scaffold directories"},
+	}
+
+	indices, err := runChecklistTUI(checklistConfig{
+		title:        title,
+		items:        items,
+		singleSelect: true,
+		itemName:     "option",
+	})
+	if err != nil {
+		return false, err
+	}
+	if indices == nil {
+		return false, errCancelled
+	}
+	return indices[0] == 0, nil
 }
 
 // promptScaffoldDirs shows a Yes/No TUI asking whether to create recommended dirs.
