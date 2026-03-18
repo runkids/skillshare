@@ -37,7 +37,7 @@ func TestHandlePutConfig_WritesOpsLog(t *testing.T) {
 	s := New(&config.Config{
 		Source:  sourceDir,
 		Targets: map[string]config.TargetConfig{},
-	}, "127.0.0.1:0", "")
+	}, "127.0.0.1:0", "", "")
 
 	payload, _ := json.Marshal(map[string]string{"raw": initialRaw})
 	req := httptest.NewRequest(http.MethodPut, "/api/config", bytes.NewReader(payload))
@@ -88,7 +88,7 @@ func TestHandleAuditAll_WritesAuditLog(t *testing.T) {
 	s := New(&config.Config{
 		Source:  sourceDir,
 		Targets: map[string]config.TargetConfig{},
-	}, "127.0.0.1:0", "")
+	}, "127.0.0.1:0", "", "")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/audit", nil)
 	rr := httptest.NewRecorder()
@@ -138,7 +138,7 @@ func TestHandleAuditAll_HighOnlyClassifiedAsWarning(t *testing.T) {
 	s := New(&config.Config{
 		Source:  sourceDir,
 		Targets: map[string]config.TargetConfig{},
-	}, "127.0.0.1:0", "")
+	}, "127.0.0.1:0", "", "")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/audit", nil)
 	rr := httptest.NewRecorder()
@@ -216,7 +216,7 @@ func TestHandleInstall_WritesDetailedInstallLog(t *testing.T) {
 	s := New(&config.Config{
 		Source:  sourceDir,
 		Targets: map[string]config.TargetConfig{},
-	}, "127.0.0.1:0", "")
+	}, "127.0.0.1:0", "", "")
 
 	payload, _ := json.Marshal(map[string]any{
 		"source": localSource,
@@ -307,7 +307,7 @@ func TestHandleInstall_ErrorAlsoWritesInstallLog(t *testing.T) {
 	s := New(&config.Config{
 		Source:  sourceDir,
 		Targets: map[string]config.TargetConfig{},
-	}, "127.0.0.1:0", "")
+	}, "127.0.0.1:0", "", "")
 
 	payload, _ := json.Marshal(map[string]any{
 		"source": localSource,

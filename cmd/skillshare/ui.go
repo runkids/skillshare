@@ -135,7 +135,7 @@ func startProjectUI(addr, url string, noOpen bool) error {
 		return err
 	}
 
-	srv := server.NewProject(cfg, rt.config, cwd, addr, uiDir)
+	srv := server.NewProject(cfg, rt.config, cwd, addr, "", uiDir)
 	if !noOpen {
 		srv.SetOnReady(func() {
 			ui.Success("Opening %s in your browser... (project mode)", url)
@@ -156,7 +156,7 @@ func startGlobalUI(addr, url string, noOpen bool) error {
 		return err
 	}
 
-	srv := server.New(cfg, addr, uiDir)
+	srv := server.New(cfg, addr, "", uiDir)
 	if !noOpen {
 		srv.SetOnReady(func() {
 			ui.Success("Opening %s in your browser...", url)

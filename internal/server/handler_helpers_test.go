@@ -30,7 +30,7 @@ func newTestServer(t *testing.T) (*Server, string) {
 		t.Fatalf("failed to load config: %v", err)
 	}
 
-	s := New(cfg, "127.0.0.1:0", "")
+	s := New(cfg, "127.0.0.1:0", "", "")
 	return s, sourceDir
 }
 
@@ -58,7 +58,7 @@ func newTestServerWithTargets(t *testing.T, targets map[string]string) (*Server,
 		t.Fatalf("failed to load config: %v", err)
 	}
 
-	s := New(cfg, "127.0.0.1:0", "")
+	s := New(cfg, "127.0.0.1:0", "", "")
 	return s, sourceDir
 }
 

@@ -37,14 +37,52 @@ type Server struct {
 	// instead of the embedded SPA. Used for runtime-downloaded UI assets.
 	uiDistDir string
 
+	// basePath is the URL prefix under which the UI and API are served
+	// (e.g. "/app"). Empty means serve at root.
+	basePath string
+
 	// onReady is called after the listener is bound but before serving.
 	// Used to open the browser only after the port is confirmed available.
 	onReady func()
 }
 
+// normalizeBasePath ensures the base path starts with "/" and has no trailing slash.
+// An empty or "/" input returns "".
+func normalizeBasePath(p string) string {
+	p = strings.TrimRight(p, "/")
+	if p == "" {
+		return ""
+	}
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	return p
+}
+
+// wrapBasePath wraps the handler chain with StripPrefix and bare-path redirect
+// when basePath is set. Skips wrapping in dev mode (no uiDistDir) and prints a warning.
+func (s *Server) wrapBasePath() {
+	if s.basePath == "" {
+		return
+	}
+	if s.uiDistDir == "" {
+		fmt.Fprintf(os.Stderr, "Warning: --base-path is ignored in dev mode (no UI assets). Start Vite without base path.\n")
+		s.basePath = ""
+		return
+	}
+	stripped := http.StripPrefix(s.basePath, s.handler)
+	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == s.basePath {
+			http.Redirect(w, r, s.basePath+"/", http.StatusMovedPermanently)
+			return
+		}
+		stripped.ServeHTTP(w, r)
+	})
+}
+
 // New creates a new Server for global mode.
 // uiDistDir, when non-empty, serves UI from disk instead of the embedded SPA.
-func New(cfg *config.Config, addr, uiDistDir string) *Server {
+func New(cfg *config.Config, addr, basePath, uiDistDir string) *Server {
 	reg, _ := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
 	if reg == nil {
 		reg = &config.Registry{}
@@ -54,16 +92,18 @@ func New(cfg *config.Config, addr, uiDistDir string) *Server {
 		registry:  reg,
 		addr:      addr,
 		mux:       http.NewServeMux(),
+		basePath:  normalizeBasePath(basePath),
 		uiDistDir: uiDistDir,
 	}
 	s.registerRoutes()
 	s.handler = s.withConfigAutoReload(s.mux)
+	s.wrapBasePath()
 	return s
 }
 
 // NewProject creates a new Server for project mode.
 // uiDistDir, when non-empty, serves UI from disk instead of the embedded SPA.
-func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoot, addr, uiDistDir string) *Server {
+func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoot, addr, basePath, uiDistDir string) *Server {
 	reg, _ := config.LoadRegistry(filepath.Join(projectRoot, ".skillshare"))
 	if reg == nil {
 		reg = &config.Registry{}
@@ -73,12 +113,14 @@ func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoo
 		registry:    reg,
 		addr:        addr,
 		mux:         http.NewServeMux(),
+		basePath:    normalizeBasePath(basePath),
 		projectRoot: projectRoot,
 		projectCfg:  projectCfg,
 		uiDistDir:   uiDistDir,
 	}
 	s.registerRoutes()
 	s.handler = s.withConfigAutoReload(s.mux)
+	s.wrapBasePath()
 	return s
 }
 
@@ -219,7 +261,11 @@ func (s *Server) StartWithContext(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Printf("Skillshare UI running at http://%s\n", s.addr)
+	if s.basePath != "" {
+		fmt.Printf("Skillshare UI running at http://%s%s/\n", s.addr, s.basePath)
+	} else {
+		fmt.Printf("Skillshare UI running at http://%s\n", s.addr)
+	}
 
 	if s.onReady != nil {
 		s.onReady()
