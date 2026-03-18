@@ -18,6 +18,7 @@ type checklistItemData struct {
 // checklistConfig configures the checklist TUI.
 type checklistConfig struct {
 	title        string
+	header       string // optional: rendered above the list (e.g. wizard breadcrumbs)
 	items        []checklistItemData
 	singleSelect bool   // true = radio behaviour (only one can be selected)
 	itemName     string // status bar name (e.g. "target", "agent")
@@ -68,7 +69,9 @@ type checklistModel struct {
 	total        int
 	singleSelect bool
 	title        string
-	result       []int // selected indices; nil = cancelled
+	header       string // rendered above the list
+	headerLines  int    // number of lines in header (for height calculation)
+	result       []int  // selected indices; nil = cancelled
 	quitting     bool
 }
 
@@ -105,6 +108,11 @@ func newChecklistModel(cfg checklistConfig) checklistModel {
 	l.SetStatusBarItemName(itemName, itemName+"s")
 	applyTUIFilterStyle(&l)
 
+	headerLines := 0
+	if cfg.header != "" {
+		headerLines = strings.Count(cfg.header, "\n") + 1
+	}
+
 	m := checklistModel{
 		list:         l,
 		items:        cfg.items,
@@ -113,6 +121,8 @@ func newChecklistModel(cfg checklistConfig) checklistModel {
 		total:        len(cfg.items),
 		singleSelect: cfg.singleSelect,
 		title:        cfg.title,
+		header:       cfg.header,
+		headerLines:  headerLines,
 	}
 	m.updateTitle()
 	return m
@@ -145,7 +155,7 @@ func (m checklistModel) Init() tea.Cmd { return nil }
 func (m checklistModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetSize(msg.Width, msg.Height-4)
+		m.list.SetSize(msg.Width, msg.Height-4-m.headerLines)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -252,6 +262,10 @@ func (m checklistModel) View() string {
 	}
 
 	var b strings.Builder
+	if m.header != "" {
+		b.WriteString(m.header)
+		b.WriteString("\n")
+	}
 	b.WriteString(m.list.View())
 	b.WriteString("\n")
 

@@ -89,8 +89,8 @@ func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) 
 			step = 1
 
 		case 1: // Category selection
-			title := wizardTitle("Select a category", selectedPattern, "")
-			c, err := promptCategoryWithTitle(title)
+			header := wizardHeader(selectedPattern, "")
+			c, err := promptCategoryWith(header)
 			if errors.Is(err, errCancelled) {
 				step = 0 // back to pattern
 				continue
@@ -107,9 +107,9 @@ func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) 
 			}
 
 		case 2: // Scaffold dirs
-			title := wizardTitle("Create recommended directories?", selectedPattern, selectedCategory)
+			header := wizardHeader(selectedPattern, selectedCategory)
 			pat := findPattern(selectedPattern)
-			yes, err := promptScaffoldDirsWithTitle(pat, title)
+			yes, err := promptScaffoldDirsWith(pat, header)
 			if errors.Is(err, errCancelled) {
 				step = 1 // back to category
 				continue
@@ -122,8 +122,8 @@ func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) 
 	}
 }
 
-// wizardTitle builds a TUI title that includes breadcrumbs of previous selections.
-func wizardTitle(current, pattern, category string) string {
+// wizardHeader builds a header string showing previous selections as breadcrumbs.
+func wizardHeader(pattern, category string) string {
 	check := tc.Green.Render("✓")
 	dim := tc.Dim
 
@@ -133,7 +133,7 @@ func wizardTitle(current, pattern, category string) string {
 		if p := findPattern(pattern); p != nil {
 			desc = dim.Render(" — " + p.Description)
 		}
-		lines = append(lines, fmt.Sprintf("%s Pattern: %s%s", check, pattern, desc))
+		lines = append(lines, fmt.Sprintf("  %s Pattern: %s%s", check, pattern, desc))
 	}
 	if category != "" {
 		label := category
@@ -143,14 +143,13 @@ func wizardTitle(current, pattern, category string) string {
 				break
 			}
 		}
-		lines = append(lines, fmt.Sprintf("%s Category: %s", check, label))
+		lines = append(lines, fmt.Sprintf("  %s Category: %s", check, label))
 	}
-	lines = append(lines, current)
 	return strings.Join(lines, "\n")
 }
 
-// promptCategoryWithTitle runs promptCategory with a custom title including breadcrumbs.
-func promptCategoryWithTitle(title string) (string, error) {
+// promptCategoryWith runs the category TUI with a header showing previous selections.
+func promptCategoryWith(header string) (string, error) {
 	items := make([]checklistItemData, len(skillCategories)+1)
 	for i, c := range skillCategories {
 		items[i] = checklistItemData{
@@ -164,7 +163,8 @@ func promptCategoryWithTitle(title string) (string, error) {
 	}
 
 	indices, err := runChecklistTUI(checklistConfig{
-		title:        title,
+		title:        "Select a category",
+		header:       header,
 		items:        items,
 		singleSelect: true,
 		itemName:     "category",
@@ -182,8 +182,8 @@ func promptCategoryWithTitle(title string) (string, error) {
 	return skillCategories[idx].Key, nil
 }
 
-// promptScaffoldDirsWithTitle runs promptScaffoldDirs with a custom title including breadcrumbs.
-func promptScaffoldDirsWithTitle(pattern *skillPattern, title string) (bool, error) {
+// promptScaffoldDirsWith runs the scaffold TUI with a header showing previous selections.
+func promptScaffoldDirsWith(pattern *skillPattern, header string) (bool, error) {
 	if pattern == nil || len(pattern.ScaffoldDirs) == 0 {
 		return false, nil
 	}
@@ -197,7 +197,8 @@ func promptScaffoldDirsWithTitle(pattern *skillPattern, title string) (bool, err
 	}
 
 	indices, err := runChecklistTUI(checklistConfig{
-		title:        title,
+		title:        "Create recommended directories?",
+		header:       header,
 		items:        items,
 		singleSelect: true,
 		itemName:     "option",
