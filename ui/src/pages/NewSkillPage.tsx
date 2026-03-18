@@ -368,7 +368,7 @@ function PatternStep({
               ss-card text-left p-4 border-2 cursor-pointer transition-all duration-150
               rounded-[var(--radius-md)]
               ${selected?.name === p.name
-                ? 'border-pencil bg-paper-warm/60 shadow-md'
+                ? 'border-blue bg-info-light/50 shadow-md'
                 : 'border-muted bg-surface hover:border-muted-dark hover:shadow-sm'
               }
             `}
@@ -417,7 +417,7 @@ function CategoryStep({
             ss-card text-left p-4 border-2 cursor-pointer transition-all duration-150
             rounded-[var(--radius-md)]
             ${selected === null
-              ? 'border-pencil bg-paper-warm/60 shadow-md'
+              ? 'border-blue bg-info-light/50 shadow-md'
               : 'border-muted bg-surface hover:border-muted-dark hover:shadow-sm'
             }
           `}
@@ -434,7 +434,7 @@ function CategoryStep({
               ss-card text-left p-4 border-2 cursor-pointer transition-all duration-150
               rounded-[var(--radius-md)]
               ${selected?.key === c.key
-                ? 'border-pencil bg-paper-warm/60 shadow-md'
+                ? 'border-blue bg-info-light/50 shadow-md'
                 : 'border-muted bg-surface hover:border-muted-dark hover:shadow-sm'
               }
             `}
@@ -477,7 +477,7 @@ function ScaffoldStep({
                 ss-card flex items-center gap-3 p-4 border-2 cursor-pointer transition-all duration-150
                 rounded-[var(--radius-md)]
                 ${isOn
-                  ? 'border-pencil bg-paper-warm/60 shadow-md'
+                  ? 'border-blue bg-info-light/50 shadow-md'
                   : 'border-muted bg-surface hover:border-muted-dark hover:shadow-sm opacity-60'
                 }
               `}
