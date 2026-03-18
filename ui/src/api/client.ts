@@ -127,7 +127,14 @@ export const api = {
     apiFetch<{ skill: Skill; skillMdContent: string; files: string[] }>(`/skills/${encodeURIComponent(name)}`),
   deleteSkill: (name: string) =>
     apiFetch<{ success: boolean }>(`/skills/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  getTemplates: () => apiFetch<TemplatesResponse>('/skills/templates'),
+  getTemplates: async () => {
+    const res = await apiFetch<TemplatesResponse>('/skills/templates');
+    // Normalize: Go omits nil slices, so scaffoldDirs may be undefined
+    for (const p of res.patterns) {
+      if (!p.scaffoldDirs) p.scaffoldDirs = [];
+    }
+    return res;
+  },
   createSkill: (data: CreateSkillRequest) =>
     apiFetch<CreateSkillResponse>('/skills', {
       method: 'POST',
