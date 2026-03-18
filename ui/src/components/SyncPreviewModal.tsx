@@ -123,7 +123,7 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
           )}
 
           {!loading && !error && results && !allUpToDate && !noTargets && (
-            <SyncResultList results={results} detailed />
+            <SyncResultList results={results} />
           )}
 
           <div className="flex justify-end gap-3 pt-2">

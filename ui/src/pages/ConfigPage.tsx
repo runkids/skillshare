@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Save, FileCode, Settings, EyeOff } from 'lucide-react';
+import { Save, FileCode, Settings, EyeOff, RefreshCw } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView } from '@codemirror/view';
@@ -24,6 +24,7 @@ export default function ConfigPage() {
   const { toast } = useToast();
   const { isProjectMode } = useAppContext();
   const [tab, setTab] = useState<ConfigTab>('config');
+  const [showSyncBanner, setShowSyncBanner] = useState(false);
   const [showSyncPreview, setShowSyncPreview] = useState(false);
 
   // --- config.yaml state ---
@@ -47,18 +48,17 @@ export default function ConfigPage() {
 
   const handleConfigChange = (value: string) => {
     setRaw(value);
-    setDirty(value !== (configData?.raw ?? ''));
+    const changed = value !== (configData?.raw ?? '');
+    setDirty(changed);
+    if (changed) setShowSyncBanner(false);
   };
 
   const handleConfigSave = async () => {
     setSaving(true);
     try {
       await api.putConfig(raw);
-      toast('Config saved successfully.', 'success', {
-        action: { label: 'Preview Sync', onClick: () => setShowSyncPreview(true) },
-        persistent: true,
-        replaceKey: 'config-save',
-      });
+      toast('Config saved successfully.', 'success');
+      setShowSyncBanner(true);
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.config });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
@@ -92,18 +92,17 @@ export default function ConfigPage() {
 
   const handleIgnoreChange = (value: string) => {
     setIgnoreRaw(value);
-    setIgnoreDirty(value !== (ignoreData?.raw ?? ''));
+    const changed = value !== (ignoreData?.raw ?? '');
+    setIgnoreDirty(changed);
+    if (changed) setShowSyncBanner(false);
   };
 
   const handleIgnoreSave = async () => {
     setIgnoreSaving(true);
     try {
       await api.putSkillignore(ignoreRaw);
-      toast('.skillignore saved successfully.', 'success', {
-        action: { label: 'Preview Sync', onClick: () => setShowSyncPreview(true) },
-        persistent: true,
-        replaceKey: 'config-save',
-      });
+      toast('.skillignore saved successfully.', 'success');
+      setShowSyncBanner(true);
       setIgnoreDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.skillignore });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
@@ -213,6 +212,38 @@ export default function ConfigPage() {
           onChange={handleIgnoreChange}
           extensions={ignoreExtensions}
         />
+      )}
+
+      {showSyncBanner && (
+        <Card className="mt-4 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <RefreshCw size={18} strokeWidth={2.5} className="text-blue shrink-0" />
+              <span className="text-pencil">
+                Config updated — preview what sync will do?
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowSyncBanner(false)}
+              >
+                Dismiss
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setShowSyncPreview(true);
+                  setShowSyncBanner(false);
+                }}
+              >
+                Preview Sync
+              </Button>
+            </div>
+          </div>
+        </Card>
       )}
 
       <SyncPreviewModal

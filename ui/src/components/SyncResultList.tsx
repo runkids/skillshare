@@ -5,12 +5,7 @@ import type { SyncResult } from '../api/client';
 import Badge from './Badge';
 import Card from './Card';
 
-interface SyncResultListProps {
-  results: SyncResult[];
-  detailed?: boolean;
-}
-
-export default function SyncResultList({ results, detailed = false }: SyncResultListProps) {
+export default function SyncResultList({ results }: { results: SyncResult[] }) {
   if (results.length === 0) {
     return (
       <Card variant="outlined">
@@ -44,29 +39,6 @@ export default function SyncResultList({ results, detailed = false }: SyncResult
                 {pruned > 0 && <Badge variant="warning">{pruned} pruned</Badge>}
               </div>
             </div>
-
-            {detailed && hasChanges && (
-              <div className="mt-3 pt-3 border-t border-pencil/10 space-y-2 text-sm">
-                {linked > 0 && (
-                  <div>
-                    <span className="text-success font-medium">Linked:</span>{' '}
-                    <span className="text-pencil-light">{r.linked.join(', ')}</span>
-                  </div>
-                )}
-                {updated > 0 && (
-                  <div>
-                    <span className="text-info font-medium">Updated:</span>{' '}
-                    <span className="text-pencil-light">{r.updated.join(', ')}</span>
-                  </div>
-                )}
-                {pruned > 0 && (
-                  <div>
-                    <span className="text-warning font-medium">Pruned:</span>{' '}
-                    <span className="text-pencil-light">{r.pruned.join(', ')}</span>
-                  </div>
-                )}
-              </div>
-            )}
           </Card>
         );
       })}
