@@ -24,7 +24,6 @@ import { Checkbox } from '../components/Input';
 import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
 import { api, type SyncResult, type DiffTarget, type IgnoreSources } from '../api/client';
-import { queryKeys } from '../lib/queryKeys';
 import { formatSyncToast, invalidateAfterSync } from '../lib/sync';
 import StreamProgressBar from '../components/StreamProgressBar';
 import SyncResultList from '../components/SyncResultList';
