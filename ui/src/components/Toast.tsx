@@ -2,15 +2,27 @@ import { createContext, useContext, useState, useCallback, useRef, useEffect, ty
 import { X, CheckCircle, AlertTriangle, XCircle, Info } from 'lucide-react';
 import { shadows } from '../design';
 
+interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface Toast {
   id: number;
   message: string;
   type: 'success' | 'error' | 'warning' | 'info';
   exiting?: boolean;
+  action?: ToastAction;
+  persistent?: boolean;
+  replaceKey?: string;
 }
 
 interface ToastContextValue {
-  toast: (message: string, type?: Toast['type']) => void;
+  toast: (
+    message: string,
+    type?: Toast['type'],
+    options?: { action?: ToastAction; persistent?: boolean; replaceKey?: string },
+  ) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -54,6 +66,7 @@ function ToastItem({
   toast: Toast;
   onRemove: (id: number) => void;
 }) {
+  const { persistent, action } = t;
   const Icon = icons[t.type];
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [paused, setPaused] = useState(false);
@@ -79,9 +92,10 @@ function ToastItem({
   }, []);
 
   useEffect(() => {
+    if (persistent) return;
     startTimer();
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [startTimer]);
+  }, [persistent, startTimer]);
 
   return (
     <div
@@ -96,7 +110,7 @@ function ToastItem({
         boxShadow: shadows.md,
       }}
       onMouseEnter={() => { setPaused(true); pauseTimer(); }}
-      onMouseLeave={() => { setPaused(false); startTimer(); }}
+      onMouseLeave={() => { setPaused(false); if (!persistent) startTimer(); }}
     >
       <Icon size={18} strokeWidth={2.5} className="shrink-0 mt-0.5" />
       <span className="flex-1">{t.message}</span>
@@ -122,10 +136,21 @@ function ToastItem({
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const addToast = useCallback((message: string, type: Toast['type'] = 'info') => {
-    const id = nextId++;
-    setToasts((prev) => [...prev, { id, message, type }]);
-  }, []);
+  const addToast = useCallback(
+    (
+      message: string,
+      type: Toast['type'] = 'info',
+      options?: { action?: ToastAction; persistent?: boolean; replaceKey?: string },
+    ) => {
+      const id = nextId++;
+      const { action, persistent, replaceKey } = options ?? {};
+      setToasts((prev) => {
+        const filtered = replaceKey ? prev.filter((t) => t.replaceKey !== replaceKey) : prev;
+        return [...filtered, { id, message, type, action, persistent, replaceKey }];
+      });
+    },
+    [],
+  );
 
   const removeToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
