@@ -71,6 +71,7 @@ func promptCategory() (string, error) {
 
 // runNewWizard runs the full pattern → category → scaffold TUI wizard.
 // Esc at pattern = cancel. Esc at category = back to pattern. Esc at scaffold = back to category.
+// Prints breadcrumbs showing previous selections before each step.
 // Returns ("", "", false) if cancelled at pattern step.
 func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) {
 	step := 0 // 0=pattern, 1=category, 2=scaffold
@@ -88,6 +89,7 @@ func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) 
 			step = 1
 
 		case 1: // Category selection
+			printWizardBreadcrumbs(selectedPattern, "", false)
 			c, err := promptCategory()
 			if errors.Is(err, errCancelled) {
 				step = 0 // back to pattern
@@ -105,6 +107,7 @@ func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) 
 			}
 
 		case 2: // Scaffold dirs
+			printWizardBreadcrumbs(selectedPattern, selectedCategory, false)
 			pat := findPattern(selectedPattern)
 			yes, err := promptScaffoldDirs(pat)
 			if errors.Is(err, errCancelled) {
@@ -116,6 +119,33 @@ func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) 
 			}
 			return selectedPattern, selectedCategory, yes
 		}
+	}
+}
+
+// printWizardBreadcrumbs shows what has been selected so far above the next TUI step.
+func printWizardBreadcrumbs(pattern, category string, scaffold bool) {
+	check := tc.Green.Render("✓")
+	dim := tc.Dim
+
+	if pattern != "" {
+		desc := ""
+		if p := findPattern(pattern); p != nil {
+			desc = " — " + p.Description
+		}
+		fmt.Printf("  %s %s%s\n", check, dim.Render("Pattern:"), " "+pattern+dim.Render(desc))
+	}
+	if category != "" {
+		label := category
+		for _, c := range skillCategories {
+			if c.Key == category {
+				label = category + dim.Render(" — "+c.Label)
+				break
+			}
+		}
+		fmt.Printf("  %s %s%s\n", check, dim.Render("Category:"), " "+label)
+	}
+	if scaffold {
+		fmt.Printf("  %s %s\n", check, dim.Render("Directories: Yes"))
 	}
 }
 
