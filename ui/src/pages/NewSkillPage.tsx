@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Wand2, ArrowLeft, ArrowRight, Check, FolderPlus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FolderPlus } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Card from '../components/Card';
@@ -184,7 +184,7 @@ export default function NewSkillPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHeader
-        icon={<Wand2 size={24} strokeWidth={2.5} />}
+        icon={<></>}
         title="Create New Skill"
         backTo="/skills"
       />
