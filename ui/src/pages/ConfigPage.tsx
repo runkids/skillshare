@@ -15,6 +15,7 @@ import { api } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { handTheme } from '../lib/codemirror-theme';
+import SyncPreviewModal from '../components/SyncPreviewModal';
 
 type ConfigTab = 'config' | 'skillignore';
 
@@ -23,6 +24,7 @@ export default function ConfigPage() {
   const { toast } = useToast();
   const { isProjectMode } = useAppContext();
   const [tab, setTab] = useState<ConfigTab>('config');
+  const [showSyncPreview, setShowSyncPreview] = useState(false);
 
   // --- config.yaml state ---
   const { data: configData, isPending: configPending, error: configError } = useQuery({
@@ -52,7 +54,11 @@ export default function ConfigPage() {
     setSaving(true);
     try {
       await api.putConfig(raw);
-      toast('Config saved successfully.', 'success');
+      toast('Config saved successfully.', 'success', {
+        action: { label: 'Preview Sync', onClick: () => setShowSyncPreview(true) },
+        persistent: true,
+        replaceKey: 'config-save',
+      });
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.config });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
@@ -93,7 +99,11 @@ export default function ConfigPage() {
     setIgnoreSaving(true);
     try {
       await api.putSkillignore(ignoreRaw);
-      toast('.skillignore saved successfully.', 'success');
+      toast('.skillignore saved successfully.', 'success', {
+        action: { label: 'Preview Sync', onClick: () => setShowSyncPreview(true) },
+        persistent: true,
+        replaceKey: 'config-save',
+      });
       setIgnoreDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.skillignore });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
@@ -204,6 +214,11 @@ export default function ConfigPage() {
           extensions={ignoreExtensions}
         />
       )}
+
+      <SyncPreviewModal
+        open={showSyncPreview}
+        onClose={() => setShowSyncPreview(false)}
+      />
     </div>
   );
 }
