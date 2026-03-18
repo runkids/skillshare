@@ -137,7 +137,7 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 
 ## Reverse Proxy
 
-Use `--base-path` to serve the dashboard under a sub-path behind a reverse proxy:
+If you run the dashboard on a shared server behind a reverse proxy (e.g., homelab, internal tools platform), use `--base-path` to serve it under a sub-path alongside other services:
 
 ```bash
 skillshare ui --base-path /skillshare --host 0.0.0.0 --no-open
