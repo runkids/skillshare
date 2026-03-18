@@ -22,6 +22,7 @@ func cmdUI(args []string) error {
 
 	port := "19420"
 	host := "127.0.0.1"
+	basePath := ""
 	noOpen := false
 
 	for i := 0; i < len(rest); i++ {
@@ -40,6 +41,13 @@ func cmdUI(args []string) error {
 			} else {
 				return fmt.Errorf("--host requires a value")
 			}
+		case "--base-path", "-b":
+			if i+1 < len(rest) {
+				i++
+				basePath = rest[i]
+			} else {
+				return fmt.Errorf("--base-path requires a value")
+			}
 		case "--no-open":
 			noOpen = true
 		case "--clear-cache":
@@ -51,6 +59,11 @@ func cmdUI(args []string) error {
 		default:
 			return fmt.Errorf("unknown flag: %s", rest[i])
 		}
+	}
+
+	// Env var fallback for base path
+	if basePath == "" {
+		basePath = os.Getenv("SKILLSHARE_UI_BASE_PATH")
 	}
 
 	// Auto-detect project mode
@@ -67,11 +80,20 @@ func cmdUI(args []string) error {
 
 	addr := host + ":" + port
 	url := "http://" + addr
+	if basePath != "" {
+		bp := strings.TrimRight(basePath, "/")
+		if !strings.HasPrefix(bp, "/") {
+			bp = "/" + bp
+		}
+		if bp != "" {
+			url += bp + "/"
+		}
+	}
 
 	if mode == modeProject {
-		return startProjectUI(addr, url, noOpen)
+		return startProjectUI(addr, url, basePath, noOpen)
 	}
-	return startGlobalUI(addr, url, noOpen)
+	return startGlobalUI(addr, url, basePath, noOpen)
 }
 
 // ensureUIAvailable checks whether the UI is cached and downloads it if needed.
@@ -108,7 +130,7 @@ func ensureUIAvailable() (string, error) {
 	return dir, nil
 }
 
-func startProjectUI(addr, url string, noOpen bool) error {
+func startProjectUI(addr, url, basePath string, noOpen bool) error {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
@@ -135,7 +157,7 @@ func startProjectUI(addr, url string, noOpen bool) error {
 		return err
 	}
 
-	srv := server.NewProject(cfg, rt.config, cwd, addr, "", uiDir)
+	srv := server.NewProject(cfg, rt.config, cwd, addr, basePath, uiDir)
 	if !noOpen {
 		srv.SetOnReady(func() {
 			ui.Success("Opening %s in your browser... (project mode)", url)
@@ -145,7 +167,7 @@ func startProjectUI(addr, url string, noOpen bool) error {
 	return srv.Start()
 }
 
-func startGlobalUI(addr, url string, noOpen bool) error {
+func startGlobalUI(addr, url, basePath string, noOpen bool) error {
 	cfg, err := loadUIConfig()
 	if err != nil {
 		return err
@@ -156,7 +178,7 @@ func startGlobalUI(addr, url string, noOpen bool) error {
 		return err
 	}
 
-	srv := server.New(cfg, addr, "", uiDir)
+	srv := server.New(cfg, addr, basePath, uiDir)
 	if !noOpen {
 		srv.SetOnReady(func() {
 			ui.Success("Opening %s in your browser...", url)
