@@ -11,6 +11,7 @@ import {
   FolderOpen,
   LayoutGrid,
   List,
+  Plus,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { VirtuosoGrid, GroupedVirtuoso } from 'react-virtuoso';
@@ -320,6 +321,14 @@ export default function SkillsPage() {
         icon={<Puzzle size={24} strokeWidth={2.5} />}
         title="Skills"
         subtitle={`${skills.length} skill${skills.length !== 1 ? 's' : ''} installed`}
+        actions={
+          <Link to="/skills/new">
+            <Button variant="primary" size="sm">
+              <Plus size={16} strokeWidth={2.5} />
+              New Skill
+            </Button>
+          </Link>
+        }
       />
 
       {/* Sticky toolbar */}

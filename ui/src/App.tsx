@@ -30,6 +30,7 @@ const AuditRulesPage = lazy(() => import('./pages/AuditRulesPage'));
 const LogPage = lazy(() => import('./pages/LogPage'));
 const ConfigPage = lazy(() => import('./pages/ConfigPage'));
 const FilterStudioPage = lazy(() => import('./pages/FilterStudioPage'));
+const NewSkillPage = lazy(() => import('./pages/NewSkillPage'));
 const DoctorPage = lazy(() => import('./pages/DoctorPage'));
 
 function Lazy({ children }: { children: React.ReactNode }) {
@@ -51,6 +52,7 @@ export default function App() {
               <Route element={<Layout />}>
                 <Route index element={<DashboardPage />} />
                 <Route path="skills" element={<Lazy><SkillsPage /></Lazy>} />
+                <Route path="skills/new" element={<Lazy><NewSkillPage /></Lazy>} />
                 <Route path="skills/:name" element={<Lazy><SkillDetailPage /></Lazy>} />
                 <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
                 <Route path="targets/:name/filters" element={<Lazy><FilterStudioPage /></Lazy>} />

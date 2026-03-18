@@ -12,7 +12,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { useAppContext } from '../context/AppContext';
 import { api } from '../api/client';
-import type { SkillPattern, SkillCategory, Skill } from '../api/client';
+import type { SkillPattern, SkillCategory } from '../api/client';
 
 /* -- Step definitions -------------------------------- */
 
@@ -89,7 +89,6 @@ export default function NewSkillPage() {
   // Compute dynamic steps
   const steps = useMemo(() => computeSteps(selectedPattern), [selectedPattern]);
   const currentStep = steps[stepIndex] ?? 'name';
-  const isLastStep = stepIndex === steps.length - 1;
 
   // When pattern changes, reset downstream state
   const handlePatternSelect = useCallback((pattern: SkillPattern) => {
@@ -344,16 +343,6 @@ function NameStep({
 }
 
 /* -- Step: Pattern ----------------------------------- */
-
-const PATTERN_ICONS: Record<string, string> = {
-  none: '',
-  basic: '',
-  rules: '',
-  mcp: '',
-  commands: '',
-  agent: '',
-  full: '',
-};
 
 function PatternStep({
   patterns,
