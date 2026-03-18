@@ -152,6 +152,7 @@ func extractFrontmatterRaw(filePath string) string {
 // ParseFrontmatterFields reads a SKILL.md file once and returns the values of
 // multiple frontmatter fields. This avoids opening the same file repeatedly
 // when multiple fields are needed (e.g. description + license).
+// Note: does not resolve metadata.<field> — only reads top-level fields.
 func ParseFrontmatterFields(filePath string, fields []string) map[string]string {
 	result := make(map[string]string, len(fields))
 	if len(fields) == 0 {
