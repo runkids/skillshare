@@ -252,13 +252,16 @@ func TestLog_SyncPartialStatus(t *testing.T) {
 
 	goodTarget := sb.CreateTarget("claude")
 
-	// Create a file where the broken target's parent should be a directory,
-	// so os.MkdirAll fails when sync tries to create the target path.
-	blocker := filepath.Join(sb.Home, "blocker")
-	if err := os.WriteFile(blocker, []byte("not a dir"), 0644); err != nil {
-		t.Fatalf("failed to create blocker file: %v", err)
+	// Create the broken target as a valid directory (passes validation),
+	// then make it read-only so sync fails when trying to write symlinks.
+	brokenTarget := filepath.Join(sb.Home, "broken-target", "skills")
+	if err := os.MkdirAll(brokenTarget, 0755); err != nil {
+		t.Fatalf("failed to create broken target: %v", err)
 	}
-	brokenTarget := filepath.Join(blocker, "skills")
+	if err := os.Chmod(brokenTarget, 0444); err != nil {
+		t.Fatalf("failed to chmod broken target: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(brokenTarget, 0755) })
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
 mode: merge

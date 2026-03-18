@@ -139,16 +139,17 @@ func TestSync_SourceNotExist_ReturnsError(t *testing.T) {
 	defer sb.Cleanup()
 
 	// Config points to non-existent source
+	targetPath := sb.CreateTarget("claude")
 	sb.WriteConfig(`source: /nonexistent/path
 targets:
   claude:
-    path: ` + filepath.Join(sb.Home, ".claude", "skills") + `
+    path: ` + targetPath + `
 `)
 
 	result := sb.RunCLI("sync")
 
 	result.AssertFailure(t)
-	result.AssertAnyOutputContains(t, "source directory does not exist")
+	result.AssertAnyOutputContains(t, "source path does not exist")
 }
 
 func TestSync_SymlinkMode_CreatesSingleSymlink(t *testing.T) {
@@ -158,9 +159,7 @@ func TestSync_SymlinkMode_CreatesSingleSymlink(t *testing.T) {
 	sb.CreateSkill("skill1", map[string]string{"SKILL.md": "# Skill 1"})
 	sb.CreateSkill("skill2", map[string]string{"SKILL.md": "# Skill 2"})
 
-	targetPath := filepath.Join(sb.Home, ".claude", "skills")
-	// Remove target directory if exists for symlink mode
-	os.RemoveAll(targetPath)
+	targetPath := sb.CreateTarget("claude")
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
 targets:

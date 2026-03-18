@@ -112,8 +112,7 @@ func TestExclude_GlobalSymlinkMode_Ignored(t *testing.T) {
 	defer sb.Cleanup()
 
 	sb.CreateSkill("exclude-me", map[string]string{"SKILL.md": "# Source"})
-	targetPath := filepath.Join(sb.Home, ".claude", "skills")
-	os.RemoveAll(targetPath)
+	targetPath := sb.CreateTarget("claude")
 
 	sb.WriteConfig(`source: ` + sb.SourcePath + `
 targets:
