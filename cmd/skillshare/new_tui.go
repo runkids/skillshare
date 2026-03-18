@@ -35,7 +35,8 @@ func promptPattern() (string, error) {
 }
 
 // promptCategory shows a single-select TUI listing skill categories plus a skip option.
-// Returns the selected category key, or "" if cancelled/skipped.
+// Returns the selected category key, or "" if skipped.
+// Returns errCancelled if user presses Esc/q.
 func promptCategory() (string, error) {
 	items := make([]checklistItemData, len(skillCategories)+1)
 	for i, c := range skillCategories {
@@ -59,13 +60,63 @@ func promptCategory() (string, error) {
 		return "", err
 	}
 	if indices == nil {
-		return "", nil
+		return "", errCancelled // user pressed Esc
 	}
 	idx := indices[0]
 	if idx == len(skillCategories) {
-		return "", nil // skipped
+		return "", nil // explicitly skipped
 	}
 	return skillCategories[idx].Key, nil
+}
+
+// runNewWizard runs the full pattern → category → scaffold TUI wizard.
+// Esc at pattern = cancel. Esc at category = back to pattern. Esc at scaffold = back to category.
+// Returns ("", "", false) if cancelled at pattern step.
+func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) {
+	step := 0 // 0=pattern, 1=category, 2=scaffold
+	for {
+		switch step {
+		case 0: // Pattern selection
+			p, err := promptPattern()
+			if err != nil || p == "" {
+				return "", "", false
+			}
+			selectedPattern = p
+			if p == "none" {
+				return p, "", false
+			}
+			step = 1
+
+		case 1: // Category selection
+			c, err := promptCategory()
+			if errors.Is(err, errCancelled) {
+				step = 0 // back to pattern
+				continue
+			}
+			if err != nil {
+				return "", "", false
+			}
+			selectedCategory = c
+			pat := findPattern(selectedPattern)
+			if pat != nil && len(pat.ScaffoldDirs) > 0 {
+				step = 2
+			} else {
+				return selectedPattern, selectedCategory, false
+			}
+
+		case 2: // Scaffold dirs
+			pat := findPattern(selectedPattern)
+			yes, err := promptScaffoldDirs(pat)
+			if errors.Is(err, errCancelled) {
+				step = 1 // back to category
+				continue
+			}
+			if err != nil {
+				return "", "", false
+			}
+			return selectedPattern, selectedCategory, yes
+		}
+	}
 }
 
 // promptScaffoldDirs shows a Yes/No TUI asking whether to create recommended dirs.

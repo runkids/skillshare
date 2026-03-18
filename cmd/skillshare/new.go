@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -102,7 +101,7 @@ func cmdNew(args []string) error {
 		return fmt.Errorf("skill '%s' already exists at %s", skillName, skillDir)
 	}
 
-	// Determine pattern
+	// Determine pattern via wizard (Esc = back to previous step)
 	selectedPattern := patternFlag
 	var selectedCategory string
 	createDirs := patternFlag != "" && patternFlag != "none"
@@ -110,23 +109,12 @@ func cmdNew(args []string) error {
 	isTTY := runningInInteractiveTTY()
 
 	if selectedPattern == "" && isTTY {
-		p, err := promptPattern()
-		if err != nil {
-			return fmt.Errorf("pattern selection: %w", err)
+		selectedPattern, selectedCategory, createDirs = runNewWizard()
+		if selectedPattern == "" {
+			return nil // cancelled at pattern step
 		}
-		if p == "" {
-			return nil // cancelled
-		}
-		selectedPattern = p
-	}
-
-	if selectedPattern == "" {
-		selectedPattern = "none"
-	}
-
-	pattern := findPattern(selectedPattern)
-
-	if selectedPattern != "none" && isTTY {
+	} else if selectedPattern != "" && selectedPattern != "none" && isTTY {
+		// -P given but still ask category interactively
 		c, err := promptCategory()
 		if err != nil {
 			return fmt.Errorf("category selection: %w", err)
@@ -134,16 +122,11 @@ func cmdNew(args []string) error {
 		selectedCategory = c
 	}
 
-	if selectedPattern != "none" && !createDirs && isTTY {
-		yes, err := promptScaffoldDirs(pattern)
-		if errors.Is(err, errCancelled) {
-			return nil
-		}
-		if err != nil {
-			return fmt.Errorf("scaffold selection: %w", err)
-		}
-		createDirs = yes
+	if selectedPattern == "" {
+		selectedPattern = "none"
 	}
+
+	pattern := findPattern(selectedPattern)
 
 	template := generatePatternTemplate(skillName, selectedPattern, selectedCategory)
 
