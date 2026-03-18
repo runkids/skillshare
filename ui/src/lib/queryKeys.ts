@@ -36,6 +36,7 @@ export const queryKeys = {
   check: ['check'] as const,
   syncMatrix: (target?: string) => ['sync-matrix', target ?? '__all'] as const,
 
+  templates: ['templates'] as const,
   extras: ['extras'] as const,
   extrasDiff: (name?: string) => ['extras-diff', name ?? '__all'] as const,
   doctor: ['doctor'] as const,

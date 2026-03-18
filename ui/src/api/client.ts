@@ -127,6 +127,12 @@ export const api = {
     apiFetch<{ skill: Skill; skillMdContent: string; files: string[] }>(`/skills/${encodeURIComponent(name)}`),
   deleteSkill: (name: string) =>
     apiFetch<{ success: boolean }>(`/skills/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  getTemplates: () => apiFetch<TemplatesResponse>('/skills/templates'),
+  createSkill: (data: CreateSkillRequest) =>
+    apiFetch<CreateSkillResponse>('/skills', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 
   // Targets
   listTargets: () => apiFetch<{ targets: Target[]; sourceSkillCount: number }>('/targets'),
@@ -463,6 +469,39 @@ export interface Skill {
   type?: string;
   repoUrl?: string;
   version?: string;
+}
+
+export interface SkillPattern {
+  name: string;
+  description: string;
+  scaffoldDirs: string[];
+}
+
+export interface SkillCategory {
+  key: string;
+  label: string;
+}
+
+export interface TemplatesResponse {
+  patterns: SkillPattern[];
+  categories: SkillCategory[];
+}
+
+export interface CreateSkillRequest {
+  name: string;
+  pattern: string;
+  category?: string;
+  scaffoldDirs?: string[];
+}
+
+export interface CreateSkillResponse {
+  skill: {
+    name: string;
+    flatName: string;
+    relPath: string;
+    sourcePath: string;
+  };
+  createdFiles: string[];
 }
 
 export interface Target {
