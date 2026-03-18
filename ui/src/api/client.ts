@@ -1,4 +1,5 @@
-const BASE_PATH = (window as any).__BASE_PATH__ || '';
+import { BASE_PATH } from '../lib/basePath';
+
 const BASE = BASE_PATH + '/api';
 
 export class ApiError extends Error {

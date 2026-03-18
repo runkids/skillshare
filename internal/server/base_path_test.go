@@ -28,9 +28,9 @@ func TestNormalizeBasePath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got := normalizeBasePath(tt.input)
+			got := NormalizeBasePath(tt.input)
 			if got != tt.want {
-				t.Errorf("normalizeBasePath(%q) = %q, want %q", tt.input, got, tt.want)
+				t.Errorf("NormalizeBasePath(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
@@ -134,7 +134,7 @@ func TestBasePath_IndexHtmlInjection(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	body := rr.Body.String()
-	if !strings.Contains(body, `window.__BASE_PATH__='/app'`) {
+	if !strings.Contains(body, `window.__BASE_PATH__="/app"`) {
 		t.Errorf("expected __BASE_PATH__ injection, got:\n%s", body)
 	}
 }
@@ -167,7 +167,7 @@ func TestBasePath_SPAFallbackWithInjection(t *testing.T) {
 	handler.ServeHTTP(rr, req)
 
 	body := rr.Body.String()
-	if !strings.Contains(body, `window.__BASE_PATH__='/myapp'`) {
+	if !strings.Contains(body, `window.__BASE_PATH__="/myapp"`) {
 		t.Errorf("SPA fallback should inject __BASE_PATH__, got:\n%s", body)
 	}
 }

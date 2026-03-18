@@ -1,7 +1,7 @@
 package server
 
 import (
-	"fmt"
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -40,13 +40,17 @@ pre{background:#f0f0f0;padding:12px 16px;border-radius:6px;overflow-x:auto}</sty
 func spaHandlerFromDisk(dir, basePath string) http.Handler {
 	fileServer := http.FileServer(http.Dir(dir))
 
-	// Pre-compute injected index.html if basePath is set
+	// Always cache index.html at startup (avoids per-request disk reads on SPA fallback).
+	// When basePath is set, inject window.__BASE_PATH__ for the frontend.
 	var cachedIndex []byte
-	if basePath != "" {
-		indexPath := filepath.Join(dir, "index.html")
-		if raw, err := os.ReadFile(indexPath); err == nil {
-			injection := fmt.Sprintf("<script>window.__BASE_PATH__='%s'</script>", basePath)
+	indexPath := filepath.Join(dir, "index.html")
+	if raw, err := os.ReadFile(indexPath); err == nil {
+		if basePath != "" {
+			encoded, _ := json.Marshal(basePath)
+			injection := "<script>window.__BASE_PATH__=" + string(encoded) + "</script>"
 			cachedIndex = []byte(strings.Replace(string(raw), "<head>", "<head>"+injection, 1))
+		} else {
+			cachedIndex = raw
 		}
 	}
 
@@ -68,19 +72,12 @@ func spaHandlerFromDisk(dir, basePath string) http.Handler {
 			return
 		}
 
-		// SPA fallback: serve index.html (possibly injected)
+		// SPA fallback: serve cached index.html
 		if cachedIndex != nil {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Write(cachedIndex)
 			return
 		}
-		indexPath := filepath.Join(dir, "index.html")
-		index, err := os.ReadFile(indexPath)
-		if err != nil {
-			http.Error(w, "UI assets not found", http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write(index)
+		http.Error(w, "UI assets not found", http.StatusNotFound)
 	})
 }

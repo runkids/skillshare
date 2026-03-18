@@ -46,9 +46,9 @@ type Server struct {
 	onReady func()
 }
 
-// normalizeBasePath ensures the base path starts with "/" and has no trailing slash.
+// NormalizeBasePath ensures the base path starts with "/" and has no trailing slash.
 // An empty or "/" input returns "".
-func normalizeBasePath(p string) string {
+func NormalizeBasePath(p string) string {
 	p = strings.TrimRight(p, "/")
 	if p == "" {
 		return ""
@@ -92,7 +92,7 @@ func New(cfg *config.Config, addr, basePath, uiDistDir string) *Server {
 		registry:  reg,
 		addr:      addr,
 		mux:       http.NewServeMux(),
-		basePath:  normalizeBasePath(basePath),
+		basePath:  NormalizeBasePath(basePath),
 		uiDistDir: uiDistDir,
 	}
 	s.registerRoutes()
@@ -113,7 +113,7 @@ func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoo
 		registry:    reg,
 		addr:        addr,
 		mux:         http.NewServeMux(),
-		basePath:    normalizeBasePath(basePath),
+		basePath:    NormalizeBasePath(basePath),
 		projectRoot: projectRoot,
 		projectCfg:  projectCfg,
 		uiDistDir:   uiDistDir,

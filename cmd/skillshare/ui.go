@@ -80,14 +80,8 @@ func cmdUI(args []string) error {
 
 	addr := host + ":" + port
 	url := "http://" + addr
-	if basePath != "" {
-		bp := strings.TrimRight(basePath, "/")
-		if !strings.HasPrefix(bp, "/") {
-			bp = "/" + bp
-		}
-		if bp != "" {
-			url += bp + "/"
-		}
+	if bp := server.NormalizeBasePath(basePath); bp != "" {
+		url += bp + "/"
 	}
 
 	if mode == modeProject {
