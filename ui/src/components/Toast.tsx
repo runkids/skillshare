@@ -114,6 +114,17 @@ function ToastItem({
     >
       <Icon size={18} strokeWidth={2.5} className="shrink-0 mt-0.5" />
       <span className="flex-1">{t.message}</span>
+      {action && (
+        <button
+          onClick={() => {
+            action.onClick();
+            startExit();
+          }}
+          className="text-sm font-semibold underline underline-offset-2 hover:opacity-80 transition-opacity shrink-0"
+        >
+          {action.label}
+        </button>
+      )}
       <button
         onClick={() => startExit()}
         className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
@@ -121,14 +132,16 @@ function ToastItem({
         <X size={16} strokeWidth={2.5} />
       </button>
       {/* Progress bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/5">
-        <div
-          className={`h-full ${progressColors[t.type]}`}
-          style={{
-            animation: paused ? 'none' : `toastProgress ${TOAST_DURATION}ms linear forwards`,
-          }}
-        />
-      </div>
+      {!persistent && (
+        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black/5">
+          <div
+            className={`h-full ${progressColors[t.type]}`}
+            style={{
+              animation: paused ? 'none' : `toastProgress ${TOAST_DURATION}ms linear forwards`,
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 }
