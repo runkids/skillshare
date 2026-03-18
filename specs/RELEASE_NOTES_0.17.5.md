@@ -4,12 +4,14 @@ Release date: 2026-03-18
 
 ## TL;DR
 
-v0.17.5 adds **fail-fast config validation** and **sync safety** to catch errors before they cause damage:
+v0.17.5 adds **fail-fast config validation**, **sync safety**, **reverse proxy support**, and a **skill design pattern wizard**:
 
 1. **Config Save Validation** — saving config now validates semantics (source path, sync modes, target paths), returning HTTP 400 for invalid configs instead of silently saving broken configurations
 2. **Sync Safety — No Auto-Create** — sync no longer auto-creates missing target directories. A typo like `~/.cusor/skills` now fails immediately instead of silently creating the wrong directory
 3. **Dry-run Path Validation** — `sync --dry-run` now detects missing target paths, matching the behavior of a real sync
 4. **Config Save → Sync Preview** — after saving config, a banner offers to preview what sync will do via a dry-run modal before committing
+5. **Web UI Base Path** — serve the Web UI under a sub-path behind a reverse proxy with `--base-path` or `SKILLSHARE_UI_BASE_PATH`
+6. **Skill Design Patterns** — `skillshare new` now offers an interactive wizard with five design pattern templates (tool-wrapper, generator, reviewer, inversion, pipeline) and category tagging
 
 ---
 
@@ -99,3 +101,69 @@ A preview-first flow that gives users visibility before action:
 - **API errors** — shows error message with a Retry button; modal stays open
 - **Refresh while open** — a refresh icon in the modal header re-runs dry-run
 - **Double-click prevention** — Sync Now button shows loading state and disables during execution; backdrop/Escape are blocked during sync
+
+---
+
+## Web UI — Base Path for Reverse Proxy
+
+### The problem
+
+Organizations that run multiple internal tools behind a reverse proxy (Nginx, Caddy, Traefik) need to serve each tool under a sub-path like `/skillshare/`. Without base path support, API routes, static assets, and client-side navigation all break when the UI is not served from the root.
+
+### Solution
+
+A `--base-path` flag and `SKILLSHARE_UI_BASE_PATH` environment variable let you host the Web UI under any sub-path:
+
+```bash
+skillshare ui --base-path /skillshare
+```
+
+All API routes, static assets, and React Router navigation automatically adjust to the configured prefix.
+
+### Design decisions
+
+- **Server-side injection** — the base path is injected into the SPA's `index.html` at serve time via a `__BASE_PATH__` placeholder, so no frontend rebuild is needed
+- **Environment variable fallback** — `SKILLSHARE_UI_BASE_PATH` is supported alongside the CLI flag, making it easy to configure in Docker Compose or systemd environments
+- **Trailing slash normalization** — the server handles both `/skillshare` and `/skillshare/` consistently
+
+---
+
+## Skill Design Patterns — `skillshare new` Wizard
+
+### The problem
+
+`skillshare new` generated a single generic SKILL.md template regardless of what kind of skill you were building. A skill that wraps a library API needs a very different structure from one that runs a multi-step pipeline or reviews code against a checklist. Users had to restructure the template manually every time.
+
+### Solution
+
+`skillshare new` now offers five structural design patterns, each producing a tailored SKILL.md body and recommended directory structure:
+
+| Pattern | What it does | Scaffold dirs |
+|---------|-------------|---------------|
+| `tool-wrapper` | Teaches agent library/API conventions | `references/` |
+| `generator` | Produces formatted output from templates | `assets/`, `references/` |
+| `reviewer` | Scores/audits against a checklist | `references/` |
+| `inversion` | Agent interviews user before acting | `assets/` |
+| `pipeline` | Multi-step workflow with checkpoints | `references/`, `assets/`, `scripts/` |
+
+Without flags, an interactive TUI wizard guides through pattern → category → scaffold directory selection. With `-P <pattern>`, it skips the wizard and auto-creates scaffold directories.
+
+### Usage patterns
+
+```bash
+# Interactive wizard (Esc = back to previous step)
+skillshare new my-skill
+
+# Direct pattern selection
+skillshare new my-reviewer -P reviewer
+
+# Plain template (previous behavior)
+skillshare new my-skill -P none
+```
+
+### Design decisions
+
+- **Patterns and categories are separate concerns** — patterns describe *how* a skill is structured (workflow), categories describe *what* it's for (domain). Both are optional frontmatter fields (`pattern:`, `category:`)
+- **Wizard back-navigation** — Esc at category goes back to pattern, Esc at scaffold goes back to category. Breadcrumbs in the help bar footer show previous selections
+- **`-P` auto-scaffolds** — when using the flag, scaffold directories are always created (sensible default for non-interactive use). The wizard asks separately
+- **Nine categories from community research** — based on Anthropic's skill taxonomy (library, verification, data, automation, scaffold, quality, cicd, runbook, infra)

@@ -46,6 +46,35 @@ All notable changes to skillshare are documented here. For the full commit histo
   ```
   The banner auto-dismisses when you start editing again. Handles edge cases: no targets configured, everything already in sync, API errors with retry, and a refresh button to re-run the dry-run
 
+#### Web UI — Base Path for Reverse Proxy
+
+- **`--base-path` flag** — serve the Web UI under a sub-path behind a reverse proxy (e.g., Nginx, Caddy):
+  ```bash
+  skillshare ui --base-path /skillshare    # UI at http://host/skillshare/
+  ```
+  Also configurable via `SKILLSHARE_UI_BASE_PATH` environment variable. All API routes, static assets, and client-side navigation automatically adjust to the base path
+
+#### Skill Design Patterns — `skillshare new` Wizard
+
+- **Design pattern templates** — `skillshare new` now offers five structural design patterns for your skills, each with a tailored SKILL.md template and recommended directory structure:
+
+  | Pattern | Description |
+  |---------|-------------|
+  | `tool-wrapper` | Teach agent how to use a library/API |
+  | `generator` | Produce structured output from a template |
+  | `reviewer` | Score/audit against a checklist |
+  | `inversion` | Agent interviews user before acting |
+  | `pipeline` | Multi-step workflow with checkpoints |
+
+- **Interactive wizard** — running `skillshare new my-skill` without flags launches a TUI wizard that guides you through pattern, category, and directory scaffolding. Esc goes back to the previous step:
+  ```bash
+  skillshare new my-skill              # Interactive wizard
+  skillshare new my-skill -P reviewer  # Skip wizard, use reviewer pattern directly
+  skillshare new my-skill -P none      # Plain template (previous behavior)
+  ```
+- **Category tagging** — optionally tag your skill with a use-case category (library, verification, data, automation, scaffold, quality, cicd, runbook, infra) stored as a `category:` frontmatter field
+- **Scaffold directories** — when using a pattern, the wizard offers to create recommended subdirectories (`references/`, `assets/`, `scripts/`) with `.gitkeep` placeholders. Auto-created when using `-P`
+
 ## [0.17.4] - 2026-03-17
 
 ### New Features

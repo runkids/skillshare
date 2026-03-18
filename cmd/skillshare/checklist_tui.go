@@ -155,7 +155,7 @@ func (m checklistModel) Init() tea.Cmd { return nil }
 func (m checklistModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetSize(msg.Width, msg.Height-4-m.headerLines)
+		m.list.SetSize(msg.Width, msg.Height-4)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -262,10 +262,6 @@ func (m checklistModel) View() string {
 	}
 
 	var b strings.Builder
-	if m.header != "" {
-		b.WriteString(m.header)
-		b.WriteString("\n")
-	}
 	b.WriteString(m.list.View())
 	b.WriteString("\n")
 
@@ -274,6 +270,9 @@ func (m checklistModel) View() string {
 		help = "↑↓ navigate  space/enter select  / filter  esc cancel"
 	} else {
 		help = "↑↓ navigate  space toggle  a all  enter confirm  / filter  esc cancel"
+	}
+	if m.header != "" {
+		help += "  │  " + m.header
 	}
 	b.WriteString(tc.Help.Render(help))
 	b.WriteString("\n")

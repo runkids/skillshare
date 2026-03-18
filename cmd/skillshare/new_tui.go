@@ -122,30 +122,18 @@ func runNewWizard() (selectedPattern, selectedCategory string, createDirs bool) 
 	}
 }
 
-// wizardHeader builds a header string showing previous selections as breadcrumbs.
+// wizardHeader builds a compact breadcrumb string for the help bar footer.
+// e.g. "✓ reviewer → quality"
 func wizardHeader(pattern, category string) string {
 	check := tc.Green.Render("✓")
-	dim := tc.Dim
-
-	var lines []string
+	var parts []string
 	if pattern != "" {
-		desc := ""
-		if p := findPattern(pattern); p != nil {
-			desc = dim.Render(" — " + p.Description)
-		}
-		lines = append(lines, fmt.Sprintf("  %s Pattern: %s%s", check, pattern, desc))
+		parts = append(parts, check+" "+pattern)
 	}
 	if category != "" {
-		label := category
-		for _, c := range skillCategories {
-			if c.Key == category {
-				label = category + dim.Render(" — "+c.Label)
-				break
-			}
-		}
-		lines = append(lines, fmt.Sprintf("  %s Category: %s", check, label))
+		parts = append(parts, category)
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(parts, " → ")
 }
 
 // promptCategoryWith runs the category TUI with a header showing previous selections.
