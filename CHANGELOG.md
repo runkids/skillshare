@@ -66,6 +66,16 @@
 - **Category tagging** — optionally tag your skill with a use-case category (library, verification, data, automation, scaffold, quality, cicd, runbook, infra) stored as a `category:` frontmatter field
 - **Scaffold directories** — when using a pattern, the wizard offers to create recommended subdirectories (`references/`, `assets/`, `scripts/`) with `.gitkeep` placeholders. Auto-created when using `-P`
 
+#### Web UI — New Skill Wizard
+
+- **Create skills from the dashboard** — the Skills page now has a **"+ New Skill"** button that opens a step-by-step wizard at `/skills/new`:
+  ```
+  Name → Pattern → Category → Scaffold → Confirm
+  ```
+  The wizard dynamically skips steps based on your choices — selecting "none" pattern goes straight to confirm. Pattern and category selection use card grids with descriptions. Scaffold directories are toggle cards (all on by default). On success, navigates to the new skill's detail page
+- **`GET /api/skills/templates`** — new endpoint returning available patterns and categories. Used by the wizard, also available for custom integrations
+- **`POST /api/skills`** — new endpoint to create a skill with name, pattern, category, and scaffold directories. Validates name format, checks for duplicates (409), and validates scaffold dirs against the pattern's allowed list
+
 #### `.skillignore.local` — Local Override
 
 - **`.skillignore.local`** — a local-only override file that works alongside `.skillignore`. Place it in the same directory (source root or tracked repo root) to override patterns without modifying the shared `.skillignore`:
