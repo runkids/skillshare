@@ -101,6 +101,7 @@ const sidebars: SidebarsConfig = {
             'understand/philosophy/security-first',
             'understand/philosophy/comparison',
             'understand/philosophy/skill-design',
+            'understand/philosophy/skill-design-patterns',
             'understand/philosophy/sync-modes-explained',
           ],
         },

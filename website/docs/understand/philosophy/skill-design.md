@@ -415,6 +415,12 @@ Use `skillshare sync` to deploy changes, then test in your AI CLI. Watch for:
 
 ---
 
+## Next: Design Patterns
+
+Once you understand the principles above, see [Skill Design Patterns](./skill-design-patterns.md) for five structural templates (Tool Wrapper, Generator, Reviewer, Inversion, Pipeline) you can use as starting points for your skills.
+
+---
+
 ## See Also
 
 - [Creating Skills](/docs/how-to/daily-tasks/creating-skills) — Step-by-step creation guide

@@ -35,6 +35,7 @@ flowchart TD
 |------|-------------|
 | `--project`, `-p` | Create in project (`.skillshare/skills/`) |
 | `--global`, `-g` | Create in global (`~/.config/skillshare/skills/`) |
+| `--pattern`, `-P` | Use a design pattern (`tool-wrapper`, `generator`, `reviewer`, `inversion`, `pipeline`, `none`) |
 | `--dry-run`, `-n` | Preview without creating files |
 | `--help`, `-h` | Show help |
 
@@ -173,6 +174,31 @@ description: >-
 ---
 ...
 ```
+
+---
+
+## Pattern Templates
+
+Use `-P` to generate a pattern-specific template with recommended directory structure:
+
+```bash
+skillshare new my-reviewer -P reviewer     # Reviewer pattern
+skillshare new my-pipeline -P pipeline     # Pipeline with references/, assets/, scripts/
+skillshare new my-skill                    # Interactive TUI to choose
+```
+
+Available patterns:
+
+| Pattern | Scaffold Directories |
+|---------|---------------------|
+| `tool-wrapper` | `references/` |
+| `generator` | `assets/`, `references/` |
+| `reviewer` | `references/` |
+| `inversion` | `assets/` |
+| `pipeline` | `references/`, `assets/`, `scripts/` |
+| `none` | *(plain template, no directories)* |
+
+See [Skill Design Patterns](../../understand/philosophy/skill-design-patterns.md) for details on each pattern.
 
 ---
 
