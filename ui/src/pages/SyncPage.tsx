@@ -25,6 +25,7 @@ import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
 import { api, type SyncResult, type DiffTarget, type IgnoreSources } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
+import { formatSyncToast, invalidateAfterSync } from '../lib/sync';
 import StreamProgressBar from '../components/StreamProgressBar';
 import SyncResultList from '../components/SyncResultList';
 import { radius, shadows } from '../design';
@@ -98,16 +99,10 @@ export default function SyncPage() {
       if (dryRun) {
         toast('Dry run complete -- no changes were made.', 'info');
       } else {
-        const totalLinked = res.results.reduce((sum, r) => sum + (r.linked?.length ?? 0), 0);
-        const totalUpdated = res.results.reduce((sum, r) => sum + (r.updated?.length ?? 0), 0);
-        toast(
-          `Sync complete! ${totalLinked} linked, ${totalUpdated} updated across ${res.results.length} target(s).`,
-          'success',
-        );
+        toast(formatSyncToast(res.results), 'success');
       }
       runDiff(); // Re-check diff after sync
-      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+      invalidateAfterSync(queryClient);
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {

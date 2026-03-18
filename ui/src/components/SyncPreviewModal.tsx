@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { SyncResult } from '../api/client';
 
 import { api } from '../api/client';
-import { queryKeys } from '../lib/queryKeys';
+import { formatSyncToast, invalidateAfterSync } from '../lib/sync';
 import { useToast } from './Toast';
 import Button from './Button';
 import Card from './Card';
@@ -44,15 +44,8 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
     setSyncing(true);
     try {
       const res = await api.sync({ dryRun: false });
-      const totalLinked = res.results.reduce((sum, r) => sum + (r.linked?.length ?? 0), 0);
-      const totalUpdated = res.results.reduce((sum, r) => sum + (r.updated?.length ?? 0), 0);
-      const targets = res.results.length;
-      toast(
-        `Sync complete! ${totalLinked} linked, ${totalUpdated} updated across ${targets} target(s).`,
-        'success',
-      );
-      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+      toast(formatSyncToast(res.results), 'success');
+      invalidateAfterSync(queryClient);
       onClose();
     } catch (e: unknown) {
       setError((e as Error).message);
@@ -61,12 +54,15 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
     }
   };
 
-  // Auto-run dry-run when modal opens; reset state on re-open
+  // Auto-run dry-run when modal opens; clear stale data on close
   useEffect(() => {
     if (open) {
       setResults(null);
       setError(null);
       runDryRun();
+    } else {
+      setResults(null);
+      setError(null);
     }
   }, [open, runDryRun]);
 
