@@ -181,7 +181,9 @@ func cmdNew(args []string) error {
 				return fmt.Errorf("failed to create %s: %w", dir, err)
 			}
 			gitkeep := filepath.Join(dirPath, ".gitkeep")
-			os.WriteFile(gitkeep, []byte{}, 0644)
+			if err := os.WriteFile(gitkeep, []byte{}, 0644); err != nil {
+				return fmt.Errorf("failed to create %s/.gitkeep: %w", dir, err)
+			}
 		}
 	}
 
