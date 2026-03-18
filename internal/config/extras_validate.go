@@ -31,7 +31,8 @@ func ValidateExtraName(name string) error {
 }
 
 // ExtraSyncModes is the authoritative list of valid extras sync modes.
-var ExtraSyncModes = []string{"merge", "copy", "symlink"}
+// Same values as ValidSyncModes; kept as a separate variable for API stability.
+var ExtraSyncModes = ValidSyncModes
 
 // ValidateExtraMode checks that mode is a valid sync mode.
 // Empty string is allowed (defaults to "merge" at runtime).

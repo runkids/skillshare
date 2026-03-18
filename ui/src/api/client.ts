@@ -274,7 +274,7 @@ export const api = {
   // Config
   getConfig: () => apiFetch<{ config: unknown; raw: string }>('/config'),
   putConfig: (raw: string) =>
-    apiFetch<{ success: boolean }>('/config', {
+    apiFetch<ConfigSaveResponse>('/config', {
       method: 'PUT',
       body: JSON.stringify({ raw }),
     }),
@@ -492,6 +492,12 @@ export interface IgnoreSources {
 
 export interface SyncResponse extends IgnoreSources {
   results: SyncResult[];
+  warnings?: string[];
+}
+
+export interface ConfigSaveResponse {
+  success: boolean;
+  warnings?: string[];
 }
 
 export interface DiffTarget {

@@ -392,6 +392,43 @@ func isSymlinkToSource(targetPath, sourcePath string) bool {
 	return utils.PathsEqual(canonLink, canonSource)
 }
 
+// ensureRealTargetDir handles symlink→merge/copy conversion and verifies the
+// target directory exists. Returns an error if the directory is missing or
+// inaccessible (never auto-creates to catch typos).
+func ensureRealTargetDir(targetPath, sourcePath, modeName string, dryRun bool) error {
+	info, err := os.Lstat(targetPath)
+	if err == nil && info != nil && utils.IsSymlinkOrJunction(targetPath) {
+		if isSymlinkToSource(targetPath, sourcePath) {
+			if dryRun {
+				fmt.Fprintf(DiagOutput, "[dry-run] Would convert from symlink mode to %s mode: %s\n", modeName, targetPath)
+				return nil // dry-run: skip existence check
+			}
+			if err := os.Remove(targetPath); err != nil {
+				return fmt.Errorf("failed to remove symlink for %s conversion: %w", modeName, err)
+			}
+			if err := os.MkdirAll(targetPath, 0755); err != nil {
+				return fmt.Errorf("failed to create target directory after symlink conversion: %w", err)
+			}
+			return nil // converted — directory exists
+		}
+		// else: target is an external symlink (dotfiles manager, etc.) — keep it
+	}
+
+	// Verify target directory exists (never auto-create — fail fast on typos).
+	// Check even during dry-run so users catch path errors early.
+	fi, statErr := os.Stat(targetPath)
+	if statErr != nil {
+		if os.IsNotExist(statErr) {
+			return fmt.Errorf("target directory does not exist: %s", targetPath)
+		}
+		return fmt.Errorf("cannot access target directory: %w", statErr)
+	}
+	if !fi.IsDir() {
+		return fmt.Errorf("target path is not a directory: %s", targetPath)
+	}
+	return nil
+}
+
 // SyncTargetMerge performs merge mode sync - creates symlinks for each skill individually
 // while preserving target-specific skills.
 // Supports nested skills: source path "personal/writing/email" becomes target symlink "personal__writing__email"
@@ -410,28 +447,9 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool) (*MergeResult, error) {
 	result := &MergeResult{}
 
-	// Check if target is currently using "symlink mode" (entire directory symlinked
-	// to source). Only convert if the symlink actually points to the source
-	// directory — an external symlink (e.g., dotfiles manager) should be preserved.
-	info, err := os.Lstat(target.Path)
-	if err == nil && info != nil && utils.IsSymlinkOrJunction(target.Path) {
-		if isSymlinkToSource(target.Path, sourcePath) {
-			if dryRun {
-				fmt.Fprintf(DiagOutput, "[dry-run] Would convert from symlink mode to merge mode: %s\n", target.Path)
-			} else {
-				if err := os.Remove(target.Path); err != nil {
-					return nil, fmt.Errorf("failed to remove symlink for merge conversion: %w", err)
-				}
-			}
-		}
-		// else: target is an external symlink (dotfiles manager, etc.) — keep it
-	}
-
-	// Ensure target directory exists
-	if !dryRun {
-		if err := os.MkdirAll(target.Path, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create target directory: %w", err)
-		}
+	// Convert from symlink mode if needed, then verify target dir exists.
+	if err := ensureRealTargetDir(target.Path, sourcePath, "merge", dryRun); err != nil {
+		return nil, err
 	}
 
 	// Filter skills for this target

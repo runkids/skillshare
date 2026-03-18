@@ -36,28 +36,9 @@ func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, 
 func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, onProgress func(current, total int, skill string)) (*CopyResult, error) {
 	result := &CopyResult{}
 
-	// If target is currently a symlink pointing to our source (symlink mode),
-	// remove it to convert to copy mode. External symlinks (e.g., dotfiles
-	// manager) are preserved.
-	info, err := os.Lstat(target.Path)
-	if err == nil && info != nil && utils.IsSymlinkOrJunction(target.Path) {
-		if isSymlinkToSource(target.Path, sourcePath) {
-			if dryRun {
-				fmt.Fprintf(DiagOutput, "[dry-run] Would convert from symlink mode to copy mode: %s\n", target.Path)
-			} else {
-				if err := os.Remove(target.Path); err != nil {
-					return nil, fmt.Errorf("failed to remove symlink for copy conversion: %w", err)
-				}
-			}
-		}
-		// else: target is an external symlink (dotfiles manager, etc.) — keep it
-	}
-
-	// Ensure target directory exists
-	if !dryRun {
-		if err := os.MkdirAll(target.Path, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create target directory: %w", err)
-		}
+	// Convert from symlink mode if needed, then verify target dir exists.
+	if err := ensureRealTargetDir(target.Path, sourcePath, "copy", dryRun); err != nil {
+		return nil, err
 	}
 
 	// Filter skills for this target

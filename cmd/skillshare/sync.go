@@ -141,13 +141,18 @@ func cmdSync(args []string) error {
 		return err
 	}
 
-	// Ensure source exists
-	if _, err := os.Stat(cfg.Source); os.IsNotExist(err) {
-		sourceErr := fmt.Errorf("source directory does not exist: %s", cfg.Source)
+	// Validate config before sync
+	warnings, validErr := config.ValidateConfig(cfg)
+	if validErr != nil {
 		if jsonOutput {
-			return writeJSONError(sourceErr)
+			return writeJSONError(validErr)
 		}
-		return sourceErr
+		return validErr
+	}
+	if !jsonOutput {
+		for _, w := range warnings {
+			ui.Warning("%s", w)
+		}
 	}
 
 	// Phase 1: Discovery

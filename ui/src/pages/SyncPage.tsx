@@ -45,6 +45,7 @@ export default function SyncPage() {
   const [force, setForce] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [results, setResults] = useState<SyncResult[] | null>(null);
+  const [syncWarnings, setSyncWarnings] = useState<string[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [ignoreSources, setIgnoreSources] = useState<IgnoreSources | null>(null);
   const [ignoredExpanded, setIgnoredExpanded] = useState(false);
@@ -92,9 +93,11 @@ export default function SyncPage() {
 
   const handleSync = async () => {
     setSyncing(true);
+    setSyncWarnings([]);
     try {
       const res = await api.sync({ dryRun, force });
       setResults(res.results);
+      setSyncWarnings(res.warnings ?? []);
       setIgnoreSources(extractIgnoreSources(res));
       if (dryRun) {
         toast('Dry run complete -- no changes were made.', 'info');
@@ -312,6 +315,18 @@ export default function SyncPage() {
           )}
         </div>
       </Card>
+
+      {/* Sync warnings */}
+      {syncWarnings.length > 0 && (
+        <Card className="animate-fade-in">
+          <div className="flex items-start gap-2 text-sm text-pencil">
+            <AlertCircle size={16} className="mt-0.5 shrink-0 text-warning" />
+            <div className="space-y-1">
+              {syncWarnings.map((w, i) => <p key={i}>{w}</p>)}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Sync results */}
       {results && results.length > 0 && (

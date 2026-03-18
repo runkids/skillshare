@@ -47,19 +47,32 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate YAML before saving
+	// Validate YAML syntax + semantic validation before saving
+	var warnings []string
 	if s.IsProjectMode() {
 		var testCfg config.ProjectConfig
 		if err := yaml.Unmarshal([]byte(body.Raw), &testCfg); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid YAML: "+err.Error())
 			return
 		}
+		w2, validErr := config.ValidateProjectConfig(&testCfg, s.projectRoot)
+		if validErr != nil {
+			writeError(w, http.StatusBadRequest, validErr.Error())
+			return
+		}
+		warnings = w2
 	} else {
 		var testCfg config.Config
 		if err := yaml.Unmarshal([]byte(body.Raw), &testCfg); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid YAML: "+err.Error())
 			return
 		}
+		w2, validErr := config.ValidateConfig(&testCfg)
+		if validErr != nil {
+			writeError(w, http.StatusBadRequest, validErr.Error())
+			return
+		}
+		warnings = w2
 	}
 
 	if err := os.WriteFile(s.configPath(), []byte(body.Raw), 0644); err != nil {
@@ -76,7 +89,10 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		"scope": "ui",
 	}, "")
 
-	writeJSON(w, map[string]any{"success": true})
+	writeJSON(w, map[string]any{
+		"success":  true,
+		"warnings": warnings,
+	})
 }
 
 func (s *Server) handleAvailableTargets(w http.ResponseWriter, r *http.Request) {

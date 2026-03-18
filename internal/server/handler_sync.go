@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"skillshare/internal/config"
 	"skillshare/internal/skillignore"
 	ssync "skillshare/internal/sync"
 )
@@ -58,11 +59,22 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		globalMode = "merge"
 	}
 
+	// Pre-check warnings via shared config validation
+	warnings, validErr := config.ValidateConfig(s.cfg)
+	if validErr != nil {
+		writeError(w, http.StatusBadRequest, validErr.Error())
+		return
+	}
+
 	// Discover skills once for all targets
 	allSkills, ignoreStats, err := ssync.DiscoverSourceSkillsWithStats(s.cfg.Source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 		return
+	}
+
+	if len(allSkills) == 0 {
+		warnings = append(warnings, "source directory is empty (0 skills)")
 	}
 
 	results := make([]syncTargetResult, 0)
@@ -149,7 +161,10 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		"scope":          "ui",
 	}, "")
 
-	resp := map[string]any{"results": results}
+	resp := map[string]any{
+		"results":  results,
+		"warnings": warnings,
+	}
 	maps.Copy(resp, ignorePayload(ignoreStats))
 	writeJSON(w, resp)
 }

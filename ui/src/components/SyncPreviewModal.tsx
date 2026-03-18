@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
 import type { SyncResult } from '../api/client';
@@ -25,14 +25,17 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [results, setResults] = useState<SyncResult[] | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const runDryRun = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setWarnings([]);
     try {
       const res = await api.sync({ dryRun: true });
       setResults(res.results);
+      setWarnings(res.warnings ?? []);
     } catch (e: unknown) {
       setError((e as Error).message);
     } finally {
@@ -54,15 +57,13 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
     }
   };
 
-  // Auto-run dry-run when modal opens; clear stale data on close
+  // Clear stale data on open/close; auto-run dry-run when opening
   useEffect(() => {
+    setResults(null);
+    setError(null);
+    setWarnings([]);
     if (open) {
-      setResults(null);
-      setError(null);
       runDryRun();
-    } else {
-      setResults(null);
-      setError(null);
     }
   }, [open, runDryRun]);
 
@@ -93,6 +94,15 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
               </button>
             )}
           </div>
+
+          {warnings.length > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-warning bg-warning-light px-3 py-2 text-sm text-pencil">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0 text-warning" />
+              <div className="space-y-1">
+                {warnings.map((w, i) => <p key={i}>{w}</p>)}
+              </div>
+            </div>
+          )}
 
           {loading && (
             <div className="flex items-center justify-center py-8">

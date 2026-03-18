@@ -56,8 +56,12 @@ export default function ConfigPage() {
   const handleConfigSave = async () => {
     setSaving(true);
     try {
-      await api.putConfig(raw);
-      toast('Config saved successfully.', 'success');
+      const res = await api.putConfig(raw);
+      if (res.warnings?.length) {
+        toast(`Config saved with warnings: ${res.warnings.join('; ')}`, 'warning');
+      } else {
+        toast('Config saved successfully.', 'success');
+      }
       setShowSyncBanner(true);
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.config });

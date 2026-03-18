@@ -5,11 +5,23 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 	"skillshare/internal/utils"
 )
+
+// ValidSyncModes lists all valid sync mode values.
+var ValidSyncModes = []string{"merge", "symlink", "copy"}
+
+// IsValidSyncMode reports whether mode is a valid sync mode (or empty, meaning inherit).
+func IsValidSyncMode(mode string) bool {
+	if mode == "" {
+		return true // empty = inherit global default
+	}
+	return slices.Contains(ValidSyncModes, mode)
+}
 
 // TargetConfig holds configuration for a single target
 type TargetConfig struct {

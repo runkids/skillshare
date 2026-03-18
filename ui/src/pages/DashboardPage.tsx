@@ -35,7 +35,6 @@ import { api } from '../api/client';
 import type { Target as TargetType, CheckResult, AuditAllResponse, Extra } from '../api/client';
 import { useAppContext } from '../context/AppContext';
 import { radius, shadows } from '../design';
-import { shortenHome } from '../lib/paths';
 
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
 
@@ -194,7 +193,7 @@ export default function DashboardPage() {
         <p
           className="font-mono text-base text-pencil-light break-all"
         >
-          {shortenHome(data.source)}
+          {data.source}
         </p>
         <p className="text-sm text-muted-dark mt-2">
           This is where your skills live. All targets sync from here.

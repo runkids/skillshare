@@ -32,6 +32,19 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 	}
 	stats.Targets = len(runtime.config.Targets)
 
+	// Validate project config before sync
+	warnings, validErr := config.ValidateProjectConfig(runtime.config, root)
+	if validErr != nil {
+		return stats, nil, nil, validErr
+	}
+	if !jsonOutput {
+		for _, w := range warnings {
+			ui.Warning("%s", w)
+		}
+	}
+
+	// ValidateProjectConfig warns on missing source (may not exist yet after init).
+	// Gate here as a hard error — sync cannot proceed without source skills.
 	if _, err := os.Stat(runtime.sourcePath); os.IsNotExist(err) {
 		return stats, nil, nil, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
 	}

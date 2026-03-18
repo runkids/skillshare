@@ -4,6 +4,29 @@
 
 ### New Features
 
+#### Config Save Validation
+
+- **Semantic validation on config save** — `PUT /api/config` now validates config semantics before writing, not just YAML syntax. Invalid configs return HTTP 400 with a descriptive error instead of saving silently and failing at sync time:
+  - Source path must exist and be a directory
+  - Sync mode must be `merge`, `symlink`, or `copy` (global and per-target)
+  - Target paths must exist and be directories
+- **CLI validation before sync** — `skillshare sync` validates config before starting. Invalid source path or sync mode exits immediately with a clear error instead of a cryptic filesystem error mid-sync
+- **Config save warnings** — when saving config with non-fatal issues, the API returns `{ success: true, warnings: [...] }`. The Config page shows a warning toast with details
+
+#### Sync Safety — No Auto-Create
+
+- **Sync no longer auto-creates target directories** — previously, `sync` would silently `mkdir -p` any missing target path. This masked typos (e.g., `~/.cusor/skills` instead of `~/.cursor/skills`). Now sync fails fast with a clear error:
+  ```
+  Error: target directory does not exist: /home/user/.cusor/skills
+  ```
+  This applies to all sync modes (merge, copy, symlink conversion) and also to `--dry-run`
+- **Dry-run path validation** — `sync --dry-run` now detects missing target paths and reports errors, matching the behavior of a real sync. Previously dry-run skipped existence checks
+
+#### Web UI — Sync Warnings
+
+- **Sync pre-check warnings** — the sync API response now includes a `warnings` field surfacing issues like empty source directories or missing target paths. Warnings appear as a yellow banner on the Sync page and in the Sync Preview modal
+- **Dashboard full paths** — the Source Directory card on the Dashboard now shows the full absolute path instead of abbreviating with `~/`
+
 #### Web UI — Config Save → Sync Preview
 
 - **Preview Sync from Config page** — after saving `config.yaml` or `.skillignore`, a banner appears above the editor offering to preview what sync will do. Click "Preview Sync" to open a modal showing a dry-run per target — which skills will be linked, updated, or pruned — before committing to the real sync:

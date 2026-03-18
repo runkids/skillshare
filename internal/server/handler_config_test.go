@@ -71,8 +71,8 @@ func TestHandlePutConfig_InvalidYAML(t *testing.T) {
 }
 
 func TestHandlePutConfig_ValidYAML(t *testing.T) {
-	s, _ := newTestServer(t)
-	body := `{"raw":"source: /tmp/test\nmode: merge\ntargets: {}\n"}`
+	s, sourceDir := newTestServer(t)
+	body := `{"raw":"source: ` + sourceDir + `\nmode: merge\ntargets: {}\n"}`
 	req := httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(body))
 	rr := httptest.NewRecorder()
 	s.handler.ServeHTTP(rr, req)
@@ -82,10 +82,35 @@ func TestHandlePutConfig_ValidYAML(t *testing.T) {
 	}
 
 	var resp struct {
-		Success bool `json:"success"`
+		Success  bool     `json:"success"`
+		Warnings []string `json:"warnings"`
 	}
 	json.Unmarshal(rr.Body.Bytes(), &resp)
 	if !resp.Success {
 		t.Error("expected success true")
+	}
+}
+
+func TestHandlePutConfig_InvalidSource_400(t *testing.T) {
+	s, _ := newTestServer(t)
+	body := `{"raw":"source: /nonexistent/path\nmode: merge\ntargets: {}\n"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestHandlePutConfig_InvalidMode_400(t *testing.T) {
+	s, sourceDir := newTestServer(t)
+	body := `{"raw":"source: ` + sourceDir + `\nmode: invalid\ntargets: {}\n"}`
+	req := httptest.NewRequest(http.MethodPut, "/api/config", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("expected 400, got %d: %s", rr.Code, rr.Body.String())
 	}
 }
