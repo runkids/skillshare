@@ -7,8 +7,6 @@ import {
   Zap,
   ChevronDown,
   ChevronRight,
-  Check,
-  Minus,
   CheckCircle,
   AlertCircle,
   Folder,
@@ -28,6 +26,7 @@ import { useToast } from '../components/Toast';
 import { api, type SyncResult, type DiffTarget, type IgnoreSources } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
 import StreamProgressBar from '../components/StreamProgressBar';
+import SyncResultList from '../components/SyncResultList';
 import { radius, shadows } from '../design';
 
 function extractIgnoreSources(data: IgnoreSources): IgnoreSources {
@@ -327,7 +326,7 @@ export default function SyncPage() {
           >
             {dryRun ? 'Preview Results' : 'Results'}
           </h2>
-          <SyncResults results={results} />
+          <SyncResultList results={results} />
         </div>
       )}
 
@@ -409,53 +408,6 @@ export default function SyncPage() {
         )}
         {!diffLoading && diffData && <DiffView diffs={diffData} />}
       </div>
-    </div>
-  );
-}
-
-/** Sync results visualization — compact per-target cards with badge counts */
-function SyncResults({ results }: { results: SyncResult[] }) {
-  if (results.length === 0) {
-    return (
-      <Card variant="outlined">
-        <p className="text-pencil-light text-center py-4">No results to show.</p>
-      </Card>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      {results.map((r, i) => {
-        const linked = r.linked?.length ?? 0;
-        const updated = r.updated?.length ?? 0;
-        const skipped = r.skipped?.length ?? 0;
-        const pruned = r.pruned?.length ?? 0;
-        const hasChanges = linked > 0 || updated > 0;
-
-        return (
-          <Card
-            key={r.target}
-            style={{ animation: `fadeInUp 0.3s ease-out ${i * 100}ms both` }}
-          >
-            <div className="flex items-center gap-3">
-              {hasChanges ? (
-                <Check size={18} className="text-success shrink-0" />
-              ) : (
-                <Minus size={18} className="text-pencil-light shrink-0" />
-              )}
-              <span className="text-pencil font-medium flex-1">
-                {r.target}
-              </span>
-              <div className="flex gap-2 flex-wrap">
-                {linked > 0 && <Badge variant="success">{linked} linked</Badge>}
-                {updated > 0 && <Badge variant="info">{updated} updated</Badge>}
-                {skipped > 0 && <Badge variant="default">{skipped} skipped</Badge>}
-                {pruned > 0 && <Badge variant="warning">{pruned} pruned</Badge>}
-              </div>
-            </div>
-          </Card>
-        );
-      })}
     </div>
   );
 }
