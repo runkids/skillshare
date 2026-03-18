@@ -9,7 +9,6 @@ import PageHeader from '../components/PageHeader';
 import { Input } from '../components/Input';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
-import { useAppContext } from '../context/AppContext';
 import { api } from '../api/client';
 import type { SkillPattern, SkillCategory } from '../api/client';
 
@@ -46,8 +45,6 @@ export default function NewSkillPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { isProjectMode } = useAppContext();
-
   // Form state
   const [name, setName] = useState('');
   const [selectedPattern, setSelectedPattern] = useState<SkillPattern | null>(null);
@@ -189,7 +186,6 @@ export default function NewSkillPage() {
       <PageHeader
         icon={<Wand2 size={24} strokeWidth={2.5} />}
         title="Create New Skill"
-        subtitle={isProjectMode ? 'Creating in: Project' : 'Creating in: Global'}
         backTo="/skills"
       />
 
