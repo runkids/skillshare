@@ -176,6 +176,38 @@ export default function ConfigPage() {
         />
       </div>
 
+      {showSyncBanner && (
+        <Card className="mb-4 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <RefreshCw size={18} strokeWidth={2.5} className="text-blue shrink-0" />
+              <span className="text-pencil">
+                Config updated — preview what sync will do?
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowSyncBanner(false)}
+              >
+                Dismiss
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setShowSyncPreview(true);
+                  setShowSyncBanner(false);
+                }}
+              >
+                Preview Sync
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {tab === 'config' && (
         <Card>
           <div className="flex items-center gap-2 mb-3">
@@ -212,38 +244,6 @@ export default function ConfigPage() {
           onChange={handleIgnoreChange}
           extensions={ignoreExtensions}
         />
-      )}
-
-      {showSyncBanner && (
-        <Card className="mt-4 animate-fade-in">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <RefreshCw size={18} strokeWidth={2.5} className="text-blue shrink-0" />
-              <span className="text-pencil">
-                Config updated — preview what sync will do?
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowSyncBanner(false)}
-              >
-                Dismiss
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => {
-                  setShowSyncPreview(true);
-                  setShowSyncBanner(false);
-                }}
-              >
-                Preview Sync
-              </Button>
-            </div>
-          </div>
-        </Card>
       )}
 
       <SyncPreviewModal
