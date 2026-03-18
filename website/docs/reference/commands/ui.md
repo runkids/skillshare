@@ -59,7 +59,8 @@ skillshare ui --no-open &
 | Page | Description |
 |------|-------------|
 | **Dashboard** | Overview cards — skill count, target count, sync mode, version |
-| **Skills** | Searchable skill grid with metadata. Toggle between **Grid** and **Grouped** (by directory) views. Click to view SKILL.md content |
+| **Skills** | Searchable skill grid with metadata. Toggle between **Grid** and **Grouped** (by directory) views. Click to view SKILL.md content. **"+ New Skill"** button opens the creation wizard |
+| **New Skill** | Step-by-step wizard to create a skill: Name → Pattern → Category → Scaffold → Confirm. Accessible via the **"+ New Skill"** button on the Skills page |
 | **Install** | Install from local path, git URL, or GitHub shorthand |
 | **Targets** | Target list with status badges. Add/remove targets |
 | **Sync** | Sync controls with dry-run toggle. Diff preview |
@@ -116,6 +117,8 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | GET | `/api/overview` | Skill/target counts, mode, version |
 | GET | `/api/skills` | List all skills with metadata |
 | GET | `/api/skills/{name}` | Skill detail + SKILL.md content |
+| GET | `/api/skills/templates` | Get available patterns and categories for skill creation |
+| POST | `/api/skills` | Create a new skill (name, pattern, category, scaffoldDirs) |
 | DELETE | `/api/skills/{name}` | Uninstall a skill |
 | GET | `/api/targets` | List targets with status, include/exclude filters, and per-target expected counts |
 | POST | `/api/targets` | Add a target |

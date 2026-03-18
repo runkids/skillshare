@@ -202,6 +202,26 @@ See [Skill Design Patterns](../../understand/philosophy/skill-design-patterns.md
 
 ---
 
+## Web UI Wizard
+
+You can also create skills from the web dashboard — no terminal needed.
+
+1. Run `skillshare ui`
+2. Navigate to **Skills** → click **"+ New Skill"**
+3. Follow the wizard:
+
+| Step | What |
+|------|------|
+| **Name** | Enter skill name with real-time validation |
+| **Pattern** | Choose from 6 design patterns (card grid) |
+| **Category** | Pick a domain category — skipped if pattern is `none` |
+| **Scaffold** | Toggle recommended directories — skipped if pattern has no dirs |
+| **Confirm** | Review selections and create |
+
+The wizard follows the current mode — if the dashboard is running in project mode (`-p`), the skill is created in `.skillshare/skills/`.
+
+---
+
 ## Next Steps
 
 After creating a skill:
