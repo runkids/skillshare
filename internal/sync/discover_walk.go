@@ -39,9 +39,13 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 		rootIgnorePath := filepath.Join(walkRoot, ".skillignore")
 		if _, err := os.Stat(rootIgnorePath); err == nil {
 			stats.RootFile = rootIgnorePath
-			if pats := rootMatcher.Patterns(); len(pats) > 0 {
-				stats.Patterns = append(stats.Patterns, pats...)
-			}
+		}
+		// Record root .skillignore.local if it exists
+		if rootMatcher.HasLocal {
+			stats.RootLocalFile = filepath.Join(walkRoot, ".skillignore.local")
+		}
+		if pats := rootMatcher.Patterns(); len(pats) > 0 {
+			stats.Patterns = append(stats.Patterns, pats...)
 		}
 	}
 
@@ -86,6 +90,9 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 					if opts.collectIgnored {
 						repoIgnorePath := filepath.Join(path, ".skillignore")
 						stats.RepoFiles = append(stats.RepoFiles, repoIgnorePath)
+						if m.HasLocal {
+							stats.RepoLocalFiles = append(stats.RepoLocalFiles, filepath.Join(path, ".skillignore.local"))
+						}
 						if pats := m.Patterns(); len(pats) > 0 {
 							stats.Patterns = append(stats.Patterns, pats...)
 						}

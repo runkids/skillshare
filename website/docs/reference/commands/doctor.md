@@ -59,7 +59,7 @@ Summary
 |-------|-----------------|
 | Config | Config file exists and is valid |
 | Source | Source directory exists and is readable |
-| Skillignore | `.skillignore` active patterns and ignored skill count |
+| Skillignore | `.skillignore` (and `.skillignore.local`) active patterns and ignored skill count |
 | Link support | System can create symlinks |
 | Git | Repository status and remote configuration |
 

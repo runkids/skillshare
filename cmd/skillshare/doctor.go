@@ -254,6 +254,9 @@ func checkSkillignore(result *doctorResult, stats *skillignore.IgnoreStats) {
 	}
 
 	msg := fmt.Sprintf("%d patterns, %d skills ignored", stats.PatternCount(), stats.IgnoredCount())
+	if stats.HasLocal() {
+		msg += " (.local active)"
+	}
 	ui.Success("Skillignore: %s", msg)
 	var details []string
 	details = append(details, stats.Patterns...)

@@ -640,6 +640,108 @@ func TestMatchRule_NonAnchoredMultiSegment(t *testing.T) {
 	}
 }
 
+// --- ReadMatcher with .skillignore.local ---
+
+func TestReadMatcher_Local(t *testing.T) {
+	t.Run("local negation overrides base ignore", func(t *testing.T) {
+		dir := t.TempDir()
+		os.WriteFile(filepath.Join(dir, ".skillignore"), []byte("private-*\nsecret\n"), 0644)
+		os.WriteFile(filepath.Join(dir, ".skillignore.local"), []byte("!private-mine\n"), 0644)
+
+		m := ReadMatcher(dir)
+		if !m.HasLocal {
+			t.Error("HasLocal should be true")
+		}
+		// private-mine should be un-ignored by .local negation
+		if m.Match("private-mine", false) {
+			t.Error("private-mine should be un-ignored by .skillignore.local")
+		}
+		// other private-* still ignored
+		if !m.Match("private-other", false) {
+			t.Error("private-other should still be ignored")
+		}
+		// secret still ignored
+		if !m.Match("secret", false) {
+			t.Error("secret should still be ignored")
+		}
+	})
+
+	t.Run("only .skillignore.local (no base file)", func(t *testing.T) {
+		dir := t.TempDir()
+		os.WriteFile(filepath.Join(dir, ".skillignore.local"), []byte("debug-tool\n"), 0644)
+
+		m := ReadMatcher(dir)
+		if !m.HasLocal {
+			t.Error("HasLocal should be true")
+		}
+		if !m.HasRules() {
+			t.Error("should have rules from .local")
+		}
+		if !m.Match("debug-tool", false) {
+			t.Error("debug-tool should be ignored")
+		}
+	})
+
+	t.Run("append order correct (local after base)", func(t *testing.T) {
+		dir := t.TempDir()
+		// base: ignore foo, then un-ignore foo
+		os.WriteFile(filepath.Join(dir, ".skillignore"), []byte("foo\n"), 0644)
+		// local: re-ignore foo → last rule wins
+		os.WriteFile(filepath.Join(dir, ".skillignore.local"), []byte("!foo\n"), 0644)
+
+		m := ReadMatcher(dir)
+		// .local's !foo comes after .skillignore's foo, so foo is un-ignored
+		if m.Match("foo", false) {
+			t.Error("foo should be un-ignored — .local !foo comes last")
+		}
+
+		// Reverse: local re-ignores
+		os.WriteFile(filepath.Join(dir, ".skillignore.local"), []byte("!foo\nfoo\n"), 0644)
+		m2 := ReadMatcher(dir)
+		if !m2.Match("foo", false) {
+			t.Error("foo should be ignored — .local's last rule is 'foo'")
+		}
+	})
+
+	t.Run("HasLocal false when no .local file", func(t *testing.T) {
+		dir := t.TempDir()
+		os.WriteFile(filepath.Join(dir, ".skillignore"), []byte("*.log\n"), 0644)
+
+		m := ReadMatcher(dir)
+		if m.HasLocal {
+			t.Error("HasLocal should be false when no .local file")
+		}
+	})
+
+	t.Run("empty .skillignore.local does not affect result", func(t *testing.T) {
+		dir := t.TempDir()
+		os.WriteFile(filepath.Join(dir, ".skillignore"), []byte("*.log\n"), 0644)
+		os.WriteFile(filepath.Join(dir, ".skillignore.local"), []byte(""), 0644)
+
+		m := ReadMatcher(dir)
+		if !m.HasLocal {
+			t.Error("HasLocal should be true (file exists even if empty)")
+		}
+		if !m.Match("debug.log", false) {
+			t.Error("debug.log should still be ignored")
+		}
+		if m.Match("readme.md", false) {
+			t.Error("readme.md should not be ignored")
+		}
+	})
+
+	t.Run("neither file exists", func(t *testing.T) {
+		dir := t.TempDir()
+		m := ReadMatcher(dir)
+		if m.HasLocal {
+			t.Error("HasLocal should be false")
+		}
+		if m.HasRules() {
+			t.Error("should have no rules")
+		}
+	})
+}
+
 // --- normalizePath ---
 
 func TestNormalizePath(t *testing.T) {

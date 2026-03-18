@@ -892,3 +892,88 @@ targets:
 	result.AssertSuccess(t)
 	result.AssertOutputNotContains(t, "ignored by .skillignore")
 }
+
+func TestSync_SkillignoreLocal_OverridesBase(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("keep-me", map[string]string{
+		"SKILL.md": "---\nname: keep-me\n---\nKeep",
+	})
+	sb.CreateSkill("private-mine", map[string]string{
+		"SKILL.md": "---\nname: private-mine\n---\nMine",
+	})
+	sb.CreateSkill("private-other", map[string]string{
+		"SKILL.md": "---\nname: private-other\n---\nOther",
+	})
+	targetPath := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	// .skillignore blocks all private-* skills
+	os.WriteFile(filepath.Join(sb.SourcePath, ".skillignore"), []byte("private-*\n"), 0644)
+	// .skillignore.local un-ignores private-mine
+	os.WriteFile(filepath.Join(sb.SourcePath, ".skillignore.local"), []byte("!private-mine\n"), 0644)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	// private-mine should be synced (un-ignored by .local)
+	if _, err := os.Stat(filepath.Join(targetPath, "private-mine")); os.IsNotExist(err) {
+		t.Error("private-mine should be synced (un-ignored by .skillignore.local)")
+	}
+
+	// private-other should NOT be synced (still ignored)
+	if _, err := os.Stat(filepath.Join(targetPath, "private-other")); err == nil {
+		t.Error("private-other should NOT be synced (still ignored)")
+	}
+
+	// keep-me should be synced
+	if _, err := os.Stat(filepath.Join(targetPath, "keep-me")); os.IsNotExist(err) {
+		t.Error("keep-me should be synced")
+	}
+
+	// Output should show 1 ignored skill and .local hint
+	result.AssertAnyOutputContains(t, "1 skill(s) ignored by .skillignore")
+	result.AssertAnyOutputContains(t, "private-other")
+	result.AssertAnyOutputContains(t, ".local")
+}
+
+func TestSync_SkillignoreLocal_OnlyLocalFile(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("my-skill", map[string]string{
+		"SKILL.md": "---\nname: my-skill\n---\nContent",
+	})
+	sb.CreateSkill("debug-tool", map[string]string{
+		"SKILL.md": "---\nname: debug-tool\n---\nDebug",
+	})
+	targetPath := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	// Only .skillignore.local, no .skillignore
+	os.WriteFile(filepath.Join(sb.SourcePath, ".skillignore.local"), []byte("debug-tool\n"), 0644)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	// debug-tool should be ignored
+	if _, err := os.Stat(filepath.Join(targetPath, "debug-tool")); err == nil {
+		t.Error("debug-tool should be ignored by .skillignore.local")
+	}
+
+	// my-skill should be synced
+	if _, err := os.Stat(filepath.Join(targetPath, "my-skill")); os.IsNotExist(err) {
+		t.Error("my-skill should be synced")
+	}
+}

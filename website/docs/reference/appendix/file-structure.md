@@ -203,6 +203,19 @@ draft-*
 
 Uses [gitignore syntax](https://git-scm.com/docs/gitignore) — one pattern per line. Supports `*` (single segment), `**` (any depth), `?`, `[abc]` (character class), `!pattern` (negation), `/pattern` (anchored), `pattern/` (directory-only), and `\#`/`\!` (escaped literals). Lines starting with `#` are comments. A group name like `internal-tools` excludes all skills under that directory; `internal-tools/helper` excludes only a specific skill. Both layers apply — if either matches, the skill is excluded.
 
+### .skillignore.local (Optional)
+
+A local-only override file that works alongside `.skillignore`. Place it in the same directory as a `.skillignore` (source root or tracked repo root). Patterns from `.skillignore.local` are appended after `.skillignore`, so negation patterns (`!pattern`) can override the base file:
+
+```text title="_team-skills/.skillignore.local"
+# The repo's .skillignore blocks private-*, but I need my own
+!private-mine
+```
+
+This file should **not** be committed to version control — add it to `.gitignore`. It exists so that a repo consumer can locally override the repo maintainer's `.skillignore` without modifying it.
+
+When active, `sync -v`, `status`, and `doctor` display a `.local active` indicator.
+
 ### .skillshare-meta.json (Auto-generated)
 
 Metadata about where the skill was installed from:

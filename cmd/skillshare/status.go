@@ -224,7 +224,11 @@ func printSkillignoreLine(stats *skillignore.IgnoreStats) {
 	if stats == nil || !stats.Active() {
 		return
 	}
-	ui.Info(".skillignore: %d patterns, %d skills ignored", stats.PatternCount(), stats.IgnoredCount())
+	hint := ".skillignore"
+	if stats.HasLocal() {
+		hint += " (.local active)"
+	}
+	ui.Info("%s: %d patterns, %d skills ignored", hint, stats.PatternCount(), stats.IgnoredCount())
 }
 
 func buildSkillignoreJSON(stats *skillignore.IgnoreStats) *statusJSONSourceIgnore {
@@ -236,7 +240,11 @@ func buildSkillignoreJSON(stats *skillignore.IgnoreStats) *statusJSONSourceIgnor
 	if stats.RootFile != "" {
 		files = append(files, stats.RootFile)
 	}
+	if stats.RootLocalFile != "" {
+		files = append(files, stats.RootLocalFile)
+	}
 	files = append(files, stats.RepoFiles...)
+	files = append(files, stats.RepoLocalFiles...)
 
 	return &statusJSONSourceIgnore{
 		Active:        true,

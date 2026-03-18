@@ -167,7 +167,7 @@ skillshare status --json
 }
 ```
 
-The `source.skillignore` field is present only when at least one `.skillignore` file exists. When absent: `"skillignore": { "active": false }`.
+The `source.skillignore` field is present only when at least one `.skillignore` or `.skillignore.local` file exists. When absent: `"skillignore": { "active": false }`. The `files` array includes `.skillignore.local` paths when present. In text mode, the source line shows `.local active` when any `.skillignore.local` is in effect.
 
 :::note
 `--json` is only supported in global mode. In project mode, it returns an error.

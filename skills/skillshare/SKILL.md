@@ -94,6 +94,7 @@ skillshare target codex --mode copy && skillshare sync --force  # copy mode
 # .skillignore — hide skills/dirs from discovery (gitignore syntax)
 #   Root-level: <source>/.skillignore (affects all commands)
 #   Repo-level: <source>/_repo/.skillignore (scoped to that repo)
+#   .skillignore.local — local override (not committed), negation overrides base
 ```
 See [targets.md](references/targets.md) for details.
 ### Updates & Maintenance

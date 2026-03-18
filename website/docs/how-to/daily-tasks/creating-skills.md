@@ -345,6 +345,17 @@ _archived-team-skills
 
 Both layers apply: source-root patterns affect all skills (tracked and non-tracked), while repo-level patterns affect only that repo's skills. If either layer matches, the skill is excluded.
 
+### .skillignore.local (personal override)
+
+If a shared repo's `.skillignore` blocks a skill you need locally, create a `.skillignore.local` in the same directory. Its patterns are appended after `.skillignore`, so `!pattern` negations override the base file:
+
+```text title="_team-skills/.skillignore.local"
+# The repo ignores private-*, but I need my own
+!private-mine
+```
+
+This file should **not** be committed — add it to `.gitignore`. It works at both the source root and repo level.
+
 ---
 
 ## Checklist
