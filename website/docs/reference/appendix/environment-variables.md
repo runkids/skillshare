@@ -102,6 +102,24 @@ When both the env var and config file [`gitlab_hosts`](/docs/reference/targets/c
 
 ---
 
+## Web UI
+
+### SKILLSHARE_UI_BASE_PATH
+
+Set the URL sub-path for serving the web dashboard behind a reverse proxy.
+
+```bash
+SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
+```
+
+Equivalent to `--base-path /skillshare`. The flag takes precedence if both are set.
+
+**Default:** None (dashboard served at root `/`)
+
+See [Reverse Proxy](/docs/reference/commands/ui#reverse-proxy) for Nginx and Caddy examples.
+
+---
+
 ## GitHub API
 
 ### GITHUB_TOKEN
@@ -344,6 +362,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `SKILLSHARE_CONFIG` | Config file path | `~/.config/skillshare/config.yaml` |
+| `SKILLSHARE_UI_BASE_PATH` | Web UI sub-path for reverse proxy | None |
 | `SKILLSHARE_GITLAB_HOSTS` | Custom GitLab hostnames (comma-separated) | None |
 | `XDG_CONFIG_HOME` | Base config directory | `~/.config` (Linux/macOS), `%AppData%` (Windows) |
 | `XDG_DATA_HOME` | Data directory (backups, trash) | `~/.local/share` |
