@@ -4,7 +4,7 @@ Release date: 2026-03-18
 
 ## TL;DR
 
-v0.17.5 adds **fail-fast config validation**, **sync safety**, **reverse proxy support**, a **skill design pattern wizard**, and **`.skillignore.local` override**:
+v0.17.5 adds **fail-fast config validation**, **sync safety**, **reverse proxy support**, a **skill design pattern wizard**, **`.skillignore.local` override**, and **`metadata.targets`**:
 
 1. **Config Save Validation** — saving config now validates semantics (source path, sync modes, target paths), returning HTTP 400 for invalid configs instead of silently saving broken configurations
 2. **Sync Safety — No Auto-Create** — sync no longer auto-creates missing target directories. A typo like `~/.cusor/skills` now fails immediately instead of silently creating the wrong directory
@@ -13,6 +13,7 @@ v0.17.5 adds **fail-fast config validation**, **sync safety**, **reverse proxy s
 5. **Web UI Base Path** — serve the Web UI under a sub-path behind a reverse proxy with `--base-path` or `SKILLSHARE_UI_BASE_PATH`
 6. **Skill Design Patterns** — `skillshare new` now offers an interactive wizard with five design pattern templates (tool-wrapper, generator, reviewer, inversion, pipeline) and category tagging
 7. **`.skillignore.local`** — local-only override file that lets you un-ignore skills blocked by a shared `.skillignore` without modifying the shared file
+8. **`metadata.targets`** — `targets` can now live under a `metadata:` block in SKILL.md, aligning with the 30+ tool ecosystem convention. Top-level `targets:` still works
 
 ---
 
@@ -196,3 +197,33 @@ Works at both levels (source root and repo root). CLI commands (`sync`, `status`
 - **Last-rule-wins gitignore semantics** — by appending `.local` after the base file, the existing pattern engine's "last matching rule wins" behavior naturally handles overrides. No new matching logic needed
 - **Install is unaffected** — `install` runs `ReadMatcher` on a temporary cloned directory. Since `.skillignore.local` should not be committed (it's in `.gitignore`), it won't exist in clones
 - **`HasLocal` flag on Matcher** — a lightweight boolean tracks whether `.local` was merged, enabling CLI reporting without additional filesystem checks during stats collection
+
+---
+
+## `metadata.targets` — Ecosystem-Aligned Frontmatter
+
+### The problem
+
+The agent skill ecosystem (30+ tools including Claude Code, Gemini CLI, Cursor) is converging on a `metadata:` nested structure in SKILL.md frontmatter for deployment and behavioral fields. Google's ADK documentation and other tool authors use patterns like `metadata: { pattern: tool-wrapper, domain: fastapi }`. Skillshare's `targets` field was a top-level field, out of step with this emerging convention.
+
+### Solution
+
+`targets` can now be placed under a `metadata:` block:
+
+```yaml
+---
+name: claude-prompts
+description: Prompt patterns for Claude Code
+metadata:
+  targets: [claude]
+---
+```
+
+The top-level `targets:` format continues to work unchanged. If both are present, `metadata.targets` takes priority — letting authors migrate gradually without breaking anything.
+
+### Design decisions
+
+- **Modify `ParseFrontmatterList` only** — a `resolveField` helper checks `metadata.<field>` first, then falls back to the top-level field. All downstream consumers see the same `[]string` return value with zero code changes
+- **`metadata` wins on conflict** — if a SKILL.md has both `targets:` and `metadata.targets:`, the metadata version takes priority. This encourages migration toward the ecosystem convention
+- **Other parse functions untouched** — `ParseFrontmatterField` and `ParseFrontmatterFields` intentionally do not gain metadata awareness yet. This will be addressed when more fields move to `metadata:` (e.g., `argument-hint`)
+- **No built-in skill changes** — the built-in skillshare skill doesn't use `targets`, so no migration was needed

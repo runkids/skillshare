@@ -87,6 +87,19 @@ All notable changes to skillshare are documented here. For the full commit histo
   Patterns from `.skillignore.local` are appended after `.skillignore`, so `!negation` rules naturally override the base file. Works at both the source root and repo level
 - **CLI indicators** — `sync`, `status`, and `doctor` show `.local active` when a `.skillignore.local` is in effect. JSON output includes `.local` file paths in the `files` array
 
+#### `metadata.targets` — Ecosystem-Aligned Frontmatter
+
+- **`metadata.targets`** — the `targets` field in SKILL.md can now be placed under a `metadata:` block, aligning with the emerging agent skill ecosystem convention used across 30+ AI CLI tools:
+  ```yaml
+  ---
+  name: claude-prompts
+  description: Prompt patterns for Claude Code
+  metadata:
+    targets: [claude]
+  ---
+  ```
+  The top-level `targets:` format continues to work. If both are present, `metadata.targets` takes priority. This is a backward-compatible change — existing skills require no modification
+
 ## [0.17.4] - 2026-03-17
 
 ### New Features
