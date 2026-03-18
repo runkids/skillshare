@@ -138,7 +138,7 @@ skillshare sync --json
 }
 ```
 
-The `ignored_count` and `ignored_skills` fields show skills excluded by `.skillignore`. These are filtered at discovery time and never reach any target. See [.skillignore](/docs/reference/targets/configuration#skillignore) for pattern syntax.
+The `ignored_count` and `ignored_skills` fields show skills excluded by `.skillignore` (and `.skillignore.local` if present). These are filtered at discovery time and never reach any target. When `.skillignore.local` is active, the text output includes a `.local` source hint. See [.skillignore](/docs/reference/appendix/file-structure#skillignore-optional) for pattern syntax.
 
 ### What Happens
 

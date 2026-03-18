@@ -76,6 +76,12 @@ ci-scripts
 _internal-*
 ```
 
+Individual team members who need a skill that `.skillignore` blocks can create a `.skillignore.local` in the same directory (not committed to git) to override it locally:
+
+```text title=".skillignore.local"
+!_internal-my-tool
+```
+
 ### Step 3: Share the install command
 
 Send this to your team:

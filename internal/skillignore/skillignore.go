@@ -25,6 +25,7 @@ type Matcher struct {
 	rules       []rule
 	patterns    []string // original non-blank, non-comment pattern strings
 	hasNegation bool
+	HasLocal    bool // true when .skillignore.local was found and merged
 }
 
 // parseRule parses a single .skillignore line into a rule.
@@ -107,14 +108,31 @@ func Compile(lines []string) *Matcher {
 	return m
 }
 
-// ReadMatcher reads a .skillignore file from dir and compiles it.
-// Returns a non-nil Matcher even if the file doesn't exist (no-op matcher).
+// ReadMatcher reads .skillignore and .skillignore.local from dir, merges
+// their patterns (local appended after base so negations can override),
+// and compiles them into a single Matcher.
+// Returns a non-nil Matcher even if neither file exists (no-op matcher).
 func ReadMatcher(dir string) *Matcher {
+	var lines []string
+	var hasLocal bool
+
 	data, err := os.ReadFile(filepath.Join(dir, ".skillignore"))
-	if err != nil {
+	if err == nil {
+		lines = strings.Split(string(data), "\n")
+	}
+
+	localData, localErr := os.ReadFile(filepath.Join(dir, ".skillignore.local"))
+	if localErr == nil {
+		hasLocal = true
+		lines = append(lines, strings.Split(string(localData), "\n")...)
+	}
+
+	if len(lines) == 0 {
 		return &Matcher{}
 	}
-	return Compile(strings.Split(string(data), "\n"))
+	m := Compile(lines)
+	m.HasLocal = hasLocal
+	return m
 }
 
 // HasRules reports whether the matcher has any compiled rules.

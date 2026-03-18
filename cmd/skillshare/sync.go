@@ -310,15 +310,36 @@ func printIgnoredSkills(stats *skillignore.IgnoreStats) {
 	}
 	// Show source hint
 	hasRoot := stats.RootFile != ""
+	hasRootLocal := stats.RootLocalFile != ""
 	hasRepo := len(stats.RepoFiles) > 0
+	hasRepoLocal := len(stats.RepoLocalFiles) > 0
 	repoPlural := "file"
 	if len(stats.RepoFiles) > 1 {
 		repoPlural = "files"
 	}
-	if hasRoot && hasRepo {
-		fmt.Printf(ui.Dim+"  (from root .skillignore + %d repo-level %s)"+ui.Reset+"\n", len(stats.RepoFiles), repoPlural)
-	} else if hasRepo {
-		fmt.Printf(ui.Dim+"  (from %d repo-level .skillignore %s)"+ui.Reset+"\n", len(stats.RepoFiles), repoPlural)
+
+	// Build source hint parts
+	var parts []string
+	if hasRoot {
+		rootHint := "root .skillignore"
+		if hasRootLocal {
+			rootHint += " + .local"
+		}
+		parts = append(parts, rootHint)
+	} else if hasRootLocal {
+		parts = append(parts, "root .skillignore.local")
+	}
+	if hasRepo {
+		repoHint := fmt.Sprintf("%d repo-level %s", len(stats.RepoFiles), repoPlural)
+		if hasRepoLocal {
+			repoHint += " + .local"
+		}
+		parts = append(parts, repoHint)
+	} else if hasRepoLocal {
+		parts = append(parts, fmt.Sprintf("%d repo-level .skillignore.local", len(stats.RepoLocalFiles)))
+	}
+	if len(parts) > 0 {
+		fmt.Printf(ui.Dim+"  (from %s)"+ui.Reset+"\n", strings.Join(parts, " + "))
 	}
 }
 

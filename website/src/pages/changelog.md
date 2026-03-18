@@ -75,6 +75,18 @@ All notable changes to skillshare are documented here. For the full commit histo
 - **Category tagging** — optionally tag your skill with a use-case category (library, verification, data, automation, scaffold, quality, cicd, runbook, infra) stored as a `category:` frontmatter field
 - **Scaffold directories** — when using a pattern, the wizard offers to create recommended subdirectories (`references/`, `assets/`, `scripts/`) with `.gitkeep` placeholders. Auto-created when using `-P`
 
+#### `.skillignore.local` — Local Override
+
+- **`.skillignore.local`** — a local-only override file that works alongside `.skillignore`. Place it in the same directory (source root or tracked repo root) to override patterns without modifying the shared `.skillignore`:
+  ```bash
+  # _team-repo/.skillignore blocks private-*
+  # _team-repo/.skillignore.local un-ignores your own:
+  echo '!private-mine' > _team-repo/.skillignore.local
+  skillshare sync   # private-mine is now discovered
+  ```
+  Patterns from `.skillignore.local` are appended after `.skillignore`, so `!negation` rules naturally override the base file. Works at both the source root and repo level
+- **CLI indicators** — `sync`, `status`, and `doctor` show `.local active` when a `.skillignore.local` is in effect. JSON output includes `.local` file paths in the `files` array
+
 ## [0.17.4] - 2026-03-17
 
 ### New Features

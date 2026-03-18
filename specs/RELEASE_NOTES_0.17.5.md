@@ -4,7 +4,7 @@ Release date: 2026-03-18
 
 ## TL;DR
 
-v0.17.5 adds **fail-fast config validation**, **sync safety**, **reverse proxy support**, and a **skill design pattern wizard**:
+v0.17.5 adds **fail-fast config validation**, **sync safety**, **reverse proxy support**, a **skill design pattern wizard**, and **`.skillignore.local` override**:
 
 1. **Config Save Validation** — saving config now validates semantics (source path, sync modes, target paths), returning HTTP 400 for invalid configs instead of silently saving broken configurations
 2. **Sync Safety — No Auto-Create** — sync no longer auto-creates missing target directories. A typo like `~/.cusor/skills` now fails immediately instead of silently creating the wrong directory
@@ -12,6 +12,7 @@ v0.17.5 adds **fail-fast config validation**, **sync safety**, **reverse proxy s
 4. **Config Save → Sync Preview** — after saving config, a banner offers to preview what sync will do via a dry-run modal before committing
 5. **Web UI Base Path** — serve the Web UI under a sub-path behind a reverse proxy with `--base-path` or `SKILLSHARE_UI_BASE_PATH`
 6. **Skill Design Patterns** — `skillshare new` now offers an interactive wizard with five design pattern templates (tool-wrapper, generator, reviewer, inversion, pipeline) and category tagging
+7. **`.skillignore.local`** — local-only override file that lets you un-ignore skills blocked by a shared `.skillignore` without modifying the shared file
 
 ---
 
@@ -167,3 +168,31 @@ skillshare new my-skill -P none
 - **Wizard back-navigation** — Esc at category goes back to pattern, Esc at scaffold goes back to category. Breadcrumbs in the help bar footer show previous selections
 - **`-P` auto-scaffolds** — when using the flag, scaffold directories are always created (sensible default for non-interactive use). The wizard asks separately
 - **Nine categories from community research** — based on Anthropic's skill taxonomy (library, verification, data, automation, scaffold, quality, cicd, runbook, infra)
+
+---
+
+## `.skillignore.local` — Local Override
+
+### The problem
+
+Shared skill repos use `.skillignore` to hide internal tools from consumers. But the repo author themselves is also blocked — the `.skillignore` they wrote applies to their own machine too. Root-level negation (`!pattern`) in the source root can't override a repo-level `.skillignore` because the two files are evaluated as independent, cascaded filters.
+
+### Solution
+
+A `.skillignore.local` file placed alongside any `.skillignore` (source root or tracked repo root). Patterns from `.local` are appended after the base file, so `!negation` rules naturally override previously-ignored skills:
+
+```bash
+# _team-repo/.skillignore blocks private-*
+# _team-repo/.skillignore.local un-ignores your own:
+echo '!private-mine' > _team-repo/.skillignore.local
+skillshare sync   # private-mine is now discovered
+```
+
+Works at both levels (source root and repo root). CLI commands (`sync`, `status`, `doctor`) show a `.local active` indicator when override files are present.
+
+### Design decisions
+
+- **Transparent merge in `ReadMatcher`** — `.local` patterns are appended to base patterns before compilation. All callers of `ReadMatcher(dir)` get `.local` support with zero code changes
+- **Last-rule-wins gitignore semantics** — by appending `.local` after the base file, the existing pattern engine's "last matching rule wins" behavior naturally handles overrides. No new matching logic needed
+- **Install is unaffected** — `install` runs `ReadMatcher` on a temporary cloned directory. Since `.skillignore.local` should not be committed (it's in `.gitignore`), it won't exist in clones
+- **`HasLocal` flag on Matcher** — a lightweight boolean tracks whether `.local` was merged, enabling CLI reporting without additional filesystem checks during stats collection
