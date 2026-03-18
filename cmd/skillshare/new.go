@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/skill"
 	"skillshare/internal/ui"
 )
 
@@ -186,10 +186,7 @@ func cmdNew(args []string) error {
 
 // isValidSkillName validates skill name format
 func isValidSkillName(name string) bool {
-	// Allow lowercase letters, numbers, hyphens, and underscores
-	// Must start with a letter or underscore
-	matched, _ := regexp.MatchString(`^[a-z_][a-z0-9_-]*$`, name)
-	return matched
+	return skill.ValidNameRe.MatchString(name)
 }
 
 func printNewHelp() {

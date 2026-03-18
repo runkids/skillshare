@@ -96,11 +96,13 @@ func (s *Server) handleCreateSkill(w http.ResponseWriter, r *http.Request) {
 	for _, dir := range req.ScaffoldDirs {
 		dirPath := filepath.Join(skillDir, dir)
 		if err := os.MkdirAll(dirPath, 0755); err != nil {
+			os.RemoveAll(skillDir)
 			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create %s: %s", dir, err.Error()))
 			return
 		}
 		gitkeep := filepath.Join(dirPath, ".gitkeep")
 		if err := os.WriteFile(gitkeep, []byte{}, 0644); err != nil {
+			os.RemoveAll(skillDir)
 			writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create %s/.gitkeep: %s", dir, err.Error()))
 			return
 		}

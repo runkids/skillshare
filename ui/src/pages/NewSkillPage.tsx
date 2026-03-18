@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Check, FolderPlus } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, FolderPlus, Plus } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import Card from '../components/Card';
@@ -112,19 +112,17 @@ export default function NewSkillPage() {
   const canAdvance = useMemo(() => {
     switch (currentStep) {
       case 'name':
-        return name.length > 0 && validateName(name, existingNames) === null;
+        return name.length > 0 && nameError === null;
       case 'pattern':
         return selectedPattern !== null;
       case 'category':
-        return true; // category is optional (skip is allowed)
       case 'scaffold':
-        return true; // can deselect all
       case 'confirm':
         return true;
       default:
         return false;
     }
-  }, [currentStep, name, existingNames, selectedPattern]);
+  }, [currentStep, name, nameError, selectedPattern]);
 
   // Navigation
   const goNext = useCallback(() => {
@@ -144,8 +142,13 @@ export default function NewSkillPage() {
 
   // Listen for browser back button
   useEffect(() => {
-    const handler = () => {
-      setStepIndex((prev) => Math.max(0, prev - 1));
+    const handler = (e: PopStateEvent) => {
+      const step = e.state?.step;
+      if (typeof step === 'number') {
+        setStepIndex(step);
+      } else {
+        setStepIndex(0);
+      }
     };
     window.addEventListener('popstate', handler);
     return () => window.removeEventListener('popstate', handler);
@@ -184,13 +187,13 @@ export default function NewSkillPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHeader
-        icon={<></>}
+        icon={<Plus size={24} strokeWidth={2.5} />}
         title="Create New Skill"
         backTo="/skills"
       />
 
       {/* Progress bar */}
-      <ProgressBar current={stepIndex} total={steps.length} steps={steps} />
+      <ProgressBar current={stepIndex} steps={steps} />
 
       {/* Step content */}
       <div>
@@ -265,7 +268,8 @@ export default function NewSkillPage() {
 
 /* -- Progress bar ------------------------------------ */
 
-function ProgressBar({ current, total, steps }: { current: number; total: number; steps: StepId[] }) {
+function ProgressBar({ current, steps }: { current: number; steps: StepId[] }) {
+  const total = steps.length;
   const labels: Record<StepId, string> = {
     name: 'Name',
     pattern: 'Pattern',
