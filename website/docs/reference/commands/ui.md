@@ -27,6 +27,7 @@ Opens `http://127.0.0.1:19420` in your default browser.
 | `-g`, `--global` | | Run in global mode (uses `~/.config/skillshare/`) |
 | `--port <port>` | `19420` | HTTP server port |
 | `--host <host>` | `127.0.0.1` | Bind address (use `0.0.0.0` for Docker) |
+| `-b`, `--base-path <path>` | | Sub-path for reverse proxy (e.g., `/skillshare`) |
 | `--no-open` | `false` | Don't open browser automatically |
 | `--clear-cache` | | Clear downloaded UI cache and exit |
 
@@ -133,6 +134,42 @@ The web dashboard exposes a REST API at `/api/`. All endpoints return JSON.
 | GET | `/api/skillignore` | Get `.skillignore` content + ignore stats |
 | PUT | `/api/skillignore` | Update `.skillignore` content |
 | GET | `/api/doctor` | Run all health checks (JSON) |
+
+## Reverse Proxy
+
+Use `--base-path` to serve the dashboard under a sub-path behind a reverse proxy:
+
+```bash
+skillshare ui --base-path /skillshare --host 0.0.0.0 --no-open
+```
+
+Or via environment variable:
+
+```bash
+SKILLSHARE_UI_BASE_PATH=/skillshare skillshare ui --host 0.0.0.0 --no-open
+```
+
+### Nginx
+
+```nginx
+location /skillshare/ {
+    proxy_pass http://127.0.0.1:19420;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
+
+### Caddy
+
+```
+handle_path /skillshare/* {
+    reverse_proxy 127.0.0.1:19420
+}
+```
+
+:::tip
+Without `--base-path`, the dashboard behaves identically to before — no configuration needed for direct access on `localhost:19420`.
+:::
 
 ## Docker Usage
 
