@@ -1,6 +1,6 @@
 ---
 name: skillshare
-version: v0.17.2
+version: v0.17.5
 description: |
   Manages and syncs AI CLI skills across 50+ tools from a single source.
   Use this skill whenever the user mentions "skillshare", runs skillshare commands,
@@ -56,7 +56,8 @@ skillshare sync --all                                # Sync skills + extras toge
 See [extras.md](references/extras.md) for details.
 ### Creating & Discovering Skills
 ```bash
-skillshare new my-skill                          # Create a new skill from template
+skillshare new my-skill                          # Create with interactive pattern selection
+skillshare new my-skill -P reviewer              # Use reviewer pattern directly
 skillshare search "react testing"                # Search GitHub for skills
 skillshare collect                               # Pull target-local changes back to source
 ```

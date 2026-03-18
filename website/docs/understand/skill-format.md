@@ -134,6 +134,26 @@ targets: [claude]
 
 This skill will only appear in Claude Code's skills directory, even if you have Cursor, Codex, and other targets configured.
 
+### `pattern`
+
+The structural design pattern used by this skill. Generated automatically by `skillshare new -P <pattern>`.
+
+```yaml
+pattern: reviewer
+```
+
+Available patterns: `tool-wrapper`, `generator`, `reviewer`, `inversion`, `pipeline`. See [Skill Design Patterns](/docs/understand/philosophy/skill-design-patterns) for details on each.
+
+### `category`
+
+The use-case category for this skill. Set interactively during `skillshare new` or omitted entirely.
+
+```yaml
+category: quality
+```
+
+Available categories: `library`, `verification`, `data`, `automation`, `scaffold`, `quality`, `cicd`, `runbook`, `infra`.
+
 ### `license`
 
 The skill's license identifier. Displayed during installation to help with compliance decisions.
