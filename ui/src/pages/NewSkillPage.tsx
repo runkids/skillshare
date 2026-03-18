@@ -7,7 +7,6 @@ import Card from '../components/Card';
 import Button from '../components/Button';
 import PageHeader from '../components/PageHeader';
 import { Input } from '../components/Input';
-import { Checkbox } from '../components/Checkbox';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { useAppContext } from '../context/AppContext';
@@ -186,7 +185,7 @@ export default function NewSkillPage() {
   if (templatesPending) return <PageSkeleton />;
 
   return (
-    <div className="animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       <PageHeader
         icon={<Wand2 size={24} strokeWidth={2.5} />}
         title="Create New Skill"
@@ -198,7 +197,7 @@ export default function NewSkillPage() {
       <ProgressBar current={stepIndex} total={steps.length} steps={steps} />
 
       {/* Step content */}
-      <div className="mt-6">
+      <div>
         {currentStep === 'name' && (
           <NameStep
             value={name}
@@ -238,7 +237,7 @@ export default function NewSkillPage() {
       </div>
 
       {/* Navigation buttons */}
-      <div className="flex items-center justify-between mt-8">
+      <div className="flex items-center justify-between">
         <Button variant="secondary" onClick={goBack}>
           <ArrowLeft size={16} strokeWidth={2.5} />
           Back
@@ -461,22 +460,40 @@ function ScaffoldStep({
   onToggle: (dir: string) => void;
 }) {
   return (
-    <Card>
+    <div>
       <h3 className="text-lg font-bold text-pencil mb-1">Scaffold Directories</h3>
       <p className="text-pencil-light text-sm mb-4">
-        Choose which directories to include in the initial scaffold. All are selected by default.
+        Choose which directories to create. All are selected by default.
       </p>
-      <div className="space-y-3">
-        {dirs.map((dir) => (
-          <Checkbox
-            key={dir}
-            label={`${dir}/`}
-            checked={selected.has(dir)}
-            onChange={() => onToggle(dir)}
-          />
-        ))}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {dirs.map((dir) => {
+          const isOn = selected.has(dir);
+          return (
+            <button
+              key={dir}
+              type="button"
+              onClick={() => onToggle(dir)}
+              className={`
+                ss-card flex items-center gap-3 p-4 border-2 cursor-pointer transition-all duration-150
+                rounded-[var(--radius-md)]
+                ${isOn
+                  ? 'border-pencil bg-paper-warm/60 shadow-md'
+                  : 'border-muted bg-surface hover:border-muted-dark hover:shadow-sm opacity-60'
+                }
+              `}
+            >
+              <FolderPlus size={20} strokeWidth={2} className={isOn ? 'text-pencil' : 'text-muted-dark'} />
+              <span className={`font-mono text-sm ${isOn ? 'text-pencil font-medium' : 'text-pencil-light'}`}>
+                {dir}/
+              </span>
+              {isOn && (
+                <Check size={16} strokeWidth={3} className="text-pencil ml-auto" />
+              )}
+            </button>
+          );
+        })}
       </div>
-    </Card>
+    </div>
   );
 }
 
