@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, FileCode, Settings, EyeOff, RefreshCw } from 'lucide-react';
+import { Save, FileCode, Settings, EyeOff, RefreshCw, PanelRightOpen } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView, keymap } from '@codemirror/view';
@@ -17,6 +17,7 @@ import SegmentedControl from '../components/SegmentedControl';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import AssistantPanel from '../components/config/AssistantPanel';
+import IconButton from '../components/IconButton';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { api } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -341,13 +342,23 @@ export default function ConfigPage() {
 
       {tab === 'config' && (
         <div className="flex gap-4">
-          {/* Editor Card — always rendered, grows when panel collapses */}
           <Card className="flex-[3] min-w-0 transition-[flex] duration-300 ease-in-out">
             <div className="flex items-center gap-2 mb-3">
               <FileCode size={16} strokeWidth={2.5} className="text-blue" />
               <span className="text-base text-pencil-light">
                 {isProjectMode ? '.skillshare/config.yaml' : 'config.yaml'}
               </span>
+              <span className="flex-1" />
+              {panelCollapsed && (
+                <IconButton
+                  icon={<PanelRightOpen size={14} strokeWidth={2} />}
+                  label="Expand assistant panel"
+                  size="sm"
+                  variant="ghost"
+                  onClick={togglePanel}
+                  className="hidden lg:inline-flex"
+                />
+              )}
             </div>
             <div className="min-w-0 -mx-4 -mb-4">
               <CodeMirror
@@ -370,10 +381,10 @@ export default function ConfigPage() {
             </div>
           </Card>
 
-          {/* Assistant Panel — always rendered, collapses via width/opacity */}
+          {/* Panel: collapses via CSS transition */}
           <div
             className={`hidden lg:block transition-all duration-300 ease-in-out overflow-hidden ${
-              panelCollapsed ? 'flex-[0] w-0 opacity-0' : 'flex-[2] opacity-100'
+              panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
             }`}
           >
             <Card className="h-[558px] !p-0 !overflow-visible min-w-[280px]">
@@ -392,6 +403,7 @@ export default function ConfigPage() {
               />
             </Card>
           </div>
+
         </div>
       )}
 
@@ -403,13 +415,14 @@ export default function ConfigPage() {
               raw={ignoreRaw}
               onChange={handleIgnoreChange}
               extensions={ignoreExtensions}
+              panelCollapsed={panelCollapsed}
+              onTogglePanel={togglePanel}
             />
           </div>
 
-          {/* Assistant Panel — always rendered, collapses via width/opacity */}
           <div
             className={`hidden lg:block transition-all duration-300 ease-in-out overflow-hidden ${
-              panelCollapsed ? 'flex-[0] w-0 opacity-0' : 'flex-[2] opacity-100'
+              panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
             }`}
           >
             <Card className="h-[558px] !p-0 !overflow-visible min-w-[280px]">
@@ -429,6 +442,7 @@ export default function ConfigPage() {
               />
             </Card>
           </div>
+
         </div>
       )}
 
@@ -465,11 +479,15 @@ function SkillignoreTab({
   raw,
   onChange,
   extensions,
+  panelCollapsed,
+  onTogglePanel,
 }: {
   data: SkillignoreResponse;
   raw: string;
   onChange: (value: string) => void;
   extensions: any[];
+  panelCollapsed?: boolean;
+  onTogglePanel?: () => void;
 }) {
   const stats = data.stats;
 
@@ -485,6 +503,17 @@ function SkillignoreTab({
             <span className="text-xs text-pencil-light px-2 py-0.5 bg-muted rounded-full border border-muted-dark">
               {stats.ignored_count} skill{stats.ignored_count !== 1 ? 's' : ''} ignored
             </span>
+          )}
+          <span className="flex-1" />
+          {panelCollapsed && onTogglePanel && (
+            <IconButton
+              icon={<PanelRightOpen size={14} strokeWidth={2} />}
+              label="Expand assistant panel"
+              size="sm"
+              variant="ghost"
+              onClick={onTogglePanel}
+              className="hidden lg:inline-flex"
+            />
           )}
         </div>
 
