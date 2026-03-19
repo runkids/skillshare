@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.17.8] - 2026-03-19
+
+### New Features
+
+#### Extras — Configurable Source Paths
+
+- **Custom extras source directory** — extras source paths are now configurable instead of hardcoded. Add `extras_source` to `config.yaml` to set a global default, or use per-extra `source` for individual overrides:
+  ```yaml
+  extras_source: ~/my-extras               # all extras default to here
+  extras:
+    - name: rules
+      source: ~/company-shared/rules       # this one overrides extras_source
+      targets:
+        - path: ~/.claude/rules
+    - name: commands                        # uses extras_source (~/my-extras/commands/)
+      targets:
+        - path: ~/.cursor/commands
+  ```
+  Resolution priority: per-extra `source` > `extras_source` > default (`~/.config/skillshare/extras/<name>/`)
+
+- **`--source` flag for `extras init`** — specify a custom source directory when creating an extra:
+  ```bash
+  skillshare extras init rules --target ~/.claude/rules --source ~/company-shared/rules
+  ```
+
+- **Source input in TUI wizard** — the `extras init` interactive wizard now includes a source directory step between name and target input. Leave empty to use the default
+
+- **`source_type` in JSON output** — `extras list --json` and `GET /api/extras` now include a `source_type` field (`per-extra`, `extras_source`, or `default`) indicating which level resolved the source path
+
+#### Web UI — Extras Source
+
+- **Source type badge** — the Extras page shows a `(per-extra)` or `(extras_source)` badge next to non-default source paths
+- **Source input in Add Extra modal** — optional "Source path" field when creating extras from the dashboard
+- **API accepts `source` field** — `POST /api/extras` now accepts an optional `source` field in the request body
+
 ## [0.17.7] - 2026-03-19
 
 ### New Features

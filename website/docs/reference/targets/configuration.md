@@ -108,9 +108,13 @@ skills:
     source: github.com/team/skills
     tracked: true
 
+# Custom extras source (optional, overrides default location)
+extras_source: ~/my-extras
+
 # Non-skill resources to sync
 extras:
   - name: rules
+    source: ~/company-shared/rules   # optional per-extra override
     targets:
       - path: ~/.claude/rules
       - path: ~/.cursor/rules
@@ -361,11 +365,13 @@ Starting from v0.16.2, installed skill entries are stored in a separate `registr
 
 ### `extras` {#extras}
 
-Non-skill resources (rules, commands, prompts, etc.) to sync to arbitrary directories. Each extra has its own source directory under `~/.config/skillshare/extras/` (global) or `.skillshare/extras/` (project).
+Non-skill resources (rules, commands, prompts, etc.) to sync to arbitrary directories.
 
 ```yaml
+extras_source: ~/my-extras            # optional global default source
 extras:
   - name: rules
+    source: ~/company-shared/rules    # optional per-extra override
     targets:
       - path: ~/.claude/rules
       - path: ~/.cursor/rules
@@ -377,12 +383,18 @@ extras:
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `name` | Yes | Directory name under `~/.config/skillshare/extras/` (source) |
+| `name` | Yes | Extra identifier |
+| `source` | No | Custom source directory for this extra (overrides `extras_source` and default) |
 | `targets` | Yes | List of target paths |
 | `targets[].path` | Yes | Destination directory |
 | `targets[].mode` | No | `merge` (default), `copy`, or `symlink` |
 
-**Source location:** `~/.config/skillshare/extras/<name>/` (e.g., `~/.config/skillshare/extras/rules/`)
+`extras_source` is auto-populated to the default path (`~/.config/skillshare/extras/`) on `skillshare init` or first `extras init`. Override it to use a custom location for all extras.
+
+**Source resolution** (three-level priority):
+1. Per-extra `source` → exact path (e.g., `~/company-shared/rules`)
+2. `extras_source` → `<extras_source>/<name>/` (e.g., `~/my-extras/rules/`)
+3. Default → `~/.config/skillshare/extras/<name>/`
 
 **Sync modes:**
 - `merge` (default) — per-file symlinks

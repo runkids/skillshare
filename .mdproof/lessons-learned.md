@@ -43,6 +43,20 @@
 - **Impact**: This is the #1 source of false failures in multi-step runbooks. Steps may also "pass for wrong reasons" (e.g., `test -d ""` → false → prints "REMOVED OK" matching assertion)
 - **Runbooks affected**: symlinked_dir_sync_runbook.md (14 code blocks fixed)
 
+### [gotcha] jq: assertions fail when stdout mixes CLI text with JSON
+
+- **Context**: extras_source_config_runbook steps 6 and 11 had multi-command blocks: `ss extras remove ... ; ss extras init ... ; ss extras list --json`. The jq assertions checked JSON fields like `.[0].source_type == "default"`
+- **Discovery**: jq assertions parse the ENTIRE stdout as JSON. When a step mixes non-JSON CLI output (e.g., "✓ Removed rules from extras config") with JSON from `--json`, jq can't parse it and the assertion fails — even though the JSON portion contains the correct data
+- **Fix**: Redirect non-JSON commands to `/dev/null` (`ss extras remove ... >/dev/null 2>&1`) so that only the `--json` output remains in stdout. Alternative: split into separate steps (one for setup, one for JSON assertion)
+- **Runbooks affected**: extras_source_config_runbook.md (steps 6, 11)
+
+### [gotcha] Don't nest ssenv inside mdproof — use mdproof's own isolation
+
+- **Context**: cli-e2e-test skill wraps mdproof inside `ssenv enter $ENV -- mdproof ...`, but mdproof.json has its own `setup` command that runs `ss init -g --force`
+- **Discovery**: `ssenv create --init` already initializes the environment. When mdproof's setup then runs `ss init -g --force`, it fails with "already initialized" (exit code 1), causing ALL steps to be "skipped". mdproof's `isolation: per-runbook` creates its own isolated `$HOME`/`$TMPDIR` per runbook, making ssenv redundant
+- **Fix**: Run `mdproof` directly inside the container (`docker exec $CONTAINER mdproof ...`) without wrapping in `ssenv`. mdproof handles its own isolation. Only use ssenv for manual interactive debugging
+- **Runbooks affected**: All runbooks when run via the cli-e2e-test skill
+
 ### [gotcha] Full-directory mdproof runs cause inter-runbook state leakage
 
 - **Context**: Running `mdproof --report json /path/to/tests/` executes all runbooks sequentially in the same environment (same ssenv). Earlier runbooks install skills, modify config, fill trash — this state persists for later runbooks

@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <strong>One source of truth for AI CLI skills. Sync everywhere with one command — from personal to organization-wide.</strong><br>
+  <strong>One source of truth for AI CLI skills, rules, commands & more. Sync everywhere with one command — from personal to organization-wide.</strong><br>
   Codex, Claude Code, OpenClaw, OpenCode & 50+ more.
 </p>
 
@@ -46,6 +46,7 @@ You edit in one, forget to copy to another, and lose track of what's where.
 skillshare fixes this:
 
 - **One source, every agent** — sync to Claude, Cursor, Codex & 50+ more with `skillshare sync`
+- **More than skills** — manage rules, commands, prompts & any file-based resource with [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras)
 - **Install from anywhere** — GitHub, GitLab, Bitbucket, Azure DevOps, or any self-hosted Git
 - **Built-in security** — audit skills for prompt injection and data exfiltration before use
 - **Team-ready** — project skills in `.skillshare/`, org-wide skills via tracked repos
@@ -55,13 +56,14 @@ skillshare fixes this:
 
 ## How It Works
 
-- macOS / Linux: `~/.config/skillshare/skills/`
-- Windows: `%AppData%\skillshare\skills\`
+- macOS / Linux: `~/.config/skillshare/`
+- Windows: `%AppData%\skillshare\`
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                       Source Directory                      │
-│                 ~/.config/skillshare/skills/                │
+│                    Source Directory                          │
+│   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
+│   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
 └─────────────────────────────────────────────────────────────┘
                               │ sync
               ┌───────────────┼───────────────┐
@@ -71,10 +73,10 @@ skillshare fixes this:
        └───────────┘   └───────────┘   └───────────┘
 ```
 
-| Platform | Source Path | Link Type |
-|----------|-------------|-----------|
-| macOS/Linux | `~/.config/skillshare/skills/` | Symlinks |
-| Windows | `%AppData%\skillshare\skills\` | NTFS Junctions (no admin required) |
+| Platform | Skills Source | Extras Source | Link Type |
+|----------|---------------|---------------|-----------|
+| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/extras/` | Symlinks |
+| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\extras\` | NTFS Junctions (no admin required) |
 
 | | Imperative (install-per-command) | Declarative (skillshare) |
 |---|---|---|
@@ -160,6 +162,14 @@ skillshare audit
 
 ```bash
 skillshare init -p && skillshare sync
+```
+
+**Extras** —manage rules, commands, prompts & more
+
+```bash
+skillshare extras init rules          # create a "rules" extra
+skillshare sync --all                 # sync skills + extras together
+skillshare extras collect rules       # collect local files back to source
 ```
 
 **Web dashboard** —visual control panel
