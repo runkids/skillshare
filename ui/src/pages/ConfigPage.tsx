@@ -187,7 +187,6 @@ export default function ConfigPage() {
     try {
       await api.putSkillignore(ignoreRaw);
       toast('.skillignore saved successfully.', 'success');
-      setShowSyncBanner(true);
       setIgnoreDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.skillignore });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
