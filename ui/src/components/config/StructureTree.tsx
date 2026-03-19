@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Lightbulb } from 'lucide-react';
+import { fieldDocs } from '../../lib/fieldDocs';
 import Badge from '../Badge';
 
 interface TreeNode {
@@ -77,9 +78,22 @@ export default function StructureTree({
   const nodes = useMemo(() => parseYamlTree(source), [source]);
 
   if (nodes.length === 0) {
+    // Show available top-level fields as a quick reference
+    const topLevelFields = Object.entries(fieldDocs).filter(([key]) => !key.includes('.'));
     return (
-      <div className="px-3 py-4 text-sm text-pencil-light text-center">
-        No structure to display.
+      <div className="px-3 py-3 space-y-3 animate-fade-in">
+        <div className="flex items-center gap-1.5 text-pencil-light">
+          <Lightbulb size={13} strokeWidth={2} />
+          <span className="text-xs font-medium uppercase tracking-wider">Available fields</span>
+        </div>
+        <div className="space-y-0.5">
+          {topLevelFields.map(([key, doc]) => (
+            <div key={key} className="flex items-start gap-2 px-2 py-1.5 rounded text-xs hover:bg-muted/30 transition-colors">
+              <code className="font-mono font-semibold text-pencil shrink-0">{key}</code>
+              <span className="text-pencil-light truncate">{doc.description.split('.')[0]}</span>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
