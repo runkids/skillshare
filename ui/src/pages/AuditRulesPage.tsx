@@ -450,11 +450,11 @@ export default function AuditRulesPage() {
             )}
           </div>
 
-          <div className={`hidden lg:block transition-all duration-300 ease-in-out overflow-hidden ${
-            panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
+          <div className={`hidden lg:block transition-all duration-300 ease-in-out ${
+            panelCollapsed ? 'flex-[0] w-0 overflow-hidden opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
           }`}>
-            <div className="sticky top-0" style={{ maxHeight: 'calc(100vh - 100px)' }}>
-              <Card className="h-full !p-0 !overflow-visible min-w-[280px]">
+            <div className="sticky top-0 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 100px)' }}>
+              <Card className="!p-0 !overflow-visible min-w-[280px]">
                 <AuditAssistantPanel
                   mode="structured"
                   selectedRule={selectedRule}
