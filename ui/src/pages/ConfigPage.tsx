@@ -386,7 +386,7 @@ export default function ConfigPage() {
               panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
             }`}
           >
-            <Card className="h-[558px] !p-0 !overflow-visible min-w-[280px]">
+            <Card className="h-full !p-0 !overflow-visible min-w-[280px]">
               <AssistantPanel
                 errors={yamlErrors}
                 changeCount={changeCount}
@@ -424,7 +424,7 @@ export default function ConfigPage() {
               panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
             }`}
           >
-            <Card className="h-[558px] !p-0 !overflow-visible min-w-[280px]">
+            <Card className="h-full !p-0 !overflow-visible min-w-[280px]">
               <AssistantPanel
                 mode="skillignore"
                 errors={[]}
