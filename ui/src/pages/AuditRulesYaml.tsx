@@ -28,6 +28,10 @@ interface AuditRulesYamlProps {
   panelCollapsed: boolean;
   onTogglePanel: () => void;
   isProjectMode: boolean;
+  pendingRegexTest?: { regex: string; exclude?: string } | null;
+  onPendingRegexTestConsumed?: () => void;
+  pendingJumpToId?: string | null;
+  onPendingJumpToIdConsumed?: () => void;
 }
 
 /* ──────────────────────────────────────────────────────────────────────
@@ -69,6 +73,10 @@ export default function AuditRulesYaml({
   panelCollapsed,
   onTogglePanel,
   isProjectMode,
+  pendingRegexTest,
+  onPendingRegexTestConsumed,
+  pendingJumpToId,
+  onPendingJumpToIdConsumed,
 }: AuditRulesYamlProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -129,6 +137,32 @@ export default function AuditRulesYaml({
     const idx = cursorLine - 1;
     return extractExcludeNearby(lines, idx) ?? undefined;
   }, [cursorRegex, cursorLine, raw]);
+
+  // ─── Cross-view pending state ───
+  const effectiveRegex = pendingRegexTest?.regex ?? cursorRegex;
+  const effectiveExclude = pendingRegexTest?.exclude ?? cursorExclude;
+
+  // Consume pendingRegexTest after it's been applied
+  useEffect(() => {
+    if (pendingRegexTest) {
+      onPendingRegexTestConsumed?.();
+    }
+  }, [pendingRegexTest]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Consume pendingJumpToId: scroll editor to matching `id:` line
+  useEffect(() => {
+    if (pendingJumpToId && editorRef.current) {
+      const doc = editorRef.current.state.doc.toString();
+      const lines = doc.split('\n');
+      const idx = lines.findIndex(l => l.trim().startsWith(`id: ${pendingJumpToId}`));
+      if (idx >= 0) {
+        const lineInfo = editorRef.current.state.doc.line(idx + 1);
+        editorRef.current.dispatch({ selection: { anchor: lineInfo.from }, scrollIntoView: true });
+        editorRef.current.focus();
+      }
+      onPendingJumpToIdConsumed?.();
+    }
+  }, [pendingJumpToId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Linter (stable ref pattern from ConfigPage) ───
   const errorsRef = useRef<ValidationError[]>([]);
@@ -339,8 +373,8 @@ export default function AuditRulesYaml({
             collapsed={panelCollapsed}
             onToggleCollapse={onTogglePanel}
             onRevert={handleRevert}
-            cursorRegex={cursorRegex}
-            cursorExclude={cursorExclude}
+            cursorRegex={effectiveRegex}
+            cursorExclude={effectiveExclude}
           />
         </Card>
       </div>

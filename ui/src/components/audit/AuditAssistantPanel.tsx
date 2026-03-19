@@ -1,15 +1,20 @@
 import { useState, useCallback, useEffect } from 'react';
-import { List, GitCompare, FlaskConical, Unlock } from 'lucide-react';
+import { List, GitCompare, FlaskConical, Unlock, PanelRightOpen, PanelRightClose } from 'lucide-react';
 import type { EditorView } from '@codemirror/view';
 import type { ValidationError } from '../../hooks/useYamlValidation';
 import type { DiffResult } from '../../hooks/useLineDiff';
+import type { CompiledRule } from '../../api/client';
 import Badge from '../Badge';
+import IconButton from '../IconButton';
 import ConfigStatusBar from '../config/ConfigStatusBar';
 import ErrorList from '../config/ErrorList';
 import FieldDocs from '../config/FieldDocs';
 import StructureTree from '../config/StructureTree';
 import DiffPreview from '../config/DiffPreview';
 import RegexTester from './RegexTester';
+import RuleDetailCard from './RuleDetailCard';
+import PatternSummary from './PatternSummary';
+import AuditOverview from './AuditOverview';
 import { auditFieldDocs } from '../../lib/auditFieldDocs';
 
 type LockedView = 'auto' | 'structure' | 'diff' | 'test';
@@ -28,6 +33,17 @@ interface Props {
   onRevert: () => void;
   cursorRegex?: string;
   cursorExclude?: string;
+
+  // Structured mode props
+  selectedRule?: CompiledRule | null;
+  selectedPattern?: string | null;
+  patternRules?: CompiledRule[];
+  stats?: { total: number; enabled: number; disabled: number; custom: number; patterns: number };
+  compiledRules?: CompiledRule[];
+  onTestRegex?: () => void;
+  onEditInYaml?: () => void;
+  onTogglePattern?: (pattern: string, enabled: boolean) => void;
+  isToggling?: boolean;
 }
 
 export default function AuditAssistantPanel({
@@ -44,6 +60,15 @@ export default function AuditAssistantPanel({
   onRevert,
   cursorRegex,
   cursorExclude,
+  selectedRule,
+  selectedPattern,
+  patternRules,
+  stats,
+  compiledRules,
+  onTestRegex,
+  onEditInYaml,
+  onTogglePattern,
+  isToggling,
 }: Props) {
   const [lockedView, setLockedView] = useState<LockedView>('auto');
   const [regexPattern, setRegexPattern] = useState(cursorRegex ?? '');
@@ -83,6 +108,64 @@ export default function AuditAssistantPanel({
     setLockedView(prev => (prev === view ? 'auto' : view));
   }, []);
 
+  // Structured mode
+  if (mode === 'structured') {
+    if (collapsed) {
+      return (
+        <div className="ss-audit-assistant-panel flex flex-col h-full border-l border-muted bg-surface">
+          <div className="flex items-center justify-end p-2">
+            <IconButton
+              icon={<PanelRightOpen size={14} strokeWidth={2} />}
+              label="Expand assistant panel"
+              size="sm"
+              variant="ghost"
+              onClick={onToggleCollapse}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    let content;
+    if (selectedRule) {
+      content = (
+        <RuleDetailCard
+          rule={selectedRule}
+          onTestRegex={onTestRegex ?? (() => {})}
+          onEditInYaml={onEditInYaml ?? (() => {})}
+        />
+      );
+    } else if (selectedPattern && patternRules && patternRules.length > 0) {
+      content = (
+        <PatternSummary
+          pattern={selectedPattern}
+          rules={patternRules}
+          onTogglePattern={onTogglePattern ?? (() => {})}
+          isToggling={isToggling ?? false}
+        />
+      );
+    } else if (stats) {
+      content = <AuditOverview stats={stats} compiledRules={compiledRules} />;
+    }
+
+    return (
+      <div className="ss-audit-assistant-panel flex flex-col h-full border-l border-muted bg-surface">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-dashed border-pencil-light/30">
+          <span className="text-xs font-medium text-pencil-light uppercase tracking-wider">Assistant</span>
+          <IconButton
+            icon={<PanelRightClose size={14} strokeWidth={2} />}
+            label="Collapse assistant panel"
+            size="sm"
+            variant="ghost"
+            onClick={onToggleCollapse}
+          />
+        </div>
+        <div className="flex-1 overflow-y-auto">{content}</div>
+      </div>
+    );
+  }
+
+  // YAML mode — collapsed
   if (collapsed) {
     return (
       <div className="ss-audit-assistant-panel flex flex-col h-full border-l border-muted bg-surface">
@@ -98,24 +181,7 @@ export default function AuditAssistantPanel({
     );
   }
 
-  // Structured mode — Phase 2 placeholder
-  if (mode === 'structured') {
-    return (
-      <div className="ss-audit-assistant-panel flex flex-col h-full border-l border-muted bg-surface">
-        <ConfigStatusBar
-          errors={errors}
-          changeCount={changeCount}
-          collapsed={collapsed}
-          onToggleCollapse={onToggleCollapse}
-          onErrorsClick={handleErrorsClick}
-          mode="audit"
-        />
-        <div className="p-3 text-sm text-pencil-light">Structured view panel — coming in Phase 2</div>
-      </div>
-    );
-  }
-
-  // YAML mode
+  // YAML mode — expanded
   const renderContextArea = () => {
     if (lockedView === 'structure') {
       return (
