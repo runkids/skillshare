@@ -113,7 +113,7 @@ export function validateAuditYaml(source: string): ValidationError[] {
 /** React hook: debounced audit YAML validation */
 export function useAuditYamlValidation(source: string) {
   const [errors, setErrors] = useState<ValidationError[]>([]);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     clearTimeout(timerRef.current);

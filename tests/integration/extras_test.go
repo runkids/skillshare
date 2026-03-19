@@ -247,6 +247,104 @@ extras:
 	result.AssertAnyOutputContains(t, "already exists")
 }
 
+// TestExtras_Init_Force_Global verifies that "extras init --force" overwrites
+// an existing extra in global mode.
+func TestExtras_Init_Force_Global(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	oldTarget := filepath.Join(sb.Home, ".claude", "rules")
+	newTarget := filepath.Join(sb.Home, ".cursor", "rules")
+	os.MkdirAll(oldTarget, 0755)
+	os.MkdirAll(newTarget, 0755)
+
+	claudeTarget := sb.CreateTarget("claude")
+	// Config already has an extra named "rules" pointing to oldTarget.
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+extras:
+  - name: rules
+    targets:
+      - path: ` + oldTarget + `
+`)
+
+	// Re-init with --force and a different target.
+	result := sb.RunCLI("extras", "init", "rules", "--target", newTarget, "--force", "-g")
+
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Created extras/rules/")
+
+	// Config should contain the new target, not the old one.
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(configContent, newTarget) {
+		t.Errorf("expected config to contain new target %s, got:\n%s", newTarget, configContent)
+	}
+	if strings.Contains(configContent, oldTarget) {
+		t.Errorf("expected config to NOT contain old target %s, got:\n%s", oldTarget, configContent)
+	}
+}
+
+// TestExtras_Init_Force_Project verifies that "extras init --force -p" overwrites
+// an existing extra in project mode.
+func TestExtras_Init_Force_Project(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude")
+
+	oldTarget := filepath.Join(projectRoot, ".claude", "rules")
+	newTarget := filepath.Join(projectRoot, ".claude", "prompts")
+	os.MkdirAll(oldTarget, 0755)
+	os.MkdirAll(newTarget, 0755)
+
+	// Project config already has an extra named "rules".
+	sb.WriteProjectConfig(projectRoot, `targets:
+  - claude
+extras:
+  - name: rules
+    targets:
+      - path: `+oldTarget+`
+`)
+
+	// Re-init with --force and a different target.
+	result := sb.RunCLIInDir(projectRoot, "extras", "init", "rules", "--target", newTarget, "--force", "-p")
+
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Created .skillshare/extras/rules/")
+
+	// Project config should contain the new target, not the old one.
+	projConfigPath := filepath.Join(projectRoot, ".skillshare", "config.yaml")
+	configContent := sb.ReadFile(projConfigPath)
+	if !strings.Contains(configContent, newTarget) {
+		t.Errorf("expected project config to contain new target %s, got:\n%s", newTarget, configContent)
+	}
+	if strings.Contains(configContent, oldTarget) {
+		t.Errorf("expected project config to NOT contain old target %s, got:\n%s", oldTarget, configContent)
+	}
+}
+
+// TestExtras_Init_SourceNotSupportedInProjectMode verifies that --source is
+// rejected in project mode with a clear error message.
+func TestExtras_Init_SourceNotSupportedInProjectMode(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude")
+
+	target := filepath.Join(projectRoot, ".claude", "rules")
+	os.MkdirAll(target, 0755)
+
+	result := sb.RunCLIInDir(projectRoot, "extras", "init", "rules",
+		"--target", target,
+		"--source", "/some/custom/path",
+		"-p")
+
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "--source is not supported in project mode")
+}
+
 // TestExtras_Collect verifies that "extras collect" moves local (non-symlink) files
 // from a target directory into the extras source and replaces them with symlinks.
 func TestExtras_Collect(t *testing.T) {

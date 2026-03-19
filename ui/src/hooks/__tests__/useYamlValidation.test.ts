@@ -1,6 +1,6 @@
 // ui/src/hooks/__tests__/useYamlValidation.test.ts
 import { describe, it, expect } from 'vitest';
-import { validateYaml, type ValidationError } from '../useYamlValidation';
+import { validateYaml } from '../useYamlValidation';
 
 describe('validateYaml', () => {
   it('returns empty array for valid YAML', () => {

@@ -56,7 +56,7 @@ function buildLCS(a: string[], b: string[]): string[] {
 
 export function useLineDiff(oldStr: string, newStr: string, enabled: boolean = true) {
   const [diff, setDiff] = useState<DiffResult>({ lines: [], changeCount: 0 });
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     if (!enabled) return;

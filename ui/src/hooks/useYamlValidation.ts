@@ -141,7 +141,7 @@ function closestMatch(input: string, candidates: string[]): string | null {
 /** React hook: debounced YAML validation */
 export function useYamlValidation(source: string, validTargets: string[]) {
   const [errors, setErrors] = useState<ValidationError[]>([]);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const validate = useCallback(() => {
     setErrors(validateYaml(source, validTargets));

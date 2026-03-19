@@ -87,7 +87,7 @@ export function computeRegexMatches(
 
 export function useRegexTester(pattern: string, testInput: string, excludePattern?: string) {
   const [result, setResult] = useState<RegexMatchResult>({ matches: [], error: null, isGoSpecific: false });
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     clearTimeout(timerRef.current);

@@ -38,6 +38,7 @@ func cmdExtrasInit(args []string) error {
 	var targets []string
 	var syncMode string
 	var sourceOverride string
+	var force bool
 	var noTUI bool
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
@@ -59,6 +60,8 @@ func cmdExtrasInit(args []string) error {
 			}
 			i++
 			sourceOverride = rest[i]
+		case "--force":
+			force = true
 		case "--no-tui":
 			noTUI = true
 		case "--help", "-h":
@@ -95,18 +98,23 @@ func cmdExtrasInit(args []string) error {
 	}
 
 	if mode == modeProject {
-		return extrasInitProject(cwd, name, targets, syncMode, start)
+		if sourceOverride != "" {
+			return fmt.Errorf("--source is not supported in project mode (source is always .skillshare/extras/<name>/)")
+		}
+		return extrasInitProject(cwd, name, targets, syncMode, force, start)
 	}
-	return extrasInitGlobal(name, targets, syncMode, sourceOverride, start)
+	return extrasInitGlobal(name, targets, syncMode, sourceOverride, force, start)
 }
 
-func extrasInitGlobal(name string, targets []string, syncMode string, sourceOverride string, start time.Time) error {
+func extrasInitGlobal(name string, targets []string, syncMode string, sourceOverride string, force bool, start time.Time) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
-	if err := config.ValidateExtraNameUnique(name, cfg.Extras); err != nil {
+	if force {
+		cfg.Extras = removeExtraByName(cfg.Extras, name)
+	} else if err := config.ValidateExtraNameUnique(name, cfg.Extras); err != nil {
 		return err
 	}
 
@@ -148,13 +156,15 @@ func extrasInitGlobal(name string, targets []string, syncMode string, sourceOver
 	return nil
 }
 
-func extrasInitProject(cwd, name string, targets []string, syncMode string, start time.Time) error {
+func extrasInitProject(cwd, name string, targets []string, syncMode string, force bool, start time.Time) error {
 	projCfg, err := config.LoadProject(cwd)
 	if err != nil {
 		return err
 	}
 
-	if err := config.ValidateExtraNameUnique(name, projCfg.Extras); err != nil {
+	if force {
+		projCfg.Extras = removeExtraByName(projCfg.Extras, name)
+	} else if err := config.ValidateExtraNameUnique(name, projCfg.Extras); err != nil {
 		return err
 	}
 
@@ -191,6 +201,18 @@ func extrasInitProject(cwd, name string, targets []string, syncMode string, star
 	return nil
 }
 
+// removeExtraByName returns a new slice with the named extra removed.
+// If no extra matches, the original slice is returned unchanged.
+func removeExtraByName(extras []config.ExtraConfig, name string) []config.ExtraConfig {
+	result := make([]config.ExtraConfig, 0, len(extras))
+	for _, e := range extras {
+		if e.Name != name {
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
 func printExtrasInitHelp() {
 	fmt.Println(`Usage: skillshare extras init <name> [options]
 
@@ -201,8 +223,9 @@ Arguments:
 
 Options:
   --target <path>     Target directory (repeatable)
-  --source <path>     Custom source directory (overrides extras_source and default)
+  --source <path>     Custom source directory (overrides extras_source and default; global mode only)
   --mode <mode>       Sync mode: merge (default), copy, symlink
+  --force             Overwrite if extra already exists
   --project, -p       Create in project mode (.skillshare/)
   --global, -g        Create in global mode (~/.config/skillshare/)
   --no-tui            Skip interactive wizard
@@ -212,5 +235,6 @@ Examples:
   skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
   skillshare extras init commands --target ~/.claude/commands --mode copy
   skillshare extras init rules --source ~/company-shared/rules --target ~/.claude/rules
+  skillshare extras init rules --target ~/.claude/rules --force
   skillshare extras init prompts --target .claude/prompts -p`)
 }

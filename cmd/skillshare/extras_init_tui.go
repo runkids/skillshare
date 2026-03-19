@@ -355,7 +355,7 @@ func cmdExtrasInitTUI(mode runMode, cwd string) error {
 
 	start := time.Now()
 	if mode == modeProject {
-		return extrasInitProject(cwd, result.name, targetPaths, syncMode, start)
+		return extrasInitProject(cwd, result.name, targetPaths, syncMode, false, start)
 	}
-	return extrasInitGlobal(result.name, targetPaths, syncMode, result.sourceValue, start)
+	return extrasInitGlobal(result.name, targetPaths, syncMode, result.sourceValue, false, start)
 }

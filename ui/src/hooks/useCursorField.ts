@@ -50,7 +50,7 @@ export function resolveFieldPath(lines: string[], lineIndex: number): string | n
 export function useCursorField() {
   const [fieldPath, setFieldPath] = useState<string | null>(null);
   const [cursorLine, setCursorLine] = useState(1);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const extension = useMemo(
     () =>
