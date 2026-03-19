@@ -321,6 +321,7 @@ export default function SkillsPage() {
         icon={<Puzzle size={24} strokeWidth={2.5} />}
         title="Skills"
         subtitle={`${skills.length} skill${skills.length !== 1 ? 's' : ''} installed`}
+        className="mb-1!"
         actions={
           <Link to="/skills/new">
             <Button variant="primary" size="sm">

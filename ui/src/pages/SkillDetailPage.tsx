@@ -321,7 +321,7 @@ export default function SkillDetailPage() {
   return (
     <div className="animate-fade-in">
       {/* Header — sticky */}
-      <div className="flex items-center gap-3 mb-6 sticky top-0 z-20 bg-paper py-3 -mx-4 px-4 md:-mx-8 md:px-8 -mt-3">
+      <div className="flex items-center gap-3 mb-2 sticky top-0 z-20 bg-paper py-3 -mx-4 px-4 md:-mx-8 md:px-8 -mt-3">
         <IconButton
           icon={<ArrowLeft size={18} strokeWidth={2.5} />}
           label="Back to skills"

@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.17.7] - 2026-03-19
+
+### New Features
+
+#### Web UI — Uninstall Skills Page
+
+- **Batch uninstall from the dashboard** — a new "Uninstall Skills" page lets you remove multiple skills at once with filtering and multi-select. Filter by group directory, glob pattern (`*react*`, `frontend/*`), or type (Tracked / GitHub / Local), then check the skills you want to remove and confirm:
+  - Group dropdown narrows to a specific directory
+  - Glob pattern input with real-time matching (supports `*` and `?`)
+  - Type filter tabs with counts (matching the Skills page style)
+  - Select All / Deselect All for the current filtered view
+  - Tracked repos auto-escalate — selecting any skill inside a tracked repo selects the entire repo, with a force option for uncommitted changes
+  - Results show per-item success/failure with a "Run sync" reminder
+- **Batch uninstall API** — `POST /api/uninstall/batch` accepts multiple skill names in a single request with skip-and-continue semantics. Includes registry cleanup, config reconciliation, and `.gitignore` batch removal — matching the CLI's behavior
+
+#### TUI — Target Remove Action
+
+- **Remove targets with `R` key** — the target list TUI (`skillshare list --targets`) now supports pressing `R` to remove a target from your config
+
+### Bug Fixes
+
+- **Sidebar no longer shifts on long skill lists** — fixed a layout issue where scrolling to the bottom of the Skills page caused the sidebar to shift horizontally
+
 ## [0.17.6] - 2026-03-19
 
 ### Bug Fixes

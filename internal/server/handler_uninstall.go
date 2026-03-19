@@ -175,6 +175,8 @@ func (s *Server) handleBatchUninstall(w http.ResponseWriter, r *http.Request) {
 			if removedSet[fullName] || removedSet[entry.Name] {
 				continue
 			}
+			// Tracked repos: registry stores group without "_" prefix (e.g., group="team-skills"
+			// for repo dir "_team-skills"). Reconstruct the prefixed name to match removedSet.
 			if entry.Group != "" && removedSet["_"+entry.Group] {
 				continue
 			}

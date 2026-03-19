@@ -20,7 +20,7 @@ interface SelectProps {
 
 const selectTriggerSizes = {
   sm: 'px-3 py-1.5 text-xs',
-  md: 'px-4 py-2.5 text-sm',
+  md: 'px-4 py-2 text-sm',
 };
 
 export function Select({ label, value, onChange, options, className = '', size = 'md', disabled = false }: SelectProps) {

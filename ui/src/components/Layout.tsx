@@ -66,6 +66,7 @@ const navGroups: NavGroup[] = [
       { to: '/collect', icon: ArrowDownToLine, label: 'Collect' },
       { to: '/install', icon: Download, label: 'Install' },
       { to: '/update', icon: ArrowUpCircle, label: 'Update' },
+      { to: '/skills/batch-uninstall', icon: Trash2, label: 'Uninstall' },
     ],
   },
   {
