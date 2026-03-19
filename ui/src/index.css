@@ -653,6 +653,28 @@
   box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
 }
 
+/* ── Playful: Assistant Panel ── */
+[data-theme="playful"] .ss-assistant-panel {
+  border-left: 2px solid var(--color-pencil-light);
+}
+
+[data-theme="playful"] .ss-status-bar {
+  border-bottom: 2px solid var(--color-muted);
+  background: var(--color-paper);
+}
+
+[data-theme="playful"] .ss-error-item {
+  border-radius: 8px;
+}
+
+[data-theme="playful"] .ss-tree-node {
+  border-radius: 6px;
+}
+
+[data-theme="playful"] .ss-diff-line {
+  border-radius: 4px;
+}
+
 /* ── prefers-reduced-motion ── */
 @media (prefers-reduced-motion: reduce) {
   [data-theme="playful"] .ss-card:hover { translate: none; }

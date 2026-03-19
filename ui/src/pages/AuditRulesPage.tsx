@@ -311,7 +311,7 @@ export default function AuditRulesPage() {
             ? 'Browse and manage project-level audit rules'
             : 'Browse and manage global audit rules'
         }
-        className="mb-5"
+        className="mb-1!"
         backTo="/audit"
         actions={
           <>

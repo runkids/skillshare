@@ -1,16 +1,24 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Save, FileCode, Settings, EyeOff, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Save, FileCode, Settings, EyeOff, RefreshCw, PanelRightOpen } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
-import { EditorView } from '@codemirror/view';
+import { EditorView, keymap } from '@codemirror/view';
+import { linter, lintGutter } from '@codemirror/lint';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { SkillignoreResponse } from '../api/client';
+import type { ValidationError } from '../hooks/useYamlValidation';
+import { useYamlValidation } from '../hooks/useYamlValidation';
+import { useLineDiff, computeSimpleChangeCount } from '../hooks/useLineDiff';
+import { useCursorField } from '../hooks/useCursorField';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import IconButton from '../components/IconButton';
 import PageHeader from '../components/PageHeader';
 import SegmentedControl from '../components/SegmentedControl';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
+import AssistantPanel from '../components/config/AssistantPanel';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { api } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
@@ -26,6 +34,14 @@ export default function ConfigPage() {
   const [tab, setTab] = useState<ConfigTab>('config');
   const [showSyncBanner, setShowSyncBanner] = useState(false);
   const [showSyncPreview, setShowSyncPreview] = useState(false);
+  const editorRef = useRef<EditorView | null>(null);
+  const [panelCollapsed, setPanelCollapsed] = useState(() => {
+    try { return localStorage.getItem('config-panel-collapsed') === 'true'; }
+    catch { return false; }
+  });
+  const [showDiscardDialog, setShowDiscardDialog] = useState(false);
+  const [pendingTab, setPendingTab] = useState<ConfigTab | null>(null);
+  const [showRevertDialog, setShowRevertDialog] = useState(false);
 
   // --- config.yaml state ---
   const { data: configData, isPending: configPending, error: configError } = useQuery({
@@ -36,8 +52,6 @@ export default function ConfigPage() {
   const [raw, setRaw] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  const yamlExtensions = useMemo(() => [yaml(), EditorView.lineWrapping, ...handTheme], []);
 
   useEffect(() => {
     if (configData?.raw) {
@@ -81,6 +95,61 @@ export default function ConfigPage() {
     }
   };
 
+  // Fetch target names for schema validation
+  const { data: targetsData, error: targetsError } = useQuery({
+    queryKey: queryKeys.targets.all,
+    queryFn: () => api.listTargets(),
+    staleTime: staleTimes.targets,
+  });
+  const validTargetNames = useMemo(
+    () => targetsData?.targets?.map((t: any) => t.name) ?? [],
+    [targetsData],
+  );
+  const schemaUnavailable = !!targetsError;
+
+  // Assistant panel hooks
+  const { errors: yamlErrors } = useYamlValidation(raw, validTargetNames);
+  const { fieldPath, cursorLine, extension: cursorExtension } = useCursorField();
+  const { diff, changeCount } = useLineDiff(configData?.raw ?? '', raw, !panelCollapsed);
+
+  // Linter reads errors from ref to stay stable
+  const errorsRef = useRef<ValidationError[]>([]);
+  errorsRef.current = yamlErrors;
+
+  const linterExtension = useMemo(
+    () =>
+      linter((view) => {
+        return errorsRef.current.map(err => {
+          const lineObj = view.state.doc.line(Math.min(err.line, view.state.doc.lines));
+          return {
+            from: lineObj.from,
+            to: lineObj.to,
+            severity: err.severity === 'error' ? 'error' as const : 'warning' as const,
+            message: err.message,
+          };
+        });
+      }, { delay: 350 }),
+    [],
+  );
+
+  // Save handler reads from ref
+  const saveRef = useRef<() => void>(() => {});
+  saveRef.current = handleConfigSave;
+
+  const saveKeymap = useMemo(
+    () =>
+      keymap.of([{
+        key: 'Mod-s',
+        run: () => { saveRef.current(); return true; },
+      }]),
+    [],
+  );
+
+  const yamlExtensions = useMemo(
+    () => [yaml(), EditorView.lineWrapping, ...handTheme, lintGutter(), linterExtension, cursorExtension, saveKeymap],
+    [linterExtension, cursorExtension, saveKeymap],
+  );
+
   // --- .skillignore state ---
   const { data: ignoreData, isPending: ignorePending, error: ignoreError } = useQuery({
     queryKey: queryKeys.skillignore,
@@ -93,6 +162,11 @@ export default function ConfigPage() {
   const [ignoreSaving, setIgnoreSaving] = useState(false);
 
   const ignoreExtensions = useMemo(() => [EditorView.lineWrapping, ...handTheme], []);
+
+  const ignoreChangeCount = useMemo(
+    () => computeSimpleChangeCount(ignoreData?.raw ?? '', ignoreRaw),
+    [ignoreRaw, ignoreData],
+  );
 
   useEffect(() => {
     if (ignoreData) {
@@ -130,6 +204,53 @@ export default function ConfigPage() {
   const activeDirty = tab === 'config' ? dirty : ignoreDirty;
   const activeSaving = tab === 'config' ? saving : ignoreSaving;
   const handleSave = tab === 'config' ? handleConfigSave : handleIgnoreSave;
+
+  // --- panel toggle + Cmd+B ---
+  const togglePanel = useCallback(() => {
+    setPanelCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem('config-panel-collapsed', String(next)); }
+      catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+        e.preventDefault();
+        togglePanel();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [togglePanel]);
+
+  // --- dirty state guard for tab switch ---
+  const handleTabChange = (newTab: ConfigTab) => {
+    if (activeDirty) {
+      setPendingTab(newTab);
+      setShowDiscardDialog(true);
+    } else {
+      setTab(newTab);
+    }
+  };
+
+  const handleDiscard = () => {
+    if (pendingTab) {
+      if (tab === 'config') { setRaw(configData?.raw ?? ''); setDirty(false); }
+      else { setIgnoreRaw(ignoreData?.raw ?? ''); setIgnoreDirty(false); }
+      setTab(pendingTab);
+    }
+    setShowDiscardDialog(false);
+    setPendingTab(null);
+  };
+
+  const handleRevert = () => {
+    setRaw(configData?.raw ?? '');
+    setDirty(false);
+    setShowRevertDialog(false);
+  };
 
   // --- loading / error for active tab ---
   const isPending = tab === 'config' ? configPending : ignorePending;
@@ -179,7 +300,7 @@ export default function ConfigPage() {
       <div className="mb-4">
         <SegmentedControl
           value={tab}
-          onChange={setTab}
+          onChange={handleTabChange}
           options={[
             { value: 'config' as ConfigTab, label: 'config.yaml' },
             { value: 'skillignore' as ConfigTab, label: '.skillignore' },
@@ -220,46 +341,143 @@ export default function ConfigPage() {
       )}
 
       {tab === 'config' && (
-        <Card>
-          <div className="flex items-center gap-2 mb-3">
-            <FileCode size={16} strokeWidth={2.5} className="text-blue" />
-            <span className="text-base text-pencil-light">
-              {isProjectMode ? '.skillshare/config.yaml' : 'config.yaml'}
-            </span>
-          </div>
-          <div className="min-w-0 -mx-4 -mb-4">
-            <CodeMirror
-              value={raw}
-              onChange={handleConfigChange}
-              extensions={yamlExtensions}
-              theme="none"
-              height="500px"
-              basicSetup={{
-                lineNumbers: true,
-                foldGutter: true,
-                highlightActiveLine: true,
-                highlightSelectionMatches: true,
-                bracketMatching: true,
-                indentOnInput: true,
-                autocompletion: false,
-              }}
-            />
-          </div>
-        </Card>
+        <div className="relative flex gap-4">
+          {/* Editor Card */}
+          <Card className={`${panelCollapsed ? '' : 'flex-[3]'} min-w-0`}>
+            <div className="flex items-center gap-2 mb-3">
+              <FileCode size={16} strokeWidth={2.5} className="text-blue" />
+              <span className="text-base text-pencil-light">
+                {isProjectMode ? '.skillshare/config.yaml' : 'config.yaml'}
+              </span>
+            </div>
+            <div className="min-w-0 -mx-4 -mb-4">
+              <CodeMirror
+                value={raw}
+                onChange={handleConfigChange}
+                extensions={yamlExtensions}
+                theme="none"
+                height="500px"
+                onCreateEditor={(view) => { editorRef.current = view; }}
+                basicSetup={{
+                  lineNumbers: true,
+                  foldGutter: true,
+                  highlightActiveLine: true,
+                  highlightSelectionMatches: true,
+                  bracketMatching: true,
+                  indentOnInput: true,
+                  autocompletion: false,
+                }}
+              />
+            </div>
+          </Card>
+
+          {/* Assistant Panel (desktop, expanded) */}
+          {!panelCollapsed && (
+            <div className="flex-[2] hidden lg:block min-w-0">
+              <Card className="h-[558px] !p-0 !overflow-visible">
+                <AssistantPanel
+                  errors={yamlErrors}
+                  changeCount={changeCount}
+                  fieldPath={fieldPath}
+                  cursorLine={cursorLine}
+                  source={raw}
+                  diff={diff}
+                  editorRef={editorRef}
+                  collapsed={false}
+                  onToggleCollapse={togglePanel}
+                  onRevert={() => setShowRevertDialog(true)}
+                  schemaUnavailable={schemaUnavailable}
+                />
+              </Card>
+            </div>
+          )}
+
+          {/* Collapsed: edge toggle button */}
+          {panelCollapsed && (
+            <div className="hidden lg:block absolute right-0 top-2 z-10">
+              <IconButton
+                icon={<PanelRightOpen size={16} strokeWidth={2} />}
+                label="Expand assistant panel"
+                size="md"
+                variant="outline"
+                onClick={togglePanel}
+              />
+            </div>
+          )}
+        </div>
       )}
 
       {tab === 'skillignore' && (
-        <SkillignoreTab
-          data={ignoreData!}
-          raw={ignoreRaw}
-          onChange={handleIgnoreChange}
-          extensions={ignoreExtensions}
-        />
+        <div className="relative flex gap-4">
+          <div className={`${panelCollapsed ? '' : 'flex-[3]'} min-w-0`}>
+            <SkillignoreTab
+              data={ignoreData!}
+              raw={ignoreRaw}
+              onChange={handleIgnoreChange}
+              extensions={ignoreExtensions}
+            />
+          </div>
+
+          {/* Assistant Panel (desktop, expanded) */}
+          {!panelCollapsed && (
+            <div className="flex-[2] hidden lg:block min-w-0">
+              <Card className="h-[558px] !p-0 !overflow-visible">
+                <AssistantPanel
+                  mode="skillignore"
+                  errors={[]}
+                  changeCount={ignoreChangeCount}
+                  fieldPath={null}
+                  cursorLine={1}
+                  source={ignoreRaw}
+                  diff={{ lines: [], changeCount: 0 }}
+                  editorRef={editorRef}
+                  collapsed={false}
+                  onToggleCollapse={togglePanel}
+                  onRevert={() => {}}
+                  ignoredSkills={ignoreData?.stats?.ignored_skills ?? []}
+                />
+              </Card>
+            </div>
+          )}
+
+          {/* Collapsed: edge toggle button */}
+          {panelCollapsed && (
+            <div className="hidden lg:block absolute right-0 top-2 z-10">
+              <IconButton
+                icon={<PanelRightOpen size={16} strokeWidth={2} />}
+                label="Expand assistant panel"
+                size="md"
+                variant="outline"
+                onClick={togglePanel}
+              />
+            </div>
+          )}
+        </div>
       )}
 
       <SyncPreviewModal
         open={showSyncPreview}
         onClose={() => setShowSyncPreview(false)}
+      />
+
+      <ConfirmDialog
+        open={showDiscardDialog}
+        onConfirm={handleDiscard}
+        onCancel={() => setShowDiscardDialog(false)}
+        title="Unsaved Changes"
+        message="You have unsaved changes that will be lost. Discard them?"
+        confirmText="Discard"
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        open={showRevertDialog}
+        onConfirm={handleRevert}
+        onCancel={() => setShowRevertDialog(false)}
+        title="Revert Changes"
+        message="Reset editor to the last saved version? This cannot be undone."
+        confirmText="Revert"
+        variant="danger"
       />
     </div>
   );
@@ -319,26 +537,6 @@ function SkillignoreTab({
         </div>
       </Card>
 
-      {stats && stats.ignored_skills && stats.ignored_skills.length > 0 && (
-        <Card>
-          <div className="flex items-center gap-2 mb-3">
-            <EyeOff size={16} strokeWidth={2.5} className="text-pencil-light" />
-            <span className="text-base font-medium text-pencil">
-              Ignored Skills ({stats.ignored_skills.length})
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {stats.ignored_skills.map((name) => (
-              <span
-                key={name}
-                className="font-mono text-xs text-pencil-light px-2 py-1 bg-muted/60 rounded border border-muted"
-              >
-                {name}
-              </span>
-            ))}
-          </div>
-        </Card>
-      )}
     </div>
   );
 }
