@@ -1,4 +1,4 @@
-import { FieldDoc } from './fieldDocs';
+import type { FieldDoc } from './fieldDocs';
 
 export const auditFieldDocs: Record<string, FieldDoc> = {
   rules: {
