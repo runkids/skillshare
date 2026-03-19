@@ -5,6 +5,7 @@ import Badge from '../Badge';
 
 interface FieldDocsProps {
   fieldPath: string | null;
+  docs?: Record<string, FieldDoc>;
 }
 
 /** Lookup with progressive fallback for dynamic keys (target names, extra names).
@@ -14,19 +15,19 @@ interface FieldDocsProps {
  *  "extras.name.targets.path.mode" → "extras.targets.mode" (hit)
  *  "targets.universal" → "targets" (hit)
  */
-function lookupFieldDoc(fieldPath: string | null): FieldDoc | null {
+function lookupFieldDoc(fieldPath: string | null, docsMap: Record<string, FieldDoc>): FieldDoc | null {
   if (!fieldPath) return null;
 
-  let doc = fieldDocs[fieldPath];
+  let doc = docsMap[fieldPath];
   if (!doc) {
     const parts = fieldPath.split('.');
 
-    // Find the best matching fieldDocs key that is a subsequence of the path.
+    // Find the best matching docsMap key that is a subsequence of the path.
     // Prioritize keys whose last segment matches the path's last segment.
     const lastPart = parts[parts.length - 1];
     let bestKey = '';
     let bestScore = -1;
-    for (const key of Object.keys(fieldDocs)) {
+    for (const key of Object.keys(docsMap)) {
       const keyParts = key.split('.');
       if (keyParts.length > parts.length) continue;
 
@@ -45,20 +46,21 @@ function lookupFieldDoc(fieldPath: string | null): FieldDoc | null {
         bestScore = score;
       }
     }
-    if (bestKey) doc = fieldDocs[bestKey];
+    if (bestKey) doc = docsMap[bestKey];
 
     // Fallback: just the root key (for dynamic child keys like target names)
     // targets.universal → targets
     if (!doc && parts.length >= 2) {
-      doc = fieldDocs[parts[0]];
+      doc = docsMap[parts[0]];
     }
   }
 
   return doc ?? null;
 }
 
-export default function FieldDocs({ fieldPath }: FieldDocsProps) {
-  const doc = useMemo(() => lookupFieldDoc(fieldPath), [fieldPath]);
+export default function FieldDocs({ fieldPath, docs }: FieldDocsProps) {
+  const docsMap = docs ?? fieldDocs;
+  const doc = useMemo(() => lookupFieldDoc(fieldPath, docsMap), [fieldPath, docsMap]);
 
   if (!fieldPath) {
     return (

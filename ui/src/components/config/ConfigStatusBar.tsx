@@ -10,7 +10,7 @@ interface ConfigStatusBarProps {
   onToggleCollapse: () => void;
   onErrorsClick: () => void;
   schemaUnavailable?: boolean;
-  mode?: 'config' | 'skillignore';
+  mode?: 'config' | 'skillignore' | 'audit';
 }
 
 export default function ConfigStatusBar({
@@ -26,7 +26,7 @@ export default function ConfigStatusBar({
   const warningCount = errors.filter(e => e.severity === 'warning').length;
   const totalIssues = errors.length;
   const isValid = totalIssues === 0;
-  const isConfig = mode === 'config';
+  const isConfig = mode === 'config' || mode === 'audit';
 
   return (
     <div className="ss-status-bar flex items-center gap-2 px-3 py-2 border-b border-muted/40 bg-paper text-sm select-none">
