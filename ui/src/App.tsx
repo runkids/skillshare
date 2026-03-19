@@ -54,7 +54,7 @@ export default function App() {
                 <Route index element={<DashboardPage />} />
                 <Route path="skills" element={<Lazy><SkillsPage /></Lazy>} />
                 <Route path="skills/new" element={<Lazy><NewSkillPage /></Lazy>} />
-                <Route path="skills/batch-uninstall" element={<Lazy><BatchUninstallPage /></Lazy>} />
+                <Route path="uninstall" element={<Lazy><BatchUninstallPage /></Lazy>} />
                 <Route path="skills/:name" element={<Lazy><SkillDetailPage /></Lazy>} />
                 <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
                 <Route path="targets/:name/filters" element={<Lazy><FilterStudioPage /></Lazy>} />
