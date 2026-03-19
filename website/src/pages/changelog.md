@@ -56,6 +56,16 @@ All notable changes to skillshare are documented here. For the full commit histo
 - **Empty config guide** — when the editor is empty, the panel shows all available top-level fields as a quick reference
 - **`.skillignore` panel** — the `.skillignore` tab shows a simplified panel with change count and the list of currently ignored skills (from all sources, including tracked repos)
 
+#### Web UI — Audit Rules Assistant Panel
+
+- **YAML editor assistant panel** — the Audit Rules page's YAML editor now has the same assistant panel as the Config page:
+  - **Field docs** — cursor-aware documentation for all audit rule fields (id, severity, pattern, message, regex, exclude, enabled) with allowed values and examples
+  - **Regex tester** — move your cursor to a `regex:` field and the panel auto-switches to an inline regex tester. Paste test lines and see match results instantly with highlighted matches. Supports `(?i)` flag conversion from Go to JavaScript
+  - **Real-time validation** — warns about invalid severity values, uncompilable regex patterns (with Go-specific syntax detection), and YAML syntax errors
+  - **Structure tree + Diff preview** — same as Config editor
+  - Three bottom-bar locks: Structure / Diff / **Test**
+- **Save button in header** — the Save button is now in the page header (top-right) for better visibility
+
 ### Bug Fixes
 
 - **`.skillignore` save no longer shows sync preview banner** — the "Preview Sync" prompt after save is now only shown for `config.yaml` changes, not `.skillignore`
