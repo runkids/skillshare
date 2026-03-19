@@ -348,6 +348,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/discover", s.handleDiscover)
 	s.mux.HandleFunc("POST /api/install", s.handleInstall)
 	s.mux.HandleFunc("POST /api/install/batch", s.handleInstallBatch)
+	s.mux.HandleFunc("POST /api/uninstall/batch", s.handleBatchUninstall)
 
 	// Update & Check
 	s.mux.HandleFunc("POST /api/update", s.handleUpdate)
