@@ -16,6 +16,7 @@
     "@codemirror/lang-python": "^6.2.1",
     "@codemirror/lang-yaml": "^6.1.2",
     "@codemirror/language": "^6.12.2",
+    "@codemirror/lint": "^6.9.5",
     "@codemirror/view": "^6.39.12",
     "@lezer/highlight": "^1.2.3",
     "@tailwindcss/vite": "^4.2.0",
@@ -28,7 +29,8 @@
     "react-router-dom": "^7.13.0",
     "react-virtuoso": "^4.18.1",
     "remark-gfm": "^4.0.1",
-    "tailwindcss": "^4.2.0"
+    "tailwindcss": "^4.2.0",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
