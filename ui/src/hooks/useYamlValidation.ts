@@ -9,6 +9,28 @@ export interface ValidationError {
 }
 
 const VALID_SYNC_MODES = ['merge', 'symlink', 'copy'];
+const VALID_BLOCK_THRESHOLDS = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
+const VALID_AUDIT_PROFILES = ['default', 'strict', 'permissive'];
+const VALID_DEDUPE_MODES = ['legacy', 'global'];
+
+/** Helper: push a warning if value is not in allowed list */
+function validateEnum(
+  errors: ValidationError[],
+  sourceLines: string[],
+  value: unknown,
+  key: string,
+  allowed: string[],
+  label: string,
+  afterKey?: string,
+) {
+  if (typeof value === 'string' && !allowed.includes(value)) {
+    errors.push({
+      line: findKeyLine(sourceLines, key, afterKey),
+      message: `Invalid ${label} "${value}". Valid: ${allowed.join(', ')}`,
+      severity: 'warning',
+    });
+  }
+}
 
 /** Pure validation function (testable without React) */
 export function validateYaml(
@@ -34,45 +56,37 @@ export function validateYaml(
 
   const sourceLines = source.split('\n');
 
-  // Validate sync_mode
-  if (parsed.sync_mode && !VALID_SYNC_MODES.includes(parsed.sync_mode)) {
-    const lineNum = findKeyLine(sourceLines, 'sync_mode');
-    errors.push({
-      line: lineNum,
-      message: `Unknown sync_mode "${parsed.sync_mode}". Valid values: ${VALID_SYNC_MODES.join(', ')}`,
-      severity: 'warning',
-    });
-  }
+  // Validate top-level mode (and legacy sync_mode alias)
+  validateEnum(errors, sourceLines, parsed.mode, 'mode', VALID_SYNC_MODES, 'mode');
+  validateEnum(errors, sourceLines, parsed.sync_mode, 'sync_mode', VALID_SYNC_MODES, 'sync_mode');
 
-  // Validate target names
-  if (parsed.targets && validTargets.length > 0) {
-    for (const name of Object.keys(parsed.targets)) {
-      if (!validTargets.includes(name)) {
-        const lineNum = findKeyLine(sourceLines, name);
-        const suggestion = closestMatch(name, validTargets);
-        const msg = suggestion
-          ? `Unknown target "${name}" — did you mean "${suggestion}"?`
-          : `Unknown target "${name}"`;
-        errors.push({ line: lineNum, message: msg, severity: 'warning' });
-      }
-    }
-  }
-
-  // Validate per-target mode
+  // Validate target names and per-target mode
   if (parsed.targets) {
-    for (const [name, cfg] of Object.entries(parsed.targets)) {
-      if (cfg && typeof cfg === 'object' && 'mode' in cfg) {
-        const mode = (cfg as Record<string, unknown>).mode;
-        if (typeof mode === 'string' && !VALID_SYNC_MODES.includes(mode)) {
-          const lineNum = findKeyLine(sourceLines, 'mode', name);
-          errors.push({
-            line: lineNum,
-            message: `Invalid mode "${mode}" for target "${name}". Valid: ${VALID_SYNC_MODES.join(', ')}`,
-            severity: 'warning',
-          });
+    if (validTargets.length > 0) {
+      for (const name of Object.keys(parsed.targets)) {
+        if (!validTargets.includes(name)) {
+          const lineNum = findKeyLine(sourceLines, name);
+          const suggestion = closestMatch(name, validTargets);
+          const msg = suggestion
+            ? `Unknown target "${name}" — did you mean "${suggestion}"?`
+            : `Unknown target "${name}"`;
+          errors.push({ line: lineNum, message: msg, severity: 'warning' });
         }
       }
     }
+
+    for (const [name, cfg] of Object.entries(parsed.targets)) {
+      if (cfg && typeof cfg === 'object' && 'mode' in cfg) {
+        validateEnum(errors, sourceLines, (cfg as Record<string, unknown>).mode, 'mode', VALID_SYNC_MODES, `mode for target "${name}"`, name);
+      }
+    }
+  }
+
+  // Validate audit config
+  if (parsed.audit && typeof parsed.audit === 'object') {
+    validateEnum(errors, sourceLines, parsed.audit.block_threshold, 'block_threshold', VALID_BLOCK_THRESHOLDS, 'block_threshold', 'audit');
+    validateEnum(errors, sourceLines, parsed.audit.profile, 'profile', VALID_AUDIT_PROFILES, 'audit profile', 'audit');
+    validateEnum(errors, sourceLines, parsed.audit.dedupe_mode, 'dedupe_mode', VALID_DEDUPE_MODES, 'dedupe_mode', 'audit');
   }
 
   return errors;
