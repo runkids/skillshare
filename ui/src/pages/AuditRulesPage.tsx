@@ -1,9 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
-  Save,
-  FileCode,
   ShieldCheck,
-  FilePlus,
   Search,
   ChevronRight,
   List,
@@ -14,9 +11,6 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
 } from 'lucide-react';
-import CodeMirror from '@uiw/react-codemirror';
-import { yaml } from '@codemirror/lang-yaml';
-import { EditorView } from '@codemirror/view';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -32,9 +26,9 @@ import { api } from '../api/client';
 import type { CompiledRule, PatternGroup } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
-import { handTheme } from '../lib/codemirror-theme';
 import { radius, shadows } from '../design';
 import { severityColor, severityBgColor, severityBadgeVariant } from '../lib/severity';
+import AuditRulesYaml from './AuditRulesYaml';
 
 /* ──────────────────────────────────────────────────────────────────────
  * Constants & Types
@@ -69,6 +63,34 @@ export default function AuditRulesPage() {
   const [expandedRules, setExpandedRules] = useState<Set<string>>(new Set());
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
+  // Panel collapsed state (shared with AuditRulesYaml)
+  const [panelCollapsed, setPanelCollapsed] = useState(() => {
+    try { return localStorage.getItem('audit-panel-collapsed') === 'true'; }
+    catch { return false; }
+  });
+
+  const togglePanel = useCallback(() => {
+    setPanelCollapsed(prev => {
+      const next = !prev;
+      try { localStorage.setItem('audit-panel-collapsed', String(next)); }
+      catch { /* ignore */ }
+      return next;
+    });
+  }, []);
+
+  // Cmd+B handler for panel toggle
+  useEffect(() => {
+    if (viewMode !== 'yaml') return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+        e.preventDefault();
+        togglePanel();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [togglePanel, viewMode]);
+
   // Measure sticky toolbar height for nested sticky group headers
   const toolbarRef = useRef<HTMLDivElement>(null);
   const [toolbarHeight, setToolbarHeight] = useState(0);
@@ -80,15 +102,6 @@ export default function AuditRulesPage() {
     staleTime: staleTimes.auditRules,
   });
 
-  // Raw YAML query (yaml editor view)
-  const rawQuery = useQuery({
-    queryKey: queryKeys.audit.rules,
-    queryFn: () => api.getAuditRules(),
-    staleTime: staleTimes.auditRules,
-    enabled: viewMode === 'yaml',
-  });
-
-  // Must be after query declarations (compiled/rawQuery used in deps)
   useEffect(() => {
     const el = toolbarRef.current;
     if (!el) return;
@@ -97,22 +110,7 @@ export default function AuditRulesPage() {
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [viewMode, compiled.isPending, rawQuery.isPending]);
-
-  // YAML editor state
-  const [raw, setRaw] = useState('');
-  const [dirty, setDirty] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [creating, setCreating] = useState(false);
-
-  const extensions = useMemo(() => [yaml(), EditorView.lineWrapping, ...handTheme], []);
-
-  useEffect(() => {
-    if (rawQuery.data?.raw) {
-      setRaw(rawQuery.data.raw);
-      setDirty(false);
-    }
-  }, [rawQuery.data]);
+  }, [viewMode, compiled.isPending]);
 
   // Toggle mutation
   const toggleMutation = useMutation({
@@ -250,52 +248,15 @@ export default function AuditRulesPage() {
 
   const allExpanded = groupedRules.length > 0 && expandedPatterns.size === groupedRules.length;
 
-  // YAML editor handlers
-  const handleChange = (value: string) => {
-    setRaw(value);
-    setDirty(value !== (rawQuery.data?.raw ?? ''));
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await api.putAuditRules(raw);
-      toast('Audit rules saved successfully.', 'success');
-      setDirty(false);
-      queryClient.invalidateQueries({ queryKey: queryKeys.audit.rules });
-      queryClient.invalidateQueries({ queryKey: queryKeys.audit.compiled });
-    } catch (e: unknown) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCreate = async () => {
-    setCreating(true);
-    try {
-      await api.initAuditRules();
-      toast('Audit rules file created.', 'success');
-      queryClient.invalidateQueries({ queryKey: queryKeys.audit.rules });
-      queryClient.invalidateQueries({ queryKey: queryKeys.audit.compiled });
-    } catch (e: unknown) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const isPending = viewMode === 'structured' ? compiled.isPending : rawQuery.isPending;
-  const error = viewMode === 'structured' ? compiled.error : rawQuery.error;
-
-  if (isPending) return <PageSkeleton />;
-  if (error) {
+  // Loading/error only for structured view (YAML view handles its own)
+  if (viewMode === 'structured' && compiled.isPending) return <PageSkeleton />;
+  if (viewMode === 'structured' && compiled.error) {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg">
           Failed to load audit rules
         </p>
-        <p className="text-pencil-light text-sm mt-1">{error.message}</p>
+        <p className="text-pencil-light text-sm mt-1">{compiled.error.message}</p>
       </Card>
     );
   }
@@ -336,22 +297,6 @@ export default function AuditRulesPage() {
                 <RotateCcw size={16} strokeWidth={2.5} />
                 {resetMutation.isPending ? 'Resetting...' : 'Reset All'}
               </Button>
-            )}
-            {viewMode === 'yaml' && rawQuery.data?.exists && (
-              <>
-                {dirty && (
-                  <span
-                    className="text-sm text-warning px-2 py-1 bg-warning-light border border-warning"
-                    style={{ borderRadius: radius.sm }}
-                  >
-                    unsaved changes
-                  </span>
-                )}
-                <Button onClick={handleSave} disabled={saving || !dirty} variant="primary" size="sm">
-                  <Save size={16} strokeWidth={2.5} />
-                  {saving ? 'Saving...' : 'Save'}
-                </Button>
-              </>
             )}
           </>
         }
@@ -461,50 +406,11 @@ export default function AuditRulesPage() {
 
       {/* ─── YAML Editor View ─── */}
       {viewMode === 'yaml' && (
-        <>
-          {rawQuery.data && !rawQuery.data.exists && (
-            <EmptyState
-              icon={FilePlus}
-              title="No custom rules file"
-              description={`Create ${isProjectMode ? 'a project-level' : 'a global'} audit-rules.yaml to add or override security rules`}
-              action={
-                <Button variant="primary" onClick={handleCreate} disabled={creating}>
-                  <FilePlus size={16} strokeWidth={2.5} />
-                  {creating ? 'Creating...' : 'Create Rules File'}
-                </Button>
-              }
-            />
-          )}
-
-          {rawQuery.data?.exists && (
-            <Card>
-              <div className="flex items-center gap-2 mb-3">
-                <FileCode size={16} strokeWidth={2.5} className="text-blue" />
-                <span className="text-base text-pencil-light">
-                  {rawQuery.data.path}
-                </span>
-              </div>
-              <div className="min-w-0 -mx-4 -mb-4">
-                <CodeMirror
-                  value={raw}
-                  onChange={handleChange}
-                  extensions={extensions}
-                  theme="none"
-                  height="500px"
-                  basicSetup={{
-                    lineNumbers: true,
-                    foldGutter: true,
-                    highlightActiveLine: true,
-                    highlightSelectionMatches: true,
-                    bracketMatching: true,
-                    indentOnInput: true,
-                    autocompletion: false,
-                  }}
-                />
-              </div>
-            </Card>
-          )}
-        </>
+        <AuditRulesYaml
+          panelCollapsed={panelCollapsed}
+          onTogglePanel={togglePanel}
+          isProjectMode={isProjectMode}
+        />
       )}
 
       {/* Reset confirmation dialog */}
