@@ -132,9 +132,8 @@ export default function ConfigPage() {
     [],
   );
 
-  // Save handler reads from ref
+  // Save handler reads from ref — updated per tab so Cmd+S works in both editors
   const saveRef = useRef<() => void>(() => {});
-  saveRef.current = handleConfigSave;
 
   const saveKeymap = useMemo(
     () =>
@@ -161,7 +160,7 @@ export default function ConfigPage() {
   const [ignoreDirty, setIgnoreDirty] = useState(false);
   const [ignoreSaving, setIgnoreSaving] = useState(false);
 
-  const ignoreExtensions = useMemo(() => [EditorView.lineWrapping, ...handTheme], []);
+  const ignoreExtensions = useMemo(() => [EditorView.lineWrapping, ...handTheme, saveKeymap], [saveKeymap]);
 
   const ignoreChangeCount = useMemo(
     () => computeSimpleChangeCount(ignoreData?.raw ?? '', ignoreRaw),
@@ -203,6 +202,7 @@ export default function ConfigPage() {
   const activeDirty = tab === 'config' ? dirty : ignoreDirty;
   const activeSaving = tab === 'config' ? saving : ignoreSaving;
   const handleSave = tab === 'config' ? handleConfigSave : handleIgnoreSave;
+  saveRef.current = handleSave;
 
   // --- panel toggle + Cmd+B ---
   const togglePanel = useCallback(() => {

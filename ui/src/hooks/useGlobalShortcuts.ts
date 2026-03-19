@@ -71,6 +71,8 @@ export function useGlobalShortcuts({ onToggleHelp, onRefresh, onSync }: UseGloba
       if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey) {
         const key = e.key.toLowerCase();
         if (key === 's') {
+          // Let CodeMirror handle Cmd+S when focus is inside the editor (e.g., Config page save)
+          if ((e.target as HTMLElement)?.closest('.cm-editor')) return;
           e.preventDefault();
           // Reset modifier state immediately — macOS often swallows the
           // Meta keyup after a Cmd+key shortcut, leaving the HUD stuck.
