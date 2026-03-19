@@ -1,5 +1,7 @@
 // Shared severity color/badge helpers used by AuditPage and AuditRulesPage.
 
+export const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'] as const;
+
 export function severityColor(sev: string): string {
   switch (sev) {
     case 'CRITICAL': return 'var(--color-danger)';

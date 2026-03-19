@@ -29,7 +29,6 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { radius, shadows } from '../design';
 import { severityColor, severityBgColor, severityBadgeVariant } from '../lib/severity';
-import AuditAssistantPanel from '../components/audit/AuditAssistantPanel';
 import AuditRulesYaml from './AuditRulesYaml';
 
 /* ──────────────────────────────────────────────────────────────────────

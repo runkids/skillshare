@@ -1,6 +1,6 @@
 import { Eye, EyeOff } from 'lucide-react';
 import type { CompiledRule } from '../../api/client';
-import { severityBadgeVariant } from '../../lib/severity';
+import { severityBadgeVariant, SEVERITY_ORDER } from '../../lib/severity';
 import Badge from '../Badge';
 import Button from '../Button';
 
@@ -10,8 +10,6 @@ interface PatternSummaryProps {
   onTogglePattern: (pattern: string, enabled: boolean) => void;
   isToggling: boolean;
 }
-
-const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
 
 function getMaxSeverity(rules: CompiledRule[]): string {
   for (const sev of SEVERITY_ORDER) {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, FileCode, FilePlus, PanelRightOpen } from 'lucide-react';
+import { FileCode, FilePlus, PanelRightOpen } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView, keymap } from '@codemirror/view';
@@ -107,10 +107,11 @@ export default function AuditRulesYaml({
   const { diff, changeCount } = useLineDiff(rawQuery.data?.raw ?? '', raw, !panelCollapsed);
 
   // ─── Derive cursor regex / exclude from editor state ───
+  const lines = useMemo(() => raw.split('\n'), [raw]);
+
   const cursorRegex = useMemo(() => {
     if (!fieldPath) return undefined;
     // Check if the cursor line itself contains `regex:`
-    const lines = raw.split('\n');
     const idx = cursorLine - 1;
     if (idx < 0 || idx >= lines.length) return undefined;
 
@@ -123,14 +124,13 @@ export default function AuditRulesYaml({
     if (directExtract) return directExtract;
 
     return undefined;
-  }, [fieldPath, cursorLine, raw]);
+  }, [fieldPath, cursorLine, lines]);
 
   const cursorExclude = useMemo(() => {
     if (!cursorRegex) return undefined;
-    const lines = raw.split('\n');
     const idx = cursorLine - 1;
     return extractExcludeNearby(lines, idx) ?? undefined;
-  }, [cursorRegex, cursorLine, raw]);
+  }, [cursorRegex, cursorLine, lines]);
 
   // (onSaveStateChange effect moved after handleSave declaration)
 
@@ -176,8 +176,8 @@ export default function AuditRulesYaml({
 
   // Notify parent of save state for PageHeader Save button
   useEffect(() => {
-    onSaveStateChange?.(dirty, saving, handleSave);
-  }, [dirty, saving, handleSave, onSaveStateChange]);
+    onSaveStateChange?.(dirty, saving, () => saveRef.current());
+  }, [dirty, saving, onSaveStateChange]);
 
   const saveKeymap = useMemo(
     () =>
@@ -259,7 +259,6 @@ export default function AuditRulesYaml({
         >
           <Card className="h-full !p-0 !overflow-visible min-w-[280px]">
             <AuditAssistantPanel
-              mode="yaml"
               errors={[]}
               changeCount={0}
               fieldPath={null}
@@ -328,7 +327,6 @@ export default function AuditRulesYaml({
       >
         <Card className="h-full !p-0 !overflow-visible min-w-[280px]">
           <AuditAssistantPanel
-            mode="yaml"
             errors={errors}
             changeCount={changeCount}
             fieldPath={fieldPath}

@@ -1,5 +1,5 @@
 // ui/src/hooks/useAuditYamlValidation.ts
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { parseDocument } from 'yaml';
 import type { ValidationError } from './useYamlValidation';
 
@@ -115,15 +115,13 @@ export function useAuditYamlValidation(source: string) {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const validate = useCallback(() => {
-    setErrors(validateAuditYaml(source));
-  }, [source]);
-
   useEffect(() => {
     clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(validate, 300);
+    timerRef.current = setTimeout(() => {
+      setErrors(validateAuditYaml(source));
+    }, 300);
     return () => clearTimeout(timerRef.current);
-  }, [validate]);
+  }, [source]);
 
   return { errors, hasErrors: errors.some(e => e.severity === 'error') };
 }

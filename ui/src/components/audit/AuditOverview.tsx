@@ -1,14 +1,12 @@
 import { ShieldCheck } from 'lucide-react';
 import Badge from '../Badge';
-import { severityBadgeVariant, severityColor } from '../../lib/severity';
+import { severityBadgeVariant, severityColor, SEVERITY_ORDER } from '../../lib/severity';
 import type { CompiledRule } from '../../api/client';
 
 interface AuditOverviewProps {
   stats: { total: number; enabled: number; disabled: number; custom: number; patterns: number };
   compiledRules?: CompiledRule[];
 }
-
-const SEVERITY_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
 
 export default function AuditOverview({ stats, compiledRules }: AuditOverviewProps) {
   // Count per severity from compiledRules
