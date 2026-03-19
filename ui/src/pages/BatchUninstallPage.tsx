@@ -28,6 +28,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { Input, Select } from '../components/Input';
 import { Checkbox } from '../components/Checkbox';
 import { useToast } from '../components/Toast';
+import { PageSkeleton } from '../components/Skeleton';
 import { radius } from '../design';
 
 /* ── Glob → Regex (supports * and ? only) ──────────── */
@@ -263,16 +264,7 @@ export default function BatchUninstallPage() {
 
   // ── Render ───────────────────────────────────────────
 
-  if (isPending) {
-    return (
-      <div className="space-y-5 animate-fade-in">
-        <PageHeader title="Uninstall Skills" icon={<Trash2 size={24} strokeWidth={2.5} />} />
-        <div className="flex items-center gap-2 text-pencil-light">
-          <Loader2 size={16} className="animate-spin" /> Loading skills…
-        </div>
-      </div>
-    );
-  }
+  if (isPending) return <PageSkeleton />;
 
   if (skills.length === 0) {
     return (
