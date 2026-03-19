@@ -15,10 +15,21 @@ export interface RegexMatchResult {
   isGoSpecific: boolean;
 }
 
-const GO_SPECIFIC_RE = /\\x\{|^\(\?[a-zA-Z]+\)/;
+// Truly Go-only syntax that can't be converted to JS
+const GO_ONLY_RE = /\\x\{/;
 
-function isGoSpecificRegex(pattern: string): boolean {
-  return GO_SPECIFIC_RE.test(pattern);
+/** Try to convert Go inline flags to JS RegExp flags.
+ *  (?i)pattern → new RegExp("pattern", "i")
+ *  (?im)pattern → Go-specific (m means different things in Go vs JS for \b)
+ *  Returns { pattern, flags } or null if unconvertible. */
+function convertGoFlags(pattern: string): { pattern: string; flags: string } | null {
+  const m = pattern.match(/^\(\?([imsu]+)\)(.*)/s);
+  if (!m) return null;
+  const goFlags = m[1];
+  const rest = m[2];
+  // Only convert single 'i' flag — 'm' and 's' have different semantics in Go
+  if (goFlags === 'i') return { pattern: rest, flags: 'i' };
+  return null; // multi-flag or non-i flags → can't safely convert
 }
 
 export function computeRegexMatches(
@@ -28,15 +39,30 @@ export function computeRegexMatches(
 ): RegexMatchResult {
   if (!pattern) return { matches: [], error: null, isGoSpecific: false };
 
-  if (isGoSpecificRegex(pattern)) {
+  if (GO_ONLY_RE.test(pattern)) {
     return { matches: [], error: 'Go-specific regex syntax — cannot test in browser', isGoSpecific: true };
   }
 
   let re: RegExp;
   try {
+    // Try direct compilation first
     re = new RegExp(pattern);
-  } catch (e) {
-    return { matches: [], error: (e as Error).message, isGoSpecific: false };
+  } catch {
+    // Try converting Go inline flags (e.g. (?i)pattern → /pattern/i)
+    const converted = convertGoFlags(pattern);
+    if (converted) {
+      try {
+        re = new RegExp(converted.pattern, converted.flags);
+      } catch (e2) {
+        return { matches: [], error: (e2 as Error).message, isGoSpecific: false };
+      }
+    } else {
+      // Check if it looks like Go inline flags we can't convert
+      if (/^\(\?[a-zA-Z]+\)/.test(pattern)) {
+        return { matches: [], error: 'Go-specific regex syntax — cannot test in browser', isGoSpecific: true };
+      }
+      return { matches: [], error: 'Invalid regex', isGoSpecific: false };
+    }
   }
 
   let excludeRe: RegExp | null = null;

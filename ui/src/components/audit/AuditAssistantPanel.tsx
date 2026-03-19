@@ -110,7 +110,6 @@ export default function AuditAssistantPanel({
           onErrorsClick={handleErrorsClick}
           mode="audit"
         />
-        <div className="border-t border-dashed border-pencil-light/30" />
         <div className="p-3 text-sm text-pencil-light">Structured view panel — coming in Phase 2</div>
       </div>
     );
@@ -187,63 +186,55 @@ export default function AuditAssistantPanel({
         mode="audit"
       />
 
-      {/* Separator */}
-      <div className="border-t border-dashed border-pencil-light/30" />
-
       {/* Context area */}
-      <div className="flex-1 overflow-y-auto animate-fade-in">{renderContextArea()}</div>
+      <div className="ss-panel-content flex-1 overflow-y-auto animate-fade-in">{renderContextArea()}</div>
 
       {/* Bottom bar */}
-      <div className="flex items-center gap-1 px-2 py-1.5 border-t border-muted/40 bg-paper">
-        {/* Structure button */}
-        <button
-          type="button"
-          aria-pressed={lockedView === 'structure'}
-          onClick={() => toggleLock('structure')}
-          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 ${
-            lockedView === 'structure'
-              ? 'bg-blue/10 text-blue border border-blue/20'
-              : 'text-pencil-light hover:text-pencil border border-transparent'
-          }`}
-        >
-          <List size={12} strokeWidth={2} />
-          Structure
-        </button>
+      <div className="ss-panel-toolbar flex items-center gap-2 px-2 py-1.5 border-t border-muted/40 bg-paper">
+        <div className="ss-panel-tabs inline-flex items-center p-0.5 bg-muted/20 border border-muted/40 rounded-[var(--radius-sm)]">
+          <button
+            type="button"
+            aria-pressed={lockedView === 'structure'}
+            onClick={() => toggleLock('structure')}
+            className={`ss-panel-tab inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-xs font-medium transition-all duration-150 cursor-pointer ${
+              lockedView === 'structure'
+                ? 'bg-surface text-pencil shadow-sm'
+                : 'text-pencil-light hover:text-pencil'
+            }`}
+          >
+            <List size={12} strokeWidth={2} />
+            Structure
+          </button>
+          <button
+            type="button"
+            aria-pressed={lockedView === 'diff'}
+            onClick={() => toggleLock('diff')}
+            className={`ss-panel-tab inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-xs font-medium transition-all duration-150 cursor-pointer ${
+              lockedView === 'diff'
+                ? 'bg-surface text-pencil shadow-sm'
+                : 'text-pencil-light hover:text-pencil'
+            }`}
+          >
+            <GitCompare size={12} strokeWidth={2} />
+            Diff
+          </button>
+          <button
+            type="button"
+            aria-pressed={lockedView === 'test'}
+            onClick={() => toggleLock('test')}
+            className={`ss-panel-tab inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[3px] text-xs font-medium transition-all duration-150 cursor-pointer ${
+              lockedView === 'test'
+                ? 'bg-surface text-pencil shadow-sm'
+                : 'text-pencil-light hover:text-pencil'
+            }`}
+          >
+            <FlaskConical size={12} strokeWidth={2} />
+            Test
+          </button>
+        </div>
 
-        {/* Diff button */}
-        <button
-          type="button"
-          aria-pressed={lockedView === 'diff'}
-          onClick={() => toggleLock('diff')}
-          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 ${
-            lockedView === 'diff'
-              ? 'bg-blue/10 text-blue border border-blue/20'
-              : 'text-pencil-light hover:text-pencil border border-transparent'
-          }`}
-        >
-          <GitCompare size={12} strokeWidth={2} />
-          Diff
-        </button>
-
-        {/* Test button */}
-        <button
-          type="button"
-          aria-pressed={lockedView === 'test'}
-          onClick={() => toggleLock('test')}
-          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-all duration-150 ${
-            lockedView === 'test'
-              ? 'bg-blue/10 text-blue border border-blue/20'
-              : 'text-pencil-light hover:text-pencil border border-transparent'
-          }`}
-        >
-          <FlaskConical size={12} strokeWidth={2} />
-          Test
-        </button>
-
-        {/* Spacer */}
         <span className="flex-1" />
 
-        {/* Auto unlock button — shown when locked */}
         {lockedView !== 'auto' && (
           <button
             type="button"

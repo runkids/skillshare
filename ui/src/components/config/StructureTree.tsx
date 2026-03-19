@@ -1,7 +1,11 @@
 import { useMemo } from 'react';
 import { AlertTriangle, Lightbulb } from 'lucide-react';
 import { fieldDocs } from '../../lib/fieldDocs';
+import { isMacOS } from '../../hooks/useGlobalShortcuts';
 import Badge from '../Badge';
+
+/** Show idle hints when tree has this few nodes or fewer */
+const IDLE_HINT_THRESHOLD = 3;
 
 interface TreeNode {
   key: string;
@@ -66,6 +70,10 @@ export default function StructureTree({
   parseError,
   onClickNode,
 }: StructureTreeProps) {
+  // useMemo must be called before any early return (rules of hooks)
+  const nodes = useMemo(() => parseYamlTree(source), [source]);
+  const modKey = isMacOS() ? '⌘' : 'Ctrl+';
+
   if (parseError) {
     return (
       <div className="flex items-center gap-2 px-3 py-4 text-sm text-warning">
@@ -74,8 +82,6 @@ export default function StructureTree({
       </div>
     );
   }
-
-  const nodes = useMemo(() => parseYamlTree(source), [source]);
 
   if (nodes.length === 0) {
     // Show available top-level fields as a quick reference
@@ -99,15 +105,32 @@ export default function StructureTree({
   }
 
   return (
-    <div role="tree" aria-label="YAML structure" className="py-1 overflow-x-auto">
-      {nodes.map((node, i) => (
-        <TreeNodeItem
-          key={i}
-          node={node}
-          cursorLine={cursorLine}
-          onClickNode={onClickNode}
-        />
-      ))}
+    <div className="flex flex-col h-full">
+      <div role="tree" aria-label="YAML structure" className="py-1 overflow-x-auto">
+        {nodes.map((node, i) => (
+          <TreeNodeItem
+            key={i}
+            node={node}
+            cursorLine={cursorLine}
+            onClickNode={onClickNode}
+          />
+        ))}
+      </div>
+
+      {nodes.length <= IDLE_HINT_THRESHOLD && (
+        <div className="flex-1 flex flex-col items-center justify-center p-4 select-none animate-fade-in">
+          <div className="ss-panel-idle text-center space-y-2.5 max-w-[180px]">
+            <Lightbulb size={28} strokeWidth={1.2} className="text-muted-dark/30 mx-auto" />
+            <p className="text-xs text-pencil-light leading-relaxed">
+              Click fields in the editor for contextual docs
+            </p>
+            <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-dark">
+              <kbd className="font-mono bg-muted px-1.5 py-0.5 rounded text-pencil-light border border-muted-dark/30">{modKey}B</kbd>
+              <span>toggle panel</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

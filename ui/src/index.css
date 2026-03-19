@@ -654,25 +654,127 @@
 }
 
 /* ── Playful: Assistant Panel ── */
-[data-theme="playful"] .ss-assistant-panel {
-  border-left: 2px solid var(--color-pencil-light);
+/* Remove inner left border (Card already has its pencil border),
+   warm paper bg, and inset padding so children don't reach the
+   wobbly border-radius clip zone (15px axis values). */
+[data-theme="playful"] .ss-assistant-panel,
+[data-theme="playful"] .ss-audit-assistant-panel {
+  border-left: none !important;
+  background: var(--color-paper) !important;
+}
+/* Textareas inside panels — moderate radius (not blobby 28px), subtle border */
+[data-theme="playful"] .ss-assistant-panel textarea,
+[data-theme="playful"] .ss-audit-assistant-panel textarea {
+  border-radius: 12px !important;
+  border-color: var(--color-muted-dark) !important;
+  background: var(--color-surface) !important;
 }
 
 [data-theme="playful"] .ss-status-bar {
-  border-bottom: 2px solid var(--color-muted);
+  border-bottom: 2px dashed var(--color-muted-dark);
   background: var(--color-paper);
 }
 
 [data-theme="playful"] .ss-error-item {
-  border-radius: 8px;
+  border-radius: var(--radius-wobble-badge);
 }
 
 [data-theme="playful"] .ss-tree-node {
   border-radius: 6px;
+  border-left-style: dashed !important;
+}
+[data-theme="playful"] .ss-tree-node[aria-selected="true"] {
+  border-left: 2.5px dashed var(--color-blue) !important;
 }
 
 [data-theme="playful"] .ss-diff-line {
   border-radius: 4px;
+  border-left-style: dashed !important;
+}
+
+/* ── Playful: Panel Toolbar ── */
+[data-theme="playful"] .ss-panel-toolbar {
+  border-top: 2px dashed var(--color-muted-dark) !important;
+}
+[data-theme="playful"] .ss-panel-tabs {
+  border: 1.5px solid var(--color-muted-dark) !important;
+  border-radius: var(--radius-wobble-badge) !important;
+  background: var(--color-muted) !important;
+  box-shadow: 1.5px 1.5px 0 rgba(45, 45, 45, 0.06);
+}
+[data-theme="playful"] .ss-panel-tab {
+  border-radius: 80px 6px 70px 6px / 6px 70px 6px 80px !important;
+  transition: all 0.15s ease;
+}
+[data-theme="playful"] .ss-panel-tab[aria-pressed="true"] {
+  background: var(--color-surface) !important;
+  border: 1.5px solid var(--color-muted-dark) !important;
+  box-shadow: 1px 1px 0 rgba(45, 45, 45, 0.06);
+}
+
+/* ── Playful: Tone down badges inside panels — dense UI needs lighter treatment ── */
+[data-theme="playful"] .ss-assistant-panel .ss-badge,
+[data-theme="playful"] .ss-audit-assistant-panel .ss-badge {
+  border-width: 1px;
+  border-color: var(--color-muted-dark);
+  box-shadow: 1px 1px 0 rgba(45, 45, 45, 0.03);
+}
+
+/* ── Playful: Panel content — notebook ruled lines ── */
+[data-theme="playful"] .ss-panel-content {
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 27px,
+    var(--color-muted) 27px,
+    var(--color-muted) 28px
+  );
+  background-position: 0 3px;
+}
+[data-theme="playful"].dark .ss-panel-content {
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 27px,
+    rgba(255, 255, 255, 0.04) 27px,
+    rgba(255, 255, 255, 0.04) 28px
+  );
+}
+
+/* ── Playful: Panel section headers — hand-drawn font ── */
+[data-theme="playful"] .ss-panel-content label,
+[data-theme="playful"] .ss-panel-content .tracking-wider {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* ── Playful: Panel Idle State ── */
+[data-theme="playful"] .ss-panel-idle p {
+  font-family: var(--font-heading);
+  font-size: 0.9rem;
+}
+[data-theme="playful"] .ss-panel-idle kbd {
+  border: 1.5px solid var(--color-pencil);
+  border-radius: var(--radius-wobble-badge);
+  box-shadow: 1.5px 1.5px 0 rgba(45, 45, 45, 0.1);
+}
+
+/* ── Playful Dark: Panel ── */
+[data-theme="playful"].dark .ss-assistant-panel textarea,
+[data-theme="playful"].dark .ss-audit-assistant-panel textarea {
+  background: var(--color-surface) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+[data-theme="playful"].dark .ss-panel-tabs {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 1.5px 1.5px 0 rgba(0, 0, 0, 0.2);
+}
+[data-theme="playful"].dark .ss-panel-tab[aria-pressed="true"] {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+[data-theme="playful"].dark .ss-assistant-panel .ss-badge,
+[data-theme="playful"].dark .ss-audit-assistant-panel .ss-badge {
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.15);
 }
 
 /* ── prefers-reduced-motion ── */
