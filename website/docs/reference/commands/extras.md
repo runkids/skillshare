@@ -35,9 +35,14 @@ skillshare extras init <name> --target <path> [--target <path2>] [--mode <mode>]
 |------|-------------|
 | `--target <path>` | Target directory path (repeatable) |
 | `--mode <mode>` | Sync mode: `merge` (default), `copy`, or `symlink` |
-| `--source <path>` | Custom source directory for this extra (overrides `extras_source` and default) |
+| `--source <path>` | Custom source directory for this extra (overrides `extras_source` and default; **global mode only**) |
+| `--force` | Overwrite if extra already exists |
 | `--project, -p` | Create in project config (`.skillshare/`) |
 | `--global, -g` | Create in global config |
+
+:::note
+`--source` is only supported in global mode. Project mode always uses `.skillshare/extras/<name>/` as the source directory.
+:::
 
 **Examples:**
 
@@ -47,6 +52,9 @@ skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
 
 # Use a custom source directory
 skillshare extras init rules --target ~/.claude/rules --source ~/company-shared/rules
+
+# Overwrite an existing extra with new targets
+skillshare extras init rules --target ~/.cursor/rules --force
 
 # Project-scoped extra with copy mode
 skillshare extras init prompts --target .claude/prompts --mode copy -p
@@ -105,6 +113,31 @@ Rules            ~/.config/skillshare/extras/rules/  (2 files)
 
 Prompts          ~/.config/skillshare/extras/prompts/  (1 file)
   ✔ ~/.claude/prompts  merge  synced
+```
+
+### `extras source`
+
+Show or set the global `extras_source` directory. This is the default parent directory where extras source files are stored.
+
+```bash
+skillshare extras source            # show current value
+skillshare extras source <path>     # set new value
+```
+
+Without arguments, displays the current `extras_source` path (with `(default)` if auto-detected). With a path argument, updates `extras_source` in the global config.
+
+:::note
+This command is global-only. Project mode always uses `.skillshare/extras/` and does not support `extras_source`.
+:::
+
+**Examples:**
+
+```bash
+# Show current extras_source
+skillshare extras source
+
+# Set to a shared directory
+skillshare extras source ~/company-shared/extras
 ```
 
 ### `extras mode`
@@ -237,7 +270,7 @@ The source directory for each extra is resolved with three-level priority:
 The `extras list --json` output includes a `source_type` field (`per-extra`, `extras_source`, or `default`) indicating which level resolved the path.
 
 :::tip Auto-populated
-`extras_source` is automatically set to the default path (`~/.config/skillshare/extras/`) when you run `skillshare init` or create your first extra with `extras init`. You don't need to add it manually.
+`extras_source` is automatically set to the default path (`~/.config/skillshare/extras/`) when you run `skillshare init` or create your first extra with `extras init`. To change it later, use `skillshare extras source <path>`.
 :::
 
 ---
@@ -264,6 +297,9 @@ skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
 # 1b. Or with a custom source directory
 skillshare extras init rules --target ~/.claude/rules --source ~/my-rules
 
+# 1c. Reconfigure an existing extra (overwrite)
+skillshare extras init rules --target ~/.cursor/rules --force
+
 # 2. Add files to the source directory
 # (edit the resolved source dir — check with: skillshare extras list --json)
 
@@ -275,6 +311,9 @@ skillshare extras list
 
 # 5. Collect a file edited in a target back to source
 skillshare extras collect rules --from ~/.claude/rules
+
+# 6. Change the global extras source directory
+skillshare extras source ~/company-shared/extras
 ```
 
 ---

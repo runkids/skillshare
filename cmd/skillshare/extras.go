@@ -20,6 +20,8 @@ func cmdExtras(args []string) error {
 		return cmdExtrasRemove(rest)
 	case "collect":
 		return cmdExtrasCollect(rest)
+	case "source":
+		return cmdExtrasSource(rest)
 	case "mode":
 		return cmdExtrasMode(rest)
 	case "--help", "-h":
@@ -44,6 +46,7 @@ Commands:
   list               List all configured extras and sync status (interactive TUI)
   remove <name>      Remove an extra resource type
   collect <name>     Collect local files from a target into extras source
+  source [path]      Show or set the global extras_source directory
   mode <name>        Change sync mode of an extra's target
 
 Options:

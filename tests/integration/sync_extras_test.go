@@ -404,5 +404,6 @@ extras:
 	result := sb.RunCLI("sync", "extras")
 
 	result.AssertSuccess(t)
-	result.AssertAnyOutputContains(t, "does not exist")
+	// Sync auto-creates missing extras source directories (same as target dirs)
+	result.AssertAnyOutputContains(t, "Created source directory")
 }

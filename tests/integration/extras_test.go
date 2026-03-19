@@ -345,6 +345,87 @@ func TestExtras_Init_SourceNotSupportedInProjectMode(t *testing.T) {
 	result.AssertAnyOutputContains(t, "--source is not supported in project mode")
 }
 
+// TestExtras_Source_Show verifies that "extras source" shows the current extras_source.
+func TestExtras_Source_Show(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	customExtras := filepath.Join(sb.Home, "custom-extras")
+	claudeTarget := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+extras_source: ` + customExtras + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+`)
+
+	result := sb.RunCLI("extras", "source", "-g")
+
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "extras_source:")
+	result.AssertAnyOutputContains(t, "custom-extras")
+}
+
+// TestExtras_Source_ShowDefault verifies that "extras source" shows the default
+// path when extras_source is not explicitly set.
+func TestExtras_Source_ShowDefault(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+`)
+
+	result := sb.RunCLI("extras", "source", "-g")
+
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "(default)")
+}
+
+// TestExtras_Source_Set verifies that "extras source <path>" updates extras_source
+// in the global config.
+func TestExtras_Source_Set(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	claudeTarget := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + claudeTarget + `
+`)
+
+	newExtras := filepath.Join(sb.Home, "new-extras")
+
+	result := sb.RunCLI("extras", "source", newExtras, "-g")
+
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "Set extras_source")
+
+	// Verify config was updated
+	configContent := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(configContent, newExtras) {
+		t.Errorf("expected config to contain %s, got:\n%s", newExtras, configContent)
+	}
+}
+
+// TestExtras_Source_ProjectModeRejected verifies that "extras source -p" is rejected.
+func TestExtras_Source_ProjectModeRejected(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude")
+
+	result := sb.RunCLIInDir(projectRoot, "extras", "source", "-p")
+
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "not supported in project mode")
+}
+
 // TestExtras_Collect verifies that "extras collect" moves local (non-symlink) files
 // from a target directory into the extras source and replaces them with symlinks.
 func TestExtras_Collect(t *testing.T) {

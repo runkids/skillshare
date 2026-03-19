@@ -43,8 +43,11 @@ skillshare sync                                  # Always sync after install
 ```bash
 skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
 skillshare extras init commands --target ~/.claude/commands --mode copy
-skillshare extras init rules --target ~/.claude/rules --source ~/shared/rules  # custom source
+skillshare extras init rules --target ~/.claude/rules --source ~/shared/rules  # custom source (global only)
+skillshare extras init rules --target ~/.cursor/rules --force                  # overwrite existing
 skillshare extras init                               # Interactive TUI wizard (incl. source step)
+skillshare extras source                             # Show current extras_source
+skillshare extras source ~/shared/extras             # Set global extras_source
 skillshare extras list                               # Show status per target
 skillshare extras list --json                        # JSON with source_type field
 skillshare extras collect rules                      # Pull local files into source
@@ -53,7 +56,6 @@ skillshare extras rules --mode copy                  # Change sync mode of a tar
 skillshare sync extras                               # Sync all extras to targets
 skillshare sync extras --dry-run --force             # Preview / overwrite conflicts
 skillshare sync --all                                # Sync skills + extras together
-# config.yaml: extras_source sets global default, per-extra source overrides
 ```
 See [extras.md](references/extras.md) for details.
 ### Creating & Discovering Skills
@@ -139,7 +141,7 @@ See [TROUBLESHOOTING.md](references/TROUBLESHOOTING.md) for more.
 | `sync`, `collect` | ✓ (auto) | ✓ |
 | `install`, `uninstall`, `update`, `check`, `search`, `new` | ✓ (`-p`) | ✓ (except new) |
 | `target`, `audit`, `trash`, `log`, `hub` | ✓ (`-p`) | ✓ (target list, audit, log) |
-| `extras init/list/remove/collect/mode` | ✓ (`-p`) | ✓ (list, mode) |
+| `extras init/list/remove/collect/source/mode` | ✓ (`-p`, except source) | ✓ (list, mode) |
 | `push`, `pull`, `backup`, `restore` | ✗ | ✗ |
 | `tui`, `upgrade` | ✗ | ✗ |
 | `ui` | ✓ (`-p`) | ✗ |

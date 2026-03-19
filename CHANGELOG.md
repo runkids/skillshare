@@ -27,6 +27,19 @@
 
 - **Source input in TUI wizard** — the `extras init` interactive wizard now includes a source directory step between name and target input. Leave empty to use the default
 
+- **`extras source` command** — show or set the global `extras_source` directory from the CLI instead of editing `config.yaml` manually:
+  ```bash
+  skillshare extras source                          # show current value
+  skillshare extras source ~/company-shared/extras  # set new value
+  ```
+
+- **`--force` flag for `extras init`** — overwrite an existing extra without needing to `extras remove` first:
+  ```bash
+  skillshare extras init rules --target ~/.cursor/rules --force
+  ```
+
+- **`--source` rejected in project mode** — `extras init --source` now returns a clear error in project mode instead of silently ignoring the flag. Project mode always uses `.skillshare/extras/<name>/`
+
 - **`source_type` in JSON output** — `extras list --json` and `GET /api/extras` now include a `source_type` field (`per-extra`, `extras_source`, or `default`) indicating which level resolved the source path
 
 #### Web UI — Extras Source
