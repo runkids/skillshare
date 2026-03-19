@@ -34,20 +34,14 @@ func (s *Server) handleGetSkillignore(w http.ResponseWriter, r *http.Request) {
 	ignorePath := filepath.Join(source, ".skillignore")
 
 	raw, err := os.ReadFile(ignorePath)
-	if err != nil {
-		writeJSON(w, skillignoreResponse{
-			Path: ignorePath,
-		})
-		return
-	}
 
 	resp := skillignoreResponse{
-		Exists: true,
+		Exists: err == nil,
 		Path:   ignorePath,
-		Raw:    string(raw),
+		Raw:    string(raw), // empty if file doesn't exist
 	}
 
-	// Discover skills with stats to get ignore information
+	// Always discover stats — tracked repos may have their own .skillignore
 	_, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(source)
 	if discoverErr == nil && stats != nil {
 		patterns := stats.Patterns
