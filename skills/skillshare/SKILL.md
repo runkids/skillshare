@@ -1,6 +1,6 @@
 ---
 name: skillshare
-version: v0.17.5
+version: v0.17.8
 description: |
   Manages and syncs AI CLI skills across 50+ tools from a single source.
   Use this skill whenever the user mentions "skillshare", runs skillshare commands,
@@ -43,15 +43,17 @@ skillshare sync                                  # Always sync after install
 ```bash
 skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
 skillshare extras init commands --target ~/.claude/commands --mode copy
-skillshare extras init                               # Interactive TUI wizard
+skillshare extras init rules --target ~/.claude/rules --source ~/shared/rules  # custom source
+skillshare extras init                               # Interactive TUI wizard (incl. source step)
 skillshare extras list                               # Show status per target
-skillshare extras list --json                        # JSON output
+skillshare extras list --json                        # JSON with source_type field
 skillshare extras collect rules                      # Pull local files into source
 skillshare extras remove rules                       # Remove from config (source preserved)
 skillshare extras rules --mode copy                  # Change sync mode of a target
 skillshare sync extras                               # Sync all extras to targets
 skillshare sync extras --dry-run --force             # Preview / overwrite conflicts
 skillshare sync --all                                # Sync skills + extras together
+# config.yaml: extras_source sets global default, per-extra source overrides
 ```
 See [extras.md](references/extras.md) for details.
 ### Creating & Discovering Skills
