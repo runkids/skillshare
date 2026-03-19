@@ -25,10 +25,12 @@ import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
 import SegmentedControl from '../components/SegmentedControl';
 import ConfirmDialog from '../components/ConfirmDialog';
+import DialogShell from '../components/DialogShell';
 import { Input, Select } from '../components/Input';
 import { Checkbox } from '../components/Checkbox';
 import { useToast } from '../components/Toast';
 import { PageSkeleton } from '../components/Skeleton';
+import { Virtuoso } from 'react-virtuoso';
 import { radius } from '../design';
 
 /* ── Glob → Regex (supports * and ? only) ──────────── */
@@ -258,6 +260,13 @@ export default function BatchUninstallPage() {
     }
   }, [buildApiNames, forceChecked, queryClient, toast]);
 
+  const dismissResults = useCallback(() => {
+    setPhase('selecting');
+    setResults([]);
+    setSummary(null);
+    setSelected(new Set());
+  }, []);
+
   const selectedInView = filtered.filter((s) => selected.has(s.flatName)).length;
   const allInViewSelected = filtered.length > 0 && selectedInView === filtered.length;
   const hasActiveFilter = typeFilter !== 'all' || group !== '(all)' || deferredPattern.trim() !== '';
@@ -376,65 +385,78 @@ export default function BatchUninstallPage() {
         </div>
       ) : (
         <div
-          className="border border-muted bg-surface divide-y divide-muted/40"
+          className="border border-muted bg-surface overflow-hidden"
           style={{ borderRadius: radius.md }}
         >
-          {filtered.map((skill) => {
-            const isSelected = selected.has(skill.flatName);
-            const repo = getRepoName(skill);
-            return (
-              <button
-                key={skill.flatName}
-                type="button"
-                className={`
-                  w-full text-left px-4 py-2.5 flex items-center gap-3
-                  transition-colors duration-100 cursor-pointer
-                  ${isSelected ? 'bg-danger/5' : 'hover:bg-muted/15'}
-                  ${phase !== 'selecting' ? 'pointer-events-none opacity-60' : ''}
-                `}
-                onClick={() => toggleSelect(skill)}
-                disabled={phase !== 'selecting'}
-              >
-                <Checkbox
-                  label=""
-                  checked={isSelected}
-                  onChange={() => toggleSelect(skill)}
-                  size="sm"
+          <Virtuoso
+            useWindowScroll
+            totalCount={filtered.length}
+            overscan={200}
+            itemContent={(index) => {
+              const skill = filtered[index];
+              const isSelected = selected.has(skill.flatName);
+              const repo = getRepoName(skill);
+              return (
+                <button
+                  type="button"
+                  className={`
+                    w-full text-left px-4 py-2.5 flex items-center gap-3
+                    transition-colors duration-100 cursor-pointer
+                    ${index > 0 ? 'border-t border-muted/40' : ''}
+                    ${isSelected ? 'bg-danger/5' : 'hover:bg-muted/15'}
+                    ${phase !== 'selecting' ? 'pointer-events-none opacity-60' : ''}
+                  `}
+                  onClick={() => toggleSelect(skill)}
                   disabled={phase !== 'selecting'}
-                />
-                <div className="flex-1 min-w-0">
-                  <span className="font-mono text-sm text-pencil truncate block">{skill.name}</span>
-                  {skill.relPath !== skill.name && (
-                    <span className="text-xs text-pencil-light truncate block">{skill.relPath}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {repo && (
-                    <Badge variant="info" size="sm">{repo.replace(/^_/, '')}</Badge>
-                  )}
-                  <Badge variant="default" size="sm">
-                    {skill.isInRepo ? 'tracked' : (getTypeLabel(skill.type) ?? 'local')}
-                  </Badge>
-                </div>
-              </button>
-            );
-          })}
+                >
+                  <Checkbox
+                    label=""
+                    checked={isSelected}
+                    onChange={() => toggleSelect(skill)}
+                    size="sm"
+                    disabled={phase !== 'selecting'}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-mono text-sm text-pencil truncate block">{skill.name}</span>
+                    {skill.relPath !== skill.name && (
+                      <span className="text-xs text-pencil-light truncate block">{skill.relPath}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {repo && (
+                      <Badge variant="info" size="sm">{repo.replace(/^_/, '')}</Badge>
+                    )}
+                    <Badge variant="default" size="sm">
+                      {skill.isInRepo ? 'tracked' : (getTypeLabel(skill.type) ?? 'local')}
+                    </Badge>
+                  </div>
+                </button>
+              );
+            }}
+          />
         </div>
       )}
 
-      {/* ── Results (after uninstall) ──────────────────── */}
-      {phase === 'done' && results.length > 0 && (
+      {/* ── Results Dialog (after uninstall) ─────────────── */}
+      <DialogShell
+        open={phase === 'done' && results.length > 0}
+        onClose={dismissResults}
+        maxWidth="2xl"
+      >
         <Card>
-          <h3 className="font-bold text-pencil mb-3 flex items-center gap-2">
+          <h3 className="text-lg font-bold text-pencil mb-4 flex items-center gap-2">
             {summary && summary.failed === 0 ? (
-              <><CheckCircle size={16} className="text-success" /> All removed</>
+              <><CheckCircle size={20} className="text-success" /> All removed</>
             ) : summary && summary.succeeded === 0 ? (
-              <><XCircle size={16} className="text-danger" /> All failed</>
+              <><XCircle size={20} className="text-danger" /> All failed</>
             ) : (
-              <><AlertTriangle size={16} className="text-warning" /> Partial result</>
+              <><AlertTriangle size={20} className="text-warning" /> Partial result</>
             )}
           </h3>
-          <div className="space-y-1">
+          <div
+            className="max-h-64 overflow-y-auto space-y-1 bg-muted/10 p-3"
+            style={{ borderRadius: radius.md }}
+          >
             {results.map((r) => (
               <div
                 key={r.name}
@@ -449,17 +471,19 @@ export default function BatchUninstallPage() {
               </div>
             ))}
           </div>
-          <div className="mt-4 pt-3 border-dashed border-t border-pencil-light/30 flex flex-wrap items-center gap-3">
+          <div className="mt-5 pt-4 border-dashed border-t border-pencil-light/30 flex flex-wrap items-center gap-3">
             <Badge variant="info" size="sm">Run sync to update targets</Badge>
-            <Button variant="secondary" size="sm" onClick={() => navigate('/skills')}>
-              Back to Skills
-            </Button>
-            <Button variant="primary" size="sm" onClick={() => navigate('/sync')}>
-              Go to Sync
-            </Button>
+            <div className="ml-auto flex gap-3">
+              <Button variant="secondary" size="md" onClick={dismissResults}>
+                Continue
+              </Button>
+              <Button variant="primary" size="md" onClick={() => navigate('/sync')}>
+                Go to Sync
+              </Button>
+            </div>
           </div>
         </Card>
-      )}
+      </DialogShell>
 
       {/* ── Bottom Action Bar ──────────────────────────── */}
       {phase === 'selecting' && selected.size > 0 && (
