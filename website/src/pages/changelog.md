@@ -44,6 +44,24 @@ All notable changes to skillshare are documented here. For the full commit histo
 - **Source input in Add Extra modal** — optional "Source path" field when creating extras from the dashboard
 - **API accepts `source` field** — `POST /api/extras` now accepts an optional `source` field in the request body
 
+#### Web UI — Config Editor Assistant Panel
+
+- **Context-aware assistant panel** — the Config page now has a right-side panel that shows relevant information as you edit `config.yaml`:
+  - **Field docs** — move your cursor to any field and see its description, type, allowed values, and an example snippet. Covers all 28+ config fields (source, mode, targets, extras, audit, hub, log, tui, gitlab_hosts, and sub-fields)
+  - **Structure tree** — visual outline of your YAML structure with line numbers. Click any node to jump to that line in the editor
+  - **Real-time validation** — inline error markers for YAML syntax errors. Schema validation warns about unknown target names (with typo suggestions), invalid sync modes, and invalid audit settings
+  - **Diff preview** — see what changed since last save, with colored add/remove lines. Includes a "Revert All" button to reset to the last saved version
+  - The panel auto-switches between views by priority (errors → field docs → structure), or lock to Structure/Diff via the bottom bar
+  - Collapse the panel with the toggle button or `Cmd+B`; save with `Cmd+S`
+- **Empty config guide** — when the editor is empty, the panel shows all available top-level fields as a quick reference
+- **`.skillignore` panel** — the `.skillignore` tab shows a simplified panel with change count and the list of currently ignored skills (from all sources, including tracked repos)
+
+### Bug Fixes
+
+- **`.skillignore` save no longer shows sync preview banner** — the "Preview Sync" prompt after save is now only shown for `config.yaml` changes, not `.skillignore`
+- **Tracked repo ignores visible without root `.skillignore`** — previously, if the root `.skillignore` file didn't exist, the API returned no ignore stats at all, hiding tracked repos' own `.skillignore` entries. Now always reports all ignored skills regardless of whether a root file exists
+- **Dirty state guard on tab switch** — switching between `config.yaml` and `.skillignore` tabs with unsaved changes now shows a confirmation dialog instead of silently discarding edits
+
 ## [0.17.7] - 2026-03-19
 
 ### New Features
