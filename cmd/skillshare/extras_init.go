@@ -201,6 +201,7 @@ Arguments:
 
 Options:
   --target <path>     Target directory (repeatable)
+  --source <path>     Custom source directory (overrides extras_source and default)
   --mode <mode>       Sync mode: merge (default), copy, symlink
   --project, -p       Create in project mode (.skillshare/)
   --global, -g        Create in global mode (~/.config/skillshare/)
@@ -210,5 +211,6 @@ Options:
 Examples:
   skillshare extras init rules --target ~/.claude/rules --target ~/.cursor/rules
   skillshare extras init commands --target ~/.claude/commands --mode copy
+  skillshare extras init rules --source ~/company-shared/rules --target ~/.claude/rules
   skillshare extras init prompts --target .claude/prompts -p`)
 }

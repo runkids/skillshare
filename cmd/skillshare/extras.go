@@ -49,5 +49,10 @@ Commands:
 Options:
   --project, -p      Use project-mode extras (.skillshare/)
   --global, -g       Use global extras (~/.config/skillshare/)
-  --help, -h         Show this help`)
+  --help, -h         Show this help
+
+Source directory resolution (per extra):
+  1. Per-extra "source" field in config.yaml
+  2. Global "extras_source" in config.yaml
+  3. Default: <skills_source>/extras/<name>/`)
 }
