@@ -114,7 +114,7 @@ export default function Layout() {
   })).filter((group) => group.items.length > 0);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="min-h-screen">
       {/* Mobile menu button */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
@@ -133,10 +133,10 @@ export default function Layout() {
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — always fixed, never participates in document flow */}
       <aside
         className={`
-          fixed md:sticky top-0 left-0 z-40 h-screen w-60 shrink-0
+          fixed top-0 left-0 z-40 h-screen w-60
           bg-paper-warm border-r border-muted
           flex flex-col
           transition-transform duration-200 md:translate-x-0
@@ -239,8 +239,8 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 min-w-0 p-4 md:p-8 pt-16 md:pt-8">
+      {/* Main content — offset by sidebar width on desktop */}
+      <main className="md:ml-60 min-w-0 p-4 md:p-8 pt-16 md:pt-8">
         <div className="max-w-6xl mx-auto">
           <Outlet />
         </div>
