@@ -127,6 +127,11 @@ export const api = {
     apiFetch<{ skill: Skill; skillMdContent: string; files: string[] }>(`/skills/${encodeURIComponent(name)}`),
   deleteSkill: (name: string) =>
     apiFetch<{ success: boolean }>(`/skills/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  batchUninstall: (opts: BatchUninstallRequest) =>
+    apiFetch<BatchUninstallResult>('/uninstall/batch', {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    }),
   getTemplates: async () => {
     const res = await apiFetch<TemplatesResponse>('/skills/templates');
     // Normalize: Go omits nil slices, so scaffoldDirs may be undefined
@@ -632,6 +637,23 @@ export interface BatchInstallResultItem {
 export interface BatchInstallResult {
   results: BatchInstallResultItem[];
   summary: string;
+}
+
+export interface BatchUninstallRequest {
+  names: string[];
+  force?: boolean;
+}
+
+export interface BatchUninstallItemResult {
+  name: string;
+  success: boolean;
+  movedToTrash?: boolean;
+  error?: string;
+}
+
+export interface BatchUninstallResult {
+  results: BatchUninstallItemResult[];
+  summary: { succeeded: number; failed: number };
 }
 
 export interface LocalSkillInfo {
