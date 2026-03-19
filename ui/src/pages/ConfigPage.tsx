@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, FileCode, Settings, EyeOff, RefreshCw, PanelRightOpen } from 'lucide-react';
+import { Save, FileCode, Settings, EyeOff, RefreshCw } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView, keymap } from '@codemirror/view';
@@ -12,7 +12,6 @@ import { useLineDiff, computeSimpleChangeCount } from '../hooks/useLineDiff';
 import { useCursorField } from '../hooks/useCursorField';
 import Card from '../components/Card';
 import Button from '../components/Button';
-import IconButton from '../components/IconButton';
 import PageHeader from '../components/PageHeader';
 import SegmentedControl from '../components/SegmentedControl';
 import { PageSkeleton } from '../components/Skeleton';
@@ -341,9 +340,9 @@ export default function ConfigPage() {
       )}
 
       {tab === 'config' && (
-        <div className="relative flex gap-4">
-          {/* Editor Card */}
-          <Card className={`${panelCollapsed ? '' : 'flex-[3]'} min-w-0`}>
+        <div className="flex gap-4">
+          {/* Editor Card — always rendered, grows when panel collapses */}
+          <Card className="flex-[3] min-w-0 transition-[flex] duration-300 ease-in-out">
             <div className="flex items-center gap-2 mb-3">
               <FileCode size={16} strokeWidth={2.5} className="text-blue" />
               <span className="text-base text-pencil-light">
@@ -371,45 +370,34 @@ export default function ConfigPage() {
             </div>
           </Card>
 
-          {/* Assistant Panel (desktop, expanded) */}
-          {!panelCollapsed && (
-            <div className="flex-[2] hidden lg:block min-w-0">
-              <Card className="h-[558px] !p-0 !overflow-visible">
-                <AssistantPanel
-                  errors={yamlErrors}
-                  changeCount={changeCount}
-                  fieldPath={fieldPath}
-                  cursorLine={cursorLine}
-                  source={raw}
-                  diff={diff}
-                  editorRef={editorRef}
-                  collapsed={false}
-                  onToggleCollapse={togglePanel}
-                  onRevert={() => setShowRevertDialog(true)}
-                  schemaUnavailable={schemaUnavailable}
-                />
-              </Card>
-            </div>
-          )}
-
-          {/* Collapsed: edge toggle button */}
-          {panelCollapsed && (
-            <div className="hidden lg:block absolute right-0 top-2 z-10">
-              <IconButton
-                icon={<PanelRightOpen size={16} strokeWidth={2} />}
-                label="Expand assistant panel"
-                size="md"
-                variant="outline"
-                onClick={togglePanel}
+          {/* Assistant Panel — always rendered, collapses via width/opacity */}
+          <div
+            className={`hidden lg:block transition-all duration-300 ease-in-out overflow-hidden ${
+              panelCollapsed ? 'flex-[0] w-0 opacity-0' : 'flex-[2] opacity-100'
+            }`}
+          >
+            <Card className="h-[558px] !p-0 !overflow-visible min-w-[280px]">
+              <AssistantPanel
+                errors={yamlErrors}
+                changeCount={changeCount}
+                fieldPath={fieldPath}
+                cursorLine={cursorLine}
+                source={raw}
+                diff={diff}
+                editorRef={editorRef}
+                collapsed={panelCollapsed}
+                onToggleCollapse={togglePanel}
+                onRevert={() => setShowRevertDialog(true)}
+                schemaUnavailable={schemaUnavailable}
               />
-            </div>
-          )}
+            </Card>
+          </div>
         </div>
       )}
 
       {tab === 'skillignore' && (
-        <div className="relative flex gap-4">
-          <div className={`${panelCollapsed ? '' : 'flex-[3]'} min-w-0`}>
+        <div className="flex gap-4">
+          <div className="flex-[3] min-w-0 transition-[flex] duration-300 ease-in-out">
             <SkillignoreTab
               data={ignoreData!}
               raw={ignoreRaw}
@@ -418,40 +406,29 @@ export default function ConfigPage() {
             />
           </div>
 
-          {/* Assistant Panel (desktop, expanded) */}
-          {!panelCollapsed && (
-            <div className="flex-[2] hidden lg:block min-w-0">
-              <Card className="h-[558px] !p-0 !overflow-visible">
-                <AssistantPanel
-                  mode="skillignore"
-                  errors={[]}
-                  changeCount={ignoreChangeCount}
-                  fieldPath={null}
-                  cursorLine={1}
-                  source={ignoreRaw}
-                  diff={{ lines: [], changeCount: 0 }}
-                  editorRef={editorRef}
-                  collapsed={false}
-                  onToggleCollapse={togglePanel}
-                  onRevert={() => {}}
-                  ignoredSkills={ignoreData?.stats?.ignored_skills ?? []}
-                />
-              </Card>
-            </div>
-          )}
-
-          {/* Collapsed: edge toggle button */}
-          {panelCollapsed && (
-            <div className="hidden lg:block absolute right-0 top-2 z-10">
-              <IconButton
-                icon={<PanelRightOpen size={16} strokeWidth={2} />}
-                label="Expand assistant panel"
-                size="md"
-                variant="outline"
-                onClick={togglePanel}
+          {/* Assistant Panel — always rendered, collapses via width/opacity */}
+          <div
+            className={`hidden lg:block transition-all duration-300 ease-in-out overflow-hidden ${
+              panelCollapsed ? 'flex-[0] w-0 opacity-0' : 'flex-[2] opacity-100'
+            }`}
+          >
+            <Card className="h-[558px] !p-0 !overflow-visible min-w-[280px]">
+              <AssistantPanel
+                mode="skillignore"
+                errors={[]}
+                changeCount={ignoreChangeCount}
+                fieldPath={null}
+                cursorLine={1}
+                source={ignoreRaw}
+                diff={{ lines: [], changeCount: 0 }}
+                editorRef={editorRef}
+                collapsed={panelCollapsed}
+                onToggleCollapse={togglePanel}
+                onRevert={() => {}}
+                ignoredSkills={ignoreData?.stats?.ignored_skills ?? []}
               />
-            </div>
-          )}
+            </Card>
+          </div>
         </div>
       )}
 
