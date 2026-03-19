@@ -88,6 +88,9 @@ export default function TargetsPage() {
       toast(`Target "${newTarget.name}" added.`, 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.targets.available });
+      queryClient.invalidateQueries({ queryKey: queryKeys.config });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     }
@@ -99,6 +102,9 @@ export default function TargetsPage() {
       toast(`Target "${name}" removed.`, 'success');
       setRemoving(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.config });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
       setRemoving(null);
@@ -369,6 +375,8 @@ export default function TargetsPage() {
                       try {
                         await api.updateTarget(target.name, { mode });
                         queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+                        queryClient.invalidateQueries({ queryKey: queryKeys.config });
+                        queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
                         toast(`Sync mode for ${target.name} changed to ${mode}`, 'success');
                       } catch (e) {
                         toast((e as Error).message, 'error');

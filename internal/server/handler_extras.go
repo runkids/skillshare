@@ -15,6 +15,7 @@ import (
 type extrasListEntry struct {
 	Name         string             `json:"name"`
 	SourceDir    string             `json:"source_dir"`
+	SourceType   string             `json:"source_type"`
 	FileCount    int                `json:"file_count"`
 	SourceExists bool               `json:"source_exists"`
 	Targets      []extrasTargetInfo `json:"targets"`
@@ -29,11 +30,11 @@ type extrasTargetInfo struct {
 
 // extrasSourceDir returns the source directory for the named extra in the
 // current mode.
-func (s *Server) extrasSourceDir(name string) string {
+func (s *Server) extrasSourceDir(extra config.ExtraConfig) string {
 	if s.IsProjectMode() {
-		return config.ExtrasSourceDirProject(s.projectRoot, name)
+		return config.ExtrasSourceDirProject(s.projectRoot, extra.Name)
 	}
-	return config.ExtrasSourceDir(s.cfg.Source, name)
+	return config.ResolveExtrasSourceDir(extra, s.cfg.ExtrasSource, s.cfg.Source)
 }
 
 // extrasConfig returns the extras slice for the current mode.
@@ -51,9 +52,16 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 	extras := s.extrasConfig()
 	projectRoot := s.projectRoot
 	source := s.cfg.Source
+	extrasSource := s.cfg.ExtrasSource
 	s.mu.RUnlock()
 
 	isProjectMode := projectRoot != ""
+
+	// Resolve the extras_source value for source_type resolution (global mode only).
+	resolvedExtrasSource := ""
+	if !isProjectMode {
+		resolvedExtrasSource = extrasSource
+	}
 
 	entries := make([]extrasListEntry, 0, len(extras))
 	for _, extra := range extras {
@@ -61,11 +69,12 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 		if isProjectMode {
 			sourceDir = config.ExtrasSourceDirProject(projectRoot, extra.Name)
 		} else {
-			sourceDir = config.ExtrasSourceDir(source, extra.Name)
+			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
 		}
 		entry := extrasListEntry{
-			Name:      extra.Name,
-			SourceDir: sourceDir,
+			Name:       extra.Name,
+			SourceDir:  sourceDir,
+			SourceType: config.ResolveExtrasSourceType(extra, resolvedExtrasSource),
 		}
 
 		files, err := syncpkg.DiscoverExtraFiles(sourceDir)
@@ -125,6 +134,7 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 	extras := s.extrasConfig()
 	projectRoot := s.projectRoot
 	source := s.cfg.Source
+	extrasSource := s.cfg.ExtrasSource
 	s.mu.RUnlock()
 
 	isProjectMode := projectRoot != ""
@@ -141,7 +151,7 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 		if isProjectMode {
 			sourceDir = config.ExtrasSourceDirProject(projectRoot, extra.Name)
 		} else {
-			sourceDir = config.ExtrasSourceDir(source, extra.Name)
+			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
 		}
 		files, err := syncpkg.DiscoverExtraFiles(sourceDir)
 		if err != nil {
@@ -238,6 +248,7 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		Name    string `json:"name"`
+		Source  string `json:"source,omitempty"`
 		Targets []struct {
 			Path string `json:"path"`
 			Mode string `json:"mode"`
@@ -276,13 +287,18 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build ExtraConfig
-	extra := config.ExtraConfig{Name: body.Name}
+	extra := config.ExtraConfig{Name: body.Name, Source: body.Source}
 	for _, t := range body.Targets {
 		et := config.ExtraTargetConfig{Path: t.Path}
 		if t.Mode != "" {
 			et.Mode = t.Mode
 		}
 		extra.Targets = append(extra.Targets, et)
+	}
+
+	// Backfill extras_source if not set (global mode only)
+	if !s.IsProjectMode() && s.cfg.ExtrasSource == "" {
+		s.cfg.ExtrasSource = config.ExtrasParentDir(s.cfg.Source)
 	}
 
 	// Append to config
@@ -298,7 +314,7 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create source directory
-	sourceDir := s.extrasSourceDir(body.Name)
+	sourceDir := s.extrasSourceDir(extra)
 	if err := os.MkdirAll(sourceDir, 0755); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create source directory: "+err.Error())
 		return
@@ -355,7 +371,13 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		sourceDir := s.extrasSourceDir(extra.Name)
+		sourceDir := s.extrasSourceDir(extra)
+
+		// Auto-create source directory if it doesn't exist
+		if _, statErr := os.Stat(sourceDir); os.IsNotExist(statErr) {
+			os.MkdirAll(sourceDir, 0755)
+		}
+
 		result := extraSyncResult{
 			Name:    extra.Name,
 			Targets: make([]targetSyncResult, 0, len(extra.Targets)),

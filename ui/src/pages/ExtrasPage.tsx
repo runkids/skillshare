@@ -39,6 +39,7 @@ function AddExtraModal({
 }) {
   const { toast } = useToast();
   const [name, setName] = useState('');
+  const [source, setSource] = useState('');
   const [targets, setTargets] = useState<TargetEntry[]>([{ path: '', mode: 'merge' }]);
   const [saving, setSaving] = useState(false);
 
@@ -66,6 +67,7 @@ function AddExtraModal({
     try {
       await api.createExtra({
         name: name.trim(),
+        ...(source.trim() && { source: source.trim() }),
         targets: validTargets.map((t) => ({ path: t.path.trim(), mode: t.mode })),
       });
       toast(`Extra "${name.trim()}" created`, 'success');
@@ -103,6 +105,15 @@ function AddExtraModal({
               placeholder="e.g. my-scripts"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              disabled={saving}
+            />
+
+            {/* Source path (optional) */}
+            <Input
+              label="Source path (optional)"
+              placeholder="e.g. ~/my-extras/scripts"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
               disabled={saving}
             />
 
@@ -209,6 +220,9 @@ function ExtraCard({
           {!extra.source_exists && (
             <Badge variant="danger">source missing</Badge>
           )}
+          {extra.source_type !== "default" && (
+            <span className="ml-2 text-xs text-gray-500">({extra.source_type})</span>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <Button variant="secondary" size="sm" onClick={handleSync} disabled={syncing}>
@@ -302,7 +316,12 @@ export default function ExtrasPage() {
   const [removing, setRemoving] = useState(false);
   const [syncingAll, setSyncingAll] = useState(false);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: queryKeys.extras });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.extras });
+    queryClient.invalidateQueries({ queryKey: queryKeys.extrasDiff() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.config });
+    queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+  };
 
   const handleSyncAll = async () => {
     setSyncingAll(true);

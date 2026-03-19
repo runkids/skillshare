@@ -78,6 +78,7 @@ export interface ExtraTarget {
 export interface Extra {
   name: string;
   source_dir: string;
+  source_type: "per-extra" | "extras_source" | "default";
   file_count: number;
   source_exists: boolean;
   targets: ExtraTarget[];
@@ -333,7 +334,11 @@ export const api = {
   listExtras: () => apiFetch<{ extras: Extra[] }>('/extras'),
   diffExtras: (name?: string) =>
     apiFetch<{ extras: ExtraDiffResult[] }>(`/extras/diff${name ? '?name=' + encodeURIComponent(name) : ''}`),
-  createExtra: (data: { name: string; targets: Array<{ path: string; mode: string }> }) =>
+  createExtra: (data: {
+    name: string;
+    source?: string;
+    targets: Array<{ path: string; mode: string }>;
+  }) =>
     apiFetch<{ success: boolean }>('/extras', {
       method: 'POST',
       body: JSON.stringify(data),

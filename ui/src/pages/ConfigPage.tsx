@@ -64,9 +64,16 @@ export default function ConfigPage() {
       }
       setShowSyncBanner(true);
       setDirty(false);
+      // Invalidate all data that depends on config
       queryClient.invalidateQueries({ queryKey: queryKeys.config });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.extras });
+      queryClient.invalidateQueries({ queryKey: queryKeys.extrasDiff() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.syncMatrix() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.doctor });
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
