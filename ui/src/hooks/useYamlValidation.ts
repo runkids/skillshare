@@ -8,7 +8,7 @@ export interface ValidationError {
   severity: 'error' | 'warning';
 }
 
-const VALID_SYNC_MODES = ['merge', 'symlink'];
+const VALID_SYNC_MODES = ['merge', 'symlink', 'copy'];
 
 /** Pure validation function (testable without React) */
 export function validateYaml(
