@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useCallback, useEffect } from 'react';
 import {
   LayoutDashboard,
@@ -101,6 +101,7 @@ export default function Layout() {
   const { startTour } = useTour();
 
   const nav = useNavigate();
+  const location = useLocation();
   const toggleShortcuts = useCallback(() => setShortcutsOpen((v) => !v), []);
   const handleSync = useCallback(() => nav('/sync'), [nav]);
 
@@ -250,8 +251,8 @@ export default function Layout() {
       {/* Keyboard shortcuts modal */}
       <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
-      {/* Modifier-held HUD overlay */}
-      <ShortcutHUD visible={modifierHeld} />
+      {/* Modifier-held HUD overlay — hidden on Config page where Cmd+S means Save */}
+      <ShortcutHUD visible={modifierHeld && !location.pathname.startsWith('/config')} />
     </div>
   );
 }
