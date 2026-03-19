@@ -45,7 +45,7 @@ type extrasListTUIModel struct {
 	projCfg    *config.ProjectConfig
 	cwd        string
 	configPath string
-	sourceFunc func(name string) string
+	sourceFunc func(extra config.ExtraConfig) string
 
 	// Async loading
 	loading     bool
@@ -101,7 +101,7 @@ func newExtrasListTUIModel(
 	cfg *config.Config,
 	projCfg *config.ProjectConfig,
 	cwd, configPath string,
-	sourceFunc func(name string) string,
+	sourceFunc func(extra config.ExtraConfig) string,
 ) extrasListTUIModel {
 	delegate := extrasListDelegate{}
 
@@ -344,8 +344,8 @@ func extrasSplitActive(termWidth int) bool {
 }
 
 func extrasPanelWidth(termWidth int) int {
-	width := termWidth * 36 / 100
-	return max(min(width, 40), 26)
+	width := termWidth * 28 / 100
+	return max(min(width, 36), 22)
 }
 
 func extrasDetailPanelWidth(termWidth int) int {
@@ -593,7 +593,11 @@ func (m *extrasListTUIModel) reloadExtras() {
 		}
 	}
 
-	entries := buildExtrasListEntries(extras, m.sourceFunc)
+	extrasSource := ""
+	if m.cfg != nil {
+		extrasSource = m.cfg.ExtrasSource
+	}
+	entries := buildExtrasListEntries(extras, extrasSource, m.sourceFunc)
 	m.allItems = entries
 	m.applyExtrasFilter()
 }
@@ -932,8 +936,8 @@ func (m extrasListTUIModel) doRemove(name string) (string, error) {
 	return fmt.Sprintf("✓ Removed %q", name), nil
 }
 
-// resolveExtraTargets finds the extra config by name and filters targets.
-func (m extrasListTUIModel) resolveExtraTargets(name, targetPath string) ([]config.ExtraTargetConfig, error) {
+// resolveExtraWithTargets finds the extra config by name and filters targets.
+func (m extrasListTUIModel) resolveExtraWithTargets(name, targetPath string) (*config.ExtraConfig, []config.ExtraTargetConfig, error) {
 	var extras []config.ExtraConfig
 	if m.projCfg != nil {
 		extras = m.projCfg.Extras
@@ -949,27 +953,27 @@ func (m extrasListTUIModel) resolveExtraTargets(name, targetPath string) ([]conf
 		}
 	}
 	if extra == nil {
-		return nil, fmt.Errorf("extra %q not found", name)
+		return nil, nil, fmt.Errorf("extra %q not found", name)
 	}
 
 	if targetPath == "" {
-		return extra.Targets, nil
+		return extra, extra.Targets, nil
 	}
 	for _, t := range extra.Targets {
 		if t.Path == targetPath {
-			return []config.ExtraTargetConfig{t}, nil
+			return extra, []config.ExtraTargetConfig{t}, nil
 		}
 	}
-	return extra.Targets, nil
+	return extra, extra.Targets, nil
 }
 
 func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
-	targets, err := m.resolveExtraTargets(name, targetPath)
+	extra, targets, err := m.resolveExtraWithTargets(name, targetPath)
 	if err != nil {
 		return "", err
 	}
 
-	sourceDir := m.sourceFunc(name)
+	sourceDir := m.sourceFunc(*extra)
 	synced := 0
 	for _, t := range targets {
 		mode := sync.EffectiveMode(t.Mode)
@@ -984,12 +988,12 @@ func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
 }
 
 func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
-	targets, err := m.resolveExtraTargets(name, targetPath)
+	extra, targets, err := m.resolveExtraWithTargets(name, targetPath)
 	if err != nil {
 		return "", err
 	}
 
-	sourceDir := m.sourceFunc(name)
+	sourceDir := m.sourceFunc(*extra)
 	collected := 0
 	for _, t := range targets {
 		resolved := config.ExpandPath(t.Path)
@@ -1367,7 +1371,7 @@ func runExtrasListTUI(
 	cfg *config.Config,
 	projCfg *config.ProjectConfig,
 	cwd, configPath string,
-	sourceFunc func(name string) string,
+	sourceFunc func(extra config.ExtraConfig) string,
 ) error {
 	for {
 		model := newExtrasListTUIModel(loadFn, modeLabel, cfg, projCfg, cwd, configPath, sourceFunc)

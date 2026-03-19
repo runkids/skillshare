@@ -106,18 +106,22 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 	}
 
 	for _, extra := range cfg.Extras {
-		extraSource := config.ExtrasSourceDir(cfg.Source, extra.Name)
+		extraSource := config.ResolveExtrasSourceDir(extra, cfg.ExtrasSource, cfg.Source)
 
-		// Check if source directory exists
+		// Auto-create source directory if it doesn't exist
 		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {
+			if err := os.MkdirAll(extraSource, 0755); err != nil {
+				if !jsonOutput {
+					ui.Warning("Failed to create source directory: %s", shortenPath(extraSource))
+				}
+				if jsonOutput {
+					jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}})
+				}
+				continue
+			}
 			if !jsonOutput {
-				ui.Info("Source directory does not exist: %s", shortenPath(extraSource))
-				ui.Info("Create it to start syncing %s", extra.Name)
+				ui.Info("Created source directory: %s", shortenPath(extraSource))
 			}
-			if jsonOutput {
-				jsonEntries = append(jsonEntries, syncExtrasJSONEntry{Name: extra.Name, Targets: []syncExtrasJSONTarget{}})
-			}
-			continue
 		}
 
 		jsonEntry := syncExtrasJSONEntry{Name: extra.Name}
@@ -370,10 +374,10 @@ func syncVerb(mode string) string {
 
 // runExtrasSync runs extras sync and returns JSON entries without printing.
 // Used by sync --all --json to merge extras into the skills JSON output.
-func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(string) string, dryRun, force bool) []syncExtrasJSONEntry {
+func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.ExtraConfig) string, dryRun, force bool) []syncExtrasJSONEntry {
 	entries := make([]syncExtrasJSONEntry, 0, len(extras))
 	for _, extra := range extras {
-		extraSource := sourceFunc(extra.Name)
+		extraSource := sourceFunc(extra)
 		entry := syncExtrasJSONEntry{Name: extra.Name}
 
 		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {

@@ -79,7 +79,7 @@ func extrasCollectGlobal(name, fromPath string, dryRun bool, start time.Time) er
 	}
 
 	targetPath = config.ExpandPath(targetPath)
-	sourceDir := config.ExtrasSourceDir(cfg.Source, extra.Name)
+	sourceDir := config.ResolveExtrasSourceDir(*extra, cfg.ExtrasSource, cfg.Source)
 	return runCollect(sourceDir, targetPath, extra.Name, dryRun, "global", config.ConfigPath(), start)
 }
 

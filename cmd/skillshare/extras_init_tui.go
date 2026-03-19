@@ -14,6 +14,7 @@ type extrasInitPhase int
 
 const (
 	extrasPhaseNameInput   extrasInitPhase = iota
+	extrasPhaseSourceInput                 // ask for custom source directory
 	extrasPhaseTargetInput                 // ask for target path
 	extrasPhaseModeSelect                  // choose sync mode
 	extrasPhaseAddMore                     // add another target?
@@ -26,15 +27,17 @@ type extrasInitTarget struct {
 }
 
 type extrasInitTUIModel struct {
-	phase    extrasInitPhase
-	name     string
-	targets  []extrasInitTarget
-	currMode int // cursor index into syncModes
+	phase       extrasInitPhase
+	name        string
+	sourceValue string
+	targets     []extrasInitTarget
+	currMode    int // cursor index into syncModes
 
-	textInput textinput.Model
-	done      bool
-	cancelled bool
-	err       error
+	textInput   textinput.Model
+	sourceInput textinput.Model
+	done        bool
+	cancelled   bool
+	err         error
 }
 
 var syncModes = config.ExtraSyncModes
@@ -46,9 +49,16 @@ func newExtrasInitTUIModel() extrasInitTUIModel {
 	ti.PromptStyle = tc.Cyan
 	ti.Cursor.Style = tc.Cyan
 
+	si := textinput.New()
+	si.Placeholder = "Leave empty to use default"
+	si.CharLimit = 256
+	si.PromptStyle = tc.Cyan
+	si.Cursor.Style = tc.Cyan
+
 	return extrasInitTUIModel{
-		phase:     extrasPhaseNameInput,
-		textInput: ti,
+		phase:       extrasPhaseNameInput,
+		textInput:   ti,
+		sourceInput: si,
 	}
 }
 
@@ -69,11 +79,16 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case extrasPhaseNameInput:
 				m.cancelled = true
 				return m, tea.Quit
+			case extrasPhaseSourceInput:
+				m.phase = extrasPhaseNameInput
+				m.textInput.SetValue(m.name)
+				m.textInput.Placeholder = "rules"
+				return m, nil
 			case extrasPhaseTargetInput:
 				if len(m.targets) == 0 {
-					m.phase = extrasPhaseNameInput
-					m.textInput.SetValue(m.name)
-					m.textInput.Placeholder = "rules"
+					m.phase = extrasPhaseSourceInput
+					m.sourceInput.SetValue(m.sourceValue)
+					m.sourceInput.Focus()
 					return m, nil
 				}
 				m.phase = extrasPhaseAddMore
@@ -108,6 +123,15 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.name = name
 				m.err = nil
+				m.phase = extrasPhaseSourceInput
+				m.sourceInput.Focus()
+				return m, nil
+			}
+
+		case extrasPhaseSourceInput:
+			switch msg.String() {
+			case "enter":
+				m.sourceValue = strings.TrimSpace(m.sourceInput.Value())
 				m.phase = extrasPhaseTargetInput
 				m.textInput.SetValue("")
 				m.textInput.Placeholder = targetPlaceholder(0)
@@ -173,9 +197,14 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Delegate to textinput for typing phases
-	if m.phase == extrasPhaseNameInput || m.phase == extrasPhaseTargetInput {
+	switch m.phase {
+	case extrasPhaseNameInput, extrasPhaseTargetInput:
 		var cmd tea.Cmd
 		m.textInput, cmd = m.textInput.Update(msg)
+		return m, cmd
+	case extrasPhaseSourceInput:
+		var cmd tea.Cmd
+		m.sourceInput, cmd = m.sourceInput.Update(msg)
 		return m, cmd
 	}
 
@@ -198,8 +227,20 @@ func (m extrasInitTUIModel) View() string {
 		b.WriteString("\n\n")
 		b.WriteString(tc.Help.Render("enter confirm  esc cancel"))
 
+	case extrasPhaseSourceInput:
+		b.WriteString(tc.Dim.Render(fmt.Sprintf("Name: %s", m.name)))
+		b.WriteString("\n\n")
+		b.WriteString(tc.Cyan.Render("Source directory (optional): "))
+		b.WriteString(m.sourceInput.View())
+		b.WriteString("\n\n")
+		b.WriteString(tc.Help.Render("enter to skip (use default)  esc back"))
+
 	case extrasPhaseTargetInput:
 		b.WriteString(tc.Dim.Render(fmt.Sprintf("Name: %s", m.name)))
+		if m.sourceValue != "" {
+			b.WriteString("\n")
+			b.WriteString(tc.Dim.Render(fmt.Sprintf("Source: %s", m.sourceValue)))
+		}
 		if len(m.targets) > 0 {
 			b.WriteString("\n")
 			for _, t := range m.targets {
@@ -260,6 +301,9 @@ func (m extrasInitTUIModel) View() string {
 		b.WriteString(tc.Cyan.Render("Summary:"))
 		b.WriteString("\n")
 		b.WriteString(fmt.Sprintf("  Name: %s\n", m.name))
+		if m.sourceValue != "" {
+			b.WriteString(fmt.Sprintf("  Source: %s\n", m.sourceValue))
+		}
 		for _, t := range m.targets {
 			b.WriteString(fmt.Sprintf("  → %s (%s)\n", t.path, t.mode))
 		}
@@ -313,5 +357,5 @@ func cmdExtrasInitTUI(mode runMode, cwd string) error {
 	if mode == modeProject {
 		return extrasInitProject(cwd, result.name, targetPaths, syncMode, start)
 	}
-	return extrasInitGlobal(result.name, targetPaths, syncMode, start)
+	return extrasInitGlobal(result.name, targetPaths, syncMode, result.sourceValue, start)
 }

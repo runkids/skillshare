@@ -400,9 +400,10 @@ func performFreshInit(opts *initOptions, home string) error {
 
 	// Create config
 	cfg := &config.Config{
-		Source:  sourcePath,
-		Mode:    mode,
-		Targets: targets,
+		Source:       sourcePath,
+		ExtrasSource: config.ExtrasParentDir(sourcePath),
+		Mode:         mode,
+		Targets:      targets,
 		Ignore: []string{
 			"**/.DS_Store",
 			"**/.git/**",

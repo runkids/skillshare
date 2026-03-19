@@ -62,9 +62,11 @@ func cmdExtrasRemove(args []string) error {
 
 func removeExtraFromGlobalConfig(cfg *config.Config, name string) (string, error) {
 	idx := -1
+	var removed config.ExtraConfig
 	for i, e := range cfg.Extras {
 		if e.Name == name {
 			idx = i
+			removed = e
 			break
 		}
 	}
@@ -72,12 +74,12 @@ func removeExtraFromGlobalConfig(cfg *config.Config, name string) (string, error
 		return "", fmt.Errorf("extra %q not found in config", name)
 	}
 
+	sourceDir := config.ResolveExtrasSourceDir(removed, cfg.ExtrasSource, cfg.Source)
+
 	cfg.Extras = append(cfg.Extras[:idx], cfg.Extras[idx+1:]...)
 	if err := cfg.Save(); err != nil {
 		return "", fmt.Errorf("failed to save config: %w", err)
 	}
-
-	sourceDir := config.ExtrasSourceDir(cfg.Source, name)
 
 	e := oplog.NewEntry("extras-remove", "ok", 0)
 	e.Args = map[string]any{"name": name, "scope": "global"}
@@ -119,8 +121,14 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 		return err
 	}
 
+	// Pre-resolve source path for confirmation and cleanup (before removal mutates the slice).
+	idx, found := findExtraByName(cfg.Extras, name)
+	if idx == -1 {
+		return fmt.Errorf("extra %q not found in config", name)
+	}
+	sourceDir := config.ResolveExtrasSourceDir(found, cfg.ExtrasSource, cfg.Source)
+
 	if !force {
-		sourceDir := config.ExtrasSourceDir(cfg.Source, name)
 		ui.Warning("This will remove %q from config.", name)
 		ui.Info("Source files in %s will NOT be deleted.", shortenPath(sourceDir))
 		ui.Info("Existing symlinks in targets will become orphaned.")
@@ -134,7 +142,7 @@ func extrasRemoveGlobal(name string, force bool, start time.Time) error {
 		}
 	}
 
-	sourceDir, err := removeExtraFromGlobalConfig(cfg, name)
+	sourceDir, err = removeExtraFromGlobalConfig(cfg, name)
 	if err != nil {
 		return err
 	}
@@ -207,6 +215,17 @@ func cleanEmptyExtrasDirQuiet(dir string) {
 		os.Remove(dir)
 	}
 	removeEmptyDir(filepath.Dir(dir))
+}
+
+// findExtraByName returns the index and a copy of the ExtraConfig with the given name.
+// Returns -1 and zero-value if not found.
+func findExtraByName(extras []config.ExtraConfig, name string) (int, config.ExtraConfig) {
+	for i, e := range extras {
+		if e.Name == name {
+			return i, e
+		}
+	}
+	return -1, config.ExtraConfig{}
 }
 
 func printExtrasRemoveHelp() {

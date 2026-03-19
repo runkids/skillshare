@@ -125,8 +125,8 @@ func cmdStatus(args []string) error {
 		// Extras
 		if len(cfg.Extras) > 0 {
 			ui.Header("Extras")
-			printExtrasStatus(cfg.Extras, func(name string) string {
-				return config.ExtrasSourceDir(cfg.Source, name)
+			printExtrasStatus(cfg.Extras, func(extra config.ExtraConfig) string {
+				return config.ResolveExtrasSourceDir(extra, cfg.ExtrasSource, cfg.Source)
 			})
 		}
 
@@ -189,9 +189,9 @@ func dirExists(path string) bool {
 	return err == nil && info.IsDir()
 }
 
-func printExtrasStatus(extras []config.ExtraConfig, sourceDirFn func(string) string) {
+func printExtrasStatus(extras []config.ExtraConfig, sourceDirFn func(config.ExtraConfig) string) {
 	for _, extra := range extras {
-		sourceDir := sourceDirFn(extra.Name)
+		sourceDir := sourceDirFn(extra)
 		files, err := sync.DiscoverExtraFiles(sourceDir)
 		if err != nil {
 			ui.Warning("  %s: source not found", extra.Name)

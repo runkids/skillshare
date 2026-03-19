@@ -43,8 +43,8 @@ func cmdStatusProject(root string) error {
 	// Extras
 	if len(runtime.config.Extras) > 0 {
 		ui.Header("Extras (project)")
-		printExtrasStatus(runtime.config.Extras, func(name string) string {
-			return config.ExtrasSourceDirProject(root, name)
+		printExtrasStatus(runtime.config.Extras, func(extra config.ExtraConfig) string {
+			return config.ExtrasSourceDirProject(root, extra.Name)
 		})
 	}
 

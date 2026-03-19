@@ -42,11 +42,11 @@ type extraDiffJSONItem struct {
 }
 
 // collectExtrasDiff computes diff for all configured extras.
-func collectExtrasDiff(extras []config.ExtraConfig, sourceResolver func(string) string) []extraDiffResult {
+func collectExtrasDiff(extras []config.ExtraConfig, sourceResolver func(config.ExtraConfig) string) []extraDiffResult {
 	var results []extraDiffResult
 
 	for _, extra := range extras {
-		sourceDir := sourceResolver(extra.Name)
+		sourceDir := sourceResolver(extra)
 
 		files, err := sync.DiscoverExtraFiles(sourceDir)
 		if err != nil {

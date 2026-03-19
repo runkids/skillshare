@@ -13,6 +13,7 @@ import (
 type extrasListEntry struct {
 	Name         string             `json:"name"`
 	SourceDir    string             `json:"source_dir"`
+	SourceType   string             `json:"source_type"`
 	FileCount    int                `json:"file_count"`
 	SourceExists bool               `json:"source_exists"`
 	Targets      []extrasTargetInfo `json:"targets"`
@@ -25,14 +26,15 @@ type extrasTargetInfo struct {
 }
 
 // buildExtrasListEntries builds list entries for all configured extras.
-func buildExtrasListEntries(extras []config.ExtraConfig, sourceFunc func(name string) string) []extrasListEntry {
+func buildExtrasListEntries(extras []config.ExtraConfig, extrasSource string, sourceFunc func(extra config.ExtraConfig) string) []extrasListEntry {
 	entries := make([]extrasListEntry, 0, len(extras))
 
 	for _, extra := range extras {
-		sourceDir := sourceFunc(extra.Name)
+		sourceDir := sourceFunc(extra)
 		entry := extrasListEntry{
-			Name:      extra.Name,
-			SourceDir: sourceDir,
+			Name:       extra.Name,
+			SourceDir:  sourceDir,
+			SourceType: config.ResolveExtrasSourceType(extra, extrasSource),
 		}
 
 		files, discoverErr := sync.DiscoverExtraFiles(sourceDir)
@@ -101,10 +103,11 @@ func cmdExtrasList(args []string) error {
 	}
 
 	var extras []config.ExtraConfig
-	var sourceFunc func(name string) string
+	var sourceFunc func(extra config.ExtraConfig) string
 	var cfg *config.Config
 	var projCfg *config.ProjectConfig
 	var configPath string
+	var extrasSource string
 
 	if mode == modeProject {
 		projCfg, err = config.LoadProject(cwd)
@@ -112,8 +115,8 @@ func cmdExtrasList(args []string) error {
 			return err
 		}
 		extras = projCfg.Extras
-		sourceFunc = func(name string) string {
-			return config.ExtrasSourceDirProject(cwd, name)
+		sourceFunc = func(extra config.ExtraConfig) string {
+			return config.ExtrasSourceDirProject(cwd, extra.Name)
 		}
 		configPath = config.ProjectConfigPath(cwd)
 	} else {
@@ -122,8 +125,9 @@ func cmdExtrasList(args []string) error {
 			return err
 		}
 		extras = cfg.Extras
-		sourceFunc = func(name string) string {
-			return config.ExtrasSourceDir(cfg.Source, name)
+		extrasSource = cfg.ExtrasSource
+		sourceFunc = func(extra config.ExtraConfig) string {
+			return config.ResolveExtrasSourceDir(extra, cfg.ExtrasSource, cfg.Source)
 		}
 		configPath = config.ConfigPath()
 	}
@@ -133,7 +137,7 @@ func cmdExtrasList(args []string) error {
 			fmt.Println("[]")
 			return nil
 		}
-		entries := buildExtrasListEntries(extras, sourceFunc)
+		entries := buildExtrasListEntries(extras, extrasSource, sourceFunc)
 		data, _ := json.MarshalIndent(entries, "", "  ")
 		fmt.Println(string(data))
 		return nil
@@ -147,6 +151,7 @@ func cmdExtrasList(args []string) error {
 		}
 		loadFn := func() ([]extrasListEntry, error) {
 			var ex []config.ExtraConfig
+			var es string
 			if mode == modeProject {
 				p, loadErr := config.LoadProject(cwd)
 				if loadErr != nil {
@@ -159,8 +164,9 @@ func cmdExtrasList(args []string) error {
 					return nil, loadErr
 				}
 				ex = c.Extras
+				es = c.ExtrasSource
 			}
-			return buildExtrasListEntries(ex, sourceFunc), nil
+			return buildExtrasListEntries(ex, es, sourceFunc), nil
 		}
 		return runExtrasListTUI(loadFn, modeLabel, cfg, projCfg, cwd, configPath, sourceFunc)
 	}
@@ -172,7 +178,7 @@ func cmdExtrasList(args []string) error {
 	}
 
 	// Plain text output
-	entries := buildExtrasListEntries(extras, sourceFunc)
+	entries := buildExtrasListEntries(extras, extrasSource, sourceFunc)
 	ui.Header(ui.WithModeLabel("Extras"))
 
 	for i, entry := range entries {

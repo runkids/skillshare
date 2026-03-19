@@ -122,8 +122,8 @@ func cmdSync(args []string) error {
 			if hasAll {
 				projCfg, loadErr := config.LoadProject(cwd)
 				if loadErr == nil && len(projCfg.Extras) > 0 {
-					extrasEntries := runExtrasSyncEntries(projCfg.Extras, func(name string) string {
-						return config.ExtrasSourceDirProject(cwd, name)
+					extrasEntries := runExtrasSyncEntries(projCfg.Extras, func(extra config.ExtraConfig) string {
+						return config.ExtrasSourceDirProject(cwd, extra.Name)
 					}, dryRun, force)
 					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, extrasEntries)
 				}
@@ -244,8 +244,8 @@ func cmdSync(args []string) error {
 
 	if jsonOutput {
 		if hasAll && len(cfg.Extras) > 0 {
-			extrasEntries := runExtrasSyncEntries(cfg.Extras, func(name string) string {
-				return config.ExtrasSourceDir(cfg.Source, name)
+			extrasEntries := runExtrasSyncEntries(cfg.Extras, func(extra config.ExtraConfig) string {
+				return config.ResolveExtrasSourceDir(extra, cfg.ExtrasSource, cfg.Source)
 			}, dryRun, force)
 			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, extrasEntries)
 		}

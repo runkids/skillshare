@@ -462,8 +462,8 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts, start time.Time) erro
 	// Extras diff (always included when extras are configured)
 	var extrasResults []extraDiffResult
 	if len(cfg.Extras) > 0 {
-		extrasResults = collectExtrasDiff(cfg.Extras, func(name string) string {
-			return config.ExtrasSourceDir(cfg.Source, name)
+		extrasResults = collectExtrasDiff(cfg.Extras, func(extra config.ExtraConfig) string {
+			return config.ResolveExtrasSourceDir(extra, cfg.ExtrasSource, cfg.Source)
 		})
 	}
 

@@ -66,21 +66,23 @@ type ExtraTargetConfig struct {
 // ExtraConfig holds configuration for a non-skill resource type (rules, commands, etc.).
 type ExtraConfig struct {
 	Name    string              `yaml:"name"`
+	Source  string              `yaml:"source,omitempty"`
 	Targets []ExtraTargetConfig `yaml:"targets"`
 }
 
 // Config holds the application configuration
 type Config struct {
-	Source      string                  `yaml:"source"`
-	Mode        string                  `yaml:"mode,omitempty"` // default mode: merge
-	Targets     map[string]TargetConfig `yaml:"targets"`
-	Extras      []ExtraConfig           `yaml:"extras,omitempty"`
-	Ignore      []string                `yaml:"ignore,omitempty"`
-	Audit       AuditConfig             `yaml:"audit,omitempty"`
-	Hub         HubConfig               `yaml:"hub,omitempty"`
-	Log         LogConfig               `yaml:"log,omitempty"`
-	TUI         *bool                   `yaml:"tui,omitempty"` // nil = default true
-	GitLabHosts []string                `yaml:"gitlab_hosts,omitempty"`
+	Source       string                  `yaml:"source"`
+	ExtrasSource string                  `yaml:"extras_source,omitempty"`
+	Mode         string                  `yaml:"mode,omitempty"` // default mode: merge
+	Targets      map[string]TargetConfig `yaml:"targets"`
+	Extras       []ExtraConfig           `yaml:"extras,omitempty"`
+	Ignore       []string                `yaml:"ignore,omitempty"`
+	Audit        AuditConfig             `yaml:"audit,omitempty"`
+	Hub          HubConfig               `yaml:"hub,omitempty"`
+	Log          LogConfig               `yaml:"log,omitempty"`
+	TUI          *bool                   `yaml:"tui,omitempty"` // nil = default true
+	GitLabHosts  []string                `yaml:"gitlab_hosts,omitempty"`
 }
 
 // EffectiveGitLabHosts returns GitLabHosts merged with SKILLSHARE_GITLAB_HOSTS env var.
@@ -226,6 +228,7 @@ func Load() (*Config, error) {
 
 	// Expand ~ in paths
 	cfg.Source = expandPath(cfg.Source)
+	cfg.ExtrasSource = expandPath(cfg.ExtrasSource)
 	for name, target := range cfg.Targets {
 		target.Path = expandPath(target.Path)
 		cfg.Targets[name] = target
@@ -233,6 +236,7 @@ func Load() (*Config, error) {
 
 	// Expand ~ in extras paths
 	for i, extra := range cfg.Extras {
+		cfg.Extras[i].Source = expandPath(extra.Source)
 		for j, et := range extra.Targets {
 			cfg.Extras[i].Targets[j].Path = expandPath(et.Path)
 		}

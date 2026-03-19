@@ -37,6 +37,7 @@ func cmdExtrasInit(args []string) error {
 	var name string
 	var targets []string
 	var syncMode string
+	var sourceOverride string
 	var noTUI bool
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
@@ -52,6 +53,12 @@ func cmdExtrasInit(args []string) error {
 			}
 			i++
 			syncMode = rest[i]
+		case "--source":
+			if i+1 >= len(rest) {
+				return fmt.Errorf("--source requires a path argument")
+			}
+			i++
+			sourceOverride = rest[i]
 		case "--no-tui":
 			noTUI = true
 		case "--help", "-h":
@@ -90,10 +97,10 @@ func cmdExtrasInit(args []string) error {
 	if mode == modeProject {
 		return extrasInitProject(cwd, name, targets, syncMode, start)
 	}
-	return extrasInitGlobal(name, targets, syncMode, start)
+	return extrasInitGlobal(name, targets, syncMode, sourceOverride, start)
 }
 
-func extrasInitGlobal(name string, targets []string, syncMode string, start time.Time) error {
+func extrasInitGlobal(name string, targets []string, syncMode string, sourceOverride string, start time.Time) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -103,8 +110,13 @@ func extrasInitGlobal(name string, targets []string, syncMode string, start time
 		return err
 	}
 
+	// Backfill extras_source if not set
+	if cfg.ExtrasSource == "" {
+		cfg.ExtrasSource = config.ExtrasParentDir(cfg.Source)
+	}
+
 	// Build extra config
-	extra := config.ExtraConfig{Name: name}
+	extra := config.ExtraConfig{Name: name, Source: sourceOverride}
 	for _, t := range targets {
 		et := config.ExtraTargetConfig{Path: t}
 		if syncMode != "" {
@@ -114,7 +126,7 @@ func extrasInitGlobal(name string, targets []string, syncMode string, start time
 	}
 
 	// Create source directory
-	sourceDir := config.ExtrasSourceDir(cfg.Source, name)
+	sourceDir := config.ResolveExtrasSourceDir(extra, cfg.ExtrasSource, cfg.Source)
 	if err := os.MkdirAll(sourceDir, 0755); err != nil {
 		return fmt.Errorf("failed to create extras source directory: %w", err)
 	}

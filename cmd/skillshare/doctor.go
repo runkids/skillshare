@@ -132,7 +132,7 @@ func cmdDoctorGlobal(jsonMode bool) error {
 	}
 
 	runDoctorChecks(cfg, result, false)
-	checkExtras(cfg.Extras, result, false, cfg.Source, "")
+	checkExtras(cfg.Extras, result, false, cfg.Source, cfg.ExtrasSource, "")
 	ui.Header("Storage")
 	checkBackupStatus(result, false, backup.BackupDir())
 	checkTrashStatus(result, trash.TrashDir())
@@ -189,7 +189,7 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 	}
 
 	runDoctorChecks(cfg, result, true)
-	checkExtras(rt.config.Extras, result, true, "", root)
+	checkExtras(rt.config.Extras, result, true, "", "", root)
 	ui.Header("Storage")
 	checkBackupStatus(result, true, "")
 	checkTrashStatus(result, trash.ProjectTrashDir(root))
@@ -894,7 +894,7 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered [
 }
 
 // checkExtras verifies extras source directories exist and targets are reachable.
-func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bool, source, projectRoot string) {
+func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bool, source, extrasSource, projectRoot string) {
 	if len(extras) == 0 {
 		return
 	}
@@ -909,7 +909,7 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 		if isProject {
 			sourceDir = config.ExtrasSourceDirProject(projectRoot, extra.Name)
 		} else {
-			sourceDir = config.ExtrasSourceDir(source, extra.Name)
+			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
 		}
 
 		files, err := sync.DiscoverExtraFiles(sourceDir)
