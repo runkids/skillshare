@@ -10,6 +10,7 @@ import {
   EyeOff,
   ChevronsDownUp,
   ChevronsUpDown,
+  Save,
 } from 'lucide-react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import Card from '../components/Card';
@@ -64,11 +65,16 @@ export default function AuditRulesPage() {
   const [expandedRules, setExpandedRules] = useState<Set<string>>(new Set());
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  // Selection + cross-view state
-  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
-  const [selectedPattern, setSelectedPattern] = useState<string | null>(null);
-  const [pendingRegexTest, setPendingRegexTest] = useState<{ regex: string; exclude?: string } | null>(null);
-  const [pendingJumpToId, setPendingJumpToId] = useState<string | null>(null);
+  // YAML view save state (lifted from AuditRulesYaml via callback)
+  const [yamlDirty, setYamlDirty] = useState(false);
+  const [yamlSaving, setYamlSaving] = useState(false);
+  const yamlSaveRef = useRef<(() => void) | null>(null);
+
+  const handleYamlSaveStateChange = useCallback((dirty: boolean, saving: boolean, onSave: () => void) => {
+    setYamlDirty(dirty);
+    setYamlSaving(saving);
+    yamlSaveRef.current = onSave;
+  }, []);
 
   // Panel collapsed state (shared with AuditRulesYaml)
   const [panelCollapsed, setPanelCollapsed] = useState(() => {
@@ -84,18 +90,6 @@ export default function AuditRulesPage() {
       return next;
     });
   }, []);
-
-  // Cmd+B handler for panel toggle (both views)
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
-        e.preventDefault();
-        togglePanel();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [togglePanel]);
 
   // Measure sticky toolbar height for nested sticky group headers
   const toolbarRef = useRef<HTMLDivElement>(null);
@@ -225,41 +219,6 @@ export default function AuditRulesPage() {
     };
   }, [compiled.data]);
 
-  // Derived: selected rule / pattern rules for assistant panel
-  const selectedRule = useMemo(() => {
-    if (!selectedRuleId || !compiled.data) return null;
-    return compiled.data.rules.find(r => r.id === selectedRuleId) ?? null;
-  }, [selectedRuleId, compiled.data]);
-
-  const patternRules = useMemo(() => {
-    if (!selectedPattern || !compiled.data) return [];
-    return compiled.data.rules.filter(r => r.pattern === selectedPattern);
-  }, [selectedPattern, compiled.data]);
-
-  // Selection callbacks
-  const handleRuleSelect = useCallback((ruleId: string) => {
-    setSelectedRuleId(ruleId);
-    setSelectedPattern(null);
-  }, []);
-
-  const handlePatternSelect = useCallback((pattern: string) => {
-    setSelectedPattern(pattern);
-    setSelectedRuleId(null);
-  }, []);
-
-  // Cross-view jump handlers
-  const handleTestRegex = useCallback(() => {
-    if (!selectedRule) return;
-    setPendingRegexTest({ regex: selectedRule.regex, exclude: selectedRule.exclude });
-    setViewMode('yaml');
-  }, [selectedRule]);
-
-  const handleEditInYaml = useCallback(() => {
-    if (!selectedRule) return;
-    setPendingJumpToId(selectedRule.id);
-    setViewMode('yaml');
-  }, [selectedRule]);
-
   const togglePatternExpanded = useCallback((pattern: string) => {
     setExpandedPatterns((prev) => {
       const next = new Set(prev);
@@ -267,21 +226,16 @@ export default function AuditRulesPage() {
       else next.add(pattern);
       return next;
     });
-    handlePatternSelect(pattern);
-  }, [handlePatternSelect]);
+  }, []);
 
   const toggleRuleExpanded = useCallback((id: string) => {
     setExpandedRules((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-        handleRuleSelect(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
-  }, [handleRuleSelect]);
+  }, []);
 
   const expandAll = useCallback(() => {
     setExpandedPatterns(new Set(groupedRules.map(([p]) => p)));
@@ -333,6 +287,17 @@ export default function AuditRulesPage() {
                 <><List size={16} strokeWidth={2.5} /> Rule Browser</>
               )}
             </Button>
+            {viewMode === 'yaml' && (
+              <Button
+                onClick={() => yamlSaveRef.current?.()}
+                disabled={yamlSaving || !yamlDirty}
+                variant="primary"
+                size="sm"
+              >
+                <Save size={16} strokeWidth={2.5} />
+                {yamlSaving ? 'Saving...' : 'Save'}
+              </Button>
+            )}
             {viewMode === 'structured' && stats.custom > 0 && (
               <Button
                 onClick={() => setShowResetConfirm(true)}
@@ -350,137 +315,104 @@ export default function AuditRulesPage() {
 
       {/* ─── Structured View ─── */}
       {viewMode === 'structured' && compiled.data && (
-        <div className="flex gap-4">
-          <div className="flex-[3] min-w-0">
-            {/* Sticky toolbar: summary + tabs + search */}
-            <div ref={toolbarRef} className="sticky top-0 z-20 bg-paper pt-4 pb-4 -mx-1 px-1 space-y-3" style={{ boxShadow: '0 12px 0 0 var(--color-paper)' }}>
-              {/* Inline summary */}
-              <p className="text-sm text-pencil-light">
-                <span className="font-medium text-pencil">{stats.total}</span> rules
-                {' '}&middot;{' '}
-                <span className="text-success">{stats.enabled} enabled</span>
-                {stats.disabled > 0 && (
-                  <>{' '}&middot;{' '}<span className="text-warning">{stats.disabled} disabled</span></>
-                )}
-                {stats.custom > 0 && (
-                  <>{' '}&middot;{' '}<span className="text-blue">{stats.custom} custom</span></>
-                )}
-                {' '}&middot;{' '}
-                {stats.patterns} patterns
-              </p>
+        <>
+          {/* Sticky toolbar: summary + tabs + search */}
+          <div ref={toolbarRef} className="sticky top-0 z-20 bg-paper pt-4 pb-4 -mx-1 px-1 space-y-3" style={{ boxShadow: '0 12px 0 0 var(--color-paper)' }}>
+            {/* Inline summary */}
+            <p className="text-sm text-pencil-light">
+              <span className="font-medium text-pencil">{stats.total}</span> rules
+              {' '}&middot;{' '}
+              <span className="text-success">{stats.enabled} enabled</span>
+              {stats.disabled > 0 && (
+                <>{' '}&middot;{' '}<span className="text-warning">{stats.disabled} disabled</span></>
+              )}
+              {stats.custom > 0 && (
+                <>{' '}&middot;{' '}<span className="text-blue">{stats.custom} custom</span></>
+              )}
+              {' '}&middot;{' '}
+              {stats.patterns} patterns
+            </p>
 
-              {/* Severity tabs */}
-              <SegmentedControl
-                value={activeTab}
-                onChange={setActiveTab}
-                options={SEVERITY_TABS.map((tab) => ({
-                  value: tab.value,
-                  label: tab.label,
-                  count: tabCounts[tab.value] ?? 0,
-                }))}
-                colorFn={(v) =>
-                  v === 'ALL'
-                    ? 'var(--color-pencil)'
-                    : v === 'DISABLED'
-                      ? 'var(--color-warning)'
-                      : severityColor(v)
-                }
-              />
+            {/* Severity tabs */}
+            <SegmentedControl
+              value={activeTab}
+              onChange={setActiveTab}
+              options={SEVERITY_TABS.map((tab) => ({
+                value: tab.value,
+                label: tab.label,
+                count: tabCounts[tab.value] ?? 0,
+              }))}
+              colorFn={(v) =>
+                v === 'ALL'
+                  ? 'var(--color-pencil)'
+                  : v === 'DISABLED'
+                    ? 'var(--color-warning)'
+                    : severityColor(v)
+              }
+            />
 
-              {/* Search + expand/collapse */}
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Search
-                    size={16}
-                    strokeWidth={2.5}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-pencil-light pointer-events-none"
-                  />
-                  <Input
-                    type="text"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search by ID, message, regex, or pattern..."
-                    className="!pl-9"
-                  />
-                </div>
-                {groupedRules.length > 1 && (
-                  <Button
-                    onClick={allExpanded ? collapseAll : expandAll}
-                    variant="secondary"
-                    size="sm"
-                  >
-                    {allExpanded ? (
-                      <><ChevronsDownUp size={16} strokeWidth={2.5} /> Collapse</>
-                    ) : (
-                      <><ChevronsUpDown size={16} strokeWidth={2.5} /> Expand</>
-                    )}
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Pattern accordion list */}
-            {groupedRules.length === 0 ? (
-              <EmptyState
-                icon={ShieldCheck}
-                title="No rules match"
-                description="Try adjusting your filter or search terms"
-              />
-            ) : (
-              <div className="space-y-4 pt-3">
-                {groupedRules.map(([pattern, rules]) => (
-                  <PatternAccordion
-                    key={pattern}
-                    pattern={pattern}
-                    rules={rules}
-                    allPatterns={compiled.data!.patterns}
-                    stickyTop={toolbarHeight}
-                    isExpanded={expandedPatterns.has(pattern)}
-                    expandedRules={expandedRules}
-                    onToggleExpand={() => togglePatternExpanded(pattern)}
-                    onToggleRuleExpand={toggleRuleExpanded}
-                    onToggleRule={handleToggleRule}
-                    onTogglePattern={handleTogglePattern}
-                    onSetSeverity={handleSetSeverity}
-                    onSetPatternSeverity={handleSetPatternSeverity}
-                    isToggling={toggleMutation.isPending}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className={`hidden lg:block transition-all duration-300 ease-in-out ${
-            panelCollapsed ? 'flex-[0] w-0 overflow-hidden opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
-          }`}>
-            <div className="sticky top-0 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 100px)' }}>
-              <Card className="!p-0 !overflow-visible min-w-[280px]">
-                <AuditAssistantPanel
-                  mode="structured"
-                  selectedRule={selectedRule}
-                  selectedPattern={selectedPattern}
-                  patternRules={patternRules}
-                  stats={stats}
-                  compiledRules={compiled.data.rules}
-                  onTestRegex={handleTestRegex}
-                  onEditInYaml={handleEditInYaml}
-                  onTogglePattern={handleTogglePattern}
-                  isToggling={toggleMutation.isPending}
-                  collapsed={panelCollapsed}
-                  onToggleCollapse={togglePanel}
-                  errors={[]}
-                  changeCount={0}
-                  fieldPath={null}
-                  cursorLine={1}
-                  source=""
-                  diff={{ lines: [], changeCount: 0 }}
-                  editorRef={{ current: null }}
-                  onRevert={() => {}}
+            {/* Search + expand/collapse */}
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search
+                  size={16}
+                  strokeWidth={2.5}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-pencil-light pointer-events-none"
                 />
-              </Card>
+                <Input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by ID, message, regex, or pattern..."
+                  className="!pl-9"
+                />
+              </div>
+              {groupedRules.length > 1 && (
+                <Button
+                  onClick={allExpanded ? collapseAll : expandAll}
+                  variant="secondary"
+                  size="sm"
+                >
+                  {allExpanded ? (
+                    <><ChevronsDownUp size={16} strokeWidth={2.5} /> Collapse</>
+                  ) : (
+                    <><ChevronsUpDown size={16} strokeWidth={2.5} /> Expand</>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
-        </div>
+
+          {/* Pattern accordion list */}
+          {groupedRules.length === 0 ? (
+            <EmptyState
+              icon={ShieldCheck}
+              title="No rules match"
+              description="Try adjusting your filter or search terms"
+            />
+          ) : (
+            <div className="space-y-4 pt-3">
+              {groupedRules.map(([pattern, rules]) => (
+                <PatternAccordion
+                  key={pattern}
+                  pattern={pattern}
+                  rules={rules}
+                  allPatterns={compiled.data!.patterns}
+                  stickyTop={toolbarHeight}
+                  isExpanded={expandedPatterns.has(pattern)}
+                  expandedRules={expandedRules}
+                  onToggleExpand={() => togglePatternExpanded(pattern)}
+                  onToggleRuleExpand={toggleRuleExpanded}
+                  onToggleRule={handleToggleRule}
+                  onTogglePattern={handleTogglePattern}
+                  onSetSeverity={handleSetSeverity}
+                  onSetPatternSeverity={handleSetPatternSeverity}
+                  isToggling={toggleMutation.isPending}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {/* ─── YAML Editor View ─── */}
@@ -489,10 +421,7 @@ export default function AuditRulesPage() {
           panelCollapsed={panelCollapsed}
           onTogglePanel={togglePanel}
           isProjectMode={isProjectMode}
-          pendingRegexTest={pendingRegexTest}
-          onPendingRegexTestConsumed={() => setPendingRegexTest(null)}
-          pendingJumpToId={pendingJumpToId}
-          onPendingJumpToIdConsumed={() => setPendingJumpToId(null)}
+          onSaveStateChange={handleYamlSaveStateChange}
         />
       )}
 
