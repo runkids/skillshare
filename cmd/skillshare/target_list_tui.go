@@ -70,6 +70,13 @@ type targetListTUIModel struct {
 	editAdding       bool
 	editInput        textinput.Model
 
+	// Remove confirmation overlay
+	confirming    bool
+	confirmTarget string
+
+	// Exit-with-action (for destructive ops dispatched after TUI exit)
+	action string // "remove" or "" (normal quit)
+
 	// Action feedback
 	lastActionMsg string
 }
@@ -226,6 +233,9 @@ func (m targetListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.showModePicker {
 			return m.handleModePickerKey(msg)
 		}
+		if m.confirming {
+			return m.handleConfirmKey(msg)
+		}
 		if m.editingFilter {
 			return m.handleFilterEditKey(msg)
 		}
@@ -295,6 +305,13 @@ func (m targetListTUIModel) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 			return m.openFilterEdit(item.name, "exclude", item.target.Exclude)
 		}
 		return m, nil
+	case "R":
+		if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
+			m.confirming = true
+			m.confirmTarget = item.name
+			m.lastActionMsg = ""
+		}
+		return m, nil
 	}
 
 	prevName := targetSelectedName(m.list.SelectedItem())
@@ -356,6 +373,22 @@ func (m *targetListTUIModel) reloadTargetItems() {
 		m.allItems = items
 		m.applyTargetFilter()
 	}
+}
+
+// ─── Remove Confirmation ─────────────────────────────────────────────
+
+func (m targetListTUIModel) handleConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "y", "Y", "enter":
+		m.action = "remove"
+		m.quitting = true
+		return m, tea.Quit
+	case "n", "N", "esc", "q":
+		m.confirming = false
+		m.confirmTarget = ""
+		return m, nil
+	}
+	return m, nil
 }
 
 // ─── Mode Picker ─────────────────────────────────────────────────────
@@ -614,6 +647,9 @@ func (m targetListTUIModel) View() string {
 	if m.loading {
 		return fmt.Sprintf("\n  %s Loading targets...\n", m.loadSpinner.View())
 	}
+	if m.confirming {
+		return m.renderConfirmOverlay()
+	}
 	if m.showModePicker {
 		return m.renderModePicker()
 	}
@@ -698,7 +734,7 @@ func renderTargetActionMsg(msg string) string {
 }
 
 func (m targetListTUIModel) renderTargetHelp(scrollInfo string) string {
-	helpText := "↑↓ navigate  / filter  Ctrl+d/u scroll  M mode  I include  E exclude  q quit"
+	helpText := "↑↓ navigate  / filter  Ctrl+d/u scroll  M mode  I include  E exclude  R remove  q quit"
 	if m.filtering {
 		helpText = "Enter lock  Esc clear  q quit"
 	}
@@ -776,6 +812,16 @@ func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
 
 // ---- Overlay renders --------------------------------------------------------
 
+func (m targetListTUIModel) renderConfirmOverlay() string {
+	flag := "-g"
+	if m.projCfg != nil {
+		flag = "-p"
+	}
+	cmd := fmt.Sprintf("skillshare target remove %s %s", flag, m.confirmTarget)
+	return fmt.Sprintf("\n  %s\n\n  → %s\n\n  Proceed? [Y/n] ",
+		tc.Red.Render("Remove target "+m.confirmTarget+"?"), cmd)
+}
+
 func (m targetListTUIModel) renderModePicker() string {
 	var b strings.Builder
 
@@ -842,7 +888,7 @@ func (m targetListTUIModel) renderFilterEditPanel() string {
 
 // ---- Runner -----------------------------------------------------------------
 
-func runTargetListTUI(mode runMode, cwd string) error {
+func runTargetListTUI(mode runMode, cwd string) (string, string, error) {
 	var (
 		cfg       *config.Config
 		projCfg   *config.ProjectConfig
@@ -853,20 +899,20 @@ func runTargetListTUI(mode runMode, cwd string) error {
 		modeLabel = "project"
 		pc, err := config.LoadProject(cwd)
 		if err != nil {
-			return err
+			return "", "", err
 		}
 		if len(pc.Targets) == 0 {
-			return targetListProject(cwd)
+			return "", "", targetListProject(cwd)
 		}
 		projCfg = pc
 	} else {
 		modeLabel = "global"
 		c, err := config.Load()
 		if err != nil {
-			return err
+			return "", "", err
 		}
 		if len(c.Targets) == 0 {
-			return targetList(false)
+			return "", "", targetList(false)
 		}
 		cfg = c
 	}
@@ -875,21 +921,21 @@ func runTargetListTUI(mode runMode, cwd string) error {
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	finalModel, err := p.Run()
 	if err != nil {
-		return err
+		return "", "", err
 	}
 
 	m, ok := finalModel.(targetListTUIModel)
 	if !ok {
-		return nil
+		return "", "", nil
 	}
 	if m.loadErr != nil {
-		return m.loadErr
+		return "", "", m.loadErr
 	}
 	if m.emptyResult {
 		if mode == modeProject {
-			return targetListProject(cwd)
+			return "", "", targetListProject(cwd)
 		}
-		return targetList(false)
+		return "", "", targetList(false)
 	}
-	return nil
+	return m.action, m.confirmTarget, nil
 }

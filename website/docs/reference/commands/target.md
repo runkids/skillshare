@@ -73,6 +73,7 @@ On a TTY, `target list` launches an interactive terminal UI with:
 - **Fuzzy filter** — press `/` to filter targets by name
 - **Mode picker** — press `M` to change the sync mode (merge, copy, symlink) for the selected target
 - **Include/Exclude editor** — press `I` or `E` to open the filter pattern editor for the selected target. Use `a` to add patterns, `d` to delete
+- **Remove target** — press `R` to remove the selected target. Shows a confirmation prompt before proceeding (backs up and unlinks, same as `target remove`)
 - **Keyboard navigation** — `↑`/`↓` to browse, `Ctrl+d`/`Ctrl+u` to scroll the detail panel, `q` to quit
 
 Changes made through the TUI (mode, include/exclude) are saved to config immediately. Run `skillshare sync` to apply.

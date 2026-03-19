@@ -16,7 +16,6 @@ import (
 // are written. Defaults to stdout. Set to io.Discard for silent operation (e.g. JSON mode).
 var DiagOutput io.Writer = os.Stdout
 
-
 // DiscoveredSkill represents a skill found during recursive source directory scan.
 type DiscoveredSkill struct {
 	SourcePath string   // Full path: ~/.config/skillshare/skills/_team/frontend/ui

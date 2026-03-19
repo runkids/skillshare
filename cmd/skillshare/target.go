@@ -68,7 +68,17 @@ func cmdTarget(args []string) error {
 			return targetList(true)
 		}
 		if shouldLaunchTUI(noTUI, nil) {
-			return runTargetListTUI(mode, cwd)
+			action, targetName, tuiErr := runTargetListTUI(mode, cwd)
+			if tuiErr != nil {
+				return tuiErr
+			}
+			if action == "remove" && targetName != "" {
+				if mode == modeProject {
+					return targetRemoveProject([]string{targetName}, cwd)
+				}
+				return targetRemove([]string{targetName})
+			}
+			return nil
 		}
 		if mode == modeProject {
 			return targetListProjectWithJSON(cwd, false)
