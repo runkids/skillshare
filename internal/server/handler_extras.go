@@ -348,7 +348,12 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.mu.RLock()
 	extras := s.extrasConfig()
+	projectRoot := s.projectRoot
+	source := s.cfg.Source
+	extrasSource := s.cfg.ExtrasSource
+	s.mu.RUnlock()
 
 	type targetSyncResult struct {
 		Target  string   `json:"target"`
@@ -371,7 +376,12 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		sourceDir := s.extrasSourceDir(extra)
+		var sourceDir string
+		if projectRoot != "" {
+			sourceDir = config.ExtrasSourceDirProject(projectRoot, extra.Name)
+		} else {
+			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
+		}
 
 		// Auto-create source directory if it doesn't exist
 		if _, statErr := os.Stat(sourceDir); os.IsNotExist(statErr) {
@@ -424,7 +434,7 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 		"scope":  "ui",
 	}, "")
 
-	writeJSON(w, map[string]any{"results": results})
+	writeJSON(w, map[string]any{"extras": results})
 }
 
 // handleExtrasMode — PATCH /api/extras/{name}/mode
