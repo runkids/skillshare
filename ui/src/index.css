@@ -320,6 +320,13 @@
   box-shadow: 2px 2px 0 var(--color-shadow);
 }
 
+/* ── Playful: Split menu ── */
+[data-theme="playful"] .ss-split-menu {
+  border: 2px solid var(--color-pencil) !important;
+  border-radius: var(--radius-wobble-badge) !important;
+  box-shadow: 3px 3px 0 var(--color-shadow) !important;
+}
+
 /* ── Playful: Sidebar ── */
 [data-theme="playful"] aside {
   border-right: 2px dashed var(--color-muted-dark);
@@ -634,7 +641,8 @@
 [data-theme="playful"].dark .ss-input,
 [data-theme="playful"].dark .ss-select,
 [data-theme="playful"].dark .ss-dialog,
-[data-theme="playful"].dark .ss-toast {
+[data-theme="playful"].dark .ss-toast,
+[data-theme="playful"].dark .ss-split-menu {
   border-width: 2px;
 }
 [data-theme="playful"].dark .ss-card {
@@ -940,6 +948,33 @@ body {
 
 .animate-dropdown-in {
   animation: dropdownIn 0.15s ease-out;
+}
+
+/* Split button menu — spring pop animation */
+@keyframes splitMenuPop {
+  0%   { opacity: 0; transform: translateY(-6px) scale(0.96); }
+  60%  { opacity: 1; transform: translateY(1px) scale(1.005); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ss-split-menu {
+  animation: splitMenuPop 0.18s cubic-bezier(0.34, 1.4, 0.64, 1);
+  transform-origin: top center;
+  backdrop-filter: blur(8px);
+}
+
+.ss-split-menu-item {
+  transition: background-color 0.12s ease;
+}
+.ss-split-menu-item:active {
+  opacity: 0.7;
+  transition: opacity 0.05s;
+}
+.ss-split-menu-item .ss-split-menu-icon {
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.ss-split-menu-item:hover .ss-split-menu-icon {
+  transform: scale(1.15);
 }
 
 /* Sync progress shimmer animation */

@@ -19,8 +19,7 @@ import { Virtuoso } from 'react-virtuoso';
 import Card from '../components/Card';
 import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
-import Button from '../components/Button';
-import { Checkbox } from '../components/Input';
+import SplitButton from '../components/SplitButton';
 import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
 import { api, type SyncResult, type DiffTarget, type IgnoreSources } from '../api/client';
@@ -40,12 +39,10 @@ function extractIgnoreSources(data: IgnoreSources): IgnoreSources {
 
 export default function SyncPage() {
   const queryClient = useQueryClient();
-  const [dryRun, setDryRun] = useState(false);
-  const [force, setForce] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [results, setResults] = useState<SyncResult[] | null>(null);
   const [syncWarnings, setSyncWarnings] = useState<string[]>([]);
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [lastDryRun, setLastDryRun] = useState(false);
   const [ignoreSources, setIgnoreSources] = useState<IgnoreSources | null>(null);
   const [ignoredExpanded, setIgnoredExpanded] = useState(false);
   const { toast } = useToast();
@@ -90,8 +87,11 @@ export default function SyncPage() {
 
   useEffect(() => { runDiff(); }, [runDiff]);
 
-  const handleSync = async () => {
+  const handleSync = async (opts: { dryRun?: boolean; force?: boolean } = {}) => {
+    const dryRun = opts.dryRun ?? false;
+    const force = opts.force ?? false;
     setSyncing(true);
+    setLastDryRun(dryRun);
     setSyncWarnings([]);
     try {
       const res = await api.sync({ dryRun, force });
@@ -103,8 +103,7 @@ export default function SyncPage() {
       } else {
         toast(formatSyncToast(res.results), 'success');
       }
-      setForce(false);
-      runDiff(); // Re-check diff after sync
+      runDiff();
       invalidateAfterSync(queryClient);
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
@@ -257,62 +256,31 @@ export default function SyncPage() {
             </div>
           )}
 
-          {/* Big sync button */}
-          <Button
-            onClick={handleSync}
+          {/* Sync split button */}
+          <SplitButton
+            onClick={() => handleSync()}
             loading={syncing}
             variant="primary"
             size="lg"
             className="min-w-[200px]"
+            dropdownAlign="right"
+            items={[
+              {
+                label: 'Force Sync',
+                icon: <Zap size={16} strokeWidth={2.5} />,
+                onClick: () => handleSync({ force: true }),
+                confirm: true,
+              },
+              {
+                label: 'Dry Run',
+                icon: <Eye size={16} strokeWidth={2.5} />,
+                onClick: () => handleSync({ dryRun: true }),
+              },
+            ]}
           >
             {!syncing && <RefreshCw size={22} strokeWidth={2.5} />}
-            {syncing ? 'Syncing...' : dryRun ? 'Preview Sync' : 'Sync Now'}
-          </Button>
-
-          {/* Indeterminate progress bar during sync */}
-          {syncing && (
-            <div
-              className="w-full max-w-[300px] h-2 border border-pencil-light/50 bg-paper-warm overflow-hidden"
-              style={{ borderRadius: radius.sm }}
-            >
-              <div
-                className="h-full bg-blue animate-shimmer"
-                style={{ width: '40%', borderRadius: radius.sm }}
-              />
-            </div>
-          )}
-
-          {/* Advanced options toggle */}
-          <button
-            onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-1 text-base text-pencil-light hover:text-pencil transition-colors cursor-pointer"
-          >
-            {showAdvanced ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            Advanced options
-          </button>
-
-          {/* Advanced options */}
-          {showAdvanced && (
-            <div className="flex items-center gap-6 animate-fade-in">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  label="Dry Run"
-                  checked={dryRun}
-                  onChange={setDryRun}
-                />
-                <Eye size={16} strokeWidth={2.5} className="text-blue" />
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  label="Force"
-                  checked={force}
-                  onChange={setForce}
-                />
-                <Zap size={16} strokeWidth={2.5} className="text-accent" />
-              </div>
-            </div>
-          )}
+            {syncing ? 'Syncing...' : 'Sync Now'}
+          </SplitButton>
         </div>
       </Card>
 
@@ -334,7 +302,7 @@ export default function SyncPage() {
           <h2
             className="text-lg font-bold text-pencil"
           >
-            {dryRun ? 'Preview Results' : 'Results'}
+            {lastDryRun ? 'Preview Results' : 'Results'}
           </h2>
           <SyncResultList results={results} />
         </div>

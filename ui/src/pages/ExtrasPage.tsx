@@ -9,13 +9,13 @@ import { useToast } from '../components/Toast';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import IconButton from '../components/IconButton';
+import SplitButton from '../components/SplitButton';
 import DialogShell from '../components/DialogShell';
 import { Input, Select } from '../components/Input';
 import Badge from '../components/Badge';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
-import Tooltip from '../components/Tooltip';
 import { PageSkeleton } from '../components/Skeleton';
 
 // ─── AddExtraModal ────────────────────────────────────────────────────────────
@@ -187,22 +187,28 @@ function AddExtraModal({
 function ExtraCard({
   extra,
   onSync,
+  onForceSync,
   onRemove,
   onModeChange,
 }: {
   extra: Extra;
   index?: number;
   onSync: (name: string) => Promise<void>;
+  onForceSync: (name: string) => Promise<void>;
   onRemove: (name: string) => void;
   onModeChange: (name: string, target: string, mode: string) => Promise<void>;
 }) {
   const [syncing, setSyncing] = useState(false);
   const [changingMode, setChangingMode] = useState<string | null>(null);
 
-  const handleSync = async () => {
+  const handleSync = async (force?: boolean) => {
     setSyncing(true);
     try {
-      await onSync(extra.name);
+      if (force) {
+        await onForceSync(extra.name);
+      } else {
+        await onSync(extra.name);
+      }
     } finally {
       setSyncing(false);
     }
@@ -226,10 +232,24 @@ function ExtraCard({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <Button variant="secondary" size="sm" onClick={handleSync} disabled={syncing}>
-            <RefreshCw size={12} strokeWidth={2.5} className={syncing ? 'animate-spin' : ''} />
+          <SplitButton
+            variant="secondary"
+            size="sm"
+            onClick={() => handleSync()}
+            loading={syncing}
+            dropdownAlign="right"
+            items={[
+              {
+                label: 'Force Sync',
+                icon: <Zap size={14} strokeWidth={2.5} />,
+                onClick: () => handleSync(true),
+                confirm: true,
+              },
+            ]}
+          >
+            <RefreshCw size={12} strokeWidth={2.5} />
             {syncing ? 'Syncing...' : 'Sync'}
-          </Button>
+          </SplitButton>
           <IconButton
             icon={<Trash2 size={16} strokeWidth={2.5} />}
             label="Remove extra"
@@ -368,7 +388,6 @@ export default function ExtrasPage() {
   const [removeName, setRemoveName] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
   const [syncingAll, setSyncingAll] = useState(false);
-  const [force, setForce] = useState(false);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.extras });
@@ -377,13 +396,12 @@ export default function ExtrasPage() {
     queryClient.invalidateQueries({ queryKey: queryKeys.overview });
   };
 
-  const handleSyncAll = async () => {
+  const handleSyncAll = async (force = false) => {
     setSyncingAll(true);
     try {
       const res = await api.syncExtras({ force });
       const t = sumAll(res.extras);
       toast(buildSyncToast('All extras synced', 'Extras sync failed', t, force), syncToastType(t));
-      setForce(false);
       invalidate();
     } catch (err: any) {
       toast(err.message, 'error');
@@ -392,13 +410,12 @@ export default function ExtrasPage() {
     }
   };
 
-  const handleSync = async (name: string) => {
+  const handleSync = async (name: string, force = false) => {
     try {
       const res = await api.syncExtras({ name, force });
       const entry = res.extras.find((e) => e.name === name);
       const t = sumEntry(entry);
       toast(buildSyncToast(`"${name}" synced`, `"${name}" sync failed`, t, force), syncToastType(t));
-      setForce(false);
       invalidate();
     } catch (err: any) {
       toast(err.message, 'error');
@@ -449,25 +466,24 @@ export default function ExtrasPage() {
         actions={
           <>
             {extras.length > 0 && (
-              <>
-                <Tooltip content="Overwrite existing files even when mode changed">
-                  <Button
-                    variant={force ? 'primary' : 'ghost'}
-                    size="sm"
-                    onClick={() => setForce((f) => !f)}
-                    className={force ? 'bg-accent border-accent hover:bg-accent/85' : ''}
-                  >
-                    <Zap size={14} strokeWidth={2.5} />
-                    Force
-                  </Button>
-                </Tooltip>
-                <Tooltip content="Sync all extras to their targets">
-                  <Button variant="secondary" size="sm" onClick={handleSyncAll} disabled={syncingAll}>
-                    <RefreshCw size={14} strokeWidth={2.5} className={syncingAll ? 'animate-spin' : ''} />
-                    {syncingAll ? 'Syncing...' : 'Sync All'}
-                  </Button>
-                </Tooltip>
-              </>
+              <SplitButton
+                variant="secondary"
+                size="sm"
+                onClick={() => handleSyncAll()}
+                loading={syncingAll}
+                dropdownAlign="right"
+                items={[
+                  {
+                    label: 'Force Sync All',
+                    icon: <Zap size={14} strokeWidth={2.5} />,
+                    onClick: () => handleSyncAll(true),
+                    confirm: true,
+                  },
+                ]}
+              >
+                <RefreshCw size={14} strokeWidth={2.5} />
+                {syncingAll ? 'Syncing...' : 'Sync All'}
+              </SplitButton>
             )}
             <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
               <Plus size={14} strokeWidth={2.5} /> Add Extra
@@ -507,7 +523,8 @@ export default function ExtrasPage() {
                   key={extra.name}
                   extra={extra}
                   index={i}
-                  onSync={handleSync}
+                  onSync={(name) => handleSync(name)}
+                  onForceSync={(name) => handleSync(name, true)}
                   onRemove={(name) => setRemoveName(name)}
                   onModeChange={handleModeChange}
                 />
