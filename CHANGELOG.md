@@ -2,16 +2,23 @@
 
 ## [0.17.9] - 2026-03-20
 
+### New Features
+
+- **Force toggle on Extras page** — a new Force button in the Extras page header lets you overwrite existing files when the sync mode has changed. Hover for a tooltip explaining what it does. Previously, skipped files could only be force-synced via the CLI (`skillshare sync extras --force`)
+
 ### Bug Fixes
 
 - **Config page assistant panel now scrollable** — the right-side Structure/Diff panel now has a fixed 500px content area matching the editor height, enabling vertical scrolling when the YAML structure is long
 - **Removed false "Unknown target" warnings** — the config editor no longer flags custom target names as unknown. Target names are user-defined and freely configurable — any name is valid
 - **Audit rules assistant panel scrollable** — same fixed-height scrolling fix applied to the Audit Rules page's assistant panel
+- **Extras sync API response key** — fixed the JSON response key from `results` to `extras`, which prevented the Extras page from displaying sync results
 
 ### Improvements
 
 - **Richer `targets` field docs** — the `targets` field documentation example now shows all sub-fields (`path`, `mode`, `include`, `exclude`) with multiple targets
 - **Filter Studio virtual scrolling** — the skill preview list now uses virtual scrolling for smooth performance with large skill collections
+- **Force auto-resets after sync** — the Force option on both the Sync and Extras pages automatically disables after a successful sync, preventing accidental overwrites on subsequent runs
+- **Smarter skip toast** — when extras files are skipped, the toast suggests "enable Force to override" instead of a CLI command. If Force is already enabled, the hint is omitted
 
 ## [0.17.8] - 2026-03-19
 

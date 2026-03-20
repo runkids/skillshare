@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderOpen, FolderPlus, Plus, RefreshCw, Target, Trash2, X } from 'lucide-react';
+import { FolderOpen, FolderPlus, Plus, RefreshCw, Target, Trash2, X, Zap } from 'lucide-react';
 import { api } from '../api/client';
-import type { Extra } from '../api/client';
+import type { Extra, ExtrasSyncResult } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { useAppContext } from '../context/AppContext';
 import { useToast } from '../components/Toast';
@@ -15,6 +15,7 @@ import Badge from '../components/Badge';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Tooltip from '../components/Tooltip';
 import { PageSkeleton } from '../components/Skeleton';
 
 // ─── AddExtraModal ────────────────────────────────────────────────────────────
@@ -298,6 +299,58 @@ function ExtraCard({
   );
 }
 
+// ─── Sync result helpers ─────────────────────────────────────────────────────
+
+type SyncTotals = { synced: number; skipped: number; targets: number; errors: number };
+
+function sumEntry(entry: ExtrasSyncResult | undefined): SyncTotals {
+  if (!entry) return { synced: 0, skipped: 0, targets: 0, errors: 0 };
+  let synced = 0, skipped = 0, errors = 0;
+  for (const t of entry.targets) {
+    if (t.error) {
+      errors++;
+    } else {
+      synced += t.synced;
+      skipped += t.skipped;
+      errors += t.errors?.length ?? 0;
+    }
+  }
+  return { synced, skipped, targets: entry.targets.length, errors };
+}
+
+function sumAll(extras: ExtrasSyncResult[]): SyncTotals {
+  const totals: SyncTotals = { synced: 0, skipped: 0, targets: 0, errors: 0 };
+  for (const e of extras) {
+    const s = sumEntry(e);
+    totals.synced += s.synced;
+    totals.skipped += s.skipped;
+    totals.targets += s.targets;
+    totals.errors += s.errors;
+  }
+  return totals;
+}
+
+function syncToastType(t: SyncTotals): 'success' | 'warning' | 'error' {
+  if (t.errors > 0 && t.synced === 0) return 'error';
+  if (t.errors > 0) return 'warning';
+  if (t.skipped > 0 && t.synced === 0) return 'warning';
+  return 'success';
+}
+
+function buildSyncToast(label: string, failLabel: string, t: SyncTotals, isForce: boolean): string {
+  if (t.errors > 0 && t.synced === 0)
+    return `${failLabel} \u2014 ${t.errors} error${t.errors > 1 ? 's' : ''}`;
+  if (t.synced === 0 && t.skipped === 0 && t.errors === 0)
+    return `${label} \u2014 no files in source`;
+  const parts: string[] = [];
+  parts.push(`${t.synced} file${t.synced !== 1 ? 's' : ''} to ${t.targets} target${t.targets !== 1 ? 's' : ''}`);
+  if (t.skipped > 0)
+    parts.push(`${t.skipped} skipped${!isForce ? ' (enable Force to override)' : ''}`);
+  if (t.errors > 0)
+    parts.push(`${t.errors} error${t.errors > 1 ? 's' : ''}`);
+  return `${label} \u2014 ${parts.join(', ')}`;
+}
+
 // ─── ExtrasPage ───────────────────────────────────────────────────────────────
 
 export default function ExtrasPage() {
@@ -315,6 +368,7 @@ export default function ExtrasPage() {
   const [removeName, setRemoveName] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
   const [syncingAll, setSyncingAll] = useState(false);
+  const [force, setForce] = useState(false);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.extras });
@@ -326,8 +380,10 @@ export default function ExtrasPage() {
   const handleSyncAll = async () => {
     setSyncingAll(true);
     try {
-      await api.syncExtras();
-      toast('All extras synced', 'success');
+      const res = await api.syncExtras({ force });
+      const t = sumAll(res.extras);
+      toast(buildSyncToast('All extras synced', 'Extras sync failed', t, force), syncToastType(t));
+      setForce(false);
       invalidate();
     } catch (err: any) {
       toast(err.message, 'error');
@@ -338,8 +394,11 @@ export default function ExtrasPage() {
 
   const handleSync = async (name: string) => {
     try {
-      await api.syncExtras({ name });
-      toast(`"${name}" synced`, 'success');
+      const res = await api.syncExtras({ name, force });
+      const entry = res.extras.find((e) => e.name === name);
+      const t = sumEntry(entry);
+      toast(buildSyncToast(`"${name}" synced`, `"${name}" sync failed`, t, force), syncToastType(t));
+      setForce(false);
       invalidate();
     } catch (err: any) {
       toast(err.message, 'error');
@@ -390,10 +449,25 @@ export default function ExtrasPage() {
         actions={
           <>
             {extras.length > 0 && (
-              <Button variant="secondary" size="sm" onClick={handleSyncAll} disabled={syncingAll}>
-                <RefreshCw size={14} strokeWidth={2.5} className={syncingAll ? 'animate-spin' : ''} />
-                {syncingAll ? 'Syncing...' : 'Sync All'}
-              </Button>
+              <>
+                <Tooltip content="Overwrite existing files even when mode changed">
+                  <Button
+                    variant={force ? 'primary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setForce((f) => !f)}
+                    className={force ? 'bg-accent border-accent hover:bg-accent/85' : ''}
+                  >
+                    <Zap size={14} strokeWidth={2.5} />
+                    Force
+                  </Button>
+                </Tooltip>
+                <Tooltip content="Sync all extras to their targets">
+                  <Button variant="secondary" size="sm" onClick={handleSyncAll} disabled={syncingAll}>
+                    <RefreshCw size={14} strokeWidth={2.5} className={syncingAll ? 'animate-spin' : ''} />
+                    {syncingAll ? 'Syncing...' : 'Sync All'}
+                  </Button>
+                </Tooltip>
+              </>
             )}
             <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
               <Plus size={14} strokeWidth={2.5} /> Add Extra

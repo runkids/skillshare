@@ -61,7 +61,7 @@ skillshare fixes this:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Source Directory                          │
+│                    Source Directory                         │
 │   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
 │   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
 └─────────────────────────────────────────────────────────────┘

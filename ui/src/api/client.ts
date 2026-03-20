@@ -101,11 +101,12 @@ export interface ExtraDiffResult {
 export interface ExtrasSyncResult {
   name: string;
   targets: Array<{
-    path: string;
+    target: string;
     mode: string;
     synced: number;
     skipped: number;
     pruned: number;
+    errors?: string[];
     error?: string;
   }>;
 }

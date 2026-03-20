@@ -103,6 +103,7 @@ export default function SyncPage() {
       } else {
         toast(formatSyncToast(res.results), 'success');
       }
+      setForce(false);
       runDiff(); // Re-check diff after sync
       invalidateAfterSync(queryClient);
     } catch (e: unknown) {
