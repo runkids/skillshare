@@ -177,6 +177,10 @@ Filters work in **merge and copy modes**. Patterns use Go `filepath.Match` synta
 
 See [Configuration](/docs/reference/targets/configuration#include--exclude-target-filters) for pattern cheat sheet and scenarios.
 
+:::tip
+Target filters are one of three filtering layers. See [Filtering Reference](/docs/reference/filtering) for how they interact with `.skillignore` and SKILL.md `targets`.
+:::
+
 ## Options
 
 ### target add

@@ -41,6 +41,7 @@ const sidebars: SidebarsConfig = {
             'how-to/daily-tasks/backup-restore',
             'how-to/daily-tasks/project-workflow',
             'how-to/daily-tasks/creating-skills',
+            'how-to/daily-tasks/filtering-skills',
             'how-to/daily-tasks/organizing-skills',
             'how-to/daily-tasks/best-practices',
           ],
@@ -188,6 +189,7 @@ const sidebars: SidebarsConfig = {
             'reference/targets/configuration',
           ],
         },
+        'reference/filtering',
         {
           type: 'category',
           label: 'Appendix',

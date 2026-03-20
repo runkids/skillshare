@@ -203,6 +203,10 @@ draft-*
 
 Uses [gitignore syntax](https://git-scm.com/docs/gitignore) — one pattern per line. Supports `*` (single segment), `**` (any depth), `?`, `[abc]` (character class), `!pattern` (negation), `/pattern` (anchored), `pattern/` (directory-only), and `\#`/`\!` (escaped literals). Lines starting with `#` are comments. A group name like `internal-tools` excludes all skills under that directory; `internal-tools/helper` excludes only a specific skill. Both layers apply — if either matches, the skill is excluded.
 
+:::tip
+`.skillignore` is one of three filtering layers. See [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) for all scenarios including per-target filters and SKILL.md `targets`.
+:::
+
 ### .skillignore.local (Optional)
 
 A local-only override file that works alongside `.skillignore`. Place it in the same directory as a `.skillignore` (source root or tracked repo root). Patterns from `.skillignore.local` are appended after `.skillignore`, so negation patterns (`!pattern`) can override the base file:

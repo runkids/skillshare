@@ -51,6 +51,7 @@ skillshare fixes this:
 - **Built-in security** — audit skills for prompt injection and data exfiltration before use
 - **Team-ready** — project skills in `.skillshare/`, org-wide skills via tracked repos
 - **Local & lightweight** — single binary, no registry, no telemetry, fully offline-capable
+- **Fine-grained filtering** — control which skills reach which targets with [`.skillignore`](https://skillshare.runkids.cc/docs/how-to/daily-tasks/filtering-skills), SKILL.md `targets`, and per-target include/exclude
 
 > Coming from another tool? [Migration Guide](https://skillshare.runkids.cc/docs/how-to/advanced/migration) · [Comparison](https://skillshare.runkids.cc/docs/understand/philosophy/comparison)
 

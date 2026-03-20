@@ -301,6 +301,10 @@ targets:
 
 See [Configuration](/docs/reference/targets/configuration#include--exclude-target-filters) for full details.
 
+:::tip
+These are just one of three filtering layers. See [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills) for a complete guide covering `.skillignore`, SKILL.md `targets`, and target filters.
+:::
+
 ### Filter behavior examples
 
 Assume source contains:

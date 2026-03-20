@@ -6,6 +6,10 @@ sidebar_position: 2
 
 From idea to published skill.
 
+:::tip
+Want to control which targets receive your skill? See [Filtering Skills](/docs/how-to/daily-tasks/filtering-skills).
+:::
+
 ## Overview
 
 ```mermaid
