@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.17.9] - 2026-03-20
+
+### Bug Fixes
+
+- **Config page assistant panel now scrollable** — the right-side Structure/Diff panel now has a fixed 500px content area matching the editor height, enabling vertical scrolling when the YAML structure is long
+- **Removed false "Unknown target" warnings** — the config editor no longer flags custom target names as unknown. Target names are user-defined and freely configurable — any name is valid
+- **Audit rules assistant panel scrollable** — same fixed-height scrolling fix applied to the Audit Rules page's assistant panel
+
+### Improvements
+
+- **Richer `targets` field docs** — the `targets` field documentation example now shows all sub-fields (`path`, `mode`, `include`, `exclude`) with multiple targets
+- **Filter Studio virtual scrolling** — the skill preview list now uses virtual scrolling for smooth performance with large skill collections
+
 ## [0.17.8] - 2026-03-19
 
 ### New Features

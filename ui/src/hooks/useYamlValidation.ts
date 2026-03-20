@@ -35,7 +35,6 @@ function validateEnum(
 /** Pure validation function (testable without React) */
 export function validateYaml(
   source: string,
-  validTargets: string[],
 ): ValidationError[] {
   if (!source.trim()) return [];
 
@@ -60,21 +59,8 @@ export function validateYaml(
   validateEnum(errors, sourceLines, parsed.mode, 'mode', VALID_SYNC_MODES, 'mode');
   validateEnum(errors, sourceLines, parsed.sync_mode, 'sync_mode', VALID_SYNC_MODES, 'sync_mode');
 
-  // Validate target names and per-target mode
+  // Validate per-target mode
   if (parsed.targets) {
-    if (validTargets.length > 0) {
-      for (const name of Object.keys(parsed.targets)) {
-        if (!validTargets.includes(name)) {
-          const lineNum = findKeyLine(sourceLines, name);
-          const suggestion = closestMatch(name, validTargets);
-          const msg = suggestion
-            ? `Unknown target "${name}" — did you mean "${suggestion}"?`
-            : `Unknown target "${name}"`;
-          errors.push({ line: lineNum, message: msg, severity: 'warning' });
-        }
-      }
-    }
-
     for (const [name, cfg] of Object.entries(parsed.targets)) {
       if (cfg && typeof cfg === 'object' && 'mode' in cfg) {
         validateEnum(errors, sourceLines, (cfg as Record<string, unknown>).mode, 'mode', VALID_SYNC_MODES, `mode for target "${name}"`, name);
@@ -107,45 +93,14 @@ function findKeyLine(sourceLines: string[], key: string, afterKey?: string): num
   return 1;
 }
 
-/** Levenshtein distance */
-function levenshtein(a: string, b: string): number {
-  const m = a.length, n = b.length;
-  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] = a[i - 1] === b[j - 1]
-        ? dp[i - 1][j - 1]
-        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
-  }
-  return dp[m][n];
-}
-
-/** Find closest match within distance threshold */
-function closestMatch(input: string, candidates: string[]): string | null {
-  let best: string | null = null;
-  let bestDist = Infinity;
-  const threshold = Math.max(2, Math.floor(input.length / 2));
-  for (const c of candidates) {
-    const d = levenshtein(input.toLowerCase(), c.toLowerCase());
-    if (d < bestDist && d <= threshold) {
-      best = c;
-      bestDist = d;
-    }
-  }
-  return best;
-}
-
 /** React hook: debounced YAML validation */
-export function useYamlValidation(source: string, validTargets: string[]) {
+export function useYamlValidation(source: string) {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const validate = useCallback(() => {
-    setErrors(validateYaml(source, validTargets));
-  }, [source, validTargets]);
+    setErrors(validateYaml(source));
+  }, [source]);
 
   useEffect(() => {
     clearTimeout(timerRef.current);

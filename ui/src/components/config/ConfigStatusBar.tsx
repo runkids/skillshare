@@ -9,7 +9,6 @@ interface ConfigStatusBarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   onErrorsClick: () => void;
-  schemaUnavailable?: boolean;
   mode?: 'config' | 'skillignore' | 'audit';
 }
 
@@ -19,7 +18,6 @@ export default function ConfigStatusBar({
   collapsed,
   onToggleCollapse,
   onErrorsClick,
-  schemaUnavailable = false,
   mode = 'config',
 }: ConfigStatusBarProps) {
   const errorCount = errors.filter(e => e.severity === 'error').length;
@@ -35,7 +33,7 @@ export default function ConfigStatusBar({
         <>
           {isValid ? (
             <Badge variant="success" dot>
-              {schemaUnavailable ? 'Valid YAML (schema unavailable)' : 'Valid YAML'}
+              Valid YAML
             </Badge>
           ) : (
             <button

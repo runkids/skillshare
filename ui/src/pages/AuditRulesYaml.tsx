@@ -257,7 +257,7 @@ export default function AuditRulesYaml({
             panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
           }`}
         >
-          <Card className="h-full !p-0 !overflow-visible min-w-[280px]">
+          <Card className="!p-0 !overflow-visible min-w-[280px]">
             <AuditAssistantPanel
               errors={[]}
               changeCount={0}
@@ -325,7 +325,7 @@ export default function AuditRulesYaml({
           panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
         }`}
       >
-        <Card className="h-full !p-0 !overflow-visible min-w-[280px]">
+        <Card className="!p-0 !overflow-visible min-w-[280px]">
           <AuditAssistantPanel
             errors={errors}
             changeCount={changeCount}

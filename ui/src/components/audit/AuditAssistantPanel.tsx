@@ -155,7 +155,7 @@ export default function AuditAssistantPanel({
 
   return (
     <div
-      className="ss-audit-assistant-panel flex flex-col h-full border-l border-muted bg-surface"
+      className="ss-audit-assistant-panel flex flex-col h-full overflow-hidden border-l border-muted bg-surface"
       onKeyDown={handleKeyDown}
     >
       {/* Status bar */}
@@ -169,7 +169,7 @@ export default function AuditAssistantPanel({
       />
 
       {/* Context area */}
-      <div className="ss-panel-content flex-1 overflow-y-auto animate-fade-in">{renderContextArea()}</div>
+      <div className="ss-panel-content h-[500px] overflow-y-auto animate-fade-in">{renderContextArea()}</div>
 
       {/* Bottom bar */}
       <div className="ss-panel-toolbar flex items-center gap-2 px-2 py-1.5 border-t border-muted/40 bg-paper">

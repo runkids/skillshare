@@ -95,20 +95,8 @@ export default function ConfigPage() {
     }
   };
 
-  // Fetch target names for schema validation
-  const { data: targetsData, error: targetsError } = useQuery({
-    queryKey: queryKeys.targets.all,
-    queryFn: () => api.listTargets(),
-    staleTime: staleTimes.targets,
-  });
-  const validTargetNames = useMemo(
-    () => targetsData?.targets?.map((t: any) => t.name) ?? [],
-    [targetsData],
-  );
-  const schemaUnavailable = !!targetsError;
-
   // Assistant panel hooks
-  const { errors: yamlErrors } = useYamlValidation(raw, validTargetNames);
+  const { errors: yamlErrors } = useYamlValidation(raw);
   const { fieldPath, cursorLine, extension: cursorExtension } = useCursorField();
   const { diff, changeCount } = useLineDiff(configData?.raw ?? '', raw, !panelCollapsed);
 
@@ -380,13 +368,13 @@ export default function ConfigPage() {
             </div>
           </Card>
 
-          {/* Panel: collapses via CSS transition */}
+          {/* Assistant panel */}
           <div
             className={`hidden lg:block transition-all duration-300 ease-in-out overflow-hidden ${
               panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
             }`}
           >
-            <Card className="h-full !p-0 !overflow-visible min-w-[280px]">
+            <Card className="!p-0 !overflow-visible min-w-[280px]">
               <AssistantPanel
                 errors={yamlErrors}
                 changeCount={changeCount}
@@ -398,7 +386,6 @@ export default function ConfigPage() {
                 collapsed={panelCollapsed}
                 onToggleCollapse={togglePanel}
                 onRevert={() => setShowRevertDialog(true)}
-                schemaUnavailable={schemaUnavailable}
               />
             </Card>
           </div>
@@ -424,7 +411,7 @@ export default function ConfigPage() {
               panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
             }`}
           >
-            <Card className="h-full !p-0 !overflow-visible min-w-[280px]">
+            <Card className="!p-0 !overflow-visible min-w-[280px]">
               <AssistantPanel
                 mode="skillignore"
                 errors={[]}

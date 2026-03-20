@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Virtuoso } from 'react-virtuoso';
 import { Filter, Check, X, Info, PackageOpen, Search } from 'lucide-react';
 import { api } from '../api/client';
 import type { SyncMatrixEntry } from '../api/client';
@@ -249,20 +250,25 @@ export default function FilterStudioPage() {
               </div>
 
               <div
-                className="max-h-[28rem] overflow-y-auto border-2 border-dashed border-pencil-light/30"
+                className="border-2 border-dashed border-pencil-light/30"
                 style={{ borderRadius: radius.md }}
               >
-                {filteredPreview.map((entry) => (
-                  <PreviewRow
-                    key={entry.skill}
-                    entry={entry}
-                    onClick={() => handleToggleSkill(entry)}
-                  />
-                ))}
-                {filteredPreview.length === 0 && previewSearch && (
+                {filteredPreview.length === 0 && previewSearch ? (
                   <p className="text-sm text-pencil-light text-center py-6">
                     No skills matching "{previewSearch}"
                   </p>
+                ) : (
+                  <Virtuoso
+                    style={{ height: '28rem' }}
+                    totalCount={filteredPreview.length}
+                    overscan={200}
+                    itemContent={(index) => (
+                      <PreviewRow
+                        entry={filteredPreview[index]}
+                        onClick={() => handleToggleSkill(filteredPreview[index])}
+                      />
+                    )}
+                  />
                 )}
               </div>
 
@@ -280,7 +286,7 @@ export default function FilterStudioPage() {
 }
 
 /** Single preview row with status indicator and click-to-toggle */
-function PreviewRow({
+const PreviewRow = memo(function PreviewRow({
   entry,
   onClick,
 }: {
@@ -323,7 +329,7 @@ function PreviewRow({
       )}
     </div>
   );
-}
+});
 
 function StatusIcon({ status }: { status: SyncMatrixEntry['status'] }) {
   switch (status) {

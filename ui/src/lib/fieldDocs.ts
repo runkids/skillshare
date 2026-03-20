@@ -49,7 +49,7 @@ export const fieldDocs: Record<string, FieldDoc> = {
   targets: {
     description: 'Map of target AI tools to configure. Each target can have include/exclude filters and a sync mode override.',
     type: 'object',
-    example: 'targets:\n  claude:\n    include: ["my-skill"]',
+    example: 'targets:\n  claude:\n    path: ~/.claude/skills\n    mode: merge\n    include: ["skill-a", "skill-b"]\n    exclude: ["debug-only"]\n  cursor:\n    mode: symlink',
   },
   'targets.include': {
     description: 'List of skill names to include for this target. If set, only these skills are synced.',

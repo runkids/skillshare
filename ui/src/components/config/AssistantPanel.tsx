@@ -23,7 +23,6 @@ interface Props {
   collapsed: boolean;
   onToggleCollapse: () => void;
   onRevert: () => void;
-  schemaUnavailable?: boolean;
   mode?: 'config' | 'skillignore';
   ignoredSkills?: string[];
 }
@@ -39,7 +38,6 @@ export default function AssistantPanel({
   collapsed,
   onToggleCollapse,
   onRevert,
-  schemaUnavailable = false,
   mode = 'config',
   ignoredSkills = [],
 }: Props) {
@@ -121,7 +119,7 @@ export default function AssistantPanel({
 
   return (
     <div
-      className="ss-assistant-panel flex flex-col h-full border-l border-muted bg-surface"
+      className="ss-assistant-panel flex flex-col h-full overflow-hidden border-l border-muted bg-surface"
       onKeyDown={handleKeyDown}
     >
       {/* Status bar */}
@@ -131,12 +129,11 @@ export default function AssistantPanel({
         collapsed={collapsed}
         onToggleCollapse={onToggleCollapse}
         onErrorsClick={handleErrorsClick}
-        schemaUnavailable={schemaUnavailable}
         mode={mode}
       />
 
       {/* Context area */}
-      <div className="ss-panel-content flex-1 overflow-y-auto animate-fade-in">{renderContextArea()}</div>
+      <div className="ss-panel-content h-[500px] overflow-y-auto animate-fade-in">{renderContextArea()}</div>
 
       {/* Bottom bar — config mode only */}
       {mode === 'config' && (
