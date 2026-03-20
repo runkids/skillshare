@@ -30,6 +30,15 @@ export function useTheme() {
   return useContext(ThemeContext);
 }
 
+/** Read ?theme= URL param and persist to localStorage (runs once on load). */
+function applyUrlThemeParam(): void {
+  const p = new URLSearchParams(window.location.search).get('theme')?.toLowerCase();
+  if (!p) return;
+  if (p === 'dark' || p === 'light') localStorage.setItem('skillshare-theme-preference', p);
+  if (p === 'playful' || p === 'clean') localStorage.setItem('skillshare-style', p);
+}
+applyUrlThemeParam();
+
 function getInitialStyle(): Style {
   const stored = localStorage.getItem('skillshare-style');
   if (stored === 'clean') return 'clean';
@@ -80,6 +89,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       root.removeAttribute('data-theme');
     }
     localStorage.setItem('skillshare-style', style);
+    window.parent.postMessage({ type: 'theme-change', theme: style }, '*');
   }, [style]);
 
   // Apply mode to DOM and handle system listener
@@ -95,6 +105,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
 
     localStorage.setItem('skillshare-theme-preference', modePreference);
+    window.parent.postMessage({ type: 'theme-change', theme: resolved }, '*');
 
     if (modePreference !== 'system') return;
 
@@ -107,6 +118,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       } else {
         root.classList.remove('dark');
       }
+      window.parent.postMessage({ type: 'theme-change', theme: next }, '*');
     };
 
     mq.addEventListener('change', handler);
@@ -114,6 +126,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       mq.removeEventListener('change', handler);
     };
   }, [modePreference]);
+
+  // Sync theme from URL ?theme= param on popstate (back/forward navigation)
+  useEffect(() => {
+    function syncFromUrl() {
+      const p = new URLSearchParams(window.location.search).get('theme')?.toLowerCase();
+      if (!p) return;
+      if (p === 'dark' || p === 'light') {
+        applyWithTransition(() => setModePreferenceState(p));
+      }
+      if (p === 'playful' || p === 'clean') {
+        applyWithTransition(() => setStyleState(p));
+      }
+    }
+
+    window.addEventListener('popstate', syncFromUrl);
+    return () => window.removeEventListener('popstate', syncFromUrl);
+  }, []);
 
   const setStyle = useCallback((s: Style) => {
     applyWithTransition(() => setStyleState(s));

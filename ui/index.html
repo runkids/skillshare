@@ -16,7 +16,14 @@
     <script>
       // FOUC prevention: handle Clean theme + dark mode before first paint
       // Default is Playful (already set on <html>); only remove for explicit Clean
+      // URL ?theme= param overrides localStorage (values: dark, light, playful, clean)
       (function() {
+        var p = new URLSearchParams(location.search).get('theme');
+        if (p) {
+          p = p.toLowerCase();
+          if (p === 'dark' || p === 'light') localStorage.setItem('skillshare-theme-preference', p);
+          if (p === 'playful' || p === 'clean') localStorage.setItem('skillshare-style', p);
+        }
         var style = localStorage.getItem('skillshare-style');
         var pref = localStorage.getItem('skillshare-theme-preference');
         if (style === 'clean') {
