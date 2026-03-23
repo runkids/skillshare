@@ -1,0 +1,39 @@
+targets:
+  - name: cursor
+    global_config: "~/.cursor/mcp.json"
+    project_config: ".cursor/mcp.json"
+    key: mcpServers
+  - name: windsurf
+    global_config: "~/.codeium/windsurf/mcp_config.json"
+    project_config: ""
+    key: mcpServers
+    url_key: serverUrl
+  - name: gemini
+    global_config: "~/.gemini/settings.json"
+    project_config: ".gemini/settings.json"
+    key: mcpServers
+    url_key: httpUrl
+  - name: kiro
+    global_config: "~/.kiro/settings/mcp.json"
+    project_config: ".kiro/settings/mcp.json"
+    key: mcpServers
+  - name: trae
+    global_config: "~/.trae/mcp.json"
+    project_config: ".trae/mcp.json"
+    key: mcpServers
+  - name: roo
+    global_config: ""
+    project_config: ".roo/mcp.json"
+    key: mcpServers
+  - name: cline
+    global_config: ""
+    project_config: ".cline/mcp.json"
+    key: mcpServers
+  - name: copilot
+    global_config: ""
+    project_config: ".vscode/mcp.json"
+    key: servers
+  - name: claude
+    global_config: ""
+    project_config: ".mcp.json"
+    key: mcpServers
