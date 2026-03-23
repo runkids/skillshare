@@ -61,6 +61,11 @@ func cmdSync(args []string) error {
 		return cmdSyncExtras(args[1:])
 	}
 
+	// Subcommand: sync mcp
+	if len(args) > 0 && args[0] == "mcp" {
+		return cmdSyncMCP(args[1:])
+	}
+
 	// Extract --all flag before mode parsing
 	hasAll := false
 	var filteredArgs []string
@@ -112,6 +117,13 @@ func cmdSync(args []string) error {
 				fmt.Println()
 				if extrasErr := cmdSyncExtras(append([]string{"-p"}, rest...)); extrasErr != nil {
 					ui.Warning("Extras sync: %v", extrasErr)
+				}
+			}()
+			// Run project MCP sync after skills sync (text mode)
+			defer func() {
+				fmt.Println()
+				if mcpErr := cmdSyncMCP(append([]string{"-p"}, rest...)); mcpErr != nil {
+					ui.Warning("MCP sync: %v", mcpErr)
 				}
 			}()
 		}
@@ -256,6 +268,10 @@ func cmdSync(args []string) error {
 		fmt.Println()
 		if extrasErr := cmdSyncExtras(rest); extrasErr != nil {
 			ui.Warning("Extras sync: %v", extrasErr)
+		}
+		fmt.Println()
+		if mcpErr := cmdSyncMCP(rest); mcpErr != nil {
+			ui.Warning("MCP sync: %v", mcpErr)
 		}
 	}
 

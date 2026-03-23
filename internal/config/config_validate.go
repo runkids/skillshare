@@ -35,6 +35,11 @@ func ValidateConfig(cfg *Config) (warnings []string, err error) {
 		errs = append(errs, fmt.Sprintf("invalid global sync mode %q (valid: %s)", cfg.Mode, strings.Join(ValidSyncModes, ", ")))
 	}
 
+	// MCP sync mode
+	if !IsValidSyncMode(cfg.MCPMode) {
+		errs = append(errs, fmt.Sprintf("invalid mcp_mode %q (valid: %s)", cfg.MCPMode, strings.Join(ValidSyncModes, ", ")))
+	}
+
 	// Per-target validation
 	for name, target := range cfg.Targets {
 		if !IsValidSyncMode(target.Mode) {

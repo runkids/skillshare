@@ -74,7 +74,8 @@ type ExtraConfig struct {
 type Config struct {
 	Source       string                  `yaml:"source"`
 	ExtrasSource string                  `yaml:"extras_source,omitempty"`
-	Mode         string                  `yaml:"mode,omitempty"` // default mode: merge
+	Mode         string                  `yaml:"mode,omitempty"`     // default mode: merge
+	MCPMode      string                  `yaml:"mcp_mode,omitempty"` // merge (default), symlink, copy
 	Targets      map[string]TargetConfig `yaml:"targets"`
 	Extras       []ExtraConfig           `yaml:"extras,omitempty"`
 	Ignore       []string                `yaml:"ignore,omitempty"`
