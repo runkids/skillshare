@@ -40,6 +40,7 @@ var commands = map[string]func([]string) error{
 	"audit":     cmdAudit,
 	"hub":       cmdHub,
 	"log":       cmdLog,
+	"mcp":       cmdMCP,
 	"ui":        cmdUI,
 	"tui":       cmdTUIToggle,
 	"extras":    cmdExtras,
