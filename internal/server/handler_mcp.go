@@ -42,37 +42,40 @@ func (s *Server) handleMCPList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	targets := mcp.MCPTargetsForMode(projectMode)
-
 	type targetStatus struct {
 		Name   string `json:"name"`
 		Path   string `json:"path"`
 		Status string `json:"status"` // "synced", "not synced", "skipped"
 	}
 
-	targetStatuses := make([]targetStatus, 0, len(targets))
-	for _, t := range targets {
-		var targetPath string
-		if projectMode {
-			targetPath = t.ProjectConfigPath(projectRoot)
-		} else {
-			targetPath = t.GlobalConfigPath()
-		}
+	// Only compute target statuses when servers are configured
+	var targetStatuses []targetStatus
+	if len(cfg.Servers) > 0 {
+		targets := mcp.MCPTargetsForMode(projectMode)
+		targetStatuses = make([]targetStatus, 0, len(targets))
+		for _, t := range targets {
+			var targetPath string
+			if projectMode {
+				targetPath = t.ProjectConfigPath(projectRoot)
+			} else {
+				targetPath = t.GlobalConfigPath()
+			}
 
-		ts := targetStatus{
-			Name: t.Name,
-			Path: targetPath,
-		}
+			ts := targetStatus{
+				Name: t.Name,
+				Path: targetPath,
+			}
 
-		if targetPath == "" {
-			ts.Status = "skipped"
-		} else if _, err := os.Stat(targetPath); os.IsNotExist(err) {
-			ts.Status = "not synced"
-		} else {
-			ts.Status = "synced"
-		}
+			if targetPath == "" {
+				ts.Status = "skipped"
+			} else if _, err := os.Stat(targetPath); os.IsNotExist(err) {
+				ts.Status = "not synced"
+			} else {
+				ts.Status = "synced"
+			}
 
-		targetStatuses = append(targetStatuses, ts)
+			targetStatuses = append(targetStatuses, ts)
+		}
 	}
 
 	if mcpMode == "" {
@@ -278,6 +281,12 @@ func (s *Server) handleMCPSync(w http.ResponseWriter, r *http.Request) {
 
 	if err := cfg.Validate(); err != nil {
 		writeError(w, http.StatusBadRequest, "mcp config validation failed: "+err.Error())
+		return
+	}
+
+	// Nothing to sync if no servers defined
+	if len(cfg.Servers) == 0 {
+		writeJSON(w, map[string]any{"results": []any{}, "mode": mcpMode})
 		return
 	}
 
