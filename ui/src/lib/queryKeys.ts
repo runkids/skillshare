@@ -41,6 +41,7 @@ export const queryKeys = {
   extrasDiff: (name?: string) => ['extras-diff', name ?? '__all'] as const,
   doctor: ['doctor'] as const,
   skillignore: ['skillignore'] as const,
+  mcp: ['mcp'] as const,
 };
 
 // Stale times per data type
@@ -62,4 +63,5 @@ export const staleTimes = {
   extras: 30 * 1000,        // 30s — fast-changing like diff
   doctor: 60 * 1000,        // 1min — health checks
   skillignore: 5 * 60 * 1000, // 5min — rarely changes
+  mcp: 30 * 1000,           // 30s
 };

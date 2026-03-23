@@ -23,6 +23,7 @@ import {
   ChevronUp,
   ChevronDown,
   Stethoscope,
+  Plug,
 } from 'lucide-react';
 import { radius } from '../design';
 import { useAppContext } from '../context/AppContext';
@@ -55,6 +56,7 @@ const navGroups: NavGroup[] = [
     items: [
       { to: '/skills', icon: Puzzle, label: 'Skills' },
       { to: '/extras', icon: FolderPlus, label: 'Extras' },
+      { to: '/mcp', icon: Plug, label: 'MCP' },
       { to: '/targets', icon: Target, label: 'Targets' },
       { to: '/search', icon: Search, label: 'Search' },
     ],

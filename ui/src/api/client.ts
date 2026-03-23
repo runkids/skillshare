@@ -68,6 +68,41 @@ function createSSEStream(
   return es;
 }
 
+// MCP types
+export interface MCPServer {
+  name: string;
+  command?: string;
+  args?: string[];
+  url?: string;
+  headers?: Record<string, string>;
+  env?: Record<string, string>;
+  targets?: string[];
+  disabled: boolean;
+}
+
+export interface MCPTargetStatus {
+  name: string;
+  config_path: string;
+  status: string;
+  servers?: string[];
+}
+
+export interface MCPListResponse {
+  servers: Record<string, MCPServer>;
+  targets: MCPTargetStatus[];
+  mcp_mode: string;
+}
+
+export interface MCPSyncResult {
+  name: string;
+  status: string;
+  path?: string;
+  added?: string[];
+  updated?: string[];
+  removed?: string[];
+  error?: string;
+}
+
 // Extras types
 export interface ExtraTarget {
   path: string;
@@ -330,6 +365,34 @@ export const api = {
     apiFetch<{ success: boolean }>(`/trash/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   emptyTrash: () =>
     apiFetch<{ success: boolean; removed: number }>('/trash/empty', { method: 'POST' }),
+
+  // MCP
+  listMCP: () => apiFetch<MCPListResponse>('/mcp'),
+  createMCP: (data: {
+    name: string;
+    command?: string;
+    args?: string[];
+    url?: string;
+    headers?: Record<string, string>;
+    env?: Record<string, string>;
+    targets?: string[];
+  }) =>
+    apiFetch<{ success: boolean }>('/mcp', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  deleteMCP: (name: string) =>
+    apiFetch<{ success: boolean }>(`/mcp/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  updateMCP: (name: string, data: { disabled?: boolean }) =>
+    apiFetch<{ success: boolean }>(`/mcp/${encodeURIComponent(name)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  syncMCP: (opts?: { force?: boolean; dry_run?: boolean }) =>
+    apiFetch<{ results: MCPSyncResult[]; mode: string }>('/mcp/sync', {
+      method: 'POST',
+      body: JSON.stringify(opts ?? {}),
+    }),
 
   // Extras
   listExtras: () => apiFetch<{ extras: Extra[] }>('/extras'),
