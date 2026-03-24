@@ -59,8 +59,9 @@ type HubConfig struct {
 
 // ExtraTargetConfig holds configuration for one target of an extra resource.
 type ExtraTargetConfig struct {
-	Path string `yaml:"path"`
-	Mode string `yaml:"mode,omitempty"` // merge (default), symlink, or copy
+	Path    string `yaml:"path"`
+	Mode    string `yaml:"mode,omitempty"`    // merge (default), symlink, or copy
+	Flatten bool   `yaml:"flatten,omitempty"` // flatten subdirectories into target root
 }
 
 // ExtraConfig holds configuration for a non-skill resource type (rules, commands, etc.).

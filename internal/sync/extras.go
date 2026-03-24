@@ -12,10 +12,11 @@ import (
 
 // ExtraResult holds the result of an extras sync operation.
 type ExtraResult struct {
-	Synced  int      // Files synced (new + already correct)
-	Skipped int      // Files skipped (local conflict, no --force)
-	Pruned  int      // Orphan files removed
-	Errors  []string // Non-fatal error messages
+	Synced   int      // Files synced (new + already correct)
+	Skipped  int      // Files skipped (local conflict, no --force)
+	Pruned   int      // Orphan files removed
+	Errors   []string // Non-fatal error messages
+	Warnings []string // Non-fatal warnings (e.g. flatten collisions)
 }
 
 // DiscoverExtraFiles recursively walks sourcePath and returns relative paths
@@ -68,16 +69,19 @@ func DiscoverExtraFiles(sourcePath string) ([]string, error) {
 //
 // When dryRun is true the function counts what would happen but makes no
 // filesystem changes.
-func SyncExtra(sourcePath, targetPath, mode string, dryRun, force bool) (*ExtraResult, error) {
+func SyncExtra(sourcePath, targetPath, mode string, dryRun, force, flatten bool) (*ExtraResult, error) {
 	if mode == "" {
 		mode = "merge"
+	}
+	if flatten && mode == "symlink" {
+		return nil, fmt.Errorf("flatten cannot be used with symlink mode")
 	}
 
 	switch mode {
 	case "symlink":
 		return syncExtraSymlinkMode(sourcePath, targetPath, dryRun, force)
 	case "merge", "copy":
-		return syncExtraPerFile(sourcePath, targetPath, mode, dryRun, force)
+		return syncExtraPerFile(sourcePath, targetPath, mode, dryRun, force, flatten)
 	default:
 		return nil, fmt.Errorf("unsupported extras sync mode: %q", mode)
 	}
@@ -142,7 +146,7 @@ func syncExtraSymlinkMode(sourcePath, targetPath string, dryRun, force bool) (*E
 }
 
 // syncExtraPerFile handles merge (symlink) and copy modes on a per-file basis.
-func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force bool) (*ExtraResult, error) {
+func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatten bool) (*ExtraResult, error) {
 	result := &ExtraResult{}
 
 	files, err := DiscoverExtraFiles(sourcePath)
@@ -155,9 +159,23 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force bool) (
 		return nil, fmt.Errorf("failed to resolve source path: %w", err)
 	}
 
+	seen := make(map[string]string) // basename → original rel path (flatten only)
+
 	for _, rel := range files {
 		srcFile := filepath.Join(absSrc, rel)
-		tgtFile := filepath.Join(targetPath, rel)
+		tgtRel := rel
+		if flatten {
+			base := filepath.Base(rel)
+			if prev, exists := seen[base]; exists {
+				result.Skipped++
+				result.Warnings = append(result.Warnings,
+					fmt.Sprintf("flatten conflict: %s skipped (%s already synced from %s)", rel, base, prev))
+				continue
+			}
+			seen[base] = rel
+			tgtRel = base
+		}
+		tgtFile := filepath.Join(targetPath, tgtRel)
 
 		synced, skipped, syncErr := syncOneExtraFile(srcFile, tgtFile, mode, dryRun, force)
 		if syncErr != nil {
@@ -171,8 +189,14 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force bool) (
 	// Prune orphans (only when not dry-run)
 	if !dryRun {
 		sourceSet := make(map[string]bool, len(files))
-		for _, f := range files {
-			sourceSet[f] = true
+		if flatten {
+			for base := range seen {
+				sourceSet[base] = true
+			}
+		} else {
+			for _, f := range files {
+				sourceSet[f] = true
+			}
 		}
 		pruned, pruneErrors := pruneExtraOrphans(targetPath, sourceSet, mode)
 		result.Pruned = pruned
@@ -345,9 +369,13 @@ func EffectiveMode(mode string) string {
 
 // CheckSyncStatus compares source files against the target directory and
 // returns a status string: "synced" or "drift".
-func CheckSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string) string {
+func CheckSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string, flatten bool) string {
 	for _, rel := range sourceFiles {
-		targetFile := filepath.Join(targetDir, rel)
+		tgtRel := rel
+		if flatten {
+			tgtRel = filepath.Base(rel)
+		}
+		targetFile := filepath.Join(targetDir, tgtRel)
 		sourceFile := filepath.Join(sourceDir, rel)
 
 		tInfo, err := os.Lstat(targetFile)
@@ -396,7 +424,9 @@ type ExtraCollectResult struct {
 
 // CollectExtraFiles scans targetDir for non-symlink local files,
 // copies them to sourceDir, and replaces originals with symlinks.
-func CollectExtraFiles(sourceDir, targetDir string, dryRun bool) (*ExtraCollectResult, error) {
+// When flatten is true, collected files are placed in the source root
+// (basename only) rather than preserving the target subdirectory structure.
+func CollectExtraFiles(sourceDir, targetDir string, dryRun, flatten bool) (*ExtraCollectResult, error) {
 	result := &ExtraCollectResult{}
 
 	if _, err := os.Stat(targetDir); os.IsNotExist(err) {
@@ -439,7 +469,11 @@ func CollectExtraFiles(sourceDir, targetDir string, dryRun bool) (*ExtraCollectR
 			return nil
 		}
 
-		destPath := filepath.Join(sourceDir, rel)
+		destRel := rel
+		if flatten {
+			destRel = filepath.Base(rel)
+		}
+		destPath := filepath.Join(sourceDir, destRel)
 
 		// Skip if already exists in source
 		if _, err := os.Stat(destPath); err == nil {

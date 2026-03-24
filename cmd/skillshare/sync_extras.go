@@ -24,12 +24,13 @@ type syncExtrasJSONEntry struct {
 }
 
 type syncExtrasJSONTarget struct {
-	Path    string `json:"path"`
-	Mode    string `json:"mode"`
-	Synced  int    `json:"synced"`
-	Skipped int    `json:"skipped"`
-	Pruned  int    `json:"pruned"`
-	Error   string `json:"error,omitempty"`
+	Path     string   `json:"path"`
+	Mode     string   `json:"mode"`
+	Synced   int      `json:"synced"`
+	Skipped  int      `json:"skipped"`
+	Pruned   int      `json:"pruned"`
+	Error    string   `json:"error,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 func cmdSyncExtras(args []string) error {
@@ -132,7 +133,7 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 				mode = "merge"
 			}
 			targetPath := config.ExpandPath(target.Path)
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force)
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten)
 			shortTarget := shortenPath(targetPath)
 
 			jsonTarget := syncExtrasJSONTarget{
@@ -158,6 +159,7 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 			jsonTarget.Synced = result.Synced
 			jsonTarget.Skipped = result.Skipped
 			jsonTarget.Pruned = result.Pruned
+			jsonTarget.Warnings = result.Warnings
 			if len(result.Errors) > 0 {
 				jsonTarget.Error = strings.Join(result.Errors, "; ")
 			}
@@ -180,6 +182,9 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 
 				for _, e := range result.Errors {
 					ui.Warning("    %s", e)
+				}
+				for _, w := range result.Warnings {
+					ui.Info("    %s", w)
 				}
 			}
 		}
@@ -275,7 +280,7 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 				targetPath = filepath.Join(cwd, targetPath)
 			}
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force)
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten)
 			shortTarget := shortenPath(targetPath)
 
 			jsonTarget := syncExtrasJSONTarget{
@@ -301,6 +306,7 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 			jsonTarget.Synced = result.Synced
 			jsonTarget.Skipped = result.Skipped
 			jsonTarget.Pruned = result.Pruned
+			jsonTarget.Warnings = result.Warnings
 			if len(result.Errors) > 0 {
 				jsonTarget.Error = strings.Join(result.Errors, "; ")
 			}
@@ -322,6 +328,9 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 
 				for _, e := range result.Errors {
 					ui.Warning("    %s", e)
+				}
+				for _, w := range result.Warnings {
+					ui.Info("    %s", w)
 				}
 			}
 		}
@@ -393,7 +402,7 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 			}
 			targetPath := config.ExpandPath(target.Path)
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force)
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten)
 			jt := syncExtrasJSONTarget{Path: targetPath, Mode: mode}
 			if syncErr != nil {
 				jt.Error = syncErr.Error()
@@ -401,6 +410,7 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 				jt.Synced = result.Synced
 				jt.Skipped = result.Skipped
 				jt.Pruned = result.Pruned
+				jt.Warnings = result.Warnings
 				if len(result.Errors) > 0 {
 					jt.Error = strings.Join(result.Errors, "; ")
 				}

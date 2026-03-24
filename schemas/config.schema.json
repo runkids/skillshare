@@ -221,6 +221,11 @@
           "description": "Sync mode for this extra target. Defaults to merge.",
           "enum": ["merge", "symlink", "copy"],
           "default": "merge"
+        },
+        "flatten": {
+          "type": "boolean",
+          "description": "When true, files from subdirectories are synced directly into the target root instead of preserving directory structure.",
+          "default": false
         }
       }
     }

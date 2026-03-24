@@ -99,7 +99,7 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 			} else if _, statErr := os.Stat(t.Path); os.IsNotExist(statErr) {
 				ti.Status = "not synced"
 			} else {
-				ti.Status = syncpkg.CheckSyncStatus(files, sourceDir, t.Path, m)
+				ti.Status = syncpkg.CheckSyncStatus(files, sourceDir, t.Path, m, t.Flatten)
 			}
 
 			entry.Targets = append(entry.Targets, ti)
@@ -402,7 +402,7 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 				Errors: []string{},
 			}
 
-			res, err := syncpkg.SyncExtra(sourceDir, t.Path, m, body.DryRun, body.Force)
+			res, err := syncpkg.SyncExtra(sourceDir, t.Path, m, body.DryRun, body.Force, t.Flatten)
 			if err != nil {
 				tr.Error = err.Error()
 			} else {

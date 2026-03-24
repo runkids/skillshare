@@ -46,6 +46,14 @@ func ValidateExtraMode(mode string) error {
 	return nil
 }
 
+// ValidateExtraFlatten checks that flatten is not used with symlink mode.
+func ValidateExtraFlatten(flatten bool, mode string) error {
+	if flatten && mode == "symlink" {
+		return fmt.Errorf("flatten cannot be used with symlink mode (symlink links the entire directory)")
+	}
+	return nil
+}
+
 // ValidateExtraNameUnique checks that the name doesn't duplicate an existing extra.
 func ValidateExtraNameUnique(name string, existing []ExtraConfig) error {
 	for _, e := range existing {

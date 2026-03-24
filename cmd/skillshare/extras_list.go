@@ -59,7 +59,7 @@ func buildExtrasListEntries(extras []config.ExtraConfig, extrasSource string, so
 			} else if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
 				ti.Status = "not synced"
 			} else {
-				ti.Status = sync.CheckSyncStatus(files, sourceDir, resolvedPath, m)
+				ti.Status = sync.CheckSyncStatus(files, sourceDir, resolvedPath, m, t.Flatten)
 			}
 
 			entry.Targets = append(entry.Targets, ti)

@@ -978,7 +978,7 @@ func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
 	for _, t := range targets {
 		mode := sync.EffectiveMode(t.Mode)
 		resolved := config.ExpandPath(t.Path)
-		_, err := sync.SyncExtra(sourceDir, resolved, mode, false, false)
+		_, err := sync.SyncExtra(sourceDir, resolved, mode, false, false, t.Flatten)
 		if err != nil {
 			return "", fmt.Errorf("sync %s: %w", t.Path, err)
 		}
@@ -997,7 +997,7 @@ func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
 	collected := 0
 	for _, t := range targets {
 		resolved := config.ExpandPath(t.Path)
-		result, err := sync.CollectExtraFiles(sourceDir, resolved, false)
+		result, err := sync.CollectExtraFiles(sourceDir, resolved, false, t.Flatten)
 		if err != nil {
 			return "", fmt.Errorf("collect from %s: %w", t.Path, err)
 		}

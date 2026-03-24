@@ -64,7 +64,7 @@ func TestSyncExtra_MergeMode(t *testing.T) {
 		"config.yml": "key: value",
 	})
 
-	result, err := SyncExtra(src, tgt, "merge", false, false)
+	result, err := SyncExtra(src, tgt, "merge", false, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestSyncExtra_CopyMode(t *testing.T) {
 		"readme.txt": "hello world",
 	})
 
-	result, err := SyncExtra(src, tgt, "copy", false, false)
+	result, err := SyncExtra(src, tgt, "copy", false, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestSyncExtra_ConflictSkipped(t *testing.T) {
 	// Pre-create a local file at the target
 	os.WriteFile(filepath.Join(tgt, "conflict.md"), []byte("local version"), 0644)
 
-	result, err := SyncExtra(src, tgt, "merge", false, false)
+	result, err := SyncExtra(src, tgt, "merge", false, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestSyncExtra_ConflictForce(t *testing.T) {
 	// Pre-create a local file at the target
 	os.WriteFile(filepath.Join(tgt, "conflict.md"), []byte("local version"), 0644)
 
-	result, err := SyncExtra(src, tgt, "merge", false, true)
+	result, err := SyncExtra(src, tgt, "merge", false, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestSyncExtra_NestedDirectories(t *testing.T) {
 		filepath.Join("a", "b", "deep.md"): "deep content",
 	})
 
-	result, err := SyncExtra(src, tgt, "merge", false, false)
+	result, err := SyncExtra(src, tgt, "merge", false, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,7 @@ func TestSyncExtra_NestedDirectories(t *testing.T) {
 func TestSyncExtra_EmptySource(t *testing.T) {
 	src, tgt := setupExtrasTest(t, map[string]string{})
 
-	result, err := SyncExtra(src, tgt, "merge", false, false)
+	result, err := SyncExtra(src, tgt, "merge", false, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestSyncExtra_EmptySource(t *testing.T) {
 
 func TestSyncExtra_SourceNotExist(t *testing.T) {
 	tgt := t.TempDir()
-	_, err := SyncExtra("/nonexistent/extras/source", tgt, "merge", false, false)
+	_, err := SyncExtra("/nonexistent/extras/source", tgt, "merge", false, false, false)
 	if err == nil {
 		t.Error("expected error for non-existent source")
 	}
@@ -237,7 +237,7 @@ func TestSyncExtra_DryRun(t *testing.T) {
 		"beta.md":  "b",
 	})
 
-	result, err := SyncExtra(src, tgt, "merge", true, false)
+	result, err := SyncExtra(src, tgt, "merge", true, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +260,7 @@ func TestSyncExtra_Idempotent(t *testing.T) {
 	})
 
 	// First sync
-	r1, err := SyncExtra(src, tgt, "merge", false, false)
+	r1, err := SyncExtra(src, tgt, "merge", false, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +269,7 @@ func TestSyncExtra_Idempotent(t *testing.T) {
 	}
 
 	// Second sync — should still report synced (already correct)
-	r2, err := SyncExtra(src, tgt, "merge", false, false)
+	r2, err := SyncExtra(src, tgt, "merge", false, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +290,7 @@ func TestSyncExtra_PrunesOrphans(t *testing.T) {
 	})
 
 	// First sync both files
-	_, err := SyncExtra(src, tgt, "merge", false, false)
+	_, err := SyncExtra(src, tgt, "merge", false, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +299,7 @@ func TestSyncExtra_PrunesOrphans(t *testing.T) {
 	os.Remove(filepath.Join(src, "remove.md"))
 
 	// Sync again — should prune orphan
-	result, err := SyncExtra(src, tgt, "merge", false, false)
+	result, err := SyncExtra(src, tgt, "merge", false, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func TestCollectExtraFiles(t *testing.T) {
 	os.MkdirAll(targetDir, 0755)
 	os.WriteFile(filepath.Join(targetDir, "rule1.md"), []byte("# Rule 1"), 0644)
 
-	result, err := CollectExtraFiles(sourceDir, targetDir, false)
+	result, err := CollectExtraFiles(sourceDir, targetDir, false, false)
 	if err != nil {
 		t.Fatalf("CollectExtraFiles: %v", err)
 	}
@@ -363,7 +363,7 @@ func TestCollectExtraFiles_DryRun(t *testing.T) {
 	os.MkdirAll(targetDir, 0755)
 	os.WriteFile(filepath.Join(targetDir, "rule1.md"), []byte("# Rule 1"), 0644)
 
-	result, err := CollectExtraFiles(sourceDir, targetDir, true)
+	result, err := CollectExtraFiles(sourceDir, targetDir, true, false)
 	if err != nil {
 		t.Fatalf("CollectExtraFiles dry run: %v", err)
 	}
@@ -397,7 +397,7 @@ func TestCollectExtraFiles_SkipsExisting(t *testing.T) {
 	os.WriteFile(filepath.Join(sourceDir, "rule1.md"), []byte("source version"), 0644)
 	os.WriteFile(filepath.Join(targetDir, "rule1.md"), []byte("target version"), 0644)
 
-	result, err := CollectExtraFiles(sourceDir, targetDir, false)
+	result, err := CollectExtraFiles(sourceDir, targetDir, false, false)
 	if err != nil {
 		t.Fatalf("CollectExtraFiles: %v", err)
 	}
@@ -420,7 +420,7 @@ func TestSyncExtra_SymlinkMode(t *testing.T) {
 	tmp := t.TempDir()
 	tgt := filepath.Join(tmp, "extras-link")
 
-	result, err := SyncExtra(src, tgt, "symlink", false, false)
+	result, err := SyncExtra(src, tgt, "symlink", false, false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -451,5 +451,176 @@ func TestSyncExtra_SymlinkMode(t *testing.T) {
 	}
 	if string(content) != "content" {
 		t.Errorf("expected 'content', got %q", string(content))
+	}
+}
+
+// --- Flatten tests ---
+
+func TestSyncExtra_FlattenMerge(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{
+		"sub1/a.md": "# A from sub1",
+		"sub2/b.md": "# B from sub2",
+		"root.md":   "# Root",
+	})
+	result, err := SyncExtra(src, tgt, "merge", false, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Synced != 3 {
+		t.Errorf("expected 3 synced, got %d", result.Synced)
+	}
+	for _, name := range []string{"a.md", "b.md", "root.md"} {
+		info, lErr := os.Lstat(filepath.Join(tgt, name))
+		if lErr != nil {
+			t.Errorf("expected %s in target root: %v", name, lErr)
+			continue
+		}
+		if info.Mode()&os.ModeSymlink == 0 {
+			t.Errorf("expected %s to be a symlink", name)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(tgt, "sub1")); !os.IsNotExist(err) {
+		t.Error("sub1/ should not exist in target when flatten is true")
+	}
+}
+
+func TestSyncExtra_FlattenCopy(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{
+		"deep/nested/file.md": "# Deep",
+	})
+	result, err := SyncExtra(src, tgt, "copy", false, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Synced != 1 {
+		t.Errorf("expected 1 synced, got %d", result.Synced)
+	}
+	tgtFile := filepath.Join(tgt, "file.md")
+	info, err := os.Lstat(tgtFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		t.Error("expected real file in copy mode, got symlink")
+	}
+	content, _ := os.ReadFile(tgtFile)
+	if string(content) != "# Deep" {
+		t.Errorf("content = %q, want %q", string(content), "# Deep")
+	}
+}
+
+func TestSyncExtra_FlattenCollision(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{
+		"sub1/conflict.md": "# From sub1",
+		"sub2/conflict.md": "# From sub2",
+	})
+	result, err := SyncExtra(src, tgt, "merge", false, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Synced != 1 {
+		t.Errorf("expected 1 synced, got %d", result.Synced)
+	}
+	if result.Skipped != 1 {
+		t.Errorf("expected 1 skipped (collision), got %d", result.Skipped)
+	}
+	if len(result.Warnings) != 1 {
+		t.Errorf("expected 1 warning, got %d", len(result.Warnings))
+	}
+	link := filepath.Join(tgt, "conflict.md")
+	dest, _ := os.Readlink(link)
+	absDest, _ := filepath.Abs(dest)
+	absSrc, _ := filepath.Abs(filepath.Join(src, "sub1", "conflict.md"))
+	if absDest != absSrc {
+		t.Errorf("symlink points to %s, expected %s (first file should win)", absDest, absSrc)
+	}
+}
+
+func TestSyncExtra_FlattenPrune(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{
+		"sub/keep.md": "# Keep",
+	})
+	_, err := SyncExtra(src, tgt, "merge", false, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	orphanSrc := filepath.Join(src, "old", "removed.md")
+	os.MkdirAll(filepath.Dir(orphanSrc), 0755)
+	os.WriteFile(orphanSrc, []byte("old"), 0644)
+	os.Symlink(orphanSrc, filepath.Join(tgt, "removed.md"))
+	os.RemoveAll(filepath.Join(src, "old"))
+
+	result, err := SyncExtra(src, tgt, "merge", false, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Pruned != 1 {
+		t.Errorf("expected 1 pruned, got %d", result.Pruned)
+	}
+	if _, err := os.Lstat(filepath.Join(tgt, "keep.md")); err != nil {
+		t.Error("keep.md should still exist")
+	}
+	if _, err := os.Lstat(filepath.Join(tgt, "removed.md")); !os.IsNotExist(err) {
+		t.Error("removed.md should have been pruned")
+	}
+}
+
+func TestSyncExtra_FlattenDryRun(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{
+		"sub/file.md": "content",
+	})
+	result, err := SyncExtra(src, tgt, "merge", true, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Synced != 1 {
+		t.Errorf("expected 1 synced in dry-run, got %d", result.Synced)
+	}
+	entries, _ := os.ReadDir(tgt)
+	if len(entries) != 0 {
+		t.Errorf("expected empty target in dry-run, got %d entries", len(entries))
+	}
+}
+
+func TestSyncExtra_FlattenDryRunCollision(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{
+		"a/same.md": "# A",
+		"b/same.md": "# B",
+	})
+	result, err := SyncExtra(src, tgt, "merge", true, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Synced != 1 {
+		t.Errorf("expected 1 synced, got %d", result.Synced)
+	}
+	if result.Skipped != 1 {
+		t.Errorf("expected 1 skipped (collision), got %d", result.Skipped)
+	}
+	if len(result.Warnings) != 1 {
+		t.Errorf("expected 1 collision warning in dry-run, got %d", len(result.Warnings))
+	}
+}
+
+func TestSyncExtra_FlattenIdempotent(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{
+		"sub/file.md": "content",
+	})
+	r1, err := SyncExtra(src, tgt, "merge", false, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r1.Synced != 1 {
+		t.Fatalf("first sync: expected 1 synced, got %d", r1.Synced)
+	}
+	r2, err := SyncExtra(src, tgt, "merge", false, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r2.Synced != 1 {
+		t.Errorf("second sync: expected 1 synced (idempotent), got %d", r2.Synced)
+	}
+	if r2.Skipped != 0 {
+		t.Errorf("second sync: expected 0 skipped, got %d", r2.Skipped)
 	}
 }

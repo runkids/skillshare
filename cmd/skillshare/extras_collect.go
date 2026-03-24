@@ -73,14 +73,14 @@ func extrasCollectGlobal(name, fromPath string, dryRun bool, start time.Time) er
 		return err
 	}
 
-	extra, targetPath, err := resolveCollectExtra(cfg.Extras, name, fromPath)
+	extra, targetPath, flatten, err := resolveCollectExtra(cfg.Extras, name, fromPath)
 	if err != nil {
 		return err
 	}
 
 	targetPath = config.ExpandPath(targetPath)
 	sourceDir := config.ResolveExtrasSourceDir(*extra, cfg.ExtrasSource, cfg.Source)
-	return runCollect(sourceDir, targetPath, extra.Name, dryRun, "global", config.ConfigPath(), start)
+	return runCollect(sourceDir, targetPath, extra.Name, dryRun, flatten, "global", config.ConfigPath(), start)
 }
 
 func extrasCollectProject(cwd, name, fromPath string, dryRun bool, start time.Time) error {
@@ -89,7 +89,7 @@ func extrasCollectProject(cwd, name, fromPath string, dryRun bool, start time.Ti
 		return err
 	}
 
-	extra, targetPath, err := resolveCollectExtra(projCfg.Extras, name, fromPath)
+	extra, targetPath, flatten, err := resolveCollectExtra(projCfg.Extras, name, fromPath)
 	if err != nil {
 		return err
 	}
@@ -101,11 +101,11 @@ func extrasCollectProject(cwd, name, fromPath string, dryRun bool, start time.Ti
 	}
 
 	sourceDir := config.ExtrasSourceDirProject(cwd, extra.Name)
-	return runCollect(sourceDir, targetPath, extra.Name, dryRun, "project", config.ProjectConfigPath(cwd), start)
+	return runCollect(sourceDir, targetPath, extra.Name, dryRun, flatten, "project", config.ProjectConfigPath(cwd), start)
 }
 
-// resolveCollectExtra finds the extra by name and determines target path.
-func resolveCollectExtra(extras []config.ExtraConfig, name, fromPath string) (*config.ExtraConfig, string, error) {
+// resolveCollectExtra finds the extra by name and determines target path and flatten flag.
+func resolveCollectExtra(extras []config.ExtraConfig, name, fromPath string) (*config.ExtraConfig, string, bool, error) {
 	var found *config.ExtraConfig
 	for i, e := range extras {
 		if e.Name == name {
@@ -114,27 +114,37 @@ func resolveCollectExtra(extras []config.ExtraConfig, name, fromPath string) (*c
 		}
 	}
 	if found == nil {
-		return nil, "", fmt.Errorf("extra %q not found in config", name)
+		return nil, "", false, fmt.Errorf("extra %q not found in config", name)
 	}
 
 	targetPath := fromPath
+	flatten := false
 	if targetPath == "" {
 		if len(found.Targets) == 1 {
 			targetPath = found.Targets[0].Path
+			flatten = found.Targets[0].Flatten
 		} else {
-			return nil, "", fmt.Errorf("multiple targets configured for %q; use --from <path> to specify which target to collect from", name)
+			return nil, "", false, fmt.Errorf("multiple targets configured for %q; use --from <path> to specify which target to collect from", name)
+		}
+	} else {
+		// Find flatten value for the matching target
+		for _, t := range found.Targets {
+			if t.Path == targetPath {
+				flatten = t.Flatten
+				break
+			}
 		}
 	}
 
-	return found, targetPath, nil
+	return found, targetPath, flatten, nil
 }
 
-func runCollect(sourceDir, targetPath, name string, dryRun bool, scope, cfgPath string, start time.Time) error {
+func runCollect(sourceDir, targetPath, name string, dryRun, flatten bool, scope, cfgPath string, start time.Time) error {
 	if dryRun {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
-	result, err := sync.CollectExtraFiles(sourceDir, targetPath, dryRun)
+	result, err := sync.CollectExtraFiles(sourceDir, targetPath, dryRun, flatten)
 	if err != nil {
 		return err
 	}
