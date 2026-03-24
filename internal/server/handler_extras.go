@@ -23,9 +23,10 @@ type extrasListEntry struct {
 
 // extrasTargetInfo is the per-target sync status inside an extra entry.
 type extrasTargetInfo struct {
-	Path   string `json:"path"`
-	Mode   string `json:"mode"`
-	Status string `json:"status"` // "synced", "drift", "not synced", "no source"
+	Path    string `json:"path"`
+	Mode    string `json:"mode"`
+	Flatten bool   `json:"flatten"`
+	Status  string `json:"status"` // "synced", "drift", "not synced", "no source"
 }
 
 // extrasSourceDir returns the source directory for the named extra in the
@@ -90,8 +91,9 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 		for _, t := range extra.Targets {
 			m := syncpkg.EffectiveMode(t.Mode)
 			ti := extrasTargetInfo{
-				Path: t.Path,
-				Mode: m,
+				Path:    t.Path,
+				Mode:    m,
+				Flatten: t.Flatten,
 			}
 
 			if !entry.SourceExists {
@@ -175,7 +177,7 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 		for _, t := range extra.Targets {
 			m := syncpkg.EffectiveMode(t.Mode)
 
-			items := buildExtrasDiffItems(files, sourceDir, t.Path, m)
+			items := buildExtrasDiffItems(files, sourceDir, t.Path, m, t.Flatten)
 			synced := len(items) == 0
 
 			out = append(out, extrasDiffEntry{
@@ -192,12 +194,16 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 }
 
 // buildExtrasDiffItems returns the list of files that differ between source and target.
-func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode string) []extrasDiffItem {
+func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode string, flatten bool) []extrasDiffItem {
 	var items []extrasDiffItem
 
 	for _, rel := range sourceFiles {
+		tgtRel := rel
+		if flatten {
+			tgtRel = filepath.Base(rel)
+		}
 		sourceFile := filepath.Join(sourceDir, rel)
-		targetFile := filepath.Join(targetDir, rel)
+		targetFile := filepath.Join(targetDir, tgtRel)
 
 		info, err := os.Lstat(targetFile)
 		if err != nil {
@@ -250,8 +256,9 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 		Name    string `json:"name"`
 		Source  string `json:"source,omitempty"`
 		Targets []struct {
-			Path string `json:"path"`
-			Mode string `json:"mode"`
+			Path    string `json:"path"`
+			Mode    string `json:"mode"`
+			Flatten bool   `json:"flatten"`
 		} `json:"targets"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -269,11 +276,17 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate mode values
+	// Validate mode and flatten values
 	for _, t := range body.Targets {
 		if err := config.ValidateExtraMode(t.Mode); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
+		}
+		if t.Flatten {
+			if err := config.ValidateExtraFlatten(true, t.Mode); err != nil {
+				writeError(w, http.StatusBadRequest, err.Error())
+				return
+			}
 		}
 	}
 
@@ -289,7 +302,7 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 	// Build ExtraConfig
 	extra := config.ExtraConfig{Name: body.Name, Source: body.Source}
 	for _, t := range body.Targets {
-		et := config.ExtraTargetConfig{Path: t.Path}
+		et := config.ExtraTargetConfig{Path: t.Path, Flatten: t.Flatten}
 		if t.Mode != "" {
 			et.Mode = t.Mode
 		}
@@ -443,8 +456,9 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 
 	var body struct {
-		Target string `json:"target"`
-		Mode   string `json:"mode"`
+		Target  string `json:"target"`
+		Mode    string `json:"mode"`
+		Flatten *bool  `json:"flatten,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -465,7 +479,7 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 
 	extras := s.extrasConfig()
 
-	// Find extra and target, update mode in-place
+	// Find extra and target, update mode and flatten in-place
 	found := false
 	for i, extra := range extras {
 		if extra.Name != name {
@@ -474,6 +488,19 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 		for j, t := range extra.Targets {
 			if t.Path == body.Target {
 				extras[i].Targets[j].Mode = body.Mode
+
+				if body.Flatten != nil {
+					effectiveMode := body.Mode
+					if effectiveMode == "" {
+						effectiveMode = extras[i].Targets[j].Mode
+					}
+					if err := config.ValidateExtraFlatten(*body.Flatten, effectiveMode); err != nil {
+						writeError(w, http.StatusBadRequest, err.Error())
+						return
+					}
+					extras[i].Targets[j].Flatten = *body.Flatten
+				}
+
 				found = true
 				break
 			}
