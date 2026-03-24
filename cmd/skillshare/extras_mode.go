@@ -121,33 +121,41 @@ func cmdExtrasMode(args []string) error {
 		}
 	}
 
-	if syncMode != "" {
-		if err := setExtraTargetMode(extras, name, targetPath, syncMode); err != nil {
-			return err
-		}
-	}
-
-	// Apply flatten if requested
-	if flattenSet {
-		effectiveMode := syncMode
-		if effectiveMode == "" {
-			// Look up current mode from config
-			for _, extra := range extras {
-				if extra.Name == name {
-					for _, t := range extra.Targets {
-						if t.Path == targetPath {
-							effectiveMode = t.Mode
-							break
-						}
-					}
+	var currentFlatten bool
+	var currentMode string
+	for _, extra := range extras {
+		if extra.Name == name {
+			for _, t := range extra.Targets {
+				if t.Path == targetPath {
+					currentFlatten = t.Flatten
+					currentMode = t.Mode
 					break
 				}
 			}
+			break
 		}
-		if err := config.ValidateExtraFlatten(flattenVal, effectiveMode); err != nil {
+	}
+
+	newMode := syncMode
+	if newMode == "" {
+		newMode = currentMode
+	}
+	newFlatten := currentFlatten
+	if flattenSet {
+		newFlatten = flattenVal
+	}
+
+	if err := config.ValidateExtraFlatten(newFlatten, newMode); err != nil {
+		return err
+	}
+
+	if syncMode != "" {
+		if err := applyExtraTarget(extras, name, targetPath, func(t *config.ExtraTargetConfig) { t.Mode = syncMode }); err != nil {
 			return err
 		}
-		if err := setExtraTargetFlatten(extras, name, targetPath, flattenVal); err != nil {
+	}
+	if flattenSet {
+		if err := applyExtraTarget(extras, name, targetPath, func(t *config.ExtraTargetConfig) { t.Flatten = flattenVal }); err != nil {
 			return err
 		}
 	}
@@ -173,33 +181,16 @@ func cmdExtrasMode(args []string) error {
 	return nil
 }
 
-// setExtraTargetMode finds an extra by name and sets the mode on a specific target.
-// Operates on the extras slice in-place (caller must save config).
-func setExtraTargetMode(extras []config.ExtraConfig, name, targetPath, mode string) error {
+// applyExtraTarget finds an extra by name and target path, then applies a
+// mutation. Operates on the extras slice in-place (caller must save config).
+func applyExtraTarget(extras []config.ExtraConfig, name, targetPath string, apply func(*config.ExtraTargetConfig)) error {
 	for i, extra := range extras {
 		if extra.Name != name {
 			continue
 		}
-		for j, t := range extra.Targets {
-			if t.Path == targetPath {
-				extras[i].Targets[j].Mode = mode
-				return nil
-			}
-		}
-		return fmt.Errorf("target %q not found in extra %q", targetPath, name)
-	}
-	return fmt.Errorf("extra %q not found", name)
-}
-
-// setExtraTargetFlatten finds an extra by name and sets flatten on a specific target.
-func setExtraTargetFlatten(extras []config.ExtraConfig, name, targetPath string, flatten bool) error {
-	for i, extra := range extras {
-		if extra.Name != name {
-			continue
-		}
-		for j, t := range extra.Targets {
-			if t.Path == targetPath {
-				extras[i].Targets[j].Flatten = flatten
+		for j := range extra.Targets {
+			if extra.Targets[j].Path == targetPath {
+				apply(&extras[i].Targets[j])
 				return nil
 			}
 		}

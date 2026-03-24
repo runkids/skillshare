@@ -196,11 +196,12 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 // buildExtrasDiffItems returns the list of files that differ between source and target.
 func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode string, flatten bool) []extrasDiffItem {
 	var items []extrasDiffItem
+	seen := make(map[string]bool)
 
 	for _, rel := range sourceFiles {
-		tgtRel := rel
-		if flatten {
-			tgtRel = filepath.Base(rel)
+		tgtRel, ok := syncpkg.FlattenRel(rel, flatten, seen)
+		if !ok {
+			continue
 		}
 		sourceFile := filepath.Join(sourceDir, rel)
 		targetFile := filepath.Join(targetDir, tgtRel)
@@ -369,13 +370,14 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 	s.mu.RUnlock()
 
 	type targetSyncResult struct {
-		Target  string   `json:"target"`
-		Mode    string   `json:"mode"`
-		Synced  int      `json:"synced"`
-		Skipped int      `json:"skipped"`
-		Pruned  int      `json:"pruned"`
-		Errors  []string `json:"errors,omitempty"`
-		Error   string   `json:"error,omitempty"`
+		Target   string   `json:"target"`
+		Mode     string   `json:"mode"`
+		Synced   int      `json:"synced"`
+		Skipped  int      `json:"skipped"`
+		Pruned   int      `json:"pruned"`
+		Errors   []string `json:"errors,omitempty"`
+		Error    string   `json:"error,omitempty"`
+		Warnings []string `json:"warnings,omitempty"`
 	}
 	type extraSyncResult struct {
 		Name    string             `json:"name"`
@@ -423,6 +425,7 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 				tr.Skipped = res.Skipped
 				tr.Pruned = res.Pruned
 				tr.Errors = res.Errors
+				tr.Warnings = res.Warnings
 				if tr.Errors == nil {
 					tr.Errors = []string{}
 				}
@@ -487,17 +490,26 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 		}
 		for j, t := range extra.Targets {
 			if t.Path == body.Target {
-				extras[i].Targets[j].Mode = body.Mode
-
+				// Determine effective mode and flatten after this change
+				newMode := body.Mode
+				if newMode == "" {
+					newMode = t.Mode
+				}
+				newFlatten := t.Flatten
 				if body.Flatten != nil {
-					effectiveMode := body.Mode
-					if effectiveMode == "" {
-						effectiveMode = extras[i].Targets[j].Mode
-					}
-					if err := config.ValidateExtraFlatten(*body.Flatten, effectiveMode); err != nil {
-						writeError(w, http.StatusBadRequest, err.Error())
-						return
-					}
+					newFlatten = *body.Flatten
+				}
+
+				// Validate the combination
+				if err := config.ValidateExtraFlatten(newFlatten, newMode); err != nil {
+					writeError(w, http.StatusBadRequest, err.Error())
+					return
+				}
+
+				if body.Mode != "" {
+					extras[i].Targets[j].Mode = body.Mode
+				}
+				if body.Flatten != nil {
 					extras[i].Targets[j].Flatten = *body.Flatten
 				}
 

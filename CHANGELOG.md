@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.17.11] - 2026-03-25
+
+### New Features
+
+#### Extras — Flatten Option
+
+- **`flatten` for extras targets** — when `flatten: true` is set on an extras target, all files from subdirectories are synced directly into the target root instead of preserving the directory structure. This is useful for AI tools (e.g., Claude Code's `/agents`) that only discover files at the top level:
+  ```yaml
+  extras:
+    - name: agents
+      targets:
+        - path: ~/.claude/agents
+          flatten: true    # source/curriculum/tactician.md → target/tactician.md
+  ```
+
+- **`--flatten` flag for `extras init`** — enable flatten when creating a new extra:
+  ```bash
+  skillshare extras init agents --target ~/.claude/agents --flatten
+  ```
+
+- **`--flatten` / `--no-flatten` for `extras mode`** — toggle flatten on existing targets:
+  ```bash
+  skillshare extras agents --flatten
+  skillshare extras agents --no-flatten
+  ```
+
+- **Flatten in TUI wizard** — the `extras init` interactive wizard now includes a "Flatten files into target root? (y/N)" step after mode selection (skipped for symlink mode)
+
+- **Filename collision handling** — when flatten causes files from different subdirectories to share the same name (e.g., `team-a/agent.md` and `team-b/agent.md`), the first file wins (sorted alphabetically) and subsequent collisions are skipped with a warning
+
+#### Web UI — Flatten Support
+
+- **Flatten checkbox** — the Extras page shows a flatten checkbox per target, both when creating extras and on existing targets. Disabled when mode is symlink
+- **Config editor validation** — the YAML config editor warns when `flatten: true` is combined with `mode: symlink`
+
 ## [0.17.10] - 2026-03-24
 
 ### New Features

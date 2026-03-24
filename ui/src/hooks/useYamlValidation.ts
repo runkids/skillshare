@@ -68,6 +68,22 @@ export function validateYaml(
     }
   }
 
+  // Validate extras flatten + symlink constraint
+  if (Array.isArray(parsed.extras)) {
+    for (const extra of parsed.extras) {
+      if (!extra || typeof extra !== 'object' || !Array.isArray(extra.targets)) continue;
+      for (const t of extra.targets) {
+        if (t && typeof t === 'object' && t.flatten === true && t.mode === 'symlink') {
+          errors.push({
+            line: findKeyLine(sourceLines, 'flatten', extra.name ?? 'extras'),
+            message: `flatten cannot be used with symlink mode (extra "${extra.name ?? '?'}")`,
+            severity: 'warning',
+          });
+        }
+      }
+    }
+  }
+
   // Validate audit config
   if (parsed.audit && typeof parsed.audit === 'object') {
     validateEnum(errors, sourceLines, parsed.audit.block_threshold, 'block_threshold', VALID_BLOCK_THRESHOLDS, 'block_threshold', 'audit');

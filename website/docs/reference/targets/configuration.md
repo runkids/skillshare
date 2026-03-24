@@ -376,6 +376,10 @@ extras:
       - path: ~/.claude/rules
       - path: ~/.cursor/rules
         mode: copy
+  - name: agents
+    targets:
+      - path: ~/.claude/agents
+        flatten: true                 # sync subdirectory files flat
   - name: commands
     targets:
       - path: ~/.claude/commands
@@ -388,6 +392,7 @@ extras:
 | `targets` | Yes | List of target paths |
 | `targets[].path` | Yes | Destination directory |
 | `targets[].mode` | No | `merge` (default), `copy`, or `symlink` |
+| `targets[].flatten` | No | When `true`, sync subdirectory files directly into target root (cannot use with `symlink`) |
 
 `extras_source` is auto-populated to the default path (`~/.config/skillshare/extras/`) on `skillshare init` or first `extras init`. Override it to use a custom location for all extras.
 

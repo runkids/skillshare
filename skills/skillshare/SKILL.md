@@ -52,7 +52,9 @@ skillshare extras list                               # Show status per target
 skillshare extras list --json                        # JSON with source_type field
 skillshare extras collect rules                      # Pull local files into source
 skillshare extras remove rules                       # Remove from config (source preserved)
+skillshare extras init agents --target ~/.claude/agents --flatten  # Flatten subdirs into root
 skillshare extras rules --mode copy                  # Change sync mode of a target
+skillshare extras agents --flatten                   # Enable flatten on existing target
 skillshare sync extras                               # Sync all extras to targets
 skillshare sync extras --dry-run --force             # Preview / overwrite conflicts
 skillshare sync --all                                # Sync skills + extras together

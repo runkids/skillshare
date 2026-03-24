@@ -624,3 +624,63 @@ func TestSyncExtra_FlattenIdempotent(t *testing.T) {
 		t.Errorf("second sync: expected 0 skipped, got %d", r2.Skipped)
 	}
 }
+
+// --- Flatten collect tests ---
+
+func TestCollectExtraFiles_Flatten(t *testing.T) {
+	sourceDir := filepath.Join(t.TempDir(), "source")
+	targetDir := filepath.Join(t.TempDir(), "target")
+	os.MkdirAll(filepath.Join(sourceDir, "sub"), 0755)
+	os.MkdirAll(targetDir, 0755)
+
+	// Existing synced file: source/sub/existing.md → target/existing.md (flat symlink)
+	srcFile := filepath.Join(sourceDir, "sub", "existing.md")
+	os.WriteFile(srcFile, []byte("# Existing"), 0644)
+	os.Symlink(srcFile, filepath.Join(targetDir, "existing.md"))
+
+	// New local file in target (not from source)
+	os.WriteFile(filepath.Join(targetDir, "new-agent.md"), []byte("# New Agent"), 0644)
+
+	result, err := CollectExtraFiles(sourceDir, targetDir, false, true)
+	if err != nil {
+		t.Fatalf("CollectExtraFiles: %v", err)
+	}
+
+	if result.Collected != 1 {
+		t.Errorf("Collected = %d, want 1", result.Collected)
+	}
+
+	// Verify new file placed in source root (not subdirectory)
+	collected := filepath.Join(sourceDir, "new-agent.md")
+	if _, err := os.Stat(collected); err != nil {
+		t.Errorf("expected new-agent.md in source root: %v", err)
+	}
+
+	// Verify target is now a symlink
+	info, _ := os.Lstat(filepath.Join(targetDir, "new-agent.md"))
+	if info.Mode()&os.ModeSymlink == 0 {
+		t.Error("target should be a symlink after collect")
+	}
+}
+
+func TestCollectExtraFiles_FlattenSkipsExisting(t *testing.T) {
+	sourceDir := filepath.Join(t.TempDir(), "source")
+	targetDir := filepath.Join(t.TempDir(), "target")
+	os.MkdirAll(sourceDir, 0755)
+	os.MkdirAll(targetDir, 0755)
+
+	os.WriteFile(filepath.Join(sourceDir, "conflict.md"), []byte("source version"), 0644)
+	os.WriteFile(filepath.Join(targetDir, "conflict.md"), []byte("target version"), 0644)
+
+	result, err := CollectExtraFiles(sourceDir, targetDir, false, true)
+	if err != nil {
+		t.Fatalf("CollectExtraFiles: %v", err)
+	}
+
+	if result.Skipped != 1 {
+		t.Errorf("Skipped = %d, want 1", result.Skipped)
+	}
+	if result.Collected != 0 {
+		t.Errorf("Collected = %d, want 0", result.Collected)
+	}
+}

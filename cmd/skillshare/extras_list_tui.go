@@ -471,8 +471,12 @@ func (m extrasListTUIModel) renderExtrasDetail(e extrasListEntry) string {
 			if t.Status != "synced" {
 				statusText = "  " + t.Status
 			}
+			modeLabel := t.Mode
+			if t.Flatten {
+				modeLabel += ", flatten"
+			}
 			fmt.Fprintf(&b, "  %s %s (%s)%s\n",
-				style.Render(icon), shortenPath(t.Path), t.Mode, tc.Dim.Render(statusText))
+				style.Render(icon), shortenPath(t.Path), modeLabel, tc.Dim.Render(statusText))
 		}
 		if hasDrift {
 			b.WriteString("\n" + tc.Yellow.Render("hint:") + " press S to sync, or use --force to overwrite conflicts\n")
@@ -866,7 +870,7 @@ func (m extrasListTUIModel) doSetMode(name, targetPath, newMode string) (string,
 		if err != nil {
 			return "", err
 		}
-		if err := setExtraTargetMode(projCfg.Extras, name, targetPath, newMode); err != nil {
+		if err := applyExtraTarget(projCfg.Extras, name, targetPath, func(t *config.ExtraTargetConfig) { t.Mode = newMode }); err != nil {
 			return "", err
 		}
 		if err := projCfg.Save(m.cwd); err != nil {
@@ -877,7 +881,7 @@ func (m extrasListTUIModel) doSetMode(name, targetPath, newMode string) (string,
 		if err != nil {
 			return "", err
 		}
-		if err := setExtraTargetMode(cfg.Extras, name, targetPath, newMode); err != nil {
+		if err := applyExtraTarget(cfg.Extras, name, targetPath, func(t *config.ExtraTargetConfig) { t.Mode = newMode }); err != nil {
 			return "", err
 		}
 		if err := cfg.Save(); err != nil {

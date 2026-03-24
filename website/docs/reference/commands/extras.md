@@ -35,8 +35,10 @@ skillshare extras init <name> --target <path> [--target <path2>] [--mode <mode>]
 |------|-------------|
 | `--target <path>` | Target directory path (repeatable) |
 | `--mode <mode>` | Sync mode: `merge` (default), `copy`, or `symlink` |
+| `--flatten` | Sync files from subdirectories directly into the target root (cannot be used with `symlink` mode) |
 | `--source <path>` | Custom source directory for this extra (overrides `extras_source` and default; **global mode only**) |
 | `--force` | Overwrite if extra already exists |
+| `--no-tui` | Skip interactive wizard, use CLI flags only |
 | `--project, -p` | Create in project config (`.skillshare/`) |
 | `--global, -g` | Create in global config |
 
@@ -58,6 +60,9 @@ skillshare extras init rules --target ~/.cursor/rules --force
 
 # Project-scoped extra with copy mode
 skillshare extras init prompts --target .claude/prompts --mode copy -p
+
+# Sync agents flat (tools like Claude Code only discover flat files)
+skillshare extras init agents --target ~/.claude/agents --flatten
 ```
 
 ### `extras list`
@@ -142,19 +147,20 @@ skillshare extras source ~/company-shared/extras
 
 ### `extras mode`
 
-Change the sync mode of an extra's target.
+Change the sync mode or flatten setting of an extra's target.
 
 ```bash
 skillshare extras mode <name> --mode <mode> [--target <path>] [-p|-g]
-# Shorthand (no "mode" subcommand):
-skillshare extras <name> --mode <mode> [--target <path>]
+skillshare extras <name> --flatten [--target <path>]
 ```
 
 **Options:**
 
 | Flag | Description |
 |------|-------------|
-| `--mode <mode>` | New sync mode: `merge`, `copy`, or `symlink` (required) |
+| `--mode <mode>` | New sync mode: `merge`, `copy`, or `symlink` |
+| `--flatten` | Enable flatten (sync subdirectory files into target root) |
+| `--no-flatten` | Disable flatten |
 | `--target <path>` | Target directory path (optional if extra has only one target) |
 | `--project, -p` | Use project-mode extras (`.skillshare/`) |
 | `--global, -g` | Use global extras (`~/.config/skillshare/`) |
@@ -170,9 +176,15 @@ skillshare extras mode rules --target ~/.claude/rules --mode copy
 
 # Change to symlink in project mode
 skillshare extras mode commands --target ~/.cursor/commands --mode symlink -p
+
+# Enable flatten on an existing target
+skillshare extras agents --flatten
+
+# Disable flatten
+skillshare extras agents --no-flatten
 ```
 
-Also available via the TUI (`M` key) and Web UI (mode dropdown on each target).
+Also available via the TUI (`M` key) and Web UI (mode dropdown and flatten checkbox on each target).
 
 ### `extras remove`
 
@@ -223,6 +235,32 @@ When switching modes (e.g., from `merge` to `copy`), the next `sync` automatical
 
 ---
 
+## Flatten
+
+Some AI tools (e.g., Claude Code's `/agents`) only discover files at the **top level** of their config directory — they do not recurse into subdirectories. If your extras source uses subdirectories for organization, synced files will be invisible to the tool.
+
+The `flatten` option solves this by syncing all files directly into the target root, regardless of their subdirectory depth in the source:
+
+```yaml
+extras:
+  - name: agents
+    targets:
+      - path: ~/.claude/agents
+        flatten: true
+```
+
+**Behavior:**
+- `flatten: true`: `source/curriculum/tactician.md` → `target/tactician.md`
+- `flatten: false` (default): `source/curriculum/tactician.md` → `target/curriculum/tactician.md`
+
+**Filename collisions:** When two files in different subdirectories share the same name (e.g., `team-a/agent.md` and `team-b/agent.md`), the first file wins (sorted alphabetically by path). Subsequent collisions are skipped with a warning.
+
+**Constraints:**
+- Only works with `merge` and `copy` modes — cannot be used with `symlink` mode
+- `collect` places newly collected files in the source root (no subdirectory mapping for new files)
+
+---
+
 ## Directory Structure
 
 ```
@@ -254,6 +292,10 @@ extras:
       - path: ~/.claude/rules
       - path: ~/.cursor/rules
         mode: copy
+  - name: agents
+    targets:
+      - path: ~/.claude/agents
+        flatten: true                  # sync subdirectory files flat
   - name: prompts
     targets:
       - path: ~/.claude/prompts

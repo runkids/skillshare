@@ -367,13 +367,29 @@ func EffectiveMode(mode string) string {
 	return mode
 }
 
+// FlattenRel returns the target-relative path for a source file under flatten mode.
+// When flatten is true, it uses only the basename and tracks seen basenames to skip
+// collisions (first-wins, matching sync behavior). Returns ("", false) for collisions.
+func FlattenRel(rel string, flatten bool, seen map[string]bool) (tgtRel string, ok bool) {
+	if !flatten {
+		return rel, true
+	}
+	base := filepath.Base(rel)
+	if seen[base] {
+		return "", false
+	}
+	seen[base] = true
+	return base, true
+}
+
 // CheckSyncStatus compares source files against the target directory and
 // returns a status string: "synced" or "drift".
 func CheckSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string, flatten bool) string {
+	seen := make(map[string]bool)
 	for _, rel := range sourceFiles {
-		tgtRel := rel
-		if flatten {
-			tgtRel = filepath.Base(rel)
+		tgtRel, ok := FlattenRel(rel, flatten, seen)
+		if !ok {
+			continue
 		}
 		targetFile := filepath.Join(targetDir, tgtRel)
 		sourceFile := filepath.Join(sourceDir, rel)
