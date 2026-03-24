@@ -105,6 +105,11 @@ export const fieldDocs: Record<string, FieldDoc> = {
     allowedValues: ['merge', 'symlink', 'copy'],
     example: 'mode: merge',
   },
+  'extras.targets.flatten': {
+    description: 'When true, files from subdirectories are synced directly into the target root. Cannot be used with symlink mode.',
+    type: 'boolean',
+    example: 'flatten: true',
+  },
 
   // --- Audit ---
   audit: {

@@ -72,6 +72,7 @@ function createSSEStream(
 export interface ExtraTarget {
   path: string;
   mode: string;
+  flatten: boolean;
   status: string;  // "synced" | "drift" | "not synced" | "no source"
 }
 
@@ -351,10 +352,10 @@ export const api = {
     }),
   deleteExtra: (name: string) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  setExtraMode: (name: string, target: string, mode: string) =>
+  setExtraMode: (name: string, target: string, mode: string, flatten?: boolean) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/mode`, {
       method: 'PATCH',
-      body: JSON.stringify({ target, mode }),
+      body: JSON.stringify({ target, mode, ...(flatten !== undefined && { flatten }) }),
     }),
 
   // Log

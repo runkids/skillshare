@@ -23,6 +23,7 @@ import { PageSkeleton } from '../components/Skeleton';
 interface TargetEntry {
   path: string;
   mode: string;
+  flatten: boolean;
 }
 
 const MODE_OPTIONS = [
@@ -41,12 +42,12 @@ function AddExtraModal({
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [source, setSource] = useState('');
-  const [targets, setTargets] = useState<TargetEntry[]>([{ path: '', mode: 'merge' }]);
+  const [targets, setTargets] = useState<TargetEntry[]>([{ path: '', mode: 'merge', flatten: false }]);
   const [saving, setSaving] = useState(false);
 
-  const addTarget = () => setTargets((prev) => [...prev, { path: '', mode: 'merge' }]);
+  const addTarget = () => setTargets((prev) => [...prev, { path: '', mode: 'merge', flatten: false }]);
 
-  const updateTarget = (i: number, field: keyof TargetEntry, value: string) => {
+  const updateTarget = (i: number, field: keyof TargetEntry, value: string | boolean) => {
     setTargets((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: value } : t)));
   };
 
@@ -69,7 +70,7 @@ function AddExtraModal({
       await api.createExtra({
         name: name.trim(),
         ...(source.trim() && { source: source.trim() }),
-        targets: validTargets.map((t) => ({ path: t.path.trim(), mode: t.mode })),
+        targets: validTargets.map((t) => ({ path: t.path.trim(), mode: t.mode, flatten: t.flatten })),
       });
       toast(`Extra "${name.trim()}" created`, 'success');
       onCreated();
@@ -139,10 +140,25 @@ function AddExtraModal({
                     <div className="w-36 shrink-0">
                       <Select
                         value={t.mode}
-                        onChange={(v) => updateTarget(i, 'mode', v)}
+                        onChange={(v) => {
+                          updateTarget(i, 'mode', v);
+                          if (v === 'symlink') updateTarget(i, 'flatten', false);
+                        }}
                         options={MODE_OPTIONS}
                       />
                     </div>
+                    <label className="flex items-center gap-1.5 shrink-0 cursor-pointer select-none mt-2.5">
+                      <input
+                        type="checkbox"
+                        checked={t.flatten}
+                        onChange={(e) => updateTarget(i, 'flatten', e.target.checked)}
+                        disabled={saving || t.mode === 'symlink'}
+                        className="accent-primary"
+                      />
+                      <span className={`text-xs ${t.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
+                        Flatten
+                      </span>
+                    </label>
                     {targets.length > 1 && (
                       <IconButton
                         icon={<X size={16} strokeWidth={2.5} />}
@@ -196,7 +212,7 @@ function ExtraCard({
   onSync: (name: string) => Promise<void>;
   onForceSync: (name: string) => Promise<void>;
   onRemove: (name: string) => void;
-  onModeChange: (name: string, target: string, mode: string) => Promise<void>;
+  onModeChange: (name: string, target: string, mode: string, flatten?: boolean) => Promise<void>;
 }) {
   const [syncing, setSyncing] = useState(false);
   const [changingMode, setChangingMode] = useState<string | null>(null);
@@ -293,6 +309,26 @@ function ExtraCard({
                   {t.status}
                 </Badge>
               </div>
+              <label className="flex items-center gap-1 shrink-0 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={t.flatten}
+                  onChange={async (e) => {
+                    const newFlatten = e.target.checked;
+                    setChangingMode(t.path);
+                    try {
+                      await onModeChange(extra.name, t.path, t.mode, newFlatten);
+                    } finally {
+                      setChangingMode(null);
+                    }
+                  }}
+                  disabled={changingMode === t.path || t.mode === 'symlink'}
+                  className="accent-primary"
+                />
+                <span className={`text-xs ${t.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
+                  Flatten
+                </span>
+              </label>
               <Select
                 value={t.mode}
                 onChange={async (v) => {
@@ -437,10 +473,11 @@ export default function ExtrasPage() {
     }
   };
 
-  const handleModeChange = async (name: string, target: string, mode: string) => {
+  const handleModeChange = async (name: string, target: string, mode: string, flatten?: boolean) => {
     try {
-      await api.setExtraMode(name, target, mode);
-      toast(`Mode changed to "${mode}"`, 'success');
+      await api.setExtraMode(name, target, mode, flatten);
+      const msg = flatten !== undefined ? `Updated (flatten=${flatten})` : `Mode changed to "${mode}"`;
+      toast(msg, 'success');
       invalidate();
     } catch (err: any) {
       toast(err.message, 'error');

@@ -5,6 +5,7 @@ package integration
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"skillshare/internal/testutil"
@@ -406,4 +407,116 @@ extras:
 	result.AssertSuccess(t)
 	// Sync auto-creates missing extras source directories (same as target dirs)
 	result.AssertAnyOutputContains(t, "Created source directory")
+}
+
+func TestSyncExtras_FlattenMerge(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("placeholder", map[string]string{
+		"SKILL.md": "# Placeholder",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sourceRoot := filepath.Dir(sb.SourcePath)
+	agentsSource := filepath.Join(sourceRoot, "extras", "agents")
+	os.MkdirAll(filepath.Join(agentsSource, "curriculum"), 0755)
+	os.MkdirAll(filepath.Join(agentsSource, "software"), 0755)
+	os.WriteFile(filepath.Join(agentsSource, "curriculum", "tactician.md"), []byte("# Tactician"), 0644)
+	os.WriteFile(filepath.Join(agentsSource, "software", "implementer.md"), []byte("# Implementer"), 0644)
+	os.WriteFile(filepath.Join(agentsSource, "reviewer.md"), []byte("# Reviewer"), 0644)
+
+	agentsTarget := filepath.Join(sb.Home, ".claude", "agents")
+	os.MkdirAll(agentsTarget, 0755)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+extras:
+  - name: agents
+    targets:
+      - path: ` + agentsTarget + `
+        flatten: true
+`)
+
+	result := sb.RunCLI("sync", "extras")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "3 files")
+
+	for _, name := range []string{"tactician.md", "implementer.md", "reviewer.md"} {
+		if !sb.IsSymlink(filepath.Join(agentsTarget, name)) {
+			t.Errorf("%s should be a flat symlink in target", name)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(agentsTarget, "curriculum")); !os.IsNotExist(err) {
+		t.Error("curriculum/ should not exist in target")
+	}
+}
+
+func TestSyncExtras_FlattenCollision(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("placeholder", map[string]string{
+		"SKILL.md": "# Placeholder",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sourceRoot := filepath.Dir(sb.SourcePath)
+	agentsSource := filepath.Join(sourceRoot, "extras", "agents")
+	os.MkdirAll(filepath.Join(agentsSource, "team-a"), 0755)
+	os.MkdirAll(filepath.Join(agentsSource, "team-b"), 0755)
+	os.WriteFile(filepath.Join(agentsSource, "team-a", "agent.md"), []byte("# Team A"), 0644)
+	os.WriteFile(filepath.Join(agentsSource, "team-b", "agent.md"), []byte("# Team B"), 0644)
+
+	agentsTarget := filepath.Join(sb.Home, ".claude", "agents")
+	os.MkdirAll(agentsTarget, 0755)
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+extras:
+  - name: agents
+    targets:
+      - path: ` + agentsTarget + `
+        flatten: true
+`)
+
+	result := sb.RunCLI("sync", "extras")
+	result.AssertSuccess(t)
+	result.AssertAnyOutputContains(t, "flatten conflict")
+
+	if !sb.IsSymlink(filepath.Join(agentsTarget, "agent.md")) {
+		t.Error("agent.md should be a symlink")
+	}
+}
+
+func TestSyncExtras_FlattenConfigRoundTrip(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("placeholder", map[string]string{
+		"SKILL.md": "# Placeholder",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	agentsTarget := filepath.Join(sb.Home, ".claude", "agents")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+extras:
+  - name: agents
+    targets:
+      - path: ` + agentsTarget + `
+        flatten: true
+`)
+
+	content := sb.ReadFile(sb.ConfigPath)
+	if !strings.Contains(content, "flatten: true") {
+		t.Error("config should contain flatten: true")
+	}
 }
