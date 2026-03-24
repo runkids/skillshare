@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -30,6 +31,8 @@ func cmdExtrasMode(args []string) error {
 	applyModeLabel(mode)
 
 	var name, targetPath, syncMode string
+	var flattenSet bool
+	var flattenVal bool
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
 		case "--target":
@@ -44,6 +47,12 @@ func cmdExtrasMode(args []string) error {
 			}
 			i++
 			syncMode = rest[i]
+		case "--flatten":
+			flattenSet = true
+			flattenVal = true
+		case "--no-flatten":
+			flattenSet = true
+			flattenVal = false
 		case "--help", "-h":
 			printExtrasModeHelp()
 			return nil
@@ -59,12 +68,14 @@ func cmdExtrasMode(args []string) error {
 	if name == "" {
 		return fmt.Errorf("extras name is required: skillshare extras <name> --mode <mode> [--target <path>]")
 	}
-	if syncMode == "" {
-		return fmt.Errorf("--mode is required")
+	if syncMode == "" && !flattenSet {
+		return fmt.Errorf("--mode or --flatten/--no-flatten is required")
 	}
 
-	if err := config.ValidateExtraMode(syncMode); err != nil {
-		return err
+	if syncMode != "" {
+		if err := config.ValidateExtraMode(syncMode); err != nil {
+			return err
+		}
 	}
 
 	// Load config to resolve target when --target is omitted
@@ -110,17 +121,53 @@ func cmdExtrasMode(args []string) error {
 		}
 	}
 
-	if err := setExtraTargetMode(extras, name, targetPath, syncMode); err != nil {
-		return err
+	if syncMode != "" {
+		if err := setExtraTargetMode(extras, name, targetPath, syncMode); err != nil {
+			return err
+		}
 	}
+
+	// Apply flatten if requested
+	if flattenSet {
+		effectiveMode := syncMode
+		if effectiveMode == "" {
+			// Look up current mode from config
+			for _, extra := range extras {
+				if extra.Name == name {
+					for _, t := range extra.Targets {
+						if t.Path == targetPath {
+							effectiveMode = t.Mode
+							break
+						}
+					}
+					break
+				}
+			}
+		}
+		if err := config.ValidateExtraFlatten(flattenVal, effectiveMode); err != nil {
+			return err
+		}
+		if err := setExtraTargetFlatten(extras, name, targetPath, flattenVal); err != nil {
+			return err
+		}
+	}
+
 	if err := saveFn(); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	ui.Success("Set mode of %s target %s to %s", name, shortenPath(targetPath), syncMode)
+	// Build success message
+	var parts []string
+	if syncMode != "" {
+		parts = append(parts, fmt.Sprintf("mode=%s", syncMode))
+	}
+	if flattenSet {
+		parts = append(parts, fmt.Sprintf("flatten=%v", flattenVal))
+	}
+	ui.Success("Updated %s target %s: %s", name, shortenPath(targetPath), strings.Join(parts, ", "))
 
 	e := oplog.NewEntry("extras-mode", "ok", time.Since(start))
-	e.Args = map[string]any{"name": name, "target": targetPath, "mode": syncMode}
+	e.Args = map[string]any{"name": name, "target": targetPath, "mode": syncMode, "flatten": flattenVal}
 	oplog.WriteWithLimit(configPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
 	return nil
@@ -144,17 +191,36 @@ func setExtraTargetMode(extras []config.ExtraConfig, name, targetPath, mode stri
 	return fmt.Errorf("extra %q not found", name)
 }
 
+// setExtraTargetFlatten finds an extra by name and sets flatten on a specific target.
+func setExtraTargetFlatten(extras []config.ExtraConfig, name, targetPath string, flatten bool) error {
+	for i, extra := range extras {
+		if extra.Name != name {
+			continue
+		}
+		for j, t := range extra.Targets {
+			if t.Path == targetPath {
+				extras[i].Targets[j].Flatten = flatten
+				return nil
+			}
+		}
+		return fmt.Errorf("target %q not found in extra %q", targetPath, name)
+	}
+	return fmt.Errorf("extra %q not found", name)
+}
+
 func printExtrasModeHelp() {
 	fmt.Println(`Usage: skillshare extras mode <name> --mode <mode> [--target <path>]
        skillshare extras <name> --mode <mode> [--target <path>]
 
-Change the sync mode of an extra's target.
+Change the sync mode or flatten setting of an extra's target.
 
 Arguments:
   name                Extra name (e.g., rules, commands)
 
 Options:
   --mode <mode>       New sync mode: merge, copy, or symlink
+  --flatten           Enable flatten (sync subdirectory files into target root)
+  --no-flatten        Disable flatten
   --target <path>     Target directory path (optional if extra has only one target)
   --project, -p       Use project mode (.skillshare/)
   --global, -g        Use global mode (~/.config/skillshare/)
@@ -162,6 +228,7 @@ Options:
 
 Examples:
   skillshare extras rules --mode copy
+  skillshare extras agents --flatten
   skillshare extras mode rules --target ~/.claude/rules --mode copy
-  skillshare extras mode commands --target ~/.cursor/commands --mode symlink -p`)
+  skillshare extras mode agents --target ~/.claude/agents --flatten -p`)
 }

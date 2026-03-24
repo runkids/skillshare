@@ -13,17 +13,19 @@ import (
 type extrasInitPhase int
 
 const (
-	extrasPhaseNameInput   extrasInitPhase = iota
-	extrasPhaseSourceInput                 // ask for custom source directory
-	extrasPhaseTargetInput                 // ask for target path
-	extrasPhaseModeSelect                  // choose sync mode
-	extrasPhaseAddMore                     // add another target?
-	extrasPhaseConfirm                     // show summary and confirm
+	extrasPhaseNameInput     extrasInitPhase = iota
+	extrasPhaseSourceInput                   // ask for custom source directory
+	extrasPhaseTargetInput                   // ask for target path
+	extrasPhaseModeSelect                    // choose sync mode
+	extrasPhaseFlattenToggle                 // flatten files into target root?
+	extrasPhaseAddMore                       // add another target?
+	extrasPhaseConfirm                       // show summary and confirm
 )
 
 type extrasInitTarget struct {
-	path string
-	mode string
+	path    string
+	mode    string
+	flatten bool
 }
 
 type extrasInitTUIModel struct {
@@ -99,9 +101,15 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.textInput.SetValue("")
 				m.textInput.Placeholder = targetPlaceholder(len(m.targets))
 				return m, nil
-			case extrasPhaseAddMore:
+			case extrasPhaseFlattenToggle:
 				m.phase = extrasPhaseModeSelect
-				// Restore last target to re-pick mode
+				return m, nil
+			case extrasPhaseAddMore:
+				if m.targets[len(m.targets)-1].mode == "symlink" {
+					m.phase = extrasPhaseModeSelect
+				} else {
+					m.phase = extrasPhaseFlattenToggle
+				}
 				return m, nil
 			case extrasPhaseConfirm:
 				m.phase = extrasPhaseAddMore
@@ -165,6 +173,22 @@ func (m extrasInitTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "enter", " ":
 				m.targets[len(m.targets)-1].mode = syncModes[m.currMode]
+				if syncModes[m.currMode] == "symlink" {
+					m.phase = extrasPhaseAddMore // skip flatten for symlink
+				} else {
+					m.phase = extrasPhaseFlattenToggle
+				}
+				return m, nil
+			}
+			return m, nil
+
+		case extrasPhaseFlattenToggle:
+			switch msg.String() {
+			case "y", "Y":
+				m.targets[len(m.targets)-1].flatten = true
+				m.phase = extrasPhaseAddMore
+				return m, nil
+			case "n", "N", "enter":
 				m.phase = extrasPhaseAddMore
 				return m, nil
 			}
@@ -244,7 +268,11 @@ func (m extrasInitTUIModel) View() string {
 		if len(m.targets) > 0 {
 			b.WriteString("\n")
 			for _, t := range m.targets {
-				b.WriteString(tc.Dim.Render(fmt.Sprintf("  → %s (%s)", t.path, t.mode)))
+				modeLabel := t.mode
+				if t.flatten {
+					modeLabel += ", flatten"
+				}
+				b.WriteString(tc.Dim.Render(fmt.Sprintf("  → %s (%s)", t.path, modeLabel)))
 				b.WriteString("\n")
 			}
 		}
@@ -285,11 +313,25 @@ func (m extrasInitTUIModel) View() string {
 		b.WriteString("\n")
 		b.WriteString(tc.Help.Render("↑↓/jk navigate  enter/space select  esc back"))
 
+	case extrasPhaseFlattenToggle:
+		b.WriteString(tc.Dim.Render(fmt.Sprintf("Name: %s", m.name)))
+		b.WriteString("\n")
+		lastTarget := m.targets[len(m.targets)-1]
+		b.WriteString(tc.Dim.Render(fmt.Sprintf("Target: %s (%s)", lastTarget.path, lastTarget.mode)))
+		b.WriteString("\n\n")
+		b.WriteString(tc.Cyan.Render("Flatten files into target root? (y/N) "))
+		b.WriteString("\n\n")
+		b.WriteString(tc.Help.Render("y yes  n/enter no  esc back"))
+
 	case extrasPhaseAddMore:
 		b.WriteString(tc.Dim.Render(fmt.Sprintf("Name: %s", m.name)))
 		b.WriteString("\n")
 		for _, t := range m.targets {
-			b.WriteString(tc.Dim.Render(fmt.Sprintf("  → %s (%s)", t.path, t.mode)))
+			modeLabel := t.mode
+			if t.flatten {
+				modeLabel += ", flatten"
+			}
+			b.WriteString(tc.Dim.Render(fmt.Sprintf("  → %s (%s)", t.path, modeLabel)))
 			b.WriteString("\n")
 		}
 		b.WriteString("\n")
@@ -305,7 +347,11 @@ func (m extrasInitTUIModel) View() string {
 			b.WriteString(fmt.Sprintf("  Source: %s\n", m.sourceValue))
 		}
 		for _, t := range m.targets {
-			b.WriteString(fmt.Sprintf("  → %s (%s)\n", t.path, t.mode))
+			modeLabel := t.mode
+			if t.flatten {
+				modeLabel += ", flatten"
+			}
+			b.WriteString(fmt.Sprintf("  → %s (%s)\n", t.path, modeLabel))
 		}
 		b.WriteString("\n")
 		b.WriteString(tc.Cyan.Render("Create this extra? (Y/n) "))
@@ -346,16 +392,20 @@ func cmdExtrasInitTUI(mode runMode, cwd string) error {
 	// Collect targets and the first non-empty mode (mode applies globally)
 	var targetPaths []string
 	syncMode := ""
+	flatten := false
 	for _, t := range result.targets {
 		targetPaths = append(targetPaths, t.path)
 		if syncMode == "" && t.mode != "" && t.mode != "merge" {
 			syncMode = t.mode
 		}
+		if t.flatten {
+			flatten = true
+		}
 	}
 
 	start := time.Now()
 	if mode == modeProject {
-		return extrasInitProject(cwd, result.name, targetPaths, syncMode, false, start)
+		return extrasInitProject(cwd, result.name, targetPaths, syncMode, flatten, false, start)
 	}
-	return extrasInitGlobal(result.name, targetPaths, syncMode, result.sourceValue, false, start)
+	return extrasInitGlobal(result.name, targetPaths, syncMode, result.sourceValue, flatten, false, start)
 }

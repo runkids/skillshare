@@ -20,9 +20,10 @@ type extrasListEntry struct {
 }
 
 type extrasTargetInfo struct {
-	Path   string `json:"path"`
-	Mode   string `json:"mode"`
-	Status string `json:"status"` // "synced", "drift", "not synced", "no source"
+	Path    string `json:"path"`
+	Mode    string `json:"mode"`
+	Flatten bool   `json:"flatten"`
+	Status  string `json:"status"` // "synced", "drift", "not synced", "no source"
 }
 
 // buildExtrasListEntries builds list entries for all configured extras.
@@ -50,8 +51,9 @@ func buildExtrasListEntries(extras []config.ExtraConfig, extrasSource string, so
 			m := sync.EffectiveMode(t.Mode)
 			resolvedPath := config.ExpandPath(t.Path)
 			ti := extrasTargetInfo{
-				Path: t.Path,
-				Mode: m,
+				Path:    t.Path,
+				Mode:    m,
+				Flatten: t.Flatten,
 			}
 
 			if !entry.SourceExists {
@@ -206,7 +208,11 @@ func cmdExtrasList(args []string) error {
 			case "no source":
 				icon, color, statusText = "-", ui.Cyan, "  no source"
 			}
-			fmt.Printf("    %s%s%s %s%s (%s)\n", color, icon, ui.Reset, shortenPath(t.Path), statusText, t.Mode)
+			modeLabel := t.Mode
+			if t.Flatten {
+				modeLabel += ", flatten"
+			}
+			fmt.Printf("    %s%s%s %s%s (%s)\n", color, icon, ui.Reset, shortenPath(t.Path), statusText, modeLabel)
 		}
 	}
 

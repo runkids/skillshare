@@ -40,6 +40,7 @@ func cmdExtrasInit(args []string) error {
 	var sourceOverride string
 	var force bool
 	var noTUI bool
+	var flatten bool
 	for i := 0; i < len(rest); i++ {
 		switch rest[i] {
 		case "--target":
@@ -60,6 +61,8 @@ func cmdExtrasInit(args []string) error {
 			}
 			i++
 			sourceOverride = rest[i]
+		case "--flatten":
+			flatten = true
 		case "--force":
 			force = true
 		case "--no-tui":
@@ -97,16 +100,21 @@ func cmdExtrasInit(args []string) error {
 		return err
 	}
 
+	// Validate flatten + mode combination
+	if err := config.ValidateExtraFlatten(flatten, syncMode); err != nil {
+		return err
+	}
+
 	if mode == modeProject {
 		if sourceOverride != "" {
 			return fmt.Errorf("--source is not supported in project mode (source is always .skillshare/extras/<name>/)")
 		}
-		return extrasInitProject(cwd, name, targets, syncMode, force, start)
+		return extrasInitProject(cwd, name, targets, syncMode, flatten, force, start)
 	}
-	return extrasInitGlobal(name, targets, syncMode, sourceOverride, force, start)
+	return extrasInitGlobal(name, targets, syncMode, sourceOverride, flatten, force, start)
 }
 
-func extrasInitGlobal(name string, targets []string, syncMode string, sourceOverride string, force bool, start time.Time) error {
+func extrasInitGlobal(name string, targets []string, syncMode string, sourceOverride string, flatten bool, force bool, start time.Time) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -126,7 +134,7 @@ func extrasInitGlobal(name string, targets []string, syncMode string, sourceOver
 	// Build extra config
 	extra := config.ExtraConfig{Name: name, Source: sourceOverride}
 	for _, t := range targets {
-		et := config.ExtraTargetConfig{Path: t}
+		et := config.ExtraTargetConfig{Path: t, Flatten: flatten}
 		if syncMode != "" {
 			et.Mode = syncMode
 		}
@@ -156,7 +164,7 @@ func extrasInitGlobal(name string, targets []string, syncMode string, sourceOver
 	return nil
 }
 
-func extrasInitProject(cwd, name string, targets []string, syncMode string, force bool, start time.Time) error {
+func extrasInitProject(cwd, name string, targets []string, syncMode string, flatten bool, force bool, start time.Time) error {
 	projCfg, err := config.LoadProject(cwd)
 	if err != nil {
 		return err
@@ -170,7 +178,7 @@ func extrasInitProject(cwd, name string, targets []string, syncMode string, forc
 
 	extra := config.ExtraConfig{Name: name}
 	for _, t := range targets {
-		et := config.ExtraTargetConfig{Path: t}
+		et := config.ExtraTargetConfig{Path: t, Flatten: flatten}
 		if syncMode != "" {
 			et.Mode = syncMode
 		}
