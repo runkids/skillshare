@@ -28,8 +28,8 @@ func cmdExtras(args []string) error {
 		printExtrasHelp()
 		return nil
 	default:
-		// Shorthand: skillshare extras <name> --mode <mode>
-		if hasFlag(args, "--mode") {
+		// Shorthand: skillshare extras <name> --mode/--flatten/--no-flatten
+		if hasFlag(args, "--mode") || hasFlag(args, "--flatten") || hasFlag(args, "--no-flatten") {
 			return cmdExtrasMode(args)
 		}
 		return fmt.Errorf("unknown extras subcommand: %s (run 'skillshare extras --help')", sub)
