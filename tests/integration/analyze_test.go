@@ -290,3 +290,28 @@ func TestAnalyze_ProjectMode(t *testing.T) {
 	result := sb.RunCLIInDir(projectDir, "analyze", "-p")
 	result.AssertSuccess(t)
 }
+
+func TestAnalyze_NoTUI(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("skill1", map[string]string{
+		"SKILL.md": "---\nname: skill1\ndescription: First skill\n---\n# Body",
+	})
+	target := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + "\ntargets:\n  claude:\n    path: " + target)
+
+	result := sb.RunCLI("analyze", "--no-tui")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "Context Analysis")
+	result.AssertOutputContains(t, "Always loaded:")
+}
+
+func TestAnalyze_HelpShowsNoTUI(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	result := sb.RunCLI("analyze", "--help")
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "--no-tui")
+}

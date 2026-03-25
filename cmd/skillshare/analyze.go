@@ -16,6 +16,7 @@ type analyzeOptions struct {
 	targetName string
 	verbose    bool
 	json       bool
+	noTUI      bool
 }
 
 type analyzeSkillEntry struct {
@@ -49,6 +50,11 @@ type analyzeOutput struct {
 	Targets []analyzeTargetEntry `json:"targets"`
 }
 
+type analyzeLoadResult struct {
+	targets []analyzeTargetEntry
+	err     error
+}
+
 func parseAnalyzeArgs(args []string) (*analyzeOptions, bool, error) {
 	opts := &analyzeOptions{}
 	for _, arg := range args {
@@ -57,6 +63,8 @@ func parseAnalyzeArgs(args []string) (*analyzeOptions, bool, error) {
 			opts.verbose = true
 		case arg == "--json":
 			opts.json = true
+		case arg == "--no-tui":
+			opts.noTUI = true
 		case arg == "--help" || arg == "-h":
 			return nil, true, nil
 		case strings.HasPrefix(arg, "-"):
@@ -122,6 +130,7 @@ Options:
   --project, -p     Analyze project-level skills (.skillshare/)
   --global, -g      Analyze global skills (~/.config/skillshare)
   --json            Output results as JSON
+  --no-tui          Disable interactive TUI
   --help, -h        Show this help
 
 Examples:
@@ -137,6 +146,20 @@ func runAnalyze(opts *analyzeOptions) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
+	}
+	if opts.targetName == "" && !opts.json && shouldLaunchTUI(opts.noTUI, cfg) {
+		loadFn := func() analyzeLoadResult {
+			discovered, err := ssync.DiscoverSourceSkillsForAnalyze(cfg.Source)
+			if err != nil {
+				return analyzeLoadResult{err: err}
+			}
+			entries, err := buildAnalyzeEntries(discovered, cfg.Targets, cfg.Mode, "")
+			if err != nil {
+				return analyzeLoadResult{err: err}
+			}
+			return analyzeLoadResult{targets: entries}
+		}
+		return runAnalyzeTUI(loadFn, "global")
 	}
 	return runAnalyzeCore(cfg.Source, cfg.Targets, cfg.Mode, opts)
 }
@@ -383,4 +406,8 @@ func printAnalyzeVerbose(entries []analyzeTargetEntry) {
 			printAnalyzeEntry(e, true)
 		}
 	}
+}
+
+func runAnalyzeTUI(loadFn func() analyzeLoadResult, modeLabel string) error {
+	return fmt.Errorf("analyze TUI not yet implemented")
 }
