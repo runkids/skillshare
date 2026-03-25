@@ -96,12 +96,13 @@ The TUI provides a split-pane interface with extras list on the left and detail 
 | `S` | Sync extra to target(s) |
 | `C` | Collect from target(s) |
 | `M` | Change sync mode of a target |
+| `F` | Toggle flatten on/off for a target |
 | `Ctrl+U/D` | Scroll detail panel |
 | `q` / `Ctrl+C` | Quit |
 
 The color bar on each row reflects aggregate sync status: cyan = all synced, yellow = drift, red = not synced, gray = no source.
 
-For extras with multiple targets, `S`, `C`, and `M` open a target sub-menu. `S` and `C` allow selecting all targets at once; `M` requires picking a specific target.
+For extras with multiple targets, `S`, `C`, `M`, and `F` open a target sub-menu. `S` and `C` allow selecting all targets at once; `M` and `F` require picking a specific target.
 
 The TUI can be permanently disabled with `skillshare tui off`.
 
