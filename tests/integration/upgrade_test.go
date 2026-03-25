@@ -35,8 +35,8 @@ targets: {}
 
 	skillPath := filepath.Join(sb.SourcePath, "skillshare", "SKILL.md")
 
-	// Create existing skill with frontmatter version
-	skillContent := "---\nname: skillshare\nversion: 0.1.0\n---\n# Old Content"
+	// Create existing skill with metadata version
+	skillContent := "---\nname: skillshare\nmetadata:\n  version: 0.1.0\n---\n# Old Content"
 	os.MkdirAll(filepath.Dir(skillPath), 0755)
 	os.WriteFile(skillPath, []byte(skillContent), 0644)
 
@@ -64,9 +64,9 @@ targets: {}
 
 	skillPath := filepath.Join(sb.SourcePath, "skillshare", "SKILL.md")
 
-	// Create existing skill with frontmatter version
+	// Create existing skill with metadata version
 	os.MkdirAll(filepath.Dir(skillPath), 0755)
-	os.WriteFile(skillPath, []byte("---\nname: skillshare\nversion: 0.1.0\n---\n# Old Content"), 0644)
+	os.WriteFile(skillPath, []byte("---\nname: skillshare\nmetadata:\n  version: 0.1.0\n---\n# Old Content"), 0644)
 
 	// Force upgrade skill only (don't upgrade CLI during tests!)
 	result := sb.RunCLI("upgrade", "--skill", "--force")
