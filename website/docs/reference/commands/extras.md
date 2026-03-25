@@ -162,7 +162,7 @@ skillshare extras <name> --flatten [--target <path>]
 | `--mode <mode>` | New sync mode: `merge`, `copy`, or `symlink` |
 | `--flatten` | Enable flatten (sync subdirectory files into target root) |
 | `--no-flatten` | Disable flatten |
-| `--target <path>` | Target directory path (optional if extra has only one target) |
+| `--target <path>` | Target directory path (required for `--mode` with multi-target extras; `--flatten`/`--no-flatten` applies to all targets when omitted) |
 | `--project, -p` | Use project-mode extras (`.skillshare/`) |
 | `--global, -g` | Use global extras (`~/.config/skillshare/`) |
 
@@ -178,11 +178,14 @@ skillshare extras mode rules --target ~/.claude/rules --mode copy
 # Change to symlink in project mode
 skillshare extras mode commands --target ~/.cursor/commands --mode symlink -p
 
-# Enable flatten on an existing target
+# Enable flatten on all targets at once
 skillshare extras agents --flatten
 
-# Disable flatten
+# Disable flatten on all targets
 skillshare extras agents --no-flatten
+
+# Enable flatten on a specific target only
+skillshare extras agents --flatten --target ~/.claude/agents
 ```
 
 Also available via the TUI (`M` key) and Web UI (mode dropdown and flatten checkbox on each target).
