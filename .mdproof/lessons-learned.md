@@ -57,6 +57,21 @@
 - **Fix**: Run `mdproof` directly inside the container (`docker exec $CONTAINER mdproof ...`) without wrapping in `ssenv`. mdproof handles its own isolation. Only use ssenv for manual interactive debugging
 - **Runbooks affected**: All runbooks when run via the cli-e2e-test skill
 
+### [pattern] Self-contained steps avoid mdproof setup conflicts
+
+- **Context**: extras_flatten_runbook needed multi-step state (step 1 creates source files, step 4 syncs them). But mdproof.json's `setup` re-runs `ss init -g --force` before EACH step, wiping config.yaml including extras configuration from previous steps
+- **Discovery**: The mdproof global `setup` is designed to give each step a clean init state. This conflicts with runbooks that build state across steps (extras init → sync → verify). Combined with the ssenv+mdproof dual HOME isolation issue, the flatten runbook couldn't use mdproof at all
+- **Fix**: Make each step fully self-contained — every step includes its own cleanup + source creation + extras init + action + assertion in one bash block. Verbose but reliable. The runbook was ultimately executed via direct `ssenv enter ... -- bash -c '...'` instead of mdproof
+- **Tradeoff**: Self-contained steps are verbose (~15 lines per step vs ~3) but eliminate all setup/state dependency issues. Best for extras runbooks where state must persist across config operations
+- **Runbooks affected**: extras_flatten_runbook.md (all 9 steps are self-contained)
+
+### [gotcha] extras remove writes error to stdout, not stderr
+
+- **Context**: `ss extras remove agents --force -g 2>/dev/null || true` was used to clean up before JSON-only steps, but "extra not found" error text still appeared in stdout
+- **Discovery**: `ss extras remove` writes `✗ extra "agents" not found` to **stdout** (via `ui.Warning`), not stderr. `2>/dev/null` only redirects stderr, so the error text pollutes stdout and breaks jq assertions in the same step
+- **Fix**: Use `>/dev/null 2>&1` (redirect both stdout AND stderr) for cleanup commands in steps that need pure JSON output
+- **Runbooks affected**: extras_flatten_runbook.md
+
 ### [gotcha] Full-directory mdproof runs cause inter-runbook state leakage
 
 - **Context**: Running `mdproof --report json /path/to/tests/` executes all runbooks sequentially in the same environment (same ssenv). Earlier runbooks install skills, modify config, fill trash — this state persists for later runbooks
