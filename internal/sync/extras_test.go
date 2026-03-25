@@ -684,3 +684,97 @@ func TestCollectExtraFiles_FlattenSkipsExisting(t *testing.T) {
 		t.Errorf("Collected = %d, want 0", result.Collected)
 	}
 }
+
+// --- FlattenRel tests ---
+
+func TestFlattenRel_NotFlatten(t *testing.T) {
+	seen := make(map[string]bool)
+	tgt, ok := FlattenRel("sub/file.md", false, seen)
+	if !ok || tgt != "sub/file.md" {
+		t.Errorf("got (%s, %v), want (sub/file.md, true)", tgt, ok)
+	}
+}
+
+func TestFlattenRel_Flatten(t *testing.T) {
+	seen := make(map[string]bool)
+	tgt, ok := FlattenRel("sub/file.md", true, seen)
+	if !ok || tgt != "file.md" {
+		t.Errorf("got (%s, %v), want (file.md, true)", tgt, ok)
+	}
+}
+
+func TestFlattenRel_Collision(t *testing.T) {
+	seen := make(map[string]bool)
+	FlattenRel("a/file.md", true, seen)
+	_, ok := FlattenRel("b/file.md", true, seen)
+	if ok {
+		t.Error("expected collision (false), got true")
+	}
+}
+
+// --- CheckSyncStatus tests ---
+
+func TestCheckSyncStatus_Synced(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{"rule.md": "# Rule"})
+	SyncExtra(src, tgt, "merge", false, false, false)
+	files, _ := DiscoverExtraFiles(src)
+	absSrc, _ := filepath.Abs(src)
+	if s := CheckSyncStatus(files, absSrc, tgt, "merge", false); s != "synced" {
+		t.Errorf("expected synced, got %s", s)
+	}
+}
+
+func TestCheckSyncStatus_Drift(t *testing.T) {
+	src, _ := setupExtrasTest(t, map[string]string{"rule.md": "# Rule"})
+	tgt := filepath.Join(t.TempDir(), "empty")
+	os.MkdirAll(tgt, 0755)
+	files, _ := DiscoverExtraFiles(src)
+	absSrc, _ := filepath.Abs(src)
+	if s := CheckSyncStatus(files, absSrc, tgt, "merge", false); s != "drift" {
+		t.Errorf("expected drift, got %s", s)
+	}
+}
+
+func TestCheckSyncStatus_FlattenSynced(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{"sub/file.md": "content"})
+	SyncExtra(src, tgt, "merge", false, false, true)
+	files, _ := DiscoverExtraFiles(src)
+	absSrc, _ := filepath.Abs(src)
+	if s := CheckSyncStatus(files, absSrc, tgt, "merge", true); s != "synced" {
+		t.Errorf("expected synced, got %s", s)
+	}
+}
+
+func TestCheckSyncStatus_FlattenDrift(t *testing.T) {
+	src, _ := setupExtrasTest(t, map[string]string{"sub/file.md": "content"})
+	tgt := filepath.Join(t.TempDir(), "empty")
+	os.MkdirAll(tgt, 0755)
+	files, _ := DiscoverExtraFiles(src)
+	absSrc, _ := filepath.Abs(src)
+	if s := CheckSyncStatus(files, absSrc, tgt, "merge", true); s != "drift" {
+		t.Errorf("expected drift, got %s", s)
+	}
+}
+
+func TestCheckSyncStatus_FlattenCollisionNotDrift(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{
+		"a/same.md": "# A",
+		"b/same.md": "# B",
+	})
+	SyncExtra(src, tgt, "merge", false, false, true)
+	files, _ := DiscoverExtraFiles(src)
+	absSrc, _ := filepath.Abs(src)
+	if s := CheckSyncStatus(files, absSrc, tgt, "merge", true); s != "synced" {
+		t.Errorf("expected synced (collision skipped), got %s", s)
+	}
+}
+
+func TestCheckSyncStatus_CopyMode(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{"file.md": "content"})
+	SyncExtra(src, tgt, "copy", false, false, false)
+	files, _ := DiscoverExtraFiles(src)
+	absSrc, _ := filepath.Abs(src)
+	if s := CheckSyncStatus(files, absSrc, tgt, "copy", false); s != "synced" {
+		t.Errorf("expected synced, got %s", s)
+	}
+}
