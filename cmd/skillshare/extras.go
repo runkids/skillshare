@@ -47,7 +47,7 @@ Commands:
   remove <name>      Remove an extra resource type
   collect <name>     Collect local files from a target into extras source
   source [path]      Show or set the global extras_source directory
-  mode <name>        Change sync mode of an extra's target
+  mode <name>        Change sync mode or flatten setting of an extra's target
 
 Options:
   --project, -p      Use project-mode extras (.skillshare/)
