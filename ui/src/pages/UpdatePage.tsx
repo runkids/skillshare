@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  RefreshCw, Check, ArrowUpCircle, Loader2,
+  RefreshCw, Check, ArrowUpCircle, Loader2, Search,
   Circle, CheckCircle, XCircle, MinusCircle, ShieldAlert, Zap,
 } from 'lucide-react';
 import Card from '../components/Card';
@@ -9,7 +9,7 @@ import Button from '../components/Button';
 import SplitButton from '../components/SplitButton';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
-import { Checkbox } from '../components/Input';
+import { Checkbox, Input } from '../components/Input';
 import Badge from '../components/Badge';
 import { queryKeys } from '../lib/queryKeys';
 import { useToast } from '../components/Toast';
@@ -57,6 +57,7 @@ export default function UpdatePage() {
   const { toast } = useToast();
   const [selectedRepos, setSelectedRepos] = useState<Set<string>>(new Set());
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState('');
   const [phase, setPhase] = useState<UpdatePhase>('idle');
   const [itemStatuses, setItemStatuses] = useState<ItemUpdateStatus[]>([]);
 
@@ -149,6 +150,10 @@ export default function UpdatePage() {
   const updatableSkills = data.skills.filter((s) => s.status === 'update_available');
   const hasUpdates = updatableRepos.length > 0 || updatableSkills.length > 0;
 
+  const lowerSearch = search.toLowerCase();
+  const filteredRepos = lowerSearch ? updatableRepos.filter((r) => r.name.toLowerCase().includes(lowerSearch)) : updatableRepos;
+  const filteredSkills = lowerSearch ? updatableSkills.filter((s) => s.name.toLowerCase().includes(lowerSearch)) : updatableSkills;
+
   const toggleRepo = (name: string) => {
     setSelectedRepos((prev) => {
       const next = new Set(prev);
@@ -165,17 +170,20 @@ export default function UpdatePage() {
     });
   };
 
-  const selectAllRepos = () => {
-    setSelectedRepos((prev) =>
-      prev.size === updatableRepos.length ? new Set() : new Set(updatableRepos.map((r) => r.name))
+  const toggleAll = <T extends { name: string }>(
+    items: T[],
+    setter: React.Dispatch<React.SetStateAction<Set<string>>>,
+  ) => {
+    const nameSet = new Set(items.map((i) => i.name));
+    setter((prev) =>
+      [...nameSet].every((n) => prev.has(n))
+        ? new Set([...prev].filter((n) => !nameSet.has(n)))
+        : new Set([...prev, ...nameSet])
     );
   };
 
-  const selectAllSkills = () => {
-    setSelectedSkills((prev) =>
-      prev.size === updatableSkills.length ? new Set() : new Set(updatableSkills.map((s) => s.name))
-    );
-  };
+  const selectAllRepos = () => toggleAll(filteredRepos, setSelectedRepos);
+  const selectAllSkills = () => toggleAll(filteredSkills, setSelectedSkills);
 
   const totalSelected = selectedRepos.size + selectedSkills.size;
 
@@ -421,18 +429,36 @@ export default function UpdatePage() {
             />
           ) : (
             <>
-              {updatableRepos.length > 0 && (
+              {/* Sticky search bar */}
+              <div className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 pt-2 pb-3 -mb-0">
+                <div className="relative">
+                  <Search
+                    size={18}
+                    strokeWidth={2.5}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Filter updates..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="!pl-11"
+                  />
+                </div>
+              </div>
+
+              {filteredRepos.length > 0 && (
                 <Card>
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-lg font-bold text-pencil">
-                      Tracked Repositories ({updatableRepos.length})
+                      Tracked Repositories ({filteredRepos.length})
                     </h2>
                     <Button variant="ghost" size="sm" onClick={selectAllRepos}>
-                      {selectedRepos.size === updatableRepos.length ? 'Deselect All' : 'Select All'}
+                      {filteredRepos.every((r) => selectedRepos.has(r.name)) ? 'Deselect All' : 'Select All'}
                     </Button>
                   </div>
                   <div className="space-y-2">
-                    {updatableRepos.map((repo) => (
+                    {filteredRepos.map((repo) => (
                       <div
                         key={repo.name}
                         className="flex items-center gap-3 px-3 py-2 border border-muted hover:bg-muted/30 transition-colors cursor-pointer"
@@ -457,22 +483,22 @@ export default function UpdatePage() {
                 </Card>
               )}
 
-              {updatableRepos.length > 0 && updatableSkills.length > 0 && (
+              {filteredRepos.length > 0 && filteredSkills.length > 0 && (
                 <div className="border-t border-dashed border-pencil-light/30" />
               )}
 
-              {updatableSkills.length > 0 && (
+              {filteredSkills.length > 0 && (
                 <Card>
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-lg font-bold text-pencil">
-                      Skills with Updates ({updatableSkills.length})
+                      Skills with Updates ({filteredSkills.length})
                     </h2>
                     <Button variant="ghost" size="sm" onClick={selectAllSkills}>
-                      {selectedSkills.size === updatableSkills.length ? 'Deselect All' : 'Select All'}
+                      {filteredSkills.every((s) => selectedSkills.has(s.name)) ? 'Deselect All' : 'Select All'}
                     </Button>
                   </div>
                   <div className="space-y-2">
-                    {updatableSkills.map((skill) => (
+                    {filteredSkills.map((skill) => (
                       <div
                         key={skill.name}
                         className="flex items-center gap-3 px-3 py-2 border border-muted hover:bg-muted/30 transition-colors cursor-pointer"
@@ -497,6 +523,14 @@ export default function UpdatePage() {
                     ))}
                   </div>
                 </Card>
+              )}
+
+              {filteredRepos.length === 0 && filteredSkills.length === 0 && search && (
+                <EmptyState
+                  icon={Search}
+                  title="No matches"
+                  description={`No updates matching "${search}".`}
+                />
               )}
             </>
           )}
