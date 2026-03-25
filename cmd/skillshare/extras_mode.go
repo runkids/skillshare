@@ -111,6 +111,10 @@ func cmdExtrasMode(args []string) error {
 				case 1:
 					targetPath = extra.Targets[0].Path
 				default:
+					// flatten-only changes apply to all targets when --target is omitted
+					if flattenSet && syncMode == "" {
+						return applyFlattenAll(extras, name, flattenVal, saveFn, configPath, start)
+					}
 					return fmt.Errorf("extra %q has %d targets — use --target to specify which one", name, len(extra.Targets))
 				}
 				break
@@ -179,6 +183,39 @@ func cmdExtrasMode(args []string) error {
 	oplog.WriteWithLimit(configPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
 	return nil
+}
+
+// applyFlattenAll sets flatten on all targets of an extra. Validates each
+// target's mode before applying. Used when --flatten/--no-flatten is passed
+// without --target on a multi-target extra.
+func applyFlattenAll(extras []config.ExtraConfig, name string, flatten bool, saveFn func() error, configPath string, start time.Time) error {
+	for i, extra := range extras {
+		if extra.Name != name {
+			continue
+		}
+		for j := range extra.Targets {
+			if err := config.ValidateExtraFlatten(flatten, extra.Targets[j].Mode); err != nil {
+				return fmt.Errorf("target %s: %w", extra.Targets[j].Path, err)
+			}
+			extras[i].Targets[j].Flatten = flatten
+		}
+
+		if err := saveFn(); err != nil {
+			return fmt.Errorf("failed to save config: %w", err)
+		}
+
+		label := "enabled"
+		if !flatten {
+			label = "disabled"
+		}
+		ui.Success("Flatten %s for all %d targets of %s", label, len(extra.Targets), name)
+
+		e := oplog.NewEntry("extras-mode", "ok", time.Since(start))
+		e.Args = map[string]any{"name": name, "flatten": flatten, "all_targets": true}
+		oplog.WriteWithLimit(configPath, oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
+		return nil
+	}
+	return fmt.Errorf("extra %q not found", name)
 }
 
 // applyExtraTarget finds an extra by name and target path, then applies a
