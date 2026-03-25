@@ -2,10 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   RefreshCw, Check, ArrowUpCircle, Loader2,
-  Circle, CheckCircle, XCircle, MinusCircle, ShieldAlert,
+  Circle, CheckCircle, XCircle, MinusCircle, ShieldAlert, Zap,
 } from 'lucide-react';
 import Card from '../components/Card';
 import Button from '../components/Button';
+import SplitButton from '../components/SplitButton';
 import PageHeader from '../components/PageHeader';
 import EmptyState from '../components/EmptyState';
 import { Checkbox } from '../components/Input';
@@ -56,7 +57,6 @@ export default function UpdatePage() {
   const { toast } = useToast();
   const [selectedRepos, setSelectedRepos] = useState<Set<string>>(new Set());
   const [selectedSkills, setSelectedSkills] = useState<Set<string>>(new Set());
-  const [forceUpdate, setForceUpdate] = useState(false);
   const [phase, setPhase] = useState<UpdatePhase>('idle');
   const [itemStatuses, setItemStatuses] = useState<ItemUpdateStatus[]>([]);
 
@@ -179,7 +179,7 @@ export default function UpdatePage() {
 
   const totalSelected = selectedRepos.size + selectedSkills.size;
 
-  const handleUpdate = () => {
+  const handleUpdate = (opts?: { force?: boolean }) => {
     if (totalSelected === 0) return;
 
     // Build items list and initialize all as pending (visible immediately)
@@ -233,7 +233,7 @@ export default function UpdatePage() {
         toast(err.message, 'error');
         setPhase('done');
       },
-      { names, force: forceUpdate },
+      { names, force: opts?.force ?? false },
     );
   };
 
@@ -305,17 +305,23 @@ export default function UpdatePage() {
               </Button>
             )}
             {phase === 'idle' && hasUpdates && totalSelected > 0 && (
-              <>
-                <Checkbox label="Force" checked={forceUpdate} onChange={setForceUpdate} />
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleUpdate}
-                >
-                  <ArrowUpCircle size={16} />
-                  Update Selected ({totalSelected})
-                </Button>
-              </>
+              <SplitButton
+                variant="primary"
+                size="sm"
+                onClick={() => handleUpdate()}
+                dropdownAlign="right"
+                items={[
+                  {
+                    label: 'Force Update',
+                    icon: <Zap size={14} strokeWidth={2.5} />,
+                    onClick: () => handleUpdate({ force: true }),
+                    confirm: true,
+                  },
+                ]}
+              >
+                <ArrowUpCircle size={16} />
+                Update Selected ({totalSelected})
+              </SplitButton>
             )}
           </>
         }
