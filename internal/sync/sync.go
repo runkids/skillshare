@@ -23,8 +23,9 @@ type DiscoveredSkill struct {
 	FlatName   string   // Flat name for target: _team__frontend__ui
 	IsInRepo   bool     // Whether this skill is inside a tracked repo (_-prefixed directory)
 	Targets    []string // From SKILL.md frontmatter; nil = all targets
-	DescChars  int      // Rune count of name + description (populated when collectContext)
-	BodyChars  int      // Rune count of body after frontmatter (populated when collectContext)
+	DescChars   int      // Rune count of name + description (populated when collectContext)
+	BodyChars   int      // Rune count of body after frontmatter (populated when collectContext)
+	Description string   // Frontmatter description text (populated when collectContext)
 }
 
 // isSkillIgnored checks whether a skill inside a tracked repo should be

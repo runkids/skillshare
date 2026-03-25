@@ -11,7 +11,7 @@ func TestCalcSkillContext_WithDescription(t *testing.T) {
 	content := "---\nname: my-skill\ndescription: A helpful skill for testing\n---\n# My Skill\nBody content here"
 	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0644)
 
-	descChars, bodyChars, err := CalcSkillContext(dir)
+	descChars, bodyChars, description, err := CalcSkillContext(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -23,6 +23,9 @@ func TestCalcSkillContext_WithDescription(t *testing.T) {
 	if bodyChars != 28 {
 		t.Errorf("bodyChars: expected 28, got %d", bodyChars)
 	}
+	if description != "A helpful skill for testing" {
+		t.Errorf("description: expected %q, got %q", "A helpful skill for testing", description)
+	}
 }
 
 func TestCalcSkillContext_NoDescription(t *testing.T) {
@@ -30,7 +33,7 @@ func TestCalcSkillContext_NoDescription(t *testing.T) {
 	content := "---\nname: minimal\n---\n# Minimal\nJust body"
 	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0644)
 
-	descChars, bodyChars, err := CalcSkillContext(dir)
+	descChars, bodyChars, description, err := CalcSkillContext(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -40,6 +43,9 @@ func TestCalcSkillContext_NoDescription(t *testing.T) {
 	if bodyChars == 0 {
 		t.Errorf("bodyChars: expected > 0, got 0")
 	}
+	if description != "" {
+		t.Errorf("description: expected empty, got %q", description)
+	}
 }
 
 func TestCalcSkillContext_NoFrontmatter(t *testing.T) {
@@ -47,7 +53,7 @@ func TestCalcSkillContext_NoFrontmatter(t *testing.T) {
 	content := "# No Frontmatter\nJust plain content"
 	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0644)
 
-	descChars, bodyChars, err := CalcSkillContext(dir)
+	descChars, bodyChars, description, err := CalcSkillContext(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -57,13 +63,16 @@ func TestCalcSkillContext_NoFrontmatter(t *testing.T) {
 	if bodyChars != 35 {
 		t.Errorf("bodyChars: expected 35, got %d", bodyChars)
 	}
+	if description != "" {
+		t.Errorf("description: expected empty, got %q", description)
+	}
 }
 
 func TestCalcSkillContext_EmptyFile(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(""), 0644)
 
-	descChars, bodyChars, err := CalcSkillContext(dir)
+	descChars, bodyChars, description, err := CalcSkillContext(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -73,6 +82,9 @@ func TestCalcSkillContext_EmptyFile(t *testing.T) {
 	if bodyChars != 0 {
 		t.Errorf("bodyChars: expected 0, got %d", bodyChars)
 	}
+	if description != "" {
+		t.Errorf("description: expected empty, got %q", description)
+	}
 }
 
 func TestCalcSkillContext_MultilineDescription(t *testing.T) {
@@ -80,7 +92,7 @@ func TestCalcSkillContext_MultilineDescription(t *testing.T) {
 	content := "---\nname: multi\ndescription: |\n  Line one\n  Line two\n---\n# Body"
 	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(content), 0644)
 
-	descChars, bodyChars, err := CalcSkillContext(dir)
+	descChars, bodyChars, description, err := CalcSkillContext(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -91,12 +103,15 @@ func TestCalcSkillContext_MultilineDescription(t *testing.T) {
 	if bodyChars == 0 {
 		t.Errorf("bodyChars: expected > 0, got 0")
 	}
+	if description == "" {
+		t.Errorf("description: expected non-empty for multiline description")
+	}
 }
 
 func TestCalcSkillContext_NoSkillMd(t *testing.T) {
 	dir := t.TempDir()
 
-	descChars, bodyChars, err := CalcSkillContext(dir)
+	descChars, bodyChars, description, err := CalcSkillContext(dir)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -105,5 +120,8 @@ func TestCalcSkillContext_NoSkillMd(t *testing.T) {
 	}
 	if bodyChars != 0 {
 		t.Errorf("bodyChars: expected 0, got %d", bodyChars)
+	}
+	if description != "" {
+		t.Errorf("description: expected empty, got %q", description)
 	}
 }

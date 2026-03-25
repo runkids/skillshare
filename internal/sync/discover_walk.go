@@ -160,13 +160,14 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 
 			var targets []string
 			var descChars, bodyChars int
+			var description string
 
 			if opts.collectContext {
 				// Single read: parse targets + context from one os.ReadFile
 				content, readErr := os.ReadFile(skillFile)
 				if readErr == nil {
 					targets = utils.ParseFrontmatterListFromBytes(content, "targets")
-					descChars, bodyChars = calcContextFromContent(content)
+					descChars, bodyChars, description = calcContextFromContent(content)
 				}
 			} else if opts.parseFrontmatter {
 				targets = utils.ParseFrontmatterList(skillFile, "targets")
@@ -175,13 +176,14 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 			// Use original sourcePath (not walkRoot) so SourcePath preserves
 			// the caller's logical path, even if sourcePath is a symlink.
 			skills = append(skills, DiscoveredSkill{
-				SourcePath: filepath.Join(sourcePath, relPath),
-				RelPath:    relPath,
-				FlatName:   utils.PathToFlatName(relPath),
-				IsInRepo:   isInRepo,
-				Targets:    targets,
-				DescChars:  descChars,
-				BodyChars:  bodyChars,
+				SourcePath:  filepath.Join(sourcePath, relPath),
+				RelPath:     relPath,
+				FlatName:    utils.PathToFlatName(relPath),
+				IsInRepo:    isInRepo,
+				Targets:     targets,
+				DescChars:   descChars,
+				BodyChars:   bodyChars,
+				Description: description,
 			})
 		}
 
