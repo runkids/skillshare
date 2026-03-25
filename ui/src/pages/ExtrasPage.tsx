@@ -147,7 +147,7 @@ function AddExtraModal({
                         options={MODE_OPTIONS}
                       />
                     </div>
-                    <label className="flex items-center gap-1.5 shrink-0 cursor-pointer select-none mt-2.5">
+                    <label className="flex items-center gap-1.5 shrink-0 cursor-pointer select-none mt-2.5" title="Sync files from subdirectories directly into the target root (e.g., for tools that only discover top-level files)">
                       <input
                         type="checkbox"
                         checked={t.flatten}
@@ -309,7 +309,7 @@ function ExtraCard({
                   {t.status}
                 </Badge>
               </div>
-              <label className="flex items-center gap-1 shrink-0 cursor-pointer select-none">
+              <label className="flex items-center gap-1 shrink-0 cursor-pointer select-none" title="Sync files from subdirectories directly into the target root (e.g., for tools that only discover top-level files)">
                 <input
                   type="checkbox"
                   checked={t.flatten}
