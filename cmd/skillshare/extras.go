@@ -49,6 +49,11 @@ Commands:
   source [path]      Show or set the global extras_source directory
   mode <name>        Change sync mode or flatten setting of an extra's target
 
+Shortcuts:
+  skillshare extras <name> --mode <mode>       Change sync mode
+  skillshare extras <name> --flatten           Enable flatten
+  skillshare extras <name> --no-flatten        Disable flatten
+
 Options:
   --project, -p      Use project-mode extras (.skillshare/)
   --global, -g       Use global extras (~/.config/skillshare/)

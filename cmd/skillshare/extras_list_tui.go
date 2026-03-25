@@ -297,6 +297,8 @@ func (m extrasListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.enterTargetMenu("collect")
 		case "M":
 			return m.enterTargetMenu("mode")
+		case "F":
+			return m.enterTargetMenu("flatten")
 		}
 	}
 
@@ -524,7 +526,7 @@ func (m extrasListTUIModel) renderExtrasFilterBar() string {
 }
 
 func (m extrasListTUIModel) renderExtrasHelp(scrollInfo string) string {
-	helpText := "↑↓ navigate  / filter  Enter view  N new  X remove  S sync  C collect  M mode  q quit"
+	helpText := "↑↓ navigate  / filter  Enter view  N new  X remove  S sync  C collect  M mode  F flatten  q quit"
 	if m.filtering {
 		helpText = "Enter lock  Esc clear  q quit"
 	}
@@ -673,10 +675,13 @@ func (m extrasListTUIModel) enterTargetMenu(action string) (tea.Model, tea.Cmd) 
 		m.lastActionMsg = "✗ No targets configured"
 		return m, nil
 	}
-	// Single target: skip menu for sync/collect/mode
+	// Single target: skip menu for sync/collect/mode/flatten
 	if len(item.entry.Targets) == 1 {
 		if action == "mode" {
 			return m.openModePicker(item.entry.Name, item.entry.Targets[0])
+		}
+		if action == "flatten" {
+			return m, m.doFlattenToggle(item.entry.Name, item.entry.Targets[0])
 		}
 		m.confirmExtra = item.entry.Name
 		m.confirmAction = action
@@ -694,9 +699,9 @@ func (m extrasListTUIModel) enterTargetMenu(action string) (tea.Model, tea.Cmd) 
 }
 
 func (m extrasListTUIModel) handleTargetMenuKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// "mode" has no "All targets" row
+	// "mode" and "flatten" have no "All targets" row
 	totalItems := len(m.targetMenuItems) + 1
-	if m.targetAction == "mode" {
+	if m.targetAction == "mode" || m.targetAction == "flatten" {
 		totalItems = len(m.targetMenuItems)
 	}
 
@@ -723,10 +728,14 @@ func (m extrasListTUIModel) handleTargetMenuKey(msg tea.KeyMsg) (tea.Model, tea.
 		}
 		m.showTargetMenu = false
 
-		// Mode action: no "All targets", go directly to mode picker
+		// Mode/flatten: no "All targets", go directly to picker/toggle
 		if m.targetAction == "mode" {
 			t := m.targetMenuItems[m.targetCursor]
 			return m.openModePicker(item.entry.Name, t)
+		}
+		if m.targetAction == "flatten" {
+			t := m.targetMenuItems[m.targetCursor]
+			return m, m.doFlattenToggle(item.entry.Name, t)
 		}
 
 		m.confirmExtra = item.entry.Name
@@ -751,11 +760,13 @@ func (m extrasListTUIModel) renderTargetMenu() string {
 		title = "Collect from"
 	case "mode":
 		title = "Change mode"
+	case "flatten":
+		title = "Toggle flatten"
 	}
 
 	fmt.Fprintf(&b, "\n%s\n\n", tc.Title.Render(title))
 
-	if m.targetAction == "mode" {
+	if m.targetAction == "mode" || m.targetAction == "flatten" {
 		// No "All targets" for mode — list targets directly
 		for i, t := range m.targetMenuItems {
 			prefix := "  "
@@ -1009,6 +1020,47 @@ func (m extrasListTUIModel) doCollect(name, targetPath string) (string, error) {
 	}
 
 	return fmt.Sprintf("✓ Collected %d file(s) into %q", collected, name), nil
+}
+
+func (m extrasListTUIModel) doFlattenToggle(name string, t extrasTargetInfo) tea.Cmd {
+	targetPath := t.Path
+	newFlatten := !t.Flatten
+
+	return func() tea.Msg {
+		if err := config.ValidateExtraFlatten(newFlatten, t.Mode); err != nil {
+			return extrasActionDoneMsg{msg: "", err: err}
+		}
+
+		if m.projCfg != nil {
+			projCfg, loadErr := config.LoadProject(m.cwd)
+			if loadErr != nil {
+				return extrasActionDoneMsg{err: loadErr}
+			}
+			if err := applyExtraTarget(projCfg.Extras, name, targetPath, func(et *config.ExtraTargetConfig) { et.Flatten = newFlatten }); err != nil {
+				return extrasActionDoneMsg{err: err}
+			}
+			if err := projCfg.Save(m.cwd); err != nil {
+				return extrasActionDoneMsg{err: err}
+			}
+		} else {
+			cfg, loadErr := config.Load()
+			if loadErr != nil {
+				return extrasActionDoneMsg{err: loadErr}
+			}
+			if err := applyExtraTarget(cfg.Extras, name, targetPath, func(et *config.ExtraTargetConfig) { et.Flatten = newFlatten }); err != nil {
+				return extrasActionDoneMsg{err: err}
+			}
+			if err := cfg.Save(); err != nil {
+				return extrasActionDoneMsg{err: err}
+			}
+		}
+
+		label := "enabled"
+		if !newFlatten {
+			label = "disabled"
+		}
+		return extrasActionDoneMsg{msg: fmt.Sprintf("✓ Flatten %s for %s → %s", label, name, shortenPath(targetPath))}
+	}
 }
 
 // ─── Content Viewer ──────────────────────────────────────────────────
