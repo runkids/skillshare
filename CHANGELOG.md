@@ -30,6 +30,8 @@
 
 - **Filename collision handling** — when flatten causes files from different subdirectories to share the same name (e.g., `team-a/agent.md` and `team-b/agent.md`), the first file wins (sorted alphabetically) and subsequent collisions are skipped with a warning
 
+- **`F` flatten toggle in TUI** — press `F` in the extras list TUI to toggle flatten on/off for a target. Single-target extras toggle directly; multi-target extras show a target picker first
+
 #### Web UI — Flatten Support
 
 - **Flatten checkbox** — the Extras page shows a flatten checkbox per target, both when creating extras and on existing targets. Disabled when mode is symlink

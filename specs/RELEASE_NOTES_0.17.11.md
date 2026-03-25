@@ -47,9 +47,11 @@ skillshare extras agents --no-flatten
 
 The `extras list` output now shows a `, flatten` indicator next to the mode for flatten-enabled targets.
 
-## TUI Wizard
+## TUI
 
 The `extras init` interactive wizard now includes a "Flatten files into target root? (y/N)" prompt after mode selection. It is automatically skipped when `symlink` mode is selected.
+
+The extras list TUI adds a new `F` keybinding to toggle flatten on/off for a target. For single-target extras it toggles directly; for multi-target extras it shows a target picker first.
 
 ## Web UI
 
