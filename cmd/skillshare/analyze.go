@@ -407,7 +407,3 @@ func printAnalyzeVerbose(entries []analyzeTargetEntry) {
 		}
 	}
 }
-
-func runAnalyzeTUI(loadFn func() analyzeLoadResult, modeLabel string) error {
-	return fmt.Errorf("analyze TUI not yet implemented")
-}
