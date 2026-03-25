@@ -34,6 +34,7 @@
 
 - **Flatten checkbox** — the Extras page shows a flatten checkbox per target, both when creating extras and on existing targets. Disabled when mode is symlink
 - **Config editor validation** — the YAML config editor warns when `flatten: true` is combined with `mode: symlink`
+- **Target name field docs** — clicking a target name in the config editor (both `name: claude` and short-form `- agents`) now shows the correct "target name" documentation instead of unrelated field docs
 
 ## [0.17.10] - 2026-03-24
 

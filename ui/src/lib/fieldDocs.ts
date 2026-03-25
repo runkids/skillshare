@@ -51,6 +51,11 @@ export const fieldDocs: Record<string, FieldDoc> = {
     type: 'object',
     example: 'targets:\n  claude:\n    path: ~/.claude/skills\n    mode: merge\n    include: ["skill-a", "skill-b"]\n    exclude: ["debug-only"]\n  cursor:\n    mode: symlink',
   },
+  'targets.name': {
+    description: 'Target name in config. Use a built-in name (e.g., claude, cursor, codex) for automatic path resolution, or any custom name with an explicit path.',
+    type: 'string',
+    example: '- name: claude\n  path: ~/.claude/skills',
+  },
   'targets.include': {
     description: 'List of skill names to include for this target. If set, only these skills are synced.',
     type: 'string[]',

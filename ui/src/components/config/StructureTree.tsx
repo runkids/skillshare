@@ -33,9 +33,6 @@ function parseYamlTree(source: string): TreeNode[] {
     const trimmed = rawLine.trim();
     // Skip blank lines and comment lines
     if (!trimmed || trimmed.startsWith('#')) continue;
-    // Skip bare list values (- value without colon)
-    if ((trimmed.startsWith('- ') || trimmed === '-') && !trimmed.includes(':')) continue;
-
     let key: string | null = null;
     let rest = '';
     let indent = rawLine.length - rawLine.trimStart().length;
@@ -45,13 +42,18 @@ function parseYamlTree(source: string): TreeNode[] {
     if (listMatch) {
       key = listMatch[1];
       rest = listMatch[2].trim();
-      // For depth calc, use indent of the dash
     } else {
       // Plain key: "key: value"
       const plainMatch = trimmed.match(/^([a-zA-Z_][\w.-]*)\s*:(.*)/);
       if (plainMatch) {
         key = plainMatch[1];
         rest = plainMatch[2].trim();
+      } else {
+        // Bare list value: "- agents" (short-form target name, no colon)
+        const bareMatch = trimmed.match(/^-\s+([a-zA-Z_][\w.-]+)$/);
+        if (bareMatch) {
+          key = bareMatch[1];
+        }
       }
     }
 

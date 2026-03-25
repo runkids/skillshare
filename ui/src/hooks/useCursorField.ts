@@ -14,6 +14,9 @@ function extractKey(line: string): string | null {
   // Try list item key: "  - key: value"
   const listItem = line.match(/^\s*-\s+([a-zA-Z_][\w.-]*)\s*:/);
   if (listItem) return listItem[1];
+  // Bare list value: "  - agents" (no colon, e.g. short-form target name)
+  const bare = line.match(/^\s*-\s+([a-zA-Z_][\w.-]+)\s*$/);
+  if (bare) return bare[1];
   return null;
 }
 

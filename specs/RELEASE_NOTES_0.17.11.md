@@ -54,3 +54,7 @@ The `extras init` interactive wizard now includes a "Flatten files into target r
 ## Web UI
 
 The Extras page now shows a flatten checkbox per target — both in the "Add Extra" modal and on existing targets. The checkbox is disabled when mode is `symlink`. The YAML config editor warns when `flatten: true` is combined with `mode: symlink`.
+
+## Config Editor — Target Name Docs
+
+Clicking a target name in the config editor now shows the correct "target name" field documentation. Previously, clicking `name: claude` under `targets` incorrectly showed the sync mode documentation. Short-form entries like `- agents` are also recognized and show the same target name docs.

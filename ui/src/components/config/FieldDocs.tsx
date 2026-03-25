@@ -48,10 +48,11 @@ function lookupFieldDoc(fieldPath: string | null, docsMap: Record<string, FieldD
     }
     if (bestKey) doc = docsMap[bestKey];
 
-    // Fallback: just the root key (for dynamic child keys like target names)
-    // targets.universal → targets
+    // Fallback: dynamic value under a known section → treat as a name
+    // targets.agents → targets.name, extras.rules → extras.name
     if (!doc && parts.length >= 2) {
-      doc = docsMap[parts[0]];
+      const nameKey = parts[0] + '.name';
+      doc = docsMap[nameKey] ?? docsMap[parts[0]];
     }
   }
 
