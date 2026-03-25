@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/charmbracelet/bubbles/list"
+)
 
 func TestComputeThresholds(t *testing.T) {
 	tests := []struct {
@@ -60,5 +64,84 @@ func TestRenderBar(t *testing.T) {
 	bar = renderTokenBar(50, 0, 10)
 	if bar != "" {
 		t.Errorf("maxTokens 0: got %q, want empty", bar)
+	}
+}
+
+func TestCycleSort(t *testing.T) {
+	delegate := analyzeSkillDelegate{}
+	l := list.New(nil, delegate, 80, 20)
+	m := &analyzeTUIModel{
+		sortBy:  "tokens",
+		sortAsc: false,
+		list:    l,
+	}
+
+	m.cycleSort()
+	if m.sortBy != "tokens" || !m.sortAsc {
+		t.Errorf("step 1: got %s/%v", m.sortBy, m.sortAsc)
+	}
+
+	m.cycleSort()
+	if m.sortBy != "name" || !m.sortAsc {
+		t.Errorf("step 2: got %s/%v", m.sortBy, m.sortAsc)
+	}
+
+	m.cycleSort()
+	if m.sortBy != "name" || m.sortAsc {
+		t.Errorf("step 3: got %s/%v", m.sortBy, m.sortAsc)
+	}
+
+	m.cycleSort()
+	if m.sortBy != "tokens" || m.sortAsc {
+		t.Errorf("step 4: got %s/%v", m.sortBy, m.sortAsc)
+	}
+}
+
+func TestSwitchTarget(t *testing.T) {
+	delegate := analyzeSkillDelegate{}
+	l := list.New(nil, delegate, 80, 20)
+	m := &analyzeTUIModel{
+		list:   l,
+		sortBy: "tokens",
+		targets: []analyzeTargetEntry{
+			{
+				Name:       "claude",
+				SkillCount: 2,
+				Skills: []analyzeSkillEntry{
+					{Name: "big", DescriptionChars: 400, DescriptionTokens: 100, description: "big skill"},
+					{Name: "small", DescriptionChars: 40, DescriptionTokens: 10, description: "small"},
+				},
+			},
+			{
+				Name:       "cursor",
+				SkillCount: 1,
+				Skills: []analyzeSkillEntry{
+					{Name: "only", DescriptionChars: 200, DescriptionTokens: 50, description: "only skill"},
+				},
+			},
+		},
+		targetIdx: 0,
+	}
+
+	m.switchTarget()
+
+	if len(m.allItems) != 2 {
+		t.Fatalf("allItems: got %d, want 2", len(m.allItems))
+	}
+	if m.matchCount != 2 {
+		t.Errorf("matchCount: got %d, want 2", m.matchCount)
+	}
+	if m.thresholdLow == 0 && m.thresholdHigh == 0 {
+		t.Error("thresholds not computed")
+	}
+
+	m.targetIdx = 1
+	m.switchTarget()
+
+	if len(m.allItems) != 1 {
+		t.Fatalf("allItems after switch: got %d, want 1", len(m.allItems))
+	}
+	if m.matchCount != 1 {
+		t.Errorf("matchCount after switch: got %d, want 1", m.matchCount)
 	}
 }
