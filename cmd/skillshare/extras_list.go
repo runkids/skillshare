@@ -188,31 +188,36 @@ func cmdExtrasList(args []string) error {
 			fmt.Println()
 		}
 		if !entry.SourceExists {
-			fmt.Printf("  %-12s %s\n", entry.Name, ui.Dim+"source not found"+ui.Reset)
+			fmt.Printf("%s→%s %s  %s\n", ui.Cyan, ui.Reset, entry.Name, ui.Dim+"source not found"+ui.Reset)
 		} else {
 			fileLabel := fmt.Sprintf("%d files", entry.FileCount)
 			if entry.FileCount == 1 {
 				fileLabel = "1 file"
 			}
-			fmt.Printf("  %-12s %s (%s)\n", entry.Name, shortenPath(entry.SourceDir), fileLabel)
+			fmt.Printf("%s→%s %s  %s%s · %s%s\n", ui.Cyan, ui.Reset, entry.Name, ui.Dim, shortenPath(entry.SourceDir), fileLabel, ui.Reset)
 		}
 		for _, t := range entry.Targets {
-			var icon, color, statusText string
+			var icon, color string
 			switch t.Status {
 			case "synced":
 				icon, color = "✓", ui.Green
 			case "drift":
-				icon, color, statusText = "△", ui.Yellow, "  drift"
+				icon, color = "!", ui.Yellow
 			case "not synced":
-				icon, color, statusText = "✗", ui.Yellow, "  not synced"
+				icon, color = "✗", ui.Yellow
 			case "no source":
-				icon, color, statusText = "-", ui.Cyan, "  no source"
+				icon, color = "-", ui.Cyan
 			}
 			modeLabel := t.Mode
 			if t.Flatten {
 				modeLabel += ", flatten"
 			}
-			fmt.Printf("    %s%s%s %s%s (%s)\n", color, icon, ui.Reset, shortenPath(t.Path), statusText, modeLabel)
+			// Status text after mode, dimmed
+			statusSuffix := ""
+			if t.Status != "synced" {
+				statusSuffix = fmt.Sprintf("  %s%s%s", color, t.Status, ui.Reset)
+			}
+			fmt.Printf("  %s%s%s %s  %s%s%s%s\n", color, icon, ui.Reset, shortenPath(t.Path), ui.Dim, modeLabel, ui.Reset, statusSuffix)
 		}
 	}
 
