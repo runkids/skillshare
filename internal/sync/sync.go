@@ -23,6 +23,8 @@ type DiscoveredSkill struct {
 	FlatName   string   // Flat name for target: _team__frontend__ui
 	IsInRepo   bool     // Whether this skill is inside a tracked repo (_-prefixed directory)
 	Targets    []string // From SKILL.md frontmatter; nil = all targets
+	DescChars  int      // Rune count of name + description (populated when collectContext)
+	BodyChars  int      // Rune count of body after frontmatter (populated when collectContext)
 }
 
 // isSkillIgnored checks whether a skill inside a tracked repo should be
@@ -63,6 +65,17 @@ func DiscoverSourceSkills(sourcePath string) ([]DiscoveredSkill, error) {
 		parseFrontmatter: true,
 		collectIgnored:   false,
 		collectTracked:   false,
+	})
+	return skills, err
+}
+
+// DiscoverSourceSkillsForAnalyze scans skills and computes context usage
+// (name+description chars, body chars) in a single pass. Avoids re-reading
+// SKILL.md files in a separate analysis phase.
+func DiscoverSourceSkillsForAnalyze(sourcePath string) ([]DiscoveredSkill, error) {
+	skills, _, _, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
+		parseFrontmatter: true,
+		collectContext:   true,
 	})
 	return skills, err
 }

@@ -37,6 +37,7 @@ var commands = map[string]func([]string) error{
 	"new":       cmdNew,
 	"search":    cmdSearch,
 	"trash":     cmdTrash,
+	"analyze":   cmdAnalyze,
 	"audit":     cmdAudit,
 	"hub":       cmdHub,
 	"log":       cmdLog,

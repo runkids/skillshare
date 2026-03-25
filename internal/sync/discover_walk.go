@@ -15,6 +15,7 @@ type discoverOptions struct {
 	parseFrontmatter bool // parse SKILL.md frontmatter for targets
 	collectIgnored   bool // collect ignored skill paths into IgnoreStats
 	collectTracked   bool // collect tracked repo paths (for Lite mode)
+	collectContext   bool // compute DescChars/BodyChars during walk (for analyze)
 }
 
 // discoverSourceSkillsInternal is the shared walk implementation used by all
@@ -155,10 +156,20 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				return nil
 			}
 
-			// Parse frontmatter only when requested
+			skillFile := filepath.Join(skillDir, "SKILL.md")
+
 			var targets []string
-			if opts.parseFrontmatter {
-				targets = utils.ParseFrontmatterList(filepath.Join(skillDir, "SKILL.md"), "targets")
+			var descChars, bodyChars int
+
+			if opts.collectContext {
+				// Single read: parse targets + context from one os.ReadFile
+				content, readErr := os.ReadFile(skillFile)
+				if readErr == nil {
+					targets = utils.ParseFrontmatterListFromBytes(content, "targets")
+					descChars, bodyChars = calcContextFromContent(content)
+				}
+			} else if opts.parseFrontmatter {
+				targets = utils.ParseFrontmatterList(skillFile, "targets")
 			}
 
 			// Use original sourcePath (not walkRoot) so SourcePath preserves
@@ -169,6 +180,8 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				FlatName:   utils.PathToFlatName(relPath),
 				IsInRepo:   isInRepo,
 				Targets:    targets,
+				DescChars:  descChars,
+				BodyChars:  bodyChars,
 			})
 		}
 

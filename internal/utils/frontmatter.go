@@ -114,6 +114,68 @@ func ParseFrontmatterList(filePath, field string) []string {
 	}
 }
 
+// ParseFrontmatterListFromBytes parses a YAML list field from pre-read content.
+// Same as ParseFrontmatterList but avoids re-reading the file.
+func ParseFrontmatterListFromBytes(content []byte, field string) []string {
+	raw := extractFrontmatterRawFromBytes(content)
+	if raw == "" {
+		return nil
+	}
+
+	var fm map[string]any
+	if err := yaml.Unmarshal([]byte(raw), &fm); err != nil {
+		return nil
+	}
+
+	val := resolveField(fm, field)
+	if val == nil {
+		return nil
+	}
+
+	switch v := val.(type) {
+	case []any:
+		result := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				result = append(result, s)
+			}
+		}
+		if len(result) == 0 {
+			return nil
+		}
+		return result
+	default:
+		return nil
+	}
+}
+
+// extractFrontmatterRawFromBytes extracts raw frontmatter YAML from pre-read content.
+func extractFrontmatterRawFromBytes(content []byte) string {
+	s := string(content)
+	lines := strings.Split(s, "\n")
+	inFrontmatter := false
+	var fmLines []string
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "---" {
+			if inFrontmatter {
+				break
+			}
+			inFrontmatter = true
+			continue
+		}
+		if inFrontmatter {
+			fmLines = append(fmLines, line)
+		}
+	}
+
+	if len(fmLines) == 0 {
+		return ""
+	}
+	return strings.Join(fmLines, "\n")
+}
+
 // extractFrontmatterRaw reads the raw frontmatter text between --- delimiters.
 func extractFrontmatterRaw(filePath string) string {
 	file, err := os.Open(filePath)
