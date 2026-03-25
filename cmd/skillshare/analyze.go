@@ -24,6 +24,12 @@ type analyzeSkillEntry struct {
 	DescriptionTokens int    `json:"description_tokens"`
 	BodyChars         int    `json:"body_chars"`
 	BodyTokens        int    `json:"body_tokens"`
+
+	// TUI-only fields (unexported, excluded from JSON)
+	relPath     string
+	isTracked   bool
+	targetNames []string
+	description string
 }
 
 type analyzeCharTokens struct {
@@ -232,6 +238,10 @@ func buildAnalyzeEntries(
 				DescriptionTokens: estimateTokens(s.DescChars),
 				BodyChars:         s.BodyChars,
 				BodyTokens:        estimateTokens(s.BodyChars),
+				relPath:           s.RelPath,
+				isTracked:         s.IsInRepo,
+				targetNames:       s.Targets,
+				description:       s.Description,
 			})
 		}
 
