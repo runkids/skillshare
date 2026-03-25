@@ -13,13 +13,15 @@ func TestReadLocalSkillVersion(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "reads version from SKILL.md",
+			name: "reads metadata.version",
 			content: `---
 name: skillshare
-version: 0.4.5
+description: test
+metadata:
+  version: v0.17.11
 ---
 # Skillshare Skill`,
-			expected: "0.4.5",
+			expected: "0.17.11",
 		},
 		{
 			name: "returns empty when no version field",

@@ -160,6 +160,17 @@ If not maintainer:
 - Skip RELEASE_NOTES generation
 - Only update CHANGELOG.md + website changelog
 
+### Step 9: Update Built-in Skill Version
+
+Update the version in `skills/skillshare/SKILL.md` frontmatter under `metadata`:
+
+```yaml
+metadata:
+  version: vX.Y.Z
+```
+
+This ensures `skillshare upgrade --skill` detects the new version correctly.
+
 ## Rules
 
 - **User perspective** — write for users, not developers
