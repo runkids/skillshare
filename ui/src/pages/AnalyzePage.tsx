@@ -568,7 +568,7 @@ function SkillTable({
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
         <h3 className="text-base font-bold text-pencil flex items-center gap-2">
-          <IconBlock className="bg-info-light text-info border-info"><FileText size={14} strokeWidth={2.5} /></IconBlock>
+          <IconBlock className="bg-success-light text-success border-success"><FileText size={14} strokeWidth={2.5} /></IconBlock>
           All Skills
           <span className="text-xs font-normal text-pencil-light">({filtered.length})</span>
         </h3>

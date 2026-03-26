@@ -20,23 +20,25 @@ func CalcSkillContext(skillPath string) (descChars, bodyChars int, description s
 	if err != nil {
 		return 0, 0, "", nil
 	}
-	_, d, b, desc := calcContextFromContent(content)
+	_, d, b, desc, _ := calcContextFromContent(content)
 	return d, b, desc, nil
 }
 
 // calcContextFromContent parses frontmatter name+description and body from
 // pre-read SKILL.md content, returning rune counts for each layer.
-func calcContextFromContent(content []byte) (name string, descChars, bodyChars int, description string) {
+// yamlErr is non-nil when the frontmatter YAML between --- delimiters cannot
+// be parsed; body metrics are still valid in that case.
+func calcContextFromContent(content []byte) (name string, descChars, bodyChars int, description string, yamlErr error) {
 	s := string(content)
 	if len(s) == 0 {
-		return "", 0, 0, ""
+		return "", 0, 0, "", nil
 	}
 
 	// Find frontmatter boundaries (between --- delimiters)
 	trimmed := strings.TrimSpace(s)
 	if !strings.HasPrefix(trimmed, "---") {
 		// No frontmatter — entire content is body
-		return "", 0, utf8.RuneCountInString(strings.TrimSpace(s)), ""
+		return "", 0, utf8.RuneCountInString(strings.TrimSpace(s)), "", nil
 	}
 
 	// Find closing ---
@@ -51,7 +53,7 @@ func calcContextFromContent(content []byte) (name string, descChars, bodyChars i
 	closingIdx := strings.Index(rest, "\n---")
 	if closingIdx < 0 {
 		// Malformed frontmatter — no closing ---
-		return "", 0, 0, ""
+		return "", 0, 0, "", nil
 	}
 
 	fmRaw := rest[:closingIdx]
@@ -62,7 +64,7 @@ func calcContextFromContent(content []byte) (name string, descChars, bodyChars i
 		Name        string `yaml:"name"`
 		Description string `yaml:"description"`
 	}
-	_ = yaml.Unmarshal([]byte(fmRaw), &fm)
+	yamlErr = yaml.Unmarshal([]byte(fmRaw), &fm)
 
 	// Build always-loaded string
 	var alwaysLoaded string
@@ -75,5 +77,5 @@ func calcContextFromContent(content []byte) (name string, descChars, bodyChars i
 	descChars = utf8.RuneCountInString(alwaysLoaded)
 	bodyChars = utf8.RuneCountInString(body)
 
-	return fm.Name, descChars, bodyChars, fm.Description
+	return fm.Name, descChars, bodyChars, fm.Description, yamlErr
 }

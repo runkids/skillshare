@@ -36,7 +36,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: [v0.17.0](https://github.com/runkids/skillshare/releases/tag/v0.17.0) — first-class extras, Web UI redesign, GitLab custom domain support. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: [v0.18.0](https://github.com/runkids/skillshare/releases/tag/v0.18.0) — context analysis & skill quality lint, interactive analyze TUI, Web UI Analyze page. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 

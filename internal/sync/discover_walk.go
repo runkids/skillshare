@@ -169,8 +169,17 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				if readErr == nil {
 					targets = utils.ParseFrontmatterListFromBytes(content, "targets")
 					var fmName string
-					fmName, descChars, bodyChars, description = calcContextFromContent(content)
-					lintIssues = LintSkill(fmName, description, bodyChars)
+					var yamlErr error
+					fmName, descChars, bodyChars, description, yamlErr = calcContextFromContent(content)
+					if yamlErr != nil {
+						lintIssues = append(lintIssues, LintIssue{
+							Rule:     "malformed-frontmatter",
+							Severity: LintError,
+							Category: "structure",
+							Message:  fmt.Sprintf("frontmatter YAML is malformed: %v", yamlErr),
+						})
+					}
+					lintIssues = append(lintIssues, LintSkill(fmName, description, bodyChars)...)
 				}
 			} else if opts.parseFrontmatter {
 				targets = utils.ParseFrontmatterList(skillFile, "targets")

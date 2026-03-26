@@ -136,7 +136,7 @@ Options:
 
 Examples:
   skillshare analyze               # Summary table for all targets
-  skillshare analyze --verbose     # Top 5 descriptions per target
+  skillshare analyze --verbose     # Top 10 descriptions per target
   skillshare analyze claude        # Details for claude target
   skillshare analyze --json        # JSON output
   skillshare analyze -p            # Project mode`)
