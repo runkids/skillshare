@@ -1,0 +1,56 @@
+rules:
+  # --- Structure (error) ---
+  - id: missing-name
+    severity: error
+    category: structure
+    check: field-empty
+    field: name
+    message: "Missing required 'name' field"
+
+  - id: missing-description
+    severity: error
+    category: structure
+    check: field-empty
+    field: description
+    message: "Missing required 'description' field"
+
+  - id: empty-body
+    severity: error
+    category: structure
+    check: body-empty
+    message: "Skill body is empty"
+
+  # --- Description Quality (warning) ---
+  - id: description-too-short
+    severity: warning
+    category: quality
+    check: field-length-min
+    field: description
+    threshold: 50
+    message: "Description is too short ({chars} chars); aim for 50+ to help agents trigger correctly"
+
+  - id: description-too-long
+    severity: warning
+    category: quality
+    check: field-length-max
+    field: description
+    threshold: 1024
+    message: "Description exceeds 1024-char limit ({chars} chars); some targets will reject it"
+
+  - id: description-near-limit
+    severity: warning
+    category: quality
+    check: field-length-range
+    field: description
+    min: 900
+    max: 1024
+    message: "Description is near the 1024-char limit ({chars} chars)"
+
+  # --- Description Format (warning) ---
+  - id: no-trigger-phrase
+    severity: warning
+    category: format
+    check: field-not-matches
+    field: description
+    pattern: '(?i)(use\s+(this\s+)?(skill\s+)?when|trigger\s+when|activate\s+when|invoke\s+when|use\s+for)'
+    message: "Description lacks trigger phrases (e.g. 'Use when...'); agents may not know when to invoke this skill"
