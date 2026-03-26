@@ -25,7 +25,8 @@ type DiscoveredSkill struct {
 	Targets    []string // From SKILL.md frontmatter; nil = all targets
 	DescChars   int      // Rune count of name + description (populated when collectContext)
 	BodyChars   int      // Rune count of body after frontmatter (populated when collectContext)
-	Description string   // Frontmatter description text (populated when collectContext)
+	Description string      // Frontmatter description text (populated when collectContext)
+	LintIssues  []LintIssue // Lint issues (populated when collectContext)
 }
 
 // isSkillIgnored checks whether a skill inside a tracked repo should be

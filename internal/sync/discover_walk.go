@@ -161,6 +161,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 			var targets []string
 			var descChars, bodyChars int
 			var description string
+			var lintIssues []LintIssue
 
 			if opts.collectContext {
 				// Single read: parse targets + context from one os.ReadFile
@@ -168,6 +169,8 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				if readErr == nil {
 					targets = utils.ParseFrontmatterListFromBytes(content, "targets")
 					descChars, bodyChars, description = calcContextFromContent(content)
+					fmName := parseFrontmatterName(content)
+					lintIssues = LintSkill(fmName, description, bodyChars)
 				}
 			} else if opts.parseFrontmatter {
 				targets = utils.ParseFrontmatterList(skillFile, "targets")
@@ -184,6 +187,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				DescChars:   descChars,
 				BodyChars:   bodyChars,
 				Description: description,
+				LintIssues:  lintIssues,
 			})
 		}
 

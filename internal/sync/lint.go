@@ -167,13 +167,13 @@ func parseFrontmatterName(content []byte) string {
 	} else if len(rest) > 1 && rest[0] == '\r' && rest[1] == '\n' {
 		rest = rest[2:]
 	}
-	closingIdx := strings.Index(rest, "\n---")
-	if closingIdx < 0 {
+	fmRaw, _, found := strings.Cut(rest, "\n---")
+	if !found {
 		return ""
 	}
 	var fm struct {
 		Name string `yaml:"name"`
 	}
-	_ = yaml.Unmarshal([]byte(rest[:closingIdx]), &fm)
+	_ = yaml.Unmarshal([]byte(fmRaw), &fm)
 	return fm.Name
 }

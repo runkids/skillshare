@@ -25,6 +25,7 @@ type analyzeSkillEntry struct {
 	DescriptionTokens int    `json:"description_tokens"`
 	BodyChars         int    `json:"body_chars"`
 	BodyTokens        int    `json:"body_tokens"`
+	LintIssues []ssync.LintIssue `json:"lint_issues,omitempty"`
 
 	// TUI-only fields (unexported, excluded from JSON)
 	relPath     string
@@ -261,6 +262,7 @@ func buildAnalyzeEntries(
 				DescriptionTokens: estimateTokens(s.DescChars),
 				BodyChars:         s.BodyChars,
 				BodyTokens:        estimateTokens(s.BodyChars),
+				LintIssues:        s.LintIssues,
 				relPath:           s.RelPath,
 				isTracked:         s.IsInRepo,
 				targetNames:       s.Targets,
