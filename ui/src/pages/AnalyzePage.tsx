@@ -12,6 +12,7 @@ import {
   FileText,
   HelpCircle,
   ExternalLink,
+  Filter,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -479,6 +480,52 @@ function LintSummary({ skills, onRuleClick }: LintSummaryProps) {
 }
 
 /* ──────────────────────────────────────────────────────────────────────
+ * Filtered Summary Bar
+ * ────────────────────────────────────────────────────────────────────── */
+
+function FilteredSummaryBar({ filtered, total }: { filtered: AnalyzeSkill[]; total: number }) {
+  const summary = useMemo(() => {
+    let descTokens = 0;
+    let bodyTokens = 0;
+    for (const s of filtered) {
+      descTokens += s.description_tokens;
+      bodyTokens += s.body_tokens;
+    }
+    return { descTokens, bodyTokens, totalTokens: descTokens + bodyTokens };
+  }, [filtered]);
+
+  if (filtered.length === total) return null;
+
+  const stats = [
+    { label: 'Always', value: formatTokens(summary.descTokens), icon: <Zap size={14} strokeWidth={2.5} />, colorClass: 'text-info', bgClass: 'bg-info-light border-info' },
+    { label: 'On-demand', value: formatTokens(summary.bodyTokens), icon: <ToggleRight size={14} strokeWidth={2.5} />, colorClass: 'text-pencil', bgClass: 'bg-paper border-muted-dark' },
+    { label: 'Total', value: formatTokens(summary.totalTokens), icon: <Package size={14} strokeWidth={2.5} />, colorClass: 'text-success', bgClass: 'bg-success-light border-success' },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 mb-4">
+      <div className="flex items-center gap-1.5 mr-1">
+        <Filter size={16} className="text-pencil shrink-0" />
+        <span className="text-sm font-medium text-pencil">
+          {filtered.length}<span className="text-pencil-light font-normal">/{total}</span>
+        </span>
+      </div>
+      {stats.map((s) => (
+        <div
+          key={s.label}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 border-2 ${s.bgClass} text-xs`}
+          style={{ borderRadius: radius.sm }}
+        >
+          <span className={s.colorClass}>{s.icon}</span>
+          <span className="text-pencil-light">{s.label}</span>
+          <span className={`font-mono font-bold ${s.colorClass}`}>{s.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────
  * Full Skill Table
  * ────────────────────────────────────────────────────────────────────── */
 
@@ -511,7 +558,10 @@ function SkillTable({
     // Search filter
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter((s) => s.name.toLowerCase().includes(q));
+      result = result.filter((s) => {
+        const searchField = s.path || s.name;
+        return searchField.toLowerCase().includes(q);
+      });
     }
 
     // Lint rule filter
@@ -580,7 +630,7 @@ function SkillTable({
               onClick={() => onLintFilterChange(null)}
             >
               <Badge variant="warning" size="md">
-                {lintFilter}
+                {readableRule(lintFilter)}
                 <X size={12} strokeWidth={2.5} className="ml-1" />
               </Badge>
             </span>
@@ -595,6 +645,9 @@ function SkillTable({
           </div>
         </div>
       </div>
+
+      {/* Filtered summary */}
+      <FilteredSummaryBar filtered={filtered} total={skills.length} />
 
       {/* Table */}
       <div className="overflow-auto max-h-[calc(100vh-320px)]">

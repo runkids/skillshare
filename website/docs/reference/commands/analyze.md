@@ -139,6 +139,16 @@ Passing a target name automatically enables verbose output:
 skillshare analyze claude
 ```
 
+### Filter by Group
+
+```bash
+# See total token cost of all frontend skills
+skillshare analyze claude --json --filter frontend
+
+# Pre-populate the search box in TUI
+skillshare analyze --filter marketing
+```
+
 ## Options
 
 | Flag | Description |
@@ -148,6 +158,7 @@ skillshare analyze claude
 | `--no-tui` | Disable interactive TUI, print plain text |
 | `--project`, `-p` | Analyze project-level skills (`.skillshare/`) |
 | `--global`, `-g` | Analyze global skills (`~/.config/skillshare`) |
+| `--filter <text>` | Filter skills by name/path substring |
 | `--json` | Output as JSON (for scripting/CI) |
 | `--help`, `-h` | Show help |
 
@@ -207,6 +218,35 @@ skillshare analyze -p --verbose        # Verbose text output
 skillshare analyze -p claude           # Single target details
 skillshare analyze -p --json           # JSON output
 ```
+
+## Filtering
+
+Use `--filter` to narrow results to a subset of skills. The filter performs a case-insensitive
+substring match on the skill's relative path (which includes the group directory).
+
+For example, if you installed skills with `--into frontend`:
+- `--filter frontend` matches all skills in the `frontend/` group
+- `--filter react` matches any skill with "react" in its path
+
+In TUI mode, `--filter` pre-populates the filter input. You can also use the `/` key to start filtering interactively.
+
+In JSON mode, the output includes a `filtered_summary` with aggregated token counts:
+
+```json
+{
+  "filter": "frontend",
+  "matched_count": 5,
+  "total_count": 50,
+  "filtered_summary": {
+    "always_loaded": { "chars": 2400, "tokens": 600 },
+    "on_demand": { "chars": 8000, "tokens": 2000 },
+    "total": { "chars": 10400, "tokens": 2600 }
+  },
+  "skills": [...]
+}
+```
+
+The Web UI also shows a dynamic token summary bar when search or filter is active.
 
 ## See Also
 
