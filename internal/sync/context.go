@@ -20,23 +20,23 @@ func CalcSkillContext(skillPath string) (descChars, bodyChars int, description s
 	if err != nil {
 		return 0, 0, "", nil
 	}
-	d, b, desc := calcContextFromContent(content)
+	_, d, b, desc := calcContextFromContent(content)
 	return d, b, desc, nil
 }
 
 // calcContextFromContent parses frontmatter name+description and body from
 // pre-read SKILL.md content, returning rune counts for each layer.
-func calcContextFromContent(content []byte) (descChars, bodyChars int, description string) {
+func calcContextFromContent(content []byte) (name string, descChars, bodyChars int, description string) {
 	s := string(content)
 	if len(s) == 0 {
-		return 0, 0, ""
+		return "", 0, 0, ""
 	}
 
 	// Find frontmatter boundaries (between --- delimiters)
 	trimmed := strings.TrimSpace(s)
 	if !strings.HasPrefix(trimmed, "---") {
 		// No frontmatter — entire content is body
-		return 0, utf8.RuneCountInString(strings.TrimSpace(s)), ""
+		return "", 0, utf8.RuneCountInString(strings.TrimSpace(s)), ""
 	}
 
 	// Find closing ---
@@ -51,7 +51,7 @@ func calcContextFromContent(content []byte) (descChars, bodyChars int, descripti
 	closingIdx := strings.Index(rest, "\n---")
 	if closingIdx < 0 {
 		// Malformed frontmatter — no closing ---
-		return 0, 0, ""
+		return "", 0, 0, ""
 	}
 
 	fmRaw := rest[:closingIdx]
@@ -75,5 +75,5 @@ func calcContextFromContent(content []byte) (descChars, bodyChars int, descripti
 	descChars = utf8.RuneCountInString(alwaysLoaded)
 	bodyChars = utf8.RuneCountInString(body)
 
-	return descChars, bodyChars, fm.Description
+	return fm.Name, descChars, bodyChars, fm.Description
 }

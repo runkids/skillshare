@@ -22,6 +22,17 @@ const (
 	LintWarning LintSeverity = "warning"
 )
 
+// Lint check types (match YAML check field values).
+const (
+	checkFieldEmpty      = "field-empty"
+	checkBodyEmpty       = "body-empty"
+	checkFieldLengthMin  = "field-length-min"
+	checkFieldLengthMax  = "field-length-max"
+	checkFieldLengthRange = "field-length-range"
+	checkFieldNotMatches = "field-not-matches"
+	checkFieldMatches    = "field-matches"
+)
+
 // LintIssue represents a single lint finding for a skill.
 type LintIssue struct {
 	Rule     string       `json:"rule"`
@@ -55,42 +66,36 @@ type compiledLintRule struct {
 }
 
 var (
-	compiledLintRules    []compiledLintRule
-	compiledLintRulesErr error
-	lintOnce             gosync.Once
+	compiledLintRules []compiledLintRule
+	lintOnce          gosync.Once
 )
 
-func loadLintRules() ([]compiledLintRule, error) {
+func loadLintRules() []compiledLintRule {
 	lintOnce.Do(func() {
 		var f lintRulesFile
 		if err := yaml.Unmarshal(lintRulesData, &f); err != nil {
-			compiledLintRulesErr = err
-			return
+			panic("lint: embedded rules YAML is invalid: " + err.Error())
 		}
 		for _, r := range f.Rules {
 			cr := compiledLintRule{lintRule: r}
 			if r.Pattern != "" {
 				re, err := regexp.Compile(r.Pattern)
 				if err != nil {
-					compiledLintRulesErr = err
-					return
+					panic("lint: invalid regex in rule " + r.ID + ": " + err.Error())
 				}
 				cr.compiledPattern = re
 			}
 			compiledLintRules = append(compiledLintRules, cr)
 		}
 	})
-	return compiledLintRules, compiledLintRulesErr
+	return compiledLintRules
 }
 
 // LintSkill runs all lint rules against a skill's metadata.
 // name and description come from SKILL.md frontmatter.
 // bodyChars is the rune count of the skill body after frontmatter.
 func LintSkill(name, description string, bodyChars int) []LintIssue {
-	rules, err := loadLintRules()
-	if err != nil {
-		return nil
-	}
+	rules := loadLintRules()
 
 	var issues []LintIssue
 	for _, r := range rules {
@@ -107,21 +112,21 @@ func evalLintRule(r compiledLintRule, name, description string, bodyChars int) (
 
 	var triggered bool
 	switch r.Check {
-	case "field-empty":
+	case checkFieldEmpty:
 		triggered = strings.TrimSpace(fieldValue) == ""
-	case "body-empty":
+	case checkBodyEmpty:
 		triggered = bodyChars == 0
-	case "field-length-min":
+	case checkFieldLengthMin:
 		triggered = charCount > 0 && charCount < r.Threshold
-	case "field-length-max":
+	case checkFieldLengthMax:
 		triggered = charCount > r.Threshold
-	case "field-length-range":
+	case checkFieldLengthRange:
 		triggered = charCount >= r.Min && charCount <= r.Max
-	case "field-not-matches":
+	case checkFieldNotMatches:
 		if r.compiledPattern != nil && strings.TrimSpace(fieldValue) != "" {
 			triggered = !r.compiledPattern.MatchString(fieldValue)
 		}
-	case "field-matches":
+	case checkFieldMatches:
 		if r.compiledPattern != nil {
 			triggered = r.compiledPattern.MatchString(fieldValue)
 		}
@@ -151,29 +156,4 @@ func resolveField(field, name, description string) string {
 	default:
 		return ""
 	}
-}
-
-// parseFrontmatterName extracts the "name" field from SKILL.md frontmatter bytes.
-// Returns "" if not found or not parseable.
-func parseFrontmatterName(content []byte) string {
-	s := strings.TrimSpace(string(content))
-	if !strings.HasPrefix(s, "---") {
-		return ""
-	}
-	rest := s[3:]
-	rest = strings.TrimLeft(rest, " \t")
-	if len(rest) > 0 && rest[0] == '\n' {
-		rest = rest[1:]
-	} else if len(rest) > 1 && rest[0] == '\r' && rest[1] == '\n' {
-		rest = rest[2:]
-	}
-	fmRaw, _, found := strings.Cut(rest, "\n---")
-	if !found {
-		return ""
-	}
-	var fm struct {
-		Name string `yaml:"name"`
-	}
-	_ = yaml.Unmarshal([]byte(fmRaw), &fm)
-	return fm.Name
 }

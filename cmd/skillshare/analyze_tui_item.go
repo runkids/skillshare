@@ -67,16 +67,22 @@ var analyzeDots = map[string]string{
 	"3": lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("●"), // yellow
 }
 
+// Pre-computed lint icons (same pattern as analyzeDots).
+var (
+	lintIconError   = tc.Red.Render("✗") + " "
+	lintIconWarning = tc.Yellow.Render("⚠") + " "
+)
+
 func lintIcon(issues []ssync.LintIssue) string {
 	if len(issues) == 0 {
 		return ""
 	}
 	for _, issue := range issues {
 		if issue.Severity == ssync.LintError {
-			return lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render("✗") + " "
+			return lintIconError
 		}
 	}
-	return lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("⚠") + " "
+	return lintIconWarning
 }
 
 // analyzeSkillDelegate renders each skill row in the list.

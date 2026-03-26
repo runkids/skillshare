@@ -18,13 +18,13 @@ var DiagOutput io.Writer = os.Stdout
 
 // DiscoveredSkill represents a skill found during recursive source directory scan.
 type DiscoveredSkill struct {
-	SourcePath string   // Full path: ~/.config/skillshare/skills/_team/frontend/ui
-	RelPath    string   // Relative path from source: _team/frontend/ui
-	FlatName   string   // Flat name for target: _team__frontend__ui
-	IsInRepo   bool     // Whether this skill is inside a tracked repo (_-prefixed directory)
-	Targets    []string // From SKILL.md frontmatter; nil = all targets
-	DescChars   int      // Rune count of name + description (populated when collectContext)
-	BodyChars   int      // Rune count of body after frontmatter (populated when collectContext)
+	SourcePath  string      // Full path: ~/.config/skillshare/skills/_team/frontend/ui
+	RelPath     string      // Relative path from source: _team/frontend/ui
+	FlatName    string      // Flat name for target: _team__frontend__ui
+	IsInRepo    bool        // Whether this skill is inside a tracked repo (_-prefixed directory)
+	Targets     []string    // From SKILL.md frontmatter; nil = all targets
+	DescChars   int         // Rune count of name + description (populated when collectContext)
+	BodyChars   int         // Rune count of body after frontmatter (populated when collectContext)
 	Description string      // Frontmatter description text (populated when collectContext)
 	LintIssues  []LintIssue // Lint issues (populated when collectContext)
 }

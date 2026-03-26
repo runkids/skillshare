@@ -20,12 +20,12 @@ type analyzeOptions struct {
 }
 
 type analyzeSkillEntry struct {
-	Name              string `json:"name"`
-	DescriptionChars  int    `json:"description_chars"`
-	DescriptionTokens int    `json:"description_tokens"`
-	BodyChars         int    `json:"body_chars"`
-	BodyTokens        int    `json:"body_tokens"`
-	LintIssues []ssync.LintIssue `json:"lint_issues,omitempty"`
+	Name              string            `json:"name"`
+	DescriptionChars  int               `json:"description_chars"`
+	DescriptionTokens int               `json:"description_tokens"`
+	BodyChars         int               `json:"body_chars"`
+	BodyTokens        int               `json:"body_tokens"`
+	LintIssues        []ssync.LintIssue `json:"lint_issues,omitempty"`
 
 	// TUI-only fields (unexported, excluded from JSON)
 	relPath     string

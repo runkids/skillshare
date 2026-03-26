@@ -39,10 +39,10 @@ type analyzeTUIModel struct {
 
 	detailScroll int
 
-	termWidth  int
-	termHeight int
-	quitting   bool
-	loading    bool
+	termWidth   int
+	termHeight  int
+	quitting    bool
+	loading     bool
 	loadSpinner spinner.Model
 	loadFn      func() analyzeLoadResult
 	loadErr     error
@@ -547,17 +547,16 @@ func (m analyzeTUIModel) renderDetailBody(e analyzeSkillEntry, width int) string
 	b.WriteString(renderDetailSection("Tokens", strings.Join(tokenRows, "\n"), width))
 	b.WriteString("\n\n")
 
-	// Quality issues
 	if len(e.LintIssues) > 0 {
 		var qualityRows []string
 		for _, issue := range e.LintIssues {
 			var icon string
 			if issue.Severity == ssync.LintError {
-				icon = lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render("✗")
+				icon = tc.Red.Render("✗")
 			} else {
-				icon = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("⚠")
+				icon = tc.Yellow.Render("⚠")
 			}
-			qualityRows = append(qualityRows, fmt.Sprintf("  %s %s", icon, issue.Message))
+			qualityRows = append(qualityRows, icon+" "+issue.Message)
 		}
 		b.WriteString(renderDetailSection("Quality", strings.Join(qualityRows, "\n"), width))
 		b.WriteString("\n\n")
@@ -572,9 +571,7 @@ func (m analyzeTUIModel) renderDetailBody(e analyzeSkillEntry, width int) string
 		metaRows = append(metaRows, renderFactRow("Tracked", tc.Green.Render("✓")))
 	}
 	if len(e.targetNames) > 0 {
-		metaRows = append(metaRows, renderFactRow("Targets", strings.Join(e.targetNames, ", ")))
-	} else {
-		metaRows = append(metaRows, renderFactRow("Targets", tc.Dim.Render("all")))
+		metaRows = append(metaRows, renderFactRow("Restricted to", strings.Join(e.targetNames, ", ")))
 	}
 	if len(metaRows) > 0 {
 		b.WriteString(renderDetailSection("Details", strings.Join(metaRows, "\n"), width))

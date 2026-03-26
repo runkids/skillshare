@@ -168,8 +168,8 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				content, readErr := os.ReadFile(skillFile)
 				if readErr == nil {
 					targets = utils.ParseFrontmatterListFromBytes(content, "targets")
-					descChars, bodyChars, description = calcContextFromContent(content)
-					fmName := parseFrontmatterName(content)
+					var fmName string
+					fmName, descChars, bodyChars, description = calcContextFromContent(content)
 					lintIssues = LintSkill(fmName, description, bodyChars)
 				}
 			} else if opts.parseFrontmatter {
