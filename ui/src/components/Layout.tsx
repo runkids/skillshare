@@ -23,6 +23,7 @@ import {
   ChevronUp,
   ChevronDown,
   Stethoscope,
+  BarChart3,
 } from 'lucide-react';
 import { radius } from '../design';
 import { useAppContext } from '../context/AppContext';
@@ -74,6 +75,7 @@ const navGroups: NavGroup[] = [
     label: 'SECURITY & MAINTENANCE',
     items: [
       { to: '/audit', icon: ShieldCheck, label: 'Audit' },
+      { to: '/analyze', icon: BarChart3, label: 'Analyze' },
       { to: '/git', icon: GitBranch, label: 'Git Sync', hideInProject: true },
       { to: '/backup', icon: Archive, label: 'Backup', hideInProject: true },
       { to: '/trash', icon: Trash2, label: 'Trash' },

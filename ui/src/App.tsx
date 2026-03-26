@@ -33,6 +33,7 @@ const FilterStudioPage = lazy(() => import('./pages/FilterStudioPage'));
 const NewSkillPage = lazy(() => import('./pages/NewSkillPage'));
 const BatchUninstallPage = lazy(() => import('./pages/BatchUninstallPage'));
 const DoctorPage = lazy(() => import('./pages/DoctorPage'));
+const AnalyzePage = lazy(() => import('./pages/AnalyzePage'));
 
 function Lazy({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageSkeleton />}>{children}</Suspense>;
@@ -69,6 +70,7 @@ export default function App() {
                 <Route path="update" element={<Lazy><UpdatePage /></Lazy>} />
                 <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
                 <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
+                <Route path="analyze" element={<Lazy><AnalyzePage /></Lazy>} />
                 <Route path="log" element={<Lazy><LogPage /></Lazy>} />
                 <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
                 <Route path="doctor" element={<Lazy><DoctorPage /></Lazy>} />

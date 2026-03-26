@@ -439,6 +439,9 @@ export const api = {
   // Doctor
   doctor: () => apiFetch<DoctorResponse>('/doctor'),
 
+  // Analyze
+  analyze: () => apiFetch<AnalyzeResponse>('/analyze'),
+
   // Skillignore
   getSkillignore: () => apiFetch<SkillignoreResponse>('/skillignore'),
   putSkillignore: (raw: string) =>
@@ -940,6 +943,39 @@ export interface HubSavedEntry {
 export interface HubConfigResponse {
   hubs: HubSavedEntry[];
   default: string;
+}
+
+// Analyze types
+export interface AnalyzeLintIssue {
+  rule: string;
+  severity: 'error' | 'warning';
+  category: string;
+  message: string;
+}
+
+export interface AnalyzeSkill {
+  name: string;
+  description_chars: number;
+  description_tokens: number;
+  body_chars: number;
+  body_tokens: number;
+  lint_issues?: AnalyzeLintIssue[];
+  path: string;
+  is_tracked: boolean;
+  targets?: string[];
+  description?: string;
+}
+
+export interface AnalyzeTarget {
+  name: string;
+  skill_count: number;
+  always_loaded: { chars: number; estimated_tokens: number };
+  on_demand_max: { chars: number; estimated_tokens: number };
+  skills: AnalyzeSkill[];
+}
+
+export interface AnalyzeResponse {
+  targets: AnalyzeTarget[];
 }
 
 // Skillignore types
