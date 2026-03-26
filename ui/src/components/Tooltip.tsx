@@ -33,7 +33,7 @@ export default function Tooltip({ children, content, side = 'bottom' }: TooltipP
       </span>
       {pos && createPortal(
         <div
-          className="ss-tooltip fixed z-[9999] max-w-sm break-all whitespace-normal bg-pencil text-paper text-xs px-2.5 py-1.5 shadow-lg pointer-events-none animate-fade-in rounded-[var(--radius-sm)]"
+          className="ss-tooltip fixed z-[9999] max-w-sm break-all whitespace-pre-line bg-pencil text-paper text-xs px-2.5 py-1.5 shadow-lg pointer-events-none animate-fade-in rounded-[var(--radius-sm)]"
           style={{
             left: pos.x,
             top: pos.y,
