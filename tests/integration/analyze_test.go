@@ -315,3 +315,92 @@ func TestAnalyze_HelpShowsNoTUI(t *testing.T) {
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "--no-tui")
 }
+
+func TestAnalyze_JSONLintIssues(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Skill with lint issues: no description, empty body
+	sb.CreateSkill("bad-skill", map[string]string{
+		"SKILL.md": "---\nname: bad-skill\n---\n",
+	})
+	// Clean skill
+	sb.CreateSkill("good-skill", map[string]string{
+		"SKILL.md": "---\nname: good-skill\ndescription: Use this skill when you need to do good things and help users accomplish tasks efficiently\n---\n# Good Skill\nThis is the body content.",
+	})
+
+	target := sb.CreateTarget("claude")
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + target + `
+`)
+
+	result := sb.RunCLI("analyze", "--json")
+	result.AssertSuccess(t)
+
+	var output struct {
+		Targets []struct {
+			Name   string `json:"name"`
+			Skills []struct {
+				Name       string `json:"name"`
+				LintIssues []struct {
+					Rule     string `json:"rule"`
+					Severity string `json:"severity"`
+					Category string `json:"category"`
+					Message  string `json:"message"`
+				} `json:"lint_issues"`
+			} `json:"skills"`
+		} `json:"targets"`
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &output); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+
+	if len(output.Targets) == 0 {
+		t.Fatal("expected at least one target")
+	}
+
+	// Find bad-skill and verify it has lint issues
+	var badSkillIssues int
+	var goodSkillIssues int
+	for _, target := range output.Targets {
+		for _, skill := range target.Skills {
+			switch skill.Name {
+			case "bad-skill":
+				badSkillIssues = len(skill.LintIssues)
+				hasDesc := false
+				hasBody := false
+				for _, issue := range skill.LintIssues {
+					if issue.Rule == "missing-description" {
+						hasDesc = true
+						if issue.Severity != "error" {
+							t.Errorf("missing-description should be error, got %s", issue.Severity)
+						}
+						if issue.Category != "structure" {
+							t.Errorf("missing-description category should be structure, got %s", issue.Category)
+						}
+					}
+					if issue.Rule == "empty-body" {
+						hasBody = true
+					}
+				}
+				if !hasDesc {
+					t.Error("bad-skill should have missing-description issue")
+				}
+				if !hasBody {
+					t.Error("bad-skill should have empty-body issue")
+				}
+			case "good-skill":
+				goodSkillIssues = len(skill.LintIssues)
+			}
+		}
+	}
+
+	if badSkillIssues == 0 {
+		t.Error("bad-skill should have lint issues")
+	}
+	if goodSkillIssues != 0 {
+		t.Errorf("good-skill should have no lint issues, got %d", goodSkillIssues)
+	}
+}
