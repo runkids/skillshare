@@ -83,7 +83,6 @@ function AddExtraModal({
 
   return (
     <DialogShell open={true} onClose={onClose} maxWidth="2xl" preventClose={saving}>
-        <Card overflow className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h3
               className="text-xl font-bold text-pencil"
@@ -128,7 +127,7 @@ function AddExtraModal({
               </label>
               <div className="space-y-2">
                 {targets.map((t, i) => (
-                  <div key={i} className="flex gap-2 items-start">
+                  <div key={i} className="flex gap-2 items-center">
                     <div className="flex-1">
                       <Input
                         placeholder="Target path (e.g. ~/.cursor/scripts)"
@@ -137,7 +136,7 @@ function AddExtraModal({
                         disabled={saving}
                       />
                     </div>
-                    <div className="w-36 shrink-0">
+                    <div className="w-32 shrink-0">
                       <Select
                         value={t.mode}
                         onChange={(v) => {
@@ -147,7 +146,7 @@ function AddExtraModal({
                         options={MODE_OPTIONS}
                       />
                     </div>
-                    <label className="flex items-center gap-1.5 shrink-0 cursor-pointer select-none mt-2.5" title="Sync files from subdirectories directly into the target root (e.g., for tools that only discover top-level files)">
+                    <label className="flex items-center gap-1.5 shrink-0 cursor-pointer select-none" title="Sync files from subdirectories directly into the target root (e.g., for tools that only discover top-level files)">
                       <input
                         type="checkbox"
                         checked={t.flatten}
@@ -167,7 +166,7 @@ function AddExtraModal({
                         variant="ghost"
                         onClick={() => removeTarget(i)}
                         disabled={saving}
-                        className="mt-2.5 hover:text-danger"
+                        className="hover:text-danger"
                       />
                     )}
                   </div>
@@ -193,7 +192,6 @@ function AddExtraModal({
               {saving ? 'Creating...' : 'Create'}
             </Button>
           </div>
-        </Card>
     </DialogShell>
   );
 }

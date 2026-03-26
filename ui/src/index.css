@@ -80,6 +80,10 @@
 
 }
 
+/* Dialog base shadow */
+.ss-dialog { box-shadow: 4px 4px 0 rgba(0,0,0,0.15); }
+.dark .ss-dialog { box-shadow: 4px 4px 0 rgba(0,0,0,0.4); }
+
 /* ═══════════════════════════════════════════
    Playful (Hand-Drawn) theme
    ═══════════════════════════════════════════ */

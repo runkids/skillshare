@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Server } from 'lucide-react';
-import Card from './Card';
 import Button from './Button';
 import IconButton from './IconButton';
 import DialogShell from './DialogShell';
@@ -93,7 +92,6 @@ export default function HubManagerModal({
 
   return (
     <DialogShell open={open} onClose={onClose} maxWidth="md">
-      <Card>
           {/* Header */}
           <div className="flex items-center gap-2 mb-4">
             <Server size={18} strokeWidth={2.5} className="text-pencil-light" />
@@ -196,7 +194,6 @@ export default function HubManagerModal({
               </Button>
             </div>
           </div>
-        </Card>
     </DialogShell>
   );
 }

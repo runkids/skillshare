@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const maxWidthClass = {
@@ -10,11 +11,19 @@ const maxWidthClass = {
   '3xl': 'max-w-3xl',
 } as const;
 
+const paddingClass = {
+  none: '',
+  sm: 'p-3',
+  md: 'p-4',
+  lg: 'p-6',
+} as const;
+
 interface DialogShellProps {
   open: boolean;
   onClose: () => void;
   children: ReactNode;
   maxWidth?: keyof typeof maxWidthClass;
+  padding?: keyof typeof paddingClass;
   /** Prevent close on Escape / backdrop click (e.g. during loading) */
   preventClose?: boolean;
   className?: string;
@@ -25,6 +34,7 @@ export default function DialogShell({
   onClose,
   children,
   maxWidth = 'lg',
+  padding = 'lg',
   preventClose = false,
   className = '',
 }: DialogShellProps) {
@@ -41,7 +51,7 @@ export default function DialogShell({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
@@ -56,10 +66,11 @@ export default function DialogShell({
       {/* Content */}
       <div
         ref={trapRef as RefObject<HTMLDivElement>}
-        className={`ss-dialog relative w-full ${maxWidthClass[maxWidth]} animate-dialog-in rounded-[var(--radius-md)] ${className}`}
+        className={`ss-dialog relative w-full ${maxWidthClass[maxWidth]} bg-surface border-2 border-pencil ${paddingClass[padding]} animate-dialog-in rounded-[var(--radius-md)] ${className}`}
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

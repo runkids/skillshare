@@ -7,7 +7,6 @@ import type { SyncResult } from '../api/client';
 import { api } from '../api/client';
 import { invalidateAfterSync } from '../lib/sync';
 import Button from './Button';
-import Card from './Card';
 import DialogShell from './DialogShell';
 import Spinner from './Spinner';
 import SyncResultList from './SyncResultList';
@@ -81,7 +80,6 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
 
   return (
     <DialogShell open={open} onClose={onClose} maxWidth="2xl" preventClose={syncing}>
-      <Card>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-pencil">{synced ? 'Sync Complete' : 'Sync Preview'}</h2>
@@ -163,7 +161,6 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
             )}
           </div>
         </div>
-      </Card>
     </DialogShell>
   );
 }

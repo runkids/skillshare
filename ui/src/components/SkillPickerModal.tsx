@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Download, Search } from 'lucide-react';
-import Card from './Card';
 import Button from './Button';
 import DialogShell from './DialogShell';
 import { Input, Checkbox } from './Input';
@@ -78,7 +77,6 @@ export default function SkillPickerModal({
 
   return (
     <DialogShell open={open} onClose={onCancel} maxWidth="md" preventClose={installing}>
-      <Card className="!overflow-clip">
           <h3 className="text-xl font-bold text-pencil mb-1">
             Select Skills to Install
           </h3>
@@ -172,7 +170,6 @@ export default function SkillPickerModal({
               Install Selected ({selected.size})
             </Button>
           </div>
-        </Card>
     </DialogShell>
   );
 }

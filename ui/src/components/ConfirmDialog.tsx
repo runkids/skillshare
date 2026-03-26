@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import Card from './Card';
 import Button from './Button';
 import DialogShell from './DialogShell';
 
@@ -35,7 +34,6 @@ export default function ConfirmDialog({
       maxWidth={wide ? '2xl' : 'lg'}
       preventClose={loading}
     >
-      <Card>
         <h3 className="text-lg font-bold text-pencil mb-2">
           {title}
         </h3>
@@ -62,7 +60,6 @@ export default function ConfirmDialog({
             {confirmText}
           </Button>
         </div>
-      </Card>
     </DialogShell>
   );
 }

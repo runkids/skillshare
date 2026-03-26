@@ -10,6 +10,7 @@ import {
   ToggleRight,
   X,
   FileText,
+  HelpCircle,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { AnalyzeResponse, AnalyzeTarget, AnalyzeSkill, AnalyzeLintIssue } from '../api/client';
@@ -24,7 +25,7 @@ import { Input } from '../components/Input';
 import Tooltip from '../components/Tooltip';
 import Pagination from '../components/Pagination';
 import DialogShell from '../components/DialogShell';
-import { radius, palette } from '../design';
+import { radius } from '../design';
 
 /* ──────────────────────────────────────────────────────────────────────
  * Helpers
@@ -32,6 +33,18 @@ import { radius, palette } from '../design';
 
 function formatTokens(n: number): string {
   return `~${n.toLocaleString()}`;
+}
+
+/** Small colored icon block (matches Audit page pattern) */
+function IconBlock({ children, className }: { children: React.ReactNode; className: string }) {
+  return (
+    <span
+      className={`inline-flex items-center justify-center w-7 h-7 border-2 shrink-0 ${className}`}
+      style={{ borderRadius: radius.sm }}
+    >
+      {children}
+    </span>
+  );
 }
 
 /** Convert kebab-case rule name to readable label */
@@ -77,6 +90,7 @@ export default function AnalyzePage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedGroupIdx, setSelectedGroupIdx] = useState(0);
   const [lintFilter, setLintFilter] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -176,12 +190,46 @@ export default function AnalyzePage() {
         title="Analyze"
         subtitle={subtitle}
         actions={
-          <Button variant="secondary" size="sm" onClick={fetchData}>
-            <RefreshCw size={14} strokeWidth={2.5} />
-            Refresh
-          </Button>
+          <>
+            <button
+              onClick={() => setShowHelp(true)}
+              className="inline-flex items-center justify-center w-8 h-8 text-pencil-light hover:text-pencil hover:bg-muted/50 transition-colors cursor-pointer rounded-[var(--radius-full)]"
+            >
+              <HelpCircle size={18} strokeWidth={2} />
+            </button>
+            <Button variant="secondary" size="sm" onClick={fetchData}>
+              <RefreshCw size={14} strokeWidth={2.5} />
+              Refresh
+            </Button>
+          </>
         }
       />
+
+      {/* Help dialog */}
+      <DialogShell open={showHelp} onClose={() => setShowHelp(false)} maxWidth="md">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <HelpCircle size={20} strokeWidth={2.5} className="text-pencil" />
+            <h2 className="text-lg font-bold text-pencil">About Analyze</h2>
+          </div>
+          <button onClick={() => setShowHelp(false)} className="w-8 h-8 flex items-center justify-center text-pencil-light hover:text-pencil transition-colors cursor-pointer" aria-label="Close">
+            <X size={18} strokeWidth={2.5} />
+          </button>
+        </div>
+        <div className="space-y-3 text-sm text-pencil-light">
+          <p>Analyze helps you understand how your skills consume AI context window tokens.</p>
+          <ul className="space-y-2 list-disc pl-4">
+            <li><span className="text-pencil font-medium">Always-loaded tokens</span> — skills loaded into every conversation, directly impacting available context</li>
+            <li><span className="text-pencil font-medium">On-demand max</span> — maximum tokens if all on-demand skills are invoked at once</li>
+            <li><span className="text-pencil font-medium">Top-10 chart</span> — quickly spot the heaviest skills by description size</li>
+            <li><span className="text-pencil font-medium">Quality issues</span> — find skills missing trigger phrases or descriptions that help agents invoke them correctly</li>
+          </ul>
+          <p>Click any skill row to see its full token breakdown and quality details.</p>
+        </div>
+        <p className="mt-4 pt-3 border-t border-dashed border-pencil-light/30 text-xs text-pencil-light">
+          Token counts are estimated (~4 chars/token average). Actual usage varies by model and content. Treat as approximations for relative comparison.
+        </p>
+      </DialogShell>
 
       {/* Target group switching */}
       {groups.length > 1 && (
@@ -229,7 +277,9 @@ function SummaryCards({ target }: { target: AnalyzeTarget }) {
       value: target.skill_count,
       icon: <Package size={18} strokeWidth={2.5} />,
       color: 'text-success',
-      accent: palette.success,
+      iconClass: 'bg-success-light text-success border-success',
+      border: 'var(--color-success)',
+      bg: 'var(--color-success-light)',
     },
     {
       label: 'Always-loaded',
@@ -238,7 +288,9 @@ function SummaryCards({ target }: { target: AnalyzeTarget }) {
       sub: `${target.always_loaded.chars.toLocaleString()} chars`,
       icon: <Zap size={18} strokeWidth={2.5} />,
       color: 'text-info',
-      accent: palette.info,
+      iconClass: 'bg-info-light text-info border-info',
+      border: 'var(--color-info)',
+      bg: 'var(--color-info-light)',
     },
     {
       label: 'On-demand max',
@@ -247,7 +299,9 @@ function SummaryCards({ target }: { target: AnalyzeTarget }) {
       sub: `${target.on_demand_max.chars.toLocaleString()} chars`,
       icon: <ToggleRight size={18} strokeWidth={2.5} />,
       color: 'text-pencil',
-      accent: 'var(--color-pencil-light)',
+      iconClass: 'bg-paper text-muted-dark border-muted-dark',
+      border: 'var(--color-muted-dark)',
+      bg: 'var(--color-paper)',
     },
     {
       label: 'Quality issues',
@@ -256,33 +310,33 @@ function SummaryCards({ target }: { target: AnalyzeTarget }) {
         ? <AlertTriangle size={18} strokeWidth={2.5} />
         : <CheckCircle size={18} strokeWidth={2.5} />,
       color: totalIssues > 0 ? 'text-warning' : 'text-success',
-      accent: totalIssues > 0 ? palette.warning : palette.success,
+      iconClass: totalIssues > 0 ? 'bg-warning-light text-warning border-warning' : 'bg-success-light text-success border-success',
+      border: totalIssues > 0 ? 'var(--color-warning)' : 'var(--color-success)',
+      bg: totalIssues > 0 ? 'var(--color-warning-light)' : 'var(--color-success-light)',
     },
   ];
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {cards.map((c) => (
-        <div
-          key={c.label}
-          className="p-4 border-2 border-dashed"
-          style={{
-            borderColor: c.accent,
-            borderRadius: radius.md,
-            boxShadow: 'var(--shadow-sm)',
-            backgroundColor: `color-mix(in srgb, ${c.accent} 6%, var(--color-surface))`,
-          }}
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <span className={c.color}>{c.icon}</span>
-            <span className="text-xs text-pencil-light uppercase tracking-wide font-medium">{c.label}</span>
+        <Card key={c.label} padding="none">
+          <div className="flex items-center gap-3 px-3.5 py-2.5 h-full">
+            <div
+              className={`w-10 h-10 flex items-center justify-center border-2 shrink-0 ${c.iconClass}`}
+              style={{ borderRadius: radius.sm }}
+            >
+              {c.icon}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-pencil-light uppercase tracking-wide font-medium">{c.label}</p>
+              <p className={`text-lg font-bold ${c.color}`}>
+                {c.value}
+                {c.unit && <span className="text-xs font-medium text-pencil-light ml-1">{c.unit}</span>}
+              </p>
+              {c.sub && <p className="text-xs text-pencil-light">{c.sub}</p>}
+            </div>
           </div>
-          <p className={`text-2xl font-bold ${c.color}`}>
-            {c.value}
-            {c.unit && <span className="text-xs font-medium text-pencil-light ml-1">{c.unit}</span>}
-          </p>
-          {c.sub && <p className="text-xs text-pencil-light mt-0.5">{c.sub}</p>}
-        </div>
+        </Card>
       ))}
     </div>
   );
@@ -301,16 +355,11 @@ function TopHeaviestChart({ skills }: { skills: AnalyzeSkill[] }) {
     return { sorted: top, maxTokens: max };
   }, [skills]);
 
-  /** Rank-based transparent blue: #1 = 45% opacity, #10 = 25% opacity */
-  function barStyle(rank: number, total: number): { backgroundColor: string } {
-    const opacity = 0.45 - (rank / Math.max(total - 1, 1)) * 0.2; // 0.45 → 0.25
-    return { backgroundColor: `rgba(45, 93, 161, ${opacity.toFixed(2)})` };
-  }
 
   return (
     <Card>
       <h3 className="text-base font-bold text-pencil mb-4 flex items-center gap-2">
-        <BarChart3 size={16} strokeWidth={2.5} className="text-info" />
+        <IconBlock className="bg-info-light text-info border-info"><BarChart3 size={14} strokeWidth={2.5} /></IconBlock>
         Top-10 Heaviest Skills
         <span className="text-xs font-normal text-pencil-light">(by description tokens)</span>
       </h3>
@@ -339,7 +388,8 @@ function TopHeaviestChart({ skills }: { skills: AnalyzeSkill[] }) {
                       style={{
                         width: `${Math.max(pct, 3)}%`,
                         borderRadius: radius.sm,
-                        ...barStyle(idx, sorted.length),
+                        backgroundColor: 'var(--color-info)',
+                        opacity: 0.35,
                       }}
                     />
                   </div>
@@ -391,7 +441,7 @@ function LintSummary({ skills, onRuleClick }: LintSummaryProps) {
   return (
     <Card>
       <h3 className="text-base font-bold text-pencil mb-1 flex items-center gap-2">
-        <AlertTriangle size={16} strokeWidth={2.5} className="text-warning" />
+        <IconBlock className="bg-warning-light text-warning border-warning"><AlertTriangle size={14} strokeWidth={2.5} /></IconBlock>
         Quality Issues
       </h3>
       {grouped.length === 0 ? (
@@ -407,7 +457,6 @@ function LintSummary({ skills, onRuleClick }: LintSummaryProps) {
           <div className="space-y-2">
             {grouped.map((g) => {
               const pct = (g.count / maxCount) * 100;
-              const barColor = g.severity === 'error' ? palette.danger : palette.warning;
               return (
                 <button
                   key={g.rule}
@@ -426,7 +475,7 @@ function LintSummary({ skills, onRuleClick }: LintSummaryProps) {
                       className="h-full transition-all duration-300"
                       style={{
                         width: `${Math.max(pct, 4)}%`,
-                        backgroundColor: `color-mix(in srgb, ${barColor} 50%, transparent)`,
+                        backgroundColor: g.severity === 'error' ? 'var(--color-danger-light)' : 'var(--color-warning-light)',
                         borderRadius: radius.full,
                       }}
                     />
@@ -530,7 +579,7 @@ function SkillTable({
       {/* Toolbar */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
         <h3 className="text-base font-bold text-pencil flex items-center gap-2">
-          <FileText size={16} strokeWidth={2.5} className="text-info" />
+          <IconBlock className="bg-info-light text-info border-info"><FileText size={14} strokeWidth={2.5} /></IconBlock>
           All Skills
           <span className="text-xs font-normal text-pencil-light">({filtered.length})</span>
         </h3>
@@ -552,7 +601,7 @@ function SkillTable({
               placeholder="Search..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="!py-1.5 !px-3 !text-sm !border"
+              className="!py-1.5 !px-3 !text-sm"
             />
           </div>
         </div>
@@ -602,12 +651,12 @@ function SkillTable({
                 return (
                   <tr
                     key={skill.name}
-                    className="border-b border-dashed border-muted cursor-pointer hover:bg-paper-warm/60 transition-colors"
+                    className="border-b border-dashed border-muted cursor-pointer hover:bg-paper-warm/60 transition-colors group"
                     onClick={() => setSelectedSkill(skill)}
                   >
-                    <td className="py-3 pr-4 font-medium text-pencil truncate">
+                    <td className="py-3 pr-4">
                       <div className="flex items-center gap-2">
-                        <span className="truncate">{skill.name}</span>
+                        <span className="font-medium text-pencil truncate hover:underline">{skill.name}</span>
                         {skill.is_tracked && <Badge variant="info" size="sm">tracked</Badge>}
                       </div>
                     </td>
@@ -673,76 +722,64 @@ function SkillDetailDialog({
   const totalChars = skill.description_chars + skill.body_chars;
 
   return (
-    <DialogShell open={!!skill} onClose={onClose} maxWidth="2xl">
-      <Card>
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="text-lg font-bold text-pencil flex items-center gap-2">
-              {skill.name}
-              {skill.is_tracked && <Badge variant="info" size="sm">tracked</Badge>}
-            </h3>
-            <p className="text-xs text-pencil-light font-mono mt-1">{skill.path}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 text-pencil-light hover:text-pencil transition-colors cursor-pointer"
-          >
-            <X size={18} strokeWidth={2.5} />
-          </button>
+    <DialogShell open={!!skill} onClose={onClose} maxWidth="2xl" className="max-h-[80vh] overflow-y-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileText size={20} strokeWidth={2.5} className="text-pencil shrink-0" />
+          <h2 className="text-lg font-bold text-pencil truncate">{skill.name}</h2>
+          {skill.is_tracked && <Badge variant="info" size="sm">tracked</Badge>}
         </div>
+        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-pencil-light hover:text-pencil transition-colors cursor-pointer shrink-0" aria-label="Close">
+          <X size={18} strokeWidth={2.5} />
+        </button>
+      </div>
 
-        {/* Token breakdown */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          {[
-            { label: 'Description', tokens: skill.description_tokens, chars: skill.description_chars, color: palette.info },
-            { label: 'Body', tokens: skill.body_tokens, chars: skill.body_chars, color: palette.warning },
-            { label: 'Total', tokens: total, chars: totalChars, color: palette.success },
-          ].map((item) => (
-            <div
-              key={item.label}
-              className="p-2.5 border-2 border-dashed"
-              style={{
-                borderRadius: radius.sm,
-                borderColor: `color-mix(in srgb, ${item.color} 30%, transparent)`,
-                backgroundColor: `color-mix(in srgb, ${item.color} 4%, transparent)`,
-              }}
-            >
-              <p className="text-xs text-pencil-light uppercase tracking-wide">{item.label}</p>
-              <p className="text-base font-bold text-pencil">{formatTokens(item.tokens)}</p>
-              <p className="text-xs text-pencil-light">{item.chars.toLocaleString()} chars</p>
-            </div>
-          ))}
+      {/* Path */}
+      <p className="text-xs text-pencil-light font-mono mb-4">{skill.path}</p>
+
+      {/* Token breakdown */}
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        {[
+          { label: 'Description', tokens: skill.description_tokens, chars: skill.description_chars, bg: 'var(--color-info-light)' },
+          { label: 'Body', tokens: skill.body_tokens, chars: skill.body_chars, bg: 'var(--color-warning-light)' },
+          { label: 'Total', tokens: total, chars: totalChars, bg: 'var(--color-success-light)' },
+        ].map((item) => (
+          <div key={item.label} className="p-2.5" style={{ borderRadius: radius.sm, backgroundColor: item.bg }}>
+            <p className="text-xs text-pencil-light uppercase tracking-wide">{item.label}</p>
+            <p className="text-base font-bold text-pencil">{formatTokens(item.tokens)} <span className="text-xs font-medium text-pencil-light">tokens</span></p>
+            <p className="text-xs text-pencil-light">{item.chars.toLocaleString()} chars</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Details */}
+      {skill.targets && skill.targets.length > 0 && (
+        <p className="text-sm text-pencil-light mb-4">
+          <span className="text-pencil-light/60">Restricted to:</span>{' '}
+          {skill.targets.join(', ')}
+        </p>
+      )}
+
+      {/* Quality issues */}
+      {skill.lint_issues && skill.lint_issues.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs text-pencil-light uppercase tracking-wide mb-2">Quality Issues</p>
+          <div className="space-y-1.5">
+            {skill.lint_issues.map((issue, idx) => (
+              <LintIssueRow key={`${issue.rule}-${idx}`} issue={issue} onRuleClick={onLintFilter} />
+            ))}
+          </div>
         </div>
+      )}
 
-        {/* Details */}
-        {skill.targets && skill.targets.length > 0 && (
-          <p className="text-sm text-pencil-light mb-4">
-            <span className="text-pencil-light/60">Restricted to:</span>{' '}
-            {skill.targets.join(', ')}
-          </p>
-        )}
-
-        {/* Quality issues */}
-        {skill.lint_issues && skill.lint_issues.length > 0 && (
-          <div className="mb-4">
-            <p className="text-xs text-pencil-light uppercase tracking-wide mb-2">Quality Issues</p>
-            <div className="space-y-1.5">
-              {skill.lint_issues.map((issue, idx) => (
-                <LintIssueRow key={`${issue.rule}-${idx}`} issue={issue} onRuleClick={onLintFilter} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Description preview */}
-        {skill.description && (
-          <div>
-            <p className="text-xs text-pencil-light uppercase tracking-wide mb-1">Description Preview</p>
-            <p className="text-sm text-pencil-light">{skill.description}</p>
-          </div>
-        )}
-      </Card>
+      {/* Description preview */}
+      {skill.description && (
+        <>
+          <p className="mt-4 pt-3 border-t border-dashed border-pencil-light/30 text-xs text-pencil-light uppercase tracking-wide mb-1">Description Preview</p>
+          <p className="text-sm text-pencil-light">{skill.description}</p>
+        </>
+      )}
     </DialogShell>
   );
 }

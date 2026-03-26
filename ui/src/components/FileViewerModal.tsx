@@ -8,7 +8,6 @@ import { yaml } from '@codemirror/lang-yaml';
 import { python } from '@codemirror/lang-python';
 import { javascript } from '@codemirror/lang-javascript';
 import { EditorView } from '@codemirror/view';
-import Card from './Card';
 import CopyButton from './CopyButton';
 import IconButton from './IconButton';
 import Spinner from './Spinner';
@@ -55,10 +54,9 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
   }, [data, filepath]);
 
   return (
-    <DialogShell open={true} onClose={onClose} maxWidth="3xl" className="max-h-[85vh] flex flex-col">
-      <Card className="flex flex-col h-full overflow-hidden">
+    <DialogShell open={true} onClose={onClose} maxWidth="3xl" padding="none" className="max-h-[85vh] flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between mb-3 pt-2">
+          <div className="flex items-center justify-between mb-3 px-6 pt-6">
             <h3
               className="font-bold text-pencil truncate font-mono flex items-center gap-1.5"
               style={{ fontSize: '0.95rem' }}
@@ -80,7 +78,7 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
           </div>
 
           {/* Content */}
-          <div className="overflow-auto flex-1 min-h-0 -mx-4 -mb-4 px-4 pb-4">
+          <div className="overflow-auto flex-1 min-h-0 px-6 pb-6">
             {loading && (
               <div className="py-12 flex justify-center">
                 <Spinner size="md" />
@@ -120,7 +118,6 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
               </>
             )}
           </div>
-        </Card>
     </DialogShell>
   );
 }

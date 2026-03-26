@@ -6,7 +6,6 @@ import { radius } from '../design';
 import { api } from '../api/client';
 import type { VersionCheck } from '../api/client';
 import DialogShell from './DialogShell';
-import Card from './Card';
 
 const DISMISSED_KEY = 'ss-update-dialog-dismissed';
 
@@ -63,7 +62,6 @@ export default function UpdateDialog() {
 
   return (
     <DialogShell open={open} onClose={dismiss} maxWidth="sm">
-      <Card>
         {/* Close */}
         <button
           onClick={dismiss}
@@ -114,7 +112,6 @@ export default function UpdateDialog() {
               : <Copy size={14} />}
           </button>
         </div>
-      </Card>
     </DialogShell>
   );
 }
