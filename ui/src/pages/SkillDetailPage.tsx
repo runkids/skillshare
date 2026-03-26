@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, Trash2, ExternalLink, FileText, ArrowUpRight, RefreshCw, Target,
-  Type, AlignLeft, Files, Scale,
+  Type, AlignLeft, Files, Scale, Zap,
   FileCode2, Braces, Settings, BookOpen, File, FolderOpen,
   ShieldCheck, Link2,
 } from 'lucide-react';
@@ -13,6 +13,7 @@ import Badge from '../components/Badge';
 import Card from '../components/Card';
 import CopyButton from '../components/CopyButton';
 import Button from '../components/Button';
+import Tooltip from '../components/Tooltip';
 import IconButton from '../components/IconButton';
 import { SkillDetailSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
@@ -112,12 +113,23 @@ function getFileIcon(filename: string): { icon: typeof File; className: string }
 }
 
 /** Content stats bar showing word count, line count, file count, license */
-function ContentStatsBar({ content, fileCount, license }: { content: string; fileCount: number; license?: string }) {
-  const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0;
-  const lineCount = content.trim() ? content.trim().split(/\r?\n/).length : 0;
+function ContentStatsBar({ content, description, body, fileCount, license }: { content: string; description?: string; body?: string; fileCount: number; license?: string }) {
+  const trimmed = content.trim();
+  const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
+  const lineCount = trimmed ? trimmed.split(/\r?\n/).length : 0;
+  const descTokens = description ? Math.round(description.length / 4) : 0;
+  const bodyTokens = body ? Math.round(body.trim().length / 4) : 0;
+  const totalTokens = descTokens + bodyTokens || Math.round(trimmed.length / 4);
 
   return (
     <div className="ss-detail-stats flex items-center gap-4 flex-wrap text-sm text-pencil-light py-3 mb-4 border-b border-muted">
+      <Tooltip content={`Description: ~${descTokens.toLocaleString()}\nBody: ~${bodyTokens.toLocaleString()}\nTotal: ~${totalTokens.toLocaleString()}\n(~4 chars/token estimate)`}>
+        <span className="inline-flex items-center gap-1.5">
+          <Zap size={12} strokeWidth={2.5} />
+          ~{totalTokens.toLocaleString()} tokens
+          {descTokens > 0 && <span className="text-pencil-light/60">(desc ~{descTokens.toLocaleString()} · body ~{bodyTokens.toLocaleString()})</span>}
+        </span>
+      </Tooltip>
       <span className="inline-flex items-center gap-1.5">
         <Type size={12} strokeWidth={2.5} />
         {wordCount.toLocaleString()} words
@@ -384,6 +396,8 @@ export default function SkillDetailPage() {
             {/* Stage 1: Content Stats Bar */}
             <ContentStatsBar
               content={skillMdContent ?? ''}
+              description={parsedDoc.manifest.description}
+              body={parsedDoc.markdown}
               fileCount={files.length}
               license={parsedDoc.manifest.license}
             />

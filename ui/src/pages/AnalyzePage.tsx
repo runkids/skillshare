@@ -11,7 +11,9 @@ import {
   X,
   FileText,
   HelpCircle,
+  ExternalLink,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import type { AnalyzeResponse, AnalyzeTarget, AnalyzeSkill, AnalyzeLintIssue } from '../api/client';
 import Card from '../components/Card';
@@ -116,13 +118,7 @@ export default function AnalyzePage() {
   const activeTarget = activeGroup?.target ?? null;
 
   // Subtitle
-  const subtitle = useMemo(() => {
-    if (!activeGroup) return undefined;
-    if (groups.length === 1) {
-      return `Targets: ${activeGroup.names.join(', ')}`;
-    }
-    return `Targets: ${activeGroup.names.join(', ')}`;
-  }, [activeGroup, groups]);
+  const subtitle = activeGroup ? `Targets: ${activeGroup.names.join(', ')}` : undefined;
 
   // Loading
   if (loading) {
@@ -278,8 +274,6 @@ function SummaryCards({ target }: { target: AnalyzeTarget }) {
       icon: <Package size={18} strokeWidth={2.5} />,
       color: 'text-success',
       iconClass: 'bg-success-light text-success border-success',
-      border: 'var(--color-success)',
-      bg: 'var(--color-success-light)',
     },
     {
       label: 'Always-loaded',
@@ -289,8 +283,6 @@ function SummaryCards({ target }: { target: AnalyzeTarget }) {
       icon: <Zap size={18} strokeWidth={2.5} />,
       color: 'text-info',
       iconClass: 'bg-info-light text-info border-info',
-      border: 'var(--color-info)',
-      bg: 'var(--color-info-light)',
     },
     {
       label: 'On-demand max',
@@ -300,8 +292,6 @@ function SummaryCards({ target }: { target: AnalyzeTarget }) {
       icon: <ToggleRight size={18} strokeWidth={2.5} />,
       color: 'text-pencil',
       iconClass: 'bg-paper text-muted-dark border-muted-dark',
-      border: 'var(--color-muted-dark)',
-      bg: 'var(--color-paper)',
     },
     {
       label: 'Quality issues',
@@ -311,8 +301,6 @@ function SummaryCards({ target }: { target: AnalyzeTarget }) {
         : <CheckCircle size={18} strokeWidth={2.5} />,
       color: totalIssues > 0 ? 'text-warning' : 'text-success',
       iconClass: totalIssues > 0 ? 'bg-warning-light text-warning border-warning' : 'bg-success-light text-success border-success',
-      border: totalIssues > 0 ? 'var(--color-warning)' : 'var(--color-success)',
-      bg: totalIssues > 0 ? 'var(--color-warning-light)' : 'var(--color-success-light)',
     },
   ];
 
@@ -567,8 +555,9 @@ function SkillTable({
   const PAGE_SIZES = [10, 25, 50] as const;
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState<number>(25);
-  const [prevFiltered, setPrevFiltered] = useState(filtered);
-  if (filtered !== prevFiltered) { setPrevFiltered(filtered); setPage(0); }
+
+  // Reset to first page when filters change
+  useEffect(() => { setPage(0); }, [search, lintFilter, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const start = page * pageSize;
@@ -780,6 +769,17 @@ function SkillDetailDialog({
           <p className="text-sm text-pencil-light">{skill.description}</p>
         </>
       )}
+
+      {/* Link to skill detail page */}
+      <div className="mt-4 pt-3 border-t border-dashed border-pencil-light/30">
+        <Link
+          to={`/skills/${encodeURIComponent(skill.name)}`}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-info hover:underline"
+        >
+          View Skill Detail
+          <ExternalLink size={14} strokeWidth={2.5} />
+        </Link>
+      </div>
     </DialogShell>
   );
 }
