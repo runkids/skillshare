@@ -368,14 +368,14 @@ func (m *analyzeTUIModel) syncListSize() {
 		return
 	}
 	if listSplitActive(m.termWidth) {
-		panelHeight := m.termHeight - 11
+		panelHeight := m.termHeight - 9
 		if panelHeight < 6 {
 			panelHeight = 6
 		}
 		m.list.SetSize(listPanelWidth(m.termWidth), panelHeight)
 		return
 	}
-	listHeight := m.termHeight - 22
+	listHeight := m.termHeight - 20
 	if listHeight < 6 {
 		listHeight = 6
 	}
@@ -411,9 +411,7 @@ func (m analyzeTUIModel) View() string {
 func (m analyzeTUIModel) viewSplit() string {
 	var b strings.Builder
 
-	b.WriteString(m.renderCategoryBar())
-
-	panelHeight := m.termHeight - 11
+	panelHeight := m.termHeight - 9
 	if panelHeight < 6 {
 		panelHeight = 6
 	}
@@ -444,7 +442,6 @@ func (m analyzeTUIModel) viewSplit() string {
 
 func (m analyzeTUIModel) viewVertical() string {
 	var b strings.Builder
-	b.WriteString(m.renderCategoryBar())
 	b.WriteString(m.list.View())
 	b.WriteString("\n\n")
 	b.WriteString(m.renderFilterBar())
@@ -483,14 +480,6 @@ func (m analyzeTUIModel) renderFooter(scrollInfo string) string {
 	b.WriteString(tc.Help.Render(help))
 	b.WriteString("\n")
 	return b.String()
-}
-
-func (m analyzeTUIModel) renderCategoryBar() string {
-	// Active tab with underline; future categories added as dim text after
-	label := "Context"
-	tab := tc.ListTitle.Render(label)
-	underline := tc.Cyan.Render(strings.Repeat("━", len(label)))
-	return "  " + tab + "\n  " + underline + "\n"
 }
 
 func (m analyzeTUIModel) renderFilterBar() string {
