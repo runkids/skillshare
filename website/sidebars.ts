@@ -167,6 +167,7 @@ const sidebars: SidebarsConfig = {
               type: 'category',
               label: 'Security & Utilities',
               items: [
+                'reference/commands/analyze',
                 'reference/commands/audit',
                 'reference/commands/audit-rules',
                 'reference/commands/hub',

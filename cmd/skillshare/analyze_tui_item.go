@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"sort"
 	"strings"
@@ -59,6 +58,13 @@ func renderTokenBar(tokens, maxTokens, maxWidth int) string {
 	return strings.Repeat("█", width)
 }
 
+// Pre-computed colored dots to avoid lipgloss.NewStyle() allocation per Render() call.
+var analyzeDots = map[string]string{
+	"1": lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render("●"), // red
+	"2": lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Render("●"), // green
+	"3": lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("●"), // yellow
+}
+
 // analyzeSkillDelegate renders each skill row in the list.
 type analyzeSkillDelegate struct {
 	thresholdLow  int
@@ -75,23 +81,27 @@ func (d analyzeSkillDelegate) Render(w io.Writer, m list.Model, index int, listI
 		return
 	}
 
-	isSelected := index == m.Index()
-	name := truncateName(item.entry.Name, analyzeNameMaxLen)
-	tokenStr := formatTokensStr(item.entry.DescriptionChars)
-
-	colorCode := tokenColorCode(item.entry.DescriptionTokens, d.thresholdLow, d.thresholdHigh)
-	dot := lipgloss.NewStyle().Foreground(lipgloss.Color(colorCode)).Render("●")
-
-	// Bar chart: use remaining width after name + token columns
-	barMaxWidth := 12
-	bar := renderTokenBar(item.entry.DescriptionTokens, item.maxTokens, barMaxWidth)
-	barStyled := lipgloss.NewStyle().Foreground(lipgloss.Color(colorCode)).Render(bar)
-
-	line := fmt.Sprintf("  %s %-32s %8s  %s", dot, name, tokenStr, barStyled)
-
-	if isSelected {
-		line = tc.ListRowSelected.Render(line)
+	width := m.Width()
+	if width <= 0 {
+		width = 40
 	}
 
-	fmt.Fprint(w, line)
+	isSelected := index == m.Index()
+	tokenStr := formatTokensStr(item.entry.DescriptionChars)
+	colorCode := tokenColorCode(item.entry.DescriptionTokens, d.thresholdLow, d.thresholdHigh)
+	dot := analyzeDots[colorCode]
+
+	// Right-align token count: "● name          ~123"
+	// renderPrefixRow reserves: ▌(2) + PaddingLeft(1) = 3 chars from width
+	contentWidth := width - 3
+	nameWidth := 2 + 1 + len([]rune(item.entry.Name)) // dot(●=1) + ANSI reset(=1 visible) + space + name
+	tokenWidth := len([]rune(tokenStr))
+	gap := contentWidth - nameWidth - tokenWidth
+	if gap < 1 {
+		gap = 1
+	}
+	line := dot + " " + item.entry.Name + strings.Repeat(" ", gap) + tc.Dim.Render(tokenStr)
+
+	// Reuse the shared ▌ prefix row style (same as list, audit, log TUIs)
+	renderPrefixRow(w, line, width, isSelected)
 }

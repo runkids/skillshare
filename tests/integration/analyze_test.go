@@ -46,7 +46,7 @@ func TestAnalyze_Verbose(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
-	for i := 1; i <= 7; i++ {
+	for i := 1; i <= 12; i++ {
 		name := fmt.Sprintf("skill%d", i)
 		desc := strings.Repeat("x", i*50)
 		content := fmt.Sprintf("---\nname: %s\ndescription: %s\n---\n# %s\nBody", name, desc, name)
@@ -63,7 +63,7 @@ targets:
 	result := sb.RunCLI("analyze", "--verbose")
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "claude")
-	result.AssertOutputContains(t, "7 skills")
+	result.AssertOutputContains(t, "12 skills")
 	result.AssertOutputContains(t, "Always loaded:")
 	result.AssertOutputContains(t, "Largest descriptions:")
 	result.AssertOutputContains(t, "... 2 more")

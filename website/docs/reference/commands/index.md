@@ -19,6 +19,7 @@ Complete reference for all skillshare commands.
 | Update installed skills | [`check`](./check.md) then [`update`](./update.md) |
 | Sync across machines | [`push`](./push.md) / [`pull`](./pull.md) |
 | Manage non-skill resources (rules, commands) | [`extras`](./extras.md) |
+| See which skills use the most context tokens | [`analyze`](./analyze.md) |
 | Fix something broken | [`doctor`](./doctor.md) |
 | Open the web dashboard | [`ui`](./ui.md) |
 
@@ -33,7 +34,7 @@ Complete reference for all skillshare commands.
 | **Target Management** | `target`, `diff` |
 | **Extras Management** | `extras` (`init`, `list`, `remove`, `collect`) |
 | **Sync Operations** | `collect`, `backup`, `restore`, `trash`, `push`, `pull` |
-| **Security & Utilities** | `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `version` |
+| **Security & Utilities** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `version` |
 
 ---
 
@@ -86,6 +87,7 @@ Complete reference for all skillshare commands.
 
 | Command | Description |
 |---------|-------------|
+| [analyze](./analyze.md) | Analyze context window usage |
 | [audit](./audit.md) | Scan skills for security threats |
 | [log](./log.md) | View operations and audit logs |
 | [doctor](./doctor.md) | Diagnose issues |
@@ -136,6 +138,7 @@ skillshare diff
 
 # Maintenance
 skillshare update --all
+skillshare analyze
 skillshare audit
 skillshare log
 skillshare doctor

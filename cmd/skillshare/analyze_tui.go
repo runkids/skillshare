@@ -93,11 +93,15 @@ func (m *analyzeTUIModel) switchTarget() {
 	}
 	m.allItems = items
 	m.recomputeThresholds()
+	m.updateDelegate()
+	m.applyFilter()
+}
+
+func (m *analyzeTUIModel) updateDelegate() {
 	m.list.SetDelegate(analyzeSkillDelegate{
 		thresholdLow:  m.thresholdLow,
 		thresholdHigh: m.thresholdHigh,
 	})
-	m.applyFilter()
 }
 
 func (m *analyzeTUIModel) recomputeThresholds() {
@@ -218,10 +222,6 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		l.SetShowPagination(false)
 		m.list = l
 		m.switchTarget()
-		m.list.SetDelegate(analyzeSkillDelegate{
-			thresholdLow:  m.thresholdLow,
-			thresholdHigh: m.thresholdHigh,
-		})
 		m.syncListSize()
 		return m, nil
 
@@ -328,15 +328,18 @@ func (m analyzeTUIModel) selectedKey() string {
 }
 
 func (m *analyzeTUIModel) syncListSize() {
+	if m.loading {
+		return
+	}
 	if listSplitActive(m.termWidth) {
-		panelHeight := m.termHeight - 7
+		panelHeight := m.termHeight - 11
 		if panelHeight < 6 {
 			panelHeight = 6
 		}
 		m.list.SetSize(listPanelWidth(m.termWidth), panelHeight)
 		return
 	}
-	listHeight := m.termHeight - 20
+	listHeight := m.termHeight - 22
 	if listHeight < 6 {
 		listHeight = 6
 	}
@@ -368,7 +371,9 @@ func (m analyzeTUIModel) View() string {
 func (m analyzeTUIModel) viewSplit() string {
 	var b strings.Builder
 
-	panelHeight := m.termHeight - 7
+	b.WriteString(m.renderCategoryBar())
+
+	panelHeight := m.termHeight - 11
 	if panelHeight < 6 {
 		panelHeight = 6
 	}
@@ -392,19 +397,14 @@ func (m analyzeTUIModel) viewSplit() string {
 	b.WriteString(body)
 	b.WriteString("\n\n")
 	b.WriteString(m.renderFilterBar())
-	b.WriteString(m.renderTargetBar())
-	b.WriteString(m.renderStatsLine())
-	b.WriteString("\n")
-	help := m.helpText()
-	help = appendScrollInfo(help, scrollInfo)
-	b.WriteString(tc.Help.Render(help))
-	b.WriteString("\n")
+	b.WriteString(m.renderFooter(scrollInfo))
 
 	return b.String()
 }
 
 func (m analyzeTUIModel) viewVertical() string {
 	var b strings.Builder
+	b.WriteString(m.renderCategoryBar())
 	b.WriteString(m.list.View())
 	b.WriteString("\n\n")
 	b.WriteString(m.renderFilterBar())
@@ -427,6 +427,14 @@ func (m analyzeTUIModel) viewVertical() string {
 		b.WriteString(body)
 	}
 
+	b.WriteString(m.renderFooter(scrollInfo))
+
+	return b.String()
+}
+
+func (m analyzeTUIModel) renderFooter(scrollInfo string) string {
+	var b strings.Builder
+	b.WriteString("\n")
 	b.WriteString(m.renderTargetBar())
 	b.WriteString(m.renderStatsLine())
 	b.WriteString("\n")
@@ -434,8 +442,15 @@ func (m analyzeTUIModel) viewVertical() string {
 	help = appendScrollInfo(help, scrollInfo)
 	b.WriteString(tc.Help.Render(help))
 	b.WriteString("\n")
-
 	return b.String()
+}
+
+func (m analyzeTUIModel) renderCategoryBar() string {
+	// Active tab with underline; future categories added as dim text after
+	label := "Context"
+	tab := tc.ListTitle.Render(label)
+	underline := tc.Cyan.Render(strings.Repeat("━", len(label)))
+	return "  " + tab + "\n  " + underline + "\n"
 }
 
 func (m analyzeTUIModel) renderFilterBar() string {
@@ -456,10 +471,10 @@ func (m analyzeTUIModel) renderTargetBar() string {
 		if i == m.targetIdx {
 			parts = append(parts, tc.Cyan.Render("► "+label))
 		} else {
-			parts = append(parts, tc.Dim.Render("  "+label))
+			parts = append(parts, tc.Dim.Render(label))
 		}
 	}
-	return strings.Join(parts, tc.Dim.Render(" │ ")) + "\n"
+	return strings.Join(parts, tc.Dim.Render("  ·  ")) + "\n"
 }
 
 func (m analyzeTUIModel) renderStatsLine() string {

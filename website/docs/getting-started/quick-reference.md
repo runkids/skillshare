@@ -71,6 +71,8 @@ Command cheat sheet for skillshare.
 
 | Command | Description |
 |---------|-------------|
+| `analyze` | Analyze context window usage (interactive TUI) |
+| `analyze --json` | Context usage as JSON |
 | `doctor` | Diagnose issues |
 | `doctor --json` | Diagnose issues (JSON output for CI) |
 | `log` | View operations and audit logs |
