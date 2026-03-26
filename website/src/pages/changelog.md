@@ -9,6 +9,50 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.18.0] - 2026-03-26
+
+### New Features
+
+#### Analyze Command — Context Window & Skill Quality
+
+- **`skillshare analyze`** — new command that calculates context window token usage for each target's skills. Shows two layers of cost: "always loaded" (name + description, loaded every request) and "on-demand" (skill body, loaded when triggered). Token estimates use `chars / 4`:
+  ```bash
+  skillshare analyze               # interactive TUI
+  skillshare analyze claude        # single target (auto-verbose)
+  skillshare analyze --verbose     # top 10 largest descriptions
+  skillshare analyze --json        # machine-readable output
+  skillshare analyze -p            # project mode
+  ```
+
+- **Skill quality lint** — `analyze` runs 7 built-in lint rules against every skill, checking SKILL.md structure and description quality:
+  - **Errors**: missing `name`, missing `description`, empty body
+  - **Warnings**: description too short (&lt;50 chars), too long (&gt;1024 chars), near limit (900–1024), missing trigger phrases (e.g., "Use when…")
+
+  Lint issues appear in the TUI (✗ for errors, ⚠ for warnings) and in `--json` output as `lint_issues` per skill
+
+- **Interactive TUI** — full-screen bubbletea TUI with left skill list and right detail panel. Features include:
+  - Color-coded dots (red/yellow/green by percentile) indicating relative token cost
+  - **Tab/Shift+Tab** to switch between targets; identical targets are merged into groups
+  - **`/`** to filter skills, **`s`** to cycle sort (tokens↓ → tokens↑ → name A→Z → Z→A)
+  - Quality section in detail panel showing all lint findings with icons
+
+- **`--no-tui` flag** — disable the interactive TUI and print plain text summary
+
+#### Web UI — Analyze Page
+
+- **Analyze dashboard** — new page in the web dashboard showing per-target token usage with a chart, skill table with token breakdown, and lint issue indicators
+- **Skill detail token breakdown** — the Skill Detail page now shows always-loaded and on-demand token counts
+- **`GET /api/analyze` endpoint** — REST API returning per-target context analysis with lint issues, skill paths, tracked status, and descriptions
+
+#### Web UI — Update Page Improvements
+
+- **Sticky search filter** — the search input on the Update page now sticks to the top when scrolling, making it easy to filter skills in long lists
+- **SplitButton actions** — Update page action buttons replaced with a SplitButton component for cleaner interaction
+
+### Improvements
+
+- **Unified dialog styling** — all modal dialogs (Confirm, File Viewer, Hub Manager, Keyboard Shortcuts, Skill Picker, Sync Preview, Update) now share consistent styling via a shared `DialogShell` component
+
 ## [0.17.11] - 2026-03-25
 
 ### New Features

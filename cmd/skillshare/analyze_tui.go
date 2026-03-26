@@ -389,12 +389,10 @@ func (m analyzeTUIModel) listTitle() string {
 		return "Context Analysis"
 	}
 	g := m.groups[m.groupIdx]
-	prefix := fmt.Sprintf("%d targets", len(g.names))
 	if len(g.names) == 1 {
-		prefix = g.names[0]
+		return g.names[0]
 	}
-	return fmt.Sprintf("%s · %d skills · %s tokens", prefix, g.entry.SkillCount,
-		formatTokensStr(g.entry.AlwaysLoaded.Chars))
+	return fmt.Sprintf("%d targets", len(g.names))
 }
 
 func (m analyzeTUIModel) View() string {
@@ -518,7 +516,8 @@ func (m analyzeTUIModel) renderStatsLine() string {
 		return ""
 	}
 	g := m.groups[m.groupIdx]
-	return tc.Help.Render(fmt.Sprintf("Always: %s tokens  On-demand: %s tokens  %s",
+	return tc.Help.Render(fmt.Sprintf("%d skills  Always: %s tokens  On-demand: %s tokens  %s",
+		g.entry.SkillCount,
 		formatTokensStr(g.entry.AlwaysLoaded.Chars),
 		formatTokensStr(g.entry.OnDemandMax.Chars),
 		tc.Dim.Render("(1 token ≈ 4 chars)"),
