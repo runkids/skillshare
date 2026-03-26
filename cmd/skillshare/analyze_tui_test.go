@@ -103,24 +103,30 @@ func TestSwitchTarget(t *testing.T) {
 	m := &analyzeTUIModel{
 		list:   l,
 		sortBy: "tokens",
-		targets: []analyzeTargetEntry{
+		groups: []analyzeTargetGroup{
 			{
-				Name:       "claude",
-				SkillCount: 2,
-				Skills: []analyzeSkillEntry{
-					{Name: "big", DescriptionChars: 400, DescriptionTokens: 100, description: "big skill"},
-					{Name: "small", DescriptionChars: 40, DescriptionTokens: 10, description: "small"},
+				entry: analyzeTargetEntry{
+					Name:       "claude",
+					SkillCount: 2,
+					Skills: []analyzeSkillEntry{
+						{Name: "big", DescriptionChars: 400, DescriptionTokens: 100, description: "big skill"},
+						{Name: "small", DescriptionChars: 40, DescriptionTokens: 10, description: "small"},
+					},
 				},
+				names: []string{"claude"},
 			},
 			{
-				Name:       "cursor",
-				SkillCount: 1,
-				Skills: []analyzeSkillEntry{
-					{Name: "only", DescriptionChars: 200, DescriptionTokens: 50, description: "only skill"},
+				entry: analyzeTargetEntry{
+					Name:       "cursor",
+					SkillCount: 1,
+					Skills: []analyzeSkillEntry{
+						{Name: "only", DescriptionChars: 200, DescriptionTokens: 50, description: "only skill"},
+					},
 				},
+				names: []string{"cursor"},
 			},
 		},
-		targetIdx: 0,
+		groupIdx: 0,
 	}
 
 	m.switchTarget()
@@ -135,7 +141,7 @@ func TestSwitchTarget(t *testing.T) {
 		t.Error("thresholds not computed")
 	}
 
-	m.targetIdx = 1
+	m.groupIdx = 1
 	m.switchTarget()
 
 	if len(m.allItems) != 1 {

@@ -12,6 +12,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// analyzeTargetGroup merges targets with identical skill sets into one entry.
+type analyzeTargetGroup struct {
+	entry analyzeTargetEntry // representative entry (skills, counts, tokens)
+	names []string           // target names in this group (e.g. ["claude", "cursor"])
+}
+
 type analyzeTUIModel struct {
 	list        list.Model
 	allItems    []analyzeSkillItem
@@ -20,8 +26,8 @@ type analyzeTUIModel struct {
 	filtering   bool
 	matchCount  int
 
-	targets   []analyzeTargetEntry
-	targetIdx int
+	groups   []analyzeTargetGroup
+	groupIdx int
 
 	sortBy  string // "tokens" | "name"
 	sortAsc bool
@@ -76,19 +82,49 @@ func (m analyzeTUIModel) Init() tea.Cmd {
 	return nil
 }
 
+// groupAnalyzeTargets merges targets with identical skill sets into groups.
+// Targets with the same (SkillCount, AlwaysLoaded, OnDemandMax) share the same
+// skills (no include/exclude filters differentiating them) and are grouped together.
+func groupAnalyzeTargets(entries []analyzeTargetEntry) []analyzeTargetGroup {
+	type key struct {
+		skillCount int
+		alwaysChar int
+		onDemChar  int
+	}
+	order := []key{}
+	groups := map[key]*analyzeTargetGroup{}
+	for _, e := range entries {
+		k := key{e.SkillCount, e.AlwaysLoaded.Chars, e.OnDemandMax.Chars}
+		if g, ok := groups[k]; ok {
+			g.names = append(g.names, e.Name)
+		} else {
+			order = append(order, k)
+			groups[k] = &analyzeTargetGroup{
+				entry: e,
+				names: []string{e.Name},
+			}
+		}
+	}
+	result := make([]analyzeTargetGroup, 0, len(order))
+	for _, k := range order {
+		result = append(result, *groups[k])
+	}
+	return result
+}
+
 func (m *analyzeTUIModel) switchTarget() {
-	if len(m.targets) == 0 {
+	if len(m.groups) == 0 {
 		return
 	}
-	entry := m.targets[m.targetIdx]
+	g := m.groups[m.groupIdx]
 	maxTokens := 0
-	for _, s := range entry.Skills {
+	for _, s := range g.entry.Skills {
 		if s.DescriptionTokens > maxTokens {
 			maxTokens = s.DescriptionTokens
 		}
 	}
-	items := make([]analyzeSkillItem, len(entry.Skills))
-	for i, s := range entry.Skills {
+	items := make([]analyzeSkillItem, len(g.entry.Skills))
+	for i, s := range g.entry.Skills {
 		items[i] = analyzeSkillItem{entry: s, maxTokens: maxTokens}
 	}
 	m.allItems = items
@@ -210,8 +246,8 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		}
-		m.targets = msg.result.targets
-		m.targetIdx = 0
+		m.groups = groupAnalyzeTargets(msg.result.targets)
+		m.groupIdx = 0
 		delegate := analyzeSkillDelegate{}
 		l := list.New(nil, delegate, 0, 0)
 		l.Title = m.listTitle()
@@ -278,15 +314,15 @@ func (m analyzeTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.quitting = true
 			return m, tea.Quit
 		case "tab":
-			if len(m.targets) > 1 {
-				m.targetIdx = (m.targetIdx + 1) % len(m.targets)
+			if len(m.groups) > 1 {
+				m.groupIdx = (m.groupIdx + 1) % len(m.groups)
 				m.switchTarget()
 				m.list.Title = m.listTitle()
 			}
 			return m, nil
 		case "shift+tab":
-			if len(m.targets) > 1 {
-				m.targetIdx = (m.targetIdx - 1 + len(m.targets)) % len(m.targets)
+			if len(m.groups) > 1 {
+				m.groupIdx = (m.groupIdx - 1 + len(m.groups)) % len(m.groups)
 				m.switchTarget()
 				m.list.Title = m.listTitle()
 			}
@@ -347,12 +383,16 @@ func (m *analyzeTUIModel) syncListSize() {
 }
 
 func (m analyzeTUIModel) listTitle() string {
-	if len(m.targets) == 0 {
+	if len(m.groups) == 0 {
 		return "Context Analysis"
 	}
-	e := m.targets[m.targetIdx]
-	return fmt.Sprintf("%s · %d skills · %s tokens", e.Name, e.SkillCount,
-		formatTokensStr(e.AlwaysLoaded.Chars))
+	g := m.groups[m.groupIdx]
+	prefix := fmt.Sprintf("%d targets", len(g.names))
+	if len(g.names) == 1 {
+		prefix = g.names[0]
+	}
+	return fmt.Sprintf("%s · %d skills · %s tokens", prefix, g.entry.SkillCount,
+		formatTokensStr(g.entry.AlwaysLoaded.Chars))
 }
 
 func (m analyzeTUIModel) View() string {
@@ -462,29 +502,34 @@ func (m analyzeTUIModel) renderFilterBar() string {
 }
 
 func (m analyzeTUIModel) renderTargetBar() string {
-	if len(m.targets) <= 1 {
+	if len(m.groups) <= 1 {
 		return ""
 	}
 	var parts []string
-	for i, t := range m.targets {
-		label := fmt.Sprintf("%s (%d)", t.Name, t.SkillCount)
-		if i == m.targetIdx {
+	for i, g := range m.groups {
+		var label string
+		if len(g.names) == 1 {
+			label = fmt.Sprintf("%s (%d)", g.names[0], g.entry.SkillCount)
+		} else {
+			label = fmt.Sprintf("%d targets (%d)", len(g.names), g.entry.SkillCount)
+		}
+		if i == m.groupIdx {
 			parts = append(parts, tc.Cyan.Render("► "+label))
 		} else {
 			parts = append(parts, tc.Dim.Render(label))
 		}
 	}
-	return strings.Join(parts, tc.Dim.Render("  ·  ")) + "\n"
+	return "  " + strings.Join(parts, tc.Dim.Render("  ·  ")) + "\n"
 }
 
 func (m analyzeTUIModel) renderStatsLine() string {
-	if len(m.targets) == 0 {
+	if len(m.groups) == 0 {
 		return ""
 	}
-	e := m.targets[m.targetIdx]
+	g := m.groups[m.groupIdx]
 	return tc.Help.Render(fmt.Sprintf("Always: %s tokens  On-demand: %s tokens  %s",
-		formatTokensStr(e.AlwaysLoaded.Chars),
-		formatTokensStr(e.OnDemandMax.Chars),
+		formatTokensStr(g.entry.AlwaysLoaded.Chars),
+		formatTokensStr(g.entry.OnDemandMax.Chars),
 		tc.Dim.Render("(1 token ≈ 4 chars)"),
 	)) + "\n"
 }
@@ -498,10 +543,10 @@ func (m analyzeTUIModel) renderDetailBody(e analyzeSkillEntry, width int) string
 	var b strings.Builder
 
 	// Token breakdown
-	target := m.targets[m.targetIdx]
+	g := m.groups[m.groupIdx]
 	pct := 0.0
-	if target.AlwaysLoaded.Chars > 0 {
-		pct = float64(e.DescriptionChars) / float64(target.AlwaysLoaded.Chars) * 100
+	if g.entry.AlwaysLoaded.Chars > 0 {
+		pct = float64(e.DescriptionChars) / float64(g.entry.AlwaysLoaded.Chars) * 100
 	}
 	tokenRows := []string{
 		renderFactRow("Desc tokens", fmt.Sprintf("%s  (%.0f%%)", formatTokensStr(e.DescriptionChars), pct)),
@@ -562,7 +607,7 @@ func (m analyzeTUIModel) helpText() string {
 		sortLabel = "name↓"
 	}
 	help := fmt.Sprintf("↑↓ navigate  ←→ page  / filter  s sort(%s)  Ctrl+d/u detail", sortLabel)
-	if len(m.targets) > 1 {
+	if len(m.groups) > 1 {
 		help += "  Tab target"
 	}
 	help += "  q quit"
