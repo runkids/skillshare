@@ -404,6 +404,9 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/audit", s.handleAuditAll)
 	s.mux.HandleFunc("GET /api/audit/{name}", s.handleAuditSkill)
 
+	// Analyze (context-window budget)
+	s.mux.HandleFunc("GET /api/analyze", s.handleAnalyze)
+
 	// Log
 	s.mux.HandleFunc("GET /api/log", s.handleListLog)
 	s.mux.HandleFunc("GET /api/log/stats", s.handleLogStats)
