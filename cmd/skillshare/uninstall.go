@@ -1041,7 +1041,7 @@ func cmdUninstall(args []string) error {
 	// --- Phase 7: FINALIZE ---
 	// Batch-remove succeeded skills from registry
 	if len(succeeded) > 0 {
-		regDir := filepath.Dir(config.ConfigPath())
+		regDir := config.SourceRoot(cfg.Source)
 		reg, regErr := config.LoadRegistry(regDir)
 		if regErr != nil {
 			ui.Warning("Failed to load registry: %v", regErr)

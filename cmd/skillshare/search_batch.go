@@ -565,7 +565,7 @@ func batchInstallFromSearchWithProgress(selected []search.SearchResult, mode run
 			_ = reconcileProjectRemoteSkills(runtime)
 		}
 	} else {
-		reg, _ := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
+		reg, _ := config.LoadRegistry(config.SourceRoot(cfg.Source))
 		if reg == nil {
 			reg = &config.Registry{}
 		}

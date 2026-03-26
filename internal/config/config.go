@@ -243,6 +243,11 @@ func Load() (*Config, error) {
 		}
 	}
 
+	// Migrate registry.yaml from config dir to source dir (v0.19+)
+	if cfg.Source != "" {
+		MigrateRegistryToSource(filepath.Dir(path), SourceRoot(cfg.Source))
+	}
+
 	return &cfg, nil
 }
 

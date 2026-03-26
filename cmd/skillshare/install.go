@@ -390,7 +390,7 @@ func cmdInstall(args []string) error {
 			summary.Source = parsed.sourceArg
 		}
 		if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-			reg, regErr := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
+			reg, regErr := config.LoadRegistry(config.SourceRoot(cfg.Source))
 			if regErr != nil {
 				ui.Warning("Failed to load registry: %v", regErr)
 			} else if rErr := config.ReconcileGlobalSkills(cfg, reg); rErr != nil {
@@ -412,7 +412,7 @@ func cmdInstall(args []string) error {
 		summary.Source = parsed.sourceArg
 	}
 	if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
-		reg, regErr := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
+		reg, regErr := config.LoadRegistry(config.SourceRoot(cfg.Source))
 		if regErr != nil {
 			ui.Warning("Failed to load registry: %v", regErr)
 		} else if rErr := config.ReconcileGlobalSkills(cfg, reg); rErr != nil {

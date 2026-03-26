@@ -578,7 +578,7 @@ func installFromSearchResult(result search.SearchResult, cfg *config.Config) (er
 	logSummary.InstalledSkills = []string{result.Name}
 
 	// Reconcile global config with installed skills
-	reg, _ := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
+	reg, _ := config.LoadRegistry(config.SourceRoot(cfg.Source))
 	if reg == nil {
 		reg = &config.Registry{}
 	}

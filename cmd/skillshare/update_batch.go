@@ -342,7 +342,7 @@ func pruneRegistry(prunedNames []string, uc *updateContext) {
 	if uc.isProject() {
 		regDir = filepath.Join(uc.projectRoot, ".skillshare")
 	} else {
-		regDir = filepath.Dir(config.ConfigPath())
+		regDir = config.SourceRoot(uc.sourcePath)
 	}
 
 	reg, err := config.LoadRegistry(regDir)

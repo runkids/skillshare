@@ -72,8 +72,8 @@ func TestMigrateGlobalSkillsToRegistry(t *testing.T) {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	// registry.yaml should exist with the skill
-	reg, err := LoadRegistry(dir)
+	// registry.yaml should have been migrated to source dir
+	reg, err := LoadRegistry(sourceDir)
 	if err != nil {
 		t.Fatalf("LoadRegistry failed: %v", err)
 	}
@@ -107,9 +107,9 @@ func TestMigrateGlobalSkills_NoMigrationWhenRegistryExists(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Pre-existing registry.yaml — should NOT be overwritten
+	// Pre-existing registry.yaml in source dir — should NOT be overwritten
 	reg := &Registry{Skills: []SkillEntry{{Name: "real", Source: "github.com/real"}}}
-	if err := reg.Save(dir); err != nil {
+	if err := reg.Save(sourceDir); err != nil {
 		t.Fatal(err)
 	}
 
@@ -121,12 +121,40 @@ func TestMigrateGlobalSkills_NoMigrationWhenRegistryExists(t *testing.T) {
 	}
 
 	// registry should still have "real", not "stale"
-	loaded, err := LoadRegistry(dir)
+	loaded, err := LoadRegistry(sourceDir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(loaded.Skills) != 1 || loaded.Skills[0].Name != "real" {
 		t.Errorf("registry should be untouched, got: %+v", loaded.Skills)
+	}
+}
+
+func TestSourceRoot_NoGit(t *testing.T) {
+	dir := t.TempDir()
+	got := SourceRoot(dir)
+	if got != dir {
+		t.Errorf("SourceRoot(%q) = %q, want %q", dir, got, dir)
+	}
+}
+
+func TestSourceRoot_GitAtSource(t *testing.T) {
+	dir := t.TempDir()
+	os.Mkdir(filepath.Join(dir, ".git"), 0755)
+	got := SourceRoot(dir)
+	if got != dir {
+		t.Errorf("SourceRoot(%q) = %q, want %q", dir, got, dir)
+	}
+}
+
+func TestSourceRoot_GitAtParent(t *testing.T) {
+	root := t.TempDir()
+	os.Mkdir(filepath.Join(root, ".git"), 0755)
+	subdir := filepath.Join(root, "claude")
+	os.Mkdir(subdir, 0755)
+	got := SourceRoot(subdir)
+	if got != root {
+		t.Errorf("SourceRoot(%q) = %q, want %q", subdir, got, root)
 	}
 }
 

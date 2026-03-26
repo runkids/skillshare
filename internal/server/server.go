@@ -83,7 +83,7 @@ func (s *Server) wrapBasePath() {
 // New creates a new Server for global mode.
 // uiDistDir, when non-empty, serves UI from disk instead of the embedded SPA.
 func New(cfg *config.Config, addr, basePath, uiDistDir string) *Server {
-	reg, _ := config.LoadRegistry(filepath.Dir(config.ConfigPath()))
+	reg, _ := config.LoadRegistry(config.SourceRoot(cfg.Source))
 	if reg == nil {
 		reg = &config.Registry{}
 	}
@@ -199,7 +199,7 @@ func (s *Server) reloadConfig() error {
 		return err
 	}
 	s.cfg = newCfg
-	if reg, err := config.LoadRegistry(filepath.Dir(config.ConfigPath())); err == nil {
+	if reg, err := config.LoadRegistry(config.SourceRoot(s.cfg.Source)); err == nil {
 		s.registry = reg
 	}
 	return nil
