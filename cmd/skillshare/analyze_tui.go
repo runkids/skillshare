@@ -10,6 +10,8 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	ssync "skillshare/internal/sync"
 )
 
 // analyzeTargetGroup merges targets with identical skill sets into one entry.
@@ -544,6 +546,22 @@ func (m analyzeTUIModel) renderDetailBody(e analyzeSkillEntry, width int) string
 	}
 	b.WriteString(renderDetailSection("Tokens", strings.Join(tokenRows, "\n"), width))
 	b.WriteString("\n\n")
+
+	// Quality issues
+	if len(e.LintIssues) > 0 {
+		var qualityRows []string
+		for _, issue := range e.LintIssues {
+			var icon string
+			if issue.Severity == ssync.LintError {
+				icon = lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render("✗")
+			} else {
+				icon = lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("⚠")
+			}
+			qualityRows = append(qualityRows, fmt.Sprintf("  %s %s", icon, issue.Message))
+		}
+		b.WriteString(renderDetailSection("Quality", strings.Join(qualityRows, "\n"), width))
+		b.WriteString("\n\n")
+	}
 
 	// Metadata
 	var metaRows []string

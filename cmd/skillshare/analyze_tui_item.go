@@ -8,6 +8,8 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	ssync "skillshare/internal/sync"
 )
 
 // analyzeSkillItem wraps analyzeSkillEntry for the bubbles/list delegate.
@@ -65,6 +67,18 @@ var analyzeDots = map[string]string{
 	"3": lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("●"), // yellow
 }
 
+func lintIcon(issues []ssync.LintIssue) string {
+	if len(issues) == 0 {
+		return ""
+	}
+	for _, issue := range issues {
+		if issue.Severity == ssync.LintError {
+			return lipgloss.NewStyle().Foreground(lipgloss.Color("1")).Render("✗") + " "
+		}
+	}
+	return lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Render("⚠") + " "
+}
+
 // analyzeSkillDelegate renders each skill row in the list.
 type analyzeSkillDelegate struct {
 	thresholdLow  int
@@ -94,13 +108,14 @@ func (d analyzeSkillDelegate) Render(w io.Writer, m list.Model, index int, listI
 	// Right-align token count: "● name          ~123"
 	// renderPrefixRow reserves: ▌(2) + PaddingLeft(1) = 3 chars from width
 	contentWidth := width - 3
-	nameWidth := 2 + 1 + len([]rune(item.entry.Name)) // dot(●=1) + ANSI reset(=1 visible) + space + name
+	nameLabel := lintIcon(item.entry.LintIssues) + item.entry.Name
+	nameWidth := 2 + 1 + lipgloss.Width(nameLabel) // dot(●=1) + ANSI reset(=1 visible) + space + name
 	tokenWidth := len([]rune(tokenStr))
 	gap := contentWidth - nameWidth - tokenWidth
 	if gap < 1 {
 		gap = 1
 	}
-	line := dot + " " + item.entry.Name + strings.Repeat(" ", gap) + tc.Dim.Render(tokenStr)
+	line := dot + " " + nameLabel + strings.Repeat(" ", gap) + tc.Dim.Render(tokenStr)
 
 	// Reuse the shared ▌ prefix row style (same as list, audit, log TUIs)
 	renderPrefixRow(w, line, width, isSelected)
