@@ -564,7 +564,8 @@
   content: '';
   position: absolute;
   top: -7px;
-  right: 18px;
+  left: 50%;
+  transform: translateX(-50%);
   width: 14px;
   height: 14px;
   border-radius: 50%;
@@ -576,8 +577,10 @@
 }
 /* Pin variety — alternating position */
 [data-theme="playful"] .ss-detail-pinned:nth-child(even)::before {
-  right: auto;
-  left: 22px;
+  left: 40%;
+}
+[data-theme="playful"] .ss-detail-pinned:nth-child(3n)::before {
+  left: 60%;
 }
 
 /* Sidebar section headings — Caveat font for hand-drawn feel */
