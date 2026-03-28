@@ -47,35 +47,88 @@ export const fieldDocs: Record<string, FieldDoc> = {
 
   // --- Targets ---
   targets: {
-    description: 'Map of target AI tools to configure. Each target can have include/exclude filters and a sync mode override.',
+    description: 'Map of target AI tools to configure. Each target uses skills: (and future agents:) sub-keys for per-resource-kind configuration.',
     type: 'object',
-    example: 'targets:\n  claude:\n    path: ~/.claude/skills\n    mode: merge\n    include: ["skill-a", "skill-b"]\n    exclude: ["debug-only"]\n  cursor:\n    mode: symlink',
+    example: 'targets:\n  claude:\n    skills:\n      mode: merge\n      include: ["team-*"]\n  cursor:\n    skills:\n      mode: symlink',
   },
   'targets.name': {
-    description: 'Target name in config. Use a built-in name (e.g., claude, cursor, codex) for automatic path resolution, or any custom name with an explicit path.',
+    description: 'Target name. Use a built-in name (e.g., claude, cursor, codex) for automatic path resolution, or any custom name with an explicit path under skills:.',
     type: 'string',
-    example: '- name: claude\n  path: ~/.claude/skills',
+    example: '- name: claude\n  skills:\n    mode: merge',
   },
-  'targets.include': {
-    description: 'List of skill names to include for this target. If set, only these skills are synced.',
-    type: 'string[]',
-    example: 'include: ["skill-a", "skill-b"]',
+  'targets.skills': {
+    description: 'Skills-specific target configuration. Controls path, sync mode, and include/exclude filters for skills.',
+    type: 'object',
+    example: 'skills:\n  path: ~/.claude/skills\n  mode: merge\n  include: ["team-*"]\n  exclude: ["wip-*"]',
   },
-  'targets.exclude': {
-    description: 'List of skill names to exclude from this target. Applied after include filter.',
-    type: 'string[]',
-    example: 'exclude: ["debug-skill"]',
+  'targets.skills.path': {
+    description: 'Override the target skills directory path. If omitted, the built-in default for this target is used.',
+    type: 'string',
+    example: 'path: ~/.claude/skills',
   },
-  'targets.mode': {
-    description: 'Override the global sync mode for this specific target.',
+  'targets.skills.mode': {
+    description: 'Sync mode for skills in this target. If omitted, inherits the top-level mode (defaults to merge).',
     type: 'string',
     allowedValues: ['merge', 'symlink', 'copy'],
     example: 'mode: symlink',
   },
-  'targets.path': {
-    description: 'Custom path for this target directory. Overrides the default target path.',
+  'targets.skills.include': {
+    description: 'Glob patterns — only matching skills are synced to this target (merge and copy modes).',
+    type: 'string[]',
+    example: 'include: ["team-*", "shared-*"]',
+  },
+  'targets.skills.exclude': {
+    description: 'Glob patterns — matching skills are excluded from sync to this target (merge and copy modes).',
+    type: 'string[]',
+    example: 'exclude: ["draft-*", "wip-*"]',
+  },
+  'targets.agents': {
+    description: '(Reserved — not yet available) Agents-specific target configuration.',
+    type: 'object',
+    example: 'agents:\n  path: ~/.claude/agents',
+  },
+  'targets.agents.path': {
+    description: '(Reserved) Override the target agents directory path.',
     type: 'string',
-    example: 'path: ~/.cursor/skills',
+    example: 'path: ~/.claude/agents',
+  },
+  'targets.agents.mode': {
+    description: '(Reserved) Sync mode for agents.',
+    type: 'string',
+    allowedValues: ['merge', 'symlink', 'copy'],
+    example: 'mode: merge',
+  },
+  'targets.agents.include': {
+    description: '(Reserved) Glob patterns — only matching agents are synced.',
+    type: 'string[]',
+    example: 'include: ["tutor-*"]',
+  },
+  'targets.agents.exclude': {
+    description: '(Reserved) Glob patterns — matching agents are excluded from sync.',
+    type: 'string[]',
+    example: 'exclude: ["draft-*"]',
+  },
+  // Legacy flat fields (kept for backward compat display)
+  'targets.include': {
+    description: '[Legacy] Use skills.include instead. Glob patterns for skill include filter.',
+    type: 'string[]',
+    example: 'skills:\n  include: ["skill-a"]',
+  },
+  'targets.exclude': {
+    description: '[Legacy] Use skills.exclude instead. Glob patterns for skill exclude filter.',
+    type: 'string[]',
+    example: 'skills:\n  exclude: ["debug-only"]',
+  },
+  'targets.mode': {
+    description: '[Legacy] Use skills.mode instead. Sync mode override for this target.',
+    type: 'string',
+    allowedValues: ['merge', 'symlink', 'copy'],
+    example: 'skills:\n  mode: symlink',
+  },
+  'targets.path': {
+    description: '[Legacy] Use skills.path instead. Custom path for the target skills directory.',
+    type: 'string',
+    example: 'skills:\n  path: ~/.cursor/skills',
   },
 
   // --- Extras ---

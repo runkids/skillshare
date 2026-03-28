@@ -22,14 +22,14 @@
     },
     "targets": {
       "type": "object",
-      "description": "AI CLI skill directories to sync to. Keys are target names (e.g. claude, cursor, codex).",
+      "description": "AI CLI targets to sync skills and agents to. Keys are target names (e.g. claude, cursor, codex).",
       "additionalProperties": {
         "$ref": "#/$defs/targetConfig"
       },
       "examples": [
         {
-          "claude": { "path": "~/.claude/skills" },
-          "cursor": { "path": "~/.cursor/skills" }
+          "claude": { "skills": { "mode": "merge" } },
+          "cursor": { "skills": { "path": "~/.cursor/skills" } }
         }
       ]
     },
@@ -82,31 +82,73 @@
   "$defs": {
     "targetConfig": {
       "type": "object",
-      "description": "Configuration for a single sync target.",
-      "required": ["path"],
+      "description": "Configuration for a single sync target. Supports both legacy flat format (path/mode/include/exclude) and new resource sub-keys (skills/agents). Legacy flat fields are auto-migrated to skills: on load.",
       "additionalProperties": false,
       "properties": {
         "path": {
           "type": "string",
-          "description": "Absolute path to the target skills directory. Supports ~ for home directory.",
-          "examples": ["~/.claude/skills", "~/.cursor/skills"]
+          "description": "[Legacy] Absolute path to the target skills directory. Prefer skills.path instead.",
+          "examples": ["~/.claude/skills"]
         },
         "mode": {
           "type": "string",
-          "description": "Sync mode override for this target. If omitted, inherits the top-level mode.",
+          "description": "[Legacy] Sync mode override. Prefer skills.mode instead.",
           "enum": ["merge", "symlink", "copy"]
         },
         "include": {
           "type": "array",
-          "description": "Glob patterns — only matching skills are synced (merge and copy modes).",
-          "items": { "type": "string" },
-          "examples": [["codex-*", "shared-*"]]
+          "description": "[Legacy] Glob patterns for skill include filter. Prefer skills.include instead.",
+          "items": { "type": "string" }
         },
         "exclude": {
           "type": "array",
-          "description": "Glob patterns — matching skills are excluded from sync (merge and copy modes).",
-          "items": { "type": "string" },
-          "examples": [["*-experimental", "codex-*"]]
+          "description": "[Legacy] Glob patterns for skill exclude filter. Prefer skills.exclude instead.",
+          "items": { "type": "string" }
+        },
+        "skills": {
+          "type": "object",
+          "description": "Skills-specific target configuration. Controls which skills are synced to this target, the sync mode, and the target directory path.",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Override the target skills directory path. If omitted, the built-in default for this target is used. Supports ~ for home directory.",
+              "examples": ["~/.claude/skills", "~/.custom-ide/skills"]
+            },
+            "mode": {
+              "type": "string",
+              "description": "Sync mode for skills. If omitted, inherits the top-level mode (defaults to merge).",
+              "enum": ["merge", "symlink", "copy"]
+            },
+            "include": {
+              "type": "array",
+              "description": "Glob patterns — only matching skills are synced (merge and copy modes).",
+              "items": { "type": "string" },
+              "examples": [["team-*", "shared-*"]]
+            },
+            "exclude": {
+              "type": "array",
+              "description": "Glob patterns — matching skills are excluded from sync (merge and copy modes).",
+              "items": { "type": "string" },
+              "examples": [["draft-*", "*-experimental"]]
+            }
+          },
+          "examples": [
+            { "mode": "merge" },
+            { "path": "~/.custom-ide/skills", "mode": "symlink" },
+            { "mode": "merge", "include": ["team-*"], "exclude": ["wip-*"] }
+          ]
+        },
+        "agents": {
+          "type": "object",
+          "description": "(Reserved — not yet available) Agents-specific target configuration. Will be enabled in a future release.",
+          "additionalProperties": false,
+          "properties": {
+            "path": { "type": "string" },
+            "mode": { "type": "string", "enum": ["merge", "symlink", "copy"] },
+            "include": { "type": "array", "items": { "type": "string" } },
+            "exclude": { "type": "array", "items": { "type": "string" } }
+          }
         }
       }
     },

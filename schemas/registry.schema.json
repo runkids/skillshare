@@ -17,18 +17,24 @@
   "$defs": {
     "skillEntry": {
       "type": "object",
-      "description": "A remote skill entry tracked in the registry.",
+      "description": "A managed resource entry tracked in the registry.",
       "required": ["name", "source"],
       "additionalProperties": false,
       "properties": {
         "name": {
           "type": "string",
-          "description": "Skill directory name.",
-          "examples": ["pdf", "_team-skills"]
+          "description": "Resource name (skill directory name or agent file name).",
+          "examples": ["pdf", "_team-skills", "tutor"]
+        },
+        "kind": {
+          "type": "string",
+          "description": "Resource kind. Omitted or empty defaults to 'skill'. ('agent' is reserved for a future release.)",
+          "enum": ["skill", "agent"],
+          "default": "skill"
         },
         "source": {
           "type": "string",
-          "description": "GitHub path or local path where the skill was installed from.",
+          "description": "GitHub path or local path where the resource was installed from.",
           "examples": ["anthropics/skills/skills/pdf", "github.com/team/skills"]
         },
         "tracked": {
@@ -38,7 +44,7 @@
         },
         "group": {
           "type": "string",
-          "description": "Subdirectory group the skill belongs to (set by --into).",
+          "description": "Subdirectory group the resource belongs to (set by --into).",
           "examples": ["frontend", "backend"]
         }
       }
