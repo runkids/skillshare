@@ -28,7 +28,7 @@ type collectJSONOutput struct {
 func collectLocalSkills(targets map[string]config.TargetConfig, source string) []sync.LocalSkillInfo {
 	var allLocalSkills []sync.LocalSkillInfo
 	for name, target := range targets {
-		skills, err := sync.FindLocalSkills(target.Path, source)
+		skills, err := sync.FindLocalSkills(target.SkillsConfig().Path, source)
 		if err != nil {
 			ui.Warning("%s: %v", name, err)
 			continue

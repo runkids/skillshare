@@ -201,7 +201,9 @@ func performProjectInit(root string, opts projectInitOptions) error {
 		selectedMode = "merge"
 	}
 	for i := range selected {
-		selected[i].Mode = modeOverrideForTarget(selectedMode, "merge")
+		if m := modeOverrideForTarget(selectedMode, "merge"); m != "" {
+			selected[i].EnsureSkills().Mode = m
+		}
 	}
 
 	if opts.dryRun {
@@ -367,7 +369,7 @@ func createProjectTargetDirs(root string, targets []config.ProjectTargetEntry) e
 
 	for _, target := range targets {
 		name := target.Name
-		path := target.Path
+		path := target.SkillsConfig().Path
 		if path == "" {
 			if known, ok := config.LookupProjectTarget(name); ok {
 				path = known.Path
@@ -410,8 +412,8 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 	existingPaths := make(map[string]bool)
 	for _, t := range cfg.Targets {
 		name := strings.TrimSpace(t.Name)
-		if t.Path != "" {
-			existingPaths[filepath.FromSlash(t.Path)] = true
+		if sc := t.SkillsConfig(); sc.Path != "" {
+			existingPaths[filepath.FromSlash(sc.Path)] = true
 		} else if known, ok := config.LookupProjectTarget(name); ok {
 			existingPaths[filepath.FromSlash(known.Path)] = true
 		}
@@ -460,10 +462,11 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 			}
 			if !seen[target.name] {
 				seen[target.name] = true
-				selected = append(selected, config.ProjectTargetEntry{
-					Name: target.name,
-					Mode: modeOverrideForTarget(opts.mode, "merge"),
-				})
+				entry := config.ProjectTargetEntry{Name: target.name}
+				if m := modeOverrideForTarget(opts.mode, "merge"); m != "" {
+					entry.Skills = &config.ResourceTargetConfig{Mode: m}
+				}
+				selected = append(selected, entry)
 			}
 		}
 	} else {
@@ -481,7 +484,9 @@ func reinitProjectWithDiscover(root string, opts projectInitOptions) error {
 	}
 	if opts.mode != "" {
 		for i := range selected {
-			selected[i].Mode = modeOverrideForTarget(opts.mode, "merge")
+			if m := modeOverrideForTarget(opts.mode, "merge"); m != "" {
+				selected[i].EnsureSkills().Mode = m
+			}
 		}
 	}
 

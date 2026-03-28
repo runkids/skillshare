@@ -335,21 +335,22 @@ func checkTargets(cfg *config.Config, result *doctorResult) map[string]cachedTar
 	hasError := false
 
 	for name, target := range cfg.Targets {
-		mode := target.Mode
+		sc := target.SkillsConfig()
+		mode := sc.Mode
 		if mode == "" {
 			mode = cfg.Mode
 		}
 		if mode == "" {
 			mode = "merge"
 		}
-		if _, err := sync.FilterSkills(nil, target.Include, target.Exclude); err != nil {
+		if _, err := sync.FilterSkills(nil, sc.Include, sc.Exclude); err != nil {
 			ui.Error("%s [%s]: invalid include/exclude config: %v", name, mode, err)
 			result.addError()
 			details = append(details, fmt.Sprintf("%s: invalid include/exclude config: %v", name, err))
 			hasError = true
 			continue
 		}
-		if mode == "symlink" && (len(target.Include) > 0 || len(target.Exclude) > 0) {
+		if mode == "symlink" && (len(sc.Include) > 0 || len(sc.Exclude) > 0) {
 			ui.Warning("%s [%s]: include/exclude ignored in symlink mode", name, mode)
 			result.addWarning()
 		}
@@ -379,13 +380,14 @@ func checkTargets(cfg *config.Config, result *doctorResult) map[string]cachedTar
 }
 
 func checkTargetIssues(target config.TargetConfig, source string) []string {
+	sc := target.SkillsConfig()
 	var targetIssues []string
 
-	info, err := os.Lstat(target.Path)
+	info, err := os.Lstat(sc.Path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Check parent is writable
-			parent := filepath.Dir(target.Path)
+			parent := filepath.Dir(sc.Path)
 			if _, err := os.Stat(parent); err != nil {
 				targetIssues = append(targetIssues, "parent directory not found")
 			}
@@ -397,7 +399,7 @@ func checkTargetIssues(target config.TargetConfig, source string) []string {
 
 	// Check if it's a symlink
 	if info.Mode()&os.ModeSymlink != 0 {
-		link, _ := os.Readlink(target.Path)
+		link, _ := os.Readlink(sc.Path)
 		absLink, _ := filepath.Abs(link)
 		absSource, _ := filepath.Abs(source)
 		if !utils.PathsEqual(absLink, absSource) {
@@ -407,7 +409,7 @@ func checkTargetIssues(target config.TargetConfig, source string) []string {
 
 	// Check write permission
 	if info.IsDir() {
-		testFile := filepath.Join(target.Path, ".skillshare_write_test")
+		testFile := filepath.Join(sc.Path, ".skillshare_write_test")
 		if f, err := os.Create(testFile); err != nil {
 			targetIssues = append(targetIssues, "not writable")
 		} else {
@@ -420,6 +422,7 @@ func checkTargetIssues(target config.TargetConfig, source string) []string {
 }
 
 func displayTargetStatus(name string, target config.TargetConfig, source, mode string) cachedTargetStatus {
+	sc := target.SkillsConfig()
 	var statusStr string
 	var cached cachedTargetStatus
 	cached.mode = mode
@@ -427,7 +430,7 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 
 	switch mode {
 	case "merge":
-		status, linkedCount, localCount := sync.CheckStatusMerge(target.Path, source)
+		status, linkedCount, localCount := sync.CheckStatusMerge(sc.Path, source)
 		cached.status = status
 		cached.syncedCount = linkedCount
 		switch status {
@@ -440,7 +443,7 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 			statusStr = status.String()
 		}
 	case "copy":
-		status, managedCount, localCount := sync.CheckStatusCopy(target.Path)
+		status, managedCount, localCount := sync.CheckStatusCopy(sc.Path)
 		cached.status = status
 		cached.syncedCount = managedCount
 		switch status {
@@ -453,7 +456,7 @@ func displayTargetStatus(name string, target config.TargetConfig, source, mode s
 			statusStr = status.String()
 		}
 	default:
-		status := sync.CheckStatus(target.Path, source)
+		status := sync.CheckStatus(sc.Path, source)
 		cached.status = status
 		statusStr = status.String()
 		if status == sync.StatusMerged {
@@ -485,7 +488,8 @@ func checkSyncDrift(cfg *config.Config, result *doctorResult, discovered []sync.
 		if cached.mode != "merge" && cached.mode != "copy" {
 			continue
 		}
-		filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
+		sc := target.SkillsConfig()
+		filtered, err := sync.FilterSkills(discovered, sc.Include, sc.Exclude)
 		if err != nil {
 			ui.Error("%s: invalid include/exclude config: %v", name, err)
 			result.addError()
@@ -757,7 +761,7 @@ func checkSkillTargetsField(result *doctorResult, discovered []sync.DiscoveredSk
 func checkBrokenSymlinks(cfg *config.Config, result *doctorResult) {
 	var allBroken []string
 	for name, target := range cfg.Targets {
-		broken := findBrokenSymlinks(target.Path)
+		broken := findBrokenSymlinks(target.SkillsConfig().Path)
 		if len(broken) > 0 {
 			ui.Error("%s: %d broken symlink(s): %s", name, len(broken), strings.Join(broken, ", "))
 			result.addError()
@@ -821,8 +825,9 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered [
 
 	// Collect from non-merge targets.
 	for name, target := range cfg.Targets {
+		sc := target.SkillsConfig()
 		// Determine effective mode
-		mode := target.Mode
+		mode := sc.Mode
 		if mode == "" {
 			mode = cfg.Mode
 		}
@@ -837,12 +842,12 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered [
 
 		manifestManaged := map[string]string{}
 		if mode == "copy" {
-			if manifest, err := sync.ReadManifest(target.Path); err == nil && manifest != nil {
+			if manifest, err := sync.ReadManifest(sc.Path); err == nil && manifest != nil {
 				manifestManaged = manifest.Managed
 			}
 		}
 
-		entries, err := os.ReadDir(target.Path)
+		entries, err := os.ReadDir(sc.Path)
 		if err != nil {
 			continue
 		}
@@ -860,7 +865,7 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered [
 			}
 
 			// Check if it's a local skill (not a symlink to source)
-			path := filepath.Join(target.Path, entry.Name())
+			path := filepath.Join(sc.Path, entry.Name())
 			info, err := os.Lstat(path)
 			if err != nil {
 				continue

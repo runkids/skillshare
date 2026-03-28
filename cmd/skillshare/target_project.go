@@ -93,7 +93,7 @@ func targetAddProject(args []string, root string) error {
 
 	entry := config.ProjectTargetEntry{Name: name}
 	if pathProvidedRequiresStorage(path, knownPath) {
-		entry.Path = path
+		entry.Skills = &config.ResourceTargetConfig{Path: path}
 	}
 
 	cfg.Targets = append(cfg.Targets, entry)
@@ -157,18 +157,19 @@ func targetRemoveProject(args []string, root string) error {
 
 	for _, name := range toRemove {
 		if target, ok := targets[name]; ok {
-			mode := target.Mode
+			sc := target.SkillsConfig()
+			mode := sc.Mode
 			if mode == "" {
 				mode = "merge"
 			}
 			if mode == "symlink" {
-				if err := unlinkSymlinkMode(target.Path, sourcePath); err != nil {
+				if err := unlinkSymlinkMode(sc.Path, sourcePath); err != nil {
 					ui.Warning("%s: %v", name, err)
 				}
 			} else {
 				// Remove copy-mode manifest if present
-				sync.RemoveManifest(target.Path)
-				if err := unlinkMergeModeSafe(target.Path, sourcePath); err != nil {
+				sync.RemoveManifest(sc.Path)
+				if err := unlinkMergeModeSafe(sc.Path, sourcePath); err != nil {
 					ui.Warning("%s: %v", name, err)
 				}
 			}
@@ -197,7 +198,8 @@ func targetRemoveProjectDryRun(toRemove []string, targets map[string]config.Targ
 			continue
 		}
 
-		info, err := os.Lstat(target.Path)
+		sc := target.SkillsConfig()
+		info, err := os.Lstat(sc.Path)
 		if err != nil {
 			if os.IsNotExist(err) {
 				ui.Info("%s: would remove from config (path missing)", name)
@@ -277,12 +279,13 @@ func targetListProjectWithJSON(root string, jsonOutput bool) error {
 	if jsonOutput {
 		var items []targetListJSONItem
 		for _, entry := range targets {
+			sc := entry.SkillsConfig()
 			items = append(items, targetListJSONItem{
 				Name:    entry.Name,
 				Path:    projectTargetDisplayPath(entry),
-				Mode:    getTargetMode(entry.Mode, ""),
-				Include: entry.Include,
-				Exclude: entry.Exclude,
+				Mode:    getTargetMode(sc.Mode, ""),
+				Include: sc.Include,
+				Exclude: sc.Exclude,
 			})
 		}
 		output := struct {
@@ -294,7 +297,8 @@ func targetListProjectWithJSON(root string, jsonOutput bool) error {
 	ui.Header("Configured Targets (project)")
 	for _, entry := range targets {
 		displayPath := projectTargetDisplayPath(entry)
-		mode := entry.Mode
+		sc := entry.SkillsConfig()
+		mode := sc.Mode
 		if mode == "" {
 			mode = "merge"
 		}
@@ -350,7 +354,8 @@ func targetInfoProject(name string, args []string, root string) error {
 	if filterOpts.hasUpdates() {
 		start := time.Now()
 		entry := &cfg.Targets[targetIdx]
-		changes, fErr := applyFilterUpdates(&entry.Include, &entry.Exclude, filterOpts)
+		s := entry.EnsureSkills()
+		changes, fErr := applyFilterUpdates(&s.Include, &s.Exclude, filterOpts)
 		if fErr != nil {
 			return fErr
 		}
@@ -391,7 +396,8 @@ func targetInfoProject(name string, args []string, root string) error {
 	targetEntry := cfg.Targets[targetIdx]
 	sourcePath := filepath.Join(root, ".skillshare", "skills")
 
-	mode := targetEntry.Mode
+	sc := targetEntry.SkillsConfig()
+	mode := sc.Mode
 	displayMode := mode
 	if mode == "" {
 		displayMode = "merge (default)"
@@ -402,20 +408,21 @@ func targetInfoProject(name string, args []string, root string) error {
 	fmt.Printf("  Path:    %s\n", projectTargetDisplayPath(targetEntry))
 	fmt.Printf("  Mode:    %s\n", displayMode)
 
+	resolvedSC := target.SkillsConfig()
 	switch mode {
 	case "symlink":
-		status := sync.CheckStatus(target.Path, sourcePath)
+		status := sync.CheckStatus(resolvedSC.Path, sourcePath)
 		fmt.Printf("  Status:  %s\n", status)
 	case "copy":
-		status, managed, local := sync.CheckStatusCopy(target.Path)
+		status, managed, local := sync.CheckStatusCopy(resolvedSC.Path)
 		fmt.Printf("  Status:  %s (%d managed, %d local)\n", status, managed, local)
 	default:
-		status, linked, local := sync.CheckStatusMerge(target.Path, sourcePath)
+		status, linked, local := sync.CheckStatusMerge(resolvedSC.Path, sourcePath)
 		fmt.Printf("  Status:  %s (%d shared, %d local)\n", status, linked, local)
 	}
 
-	fmt.Printf("  Include: %s\n", formatFilterList(targetEntry.Include))
-	fmt.Printf("  Exclude: %s\n", formatFilterList(targetEntry.Exclude))
+	fmt.Printf("  Include: %s\n", formatFilterList(sc.Include))
+	fmt.Printf("  Exclude: %s\n", formatFilterList(sc.Exclude))
 
 	return nil
 }
@@ -426,12 +433,12 @@ func updateTargetModeProject(cfg *config.ProjectConfig, idx int, newMode string,
 	}
 
 	entry := &cfg.Targets[idx]
-	oldMode := entry.Mode
+	oldMode := entry.SkillsConfig().Mode
 	if oldMode == "" {
 		oldMode = "merge"
 	}
 
-	entry.Mode = newMode
+	entry.EnsureSkills().Mode = newMode
 	if err := cfg.Save(root); err != nil {
 		return err
 	}

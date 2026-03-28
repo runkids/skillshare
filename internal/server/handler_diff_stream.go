@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"skillshare/internal/config"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
@@ -72,13 +73,9 @@ func (s *Server) handleDiffStream(w http.ResponseWriter, r *http.Request) {
 
 // computeTargetDiff computes the diff for a single target.
 // Extracted from handleDiff to share logic with the stream handler.
-func (s *Server) computeTargetDiff(name string, target struct {
-	Path    string   `yaml:"path"`
-	Mode    string   `yaml:"mode,omitempty"`
-	Include []string `yaml:"include,omitempty"`
-	Exclude []string `yaml:"exclude,omitempty"`
-}, discovered []ssync.DiscoveredSkill, globalMode, source string) diffTarget {
-	mode := target.Mode
+func (s *Server) computeTargetDiff(name string, target config.TargetConfig, discovered []ssync.DiscoveredSkill, globalMode, source string) diffTarget {
+	sc := target.SkillsConfig()
+	mode := sc.Mode
 	if mode == "" {
 		mode = globalMode
 	}
@@ -86,23 +83,23 @@ func (s *Server) computeTargetDiff(name string, target struct {
 	dt := diffTarget{Target: name, Items: make([]diffItem, 0)}
 
 	if mode == "symlink" {
-		status := ssync.CheckStatus(target.Path, source)
+		status := ssync.CheckStatus(sc.Path, source)
 		if status != ssync.StatusLinked {
 			dt.Items = append(dt.Items, diffItem{Skill: "(entire directory)", Action: "link", Reason: "source only"})
 		}
 		return dt
 	}
 
-	filtered, err := ssync.FilterSkills(discovered, target.Include, target.Exclude)
+	filtered, err := ssync.FilterSkills(discovered, sc.Include, sc.Exclude)
 	if err != nil {
 		return dt
 	}
 
 	if mode == "copy" {
-		manifest, _ := ssync.ReadManifest(target.Path)
+		manifest, _ := ssync.ReadManifest(sc.Path)
 		for _, skill := range filtered {
 			oldChecksum, isManaged := manifest.Managed[skill.FlatName]
-			targetSkillPath := filepath.Join(target.Path, skill.FlatName)
+			targetSkillPath := filepath.Join(sc.Path, skill.FlatName)
 			if !isManaged {
 				if info, statErr := os.Stat(targetSkillPath); statErr == nil {
 					if info.IsDir() {
@@ -152,7 +149,7 @@ func (s *Server) computeTargetDiff(name string, target struct {
 
 	// Merge mode
 	for _, skill := range filtered {
-		targetSkillPath := filepath.Join(target.Path, skill.FlatName)
+		targetSkillPath := filepath.Join(sc.Path, skill.FlatName)
 		_, err := os.Lstat(targetSkillPath)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -177,22 +174,22 @@ func (s *Server) computeTargetDiff(name string, target struct {
 	}
 
 	// Orphan check
-	entries, _ := os.ReadDir(target.Path)
+	entries, _ := os.ReadDir(sc.Path)
 	validNames := make(map[string]bool)
 	for _, skill := range filtered {
 		validNames[skill.FlatName] = true
 	}
-	manifest, _ := ssync.ReadManifest(target.Path)
+	manifest, _ := ssync.ReadManifest(sc.Path)
 	for _, entry := range entries {
 		eName := entry.Name()
 		if utils.IsHidden(eName) {
 			continue
 		}
-		managed, filterErr := ssync.ShouldSyncFlatName(eName, target.Include, target.Exclude)
+		managed, filterErr := ssync.ShouldSyncFlatName(eName, sc.Include, sc.Exclude)
 		if filterErr != nil {
 			continue
 		}
-		entryPath := filepath.Join(target.Path, eName)
+		entryPath := filepath.Join(sc.Path, eName)
 		if !managed {
 			if utils.IsSymlinkOrJunction(entryPath) {
 				absLink, linkErr := utils.ResolveLinkTarget(entryPath)

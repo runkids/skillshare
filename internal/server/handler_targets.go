@@ -42,33 +42,34 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 	discovered, discoveredErr := ssync.DiscoverSourceSkills(source)
 
 	for name, target := range targets {
-		mode := target.Mode
+		sc := target.SkillsConfig()
+		mode := sc.Mode
 		if mode == "" {
 			mode = globalMode
 		}
 
 		item := targetItem{
 			Name: name,
-			Path: target.Path,
+			Path: sc.Path,
 			Mode: mode,
 			Include: func() []string {
-				if len(target.Include) == 0 {
+				if len(sc.Include) == 0 {
 					return []string{}
 				}
-				return append([]string(nil), target.Include...)
+				return append([]string(nil), sc.Include...)
 			}(),
 			Exclude: func() []string {
-				if len(target.Exclude) == 0 {
+				if len(sc.Exclude) == 0 {
 					return []string{}
 				}
-				return append([]string(nil), target.Exclude...)
+				return append([]string(nil), sc.Exclude...)
 			}(),
 		}
 
 		switch mode {
 		case "merge":
 			if discoveredErr == nil {
-				filtered, err := ssync.FilterSkills(discovered, target.Include, target.Exclude)
+				filtered, err := ssync.FilterSkills(discovered, sc.Include, sc.Exclude)
 				if err != nil {
 					writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
 					return
@@ -76,13 +77,13 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 				filtered = ssync.FilterSkillsByTarget(filtered, name)
 				item.ExpectedSkillCount = len(filtered)
 			}
-			status, linked, local := ssync.CheckStatusMerge(target.Path, source)
+			status, linked, local := ssync.CheckStatusMerge(sc.Path, source)
 			item.Status = status.String()
 			item.LinkedCount = linked
 			item.LocalCount = local
 		case "copy":
 			if discoveredErr == nil {
-				filtered, err := ssync.FilterSkills(discovered, target.Include, target.Exclude)
+				filtered, err := ssync.FilterSkills(discovered, sc.Include, sc.Exclude)
 				if err != nil {
 					writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
 					return
@@ -90,12 +91,12 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 				filtered = ssync.FilterSkillsByTarget(filtered, name)
 				item.ExpectedSkillCount = len(filtered)
 			}
-			status, managed, local := ssync.CheckStatusCopy(target.Path)
+			status, managed, local := ssync.CheckStatusCopy(sc.Path)
 			item.Status = status.String()
 			item.LinkedCount = managed // reuse field for managed count
 			item.LocalCount = local
 		default:
-			status := ssync.CheckStatus(target.Path, source)
+			status := ssync.CheckStatus(sc.Path, source)
 			item.Status = status.String()
 		}
 
@@ -150,7 +151,7 @@ func (s *Server) handleAddTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.cfg.Targets[body.Name] = config.TargetConfig{Path: body.Path}
+	s.cfg.Targets[body.Name] = config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: body.Path}}
 
 	// In project mode, also update the project config
 	if s.IsProjectMode() {
@@ -185,17 +186,19 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	sc := target.SkillsConfig()
+
 	// Clean up symlinks/manifest from the target before deleting from config
-	info, err := os.Lstat(target.Path)
+	info, err := os.Lstat(sc.Path)
 	if err == nil {
 		if info.Mode()&os.ModeSymlink != 0 {
 			// Symlink mode: entire directory is a symlink
-			os.Remove(target.Path)
+			os.Remove(sc.Path)
 		} else if info.IsDir() {
 			// Remove manifest if present (merge/copy mode)
-			ssync.RemoveManifest(target.Path)
+			ssync.RemoveManifest(sc.Path)
 			// Merge mode: remove individual skill symlinks pointing to source
-			s.unlinkMergeSymlinks(target.Path)
+			s.unlinkMergeSymlinks(sc.Path)
 		}
 	}
 
@@ -220,7 +223,7 @@ func (s *Server) handleRemoveTarget(w http.ResponseWriter, r *http.Request) {
 	s.writeOpsLog("target", "ok", start, map[string]any{
 		"action": "remove",
 		"name":   name,
-		"target": target.Path,
+		"target": sc.Path,
 		"scope":  "ui",
 	}, "")
 
@@ -250,26 +253,28 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	target.EnsureSkills()
+
 	// Validate patterns
 	if body.Include != nil {
 		if _, err := ssync.FilterSkills(nil, *body.Include, nil); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid include pattern: "+err.Error())
 			return
 		}
-		target.Include = *body.Include
+		target.Skills.Include = *body.Include
 	}
 	if body.Exclude != nil {
 		if _, err := ssync.FilterSkills(nil, nil, *body.Exclude); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid exclude pattern: "+err.Error())
 			return
 		}
-		target.Exclude = *body.Exclude
+		target.Skills.Exclude = *body.Exclude
 	}
 
 	if body.Mode != nil {
 		switch *body.Mode {
 		case "merge", "symlink", "copy":
-			target.Mode = *body.Mode
+			target.Skills.Mode = *body.Mode
 		default:
 			writeError(w, http.StatusBadRequest, "invalid mode: "+*body.Mode+"; must be merge, symlink, or copy")
 			return
@@ -282,14 +287,15 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 	if s.IsProjectMode() {
 		for i := range s.projectCfg.Targets {
 			if s.projectCfg.Targets[i].Name == name {
+				sk := s.projectCfg.Targets[i].EnsureSkills()
 				if body.Include != nil {
-					s.projectCfg.Targets[i].Include = *body.Include
+					sk.Include = *body.Include
 				}
 				if body.Exclude != nil {
-					s.projectCfg.Targets[i].Exclude = *body.Exclude
+					sk.Exclude = *body.Exclude
 				}
 				if body.Mode != nil {
-					s.projectCfg.Targets[i].Mode = *body.Mode
+					sk.Mode = *body.Mode
 				}
 				break
 			}

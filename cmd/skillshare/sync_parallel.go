@@ -180,11 +180,12 @@ type syncTargetEntry struct {
 // collectSyncResult runs sync for one target and returns a result struct.
 // Does NOT print any UI output — all output data is captured in the result.
 func collectSyncResult(name string, target config.TargetConfig, source, mode string, skills []sync.DiscoveredSkill, dryRun, force bool, progress *syncProgress) syncTargetResult {
+	sc := target.SkillsConfig()
 	r := syncTargetResult{
 		name:    name,
 		mode:    mode,
-		include: target.Include,
-		exclude: target.Exclude,
+		include: sc.Include,
+		exclude: sc.Exclude,
 	}
 
 	switch mode {
@@ -200,6 +201,7 @@ func collectSyncResult(name string, target config.TargetConfig, source, mode str
 }
 
 func collectMergeSyncResult(r *syncTargetResult, name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, dryRun, force bool) {
+	sc := target.SkillsConfig()
 	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, source, dryRun, force)
 	if err != nil {
 		r.errMsg = err.Error()
@@ -207,8 +209,8 @@ func collectMergeSyncResult(r *syncTargetResult, name string, target config.Targ
 	}
 
 	pruneResult, pruneErr := sync.PruneOrphanLinksWithSkills(sync.PruneOptions{
-		TargetPath: target.Path, SourcePath: source, Skills: skills,
-		Include: target.Include, Exclude: target.Exclude, TargetName: name,
+		TargetPath: sc.Path, SourcePath: source, Skills: skills,
+		Include: sc.Include, Exclude: sc.Exclude, TargetName: name,
 		DryRun: dryRun, Force: force,
 	})
 	if pruneErr != nil {
@@ -262,7 +264,8 @@ func collectCopySyncResult(r *syncTargetResult, name string, target config.Targe
 		return
 	}
 
-	pruneResult, pruneErr := sync.PruneOrphanCopiesWithSkills(target.Path, skills, target.Include, target.Exclude, name, dryRun)
+	sc := target.SkillsConfig()
+	pruneResult, pruneErr := sync.PruneOrphanCopiesWithSkills(sc.Path, skills, sc.Include, sc.Exclude, name, dryRun)
 	if pruneErr != nil {
 		r.warnings = append(r.warnings, fmt.Sprintf("%s: prune failed: %v", name, pruneErr))
 	}
@@ -301,10 +304,11 @@ func collectCopySyncResult(r *syncTargetResult, name string, target config.Targe
 }
 
 func collectSymlinkSyncResult(r *syncTargetResult, name string, target config.TargetConfig, source string, dryRun, force bool) {
-	status := sync.CheckStatus(target.Path, source)
+	sc := target.SkillsConfig()
+	status := sync.CheckStatus(sc.Path, source)
 
 	if status == sync.StatusConflict && !force {
-		link, err := utils.ResolveLinkTarget(target.Path)
+		link, err := utils.ResolveLinkTarget(sc.Path)
 		if err != nil {
 			link = "(unable to resolve target)"
 		}
@@ -313,7 +317,7 @@ func collectSymlinkSyncResult(r *syncTargetResult, name string, target config.Ta
 	}
 
 	if status == sync.StatusConflict && force && !dryRun {
-		os.Remove(target.Path)
+		os.Remove(sc.Path)
 	}
 
 	if err := sync.SyncTarget(name, target, source, dryRun); err != nil {
@@ -326,11 +330,11 @@ func collectSymlinkSyncResult(r *syncTargetResult, name string, target config.Ta
 		r.message = "already linked"
 	case sync.StatusNotExist:
 		r.message = "symlink created"
-		r.warnings = append(r.warnings, fmt.Sprintf("Symlink mode: deleting files in %s will delete from source!", target.Path))
+		r.warnings = append(r.warnings, fmt.Sprintf("Symlink mode: deleting files in %s will delete from source!", sc.Path))
 		r.infos = append(r.infos, fmt.Sprintf("Use 'skillshare target remove %s' to safely unlink", name))
 	case sync.StatusHasFiles:
 		r.message = "files migrated and linked"
-		r.warnings = append(r.warnings, fmt.Sprintf("Symlink mode: deleting files in %s will delete from source!", target.Path))
+		r.warnings = append(r.warnings, fmt.Sprintf("Symlink mode: deleting files in %s will delete from source!", sc.Path))
 		r.infos = append(r.infos, fmt.Sprintf("Use 'skillshare target remove %s' to safely unlink", name))
 	case sync.StatusBroken:
 		r.message = "broken link fixed"
@@ -396,7 +400,7 @@ func runParallelSyncCore(entries []syncTargetEntry, source string, skills []sync
 	groups := make(map[string][]indexedEntry)
 	var groupOrder []string
 	for i, e := range entries {
-		p := canonicalPath(e.target.Path)
+		p := canonicalPath(e.target.SkillsConfig().Path)
 		if _, seen := groups[p]; !seen {
 			groupOrder = append(groupOrder, p)
 		}

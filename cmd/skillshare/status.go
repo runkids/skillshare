@@ -154,16 +154,17 @@ func cmdStatus(args []string) error {
 
 	// Targets
 	for name, target := range cfg.Targets {
-		tMode := getTargetMode(target.Mode, cfg.Mode)
+		sc := target.SkillsConfig()
+		tMode := getTargetMode(sc.Mode, cfg.Mode)
 		res := getTargetStatusDetail(target, cfg.Source, tMode)
 		output.Targets = append(output.Targets, statusJSONTarget{
 			Name:        name,
-			Path:        target.Path,
+			Path:        sc.Path,
 			Mode:        tMode,
 			Status:      res.statusStr,
 			SyncedCount: res.syncedCount,
-			Include:     target.Include,
-			Exclude:     target.Exclude,
+			Include:     sc.Include,
+			Exclude:     sc.Exclude,
 		})
 	}
 
@@ -353,12 +354,13 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 	ui.Header("Targets")
 	driftTotal := 0
 	for name, target := range cfg.Targets {
-		mode := getTargetMode(target.Mode, cfg.Mode)
+		sc := target.SkillsConfig()
+		mode := getTargetMode(sc.Mode, cfg.Mode)
 		res := getTargetStatusDetail(target, cfg.Source, mode)
 		ui.Status(name, res.statusStr, res.detail)
 
 		if mode == "merge" || mode == "copy" {
-			filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
+			filtered, err := sync.FilterSkills(discovered, sc.Include, sc.Exclude)
 			if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", name, err)
 			}
@@ -371,7 +373,7 @@ func printTargetsStatus(cfg *config.Config, discovered []sync.DiscoveredSkill) e
 					driftTotal = drift
 				}
 			}
-		} else if len(target.Include) > 0 || len(target.Exclude) > 0 {
+		} else if len(sc.Include) > 0 || len(sc.Exclude) > 0 {
 			ui.Warning("%s: include/exclude ignored in symlink mode", name)
 		}
 	}
@@ -403,42 +405,45 @@ func getTargetStatusDetail(target config.TargetConfig, source, mode string) targ
 }
 
 func getMergeStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
-	status, linkedCount, localCount := sync.CheckStatusMerge(target.Path, source)
+	sc := target.SkillsConfig()
+	status, linkedCount, localCount := sync.CheckStatusMerge(sc.Path, source)
 
 	switch status {
 	case sync.StatusMerged:
-		return targetStatusResult{"merged", fmt.Sprintf("[%s] %s (%d shared, %d local)", mode, target.Path, linkedCount, localCount), linkedCount}
+		return targetStatusResult{"merged", fmt.Sprintf("[%s] %s (%d shared, %d local)", mode, sc.Path, linkedCount, localCount), linkedCount}
 	case sync.StatusLinked:
-		return targetStatusResult{"linked", fmt.Sprintf("[%s->needs sync] %s", mode, target.Path), linkedCount}
+		return targetStatusResult{"linked", fmt.Sprintf("[%s->needs sync] %s", mode, sc.Path), linkedCount}
 	default:
-		return targetStatusResult{status.String(), fmt.Sprintf("[%s] %s (%d local)", mode, target.Path, localCount), 0}
+		return targetStatusResult{status.String(), fmt.Sprintf("[%s] %s (%d local)", mode, sc.Path, localCount), 0}
 	}
 }
 
 func getCopyStatusDetail(target config.TargetConfig, mode string) targetStatusResult {
-	status, managedCount, localCount := sync.CheckStatusCopy(target.Path)
+	sc := target.SkillsConfig()
+	status, managedCount, localCount := sync.CheckStatusCopy(sc.Path)
 
 	switch status {
 	case sync.StatusCopied:
-		return targetStatusResult{"copied", fmt.Sprintf("[%s] %s (%d managed, %d local)", mode, target.Path, managedCount, localCount), managedCount}
+		return targetStatusResult{"copied", fmt.Sprintf("[%s] %s (%d managed, %d local)", mode, sc.Path, managedCount, localCount), managedCount}
 	case sync.StatusLinked:
-		return targetStatusResult{"linked", fmt.Sprintf("[%s->needs sync] %s", mode, target.Path), managedCount}
+		return targetStatusResult{"linked", fmt.Sprintf("[%s->needs sync] %s", mode, sc.Path), managedCount}
 	default:
-		return targetStatusResult{status.String(), fmt.Sprintf("[%s] %s (%d local)", mode, target.Path, localCount), 0}
+		return targetStatusResult{status.String(), fmt.Sprintf("[%s] %s (%d local)", mode, sc.Path, localCount), 0}
 	}
 }
 
 func getSymlinkStatusDetail(target config.TargetConfig, source, mode string) targetStatusResult {
-	status := sync.CheckStatus(target.Path, source)
-	detail := fmt.Sprintf("[%s] %s", mode, target.Path)
+	sc := target.SkillsConfig()
+	status := sync.CheckStatus(sc.Path, source)
+	detail := fmt.Sprintf("[%s] %s", mode, sc.Path)
 
 	switch status {
 	case sync.StatusConflict:
-		link, _ := os.Readlink(target.Path)
-		detail = fmt.Sprintf("[%s] %s -> %s", mode, target.Path, link)
+		link, _ := os.Readlink(sc.Path)
+		detail = fmt.Sprintf("[%s] %s -> %s", mode, sc.Path, link)
 	case sync.StatusMerged:
 		// Configured as symlink but actually using merge - needs resync
-		detail = fmt.Sprintf("[%s->needs sync] %s", mode, target.Path)
+		detail = fmt.Sprintf("[%s->needs sync] %s", mode, sc.Path)
 	}
 
 	return targetStatusResult{status.String(), detail, -1}

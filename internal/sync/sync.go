@@ -217,12 +217,14 @@ func CreateSymlink(targetPath, sourcePath string) error {
 
 // SyncTarget performs the sync operation for a single target
 func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryRun bool) error {
+	sc := target.SkillsConfig()
+
 	// Remove manifest if present (merge/copy → symlink conversion)
 	if !dryRun {
-		RemoveManifest(target.Path) //nolint:errcheck
+		RemoveManifest(sc.Path) //nolint:errcheck
 	}
 
-	status := CheckStatus(target.Path, sourcePath)
+	status := CheckStatus(sc.Path, sourcePath)
 
 	switch status {
 	case StatusLinked:
@@ -231,35 +233,35 @@ func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryR
 
 	case StatusNotExist:
 		if dryRun {
-			fmt.Fprintf(DiagOutput, "[dry-run] Would create symlink: %s -> %s\n", target.Path, sourcePath)
+			fmt.Fprintf(DiagOutput, "[dry-run] Would create symlink: %s -> %s\n", sc.Path, sourcePath)
 			return nil
 		}
-		return CreateSymlink(target.Path, sourcePath)
+		return CreateSymlink(sc.Path, sourcePath)
 
 	case StatusHasFiles:
 		if dryRun {
-			fmt.Fprintf(DiagOutput, "[dry-run] Would migrate files from %s to %s, then create symlink\n", target.Path, sourcePath)
+			fmt.Fprintf(DiagOutput, "[dry-run] Would migrate files from %s to %s, then create symlink\n", sc.Path, sourcePath)
 			return nil
 		}
-		if err := MigrateToSource(target.Path, sourcePath); err != nil {
+		if err := MigrateToSource(sc.Path, sourcePath); err != nil {
 			return err
 		}
-		return CreateSymlink(target.Path, sourcePath)
+		return CreateSymlink(sc.Path, sourcePath)
 
 	case StatusConflict:
-		link, err := utils.ResolveLinkTarget(target.Path)
+		link, err := utils.ResolveLinkTarget(sc.Path)
 		if err != nil {
 			link = "(unable to resolve target)"
 		}
-		return fmt.Errorf("target is symlink to different location: %s -> %s", target.Path, link)
+		return fmt.Errorf("target is symlink to different location: %s -> %s", sc.Path, link)
 
 	case StatusBroken:
 		if dryRun {
-			fmt.Fprintf(DiagOutput, "[dry-run] Would remove broken symlink and recreate: %s\n", target.Path)
+			fmt.Fprintf(DiagOutput, "[dry-run] Would remove broken symlink and recreate: %s\n", sc.Path)
 			return nil
 		}
-		os.Remove(target.Path)
-		return CreateSymlink(target.Path, sourcePath)
+		os.Remove(sc.Path)
+		return CreateSymlink(sc.Path, sourcePath)
 
 	default:
 		return fmt.Errorf("unknown target status: %s", status)
@@ -472,22 +474,23 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 // avoiding redundant filesystem walks when syncing multiple targets.
 // sourcePath is the skills source directory, used to detect symlink-mode targets.
 func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool) (*MergeResult, error) {
+	sc := target.SkillsConfig()
 	result := &MergeResult{}
 
 	// Convert from symlink mode if needed, auto-create if missing.
-	dirCreated, err := ensureRealTargetDir(target.Path, sourcePath, "merge", dryRun)
+	dirCreated, err := ensureRealTargetDir(sc.Path, sourcePath, "merge", dryRun)
 	if err != nil {
 		return nil, err
 	}
 	if dirCreated {
-		result.DirCreated = target.Path
+		result.DirCreated = sc.Path
 	}
 	// When dry-run would create the directory, suppress per-skill diagnostic
 	// messages (they flood the terminal). Counts are still populated.
 	quietDryRun := dirCreated && dryRun
 
 	// Filter skills for this target
-	discoveredSkills, err := FilterSkills(allSkills, target.Include, target.Exclude)
+	discoveredSkills, err := FilterSkills(allSkills, sc.Include, sc.Exclude)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply filters for target %s: %w", name, err)
 	}
@@ -495,7 +498,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 
 	for _, skill := range discoveredSkills {
 		// Use flat name in target (e.g., "personal__writing__email")
-		targetSkillPath := filepath.Join(target.Path, skill.FlatName)
+		targetSkillPath := filepath.Join(sc.Path, skill.FlatName)
 
 		// Check if skill exists in target
 		_, err := os.Lstat(targetSkillPath)
@@ -568,7 +571,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 
 	// Write manifest (additive: merge with existing entries)
 	if !dryRun {
-		manifest, _ := ReadManifest(target.Path)
+		manifest, _ := ReadManifest(sc.Path)
 		for _, name := range result.Linked {
 			manifest.Managed[name] = "symlink"
 		}
@@ -576,7 +579,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 			manifest.Managed[name] = "symlink"
 		}
 		// Skipped items are NOT added — they are user-local copies
-		WriteManifest(target.Path, manifest) //nolint:errcheck
+		WriteManifest(sc.Path, manifest) //nolint:errcheck
 	}
 
 	return result, nil
@@ -863,14 +866,14 @@ func CheckNameCollisionsForTargets(
 	global = CheckNameCollisions(skills)
 
 	for name, target := range targets {
-		mode := target.Mode
-		if mode == "symlink" {
+		sc := target.SkillsConfig()
+		if sc.Mode == "symlink" {
 			continue
 		}
-		if len(target.Include) == 0 && len(target.Exclude) == 0 {
+		if len(sc.Include) == 0 && len(sc.Exclude) == 0 {
 			continue // no filters — same as global
 		}
-		filtered, err := FilterSkills(skills, target.Include, target.Exclude)
+		filtered, err := FilterSkills(skills, sc.Include, sc.Exclude)
 		if err != nil {
 			continue
 		}

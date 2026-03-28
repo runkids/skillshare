@@ -51,7 +51,7 @@ func (s *Server) handleCollectScan(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		locals, err := ssync.FindLocalSkills(target.Path, source)
+		locals, err := ssync.FindLocalSkills(target.SkillsConfig().Path, source)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "scan failed for "+name+": "+err.Error())
 			return
@@ -115,7 +115,7 @@ func (s *Server) handleCollect(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		skillPath := filepath.Join(target.Path, ref.Name)
+		skillPath := filepath.Join(target.SkillsConfig().Path, ref.Name)
 		info, err := os.Lstat(skillPath)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, "skill not found: "+ref.Name+" in "+ref.TargetName)

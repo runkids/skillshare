@@ -66,10 +66,10 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "target not found: "+body.Target)
 			return
 		}
-		targets[body.Target] = t.Path
+		targets[body.Target] = t.SkillsConfig().Path
 	} else {
 		for name, t := range s.cfg.Targets {
-			targets[name] = t.Path
+			targets[name] = t.SkillsConfig().Path
 		}
 	}
 
@@ -161,13 +161,14 @@ func (s *Server) handleRestore(w http.ResponseWriter, r *http.Request) {
 	opts := backup.RestoreOptions{Force: body.Force}
 
 	// Validate first
-	if err := backup.ValidateRestore(bk.Path, body.Target, t.Path, opts); err != nil {
+	targetPath := t.SkillsConfig().Path
+	if err := backup.ValidateRestore(bk.Path, body.Target, targetPath, opts); err != nil {
 		writeError(w, http.StatusConflict, err.Error())
 		return
 	}
 
 	// Restore
-	if err := backup.RestoreToPath(bk.Path, body.Target, t.Path, opts); err != nil {
+	if err := backup.RestoreToPath(bk.Path, body.Target, targetPath, opts); err != nil {
 		writeError(w, http.StatusInternalServerError, "restore failed: "+err.Error())
 		return
 	}
@@ -220,16 +221,17 @@ func (s *Server) handleValidateRestore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	backupSize := backup.Size(filepath.Join(bk.Path, body.Target))
+	tPath := t.SkillsConfig().Path
 
 	// Check destination state with Lstat to detect symlinks
 	isSymlink := false
 	var conflicts []string
-	info, err := os.Lstat(t.Path)
+	info, err := os.Lstat(tPath)
 	if err == nil {
 		if info.Mode()&os.ModeSymlink != 0 {
 			isSymlink = true
 		} else if info.IsDir() {
-			entries, _ := os.ReadDir(t.Path)
+			entries, _ := os.ReadDir(tPath)
 			for _, e := range entries {
 				conflicts = append(conflicts, e.Name())
 			}
@@ -238,7 +240,7 @@ func (s *Server) handleValidateRestore(w http.ResponseWriter, r *http.Request) {
 
 	// Validate backup source exists for target
 	opts := backup.RestoreOptions{Force: true}
-	validErr := backup.ValidateRestore(bk.Path, body.Target, t.Path, opts)
+	validErr := backup.ValidateRestore(bk.Path, body.Target, tPath, opts)
 
 	errMsg := ""
 	if validErr != nil {

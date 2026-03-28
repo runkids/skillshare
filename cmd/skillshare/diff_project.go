@@ -69,11 +69,12 @@ func cmdDiffProject(root, targetName string, opts diffRenderOpts, start time.Tim
 		if !ok {
 			return fmt.Errorf("target '%s' not resolved", entry.Name)
 		}
-		filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
+		sc := target.SkillsConfig()
+		filtered, err := sync.FilterSkills(discovered, sc.Include, sc.Exclude)
 		if err != nil {
 			return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)
 		}
-		mode := target.Mode
+		mode := sc.Mode
 		if mode == "" {
 			mode = "merge"
 		}

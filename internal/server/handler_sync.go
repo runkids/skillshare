@@ -81,7 +81,8 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	results := make([]syncTargetResult, 0)
 
 	for name, target := range s.cfg.Targets {
-		mode := target.Mode
+		sc := target.SkillsConfig()
+		mode := sc.Mode
 		if mode == "" {
 			mode = globalMode
 		}
@@ -117,8 +118,8 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			res.DirCreated = mergeResult.DirCreated
 
 			pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
-				TargetPath: target.Path, SourcePath: s.cfg.Source, Skills: allSkills,
-				Include: target.Include, Exclude: target.Exclude, TargetName: name,
+				TargetPath: sc.Path, SourcePath: s.cfg.Source, Skills: allSkills,
+				Include: sc.Include, Exclude: sc.Exclude, TargetName: name,
 				DryRun: body.DryRun, Force: body.Force,
 			})
 			if err == nil {
@@ -137,7 +138,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			res.Skipped = copyResult.Skipped
 			res.DirCreated = copyResult.DirCreated
 
-			pruneResult, err := ssync.PruneOrphanCopiesWithSkills(target.Path, allSkills, target.Include, target.Exclude, name, body.DryRun)
+			pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, body.DryRun)
 			if err == nil {
 				res.Pruned = pruneResult.Removed
 			}

@@ -32,7 +32,7 @@ func printSymlinkCompatHint(targets map[string]config.TargetConfig, defaultMode 
 	// Find any target that uses a non-copy mode (merge or symlink).
 	var exampleTarget string
 	for name, target := range targets {
-		mode := effectiveSyncMode(target.Mode, defaultMode)
+		mode := effectiveSyncMode(target.SkillsConfig().Mode, defaultMode)
 		if mode != "copy" {
 			exampleTarget = name
 			break

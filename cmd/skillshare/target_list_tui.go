@@ -148,13 +148,16 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 			return nil, err
 		}
 		for _, entry := range projCfg.Targets {
+			sc := entry.SkillsConfig()
 			items = append(items, targetTUIItem{
 				name: entry.Name,
 				target: config.TargetConfig{
-					Path:    projectTargetDisplayPath(entry),
-					Mode:    entry.Mode,
-					Include: entry.Include,
-					Exclude: entry.Exclude,
+					Skills: &config.ResourceTargetConfig{
+						Path:    projectTargetDisplayPath(entry),
+						Mode:    sc.Mode,
+						Include: sc.Include,
+						Exclude: sc.Exclude,
+					},
 				},
 			})
 		}
@@ -297,12 +300,12 @@ func (m targetListTUIModel) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		return m, nil
 	case "I":
 		if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
-			return m.openFilterEdit(item.name, "include", item.target.Include)
+			return m.openFilterEdit(item.name, "include", item.target.SkillsConfig().Include)
 		}
 		return m, nil
 	case "E":
 		if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
-			return m.openFilterEdit(item.name, "exclude", item.target.Exclude)
+			return m.openFilterEdit(item.name, "exclude", item.target.SkillsConfig().Exclude)
 		}
 		return m, nil
 	case "R":
@@ -399,7 +402,7 @@ func (m targetListTUIModel) openModePicker(name string, target config.TargetConf
 	m.showModePicker = true
 	m.modePickerTarget = name
 	m.modeCursor = 0
-	current := sync.EffectiveMode(target.Mode)
+	current := sync.EffectiveMode(target.SkillsConfig().Mode)
 	for i, mode := range targetSyncModes {
 		if mode == current {
 			m.modeCursor = i
@@ -445,7 +448,7 @@ func (m targetListTUIModel) doSetTargetMode(name, newMode string) (string, error
 		}
 		for i, entry := range projCfg.Targets {
 			if entry.Name == name {
-				projCfg.Targets[i].Mode = newMode
+				projCfg.Targets[i].EnsureSkills().Mode = newMode
 				break
 			}
 		}
@@ -458,7 +461,7 @@ func (m targetListTUIModel) doSetTargetMode(name, newMode string) (string, error
 			return "", err
 		}
 		t := cfg.Targets[name]
-		t.Mode = newMode
+		t.EnsureSkills().Mode = newMode
 		cfg.Targets[name] = t
 		if err := cfg.Save(); err != nil {
 			return "", err
@@ -560,10 +563,11 @@ func (m targetListTUIModel) doAddPattern(name, filterType, pattern string) (stri
 		}
 		for i, entry := range projCfg.Targets {
 			if entry.Name == name {
+				sk := projCfg.Targets[i].EnsureSkills()
 				if filterType == "include" {
-					projCfg.Targets[i].Include = append(projCfg.Targets[i].Include, pattern)
+					sk.Include = append(sk.Include, pattern)
 				} else {
-					projCfg.Targets[i].Exclude = append(projCfg.Targets[i].Exclude, pattern)
+					sk.Exclude = append(sk.Exclude, pattern)
 				}
 				break
 			}
@@ -577,10 +581,11 @@ func (m targetListTUIModel) doAddPattern(name, filterType, pattern string) (stri
 			return "", err
 		}
 		t := cfg.Targets[name]
+		sk := t.EnsureSkills()
 		if filterType == "include" {
-			t.Include = append(t.Include, pattern)
+			sk.Include = append(sk.Include, pattern)
 		} else {
-			t.Exclude = append(t.Exclude, pattern)
+			sk.Exclude = append(sk.Exclude, pattern)
 		}
 		cfg.Targets[name] = t
 		if err := cfg.Save(); err != nil {
@@ -608,10 +613,11 @@ func (m targetListTUIModel) doRemovePattern(name, filterType, pattern string) (s
 		}
 		for i, entry := range projCfg.Targets {
 			if entry.Name == name {
+				sk := projCfg.Targets[i].EnsureSkills()
 				if filterType == "include" {
-					projCfg.Targets[i].Include = removeFromSlice(entry.Include, pattern)
+					sk.Include = removeFromSlice(sk.Include, pattern)
 				} else {
-					projCfg.Targets[i].Exclude = removeFromSlice(entry.Exclude, pattern)
+					sk.Exclude = removeFromSlice(sk.Exclude, pattern)
 				}
 				break
 			}
@@ -625,10 +631,11 @@ func (m targetListTUIModel) doRemovePattern(name, filterType, pattern string) (s
 			return "", err
 		}
 		t := cfg.Targets[name]
+		sk := t.EnsureSkills()
 		if filterType == "include" {
-			t.Include = removeFromSlice(t.Include, pattern)
+			sk.Include = removeFromSlice(sk.Include, pattern)
 		} else {
-			t.Exclude = removeFromSlice(t.Exclude, pattern)
+			sk.Exclude = removeFromSlice(sk.Exclude, pattern)
 		}
 		cfg.Targets[name] = t
 		if err := cfg.Save(); err != nil {
@@ -787,23 +794,24 @@ func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
 
 	fmt.Fprintf(&b, "%s\n\n", tc.Title.Render(item.name))
 
-	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Path:"), shortenPath(item.target.Path))
-	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Mode:"), sync.EffectiveMode(item.target.Mode))
+	sc := item.target.SkillsConfig()
+	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Path:"), shortenPath(sc.Path))
+	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Mode:"), sync.EffectiveMode(sc.Mode))
 
-	if len(item.target.Include) > 0 {
+	if len(sc.Include) > 0 {
 		fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("Include:"))
-		for _, p := range item.target.Include {
+		for _, p := range sc.Include {
 			fmt.Fprintf(&b, "  %s\n", p)
 		}
 	}
-	if len(item.target.Exclude) > 0 {
+	if len(sc.Exclude) > 0 {
 		fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("Exclude:"))
-		for _, p := range item.target.Exclude {
+		for _, p := range sc.Exclude {
 			fmt.Fprintf(&b, "  %s\n", p)
 		}
 	}
 
-	if len(item.target.Include) == 0 && len(item.target.Exclude) == 0 {
+	if len(sc.Include) == 0 && len(sc.Exclude) == 0 {
 		fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("No include/exclude filters"))
 	}
 

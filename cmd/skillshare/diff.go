@@ -395,7 +395,7 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts, start time.Time) erro
 	}
 	var entries []targetEntry
 	for name, target := range targets {
-		mode := target.Mode
+		mode := target.SkillsConfig().Mode
 		if mode == "" {
 			mode = cfg.Mode
 			if mode == "" {
@@ -417,7 +417,8 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts, start time.Time) erro
 	totalSkills := 0
 	hasCopyMode := false
 	for _, e := range entries {
-		filtered, err := sync.FilterSkills(discovered, e.target.Include, e.target.Exclude)
+		sc := e.target.SkillsConfig()
+		filtered, err := sync.FilterSkills(discovered, sc.Include, sc.Exclude)
 		if err != nil {
 			return fmt.Errorf("target %s has invalid include/exclude config: %w", e.name, err)
 		}
@@ -539,15 +540,16 @@ func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraD
 }
 
 func collectTargetDiff(name string, target config.TargetConfig, source, mode string, filtered []sync.DiscoveredSkill, dp *diffProgress) targetDiffResult {
+	sc := target.SkillsConfig()
 	r := targetDiffResult{
 		name:    name,
 		mode:    mode,
-		include: target.Include,
-		exclude: target.Exclude,
+		include: sc.Include,
+		exclude: sc.Exclude,
 	}
 
 	// Check if target is accessible
-	_, err := os.Lstat(target.Path)
+	_, err := os.Lstat(sc.Path)
 	if err != nil {
 		r.errMsg = fmt.Sprintf("Cannot access target: %v", err)
 		dp.add(len(filtered))
@@ -561,25 +563,25 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 		sourceMap[skill.FlatName] = skill.SourcePath
 	}
 
-	if utils.IsSymlinkOrJunction(target.Path) {
+	if utils.IsSymlinkOrJunction(sc.Path) {
 		r.mode = "symlink"
-		collectSymlinkDiff(&r, target.Path, source)
+		collectSymlinkDiff(&r, sc.Path, source)
 		dp.add(len(filtered))
 		return r
 	}
 
 	if mode == "copy" {
-		manifest, _ := sync.ReadManifest(target.Path)
-		collectCopyDiff(&r, name, target.Path, filtered, sourceSkills, manifest, dp)
+		manifest, _ := sync.ReadManifest(sc.Path)
+		collectCopyDiff(&r, name, sc.Path, filtered, sourceSkills, manifest, dp)
 	} else {
 		// Merge mode (instant)
-		collectMergeDiff(&r, target.Path, sourceSkills, sourceMap)
+		collectMergeDiff(&r, sc.Path, sourceSkills, sourceMap)
 		dp.add(len(filtered))
 	}
 
 	// Compute mtime only for copy mode (merge uses symlinks, mtime is misleading)
 	if mode == "copy" {
-		r.dstMtime = latestMtime(target.Path)
+		r.dstMtime = latestMtime(sc.Path)
 		var srcLatest time.Time
 		for _, skill := range filtered {
 			mt := latestMtime(skill.SourcePath)

@@ -614,9 +614,10 @@ func detectCLIDirectories(home string) []detectedDir {
 	var detected []detectedDir
 
 	for name, target := range defaultTargets {
-		if info, err := os.Stat(target.Path); err == nil && info.IsDir() {
+		sc := target.SkillsConfig()
+		if info, err := os.Stat(sc.Path); err == nil && info.IsDir() {
 			// Skills directory exists - count skills
-			entries, _ := os.ReadDir(target.Path)
+			entries, _ := os.ReadDir(sc.Path)
 			skillCount := 0
 			for _, e := range entries {
 				if e.IsDir() && !utils.IsHidden(e.Name()) {
@@ -625,35 +626,35 @@ func detectCLIDirectories(home string) []detectedDir {
 			}
 			detected = append(detected, detectedDir{
 				name:       name,
-				path:       target.Path,
+				path:       sc.Path,
 				skillCount: skillCount,
 				hasSkills:  skillCount > 0,
 				exists:     true,
 			})
 			if skillCount > 0 {
-				ui.Success("Found: %-12s %s (%d skills)", name, target.Path, skillCount)
+				ui.Success("Found: %-12s %s (%d skills)", name, sc.Path, skillCount)
 			} else {
-				ui.Info("Found: %-12s %s (empty)", name, target.Path)
+				ui.Info("Found: %-12s %s (empty)", name, sc.Path)
 			}
 		} else {
 			// Skills directory doesn't exist - check if parent exists (CLI installed)
-			parent := filepath.Dir(target.Path)
+			parent := filepath.Dir(sc.Path)
 			if _, err := os.Stat(parent); err == nil {
 				// Auto-create the skills directory since the CLI is installed
-				created := os.Mkdir(target.Path, 0755) == nil
+				created := os.Mkdir(sc.Path, 0755) == nil
 				if created {
-					ui.Info("Created target directory: %s", target.Path)
+					ui.Info("Created target directory: %s", sc.Path)
 				}
 				detected = append(detected, detectedDir{
 					name:   name,
-					path:   target.Path,
+					path:   sc.Path,
 					exists: created,
 				})
 				label := "not initialized"
 				if created {
 					label = "initialized"
 				}
-				ui.Info("Found: %-12s %s (%s)", name, target.Path, label)
+				ui.Info("Found: %-12s %s (%s)", name, sc.Path, label)
 			}
 		}
 	}
@@ -664,10 +665,11 @@ func detectCLIDirectories(home string) []detectedDir {
 	// we create it, so normal directory detection won't find it.
 	if len(detected) > 0 && !sliceHasName(detected, "universal", func(d detectedDir) string { return d.name }) {
 		if target, ok := defaultTargets["universal"]; ok {
+			uniPath := target.SkillsConfig().Path
 			detected = append(detected, detectedDir{
-				name: "universal", path: target.Path,
+				name: "universal", path: uniPath,
 			})
-			ui.Info("Found: %-12s %s (shared agent directory)", "universal", target.Path)
+			ui.Info("Found: %-12s %s (shared agent directory)", "universal", uniPath)
 		}
 	}
 
@@ -902,14 +904,15 @@ func summarizeInitConfig(cfg *config.Config) {
 
 	ui.Info("Targets: %d", len(cfg.Targets))
 	for name, target := range cfg.Targets {
-		mode := target.Mode
+		sc := target.SkillsConfig()
+		mode := sc.Mode
 		if mode == "" {
 			mode = cfg.Mode
 		}
 		if mode == "" {
 			mode = "merge"
 		}
-		fmt.Printf("  %-12s %s (%s)\n", name, target.Path, mode)
+		fmt.Printf("  %-12s %s (%s)\n", name, sc.Path, mode)
 	}
 }
 
@@ -1447,15 +1450,16 @@ func detectNewAgents(existingCfg *config.Config) []agentInfo {
 			continue
 		}
 
-		parent := filepath.Dir(target.Path)
+		sc := target.SkillsConfig()
+		parent := filepath.Dir(sc.Path)
 		if _, err := os.Stat(parent); err != nil {
 			continue
 		}
 
-		status := getAgentStatus(target.Path)
+		status := getAgentStatus(sc.Path)
 		newAgents = append(newAgents, agentInfo{
 			name:        name,
-			path:        target.Path,
+			path:        sc.Path,
 			description: status,
 		})
 	}
@@ -1468,7 +1472,7 @@ func detectNewAgents(existingCfg *config.Config) []agentInfo {
 				if target, ok := defaultTargets["universal"]; ok {
 					newAgents = append(newAgents, agentInfo{
 						name:        "universal",
-						path:        target.Path,
+						path:        target.SkillsConfig().Path,
 						description: "(shared agent directory)",
 					})
 				}
@@ -1533,7 +1537,7 @@ func saveAddedAgents(cfg *config.Config, names []string, dryRun bool, mode strin
 
 	for _, name := range names {
 		if target, ok := defaultTargets[name]; ok {
-			target.Mode = modeOverrideForTarget(mode, cfg.Mode)
+			target.EnsureSkills().Mode = modeOverrideForTarget(mode, cfg.Mode)
 			cfg.Targets[name] = target
 		}
 	}
@@ -1625,7 +1629,7 @@ func addSelectedAgentsByName(existingCfg *config.Config, newAgents []agentInfo, 
 
 		// Add to config
 		if target, ok := defaultTargets[name]; ok {
-			target.Mode = modeOverrideForTarget(mode, existingCfg.Mode)
+			target.EnsureSkills().Mode = modeOverrideForTarget(mode, existingCfg.Mode)
 			existingCfg.Targets[name] = target
 			addedNames = append(addedNames, name)
 		}

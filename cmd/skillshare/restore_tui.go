@@ -469,7 +469,7 @@ func (m restoreTUIModel) startRestore() (tea.Model, tea.Cmd) {
 
 		backupPath := filepath.Dir(version.Dir)
 		opts := backup.RestoreOptions{Force: true}
-		err := backup.RestoreToPath(backupPath, targetName, targetCfg.Path, opts)
+		err := backup.RestoreToPath(backupPath, targetName, targetCfg.SkillsConfig().Path, opts)
 
 		e := oplog.NewEntry("restore", statusFromErr(err), time.Since(start))
 		e.Args = map[string]any{"target": targetName, "from": version.Label, "via": "tui"}
@@ -847,11 +847,12 @@ func (m restoreTUIModel) renderTargetDetail(s backup.TargetBackupSummary) string
 
 	// Target path and current state
 	if t, ok := m.targets[s.TargetName]; ok {
-		row("Path:    ", t.Path)
-		if t.Mode != "" {
-			row("Mode:    ", t.Mode)
+		sc := t.SkillsConfig()
+		row("Path:    ", sc.Path)
+		if sc.Mode != "" {
+			row("Mode:    ", sc.Mode)
 		}
-		row("Status:  ", describeTargetState(t.Path))
+		row("Status:  ", describeTargetState(sc.Path))
 	}
 
 	b.WriteString("\n")
@@ -921,7 +922,7 @@ func (m restoreTUIModel) renderVersionDetail(v backup.BackupVersion) string {
 
 	// Diff with current target
 	if t, ok := m.targets[m.selectedTarget]; ok {
-		added, removed, common := diffSkillSets(v.SkillNames, listDirNames(t.Path))
+		added, removed, common := diffSkillSets(v.SkillNames, listDirNames(t.SkillsConfig().Path))
 		if len(added) > 0 || len(removed) > 0 {
 			b.WriteString("\n")
 			b.WriteString(tc.Separator.Render("── Diff vs current target ────────────"))

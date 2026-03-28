@@ -381,7 +381,8 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 		allSkills, discoverErr := ssync.DiscoverSourceSkills(src)
 
 		for name, target := range s.cfg.Targets {
-			mode := target.Mode
+			sc := target.SkillsConfig()
+			mode := sc.Mode
 			if mode == "" {
 				mode = globalMode
 			}
@@ -408,8 +409,8 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 					res.Skipped = mergeResult.Skipped
 				}
 				pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
-					TargetPath: target.Path, SourcePath: src, Skills: allSkills,
-					Include: target.Include, Exclude: target.Exclude, TargetName: name,
+					TargetPath: sc.Path, SourcePath: src, Skills: allSkills,
+					Include: sc.Include, Exclude: sc.Exclude, TargetName: name,
 				})
 				if err == nil {
 					res.Pruned = pruneResult.Removed
@@ -421,7 +422,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 					res.Updated = copyResult.Updated
 					res.Skipped = copyResult.Skipped
 				}
-				pruneResult, err := ssync.PruneOrphanCopiesWithSkills(target.Path, allSkills, target.Include, target.Exclude, name, false)
+				pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, false)
 				if err == nil {
 					res.Pruned = pruneResult.Removed
 				}

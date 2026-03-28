@@ -34,7 +34,8 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 		if targetFilter != "" && name != targetFilter {
 			continue
 		}
-		if target.Mode == "symlink" {
+		sc := target.SkillsConfig()
+		if sc.Mode == "symlink" {
 			for _, skill := range skills {
 				entries = append(entries, syncMatrixEntry{
 					Skill:  skill.FlatName,
@@ -46,7 +47,7 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		for _, skill := range skills {
-			status, reason := ssync.ClassifySkillForTarget(skill.FlatName, skill.Targets, name, target.Include, target.Exclude)
+			status, reason := ssync.ClassifySkillForTarget(skill.FlatName, skill.Targets, name, sc.Include, sc.Exclude)
 			entries = append(entries, syncMatrixEntry{
 				Skill:  skill.FlatName,
 				Target: name,

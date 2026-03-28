@@ -87,19 +87,20 @@ func cmdStatusProjectJSON(root string) error {
 		if !ok {
 			continue
 		}
-		mode := target.Mode
+		sc := target.SkillsConfig()
+		mode := sc.Mode
 		if mode == "" {
 			mode = "merge"
 		}
 		res := getTargetStatusDetail(target, runtime.sourcePath, mode)
 		output.Targets = append(output.Targets, statusJSONTarget{
 			Name:        entry.Name,
-			Path:        target.Path,
+			Path:        sc.Path,
 			Mode:        mode,
 			Status:      res.statusStr,
 			SyncedCount: res.syncedCount,
-			Include:     target.Include,
-			Exclude:     target.Exclude,
+			Include:     sc.Include,
+			Exclude:     sc.Exclude,
 		})
 	}
 
@@ -169,7 +170,8 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 			continue
 		}
 
-		mode := target.Mode
+		sc := target.SkillsConfig()
+		mode := sc.Mode
 		if mode == "" {
 			mode = "merge"
 		}
@@ -178,7 +180,7 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 		ui.Status(entry.Name, res.statusStr, res.detail)
 
 		if mode == "merge" || mode == "copy" {
-			filtered, err := sync.FilterSkills(discovered, target.Include, target.Exclude)
+			filtered, err := sync.FilterSkills(discovered, sc.Include, sc.Exclude)
 			if err != nil {
 				return fmt.Errorf("target %s has invalid include/exclude config: %w", entry.Name, err)
 			}
@@ -191,7 +193,7 @@ func printProjectTargetsStatus(runtime *projectRuntime, discovered []sync.Discov
 					driftTotal = drift
 				}
 			}
-		} else if len(target.Include) > 0 || len(target.Exclude) > 0 {
+		} else if len(sc.Include) > 0 || len(sc.Exclude) > 0 {
 			ui.Warning("%s: include/exclude ignored in symlink mode", entry.Name)
 		}
 	}

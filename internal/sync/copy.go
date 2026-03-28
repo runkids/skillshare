@@ -35,29 +35,30 @@ func SyncTargetCopy(name string, target config.TargetConfig, sourcePath string, 
 // and an optional progress callback for per-skill UI updates.
 // sourcePath is the skills source directory, used to detect symlink-mode targets.
 func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, onProgress func(current, total int, skill string)) (*CopyResult, error) {
+	sc := target.SkillsConfig()
 	result := &CopyResult{}
 
 	// Convert from symlink mode if needed, auto-create if missing.
-	dirCreated, err := ensureRealTargetDir(target.Path, sourcePath, "copy", dryRun)
+	dirCreated, err := ensureRealTargetDir(sc.Path, sourcePath, "copy", dryRun)
 	if err != nil {
 		return nil, err
 	}
 	if dirCreated {
-		result.DirCreated = target.Path
+		result.DirCreated = sc.Path
 	}
 	// When dry-run would create the directory, suppress per-skill diagnostic
 	// messages (they flood the terminal). Counts are still populated.
 	quietDryRun := dirCreated && dryRun
 
 	// Filter skills for this target
-	discoveredSkills, err := FilterSkills(allSkills, target.Include, target.Exclude)
+	discoveredSkills, err := FilterSkills(allSkills, sc.Include, sc.Exclude)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply filters for target %s: %w", name, err)
 	}
 	discoveredSkills = FilterSkillsByTarget(discoveredSkills, name)
 
 	// Read existing manifest
-	manifest, err := ReadManifest(target.Path)
+	manifest, err := ReadManifest(sc.Path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read manifest: %w", err)
 	}
@@ -67,7 +68,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 			onProgress(i+1, len(discoveredSkills), skill.FlatName)
 		}
 
-		targetSkillPath := filepath.Join(target.Path, skill.FlatName)
+		targetSkillPath := filepath.Join(sc.Path, skill.FlatName)
 
 		// Compute source mtime for fast-path skip
 		currentMtime, mtimeErr := DirMaxMtime(skill.SourcePath)
@@ -192,7 +193,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 
 	// Write updated manifest
 	if !dryRun {
-		if err := WriteManifest(target.Path, manifest); err != nil {
+		if err := WriteManifest(sc.Path, manifest); err != nil {
 			return nil, fmt.Errorf("failed to write manifest: %w", err)
 		}
 	}

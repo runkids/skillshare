@@ -844,7 +844,7 @@ func (m listTUIModel) findSyncedTargets(e skillEntry) []string {
 
 	var synced []string
 	for name, tc := range m.targets {
-		linkPath := filepath.Join(tc.Path, flatName)
+		linkPath := filepath.Join(tc.SkillsConfig().Path, flatName)
 		if utils.IsSymlinkOrJunction(linkPath) {
 			synced = append(synced, name)
 		}

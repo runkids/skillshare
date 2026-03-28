@@ -170,11 +170,12 @@ func TestHandleUpdateTarget_IncludeExclude_Persisted(t *testing.T) {
 	if !ok {
 		t.Fatal("target 'claude' not found in disk config")
 	}
-	if len(tgt.Include) != 2 || tgt.Include[0] != "my-skill" || tgt.Include[1] != "other-*" {
-		t.Errorf("disk include mismatch: got %v", tgt.Include)
+	diskSc := tgt.SkillsConfig()
+	if len(diskSc.Include) != 2 || diskSc.Include[0] != "my-skill" || diskSc.Include[1] != "other-*" {
+		t.Errorf("disk include mismatch: got %v", diskSc.Include)
 	}
-	if len(tgt.Exclude) != 1 || tgt.Exclude[0] != "tmp-*" {
-		t.Errorf("disk exclude mismatch: got %v", tgt.Exclude)
+	if len(diskSc.Exclude) != 1 || diskSc.Exclude[0] != "tmp-*" {
+		t.Errorf("disk exclude mismatch: got %v", diskSc.Exclude)
 	}
 
 	// Verify in-memory state was reloaded correctly
@@ -182,11 +183,12 @@ func TestHandleUpdateTarget_IncludeExclude_Persisted(t *testing.T) {
 	if !ok {
 		t.Fatal("target 'claude' not in in-memory config")
 	}
-	if len(memTgt.Include) != 2 || memTgt.Include[0] != "my-skill" {
-		t.Errorf("in-memory include mismatch: got %v", memTgt.Include)
+	memSc := memTgt.SkillsConfig()
+	if len(memSc.Include) != 2 || memSc.Include[0] != "my-skill" {
+		t.Errorf("in-memory include mismatch: got %v", memSc.Include)
 	}
-	if len(memTgt.Exclude) != 1 || memTgt.Exclude[0] != "tmp-*" {
-		t.Errorf("in-memory exclude mismatch: got %v", memTgt.Exclude)
+	if len(memSc.Exclude) != 1 || memSc.Exclude[0] != "tmp-*" {
+		t.Errorf("in-memory exclude mismatch: got %v", memSc.Exclude)
 	}
 
 	// Verify GET /api/targets returns the filters

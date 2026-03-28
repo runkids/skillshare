@@ -86,7 +86,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 			notFoundCount++
 			continue
 		}
-		mode := target.Mode
+		mode := target.SkillsConfig().Mode
 		if mode == "" {
 			mode = "merge"
 		}
@@ -143,8 +143,8 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 }
 
 func projectTargetDisplayPath(entry config.ProjectTargetEntry) string {
-	if entry.Path != "" {
-		return entry.Path
+	if p := entry.SkillsConfig().Path; p != "" {
+		return p
 	}
 	if known, ok := config.LookupProjectTarget(entry.Name); ok {
 		return known.Path

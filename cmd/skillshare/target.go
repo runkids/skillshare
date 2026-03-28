@@ -189,7 +189,7 @@ func targetAdd(args []string) error {
 		return fmt.Errorf("target '%s' already exists", name)
 	}
 
-	cfg.Targets[name] = config.TargetConfig{Path: path}
+	cfg.Targets[name] = config.TargetConfig{Skills: &config.ResourceTargetConfig{Path: path}}
 	if err := cfg.Save(); err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func backupTargets(cfg *config.Config, toRemove []string) {
 	ui.Header("Backing up before unlink")
 	for _, targetName := range toRemove {
 		target := cfg.Targets[targetName]
-		backupPath, err := backup.Create(targetName, target.Path)
+		backupPath, err := backup.Create(targetName, target.SkillsConfig().Path)
 		if err != nil {
 			ui.Warning("Failed to backup %s: %v", targetName, err)
 		} else if backupPath != "" {
@@ -260,20 +260,21 @@ func backupTargets(cfg *config.Config, toRemove []string) {
 
 // unlinkTarget unlinks a single target
 func unlinkTarget(targetName string, target config.TargetConfig, sourcePath string) error {
-	info, err := os.Lstat(target.Path)
+	sc := target.SkillsConfig()
+	info, err := os.Lstat(sc.Path)
 	if err != nil {
 		return nil // Target doesn't exist, OK to remove from config
 	}
 
 	if info.Mode()&os.ModeSymlink != 0 {
-		if err := unlinkSymlinkMode(target.Path, sourcePath); err != nil {
+		if err := unlinkSymlinkMode(sc.Path, sourcePath); err != nil {
 			return err
 		}
 		ui.Success("%s: unlinked and restored", targetName)
 	} else if info.IsDir() {
 		// Remove manifest if present (merge/copy mode)
-		sync.RemoveManifest(target.Path) //nolint:errcheck
-		if err := unlinkMergeMode(target.Path, sourcePath); err != nil {
+		sync.RemoveManifest(sc.Path) //nolint:errcheck
+		if err := unlinkMergeMode(sc.Path, sourcePath); err != nil {
 			return err
 		}
 		ui.Success("%s: skill symlinks removed", targetName)
@@ -328,7 +329,7 @@ func targetRemoveDryRun(cfg *config.Config, toRemove []string) error {
 	ui.Header("Unlinking targets")
 	for _, targetName := range toRemove {
 		target := cfg.Targets[targetName]
-		info, err := os.Lstat(target.Path)
+		info, err := os.Lstat(target.SkillsConfig().Path)
 		if err != nil {
 			if os.IsNotExist(err) {
 				ui.Info("%s: would remove from config (path missing)", targetName)
@@ -429,11 +430,12 @@ func targetList(jsonOutput bool) error {
 
 	ui.Header("Configured Targets")
 	for name, target := range cfg.Targets {
-		mode := target.Mode
+		sc := target.SkillsConfig()
+		mode := sc.Mode
 		if mode == "" {
 			mode = "merge"
 		}
-		fmt.Printf("  %-12s %s (%s)\n", name, target.Path, mode)
+		fmt.Printf("  %-12s %s (%s)\n", name, sc.Path, mode)
 	}
 
 	return nil
@@ -442,12 +444,13 @@ func targetList(jsonOutput bool) error {
 func targetListJSON(cfg *config.Config) error {
 	var items []targetListJSONItem
 	for name, target := range cfg.Targets {
+		sc := target.SkillsConfig()
 		items = append(items, targetListJSONItem{
 			Name:    name,
-			Path:    target.Path,
-			Mode:    getTargetMode(target.Mode, cfg.Mode),
-			Include: target.Include,
-			Exclude: target.Exclude,
+			Path:    sc.Path,
+			Mode:    getTargetMode(sc.Mode, cfg.Mode),
+			Include: sc.Include,
+			Exclude: sc.Exclude,
 		})
 	}
 	output := struct {
@@ -489,7 +492,8 @@ func targetInfo(name string, args []string) error {
 	// Apply filter updates if any
 	if filterOpts.hasUpdates() {
 		start := time.Now()
-		changes, fErr := applyFilterUpdates(&target.Include, &target.Exclude, filterOpts)
+		s := target.EnsureSkills()
+		changes, fErr := applyFilterUpdates(&s.Include, &s.Exclude, filterOpts)
 		if fErr != nil {
 			return fErr
 		}
@@ -528,7 +532,8 @@ func updateTargetMode(cfg *config.Config, name string, target config.TargetConfi
 		return fmt.Errorf("invalid mode '%s'. Use 'merge', 'symlink', or 'copy'", newMode)
 	}
 
-	oldMode := target.Mode
+	sc := target.SkillsConfig()
+	oldMode := sc.Mode
 	if oldMode == "" {
 		oldMode = cfg.Mode
 		if oldMode == "" {
@@ -536,7 +541,7 @@ func updateTargetMode(cfg *config.Config, name string, target config.TargetConfi
 		}
 	}
 
-	target.Mode = newMode
+	target.EnsureSkills().Mode = newMode
 	cfg.Targets[name] = target
 	if err := cfg.Save(); err != nil {
 		return err
@@ -548,7 +553,8 @@ func updateTargetMode(cfg *config.Config, name string, target config.TargetConfi
 }
 
 func showTargetInfo(cfg *config.Config, name string, target config.TargetConfig) error {
-	effectiveMode := target.Mode
+	sc := target.SkillsConfig()
+	effectiveMode := sc.Mode
 	if effectiveMode == "" {
 		effectiveMode = cfg.Mode
 		if effectiveMode == "" {
@@ -557,28 +563,28 @@ func showTargetInfo(cfg *config.Config, name string, target config.TargetConfig)
 	}
 
 	modeDisplay := effectiveMode
-	if target.Mode == "" {
+	if sc.Mode == "" {
 		modeDisplay = effectiveMode + " (default)"
 	}
 
 	var statusLine string
 	switch effectiveMode {
 	case "copy":
-		status, managed, local := sync.CheckStatusCopy(target.Path)
+		status, managed, local := sync.CheckStatusCopy(sc.Path)
 		statusLine = fmt.Sprintf("%s (managed: %d, local: %d)", status, managed, local)
 	case "merge":
-		status, linked, local := sync.CheckStatusMerge(target.Path, cfg.Source)
+		status, linked, local := sync.CheckStatusMerge(sc.Path, cfg.Source)
 		statusLine = fmt.Sprintf("%s (linked: %d, local: %d)", status, linked, local)
 	default:
-		statusLine = sync.CheckStatus(target.Path, cfg.Source).String()
+		statusLine = sync.CheckStatus(sc.Path, cfg.Source).String()
 	}
 
 	ui.Header(fmt.Sprintf("Target: %s", name))
-	fmt.Printf("  Path:    %s\n", target.Path)
+	fmt.Printf("  Path:    %s\n", sc.Path)
 	fmt.Printf("  Mode:    %s\n", modeDisplay)
 	fmt.Printf("  Status:  %s\n", statusLine)
-	fmt.Printf("  Include: %s\n", formatFilterList(target.Include))
-	fmt.Printf("  Exclude: %s\n", formatFilterList(target.Exclude))
+	fmt.Printf("  Include: %s\n", formatFilterList(sc.Include))
+	fmt.Printf("  Exclude: %s\n", formatFilterList(sc.Exclude))
 
 	return nil
 }

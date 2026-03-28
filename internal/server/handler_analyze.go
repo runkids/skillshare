@@ -51,7 +51,8 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 
 	entries := make([]analyzeTargetResponse, 0)
 	for name, target := range targets {
-		tMode := target.Mode
+		sc := target.SkillsConfig()
+		tMode := sc.Mode
 		if tMode == "" {
 			tMode = defaultMode
 		}
@@ -61,7 +62,7 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 			filtered = discovered
 		} else {
 			var ferr error
-			filtered, ferr = ssync.FilterSkills(discovered, target.Include, target.Exclude)
+			filtered, ferr = ssync.FilterSkills(discovered, sc.Include, sc.Exclude)
 			if ferr != nil {
 				continue
 			}

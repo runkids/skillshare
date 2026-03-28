@@ -98,7 +98,7 @@ func createBackup(targetName string, dryRun bool) error {
 	if dryRun {
 		ui.Warning("Dry run mode - no backups will be created")
 		for name, target := range targets {
-			if err := previewBackup(name, target.Path); err != nil {
+			if err := previewBackup(name, target.SkillsConfig().Path); err != nil {
 				ui.Warning("Failed to inspect %s: %v", name, err)
 			}
 		}
@@ -117,7 +117,7 @@ func createBackup(targetName string, dryRun bool) error {
 	skipped := 0
 	for name, target := range targets {
 		spinner.Update(fmt.Sprintf("Backing up %s...", name))
-		backupPath, err := backup.Create(name, target.Path)
+		backupPath, err := backup.Create(name, target.SkillsConfig().Path)
 		if err != nil {
 			results = append(results, backupResult{name: name, errMsg: err.Error()})
 			continue
@@ -385,18 +385,19 @@ func cmdRestore(args []string) error {
 
 	opts := backup.RestoreOptions{Force: force}
 
+	sc := target.SkillsConfig()
 	if dryRun {
 		if fromTimestamp != "" {
-			return previewRestoreFromTimestamp(targetName, target.Path, fromTimestamp, opts)
+			return previewRestoreFromTimestamp(targetName, sc.Path, fromTimestamp, opts)
 		}
-		return previewRestoreFromLatest(targetName, target.Path, opts)
+		return previewRestoreFromLatest(targetName, sc.Path, opts)
 	}
 
 	var restoreErr error
 	if fromTimestamp != "" {
-		restoreErr = restoreFromTimestamp(targetName, target.Path, fromTimestamp, opts)
+		restoreErr = restoreFromTimestamp(targetName, sc.Path, fromTimestamp, opts)
 	} else {
-		restoreErr = restoreFromLatest(targetName, target.Path, opts)
+		restoreErr = restoreFromLatest(targetName, sc.Path, opts)
 	}
 
 	e := oplog.NewEntry("restore", statusFromErr(restoreErr), time.Since(start))

@@ -314,14 +314,15 @@ func buildAnalyzeEntries(
 			continue
 		}
 
-		tMode := getTargetMode(target.Mode, defaultMode)
+		sc := target.SkillsConfig()
+		tMode := getTargetMode(sc.Mode, defaultMode)
 
 		var filtered []ssync.DiscoveredSkill
 		if tMode == "symlink" {
 			filtered = discovered
 		} else {
 			var err error
-			filtered, err = ssync.FilterSkills(discovered, target.Include, target.Exclude)
+			filtered, err = ssync.FilterSkills(discovered, sc.Include, sc.Exclude)
 			if err != nil {
 				return nil, fmt.Errorf("target %s: %w", name, err)
 			}
