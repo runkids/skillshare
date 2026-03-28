@@ -57,11 +57,13 @@ func TestLoadProjectAndResolveTargets_PreservesFilters(t *testing.T) {
 	if len(cfg.Targets) != 1 {
 		t.Fatalf("expected 1 target, got %d", len(cfg.Targets))
 	}
-	if !reflect.DeepEqual(cfg.Targets[0].Include, []string{"codex-*"}) {
-		t.Fatalf("target include = %v", cfg.Targets[0].Include)
+	// After migration, flat Include/Exclude are moved to Skills sub-key
+	sc := cfg.Targets[0].SkillsConfig()
+	if !reflect.DeepEqual(sc.Include, []string{"codex-*"}) {
+		t.Fatalf("skills include = %v", sc.Include)
 	}
-	if !reflect.DeepEqual(cfg.Targets[0].Exclude, []string{"codex-test"}) {
-		t.Fatalf("target exclude = %v", cfg.Targets[0].Exclude)
+	if !reflect.DeepEqual(sc.Exclude, []string{"codex-test"}) {
+		t.Fatalf("skills exclude = %v", sc.Exclude)
 	}
 
 	resolved, err := ResolveProjectTargets(root, cfg)
@@ -72,10 +74,11 @@ func TestLoadProjectAndResolveTargets_PreservesFilters(t *testing.T) {
 	if !ok {
 		t.Fatal("expected resolved codex target")
 	}
-	if !reflect.DeepEqual(target.Include, []string{"codex-*"}) {
-		t.Fatalf("resolved include = %v", target.Include)
+	rsc := target.SkillsConfig()
+	if !reflect.DeepEqual(rsc.Include, []string{"codex-*"}) {
+		t.Fatalf("resolved include = %v", rsc.Include)
 	}
-	if !reflect.DeepEqual(target.Exclude, []string{"codex-test"}) {
-		t.Fatalf("resolved exclude = %v", target.Exclude)
+	if !reflect.DeepEqual(rsc.Exclude, []string{"codex-test"}) {
+		t.Fatalf("resolved exclude = %v", rsc.Exclude)
 	}
 }
