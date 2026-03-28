@@ -78,7 +78,7 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 	if len(strings.TrimSpace(string(output))) > 0 {
 		spinner.Fail("Local changes detected")
 		ui.Info("  Run: skillshare push")
-		ui.Info("  Or:  cd %s && git stash", cfg.Source)
+		ui.Info("  Or:  cd %s && git stash -u", cfg.Source)
 		return nil
 	}
 
