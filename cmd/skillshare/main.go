@@ -44,6 +44,8 @@ var commands = map[string]func([]string) error{
 	"ui":        cmdUI,
 	"tui":       cmdTUIToggle,
 	"extras":    cmdExtras,
+	"enable":    cmdEnable,
+	"disable":   cmdDisable,
 }
 
 func main() {
