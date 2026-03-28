@@ -23,12 +23,108 @@ func IsValidSyncMode(mode string) bool {
 	return slices.Contains(ValidSyncModes, mode)
 }
 
-// TargetConfig holds configuration for a single target
-type TargetConfig struct {
-	Path    string   `yaml:"path"`
+// ResourceTargetConfig holds per-resource-kind target configuration (skills, agents, etc.).
+type ResourceTargetConfig struct {
+	Path    string   `yaml:"path,omitempty"`
 	Mode    string   `yaml:"mode,omitempty"` // merge, symlink, or copy
 	Include []string `yaml:"include,omitempty"`
 	Exclude []string `yaml:"exclude,omitempty"`
+}
+
+// IsEmpty reports whether all fields are zero-valued.
+func (r ResourceTargetConfig) IsEmpty() bool {
+	return r.Path == "" && r.Mode == "" && len(r.Include) == 0 && len(r.Exclude) == 0
+}
+
+// TargetConfig holds configuration for a single target.
+// Legacy flat fields (Path/Mode/Include/Exclude) are kept for backward-compatible
+// YAML reading; migrateTargetConfigs moves them into Skills on load.
+type TargetConfig struct {
+	Path    string   `yaml:"path,omitempty"`
+	Mode    string   `yaml:"mode,omitempty"` // merge, symlink, or copy
+	Include []string `yaml:"include,omitempty"`
+	Exclude []string `yaml:"exclude,omitempty"`
+
+	Skills *ResourceTargetConfig `yaml:"skills,omitempty"`
+	Agents *ResourceTargetConfig `yaml:"agents,omitempty"`
+}
+
+// SkillsConfig returns the effective skills configuration.
+// If Skills sub-key is set, it is returned directly.
+// Otherwise the legacy flat fields are returned for backward compatibility.
+func (tc *TargetConfig) SkillsConfig() ResourceTargetConfig {
+	if tc.Skills != nil {
+		return *tc.Skills
+	}
+	return ResourceTargetConfig{
+		Path:    tc.Path,
+		Mode:    tc.Mode,
+		Include: tc.Include,
+		Exclude: tc.Exclude,
+	}
+}
+
+// AgentsConfig returns the agents configuration, or an empty value if not set.
+func (tc *TargetConfig) AgentsConfig() ResourceTargetConfig {
+	if tc.Agents != nil {
+		return *tc.Agents
+	}
+	return ResourceTargetConfig{}
+}
+
+// EnsureSkills returns the Skills sub-key, creating it from legacy flat fields if nil.
+// Use this before writing to Skills fields.
+func (tc *TargetConfig) EnsureSkills() *ResourceTargetConfig {
+	if tc.Skills == nil {
+		sc := tc.SkillsConfig()
+		tc.Skills = &sc
+		tc.Path = ""
+		tc.Mode = ""
+		tc.Include = nil
+		tc.Exclude = nil
+	}
+	return tc.Skills
+}
+
+// migrateTargetConfigs moves legacy flat fields into skills: sub-key.
+// Returns true if any target was migrated.
+func migrateTargetConfigs(targets map[string]TargetConfig) bool {
+	migrated := false
+	for name, tc := range targets {
+		hasFlatFields := tc.Path != "" || tc.Mode != "" || len(tc.Include) > 0 || len(tc.Exclude) > 0
+		if !hasFlatFields {
+			continue
+		}
+		if tc.Skills == nil {
+			tc.Skills = &ResourceTargetConfig{
+				Path:    tc.Path,
+				Mode:    tc.Mode,
+				Include: tc.Include,
+				Exclude: tc.Exclude,
+			}
+		} else {
+			// Mixed format: merge flat fields into existing Skills (don't overwrite)
+			if tc.Skills.Path == "" && tc.Path != "" {
+				tc.Skills.Path = tc.Path
+			}
+			if tc.Skills.Mode == "" && tc.Mode != "" {
+				tc.Skills.Mode = tc.Mode
+			}
+			if len(tc.Skills.Include) == 0 && len(tc.Include) > 0 {
+				tc.Skills.Include = tc.Include
+			}
+			if len(tc.Skills.Exclude) == 0 && len(tc.Exclude) > 0 {
+				tc.Skills.Exclude = tc.Exclude
+			}
+		}
+		tc.Path = ""
+		tc.Mode = ""
+		tc.Include = nil
+		tc.Exclude = nil
+		targets[name] = tc
+		migrated = true
+	}
+	return migrated
 }
 
 // AuditConfig holds security audit policy settings.
@@ -88,6 +184,7 @@ type Config struct {
 	// RegistryDir is the resolved directory for registry.yaml (cached SourceRoot result).
 	// Set during Load(), not serialized to YAML.
 	RegistryDir string `yaml:"-"`
+
 }
 
 // EffectiveGitLabHosts returns GitLabHosts merged with SKILLSHARE_GITLAB_HOSTS env var.
@@ -231,11 +328,30 @@ func Load() (*Config, error) {
 	}
 	cfg.GitLabHosts = hosts
 
+	// Migrate legacy flat target fields to skills: sub-key (one-time, persisted immediately)
+	if migrateTargetConfigs(cfg.Targets) {
+		if data, err := yaml.Marshal(&cfg); err == nil {
+			_ = os.WriteFile(path, append(schemaComment, data...), 0644)
+		}
+	}
+
 	// Expand ~ in paths
 	cfg.Source = expandPath(cfg.Source)
 	cfg.ExtrasSource = expandPath(cfg.ExtrasSource)
+	defaults := DefaultTargets()
 	for name, target := range cfg.Targets {
-		target.Path = expandPath(target.Path)
+		if target.Skills != nil {
+			target.Skills.Path = expandPath(target.Skills.Path)
+		}
+		if target.Agents != nil {
+			target.Agents.Path = expandPath(target.Agents.Path)
+		}
+		// Fallback to built-in default path for known targets without explicit path
+		if target.SkillsConfig().Path == "" {
+			if def, ok := defaults[name]; ok {
+				target.EnsureSkills().Path = expandPath(def.Path)
+			}
+		}
 		cfg.Targets[name] = target
 	}
 

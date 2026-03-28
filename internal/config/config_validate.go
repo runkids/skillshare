@@ -37,11 +37,22 @@ func ValidateConfig(cfg *Config) (warnings []string, err error) {
 
 	// Per-target validation
 	for name, target := range cfg.Targets {
-		if !IsValidSyncMode(target.Mode) {
-			errs = append(errs, fmt.Sprintf("target %q: invalid sync mode %q (valid: %s)", name, target.Mode, strings.Join(ValidSyncModes, ", ")))
-			continue // skip path validation for invalid modes
+		sc := target.SkillsConfig()
+		if !IsValidSyncMode(sc.Mode) {
+			errs = append(errs, fmt.Sprintf("target %q: invalid sync mode %q (valid: %s)", name, sc.Mode, strings.Join(ValidSyncModes, ", ")))
+			continue
 		}
-		errs = append(errs, validateTargetPath(name, ExpandPath(target.Path))...)
+		path := sc.Path
+		if path == "" {
+			// Known built-in targets get their path from targets.yaml at runtime;
+			// custom targets must specify a path explicitly.
+			if _, known := LookupGlobalTarget(name); !known {
+				errs = append(errs, fmt.Sprintf("target %q: missing path (custom targets require skills.path)", name))
+				continue
+			}
+		} else {
+			errs = append(errs, validateTargetPath(name, ExpandPath(path))...)
+		}
 	}
 
 	if len(errs) > 0 {
@@ -70,20 +81,24 @@ func ValidateProjectConfig(cfg *ProjectConfig, projectRoot string) (warnings []s
 
 	// Target validation
 	for _, entry := range cfg.Targets {
-		if !IsValidSyncMode(entry.Mode) {
-			errs = append(errs, fmt.Sprintf("target %q: invalid sync mode %q (valid: %s)", entry.Name, entry.Mode, strings.Join(ValidSyncModes, ", ")))
-			continue // skip path validation for invalid modes
+		sc := entry.SkillsConfig()
+		if !IsValidSyncMode(sc.Mode) {
+			errs = append(errs, fmt.Sprintf("target %q: invalid sync mode %q (valid: %s)", entry.Name, sc.Mode, strings.Join(ValidSyncModes, ", ")))
+			continue
 		}
 
-		// Only validate path existence for custom paths (entry.Path != "").
-		// Built-in targets (resolved from registry) depend on tool installation
-		// which the user cannot control — skip filesystem checks for those.
-		if entry.Path != "" {
-			absPath := entry.Path
-			if !filepath.IsAbs(entry.Path) {
-				absPath = filepath.Join(projectRoot, filepath.FromSlash(entry.Path))
+		if sc.Path == "" {
+			// Known built-in targets are resolved from targets.yaml;
+			// custom targets must have an explicit path.
+			if _, known := LookupProjectTarget(entry.Name); !known {
+				errs = append(errs, fmt.Sprintf("target %q: missing path (custom targets require skills.path)", entry.Name))
+			}
+		} else {
+			absPath := sc.Path
+			if !filepath.IsAbs(sc.Path) {
+				absPath = filepath.Join(projectRoot, filepath.FromSlash(sc.Path))
 			} else {
-				absPath = ExpandPath(entry.Path)
+				absPath = ExpandPath(sc.Path)
 			}
 			errs = append(errs, validateTargetPath(entry.Name, absPath)...)
 		}

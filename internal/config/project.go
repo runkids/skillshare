@@ -19,12 +19,18 @@ var projectSchemaComment = []byte("# yaml-language-server: $schema=" + ProjectSc
 // ProjectTargetEntry supports both string and object forms in YAML.
 // String: "claude"
 // Object: { name: "my-custom-ide", path: ".my-ide/skills/" }
+// New format with resource sub-keys: { name: claude, skills: {mode: merge}, agents: {path: .claude/agents} }
 type ProjectTargetEntry struct {
 	Name    string
-	Path    string
-	Mode    string // "merge", "copy", or "symlink"; default "merge"
-	Include []string
-	Exclude []string
+	Path    string   // legacy flat field; migrated to Skills on unmarshal
+	Mode    string   // legacy flat field; migrated to Skills on unmarshal
+	Include []string // legacy flat field; migrated to Skills on unmarshal
+	Exclude []string // legacy flat field; migrated to Skills on unmarshal
+
+	Skills *ResourceTargetConfig
+	Agents *ResourceTargetConfig
+
+	wasMigrated bool // true if flat fields were migrated during unmarshal; not serialized
 }
 
 func (t *ProjectTargetEntry) UnmarshalYAML(value *yaml.Node) error {
@@ -34,11 +40,13 @@ func (t *ProjectTargetEntry) UnmarshalYAML(value *yaml.Node) error {
 	}
 
 	var decoded struct {
-		Name    string   `yaml:"name"`
-		Path    string   `yaml:"path"`
-		Mode    string   `yaml:"mode"`
-		Include []string `yaml:"include"`
-		Exclude []string `yaml:"exclude"`
+		Name    string               `yaml:"name"`
+		Path    string               `yaml:"path"`
+		Mode    string               `yaml:"mode"`
+		Include []string             `yaml:"include"`
+		Exclude []string             `yaml:"exclude"`
+		Skills  *ResourceTargetConfig `yaml:"skills"`
+		Agents  *ResourceTargetConfig `yaml:"agents"`
 	}
 	if err := value.Decode(&decoded); err != nil {
 		return err
@@ -48,41 +56,137 @@ func (t *ProjectTargetEntry) UnmarshalYAML(value *yaml.Node) error {
 	t.Mode = strings.TrimSpace(decoded.Mode)
 	t.Include = decoded.Include
 	t.Exclude = decoded.Exclude
+	t.Skills = decoded.Skills
+	t.Agents = decoded.Agents
+
+	// Migrate legacy flat fields into Skills sub-key.
+	hasFlatFields := t.Path != "" || t.Mode != "" || len(t.Include) > 0 || len(t.Exclude) > 0
+	if hasFlatFields {
+		if t.Skills == nil {
+			t.Skills = &ResourceTargetConfig{
+				Path:    t.Path,
+				Mode:    t.Mode,
+				Include: t.Include,
+				Exclude: t.Exclude,
+			}
+		} else {
+			// Mixed format: merge flat fields into existing Skills (don't overwrite)
+			if t.Skills.Path == "" && t.Path != "" {
+				t.Skills.Path = t.Path
+			}
+			if t.Skills.Mode == "" && t.Mode != "" {
+				t.Skills.Mode = t.Mode
+			}
+			if len(t.Skills.Include) == 0 && len(t.Include) > 0 {
+				t.Skills.Include = t.Include
+			}
+			if len(t.Skills.Exclude) == 0 && len(t.Exclude) > 0 {
+				t.Skills.Exclude = t.Exclude
+			}
+		}
+		t.Path = ""
+		t.Mode = ""
+		t.Include = nil
+		t.Exclude = nil
+		t.wasMigrated = true
+	}
 	return nil
 }
 
 func (t ProjectTargetEntry) MarshalYAML() (interface{}, error) {
+	hasSkills := t.Skills != nil && !t.Skills.IsEmpty()
+	hasAgents := t.Agents != nil && !t.Agents.IsEmpty()
 	hasPath := strings.TrimSpace(t.Path) != ""
 	hasMode := strings.TrimSpace(t.Mode) != ""
 	hasInclude := len(t.Include) > 0
 	hasExclude := len(t.Exclude) > 0
 
-	if !hasPath && !hasMode && !hasInclude && !hasExclude {
-		return t.Name, nil
+	// New format: write skills/agents sub-keys
+	if hasSkills || hasAgents {
+		obj := map[string]any{"name": t.Name}
+		if hasSkills {
+			obj["skills"] = t.Skills
+		}
+		if hasAgents {
+			obj["agents"] = t.Agents
+		}
+		return obj, nil
 	}
 
-	obj := map[string]any{"name": t.Name}
-	if hasPath {
-		obj["path"] = t.Path
+	// Legacy flat fields (backward compat for pre-migration data)
+	if hasPath || hasMode || hasInclude || hasExclude {
+		obj := map[string]any{"name": t.Name}
+		if hasPath {
+			obj["path"] = t.Path
+		}
+		if hasMode {
+			obj["mode"] = t.Mode
+		}
+		if hasInclude {
+			obj["include"] = t.Include
+		}
+		if hasExclude {
+			obj["exclude"] = t.Exclude
+		}
+		return obj, nil
 	}
-	if hasMode {
-		obj["mode"] = t.Mode
+
+	// String format: no extra config
+	return t.Name, nil
+}
+
+// SkillsConfig returns the effective skills configuration.
+// If Skills sub-key is set, it is returned directly.
+// Otherwise the legacy flat fields are returned for backward compatibility.
+func (t *ProjectTargetEntry) SkillsConfig() ResourceTargetConfig {
+	if t.Skills != nil {
+		return *t.Skills
 	}
-	if hasInclude {
-		obj["include"] = t.Include
+	return ResourceTargetConfig{
+		Path:    t.Path,
+		Mode:    t.Mode,
+		Include: t.Include,
+		Exclude: t.Exclude,
 	}
-	if hasExclude {
-		obj["exclude"] = t.Exclude
+}
+
+// AgentsConfig returns the agents configuration, or an empty value if not set.
+func (t *ProjectTargetEntry) AgentsConfig() ResourceTargetConfig {
+	if t.Agents != nil {
+		return *t.Agents
 	}
-	return obj, nil
+	return ResourceTargetConfig{}
+}
+
+// EnsureSkills returns the Skills sub-key, creating it from legacy flat fields if nil.
+func (t *ProjectTargetEntry) EnsureSkills() *ResourceTargetConfig {
+	if t.Skills == nil {
+		sc := t.SkillsConfig()
+		t.Skills = &sc
+		t.Path = ""
+		t.Mode = ""
+		t.Include = nil
+		t.Exclude = nil
+	}
+	return t.Skills
 }
 
 // SkillEntry represents a remote skill entry in config (shared by global and project).
 type SkillEntry struct {
 	Name    string `yaml:"name"`
+	Kind    string `yaml:"kind,omitempty"`
 	Source  string `yaml:"source"`
 	Tracked bool   `yaml:"tracked,omitempty"`
 	Group   string `yaml:"group,omitempty"`
+}
+
+// EffectiveKind returns the resource kind for this entry.
+// Returns "skill" if Kind is empty (backward compatibility).
+func (s SkillEntry) EffectiveKind() string {
+	if s.Kind == "" {
+		return "skill"
+	}
+	return s.Kind
 }
 
 // FullName returns the full relative path for the skill entry.
@@ -168,6 +272,21 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 		}
 	}
 
+	// Persist migrated format if any target had legacy flat fields.
+	// UnmarshalYAML sets wasMigrated on each entry it migrated.
+	migrated := false
+	for _, t := range cfg.Targets {
+		if t.wasMigrated {
+			migrated = true
+			break
+		}
+	}
+	if migrated {
+		if mdata, merr := yaml.Marshal(&cfg); merr == nil {
+			_ = os.WriteFile(path, append(projectSchemaComment, mdata...), 0644)
+		}
+	}
+
 	return &cfg, nil
 }
 
@@ -238,6 +357,9 @@ func migrateProjectSkillsToRegistry(configPath, projectRoot string) error {
 	return os.WriteFile(configPath, cleaned, 0644)
 }
 
+// needsTargetMigration detects if a project config still uses legacy flat
+// target format by re-parsing targets and checking for flat fields.
+
 // ResolveProjectTargets converts project config targets into absolute target paths.
 func ResolveProjectTargets(projectRoot string, cfg *ProjectConfig) (map[string]TargetConfig, error) {
 	resolved := make(map[string]TargetConfig)
@@ -247,9 +369,11 @@ func ResolveProjectTargets(projectRoot string, cfg *ProjectConfig) (map[string]T
 			continue
 		}
 
+		sc := entry.SkillsConfig()
+
 		var targetPath string
-		if strings.TrimSpace(entry.Path) != "" {
-			targetPath = entry.Path
+		if strings.TrimSpace(sc.Path) != "" {
+			targetPath = sc.Path
 		} else if known, ok := LookupProjectTarget(name); ok {
 			targetPath = known.Path
 		} else {
@@ -265,10 +389,12 @@ func ResolveProjectTargets(projectRoot string, cfg *ProjectConfig) (map[string]T
 		}
 
 		resolved[name] = TargetConfig{
-			Path:    absPath,
-			Mode:    entry.Mode,
-			Include: append([]string(nil), entry.Include...),
-			Exclude: append([]string(nil), entry.Exclude...),
+			Skills: &ResourceTargetConfig{
+				Path:    absPath,
+				Mode:    sc.Mode,
+				Include: append([]string(nil), sc.Include...),
+				Exclude: append([]string(nil), sc.Exclude...),
+			},
 		}
 	}
 
