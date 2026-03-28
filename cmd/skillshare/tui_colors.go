@@ -47,6 +47,7 @@ var tc = struct {
 	ListRowPrefixSelected lipgloss.Style
 	BadgeLocal            lipgloss.Style
 	BadgeRemote           lipgloss.Style
+	BadgeDisabled         lipgloss.Style
 
 	// Severity — shared across all TUIs (audit, log, etc.)
 	Critical lipgloss.Style // red, bold
@@ -90,6 +91,8 @@ var tc = struct {
 		Padding(0, 1),
 	BadgeRemote: lipgloss.NewStyle().Foreground(lipgloss.Color("228")).Background(lipgloss.Color("239")).
 		Padding(0, 1),
+	BadgeDisabled: lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Background(lipgloss.Color("236")).
+		Padding(0, 1).Faint(true),
 
 	Critical: lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDCritical)).Bold(true),
 	High:     lipgloss.NewStyle().Foreground(lipgloss.Color(ui.SeverityIDHigh)),

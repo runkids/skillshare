@@ -202,6 +202,10 @@ func (i skillItem) Description() string {
 }
 
 func skillTitleLine(e skillEntry) string {
+	if e.Disabled {
+		// Disabled: dim the entire name + ⊘ prefix
+		return tc.Dim.Render("⊘ " + compactSkillPath(e))
+	}
 	title := colorSkillPath(compactSkillPath(e))
 	if badge := skillTypeBadge(e); badge != "" {
 		return title + "  " + badge
@@ -235,10 +239,18 @@ func baseSkillPath(e skillEntry) string {
 }
 
 func skillTypeBadge(e skillEntry) string {
+	var badge string
 	if e.RepoName == "" && e.Source == "" {
-		return tc.BadgeLocal.Render("local")
+		badge = tc.BadgeLocal.Render("local")
 	}
-	return ""
+	if e.Disabled {
+		disabled := tc.BadgeDisabled.Render("disabled")
+		if badge != "" {
+			return badge + "  " + disabled
+		}
+		return disabled
+	}
+	return badge
 }
 
 // colorSkillPath renders a skill path with progressive luminance:

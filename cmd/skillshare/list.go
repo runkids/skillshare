@@ -209,6 +209,7 @@ func buildSkillEntries(discovered []sync.DiscoveredSkill) []skillEntry {
 			Name:     d.FlatName,
 			IsNested: d.IsInRepo || utils.HasNestedSeparator(d.FlatName),
 			RelPath:  d.RelPath,
+			Disabled: d.Disabled,
 		}
 		if d.IsInRepo {
 			parts := strings.SplitN(d.RelPath, "/", 2)
@@ -338,6 +339,9 @@ func displaySkillsVerbose(skills []skillEntry) {
 }
 
 func printVerboseDetails(s skillEntry, indent string) {
+	if s.Disabled {
+		fmt.Printf("%s%sStatus:%s      %sdisabled%s\n", indent, ui.Dim, ui.Reset, ui.Dim, ui.Reset)
+	}
 	if s.RepoName != "" {
 		fmt.Printf("%s%sTracked repo:%s %s\n", indent, ui.Dim, ui.Reset, s.RepoName)
 	}
@@ -405,13 +409,18 @@ func displaySkillsCompact(skills []skillEntry) {
 
 // getSkillSuffix returns the display suffix for a skill
 func getSkillSuffix(s skillEntry) string {
+	var suffix string
 	if s.RepoName != "" {
-		return fmt.Sprintf("tracked: %s", s.RepoName)
+		suffix = fmt.Sprintf("tracked: %s", s.RepoName)
+	} else if s.Source != "" {
+		suffix = abbreviateSource(s.Source)
+	} else {
+		suffix = "local"
 	}
-	if s.Source != "" {
-		return abbreviateSource(s.Source)
+	if s.Disabled {
+		suffix += "  [disabled]"
 	}
-	return "local"
+	return suffix
 }
 
 // displayTrackedRepos displays the tracked repositories section.
@@ -505,7 +514,7 @@ func cmdList(args []string) error {
 	// TTY + not JSON + TUI enabled → launch TUI with async loading (no blank screen)
 	if !opts.JSON && shouldLaunchTUI(opts.NoTUI, cfg) {
 		loadFn := func() listLoadResult {
-			discovered, _, err := sync.DiscoverSourceSkillsLite(cfg.Source)
+			discovered, err := sync.DiscoverSourceSkillsAll(cfg.Source)
 			if err != nil {
 				return listLoadResult{err: fmt.Errorf("cannot discover skills: %w", err)}
 			}
@@ -541,13 +550,14 @@ func cmdList(args []string) error {
 	if !opts.JSON && ui.IsTTY() {
 		sp = ui.StartSpinner("Loading skills...")
 	}
-	discovered, trackedRepos, err := sync.DiscoverSourceSkillsLite(cfg.Source)
+	discovered, err := sync.DiscoverSourceSkillsAll(cfg.Source)
 	if err != nil {
 		if sp != nil {
 			sp.Fail("Discovery failed")
 		}
 		return fmt.Errorf("cannot discover skills: %w", err)
 	}
+	trackedRepos := extractTrackedRepos(discovered)
 
 	if sp != nil {
 		sp.Update(fmt.Sprintf("Reading metadata for %d skills...", len(discovered)))
@@ -627,6 +637,7 @@ type skillEntry struct {
 	IsNested    bool
 	RepoName    string
 	RelPath     string
+	Disabled    bool
 }
 
 // skillJSON is the JSON representation for --json output.
@@ -637,6 +648,7 @@ type skillJSON struct {
 	Type        string `json:"type,omitempty"`
 	InstalledAt string `json:"installedAt,omitempty"`
 	RepoName    string `json:"repoName,omitempty"`
+	Disabled    bool   `json:"disabled,omitempty"`
 }
 
 func displaySkillsJSON(skills []skillEntry) error {
@@ -649,6 +661,7 @@ func displaySkillsJSON(skills []skillEntry) error {
 			Type:        s.Type,
 			InstalledAt: s.InstalledAt,
 			RepoName:    s.RepoName,
+			Disabled:    s.Disabled,
 		}
 	}
 	enc := json.NewEncoder(os.Stdout)

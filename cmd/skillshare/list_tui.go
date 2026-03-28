@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/skillignore"
 	"skillshare/internal/utils"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -337,6 +338,8 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.enterConfirm("update")
 		case "X":
 			return m.enterConfirm("uninstall")
+		case "E":
+			return m.toggleDisabled()
 		}
 	}
 
@@ -373,6 +376,51 @@ func (m listTUIModel) enterConfirm(action string) (tea.Model, tea.Cmd) {
 	m.confirming = true
 	m.confirmAction = action
 	m.confirmSkill = name
+	return m, nil
+}
+
+// toggleDisabled toggles the selected skill's disabled state in-place
+// by writing/removing its relPath in .skillignore. Stays in the TUI.
+func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
+	item, ok := m.list.SelectedItem().(skillItem)
+	if !ok {
+		return m, nil
+	}
+
+	ignorePath := filepath.Join(m.sourcePath, ".skillignore")
+	pattern := item.entry.RelPath
+	if pattern == "" {
+		pattern = item.entry.Name
+	}
+
+	newDisabled := !item.entry.Disabled
+	if newDisabled {
+		skillignore.AddPattern(ignorePath, pattern)
+	} else {
+		skillignore.RemovePattern(ignorePath, pattern)
+	}
+
+	// Toggle the flag in allItems
+	for i := range m.allItems {
+		if m.allItems[i].entry.RelPath == item.entry.RelPath {
+			m.allItems[i].entry.Disabled = newDisabled
+			break
+		}
+	}
+
+	// Toggle the flag in the current list items (preserves selection)
+	items := m.list.Items()
+	for i, li := range items {
+		if si, ok := li.(skillItem); ok && si.entry.RelPath == item.entry.RelPath {
+			si.entry.Disabled = newDisabled
+			items[i] = si
+			break
+		}
+	}
+	m.list.SetItems(items)
+
+	// Clear detail cache so the panel re-renders
+	delete(m.detailCache, item.entry.RelPath)
 	return m, nil
 }
 
@@ -512,7 +560,7 @@ func (m listTUIModel) viewSplit() string {
 	b.WriteString(m.renderFilterBar())
 	b.WriteString(m.renderSummaryFooter())
 	b.WriteString("\n")
-	helpText := "↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  X uninstall  q quit"
+	helpText := "↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  X uninstall  q quit"
 	if m.filtering {
 		helpText = "t:type g:group r:repo  Enter lock  Esc clear  q quit"
 	}
@@ -551,7 +599,7 @@ func (m listTUIModel) viewVertical() string {
 
 	b.WriteString(m.renderSummaryFooter())
 	b.WriteString("\n")
-	helpText := "↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  X uninstall  q quit"
+	helpText := "↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  X uninstall  q quit"
 	if m.filtering {
 		helpText = "t:type g:group r:repo  Enter lock  Esc clear  q quit"
 	}
@@ -804,6 +852,9 @@ func detailStatusBits(e skillEntry) string {
 		bits = append(bits, tc.Yellow.Render("remote"))
 	default:
 		bits = append(bits, tc.Dim.Render("local"))
+	}
+	if e.Disabled {
+		bits = append(bits, tc.Red.Render("disabled"))
 	}
 	return strings.Join(bits, "  ")
 }

@@ -30,7 +30,7 @@ func cmdListProject(root string, opts listOptions) error {
 			sortBy = "name"
 		}
 		loadFn := func() listLoadResult {
-			discovered, _, err := sync.DiscoverSourceSkillsLite(sourcePath)
+			discovered, err := sync.DiscoverSourceSkillsAll(sourcePath)
 			if err != nil {
 				return listLoadResult{err: fmt.Errorf("cannot discover project skills: %w", err)}
 			}
@@ -66,14 +66,15 @@ func cmdListProject(root string, opts listOptions) error {
 		sp = ui.StartSpinner("Loading skills...")
 	}
 
-	// Use lite discovery (skips frontmatter I/O, collects tracked repos in one walk)
-	discovered, trackedRepos, err := sync.DiscoverSourceSkillsLite(sourcePath)
+	// Use DiscoverSourceSkillsAll so disabled skills appear in the listing
+	discovered, err := sync.DiscoverSourceSkillsAll(sourcePath)
 	if err != nil {
 		if sp != nil {
 			sp.Fail("Discovery failed")
 		}
 		return fmt.Errorf("cannot discover project skills: %w", err)
 	}
+	trackedRepos := extractTrackedRepos(discovered)
 
 	if sp != nil {
 		sp.Update(fmt.Sprintf("Reading metadata for %d skills...", len(discovered)))
