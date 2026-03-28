@@ -94,6 +94,7 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 	if err != nil {
 		return dt
 	}
+	filtered = ssync.FilterSkillsByTarget(filtered, name)
 
 	if mode == "copy" {
 		manifest, _ := ssync.ReadManifest(sc.Path)

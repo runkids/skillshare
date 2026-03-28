@@ -35,9 +35,11 @@
 
 ### Bug Fixes
 
+- Fixed `diff` showing skills with unsupported `targets` values (e.g., `targets: ["*"]`) as "source only" pending items — these skills are now correctly filtered out, matching the behavior of `sync`
 - Fixed `collect` ignoring inherited sync mode when a target's mode was set at the global level — the command now resolves the effective mode before deciding whether to scan for local skills
 - Fixed `collect` using a stale manifest after switching a target from `copy` to `merge` mode
 - Fixed `pull` info message referencing `git stash` instead of `git stash -u`
+- Fixed config migration writing directly to the config file — now uses atomic write-to-temp + rename to prevent corruption on disk errors
 
 ## [0.18.2] - 2026-03-28
 

@@ -422,6 +422,7 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts, start time.Time) erro
 		if err != nil {
 			return fmt.Errorf("target %s has invalid include/exclude config: %w", e.name, err)
 		}
+		filtered = sync.FilterSkillsByTarget(filtered, e.name)
 		fentries = append(fentries, filteredEntry{e, filtered})
 		totalSkills += len(filtered)
 		if e.mode == "copy" {
