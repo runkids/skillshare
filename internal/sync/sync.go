@@ -27,6 +27,7 @@ type DiscoveredSkill struct {
 	BodyChars   int         // Rune count of body after frontmatter (populated when collectContext)
 	Description string      // Frontmatter description text (populated when collectContext)
 	LintIssues  []LintIssue // Lint issues (populated when collectContext)
+	Disabled    bool        // Whether this skill is ignored by .skillignore
 }
 
 // isSkillIgnored checks whether a skill inside a tracked repo should be
@@ -92,6 +93,17 @@ func DiscoverSourceSkillsWithStats(sourcePath string) ([]DiscoveredSkill, *skill
 		collectTracked:   false,
 	})
 	return skills, stats, err
+}
+
+// DiscoverSourceSkillsAll scans the source directory and returns ALL skills
+// including those ignored by .skillignore. Ignored skills have Disabled=true.
+// Use this for list/UI commands that need to show disabled skills.
+func DiscoverSourceSkillsAll(sourcePath string) ([]DiscoveredSkill, error) {
+	skills, _, _, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
+		parseFrontmatter: false,
+		includeIgnored:   true,
+	})
+	return skills, err
 }
 
 // TargetStatus represents the state of a target

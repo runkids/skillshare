@@ -16,6 +16,7 @@ type discoverOptions struct {
 	collectIgnored   bool // collect ignored skill paths into IgnoreStats
 	collectTracked   bool // collect tracked repo paths (for Lite mode)
 	collectContext   bool // compute DescChars/BodyChars during walk (for analyze)
+	includeIgnored   bool // include ignored skills in results with Disabled=true
 }
 
 // discoverSourceSkillsInternal is the shared walk implementation used by all
@@ -64,7 +65,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 		// When collectIgnored is true, disable CanSkipDir so the walk
 		// descends into ignored directories and the file-level Match
 		// check can record each ignored SKILL.md path.
-		if info.IsDir() && !opts.collectIgnored {
+		if info.IsDir() && !opts.collectIgnored && !opts.includeIgnored {
 			relPath, relErr := filepath.Rel(walkRoot, path)
 			if relErr == nil && relPath != "." {
 				relPath = strings.ReplaceAll(relPath, "\\", "/")
@@ -104,7 +105,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 
 		// Skip directories matching repo-level .skillignore inside tracked repos.
 		// Same CanSkipDir bypass as above when collectIgnored is true.
-		if info.IsDir() && !opts.collectIgnored {
+		if info.IsDir() && !opts.collectIgnored && !opts.includeIgnored {
 			relPath, relErr := filepath.Rel(walkRoot, path)
 			if relErr == nil && relPath != "." {
 				relPath = strings.ReplaceAll(relPath, "\\", "/")
@@ -140,6 +141,14 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				if opts.collectIgnored {
 					stats.IgnoredSkills = append(stats.IgnoredSkills, relPath)
 				}
+				if opts.includeIgnored {
+					skills = append(skills, DiscoveredSkill{
+						SourcePath: filepath.Join(sourcePath, relPath),
+						RelPath:    relPath,
+						FlatName:   utils.PathToFlatName(relPath),
+						Disabled:   true,
+					})
+				}
 				return nil
 			}
 
@@ -152,6 +161,15 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 			if isInRepo && isSkillIgnored(parts, walkRoot, ignoreMatchers) {
 				if opts.collectIgnored {
 					stats.IgnoredSkills = append(stats.IgnoredSkills, relPath)
+				}
+				if opts.includeIgnored {
+					skills = append(skills, DiscoveredSkill{
+						SourcePath: filepath.Join(sourcePath, relPath),
+						RelPath:    relPath,
+						FlatName:   utils.PathToFlatName(relPath),
+						IsInRepo:   true,
+						Disabled:   true,
+					})
 				}
 				return nil
 			}
