@@ -40,7 +40,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: [v0.18.0](https://github.com/runkids/skillshare/releases/tag/v0.18.0) — context analysis & skill quality lint, interactive analyze TUI, Web UI Analyze page. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: [v0.18.3](https://github.com/runkids/skillshare/releases/tag/v0.18.3) — enable/disable skills, skills sub-key config, upgrade auto-sudo. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 

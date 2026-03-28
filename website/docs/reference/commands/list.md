@@ -41,6 +41,7 @@ On a TTY, `skillshare list` launches an interactive terminal UI with:
 
 - **Keyboard navigation** — arrow keys to browse, `q` to quit
 - **Detail panel** — shows description, disk path, files, and synced targets for the selected skill
+- **Enable/disable toggle** — press `E` to toggle the selected skill's enabled/disabled state. Writes to `.skillignore` immediately without leaving the TUI. Disabled skills show a red **disabled** badge in the detail panel.
 - **Content viewer** — press `Enter` to open a dual-pane viewer with a file tree on the left and Markdown-rendered content on the right. `j`/`k` browse files (auto-preview), `l`/`Enter` expand directories, `h` collapse. `Ctrl+d`/`u` scroll content half-page, `g`/`G` jump to top/bottom. Mouse wheel and click are also supported.
 
 Use `--no-tui` to skip the TUI and print plain text instead:
@@ -85,6 +86,7 @@ Installed skills
 
   → my-skill              local
   → commit-commands       github.com/user/skills
+  → old-draft             local  [disabled]
 
 Tracked repositories
 ─────────────────────────────────────────
@@ -252,6 +254,7 @@ For more details, see [Organizing Skills with Folders](/docs/how-to/daily-tasks/
 | `local` | Created locally, no metadata |
 | `github.com/...` | Installed from GitHub |
 | `tracked: <repo>` | Part of a tracked repository |
+| `[disabled]` | Skill is excluded via `.skillignore` (see [enable/disable](./enable.md)) |
 
 ### Repository Status
 
@@ -262,6 +265,7 @@ For more details, see [Organizing Skills with Folders](/docs/how-to/daily-tasks/
 
 ## See Also
 
+- [enable / disable](/docs/reference/commands/enable) — Toggle skills without removing
 - [install](/docs/reference/commands/install) — Install skills
 - [uninstall](/docs/reference/commands/uninstall) — Remove skills
 - [status](/docs/reference/commands/status) — Show sync status

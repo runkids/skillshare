@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.18.3] - 2026-03-29
+
+### New Features
+
+#### Enable / Disable Skills
+
+- **`skillshare enable` / `skillshare disable`** — temporarily hide skills from sync without uninstalling them. Adds or removes patterns in `.skillignore`:
+  ```bash
+  skillshare disable draft-*        # hide from sync
+  skillshare enable draft-*         # restore
+  skillshare disable my-skill -p    # project mode
+  skillshare disable my-skill -n    # dry-run preview
+  ```
+
+- **TUI toggle** — press `E` in `skillshare list` to toggle the selected skill's enabled/disabled state. The change is written immediately without leaving the TUI. Disabled skills show a red **disabled** badge in the detail panel and a `[disabled]` suffix in compact view
+
+- **Web UI toggle** — the Skill Detail page now shows an Enable/Disable button. The REST API exposes `POST /api/skills/{name}/enable` and `POST /api/skills/{name}/disable` endpoints
+
+#### Target Config — Skills Sub-Key
+
+- **Per-resource-type configuration** — target configs now support a `skills` sub-key with its own `path`, `mode`, `include`, and `exclude` settings. Existing flat-field configs are auto-migrated on first load — no manual editing needed:
+  ```yaml
+  targets:
+    claude:
+      skills:
+        path: ~/.claude/skills
+        mode: merge
+  ```
+
+#### Upgrade Improvements
+
+- **Auto-sudo for protected paths** — `skillshare upgrade` now auto-detects when the binary is in a write-protected directory (e.g., `/usr/local/bin`) and transparently re-executes with `sudo` (#105)
+
+### Bug Fixes
+
+- Fixed `collect` ignoring inherited sync mode when a target's mode was set at the global level — the command now resolves the effective mode before deciding whether to scan for local skills
+- Fixed `collect` using a stale manifest after switching a target from `copy` to `merge` mode
+- Fixed `pull` info message referencing `git stash` instead of `git stash -u`
+
 ## [0.18.2] - 2026-03-28
 
 ### New Features

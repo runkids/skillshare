@@ -17,6 +17,7 @@ Complete reference for all skillshare commands.
 | Check what's out of sync | [`status`](./status.md) / [`diff`](./diff.md) |
 | Search for community skills | [`search`](./search.md) |
 | Update installed skills | [`check`](./check.md) then [`update`](./update.md) |
+| Temporarily hide a skill without removing it | [`enable` / `disable`](./enable.md) |
 | Sync across machines | [`push`](./push.md) / [`pull`](./pull.md) |
 | Manage non-skill resources (rules, commands) | [`extras`](./extras.md) |
 | See which skills use the most context tokens | [`analyze`](./analyze.md) |
@@ -30,7 +31,7 @@ Complete reference for all skillshare commands.
 | Category | Commands |
 |----------|----------|
 | **Core** | `init`, `install`, `uninstall`, `list`, `search`, `sync`, `status` |
-| **Skill Management** | `new`, `check`, `update`, `upgrade` |
+| **Skill Management** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
 | **Target Management** | `target`, `diff` |
 | **Extras Management** | `extras` (`init`, `list`, `remove`, `collect`) |
 | **Sync Operations** | `collect`, `backup`, `restore`, `trash`, `push`, `pull` |
@@ -58,6 +59,7 @@ Complete reference for all skillshare commands.
 | [check](./check.md) | Check for available updates |
 | [update](./update.md) | Update a skill or tracked repo |
 | [upgrade](./upgrade.md) | Upgrade CLI or built-in skill |
+| [enable / disable](./enable.md) | Temporarily enable or disable skills |
 
 ## Target Management
 
@@ -135,6 +137,10 @@ skillshare pull
 skillshare status
 skillshare list
 skillshare diff
+
+# Enable/disable skills
+skillshare disable draft-*
+skillshare enable draft-*
 
 # Maintenance
 skillshare update --all

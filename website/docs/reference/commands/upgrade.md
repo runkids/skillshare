@@ -89,6 +89,8 @@ skillshare sync  # Distribute to all targets
 
 The `skillshare` executable itself. Downloads from GitHub releases.
 
+If the binary is in a protected directory (e.g., `/usr/local/bin`), skillshare automatically re-runs the upgrade with `sudo` — no manual prefix needed.
+
 ### Web UI Assets
 
 After upgrading, skillshare pre-downloads the Web UI frontend assets for the new version. These are cached at `~/.cache/skillshare/ui/<version>/` and served when you run `skillshare ui`.

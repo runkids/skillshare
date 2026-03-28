@@ -54,7 +54,16 @@ drafts/
 experimental-*
 ```
 
-📖 [.skillignore syntax](/docs/reference/appendix/file-structure#skillignore-optional) · [Filtering Reference](/docs/reference/filtering#skillignore)
+The quickest way to add or remove a pattern is the `enable` / `disable` commands:
+
+```bash
+skillshare disable experimental-*   # adds to .skillignore
+skillshare enable experimental-*    # removes from .skillignore
+```
+
+You can also press **E** in the `skillshare list` TUI to toggle a skill on or off.
+
+📖 [enable / disable](/docs/reference/commands/enable) · [.skillignore syntax](/docs/reference/appendix/file-structure#skillignore-optional) · [Filtering Reference](/docs/reference/filtering#skillignore)
 
 ## Exclude skills inside a tracked repo
 

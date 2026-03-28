@@ -140,6 +140,7 @@ const sidebars: SidebarsConfig = {
                 'reference/commands/check',
                 'reference/commands/update',
                 'reference/commands/upgrade',
+                'reference/commands/enable',
               ],
             },
             {
