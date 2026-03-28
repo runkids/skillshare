@@ -207,6 +207,8 @@ func printUsage() {
 	// Skill Management
 	fmt.Println("SKILL MANAGEMENT")
 	cmd("new", "<name>", "Create a new skill with SKILL.md template")
+	cmd("enable", "<name|pattern>", "Enable a disabled skill (remove from .skillignore)")
+	cmd("disable", "<name|pattern>", "Disable a skill (add to .skillignore)")
 	cmd("check", "", "Check for available updates")
 	cmd("update", "<name>", "Update a skill or tracked repository")
 	cmd("update", "--all", "Update all tracked repositories")

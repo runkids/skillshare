@@ -13,7 +13,7 @@ func TestFindLocalSkills_EmptyTarget(t *testing.T) {
 	os.MkdirAll(src, 0755)
 	os.MkdirAll(tgt, 0755)
 
-	skills, err := FindLocalSkills(tgt, src)
+	skills, err := FindLocalSkills(tgt, src, "merge")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +33,7 @@ func TestFindLocalSkills_SymlinkTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	skills, err := FindLocalSkills(tgt, src)
+	skills, err := FindLocalSkills(tgt, src, "symlink")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestFindLocalSkills_MergeMode(t *testing.T) {
 	os.MkdirAll(localSkill, 0755)
 	os.WriteFile(filepath.Join(localSkill, "SKILL.md"), []byte("local skill"), 0644)
 
-	skills, err := FindLocalSkills(tgt, src)
+	skills, err := FindLocalSkills(tgt, src, "merge")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestFindLocalSkills_SkipsCopyManaged(t *testing.T) {
 	localSkill := filepath.Join(tgt, "local-only")
 	os.MkdirAll(localSkill, 0755)
 
-	skills, err := FindLocalSkills(tgt, src)
+	skills, err := FindLocalSkills(tgt, src, "copy")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,6 +103,64 @@ func TestFindLocalSkills_SkipsCopyManaged(t *testing.T) {
 	}
 	if skills[0].Name != "local-only" {
 		t.Errorf("expected 'local-only', got %q", skills[0].Name)
+	}
+}
+
+func TestFindLocalSkills_CopyToMergeSwitch(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "source")
+	tgt := filepath.Join(tmp, "target")
+
+	os.MkdirAll(src, 0755)
+	os.MkdirAll(tgt, 0755)
+
+	// Simulate: skills were synced in copy mode, manifest still has them
+	copiedSkill := filepath.Join(tgt, "copied")
+	os.MkdirAll(copiedSkill, 0755)
+	os.WriteFile(filepath.Join(copiedSkill, "SKILL.md"), []byte("copied"), 0644)
+
+	m := &Manifest{Managed: map[string]string{"copied": "abc123"}}
+	if err := WriteManifest(tgt, m); err != nil {
+		t.Fatal(err)
+	}
+
+	// Mode changed to merge — stale manifest entries should be ignored
+	skills, err := FindLocalSkills(tgt, src, "merge")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 {
+		t.Fatalf("expected 1 skill after copy→merge switch, got %d", len(skills))
+	}
+	if skills[0].Name != "copied" {
+		t.Errorf("expected 'copied', got %q", skills[0].Name)
+	}
+}
+
+func TestFindLocalSkills_EmptyModePassedDirectly(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "source")
+	tgt := filepath.Join(tmp, "target")
+
+	os.MkdirAll(src, 0755)
+	os.MkdirAll(tgt, 0755)
+
+	// Physical dir with copy-mode manifest
+	os.MkdirAll(filepath.Join(tgt, "skill-a"), 0755)
+	m := &Manifest{Managed: map[string]string{"skill-a": "abc123"}}
+	if err := WriteManifest(tgt, m); err != nil {
+		t.Fatal(err)
+	}
+
+	// Empty mode means the caller didn't resolve the global default.
+	// FindLocalSkills treats "" as non-copy, so manifest is ignored.
+	// Callers are responsible for resolving "" → global mode before calling.
+	skills, err := FindLocalSkills(tgt, src, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 {
+		t.Fatalf("expected 1 skill with raw empty mode, got %d", len(skills))
 	}
 }
 

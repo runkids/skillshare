@@ -435,7 +435,7 @@ func TestFindLocalSkills_TargetIsSymlink(t *testing.T) {
 	os.MkdirAll(localSkill, 0755)
 	os.WriteFile(filepath.Join(localSkill, "SKILL.md"), []byte("# Local"), 0644)
 
-	skills, err := FindLocalSkills(symlinkTarget, src)
+	skills, err := FindLocalSkills(symlinkTarget, src, "merge")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -25,10 +25,15 @@ type collectJSONOutput struct {
 }
 
 // collectLocalSkills collects local skills from targets (non-symlinked)
-func collectLocalSkills(targets map[string]config.TargetConfig, source string) []sync.LocalSkillInfo {
+func collectLocalSkills(targets map[string]config.TargetConfig, source, globalMode string) []sync.LocalSkillInfo {
 	var allLocalSkills []sync.LocalSkillInfo
 	for name, target := range targets {
-		skills, err := sync.FindLocalSkills(target.SkillsConfig().Path, source)
+		sc := target.SkillsConfig()
+		mode := sync.EffectiveMode(sc.Mode)
+		if sc.Mode == "" && globalMode != "" {
+			mode = globalMode
+		}
+		skills, err := sync.FindLocalSkills(sc.Path, source, mode)
 		if err != nil {
 			ui.Warning("%s: %v", name, err)
 			continue
@@ -130,7 +135,7 @@ func cmdCollect(args []string) error {
 		sp = ui.StartSpinner("Scanning for local skills...")
 	}
 
-	allLocalSkills := collectLocalSkills(targets, cfg.Source)
+	allLocalSkills := collectLocalSkills(targets, cfg.Source, cfg.Mode)
 
 	if len(allLocalSkills) == 0 {
 		if sp != nil {

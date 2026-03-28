@@ -31,8 +31,11 @@ type PullResult struct {
 	Failed  map[string]error
 }
 
-// FindLocalSkills finds all local (non-symlinked) skills in a target directory
-func FindLocalSkills(targetPath, sourcePath string) ([]LocalSkillInfo, error) {
+// FindLocalSkills finds all local (non-symlinked) skills in a target directory.
+// syncMode should be the target's current sync mode ("merge", "copy", or "symlink").
+// In copy mode, skills listed in the manifest are considered managed and skipped.
+// In merge mode, managed skills are symlinks (already filtered), so the manifest is ignored.
+func FindLocalSkills(targetPath, sourcePath, syncMode string) ([]LocalSkillInfo, error) {
 	var skills []LocalSkillInfo
 
 	// Check if target exists
@@ -94,8 +97,11 @@ func FindLocalSkills(targetPath, sourcePath string) ([]LocalSkillInfo, error) {
 			continue
 		}
 
-		// Skip copy-mode managed skills
-		if manifest != nil {
+		// Skip copy-mode managed skills.
+		// Only relevant when the target is still in copy mode; after switching
+		// to merge the old manifest entries are stale (the physical copies are
+		// no longer managed) and should be treated as local.
+		if syncMode == "copy" && manifest != nil {
 			if _, isManaged := manifest.Managed[entry.Name()]; isManaged {
 				continue
 			}

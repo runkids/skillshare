@@ -38,6 +38,7 @@ func (s *Server) handleCollectScan(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
 	source := s.cfg.Source
+	globalMode := s.cfg.Mode
 	targets := s.cloneTargets()
 	s.mu.RUnlock()
 
@@ -51,7 +52,12 @@ func (s *Server) handleCollectScan(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		locals, err := ssync.FindLocalSkills(target.SkillsConfig().Path, source)
+		sc := target.SkillsConfig()
+		mode := ssync.EffectiveMode(sc.Mode)
+		if sc.Mode == "" && globalMode != "" {
+			mode = globalMode
+		}
+		locals, err := ssync.FindLocalSkills(sc.Path, source, mode)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "scan failed for "+name+": "+err.Error())
 			return
