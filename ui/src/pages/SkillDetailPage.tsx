@@ -3,7 +3,7 @@ import {
   ArrowLeft, Trash2, ExternalLink, FileText, ArrowUpRight, RefreshCw, Target,
   Type, AlignLeft, Files, Scale, Zap,
   FileCode2, Braces, Settings, BookOpen, File, FolderOpen,
-  ShieldCheck, Link2,
+  ShieldCheck, Link2, EyeOff, Eye,
 } from 'lucide-react';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -181,6 +181,7 @@ export default function SkillDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<string | null>(null);
   const { toast } = useToast();
@@ -330,6 +331,26 @@ export default function SkillDetailPage() {
     }
   };
 
+  const handleToggleDisabled = async () => {
+    setToggling(true);
+    try {
+      if (skill.disabled) {
+        await api.enableSkill(skill.flatName);
+        toast(`Enabled: ${skill.name}`, 'success');
+      } else {
+        await api.disableSkill(skill.flatName);
+        toast(`Disabled: ${skill.name}`, 'success');
+      }
+      await queryClient.invalidateQueries({ queryKey: queryKeys.skills.detail(name!) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+    } catch (e: unknown) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setToggling(false);
+    }
+  };
+
   return (
     <div className="animate-fade-in">
       {/* Header — sticky */}
@@ -349,6 +370,7 @@ export default function SkillDetailPage() {
           >
             {skill.name}
           </h2>
+          {skill.disabled && <Badge variant="danger">disabled</Badge>}
           {skill.isInRepo && <Badge variant="warning">tracked repo</Badge>}
           {skillTypeLabel(skill.type) && <Badge variant="info">{skillTypeLabel(skill.type)}</Badge>}
           {skill.targets && skill.targets.length > 0 && (
@@ -463,6 +485,24 @@ export default function SkillDetailPage() {
 
             {/* Actions */}
             <div className="flex gap-2 mt-4 pt-4 border-t border-dashed border-pencil-light/30">
+              <Button
+                onClick={handleToggleDisabled}
+                disabled={toggling}
+                variant={skill.disabled ? 'primary' : 'secondary'}
+                size="sm"
+                className="flex-1"
+              >
+                {toggling ? (
+                  <Spinner size="sm" />
+                ) : skill.disabled ? (
+                  <Eye size={14} strokeWidth={2.5} />
+                ) : (
+                  <EyeOff size={14} strokeWidth={2.5} />
+                )}
+                {toggling
+                  ? (skill.disabled ? 'Enabling...' : 'Disabling...')
+                  : (skill.disabled ? 'Enable' : 'Disable')}
+              </Button>
               {(skill.isInRepo || skill.source) && (
                 <Button
                   onClick={() => handleUpdate()}

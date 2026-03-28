@@ -130,6 +130,16 @@ export const api = {
     apiFetch<{ skill: Skill; skillMdContent: string; files: string[] }>(`/skills/${encodeURIComponent(name)}`),
   deleteSkill: (name: string) =>
     apiFetch<{ success: boolean }>(`/skills/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+  disableSkill: (name: string) =>
+    apiFetch<{ success: boolean; name: string; disabled: boolean }>(
+      `/skills/${encodeURIComponent(name)}/disable`,
+      { method: 'POST' }
+    ),
+  enableSkill: (name: string) =>
+    apiFetch<{ success: boolean; name: string; disabled: boolean }>(
+      `/skills/${encodeURIComponent(name)}/enable`,
+      { method: 'POST' }
+    ),
   batchUninstall: (opts: BatchUninstallRequest) =>
     apiFetch<BatchUninstallResult>('/uninstall/batch', {
       method: 'POST',
@@ -491,6 +501,7 @@ export interface Skill {
   type?: string;
   repoUrl?: string;
   version?: string;
+  disabled?: boolean;
 }
 
 export interface SkillPattern {

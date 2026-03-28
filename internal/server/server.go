@@ -315,6 +315,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/skills", s.handleCreateSkill)
 	s.mux.HandleFunc("GET /api/skills/{name}", s.handleGetSkill)
 	s.mux.HandleFunc("GET /api/skills/{name}/files/{filepath...}", s.handleGetSkillFile)
+	s.mux.HandleFunc("POST /api/skills/{name}/disable", s.handleDisableSkill)
+	s.mux.HandleFunc("POST /api/skills/{name}/enable", s.handleEnableSkill)
 	s.mux.HandleFunc("DELETE /api/skills/{name}", s.handleUninstallSkill)
 
 	// Targets

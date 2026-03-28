@@ -25,6 +25,7 @@ type skillItem struct {
 	Type        string   `json:"type,omitempty"`
 	RepoURL     string   `json:"repoUrl,omitempty"`
 	Version     string   `json:"version,omitempty"`
+	Disabled    bool     `json:"disabled"`
 }
 
 func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +34,7 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 	source := s.cfg.Source
 	s.mu.RUnlock()
 
-	discovered, err := sync.DiscoverSourceSkills(source)
+	discovered, err := sync.DiscoverSourceSkillsAll(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -48,6 +49,7 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 			SourcePath: d.SourcePath,
 			IsInRepo:   d.IsInRepo,
 			Targets:    d.Targets,
+			Disabled:   d.Disabled,
 		}
 
 		// Enrich with metadata if available
@@ -74,7 +76,7 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 
 	// Find the skill by flat name or base name
-	discovered, err := sync.DiscoverSourceSkills(source)
+	discovered, err := sync.DiscoverSourceSkillsAll(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -93,6 +95,7 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 			SourcePath: d.SourcePath,
 			IsInRepo:   d.IsInRepo,
 			Targets:    d.Targets,
+			Disabled:   d.Disabled,
 		}
 
 		if meta, _ := install.ReadMeta(d.SourcePath); meta != nil {

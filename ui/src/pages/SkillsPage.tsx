@@ -171,7 +171,7 @@ const SkillPostit = memo(function SkillPostit({
   const colorIdx = hashToIndex(colorKey, SKILL_PASTELS.length);
 
   return (
-    <Link to={`/skills/${encodeURIComponent(skill.flatName)}`} className="w-full h-full">
+    <Link to={`/skills/${encodeURIComponent(skill.flatName)}`} className={`w-full h-full${skill.disabled ? ' opacity-50' : ''}`}>
       <div
         className="ss-card ss-skill-card relative p-5 pb-4 bg-surface cursor-pointer border border-muted shadow-sm rounded-[var(--radius-md)] transition-all duration-150 hover:shadow-hover hover:border-muted-dark h-full flex flex-col"
         style={{
@@ -215,6 +215,7 @@ const SkillPostit = memo(function SkillPostit({
             <span />
           )}
           <div className="flex items-center gap-1.5 shrink-0">
+            {skill.disabled && <Badge variant="danger">disabled</Badge>}
             {skill.isInRepo && <Badge variant="default">tracked</Badge>}
             {!skill.isInRepo && getTypeLabel(skill.type) && <Badge variant="info">{getTypeLabel(skill.type)}</Badge>}
           </div>
@@ -589,13 +590,16 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
                 </td>
                 {/* Type badge */}
                 <td className="py-3 pr-4">
-                  {skill.isInRepo ? (
-                    <Badge variant="default">tracked</Badge>
-                  ) : getTypeLabel(skill.type) ? (
-                    <Badge variant="info">{getTypeLabel(skill.type)}</Badge>
-                  ) : (
-                    <Badge variant="default">local</Badge>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {skill.disabled && <Badge variant="danger">disabled</Badge>}
+                    {skill.isInRepo ? (
+                      <Badge variant="default">tracked</Badge>
+                    ) : getTypeLabel(skill.type) ? (
+                      <Badge variant="info">{getTypeLabel(skill.type)}</Badge>
+                    ) : (
+                      <Badge variant="default">local</Badge>
+                    )}
+                  </div>
                 </td>
                 {/* Source */}
                 <td className="py-3 text-sm text-pencil-light max-w-[280px]">
