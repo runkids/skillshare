@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -209,4 +210,80 @@ targets:
 	// Should ask to specify target
 	result.AssertSuccess(t)
 	result.AssertOutputContains(t, "Specify a target")
+}
+
+func TestCollect_CopyToMergeSwitch_FindsOrphanedCopies(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	targetPath := sb.CreateTarget("claude")
+
+	// Simulate: skill was synced in copy mode (physical dir + manifest entry)
+	copiedSkill := filepath.Join(targetPath, "copied-skill")
+	os.MkdirAll(copiedSkill, 0755)
+	os.WriteFile(filepath.Join(copiedSkill, "SKILL.md"), []byte("# Copied"), 0644)
+
+	writeManifest(t, targetPath, map[string]string{"copied-skill": "abc123"})
+
+	// Config now uses merge mode — orphaned copy should be detected as local
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  claude:
+    path: ` + targetPath + `
+    mode: merge
+`)
+
+	result := sb.RunCLI("collect", "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "copied-skill")
+}
+
+func TestCollect_GlobalCopyMode_InheritedTarget_SkipsManaged(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	targetPath := sb.CreateTarget("claude")
+
+	// Copy-mode managed skill
+	managedSkill := filepath.Join(targetPath, "managed-skill")
+	os.MkdirAll(managedSkill, 0755)
+	os.WriteFile(filepath.Join(managedSkill, "SKILL.md"), []byte("# Managed"), 0644)
+
+	// Truly local skill
+	localSkill := filepath.Join(targetPath, "local-skill")
+	os.MkdirAll(localSkill, 0755)
+	os.WriteFile(filepath.Join(localSkill, "SKILL.md"), []byte("# Local"), 0644)
+
+	writeManifest(t, targetPath, map[string]string{"managed-skill": "abc123"})
+
+	// Global mode: copy, target omits mode (inherits copy)
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: copy
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("collect", "--dry-run")
+
+	result.AssertSuccess(t)
+	result.AssertOutputContains(t, "local-skill")
+	result.AssertOutputNotContains(t, "managed-skill")
+}
+
+// writeManifest writes a .skillshare-manifest.json to the target directory.
+func writeManifest(t *testing.T, targetPath string, managed map[string]string) {
+	t.Helper()
+	m := map[string]any{
+		"managed":    managed,
+		"updated_at": "2026-01-01T00:00:00Z",
+	}
+	data, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(targetPath, ".skillshare-manifest.json"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
 }
