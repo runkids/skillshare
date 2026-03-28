@@ -283,7 +283,10 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 	}
 	if migrated {
 		if mdata, merr := yaml.Marshal(&cfg); merr == nil {
-			_ = os.WriteFile(path, append(projectSchemaComment, mdata...), 0644)
+			tmpPath := path + ".tmp"
+			if writeErr := os.WriteFile(tmpPath, append(projectSchemaComment, mdata...), 0644); writeErr == nil {
+				os.Rename(tmpPath, path)
+			}
 		}
 	}
 

@@ -331,7 +331,10 @@ func Load() (*Config, error) {
 	// Migrate legacy flat target fields to skills: sub-key (one-time, persisted immediately)
 	if migrateTargetConfigs(cfg.Targets) {
 		if data, err := yaml.Marshal(&cfg); err == nil {
-			_ = os.WriteFile(path, append(schemaComment, data...), 0644)
+			tmpPath := path + ".tmp"
+			if writeErr := os.WriteFile(tmpPath, append(schemaComment, data...), 0644); writeErr == nil {
+				os.Rename(tmpPath, path)
+			}
 		}
 	}
 
