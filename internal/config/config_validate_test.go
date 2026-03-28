@@ -138,6 +138,66 @@ func TestValidateConfig_ValidConfig(t *testing.T) {
 	}
 }
 
+func TestValidateConfig_CustomTarget_MissingPath(t *testing.T) {
+	cfg := &Config{
+		Source: t.TempDir(),
+		Targets: map[string]TargetConfig{
+			"my-custom-ide": {Skills: &ResourceTargetConfig{Mode: "merge"}},
+		},
+	}
+	_, err := ValidateConfig(cfg)
+	if err == nil {
+		t.Fatal("expected error for custom target without path")
+	}
+	if !strings.Contains(err.Error(), "missing path") {
+		t.Fatalf("expected 'missing path' error, got: %v", err)
+	}
+}
+
+func TestValidateConfig_BuiltinTarget_NoPath_OK(t *testing.T) {
+	cfg := &Config{
+		Source: t.TempDir(),
+		Targets: map[string]TargetConfig{
+			"claude": {Skills: &ResourceTargetConfig{Mode: "merge"}},
+		},
+	}
+	_, err := ValidateConfig(cfg)
+	if err != nil {
+		t.Fatalf("built-in target should accept empty path: %v", err)
+	}
+}
+
+func TestValidateProjectConfig_CustomTarget_MissingPath(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, ".skillshare", "skills"), 0755)
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{
+			{Name: "my-custom-ide", Skills: &ResourceTargetConfig{Mode: "merge"}},
+		},
+	}
+	_, err := ValidateProjectConfig(cfg, root)
+	if err == nil {
+		t.Fatal("expected error for custom project target without path")
+	}
+	if !strings.Contains(err.Error(), "missing path") {
+		t.Fatalf("expected 'missing path' error, got: %v", err)
+	}
+}
+
+func TestValidateProjectConfig_BuiltinTarget_NoPath_OK(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, ".skillshare", "skills"), 0755)
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{
+			{Name: "claude", Skills: &ResourceTargetConfig{Mode: "merge"}},
+		},
+	}
+	_, err := ValidateProjectConfig(cfg, root)
+	if err != nil {
+		t.Fatalf("built-in target should accept empty path: %v", err)
+	}
+}
+
 func TestValidateConfig_EmptyMode_OK(t *testing.T) {
 	tmpDir := t.TempDir()
 	targetDir := filepath.Join(tmpDir, "target")
