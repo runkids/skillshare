@@ -10,7 +10,7 @@ func TestAddPattern_CreatesFileIfMissing(t *testing.T) {
 	dir := t.TempDir()
 	fp := filepath.Join(dir, ".skillignore")
 
-	if err := AddPattern(fp, "my-skill"); err != nil {
+	if _, err := AddPattern(fp, "my-skill"); err != nil {
 		t.Fatalf("AddPattern: %v", err)
 	}
 
@@ -28,7 +28,7 @@ func TestAddPattern_AppendsToExisting(t *testing.T) {
 	fp := filepath.Join(dir, ".skillignore")
 	os.WriteFile(fp, []byte("existing-skill\n"), 0644)
 
-	if err := AddPattern(fp, "new-skill"); err != nil {
+	if _, err := AddPattern(fp, "new-skill"); err != nil {
 		t.Fatalf("AddPattern: %v", err)
 	}
 
@@ -44,7 +44,7 @@ func TestAddPattern_NoDuplicate(t *testing.T) {
 	fp := filepath.Join(dir, ".skillignore")
 	os.WriteFile(fp, []byte("my-skill\n"), 0644)
 
-	if err := AddPattern(fp, "my-skill"); err != nil {
+	if _, err := AddPattern(fp, "my-skill"); err != nil {
 		t.Fatalf("AddPattern: %v", err)
 	}
 
@@ -59,7 +59,7 @@ func TestAddPattern_PreservesCommentsAndBlanks(t *testing.T) {
 	fp := filepath.Join(dir, ".skillignore")
 	os.WriteFile(fp, []byte("# comment\n\nexisting\n"), 0644)
 
-	if err := AddPattern(fp, "new-skill"); err != nil {
+	if _, err := AddPattern(fp, "new-skill"); err != nil {
 		t.Fatalf("AddPattern: %v", err)
 	}
 
@@ -75,7 +75,7 @@ func TestAddPattern_NoTrailingNewline(t *testing.T) {
 	fp := filepath.Join(dir, ".skillignore")
 	os.WriteFile(fp, []byte("existing"), 0644)
 
-	if err := AddPattern(fp, "new-skill"); err != nil {
+	if _, err := AddPattern(fp, "new-skill"); err != nil {
 		t.Fatalf("AddPattern: %v", err)
 	}
 

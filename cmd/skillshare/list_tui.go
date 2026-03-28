@@ -394,10 +394,14 @@ func (m listTUIModel) toggleDisabled() (tea.Model, tea.Cmd) {
 	}
 
 	newDisabled := !item.entry.Disabled
+	var writeErr error
 	if newDisabled {
-		skillignore.AddPattern(ignorePath, pattern)
+		_, writeErr = skillignore.AddPattern(ignorePath, pattern)
 	} else {
-		skillignore.RemovePattern(ignorePath, pattern)
+		_, writeErr = skillignore.RemovePattern(ignorePath, pattern)
+	}
+	if writeErr != nil {
+		return m, nil
 	}
 
 	// Toggle the flag in allItems

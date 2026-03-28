@@ -8,26 +8,28 @@ import (
 
 // AddPattern appends a pattern to a .skillignore file.
 // Creates the file (and parent dirs) if it doesn't exist.
-// Does nothing if the exact pattern already exists.
-func AddPattern(filePath, pattern string) error {
-	if HasPattern(filePath, pattern) {
-		return nil
-	}
-
+// Returns true if the pattern was added, false if it already existed.
+func AddPattern(filePath, pattern string) (bool, error) {
 	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-		return err
+		return false, err
 	}
 
 	existing, _ := os.ReadFile(filePath)
 	content := string(existing)
 
-	// Ensure trailing newline before appending
+	// Check for duplicate in a single pass
+	for _, line := range strings.Split(content, "\n") {
+		if strings.TrimRight(line, " \t") == pattern {
+			return false, nil
+		}
+	}
+
 	if len(content) > 0 && !strings.HasSuffix(content, "\n") {
 		content += "\n"
 	}
 	content += pattern + "\n"
 
-	return os.WriteFile(filePath, []byte(content), 0644)
+	return true, os.WriteFile(filePath, []byte(content), 0644)
 }
 
 // RemovePattern removes all lines matching the exact pattern from a .skillignore file.
@@ -58,7 +60,6 @@ func RemovePattern(filePath, pattern string) (bool, error) {
 	}
 
 	result := strings.Join(kept, "\n")
-	// Remove trailing empty lines that result from removal
 	for strings.HasSuffix(result, "\n\n") {
 		result = strings.TrimSuffix(result, "\n")
 	}

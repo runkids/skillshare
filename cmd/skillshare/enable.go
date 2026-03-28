@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -81,6 +82,7 @@ func cmdToggleSkill(args []string, enable bool) error {
 		cfgPath = config.ConfigPath()
 	}
 
+	changed := false
 	for _, pattern := range patterns {
 		if dryRun {
 			if enable {
@@ -100,20 +102,23 @@ func cmdToggleSkill(args []string, enable bool) error {
 				ui.Warning("%s is not disabled", pattern)
 				continue
 			}
+			changed = true
 			ui.Success("Enabled: %s (removed from .skillignore)", pattern)
 		} else {
-			if skillignore.HasPattern(ignorePath, pattern) {
+			added, err := skillignore.AddPattern(ignorePath, pattern)
+			if err != nil {
+				return fmt.Errorf("failed to update .skillignore: %w", err)
+			}
+			if !added {
 				ui.Warning("%s is already disabled", pattern)
 				continue
 			}
-			if err := skillignore.AddPattern(ignorePath, pattern); err != nil {
-				return fmt.Errorf("failed to update .skillignore: %w", err)
-			}
+			changed = true
 			ui.Success("Disabled: %s (added to .skillignore)", pattern)
 		}
 	}
 
-	if !dryRun {
+	if !dryRun && changed {
 		ui.Info("Run \"skillshare sync\" to apply changes.")
 
 		e := oplog.NewEntry(action, "ok", time.Since(start))
@@ -145,12 +150,5 @@ Flags:
   -h, --help      Show this help
 
 See also: skillshare %s
-`, action, capitalizeFirst(action), opposite)
-}
-
-func capitalizeFirst(s string) string {
-	if s == "" {
-		return s
-	}
-	return string(s[0]-32) + s[1:]
+`, action, strings.ToUpper(action[:1])+action[1:], opposite)
 }
