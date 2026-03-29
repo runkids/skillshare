@@ -171,6 +171,9 @@ func cmdCheck(args []string) error {
 
 	applyModeLabel(mode)
 
+	// Extract kind filter (e.g. "skillshare check agents") before arg parsing.
+	kind, rest := parseKindArg(rest)
+
 	scope := "global"
 	if mode == modeProject {
 		scope = "project"
@@ -196,6 +199,39 @@ func cmdCheck(args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
+	}
+
+	// Agent-only check: scan agents source directory and skip repo checks.
+	if kind == kindAgents {
+		agentsDir := cfg.EffectiveAgentsSource()
+		agentResults := check.CheckAgents(agentsDir)
+		if opts.json {
+			out, _ := json.MarshalIndent(agentResults, "", "  ")
+			fmt.Println(string(out))
+		} else {
+			ui.Header(ui.WithModeLabel("Checking agents"))
+			ui.StepStart("Agents source", agentsDir)
+			if len(agentResults) == 0 {
+				ui.Info("No agents found")
+			} else {
+				fmt.Println()
+				for _, r := range agentResults {
+					switch r.Status {
+					case "up_to_date":
+						ui.ListItem("success", r.Name, "up to date")
+					case "drifted":
+						ui.ListItem("warning", r.Name, r.Message)
+					case "local":
+						ui.ListItem("info", r.Name, "local agent")
+					case "error":
+						ui.ListItem("error", r.Name, r.Message)
+					}
+				}
+			}
+			fmt.Println()
+		}
+		logCheckOp(cfgPath, 0, len(agentResults), 0, 0, scope, start, nil)
+		return nil
 	}
 
 	// No names and no groups → check all (existing behavior)
