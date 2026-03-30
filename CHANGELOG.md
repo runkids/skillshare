@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.18.4] - 2026-03-30
+
+### New Features
+
+#### Folder Tree View (Web UI)
+
+- **Skills folder tree** — the second layout on `/skills` is now a true folder tree with multi-level expand/collapse, matching your actual directory structure from `--into`:
+  - Click any folder to expand/collapse its children
+  - **Expand All / Collapse All** buttons in the toolbar
+  - **Sticky folder header** — scrolling through a long folder keeps the folder name pinned at the top; click it to jump back
+  - **Search-aware** — filtering or searching auto-expands all matching folders; clearing restores your previous collapse state
+  - **Hover tooltip** on skill rows shows path, source, and install date (follows cursor, 1.5s delay)
+  - Collapse state persists across page reloads via localStorage
+  - Virtualized rendering handles 10,000+ skills with no performance impact
+
+- **Skill detail button layout** — the Enable/Update/Uninstall buttons no longer wrap awkwardly on narrow screens
+
+#### Agent Target Paths
+
+- **Agent-specific paths** — targets that support agents (Claude, Cursor, OpenCode, Augment) now declare separate `agents:` paths in their configuration. This is groundwork for upcoming agent sync support
+
+#### GitHub Actions
+
+- **`setup-skillshare` action** — install skillshare in CI with a single step:
+  ```yaml
+  - uses: runkids/setup-skillshare@v1
+  ```
+
 ## [0.18.3] - 2026-03-29
 
 ### New Features
