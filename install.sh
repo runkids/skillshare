@@ -3,7 +3,9 @@ set -e
 
 REPO="runkids/skillshare"
 BINARY_NAME="skillshare"
-INSTALL_DIR="/usr/local/bin"
+if [ -z "${INSTALL_DIR}" ]; then
+	INSTALL_DIR="/usr/local/bin"
+fi
 
 # Colors (if terminal supports it)
 RED='\033[0;31m'
