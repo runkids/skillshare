@@ -712,6 +712,19 @@ export default function SkillsPage() {
     ro.observe(node);
     return () => ro.disconnect();
   }, []);
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<ResourceTab>(() => {
+    const urlTab = searchParams.get('tab');
+    if (urlTab === 'agents') return 'agents';
+    const saved = localStorage.getItem('skillshare:resources-tab');
+    return saved === 'agents' ? 'agents' : 'skills';
+  });
+  const changeTab = (tab: ResourceTab) => {
+    setActiveTab(tab);
+    localStorage.setItem('skillshare:resources-tab', tab);
+    setFilterType('all');
+    setSearch('');
+  };
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('name-asc');
@@ -818,7 +831,7 @@ export default function SkillsPage() {
             key={tab.key}
             role="tab"
             aria-selected={activeTab === tab.key}
-            onClick={() => { setActiveTab(tab.key); setFilterType('all'); setSearch(''); }}
+            onClick={() => changeTab(tab.key)}
             className={`
               ss-resource-tab
               inline-flex items-center gap-1.5 px-1 pb-2.5 text-sm font-semibold cursor-pointer
@@ -1301,7 +1314,10 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
           >
             {indentGuides}
             <span style={{ width: 14 }} className="shrink-0" />
-            <Puzzle size={14} strokeWidth={2} className="text-pencil-light/60 shrink-0" />
+            {skill.kind === 'agent'
+              ? <FileText size={14} strokeWidth={2} className="text-pencil-light/60 shrink-0" />
+              : <Puzzle size={14} strokeWidth={2} className="text-pencil-light/60 shrink-0" />
+            }
             <span className="text-sm text-pencil truncate">{skill.name}</span>
             <span className="ml-auto shrink-0 flex items-center gap-1">
               {skill.disabled && <Badge variant="danger">disabled</Badge>}
@@ -1346,7 +1362,7 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
               )}
             </>
           ) : (
-            <>{skills.length} skill{skills.length !== 1 ? 's' : ''} in {folderCount} folder{folderCount !== 1 ? 's' : ''}</>
+            <>{activeItems.length} {activeTab === 'agents' ? 'agent' : 'skill'}{activeItems.length !== 1 ? 's' : ''} in {folderCount} folder{folderCount !== 1 ? 's' : ''}</>
           )}
         </span>
         {folderCount > 1 && (

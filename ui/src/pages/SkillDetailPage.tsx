@@ -536,7 +536,7 @@ export default function SkillDetailPage() {
             </div>
           </Card>
 
-          <Card className="ss-detail-pinned" overflow>
+          {skill.kind !== 'agent' && <Card className="ss-detail-pinned" overflow>
             <h3
               className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2"
             >
@@ -589,7 +589,7 @@ export default function SkillDetailPage() {
             ) : (
               <p className="text-sm text-muted-dark italic">No files.</p>
             )}
-          </Card>
+          </Card>}
 
           {/* Security Audit */}
           <SecurityAuditCard auditQuery={auditQuery} />
