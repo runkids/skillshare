@@ -213,6 +213,33 @@ Name constraints for `--track --name`:
 
 ---
 
+## Branch Tracking
+
+You can track a specific branch of a repository:
+
+```bash
+skillshare install github.com/team/skills --track --branch frontend
+```
+
+The tracked repo clones and follows the specified branch. Updates via `skillshare update` pull from that branch automatically.
+
+To install the same repo on multiple branches, use `--name` to avoid name collisions:
+
+```bash
+skillshare install github.com/team/skills --track --branch frontend --name team-frontend
+skillshare install github.com/team/skills --track --branch backend --name team-backend
+```
+
+Branch also works with regular (non-tracked) installs:
+
+```bash
+skillshare install github.com/team/skills --branch develop --all
+```
+
+The branch is persisted in skill metadata, so `skillshare update` and `skillshare check` use the correct branch automatically.
+
+---
+
 ## Collision Detection
 
 When multiple skills share the same `name` field, sync checks whether they actually land on the same target after `include`/`exclude` filters are applied.
