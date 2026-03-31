@@ -24,6 +24,7 @@ type SkillMeta struct {
 	Version     string            `json:"version,omitempty"`     // Git commit hash or version
 	TreeHash    string            `json:"tree_hash,omitempty"`   // Git tree SHA of Subdir
 	FileHashes  map[string]string `json:"file_hashes,omitempty"` // sha256:<hex> per file
+	Branch     string            `json:"branch,omitempty"`     // Git branch (when non-default)
 }
 
 // WriteMeta saves metadata to the skill directory

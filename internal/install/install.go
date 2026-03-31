@@ -25,6 +25,7 @@ type InstallOptions struct {
 	AuditThreshold   string   // Block threshold: CRITICAL/HIGH/MEDIUM/LOW/INFO
 	AuditProjectRoot string   // Project root for project-mode audit rule resolution
 	Quiet            bool     // Suppress per-skill output in InstallFromConfig
+	Branch           string   // Git branch to clone from (empty = remote default)
 }
 
 // ShouldInstallAll returns true if all discovered skills should be installed without prompting.

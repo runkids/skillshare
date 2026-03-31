@@ -189,6 +189,7 @@ type SkillEntry struct {
 	Source  string `yaml:"source"`
 	Tracked bool   `yaml:"tracked,omitempty"`
 	Group   string `yaml:"group,omitempty"`
+	Branch  string `yaml:"branch,omitempty"`
 }
 
 // EffectiveKind returns the resource kind for this entry.
