@@ -70,6 +70,16 @@ func TestInstallBranch_TrackedRepo(t *testing.T) {
 	if _, err := os.Stat(mainSkillPath); err != nil {
 		t.Errorf("main-skill should exist at %s: %v", mainSkillPath, err)
 	}
+
+	// Verify branch is written to registry.yaml
+	registryPath := filepath.Join(sb.SourcePath, "registry.yaml")
+	regData, err := os.ReadFile(registryPath)
+	if err != nil {
+		t.Fatalf("read registry: %v", err)
+	}
+	if !strings.Contains(string(regData), "branch: dev") {
+		t.Errorf("registry.yaml should contain 'branch: dev', got:\n%s", regData)
+	}
 }
 
 func TestInstallBranch_FlagParsing(t *testing.T) {

@@ -83,6 +83,14 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 
 		fullPath := filepath.ToSlash(relPath)
 
+		// Determine branch: from metadata (regular skills) or git (tracked repos)
+		var branch string
+		if meta != nil {
+			branch = meta.Branch
+		} else if tracked {
+			branch = gitCurrentBranch(path)
+		}
+
 		if existingIdx, ok := index[fullPath]; ok {
 			if reg.Skills[existingIdx].Source != source {
 				reg.Skills[existingIdx].Source = source
@@ -92,17 +100,15 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 				reg.Skills[existingIdx].Tracked = tracked
 				changed = true
 			}
-			if meta != nil && reg.Skills[existingIdx].Branch != meta.Branch {
-				reg.Skills[existingIdx].Branch = meta.Branch
+			if reg.Skills[existingIdx].Branch != branch {
+				reg.Skills[existingIdx].Branch = branch
 				changed = true
 			}
 		} else {
 			entry := SkillEntry{
 				Source:  source,
 				Tracked: tracked,
-			}
-			if meta != nil && meta.Branch != "" {
-				entry.Branch = meta.Branch
+				Branch:  branch,
 			}
 			if idx := strings.LastIndex(fullPath, "/"); idx >= 0 {
 				entry.Group = fullPath[:idx]
@@ -153,6 +159,16 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 func isGitRepo(path string) bool {
 	_, err := os.Stat(filepath.Join(path, ".git"))
 	return err == nil
+}
+
+// gitCurrentBranch returns the current branch name for a git repo, or "" on failure.
+func gitCurrentBranch(repoPath string) string {
+	cmd := exec.Command("git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // gitRemoteOrigin returns the "origin" remote URL for a git repo, or "" on failure.

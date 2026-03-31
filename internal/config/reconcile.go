@@ -75,6 +75,14 @@ func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
 
 		fullPath := filepath.ToSlash(relPath)
 
+		// Determine branch: from metadata (regular skills) or git (tracked repos)
+		var branch string
+		if meta != nil {
+			branch = meta.Branch
+		} else if tracked {
+			branch = gitCurrentBranch(path)
+		}
+
 		if existingIdx, ok := index[fullPath]; ok {
 			if reg.Skills[existingIdx].Source != source {
 				reg.Skills[existingIdx].Source = source
@@ -84,17 +92,15 @@ func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
 				reg.Skills[existingIdx].Tracked = tracked
 				changed = true
 			}
-			if meta != nil && reg.Skills[existingIdx].Branch != meta.Branch {
-				reg.Skills[existingIdx].Branch = meta.Branch
+			if reg.Skills[existingIdx].Branch != branch {
+				reg.Skills[existingIdx].Branch = branch
 				changed = true
 			}
 		} else {
 			entry := SkillEntry{
 				Source:  source,
 				Tracked: tracked,
-			}
-			if meta != nil && meta.Branch != "" {
-				entry.Branch = meta.Branch
+				Branch:  branch,
 			}
 			if idx := strings.LastIndex(fullPath, "/"); idx >= 0 {
 				entry.Group = fullPath[:idx]
