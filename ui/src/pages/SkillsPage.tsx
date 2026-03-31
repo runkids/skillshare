@@ -389,6 +389,12 @@ const SkillPostit = memo(function SkillPostit({
             {skill.disabled && <Badge variant="danger">disabled</Badge>}
             {skill.isInRepo && <Badge variant="default">tracked</Badge>}
             {!skill.isInRepo && getTypeLabel(skill.type) && <Badge variant="info">{getTypeLabel(skill.type)}</Badge>}
+            {skill.branch && (
+              <Badge variant="default">
+                <GitBranch size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
+                {skill.branch}
+              </Badge>
+            )}
           </div>
         </div>
       </div>
@@ -782,6 +788,12 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
                   ? <Badge variant="info">{getTypeLabel(skill.type)}</Badge>
                   : <Badge variant="default">local</Badge>
               }
+              {skill.branch && (
+                <Badge variant="default">
+                  <GitBranch size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
+                  {skill.branch}
+                </Badge>
+              )}
             </span>
           </Link>
         </Tooltip>
@@ -935,6 +947,12 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
                       <Badge variant="info">{getTypeLabel(skill.type)}</Badge>
                     ) : (
                       <Badge variant="default">local</Badge>
+                    )}
+                    {skill.branch && (
+                      <Badge variant="default">
+                        <GitBranch size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
+                        {skill.branch}
+                      </Badge>
                     )}
                   </div>
                 </td>

@@ -102,6 +102,7 @@ export default function InstallForm({
   const [track, setTrack] = useState(false);
   const [force, setForce] = useState(false);
   const [skipAudit, setSkipAudit] = useState(false);
+  const [branch, setBranch] = useState('');
   const [installing, setInstalling] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -121,12 +122,20 @@ export default function InstallForm({
   const [warningDialog, setWarningDialog] = useState<string[] | null>(null);
   const [severityFilter, setSeverityFilter] = useState<string | null>(null);
 
+  const isGitSource = useCallback((s: string) => {
+    const trimmed = s.trim();
+    if (!trimmed) return false;
+    if (/^[/~.]/.test(trimmed) || /^[a-zA-Z]:\\/.test(trimmed)) return false;
+    return trimmed.includes('/') || trimmed.startsWith('git@') || trimmed.includes('://');
+  }, []);
+
   const resetForm = () => {
     setName('');
     setInto('');
     setTrack(false);
     setForce(false);
     setSkipAudit(false);
+    setBranch('');
     if (collapsible) setOpen(false);
   };
 
@@ -178,6 +187,7 @@ export default function InstallForm({
           track: true,
           force: true,
           skipAudit,
+          branch: branch.trim() || undefined,
         });
         handleResult(res, res.skillName ?? res.repoName);
       } else if (pending.type === 'batch') {
@@ -187,6 +197,7 @@ export default function InstallForm({
           into: pending.into,
           force: true,
           skipAudit,
+          branch: branch.trim() || undefined,
         });
         toast(res.summary, 'success');
         const allWarnings: string[] = [];
@@ -205,6 +216,7 @@ export default function InstallForm({
           into: pending.into,
           force: true,
           skipAudit,
+          branch: branch.trim() || undefined,
         });
         handleResult(res, res.skillName ?? res.repoName);
       }
@@ -232,6 +244,7 @@ export default function InstallForm({
           track: true,
           force,
           skipAudit,
+          branch: branch.trim() || undefined,
         });
         handleResult(res, res.skillName ?? res.repoName);
       } catch (e: unknown) {
@@ -245,7 +258,7 @@ export default function InstallForm({
     // Discovery flow
     setInstalling(true);
     try {
-      const disc = await api.discover(trimmed);
+      const disc = await api.discover(trimmed, branch.trim() || undefined);
       if (disc.skills.length > 1) {
         // Multiple skills found — open picker
         setDiscoveredSkills(disc.skills);
@@ -259,6 +272,7 @@ export default function InstallForm({
           into: into.trim() || undefined,
           force,
           skipAudit,
+          branch: branch.trim() || undefined,
         });
         const allWarnings: string[] = [];
         const auditFindings: string[] = [];
@@ -300,6 +314,7 @@ export default function InstallForm({
           into: into.trim() || undefined,
           force,
           skipAudit,
+          branch: branch.trim() || undefined,
         });
         handleResult(res, res.skillName ?? res.repoName);
       }
@@ -320,6 +335,7 @@ export default function InstallForm({
         force,
         skipAudit,
         name: selected.length === 1 && name.trim() ? name.trim() : undefined,
+        branch: branch.trim() || undefined,
       });
       const allWarnings: string[] = [];
       const auditFindings: string[] = [];
@@ -389,20 +405,31 @@ export default function InstallForm({
   const formContent = (
     <Card variant="default" className="animate-fade-in">
       <div className="space-y-5">
-        {/* Source — primary input */}
+        {/* Source + Branch — inline when git source detected */}
         <div>
-          <Input
-            label="Source"
-            type="text"
-            placeholder="owner/repo, git URL, or local path"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleInstall()}
-          />
+          <div className={isGitSource(source) ? 'grid grid-cols-[7fr_3fr] gap-3' : ''}>
+            <Input
+              label="Source"
+              type="text"
+              placeholder="owner/repo, git URL, or local path"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleInstall()}
+            />
+            {isGitSource(source) && (
+              <Input
+                label="Branch"
+                type="text"
+                placeholder="default"
+                value={branch}
+                onChange={(e) => setBranch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleInstall()}
+              />
+            )}
+          </div>
           <p className="text-xs text-muted-dark mt-1.5">
-            e.g. <span className="font-mono">owner/repo</span>, <span className="font-mono">https://github.com/…</span>, <span className="font-mono">https://gitlab.com/…</span>, or <span className="font-mono">~/local/path</span>
-            <br />
-            Private repos: use SSH <span className="font-mono">git@host:org/repo</span> or configure an access token
+            e.g. <span className="font-mono">owner/repo</span>, <span className="font-mono">https://github.com/…</span>, or <span className="font-mono">~/local/path</span>
+            {isGitSource(source) && <> · Leave branch empty for remote default</>}
           </p>
         </div>
 

@@ -449,6 +449,7 @@ export default function SkillDetailPage() {
               <MetaItem label="Path" value={skill.relPath} mono copyable copyValue={skill.sourcePath} />
               {skill.source && <MetaItem label="Source" value={skill.source} mono />}
               {skill.version && <MetaItem label="Version" value={skill.version} mono />}
+              {skill.branch && <MetaItem label="Branch" value={skill.branch} mono />}
               {skill.installedAt && (
                 <MetaItem
                   label="Installed"
