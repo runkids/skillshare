@@ -43,6 +43,7 @@ type Source struct {
 	Subdir   string // Subdirectory path for monorepo
 	Path     string // Local path (empty for git)
 	Name     string // Derived skill name
+	Branch   string // Git branch to clone from (empty = remote default)
 }
 
 // GitHub URL pattern: github.com/owner/repo[/path/to/subdir]

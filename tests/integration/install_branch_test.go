@@ -104,3 +104,49 @@ func TestInstallBranch_FlagParsing(t *testing.T) {
 		result.AssertAnyOutputContains(t, "--branch requires a non-empty value")
 	})
 }
+
+func TestInstallBranch_RegularInstall(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+
+	// Create bare repo with two branches
+	remoteRepo := filepath.Join(sb.Root, "regular-repo.git")
+	gitInit(t, remoteRepo, true)
+
+	workDir := filepath.Join(sb.Root, "work-regular")
+	gitClone(t, remoteRepo, workDir)
+
+	// main branch: one skill
+	os.MkdirAll(filepath.Join(workDir, "alpha"), 0755)
+	os.WriteFile(filepath.Join(workDir, "alpha", "SKILL.md"), []byte("---\nname: alpha\n---\n# Alpha"), 0644)
+	gitAddCommit(t, workDir, "add alpha")
+	gitPush(t, workDir)
+
+	// feature branch: additional skill
+	cmd := exec.Command("git", "checkout", "-b", "feature")
+	cmd.Dir = workDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git checkout -b feature: %s %v", out, err)
+	}
+	os.MkdirAll(filepath.Join(workDir, "beta"), 0755)
+	os.WriteFile(filepath.Join(workDir, "beta", "SKILL.md"), []byte("---\nname: beta\n---\n# Beta"), 0644)
+	gitAddCommit(t, workDir, "add beta")
+	pushCmd := exec.Command("git", "push", "origin", "feature")
+	pushCmd.Dir = workDir
+	if out, err := pushCmd.CombinedOutput(); err != nil {
+		t.Fatalf("git push origin feature: %s %v", out, err)
+	}
+
+	// Install from feature branch with --all
+	result := sb.RunCLI("install", "file://"+remoteRepo, "--branch", "feature", "--all", "--skip-audit")
+	result.AssertSuccess(t)
+
+	// Both alpha and beta should be installed (feature branch has both)
+	if _, err := os.Stat(filepath.Join(sb.SourcePath, "alpha", "SKILL.md")); err != nil {
+		t.Error("alpha skill should be installed")
+	}
+	if _, err := os.Stat(filepath.Join(sb.SourcePath, "beta", "SKILL.md")); err != nil {
+		t.Error("beta skill should be installed")
+	}
+}

@@ -324,7 +324,8 @@ func cmdInstall(args []string) error {
 	if parsed.sourceArg == "" {
 		hasSourceFlags := parsed.opts.Name != "" || parsed.opts.Into != "" ||
 			parsed.opts.Track || len(parsed.opts.Skills) > 0 ||
-			len(parsed.opts.Exclude) > 0 || parsed.opts.All || parsed.opts.Yes || parsed.opts.Update
+			len(parsed.opts.Exclude) > 0 || parsed.opts.All || parsed.opts.Yes || parsed.opts.Update ||
+			parsed.opts.Branch != ""
 		if hasSourceFlags && !parsed.jsonOutput {
 			return fmt.Errorf("flags --name, --into, --track, --skill, --exclude, --all, --yes, and --update require a source argument")
 		}
@@ -375,6 +376,9 @@ func cmdInstall(args []string) error {
 	}
 
 	source, resolvedFromMeta, err := resolveInstallSource(parsed.sourceArg, parsed.opts, cfg)
+	if err == nil && parsed.opts.Branch != "" {
+		source.Branch = parsed.opts.Branch
+	}
 	if err != nil {
 		logInstallOp(config.ConfigPath(), rest, start, err, installLogSummary{
 			Source: parsed.sourceArg,

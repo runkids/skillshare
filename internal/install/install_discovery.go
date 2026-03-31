@@ -27,7 +27,7 @@ func discoverFromGitWithProgressImpl(source *Source, onProgress ProgressCallback
 	}
 
 	repoPath := filepath.Join(tempDir, "repo")
-	if err := cloneRepo(source.CloneURL, repoPath, true, onProgress); err != nil {
+	if err := cloneRepo(source.CloneURL, repoPath, source.Branch, true, onProgress); err != nil {
 		os.RemoveAll(tempDir)
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
@@ -238,7 +238,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 	if onProgress != nil {
 		onProgress("Cloning repository...")
 	}
-	if err := cloneRepo(source.CloneURL, repoPath, true, onProgress); err != nil {
+	if err := cloneRepo(source.CloneURL, repoPath, source.Branch, true, onProgress); err != nil {
 		os.RemoveAll(tempDir)
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}

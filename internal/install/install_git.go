@@ -133,7 +133,8 @@ func extractGitFatal(stderr string) string {
 // cloneRepo performs a git clone (quiet mode for cleaner output).
 // If a token is available in env vars, it injects authentication via
 // GIT_CONFIG env vars without modifying the stored remote URL.
-func cloneRepo(url, destPath string, shallow bool, onProgress ProgressCallback) error {
+// branch specifies the branch to clone; empty string uses the remote default.
+func cloneRepo(url, destPath, branch string, shallow bool, onProgress ProgressCallback) error {
 	args := []string{"clone"}
 	if onProgress != nil {
 		args = append(args, "--progress")
@@ -142,6 +143,9 @@ func cloneRepo(url, destPath string, shallow bool, onProgress ProgressCallback) 
 	}
 	if shallow {
 		args = append(args, "--depth", "1")
+	}
+	if branch != "" {
+		args = append(args, "--branch", branch)
 	}
 	args = append(args, url, destPath)
 	return runGitCommandWithProgress(args, "", authEnv(url), onProgress)
