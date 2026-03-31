@@ -660,6 +660,48 @@ func GetRemoteHeadHashWithEnv(repoURL string, extraEnv []string) (string, error)
 	return hash, nil
 }
 
+// GetRemoteRefHash returns the hash of a specific branch on a remote repo.
+// If branch is empty, returns HEAD hash (same as GetRemoteHeadHash).
+// The returned hash is truncated to 7 characters.
+func GetRemoteRefHash(repoURL, branch string) (string, error) {
+	return GetRemoteRefHashWithEnv(repoURL, branch, nil)
+}
+
+// GetRemoteRefHashWithAuth returns the remote ref hash with HTTPS token auth.
+func GetRemoteRefHashWithAuth(repoURL, branch string) (string, error) {
+	return GetRemoteRefHashWithEnv(repoURL, branch, install.AuthEnvForURL(repoURL))
+}
+
+// GetRemoteRefHashWithEnv returns the hash of a specific ref on a remote repo.
+func GetRemoteRefHashWithEnv(repoURL, branch string, extraEnv []string) (string, error) {
+	ref := "HEAD"
+	if branch != "" {
+		ref = "refs/heads/" + branch
+	}
+
+	cmd := exec.Command("git", "ls-remote", repoURL, ref)
+	if len(extraEnv) > 0 {
+		cmd.Env = append(os.Environ(), extraEnv...)
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	parts := strings.Fields(strings.TrimSpace(string(out)))
+	if len(parts) == 0 {
+		if branch != "" {
+			return "", fmt.Errorf("remote branch %q not found", branch)
+		}
+		return "", fmt.Errorf("no HEAD ref found")
+	}
+	hash := parts[0]
+	if len(hash) > 7 {
+		hash = hash[:7]
+	}
+	return hash, nil
+}
+
 // ForcePull fetches and resets to origin (handles force push)
 func ForcePull(repoPath string) (*UpdateInfo, error) {
 	return ForcePullWithEnv(repoPath, nil)

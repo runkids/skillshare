@@ -134,6 +134,9 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 			continue
 		}
 		source.Name = bareName
+		if skill.Branch != "" {
+			source.Branch = skill.Branch
+		}
 
 		if skill.Tracked {
 			tracked = append(tracked, skill)
@@ -158,6 +161,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 			continue
 		}
 		source.Name = bareName
+		source.Branch = skill.Branch
 
 		installed := installTrackedFromConfig(source, sourcePath, displayName, groupDir, opts)
 		if installed.failed {

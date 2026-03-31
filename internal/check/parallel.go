@@ -25,12 +25,14 @@ type RepoCheckOutput struct {
 // URLCheckInput describes a remote URL to probe.
 type URLCheckInput struct {
 	RepoURL string
+	Branch  string
 }
 
 // URLCheckOutput holds the result of probing a remote URL.
 type URLCheckOutput struct {
 	RepoURL    string
 	RemoteHash string
+	Branch     string
 	Err        error
 }
 
@@ -114,10 +116,17 @@ func ParallelCheckURLs(urls []URLCheckInput, onDone func()) []URLCheckOutput {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			hash, err := git.GetRemoteHeadHashWithAuth(input.RepoURL)
+			var hash string
+			var err error
+			if input.Branch != "" {
+				hash, err = git.GetRemoteRefHashWithAuth(input.RepoURL, input.Branch)
+			} else {
+				hash, err = git.GetRemoteHeadHashWithAuth(input.RepoURL)
+			}
 			outputs[idx] = URLCheckOutput{
 				RepoURL:    input.RepoURL,
 				RemoteHash: hash,
+				Branch:     input.Branch,
 				Err:        err,
 			}
 			if onDone != nil {
