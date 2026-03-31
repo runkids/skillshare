@@ -576,7 +576,7 @@ export default function InstallForm({
       title="Security Warnings"
       message={
         <div className="text-left space-y-3">
-          <div className="flex items-center gap-2 justify-center mb-1">
+          <div className="flex items-center gap-2 mb-4">
             <ShieldCheck size={20} className="text-warning" />
             <span>Skill installed with audit warnings</span>
           </div>
@@ -589,7 +589,7 @@ export default function InstallForm({
               <span className="text-pencil-light">— showing {filteredWarnings.length}</span>
             )}
           </div>
-          <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
+          <div className="space-y-2 max-h-128 overflow-y-auto pr-1">
             {filteredWarnings.map((f, i) => {
               const s = severityStyle(f.severity);
               return (

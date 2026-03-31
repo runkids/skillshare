@@ -13,7 +13,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import PageHeader from '../components/PageHeader';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
-import type { AvailableTarget } from '../api/client';
+import type { AvailableTarget, Target as TargetType } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { radius, shadows } from '../design';
 import { shortenHome } from '../lib/paths';
@@ -57,13 +57,28 @@ export default function TargetsPage() {
     payload: Parameters<typeof api.updateTarget>[1],
     label: string,
   ) => {
+    // Optimistic update: apply change to cache immediately
+    const queryKey = queryKeys.targets.all;
+    const previous = queryClient.getQueryData<{ targets: TargetType[]; sourceSkillCount: number }>(queryKey);
+
+    if (previous) {
+      queryClient.setQueryData(queryKey, {
+        ...previous,
+        targets: previous.targets.map((t) =>
+          t.name === targetName ? { ...t, ...payload, ...(payload.target_naming != null ? { targetNaming: payload.target_naming } : {}) } : t,
+        ),
+      });
+    }
+
     try {
       await api.updateTarget(targetName, payload);
-      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+      queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: queryKeys.config });
       queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
       toast(`${targetName}: ${label}`, 'success');
     } catch (e) {
+      // Rollback on error
+      if (previous) queryClient.setQueryData(queryKey, previous);
       toast((e as Error).message, 'error');
     }
   };
