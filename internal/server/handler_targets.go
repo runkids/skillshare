@@ -71,32 +71,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch mode {
-		case "merge":
-			if discoveredErr == nil {
-				filtered, err := ssync.FilterSkills(discovered, sc.Include, sc.Exclude)
-				if err != nil {
-					writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
-					return
-				}
-				filtered = ssync.FilterSkillsByTarget(filtered, name)
-				// Use resolution count (excludes collisions/invalid names) for accurate display
-				resolution, resErr := ssync.ResolveTargetSkillsForTarget(name, config.ResourceTargetConfig{
-					Path:         sc.Path,
-					TargetNaming: sc.TargetNaming,
-				}, filtered)
-				if resErr == nil {
-					item.ExpectedSkillCount = len(resolution.Skills)
-					item.SkippedSkillCount = len(filtered) - len(resolution.Skills)
-					item.CollisionCount = len(resolution.Collisions)
-				} else {
-					item.ExpectedSkillCount = len(filtered)
-				}
-			}
-			status, linked, local := ssync.CheckStatusMerge(sc.Path, source)
-			item.Status = status.String()
-			item.LinkedCount = linked
-			item.LocalCount = local
-		case "copy":
+		case "merge", "copy":
 			if discoveredErr == nil {
 				filtered, err := ssync.FilterSkills(discovered, sc.Include, sc.Exclude)
 				if err != nil {
@@ -116,10 +91,17 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 					item.ExpectedSkillCount = len(filtered)
 				}
 			}
-			status, managed, local := ssync.CheckStatusCopy(sc.Path)
-			item.Status = status.String()
-			item.LinkedCount = managed // reuse field for managed count
-			item.LocalCount = local
+			if mode == "merge" {
+				status, linked, local := ssync.CheckStatusMerge(sc.Path, source)
+				item.Status = status.String()
+				item.LinkedCount = linked
+				item.LocalCount = local
+			} else {
+				status, managed, local := ssync.CheckStatusCopy(sc.Path)
+				item.Status = status.String()
+				item.LinkedCount = managed
+				item.LocalCount = local
+			}
 		default:
 			status := ssync.CheckStatus(sc.Path, source)
 			item.Status = status.String()

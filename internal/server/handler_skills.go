@@ -30,6 +30,16 @@ type skillItem struct {
 	Disabled    bool     `json:"disabled"`
 }
 
+// enrichSkillBranch fills item.Branch from metadata, falling back to
+// git.GetCurrentBranch for tracked repos without branch in metadata.
+func enrichSkillBranch(item *skillItem) {
+	if item.Branch == "" && item.IsInRepo {
+		if branch, err := git.GetCurrentBranch(item.SourcePath); err == nil {
+			item.Branch = branch
+		}
+	}
+}
+
 func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
@@ -63,11 +73,7 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 			item.Version = meta.Version
 			item.Branch = meta.Branch
 		}
-		if item.Branch == "" && item.IsInRepo {
-			if branch, err := git.GetCurrentBranch(d.SourcePath); err == nil {
-				item.Branch = branch
-			}
-		}
+		enrichSkillBranch(&item)
 
 		items = append(items, item)
 	}
@@ -114,11 +120,7 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 			item.Version = meta.Version
 			item.Branch = meta.Branch
 		}
-		if item.Branch == "" && item.IsInRepo {
-			if branch, err := git.GetCurrentBranch(d.SourcePath); err == nil {
-				item.Branch = branch
-			}
-		}
+		enrichSkillBranch(&item)
 
 		// Read SKILL.md content
 		skillMdContent := ""

@@ -89,10 +89,7 @@ func collectCheckItems(sourceDir string, repos []string, skills []string) (
 			continue
 		}
 
-		groupKey := meta.RepoURL
-		if meta.Branch != "" {
-			groupKey = meta.RepoURL + "@" + meta.Branch
-		}
+		groupKey := urlBranchKey(meta.RepoURL, meta.Branch)
 		urlGroups[groupKey] = append(urlGroups[groupKey], skillWithMeta{
 			name: skill,
 			path: skillPath,
@@ -129,6 +126,22 @@ func parseCheckArgs(args []string) (*checkOptions, bool, error) {
 	}
 
 	return opts, false, nil
+}
+
+// urlBranchKey creates a composite grouping key from a URL and optional branch.
+func urlBranchKey(url, branch string) string {
+	if branch != "" {
+		return url + "@" + branch
+	}
+	return url
+}
+
+// splitURLBranch splits a composite key back into URL and branch.
+func splitURLBranch(key string) (url, branch string) {
+	if at := strings.LastIndex(key, "@"); at > 0 {
+		return key[:at], key[at+1:]
+	}
+	return key, ""
 }
 
 func cmdCheck(args []string) error {
@@ -259,12 +272,7 @@ func runCheck(sourceDir string, jsonOutput bool, extraTargetNames []string) erro
 	var urlInputs []check.URLCheckInput
 	var urlOrder []string
 	for key := range urlGroups {
-		url := key
-		branch := ""
-		if at := strings.LastIndex(key, "@"); at > 0 {
-			url = key[:at]
-			branch = key[at+1:]
-		}
+		url, branch := splitURLBranch(key)
 		urlInputs = append(urlInputs, check.URLCheckInput{RepoURL: url, Branch: branch})
 		urlOrder = append(urlOrder, key)
 	}
@@ -311,11 +319,7 @@ func runCheck(sourceDir string, jsonOutput bool, extraTargetNames []string) erro
 	// Broadcast URL results to grouped skills (with per-skill tree hash comparison)
 	urlHashMap := make(map[string]check.URLCheckOutput)
 	for _, out := range urlOutputs {
-		key := out.RepoURL
-		if out.Branch != "" {
-			key = out.RepoURL + "@" + out.Branch
-		}
-		urlHashMap[key] = out
+		urlHashMap[urlBranchKey(out.RepoURL, out.Branch)] = out
 	}
 
 	skillResults := resolveSkillStatuses(urlGroups, urlHashMap, urlOrder)
@@ -732,12 +736,7 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 	var urlInputs []check.URLCheckInput
 	var urlOrder []string
 	for key := range urlGroups {
-		url := key
-		branch := ""
-		if at := strings.LastIndex(key, "@"); at > 0 {
-			url = key[:at]
-			branch = key[at+1:]
-		}
+		url, branch := splitURLBranch(key)
 		urlInputs = append(urlInputs, check.URLCheckInput{RepoURL: url, Branch: branch})
 		urlOrder = append(urlOrder, key)
 	}
@@ -784,11 +783,7 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 
 	urlHashMap := make(map[string]check.URLCheckOutput)
 	for _, out := range urlOutputs {
-		key := out.RepoURL
-		if out.Branch != "" {
-			key = out.RepoURL + "@" + out.Branch
-		}
-		urlHashMap[key] = out
+		urlHashMap[urlBranchKey(out.RepoURL, out.Branch)] = out
 	}
 
 	skillResults := resolveSkillStatuses(urlGroups, urlHashMap, urlOrder)

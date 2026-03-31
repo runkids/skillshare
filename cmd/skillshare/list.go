@@ -240,13 +240,19 @@ func buildSkillEntries(discovered []sync.DiscoveredSkill) []skillEntry {
 	}
 	wg.Wait()
 
-	// Fallback: for tracked-repo skills with no branch in metadata, read from git
+	// Fallback: for tracked-repo skills with no branch in metadata, read from git.
+	// Cache per-repo to avoid repeated subprocess calls for skills in the same repo.
+	repoBranchCache := make(map[string]string)
 	for i, d := range discovered {
 		if skills[i].Branch == "" && skills[i].RepoName != "" {
-			// Derive sourceDir from SourcePath and RelPath, then build repo path
+			if cached, ok := repoBranchCache[skills[i].RepoName]; ok {
+				skills[i].Branch = cached
+				continue
+			}
 			sourceDir := strings.TrimSuffix(d.SourcePath, d.RelPath)
 			repoPath := filepath.Join(sourceDir, skills[i].RepoName)
 			if branch, err := git.GetCurrentBranch(repoPath); err == nil {
+				repoBranchCache[skills[i].RepoName] = branch
 				skills[i].Branch = branch
 			}
 		}
