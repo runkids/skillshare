@@ -187,7 +187,7 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 	// Fast path 1: sparse checkout (preferred for speed if git is modern)
 	// Works for GitHub and non-GitHub hosts.
 	if gitSupportsSparseCheckout() {
-		if err := sparseCloneSubdir(source.CloneURL, source.Subdir, repoPath, authEnv(source.CloneURL), onProgress); err == nil {
+		if err := sparseCloneSubdir(source.CloneURL, source.Subdir, repoPath, "", authEnv(source.CloneURL), onProgress); err == nil {
 			subdirPath = filepath.Join(repoPath, source.Subdir)
 			if info, statErr := os.Stat(subdirPath); statErr == nil && info.IsDir() {
 				if hash, hashErr := getGitCommit(repoPath); hashErr == nil {

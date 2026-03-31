@@ -61,7 +61,7 @@ func TestSparseCloneSubdir_FileURL(t *testing.T) {
 	mustRunGit(t, work, "commit", "-m", "init")
 	mustRunGit(t, "", "clone", "--bare", work, remote)
 
-	if err := sparseCloneSubdir("file://"+remote, "skills/one", dest, nil, nil); err != nil {
+	if err := sparseCloneSubdir("file://"+remote, "skills/one", dest, "", nil, nil); err != nil {
 		t.Fatalf("sparseCloneSubdir() error = %v", err)
 	}
 

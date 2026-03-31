@@ -43,16 +43,22 @@ func supportsSparseCheckoutVersion(versionOutput string) bool {
 	return major == 2 && minor >= 25
 }
 
-func sparseCloneSubdir(url, subdir, destPath string, extraEnv []string, onProgress ProgressCallback) error {
+func sparseCloneSubdir(url, subdir, destPath, branch string, extraEnv []string, onProgress ProgressCallback) error {
 	subdir = strings.TrimSpace(subdir)
 	if subdir == "" {
 		return fmt.Errorf("sparse checkout requires non-empty subdir")
 	}
 
-	cloneArgs := []string{"clone", "--filter=blob:none", "--no-checkout", "--depth", "1", "--quiet", url, destPath}
-	if onProgress != nil {
-		cloneArgs = []string{"clone", "--filter=blob:none", "--no-checkout", "--depth", "1", "--progress", url, destPath}
+	cloneArgs := []string{"clone", "--filter=blob:none", "--no-checkout", "--depth", "1"}
+	if branch != "" {
+		cloneArgs = append(cloneArgs, "--branch", branch)
 	}
+	if onProgress != nil {
+		cloneArgs = append(cloneArgs, "--progress")
+	} else {
+		cloneArgs = append(cloneArgs, "--quiet")
+	}
+	cloneArgs = append(cloneArgs, url, destPath)
 	if err := runGitCommandWithProgress(cloneArgs, "", extraEnv, onProgress); err != nil {
 		return err
 	}
