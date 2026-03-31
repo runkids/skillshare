@@ -19,6 +19,7 @@ type RepoCheckOutput struct {
 	Name    string
 	Status  string // "up_to_date", "behind", "dirty", "error"
 	Behind  int
+	Branch  string
 	Message string
 }
 
@@ -68,6 +69,9 @@ func ParallelCheckRepos(repos []RepoCheckInput, onDone func()) []RepoCheckOutput
 
 func checkOneRepo(r RepoCheckInput) RepoCheckOutput {
 	out := RepoCheckOutput{Name: r.Name}
+	if branch, err := git.GetCurrentBranch(r.RepoPath); err == nil {
+		out.Branch = branch
+	}
 
 	isDirty, err := git.IsDirty(r.RepoPath)
 	if err != nil {

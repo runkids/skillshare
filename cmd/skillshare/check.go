@@ -21,6 +21,7 @@ type checkRepoResult struct {
 	Name    string `json:"name"`
 	Status  string `json:"status"` // "up_to_date", "behind", "dirty", "error"
 	Behind  int    `json:"behind"`
+	Branch  string `json:"branch,omitempty"`
 	Message string `json:"message,omitempty"`
 }
 
@@ -483,6 +484,7 @@ func toRepoResults(outputs []check.RepoCheckOutput) []checkRepoResult {
 			Name:    o.Name,
 			Status:  o.Status,
 			Behind:  o.Behind,
+			Branch:  o.Branch,
 			Message: o.Message,
 		}
 	}
