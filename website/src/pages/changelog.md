@@ -13,6 +13,35 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ### New Features
 
+#### Branch Support (`--branch` / `-b`)
+
+- **Install from a specific branch** — new `--branch` / `-b` flag lets you clone from any branch instead of the remote default:
+  ```bash
+  skillshare install github.com/team/skills --branch develop --all
+  skillshare install github.com/team/skills --track --branch frontend
+  ```
+  - Works with both tracked repos (`--track`) and regular skill installs
+  - Branch is persisted in metadata — `update` and `check` automatically use the correct branch
+  - Same repo on different branches: use `--name` to avoid collisions:
+    ```bash
+    skillshare install github.com/team/skills --track --branch frontend --name team-frontend
+    skillshare install github.com/team/skills --track --branch backend --name team-backend
+    ```
+  - Supported in project mode (`-p`) and config-driven rebuild (`skillshare install` with no args)
+  - `registry.yaml` stores the branch for cross-device reproducibility
+
+- **Branch in Web UI** — the Install form shows a Branch input field (inline with Source) when a git source is detected. Skills page shows a branch badge on cards, and the Skill Detail page includes branch in the metadata section
+
+- **Branch in CLI list** — `skillshare list` detail panel shows the tracked branch when non-default
+
+- **Branch-aware check** — `skillshare check` compares against the correct remote branch ref, not just HEAD. JSON output includes a `branch` field for tracked repos
+
+#### Sync Accuracy
+
+- **Accurate skill counts on Targets page** — the expected skill count now reflects what sync actually resolves (after name collision and validation filtering), instead of the raw source count. Previously, targets using `standard` naming could show `39032/64075 shared` when all resolved skills were actually in sync
+
+- **Skipped skill visibility** — when skills are excluded by naming validation or collisions, the Targets page and Sync page now show a summary (e.g. "12345 skill(s) skipped, 456 name collision(s)") instead of silently dropping them. Suggests switching to `flat` naming to include all skills
+
 #### Target Naming Mode
 
 - **`target_naming` config option** — choose how synced skill directories are named in targets. Set globally or per-target:
@@ -56,6 +85,15 @@ All notable changes to skillshare are documented here. For the full commit histo
   ```yaml
   - uses: runkids/setup-skillshare@v1
   ```
+
+### Bug Fixes
+
+- **CLI sync output no longer floods terminal** — targets with thousands of naming validation warnings (common with `standard` naming and large skill sets) now print a compact summary instead of one line per skipped skill
+- **Target dropdown lag removed** — changing sync mode or target naming in the Web UI Targets page now updates instantly via optimistic cache update, instead of waiting 2 seconds for the API round-trip
+
+### Performance
+
+- **Cached branch lookups** — `skillshare list` caches `git` branch queries per tracked repo, so listing 500 skills from the same repo runs 1 git command instead of 500
 
 ## [0.18.3] - 2026-03-29
 
