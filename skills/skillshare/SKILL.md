@@ -36,6 +36,7 @@ skillshare install user/repo --all               # Install everything
 skillshare install user/repo --into frontend     # Place in subdirectory
 skillshare install gitlab.com/team/repo          # Any Git host
 skillshare install user/repo --track             # Enable `update` later
+skillshare install user/repo -b develop --all    # Install from branch
 skillshare install user/repo --track -b develop  # Track specific branch
 skillshare install user/repo -s pdf -p           # Install to project
 skillshare install                               # Reinstall all tracked remotes from config
