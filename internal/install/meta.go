@@ -114,6 +114,7 @@ func NewMetaFromSource(source *Source) *SkillMeta {
 		Source:      source.Raw,
 		Type:        source.MetaType(),
 		InstalledAt: time.Now(),
+		Branch:      source.Branch,
 	}
 
 	if source.IsGit() {

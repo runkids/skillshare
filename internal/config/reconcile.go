@@ -84,10 +84,17 @@ func ReconcileGlobalSkills(cfg *Config, reg *Registry) error {
 				reg.Skills[existingIdx].Tracked = tracked
 				changed = true
 			}
+			if meta != nil && meta.Branch != "" && reg.Skills[existingIdx].Branch != meta.Branch {
+				reg.Skills[existingIdx].Branch = meta.Branch
+				changed = true
+			}
 		} else {
 			entry := SkillEntry{
 				Source:  source,
 				Tracked: tracked,
+			}
+			if meta != nil && meta.Branch != "" {
+				entry.Branch = meta.Branch
 			}
 			if idx := strings.LastIndex(fullPath, "/"); idx >= 0 {
 				entry.Group = fullPath[:idx]

@@ -238,6 +238,10 @@ func updateRegularSkill(uc *updateContext, skillName string) (updateResult, erro
 	if err != nil {
 		return updateResult{skipped: 1}, fmt.Errorf("invalid source in metadata: %w", err)
 	}
+	// Preserve branch from original install
+	if meta.Branch != "" {
+		source.Branch = meta.Branch
+	}
 
 	// Snapshot before update for --diff
 	var beforeHashes map[string]string
@@ -367,6 +371,9 @@ func updateSkillFromMeta(uc *updateContext, skillPath string, cachedMeta *instal
 	source, err := install.ParseSourceWithOptions(meta.Source, uc.parseOpts)
 	if err != nil {
 		return false, nil, nil
+	}
+	if meta.Branch != "" {
+		source.Branch = meta.Branch
 	}
 
 	result, err := install.Install(source, skillPath, uc.makeInstallOpts())
