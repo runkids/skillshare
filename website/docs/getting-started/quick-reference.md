@@ -137,6 +137,9 @@ skillshare init --discover --select cursor --mode copy
 # Install team repo
 skillshare install github.com/team/skills --track
 
+# Install from specific branch
+skillshare install github.com/team/skills --track --branch develop
+
 # Update from team
 skillshare update --all
 skillshare sync
