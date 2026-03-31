@@ -505,8 +505,11 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 	if err != nil {
 		return nil, err
 	}
-	for _, warning := range resolution.Warnings {
-		fmt.Fprintln(DiagOutput, warning)
+	if n := len(resolution.Warnings); n > 0 {
+		fmt.Fprintf(DiagOutput, "  %d skill(s) skipped (naming validation)\n", n)
+	}
+	if n := len(resolution.Collisions); n > 0 {
+		fmt.Fprintf(DiagOutput, "  %d name collision(s) excluded\n", n)
 	}
 
 	manifest, err := ReadManifest(sc.Path)
