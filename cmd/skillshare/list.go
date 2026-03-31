@@ -234,10 +234,23 @@ func buildSkillEntries(discovered []sync.DiscoveredSkill) []skillEntry {
 				skills[idx].Source = meta.Source
 				skills[idx].Type = meta.Type
 				skills[idx].InstalledAt = meta.InstalledAt.Format("2006-01-02")
+				skills[idx].Branch = meta.Branch
 			}
 		}(i, d.SourcePath)
 	}
 	wg.Wait()
+
+	// Fallback: for tracked-repo skills with no branch in metadata, read from git
+	for i, d := range discovered {
+		if skills[i].Branch == "" && skills[i].RepoName != "" {
+			// Derive sourceDir from SourcePath and RelPath, then build repo path
+			sourceDir := strings.TrimSuffix(d.SourcePath, d.RelPath)
+			repoPath := filepath.Join(sourceDir, skills[i].RepoName)
+			if branch, err := git.GetCurrentBranch(repoPath); err == nil {
+				skills[i].Branch = branch
+			}
+		}
+	}
 
 	return skills
 }
@@ -638,6 +651,7 @@ type skillEntry struct {
 	RepoName    string
 	RelPath     string
 	Disabled    bool
+	Branch      string
 }
 
 // skillJSON is the JSON representation for --json output.

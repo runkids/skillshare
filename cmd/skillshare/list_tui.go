@@ -799,6 +799,9 @@ func (m listTUIModel) renderDetailBody(e skillEntry, d *detailData, width int) s
 	} else if e.RepoName != "" {
 		sourceRows = append(sourceRows, renderFactRow("Repo", e.RepoName))
 	}
+	if e.Branch != "" {
+		sourceRows = append(sourceRows, renderFactRow("Branch", tc.Cyan.Render(e.Branch)))
+	}
 	if d.License != "" {
 		sourceRows = append(sourceRows, renderFactRow("License", tc.Green.Bold(true).Render(d.License)))
 	}
