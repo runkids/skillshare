@@ -23,6 +23,7 @@ func toSkillEntryDTOs(skills []config.SkillEntry) []install.SkillEntryDTO {
 			Source:  s.Source,
 			Tracked: s.Tracked,
 			Group:   s.Group,
+			Branch:  s.Branch,
 		}
 	}
 	return dtos

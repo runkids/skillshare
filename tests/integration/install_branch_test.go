@@ -3,11 +3,14 @@
 package integration
 
 import (
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"skillshare/internal/install"
 	"skillshare/internal/testutil"
 )
 
@@ -148,5 +151,125 @@ func TestInstallBranch_RegularInstall(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(sb.SourcePath, "beta", "SKILL.md")); err != nil {
 		t.Error("beta skill should be installed")
+	}
+}
+
+func TestInstallBranch_MetadataPersistence(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+
+	// Create bare repo with staging branch
+	remoteRepo := filepath.Join(sb.Root, "meta-repo.git")
+	gitInit(t, remoteRepo, true)
+
+	workDir := filepath.Join(sb.Root, "work-meta")
+	gitClone(t, remoteRepo, workDir)
+	os.MkdirAll(filepath.Join(workDir, "my-skill"), 0755)
+	os.WriteFile(filepath.Join(workDir, "my-skill", "SKILL.md"), []byte("---\nname: my-skill\n---\n# Skill"), 0644)
+	gitAddCommit(t, workDir, "add skill")
+	gitPush(t, workDir)
+
+	cmd := exec.Command("git", "checkout", "-b", "staging")
+	cmd.Dir = workDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git checkout -b staging: %s %v", out, err)
+	}
+	// Need a commit on staging so it differs from main
+	os.WriteFile(filepath.Join(workDir, "my-skill", "SKILL.md"), []byte("---\nname: my-skill\n---\n# Skill staging"), 0644)
+	gitAddCommit(t, workDir, "staging commit")
+	pushCmd := exec.Command("git", "push", "origin", "staging")
+	pushCmd.Dir = workDir
+	if out, err := pushCmd.CombinedOutput(); err != nil {
+		t.Fatalf("git push: %s %v", out, err)
+	}
+
+	// Install from staging branch
+	result := sb.RunCLI("install", "file://"+remoteRepo, "--branch", "staging", "--all", "--skip-audit")
+	result.AssertSuccess(t)
+
+	// Check .skillshare-meta.json has branch field
+	metaPath := filepath.Join(sb.SourcePath, "my-skill", ".skillshare-meta.json")
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		t.Fatalf("read meta: %v", err)
+	}
+
+	var meta install.SkillMeta
+	if err := json.Unmarshal(data, &meta); err != nil {
+		t.Fatalf("unmarshal meta: %v", err)
+	}
+	if meta.Branch != "staging" {
+		t.Errorf("meta.Branch = %q, want %q", meta.Branch, "staging")
+	}
+}
+
+func TestInstallBranch_UpdatePreservesBranch(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	sb.WriteConfig("source: " + sb.SourcePath + "\ntargets: {}\n")
+
+	// Create bare repo
+	remoteRepo := filepath.Join(sb.Root, "update-repo.git")
+	gitInit(t, remoteRepo, true)
+
+	workDir := filepath.Join(sb.Root, "work-update")
+	gitClone(t, remoteRepo, workDir)
+	os.MkdirAll(filepath.Join(workDir, "updatable"), 0755)
+	os.WriteFile(filepath.Join(workDir, "updatable", "SKILL.md"), []byte("---\nname: updatable\n---\n# V1"), 0644)
+	gitAddCommit(t, workDir, "v1")
+	gitPush(t, workDir)
+
+	// Create dev branch
+	cmd := exec.Command("git", "checkout", "-b", "dev")
+	cmd.Dir = workDir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("checkout -b dev: %s %v", out, err)
+	}
+	pushCmd := exec.Command("git", "push", "origin", "dev")
+	pushCmd.Dir = workDir
+	if out, err := pushCmd.CombinedOutput(); err != nil {
+		t.Fatalf("push dev: %s %v", out, err)
+	}
+
+	// Install from dev branch using explicit subdir notation (file:///repo//updatable)
+	// so meta.Source is a valid re-installable URL.
+	result := sb.RunCLI("install", "file://"+remoteRepo+"//updatable", "--branch", "dev", "--skip-audit")
+	result.AssertSuccess(t)
+
+	// Verify branch is persisted in metadata
+	metaPath := filepath.Join(sb.SourcePath, "updatable", ".skillshare-meta.json")
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		t.Fatalf("read meta: %v", err)
+	}
+	var meta install.SkillMeta
+	if err := json.Unmarshal(data, &meta); err != nil {
+		t.Fatalf("unmarshal meta: %v", err)
+	}
+	if meta.Branch != "dev" {
+		t.Errorf("meta.Branch = %q, want %q", meta.Branch, "dev")
+	}
+
+	// Push update on dev branch only
+	os.WriteFile(filepath.Join(workDir, "updatable", "SKILL.md"), []byte("---\nname: updatable\n---\n# V2 dev"), 0644)
+	gitAddCommit(t, workDir, "v2 on dev")
+	pushCmd = exec.Command("git", "push", "origin", "dev")
+	pushCmd.Dir = workDir
+	if out, err := pushCmd.CombinedOutput(); err != nil {
+		t.Fatalf("push dev v2: %s %v", out, err)
+	}
+
+	// Update should pull from dev branch (not main)
+	updateResult := sb.RunCLI("update", "updatable", "--skip-audit")
+	updateResult.AssertSuccess(t)
+
+	// Verify content is V2 dev
+	content, err := os.ReadFile(filepath.Join(sb.SourcePath, "updatable", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("read skill: %v", err)
+	}
+	if !strings.Contains(string(content), "V2 dev") {
+		t.Errorf("expected V2 dev content, got: %s", content)
 	}
 }
