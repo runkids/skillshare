@@ -1,8 +1,28 @@
 # Changelog
 
-## [0.18.4] - 2026-03-30
+## [0.18.4] - 2026-03-31
 
 ### New Features
+
+#### Target Naming Mode
+
+- **`target_naming` config option** — choose how synced skill directories are named in targets. Set globally or per-target:
+  ```yaml
+  target_naming: standard    # use SKILL.md name as directory name
+  targets:
+    claude:
+      skills:
+        target_naming: flat  # override: keep flattened prefix (default)
+  ```
+  - `flat` (default) — nested skills like `frontend/dev` become `frontend__dev` in targets
+  - `standard` — uses the SKILL.md `name` field directly (e.g. `dev`), following the [Agent Skills specification](https://agentskills.io/specification)
+  - Standard mode validates that SKILL.md names match their directory name, warns and skips invalid skills
+  - Name collisions (e.g. two skills both named `dev`) are detected and both are skipped with a warning
+  - Switching from `flat` to `standard` automatically migrates existing managed entries (symlinks and copies are renamed in place)
+  - If a local skill already occupies the bare name, the legacy flat entry is preserved with a warning
+  - `target_naming` is ignored in `symlink` mode (the entire source directory is linked)
+
+- **Collision output redesigned** — name conflict warnings are now deduplicated across targets and displayed as a compact summary instead of repeating each collision per target
 
 #### Folder Tree View (Web UI)
 

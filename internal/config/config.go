@@ -27,6 +27,9 @@ func marshalYAML(v any) ([]byte, error) {
 // ValidSyncModes lists all valid sync mode values.
 var ValidSyncModes = []string{"merge", "symlink", "copy"}
 
+// ValidTargetNamings lists all valid target naming values.
+var ValidTargetNamings = []string{"flat", "standard"}
+
 // IsValidSyncMode reports whether mode is a valid sync mode (or empty, meaning inherit).
 func IsValidSyncMode(mode string) bool {
 	if mode == "" {
@@ -35,17 +38,36 @@ func IsValidSyncMode(mode string) bool {
 	return slices.Contains(ValidSyncModes, mode)
 }
 
+// IsValidTargetNaming reports whether naming is a valid target naming mode
+// (or empty, meaning inherit the global default).
+func IsValidTargetNaming(naming string) bool {
+	if naming == "" {
+		return true // empty = inherit global default
+	}
+	return slices.Contains(ValidTargetNamings, naming)
+}
+
+// EffectiveTargetNaming resolves the runtime target naming mode.
+// Empty values inherit the global default; the final fallback is "flat".
+func EffectiveTargetNaming(naming string) string {
+	if naming == "" {
+		return "flat"
+	}
+	return naming
+}
+
 // ResourceTargetConfig holds per-resource-kind target configuration (skills, agents, etc.).
 type ResourceTargetConfig struct {
-	Path    string   `yaml:"path,omitempty"`
-	Mode    string   `yaml:"mode,omitempty"` // merge, symlink, or copy
-	Include []string `yaml:"include,omitempty"`
-	Exclude []string `yaml:"exclude,omitempty"`
+	Path         string   `yaml:"path,omitempty"`
+	Mode         string   `yaml:"mode,omitempty"` // merge, symlink, or copy
+	TargetNaming string   `yaml:"target_naming,omitempty"`
+	Include      []string `yaml:"include,omitempty"`
+	Exclude      []string `yaml:"exclude,omitempty"`
 }
 
 // IsEmpty reports whether all fields are zero-valued.
 func (r ResourceTargetConfig) IsEmpty() bool {
-	return r.Path == "" && r.Mode == "" && len(r.Include) == 0 && len(r.Exclude) == 0
+	return r.Path == "" && r.Mode == "" && r.TargetNaming == "" && len(r.Include) == 0 && len(r.Exclude) == 0
 }
 
 // TargetConfig holds configuration for a single target.
@@ -59,6 +81,8 @@ type TargetConfig struct {
 
 	Skills *ResourceTargetConfig `yaml:"skills,omitempty"`
 	Agents *ResourceTargetConfig `yaml:"agents,omitempty"`
+
+	defaultTargetNaming string `yaml:"-"`
 }
 
 // SkillsConfig returns the effective skills configuration.
@@ -66,13 +90,18 @@ type TargetConfig struct {
 // Otherwise the legacy flat fields are returned for backward compatibility.
 func (tc *TargetConfig) SkillsConfig() ResourceTargetConfig {
 	if tc.Skills != nil {
-		return *tc.Skills
+		sc := *tc.Skills
+		if sc.TargetNaming == "" {
+			sc.TargetNaming = tc.defaultTargetNaming
+		}
+		return sc
 	}
 	return ResourceTargetConfig{
-		Path:    tc.Path,
-		Mode:    tc.Mode,
-		Include: tc.Include,
-		Exclude: tc.Exclude,
+		Path:         tc.Path,
+		Mode:         tc.Mode,
+		TargetNaming: tc.defaultTargetNaming,
+		Include:      tc.Include,
+		Exclude:      tc.Exclude,
 	}
 }
 
@@ -88,7 +117,12 @@ func (tc *TargetConfig) AgentsConfig() ResourceTargetConfig {
 // Use this before writing to Skills fields.
 func (tc *TargetConfig) EnsureSkills() *ResourceTargetConfig {
 	if tc.Skills == nil {
-		sc := tc.SkillsConfig()
+		sc := ResourceTargetConfig{
+			Path:    tc.Path,
+			Mode:    tc.Mode,
+			Include: tc.Include,
+			Exclude: tc.Exclude,
+		}
 		tc.Skills = &sc
 		tc.Path = ""
 		tc.Mode = ""
@@ -184,6 +218,7 @@ type Config struct {
 	Source       string                  `yaml:"source"`
 	ExtrasSource string                  `yaml:"extras_source,omitempty"`
 	Mode         string                  `yaml:"mode,omitempty"` // default mode: merge
+	TargetNaming string                  `yaml:"target_naming,omitempty"`
 	Targets      map[string]TargetConfig `yaml:"targets"`
 	Extras       []ExtraConfig           `yaml:"extras,omitempty"`
 	Ignore       []string                `yaml:"ignore,omitempty"`
@@ -196,7 +231,6 @@ type Config struct {
 	// RegistryDir is the resolved directory for registry.yaml (cached SourceRoot result).
 	// Set during Load(), not serialized to YAML.
 	RegistryDir string `yaml:"-"`
-
 }
 
 // EffectiveGitLabHosts returns GitLabHosts merged with SKILLSHARE_GITLAB_HOSTS env var.
@@ -355,6 +389,7 @@ func Load() (*Config, error) {
 	cfg.ExtrasSource = expandPath(cfg.ExtrasSource)
 	defaults := DefaultTargets()
 	for name, target := range cfg.Targets {
+		target.defaultTargetNaming = cfg.TargetNaming
 		if target.Skills != nil {
 			target.Skills.Path = expandPath(target.Skills.Path)
 		}

@@ -365,7 +365,7 @@ func TestPruneOrphanLinks_TargetIsSymlink(t *testing.T) {
 	os.RemoveAll(filepath.Join(src, "gone"))
 
 	// Prune through symlinked target path
-	result, err := PruneOrphanLinks(symlinkTarget, src, nil, nil, "test", false, false)
+	result, err := PruneOrphanLinks(symlinkTarget, src, nil, nil, "test", "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}

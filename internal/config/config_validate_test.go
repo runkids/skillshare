@@ -69,6 +69,22 @@ func TestValidateConfig_InvalidGlobalMode(t *testing.T) {
 	}
 }
 
+func TestValidateConfig_InvalidGlobalTargetNaming(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &Config{
+		Source:       tmpDir,
+		TargetNaming: "weird",
+		Targets:      map[string]TargetConfig{},
+	}
+	_, err := ValidateConfig(cfg)
+	if err == nil {
+		t.Fatal("expected error for invalid global target naming")
+	}
+	if !strings.Contains(err.Error(), "invalid global target naming") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
 func TestValidateConfig_InvalidTargetMode(t *testing.T) {
 	tmpDir := t.TempDir()
 	targetDir := filepath.Join(tmpDir, "target")
@@ -84,6 +100,25 @@ func TestValidateConfig_InvalidTargetMode(t *testing.T) {
 		t.Fatal("expected error for invalid target mode")
 	}
 	if !strings.Contains(err.Error(), "invalid sync mode") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateConfig_InvalidTargetNaming(t *testing.T) {
+	tmpDir := t.TempDir()
+	targetDir := filepath.Join(tmpDir, "target")
+	os.MkdirAll(targetDir, 0755)
+	cfg := &Config{
+		Source: tmpDir,
+		Targets: map[string]TargetConfig{
+			"test": {Skills: &ResourceTargetConfig{Path: targetDir, TargetNaming: "odd"}},
+		},
+	}
+	_, err := ValidateConfig(cfg)
+	if err == nil {
+		t.Fatal("expected error for invalid target naming")
+	}
+	if !strings.Contains(err.Error(), "invalid target naming") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -251,6 +286,43 @@ func TestValidateProjectConfig_InvalidMode(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "invalid sync mode") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateProjectConfig_InvalidTargetNaming(t *testing.T) {
+	tmpDir := t.TempDir()
+	os.MkdirAll(filepath.Join(tmpDir, ".skillshare", "skills"), 0755)
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{
+			{Name: "claude", Skills: &ResourceTargetConfig{TargetNaming: "bad"}},
+		},
+	}
+	_, err := ValidateProjectConfig(cfg, tmpDir)
+	if err == nil {
+		t.Fatal("expected error for invalid project target naming")
+	}
+	if !strings.Contains(err.Error(), "invalid target naming") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestEffectiveTargetNaming(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string
+	}{
+		{name: "default", input: "", expect: "flat"},
+		{name: "flat", input: "flat", expect: "flat"},
+		{name: "standard", input: "standard", expect: "standard"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := EffectiveTargetNaming(tt.input); got != tt.expect {
+				t.Fatalf("EffectiveTargetNaming(%q) = %q, want %q", tt.input, got, tt.expect)
+			}
+		})
 	}
 }
 

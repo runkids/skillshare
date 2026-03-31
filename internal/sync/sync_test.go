@@ -11,7 +11,7 @@ import (
 // createTempSkill creates a skill directory with a SKILL.md containing the given name.
 func createTempSkill(t *testing.T, dir, relPath, skillName string) DiscoveredSkill {
 	t.Helper()
-	skillDir := filepath.Join(dir, relPath)
+	skillDir := filepath.Join(dir, filepath.FromSlash(relPath))
 	if err := os.MkdirAll(skillDir, 0755); err != nil {
 		t.Fatalf("mkdir %s: %v", skillDir, err)
 	}
@@ -21,8 +21,106 @@ func createTempSkill(t *testing.T, dir, relPath, skillName string) DiscoveredSki
 	}
 	return DiscoveredSkill{
 		SourcePath: skillDir,
-		RelPath:    relPath,
-		FlatName:   relPath, // simplified for tests
+		RelPath:    filepath.ToSlash(relPath),
+		FlatName:   filepath.ToSlash(relPath),
+	}
+}
+
+func TestResolveTargetSkillsForTarget_FlatNamingUsesFlatNames(t *testing.T) {
+	dir := t.TempDir()
+	skills := []DiscoveredSkill{
+		createTempSkill(t, dir, "frontend/dev", "dev"),
+		createTempSkill(t, dir, "alpha", "alpha"),
+	}
+
+	resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{}, skills)
+	if err != nil {
+		t.Fatalf("ResolveTargetSkillsForTarget() error = %v", err)
+	}
+
+	if resolution.Naming != "flat" {
+		t.Fatalf("Naming = %q, want flat", resolution.Naming)
+	}
+	if len(resolution.Warnings) != 0 {
+		t.Fatalf("Warnings = %v, want none", resolution.Warnings)
+	}
+	if len(resolution.Skills) != 2 {
+		t.Fatalf("len(Skills) = %d, want 2", len(resolution.Skills))
+	}
+	if resolution.Skills[0].TargetName != "frontend/dev" {
+		t.Fatalf("first TargetName = %q, want %q", resolution.Skills[0].TargetName, "frontend/dev")
+	}
+}
+
+func TestResolveTargetSkillsForTarget_StandardNamingUsesSkillName(t *testing.T) {
+	dir := t.TempDir()
+	skills := []DiscoveredSkill{
+		createTempSkill(t, dir, "frontend/dev", "dev"),
+	}
+
+	resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: "standard"}, skills)
+	if err != nil {
+		t.Fatalf("ResolveTargetSkillsForTarget() error = %v", err)
+	}
+
+	if resolution.Naming != "standard" {
+		t.Fatalf("Naming = %q, want standard", resolution.Naming)
+	}
+	if len(resolution.Skills) != 1 {
+		t.Fatalf("len(Skills) = %d, want 1", len(resolution.Skills))
+	}
+	if resolution.Skills[0].TargetName != "dev" {
+		t.Fatalf("TargetName = %q, want dev", resolution.Skills[0].TargetName)
+	}
+}
+
+func TestResolveTargetSkillsForTarget_StandardNamingSkipsInvalidSkill(t *testing.T) {
+	dir := t.TempDir()
+	skills := []DiscoveredSkill{
+		createTempSkill(t, dir, "frontend/dev", "wrong-name"),
+		createTempSkill(t, dir, "alpha", "alpha"),
+	}
+
+	resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: "standard"}, skills)
+	if err != nil {
+		t.Fatalf("ResolveTargetSkillsForTarget() error = %v", err)
+	}
+
+	if len(resolution.Skills) != 1 {
+		t.Fatalf("len(Skills) = %d, want 1", len(resolution.Skills))
+	}
+	if resolution.Skills[0].TargetName != "alpha" {
+		t.Fatalf("TargetName = %q, want alpha", resolution.Skills[0].TargetName)
+	}
+	if len(resolution.Warnings) != 1 {
+		t.Fatalf("Warnings = %v, want 1 warning", resolution.Warnings)
+	}
+}
+
+func TestResolveTargetSkillsForTarget_StandardNamingSkipsCollisions(t *testing.T) {
+	dir := t.TempDir()
+	skills := []DiscoveredSkill{
+		createTempSkill(t, dir, "frontend/dev", "dev"),
+		createTempSkill(t, dir, "backend/dev", "dev"),
+		createTempSkill(t, dir, "alpha", "alpha"),
+	}
+
+	resolution, err := ResolveTargetSkillsForTarget("claude", config.ResourceTargetConfig{TargetNaming: "standard"}, skills)
+	if err != nil {
+		t.Fatalf("ResolveTargetSkillsForTarget() error = %v", err)
+	}
+
+	if len(resolution.Collisions) != 1 {
+		t.Fatalf("Collisions = %v, want 1 collision", resolution.Collisions)
+	}
+	if resolution.Collisions[0].Name != "dev" {
+		t.Fatalf("collision name = %q, want dev", resolution.Collisions[0].Name)
+	}
+	if len(resolution.Skills) != 1 {
+		t.Fatalf("len(Skills) = %d, want 1", len(resolution.Skills))
+	}
+	if resolution.Skills[0].TargetName != "alpha" {
+		t.Fatalf("TargetName = %q, want alpha", resolution.Skills[0].TargetName)
 	}
 }
 
@@ -48,7 +146,6 @@ func TestCheckNameCollisionsForTargets_NoCollisions(t *testing.T) {
 
 func TestCheckNameCollisionsForTargets_GlobalCollisionIsolatedByFilter(t *testing.T) {
 	dir := t.TempDir()
-	// Two skills with the same SKILL.md name but different flat names
 	skills := []DiscoveredSkill{
 		createTempSkill(t, dir, "codex-plan", "planner"),
 		createTempSkill(t, dir, "gemini-plan", "planner"),
@@ -56,14 +153,20 @@ func TestCheckNameCollisionsForTargets_GlobalCollisionIsolatedByFilter(t *testin
 
 	targets := map[string]config.TargetConfig{
 		"codex-target": {
-			Path:    "/tmp/codex",
-			Mode:    "merge",
-			Include: []string{"codex-*"},
+			Skills: &config.ResourceTargetConfig{
+				Path:         "/tmp/codex",
+				Mode:         "merge",
+				TargetNaming: "standard",
+				Include:      []string{"codex-*"},
+			},
 		},
 		"gemini-target": {
-			Path:    "/tmp/gemini",
-			Mode:    "merge",
-			Include: []string{"gemini-*"},
+			Skills: &config.ResourceTargetConfig{
+				Path:         "/tmp/gemini",
+				Mode:         "merge",
+				TargetNaming: "standard",
+				Include:      []string{"gemini-*"},
+			},
 		},
 	}
 
@@ -82,18 +185,17 @@ func TestCheckNameCollisionsForTargets_GlobalCollisionIsolatedByFilter(t *testin
 func TestCheckNameCollisionsForTargets_UnresolvedPerTargetCollision(t *testing.T) {
 	dir := t.TempDir()
 	skills := []DiscoveredSkill{
-		createTempSkill(t, dir, "repo-a__plan", "planner"),
-		createTempSkill(t, dir, "repo-b__plan", "planner"),
+		createTempSkill(t, dir, "frontend/dev", "dev"),
+		createTempSkill(t, dir, "backend/dev", "dev"),
 	}
 
-	// No filters — collision passes through to per-target check?
-	// Actually, no filters means the target is skipped in per-target loop.
-	// So we need a target WITH filters that still includes both.
 	targets := map[string]config.TargetConfig{
 		"claude": {
-			Path:    "/tmp/claude",
-			Mode:    "merge",
-			Include: []string{"repo-*"},
+			Skills: &config.ResourceTargetConfig{
+				Path:         "/tmp/claude",
+				Mode:         "merge",
+				TargetNaming: "standard",
+			},
 		},
 	}
 
@@ -112,15 +214,18 @@ func TestCheckNameCollisionsForTargets_UnresolvedPerTargetCollision(t *testing.T
 func TestCheckNameCollisionsForTargets_SymlinkModeSkipped(t *testing.T) {
 	dir := t.TempDir()
 	skills := []DiscoveredSkill{
-		createTempSkill(t, dir, "codex-plan", "planner"),
-		createTempSkill(t, dir, "gemini-plan", "planner"),
+		createTempSkill(t, dir, "frontend/dev", "dev"),
+		createTempSkill(t, dir, "backend/dev", "dev"),
 	}
 
 	targets := map[string]config.TargetConfig{
 		"symlink-target": {
-			Path:    "/tmp/sym",
-			Mode:    "symlink",
-			Include: []string{"*-plan"},
+			Skills: &config.ResourceTargetConfig{
+				Path:         "/tmp/sym",
+				Mode:         "symlink",
+				TargetNaming: "standard",
+				Include:      []string{"*"},
+			},
 		},
 	}
 
@@ -128,29 +233,7 @@ func TestCheckNameCollisionsForTargets_SymlinkModeSkipped(t *testing.T) {
 	if len(global) != 1 {
 		t.Fatalf("expected 1 global collision, got %d", len(global))
 	}
-	// symlink mode targets should be skipped
 	if len(perTarget) != 0 {
 		t.Errorf("expected no per-target collisions for symlink mode, got %d", len(perTarget))
-	}
-}
-
-func TestCheckNameCollisionsForTargets_NoFilterTargetSkipped(t *testing.T) {
-	dir := t.TempDir()
-	skills := []DiscoveredSkill{
-		createTempSkill(t, dir, "skill-a", "planner"),
-		createTempSkill(t, dir, "skill-b", "planner"),
-	}
-
-	// Target with no filters — skipped in per-target loop (same as global)
-	targets := map[string]config.TargetConfig{
-		"claude": {Path: "/tmp/claude", Mode: "merge"},
-	}
-
-	global, perTarget := CheckNameCollisionsForTargets(skills, targets)
-	if len(global) != 1 {
-		t.Fatalf("expected 1 global collision, got %d", len(global))
-	}
-	if len(perTarget) != 0 {
-		t.Errorf("expected no per-target collisions (no filters = skip), got %d", len(perTarget))
 	}
 }

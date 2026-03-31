@@ -455,7 +455,7 @@ func syncMergeMode(name string, target config.TargetConfig, source string, dryRu
 		return err
 	}
 
-	pruneResult, pruneErr := sync.PruneOrphanLinks(sc.Path, source, sc.Include, sc.Exclude, name, dryRun, force)
+	pruneResult, pruneErr := sync.PruneOrphanLinks(sc.Path, source, sc.Include, sc.Exclude, name, sc.TargetNaming, dryRun, force)
 	if pruneErr != nil {
 		ui.Warning("%s: prune failed: %v", name, pruneErr)
 	}
@@ -473,7 +473,7 @@ func syncMergeModeWithSkills(name string, target config.TargetConfig, source str
 
 	pruneResult, pruneErr := sync.PruneOrphanLinksWithSkills(sync.PruneOptions{
 		TargetPath: sc.Path, SourcePath: source, Skills: skills,
-		Include: sc.Include, Exclude: sc.Exclude, TargetName: name,
+		Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
 		DryRun: dryRun, Force: force,
 	})
 	if pruneErr != nil {
@@ -533,7 +533,7 @@ func syncCopyMode(name string, target config.TargetConfig, source string, dryRun
 		return err
 	}
 
-	pruneResult, pruneErr := sync.PruneOrphanCopies(sc.Path, source, sc.Include, sc.Exclude, name, dryRun)
+	pruneResult, pruneErr := sync.PruneOrphanCopies(sc.Path, source, sc.Include, sc.Exclude, name, sc.TargetNaming, dryRun)
 	if pruneErr != nil {
 		ui.Warning("%s: prune failed: %v", name, pruneErr)
 	}
@@ -557,7 +557,7 @@ func syncCopyModeWithSkills(name string, target config.TargetConfig, source stri
 	spinner.Stop()
 
 	sc := target.SkillsConfig()
-	pruneResult, pruneErr := sync.PruneOrphanCopiesWithSkills(sc.Path, skills, sc.Include, sc.Exclude, name, dryRun)
+	pruneResult, pruneErr := sync.PruneOrphanCopiesWithSkills(sc.Path, skills, sc.Include, sc.Exclude, name, sc.TargetNaming, dryRun)
 	if pruneErr != nil {
 		ui.Warning("%s: prune failed: %v", name, pruneErr)
 	}
@@ -639,16 +639,59 @@ func reportCollisions(skills []sync.DiscoveredSkill, targets map[string]config.T
 	}
 
 	if len(perTarget) > 0 {
-		// Real per-target collisions — actionable warning
-		ui.Header("Name conflicts detected")
+		// Deduplicate collisions across targets: group by skill name, collect affected targets
+		type collisionInfo struct {
+			Paths   []string
+			Targets []string
+		}
+		deduped := make(map[string]*collisionInfo)
+		var orderedNames []string
+		var targetNames []string
+		seenTargets := make(map[string]bool)
+
 		for _, tc := range perTarget {
+			if !seenTargets[tc.TargetName] {
+				seenTargets[tc.TargetName] = true
+				targetNames = append(targetNames, tc.TargetName)
+			}
 			for _, c := range tc.Collisions {
-				ui.Warning("Target '%s': skill name '%s' is defined in multiple places:", tc.TargetName, c.Name)
-				for _, p := range c.Paths {
-					ui.Info("  - %s", p)
+				if info, ok := deduped[c.Name]; ok {
+					info.Targets = append(info.Targets, tc.TargetName)
+				} else {
+					deduped[c.Name] = &collisionInfo{
+						Paths:   c.Paths,
+						Targets: []string{tc.TargetName},
+					}
+					orderedNames = append(orderedNames, c.Name)
 				}
 			}
 		}
+
+		ui.Header("Name conflicts detected")
+
+		// Summary line
+		if len(targetNames) == len(seenTargets) && len(seenTargets) > 1 {
+			ui.Warning("%d duplicate skill names affect %d targets (%s)",
+				len(deduped), len(targetNames), strings.Join(targetNames, ", "))
+		} else {
+			ui.Warning("%d duplicate skill names detected", len(deduped))
+		}
+
+		// One entry per collision name
+		for _, name := range orderedNames {
+			info := deduped[name]
+			// Show only parent directories for brevity (e.g., "skillshare/, skillshare2/")
+			dirs := make([]string, 0, len(info.Paths))
+			for _, p := range info.Paths {
+				parts := strings.SplitN(p, "/", 2)
+				if len(parts) > 0 {
+					dirs = append(dirs, parts[0]+"/")
+				}
+			}
+			ui.Info("  %-30s  %s", name, strings.Join(dirs, " vs "))
+		}
+
+		fmt.Println()
 		ui.Info("Rename one in SKILL.md or adjust include/exclude filters")
 		fmt.Println()
 	} else {

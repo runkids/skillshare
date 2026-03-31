@@ -321,7 +321,7 @@ func targetInfoProject(name string, args []string, root string) error {
 		return err
 	}
 
-	var newMode string
+	var newMode, newNaming string
 	for i := 0; i < len(remaining); i++ {
 		switch remaining[i] {
 		case "--mode", "-m":
@@ -329,6 +329,12 @@ func targetInfoProject(name string, args []string, root string) error {
 				return fmt.Errorf("--mode requires a value (merge, symlink, or copy)")
 			}
 			newMode = remaining[i+1]
+			i++
+		case "--target-naming":
+			if i+1 >= len(remaining) {
+				return fmt.Errorf("--target-naming requires a value (flat or standard)")
+			}
+			newNaming = remaining[i+1]
 			i++
 		}
 	}
@@ -383,6 +389,10 @@ func targetInfoProject(name string, args []string, root string) error {
 		return updateTargetModeProject(cfg, targetIdx, newMode, root)
 	}
 
+	if newNaming != "" {
+		return updateTargetNamingProject(cfg, targetIdx, newNaming, root)
+	}
+
 	targets, err := config.ResolveProjectTargets(root, cfg)
 	if err != nil {
 		return err
@@ -404,9 +414,15 @@ func targetInfoProject(name string, args []string, root string) error {
 		mode = "merge"
 	}
 
+	namingDisplay := config.EffectiveTargetNaming(sc.TargetNaming)
+	if sc.TargetNaming == "" {
+		namingDisplay += " (default)"
+	}
+
 	ui.Header(fmt.Sprintf("Target: %s", name))
 	fmt.Printf("  Path:    %s\n", projectTargetDisplayPath(targetEntry))
 	fmt.Printf("  Mode:    %s\n", displayMode)
+	fmt.Printf("  Naming:  %s\n", namingDisplay)
 
 	resolvedSC := target.SkillsConfig()
 	switch mode {
@@ -445,6 +461,24 @@ func updateTargetModeProject(cfg *config.ProjectConfig, idx int, newMode string,
 
 	ui.Success("Changed %s mode: %s -> %s", entry.Name, oldMode, newMode)
 	ui.Info("Run 'skillshare sync' to apply the new mode")
+	return nil
+}
+
+func updateTargetNamingProject(cfg *config.ProjectConfig, idx int, newNaming string, root string) error {
+	if !config.IsValidTargetNaming(newNaming) {
+		return fmt.Errorf("invalid target naming '%s'. Use 'flat' or 'standard'", newNaming)
+	}
+
+	entry := &cfg.Targets[idx]
+	oldNaming := config.EffectiveTargetNaming(entry.SkillsConfig().TargetNaming)
+
+	entry.EnsureSkills().TargetNaming = newNaming
+	if err := cfg.Save(root); err != nil {
+		return err
+	}
+
+	ui.Success("Changed %s target naming: %s -> %s", entry.Name, oldNaming, newNaming)
+	ui.Info("Run 'skillshare sync' to apply the new naming")
 	return nil
 }
 

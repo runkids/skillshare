@@ -80,6 +80,9 @@ source: ~/.config/skillshare/skills
 # Default sync mode for new targets
 mode: merge
 
+# Default target naming (flat or standard)
+# target_naming: flat
+
 # Targets (AI CLI skill directories)
 targets:
   claude:
@@ -155,6 +158,19 @@ mode: merge
 | `merge` | Each skill symlinked individually. Local skills preserved. **(default)** |
 | `copy` | Each skill copied as real files. For AI CLIs that can't follow symlinks. |
 | `symlink` | Entire target directory is one symlink. |
+
+### `target_naming`
+
+Default target naming strategy for merge/copy sync.
+
+```yaml
+target_naming: flat
+```
+
+| Value | Behavior |
+|-------|----------|
+| `flat` | Nested skills flattened with `__` separators (e.g. `frontend__dev`). **(default)** |
+| `standard` | Uses the SKILL.md `name` field directly (e.g. `dev`). Follows the [Agent Skills spec](https://agentskills.io/specification). |
 
 ### `targets`
 

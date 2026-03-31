@@ -50,12 +50,13 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 	// messages (they flood the terminal). Counts are still populated.
 	quietDryRun := dirCreated && dryRun
 
-	// Filter skills for this target
-	discoveredSkills, err := FilterSkills(allSkills, sc.Include, sc.Exclude)
+	resolution, err := ResolveTargetSkillsForTarget(name, target.SkillsConfig(), allSkills)
 	if err != nil {
-		return nil, fmt.Errorf("failed to apply filters for target %s: %w", name, err)
+		return nil, err
 	}
-	discoveredSkills = FilterSkillsByTarget(discoveredSkills, name)
+	for _, warning := range resolution.Warnings {
+		fmt.Fprintln(DiagOutput, warning)
+	}
 
 	// Read existing manifest
 	manifest, err := ReadManifest(sc.Path)
@@ -63,23 +64,28 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 		return nil, fmt.Errorf("failed to read manifest: %w", err)
 	}
 
-	for i, skill := range discoveredSkills {
+	for i, resolved := range resolution.Skills {
+		skill := resolved.Skill
+		activeName, err := selectActiveTargetNameForSync("copy", sc.Path, resolved, manifest, dryRun)
+		if err != nil {
+			return nil, err
+		}
 		if onProgress != nil {
-			onProgress(i+1, len(discoveredSkills), skill.FlatName)
+			onProgress(i+1, len(resolution.Skills), activeName)
 		}
 
-		targetSkillPath := filepath.Join(sc.Path, skill.FlatName)
+		targetSkillPath := filepath.Join(sc.Path, activeName)
 
 		// Compute source mtime for fast-path skip
 		currentMtime, mtimeErr := DirMaxMtime(skill.SourcePath)
 
 		// mtime fast-path: if source mtime is unchanged AND target is still a valid dir, skip checksum
-		oldChecksum, isManaged := manifest.Managed[skill.FlatName]
-		oldMtime := manifest.Mtimes[skill.FlatName] // 0 if missing
+		oldChecksum, isManaged := manifest.Managed[activeName]
+		oldMtime := manifest.Mtimes[activeName] // 0 if missing
 		if mtimeErr == nil && isManaged && !force && oldMtime > 0 && currentMtime == oldMtime {
 			// Verify target still exists as a directory (user may have replaced it)
 			if ti, err := os.Lstat(targetSkillPath); err == nil && ti.IsDir() {
-				result.Skipped = append(result.Skipped, skill.FlatName)
+				result.Skipped = append(result.Skipped, activeName)
 				continue
 			}
 		}
@@ -87,7 +93,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 		// mtime changed or no record — compute full checksum
 		srcChecksum, err := DirChecksum(skill.SourcePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to checksum source skill %s: %w", skill.FlatName, err)
+			return nil, fmt.Errorf("failed to checksum source skill %s: %w", activeName, err)
 		}
 
 		// Check what exists at the target path
@@ -99,7 +105,7 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 			if utils.IsSymlinkOrJunction(targetSkillPath) {
 				if dryRun {
 					if !quietDryRun {
-						fmt.Fprintf(DiagOutput, "[dry-run] Would replace symlink with copy: %s\n", skill.FlatName)
+						fmt.Fprintf(DiagOutput, "[dry-run] Would replace symlink with copy: %s\n", activeName)
 					}
 				} else {
 					os.Remove(targetSkillPath)
@@ -112,35 +118,35 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 					if isManaged || force {
 						if dryRun {
 							if !quietDryRun {
-								fmt.Fprintf(DiagOutput, "[dry-run] Would replace non-directory entry with copy: %s\n", skill.FlatName)
+								fmt.Fprintf(DiagOutput, "[dry-run] Would replace non-directory entry with copy: %s\n", activeName)
 							}
 						} else {
 							if err := os.RemoveAll(targetSkillPath); err != nil {
-								return nil, fmt.Errorf("failed to remove invalid entry %s: %w", skill.FlatName, err)
+								return nil, fmt.Errorf("failed to remove invalid entry %s: %w", activeName, err)
 							}
 							if err := copyDirectory(skill.SourcePath, targetSkillPath); err != nil {
-								return nil, fmt.Errorf("failed to copy skill %s: %w", skill.FlatName, err)
+								return nil, fmt.Errorf("failed to copy skill %s: %w", activeName, err)
 							}
-							manifest.Managed[skill.FlatName] = srcChecksum
+							manifest.Managed[activeName] = srcChecksum
 							if mtimeErr == nil {
-								manifest.Mtimes[skill.FlatName] = currentMtime
+								manifest.Mtimes[activeName] = currentMtime
 							}
 						}
-						result.Updated = append(result.Updated, skill.FlatName)
+						result.Updated = append(result.Updated, activeName)
 						continue
 					}
 
 					// Local non-directory entry — preserve unless --force.
-					result.Skipped = append(result.Skipped, skill.FlatName)
+					result.Skipped = append(result.Skipped, activeName)
 					continue
 				}
 
 				if !force && isManaged && oldChecksum == srcChecksum {
 					// Unchanged — skip (but update mtime record if it changed)
 					if mtimeErr == nil && currentMtime != oldMtime && !dryRun {
-						manifest.Mtimes[skill.FlatName] = currentMtime
+						manifest.Mtimes[activeName] = currentMtime
 					}
-					result.Skipped = append(result.Skipped, skill.FlatName)
+					result.Skipped = append(result.Skipped, activeName)
 					continue
 				}
 
@@ -148,28 +154,28 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 					// Managed or forced — overwrite
 					if dryRun {
 						if !quietDryRun {
-							fmt.Fprintf(DiagOutput, "[dry-run] Would update copy: %s\n", skill.FlatName)
+							fmt.Fprintf(DiagOutput, "[dry-run] Would update copy: %s\n", activeName)
 						}
 					} else {
 						if err := os.RemoveAll(targetSkillPath); err != nil {
-							return nil, fmt.Errorf("failed to remove old copy %s: %w", skill.FlatName, err)
+							return nil, fmt.Errorf("failed to remove old copy %s: %w", activeName, err)
 						}
 					}
 					if !dryRun {
 						if err := copyDirectory(skill.SourcePath, targetSkillPath); err != nil {
-							return nil, fmt.Errorf("failed to copy skill %s: %w", skill.FlatName, err)
+							return nil, fmt.Errorf("failed to copy skill %s: %w", activeName, err)
 						}
-						manifest.Managed[skill.FlatName] = srcChecksum
+						manifest.Managed[activeName] = srcChecksum
 						if mtimeErr == nil {
-							manifest.Mtimes[skill.FlatName] = currentMtime
+							manifest.Mtimes[activeName] = currentMtime
 						}
 					}
-					result.Updated = append(result.Updated, skill.FlatName)
+					result.Updated = append(result.Updated, activeName)
 					continue
 				}
 
 				// Not managed (local skill) — preserve
-				result.Skipped = append(result.Skipped, skill.FlatName)
+				result.Skipped = append(result.Skipped, activeName)
 				continue
 			}
 		}
@@ -181,14 +187,14 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 			}
 		} else {
 			if err := copyDirectory(skill.SourcePath, targetSkillPath); err != nil {
-				return nil, fmt.Errorf("failed to copy skill %s: %w", skill.FlatName, err)
+				return nil, fmt.Errorf("failed to copy skill %s: %w", activeName, err)
 			}
-			manifest.Managed[skill.FlatName] = srcChecksum
+			manifest.Managed[activeName] = srcChecksum
 			if mtimeErr == nil {
-				manifest.Mtimes[skill.FlatName] = currentMtime
+				manifest.Mtimes[activeName] = currentMtime
 			}
 		}
-		result.Copied = append(result.Copied, skill.FlatName)
+		result.Copied = append(result.Copied, activeName)
 	}
 
 	// Write updated manifest
@@ -202,16 +208,16 @@ func SyncTargetCopyWithSkills(name string, target config.TargetConfig, allSkills
 }
 
 // PruneOrphanCopies removes managed copies that no longer exist in source.
-func PruneOrphanCopies(targetPath, sourcePath string, include, exclude []string, targetName string, dryRun bool) (*PruneResult, error) {
+func PruneOrphanCopies(targetPath, sourcePath string, include, exclude []string, targetName, targetNaming string, dryRun bool) (*PruneResult, error) {
 	allSourceSkills, err := DiscoverSourceSkills(sourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills for pruning: %w", err)
 	}
-	return PruneOrphanCopiesWithSkills(targetPath, allSourceSkills, include, exclude, targetName, dryRun)
+	return PruneOrphanCopiesWithSkills(targetPath, allSourceSkills, include, exclude, targetName, targetNaming, dryRun)
 }
 
 // PruneOrphanCopiesWithSkills is like PruneOrphanCopies but accepts pre-discovered skills.
-func PruneOrphanCopiesWithSkills(targetPath string, allSourceSkills []DiscoveredSkill, include, exclude []string, targetName string, dryRun bool) (*PruneResult, error) {
+func PruneOrphanCopiesWithSkills(targetPath string, allSourceSkills []DiscoveredSkill, include, exclude []string, targetName, targetNaming string, dryRun bool) (*PruneResult, error) {
 	result := &PruneResult{}
 
 	manifest, err := ReadManifest(targetPath)
@@ -219,37 +225,40 @@ func PruneOrphanCopiesWithSkills(targetPath string, allSourceSkills []Discovered
 		return nil, fmt.Errorf("failed to read manifest: %w", err)
 	}
 
-	managedSkills, err := FilterSkills(allSourceSkills, include, exclude)
+	resolution, err := ResolveTargetSkillsForTarget(targetName, config.ResourceTargetConfig{
+		Path:         targetPath,
+		TargetNaming: targetNaming,
+		Include:      include,
+		Exclude:      exclude,
+	}, allSourceSkills)
 	if err != nil {
-		return nil, fmt.Errorf("failed to apply filters for pruning: %w", err)
+		return nil, err
 	}
-	managedSkills = FilterSkillsByTarget(managedSkills, targetName)
-
-	// Build set of valid flat names
-	validFlatNames := make(map[string]bool)
-	for _, skill := range managedSkills {
-		validFlatNames[skill.FlatName] = true
-	}
+	validTargetNames := resolution.ValidTargetNames()
+	legacyNames := resolution.LegacyFlatNames()
 
 	// Remove manifest entries that are no longer in source
-	for flatName := range manifest.Managed {
-		if validFlatNames[flatName] {
+	for entryName := range manifest.Managed {
+		if validTargetNames[entryName] {
+			continue
+		}
+		if _, keepLegacy := legacyNames[entryName]; keepLegacy {
 			continue
 		}
 
-		entryPath := filepath.Join(targetPath, flatName)
+		entryPath := filepath.Join(targetPath, entryName)
 		if dryRun {
 			fmt.Fprintf(DiagOutput, "[dry-run] Would remove orphan copy: %s\n", entryPath)
 		} else {
 			if err := os.RemoveAll(entryPath); err != nil {
 				result.Warnings = append(result.Warnings,
-					fmt.Sprintf("%s: failed to remove: %v", flatName, err))
+					fmt.Sprintf("%s: failed to remove: %v", entryName, err))
 				continue
 			}
-			delete(manifest.Managed, flatName)
-			delete(manifest.Mtimes, flatName)
+			delete(manifest.Managed, entryName)
+			delete(manifest.Mtimes, entryName)
 		}
-		result.Removed = append(result.Removed, flatName)
+		result.Removed = append(result.Removed, entryName)
 	}
 
 	// Write updated manifest (only if we actually removed something)

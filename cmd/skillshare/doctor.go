@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -809,18 +810,9 @@ func findBrokenSymlinks(dir string) []string {
 func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered []sync.DiscoveredSkill) {
 	skillLocations := make(map[string][]string)
 
-	// Collect from source
-	if discovered != nil {
-		for _, skill := range discovered {
-			skillLocations[skill.FlatName] = append(skillLocations[skill.FlatName], "source")
-		}
-	} else {
-		entries, _ := os.ReadDir(cfg.Source)
-		for _, entry := range entries {
-			if entry.IsDir() && !utils.IsHidden(entry.Name()) {
-				skillLocations[entry.Name()] = append(skillLocations[entry.Name()], "source")
-			}
-		}
+	if discovered == nil {
+		result.addCheck("duplicate_skills", checkInfo, "Duplicate skill check skipped (source discovery unavailable)", nil)
+		return
 	}
 
 	// Collect from non-merge targets.
@@ -839,6 +831,12 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered [
 		if mode == "merge" {
 			continue
 		}
+
+		resolution, err := sync.ResolveTargetSkillsForTarget(name, target.SkillsConfig(), discovered)
+		if err != nil {
+			continue
+		}
+		sourceNames := resolution.ValidTargetNames()
 
 		manifestManaged := map[string]string{}
 		if mode == "copy" {
@@ -873,7 +871,12 @@ func checkDuplicateSkills(cfg *config.Config, result *doctorResult, discovered [
 
 			if info.Mode()&os.ModeSymlink == 0 {
 				// It's a real directory, not a symlink
-				skillLocations[entry.Name()] = append(skillLocations[entry.Name()], name)
+				if sourceNames[entry.Name()] {
+					if !slices.Contains(skillLocations[entry.Name()], "source") {
+						skillLocations[entry.Name()] = append(skillLocations[entry.Name()], "source")
+					}
+					skillLocations[entry.Name()] = append(skillLocations[entry.Name()], name)
+				}
 			}
 		}
 	}

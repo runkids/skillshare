@@ -30,7 +30,8 @@ type ProjectTargetEntry struct {
 	Skills *ResourceTargetConfig
 	Agents *ResourceTargetConfig
 
-	wasMigrated bool // true if flat fields were migrated during unmarshal; not serialized
+	wasMigrated         bool   // true if flat fields were migrated during unmarshal; not serialized
+	defaultTargetNaming string `yaml:"-"`
 }
 
 func (t *ProjectTargetEntry) UnmarshalYAML(value *yaml.Node) error {
@@ -40,11 +41,11 @@ func (t *ProjectTargetEntry) UnmarshalYAML(value *yaml.Node) error {
 	}
 
 	var decoded struct {
-		Name    string               `yaml:"name"`
-		Path    string               `yaml:"path"`
-		Mode    string               `yaml:"mode"`
-		Include []string             `yaml:"include"`
-		Exclude []string             `yaml:"exclude"`
+		Name    string                `yaml:"name"`
+		Path    string                `yaml:"path"`
+		Mode    string                `yaml:"mode"`
+		Include []string              `yaml:"include"`
+		Exclude []string              `yaml:"exclude"`
 		Skills  *ResourceTargetConfig `yaml:"skills"`
 		Agents  *ResourceTargetConfig `yaml:"agents"`
 	}
@@ -140,13 +141,18 @@ func (t ProjectTargetEntry) MarshalYAML() (interface{}, error) {
 // Otherwise the legacy flat fields are returned for backward compatibility.
 func (t *ProjectTargetEntry) SkillsConfig() ResourceTargetConfig {
 	if t.Skills != nil {
-		return *t.Skills
+		sc := *t.Skills
+		if sc.TargetNaming == "" {
+			sc.TargetNaming = t.defaultTargetNaming
+		}
+		return sc
 	}
 	return ResourceTargetConfig{
-		Path:    t.Path,
-		Mode:    t.Mode,
-		Include: t.Include,
-		Exclude: t.Exclude,
+		Path:         t.Path,
+		Mode:         t.Mode,
+		TargetNaming: t.defaultTargetNaming,
+		Include:      t.Include,
+		Exclude:      t.Exclude,
 	}
 }
 
@@ -161,7 +167,12 @@ func (t *ProjectTargetEntry) AgentsConfig() ResourceTargetConfig {
 // EnsureSkills returns the Skills sub-key, creating it from legacy flat fields if nil.
 func (t *ProjectTargetEntry) EnsureSkills() *ResourceTargetConfig {
 	if t.Skills == nil {
-		sc := t.SkillsConfig()
+		sc := ResourceTargetConfig{
+			Path:    t.Path,
+			Mode:    t.Mode,
+			Include: t.Include,
+			Exclude: t.Exclude,
+		}
 		t.Skills = &sc
 		t.Path = ""
 		t.Mode = ""
@@ -216,11 +227,12 @@ func (s SkillEntry) EffectiveParts() (group, name string) {
 
 // ProjectConfig holds project-level config (.skillshare/config.yaml).
 type ProjectConfig struct {
-	Targets     []ProjectTargetEntry `yaml:"targets"`
-	Extras      []ExtraConfig        `yaml:"extras,omitempty"`
-	Audit       AuditConfig          `yaml:"audit,omitempty"`
-	Hub         HubConfig            `yaml:"hub,omitempty"`
-	GitLabHosts []string             `yaml:"gitlab_hosts,omitempty"`
+	Targets      []ProjectTargetEntry `yaml:"targets"`
+	TargetNaming string               `yaml:"target_naming,omitempty"`
+	Extras       []ExtraConfig        `yaml:"extras,omitempty"`
+	Audit        AuditConfig          `yaml:"audit,omitempty"`
+	Hub          HubConfig            `yaml:"hub,omitempty"`
+	GitLabHosts  []string             `yaml:"gitlab_hosts,omitempty"`
 }
 
 // EffectiveGitLabHosts returns GitLabHosts merged with SKILLSHARE_GITLAB_HOSTS env var.
@@ -270,6 +282,9 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 		if strings.TrimSpace(target.Name) == "" {
 			return nil, fmt.Errorf("project config has target with empty name")
 		}
+	}
+	for i := range cfg.Targets {
+		cfg.Targets[i].defaultTargetNaming = cfg.TargetNaming
 	}
 
 	// Persist migrated format if any target had legacy flat fields.
@@ -392,11 +407,13 @@ func ResolveProjectTargets(projectRoot string, cfg *ProjectConfig) (map[string]T
 		}
 
 		resolved[name] = TargetConfig{
+			defaultTargetNaming: cfg.TargetNaming,
 			Skills: &ResourceTargetConfig{
-				Path:    absPath,
-				Mode:    sc.Mode,
-				Include: append([]string(nil), sc.Include...),
-				Exclude: append([]string(nil), sc.Exclude...),
+				Path:         absPath,
+				Mode:         sc.Mode,
+				TargetNaming: sc.TargetNaming,
+				Include:      append([]string(nil), sc.Include...),
+				Exclude:      append([]string(nil), sc.Exclude...),
 			},
 		}
 	}

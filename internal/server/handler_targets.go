@@ -17,6 +17,7 @@ type targetItem struct {
 	Name               string   `json:"name"`
 	Path               string   `json:"path"`
 	Mode               string   `json:"mode"`
+	TargetNaming       string   `json:"targetNaming"`
 	Status             string   `json:"status"`
 	LinkedCount        int      `json:"linkedCount"`
 	LocalCount         int      `json:"localCount"`
@@ -49,9 +50,10 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 		}
 
 		item := targetItem{
-			Name: name,
-			Path: sc.Path,
-			Mode: mode,
+			Name:         name,
+			Path:         sc.Path,
+			Mode:         mode,
+			TargetNaming: config.EffectiveTargetNaming(sc.TargetNaming),
 			Include: func() []string {
 				if len(sc.Include) == 0 {
 					return []string{}
@@ -244,9 +246,10 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		Include *[]string `json:"include"` // null = no change, [] = clear
-		Exclude *[]string `json:"exclude"`
-		Mode    *string   `json:"mode"`
+		Include      *[]string `json:"include"` // null = no change, [] = clear
+		Exclude      *[]string `json:"exclude"`
+		Mode         *string   `json:"mode"`
+		TargetNaming *string   `json:"target_naming"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -281,6 +284,14 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if body.TargetNaming != nil {
+		if !config.IsValidTargetNaming(*body.TargetNaming) {
+			writeError(w, http.StatusBadRequest, "invalid target_naming: "+*body.TargetNaming+"; must be flat or standard")
+			return
+		}
+		target.Skills.TargetNaming = *body.TargetNaming
+	}
+
 	s.cfg.Targets[name] = target
 
 	// In project mode, also update the project config
@@ -297,6 +308,9 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 				if body.Mode != nil {
 					sk.Mode = *body.Mode
 				}
+				if body.TargetNaming != nil {
+					sk.TargetNaming = *body.TargetNaming
+				}
 				break
 			}
 		}
@@ -308,11 +322,12 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hasFilter := body.Include != nil || body.Exclude != nil
+	hasSetting := body.Mode != nil || body.TargetNaming != nil
 	action := "filter"
-	if body.Mode != nil && hasFilter {
-		action = "mode+filter"
-	} else if body.Mode != nil {
-		action = "mode"
+	if hasSetting && hasFilter {
+		action = "settings+filter"
+	} else if hasSetting {
+		action = "settings"
 	}
 	s.writeOpsLog("target", "ok", start, map[string]any{
 		"action": action,

@@ -168,7 +168,7 @@ export const api = {
     }),
   removeTarget: (name: string) =>
     apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  updateTarget: (name: string, opts: { include?: string[]; exclude?: string[]; mode?: string }) =>
+  updateTarget: (name: string, opts: { include?: string[]; exclude?: string[]; mode?: string; target_naming?: string }) =>
     apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}`, {
       method: 'PATCH',
       body: JSON.stringify(opts),
@@ -541,6 +541,7 @@ export interface Target {
   name: string;
   path: string;
   mode: string;
+  targetNaming: string;
   status: string;
   linkedCount: number;
   localCount: number;

@@ -25,6 +25,11 @@ const SYNC_MODE_OPTIONS = [
   { value: 'copy', label: 'Copy', description: 'Physical file copies instead of symlinks' },
 ];
 
+const TARGET_NAMING_OPTIONS = [
+  { value: 'flat', label: 'Flat (default)', description: 'Flattened names with __ separators' },
+  { value: 'standard', label: 'Standard', description: 'SKILL.md name (Agent Skills spec)' },
+];
+
 export default function TargetsPage() {
   const queryClient = useQueryClient();
   const { data, isPending, error } = useQuery({
@@ -46,6 +51,22 @@ export default function TargetsPage() {
   const navigate = useNavigate();
   const { getTargetSummary } = useSyncMatrix();
   const { toast } = useToast();
+
+  const updateTargetSetting = async (
+    targetName: string,
+    payload: Parameters<typeof api.updateTarget>[1],
+    label: string,
+  ) => {
+    try {
+      await api.updateTarget(targetName, payload);
+      queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.config });
+      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
+      toast(`${targetName}: ${label}`, 'success');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
+  };
 
   // Compute filtered & sectioned available targets
   const { detected, others } = useMemo(() => {
@@ -371,21 +392,20 @@ export default function TargetsPage() {
                 <div className="mt-3 pt-3 border-t border-dashed border-pencil-light/30 flex items-center gap-2">
                   <Select
                     value={target.mode || 'merge'}
-                    onChange={async (mode) => {
-                      try {
-                        await api.updateTarget(target.name, { mode });
-                        queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
-                        queryClient.invalidateQueries({ queryKey: queryKeys.config });
-                        queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
-                        toast(`Sync mode for ${target.name} changed to ${mode}`, 'success');
-                      } catch (e) {
-                        toast((e as Error).message, 'error');
-                      }
-                    }}
+                    onChange={(mode) => updateTargetSetting(target.name, { mode }, `Sync mode changed to ${mode}`)}
                     options={SYNC_MODE_OPTIONS}
                     size="sm"
                     className="w-44"
                   />
+                  {target.mode !== 'symlink' && (
+                    <Select
+                      value={target.targetNaming || 'flat'}
+                      onChange={(naming) => updateTargetSetting(target.name, { target_naming: naming }, `Target naming changed to ${naming}`)}
+                      options={TARGET_NAMING_OPTIONS}
+                      size="sm"
+                      className="w-48"
+                    />
+                  )}
                   {(target.mode === 'merge' || target.mode === 'copy') && (
                     <span className={`text-sm ml-auto ${hasDrift ? 'text-warning' : 'text-muted-dark'}`}>
                       {hasDrift ? (
