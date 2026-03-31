@@ -445,7 +445,7 @@ export default function SkillDetailPage() {
             >
               Metadata
             </h3>
-            <dl className="space-y-3">
+            <dl className="space-y-2">
               <MetaItem label="Path" value={skill.relPath} mono copyable copyValue={skill.sourcePath} />
               {skill.source && <MetaItem label="Source" value={skill.source} mono />}
               {skill.version && <MetaItem label="Version" value={skill.version} mono />}
@@ -457,9 +457,9 @@ export default function SkillDetailPage() {
                 />
               )}
               {skill.targets && skill.targets.length > 0 && (
-                <div>
-                  <dt className="text-sm text-pencil-light uppercase tracking-wider">Targets</dt>
-                  <dd className="flex flex-wrap gap-1.5 mt-1">
+                <div className="flex items-baseline gap-3">
+                  <dt className="text-xs text-pencil-light uppercase tracking-wider shrink-0 min-w-[4.5rem]">Targets</dt>
+                  <dd className="flex flex-wrap gap-1.5 min-w-0">
                     {skill.targets.map((t) => (
                       <Badge key={t} variant="default">{t}</Badge>
                     ))}
@@ -467,16 +467,16 @@ export default function SkillDetailPage() {
                 </div>
               )}
               {skill.repoUrl && (
-                <div>
-                  <dt className="text-sm text-pencil-light uppercase tracking-wider">Repository</dt>
-                  <dd>
+                <div className="flex items-baseline gap-3">
+                  <dt className="text-xs text-pencil-light uppercase tracking-wider shrink-0 min-w-[4.5rem]">Repo</dt>
+                  <dd className="min-w-0">
                     <a
                       href={skill.repoUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="link-subtle text-base break-words"
+                      className="link-subtle text-sm break-all"
                     >
-                      <ExternalLink size={12} strokeWidth={2.5} className="inline -mt-0.5 mr-1" />
+                      <ExternalLink size={11} strokeWidth={2.5} className="inline -mt-0.5 mr-0.5" />
                       {skill.repoUrl.replace('https://', '').replace('.git', '')}
                     </a>
                   </dd>
@@ -665,21 +665,20 @@ function MetaItem({
   copyValue?: string;
 }) {
   return (
-    <div>
-      <dt className="text-sm text-pencil-light uppercase tracking-wider flex items-center gap-1">
+    <div className="flex items-baseline gap-3">
+      <dt className="text-xs text-pencil-light uppercase tracking-wider shrink-0 min-w-[4.5rem]">
         {label}
+      </dt>
+      <dd
+        className={`text-sm text-pencil min-w-0 break-all${mono ? ' font-mono' : ''}`}
+      >
+        {value}
         {copyable && (
           <CopyButton
             value={copyValue ?? value}
-            className="ml-1"
+            className="ml-1 align-middle"
           />
         )}
-      </dt>
-      <dd
-        className={`text-base text-pencil break-all${mono ? ' font-mono' : ''}`}
-        style={mono ? { fontSize: '0.875rem' } : undefined}
-      >
-        {value}
       </dd>
     </div>
   );

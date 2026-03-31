@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useLayoutEffect, type ReactNode } from 'react';
+import { useState, useRef, useCallback, useLayoutEffect, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 interface TooltipProps {
@@ -7,12 +7,14 @@ interface TooltipProps {
   side?: 'top' | 'bottom';
   followCursor?: boolean;
   delay?: number;
+  /** Display wrapper as block element */
+  block?: boolean;
 }
 
 const OFFSET = 12;
 const MARGIN = 8;
 
-export default function Tooltip({ children, content, side = 'bottom', followCursor, delay = 200 }: TooltipProps) {
+export default function Tooltip({ children, content, side = 'bottom', followCursor, delay = 200, block }: TooltipProps) {
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const visibleRef = useRef(false);
@@ -32,7 +34,7 @@ export default function Tooltip({ children, content, side = 'bottom', followCurs
 
     let x = pos.x;
     let y = pos.y;
-    if (x + w > vw - MARGIN) x = pos.x - w - OFFSET * 2;
+    if (x + w > vw - MARGIN) x = vw - MARGIN - w;
     if (x < MARGIN) x = MARGIN;
     if (y + h > vh - MARGIN) y = pos.y - h - OFFSET * 2;
     if (y < MARGIN) y = MARGIN;
@@ -78,9 +80,14 @@ export default function Tooltip({ children, content, side = 'bottom', followCurs
     setPos(null);
   }, []);
 
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (rafRef.current !== undefined) cancelAnimationFrame(rafRef.current);
+  }, []);
+
   return (
     <>
-      <span onMouseEnter={show} onMouseLeave={hide} onMouseMove={followCursor ? move : undefined}>
+      <span className={block ? 'block' : undefined} onMouseEnter={show} onMouseLeave={hide} onMouseMove={followCursor ? move : undefined}>
         {children}
       </span>
       {pos && createPortal(

@@ -925,17 +925,19 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
                   />
                 </td>
                 {/* Name */}
-                <td className="py-3 pr-4">
-                  <Link
-                    to={`/skills/${encodeURIComponent(skill.flatName)}`}
-                    className="font-medium text-pencil hover:underline"
-                  >
-                    {skill.name}
-                  </Link>
+                <td className="py-3 pr-4 max-w-[300px]">
+                  <Tooltip content={skill.name} block delay={1500}>
+                    <Link
+                      to={`/skills/${encodeURIComponent(skill.flatName)}`}
+                      className="font-medium text-pencil hover:underline block truncate"
+                    >
+                      {skill.name}
+                    </Link>
+                  </Tooltip>
                 </td>
                 {/* Path */}
                 <td className="py-3 pr-4 font-mono text-sm text-pencil-light max-w-[200px]">
-                  <Tooltip content={skill.relPath}><span className="block truncate">{skill.relPath}</span></Tooltip>
+                  <Tooltip content={skill.relPath} block delay={1500}><span className="block truncate">{skill.relPath}</span></Tooltip>
                 </td>
                 {/* Type badge */}
                 <td className="py-3 pr-4">
@@ -958,7 +960,7 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
                 </td>
                 {/* Source */}
                 <td className="py-3 text-sm text-pencil-light max-w-[280px]">
-                  <Tooltip content={skill.source ?? '—'}><span className="block truncate">{skill.source ? shortSource(skill.source) : '—'}</span></Tooltip>
+                  <Tooltip content={skill.source ?? '—'} block delay={1500}><span className="block truncate">{skill.source ? shortSource(skill.source) : '—'}</span></Tooltip>
                 </td>
               </tr>
             ))}
