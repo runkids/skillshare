@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
@@ -25,6 +26,7 @@ type skillItem struct {
 	Type        string   `json:"type,omitempty"`
 	RepoURL     string   `json:"repoUrl,omitempty"`
 	Version     string   `json:"version,omitempty"`
+	Branch      string   `json:"branch,omitempty"`
 	Disabled    bool     `json:"disabled"`
 }
 
@@ -59,6 +61,12 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 			item.Type = meta.Type
 			item.RepoURL = meta.RepoURL
 			item.Version = meta.Version
+			item.Branch = meta.Branch
+		}
+		if item.Branch == "" && item.IsInRepo {
+			if branch, err := git.GetCurrentBranch(d.SourcePath); err == nil {
+				item.Branch = branch
+			}
 		}
 
 		items = append(items, item)
@@ -104,6 +112,12 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 			item.Type = meta.Type
 			item.RepoURL = meta.RepoURL
 			item.Version = meta.Version
+			item.Branch = meta.Branch
+		}
+		if item.Branch == "" && item.IsInRepo {
+			if branch, err := git.GetCurrentBranch(d.SourcePath); err == nil {
+				item.Branch = branch
+			}
 		}
 
 		// Read SKILL.md content

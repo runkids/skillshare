@@ -23,6 +23,7 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		Source string `json:"source"`
+		Branch string `json:"branch"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -38,6 +39,7 @@ func (s *Server) handleDiscover(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid source: "+err.Error())
 		return
 	}
+	source.Branch = body.Branch
 
 	// Non-git sources (local paths) don't need discovery
 	if !source.IsGit() {
@@ -80,6 +82,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		Source string `json:"source"`
+		Branch string `json:"branch"`
 		Skills []struct {
 			Name string `json:"name"`
 			Path string `json:"path"`
@@ -103,6 +106,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid source: "+err.Error())
 		return
 	}
+	source.Branch = body.Branch
 
 	var discovery *install.DiscoveryResult
 	if source.HasSubdir() {
@@ -139,6 +143,7 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		Force:          body.Force,
 		SkipAudit:      body.SkipAudit,
 		AuditThreshold: s.auditThreshold(),
+		Branch:         body.Branch,
 	}
 	if s.IsProjectMode() {
 		installOpts.AuditProjectRoot = s.projectRoot
@@ -240,6 +245,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 
 	var body struct {
 		Source    string `json:"source"`
+		Branch    string `json:"branch"`
 		Name      string `json:"name"`
 		Force     bool   `json:"force"`
 		SkipAudit bool   `json:"skipAudit"`
@@ -261,6 +267,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid source: "+err.Error())
 		return
 	}
+	source.Branch = body.Branch
 
 	if body.Name != "" {
 		source.Name = body.Name
@@ -273,6 +280,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			Force:          body.Force,
 			SkipAudit:      body.SkipAudit,
 			Into:           body.Into,
+			Branch:         body.Branch,
 			AuditThreshold: s.auditThreshold(),
 		}
 		if s.IsProjectMode() {
@@ -283,6 +291,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 			Force:            installOpts.Force,
 			SkipAudit:        installOpts.SkipAudit,
 			Into:             installOpts.Into,
+			Branch:           installOpts.Branch,
 			AuditThreshold:   installOpts.AuditThreshold,
 			AuditProjectRoot: installOpts.AuditProjectRoot,
 		})
@@ -361,6 +370,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		Name:           body.Name,
 		Force:          body.Force,
 		SkipAudit:      body.SkipAudit,
+		Branch:         body.Branch,
 		AuditThreshold: s.auditThreshold(),
 		AuditProjectRoot: func() string {
 			if s.IsProjectMode() {
