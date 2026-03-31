@@ -180,8 +180,10 @@ type diffItem struct {
 }
 
 type diffTarget struct {
-	Target string     `json:"target"`
-	Items  []diffItem `json:"items"`
+	Target         string     `json:"target"`
+	Items          []diffItem `json:"items"`
+	SkippedCount   int        `json:"skippedCount,omitempty"`
+	CollisionCount int        `json:"collisionCount,omitempty"`
 }
 
 func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {

@@ -549,6 +549,8 @@ export interface Target {
   include: string[];
   exclude: string[];
   expectedSkillCount: number;
+  skippedSkillCount?: number;
+  collisionCount?: number;
 }
 
 export interface SyncResult {
@@ -580,6 +582,8 @@ export interface ConfigSaveResponse {
 export interface DiffTarget {
   target: string;
   items: { skill: string; action: string; reason?: string }[];
+  skippedCount?: number;
+  collisionCount?: number;
 }
 
 export interface HubIndex {

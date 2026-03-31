@@ -103,6 +103,9 @@ func (s *Server) computeTargetDiff(name string, target config.TargetConfig, disc
 		dt.Items = append(dt.Items, diffItem{Skill: "(target naming)", Action: "skip", Reason: err.Error()})
 		return dt
 	}
+	// Surface collision/validation stats so the UI can show why skills were skipped
+	dt.CollisionCount = len(resolution.Collisions)
+	dt.SkippedCount = len(filtered) - len(resolution.Skills)
 	validNames := resolution.ValidTargetNames()
 	legacyNames := resolution.LegacyFlatNames()
 

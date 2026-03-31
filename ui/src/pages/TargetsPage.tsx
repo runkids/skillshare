@@ -479,6 +479,14 @@ export default function TargetsPage() {
                     </Link>
                   </div>
                 )}
+                {(target.skippedSkillCount ?? 0) > 0 && (
+                  <p className="mt-1 text-xs text-warning flex items-center gap-1">
+                    <AlertTriangle size={11} strokeWidth={2.5} />
+                    {target.skippedSkillCount} skill(s) skipped
+                    {(target.collisionCount ?? 0) > 0 && <> ({target.collisionCount} name collision(s))</>}
+                    {' '}— try switching to <strong>Flat</strong> naming to resolve
+                  </p>
+                )}
               </Card>
             );
           })}

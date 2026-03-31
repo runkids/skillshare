@@ -24,6 +24,8 @@ type targetItem struct {
 	Include            []string `json:"include"`
 	Exclude            []string `json:"exclude"`
 	ExpectedSkillCount int      `json:"expectedSkillCount"`
+	SkippedSkillCount  int      `json:"skippedSkillCount,omitempty"`
+	CollisionCount     int      `json:"collisionCount,omitempty"`
 }
 
 func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +79,18 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				filtered = ssync.FilterSkillsByTarget(filtered, name)
-				item.ExpectedSkillCount = len(filtered)
+				// Use resolution count (excludes collisions/invalid names) for accurate display
+				resolution, resErr := ssync.ResolveTargetSkillsForTarget(name, config.ResourceTargetConfig{
+					Path:         sc.Path,
+					TargetNaming: sc.TargetNaming,
+				}, filtered)
+				if resErr == nil {
+					item.ExpectedSkillCount = len(resolution.Skills)
+					item.SkippedSkillCount = len(filtered) - len(resolution.Skills)
+					item.CollisionCount = len(resolution.Collisions)
+				} else {
+					item.ExpectedSkillCount = len(filtered)
+				}
 			}
 			status, linked, local := ssync.CheckStatusMerge(sc.Path, source)
 			item.Status = status.String()
@@ -91,7 +104,17 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				filtered = ssync.FilterSkillsByTarget(filtered, name)
-				item.ExpectedSkillCount = len(filtered)
+				resolution, resErr := ssync.ResolveTargetSkillsForTarget(name, config.ResourceTargetConfig{
+					Path:         sc.Path,
+					TargetNaming: sc.TargetNaming,
+				}, filtered)
+				if resErr == nil {
+					item.ExpectedSkillCount = len(resolution.Skills)
+					item.SkippedSkillCount = len(filtered) - len(resolution.Skills)
+					item.CollisionCount = len(resolution.Collisions)
+				} else {
+					item.ExpectedSkillCount = len(filtered)
+				}
 			}
 			status, managed, local := ssync.CheckStatusCopy(sc.Path)
 			item.Status = status.String()
