@@ -128,18 +128,22 @@ func parseCheckArgs(args []string) (*checkOptions, bool, error) {
 	return opts, false, nil
 }
 
+// urlBranchSep separates URL and branch in composite grouping keys.
+// Tab is used because it cannot appear in URLs (unlike "@" which appears in SSH URLs).
+const urlBranchSep = "\t"
+
 // urlBranchKey creates a composite grouping key from a URL and optional branch.
 func urlBranchKey(url, branch string) string {
 	if branch != "" {
-		return url + "@" + branch
+		return url + urlBranchSep + branch
 	}
 	return url
 }
 
 // splitURLBranch splits a composite key back into URL and branch.
 func splitURLBranch(key string) (url, branch string) {
-	if at := strings.LastIndex(key, "@"); at > 0 {
-		return key[:at], key[at+1:]
+	if idx := strings.Index(key, urlBranchSep); idx >= 0 {
+		return key[:idx], key[idx+1:]
 	}
 	return key, ""
 }

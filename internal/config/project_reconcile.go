@@ -92,7 +92,7 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 				reg.Skills[existingIdx].Tracked = tracked
 				changed = true
 			}
-			if meta != nil && meta.Branch != "" && reg.Skills[existingIdx].Branch != meta.Branch {
+			if meta != nil && reg.Skills[existingIdx].Branch != meta.Branch {
 				reg.Skills[existingIdx].Branch = meta.Branch
 				changed = true
 			}
