@@ -33,7 +33,6 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
 import type { Target as TargetType, CheckResult, AuditAllResponse, Extra } from '../api/client';
-import { useAppContext } from '../context/AppContext';
 import { radius, shadows } from '../design';
 
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
@@ -57,7 +56,6 @@ export default function DashboardPage() {
     return window.localStorage.getItem(STAR_CTA_DISMISSED_KEY) !== '1';
   });
   const { toast } = useToast();
-  const { isProjectMode } = useAppContext();
 
   if (isPending) return <PageSkeleton />;
   if (error) {

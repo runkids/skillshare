@@ -1331,8 +1331,6 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
     name: string;
   } | null>(null);
 
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { uninstallMutation, setTargetMutation: targetMutation, buildSkillExtraItems: buildTableExtraItems } = useSkillActions();
 
   // Available targets for the inline Select

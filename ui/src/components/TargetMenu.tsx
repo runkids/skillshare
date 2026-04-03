@@ -199,7 +199,7 @@ function SubmenuTrigger({
   }, [expanded, item.items?.length, parentMenuRef]);
 
   // Hover intent: collapse after delay when mouse leaves
-  const collapseTimer = useRef<ReturnType<typeof setTimeout>>();
+  const collapseTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(collapseTimer.current), []);
   const handleEnter = () => { clearTimeout(collapseTimer.current); onExpand(); };
   const handleLeave = () => { collapseTimer.current = setTimeout(onCollapse, 180); };
