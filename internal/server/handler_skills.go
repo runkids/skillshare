@@ -261,14 +261,21 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Prune registry entries belonging to this repo
+	// Prune registry entries: the repo itself + skills belonging to it
 	trimmedGroup := strings.TrimPrefix(filepath.Base(repoName), "_")
 	filtered := make([]config.SkillEntry, 0, len(s.registry.Skills))
 	for _, entry := range s.registry.Skills {
+		fullName := entry.FullName()
+		// Match the repo's own entry (e.g., "_team-skills" or "org/_team-skills")
+		if fullName == repoName {
+			continue
+		}
+		// Match skills grouped under this repo (group="team-skills" for repo "_team-skills")
 		if entry.Group == trimmedGroup {
 			continue
 		}
-		if strings.HasPrefix(entry.FullName(), repoName+"/") {
+		// Match nested members (e.g., "org/_team-skills/sub-skill")
+		if strings.HasPrefix(fullName, repoName+"/") {
 			continue
 		}
 		filtered = append(filtered, entry)

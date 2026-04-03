@@ -123,6 +123,12 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateSingle(name string, force, skipAudit bool) updateResultItem {
+	// Try exact skill path first (prevents basename collision with nested repos)
+	skillPath := filepath.Join(s.cfg.Source, name)
+	if meta, _ := install.ReadMeta(skillPath); meta != nil && meta.Source != "" {
+		return s.updateRegularSkill(name, skillPath, skipAudit)
+	}
+
 	// Try tracked repo (flat, nested, or basename fallback)
 	repoName, repoPath, err := s.resolveTrackedRepo(name)
 	if err != nil {
@@ -130,12 +136,6 @@ func (s *Server) updateSingle(name string, force, skipAudit bool) updateResultIt
 	}
 	if repoPath != "" {
 		return s.updateTrackedRepo(repoName, repoPath, force, skipAudit)
-	}
-
-	// Try as regular skill
-	skillPath := filepath.Join(s.cfg.Source, name)
-	if meta, _ := install.ReadMeta(skillPath); meta != nil && meta.Source != "" {
-		return s.updateRegularSkill(name, skillPath, skipAudit)
 	}
 
 	return updateResultItem{
