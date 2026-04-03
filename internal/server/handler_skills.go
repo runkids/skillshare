@@ -1,12 +1,15 @@
 package server
 
 import (
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/sync"
@@ -239,56 +242,14 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sourceRoot := filepath.Clean(s.cfg.Source)
-	resolveRepo := func(input string) (string, string) {
-		candidates := []string{input}
-		if !strings.HasPrefix(filepath.Base(input), "_") {
-			if dir := filepath.Dir(input); dir != "." && dir != "" {
-				candidates = append(candidates, filepath.Join(dir, "_"+filepath.Base(input)))
-			} else {
-				candidates = append(candidates, "_"+input)
-			}
-		}
-		for _, candidate := range candidates {
-			repoPath := filepath.Clean(filepath.Join(sourceRoot, candidate))
-			relPath, relErr := filepath.Rel(sourceRoot, repoPath)
-			if relErr != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
-				continue
-			}
-			if install.IsGitRepo(repoPath) {
-				return candidate, repoPath
-			}
-		}
-		return "", ""
+	repoName, repoPath, resolveErr := s.resolveTrackedRepo(cleanName)
+	if resolveErr != nil {
+		writeError(w, http.StatusBadRequest, resolveErr.Error())
+		return
 	}
-
-	repoName, repoPath := resolveRepo(cleanName)
 	if repoPath == "" {
-		// Fallback: match nested tracked repos by basename.
-		matches := make([]string, 0, 2)
-		repos, err := install.GetTrackedRepos(s.cfg.Source)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to list tracked repositories: "+err.Error())
-			return
-		}
-		for _, repo := range repos {
-			base := filepath.Base(repo)
-			trimmed := strings.TrimPrefix(base, "_")
-			if base == cleanName || trimmed == cleanName {
-				matches = append(matches, repo)
-			}
-		}
-		switch len(matches) {
-		case 0:
-			writeError(w, http.StatusBadRequest, "not a tracked repository: "+cleanName)
-			return
-		case 1:
-			repoName = matches[0]
-			repoPath = filepath.Join(s.cfg.Source, repoName)
-		default:
-			writeError(w, http.StatusBadRequest, "multiple tracked repositories match: "+cleanName+" — use the full path")
-			return
-		}
+		writeError(w, http.StatusBadRequest, "not a tracked repository: "+cleanName)
+		return
 	}
 
 	// Remove from .gitignore
@@ -298,6 +259,37 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 	if _, err := trash.MoveToTrash(repoPath, repoName, s.trashBase()); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to trash repo: "+err.Error())
 		return
+	}
+
+	// Prune registry entries belonging to this repo
+	trimmedGroup := strings.TrimPrefix(filepath.Base(repoName), "_")
+	filtered := make([]config.SkillEntry, 0, len(s.registry.Skills))
+	for _, entry := range s.registry.Skills {
+		if entry.Group == trimmedGroup {
+			continue
+		}
+		if strings.HasPrefix(entry.FullName(), repoName+"/") {
+			continue
+		}
+		filtered = append(filtered, entry)
+	}
+	s.registry.Skills = filtered
+
+	regDir := s.cfg.RegistryDir
+	if s.IsProjectMode() {
+		regDir = filepath.Join(s.projectRoot, ".skillshare")
+	}
+	if err := s.registry.Save(regDir); err != nil {
+		log.Printf("warning: failed to save registry after repo uninstall: %v", err)
+	}
+	if s.IsProjectMode() {
+		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.registry, s.cfg.Source); rErr != nil {
+			log.Printf("warning: failed to reconcile project skills: %v", rErr)
+		}
+	} else {
+		if rErr := config.ReconcileGlobalSkills(s.cfg, s.registry); rErr != nil {
+			log.Printf("warning: failed to reconcile global skills: %v", rErr)
+		}
 	}
 
 	s.writeOpsLog("uninstall", "ok", start, map[string]any{
@@ -351,4 +343,50 @@ func (s *Server) handleUninstallSkill(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeError(w, http.StatusNotFound, "skill not found: "+name)
+}
+
+// resolveTrackedRepo resolves a repo name (flat or nested) to its directory name
+// and absolute path under s.cfg.Source. Returns ("", "", nil) if not found.
+// Returns a non-nil error for ambiguous matches or internal failures.
+func (s *Server) resolveTrackedRepo(input string) (string, string, error) {
+	sourceRoot := filepath.Clean(s.cfg.Source)
+	candidates := []string{input}
+	if !strings.HasPrefix(filepath.Base(input), "_") {
+		if dir := filepath.Dir(input); dir != "." && dir != "" {
+			candidates = append(candidates, filepath.Join(dir, "_"+filepath.Base(input)))
+		} else {
+			candidates = append(candidates, "_"+input)
+		}
+	}
+	for _, candidate := range candidates {
+		repoPath := filepath.Clean(filepath.Join(sourceRoot, candidate))
+		relPath, relErr := filepath.Rel(sourceRoot, repoPath)
+		if relErr != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) {
+			continue
+		}
+		if install.IsGitRepo(repoPath) {
+			return candidate, repoPath, nil
+		}
+	}
+
+	// Fallback: match nested tracked repos by basename.
+	repos, err := install.GetTrackedRepos(s.cfg.Source)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to list tracked repositories: %w", err)
+	}
+	var match string
+	for _, repo := range repos {
+		base := filepath.Base(repo)
+		trimmed := strings.TrimPrefix(base, "_")
+		if base == input || trimmed == input {
+			if match != "" {
+				return "", "", fmt.Errorf("multiple tracked repositories match: %s — use the full path", input)
+			}
+			match = repo
+		}
+	}
+	if match != "" {
+		return match, filepath.Join(sourceRoot, match), nil
+	}
+	return "", "", nil
 }

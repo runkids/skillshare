@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"skillshare/internal/audit"
@@ -124,14 +123,12 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateSingle(name string, force, skipAudit bool) updateResultItem {
-	// Try tracked repo first (with _ prefix)
-	repoName := name
-	if !strings.HasPrefix(repoName, "_") {
-		repoName = "_" + name
+	// Try tracked repo (flat, nested, or basename fallback)
+	repoName, repoPath, err := s.resolveTrackedRepo(name)
+	if err != nil {
+		return updateResultItem{Name: name, Action: "error", Message: err.Error()}
 	}
-	repoPath := filepath.Join(s.cfg.Source, repoName)
-
-	if install.IsGitRepo(repoPath) {
+	if repoPath != "" {
 		return s.updateTrackedRepo(repoName, repoPath, force, skipAudit)
 	}
 
@@ -139,12 +136,6 @@ func (s *Server) updateSingle(name string, force, skipAudit bool) updateResultIt
 	skillPath := filepath.Join(s.cfg.Source, name)
 	if meta, _ := install.ReadMeta(skillPath); meta != nil && meta.Source != "" {
 		return s.updateRegularSkill(name, skillPath, skipAudit)
-	}
-
-	// Try original name as git repo path
-	origPath := filepath.Join(s.cfg.Source, name)
-	if install.IsGitRepo(origPath) {
-		return s.updateTrackedRepo(name, origPath, force, skipAudit)
 	}
 
 	return updateResultItem{

@@ -39,6 +39,21 @@ func initGitRepo(t *testing.T, dir string) {
 	}
 }
 
+func TestUpdateSingle_NestedTrackedRepo_Resolves(t *testing.T) {
+	s, src := newTestServer(t)
+
+	// Create a nested tracked repo with a real git init
+	repoDir := filepath.Join(src, "org", "_team-skills")
+	os.MkdirAll(repoDir, 0755)
+	initGitRepo(t, repoDir)
+
+	result := s.updateSingle("org/_team-skills", false, true)
+	// Should resolve (may be up-to-date or updated, but NOT "error"/"not found")
+	if result.Action == "error" && strings.Contains(result.Message, "not found") {
+		t.Fatalf("updateSingle failed to resolve nested repo: %s", result.Message)
+	}
+}
+
 func TestAuditGateTrackedRepo_RollbackFailure_ReportsWarning(t *testing.T) {
 	// Create a git repo with a HIGH-severity finding
 	repoDir := t.TempDir()

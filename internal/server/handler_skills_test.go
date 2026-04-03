@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/config"
 	"skillshare/internal/trash"
 )
 
@@ -169,5 +170,36 @@ func TestHandleUninstallRepo_RejectsPathTraversal(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), "invalid or missing tracked repository name") {
 		t.Fatalf("expected invalid name error, got %s", rr.Body.String())
+	}
+}
+
+func TestHandleUninstallRepo_PrunesRegistry(t *testing.T) {
+	s, src := newTestServer(t)
+	addTrackedRepo(t, src, "_team-skills")
+	addSkill(t, src, "unrelated-skill") // must exist on disk to survive reconcile
+
+	// Seed registry with entries belonging to this repo
+	s.registry = &config.Registry{
+		Skills: []config.SkillEntry{
+			{Name: "vue-best-practices", Group: "team-skills"},
+			{Name: "react-patterns", Group: "team-skills"},
+			{Name: "unrelated-skill", Group: ""},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/repos/_team-skills", nil)
+	req.SetPathValue("name", "_team-skills")
+	rr := httptest.NewRecorder()
+	s.handleUninstallRepo(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Registry should not contain any team-skills entries
+	for _, entry := range s.registry.Skills {
+		if entry.Group == "team-skills" {
+			t.Fatalf("expected team-skills entries to be pruned, but found %q", entry.Name)
+		}
 	}
 }
