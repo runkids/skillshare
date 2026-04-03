@@ -3,6 +3,7 @@ package trash
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -39,7 +40,7 @@ func MoveToTrash(srcPath, name, trashBase string) (string, error) {
 	trashName := name + "_" + timestamp
 	trashPath := filepath.Join(trashBase, trashName)
 
-	if err := os.MkdirAll(trashBase, 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(trashPath), 0755); err != nil {
 		return "", fmt.Errorf("failed to create trash directory: %w", err)
 	}
 
@@ -61,43 +62,44 @@ func MoveToTrash(srcPath, name, trashBase string) (string, error) {
 }
 
 // List returns all trashed items sorted by date (newest first).
+// Walks recursively to find nested entries (e.g., "org/_team-skills_<ts>").
 func List(trashBase string) []TrashEntry {
-	entries, err := os.ReadDir(trashBase)
-	if err != nil {
-		return nil
-	}
-
 	var items []TrashEntry
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
+
+	filepath.WalkDir(trashBase, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || !d.IsDir() || path == trashBase {
+			return nil
 		}
 
-		dirName := entry.Name()
-		entryPath := filepath.Join(trashBase, dirName)
-
-		// Parse name and timestamp from "skillname_YYYY-MM-DD_HH-MM-SS"
-		name, ts := parseTrashName(dirName)
+		name, ts := parseTrashName(d.Name())
 		if name == "" {
-			continue
+			return nil // intermediate directory — keep walking
 		}
 
-		date, err := time.Parse("2006-01-02_15-04-05", ts)
-		if err != nil {
-			// Fallback to file mod time
-			if info, serr := entry.Info(); serr == nil {
+		// Compute full nested name from relative path
+		parentRel, _ := filepath.Rel(trashBase, filepath.Dir(path))
+		fullName := name
+		if parentRel != "." {
+			fullName = filepath.Join(parentRel, name)
+		}
+
+		date, parseErr := time.Parse("2006-01-02_15-04-05", ts)
+		if parseErr != nil {
+			if info, serr := d.Info(); serr == nil {
 				date = info.ModTime()
 			}
 		}
 
 		items = append(items, TrashEntry{
-			Name:      name,
+			Name:      fullName,
 			Timestamp: ts,
-			Path:      entryPath,
+			Path:      path,
 			Date:      date,
-			Size:      dirSize(entryPath),
+			Size:      dirSize(path),
 		})
-	}
+
+		return fs.SkipDir // don't descend into trashed content
+	})
 
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].Date.After(items[j].Date)
@@ -122,11 +124,25 @@ func Cleanup(trashBase string, maxAge time.Duration) (int, error) {
 			if err := os.RemoveAll(item.Path); err != nil {
 				return removed, fmt.Errorf("failed to clean up %s: %w", item.Name, err)
 			}
+			cleanEmptyParents(item.Path, trashBase)
 			removed++
 		}
 	}
 
 	return removed, nil
+}
+
+// cleanEmptyParents removes empty parent directories between path and stopAt.
+func cleanEmptyParents(path, stopAt string) {
+	dir := filepath.Dir(path)
+	for dir != stopAt && dir != "." && dir != "/" {
+		entries, err := os.ReadDir(dir)
+		if err != nil || len(entries) > 0 {
+			break
+		}
+		os.Remove(dir)
+		dir = filepath.Dir(dir)
+	}
 }
 
 // TotalSize returns the total size of all trashed items in bytes.
@@ -155,6 +171,11 @@ func FindByName(trashBase, name string) *TrashEntry {
 // Returns an error if the destination already exists.
 func Restore(entry *TrashEntry, destDir string) error {
 	destPath := filepath.Join(destDir, entry.Name)
+
+	// Ensure parent directory exists for nested names (e.g., "org/_team-skills")
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
 
 	if _, err := os.Stat(destPath); err == nil {
 		return fmt.Errorf("'%s' already exists in %s (use --force on uninstall to replace)", entry.Name, destDir)

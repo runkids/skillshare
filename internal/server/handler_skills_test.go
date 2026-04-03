@@ -127,6 +127,15 @@ func TestHandleUninstallRepo_NestedRepoPath(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("expected nested tracked repo to be moved to trash, got %d matches", len(entries))
 	}
+
+	// Verify List() can find nested trash entries
+	items := trash.List(trash.TrashDir())
+	if len(items) != 1 {
+		t.Fatalf("expected 1 trash item from List, got %d", len(items))
+	}
+	if items[0].Name != "org/_team-skills" {
+		t.Fatalf("expected Name 'org/_team-skills', got %q", items[0].Name)
+	}
 }
 
 func TestHandleUninstallRepo_AmbiguousBasenameRequiresFullPath(t *testing.T) {
