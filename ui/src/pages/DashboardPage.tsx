@@ -11,7 +11,6 @@ import {
   Download,
   GitBranch,
   AlertTriangle,
-  Check,
   Trash2,
   Package,
   Zap,
@@ -513,36 +512,30 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
                     {displayName}
                   </span>
                   <Badge variant="info">{repo.skillCount} skills</Badge>
+                  {repo.dirty ? (
+                    <Badge variant="warning" dot>modified</Badge>
+                  ) : (
+                    <Badge variant="default">clean</Badge>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  {repo.dirty ? (
-                    <span className="flex items-center gap-1 text-warning text-sm">
-                      <AlertTriangle size={14} strokeWidth={2.5} />
-                      <span>modified</span>
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-success text-sm">
-                      <Check size={14} strokeWidth={2.5} />
-                      <span>clean</span>
-                    </span>
-                  )}
                   <Button
                     variant="secondary"
-                    size="sm"
+                    size="xs"
                     onClick={() => handleUpdateRepo(repo.name)}
                     loading={isUpdating}
                     disabled={hasAnyDeleteInProgress}
                   >
-                    <RefreshCw size={14} />
+                    <RefreshCw size={12} />
                     Update
                   </Button>
                   <Button
                     variant="danger"
-                    size="sm"
+                    size="xs"
                     onClick={() => setRepoToDelete(repo.name)}
                     disabled={isBusy || repoToDelete !== null || updatingRepos.size > 0}
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={12} />
                     Uninstall
                   </Button>
                 </div>
