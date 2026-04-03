@@ -58,6 +58,10 @@
 
 - **Dashboard tracked repo row polish** — status indicators (`clean` / `modified`) moved next to the repo name as compact badges. Action buttons use a smaller `xs` size to reduce visual weight
 
+- **Bulk target folder matching** — setting targets on a folder with a trailing slash (e.g. `frontend/`) no longer silently skips all skills. The server now normalizes folder paths before matching
+
+- **Doctor version detection** — `skillshare doctor` no longer reports `! Skill: missing version` when the version is stored under `metadata.version` in the SKILL.md frontmatter. Previously, the inline parser only checked for a top-level `version:` key
+
 ## [0.18.6] - 2026-04-01
 
 ### Bug Fixes

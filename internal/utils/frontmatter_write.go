@@ -100,7 +100,10 @@ func splitFrontmatterAndBody(content string) (string, string) {
 	fmEnd := -1
 
 	for i, line := range lines {
-		if strings.TrimSpace(line) == "---" {
+		// Only match "---" at column 0 (with optional trailing whitespace).
+		// TrimRight preserves leading whitespace so indented "---" inside
+		// a YAML block scalar is not mistaken for the frontmatter delimiter.
+		if strings.TrimRight(line, " \t") == "---" {
 			if !inFrontmatter {
 				inFrontmatter = true
 				fmStart = i + 1

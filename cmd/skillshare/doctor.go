@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -1069,39 +1068,19 @@ func checkVersionDoctor(cfg *config.Config, result *doctorResult) {
 	ui.Success("CLI: %s", version)
 	result.addCheck("cli_version", checkPass, fmt.Sprintf("CLI: %s", version), nil)
 
-	// Skill version
-	skillFile := filepath.Join(cfg.Source, "skillshare", "SKILL.md")
-
-	file, err := os.Open(skillFile)
-	if err != nil {
-		ui.Warning("Skill: not found")
-		ui.Info("  Run: skillshare upgrade --skill")
-		result.addCheck("skill_version", checkWarning, "Skill: not found", nil)
-		return
-	}
-	defer file.Close()
-
-	var localVersion string
-	scanner := bufio.NewScanner(file)
-	inFrontmatter := false
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "---" {
-			if !inFrontmatter {
-				inFrontmatter = true
-				continue
-			}
-			break
-		}
-		if inFrontmatter && strings.HasPrefix(line, "version:") {
-			localVersion = strings.TrimSpace(strings.TrimPrefix(line, "version:"))
-			break
-		}
-	}
-
+	// Skill version (reads metadata.version from SKILL.md)
+	localVersion := versioncheck.ReadLocalSkillVersion(cfg.Source)
 	if localVersion == "" {
-		ui.Warning("Skill: missing version")
-		result.addCheck("skill_version", checkWarning, "Skill: missing version", nil)
+		// Distinguish "file not found" from "version field missing"
+		skillFile := filepath.Join(cfg.Source, "skillshare", "SKILL.md")
+		if _, err := os.Stat(skillFile); os.IsNotExist(err) {
+			ui.Warning("Skill: not found")
+			ui.Info("  Run: skillshare upgrade --skill")
+			result.addCheck("skill_version", checkWarning, "Skill: not found", nil)
+		} else {
+			ui.Warning("Skill: missing version")
+			result.addCheck("skill_version", checkWarning, "Skill: missing version", nil)
+		}
 		return
 	}
 
