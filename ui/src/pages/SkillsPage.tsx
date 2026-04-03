@@ -208,6 +208,12 @@ function useSkillActions() {
   return { uninstallMutation, uninstallRepoMutation, setTargetMutation, buildSkillExtraItems };
 }
 
+/** Normalize skill targets: ["*"] or empty/null → [] (meaning All). */
+function normalizeTargets(targets?: string[] | null): string[] {
+  if (!targets || targets.length === 0 || targets.includes('*')) return [];
+  return targets;
+}
+
 /** Deterministic hash → palette index. Same string always maps to same color. */
 function hashToIndex(s: string, len: number): number {
   let h = 0;
@@ -294,7 +300,8 @@ function buildTree(skills: Skill[]): FolderNode {
 
     const allSets: string[][] = [];
     for (const sk of node.skills) {
-      allSets.push(sk.targets && sk.targets.length > 0 ? [...sk.targets].sort() : []);
+      const t = normalizeTargets(sk.targets);
+      allSets.push(t.length > 0 ? [...t].sort() : []);
     }
 
     if (allSets.length === 0) {
@@ -1231,10 +1238,10 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
                   {skill.branch}
                 </Badge>
               )}
-              <Tooltip content={skill.targets && skill.targets.length > 0 ? skill.targets.join(', ') : 'All targets'}>
+              <Tooltip content={normalizeTargets(skill.targets).length > 0 ? normalizeTargets(skill.targets).join(', ') : 'All targets'}>
                 <Badge variant="default">
                   <Target size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
-                  {skill.targets && skill.targets.length > 0 ? skill.targets.join(', ') : 'All'}
+                  {normalizeTargets(skill.targets).length > 0 ? normalizeTargets(skill.targets).join(', ') : 'All'}
                 </Badge>
               </Tooltip>
             </span>
