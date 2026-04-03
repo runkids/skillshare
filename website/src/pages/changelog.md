@@ -9,13 +9,53 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
-## [0.18.7] - 2026-04-03
+## [0.18.7] - 2026-04-04
 
 ### New Features
 
-- **Tracked repos in project-mode dashboard** — the Web UI dashboard now shows tracked repositories when running in project mode (`skillshare ui -p`), with Update and Uninstall actions
+#### Folder-Level Target Display & Bulk Editing
+
+- **Folder target aggregation** — the Skills page grouped view now shows aggregated target info on each folder row. If all skills share the same target, it shows that target; mixed targets show the union with a warning badge; `All` is shown when no targets are set
+  - Compact display: folders with 4+ targets show `N targets` with full list in tooltip
+
+- **Bulk set target** — right-click any folder to set or remove the target for all skills in that subtree at once
+  ```
+  Right-click folder → Available in... → claude
+  ```
+  Writes `metadata.targets` to every SKILL.md in the folder. Selecting `All` removes the field. Disabled skills are skipped
+
+- **Single skill target editing** — right-click any skill in grouped or grid view, or use the inline `Available in` dropdown in table view, to change which targets receive that skill
+
+#### Right-Click Context Menu
+
+- **Context menu on all views** — right-click skills in grouped, grid, or table view for quick actions:
+  - **Available in...** — submenu to set target (hover-expand with 180ms intent delay)
+  - **View Detail** — navigate to skill detail page
+  - **Enable / Disable** — toggle skill visibility
+  - **Uninstall** — with confirmation dialog
+
+- **Folder context menu** — right-click folders in grouped view for `Folder available in...` (batch target) — only target actions, no uninstall
+
+- **Submenu pattern** — top-level items with sub-options expand on hover. Future actions (e.g. Move, Rename) can be added as flat items alongside
+
+#### Table View Improvements
+
+- **Inline target selector** — the table now has an `Available in` column with an inline dropdown for one-click target switching — no context menu needed
+- **Actions column** — `⋯` button opens a flat menu with View Detail, Enable/Disable, and Uninstall
+- **Simplified layout** — reduced from 7 columns to 5 by merging Path and Source into the Name cell. Path shows as a subtitle when different from the name; source shows as a clickable globe icon linking to the repo
+- **Persistent page size** — the selected page size (10/25/50) is remembered across sessions
+
+#### UX Polish
+
+- **Right-click tip banner** — a one-time dismissible tip appears on first visit, explaining that right-click is available for actions. Styled with playful theme support (wobble borders, paper-warm background, slight tilt)
+- **Optimistic updates** — all mutations (set target, enable/disable, uninstall) update the UI instantly with automatic rollback on error
+- **Active item highlight** — when a context menu is open, the targeted skill or folder gets a hover-matching highlight
 
 ### Bug Fixes
+
+- **Config page dashed border clipping** — in playful theme, the Structure panel's dashed borders were cut off at the right edge because the panel wrapper kept `overflow-hidden` after expanding. Now uses `overflow-visible` when expanded
+
+- **Tracked repos in project-mode dashboard** — the Web UI dashboard now shows tracked repositories when running in project mode (`skillshare ui -p`), with Update and Uninstall actions
 
 - **Nested tracked repo update and uninstall** — repos installed with a nested path (e.g. `org/_team-skills`) can now be updated and uninstalled from both the CLI and Web UI. Previously, the server failed to resolve nested repo paths for these operations
 
