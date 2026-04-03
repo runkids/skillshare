@@ -62,6 +62,16 @@
 
 - **Doctor version detection** — `skillshare doctor` no longer reports `! Skill: missing version` when the version is stored under `metadata.version` in the SKILL.md frontmatter. Previously, the inline parser only checked for a top-level `version:` key
 
+- **Target display on Skills page** — the Skills page now correctly shows saved targets for each skill. Previously, the API did not parse SKILL.md frontmatter, so targets always appeared as `All` even after being set
+
+- **Target editing respects tracked repos** — setting targets via the context menu or batch folder action now skips tracked-repo skills. Previously, writing to SKILL.md inside a tracked repo would make the repo dirty and block future updates. Audit hash integrity is also preserved after target edits
+
+- **Uninstall Repo from context menu** — right-clicking a tracked-repo skill now shows `Uninstall Repo` instead of the individual `Uninstall` action (which would always fail with an error)
+
+- **Enable/disable with glob patterns** — enabling a skill that was disabled by a glob or directory pattern in `.skillignore` (or `.skillignore.local`) now correctly returns an error with guidance, instead of silently showing a success toast while the skill stays disabled
+
+- **Disabled tracked skills stay in Tracked view** — disabling a tracked-repo skill via `.skillignore` no longer removes it from the Tracked tab. The discovery engine now correctly preserves the `isInRepo` flag for all disabled skills
+
 ## [0.18.6] - 2026-04-01
 
 ### Bug Fixes

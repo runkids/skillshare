@@ -100,7 +100,7 @@ func DiscoverSourceSkillsWithStats(sourcePath string) ([]DiscoveredSkill, *skill
 // Use this for list/UI commands that need to show disabled skills.
 func DiscoverSourceSkillsAll(sourcePath string) ([]DiscoveredSkill, error) {
 	skills, _, _, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
-		parseFrontmatter: false,
+		parseFrontmatter: true,
 		includeIgnored:   true,
 	})
 	return skills, err

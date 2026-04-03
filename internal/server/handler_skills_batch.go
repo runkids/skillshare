@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/install"
 	ssync "skillshare/internal/sync"
 	"skillshare/internal/utils"
 )
@@ -72,6 +73,9 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 	var updated, skipped int
 	var errors []string
 
+	// Collect paths that need meta hash refresh (outside the lock).
+	var updatedPaths []string
+
 	// Acquire write lock only for the file-write loop.
 	s.mu.Lock()
 	for _, d := range discovered {
@@ -80,8 +84,8 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Skip disabled skills
-		if d.Disabled {
+		// Skip disabled skills and tracked-repo members
+		if d.Disabled || d.IsInRepo {
 			skipped++
 			continue
 		}
@@ -96,9 +100,16 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 			errors = append(errors, d.FlatName+": "+err.Error())
 			continue
 		}
+
+		updatedPaths = append(updatedPaths, d.SourcePath)
 		updated++
 	}
 	s.mu.Unlock()
+
+	// Recompute file hashes outside the lock so reads aren't blocked.
+	for _, p := range updatedPaths {
+		install.RefreshMetaHashes(p)
+	}
 
 	s.writeOpsLog("batch-set-targets", "ok", start, map[string]any{
 		"folder":  req.Folder,
@@ -151,6 +162,11 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		if d.IsInRepo {
+			writeError(w, http.StatusBadRequest, "cannot set target on tracked-repo skill; manage targets on the repo instead")
+			return
+		}
+
 		skillMDPath := filepath.Join(d.SourcePath, "SKILL.md")
 		var values []string
 		if req.Target != "" {
@@ -165,6 +181,8 @@ func (s *Server) handleSetSkillTargets(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "failed to update skill: "+err.Error())
 			return
 		}
+
+		install.RefreshMetaHashes(d.SourcePath)
 
 		s.writeOpsLog("set-skill-targets", "ok", start, map[string]any{
 			"name":   name,
