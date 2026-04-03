@@ -270,8 +270,8 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		if fullName == repoName {
 			continue
 		}
-		// Match skills grouped under this repo (group="team-skills" for repo "_team-skills")
-		if entry.Group == trimmedGroup {
+		// Match tracked skills grouped under this repo (group="team-skills" for repo "_team-skills")
+		if entry.Tracked && entry.Group == trimmedGroup {
 			continue
 		}
 		// Match nested members (e.g., "org/_team-skills/sub-skill")
