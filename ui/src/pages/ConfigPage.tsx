@@ -370,8 +370,8 @@ export default function ConfigPage() {
 
           {/* Assistant panel */}
           <div
-            className={`hidden lg:block transition-all duration-300 ease-in-out overflow-hidden ${
-              panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
+            className={`hidden lg:block transition-all duration-300 ease-in-out ${
+              panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none overflow-hidden' : 'flex-[2] opacity-100 overflow-visible'
             }`}
           >
             <Card className="!p-0 !overflow-visible min-w-[280px]">
@@ -407,8 +407,8 @@ export default function ConfigPage() {
           </div>
 
           <div
-            className={`hidden lg:block transition-all duration-300 ease-in-out overflow-hidden ${
-              panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none' : 'flex-[2] opacity-100'
+            className={`hidden lg:block transition-all duration-300 ease-in-out ${
+              panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none overflow-hidden' : 'flex-[2] opacity-100 overflow-visible'
             }`}
           >
             <Card className="!p-0 !overflow-visible min-w-[280px]">
