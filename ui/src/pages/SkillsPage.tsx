@@ -282,23 +282,24 @@ function buildTree(skills: Skill[]): FolderNode {
   }
   computeCounts(root);
 
-  // Compute targetSummary bottom-up
-  // Bottom-up: each node returns its collected target key sets.
-  // Children are already computed, so we just merge — O(n) total.
-  function computeTargets(node: FolderNode): string[][] {
+  // Compute targetSummary for each folder from its DIRECT skills only.
+  // Child folders have their own visible badges — aggregating them into
+  // the parent would be misleading (batch target on root only affects
+  // root-level skills, not descendants in subfolders).
+  function computeTargets(node: FolderNode) {
+    // Recurse into children first so they get their own summaries
+    for (const child of node.children.values()) {
+      computeTargets(child);
+    }
+
     const allSets: string[][] = [];
-    // Direct skills
     for (const sk of node.skills) {
       allSets.push(sk.targets && sk.targets.length > 0 ? [...sk.targets].sort() : []);
-    }
-    // Merge children's sets (already computed)
-    for (const child of node.children.values()) {
-      allSets.push(...computeTargets(child));
     }
 
     if (allSets.length === 0) {
       node.targetSummary = defaultTargetSummary;
-      return allSets;
+      return;
     }
 
     const first = allSets[0];
@@ -321,11 +322,16 @@ function buildTree(skills: Skill[]): FolderNode {
         else s.forEach((v) => unionSet.add(v));
       }
       const union = [...unionSet].sort();
-      const displayTargets = hasAll ? ['All', ...union] : union;
-      const display = displayTargets.length > 3 ? `${displayTargets.length} targets` : displayTargets.join(', ');
+      let display: string;
+      if (hasAll) {
+        display = 'Mixed';
+      } else if (union.length > 3) {
+        display = `${union.length} targets`;
+      } else {
+        display = union.join(', ');
+      }
       node.targetSummary = { display, targets: union, isUniform: false };
     }
-    return allSets;
   }
   computeTargets(root);
 
@@ -1005,7 +1011,11 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
     onSuccess: (data, { folder, target }) => {
       const label = target ?? 'All';
       const folderLabel = folder || '(root)';
-      toast(`${data.updated} skill${data.updated !== 1 ? 's' : ''} in ${folderLabel}/ now available in ${label}`, 'success');
+      if (data.updated === 0 && data.skipped > 0) {
+        toast(`No editable skills in ${folderLabel}/ — tracked-repo skills are read-only`, 'error');
+      } else {
+        toast(`${data.updated} skill${data.updated !== 1 ? 's' : ''} in ${folderLabel}/ now available in ${label}`, 'success');
+      }
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills.all }),
     onError: (err: Error) => toast(err.message, 'error'),
@@ -1148,9 +1158,11 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
           {node.targetSummary && (
             <span className="ml-auto shrink-0 flex items-center gap-1">
               <Tooltip content={
-                node.targetSummary.targets.length > 0
-                  ? node.targetSummary.targets.join(', ')
-                  : 'All targets'
+                node.targetSummary.display === 'Mixed'
+                  ? `Some: All targets · Others: ${node.targetSummary.targets.join(', ')}`
+                  : node.targetSummary.targets.length > 0
+                    ? node.targetSummary.targets.join(', ')
+                    : 'All targets'
               }>
                 <Badge variant={node.targetSummary.isUniform ? 'default' : 'warning'}>
                   <Target size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
