@@ -328,6 +328,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/skills/{name}/disable", s.handleDisableSkill)
 	s.mux.HandleFunc("POST /api/skills/{name}/enable", s.handleEnableSkill)
 	s.mux.HandleFunc("DELETE /api/skills/{name}", s.handleUninstallSkill)
+	s.mux.HandleFunc("POST /api/skills/batch/targets", s.handleBatchSetTargets)
+	s.mux.HandleFunc("PATCH /api/skills/{name}/targets", s.handleSetSkillTargets)
 
 	// Targets
 	s.mux.HandleFunc("GET /api/targets", s.handleListTargets)
