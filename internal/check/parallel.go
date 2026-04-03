@@ -19,18 +19,21 @@ type RepoCheckOutput struct {
 	Name    string
 	Status  string // "up_to_date", "behind", "dirty", "error"
 	Behind  int
+	Branch  string
 	Message string
 }
 
 // URLCheckInput describes a remote URL to probe.
 type URLCheckInput struct {
 	RepoURL string
+	Branch  string
 }
 
 // URLCheckOutput holds the result of probing a remote URL.
 type URLCheckOutput struct {
 	RepoURL    string
 	RemoteHash string
+	Branch     string
 	Err        error
 }
 
@@ -66,6 +69,9 @@ func ParallelCheckRepos(repos []RepoCheckInput, onDone func()) []RepoCheckOutput
 
 func checkOneRepo(r RepoCheckInput) RepoCheckOutput {
 	out := RepoCheckOutput{Name: r.Name}
+	if branch, err := git.GetCurrentBranch(r.RepoPath); err == nil {
+		out.Branch = branch
+	}
 
 	isDirty, err := git.IsDirty(r.RepoPath)
 	if err != nil {
@@ -114,10 +120,17 @@ func ParallelCheckURLs(urls []URLCheckInput, onDone func()) []URLCheckOutput {
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			hash, err := git.GetRemoteHeadHashWithAuth(input.RepoURL)
+			var hash string
+			var err error
+			if input.Branch != "" {
+				hash, err = git.GetRemoteRefHashWithAuth(input.RepoURL, input.Branch)
+			} else {
+				hash, err = git.GetRemoteHeadHashWithAuth(input.RepoURL)
+			}
 			outputs[idx] = URLCheckOutput{
 				RepoURL:    input.RepoURL,
 				RemoteHash: hash,
+				Branch:     input.Branch,
 				Err:        err,
 			}
 			if onDone != nil {

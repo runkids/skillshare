@@ -92,6 +92,11 @@ func hasFlag(args []string, flag string) bool {
 	return slices.Contains(args, flag)
 }
 
+// wantsHelp returns true if args contain --help or -h.
+func wantsHelp(args []string) bool {
+	return hasFlag(args, "--help") || hasFlag(args, "-h")
+}
+
 // ensureEmptySlices recursively walks exported struct fields and replaces nil
 // slices with empty slices so json.Marshal produces [] instead of null.
 // It handles nested structs and slices of structs.

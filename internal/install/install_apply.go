@@ -129,7 +129,7 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 	}
 
 	// Clone the repository
-	if err := cloneRepo(source.CloneURL, destPath, true, opts.OnProgress); err != nil {
+	if err := cloneRepo(source.CloneURL, destPath, source.Branch, true, opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -240,6 +240,7 @@ func installFromDiscoveryImpl(discovery *DiscoveryResult, skill SkillInfo, destP
 		CloneURL: discovery.Source.CloneURL,
 		Subdir:   fullSubdir,
 		Name:     skill.Name,
+		Branch:   discovery.Source.Branch,
 	}
 	meta := NewMetaFromSource(source)
 	if discovery.CommitHash != "" {
@@ -283,7 +284,7 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 	// Works for GitHub and non-GitHub hosts.
 	if gitSupportsSparseCheckout() {
 		resolved = source.Subdir
-		if err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, authEnv(source.CloneURL), opts.OnProgress); err == nil {
+		if err := sparseCloneSubdir(source.CloneURL, resolved, tempRepoPath, source.Branch, authEnv(source.CloneURL), opts.OnProgress); err == nil {
 			subdirPath = filepath.Join(tempRepoPath, resolved)
 			if info, statErr := os.Stat(subdirPath); statErr != nil || !info.IsDir() {
 				subdirPath = ""
@@ -321,7 +322,7 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 		if opts.OnProgress != nil {
 			opts.OnProgress("Cloning repository...")
 		}
-		if err := cloneRepo(source.CloneURL, tempRepoPath, true, opts.OnProgress); err != nil {
+		if err := cloneRepo(source.CloneURL, tempRepoPath, source.Branch, true, opts.OnProgress); err != nil {
 			return nil, fmt.Errorf("failed to clone repository: %w", err)
 		}
 

@@ -18,6 +18,7 @@ func newTestServer(t *testing.T) (*Server, string) {
 	os.MkdirAll(sourceDir, 0755)
 	t.Setenv("XDG_DATA_HOME", filepath.Join(tmp, "data"))
 	t.Setenv("XDG_STATE_HOME", filepath.Join(tmp, "state"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmp, "xdg-config"))
 
 	cfgPath := filepath.Join(tmp, "config", "config.yaml")
 	t.Setenv("SKILLSHARE_CONFIG", cfgPath)
@@ -43,6 +44,7 @@ func newTestServerWithTargets(t *testing.T, targets map[string]string) (*Server,
 	os.MkdirAll(sourceDir, 0755)
 	t.Setenv("XDG_DATA_HOME", filepath.Join(tmp, "data"))
 	t.Setenv("XDG_STATE_HOME", filepath.Join(tmp, "state"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmp, "xdg-config"))
 
 	cfgPath := filepath.Join(tmp, "config", "config.yaml")
 	t.Setenv("SKILLSHARE_CONFIG", cfgPath)
@@ -81,4 +83,11 @@ func addTrackedRepo(t *testing.T, sourceDir, relPath string) {
 	if err := os.WriteFile(filepath.Join(repoDir, "README.md"), []byte("tracked repo"), 0644); err != nil {
 		t.Fatalf("failed to seed tracked repo: %v", err)
 	}
+}
+
+// addSkillMeta creates a .skillshare-meta.json for a skill (marks it as remotely installed).
+func addSkillMeta(t *testing.T, sourceDir, name, source string) {
+	t.Helper()
+	meta := `{"source":"` + source + `"}`
+	os.WriteFile(filepath.Join(sourceDir, name, ".skillshare-meta.json"), []byte(meta), 0644)
 }

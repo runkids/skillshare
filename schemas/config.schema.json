@@ -20,6 +20,13 @@
       "default": "merge",
       "examples": ["merge"]
     },
+    "target_naming": {
+      "type": "string",
+      "description": "Default target entry naming strategy for merge/copy sync. 'flat' preserves flattened parent directory prefixes; 'standard' uses the SKILL.md name and enforces the Agent Skills standard.",
+      "enum": ["flat", "standard"],
+      "default": "flat",
+      "examples": ["flat", "standard"]
+    },
     "targets": {
       "type": "object",
       "description": "AI CLI targets to sync skills and agents to. Keys are target names (e.g. claude, cursor, codex).",
@@ -119,6 +126,11 @@
               "type": "string",
               "description": "Sync mode for skills. If omitted, inherits the top-level mode (defaults to merge).",
               "enum": ["merge", "symlink", "copy"]
+            },
+            "target_naming": {
+              "type": "string",
+              "description": "Target entry naming strategy for skills. If omitted, inherits the top-level target_naming (defaults to flat). Ignored in symlink mode.",
+              "enum": ["flat", "standard"]
             },
             "include": {
               "type": "array",

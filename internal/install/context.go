@@ -10,6 +10,7 @@ type SkillEntryDTO struct {
 	Source  string
 	Tracked bool
 	Group   string
+	Branch  string
 }
 
 // FullName returns the full relative path for the skill entry.

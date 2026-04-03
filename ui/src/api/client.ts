@@ -168,7 +168,7 @@ export const api = {
     }),
   removeTarget: (name: string) =>
     apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  updateTarget: (name: string, opts: { include?: string[]; exclude?: string[]; mode?: string }) =>
+  updateTarget: (name: string, opts: { include?: string[]; exclude?: string[]; mode?: string; target_naming?: string }) =>
     apiFetch<{ success: boolean }>(`/targets/${encodeURIComponent(name)}`, {
       method: 'PATCH',
       body: JSON.stringify(opts),
@@ -244,17 +244,17 @@ export const api = {
       progress: (d) => onProgress(d.checked),
       done: onDone,
     }, onError, 'Check stream failed'),
-  discover: (source: string) =>
+  discover: (source: string, branch?: string) =>
     apiFetch<DiscoverResult>('/discover', {
       method: 'POST',
-      body: JSON.stringify({ source }),
+      body: JSON.stringify({ source, branch }),
     }),
-  install: (opts: { source: string; name?: string; force?: boolean; skipAudit?: boolean; track?: boolean; into?: string }) =>
+  install: (opts: { source: string; name?: string; force?: boolean; skipAudit?: boolean; track?: boolean; into?: string; branch?: string }) =>
     apiFetch<InstallResult>('/install', {
       method: 'POST',
       body: JSON.stringify(opts),
     }),
-  installBatch: (opts: { source: string; skills: DiscoveredSkill[]; force?: boolean; skipAudit?: boolean; into?: string; name?: string }) =>
+  installBatch: (opts: { source: string; skills: DiscoveredSkill[]; force?: boolean; skipAudit?: boolean; into?: string; name?: string; branch?: string }) =>
     apiFetch<BatchInstallResult>('/install/batch', {
       method: 'POST',
       body: JSON.stringify(opts),
@@ -502,6 +502,7 @@ export interface Skill {
   repoUrl?: string;
   version?: string;
   disabled?: boolean;
+  branch?: string;
 }
 
 export interface SkillPattern {
@@ -541,12 +542,15 @@ export interface Target {
   name: string;
   path: string;
   mode: string;
+  targetNaming: string;
   status: string;
   linkedCount: number;
   localCount: number;
   include: string[];
   exclude: string[];
   expectedSkillCount: number;
+  skippedSkillCount?: number;
+  collisionCount?: number;
 }
 
 export interface SyncResult {
@@ -578,6 +582,8 @@ export interface ConfigSaveResponse {
 export interface DiffTarget {
   target: string;
   items: { skill: string; action: string; reason?: string }[];
+  skippedCount?: number;
+  collisionCount?: number;
 }
 
 export interface HubIndex {

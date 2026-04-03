@@ -518,9 +518,18 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
       )}
 
       {expanded && inSync && (
-        <p className="mt-2 pl-8 text-base text-pencil-light">
-          Everything looks good! No changes needed.
-        </p>
+        <div className="mt-2 pl-8">
+          <p className="text-base text-pencil-light">
+            Everything looks good! No changes needed.
+          </p>
+          {(diff.skippedCount ?? 0) > 0 && (
+            <p className="text-sm text-warning mt-1">
+              {diff.skippedCount} skill(s) skipped due to naming conflicts
+              {(diff.collisionCount ?? 0) > 0 && <> ({diff.collisionCount} name collision(s))</>}
+              — switch to <strong>flat</strong> naming to include all skills
+            </p>
+          )}
+        </div>
       )}
     </Card>
   );

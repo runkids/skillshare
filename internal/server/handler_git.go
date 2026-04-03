@@ -410,7 +410,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 				}
 				pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
 					TargetPath: sc.Path, SourcePath: src, Skills: allSkills,
-					Include: sc.Include, Exclude: sc.Exclude, TargetName: name,
+					Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
 				})
 				if err == nil {
 					res.Pruned = pruneResult.Removed
@@ -422,7 +422,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 					res.Updated = copyResult.Updated
 					res.Skipped = copyResult.Skipped
 				}
-				pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, false)
+				pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, sc.TargetNaming, false)
 				if err == nil {
 					res.Pruned = pruneResult.Removed
 				}

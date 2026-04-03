@@ -61,6 +61,11 @@ type targetListTUIModel struct {
 	modePickerTarget string // target name being edited
 	modeCursor       int
 
+	// Naming picker overlay
+	showNamingPicker   bool
+	namingPickerTarget string
+	namingCursor       int
+
 	// Include/Exclude edit sub-panel
 	editingFilter    bool   // true when in I/E edit mode
 	editFilterType   string // "include" or "exclude"
@@ -236,6 +241,9 @@ func (m targetListTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.showModePicker {
 			return m.handleModePickerKey(msg)
 		}
+		if m.showNamingPicker {
+			return m.handleNamingPickerKey(msg)
+		}
 		if m.confirming {
 			return m.handleConfirmKey(msg)
 		}
@@ -296,6 +304,11 @@ func (m targetListTUIModel) handleNormalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 	case "M":
 		if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
 			return m.openModePicker(item.name, item.target)
+		}
+		return m, nil
+	case "N":
+		if item, ok := m.list.SelectedItem().(targetTUIItem); ok {
+			return m.openNamingPicker(item.name, item.target)
 		}
 		return m, nil
 	case "I":
@@ -468,6 +481,80 @@ func (m targetListTUIModel) doSetTargetMode(name, newMode string) (string, error
 		}
 	}
 	return fmt.Sprintf("✓ Set %s mode to %s", name, newMode), nil
+}
+
+// ─── Naming Picker ──────────────────────────────────────────────────
+
+func (m targetListTUIModel) openNamingPicker(name string, target config.TargetConfig) (tea.Model, tea.Cmd) {
+	m.showNamingPicker = true
+	m.namingPickerTarget = name
+	m.namingCursor = 0
+	current := config.EffectiveTargetNaming(target.SkillsConfig().TargetNaming)
+	for i, n := range config.ValidTargetNamings {
+		if n == current {
+			m.namingCursor = i
+			break
+		}
+	}
+	m.lastActionMsg = ""
+	return m, nil
+}
+
+func (m targetListTUIModel) handleNamingPickerKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "q", "esc":
+		m.showNamingPicker = false
+		return m, nil
+	case "up", "k":
+		if m.namingCursor > 0 {
+			m.namingCursor--
+		}
+		return m, nil
+	case "down", "j":
+		if m.namingCursor < len(config.ValidTargetNamings)-1 {
+			m.namingCursor++
+		}
+		return m, nil
+	case "enter":
+		m.showNamingPicker = false
+		newNaming := config.ValidTargetNamings[m.namingCursor]
+		name := m.namingPickerTarget
+		return m, func() tea.Msg {
+			msg, err := m.doSetTargetNaming(name, newNaming)
+			return targetListActionDoneMsg{msg: msg, err: err}
+		}
+	}
+	return m, nil
+}
+
+func (m targetListTUIModel) doSetTargetNaming(name, newNaming string) (string, error) {
+	if m.projCfg != nil {
+		projCfg, err := config.LoadProject(m.cwd)
+		if err != nil {
+			return "", err
+		}
+		for i, entry := range projCfg.Targets {
+			if entry.Name == name {
+				projCfg.Targets[i].EnsureSkills().TargetNaming = newNaming
+				break
+			}
+		}
+		if err := projCfg.Save(m.cwd); err != nil {
+			return "", err
+		}
+	} else {
+		cfg, err := config.Load()
+		if err != nil {
+			return "", err
+		}
+		t := cfg.Targets[name]
+		t.EnsureSkills().TargetNaming = newNaming
+		cfg.Targets[name] = t
+		if err := cfg.Save(); err != nil {
+			return "", err
+		}
+	}
+	return fmt.Sprintf("✓ Set %s target naming to %s", name, newNaming), nil
 }
 
 // ─── Include/Exclude Edit Sub-Panel ──────────────────────────────────
@@ -660,6 +747,9 @@ func (m targetListTUIModel) View() string {
 	if m.showModePicker {
 		return m.renderModePicker()
 	}
+	if m.showNamingPicker {
+		return m.renderNamingPicker()
+	}
 	if targetSplitActive(m.termWidth) {
 		return m.viewTargetSplit()
 	}
@@ -741,7 +831,7 @@ func renderTargetActionMsg(msg string) string {
 }
 
 func (m targetListTUIModel) renderTargetHelp(scrollInfo string) string {
-	helpText := "↑↓ navigate  / filter  Ctrl+d/u scroll  M mode  I include  E exclude  R remove  q quit"
+	helpText := "↑↓ navigate  / filter  Ctrl+d/u scroll  M mode  N naming  I include  E exclude  R remove  q quit"
 	if m.filtering {
 		helpText = "Enter lock  Esc clear  q quit"
 	}
@@ -797,6 +887,7 @@ func (m targetListTUIModel) renderTargetDetail(item targetTUIItem) string {
 	sc := item.target.SkillsConfig()
 	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Path:"), shortenPath(sc.Path))
 	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Mode:"), sync.EffectiveMode(sc.Mode))
+	fmt.Fprintf(&b, "%s  %s\n", tc.Dim.Render("Naming:"), config.EffectiveTargetNaming(sc.TargetNaming))
 
 	if len(sc.Include) > 0 {
 		fmt.Fprintf(&b, "\n%s\n", tc.Dim.Render("Include:"))
@@ -854,6 +945,35 @@ func (m targetListTUIModel) renderModePicker() string {
 			fmt.Fprintf(&b, "%s%s%s\n", cursor, tc.Cyan.Render(mode), tc.Dim.Render(desc))
 		} else {
 			fmt.Fprintf(&b, "%s%s%s\n", cursor, mode, tc.Dim.Render(desc))
+		}
+	}
+
+	fmt.Fprintf(&b, "\n%s\n", tc.Help.Render("↑↓ select  Enter confirm  Esc cancel"))
+	return b.String()
+}
+
+func (m targetListTUIModel) renderNamingPicker() string {
+	var b strings.Builder
+
+	fmt.Fprintf(&b, "\n%s\n", tc.Title.Render("Change target naming"))
+	fmt.Fprintf(&b, "%s  %s\n\n", tc.Dim.Render("Target:"), m.namingPickerTarget)
+
+	for i, naming := range config.ValidTargetNamings {
+		cursor := "  "
+		if i == m.namingCursor {
+			cursor = tc.Cyan.Render(">") + " "
+		}
+		var desc string
+		switch naming {
+		case "flat":
+			desc = " (flattened __ names)"
+		case "standard":
+			desc = " (SKILL.md name)"
+		}
+		if i == m.namingCursor {
+			fmt.Fprintf(&b, "%s%s%s\n", cursor, tc.Cyan.Render(naming), tc.Dim.Render(desc))
+		} else {
+			fmt.Fprintf(&b, "%s%s%s\n", cursor, naming, tc.Dim.Render(desc))
 		}
 	}
 

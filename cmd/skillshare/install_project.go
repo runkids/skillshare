@@ -47,7 +47,8 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 	if parsed.sourceArg == "" {
 		hasSourceFlags := parsed.opts.Name != "" || parsed.opts.Into != "" ||
 			parsed.opts.Track || len(parsed.opts.Skills) > 0 ||
-			len(parsed.opts.Exclude) > 0 || parsed.opts.All || parsed.opts.Yes || parsed.opts.Update
+			len(parsed.opts.Exclude) > 0 || parsed.opts.All || parsed.opts.Yes || parsed.opts.Update ||
+			parsed.opts.Branch != ""
 		if hasSourceFlags {
 			return summary, fmt.Errorf("flags --name, --into, --track, --skill, --exclude, --all, --yes, and --update require a source argument")
 		}
@@ -57,6 +58,9 @@ func cmdInstallProject(args []string, root string) (installLogSummary, error) {
 
 	cfg := &config.Config{Source: runtime.sourcePath, GitLabHosts: runtime.config.GitLabHosts}
 	source, resolvedFromMeta, err := resolveInstallSource(parsed.sourceArg, parsed.opts, cfg)
+	if err == nil && parsed.opts.Branch != "" {
+		source.Branch = parsed.opts.Branch
+	}
 	if err != nil {
 		return summary, err
 	}

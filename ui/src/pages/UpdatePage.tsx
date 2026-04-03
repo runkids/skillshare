@@ -591,7 +591,7 @@ export default function UpdatePage() {
             </>
           )}
 
-          {(upToDateRepos + upToDateSkills > 0) && (
+          {hasUpdates && (upToDateRepos + upToDateSkills > 0) && (
             <p className="text-sm text-pencil-light text-center">
               {upToDateRepos} repo(s) and {upToDateSkills} skill(s) already up to date.
             </p>

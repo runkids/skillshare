@@ -29,6 +29,12 @@ export const fieldDocs: Record<string, FieldDoc> = {
     allowedValues: ['merge', 'symlink', 'copy'],
     example: 'mode: merge',
   },
+  target_naming: {
+    description: 'Default target entry naming strategy for merge/copy sync. "flat" keeps flattened parent directory prefixes; "standard" uses the SKILL.md name and enforces the Agent Skills naming rules.',
+    type: 'string',
+    allowedValues: ['flat', 'standard'],
+    example: 'target_naming: standard',
+  },
   tui: {
     description: 'Enable or disable interactive TUI prompts. Set to false for CI/scripting.',
     type: 'boolean',
@@ -71,6 +77,12 @@ export const fieldDocs: Record<string, FieldDoc> = {
     type: 'string',
     allowedValues: ['merge', 'symlink', 'copy'],
     example: 'mode: symlink',
+  },
+  'targets.skills.target_naming': {
+    description: 'Target entry naming strategy for skills in this target. If omitted, inherits the top-level target_naming. Ignored in symlink mode.',
+    type: 'string',
+    allowedValues: ['flat', 'standard'],
+    example: 'target_naming: standard',
   },
   'targets.skills.include': {
     description: 'Glob patterns — only matching skills are synced to this target (merge and copy modes).',

@@ -76,7 +76,7 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 
 	// Clone tracked repos with a download-optimized strategy first, then
 	// fallback to the legacy full clone for compatibility.
-	if err := cloneTrackedRepo(source.CloneURL, source.Subdir, destPath, opts.OnProgress); err != nil {
+	if err := cloneTrackedRepo(source.CloneURL, source.Subdir, destPath, opts.Branch, opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -150,11 +150,17 @@ func updateTrackedRepo(repoPath string, result *TrackedRepoResult, opts InstallO
 }
 
 // cloneRepoFull performs a full git clone (quiet mode for cleaner output)
-func cloneRepoFull(url, destPath string, onProgress ProgressCallback) error {
-	args := []string{"clone", "--quiet", url, destPath}
+func cloneRepoFull(url, destPath, branch string, onProgress ProgressCallback) error {
+	args := []string{"clone"}
 	if onProgress != nil {
-		args = []string{"clone", "--progress", url, destPath}
+		args = append(args, "--progress")
+	} else {
+		args = append(args, "--quiet")
 	}
+	if branch != "" {
+		args = append(args, "--branch", branch)
+	}
+	args = append(args, url, destPath)
 	return runGitCommandWithProgress(args, "", authEnv(url), onProgress)
 }
 
@@ -164,13 +170,13 @@ func cloneRepoFull(url, destPath string, onProgress ProgressCallback) error {
 //
 // When subdir is provided, sparse checkout is attempted first to reduce payload
 // while preserving .git for future tracked updates.
-func cloneTrackedRepo(url, subdir, destPath string, onProgress ProgressCallback) error {
+func cloneTrackedRepo(url, subdir, destPath, branch string, onProgress ProgressCallback) error {
 	subdir = strings.TrimSpace(subdir)
 	if subdir != "" && gitSupportsSparseCheckout() {
 		if onProgress != nil {
 			onProgress("Preparing sparse checkout...")
 		}
-		if err := sparseCloneSubdir(url, subdir, destPath, authEnv(url), onProgress); err == nil {
+		if err := sparseCloneSubdir(url, subdir, destPath, branch, authEnv(url), onProgress); err == nil {
 			return nil
 		} else if shouldFallbackSparseTrackedClone(err) {
 			// sparseCloneSubdir may have already created destPath. Clean it before
@@ -191,21 +197,16 @@ func cloneTrackedRepo(url, subdir, destPath string, onProgress ProgressCallback)
 		"--filter=blob:none",
 		"--depth", "1",
 		"--single-branch",
-		"--quiet",
-		url,
-		destPath,
+	}
+	if branch != "" {
+		args = append(args, "--branch", branch)
 	}
 	if onProgress != nil {
-		args = []string{
-			"clone",
-			"--filter=blob:none",
-			"--depth", "1",
-			"--single-branch",
-			"--progress",
-			url,
-			destPath,
-		}
+		args = append(args, "--progress")
+	} else {
+		args = append(args, "--quiet")
 	}
+	args = append(args, url, destPath)
 
 	err := runGitCommandWithProgress(args, "", authEnv(url), onProgress)
 	if err == nil {
@@ -217,7 +218,7 @@ func cloneTrackedRepo(url, subdir, destPath string, onProgress ProgressCallback)
 	if onProgress != nil {
 		onProgress("Remote lacks partial clone support; retrying standard clone...")
 	}
-	return cloneRepoFull(url, destPath, onProgress)
+	return cloneRepoFull(url, destPath, branch, onProgress)
 }
 
 // isAuthOrAccessError returns true for auth failures and access denials that

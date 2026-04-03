@@ -22,6 +22,11 @@ const (
 )
 
 func cmdPull(args []string) error {
+	if wantsHelp(args) {
+		printPullHelp()
+		return nil
+	}
+
 	start := time.Now()
 	dryRun := false
 	force := false
@@ -247,4 +252,20 @@ func resetToRemote(sourcePath, remoteBranch string, spinner *ui.Spinner) error {
 		return fmt.Errorf("reset failed: %w", err)
 	}
 	return nil
+}
+
+func printPullHelp() {
+	fmt.Println(`Usage: skillshare pull [options]
+
+Pull from git remote and sync to all targets.
+
+Options:
+  --dry-run, -n     Preview changes without applying
+  --force, -f       Force-pull (reset local to remote on first pull)
+  --help, -h        Show this help
+
+Examples:
+  skillshare pull                Pull and sync
+  skillshare pull --dry-run      Preview what would happen
+  skillshare pull --force        Discard local, use remote`)
 }

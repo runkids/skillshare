@@ -389,6 +389,12 @@ const SkillPostit = memo(function SkillPostit({
             {skill.disabled && <Badge variant="danger">disabled</Badge>}
             {skill.isInRepo && <Badge variant="default">tracked</Badge>}
             {!skill.isInRepo && getTypeLabel(skill.type) && <Badge variant="info">{getTypeLabel(skill.type)}</Badge>}
+            {skill.branch && (
+              <Badge variant="default">
+                <GitBranch size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
+                {skill.branch}
+              </Badge>
+            )}
           </div>
         </div>
       </div>
@@ -764,7 +770,7 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
 
     return (
       <div data-tree-idx={index}>
-        <Tooltip content={tooltipContent} followCursor delay={1500}>
+        <Tooltip content={tooltipContent} followCursor delay={1000}>
           <Link
             to={`/skills/${encodeURIComponent(skill.flatName)}`}
             className={`relative flex items-center gap-1.5 py-1 px-1 hover:bg-muted/50 transition-colors no-underline${skill.disabled ? ' opacity-40' : ''}`}
@@ -782,6 +788,12 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
                   ? <Badge variant="info">{getTypeLabel(skill.type)}</Badge>
                   : <Badge variant="default">local</Badge>
               }
+              {skill.branch && (
+                <Badge variant="default">
+                  <GitBranch size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
+                  {skill.branch}
+                </Badge>
+              )}
             </span>
           </Link>
         </Tooltip>
@@ -913,17 +925,19 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
                   />
                 </td>
                 {/* Name */}
-                <td className="py-3 pr-4">
-                  <Link
-                    to={`/skills/${encodeURIComponent(skill.flatName)}`}
-                    className="font-medium text-pencil hover:underline"
-                  >
-                    {skill.name}
-                  </Link>
+                <td className="py-3 pr-4 max-w-[300px]">
+                  <Tooltip content={skill.name} block delay={1000}>
+                    <Link
+                      to={`/skills/${encodeURIComponent(skill.flatName)}`}
+                      className="font-medium text-pencil hover:underline block truncate"
+                    >
+                      {skill.name}
+                    </Link>
+                  </Tooltip>
                 </td>
                 {/* Path */}
                 <td className="py-3 pr-4 font-mono text-sm text-pencil-light max-w-[200px]">
-                  <Tooltip content={skill.relPath}><span className="block truncate">{skill.relPath}</span></Tooltip>
+                  <Tooltip content={skill.relPath} block delay={1000}><span className="block truncate">{skill.relPath}</span></Tooltip>
                 </td>
                 {/* Type badge */}
                 <td className="py-3 pr-4">
@@ -936,11 +950,17 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
                     ) : (
                       <Badge variant="default">local</Badge>
                     )}
+                    {skill.branch && (
+                      <Badge variant="default">
+                        <GitBranch size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
+                        {skill.branch}
+                      </Badge>
+                    )}
                   </div>
                 </td>
                 {/* Source */}
                 <td className="py-3 text-sm text-pencil-light max-w-[280px]">
-                  <Tooltip content={skill.source ?? '—'}><span className="block truncate">{skill.source ? shortSource(skill.source) : '—'}</span></Tooltip>
+                  <Tooltip content={skill.source ?? '—'} block delay={1000}><span className="block truncate">{skill.source ? shortSource(skill.source) : '—'}</span></Tooltip>
                 </td>
               </tr>
             ))}

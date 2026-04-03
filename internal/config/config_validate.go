@@ -34,12 +34,19 @@ func ValidateConfig(cfg *Config) (warnings []string, err error) {
 	if !IsValidSyncMode(cfg.Mode) {
 		errs = append(errs, fmt.Sprintf("invalid global sync mode %q (valid: %s)", cfg.Mode, strings.Join(ValidSyncModes, ", ")))
 	}
+	if !IsValidTargetNaming(cfg.TargetNaming) {
+		errs = append(errs, fmt.Sprintf("invalid global target naming %q (valid: %s)", cfg.TargetNaming, strings.Join(ValidTargetNamings, ", ")))
+	}
 
 	// Per-target validation
 	for name, target := range cfg.Targets {
 		sc := target.SkillsConfig()
 		if !IsValidSyncMode(sc.Mode) {
 			errs = append(errs, fmt.Sprintf("target %q: invalid sync mode %q (valid: %s)", name, sc.Mode, strings.Join(ValidSyncModes, ", ")))
+			continue
+		}
+		if !IsValidTargetNaming(sc.TargetNaming) {
+			errs = append(errs, fmt.Sprintf("target %q: invalid target naming %q (valid: %s)", name, sc.TargetNaming, strings.Join(ValidTargetNamings, ", ")))
 			continue
 		}
 		path := sc.Path
@@ -80,10 +87,17 @@ func ValidateProjectConfig(cfg *ProjectConfig, projectRoot string) (warnings []s
 	}
 
 	// Target validation
+	if !IsValidTargetNaming(cfg.TargetNaming) {
+		errs = append(errs, fmt.Sprintf("invalid project target naming %q (valid: %s)", cfg.TargetNaming, strings.Join(ValidTargetNamings, ", ")))
+	}
 	for _, entry := range cfg.Targets {
 		sc := entry.SkillsConfig()
 		if !IsValidSyncMode(sc.Mode) {
 			errs = append(errs, fmt.Sprintf("target %q: invalid sync mode %q (valid: %s)", entry.Name, sc.Mode, strings.Join(ValidSyncModes, ", ")))
+			continue
+		}
+		if !IsValidTargetNaming(sc.TargetNaming) {
+			errs = append(errs, fmt.Sprintf("target %q: invalid target naming %q (valid: %s)", entry.Name, sc.TargetNaming, strings.Join(ValidTargetNamings, ", ")))
 			continue
 		}
 

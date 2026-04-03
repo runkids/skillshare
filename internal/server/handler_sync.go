@@ -2,8 +2,10 @@ package server
 
 import (
 	"encoding/json"
+	"log"
 	"maps"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"skillshare/internal/config"
@@ -78,6 +80,35 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		warnings = append(warnings, "source directory is empty (0 skills)")
 	}
 
+	// Prune stale registry entries using already-discovered skills (avoids second walk).
+	// Uses defer so early returns from target errors still trigger cleanup.
+	if !body.DryRun {
+		defer func() {
+			live := make(map[string]bool, len(allSkills))
+			for _, sk := range allSkills {
+				live[sk.RelPath] = true
+			}
+			// Ignored skills still exist on disk — don't prune their registry entries
+			if ignoreStats != nil {
+				for _, p := range ignoreStats.IgnoredSkills {
+					live[p] = true
+				}
+			}
+			skillsOnly := s.IsProjectMode() // project registries also store agent entries
+			var pruneChanged bool
+			s.registry.Skills, pruneChanged = config.PruneStaleSkills(s.registry.Skills, live, skillsOnly)
+			if pruneChanged {
+				regDir := s.cfg.RegistryDir
+				if s.IsProjectMode() {
+					regDir = filepath.Join(s.projectRoot, ".skillshare")
+				}
+				if err := s.registry.Save(regDir); err != nil {
+					log.Printf("warning: failed to save registry after prune: %v", err)
+				}
+			}
+		}()
+	}
+
 	results := make([]syncTargetResult, 0)
 
 	for name, target := range s.cfg.Targets {
@@ -119,7 +150,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 			pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
 				TargetPath: sc.Path, SourcePath: s.cfg.Source, Skills: allSkills,
-				Include: sc.Include, Exclude: sc.Exclude, TargetName: name,
+				Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
 				DryRun: body.DryRun, Force: body.Force,
 			})
 			if err == nil {
@@ -138,7 +169,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			res.Skipped = copyResult.Skipped
 			res.DirCreated = copyResult.DirCreated
 
-			pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, body.DryRun)
+			pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, sc.TargetNaming, body.DryRun)
 			if err == nil {
 				res.Pruned = pruneResult.Removed
 			}
@@ -180,8 +211,10 @@ type diffItem struct {
 }
 
 type diffTarget struct {
-	Target string     `json:"target"`
-	Items  []diffItem `json:"items"`
+	Target         string     `json:"target"`
+	Items          []diffItem `json:"items"`
+	SkippedCount   int        `json:"skippedCount,omitempty"`
+	CollisionCount int        `json:"collisionCount,omitempty"`
 }
 
 func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {

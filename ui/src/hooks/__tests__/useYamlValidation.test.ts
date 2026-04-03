@@ -40,4 +40,26 @@ describe('validateYaml', () => {
     expect(errors.length).toBe(1);
     expect(errors[0].message).toContain('bad');
   });
+
+  it('detects invalid top-level target_naming', () => {
+    const yaml = 'target_naming: weird\n';
+    const errors = validateYaml(yaml);
+    expect(errors.length).toBe(1);
+    expect(errors[0].severity).toBe('warning');
+    expect(errors[0].message).toContain('weird');
+  });
+
+  it('detects invalid nested skills.target_naming for map-style targets', () => {
+    const yaml = 'targets:\n  claude:\n    skills:\n      target_naming: odd\n';
+    const errors = validateYaml(yaml);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain('odd');
+  });
+
+  it('detects invalid nested skills.target_naming for project target arrays', () => {
+    const yaml = 'targets:\n  - name: claude\n    skills:\n      target_naming: nope\n';
+    const errors = validateYaml(yaml);
+    expect(errors.length).toBe(1);
+    expect(errors[0].message).toContain('nope');
+  });
 });

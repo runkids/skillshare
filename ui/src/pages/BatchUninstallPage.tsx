@@ -36,6 +36,11 @@ import { radius } from '../design';
 /* ── Glob → Regex (supports * and ? only) ──────────── */
 
 function globToRegex(pattern: string): RegExp {
+  // If no glob chars (* or ?), treat as substring search
+  if (!/[*?]/.test(pattern)) {
+    const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(escaped, 'i');
+  }
   const escaped = pattern
     .replace(/[.+^${}()|[\]\\]/g, '\\$&')
     .replace(/\*/g, '.*')
@@ -68,6 +73,11 @@ function getTypeLabel(type?: string): string | undefined {
   if (!type) return undefined;
   if (type === 'github-subdir') return 'github';
   return type;
+}
+
+/** Convert flat name (a__b__c) to path display (a/b/c) */
+function displayPath(flatName: string): string {
+  return flatName.replace(/__/g, '/');
 }
 
 /* ── Component ──────────────────────────────────────── */
@@ -466,7 +476,7 @@ export default function BatchUninstallPage() {
                 style={{ borderRadius: radius.sm }}
               >
                 {r.success ? <CheckCircle size={14} /> : <XCircle size={14} />}
-                <span className="font-mono">{r.name}</span>
+                <span className="font-mono">{displayPath(r.name)}</span>
                 {r.error && <span className="text-pencil-light">— {r.error}</span>}
               </div>
             ))}
@@ -528,7 +538,7 @@ export default function BatchUninstallPage() {
               style={{ borderRadius: radius.md }}
             >
               {buildApiNames().map((name) => (
-                <div key={name} className="font-mono text-sm text-pencil">{name}</div>
+                <div key={name} className="font-mono text-sm text-pencil">{displayPath(name)}</div>
               ))}
             </div>
             {hasRepoWarning && (

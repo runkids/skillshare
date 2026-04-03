@@ -169,6 +169,56 @@ func TestReconcileProjectSkills_NestedSkillSetsGroup(t *testing.T) {
 	}
 }
 
+func TestReconcileProjectSkills_PrunesStalePreservesAgents(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".skillshare", "skills")
+
+	// Create only one skill on disk
+	skillPath := filepath.Join(skillsDir, "alive-skill")
+	if err := os.MkdirAll(skillPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	meta := map[string]string{"source": "github.com/user/alive"}
+	data, _ := json.Marshal(meta)
+	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &ProjectConfig{
+		Targets: []ProjectTargetEntry{{Name: "claude"}},
+	}
+	// Registry: alive skill + stale skill + agent (should survive prune)
+	reg := &Registry{
+		Skills: []SkillEntry{
+			{Name: "alive-skill", Source: "github.com/user/alive"},
+			{Name: "deleted-skill", Source: "github.com/user/deleted"},
+			{Name: "my-agent", Kind: "agent", Source: "github.com/user/agent"},
+		},
+	}
+
+	if err := ReconcileProjectSkills(root, cfg, reg, skillsDir); err != nil {
+		t.Fatalf("ReconcileProjectSkills failed: %v", err)
+	}
+
+	if len(reg.Skills) != 2 {
+		t.Fatalf("expected 2 entries (alive-skill + agent), got %d: %+v", len(reg.Skills), reg.Skills)
+	}
+
+	names := map[string]bool{}
+	for _, s := range reg.Skills {
+		names[s.Name] = true
+	}
+	if !names["alive-skill"] {
+		t.Error("expected alive-skill to survive prune")
+	}
+	if !names["my-agent"] {
+		t.Error("expected agent entry to survive prune")
+	}
+	if names["deleted-skill"] {
+		t.Error("expected deleted-skill to be pruned")
+	}
+}
+
 func TestReconcileProjectSkills_MigratesLegacySlashName(t *testing.T) {
 	root := t.TempDir()
 	skillsDir := filepath.Join(root, ".skillshare", "skills")

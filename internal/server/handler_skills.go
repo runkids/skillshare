@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
@@ -25,7 +26,18 @@ type skillItem struct {
 	Type        string   `json:"type,omitempty"`
 	RepoURL     string   `json:"repoUrl,omitempty"`
 	Version     string   `json:"version,omitempty"`
+	Branch      string   `json:"branch,omitempty"`
 	Disabled    bool     `json:"disabled"`
+}
+
+// enrichSkillBranch fills item.Branch from metadata, falling back to
+// git.GetCurrentBranch for tracked repos without branch in metadata.
+func enrichSkillBranch(item *skillItem) {
+	if item.Branch == "" && item.IsInRepo {
+		if branch, err := git.GetCurrentBranch(item.SourcePath); err == nil {
+			item.Branch = branch
+		}
+	}
 }
 
 func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +71,9 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 			item.Type = meta.Type
 			item.RepoURL = meta.RepoURL
 			item.Version = meta.Version
+			item.Branch = meta.Branch
 		}
+		enrichSkillBranch(&item)
 
 		items = append(items, item)
 	}
@@ -104,7 +118,9 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 			item.Type = meta.Type
 			item.RepoURL = meta.RepoURL
 			item.Version = meta.Version
+			item.Branch = meta.Branch
 		}
+		enrichSkillBranch(&item)
 
 		// Read SKILL.md content
 		skillMdContent := ""

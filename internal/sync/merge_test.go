@@ -228,7 +228,7 @@ func TestPruneOrphanLinks_RemovesOrphans(t *testing.T) {
 	os.Symlink(orphanSrc, filepath.Join(tgt, "deleted-skill"))
 	os.RemoveAll(orphanSrc) // Now it's a broken link to source
 
-	result, err := PruneOrphanLinks(tgt, src, nil, nil, "test", false, false)
+	result, err := PruneOrphanLinks(tgt, src, nil, nil, "test", "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -248,7 +248,7 @@ func TestPruneOrphanLinks_KeepsLocal(t *testing.T) {
 	// Add a local (non-symlink) directory
 	os.MkdirAll(filepath.Join(tgt, "my-local-skill"), 0755)
 
-	result, err := PruneOrphanLinks(tgt, src, nil, nil, "test", false, false)
+	result, err := PruneOrphanLinks(tgt, src, nil, nil, "test", "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,7 +274,7 @@ func TestPruneOrphanLinks_RemovesExcluded(t *testing.T) {
 	}
 
 	// Now prune with beta excluded
-	result, err := PruneOrphanLinks(tgt, src, nil, []string{"beta"}, "test", false, false)
+	result, err := PruneOrphanLinks(tgt, src, nil, []string{"beta"}, "test", "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +317,7 @@ func TestPruneOrphanLinks_KeepsExternal(t *testing.T) {
 	os.MkdirAll(externalDir, 0755)
 	os.Symlink(externalDir, filepath.Join(tgt, "ext-skill"))
 
-	result, err := PruneOrphanLinks(tgt, src, nil, nil, "test", false, false)
+	result, err := PruneOrphanLinks(tgt, src, nil, nil, "test", "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -345,7 +345,7 @@ func TestPruneOrphanLinks_ExcludedManagedDir_Removed(t *testing.T) {
 	os.WriteFile(filepath.Join(tgt, "beta", "SKILL.md"), []byte("# residue"), 0644)
 
 	// Prune with beta excluded — real directory should be removed via manifest
-	result, err := PruneOrphanLinks(tgt, src, nil, []string{"beta"}, "test", false, false)
+	result, err := PruneOrphanLinks(tgt, src, nil, []string{"beta"}, "test", "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -426,7 +426,7 @@ func TestPruneOrphanLinks_ManifestTrackedDir_Removed(t *testing.T) {
 	os.RemoveAll(filepath.Join(src, "my-skill"))
 
 	// Prune should remove the directory because it's in the manifest
-	result, err := PruneOrphanLinks(tgt, src, nil, nil, "test", false, false)
+	result, err := PruneOrphanLinks(tgt, src, nil, nil, "test", "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -445,7 +445,7 @@ func TestPruneOrphanLinks_NoManifest_KeepsUnknownDir(t *testing.T) {
 	// Just create a real directory in target
 	os.MkdirAll(filepath.Join(tgt, "unknown-skill"), 0755)
 
-	result, err := PruneOrphanLinks(tgt, src, nil, nil, "test", false, false)
+	result, err := PruneOrphanLinks(tgt, src, nil, nil, "test", "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -474,7 +474,7 @@ func TestPruneOrphanLinks_ManifestCleanedAfterPrune(t *testing.T) {
 	os.RemoveAll(filepath.Join(src, "beta"))
 
 	// Prune — beta symlink should be removed and manifest updated
-	_, err := PruneOrphanLinks(tgt, src, nil, nil, "test", false, false)
+	_, err := PruneOrphanLinks(tgt, src, nil, nil, "test", "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -493,7 +493,7 @@ func TestPruneOrphanLinks_ManifestCleanedAfterPrune(t *testing.T) {
 }
 
 func TestPruneOrphanLinks_NonExistentTarget(t *testing.T) {
-	result, err := PruneOrphanLinks("/nonexistent", "/nonexistent/src", nil, nil, "test", false, false)
+	result, err := PruneOrphanLinks("/nonexistent", "/nonexistent/src", nil, nil, "test", "", false, false)
 	if err != nil {
 		t.Fatal(err)
 	}

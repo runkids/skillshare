@@ -557,12 +557,22 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 		return r
 	}
 
-	sourceSkills := make(map[string]bool, len(filtered))
-	sourceMap := make(map[string]string, len(filtered))
-	for _, skill := range filtered {
-		sourceSkills[skill.FlatName] = true
-		sourceMap[skill.FlatName] = skill.SourcePath
+	resolution, err := sync.ResolveTargetSkillsForTarget(name, config.ResourceTargetConfig{
+		Path:         sc.Path,
+		TargetNaming: sc.TargetNaming,
+	}, filtered)
+	if err != nil {
+		r.errMsg = err.Error()
+		dp.add(len(filtered))
+		return r
 	}
+
+	sourceSkills := resolution.ValidTargetNames()
+	sourceMap := make(map[string]string, len(resolution.Skills))
+	for _, resolved := range resolution.Skills {
+		sourceMap[resolved.TargetName] = resolved.Skill.SourcePath
+	}
+	legacyNames := resolution.LegacyFlatNames()
 
 	if utils.IsSymlinkOrJunction(sc.Path) {
 		r.mode = "symlink"
@@ -573,10 +583,10 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 
 	if mode == "copy" {
 		manifest, _ := sync.ReadManifest(sc.Path)
-		collectCopyDiff(&r, name, sc.Path, filtered, sourceSkills, manifest, dp)
+		collectCopyDiff(&r, name, sc.Path, resolution.Skills, sourceSkills, legacyNames, manifest, dp)
 	} else {
 		// Merge mode (instant)
-		collectMergeDiff(&r, sc.Path, sourceSkills, sourceMap)
+		collectMergeDiff(&r, sc.Path, sourceSkills, sourceMap, legacyNames)
 		dp.add(len(filtered))
 	}
 
@@ -584,8 +594,8 @@ func collectTargetDiff(name string, target config.TargetConfig, source, mode str
 	if mode == "copy" {
 		r.dstMtime = latestMtime(sc.Path)
 		var srcLatest time.Time
-		for _, skill := range filtered {
-			mt := latestMtime(skill.SourcePath)
+		for _, resolved := range resolution.Skills {
+			mt := latestMtime(resolved.Skill.SourcePath)
 			if mt.After(srcLatest) {
 				srcLatest = mt
 			}
@@ -610,58 +620,62 @@ func collectSymlinkDiff(r *targetDiffResult, targetPath, source string) {
 	}
 }
 
-func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtered []sync.DiscoveredSkill, sourceSkills map[string]bool, manifest *sync.Manifest, dp *diffProgress) {
-	for _, skill := range filtered {
-		dp.update(targetName, skill.FlatName)
-		oldChecksum, isManaged := manifest.Managed[skill.FlatName]
-		targetSkillPath := filepath.Join(targetPath, skill.FlatName)
+func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtered []sync.ResolvedTargetSkill, sourceSkills map[string]bool, legacyNames map[string]sync.ResolvedTargetSkill, manifest *sync.Manifest, dp *diffProgress) {
+	for _, resolved := range filtered {
+		skill := resolved.Skill
+		dp.update(targetName, resolved.TargetName)
+		oldChecksum, isManaged := manifest.Managed[resolved.TargetName]
+		targetSkillPath := filepath.Join(targetPath, resolved.TargetName)
 		srcDir := skill.SourcePath
 		dstDir := targetSkillPath
 		if !isManaged {
 			if info, err := os.Stat(targetSkillPath); err == nil {
 				if info.IsDir() {
-					r.items = append(r.items, copyDiffEntry{action: "modify", name: skill.FlatName, reason: "local copy (sync --force to replace)", isSync: true, srcDir: srcDir, dstDir: dstDir})
+					r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "local copy (sync --force to replace)", isSync: true, srcDir: srcDir, dstDir: dstDir})
 				} else {
-					r.items = append(r.items, copyDiffEntry{action: "modify", name: skill.FlatName, reason: "target entry is not a directory", isSync: true, srcDir: srcDir, dstDir: dstDir})
+					r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "target entry is not a directory", isSync: true, srcDir: srcDir, dstDir: dstDir})
 				}
 			} else if os.IsNotExist(err) {
-				r.items = append(r.items, copyDiffEntry{action: "add", name: skill.FlatName, reason: "source only", isSync: true, srcDir: srcDir, dstDir: dstDir})
+				r.items = append(r.items, copyDiffEntry{action: "add", name: resolved.TargetName, reason: "source only", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			} else {
-				r.items = append(r.items, copyDiffEntry{action: "modify", name: skill.FlatName, reason: "cannot access target entry", isSync: true, srcDir: srcDir, dstDir: dstDir})
+				r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "cannot access target entry", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			}
 			continue
 		}
 		targetInfo, err := os.Stat(targetSkillPath)
 		if os.IsNotExist(err) {
-			r.items = append(r.items, copyDiffEntry{action: "add", name: skill.FlatName, reason: "deleted from target", isSync: true, srcDir: srcDir, dstDir: dstDir})
+			r.items = append(r.items, copyDiffEntry{action: "add", name: resolved.TargetName, reason: "deleted from target", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			continue
 		}
 		if err != nil {
-			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill.FlatName, reason: "cannot access target entry", isSync: true, srcDir: srcDir, dstDir: dstDir})
+			r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "cannot access target entry", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			continue
 		}
 		if !targetInfo.IsDir() {
-			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill.FlatName, reason: "target entry is not a directory", isSync: true, srcDir: srcDir, dstDir: dstDir})
+			r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "target entry is not a directory", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			continue
 		}
 		// mtime fast-path
-		oldMtime := manifest.Mtimes[skill.FlatName]
+		oldMtime := manifest.Mtimes[resolved.TargetName]
 		currentMtime, mtimeErr := sync.DirMaxMtime(skill.SourcePath)
 		if mtimeErr == nil && oldMtime > 0 && currentMtime == oldMtime {
 			continue
 		}
 		srcChecksum, err := sync.DirChecksum(skill.SourcePath)
 		if err != nil {
-			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill.FlatName, reason: "cannot compute checksum", isSync: true, srcDir: srcDir, dstDir: dstDir})
+			r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "cannot compute checksum", isSync: true, srcDir: srcDir, dstDir: dstDir})
 			continue
 		}
 		if srcChecksum != oldChecksum {
-			r.items = append(r.items, copyDiffEntry{action: "modify", name: skill.FlatName, reason: "content changed", isSync: true, srcDir: srcDir, dstDir: dstDir})
+			r.items = append(r.items, copyDiffEntry{action: "modify", name: resolved.TargetName, reason: "content changed", isSync: true, srcDir: srcDir, dstDir: dstDir})
 		}
 	}
 
 	// Orphan managed copies
 	for name := range manifest.Managed {
+		if _, keepLegacy := legacyNames[name]; keepLegacy {
+			continue
+		}
 		if !sourceSkills[name] {
 			r.items = append(r.items, copyDiffEntry{action: "remove", name: name, reason: "orphan (will be pruned)", isSync: true, dstDir: filepath.Join(targetPath, name)})
 		}
@@ -674,6 +688,9 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 			continue
 		}
 		if sourceSkills[e.Name()] {
+			continue
+		}
+		if _, keepLegacy := legacyNames[e.Name()]; keepLegacy {
 			continue
 		}
 		if _, isManaged := manifest.Managed[e.Name()]; isManaged {
@@ -693,7 +710,7 @@ func collectCopyDiff(r *targetDiffResult, targetName, targetPath string, filtere
 	r.synced = r.syncCount == 0 && r.localCount == 0
 }
 
-func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[string]bool, sourceMap map[string]string) {
+func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[string]bool, sourceMap map[string]string, legacyNames map[string]sync.ResolvedTargetSkill) {
 	targetSkills := make(map[string]bool)
 	targetSymlinks := make(map[string]bool)
 	entries, err := os.ReadDir(targetPath)
@@ -728,6 +745,9 @@ func collectMergeDiff(r *targetDiffResult, targetPath string, sourceSkills map[s
 
 	// Skills only in target (local only)
 	for skill := range targetSkills {
+		if _, keepLegacy := legacyNames[skill]; keepLegacy {
+			continue
+		}
 		if !sourceSkills[skill] && !targetSymlinks[skill] {
 			r.items = append(r.items, copyDiffEntry{action: "remove", name: skill, reason: "local only", isSync: false, dstDir: filepath.Join(targetPath, skill)})
 			r.localCount++

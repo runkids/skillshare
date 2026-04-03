@@ -41,6 +41,7 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 	var gitignoreEntries []string
 
 	walkRoot := utils.ResolveSymlink(sourcePath)
+	live := map[string]bool{} // tracks skills actually found on disk
 	err := filepath.WalkDir(walkRoot, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -82,6 +83,15 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 		}
 
 		fullPath := filepath.ToSlash(relPath)
+		live[fullPath] = true
+
+		// Determine branch: from metadata (regular skills) or git (tracked repos)
+		var branch string
+		if meta != nil {
+			branch = meta.Branch
+		} else if tracked {
+			branch = gitCurrentBranch(path)
+		}
 
 		if existingIdx, ok := index[fullPath]; ok {
 			if reg.Skills[existingIdx].Source != source {
@@ -92,10 +102,15 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 				reg.Skills[existingIdx].Tracked = tracked
 				changed = true
 			}
+			if reg.Skills[existingIdx].Branch != branch {
+				reg.Skills[existingIdx].Branch = branch
+				changed = true
+			}
 		} else {
 			entry := SkillEntry{
 				Source:  source,
 				Tracked: tracked,
+				Branch:  branch,
 			}
 			if idx := strings.LastIndex(fullPath, "/"); idx >= 0 {
 				entry.Group = fullPath[:idx]
@@ -126,6 +141,11 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 		return fmt.Errorf("failed to scan project skills: %w", err)
 	}
 
+	// Prune stale skill entries (not on disk). Preserve non-skill entries (agents).
+	var pruneChanged bool
+	reg.Skills, pruneChanged = PruneStaleSkills(reg.Skills, live, true)
+	changed = changed || pruneChanged
+
 	// Batch-update .gitignore once (reads/writes the file only once instead of per-skill).
 	if len(gitignoreEntries) > 0 {
 		if err := install.UpdateGitIgnoreBatch(filepath.Join(projectRoot, ".skillshare"), gitignoreEntries); err != nil {
@@ -146,6 +166,16 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, reg *
 func isGitRepo(path string) bool {
 	_, err := os.Stat(filepath.Join(path, ".git"))
 	return err == nil
+}
+
+// gitCurrentBranch returns the current branch name for a git repo, or "" on failure.
+func gitCurrentBranch(repoPath string) string {
+	cmd := exec.Command("git", "-C", repoPath, "rev-parse", "--abbrev-ref", "HEAD")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // gitRemoteOrigin returns the "origin" remote URL for a git repo, or "" on failure.

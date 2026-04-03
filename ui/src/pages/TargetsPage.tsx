@@ -13,7 +13,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import PageHeader from '../components/PageHeader';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
-import type { AvailableTarget } from '../api/client';
+import type { AvailableTarget, Target as TargetType } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { radius, shadows } from '../design';
 import { shortenHome } from '../lib/paths';
@@ -23,6 +23,11 @@ const SYNC_MODE_OPTIONS = [
   { value: 'merge', label: 'Merge (default)', description: 'Per-skill symlinks, preserves local skills' },
   { value: 'symlink', label: 'Symlink', description: 'Entire directory symlinked to source' },
   { value: 'copy', label: 'Copy', description: 'Physical file copies instead of symlinks' },
+];
+
+const TARGET_NAMING_OPTIONS = [
+  { value: 'flat', label: 'Flat (default)', description: 'Flattened names with __ separators' },
+  { value: 'standard', label: 'Standard', description: 'SKILL.md name (Agent Skills spec)' },
 ];
 
 export default function TargetsPage() {
@@ -46,6 +51,37 @@ export default function TargetsPage() {
   const navigate = useNavigate();
   const { getTargetSummary } = useSyncMatrix();
   const { toast } = useToast();
+
+  const updateTargetSetting = async (
+    targetName: string,
+    payload: Parameters<typeof api.updateTarget>[1],
+    label: string,
+  ) => {
+    // Optimistic update: apply change to cache immediately
+    const queryKey = queryKeys.targets.all;
+    const previous = queryClient.getQueryData<{ targets: TargetType[]; sourceSkillCount: number }>(queryKey);
+
+    if (previous) {
+      queryClient.setQueryData(queryKey, {
+        ...previous,
+        targets: previous.targets.map((t) =>
+          t.name === targetName ? { ...t, ...payload, ...(payload.target_naming != null ? { targetNaming: payload.target_naming } : {}) } : t,
+        ),
+      });
+    }
+
+    try {
+      await api.updateTarget(targetName, payload);
+      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey: queryKeys.config });
+      queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
+      toast(`${targetName}: ${label}`, 'success');
+    } catch (e) {
+      // Rollback on error
+      if (previous) queryClient.setQueryData(queryKey, previous);
+      toast((e as Error).message, 'error');
+    }
+  };
 
   // Compute filtered & sectioned available targets
   const { detected, others } = useMemo(() => {
@@ -371,21 +407,20 @@ export default function TargetsPage() {
                 <div className="mt-3 pt-3 border-t border-dashed border-pencil-light/30 flex items-center gap-2">
                   <Select
                     value={target.mode || 'merge'}
-                    onChange={async (mode) => {
-                      try {
-                        await api.updateTarget(target.name, { mode });
-                        queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
-                        queryClient.invalidateQueries({ queryKey: queryKeys.config });
-                        queryClient.invalidateQueries({ queryKey: queryKeys.diff() });
-                        toast(`Sync mode for ${target.name} changed to ${mode}`, 'success');
-                      } catch (e) {
-                        toast((e as Error).message, 'error');
-                      }
-                    }}
+                    onChange={(mode) => updateTargetSetting(target.name, { mode }, `Sync mode changed to ${mode}`)}
                     options={SYNC_MODE_OPTIONS}
                     size="sm"
                     className="w-44"
                   />
+                  {target.mode !== 'symlink' && (
+                    <Select
+                      value={target.targetNaming || 'flat'}
+                      onChange={(naming) => updateTargetSetting(target.name, { target_naming: naming }, `Target naming changed to ${naming}`)}
+                      options={TARGET_NAMING_OPTIONS}
+                      size="sm"
+                      className="w-48"
+                    />
+                  )}
                   {(target.mode === 'merge' || target.mode === 'copy') && (
                     <span className={`text-sm ml-auto ${hasDrift ? 'text-warning' : 'text-muted-dark'}`}>
                       {hasDrift ? (
@@ -443,6 +478,14 @@ export default function TargetsPage() {
                       {(target.include?.length || target.exclude?.length) ? 'Edit in Filter Studio →' : 'Customize filters →'}
                     </Link>
                   </div>
+                )}
+                {(target.skippedSkillCount ?? 0) > 0 && (
+                  <p className="mt-1 text-xs text-warning flex items-center gap-1">
+                    <AlertTriangle size={11} strokeWidth={2.5} />
+                    {target.skippedSkillCount} skill(s) skipped
+                    {(target.collisionCount ?? 0) > 0 && <> ({target.collisionCount} name collision(s))</>}
+                    {' '}— try switching to <strong>Flat</strong> naming to resolve
+                  </p>
                 )}
               </Card>
             );

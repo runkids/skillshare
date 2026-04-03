@@ -46,6 +46,11 @@
           "type": "string",
           "description": "Subdirectory group the resource belongs to (set by --into).",
           "examples": ["frontend", "backend"]
+        },
+        "branch": {
+          "type": "string",
+          "description": "Git branch to clone from. Omit for remote default branch.",
+          "examples": ["develop", "frontend"]
         }
       }
     }

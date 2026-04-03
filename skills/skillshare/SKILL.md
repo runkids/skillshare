@@ -12,7 +12,7 @@ description: |
   audit pipelines, or building/sharing skill hubs (hub index, hub add).
 argument-hint: "[command] [target] [--json] [--dry-run] [-p|-g]"
 metadata:
-  version: v0.18.3
+  version: v0.18.6
 ---
 
 # Skillshare CLI
@@ -36,6 +36,8 @@ skillshare install user/repo --all               # Install everything
 skillshare install user/repo --into frontend     # Place in subdirectory
 skillshare install gitlab.com/team/repo          # Any Git host
 skillshare install user/repo --track             # Enable `update` later
+skillshare install user/repo -b develop --all    # Install from branch
+skillshare install user/repo --track -b develop  # Track specific branch
 skillshare install user/repo -s pdf -p           # Install to project
 skillshare install                               # Reinstall all tracked remotes from config
 skillshare sync                                  # Always sync after install

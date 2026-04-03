@@ -210,7 +210,7 @@ func collectMergeSyncResult(r *syncTargetResult, name string, target config.Targ
 
 	pruneResult, pruneErr := sync.PruneOrphanLinksWithSkills(sync.PruneOptions{
 		TargetPath: sc.Path, SourcePath: source, Skills: skills,
-		Include: sc.Include, Exclude: sc.Exclude, TargetName: name,
+		Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
 		DryRun: dryRun, Force: force,
 	})
 	if pruneErr != nil {
@@ -265,7 +265,7 @@ func collectCopySyncResult(r *syncTargetResult, name string, target config.Targe
 	}
 
 	sc := target.SkillsConfig()
-	pruneResult, pruneErr := sync.PruneOrphanCopiesWithSkills(sc.Path, skills, sc.Include, sc.Exclude, name, dryRun)
+	pruneResult, pruneErr := sync.PruneOrphanCopiesWithSkills(sc.Path, skills, sc.Include, sc.Exclude, name, sc.TargetNaming, dryRun)
 	if pruneErr != nil {
 		r.warnings = append(r.warnings, fmt.Sprintf("%s: prune failed: %v", name, pruneErr))
 	}

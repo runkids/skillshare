@@ -15,6 +15,11 @@ import (
 )
 
 func cmdUI(args []string) error {
+	if wantsHelp(args) {
+		printUIHelp()
+		return nil
+	}
+
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
 		return err
@@ -220,4 +225,27 @@ func openBrowser(url string) {
 		return
 	}
 	_ = cmd.Start()
+}
+
+func printUIHelp() {
+	fmt.Println(`Usage: skillshare ui [options]
+
+Launch the web dashboard.
+
+Options:
+  --port <port>       Server port (default: 19420)
+  --host <host>       Server host (default: 127.0.0.1)
+  --base-path, -b     Base path prefix for reverse proxy
+  --no-open           Don't open browser automatically
+  --clear-cache       Clear cached UI assets and exit
+  --project, -p       Use project-level config
+  --global, -g        Use global config
+  --help, -h          Show this help
+
+Examples:
+  skillshare ui                  Launch dashboard
+  skillshare ui --port 8080      Launch on custom port
+  skillshare ui --no-open        Launch without opening browser
+  skillshare ui -p               Launch in project mode
+  skillshare ui --clear-cache    Clear cached UI files`)
 }

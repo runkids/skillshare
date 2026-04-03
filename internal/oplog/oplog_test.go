@@ -479,6 +479,9 @@ func TestDeleteEntries_SeparateFiles(t *testing.T) {
 }
 
 func TestRewriteEntries_PreservesOriginalOnWriteFailure(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("chmod 0555 has no effect when running as root")
+	}
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.log")
 

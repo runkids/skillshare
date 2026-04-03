@@ -85,6 +85,16 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 				return nil, false, err
 			}
 			result.opts.AuditThreshold = threshold
+		case arg == "--branch" || arg == "-b":
+			if i+1 >= len(args) {
+				return nil, false, fmt.Errorf("--branch requires a value")
+			}
+			i++
+			branch := strings.TrimSpace(args[i])
+			if branch == "" {
+				return nil, false, fmt.Errorf("--branch requires a non-empty value")
+			}
+			result.opts.Branch = branch
 		case arg == "--track" || arg == "-t":
 			result.opts.Track = true
 		case arg == "--skill" || arg == "-s":
@@ -163,6 +173,13 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 	}
 	if result.opts.ShouldInstallAll() && result.opts.Track {
 		return nil, false, fmt.Errorf("--all/--yes cannot be used with --track")
+	}
+
+	if result.opts.Branch != "" && result.sourceArg != "" {
+		source, parseErr := install.ParseSource(result.sourceArg)
+		if parseErr == nil && !source.IsGit() {
+			return nil, false, fmt.Errorf("--branch can only be used with git repository sources")
+		}
 	}
 
 	if result.opts.Into != "" {
@@ -307,7 +324,8 @@ func cmdInstall(args []string) error {
 	if parsed.sourceArg == "" {
 		hasSourceFlags := parsed.opts.Name != "" || parsed.opts.Into != "" ||
 			parsed.opts.Track || len(parsed.opts.Skills) > 0 ||
-			len(parsed.opts.Exclude) > 0 || parsed.opts.All || parsed.opts.Yes || parsed.opts.Update
+			len(parsed.opts.Exclude) > 0 || parsed.opts.All || parsed.opts.Yes || parsed.opts.Update ||
+			parsed.opts.Branch != ""
 		if hasSourceFlags && !parsed.jsonOutput {
 			return fmt.Errorf("flags --name, --into, --track, --skill, --exclude, --all, --yes, and --update require a source argument")
 		}
@@ -358,6 +376,9 @@ func cmdInstall(args []string) error {
 	}
 
 	source, resolvedFromMeta, err := resolveInstallSource(parsed.sourceArg, parsed.opts, cfg)
+	if err == nil && parsed.opts.Branch != "" {
+		source.Branch = parsed.opts.Branch
+	}
 	if err != nil {
 		logInstallOp(config.ConfigPath(), rest, start, err, installLogSummary{
 			Source: parsed.sourceArg,
@@ -517,6 +538,7 @@ Options:
   --into <dir>        Install into subdirectory (e.g. "frontend" or "frontend/react")
   --force, -f         Overwrite existing skill; also continue if audit would block
   --update, -u        Update existing (git pull if possible, else reinstall)
+  --branch, -b <name> Git branch to clone from (default: remote default)
   --track, -t         Install as tracked repo (preserves .git for updates)
   --skill, -s <names> Select specific skills from multi-skill repo (comma-separated;
                       supports glob patterns like "core-*", "test-?")

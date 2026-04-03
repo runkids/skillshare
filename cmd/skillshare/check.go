@@ -21,6 +21,7 @@ type checkRepoResult struct {
 	Name    string `json:"name"`
 	Status  string `json:"status"` // "up_to_date", "behind", "dirty", "error"
 	Behind  int    `json:"behind"`
+	Branch  string `json:"branch,omitempty"`
 	Message string `json:"message,omitempty"`
 }
 
@@ -88,7 +89,8 @@ func collectCheckItems(sourceDir string, repos []string, skills []string) (
 			continue
 		}
 
-		urlGroups[meta.RepoURL] = append(urlGroups[meta.RepoURL], skillWithMeta{
+		groupKey := urlBranchKey(meta.RepoURL, meta.Branch)
+		urlGroups[groupKey] = append(urlGroups[groupKey], skillWithMeta{
 			name: skill,
 			path: skillPath,
 			meta: meta,
@@ -124,6 +126,26 @@ func parseCheckArgs(args []string) (*checkOptions, bool, error) {
 	}
 
 	return opts, false, nil
+}
+
+// urlBranchSep separates URL and branch in composite grouping keys.
+// Tab is used because it cannot appear in URLs (unlike "@" which appears in SSH URLs).
+const urlBranchSep = "\t"
+
+// urlBranchKey creates a composite grouping key from a URL and optional branch.
+func urlBranchKey(url, branch string) string {
+	if branch != "" {
+		return url + urlBranchSep + branch
+	}
+	return url
+}
+
+// splitURLBranch splits a composite key back into URL and branch.
+func splitURLBranch(key string) (url, branch string) {
+	if idx := strings.Index(key, urlBranchSep); idx >= 0 {
+		return key[:idx], key[idx+1:]
+	}
+	return key, ""
 }
 
 func cmdCheck(args []string) error {
@@ -253,9 +275,10 @@ func runCheck(sourceDir string, jsonOutput bool, extraTargetNames []string) erro
 	// Build unique URL list
 	var urlInputs []check.URLCheckInput
 	var urlOrder []string
-	for url := range urlGroups {
-		urlInputs = append(urlInputs, check.URLCheckInput{RepoURL: url})
-		urlOrder = append(urlOrder, url)
+	for key := range urlGroups {
+		url, branch := splitURLBranch(key)
+		urlInputs = append(urlInputs, check.URLCheckInput{RepoURL: url, Branch: branch})
+		urlOrder = append(urlOrder, key)
 	}
 
 	// Count total items for meaningful progress (skill count, not URL count)
@@ -300,7 +323,7 @@ func runCheck(sourceDir string, jsonOutput bool, extraTargetNames []string) erro
 	// Broadcast URL results to grouped skills (with per-skill tree hash comparison)
 	urlHashMap := make(map[string]check.URLCheckOutput)
 	for _, out := range urlOutputs {
-		urlHashMap[out.RepoURL] = out
+		urlHashMap[urlBranchKey(out.RepoURL, out.Branch)] = out
 	}
 
 	skillResults := resolveSkillStatuses(urlGroups, urlHashMap, urlOrder)
@@ -469,6 +492,7 @@ func toRepoResults(outputs []check.RepoCheckOutput) []checkRepoResult {
 			Name:    o.Name,
 			Status:  o.Status,
 			Behind:  o.Behind,
+			Branch:  o.Branch,
 			Message: o.Message,
 		}
 	}
@@ -715,9 +739,10 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 
 	var urlInputs []check.URLCheckInput
 	var urlOrder []string
-	for url := range urlGroups {
-		urlInputs = append(urlInputs, check.URLCheckInput{RepoURL: url})
-		urlOrder = append(urlOrder, url)
+	for key := range urlGroups {
+		url, branch := splitURLBranch(key)
+		urlInputs = append(urlInputs, check.URLCheckInput{RepoURL: url, Branch: branch})
+		urlOrder = append(urlOrder, key)
 	}
 
 	totalSkills := 0
@@ -762,7 +787,7 @@ func runCheckFiltered(sourceDir string, opts *checkOptions) error {
 
 	urlHashMap := make(map[string]check.URLCheckOutput)
 	for _, out := range urlOutputs {
-		urlHashMap[out.RepoURL] = out
+		urlHashMap[urlBranchKey(out.RepoURL, out.Branch)] = out
 	}
 
 	skillResults := resolveSkillStatuses(urlGroups, urlHashMap, urlOrder)

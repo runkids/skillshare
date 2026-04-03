@@ -119,8 +119,8 @@ skillshare check --json
 ```json
 {
   "tracked_repos": [
-    {"name": "_team-skills", "status": "up_to_date", "behind": 0},
-    {"name": "_shared-rules", "status": "behind", "behind": 3}
+    {"name": "_team-skills", "status": "up_to_date", "behind": 0, "branch": "main"},
+    {"name": "_shared-rules", "status": "behind", "behind": 3, "branch": "develop"}
   ],
   "skills": [
     {"name": "pdf", "source": "anthropics/skills", "version": "a1b2c3d",

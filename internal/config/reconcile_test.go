@@ -194,6 +194,50 @@ func TestReconcileGlobalSkills_NestedSkillSetsGroup(t *testing.T) {
 	}
 }
 
+func TestReconcileGlobalSkills_PrunesStaleEntries(t *testing.T) {
+	root := t.TempDir()
+	sourceDir := filepath.Join(root, "skills")
+	configPath := filepath.Join(root, "config.yaml")
+
+	// Create only one skill on disk
+	skillPath := filepath.Join(sourceDir, "alive-skill")
+	if err := os.MkdirAll(skillPath, 0755); err != nil {
+		t.Fatal(err)
+	}
+	meta := map[string]string{"source": "github.com/user/alive"}
+	data, _ := json.Marshal(meta)
+	if err := os.WriteFile(filepath.Join(skillPath, ".skillshare-meta.json"), data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfgData, _ := yaml.Marshal(&Config{Source: sourceDir})
+	if err := os.WriteFile(configPath, cfgData, 0644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SKILLSHARE_CONFIG", configPath)
+
+	// Registry has both the alive skill and a stale one (not on disk)
+	cfg := &Config{Source: sourceDir}
+	reg := &Registry{
+		Skills: []SkillEntry{
+			{Name: "alive-skill", Source: "github.com/user/alive"},
+			{Name: "deleted-skill", Source: "github.com/user/deleted"},
+			{Group: "frontend", Name: "gone-skill", Source: "github.com/user/gone"},
+		},
+	}
+
+	if err := ReconcileGlobalSkills(cfg, reg); err != nil {
+		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
+	}
+
+	if len(reg.Skills) != 1 {
+		t.Fatalf("expected 1 skill after prune, got %d: %+v", len(reg.Skills), reg.Skills)
+	}
+	if reg.Skills[0].Name != "alive-skill" {
+		t.Errorf("expected surviving skill 'alive-skill', got %q", reg.Skills[0].Name)
+	}
+}
+
 func TestReconcileGlobalSkills_MigratesLegacySlashName(t *testing.T) {
 	root := t.TempDir()
 	sourceDir := filepath.Join(root, "skills")

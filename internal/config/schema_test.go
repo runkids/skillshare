@@ -77,6 +77,29 @@ func TestLoad_WithSchemaComment(t *testing.T) {
 	}
 }
 
+func TestLoad_WithTargetNaming(t *testing.T) {
+	tmp := t.TempDir()
+	cfgPath := filepath.Join(tmp, "config.yaml")
+	t.Setenv("SKILLSHARE_CONFIG", cfgPath)
+
+	raw := "# yaml-language-server: $schema=" + GlobalSchemaURL + "\nsource: /tmp/skills\ntarget_naming: standard\ntargets:\n  claude:\n    skills:\n      target_naming: flat\n"
+	if err := os.WriteFile(cfgPath, []byte(raw), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if cfg.TargetNaming != "standard" {
+		t.Fatalf("TargetNaming = %q, want standard", cfg.TargetNaming)
+	}
+	claude := cfg.Targets["claude"]
+	if got := claude.SkillsConfig().TargetNaming; got != "flat" {
+		t.Fatalf("target target_naming = %q, want flat", got)
+	}
+}
+
 func TestLoadProject_WithSchemaComment(t *testing.T) {
 	root := t.TempDir()
 	cfgPath := filepath.Join(root, ".skillshare", "config.yaml")
@@ -95,6 +118,30 @@ func TestLoadProject_WithSchemaComment(t *testing.T) {
 	}
 	if len(cfg.Targets) != 1 || cfg.Targets[0].Name != "claude" {
 		t.Errorf("unexpected targets: %+v", cfg.Targets)
+	}
+}
+
+func TestLoadProject_WithTargetNaming(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := filepath.Join(root, ".skillshare", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	raw := "# yaml-language-server: $schema=" + ProjectSchemaURL + "\ntarget_naming: standard\ntargets:\n  - name: claude\n    skills:\n      target_naming: flat\n"
+	if err := os.WriteFile(cfgPath, []byte(raw), 0644); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	cfg, err := LoadProject(root)
+	if err != nil {
+		t.Fatalf("LoadProject failed: %v", err)
+	}
+	if cfg.TargetNaming != "standard" {
+		t.Fatalf("TargetNaming = %q, want standard", cfg.TargetNaming)
+	}
+	if got := cfg.Targets[0].SkillsConfig().TargetNaming; got != "flat" {
+		t.Fatalf("target target_naming = %q, want flat", got)
 	}
 }
 

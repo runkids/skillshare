@@ -1,5 +1,116 @@
 # Changelog
 
+## [0.18.6] - 2026-04-01
+
+### Bug Fixes
+
+- **UI batch uninstall now removes nested skill registry entries** — previously, uninstalling grouped skills (e.g. `frontend/vue/vue-best-practices`) from the Web UI left stale entries in `registry.yaml` because the flat name (`__`) didn't match the stored path name (`/`). Uninstall now tracks the exact resolved path for accurate cleanup
+
+- **Sync prunes stale registry entries** — `skillshare sync` and the Web UI Sync page now automatically remove `registry.yaml` entries for skills that no longer exist in the source directory. Covers manual deletions, not just `uninstall`. Skills hidden by `.skillignore` are preserved
+
+- **Uninstall page search works as substring match** — typing `matt` in the filter box now matches `mattpocock/tdd` (substring search). Previously, only glob patterns like `*matt*` worked. Glob syntax (`*`, `?`) still works when present
+
+- **Uninstall page shows path format** — the confirmation dialog and result summary now display `frontend/vue/vue-best-practices` instead of `frontend__vue__vue-best-practices`
+
+- **Updates page removes redundant status line** — the "0 repo(s) and 20 skill(s) already up to date" line no longer appears when everything is already current (the empty state already says this)
+
+## [0.18.5] - 2026-04-01
+
+### New Features
+
+- **`--help` for all commands** — every command now supports `--help` / `-h` to show usage info, flags, and examples. Previously, commands like `push`, `pull`, `sync`, `status`, `collect`, `doctor`, and `ui` would execute instead of showing help when `--help` was passed
+  ```bash
+  skillshare push --help     # shows usage instead of pushing
+  skillshare sync -h         # shows flags and examples
+  skillshare ui --help       # shows port/host options
+  ```
+
+## [0.18.4] - 2026-03-31
+
+### New Features
+
+#### Branch Support (`--branch` / `-b`)
+
+- **Install from a specific branch** — new `--branch` / `-b` flag lets you clone from any branch instead of the remote default:
+  ```bash
+  skillshare install github.com/team/skills --branch develop --all
+  skillshare install github.com/team/skills --track --branch frontend
+  ```
+  - Works with both tracked repos (`--track`) and regular skill installs
+  - Branch is persisted in metadata — `update` and `check` automatically use the correct branch
+  - Same repo on different branches: use `--name` to avoid collisions:
+    ```bash
+    skillshare install github.com/team/skills --track --branch frontend --name team-frontend
+    skillshare install github.com/team/skills --track --branch backend --name team-backend
+    ```
+  - Supported in project mode (`-p`) and config-driven rebuild (`skillshare install` with no args)
+  - `registry.yaml` stores the branch for cross-device reproducibility
+
+- **Branch in Web UI** — the Install form shows a Branch input field (inline with Source) when a git source is detected. Skills page shows a branch badge on cards, and the Skill Detail page includes branch in the metadata section
+
+- **Branch in CLI list** — `skillshare list` detail panel shows the tracked branch when non-default
+
+- **Branch-aware check** — `skillshare check` compares against the correct remote branch ref, not just HEAD. JSON output includes a `branch` field for tracked repos
+
+#### Sync Accuracy
+
+- **Accurate skill counts on Targets page** — the expected skill count now reflects what sync actually resolves (after name collision and validation filtering), instead of the raw source count. Previously, targets using `standard` naming could show `39032/64075 shared` when all resolved skills were actually in sync
+
+- **Skipped skill visibility** — when skills are excluded by naming validation or collisions, the Targets page and Sync page now show a summary (e.g. "12345 skill(s) skipped, 456 name collision(s)") instead of silently dropping them. Suggests switching to `flat` naming to include all skills
+
+#### Target Naming Mode
+
+- **`target_naming` config option** — choose how synced skill directories are named in targets. Set globally or per-target:
+  ```yaml
+  target_naming: standard    # use SKILL.md name as directory name
+  targets:
+    claude:
+      skills:
+        target_naming: flat  # override: keep flattened prefix (default)
+  ```
+  - `flat` (default) — nested skills like `frontend/dev` become `frontend__dev` in targets
+  - `standard` — uses the SKILL.md `name` field directly (e.g. `dev`), following the [Agent Skills specification](https://agentskills.io/specification)
+  - Standard mode validates that SKILL.md names match their directory name, warns and skips invalid skills
+  - Name collisions (e.g. two skills both named `dev`) are detected and both are skipped with a warning
+  - Switching from `flat` to `standard` automatically migrates existing managed entries (symlinks and copies are renamed in place)
+  - If a local skill already occupies the bare name, the legacy flat entry is preserved with a warning
+  - `target_naming` is ignored in `symlink` mode (the entire source directory is linked)
+
+- **Collision output redesigned** — name conflict warnings are now deduplicated across targets and displayed as a compact summary instead of repeating each collision per target
+
+#### Folder Tree View (Web UI)
+
+- **Skills folder tree** — the second layout on `/skills` is now a true folder tree with multi-level expand/collapse, matching your actual directory structure from `--into`:
+  - Click any folder to expand/collapse its children
+  - **Expand All / Collapse All** buttons in the toolbar
+  - **Sticky folder header** — scrolling through a long folder keeps the folder name pinned at the top; click it to jump back
+  - **Search-aware** — filtering or searching auto-expands all matching folders; clearing restores your previous collapse state
+  - **Hover tooltip** on skill rows shows path, source, and install date (follows cursor, 1.5s delay)
+  - Collapse state persists across page reloads via localStorage
+  - Virtualized rendering handles 10,000+ skills with no performance impact
+
+- **Skill detail button layout** — the Enable/Update/Uninstall buttons no longer wrap awkwardly on narrow screens
+
+#### Agent Target Paths
+
+- **Agent-specific paths** — targets that support agents (Claude, Cursor, OpenCode, Augment) now declare separate `agents:` paths in their configuration. This is groundwork for upcoming agent sync support
+
+#### GitHub Actions
+
+- **`setup-skillshare` action** — install skillshare in CI with a single step:
+  ```yaml
+  - uses: runkids/setup-skillshare@v1
+  ```
+
+### Bug Fixes
+
+- **CLI sync output no longer floods terminal** — targets with thousands of naming validation warnings (common with `standard` naming and large skill sets) now print a compact summary instead of one line per skipped skill
+- **Target dropdown lag removed** — changing sync mode or target naming in the Web UI Targets page now updates instantly via optimistic cache update, instead of waiting 2 seconds for the API round-trip
+
+### Performance
+
+- **Cached branch lookups** — `skillshare list` caches `git` branch queries per tracked repo, so listing 500 skills from the same repo runs 1 git command instead of 500
+
 ## [0.18.3] - 2026-03-29
 
 ### New Features

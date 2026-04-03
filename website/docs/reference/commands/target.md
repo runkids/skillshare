@@ -12,6 +12,7 @@ skillshare target remove <name>        # Remove a target
 skillshare target list                 # List all targets
 skillshare target <name>               # Show target info
 skillshare target <name> --mode merge  # Change sync mode
+skillshare target <name> --target-naming standard  # Change naming
 ```
 
 ## When to Use
@@ -19,6 +20,7 @@ skillshare target <name> --mode merge  # Change sync mode
 - Add a new AI CLI target after installing a new tool
 - Remove a target you no longer use
 - Change sync mode (merge, copy, or symlink) for a target
+- Change target naming (flat or standard) for a target
 - Tune compatibility target-by-target instead of forcing one global mode
 - Set up include/exclude filters for selective skill syncing
 
@@ -72,6 +74,7 @@ On a TTY, `target list` launches an interactive terminal UI with:
 - **Split layout** — target list on the left, detail panel on the right (falls back to vertical layout on narrow terminals)
 - **Fuzzy filter** — press `/` to filter targets by name
 - **Mode picker** — press `M` to change the sync mode (merge, copy, symlink) for the selected target
+- **Naming picker** — press `N` to change the target naming (flat, standard) for the selected target
 - **Include/Exclude editor** — press `I` or `E` to open the filter pattern editor for the selected target. Use `a` to add patterns, `d` to delete
 - **Remove target** — press `R` to remove the selected target. Shows a confirmation prompt before proceeding (backs up and unlinks, same as `target remove`)
 - **Keyboard navigation** — `↑`/`↓` to browse, `Ctrl+d`/`Ctrl+u` to scroll the detail panel, `q` to quit
@@ -100,6 +103,7 @@ skillshare target list --json
       "name": "claude",
       "path": "~/.claude/skills",
       "mode": "merge",
+      "targetNaming": "flat",
       "include": [],
       "exclude": []
     },
@@ -107,6 +111,7 @@ skillshare target list --json
       "name": "cursor",
       "path": "~/.cursor/skills",
       "mode": "merge",
+      "targetNaming": "standard",
       "include": [],
       "exclude": []
     }
@@ -114,9 +119,9 @@ skillshare target list --json
 }
 ```
 
-### target info / mode
+### target info / settings
 
-Show target details or change sync mode.
+Show target details or change settings.
 
 ```bash
 # Show info
@@ -125,7 +130,12 @@ skillshare target claude
 # Change mode
 skillshare target claude --mode symlink
 skillshare target claude --mode merge
-skillshare sync  # Apply change
+
+# Change target naming
+skillshare target claude --target-naming standard
+skillshare target claude --target-naming flat
+
+skillshare sync  # Apply changes
 ```
 
 ## Sync Modes
@@ -137,7 +147,15 @@ skillshare sync  # Apply change
 | `symlink` | Entire directory is one symlink. Exact copies everywhere. |
 
 `target --mode` is the main compatibility control surface. Keep your global default simple, then override only where needed.
-In `sync`/`doctor` hints, the example target is prioritized as `cursor` → `antigravity` → `copilot` → `opencode`. If none exist, no compatibility hint is shown.
+
+## Target Naming
+
+| Naming | Behavior |
+|--------|----------|
+| `flat` | Nested skills flattened with `__` separators (e.g. `frontend__dev`). **Default.** |
+| `standard` | Uses SKILL.md `name` field directly (e.g. `dev`). Follows the [Agent Skills spec](https://agentskills.io/specification). |
+
+`target --target-naming` controls how skill directories are named in targets. In `standard` mode, skills with invalid or colliding names are warned and skipped. Ignored in symlink mode.
 
 ```bash
 # Set target to copy mode (for Cursor, Copilot CLI, etc.)
@@ -201,11 +219,12 @@ No additional options.
 | `--json` | Output as JSON |
 | `--no-tui` | Disable interactive TUI, use plain text output |
 
-### target info / filters
+### target info / settings
 
 | Flag | Description |
 |------|-------------|
 | `--mode, -m <mode>` | Set sync mode (merge, copy, or symlink) |
+| `--target-naming <naming>` | Set target naming (flat or standard) |
 | `--add-include <pattern>` | Add an include filter pattern |
 | `--add-exclude <pattern>` | Add an exclude filter pattern |
 | `--remove-include <pattern>` | Remove an include filter pattern |

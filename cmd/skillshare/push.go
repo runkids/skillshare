@@ -210,6 +210,11 @@ func detectRemoteDefaultBranchForPush(sourcePath string, authEnv []string) strin
 }
 
 func cmdPush(args []string) error {
+	if wantsHelp(args) {
+		printPushHelp()
+		return nil
+	}
+
 	start := time.Now()
 	opts := parsePushArgs(args)
 
@@ -269,4 +274,20 @@ func cmdPush(args []string) error {
 	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
 	return nil
+}
+
+func printPushHelp() {
+	fmt.Println(`Usage: skillshare push [options]
+
+Commit and push source skills to git remote.
+
+Options:
+  -m, --message <msg>   Commit message (default: "Update skills")
+  --dry-run, -n         Preview changes without applying
+  --help, -h            Show this help
+
+Examples:
+  skillshare push                      Push with default message
+  skillshare push -m "Add new skill"   Push with custom message
+  skillshare push --dry-run            Preview what would happen`)
 }

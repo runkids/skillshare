@@ -226,6 +226,40 @@ targets:
 
 ---
 
+## Target Naming
+
+Controls how skill directories are named in targets when using merge or copy mode.
+
+| Naming | Behavior |
+|--------|----------|
+| `flat` (default) | Nested skills flattened with `__` separators: `frontend/dev` → `frontend__dev` |
+| `standard` | Uses the SKILL.md `name` field: `frontend/dev` → `dev` |
+
+Set globally or per-target:
+
+```yaml
+target_naming: standard    # global default
+targets:
+  claude:
+    skills:
+      target_naming: flat  # per-target override
+```
+
+Or via CLI:
+
+```bash
+skillshare target claude --target-naming standard
+skillshare sync
+```
+
+**Standard mode** follows the [Agent Skills specification](https://agentskills.io/specification), which requires the SKILL.md `name` field to match the parent directory name. Skills with invalid names or name collisions are warned and skipped.
+
+**Migration**: Switching from `flat` to `standard` automatically renames existing managed entries in place. If a local skill already occupies the bare name, the legacy flat entry is preserved.
+
+**Symlink mode**: `target_naming` is ignored — the entire directory is linked as-is.
+
+---
+
 ## Mode Comparison
 
 | Aspect | Merge | Copy | Symlink |

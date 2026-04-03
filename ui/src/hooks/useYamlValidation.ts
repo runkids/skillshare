@@ -9,6 +9,7 @@ export interface ValidationError {
 }
 
 const VALID_SYNC_MODES = ['merge', 'symlink', 'copy'];
+const VALID_TARGET_NAMINGS = ['flat', 'standard'];
 const VALID_BLOCK_THRESHOLDS = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO'];
 const VALID_AUDIT_PROFILES = ['default', 'strict', 'permissive'];
 const VALID_DEDUPE_MODES = ['legacy', 'global'];
@@ -58,12 +59,34 @@ export function validateYaml(
   // Validate top-level mode (and legacy sync_mode alias)
   validateEnum(errors, sourceLines, parsed.mode, 'mode', VALID_SYNC_MODES, 'mode');
   validateEnum(errors, sourceLines, parsed.sync_mode, 'sync_mode', VALID_SYNC_MODES, 'sync_mode');
+  validateEnum(errors, sourceLines, parsed.target_naming, 'target_naming', VALID_TARGET_NAMINGS, 'target_naming');
 
   // Validate per-target mode
   if (parsed.targets) {
-    for (const [name, cfg] of Object.entries(parsed.targets)) {
-      if (cfg && typeof cfg === 'object' && 'mode' in cfg) {
-        validateEnum(errors, sourceLines, (cfg as Record<string, unknown>).mode, 'mode', VALID_SYNC_MODES, `mode for target "${name}"`, name);
+    if (Array.isArray(parsed.targets)) {
+      for (const entry of parsed.targets) {
+        if (!entry || typeof entry !== 'object') continue;
+        const targetName = typeof entry.name === 'string' ? entry.name : 'target';
+        if ('mode' in entry) {
+          validateEnum(errors, sourceLines, (entry as Record<string, unknown>).mode, 'mode', VALID_SYNC_MODES, `mode for target "${targetName}"`, targetName);
+        }
+        const skills = (entry as Record<string, unknown>).skills;
+        if (skills && typeof skills === 'object') {
+          validateEnum(errors, sourceLines, (skills as Record<string, unknown>).mode, 'mode', VALID_SYNC_MODES, `skills.mode for target "${targetName}"`, targetName);
+          validateEnum(errors, sourceLines, (skills as Record<string, unknown>).target_naming, 'target_naming', VALID_TARGET_NAMINGS, `target_naming for target "${targetName}"`, targetName);
+        }
+      }
+    } else {
+      for (const [name, cfg] of Object.entries(parsed.targets)) {
+        if (!cfg || typeof cfg !== 'object') continue;
+        if ('mode' in cfg) {
+          validateEnum(errors, sourceLines, (cfg as Record<string, unknown>).mode, 'mode', VALID_SYNC_MODES, `mode for target "${name}"`, name);
+        }
+        const skills = (cfg as Record<string, unknown>).skills;
+        if (skills && typeof skills === 'object') {
+          validateEnum(errors, sourceLines, (skills as Record<string, unknown>).mode, 'mode', VALID_SYNC_MODES, `skills.mode for target "${name}"`, name);
+          validateEnum(errors, sourceLines, (skills as Record<string, unknown>).target_naming, 'target_naming', VALID_TARGET_NAMINGS, `target_naming for target "${name}"`, name);
+        }
       }
     }
   }

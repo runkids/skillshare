@@ -62,6 +62,7 @@ func (s *Server) handleBatchUninstall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	results := make([]batchUninstallItemResult, 0, len(body.Names))
+	removedPaths := make(map[string]bool) // exact RelPaths of successfully removed items
 	var repoEntriesToRemove []string
 	succeeded, failed := 0, 0
 	var firstErr string
@@ -105,6 +106,7 @@ func (s *Server) handleBatchUninstall(w http.ResponseWriter, r *http.Request) {
 			}
 
 			repoEntriesToRemove = append(repoEntriesToRemove, name)
+			removedPaths[name] = true // repo dir name is already the registry path
 			res.Success = true
 			res.MovedToTrash = true
 			results = append(results, res)
@@ -150,6 +152,7 @@ func (s *Server) handleBatchUninstall(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		removedPaths[skill.RelPath] = true // exact path for registry matching
 		res.Success = true
 		res.MovedToTrash = true
 		results = append(results, res)
@@ -163,21 +166,28 @@ func (s *Server) handleBatchUninstall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if succeeded > 0 {
-		removedSet := make(map[string]bool)
-		for _, res := range results {
-			if res.Success {
-				removedSet[res.Name] = true
-			}
-		}
+		// removedPaths contains exact RelPaths (e.g. "frontend/vue/vue-best-practices")
+		// and repo dir names (e.g. "_team-skills"), collected during the uninstall loop.
 		filtered := make([]config.SkillEntry, 0, len(s.registry.Skills))
 		for _, entry := range s.registry.Skills {
 			fullName := entry.FullName()
-			if removedSet[fullName] || removedSet[entry.Name] {
+			if removedPaths[fullName] || removedPaths[entry.Name] {
 				continue
 			}
 			// Tracked repos: registry stores group without "_" prefix (e.g., group="team-skills"
-			// for repo dir "_team-skills"). Reconstruct the prefixed name to match removedSet.
-			if entry.Group != "" && removedSet["_"+entry.Group] {
+			// for repo dir "_team-skills"). Reconstruct the prefixed name to match removedPaths.
+			if entry.Group != "" && removedPaths["_"+entry.Group] {
+				continue
+			}
+			// When a group directory is uninstalled, also remove its member skills
+			memberOfRemoved := false
+			for rp := range removedPaths {
+				if strings.HasPrefix(fullName, rp+"/") {
+					memberOfRemoved = true
+					break
+				}
+			}
+			if memberOfRemoved {
 				continue
 			}
 			filtered = append(filtered, entry)

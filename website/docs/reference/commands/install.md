@@ -256,6 +256,7 @@ See [Project Setup](/docs/how-to/sharing/project-setup) for the full guide.
 | `--into <dir>` | | Install into subdirectory (e.g. `--into frontend` or `--into frontend/react`) |
 | `--force` | `-f` | Overwrite existing skill; override audit blocking and cross-path duplicate check |
 | `--update` | `-u` | Update if exists (git pull or reinstall) |
+| `--branch <name>` | `-b` | Git branch to clone from (default: remote default branch) |
 | `--track` | `-t` | Keep `.git` for tracked repos |
 | `--skill` | `-s` | Select specific skills from multi-skill repo (comma-separated; supports glob patterns like `core-*`) |
 | `--exclude` | | Skip specific skills during install (comma-separated; supports glob patterns like `test-*`) |
@@ -397,6 +398,19 @@ skillshare install anthropics/skills -s pdf --into frontend/react
 ```
 
 See [Organizing Skills](/docs/how-to/daily-tasks/organizing-skills) for folder strategies.
+
+**Install from a specific branch:**
+```bash
+# Regular install from a branch
+skillshare install github.com/team/skills --branch develop --all
+
+# Track a specific branch
+skillshare install github.com/team/skills --track --branch frontend
+
+# Same repo, different branches (use --name to avoid collision)
+skillshare install github.com/team/skills --track --branch frontend --name team-frontend
+skillshare install github.com/team/skills --track --branch backend --name team-backend
+```
 
 **Install team repo (tracked):**
 ```bash

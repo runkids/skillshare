@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"skillshare/internal/config"
@@ -126,17 +127,37 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 		printIgnoredSkills(ignoreStats)
 	}
 
-	if failedTargets > 0 {
-		return stats, results, ignoreStats, fmt.Errorf("some targets failed to sync")
-	}
-
-	// Opportunistic cleanup of expired trash items
+	// Reconcile registry and cleanup regardless of target failures.
+	// Registry cleanup only depends on source disk state, not target sync results.
 	if !dryRun {
 		if n, _ := trash.Cleanup(trash.ProjectTrashDir(root), 0); n > 0 {
 			if !jsonOutput {
 				ui.Info("Cleaned up %d expired trash item(s)", n)
 			}
 		}
+
+		// Prune stale registry entries using already-discovered skills (avoids second walk)
+		live := make(map[string]bool, len(discoveredSkills))
+		for _, s := range discoveredSkills {
+			live[s.RelPath] = true
+		}
+		// Ignored skills still exist on disk — don't prune their registry entries
+		if ignoreStats != nil {
+			for _, p := range ignoreStats.IgnoredSkills {
+				live[p] = true
+			}
+		}
+		var pruneChanged bool
+		runtime.registry.Skills, pruneChanged = config.PruneStaleSkills(runtime.registry.Skills, live, true)
+		if pruneChanged {
+			if err := runtime.registry.Save(filepath.Join(root, ".skillshare")); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to save registry after prune: %v\n", err)
+			}
+		}
+	}
+
+	if failedTargets > 0 {
+		return stats, results, ignoreStats, fmt.Errorf("some targets failed to sync")
 	}
 
 	return stats, results, ignoreStats, nil

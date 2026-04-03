@@ -55,6 +55,11 @@ func displayLocalSkills(skills []sync.LocalSkillInfo) {
 }
 
 func cmdCollect(args []string) error {
+	if wantsHelp(args) {
+		printCollectHelp()
+		return nil
+	}
+
 	start := time.Now()
 
 	mode, rest, err := parseModeArgs(args)
@@ -289,4 +294,27 @@ func showCollectNextSteps(source string) {
 	if _, err := os.Stat(gitDir); err == nil {
 		ui.Info("Commit changes: cd %s && git add . && git commit", source)
 	}
+}
+
+func printCollectHelp() {
+	fmt.Println(`Usage: skillshare collect [target] [options]
+
+Collect local skills from target(s) to source directory.
+
+Arguments:
+  [target]          Target name to collect from (optional)
+
+Options:
+  --all, -a         Collect from all targets
+  --dry-run, -n     Preview changes without applying
+  --force, -f       Skip confirmation prompts
+  --json            Output results as JSON
+  --project, -p     Use project-level config
+  --global, -g      Use global config
+  --help, -h        Show this help
+
+Examples:
+  skillshare collect claude      Collect from Claude target
+  skillshare collect --all       Collect from all targets
+  skillshare collect --dry-run   Preview what would be collected`)
 }

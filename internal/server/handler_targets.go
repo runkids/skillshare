@@ -17,12 +17,15 @@ type targetItem struct {
 	Name               string   `json:"name"`
 	Path               string   `json:"path"`
 	Mode               string   `json:"mode"`
+	TargetNaming       string   `json:"targetNaming"`
 	Status             string   `json:"status"`
 	LinkedCount        int      `json:"linkedCount"`
 	LocalCount         int      `json:"localCount"`
 	Include            []string `json:"include"`
 	Exclude            []string `json:"exclude"`
 	ExpectedSkillCount int      `json:"expectedSkillCount"`
+	SkippedSkillCount  int      `json:"skippedSkillCount,omitempty"`
+	CollisionCount     int      `json:"collisionCount,omitempty"`
 }
 
 func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
@@ -49,9 +52,10 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 		}
 
 		item := targetItem{
-			Name: name,
-			Path: sc.Path,
-			Mode: mode,
+			Name:         name,
+			Path:         sc.Path,
+			Mode:         mode,
+			TargetNaming: config.EffectiveTargetNaming(sc.TargetNaming),
 			Include: func() []string {
 				if len(sc.Include) == 0 {
 					return []string{}
@@ -67,7 +71,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 		}
 
 		switch mode {
-		case "merge":
+		case "merge", "copy":
 			if discoveredErr == nil {
 				filtered, err := ssync.FilterSkills(discovered, sc.Include, sc.Exclude)
 				if err != nil {
@@ -75,26 +79,29 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				filtered = ssync.FilterSkillsByTarget(filtered, name)
-				item.ExpectedSkillCount = len(filtered)
-			}
-			status, linked, local := ssync.CheckStatusMerge(sc.Path, source)
-			item.Status = status.String()
-			item.LinkedCount = linked
-			item.LocalCount = local
-		case "copy":
-			if discoveredErr == nil {
-				filtered, err := ssync.FilterSkills(discovered, sc.Include, sc.Exclude)
-				if err != nil {
-					writeError(w, http.StatusBadRequest, "invalid include/exclude for target "+name+": "+err.Error())
-					return
+				resolution, resErr := ssync.ResolveTargetSkillsForTarget(name, config.ResourceTargetConfig{
+					Path:         sc.Path,
+					TargetNaming: sc.TargetNaming,
+				}, filtered)
+				if resErr == nil {
+					item.ExpectedSkillCount = len(resolution.Skills)
+					item.SkippedSkillCount = len(filtered) - len(resolution.Skills)
+					item.CollisionCount = len(resolution.Collisions)
+				} else {
+					item.ExpectedSkillCount = len(filtered)
 				}
-				filtered = ssync.FilterSkillsByTarget(filtered, name)
-				item.ExpectedSkillCount = len(filtered)
 			}
-			status, managed, local := ssync.CheckStatusCopy(sc.Path)
-			item.Status = status.String()
-			item.LinkedCount = managed // reuse field for managed count
-			item.LocalCount = local
+			if mode == "merge" {
+				status, linked, local := ssync.CheckStatusMerge(sc.Path, source)
+				item.Status = status.String()
+				item.LinkedCount = linked
+				item.LocalCount = local
+			} else {
+				status, managed, local := ssync.CheckStatusCopy(sc.Path)
+				item.Status = status.String()
+				item.LinkedCount = managed
+				item.LocalCount = local
+			}
 		default:
 			status := ssync.CheckStatus(sc.Path, source)
 			item.Status = status.String()
@@ -244,9 +251,10 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var body struct {
-		Include *[]string `json:"include"` // null = no change, [] = clear
-		Exclude *[]string `json:"exclude"`
-		Mode    *string   `json:"mode"`
+		Include      *[]string `json:"include"` // null = no change, [] = clear
+		Exclude      *[]string `json:"exclude"`
+		Mode         *string   `json:"mode"`
+		TargetNaming *string   `json:"target_naming"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -281,6 +289,14 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if body.TargetNaming != nil {
+		if !config.IsValidTargetNaming(*body.TargetNaming) {
+			writeError(w, http.StatusBadRequest, "invalid target_naming: "+*body.TargetNaming+"; must be flat or standard")
+			return
+		}
+		target.Skills.TargetNaming = *body.TargetNaming
+	}
+
 	s.cfg.Targets[name] = target
 
 	// In project mode, also update the project config
@@ -297,6 +313,9 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 				if body.Mode != nil {
 					sk.Mode = *body.Mode
 				}
+				if body.TargetNaming != nil {
+					sk.TargetNaming = *body.TargetNaming
+				}
 				break
 			}
 		}
@@ -308,11 +327,12 @@ func (s *Server) handleUpdateTarget(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hasFilter := body.Include != nil || body.Exclude != nil
+	hasSetting := body.Mode != nil || body.TargetNaming != nil
 	action := "filter"
-	if body.Mode != nil && hasFilter {
-		action = "mode+filter"
-	} else if body.Mode != nil {
-		action = "mode"
+	if hasSetting && hasFilter {
+		action = "settings+filter"
+	} else if hasSetting {
+		action = "settings"
 	}
 	s.writeOpsLog("target", "ok", start, map[string]any{
 		"action": action,

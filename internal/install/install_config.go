@@ -23,8 +23,8 @@ type configSkillGroup struct {
 	skills   []configSkillEntry
 }
 
-// groupConfigSkillsByRepo partitions parsed config entries by CloneURL.
-// Entries that share the same git repo (2+ skills with Subdir) are grouped
+// groupConfigSkillsByRepo partitions parsed config entries by CloneURL + Branch.
+// Entries that share the same git repo AND branch (2+ skills with Subdir) are grouped
 // for a single clone. Entries that cannot be grouped (local path, no subdir,
 // or sole skill from a repo) are returned in the singles slice.
 func groupConfigSkillsByRepo(entries []configSkillEntry) (groups []configSkillGroup, singles []configSkillEntry) {
@@ -36,12 +36,16 @@ func groupConfigSkillsByRepo(entries []configSkillEntry) (groups []configSkillGr
 			singles = append(singles, e)
 			continue
 		}
+		// Include branch in key so same repo on different branches are not grouped together
 		key := e.source.CloneURL
+		if e.source.Branch != "" {
+			key += "\t" + e.source.Branch
+		}
 		if g, ok := buckets[key]; ok {
 			g.skills = append(g.skills, e)
 		} else {
 			buckets[key] = &configSkillGroup{
-				cloneURL: key,
+				cloneURL: e.source.CloneURL,
 				skills:   []configSkillEntry{e},
 			}
 			order = append(order, key)
@@ -134,6 +138,9 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 			continue
 		}
 		source.Name = bareName
+		if skill.Branch != "" {
+			source.Branch = skill.Branch
+		}
 
 		if skill.Tracked {
 			tracked = append(tracked, skill)
@@ -158,6 +165,7 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 			continue
 		}
 		source.Name = bareName
+		source.Branch = skill.Branch
 
 		installed := installTrackedFromConfig(source, sourcePath, displayName, groupDir, opts)
 		if installed.failed {

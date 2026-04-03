@@ -113,6 +113,7 @@ Options:
 
 Target Settings:
   <name> --mode <mode>              Set sync mode (merge, symlink, or copy)
+  <name> --target-naming <naming>   Set target naming (flat or standard)
   <name> --add-include <pattern>    Add an include filter pattern
   <name> --add-exclude <pattern>    Add an exclude filter pattern
   <name> --remove-include <pattern> Remove an include filter pattern
@@ -476,8 +477,8 @@ func targetInfo(name string, args []string) error {
 		return fmt.Errorf("target '%s' not found. Use 'skillshare target list' to see available targets", name)
 	}
 
-	// Parse --mode from remaining args
-	var newMode string
+	// Parse --mode and --target-naming from remaining args
+	var newMode, newNaming string
 	for i := 0; i < len(remaining); i++ {
 		switch remaining[i] {
 		case "--mode", "-m":
@@ -485,6 +486,12 @@ func targetInfo(name string, args []string) error {
 				return fmt.Errorf("--mode requires a value (merge, symlink, or copy)")
 			}
 			newMode = remaining[i+1]
+			i++
+		case "--target-naming":
+			if i+1 >= len(remaining) {
+				return fmt.Errorf("--target-naming requires a value (flat or standard)")
+			}
+			newNaming = remaining[i+1]
 			i++
 		}
 	}
@@ -523,6 +530,11 @@ func targetInfo(name string, args []string) error {
 		return updateTargetMode(cfg, name, target, newMode)
 	}
 
+	// If --target-naming is provided, update the naming
+	if newNaming != "" {
+		return updateTargetNaming(cfg, name, target, newNaming)
+	}
+
 	// Show target info
 	return showTargetInfo(cfg, name, target)
 }
@@ -549,6 +561,24 @@ func updateTargetMode(cfg *config.Config, name string, target config.TargetConfi
 
 	ui.Success("Changed %s mode: %s -> %s", name, oldMode, newMode)
 	ui.Info("Run 'skillshare sync' to apply the new mode")
+	return nil
+}
+
+func updateTargetNaming(cfg *config.Config, name string, target config.TargetConfig, newNaming string) error {
+	if !config.IsValidTargetNaming(newNaming) {
+		return fmt.Errorf("invalid target naming '%s'. Use 'flat' or 'standard'", newNaming)
+	}
+
+	oldNaming := config.EffectiveTargetNaming(target.SkillsConfig().TargetNaming)
+
+	target.EnsureSkills().TargetNaming = newNaming
+	cfg.Targets[name] = target
+	if err := cfg.Save(); err != nil {
+		return err
+	}
+
+	ui.Success("Changed %s target naming: %s -> %s", name, oldNaming, newNaming)
+	ui.Info("Run 'skillshare sync' to apply the new naming")
 	return nil
 }
 
@@ -579,9 +609,15 @@ func showTargetInfo(cfg *config.Config, name string, target config.TargetConfig)
 		statusLine = sync.CheckStatus(sc.Path, cfg.Source).String()
 	}
 
+	namingDisplay := config.EffectiveTargetNaming(sc.TargetNaming)
+	if sc.TargetNaming == "" {
+		namingDisplay += " (default)"
+	}
+
 	ui.Header(fmt.Sprintf("Target: %s", name))
 	fmt.Printf("  Path:    %s\n", sc.Path)
 	fmt.Printf("  Mode:    %s\n", modeDisplay)
+	fmt.Printf("  Naming:  %s\n", namingDisplay)
 	fmt.Printf("  Status:  %s\n", statusLine)
 	fmt.Printf("  Include: %s\n", formatFilterList(sc.Include))
 	fmt.Printf("  Exclude: %s\n", formatFilterList(sc.Exclude))

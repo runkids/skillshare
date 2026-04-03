@@ -67,6 +67,11 @@ type statusJSONAudit struct {
 }
 
 func cmdStatus(args []string) error {
+	if wantsHelp(args) {
+		printStatusHelp()
+		return nil
+	}
+
 	mode, rest, err := parseModeArgs(args)
 	if err != nil {
 		return err
@@ -533,6 +538,23 @@ func fetchRemoteSkillVersion() string {
 	}
 
 	return ""
+}
+
+func printStatusHelp() {
+	fmt.Println(`Usage: skillshare status [options]
+
+Show status of source, skills, and all targets.
+
+Options:
+  --json            Output results as JSON
+  --project, -p     Use project-level config
+  --global, -g      Use global config
+  --help, -h        Show this help
+
+Examples:
+  skillshare status              Show current state
+  skillshare status --json       Output as JSON
+  skillshare status -p           Show project status`)
 }
 
 func readSkillVersion(skillFile string) string {
