@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.18.7] - 2026-04-03
+
+### New Features
+
+- **Tracked repos in project-mode dashboard** — the Web UI dashboard now shows tracked repositories when running in project mode (`skillshare ui -p`), with Update and Uninstall actions
+
+### Bug Fixes
+
+- **Nested tracked repo update and uninstall** — repos installed with a nested path (e.g. `org/_team-skills`) can now be updated and uninstalled from both the CLI and Web UI. Previously, the server failed to resolve nested repo paths for these operations
+
+- **Project-mode uninstall cleans correct `.gitignore`** — uninstalling a tracked repo in project mode now removes entries from `.skillshare/.gitignore` instead of the global source `.gitignore`. Previously, stale ignore rules were left behind
+
+- **Registry prune no longer affects sibling repos** — uninstalling a nested tracked repo (e.g. `org/_team-skills`) no longer accidentally removes registry entries belonging to a sibling with the same basename (e.g. `dept/_team-skills`)
+
+- **Nested trash lifecycle** — trash, restore, cleanup, and listing now work correctly for nested tracked repo names. Parent directories are created on restore and cleaned up after expiry
+
+- **Dashboard tracked repo row polish** — status indicators (`clean` / `modified`) moved next to the repo name as compact badges. Action buttons use a smaller `xs` size to reduce visual weight
+
 ## [0.18.6] - 2026-04-01
 
 ### Bug Fixes
