@@ -243,8 +243,8 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      {/* Tracked Repositories (hidden in project mode) */}
-      {!isProjectMode && data.trackedRepos && data.trackedRepos.length > 0 && (
+      {/* Tracked Repositories */}
+      {data.trackedRepos && data.trackedRepos.length > 0 && (
         <TrackedReposSection repos={data.trackedRepos} />
       )}
 
