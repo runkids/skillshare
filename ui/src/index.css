@@ -330,6 +330,19 @@
   border-radius: var(--radius-wobble-badge) !important;
   box-shadow: 3px 3px 0 var(--color-shadow) !important;
 }
+[data-theme="playful"] .ss-context-menu {
+  border: 2px solid var(--color-pencil) !important;
+  border-radius: var(--radius-wobble-badge) !important;
+  box-shadow: 3px 3px 0 var(--color-shadow) !important;
+}
+[data-theme="playful"] .ss-tip-banner {
+  box-shadow: 2px 2px 0 var(--color-shadow);
+  transform: rotate(-0.3deg);
+  /* Keep the rotated top edge from tucking under the sticky toolbar above. */
+  margin-block-start: 4px;
+  margin-inline: 4px;
+  background: var(--color-paper-warm) !important;
+}
 
 /* ── Playful: Sidebar ── */
 [data-theme="playful"] aside {
@@ -652,6 +665,12 @@
 [data-theme="playful"].dark .ss-split-menu {
   border-width: 2px;
 }
+[data-theme="playful"].dark .ss-context-menu {
+  border-width: 2px;
+}
+[data-theme="playful"].dark .ss-tip-banner {
+  border-width: 2px;
+}
 [data-theme="playful"].dark .ss-card {
   box-shadow: 3px 3px 0 var(--color-shadow);
 }
@@ -688,6 +707,15 @@
 [data-theme="playful"] .ss-status-bar {
   border-bottom: 2px dashed var(--color-muted-dark);
   background: var(--color-paper);
+  overflow: visible;
+}
+/* Ensure panel overflow doesn't clip dashed borders at edges */
+[data-theme="playful"] .ss-assistant-panel,
+[data-theme="playful"] .ss-audit-assistant-panel {
+  overflow: visible !important;
+}
+[data-theme="playful"] .ss-panel-content {
+  overflow: visible auto !important;
 }
 
 [data-theme="playful"] .ss-error-item {
@@ -981,6 +1009,39 @@ body {
   transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .ss-split-menu-item:hover .ss-split-menu-icon {
+  transform: scale(1.15);
+}
+
+/* Context menu — spring pop animation + theme integration */
+.ss-context-menu {
+  animation: contextMenuPop 0.16s cubic-bezier(0.34, 1.4, 0.64, 1);
+  transform-origin: top left;
+  backdrop-filter: blur(8px);
+}
+.ss-context-submenu {
+  animation: contextSubmenuSlide 0.14s cubic-bezier(0.34, 1.2, 0.64, 1);
+  transform-origin: left center;
+}
+@keyframes contextMenuPop {
+  0%   { opacity: 0; transform: scale(0.95) translateY(-4px); }
+  60%  { opacity: 1; transform: scale(1.005) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes contextSubmenuSlide {
+  0%   { opacity: 0; transform: translateX(-6px) scale(0.97); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+.ss-context-menu-item {
+  transition: background-color 0.1s ease;
+}
+.ss-context-menu-item:active {
+  opacity: 0.7;
+  transition: opacity 0.05s;
+}
+.ss-context-menu-item .ss-context-menu-icon {
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.ss-context-menu-item:hover .ss-context-menu-icon {
   transform: scale(1.15);
 }
 
