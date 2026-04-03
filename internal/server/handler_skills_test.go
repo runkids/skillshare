@@ -203,3 +203,232 @@ func TestHandleUninstallRepo_PrunesRegistry(t *testing.T) {
 		}
 	}
 }
+
+func TestHandleUninstallRepo_NestedPruneDoesNotAffectSibling(t *testing.T) {
+	s, src := newTestServer(t)
+	addTrackedRepo(t, src, filepath.Join("org", "_team-skills"))
+	addTrackedRepo(t, src, filepath.Join("dept", "_team-skills"))
+
+	// Seed registry: entries from both nested repos + an exact-group entry
+	s.registry = &config.Registry{
+		Skills: []config.SkillEntry{
+			{Name: "vue", Group: "org/_team-skills", Tracked: true},
+			{Name: "react", Group: "dept/_team-skills", Tracked: true},
+			{Name: "unrelated", Group: ""},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/repos/org/_team-skills", nil)
+	req.SetPathValue("name", "org/_team-skills")
+	rr := httptest.NewRecorder()
+	s.handleUninstallRepo(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// org/_team-skills entries should be pruned
+	for _, entry := range s.registry.Skills {
+		if entry.Group == "org/_team-skills" {
+			t.Fatalf("expected org/_team-skills entries to be pruned, but found %q", entry.Name)
+		}
+	}
+
+	// dept/_team-skills entries must survive
+	var found bool
+	for _, entry := range s.registry.Skills {
+		if entry.Group == "dept/_team-skills" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("expected dept/_team-skills entries to survive, but they were pruned")
+	}
+}
+
+func TestHandleUninstallRepo_ProjectMode_GitignorePath(t *testing.T) {
+	s, src := newTestServer(t)
+
+	// Simulate project mode: set projectRoot to a temp dir containing .skillshare/
+	projectRoot := t.TempDir()
+	projectSkillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
+	os.MkdirAll(projectSkillsDir, 0755)
+	s.projectRoot = projectRoot
+	s.cfg.Source = projectSkillsDir
+
+	// Create tracked repo inside project skills dir
+	addTrackedRepo(t, projectSkillsDir, "_team-skills")
+	_ = src // global source unused in this test
+
+	// Write a gitignore entry the way project install does: in .skillshare/.gitignore
+	gitignoreDir := filepath.Join(projectRoot, ".skillshare")
+	gitignorePath := filepath.Join(gitignoreDir, ".gitignore")
+	os.WriteFile(gitignorePath, []byte("# BEGIN SKILLSHARE MANAGED - DO NOT EDIT\nskills/_team-skills/\n# END SKILLSHARE MANAGED\n"), 0644)
+
+	s.registry = &config.Registry{
+		Skills: []config.SkillEntry{
+			{Name: "_team-skills", Tracked: true},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/repos/_team-skills", nil)
+	req.SetPathValue("name", "_team-skills")
+	rr := httptest.NewRecorder()
+	s.handleUninstallRepo(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Verify gitignore entry was removed from .skillshare/.gitignore
+	data, err := os.ReadFile(gitignorePath)
+	if err != nil {
+		t.Fatalf("failed to read gitignore: %v", err)
+	}
+	if strings.Contains(string(data), "skills/_team-skills/") {
+		t.Fatal("expected skills/_team-skills/ to be removed from .skillshare/.gitignore, but it still exists")
+	}
+}
+
+// --- resolveTrackedRepo tests ---
+
+func TestResolveTrackedRepo_AutoPrefixUnderscore(t *testing.T) {
+	s, src := newTestServer(t)
+	addTrackedRepo(t, src, "_team-skills")
+
+	name, path, err := s.resolveTrackedRepo("team-skills")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != "_team-skills" {
+		t.Errorf("expected name '_team-skills', got %q", name)
+	}
+	if path == "" {
+		t.Fatal("expected non-empty path")
+	}
+}
+
+func TestResolveTrackedRepo_NestedAutoPrefix(t *testing.T) {
+	s, src := newTestServer(t)
+	addTrackedRepo(t, src, filepath.Join("org", "_team-skills"))
+
+	name, path, err := s.resolveTrackedRepo("org/team-skills")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != filepath.Join("org", "_team-skills") {
+		t.Errorf("expected 'org/_team-skills', got %q", name)
+	}
+	if path == "" {
+		t.Fatal("expected non-empty path")
+	}
+}
+
+func TestResolveTrackedRepo_AlreadyPrefixed(t *testing.T) {
+	s, src := newTestServer(t)
+	addTrackedRepo(t, src, "_team-skills")
+
+	name, path, err := s.resolveTrackedRepo("_team-skills")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != "_team-skills" {
+		t.Errorf("expected '_team-skills', got %q", name)
+	}
+	if path == "" {
+		t.Fatal("expected non-empty path")
+	}
+}
+
+func TestResolveTrackedRepo_NotFound(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	name, path, err := s.resolveTrackedRepo("nonexistent")
+	if err != nil {
+		t.Fatalf("unexpected error for not-found: %v", err)
+	}
+	if name != "" || path != "" {
+		t.Errorf("expected empty results for not-found, got name=%q path=%q", name, path)
+	}
+}
+
+func TestResolveTrackedRepo_BasenameFallback(t *testing.T) {
+	s, src := newTestServer(t)
+	addTrackedRepo(t, src, filepath.Join("org", "_team-skills"))
+
+	// Search by basename only — should find via fallback
+	name, path, err := s.resolveTrackedRepo("team-skills")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if name != filepath.Join("org", "_team-skills") {
+		t.Errorf("expected 'org/_team-skills', got %q", name)
+	}
+	if path == "" {
+		t.Fatal("expected non-empty path")
+	}
+}
+
+// --- Additional registry prune tests ---
+
+func TestHandleUninstallRepo_PrunesNestedFullPathGroup(t *testing.T) {
+	s, src := newTestServer(t)
+	addTrackedRepo(t, src, filepath.Join("org", "_team-skills"))
+
+	// Registry with entries using full nested path as Group (new reconcile format)
+	s.registry = &config.Registry{
+		Skills: []config.SkillEntry{
+			{Name: "vue", Group: "org/_team-skills", Tracked: true},
+			{Name: "react", Group: "org/_team-skills", Tracked: true},
+			{Name: "unrelated", Group: ""},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/repos/org/_team-skills", nil)
+	req.SetPathValue("name", "org/_team-skills")
+	rr := httptest.NewRecorder()
+	s.handleUninstallRepo(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// All org/_team-skills entries should be pruned, unrelated survives
+	if len(s.registry.Skills) != 1 {
+		t.Fatalf("expected 1 surviving entry, got %d", len(s.registry.Skills))
+	}
+	if s.registry.Skills[0].Name != "unrelated" {
+		t.Fatalf("expected 'unrelated' to survive, got %q", s.registry.Skills[0].Name)
+	}
+}
+
+func TestHandleUninstallRepo_PrunesNestedMembersByPrefix(t *testing.T) {
+	s, src := newTestServer(t)
+	addTrackedRepo(t, src, filepath.Join("org", "_team-skills"))
+
+	// Registry with the repo's own entry + a sub-skill using FullName prefix
+	s.registry = &config.Registry{
+		Skills: []config.SkillEntry{
+			{Name: "org/_team-skills", Group: "", Tracked: true},          // repo entry
+			{Name: "sub-skill", Group: "org/_team-skills", Tracked: true}, // member
+			{Name: "standalone", Group: ""},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/repos/org/_team-skills", nil)
+	req.SetPathValue("name", "org/_team-skills")
+	rr := httptest.NewRecorder()
+	s.handleUninstallRepo(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	if len(s.registry.Skills) != 1 {
+		t.Fatalf("expected 1 surviving entry, got %d", len(s.registry.Skills))
+	}
+	if s.registry.Skills[0].Name != "standalone" {
+		t.Fatalf("expected 'standalone' to survive, got %q", s.registry.Skills[0].Name)
+	}
+}

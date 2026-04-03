@@ -148,6 +148,16 @@ func (s *Server) parseOpts() install.ParseOptions {
 	return install.ParseOptions{GitLabHosts: s.cfg.EffectiveGitLabHosts()}
 }
 
+// gitignoreDir returns the directory containing the managed .gitignore.
+// In project mode this is .skillshare/ (entries are "skills/<name>/");
+// in global mode this is the source skill directory.
+func (s *Server) gitignoreDir() string {
+	if s.IsProjectMode() {
+		return filepath.Join(s.projectRoot, ".skillshare")
+	}
+	return s.cfg.Source
+}
+
 // configPath returns the config file path for the current mode
 func (s *Server) configPath() string {
 	if s.IsProjectMode() {

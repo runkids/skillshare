@@ -160,7 +160,15 @@ func (s *Server) handleBatchUninstall(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(repoEntriesToRemove) > 0 {
-		if _, err := install.RemoveFromGitIgnoreBatch(s.cfg.Source, repoEntriesToRemove); err != nil {
+		gitDir := s.gitignoreDir()
+		entries := repoEntriesToRemove
+		if s.IsProjectMode() {
+			entries = make([]string, len(repoEntriesToRemove))
+			for i, e := range repoEntriesToRemove {
+				entries[i] = filepath.Join("skills", e)
+			}
+		}
+		if _, err := install.RemoveFromGitIgnoreBatch(gitDir, entries); err != nil {
 			log.Printf("warning: failed to clean .gitignore: %v", err)
 		}
 	}

@@ -327,6 +327,68 @@ func TestCleanup_NestedEntry(t *testing.T) {
 	}
 }
 
+func TestCleanEmptyParents_MultiLevel(t *testing.T) {
+	tmpDir := t.TempDir()
+	trashBase := filepath.Join(tmpDir, "trash")
+
+	// Create a 3-level nested empty structure: trash/a/b/c/
+	deepDir := filepath.Join(trashBase, "a", "b", "c")
+	os.MkdirAll(deepDir, 0755)
+
+	// cleanEmptyParents starts from Dir(path), so pass a child of deepDir
+	os.Remove(deepDir) // remove c/ first (simulating the item being deleted)
+	cleanEmptyParents(deepDir, trashBase)
+
+	// All empty dirs should be removed
+	if _, err := os.Stat(filepath.Join(trashBase, "a")); !os.IsNotExist(err) {
+		t.Error("expected all empty parent dirs to be removed")
+	}
+	// trashBase itself should survive
+	if _, err := os.Stat(trashBase); os.IsNotExist(err) {
+		t.Error("trashBase should not be removed")
+	}
+}
+
+func TestCleanEmptyParents_StopsAtNonEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	trashBase := filepath.Join(tmpDir, "trash")
+
+	// Create: trash/org/keep.txt and trash/org/sub/ (empty)
+	orgDir := filepath.Join(trashBase, "org")
+	subDir := filepath.Join(orgDir, "sub")
+	os.MkdirAll(subDir, 0755)
+	os.WriteFile(filepath.Join(orgDir, "keep.txt"), []byte("keep"), 0644)
+
+	// Remove sub/ then clean parents — org/ has keep.txt so should survive
+	os.Remove(subDir)
+	cleanEmptyParents(subDir, trashBase)
+
+	if _, err := os.Stat(subDir); !os.IsNotExist(err) {
+		t.Error("expected empty sub/ to stay removed")
+	}
+	if _, err := os.Stat(orgDir); os.IsNotExist(err) {
+		t.Error("expected org/ to survive (has keep.txt)")
+	}
+}
+
+func TestCleanEmptyParents_StopsAtBoundary(t *testing.T) {
+	tmpDir := t.TempDir()
+	trashBase := filepath.Join(tmpDir, "trash")
+
+	// Create: trash/level1/ (empty)
+	level1 := filepath.Join(trashBase, "level1")
+	os.MkdirAll(level1, 0755)
+
+	// Remove level1 then call cleanEmptyParents
+	os.Remove(level1)
+	cleanEmptyParents(level1, trashBase)
+
+	// trashBase should survive
+	if _, err := os.Stat(trashBase); os.IsNotExist(err) {
+		t.Error("trashBase should not be removed")
+	}
+}
+
 func TestParseTrashName(t *testing.T) {
 	tests := []struct {
 		input    string

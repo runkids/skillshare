@@ -54,6 +54,60 @@ func TestUpdateSingle_NestedTrackedRepo_Resolves(t *testing.T) {
 	}
 }
 
+func TestUpdateSingle_BasenameFallback(t *testing.T) {
+	s, src := newTestServer(t)
+
+	// Create a top-level tracked repo with _ prefix
+	repoDir := filepath.Join(src, "_team-skills")
+	os.MkdirAll(repoDir, 0755)
+	initGitRepo(t, repoDir)
+
+	// Call with unprefixed basename — should resolve to _team-skills
+	result := s.updateSingle("team-skills", false, true)
+	if result.Action == "error" && strings.Contains(result.Message, "not found") {
+		t.Fatalf("updateSingle failed to resolve basename: %s", result.Message)
+	}
+	if result.Name != "_team-skills" && result.Name != "team-skills" {
+		// Name should reflect the resolved repo
+		t.Logf("resolved name: %s, action: %s", result.Name, result.Action)
+	}
+}
+
+func TestUpdateSingle_NotFound(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	result := s.updateSingle("nonexistent-repo", false, true)
+	if result.Action != "error" {
+		t.Fatalf("expected action=error for not-found, got %q", result.Action)
+	}
+	if !strings.Contains(result.Message, "not found") && !strings.Contains(result.Message, "no update source") {
+		t.Fatalf("expected not-found message, got %q", result.Message)
+	}
+}
+
+func TestUpdateSingle_RegularSkillPriority(t *testing.T) {
+	s, src := newTestServer(t)
+
+	// Create both a regular skill with meta AND a tracked repo with _ prefix
+	skillDir := filepath.Join(src, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("---\nname: my-skill\n---\n# Skill"), 0644)
+	addSkillMeta(t, src, "my-skill", "https://github.com/example/my-skill")
+
+	repoDir := filepath.Join(src, "_my-skill")
+	os.MkdirAll(repoDir, 0755)
+	initGitRepo(t, repoDir)
+
+	// updateSingle("my-skill") should try regular skill first (has meta).
+	// It will fail to clone (fake URL) but the point is it chose the skill path,
+	// not the tracked repo path. A "not found" would mean it tried the repo instead.
+	result := s.updateSingle("my-skill", false, true)
+	// The error should be about cloning (skill path), not "not found" (repo path)
+	if result.Action == "error" && strings.Contains(result.Message, "not found") && !strings.Contains(result.Message, "clone") {
+		t.Fatalf("expected regular skill to be tried first, got repo-like not-found: %s", result.Message)
+	}
+}
+
 func TestAuditGateTrackedRepo_RollbackFailure_ReportsWarning(t *testing.T) {
 	// Create a git repo with a HIGH-severity finding
 	repoDir := t.TempDir()

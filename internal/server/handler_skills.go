@@ -252,8 +252,13 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Remove from .gitignore
-	install.RemoveFromGitIgnore(s.cfg.Source, repoName)
+	// Remove from .gitignore (project mode writes to .skillshare/.gitignore with "skills/" prefix)
+	gitDir := s.gitignoreDir()
+	if s.IsProjectMode() {
+		install.RemoveFromGitIgnore(gitDir, filepath.Join("skills", repoName))
+	} else {
+		install.RemoveFromGitIgnore(gitDir, repoName)
+	}
 
 	// Move to trash instead of permanent delete
 	if _, err := trash.MoveToTrash(repoPath, repoName, s.trashBase()); err != nil {
@@ -261,8 +266,14 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Prune registry entries: the repo itself + skills belonging to it
-	trimmedGroup := strings.TrimPrefix(filepath.Base(repoName), "_")
+	// Prune registry entries: the repo itself + skills belonging to it.
+	// Legacy entries use Group without "_" prefix (e.g., "team-skills" for repo "_team-skills").
+	// Only apply legacy matching for top-level repos (no "/" in repoName) to avoid
+	// basename collisions between sibling nested repos like org/_team-skills vs dept/_team-skills.
+	legacyGroup := ""
+	if !strings.Contains(repoName, "/") {
+		legacyGroup = strings.TrimPrefix(repoName, "_")
+	}
 	filtered := make([]config.SkillEntry, 0, len(s.registry.Skills))
 	for _, entry := range s.registry.Skills {
 		fullName := entry.FullName()
@@ -270,8 +281,12 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		if fullName == repoName {
 			continue
 		}
-		// Match tracked skills grouped under this repo (group="team-skills" for repo "_team-skills")
-		if entry.Tracked && entry.Group == trimmedGroup {
+		// Match tracked skills grouped under this repo (exact group match)
+		if entry.Tracked && entry.Group == repoName {
+			continue
+		}
+		// Match legacy grouped entries (top-level repos only, e.g., group="team-skills")
+		if legacyGroup != "" && entry.Tracked && entry.Group == legacyGroup {
 			continue
 		}
 		// Match nested members (e.g., "org/_team-skills/sub-skill")
