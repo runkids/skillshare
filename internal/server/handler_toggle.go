@@ -28,7 +28,7 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 	source := s.cfg.Source
 	s.mu.RUnlock()
 
-	relPath, err := s.resolveSkillRelPath(source, name)
+	relPath, isDisabled, err := s.resolveSkillRelPathWithStatus(source, name)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -46,13 +46,17 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 	if enable {
 		action = "enable"
 		disabled = false
+		if !isDisabled {
+			writeJSON(w, map[string]any{"success": true, "name": name, "disabled": false, "message": "not disabled"})
+			return
+		}
 		removed, err := skillignore.RemovePattern(ignorePath, relPath)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to update .skillignore: "+err.Error())
 			return
 		}
 		if !removed {
-			writeJSON(w, map[string]any{"success": true, "name": name, "disabled": false, "message": "not disabled"})
+			writeError(w, http.StatusConflict, "skill is disabled by a glob or directory pattern in .skillignore or .skillignore.local — edit the file manually to remove the matching rule")
 			return
 		}
 	} else {
@@ -78,15 +82,22 @@ func (s *Server) handleToggleSkill(w http.ResponseWriter, r *http.Request, enabl
 // resolveSkillRelPath finds a skill's relPath by flatName or baseName.
 // Searches all skills including disabled ones. Caller must provide source path.
 func (s *Server) resolveSkillRelPath(source, name string) (string, error) {
+	relPath, _, err := s.resolveSkillRelPathWithStatus(source, name)
+	return relPath, err
+}
+
+// resolveSkillRelPathWithStatus is like resolveSkillRelPath but also returns
+// whether the skill is currently disabled (matched by .skillignore).
+func (s *Server) resolveSkillRelPathWithStatus(source, name string) (string, bool, error) {
 	discovered, err := ssync.DiscoverSourceSkillsAll(source)
 	if err != nil {
-		return "", fmt.Errorf("failed to discover skills: %w", err)
+		return "", false, fmt.Errorf("failed to discover skills: %w", err)
 	}
 	for _, d := range discovered {
 		baseName := filepath.Base(d.SourcePath)
 		if d.FlatName == name || baseName == name || d.RelPath == name {
-			return d.RelPath, nil
+			return d.RelPath, d.Disabled, nil
 		}
 	}
-	return "", fmt.Errorf("skill not found: %s", name)
+	return "", false, fmt.Errorf("skill not found: %s", name)
 }

@@ -142,10 +142,16 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 					stats.IgnoredSkills = append(stats.IgnoredSkills, relPath)
 				}
 				if opts.includeIgnored {
+					inRepo := false
+					igParts := strings.Split(relPath, "/")
+					if len(igParts) > 0 && utils.IsTrackedRepoDir(igParts[0]) {
+						inRepo = true
+					}
 					skills = append(skills, DiscoveredSkill{
 						SourcePath: filepath.Join(sourcePath, relPath),
 						RelPath:    relPath,
 						FlatName:   utils.PathToFlatName(relPath),
+						IsInRepo:   inRepo,
 						Disabled:   true,
 					})
 				}

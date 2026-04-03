@@ -127,3 +127,20 @@ func NewMetaFromSource(source *Source) *SkillMeta {
 
 	return meta
 }
+
+// RefreshMetaHashes recomputes and saves file hashes for a skill that has
+// existing metadata. This is a no-op if the skill has no .skillshare-meta.json
+// or no file_hashes field. Used after programmatic SKILL.md edits (e.g. target
+// changes) to keep audit integrity checks in sync.
+func RefreshMetaHashes(skillPath string) {
+	meta, err := ReadMeta(skillPath)
+	if err != nil || meta == nil || meta.FileHashes == nil {
+		return
+	}
+	hashes, err := ComputeFileHashes(skillPath)
+	if err != nil {
+		return
+	}
+	meta.FileHashes = hashes
+	_ = WriteMeta(skillPath, meta)
+}

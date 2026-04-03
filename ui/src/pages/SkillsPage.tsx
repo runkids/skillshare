@@ -123,6 +123,25 @@ function useSkillActions() {
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills.all }),
   });
 
+  const uninstallRepoMutation = useMutation({
+    mutationFn: (repoName: string) => api.deleteRepo(repoName),
+    onMutate: async (repoName) => {
+      const prefix = repoName + '/';
+      const previous = optimisticPatch(queryClient, (skills) =>
+        skills.filter((s) => !s.relPath.startsWith(prefix) && s.relPath !== repoName),
+      );
+      return { previous };
+    },
+    onSuccess: (_, repoName) => {
+      toast(`Uninstalled repo ${repoName}`, 'success');
+    },
+    onError: (err: Error, _, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
+      toast(err.message, 'error');
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills.all }),
+  });
+
   /** Optimistic target update for a single skill. */
   const setTargetMutation = useMutation({
     mutationFn: ({ name, target }: { name: string; target: string | null }) =>
@@ -148,10 +167,11 @@ function useSkillActions() {
 
   /** Build extra context menu items for a single skill. */
   function buildSkillExtraItems(
-    skill: { flatName: string; name: string; disabled?: boolean },
+    skill: Pick<Skill, 'flatName' | 'name' | 'relPath' | 'disabled' | 'isInRepo'>,
     onUninstall: () => void,
+    onUninstallRepo: (repoName: string) => void,
   ): ContextMenuItem[] {
-    return [
+    const items: ContextMenuItem[] = [
       {
         key: 'detail',
         label: 'View Detail',
@@ -166,16 +186,26 @@ function useSkillActions() {
           : <EyeOff size={13} strokeWidth={2.5} />,
         onSelect: () => toggleMutation.mutate({ name: skill.flatName, disable: !skill.disabled }),
       },
-      {
+    ];
+    if (skill.isInRepo) {
+      items.push({
+        key: 'uninstall-repo',
+        label: 'Uninstall Repo',
+        icon: <Trash2 size={13} strokeWidth={2.5} />,
+        onSelect: () => onUninstallRepo(skill.relPath.split('/')[0]),
+      });
+    } else {
+      items.push({
         key: 'uninstall',
         label: 'Uninstall',
         icon: <Trash2 size={13} strokeWidth={2.5} />,
         onSelect: onUninstall,
-      },
-    ];
+      });
+    }
+    return items;
   }
 
-  return { uninstallMutation, setTargetMutation, buildSkillExtraItems };
+  return { uninstallMutation, uninstallRepoMutation, setTargetMutation, buildSkillExtraItems };
 }
 
 /** Deterministic hash → palette index. Same string always maps to same color. */
@@ -672,16 +702,19 @@ export default function SkillsPage() {
     point: { x: number; y: number };
     skillFlatName: string;
     skillName: string;
+    relPath: string;
     disabled: boolean;
+    isInRepo: boolean;
     currentTargets: string[] | null;
   } | null>(null);
 
-  const { uninstallMutation: gridUninstallMutation, setTargetMutation: gridSingleMutation, buildSkillExtraItems } = useSkillActions();
+  const { uninstallMutation: gridUninstallMutation, uninstallRepoMutation: gridUninstallRepoMutation, setTargetMutation: gridSingleMutation, buildSkillExtraItems } = useSkillActions();
 
   const [gridConfirmUninstall, setGridConfirmUninstall] = useState<{
     flatName: string;
     name: string;
   } | null>(null);
+  const [gridConfirmUninstallRepo, setGridConfirmUninstallRepo] = useState<string | null>(null);
 
   const skills = data?.skills ?? [];
 
@@ -851,7 +884,9 @@ export default function SkillsPage() {
                       point: { x: e.clientX, y: e.clientY },
                       skillFlatName: skill.flatName,
                       skillName: skill.name,
+                      relPath: skill.relPath,
                       disabled: !!skill.disabled,
+                      isInRepo: !!skill.isInRepo,
                       currentTargets: skill.targets ?? null,
                     });
                   }}
@@ -891,8 +926,9 @@ export default function SkillsPage() {
           currentTargets={gridContextMenu.currentTargets}
           isUniform={true}
           extraItems={buildSkillExtraItems(
-            { flatName: gridContextMenu.skillFlatName, name: gridContextMenu.skillName, disabled: gridContextMenu.disabled },
+            { flatName: gridContextMenu.skillFlatName, name: gridContextMenu.skillName, relPath: gridContextMenu.relPath, disabled: gridContextMenu.disabled, isInRepo: gridContextMenu.isInRepo },
             () => setGridConfirmUninstall({ flatName: gridContextMenu.skillFlatName, name: gridContextMenu.skillName }),
+            (repoName) => { setGridConfirmUninstallRepo(repoName); setGridContextMenu(null); },
           )}
           onSelect={(target) => {
             gridSingleMutation.mutate({ name: gridContextMenu.skillFlatName, target });
@@ -913,6 +949,19 @@ export default function SkillsPage() {
           setGridConfirmUninstall(null);
         }}
         onCancel={() => setGridConfirmUninstall(null)}
+      />
+      <ConfirmDialog
+        open={!!gridConfirmUninstallRepo}
+        title="Uninstall tracked repo"
+        message={<>Are you sure you want to uninstall all skills in <strong>{gridConfirmUninstallRepo}</strong>?</>}
+        confirmText="Uninstall Repo"
+        variant="danger"
+        loading={gridUninstallRepoMutation.isPending}
+        onConfirm={() => {
+          if (gridConfirmUninstallRepo) gridUninstallRepoMutation.mutate(gridConfirmUninstallRepo);
+          setGridConfirmUninstallRepo(null);
+        }}
+        onCancel={() => setGridConfirmUninstallRepo(null)}
       />
     </div>
   );
@@ -938,14 +987,17 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
     folderPath?: string;
     skillFlatName?: string;
     skillName?: string;
+    relPath?: string;
     disabled?: boolean;
+    isInRepo?: boolean;
     currentTargets: string[] | null;
     isUniform: boolean;
   } | null>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { uninstallMutation, setTargetMutation: singleMutation, buildSkillExtraItems: buildExtraItems } = useSkillActions();
+  const { uninstallMutation, uninstallRepoMutation, setTargetMutation: singleMutation, buildSkillExtraItems: buildExtraItems } = useSkillActions();
+  const [confirmUninstallRepo, setConfirmUninstallRepo] = useState<string | null>(null);
 
   const batchMutation = useMutation({
     mutationFn: ({ folder, target }: { folder: string; target: string | null }) =>
@@ -1135,7 +1187,9 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
             mode: 'skill',
             skillFlatName: skill.flatName,
             skillName: skill.name,
+            relPath: skill.relPath,
             disabled: !!skill.disabled,
+            isInRepo: !!skill.isInRepo,
             currentTargets: skill.targets ?? null,
             isUniform: true,
           });
@@ -1272,8 +1326,9 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
           isUniform={contextMenu.isUniform}
           label={contextMenu.mode === 'folder' ? 'Folder available in...' : 'Available in...'}
           extraItems={contextMenu.mode === 'skill' ? buildExtraItems(
-            { flatName: contextMenu.skillFlatName!, name: contextMenu.skillName ?? contextMenu.skillFlatName!, disabled: contextMenu.disabled },
+            { flatName: contextMenu.skillFlatName!, name: contextMenu.skillName ?? contextMenu.skillFlatName!, relPath: contextMenu.relPath ?? '', disabled: !!contextMenu.disabled, isInRepo: !!contextMenu.isInRepo },
             () => setConfirmUninstall({ flatName: contextMenu.skillFlatName!, name: contextMenu.skillName ?? contextMenu.skillFlatName! }),
+            (repoName) => { setConfirmUninstallRepo(repoName); setContextMenu(null); },
           ) : undefined}
           onSelect={(target) => {
             if (contextMenu.mode === 'folder') {
@@ -1298,6 +1353,19 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
           setConfirmUninstall(null);
         }}
         onCancel={() => setConfirmUninstall(null)}
+      />
+      <ConfirmDialog
+        open={!!confirmUninstallRepo}
+        title="Uninstall tracked repo"
+        message={<>Are you sure you want to uninstall all skills in <strong>{confirmUninstallRepo}</strong>?</>}
+        confirmText="Uninstall Repo"
+        variant="danger"
+        loading={uninstallRepoMutation.isPending}
+        onConfirm={() => {
+          if (confirmUninstallRepo) uninstallRepoMutation.mutate(confirmUninstallRepo);
+          setConfirmUninstallRepo(null);
+        }}
+        onCancel={() => setConfirmUninstallRepo(null)}
       />
     </div>
   );
@@ -1324,14 +1392,17 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
     point: { x: number; y: number };
     skillFlatName: string;
     skillName: string;
+    relPath: string;
     disabled: boolean;
+    isInRepo: boolean;
   } | null>(null);
   const [confirmUninstall, setConfirmUninstall] = useState<{
     flatName: string;
     name: string;
   } | null>(null);
 
-  const { uninstallMutation, setTargetMutation: targetMutation, buildSkillExtraItems: buildTableExtraItems } = useSkillActions();
+  const { uninstallMutation, uninstallRepoMutation: tableUninstallRepoMutation, setTargetMutation: targetMutation, buildSkillExtraItems: buildTableExtraItems } = useSkillActions();
+  const [tableConfirmUninstallRepo, setTableConfirmUninstallRepo] = useState<string | null>(null);
 
   // Available targets for the inline Select
   const { data: availableData } = useQuery({
@@ -1356,8 +1427,9 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
   // Build action menu items
   const actionItems: ContextMenuItem[] = actionMenu
     ? buildTableExtraItems(
-        { flatName: actionMenu.skillFlatName, name: actionMenu.skillName, disabled: actionMenu.disabled },
+        { flatName: actionMenu.skillFlatName, name: actionMenu.skillName, relPath: actionMenu.relPath, disabled: actionMenu.disabled, isInRepo: actionMenu.isInRepo },
         () => setConfirmUninstall({ flatName: actionMenu.skillFlatName, name: actionMenu.skillName }),
+        (repoName) => { setTableConfirmUninstallRepo(repoName); setActionMenu(null); },
       )
     : [];
 
@@ -1471,7 +1543,9 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
                           point: { x: rect.right, y: rect.bottom },
                           skillFlatName: skill.flatName,
                           skillName: skill.name,
+                          relPath: skill.relPath,
                           disabled: !!skill.disabled,
+                          isInRepo: !!skill.isInRepo,
                         });
                       }}
                       title="Actions"
@@ -1520,6 +1594,19 @@ function SkillsTable({ skills }: { skills: Skill[] }) {
           setConfirmUninstall(null);
         }}
         onCancel={() => setConfirmUninstall(null)}
+      />
+      <ConfirmDialog
+        open={!!tableConfirmUninstallRepo}
+        title="Uninstall tracked repo"
+        message={<>Are you sure you want to uninstall all skills in <strong>{tableConfirmUninstallRepo}</strong>?</>}
+        confirmText="Uninstall Repo"
+        variant="danger"
+        loading={tableUninstallRepoMutation.isPending}
+        onConfirm={() => {
+          if (tableConfirmUninstallRepo) tableUninstallRepoMutation.mutate(tableConfirmUninstallRepo);
+          setTableConfirmUninstallRepo(null);
+        }}
+        onCancel={() => setTableConfirmUninstallRepo(null)}
       />
     </Card>
   );
