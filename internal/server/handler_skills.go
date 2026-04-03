@@ -289,15 +289,6 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 	if err := s.registry.Save(regDir); err != nil {
 		log.Printf("warning: failed to save registry after repo uninstall: %v", err)
 	}
-	if s.IsProjectMode() {
-		if rErr := config.ReconcileProjectSkills(s.projectRoot, s.projectCfg, s.registry, s.cfg.Source); rErr != nil {
-			log.Printf("warning: failed to reconcile project skills: %v", rErr)
-		}
-	} else {
-		if rErr := config.ReconcileGlobalSkills(s.cfg, s.registry); rErr != nil {
-			log.Printf("warning: failed to reconcile global skills: %v", rErr)
-		}
-	}
 
 	s.writeOpsLog("uninstall", "ok", start, map[string]any{
 		"name":  repoName,

@@ -181,8 +181,8 @@ func TestHandleUninstallRepo_PrunesRegistry(t *testing.T) {
 	// Seed registry with entries belonging to this repo
 	s.registry = &config.Registry{
 		Skills: []config.SkillEntry{
-			{Name: "vue-best-practices", Group: "team-skills"},
-			{Name: "react-patterns", Group: "team-skills"},
+			{Name: "vue-best-practices", Group: "team-skills", Tracked: true},
+			{Name: "react-patterns", Group: "team-skills", Tracked: true},
 			{Name: "unrelated-skill", Group: ""},
 		},
 	}
