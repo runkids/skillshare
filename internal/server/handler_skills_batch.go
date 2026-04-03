@@ -49,19 +49,19 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Reject path traversal in folder
-	folder := filepath.ToSlash(filepath.Clean(req.Folder))
-	if folder != req.Folder && req.Folder != "" && req.Folder != "*" {
-		folder = req.Folder
-	}
 	if strings.Contains(req.Folder, "..") {
 		writeError(w, http.StatusBadRequest, "invalid folder: path traversal not allowed")
 		return
 	}
+	folder := filepath.ToSlash(filepath.Clean(req.Folder))
+	if req.Folder == "" {
+		folder = ""
+	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+	// Snapshot config under read lock, then discover without holding the lock.
+	s.mu.RLock()
 	source := s.cfg.Source
+	s.mu.RUnlock()
 
 	discovered, err := ssync.DiscoverSourceSkillsAll(source)
 	if err != nil {
@@ -72,9 +72,11 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 	var updated, skipped int
 	var errors []string
 
+	// Acquire write lock only for the file-write loop.
+	s.mu.Lock()
 	for _, d := range discovered {
 		relPath := filepath.ToSlash(d.RelPath)
-		if !matchesFolder(relPath, req.Folder) {
+		if !matchesFolder(relPath, folder) {
 			continue
 		}
 
@@ -96,6 +98,7 @@ func (s *Server) handleBatchSetTargets(w http.ResponseWriter, r *http.Request) {
 		}
 		updated++
 	}
+	s.mu.Unlock()
 
 	s.writeOpsLog("batch-set-targets", "ok", start, map[string]any{
 		"folder":  req.Folder,

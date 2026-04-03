@@ -134,7 +134,8 @@ func Cleanup(trashBase string, maxAge time.Duration) (int, error) {
 
 // cleanEmptyParents removes empty parent directories between path and stopAt.
 func cleanEmptyParents(path, stopAt string) {
-	dir := filepath.Dir(path)
+	stopAt = filepath.Clean(stopAt)
+	dir := filepath.Dir(filepath.Clean(path))
 	for dir != stopAt && dir != "." && dir != "/" {
 		entries, err := os.ReadDir(dir)
 		if err != nil || len(entries) > 0 {

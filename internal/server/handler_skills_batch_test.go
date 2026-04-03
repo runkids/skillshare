@@ -156,6 +156,57 @@ func TestHandleBatchSetTargets_EmptyFolder_RootOnly(t *testing.T) {
 	}
 }
 
+func TestMatchesFolder(t *testing.T) {
+	tests := []struct {
+		relPath string
+		folder  string
+		want    bool
+	}{
+		// Wildcard matches everything
+		{"skill-a", "*", true},
+		{"frontend/skill-a", "*", true},
+		// Empty folder = root-level only
+		{"skill-a", "", true},
+		{"frontend/skill-a", "", false},
+		// Exact folder match
+		{"frontend/skill-a", "frontend", true},
+		{"frontend/sub/skill-a", "frontend", true},
+		{"backend/skill-a", "frontend", false},
+		// No trailing slash confusion
+		{"frontend/skill-a", "frontend/", false}, // trailing slash should not match
+	}
+	for _, tt := range tests {
+		got := matchesFolder(tt.relPath, tt.folder)
+		if got != tt.want {
+			t.Errorf("matchesFolder(%q, %q) = %v, want %v", tt.relPath, tt.folder, got, tt.want)
+		}
+	}
+}
+
+func TestHandleBatchSetTargets_FolderTrailingSlash(t *testing.T) {
+	s, src := newTestServer(t)
+	addSkillNested(t, src, "frontend/skill-a")
+	addSkillNested(t, src, "frontend/skill-b")
+
+	// Trailing slash should still match (server cleans the input)
+	body := `{"folder":"frontend/","target":"claude"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/skills/batch/targets", bytes.NewBufferString(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp batchSetTargetsResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Updated != 2 {
+		t.Errorf("expected updated=2 (trailing slash cleaned), got %d", resp.Updated)
+	}
+}
+
 // --- Single skill endpoint tests ---
 
 func TestHandleSetSkillTargets_SetTarget(t *testing.T) {
