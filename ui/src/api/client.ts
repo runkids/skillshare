@@ -158,6 +158,16 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  batchSetTargets: (folder: string, target: string | null) =>
+    apiFetch<{ updated: number; skipped: number; errors: string[] }>('/skills/batch/targets', {
+      method: 'POST',
+      body: JSON.stringify({ folder, target: target ?? '' }),
+    }),
+  setSkillTargets: (name: string, target: string | null) =>
+    apiFetch<{ success: boolean }>(`/skills/${encodeURIComponent(name)}/targets`, {
+      method: 'PATCH',
+      body: JSON.stringify({ target: target ?? '' }),
+    }),
 
   // Targets
   listTargets: () => apiFetch<{ targets: Target[]; sourceSkillCount: number }>('/targets'),
