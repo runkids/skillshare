@@ -47,6 +47,7 @@ import { parseRemoteURL } from '../lib/parseRemoteURL';
 import { useToast } from '../components/Toast';
 import TargetMenu, { SkillContextMenu, type ContextMenuItem } from '../components/TargetMenu';
 import ConfirmDialog from '../components/ConfirmDialog';
+import Spinner from '../components/Spinner';
 
 /* -- Sticky-note pastel palette (8 colors) --------- */
 
@@ -1015,6 +1016,24 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
   const batchMutation = useMutation({
     mutationFn: ({ folder, target }: { folder: string; target: string | null }) =>
       api.batchSetTargets(folder, target),
+    onMutate: async ({ folder, target }) => {
+      setContextMenu(null);
+      const newTargets = target ? [target] : undefined;
+      const previous = optimisticPatch(queryClient, (skills) =>
+        skills.map((s) => {
+          // Match the same logic as the server's matchesFolder
+          if (s.disabled || s.isInRepo) return s;
+          const dir = s.relPath.substring(0, s.relPath.lastIndexOf('/')) || '.';
+          const matches = folder === '*'
+            ? true
+            : folder === ''
+              ? dir === '.'
+              : dir === folder || dir.startsWith(folder + '/');
+          return matches ? { ...s, targets: newTargets } : s;
+        }),
+      );
+      return { previous };
+    },
     onSuccess: (data, { folder, target }) => {
       const label = target ?? 'All';
       const folderLabel = folder || '(root)';
@@ -1024,9 +1043,14 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
         toast(`${data.updated} skill${data.updated !== 1 ? 's' : ''} in ${folderLabel}/ now available in ${label}`, 'success');
       }
     },
+    onError: (err: Error, _, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
+      toast(err.message, 'error');
+    },
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.skills.all }),
-    onError: (err: Error) => toast(err.message, 'error'),
   });
+
+  const pendingFolder = batchMutation.isPending ? (batchMutation.variables?.folder ?? null) : null;
 
   const [confirmUninstall, setConfirmUninstall] = useState<{
     flatName: string;
@@ -1133,6 +1157,7 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
           onClick={() => toggleFolder(node.path)}
           onContextMenu={(e) => {
             e.preventDefault();
+            if (batchMutation.isPending) return;
             setContextMenu({
               point: { x: e.clientX, y: e.clientY },
               mode: 'folder',
@@ -1163,7 +1188,8 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
             {node.childCount}
           </span>
           {node.targetSummary && (
-            <span className="ml-auto shrink-0 flex items-center gap-1">
+            <span className="ml-auto shrink-0 flex items-center gap-1.5">
+              {pendingFolder === node.path && <Spinner size="sm" />}
               <Tooltip content={
                 node.targetSummary.display === 'Mixed'
                   ? `Some: All targets · Others: ${node.targetSummary.targets.join(', ')}`
@@ -1183,6 +1209,8 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
     }
 
     const skill = node.skill!;
+    const nt = normalizeTargets(skill.targets);
+    const skillTargetLabel = nt.length > 0 ? nt.join(', ') : 'All';
     const tooltipContent = (
       <div>
         <div>{skill.relPath}</div>
@@ -1201,6 +1229,7 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
         data-tree-idx={index}
         onContextMenu={(e) => {
           e.preventDefault();
+          if (batchMutation.isPending) return;
           setContextMenu({
             point: { x: e.clientX, y: e.clientY },
             mode: 'skill',
@@ -1238,10 +1267,10 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
                   {skill.branch}
                 </Badge>
               )}
-              <Tooltip content={normalizeTargets(skill.targets).length > 0 ? normalizeTargets(skill.targets).join(', ') : 'All targets'}>
+              <Tooltip content={skillTargetLabel === 'All' ? 'All targets' : skillTargetLabel}>
                 <Badge variant="default">
                   <Target size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
-                  {normalizeTargets(skill.targets).length > 0 ? normalizeTargets(skill.targets).join(', ') : 'All'}
+                  {skillTargetLabel}
                 </Badge>
               </Tooltip>
             </span>
@@ -1249,7 +1278,7 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
         </Tooltip>
       </div>
     );
-  }, [rows, collapsed, isSearching, toggleFolder, setContextMenu, contextMenu]);
+  }, [rows, collapsed, isSearching, toggleFolder, setContextMenu, contextMenu, pendingFolder]);
 
   return (
     <div>
@@ -1350,6 +1379,7 @@ function FolderTreeView({ skills, totalCount, isSearching, stickyTop = 0, onClea
             (repoName) => { setConfirmUninstallRepo(repoName); setContextMenu(null); },
           ) : undefined}
           onSelect={(target) => {
+            if (batchMutation.isPending) return;
             if (contextMenu.mode === 'folder') {
               batchMutation.mutate({ folder: contextMenu.folderPath ?? '', target });
             } else {
