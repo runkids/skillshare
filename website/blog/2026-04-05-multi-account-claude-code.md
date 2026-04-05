@@ -281,7 +281,7 @@ This opens a dashboard at `localhost:19420` where you can:
 - Run sync, audit, and check operations visually
 - Edit target include/exclude filters without touching YAML
 
-![skillshare UI dashboard](/static/img/web-dashboard-demo2.png)
+![skillshare UI dashboard](/img/web-dashboard-demo2.png)
 
 Everything you can do in the CLI, you can do in the UI — including setting up the multi-account extras config described above.
 
