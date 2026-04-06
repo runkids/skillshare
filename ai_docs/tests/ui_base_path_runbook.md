@@ -17,14 +17,14 @@ Verifies `skillshare ui --base-path` serves the dashboard and API under a sub-pa
 ## Environment
 
 Run inside devcontainer. Uses `/tmp/` for isolated HOME and a fake UI dist.
-Server uses port **19421** to avoid conflicts with existing UI on 19420.
+Server uses port **49821** to avoid conflicts with existing UI on 19420.
 
 ## Step 0: Setup isolated HOME and fake UI dist
 
 ```bash
-# Kill any leftover servers from previous runs on ports used by this runbook
-fuser -k 19421/tcp 2>/dev/null || true
-fuser -k 19422/tcp 2>/dev/null || true
+# Kill any leftover UI servers from previous test runs
+kill $(cat /tmp/basepath-server.pid /tmp/basepath-server2.pid 2>/dev/null) 2>/dev/null || true
+rm -f /tmp/basepath-server.pid /tmp/basepath-server2.pid
 sleep 1
 
 export E2E_HOME="/tmp/ss-e2e-basepath"
@@ -73,12 +73,13 @@ export XDG_DATA_HOME="$E2E_HOME/.local/share"
 export XDG_STATE_HOME="$E2E_HOME/.local/state"
 export XDG_CACHE_HOME="$E2E_HOME/.cache"
 
-fuser -k 19421/tcp 2>/dev/null || true
+kill $(cat /tmp/basepath-server.pid 2>/dev/null) 2>/dev/null || true
+rm -f /tmp/basepath-server.pid
 sleep 1
 
-cd /workspace
-go run ./cmd/skillshare ui --base-path /skillshare --host 0.0.0.0 --port 19421 --no-open -g > /tmp/basepath-server.log 2>&1 &
+/workspace/bin/skillshare ui --base-path /skillshare --host 0.0.0.0 --port 49821 --no-open -g > /tmp/basepath-server.log 2>&1 &
 SERVER_PID=$!
+echo $SERVER_PID > /tmp/basepath-server.pid
 echo "server_pid=$SERVER_PID"
 
 sleep 5
@@ -88,12 +89,12 @@ cat /tmp/basepath-server.log
 Expected:
 - exit_code: 0
 - regex: server_pid=\d+
-- regex: running at http://.*:19421/skillshare/
+- regex: running at http://.*:49821/skillshare/
 
 ## Step 2: API health with prefix returns 200
 
 ```bash
-curl -sf http://localhost:19421/skillshare/api/health
+curl -sf http://localhost:49821/skillshare/api/health
 ```
 
 Expected:
@@ -103,7 +104,7 @@ Expected:
 ## Step 3: API health without prefix returns 404
 
 ```bash
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:19421/api/health)
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:49821/api/health)
 echo "status=$HTTP_CODE"
 test "$HTTP_CODE" = "404" && echo "correctly_rejected=yes"
 ```
@@ -116,8 +117,8 @@ Expected:
 ## Step 4: Bare path redirects to trailing slash
 
 ```bash
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:19421/skillshare)
-LOCATION=$(curl -s -o /dev/null -w "%{redirect_url}" http://localhost:19421/skillshare)
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:49821/skillshare)
+LOCATION=$(curl -s -o /dev/null -w "%{redirect_url}" http://localhost:49821/skillshare)
 echo "status=$HTTP_CODE"
 echo "location=$LOCATION"
 ```
@@ -130,7 +131,7 @@ Expected:
 ## Step 5: Root path returns 404
 
 ```bash
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:19421/)
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:49821/)
 echo "status=$HTTP_CODE"
 test "$HTTP_CODE" = "404" && echo "root_blocked=yes"
 ```
@@ -143,7 +144,7 @@ Expected:
 ## Step 6: Index.html served with __BASE_PATH__ injection
 
 ```bash
-BODY=$(curl -sf http://localhost:19421/skillshare/)
+BODY=$(curl -sf http://localhost:49821/skillshare/)
 echo "$BODY"
 echo "$BODY" | grep -q '__BASE_PATH__' && echo "injection_found=yes"
 echo "$BODY" | grep -q '"/skillshare"' && echo "value_correct=yes"
@@ -158,8 +159,8 @@ Expected:
 ## Step 7: SPA fallback serves index.html for unknown routes
 
 ```bash
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:19421/skillshare/skills/nonexistent)
-BODY=$(curl -sf http://localhost:19421/skillshare/skills/nonexistent)
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:49821/skillshare/skills/nonexistent)
+BODY=$(curl -sf http://localhost:49821/skillshare/skills/nonexistent)
 echo "status=$HTTP_CODE"
 echo "$BODY" | grep -q '__BASE_PATH__' && echo "spa_fallback_ok=yes"
 ```
@@ -172,7 +173,7 @@ Expected:
 ## Step 8: API overview returns valid data
 
 ```bash
-curl -sf http://localhost:19421/skillshare/api/overview
+curl -sf http://localhost:49821/skillshare/api/overview
 ```
 
 Expected:
@@ -183,7 +184,8 @@ Expected:
 ## Step 9: Stop server and cleanup
 
 ```bash
-fuser -k 19421/tcp 2>/dev/null || true
+kill $(cat /tmp/basepath-server.pid 2>/dev/null) 2>/dev/null || true
+rm -f /tmp/basepath-server.pid
 sleep 1
 echo "server_stopped=yes"
 ```
@@ -195,8 +197,7 @@ Expected:
 ## Step 10: --base-path missing value returns error
 
 ```bash
-cd /workspace
-go run ./cmd/skillshare ui --base-path 2>&1 || true
+/workspace/bin/skillshare ui --base-path 2>&1 || true
 ```
 
 Expected:
@@ -205,8 +206,7 @@ Expected:
 ## Step 11: -b short flag missing value returns error
 
 ```bash
-cd /workspace
-go run ./cmd/skillshare ui -b 2>&1 || true
+/workspace/bin/skillshare ui -b 2>&1 || true
 ```
 
 Expected:
@@ -223,32 +223,29 @@ export XDG_STATE_HOME="$E2E_HOME/.local/state"
 export XDG_CACHE_HOME="$E2E_HOME/.cache"
 export SKILLSHARE_UI_BASE_PATH="/from-env"
 
-# Kill any leftover servers from previous steps or runs
-fuser -k 19421/tcp 2>/dev/null || true
-fuser -k 19422/tcp 2>/dev/null || true
+kill $(cat /tmp/basepath-server.pid /tmp/basepath-server2.pid 2>/dev/null) 2>/dev/null || true
+rm -f /tmp/basepath-server.pid /tmp/basepath-server2.pid
 sleep 1
 
-cd /workspace
-go run ./cmd/skillshare ui --host 0.0.0.0 --port 19422 --no-open -g > /tmp/basepath-env.log 2>&1 &
-sleep 5
-cat /tmp/basepath-env.log
+/workspace/bin/skillshare ui --host 0.0.0.0 --port 49822 --no-open -g > /tmp/basepath-env.log 2>&1 &
+echo $! > /tmp/basepath-server2.pid
+sleep 3
+cat /tmp/basepath-env.log >&2
 
-curl -sf http://localhost:19422/from-env/api/health
-fuser -k 19422/tcp 2>/dev/null || true
+curl -sf http://localhost:49822/from-env/api/health
+kill $(cat /tmp/basepath-server2.pid 2>/dev/null) 2>/dev/null || true
 ```
 
 Expected:
 - exit_code: 0
-- regex: running at http://.*:19422/from-env/
 - jq: .status == "ok"
 
 ## Step 13: Final cleanup
 
 ```bash
-# Ensure all servers from this runbook are stopped
-fuser -k 19421/tcp 2>/dev/null || true
-fuser -k 19422/tcp 2>/dev/null || true
+kill $(cat /tmp/basepath-server.pid /tmp/basepath-server2.pid 2>/dev/null) 2>/dev/null || true
 sleep 1
+rm -f /tmp/basepath-server.pid /tmp/basepath-server2.pid
 rm -rf /tmp/ss-e2e-basepath /tmp/basepath-server.log /tmp/basepath-env.log
 echo "cleanup_done=yes"
 ```

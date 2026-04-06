@@ -25,7 +25,7 @@ Run inside devcontainer.
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents ~/.config/skillshare/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents/curriculum
 mkdir -p ~/.config/skillshare/extras/agents/software
 echo "# Tactician" > ~/.config/skillshare/extras/agents/curriculum/tactician.md
@@ -33,25 +33,25 @@ echo "# Planner" > ~/.config/skillshare/extras/agents/curriculum/planner.md
 echo "# Implementer" > ~/.config/skillshare/extras/agents/software/implementer.md
 echo "# Reviewer" > ~/.config/skillshare/extras/agents/reviewer.md
 mkdir -p ~/.claude/agents
-ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null
+ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null 2>&1
 ss sync extras --json -g
 ```
 
 Expected:
 - exit_code: 0
-- jq: .extras[0].targets[0].synced == 4
+- jq: [.extras[] | select(.name == "agents")][0].targets[0].synced == 4
 
 ### 2. Verify flat file layout — no subdirectories in target
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents ~/.config/skillshare/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents/sub1 ~/.config/skillshare/extras/agents/sub2
 echo "a" > ~/.config/skillshare/extras/agents/sub1/a.md
 echo "b" > ~/.config/skillshare/extras/agents/sub2/b.md
 echo "c" > ~/.config/skillshare/extras/agents/root.md
 mkdir -p ~/.claude/agents
-ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null
+ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null 2>&1
 ss sync extras -g >/dev/null
 echo "files=$(find ~/.claude/agents/ -maxdepth 1 -name '*.md' | wc -l)"
 echo "dirs=$(find ~/.claude/agents/ -mindepth 1 -type d | wc -l)"
@@ -66,11 +66,11 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents ~/.config/skillshare/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents
 echo "x" > ~/.config/skillshare/extras/agents/x.md
 mkdir -p ~/.claude/agents
-ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null
+ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null 2>&1
 ss extras list --json -g
 ```
 
@@ -82,32 +82,32 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents ~/.config/skillshare/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents/team-a
 mkdir -p ~/.config/skillshare/extras/agents/team-b
 echo "# From team-a" > ~/.config/skillshare/extras/agents/team-a/agent.md
 echo "# From team-b" > ~/.config/skillshare/extras/agents/team-b/agent.md
 mkdir -p ~/.claude/agents
-ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null
+ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null 2>&1
 ss sync extras --json -g
 ```
 
 Expected:
 - exit_code: 0
-- jq: .extras[0].targets[0].synced == 1
-- jq: .extras[0].targets[0].skipped == 1
-- jq: .extras[0].targets[0].warnings | length == 1
+- jq: [.extras[] | select(.name == "agents")][0].targets[0].synced == 1
+- jq: [.extras[] | select(.name == "agents")][0].targets[0].skipped == 1
+- jq: [.extras[] | select(.name == "agents")][0].targets[0].warnings | length == 1
 
 ### 5. Flatten collision warning in human-readable output
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents ~/.config/skillshare/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents/a ~/.config/skillshare/extras/agents/b
 echo "1" > ~/.config/skillshare/extras/agents/a/same.md
 echo "2" > ~/.config/skillshare/extras/agents/b/same.md
 mkdir -p ~/.claude/agents
-ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null
+ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null 2>&1
 ss sync extras -g
 ```
 
@@ -119,11 +119,11 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents ~/.config/skillshare/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents
 echo "x" > ~/.config/skillshare/extras/agents/x.md
 mkdir -p ~/.claude/agents
-ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null
+ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null 2>&1
 ss extras agents --no-flatten -g >/dev/null
 ss extras list --json -g
 ```
@@ -136,11 +136,11 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents ~/.config/skillshare/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents
 echo "x" > ~/.config/skillshare/extras/agents/x.md
 mkdir -p ~/.claude/agents
-ss extras init agents --target ~/.claude/agents -g >/dev/null
+ss extras init agents --target ~/.claude/agents -g >/dev/null 2>&1
 ss extras agents --flatten -g >/dev/null
 ss extras list --json -g
 ```
@@ -153,11 +153,11 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents ~/.config/skillshare/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents
 echo "x" > ~/.config/skillshare/extras/agents/x.md
 mkdir -p ~/.claude/agents
-ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null
+ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null 2>&1
 ss extras agents --mode symlink -g 2>&1 || true
 ```
 
@@ -168,12 +168,12 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents ~/.config/skillshare/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents/sub
 echo "# Keep" > ~/.config/skillshare/extras/agents/sub/keep.md
 echo "# Remove" > ~/.config/skillshare/extras/agents/sub/remove.md
 mkdir -p ~/.claude/agents
-ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null
+ss extras init agents --target ~/.claude/agents --flatten -g >/dev/null 2>&1
 ss sync extras -g >/dev/null
 rm ~/.config/skillshare/extras/agents/sub/remove.md
 ss sync extras --json -g
@@ -181,7 +181,7 @@ ss sync extras --json -g
 
 Expected:
 - exit_code: 0
-- jq: .extras[0].targets[0].pruned == 1
+- jq: [.extras[] | select(.name == "agents")][0].targets[0].pruned == 1
 
 ## Pass Criteria
 
