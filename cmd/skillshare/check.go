@@ -193,33 +193,8 @@ func cmdCheck(args []string) error {
 		cfgPath = config.ProjectConfigPath(cwd)
 		if kind == kindAgents {
 			agentsDir := filepath.Join(cwd, ".skillshare", "agents")
-			agentResults := check.CheckAgents(agentsDir)
-			if opts.json {
-				out, _ := json.MarshalIndent(agentResults, "", "  ")
-				fmt.Println(string(out))
-			} else {
-				ui.Header(ui.WithModeLabel("Checking agents"))
-				ui.StepStart("Agents source", agentsDir)
-				if len(agentResults) == 0 {
-					ui.Info("No agents found")
-				} else {
-					fmt.Println()
-					for _, r := range agentResults {
-						switch r.Status {
-						case "up_to_date":
-							ui.ListItem("success", r.Name, "up to date")
-						case "drifted":
-							ui.ListItem("warning", r.Name, r.Message)
-						case "local":
-							ui.ListItem("info", r.Name, "local agent")
-						case "error":
-							ui.ListItem("error", r.Name, r.Message)
-						}
-					}
-				}
-				fmt.Println()
-			}
-			logCheckOp(cfgPath, 0, len(agentResults), 0, 0, scope, start, nil)
+			renderAgentCheck(agentsDir, opts.json)
+			logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, nil)
 			return nil
 		}
 		cmdErr := cmdCheckProject(cwd, opts)
@@ -235,33 +210,8 @@ func cmdCheck(args []string) error {
 	// Agent-only check: scan agents source directory and skip repo checks.
 	if kind == kindAgents {
 		agentsDir := cfg.EffectiveAgentsSource()
-		agentResults := check.CheckAgents(agentsDir)
-		if opts.json {
-			out, _ := json.MarshalIndent(agentResults, "", "  ")
-			fmt.Println(string(out))
-		} else {
-			ui.Header(ui.WithModeLabel("Checking agents"))
-			ui.StepStart("Agents source", agentsDir)
-			if len(agentResults) == 0 {
-				ui.Info("No agents found")
-			} else {
-				fmt.Println()
-				for _, r := range agentResults {
-					switch r.Status {
-					case "up_to_date":
-						ui.ListItem("success", r.Name, "up to date")
-					case "drifted":
-						ui.ListItem("warning", r.Name, r.Message)
-					case "local":
-						ui.ListItem("info", r.Name, "local agent")
-					case "error":
-						ui.ListItem("error", r.Name, r.Message)
-					}
-				}
-			}
-			fmt.Println()
-		}
-		logCheckOp(cfgPath, 0, len(agentResults), 0, 0, scope, start, nil)
+		renderAgentCheck(agentsDir, opts.json)
+		logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, nil)
 		return nil
 	}
 
@@ -957,6 +907,36 @@ func formatSourceShort(source string) string {
 	source = strings.TrimPrefix(source, "http://")
 	source = strings.TrimSuffix(source, ".git")
 	return source
+}
+
+// renderAgentCheck runs CheckAgents and displays results (text or JSON).
+func renderAgentCheck(agentsDir string, jsonMode bool) {
+	agentResults := check.CheckAgents(agentsDir)
+	if jsonMode {
+		out, _ := json.MarshalIndent(agentResults, "", "  ")
+		fmt.Println(string(out))
+		return
+	}
+	ui.Header(ui.WithModeLabel("Checking agents"))
+	ui.StepStart("Agents source", agentsDir)
+	if len(agentResults) == 0 {
+		ui.Info("No agents found")
+	} else {
+		fmt.Println()
+		for _, r := range agentResults {
+			switch r.Status {
+			case "up_to_date":
+				ui.ListItem("success", r.Name, "up to date")
+			case "drifted":
+				ui.ListItem("warning", r.Name, r.Message)
+			case "local":
+				ui.ListItem("info", r.Name, "local agent")
+			case "error":
+				ui.ListItem("error", r.Name, r.Message)
+			}
+		}
+	}
+	fmt.Println()
 }
 
 func printCheckHelp() {

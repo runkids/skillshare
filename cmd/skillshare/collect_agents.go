@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
@@ -13,7 +12,7 @@ import (
 
 // cmdCollectAgents collects non-symlinked agent .md files from agent-capable targets
 // back to the agent source directory.
-func cmdCollectAgents(cfg *config.Config, dryRun, jsonOutput bool, start time.Time) error {
+func cmdCollectAgents(cfg *config.Config, dryRun, jsonOutput bool) error {
 	agentsSource := cfg.EffectiveAgentsSource()
 
 	if err := os.MkdirAll(agentsSource, 0755); err != nil {

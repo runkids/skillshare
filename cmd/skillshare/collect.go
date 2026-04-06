@@ -123,7 +123,7 @@ func cmdCollect(args []string) error {
 		if loadErr != nil {
 			return loadErr
 		}
-		return cmdCollectAgents(cfg, dryRun, jsonOutput, start)
+		return cmdCollectAgents(cfg, dryRun, jsonOutput)
 	}
 
 	// --json implies --force (skip confirmation prompts)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -104,20 +103,20 @@ func computeAgentDiff(targetName, targetDir string, agents []resource.Discovered
 		expected[a.FlatName] = a
 	}
 
-	// Check what exists in target
-	existing := make(map[string]bool)
+	// Check what exists in target (store type for symlink detection)
+	existing := make(map[string]os.FileMode) // key=filename, value=type bits
 	if entries, err := os.ReadDir(targetDir); err == nil {
 		for _, e := range entries {
 			if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".md") {
 				continue
 			}
-			existing[e.Name()] = true
+			existing[e.Name()] = e.Type()
 		}
 	}
 
 	// Missing in target (need sync)
 	for flatName := range expected {
-		if !existing[flatName] {
+		if _, ok := existing[flatName]; !ok {
 			r.items = append(r.items, copyDiffEntry{
 				action: "add",
 				name:   flatName,
@@ -131,11 +130,9 @@ func computeAgentDiff(targetName, targetDir string, agents []resource.Discovered
 	}
 
 	// Extra in target (orphans)
-	for name := range existing {
+	for name, fileType := range existing {
 		if _, ok := expected[name]; !ok {
-			fullPath := filepath.Join(targetDir, name)
-			fi, _ := os.Lstat(fullPath)
-			if fi != nil && fi.Mode()&os.ModeSymlink != 0 {
+			if fileType&os.ModeSymlink != 0 {
 				r.items = append(r.items, copyDiffEntry{
 					action: "remove",
 					name:   name,

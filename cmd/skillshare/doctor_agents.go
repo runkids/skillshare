@@ -91,16 +91,11 @@ func countAgentLinksAndBroken(dir string) (linked, broken int) {
 		if !strings.HasSuffix(strings.ToLower(e.Name()), ".md") {
 			continue
 		}
-		fullPath := filepath.Join(dir, e.Name())
-		fi, lErr := os.Lstat(fullPath)
-		if lErr != nil {
+		if e.Type()&os.ModeSymlink == 0 {
 			continue
 		}
-		if fi.Mode()&os.ModeSymlink == 0 {
-			continue
-		}
-		// It's a symlink — check if target exists
-		if _, statErr := os.Stat(fullPath); statErr != nil {
+		// It's a symlink — check if target exists (os.Stat follows symlinks)
+		if _, statErr := os.Stat(filepath.Join(dir, e.Name())); statErr != nil {
 			broken++
 		} else {
 			linked++

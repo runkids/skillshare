@@ -1,10 +1,6 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-
 	"skillshare/internal/config"
 	"skillshare/internal/resource"
 	"skillshare/internal/ui"
@@ -100,24 +96,8 @@ func buildAgentStatusJSON(cfg *config.Config) *statusJSONAgents {
 	return result
 }
 
-// countLinkedAgents counts .md symlinks in the target agent directory.
+// countLinkedAgents counts healthy .md symlinks in the target agent directory.
 func countLinkedAgents(targetDir string) int {
-	entries, err := os.ReadDir(targetDir)
-	if err != nil {
-		return 0
-	}
-	count := 0
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if !strings.HasSuffix(strings.ToLower(e.Name()), ".md") {
-			continue
-		}
-		fullPath := filepath.Join(targetDir, e.Name())
-		if info, lErr := os.Lstat(fullPath); lErr == nil && info.Mode()&os.ModeSymlink != 0 {
-			count++
-		}
-	}
-	return count
+	linked, _ := countAgentLinksAndBroken(targetDir)
+	return linked
 }

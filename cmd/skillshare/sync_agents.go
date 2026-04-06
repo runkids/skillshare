@@ -61,48 +61,19 @@ func syncAgentsGlobal(cfg *config.Config, dryRun, force, jsonOutput bool, start 
 	for name := range cfg.Targets {
 		agentPath := resolveAgentTargetPath(cfg.Targets[name], builtinAgents, name)
 		if agentPath == "" {
-			continue // target has no agent path
+			continue
 		}
 
 		tc := cfg.Targets[name]
 		ac := tc.AgentsConfig()
-		mode := ac.Mode
-		if mode == "" {
-			mode = "merge" // default agent sync mode
-		}
-
-		result, err := sync.SyncAgents(agents, agentsSource, agentPath, mode, dryRun, force)
-		if err != nil {
-			if !jsonOutput {
-				ui.Error("%s: agent sync failed: %v", name, err)
-			}
+		stats, targetErr := syncAgentTarget(name, agentPath, ac.Mode, agents, agentsSource, dryRun, force, jsonOutput)
+		if targetErr != nil {
 			syncErr = fmt.Errorf("some agent targets failed to sync")
-			continue
-		}
-
-		// Prune orphan agent links/copies
-		var pruned []string
-		switch mode {
-		case "copy":
-			pruned, _ = sync.PruneOrphanAgentCopies(agentPath, agents, dryRun)
-		case "merge":
-			pruned, _ = sync.PruneOrphanAgentLinks(agentPath, agents, dryRun)
-		}
-
-		stats := agentSyncStats{
-			linked:  len(result.Linked),
-			skipped: len(result.Skipped),
-			updated: len(result.Updated),
-			pruned:  len(pruned),
 		}
 		totals.linked += stats.linked
 		totals.skipped += stats.skipped
 		totals.updated += stats.updated
 		totals.pruned += stats.pruned
-
-		if !jsonOutput {
-			reportAgentSyncResult(name, mode, stats, dryRun)
-		}
 	}
 
 	if !jsonOutput {
@@ -172,56 +143,20 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 	}
 
 	for _, entry := range projCfg.Targets {
-		var agentPath string
-		ac := entry.AgentsConfig()
-		if ac.Path != "" {
-			agentPath = ac.Path
-			if !filepath.IsAbs(agentPath) {
-				agentPath = filepath.Join(projectRoot, agentPath)
-			}
-		} else if builtin, ok := builtinAgents[entry.Name]; ok {
-			agentPath = config.ExpandPath(builtin.Path)
-		}
+		agentPath := resolveProjectAgentTargetPath(entry, builtinAgents, projectRoot)
 		if agentPath == "" {
 			continue
 		}
 
-		mode := ac.Mode
-		if mode == "" {
-			mode = "merge"
-		}
-
-		result, syncResultErr := sync.SyncAgents(agents, agentsSource, agentPath, mode, dryRun, force)
-		if syncResultErr != nil {
-			if !jsonOutput {
-				ui.Error("%s: agent sync failed: %v", entry.Name, syncResultErr)
-			}
+		ac := entry.AgentsConfig()
+		stats, targetErr := syncAgentTarget(entry.Name, agentPath, ac.Mode, agents, agentsSource, dryRun, force, jsonOutput)
+		if targetErr != nil {
 			syncErr = fmt.Errorf("some agent targets failed to sync")
-			continue
-		}
-
-		var pruned []string
-		switch mode {
-		case "copy":
-			pruned, _ = sync.PruneOrphanAgentCopies(agentPath, agents, dryRun)
-		case "merge":
-			pruned, _ = sync.PruneOrphanAgentLinks(agentPath, agents, dryRun)
-		}
-
-		stats := agentSyncStats{
-			linked:  len(result.Linked),
-			skipped: len(result.Skipped),
-			updated: len(result.Updated),
-			pruned:  len(pruned),
 		}
 		totals.linked += stats.linked
 		totals.skipped += stats.skipped
 		totals.updated += stats.updated
 		totals.pruned += stats.pruned
-
-		if !jsonOutput {
-			reportAgentSyncResult(entry.Name, mode, stats, dryRun)
-		}
 	}
 
 	if !jsonOutput {
@@ -232,6 +167,44 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 	}
 
 	return syncErr
+}
+
+// syncAgentTarget syncs agents to a single target directory.
+// Shared by both global and project sync paths.
+func syncAgentTarget(name, agentPath, modeOverride string, agents []resource.DiscoveredResource, agentsSource string, dryRun, force, jsonOutput bool) (agentSyncStats, error) {
+	mode := modeOverride
+	if mode == "" {
+		mode = "merge"
+	}
+
+	result, err := sync.SyncAgents(agents, agentsSource, agentPath, mode, dryRun, force)
+	if err != nil {
+		if !jsonOutput {
+			ui.Error("%s: agent sync failed: %v", name, err)
+		}
+		return agentSyncStats{}, err
+	}
+
+	var pruned []string
+	switch mode {
+	case "copy":
+		pruned, _ = sync.PruneOrphanAgentCopies(agentPath, agents, dryRun)
+	case "merge":
+		pruned, _ = sync.PruneOrphanAgentLinks(agentPath, agents, dryRun)
+	}
+
+	stats := agentSyncStats{
+		linked:  len(result.Linked),
+		skipped: len(result.Skipped),
+		updated: len(result.Updated),
+		pruned:  len(pruned),
+	}
+
+	if !jsonOutput {
+		reportAgentSyncResult(name, mode, stats, dryRun)
+	}
+
+	return stats, nil
 }
 
 // reportAgentSyncResult prints per-target agent sync status.
