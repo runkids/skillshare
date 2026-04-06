@@ -228,6 +228,8 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 		checkGitStatus(cfg.Source, result)
 	}
 
+	checkAgentTargets(cfg, result)
+
 	fmt.Println() // visual break before skill validation
 	checkSkillsValidity(cfg.Source, result, discovered)
 	checkSkillIntegrity(result, discovered)

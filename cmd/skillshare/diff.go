@@ -73,6 +73,9 @@ func cmdDiff(args []string) error {
 
 	applyModeLabel(mode)
 
+	// Extract kind filter (e.g. "skillshare diff agents").
+	kind, rest := parseKindArg(rest)
+
 	scope := "global"
 	cfgPath := config.ConfigPath()
 	if mode == modeProject {
@@ -105,9 +108,9 @@ func cmdDiff(args []string) error {
 
 	var cmdErr error
 	if mode == modeProject {
-		cmdErr = cmdDiffProject(cwd, targetName, opts, start)
+		cmdErr = cmdDiffProject(cwd, targetName, kind, opts, start)
 	} else {
-		cmdErr = cmdDiffGlobal(targetName, opts, start)
+		cmdErr = cmdDiffGlobal(targetName, kind, opts, start)
 	}
 	logDiffOp(cfgPath, targetName, scope, 0, start, cmdErr)
 	return cmdErr
@@ -147,6 +150,7 @@ type targetDiffResult struct {
 type copyDiffEntry struct {
 	action string // "add", "modify", "remove"
 	name   string
+	kind   string // "skill" or "agent" (empty defaults to "skill")
 	reason string
 	isSync bool            // true = needs sync, false = local-only
 	files  []fileDiffEntry // file-level diffs (nil until populated)
@@ -358,7 +362,7 @@ func (dp *diffProgress) stop() {
 	}
 }
 
-func cmdDiffGlobal(targetName string, opts diffRenderOpts, start time.Time) error {
+func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOpts, start time.Time) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -483,6 +487,20 @@ func cmdDiffGlobal(targetName string, opts diffRenderOpts, start time.Time) erro
 	return nil
 }
 
+func diffItemToJSON(item copyDiffEntry) diffJSONItem {
+	k := item.kind
+	if k == "" {
+		k = "skill"
+	}
+	return diffJSONItem{
+		Action: item.action,
+		Name:   item.name,
+		Kind:   k,
+		Reason: item.reason,
+		IsSync: item.isSync,
+	}
+}
+
 func diffOutputJSON(results []targetDiffResult, start time.Time) error {
 	output := diffJSONOutput{
 		Duration: formatDuration(start),
@@ -497,12 +515,7 @@ func diffOutputJSON(results []targetDiffResult, start time.Time) error {
 			Exclude: r.exclude,
 		}
 		for _, item := range r.items {
-			jt.Items = append(jt.Items, diffJSONItem{
-				Action: item.action,
-				Name:   item.name,
-				Reason: item.reason,
-				IsSync: item.isSync,
-			})
+			jt.Items = append(jt.Items, diffItemToJSON(item))
 		}
 		output.Targets = append(output.Targets, jt)
 	}
@@ -529,12 +542,7 @@ func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraD
 			Exclude: r.exclude,
 		}
 		for _, item := range r.items {
-			jt.Items = append(jt.Items, diffJSONItem{
-				Action: item.action,
-				Name:   item.name,
-				Reason: item.reason,
-				IsSync: item.isSync,
-			})
+			jt.Items = append(jt.Items, diffItemToJSON(item))
 		}
 		o.Targets = append(o.Targets, jt)
 	}

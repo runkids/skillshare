@@ -19,12 +19,13 @@ import (
 
 // statusJSONOutput is the JSON representation for status --json output.
 type statusJSONOutput struct {
-	Source       statusJSONSource   `json:"source"`
-	SkillCount   int                `json:"skill_count"`
-	TrackedRepos []statusJSONRepo   `json:"tracked_repos"`
-	Targets      []statusJSONTarget `json:"targets"`
-	Audit        statusJSONAudit    `json:"audit"`
-	Version      string             `json:"version"`
+	Source       statusJSONSource    `json:"source"`
+	SkillCount   int                 `json:"skill_count"`
+	TrackedRepos []statusJSONRepo    `json:"tracked_repos"`
+	Targets      []statusJSONTarget  `json:"targets"`
+	Agents       *statusJSONAgents   `json:"agents,omitempty"`
+	Audit        statusJSONAudit     `json:"audit"`
+	Version      string              `json:"version"`
 }
 
 type statusJSONSource struct {
@@ -90,6 +91,9 @@ func cmdStatus(args []string) error {
 
 	applyModeLabel(mode)
 
+	// Extract kind filter (e.g. "skillshare status agents").
+	kind, rest := parseKindArg(rest)
+
 	jsonOutput := hasFlag(rest, "--json")
 
 	if mode == modeProject {
@@ -111,78 +115,90 @@ func cmdStatus(args []string) error {
 	}
 
 	if !jsonOutput {
-		sp := ui.StartSpinner("Discovering skills...")
-		discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(cfg.Source)
-		if discoverErr != nil {
-			discovered = nil
-		}
-		trackedRepos := extractTrackedRepos(discovered)
-		sp.Stop()
+		if kind.IncludesSkills() {
+			sp := ui.StartSpinner("Discovering skills...")
+			discovered, stats, discoverErr := sync.DiscoverSourceSkillsWithStats(cfg.Source)
+			if discoverErr != nil {
+				discovered = nil
+			}
+			trackedRepos := extractTrackedRepos(discovered)
+			sp.Stop()
 
-		printSourceStatus(cfg, len(discovered), stats)
-		printTrackedReposStatus(cfg, discovered, trackedRepos)
-		if err := printTargetsStatus(cfg, discovered); err != nil {
-			return err
+			printSourceStatus(cfg, len(discovered), stats)
+			printTrackedReposStatus(cfg, discovered, trackedRepos)
+			if err := printTargetsStatus(cfg, discovered); err != nil {
+				return err
+			}
+
+			// Extras
+			if len(cfg.Extras) > 0 {
+				ui.Header("Extras")
+				printExtrasStatus(cfg.Extras, func(extra config.ExtraConfig) string {
+					return config.ResolveExtrasSourceDir(extra, cfg.ExtrasSource, cfg.Source)
+				})
+			}
+
+			printAuditStatus(cfg.Audit)
 		}
 
-		// Extras
-		if len(cfg.Extras) > 0 {
-			ui.Header("Extras")
-			printExtrasStatus(cfg.Extras, func(extra config.ExtraConfig) string {
-				return config.ResolveExtrasSourceDir(extra, cfg.ExtrasSource, cfg.Source)
-			})
+		if kind.IncludesAgents() {
+			printAgentStatus(cfg)
 		}
 
-		printAuditStatus(cfg.Audit)
-		checkSkillVersion(cfg)
+		if kind.IncludesSkills() {
+			checkSkillVersion(cfg)
+		}
 		return nil
 	}
 
 	// JSON mode
-	discovered, stats, _ := sync.DiscoverSourceSkillsWithStats(cfg.Source)
-	trackedRepos := extractTrackedRepos(discovered)
-
 	output := statusJSONOutput{
-		Source: statusJSONSource{
+		Version: version,
+	}
+
+	if kind.IncludesSkills() {
+		discovered, stats, _ := sync.DiscoverSourceSkillsWithStats(cfg.Source)
+		trackedRepos := extractTrackedRepos(discovered)
+
+		output.Source = statusJSONSource{
 			Path:        cfg.Source,
 			Exists:      dirExists(cfg.Source),
 			Skillignore: buildSkillignoreJSON(stats),
-		},
-		SkillCount: len(discovered),
-		Version:    version,
-	}
+		}
+		output.SkillCount = len(discovered)
+		output.TrackedRepos = buildTrackedRepoJSON(cfg.Source, trackedRepos, discovered)
 
-	// Tracked repos (parallel dirty checks)
-	output.TrackedRepos = buildTrackedRepoJSON(cfg.Source, trackedRepos, discovered)
+		for name, target := range cfg.Targets {
+			sc := target.SkillsConfig()
+			tMode := getTargetMode(sc.Mode, cfg.Mode)
+			res := getTargetStatusDetail(target, cfg.Source, tMode)
+			output.Targets = append(output.Targets, statusJSONTarget{
+				Name:        name,
+				Path:        sc.Path,
+				Mode:        tMode,
+				Status:      res.statusStr,
+				SyncedCount: res.syncedCount,
+				Include:     sc.Include,
+				Exclude:     sc.Exclude,
+			})
+		}
 
-	// Targets
-	for name, target := range cfg.Targets {
-		sc := target.SkillsConfig()
-		tMode := getTargetMode(sc.Mode, cfg.Mode)
-		res := getTargetStatusDetail(target, cfg.Source, tMode)
-		output.Targets = append(output.Targets, statusJSONTarget{
-			Name:        name,
-			Path:        sc.Path,
-			Mode:        tMode,
-			Status:      res.statusStr,
-			SyncedCount: res.syncedCount,
-			Include:     sc.Include,
-			Exclude:     sc.Exclude,
+		policy := audit.ResolvePolicy(audit.PolicyInputs{
+			ConfigProfile:   cfg.Audit.Profile,
+			ConfigThreshold: cfg.Audit.BlockThreshold,
+			ConfigDedupe:    cfg.Audit.DedupeMode,
+			ConfigAnalyzers: cfg.Audit.EnabledAnalyzers,
 		})
+		output.Audit = statusJSONAudit{
+			Profile:   string(policy.Profile),
+			Threshold: policy.Threshold,
+			Dedupe:    string(policy.DedupeMode),
+			Analyzers: policy.EffectiveAnalyzers(),
+		}
 	}
 
-	// Audit
-	policy := audit.ResolvePolicy(audit.PolicyInputs{
-		ConfigProfile:   cfg.Audit.Profile,
-		ConfigThreshold: cfg.Audit.BlockThreshold,
-		ConfigDedupe:    cfg.Audit.DedupeMode,
-		ConfigAnalyzers: cfg.Audit.EnabledAnalyzers,
-	})
-	output.Audit = statusJSONAudit{
-		Profile:   string(policy.Profile),
-		Threshold: policy.Threshold,
-		Dedupe:    string(policy.DedupeMode),
-		Analyzers: policy.EffectiveAnalyzers(),
+	if kind.IncludesAgents() {
+		output.Agents = buildAgentStatusJSON(cfg)
 	}
 
 	return writeJSON(&output)

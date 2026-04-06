@@ -10,7 +10,7 @@ import (
 	"skillshare/internal/ui"
 )
 
-func cmdDiffProject(root, targetName string, opts diffRenderOpts, start time.Time) error {
+func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffRenderOpts, start time.Time) error {
 	if !projectConfigExists(root) {
 		if err := performProjectInit(root, projectInitOptions{}); err != nil {
 			return err
