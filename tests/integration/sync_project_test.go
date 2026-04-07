@@ -158,3 +158,73 @@ func TestSyncProject_AutoDetectsMode(t *testing.T) {
 		t.Error("auto-detect should trigger project mode sync")
 	}
 }
+
+func TestSyncProject_RelativeSymlinks(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+	projectRoot := sb.SetupProjectDir("claude")
+	sb.CreateProjectSkill(projectRoot, "my-skill", map[string]string{
+		"SKILL.md": "# My Skill\n\nDescription here.",
+	})
+
+	result := sb.RunCLIInDir(projectRoot, "sync", "-p")
+	result.AssertSuccess(t)
+
+	link := filepath.Join(projectRoot, ".claude", "skills", "my-skill")
+	if !sb.IsSymlink(link) {
+		t.Fatal("skill should be a symlink")
+	}
+
+	// Project-mode symlinks must be relative (not absolute)
+	target := sb.SymlinkTarget(link)
+	if filepath.IsAbs(target) {
+		t.Errorf("project-mode symlink should be relative, got absolute: %q", target)
+	}
+
+	// Verify the symlink resolves to the correct skill directory
+	resolved, err := filepath.EvalSymlinks(link)
+	if err != nil {
+		t.Fatalf("symlink should resolve: %v", err)
+	}
+	expected := filepath.Join(projectRoot, ".skillshare", "skills", "my-skill")
+	if resolved != expected {
+		t.Errorf("resolved symlink = %q, want %q", resolved, expected)
+	}
+}
+
+func TestSync_GlobalMode_AbsoluteSymlinks(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateSkill("my-skill", map[string]string{
+		"SKILL.md": "# My Skill\n\nDescription here.",
+	})
+	targetPath := sb.CreateTarget("claude")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+mode: merge
+targets:
+  claude:
+    path: ` + targetPath + `
+`)
+
+	result := sb.RunCLI("sync")
+	result.AssertSuccess(t)
+
+	link := filepath.Join(targetPath, "my-skill")
+	if !sb.IsSymlink(link) {
+		t.Fatal("skill should be a symlink")
+	}
+
+	// Global-mode symlinks must be absolute
+	target := sb.SymlinkTarget(link)
+	if !filepath.IsAbs(target) {
+		t.Errorf("global-mode symlink should be absolute, got relative: %q", target)
+	}
+
+	// Verify the symlink points directly to the source skill
+	expected := filepath.Join(sb.SourcePath, "my-skill")
+	if target != expected {
+		t.Errorf("symlink target = %q, want %q", target, expected)
+	}
+}
