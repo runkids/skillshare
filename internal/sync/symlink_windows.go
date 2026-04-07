@@ -13,19 +13,18 @@ import (
 )
 
 // createLink creates a directory junction on Windows (no admin required).
-// Falls back to symlink if junction fails.
-func createLink(targetPath, sourcePath string) error {
-	// Ensure absolute paths for junction
+// If relative is true, first tries os.Symlink with a relative path
+// (requires Developer Mode). Falls back to junction with absolute paths.
+func createLink(linkPath, sourcePath string, relative bool) error {
 	absSource, err := filepath.Abs(sourcePath)
 	if err != nil {
 		return fmt.Errorf("failed to resolve source path: %w", err)
 	}
-	absTarget, err := filepath.Abs(targetPath)
+	absTarget, err := filepath.Abs(linkPath)
 	if err != nil {
 		return fmt.Errorf("failed to resolve target path: %w", err)
 	}
 
-	// Pre-flight checks with clear error messages
 	if _, err := os.Stat(absSource); os.IsNotExist(err) {
 		return fmt.Errorf("source directory does not exist: %s", absSource)
 	}
@@ -37,7 +36,17 @@ func createLink(targetPath, sourcePath string) error {
 		return fmt.Errorf("target already exists: %s", absTarget)
 	}
 
-	// Try junction first (no admin required)
+	// If relative requested, try os.Symlink with relative path first
+	if relative {
+		rel, relErr := filepath.Rel(filepath.Dir(linkPath), sourcePath)
+		if relErr == nil {
+			if symlinkErr := os.Symlink(rel, linkPath); symlinkErr == nil {
+				return nil
+			}
+		}
+	}
+
+	// Try junction (no admin required, but requires absolute paths)
 	var stderr bytes.Buffer
 	cmd := exec.Command("cmd", "/c", "mklink", "/J", absTarget, absSource)
 	cmd.Stderr = &stderr
@@ -47,12 +56,11 @@ func createLink(targetPath, sourcePath string) error {
 
 	junctionErr := strings.TrimSpace(stderr.String())
 
-	// Fallback to symlink (requires admin/developer mode)
+	// Fallback to symlink with absolute path
 	if symlinkErr := os.Symlink(absSource, absTarget); symlinkErr == nil {
 		return nil
 	}
 
-	// Both methods failed - provide helpful error message
 	errMsg := "failed to create link"
 	if junctionErr != "" {
 		errMsg = fmt.Sprintf("%s\n  junction error: %s", errMsg, junctionErr)

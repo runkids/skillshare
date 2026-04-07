@@ -220,7 +220,7 @@ func CreateSymlink(targetPath, sourcePath string) error {
 	}
 
 	// Create link (uses junction on Windows, symlink on Unix)
-	if err := createLink(targetPath, sourcePath); err != nil {
+	if err := createLink(targetPath, sourcePath, false); err != nil {
 		return fmt.Errorf("failed to create link: %w", err)
 	}
 
@@ -550,7 +550,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 					}
 				} else {
 					os.Remove(targetSkillPath)
-					if err := createLink(targetSkillPath, skill.SourcePath); err != nil {
+					if err := createLink(targetSkillPath, skill.SourcePath, false); err != nil {
 						return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 					}
 				}
@@ -567,7 +567,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 						if err := os.RemoveAll(targetSkillPath); err != nil {
 							return nil, fmt.Errorf("failed to remove local copy %s: %w", activeName, err)
 						}
-						if err := createLink(targetSkillPath, skill.SourcePath); err != nil {
+						if err := createLink(targetSkillPath, skill.SourcePath, false); err != nil {
 							return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 						}
 					}
@@ -584,7 +584,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 					fmt.Fprintf(DiagOutput, "[dry-run] Would create link: %s -> %s\n", targetSkillPath, skill.SourcePath)
 				}
 			} else {
-				if err := createLink(targetSkillPath, skill.SourcePath); err != nil {
+				if err := createLink(targetSkillPath, skill.SourcePath, false); err != nil {
 					return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 				}
 			}
