@@ -139,7 +139,9 @@ echo "# residue" > "$TARGET/pdf-official/SKILL.md"
 
 # Add exclude for pdf-official in claude target config
 CONFIG="$HOME/.config/skillshare/config.yaml"
-sed -i '/^    claude:/,/^    [^ ]/{/path:/a\        exclude:\n            - pdf-official
+# Config uses 2-space indent: targets: > claude: > skills: > path:/exclude:
+# Insert exclude list after the skills path line for claude
+sed -i '/^  claude:/,/^  [^ ]/{/path:.*claude/a\      exclude:\n        - pdf-official
 }' "$CONFIG"
 
 ss sync

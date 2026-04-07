@@ -49,7 +49,7 @@ ss install /tmp/test-skill
 
 ```bash
 cat ~/.config/skillshare/skills/registry.yaml
-grep -c "skills:" ~/.config/skillshare/config.yaml && echo "FAIL: config has skills" || echo "PASS: config clean"
+grep -c "^skills:" ~/.config/skillshare/config.yaml && echo "FAIL: config has skills" || echo "PASS: config clean"
 ```
 
 **Expected:**
@@ -81,7 +81,7 @@ ss status
 
 ```bash
 cat ~/.config/skillshare/skills/registry.yaml
-grep -c "skills:" ~/.config/skillshare/config.yaml && echo "FAIL: skills still in config" || echo "PASS: migration ok"
+grep -c "^skills:" ~/.config/skillshare/config.yaml && echo "FAIL: skills still in config" || echo "PASS: migration ok"
 ```
 
 **Expected:**
@@ -197,7 +197,7 @@ SKILLSHARE_DEV_ALLOW_WORKSPACE_PROJECT=1 ss install /tmp/proj-skill -p
 
 ```bash
 cat /tmp/project-test/.skillshare/registry.yaml
-grep -c "skills:" /tmp/project-test/.skillshare/config.yaml && echo "FAIL: config has skills" || echo "PASS"
+grep -c "^skills:" /tmp/project-test/.skillshare/config.yaml && echo "FAIL: config has skills" || echo "PASS"
 ```
 
 **Expected:**

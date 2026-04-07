@@ -20,7 +20,7 @@ Verify that the `universal` target path in `targets.yaml` matches the actual run
 ### Step 1: Verify targets.yaml universal path
 
 ```bash
-grep -A4 'global_name: universal' /workspace/internal/config/targets.yaml
+grep -A4 'name: universal' /workspace/internal/config/targets.yaml
 ```
 
 **Expected:**

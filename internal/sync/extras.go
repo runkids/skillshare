@@ -162,6 +162,9 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatte
 
 	seen := make(map[string]string) // basename → original rel path (flatten only)
 
+	// Compute once for entire batch — all files share the same source/target root.
+	relative := shouldUseRelative(projectRoot, sourcePath, targetPath)
+
 	for _, rel := range files {
 		srcFile := filepath.Join(absSrc, rel)
 		tgtRel := rel
@@ -178,7 +181,7 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatte
 		}
 		tgtFile := filepath.Join(targetPath, tgtRel)
 
-		synced, skipped, syncErr := syncOneExtraFile(srcFile, tgtFile, mode, dryRun, force, projectRoot)
+		synced, skipped, syncErr := syncOneExtraFile(srcFile, tgtFile, mode, dryRun, force, relative)
 		if syncErr != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", rel, syncErr))
 			continue
@@ -208,7 +211,7 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatte
 }
 
 // syncOneExtraFile syncs a single file. Returns (synced, skipped, error).
-func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force bool, projectRoot string) (int, int, error) {
+func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force, relative bool) (int, int, error) {
 	// Ensure parent directory exists
 	if !dryRun {
 		if err := os.MkdirAll(filepath.Dir(tgtFile), 0755); err != nil {
@@ -257,7 +260,6 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force bool, project
 
 	switch mode {
 	case "merge":
-		relative := shouldUseRelative(projectRoot, srcFile, tgtFile)
 		if err := createLink(tgtFile, srcFile, relative); err != nil {
 			return 0, 0, fmt.Errorf("failed to create symlink: %w", err)
 		}

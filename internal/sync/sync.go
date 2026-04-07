@@ -490,6 +490,8 @@ func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string,
 // sourcePath is the skills source directory, used to detect symlink-mode targets.
 func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
 	sc := target.SkillsConfig()
+	// Checked against sourcePath (root dir), not per-skill paths — all skills
+	// are children of sourcePath so the result is the same for every skill.
 	relative := shouldUseRelative(projectRoot, sourcePath, sc.Path)
 	result := &MergeResult{}
 

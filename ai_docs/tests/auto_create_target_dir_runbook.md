@@ -9,7 +9,7 @@ Ref: GitHub Issue #87
 
 - Sync auto-creates target `skills/` directory when parent (e.g., `~/.claude/`) exists
 - Sync fails fast with typo hint when parent directory is missing
-- Dry-run shows "Would create" without actually creating
+- Dry-run shows "Will create" without actually creating
 - Copy mode also auto-creates
 - Notification message is visible in output
 
@@ -79,10 +79,9 @@ entire path tree may not exist yet.
 ```bash
 rm -rf ~/.newcli 2>/dev/null || true
 test -d ~/.newcli && echo "parent exists" || echo "parent missing"
-cat >> ~/.config/skillshare/config.yaml << 'CFG'
-  newcli:
-    path: ~/.newcli/ai/skills
-CFG
+# Insert newcli target under the targets: map (sed inserts after the 'targets:' line)
+CONFIG="$HOME/.config/skillshare/config.yaml"
+sed -i '/^targets:/a\  newcli:\n    skills:\n      path: ~/.newcli/ai/skills' "$CONFIG"
 ss sync -g 2>&1
 test -d ~/.newcli/ai/skills && echo "deep dir created" || echo "deep dir missing"
 ```
@@ -105,7 +104,7 @@ test -d ~/.codex/skills && echo "dir created" || echo "dir not created"
 Expected:
 - exit_code: 0
 - codex parent exists
-- Would create target directory:
+- Will create target directory:
 - dir not created
 
 ## Pass Criteria

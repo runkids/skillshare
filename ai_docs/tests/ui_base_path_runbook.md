@@ -22,6 +22,11 @@ Server uses port **19421** to avoid conflicts with existing UI on 19420.
 ## Step 0: Setup isolated HOME and fake UI dist
 
 ```bash
+# Kill any leftover servers from previous runs on ports used by this runbook
+fuser -k 19421/tcp 2>/dev/null || true
+fuser -k 19422/tcp 2>/dev/null || true
+sleep 1
+
 export E2E_HOME="/tmp/ss-e2e-basepath"
 rm -rf "$E2E_HOME"
 mkdir -p "$E2E_HOME/.config/skillshare/skills/demo"
@@ -218,6 +223,8 @@ export XDG_STATE_HOME="$E2E_HOME/.local/state"
 export XDG_CACHE_HOME="$E2E_HOME/.cache"
 export SKILLSHARE_UI_BASE_PATH="/from-env"
 
+# Kill any leftover servers from previous steps or runs
+fuser -k 19421/tcp 2>/dev/null || true
 fuser -k 19422/tcp 2>/dev/null || true
 sleep 1
 
@@ -238,8 +245,10 @@ Expected:
 ## Step 13: Final cleanup
 
 ```bash
+# Ensure all servers from this runbook are stopped
 fuser -k 19421/tcp 2>/dev/null || true
 fuser -k 19422/tcp 2>/dev/null || true
+sleep 1
 rm -rf /tmp/ss-e2e-basepath /tmp/basepath-server.log /tmp/basepath-env.log
 echo "cleanup_done=yes"
 ```

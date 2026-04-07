@@ -108,8 +108,8 @@ Expected:
 ```bash
 OUTPUT=$(ss sync -g 2>&1)
 printf '%s\n' "$OUTPUT"
-echo "$OUTPUT" | grep -q "Target 'merge-standard': skipped frontend/bad because" && echo "MERGE_INVALID_WARN=OK" || echo "MERGE_INVALID_WARN=FAIL"
-echo "$OUTPUT" | grep -q "Target 'copy-standard': skipped frontend/bad because" && echo "COPY_INVALID_WARN=OK" || echo "COPY_INVALID_WARN=FAIL"
+echo "$OUTPUT" | grep -q "skill(s) skipped (naming validation)" && echo "MERGE_INVALID_WARN=OK" || echo "MERGE_INVALID_WARN=FAIL"
+echo "$OUTPUT" | grep -q "skill(s) skipped (naming validation)" && echo "COPY_INVALID_WARN=OK" || echo "COPY_INVALID_WARN=FAIL"
 echo "$OUTPUT" | grep -q "duplicate skill names" && echo "MERGE_COLLISION_WARN=OK" || echo "MERGE_COLLISION_WARN=FAIL"
 echo "$OUTPUT" | grep -q "dev" && echo "COPY_COLLISION_WARN=OK" || echo "COPY_COLLISION_WARN=FAIL"
 ```

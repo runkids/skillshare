@@ -25,7 +25,7 @@ Run inside devcontainer.
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents/curriculum
 mkdir -p ~/.config/skillshare/extras/agents/software
 echo "# Tactician" > ~/.config/skillshare/extras/agents/curriculum/tactician.md
@@ -45,7 +45,7 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents/sub1 ~/.config/skillshare/extras/agents/sub2
 echo "a" > ~/.config/skillshare/extras/agents/sub1/a.md
 echo "b" > ~/.config/skillshare/extras/agents/sub2/b.md
@@ -66,7 +66,7 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents
 echo "x" > ~/.config/skillshare/extras/agents/x.md
 mkdir -p ~/.claude/agents
@@ -82,7 +82,7 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents/team-a
 mkdir -p ~/.config/skillshare/extras/agents/team-b
 echo "# From team-a" > ~/.config/skillshare/extras/agents/team-a/agent.md
@@ -102,7 +102,7 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents/a ~/.config/skillshare/extras/agents/b
 echo "1" > ~/.config/skillshare/extras/agents/a/same.md
 echo "2" > ~/.config/skillshare/extras/agents/b/same.md
@@ -119,7 +119,7 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents
 echo "x" > ~/.config/skillshare/extras/agents/x.md
 mkdir -p ~/.claude/agents
@@ -136,7 +136,7 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents
 echo "x" > ~/.config/skillshare/extras/agents/x.md
 mkdir -p ~/.claude/agents
@@ -153,7 +153,7 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents
 echo "x" > ~/.config/skillshare/extras/agents/x.md
 mkdir -p ~/.claude/agents
@@ -168,7 +168,7 @@ Expected:
 
 ```bash
 ss extras remove agents --force -g >/dev/null 2>&1 || true
-rm -rf ~/.claude/agents 2>/dev/null || true
+rm -rf ~/.claude/agents ~/.config/skillshare/extras/agents 2>/dev/null || true
 mkdir -p ~/.config/skillshare/extras/agents/sub
 echo "# Keep" > ~/.config/skillshare/extras/agents/sub/keep.md
 echo "# Remove" > ~/.config/skillshare/extras/agents/sub/remove.md

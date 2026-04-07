@@ -1,8 +1,8 @@
 {
   "build": "cd /workspace && make build && /workspace/.devcontainer/ensure-skillshare-linux-binary.sh && /workspace/.devcontainer/ensure-mdproof.sh",
   "isolation": "per-runbook",
-  "step_setup": "cd $HOME",
-  "setup": "rm -rf /tmp/test-project /tmp/test-proj /tmp/extras-proj /tmp/copy-target /tmp/sym-target /tmp/test /tmp/bad-config.yaml /tmp/config-before.yaml 2>/dev/null; mkdir -p ~/.config ~/.local/share ~/.local/state ~/.cache ~/.claude ~/.codex; /workspace/bin/skillshare init -g --force --all-targets --no-git --no-skill",
+  "workdir": "$HOME",
+  "setup": "rm -rf /tmp/test-project /tmp/test-proj /tmp/extras-proj /tmp/copy-target /tmp/sym-target /tmp/test /tmp/bad-config.yaml /tmp/config-before.yaml 2>/dev/null; mkdir -p ~/.config ~/.local/share ~/.local/state ~/.cache ~/.claude ~/.codex; /workspace/bin/skillshare init -g --force --all-targets --no-git --no-skill 2>/dev/null || true",
   "teardown": "/workspace/bin/skillshare uninstall --all -g --force 2>/dev/null || true",
   "timeout": "5m"
 }

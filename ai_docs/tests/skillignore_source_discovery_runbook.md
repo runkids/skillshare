@@ -164,7 +164,7 @@ Expected:
 ### Step 9: Verify sync only creates symlinks for non-ignored skills
 
 ```bash
-ss sync -g 2>/dev/null
+ss sync -g >/dev/null 2>&1
 ls ~/.claude/skills/ | grep team-skills | sort
 ```
 
@@ -256,7 +256,7 @@ Expected:
 ### Step 13: Verify root .skillignore hides matching skills from list
 
 ```bash
-ss list --json -g | jq -r '[.[] | select(.name | test("draft")) | .name] | length'
+ss list --json -g | jq -r '[.[] | select(.name | test("draft")) | select(.disabled != true) | .name] | length'
 ```
 
 Expected:
@@ -270,7 +270,7 @@ SOURCE=~/.config/skillshare/skills
 
 printf "draft-*\n_team-skills\n" > "$SOURCE/.skillignore"
 
-ss list --json -g | jq -r '[.[] | select(.name | test("_team-skills")) | .name] | length'
+ss list --json -g | jq -r '[.[] | select(.name | test("_team-skills")) | select(.disabled != true) | .name] | length'
 ```
 
 Expected:

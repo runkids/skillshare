@@ -2,7 +2,8 @@ package sync
 
 import (
 	"path/filepath"
-	"strings"
+
+	"skillshare/internal/utils"
 )
 
 // shouldUseRelative returns true if both sourcePath and targetPath
@@ -13,10 +14,12 @@ func shouldUseRelative(projectRoot, sourcePath, targetPath string) bool {
 	if projectRoot == "" {
 		return false
 	}
-	root := filepath.Clean(projectRoot) + string(filepath.Separator)
+	cleaned := filepath.Clean(projectRoot)
+	prefix := cleaned + string(filepath.Separator)
 	src := filepath.Clean(sourcePath)
 	tgt := filepath.Clean(targetPath)
 
-	return (strings.HasPrefix(src, root) || src == filepath.Clean(projectRoot)) &&
-		(strings.HasPrefix(tgt, root) || tgt == filepath.Clean(projectRoot))
+	srcUnder := utils.PathHasPrefix(src, prefix) || utils.PathsEqual(src, cleaned)
+	tgtUnder := utils.PathHasPrefix(tgt, prefix) || utils.PathsEqual(tgt, cleaned)
+	return srcUnder && tgtUnder
 }
