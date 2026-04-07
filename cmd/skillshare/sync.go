@@ -459,7 +459,7 @@ func syncTargetWithSkillsStats(name string, target config.TargetConfig, cfg *con
 
 func syncMergeMode(name string, target config.TargetConfig, source string, dryRun, force bool) error {
 	sc := target.SkillsConfig()
-	result, err := sync.SyncTargetMerge(name, target, source, dryRun, force)
+	result, err := sync.SyncTargetMerge(name, target, source, dryRun, force, "")
 	if err != nil {
 		return err
 	}
@@ -475,7 +475,7 @@ func syncMergeMode(name string, target config.TargetConfig, source string, dryRu
 
 func syncMergeModeWithSkills(name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, dryRun, force bool) (syncModeStats, error) {
 	sc := target.SkillsConfig()
-	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, source, dryRun, force)
+	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, source, dryRun, force, "")
 	if err != nil {
 		return syncModeStats{}, err
 	}
@@ -741,7 +741,7 @@ func syncSymlinkMode(name string, target config.TargetConfig, source string, dry
 		}
 	}
 
-	if err := sync.SyncTarget(name, target, source, dryRun); err != nil {
+	if err := sync.SyncTarget(name, target, source, dryRun, ""); err != nil {
 		return err
 	}
 

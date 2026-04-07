@@ -111,7 +111,7 @@ func TestSyncTargetMerge_SourceIsSymlink(t *testing.T) {
 	}
 
 	target := config.TargetConfig{Path: tgt, Mode: "merge"}
-	result, err := SyncTargetMerge("test", target, symlinkSource, false, false)
+	result, err := SyncTargetMerge("test", target, symlinkSource, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestSyncTargetMerge_TargetIsSymlink(t *testing.T) {
 	}
 
 	target := config.TargetConfig{Path: symlinkTarget, Mode: "merge"}
-	result, err := SyncTargetMerge("test", target, src, false, false)
+	result, err := SyncTargetMerge("test", target, src, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestSyncTargetMerge_BothSourceAndTargetAreSymlinks(t *testing.T) {
 	}
 
 	target := config.TargetConfig{Path: symlinkTarget, Mode: "merge"}
-	result, err := SyncTargetMerge("test", target, symlinkSource, false, false)
+	result, err := SyncTargetMerge("test", target, symlinkSource, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -250,7 +250,7 @@ func TestSyncTargetMerge_ChainedSourceSymlink(t *testing.T) {
 	}
 
 	target := config.TargetConfig{Path: tgt, Mode: "merge"}
-	result, err := SyncTargetMerge("test", target, link2, false, false)
+	result, err := SyncTargetMerge("test", target, link2, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +282,7 @@ func TestSyncTargetMerge_ChainedTargetSymlink(t *testing.T) {
 	}
 
 	target := config.TargetConfig{Path: link2, Mode: "merge"}
-	result, err := SyncTargetMerge("test", target, src, false, false)
+	result, err := SyncTargetMerge("test", target, src, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -317,7 +317,7 @@ func TestSyncTargetMerge_IdempotentWithSymlinkedSource(t *testing.T) {
 	target := config.TargetConfig{Path: tgt, Mode: "merge"}
 
 	// First sync
-	r1, err := SyncTargetMerge("test", target, symlinkSource, false, false)
+	r1, err := SyncTargetMerge("test", target, symlinkSource, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +326,7 @@ func TestSyncTargetMerge_IdempotentWithSymlinkedSource(t *testing.T) {
 	}
 
 	// Second sync — should detect already-linked
-	r2, err := SyncTargetMerge("test", target, symlinkSource, false, false)
+	r2, err := SyncTargetMerge("test", target, symlinkSource, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +357,7 @@ func TestPruneOrphanLinks_TargetIsSymlink(t *testing.T) {
 
 	// Sync two skills
 	writeSkillMD(t, filepath.Join(src, "gone"), "---\nname: gone\n---\n# Gone")
-	if _, err := SyncTargetMerge("test", target, src, false, false); err != nil {
+	if _, err := SyncTargetMerge("test", target, src, false, false, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -463,7 +463,7 @@ func TestSyncTargetMerge_ManifestCorrectThroughSymlink(t *testing.T) {
 	}
 
 	target := config.TargetConfig{Path: symlinkTarget, Mode: "merge"}
-	if _, err := SyncTargetMerge("test", target, src, false, false); err != nil {
+	if _, err := SyncTargetMerge("test", target, src, false, false, ""); err != nil {
 		t.Fatal(err)
 	}
 

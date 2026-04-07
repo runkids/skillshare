@@ -212,23 +212,26 @@ func MigrateToSource(targetPath, sourcePath string) error {
 	return nil
 }
 
-// CreateSymlink creates a symlink (or junction on Windows) from target to source
-func CreateSymlink(targetPath, sourcePath string) error {
+// CreateSymlink creates a symlink (or junction on Windows) from target to source.
+// When projectRoot is non-empty and both paths reside under it, a relative symlink is created.
+func CreateSymlink(targetPath, sourcePath, projectRoot string) error {
+	relative := shouldUseRelative(projectRoot, sourcePath, targetPath)
 	// Ensure target parent exists
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
 		return fmt.Errorf("failed to create target parent: %w", err)
 	}
 
 	// Create link (uses junction on Windows, symlink on Unix)
-	if err := createLink(targetPath, sourcePath, false); err != nil {
+	if err := createLink(targetPath, sourcePath, relative); err != nil {
 		return fmt.Errorf("failed to create link: %w", err)
 	}
 
 	return nil
 }
 
-// SyncTarget performs the sync operation for a single target
-func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryRun bool) error {
+// SyncTarget performs the sync operation for a single target.
+// projectRoot enables relative symlinks when non-empty.
+func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryRun bool, projectRoot string) error {
 	sc := target.SkillsConfig()
 
 	// Remove manifest if present (merge/copy → symlink conversion)
@@ -248,7 +251,7 @@ func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryR
 			fmt.Fprintf(DiagOutput, "[dry-run] Would create symlink: %s -> %s\n", sc.Path, sourcePath)
 			return nil
 		}
-		return CreateSymlink(sc.Path, sourcePath)
+		return CreateSymlink(sc.Path, sourcePath, projectRoot)
 
 	case StatusHasFiles:
 		if dryRun {
@@ -258,7 +261,7 @@ func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryR
 		if err := MigrateToSource(sc.Path, sourcePath); err != nil {
 			return err
 		}
-		return CreateSymlink(sc.Path, sourcePath)
+		return CreateSymlink(sc.Path, sourcePath, projectRoot)
 
 	case StatusConflict:
 		link, err := utils.ResolveLinkTarget(sc.Path)
@@ -273,7 +276,7 @@ func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryR
 			return nil
 		}
 		os.Remove(sc.Path)
-		return CreateSymlink(sc.Path, sourcePath)
+		return CreateSymlink(sc.Path, sourcePath, projectRoot)
 
 	default:
 		return fmt.Errorf("unknown target status: %s", status)
@@ -474,19 +477,20 @@ func ensureRealTargetDir(targetPath, sourcePath, modeName string, dryRun bool) (
 // while preserving target-specific skills.
 // Supports nested skills: source path "personal/writing/email" becomes target symlink "personal__writing__email"
 // If force is true, local copies will be replaced with symlinks.
-func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun, force bool) (*MergeResult, error) {
+func SyncTargetMerge(name string, target config.TargetConfig, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
 	skills, err := DiscoverSourceSkills(sourcePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to discover skills: %w", err)
 	}
-	return SyncTargetMergeWithSkills(name, target, skills, sourcePath, dryRun, force)
+	return SyncTargetMergeWithSkills(name, target, skills, sourcePath, dryRun, force, projectRoot)
 }
 
 // SyncTargetMergeWithSkills is like SyncTargetMerge but accepts pre-discovered skills,
 // avoiding redundant filesystem walks when syncing multiple targets.
 // sourcePath is the skills source directory, used to detect symlink-mode targets.
-func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool) (*MergeResult, error) {
+func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkills []DiscoveredSkill, sourcePath string, dryRun, force bool, projectRoot string) (*MergeResult, error) {
 	sc := target.SkillsConfig()
+	relative := shouldUseRelative(projectRoot, sourcePath, sc.Path)
 	result := &MergeResult{}
 
 	// Convert from symlink mode if needed, auto-create if missing.
@@ -550,7 +554,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 					}
 				} else {
 					os.Remove(targetSkillPath)
-					if err := createLink(targetSkillPath, skill.SourcePath, false); err != nil {
+					if err := createLink(targetSkillPath, skill.SourcePath, relative); err != nil {
 						return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 					}
 				}
@@ -567,7 +571,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 						if err := os.RemoveAll(targetSkillPath); err != nil {
 							return nil, fmt.Errorf("failed to remove local copy %s: %w", activeName, err)
 						}
-						if err := createLink(targetSkillPath, skill.SourcePath, false); err != nil {
+						if err := createLink(targetSkillPath, skill.SourcePath, relative); err != nil {
 							return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 						}
 					}
@@ -584,7 +588,7 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 					fmt.Fprintf(DiagOutput, "[dry-run] Would create link: %s -> %s\n", targetSkillPath, skill.SourcePath)
 				}
 			} else {
-				if err := createLink(targetSkillPath, skill.SourcePath, false); err != nil {
+				if err := createLink(targetSkillPath, skill.SourcePath, relative); err != nil {
 					return nil, fmt.Errorf("failed to create link for %s: %w", activeName, err)
 				}
 			}

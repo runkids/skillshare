@@ -202,7 +202,7 @@ func collectSyncResult(name string, target config.TargetConfig, source, mode str
 
 func collectMergeSyncResult(r *syncTargetResult, name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, dryRun, force bool) {
 	sc := target.SkillsConfig()
-	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, source, dryRun, force)
+	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, source, dryRun, force, "")
 	if err != nil {
 		r.errMsg = err.Error()
 		return
@@ -320,7 +320,7 @@ func collectSymlinkSyncResult(r *syncTargetResult, name string, target config.Ta
 		os.Remove(sc.Path)
 	}
 
-	if err := sync.SyncTarget(name, target, source, dryRun); err != nil {
+	if err := sync.SyncTarget(name, target, source, dryRun, ""); err != nil {
 		r.errMsg = err.Error()
 		return
 	}

@@ -313,7 +313,7 @@ func checkSymlinkSupport(result *doctorResult) {
 	defer os.RemoveAll(testTarget)
 
 	// Use sync.CreateSymlink which handles Windows junctions
-	if err := sync.CreateSymlink(testLink, testTarget); err != nil {
+	if err := sync.CreateSymlink(testLink, testTarget, ""); err != nil {
 		ui.Error("Link not supported: %v", err)
 		result.addError()
 		result.addCheck("symlink_support", checkError, fmt.Sprintf("Link not supported: %v", err), nil)

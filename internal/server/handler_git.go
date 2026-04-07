@@ -402,7 +402,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 
 			switch mode {
 			case "merge":
-				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, src, false, false)
+				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, src, false, false, "")
 				if err == nil {
 					res.Linked = mergeResult.Linked
 					res.Updated = mergeResult.Updated
@@ -427,7 +427,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 					res.Pruned = pruneResult.Removed
 				}
 			default:
-				ssync.SyncTarget(name, target, src, false)
+				ssync.SyncTarget(name, target, src, false, "")
 				res.Linked = []string{"(symlink mode)"}
 			}
 
