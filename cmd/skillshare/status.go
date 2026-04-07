@@ -1,15 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	gosync "sync"
-	"time"
 
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
@@ -17,6 +14,7 @@ import (
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
+	versioncheck "skillshare/internal/version"
 )
 
 // statusJSONOutput is the JSON representation for status --json output.
@@ -477,8 +475,7 @@ func checkSkillVersion(cfg *config.Config) {
 	ui.Success("CLI: %s", version)
 
 	// Skill version
-	skillFile := filepath.Join(cfg.Source, "skillshare", "SKILL.md")
-	localVersion := readSkillVersion(skillFile)
+	localVersion := versioncheck.ReadLocalSkillVersion(cfg.Source)
 
 	if localVersion == "" {
 		ui.Warning("Skill: not found or missing version")
@@ -487,7 +484,7 @@ func checkSkillVersion(cfg *config.Config) {
 	}
 
 	// Fetch remote version (with short timeout)
-	remoteVersion := fetchRemoteSkillVersion()
+	remoteVersion := versioncheck.FetchRemoteSkillVersion()
 	if remoteVersion == "" {
 		// Network error - just show local version
 		ui.Info("Skill: %s", localVersion)
@@ -501,43 +498,6 @@ func checkSkillVersion(cfg *config.Config) {
 	} else {
 		ui.Success("Skill: %s (up to date)", localVersion)
 	}
-}
-
-func fetchRemoteSkillVersion() string {
-	client := &http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get(skillshareSkillURL)
-	if err != nil {
-		return ""
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return ""
-	}
-
-	scanner := bufio.NewScanner(resp.Body)
-	inFrontmatter := false
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if line == "---" {
-			if !inFrontmatter {
-				inFrontmatter = true
-				continue
-			}
-			break
-		}
-
-		if inFrontmatter && strings.HasPrefix(line, "version:") {
-			parts := strings.SplitN(line, ":", 2)
-			if len(parts) == 2 {
-				return strings.TrimSpace(parts[1])
-			}
-		}
-	}
-
-	return ""
 }
 
 func printStatusHelp() {
@@ -557,35 +517,3 @@ Examples:
   skillshare status -p           Show project status`)
 }
 
-func readSkillVersion(skillFile string) string {
-	file, err := os.Open(skillFile)
-	if err != nil {
-		return ""
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	inFrontmatter := false
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if line == "---" {
-			if !inFrontmatter {
-				inFrontmatter = true
-				continue
-			}
-			// End of frontmatter
-			break
-		}
-
-		if inFrontmatter && strings.HasPrefix(line, "version:") {
-			parts := strings.SplitN(line, ":", 2)
-			if len(parts) == 2 {
-				return strings.TrimSpace(parts[1])
-			}
-		}
-	}
-
-	return ""
-}

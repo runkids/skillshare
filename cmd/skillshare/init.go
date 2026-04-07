@@ -24,7 +24,6 @@ import (
 )
 
 const skillshareSkillSource = "github.com/runkids/skillshare/skills/skillshare"
-const skillshareSkillURL = "https://raw.githubusercontent.com/runkids/skillshare/main/skills/skillshare/SKILL.md"
 const remoteFetchTimeout = 15 * time.Second
 
 // initOptions holds all parsed arguments for the init command
