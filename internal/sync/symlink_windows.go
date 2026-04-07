@@ -39,7 +39,11 @@ func createLink(linkPath, sourcePath string, relative bool) error {
 
 	// If relative requested, try os.Symlink with relative path first
 	if relative {
-		rel, relErr := filepath.Rel(filepath.Dir(absTarget), absSource)
+		// Resolve real paths: OS resolves relative symlinks from the
+		// real parent directory, not the lexical one.
+		linkDir := evalOrClean(filepath.Dir(absTarget))
+		src := evalOrClean(absSource)
+		rel, relErr := filepath.Rel(linkDir, src)
 		if relErr == nil {
 			if symlinkErr := os.Symlink(rel, linkPath); symlinkErr == nil {
 				return nil

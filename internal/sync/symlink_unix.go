@@ -13,8 +13,11 @@ import (
 func createLink(linkPath, sourcePath string, relative bool) error {
 	target := sourcePath
 	if relative {
-		rel, err := filepath.Rel(filepath.Dir(linkPath), sourcePath)
-		if err == nil {
+		// Resolve real paths: the OS resolves relative symlinks from
+		// the real parent directory, not the lexical one.
+		linkDir := evalOrClean(filepath.Dir(linkPath))
+		src := evalOrClean(sourcePath)
+		if rel, err := filepath.Rel(linkDir, src); err == nil {
 			target = rel
 		}
 	}

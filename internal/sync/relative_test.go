@@ -1,6 +1,8 @@
 package sync
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -85,6 +87,52 @@ func TestShouldUseRelative_CleansPaths(t *testing.T) {
 	}
 }
 
+func TestShouldUseRelative_SymlinkedProjectRoot(t *testing.T) {
+	tmp, _ := filepath.EvalSymlinks(t.TempDir())
+	realProject := filepath.Join(tmp, "real-project")
+	os.MkdirAll(filepath.Join(realProject, ".skillshare", "skills"), 0755)
+	os.MkdirAll(filepath.Join(realProject, ".claude", "skills"), 0755)
+
+	symlinkProject := filepath.Join(tmp, "workspace")
+	if err := os.Symlink(realProject, symlinkProject); err != nil {
+		t.Skip("symlinks not supported:", err)
+	}
+
+	// Symlinked root: both resolve under the real project
+	got := shouldUseRelative(
+		symlinkProject,
+		filepath.Join(symlinkProject, ".skillshare", "skills"),
+		filepath.Join(symlinkProject, ".claude", "skills"),
+	)
+	if !got {
+		t.Error("expected true: both paths under symlinked project root")
+	}
+}
+
+func TestShouldUseRelative_DivergentSymlink(t *testing.T) {
+	tmp, _ := filepath.EvalSymlinks(t.TempDir())
+	realProject := filepath.Join(tmp, "project")
+	otherDir := filepath.Join(tmp, "other")
+	os.MkdirAll(filepath.Join(realProject, ".skillshare", "skills"), 0755)
+	os.MkdirAll(filepath.Join(otherDir, "skills"), 0755)
+
+	// Symlink .claude/skills to outside the project
+	os.MkdirAll(filepath.Join(realProject, ".claude"), 0755)
+	if err := os.Symlink(filepath.Join(otherDir, "skills"), filepath.Join(realProject, ".claude", "skills")); err != nil {
+		t.Skip("symlinks not supported:", err)
+	}
+
+	// Target resolves to outside project root → should use absolute
+	got := shouldUseRelative(
+		realProject,
+		filepath.Join(realProject, ".skillshare", "skills"),
+		filepath.Join(realProject, ".claude", "skills"),
+	)
+	if got {
+		t.Error("expected false: target symlink resolves outside project root")
+	}
+}
+
 func TestResolveReadlink(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -134,5 +182,45 @@ func TestLinkNeedsReformat(t *testing.T) {
 				t.Errorf("linkNeedsReformat(%q, %v) = %v, want %v", tt.dest, tt.wantRelative, got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestReformatLink(t *testing.T) {
+	tmp, _ := filepath.EvalSymlinks(t.TempDir())
+	source := filepath.Join(tmp, "source")
+	os.MkdirAll(source, 0755)
+
+	link := filepath.Join(tmp, "link")
+	os.Symlink(source, link)
+
+	// Verify setup: absolute link
+	dest, _ := os.Readlink(link)
+	if !filepath.IsAbs(dest) {
+		t.Fatal("setup: link should be absolute")
+	}
+
+	// Reformat to relative (atomic)
+	if err := reformatLink(link, source, true); err != nil {
+		t.Fatalf("reformatLink: %v", err)
+	}
+
+	// Verify: now relative
+	dest, _ = os.Readlink(link)
+	if filepath.IsAbs(dest) {
+		t.Errorf("after reformat, link should be relative, got %q", dest)
+	}
+
+	// Verify: still resolves correctly
+	resolved, err := filepath.EvalSymlinks(link)
+	if err != nil {
+		t.Fatalf("symlink should resolve: %v", err)
+	}
+	if resolved != source {
+		t.Errorf("resolved = %q, want %q", resolved, source)
+	}
+
+	// Verify: no temp file left behind
+	if _, err := os.Lstat(link + ".ss-reformat"); err == nil {
+		t.Error("temp file should be cleaned up")
 	}
 }
