@@ -129,7 +129,7 @@ func cmdSync(args []string) error {
 				if loadErr == nil && len(projCfg.Extras) > 0 {
 					extrasEntries := runExtrasSyncEntries(projCfg.Extras, func(extra config.ExtraConfig) string {
 						return config.ExtrasSourceDirProject(cwd, extra.Name)
-					}, dryRun, force)
+					}, dryRun, force, cwd)
 					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, extrasEntries)
 				}
 			}
@@ -255,7 +255,7 @@ func cmdSync(args []string) error {
 		if hasAll && len(cfg.Extras) > 0 {
 			extrasEntries := runExtrasSyncEntries(cfg.Extras, func(extra config.ExtraConfig) string {
 				return config.ResolveExtrasSourceDir(extra, cfg.ExtrasSource, cfg.Source)
-			}, dryRun, force)
+			}, dryRun, force, "")
 			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, extrasEntries)
 		}
 		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr)

@@ -69,7 +69,7 @@ func DiscoverExtraFiles(sourcePath string) ([]string, error) {
 //
 // When dryRun is true the function counts what would happen but makes no
 // filesystem changes.
-func SyncExtra(sourcePath, targetPath, mode string, dryRun, force, flatten bool) (*ExtraResult, error) {
+func SyncExtra(sourcePath, targetPath, mode string, dryRun, force, flatten bool, projectRoot string) (*ExtraResult, error) {
 	if mode == "" {
 		mode = "merge"
 	}
@@ -79,16 +79,16 @@ func SyncExtra(sourcePath, targetPath, mode string, dryRun, force, flatten bool)
 
 	switch mode {
 	case "symlink":
-		return syncExtraSymlinkMode(sourcePath, targetPath, dryRun, force)
+		return syncExtraSymlinkMode(sourcePath, targetPath, dryRun, force, projectRoot)
 	case "merge", "copy":
-		return syncExtraPerFile(sourcePath, targetPath, mode, dryRun, force, flatten)
+		return syncExtraPerFile(sourcePath, targetPath, mode, dryRun, force, flatten, projectRoot)
 	default:
 		return nil, fmt.Errorf("unsupported extras sync mode: %q", mode)
 	}
 }
 
 // syncExtraSymlinkMode symlinks the entire source directory to the target path.
-func syncExtraSymlinkMode(sourcePath, targetPath string, dryRun, force bool) (*ExtraResult, error) {
+func syncExtraSymlinkMode(sourcePath, targetPath string, dryRun, force bool, projectRoot string) (*ExtraResult, error) {
 	result := &ExtraResult{}
 
 	absSrc, err := filepath.Abs(sourcePath)
@@ -138,7 +138,8 @@ func syncExtraSymlinkMode(sourcePath, targetPath string, dryRun, force bool) (*E
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
 		return nil, fmt.Errorf("failed to create parent directory: %w", err)
 	}
-	if err := os.Symlink(absSrc, targetPath); err != nil {
+	relative := shouldUseRelative(projectRoot, absSrc, targetPath)
+	if err := createLink(targetPath, absSrc, relative); err != nil {
 		return nil, fmt.Errorf("failed to create directory symlink: %w", err)
 	}
 	result.Synced = 1
@@ -146,7 +147,7 @@ func syncExtraSymlinkMode(sourcePath, targetPath string, dryRun, force bool) (*E
 }
 
 // syncExtraPerFile handles merge (symlink) and copy modes on a per-file basis.
-func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatten bool) (*ExtraResult, error) {
+func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatten bool, projectRoot string) (*ExtraResult, error) {
 	result := &ExtraResult{}
 
 	files, err := DiscoverExtraFiles(sourcePath)
@@ -177,7 +178,7 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatte
 		}
 		tgtFile := filepath.Join(targetPath, tgtRel)
 
-		synced, skipped, syncErr := syncOneExtraFile(srcFile, tgtFile, mode, dryRun, force)
+		synced, skipped, syncErr := syncOneExtraFile(srcFile, tgtFile, mode, dryRun, force, projectRoot)
 		if syncErr != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", rel, syncErr))
 			continue
@@ -207,7 +208,7 @@ func syncExtraPerFile(sourcePath, targetPath, mode string, dryRun, force, flatte
 }
 
 // syncOneExtraFile syncs a single file. Returns (synced, skipped, error).
-func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force bool) (int, int, error) {
+func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force bool, projectRoot string) (int, int, error) {
 	// Ensure parent directory exists
 	if !dryRun {
 		if err := os.MkdirAll(filepath.Dir(tgtFile), 0755); err != nil {
@@ -256,7 +257,8 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force bool) (int, i
 
 	switch mode {
 	case "merge":
-		if err := os.Symlink(srcFile, tgtFile); err != nil {
+		relative := shouldUseRelative(projectRoot, srcFile, tgtFile)
+		if err := createLink(tgtFile, srcFile, relative); err != nil {
 			return 0, 0, fmt.Errorf("failed to create symlink: %w", err)
 		}
 	case "copy":
@@ -442,7 +444,7 @@ type ExtraCollectResult struct {
 // copies them to sourceDir, and replaces originals with symlinks.
 // When flatten is true, collected files are placed in the source root
 // (basename only) rather than preserving the target subdirectory structure.
-func CollectExtraFiles(sourceDir, targetDir string, dryRun, flatten bool) (*ExtraCollectResult, error) {
+func CollectExtraFiles(sourceDir, targetDir string, dryRun, flatten bool, projectRoot string) (*ExtraCollectResult, error) {
 	result := &ExtraCollectResult{}
 
 	if _, err := os.Stat(targetDir); os.IsNotExist(err) {
@@ -527,7 +529,8 @@ func CollectExtraFiles(sourceDir, targetDir string, dryRun, flatten bool) (*Extr
 			return nil
 		}
 
-		if err := os.Symlink(destPath, path); err != nil {
+		relative := shouldUseRelative(projectRoot, destPath, path)
+		if err := createLink(path, destPath, relative); err != nil {
 			result.Errors = append(result.Errors, fmt.Sprintf("symlink failed: %v", err))
 			return nil
 		}

@@ -64,7 +64,7 @@ func TestSyncExtra_MergeMode(t *testing.T) {
 		"config.yml": "key: value",
 	})
 
-	result, err := SyncExtra(src, tgt, "merge", false, false, false)
+	result, err := SyncExtra(src, tgt, "merge", false, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestSyncExtra_CopyMode(t *testing.T) {
 		"readme.txt": "hello world",
 	})
 
-	result, err := SyncExtra(src, tgt, "copy", false, false, false)
+	result, err := SyncExtra(src, tgt, "copy", false, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestSyncExtra_ConflictSkipped(t *testing.T) {
 	// Pre-create a local file at the target
 	os.WriteFile(filepath.Join(tgt, "conflict.md"), []byte("local version"), 0644)
 
-	result, err := SyncExtra(src, tgt, "merge", false, false, false)
+	result, err := SyncExtra(src, tgt, "merge", false, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +162,7 @@ func TestSyncExtra_ConflictForce(t *testing.T) {
 	// Pre-create a local file at the target
 	os.WriteFile(filepath.Join(tgt, "conflict.md"), []byte("local version"), 0644)
 
-	result, err := SyncExtra(src, tgt, "merge", false, true, false)
+	result, err := SyncExtra(src, tgt, "merge", false, true, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestSyncExtra_NestedDirectories(t *testing.T) {
 		filepath.Join("a", "b", "deep.md"): "deep content",
 	})
 
-	result, err := SyncExtra(src, tgt, "merge", false, false, false)
+	result, err := SyncExtra(src, tgt, "merge", false, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,7 @@ func TestSyncExtra_NestedDirectories(t *testing.T) {
 func TestSyncExtra_EmptySource(t *testing.T) {
 	src, tgt := setupExtrasTest(t, map[string]string{})
 
-	result, err := SyncExtra(src, tgt, "merge", false, false, false)
+	result, err := SyncExtra(src, tgt, "merge", false, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +223,7 @@ func TestSyncExtra_EmptySource(t *testing.T) {
 
 func TestSyncExtra_SourceNotExist(t *testing.T) {
 	tgt := t.TempDir()
-	_, err := SyncExtra("/nonexistent/extras/source", tgt, "merge", false, false, false)
+	_, err := SyncExtra("/nonexistent/extras/source", tgt, "merge", false, false, false, "")
 	if err == nil {
 		t.Error("expected error for non-existent source")
 	}
@@ -237,7 +237,7 @@ func TestSyncExtra_DryRun(t *testing.T) {
 		"beta.md":  "b",
 	})
 
-	result, err := SyncExtra(src, tgt, "merge", true, false, false)
+	result, err := SyncExtra(src, tgt, "merge", true, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -260,7 +260,7 @@ func TestSyncExtra_Idempotent(t *testing.T) {
 	})
 
 	// First sync
-	r1, err := SyncExtra(src, tgt, "merge", false, false, false)
+	r1, err := SyncExtra(src, tgt, "merge", false, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +269,7 @@ func TestSyncExtra_Idempotent(t *testing.T) {
 	}
 
 	// Second sync — should still report synced (already correct)
-	r2, err := SyncExtra(src, tgt, "merge", false, false, false)
+	r2, err := SyncExtra(src, tgt, "merge", false, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +290,7 @@ func TestSyncExtra_PrunesOrphans(t *testing.T) {
 	})
 
 	// First sync both files
-	_, err := SyncExtra(src, tgt, "merge", false, false, false)
+	_, err := SyncExtra(src, tgt, "merge", false, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -299,7 +299,7 @@ func TestSyncExtra_PrunesOrphans(t *testing.T) {
 	os.Remove(filepath.Join(src, "remove.md"))
 
 	// Sync again — should prune orphan
-	result, err := SyncExtra(src, tgt, "merge", false, false, false)
+	result, err := SyncExtra(src, tgt, "merge", false, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -328,7 +328,7 @@ func TestCollectExtraFiles(t *testing.T) {
 	os.MkdirAll(targetDir, 0755)
 	os.WriteFile(filepath.Join(targetDir, "rule1.md"), []byte("# Rule 1"), 0644)
 
-	result, err := CollectExtraFiles(sourceDir, targetDir, false, false)
+	result, err := CollectExtraFiles(sourceDir, targetDir, false, false, "")
 	if err != nil {
 		t.Fatalf("CollectExtraFiles: %v", err)
 	}
@@ -363,7 +363,7 @@ func TestCollectExtraFiles_DryRun(t *testing.T) {
 	os.MkdirAll(targetDir, 0755)
 	os.WriteFile(filepath.Join(targetDir, "rule1.md"), []byte("# Rule 1"), 0644)
 
-	result, err := CollectExtraFiles(sourceDir, targetDir, true, false)
+	result, err := CollectExtraFiles(sourceDir, targetDir, true, false, "")
 	if err != nil {
 		t.Fatalf("CollectExtraFiles dry run: %v", err)
 	}
@@ -397,7 +397,7 @@ func TestCollectExtraFiles_SkipsExisting(t *testing.T) {
 	os.WriteFile(filepath.Join(sourceDir, "rule1.md"), []byte("source version"), 0644)
 	os.WriteFile(filepath.Join(targetDir, "rule1.md"), []byte("target version"), 0644)
 
-	result, err := CollectExtraFiles(sourceDir, targetDir, false, false)
+	result, err := CollectExtraFiles(sourceDir, targetDir, false, false, "")
 	if err != nil {
 		t.Fatalf("CollectExtraFiles: %v", err)
 	}
@@ -420,7 +420,7 @@ func TestSyncExtra_SymlinkMode(t *testing.T) {
 	tmp := t.TempDir()
 	tgt := filepath.Join(tmp, "extras-link")
 
-	result, err := SyncExtra(src, tgt, "symlink", false, false, false)
+	result, err := SyncExtra(src, tgt, "symlink", false, false, false, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -462,7 +462,7 @@ func TestSyncExtra_FlattenMerge(t *testing.T) {
 		"sub2/b.md": "# B from sub2",
 		"root.md":   "# Root",
 	})
-	result, err := SyncExtra(src, tgt, "merge", false, false, true)
+	result, err := SyncExtra(src, tgt, "merge", false, false, true, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -488,7 +488,7 @@ func TestSyncExtra_FlattenCopy(t *testing.T) {
 	src, tgt := setupExtrasTest(t, map[string]string{
 		"deep/nested/file.md": "# Deep",
 	})
-	result, err := SyncExtra(src, tgt, "copy", false, false, true)
+	result, err := SyncExtra(src, tgt, "copy", false, false, true, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -514,7 +514,7 @@ func TestSyncExtra_FlattenCollision(t *testing.T) {
 		"sub1/conflict.md": "# From sub1",
 		"sub2/conflict.md": "# From sub2",
 	})
-	result, err := SyncExtra(src, tgt, "merge", false, false, true)
+	result, err := SyncExtra(src, tgt, "merge", false, false, true, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -540,7 +540,7 @@ func TestSyncExtra_FlattenPrune(t *testing.T) {
 	src, tgt := setupExtrasTest(t, map[string]string{
 		"sub/keep.md": "# Keep",
 	})
-	_, err := SyncExtra(src, tgt, "merge", false, false, true)
+	_, err := SyncExtra(src, tgt, "merge", false, false, true, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -550,7 +550,7 @@ func TestSyncExtra_FlattenPrune(t *testing.T) {
 	os.Symlink(orphanSrc, filepath.Join(tgt, "removed.md"))
 	os.RemoveAll(filepath.Join(src, "old"))
 
-	result, err := SyncExtra(src, tgt, "merge", false, false, true)
+	result, err := SyncExtra(src, tgt, "merge", false, false, true, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -569,7 +569,7 @@ func TestSyncExtra_FlattenDryRun(t *testing.T) {
 	src, tgt := setupExtrasTest(t, map[string]string{
 		"sub/file.md": "content",
 	})
-	result, err := SyncExtra(src, tgt, "merge", true, false, true)
+	result, err := SyncExtra(src, tgt, "merge", true, false, true, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -587,7 +587,7 @@ func TestSyncExtra_FlattenDryRunCollision(t *testing.T) {
 		"a/same.md": "# A",
 		"b/same.md": "# B",
 	})
-	result, err := SyncExtra(src, tgt, "merge", true, false, true)
+	result, err := SyncExtra(src, tgt, "merge", true, false, true, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -606,14 +606,14 @@ func TestSyncExtra_FlattenIdempotent(t *testing.T) {
 	src, tgt := setupExtrasTest(t, map[string]string{
 		"sub/file.md": "content",
 	})
-	r1, err := SyncExtra(src, tgt, "merge", false, false, true)
+	r1, err := SyncExtra(src, tgt, "merge", false, false, true, "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if r1.Synced != 1 {
 		t.Fatalf("first sync: expected 1 synced, got %d", r1.Synced)
 	}
-	r2, err := SyncExtra(src, tgt, "merge", false, false, true)
+	r2, err := SyncExtra(src, tgt, "merge", false, false, true, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -641,7 +641,7 @@ func TestCollectExtraFiles_Flatten(t *testing.T) {
 	// New local file in target (not from source)
 	os.WriteFile(filepath.Join(targetDir, "new-agent.md"), []byte("# New Agent"), 0644)
 
-	result, err := CollectExtraFiles(sourceDir, targetDir, false, true)
+	result, err := CollectExtraFiles(sourceDir, targetDir, false, true, "")
 	if err != nil {
 		t.Fatalf("CollectExtraFiles: %v", err)
 	}
@@ -672,7 +672,7 @@ func TestCollectExtraFiles_FlattenSkipsExisting(t *testing.T) {
 	os.WriteFile(filepath.Join(sourceDir, "conflict.md"), []byte("source version"), 0644)
 	os.WriteFile(filepath.Join(targetDir, "conflict.md"), []byte("target version"), 0644)
 
-	result, err := CollectExtraFiles(sourceDir, targetDir, false, true)
+	result, err := CollectExtraFiles(sourceDir, targetDir, false, true, "")
 	if err != nil {
 		t.Fatalf("CollectExtraFiles: %v", err)
 	}
@@ -716,7 +716,7 @@ func TestFlattenRel_Collision(t *testing.T) {
 
 func TestCheckSyncStatus_Synced(t *testing.T) {
 	src, tgt := setupExtrasTest(t, map[string]string{"rule.md": "# Rule"})
-	SyncExtra(src, tgt, "merge", false, false, false)
+	SyncExtra(src, tgt, "merge", false, false, false, "")
 	files, _ := DiscoverExtraFiles(src)
 	absSrc, _ := filepath.Abs(src)
 	if s := CheckSyncStatus(files, absSrc, tgt, "merge", false); s != "synced" {
@@ -737,7 +737,7 @@ func TestCheckSyncStatus_Drift(t *testing.T) {
 
 func TestCheckSyncStatus_FlattenSynced(t *testing.T) {
 	src, tgt := setupExtrasTest(t, map[string]string{"sub/file.md": "content"})
-	SyncExtra(src, tgt, "merge", false, false, true)
+	SyncExtra(src, tgt, "merge", false, false, true, "")
 	files, _ := DiscoverExtraFiles(src)
 	absSrc, _ := filepath.Abs(src)
 	if s := CheckSyncStatus(files, absSrc, tgt, "merge", true); s != "synced" {
@@ -761,7 +761,7 @@ func TestCheckSyncStatus_FlattenCollisionNotDrift(t *testing.T) {
 		"a/same.md": "# A",
 		"b/same.md": "# B",
 	})
-	SyncExtra(src, tgt, "merge", false, false, true)
+	SyncExtra(src, tgt, "merge", false, false, true, "")
 	files, _ := DiscoverExtraFiles(src)
 	absSrc, _ := filepath.Abs(src)
 	if s := CheckSyncStatus(files, absSrc, tgt, "merge", true); s != "synced" {
@@ -771,7 +771,7 @@ func TestCheckSyncStatus_FlattenCollisionNotDrift(t *testing.T) {
 
 func TestCheckSyncStatus_CopyMode(t *testing.T) {
 	src, tgt := setupExtrasTest(t, map[string]string{"file.md": "content"})
-	SyncExtra(src, tgt, "copy", false, false, false)
+	SyncExtra(src, tgt, "copy", false, false, false, "")
 	files, _ := DiscoverExtraFiles(src)
 	absSrc, _ := filepath.Abs(src)
 	if s := CheckSyncStatus(files, absSrc, tgt, "copy", false); s != "synced" {

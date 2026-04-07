@@ -133,7 +133,7 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 				mode = "merge"
 			}
 			targetPath := config.ExpandPath(target.Path)
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten)
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, "")
 			shortTarget := shortenPath(targetPath)
 
 			jsonTarget := syncExtrasJSONTarget{
@@ -280,7 +280,7 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 				targetPath = filepath.Join(cwd, targetPath)
 			}
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten)
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, cwd)
 			shortTarget := shortenPath(targetPath)
 
 			jsonTarget := syncExtrasJSONTarget{
@@ -383,7 +383,7 @@ func syncVerb(mode string) string {
 
 // runExtrasSync runs extras sync and returns JSON entries without printing.
 // Used by sync --all --json to merge extras into the skills JSON output.
-func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.ExtraConfig) string, dryRun, force bool) []syncExtrasJSONEntry {
+func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.ExtraConfig) string, dryRun, force bool, projectRoot string) []syncExtrasJSONEntry {
 	entries := make([]syncExtrasJSONEntry, 0, len(extras))
 	for _, extra := range extras {
 		extraSource := sourceFunc(extra)
@@ -402,7 +402,7 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 			}
 			targetPath := config.ExpandPath(target.Path)
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten)
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, projectRoot)
 			jt := syncExtrasJSONTarget{Path: targetPath, Mode: mode}
 			if syncErr != nil {
 				jt.Error = syncErr.Error()

@@ -80,7 +80,7 @@ func extrasCollectGlobal(name, fromPath string, dryRun bool, start time.Time) er
 
 	targetPath = config.ExpandPath(targetPath)
 	sourceDir := config.ResolveExtrasSourceDir(*extra, cfg.ExtrasSource, cfg.Source)
-	return runCollect(sourceDir, targetPath, extra.Name, dryRun, flatten, "global", config.ConfigPath(), start)
+	return runCollect(sourceDir, targetPath, extra.Name, dryRun, flatten, "global", config.ConfigPath(), start, "")
 }
 
 func extrasCollectProject(cwd, name, fromPath string, dryRun bool, start time.Time) error {
@@ -101,7 +101,7 @@ func extrasCollectProject(cwd, name, fromPath string, dryRun bool, start time.Ti
 	}
 
 	sourceDir := config.ExtrasSourceDirProject(cwd, extra.Name)
-	return runCollect(sourceDir, targetPath, extra.Name, dryRun, flatten, "project", config.ProjectConfigPath(cwd), start)
+	return runCollect(sourceDir, targetPath, extra.Name, dryRun, flatten, "project", config.ProjectConfigPath(cwd), start, cwd)
 }
 
 // resolveCollectExtra finds the extra by name and determines target path and flatten flag.
@@ -139,12 +139,12 @@ func resolveCollectExtra(extras []config.ExtraConfig, name, fromPath string) (*c
 	return found, targetPath, flatten, nil
 }
 
-func runCollect(sourceDir, targetPath, name string, dryRun, flatten bool, scope, cfgPath string, start time.Time) error {
+func runCollect(sourceDir, targetPath, name string, dryRun, flatten bool, scope, cfgPath string, start time.Time, projectRoot string) error {
 	if dryRun {
 		ui.Warning("Dry run mode - no changes will be made")
 	}
 
-	result, err := sync.CollectExtraFiles(sourceDir, targetPath, dryRun, flatten)
+	result, err := sync.CollectExtraFiles(sourceDir, targetPath, dryRun, flatten, projectRoot)
 	if err != nil {
 		return err
 	}
