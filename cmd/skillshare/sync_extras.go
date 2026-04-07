@@ -144,7 +144,7 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 
 			if syncErr != nil {
 				if !jsonOutput {
-					ui.Warning("  %s: %v", shortTarget, syncErr)
+					ui.Warning("%s: %v", shortTarget, syncErr)
 				}
 				jsonTarget.Error = syncErr.Error()
 				jsonEntry.Targets = append(jsonEntry.Targets, jsonTarget)
@@ -174,11 +174,11 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 					if result.Pruned > 0 {
 						parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
 					}
-					ui.Success("  %s  %s (%s)", shortTarget, strings.Join(parts, ", "), mode)
+					ui.Success("%s  %s (%s)", shortTarget, strings.Join(parts, ", "), mode)
 				} else if result.Skipped > 0 {
-					ui.Warning("  %s  %d files skipped (use --force to override)", shortTarget, result.Skipped)
+					ui.Warning("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped)
 				} else {
-					ui.Success("  %s  up to date (%s)", shortTarget, mode)
+					ui.Success("%s  up to date (%s)", shortTarget, mode)
 				}
 
 				for _, e := range result.Errors {
@@ -300,7 +300,7 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 
 			if syncErr != nil {
 				if !jsonOutput {
-					ui.Warning("  %s: %v", shortTarget, syncErr)
+					ui.Warning("%s: %v", shortTarget, syncErr)
 				}
 				jsonTarget.Error = syncErr.Error()
 				jsonEntry.Targets = append(jsonEntry.Targets, jsonTarget)
@@ -329,11 +329,11 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 					if result.Pruned > 0 {
 						parts = append(parts, fmt.Sprintf("%d pruned", result.Pruned))
 					}
-					ui.Success("  %s  %s (%s)", shortTarget, strings.Join(parts, ", "), mode)
+					ui.Success("%s  %s (%s)", shortTarget, strings.Join(parts, ", "), mode)
 				} else if result.Skipped > 0 {
-					ui.Warning("  %s  %d files skipped (use --force to override)", shortTarget, result.Skipped)
+					ui.Warning("%s  %d files skipped (use --force to override)", shortTarget, result.Skipped)
 				} else {
-					ui.Success("  %s  up to date (%s)", shortTarget, mode)
+					ui.Success("%s  up to date (%s)", shortTarget, mode)
 				}
 
 				for _, e := range result.Errors {
