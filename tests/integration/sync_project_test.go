@@ -186,7 +186,7 @@ func TestSyncProject_RelativeSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("symlink should resolve: %v", err)
 	}
-	expected := filepath.Join(projectRoot, ".skillshare", "skills", "my-skill")
+	expected, _ := filepath.EvalSymlinks(filepath.Join(projectRoot, ".skillshare", "skills", "my-skill"))
 	if resolved != expected {
 		t.Errorf("resolved symlink = %q, want %q", resolved, expected)
 	}

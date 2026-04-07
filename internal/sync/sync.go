@@ -243,8 +243,18 @@ func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryR
 
 	switch status {
 	case StatusLinked:
-		// Already correct
-		return nil
+		relative := shouldUseRelative(projectRoot, sourcePath, sc.Path)
+		dest, _ := os.Readlink(sc.Path)
+		if !linkNeedsReformat(dest, relative) {
+			return nil
+		}
+		// Correct target but wrong format — recreate
+		if dryRun {
+			fmt.Fprintf(DiagOutput, "[dry-run] Would reformat symlink: %s\n", sc.Path)
+			return nil
+		}
+		os.Remove(sc.Path)
+		return CreateSymlink(sc.Path, sourcePath, projectRoot)
 
 	case StatusNotExist:
 		if dryRun {
@@ -544,8 +554,20 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 				absSource, _ := filepath.Abs(skill.SourcePath)
 
 				if utils.PathsEqual(absLink, absSource) {
-					// Already correctly linked
-					result.Linked = append(result.Linked, activeName)
+					rawDest, _ := os.Readlink(targetSkillPath)
+					if !linkNeedsReformat(rawDest, relative) {
+						// Already correctly linked with correct format
+						result.Linked = append(result.Linked, activeName)
+						continue
+					}
+					// Correct target but wrong format (abs↔rel) — recreate
+					if !dryRun {
+						os.Remove(targetSkillPath)
+						if err := createLink(targetSkillPath, skill.SourcePath, relative); err != nil {
+							return nil, fmt.Errorf("failed to reformat link for %s: %w", activeName, err)
+						}
+					}
+					result.Updated = append(result.Updated, activeName)
 					continue
 				}
 

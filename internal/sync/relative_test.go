@@ -77,3 +77,25 @@ func TestShouldUseRelative_CleansPaths(t *testing.T) {
 		t.Error("expected true for unclean but valid paths under project root")
 	}
 }
+
+func TestLinkNeedsReformat(t *testing.T) {
+	tests := []struct {
+		name         string
+		dest         string
+		wantRelative bool
+		expected     bool
+	}{
+		{"absolute dest wants relative", "/abs/path/to/skill", true, true},
+		{"absolute dest wants absolute", "/abs/path/to/skill", false, false},
+		{"relative dest wants relative", "../../.skillshare/skills/foo", true, false},
+		{"relative dest wants absolute", "../../.skillshare/skills/foo", false, true},
+		{"empty dest", "", true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := linkNeedsReformat(tt.dest, tt.wantRelative); got != tt.expected {
+				t.Errorf("linkNeedsReformat(%q, %v) = %v, want %v", tt.dest, tt.wantRelative, got, tt.expected)
+			}
+		})
+	}
+}

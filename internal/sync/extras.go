@@ -106,6 +106,20 @@ func syncExtraSymlinkMode(sourcePath, targetPath string, dryRun, force bool, pro
 			if readErr == nil {
 				absDest, _ := filepath.Abs(dest)
 				if absDest == absSrc {
+					relative := shouldUseRelative(projectRoot, absSrc, targetPath)
+					if !linkNeedsReformat(dest, relative) {
+						result.Synced = 1
+						return result, nil
+					}
+					// Correct target but wrong format (abs↔rel) — recreate
+					if dryRun {
+						result.Synced = 1
+						return result, nil
+					}
+					os.Remove(targetPath)
+					if err := createLink(targetPath, absSrc, relative); err != nil {
+						return nil, fmt.Errorf("failed to reformat directory symlink: %w", err)
+					}
 					result.Synced = 1
 					return result, nil
 				}
@@ -230,6 +244,18 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force, relative boo
 			if readErr == nil {
 				absDest, _ := filepath.Abs(dest)
 				if absDest == srcFile {
+					if !linkNeedsReformat(dest, relative) {
+						return 1, 0, nil
+					}
+					// Correct target but wrong format — recreate below
+					if !dryRun {
+						if err := os.Remove(tgtFile); err != nil {
+							return 0, 0, fmt.Errorf("failed to remove link for reformat: %w", err)
+						}
+						if err := createLink(tgtFile, srcFile, relative); err != nil {
+							return 0, 0, fmt.Errorf("failed to reformat symlink: %w", err)
+						}
+					}
 					return 1, 0, nil
 				}
 			}

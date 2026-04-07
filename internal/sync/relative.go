@@ -23,3 +23,12 @@ func shouldUseRelative(projectRoot, sourcePath, targetPath string) bool {
 	tgtUnder := utils.PathHasPrefix(tgt, prefix) || utils.PathsEqual(tgt, cleaned)
 	return srcUnder && tgtUnder
 }
+
+// linkNeedsReformat returns true if dest (the raw os.Readlink result)
+// uses the wrong format (relative vs absolute) for the desired mode.
+func linkNeedsReformat(dest string, wantRelative bool) bool {
+	if dest == "" {
+		return false
+	}
+	return wantRelative == filepath.IsAbs(dest)
+}
