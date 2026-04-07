@@ -42,5 +42,11 @@ func linkNeedsReformat(dest string, wantRelative bool) bool {
 	if dest == "" {
 		return false
 	}
+	if wantRelative && !canCreateRelativeLink() {
+		// Platform cannot create relative symlinks (e.g. Windows without
+		// Developer Mode falls back to junctions, which are always absolute).
+		// Skip reformat to avoid remove→recreate loop on every sync.
+		return false
+	}
 	return wantRelative == filepath.IsAbs(dest)
 }

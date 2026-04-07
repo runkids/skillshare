@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	gosync "sync"
 )
 
 // createLink creates a directory junction on Windows (no admin required).
@@ -71,6 +72,31 @@ func createLink(linkPath, sourcePath string, relative bool) error {
 	errMsg = fmt.Sprintf("%s\n  target: %s\n  source: %s", errMsg, absTarget, absSource)
 
 	return errors.New(errMsg)
+}
+
+// canCreateRelativeLink probes whether the OS can create relative symlinks.
+// On Windows this requires Developer Mode; without it createLink falls back
+// to junctions which are always absolute.
+var relativeProbe struct {
+	once gosync.Once
+	ok   bool
+}
+
+func canCreateRelativeLink() bool {
+	relativeProbe.once.Do(func() {
+		dir, err := os.MkdirTemp("", "ss-relprobe-*")
+		if err != nil {
+			return
+		}
+		defer os.RemoveAll(dir)
+		target := filepath.Join(dir, "t")
+		if err := os.Mkdir(target, 0755); err != nil {
+			return
+		}
+		link := filepath.Join(dir, "l")
+		relativeProbe.ok = os.Symlink("t", link) == nil
+	})
+	return relativeProbe.ok
 }
 
 // isJunctionOrSymlink checks if path is a junction or symlink

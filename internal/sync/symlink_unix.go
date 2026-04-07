@@ -21,6 +21,9 @@ func createLink(linkPath, sourcePath string, relative bool) error {
 	return os.Symlink(target, linkPath)
 }
 
+// canCreateRelativeLink returns true on Unix where os.Symlink always works.
+func canCreateRelativeLink() bool { return true }
+
 // isJunctionOrSymlink checks if path is a symlink
 func isJunctionOrSymlink(path string) bool {
 	info, err := os.Lstat(path)
