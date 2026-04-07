@@ -54,6 +54,13 @@ func TestShouldUseRelative(t *testing.T) {
 			targetPath:  "/home/user/project/.claude/skills",
 			want:        true,
 		},
+		{
+			name:        "filesystem root as project root",
+			projectRoot: "/",
+			sourcePath:  "/skills/foo",
+			targetPath:  "/claude/skills",
+			want:        true,
+		},
 	}
 
 	for _, tt := range tests {

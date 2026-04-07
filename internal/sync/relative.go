@@ -15,7 +15,10 @@ func shouldUseRelative(projectRoot, sourcePath, targetPath string) bool {
 		return false
 	}
 	cleaned := filepath.Clean(projectRoot)
-	prefix := cleaned + string(filepath.Separator)
+	prefix := cleaned
+	if prefix != string(filepath.Separator) {
+		prefix += string(filepath.Separator)
+	}
 	src := filepath.Clean(sourcePath)
 	tgt := filepath.Clean(targetPath)
 

@@ -38,7 +38,7 @@ func createLink(linkPath, sourcePath string, relative bool) error {
 
 	// If relative requested, try os.Symlink with relative path first
 	if relative {
-		rel, relErr := filepath.Rel(filepath.Dir(linkPath), sourcePath)
+		rel, relErr := filepath.Rel(filepath.Dir(absTarget), absSource)
 		if relErr == nil {
 			if symlinkErr := os.Symlink(rel, linkPath); symlinkErr == nil {
 				return nil
