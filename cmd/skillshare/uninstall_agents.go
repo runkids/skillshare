@@ -22,39 +22,55 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 		return fmt.Errorf("cannot access agents source: %w", err)
 	}
 
-	// Resolve agent names
-	var names []string
+	// Discover all agents for resolution
+	discovered, discErr := resource.AgentKind{}.Discover(agentsDir)
+	if discErr != nil {
+		return fmt.Errorf("failed to discover agents: %w", discErr)
+	}
+
+	// Resolve targets
+	var targets []resource.DiscoveredResource
 	if opts.all {
-		discovered, err := resource.AgentKind{}.Discover(agentsDir)
-		if err != nil {
-			return fmt.Errorf("failed to discover agents: %w", err)
-		}
-		for _, d := range discovered {
-			names = append(names, d.Name)
-		}
-		if len(names) == 0 {
+		targets = discovered
+		if len(targets) == 0 {
 			ui.Info("No agents found")
 			return nil
 		}
 	} else {
-		names = opts.skillNames
-	}
-
-	if len(names) == 0 {
-		return fmt.Errorf("specify agent name(s) or --all")
-	}
-
-	// Validate all agents exist before removing any
-	for _, name := range names {
-		agentFile := filepath.Join(agentsDir, name+".md")
-		if _, err := os.Stat(agentFile); err != nil {
-			return fmt.Errorf("agent %q not found in %s", name, agentsDir)
+		for _, input := range opts.skillNames {
+			found := false
+			for _, d := range discovered {
+				if d.Name == input || d.FlatName == input || d.RelPath == input || strings.TrimSuffix(d.RelPath, ".md") == input {
+					targets = append(targets, d)
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("agent %q not found in %s", input, agentsDir)
+			}
 		}
+	}
+
+	if len(targets) == 0 {
+		return fmt.Errorf("specify agent name(s) or --all")
 	}
 
 	// Confirmation (unless --force or --json)
 	if !opts.force && !opts.jsonOutput {
-		ui.Warning("This will remove %d agent(s): %s", len(names), strings.Join(names, ", "))
+		ui.Warning("Uninstalling %d agent(s)", len(targets))
+		const maxDisplay = 20
+		if len(targets) <= maxDisplay {
+			for _, t := range targets {
+				fmt.Printf("  - %s\n", t.Name)
+			}
+		} else {
+			for _, t := range targets[:maxDisplay] {
+				fmt.Printf("  - %s\n", t.Name)
+			}
+			fmt.Printf("  ... and %d more\n", len(targets)-maxDisplay)
+		}
+		fmt.Println()
 		fmt.Print("Continue? [y/N] ")
 		var input string
 		fmt.Scanln(&input)
@@ -69,25 +85,26 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 	var removed []string
 	var failed []string
 
-	for _, name := range names {
-		agentFile := filepath.Join(agentsDir, name+".md")
-		metaFile := filepath.Join(agentsDir, name+".skillshare-meta.json")
+	for _, t := range targets {
+		agentFile := filepath.Join(agentsDir, t.RelPath)
+		metaName := strings.TrimSuffix(filepath.Base(t.RelPath), ".md")
+		metaFile := filepath.Join(filepath.Dir(agentFile), metaName+".skillshare-meta.json")
 
 		if opts.dryRun {
-			ui.Info("[dry-run] Would remove agent: %s", name)
-			removed = append(removed, name)
+			ui.Info("[dry-run] Would remove agent: %s", t.Name)
+			removed = append(removed, t.Name)
 			continue
 		}
 
-		_, err := trash.MoveAgentToTrash(agentFile, metaFile, name, trashBase)
+		_, err := trash.MoveAgentToTrash(agentFile, metaFile, t.Name, trashBase)
 		if err != nil {
-			ui.Error("Failed to remove %s: %v", name, err)
-			failed = append(failed, name)
+			ui.Error("Failed to remove %s: %v", t.Name, err)
+			failed = append(failed, t.Name)
 			continue
 		}
 
-		ui.Success("Removed agent: %s", name)
-		removed = append(removed, name)
+		ui.Success("Removed agent: %s", t.Name)
+		removed = append(removed, t.Name)
 	}
 
 	// JSON output
@@ -120,7 +137,7 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 	}
 
 	// Oplog
-	logUninstallAgentOp(cfgPath, names, len(removed), len(failed), opts.dryRun, start)
+	logUninstallAgentOp(cfgPath, removed, len(removed), len(failed), opts.dryRun, start)
 
 	if len(failed) > 0 {
 		return fmt.Errorf("%d agent(s) failed to uninstall", len(failed))

@@ -242,13 +242,17 @@ func autoPreviewFile(m *listTUIModel) {
 	}
 }
 
-// contentPanelWidth returns the available text width for the right content panel.
-// This accounts for PaddingLeft(1) used in rendering, so content renders at
-// the exact width the panel can display without line-wrapping.
+// contentPanelWidth returns the available text width for the content panel.
+// Agents use full-width (no sidebar); skills use dual-pane layout.
 func (m *listTUIModel) contentPanelWidth() int {
+	if m.contentKind == "agent" {
+		w := m.termWidth - 4
+		if w < 40 {
+			w = 40
+		}
+		return w
+	}
 	sw := sidebarWidth(m.termWidth)
-	// lipgloss Width includes padding, so subtract 1 for PaddingLeft(1)
-	// Layout: leftMargin(1) + sidebar(sw) + PaddingLeft(1) + border(1) + PaddingLeft(1) + content + rightMargin(1)
 	w := m.termWidth - sw - 5 - 1
 	if w < 40 {
 		w = 40
@@ -312,8 +316,8 @@ func renderMarkdown(text string, width int) string {
 
 // ─── Keyboard Handling ───────────────────────────────────────────────
 
-// handleContentKey handles keyboard input in the dual-pane content viewer.
-// Keyboard always controls the left tree; Ctrl+d/u/g/G scroll the right panel.
+// handleContentKey handles keyboard input in the content viewer.
+// Agents (single file) only support scroll; skills support tree navigation + scroll.
 func (m listTUIModel) handleContentKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c":
@@ -323,35 +327,36 @@ func (m listTUIModel) handleContentKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.showContent = false
 		return m, nil
 
-	// Left tree: navigate
+	// Left tree: navigate (skills only — agents have no sidebar)
 	case "j", "down":
-		if m.treeCursor < len(m.treeNodes)-1 {
+		if m.contentKind != "agent" && m.treeCursor < len(m.treeNodes)-1 {
 			m.treeCursor++
 			m.ensureTreeCursorVisible()
 			autoPreviewFile(&m)
 		}
 		return m, nil
 	case "k", "up":
-		if m.treeCursor > 0 {
+		if m.contentKind != "agent" && m.treeCursor > 0 {
 			m.treeCursor--
 			m.ensureTreeCursorVisible()
 			autoPreviewFile(&m)
 		}
 		return m, nil
 	case "l", "right", "enter":
-		if len(m.treeNodes) > 0 && m.treeCursor < len(m.treeNodes) {
+		if m.contentKind != "agent" && len(m.treeNodes) > 0 && m.treeCursor < len(m.treeNodes) {
 			node := m.treeNodes[m.treeCursor]
 			if node.isDir {
 				toggleTreeDir(&m)
 			}
-			// Files are already auto-previewed by j/k
 		}
 		return m, nil
 	case "h", "left":
-		collapseOrParent(&m)
+		if m.contentKind != "agent" {
+			collapseOrParent(&m)
+		}
 		return m, nil
 
-	// Right content: scroll
+	// Content scroll
 	case "ctrl+d":
 		half := m.contentViewHeight() / 2
 		max := m.contentMaxScroll()
@@ -392,8 +397,50 @@ func sidebarWidth(termWidth int) int {
 	return w
 }
 
-// renderContentOverlay renders the full-screen dual-pane content viewer.
+// renderContentOverlay renders the full-screen content viewer.
+// Agents (single .md file) use a full-width layout without sidebar.
+// Skills (directory with multiple files) use a dual-pane layout with file tree.
 func renderContentOverlay(m listTUIModel) string {
+	if m.contentKind == "agent" {
+		return renderContentFullWidth(m)
+	}
+	return renderContentDualPane(m)
+}
+
+// renderContentFullWidth renders the content viewer without sidebar (for agents).
+func renderContentFullWidth(m listTUIModel) string {
+	var b strings.Builder
+
+	skillName := filepath.Base(m.contentSkillKey)
+	b.WriteString("\n")
+	b.WriteString(tc.Title.Render(fmt.Sprintf("  %s", skillName)))
+	b.WriteString("\n\n")
+
+	textW := m.contentPanelWidth()
+	contentHeight := m.contentViewHeight()
+	contentStr, scrollInfo := renderContentStr(m, textW, contentHeight)
+
+	panelW := textW + 2 // +2 for PaddingLeft(2)
+	panel := lipgloss.NewStyle().
+		Width(panelW).MaxWidth(panelW).
+		Height(contentHeight).MaxHeight(contentHeight).
+		PaddingLeft(2).
+		Render(contentStr)
+	b.WriteString(panel)
+	b.WriteString("\n\n")
+
+	help := "Ctrl+d/u scroll  g/G top/bottom  Esc back  q quit"
+	if scrollInfo != "" {
+		help += "  " + scrollInfo
+	}
+	b.WriteString(formatHelpBar(help))
+	b.WriteString("\n")
+
+	return b.String()
+}
+
+// renderContentDualPane renders the dual-pane content viewer with file tree sidebar.
+func renderContentDualPane(m listTUIModel) string {
 	var b strings.Builder
 
 	titleStyle := tc.Title
@@ -452,7 +499,7 @@ func renderContentOverlay(m listTUIModel) string {
 	if scrollInfo != "" {
 		help += "  " + scrollInfo
 	}
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(formatHelpBar(help))
 	b.WriteString("\n")
 
 	return b.String()

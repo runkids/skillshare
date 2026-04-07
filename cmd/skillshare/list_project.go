@@ -38,23 +38,20 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 			sortBy = "name"
 		}
 		loadFn := func() listLoadResult {
+			// Always load both skills and agents — tab UI filters the view.
 			var allEntries []skillEntry
-			if kind.IncludesSkills() {
-				discovered, err := sync.DiscoverSourceSkillsAll(skillsSource)
-				if err != nil {
-					return listLoadResult{err: fmt.Errorf("cannot discover project skills: %w", err)}
-				}
-				allEntries = append(allEntries, buildSkillEntries(discovered)...)
+			discovered, err := sync.DiscoverSourceSkillsAll(skillsSource)
+			if err != nil {
+				return listLoadResult{err: fmt.Errorf("cannot discover project skills: %w", err)}
 			}
-			if kind.IncludesAgents() {
-				allEntries = append(allEntries, discoverAndBuildAgentEntries(agentsSource)...)
-			}
+			allEntries = append(allEntries, buildSkillEntries(discovered)...)
+			allEntries = append(allEntries, discoverAndBuildAgentEntries(agentsSource)...)
 			total := len(allEntries)
 			allEntries = filterSkillEntries(allEntries, opts.Pattern, opts.TypeFilter)
 			sortSkillEntries(allEntries, sortBy)
 			return listLoadResult{skills: toSkillItems(allEntries), totalCount: total}
 		}
-		action, skillName, skillKind, err := runListTUI(loadFn, "project", skillsSource, agentsSource, targets)
+		action, skillName, skillKind, err := runListTUI(loadFn, "project", skillsSource, agentsSource, targets, kind)
 		if err != nil {
 			return err
 		}

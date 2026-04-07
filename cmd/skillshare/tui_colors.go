@@ -35,8 +35,9 @@ var tc = struct {
 	Border    lipgloss.Style // panel borders — faint
 
 	// Filter & help
-	Filter lipgloss.Style // filter prompt/cursor — cyan
-	Help   lipgloss.Style // help bar — faint, left margin
+	Filter  lipgloss.Style // filter prompt/cursor — cyan
+	Help    lipgloss.Style // help bar — faint, left margin
+	HelpKey lipgloss.Style // help bar key highlight — dim cyan
 
 	// List browser chrome
 	ListRow               lipgloss.Style
@@ -78,8 +79,9 @@ var tc = struct {
 	Separator: lipgloss.NewStyle().Faint(true),
 	Border:    lipgloss.NewStyle().Faint(true),
 
-	Filter: lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
-	Help:   lipgloss.NewStyle().MarginLeft(2).Faint(true),
+	Filter:  lipgloss.NewStyle().Foreground(lipgloss.Color("6")),
+	Help:    lipgloss.NewStyle().MarginLeft(2).Faint(true),
+	HelpKey: lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Faint(true),
 
 	ListRow:               lipgloss.NewStyle().PaddingLeft(1),
 	ListMeta:              lipgloss.NewStyle().PaddingLeft(1).Faint(true),

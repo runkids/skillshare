@@ -41,13 +41,15 @@ func TestListDetailStatusBits(t *testing.T) {
 }
 
 func TestListSummaryFooterCounts(t *testing.T) {
+	items := []skillItem{
+		{entry: skillEntry{Name: "local", RelPath: "local"}},
+		{entry: skillEntry{Name: "tracked", RelPath: "tracked", RepoName: "team/repo"}},
+		{entry: skillEntry{Name: "remote", RelPath: "remote", Source: "github.com/example/repo"}},
+	}
 	m := listTUIModel{
-		allItems: []skillItem{
-			{entry: skillEntry{Name: "local", RelPath: "local"}},
-			{entry: skillEntry{Name: "tracked", RelPath: "tracked", RepoName: "team/repo"}},
-			{entry: skillEntry{Name: "remote", RelPath: "remote", Source: "github.com/example/repo"}},
-		},
-		matchCount: 2,
+		allItems:    items,
+		tabFiltered: items, // All tab — same as allItems
+		matchCount:  2,
 	}
 
 	got := m.renderSummaryFooter()
@@ -98,7 +100,7 @@ func TestListViewSplit_HeaderKeepsSkillNameWhenDetailScrolled(t *testing.T) {
 		},
 	}
 
-	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil)
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
 	m.termWidth = 120
 	m.termHeight = 30
 	m.detailScroll = 999
@@ -133,7 +135,7 @@ func TestApplyFilter_WithTags(t *testing.T) {
 		{entry: skillEntry{Name: "remote-a", RelPath: "remote-a", Source: "github.com/foo/bar"}},
 	}
 
-	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil)
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
 
 	// Filter by type:tracked — should match 2 items
 	m.filterText = "t:tracked"
@@ -182,5 +184,115 @@ func TestApplyFilter_WithTags(t *testing.T) {
 	m.applyFilter()
 	if m.matchCount != len(items) {
 		t.Fatalf("cleared matchCount = %d, want %d", m.matchCount, len(items))
+	}
+}
+
+func TestTabCounts(t *testing.T) {
+	items := []skillItem{
+		{entry: skillEntry{Name: "s1", RelPath: "s1", Kind: "skill"}},
+		{entry: skillEntry{Name: "s2", RelPath: "s2", Kind: "skill"}},
+		{entry: skillEntry{Name: "a1", RelPath: "a1.md", Kind: "agent"}},
+	}
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
+	want := [3]int{3, 2, 1}
+	if m.tabCounts != want {
+		t.Fatalf("tabCounts = %v, want %v", m.tabCounts, want)
+	}
+}
+
+func TestTabSwitchFiltersItems(t *testing.T) {
+	items := []skillItem{
+		{entry: skillEntry{Name: "skill-a", RelPath: "skill-a", Kind: "skill"}},
+		{entry: skillEntry{Name: "skill-b", RelPath: "skill-b", Kind: "skill"}},
+		{entry: skillEntry{Name: "agent-a", RelPath: "agent-a.md", Kind: "agent"}},
+	}
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
+
+	// Default All tab — should show 3
+	if m.matchCount != 3 {
+		t.Fatalf("All tab matchCount = %d, want 3", m.matchCount)
+	}
+
+	// Switch to Skills tab
+	m.activeTab = listTabSkills
+	m.applyFilter()
+	if m.matchCount != 2 {
+		t.Fatalf("Skills tab matchCount = %d, want 2", m.matchCount)
+	}
+
+	// Switch to Agents tab
+	m.activeTab = listTabAgents
+	m.applyFilter()
+	if m.matchCount != 1 {
+		t.Fatalf("Agents tab matchCount = %d, want 1", m.matchCount)
+	}
+}
+
+func TestInitialKindSetsTab(t *testing.T) {
+	m := newListTUIModel(nil, nil, 0, "global", t.TempDir(), "", nil, kindAgents)
+	if m.activeTab != listTabAgents {
+		t.Fatalf("initialKind=kindAgents → activeTab = %d, want %d", m.activeTab, listTabAgents)
+	}
+
+	m2 := newListTUIModel(nil, nil, 0, "global", t.TempDir(), "", nil, kindSkills)
+	if m2.activeTab != listTabSkills {
+		t.Fatalf("initialKind=kindSkills → activeTab = %d, want %d", m2.activeTab, listTabSkills)
+	}
+}
+
+func TestTabWithFilterComposition(t *testing.T) {
+	items := []skillItem{
+		{entry: skillEntry{Name: "react", RelPath: "react", Kind: "skill"}},
+		{entry: skillEntry{Name: "vue", RelPath: "vue", Kind: "skill"}},
+		{entry: skillEntry{Name: "react-agent", RelPath: "react-agent.md", Kind: "agent"}},
+	}
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
+
+	// Skills tab + text filter "react" → only skill "react"
+	m.activeTab = listTabSkills
+	m.filterText = "react"
+	m.applyFilter()
+	if m.matchCount != 1 {
+		t.Fatalf("Skills+react matchCount = %d, want 1", m.matchCount)
+	}
+
+	// All tab + text filter "react" → skill "react" + agent "react-agent"
+	m.activeTab = listTabAll
+	m.applyFilter()
+	if m.matchCount != 2 {
+		t.Fatalf("All+react matchCount = %d, want 2", m.matchCount)
+	}
+}
+
+func TestTabBarRendering(t *testing.T) {
+	items := []skillItem{
+		{entry: skillEntry{Name: "s1", RelPath: "s1", Kind: "skill"}},
+		{entry: skillEntry{Name: "a1", RelPath: "a1.md", Kind: "agent"}},
+	}
+	m := newListTUIModel(nil, items, len(items), "global", t.TempDir(), "", nil, kindAll)
+	bar := xansi.Strip(m.renderTabBar())
+	for _, want := range []string{"All(2)", "Skills(1)", "Agents(1)"} {
+		if !strings.Contains(bar, want) {
+			t.Fatalf("tab bar missing %q in %q", want, bar)
+		}
+	}
+}
+
+func TestUpdateTitle(t *testing.T) {
+	m := newListTUIModel(nil, nil, 0, "global", t.TempDir(), "", nil, kindAll)
+	if !strings.Contains(m.list.Title, "resources") {
+		t.Fatalf("All tab title = %q, want 'resources'", m.list.Title)
+	}
+
+	m.activeTab = listTabSkills
+	m.updateTitle()
+	if !strings.Contains(m.list.Title, "skills") {
+		t.Fatalf("Skills tab title = %q, want 'skills'", m.list.Title)
+	}
+
+	m.activeTab = listTabAgents
+	m.updateTitle()
+	if !strings.Contains(m.list.Title, "agents") {
+		t.Fatalf("Agents tab title = %q, want 'agents'", m.list.Title)
 	}
 }

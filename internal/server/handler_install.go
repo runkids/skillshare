@@ -166,6 +166,9 @@ func (s *Server) handleInstallBatch(w http.ResponseWriter, r *http.Request) {
 		if isAgent {
 			// Agent install: copy single .md file to agents source
 			agentsDir := s.agentsSource()
+			if body.Into != "" {
+				agentsDir = filepath.Join(agentsDir, body.Into)
+			}
 			agentInfo := install.AgentInfo{
 				Name:     sel.Name,
 				Path:     sel.Path,

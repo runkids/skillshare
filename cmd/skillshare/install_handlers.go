@@ -231,7 +231,7 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 	// Pure agent repo — no skills, only agents
 	if len(discovery.Skills) == 0 && len(discovery.Agents) > 0 {
 		ui.StepEnd("Found", fmt.Sprintf("%d agent(s)", len(discovery.Agents)))
-		agentsDir := cfg.EffectiveAgentsSource()
+		agentsDir := agentsDirWithInto(cfg.EffectiveAgentsSource(), opts)
 		return handleAgentInstall(discovery, agentsDir, opts, logSummary)
 	}
 
@@ -1125,7 +1125,7 @@ func installDiscoveredAgents(discovery *install.DiscoveryResult, cfg *config.Con
 		return
 	}
 
-	agentsDir := cfg.EffectiveAgentsSource()
+	agentsDir := agentsDirWithInto(cfg.EffectiveAgentsSource(), opts)
 	fmt.Println()
 	ui.Header("Installing agents")
 

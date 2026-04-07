@@ -132,6 +132,8 @@ func parseInstallArgs(args []string) (*installArgs, bool, error) {
 			}
 			i++
 			result.opts.Into = args[i]
+		case strings.HasPrefix(arg, "--into="):
+			result.opts.Into = strings.TrimPrefix(arg, "--into=")
 		case arg == "--all":
 			result.opts.All = true
 		case arg == "--yes" || arg == "-y":
@@ -214,6 +216,14 @@ func destWithInto(sourceDir string, opts install.InstallOptions, skillName strin
 		return filepath.Join(sourceDir, opts.Into, skillName)
 	}
 	return filepath.Join(sourceDir, skillName)
+}
+
+// agentsDirWithInto returns agentsDir joined with opts.Into (if set).
+func agentsDirWithInto(agentsDir string, opts install.InstallOptions) string {
+	if opts.Into != "" {
+		return filepath.Join(agentsDir, opts.Into)
+	}
+	return agentsDir
 }
 
 // ensureIntoDirExists creates the Into subdirectory if opts.Into is set.

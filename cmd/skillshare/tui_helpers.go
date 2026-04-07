@@ -46,6 +46,31 @@ func appendScrollInfo(help, scrollInfo string) string {
 	return help
 }
 
+// formatHelpBar colorizes a help string like "Tab skills/agents  ↑↓ navigate  q quit".
+// Each pair "key desc" is parsed: key gets HelpKey style (dim cyan), desc stays dim.
+// Pairs are separated by two or more spaces.
+func formatHelpBar(raw string) string {
+	// Split by double-space to get individual "key desc" pairs
+	pairs := strings.Split(raw, "  ")
+	var parts []string
+	for _, pair := range pairs {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		// Split first space: key + description
+		if idx := strings.IndexByte(pair, ' '); idx > 0 {
+			key := pair[:idx]
+			desc := pair[idx:]
+			parts = append(parts, tc.HelpKey.Render(key)+tc.Help.UnsetMarginLeft().Render(desc))
+		} else {
+			// Single word (e.g. just a key)
+			parts = append(parts, tc.HelpKey.Render(pair))
+		}
+	}
+	return "  " + strings.Join(parts, "  ")
+}
+
 // applyDetailScrollSplit applies scrolling and returns (visible content, scroll info).
 func applyDetailScrollSplit(content string, detailScroll, viewHeight int) (string, string) {
 	lines := strings.Split(content, "\n")

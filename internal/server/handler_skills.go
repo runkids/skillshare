@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/git"
 	"skillshare/internal/install"
+	"skillshare/internal/resource"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
 	"skillshare/internal/utils"
@@ -90,26 +91,20 @@ func (s *Server) handleListSkills(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Agents
+	// Agents — recursive discovery (supports --into subdirectories)
 	if (kindFilter == "" || kindFilter == "agent") && agentsSource != "" {
-		agentEntries, _ := os.ReadDir(agentsSource)
-		for _, e := range agentEntries {
-			if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".md") {
-				continue
-			}
-			agentName := strings.TrimSuffix(e.Name(), ".md")
-			agentPath := filepath.Join(agentsSource, e.Name())
-
+		discovered, _ := resource.AgentKind{}.Discover(agentsSource)
+		for _, d := range discovered {
 			item := skillItem{
-				Name:       agentName,
+				Name:       d.Name,
 				Kind:       "agent",
-				FlatName:   e.Name(),
-				RelPath:    e.Name(),
-				SourcePath: agentPath,
+				FlatName:   d.FlatName,
+				RelPath:    d.RelPath,
+				SourcePath: d.SourcePath,
 			}
 
-			// Check for agent metadata (agent meta is a standalone file, not inside a dir)
-			metaPath := filepath.Join(agentsSource, agentName+".skillshare-meta.json")
+			// Read sidecar metadata: <name>.skillshare-meta.json
+			metaPath := filepath.Join(filepath.Dir(d.SourcePath), strings.TrimSuffix(filepath.Base(d.RelPath), ".md")+".skillshare-meta.json")
 			if metaData, readErr := os.ReadFile(metaPath); readErr == nil {
 				var meta install.SkillMeta
 				if json.Unmarshal(metaData, &meta) == nil {
@@ -204,22 +199,29 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fallback: check agents source
+	// Fallback: check agents source (recursive — supports --into subdirectories)
 	if agentsSource != "" {
-		agentName := strings.TrimSuffix(name, ".md")
-		agentFile := agentName + ".md"
-		agentPath := filepath.Join(agentsSource, agentFile)
-		if data, err := os.ReadFile(agentPath); err == nil {
-			item := skillItem{
-				Name:       agentName,
-				Kind:       "agent",
-				FlatName:   agentFile,
-				RelPath:    agentFile,
-				SourcePath: agentPath,
+		agentDiscovered, _ := resource.AgentKind{}.Discover(agentsSource)
+		for _, d := range agentDiscovered {
+			if d.FlatName != name && d.Name != name {
+				continue
 			}
 
-			metaFilePath := filepath.Join(agentsSource, agentName+".skillshare-meta.json")
-			if metaData, readErr := os.ReadFile(metaFilePath); readErr == nil {
+			data, readErr := os.ReadFile(d.SourcePath)
+			if readErr != nil {
+				continue
+			}
+
+			item := skillItem{
+				Name:       d.Name,
+				Kind:       "agent",
+				FlatName:   d.FlatName,
+				RelPath:    d.RelPath,
+				SourcePath: d.SourcePath,
+			}
+
+			metaPath := filepath.Join(filepath.Dir(d.SourcePath), strings.TrimSuffix(filepath.Base(d.RelPath), ".md")+".skillshare-meta.json")
+			if metaData, metaReadErr := os.ReadFile(metaPath); metaReadErr == nil {
 				var meta install.SkillMeta
 				if json.Unmarshal(metaData, &meta) == nil {
 					item.InstalledAt = meta.InstalledAt.Format(time.RFC3339)
@@ -233,7 +235,7 @@ func (s *Server) handleGetSkill(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, map[string]any{
 				"skill":          item,
 				"skillMdContent": string(data),
-				"files":          []string{agentFile},
+				"files":          []string{filepath.Base(d.RelPath)},
 			})
 			return
 		}

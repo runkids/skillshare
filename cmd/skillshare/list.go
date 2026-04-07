@@ -284,8 +284,9 @@ func discoverAndBuildAgentEntries(agentsSource string) []skillEntry {
 			IsNested: d.IsNested,
 			Disabled: d.Disabled,
 		}
-		// Read sidecar metadata: <name>.skillshare-meta.json
-		metaPath := filepath.Join(agentsSource, d.Name+".skillshare-meta.json")
+		// Read sidecar metadata: <basename>.skillshare-meta.json (alongside the .md file)
+		baseName := strings.TrimSuffix(filepath.Base(d.RelPath), ".md")
+		metaPath := filepath.Join(filepath.Dir(d.SourcePath), baseName+".skillshare-meta.json")
 		if data, readErr := os.ReadFile(metaPath); readErr == nil {
 			var meta install.SkillMeta
 			if jsonErr := json.Unmarshal(data, &meta); jsonErr == nil {
@@ -575,17 +576,14 @@ func cmdList(args []string) error {
 	// TTY + not JSON + TUI enabled → launch TUI with async loading (no blank screen)
 	if !opts.JSON && shouldLaunchTUI(opts.NoTUI, cfg) {
 		loadFn := func() listLoadResult {
+			// Always load both skills and agents — tab UI filters the view.
 			var allEntries []skillEntry
-			if kind.IncludesSkills() {
-				discovered, discErr := sync.DiscoverSourceSkillsAll(cfg.Source)
-				if discErr != nil {
-					return listLoadResult{err: fmt.Errorf("cannot discover skills: %w", discErr)}
-				}
-				allEntries = append(allEntries, buildSkillEntries(discovered)...)
+			discovered, discErr := sync.DiscoverSourceSkillsAll(cfg.Source)
+			if discErr != nil {
+				return listLoadResult{err: fmt.Errorf("cannot discover skills: %w", discErr)}
 			}
-			if kind.IncludesAgents() {
-				allEntries = append(allEntries, discoverAndBuildAgentEntries(cfg.EffectiveAgentsSource())...)
-			}
+			allEntries = append(allEntries, buildSkillEntries(discovered)...)
+			allEntries = append(allEntries, discoverAndBuildAgentEntries(cfg.EffectiveAgentsSource())...)
 			total := len(allEntries)
 			allEntries = filterSkillEntries(allEntries, opts.Pattern, opts.TypeFilter)
 			if opts.SortBy != "" {
@@ -593,7 +591,7 @@ func cmdList(args []string) error {
 			}
 			return listLoadResult{skills: toSkillItems(allEntries), totalCount: total}
 		}
-		action, skillName, skillKind, err := runListTUI(loadFn, "global", cfg.Source, cfg.EffectiveAgentsSource(), cfg.Targets)
+		action, skillName, skillKind, err := runListTUI(loadFn, "global", cfg.Source, cfg.EffectiveAgentsSource(), cfg.Targets, kind)
 		if err != nil {
 			return err
 		}

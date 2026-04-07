@@ -23,6 +23,15 @@ import (
 // Keeps the widget fast — pagination + filter operate on at most this many items.
 const maxListItems = 1000
 
+// listTab represents the active tab filter in the list TUI.
+type listTab int
+
+const (
+	listTabAll    listTab = iota // show all items (skills + agents)
+	listTabSkills                // show skills only
+	listTabAgents                // show agents only
+)
+
 // applyTUIFilterStyle sets filter prompt, cursor, and input cursor to the shared style.
 func applyTUIFilterStyle(l *list.Model) {
 	l.Styles.FilterPrompt = tc.Filter
@@ -78,6 +87,11 @@ type listTUIModel struct {
 	loadErr     error // non-nil if loading failed
 	emptyResult bool  // true when async load returned zero skills
 
+	// Tab filter — pre-filters allItems by kind (All / Skills / Agents)
+	activeTab   listTab     // currently selected tab
+	tabCounts   [3]int      // cached counts: [all, skills, agents]
+	tabFiltered []skillItem // cached result of tabFilteredItems(); set by applyFilter()
+
 	// Application-level filter — replaces bubbles/list built-in fuzzy filter
 	// to avoid O(N*M) fuzzy scan on 100k+ items every keystroke.
 	allItems     []skillItem     // full item set (kept in memory, never passed to list)
@@ -108,7 +122,7 @@ type listTUIModel struct {
 // newListTUIModel creates a new TUI model.
 // When loadFn is non-nil, skills are loaded asynchronously inside the TUI (spinner shown).
 // When loadFn is nil, skills/totalCount are used directly (pre-loaded).
-func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, modeLabel, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig) listTUIModel {
+func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, modeLabel, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig, initialKind resourceKindFilter) listTUIModel {
 	delegate := listSkillDelegate{}
 
 	// Build initial item set (empty if async loading)
@@ -123,7 +137,8 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 	l := list.New(items, delegate, 0, 0)
 	l.Title = fmt.Sprintf("Installed skills (%s)", modeLabel)
 	l.Styles.Title = tc.ListTitle
-	l.SetShowStatusBar(false)    // we render our own status with real total count
+	l.Styles.NoItems = l.Styles.NoItems.PaddingLeft(2) // align with title
+	l.SetShowStatusBar(false)                          // we render our own status with real total count
 	l.SetFilteringEnabled(false) // application-level filter replaces built-in
 	l.SetShowHelp(false)         // we render our own help
 	l.SetShowPagination(false)   // we render page info in our status line
@@ -140,6 +155,17 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 	fi.Cursor.Style = tc.Filter
 	fi.Placeholder = "filter or t:tracked g:group r:repo k:kind"
 
+	// Map CLI kind filter to initial tab
+	var initTab listTab
+	switch initialKind {
+	case kindAgents:
+		initTab = listTabAgents
+	case kindSkills:
+		initTab = listTabSkills
+	default:
+		initTab = listTabAll
+	}
+
 	m := listTUIModel{
 		list:             l,
 		totalCount:       totalCount,
@@ -147,6 +173,7 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 		sourcePath:       sourcePath,
 		agentsSourcePath: agentsSourcePath,
 		targets:          targets,
+		activeTab:   initTab,
 		detailCache: make(map[string]*detailData),
 		loading:     loadFn != nil,
 		loadSpinner: sp,
@@ -155,11 +182,62 @@ func newListTUIModel(loadFn listLoadFn, skills []skillItem, totalCount int, mode
 		matchCount:  len(allItems),
 		filterInput: fi,
 	}
-	// Skip initial group header (index 0)
 	if loadFn == nil {
+		m.recomputeTabCounts()
+		m.applyFilter() // applies tab + text filter
 		skipGroupItem(&m.list, 1)
 	}
+	m.updateTitle()
 	return m
+}
+
+// recomputeTabCounts updates the cached per-tab counts from allItems.
+func (m *listTUIModel) recomputeTabCounts() {
+	var skills, agents int
+	for _, item := range m.allItems {
+		if item.entry.Kind == "agent" {
+			agents++
+		} else {
+			skills++
+		}
+	}
+	m.tabCounts = [3]int{len(m.allItems), skills, agents}
+}
+
+// tabFilteredItems returns the subset of allItems matching the active tab.
+func (m *listTUIModel) tabFilteredItems() []skillItem {
+	if m.activeTab == listTabAll {
+		return m.allItems
+	}
+	wantAgent := m.activeTab == listTabAgents
+	cap := m.tabCounts[1]
+	if wantAgent {
+		cap = m.tabCounts[2]
+	}
+	filtered := make([]skillItem, 0, cap)
+	for _, item := range m.allItems {
+		if (item.entry.Kind == "agent") == wantAgent {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
+}
+
+// tabNoun returns the display noun for the active tab.
+func (t listTab) noun() string {
+	switch t {
+	case listTabSkills:
+		return "skills"
+	case listTabAgents:
+		return "agents"
+	default:
+		return "resources"
+	}
+}
+
+// updateTitle sets the list title based on the active tab and mode.
+func (m *listTUIModel) updateTitle() {
+	m.list.Title = fmt.Sprintf("Installed %s (%s)", m.activeTab.noun(), m.modeLabel)
 }
 
 func (m listTUIModel) Init() tea.Cmd {
@@ -175,11 +253,12 @@ func (m listTUIModel) Init() tea.Cmd {
 // When filter is empty, all items are restored (full pagination).
 func (m *listTUIModel) applyFilter() {
 	m.detailScroll = 0
+	m.tabFiltered = m.tabFilteredItems()
 
-	// No filter — restore full item set with group separators
+	// No filter — restore tab-filtered item set with group separators
 	if m.filterText == "" {
-		m.matchCount = len(m.allItems)
-		m.list.SetItems(buildGroupedItems(m.allItems))
+		m.matchCount = len(m.tabFiltered)
+		m.list.SetItems(buildGroupedItems(m.tabFiltered))
 		m.list.ResetSelected()
 		return
 	}
@@ -189,7 +268,7 @@ func (m *listTUIModel) applyFilter() {
 	// Structured match, capped at maxListItems
 	var matched []list.Item
 	count := 0
-	for _, item := range m.allItems {
+	for _, item := range m.tabFiltered {
 		if matchSkillItem(item, q) {
 			count++
 			if len(matched) < maxListItems {
@@ -232,10 +311,10 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.allItems = msg.result.skills
 		m.totalCount = msg.result.totalCount
-		m.matchCount = len(msg.result.skills)
-		// Populate list with group separators
-		m.list.SetItems(buildGroupedItems(msg.result.skills))
+		m.recomputeTabCounts()
+		m.applyFilter() // applies tab + text filter, sets matchCount
 		skipGroupItem(&m.list, 1)
+		m.updateTitle()
 		return m, nil
 
 	case tea.MouseMsg:
@@ -316,6 +395,18 @@ func (m listTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "tab":
+			m.activeTab = (m.activeTab + 1) % 3
+			m.applyFilter()
+			m.updateTitle()
+			skipGroupItem(&m.list, 1)
+			return m, nil
+		case "shift+tab":
+			m.activeTab = (m.activeTab - 1 + 3) % 3
+			m.applyFilter()
+			m.updateTitle()
+			skipGroupItem(&m.list, 1)
+			return m, nil
 		case "ctrl+d":
 			m.detailScroll += 8
 			return m, nil
@@ -475,18 +566,46 @@ func (m listTUIModel) View() string {
 	return m.viewVertical()
 }
 
+// renderTabBar renders the kind tab bar (All / Skills / Agents).
+func (m listTUIModel) renderTabBar() string {
+	type tab struct {
+		label string
+		tab   listTab
+		count int
+	}
+	tabs := []tab{
+		{"All", listTabAll, m.tabCounts[0]},
+		{"Skills", listTabSkills, m.tabCounts[1]},
+		{"Agents", listTabAgents, m.tabCounts[2]},
+	}
+
+	activeStyle := lipgloss.NewStyle().Bold(true).Underline(true)
+	inactiveStyle := tc.Dim
+
+	var parts []string
+	for _, t := range tabs {
+		label := fmt.Sprintf("%s(%d)", t.label, t.count)
+		if t.tab == m.activeTab {
+			parts = append(parts, activeStyle.Inherit(tc.Cyan).Render(label))
+		} else {
+			parts = append(parts, inactiveStyle.Render(label))
+		}
+	}
+	return "  " + strings.Join(parts, "  ")
+}
+
 // renderFilterBar renders the status line for the list TUI.
 func (m listTUIModel) renderFilterBar() string {
 	return renderTUIFilterBar(
 		m.filterInput.View(), m.filtering, m.filterText,
-		m.matchCount, len(m.allItems), maxListItems,
-		"skills", m.renderPageInfo(),
+		m.matchCount, len(m.tabFiltered), maxListItems,
+		m.activeTab.noun(), m.renderPageInfo(),
 	)
 }
 
 func (m *listTUIModel) syncListSize() {
 	if listSplitActive(m.termWidth) {
-		panelHeight := m.termHeight - 5
+		panelHeight := m.termHeight - 7 // -2 for tab bar
 		if panelHeight < 6 {
 			panelHeight = 6
 		}
@@ -494,7 +613,7 @@ func (m *listTUIModel) syncListSize() {
 		return
 	}
 
-	listHeight := m.termHeight - 20
+	listHeight := m.termHeight - 22 // -2 for tab bar
 	if listHeight < 6 {
 		listHeight = 6
 	}
@@ -538,7 +657,10 @@ func selectedSkillKey(item list.Item) string {
 func (m listTUIModel) viewSplit() string {
 	var b strings.Builder
 
-	panelHeight := m.termHeight - 5
+	b.WriteString(m.renderTabBar())
+	b.WriteString("\n\n")
+
+	panelHeight := m.termHeight - 7 // -2 for tab bar
 	if panelHeight < 6 {
 		panelHeight = 6
 	}
@@ -567,12 +689,12 @@ func (m listTUIModel) viewSplit() string {
 	b.WriteString(m.renderFilterBar())
 	b.WriteString(m.renderSummaryFooter())
 	b.WriteString("\n")
-	helpText := "↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  X uninstall  q quit"
+	helpText := "Tab skills/agents  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  X uninstall  q quit"
 	if m.filtering {
 		helpText = "t:type g:group r:repo k:kind  Enter lock  Esc clear  q quit"
 	}
 	help := appendScrollInfo(helpText, scrollInfo)
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(formatHelpBar(help))
 	b.WriteString("\n")
 
 	return b.String()
@@ -581,13 +703,15 @@ func (m listTUIModel) viewSplit() string {
 func (m listTUIModel) viewVertical() string {
 	var b strings.Builder
 
+	b.WriteString(m.renderTabBar())
+	b.WriteString("\n\n")
 	b.WriteString(m.list.View())
 	b.WriteString("\n\n")
 	b.WriteString(m.renderFilterBar())
 
 	var scrollInfo string
 	if item, ok := m.list.SelectedItem().(skillItem); ok {
-		detailHeight := m.termHeight - m.termHeight*2/5 - 8
+		detailHeight := m.termHeight - m.termHeight*2/5 - 10 // -2 for tab bar
 		if detailHeight < 6 {
 			detailHeight = 6
 		}
@@ -606,12 +730,12 @@ func (m listTUIModel) viewVertical() string {
 
 	b.WriteString(m.renderSummaryFooter())
 	b.WriteString("\n")
-	helpText := "↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  X uninstall  q quit"
+	helpText := "Tab skills/agents  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u detail  Enter view  A audit  U update  E enable/disable  X uninstall  q quit"
 	if m.filtering {
 		helpText = "t:type g:group r:repo k:kind  Enter lock  Esc clear  q quit"
 	}
 	help := appendScrollInfo(helpText, scrollInfo)
-	b.WriteString(tc.Help.Render(help))
+	b.WriteString(formatHelpBar(help))
 	b.WriteString("\n")
 
 	return b.String()
@@ -621,7 +745,7 @@ func (m listTUIModel) renderSummaryFooter() string {
 	localCount := 0
 	trackedCount := 0
 	remoteCount := 0
-	for _, item := range m.allItems {
+	for _, item := range m.tabFiltered {
 		switch {
 		case item.entry.RepoName != "":
 			trackedCount++
@@ -633,7 +757,7 @@ func (m listTUIModel) renderSummaryFooter() string {
 	}
 
 	parts := []string{
-		tc.Emphasis.Render(formatNumber(m.matchCount)) + tc.Dim.Render("/") + tc.Dim.Render(formatNumber(len(m.allItems))) + tc.Dim.Render(" visible"),
+		tc.Emphasis.Render(formatNumber(m.matchCount)) + tc.Dim.Render("/") + tc.Dim.Render(formatNumber(len(m.tabFiltered))) + tc.Dim.Render(" visible"),
 		tc.Cyan.Render(formatNumber(localCount)) + tc.Dim.Render(" local"),
 		tc.Green.Render(formatNumber(trackedCount)) + tc.Dim.Render(" tracked"),
 		tc.Yellow.Render(formatNumber(remoteCount)) + tc.Dim.Render(" remote"),
@@ -704,10 +828,24 @@ func formatNumber(n int) string {
 	return b.String()
 }
 
-// getDetailData returns cached detail data for a skill, populating the cache on first access.
+// getDetailData returns cached detail data for a skill or agent, populating the cache on first access.
 func (m listTUIModel) getDetailData(e skillEntry) *detailData {
 	key := e.RelPath
 	if d, ok := m.detailCache[key]; ok {
+		return d
+	}
+
+	if e.Kind == "agent" {
+		// Agents are single .md files — read frontmatter from the file directly
+		agentFile := filepath.Join(m.agentsSourcePath, e.RelPath)
+		fm := utils.ParseFrontmatterFields(agentFile, []string{"description", "license"})
+		d := &detailData{
+			Description:   fm["description"],
+			License:       fm["license"],
+			Files:         []string{filepath.Base(e.RelPath)},
+			SyncedTargets: m.findSyncedTargets(e),
+		}
+		m.detailCache[key] = d
 		return d
 	}
 
@@ -917,8 +1055,8 @@ func (m listTUIModel) findSyncedTargets(e skillEntry) []string {
 // runListTUI starts the bubbletea TUI for the skill list.
 // When loadFn is non-nil, data is loaded asynchronously inside the TUI (no blank screen).
 // Returns (action, skillName, skillKind, error). action is "" on normal quit (q/ctrl+c).
-func runListTUI(loadFn listLoadFn, modeLabel, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig) (string, string, string, error) {
-	model := newListTUIModel(loadFn, nil, 0, modeLabel, sourcePath, agentsSourcePath, targets)
+func runListTUI(loadFn listLoadFn, modeLabel, sourcePath, agentsSourcePath string, targets map[string]config.TargetConfig, initialKind resourceKindFilter) (string, string, string, error) {
+	model := newListTUIModel(loadFn, nil, 0, modeLabel, sourcePath, agentsSourcePath, targets, initialKind)
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	finalModel, err := p.Run()
 	if err != nil {

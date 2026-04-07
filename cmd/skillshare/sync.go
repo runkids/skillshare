@@ -133,8 +133,8 @@ func cmdSync(args []string) error {
 		stats.ProjectScope = true
 		logSyncOp(config.ProjectConfigPath(cwd), stats, start, err)
 
-		// Append agent sync when kind=all
-		if kind == kindAll {
+		// Append agent sync when kind=all or --all
+		if kind == kindAll || hasAll {
 			if agentErr := syncAgentsProject(cwd, dryRun, force, jsonOutput, start); agentErr != nil && err == nil {
 				err = agentErr
 			}
@@ -285,8 +285,8 @@ func cmdSync(args []string) error {
 		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr)
 	}
 
-	// Agent sync when kind=all (after skill sync)
-	if kind == kindAll {
+	// Agent sync when kind=all or --all (after skill sync)
+	if kind == kindAll || hasAll {
 		if _, agentErr := syncAgentsGlobal(cfg, dryRun, force, jsonOutput, start); agentErr != nil && syncErr == nil {
 			syncErr = agentErr
 		}
@@ -802,7 +802,7 @@ func printSyncHelp() {
 Sync skills from source to all configured targets.
 
 Options:
-  --all             Sync skills and extras
+  --all             Sync skills, agents, and extras
   --dry-run, -n     Preview changes without applying
   --force, -f       Force sync (overwrite local changes)
   --json            Output results as JSON
