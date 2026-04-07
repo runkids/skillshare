@@ -221,10 +221,17 @@ func handleGitInstall(source *install.Source, cfg *config.Config, opts install.I
 		return logSummary, nil
 	}
 
-	// Step 3: Show found skills
-	if len(discovery.Skills) == 0 {
-		ui.StepEnd("Found", "No skills (no SKILL.md files)")
+	// Step 3: Show found resources
+	if len(discovery.Skills) == 0 && len(discovery.Agents) == 0 {
+		ui.StepEnd("Found", "No skills or agents found")
 		return logSummary, nil
+	}
+
+	// Pure agent repo — no skills, only agents
+	if len(discovery.Skills) == 0 && len(discovery.Agents) > 0 {
+		ui.StepEnd("Found", fmt.Sprintf("%d agent(s)", len(discovery.Agents)))
+		agentsDir := cfg.EffectiveAgentsSource()
+		return handleAgentInstall(discovery, agentsDir, opts, logSummary)
 	}
 
 	ui.StepEnd("Found", fmt.Sprintf("%d skill(s)", len(discovery.Skills)))
@@ -1010,4 +1017,57 @@ func truncateDesc(s string, max int) string {
 		return s
 	}
 	return string(runes[:max]) + " ..."
+}
+
+// handleAgentInstall installs agents from a pure-agent repo (no SKILL.md files found).
+func handleAgentInstall(discovery *install.DiscoveryResult, agentsDir string, opts install.InstallOptions, logSummary installLogSummary) (installLogSummary, error) {
+	agents := discovery.Agents
+
+	// Apply --agent name filter if specified
+	if len(opts.AgentNames) > 0 {
+		nameSet := make(map[string]bool, len(opts.AgentNames))
+		for _, n := range opts.AgentNames {
+			nameSet[n] = true
+		}
+		var filtered []install.AgentInfo
+		for _, a := range agents {
+			if nameSet[a.Name] {
+				filtered = append(filtered, a)
+			}
+		}
+		agents = filtered
+		if len(agents) == 0 {
+			ui.Info("No matching agents found")
+			return logSummary, nil
+		}
+	}
+
+	installed := 0
+	for _, agent := range agents {
+		spinner := ui.StartSpinner(fmt.Sprintf("Installing agent %s...", agent.Name))
+		result, err := install.InstallAgentFromDiscovery(discovery, agent, agentsDir, opts)
+		spinner.Stop()
+		if err != nil {
+			ui.Warning("Failed to install agent %s: %v", agent.Name, err)
+			continue
+		}
+		if result.Action == "skipped" {
+			ui.StepSkip(agent.Name, strings.Join(result.Warnings, "; "))
+		} else if opts.DryRun {
+			ui.Warning("[dry-run] Would install agent: %s", agent.Name)
+		} else {
+			ui.StepDone(agent.Name, agentsDir)
+			installed++
+		}
+	}
+
+	if installed > 0 {
+		fmt.Println()
+		ui.SuccessMsg("Installed %d agent(s) to %s", installed, agentsDir)
+		ui.SectionLabel("Next Steps")
+		ui.Info("Run 'skillshare sync agents' to distribute to all targets")
+	}
+
+	logSummary.SkillCount = installed
+	return logSummary, nil
 }
