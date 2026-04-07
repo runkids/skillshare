@@ -24,6 +24,15 @@ func shouldUseRelative(projectRoot, sourcePath, targetPath string) bool {
 	return srcUnder && tgtUnder
 }
 
+// resolveReadlink converts a raw os.Readlink result to an absolute path,
+// resolving relative targets against the link's parent directory (not CWD).
+func resolveReadlink(dest, linkPath string) string {
+	if filepath.IsAbs(dest) {
+		return dest
+	}
+	return filepath.Clean(filepath.Join(filepath.Dir(linkPath), dest))
+}
+
 // linkNeedsReformat returns true if dest (the raw os.Readlink result)
 // uses the wrong format (relative vs absolute) for the desired mode.
 func linkNeedsReformat(dest string, wantRelative bool) bool {

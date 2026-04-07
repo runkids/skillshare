@@ -253,7 +253,9 @@ func SyncTarget(name string, target config.TargetConfig, sourcePath string, dryR
 			fmt.Fprintf(DiagOutput, "[dry-run] Would reformat symlink: %s\n", sc.Path)
 			return nil
 		}
-		os.Remove(sc.Path)
+		if err := os.Remove(sc.Path); err != nil {
+			return fmt.Errorf("failed to remove symlink for reformat: %w", err)
+		}
 		return CreateSymlink(sc.Path, sourcePath, projectRoot)
 
 	case StatusNotExist:
@@ -562,7 +564,9 @@ func SyncTargetMergeWithSkills(name string, target config.TargetConfig, allSkill
 					}
 					// Correct target but wrong format (abs↔rel) — recreate
 					if !dryRun {
-						os.Remove(targetSkillPath)
+						if err := os.Remove(targetSkillPath); err != nil {
+							return nil, fmt.Errorf("failed to remove link for reformat: %w", err)
+						}
 						if err := createLink(targetSkillPath, skill.SourcePath, relative); err != nil {
 							return nil, fmt.Errorf("failed to reformat link for %s: %w", activeName, err)
 						}

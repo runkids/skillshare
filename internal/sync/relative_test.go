@@ -78,6 +78,36 @@ func TestShouldUseRelative_CleansPaths(t *testing.T) {
 	}
 }
 
+func TestResolveReadlink(t *testing.T) {
+	tests := []struct {
+		name     string
+		dest     string
+		linkPath string
+		want     string
+	}{
+		{
+			"absolute dest unchanged",
+			"/abs/source/skill",
+			"/project/.claude/skills/skill",
+			"/abs/source/skill",
+		},
+		{
+			"relative dest resolved from link parent",
+			"../../.skillshare/skills/skill",
+			"/project/.claude/skills/skill",
+			"/project/.skillshare/skills/skill",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveReadlink(tt.dest, tt.linkPath)
+			if got != tt.want {
+				t.Errorf("resolveReadlink(%q, %q) = %q, want %q", tt.dest, tt.linkPath, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLinkNeedsReformat(t *testing.T) {
 	tests := []struct {
 		name         string

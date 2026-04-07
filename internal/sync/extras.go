@@ -104,7 +104,7 @@ func syncExtraSymlinkMode(sourcePath, targetPath string, dryRun, force bool, pro
 			// Already a symlink — check if correct
 			dest, readErr := os.Readlink(targetPath)
 			if readErr == nil {
-				absDest, _ := filepath.Abs(dest)
+				absDest := resolveReadlink(dest, targetPath)
 				if absDest == absSrc {
 					relative := shouldUseRelative(projectRoot, absSrc, targetPath)
 					if !linkNeedsReformat(dest, relative) {
@@ -116,7 +116,9 @@ func syncExtraSymlinkMode(sourcePath, targetPath string, dryRun, force bool, pro
 						result.Synced = 1
 						return result, nil
 					}
-					os.Remove(targetPath)
+					if err := os.Remove(targetPath); err != nil {
+						return nil, fmt.Errorf("failed to remove symlink for reformat: %w", err)
+					}
 					if err := createLink(targetPath, absSrc, relative); err != nil {
 						return nil, fmt.Errorf("failed to reformat directory symlink: %w", err)
 					}
@@ -130,7 +132,9 @@ func syncExtraSymlinkMode(sourcePath, targetPath string, dryRun, force bool, pro
 				return result, nil
 			}
 			if !dryRun {
-				os.Remove(targetPath)
+				if err := os.Remove(targetPath); err != nil {
+					return nil, fmt.Errorf("failed to remove wrong symlink: %w", err)
+				}
 			}
 		} else {
 			// Real file/dir
@@ -242,7 +246,7 @@ func syncOneExtraFile(srcFile, tgtFile, mode string, dryRun, force, relative boo
 		if mode == "merge" && isSymlink {
 			dest, readErr := os.Readlink(tgtFile)
 			if readErr == nil {
-				absDest, _ := filepath.Abs(dest)
+				absDest := resolveReadlink(dest, tgtFile)
 				if absDest == srcFile {
 					if !linkNeedsReformat(dest, relative) {
 						return 1, 0, nil
