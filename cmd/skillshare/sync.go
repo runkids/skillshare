@@ -201,9 +201,9 @@ func cmdSync(args []string) error {
 	var results []syncTargetResult
 	var failedTargets int
 	if jsonOutput {
-		results, failedTargets = runParallelSyncQuiet(entries, cfg.Source, discoveredSkills, dryRun, force)
+		results, failedTargets = runParallelSyncQuiet(entries, cfg.Source, discoveredSkills, dryRun, force, "")
 	} else {
-		results, failedTargets = runParallelSync(entries, cfg.Source, discoveredSkills, dryRun, force)
+		results, failedTargets = runParallelSync(entries, cfg.Source, discoveredSkills, dryRun, force, "")
 	}
 
 	var syncErr error

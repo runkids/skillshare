@@ -96,9 +96,9 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 	var results []syncTargetResult
 	var failedTargets int
 	if jsonOutput {
-		results, failedTargets = runParallelSyncQuiet(entries, runtime.sourcePath, discoveredSkills, dryRun, force)
+		results, failedTargets = runParallelSyncQuiet(entries, runtime.sourcePath, discoveredSkills, dryRun, force, root)
 	} else {
-		results, failedTargets = runParallelSync(entries, runtime.sourcePath, discoveredSkills, dryRun, force)
+		results, failedTargets = runParallelSync(entries, runtime.sourcePath, discoveredSkills, dryRun, force, root)
 	}
 	failedTargets += notFoundCount
 

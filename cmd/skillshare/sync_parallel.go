@@ -179,7 +179,7 @@ type syncTargetEntry struct {
 
 // collectSyncResult runs sync for one target and returns a result struct.
 // Does NOT print any UI output — all output data is captured in the result.
-func collectSyncResult(name string, target config.TargetConfig, source, mode string, skills []sync.DiscoveredSkill, dryRun, force bool, progress *syncProgress) syncTargetResult {
+func collectSyncResult(name string, target config.TargetConfig, source, mode string, skills []sync.DiscoveredSkill, dryRun, force bool, progress *syncProgress, projectRoot string) syncTargetResult {
 	sc := target.SkillsConfig()
 	r := syncTargetResult{
 		name:    name,
@@ -190,19 +190,19 @@ func collectSyncResult(name string, target config.TargetConfig, source, mode str
 
 	switch mode {
 	case "merge":
-		collectMergeSyncResult(&r, name, target, source, skills, dryRun, force)
+		collectMergeSyncResult(&r, name, target, source, skills, dryRun, force, projectRoot)
 	case "copy":
 		collectCopySyncResult(&r, name, target, source, skills, dryRun, force, progress)
 	default:
-		collectSymlinkSyncResult(&r, name, target, source, dryRun, force)
+		collectSymlinkSyncResult(&r, name, target, source, dryRun, force, projectRoot)
 	}
 
 	return r
 }
 
-func collectMergeSyncResult(r *syncTargetResult, name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, dryRun, force bool) {
+func collectMergeSyncResult(r *syncTargetResult, name string, target config.TargetConfig, source string, skills []sync.DiscoveredSkill, dryRun, force bool, projectRoot string) {
 	sc := target.SkillsConfig()
-	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, source, dryRun, force, "")
+	result, err := sync.SyncTargetMergeWithSkills(name, target, skills, source, dryRun, force, projectRoot)
 	if err != nil {
 		r.errMsg = err.Error()
 		return
@@ -303,7 +303,7 @@ func collectCopySyncResult(r *syncTargetResult, name string, target config.Targe
 	}
 }
 
-func collectSymlinkSyncResult(r *syncTargetResult, name string, target config.TargetConfig, source string, dryRun, force bool) {
+func collectSymlinkSyncResult(r *syncTargetResult, name string, target config.TargetConfig, source string, dryRun, force bool, projectRoot string) {
 	sc := target.SkillsConfig()
 	status := sync.CheckStatus(sc.Path, source)
 
@@ -320,7 +320,7 @@ func collectSymlinkSyncResult(r *syncTargetResult, name string, target config.Ta
 		os.Remove(sc.Path)
 	}
 
-	if err := sync.SyncTarget(name, target, source, dryRun, ""); err != nil {
+	if err := sync.SyncTarget(name, target, source, dryRun, projectRoot); err != nil {
 		r.errMsg = err.Error()
 		return
 	}
@@ -372,13 +372,13 @@ func renderSyncResults(results []syncTargetResult) {
 // Targets sharing the same resolved path are grouped and run sequentially within one
 // goroutine to avoid race conditions (e.g., two targets trying to create the same symlink).
 // Returns results (indexed by position) and count of failed targets.
-func runParallelSync(entries []syncTargetEntry, source string, skills []sync.DiscoveredSkill, dryRun, force bool) ([]syncTargetResult, int) {
+func runParallelSync(entries []syncTargetEntry, source string, skills []sync.DiscoveredSkill, dryRun, force bool, projectRoot string) ([]syncTargetResult, int) {
 	names := make([]string, len(entries))
 	for i, e := range entries {
 		names[i] = e.name
 	}
 	progress := newSyncProgress(names)
-	results, failedTargets := runParallelSyncCore(entries, source, skills, dryRun, force, progress)
+	results, failedTargets := runParallelSyncCore(entries, source, skills, dryRun, force, progress, projectRoot)
 	progress.stop()
 	renderSyncResults(results)
 	return results, failedTargets
@@ -386,13 +386,13 @@ func runParallelSync(entries []syncTargetEntry, source string, skills []sync.Dis
 
 // runParallelSyncQuiet executes sync for multiple targets without any UI output.
 // Used for --json mode where only structured output should go to stdout.
-func runParallelSyncQuiet(entries []syncTargetEntry, source string, skills []sync.DiscoveredSkill, dryRun, force bool) ([]syncTargetResult, int) {
-	return runParallelSyncCore(entries, source, skills, dryRun, force, nil)
+func runParallelSyncQuiet(entries []syncTargetEntry, source string, skills []sync.DiscoveredSkill, dryRun, force bool, projectRoot string) ([]syncTargetResult, int) {
+	return runParallelSyncCore(entries, source, skills, dryRun, force, nil, projectRoot)
 }
 
 // runParallelSyncCore is the shared implementation for parallel sync.
 // When progress is nil, no UI output is produced (quiet/JSON mode).
-func runParallelSyncCore(entries []syncTargetEntry, source string, skills []sync.DiscoveredSkill, dryRun, force bool, progress *syncProgress) ([]syncTargetResult, int) {
+func runParallelSyncCore(entries []syncTargetEntry, source string, skills []sync.DiscoveredSkill, dryRun, force bool, progress *syncProgress, projectRoot string) ([]syncTargetResult, int) {
 	type indexedEntry struct {
 		idx   int
 		entry syncTargetEntry
@@ -422,7 +422,7 @@ func runParallelSyncCore(entries []syncTargetEntry, source string, skills []sync
 				if progress != nil {
 					progress.startTarget(m.entry.name)
 				}
-				r := collectSyncResult(m.entry.name, m.entry.target, source, m.entry.mode, skills, dryRun, force, progress)
+				r := collectSyncResult(m.entry.name, m.entry.target, source, m.entry.mode, skills, dryRun, force, progress, projectRoot)
 				if progress != nil {
 					progress.doneTarget(m.entry.name, r)
 				}
