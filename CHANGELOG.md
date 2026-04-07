@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.18.9] - 2026-04-07
+
+### New Features
+
+- **Relative symlinks in project mode** — `skillshare sync -p` now creates relative symlinks (e.g., `../../.skillshare/skills/my-skill`) instead of absolute paths. This makes the project directory portable — rename it, move it, or clone it on another machine and all skill symlinks continue to work. Global mode continues to use absolute paths. Existing absolute symlinks are automatically upgraded to relative on the next sync
+
+### Bug Fixes
+
+- **Status version detection** — `skillshare status` no longer reports `! Skill: not found or missing version` when the version is stored under `metadata.version` in the SKILL.md frontmatter. Previously, the `status` command used its own local parser that only checked for a top-level `version:` key, while `doctor` (fixed in v0.18.7) and `upgrade` already used the correct shared parser
+
 ## [0.18.8] - 2026-04-06
 
 ### Bug Fixes

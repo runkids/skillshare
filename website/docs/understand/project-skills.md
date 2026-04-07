@@ -117,6 +117,8 @@ skillshare sync -g       # Force global mode
         └── (same symlink structure as .claude/skills/)
 ```
 
+Symlinks in project mode use **relative paths** (e.g., `../../.skillshare/skills/...`). This makes the project directory portable — rename it, move it, or clone it on another machine and all symlinks continue to work. Global mode uses absolute paths since source and targets are in separate filesystem locations.
+
 ---
 
 ## Config Format

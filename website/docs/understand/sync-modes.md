@@ -56,6 +56,10 @@ skills/                         ~/.claude/skills/
 - Per-target include/exclude filtering
 - Manifest-based orphan cleanup (safely removes non-symlink residue after uninstall)
 
+:::info Relative symlinks in project mode
+In project mode (`-p`), symlinks are created as **relative paths** (e.g., `../../.skillshare/skills/my-skill`) instead of absolute paths. This makes the project portable — move or rename the directory and symlinks continue to work. In global mode, absolute paths are used since source and targets are in different locations.
+:::
+
 **When to use:**
 - You want some skills only in specific AI CLIs
 - You want to try local skills before syncing
