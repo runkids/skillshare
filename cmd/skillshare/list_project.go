@@ -7,6 +7,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/sync"
+	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 )
 
@@ -78,7 +79,7 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 			if skillKind == "agent" {
 				agentsDir := filepath.Join(root, ".skillshare", "agents")
 				uOpts := &uninstallOptions{skillNames: []string{skillName}, force: true}
-				return cmdUninstallAgents(agentsDir, uOpts, config.ProjectConfigPath(root), time.Now())
+				return cmdUninstallAgents(agentsDir, uOpts, config.ProjectConfigPath(root), trash.ProjectAgentTrashDir(root), time.Now())
 			}
 			return cmdUninstallProject([]string{"--force", skillName}, root)
 		}

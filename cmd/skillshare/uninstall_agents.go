@@ -15,7 +15,7 @@ import (
 )
 
 // cmdUninstallAgents removes agents from the source directory by moving them to agent trash.
-func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string, start time.Time) error {
+func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string, trashBase string, start time.Time) error {
 	if _, err := os.Stat(agentsDir); err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("agents source directory does not exist: %s", agentsDir)
@@ -103,7 +103,6 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 		}
 	}
 
-	trashBase := trash.AgentTrashDir()
 	store, _ := install.LoadMetadata(agentsDir)
 	var removed []string
 	var failed []string
@@ -121,7 +120,7 @@ func cmdUninstallAgents(agentsDir string, opts *uninstallOptions, cfgPath string
 		// Trash the agent file (+ legacy sidecar if it still exists)
 		metaName := strings.TrimSuffix(filepath.Base(t.RelPath), ".md")
 		legacySidecar := filepath.Join(filepath.Dir(agentFile), metaName+".skillshare-meta.json")
-		_, err := trash.MoveAgentToTrash(agentFile, legacySidecar, t.Name, trashBase)
+		_, err := trash.MoveAgentToTrash(agentFile, legacySidecar, displayName, trashBase)
 		if err != nil {
 			ui.Error("Failed to remove %s: %v", displayName, err)
 			failed = append(failed, displayName)

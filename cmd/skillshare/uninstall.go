@@ -563,7 +563,7 @@ func cmdUninstall(args []string) error {
 				opts = &uninstallOptions{skillNames: rest}
 			}
 			opts.force = opts.force || opts.jsonOutput
-			err := cmdUninstallAgents(agentsDir, opts, config.ProjectConfigPath(cwd), start)
+			err := cmdUninstallAgents(agentsDir, opts, config.ProjectConfigPath(cwd), trash.ProjectAgentTrashDir(cwd), start)
 			return err
 		}
 		err := cmdUninstallProject(rest, cwd)
@@ -596,7 +596,7 @@ func cmdUninstall(args []string) error {
 	// Agent-only uninstall: move .md + sidecar to agent trash, then return.
 	if kind == kindAgents {
 		agentsDir := cfg.EffectiveAgentsSource()
-		err := cmdUninstallAgents(agentsDir, opts, config.ConfigPath(), start)
+		err := cmdUninstallAgents(agentsDir, opts, config.ConfigPath(), trash.AgentTrashDir(), start)
 		return err
 	}
 

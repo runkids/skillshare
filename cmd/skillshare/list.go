@@ -192,9 +192,9 @@ func sortSkillEntries(skills []skillEntry, sortBy string) {
 			}
 			return a < b // ascending
 		})
-	default: // "name" or empty
+	default: // "name" or empty — sort by RelPath so groups stay together
 		sort.SliceStable(skills, func(i, j int) bool {
-			return skills[i].Name < skills[j].Name
+			return skills[i].RelPath < skills[j].RelPath
 		})
 	}
 }
