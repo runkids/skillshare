@@ -13,8 +13,29 @@ func createSkillWithMeta(t *testing.T, baseDir, name string, meta *SkillMeta) {
 	os.MkdirAll(dir, 0755)
 	os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("---\nname: "+name+"\n---\n"), 0644)
 	if meta != nil {
-		if err := WriteMeta(dir, meta); err != nil {
-			t.Fatalf("write meta for %s: %v", name, err)
+		// Write to centralized .metadata.json
+		store, _ := LoadMetadata(baseDir)
+		key := name
+		group := ""
+		if idx := strings.LastIndex(name, "/"); idx >= 0 {
+			group = name[:idx]
+			key = name[idx+1:]
+		}
+		store.Set(key, &MetadataEntry{
+			Source:      meta.Source,
+			Kind:        meta.Kind,
+			Type:        meta.Type,
+			Group:       group,
+			InstalledAt: meta.InstalledAt,
+			RepoURL:     meta.RepoURL,
+			Subdir:      meta.Subdir,
+			Version:     meta.Version,
+			TreeHash:    meta.TreeHash,
+			FileHashes:  meta.FileHashes,
+			Branch:      meta.Branch,
+		})
+		if err := store.Save(baseDir); err != nil {
+			t.Fatalf("save metadata for %s: %v", name, err)
 		}
 	}
 }
@@ -45,6 +66,12 @@ func TestGetUpdatableSkills_SkipsTrackedRepos(t *testing.T) {
 		Source: "github.com/team/repo",
 		Type:   "github",
 	})
+	// Mark as tracked in the store
+	store, _ := LoadMetadata(src)
+	if e := store.Get("_team-repo"); e != nil {
+		e.Tracked = true
+		store.Save(src)
+	}
 	// Also create a nested skill inside tracked repo
 	nestedDir := filepath.Join(src, "_team-repo", "sub-skill")
 	os.MkdirAll(nestedDir, 0755)
@@ -86,7 +113,9 @@ func TestGetUpdatableSkills_Nested(t *testing.T) {
 	nestedDir := filepath.Join(src, "group", "my-skill")
 	os.MkdirAll(nestedDir, 0755)
 	os.WriteFile(filepath.Join(nestedDir, "SKILL.md"), []byte("nested"), 0644)
-	WriteMeta(nestedDir, &SkillMeta{Source: "github.com/u/r", Type: "github"})
+	store, _ := LoadMetadata(src)
+	store.Set("my-skill", &MetadataEntry{Source: "github.com/u/r", Type: "github", Group: "group"})
+	store.Save(src)
 
 	skills, err := GetUpdatableSkills(src)
 	if err != nil {
@@ -174,17 +203,20 @@ func TestFindRepoInstalls_MatchesByRepoURL(t *testing.T) {
 
 func TestFindRepoInstalls_MatchesNested(t *testing.T) {
 	src := t.TempDir()
+	store, _ := LoadMetadata(src)
 	// Skills under group/
 	for _, name := range []string{"scan", "learn", "archive"} {
 		dir := filepath.Join(src, "feature-radar", name)
 		os.MkdirAll(dir, 0755)
 		os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte("# "+name), 0644)
-		WriteMeta(dir, &SkillMeta{
+		store.Set(name, &MetadataEntry{
 			Source:  "https://github.com/runkids/feature-radar",
 			Type:    "github",
 			RepoURL: "https://github.com/runkids/feature-radar.git",
+			Group:   "feature-radar",
 		})
 	}
+	store.Save(src)
 
 	matches := FindRepoInstalls(src, "git@github.com:runkids/feature-radar.git")
 	if len(matches) != 3 {
@@ -213,10 +245,13 @@ func TestCheckCrossPathDuplicate_BlocksDifferentPath(t *testing.T) {
 	// Existing install under group/
 	dir := filepath.Join(src, "my-group", "skill-a")
 	os.MkdirAll(dir, 0755)
-	WriteMeta(dir, &SkillMeta{
+	store, _ := LoadMetadata(src)
+	store.Set("skill-a", &MetadataEntry{
 		Source: "https://github.com/owner/repo", Type: "github",
 		RepoURL: "https://github.com/owner/repo.git",
+		Group:   "my-group",
 	})
+	store.Save(src)
 
 	// Root install (no --into) should be blocked
 	err := CheckCrossPathDuplicate(src, "https://github.com/owner/repo.git", "")

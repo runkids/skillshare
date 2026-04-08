@@ -138,7 +138,7 @@ func TestReconcileProjectSkills_NestedSkillSetsGroup(t *testing.T) {
 		Targets: []ProjectTargetEntry{{Name: "claude"}},
 	}
 	store := install.NewMetadataStore()
-	store.Set("tools/my-skill", &install.MetadataEntry{
+	store.Set("my-skill", &install.MetadataEntry{
 		Source: "github.com/user/repo",
 		Group:  "tools",
 	})
@@ -147,9 +147,9 @@ func TestReconcileProjectSkills_NestedSkillSetsGroup(t *testing.T) {
 		t.Fatalf("ReconcileProjectSkills failed: %v", err)
 	}
 
-	entry := store.Get("tools/my-skill")
+	entry := store.Get("my-skill")
 	if entry == nil {
-		t.Fatal("expected store to have 'tools/my-skill'")
+		t.Fatal("expected store to have 'my-skill'")
 	}
 	if entry.Group != "tools" {
 		t.Errorf("expected group 'tools', got %q", entry.Group)

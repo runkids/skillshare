@@ -161,7 +161,7 @@ func TestReconcileGlobalSkills_NestedSkillSetsGroup(t *testing.T) {
 
 	cfg := &Config{Source: sourceDir}
 	store := install.NewMetadataStore()
-	store.Set("frontend/pdf", &install.MetadataEntry{
+	store.Set("pdf", &install.MetadataEntry{
 		Source: "anthropics/skills/skills/pdf",
 		Group:  "frontend",
 	})
@@ -170,9 +170,9 @@ func TestReconcileGlobalSkills_NestedSkillSetsGroup(t *testing.T) {
 		t.Fatalf("ReconcileGlobalSkills failed: %v", err)
 	}
 
-	entry := store.Get("frontend/pdf")
+	entry := store.Get("pdf")
 	if entry == nil {
-		t.Fatal("expected store to have 'frontend/pdf'")
+		t.Fatal("expected store to have 'pdf'")
 	}
 	if entry.Group != "frontend" {
 		t.Errorf("expected group 'frontend', got %q", entry.Group)
