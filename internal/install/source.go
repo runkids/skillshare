@@ -56,7 +56,7 @@ var githubPattern = regexp.MustCompile(`^(?:https?://)?github\.com/([^/]+)/([^/]
 var gitSSHPattern = regexp.MustCompile(`^git@([^:]+):([^/]+)/(.+?)(?:\.git)?(?://(.+))?$`)
 
 // Git HTTPS pattern: https://host/path (flexible path for GitLab subgroups)
-var gitHTTPSPattern = regexp.MustCompile(`^https?://([^/]+)/(.+)$`)
+var gitHTTPSPattern = regexp.MustCompile(`^(https?)://([^/]+)/(.+)$`)
 
 // File URL pattern: file:///path/to/repo[//subdir]
 var fileURLPattern = regexp.MustCompile(`^file://(.+?)(?://(.+))?$`)
@@ -373,11 +373,12 @@ func parseAzureSSH(org, project, repo, subdir string, source *Source) (*Source, 
 }
 
 func parseGitHTTPS(matches []string, source *Source, opts ParseOptions) (*Source, error) {
-	// matches: [full, host, path]
-	host := matches[1]
+	// matches: [full, schema, host, path]
+	schema := matches[1]
+	host := matches[2]
 	// Trim trailing slashes first, then /. — order matters:
 	// "foo/.//" → "foo/." → "foo"
-	path := strings.TrimRight(matches[2], "/")
+	path := strings.TrimRight(matches[3], "/")
 	path = strings.TrimSuffix(path, "/.")
 
 	var repoPath, subdir string
@@ -429,7 +430,7 @@ func parseGitHTTPS(matches []string, source *Source, opts ParseOptions) (*Source
 	}
 
 	source.Type = SourceTypeGitHTTPS
-	source.CloneURL = fmt.Sprintf("https://%s/%s.git", host, repoPath)
+	source.CloneURL = fmt.Sprintf("%s://%s/%s.git", schema, host, repoPath)
 
 	if subdir != "" {
 		source.Subdir = subdir
