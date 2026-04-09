@@ -1331,7 +1331,7 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
           }
           <span className={`font-bold text-pencil shrink-0${node.isRoot ? ' text-pencil-light font-semibold' : ''}`}>
             {node.name.startsWith('_') ? (
-              <span className="inline-flex items-center gap-1.5"><Badge variant="default" size="sm">Track</Badge>{formatTrackedRepoName(node.name)}</span>
+              <span className="inline-flex items-center gap-1.5"><GitBranch size={14} strokeWidth={2.5} className="text-pencil-light" />{formatTrackedRepoName(node.name)}</span>
             ) : formatSkillDisplayName(node.name)}
           </span>
           <span
@@ -1497,7 +1497,7 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
             <span className={`font-semibold text-sm${stickyFolder.node.isRoot ? ' text-pencil-light' : ' text-pencil'}`}>
               {stickyFolder.node.path
                 ? (stickyFolder.node.path.startsWith('_')
-                    ? <><Badge variant="default" size="sm">Track</Badge> {formatTrackedRepoName(stickyFolder.node.path)}</>
+                    ? <span className="inline-flex items-center gap-1.5"><GitBranch size={14} strokeWidth={2.5} className="text-pencil-light" />{formatTrackedRepoName(stickyFolder.node.path)}</span>
                     : formatSkillDisplayName(stickyFolder.node.path))
                 : '(root)'}
             </span>
