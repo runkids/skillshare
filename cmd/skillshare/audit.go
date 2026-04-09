@@ -244,13 +244,13 @@ func cmdAudit(args []string) error {
 
 	switch {
 	case !hasTargets:
-		results, summary, err = auditInstalled(sourcePath, modeString(mode), projectRoot, threshold, kind, opts, registry)
+		results, summary, err = auditInstalled(sourcePath, agentsSourcePath, modeString(mode), projectRoot, threshold, kind, opts, registry)
 	case isSinglePath:
 		results, summary, err = auditPath(opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, registry)
 	case isSingleName:
 		results, summary, err = auditSkillByName(sourcePath, opts.Targets[0], modeString(mode), projectRoot, threshold, opts.Format, opts.PolicyLine, kind, registry)
 	default:
-		results, summary, err = auditFiltered(sourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, kind, opts, registry)
+		results, summary, err = auditFiltered(sourcePath, agentsSourcePath, opts.Targets, opts.Groups, modeString(mode), projectRoot, threshold, kind, opts, registry)
 	}
 	if err != nil {
 		logAuditOp(cfgPath, rest, summary, start, err, false)
@@ -501,7 +501,7 @@ func scanPathTarget(targetPath, projectRoot string, registry *audit.Registry) (*
 	return audit.ScanFile(targetPath)
 }
 
-func auditInstalled(sourcePath, mode, projectRoot, threshold string, kind resourceKindFilter, opts auditOptions, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
+func auditInstalled(sourcePath, agentsSourcePath, mode, projectRoot, threshold string, kind resourceKindFilter, opts auditOptions, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
 	jsonOutput := opts.isStructured()
 	base := auditRunSummary{
 		Scope:     "all",
@@ -609,14 +609,23 @@ func auditInstalled(sourcePath, mode, projectRoot, threshold string, kind resour
 	}
 
 	applyPolicyToSummary(&summary, opts)
-	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth, kind); err != nil {
+	tuiCtx := &auditTUIContext{
+		kind:             kind,
+		sourcePath:       sourcePath,
+		agentsSourcePath: agentsSourcePath,
+		projectRoot:      projectRoot,
+		threshold:        threshold,
+		registry:         reg,
+		mode:             mode,
+	}
+	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth, tuiCtx); err != nil {
 		return results, summary, err
 	}
 
 	return results, summary, nil
 }
 
-func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot, threshold string, kind resourceKindFilter, opts auditOptions, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
+func auditFiltered(sourcePath, agentsSourcePath string, names, groups []string, mode, projectRoot, threshold string, kind resourceKindFilter, opts auditOptions, reg *audit.Registry) ([]*audit.Result, auditRunSummary, error) {
 	jsonOutput := opts.isStructured()
 	base := auditRunSummary{
 		Scope:     "filtered",
@@ -746,7 +755,16 @@ func auditFiltered(sourcePath string, names, groups []string, mode, projectRoot,
 	}
 
 	applyPolicyToSummary(&summary, opts)
-	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth, kind); err != nil {
+	tuiCtx := &auditTUIContext{
+		kind:             kind,
+		sourcePath:       sourcePath,
+		agentsSourcePath: agentsSourcePath,
+		projectRoot:      projectRoot,
+		threshold:        threshold,
+		registry:         reg,
+		mode:             mode,
+	}
+	if err := presentAuditResults(results, elapsed, scanResults, summary, jsonOutput, opts, headerMinWidth, tuiCtx); err != nil {
 		return results, summary, err
 	}
 

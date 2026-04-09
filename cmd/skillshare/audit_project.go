@@ -26,6 +26,6 @@ func cmdAuditProject(root, specificSkill string) (auditRunSummary, bool, error) 
 		return summary, summary.Failed > 0, err
 	}
 
-	_, summary, err := auditInstalled(rt.sourcePath, "project", root, threshold, kindSkills, auditOptions{}, nil)
+	_, summary, err := auditInstalled(rt.sourcePath, "", "project", root, threshold, kindSkills, auditOptions{}, nil)
 	return summary, summary.Failed > 0, err
 }

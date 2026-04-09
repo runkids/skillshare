@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -18,10 +19,21 @@ func riskColor(label string) string {
 	return ui.Dim
 }
 
+// auditTUIContext carries info needed to scan the "other" kind for TUI tab switching.
+type auditTUIContext struct {
+	kind             resourceKindFilter
+	sourcePath       string // skills source (always)
+	agentsSourcePath string // agents source (always)
+	projectRoot      string
+	threshold        string
+	registry         *audit.Registry
+	mode             string
+}
+
 // presentAuditResults handles the common output path for audit scans:
 // prints per-skill list only when TUI is unavailable, always prints summary,
 // and launches TUI when conditions are met.
-func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanOutputs []audit.ScanOutput, summary auditRunSummary, jsonOutput bool, opts auditOptions, headerMinWidth int, kind ...resourceKindFilter) error {
+func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanOutputs []audit.ScanOutput, summary auditRunSummary, jsonOutput bool, opts auditOptions, headerMinWidth int, tuiCtx *auditTUIContext) error {
 	useTUI := !jsonOutput && shouldLaunchTUI(opts.NoTUI, nil) && len(results) > 1
 
 	if !jsonOutput {
@@ -37,14 +49,79 @@ func presentAuditResults(results []*audit.Result, elapsed []time.Duration, scanO
 			}
 			fmt.Println()
 		}
-		summaryLines := buildAuditSummaryLines(summary, kind...)
+		var kindSlice []resourceKindFilter
+		if tuiCtx != nil {
+			kindSlice = []resourceKindFilter{tuiCtx.kind}
+		}
+		summaryLines := buildAuditSummaryLines(summary, kindSlice...)
 		printAuditSummary(summary, summaryLines, headerMinWidth)
 	}
 
 	if useTUI {
-		return runAuditTUI(results, scanOutputs, summary)
+		if tuiCtx != nil {
+			return launchAuditTUIWithTabs(results, scanOutputs, summary, tuiCtx)
+		}
+		return runAuditTUI(results, scanOutputs, summary, nil, nil, auditRunSummary{}, auditTabSkills)
 	}
 	return nil
+}
+
+func launchAuditTUIWithTabs(results []*audit.Result, scanOutputs []audit.ScanOutput, summary auditRunSummary, ctx *auditTUIContext) error {
+	initialTab := auditTabSkills
+	if ctx.kind == kindAgents {
+		initialTab = auditTabAgents
+	}
+
+	// Scan the "other" kind for the second tab.
+	var otherResults []*audit.Result
+	var otherOutputs []audit.ScanOutput
+	var otherSummary auditRunSummary
+
+	otherSource := ctx.agentsSourcePath
+	otherKind := "agent"
+	if ctx.kind == kindAgents {
+		otherSource = ctx.sourcePath
+		otherKind = "skill"
+	}
+
+	if otherSource != "" {
+		otherPaths, err := collectInstalledSkillPaths(otherSource)
+		if err == nil && len(otherPaths) > 0 {
+			otherScanResults := audit.ParallelScan(toAuditInputs(otherPaths), ctx.projectRoot, nil, ctx.registry)
+			for i := range otherPaths {
+				if i < len(otherScanResults) {
+					sr := otherScanResults[i]
+					if sr.Err == nil {
+						sr.Result.Threshold = ctx.threshold
+						sr.Result.IsBlocked = sr.Result.HasSeverityAtOrAbove(ctx.threshold)
+						sr.Result.Kind = otherKind
+						if rel, relErr := filepath.Rel(otherSource, sr.Result.ScanTarget); relErr == nil {
+							sr.Result.SkillName = rel
+						}
+						otherResults = append(otherResults, sr.Result)
+						otherOutputs = append(otherOutputs, sr)
+					}
+				}
+			}
+			otherSummary = summarizeAuditResults(len(otherPaths), otherResults, ctx.threshold)
+			otherSummary.Mode = ctx.mode
+		}
+	}
+
+	// Arrange into skills vs agents.
+	var skillResults, agentResults []*audit.Result
+	var skillOutputs, agentOutputs []audit.ScanOutput
+	var skillSummary, agentSummary auditRunSummary
+
+	if ctx.kind == kindAgents {
+		agentResults, agentOutputs, agentSummary = results, scanOutputs, summary
+		skillResults, skillOutputs, skillSummary = otherResults, otherOutputs, otherSummary
+	} else {
+		skillResults, skillOutputs, skillSummary = results, scanOutputs, summary
+		agentResults, agentOutputs, agentSummary = otherResults, otherOutputs, otherSummary
+	}
+
+	return runAuditTUI(skillResults, skillOutputs, skillSummary, agentResults, agentOutputs, agentSummary, initialTab)
 }
 
 // printSkillResultLine prints a single-line result for a skill during batch scan.

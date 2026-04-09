@@ -15,6 +15,20 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+type auditTab int
+
+const (
+	auditTabSkills auditTab = iota
+	auditTabAgents
+)
+
+func (t auditTab) noun() string {
+	if t == auditTabAgents {
+		return "agents"
+	}
+	return "skills"
+}
+
 // ac holds audit-specific styles that don't belong in the shared tc palette.
 var ac = struct {
 	File     lipgloss.Style // file:line locations — cyan
@@ -38,6 +52,7 @@ func acSevCount(count int, style lipgloss.Style) lipgloss.Style {
 type auditItem struct {
 	result  *audit.Result
 	elapsed time.Duration
+	kind    string // "skill" or "agent"
 }
 
 func (i auditItem) Title() string {
@@ -212,61 +227,83 @@ type auditTUIModel struct {
 	termHeight   int
 
 	summary auditRunSummary
+
+	// Tab switching (skills ↔ agents)
+	activeTab    auditTab
+	skillItems   []auditItem
+	agentItems   []auditItem
+	skillSummary auditRunSummary
+	agentSummary auditRunSummary
+	tabCounts    [2]int // [skills, agents]
 }
 
-func newAuditTUIModel(results []*audit.Result, scanOutputs []audit.ScanOutput, summary auditRunSummary) auditTUIModel {
-	// Build items sorted: by severity (findings first), then by name.
-	items := make([]auditItem, 0, len(results))
-	for idx, r := range results {
-		var elapsed time.Duration
-		if idx < len(scanOutputs) {
-			elapsed = scanOutputs[idx].Elapsed
-		}
-		items = append(items, auditItem{result: r, elapsed: elapsed})
-	}
+func sortAuditItems(items []auditItem) {
 	sort.Slice(items, func(i, j int) bool {
 		ri, rj := items[i].result, items[j].result
-		// Primary: group by repo key (tracked repos first, then standalone).
 		ki, kj := auditRepoKey(ri.SkillName), auditRepoKey(rj.SkillName)
 		if ki != kj {
-			// Both tracked: alphabetical
 			if ki != "" && kj != "" {
 				return ki < kj
 			}
-			// Tracked before standalone
 			return ki != ""
 		}
-		// Secondary: skills with findings come first.
 		hasI, hasJ := len(ri.Findings) > 0, len(rj.Findings) > 0
 		if hasI != hasJ {
 			return hasI
 		}
 		if hasI && hasJ {
-			// Higher severity (lower rank) first.
 			rankI := audit.SeverityRank(ri.MaxSeverity())
 			rankJ := audit.SeverityRank(rj.MaxSeverity())
 			if rankI != rankJ {
 				return rankI < rankJ
 			}
-			// Higher risk score first.
 			if ri.RiskScore != rj.RiskScore {
 				return ri.RiskScore > rj.RiskScore
 			}
 		}
 		return ri.SkillName < rj.SkillName
 	})
+}
 
-	// Cap items for list widget performance.
-	allItems := items
-	displayItems := items
+func newAuditTUIModel(
+	skillResults []*audit.Result, skillOutputs []audit.ScanOutput, skillSummary auditRunSummary,
+	agentResults []*audit.Result, agentOutputs []audit.ScanOutput, agentSummary auditRunSummary,
+	initialTab auditTab,
+) auditTUIModel {
+	buildItems := func(results []*audit.Result, outputs []audit.ScanOutput, kind string) []auditItem {
+		items := make([]auditItem, 0, len(results))
+		for idx, r := range results {
+			var elapsed time.Duration
+			if idx < len(outputs) {
+				elapsed = outputs[idx].Elapsed
+			}
+			items = append(items, auditItem{result: r, elapsed: elapsed, kind: kind})
+		}
+		sortAuditItems(items)
+		return items
+	}
+
+	skillItems := buildItems(skillResults, skillOutputs, "skill")
+	agentItems := buildItems(agentResults, agentOutputs, "agent")
+
+	var activeItems []auditItem
+	var activeSummary auditRunSummary
+	if initialTab == auditTabAgents {
+		activeItems = agentItems
+		activeSummary = agentSummary
+	} else {
+		activeItems = skillItems
+		activeSummary = skillSummary
+	}
+
+	displayItems := activeItems
 	if len(displayItems) > maxListItems {
 		displayItems = displayItems[:maxListItems]
 	}
-
 	listItems := buildGroupedAuditItems(displayItems)
 
 	l := list.New(listItems, auditDelegate{}, 0, 0)
-	l.Title = fmt.Sprintf("Audit results (%d scanned)", summary.Scanned)
+	l.Title = fmt.Sprintf("Audit results (%d scanned)", activeSummary.Scanned)
 	l.Styles.Title = tc.ListTitle
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
@@ -279,14 +316,36 @@ func newAuditTUIModel(results []*audit.Result, scanOutputs []audit.ScanOutput, s
 	fi.Cursor.Style = tc.Filter
 
 	m := auditTUIModel{
-		list:        l,
-		allItems:    allItems,
-		matchCount:  len(allItems),
-		filterInput: fi,
-		summary:     summary,
+		list:         l,
+		allItems:     activeItems,
+		matchCount:   len(activeItems),
+		filterInput:  fi,
+		summary:      activeSummary,
+		activeTab:    initialTab,
+		skillItems:   skillItems,
+		agentItems:   agentItems,
+		skillSummary: skillSummary,
+		agentSummary: agentSummary,
+		tabCounts:    [2]int{len(skillItems), len(agentItems)},
 	}
 	skipGroupItem(&m.list, 1)
 	return m
+}
+
+func (m *auditTUIModel) switchTab() {
+	if m.activeTab == auditTabAgents {
+		m.allItems = m.agentItems
+		m.summary = m.agentSummary
+	} else {
+		m.allItems = m.skillItems
+		m.summary = m.skillSummary
+	}
+	m.filterText = ""
+	m.filterInput.SetValue("")
+	m.detailScroll = 0
+	m.applyFilter()
+	m.list.Title = fmt.Sprintf("Audit results (%d scanned)", m.summary.Scanned)
+	skipGroupItem(&m.list, 1)
 }
 
 func (m auditTUIModel) Init() tea.Cmd { return nil }
@@ -391,6 +450,14 @@ func (m auditTUIModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.detailScroll = 0
 			}
 			return m, nil
+		case "tab":
+			m.activeTab = (m.activeTab + 1) % 2
+			m.switchTab()
+			return m, nil
+		case "shift+tab":
+			m.activeTab = (m.activeTab - 1 + 2) % 2
+			m.switchTab()
+			return m, nil
 		}
 	}
 
@@ -425,6 +492,9 @@ func (m auditTUIModel) View() string {
 
 	// ── Horizontal split layout ──
 	var b strings.Builder
+
+	b.WriteString(m.renderTabBar())
+	b.WriteString("\n")
 
 	panelHeight := m.auditPanelHeight()
 
@@ -465,7 +535,7 @@ func (m auditTUIModel) View() string {
 	b.WriteString(m.renderSummaryFooter())
 
 	// Help line
-	b.WriteString(tc.Help.Render(appendScrollInfo("↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll detail  q quit", scrollInfo)))
+	b.WriteString(tc.Help.Render(appendScrollInfo("Tab skills/agents  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll detail  q quit", scrollInfo)))
 
 	return b.String()
 }
@@ -473,6 +543,9 @@ func (m auditTUIModel) View() string {
 // viewVertical renders the original vertical layout for narrow terminals.
 func (m auditTUIModel) viewVertical() string {
 	var b strings.Builder
+
+	b.WriteString(m.renderTabBar())
+	b.WriteString("\n")
 
 	b.WriteString(m.list.View())
 	b.WriteString("\n\n")
@@ -489,17 +562,43 @@ func (m auditTUIModel) viewVertical() string {
 
 	b.WriteString(m.renderSummaryFooter())
 
-	b.WriteString(tc.Help.Render(appendScrollInfo("↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll  q quit", scrollInfo)))
+	b.WriteString(tc.Help.Render(appendScrollInfo("Tab skills/agents  ↑↓ navigate  ←→ page  / filter  Ctrl+d/u scroll  q quit", scrollInfo)))
 	b.WriteString("\n")
 
 	return b.String()
+}
+
+func (m auditTUIModel) renderTabBar() string {
+	type tab struct {
+		label string
+		tab   auditTab
+		count int
+	}
+	tabs := []tab{
+		{"Skills", auditTabSkills, m.tabCounts[0]},
+		{"Agents", auditTabAgents, m.tabCounts[1]},
+	}
+
+	activeStyle := lipgloss.NewStyle().Bold(true).Underline(true)
+	inactiveStyle := tc.Dim
+
+	var parts []string
+	for _, t := range tabs {
+		label := fmt.Sprintf("%s(%d)", t.label, t.count)
+		if t.tab == m.activeTab {
+			parts = append(parts, activeStyle.Inherit(tc.Cyan).Render(label))
+		} else {
+			parts = append(parts, inactiveStyle.Render(label))
+		}
+	}
+	return "  " + strings.Join(parts, "  ")
 }
 
 func (m auditTUIModel) renderFilterBar() string {
 	return renderTUIFilterBar(
 		m.filterInput.View(), m.filtering, m.filterText,
 		m.matchCount, len(m.allItems), maxListItems,
-		"results", m.renderPageInfo(),
+		m.activeTab.noun(), m.renderPageInfo(),
 	)
 }
 
@@ -716,9 +815,9 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 }
 
 // auditFooterLines returns the number of lines the footer occupies below the panel.
-// gap(2) + filter(1) + summary(1-2) + help(1) = 5 or 6
+// gap(2) + tab(1) + filter(1) + summary(1-2) + help(1) = 6 or 7
 func (m auditTUIModel) auditFooterLines() int {
-	n := 5 // gap(2) + filter + summary-line1 + help
+	n := 6 // gap(2) + tab(1) + filter + summary-line1 + help
 	if len(m.summary.ByCategory) > 0 {
 		n++ // summary-line2 (threats)
 	}
@@ -803,8 +902,12 @@ func findingMetaTUI(f audit.Finding) string {
 }
 
 // runAuditTUI starts the bubbletea TUI for audit results.
-func runAuditTUI(results []*audit.Result, scanOutputs []audit.ScanOutput, summary auditRunSummary) error {
-	model := newAuditTUIModel(results, scanOutputs, summary)
+func runAuditTUI(
+	skillResults []*audit.Result, skillOutputs []audit.ScanOutput, skillSummary auditRunSummary,
+	agentResults []*audit.Result, agentOutputs []audit.ScanOutput, agentSummary auditRunSummary,
+	initialTab auditTab,
+) error {
+	model := newAuditTUIModel(skillResults, skillOutputs, skillSummary, agentResults, agentOutputs, agentSummary, initialTab)
 	p := tea.NewProgram(model, tea.WithAltScreen(), tea.WithMouseCellMotion())
 	_, err := p.Run()
 	return err
