@@ -11,6 +11,8 @@ import {
   CircleCheck,
   Gauge,
   Eye,
+  Puzzle,
+  Bot,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { AuditAllResponse, AuditResult, AuditFinding } from '../api/client';
@@ -157,26 +159,41 @@ export default function AuditPage() {
       </div>
 
       {/* Kind tabs */}
-      <div className="flex gap-2">
-        {(['skills', 'agents'] as const).map((kind) => (
+      <nav className="ss-resource-tabs flex items-center gap-6 border-b-2 border-muted -mx-4 px-4 md:-mx-8 md:px-8" role="tablist">
+        {([
+          { key: 'skills' as AuditKind, icon: <Puzzle size={16} strokeWidth={2.5} />, label: 'Skills', count: dataCache.skills?.summary.total },
+          { key: 'agents' as AuditKind, icon: <Bot size={16} strokeWidth={2.5} />, label: 'Agents', count: dataCache.agents?.summary.total },
+        ]).map((tab) => (
           <button
-            key={kind}
-            onClick={() => { if (!loading) setActiveKind(kind); }}
+            key={tab.key}
+            role="tab"
+            aria-selected={activeKind === tab.key}
+            onClick={() => { if (!loading) setActiveKind(tab.key); }}
             disabled={loading}
-            className={`px-3 py-1.5 text-sm font-medium border-2 transition-colors cursor-pointer disabled:opacity-50 ${
-              activeKind === kind
-                ? 'border-pencil bg-pencil text-paper'
-                : 'border-pencil-lighter text-pencil-light hover:border-pencil hover:text-pencil'
-            }`}
-            style={{ borderRadius: radius.sm }}
+            className={`
+              ss-resource-tab
+              inline-flex items-center gap-1.5 px-1 pb-2.5 text-sm font-semibold cursor-pointer
+              transition-all duration-150 border-b-[3px] -mb-[2px]
+              disabled:opacity-50
+              ${activeKind === tab.key
+                ? 'border-pencil text-pencil'
+                : 'border-transparent text-pencil-light hover:text-pencil hover:border-muted-dark'
+              }
+            `}
           >
-            {kind === 'skills' ? 'Skills' : 'Agents'}
-            {dataCache[kind] && (
-              <span className="ml-1.5 opacity-70">({dataCache[kind]!.summary.total})</span>
+            {tab.icon}
+            {tab.label}
+            {tab.count != null && (
+              <span className={`
+                text-[11px] font-medium px-1.5 py-0.5 rounded-[var(--radius-sm)]
+                ${activeKind === tab.key ? 'bg-pencil/10 text-pencil' : 'bg-muted text-pencil-light'}
+              `}>
+                {tab.count}
+              </span>
             )}
           </button>
         ))}
-      </div>
+      </nav>
 
       {/* Loading / Progress */}
       {loading && (
