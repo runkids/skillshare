@@ -324,9 +324,14 @@ export const api = {
     apiFetch<SkillFileContent>(`/resources/${encodeURIComponent(skillName)}/files/${filepath}`),
 
   // Collect
-  collectScan: (target?: string) =>
-    apiFetch<CollectScanResult>(`/collect/scan${target ? '?target=' + encodeURIComponent(target) : ''}`),
-  collect: (opts: { skills: { name: string; targetName: string }[]; force?: boolean }) =>
+  collectScan: (target?: string, kind?: 'skill' | 'agent') => {
+    const params = new URLSearchParams();
+    if (target) params.set('target', target);
+    if (kind) params.set('kind', kind);
+    const qs = params.toString();
+    return apiFetch<CollectScanResult>(`/collect/scan${qs ? '?' + qs : ''}`);
+  },
+  collect: (opts: { skills: { name: string; targetName: string; kind?: string }[]; force?: boolean }) =>
     apiFetch<CollectResult>('/collect', {
       method: 'POST',
       body: JSON.stringify(opts),
