@@ -430,7 +430,8 @@ export const api = {
   },
 
   // Audit
-  auditAll: () => apiFetch<AuditAllResponse>('/audit'),
+  auditAll: (kind?: 'skills' | 'agents') =>
+    apiFetch<AuditAllResponse>(`/audit${kind ? '?kind=' + kind : ''}`),
   auditSkill: (name: string, kind?: 'skill' | 'agent') =>
     apiFetch<AuditSkillResponse>(`/audit/${encodeURIComponent(name)}${kind === 'agent' ? '?kind=agent' : ''}`),
   auditAllStream: (
@@ -438,8 +439,9 @@ export const api = {
     onProgress: (scanned: number) => void,
     onDone: (data: AuditAllResponse) => void,
     onError: (err: Error) => void,
+    kind?: 'skills' | 'agents',
   ): EventSource =>
-    createSSEStream(BASE + '/audit/stream', {
+    createSSEStream(BASE + `/audit/stream${kind ? '?kind=' + kind : ''}`, {
       start: (d) => onStart(d.total),
       progress: (d) => onProgress(d.scanned),
       done: onDone,

@@ -29,6 +29,7 @@ import ScrollToTop from '../components/ScrollToTop';
 import KindBadge from '../components/KindBadge';
 
 type SeverityFilter = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
+type AuditKind = 'skills' | 'agents';
 
 const severityFilterOptions: { value: SeverityFilter; label: string }[] = [
   { value: 'INFO', label: 'All (INFO+)' },
@@ -40,7 +41,12 @@ const severityFilterOptions: { value: SeverityFilter; label: string }[] = [
 
 export default function AuditPage() {
   const { toast } = useToast();
-  const [data, setData] = useState<AuditAllResponse | null>(null);
+  const [activeKind, setActiveKind] = useState<AuditKind>('skills');
+  const [dataCache, setDataCache] = useState<Record<AuditKind, AuditAllResponse | null>>({
+    skills: null,
+    agents: null,
+  });
+  const data = dataCache[activeKind];
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [minSeverity, setMinSeverity] = useState<SeverityFilter>('MEDIUM');
@@ -83,16 +89,17 @@ export default function AuditPage() {
 
   const showAuditToast = useCallback((res: AuditAllResponse) => {
     const { summary } = res;
+    const noun = activeKind === 'agents' ? 'agent(s)' : 'skill(s)';
     if (summary.failed > 0) {
-      toast(`Audit complete: ${summary.failed} skill(s) blocked at ${summary.threshold}+`, 'warning');
+      toast(`Audit complete: ${summary.failed} ${noun} blocked at ${summary.threshold}+`, 'warning');
     } else if (summary.warning > 0) {
-      toast(`Audit complete: ${summary.warning} skill(s) with warnings`, 'warning');
+      toast(`Audit complete: ${summary.warning} ${noun} with warnings`, 'warning');
     } else if (summary.low > 0 || summary.info > 0) {
       toast(`Audit complete: ${summary.low + summary.info} informational findings`, 'warning');
     } else {
-      toast('Audit complete: all skills passed', 'success');
+      toast(`Audit complete: all ${activeKind} passed`, 'success');
     }
-  }, [toast]);
+  }, [toast, activeKind]);
 
   const runAudit = () => {
     setLoading(true);
@@ -104,7 +111,7 @@ export default function AuditPage() {
       (total) => setProgress({ scanned: 0, total }),
       (scanned) => setProgress((p) => p ? { ...p, scanned } : null),
       (res) => {
-        setData(res);
+        setDataCache((prev) => ({ ...prev, [activeKind]: res }));
         setLoading(false);
         setProgress(null);
         showAuditToast(res);
@@ -115,6 +122,7 @@ export default function AuditPage() {
         setProgress(null);
         toast(err.message, 'error');
       },
+      activeKind,
     );
   };
 
@@ -148,6 +156,28 @@ export default function AuditPage() {
       />
       </div>
 
+      {/* Kind tabs */}
+      <div className="flex gap-2">
+        {(['skills', 'agents'] as const).map((kind) => (
+          <button
+            key={kind}
+            onClick={() => { if (!loading) setActiveKind(kind); }}
+            disabled={loading}
+            className={`px-3 py-1.5 text-sm font-medium border-2 transition-colors cursor-pointer disabled:opacity-50 ${
+              activeKind === kind
+                ? 'border-pencil bg-pencil text-paper'
+                : 'border-pencil-lighter text-pencil-light hover:border-pencil hover:text-pencil'
+            }`}
+            style={{ borderRadius: radius.sm }}
+          >
+            {kind === 'skills' ? 'Skills' : 'Agents'}
+            {dataCache[kind] && (
+              <span className="ml-1.5 opacity-70">({dataCache[kind]!.summary.total})</span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* Loading / Progress */}
       {loading && (
         <StreamProgressBar
@@ -156,9 +186,9 @@ export default function AuditPage() {
           startTime={startTimeRef.current}
           icon={ShieldCheck}
           iconClassName="animate-pulse"
-          labelDiscovering="Scanning skills..."
-          labelRunning="Scanning skills..."
-          units="skills"
+          labelDiscovering={`Scanning ${activeKind}...`}
+          labelRunning={`Scanning ${activeKind}...`}
+          units={activeKind}
         />
       )}
 
@@ -193,7 +223,7 @@ export default function AuditPage() {
           {totalFindings === 0 ? (
             <EmptyState
               icon={ShieldCheck}
-              title="All skills passed security audit"
+              title={`All ${activeKind} passed security audit`}
               description="No malicious patterns or security threats detected"
             />
           ) : filteredResults.length === 0 ? (
@@ -223,7 +253,7 @@ export default function AuditPage() {
                 <span
                   className="font-medium"
                 >
-                  {data.summary.passed} skill{data.summary.passed !== 1 ? 's' : ''} passed with no issues
+                  {data.summary.passed} {activeKind === 'agents' ? 'agent' : 'skill'}{data.summary.passed !== 1 ? 's' : ''} passed with no issues
                 </span>
               </div>
             </Card>
@@ -235,8 +265,8 @@ export default function AuditPage() {
       {!data && !loading && !error && (
         <EmptyState
           icon={ShieldCheck}
-          title="No audit results yet"
-          description="Click 'Run Audit' to scan your installed skills for security threats"
+          title={`No ${activeKind} audit results yet`}
+          description={`Click 'Run Audit' to scan your installed ${activeKind} for security threats`}
           action={
             <Button variant="primary" onClick={runAudit}>
               <ShieldCheck size={16} strokeWidth={2.5} /> Run Audit
