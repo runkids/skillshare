@@ -236,6 +236,125 @@ func TestHandleCollectScan_BothKinds(t *testing.T) {
 	}
 }
 
+func TestHandleCollect_AgentItems(t *testing.T) {
+	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
+	agentPath := filepath.Join(t.TempDir(), "claude-agents")
+	agentsSource := filepath.Join(t.TempDir(), "agents-source")
+	s, sourceDir := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
+
+	// Write config YAML with agents_source and agent target path.
+	cfgPath := os.Getenv("SKILLSHARE_CONFIG")
+	raw := "source: " + sourceDir + "\nagents_source: " + agentsSource +
+		"\nmode: merge\ntargets:\n  claude:\n    skills:\n      path: " + tgtPath +
+		"\n    agents:\n      path: " + agentPath + "\n"
+	if err := os.WriteFile(cfgPath, []byte(raw), 0644); err != nil {
+		t.Fatalf("failed to update config: %v", err)
+	}
+	os.MkdirAll(agentsSource, 0755)
+
+	// Create a local .md agent file in the agent target directory.
+	os.MkdirAll(agentPath, 0755)
+	agentContent := "# helper agent\nThis is a test agent."
+	os.WriteFile(filepath.Join(agentPath, "helper.md"), []byte(agentContent), 0644)
+
+	body := `{"skills":[{"name":"helper.md","targetName":"claude","kind":"agent"}],"force":false}`
+	req := httptest.NewRequest(http.MethodPost, "/api/collect", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Pulled  []string          `json:"pulled"`
+		Skipped []string          `json:"skipped"`
+		Failed  map[string]string `json:"failed"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(resp.Pulled) != 1 || resp.Pulled[0] != "helper.md" {
+		t.Fatalf("expected pulled=[helper.md], got %v", resp.Pulled)
+	}
+	if len(resp.Failed) != 0 {
+		t.Fatalf("expected no failures, got %v", resp.Failed)
+	}
+
+	// Verify the agent file was copied to agents source.
+	destPath := filepath.Join(agentsSource, "helper.md")
+	data, err := os.ReadFile(destPath)
+	if err != nil {
+		t.Fatalf("agent not found in source dir: %v", err)
+	}
+	if string(data) != agentContent {
+		t.Fatalf("agent content mismatch: got %q, want %q", string(data), agentContent)
+	}
+}
+
+func TestHandleCollect_MixedSkillsAndAgents(t *testing.T) {
+	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
+	agentPath := filepath.Join(t.TempDir(), "claude-agents")
+	agentsSource := filepath.Join(t.TempDir(), "agents-source")
+	s, sourceDir := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
+
+	// Write config YAML with both skills and agents paths.
+	cfgPath := os.Getenv("SKILLSHARE_CONFIG")
+	raw := "source: " + sourceDir + "\nagents_source: " + agentsSource +
+		"\nmode: merge\ntargets:\n  claude:\n    skills:\n      path: " + tgtPath +
+		"\n    agents:\n      path: " + agentPath + "\n"
+	if err := os.WriteFile(cfgPath, []byte(raw), 0644); err != nil {
+		t.Fatalf("failed to update config: %v", err)
+	}
+	os.MkdirAll(agentsSource, 0755)
+
+	// Create a local skill directory in skill target.
+	localSkill := filepath.Join(tgtPath, "my-skill")
+	os.MkdirAll(localSkill, 0755)
+	os.WriteFile(filepath.Join(localSkill, "SKILL.md"), []byte("local skill"), 0644)
+
+	// Create a local agent file in agent target.
+	os.MkdirAll(agentPath, 0755)
+	os.WriteFile(filepath.Join(agentPath, "reviewer.md"), []byte("# reviewer"), 0644)
+
+	body := `{"skills":[` +
+		`{"name":"my-skill","targetName":"claude"},` +
+		`{"name":"reviewer.md","targetName":"claude","kind":"agent"}` +
+		`],"force":false}`
+	req := httptest.NewRequest(http.MethodPost, "/api/collect", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Pulled  []string          `json:"pulled"`
+		Skipped []string          `json:"skipped"`
+		Failed  map[string]string `json:"failed"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(resp.Pulled) != 2 {
+		t.Fatalf("expected 2 pulled items, got %v", resp.Pulled)
+	}
+	if len(resp.Failed) != 0 {
+		t.Fatalf("expected no failures, got %v", resp.Failed)
+	}
+
+	// Verify both exist in their respective source dirs.
+	if _, err := os.Stat(filepath.Join(sourceDir, "my-skill", "SKILL.md")); err != nil {
+		t.Fatalf("skill not found in source: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(agentsSource, "reviewer.md")); err != nil {
+		t.Fatalf("agent not found in agents source: %v", err)
+	}
+}
+
 func TestHandleCollectScan_AgentKind_NoSource(t *testing.T) {
 	tgtPath := filepath.Join(t.TempDir(), "claude-skills")
 	s, sourceDir := newTestServerWithTargets(t, map[string]string{"claude": tgtPath})
