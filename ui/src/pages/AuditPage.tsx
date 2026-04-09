@@ -322,20 +322,9 @@ function AuditSummaryLine({ summary }: { summary: AuditAllResponse['summary'] })
   return (
     <p className="text-sm text-pencil-light">
       <span className="font-medium text-pencil">{summary.total}</span> scanned
-      {summary.passed > 0 && (
-        <>{' · '}<span className="font-medium text-success">{summary.passed}</span> passed</>
-      )}
+      {' · '}<span className="font-medium text-success">{summary.passed}</span> passed
       {summary.failed > 0 && (
         <>{' · '}<span className="font-medium text-danger">{summary.failed}</span> blocked</>
-      )}
-      {summary.warning > 0 && (
-        <>{' · '}<span className="font-medium text-warning">{summary.warning}</span> warnings</>
-      )}
-      {summary.low > 0 && (
-        <>{' · '}<span className="font-medium text-blue">{summary.low}</span> low</>
-      )}
-      {summary.info > 0 && (
-        <>{' · '}<span className="text-pencil-light">{summary.info}</span> info</>
       )}
     </p>
   );
