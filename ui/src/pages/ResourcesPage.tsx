@@ -666,7 +666,7 @@ const SkillPostit = memo(function SkillPostit({
         {/* Org banner (tracked only) */}
         {skill.isInRepo && repoName && (
           <div className="flex items-center gap-1 mb-2">
-            <Badge variant="default" size="sm">Track</Badge>
+            <Users size={12} strokeWidth={2.5} className="text-pencil-light shrink-0" />
             <span className="text-xs text-pencil-light truncate">{repoName}</span>
           </div>
         )}
