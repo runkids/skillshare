@@ -550,23 +550,29 @@ function matchFilter(skill: Skill, filterType: FilterType): boolean {
 }
 
 
+// Extract group key from relPath for sorting: tracked repo name or first dir segment.
+function sortGroup(s: Skill): string {
+  const slash = s.relPath.indexOf('/');
+  return slash > 0 ? s.relPath.slice(0, slash) : '';
+}
+
 function sortSkills(skills: Skill[], sortType: SortType): Skill[] {
   const sorted = [...skills];
   switch (sortType) {
     case 'name-asc':
-      return sorted.sort((a, b) => a.name.localeCompare(b.name));
+      return sorted.sort((a, b) => sortGroup(a).localeCompare(sortGroup(b)) || a.name.localeCompare(b.name));
     case 'name-desc':
-      return sorted.sort((a, b) => b.name.localeCompare(a.name));
+      return sorted.sort((a, b) => sortGroup(a).localeCompare(sortGroup(b)) || b.name.localeCompare(a.name));
     case 'newest':
       return sorted.sort((a, b) => {
-        if (!a.installedAt && !b.installedAt) return a.name.localeCompare(b.name);
+        if (!a.installedAt && !b.installedAt) return sortGroup(a).localeCompare(sortGroup(b)) || a.name.localeCompare(b.name);
         if (!a.installedAt) return 1;
         if (!b.installedAt) return -1;
         return new Date(b.installedAt).getTime() - new Date(a.installedAt).getTime();
       });
     case 'oldest':
       return sorted.sort((a, b) => {
-        if (!a.installedAt && !b.installedAt) return a.name.localeCompare(b.name);
+        if (!a.installedAt && !b.installedAt) return sortGroup(a).localeCompare(sortGroup(b)) || a.name.localeCompare(b.name);
         if (!a.installedAt) return 1;
         if (!b.installedAt) return -1;
         return new Date(a.installedAt).getTime() - new Date(b.installedAt).getTime();
