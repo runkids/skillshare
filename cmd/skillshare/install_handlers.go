@@ -440,7 +440,7 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 		}
 	}
 
-	// Reorder: install root skill first so children can nest under it
+	// Reorder: install root skill first so children nest under it on disk.
 	orderedSkills := selected
 	if rootIdx > 0 {
 		orderedSkills = make([]install.SkillInfo, 0, len(selected))
@@ -448,9 +448,6 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 		orderedSkills = append(orderedSkills, selected[:rootIdx]...)
 		orderedSkills = append(orderedSkills, selected[rootIdx+1:]...)
 	}
-
-	// Track if root was installed (children are already included in root)
-	rootInstalled := false
 
 	for i, skill := range orderedSkills {
 		if installSpinner != nil {
@@ -464,6 +461,10 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 		}
 
 		// Determine destination path and effective --into for force hints.
+		// Orchestrator repos: when the root skill is also selected, children
+		// install as siblings under <parentName>/ so they remain independent
+		// skills discoverable by sync (issue #124). The root copy excludes
+		// child skill directories so they do not duplicate.
 		var destPath string
 		skillOpts := opts
 		if skill.Path == "." {
@@ -482,15 +483,6 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 			destPath = destWithInto(cfg.Source, opts, skill.Name)
 		}
 
-		// If root was installed, children are already included - skip reinstall
-		if rootInstalled && skill.Path != "." {
-			results = append(results, skillInstallResult{skill: skill, success: true, message: fmt.Sprintf("included in %s", parentName)})
-			if progressBar != nil {
-				progressBar.Increment()
-			}
-			continue
-		}
-
 		installResult, err := install.InstallFromDiscovery(discovery, skill, destPath, skillOpts)
 		if err != nil {
 			r := skillInstallResult{skill: skill, success: false, message: err.Error(), err: err}
@@ -504,9 +496,6 @@ func installSelectedSkills(selected []install.SkillInfo, discovery *install.Disc
 			continue
 		}
 
-		if skill.Path == "." {
-			rootInstalled = true
-		}
 		message := "installed"
 		if len(installResult.Warnings) > 0 {
 			message = fmt.Sprintf("installed (%d warning(s))", len(installResult.Warnings))

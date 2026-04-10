@@ -6,7 +6,17 @@ import (
 	"path/filepath"
 )
 
+// copyDir recursively copies src into dst, skipping any `.git` directory.
 func copyDir(src, dst string) error {
+	return copyDirExcluding(src, dst, nil)
+}
+
+// copyDirExcluding recursively copies src into dst, skipping any `.git`
+// directory and any subdirectory whose slash-normalized path relative to src
+// appears in excludes. The excludes keys must use forward slashes (e.g.
+// "skills/officecli-pptx"). Passing a nil or empty map is equivalent to
+// copyDir.
+func copyDirExcluding(src, dst string, excludes map[string]bool) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -18,6 +28,15 @@ func copyDir(src, dst string) error {
 		// Skip .git directory
 		if info.IsDir() && info.Name() == ".git" {
 			return filepath.SkipDir
+		}
+
+		// Skip excluded subdirectories (e.g. child skill dirs when copying
+		// the root of an orchestrator repo so they do not duplicate into the
+		// root install).
+		if len(excludes) > 0 && info.IsDir() && relPath != "." {
+			if excludes[filepath.ToSlash(relPath)] {
+				return filepath.SkipDir
+			}
 		}
 
 		if info.IsDir() {

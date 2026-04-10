@@ -32,6 +32,50 @@ func discoverySourceRoot(discovery *DiscoveryResult) string {
 	return filepath.Join(discovery.RepoPath, "repo")
 }
 
+// descendantSkillPaths returns the set of slash-normalized paths (relative to
+// the source root of `skill`) of every other discovered skill that lives
+// strictly inside `skill`. The returned map is suitable as the excludes
+// argument to copyDirExcluding.
+//
+// For the root skill (Path="."), every other discovered skill counts as a
+// descendant. For a non-root skill, only nested sub-skills count. Returns nil
+// when there is nothing to exclude so callers hit the fast path in
+// copyDirExcluding.
+func descendantSkillPaths(discovery *DiscoveryResult, skill SkillInfo) map[string]bool {
+	if discovery == nil || len(discovery.Skills) <= 1 {
+		return nil
+	}
+	current := filepath.ToSlash(skill.Path)
+	var prefix string
+	if current != "." {
+		prefix = current + "/"
+	}
+	excludes := make(map[string]bool)
+	for _, other := range discovery.Skills {
+		otherPath := filepath.ToSlash(other.Path)
+		if otherPath == current {
+			continue
+		}
+		if current == "." {
+			// Root skill: every other skill path is a strict descendant.
+			if otherPath != "." {
+				excludes[otherPath] = true
+			}
+			continue
+		}
+		// Non-root: only paths strictly under current count.
+		if rel, ok := strings.CutPrefix(otherPath, prefix); ok {
+			// rel is the path relative to `skill` (which is how
+			// copyDirExcluding walks `srcPath`).
+			excludes[rel] = true
+		}
+	}
+	if len(excludes) == 0 {
+		return nil
+	}
+	return excludes
+}
+
 func installAgentRelativePath(agent AgentInfo) string {
 	return strings.TrimPrefix(filepath.ToSlash(agent.Path), "agents/")
 }
@@ -330,7 +374,13 @@ func installFromDiscoveryImpl(discovery *DiscoveryResult, skill SkillInfo, destP
 		srcPath = filepath.Join(sourceRoot, skill.Path)
 	}
 
-	if err := copyDir(srcPath, destPath); err != nil {
+	// In an orchestrator-style repo (root SKILL.md + children), copying the
+	// root would otherwise drag every child skill directory into the root
+	// install. Exclude any other discovered skill whose path is a strict
+	// descendant of the skill currently being installed (issue #124).
+	excludes := descendantSkillPaths(discovery, skill)
+
+	if err := copyDirExcluding(srcPath, destPath, excludes); err != nil {
 		return nil, fmt.Errorf("failed to copy skill: %w", err)
 	}
 
