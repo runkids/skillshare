@@ -45,6 +45,11 @@ func discoverFromGitWithProgressImpl(source *Source, onProgress ProgressCallback
 
 	// Discover agents (agents/ dir or pure agent repo fallback)
 	agents := discoverAgents(repoPath, len(skills) > 0)
+	skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+	if err != nil {
+		_ = os.RemoveAll(tempDir)
+		return nil, err
+	}
 
 	commitHash, _ := getGitCommit(repoPath)
 
@@ -87,6 +92,10 @@ func discoverLocalImpl(source *Source) (*DiscoveryResult, error) {
 	}
 
 	agents := discoverAgents(source.Path, len(skills) > 0)
+	skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+	if err != nil {
+		return nil, err
+	}
 
 	return &DiscoveryResult{
 		RepoPath: source.Path,
@@ -134,6 +143,20 @@ func resolveSubdir(repoPath, subdir string) (string, error) {
 		return "", fmt.Errorf("subdirectory '%s' is ambiguous — multiple matches found:\n  %s",
 			subdir, strings.Join(candidates, "\n  "))
 	}
+}
+
+func constrainDiscoveryToExplicitSkill(source *Source, skills []SkillInfo, agents []AgentInfo) ([]SkillInfo, []AgentInfo, error) {
+	if source == nil || !source.TargetsExplicitSkill() {
+		return skills, agents, nil
+	}
+
+	for _, skill := range skills {
+		if skill.Path == "." {
+			return []SkillInfo{skill}, nil, nil
+		}
+	}
+
+	return nil, nil, fmt.Errorf("explicit skill target does not resolve to a root SKILL.md: %s", source.Raw)
 }
 
 // discoverSkills finds directories containing SKILL.md
@@ -314,6 +337,11 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 				}
 				skills := discoverSkills(subdirPath, true)
 				agents := discoverAgents(subdirPath, len(skills) > 0)
+				skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+				if err != nil {
+					_ = os.RemoveAll(tempDir)
+					return nil, err
+				}
 				return &DiscoveryResult{
 					RepoPath:   tempDir,
 					Skills:     skills,
@@ -343,6 +371,11 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 			commitHash = hash
 			skills := discoverSkills(subdirPath, true)
 			agents := discoverAgents(subdirPath, len(skills) > 0)
+			skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+			if err != nil {
+				_ = os.RemoveAll(tempDir)
+				return nil, err
+			}
 			return &DiscoveryResult{
 				RepoPath:   tempDir,
 				Skills:     skills,
@@ -382,6 +415,11 @@ func discoverFromGitSubdirWithProgressImpl(source *Source, onProgress ProgressCa
 
 	skills := discoverSkills(subdirPath, true)
 	agents := discoverAgents(subdirPath, len(skills) > 0)
+	skills, agents, err = constrainDiscoveryToExplicitSkill(source, skills, agents)
+	if err != nil {
+		_ = os.RemoveAll(tempDir)
+		return nil, err
+	}
 	return &DiscoveryResult{
 		RepoPath:   tempDir,
 		Skills:     skills,

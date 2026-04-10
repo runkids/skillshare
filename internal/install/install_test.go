@@ -77,6 +77,50 @@ func TestDiscoverSkills_RootAndChildren(t *testing.T) {
 	}
 }
 
+func TestDiscoverLocal_ExplicitSkillTarget_ReturnsOnlyRootSkill(t *testing.T) {
+	repoPath := t.TempDir()
+	if err := os.WriteFile(filepath.Join(repoPath, "SKILL.md"), []byte("---\nname: root\n---\n# Root"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	childDir := filepath.Join(repoPath, "skills", "child-skill")
+	if err := os.MkdirAll(childDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(childDir, "SKILL.md"), []byte("---\nname: child\n---\n# Child"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	agentsDir := filepath.Join(repoPath, "agents")
+	if err := os.MkdirAll(agentsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(agentsDir, "helper.md"), []byte("# helper"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	discovery, err := DiscoverLocal(&Source{
+		Type:          SourceTypeLocalPath,
+		Raw:           repoPath + "/SKILL.md",
+		Path:          repoPath,
+		Name:          "root",
+		ExplicitSkill: true,
+	})
+	if err != nil {
+		t.Fatalf("DiscoverLocal() error = %v", err)
+	}
+
+	if len(discovery.Skills) != 1 {
+		t.Fatalf("expected explicit skill target to return 1 skill, got %d: %+v", len(discovery.Skills), discovery.Skills)
+	}
+	if discovery.Skills[0].Path != "." {
+		t.Fatalf("expected explicit skill target to keep root skill, got path %q", discovery.Skills[0].Path)
+	}
+	if len(discovery.Agents) != 0 {
+		t.Fatalf("expected explicit skill target to ignore agents, got %d", len(discovery.Agents))
+	}
+}
+
 func TestDiscoverSkills_ChildrenOnly(t *testing.T) {
 	// Setup: orchestrator repo with no root SKILL.md, only children
 	repoPath := t.TempDir()

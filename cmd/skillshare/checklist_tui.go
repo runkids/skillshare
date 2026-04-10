@@ -80,11 +80,25 @@ type checklistModel struct {
 func newChecklistModel(cfg checklistConfig) checklistModel {
 	sel := make(map[int]bool, len(cfg.items))
 	selCount := 0
+	selectedIdx := -1
 	for i, item := range cfg.items {
 		if item.preSelected {
+			if cfg.singleSelect {
+				if selectedIdx == -1 {
+					sel[i] = true
+					selCount = 1
+					selectedIdx = i
+				}
+				continue
+			}
 			sel[i] = true
 			selCount++
 		}
+	}
+	if cfg.singleSelect && len(cfg.items) > 0 && selectedIdx == -1 {
+		sel[0] = true
+		selCount = 1
+		selectedIdx = 0
 	}
 
 	hasDesc := false
@@ -102,6 +116,9 @@ func newChecklistModel(cfg checklistConfig) checklistModel {
 	l.SetShowStatusBar(true)
 	l.SetFilteringEnabled(true)
 	l.SetShowHelp(false)
+	if cfg.singleSelect && selectedIdx >= 0 {
+		l.Select(selectedIdx)
+	}
 
 	itemName := cfg.itemName
 	if itemName == "" {
@@ -172,17 +189,8 @@ func (m checklistModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 			if m.singleSelect {
-				// Radio: clear all, select this one
-				wasSelected := m.selected[item.idx]
-				for k := range m.selected {
-					delete(m.selected, k)
-				}
-				if !wasSelected {
-					m.selected[item.idx] = true
-					m.selCount = 1
-				} else {
-					m.selCount = 0
-				}
+				// Radio: select the focused item and keep exactly one choice active.
+				m.selectSingle(item.idx)
 			} else {
 				m.selected[item.idx] = !m.selected[item.idx]
 				if m.selected[item.idx] {
@@ -212,17 +220,12 @@ func (m checklistModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "enter":
 			if m.singleSelect {
-				// Single select: enter confirms current cursor item
 				item, ok := m.list.SelectedItem().(checklistItem)
 				if !ok {
 					break
 				}
-				// If nothing was space-toggled, select the cursor item
-				if m.selCount == 0 {
-					m.result = []int{item.idx}
-				} else {
-					m.result = m.collectSelected()
-				}
+				m.selectSingle(item.idx)
+				m.result = []int{item.idx}
 			} else {
 				m.result = m.collectSelected()
 			}
@@ -237,7 +240,22 @@ func (m checklistModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	m.list, cmd = m.list.Update(msg)
+	if m.singleSelect && m.list.FilterState() != list.Filtering && len(m.items) > 0 {
+		m.selectSingle(m.list.Index())
+	}
 	return m, cmd
+}
+
+func (m *checklistModel) selectSingle(idx int) {
+	if !m.singleSelect || idx < 0 || idx >= len(m.items) {
+		return
+	}
+	for k := range m.selected {
+		delete(m.selected, k)
+	}
+	m.selected[idx] = true
+	m.selCount = 1
+	m.refreshItems()
 }
 
 func (m *checklistModel) refreshItems() {
@@ -269,7 +287,7 @@ func (m checklistModel) View() string {
 
 	var help string
 	if m.singleSelect {
-		help = "↑↓ navigate  space/enter select  / filter  esc cancel"
+		help = "↑↓ navigate  enter select  / filter  esc cancel"
 	} else {
 		help = "↑↓ navigate  space toggle  a all  enter confirm  / filter  esc cancel"
 	}
