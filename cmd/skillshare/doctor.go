@@ -16,6 +16,7 @@ import (
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
+	"skillshare/internal/theme"
 	"skillshare/internal/trash"
 	"skillshare/internal/ui"
 	"skillshare/internal/utils"
@@ -225,6 +226,7 @@ func runDoctorChecks(cfg *config.Config, result *doctorResult, isProject bool) {
 	checkAgentsSource(cfg, result)
 	checkSkillignore(result, stats)
 	checkSymlinkSupport(result)
+	checkTheme(result)
 
 	if !isProject {
 		checkGitStatus(cfg.Source, result)
@@ -358,6 +360,60 @@ func checkSymlinkSupport(result *doctorResult) {
 
 	ui.Success("Link support: OK")
 	result.addCheck("symlink_support", checkPass, "Link support: OK", nil)
+}
+
+// checkTheme reports the resolved theme mode and source. Emits a warning
+// status when the theme fell back to dark due to probe failure or non-TTY
+// environments — users can resolve by setting SKILLSHARE_THEME explicitly.
+func checkTheme(result *doctorResult) {
+	tm := theme.Get()
+
+	var status string
+	switch tm.Source {
+	case "env", "detected", "no-color":
+		status = checkPass
+	case "fallback-dark-no-tty", "fallback-dark-probe-failed":
+		status = checkWarning
+	default:
+		status = checkInfo
+	}
+
+	msg := fmt.Sprintf("Theme: %s (%s)", tm.Mode, tm.Source)
+	if tm.NoColor {
+		msg = "Theme: no-color mode"
+	}
+
+	details := []string{
+		fmt.Sprintf("source: %s", tm.Source),
+		fmt.Sprintf("override: SKILLSHARE_THEME=%s", envOrDefault("SKILLSHARE_THEME", "auto")),
+		fmt.Sprintf("no_color: %v", tm.NoColor),
+		fmt.Sprintf("term: %s", envOrDefault("TERM", "(unset)")),
+	}
+
+	switch status {
+	case checkPass:
+		ui.Success(msg)
+	case checkWarning:
+		ui.Warning(msg)
+		if tm.Source == "fallback-dark-probe-failed" {
+			ui.Info("  Tip: set SKILLSHARE_THEME=light or SKILLSHARE_THEME=dark for best colors")
+		}
+	default:
+		ui.Info(msg)
+	}
+
+	if status == checkWarning {
+		result.addWarning()
+	}
+	result.addCheck("theme", status, msg, details)
+}
+
+// envOrDefault returns the value of env var name or the given default.
+func envOrDefault(name, def string) string {
+	if v := os.Getenv(name); v != "" {
+		return v
+	}
+	return def
 }
 
 // cachedTargetStatus stores CheckStatusMerge/Copy results so checkSyncDrift

@@ -48,7 +48,7 @@ func (i searchSelectItem) Title() string {
 	}
 	title := check + " " + i.result.Name
 	if i.isHub {
-		badge := formatRiskBadgeLipgloss(i.result.RiskLabel)
+		badge := theme.FormatRiskBadge(i.result.RiskLabel)
 		if badge != "" {
 			title += badge
 		}
@@ -383,7 +383,7 @@ func (m searchSelectModel) renderSearchDetailPanel(r search.SearchResult) string
 
 	// Risk (hub)
 	if m.isHub && r.RiskLabel != "" {
-		row("Risk:", riskLabelStyle(r.RiskLabel).Render(r.RiskLabel))
+		row("Risk:", theme.RiskLabelStyle(r.RiskLabel).Render(r.RiskLabel))
 	}
 
 	// Tags

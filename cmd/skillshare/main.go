@@ -9,6 +9,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/install"
+	"skillshare/internal/theme"
 	"skillshare/internal/ui"
 	versioncheck "skillshare/internal/version"
 )
@@ -51,6 +52,10 @@ var commands = map[string]func([]string) error{
 func main() {
 	// Clean up any leftover .old files from Windows self-upgrade
 	cleanupOldBinary()
+
+	// Resolve theme early so OSC 11 probe overhead happens at startup,
+	// not inside a TUI render loop.
+	_ = theme.Get()
 
 	// Migrate Windows legacy ~/.config/skillshare → %AppData%\skillshare
 	results := config.MigrateWindowsLegacyDir()

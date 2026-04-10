@@ -680,7 +680,7 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 
 	// Risk — colorized by severity
 	riskText := fmt.Sprintf("%s (%d/100)", strings.ToUpper(r.RiskLabel), r.RiskScore)
-	riskStyle := tcSevStyle(r.RiskLabel)
+	riskStyle := theme.SeverityStyle(r.RiskLabel)
 	if r.RiskLabel == "clean" {
 		riskStyle = theme.Success()
 	}
@@ -691,7 +691,7 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 	if maxSev == "" {
 		maxSev = "NONE"
 	}
-	maxSevStyle := tcSevStyle(maxSev)
+	maxSevStyle := theme.SeverityStyle(maxSev)
 	if strings.ToUpper(maxSev) == "NONE" {
 		maxSevStyle = theme.Success()
 	}
@@ -723,7 +723,7 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 
 	// Threshold
 	if r.Threshold != "" {
-		row("Threshold:", theme.Dim().Render("severity >= ")+tcSevStyle(r.Threshold).Render(strings.ToUpper(r.Threshold)))
+		row("Threshold:", theme.Dim().Render("severity >= ")+theme.SeverityStyle(r.Threshold).Render(strings.ToUpper(r.Threshold)))
 	}
 
 	// Policy
@@ -772,7 +772,7 @@ func (m auditTUIModel) renderDetailContent(item auditItem) string {
 
 		for idx, f := range sorted {
 			// [N] SEVERITY  pattern
-			sevBadge := tcSevStyle(f.Severity).Render(strings.ToUpper(f.Severity))
+			sevBadge := theme.SeverityStyle(f.Severity).Render(strings.ToUpper(f.Severity))
 			header := theme.Dim().Render(fmt.Sprintf("[%d] ", idx+1))
 			patternText := theme.Primary().Bold(true).Render(f.Pattern)
 			b.WriteString(header + sevBadge + "  " + patternText + "\n")
