@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"io"
 	"maps"
 	"net/http"
 	"os"
@@ -35,6 +36,7 @@ func ignorePayload(stats *skillignore.IgnoreStats) map[string]any {
 }
 
 type syncTargetResult struct {
+	Resource   string   `json:"resource"`
 	Target     string   `json:"target"`
 	Linked     []string `json:"linked"`
 	Updated    []string `json:"updated"`
@@ -49,17 +51,40 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 
 	var body struct {
-		DryRun bool   `json:"dryRun"`
-		Force  bool   `json:"force"`
-		Kind   string `json:"kind"`
+		DryRun    bool     `json:"dryRun"`
+		Force     bool     `json:"force"`
+		Kind      string   `json:"kind"`
+		Resources []string `json:"resources"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		// Default to non-dry-run, non-force, empty kind (both)
+		if err != io.EOF {
+			writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+			return
+		}
 	}
 
 	if body.Kind != "" && body.Kind != kindSkill && body.Kind != kindAgent {
 		writeError(w, http.StatusBadRequest, "invalid kind: must be 'skill', 'agent', or empty")
 		return
+	}
+	if body.Kind != "" && len(body.Resources) > 0 {
+		writeError(w, http.StatusBadRequest, "kind and resources cannot be combined")
+		return
+	}
+
+	var resources serverSyncResources
+	switch body.Kind {
+	case kindAgent:
+		resources = serverSyncResources{}
+	case kindSkill:
+		resources = serverSyncResources{skills: true}
+	default:
+		parsed, err := parseServerSyncResources(body.Resources)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		resources = parsed
 	}
 
 	globalMode := s.cfg.Mode
@@ -67,50 +92,36 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		globalMode = "merge"
 	}
 
-	// Pre-check warnings via shared config validation
-	warnings, validErr := config.ValidateConfig(s.cfg)
-	if validErr != nil {
-		writeError(w, http.StatusBadRequest, validErr.Error())
-		return
+	warnings := []string{}
+	if resources.skills || body.Kind == kindAgent {
+		configWarnings, validErr := config.ValidateConfig(s.cfg)
+		if validErr != nil {
+			writeError(w, http.StatusBadRequest, validErr.Error())
+			return
+		}
+		warnings = append(warnings, configWarnings...)
 	}
 
 	results := make([]syncTargetResult, 0)
-
 	var ignoreStats *skillignore.IgnoreStats
+	var allSkills []ssync.DiscoveredSkill
 
-	// Skill sync (skip when kind == "agent")
-	if body.Kind != kindAgent {
-		var allSkills []ssync.DiscoveredSkill
+	if resources.skills {
 		var err error
 		allSkills, ignoreStats, err = ssync.DiscoverSourceSkillsWithStats(s.cfg.Source)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 			return
 		}
-
 		if len(allSkills) == 0 {
 			warnings = append(warnings, "source directory is empty (0 skills)")
 		}
+	}
 
-		// Registry entries are managed by install/uninstall, not sync.
-		// Sync only manages symlinks — it must not prune registry entries
-		// for installed skills whose files may be missing from disk.
-
+	if body.Kind == kindAgent {
+		s.syncAgentsForUI(&results, &warnings, body.DryRun, body.Force)
+	} else {
 		for name, target := range s.cfg.Targets {
-			sc := target.SkillsConfig()
-			mode := sc.Mode
-			if mode == "" {
-				mode = globalMode
-			}
-
-			res := syncTargetResult{
-				Target:  name,
-				Linked:  make([]string, 0),
-				Updated: make([]string, 0),
-				Skipped: make([]string, 0),
-				Pruned:  make([]string, 0),
-			}
-
 			syncErrArgs := map[string]any{
 				"targets_total":  len(s.cfg.Targets),
 				"targets_failed": 1,
@@ -120,130 +131,101 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 				"scope":          "ui",
 			}
 
-			switch mode {
-			case "merge":
-				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, s.cfg.Source, body.DryRun, body.Force, s.projectRoot)
-				if err != nil {
-					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
-					writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
-					return
-				}
-				res.Linked = mergeResult.Linked
-				res.Updated = mergeResult.Updated
-				res.Skipped = mergeResult.Skipped
-				res.DirCreated = mergeResult.DirCreated
-
-				pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
-					TargetPath: sc.Path, SourcePath: s.cfg.Source, Skills: allSkills,
-					Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
-					DryRun: body.DryRun, Force: body.Force,
-				})
-				if err == nil {
-					res.Pruned = pruneResult.Removed
+			if resources.skills {
+				sc := target.SkillsConfig()
+				mode := sc.Mode
+				if mode == "" {
+					mode = globalMode
 				}
 
-			case "copy":
-				copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, s.cfg.Source, body.DryRun, body.Force, nil)
-				if err != nil {
-					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
-					writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
-					return
-				}
-				res.Linked = copyResult.Copied
-				res.Updated = copyResult.Updated
-				res.Skipped = copyResult.Skipped
-				res.DirCreated = copyResult.DirCreated
-
-				pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, sc.TargetNaming, body.DryRun)
-				if err == nil {
-					res.Pruned = pruneResult.Removed
-				}
-
-			default:
-				err := ssync.SyncTarget(name, target, s.cfg.Source, body.DryRun, s.projectRoot)
-				if err != nil {
-					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
-					writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
-					return
-				}
-				res.Linked = []string{"(symlink mode)"}
-			}
-
-			results = append(results, res)
-		}
-	}
-
-	// Agent sync (skip when kind == "skill")
-	if body.Kind != kindSkill {
-		agentsSource := s.agentsSource()
-		if info, err := os.Stat(agentsSource); err == nil && info.IsDir() {
-			agents := discoverActiveAgents(agentsSource)
-			builtinAgents := s.builtinAgentTargets()
-
-			for name, target := range s.cfg.Targets {
-				agentPath := resolveAgentPath(target, builtinAgents, name)
-				if agentPath == "" {
-					continue
-				}
-
-				agentMode := target.AgentsConfig().Mode
-				if agentMode == "" {
-					agentMode = "merge"
-				}
-
-				agentResult, err := ssync.SyncAgents(agents, agentsSource, agentPath, agentMode, body.DryRun, body.Force)
-				if err != nil {
-					warnings = append(warnings, "agent sync failed for "+name+": "+err.Error())
-					continue
-				}
-
-				// Prune orphan agents even when the source is empty so uninstall-all
-				// matches skills and clears previously synced target entries.
-				var pruned []string
-				if agentMode == "merge" {
-					pruned, _ = ssync.PruneOrphanAgentLinks(agentPath, agents, body.DryRun)
-				} else if agentMode == "copy" {
-					pruned, _ = ssync.PruneOrphanAgentCopies(agentPath, agents, body.DryRun)
-				}
-
-				// Find or create result entry for this target
-				idx := -1
-				for i := range results {
-					if results[i].Target == name {
-						idx = i
-						break
+				res := newSyncTargetResult(name, "skills")
+				switch mode {
+				case "merge":
+					mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, s.cfg.Source, body.DryRun, body.Force, s.projectRoot)
+					if err != nil {
+						s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
+						writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
+						return
 					}
-				}
-				if idx < 0 && (len(agentResult.Linked) > 0 || len(agentResult.Updated) > 0 || len(agentResult.Skipped) > 0 || len(pruned) > 0) {
-					results = append(results, syncTargetResult{
-						Target:  name,
-						Linked:  make([]string, 0),
-						Updated: make([]string, 0),
-						Skipped: make([]string, 0),
-						Pruned:  make([]string, 0),
-					})
-					idx = len(results) - 1
-				}
+					res.Linked = mergeResult.Linked
+					res.Updated = mergeResult.Updated
+					res.Skipped = mergeResult.Skipped
+					res.DirCreated = mergeResult.DirCreated
 
-				if idx >= 0 {
-					results[idx].Linked = append(results[idx].Linked, agentResult.Linked...)
-					results[idx].Updated = append(results[idx].Updated, agentResult.Updated...)
-					results[idx].Skipped = append(results[idx].Skipped, agentResult.Skipped...)
-					results[idx].Pruned = append(results[idx].Pruned, pruned...)
+					pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
+						TargetPath: sc.Path, SourcePath: s.cfg.Source, Skills: allSkills,
+						Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
+						DryRun: body.DryRun, Force: body.Force,
+					})
+					if err == nil {
+						res.Pruned = pruneResult.Removed
+					}
+
+				case "copy":
+					copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, s.cfg.Source, body.DryRun, body.Force, nil)
+					if err != nil {
+						s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
+						writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
+						return
+					}
+					res.Linked = copyResult.Copied
+					res.Updated = copyResult.Updated
+					res.Skipped = copyResult.Skipped
+					res.DirCreated = copyResult.DirCreated
+
+					pruneResult, err := ssync.PruneOrphanCopiesWithSkills(sc.Path, allSkills, sc.Include, sc.Exclude, name, sc.TargetNaming, body.DryRun)
+					if err == nil {
+						res.Pruned = pruneResult.Removed
+					}
+
+				default:
+					err := ssync.SyncTarget(name, target, s.cfg.Source, body.DryRun, s.projectRoot)
+					if err != nil {
+						s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
+						writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
+						return
+					}
+					res.Linked = []string{"(symlink mode)"}
 				}
+				results = append(results, res)
+			}
+
+			if resources.rules {
+				res, err := s.syncManagedRulesForTarget(name, target, body.DryRun)
+				if err != nil {
+					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
+					writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
+					return
+				}
+				results = append(results, res)
+			}
+
+			if resources.hooks {
+				res, err := s.syncManagedHooksForTarget(name, target, body.DryRun)
+				if err != nil {
+					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
+					writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
+					return
+				}
+				results = append(results, res)
 			}
 		}
 	}
 
-	// Log the sync operation
-	s.writeOpsLog("sync", "ok", start, map[string]any{
-		"targets_total":  len(results),
+	args := map[string]any{
+		"targets_total":  len(s.cfg.Targets),
 		"targets_failed": 0,
 		"dry_run":        body.DryRun,
 		"force":          body.Force,
-		"kind":           body.Kind,
 		"scope":          "ui",
-	}, "")
+	}
+	if body.Kind != "" {
+		args["kind"] = body.Kind
+	}
+	if body.Kind == "" {
+		args["resources"] = body.Resources
+	}
+	s.writeOpsLog("sync", "ok", start, args, "")
 
 	resp := map[string]any{
 		"results":  results,
@@ -252,6 +234,64 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	maps.Copy(resp, ignorePayload(ignoreStats))
 	maps.Copy(resp, agentIgnorePayload(s.agentsSource(), nil))
 	writeJSON(w, resp)
+}
+
+func (s *Server) syncAgentsForUI(results *[]syncTargetResult, warnings *[]string, dryRun, force bool) {
+	agentsSource := s.agentsSource()
+	info, err := os.Stat(agentsSource)
+	if err != nil || !info.IsDir() {
+		return
+	}
+
+	agents := discoverActiveAgents(agentsSource)
+	builtinAgents := s.builtinAgentTargets()
+
+	for name, target := range s.cfg.Targets {
+		agentPath := resolveAgentPath(target, builtinAgents, name)
+		if agentPath == "" {
+			continue
+		}
+
+		agentMode := target.AgentsConfig().Mode
+		if agentMode == "" {
+			agentMode = "merge"
+		}
+
+		agentResult, err := ssync.SyncAgents(agents, agentsSource, agentPath, agentMode, dryRun, force)
+		if err != nil {
+			*warnings = append(*warnings, "agent sync failed for "+name+": "+err.Error())
+			continue
+		}
+
+		var pruned []string
+		if agentMode == "merge" {
+			pruned, _ = ssync.PruneOrphanAgentLinks(agentPath, agents, dryRun)
+		} else if agentMode == "copy" {
+			pruned, _ = ssync.PruneOrphanAgentCopies(agentPath, agents, dryRun)
+		}
+
+		if len(agentResult.Linked) == 0 && len(agentResult.Updated) == 0 && len(agentResult.Skipped) == 0 && len(pruned) == 0 {
+			continue
+		}
+
+		res := newSyncTargetResult(name, "agents")
+		res.Linked = append(res.Linked, agentResult.Linked...)
+		res.Updated = append(res.Updated, agentResult.Updated...)
+		res.Skipped = append(res.Skipped, agentResult.Skipped...)
+		res.Pruned = append(res.Pruned, pruned...)
+		*results = append(*results, res)
+	}
+}
+
+func newSyncTargetResult(target, resource string) syncTargetResult {
+	return syncTargetResult{
+		Resource: resource,
+		Target:   target,
+		Linked:   make([]string, 0),
+		Updated:  make([]string, 0),
+		Skipped:  make([]string, 0),
+		Pruned:   make([]string, 0),
+	}
 }
 
 type diffItem struct {

@@ -213,3 +213,26 @@ func TestProjectTargets_ClaudePath(t *testing.T) {
 		t.Errorf("claude project path = %q, want %q", tc.Path, ".claude/skills")
 	}
 }
+
+func TestLookupGlobalTarget_Alias(t *testing.T) {
+	tc, ok := LookupGlobalTarget("universal")
+	if !ok {
+		t.Fatal("LookupGlobalTarget should find canonical name 'universal'")
+	}
+	if tc.Path == "" {
+		t.Error("expected non-empty path for universal")
+	}
+
+	tcAlias, ok := LookupGlobalTarget("agents")
+	if !ok {
+		t.Fatal("LookupGlobalTarget should find alias 'agents'")
+	}
+	if tcAlias.Path != tc.Path {
+		t.Errorf("alias path %q != canonical path %q", tcAlias.Path, tc.Path)
+	}
+
+	_, ok = LookupGlobalTarget("nonexistent-tool")
+	if ok {
+		t.Error("LookupGlobalTarget should not find unknown name")
+	}
+}

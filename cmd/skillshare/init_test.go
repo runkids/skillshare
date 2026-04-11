@@ -36,6 +36,8 @@ func TestCommitSourceFiles_CommitFailureIsReturned(t *testing.T) {
 	runGit(t, repo, "init")
 	runGit(t, repo, "config", "user.email", "test@example.com")
 	runGit(t, repo, "config", "user.name", "Test User")
+	runGit(t, repo, "config", "core.hooksPath", ".git/hooks")
+	runGit(t, repo, "config", "core.hooksPath", ".git/hooks")
 
 	hookPath := filepath.Join(repo, ".git", "hooks", "pre-commit")
 	if err := os.WriteFile(hookPath, []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {

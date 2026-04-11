@@ -19,6 +19,8 @@ export const radius = {
   full: 'var(--radius-full)',
 } as const;
 
+export const wobbly = radius;
+
 /** Shadow presets (mirrors CSS variables for inline use) */
 export const shadows = {
   sm: 'var(--shadow-sm)',

@@ -9,7 +9,9 @@ require (
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
 	github.com/charmbracelet/x/ansi v0.11.6
 	github.com/mattn/go-runewidth v0.0.19
+	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/pterm/pterm v0.12.82
+	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/sergi/go-diff v1.4.0
 	golang.org/x/sys v0.38.0
 	golang.org/x/term v0.32.0
@@ -34,6 +36,7 @@ require (
 	github.com/containerd/console v1.0.5 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/gookit/color v1.5.4 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect

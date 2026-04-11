@@ -85,6 +85,19 @@ func (i restoreVersionItem) Title() string {
 	return i.version.Label
 }
 func (i restoreVersionItem) Description() string {
+	if i.version.Manifest {
+		switch {
+		case i.version.SkillCount > 0 && len(i.version.SnapshotPaths) > 1:
+			return fmt.Sprintf("%d skill(s), %d extra path(s), %s",
+				i.version.SkillCount, len(i.version.SnapshotPaths)-1, formatBytes(i.version.TotalSize))
+		case i.version.SkillCount > 0:
+			return fmt.Sprintf("%d skill(s), %s",
+				i.version.SkillCount, formatBytes(i.version.TotalSize))
+		default:
+			return fmt.Sprintf("%d path(s), %s",
+				len(i.version.SnapshotPaths), formatBytes(i.version.TotalSize))
+		}
+	}
 	if i.version.TotalSize < 0 {
 		return fmt.Sprintf("%d skill(s)", i.version.SkillCount)
 	}
@@ -486,14 +499,21 @@ func (m restoreTUIModel) startRestore() (tea.Model, tea.Cmd) {
 
 	cmd := func() tea.Msg {
 		start := time.Now()
-
-		var destPath string
+		resolvedTargetName := targetName
+		destPath := ""
 		if isAgentBackupEntry(targetName) {
 			destPath = resolveAgentBackupPath(targets, targetName)
 		} else {
-			if tc, ok := targets[targetName]; ok {
-				destPath = tc.SkillsConfig().Path
+			targetCfgName, targetCfg, err := resolveConfiguredRestoreTarget(targets, targetName)
+			if err != nil {
+				return restoreDoneMsg{err: err}
 			}
+			sc := targetCfg.SkillsConfig()
+			if sc.Path == "" {
+				return restoreDoneMsg{err: fmt.Errorf("target '%s' not found in config", targetName)}
+			}
+			resolvedTargetName = targetCfgName
+			destPath = sc.Path
 		}
 		if destPath == "" {
 			return restoreDoneMsg{err: fmt.Errorf("target '%s' not found in config", targetName)}
@@ -501,7 +521,7 @@ func (m restoreTUIModel) startRestore() (tea.Model, tea.Cmd) {
 
 		backupPath := filepath.Dir(version.Dir)
 		opts := backup.RestoreOptions{Force: true}
-		err := backup.RestoreToPath(backupPath, targetName, destPath, opts)
+		err := backup.RestoreToPath(backupPath, resolvedTargetName, destPath, opts)
 
 		e := oplog.NewEntry("restore", statusFromErr(err), time.Since(start))
 		e.Args = map[string]any{"target": targetName, "from": version.Label, "via": "tui"}
@@ -805,8 +825,11 @@ func (m restoreTUIModel) viewRestoreConfirm() string {
 		fmt.Fprintf(&b, "  Restore %s from backup %s?\n\n", m.selectedTarget, m.selectedVersion.Label)
 	}
 
-	fmt.Fprintf(&b, "    Skills: %d\n", m.selectedVersion.SkillCount)
-	// Read size from cache (populated async); never block in View()
+	if m.selectedVersion.Manifest && m.selectedVersion.SkillCount == 0 {
+		fmt.Fprintf(&b, "    Paths:  %d\n", len(m.selectedVersion.SnapshotPaths))
+	} else {
+		fmt.Fprintf(&b, "    Skills: %d\n", m.selectedVersion.SkillCount)
+	}
 	if sz, ok := m.versionSizeCache[m.selectedVersion.Dir]; ok {
 		fmt.Fprintf(&b, "    Size:   %s\n", formatBytes(sz))
 	} else if m.selectedVersion.TotalSize >= 0 {
@@ -826,6 +849,11 @@ func (m restoreTUIModel) viewRestoreConfirm() string {
 		}
 		if len(m.selectedVersion.SkillNames) > 10 {
 			fmt.Fprintf(&b, "      ... and %d more\n", len(m.selectedVersion.SkillNames)-10)
+		}
+	} else if len(m.selectedVersion.SnapshotPaths) > 0 {
+		b.WriteString("\n    Contents:\n")
+		for _, name := range m.selectedVersion.SnapshotPaths {
+			fmt.Fprintf(&b, "      %s\n", name)
 		}
 	}
 
@@ -883,7 +911,7 @@ func (m restoreTUIModel) renderTargetDetail(s backup.TargetBackupSummary) string
 			row("Path:    ", agentPath)
 			row("Status:  ", describeTargetState(agentPath))
 		}
-	} else if t, ok := m.targets[s.TargetName]; ok {
+	} else if _, t, ok := m.resolveConfiguredTarget(s.TargetName); ok {
 		sc := t.SkillsConfig()
 		row("Path:    ", sc.Path)
 		if sc.Mode != "" {
@@ -897,29 +925,21 @@ func (m restoreTUIModel) renderTargetDetail(s backup.TargetBackupSummary) string
 	row("Latest:  ", fmt.Sprintf("%s (%s)", s.Latest.Format("2006-01-02 15:04:05"), timeAgo(s.Latest)))
 	row("Oldest:  ", fmt.Sprintf("%s (%s)", s.Oldest.Format("2006-01-02 15:04:05"), timeAgo(s.Oldest)))
 
-	// Preview skills from latest backup — read directory directly instead of
-	// calling ListBackupVersions (which would walk all versions + dirSize).
-	latestDir := filepath.Join(m.backupDir, s.Latest.Format("2006-01-02_15-04-05"), s.TargetName)
-	if skillEntries, err := os.ReadDir(latestDir); err == nil {
-		var skillNames []string
-		for _, se := range skillEntries {
-			if se.IsDir() {
-				skillNames = append(skillNames, se.Name())
-			}
-		}
-		sort.Strings(skillNames)
-
-		if len(skillNames) > 0 {
+	// Preview skills from latest backup
+	latestVersions, _ := backup.ListBackupVersions(m.backupDir, s.TargetName)
+	if len(latestVersions) > 0 {
+		latest := latestVersions[0]
+		if len(latest.SkillNames) > 0 {
 			b.WriteString("\n")
 			b.WriteString(theme.Dim().Render("── Latest backup skills ──────────────"))
 			b.WriteString("\n")
 			const maxPreview = 20
-			show := skillNames
+			show := latest.SkillNames
 			if len(show) > maxPreview {
 				show = show[:maxPreview]
 			}
 			for _, name := range show {
-				desc := readSkillDescription(filepath.Join(latestDir, name))
+				desc := readSkillDescription(filepath.Join(latest.SkillBaseDir, name))
 				if desc != "" {
 					b.WriteString(lipgloss.NewStyle().Render("  " + name))
 					b.WriteString("\n")
@@ -930,8 +950,8 @@ func (m restoreTUIModel) renderTargetDetail(s backup.TargetBackupSummary) string
 					b.WriteString("\n")
 				}
 			}
-			if len(skillNames) > maxPreview {
-				b.WriteString(theme.Dim().Render(fmt.Sprintf("  ... and %d more", len(skillNames)-maxPreview)))
+			if len(latest.SkillNames) > maxPreview {
+				b.WriteString(theme.Dim().Render(fmt.Sprintf("  ... and %d more", len(latest.SkillNames)-maxPreview)))
 				b.WriteString("\n")
 			}
 		}
@@ -950,20 +970,26 @@ func (m restoreTUIModel) renderVersionDetail(v backup.BackupVersion) string {
 	}
 
 	row("Date:    ", fmt.Sprintf("%s (%s)", v.Label, timeAgo(v.Timestamp)))
-	row("Skills:  ", fmt.Sprintf("%d", v.SkillCount))
-	if v.TotalSize >= 0 {
+	if v.Manifest && v.SkillCount == 0 {
+		row("Paths:   ", fmt.Sprintf("%d", len(v.SnapshotPaths)))
+	} else {
+		row("Skills:  ", fmt.Sprintf("%d", v.SkillCount))
+	}
+	if sz, ok := m.versionSizeCache[v.Dir]; ok {
+		row("Size:    ", formatBytes(sz))
+	} else if v.TotalSize >= 0 {
 		row("Size:    ", formatBytes(v.TotalSize))
 	} else {
 		row("Size:    ", "calculating...")
 	}
 
-	var diffPath string
+	diffPath := ""
 	if isAgentBackupEntry(m.selectedTarget) {
 		diffPath = resolveAgentBackupPath(m.targets, m.selectedTarget)
-	} else if t, ok := m.targets[m.selectedTarget]; ok {
+	} else if _, t, ok := m.resolveConfiguredTarget(m.selectedTarget); ok {
 		diffPath = t.SkillsConfig().Path
 	}
-	if diffPath != "" {
+	if diffPath != "" && len(v.SkillNames) > 0 {
 		added, removed, common := diffSkillSets(v.SkillNames, listDirNames(diffPath))
 		if len(added) > 0 || len(removed) > 0 {
 			b.WriteString("\n")
@@ -1004,21 +1030,21 @@ func (m restoreTUIModel) renderVersionDetail(v backup.BackupVersion) string {
 		b.WriteString("\n")
 		const maxDetail = 20
 		for i, name := range v.SkillNames {
-			if i < maxDetail {
-				desc := readSkillDescription(filepath.Join(v.Dir, name))
-				files := listSkillFiles(filepath.Join(v.Dir, name))
-				b.WriteString(lipgloss.NewStyle().Render("  " + name))
-				b.WriteString("\n")
-				if desc != "" {
-					b.WriteString(theme.Dim().Render("    " + truncateStr(desc, 60)))
-					b.WriteString("\n")
-				}
-				if len(files) > 0 {
-					b.WriteString(theme.Dim().Render("    " + strings.Join(files, "  ")))
-					b.WriteString("\n")
-				}
-			} else {
+			if i >= maxDetail {
 				b.WriteString(theme.Dim().Render("  " + name))
+				b.WriteString("\n")
+				continue
+			}
+			desc := readSkillDescription(filepath.Join(v.SkillBaseDir, name))
+			files := listSkillFiles(filepath.Join(v.SkillBaseDir, name))
+			b.WriteString(lipgloss.NewStyle().Render("  " + name))
+			b.WriteString("\n")
+			if desc != "" {
+				b.WriteString(theme.Dim().Render("    " + truncateStr(desc, 60)))
+				b.WriteString("\n")
+			}
+			if len(files) > 0 {
+				b.WriteString(theme.Dim().Render("    " + strings.Join(files, "  ")))
 				b.WriteString("\n")
 			}
 		}
@@ -1026,9 +1052,25 @@ func (m restoreTUIModel) renderVersionDetail(v backup.BackupVersion) string {
 			b.WriteString(theme.Dim().Render(fmt.Sprintf("  ... %d skill(s) above shown without details", len(v.SkillNames)-maxDetail)))
 			b.WriteString("\n")
 		}
+	} else if len(v.SnapshotPaths) > 0 {
+		b.WriteString("\n")
+		b.WriteString(theme.Dim().Render("── Contents ──────────────────────────"))
+		b.WriteString("\n")
+		for _, name := range v.SnapshotPaths {
+			b.WriteString(theme.Dim().Render("  " + name))
+			b.WriteString("\n")
+		}
 	}
 
 	return b.String()
+}
+
+func (m restoreTUIModel) resolveConfiguredTarget(name string) (string, config.TargetConfig, bool) {
+	resolvedName, targetCfg, err := resolveConfiguredRestoreTarget(m.targets, name)
+	if err != nil || targetCfg.SkillsConfig().Path == "" {
+		return "", config.TargetConfig{}, false
+	}
+	return resolvedName, targetCfg, true
 }
 
 // --- Helpers ---

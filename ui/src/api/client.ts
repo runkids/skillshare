@@ -10,6 +10,18 @@ export class ApiError extends Error {
   }
 }
 
+function errorMessageFromPayload(payload: unknown, fallback: string): string {
+  if (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'error' in payload &&
+    typeof payload.error === 'string'
+  ) {
+    return payload.error;
+  }
+  return fallback;
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
@@ -24,14 +36,14 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   if (!text) {
     throw new ApiError(res.status || 502, 'Empty response from server (request may have timed out)');
   }
-  let data: any;
+  let data: unknown;
   try {
     data = JSON.parse(text);
   } catch {
     throw new ApiError(res.status || 502, `Invalid JSON response: ${text.slice(0, 200)}`);
   }
   if (!res.ok) {
-    throw new ApiError(res.status, data.error ?? res.statusText);
+    throw new ApiError(res.status, errorMessageFromPayload(data, res.statusText));
   }
   return data as T;
 }
@@ -39,24 +51,28 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 // createSSEStream creates an EventSource with the standard done/error lifecycle.
 // The `handlers` map registers named SSE event listeners; the special key "done"
 // is treated as the terminal event that closes the connection.
-function createSSEStream(
+type SSEHandlers<TEvents extends Record<string, unknown>> = {
+  [K in keyof TEvents]: (data: TEvents[K]) => void;
+};
+
+function createSSEStream<TEvents extends Record<string, unknown>>(
   url: string,
-  handlers: Record<string, (data: any) => void>,
+  handlers: SSEHandlers<TEvents>,
   onError: (err: Error) => void,
   errorMessage: string,
 ): EventSource {
   const es = new EventSource(url);
   let completed = false;
-  for (const [event, handler] of Object.entries(handlers)) {
+  for (const [event, handler] of Object.entries(handlers) as Array<[keyof TEvents, SSEHandlers<TEvents>[keyof TEvents]]>) {
     if (event === 'done') {
       es.addEventListener('done', (e) => {
         completed = true;
         es.close();
-        handler(JSON.parse((e as MessageEvent).data));
+        handler(JSON.parse((e as MessageEvent).data) as TEvents[typeof event]);
       });
     } else {
-      es.addEventListener(event, (e) => {
-        handler(JSON.parse((e as MessageEvent).data));
+      es.addEventListener(String(event), (e) => {
+        handler(JSON.parse((e as MessageEvent).data) as TEvents[typeof event]);
       });
     }
   }
@@ -129,7 +145,7 @@ export const api = {
   listSkills: (kind?: 'skill' | 'agent') =>
     apiFetch<{ resources: Skill[] }>(kind ? `/resources?kind=${kind}` : '/resources'),
   getResource: (name: string, kind?: 'skill' | 'agent') =>
-    apiFetch<{ resource: Skill; skillMdContent: string; files: string[] }>(
+    apiFetch<{ resource: Skill; skillMdContent: string; files: string[]; stats: SkillStats }>(
       `/resources/${encodeURIComponent(name)}${kind ? `?kind=${kind}` : ''}`
     ),
   getSkill: (name: string, kind?: 'skill' | 'agent') =>
@@ -231,7 +247,12 @@ export const api = {
     onDone: (data: { diffs: DiffTarget[] } & IgnoreSources) => void,
     onError: (err: Error) => void,
   ): EventSource =>
-    createSSEStream(BASE + '/diff/stream', {
+    createSSEStream<{
+      discovering: unknown;
+      start: { total: number };
+      result: { diff: DiffTarget; checked: number };
+      done: { diffs: DiffTarget[] } & IgnoreSources;
+    }>(BASE + '/diff/stream', {
       discovering: () => onDiscovering(),
       start: (d) => onStart(d.total),
       result: (d) => onResult(d.diff, d.checked),
@@ -269,7 +290,12 @@ export const api = {
     onDone: (data: CheckResult) => void,
     onError: (err: Error) => void,
   ): EventSource =>
-    createSSEStream(BASE + '/check/stream', {
+    createSSEStream<{
+      discovering: unknown;
+      start: { total: number };
+      progress: { checked: number };
+      done: CheckResult;
+    }>(BASE + '/check/stream', {
       discovering: () => onDiscovering(),
       start: (d) => onStart(d.total),
       progress: (d) => onProgress(d.checked),
@@ -308,7 +334,11 @@ export const api = {
     if (opts?.names?.length) params.set('names', opts.names.join(','));
     if (opts?.force) params.set('force', 'true');
     if (opts?.skipAudit) params.set('skipAudit', 'true');
-    return createSSEStream(`${BASE}/update/stream?${params.toString()}`, {
+    return createSSEStream<{
+      start: { total: number };
+      result: UpdateResultItem;
+      done: { results: UpdateResultItem[]; summary: UpdateStreamSummary };
+    }>(`${BASE}/update/stream?${params.toString()}`, {
       start: (d) => onStart(d.total),
       result: onResult,
       done: onDone,
@@ -446,7 +476,11 @@ export const api = {
     onError: (err: Error) => void,
     kind?: 'skills' | 'agents',
   ): EventSource =>
-    createSSEStream(BASE + `/audit/stream${kind ? '?kind=' + kind : ''}`, {
+    createSSEStream<{
+      start: { total: number };
+      progress: { scanned: number };
+      done: AuditAllResponse;
+    }>(BASE + `/audit/stream${kind ? '?kind=' + kind : ''}`, {
       start: (d) => onStart(d.total),
       progress: (d) => onProgress(d.scanned),
       done: onDone,
@@ -473,6 +507,60 @@ export const api = {
     apiFetch<{ success: boolean }>('/audit/rules/reset', {
       method: 'POST',
     }),
+
+  // Rules diagnostics
+  listRules: () => apiFetch<RulesListResponse>('/rules'),
+  listHooks: () => apiFetch<HooksListResponse>('/hooks'),
+
+  // Managed rules
+  managedRules: {
+    list: () => apiFetch<{ rules: ManagedRule[] }>('/managed/rules'),
+    get: (id: string) => apiFetch<ManagedRuleDetailResponse>(`/managed/rules/${encodeURIComponent(id)}`),
+    create: (body: ManagedRuleSaveRequest) =>
+      apiFetch<ManagedRuleDetailResponse>('/managed/rules', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    update: (id: string, body: ManagedRuleSaveRequest) =>
+      apiFetch<ManagedRuleDetailResponse>(`/managed/rules/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ id, ...body }),
+      }),
+    remove: (id: string) =>
+      apiFetch<{ success: boolean }>(`/managed/rules/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+    collect: (body: ManagedRuleCollectRequest) =>
+      apiFetch<ManagedCollectResult>('/managed/rules/collect', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+  },
+
+  // Managed hooks
+  managedHooks: {
+    list: () => apiFetch<{ hooks: ManagedHook[] }>('/managed/hooks'),
+    get: (id: string) => apiFetch<ManagedHookDetailResponse>(`/managed/hooks/${encodeURIComponent(id)}`),
+    create: (body: ManagedHookSaveRequest) =>
+      apiFetch<ManagedHookDetailResponse>('/managed/hooks', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    update: (id: string, body: ManagedHookSaveRequest) =>
+      apiFetch<ManagedHookDetailResponse>(`/managed/hooks/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        body: JSON.stringify({ id, ...body }),
+      }),
+    remove: (id: string) =>
+      apiFetch<{ success: boolean }>(`/managed/hooks/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }),
+    collect: (body: ManagedHookCollectRequest) =>
+      apiFetch<ManagedCollectResult>('/managed/hooks/collect', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+  },
 
   // Git
   gitStatus: () => apiFetch<GitStatus>('/git/status'),
@@ -534,6 +622,8 @@ export interface Overview {
   targetCount: number;
   mode: string;
   version: string;
+  managedRulesCount?: number;
+  managedHooksCount?: number;
   trackedRepos: TrackedRepo[];
   isProjectMode: boolean;
   projectRoot?: string;
@@ -583,7 +673,8 @@ export interface TemplatesResponse {
 
 export interface CreateSkillRequest {
   name: string;
-  pattern: string;
+  kind?: 'skill' | 'agent';
+  pattern?: string;
   category?: string;
   scaffoldDirs?: string[];
 }
@@ -591,11 +682,18 @@ export interface CreateSkillRequest {
 export interface CreateSkillResponse {
   skill: {
     name: string;
+    kind: 'skill' | 'agent';
     flatName: string;
     relPath: string;
     sourcePath: string;
   };
   createdFiles: string[];
+}
+
+export interface SkillStats {
+  wordCount: number;
+  lineCount: number;
+  tokenCount: number;
 }
 
 export interface Target {
@@ -620,6 +718,7 @@ export interface Target {
 }
 
 export interface SyncResult {
+  resource: string;
   target: string;
   linked: string[];
   updated: string[];
@@ -896,7 +995,7 @@ export interface PullResponse {
 export interface LogEntry {
   ts: string;
   cmd: string;
-  args?: Record<string, any>;
+  args?: Record<string, unknown>;
   status: string;
   msg?: string;
   ms?: number;
@@ -982,6 +1081,132 @@ export interface AuditRulesResponse {
   exists: boolean;
   raw: string;
   path: string;
+}
+
+export interface RuleItem {
+  id?: string;
+  name: string;
+  sourceTool: string;
+  scope: 'user' | 'project';
+  path: string;
+  exists: boolean;
+  content: string;
+  size: number;
+  scopedPaths?: string[];
+  isScoped: boolean;
+  stats?: SkillStats;
+  collectible?: boolean;
+  collectReason?: string;
+}
+
+export interface RulesListResponse {
+  rules: RuleItem[];
+  warnings: string[];
+}
+
+export interface ManagedRule {
+  id: string;
+  tool: string;
+  name: string;
+  relativePath: string;
+  content: string;
+}
+
+export interface ManagedRuleSaveRequest {
+  tool: string;
+  relativePath: string;
+  content: string;
+}
+
+export interface ManagedRulePreviewFile {
+  path: string;
+  content: string;
+  format: string;
+}
+
+export interface ManagedPreview {
+  target: string;
+  files: ManagedRulePreviewFile[];
+  warnings?: string[];
+}
+
+export type ManagedRulePreview = ManagedPreview;
+
+export interface ManagedRuleDetailResponse {
+  rule: ManagedRule;
+  previews: ManagedRulePreview[];
+}
+
+export interface ManagedRuleCollectRequest {
+  ids: string[];
+  strategy: 'overwrite' | 'skip';
+}
+
+export interface ManagedCollectResult {
+  created: string[];
+  overwritten: string[];
+  skipped: string[];
+}
+
+export interface ManagedHook {
+  id: string;
+  tool: string;
+  event: string;
+  matcher?: string;
+  handlers: ManagedHookHandler[];
+}
+
+export interface ManagedHookHandler {
+  type: 'command' | 'http' | 'prompt' | 'agent';
+  command?: string;
+  url?: string;
+  prompt?: string;
+  timeout?: string;
+  timeoutSec?: number;
+  statusMessage?: string;
+}
+
+export interface ManagedHookSaveRequest {
+  id?: string;
+  tool: string;
+  event: string;
+  matcher?: string;
+  handlers: ManagedHookHandler[];
+}
+
+export type ManagedHookPreview = ManagedPreview;
+
+export interface ManagedHookDetailResponse {
+  hook: ManagedHook;
+  previews: ManagedHookPreview[];
+}
+
+export interface ManagedHookCollectRequest {
+  groupIds: string[];
+  strategy: 'overwrite' | 'skip';
+}
+
+export interface HookItem {
+  groupId?: string;
+  sourceTool: string;
+  scope: 'user' | 'project';
+  event: string;
+  matcher?: string;
+  actionType: 'command' | 'http' | 'prompt' | 'agent';
+  path: string;
+  command?: string;
+  url?: string;
+  prompt?: string;
+  timeout?: string;
+  timeoutSec?: number;
+  statusMessage?: string;
+  collectible?: boolean;
+  collectReason?: string;
+}
+
+export interface HooksListResponse {
+  hooks: HookItem[];
+  warnings: string[];
 }
 
 export interface CompiledRule {

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, FolderPlus } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -14,9 +14,13 @@ import type { SkillPattern, SkillCategory } from '../api/client';
 
 /* -- Step definitions -------------------------------- */
 
+type ResourceKind = 'skill' | 'agent';
 type StepId = 'name' | 'pattern' | 'category' | 'scaffold' | 'confirm';
 
-function computeSteps(selectedPattern: SkillPattern | null): StepId[] {
+function computeSteps(kind: ResourceKind, selectedPattern: SkillPattern | null): StepId[] {
+  if (kind === 'agent') {
+    return ['name', 'confirm'];
+  }
   const steps: StepId[] = ['name', 'pattern'];
   if (selectedPattern && selectedPattern.name !== 'none') {
     steps.push('category');
@@ -30,11 +34,19 @@ function computeSteps(selectedPattern: SkillPattern | null): StepId[] {
 
 /* -- Name validation --------------------------------- */
 
-const NAME_REGEX = /^[a-z_][a-z0-9_-]*$/;
+const SKILL_NAME_REGEX = /^[a-z_][a-z0-9_-]*$/;
+const AGENT_NAME_REGEX = /^[a-z_][a-z0-9_-]*(\/[a-z_][a-z0-9_-]*)*$/;
 
-function validateName(name: string, existingNames: Set<string>): string | null {
+function validateName(name: string, existingNames: Set<string>, kind: ResourceKind): string | null {
   if (!name) return 'Name is required';
-  if (!NAME_REGEX.test(name)) return 'Must start with a-z or _, and contain only a-z, 0-9, _ or -';
+  if (kind === 'agent') {
+    if (!AGENT_NAME_REGEX.test(name)) {
+      return 'Use lowercase path segments separated by /, with a-z, 0-9, _ or -';
+    }
+    if (existingNames.has(name)) return 'An agent with this path already exists';
+    return null;
+  }
+  if (!SKILL_NAME_REGEX.test(name)) return 'Must start with a-z or _, and contain only a-z, 0-9, _ or -';
   if (existingNames.has(name)) return 'A skill with this name already exists';
   return null;
 }
@@ -43,8 +55,12 @@ function validateName(name: string, existingNames: Set<string>): string | null {
 
 export default function NewSkillPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const resourceKind: ResourceKind = searchParams.get('kind') === 'agent' ? 'agent' : 'skill';
+  const resourceLabel = resourceKind === 'agent' ? 'Agent' : 'Skill';
+  const backTo = resourceKind === 'agent' ? '/resources?tab=agents' : '/resources';
   // Form state
   const [name, setName] = useState('');
   const [selectedPattern, setSelectedPattern] = useState<SkillPattern | null>(null);
@@ -60,12 +76,13 @@ export default function NewSkillPage() {
     queryKey: queryKeys.templates,
     queryFn: () => api.getTemplates(),
     staleTime: staleTimes.config,
+    enabled: resourceKind === 'skill',
   });
 
   // Fetch existing skills for duplicate check
   const { data: skillsData } = useQuery({
-    queryKey: queryKeys.skills.all,
-    queryFn: () => api.listSkills(),
+    queryKey: [...queryKeys.skills.all, resourceKind],
+    queryFn: () => api.listSkills(resourceKind),
     staleTime: staleTimes.skills,
   });
 
@@ -73,17 +90,17 @@ export default function NewSkillPage() {
     const names = new Set<string>();
     if (skillsData?.resources) {
       for (const s of skillsData.resources) {
-        names.add(s.name);
+        names.add(resourceKind === 'agent' ? s.relPath.replace(/\.md$/i, '') : s.name);
       }
     }
     return names;
-  }, [skillsData]);
+  }, [resourceKind, skillsData]);
 
   const patterns = templatesData?.patterns ?? [];
   const categories = templatesData?.categories ?? [];
 
   // Compute dynamic steps
-  const steps = useMemo(() => computeSteps(selectedPattern), [selectedPattern]);
+  const steps = useMemo(() => computeSteps(resourceKind, selectedPattern), [resourceKind, selectedPattern]);
   const currentStep = steps[stepIndex] ?? 'name';
 
   // When pattern changes, reset downstream state
@@ -106,8 +123,8 @@ export default function NewSkillPage() {
   // Step validation
   const nameError = useMemo(() => {
     if (!name) return null; // Don't show error for empty (user hasn't typed yet)
-    return validateName(name, existingNames);
-  }, [name, existingNames]);
+    return validateName(name, existingNames, resourceKind);
+  }, [name, existingNames, resourceKind]);
 
   const canAdvance = useMemo(() => {
     switch (currentStep) {
@@ -136,9 +153,9 @@ export default function NewSkillPage() {
     if (stepIndex > 0) {
       setStepIndex(stepIndex - 1);
     } else {
-      navigate('/resources');
+      navigate(backTo);
     }
-  }, [stepIndex, navigate]);
+  }, [backTo, navigate, stepIndex]);
 
   // Listen for browser back button
   useEffect(() => {
@@ -163,18 +180,24 @@ export default function NewSkillPage() {
   const handleCreate = async () => {
     setCreating(true);
     try {
-      const res = await api.createSkill({
+      const payload = {
         name,
-        pattern: selectedPattern?.name ?? 'none',
-        category: selectedCategory?.key,
-        scaffoldDirs: selectedPattern && selectedPattern.scaffoldDirs.length > 0
-          ? [...scaffoldDirs]
-          : undefined,
-      });
+        kind: resourceKind,
+        ...(resourceKind === 'skill'
+          ? {
+              pattern: selectedPattern?.name ?? 'none',
+              category: selectedCategory?.key,
+              scaffoldDirs: selectedPattern && selectedPattern.scaffoldDirs.length > 0
+                ? [...scaffoldDirs]
+                : undefined,
+            }
+          : {}),
+      };
+      const res = await api.createSkill(payload);
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-      toast(`Skill "${res.skill.name}" created successfully!`, 'success');
-      navigate(`/resources/${encodeURIComponent(res.skill.flatName)}`);
+      toast(`${resourceLabel} "${res.skill.name}" created successfully!`, 'success');
+      navigate(`/resources/${encodeURIComponent(res.skill.flatName)}${res.skill.kind === 'agent' ? '?kind=agent' : ''}`);
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
     } finally {
@@ -182,14 +205,14 @@ export default function NewSkillPage() {
     }
   };
 
-  if (templatesPending) return <PageSkeleton />;
+  if (resourceKind === 'skill' && templatesPending) return <PageSkeleton />;
 
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         icon={<></>}
-        title="Create New Skill"
-        backTo="/resources"
+        title={`Create New ${resourceLabel}`}
+        backTo={backTo}
       />
 
       {/* Progress bar */}
@@ -199,26 +222,27 @@ export default function NewSkillPage() {
       <div>
         {currentStep === 'name' && (
           <NameStep
+            kind={resourceKind}
             value={name}
             onChange={setName}
             error={nameError}
           />
         )}
-        {currentStep === 'pattern' && (
+        {currentStep === 'pattern' && resourceKind === 'skill' && (
           <PatternStep
             patterns={patterns}
             selected={selectedPattern}
             onSelect={handlePatternSelect}
           />
         )}
-        {currentStep === 'category' && (
+        {currentStep === 'category' && resourceKind === 'skill' && (
           <CategoryStep
             categories={categories}
             selected={selectedCategory}
             onSelect={setSelectedCategory}
           />
         )}
-        {currentStep === 'scaffold' && selectedPattern && (
+        {currentStep === 'scaffold' && resourceKind === 'skill' && selectedPattern && (
           <ScaffoldStep
             dirs={selectedPattern.scaffoldDirs}
             selected={scaffoldDirs}
@@ -227,6 +251,7 @@ export default function NewSkillPage() {
         )}
         {currentStep === 'confirm' && (
           <ConfirmStep
+            kind={resourceKind}
             name={name}
             pattern={selectedPattern}
             category={selectedCategory}
@@ -249,7 +274,7 @@ export default function NewSkillPage() {
             disabled={!canAdvance}
           >
             {!creating && <Check size={16} strokeWidth={2.5} />}
-            Create Skill
+            Create {resourceLabel}
           </Button>
         ) : (
           <Button
@@ -310,23 +335,27 @@ function ProgressBar({ current, steps }: { current: number; steps: StepId[] }) {
 /* -- Step: Name -------------------------------------- */
 
 function NameStep({
+  kind,
   value,
   onChange,
   error,
 }: {
+  kind: ResourceKind;
   value: string;
   onChange: (v: string) => void;
   error: string | null;
 }) {
   return (
     <Card>
-      <h3 className="text-lg font-bold text-pencil mb-1">Skill Name</h3>
+      <h3 className="text-lg font-bold text-pencil mb-1">{kind === 'agent' ? 'Agent Path' : 'Skill Name'}</h3>
       <p className="text-pencil-light text-sm mb-4">
-        Choose a unique name for your skill. Use lowercase letters, numbers, hyphens, and underscores.
+        {kind === 'agent'
+          ? 'Choose a unique path for your agent. Use lowercase segments separated by /.'
+          : 'Choose a unique name for your skill. Use lowercase letters, numbers, hyphens, and underscores.'}
       </p>
       <Input
         type="text"
-        placeholder="my-awesome-skill"
+        placeholder={kind === 'agent' ? 'reviewer or curriculum/reviewer' : 'my-awesome-skill'}
         value={value}
         onChange={(e) => onChange(e.target.value.toLowerCase())}
         autoFocus
@@ -500,11 +529,13 @@ function ScaffoldStep({
 /* -- Step: Confirm ----------------------------------- */
 
 function ConfirmStep({
+  kind,
   name,
   pattern,
   category,
   scaffoldDirs,
 }: {
+  kind: ResourceKind;
   name: string;
   pattern: SkillPattern | null;
   category: SkillCategory | null;
@@ -518,17 +549,26 @@ function ConfirmStep({
           <dt className="text-pencil-light text-sm w-28 shrink-0">Name</dt>
           <dd className="font-mono font-bold text-pencil">{name}</dd>
         </div>
-        <div className="flex items-start gap-3">
-          <dt className="text-pencil-light text-sm w-28 shrink-0">Pattern</dt>
-          <dd className="text-pencil capitalize">{pattern?.name ?? 'none'}</dd>
-        </div>
-        {category && (
+        {kind === 'agent' ? (
           <div className="flex items-start gap-3">
-            <dt className="text-pencil-light text-sm w-28 shrink-0">Category</dt>
-            <dd className="text-pencil">{category.label}</dd>
+            <dt className="text-pencil-light text-sm w-28 shrink-0">File</dt>
+            <dd className="font-mono text-pencil">{name}.md</dd>
           </div>
+        ) : (
+          <>
+            <div className="flex items-start gap-3">
+              <dt className="text-pencil-light text-sm w-28 shrink-0">Pattern</dt>
+              <dd className="text-pencil capitalize">{pattern?.name ?? 'none'}</dd>
+            </div>
+            {category && (
+              <div className="flex items-start gap-3">
+                <dt className="text-pencil-light text-sm w-28 shrink-0">Category</dt>
+                <dd className="text-pencil">{category.label}</dd>
+              </div>
+            )}
+          </>
         )}
-        {pattern && pattern.scaffoldDirs.length > 0 && (
+        {kind === 'skill' && pattern && pattern.scaffoldDirs.length > 0 && (
           <div className="flex items-start gap-3">
             <dt className="text-pencil-light text-sm w-28 shrink-0">Directories</dt>
             <dd className="flex flex-wrap gap-1.5">

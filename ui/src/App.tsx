@@ -27,6 +27,12 @@ const UpdatePage = lazy(() => import('./pages/UpdatePage'));
 const TrashPage = lazy(() => import('./pages/TrashPage'));
 const AuditPage = lazy(() => import('./pages/AuditPage'));
 const AuditRulesPage = lazy(() => import('./pages/AuditRulesPage'));
+const RulesPage = lazy(() => import('./pages/RulesPage'));
+const DiscoveredRuleDetailPage = lazy(() => import('./pages/DiscoveredRuleDetailPage'));
+const RuleDetailPage = lazy(() => import('./pages/RuleDetailPage'));
+const HooksPage = lazy(() => import('./pages/HooksPage'));
+const DiscoveredHookDetailPage = lazy(() => import('./pages/DiscoveredHookDetailPage'));
+const HookDetailPage = lazy(() => import('./pages/HookDetailPage'));
 const LogPage = lazy(() => import('./pages/LogPage'));
 const ConfigPage = lazy(() => import('./pages/ConfigPage'));
 const FilterStudioPage = lazy(() => import('./pages/FilterStudioPage'));
@@ -43,44 +49,52 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-      <ToastProvider>
-        <AppProvider>
-          <BrowserRouter basename={BASE_PATH}>
-            <ErrorBoundary>
-            <TourProvider>
-            <TourOverlay />
-            <TourTooltip />
-            <Routes>
-              <Route element={<Layout />}>
-                <Route index element={<DashboardPage />} />
-                <Route path="resources" element={<Lazy><ResourcesPage /></Lazy>} />
-                <Route path="resources/new" element={<Lazy><NewSkillPage /></Lazy>} />
-                <Route path="resources/:name" element={<Lazy><ResourceDetailPage /></Lazy>} />
-                <Route path="uninstall" element={<Lazy><BatchUninstallPage /></Lazy>} />
-                <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
-                <Route path="targets/:name/filters" element={<Lazy><FilterStudioPage /></Lazy>} />
-                <Route path="extras" element={<Lazy><ExtrasPage /></Lazy>} />
-                <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
-                <Route path="collect" element={<Lazy><CollectPage /></Lazy>} />
-                <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />
-                <Route path="trash" element={<Lazy><TrashPage /></Lazy>} />
-                <Route path="git" element={<Lazy><GitSyncPage /></Lazy>} />
-                <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
-                <Route path="install" element={<Lazy><InstallPage /></Lazy>} />
-                <Route path="update" element={<Lazy><UpdatePage /></Lazy>} />
-                <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
-                <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
-                <Route path="analyze" element={<Lazy><AnalyzePage /></Lazy>} />
-                <Route path="log" element={<Lazy><LogPage /></Lazy>} />
-                <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
-                <Route path="doctor" element={<Lazy><DoctorPage /></Lazy>} />
-              </Route>
-            </Routes>
-            </TourProvider>
-            </ErrorBoundary>
-          </BrowserRouter>
-        </AppProvider>
-      </ToastProvider>
+        <ToastProvider>
+          <AppProvider>
+            <BrowserRouter basename={BASE_PATH}>
+              <ErrorBoundary>
+                <TourProvider>
+                  <TourOverlay />
+                  <TourTooltip />
+                  <Routes>
+                    <Route element={<Layout />}>
+                      <Route index element={<DashboardPage />} />
+                      <Route path="resources" element={<Lazy><ResourcesPage /></Lazy>} />
+                      <Route path="resources/new" element={<Lazy><NewSkillPage /></Lazy>} />
+                      <Route path="resources/:name" element={<Lazy><ResourceDetailPage /></Lazy>} />
+                      <Route path="uninstall" element={<Lazy><BatchUninstallPage /></Lazy>} />
+                      <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
+                      <Route path="targets/:name/filters" element={<Lazy><FilterStudioPage /></Lazy>} />
+                      <Route path="extras" element={<Lazy><ExtrasPage /></Lazy>} />
+                      <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
+                      <Route path="collect" element={<Lazy><CollectPage /></Lazy>} />
+                      <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />
+                      <Route path="trash" element={<Lazy><TrashPage /></Lazy>} />
+                      <Route path="git" element={<Lazy><GitSyncPage /></Lazy>} />
+                      <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
+                      <Route path="install" element={<Lazy><InstallPage /></Lazy>} />
+                      <Route path="update" element={<Lazy><UpdatePage /></Lazy>} />
+                      <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
+                      <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
+                      <Route path="rules" element={<Lazy><RulesPage /></Lazy>} />
+                      <Route path="rules/discovered/:ruleRef" element={<Lazy><DiscoveredRuleDetailPage /></Lazy>} />
+                      <Route path="rules/new" element={<Lazy><RuleDetailPage /></Lazy>} />
+                      <Route path="rules/manage/*" element={<Lazy><RuleDetailPage /></Lazy>} />
+                      <Route path="hooks" element={<Lazy><HooksPage /></Lazy>} />
+                      <Route path="hooks/discovered/:groupRef" element={<Lazy><DiscoveredHookDetailPage /></Lazy>} />
+                      <Route path="hooks/new" element={<Lazy><HookDetailPage /></Lazy>} />
+                      <Route path="hooks/manage/*" element={<Lazy><HookDetailPage /></Lazy>} />
+                      <Route path="analyze" element={<Lazy><AnalyzePage /></Lazy>} />
+                      <Route path="log" element={<Lazy><LogPage /></Lazy>} />
+                      <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
+                      <Route path="doctor" element={<Lazy><DoctorPage /></Lazy>} />
+                    </Route>
+                  </Routes>
+                </TourProvider>
+              </ErrorBoundary>
+            </BrowserRouter>
+          </AppProvider>
+        </ToastProvider>
       </ThemeProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>

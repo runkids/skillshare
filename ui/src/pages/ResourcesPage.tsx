@@ -881,11 +881,11 @@ export default function SkillsPage() {
         title="Resources"
         subtitle=""
         className="mb-4!"
-        actions={activeTab === 'skills' ? (
-          <Link to="/resources/new">
+        actions={activeTab === 'skills' || activeTab === 'agents' ? (
+          <Link to={activeTab === 'agents' ? '/resources/new?kind=agent' : '/resources/new'}>
             <Button variant="primary" size="sm">
               <Plus size={16} strokeWidth={2.5} />
-              New Skill
+              {activeTab === 'agents' ? 'New Agent' : 'New Skill'}
             </Button>
           </Link>
         ) : undefined}

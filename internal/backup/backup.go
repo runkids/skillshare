@@ -53,9 +53,11 @@ func CreateInDir(backupDir, targetName, targetPath string) (string, error) {
 		return "", nil // Empty, nothing to backup
 	}
 
-	// Create backup directory with timestamp
-	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	backupPath := filepath.Join(backupDir, timestamp, targetName)
+	// Create backup directory with a unique timestamped target path.
+	_, backupPath, err := allocateBackupPath(backupDir, targetName)
+	if err != nil {
+		return "", fmt.Errorf("failed to allocate backup path: %w", err)
+	}
 
 	if err := os.MkdirAll(backupPath, 0755); err != nil {
 		return "", fmt.Errorf("failed to create backup directory: %w", err)
@@ -168,7 +170,7 @@ func ListTargetsWithBackups(backupDir string) ([]TargetBackupSummary, error) {
 			continue
 		}
 
-		ts, parseErr := time.ParseInLocation("2006-01-02_15-04-05", entry.Name(), time.Local)
+		ts, parseErr := parseBackupTimestamp(entry.Name())
 		if parseErr != nil {
 			continue // skip directories that don't match the timestamp format
 		}
@@ -178,11 +180,19 @@ func ListTargetsWithBackups(backupDir string) ([]TargetBackupSummary, error) {
 			continue
 		}
 
+		seenTargets := make(map[string]struct{}, len(targetEntries))
 		for _, te := range targetEntries {
 			if !te.IsDir() {
 				continue
 			}
 			name := te.Name()
+			if canonical, ok := config.CanonicalTargetName(name); ok {
+				name = canonical
+			}
+			if _, ok := seenTargets[name]; ok {
+				continue
+			}
+			seenTargets[name] = struct{}{}
 			acc, ok := targets[name]
 			if !ok {
 				acc = &accumulator{oldest: ts, latest: ts}

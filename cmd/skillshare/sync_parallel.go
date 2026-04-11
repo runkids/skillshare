@@ -348,10 +348,9 @@ func renderSyncResults(results []syncTargetResult) {
 	for _, r := range results {
 		if r.errMsg != "" {
 			ui.Error("%s: %s", r.name, r.errMsg)
-			continue
+		} else {
+			ui.Success("%s: %s", r.name, r.message)
 		}
-
-		ui.Success("%s: %s", r.name, r.message)
 
 		if len(r.include) > 0 {
 			ui.Info("  include: %s", strings.Join(r.include, ", "))

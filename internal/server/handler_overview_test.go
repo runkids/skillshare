@@ -7,6 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	managedhooks "skillshare/internal/resources/hooks"
+	managedrules "skillshare/internal/resources/rules"
 )
 
 func TestHandleOverview_Empty(t *testing.T) {
@@ -102,5 +105,55 @@ func TestHandleOverview_ProjectMode(t *testing.T) {
 	}
 	if resp["projectRoot"] != tmp {
 		t.Errorf("expected projectRoot %q, got %v", tmp, resp["projectRoot"])
+	}
+}
+
+func TestHandleOverview_IncludesManagedResourceCounts(t *testing.T) {
+	s, projectRoot, sourceDir, _ := newManagedProjectServer(t, "claude")
+	addSkill(t, sourceDir, "alpha")
+
+	ruleStore := managedrules.NewStore(projectRoot)
+	if _, err := ruleStore.Put(managedrules.Save{
+		ID:      "claude/manual.md",
+		Content: []byte("# Managed rule\n"),
+	}); err != nil {
+		t.Fatalf("put managed rule: %v", err)
+	}
+
+	hookStore := managedhooks.NewStore(projectRoot)
+	if _, err := hookStore.Put(managedhooks.Save{
+		ID:      "claude/pre-tool-use/bash.yaml",
+		Tool:    "claude",
+		Event:   "PreToolUse",
+		Matcher: "Bash",
+		Handlers: []managedhooks.Handler{{
+			Type:    "command",
+			Command: "./bin/check",
+		}},
+	}); err != nil {
+		t.Fatalf("put managed hook: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/overview", nil)
+	rr := httptest.NewRecorder()
+	s.mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp["skillCount"].(float64) != 1 {
+		t.Fatalf("skillCount = %v, want 1", resp["skillCount"])
+	}
+	if resp["managedRulesCount"].(float64) != 1 {
+		t.Fatalf("managedRulesCount = %v, want 1", resp["managedRulesCount"])
+	}
+	if resp["managedHooksCount"].(float64) != 1 {
+		t.Fatalf("managedHooksCount = %v, want 1", resp["managedHooksCount"])
 	}
 }

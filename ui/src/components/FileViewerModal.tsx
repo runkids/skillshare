@@ -54,7 +54,7 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
   }, [data, filepath]);
 
   return (
-    <DialogShell open={true} onClose={onClose} maxWidth="3xl" padding="none" className="max-h-[85vh] flex flex-col overflow-hidden">
+        <DialogShell open={true} onClose={onClose} maxWidth="3xl" padding="none" className="max-h-[85vh] flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex items-center justify-between mb-3 px-6 pt-6">
             <h3

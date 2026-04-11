@@ -206,7 +206,7 @@ func previewBackup(targetName, targetPath string) error {
 		return nil
 	}
 
-	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	timestamp := backup.NewTimestamp()
 	backupPath := filepath.Join(backupDir, timestamp, targetName)
 	ui.Info("%s: would backup to %s", targetName, backupPath)
 
@@ -386,6 +386,18 @@ func cmdRestore(args []string) error {
 		}
 	}
 
+	// Preserve the legacy "restore agents" alias for the canonical shared target
+	// in global mode when no explicit agent target was requested.
+	if kind == kindAgents && targetName == "" && mode != modeProject {
+		cfg, cfgErr := config.Load()
+		if cfgErr == nil {
+			if _, _, resolveErr := resolveConfiguredRestoreTarget(cfg.Targets, "agents"); resolveErr == nil {
+				kind = kindSkills
+				targetName = "agents"
+			}
+		}
+	}
+
 	// Agent restore uses agent-specific backup entries (name suffixed with "-agents")
 	if kind == kindAgents {
 		return restoreAgentBackup(mode, cwd, targetName, fromTimestamp, force, dryRun)
@@ -406,8 +418,12 @@ func cmdRestore(args []string) error {
 		return err
 	}
 
-	target, exists := cfg.Targets[targetName]
-	if !exists {
+	resolvedTargetName, target, err := resolveConfiguredRestoreTarget(cfg.Targets, targetName)
+	if err != nil {
+		return err
+	}
+	sc := target.SkillsConfig()
+	if sc.Path == "" {
 		return fmt.Errorf("target '%s' not found in config", targetName)
 	}
 
@@ -418,20 +434,18 @@ func cmdRestore(args []string) error {
 	}
 
 	opts := backup.RestoreOptions{Force: force}
-
-	sc := target.SkillsConfig()
 	if dryRun {
 		if fromTimestamp != "" {
-			return previewRestoreFromTimestamp(targetName, sc.Path, fromTimestamp, opts)
+			return previewRestoreFromTimestamp(resolvedTargetName, sc.Path, fromTimestamp, opts)
 		}
-		return previewRestoreFromLatest(targetName, sc.Path, opts)
+		return previewRestoreFromLatest(resolvedTargetName, sc.Path, opts)
 	}
 
 	var restoreErr error
 	if fromTimestamp != "" {
-		restoreErr = restoreFromTimestamp(targetName, sc.Path, fromTimestamp, opts)
+		restoreErr = restoreFromTimestamp(resolvedTargetName, sc.Path, fromTimestamp, opts)
 	} else {
-		restoreErr = restoreFromLatest(targetName, sc.Path, opts)
+		restoreErr = restoreFromLatest(resolvedTargetName, sc.Path, opts)
 	}
 
 	e := oplog.NewEntry("restore", statusFromErr(restoreErr), time.Since(start))
@@ -445,6 +459,22 @@ func cmdRestore(args []string) error {
 	oplog.WriteWithLimit(config.ConfigPath(), oplog.OpsFile, e, logMaxEntries()) //nolint:errcheck
 
 	return restoreErr
+}
+
+func resolveConfiguredRestoreTarget(targets map[string]config.TargetConfig, requested string) (string, config.TargetConfig, error) {
+	candidates := make([]string, 0, len(targets))
+	for name := range targets {
+		candidates = append(candidates, name)
+	}
+
+	resolvedName, ok, err := config.ResolveTargetNameCandidate(requested, candidates)
+	if err != nil {
+		return "", config.TargetConfig{}, err
+	}
+	if !ok {
+		return "", config.TargetConfig{}, nil
+	}
+	return resolvedName, targets[resolvedName], nil
 }
 
 // restoreTUIDispatch handles the no-args TUI flow for restore.

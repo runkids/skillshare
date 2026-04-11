@@ -2,6 +2,7 @@ package config
 
 import (
 	_ "embed"
+	"fmt"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -154,8 +155,52 @@ func LookupProjectTarget(name string) (TargetConfig, bool) {
 // LookupGlobalTarget returns the known global target config for a name.
 func LookupGlobalTarget(name string) (TargetConfig, bool) {
 	targets := DefaultTargets()
-	target, ok := targets[name]
-	return target, ok
+	if target, ok := targets[name]; ok {
+		return target, true
+	}
+
+	// Fallback: check aliases (backward compat — remove once safe)
+	specs, err := loadTargetSpecs()
+	if err != nil {
+		return TargetConfig{}, false
+	}
+	for _, spec := range specs {
+		for _, alias := range spec.Aliases {
+			if alias == name && spec.Name != "" && spec.Skills.Global != "" {
+				return targets[spec.Name], true
+			}
+		}
+	}
+	return TargetConfig{}, false
+}
+
+// ResolveTargetNameCandidate resolves a user-provided target name against a set
+// of candidate names, preferring exact matches and then a single unambiguous
+// alias/canonical match within the same target spec.
+func ResolveTargetNameCandidate(name string, candidates []string) (string, bool, error) {
+	return resolveTargetNameCandidate(name, candidates, sameTargetSpecName)
+}
+
+// CanonicalTargetName returns the canonical target name for a known target
+// spec. Unknown names are returned unchanged with ok=false.
+func CanonicalTargetName(name string) (canonical string, ok bool) {
+	specs, err := loadTargetSpecs()
+	if err != nil {
+		return name, false
+	}
+
+	for _, spec := range specs {
+		allNames := make([]string, 0, 1+len(spec.Aliases))
+		allNames = append(allNames, spec.Name)
+		allNames = append(allNames, spec.Aliases...)
+		for _, candidate := range allNames {
+			if candidate == name {
+				return spec.Name, true
+			}
+		}
+	}
+
+	return name, false
 }
 
 // GroupedProjectTarget represents a project target, optionally grouped with
@@ -275,6 +320,69 @@ func MatchesTargetName(skillTarget, configTarget string) bool {
 			if sp == cp {
 				return true
 			}
+		}
+	}
+
+	return false
+}
+
+func resolveTargetNameCandidate(name string, candidates []string, matchers ...func(string, string) bool) (string, bool, error) {
+	for _, candidate := range candidates {
+		if candidate == name {
+			return candidate, true, nil
+		}
+	}
+
+	for _, matcher := range matchers {
+		matches := make([]string, 0, len(candidates))
+		seen := make(map[string]struct{}, len(candidates))
+		for _, candidate := range candidates {
+			if candidate == name || !matcher(name, candidate) {
+				continue
+			}
+			if _, ok := seen[candidate]; ok {
+				continue
+			}
+			seen[candidate] = struct{}{}
+			matches = append(matches, candidate)
+		}
+
+		switch len(matches) {
+		case 0:
+			continue
+		case 1:
+			return matches[0], true, nil
+		default:
+			sort.Strings(matches)
+			return "", false, fmt.Errorf("target %q is ambiguous; matches %s", name, strings.Join(matches, ", "))
+		}
+	}
+
+	return "", false, nil
+}
+
+func sameTargetSpecName(a, b string) bool {
+	specs, err := loadTargetSpecs()
+	if err != nil {
+		return false
+	}
+
+	for _, spec := range specs {
+		allNames := make([]string, 0, 1+len(spec.Aliases))
+		allNames = append(allNames, spec.Name)
+		allNames = append(allNames, spec.Aliases...)
+		hasA := false
+		hasB := false
+		for _, name := range allNames {
+			if name == a {
+				hasA = true
+			}
+			if name == b {
+				hasB = true
+			}
+		}
+		if hasA && hasB {
+			return true
 		}
 	}
 

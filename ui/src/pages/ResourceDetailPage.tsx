@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft, Trash2, ExternalLink, FileText, ArrowUpRight, RefreshCw, Target,
-  Type, AlignLeft, Files, Scale, Zap,
+  Type, AlignLeft, Files, Scale,
   FileCode2, Braces, Settings, BookOpen, File, FolderOpen,
   ShieldCheck, Link2, EyeOff, Eye,
 } from 'lucide-react';
@@ -15,13 +15,12 @@ import SourceBadge from '../components/SourceBadge';
 import Card from '../components/Card';
 import CopyButton from '../components/CopyButton';
 import Button from '../components/Button';
-import Tooltip from '../components/Tooltip';
 import IconButton from '../components/IconButton';
 import { SkillDetailSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import Spinner from '../components/Spinner';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { api, type Skill } from '../api/client';
+import { api, type Skill, type SkillStats } from '../api/client';
 import { lazy, Suspense, useState, useMemo } from 'react';
 import { radius, shadows } from '../design';
 import { BlockStamp, RiskMeter } from '../components/audit';
@@ -110,35 +109,25 @@ function getFileIcon(filename: string): { icon: typeof File; className: string }
   return { icon: File, className: 'text-pencil-light' };
 }
 
-/** Content stats bar showing word count, line count, file count, license */
-function ContentStatsBar({ content, description, body, fileCount, license }: { content: string; description?: string; body?: string; fileCount: number; license?: string }) {
-  const trimmed = content.trim();
-  const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
-  const lineCount = trimmed ? trimmed.split(/\r?\n/).length : 0;
-  const descTokens = description ? Math.round(description.length / 4) : 0;
-  const bodyTokens = body ? Math.round(body.trim().length / 4) : 0;
-  const totalTokens = descTokens + bodyTokens || Math.round(trimmed.length / 4);
-
+/** Content stats bar showing server-provided content counts, file count, license */
+function ContentStatsBar({ stats, fileCount, license }: { stats: SkillStats; fileCount: number; license?: string }) {
   return (
     <div className="ss-detail-stats flex items-center gap-4 flex-wrap text-sm text-pencil-light py-3 mb-4 border-b border-muted">
-      <Tooltip content={`Description: ~${descTokens.toLocaleString()}\nBody: ~${bodyTokens.toLocaleString()}\nTotal: ~${totalTokens.toLocaleString()}\n(~4 chars/token estimate)`}>
-        <span className="inline-flex items-center gap-1.5">
-          <Zap size={12} strokeWidth={2.5} />
-          ~{totalTokens.toLocaleString()} tokens
-          {descTokens > 0 && <span className="text-pencil-light/60">(desc ~{descTokens.toLocaleString()} · body ~{bodyTokens.toLocaleString()})</span>}
-        </span>
-      </Tooltip>
       <span className="inline-flex items-center gap-1.5">
         <Type size={12} strokeWidth={2.5} />
-        {wordCount.toLocaleString()} words
+        {stats.wordCount.toLocaleString()} words
       </span>
       <span className="inline-flex items-center gap-1.5">
         <AlignLeft size={12} strokeWidth={2.5} />
-        {lineCount.toLocaleString()} lines
+        {stats.lineCount.toLocaleString()} lines
       </span>
       <span className="inline-flex items-center gap-1.5">
         <Files size={12} strokeWidth={2.5} />
         {fileCount} file{fileCount !== 1 ? 's' : ''}
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <Braces size={12} strokeWidth={2.5} />
+        {stats.tokenCount.toLocaleString()} tokens
       </span>
       {license && (
         <span className="inline-flex items-center gap-1.5">
@@ -428,9 +417,7 @@ export default function SkillDetailPage() {
             )}
             {/* Stage 1: Content Stats Bar */}
             <ContentStatsBar
-              content={skillMdContent ?? ''}
-              description={parsedDoc.manifest.description}
-              body={parsedDoc.markdown}
+              stats={data.stats}
               fileCount={files.length}
               license={parsedDoc.manifest.license}
             />

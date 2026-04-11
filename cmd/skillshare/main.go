@@ -205,7 +205,7 @@ func printUsage() {
 	cmd("uninstall", "<name>...", "Remove skills/agents from source directory")
 	cmd("list", "[agents] [pattern] [--all]", "List installed skills (or agents)")
 	cmd("search", "[query]", "Search or browse GitHub for skills")
-	cmd("sync", "[agents] [--all]", "Sync skills/agents/extras to targets")
+	cmd("sync", "[agents] [--all|--resources <list>]", "Sync skills, rules/hooks, agents, and extras")
 	cmd("status", "", "Show status of all targets")
 	fmt.Println()
 
@@ -230,7 +230,7 @@ func printUsage() {
 
 	// Sync & Backup
 	fmt.Println("SYNC & BACKUP")
-	cmd("collect", "[agents] [target]", "Collect local skills/agents from target(s)")
+	cmd("collect", "[agents] [target] [--resources <list>]", "Collect local skills, agents, or managed resources")
 	cmd("backup", "", "Create backup of target(s)")
 	cmd("restore", "<target>", "Restore target from latest backup")
 	cmd("trash", "[agents] list", "List trashed skills/agents")
@@ -274,9 +274,11 @@ func printUsage() {
 	fmt.Println(g + "  skillshare status                                   # Check current state")
 	fmt.Println("  skillshare sync --dry-run                           # Preview before sync")
 	fmt.Println("  skillshare sync agents                              # Sync agents only")
-	fmt.Println("  skillshare sync --all                               # Sync skills + agents + extras")
+	fmt.Println("  skillshare sync --all                               # Full sync: skills + rules/hooks + agents + extras")
 	fmt.Println("  skillshare list --all                               # List skills + agents")
+	fmt.Println("  skillshare sync --resources rules,hooks             # Sync managed rules and hooks")
 	fmt.Println("  skillshare collect claude                           # Import local skills")
+	fmt.Println("  skillshare collect --resources rules,hooks          # Import managed rules and hooks")
 	fmt.Println("  skillshare install anthropics/skills/pdf -p         # Project install")
 	fmt.Println("  skillshare install repo -a my-agent                 # Install specific agent")
 	fmt.Println("  skillshare target add cursor -p                     # Project target")
