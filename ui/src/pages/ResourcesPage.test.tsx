@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -14,6 +14,8 @@ vi.mock('../api/client', async () => {
     api: {
       ...actual.api,
       listSkills: vi.fn(),
+      listRules: vi.fn(),
+      listHooks: vi.fn(),
       getSyncMatrix: vi.fn(),
       deleteResource: vi.fn(),
       disableResource: vi.fn(),
@@ -21,12 +23,22 @@ vi.mock('../api/client', async () => {
       deleteRepo: vi.fn(),
       setSkillTargets: vi.fn(),
       batchSetTargets: vi.fn(),
+      managedRules: {
+        list: vi.fn(),
+      },
+      managedHooks: {
+        list: vi.fn(),
+      },
     },
   };
 });
 
 describe('ResourcesPage', () => {
   const listSkills = vi.mocked(api.listSkills);
+  const listRules = vi.mocked(api.listRules);
+  const listHooks = vi.mocked(api.listHooks);
+  const listManagedRules = vi.mocked(api.managedRules.list);
+  const listManagedHooks = vi.mocked(api.managedHooks.list);
   const getSyncMatrix = vi.mocked(api.getSyncMatrix);
   const getItem = vi.fn();
   const setItem = vi.fn();
@@ -36,6 +48,10 @@ describe('ResourcesPage', () => {
 
   beforeEach(() => {
     listSkills.mockReset();
+    listRules.mockReset();
+    listHooks.mockReset();
+    listManagedRules.mockReset();
+    listManagedHooks.mockReset();
     getSyncMatrix.mockReset();
     getItem.mockReset();
     setItem.mockReset();
@@ -62,6 +78,61 @@ describe('ResourcesPage', () => {
           sourcePath: '/tmp/agents/reviewer.md',
           isInRepo: false,
           disabled: false,
+        },
+      ],
+    });
+    listManagedRules.mockResolvedValue({
+      rules: [
+        {
+          id: 'claude/manual.md',
+          tool: 'claude',
+          name: 'manual.md',
+          relativePath: 'claude/manual.md',
+          content: '# Manual rule',
+        },
+      ],
+    });
+    listRules.mockResolvedValue({
+      warnings: [],
+      rules: [
+        {
+          id: 'claude:project:backend',
+          name: 'backend.md',
+          sourceTool: 'claude',
+          scope: 'project',
+          path: '/tmp/project/.claude/rules/backend.md',
+          exists: true,
+          content: '# Backend rule',
+          size: 14,
+          isScoped: false,
+          collectible: true,
+        },
+      ],
+    });
+    listManagedHooks.mockResolvedValue({
+      hooks: [
+        {
+          id: 'claude/pre-tool-use/bash.yaml',
+          tool: 'claude',
+          event: 'PreToolUse',
+          matcher: 'Bash',
+          handlers: [{ type: 'command', command: './bin/check' }],
+        },
+      ],
+    });
+    listHooks.mockResolvedValue({
+      warnings: [],
+      hooks: [
+        {
+          groupId: 'claude:project:PreToolUse:Bash',
+          sourceTool: 'claude',
+          scope: 'project',
+          event: 'PreToolUse',
+          matcher: 'Bash',
+          actionType: 'command',
+          command: './bin/check',
+          path: '/tmp/project/.claude/settings.json',
+          collectible: true,
         },
       ],
     });
@@ -105,15 +176,32 @@ describe('ResourcesPage', () => {
     );
   }
 
-  it('switches the header create action between skills and agents', async () => {
-    renderPage();
+  it('renders rules and hooks tabs inside the shared shell', async () => {
+    renderPage('/resources?tab=rules&mode=managed');
 
-    const skillButton = await screen.findByRole('button', { name: /new skill/i });
-    expect(skillButton.closest('a')).toHaveAttribute('href', '/resources/new');
+    const ruleButton = await screen.findByRole('button', { name: /new rule/i });
+    const resourceTabs = within(screen.getAllByRole('tablist')[0]);
 
-    await userEvent.click(screen.getByRole('tab', { name: /agents/i }));
+    expect(await resourceTabs.findByRole('tab', { name: /skills/i })).toBeInTheDocument();
+    expect(resourceTabs.getByRole('tab', { name: /agents/i })).toBeInTheDocument();
+    expect(resourceTabs.getByRole('tab', { name: /^rules/i })).toBeInTheDocument();
+    expect(resourceTabs.getByRole('tab', { name: /^hooks/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /resources/i })).toBeInTheDocument();
+    expect(ruleButton.closest('a')).toHaveAttribute('href', '/rules/new');
+    await waitFor(() => {
+      expect(listManagedRules).toHaveBeenCalledTimes(1);
+    });
+    expect(listRules).not.toHaveBeenCalled();
+    expect(listManagedHooks).not.toHaveBeenCalled();
+    expect(listHooks).not.toHaveBeenCalled();
 
-    const agentButton = await screen.findByRole('button', { name: /new agent/i });
-    expect(agentButton.closest('a')).toHaveAttribute('href', '/resources/new?kind=agent');
+    await userEvent.click(resourceTabs.getByRole('tab', { name: /^hooks/i }));
+
+    const hookButton = await screen.findByRole('button', { name: /new hook/i });
+    expect(hookButton.closest('a')).toHaveAttribute('href', '/hooks/new');
+    await waitFor(() => {
+      expect(listManagedHooks).toHaveBeenCalledTimes(1);
+    });
+    expect(listHooks).not.toHaveBeenCalled();
   });
 });

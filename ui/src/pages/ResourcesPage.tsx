@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, forwardRef, memo, type ReactElement } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  Bot,
   Search,
   GitBranch,
   Folder,
@@ -24,7 +25,6 @@ import {
   ExternalLink,
   MousePointerClick,
   X,
-  Bot,
   Layers,
   FileText,
 } from 'lucide-react';
@@ -45,10 +45,11 @@ import PageHeader from '../components/PageHeader';
 import SegmentedControl from '../components/SegmentedControl';
 import Pagination from '../components/Pagination';
 import { api } from '../api/client';
-import type { Skill, SyncMatrixEntry } from '../api/client';
+import type { ManagedHook, ManagedRule, RuleItem, Skill, SyncMatrixEntry } from '../api/client';
 import { radius } from '../design';
 import ScrollToTop from '../components/ScrollToTop';
 import Tooltip from '../components/Tooltip';
+import { formatHookDiscoveryGroupTitle, getHookActionPayload, groupDiscoveredHooks, type HookDiscoveryGroup } from '../lib/hookDiscovery';
 import { parseRemoteURL } from '../lib/parseRemoteURL';
 import { formatSkillDisplayName, formatAgentDisplayName, formatTrackedRepoName } from '../lib/resourceNames';
 import { useToast } from '../components/Toast';
@@ -524,19 +525,44 @@ function saveCollapsed(collapsed: Set<string>) {
 
 /* -- Filter, Sort & View types -------------------- */
 
-type ResourceTab = 'skills' | 'agents';
-type FilterType = 'all' | 'tracked' | 'github' | 'local';
-type SortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
+type ResourceTab = 'skills' | 'agents' | 'rules' | 'hooks';
+type ManagedResourceMode = 'managed' | 'discovered';
+type SkillFilterType = 'all' | 'tracked' | 'github' | 'local';
+type RuleFilterType = 'all' | 'project' | 'user' | 'collectible' | `tool:${string}`;
+type HookFilterType = 'all' | 'project' | 'user' | 'collectible' | `tool:${string}`;
+type FilterType = SkillFilterType | RuleFilterType | HookFilterType;
+type SkillSortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
+type RuleSortType = 'name-asc' | 'name-desc' | 'tool-asc' | 'path-asc';
+type HookSortType = 'name-asc' | 'name-desc' | 'tool-asc' | 'event-asc';
+type SortType = SkillSortType | RuleSortType | HookSortType;
 type ViewType = 'grid' | 'grouped' | 'table';
+type FilterOption<T extends string = string> = {
+  key: T;
+  label: string;
+  count: number;
+  icon: React.ReactNode;
+};
 
-const filterOptions: { key: FilterType; label: string; icon: React.ReactNode }[] = [
+const skillFilterOptions: { key: SkillFilterType; label: string; icon: React.ReactNode }[] = [
   { key: 'all', label: 'All', icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
   { key: 'tracked', label: 'Tracked', icon: <Users size={14} strokeWidth={2.5} /> },
   { key: 'github', label: 'GitHub', icon: <Globe size={14} strokeWidth={2.5} /> },
   { key: 'local', label: 'Local', icon: <FolderOpen size={14} strokeWidth={2.5} /> },
 ];
 
-function matchFilter(skill: Skill, filterType: FilterType): boolean {
+function isManagedResourceMode(value: string | null): value is ManagedResourceMode {
+  return value === 'managed' || value === 'discovered';
+}
+
+function isResourceTab(value: string | null): value is ResourceTab {
+  return value === 'skills' || value === 'agents' || value === 'rules' || value === 'hooks';
+}
+
+function compareText(left: string, right: string): number {
+  return left.localeCompare(right, undefined, { sensitivity: 'base' });
+}
+
+function matchFilter(skill: Skill, filterType: SkillFilterType): boolean {
   switch (filterType) {
     case 'all':
       return true;
@@ -549,6 +575,299 @@ function matchFilter(skill: Skill, filterType: FilterType): boolean {
   }
 }
 
+function getRuleRef(rule: RuleItem): string {
+  return rule.id ?? rule.path;
+}
+
+function sortManagedRules(rules: ManagedRule[], sortType: RuleSortType): ManagedRule[] {
+  const sorted = [...rules];
+  switch (sortType) {
+    case 'name-asc':
+      return sorted.sort((left, right) => compareText(left.name, right.name));
+    case 'name-desc':
+      return sorted.sort((left, right) => compareText(right.name, left.name));
+    case 'tool-asc':
+      return sorted.sort((left, right) => compareText(left.tool, right.tool) || compareText(left.name, right.name));
+    case 'path-asc':
+      return sorted.sort((left, right) => compareText(left.relativePath, right.relativePath));
+  }
+}
+
+function sortDiscoveredRules(rules: RuleItem[], sortType: RuleSortType): RuleItem[] {
+  const sorted = [...rules];
+  switch (sortType) {
+    case 'name-asc':
+      return sorted.sort((left, right) => compareText(left.name, right.name));
+    case 'name-desc':
+      return sorted.sort((left, right) => compareText(right.name, left.name));
+    case 'tool-asc':
+      return sorted.sort((left, right) => compareText(left.sourceTool, right.sourceTool) || compareText(left.name, right.name));
+    case 'path-asc':
+      return sorted.sort((left, right) => compareText(left.path, right.path));
+  }
+}
+
+function managedRuleMatchesSearch(rule: ManagedRule, search: string): boolean {
+  if (!search) return true;
+  const haystack = [rule.name, rule.tool, rule.relativePath, rule.content].join('\n').toLowerCase();
+  return haystack.includes(search);
+}
+
+function discoveredRuleMatchesSearch(rule: RuleItem, search: string): boolean {
+  if (!search) return true;
+  const haystack = [
+    rule.name,
+    rule.sourceTool,
+    rule.scope,
+    rule.path,
+    rule.content,
+    rule.collectReason ?? '',
+  ].join('\n').toLowerCase();
+  return haystack.includes(search);
+}
+
+function managedRuleMatchesFilter(rule: ManagedRule, filterType: RuleFilterType): boolean {
+  if (filterType === 'all') return true;
+  if (filterType.startsWith('tool:')) return rule.tool === filterType.slice(5);
+  return true;
+}
+
+function discoveredRuleMatchesFilter(rule: RuleItem, filterType: RuleFilterType): boolean {
+  switch (filterType) {
+    case 'all':
+      return true;
+    case 'collectible':
+      return Boolean(rule.collectible && rule.id);
+    case 'project':
+      return rule.scope === 'project';
+    case 'user':
+      return rule.scope === 'user';
+    default:
+      return filterType.startsWith('tool:') ? rule.sourceTool === filterType.slice(5) : true;
+  }
+}
+
+function buildManagedRuleFilterOptions(rules: ManagedRule[]): FilterOption<RuleFilterType>[] {
+  const byTool = new Map<string, number>();
+  for (const rule of rules) {
+    byTool.set(rule.tool, (byTool.get(rule.tool) ?? 0) + 1);
+  }
+
+  return [
+    { key: 'all', label: 'All', count: rules.length, icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
+    ...Array.from(byTool.entries())
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([tool, count]) => ({
+        key: `tool:${tool}` as RuleFilterType,
+        label: tool,
+        count,
+        icon: <FileText size={14} strokeWidth={2.5} />,
+      })),
+  ];
+}
+
+function buildDiscoveredRuleFilterOptions(rules: RuleItem[]): FilterOption<RuleFilterType>[] {
+  const byTool = new Map<string, number>();
+  for (const rule of rules) {
+    byTool.set(rule.sourceTool, (byTool.get(rule.sourceTool) ?? 0) + 1);
+  }
+
+  return [
+    { key: 'all', label: 'All', count: rules.length, icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
+    {
+      key: 'collectible',
+      label: 'Collectible',
+      count: rules.filter((rule) => Boolean(rule.collectible && rule.id)).length,
+      icon: <Target size={14} strokeWidth={2.5} />,
+    },
+    {
+      key: 'project',
+      label: 'Project',
+      count: rules.filter((rule) => rule.scope === 'project').length,
+      icon: <FolderOpen size={14} strokeWidth={2.5} />,
+    },
+    {
+      key: 'user',
+      label: 'User',
+      count: rules.filter((rule) => rule.scope === 'user').length,
+      icon: <Users size={14} strokeWidth={2.5} />,
+    },
+    ...Array.from(byTool.entries())
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([tool, count]) => ({
+        key: `tool:${tool}` as RuleFilterType,
+        label: tool,
+        count,
+        icon: <FileText size={14} strokeWidth={2.5} />,
+      })),
+  ];
+}
+
+function sortManagedHooks(hooks: ManagedHook[], sortType: HookSortType): ManagedHook[] {
+  const sorted = [...hooks];
+  switch (sortType) {
+    case 'name-asc':
+      return sorted.sort((left, right) => compareText(left.id, right.id));
+    case 'name-desc':
+      return sorted.sort((left, right) => compareText(right.id, left.id));
+    case 'tool-asc':
+      return sorted.sort((left, right) => compareText(left.tool, right.tool) || compareText(left.id, right.id));
+    case 'event-asc':
+      return sorted.sort((left, right) => compareText(left.event, right.event) || compareText(left.id, right.id));
+  }
+}
+
+function sortDiscoveredHookGroups(groups: HookDiscoveryGroup[], sortType: HookSortType): HookDiscoveryGroup[] {
+  const sorted = [...groups];
+  switch (sortType) {
+    case 'name-asc':
+      return sorted.sort((left, right) => compareText(formatHookDiscoveryGroupTitle(left), formatHookDiscoveryGroupTitle(right)));
+    case 'name-desc':
+      return sorted.sort((left, right) => compareText(formatHookDiscoveryGroupTitle(right), formatHookDiscoveryGroupTitle(left)));
+    case 'tool-asc':
+      return sorted.sort((left, right) => compareText(left.sourceTool, right.sourceTool) || compareText(formatHookDiscoveryGroupTitle(left), formatHookDiscoveryGroupTitle(right)));
+    case 'event-asc':
+      return sorted.sort((left, right) => compareText(left.event, right.event) || compareText(formatHookDiscoveryGroupTitle(left), formatHookDiscoveryGroupTitle(right)));
+  }
+}
+
+function managedHookMatchesSearch(hook: ManagedHook, search: string): boolean {
+  if (!search) return true;
+  const haystack = [
+    hook.id,
+    hook.tool,
+    hook.event,
+    hook.matcher ?? '',
+    ...hook.handlers.flatMap((handler) => [
+      handler.type,
+      handler.command ?? '',
+      handler.url ?? '',
+      handler.prompt ?? '',
+      handler.timeout ?? '',
+      handler.statusMessage ?? '',
+    ]),
+  ].join('\n').toLowerCase();
+  return haystack.includes(search);
+}
+
+function discoveredHookMatchesSearch(group: HookDiscoveryGroup, search: string): boolean {
+  if (!search) return true;
+  const haystack = [
+    group.id,
+    formatHookDiscoveryGroupTitle(group),
+    group.sourceTool,
+    group.scope,
+    group.event,
+    group.matcher,
+    group.collectReason ?? '',
+    ...group.hooks.flatMap((hook) => [
+      hook.actionType,
+      getHookActionPayload(hook),
+      hook.path,
+      hook.statusMessage ?? '',
+    ]),
+  ].join('\n').toLowerCase();
+  return haystack.includes(search);
+}
+
+function managedHookMatchesFilter(hook: ManagedHook, filterType: HookFilterType): boolean {
+  if (filterType === 'all') return true;
+  if (filterType.startsWith('tool:')) return hook.tool === filterType.slice(5);
+  return true;
+}
+
+function discoveredHookMatchesFilter(group: HookDiscoveryGroup, filterType: HookFilterType): boolean {
+  switch (filterType) {
+    case 'all':
+      return true;
+    case 'collectible':
+      return group.collectible;
+    case 'project':
+      return group.scope === 'project';
+    case 'user':
+      return group.scope === 'user';
+    default:
+      return filterType.startsWith('tool:') ? group.sourceTool === filterType.slice(5) : true;
+  }
+}
+
+function buildManagedHookFilterOptions(hooks: ManagedHook[]): FilterOption<HookFilterType>[] {
+  const byTool = new Map<string, number>();
+  for (const hook of hooks) {
+    byTool.set(hook.tool, (byTool.get(hook.tool) ?? 0) + 1);
+  }
+
+  return [
+    { key: 'all', label: 'All', count: hooks.length, icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
+    ...Array.from(byTool.entries())
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([tool, count]) => ({
+        key: `tool:${tool}` as HookFilterType,
+        label: tool,
+        count,
+        icon: <Target size={14} strokeWidth={2.5} />,
+      })),
+  ];
+}
+
+function buildDiscoveredHookFilterOptions(groups: HookDiscoveryGroup[]): FilterOption<HookFilterType>[] {
+  const byTool = new Map<string, number>();
+  for (const group of groups) {
+    byTool.set(group.sourceTool, (byTool.get(group.sourceTool) ?? 0) + 1);
+  }
+
+  return [
+    { key: 'all', label: 'All', count: groups.length, icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
+    {
+      key: 'collectible',
+      label: 'Collectible',
+      count: groups.filter((group) => group.collectible).length,
+      icon: <Target size={14} strokeWidth={2.5} />,
+    },
+    {
+      key: 'project',
+      label: 'Project',
+      count: groups.filter((group) => group.scope === 'project').length,
+      icon: <FolderOpen size={14} strokeWidth={2.5} />,
+    },
+    {
+      key: 'user',
+      label: 'User',
+      count: groups.filter((group) => group.scope === 'user').length,
+      icon: <Users size={14} strokeWidth={2.5} />,
+    },
+    ...Array.from(byTool.entries())
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([tool, count]) => ({
+        key: `tool:${tool}` as HookFilterType,
+        label: tool,
+        count,
+        icon: <Target size={14} strokeWidth={2.5} />,
+      })),
+  ];
+}
+
+const skillSortOptions: SelectOption[] = [
+  { value: 'name-asc', label: 'Name A → Z' },
+  { value: 'name-desc', label: 'Name Z → A' },
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+];
+
+const ruleSortOptions: SelectOption[] = [
+  { value: 'name-asc', label: 'Name A → Z' },
+  { value: 'name-desc', label: 'Name Z → A' },
+  { value: 'tool-asc', label: 'Tool A → Z' },
+  { value: 'path-asc', label: 'Path A → Z' },
+];
+
+const hookSortOptions: SelectOption[] = [
+  { value: 'name-asc', label: 'Name A → Z' },
+  { value: 'name-desc', label: 'Name Z → A' },
+  { value: 'tool-asc', label: 'Tool A → Z' },
+  { value: 'event-asc', label: 'Event A → Z' },
+];
+
 
 // Extract group key from relPath for sorting: tracked repo name or first dir segment.
 function sortGroup(s: Skill): string {
@@ -556,7 +875,7 @@ function sortGroup(s: Skill): string {
   return slash > 0 ? s.relPath.slice(0, slash) : '';
 }
 
-function sortSkills(skills: Skill[], sortType: SortType): Skill[] {
+function sortSkills(skills: Skill[], sortType: SkillSortType): Skill[] {
   const sorted = [...skills];
   switch (sortType) {
     case 'name-asc':
@@ -763,28 +1082,52 @@ export default function SkillsPage() {
     ro.observe(node);
     return () => ro.disconnect();
   }, []);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<ResourceTab>(() => {
     const urlTab = searchParams.get('tab');
-    if (urlTab === 'agents') return 'agents';
+    if (isResourceTab(urlTab)) return urlTab;
     const saved = localStorage.getItem('skillshare:resources-tab');
-    return saved === 'agents' ? 'agents' : 'skills';
+    return isResourceTab(saved) ? saved : 'skills';
   });
-  // Sync tab from URL when navigating (e.g. Dashboard cards)
+
   useEffect(() => {
     const urlTab = searchParams.get('tab');
-    if (urlTab === 'agents' && activeTab !== 'agents') {
-      setActiveTab('agents');
-    } else if (urlTab === 'skills' && activeTab !== 'skills') {
+    if (isResourceTab(urlTab) && activeTab !== urlTab) {
+      setActiveTab(urlTab);
+    } else if (!urlTab && activeTab !== 'skills') {
       setActiveTab('skills');
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const activeMode: ManagedResourceMode = isManagedResourceMode(searchParams.get('mode'))
+    ? searchParams.get('mode')
+    : 'managed';
+
   const changeTab = (tab: ResourceTab) => {
     setActiveTab(tab);
     localStorage.setItem('skillshare:resources-tab', tab);
     setFilterType('all');
     setSearch('');
+    setSortType('name-asc');
+
+    const params = new URLSearchParams(searchParams);
+    if (tab === 'skills') params.delete('tab');
+    else params.set('tab', tab);
+    if (tab !== 'rules' && tab !== 'hooks') params.delete('mode');
+    setSearchParams(params);
   };
+
+  const changeManagedMode = (mode: ManagedResourceMode) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', activeTab);
+    if (mode === 'managed') params.delete('mode');
+    else params.set('mode', mode);
+    setSearchParams(params);
+    setFilterType('all');
+    setSearch('');
+    setSortType('name-asc');
+  };
+
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [sortType, setSortType] = useState<SortType>('name-asc');
@@ -824,13 +1167,51 @@ export default function SkillsPage() {
   const [gridConfirmUninstallRepo, setGridConfirmUninstallRepo] = useState<string | null>(null);
 
   const skills = data?.resources ?? EMPTY_RESOURCES;
+  const normalizedSearch = search.trim().toLowerCase();
+
+  const managedRulesQuery = useQuery({
+    queryKey: queryKeys.rules.managed,
+    queryFn: () => api.managedRules.list(),
+    staleTime: staleTimes.rules,
+    enabled: activeTab === 'rules' && activeMode === 'managed',
+  });
+
+  const discoveredRulesQuery = useQuery({
+    queryKey: queryKeys.rules.discovered,
+    queryFn: () => api.listRules(),
+    staleTime: staleTimes.rules,
+    enabled: activeTab === 'rules' && activeMode === 'discovered',
+  });
+
+  const managedHooksQuery = useQuery({
+    queryKey: queryKeys.hooks.managed,
+    queryFn: () => api.managedHooks.list(),
+    staleTime: staleTimes.hooks,
+    enabled: activeTab === 'hooks' && activeMode === 'managed',
+  });
+
+  const discoveredHooksQuery = useQuery({
+    queryKey: queryKeys.hooks.discovered,
+    queryFn: () => api.listHooks(),
+    staleTime: staleTimes.hooks,
+    enabled: activeTab === 'hooks' && activeMode === 'discovered',
+  });
+
+  const managedRules = useMemo(() => managedRulesQuery.data?.rules ?? [], [managedRulesQuery.data?.rules]);
+  const discoveredRules = useMemo(() => discoveredRulesQuery.data?.rules ?? [], [discoveredRulesQuery.data?.rules]);
+  const ruleWarnings = useMemo(() => discoveredRulesQuery.data?.warnings ?? [], [discoveredRulesQuery.data?.warnings]);
+
+  const managedHooks = useMemo(() => managedHooksQuery.data?.hooks ?? [], [managedHooksQuery.data?.hooks]);
+  const discoveredHooks = useMemo(() => discoveredHooksQuery.data?.hooks ?? [], [discoveredHooksQuery.data?.hooks]);
+  const hookWarnings = useMemo(() => discoveredHooksQuery.data?.warnings ?? [], [discoveredHooksQuery.data?.warnings]);
+  const discoveredHookGroups = useMemo(() => groupDiscoveredHooks(discoveredHooks), [discoveredHooks]);
 
   // Compute counts for each filter type — scoped to the active tab
-  const filterCounts = useMemo(() => {
+  const skillFilterCounts = useMemo(() => {
     const tabSkills = activeTab === 'agents'
       ? skills.filter((s) => s.kind === 'agent')
       : skills.filter((s) => s.kind !== 'agent');
-    const counts: Record<FilterType, number> = {
+    const counts: Record<SkillFilterType, number> = {
       all: tabSkills.length,
       tracked: 0,
       github: 0,
@@ -844,24 +1225,140 @@ export default function SkillsPage() {
     return counts;
   }, [skills, activeTab]);
 
-  // Apply text filter -> type filter -> sort
+  const activeSkillFilter: SkillFilterType = skillFilterOptions.some((option) => option.key === filterType)
+    ? filterType as SkillFilterType
+    : 'all';
+
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
     const result = skills.filter(
       (s) =>
-        (s.name.toLowerCase().includes(q) ||
-          s.flatName.toLowerCase().includes(q) ||
-          (s.source ?? '').toLowerCase().includes(q)) &&
-        matchFilter(s, filterType),
+        (s.name.toLowerCase().includes(normalizedSearch) ||
+          s.flatName.toLowerCase().includes(normalizedSearch) ||
+          (s.source ?? '').toLowerCase().includes(normalizedSearch)) &&
+        matchFilter(s, activeSkillFilter),
     );
-    return sortSkills(result, sortType);
-  }, [skills, search, filterType, sortType]);
+    return sortSkills(result, sortType as SkillSortType);
+  }, [activeSkillFilter, normalizedSearch, skills, sortType]);
 
   const skillItems = useMemo(() => filtered.filter((s) => s.kind !== 'agent'), [filtered]);
   const agentItems = useMemo(() => filtered.filter((s) => s.kind === 'agent'), [filtered]);
   const tabFiltered = activeTab === 'agents' ? agentItems : skillItems;
 
+  const managedRuleFilterOptions = useMemo(() => buildManagedRuleFilterOptions(managedRules), [managedRules]);
+  const discoveredRuleFilterOptions = useMemo(() => buildDiscoveredRuleFilterOptions(discoveredRules), [discoveredRules]);
+  const activeRuleFilterOptions = activeMode === 'managed' ? managedRuleFilterOptions : discoveredRuleFilterOptions;
+  const activeRuleFilter: RuleFilterType = activeRuleFilterOptions.some((option) => option.key === filterType)
+    ? filterType as RuleFilterType
+    : 'all';
+  const filteredManagedRules = useMemo(
+    () =>
+      sortManagedRules(
+        managedRules.filter((rule) => managedRuleMatchesFilter(rule, activeRuleFilter) && managedRuleMatchesSearch(rule, normalizedSearch)),
+        sortType as RuleSortType,
+      ),
+    [activeRuleFilter, managedRules, normalizedSearch, sortType],
+  );
+  const filteredDiscoveredRules = useMemo(
+    () =>
+      sortDiscoveredRules(
+        discoveredRules.filter((rule) => discoveredRuleMatchesFilter(rule, activeRuleFilter) && discoveredRuleMatchesSearch(rule, normalizedSearch)),
+        sortType as RuleSortType,
+      ),
+    [activeRuleFilter, discoveredRules, normalizedSearch, sortType],
+  );
+
+  const managedHookFilterOptions = useMemo(() => buildManagedHookFilterOptions(managedHooks), [managedHooks]);
+  const discoveredHookFilterOptions = useMemo(() => buildDiscoveredHookFilterOptions(discoveredHookGroups), [discoveredHookGroups]);
+  const activeHookFilterOptions = activeMode === 'managed' ? managedHookFilterOptions : discoveredHookFilterOptions;
+  const activeHookFilter: HookFilterType = activeHookFilterOptions.some((option) => option.key === filterType)
+    ? filterType as HookFilterType
+    : 'all';
+  const filteredManagedHooks = useMemo(
+    () =>
+      sortManagedHooks(
+        managedHooks.filter((hook) => managedHookMatchesFilter(hook, activeHookFilter) && managedHookMatchesSearch(hook, normalizedSearch)),
+        sortType as HookSortType,
+      ),
+    [activeHookFilter, managedHooks, normalizedSearch, sortType],
+  );
+  const filteredDiscoveredHookGroups = useMemo(
+    () =>
+      sortDiscoveredHookGroups(
+        discoveredHookGroups.filter((group) => discoveredHookMatchesFilter(group, activeHookFilter) && discoveredHookMatchesSearch(group, normalizedSearch)),
+        sortType as HookSortType,
+      ),
+    [activeHookFilter, discoveredHookGroups, normalizedSearch, sortType],
+  );
+
+  const rulesTabCount = activeMode === 'managed' ? managedRules.length : discoveredRules.length;
+  const hooksTabCount = activeMode === 'managed' ? managedHooks.length : discoveredHookGroups.length;
+  const isSkillsTab = activeTab === 'skills' || activeTab === 'agents';
+  const isRulesTab = activeTab === 'rules';
+  const isHooksTab = activeTab === 'hooks';
+  const activeRules = activeMode === 'managed' ? filteredManagedRules : filteredDiscoveredRules;
+  const activeRulesTotal = activeMode === 'managed' ? managedRules.length : discoveredRules.length;
+  const activeHooks = activeMode === 'managed' ? filteredManagedHooks : filteredDiscoveredHookGroups;
+  const activeHooksTotal = activeMode === 'managed' ? managedHooks.length : discoveredHookGroups.length;
+  const activeFilterValue: FilterType = isRulesTab
+    ? activeRuleFilter
+    : isHooksTab
+      ? activeHookFilter
+      : activeSkillFilter;
+  const activeSortOptions = isRulesTab
+    ? ruleSortOptions
+    : isHooksTab
+      ? hookSortOptions
+      : skillSortOptions;
+  const activeSearchPlaceholder = isRulesTab
+    ? 'Filter rules...'
+    : isHooksTab
+      ? 'Filter hooks...'
+      : 'Filter skills...';
+  const activeFilterOptions = isRulesTab
+    ? activeRuleFilterOptions
+    : isHooksTab
+      ? activeHookFilterOptions
+      : skillFilterOptions.map((option) => ({ ...option, count: skillFilterCounts[option.key] }));
+  const hasActiveFilters = normalizedSearch.length > 0 || activeFilterValue !== 'all';
+  const resultSummary = isRulesTab
+    ? { shown: activeRules.length, total: activeRulesTotal, label: 'rules' }
+    : isHooksTab
+      ? { shown: activeHooks.length, total: activeHooksTotal, label: 'hooks' }
+      : { shown: tabFiltered.length, total: skills.length, label: 'resources' };
+  const headerAction = activeTab === 'agents'
+    ? { to: '/resources/new?kind=agent', label: 'New Agent' }
+    : activeTab === 'rules'
+      ? { to: '/rules/new', label: 'New Rule' }
+      : activeTab === 'hooks'
+        ? { to: '/hooks/new', label: 'New Hook' }
+        : { to: '/resources/new', label: 'New Skill' };
+  const resourceTabs = [
+    { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: 'Skills', count: skillItems.length },
+    { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: 'Agents', count: agentItems.length },
+    { key: 'rules' as ResourceTab, icon: <FileText size={16} strokeWidth={2.5} />, label: 'Rules', count: rulesTabCount },
+    { key: 'hooks' as ResourceTab, icon: <Target size={16} strokeWidth={2.5} />, label: 'Hooks', count: hooksTabCount },
+  ];
+  const activeManagedQueryPending = isRulesTab
+    ? activeMode === 'managed'
+      ? managedRulesQuery.isPending && !managedRulesQuery.data
+      : discoveredRulesQuery.isPending && !discoveredRulesQuery.data
+    : isHooksTab
+      ? activeMode === 'managed'
+        ? managedHooksQuery.isPending && !managedHooksQuery.data
+        : discoveredHooksQuery.isPending && !discoveredHooksQuery.data
+      : false;
+  const activeManagedQueryError = isRulesTab
+    ? activeMode === 'managed'
+      ? managedRulesQuery.error
+      : discoveredRulesQuery.error
+    : isHooksTab
+      ? activeMode === 'managed'
+        ? managedHooksQuery.error
+        : discoveredHooksQuery.error
+      : null;
+
   if (isPending) return <PageSkeleton />;
+  if (activeManagedQueryPending) return <PageSkeleton />;
   if (error) {
     return (
       <Card variant="accent" className="text-center py-8">
@@ -869,6 +1366,16 @@ export default function SkillsPage() {
           Failed to load skills
         </p>
         <p className="text-pencil-light text-base mt-1">{error.message}</p>
+      </Card>
+    );
+  }
+  if (activeManagedQueryError) {
+    return (
+      <Card variant="accent" className="text-center py-8">
+        <p className="text-danger text-lg">
+          Failed to load {isRulesTab ? 'rules' : 'hooks'}
+        </p>
+        <p className="text-pencil-light text-base mt-1">{activeManagedQueryError.message}</p>
       </Card>
     );
   }
@@ -881,22 +1388,19 @@ export default function SkillsPage() {
         title="Resources"
         subtitle=""
         className="mb-4!"
-        actions={activeTab === 'skills' || activeTab === 'agents' ? (
-          <Link to={activeTab === 'agents' ? '/resources/new?kind=agent' : '/resources/new'}>
+        actions={(
+          <Link to={headerAction.to}>
             <Button variant="primary" size="sm">
               <Plus size={16} strokeWidth={2.5} />
-              {activeTab === 'agents' ? 'New Agent' : 'New Skill'}
+              {headerAction.label}
             </Button>
           </Link>
-        ) : undefined}
+        )}
       />
 
       {/* Resource type underline tabs */}
       <nav className="ss-resource-tabs flex items-center gap-6 border-b-2 border-muted mb-3 -mx-4 px-4 md:-mx-8 md:px-8" role="tablist">
-        {([
-          { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: 'Skills', count: skillItems.length },
-          { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: 'Agents', count: agentItems.length },
-        ]).map((tab) => (
+        {resourceTabs.map((tab) => (
           <button
             key={tab.key}
             role="tab"
@@ -936,7 +1440,7 @@ export default function SkillsPage() {
             />
             <Input
               type="text"
-              placeholder="Filter skills..."
+              placeholder={activeSearchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="!pl-11"
@@ -948,45 +1452,62 @@ export default function SkillsPage() {
               value={sortType}
               onChange={(v) => setSortType(v as SortType)}
               size="sm"
+              options={activeSortOptions}
+            />
+          </div>
+          {isSkillsTab && (
+            <SegmentedControl
+              value={viewType}
+              onChange={changeViewType}
               options={[
-                { value: 'name-asc', label: 'Name A → Z' },
-                { value: 'name-desc', label: 'Name Z → A' },
-                { value: 'newest', label: 'Newest first' },
-                { value: 'oldest', label: 'Oldest first' },
+                { value: 'grid', label: <LayoutGrid size={16} strokeWidth={2.5} /> },
+                { value: 'grouped', label: <FolderOpen size={16} strokeWidth={2.5} /> },
+                { value: 'table', label: <List size={16} strokeWidth={2.5} /> },
+              ]}
+              size="md"
+              connected
+            />
+          )}
+        </div>
+
+        {(isRulesTab || isHooksTab) && (
+          <div className="mb-2">
+            <SegmentedControl
+              value={activeMode}
+              onChange={(value) => changeManagedMode(value as ManagedResourceMode)}
+              options={[
+                {
+                  value: 'managed',
+                  label: 'Managed',
+                  count: isRulesTab ? managedRules.length : managedHooks.length,
+                },
+                {
+                  value: 'discovered',
+                  label: 'Discovered',
+                  count: isRulesTab ? discoveredRules.length : discoveredHookGroups.length,
+                },
               ]}
             />
           </div>
-          {/* View toggle */}
-          <SegmentedControl
-            value={viewType}
-            onChange={changeViewType}
-            options={[
-              { value: 'grid', label: <LayoutGrid size={16} strokeWidth={2.5} /> },
-              { value: 'grouped', label: <FolderOpen size={16} strokeWidth={2.5} /> },
-              { value: 'table', label: <List size={16} strokeWidth={2.5} /> },
-            ]}
-            size="md"
-            connected
-          />
-        </div>
+        )}
 
         {/* Filter tabs */}
         <SegmentedControl
-          value={filterType}
+          value={activeFilterValue}
           onChange={setFilterType}
-          options={filterOptions.map((opt) => ({
+          options={activeFilterOptions.map((opt) => ({
             value: opt.key,
             label: <span className="inline-flex items-center gap-1.5">{opt.icon}{opt.label}</span>,
-            count: filterCounts[opt.key],
+            count: opt.count,
           }))}
         />
       </div>
 
       {/* Result count — hidden in folder view (merged into folder toolbar) */}
-      {(filterType !== 'all' || search) && viewType !== 'grouped' && (
+      {hasActiveFilters && (!isSkillsTab || viewType !== 'grouped') && (
         <p className="text-pencil-light text-sm mb-3">
-          Showing {tabFiltered.length} of {skills.length} resources
-          {filterType !== 'all' && (
+          Showing {resultSummary.shown} of {resultSummary.total} {resultSummary.label}
+          {activeFilterValue !== 'all' && (
             <>
               {' '}
               &middot;{' '}
@@ -1005,65 +1526,232 @@ export default function SkillsPage() {
       )}
 
       {/* Right-click tip — shown once, dismissed permanently */}
-      <ContextMenuTip />
+      {isSkillsTab && <ContextMenuTip />}
 
-      {/* Skills grid / grouped / table view */}
-      {tabFiltered.length > 0 ? (
-        viewType === 'grid' ? (
-          <VirtuosoGrid
-            useWindowScroll
-            totalCount={tabFiltered.length}
-            overscan={200}
-            components={gridComponents}
-            scrollSeekConfiguration={{
-              enter: (velocity) => Math.abs(velocity) > 800,
-              exit: (velocity) => Math.abs(velocity) < 200,
-            }}
-            itemContent={(index) => {
-              const skill = tabFiltered[index];
-              return (
-                <SkillPostit
-                  skill={skill}
-                  highlighted={gridContextMenu?.skillFlatName === skill.flatName}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    setGridContextMenu({
-                      point: { x: e.clientX, y: e.clientY },
-                      skillFlatName: skill.flatName,
-                      skillName: skill.name,
-                      kind: skill.kind,
-                      relPath: skill.relPath,
-                      disabled: !!skill.disabled,
-                      isInRepo: !!skill.isInRepo,
-                      currentTargets: skill.targets ?? null,
-                    });
-                  }}
-                />
-              );
-            }}
-          />
-        ) : viewType === 'grouped' ? (
-          <FolderTreeView
-            skills={tabFiltered}
-            resourceKind={activeTab === 'agents' ? 'agent' : 'skill'}
-            totalCount={skills.length}
-            isSearching={!!search || filterType !== 'all'}
-            stickyTop={toolbarH}
-            onClearFilters={(filterType !== 'all' || search) ? () => { setFilterType('all'); setSearch(''); } : undefined}
-          />
+      {isSkillsTab ? (
+        tabFiltered.length > 0 ? (
+          viewType === 'grid' ? (
+            <VirtuosoGrid
+              useWindowScroll
+              totalCount={tabFiltered.length}
+              overscan={200}
+              components={gridComponents}
+              scrollSeekConfiguration={{
+                enter: (velocity) => Math.abs(velocity) > 800,
+                exit: (velocity) => Math.abs(velocity) < 200,
+              }}
+              itemContent={(index) => {
+                const skill = tabFiltered[index];
+                return (
+                  <SkillPostit
+                    skill={skill}
+                    highlighted={gridContextMenu?.skillFlatName === skill.flatName}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setGridContextMenu({
+                        point: { x: e.clientX, y: e.clientY },
+                        skillFlatName: skill.flatName,
+                        skillName: skill.name,
+                        kind: skill.kind,
+                        relPath: skill.relPath,
+                        disabled: !!skill.disabled,
+                        isInRepo: !!skill.isInRepo,
+                        currentTargets: skill.targets ?? null,
+                      });
+                    }}
+                  />
+                );
+              }}
+            />
+          ) : viewType === 'grouped' ? (
+            <FolderTreeView
+              skills={tabFiltered}
+              resourceKind={activeTab === 'agents' ? 'agent' : 'skill'}
+              totalCount={skills.length}
+              isSearching={hasActiveFilters}
+              stickyTop={toolbarH}
+              onClearFilters={hasActiveFilters ? () => { setFilterType('all'); setSearch(''); } : undefined}
+            />
+          ) : (
+            <SkillsTable skills={tabFiltered} resourceKind={activeTab === 'agents' ? 'agent' : 'skill'} />
+          )
         ) : (
-          <SkillsTable skills={tabFiltered} resourceKind={activeTab === 'agents' ? 'agent' : 'skill'} />
+          <EmptyState
+            icon={Puzzle}
+            title={hasActiveFilters ? 'No matches' : 'No skills yet'}
+            description={
+              hasActiveFilters
+                ? 'Try a different search term or filter.'
+                : 'Install skills from GitHub or add them to your source directory.'
+            }
+          />
         )
+      ) : isRulesTab ? (
+        <div className="space-y-4">
+          {activeMode === 'discovered' && ruleWarnings.length > 0 && (
+            <Card variant="accent">
+              <div className="space-y-1 text-sm text-pencil-light">
+                {ruleWarnings.map((warning) => (
+                  <p key={warning}>{warning}</p>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {activeRules.length > 0 ? (
+            <div className="grid gap-4">
+              {activeMode === 'managed'
+                ? filteredManagedRules.map((rule) => (
+                  <Card key={rule.id} hover>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-xl text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+                            {rule.name}
+                          </h3>
+                          <Badge variant="accent">{rule.tool}</Badge>
+                        </div>
+                        <p className="break-all text-sm text-pencil-light" style={{ fontFamily: "'Courier New', monospace" }}>
+                          {rule.relativePath}
+                        </p>
+                        <p className="line-clamp-3 whitespace-pre-wrap text-sm text-pencil-light">
+                          {rule.content}
+                        </p>
+                      </div>
+                      <Link to={`/rules/manage/${encodeURIComponent(rule.id)}`}>
+                        <Button variant="secondary" size="sm">
+                          <Eye size={16} strokeWidth={2.5} />
+                          Edit Rule
+                        </Button>
+                      </Link>
+                    </div>
+                  </Card>
+                ))
+                : filteredDiscoveredRules.map((rule) => (
+                  <Card key={getRuleRef(rule)}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-xl text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+                            {rule.name}
+                          </h3>
+                          <Badge variant={rule.scope === 'project' ? 'info' : 'default'}>{rule.scope}</Badge>
+                          <Badge variant="accent">{rule.sourceTool}</Badge>
+                          {rule.collectible && <Badge variant="success">Collectible</Badge>}
+                        </div>
+                        <p className="break-all text-sm text-pencil-light" style={{ fontFamily: "'Courier New', monospace" }}>
+                          {rule.path}
+                        </p>
+                        {rule.collectReason && <p className="text-sm text-pencil-light">{rule.collectReason}</p>}
+                        <p className="line-clamp-3 whitespace-pre-wrap text-sm text-pencil-light">
+                          {rule.content}
+                        </p>
+                      </div>
+                      <Link
+                        to={`/rules/discovered/${encodeURIComponent(getRuleRef(rule))}`}
+                        state={{ rule }}
+                      >
+                        <Button variant="secondary" size="sm" aria-label={`View rule ${rule.name}`}>
+                          <Eye size={16} strokeWidth={2.5} />
+                          View Rule
+                        </Button>
+                      </Link>
+                    </div>
+                  </Card>
+                ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={FileText}
+              title={hasActiveFilters ? 'No rules match these filters' : activeMode === 'managed' ? 'No rules found' : 'No discovered rules found'}
+              description={hasActiveFilters ? 'Try a different search term or filter.' : activeMode === 'managed' ? 'Create a rule to start publishing compiled files.' : 'No rule files were discovered in the current user or project scope.'}
+            />
+          )}
+        </div>
       ) : (
-        <EmptyState
-          icon={Puzzle}
-          title={search || filterType !== 'all' ? 'No matches' : 'No skills yet'}
-          description={
-            search || filterType !== 'all'
-              ? 'Try a different search term or filter.'
-              : 'Install skills from GitHub or add them to your source directory.'
-          }
-        />
+        <div className="space-y-4">
+          {activeMode === 'discovered' && hookWarnings.length > 0 && (
+            <Card variant="accent">
+              <div className="space-y-1 text-sm text-pencil-light">
+                {hookWarnings.map((warning) => (
+                  <p key={warning}>{warning}</p>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {activeHooks.length > 0 ? (
+            <div className="grid gap-4">
+              {activeMode === 'managed'
+                ? filteredManagedHooks.map((hook) => (
+                  <Card key={hook.id} hover>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-xl text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+                            {hook.id}
+                          </h3>
+                          <Badge variant="accent">{hook.tool}</Badge>
+                          <Badge variant="warning">{hook.event}</Badge>
+                        </div>
+                        <p className="break-all text-sm text-pencil-light" style={{ fontFamily: "'Courier New', monospace" }}>
+                          {hook.matcher || 'All'}
+                        </p>
+                        <p className="text-sm text-pencil-light">
+                          {hook.handlers.length} handler{hook.handlers.length !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <Link to={`/hooks/manage/${encodeURIComponent(hook.id)}`}>
+                        <Button variant="secondary" size="sm">
+                          <Eye size={16} strokeWidth={2.5} />
+                          Edit Hook
+                        </Button>
+                      </Link>
+                    </div>
+                  </Card>
+                ))
+                : filteredDiscoveredHookGroups.map((group) => (
+                  <Card key={group.id}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-xl text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+                            {formatHookDiscoveryGroupTitle(group)}
+                          </h3>
+                          <Badge variant={group.scope === 'project' ? 'info' : 'default'}>{group.scope}</Badge>
+                          <Badge variant="accent">{group.sourceTool}</Badge>
+                          <Badge variant="warning">{group.event}</Badge>
+                          {group.collectible && <Badge variant="success">Collectible</Badge>}
+                        </div>
+                        <p className="break-all text-sm text-pencil-light" style={{ fontFamily: "'Courier New', monospace" }}>
+                          {group.matcher || 'All'}
+                        </p>
+                        <p className="text-sm text-pencil-light">
+                          {group.hooks[0]?.path ?? ''}
+                        </p>
+                        {group.collectReason && <p className="text-sm text-pencil-light">{group.collectReason}</p>}
+                      </div>
+                      <Link
+                        to={`/hooks/discovered/${encodeURIComponent(group.id)}`}
+                        state={{ group }}
+                      >
+                        <Button variant="secondary" size="sm">
+                          <Eye size={16} strokeWidth={2.5} />
+                          View Hook
+                        </Button>
+                      </Link>
+                    </div>
+                  </Card>
+                ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={Target}
+              title={hasActiveFilters ? 'No hooks match these filters' : activeMode === 'managed' ? 'No hooks found' : 'No discovered hooks found'}
+              description={hasActiveFilters ? 'Try a different search term or filter.' : activeMode === 'managed' ? 'Create a hook to start publishing compiled files.' : 'No hook diagnostics were discovered in the current user or project scope.'}
+            />
+          )}
+        </div>
       )}
 
       <ScrollToTop />
