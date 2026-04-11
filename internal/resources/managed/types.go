@@ -31,3 +31,16 @@ type SyncResult struct {
 	Pruned   []string
 	Err      error
 }
+
+// CollectPreviewResult reports which discovered items would be collected.
+type CollectPreviewResult struct {
+	Pulled  []string
+	Skipped []string
+}
+
+// CollectResult reports which discovered items were created or overwritten.
+type CollectResult struct {
+	Created     []string
+	Overwritten []string
+	Skipped     []string
+}
