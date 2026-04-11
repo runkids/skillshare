@@ -25,13 +25,13 @@ Agents are now a first-class resource type alongside skills. You can install, sy
 
 - **Positional kind filter** — most commands accept an `agents` keyword to scope the operation to agents only. Without it, commands operate on skills (existing behavior is unchanged)
   ```bash
-  skillshare sync agents       # sync agents only
-  skillshare sync --all        # sync skills + agents + extras
-  skillshare list agents       # list installed agents
-  skillshare check agents      # detect drift on agent repos
-  skillshare update agents     # update agents
-  skillshare audit agents      # scan agents for security issues
-  skillshare uninstall agents  # uninstall by kind
+  skillshare sync agents             # sync agents only
+  skillshare sync --all              # sync skills + agents + extras
+  skillshare list agents             # list installed agents
+  skillshare check agents            # detect drift on agent repos
+  skillshare update agents --all     # update every agent
+  skillshare audit agents            # scan agents for security issues
+  skillshare uninstall agents foo    # uninstall a single agent
   skillshare enable foo --kind agent
   skillshare disable foo --kind agent
   ```
@@ -74,7 +74,13 @@ Agents are now a first-class resource type alongside skills. You can install, sy
 
 - **Update page redesign** — a new three-phase flow (selecting → updating → done) with skills/agents tabs, group-based sorting, and status cards. EventSource streaming is properly cleaned up on page change
 
-- **Filter Studio agent support** — agent filters can be edited via `PATCH /api/targets/:name` (`agent_include`, `agent_exclude`, `agent_mode`) and via the CLI (`targets edit --add-agent-include`, `--remove-agent-include`, `--agent-mode`, and so on). The UI Filter Studio is a single-context view driven by `?kind=skill|agent`
+- **Filter Studio agent support** — agent filters can be edited via `PATCH /api/targets/:name` (`agent_include`, `agent_exclude`, `agent_mode`) and via the CLI through new flags on `skillshare target <name>`:
+  ```bash
+  skillshare target claude --add-agent-include "team-*"
+  skillshare target claude --remove-agent-include "team-*"
+  skillshare target claude --agent-mode copy       # merge | symlink | copy
+  ```
+  The UI Filter Studio is a single-context view driven by `?kind=skill|agent`
 
 - **Audit cache** — audit results are now cached with React Query and invalidated on mutation. The audit card icon colour follows the max severity, and the count no longer mixes agent totals with finding counts
 
