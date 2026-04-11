@@ -97,6 +97,75 @@ func TestCollectHooks_PreservesGroupedHandlers(t *testing.T) {
 	if got.Handlers[1].Timeout != "15s" || got.Handlers[1].StatusMessage != "Prompting for summary" {
 		t.Fatalf("second handler metadata = %#v, want timeout/statusMessage preserved", got.Handlers[1])
 	}
+	if got.Targets != nil {
+		t.Fatalf("Get() targets = %v, want nil", got.Targets)
+	}
+	if got.SourceType != "local" {
+		t.Fatalf("Get() sourceType = %q, want %q", got.SourceType, "local")
+	}
+	if got.Disabled {
+		t.Fatalf("Get() disabled = %v, want false", got.Disabled)
+	}
+}
+
+func TestCollectHooks_OverwritePreservesExistingMetadata(t *testing.T) {
+	root := t.TempDir()
+	store := NewStore(root)
+	id := mustCanonicalRelativePath(t, "claude", "PreToolUse", "Bash")
+
+	_, err := store.Put(Save{
+		ID:         id,
+		Tool:       "claude",
+		Event:      "PreToolUse",
+		Matcher:    "Bash",
+		Targets:    []string{"claude-work"},
+		SourceType: "tracked",
+		Disabled:   true,
+		Handlers: []Handler{{
+			Type:    "command",
+			Command: "./bin/original",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("seed Put() error = %v", err)
+	}
+
+	discovered := []inspect.HookItem{{
+		GroupID:     "claude:project:/tmp/project/.claude/settings.json:PreToolUse:Bash",
+		SourceTool:  "claude",
+		Scope:       inspect.ScopeProject,
+		Event:       "PreToolUse",
+		Matcher:     "Bash",
+		ActionType:  "command",
+		Command:     "./bin/updated",
+		Path:        "/tmp/project/.claude/settings.json",
+		Collectible: true,
+	}}
+
+	result, err := Collect(root, discovered, CollectOptions{Strategy: StrategyOverwrite})
+	if err != nil {
+		t.Fatalf("Collect() error = %v", err)
+	}
+	if len(result.Overwritten) != 1 || result.Overwritten[0] != id {
+		t.Fatalf("Collect() Overwritten = %v, want [%s]", result.Overwritten, id)
+	}
+
+	got, err := store.Get(id)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if len(got.Handlers) != 1 || got.Handlers[0].Command != "./bin/updated" {
+		t.Fatalf("Get() handlers = %#v, want updated handler", got.Handlers)
+	}
+	if len(got.Targets) != 1 || got.Targets[0] != "claude-work" {
+		t.Fatalf("Get() targets = %v, want [claude-work]", got.Targets)
+	}
+	if got.SourceType != "tracked" {
+		t.Fatalf("Get() sourceType = %q, want %q", got.SourceType, "tracked")
+	}
+	if !got.Disabled {
+		t.Fatalf("Get() disabled = %v, want true", got.Disabled)
+	}
 }
 
 func TestCollectHooks_PreservesDiscoveredHandlerOrder(t *testing.T) {

@@ -391,6 +391,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/managed/rules/collect", s.handleCollectManagedRules)
 	s.mux.HandleFunc("GET /api/managed/rules/{id...}", s.handleGetManagedRule)
 	s.mux.HandleFunc("PUT /api/managed/rules/{id...}", s.handleUpdateManagedRule)
+	s.mux.HandleFunc("PATCH /api/managed/rules/{id}/targets", s.handleSetManagedRuleTargets)
+	s.mux.HandleFunc("PATCH /api/managed/rules/{id}/disabled", s.handleSetManagedRuleDisabled)
 	s.mux.HandleFunc("DELETE /api/managed/rules/{id...}", s.handleDeleteManagedRule)
 	s.mux.HandleFunc("GET /api/managed/hooks", s.handleListManagedHooks)
 	s.mux.HandleFunc("POST /api/managed/hooks", s.handleCreateManagedHook)
@@ -398,6 +400,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/managed/hooks/collect", s.handleCollectManagedHooks)
 	s.mux.HandleFunc("GET /api/managed/hooks/{id...}", s.handleGetManagedHook)
 	s.mux.HandleFunc("PUT /api/managed/hooks/{id...}", s.handleUpdateManagedHook)
+	s.mux.HandleFunc("PATCH /api/managed/hooks/{id}/targets", s.handleSetManagedHookTargets)
+	s.mux.HandleFunc("PATCH /api/managed/hooks/{id}/disabled", s.handleSetManagedHookDisabled)
 	s.mux.HandleFunc("DELETE /api/managed/hooks/{id...}", s.handleDeleteManagedHook)
 
 	// Targets

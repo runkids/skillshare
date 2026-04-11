@@ -11,6 +11,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/inspect"
+	managedrules "skillshare/internal/resources/rules"
 )
 
 func TestManagedRulesCRUDAndCollect(t *testing.T) {
@@ -197,6 +198,107 @@ func TestManagedRulesCRUDAndCollect(t *testing.T) {
 	}
 	if len(diffResp.Diffs[0].Files) == 0 || diffResp.Diffs[0].Files[0].Path != filepath.Join(projectRoot, ".claude", "rules", filepath.Base(managedPath)) {
 		t.Fatalf("diff files = %#v, want compiled preview output under target path", diffResp.Diffs[0].Files)
+	}
+}
+
+func TestHandleManagedRules_CreateAndUpdateExposeMetadata(t *testing.T) {
+	s, _, _, _ := newManagedProjectServer(t, "claude")
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/managed/rules", strings.NewReader(`{"tool":"claude","relativePath":"claude/manual.md","content":"# Managed\n","targets":["claude-work"],"sourceType":"tracked","disabled":true}`))
+	createRR := httptest.NewRecorder()
+	s.handler.ServeHTTP(createRR, createReq)
+	if createRR.Code != http.StatusCreated {
+		t.Fatalf("expected 201 from create, got %d: %s", createRR.Code, createRR.Body.String())
+	}
+
+	var createResp struct {
+		Rule struct {
+			Targets    []string `json:"targets"`
+			SourceType string   `json:"sourceType"`
+			Disabled   bool     `json:"disabled"`
+		} `json:"rule"`
+	}
+	if err := json.Unmarshal(createRR.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("failed to decode create response: %v", err)
+	}
+	if len(createResp.Rule.Targets) != 1 || createResp.Rule.Targets[0] != "claude-work" {
+		t.Fatalf("create targets = %v, want [claude-work]", createResp.Rule.Targets)
+	}
+	if createResp.Rule.SourceType != "tracked" {
+		t.Fatalf("create sourceType = %q, want %q", createResp.Rule.SourceType, "tracked")
+	}
+	if !createResp.Rule.Disabled {
+		t.Fatalf("create disabled = %v, want true", createResp.Rule.Disabled)
+	}
+
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/managed/rules/claude/manual.md", strings.NewReader(`{"id":"claude/manual.md","tool":"claude","relativePath":"claude/manual.md","content":"# Updated\n"}`))
+	updateRR := httptest.NewRecorder()
+	s.handler.ServeHTTP(updateRR, updateReq)
+	if updateRR.Code != http.StatusOK {
+		t.Fatalf("expected 200 from update, got %d: %s", updateRR.Code, updateRR.Body.String())
+	}
+
+	var updateResp struct {
+		Rule struct {
+			Targets    []string `json:"targets"`
+			SourceType string   `json:"sourceType"`
+			Disabled   bool     `json:"disabled"`
+		} `json:"rule"`
+	}
+	if err := json.Unmarshal(updateRR.Body.Bytes(), &updateResp); err != nil {
+		t.Fatalf("failed to decode update response: %v", err)
+	}
+	if len(updateResp.Rule.Targets) != 1 || updateResp.Rule.Targets[0] != "claude-work" {
+		t.Fatalf("update targets = %v, want [claude-work]", updateResp.Rule.Targets)
+	}
+	if updateResp.Rule.SourceType != "tracked" {
+		t.Fatalf("update sourceType = %q, want %q", updateResp.Rule.SourceType, "tracked")
+	}
+	if !updateResp.Rule.Disabled {
+		t.Fatalf("update disabled = %v, want true", updateResp.Rule.Disabled)
+	}
+}
+
+func TestHandleManagedRuleTargets_PersistsAssignedTarget(t *testing.T) {
+	s, projectRoot, _, _ := newManagedProjectServer(t, "claude")
+	store := managedrules.NewStore(projectRoot)
+	if _, err := store.Put(managedrules.Save{
+		ID:         "claude/manual.md",
+		Content:    []byte("# Manual\n"),
+		SourceType: "local",
+	}); err != nil {
+		t.Fatalf("put rule: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPatch, "/api/managed/rules/claude%2Fmanual.md/targets", strings.NewReader(`{"target":"claude-work"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+
+	got, err := store.Get("claude/manual.md")
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if len(got.Targets) != 1 || got.Targets[0] != "claude-work" {
+		t.Fatalf("targets = %v, want [claude-work]", got.Targets)
+	}
+
+	clearReq := httptest.NewRequest(http.MethodPatch, "/api/managed/rules/claude%2Fmanual.md/targets", strings.NewReader(`{"target":""}`))
+	clearRR := httptest.NewRecorder()
+	s.handler.ServeHTTP(clearRR, clearReq)
+	if clearRR.Code != http.StatusOK {
+		t.Fatalf("clear status = %d, want %d: %s", clearRR.Code, http.StatusOK, clearRR.Body.String())
+	}
+
+	got, err = store.Get("claude/manual.md")
+	if err != nil {
+		t.Fatalf("Get() after clear error = %v", err)
+	}
+	if got.Targets != nil {
+		t.Fatalf("targets after clear = %v, want nil", got.Targets)
 	}
 }
 

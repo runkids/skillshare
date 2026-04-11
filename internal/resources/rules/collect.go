@@ -29,19 +29,14 @@ type CollectResult struct {
 }
 
 type collectAppliedWrite struct {
-	id              string
-	hadPriorContent bool
-	priorContent    []byte
-}
-
-type plannedWrite struct {
-	id      string
-	content []byte
+	id        string
+	hadPrior  bool
+	priorRule Record
 }
 
 type collectPlan struct {
 	result CollectResult
-	writes []plannedWrite
+	writes []Save
 }
 
 func invalidCollectf(format string, args ...any) error {
@@ -86,28 +81,29 @@ func Collect(projectRoot string, discovered []inspect.RuleItem, opts CollectOpti
 		return CollectResult{}, err
 	}
 
-	currentContent := make(map[string][]byte, len(existing)+len(plan.writes))
+	existingByID := make(map[string]Record, len(existing)+len(plan.writes))
 	for _, record := range existing {
-		currentContent[record.ID] = append([]byte(nil), record.Content...)
+		existingByID[record.ID] = record
 	}
 
 	applied := make([]collectAppliedWrite, 0, len(plan.writes))
 	for _, write := range plan.writes {
-		prior, hadPrior := currentContent[write.id]
+		prior, hadPrior := existingByID[write.ID]
 		applied = append(applied, collectAppliedWrite{
-			id:              write.id,
-			hadPriorContent: hadPrior,
-			priorContent:    append([]byte(nil), prior...),
+			id:        write.ID,
+			hadPrior:  hadPrior,
+			priorRule: prior,
 		})
 
-		if _, err := store.Put(Save{ID: write.id, Content: write.content}); err != nil {
+		record, err := store.Put(write)
+		if err != nil {
 			rollbackErr := rollbackAppliedWrites(store, applied[:len(applied)-1])
 			if rollbackErr != nil {
 				return CollectResult{}, fmt.Errorf("apply collected rules: %w; rollback failed: %v", err, rollbackErr)
 			}
 			return CollectResult{}, err
 		}
-		currentContent[write.id] = append([]byte(nil), write.content...)
+		existingByID[write.ID] = record
 	}
 
 	return plan.result, nil
@@ -125,7 +121,7 @@ func planCollect(existing []Record, discovered []inspect.RuleItem, strategy Stra
 
 	plan := collectPlan{
 		result: CollectResult{},
-		writes: make([]plannedWrite, 0, len(discovered)),
+		writes: make([]Save, 0, len(discovered)),
 	}
 
 	for _, item := range discovered {
@@ -145,26 +141,32 @@ func planCollect(existing []Record, discovered []inspect.RuleItem, strategy Stra
 
 		switch {
 		case !exists:
-			plan.writes = append(plan.writes, plannedWrite{
-				id:      id,
-				content: []byte(item.Content),
+			plan.writes = append(plan.writes, Save{
+				ID:         id,
+				Content:    []byte(item.Content),
+				SourceType: "local",
 			})
 			takenIDs[id] = true
 			plan.result.Created = append(plan.result.Created, id)
 		case strategy == StrategySkip:
 			plan.result.Skipped = append(plan.result.Skipped, id)
 		case strategy == StrategyOverwrite:
-			plan.writes = append(plan.writes, plannedWrite{
-				id:      id,
-				content: []byte(item.Content),
+			prior := managedRuleByID(existing, id)
+			plan.writes = append(plan.writes, Save{
+				ID:         id,
+				Content:    []byte(item.Content),
+				Targets:    append([]string(nil), prior.Targets...),
+				SourceType: prior.SourceType,
+				Disabled:   prior.Disabled,
 			})
 			takenIDs[id] = true
 			plan.result.Overwritten = append(plan.result.Overwritten, id)
 		case strategy == StrategyDuplicate:
 			duplicateID := nextDuplicateIDFromTaken(takenIDs, id)
-			plan.writes = append(plan.writes, plannedWrite{
-				id:      duplicateID,
-				content: []byte(item.Content),
+			plan.writes = append(plan.writes, Save{
+				ID:         duplicateID,
+				Content:    []byte(item.Content),
+				SourceType: "local",
 			})
 			takenIDs[duplicateID] = true
 			plan.result.Created = append(plan.result.Created, duplicateID)
@@ -193,8 +195,14 @@ func rollbackAppliedWrites(store *Store, applied []collectAppliedWrite) error {
 	var firstErr error
 	for i := len(applied) - 1; i >= 0; i-- {
 		entry := applied[i]
-		if entry.hadPriorContent {
-			if _, err := store.Put(Save{ID: entry.id, Content: entry.priorContent}); err != nil && firstErr == nil {
+		if entry.hadPrior {
+			if _, err := store.Put(Save{
+				ID:         entry.priorRule.ID,
+				Content:    entry.priorRule.Content,
+				Targets:    append([]string(nil), entry.priorRule.Targets...),
+				SourceType: entry.priorRule.SourceType,
+				Disabled:   entry.priorRule.Disabled,
+			}); err != nil && firstErr == nil {
 				firstErr = err
 			}
 			continue
@@ -204,6 +212,15 @@ func rollbackAppliedWrites(store *Store, applied []collectAppliedWrite) error {
 		}
 	}
 	return firstErr
+}
+
+func managedRuleByID(existing []Record, id string) Record {
+	for _, record := range existing {
+		if record.ID == id {
+			return record
+		}
+	}
+	return Record{}
 }
 
 func normalizeStrategy(strategy Strategy) (Strategy, error) {

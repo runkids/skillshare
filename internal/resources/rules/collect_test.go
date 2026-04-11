@@ -14,8 +14,11 @@ func TestCollectRules_OverwriteAndDuplicate(t *testing.T) {
 	store := NewStore(projectRoot)
 
 	_, err := store.Put(Save{
-		ID:      "claude/backend.md",
-		Content: []byte("# Existing\n"),
+		ID:         "claude/backend.md",
+		Content:    []byte("# Existing\n"),
+		Targets:    []string{"gemini"},
+		SourceType: "tracked",
+		Disabled:   true,
 	})
 	if err != nil {
 		t.Fatalf("seed Put() error = %v", err)
@@ -55,6 +58,15 @@ func TestCollectRules_OverwriteAndDuplicate(t *testing.T) {
 	if string(copyRule.Content) != "# Backend\n" {
 		t.Fatalf("copy content = %q, want %q", string(copyRule.Content), "# Backend\n")
 	}
+	if copyRule.Targets != nil {
+		t.Fatalf("copy targets = %v, want nil", copyRule.Targets)
+	}
+	if copyRule.SourceType != "local" {
+		t.Fatalf("copy sourceType = %q, want %q", copyRule.SourceType, "local")
+	}
+	if copyRule.Disabled {
+		t.Fatalf("copy disabled = %v, want false", copyRule.Disabled)
+	}
 
 	discovered[0].Content = "# Overwritten\n"
 	result, err = Collect(projectRoot, discovered, CollectOptions{Strategy: StrategyOverwrite})
@@ -71,6 +83,15 @@ func TestCollectRules_OverwriteAndDuplicate(t *testing.T) {
 	}
 	if string(overwritten.Content) != "# Overwritten\n" {
 		t.Fatalf("overwritten content = %q, want %q", string(overwritten.Content), "# Overwritten\n")
+	}
+	if len(overwritten.Targets) != 1 || overwritten.Targets[0] != "gemini" {
+		t.Fatalf("overwritten targets = %v, want [gemini]", overwritten.Targets)
+	}
+	if overwritten.SourceType != "tracked" {
+		t.Fatalf("overwritten sourceType = %q, want %q", overwritten.SourceType, "tracked")
+	}
+	if !overwritten.Disabled {
+		t.Fatalf("overwritten disabled = %v, want true", overwritten.Disabled)
 	}
 
 	discovered[0].Content = "# ShouldSkip\n"

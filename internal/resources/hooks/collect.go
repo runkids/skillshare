@@ -105,21 +105,15 @@ func Collect(projectRoot string, discovered []inspect.HookItem, opts CollectOpti
 			priorRecord: prior,
 		})
 
-		if _, err := store.Put(write); err != nil {
+		record, err := store.Put(write)
+		if err != nil {
 			rollbackErr := rollbackAppliedHookWrites(store, applied[:len(applied)-1])
 			if rollbackErr != nil {
 				return CollectResult{}, fmt.Errorf("apply collected hooks: %w; rollback failed: %v", err, rollbackErr)
 			}
 			return CollectResult{}, err
 		}
-		existingByID[write.ID] = Record{
-			ID:           write.ID,
-			RelativePath: write.ID,
-			Tool:         write.Tool,
-			Event:        write.Event,
-			Matcher:      write.Matcher,
-			Handlers:     append([]Handler(nil), write.Handlers...),
-		}
+		existingByID[write.ID] = record
 	}
 
 	return plan.result, nil
@@ -158,11 +152,12 @@ func planCollect(existing []Record, discovered []inspect.HookItem, strategy Stra
 		}
 
 		save := Save{
-			ID:       id,
-			Tool:     strings.ToLower(strings.TrimSpace(group.SourceTool)),
-			Event:    strings.TrimSpace(group.Event),
-			Matcher:  strings.TrimSpace(group.Matcher),
-			Handlers: handlersFromInspectHooks(sortedHookItems(group.Items)),
+			ID:         id,
+			Tool:       strings.ToLower(strings.TrimSpace(group.SourceTool)),
+			Event:      strings.TrimSpace(group.Event),
+			Matcher:    strings.TrimSpace(group.Matcher),
+			Handlers:   handlersFromInspectHooks(sortedHookItems(group.Items)),
+			SourceType: "local",
 		}
 
 		exists := takenIDs[id]
@@ -174,6 +169,10 @@ func planCollect(existing []Record, discovered []inspect.HookItem, strategy Stra
 		case strategy == StrategySkip:
 			plan.result.Skipped = append(plan.result.Skipped, id)
 		case strategy == StrategyOverwrite:
+			prior := managedHookByID(existing, id)
+			save.Targets = append([]string(nil), prior.Targets...)
+			save.SourceType = prior.SourceType
+			save.Disabled = prior.Disabled
 			plan.writes = append(plan.writes, save)
 			plan.result.Overwritten = append(plan.result.Overwritten, id)
 		case strategy == StrategyDuplicate:
@@ -318,6 +317,15 @@ func rollbackAppliedHookWrites(store *Store, applied []collectAppliedWrite) erro
 		}
 	}
 	return firstErr
+}
+
+func managedHookByID(existing []Record, id string) Record {
+	for _, record := range existing {
+		if record.ID == id {
+			return record
+		}
+	}
+	return Record{}
 }
 
 func normalizeStrategy(strategy Strategy) (Strategy, error) {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -191,6 +192,98 @@ func TestManagedHooksCRUDAndDiff(t *testing.T) {
 	}
 	if len(listResp.Hooks) != 0 {
 		t.Fatalf("expected 0 hooks after delete, got %d", len(listResp.Hooks))
+	}
+}
+
+func TestHandleManagedHooks_CreateAndUpdateExposeMetadata(t *testing.T) {
+	s, _, _, _ := newManagedProjectServer(t, "claude")
+	hookID := canonicalManagedHookID(t, "claude", "PreToolUse", "Bash")
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/managed/hooks", strings.NewReader(`{"tool":"claude","event":"PreToolUse","matcher":"Bash","targets":["claude-work"],"sourceType":"tracked","disabled":true,"handlers":[{"type":"command","command":"./bin/check"}]}`))
+	createRR := httptest.NewRecorder()
+	s.handler.ServeHTTP(createRR, createReq)
+	if createRR.Code != http.StatusCreated {
+		t.Fatalf("expected 201 from create, got %d: %s", createRR.Code, createRR.Body.String())
+	}
+
+	var createResp struct {
+		Hook struct {
+			Targets    []string `json:"targets"`
+			SourceType string   `json:"sourceType"`
+			Disabled   bool     `json:"disabled"`
+		} `json:"hook"`
+	}
+	if err := json.Unmarshal(createRR.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("failed to decode create response: %v", err)
+	}
+	if len(createResp.Hook.Targets) != 1 || createResp.Hook.Targets[0] != "claude-work" {
+		t.Fatalf("create targets = %v, want [claude-work]", createResp.Hook.Targets)
+	}
+	if createResp.Hook.SourceType != "tracked" {
+		t.Fatalf("create sourceType = %q, want %q", createResp.Hook.SourceType, "tracked")
+	}
+	if !createResp.Hook.Disabled {
+		t.Fatalf("create disabled = %v, want true", createResp.Hook.Disabled)
+	}
+
+	updateReq := httptest.NewRequest(http.MethodPut, "/api/managed/hooks/"+url.PathEscape(hookID), strings.NewReader(`{"tool":"claude","event":"PreToolUse","matcher":"Bash","handlers":[{"type":"command","command":"./bin/updated"}]}`))
+	updateRR := httptest.NewRecorder()
+	s.handler.ServeHTTP(updateRR, updateReq)
+	if updateRR.Code != http.StatusOK {
+		t.Fatalf("expected 200 from update, got %d: %s", updateRR.Code, updateRR.Body.String())
+	}
+
+	var updateResp struct {
+		Hook struct {
+			Targets    []string `json:"targets"`
+			SourceType string   `json:"sourceType"`
+			Disabled   bool     `json:"disabled"`
+		} `json:"hook"`
+	}
+	if err := json.Unmarshal(updateRR.Body.Bytes(), &updateResp); err != nil {
+		t.Fatalf("failed to decode update response: %v", err)
+	}
+	if len(updateResp.Hook.Targets) != 1 || updateResp.Hook.Targets[0] != "claude-work" {
+		t.Fatalf("update targets = %v, want [claude-work]", updateResp.Hook.Targets)
+	}
+	if updateResp.Hook.SourceType != "tracked" {
+		t.Fatalf("update sourceType = %q, want %q", updateResp.Hook.SourceType, "tracked")
+	}
+	if !updateResp.Hook.Disabled {
+		t.Fatalf("update disabled = %v, want true", updateResp.Hook.Disabled)
+	}
+}
+
+func TestHandleManagedHookDisabled_PersistsDisabledState(t *testing.T) {
+	s, projectRoot, _, _ := newManagedProjectServer(t, "claude")
+	store := managedhooks.NewStore(projectRoot)
+	hookID := canonicalManagedHookID(t, "claude", "PreToolUse", "Bash")
+	if _, err := store.Put(managedhooks.Save{
+		ID:      hookID,
+		Tool:    "claude",
+		Event:   "PreToolUse",
+		Matcher: "Bash",
+		Handlers: []managedhooks.Handler{{
+			Type:    "command",
+			Command: "./bin/check",
+		}},
+	}); err != nil {
+		t.Fatalf("put hook: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPatch, "/api/managed/hooks/"+url.PathEscape(hookID)+"/disabled", strings.NewReader(`{"disabled":true}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d: %s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+	got, err := store.Get(hookID)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if !got.Disabled {
+		t.Fatal("expected hook to be disabled")
 	}
 }
 

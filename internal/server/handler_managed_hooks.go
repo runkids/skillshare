@@ -25,11 +25,14 @@ type managedHookHandlerPayload struct {
 }
 
 type managedHookPayload struct {
-	ID       string                      `json:"id"`
-	Tool     string                      `json:"tool"`
-	Event    string                      `json:"event"`
-	Matcher  string                      `json:"matcher"`
-	Handlers []managedHookHandlerPayload `json:"handlers"`
+	ID         string                      `json:"id"`
+	Tool       string                      `json:"tool"`
+	Event      string                      `json:"event"`
+	Matcher    string                      `json:"matcher"`
+	Handlers   []managedHookHandlerPayload `json:"handlers"`
+	Targets    []string                    `json:"targets"`
+	SourceType string                      `json:"sourceType"`
+	Disabled   bool                        `json:"disabled"`
 }
 
 type managedHookPreview struct {
@@ -39,11 +42,14 @@ type managedHookPreview struct {
 }
 
 type managedHookRequest struct {
-	ID       string                      `json:"id"`
-	Tool     string                      `json:"tool"`
-	Event    string                      `json:"event"`
-	Matcher  *string                     `json:"matcher"`
-	Handlers []managedHookHandlerPayload `json:"handlers"`
+	ID         string                      `json:"id"`
+	Tool       string                      `json:"tool"`
+	Event      string                      `json:"event"`
+	Matcher    *string                     `json:"matcher"`
+	Handlers   []managedHookHandlerPayload `json:"handlers"`
+	Targets    *[]string                   `json:"targets"`
+	SourceType *string                     `json:"sourceType"`
+	Disabled   *bool                       `json:"disabled"`
 }
 
 func (s *Server) managedHooksProjectRoot() string {
@@ -93,13 +99,7 @@ func (s *Server) handleCreateManagedHook(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	record, err := store.Put(managedhooks.Save{
-		ID:       canonicalID,
-		Tool:     body.Tool,
-		Event:    body.Event,
-		Matcher:  body.matcher(),
-		Handlers: body.toHandlers(),
-	})
+	record, err := store.Put(managedHookSave(body, canonicalID, nil))
 	if err != nil {
 		s.mu.Unlock()
 		writeError(w, managedHookSaveStatus(err), "failed to save managed hook: "+err.Error())
@@ -175,13 +175,7 @@ func (s *Server) handleUpdateManagedHook(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	record, err := store.Put(managedhooks.Save{
-		ID:       canonicalID,
-		Tool:     body.Tool,
-		Event:    body.Event,
-		Matcher:  body.matcher(),
-		Handlers: body.toHandlers(),
-	})
+	record, err := store.Put(managedHookSave(body, canonicalID, &existing))
 	if err != nil {
 		s.mu.Unlock()
 		writeError(w, managedHookSaveStatus(err), "failed to save managed hook: "+err.Error())
@@ -208,6 +202,106 @@ func (s *Server) handleUpdateManagedHook(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	s.mu.Unlock()
+
+	writeManagedHookDetailResponse(w, http.StatusOK, record, previews)
+}
+
+func (s *Server) handleSetManagedHookTargets(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "hook id is required")
+		return
+	}
+
+	var body managedTargetsRequest
+	if err := decodeStrictJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	store := managedhooks.NewStore(s.managedHooksProjectRoot())
+	s.mu.Lock()
+	record, err := store.Get(id)
+	if err != nil {
+		s.mu.Unlock()
+		writeError(w, managedHookLoadStatus(err), managedHookLoadError(id, err).Error())
+		return
+	}
+
+	record, err = store.Put(managedhooks.Save{
+		ID:         record.ID,
+		Tool:       record.Tool,
+		Event:      record.Event,
+		Matcher:    record.Matcher,
+		Handlers:   append([]managedhooks.Handler(nil), record.Handlers...),
+		Targets:    normalizeManagedTargets([]string{body.Target}),
+		SourceType: record.SourceType,
+		Disabled:   record.Disabled,
+	})
+	if err != nil {
+		s.mu.Unlock()
+		writeError(w, managedHookSaveStatus(err), "failed to save managed hook: "+err.Error())
+		return
+	}
+
+	previews, err := s.loadManagedHookPreviews(store)
+	s.mu.Unlock()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeManagedHookDetailResponse(w, http.StatusOK, record, previews)
+}
+
+func (s *Server) handleSetManagedHookDisabled(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "hook id is required")
+		return
+	}
+
+	var body managedDisabledRequest
+	if err := decodeStrictJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+	if body.Disabled == nil {
+		writeError(w, http.StatusBadRequest, "disabled is required")
+		return
+	}
+
+	store := managedhooks.NewStore(s.managedHooksProjectRoot())
+	s.mu.Lock()
+	record, err := store.Get(id)
+	if err != nil {
+		s.mu.Unlock()
+		writeError(w, managedHookLoadStatus(err), managedHookLoadError(id, err).Error())
+		return
+	}
+
+	record, err = store.Put(managedhooks.Save{
+		ID:         record.ID,
+		Tool:       record.Tool,
+		Event:      record.Event,
+		Matcher:    record.Matcher,
+		Handlers:   append([]managedhooks.Handler(nil), record.Handlers...),
+		Targets:    append([]string(nil), record.Targets...),
+		SourceType: record.SourceType,
+		Disabled:   *body.Disabled,
+	})
+	if err != nil {
+		s.mu.Unlock()
+		writeError(w, managedHookSaveStatus(err), "failed to save managed hook: "+err.Error())
+		return
+	}
+
+	previews, err := s.loadManagedHookPreviews(store)
+	s.mu.Unlock()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
 
 	writeManagedHookDetailResponse(w, http.StatusOK, record, previews)
 }
@@ -368,11 +462,14 @@ func writeManagedHookDetailResponse(w http.ResponseWriter, status int, record ma
 
 func restoreManagedHookRecord(store *managedhooks.Store, record managedhooks.Record) error {
 	_, err := store.Put(managedhooks.Save{
-		ID:       record.ID,
-		Tool:     record.Tool,
-		Event:    record.Event,
-		Matcher:  record.Matcher,
-		Handlers: record.Handlers,
+		ID:         record.ID,
+		Tool:       record.Tool,
+		Event:      record.Event,
+		Matcher:    record.Matcher,
+		Handlers:   record.Handlers,
+		Targets:    append([]string(nil), record.Targets...),
+		SourceType: record.SourceType,
+		Disabled:   record.Disabled,
 	})
 	return err
 }
@@ -540,6 +637,10 @@ func decodeManagedHookRequest(r *http.Request, body *managedHookRequest) error {
 		m := strings.TrimSpace(*body.Matcher)
 		body.Matcher = &m
 	}
+	if body.SourceType != nil {
+		sourceType := strings.TrimSpace(*body.SourceType)
+		body.SourceType = &sourceType
+	}
 	if !managedHookAllowsEmptyMatcher(body.Tool, body.Event) {
 		if body.matcher() == "" {
 			return errors.New("matcher is required")
@@ -599,11 +700,47 @@ func managedHookRecordPayload(record managedhooks.Record) managedHookPayload {
 		}
 	}
 	return managedHookPayload{
-		ID:       record.ID,
-		Tool:     record.Tool,
-		Event:    record.Event,
-		Matcher:  record.Matcher,
-		Handlers: handlers,
+		ID:         record.ID,
+		Tool:       record.Tool,
+		Event:      record.Event,
+		Matcher:    record.Matcher,
+		Handlers:   handlers,
+		Targets:    append([]string(nil), record.Targets...),
+		SourceType: record.SourceType,
+		Disabled:   record.Disabled,
+	}
+}
+
+func managedHookSave(body managedHookRequest, id string, existing *managedhooks.Record) managedhooks.Save {
+	sourceType := "local"
+	disabled := false
+	var targets []string
+	if existing != nil {
+		sourceType = existing.SourceType
+		disabled = existing.Disabled
+		targets = append([]string(nil), existing.Targets...)
+	}
+	if body.Targets != nil {
+		targets = normalizeManagedTargets(*body.Targets)
+	}
+	if body.SourceType != nil {
+		sourceType = strings.TrimSpace(*body.SourceType)
+	}
+	if sourceType == "" {
+		sourceType = "local"
+	}
+	if body.Disabled != nil {
+		disabled = *body.Disabled
+	}
+	return managedhooks.Save{
+		ID:         id,
+		Tool:       body.Tool,
+		Event:      body.Event,
+		Matcher:    body.matcher(),
+		Handlers:   body.toHandlers(),
+		Targets:    targets,
+		SourceType: sourceType,
+		Disabled:   disabled,
 	}
 }
 

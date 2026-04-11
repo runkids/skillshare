@@ -18,11 +18,14 @@ import (
 )
 
 type managedRulePayload struct {
-	ID           string `json:"id"`
-	Tool         string `json:"tool"`
-	Name         string `json:"name"`
-	RelativePath string `json:"relativePath"`
-	Content      string `json:"content"`
+	ID           string   `json:"id"`
+	Tool         string   `json:"tool"`
+	Name         string   `json:"name"`
+	RelativePath string   `json:"relativePath"`
+	Content      string   `json:"content"`
+	Targets      []string `json:"targets"`
+	SourceType   string   `json:"sourceType"`
+	Disabled     bool     `json:"disabled"`
 }
 
 type managedRulePreview struct {
@@ -32,10 +35,13 @@ type managedRulePreview struct {
 }
 
 type managedRuleRequest struct {
-	ID           string  `json:"id"`
-	Tool         string  `json:"tool"`
-	RelativePath string  `json:"relativePath"`
-	Content      *string `json:"content"`
+	ID           string    `json:"id"`
+	Tool         string    `json:"tool"`
+	RelativePath string    `json:"relativePath"`
+	Content      *string   `json:"content"`
+	Targets      *[]string `json:"targets"`
+	SourceType   *string   `json:"sourceType"`
+	Disabled     *bool     `json:"disabled"`
 }
 
 func (s *Server) managedRulesProjectRoot() string {
@@ -55,13 +61,7 @@ func (s *Server) handleListManagedRules(w http.ResponseWriter, r *http.Request) 
 
 	items := make([]managedRulePayload, 0, len(records))
 	for _, record := range records {
-		items = append(items, managedRulePayload{
-			ID:           record.ID,
-			Tool:         record.Tool,
-			Name:         record.Name,
-			RelativePath: record.RelativePath,
-			Content:      string(record.Content),
-		})
+		items = append(items, managedRulePayloadFromRecord(record))
 	}
 
 	writeJSON(w, map[string]any{"rules": items})
@@ -87,10 +87,7 @@ func (s *Server) handleCreateManagedRule(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	record, err := store.Put(managedrules.Save{
-		ID:      body.ID,
-		Content: []byte(*body.Content),
-	})
+	record, err := store.Put(managedRuleSave(body, nil))
 	s.mu.Unlock()
 	if err != nil {
 		writeError(w, managedRuleSaveStatus(err), "failed to save managed rule: "+err.Error())
@@ -135,16 +132,14 @@ func (s *Server) handleUpdateManagedRule(w http.ResponseWriter, r *http.Request)
 
 	store := managedrules.NewStore(s.managedRulesProjectRoot())
 	s.mu.Lock()
-	if _, err := store.Get(id); err != nil {
+	existing, err := store.Get(id)
+	if err != nil {
 		s.mu.Unlock()
 		writeError(w, managedRuleLoadStatus(err), err.Error())
 		return
 	}
 
-	record, err := store.Put(managedrules.Save{
-		ID:      body.ID,
-		Content: []byte(*body.Content),
-	})
+	record, err := store.Put(managedRuleSave(body, &existing))
 	s.mu.Unlock()
 	if err != nil {
 		writeError(w, managedRuleSaveStatus(err), "failed to save managed rule: "+err.Error())
@@ -180,6 +175,86 @@ func (s *Server) handleDeleteManagedRule(w http.ResponseWriter, r *http.Request)
 	}
 
 	writeJSON(w, map[string]any{"success": true})
+}
+
+func (s *Server) handleSetManagedRuleTargets(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "rule id is required")
+		return
+	}
+
+	var body managedTargetsRequest
+	if err := decodeStrictJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+
+	store := managedrules.NewStore(s.managedRulesProjectRoot())
+	s.mu.Lock()
+	record, err := store.Get(id)
+	if err != nil {
+		s.mu.Unlock()
+		writeError(w, managedRuleLoadStatus(err), err.Error())
+		return
+	}
+
+	record, err = store.Put(managedrules.Save{
+		ID:         record.ID,
+		Content:    record.Content,
+		Targets:    normalizeManagedTargets([]string{body.Target}),
+		SourceType: record.SourceType,
+		Disabled:   record.Disabled,
+	})
+	s.mu.Unlock()
+	if err != nil {
+		writeError(w, managedRuleSaveStatus(err), "failed to save managed rule: "+err.Error())
+		return
+	}
+
+	s.writeManagedRuleDetail(w, http.StatusOK, record)
+}
+
+func (s *Server) handleSetManagedRuleDisabled(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		writeError(w, http.StatusBadRequest, "rule id is required")
+		return
+	}
+
+	var body managedDisabledRequest
+	if err := decodeStrictJSON(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body: "+err.Error())
+		return
+	}
+	if body.Disabled == nil {
+		writeError(w, http.StatusBadRequest, "disabled is required")
+		return
+	}
+
+	store := managedrules.NewStore(s.managedRulesProjectRoot())
+	s.mu.Lock()
+	record, err := store.Get(id)
+	if err != nil {
+		s.mu.Unlock()
+		writeError(w, managedRuleLoadStatus(err), err.Error())
+		return
+	}
+
+	record, err = store.Put(managedrules.Save{
+		ID:         record.ID,
+		Content:    record.Content,
+		Targets:    append([]string(nil), record.Targets...),
+		SourceType: record.SourceType,
+		Disabled:   *body.Disabled,
+	})
+	s.mu.Unlock()
+	if err != nil {
+		writeError(w, managedRuleSaveStatus(err), "failed to save managed rule: "+err.Error())
+		return
+	}
+
+	s.writeManagedRuleDetail(w, http.StatusOK, record)
 }
 
 func (s *Server) handleCollectManagedRules(w http.ResponseWriter, r *http.Request) {
@@ -290,13 +365,7 @@ func (s *Server) writeManagedRuleDetail(w http.ResponseWriter, status int, recor
 	}
 
 	writeJSONStatus(w, status, map[string]any{
-		"rule": managedRulePayload{
-			ID:           record.ID,
-			Tool:         record.Tool,
-			Name:         record.Name,
-			RelativePath: record.RelativePath,
-			Content:      string(record.Content),
-		},
+		"rule":     managedRulePayloadFromRecord(record),
 		"previews": previews,
 	})
 }
@@ -432,7 +501,85 @@ func decodeManagedRuleRequest(r *http.Request, body *managedRuleRequest) error {
 		return errors.New("content is required")
 	}
 	body.ID = normalizedID
+	if body.SourceType != nil {
+		sourceType := strings.TrimSpace(*body.SourceType)
+		body.SourceType = &sourceType
+	}
 	return nil
+}
+
+type managedTargetsRequest struct {
+	Target string `json:"target"`
+}
+
+type managedDisabledRequest struct {
+	Disabled *bool `json:"disabled"`
+}
+
+func managedRulePayloadFromRecord(record managedrules.Record) managedRulePayload {
+	return managedRulePayload{
+		ID:           record.ID,
+		Tool:         record.Tool,
+		Name:         record.Name,
+		RelativePath: record.RelativePath,
+		Content:      string(record.Content),
+		Targets:      append([]string(nil), record.Targets...),
+		SourceType:   record.SourceType,
+		Disabled:     record.Disabled,
+	}
+}
+
+func managedRuleSave(body managedRuleRequest, existing *managedrules.Record) managedrules.Save {
+	sourceType := "local"
+	disabled := false
+	var targets []string
+	if existing != nil {
+		sourceType = existing.SourceType
+		disabled = existing.Disabled
+		targets = append([]string(nil), existing.Targets...)
+	}
+	if body.Targets != nil {
+		targets = normalizeManagedTargets(*body.Targets)
+	}
+	if body.SourceType != nil {
+		sourceType = strings.TrimSpace(*body.SourceType)
+	}
+	if sourceType == "" {
+		sourceType = "local"
+	}
+	if body.Disabled != nil {
+		disabled = *body.Disabled
+	}
+	return managedrules.Save{
+		ID:         body.ID,
+		Content:    []byte(*body.Content),
+		Targets:    targets,
+		SourceType: sourceType,
+		Disabled:   disabled,
+	}
+}
+
+func normalizeManagedTargets(targets []string) []string {
+	if len(targets) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(targets))
+	seen := make(map[string]struct{}, len(targets))
+	for _, target := range targets {
+		target = strings.TrimSpace(target)
+		if target == "" {
+			continue
+		}
+		if _, ok := seen[target]; ok {
+			continue
+		}
+		seen[target] = struct{}{}
+		out = append(out, target)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func managedRuleDerivedID(body managedRuleRequest) (string, error) {
