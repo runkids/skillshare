@@ -15,7 +15,6 @@ import {
   ArrowUpCircle,
   ShieldCheck,
   ScrollText,
-  Webhook,
   Settings,
   Menu,
   X,
@@ -57,8 +56,6 @@ const navGroups: NavGroup[] = [
     label: 'MANAGE',
     items: [
       { to: '/resources', icon: Layers, label: 'Resources' },
-      { to: '/hooks', icon: Webhook, label: 'Hooks' },
-      { to: '/rules', icon: ScrollText, label: 'Rules' },
       { to: '/extras', icon: FolderPlus, label: 'Extras' },
       { to: '/targets', icon: Target, label: 'Targets' },
       { to: '/search', icon: Search, label: 'Search' },

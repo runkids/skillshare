@@ -140,7 +140,7 @@ export default function DashboardPage() {
       icon: Webhook,
       color: 'text-warning',
       bg: 'bg-warning-light',
-      to: '/hooks',
+      to: '/resources?tab=hooks&mode=managed',
     },
     {
       label: 'Rules',
@@ -149,7 +149,7 @@ export default function DashboardPage() {
       icon: ScrollText,
       color: 'text-success',
       bg: 'bg-success-light',
-      to: '/rules',
+      to: '/resources?tab=rules&mode=managed',
     },
     {
       label: 'Targets',
