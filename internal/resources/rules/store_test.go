@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -216,6 +217,10 @@ func TestRuleStore_RejectsInvalidIDs(t *testing.T) {
 		"claude/C:/outside.md",
 		"claude/C:outside.md",
 		`\\server\share\file.md`,
+		"claude/.backend.md.metadata.yaml",
+		"claude/nested/.backend.md.metadata.yaml",
+		"claude/.rule-metadata-tmp-123",
+		"claude/nested/.rule-metadata-tmp-123",
 	}
 
 	for _, id := range invalidIDs {
@@ -231,6 +236,59 @@ func TestRuleStore_RejectsInvalidIDs(t *testing.T) {
 				t.Fatalf("Delete(%q) error = nil, want error", id)
 			}
 		})
+	}
+}
+
+func TestRuleStore_Put_RollsBackContentWhenMetadataWriteFails(t *testing.T) {
+	projectRoot := t.TempDir()
+	store := NewStore(projectRoot)
+
+	if _, err := store.Put(Save{
+		ID:         "claude/backend.md",
+		Content:    []byte("# old\n"),
+		Targets:    []string{"claude-work"},
+		SourceType: "local",
+	}); err != nil {
+		t.Fatalf("seed Put() error = %v", err)
+	}
+
+	originalRuleWriteFile := ruleWriteFile
+	ruleWriteFile = func(name string, data []byte, perm os.FileMode) error {
+		if isRuleMetadataFile(filepath.Base(name)) || strings.HasPrefix(filepath.Base(name), ruleMetadataTempPrefix) {
+			return errors.New("boom")
+		}
+		return originalRuleWriteFile(name, data, perm)
+	}
+	defer func() {
+		ruleWriteFile = originalRuleWriteFile
+	}()
+
+	_, err := store.Put(Save{
+		ID:         "claude/backend.md",
+		Content:    []byte("# new\n"),
+		Targets:    []string{"claude-personal"},
+		SourceType: "project",
+		Disabled:   true,
+	})
+	if err == nil {
+		t.Fatal("Put() error = nil, want metadata write failure")
+	}
+
+	got, getErr := store.Get("claude/backend.md")
+	if getErr != nil {
+		t.Fatalf("Get() error = %v", getErr)
+	}
+	if string(got.Content) != "# old\n" {
+		t.Fatalf("Get() content = %q, want rollback to %q", string(got.Content), "# old\n")
+	}
+	if !reflect.DeepEqual(got.Targets, []string{"claude-work"}) {
+		t.Fatalf("Get() Targets = %#v, want %#v", got.Targets, []string{"claude-work"})
+	}
+	if got.SourceType != "local" {
+		t.Fatalf("Get() SourceType = %q, want %q", got.SourceType, "local")
+	}
+	if got.Disabled {
+		t.Fatal("Get() Disabled = true, want false")
 	}
 }
 
@@ -297,6 +355,34 @@ func TestRuleStore_ListIgnoresTransientTempFiles(t *testing.T) {
 
 	tempPath := filepath.Join(projectRoot, ".skillshare", "rules", "claude", ".rule-tmp-12345")
 	if err := os.WriteFile(tempPath, []byte("# Temp\n"), 0644); err != nil {
+		t.Fatalf("WriteFile(%q) error = %v", tempPath, err)
+	}
+
+	all, err := store.List()
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("List() len = %d, want 1", len(all))
+	}
+	if all[0].ID != "claude/keep.md" {
+		t.Fatalf("List()[0].ID = %q, want %q", all[0].ID, "claude/keep.md")
+	}
+}
+
+func TestRuleStore_ListIgnoresMetadataTempFiles(t *testing.T) {
+	projectRoot := t.TempDir()
+	store := NewStore(projectRoot)
+
+	if _, err := store.Put(Save{
+		ID:      "claude/keep.md",
+		Content: []byte("# Keep\n"),
+	}); err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+
+	tempPath := filepath.Join(projectRoot, ".skillshare", "rules", "claude", ".rule-metadata-tmp-12345")
+	if err := os.WriteFile(tempPath, []byte("targets:\n  - stray\n"), 0644); err != nil {
 		t.Fatalf("WriteFile(%q) error = %v", tempPath, err)
 	}
 

@@ -9,7 +9,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const ruleMetadataSuffix = ".metadata.yaml"
+const (
+	ruleMetadataSuffix     = ".metadata.yaml"
+	ruleMetadataTempPrefix = ".rule-metadata-tmp-"
+)
 
 type ruleMetadata struct {
 	Targets    []string `yaml:"targets,omitempty"`
@@ -49,7 +52,7 @@ func saveRuleMetadata(rulePath string, metadata ruleMetadata) error {
 	}
 
 	dir := filepath.Dir(metadataPath)
-	tempFile, err := os.CreateTemp(dir, ".rule-metadata-tmp-*")
+	tempFile, err := os.CreateTemp(dir, ruleMetadataTempPrefix+"*")
 	if err != nil {
 		return fmt.Errorf("create metadata temp file: %w", err)
 	}

@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -12,7 +13,10 @@ import (
 	"skillshare/internal/config"
 )
 
-var ruleWriteFile = os.WriteFile
+var (
+	ruleWriteFile    = os.WriteFile
+	ruleSaveMetadata = saveRuleMetadata
+)
 
 // Store persists managed rules as files under the managed rules root.
 type Store struct {
@@ -35,6 +39,10 @@ func (s *Store) Put(in Save) (Record, error) {
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 		return Record{}, fmt.Errorf("create rule directory: %w", err)
 	}
+	previousContent, hadPreviousContent, err := readExistingRuleContent(fullPath)
+	if err != nil {
+		return Record{}, err
+	}
 
 	tempPath, err := s.writeTempRule(filepath.Dir(fullPath), in.Content)
 	if err != nil {
@@ -44,11 +52,18 @@ func (s *Store) Put(in Save) (Record, error) {
 		_ = os.Remove(tempPath)
 		return Record{}, fmt.Errorf("write rule: rename temp file: %w", err)
 	}
-	if err := saveRuleMetadata(fullPath, ruleMetadata{
+	if err := ruleSaveMetadata(fullPath, ruleMetadata{
 		Targets:    in.Targets,
 		SourceType: in.SourceType,
 		Disabled:   in.Disabled,
 	}); err != nil {
+		rollbackErr := s.restoreRuleContent(fullPath, previousContent, hadPreviousContent)
+		if rollbackErr != nil {
+			return Record{}, errors.Join(
+				fmt.Errorf("write rule metadata: %w", err),
+				fmt.Errorf("rollback rule content: %w", rollbackErr),
+			)
+		}
 		return Record{}, fmt.Errorf("write rule metadata: %w", err)
 	}
 
@@ -203,7 +218,7 @@ func NormalizeRuleID(id string) (string, error) {
 		if len(part) >= 2 && part[1] == ':' {
 			return "", fmt.Errorf("%w %q", ErrInvalidID, id)
 		}
-		if strings.HasPrefix(part, ".rule-tmp-") {
+		if isTransientRuleFile(part) || isRuleMetadataFile(part) {
 			return "", fmt.Errorf("%w %q", ErrInvalidID, id)
 		}
 	}
@@ -241,8 +256,38 @@ func (s *Store) writeTempRule(dir string, content []byte) (string, error) {
 	return tempPath, nil
 }
 
+func (s *Store) restoreRuleContent(fullPath string, content []byte, hadPreviousContent bool) error {
+	if !hadPreviousContent {
+		if err := os.Remove(fullPath); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		return nil
+	}
+
+	tempPath, err := s.writeTempRule(filepath.Dir(fullPath), content)
+	if err != nil {
+		return err
+	}
+	if err := s.replaceRuleFile(tempPath, fullPath); err != nil {
+		_ = os.Remove(tempPath)
+		return err
+	}
+	return nil
+}
+
 func (s *Store) replaceRuleFile(tempPath, fullPath string) error {
 	return replaceRuleFile(tempPath, fullPath)
+}
+
+func readExistingRuleContent(fullPath string) ([]byte, bool, error) {
+	data, err := os.ReadFile(fullPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	return data, true, nil
 }
 
 func splitRuleID(id string) (tool string, name string) {
@@ -267,7 +312,7 @@ func isSupportedRuleToolPrefix(tool string) bool {
 }
 
 func isTransientRuleFile(name string) bool {
-	return strings.HasPrefix(name, ".rule-tmp-")
+	return strings.HasPrefix(name, ".rule-tmp-") || strings.HasPrefix(name, ruleMetadataTempPrefix)
 }
 
 func ensureRegularRuleFile(fullPath, id string) error {
