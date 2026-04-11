@@ -1,13 +1,10 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -16,8 +13,8 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/inspect"
 	"skillshare/internal/resources/adapters"
-	"skillshare/internal/resources/apply"
 	managedhooks "skillshare/internal/resources/hooks"
+	managed "skillshare/internal/resources/managed"
 	managedrules "skillshare/internal/resources/rules"
 	"skillshare/internal/sync"
 	"skillshare/internal/ui"
@@ -30,9 +27,73 @@ type managedSyncResult struct {
 	pruned   []string
 }
 
+func toManagedTargets(entries []syncTargetEntry) []managed.TargetSyncSpec {
+	specs := make([]managed.TargetSyncSpec, 0, len(entries))
+	for _, entry := range entries {
+		specs = append(specs, managed.TargetSyncSpec{
+			Name:   entry.name,
+			Target: entry.target,
+		})
+	}
+	return specs
+}
+
 func syncManagedResourcesForEntries(entries []syncTargetEntry, results []syncTargetResult, resources resourceSelection, projectRoot string, dryRun bool) ([]syncTargetResult, int) {
 	if len(results) == 0 {
 		results = make([]syncTargetResult, len(entries))
+	}
+
+	indexByName := make(map[string]int, len(entries))
+	for i, entry := range entries {
+		indexByName[entry.name] = i
+	}
+
+	rows := managed.Sync(managed.SyncRequest{
+		ProjectRoot: projectRoot,
+		DryRun:      dryRun,
+		Resources: managed.ResourceSet{
+			Rules: resources.rules,
+			Hooks: resources.hooks,
+		},
+		Targets: toManagedTargets(entries),
+	})
+
+	linesByTarget := make(map[string][]string, len(entries))
+	errorsByTarget := make(map[string][]string, len(entries))
+	for _, row := range rows {
+		idx, ok := indexByName[row.Target]
+		if !ok {
+			continue
+		}
+
+		result := results[idx]
+		if result.name == "" {
+			entry := entries[idx]
+			result = syncTargetResult{
+				name:    entry.name,
+				mode:    entry.mode,
+				include: entry.target.Include,
+				exclude: entry.target.Exclude,
+			}
+		}
+
+		if row.Err != nil {
+			errorsByTarget[row.Target] = append(errorsByTarget[row.Target], row.Err.Error())
+			results[idx] = result
+			continue
+		}
+
+		result.stats.updated += len(row.Updated)
+		result.stats.pruned += len(row.Pruned)
+		if line := managedSyncLine(managedSyncResult{
+			resource: row.Resource,
+			updated:  row.Updated,
+			skipped:  row.Skipped,
+			pruned:   row.Pruned,
+		}); line != "" {
+			linesByTarget[row.Target] = append(linesByTarget[row.Target], line)
+		}
+		results[idx] = result
 	}
 
 	failed := 0
@@ -49,24 +110,8 @@ func syncManagedResourcesForEntries(entries []syncTargetEntry, results []syncTar
 		hadPriorError := result.errMsg != ""
 		priorError := result.errMsg
 
-		lines := make([]string, 0, 2)
-		errorsByResource := make([]string, 0, 2)
-		if resources.rules {
-			ruleResult, err := syncManagedRulesForTarget(entry.name, entry.target, projectRoot, dryRun)
-			if err != nil {
-				errorsByResource = append(errorsByResource, err.Error())
-			} else {
-				accumulateManagedSyncResult(&result, &lines, ruleResult)
-			}
-		}
-		if resources.hooks {
-			hookResult, err := syncManagedHooksForTarget(entry.name, entry.target, projectRoot, dryRun)
-			if err != nil {
-				errorsByResource = append(errorsByResource, err.Error())
-			} else {
-				accumulateManagedSyncResult(&result, &lines, hookResult)
-			}
-		}
+		lines := linesByTarget[entry.name]
+		errorsByResource := errorsByTarget[entry.name]
 
 		if len(errorsByResource) > 0 {
 			managedError := strings.Join(errorsByResource, "; ")
@@ -119,76 +164,6 @@ func managedSyncLine(result managedSyncResult) string {
 		return result.resource + ": no changes"
 	}
 	return result.resource + ": " + strings.Join(parts, ", ")
-}
-
-func syncManagedRulesForTarget(name string, target config.TargetConfig, projectRoot string, dryRun bool) (managedSyncResult, error) {
-	result := managedSyncResult{resource: "rules"}
-
-	compileTarget, compileRoot, ok := resolveManagedRuleTarget(name, target, projectRoot)
-	if !ok {
-		return result, nil
-	}
-
-	store := managedrules.NewStore(projectRoot)
-	records, err := store.List()
-	if err != nil {
-		return result, fmt.Errorf("list managed rules: %w", err)
-	}
-
-	files, _, err := managedrules.CompileTarget(records, compileTarget, compileRoot)
-	if err != nil {
-		if errors.Is(err, managedrules.ErrUnsupportedTarget) {
-			return result, nil
-		}
-		return result, fmt.Errorf("compile managed rules: %w", err)
-	}
-
-	updated, skipped, err := apply.CompiledFiles(files, dryRun)
-	if err != nil {
-		return result, fmt.Errorf("apply managed rules: %w", err)
-	}
-	pruned, err := pruneManagedRuleOrphans(compileTarget, compileRoot, files, dryRun)
-	if err != nil {
-		return result, fmt.Errorf("prune managed rules: %w", err)
-	}
-
-	result.updated = updated
-	result.skipped = skipped
-	result.pruned = pruned
-	return result, nil
-}
-
-func syncManagedHooksForTarget(name string, target config.TargetConfig, projectRoot string, dryRun bool) (managedSyncResult, error) {
-	result := managedSyncResult{resource: "hooks"}
-
-	compileTarget, compileRoot, ok := resolveManagedHookTarget(name, target, projectRoot)
-	if !ok {
-		return result, nil
-	}
-
-	store := managedhooks.NewStore(projectRoot)
-	records, err := store.List()
-	if err != nil {
-		return result, fmt.Errorf("list managed hooks: %w", err)
-	}
-
-	rawConfig, err := loadManagedHookRawConfig(compileTarget, compileRoot)
-	if err != nil {
-		return result, fmt.Errorf("load managed hook config: %w", err)
-	}
-	files, _, err := managedhooks.CompileTarget(records, compileTarget, compileRoot, rawConfig)
-	if err != nil {
-		return result, fmt.Errorf("compile managed hooks: %w", err)
-	}
-
-	updated, skipped, err := apply.CompiledFiles(files, dryRun)
-	if err != nil {
-		return result, fmt.Errorf("apply managed hooks: %w", err)
-	}
-
-	result.updated = updated
-	result.skipped = skipped
-	return result, nil
 }
 
 func executeManagedCollect(projectRoot string, resources resourceSelection, dryRun, force bool) error {
@@ -283,16 +258,24 @@ func collectManagedRules(projectRoot string, dryRun, force bool) (*sync.PullResu
 	}
 
 	if dryRun {
-		return previewManagedRuleCollect(projectRoot, collectible, force)
+		preview, err := managed.PreviewCollectRules(projectRoot, collectible, force)
+		if err != nil {
+			return nil, err
+		}
+		return &sync.PullResult{
+			Pulled:  append([]string{}, preview.Pulled...),
+			Skipped: append([]string{}, preview.Skipped...),
+			Failed:  make(map[string]error),
+		}, nil
 	}
 
 	strategy := managedrules.StrategySkip
 	if force {
 		strategy = managedrules.StrategyOverwrite
 	}
-	collected, err := managedrules.Collect(projectRoot, collectible, managedrules.CollectOptions{Strategy: strategy})
+	collected, err := managed.CollectRules(projectRoot, collectible, strategy)
 	if err != nil {
-		return nil, fmt.Errorf("collect managed rules: %w", err)
+		return nil, err
 	}
 	return &sync.PullResult{
 		Pulled:  append(append([]string{}, collected.Created...), collected.Overwritten...),
@@ -318,187 +301,30 @@ func collectManagedHooks(projectRoot string, dryRun, force bool) (*sync.PullResu
 	}
 
 	if dryRun {
-		return previewManagedHookCollect(projectRoot, collectible, force)
+		preview, err := managed.PreviewCollectHooks(projectRoot, collectible, force)
+		if err != nil {
+			return nil, err
+		}
+		return &sync.PullResult{
+			Pulled:  append([]string{}, preview.Pulled...),
+			Skipped: append([]string{}, preview.Skipped...),
+			Failed:  make(map[string]error),
+		}, nil
 	}
 
 	strategy := managedhooks.StrategySkip
 	if force {
 		strategy = managedhooks.StrategyOverwrite
 	}
-	collected, err := managedhooks.Collect(projectRoot, collectible, managedhooks.CollectOptions{Strategy: strategy})
+	collected, err := managed.CollectHooks(projectRoot, collectible, strategy)
 	if err != nil {
-		return nil, fmt.Errorf("collect managed hooks: %w", err)
+		return nil, err
 	}
 	return &sync.PullResult{
 		Pulled:  append(append([]string{}, collected.Created...), collected.Overwritten...),
 		Skipped: append([]string{}, collected.Skipped...),
 		Failed:  make(map[string]error),
 	}, nil
-}
-
-func previewManagedRuleCollect(projectRoot string, items []inspect.RuleItem, force bool) (*sync.PullResult, error) {
-	store := managedrules.NewStore(projectRoot)
-	existing, err := store.List()
-	if err != nil {
-		return nil, err
-	}
-
-	taken := make(map[string]struct{}, len(existing))
-	for _, record := range existing {
-		taken[record.ID] = struct{}{}
-	}
-
-	result := &sync.PullResult{Failed: make(map[string]error)}
-	seen := make(map[string]string)
-	for _, item := range items {
-		id, err := managedRuleCollectID(item)
-		if err != nil {
-			return nil, err
-		}
-		if prior, ok := seen[id]; ok && prior != item.Path {
-			return nil, fmt.Errorf("collect managed rules: cannot collect %s and %s: canonical managed id %q collides", prior, item.Path, id)
-		}
-		seen[id] = item.Path
-
-		if _, exists := taken[id]; exists && !force {
-			result.Skipped = append(result.Skipped, id)
-			continue
-		}
-		result.Pulled = append(result.Pulled, id)
-		taken[id] = struct{}{}
-	}
-	return result, nil
-}
-
-func previewManagedHookCollect(projectRoot string, items []inspect.HookItem, force bool) (*sync.PullResult, error) {
-	store := managedhooks.NewStore(projectRoot)
-	existing, err := store.List()
-	if err != nil {
-		return nil, err
-	}
-
-	taken := make(map[string]struct{}, len(existing))
-	for _, record := range existing {
-		taken[record.ID] = struct{}{}
-	}
-
-	result := &sync.PullResult{Failed: make(map[string]error)}
-	groups, err := groupCollectibleHooks(items)
-	if err != nil {
-		return nil, err
-	}
-	seen := make(map[string]string)
-	for _, group := range groups {
-		id, err := managedHookCollectID(group.Tool, group.Event, group.Matcher)
-		if err != nil {
-			return nil, err
-		}
-		if prior, ok := seen[id]; ok && prior != group.GroupID {
-			return nil, fmt.Errorf("collect managed hooks: cannot collect %s and %s: canonical managed id %q collides", prior, group.GroupID, id)
-		}
-		seen[id] = group.GroupID
-
-		if _, exists := taken[id]; exists && !force {
-			result.Skipped = append(result.Skipped, id)
-			continue
-		}
-		result.Pulled = append(result.Pulled, id)
-		taken[id] = struct{}{}
-	}
-	return result, nil
-}
-
-type collectibleHookGroup struct {
-	GroupID string
-	Tool    string
-	Event   string
-	Matcher string
-}
-
-func groupCollectibleHooks(items []inspect.HookItem) ([]collectibleHookGroup, error) {
-	groupMap := make(map[string]collectibleHookGroup)
-	order := make([]string, 0, len(items))
-	for _, item := range items {
-		groupID := strings.TrimSpace(item.GroupID)
-		if groupID == "" {
-			return nil, fmt.Errorf("collect managed hooks: cannot collect hook with empty group id")
-		}
-		group, exists := groupMap[groupID]
-		if !exists {
-			groupMap[groupID] = collectibleHookGroup{
-				GroupID: groupID,
-				Tool:    strings.TrimSpace(item.SourceTool),
-				Event:   strings.TrimSpace(item.Event),
-				Matcher: strings.TrimSpace(item.Matcher),
-			}
-			order = append(order, groupID)
-			continue
-		}
-		if group.Tool != strings.TrimSpace(item.SourceTool) || group.Event != strings.TrimSpace(item.Event) || group.Matcher != strings.TrimSpace(item.Matcher) {
-			return nil, fmt.Errorf("collect managed hooks: cannot collect %s: hook items disagree on source tool, event, or matcher", groupID)
-		}
-	}
-
-	groups := make([]collectibleHookGroup, 0, len(order))
-	for _, groupID := range order {
-		groups = append(groups, groupMap[groupID])
-	}
-	return groups, nil
-}
-
-func managedRuleCollectID(item inspect.RuleItem) (string, error) {
-	tool := strings.ToLower(strings.TrimSpace(item.SourceTool))
-	if tool == "" {
-		return "", fmt.Errorf("collect managed rules: cannot collect %s: missing source tool", item.Path)
-	}
-
-	p := filepath.ToSlash(strings.TrimSpace(item.Path))
-	base := path.Base(p)
-
-	switch tool {
-	case "claude":
-		if rel, ok := relativeAfterSegment(p, "/.claude/rules/"); ok {
-			return "claude/" + rel, nil
-		}
-		if strings.EqualFold(base, "CLAUDE.md") {
-			return "claude/CLAUDE.md", nil
-		}
-	case "codex":
-		if rel, ok := relativeAfterSegment(p, "/.codex/rules/"); ok {
-			return "codex/" + rel, nil
-		}
-		if strings.EqualFold(base, "AGENTS.md") {
-			return "codex/AGENTS.md", nil
-		}
-	case "gemini":
-		if rel, ok := relativeAfterSegment(p, "/.gemini/rules/"); ok {
-			return "gemini/" + rel, nil
-		}
-		if strings.EqualFold(base, "GEMINI.md") {
-			return "gemini/GEMINI.md", nil
-		}
-	}
-
-	if base == "." || base == "/" || strings.TrimSpace(base) == "" {
-		return "", fmt.Errorf("collect managed rules: cannot collect %s: invalid rule filename", item.Path)
-	}
-	return tool + "/" + base, nil
-}
-
-func managedHookCollectID(tool, event, matcher string) (string, error) {
-	cleanTool := sanitizeHookPathSegment(tool)
-	cleanEvent := sanitizeHookPathSegment(event)
-	cleanMatcher := matcherIdentitySegment(matcher)
-	if cleanTool == "" {
-		return "", fmt.Errorf("collect managed hooks: cannot collect hook: missing tool")
-	}
-	if cleanEvent == "" {
-		return "", fmt.Errorf("collect managed hooks: cannot collect hook: missing event")
-	}
-	if cleanMatcher == "" {
-		return "", fmt.Errorf("collect managed hooks: cannot collect hook: missing matcher")
-	}
-	return path.Join(cleanTool, cleanEvent, cleanMatcher+".yaml"), nil
 }
 
 func resolveManagedRuleTarget(name string, target config.TargetConfig, projectRoot string) (string, string, bool) {
@@ -1005,62 +831,4 @@ func pathWithinDir(path, dir string) bool {
 		return false
 	}
 	return rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
-}
-
-func relativeAfterSegment(p string, segment string) (string, bool) {
-	lowerPath := strings.ToLower(p)
-	lowerSegment := strings.ToLower(segment)
-	idx := strings.Index(lowerPath, lowerSegment)
-	if idx < 0 {
-		return "", false
-	}
-	rel := p[idx+len(segment):]
-	if strings.TrimSpace(rel) == "" {
-		return "", false
-	}
-	rel = path.Clean(rel)
-	if rel == "." || strings.HasPrefix(rel, "../") || strings.HasPrefix(rel, "/") {
-		return "", false
-	}
-	return rel, true
-}
-
-func matcherIdentitySegment(matcher string) string {
-	raw := strings.TrimSpace(matcher)
-	slug := sanitizeHookPathSegment(raw)
-	if slug == "" {
-		slug = "matcher"
-	}
-	sum := sha256.Sum256([]byte(raw))
-	return slug + "-" + hex.EncodeToString(sum[:6])
-}
-
-func sanitizeHookPathSegment(value string) string {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-
-	var b strings.Builder
-	needDash := false
-	for i, r := range value {
-		switch {
-		case r >= 'A' && r <= 'Z':
-			if i > 0 && !needDash {
-				b.WriteByte('-')
-			}
-			b.WriteByte(byte(r + ('a' - 'A')))
-			needDash = false
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
-			b.WriteRune(r)
-			needDash = false
-		default:
-			if !needDash {
-				b.WriteByte('-')
-				needDash = true
-			}
-		}
-	}
-
-	return strings.Trim(b.String(), "-")
 }

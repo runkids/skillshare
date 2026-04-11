@@ -102,6 +102,31 @@ func TestCmdSync_AllRendersManagedResourceOutput(t *testing.T) {
 	}
 }
 
+func TestCmdSync_ManagedOnlyDoesNotRequireSkillsSource(t *testing.T) {
+	home := setupGlobalResourceTestEnv(t)
+
+	cfg := &config.Config{
+		Source: filepath.Join(t.TempDir(), "missing-source"),
+		Targets: map[string]config.TargetConfig{
+			"claude": {Path: filepath.Join(home, ".claude", "skills")},
+		},
+	}
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	putManagedRule(t, "", "claude/manual.md", "# Managed rule\n")
+	putManagedHook(t, "", "claude/pre-tool-use/bash.yaml", "./bin/check")
+
+	resetModeLabel(t)
+	if err := cmdSync([]string{"--resources", "rules,hooks"}); err != nil {
+		t.Fatalf("cmdSync(--resources rules,hooks) error = %v", err)
+	}
+
+	mustExist(t, filepath.Join(home, ".claude", "rules", "manual.md"))
+	mustExist(t, filepath.Join(home, ".claude", "settings.json"))
+}
+
 func TestCmdSync_ManagedRulesFailureStillAttemptsHooks(t *testing.T) {
 	home := setupGlobalResourceTestEnv(t)
 	cfg := &config.Config{
