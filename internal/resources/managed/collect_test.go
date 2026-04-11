@@ -102,6 +102,37 @@ func TestPreviewCollectRules(t *testing.T) {
 			t.Fatal("PreviewCollectRules() error = nil, want canonical collision failure")
 		}
 	})
+
+	t.Run("rejects non collectible rules like collect", func(t *testing.T) {
+		discovered := []inspect.RuleItem{
+			{
+				SourceTool:  "claude",
+				Collectible: true,
+				Path:        filepath.Join(projectRoot, ".claude", "rules", "backend.md"),
+				Content:     "# Backend\n",
+			},
+			{
+				SourceTool:    "claude",
+				Collectible:   false,
+				CollectReason: "blocked by policy",
+				Path:          filepath.Join(projectRoot, ".claude", "rules", "blocked.md"),
+				Content:       "# Blocked\n",
+			},
+		}
+
+		previewResult, previewErr := PreviewCollectRules(projectRoot, discovered, true)
+		if previewErr == nil {
+			t.Fatalf("PreviewCollectRules() error = nil, want non-collectible failure; result=%#v", previewResult)
+		}
+
+		collectResult, collectErr := CollectRules(projectRoot, discovered, managedrules.StrategyOverwrite)
+		if collectErr == nil {
+			t.Fatalf("CollectRules() error = nil, want non-collectible failure; result=%#v", collectResult)
+		}
+		if previewErr.Error() != collectErr.Error() {
+			t.Fatalf("preview error = %q, collect error = %q, want parity", previewErr.Error(), collectErr.Error())
+		}
+	})
 }
 
 func TestPreviewCollectHooks(t *testing.T) {
@@ -155,6 +186,72 @@ func TestPreviewCollectHooks(t *testing.T) {
 	if !containsString(forced.Pulled, existingID) {
 		t.Fatalf("PreviewCollectHooks(force) pulled = %v, want %q", forced.Pulled, existingID)
 	}
+
+	t.Run("rejects invalid hook grouping like collect", func(t *testing.T) {
+		discovered := []inspect.HookItem{
+			{
+				GroupID:     "group-mismatch",
+				SourceTool:  "claude",
+				Collectible: true,
+				Event:       "PreToolUse",
+				Matcher:     "Edit",
+				ActionType:  "command",
+				Command:     "./first",
+				Path:        filepath.Join(projectRoot, ".claude", "settings.json"),
+			},
+			{
+				GroupID:     "group-mismatch",
+				SourceTool:  "claude",
+				Collectible: true,
+				Event:       "PreToolUse",
+				Matcher:     "Bash",
+				ActionType:  "command",
+				Command:     "./second",
+				Path:        filepath.Join(projectRoot, ".claude", "settings.json"),
+			},
+		}
+
+		previewResult, previewErr := PreviewCollectHooks(projectRoot, discovered, true)
+		if previewErr == nil {
+			t.Fatalf("PreviewCollectHooks() error = nil, want grouping failure; result=%#v", previewResult)
+		}
+
+		collectResult, collectErr := CollectHooks(projectRoot, discovered, managedhooks.StrategyOverwrite)
+		if collectErr == nil {
+			t.Fatalf("CollectHooks() error = nil, want grouping failure; result=%#v", collectResult)
+		}
+		if previewErr.Error() != collectErr.Error() {
+			t.Fatalf("preview error = %q, collect error = %q, want parity", previewErr.Error(), collectErr.Error())
+		}
+	})
+
+	t.Run("rejects missing matcher for non codex groups like collect", func(t *testing.T) {
+		discovered := []inspect.HookItem{
+			{
+				GroupID:     "group-missing-matcher",
+				SourceTool:  "claude",
+				Collectible: true,
+				Event:       "PreToolUse",
+				Matcher:     "",
+				ActionType:  "command",
+				Command:     "./missing-matcher",
+				Path:        filepath.Join(projectRoot, ".claude", "settings.json"),
+			},
+		}
+
+		previewResult, previewErr := PreviewCollectHooks(projectRoot, discovered, true)
+		if previewErr == nil {
+			t.Fatalf("PreviewCollectHooks() error = nil, want missing matcher failure; result=%#v", previewResult)
+		}
+
+		collectResult, collectErr := CollectHooks(projectRoot, discovered, managedhooks.StrategyOverwrite)
+		if collectErr == nil {
+			t.Fatalf("CollectHooks() error = nil, want missing matcher failure; result=%#v", collectResult)
+		}
+		if previewErr.Error() != collectErr.Error() {
+			t.Fatalf("preview error = %q, collect error = %q, want parity", previewErr.Error(), collectErr.Error())
+		}
+	})
 }
 
 func TestCollectRules(t *testing.T) {

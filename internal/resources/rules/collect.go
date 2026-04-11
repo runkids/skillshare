@@ -34,17 +34,24 @@ type collectAppliedWrite struct {
 	priorContent    []byte
 }
 
+type plannedWrite struct {
+	id      string
+	content []byte
+}
+
+type collectPlan struct {
+	result CollectResult
+	writes []plannedWrite
+}
+
 func invalidCollectf(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrInvalidCollect, fmt.Sprintf(format, args...))
 }
 
-// Collect imports discovered rule files into managed rules storage.
-func Collect(projectRoot string, discovered []inspect.RuleItem, opts CollectOptions) (CollectResult, error) {
+// PreviewCollect validates discovered rules and reports what Collect would do.
+func PreviewCollect(projectRoot string, discovered []inspect.RuleItem, opts CollectOptions) (CollectResult, error) {
 	strategy, err := normalizeStrategy(opts.Strategy)
 	if err != nil {
-		return CollectResult{}, err
-	}
-	if err := rejectCanonicalManagedIDCollisions(discovered); err != nil {
 		return CollectResult{}, err
 	}
 
@@ -54,68 +61,38 @@ func Collect(projectRoot string, discovered []inspect.RuleItem, opts CollectOpti
 		return CollectResult{}, err
 	}
 
-	takenIDs := make(map[string]bool, len(existing)+len(discovered))
-	for _, record := range existing {
-		takenIDs[record.ID] = true
+	plan, err := planCollect(existing, discovered, strategy)
+	if err != nil {
+		return CollectResult{}, err
+	}
+	return plan.result, nil
+}
+
+// Collect imports discovered rule files into managed rules storage.
+func Collect(projectRoot string, discovered []inspect.RuleItem, opts CollectOptions) (CollectResult, error) {
+	strategy, err := normalizeStrategy(opts.Strategy)
+	if err != nil {
+		return CollectResult{}, err
 	}
 
-	type plannedWrite struct {
-		id      string
-		content []byte
-	}
-	plannedWrites := make([]plannedWrite, 0, len(discovered))
-	result := CollectResult{}
-
-	for _, item := range discovered {
-		if !item.Collectible {
-			reason := strings.TrimSpace(item.CollectReason)
-			if reason == "" {
-				reason = "rule is not collectible"
-			}
-			return CollectResult{}, invalidCollectf("cannot collect %s: %s", item.Path, reason)
-		}
-
-		id, err := managedIDForDiscoveredRule(item)
-		if err != nil {
-			return CollectResult{}, err
-		}
-		exists := takenIDs[id]
-
-		switch {
-		case !exists:
-			plannedWrites = append(plannedWrites, plannedWrite{
-				id:      id,
-				content: []byte(item.Content),
-			})
-			takenIDs[id] = true
-			result.Created = append(result.Created, id)
-		case strategy == StrategySkip:
-			result.Skipped = append(result.Skipped, id)
-		case strategy == StrategyOverwrite:
-			plannedWrites = append(plannedWrites, plannedWrite{
-				id:      id,
-				content: []byte(item.Content),
-			})
-			takenIDs[id] = true
-			result.Overwritten = append(result.Overwritten, id)
-		case strategy == StrategyDuplicate:
-			duplicateID := nextDuplicateIDFromTaken(takenIDs, id)
-			plannedWrites = append(plannedWrites, plannedWrite{
-				id:      duplicateID,
-				content: []byte(item.Content),
-			})
-			takenIDs[duplicateID] = true
-			result.Created = append(result.Created, duplicateID)
-		}
+	store := NewStore(projectRoot)
+	existing, err := store.List()
+	if err != nil {
+		return CollectResult{}, err
 	}
 
-	currentContent := make(map[string][]byte, len(existing)+len(plannedWrites))
+	plan, err := planCollect(existing, discovered, strategy)
+	if err != nil {
+		return CollectResult{}, err
+	}
+
+	currentContent := make(map[string][]byte, len(existing)+len(plan.writes))
 	for _, record := range existing {
 		currentContent[record.ID] = append([]byte(nil), record.Content...)
 	}
 
-	applied := make([]collectAppliedWrite, 0, len(plannedWrites))
-	for _, write := range plannedWrites {
+	applied := make([]collectAppliedWrite, 0, len(plan.writes))
+	for _, write := range plan.writes {
 		prior, hadPrior := currentContent[write.id]
 		applied = append(applied, collectAppliedWrite{
 			id:              write.id,
@@ -133,7 +110,68 @@ func Collect(projectRoot string, discovered []inspect.RuleItem, opts CollectOpti
 		currentContent[write.id] = append([]byte(nil), write.content...)
 	}
 
-	return result, nil
+	return plan.result, nil
+}
+
+func planCollect(existing []Record, discovered []inspect.RuleItem, strategy Strategy) (collectPlan, error) {
+	if err := rejectCanonicalManagedIDCollisions(discovered); err != nil {
+		return collectPlan{}, err
+	}
+
+	takenIDs := make(map[string]bool, len(existing)+len(discovered))
+	for _, record := range existing {
+		takenIDs[record.ID] = true
+	}
+
+	plan := collectPlan{
+		result: CollectResult{},
+		writes: make([]plannedWrite, 0, len(discovered)),
+	}
+
+	for _, item := range discovered {
+		if !item.Collectible {
+			reason := strings.TrimSpace(item.CollectReason)
+			if reason == "" {
+				reason = "rule is not collectible"
+			}
+			return collectPlan{}, invalidCollectf("cannot collect %s: %s", item.Path, reason)
+		}
+
+		id, err := managedIDForDiscoveredRule(item)
+		if err != nil {
+			return collectPlan{}, err
+		}
+		exists := takenIDs[id]
+
+		switch {
+		case !exists:
+			plan.writes = append(plan.writes, plannedWrite{
+				id:      id,
+				content: []byte(item.Content),
+			})
+			takenIDs[id] = true
+			plan.result.Created = append(plan.result.Created, id)
+		case strategy == StrategySkip:
+			plan.result.Skipped = append(plan.result.Skipped, id)
+		case strategy == StrategyOverwrite:
+			plan.writes = append(plan.writes, plannedWrite{
+				id:      id,
+				content: []byte(item.Content),
+			})
+			takenIDs[id] = true
+			plan.result.Overwritten = append(plan.result.Overwritten, id)
+		case strategy == StrategyDuplicate:
+			duplicateID := nextDuplicateIDFromTaken(takenIDs, id)
+			plan.writes = append(plan.writes, plannedWrite{
+				id:      duplicateID,
+				content: []byte(item.Content),
+			})
+			takenIDs[duplicateID] = true
+			plan.result.Created = append(plan.result.Created, duplicateID)
+		}
+	}
+
+	return plan, nil
 }
 
 func rejectCanonicalManagedIDCollisions(discovered []inspect.RuleItem) error {
@@ -210,6 +248,11 @@ func nextDuplicateIDFromTaken(taken map[string]bool, id string) string {
 			return candidate
 		}
 	}
+}
+
+// ManagedIDForDiscoveredRule returns the canonical managed rule ID for one discovered rule.
+func ManagedIDForDiscoveredRule(item inspect.RuleItem) (string, error) {
+	return managedIDForDiscoveredRule(item)
 }
 
 func managedIDForDiscoveredRule(item inspect.RuleItem) (string, error) {

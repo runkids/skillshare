@@ -48,6 +48,31 @@ type collectAppliedWrite struct {
 	priorRecord Record
 }
 
+type collectPlan struct {
+	result CollectResult
+	writes []Save
+}
+
+// PreviewCollect validates discovered hooks and reports what Collect would do.
+func PreviewCollect(projectRoot string, discovered []inspect.HookItem, opts CollectOptions) (CollectResult, error) {
+	strategy, err := normalizeStrategy(opts.Strategy)
+	if err != nil {
+		return CollectResult{}, err
+	}
+
+	store := NewStore(projectRoot)
+	existing, err := store.List()
+	if err != nil {
+		return CollectResult{}, err
+	}
+
+	plan, err := planCollect(existing, discovered, strategy)
+	if err != nil {
+		return CollectResult{}, err
+	}
+	return plan.result, nil
+}
+
 // Collect imports discovered hook files into managed hook storage.
 func Collect(projectRoot string, discovered []inspect.HookItem, opts CollectOptions) (CollectResult, error) {
 	strategy, err := normalizeStrategy(opts.Strategy)
@@ -61,66 +86,18 @@ func Collect(projectRoot string, discovered []inspect.HookItem, opts CollectOpti
 		return CollectResult{}, err
 	}
 
-	takenIDs := make(map[string]bool, len(existing)+len(discovered))
 	existingByID := make(map[string]Record, len(existing))
 	for _, record := range existing {
-		takenIDs[record.ID] = true
 		existingByID[record.ID] = record
 	}
 
-	groups, err := groupInspectHooks(discovered)
+	plan, err := planCollect(existing, discovered, strategy)
 	if err != nil {
 		return CollectResult{}, err
 	}
-	if err := rejectCanonicalIDCollisions(groups); err != nil {
-		return CollectResult{}, err
-	}
-	result := CollectResult{}
-	plannedWrites := make([]Save, 0, len(groups))
-	for _, group := range groups {
-		if !group.Collectible {
-			reason := strings.TrimSpace(group.CollectReason)
-			if reason == "" {
-				reason = "hook group is not collectible"
-			}
-			return CollectResult{}, fmt.Errorf("cannot collect %s: %s", group.GroupID, reason)
-		}
 
-		id, err := canonicalRelativePath(group.SourceTool, group.Event, group.Matcher)
-		if err != nil {
-			return CollectResult{}, err
-		}
-
-		save := Save{
-			ID:       id,
-			Tool:     strings.ToLower(strings.TrimSpace(group.SourceTool)),
-			Event:    strings.TrimSpace(group.Event),
-			Matcher:  strings.TrimSpace(group.Matcher),
-			Handlers: handlersFromInspectHooks(sortedHookItems(group.Items)),
-		}
-
-		exists := takenIDs[id]
-		switch {
-		case !exists:
-			plannedWrites = append(plannedWrites, save)
-			takenIDs[id] = true
-			result.Created = append(result.Created, id)
-		case strategy == StrategySkip:
-			result.Skipped = append(result.Skipped, id)
-		case strategy == StrategyOverwrite:
-			plannedWrites = append(plannedWrites, save)
-			result.Overwritten = append(result.Overwritten, id)
-		case strategy == StrategyDuplicate:
-			duplicateID := nextDuplicateIDFromTaken(takenIDs, id)
-			save.ID = duplicateID
-			plannedWrites = append(plannedWrites, save)
-			takenIDs[duplicateID] = true
-			result.Created = append(result.Created, duplicateID)
-		}
-	}
-
-	applied := make([]collectAppliedWrite, 0, len(plannedWrites))
-	for _, write := range plannedWrites {
+	applied := make([]collectAppliedWrite, 0, len(plan.writes))
+	for _, write := range plan.writes {
 		prior, hadPrior := existingByID[write.ID]
 		applied = append(applied, collectAppliedWrite{
 			id:          write.ID,
@@ -145,7 +122,70 @@ func Collect(projectRoot string, discovered []inspect.HookItem, opts CollectOpti
 		}
 	}
 
-	return result, nil
+	return plan.result, nil
+}
+
+func planCollect(existing []Record, discovered []inspect.HookItem, strategy Strategy) (collectPlan, error) {
+	takenIDs := make(map[string]bool, len(existing)+len(discovered))
+	for _, record := range existing {
+		takenIDs[record.ID] = true
+	}
+
+	groups, err := groupInspectHooks(discovered)
+	if err != nil {
+		return collectPlan{}, err
+	}
+	if err := rejectCanonicalIDCollisions(groups); err != nil {
+		return collectPlan{}, err
+	}
+
+	plan := collectPlan{
+		result: CollectResult{},
+		writes: make([]Save, 0, len(groups)),
+	}
+	for _, group := range groups {
+		if !group.Collectible {
+			reason := strings.TrimSpace(group.CollectReason)
+			if reason == "" {
+				reason = "hook group is not collectible"
+			}
+			return collectPlan{}, fmt.Errorf("cannot collect %s: %s", group.GroupID, reason)
+		}
+
+		id, err := canonicalRelativePath(group.SourceTool, group.Event, group.Matcher)
+		if err != nil {
+			return collectPlan{}, err
+		}
+
+		save := Save{
+			ID:       id,
+			Tool:     strings.ToLower(strings.TrimSpace(group.SourceTool)),
+			Event:    strings.TrimSpace(group.Event),
+			Matcher:  strings.TrimSpace(group.Matcher),
+			Handlers: handlersFromInspectHooks(sortedHookItems(group.Items)),
+		}
+
+		exists := takenIDs[id]
+		switch {
+		case !exists:
+			plan.writes = append(plan.writes, save)
+			takenIDs[id] = true
+			plan.result.Created = append(plan.result.Created, id)
+		case strategy == StrategySkip:
+			plan.result.Skipped = append(plan.result.Skipped, id)
+		case strategy == StrategyOverwrite:
+			plan.writes = append(plan.writes, save)
+			plan.result.Overwritten = append(plan.result.Overwritten, id)
+		case strategy == StrategyDuplicate:
+			duplicateID := nextDuplicateIDFromTaken(takenIDs, id)
+			save.ID = duplicateID
+			plan.writes = append(plan.writes, save)
+			takenIDs[duplicateID] = true
+			plan.result.Created = append(plan.result.Created, duplicateID)
+		}
+	}
+
+	return plan, nil
 }
 
 func groupInspectHooks(discovered []inspect.HookItem) ([]collectedHookGroup, error) {
