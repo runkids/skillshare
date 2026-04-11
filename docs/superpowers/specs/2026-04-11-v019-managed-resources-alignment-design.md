@@ -15,7 +15,9 @@ The refactor has two goals:
 The result is not a full rewrite of Skillshare sync and collect. Instead, it is a targeted refactor that:
 
 - keeps `v0.19.0`'s existing skills and agents architecture intact
+- keeps the existing separation between skills sync and agents sync intact
 - makes `/resources` the primary management surface for `skills`, `agents`, `rules`, and `hooks`
+- adds `rules` and `hooks` into that architecture as a dedicated managed-resource subsystem
 - extracts shared managed-resource orchestration so CLI and server entrypoints stop re-implementing the same `rules` and `hooks` sync and collect flows
 
 ## Problem
@@ -53,6 +55,7 @@ The logic is currently correct enough to use, but the same orchestration concept
 ## Goals
 
 - Preserve `v0.19.0` architecture decisions rather than replacing them.
+- Preserve the existing `v0.19.0` split between skills sync and agents sync.
 - Make `/resources` the single management surface for `skills`, `agents`, `rules`, and `hooks`.
 - Remove `Rules` and `Hooks` as primary sidebar destinations.
 - Keep existing managed rule and hook editing pages working.
@@ -63,6 +66,7 @@ The logic is currently correct enough to use, but the same orchestration concept
 ## Non-Goals
 
 - No rewrite of the core skills or agents sync architecture introduced in `v0.19.0`.
+- No new generic sync or collect engine spanning skills, agents, rules, hooks, and extras.
 - No attempt to unify every syncable thing in Skillshare into a single global planner.
 - No new markdown editing experience for `SKILL.md` or other files in this branch.
   That work exists on a separate branch and is explicitly out of scope here.
@@ -83,6 +87,16 @@ The refactor should remove duplicated orchestration and duplicated page shells t
 
 CLI commands and HTTP handlers should validate inputs, call shared orchestration code, and format outputs. They should not own compile/apply/scan/prune workflows directly.
 
+### Match existing subsystem boundaries
+
+`v0.19.0` already treats skills and agents as separate sync subsystems under a shared product surface. This refactor should follow that pattern.
+
+`rules` and `hooks` should be added the same way:
+
+- shared product entrypoint
+- dedicated internal orchestration for their own behavior
+- no forced merger with the skills or agents engines
+
 ## Current-State Assessment
 
 ### UI
@@ -96,9 +110,16 @@ CLI commands and HTTP handlers should validate inputs, call shared orchestration
 
 - CLI sync and server sync each run managed `rules` and `hooks` through similar but separate target loops.
 - CLI collect and server collect each reconstruct managed collect behavior separately.
+- `v0.19.0` already keeps skills sync and agents sync on separate orchestration paths.
 - Managed resource compilation and application already rely on lower-level packages such as `internal/resources/rules`, `internal/resources/hooks`, and `internal/resources/apply`. Those lower-level packages should remain the foundation.
 
 The missing layer is a shared managed-resource orchestration package that sits above the low-level resource packages and below the CLI/server entrypoints.
+
+This layer should mirror the existing architectural pattern rather than replace it:
+
+- skills remain on the existing skills sync path
+- agents remain on the existing agents sync path
+- rules and hooks gain a dedicated managed-resource path
 
 ## 1. UI Surface Alignment
 
@@ -190,12 +211,16 @@ The shared managed orchestration layer should provide:
 The shared layer should not:
 
 - replace the lower-level `managedrules` and `managedhooks` packages
+- replace the existing skills sync path
+- replace the existing agents sync path
 - take ownership of skills or agents sync
 - become responsible for HTTP concerns or terminal rendering
 
 ## 3. Managed Sync Design
 
 Managed sync remains a separate concern from skills and agents sync, but uses one shared executor underneath both CLI and server callers.
+
+This is intentionally analogous to how agents already have a dedicated sync path in `v0.19.0`, rather than being folded into the skills implementation.
 
 ### Shared sync input
 
@@ -241,6 +266,12 @@ They should instead:
 - prepare target entries and context
 - call the shared managed sync executor
 - format CLI summary lines and JSON output
+
+The CLI should continue to compose separate subsystems at the command layer:
+
+- skills on the existing skills path
+- agents on the existing agents path
+- rules/hooks on the managed-resource path
 
 ### Server integration
 
@@ -318,6 +349,8 @@ A new package owns:
 - managed collect execution
 - common result types
 - common target/resource selection helpers used specifically for managed resources
+
+This package is a sibling to the existing skills and agents orchestration paths, not a replacement for them.
 
 ### CLI layer
 
