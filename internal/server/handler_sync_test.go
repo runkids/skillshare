@@ -225,6 +225,51 @@ func TestHandleSync_ManagedResourcesDoNotRequireSkillSource(t *testing.T) {
 	}
 }
 
+func TestHandleSync_ManagedRuleFailureStillAttemptsHooks(t *testing.T) {
+	s, projectRoot, _, _ := newManagedProjectServer(t, "claude")
+
+	ruleStore := managedrules.NewStore(projectRoot)
+	if _, err := ruleStore.Put(managedrules.Save{
+		ID:      "claude/manual.md",
+		Content: []byte("# Managed rule\n"),
+	}); err != nil {
+		t.Fatalf("put managed rule: %v", err)
+	}
+
+	hookStore := managedhooks.NewStore(projectRoot)
+	if _, err := hookStore.Put(managedhooks.Save{
+		ID:      "claude/pre-tool-use/bash.yaml",
+		Tool:    "claude",
+		Event:   "PreToolUse",
+		Matcher: "Bash",
+		Handlers: []managedhooks.Handler{{
+			Type:    "command",
+			Command: "./bin/check",
+		}},
+	}); err != nil {
+		t.Fatalf("put managed hook: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".claude"), 0o755); err != nil {
+		t.Fatalf("mkdir .claude: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(projectRoot, ".claude", "rules"), []byte("not-a-directory"), 0o644); err != nil {
+		t.Fatalf("seed invalid rules path: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{"resources":["rules","hooks"]}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	if _, err := os.Stat(filepath.Join(projectRoot, ".claude", "settings.json")); err != nil {
+		t.Fatalf("expected hooks sync to continue after rules failure: %v", err)
+	}
+}
+
 func TestHandleSync_DefaultsToAllManagedResources(t *testing.T) {
 	s, projectRoot, sourceDir, _ := newManagedProjectServer(t, "claude")
 	addSkill(t, sourceDir, "alpha")

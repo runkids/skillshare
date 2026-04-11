@@ -190,24 +190,14 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 				results = append(results, res)
 			}
 
-			if resources.rules {
-				res, err := s.syncManagedRulesForTarget(name, target, body.DryRun)
+			if resources.rules || resources.hooks {
+				rows, err := s.syncManagedResourcesForTarget(name, target, resources, body.DryRun)
+				results = append(results, rows...)
 				if err != nil {
 					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
 					writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
 					return
 				}
-				results = append(results, res)
-			}
-
-			if resources.hooks {
-				res, err := s.syncManagedHooksForTarget(name, target, body.DryRun)
-				if err != nil {
-					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())
-					writeError(w, http.StatusInternalServerError, "sync failed for "+name+": "+err.Error())
-					return
-				}
-				results = append(results, res)
 			}
 		}
 	}

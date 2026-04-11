@@ -53,50 +53,39 @@ func parseServerSyncResources(values []string) (serverSyncResources, error) {
 	return resources, nil
 }
 
-func (s *Server) syncManagedRulesForTarget(name string, target config.TargetConfig, dryRun bool) (syncTargetResult, error) {
+func (s *Server) syncManagedResourcesForTarget(name string, target config.TargetConfig, resources serverSyncResources, dryRun bool) ([]syncTargetResult, error) {
 	rows := managed.Sync(managed.SyncRequest{
 		ProjectRoot: s.managedRulesProjectRoot(),
 		DryRun:      dryRun,
-		Resources:   managed.ResourceSet{Rules: true},
+		Resources: managed.ResourceSet{
+			Rules: resources.rules,
+			Hooks: resources.hooks,
+		},
 		Targets: []managed.TargetSyncSpec{{
 			Name:   name,
 			Target: target,
 		}},
 	})
-	return syncTargetResultFromManagedRows(name, "rules", rows)
+	return syncTargetResultsFromManagedRows(name, rows)
 }
 
-func (s *Server) syncManagedHooksForTarget(name string, target config.TargetConfig, dryRun bool) (syncTargetResult, error) {
-	rows := managed.Sync(managed.SyncRequest{
-		ProjectRoot: s.managedHooksProjectRoot(),
-		DryRun:      dryRun,
-		Resources:   managed.ResourceSet{Hooks: true},
-		Targets: []managed.TargetSyncSpec{{
-			Name:   name,
-			Target: target,
-		}},
-	})
-	return syncTargetResultFromManagedRows(name, "hooks", rows)
-}
-
-func syncTargetResultFromManagedRows(target, resource string, rows []managed.SyncResult) (syncTargetResult, error) {
-	result := newSyncTargetResult(target, resource)
+func syncTargetResultsFromManagedRows(target string, rows []managed.SyncResult) ([]syncTargetResult, error) {
+	results := make([]syncTargetResult, 0, len(rows))
 	var errs []string
 
 	for _, row := range rows {
-		if row.Resource != "" {
-			result.Resource = row.Resource
-		}
+		result := newSyncTargetResult(target, row.Resource)
 		result.Updated = append(result.Updated, row.Updated...)
 		result.Skipped = append(result.Skipped, row.Skipped...)
 		result.Pruned = append(result.Pruned, row.Pruned...)
+		results = append(results, result)
 		if row.Err != nil {
 			errs = append(errs, row.Err.Error())
 		}
 	}
 
 	if len(errs) > 0 {
-		return result, errors.New(strings.Join(errs, "; "))
+		return results, errors.New(strings.Join(errs, "; "))
 	}
-	return result, nil
+	return results, nil
 }
