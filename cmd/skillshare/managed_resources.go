@@ -138,14 +138,6 @@ func syncManagedResourcesForEntries(entries []syncTargetEntry, results []syncTar
 	return results, failed
 }
 
-func accumulateManagedSyncResult(targetResult *syncTargetResult, lines *[]string, result managedSyncResult) {
-	targetResult.stats.updated += len(result.updated)
-	targetResult.stats.pruned += len(result.pruned)
-	if line := managedSyncLine(result); line != "" {
-		*lines = append(*lines, line)
-	}
-}
-
 func managedSyncLine(result managedSyncResult) string {
 	if result.resource == "" {
 		return ""
