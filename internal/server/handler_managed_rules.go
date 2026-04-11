@@ -13,6 +13,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/inspect"
+	managed "skillshare/internal/resources/managed"
 	managedrules "skillshare/internal/resources/rules"
 )
 
@@ -224,7 +225,7 @@ func (s *Server) handleCollectManagedRules(w http.ResponseWriter, r *http.Reques
 	}
 
 	s.mu.Lock()
-	result, err := managedrules.Collect(projectRoot, selected, managedrules.CollectOptions{Strategy: body.Strategy})
+	result, err := managed.CollectRules(projectRoot, selected, body.Strategy)
 	s.mu.Unlock()
 	if err != nil {
 		status := http.StatusInternalServerError

@@ -11,6 +11,7 @@ import (
 	"skillshare/internal/config"
 	"skillshare/internal/inspect"
 	managedhooks "skillshare/internal/resources/hooks"
+	managed "skillshare/internal/resources/managed"
 )
 
 type managedHookHandlerPayload struct {
@@ -291,7 +292,7 @@ func (s *Server) handleCollectManagedHooks(w http.ResponseWriter, r *http.Reques
 	}
 
 	s.mu.Lock()
-	result, err := managedhooks.Collect(projectRoot, selected, managedhooks.CollectOptions{Strategy: body.Strategy})
+	result, err := managed.CollectHooks(projectRoot, selected, body.Strategy)
 	s.mu.Unlock()
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -648,6 +649,6 @@ func managedHookLoadError(id string, err error) error {
 
 func managedHookCollectInputError(err error) bool {
 	msg := strings.TrimSpace(strings.ToLower(err.Error()))
-	return strings.HasPrefix(msg, "invalid collect strategy") ||
-		strings.HasPrefix(msg, "cannot collect ")
+	return strings.Contains(msg, "invalid collect strategy") ||
+		strings.Contains(msg, "cannot collect ")
 }
