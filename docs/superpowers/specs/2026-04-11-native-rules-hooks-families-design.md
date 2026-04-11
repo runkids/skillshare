@@ -21,6 +21,9 @@ In practice, that means:
 - managed `rules` and managed `hooks` gain their own explicit capability matrix
 - CLI, server, and UI read from the same family definitions instead of
   hardcoding partial support in multiple places
+- the initial family split is explicit:
+  - managed `rules`: `claude`, `codex`, `gemini`, `pi`
+  - managed `hooks`: `claude`, `codex`, `gemini`
 
 This follows the maintainer's existing architecture rather than introducing a
 new one.
