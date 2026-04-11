@@ -44,6 +44,13 @@ func (s *Store) Put(in Save) (Record, error) {
 		_ = os.Remove(tempPath)
 		return Record{}, fmt.Errorf("write rule: rename temp file: %w", err)
 	}
+	if err := saveRuleMetadata(fullPath, ruleMetadata{
+		Targets:    in.Targets,
+		SourceType: in.SourceType,
+		Disabled:   in.Disabled,
+	}); err != nil {
+		return Record{}, fmt.Errorf("write rule metadata: %w", err)
+	}
 
 	tool, name := splitRuleID(id)
 	return Record{
@@ -53,6 +60,9 @@ func (s *Store) Put(in Save) (Record, error) {
 		RelativePath: id,
 		Name:         name,
 		Content:      append([]byte(nil), in.Content...),
+		Targets:      append([]string(nil), sanitizeRuleMetadata(ruleMetadata{Targets: in.Targets}).Targets...),
+		SourceType:   strings.TrimSpace(in.SourceType),
+		Disabled:     in.Disabled,
 	}, nil
 }
 
@@ -69,6 +79,10 @@ func (s *Store) Get(id string) (Record, error) {
 	if err != nil {
 		return Record{}, err
 	}
+	metadata, err := loadRuleMetadata(fullPath)
+	if err != nil {
+		return Record{}, err
+	}
 	tool, name := splitRuleID(cleanedID)
 	return Record{
 		ID:           cleanedID,
@@ -77,6 +91,9 @@ func (s *Store) Get(id string) (Record, error) {
 		RelativePath: cleanedID,
 		Name:         name,
 		Content:      data,
+		Targets:      metadata.Targets,
+		SourceType:   metadata.SourceType,
+		Disabled:     metadata.Disabled,
 	}, nil
 }
 
@@ -97,7 +114,7 @@ func (s *Store) List() ([]Record, error) {
 		if d.IsDir() {
 			return nil
 		}
-		if isTransientRuleFile(d.Name()) {
+		if isTransientRuleFile(d.Name()) || isRuleMetadataFile(d.Name()) {
 			return nil
 		}
 		info, err := os.Lstat(p)
@@ -117,6 +134,10 @@ func (s *Store) List() ([]Record, error) {
 		}
 		id := filepath.ToSlash(rel)
 		tool, name := splitRuleID(id)
+		metadata, err := loadRuleMetadata(p)
+		if err != nil {
+			return err
+		}
 		out = append(out, Record{
 			ID:           id,
 			Path:         p,
@@ -124,6 +145,9 @@ func (s *Store) List() ([]Record, error) {
 			RelativePath: id,
 			Name:         name,
 			Content:      data,
+			Targets:      metadata.Targets,
+			SourceType:   metadata.SourceType,
+			Disabled:     metadata.Disabled,
 		})
 		return nil
 	})
@@ -143,7 +167,13 @@ func (s *Store) Delete(id string) error {
 	if err != nil {
 		return err
 	}
-	return os.Remove(fullPath)
+	if err := os.Remove(fullPath); err != nil {
+		return err
+	}
+	if err := deleteRuleMetadata(fullPath); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Store) pathForID(id string) (fullPath string, cleanedID string, err error) {

@@ -9,15 +9,21 @@ type Record struct {
 	Event        string
 	Matcher      string
 	Handlers     []Handler
+	Targets      []string
+	SourceType   string
+	Disabled     bool
 }
 
 // Save is the payload for persisting one managed matcher-group hook.
 type Save struct {
-	ID       string
-	Tool     string
-	Event    string
-	Matcher  string
-	Handlers []Handler
+	ID         string
+	Tool       string
+	Event      string
+	Matcher    string
+	Handlers   []Handler
+	Targets    []string
+	SourceType string
+	Disabled   bool
 }
 
 // Handler is one action within a managed matcher-group hook.

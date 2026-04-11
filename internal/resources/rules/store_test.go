@@ -3,6 +3,7 @@ package rules
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -124,6 +125,77 @@ func TestRuleStore_PutOverwritesExistingRule(t *testing.T) {
 	}
 	if string(all[0].Content) != "# v2\n" {
 		t.Fatalf("List()[0].Content = %q, want %q", string(all[0].Content), "# v2\n")
+	}
+}
+
+func TestRuleStore_PutAndGet_RoundTripsMetadataSidecar(t *testing.T) {
+	projectRoot := t.TempDir()
+	store := NewStore(projectRoot)
+
+	content := []byte("---\npaths: [src/**]\n---\n# Manual rule\n")
+	saved, err := store.Put(Save{
+		ID:         "claude/manual.md",
+		Content:    content,
+		Targets:    []string{"claude-work", "claude-personal"},
+		SourceType: "local",
+		Disabled:   true,
+	})
+	if err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+
+	got, err := store.Get(saved.ID)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+
+	if string(got.Content) != string(content) {
+		t.Fatalf("content changed during round-trip: got %q want %q", string(got.Content), string(content))
+	}
+	if !reflect.DeepEqual(got.Targets, []string{"claude-work", "claude-personal"}) {
+		t.Fatalf("Get() Targets = %#v, want %#v", got.Targets, []string{"claude-work", "claude-personal"})
+	}
+	if got.SourceType != "local" {
+		t.Fatalf("Get() SourceType = %q, want %q", got.SourceType, "local")
+	}
+	if !got.Disabled {
+		t.Fatal("Get() Disabled = false, want true")
+	}
+
+	rulePath := filepath.Join(projectRoot, ".skillshare", "rules", "claude", "manual.md")
+	raw, err := os.ReadFile(rulePath)
+	if err != nil {
+		t.Fatalf("ReadFile(rule) error = %v", err)
+	}
+	if string(raw) != string(content) {
+		t.Fatalf("rule file content changed: got %q want %q", string(raw), string(content))
+	}
+}
+
+func TestRuleStore_Get_LegacyRuleWithoutMetadataLoadsAsGlobalEnabled(t *testing.T) {
+	projectRoot := t.TempDir()
+	store := NewStore(projectRoot)
+
+	rulePath := filepath.Join(projectRoot, ".skillshare", "rules", "codex", "backend.md")
+	if err := os.MkdirAll(filepath.Dir(rulePath), 0755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	if err := os.WriteFile(rulePath, []byte("# Backend\n"), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	got, err := store.Get("codex/backend.md")
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if got.Disabled {
+		t.Fatal("Get() Disabled = true, want false")
+	}
+	if len(got.Targets) != 0 {
+		t.Fatalf("Get() Targets = %#v, want nil/empty", got.Targets)
+	}
+	if got.SourceType != "" {
+		t.Fatalf("Get() SourceType = %q, want empty", got.SourceType)
 	}
 }
 

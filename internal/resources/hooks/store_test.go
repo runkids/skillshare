@@ -3,6 +3,7 @@ package hooks
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -84,6 +85,41 @@ func TestHookStore_PutGetListDelete(t *testing.T) {
 	_, err = store.Get("claude/pre-tool-use/bash.yaml")
 	if !os.IsNotExist(err) {
 		t.Fatalf("Get() after Delete error = %v, want not-exist", err)
+	}
+}
+
+func TestHookStore_PutAndGet_RoundTripsMetadata(t *testing.T) {
+	projectRoot := t.TempDir()
+	store := NewStore(projectRoot)
+
+	saved, err := store.Put(Save{
+		ID:         "claude/pre-tool-use/bash.yaml",
+		Tool:       "claude",
+		Event:      "pre-tool-use",
+		Matcher:    "^bash\\b",
+		Targets:    []string{"claude-work"},
+		SourceType: "local",
+		Disabled:   true,
+		Handlers: []Handler{
+			{Type: "command", Command: "./bin/check"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+
+	got, err := store.Get(saved.ID)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if !reflect.DeepEqual(got.Targets, []string{"claude-work"}) {
+		t.Fatalf("Get() Targets = %#v, want %#v", got.Targets, []string{"claude-work"})
+	}
+	if got.SourceType != "local" {
+		t.Fatalf("Get() SourceType = %q, want %q", got.SourceType, "local")
+	}
+	if !got.Disabled {
+		t.Fatal("Get() Disabled = false, want true")
 	}
 }
 

@@ -30,10 +30,13 @@ func NewStore(projectRoot string) *Store {
 }
 
 type hookFile struct {
-	Tool     string    `yaml:"tool"`
-	Event    string    `yaml:"event"`
-	Matcher  string    `yaml:"matcher"`
-	Handlers []Handler `yaml:"handlers"`
+	Tool       string    `yaml:"tool"`
+	Event      string    `yaml:"event"`
+	Matcher    string    `yaml:"matcher"`
+	Handlers   []Handler `yaml:"handlers"`
+	Targets    []string  `yaml:"targets,omitempty"`
+	SourceType string    `yaml:"sourceType,omitempty"`
+	Disabled   bool      `yaml:"disabled,omitempty"`
 }
 
 // Put writes one matcher-group hook file for the provided ID.
@@ -51,10 +54,13 @@ func (s *Store) Put(in Save) (Record, error) {
 	}
 
 	data, err := yaml.Marshal(hookFile{
-		Tool:     strings.TrimSpace(in.Tool),
-		Event:    strings.TrimSpace(in.Event),
-		Matcher:  strings.TrimSpace(in.Matcher),
-		Handlers: sanitizeHandlers(in.Handlers),
+		Tool:       strings.TrimSpace(in.Tool),
+		Event:      strings.TrimSpace(in.Event),
+		Matcher:    strings.TrimSpace(in.Matcher),
+		Handlers:   sanitizeHandlers(in.Handlers),
+		Targets:    sanitizeTargets(in.Targets),
+		SourceType: strings.TrimSpace(in.SourceType),
+		Disabled:   in.Disabled,
 	})
 	if err != nil {
 		return Record{}, fmt.Errorf("marshal hook: %w", err)
@@ -77,6 +83,9 @@ func (s *Store) Put(in Save) (Record, error) {
 		Event:        strings.TrimSpace(in.Event),
 		Matcher:      strings.TrimSpace(in.Matcher),
 		Handlers:     sanitizeHandlers(in.Handlers),
+		Targets:      sanitizeTargets(in.Targets),
+		SourceType:   strings.TrimSpace(in.SourceType),
+		Disabled:     in.Disabled,
 	}, nil
 }
 
@@ -108,6 +117,9 @@ func (s *Store) Get(id string) (Record, error) {
 		Event:        strings.TrimSpace(file.Event),
 		Matcher:      strings.TrimSpace(file.Matcher),
 		Handlers:     sanitizeHandlers(file.Handlers),
+		Targets:      sanitizeTargets(file.Targets),
+		SourceType:   strings.TrimSpace(file.SourceType),
+		Disabled:     file.Disabled,
 	}, nil
 }
 
@@ -159,6 +171,9 @@ func (s *Store) List() ([]Record, error) {
 			Event:        strings.TrimSpace(file.Event),
 			Matcher:      strings.TrimSpace(file.Matcher),
 			Handlers:     sanitizeHandlers(file.Handlers),
+			Targets:      sanitizeTargets(file.Targets),
+			SourceType:   strings.TrimSpace(file.SourceType),
+			Disabled:     file.Disabled,
 		})
 		return nil
 	})
@@ -343,6 +358,24 @@ func sanitizeHandlers(in []Handler) []Handler {
 			TimeoutSeconds: h.TimeoutSeconds,
 			StatusMessage:  strings.TrimSpace(h.StatusMessage),
 		}
+	}
+	return out
+}
+
+func sanitizeTargets(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(in))
+	for _, target := range in {
+		target = strings.TrimSpace(target)
+		if target == "" {
+			continue
+		}
+		out = append(out, target)
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }
