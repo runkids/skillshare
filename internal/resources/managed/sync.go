@@ -48,7 +48,7 @@ func syncRules(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
 		return result, true
 	}
 
-	files, _, err := managedrules.CompileTarget(records, compileTarget, compileRoot)
+	files, _, err := managedrules.CompileTarget(records, compileTarget, spec.Name, compileRoot)
 	if err != nil {
 		if errors.Is(err, managedrules.ErrUnsupportedTarget) {
 			return SyncResult{}, false
@@ -94,7 +94,7 @@ func syncHooks(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
 		return result, true
 	}
 
-	files, _, err := managedhooks.CompileTarget(records, compileTarget, compileRoot, string(rawConfig))
+	files, _, err := managedhooks.CompileTarget(records, compileTarget, spec.Name, compileRoot, string(rawConfig))
 	if err != nil {
 		result.Err = fmt.Errorf("compile managed hooks: %w", err)
 		return result, true

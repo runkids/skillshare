@@ -506,7 +506,7 @@ func (s *Server) compileManagedHookPreviews(records []managedhooks.Record) ([]ma
 		if err != nil {
 			return nil, err
 		}
-		files, warnings, err := managedhooks.CompileTarget(records, compileTarget, compileRoot, rawConfig)
+		files, warnings, err := managedhooks.CompileTarget(records, compileTarget, name, compileRoot, rawConfig)
 		if err != nil {
 			return nil, err
 		}

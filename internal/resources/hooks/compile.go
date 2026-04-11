@@ -13,10 +13,14 @@ import (
 type CompiledFile = adapters.CompiledFile
 
 // CompileTarget compiles managed hook records into target-native files.
-func CompileTarget(records []Record, target, projectRoot, rawConfig string) ([]CompiledFile, []string, error) {
-	target = strings.ToLower(strings.TrimSpace(target))
-	if target == "" {
+func CompileTarget(records []Record, targetFamily, targetName, projectRoot, rawConfig string) ([]CompiledFile, []string, error) {
+	targetFamily = strings.ToLower(strings.TrimSpace(targetFamily))
+	targetName = strings.TrimSpace(targetName)
+	if targetFamily == "" {
 		return nil, nil, fmt.Errorf("target is required")
+	}
+	if targetName == "" {
+		targetName = targetFamily
 	}
 
 	var (
@@ -25,6 +29,9 @@ func CompileTarget(records []Record, target, projectRoot, rawConfig string) ([]C
 	)
 
 	for _, record := range records {
+		if record.Disabled || !matchesAssignedTarget(record.Targets, targetName) {
+			continue
+		}
 		adapterRecord, warn, err := normalizeRecord(record)
 		if err != nil {
 			return nil, nil, err
@@ -33,7 +40,7 @@ func CompileTarget(records []Record, target, projectRoot, rawConfig string) ([]C
 			warnings = append(warnings, warn)
 			continue
 		}
-		if adapterRecord.Tool != target {
+		if adapterRecord.Tool != targetFamily {
 			continue
 		}
 		converted = append(converted, adapterRecord)
@@ -49,13 +56,16 @@ func CompileTarget(records []Record, target, projectRoot, rawConfig string) ([]C
 		err             error
 	)
 
-	switch target {
+	switch targetFamily {
 	case "claude":
 		files, adapterWarnings, err = adapters.CompileClaudeHooks(converted, projectRoot, rawConfig)
 	case "codex":
 		files, adapterWarnings, err = adapters.CompileCodexHooks(converted, projectRoot, rawConfig)
 	default:
-		return nil, nil, fmt.Errorf("unsupported target %q", target)
+		return nil, nil, fmt.Errorf("unsupported target %q", targetFamily)
+	}
+	if len(converted) == 0 && strings.TrimSpace(rawConfig) == "" {
+		return nil, warnings, nil
 	}
 	if err != nil {
 		return nil, nil, err
@@ -63,6 +73,42 @@ func CompileTarget(records []Record, target, projectRoot, rawConfig string) ([]C
 
 	warnings = append(warnings, adapterWarnings...)
 	return files, warnings, nil
+}
+
+func matchesAssignedTarget(targets []string, targetName string) bool {
+	normalized := normalizeAssignedTargets(targets)
+	if len(normalized) == 0 {
+		return true
+	}
+	for _, target := range normalized {
+		if target == targetName {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeAssignedTargets(targets []string) []string {
+	if len(targets) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(targets))
+	seen := make(map[string]struct{}, len(targets))
+	for _, target := range targets {
+		target = strings.TrimSpace(target)
+		if target == "" {
+			continue
+		}
+		if _, ok := seen[target]; ok {
+			continue
+		}
+		seen[target] = struct{}{}
+		out = append(out, target)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func normalizeRecord(record Record) (adapters.HookRecord, string, error) {

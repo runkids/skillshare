@@ -18,7 +18,7 @@ func TestCompileHooks_CodexAddsFeatureFlag(t *testing.T) {
 		},
 	}
 
-	files, warnings, err := CompileTarget(records, "codex", "/tmp/project", configToml)
+	files, warnings, err := CompileTarget(records, "codex", "codex", "/tmp/project", configToml)
 	if err != nil {
 		t.Fatalf("CompileTarget() error = %v", err)
 	}
@@ -43,9 +43,29 @@ func TestCompileHooks_RejectsInvalidRelativePath(t *testing.T) {
 			Matcher:      "Bash",
 			Handlers:     []Handler{{Type: "command", Command: "./bin/check"}},
 		},
-	}, "codex", "/tmp/project", "")
+	}, "codex", "codex", "/tmp/project", "")
 	if err == nil {
 		t.Fatal("expected invalid managed path error")
+	}
+}
+
+func TestCompileHooks_SkipsDisabledHook(t *testing.T) {
+	files, warnings, err := CompileTarget([]Record{{
+		ID:       "claude/pre-tool-use/bash.yaml",
+		Tool:     "claude",
+		Event:    "PreToolUse",
+		Matcher:  "Bash",
+		Disabled: true,
+		Handlers: []Handler{{Type: "command", Command: "./bin/check"}},
+	}}, "claude", "claude-work", t.TempDir(), "")
+	if err != nil {
+		t.Fatalf("CompileTarget() error = %v", err)
+	}
+	if len(files) != 0 {
+		t.Fatalf("CompileTarget() files = %v, want none", files)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("CompileTarget() warnings = %v, want none", warnings)
 	}
 }
 

@@ -471,7 +471,7 @@ func managedRuleBackupSourcePaths(name string, target config.TargetConfig, proje
 	if err != nil {
 		return nil, fmt.Errorf("list managed rules: %w", err)
 	}
-	files, _, err := managedrules.CompileTarget(records, compileTarget, compileRoot)
+	files, _, err := managedrules.CompileTarget(records, compileTarget, name, compileRoot)
 	if err != nil {
 		if errors.Is(err, managedrules.ErrUnsupportedTarget) {
 			return nil, nil
@@ -509,7 +509,7 @@ func managedHookBackupSourcePaths(name string, target config.TargetConfig, proje
 	if err != nil {
 		return nil, fmt.Errorf("load managed hook config: %w", err)
 	}
-	files, _, err := managedhooks.CompileTarget(records, compileTarget, compileRoot, rawConfig)
+	files, _, err := managedhooks.CompileTarget(records, compileTarget, name, compileRoot, rawConfig)
 	if err != nil {
 		return nil, fmt.Errorf("compile managed hooks: %w", err)
 	}

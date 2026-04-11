@@ -17,7 +17,7 @@ func TestCompileRulesForTargets(t *testing.T) {
 		{ID: "gemini/backend.md", Content: []byte("# Gemini Backend\n")},
 	}
 
-	codexFiles, warnings, err := CompileTarget(ruleSet, "codex", projectRoot)
+	codexFiles, warnings, err := CompileTarget(ruleSet, "codex", "codex", projectRoot)
 	if err != nil {
 		t.Fatalf("CompileTarget(codex) error = %v", err)
 	}
@@ -33,7 +33,7 @@ func TestCompileRulesForTargets(t *testing.T) {
 		t.Fatalf("AGENTS output missing codex backend content; content = %q", agentsContent)
 	}
 
-	claudeFiles, warnings, err := CompileTarget(ruleSet, "claude", projectRoot)
+	claudeFiles, warnings, err := CompileTarget(ruleSet, "claude", "claude", projectRoot)
 	if err != nil {
 		t.Fatalf("CompileTarget(claude) error = %v", err)
 	}
@@ -43,7 +43,7 @@ func TestCompileRulesForTargets(t *testing.T) {
 	_ = mustFindCompiledContent(t, claudeFiles, filepath.Join(projectRoot, "CLAUDE.md"))
 	_ = mustFindCompiledContent(t, claudeFiles, filepath.Join(projectRoot, ".claude", "rules", "backend.md"))
 
-	geminiFiles, warnings, err := CompileTarget(ruleSet, "gemini", projectRoot)
+	geminiFiles, warnings, err := CompileTarget(ruleSet, "gemini", "gemini", projectRoot)
 	if err != nil {
 		t.Fatalf("CompileTarget(gemini) error = %v", err)
 	}
@@ -61,7 +61,7 @@ func TestCompileRulesForTargets_NestedInstructionNamesStayNested(t *testing.T) {
 		{ID: "gemini/nested/GEMINI.md", Content: []byte("# Nested Gemini\n")},
 	}
 
-	claudeFiles, warnings, err := CompileTarget(ruleSet, "claude", projectRoot)
+	claudeFiles, warnings, err := CompileTarget(ruleSet, "claude", "claude", projectRoot)
 	if err != nil {
 		t.Fatalf("CompileTarget(claude) error = %v", err)
 	}
@@ -71,7 +71,7 @@ func TestCompileRulesForTargets_NestedInstructionNamesStayNested(t *testing.T) {
 	_ = mustFindCompiledContent(t, claudeFiles, filepath.Join(projectRoot, ".claude", "rules", "nested", "CLAUDE.md"))
 	mustNotContainCompiledPath(t, claudeFiles, filepath.Join(projectRoot, "CLAUDE.md"))
 
-	geminiFiles, warnings, err := CompileTarget(ruleSet, "gemini", projectRoot)
+	geminiFiles, warnings, err := CompileTarget(ruleSet, "gemini", "gemini", projectRoot)
 	if err != nil {
 		t.Fatalf("CompileTarget(gemini) error = %v", err)
 	}
@@ -80,6 +80,26 @@ func TestCompileRulesForTargets_NestedInstructionNamesStayNested(t *testing.T) {
 	}
 	_ = mustFindCompiledContent(t, geminiFiles, filepath.Join(projectRoot, ".gemini", "rules", "nested", "GEMINI.md"))
 	mustNotContainCompiledPath(t, geminiFiles, filepath.Join(projectRoot, "GEMINI.md"))
+}
+
+func TestCompileRulesForTargets_SkipsWhenTargetNotAssigned(t *testing.T) {
+	files, warnings, err := CompileTarget([]Record{{
+		ID:         "claude/manual.md",
+		Tool:       "claude",
+		Name:       "manual.md",
+		Content:    []byte("# Manual\n"),
+		Targets:    []string{"claude-work"},
+		SourceType: "local",
+	}}, "claude", "claude-personal", t.TempDir())
+	if err != nil {
+		t.Fatalf("CompileTarget() error = %v", err)
+	}
+	if len(files) != 0 {
+		t.Fatalf("CompileTarget() files = %v, want none", files)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("CompileTarget() warnings = %v, want none", warnings)
+	}
 }
 
 func mustFindCompiledContent(t *testing.T, files []CompiledFile, path string) string {

@@ -381,7 +381,7 @@ func (s *Server) compileManagedRulePreviews(records []managedrules.Record) ([]ma
 	for _, name := range targetNames {
 		target := s.cfg.Targets[name]
 		compileTarget, compileRoot := s.resolveManagedRulePreviewTarget(name, target)
-		files, warnings, err := managedrules.CompileTarget(records, compileTarget, compileRoot)
+		files, warnings, err := managedrules.CompileTarget(records, compileTarget, name, compileRoot)
 		if err != nil {
 			if errors.Is(err, managedrules.ErrUnsupportedTarget) {
 				previews = append(previews, managedRulePreview{
