@@ -1,6 +1,8 @@
 package managed
 
 import (
+	"fmt"
+
 	"skillshare/internal/inspect"
 	managedhooks "skillshare/internal/resources/hooks"
 	managedrules "skillshare/internal/resources/rules"
@@ -15,7 +17,7 @@ func PreviewCollectRules(projectRoot string, items []inspect.RuleItem, force boo
 func CollectRules(projectRoot string, items []inspect.RuleItem, strategy managedrules.Strategy) (CollectResult, error) {
 	result, err := managedrules.Collect(projectRoot, items, managedrules.CollectOptions{Strategy: strategy})
 	if err != nil {
-		return CollectResult{}, err
+		return CollectResult{}, fmt.Errorf("collect managed rules: %w", err)
 	}
 	return CollectResult{
 		Created:     append([]string{}, result.Created...),
@@ -33,7 +35,7 @@ func PreviewCollectHooks(projectRoot string, items []inspect.HookItem, force boo
 func CollectHooks(projectRoot string, items []inspect.HookItem, strategy managedhooks.Strategy) (CollectResult, error) {
 	result, err := managedhooks.Collect(projectRoot, items, managedhooks.CollectOptions{Strategy: strategy})
 	if err != nil {
-		return CollectResult{}, err
+		return CollectResult{}, fmt.Errorf("collect managed hooks: %w", err)
 	}
 	return CollectResult{
 		Created:     append([]string{}, result.Created...),
@@ -49,7 +51,7 @@ func previewRuleCollect(projectRoot string, items []inspect.RuleItem, force bool
 	}
 	result, err := managedrules.PreviewCollect(projectRoot, items, managedrules.CollectOptions{Strategy: strategy})
 	if err != nil {
-		return CollectPreviewResult{}, err
+		return CollectPreviewResult{}, fmt.Errorf("collect managed rules: %w", err)
 	}
 	return previewResultFromRuleCollect(result), nil
 }
@@ -61,7 +63,7 @@ func previewHookCollect(projectRoot string, items []inspect.HookItem, force bool
 	}
 	result, err := managedhooks.PreviewCollect(projectRoot, items, managedhooks.CollectOptions{Strategy: strategy})
 	if err != nil {
-		return CollectPreviewResult{}, err
+		return CollectPreviewResult{}, fmt.Errorf("collect managed hooks: %w", err)
 	}
 	return previewResultFromHookCollect(result), nil
 }
