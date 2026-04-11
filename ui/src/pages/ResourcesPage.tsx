@@ -1099,8 +1099,9 @@ export default function SkillsPage() {
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const activeMode: ManagedResourceMode = isManagedResourceMode(searchParams.get('mode'))
-    ? searchParams.get('mode')
+  const modeParam = searchParams.get('mode');
+  const activeMode: ManagedResourceMode = isManagedResourceMode(modeParam)
+    ? modeParam
     : 'managed';
 
   const changeTab = (tab: ResourceTab) => {
