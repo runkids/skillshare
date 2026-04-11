@@ -526,6 +526,16 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ id, ...body }),
       }),
+    setTargets: (id: string, target: string | null) =>
+      apiFetch<ManagedRuleDetailResponse>(`/managed/rules/${encodeURIComponent(id)}/targets`, {
+        method: 'PATCH',
+        body: JSON.stringify({ target: target ?? '' }),
+      }),
+    setDisabled: (id: string, disabled: boolean) =>
+      apiFetch<ManagedRuleDetailResponse>(`/managed/rules/${encodeURIComponent(id)}/disabled`, {
+        method: 'PATCH',
+        body: JSON.stringify({ disabled }),
+      }),
     remove: (id: string) =>
       apiFetch<{ success: boolean }>(`/managed/rules/${encodeURIComponent(id)}`, {
         method: 'DELETE',
@@ -550,6 +560,16 @@ export const api = {
       apiFetch<ManagedHookDetailResponse>(`/managed/hooks/${encodeURIComponent(id)}`, {
         method: 'PUT',
         body: JSON.stringify({ id, ...body }),
+      }),
+    setTargets: (id: string, target: string | null) =>
+      apiFetch<ManagedHookDetailResponse>(`/managed/hooks/${encodeURIComponent(id)}/targets`, {
+        method: 'PATCH',
+        body: JSON.stringify({ target: target ?? '' }),
+      }),
+    setDisabled: (id: string, disabled: boolean) =>
+      apiFetch<ManagedHookDetailResponse>(`/managed/hooks/${encodeURIComponent(id)}/disabled`, {
+        method: 'PATCH',
+        body: JSON.stringify({ disabled }),
       }),
     remove: (id: string) =>
       apiFetch<{ success: boolean }>(`/managed/hooks/${encodeURIComponent(id)}`, {
@@ -1110,12 +1130,18 @@ export interface ManagedRule {
   name: string;
   relativePath: string;
   content: string;
+  targets?: string[];
+  sourceType?: 'local' | 'github' | 'tracked' | string;
+  disabled?: boolean;
 }
 
 export interface ManagedRuleSaveRequest {
   tool: string;
   relativePath: string;
   content: string;
+  targets?: string[];
+  sourceType?: 'local' | 'github' | 'tracked' | string;
+  disabled?: boolean;
 }
 
 export interface ManagedRulePreviewFile {
@@ -1154,6 +1180,9 @@ export interface ManagedHook {
   event: string;
   matcher?: string;
   handlers: ManagedHookHandler[];
+  targets?: string[];
+  sourceType?: 'local' | 'github' | 'tracked' | string;
+  disabled?: boolean;
 }
 
 export interface ManagedHookHandler {
@@ -1172,6 +1201,9 @@ export interface ManagedHookSaveRequest {
   event: string;
   matcher?: string;
   handlers: ManagedHookHandler[];
+  targets?: string[];
+  sourceType?: 'local' | 'github' | 'tracked' | string;
+  disabled?: boolean;
 }
 
 export type ManagedHookPreview = ManagedPreview;

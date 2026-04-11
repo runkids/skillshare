@@ -69,6 +69,9 @@ describe('HookDetailPage', () => {
         tool: 'claude',
         event: 'PreToolUse',
         matcher: 'Bash',
+        targets: ['claude-work'],
+        sourceType: 'tracked',
+        disabled: true,
         handlers: [
           {
             type: 'command',
@@ -104,6 +107,9 @@ describe('HookDetailPage', () => {
         tool: 'claude',
         event: 'PreToolUse',
         matcher: 'Bash',
+        targets: ['claude-work'],
+        sourceType: 'tracked',
+        disabled: true,
         handlers: [
           {
             type: 'command',
@@ -162,6 +168,9 @@ describe('HookDetailPage', () => {
         tool: 'claude',
         event: 'PreToolUse',
         matcher: 'Bash',
+        targets: ['claude-work'],
+        sourceType: 'tracked',
+        disabled: true,
         handlers: [
           {
             type: 'prompt',
@@ -236,6 +245,9 @@ describe('HookDetailPage', () => {
         tool: 'claude',
         event: 'PreToolUse',
         matcher: 'Bash',
+        targets: ['claude-work'],
+        sourceType: 'tracked',
+        disabled: true,
         handlers: [
           {
             type: 'command',
@@ -297,6 +309,9 @@ describe('HookDetailPage', () => {
       tool: 'claude',
       event: 'PreToolUse',
       matcher: 'Bash',
+      targets: ['claude-work'],
+      sourceType: 'tracked',
+      disabled: true,
       handlers: [
         {
           type: 'command',
@@ -326,6 +341,9 @@ describe('HookDetailPage', () => {
         tool: 'claude',
         event: 'PreToolUse',
         matcher: 'Bash',
+        targets: ['claude-work'],
+        sourceType: 'tracked',
+        disabled: true,
         handlers: [
           {
             type: 'command',
@@ -352,6 +370,9 @@ describe('HookDetailPage', () => {
         tool: 'claude',
         event: 'PostToolUse',
         matcher: 'Edit',
+        targets: ['claude-work'],
+        sourceType: 'tracked',
+        disabled: true,
         handlers: [
           {
             type: 'command',
@@ -387,6 +408,9 @@ describe('HookDetailPage', () => {
       tool: 'claude',
       event: 'PostToolUse',
       matcher: 'Edit',
+      targets: ['claude-work'],
+      sourceType: 'tracked',
+      disabled: true,
       handlers: [
         {
           type: 'command',

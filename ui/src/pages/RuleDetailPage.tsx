@@ -86,7 +86,14 @@ function RuleDetailPageContent({ pathname }: { pathname: string }) {
 
   const saveMutation = useMutation({
     mutationFn: (body: ManagedRuleSaveRequest) =>
-      isNew ? api.managedRules.create(body) : api.managedRules.update(managedId, body),
+      isNew
+        ? api.managedRules.create(body)
+        : api.managedRules.update(managedId, {
+            ...body,
+            targets: detail?.rule.targets,
+            sourceType: detail?.rule.sourceType,
+            disabled: detail?.rule.disabled ?? false,
+          }),
     onSuccess: (next) => {
       const nextManagedId = next.rule.id;
       setSavedDetail(next);

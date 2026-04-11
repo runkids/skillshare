@@ -70,6 +70,9 @@ describe('RuleDetailPage', () => {
         name: 'backend.md',
         relativePath: 'claude/backend.md',
         content: '# Backend',
+        targets: ['claude-work'],
+        sourceType: 'tracked',
+        disabled: true,
       },
       previews: [
         {
@@ -93,6 +96,9 @@ describe('RuleDetailPage', () => {
         name: 'backend.md',
         relativePath: 'claude/backend.md',
         content: '# Backend updated',
+        targets: ['claude-work'],
+        sourceType: 'tracked',
+        disabled: true,
       },
       previews: [
         {
@@ -132,6 +138,9 @@ describe('RuleDetailPage', () => {
       tool: 'claude',
       relativePath: 'claude/backend.md',
       content: '# Backend updated',
+      targets: ['claude-work'],
+      sourceType: 'tracked',
+      disabled: true,
     });
   });
 
@@ -143,6 +152,9 @@ describe('RuleDetailPage', () => {
         name: 'backend.md',
         relativePath: 'claude/backend.md',
         content: '# Backend',
+        targets: ['claude-work'],
+        sourceType: 'tracked',
+        disabled: true,
       },
       previews: [
         {
@@ -165,6 +177,9 @@ describe('RuleDetailPage', () => {
         name: 'backend.md',
         relativePath: 'claude/backend.md',
         content: '# Backend updated',
+        targets: ['claude-work'],
+        sourceType: 'tracked',
+        disabled: true,
       },
       previews: [
         {
@@ -194,6 +209,9 @@ describe('RuleDetailPage', () => {
       tool: 'claude',
       relativePath: 'claude/backend.md',
       content: '# Backend updated',
+      targets: ['claude-work'],
+      sourceType: 'tracked',
+      disabled: true,
     });
     expect(await screen.findByText(/saved rule/i)).toBeInTheDocument();
     expect(screen.getByText('/tmp/home/.claude/rules/backend.md')).toBeInTheDocument();

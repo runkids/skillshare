@@ -119,7 +119,14 @@ function HookDetailPageContent({ pathname }: { pathname: string }) {
 
   const saveMutation = useMutation({
     mutationFn: (body: ManagedHookSaveRequest) =>
-      isNew ? api.managedHooks.create(body) : api.managedHooks.update(managedId, body),
+      isNew
+        ? api.managedHooks.create(body)
+        : api.managedHooks.update(managedId, {
+            ...body,
+            targets: detail?.hook.targets,
+            sourceType: detail?.hook.sourceType,
+            disabled: detail?.hook.disabled ?? false,
+          }),
     onSuccess: (next) => {
       const nextManagedId = next.hook.id;
       setSavedDetail(next);
