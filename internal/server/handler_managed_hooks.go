@@ -4,11 +4,9 @@ import (
 	"errors"
 	"net/http"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
-	"skillshare/internal/config"
 	"skillshare/internal/inspect"
 	managedhooks "skillshare/internal/resources/hooks"
 	managed "skillshare/internal/resources/managed"
@@ -497,9 +495,13 @@ func (s *Server) compileManagedHookPreviews(records []managedhooks.Record) ([]ma
 	sort.Strings(targetNames)
 
 	previews := make([]managedHookPreview, 0, len(targetNames))
+	projectRoot := ""
+	if s.IsProjectMode() {
+		projectRoot = s.projectRoot
+	}
 	for _, name := range targetNames {
 		target := s.cfg.Targets[name]
-		compileTarget, compileRoot, ok := s.resolveManagedHookPreviewTarget(name, target)
+		compileTarget, compileRoot, ok := managed.ResolveHookTarget(name, target, projectRoot)
 		if !ok {
 			previews = append(previews, managedHookPreview{
 				Target:   name,
@@ -509,11 +511,11 @@ func (s *Server) compileManagedHookPreviews(records []managedhooks.Record) ([]ma
 			continue
 		}
 
-		rawConfig, err := loadManagedHookRawConfig(compileTarget, compileRoot)
+		rawConfig, err := managed.LoadHookRawConfig(compileTarget, compileRoot)
 		if err != nil {
 			return nil, err
 		}
-		files, warnings, err := managedhooks.CompileTarget(records, compileTarget, name, compileRoot, rawConfig)
+		files, warnings, err := managedhooks.CompileTarget(records, compileTarget, name, compileRoot, string(rawConfig))
 		if err != nil {
 			return nil, err
 		}
@@ -527,101 +529,6 @@ func (s *Server) compileManagedHookPreviews(records []managedhooks.Record) ([]ma
 		})
 	}
 	return previews, nil
-}
-
-func (s *Server) resolveManagedHookPreviewTarget(name string, target config.TargetConfig) (string, string, bool) {
-	sc := target.SkillsConfig()
-	compileTarget, ok := resolveManagedHookPreviewTool(name, sc.Path)
-	if !ok {
-		return "", "", false
-	}
-	if s.IsProjectMode() {
-		return compileTarget, s.projectRoot, true
-	}
-	return compileTarget, managedHookGlobalPreviewRoot(sc.Path), true
-}
-
-func resolveManagedHookPreviewTool(name, targetPath string) (string, bool) {
-	for _, supported := range []string{"claude", "codex", "gemini"} {
-		if config.MatchesTargetName(supported, name) {
-			return supported, true
-		}
-	}
-
-	switch managedHookPathFamily(targetPath) {
-	case "claude", "codex", "gemini":
-		return managedHookPathFamily(targetPath), true
-	default:
-		return "", false
-	}
-}
-
-func managedHookPathFamily(targetPath string) string {
-	cleaned := filepath.Clean(strings.TrimSpace(targetPath))
-	if cleaned == "" || cleaned == "." {
-		return ""
-	}
-
-	base := strings.ToLower(filepath.Base(cleaned))
-	if base == "skills" {
-		base = strings.ToLower(filepath.Base(filepath.Dir(cleaned)))
-	}
-
-	switch base {
-	case ".claude", "claude":
-		return "claude"
-	case ".codex", "codex", ".agents", "agents":
-		return "codex"
-	case ".gemini", "gemini":
-		return "gemini"
-	default:
-		return ""
-	}
-}
-
-func managedHookGlobalPreviewRoot(targetPath string) string {
-	cleaned := filepath.Clean(strings.TrimSpace(targetPath))
-	if cleaned == "" || cleaned == "." {
-		return targetPath
-	}
-	if strings.EqualFold(filepath.Base(cleaned), "skills") {
-		cleaned = filepath.Dir(cleaned)
-	}
-
-	switch strings.ToLower(filepath.Base(cleaned)) {
-	case ".claude", "claude", ".codex", "codex", ".agents", "agents", ".gemini", "gemini":
-		return filepath.Dir(cleaned)
-	default:
-		return cleaned
-	}
-}
-
-func loadManagedHookRawConfig(target, root string) (string, error) {
-	path, ok := managedHookConfigPath(target, root)
-	if !ok {
-		return "", nil
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", nil
-		}
-		return "", err
-	}
-	return string(data), nil
-}
-
-func managedHookConfigPath(target, root string) (string, bool) {
-	switch strings.ToLower(strings.TrimSpace(target)) {
-	case "claude":
-		return filepath.Join(root, ".claude", "settings.json"), true
-	case "codex":
-		return filepath.Join(root, ".codex", "config.toml"), true
-	case "gemini":
-		return filepath.Join(root, ".gemini", "settings.json"), true
-	default:
-		return "", false
-	}
 }
 
 func decodeManagedHookRequest(r *http.Request, body *managedHookRequest) error {

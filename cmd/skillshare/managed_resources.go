@@ -496,7 +496,7 @@ func managedRuleBackupSourcePaths(name string, target config.TargetConfig, proje
 }
 
 func managedHookBackupSourcePaths(name string, target config.TargetConfig, projectRoot string) ([]string, error) {
-	compileTarget, compileRoot, ok := resolveManagedHookTarget(name, target, projectRoot)
+	compileTarget, compileRoot, ok := managed.ResolveHookTarget(name, target, projectRoot)
 	if !ok {
 		return nil, nil
 	}
@@ -506,11 +506,11 @@ func managedHookBackupSourcePaths(name string, target config.TargetConfig, proje
 	if err != nil {
 		return nil, fmt.Errorf("list managed hooks: %w", err)
 	}
-	rawConfig, err := loadManagedHookRawConfig(compileTarget, compileRoot)
+	rawConfig, err := managed.LoadHookRawConfig(compileTarget, compileRoot)
 	if err != nil {
 		return nil, fmt.Errorf("load managed hook config: %w", err)
 	}
-	files, _, err := managedhooks.CompileTarget(records, compileTarget, name, compileRoot, rawConfig)
+	files, _, err := managedhooks.CompileTarget(records, compileTarget, name, compileRoot, string(rawConfig))
 	if err != nil {
 		return nil, fmt.Errorf("compile managed hooks: %w", err)
 	}
@@ -569,18 +569,6 @@ func sharedAncestorPath(a, b string) string {
 	return filepath.Dir(ancestor)
 }
 
-func resolveManagedHookTarget(name string, target config.TargetConfig, projectRoot string) (string, string, bool) {
-	sc := target.SkillsConfig()
-	compileTarget, ok := resolveManagedHookTool(name, sc.Path)
-	if !ok {
-		return "", "", false
-	}
-	if strings.TrimSpace(projectRoot) != "" {
-		return compileTarget, projectRoot, true
-	}
-	return compileTarget, managedHookGlobalRoot(sc.Path), true
-}
-
 func resolveManagedRuleTool(name, targetPath string) (string, bool) {
 	for _, supported := range []string{"claude", "codex", "gemini"} {
 		if config.MatchesTargetName(supported, name) {
@@ -591,21 +579,6 @@ func resolveManagedRuleTool(name, targetPath string) (string, bool) {
 	switch managedRulePathFamily(targetPath) {
 	case "claude", "codex", "gemini":
 		return managedRulePathFamily(targetPath), true
-	default:
-		return "", false
-	}
-}
-
-func resolveManagedHookTool(name, targetPath string) (string, bool) {
-	for _, supported := range []string{"claude", "codex", "gemini"} {
-		if config.MatchesTargetName(supported, name) {
-			return supported, true
-		}
-	}
-
-	switch managedHookPathFamily(targetPath) {
-	case "claude", "codex", "gemini":
-		return managedHookPathFamily(targetPath), true
 	default:
 		return "", false
 	}
@@ -659,57 +632,6 @@ func managedRulePathFamily(targetPath string) string {
 		return "gemini"
 	default:
 		return ""
-	}
-}
-
-func managedHookPathFamily(targetPath string) string {
-	cleaned := filepath.Clean(strings.TrimSpace(targetPath))
-	if cleaned == "" || cleaned == "." {
-		return ""
-	}
-
-	base := strings.ToLower(filepath.Base(cleaned))
-	if base == "skills" {
-		base = strings.ToLower(filepath.Base(filepath.Dir(cleaned)))
-	}
-
-	switch base {
-	case ".claude", "claude":
-		return "claude"
-	case ".codex", "codex", ".agents", "agents":
-		return "codex"
-	case ".gemini", "gemini":
-		return "gemini"
-	default:
-		return ""
-	}
-}
-
-func loadManagedHookRawConfig(target, root string) (string, error) {
-	path, ok := managedHookConfigPath(target, root)
-	if !ok {
-		return "", nil
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return "", nil
-		}
-		return "", err
-	}
-	return string(data), nil
-}
-
-func managedHookConfigPath(target, root string) (string, bool) {
-	switch strings.ToLower(strings.TrimSpace(target)) {
-	case "claude":
-		return filepath.Join(root, ".claude", "settings.json"), true
-	case "codex":
-		return filepath.Join(root, ".codex", "config.toml"), true
-	case "gemini":
-		return filepath.Join(root, ".gemini", "settings.json"), true
-	default:
-		return "", false
 	}
 }
 

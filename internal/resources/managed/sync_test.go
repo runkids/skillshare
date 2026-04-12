@@ -11,6 +11,75 @@ import (
 	managedrules "skillshare/internal/resources/rules"
 )
 
+func TestResolveHookTarget_UsesManagedFamilyAndPreviewRoot(t *testing.T) {
+	t.Run("project codex-compatible target", func(t *testing.T) {
+		target := config.TargetConfig{Path: filepath.Join("/tmp", "home", ".agents", "skills")}
+
+		compileTarget, compileRoot, ok := ResolveHookTarget("universal", target, "/repo")
+		if !ok {
+			t.Fatal("ResolveHookTarget() ok = false, want true")
+		}
+		if compileTarget != "codex" {
+			t.Fatalf("ResolveHookTarget() target = %q, want %q", compileTarget, "codex")
+		}
+		if compileRoot != "/repo" {
+			t.Fatalf("ResolveHookTarget() root = %q, want %q", compileRoot, "/repo")
+		}
+	})
+
+	t.Run("global gemini target", func(t *testing.T) {
+		target := config.TargetConfig{Path: filepath.Join("/tmp", "home", ".gemini", "skills")}
+
+		compileTarget, compileRoot, ok := ResolveHookTarget("gemini", target, "")
+		if !ok {
+			t.Fatal("ResolveHookTarget() ok = false, want true")
+		}
+		if compileTarget != "gemini" {
+			t.Fatalf("ResolveHookTarget() target = %q, want %q", compileTarget, "gemini")
+		}
+		if compileRoot != filepath.Join("/tmp", "home") {
+			t.Fatalf("ResolveHookTarget() root = %q, want %q", compileRoot, filepath.Join("/tmp", "home"))
+		}
+	})
+
+	t.Run("unsupported target", func(t *testing.T) {
+		target := config.TargetConfig{Path: filepath.Join("/tmp", "home", ".cursor", "rules")}
+
+		compileTarget, compileRoot, ok := ResolveHookTarget("cursor", target, "")
+		if ok {
+			t.Fatalf("ResolveHookTarget() = (%q, %q, %v), want unsupported target", compileTarget, compileRoot, ok)
+		}
+	})
+}
+
+func TestLoadHookRawConfig_UsesNativeFamilyConfigFiles(t *testing.T) {
+	root := t.TempDir()
+
+	codexPath := filepath.Join(root, ".codex", "config.toml")
+	if err := os.MkdirAll(filepath.Dir(codexPath), 0o755); err != nil {
+		t.Fatalf("mkdir codex config dir: %v", err)
+	}
+	if err := os.WriteFile(codexPath, []byte("model = \"gpt-5\"\n"), 0o644); err != nil {
+		t.Fatalf("write codex config: %v", err)
+	}
+
+	rawConfig, err := LoadHookRawConfig("codex", root)
+	if err != nil {
+		t.Fatalf("LoadHookRawConfig() error = %v", err)
+	}
+	if string(rawConfig) != "model = \"gpt-5\"\n" {
+		t.Fatalf("LoadHookRawConfig() = %q, want codex config contents", string(rawConfig))
+	}
+
+	emptyConfig, err := LoadHookRawConfig("pi", root)
+	if err != nil {
+		t.Fatalf("LoadHookRawConfig(unsupported) error = %v", err)
+	}
+	if emptyConfig != nil {
+		t.Fatalf("LoadHookRawConfig(unsupported) = %q, want nil", string(emptyConfig))
+	}
+}
+
 func TestSync_SyncsRulesAndHooksForClaudeTarget(t *testing.T) {
 	projectRoot := t.TempDir()
 	ensureClaudeTargetFiles(t, projectRoot)

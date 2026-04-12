@@ -93,7 +93,7 @@ func syncRules(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
 }
 
 func syncHooks(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
-	compileTarget, compileRoot, ok := resolveHookTarget(spec.Name, spec.Target, req.ProjectRoot)
+	compileTarget, compileRoot, ok := ResolveHookTarget(spec.Name, spec.Target, req.ProjectRoot)
 	if !ok {
 		return SyncResult{}, false
 	}
@@ -106,7 +106,7 @@ func syncHooks(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
 		return result, true
 	}
 
-	rawConfig, err := loadHookRawConfig(compileTarget, compileRoot)
+	rawConfig, err := LoadHookRawConfig(compileTarget, compileRoot)
 	if err != nil {
 		result.Err = fmt.Errorf("load managed hook config: %w", err)
 		return result, true
@@ -144,7 +144,8 @@ func resolveRuleTarget(name string, target config.TargetConfig, projectRoot stri
 	return family, RuleGlobalPreviewRoot(sc.Path), true
 }
 
-func resolveHookTarget(name string, target config.TargetConfig, projectRoot string) (compileTarget, compileRoot string, ok bool) {
+// ResolveHookTarget resolves a managed hook target to its native family and compile root.
+func ResolveHookTarget(name string, target config.TargetConfig, projectRoot string) (compileTarget, compileRoot string, ok bool) {
 	sc := target.SkillsConfig()
 	family, ok := ResolveManagedFamily(ResourceKindHooks, name, sc.Path)
 	if !ok {
@@ -184,7 +185,8 @@ func managedHookGlobalPreviewRoot(targetPath string) string {
 	}
 }
 
-func loadHookRawConfig(compileTarget, compileRoot string) ([]byte, error) {
+// LoadHookRawConfig reads the native hook config file for the target family, if any.
+func LoadHookRawConfig(compileTarget, compileRoot string) ([]byte, error) {
 	path, ok := managedHookConfigPath(compileTarget, compileRoot)
 	if !ok {
 		return nil, nil
