@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	managedpi "skillshare/internal/resources/managed/pi"
 )
 
 type ResourceKind string
@@ -74,7 +75,7 @@ func newCapabilityRegistry() capabilityRegistry {
 			SupportsRules:        true,
 			SupportsHooks:        false,
 			CompatibleTargets:    []string{"pi"},
-			RuleInstructionFiles: []string{"AGENTS.md", ".pi/SYSTEM.md", ".pi/APPEND_SYSTEM.md"},
+			RuleInstructionFiles: managedpi.RuleInstructionFiles(),
 		},
 	}
 

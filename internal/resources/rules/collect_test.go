@@ -3,6 +3,7 @@ package rules
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -299,14 +300,6 @@ func TestManagedIDForDiscoveredRule_PiFamily(t *testing.T) {
 		want string
 	}{
 		{
-			name: "pi agents root",
-			item: inspect.RuleItem{
-				SourceTool: "pi",
-				Path:       "/tmp/project/AGENTS.md",
-			},
-			want: "pi/AGENTS.md",
-		},
-		{
 			name: "pi system file",
 			item: inspect.RuleItem{
 				SourceTool: "pi",
@@ -334,5 +327,45 @@ func TestManagedIDForDiscoveredRule_PiFamily(t *testing.T) {
 				t.Fatalf("ManagedIDForDiscoveredRule() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCollectRules_ScanRulesKeepsProjectRootAgentsUnderCodex(t *testing.T) {
+	projectRoot := t.TempDir()
+	agentsPath := filepath.Join(projectRoot, "AGENTS.md")
+	if err := os.WriteFile(agentsPath, []byte("# Root Agents\n"), 0644); err != nil {
+		t.Fatalf("WriteFile(AGENTS.md) error = %v", err)
+	}
+
+	discovered, warnings, err := inspect.ScanRules(projectRoot)
+	if err != nil {
+		t.Fatalf("ScanRules() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("ScanRules() warnings = %v, want none", warnings)
+	}
+
+	var rootAgents inspect.RuleItem
+	found := false
+	for _, item := range discovered {
+		if item.Path == agentsPath {
+			rootAgents = item
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("ScanRules() items = %#v, want discovered root AGENTS", discovered)
+	}
+	if rootAgents.SourceTool != "codex" {
+		t.Fatalf("root AGENTS SourceTool = %q, want %q", rootAgents.SourceTool, "codex")
+	}
+
+	result, err := Collect(projectRoot, []inspect.RuleItem{rootAgents}, CollectOptions{Strategy: StrategyOverwrite})
+	if err != nil {
+		t.Fatalf("Collect() error = %v", err)
+	}
+	if len(result.Created) != 1 || result.Created[0] != "codex/AGENTS.md" {
+		t.Fatalf("Collect() Created = %v, want [codex/AGENTS.md]", result.Created)
 	}
 }

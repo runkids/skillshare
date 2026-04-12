@@ -123,7 +123,7 @@ func resolveRuleTarget(name string, target config.TargetConfig, projectRoot stri
 	if projectRoot != "" {
 		return family, projectRoot, true
 	}
-	return family, managedRuleGlobalPreviewRoot(sc.Path), true
+	return family, RuleGlobalPreviewRoot(sc.Path), true
 }
 
 func resolveHookTarget(name string, target config.TargetConfig, projectRoot string) (compileTarget, compileRoot string, ok bool) {
@@ -138,7 +138,7 @@ func resolveHookTarget(name string, target config.TargetConfig, projectRoot stri
 	return family, managedHookGlobalPreviewRoot(sc.Path), true
 }
 
-func managedRuleGlobalPreviewRoot(targetPath string) string {
+func RuleGlobalPreviewRoot(targetPath string) string {
 	cleaned := filepath.Clean(strings.TrimSpace(targetPath))
 	if cleaned == "" || cleaned == "." {
 		return targetPath

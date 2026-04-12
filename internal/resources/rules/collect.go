@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"skillshare/internal/inspect"
+	managedpi "skillshare/internal/resources/managed/pi"
 )
 
 type Strategy string
@@ -304,14 +305,8 @@ func managedIDForDiscoveredRule(item inspect.RuleItem) (string, error) {
 			return "gemini/GEMINI.md", nil
 		}
 	case "pi":
-		switch {
-		case strings.HasSuffix(strings.ToLower(p), "/.pi/system.md"):
-			return "pi/SYSTEM.md", nil
-		case strings.HasSuffix(strings.ToLower(p), "/.pi/append_system.md"):
-			return "pi/APPEND_SYSTEM.md", nil
-		}
-		if strings.EqualFold(base, "AGENTS.md") {
-			return "pi/AGENTS.md", nil
+		if id, ok := managedpi.ManagedRuleIDForDiscoveredPath(p); ok {
+			return id, nil
 		}
 	}
 

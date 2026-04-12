@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"path/filepath"
 	"sort"
 	"strings"
 
 	"skillshare/internal/config"
 	"skillshare/internal/inspect"
 	managed "skillshare/internal/resources/managed"
+	managedpi "skillshare/internal/resources/managed/pi"
 	managedrules "skillshare/internal/resources/rules"
 )
 
@@ -407,7 +407,7 @@ func (s *Server) compileManagedRulePreviews(records []managedrules.Record) ([]ma
 
 func (s *Server) resolveManagedRulePreviewTarget(name string, target config.TargetConfig) (string, string) {
 	sc := target.SkillsConfig()
-	compileTarget, ok := resolveManagedRulePreviewTool(name, sc.Path)
+	compileTarget, ok := managed.ResolveManagedFamily(managed.ResourceKindRules, name, sc.Path)
 	if !ok {
 		return name, sc.Path
 	}
@@ -416,60 +416,7 @@ func (s *Server) resolveManagedRulePreviewTarget(name string, target config.Targ
 		return compileTarget, s.projectRoot
 	}
 
-	return compileTarget, managedRuleGlobalPreviewRoot(sc.Path)
-}
-
-func resolveManagedRulePreviewTool(name, targetPath string) (string, bool) {
-	for _, supported := range []string{"claude", "codex", "gemini"} {
-		if config.MatchesTargetName(supported, name) {
-			return supported, true
-		}
-	}
-
-	switch managedRulePathFamily(targetPath) {
-	case "claude", "codex", "gemini", "pi":
-		return managedRulePathFamily(targetPath), true
-	default:
-		return "", false
-	}
-}
-
-func managedRuleGlobalPreviewRoot(targetPath string) string {
-	cleaned := filepath.Clean(strings.TrimSpace(targetPath))
-	if cleaned == "" || cleaned == "." {
-		return targetPath
-	}
-	if strings.EqualFold(filepath.Base(cleaned), "skills") {
-		return filepath.Dir(cleaned)
-	}
-	return cleaned
-}
-
-func managedRulePathFamily(targetPath string) string {
-	cleaned := filepath.Clean(strings.TrimSpace(targetPath))
-	if cleaned == "" || cleaned == "." {
-		return ""
-	}
-
-	base := strings.ToLower(filepath.Base(cleaned))
-	switch base {
-	case ".claude", "claude":
-		return "claude"
-	case ".codex", "codex", ".agents", "agents":
-		return "codex"
-	case ".gemini", "gemini":
-		return "gemini"
-	case ".pi", "pi":
-		return "pi"
-	case "skills":
-		parent := strings.ToLower(filepath.Base(filepath.Dir(cleaned)))
-		grandparent := strings.ToLower(filepath.Base(filepath.Dir(filepath.Dir(cleaned))))
-		if parent == ".pi" || parent == "pi" || (parent == "agent" && grandparent == ".pi") {
-			return "pi"
-		}
-	}
-
-	return ""
+	return compileTarget, managed.RuleGlobalPreviewRoot(sc.Path)
 }
 
 func decodeManagedRuleRequest(r *http.Request, body *managedRuleRequest) error {
@@ -612,8 +559,12 @@ func managedRuleDerivedID(body managedRuleRequest) (string, error) {
 	if rel == "." || rel == "/" {
 		return "", errors.New("invalid rule relativePath")
 	}
-	if tool == "pi" && !isSupportedPiManagedRuleRelativePath(rel) && !isSupportedPiManagedRuleRelativePath(tool+"/"+rel) {
-		return "", errors.New("invalid rule relativePath")
+	if tool == "pi" {
+		normalized, ok := managedpi.NormalizeManagedRuleID(rel)
+		if !ok {
+			return "", errors.New("invalid rule relativePath")
+		}
+		return normalized, nil
 	}
 	if strings.HasPrefix(rel, tool+"/") {
 		normalized, err := managedrules.NormalizeRuleID(rel)
@@ -627,15 +578,6 @@ func managedRuleDerivedID(body managedRuleRequest) (string, error) {
 		return "", errors.New("invalid rule relativePath")
 	}
 	return normalized, nil
-}
-
-func isSupportedPiManagedRuleRelativePath(rel string) bool {
-	switch rel {
-	case "AGENTS.md", "SYSTEM.md", "APPEND_SYSTEM.md", "pi/AGENTS.md", "pi/SYSTEM.md", "pi/APPEND_SYSTEM.md":
-		return true
-	default:
-		return false
-	}
 }
 
 func normalizeManagedRuleTool(raw string) (string, error) {

@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	managedpi "skillshare/internal/resources/managed/pi"
 )
 
 // CompilePiRules compiles managed pi rules into target-native files.
@@ -14,47 +16,29 @@ func CompilePiRules(records []RuleRecord, projectRoot string) ([]CompiledFile, [
 	})
 
 	var files []CompiledFile
+	var warnings []string
 	for _, record := range sorted {
 		if strings.TrimSpace(record.Tool) != "" && strings.TrimSpace(record.Tool) != "pi" {
 			continue
 		}
 
-		rel := trimToolPrefix(normalizeRulePath(record), "pi")
-		switch rel {
-		case "AGENTS.md":
-			files = append(files, CompiledFile{
-				Path:    filepath.Join(projectRoot, "AGENTS.md"),
-				Content: record.Content,
-				Format:  "markdown",
-			})
-		case "SYSTEM.md":
-			files = append(files, CompiledFile{
-				Path:    filepath.Join(piOutputBaseDir(projectRoot), "SYSTEM.md"),
-				Content: record.Content,
-				Format:  "markdown",
-			})
-		case "APPEND_SYSTEM.md":
-			files = append(files, CompiledFile{
-				Path:    filepath.Join(piOutputBaseDir(projectRoot), "APPEND_SYSTEM.md"),
-				Content: record.Content,
-				Format:  "markdown",
-			})
+		id, ok := managedpi.NormalizeManagedRuleID(normalizeRulePath(record))
+		if !ok {
+			warnings = append(warnings, "unsupported pi rule id: "+normalizeRulePath(record))
+			continue
 		}
+
+		outputPath, ok := managedpi.CompilePath(projectRoot, id)
+		if !ok {
+			warnings = append(warnings, "unsupported pi rule id: "+id)
+			continue
+		}
+		files = append(files, CompiledFile{
+			Path:    filepath.Clean(outputPath),
+			Content: record.Content,
+			Format:  "markdown",
+		})
 	}
 
-	return files, nil, nil
-}
-
-func piOutputBaseDir(root string) string {
-	cleaned := filepath.Clean(strings.TrimSpace(root))
-	if cleaned == "" || cleaned == "." {
-		return cleaned
-	}
-
-	base := strings.ToLower(filepath.Base(cleaned))
-	parent := strings.ToLower(filepath.Base(filepath.Dir(cleaned)))
-	if base == ".pi" || (base == "agent" && parent == ".pi") {
-		return cleaned
-	}
-	return filepath.Join(cleaned, ".pi")
+	return files, warnings, nil
 }

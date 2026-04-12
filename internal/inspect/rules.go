@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+	managedpi "skillshare/internal/resources/managed/pi"
 )
 
 const maxRuleFileSize = 512 * 1024
@@ -49,12 +50,13 @@ func ScanRules(projectRoot string) ([]RuleItem, []string, error) {
 	}
 
 	if root != "" {
+		for _, piPath := range managedpi.DiscoveryProjectPaths(root) {
+			locations = append(locations, ruleLocation{sourceTool: "pi", scope: ScopeProject, path: piPath})
+		}
 		locations = append(locations,
 			ruleLocation{sourceTool: "claude", scope: ScopeProject, path: filepath.Join(root, "CLAUDE.md")},
 			ruleLocation{sourceTool: "codex", scope: ScopeProject, path: filepath.Join(root, "AGENTS.md")},
 			ruleLocation{sourceTool: "gemini", scope: ScopeProject, path: filepath.Join(root, "GEMINI.md")},
-			ruleLocation{sourceTool: "pi", scope: ScopeProject, path: filepath.Join(root, ".pi", "SYSTEM.md")},
-			ruleLocation{sourceTool: "pi", scope: ScopeProject, path: filepath.Join(root, ".pi", "APPEND_SYSTEM.md")},
 			ruleLocation{sourceTool: "claude", scope: ScopeProject, path: filepath.Join(root, ".claude", "CLAUDE.md")},
 			ruleLocation{sourceTool: "codex", scope: ScopeProject, path: filepath.Join(root, ".codex", "AGENTS.md")},
 			ruleLocation{sourceTool: "gemini", scope: ScopeProject, path: filepath.Join(root, ".gemini", "GEMINI.md")},

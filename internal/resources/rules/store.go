@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	managedpi "skillshare/internal/resources/managed/pi"
 )
 
 var (
@@ -228,7 +229,7 @@ func NormalizeRuleID(id string) (string, error) {
 	if len(parts) < 2 {
 		return "", fmt.Errorf("%w %q", ErrInvalidID, id)
 	}
-	if parts[0] == "pi" && !isSupportedPiRuleID(cleanedID) {
+	if parts[0] == "pi" && !managedpi.IsManagedRuleID(cleanedID) {
 		return "", fmt.Errorf("%w %q", ErrInvalidID, id)
 	}
 
@@ -308,15 +309,6 @@ func splitRuleID(id string) (tool string, name string) {
 func isSupportedRuleToolPrefix(tool string) bool {
 	switch tool {
 	case "claude", "codex", "gemini", "pi":
-		return true
-	default:
-		return false
-	}
-}
-
-func isSupportedPiRuleID(id string) bool {
-	switch id {
-	case "pi/AGENTS.md", "pi/SYSTEM.md", "pi/APPEND_SYSTEM.md":
 		return true
 	default:
 		return false

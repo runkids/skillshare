@@ -125,6 +125,41 @@ func TestScanRules_IncludesPiInstructionFiles(t *testing.T) {
 	}
 }
 
+func TestScanRules_ProjectRootAgentsStaysCodexWhenPiFilesExist(t *testing.T) {
+	project := t.TempDir()
+	agentsPath := filepath.Join(project, "AGENTS.md")
+	mustWriteFile(t, agentsPath, "# Project Codex")
+	mustWriteFile(t, filepath.Join(project, ".pi", "SYSTEM.md"), "# System")
+
+	items, warnings, err := ScanRules(project)
+	if err != nil {
+		t.Fatalf("ScanRules() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("ScanRules() warnings = %v", warnings)
+	}
+
+	var codexRootCount, piRootCount int
+	for _, item := range items {
+		if item.Path != agentsPath {
+			continue
+		}
+		switch item.SourceTool {
+		case "codex":
+			codexRootCount++
+		case "pi":
+			piRootCount++
+		}
+	}
+
+	if codexRootCount != 1 {
+		t.Fatalf("root AGENTS codex count = %d, want 1; items = %#v", codexRootCount, items)
+	}
+	if piRootCount != 0 {
+		t.Fatalf("root AGENTS pi count = %d, want 0; items = %#v", piRootCount, items)
+	}
+}
+
 func TestScanRules_MalformedFrontmatterDegradesToUnscoped(t *testing.T) {
 	tmp := t.TempDir()
 	home := filepath.Join(tmp, "home")

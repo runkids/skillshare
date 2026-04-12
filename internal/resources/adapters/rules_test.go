@@ -150,6 +150,27 @@ func TestCompilePiRules_GlobalConfigRootUsesAgentSubdir(t *testing.T) {
 	mustNotContainCompiledFile(t, files, filepath.Join(globalRoot, ".pi", "APPEND_SYSTEM.md"))
 }
 
+func TestCompilePiRules_WarnsOnUnsupportedPiRuleIDs(t *testing.T) {
+	projectRoot := "/tmp/project"
+	records := []RuleRecord{
+		{ID: "pi/SYSTEM.md", Tool: "pi", RelativePath: "pi/SYSTEM.md", Name: "SYSTEM.md", Content: "# Pi System\n"},
+		{ID: "pi/extra.md", Tool: "pi", RelativePath: "pi/extra.md", Name: "extra.md", Content: "# Extra\n"},
+	}
+
+	files, warnings, err := CompilePiRules(records, projectRoot)
+	if err != nil {
+		t.Fatalf("CompilePiRules() error = %v", err)
+	}
+
+	_ = findCompiledFile(t, files, filepath.Join(projectRoot, ".pi", "SYSTEM.md"))
+	if len(warnings) != 1 {
+		t.Fatalf("CompilePiRules() warnings = %v, want one warning", warnings)
+	}
+	if !strings.Contains(warnings[0], "pi/extra.md") {
+		t.Fatalf("CompilePiRules() warnings = %v, want unsupported pi rule id warning", warnings)
+	}
+}
+
 func findCompiledFile(t *testing.T, files []CompiledFile, wantPath string) CompiledFile {
 	t.Helper()
 	for _, file := range files {
