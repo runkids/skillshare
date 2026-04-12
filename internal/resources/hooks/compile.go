@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"errors"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -11,6 +12,8 @@ import (
 )
 
 type CompiledFile = adapters.CompiledFile
+
+var ErrUnsupportedTarget = errors.New("unsupported target")
 
 // CompileTarget compiles managed hook records into target-native files.
 func CompileTarget(records []Record, targetFamily, targetName, projectRoot, rawConfig string) ([]CompiledFile, []string, error) {
@@ -62,7 +65,7 @@ func CompileTarget(records []Record, targetFamily, targetName, projectRoot, rawC
 	case "codex":
 		files, adapterWarnings, err = adapters.CompileCodexHooks(converted, projectRoot, rawConfig)
 	default:
-		return nil, nil, fmt.Errorf("unsupported target %q", targetFamily)
+		return nil, nil, fmt.Errorf("%w %q", ErrUnsupportedTarget, targetFamily)
 	}
 	if len(converted) == 0 && strings.TrimSpace(rawConfig) == "" {
 		return nil, warnings, nil

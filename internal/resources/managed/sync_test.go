@@ -231,6 +231,40 @@ func TestSync_HonorsAssignedTargetsAndDisabledState(t *testing.T) {
 	}
 }
 
+func TestSync_SkipsGeminiHooksUntilSupported(t *testing.T) {
+	projectRoot := t.TempDir()
+
+	ruleStore := managedrules.NewStore(projectRoot)
+	if _, err := ruleStore.Put(managedrules.Save{
+		ID:      "gemini/backend.md",
+		Content: []byte("# Backend\n"),
+	}); err != nil {
+		t.Fatalf("put managed gemini rule: %v", err)
+	}
+
+	results := Sync(SyncRequest{
+		ProjectRoot: projectRoot,
+		DryRun:      false,
+		Resources:   ResourceSet{Rules: true, Hooks: true},
+		Targets: []TargetSyncSpec{{
+			Name:   "gemini",
+			Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".gemini", "skills")},
+		}},
+	})
+
+	if got := len(results); got != 1 {
+		t.Fatalf("Sync() results len = %d, want 1 rule result and no hook result", got)
+	}
+
+	ruleResult := findSyncResult(t, results, "gemini", "rules")
+	if ruleResult.Err != nil {
+		t.Fatalf("gemini rules sync error = %v", ruleResult.Err)
+	}
+	if !containsAll(ruleResult.Updated, filepath.Join(projectRoot, ".gemini", "rules", "backend.md")) {
+		t.Fatalf("gemini rules updated = %v, want backend rule output", ruleResult.Updated)
+	}
+}
+
 func ensureClaudeTargetFiles(t *testing.T, projectRoot string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(projectRoot, ".claude"), 0o755); err != nil {

@@ -34,7 +34,13 @@ func TestCapabilitySnapshot_ContainsExhaustiveTargetClassification(t *testing.T)
 	if _, ok := snapshot.Targets["pi"]; !ok {
 		t.Fatal("expected pi classification")
 	}
+	if _, ok := snapshot.Targets["windsurf"]; !ok {
+		t.Fatal("expected windsurf classification")
+	}
 	if got := snapshot.Targets["warp"]; got.RulesFamily != "codex" || got.HooksFamily != "codex" {
 		t.Fatalf("warp classification = %#v, want codex family for rules/hooks", got)
+	}
+	if got := snapshot.Families["codex"]; !containsString(got.CompatibleTargets, "warp") {
+		t.Fatalf("codex compatible targets = %v, want warp included", got.CompatibleTargets)
 	}
 }

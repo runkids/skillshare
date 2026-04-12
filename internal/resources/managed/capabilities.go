@@ -2,6 +2,7 @@ package managed
 
 import (
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"skillshare/internal/config"
@@ -147,13 +148,23 @@ func ResolveManagedFamily(kind ResourceKind, targetName, targetPath string) (str
 func CapabilitySnapshot() CapabilitySnapshotPayload {
 	targets := config.DefaultTargets()
 	snapshotTargets := make(map[string]TargetClassification, len(targets))
+	compatibleTargets := make(map[string][]string, len(managedCapabilities.families))
 	for name, target := range targets {
-		snapshotTargets[name] = managedCapabilities.classificationForTarget(name, target.Path)
+		classification := managedCapabilities.classificationForTarget(name, target.Path)
+		snapshotTargets[name] = classification
+		if classification.RulesFamily != "" {
+			compatibleTargets[classification.RulesFamily] = append(compatibleTargets[classification.RulesFamily], name)
+		}
+		if classification.HooksFamily != "" && classification.HooksFamily != classification.RulesFamily {
+			compatibleTargets[classification.HooksFamily] = append(compatibleTargets[classification.HooksFamily], name)
+		}
 	}
 
 	snapshotFamilies := make(map[string]FamilySpec, len(managedCapabilities.families))
 	for name, family := range managedCapabilities.families {
-		snapshotFamilies[name] = family
+		clone := family
+		clone.CompatibleTargets = dedupeSortedStrings(compatibleTargets[name])
+		snapshotFamilies[name] = clone
 	}
 
 	return CapabilitySnapshotPayload{
@@ -255,4 +266,25 @@ func (c TargetClassification) familyForKind(kind ResourceKind) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func dedupeSortedStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
 }

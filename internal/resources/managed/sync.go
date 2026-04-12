@@ -96,6 +96,9 @@ func syncHooks(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
 
 	files, _, err := managedhooks.CompileTarget(records, compileTarget, spec.Name, compileRoot, string(rawConfig))
 	if err != nil {
+		if errors.Is(err, managedhooks.ErrUnsupportedTarget) {
+			return SyncResult{}, false
+		}
 		result.Err = fmt.Errorf("compile managed hooks: %w", err)
 		return result, true
 	}
