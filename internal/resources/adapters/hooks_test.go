@@ -469,6 +469,39 @@ func TestCompileGeminiHooks_SkipsUnsupportedEventsAndHandlers(t *testing.T) {
 	}
 }
 
+func TestCompileGeminiHooks_UsesTimeoutSecondsWhenTimeoutStringInvalid(t *testing.T) {
+	projectRoot := "/tmp/project"
+	timeoutMillis := 30000
+	records := []HookRecord{
+		{
+			ID:           "gemini/before-tool/read.yaml",
+			RelativePath: "gemini/before-tool/read.yaml",
+			Tool:         "gemini",
+			Event:        "BeforeTool",
+			Matcher:      "Read",
+			Handlers: []HookHandler{{
+				Type:           "command",
+				Command:        "./bin/gemini-lint",
+				Timeout:        "30s",
+				TimeoutSeconds: &timeoutMillis,
+			}},
+		},
+	}
+
+	files, warnings, err := CompileGeminiHooks(records, projectRoot, "")
+	if err != nil {
+		t.Fatalf("CompileGeminiHooks() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("CompileGeminiHooks() warnings = %v, want none", warnings)
+	}
+
+	compiled := findHookCompiledFile(t, files, filepath.Join(projectRoot, ".gemini", "settings.json"))
+	if !strings.Contains(compiled.Content, `"timeout":30000`) {
+		t.Fatalf("compiled content = %q, want timeout from timeoutSec fallback", compiled.Content)
+	}
+}
+
 func findHookCompiledFile(t *testing.T, files []CompiledFile, wantPath string) CompiledFile {
 	t.Helper()
 	for _, file := range files {

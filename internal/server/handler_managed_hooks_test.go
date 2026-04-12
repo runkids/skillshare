@@ -361,6 +361,20 @@ func TestManagedHooksGeminiCreateGetAndDiffPreserveMetadata(t *testing.T) {
 	}
 }
 
+func TestManagedHooksCreateRejectsGeminiInvalidTimeoutEvenWhenTimeoutSecPresent(t *testing.T) {
+	s, _, _, _ := newManagedProjectServer(t, "gemini")
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/managed/hooks", strings.NewReader(`{"tool":"gemini","event":"BeforeTool","matcher":"Read","handlers":[{"type":"command","command":"./bin/check","timeout":"30s","timeoutSec":30000}]}`))
+	createRR := httptest.NewRecorder()
+	s.handler.ServeHTTP(createRR, createReq)
+	if createRR.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 from gemini create with invalid timeout, got %d: %s", createRR.Code, createRR.Body.String())
+	}
+	if !strings.Contains(createRR.Body.String(), "timeout must be numeric milliseconds for gemini") {
+		t.Fatalf("create error = %q, want gemini timeout validation message", createRR.Body.String())
+	}
+}
+
 func TestManagedHooksCollectRoute(t *testing.T) {
 	s, projectRoot, _, _ := newManagedProjectServer(t, "claude")
 

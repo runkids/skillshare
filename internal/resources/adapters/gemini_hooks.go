@@ -69,15 +69,17 @@ func isSupportedGeminiEvent(event string) bool {
 
 func geminiTimeoutJSONValue(handler HookHandler) (any, bool) {
 	timeout := strings.TrimSpace(handler.Timeout)
-	if timeout == "" {
-		if handler.TimeoutSeconds == nil {
-			return nil, true
+	if timeout != "" {
+		milliseconds, err := strconv.Atoi(timeout)
+		if err == nil {
+			return milliseconds, true
 		}
-		return *handler.TimeoutSeconds, true
+		if handler.TimeoutSeconds == nil {
+			return nil, false
+		}
 	}
-	milliseconds, err := strconv.Atoi(timeout)
-	if err != nil {
-		return nil, false
+	if handler.TimeoutSeconds == nil {
+		return nil, true
 	}
-	return milliseconds, true
+	return *handler.TimeoutSeconds, true
 }

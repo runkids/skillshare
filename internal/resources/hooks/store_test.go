@@ -345,6 +345,7 @@ func TestHookStore_RejectsMismatchedToolAndIDPrefix(t *testing.T) {
 
 func TestHookStore_RejectsInvalidGeminiRecords(t *testing.T) {
 	store := NewStore(t.TempDir())
+	timeoutMillis := 30000
 
 	cases := []Save{
 		{
@@ -367,6 +368,13 @@ func TestHookStore_RejectsInvalidGeminiRecords(t *testing.T) {
 			Event:    "BeforeTool",
 			Matcher:  "Read",
 			Handlers: []Handler{{Type: "command", Command: "./bin/check", Timeout: "30s"}},
+		},
+		{
+			ID:       "gemini/before-tool/read.yaml",
+			Tool:     "gemini",
+			Event:    "BeforeTool",
+			Matcher:  "Read",
+			Handlers: []Handler{{Type: "command", Command: "./bin/check", Timeout: "30s", TimeoutSeconds: &timeoutMillis}},
 		},
 	}
 

@@ -387,7 +387,7 @@ func validateGeminiManagedHook(id string, in hookFile) error {
 		if strings.TrimSpace(h.Command) == "" {
 			return fmt.Errorf("hook %q: handlers[%d].command is required for gemini", id, i)
 		}
-		if strings.TrimSpace(h.Timeout) != "" && h.TimeoutSeconds == nil {
+		if strings.TrimSpace(h.Timeout) != "" {
 			if _, err := strconv.Atoi(strings.TrimSpace(h.Timeout)); err != nil {
 				return fmt.Errorf("hook %q: handlers[%d].timeout must be numeric milliseconds for gemini", id, i)
 			}
