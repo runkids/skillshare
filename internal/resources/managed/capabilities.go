@@ -126,9 +126,11 @@ func ResolveManagedFamily(kind ResourceKind, targetName, targetPath string) (str
 	if cleanName != "" {
 		if canonical, ok := config.CanonicalTargetName(cleanName); ok {
 			if classification, ok := managedCapabilities.targets[canonical]; ok {
-				return classification.familyForKind(kind)
+				if family, ok := classification.familyForKind(kind); ok {
+					return family, true
+				}
+				return "", false
 			}
-			return "", false
 		}
 	}
 
@@ -145,8 +147,8 @@ func ResolveManagedFamily(kind ResourceKind, targetName, targetPath string) (str
 func CapabilitySnapshot() CapabilitySnapshotPayload {
 	targets := config.DefaultTargets()
 	snapshotTargets := make(map[string]TargetClassification, len(targets))
-	for name := range targets {
-		snapshotTargets[name] = managedCapabilities.classificationForTarget(name)
+	for name, target := range targets {
+		snapshotTargets[name] = managedCapabilities.classificationForTarget(name, target.Path)
 	}
 
 	snapshotFamilies := make(map[string]FamilySpec, len(managedCapabilities.families))
@@ -171,14 +173,34 @@ func normalizeResourceKind(kind ResourceKind) ResourceKind {
 	}
 }
 
-func (r capabilityRegistry) classificationForTarget(name string) TargetClassification {
-	if classification, ok := r.targets[name]; ok {
-		return classification
+func (r capabilityRegistry) classificationForTarget(name, targetPath string) TargetClassification {
+	classification := TargetClassification{Name: name}
+	if explicit, ok := r.targets[name]; ok {
+		classification = explicit
 	}
-	return TargetClassification{
-		Name:   name,
-		Status: []string{"skills"},
+
+	if classification.RulesFamily == "" {
+		if family, ok := ResolveManagedFamily(ResourceKindRules, name, targetPath); ok {
+			classification.RulesFamily = family
+		}
 	}
+	if classification.HooksFamily == "" {
+		if family, ok := ResolveManagedFamily(ResourceKindHooks, name, targetPath); ok {
+			classification.HooksFamily = family
+		}
+	}
+
+	switch {
+	case classification.RulesFamily != "" && classification.HooksFamily != "":
+		classification.Status = []string{"rules", "hooks"}
+	case classification.RulesFamily != "":
+		classification.Status = []string{"rules"}
+	case classification.HooksFamily != "":
+		classification.Status = []string{"hooks"}
+	default:
+		classification.Status = []string{"skills"}
+	}
+	return classification
 }
 
 func (r capabilityRegistry) familyForPath(targetPath string) string {

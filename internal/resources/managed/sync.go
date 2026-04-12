@@ -146,29 +146,6 @@ func managedRuleGlobalPreviewRoot(targetPath string) string {
 	return cleaned
 }
 
-func managedRulePathFamily(targetPath string) string {
-	cleaned := filepath.Clean(strings.TrimSpace(targetPath))
-	if cleaned == "" || cleaned == "." {
-		return ""
-	}
-
-	base := strings.ToLower(filepath.Base(cleaned))
-	if base == "skills" {
-		base = strings.ToLower(filepath.Base(filepath.Dir(cleaned)))
-	}
-
-	switch base {
-	case ".claude", "claude":
-		return "claude"
-	case ".codex", "codex", ".agents", "agents":
-		return "codex"
-	case ".gemini", "gemini":
-		return "gemini"
-	default:
-		return ""
-	}
-}
-
 func managedHookGlobalPreviewRoot(targetPath string) string {
 	cleaned := filepath.Clean(strings.TrimSpace(targetPath))
 	if cleaned == "" || cleaned == "." {
@@ -183,27 +160,6 @@ func managedHookGlobalPreviewRoot(targetPath string) string {
 		return filepath.Dir(cleaned)
 	default:
 		return cleaned
-	}
-}
-
-func managedHookPathFamily(targetPath string) string {
-	cleaned := filepath.Clean(strings.TrimSpace(targetPath))
-	if cleaned == "" || cleaned == "." {
-		return ""
-	}
-
-	base := strings.ToLower(filepath.Base(cleaned))
-	if base == "skills" {
-		base = strings.ToLower(filepath.Base(filepath.Dir(cleaned)))
-	}
-
-	switch base {
-	case ".claude", "claude":
-		return "claude"
-	case ".codex", "codex", ".agents", "agents":
-		return "codex"
-	default:
-		return ""
 	}
 }
 

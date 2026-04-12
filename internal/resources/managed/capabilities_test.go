@@ -12,6 +12,7 @@ func TestResolveManagedFamily(t *testing.T) {
 	}{
 		{kind: ResourceKindRules, target: "claude", path: ".claude/skills", want: "claude", wantFound: true},
 		{kind: ResourceKindRules, target: "pi", path: ".pi/skills", want: "pi", wantFound: true},
+		{kind: ResourceKindRules, target: "warp", path: ".agents/skills", want: "codex", wantFound: true},
 		{kind: ResourceKindHooks, target: "gemini", path: ".gemini/skills", want: "gemini", wantFound: true},
 		{kind: ResourceKindHooks, target: "pi", path: ".pi/skills", wantFound: false},
 		{kind: ResourceKindHooks, target: "universal", path: ".agents/skills", want: "codex", wantFound: true},
@@ -33,7 +34,7 @@ func TestCapabilitySnapshot_ContainsExhaustiveTargetClassification(t *testing.T)
 	if _, ok := snapshot.Targets["pi"]; !ok {
 		t.Fatal("expected pi classification")
 	}
-	if _, ok := snapshot.Targets["windsurf"]; !ok {
-		t.Fatal("expected windsurf classification")
+	if got := snapshot.Targets["warp"]; got.RulesFamily != "codex" || got.HooksFamily != "codex" {
+		t.Fatalf("warp classification = %#v, want codex family for rules/hooks", got)
 	}
 }
