@@ -125,6 +125,49 @@ func TestScanRules_IncludesPiInstructionFiles(t *testing.T) {
 	}
 }
 
+func TestScanRules_IncludesGlobalPiInstructionFiles(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+
+	mustWriteFile(t, filepath.Join(home, ".pi", "agent", "AGENTS.md"), "# Global Pi Agents")
+	mustWriteFile(t, filepath.Join(home, ".pi", "agent", "SYSTEM.md"), "# Global Pi System")
+	mustWriteFile(t, filepath.Join(home, ".pi", "agent", "APPEND_SYSTEM.md"), "# Global Pi Append")
+
+	t.Setenv("HOME", home)
+
+	items, warnings, err := ScanRules("")
+	if err != nil {
+		t.Fatalf("ScanRules() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("ScanRules() warnings = %v", warnings)
+	}
+
+	agents := findRuleItem(t, items, filepath.Join(".pi", "agent", "AGENTS.md"))
+	if agents.SourceTool != "pi" {
+		t.Fatalf("global pi agents sourceTool = %q, want pi", agents.SourceTool)
+	}
+	if agents.Scope != ScopeUser {
+		t.Fatalf("global pi agents scope = %q, want user", agents.Scope)
+	}
+
+	system := findRuleItem(t, items, filepath.Join(".pi", "agent", "SYSTEM.md"))
+	if system.SourceTool != "pi" {
+		t.Fatalf("global pi system sourceTool = %q, want pi", system.SourceTool)
+	}
+	if system.Scope != ScopeUser {
+		t.Fatalf("global pi system scope = %q, want user", system.Scope)
+	}
+
+	appendSystem := findRuleItem(t, items, filepath.Join(".pi", "agent", "APPEND_SYSTEM.md"))
+	if appendSystem.SourceTool != "pi" {
+		t.Fatalf("global pi append sourceTool = %q, want pi", appendSystem.SourceTool)
+	}
+	if appendSystem.Scope != ScopeUser {
+		t.Fatalf("global pi append scope = %q, want user", appendSystem.Scope)
+	}
+}
+
 func TestScanRules_ProjectRootAgentsStaysCodexWhenPiFilesExist(t *testing.T) {
 	project := t.TempDir()
 	agentsPath := filepath.Join(project, "AGENTS.md")

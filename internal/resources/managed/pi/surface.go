@@ -14,21 +14,30 @@ const (
 
 var managedRuleSurfaces = []ruleSurface{
 	{
-		id:              ManagedAgentsID,
-		bareName:        "AGENTS.md",
-		instructionFile: "AGENTS.md",
+		id:                ManagedAgentsID,
+		bareName:          "AGENTS.md",
+		instructionFile:   "AGENTS.md",
+		projectCompileRel: "AGENTS.md",
+		globalCompileRel:  "AGENTS.md",
+		discoveryGlobalRel: ".pi/agent/AGENTS.md",
 	},
 	{
-		id:                  ManagedSystemID,
-		bareName:            "SYSTEM.md",
-		instructionFile:     ".pi/SYSTEM.md",
+		id:                 ManagedSystemID,
+		bareName:           "SYSTEM.md",
+		instructionFile:    ".pi/SYSTEM.md",
+		projectCompileRel:  ".pi/SYSTEM.md",
+		globalCompileRel:   "SYSTEM.md",
 		discoveryProjectRel: ".pi/SYSTEM.md",
+		discoveryGlobalRel: ".pi/agent/SYSTEM.md",
 	},
 	{
-		id:                  ManagedAppendSystemID,
-		bareName:            "APPEND_SYSTEM.md",
-		instructionFile:     ".pi/APPEND_SYSTEM.md",
+		id:                 ManagedAppendSystemID,
+		bareName:           "APPEND_SYSTEM.md",
+		instructionFile:    ".pi/APPEND_SYSTEM.md",
+		projectCompileRel:  ".pi/APPEND_SYSTEM.md",
+		globalCompileRel:   "APPEND_SYSTEM.md",
 		discoveryProjectRel: ".pi/APPEND_SYSTEM.md",
+		discoveryGlobalRel: ".pi/agent/APPEND_SYSTEM.md",
 	},
 }
 
@@ -36,7 +45,10 @@ type ruleSurface struct {
 	id                  string
 	bareName            string
 	instructionFile     string
+	projectCompileRel   string
+	globalCompileRel    string
 	discoveryProjectRel string
+	discoveryGlobalRel  string
 }
 
 func ManagedRuleIDs() []string {
@@ -72,11 +84,16 @@ func NormalizeManagedRuleID(ref string) (string, bool) {
 
 func ManagedRuleIDForDiscoveredPath(filePath string) (string, bool) {
 	normalized := strings.ToLower(filepath.ToSlash(strings.TrimSpace(filePath)))
-	switch {
-	case strings.HasSuffix(normalized, "/.pi/system.md"):
-		return ManagedSystemID, true
-	case strings.HasSuffix(normalized, "/.pi/append_system.md"):
-		return ManagedAppendSystemID, true
+	for _, surface := range managedRuleSurfaces {
+		for _, rel := range []string{surface.discoveryProjectRel, surface.discoveryGlobalRel} {
+			if rel == "" {
+				continue
+			}
+			normalizedRel := strings.ToLower(filepath.ToSlash(rel))
+			if normalized == normalizedRel || strings.HasSuffix(normalized, "/"+normalizedRel) {
+				return surface.id, true
+			}
+		}
 	}
 	return "", false
 }
@@ -92,35 +109,41 @@ func DiscoveryProjectPaths(projectRoot string) []string {
 	return out
 }
 
+func DiscoveryGlobalPaths(home string) []string {
+	out := make([]string, 0, len(managedRuleSurfaces))
+	for _, surface := range managedRuleSurfaces {
+		if surface.discoveryGlobalRel == "" {
+			continue
+		}
+		out = append(out, filepath.Join(home, filepath.FromSlash(surface.discoveryGlobalRel)))
+	}
+	return out
+}
+
 func CompilePath(root, id string) (string, bool) {
 	surface, ok := surfaceByManagedID(id)
 	if !ok {
 		return "", false
 	}
-	switch surface.id {
-	case ManagedAgentsID:
-		return filepath.Join(root, "AGENTS.md"), true
-	case ManagedSystemID:
-		return filepath.Join(outputBaseDir(root), "SYSTEM.md"), true
-	case ManagedAppendSystemID:
-		return filepath.Join(outputBaseDir(root), "APPEND_SYSTEM.md"), true
-	default:
+	compileRel := surface.projectCompileRel
+	if isGlobalOutputRoot(root) {
+		compileRel = surface.globalCompileRel
+	}
+	if compileRel == "" {
 		return "", false
 	}
+	return filepath.Join(root, filepath.FromSlash(compileRel)), true
 }
 
-func outputBaseDir(root string) string {
+func isGlobalOutputRoot(root string) bool {
 	cleaned := filepath.Clean(strings.TrimSpace(root))
 	if cleaned == "" || cleaned == "." {
-		return cleaned
+		return false
 	}
 
 	base := strings.ToLower(filepath.Base(cleaned))
 	parent := strings.ToLower(filepath.Base(filepath.Dir(cleaned)))
-	if base == ".pi" || (base == "agent" && parent == ".pi") {
-		return cleaned
-	}
-	return filepath.Join(cleaned, ".pi")
+	return base == ".pi" || (base == "agent" && parent == ".pi")
 }
 
 func surfaceByManagedID(id string) (ruleSurface, bool) {

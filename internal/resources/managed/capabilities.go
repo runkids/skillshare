@@ -234,8 +234,13 @@ func (r capabilityRegistry) familyForPath(targetPath string) string {
 	}
 
 	base := strings.ToLower(filepath.Base(cleaned))
+	parent := strings.ToLower(filepath.Base(filepath.Dir(cleaned)))
+	grandparent := strings.ToLower(filepath.Base(filepath.Dir(filepath.Dir(cleaned))))
 	if base == "skills" || base == "agents" || base == "rules" {
-		base = strings.ToLower(filepath.Base(filepath.Dir(cleaned)))
+		if parent == "agent" && grandparent == ".pi" {
+			return "pi"
+		}
+		base = parent
 	}
 
 	switch base {

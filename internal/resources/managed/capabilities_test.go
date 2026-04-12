@@ -12,6 +12,7 @@ func TestResolveManagedFamily(t *testing.T) {
 	}{
 		{kind: ResourceKindRules, target: "claude", path: ".claude/skills", want: "claude", wantFound: true},
 		{kind: ResourceKindRules, target: "pi", path: ".pi/skills", want: "pi", wantFound: true},
+		{kind: ResourceKindRules, target: "pi-sandbox", path: "/tmp/home/.pi/agent/skills", want: "pi", wantFound: true},
 		{kind: ResourceKindRules, target: "warp", path: ".agents/skills", want: "codex", wantFound: true},
 		{kind: ResourceKindRules, target: "xcode-claude", path: "~/Library/Developer/Xcode/CodingAssistant/ClaudeAgentConfig/skills", want: "claude", wantFound: true},
 		{kind: ResourceKindHooks, target: "gemini", path: ".gemini/skills", want: "gemini", wantFound: true},

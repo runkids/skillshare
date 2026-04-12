@@ -41,6 +41,9 @@ func ScanRules(projectRoot string) ([]RuleItem, []string, error) {
 
 	var locations []ruleLocation
 	if !overlapHomeProject {
+		for _, piPath := range managedpi.DiscoveryGlobalPaths(home) {
+			locations = append(locations, ruleLocation{sourceTool: "pi", scope: ScopeUser, path: piPath})
+		}
 		locations = append(locations,
 			ruleLocation{sourceTool: "claude", scope: ScopeUser, path: filepath.Join(home, ".claude", "CLAUDE.md")},
 			ruleLocation{sourceTool: "codex", scope: ScopeUser, path: filepath.Join(home, ".codex", "AGENTS.md")},

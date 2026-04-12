@@ -367,6 +367,30 @@ func TestManagedIDForDiscoveredRule_PiFamily(t *testing.T) {
 			},
 			want: "pi/APPEND_SYSTEM.md",
 		},
+		{
+			name: "global pi agents file",
+			item: inspect.RuleItem{
+				SourceTool: "pi",
+				Path:       "/tmp/home/.pi/agent/AGENTS.md",
+			},
+			want: "pi/AGENTS.md",
+		},
+		{
+			name: "global pi system file",
+			item: inspect.RuleItem{
+				SourceTool: "pi",
+				Path:       "/tmp/home/.pi/agent/SYSTEM.md",
+			},
+			want: "pi/SYSTEM.md",
+		},
+		{
+			name: "global pi append system file",
+			item: inspect.RuleItem{
+				SourceTool: "pi",
+				Path:       "/tmp/home/.pi/agent/APPEND_SYSTEM.md",
+			},
+			want: "pi/APPEND_SYSTEM.md",
+		},
 	}
 
 	for _, tt := range tests {
