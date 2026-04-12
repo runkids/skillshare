@@ -38,7 +38,7 @@ func toManagedTargets(entries []syncTargetEntry) []managed.TargetSyncSpec {
 	return specs
 }
 
-func syncManagedResourcesForEntries(entries []syncTargetEntry, results []syncTargetResult, resources resourceSelection, projectRoot string, dryRun bool) ([]syncTargetResult, int) {
+func syncManagedResourcesForEntries(entries, allEntries []syncTargetEntry, results []syncTargetResult, resources resourceSelection, projectRoot string, dryRun bool) ([]syncTargetResult, int) {
 	if len(results) == 0 {
 		results = make([]syncTargetResult, len(entries))
 	}
@@ -55,7 +55,8 @@ func syncManagedResourcesForEntries(entries []syncTargetEntry, results []syncTar
 			Rules: resources.rules,
 			Hooks: resources.hooks,
 		},
-		Targets: toManagedTargets(entries),
+		Targets:    toManagedTargets(entries),
+		AllTargets: toManagedTargets(allEntries),
 	})
 
 	linesByTarget := make(map[string][]string, len(entries))

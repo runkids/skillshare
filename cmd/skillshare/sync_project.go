@@ -109,7 +109,7 @@ func cmdSyncProject(root string, resources resourceSelection, dryRun, force, jso
 	}
 	if resources.includesManaged() {
 		var managedFailed int
-		results, managedFailed = syncManagedResourcesForEntries(entries, results, resources, root, dryRun)
+		results, managedFailed = syncManagedResourcesForEntries(entries, entries, results, resources, root, dryRun)
 		failedTargets += managedFailed
 		if !jsonOutput {
 			renderSyncResults(results)

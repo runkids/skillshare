@@ -20,6 +20,7 @@ type SyncRequest struct {
 	DryRun      bool
 	Resources   ResourceSet
 	Targets     []TargetSyncSpec
+	AllTargets  []TargetSyncSpec
 }
 
 // SyncResult reports one target/resource sync outcome.

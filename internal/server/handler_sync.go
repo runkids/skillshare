@@ -121,6 +121,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	if body.Kind == kindAgent {
 		s.syncAgentsForUI(&results, &warnings, body.DryRun, body.Force)
 	} else {
+		allTargets := s.cloneTargets()
 		for name, target := range s.cfg.Targets {
 			syncErrArgs := map[string]any{
 				"targets_total":  len(s.cfg.Targets),
@@ -191,7 +192,7 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 			}
 
 			if resources.rules || resources.hooks {
-				rows, err := s.syncManagedResourcesForTarget(name, target, resources, body.DryRun)
+				rows, err := s.syncManagedResourcesForTarget(name, target, allTargets, resources, body.DryRun)
 				results = append(results, rows...)
 				if err != nil {
 					s.writeOpsLog("sync", "error", start, syncErrArgs, err.Error())

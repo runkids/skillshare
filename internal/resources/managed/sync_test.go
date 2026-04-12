@@ -316,17 +316,22 @@ func TestSync_PrunesDeletedPiRuleOutputs(t *testing.T) {
 	}
 }
 
-func TestSync_PrunesDeletedProjectModePiAgentsOutput(t *testing.T) {
+func TestSync_ProjectModePiSyncDoesNotPruneManualProjectRootAgents(t *testing.T) {
 	projectRoot := t.TempDir()
+	manualAgentsPath := filepath.Join(projectRoot, "AGENTS.md")
+	if err := os.WriteFile(manualAgentsPath, []byte("# Manual Agents\n"), 0o644); err != nil {
+		t.Fatalf("write manual AGENTS.md: %v", err)
+	}
+
 	ruleStore := managedrules.NewStore(projectRoot)
 	if _, err := ruleStore.Put(managedrules.Save{
-		ID:      "pi/AGENTS.md",
-		Content: []byte("# Pi Agents\n"),
+		ID:      "pi/SYSTEM.md",
+		Content: []byte("# Pi System\n"),
 	}); err != nil {
 		t.Fatalf("put managed pi rule: %v", err)
 	}
 
-	req := SyncRequest{
+	results := Sync(SyncRequest{
 		ProjectRoot: projectRoot,
 		DryRun:      false,
 		Resources:   ResourceSet{Rules: true},
@@ -334,33 +339,27 @@ func TestSync_PrunesDeletedProjectModePiAgentsOutput(t *testing.T) {
 			Name:   "pi",
 			Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
 		}},
-	}
+		AllTargets: []TargetSyncSpec{
+			{
+				Name:   "codex",
+				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".codex", "skills")},
+			},
+			{
+				Name:   "pi",
+				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
+			},
+		},
+	})
 
-	first := Sync(req)
-	firstResult := findSyncResult(t, first, "pi", "rules")
-	if firstResult.Err != nil {
-		t.Fatalf("first pi rules sync error = %v", firstResult.Err)
+	result := findSyncResult(t, results, "pi", "rules")
+	if result.Err != nil {
+		t.Fatalf("pi rules sync error = %v", result.Err)
 	}
-
-	compiledPath := filepath.Join(projectRoot, "AGENTS.md")
-	if _, err := os.Stat(compiledPath); err != nil {
-		t.Fatalf("expected compiled pi rule at %s: %v", compiledPath, err)
+	if containsAll(result.Pruned, manualAgentsPath) {
+		t.Fatalf("pi rules pruned = %v, manual AGENTS.md must not be pruned", result.Pruned)
 	}
-
-	if err := ruleStore.Delete("pi/AGENTS.md"); err != nil {
-		t.Fatalf("delete managed pi rule: %v", err)
-	}
-
-	second := Sync(req)
-	secondResult := findSyncResult(t, second, "pi", "rules")
-	if secondResult.Err != nil {
-		t.Fatalf("second pi rules sync error = %v", secondResult.Err)
-	}
-	if !containsAll(secondResult.Pruned, compiledPath) {
-		t.Fatalf("second pi rules pruned = %v, want %q", secondResult.Pruned, compiledPath)
-	}
-	if _, err := os.Stat(compiledPath); !os.IsNotExist(err) {
-		t.Fatalf("expected compiled pi rule to be pruned, got err=%v", err)
+	if got := readFile(t, manualAgentsPath); got != "# Manual Agents\n" {
+		t.Fatalf("project AGENTS.md = %q, want manual content preserved", got)
 	}
 }
 
@@ -441,6 +440,16 @@ func TestSync_RejectsProjectRootAgentsConflictForSingleTargetSync(t *testing.T) 
 			Name:   "pi",
 			Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
 		}},
+		AllTargets: []TargetSyncSpec{
+			{
+				Name:   "codex",
+				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".codex", "skills")},
+			},
+			{
+				Name:   "pi",
+				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
+			},
+		},
 	})
 
 	piResult := findSyncResult(t, results, "pi", "rules")
@@ -458,11 +467,15 @@ func TestSync_RejectsProjectRootAgentsConflictForSingleTargetSync(t *testing.T) 
 
 func TestSync_RejectsProjectRootAgentsConflictForSingleTargetSyncWithNonCanonicalCodexFamilyTarget(t *testing.T) {
 	projectRoot := t.TempDir()
+	customCodexTarget := TargetSyncSpec{
+		Name:   "my-codex",
+		Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".agents", "skills")},
+	}
 	ruleStore := managedrules.NewStore(projectRoot)
 	if _, err := ruleStore.Put(managedrules.Save{
 		ID:      "codex/AGENTS.md",
 		Content: []byte("# Codex Agents\n"),
-		Targets: []string{"amp"},
+		Targets: []string{"my-codex"},
 	}); err != nil {
 		t.Fatalf("put managed codex rule: %v", err)
 	}
@@ -481,14 +494,21 @@ func TestSync_RejectsProjectRootAgentsConflictForSingleTargetSyncWithNonCanonica
 			Name:   "pi",
 			Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
 		}},
+		AllTargets: []TargetSyncSpec{
+			{
+				Name:   "pi",
+				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
+			},
+			customCodexTarget,
+		},
 	})
 
 	piResult := findSyncResult(t, results, "pi", "rules")
 	if piResult.Err == nil {
 		t.Fatal("pi rules sync error = nil, want shared AGENTS conflict")
 	}
-	if !strings.Contains(piResult.Err.Error(), "conflict") || !strings.Contains(piResult.Err.Error(), "AGENTS.md") || !strings.Contains(piResult.Err.Error(), "amp") {
-		t.Fatalf("pi rules sync error = %v, want AGENTS conflict mentioning amp target", piResult.Err)
+	if !strings.Contains(piResult.Err.Error(), "conflict") || !strings.Contains(piResult.Err.Error(), "AGENTS.md") || !strings.Contains(piResult.Err.Error(), "my-codex") {
+		t.Fatalf("pi rules sync error = %v, want AGENTS conflict mentioning my-codex target", piResult.Err)
 	}
 
 	if _, err := os.Stat(filepath.Join(projectRoot, "AGENTS.md")); !os.IsNotExist(err) {

@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"skillshare/internal/config"
@@ -53,7 +54,7 @@ func parseServerSyncResources(values []string) (serverSyncResources, error) {
 	return resources, nil
 }
 
-func (s *Server) syncManagedResourcesForTarget(name string, target config.TargetConfig, resources serverSyncResources, dryRun bool) ([]syncTargetResult, error) {
+func (s *Server) syncManagedResourcesForTarget(name string, target config.TargetConfig, allTargets map[string]config.TargetConfig, resources serverSyncResources, dryRun bool) ([]syncTargetResult, error) {
 	rows := managed.Sync(managed.SyncRequest{
 		ProjectRoot: s.managedRulesProjectRoot(),
 		DryRun:      dryRun,
@@ -65,8 +66,26 @@ func (s *Server) syncManagedResourcesForTarget(name string, target config.Target
 			Name:   name,
 			Target: target,
 		}},
+		AllTargets: managedTargetSpecsFromMap(allTargets),
 	})
 	return syncTargetResultsFromManagedRows(name, rows)
+}
+
+func managedTargetSpecsFromMap(targets map[string]config.TargetConfig) []managed.TargetSyncSpec {
+	names := make([]string, 0, len(targets))
+	for name := range targets {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	specs := make([]managed.TargetSyncSpec, 0, len(names))
+	for _, name := range names {
+		specs = append(specs, managed.TargetSyncSpec{
+			Name:   name,
+			Target: targets[name],
+		})
+	}
+	return specs
 }
 
 func syncTargetResultsFromManagedRows(target string, rows []managed.SyncResult) ([]syncTargetResult, error) {

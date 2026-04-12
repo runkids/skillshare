@@ -121,7 +121,10 @@ func DiscoveryGlobalPaths(home string) []string {
 }
 
 func OwnedCompilePaths(root string) []string {
-	ids := []string{ManagedAgentsID, ManagedSystemID, ManagedAppendSystemID}
+	ids := []string{ManagedSystemID, ManagedAppendSystemID}
+	if isGlobalOutputRoot(root) {
+		ids = append([]string{ManagedAgentsID}, ids...)
+	}
 
 	out := make([]string, 0, len(ids))
 	for _, id := range ids {
