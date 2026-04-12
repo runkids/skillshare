@@ -477,6 +477,112 @@ Examples:
 If a target later proves it shares native managed semantics with an existing
 family, that mapping can be added deliberately.
 
+## Exhaustive Target Coverage
+
+The spec should provide **100% classification coverage** for the current built-in
+target registry in `internal/config/targets.yaml`.
+
+That means every canonical built-in target must be in exactly one of these
+states:
+
+- mapped to a managed `rules` and `hooks` family
+- mapped to a managed `rules` family only
+- supported for `skills`, but not mapped to managed `rules` or `hooks` yet
+
+It does **not** mean every skill target gets native managed hooks/rules support.
+That would misrepresent tools that do not expose comparable native surfaces.
+
+Aliases inherit the disposition of their canonical target unless the spec says
+otherwise.
+
+This appendix is exhaustive for the current 56 canonical built-in targets and
+must be updated whenever `targets.yaml` changes.
+
+### Managed Rules And Hooks
+
+Claude family:
+
+- `claude`
+
+Codex family:
+
+- `codex`
+- `universal`
+
+Gemini family:
+
+- `gemini`
+
+### Managed Rules Only
+
+Pi family:
+
+- `pi`
+
+### Skills-Only In Initial Pass
+
+- `adal`
+- `amp`
+- `antigravity`
+- `astrbot`
+- `augment`
+- `bob`
+- `cline`
+- `codebuddy`
+- `comate`
+- `commandcode`
+- `continue`
+- `cortex`
+- `copilot`
+- `crush`
+- `cursor`
+- `deepagents`
+- `droid`
+- `firebender`
+- `goose`
+- `hermes`
+- `iflow`
+- `junie`
+- `kilocode`
+- `kimi`
+- `kiro`
+- `kode`
+- `letta`
+- `lingma`
+- `mcpjam`
+- `mux`
+- `neovate`
+- `omp`
+- `openclaw`
+- `opencode`
+- `openhands`
+- `pochi`
+- `purecode`
+- `qoder`
+- `qwen`
+- `roo`
+- `trae`
+- `trae-cn`
+- `vibe`
+- `verdent`
+- `warp`
+- `windsurf`
+- `witsy`
+- `xcode-claude`
+- `xcode-codex`
+- `zencoder`
+- `replit`
+
+### Explicit Non-Inferences
+
+The following should remain skills-only until explicitly verified, even though
+their names or shared paths could tempt over-mapping:
+
+- `.agents`-path targets other than `universal` and current Codex compatibility
+- `omp` / `oh-my-pi`
+- `xcode-claude`
+- `xcode-codex`
+
 ## CLI Design
 
 ### Principle
