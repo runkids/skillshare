@@ -228,6 +228,9 @@ func NormalizeRuleID(id string) (string, error) {
 	if len(parts) < 2 {
 		return "", fmt.Errorf("%w %q", ErrInvalidID, id)
 	}
+	if parts[0] == "pi" && !isSupportedPiRuleID(cleanedID) {
+		return "", fmt.Errorf("%w %q", ErrInvalidID, id)
+	}
 
 	return cleanedID, nil
 }
@@ -305,6 +308,15 @@ func splitRuleID(id string) (tool string, name string) {
 func isSupportedRuleToolPrefix(tool string) bool {
 	switch tool {
 	case "claude", "codex", "gemini", "pi":
+		return true
+	default:
+		return false
+	}
+}
+
+func isSupportedPiRuleID(id string) bool {
+	switch id {
+	case "pi/AGENTS.md", "pi/SYSTEM.md", "pi/APPEND_SYSTEM.md":
 		return true
 	default:
 		return false

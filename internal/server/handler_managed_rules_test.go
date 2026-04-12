@@ -602,6 +602,17 @@ func TestManagedRulesPreviewCompilesPiTargetsAtGlobalRoot(t *testing.T) {
 	}
 }
 
+func TestManagedRulesCreateRejectsUnsupportedPiPath(t *testing.T) {
+	s, _, _, _ := newManagedProjectServer(t, "pi")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/managed/rules", strings.NewReader(`{"tool":"pi","relativePath":"pi/extra.md","content":"# Extra\n"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 from create, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestManagedRulesCreateServerErrorOnWriteFailure(t *testing.T) {
 	s, projectRoot, _, _ := newManagedProjectServer(t, "claude")
 

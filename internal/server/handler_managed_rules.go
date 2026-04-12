@@ -612,6 +612,9 @@ func managedRuleDerivedID(body managedRuleRequest) (string, error) {
 	if rel == "." || rel == "/" {
 		return "", errors.New("invalid rule relativePath")
 	}
+	if tool == "pi" && !isSupportedPiManagedRuleRelativePath(rel) && !isSupportedPiManagedRuleRelativePath(tool+"/"+rel) {
+		return "", errors.New("invalid rule relativePath")
+	}
 	if strings.HasPrefix(rel, tool+"/") {
 		normalized, err := managedrules.NormalizeRuleID(rel)
 		if err != nil {
@@ -624,6 +627,15 @@ func managedRuleDerivedID(body managedRuleRequest) (string, error) {
 		return "", errors.New("invalid rule relativePath")
 	}
 	return normalized, nil
+}
+
+func isSupportedPiManagedRuleRelativePath(rel string) bool {
+	switch rel {
+	case "AGENTS.md", "SYSTEM.md", "APPEND_SYSTEM.md", "pi/AGENTS.md", "pi/SYSTEM.md", "pi/APPEND_SYSTEM.md":
+		return true
+	default:
+		return false
+	}
 }
 
 func normalizeManagedRuleTool(raw string) (string, error) {
