@@ -161,7 +161,7 @@ describe('HookDetailPage', () => {
     expect(screen.getByText(/compiled preview/i)).toBeInTheDocument();
   });
 
-  it('uses the custom handler type select, prompt textarea, and text timeout input', async () => {
+  it('uses the custom handler type select with a single timeout field for claude hooks', async () => {
     const createdHook: ManagedHookDetailResponse = {
       hook: {
         id: 'claude/pre-tool-use/bash.yaml',
@@ -197,11 +197,11 @@ describe('HookDetailPage', () => {
     expect(typeControl).toHaveTextContent('prompt');
     expect(screen.getByLabelText(/prompt/i).tagName).toBe('TEXTAREA');
     expect(screen.getByLabelText(/prompt/i)).toHaveAttribute('rows', '5');
-    expect(screen.getByLabelText(/timeout sec/i)).toHaveAttribute('type', 'text');
-    expect(screen.getByLabelText(/timeout sec/i)).toHaveAttribute('inputmode', 'numeric');
+    expect(screen.getByLabelText(/^timeout$/i)).not.toHaveAttribute('inputmode');
+    expect(screen.queryByLabelText(/timeout sec/i)).not.toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText(/prompt/i), 'Review the action');
-    await userEvent.type(screen.getByLabelText(/timeout sec/i), '15');
+    await userEvent.type(screen.getByLabelText(/^timeout$/i), '15s');
     await userEvent.click(screen.getByRole('button', { name: /save hook/i }));
 
     expect(createManagedHook).toHaveBeenCalledWith({
@@ -214,8 +214,83 @@ describe('HookDetailPage', () => {
           command: undefined,
           url: undefined,
           prompt: 'Review the action',
+          timeout: '15s',
+          timeoutSec: undefined,
+          statusMessage: undefined,
+        },
+      ],
+    });
+  });
+
+  it('uses a single numeric timeout field for codex hooks', async () => {
+    getManagedHook.mockResolvedValue({
+      hook: {
+        id: 'codex/pre-tool-use/bash.yaml',
+        tool: 'codex',
+        event: 'PreToolUse',
+        matcher: 'Bash',
+        targets: ['codex-work'],
+        sourceType: 'tracked',
+        disabled: false,
+        handlers: [
+          {
+            type: 'command',
+            command: './bin/check',
+            timeout: '30',
+          },
+        ],
+      },
+      previews: [],
+    });
+    updateManagedHook.mockResolvedValue({
+      hook: {
+        id: 'codex/pre-tool-use/bash.yaml',
+        tool: 'codex',
+        event: 'PreToolUse',
+        matcher: 'Bash',
+        targets: ['codex-work'],
+        sourceType: 'tracked',
+        disabled: false,
+        handlers: [
+          {
+            type: 'command',
+            command: './bin/check',
+            timeoutSec: 45,
+          },
+        ],
+      },
+      previews: [],
+    });
+
+    renderPage('/hooks/manage/codex/pre-tool-use/bash.yaml');
+
+    const timeoutInput = await screen.findByLabelText(/timeout sec/i);
+    expect(timeoutInput).toHaveValue('30');
+    expect(timeoutInput).toHaveAttribute('type', 'text');
+    expect(timeoutInput).toHaveAttribute('inputmode', 'numeric');
+    expect(timeoutInput).toHaveAttribute('pattern', '[0-9]*');
+    expect(timeoutInput).toHaveAttribute('placeholder', '30');
+    expect(screen.queryByLabelText(/^timeout$/i)).not.toBeInTheDocument();
+
+    await userEvent.clear(timeoutInput);
+    await userEvent.type(timeoutInput, '45');
+    await userEvent.click(screen.getByRole('button', { name: /save hook/i }));
+
+    expect(updateManagedHook).toHaveBeenCalledWith('codex/pre-tool-use/bash.yaml', {
+      tool: 'codex',
+      event: 'PreToolUse',
+      matcher: 'Bash',
+      targets: ['codex-work'],
+      sourceType: 'tracked',
+      disabled: false,
+      handlers: [
+        {
+          type: 'command',
+          command: './bin/check',
+          url: undefined,
+          prompt: undefined,
           timeout: undefined,
-          timeoutSec: 15,
+          timeoutSec: 45,
           statusMessage: undefined,
         },
       ],

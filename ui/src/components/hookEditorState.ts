@@ -4,7 +4,6 @@ export interface HookEditorHandlerValue {
   url: string;
   prompt: string;
   timeout: string;
-  timeoutSec: string;
   statusMessage: string;
 }
 
@@ -22,7 +21,6 @@ function emptyHandler(): HookEditorHandlerValue {
     url: '',
     prompt: '',
     timeout: '',
-    timeoutSec: '',
     statusMessage: '',
   };
 }

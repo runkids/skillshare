@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, forwardRef, memo, type ReactElement } from 'react';
+import { useState, useMemo, useCallback, useEffect, forwardRef, memo, type ReactElement, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Bot,
@@ -27,6 +27,7 @@ import {
   X,
   Layers,
   FileText,
+  Webhook,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { VirtuosoGrid, Virtuoso } from 'react-virtuoso';
@@ -45,11 +46,10 @@ import PageHeader from '../components/PageHeader';
 import SegmentedControl from '../components/SegmentedControl';
 import Pagination from '../components/Pagination';
 import { api } from '../api/client';
-import type { ManagedHook, ManagedRule, RuleItem, Skill, SyncMatrixEntry } from '../api/client';
+import type { ManagedHook, ManagedRule, Skill, SyncMatrixEntry } from '../api/client';
 import { radius } from '../design';
 import ScrollToTop from '../components/ScrollToTop';
 import Tooltip from '../components/Tooltip';
-import { formatHookDiscoveryGroupTitle, getHookActionPayload, groupDiscoveredHooks, type HookDiscoveryGroup } from '../lib/hookDiscovery';
 import { parseRemoteURL } from '../lib/parseRemoteURL';
 import { formatSkillDisplayName, formatAgentDisplayName, formatTrackedRepoName } from '../lib/resourceNames';
 import { useToast } from '../components/Toast';
@@ -74,11 +74,21 @@ const SKILL_PASTELS_DARK = [
 /* -- Shared skill action items hook --------------- */
 
 type SkillsData = { resources: Skill[] };
+type ManagedRulesData = { rules: ManagedRule[] };
+type ManagedHooksData = { hooks: ManagedHook[] };
 const EMPTY_RESOURCES: Skill[] = [];
 
 function resourceDetailHref(resource: Pick<Skill, 'flatName' | 'kind'>): string {
   const kindQuery = resource.kind === 'agent' ? '?kind=agent' : '';
   return `/resources/${encodeURIComponent(resource.flatName)}${kindQuery}`;
+}
+
+function managedRuleDetailHref(id: string): string {
+  return `/rules/manage/${encodeURIComponent(id)}`;
+}
+
+function managedHookDetailHref(id: string): string {
+  return `/hooks/manage/${encodeURIComponent(id)}`;
 }
 
 function resourceLabel(kind: Skill['kind'], capitalize = false): string {
@@ -132,6 +142,36 @@ function optimisticPatch(
     queryClient.setQueryData<SkillsData>(queryKeys.skills.all, {
       ...previous,
       resources: patchFn(previous.resources),
+    });
+  }
+  return previous;
+}
+
+function optimisticPatchManagedRules(
+  queryClient: ReturnType<typeof useQueryClient>,
+  patchFn: (rules: ManagedRule[]) => ManagedRule[],
+) {
+  queryClient.cancelQueries({ queryKey: queryKeys.rules.managed });
+  const previous = queryClient.getQueryData<ManagedRulesData>(queryKeys.rules.managed);
+  if (previous) {
+    queryClient.setQueryData<ManagedRulesData>(queryKeys.rules.managed, {
+      ...previous,
+      rules: patchFn(previous.rules),
+    });
+  }
+  return previous;
+}
+
+function optimisticPatchManagedHooks(
+  queryClient: ReturnType<typeof useQueryClient>,
+  patchFn: (hooks: ManagedHook[]) => ManagedHook[],
+) {
+  queryClient.cancelQueries({ queryKey: queryKeys.hooks.managed });
+  const previous = queryClient.getQueryData<ManagedHooksData>(queryKeys.hooks.managed);
+  if (previous) {
+    queryClient.setQueryData<ManagedHooksData>(queryKeys.hooks.managed, {
+      ...previous,
+      hooks: patchFn(previous.hooks),
     });
   }
   return previous;
@@ -270,6 +310,218 @@ function useResourceActions() {
   return { uninstallMutation, uninstallRepoMutation, setTargetMutation, buildResourceExtraItems };
 }
 
+function useManagedRuleActions() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const setTargetMutation = useMutation({
+    mutationFn: ({ id, target }: { id: string; target: string | null }) =>
+      api.managedRules.setTargets(id, target),
+    onMutate: async ({ id, target }) => {
+      const previous = optimisticPatchManagedRules(queryClient, (rules) =>
+        rules.map((rule) => (
+          rule.id === id
+            ? { ...rule, targets: target ? [target] : undefined }
+            : rule
+        )),
+      );
+      return { previous };
+    },
+    onSuccess: (_, { id, target }) => {
+      toast(`${id} now available in ${target ?? 'All'}`, 'success');
+    },
+    onError: (err: Error, _, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKeys.rules.managed, ctx.previous);
+      toast(err.message, 'error');
+    },
+    onSettled: (_, __, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.rules.managed });
+      queryClient.invalidateQueries({ queryKey: queryKeys.rules.detail(id) });
+    },
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, disabled }: { id: string; disabled: boolean }) =>
+      api.managedRules.setDisabled(id, disabled),
+    onMutate: async ({ id, disabled }) => {
+      const previous = optimisticPatchManagedRules(queryClient, (rules) =>
+        rules.map((rule) => (
+          rule.id === id
+            ? { ...rule, disabled }
+            : rule
+        )),
+      );
+      return { previous };
+    },
+    onSuccess: (_, { id, disabled }) => {
+      toast(`Rule ${id} ${disabled ? 'disabled' : 'enabled'}`, 'success');
+    },
+    onError: (err: Error, _, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKeys.rules.managed, ctx.previous);
+      toast(err.message, 'error');
+    },
+    onSettled: (_, __, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.rules.managed });
+      queryClient.invalidateQueries({ queryKey: queryKeys.rules.detail(id) });
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: ({ id }: { id: string }) => api.managedRules.remove(id),
+    onMutate: async ({ id }) => {
+      const previous = optimisticPatchManagedRules(queryClient, (rules) =>
+        rules.filter((rule) => rule.id !== id),
+      );
+      return { previous };
+    },
+    onSuccess: (_, { id }) => {
+      toast(`Uninstalled rule ${id}`, 'success');
+      queryClient.removeQueries({ queryKey: queryKeys.rules.detail(id) });
+    },
+    onError: (err: Error, _, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKeys.rules.managed, ctx.previous);
+      toast(err.message, 'error');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.rules.managed });
+    },
+  });
+
+  function buildRuleExtraItems(rule: Pick<ManagedRule, 'id' | 'disabled'>, onUninstall: () => void): ContextMenuItem[] {
+    return [
+      {
+        key: 'detail',
+        label: 'View Detail',
+        icon: <ExternalLink size={13} strokeWidth={2.5} />,
+        onSelect: () => navigate(`/rules/manage/${encodeURIComponent(rule.id)}`),
+      },
+      {
+        key: 'toggle',
+        label: rule.disabled ? 'Enable' : 'Disable',
+        icon: rule.disabled
+          ? <Eye size={13} strokeWidth={2.5} />
+          : <EyeOff size={13} strokeWidth={2.5} />,
+        onSelect: () => toggleMutation.mutate({ id: rule.id, disabled: !rule.disabled }),
+      },
+      {
+        key: 'uninstall',
+        label: 'Uninstall',
+        icon: <Trash2 size={13} strokeWidth={2.5} />,
+        onSelect: onUninstall,
+      },
+    ];
+  }
+
+  return { setTargetMutation, toggleMutation, removeMutation, buildRuleExtraItems };
+}
+
+function useManagedHookActions() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const setTargetMutation = useMutation({
+    mutationFn: ({ id, target }: { id: string; target: string | null }) =>
+      api.managedHooks.setTargets(id, target),
+    onMutate: async ({ id, target }) => {
+      const previous = optimisticPatchManagedHooks(queryClient, (hooks) =>
+        hooks.map((hook) => (
+          hook.id === id
+            ? { ...hook, targets: target ? [target] : undefined }
+            : hook
+        )),
+      );
+      return { previous };
+    },
+    onSuccess: (_, { id, target }) => {
+      toast(`${id} now available in ${target ?? 'All'}`, 'success');
+    },
+    onError: (err: Error, _, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKeys.hooks.managed, ctx.previous);
+      toast(err.message, 'error');
+    },
+    onSettled: (_, __, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.hooks.managed });
+      queryClient.invalidateQueries({ queryKey: queryKeys.hooks.detail(id) });
+    },
+  });
+
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, disabled }: { id: string; disabled: boolean }) =>
+      api.managedHooks.setDisabled(id, disabled),
+    onMutate: async ({ id, disabled }) => {
+      const previous = optimisticPatchManagedHooks(queryClient, (hooks) =>
+        hooks.map((hook) => (
+          hook.id === id
+            ? { ...hook, disabled }
+            : hook
+        )),
+      );
+      return { previous };
+    },
+    onSuccess: (_, { id, disabled }) => {
+      toast(`Hook ${id} ${disabled ? 'disabled' : 'enabled'}`, 'success');
+    },
+    onError: (err: Error, _, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKeys.hooks.managed, ctx.previous);
+      toast(err.message, 'error');
+    },
+    onSettled: (_, __, { id }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.hooks.managed });
+      queryClient.invalidateQueries({ queryKey: queryKeys.hooks.detail(id) });
+    },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: ({ id }: { id: string }) => api.managedHooks.remove(id),
+    onMutate: async ({ id }) => {
+      const previous = optimisticPatchManagedHooks(queryClient, (hooks) =>
+        hooks.filter((hook) => hook.id !== id),
+      );
+      return { previous };
+    },
+    onSuccess: (_, { id }) => {
+      toast(`Uninstalled hook ${id}`, 'success');
+      queryClient.removeQueries({ queryKey: queryKeys.hooks.detail(id) });
+    },
+    onError: (err: Error, _, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(queryKeys.hooks.managed, ctx.previous);
+      toast(err.message, 'error');
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.hooks.managed });
+    },
+  });
+
+  function buildHookExtraItems(hook: Pick<ManagedHook, 'id' | 'disabled'>, onUninstall: () => void): ContextMenuItem[] {
+    return [
+      {
+        key: 'detail',
+        label: 'View Detail',
+        icon: <ExternalLink size={13} strokeWidth={2.5} />,
+        onSelect: () => navigate(`/hooks/manage/${encodeURIComponent(hook.id)}`),
+      },
+      {
+        key: 'toggle',
+        label: hook.disabled ? 'Enable' : 'Disable',
+        icon: hook.disabled
+          ? <Eye size={13} strokeWidth={2.5} />
+          : <EyeOff size={13} strokeWidth={2.5} />,
+        onSelect: () => toggleMutation.mutate({ id: hook.id, disabled: !hook.disabled }),
+      },
+      {
+        key: 'uninstall',
+        label: 'Uninstall',
+        icon: <Trash2 size={13} strokeWidth={2.5} />,
+        onSelect: onUninstall,
+      },
+    ];
+  }
+
+  return { setTargetMutation, toggleMutation, removeMutation, buildHookExtraItems };
+}
+
 /** Normalize skill targets: ["*"] or empty/null → [] (meaning All). */
 function normalizeTargets(targets?: string[] | null): string[] {
   if (!targets || targets.length === 0 || targets.includes('*')) return [];
@@ -286,6 +538,12 @@ function hashToIndex(s: string, len: number): number {
 /** Extract owner/repo from a git remote URL, fallback to raw string. */
 function shortSource(source: string): string {
   return parseRemoteURL(source)?.ownerRepo ?? source;
+}
+
+function basenamePath(path: string): string {
+  const normalized = path.replace(/\/+$/, '');
+  const lastSlash = normalized.lastIndexOf('/');
+  return lastSlash >= 0 ? normalized.slice(lastSlash + 1) : normalized;
 }
 
 /* -- Folder tree types & helpers -------------------- */
@@ -509,6 +767,168 @@ function collectAllFolderPaths(root: FolderNode): string[] {
   return paths;
 }
 
+interface ManagedResourceTreeEntry<T> {
+  id: string;
+  name: string;
+  path: string;
+  href: string;
+  disabled?: boolean;
+  item: T;
+}
+
+interface ManagedFolderNode<T> {
+  name: string;
+  path: string;
+  children: Map<string, ManagedFolderNode<T>>;
+  items: ManagedResourceTreeEntry<T>[];
+  itemCount: number;
+}
+
+interface ManagedTreeNode<T> {
+  type: 'folder' | 'item';
+  name: string;
+  path: string;
+  depth: number;
+  entry?: ManagedResourceTreeEntry<T>;
+  childCount: number;
+  isRoot?: boolean;
+}
+
+function buildManagedResourceTree<T>(entries: ManagedResourceTreeEntry<T>[]): ManagedFolderNode<T> {
+  const root: ManagedFolderNode<T> = {
+    name: '',
+    path: '',
+    children: new Map(),
+    items: [],
+    itemCount: 0,
+  };
+
+  for (const entry of entries) {
+    const lastSlash = entry.path.lastIndexOf('/');
+    if (lastSlash <= 0) {
+      root.items.push(entry);
+      continue;
+    }
+
+    const dirPath = entry.path.substring(0, lastSlash);
+    const segments = dirPath.split('/');
+    let node = root;
+    let currentPath = '';
+    for (const segment of segments) {
+      currentPath = currentPath ? `${currentPath}/${segment}` : segment;
+      if (!node.children.has(segment)) {
+        node.children.set(segment, {
+          name: segment,
+          path: currentPath,
+          children: new Map(),
+          items: [],
+          itemCount: 0,
+        });
+      }
+      node = node.children.get(segment)!;
+    }
+    node.items.push(entry);
+  }
+
+  function computeCounts(node: ManagedFolderNode<T>): number {
+    let count = node.items.length;
+    for (const child of node.children.values()) count += computeCounts(child);
+    node.itemCount = count;
+    return count;
+  }
+
+  computeCounts(root);
+  return root;
+}
+
+function flattenManagedResourceTree<T>(
+  root: ManagedFolderNode<T>,
+  collapsed: ReadonlySet<string>,
+  isSearching: boolean,
+): ManagedTreeNode<T>[] {
+  const result: ManagedTreeNode<T>[] = [];
+
+  function walkFolder(node: ManagedFolderNode<T>, depth: number) {
+    const sortedChildren = [...node.children.entries()].sort((left, right) => left[0].localeCompare(right[0]));
+    for (const [, child] of sortedChildren) {
+      if (child.itemCount === 0) continue;
+      result.push({
+        type: 'folder',
+        name: child.name,
+        path: child.path,
+        depth,
+        childCount: child.itemCount,
+      });
+      const isCollapsed = !isSearching && collapsed.has(child.path);
+      if (!isCollapsed) walkFolder(child, depth + 1);
+    }
+
+    for (const entry of node.items) {
+      result.push({
+        type: 'item',
+        name: entry.name,
+        path: entry.path,
+        depth,
+        entry,
+        childCount: 0,
+      });
+    }
+  }
+
+  const sortedChildren = [...root.children.entries()].sort((left, right) => left[0].localeCompare(right[0]));
+  for (const [, child] of sortedChildren) {
+    if (child.itemCount === 0) continue;
+    result.push({
+      type: 'folder',
+      name: child.name,
+      path: child.path,
+      depth: 0,
+      childCount: child.itemCount,
+    });
+    const isCollapsed = !isSearching && collapsed.has(child.path);
+    if (!isCollapsed) walkFolder(child, 1);
+  }
+
+  if (root.items.length > 0) {
+    result.push({
+      type: 'folder',
+      name: '(root)',
+      path: '',
+      depth: 0,
+      childCount: root.items.length,
+      isRoot: true,
+    });
+    const isRootCollapsed = !isSearching && collapsed.has('');
+    if (!isRootCollapsed) {
+      for (const entry of root.items) {
+        result.push({
+          type: 'item',
+          name: entry.name,
+          path: entry.path,
+          depth: 1,
+          entry,
+          childCount: 0,
+        });
+      }
+    }
+  }
+
+  return result;
+}
+
+function collectAllManagedFolderPaths<T>(root: ManagedFolderNode<T>): string[] {
+  const paths: string[] = [];
+  function walk(node: ManagedFolderNode<T>) {
+    for (const child of node.children.values()) {
+      paths.push(child.path);
+      walk(child);
+    }
+  }
+  walk(root);
+  if (root.items.length > 0) paths.push('');
+  return paths;
+}
+
 const COLLAPSED_STORAGE_KEY = 'skillshare:folder-collapsed';
 
 function loadCollapsed(): Set<string> {
@@ -526,22 +946,13 @@ function saveCollapsed(collapsed: Set<string>) {
 /* -- Filter, Sort & View types -------------------- */
 
 type ResourceTab = 'skills' | 'agents' | 'rules' | 'hooks';
-type ManagedResourceMode = 'managed' | 'discovered';
 type SkillFilterType = 'all' | 'tracked' | 'github' | 'local';
-type RuleFilterType = 'all' | 'project' | 'user' | 'collectible' | `tool:${string}`;
-type HookFilterType = 'all' | 'project' | 'user' | 'collectible' | `tool:${string}`;
-type FilterType = SkillFilterType | RuleFilterType | HookFilterType;
+type ResourceSourceType = Exclude<SkillFilterType, 'all'>;
 type SkillSortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
 type RuleSortType = 'name-asc' | 'name-desc' | 'tool-asc' | 'path-asc';
 type HookSortType = 'name-asc' | 'name-desc' | 'tool-asc' | 'event-asc';
 type SortType = SkillSortType | RuleSortType | HookSortType;
 type ViewType = 'grid' | 'grouped' | 'table';
-type FilterOption<T extends string = string> = {
-  key: T;
-  label: string;
-  count: number;
-  icon: React.ReactNode;
-};
 
 const skillFilterOptions: { key: SkillFilterType; label: string; icon: React.ReactNode }[] = [
   { key: 'all', label: 'All', icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
@@ -550,8 +961,26 @@ const skillFilterOptions: { key: SkillFilterType; label: string; icon: React.Rea
   { key: 'local', label: 'Local', icon: <FolderOpen size={14} strokeWidth={2.5} /> },
 ];
 
-function isManagedResourceMode(value: string | null): value is ManagedResourceMode {
-  return value === 'managed' || value === 'discovered';
+function emptySourceCounts(total = 0): Record<SkillFilterType, number> {
+  return {
+    all: total,
+    tracked: 0,
+    github: 0,
+    local: 0,
+  };
+}
+
+function buildSourceCounts<T>(
+  items: T[],
+  getSource: (item: T) => ResourceSourceType,
+): Record<SkillFilterType, number> {
+  const counts = emptySourceCounts(items.length);
+  for (const item of items) counts[getSource(item)]++;
+  return counts;
+}
+
+function matchesSourceFilter(sourceType: ResourceSourceType, filterType: SkillFilterType): boolean {
+  return filterType === 'all' || filterType === sourceType;
 }
 
 function isResourceTab(value: string | null): value is ResourceTab {
@@ -575,8 +1004,50 @@ function matchFilter(skill: Skill, filterType: SkillFilterType): boolean {
   }
 }
 
-function getRuleRef(rule: RuleItem): string {
-  return rule.id ?? rule.path;
+function normalizeManagedSourceType(sourceType?: string): ResourceSourceType {
+  if (sourceType === 'tracked') return 'tracked';
+  if (sourceType === 'github' || sourceType === 'github-subdir') return 'github';
+  return 'local';
+}
+
+function managedSourceIndicatorColor(sourceType?: string): string {
+  switch (normalizeManagedSourceType(sourceType)) {
+    case 'tracked':
+      return 'var(--color-pencil-light)';
+    case 'github':
+      return 'var(--color-pencil)';
+    case 'local':
+    default:
+      return 'var(--color-muted)';
+  }
+}
+
+function managedTargetValue(targets?: string[] | null): string {
+  return targets?.length === 1 ? targets[0] : '__all__';
+}
+
+function useAvailableTargetOptions(): SelectOption[] {
+  const { data: availableData } = useQuery({
+    queryKey: queryKeys.targets.available,
+    queryFn: () => api.availableTargets(),
+    staleTime: staleTimes.targets,
+  });
+
+  return useMemo(() => {
+    const installed = (availableData?.targets ?? []).filter((t) => t.installed);
+    return [
+      { value: '__all__', label: 'All' },
+      ...installed.map((t) => ({ value: t.name, label: t.name })),
+    ];
+  }, [availableData]);
+}
+
+function managedRuleSourceType(rule: ManagedRule): ResourceSourceType {
+  return normalizeManagedSourceType(rule.sourceType);
+}
+
+function managedHookSourceType(hook: ManagedHook): ResourceSourceType {
+  return normalizeManagedSourceType(hook.sourceType);
 }
 
 function sortManagedRules(rules: ManagedRule[], sortType: RuleSortType): ManagedRule[] {
@@ -593,114 +1064,10 @@ function sortManagedRules(rules: ManagedRule[], sortType: RuleSortType): Managed
   }
 }
 
-function sortDiscoveredRules(rules: RuleItem[], sortType: RuleSortType): RuleItem[] {
-  const sorted = [...rules];
-  switch (sortType) {
-    case 'name-asc':
-      return sorted.sort((left, right) => compareText(left.name, right.name));
-    case 'name-desc':
-      return sorted.sort((left, right) => compareText(right.name, left.name));
-    case 'tool-asc':
-      return sorted.sort((left, right) => compareText(left.sourceTool, right.sourceTool) || compareText(left.name, right.name));
-    case 'path-asc':
-      return sorted.sort((left, right) => compareText(left.path, right.path));
-  }
-}
-
 function managedRuleMatchesSearch(rule: ManagedRule, search: string): boolean {
   if (!search) return true;
   const haystack = [rule.name, rule.tool, rule.relativePath, rule.content].join('\n').toLowerCase();
   return haystack.includes(search);
-}
-
-function discoveredRuleMatchesSearch(rule: RuleItem, search: string): boolean {
-  if (!search) return true;
-  const haystack = [
-    rule.name,
-    rule.sourceTool,
-    rule.scope,
-    rule.path,
-    rule.content,
-    rule.collectReason ?? '',
-  ].join('\n').toLowerCase();
-  return haystack.includes(search);
-}
-
-function managedRuleMatchesFilter(rule: ManagedRule, filterType: RuleFilterType): boolean {
-  if (filterType === 'all') return true;
-  if (filterType.startsWith('tool:')) return rule.tool === filterType.slice(5);
-  return true;
-}
-
-function discoveredRuleMatchesFilter(rule: RuleItem, filterType: RuleFilterType): boolean {
-  switch (filterType) {
-    case 'all':
-      return true;
-    case 'collectible':
-      return Boolean(rule.collectible && rule.id);
-    case 'project':
-      return rule.scope === 'project';
-    case 'user':
-      return rule.scope === 'user';
-    default:
-      return filterType.startsWith('tool:') ? rule.sourceTool === filterType.slice(5) : true;
-  }
-}
-
-function buildManagedRuleFilterOptions(rules: ManagedRule[]): FilterOption<RuleFilterType>[] {
-  const byTool = new Map<string, number>();
-  for (const rule of rules) {
-    byTool.set(rule.tool, (byTool.get(rule.tool) ?? 0) + 1);
-  }
-
-  return [
-    { key: 'all', label: 'All', count: rules.length, icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
-    ...Array.from(byTool.entries())
-      .sort(([left], [right]) => compareText(left, right))
-      .map(([tool, count]) => ({
-        key: `tool:${tool}` as RuleFilterType,
-        label: tool,
-        count,
-        icon: <FileText size={14} strokeWidth={2.5} />,
-      })),
-  ];
-}
-
-function buildDiscoveredRuleFilterOptions(rules: RuleItem[]): FilterOption<RuleFilterType>[] {
-  const byTool = new Map<string, number>();
-  for (const rule of rules) {
-    byTool.set(rule.sourceTool, (byTool.get(rule.sourceTool) ?? 0) + 1);
-  }
-
-  return [
-    { key: 'all', label: 'All', count: rules.length, icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
-    {
-      key: 'collectible',
-      label: 'Collectible',
-      count: rules.filter((rule) => Boolean(rule.collectible && rule.id)).length,
-      icon: <Target size={14} strokeWidth={2.5} />,
-    },
-    {
-      key: 'project',
-      label: 'Project',
-      count: rules.filter((rule) => rule.scope === 'project').length,
-      icon: <FolderOpen size={14} strokeWidth={2.5} />,
-    },
-    {
-      key: 'user',
-      label: 'User',
-      count: rules.filter((rule) => rule.scope === 'user').length,
-      icon: <Users size={14} strokeWidth={2.5} />,
-    },
-    ...Array.from(byTool.entries())
-      .sort(([left], [right]) => compareText(left, right))
-      .map(([tool, count]) => ({
-        key: `tool:${tool}` as RuleFilterType,
-        label: tool,
-        count,
-        icon: <FileText size={14} strokeWidth={2.5} />,
-      })),
-  ];
 }
 
 function sortManagedHooks(hooks: ManagedHook[], sortType: HookSortType): ManagedHook[] {
@@ -714,20 +1081,6 @@ function sortManagedHooks(hooks: ManagedHook[], sortType: HookSortType): Managed
       return sorted.sort((left, right) => compareText(left.tool, right.tool) || compareText(left.id, right.id));
     case 'event-asc':
       return sorted.sort((left, right) => compareText(left.event, right.event) || compareText(left.id, right.id));
-  }
-}
-
-function sortDiscoveredHookGroups(groups: HookDiscoveryGroup[], sortType: HookSortType): HookDiscoveryGroup[] {
-  const sorted = [...groups];
-  switch (sortType) {
-    case 'name-asc':
-      return sorted.sort((left, right) => compareText(formatHookDiscoveryGroupTitle(left), formatHookDiscoveryGroupTitle(right)));
-    case 'name-desc':
-      return sorted.sort((left, right) => compareText(formatHookDiscoveryGroupTitle(right), formatHookDiscoveryGroupTitle(left)));
-    case 'tool-asc':
-      return sorted.sort((left, right) => compareText(left.sourceTool, right.sourceTool) || compareText(formatHookDiscoveryGroupTitle(left), formatHookDiscoveryGroupTitle(right)));
-    case 'event-asc':
-      return sorted.sort((left, right) => compareText(left.event, right.event) || compareText(formatHookDiscoveryGroupTitle(left), formatHookDiscoveryGroupTitle(right)));
   }
 }
 
@@ -748,103 +1101,6 @@ function managedHookMatchesSearch(hook: ManagedHook, search: string): boolean {
     ]),
   ].join('\n').toLowerCase();
   return haystack.includes(search);
-}
-
-function discoveredHookMatchesSearch(group: HookDiscoveryGroup, search: string): boolean {
-  if (!search) return true;
-  const haystack = [
-    group.id,
-    formatHookDiscoveryGroupTitle(group),
-    group.sourceTool,
-    group.scope,
-    group.event,
-    group.matcher,
-    group.collectReason ?? '',
-    ...group.hooks.flatMap((hook) => [
-      hook.actionType,
-      getHookActionPayload(hook),
-      hook.path,
-      hook.statusMessage ?? '',
-    ]),
-  ].join('\n').toLowerCase();
-  return haystack.includes(search);
-}
-
-function managedHookMatchesFilter(hook: ManagedHook, filterType: HookFilterType): boolean {
-  if (filterType === 'all') return true;
-  if (filterType.startsWith('tool:')) return hook.tool === filterType.slice(5);
-  return true;
-}
-
-function discoveredHookMatchesFilter(group: HookDiscoveryGroup, filterType: HookFilterType): boolean {
-  switch (filterType) {
-    case 'all':
-      return true;
-    case 'collectible':
-      return group.collectible;
-    case 'project':
-      return group.scope === 'project';
-    case 'user':
-      return group.scope === 'user';
-    default:
-      return filterType.startsWith('tool:') ? group.sourceTool === filterType.slice(5) : true;
-  }
-}
-
-function buildManagedHookFilterOptions(hooks: ManagedHook[]): FilterOption<HookFilterType>[] {
-  const byTool = new Map<string, number>();
-  for (const hook of hooks) {
-    byTool.set(hook.tool, (byTool.get(hook.tool) ?? 0) + 1);
-  }
-
-  return [
-    { key: 'all', label: 'All', count: hooks.length, icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
-    ...Array.from(byTool.entries())
-      .sort(([left], [right]) => compareText(left, right))
-      .map(([tool, count]) => ({
-        key: `tool:${tool}` as HookFilterType,
-        label: tool,
-        count,
-        icon: <Target size={14} strokeWidth={2.5} />,
-      })),
-  ];
-}
-
-function buildDiscoveredHookFilterOptions(groups: HookDiscoveryGroup[]): FilterOption<HookFilterType>[] {
-  const byTool = new Map<string, number>();
-  for (const group of groups) {
-    byTool.set(group.sourceTool, (byTool.get(group.sourceTool) ?? 0) + 1);
-  }
-
-  return [
-    { key: 'all', label: 'All', count: groups.length, icon: <LayoutGrid size={14} strokeWidth={2.5} /> },
-    {
-      key: 'collectible',
-      label: 'Collectible',
-      count: groups.filter((group) => group.collectible).length,
-      icon: <Target size={14} strokeWidth={2.5} />,
-    },
-    {
-      key: 'project',
-      label: 'Project',
-      count: groups.filter((group) => group.scope === 'project').length,
-      icon: <FolderOpen size={14} strokeWidth={2.5} />,
-    },
-    {
-      key: 'user',
-      label: 'User',
-      count: groups.filter((group) => group.scope === 'user').length,
-      icon: <Users size={14} strokeWidth={2.5} />,
-    },
-    ...Array.from(byTool.entries())
-      .sort(([left], [right]) => compareText(left, right))
-      .map(([tool, count]) => ({
-        key: `tool:${tool}` as HookFilterType,
-        label: tool,
-        count,
-        icon: <Target size={14} strokeWidth={2.5} />,
-      })),
-  ];
 }
 
 const skillSortOptions: SelectOption[] = [
@@ -1099,38 +1355,22 @@ export default function SkillsPage() {
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const modeParam = searchParams.get('mode');
-  const activeMode: ManagedResourceMode = isManagedResourceMode(modeParam)
-    ? modeParam
-    : 'managed';
-
   const changeTab = (tab: ResourceTab) => {
     setActiveTab(tab);
     localStorage.setItem('skillshare:resources-tab', tab);
-    setFilterType('all');
+    setSourceFilterType('all');
     setSearch('');
     setSortType('name-asc');
 
     const params = new URLSearchParams(searchParams);
     if (tab === 'skills') params.delete('tab');
     else params.set('tab', tab);
-    if (tab !== 'rules' && tab !== 'hooks') params.delete('mode');
+    params.delete('mode');
     setSearchParams(params);
-  };
-
-  const changeManagedMode = (mode: ManagedResourceMode) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('tab', activeTab);
-    if (mode === 'managed') params.delete('mode');
-    else params.set('mode', mode);
-    setSearchParams(params);
-    setFilterType('all');
-    setSearch('');
-    setSortType('name-asc');
   };
 
   const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState<FilterType>('all');
+  const [sourceFilterType, setSourceFilterType] = useState<SkillFilterType>('all');
   const [sortType, setSortType] = useState<SortType>('name-asc');
   const [viewType, setViewType] = useState<ViewType>(() => {
     const saved = localStorage.getItem('skillshare:skills-view');
@@ -1166,58 +1406,59 @@ export default function SkillsPage() {
     kind: Skill['kind'];
   } | null>(null);
   const [gridConfirmUninstallRepo, setGridConfirmUninstallRepo] = useState<string | null>(null);
+  const [ruleContextMenu, setRuleContextMenu] = useState<{
+    point: { x: number; y: number };
+    rule: ManagedRule;
+  } | null>(null);
+  const [hookContextMenu, setHookContextMenu] = useState<{
+    point: { x: number; y: number };
+    hook: ManagedHook;
+  } | null>(null);
+  const [ruleConfirmUninstall, setRuleConfirmUninstall] = useState<ManagedRule | null>(null);
+  const [hookConfirmUninstall, setHookConfirmUninstall] = useState<ManagedHook | null>(null);
 
   const skills = data?.resources ?? EMPTY_RESOURCES;
   const normalizedSearch = search.trim().toLowerCase();
+  const {
+    setTargetMutation: ruleTargetMutation,
+    removeMutation: ruleRemoveMutation,
+    buildRuleExtraItems,
+  } = useManagedRuleActions();
+  const {
+    setTargetMutation: hookTargetMutation,
+    removeMutation: hookRemoveMutation,
+    buildHookExtraItems,
+  } = useManagedHookActions();
+  const openRuleMenu = useCallback((rule: ManagedRule, point: { x: number; y: number }) => {
+    setRuleContextMenu({ point, rule });
+  }, []);
+  const openHookMenu = useCallback((hook: ManagedHook, point: { x: number; y: number }) => {
+    setHookContextMenu({ point, hook });
+  }, []);
 
   const managedRulesQuery = useQuery({
     queryKey: queryKeys.rules.managed,
     queryFn: () => api.managedRules.list(),
     staleTime: staleTimes.rules,
-    enabled: activeTab === 'rules' && activeMode === 'managed',
-  });
-
-  const discoveredRulesQuery = useQuery({
-    queryKey: queryKeys.rules.discovered,
-    queryFn: () => api.listRules(),
-    staleTime: staleTimes.rules,
-    enabled: activeTab === 'rules' && activeMode === 'discovered',
+    enabled: activeTab === 'rules',
   });
 
   const managedHooksQuery = useQuery({
     queryKey: queryKeys.hooks.managed,
     queryFn: () => api.managedHooks.list(),
     staleTime: staleTimes.hooks,
-    enabled: activeTab === 'hooks' && activeMode === 'managed',
-  });
-
-  const discoveredHooksQuery = useQuery({
-    queryKey: queryKeys.hooks.discovered,
-    queryFn: () => api.listHooks(),
-    staleTime: staleTimes.hooks,
-    enabled: activeTab === 'hooks' && activeMode === 'discovered',
+    enabled: activeTab === 'hooks',
   });
 
   const managedRules = useMemo(() => managedRulesQuery.data?.rules ?? [], [managedRulesQuery.data?.rules]);
-  const discoveredRules = useMemo(() => discoveredRulesQuery.data?.rules ?? [], [discoveredRulesQuery.data?.rules]);
-  const ruleWarnings = useMemo(() => discoveredRulesQuery.data?.warnings ?? [], [discoveredRulesQuery.data?.warnings]);
-
   const managedHooks = useMemo(() => managedHooksQuery.data?.hooks ?? [], [managedHooksQuery.data?.hooks]);
-  const discoveredHooks = useMemo(() => discoveredHooksQuery.data?.hooks ?? [], [discoveredHooksQuery.data?.hooks]);
-  const hookWarnings = useMemo(() => discoveredHooksQuery.data?.warnings ?? [], [discoveredHooksQuery.data?.warnings]);
-  const discoveredHookGroups = useMemo(() => groupDiscoveredHooks(discoveredHooks), [discoveredHooks]);
 
   // Compute counts for each filter type — scoped to the active tab
   const skillFilterCounts = useMemo(() => {
     const tabSkills = activeTab === 'agents'
       ? skills.filter((s) => s.kind === 'agent')
       : skills.filter((s) => s.kind !== 'agent');
-    const counts: Record<SkillFilterType, number> = {
-      all: tabSkills.length,
-      tracked: 0,
-      github: 0,
-      local: 0,
-    };
+    const counts = emptySourceCounts(tabSkills.length);
     for (const s of tabSkills) {
       if (s.isInRepo) counts.tracked++;
       if ((s.type === 'github' || s.type === 'github-subdir') && !s.isInRepo) counts.github++;
@@ -1226,8 +1467,8 @@ export default function SkillsPage() {
     return counts;
   }, [skills, activeTab]);
 
-  const activeSkillFilter: SkillFilterType = skillFilterOptions.some((option) => option.key === filterType)
-    ? filterType as SkillFilterType
+  const activeSourceFilter: SkillFilterType = skillFilterOptions.some((option) => option.key === sourceFilterType)
+    ? sourceFilterType
     : 'all';
 
   const filtered = useMemo(() => {
@@ -1236,96 +1477,86 @@ export default function SkillsPage() {
         (s.name.toLowerCase().includes(normalizedSearch) ||
           s.flatName.toLowerCase().includes(normalizedSearch) ||
           (s.source ?? '').toLowerCase().includes(normalizedSearch)) &&
-        matchFilter(s, activeSkillFilter),
+        matchFilter(s, activeSourceFilter),
     );
     return sortSkills(result, sortType as SkillSortType);
-  }, [activeSkillFilter, normalizedSearch, skills, sortType]);
+  }, [activeSourceFilter, normalizedSearch, skills, sortType]);
 
+  const allSkillItems = useMemo(() => skills.filter((s) => s.kind !== 'agent'), [skills]);
+  const allAgentItems = useMemo(() => skills.filter((s) => s.kind === 'agent'), [skills]);
   const skillItems = useMemo(() => filtered.filter((s) => s.kind !== 'agent'), [filtered]);
   const agentItems = useMemo(() => filtered.filter((s) => s.kind === 'agent'), [filtered]);
   const tabFiltered = activeTab === 'agents' ? agentItems : skillItems;
 
-  const managedRuleFilterOptions = useMemo(() => buildManagedRuleFilterOptions(managedRules), [managedRules]);
-  const discoveredRuleFilterOptions = useMemo(() => buildDiscoveredRuleFilterOptions(discoveredRules), [discoveredRules]);
-  const activeRuleFilterOptions = activeMode === 'managed' ? managedRuleFilterOptions : discoveredRuleFilterOptions;
-  const activeRuleFilter: RuleFilterType = activeRuleFilterOptions.some((option) => option.key === filterType)
-    ? filterType as RuleFilterType
-    : 'all';
+  const managedRuleSourceCounts = useMemo(
+    () => buildSourceCounts(managedRules, managedRuleSourceType),
+    [managedRules],
+  );
   const filteredManagedRules = useMemo(
     () =>
       sortManagedRules(
-        managedRules.filter((rule) => managedRuleMatchesFilter(rule, activeRuleFilter) && managedRuleMatchesSearch(rule, normalizedSearch)),
+        managedRules.filter((rule) =>
+          matchesSourceFilter(managedRuleSourceType(rule), activeSourceFilter)
+          && managedRuleMatchesSearch(rule, normalizedSearch),
+        ),
         sortType as RuleSortType,
       ),
-    [activeRuleFilter, managedRules, normalizedSearch, sortType],
-  );
-  const filteredDiscoveredRules = useMemo(
-    () =>
-      sortDiscoveredRules(
-        discoveredRules.filter((rule) => discoveredRuleMatchesFilter(rule, activeRuleFilter) && discoveredRuleMatchesSearch(rule, normalizedSearch)),
-        sortType as RuleSortType,
-      ),
-    [activeRuleFilter, discoveredRules, normalizedSearch, sortType],
+    [activeSourceFilter, managedRules, normalizedSearch, sortType],
   );
 
-  const managedHookFilterOptions = useMemo(() => buildManagedHookFilterOptions(managedHooks), [managedHooks]);
-  const discoveredHookFilterOptions = useMemo(() => buildDiscoveredHookFilterOptions(discoveredHookGroups), [discoveredHookGroups]);
-  const activeHookFilterOptions = activeMode === 'managed' ? managedHookFilterOptions : discoveredHookFilterOptions;
-  const activeHookFilter: HookFilterType = activeHookFilterOptions.some((option) => option.key === filterType)
-    ? filterType as HookFilterType
-    : 'all';
+  const managedHookSourceCounts = useMemo(
+    () => buildSourceCounts(managedHooks, managedHookSourceType),
+    [managedHooks],
+  );
   const filteredManagedHooks = useMemo(
     () =>
       sortManagedHooks(
-        managedHooks.filter((hook) => managedHookMatchesFilter(hook, activeHookFilter) && managedHookMatchesSearch(hook, normalizedSearch)),
+        managedHooks.filter((hook) =>
+          matchesSourceFilter(managedHookSourceType(hook), activeSourceFilter)
+          && managedHookMatchesSearch(hook, normalizedSearch),
+        ),
         sortType as HookSortType,
       ),
-    [activeHookFilter, managedHooks, normalizedSearch, sortType],
-  );
-  const filteredDiscoveredHookGroups = useMemo(
-    () =>
-      sortDiscoveredHookGroups(
-        discoveredHookGroups.filter((group) => discoveredHookMatchesFilter(group, activeHookFilter) && discoveredHookMatchesSearch(group, normalizedSearch)),
-        sortType as HookSortType,
-      ),
-    [activeHookFilter, discoveredHookGroups, normalizedSearch, sortType],
+    [activeSourceFilter, managedHooks, normalizedSearch, sortType],
   );
 
-  const rulesTabCount = activeMode === 'managed' ? managedRules.length : discoveredRules.length;
-  const hooksTabCount = activeMode === 'managed' ? managedHooks.length : discoveredHookGroups.length;
+  const rulesTabCount = managedRules.length;
+  const hooksTabCount = managedHooks.length;
   const isSkillsTab = activeTab === 'skills' || activeTab === 'agents';
   const isRulesTab = activeTab === 'rules';
   const isHooksTab = activeTab === 'hooks';
-  const activeRules = activeMode === 'managed' ? filteredManagedRules : filteredDiscoveredRules;
-  const activeRulesTotal = activeMode === 'managed' ? managedRules.length : discoveredRules.length;
-  const activeHooks = activeMode === 'managed' ? filteredManagedHooks : filteredDiscoveredHookGroups;
-  const activeHooksTotal = activeMode === 'managed' ? managedHooks.length : discoveredHookGroups.length;
-  const activeFilterValue: FilterType = isRulesTab
-    ? activeRuleFilter
-    : isHooksTab
-      ? activeHookFilter
-      : activeSkillFilter;
+  const activeRules = filteredManagedRules;
+  const activeRulesTotal = managedRules.length;
+  const activeHooks = filteredManagedHooks;
+  const activeHooksTotal = managedHooks.length;
   const activeSortOptions = isRulesTab
     ? ruleSortOptions
     : isHooksTab
       ? hookSortOptions
       : skillSortOptions;
-  const activeSearchPlaceholder = isRulesTab
+  const activeSearchPlaceholder = activeTab === 'agents'
+    ? 'Filter agents...'
+    : isRulesTab
     ? 'Filter rules...'
     : isHooksTab
       ? 'Filter hooks...'
       : 'Filter skills...';
-  const activeFilterOptions = isRulesTab
-    ? activeRuleFilterOptions
+  const activeSourceCounts = isRulesTab
+    ? managedRuleSourceCounts
     : isHooksTab
-      ? activeHookFilterOptions
-      : skillFilterOptions.map((option) => ({ ...option, count: skillFilterCounts[option.key] }));
-  const hasActiveFilters = normalizedSearch.length > 0 || activeFilterValue !== 'all';
+      ? managedHookSourceCounts
+      : skillFilterCounts;
+  const hasActiveFilters = normalizedSearch.length > 0
+    || activeSourceFilter !== 'all';
   const resultSummary = isRulesTab
     ? { shown: activeRules.length, total: activeRulesTotal, label: 'rules' }
     : isHooksTab
       ? { shown: activeHooks.length, total: activeHooksTotal, label: 'hooks' }
-      : { shown: tabFiltered.length, total: skills.length, label: 'resources' };
+      : {
+          shown: tabFiltered.length,
+          total: activeTab === 'agents' ? allAgentItems.length : allSkillItems.length,
+          label: activeTab === 'agents' ? 'agents' : 'skills',
+        };
   const headerAction = activeTab === 'agents'
     ? { to: '/resources/new?kind=agent', label: 'New Agent' }
     : activeTab === 'rules'
@@ -1334,28 +1565,20 @@ export default function SkillsPage() {
         ? { to: '/hooks/new', label: 'New Hook' }
         : { to: '/resources/new', label: 'New Skill' };
   const resourceTabs = [
-    { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: 'Skills', count: skillItems.length },
-    { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: 'Agents', count: agentItems.length },
+    { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: 'Skills', count: allSkillItems.length },
+    { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: 'Agents', count: allAgentItems.length },
+    { key: 'hooks' as ResourceTab, icon: <Webhook size={16} strokeWidth={2.5} />, label: 'Hooks', count: hooksTabCount },
     { key: 'rules' as ResourceTab, icon: <FileText size={16} strokeWidth={2.5} />, label: 'Rules', count: rulesTabCount },
-    { key: 'hooks' as ResourceTab, icon: <Target size={16} strokeWidth={2.5} />, label: 'Hooks', count: hooksTabCount },
   ];
   const activeManagedQueryPending = isRulesTab
-    ? activeMode === 'managed'
-      ? managedRulesQuery.isPending && !managedRulesQuery.data
-      : discoveredRulesQuery.isPending && !discoveredRulesQuery.data
+    ? managedRulesQuery.isPending && !managedRulesQuery.data
     : isHooksTab
-      ? activeMode === 'managed'
-        ? managedHooksQuery.isPending && !managedHooksQuery.data
-        : discoveredHooksQuery.isPending && !discoveredHooksQuery.data
+      ? managedHooksQuery.isPending && !managedHooksQuery.data
       : false;
   const activeManagedQueryError = isRulesTab
-    ? activeMode === 'managed'
-      ? managedRulesQuery.error
-      : discoveredRulesQuery.error
+    ? managedRulesQuery.error
     : isHooksTab
-      ? activeMode === 'managed'
-        ? managedHooksQuery.error
-        : discoveredHooksQuery.error
+      ? managedHooksQuery.error
       : null;
 
   if (isPending) return <PageSkeleton />;
@@ -1456,66 +1679,67 @@ export default function SkillsPage() {
               options={activeSortOptions}
             />
           </div>
-          {isSkillsTab && (
-            <SegmentedControl
-              value={viewType}
-              onChange={changeViewType}
-              options={[
-                { value: 'grid', label: <LayoutGrid size={16} strokeWidth={2.5} /> },
-                { value: 'grouped', label: <FolderOpen size={16} strokeWidth={2.5} /> },
-                { value: 'table', label: <List size={16} strokeWidth={2.5} /> },
-              ]}
-              size="md"
-              connected
-            />
-          )}
+          <SegmentedControl
+            value={viewType}
+            onChange={changeViewType}
+            options={[
+              {
+                value: 'grid',
+                label: (
+                  <span className="inline-flex items-center">
+                    <LayoutGrid size={16} strokeWidth={2.5} />
+                    <span className="sr-only">Grid view</span>
+                  </span>
+                ),
+              },
+              {
+                value: 'grouped',
+                label: (
+                  <span className="inline-flex items-center">
+                    <FolderOpen size={16} strokeWidth={2.5} />
+                    <span className="sr-only">Grouped view</span>
+                  </span>
+                ),
+              },
+              {
+                value: 'table',
+                label: (
+                  <span className="inline-flex items-center">
+                    <List size={16} strokeWidth={2.5} />
+                    <span className="sr-only">Table view</span>
+                  </span>
+                ),
+              },
+            ]}
+            size="md"
+            connected
+          />
         </div>
-
-        {(isRulesTab || isHooksTab) && (
-          <div className="mb-2">
-            <SegmentedControl
-              value={activeMode}
-              onChange={(value) => changeManagedMode(value as ManagedResourceMode)}
-              options={[
-                {
-                  value: 'managed',
-                  label: 'Managed',
-                  count: isRulesTab ? managedRules.length : managedHooks.length,
-                },
-                {
-                  value: 'discovered',
-                  label: 'Discovered',
-                  count: isRulesTab ? discoveredRules.length : discoveredHookGroups.length,
-                },
-              ]}
-            />
-          </div>
-        )}
-
-        {/* Filter tabs */}
+        {/* Shared source tabs */}
         <SegmentedControl
-          value={activeFilterValue}
-          onChange={setFilterType}
-          options={activeFilterOptions.map((opt) => ({
+          value={activeSourceFilter}
+          onChange={setSourceFilterType}
+          options={skillFilterOptions.map((opt) => ({
             value: opt.key,
             label: <span className="inline-flex items-center gap-1.5">{opt.icon}{opt.label}</span>,
-            count: opt.count,
+            count: activeSourceCounts[opt.key],
           }))}
         />
+
       </div>
 
       {/* Result count — hidden in folder view (merged into folder toolbar) */}
-      {hasActiveFilters && (!isSkillsTab || viewType !== 'grouped') && (
+      {hasActiveFilters && viewType !== 'grouped' && (
         <p className="text-pencil-light text-sm mb-3">
           Showing {resultSummary.shown} of {resultSummary.total} {resultSummary.label}
-          {activeFilterValue !== 'all' && (
+          {activeSourceFilter !== 'all' && (
             <>
               {' '}
               &middot;{' '}
               <Button
                 variant="link"
                 onClick={() => {
-                  setFilterType('all');
+                  setSourceFilterType('all');
                   setSearch('');
                 }}
               >
@@ -1571,7 +1795,10 @@ export default function SkillsPage() {
               totalCount={skills.length}
               isSearching={hasActiveFilters}
               stickyTop={toolbarH}
-              onClearFilters={hasActiveFilters ? () => { setFilterType('all'); setSearch(''); } : undefined}
+              onClearFilters={hasActiveFilters ? () => {
+                setSourceFilterType('all');
+                setSearch('');
+              } : undefined}
             />
           ) : (
             <SkillsTable skills={tabFiltered} resourceKind={activeTab === 'agents' ? 'agent' : 'skill'} />
@@ -1589,173 +1816,131 @@ export default function SkillsPage() {
         )
       ) : isRulesTab ? (
         <div className="space-y-4">
-          {activeMode === 'discovered' && ruleWarnings.length > 0 && (
-            <Card variant="accent">
-              <div className="space-y-1 text-sm text-pencil-light">
-                {ruleWarnings.map((warning) => (
-                  <p key={warning}>{warning}</p>
-                ))}
-              </div>
-            </Card>
-          )}
-
           {activeRules.length > 0 ? (
-            <div className="grid gap-4">
-              {activeMode === 'managed'
-                ? filteredManagedRules.map((rule) => (
-                  <Card key={rule.id} hover>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-xl text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
-                            {rule.name}
-                          </h3>
-                          <Badge variant="accent">{rule.tool}</Badge>
-                        </div>
-                        <p className="break-all text-sm text-pencil-light" style={{ fontFamily: "'Courier New', monospace" }}>
-                          {rule.relativePath}
-                        </p>
-                        <p className="line-clamp-3 whitespace-pre-wrap text-sm text-pencil-light">
-                          {rule.content}
-                        </p>
-                      </div>
-                      <Link to={`/rules/manage/${encodeURIComponent(rule.id)}`}>
-                        <Button variant="secondary" size="sm">
-                          <Eye size={16} strokeWidth={2.5} />
-                          Edit Rule
-                        </Button>
-                      </Link>
-                    </div>
-                  </Card>
-                ))
-                : filteredDiscoveredRules.map((rule) => (
-                  <Card key={getRuleRef(rule)}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-xl text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
-                            {rule.name}
-                          </h3>
-                          <Badge variant={rule.scope === 'project' ? 'info' : 'default'}>{rule.scope}</Badge>
-                          <Badge variant="accent">{rule.sourceTool}</Badge>
-                          {rule.collectible && <Badge variant="success">Collectible</Badge>}
-                        </div>
-                        <p className="break-all text-sm text-pencil-light" style={{ fontFamily: "'Courier New', monospace" }}>
-                          {rule.path}
-                        </p>
-                        {rule.collectReason && <p className="text-sm text-pencil-light">{rule.collectReason}</p>}
-                        <p className="line-clamp-3 whitespace-pre-wrap text-sm text-pencil-light">
-                          {rule.content}
-                        </p>
-                      </div>
-                      <Link
-                        to={`/rules/discovered/${encodeURIComponent(getRuleRef(rule))}`}
-                        state={{ rule }}
-                      >
-                        <Button variant="secondary" size="sm" aria-label={`View rule ${rule.name}`}>
-                          <Eye size={16} strokeWidth={2.5} />
-                          View Rule
-                        </Button>
-                      </Link>
-                    </div>
-                  </Card>
-                ))}
-            </div>
+            viewType === 'table' ? (
+              <RulesTable
+                rules={filteredManagedRules}
+                highlightedRuleId={ruleContextMenu?.rule.id ?? null}
+                onRuleTargetChange={(id, target) => ruleTargetMutation.mutate({ id, target })}
+                onRuleMenuOpen={openRuleMenu}
+              />
+            ) : viewType === 'grouped' ? (
+              <RulesGroupedView
+                rules={filteredManagedRules}
+                totalCount={managedRules.length}
+                isSearching={hasActiveFilters}
+                stickyTop={toolbarH}
+                onClearFilters={hasActiveFilters ? () => {
+                  setSourceFilterType('all');
+                  setSearch('');
+                } : undefined}
+                highlightedRuleId={ruleContextMenu?.rule.id ?? null}
+                onRuleContextMenu={(rule, e) => {
+                  e.preventDefault();
+                  openRuleMenu(rule, { x: e.clientX, y: e.clientY });
+                }}
+              />
+            ) : (
+              <RulesGrid
+                rules={filteredManagedRules}
+                highlightedRuleId={ruleContextMenu?.rule.id ?? null}
+                onRuleContextMenu={(rule, e) => {
+                  e.preventDefault();
+                  openRuleMenu(rule, { x: e.clientX, y: e.clientY });
+                }}
+              />
+            )
           ) : (
             <EmptyState
               icon={FileText}
-              title={hasActiveFilters ? 'No rules match these filters' : activeMode === 'managed' ? 'No rules found' : 'No discovered rules found'}
-              description={hasActiveFilters ? 'Try a different search term or filter.' : activeMode === 'managed' ? 'Create a rule to start publishing compiled files.' : 'No rule files were discovered in the current user or project scope.'}
+              title={hasActiveFilters ? 'No rules match these filters' : 'No rules found'}
+              description={hasActiveFilters ? 'Try a different search term or filter.' : 'Create a rule to start publishing compiled files.'}
             />
           )}
         </div>
       ) : (
         <div className="space-y-4">
-          {activeMode === 'discovered' && hookWarnings.length > 0 && (
-            <Card variant="accent">
-              <div className="space-y-1 text-sm text-pencil-light">
-                {hookWarnings.map((warning) => (
-                  <p key={warning}>{warning}</p>
-                ))}
-              </div>
-            </Card>
-          )}
-
           {activeHooks.length > 0 ? (
-            <div className="grid gap-4">
-              {activeMode === 'managed'
-                ? filteredManagedHooks.map((hook) => (
-                  <Card key={hook.id} hover>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-xl text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
-                            {hook.id}
-                          </h3>
-                          <Badge variant="accent">{hook.tool}</Badge>
-                          <Badge variant="warning">{hook.event}</Badge>
-                        </div>
-                        <p className="break-all text-sm text-pencil-light" style={{ fontFamily: "'Courier New', monospace" }}>
-                          {hook.matcher || 'All'}
-                        </p>
-                        <p className="text-sm text-pencil-light">
-                          {hook.handlers.length} handler{hook.handlers.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <Link to={`/hooks/manage/${encodeURIComponent(hook.id)}`}>
-                        <Button variant="secondary" size="sm">
-                          <Eye size={16} strokeWidth={2.5} />
-                          Edit Hook
-                        </Button>
-                      </Link>
-                    </div>
-                  </Card>
-                ))
-                : filteredDiscoveredHookGroups.map((group) => (
-                  <Card key={group.id}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0 space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h3 className="text-xl text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
-                            {formatHookDiscoveryGroupTitle(group)}
-                          </h3>
-                          <Badge variant={group.scope === 'project' ? 'info' : 'default'}>{group.scope}</Badge>
-                          <Badge variant="accent">{group.sourceTool}</Badge>
-                          <Badge variant="warning">{group.event}</Badge>
-                          {group.collectible && <Badge variant="success">Collectible</Badge>}
-                        </div>
-                        <p className="break-all text-sm text-pencil-light" style={{ fontFamily: "'Courier New', monospace" }}>
-                          {group.matcher || 'All'}
-                        </p>
-                        <p className="text-sm text-pencil-light">
-                          {group.hooks[0]?.path ?? ''}
-                        </p>
-                        {group.collectReason && <p className="text-sm text-pencil-light">{group.collectReason}</p>}
-                      </div>
-                      <Link
-                        to={`/hooks/discovered/${encodeURIComponent(group.id)}`}
-                        state={{ group }}
-                      >
-                        <Button variant="secondary" size="sm">
-                          <Eye size={16} strokeWidth={2.5} />
-                          View Hook
-                        </Button>
-                      </Link>
-                    </div>
-                  </Card>
-                ))}
-            </div>
+            viewType === 'table' ? (
+              <HooksTable
+                hooks={filteredManagedHooks}
+                highlightedHookId={hookContextMenu?.hook.id ?? null}
+                onHookTargetChange={(id, target) => hookTargetMutation.mutate({ id, target })}
+                onHookMenuOpen={openHookMenu}
+              />
+            ) : viewType === 'grouped' ? (
+              <HooksGroupedView
+                hooks={filteredManagedHooks}
+                totalCount={managedHooks.length}
+                isSearching={hasActiveFilters}
+                stickyTop={toolbarH}
+                onClearFilters={hasActiveFilters ? () => {
+                  setSourceFilterType('all');
+                  setSearch('');
+                } : undefined}
+                highlightedHookId={hookContextMenu?.hook.id ?? null}
+                onHookContextMenu={(hook, e) => {
+                  e.preventDefault();
+                  openHookMenu(hook, { x: e.clientX, y: e.clientY });
+                }}
+              />
+            ) : (
+              <HooksGrid
+                hooks={filteredManagedHooks}
+                highlightedHookId={hookContextMenu?.hook.id ?? null}
+                onHookContextMenu={(hook, e) => {
+                  e.preventDefault();
+                  openHookMenu(hook, { x: e.clientX, y: e.clientY });
+                }}
+              />
+            )
           ) : (
             <EmptyState
-              icon={Target}
-              title={hasActiveFilters ? 'No hooks match these filters' : activeMode === 'managed' ? 'No hooks found' : 'No discovered hooks found'}
-              description={hasActiveFilters ? 'Try a different search term or filter.' : activeMode === 'managed' ? 'Create a hook to start publishing compiled files.' : 'No hook diagnostics were discovered in the current user or project scope.'}
+              icon={Webhook}
+              title={hasActiveFilters ? 'No hooks match these filters' : 'No hooks found'}
+              description={hasActiveFilters ? 'Try a different search term or filter.' : 'Create a hook to start publishing compiled files.'}
             />
           )}
         </div>
       )}
 
       <ScrollToTop />
+
+      {ruleContextMenu && (
+        <TargetMenu
+          open={true}
+          anchorPoint={ruleContextMenu.point}
+          currentTargets={ruleContextMenu.rule.targets ?? null}
+          isUniform={true}
+          extraItems={buildRuleExtraItems(
+            ruleContextMenu.rule,
+            () => setRuleConfirmUninstall(ruleContextMenu.rule),
+          )}
+          onSelect={(target) => {
+            ruleTargetMutation.mutate({ id: ruleContextMenu.rule.id, target });
+            setRuleContextMenu(null);
+          }}
+          onClose={() => setRuleContextMenu(null)}
+        />
+      )}
+
+      {hookContextMenu && (
+        <TargetMenu
+          open={true}
+          anchorPoint={hookContextMenu.point}
+          currentTargets={hookContextMenu.hook.targets ?? null}
+          isUniform={true}
+          extraItems={buildHookExtraItems(
+            hookContextMenu.hook,
+            () => setHookConfirmUninstall(hookContextMenu.hook),
+          )}
+          onSelect={(target) => {
+            hookTargetMutation.mutate({ id: hookContextMenu.hook.id, target });
+            setHookContextMenu(null);
+          }}
+          onClose={() => setHookContextMenu(null)}
+        />
+      )}
 
       {gridContextMenu && (
         <TargetMenu
@@ -1796,6 +1981,32 @@ export default function SkillsPage() {
         onCancel={() => setGridConfirmUninstall(null)}
       />
       <ConfirmDialog
+        open={!!ruleConfirmUninstall}
+        title="Uninstall rule"
+        message={<>Are you sure you want to uninstall <strong>{ruleConfirmUninstall?.name}</strong>?</>}
+        confirmText="Uninstall"
+        variant="danger"
+        loading={ruleRemoveMutation.isPending}
+        onConfirm={() => {
+          if (ruleConfirmUninstall) ruleRemoveMutation.mutate({ id: ruleConfirmUninstall.id });
+          setRuleConfirmUninstall(null);
+        }}
+        onCancel={() => setRuleConfirmUninstall(null)}
+      />
+      <ConfirmDialog
+        open={!!hookConfirmUninstall}
+        title="Uninstall hook"
+        message={<>Are you sure you want to uninstall <strong>{hookConfirmUninstall?.id}</strong>?</>}
+        confirmText="Uninstall"
+        variant="danger"
+        loading={hookRemoveMutation.isPending}
+        onConfirm={() => {
+          if (hookConfirmUninstall) hookRemoveMutation.mutate({ id: hookConfirmUninstall.id });
+          setHookConfirmUninstall(null);
+        }}
+        onCancel={() => setHookConfirmUninstall(null)}
+      />
+      <ConfirmDialog
         open={!!gridConfirmUninstallRepo}
         title="Uninstall tracked repo"
         message={<>Are you sure you want to uninstall all skills in <strong>{gridConfirmUninstallRepo}</strong>?</>}
@@ -1809,6 +2020,669 @@ export default function SkillsPage() {
         onCancel={() => setGridConfirmUninstallRepo(null)}
       />
     </div>
+  );
+}
+
+function managedSourceLabel(sourceType?: string): string {
+  const normalized = normalizeManagedSourceType(sourceType);
+  return normalized === 'tracked'
+    ? 'Tracked'
+    : normalized === 'github'
+      ? 'GitHub'
+      : 'Local';
+}
+
+function ManagedRuleCard({
+  rule,
+  highlighted = false,
+  onContextMenu,
+}: {
+  rule: ManagedRule;
+  highlighted?: boolean;
+  onContextMenu?: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <Link
+      to={managedRuleDetailHref(rule.id)}
+      className={`block h-full no-underline${rule.disabled ? ' opacity-50' : ''}`}
+      onContextMenu={onContextMenu}
+    >
+      <Card hover className={`h-full ${highlighted ? 'bg-paper-warm/60 border-muted-dark/50' : ''}`}>
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-xl text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+              {rule.name}
+            </h3>
+            <Badge variant="accent">{rule.tool}</Badge>
+            <Badge variant="default">{managedSourceLabel(rule.sourceType)}</Badge>
+            {rule.disabled && <Badge variant="danger">Disabled</Badge>}
+          </div>
+          <p className="break-all text-sm text-pencil-light" style={{ fontFamily: "'Courier New', monospace" }}>
+            {rule.relativePath}
+          </p>
+          <p className="line-clamp-3 whitespace-pre-wrap text-sm text-pencil-light">
+            {rule.content}
+          </p>
+        </div>
+      </Card>
+    </Link>
+  );
+}
+
+function RulesGrid({
+  rules,
+  highlightedRuleId,
+  onRuleContextMenu,
+}: {
+  rules: ManagedRule[];
+  highlightedRuleId: string | null;
+  onRuleContextMenu: (rule: ManagedRule, e: React.MouseEvent) => void;
+}) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {rules.map((rule) => (
+        <ManagedRuleCard
+          key={rule.id}
+          rule={rule}
+          highlighted={highlightedRuleId === rule.id}
+          onContextMenu={(e) => onRuleContextMenu(rule, e)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ManagedResourceFolderTreeView<T>({
+  entries,
+  resourceLabel,
+  totalCount,
+  isSearching,
+  stickyTop = 0,
+  onClearFilters,
+  highlightedId,
+  onItemContextMenu,
+  renderItemIcon,
+  renderItemBadges,
+}: {
+  entries: ManagedResourceTreeEntry<T>[];
+  resourceLabel: string;
+  totalCount: number;
+  isSearching: boolean;
+  stickyTop?: number;
+  onClearFilters?: () => void;
+  highlightedId: string | null;
+  onItemContextMenu: (item: T, e: React.MouseEvent) => void;
+  renderItemIcon: (entry: ManagedResourceTreeEntry<T>) => ReactNode;
+  renderItemBadges: (entry: ManagedResourceTreeEntry<T>) => ReactNode;
+}) {
+  const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  const [stickyFolder, setStickyFolder] = useState<{ node: ManagedTreeNode<T>; index: number } | null>(null);
+
+  const tree = useMemo(() => buildManagedResourceTree(entries), [entries]);
+  const rows = useMemo(
+    () => flattenManagedResourceTree(tree, collapsed, isSearching),
+    [tree, collapsed, isSearching],
+  );
+
+  const folderCount = useMemo(() => {
+    let count = 0;
+    for (const row of rows) if (row.type === 'folder') count++;
+    return count;
+  }, [rows]);
+
+  useEffect(() => {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        const allEls = document.querySelectorAll<HTMLElement>('[data-tree-idx]');
+        if (allEls.length === 0) {
+          setStickyFolder(null);
+          return;
+        }
+
+        let edgeIdx = -1;
+        for (const el of allEls) {
+          if (el.getBoundingClientRect().top >= stickyTop) {
+            edgeIdx = parseInt(el.dataset.treeIdx!, 10);
+            break;
+          }
+        }
+
+        if (edgeIdx < 0) {
+          const lastEl = allEls[allEls.length - 1];
+          edgeIdx = parseInt(lastEl.dataset.treeIdx!, 10) + 1;
+        }
+        if (edgeIdx <= 0) {
+          setStickyFolder(null);
+          return;
+        }
+
+        for (let i = edgeIdx - 1; i >= 0; i--) {
+          if (rows[i]?.type === 'folder') {
+            setStickyFolder({ node: rows[i], index: i });
+            return;
+          }
+        }
+        setStickyFolder(null);
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [rows, stickyTop]);
+
+  const toggleFolder = useCallback((path: string) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      saveCollapsed(next);
+      return next;
+    });
+  }, []);
+
+  const expandAll = useCallback(() => {
+    setCollapsed(new Set());
+    saveCollapsed(new Set());
+  }, []);
+
+  const collapseAll = useCallback(() => {
+    const all = new Set(collectAllManagedFolderPaths(tree));
+    setCollapsed(all);
+    saveCollapsed(all);
+  }, [tree]);
+
+  const renderItem = useCallback((index: number): ReactElement => {
+    const node = rows[index];
+    const indentGuides = node.depth > 0 ? (
+      Array.from({ length: node.depth }, (_, i) => (
+        <span
+          key={i}
+          className="absolute top-0 bottom-0 border-l border-muted/40"
+          style={{ left: i * INDENT_PX + 14 }}
+        />
+      ))
+    ) : null;
+
+    if (node.type === 'folder') {
+      const isFolderCollapsed = !isSearching && collapsed.has(node.path);
+      return (
+        <div
+          data-tree-idx={index}
+          className={`relative flex items-center gap-1.5 py-1.5 px-1 cursor-pointer select-none hover:bg-muted/50 transition-colors${node.isRoot ? ' border-t border-muted/60 mt-2 pt-3' : ''}`}
+          style={{ paddingLeft: node.depth * INDENT_PX + 4 }}
+          onClick={() => toggleFolder(node.path)}
+          role="treeitem"
+          aria-expanded={!isFolderCollapsed}
+        >
+          {indentGuides}
+          {isFolderCollapsed
+            ? <ChevronRight size={14} strokeWidth={2.5} className="text-pencil-light shrink-0" />
+            : <ChevronDown size={14} strokeWidth={2.5} className="text-pencil-light shrink-0" />
+          }
+          {node.name.startsWith('_')
+            ? <GitBranch size={16} strokeWidth={2.5} className="text-pencil shrink-0" />
+            : isFolderCollapsed
+              ? <Folder size={16} strokeWidth={2.5} className="text-pencil shrink-0" />
+              : <FolderOpen size={16} strokeWidth={2.5} className="text-pencil shrink-0" />
+          }
+          <span className={`font-bold text-pencil shrink-0${node.isRoot ? ' text-pencil-light font-semibold' : ''}`}>
+            {node.name.startsWith('_') ? formatTrackedRepoName(node.name) : formatSkillDisplayName(node.name)}
+          </span>
+          <span
+            className="text-[11px] text-pencil-light px-1.5 py-0 bg-muted shrink-0 ml-1.5"
+            style={{ borderRadius: radius.sm }}
+          >
+            {node.childCount}
+          </span>
+        </div>
+      );
+    }
+
+    const entry = node.entry!;
+    return (
+      <div data-tree-idx={index} onContextMenu={(e) => onItemContextMenu(entry.item, e)}>
+        <Tooltip content={<div>{entry.path}</div>} followCursor delay={1000}>
+          <Link
+            to={entry.href}
+            className={`relative flex items-center gap-1.5 py-1 px-1 hover:bg-muted/50 transition-colors no-underline${entry.disabled ? ' opacity-40' : ''}${highlightedId === entry.id ? ' bg-muted/50' : ''}`}
+            style={{ paddingLeft: node.depth * INDENT_PX + 4 }}
+          >
+            {indentGuides}
+            <span style={{ width: 14 }} className="shrink-0" />
+            {renderItemIcon(entry)}
+            <span className="text-sm text-pencil truncate">{entry.name}</span>
+            <span className="ml-auto shrink-0 flex items-center gap-1 flex-wrap justify-end">
+              {entry.disabled && <Badge variant="danger">Disabled</Badge>}
+              {renderItemBadges(entry)}
+            </span>
+          </Link>
+        </Tooltip>
+      </div>
+    );
+  }, [rows, isSearching, collapsed, toggleFolder, onItemContextMenu, highlightedId, renderItemIcon, renderItemBadges]);
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        <span className="text-sm text-pencil-light">
+          {isSearching ? (
+            <>
+              Showing {entries.length} of {totalCount} {resourceLabel}
+              {onClearFilters && (
+                <>
+                  {' '}&middot;{' '}
+                  <Button variant="link" onClick={onClearFilters}>Clear filters</Button>
+                </>
+              )}
+            </>
+          ) : (
+            <>{entries.length} item{entries.length !== 1 ? 's' : ''} in {folderCount} folder{folderCount !== 1 ? 's' : ''}</>
+          )}
+        </span>
+        {folderCount > 1 && (
+          <span className="ml-auto flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={expandAll}>
+              <ChevronsUpDown size={14} strokeWidth={2.5} /> Expand All
+            </Button>
+            <Button variant="ghost" size="sm" onClick={collapseAll}>
+              <ChevronsDownUp size={14} strokeWidth={2.5} /> Collapse All
+            </Button>
+          </span>
+        )}
+      </div>
+
+      {stickyFolder && (
+        <div className="sticky z-10 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 border-b border-dashed border-muted" style={{ top: stickyTop }}>
+          <div
+            className="flex items-center gap-1.5 py-1.5 px-1 cursor-pointer select-none"
+            style={{ paddingLeft: 4 }}
+            onClick={() => {
+              const allEls = document.querySelectorAll<HTMLElement>('[data-tree-idx]');
+              if (allEls.length < 2) return;
+              const firstEl = allEls[0];
+              const lastEl = allEls[allEls.length - 1];
+              const firstIdx = parseInt(firstEl.dataset.treeIdx!, 10);
+              const lastIdx = parseInt(lastEl.dataset.treeIdx!, 10);
+              const avgH = (lastEl.getBoundingClientRect().top - firstEl.getBoundingClientRect().top) / (lastIdx - firstIdx);
+              const offset = firstEl.getBoundingClientRect().top + (stickyFolder.index - firstIdx) * avgH - stickyTop;
+              window.scrollBy({ top: offset, behavior: 'smooth' });
+            }}
+          >
+            {stickyFolder.node.path?.startsWith('_')
+              ? <GitBranch size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
+              : <FolderOpen size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
+            }
+            <span className={`font-semibold text-sm${stickyFolder.node.isRoot ? ' text-pencil-light' : ' text-pencil'}`}>
+              {stickyFolder.node.path
+                ? (stickyFolder.node.path.startsWith('_')
+                    ? formatTrackedRepoName(stickyFolder.node.path)
+                    : formatSkillDisplayName(stickyFolder.node.path))
+                : '(root)'}
+            </span>
+            <span
+              className="text-xs text-pencil-light px-1.5 py-0 bg-muted shrink-0 ml-1"
+              style={{ borderRadius: radius.sm }}
+            >
+              {stickyFolder.node.childCount}
+            </span>
+          </div>
+        </div>
+      )}
+
+      <Virtuoso
+        useWindowScroll
+        totalCount={rows.length}
+        overscan={600}
+        itemContent={renderItem}
+      />
+    </div>
+  );
+}
+
+function RulesGroupedView({
+  rules,
+  totalCount,
+  isSearching,
+  stickyTop,
+  onClearFilters,
+  highlightedRuleId,
+  onRuleContextMenu,
+}: {
+  rules: ManagedRule[];
+  totalCount: number;
+  isSearching: boolean;
+  stickyTop: number;
+  onClearFilters?: () => void;
+  highlightedRuleId: string | null;
+  onRuleContextMenu: (rule: ManagedRule, e: React.MouseEvent) => void;
+}) {
+  const entries = useMemo(
+    () => rules.map((rule) => ({
+      id: rule.id,
+      name: basenamePath(rule.relativePath) || rule.name,
+      path: rule.relativePath,
+      href: managedRuleDetailHref(rule.id),
+      disabled: rule.disabled,
+      item: rule,
+    })),
+    [rules],
+  );
+
+  return (
+    <ManagedResourceFolderTreeView
+      entries={entries}
+      resourceLabel="rules"
+      totalCount={totalCount}
+      isSearching={isSearching}
+      stickyTop={stickyTop}
+      onClearFilters={onClearFilters}
+      highlightedId={highlightedRuleId}
+      onItemContextMenu={onRuleContextMenu}
+      renderItemIcon={() => <FileText size={14} strokeWidth={2} className="text-pencil-light/60 shrink-0" />}
+      renderItemBadges={(entry) => (
+        <>
+          <Badge variant="accent">{entry.item.tool}</Badge>
+          <Badge variant="default">{managedSourceLabel(entry.item.sourceType)}</Badge>
+        </>
+      )}
+    />
+  );
+}
+
+function RulesTable({
+  rules,
+  highlightedRuleId,
+  onRuleTargetChange,
+  onRuleMenuOpen,
+}: {
+  rules: ManagedRule[];
+  highlightedRuleId: string | null;
+  onRuleTargetChange: (id: string, target: string | null) => void;
+  onRuleMenuOpen: (rule: ManagedRule, point: { x: number; y: number }) => void;
+}) {
+  const targetOptions = useAvailableTargetOptions();
+
+  return (
+    <Card>
+      <div className="overflow-auto max-h-[calc(100vh-320px)]">
+        <table className="w-full text-left">
+          <thead className="sticky top-0 z-10 bg-surface">
+            <tr className="border-b-2 border-dashed border-muted-dark">
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium w-0" />
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Rule</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Type</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Available in</th>
+              <th className="pb-3 text-pencil-light text-sm font-medium w-10" />
+            </tr>
+          </thead>
+          <tbody>
+            {rules.map((rule) => (
+              <tr
+                key={rule.id}
+                className={`border-b border-dashed border-muted align-top hover:bg-paper-warm/60 transition-colors${highlightedRuleId === rule.id ? ' bg-paper-warm/60' : ''}`}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  onRuleMenuOpen(rule, { x: e.clientX, y: e.clientY });
+                }}
+              >
+                <td className="py-3.5 pr-0 w-1">
+                  <div
+                    className="w-1 h-6 rounded-full"
+                    style={{ backgroundColor: managedSourceIndicatorColor(rule.sourceType) }}
+                    title={managedSourceLabel(rule.sourceType)}
+                  />
+                </td>
+                <td className="py-3.5 pr-4">
+                  <Link to={managedRuleDetailHref(rule.id)} className="font-medium text-pencil hover:underline block truncate">
+                    {rule.name}
+                  </Link>
+                  <div className="mt-0.5 text-xs font-mono text-pencil-light/60 truncate">{rule.relativePath}</div>
+                  <div className="mt-1 text-xs text-pencil-light line-clamp-2 whitespace-pre-wrap">{rule.content}</div>
+                </td>
+                <td className="py-3.5 pr-4">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="accent">{rule.tool}</Badge>
+                    <Badge variant="default">{managedSourceLabel(rule.sourceType)}</Badge>
+                    {rule.disabled && <Badge variant="danger">Disabled</Badge>}
+                  </div>
+                </td>
+                <td className="py-3" onClick={(e) => e.stopPropagation()}>
+                  <Select
+                    value={managedTargetValue(rule.targets)}
+                    onChange={(val) => onRuleTargetChange(rule.id, val === '__all__' ? null : val)}
+                    options={targetOptions}
+                    size="sm"
+                    className="min-w-[7rem] max-w-[9rem]"
+                  />
+                </td>
+                <td className="py-3.5 w-10">
+                  <button
+                    className="p-1 rounded hover:bg-muted/60 transition-colors text-pencil-light"
+                    style={{ borderRadius: radius.sm }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      onRuleMenuOpen(rule, { x: rect.right, y: rect.bottom });
+                    }}
+                    title="Actions"
+                  >
+                    <MoreHorizontal size={16} strokeWidth={2} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+function ManagedHookCard({
+  hook,
+  highlighted = false,
+  onContextMenu,
+}: {
+  hook: ManagedHook;
+  highlighted?: boolean;
+  onContextMenu?: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <Link
+      to={managedHookDetailHref(hook.id)}
+      className={`block h-full no-underline${hook.disabled ? ' opacity-50' : ''}`}
+      onContextMenu={onContextMenu}
+    >
+      <Card hover className={`h-full ${highlighted ? 'bg-paper-warm/60 border-muted-dark/50' : ''}`}>
+        <div className="min-w-0 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-xl text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+              {hook.id}
+            </h3>
+            <Badge variant="accent">{hook.tool}</Badge>
+            <Badge variant="warning">{hook.event}</Badge>
+            <Badge variant="default">{managedSourceLabel(hook.sourceType)}</Badge>
+            {hook.disabled && <Badge variant="danger">Disabled</Badge>}
+          </div>
+          <p className="break-all text-sm text-pencil-light" style={{ fontFamily: "'Courier New', monospace" }}>
+            {hook.matcher || 'All'}
+          </p>
+          <p className="text-sm text-pencil-light">
+            {hook.handlers.length} handler{hook.handlers.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </Card>
+    </Link>
+  );
+}
+
+function HooksGrid({
+  hooks,
+  highlightedHookId,
+  onHookContextMenu,
+}: {
+  hooks: ManagedHook[];
+  highlightedHookId: string | null;
+  onHookContextMenu: (hook: ManagedHook, e: React.MouseEvent) => void;
+}) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {hooks.map((hook) => (
+        <ManagedHookCard
+          key={hook.id}
+          hook={hook}
+          highlighted={highlightedHookId === hook.id}
+          onContextMenu={(e) => onHookContextMenu(hook, e)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function HooksGroupedView({
+  hooks,
+  totalCount,
+  isSearching,
+  stickyTop,
+  onClearFilters,
+  highlightedHookId,
+  onHookContextMenu,
+}: {
+  hooks: ManagedHook[];
+  totalCount: number;
+  isSearching: boolean;
+  stickyTop: number;
+  onClearFilters?: () => void;
+  highlightedHookId: string | null;
+  onHookContextMenu: (hook: ManagedHook, e: React.MouseEvent) => void;
+}) {
+  const entries = useMemo(
+    () => hooks.map((hook) => ({
+      id: hook.id,
+      name: basenamePath(hook.id),
+      path: hook.id,
+      href: managedHookDetailHref(hook.id),
+      disabled: hook.disabled,
+      item: hook,
+    })),
+    [hooks],
+  );
+
+  return (
+    <ManagedResourceFolderTreeView
+      entries={entries}
+      resourceLabel="hooks"
+      totalCount={totalCount}
+      isSearching={isSearching}
+      stickyTop={stickyTop}
+      onClearFilters={onClearFilters}
+      highlightedId={highlightedHookId}
+      onItemContextMenu={onHookContextMenu}
+      renderItemIcon={() => <Webhook size={14} strokeWidth={2} className="text-pencil-light/60 shrink-0" />}
+      renderItemBadges={(entry) => (
+        <>
+          <Badge variant="accent">{entry.item.tool}</Badge>
+          <Badge variant="warning">{entry.item.event}</Badge>
+          <Badge variant="default">{managedSourceLabel(entry.item.sourceType)}</Badge>
+        </>
+      )}
+    />
+  );
+}
+
+function HooksTable({
+  hooks,
+  highlightedHookId,
+  onHookTargetChange,
+  onHookMenuOpen,
+}: {
+  hooks: ManagedHook[];
+  highlightedHookId: string | null;
+  onHookTargetChange: (id: string, target: string | null) => void;
+  onHookMenuOpen: (hook: ManagedHook, point: { x: number; y: number }) => void;
+}) {
+  const targetOptions = useAvailableTargetOptions();
+
+  return (
+    <Card>
+      <div className="overflow-auto max-h-[calc(100vh-320px)]">
+        <table className="w-full text-left">
+          <thead className="sticky top-0 z-10 bg-surface">
+            <tr className="border-b-2 border-dashed border-muted-dark">
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium w-0" />
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Hook</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Type</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Available in</th>
+              <th className="pb-3 text-pencil-light text-sm font-medium w-10" />
+            </tr>
+          </thead>
+          <tbody>
+            {hooks.map((hook) => (
+              <tr
+                key={hook.id}
+                className={`border-b border-dashed border-muted align-top hover:bg-paper-warm/60 transition-colors${highlightedHookId === hook.id ? ' bg-paper-warm/60' : ''}`}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  onHookMenuOpen(hook, { x: e.clientX, y: e.clientY });
+                }}
+              >
+                <td className="py-3.5 pr-0 w-1">
+                  <div
+                    className="w-1 h-6 rounded-full"
+                    style={{ backgroundColor: managedSourceIndicatorColor(hook.sourceType) }}
+                    title={managedSourceLabel(hook.sourceType)}
+                  />
+                </td>
+                <td className="py-3.5 pr-4">
+                  <Link to={managedHookDetailHref(hook.id)} className="font-medium text-pencil hover:underline block truncate">
+                    {hook.id}
+                  </Link>
+                  <div className="mt-1 text-xs text-pencil-light">
+                    {hook.matcher || 'All'} · {hook.handlers.length} handler{hook.handlers.length !== 1 ? 's' : ''}
+                  </div>
+                </td>
+                <td className="py-3.5 pr-4">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Badge variant="accent">{hook.tool}</Badge>
+                    <Badge variant="warning">{hook.event}</Badge>
+                    <Badge variant="default">{managedSourceLabel(hook.sourceType)}</Badge>
+                    {hook.disabled && <Badge variant="danger">Disabled</Badge>}
+                  </div>
+                </td>
+                <td className="py-3" onClick={(e) => e.stopPropagation()}>
+                  <Select
+                    value={managedTargetValue(hook.targets)}
+                    onChange={(val) => onHookTargetChange(hook.id, val === '__all__' ? null : val)}
+                    options={targetOptions}
+                    size="sm"
+                    className="min-w-[7rem] max-w-[9rem]"
+                  />
+                </td>
+                <td className="py-3.5 w-10">
+                  <button
+                    className="p-1 rounded hover:bg-muted/60 transition-colors text-pencil-light"
+                    style={{ borderRadius: radius.sm }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      onHookMenuOpen(hook, { x: rect.right, y: rect.bottom });
+                    }}
+                    title="Actions"
+                  >
+                    <MoreHorizontal size={16} strokeWidth={2} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 
@@ -2367,6 +3241,18 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
       )
     : [];
 
+  const openActionMenu = useCallback((skill: Skill, point: { x: number; y: number }) => {
+    setActionMenu({
+      point,
+      skillFlatName: skill.flatName,
+      skillName: skill.name,
+      kind: skill.kind,
+      relPath: skill.relPath,
+      disabled: !!skill.disabled,
+      isInRepo: !!skill.isInRepo,
+    });
+  }, []);
+
   return (
     <Card>
       <div className="overflow-auto max-h-[calc(100vh-320px)]">
@@ -2391,6 +3277,10 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
                 <tr
                   key={skill.flatName}
                   className={`border-b border-dashed border-muted hover:bg-paper-warm/60 transition-colors${actionMenu?.skillFlatName === skill.flatName ? ' bg-paper-warm/60' : ''}`}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    openActionMenu(skill, { x: e.clientX, y: e.clientY });
+                  }}
                 >
                   {/* Status stripe */}
                   <td className="py-3.5 pr-0 w-1">
@@ -2478,15 +3368,7 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
                       onClick={(e) => {
                         e.stopPropagation();
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        setActionMenu({
-                          point: { x: rect.right, y: rect.bottom },
-                          skillFlatName: skill.flatName,
-                          skillName: skill.name,
-                          kind: skill.kind,
-                          relPath: skill.relPath,
-                          disabled: !!skill.disabled,
-                          isInRepo: !!skill.isInRepo,
-                        });
+                        openActionMenu(skill, { x: rect.right, y: rect.bottom });
                       }}
                       title="Actions"
                     >

@@ -7,7 +7,7 @@ import HandButton from '../components/HandButton';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
-import { api, type ManagedHookDetailResponse, type ManagedHookSaveRequest } from '../api/client';
+import { api, type ManagedHookDetailResponse, type ManagedHookHandler, type ManagedHookSaveRequest } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
 import HookEditor from '../components/HookEditor';
 import { createEmptyHookEditorValue, type HookEditorValue } from '../components/hookEditorState';
@@ -17,20 +17,56 @@ function emptyValue(): HookEditorValue {
   return createEmptyHookEditorValue();
 }
 
+function isCodexTool(tool: string): boolean {
+  return tool.trim().toLowerCase() === 'codex';
+}
+
+function normalizeTimeoutValue(handler: Pick<ManagedHookHandler, 'timeout' | 'timeoutSec'>): string {
+  const timeout = handler.timeout?.trim();
+  if (timeout) return timeout;
+  return handler.timeoutSec === undefined ? '' : String(handler.timeoutSec);
+}
+
+function toRequestHandler(tool: string, handler: HookEditorValue['handlers'][number]): ManagedHookHandler {
+  const timeout = handler.timeout.trim();
+  const base = {
+    type: handler.type,
+    command: handler.command || undefined,
+    url: handler.url || undefined,
+    prompt: handler.prompt || undefined,
+    statusMessage: handler.statusMessage || undefined,
+  } satisfies Omit<ManagedHookHandler, 'timeout' | 'timeoutSec'>;
+
+  if (!timeout) {
+    return {
+      ...base,
+      timeout: undefined,
+      timeoutSec: undefined,
+    };
+  }
+
+  if (isCodexTool(tool)) {
+    const numericTimeout = Number(timeout);
+    return {
+      ...base,
+      timeout: Number.isInteger(numericTimeout) ? undefined : timeout,
+      timeoutSec: Number.isInteger(numericTimeout) ? numericTimeout : undefined,
+    };
+  }
+
+  return {
+    ...base,
+    timeout,
+    timeoutSec: undefined,
+  };
+}
+
 function toRequest(value: HookEditorValue): ManagedHookSaveRequest {
   return {
     tool: value.tool,
     event: value.event,
     matcher: value.matcher || undefined,
-    handlers: value.handlers.map((handler) => ({
-      type: handler.type,
-      command: handler.command || undefined,
-      url: handler.url || undefined,
-      prompt: handler.prompt || undefined,
-      timeout: handler.timeout || undefined,
-      timeoutSec: handler.timeoutSec ? Number(handler.timeoutSec) : undefined,
-      statusMessage: handler.statusMessage || undefined,
-    })),
+    handlers: value.handlers.map((handler) => toRequestHandler(value.tool, handler)),
   };
 }
 
@@ -45,8 +81,7 @@ function fromDetail(detail: ManagedHookDetailResponse): HookEditorValue {
           command: handler.command ?? '',
           url: handler.url ?? '',
           prompt: handler.prompt ?? '',
-          timeout: handler.timeout ?? '',
-          timeoutSec: handler.timeoutSec === undefined ? '' : String(handler.timeoutSec),
+          timeout: normalizeTimeoutValue(handler),
           statusMessage: handler.statusMessage ?? '',
         }))
       : emptyValue().handlers,

@@ -87,6 +87,8 @@ export default function HookEditor({
     }, REMOVE_ANIMATION_MS);
   };
 
+  const isCodexTool = value.tool.trim().toLowerCase() === 'codex';
+
   return (
     <Card className="space-y-4">
       <form
@@ -199,20 +201,15 @@ export default function HookEditor({
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <HandInput
-                    label="Timeout"
+                    label={isCodexTool ? 'Timeout Sec' : 'Timeout'}
                     value={handler.timeout}
                     onChange={(event) => updateHandler(index, { ...handler, timeout: event.target.value })}
-                    placeholder="30s"
-                  />
-                  <HandInput
-                    label="Timeout Sec"
                     type="text"
-                    value={handler.timeoutSec}
-                    onChange={(event) => updateHandler(index, { ...handler, timeoutSec: event.target.value })}
-                    placeholder="30"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
+                    placeholder={isCodexTool ? '30' : '30s'}
+                    inputMode={isCodexTool ? 'numeric' : undefined}
+                    pattern={isCodexTool ? '[0-9]*' : undefined}
                   />
+                  <div />
                 </div>
               </Card>
             ))}
