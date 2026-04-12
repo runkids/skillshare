@@ -120,6 +120,21 @@ func DiscoveryGlobalPaths(home string) []string {
 	return out
 }
 
+func OwnedCompilePaths(root string) []string {
+	ids := []string{ManagedSystemID, ManagedAppendSystemID}
+	if isGlobalOutputRoot(root) {
+		ids = append([]string{ManagedAgentsID}, ids...)
+	}
+
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if path, ok := CompilePath(root, id); ok {
+			out = append(out, filepath.Clean(path))
+		}
+	}
+	return out
+}
+
 func CompilePath(root, id string) (string, bool) {
 	surface, ok := surfaceByManagedID(id)
 	if !ok {

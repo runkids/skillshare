@@ -13,6 +13,7 @@ import (
 	"skillshare/internal/resources/adapters"
 	"skillshare/internal/resources/apply"
 	managedhooks "skillshare/internal/resources/hooks"
+	managedpi "skillshare/internal/resources/managed/pi"
 	managedrules "skillshare/internal/resources/rules"
 )
 
@@ -53,6 +54,10 @@ func syncRules(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
 		if errors.Is(err, managedrules.ErrUnsupportedTarget) {
 			return SyncResult{}, false
 		}
+		result.Err = fmt.Errorf("compile managed rules: %w", err)
+		return result, true
+	}
+	if err := detectRuleOutputConflicts(req, spec, records, compileTarget, files); err != nil {
 		result.Err = fmt.Errorf("compile managed rules: %w", err)
 		return result, true
 	}
@@ -192,54 +197,137 @@ func managedHookConfigPath(target, root string) (string, bool) {
 	}
 }
 
+func managedRuleOwnedFiles(target, root string) []string {
+	switch strings.ToLower(strings.TrimSpace(target)) {
+	case "pi":
+		return managedpi.OwnedCompilePaths(root)
+	default:
+		return nil
+	}
+}
+
+func detectRuleOutputConflicts(req SyncRequest, current TargetSyncSpec, records []managedrules.Record, currentFamily string, currentFiles []adapters.CompiledFile) error {
+	if len(currentFiles) == 0 {
+		return nil
+	}
+
+	currentPaths := make(map[string]struct{}, len(currentFiles))
+	for _, file := range currentFiles {
+		currentPaths[filepath.Clean(file.Path)] = struct{}{}
+	}
+
+	for _, other := range req.Targets {
+		if other.Name == current.Name {
+			continue
+		}
+		otherFamily, otherRoot, ok := resolveRuleTarget(other.Name, other.Target, req.ProjectRoot)
+		if !ok || otherFamily == currentFamily {
+			continue
+		}
+
+		otherFiles, _, err := managedrules.CompileTarget(records, otherFamily, other.Name, otherRoot)
+		if err != nil {
+			if errors.Is(err, managedrules.ErrUnsupportedTarget) {
+				continue
+			}
+			return err
+		}
+		for _, otherFile := range otherFiles {
+			cleaned := filepath.Clean(otherFile.Path)
+			if _, ok := currentPaths[cleaned]; ok {
+				return fmt.Errorf("managed rule output conflict: %s is produced by %s (%s) and %s (%s)", cleaned, current.Name, currentFamily, other.Name, otherFamily)
+			}
+		}
+	}
+
+	return nil
+}
+
 func pruneRuleOrphans(target, root string, files []adapters.CompiledFile, dryRun bool) ([]string, error) {
 	ownedDir, ok := managedRuleOwnedDir(target, root)
-	if !ok {
+	ownedFiles := managedRuleOwnedFiles(target, root)
+	if !ok && len(ownedFiles) == 0 {
 		return []string{}, nil
 	}
 
-	info, err := os.Stat(ownedDir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return []string{}, nil
+	if ok {
+		info, err := os.Stat(ownedDir)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				ok = false
+			} else {
+				return nil, err
+			}
 		}
-		return nil, err
-	}
-	if !info.IsDir() {
-		return nil, fmt.Errorf("managed rules path is not a directory: %s", ownedDir)
+		if ok && !info.IsDir() {
+			return nil, fmt.Errorf("managed rules path is not a directory: %s", ownedDir)
+		}
 	}
 
 	keep := make(map[string]struct{}, len(files))
 	for _, file := range files {
-		if pathWithinDir(file.Path, ownedDir) {
+		if ok && pathWithinDir(file.Path, ownedDir) {
 			keep[filepath.Clean(file.Path)] = struct{}{}
+		}
+		for _, ownedPath := range ownedFiles {
+			if filepath.Clean(file.Path) == ownedPath {
+				keep[ownedPath] = struct{}{}
+			}
 		}
 	}
 
 	pruned := make([]string, 0)
-	if err := filepath.WalkDir(ownedDir, func(path string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
+	if ok {
+		if err := filepath.WalkDir(ownedDir, func(path string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if path == ownedDir || d.IsDir() {
+				return nil
+			}
+
+			cleaned := filepath.Clean(path)
+			if _, ok := keep[cleaned]; ok {
+				return nil
+			}
+
+			pruned = append(pruned, cleaned)
+			if dryRun {
+				return nil
+			}
+			return os.Remove(cleaned)
+		}); err != nil {
+			return nil, err
 		}
-		if path == ownedDir || d.IsDir() {
-			return nil
+	}
+	for _, ownedPath := range ownedFiles {
+		if _, ok := keep[ownedPath]; ok {
+			continue
+		}
+		info, err := os.Stat(ownedPath)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return nil, err
+		}
+		if info.IsDir() {
+			continue
 		}
 
-		cleaned := filepath.Clean(path)
-		if _, ok := keep[cleaned]; ok {
-			return nil
-		}
-
-		pruned = append(pruned, cleaned)
+		pruned = append(pruned, ownedPath)
 		if dryRun {
-			return nil
+			continue
 		}
-		return os.Remove(cleaned)
-	}); err != nil {
-		return nil, err
+		if err := os.Remove(ownedPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
 	}
 
 	if dryRun {
+		return pruned, nil
+	}
+	if !ok {
 		return pruned, nil
 	}
 	return pruned, removeEmptyRuleSubdirs(ownedDir)
