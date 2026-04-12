@@ -68,7 +68,7 @@ func RuleInstructionFiles() []string {
 }
 
 func IsManagedRuleID(id string) bool {
-	_, ok := surfaceByManagedID(id)
+	_, ok := NormalizeManagedRuleID(id)
 	return ok
 }
 
@@ -78,6 +78,9 @@ func NormalizeManagedRuleID(ref string) (string, bool) {
 		if normalized == surface.id || normalized == surface.bareName {
 			return surface.id, true
 		}
+	}
+	if nestedAgentsManagedID(normalized) {
+		return normalized, true
 	}
 	return "", false
 }
@@ -138,6 +141,9 @@ func OwnedCompilePaths(root string) []string {
 func CompilePath(root, id string) (string, bool) {
 	surface, ok := surfaceByManagedID(id)
 	if !ok {
+		if nestedAgentsManagedID(id) {
+			return filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(path.Clean(strings.ReplaceAll(strings.TrimSpace(id), "\\", "/")), "pi/"))), true
+		}
 		return "", false
 	}
 	compileRel := surface.projectCompileRel
@@ -168,4 +174,15 @@ func surfaceByManagedID(id string) (ruleSurface, bool) {
 		}
 	}
 	return ruleSurface{}, false
+}
+
+func nestedAgentsManagedID(id string) bool {
+	normalized := path.Clean(strings.ReplaceAll(strings.TrimSpace(id), "\\", "/"))
+	if !strings.HasPrefix(normalized, "pi/") {
+		return false
+	}
+	if normalized == ManagedAgentsID {
+		return false
+	}
+	return strings.HasSuffix(normalized, "/AGENTS.md")
 }

@@ -602,6 +602,41 @@ func TestManagedRulesPreviewCompilesPiTargetsAtGlobalRoot(t *testing.T) {
 	}
 }
 
+func TestManagedRulesCreateAcceptsNestedPiAgentsPath(t *testing.T) {
+	s, projectRoot, _, _ := newManagedProjectServer(t, "pi")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/managed/rules", strings.NewReader(`{"tool":"pi","relativePath":"pi/nested/AGENTS.md","content":"# Nested Pi\n"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201 from create, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Rule struct {
+			ID string `json:"id"`
+		} `json:"rule"`
+		Previews []struct {
+			Target string `json:"target"`
+			Files  []struct {
+				Path string `json:"path"`
+			} `json:"files"`
+		} `json:"previews"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode create response: %v", err)
+	}
+	if resp.Rule.ID != "pi/nested/AGENTS.md" {
+		t.Fatalf("create response rule id = %q, want %q", resp.Rule.ID, "pi/nested/AGENTS.md")
+	}
+	if len(resp.Previews) != 1 || resp.Previews[0].Target != "pi" {
+		t.Fatalf("create previews = %#v, want one pi preview", resp.Previews)
+	}
+	if len(resp.Previews[0].Files) != 1 || resp.Previews[0].Files[0].Path != filepath.Join(projectRoot, "nested", "AGENTS.md") {
+		t.Fatalf("create preview files = %#v, want nested AGENTS.md under project root", resp.Previews[0].Files)
+	}
+}
+
 func TestManagedRulesCreateRejectsUnsupportedPiPath(t *testing.T) {
 	s, _, _, _ := newManagedProjectServer(t, "pi")
 

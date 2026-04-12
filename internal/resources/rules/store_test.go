@@ -341,8 +341,22 @@ func TestNormalizeRuleID_AcceptsPiInstructionPaths(t *testing.T) {
 	}
 }
 
+func TestNormalizeRuleID_AcceptsNestedPiAgentsPaths(t *testing.T) {
+	for _, id := range []string{"pi/nested/AGENTS.md", "pi/nested/team/AGENTS.md"} {
+		t.Run(id, func(t *testing.T) {
+			got, err := NormalizeRuleID(id)
+			if err != nil {
+				t.Fatalf("NormalizeRuleID(%q) error = %v", id, err)
+			}
+			if got != id {
+				t.Fatalf("NormalizeRuleID(%q) = %q, want %q", id, got, id)
+			}
+		})
+	}
+}
+
 func TestNormalizeRuleID_RejectsUnsupportedPiPaths(t *testing.T) {
-	for _, id := range []string{"pi/extra.md", "pi/nested/AGENTS.md", "pi/nested/SYSTEM.md"} {
+	for _, id := range []string{"pi/extra.md", "pi/nested/SYSTEM.md"} {
 		t.Run(id, func(t *testing.T) {
 			if _, err := NormalizeRuleID(id); err == nil {
 				t.Fatalf("NormalizeRuleID(%q) error = nil, want error", id)

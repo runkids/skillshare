@@ -129,6 +129,26 @@ func TestCompilePiRules_WritesInstructionSurfaces(t *testing.T) {
 	_ = findCompiledFile(t, files, filepath.Join(projectRoot, ".pi", "APPEND_SYSTEM.md"))
 }
 
+func TestCompilePiRules_WritesNestedAgentsFilesToMatchingProjectPath(t *testing.T) {
+	projectRoot := "/tmp/project"
+	records := []RuleRecord{
+		{ID: "pi/nested/AGENTS.md", Tool: "pi", RelativePath: "pi/nested/AGENTS.md", Name: "AGENTS.md", Content: "# Nested Pi\n"},
+	}
+
+	files, warnings, err := CompilePiRules(records, projectRoot)
+	if err != nil {
+		t.Fatalf("CompilePiRules() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("CompilePiRules() warnings = %v, want none", warnings)
+	}
+
+	compiled := findCompiledFile(t, files, filepath.Join(projectRoot, "nested", "AGENTS.md"))
+	if !strings.Contains(compiled.Content, "# Nested Pi") {
+		t.Fatalf("compiled nested agents content = %q, want nested pi markdown", compiled.Content)
+	}
+}
+
 func TestCompilePiRules_GlobalConfigRootUsesAgentSubdir(t *testing.T) {
 	globalRoot := "/tmp/home/.pi/agent"
 	records := []RuleRecord{
