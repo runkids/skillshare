@@ -456,6 +456,41 @@ func TestCollectHooks_GeminiPreservesSequentialAndHandlerMetadata(t *testing.T) 
 	}
 }
 
+func TestCollectHooks_GeminiAllowsEmptyMatcher(t *testing.T) {
+	root := t.TempDir()
+	wantID := mustCanonicalRelativePath(t, "gemini", "Notification", "")
+	discovered := []inspect.HookItem{
+		{
+			GroupID:     "gemini:project:/tmp/project/.gemini/settings.json:Notification:",
+			SourceTool:  "gemini",
+			Scope:       inspect.ScopeProject,
+			Event:       "Notification",
+			Matcher:     "",
+			ActionType:  "command",
+			Command:     "./bin/notify",
+			Path:        "/tmp/project/.gemini/settings.json",
+			Collectible: true,
+		},
+	}
+
+	result, err := Collect(root, discovered, CollectOptions{Strategy: StrategyOverwrite})
+	if err != nil {
+		t.Fatalf("Collect() error = %v", err)
+	}
+	if len(result.Created) != 1 || result.Created[0] != wantID {
+		t.Fatalf("Collect() Created = %v, want %q", result.Created, wantID)
+	}
+
+	store := NewStore(root)
+	got, err := store.Get(wantID)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if got.Matcher != "" {
+		t.Fatalf("Get() Matcher = %q, want empty matcher", got.Matcher)
+	}
+}
+
 func TestCollectHooks_RollsBackOnLaterWriteFailure(t *testing.T) {
 	root := t.TempDir()
 	store := NewStore(root)

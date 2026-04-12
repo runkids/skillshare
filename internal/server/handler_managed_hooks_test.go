@@ -375,6 +375,51 @@ func TestManagedHooksCreateRejectsGeminiInvalidTimeoutEvenWhenTimeoutSecPresent(
 	}
 }
 
+func TestManagedHooksGeminiCreateSupportsEmptyMatcher(t *testing.T) {
+	s, projectRoot, _, _ := newManagedProjectServer(t, "gemini")
+	targetPath := filepath.Join(projectRoot, ".gemini", "skills")
+	if err := os.MkdirAll(targetPath, 0o755); err != nil {
+		t.Fatalf("failed to create gemini target dir: %v", err)
+	}
+	s.cfg.Targets["gemini"] = config.TargetConfig{Path: targetPath}
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/managed/hooks", strings.NewReader(`{"tool":"gemini","event":"Notification","handlers":[{"type":"command","command":"./bin/notify"}]}`))
+	createRR := httptest.NewRecorder()
+	s.handler.ServeHTTP(createRR, createReq)
+	if createRR.Code != http.StatusCreated {
+		t.Fatalf("expected 201 from matcherless gemini create, got %d: %s", createRR.Code, createRR.Body.String())
+	}
+
+	var createResp struct {
+		Hook struct {
+			ID      string `json:"id"`
+			Matcher string `json:"matcher"`
+		} `json:"hook"`
+		Previews []struct {
+			Target string `json:"target"`
+			Files  []struct {
+				Content string `json:"content"`
+			} `json:"files"`
+		} `json:"previews"`
+	}
+	if err := json.Unmarshal(createRR.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("failed to decode matcherless gemini create response: %v", err)
+	}
+	wantID := canonicalManagedHookID(t, "gemini", "Notification", "")
+	if createResp.Hook.ID != wantID {
+		t.Fatalf("create hook id = %q, want %q", createResp.Hook.ID, wantID)
+	}
+	if createResp.Hook.Matcher != "" {
+		t.Fatalf("create matcher = %q, want empty", createResp.Hook.Matcher)
+	}
+	if len(createResp.Previews) != 1 || len(createResp.Previews[0].Files) != 1 {
+		t.Fatalf("create previews = %#v, want one gemini preview file", createResp.Previews)
+	}
+	if strings.Contains(createResp.Previews[0].Files[0].Content, `"matcher"`) {
+		t.Fatalf("matcherless gemini preview should omit matcher field: %q", createResp.Previews[0].Files[0].Content)
+	}
+}
+
 func TestManagedHooksCollectRoute(t *testing.T) {
 	s, projectRoot, _, _ := newManagedProjectServer(t, "claude")
 
