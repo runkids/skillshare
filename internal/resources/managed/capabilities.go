@@ -133,11 +133,11 @@ func ResolveManagedFamily(kind ResourceKind, targetName, targetPath string) (str
 				}
 				return "", false
 			}
+			return "", false
 		}
 
-		// Preserve the broader same-path compatibility behavior: a target can
-		// resolve through any family that shares its native target surface, even
-		// when it is not one of the explicit canonical exceptions above.
+		// Preserve compatibility for custom, non-canonical targets that point at
+		// a native managed path surface intentionally.
 		for family, spec := range managedCapabilities.families {
 			if !spec.supportsKind(kind) {
 				continue
