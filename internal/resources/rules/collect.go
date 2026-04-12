@@ -303,6 +303,16 @@ func managedIDForDiscoveredRule(item inspect.RuleItem) (string, error) {
 		if strings.EqualFold(base, "GEMINI.md") {
 			return "gemini/GEMINI.md", nil
 		}
+	case "pi":
+		switch {
+		case strings.HasSuffix(strings.ToLower(p), "/.pi/system.md"):
+			return "pi/SYSTEM.md", nil
+		case strings.HasSuffix(strings.ToLower(p), "/.pi/append_system.md"):
+			return "pi/APPEND_SYSTEM.md", nil
+		}
+		if strings.EqualFold(base, "AGENTS.md") {
+			return "pi/AGENTS.md", nil
+		}
 	}
 
 	if base == "." || base == "/" || strings.TrimSpace(base) == "" {

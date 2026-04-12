@@ -291,3 +291,48 @@ func TestCollectRules_RollsBackOnMidApplyWriteFailure(t *testing.T) {
 		t.Fatalf("List()[1].Content = %q, want %q", string(all[1].Content), "# Original Two\n")
 	}
 }
+
+func TestManagedIDForDiscoveredRule_PiFamily(t *testing.T) {
+	tests := []struct {
+		name string
+		item inspect.RuleItem
+		want string
+	}{
+		{
+			name: "pi agents root",
+			item: inspect.RuleItem{
+				SourceTool: "pi",
+				Path:       "/tmp/project/AGENTS.md",
+			},
+			want: "pi/AGENTS.md",
+		},
+		{
+			name: "pi system file",
+			item: inspect.RuleItem{
+				SourceTool: "pi",
+				Path:       "/tmp/project/.pi/SYSTEM.md",
+			},
+			want: "pi/SYSTEM.md",
+		},
+		{
+			name: "pi append system file",
+			item: inspect.RuleItem{
+				SourceTool: "pi",
+				Path:       "/tmp/project/.pi/APPEND_SYSTEM.md",
+			},
+			want: "pi/APPEND_SYSTEM.md",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ManagedIDForDiscoveredRule(tt.item)
+			if err != nil {
+				t.Fatalf("ManagedIDForDiscoveredRule() error = %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("ManagedIDForDiscoveredRule() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

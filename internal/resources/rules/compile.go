@@ -63,6 +63,8 @@ func CompileTarget(records []Record, targetFamily, targetName, projectRoot strin
 		files, adapterWarnings, err = adapters.CompileCodexRules(converted, projectRoot)
 	case "gemini":
 		files, adapterWarnings, err = adapters.CompileGeminiRules(converted, projectRoot)
+	case "pi":
+		files, adapterWarnings, err = adapters.CompilePiRules(converted, projectRoot)
 	default:
 		return nil, nil, fmt.Errorf("%w %q", ErrUnsupportedTarget, targetFamily)
 	}

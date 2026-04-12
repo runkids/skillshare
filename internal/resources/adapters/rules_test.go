@@ -108,6 +108,27 @@ func TestCompileGeminiRules_GlobalConfigRootUsesRulesSubdir(t *testing.T) {
 	mustNotContainCompiledFile(t, files, filepath.Join(globalRoot, ".gemini", "rules", "backend.md"))
 }
 
+func TestCompilePiRules_WritesInstructionSurfaces(t *testing.T) {
+	projectRoot := "/tmp/project"
+	records := []RuleRecord{
+		{ID: "pi/AGENTS.md", Tool: "pi", RelativePath: "pi/AGENTS.md", Name: "AGENTS.md", Content: "# Pi Root\n"},
+		{ID: "pi/SYSTEM.md", Tool: "pi", RelativePath: "pi/SYSTEM.md", Name: "SYSTEM.md", Content: "# Pi System\n"},
+		{ID: "pi/APPEND_SYSTEM.md", Tool: "pi", RelativePath: "pi/APPEND_SYSTEM.md", Name: "APPEND_SYSTEM.md", Content: "# Pi Append\n"},
+	}
+
+	files, warnings, err := CompilePiRules(records, projectRoot)
+	if err != nil {
+		t.Fatalf("CompilePiRules() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("CompilePiRules() warnings = %v, want none", warnings)
+	}
+
+	_ = findCompiledFile(t, files, filepath.Join(projectRoot, "AGENTS.md"))
+	_ = findCompiledFile(t, files, filepath.Join(projectRoot, ".pi", "SYSTEM.md"))
+	_ = findCompiledFile(t, files, filepath.Join(projectRoot, ".pi", "APPEND_SYSTEM.md"))
+}
+
 func findCompiledFile(t *testing.T, files []CompiledFile, wantPath string) CompiledFile {
 	t.Helper()
 	for _, file := range files {

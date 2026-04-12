@@ -98,6 +98,33 @@ func TestScanRules_GlobalAndProjectLocations(t *testing.T) {
 	}
 }
 
+func TestScanRules_IncludesPiInstructionFiles(t *testing.T) {
+	project := t.TempDir()
+	mustWriteFile(t, filepath.Join(project, ".pi", "SYSTEM.md"), "# System")
+	mustWriteFile(t, filepath.Join(project, ".pi", "APPEND_SYSTEM.md"), "# Append")
+
+	items, warnings, err := ScanRules(project)
+	if err != nil {
+		t.Fatalf("ScanRules() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("ScanRules() warnings = %v", warnings)
+	}
+
+	var foundSystem, foundAppend bool
+	for _, item := range items {
+		if item.SourceTool == "pi" && item.Path == filepath.Join(project, ".pi", "SYSTEM.md") {
+			foundSystem = true
+		}
+		if item.SourceTool == "pi" && item.Path == filepath.Join(project, ".pi", "APPEND_SYSTEM.md") {
+			foundAppend = true
+		}
+	}
+	if !foundSystem || !foundAppend {
+		t.Fatalf("items = %#v, want pi SYSTEM and APPEND_SYSTEM entries", items)
+	}
+}
+
 func TestScanRules_MalformedFrontmatterDegradesToUnscoped(t *testing.T) {
 	tmp := t.TempDir()
 	home := filepath.Join(tmp, "home")

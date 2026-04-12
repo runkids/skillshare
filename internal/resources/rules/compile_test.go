@@ -15,6 +15,9 @@ func TestCompileRulesForTargets(t *testing.T) {
 		{ID: "codex/backend.md", Content: []byte("# Codex Backend\n")},
 		{ID: "gemini/GEMINI.md", Content: []byte("# Gemini Root\n")},
 		{ID: "gemini/backend.md", Content: []byte("# Gemini Backend\n")},
+		{ID: "pi/AGENTS.md", Content: []byte("# Pi Root\n")},
+		{ID: "pi/SYSTEM.md", Content: []byte("# Pi System\n")},
+		{ID: "pi/APPEND_SYSTEM.md", Content: []byte("# Pi Append\n")},
 	}
 
 	codexFiles, warnings, err := CompileTarget(ruleSet, "codex", "codex", projectRoot)
@@ -52,6 +55,17 @@ func TestCompileRulesForTargets(t *testing.T) {
 	}
 	_ = mustFindCompiledContent(t, geminiFiles, filepath.Join(projectRoot, "GEMINI.md"))
 	_ = mustFindCompiledContent(t, geminiFiles, filepath.Join(projectRoot, ".gemini", "rules", "backend.md"))
+
+	piFiles, warnings, err := CompileTarget(ruleSet, "pi", "pi", projectRoot)
+	if err != nil {
+		t.Fatalf("CompileTarget(pi) error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("CompileTarget(pi) warnings = %v, want none", warnings)
+	}
+	_ = mustFindCompiledContent(t, piFiles, filepath.Join(projectRoot, "AGENTS.md"))
+	_ = mustFindCompiledContent(t, piFiles, filepath.Join(projectRoot, ".pi", "SYSTEM.md"))
+	_ = mustFindCompiledContent(t, piFiles, filepath.Join(projectRoot, ".pi", "APPEND_SYSTEM.md"))
 }
 
 func TestCompileRulesForTargets_NestedInstructionNamesStayNested(t *testing.T) {
