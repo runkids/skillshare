@@ -186,6 +186,25 @@ func CapabilitySnapshot() CapabilitySnapshotPayload {
 	}
 }
 
+func CompatibleTargetsForFamily(kind ResourceKind, family string) []string {
+	family = strings.ToLower(strings.TrimSpace(family))
+	if family == "" {
+		return nil
+	}
+
+	snapshot := CapabilitySnapshot()
+	spec, ok := snapshot.Families[family]
+	if !ok || !spec.supportsKind(kind) {
+		return nil
+	}
+
+	targets := append([]string(nil), spec.CompatibleTargets...)
+	if len(targets) == 0 {
+		return []string{family}
+	}
+	return targets
+}
+
 func normalizeResourceKind(kind ResourceKind) ResourceKind {
 	switch strings.ToLower(strings.TrimSpace(string(kind))) {
 	case string(ResourceKindRules):

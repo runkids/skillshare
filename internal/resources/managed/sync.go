@@ -292,16 +292,7 @@ func sharedProjectAgentsConflictCandidates(currentFamily string) []ruleConflictC
 }
 
 func compatibleRuleCandidatesForFamily(family string) []ruleConflictCandidate {
-	spec, ok := managedCapabilities.families[family]
-	if !ok || !spec.SupportsRules {
-		return nil
-	}
-
-	names := append([]string(nil), spec.CompatibleTargets...)
-	if len(names) == 0 {
-		names = []string{family}
-	}
-
+	names := CompatibleTargetsForFamily(ResourceKindRules, family)
 	candidates := make([]ruleConflictCandidate, 0, len(names))
 	seen := make(map[string]struct{}, len(names))
 	for _, name := range names {

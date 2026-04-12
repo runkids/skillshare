@@ -456,6 +456,46 @@ func TestSync_RejectsProjectRootAgentsConflictForSingleTargetSync(t *testing.T) 
 	}
 }
 
+func TestSync_RejectsProjectRootAgentsConflictForSingleTargetSyncWithNonCanonicalCodexFamilyTarget(t *testing.T) {
+	projectRoot := t.TempDir()
+	ruleStore := managedrules.NewStore(projectRoot)
+	if _, err := ruleStore.Put(managedrules.Save{
+		ID:      "codex/AGENTS.md",
+		Content: []byte("# Codex Agents\n"),
+		Targets: []string{"amp"},
+	}); err != nil {
+		t.Fatalf("put managed codex rule: %v", err)
+	}
+	if _, err := ruleStore.Put(managedrules.Save{
+		ID:      "pi/AGENTS.md",
+		Content: []byte("# Pi Agents\n"),
+	}); err != nil {
+		t.Fatalf("put managed pi rule: %v", err)
+	}
+
+	results := Sync(SyncRequest{
+		ProjectRoot: projectRoot,
+		DryRun:      false,
+		Resources:   ResourceSet{Rules: true},
+		Targets: []TargetSyncSpec{{
+			Name:   "pi",
+			Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
+		}},
+	})
+
+	piResult := findSyncResult(t, results, "pi", "rules")
+	if piResult.Err == nil {
+		t.Fatal("pi rules sync error = nil, want shared AGENTS conflict")
+	}
+	if !strings.Contains(piResult.Err.Error(), "conflict") || !strings.Contains(piResult.Err.Error(), "AGENTS.md") || !strings.Contains(piResult.Err.Error(), "amp") {
+		t.Fatalf("pi rules sync error = %v, want AGENTS conflict mentioning amp target", piResult.Err)
+	}
+
+	if _, err := os.Stat(filepath.Join(projectRoot, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected no shared AGENTS.md to be written, got err=%v", err)
+	}
+}
+
 func ensureClaudeTargetFiles(t *testing.T, projectRoot string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(projectRoot, ".claude"), 0o755); err != nil {
