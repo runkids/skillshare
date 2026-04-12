@@ -133,6 +133,18 @@ func ResolveManagedFamily(kind ResourceKind, targetName, targetPath string) (str
 				return "", false
 			}
 		}
+
+		// Preserve the broader same-path compatibility behavior: a target can
+		// resolve through any family that shares its native target surface, even
+		// when it is not one of the explicit canonical exceptions above.
+		for family, spec := range managedCapabilities.families {
+			if !spec.supportsKind(kind) {
+				continue
+			}
+			if config.MatchesTargetName(family, cleanName) {
+				return family, true
+			}
+		}
 	}
 
 	family := managedCapabilities.familyForPath(targetPath)
@@ -249,6 +261,17 @@ func (r capabilityRegistry) supportsKind(family string, kind ResourceKind) bool 
 		return spec.SupportsRules
 	case ResourceKindHooks:
 		return spec.SupportsHooks
+	default:
+		return false
+	}
+}
+
+func (s FamilySpec) supportsKind(kind ResourceKind) bool {
+	switch normalizeResourceKind(kind) {
+	case ResourceKindRules:
+		return s.SupportsRules
+	case ResourceKindHooks:
+		return s.SupportsHooks
 	default:
 		return false
 	}
