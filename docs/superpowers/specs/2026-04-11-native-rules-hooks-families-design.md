@@ -583,6 +583,59 @@ their names or shared paths could tempt over-mapping:
 - `xcode-claude`
 - `xcode-codex`
 
+## Family Decision Rule
+
+Not every target needs its own hook or rule design.
+
+The right default is:
+
+- every target gets an explicit classification
+- only verified native capability surfaces get mapped into managed families
+- a new family is added only when an existing family cannot faithfully represent
+  the target's native files, semantics, and validation rules
+
+### Map To An Existing Family When
+
+- the target is an alias of an existing canonical target
+- the target uses the same native files and directories
+- the target uses the same event model and field schema
+- the target uses the same compile and collect semantics
+
+Examples:
+
+- `claude-code` -> Claude family
+- `gemini-cli` -> Gemini family
+- `universal` -> Codex compatibility family for current managed rules/hooks
+
+### Add A New Family When
+
+- the target has a native rules surface, but it is structurally different from
+  existing families
+- the target has a native hooks surface, but its event model or handler schema
+  is materially different from existing families
+- mapping it into an existing family would force fake fields, invalid options,
+  or lossy compile behavior
+
+Example:
+
+- `pi` needs its own managed rules family because its instruction surfaces are
+  `AGENTS.md`, `.pi/SYSTEM.md`, and `.pi/APPEND_SYSTEM.md`, which do not match
+  Claude/Codex/Gemini rule layouts
+
+### Keep Skills-Only When
+
+- Skillshare knows the target's skills path, but native rules/hooks support has
+  not been verified
+- the target exposes no comparable native hooks/rules surface
+- the only evidence is a shared directory path or similar branding
+
+Examples:
+
+- `omp`
+- `xcode-claude`
+- `xcode-codex`
+- most `.agents`-path targets
+
 ## CLI Design
 
 ### Principle
