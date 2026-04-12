@@ -311,6 +311,7 @@ func managedIDForDiscoveredRule(item inspect.RuleItem) (string, error) {
 		if id, ok := managedpi.ManagedRuleIDForDiscoveredPath(p); ok {
 			return id, nil
 		}
+		return "", invalidCollectf("cannot collect %s: unsupported pi rule path", item.Path)
 	}
 
 	if base == "." || base == "/" || strings.TrimSpace(base) == "" {

@@ -78,10 +78,6 @@ func ManagedRuleIDForDiscoveredPath(filePath string) (string, bool) {
 	case strings.HasSuffix(normalized, "/.pi/append_system.md"):
 		return ManagedAppendSystemID, true
 	}
-
-	if strings.EqualFold(path.Base(filepath.ToSlash(strings.TrimSpace(filePath))), "AGENTS.md") {
-		return ManagedAgentsID, true
-	}
 	return "", false
 }
 

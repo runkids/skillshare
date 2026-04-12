@@ -133,6 +133,30 @@ func TestPreviewCollectRules(t *testing.T) {
 			t.Fatalf("preview error = %q, collect error = %q, want parity", previewErr.Error(), collectErr.Error())
 		}
 	})
+
+	t.Run("rejects unsupported pi paths early like collect", func(t *testing.T) {
+		discovered := []inspect.RuleItem{
+			{
+				SourceTool:  "pi",
+				Collectible: true,
+				Path:        filepath.Join(projectRoot, ".pi", "extra.md"),
+				Content:     "# Extra\n",
+			},
+		}
+
+		previewResult, previewErr := PreviewCollectRules(projectRoot, discovered, true)
+		if previewErr == nil {
+			t.Fatalf("PreviewCollectRules() error = nil, want unsupported pi path failure; result=%#v", previewResult)
+		}
+
+		collectResult, collectErr := CollectRules(projectRoot, discovered, managedrules.StrategyOverwrite)
+		if collectErr == nil {
+			t.Fatalf("CollectRules() error = nil, want unsupported pi path failure; result=%#v", collectResult)
+		}
+		if previewErr.Error() != collectErr.Error() {
+			t.Fatalf("preview error = %q, collect error = %q, want parity", previewErr.Error(), collectErr.Error())
+		}
+	})
 }
 
 func TestPreviewCollectHooks(t *testing.T) {

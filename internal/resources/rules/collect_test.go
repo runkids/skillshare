@@ -382,6 +382,22 @@ func TestManagedIDForDiscoveredRule_PiFamily(t *testing.T) {
 	}
 }
 
+func TestManagedIDForDiscoveredRule_RejectsUnsupportedPiPath(t *testing.T) {
+	_, err := ManagedIDForDiscoveredRule(inspect.RuleItem{
+		SourceTool: "pi",
+		Path:       "/tmp/project/.pi/extra.md",
+	})
+	if err == nil {
+		t.Fatal("ManagedIDForDiscoveredRule() error = nil, want unsupported pi path error")
+	}
+	if !errors.Is(err, ErrInvalidCollect) {
+		t.Fatalf("ManagedIDForDiscoveredRule() error = %v, want ErrInvalidCollect", err)
+	}
+	if !strings.Contains(err.Error(), "unsupported pi rule path") {
+		t.Fatalf("ManagedIDForDiscoveredRule() error = %v, want unsupported pi rule path message", err)
+	}
+}
+
 func TestCollectRules_ScanRulesKeepsProjectRootAgentsUnderCodex(t *testing.T) {
 	projectRoot := t.TempDir()
 	agentsPath := filepath.Join(projectRoot, "AGENTS.md")
