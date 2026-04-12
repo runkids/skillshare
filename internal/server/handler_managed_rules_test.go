@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"skillshare/internal/config"
 	"skillshare/internal/inspect"
+	managed "skillshare/internal/resources/managed"
 	managedrules "skillshare/internal/resources/rules"
 )
 
@@ -1116,5 +1118,34 @@ func TestManagedRulesCollectDedupesRepeatedIDs(t *testing.T) {
 	}
 	if len(resp.Skipped) != 0 {
 		t.Fatalf("collect skipped = %#v, want none after dedupe", resp.Skipped)
+	}
+}
+
+func TestManagedRulesCreateInvokesSharedManagedFamilyValidation(t *testing.T) {
+	s, _, _, _ := newManagedProjectServer(t, "claude")
+
+	orig := validateManagedRuleSave
+	defer func() {
+		validateManagedRuleSave = orig
+	}()
+
+	called := false
+	validateManagedRuleSave = func(in managed.RuleInput) error {
+		called = true
+		return fmt.Errorf("forced validation failure")
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/managed/rules", strings.NewReader(`{"tool":"claude","relativePath":"claude/manual.md","content":"# Managed\n"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if !called {
+		t.Fatal("expected shared managed rule validator to be called")
+	}
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 from forced validation failure, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "forced validation failure") {
+		t.Fatalf("response body = %s, want forced validation failure", rr.Body.String())
 	}
 }

@@ -82,6 +82,12 @@ func (s *Server) handleCreateManagedHook(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	if err := managed.ValidateManagedHookSave(managed.HookInput{
+		Tool: body.Tool,
+	}); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	store := managedhooks.NewStore(s.managedHooksProjectRoot())
 	canonicalID, err := managedHookCanonicalID(body.Tool, body.Event, body.matcher())
@@ -145,6 +151,12 @@ func (s *Server) handleUpdateManagedHook(w http.ResponseWriter, r *http.Request)
 
 	var body managedHookRequest
 	if err := decodeManagedHookRequest(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := managed.ValidateManagedHookSave(managed.HookInput{
+		Tool: body.Tool,
+	}); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -229,6 +241,13 @@ func (s *Server) handleSetManagedHookTargets(w http.ResponseWriter, r *http.Requ
 		writeError(w, managedHookLoadStatus(err), managedHookLoadError(id, err).Error())
 		return
 	}
+	if err := managed.ValidateManagedHookSave(managed.HookInput{
+		Tool: record.Tool,
+	}); err != nil {
+		s.mu.Unlock()
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	record, err = store.Put(managedhooks.Save{
 		ID:         record.ID,
@@ -280,6 +299,13 @@ func (s *Server) handleSetManagedHookDisabled(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		s.mu.Unlock()
 		writeError(w, managedHookLoadStatus(err), managedHookLoadError(id, err).Error())
+		return
+	}
+	if err := managed.ValidateManagedHookSave(managed.HookInput{
+		Tool: record.Tool,
+	}); err != nil {
+		s.mu.Unlock()
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 

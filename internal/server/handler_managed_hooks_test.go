@@ -818,3 +818,18 @@ func TestManagedHooksUpdateRestoresPreviousRecordWhenPreviewCompilationFails(t *
 		t.Fatalf("expected renamed hook %s to be rolled back", renamedID)
 	}
 }
+
+func TestManagedHooksRejectUnsupportedFamilyBeforeStoreWrite(t *testing.T) {
+	s, _, _, _ := newManagedProjectServer(t, "claude")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/managed/hooks", strings.NewReader(`{"tool":"pi","event":"PreToolUse","matcher":"Read","handlers":[{"type":"command","command":"./bin/check"}]}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 from pi hook create, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "does not support managed hooks") {
+		t.Fatalf("pi hook rejection body = %s, want managed family support error", rr.Body.String())
+	}
+}

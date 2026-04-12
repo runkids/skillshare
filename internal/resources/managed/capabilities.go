@@ -159,11 +159,14 @@ func ResolveManagedFamily(kind ResourceKind, targetName, targetPath string) (str
 }
 
 func CapabilitySnapshot() CapabilitySnapshotPayload {
-	targets := config.DefaultTargets()
+	return CapabilitySnapshotForTargets(config.DefaultTargets())
+}
+
+func CapabilitySnapshotForTargets(targets map[string]config.TargetConfig) CapabilitySnapshotPayload {
 	snapshotTargets := make(map[string]TargetClassification, len(targets))
 	compatibleTargets := make(map[string][]string, len(managedCapabilities.families))
 	for name, target := range targets {
-		classification := managedCapabilities.classificationForTarget(name, target.Path)
+		classification := managedCapabilities.classificationForTarget(name, target.SkillsConfig().Path)
 		snapshotTargets[name] = classification
 		if classification.RulesFamily != "" {
 			compatibleTargets[classification.RulesFamily] = append(compatibleTargets[classification.RulesFamily], name)

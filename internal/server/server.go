@@ -385,6 +385,7 @@ func (s *Server) registerRoutes() {
 	// Rules and hooks
 	s.mux.HandleFunc("GET /api/rules", s.handleListRules)
 	s.mux.HandleFunc("GET /api/hooks", s.handleListHooks)
+	s.mux.HandleFunc("GET /api/managed/capabilities", s.handleManagedCapabilities)
 	s.mux.HandleFunc("GET /api/managed/rules", s.handleListManagedRules)
 	s.mux.HandleFunc("POST /api/managed/rules", s.handleCreateManagedRule)
 	s.mux.HandleFunc("GET /api/managed/rules/diff", s.handleDiffManagedRules)

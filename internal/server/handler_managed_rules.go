@@ -44,6 +44,8 @@ type managedRuleRequest struct {
 	Disabled     *bool     `json:"disabled"`
 }
 
+var validateManagedRuleSave = managed.ValidateManagedRuleSave
+
 func (s *Server) managedRulesProjectRoot() string {
 	if s.IsProjectMode() {
 		return s.projectRoot
@@ -70,6 +72,14 @@ func (s *Server) handleListManagedRules(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleCreateManagedRule(w http.ResponseWriter, r *http.Request) {
 	var body managedRuleRequest
 	if err := decodeManagedRuleRequest(r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := validateManagedRuleSave(managed.RuleInput{
+		Tool:         body.Tool,
+		RelativePath: body.RelativePath,
+		Content:      []byte(*body.Content),
+	}); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -127,6 +137,14 @@ func (s *Server) handleUpdateManagedRule(w http.ResponseWriter, r *http.Request)
 	}
 	if body.ID != id {
 		writeError(w, http.StatusBadRequest, "rule id does not match request path")
+		return
+	}
+	if err := validateManagedRuleSave(managed.RuleInput{
+		Tool:         body.Tool,
+		RelativePath: body.RelativePath,
+		Content:      []byte(*body.Content),
+	}); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
@@ -198,6 +216,15 @@ func (s *Server) handleSetManagedRuleTargets(w http.ResponseWriter, r *http.Requ
 		writeError(w, managedRuleLoadStatus(err), err.Error())
 		return
 	}
+	if err := validateManagedRuleSave(managed.RuleInput{
+		Tool:         record.Tool,
+		RelativePath: record.RelativePath,
+		Content:      record.Content,
+	}); err != nil {
+		s.mu.Unlock()
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	record, err = store.Put(managedrules.Save{
 		ID:         record.ID,
@@ -238,6 +265,15 @@ func (s *Server) handleSetManagedRuleDisabled(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		s.mu.Unlock()
 		writeError(w, managedRuleLoadStatus(err), err.Error())
+		return
+	}
+	if err := validateManagedRuleSave(managed.RuleInput{
+		Tool:         record.Tool,
+		RelativePath: record.RelativePath,
+		Content:      record.Content,
+	}); err != nil {
+		s.mu.Unlock()
+		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
