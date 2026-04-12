@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { lazy, Suspense, useMemo } from 'react';
+import { createBrowserRouter, createRoutesFromElements, Route, RouterProvider } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './lib/queryClient';
@@ -39,46 +39,58 @@ function Lazy({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<PageSkeleton />}>{children}</Suspense>;
 }
 
+function AppShell() {
+  return (
+    <ErrorBoundary>
+      <TourProvider>
+        <TourOverlay />
+        <TourTooltip />
+        <Layout />
+      </TourProvider>
+    </ErrorBoundary>
+  );
+}
+
 export default function App() {
+  const router = useMemo(
+    () => createBrowserRouter(
+      createRoutesFromElements(
+        <Route element={<AppShell />}>
+          <Route index element={<DashboardPage />} />
+          <Route path="resources" element={<Lazy><ResourcesPage /></Lazy>} />
+          <Route path="resources/new" element={<Lazy><NewSkillPage /></Lazy>} />
+          <Route path="resources/:name" element={<Lazy><ResourceDetailPage /></Lazy>} />
+          <Route path="uninstall" element={<Lazy><BatchUninstallPage /></Lazy>} />
+          <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
+          <Route path="targets/:name/filters" element={<Lazy><FilterStudioPage /></Lazy>} />
+          <Route path="extras" element={<Lazy><ExtrasPage /></Lazy>} />
+          <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
+          <Route path="collect" element={<Lazy><CollectPage /></Lazy>} />
+          <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />
+          <Route path="trash" element={<Lazy><TrashPage /></Lazy>} />
+          <Route path="git" element={<Lazy><GitSyncPage /></Lazy>} />
+          <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
+          <Route path="install" element={<Lazy><InstallPage /></Lazy>} />
+          <Route path="update" element={<Lazy><UpdatePage /></Lazy>} />
+          <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
+          <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
+          <Route path="analyze" element={<Lazy><AnalyzePage /></Lazy>} />
+          <Route path="log" element={<Lazy><LogPage /></Lazy>} />
+          <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
+          <Route path="doctor" element={<Lazy><DoctorPage /></Lazy>} />
+        </Route>,
+      ),
+      { basename: BASE_PATH },
+    ),
+    [],
+  );
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
       <ToastProvider>
         <AppProvider>
-          <BrowserRouter basename={BASE_PATH}>
-            <ErrorBoundary>
-            <TourProvider>
-            <TourOverlay />
-            <TourTooltip />
-            <Routes>
-              <Route element={<Layout />}>
-                <Route index element={<DashboardPage />} />
-                <Route path="resources" element={<Lazy><ResourcesPage /></Lazy>} />
-                <Route path="resources/new" element={<Lazy><NewSkillPage /></Lazy>} />
-                <Route path="resources/:name" element={<Lazy><ResourceDetailPage /></Lazy>} />
-                <Route path="uninstall" element={<Lazy><BatchUninstallPage /></Lazy>} />
-                <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
-                <Route path="targets/:name/filters" element={<Lazy><FilterStudioPage /></Lazy>} />
-                <Route path="extras" element={<Lazy><ExtrasPage /></Lazy>} />
-                <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
-                <Route path="collect" element={<Lazy><CollectPage /></Lazy>} />
-                <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />
-                <Route path="trash" element={<Lazy><TrashPage /></Lazy>} />
-                <Route path="git" element={<Lazy><GitSyncPage /></Lazy>} />
-                <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
-                <Route path="install" element={<Lazy><InstallPage /></Lazy>} />
-                <Route path="update" element={<Lazy><UpdatePage /></Lazy>} />
-                <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
-                <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
-                <Route path="analyze" element={<Lazy><AnalyzePage /></Lazy>} />
-                <Route path="log" element={<Lazy><LogPage /></Lazy>} />
-                <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
-                <Route path="doctor" element={<Lazy><DoctorPage /></Lazy>} />
-              </Route>
-            </Routes>
-            </TourProvider>
-            </ErrorBoundary>
-          </BrowserRouter>
+          <RouterProvider router={router} />
         </AppProvider>
       </ToastProvider>
       </ThemeProvider>

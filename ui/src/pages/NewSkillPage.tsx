@@ -8,6 +8,7 @@ import Button from '../components/Button';
 import PageHeader from '../components/PageHeader';
 import { Input } from '../components/Input';
 import { PageSkeleton } from '../components/Skeleton';
+import SkillFrontmatterGuide from '../components/SkillFrontmatterGuide';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
 import type { SkillPattern, SkillCategory } from '../api/client';
@@ -319,25 +320,33 @@ function NameStep({
   error: string | null;
 }) {
   return (
-    <Card>
-      <h3 className="text-lg font-bold text-pencil mb-1">Skill Name</h3>
-      <p className="text-pencil-light text-sm mb-4">
-        Choose a unique name for your skill. Use lowercase letters, numbers, hyphens, and underscores.
-      </p>
-      <Input
-        type="text"
-        placeholder="my-awesome-skill"
-        value={value}
-        onChange={(e) => onChange(e.target.value.toLowerCase())}
-        autoFocus
-      />
-      {error && (
-        <p className="text-danger text-sm mt-2">{error}</p>
-      )}
-      {value && !error && (
-        <p className="text-success text-sm mt-2">Name is available</p>
-      )}
-    </Card>
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+      <Card>
+        <h3 className="text-lg font-bold text-pencil mb-1">Skill Name</h3>
+        <p className="text-pencil-light text-sm mb-4">
+          Choose a unique name for your skill. Use lowercase letters, numbers, hyphens, and underscores.
+        </p>
+        <Input
+          type="text"
+          placeholder="my-awesome-skill"
+          value={value}
+          onChange={(e) => onChange(e.target.value.toLowerCase())}
+          autoFocus
+        />
+        {error && (
+          <p className="text-danger text-sm mt-2">{error}</p>
+        )}
+        {value && !error && (
+          <p className="text-success text-sm mt-2">Name is available</p>
+        )}
+      </Card>
+      <Card className="bg-paper/70">
+        <SkillFrontmatterGuide
+          frontmatter={value ? { name: value } : {}}
+          headingLevel="h3"
+        />
+      </Card>
+    </div>
   );
 }
 

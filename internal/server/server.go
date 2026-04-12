@@ -45,6 +45,9 @@ type Server struct {
 	// onReady is called after the listener is bound but before serving.
 	// Used to open the browser only after the port is confirmed available.
 	onReady func()
+
+	// openPath launches a local file or directory in the OS-default application.
+	openPath func(string) error
 }
 
 // NormalizeBasePath ensures the base path starts with "/" and has no trailing slash.
@@ -100,6 +103,7 @@ func New(cfg *config.Config, addr, basePath, uiDistDir string) *Server {
 		mux:         http.NewServeMux(),
 		basePath:    NormalizeBasePath(basePath),
 		uiDistDir:   uiDistDir,
+		openPath:    openLocalPath,
 	}
 	s.registerRoutes()
 	s.handler = s.withConfigAutoReload(s.mux)
@@ -130,6 +134,7 @@ func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoo
 		projectRoot: projectRoot,
 		projectCfg:  projectCfg,
 		uiDistDir:   uiDistDir,
+		openPath:    openLocalPath,
 	}
 	s.registerRoutes()
 	s.handler = s.withConfigAutoReload(s.mux)
@@ -364,6 +369,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/resources", s.handleCreateSkill)
 	s.mux.HandleFunc("GET /api/resources/{name}", s.handleGetSkill)
 	s.mux.HandleFunc("GET /api/resources/{name}/files/{filepath...}", s.handleGetSkillFile)
+	s.mux.HandleFunc("PUT /api/resources/{name}/files/{filepath...}", s.handleSaveSkillFile)
+	s.mux.HandleFunc("POST /api/resources/{name}/open-file/{filepath...}", s.handleOpenSkillFile)
 	s.mux.HandleFunc("POST /api/resources/{name}/disable", s.handleDisableSkill)
 	s.mux.HandleFunc("POST /api/resources/{name}/enable", s.handleEnableSkill)
 	s.mux.HandleFunc("DELETE /api/resources/{name}", s.handleUninstallSkill)

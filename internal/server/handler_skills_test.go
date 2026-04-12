@@ -2,10 +2,12 @@ package server
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -86,22 +88,390 @@ func TestHandleGetSkill_NotFound(t *testing.T) {
 }
 
 func TestHandleGetSkillFile_PathTraversal(t *testing.T) {
-	s, src := newTestServer(t)
-	addSkill(t, src, "my-skill")
+	t.Run("rejects traversal segment", func(t *testing.T) {
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
 
-	// Go's HTTP mux cleans ".." from URL paths before routing, so we need
-	// to bypass mux and call the handler directly with a crafted PathValue.
-	// Instead, test that a valid-looking but still-traversal path is rejected.
-	// The handler checks strings.Contains(fp, "..").
-	req := httptest.NewRequest(http.MethodGet, "/api/resources/my-skill/files/sub%2F..%2F..%2Fetc%2Fpasswd", nil)
-	rr := httptest.NewRecorder()
-	s.mux.ServeHTTP(rr, req)
+		req := httptest.NewRequest(http.MethodGet, "/api/resources/my-skill/files/../../etc/passwd", nil)
+		req.SetPathValue("name", "my-skill")
+		req.SetPathValue("filepath", "../../etc/passwd")
+		rr := httptest.NewRecorder()
+		s.handleGetSkillFile(rr, req)
 
-	// The mux will decode %2F as / and clean the path, which may result in
-	// 404 or the handler never seeing "..". Either non-200 is acceptable.
-	if rr.Code == http.StatusOK {
-		t.Error("expected non-200 for path traversal attempt")
-	}
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+		if !strings.Contains(rr.Body.String(), "invalid file path") {
+			t.Fatalf("expected invalid file path error, got: %s", rr.Body.String())
+		}
+	})
+
+	t.Run("rejects symlinked parent directory escape", func(t *testing.T) {
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
+		skillDir := filepath.Join(src, "my-skill")
+
+		outsideDir := t.TempDir()
+		targetPath := filepath.Join(outsideDir, "out.md")
+		if err := os.WriteFile(targetPath, []byte("outside"), 0644); err != nil {
+			t.Fatalf("failed to seed outside markdown file: %v", err)
+		}
+
+		linkDir := filepath.Join(skillDir, "linkdir")
+		if err := os.Symlink(outsideDir, linkDir); err != nil {
+			t.Skipf("symlink not supported in this environment: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/api/resources/my-skill/files/linkdir/out.md", nil)
+		req.SetPathValue("name", "my-skill")
+		req.SetPathValue("filepath", "linkdir/out.md")
+		rr := httptest.NewRecorder()
+		s.handleGetSkillFile(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+		if !strings.Contains(rr.Body.String(), "invalid file path") {
+			t.Fatalf("expected invalid file path error, got: %s", rr.Body.String())
+		}
+	})
+
+	t.Run("rejects symlinked parent directory escape when target missing", func(t *testing.T) {
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
+		skillDir := filepath.Join(src, "my-skill")
+
+		outsideDir := t.TempDir()
+		linkDir := filepath.Join(skillDir, "linkdir")
+		if err := os.Symlink(outsideDir, linkDir); err != nil {
+			t.Skipf("symlink not supported in this environment: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/api/resources/my-skill/files/linkdir/missing.md", nil)
+		req.SetPathValue("name", "my-skill")
+		req.SetPathValue("filepath", "linkdir/missing.md")
+		rr := httptest.NewRecorder()
+		s.handleGetSkillFile(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+		if !strings.Contains(rr.Body.String(), "invalid file path") {
+			t.Fatalf("expected invalid file path error, got: %s", rr.Body.String())
+		}
+	})
+
+	t.Run("rejects non-regular markdown path", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("unix socket test is not supported on windows")
+		}
+
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
+
+		socketPath := filepath.Join(src, "my-skill", "socket.md")
+		listener, err := net.Listen("unix", socketPath)
+		if err != nil {
+			t.Skipf("unix socket not supported in this environment: %v", err)
+		}
+		defer listener.Close()
+		defer os.Remove(socketPath)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/resources/my-skill/files/socket.md", nil)
+		req.SetPathValue("name", "my-skill")
+		req.SetPathValue("filepath", "socket.md")
+		rr := httptest.NewRecorder()
+		s.handleGetSkillFile(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+		if !strings.Contains(rr.Body.String(), "invalid file path") {
+			t.Fatalf("expected invalid file path error, got: %s", rr.Body.String())
+		}
+	})
+}
+
+func TestHandleSaveSkillFile(t *testing.T) {
+	t.Run("saves SKILL.md", func(t *testing.T) {
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
+
+		req := httptest.NewRequest(
+			http.MethodPut,
+			"/api/resources/my-skill/files/SKILL.md",
+			strings.NewReader(`{"content":"# Updated\n\nBody"}`),
+		)
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+		}
+
+		var resp struct {
+			Filename string `json:"filename"`
+			Content  string `json:"content"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		if resp.Filename != "SKILL.md" {
+			t.Fatalf("filename = %q, want %q", resp.Filename, "SKILL.md")
+		}
+		if resp.Content != "# Updated\n\nBody" {
+			t.Fatalf("content = %q, want %q", resp.Content, "# Updated\n\nBody")
+		}
+
+		savedBytes, err := os.ReadFile(filepath.Join(src, "my-skill", "SKILL.md"))
+		if err != nil {
+			t.Fatalf("failed to read saved file: %v", err)
+		}
+		if string(savedBytes) != "# Updated\n\nBody" {
+			t.Fatalf("saved file content = %q, want %q", string(savedBytes), "# Updated\n\nBody")
+		}
+	})
+
+	t.Run("allows dotted markdown filename on save and read", func(t *testing.T) {
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
+
+		notesDir := filepath.Join(src, "my-skill", "notes")
+		if err := os.MkdirAll(notesDir, 0755); err != nil {
+			t.Fatalf("failed to create notes directory: %v", err)
+		}
+		targetPath := filepath.Join(notesDir, "v1..draft.md")
+		if err := os.WriteFile(targetPath, []byte("seed"), 0644); err != nil {
+			t.Fatalf("failed to seed dotted markdown file: %v", err)
+		}
+
+		putReq := httptest.NewRequest(
+			http.MethodPut,
+			"/api/resources/my-skill/files/notes/v1..draft.md",
+			strings.NewReader(`{"content":"# Dotted\n\nUpdated"}`),
+		)
+		putRR := httptest.NewRecorder()
+		s.handler.ServeHTTP(putRR, putReq)
+
+		if putRR.Code != http.StatusOK {
+			t.Fatalf("expected PUT 200, got %d: %s", putRR.Code, putRR.Body.String())
+		}
+
+		getReq := httptest.NewRequest(
+			http.MethodGet,
+			"/api/resources/my-skill/files/notes/v1..draft.md",
+			nil,
+		)
+		getRR := httptest.NewRecorder()
+		s.handler.ServeHTTP(getRR, getReq)
+
+		if getRR.Code != http.StatusOK {
+			t.Fatalf("expected GET 200, got %d: %s", getRR.Code, getRR.Body.String())
+		}
+
+		var getResp struct {
+			Content  string `json:"content"`
+			Filename string `json:"filename"`
+		}
+		if err := json.Unmarshal(getRR.Body.Bytes(), &getResp); err != nil {
+			t.Fatalf("failed to decode GET response: %v", err)
+		}
+		if getResp.Filename != "v1..draft.md" {
+			t.Fatalf("filename = %q, want %q", getResp.Filename, "v1..draft.md")
+		}
+		if getResp.Content != "# Dotted\n\nUpdated" {
+			t.Fatalf("content = %q, want %q", getResp.Content, "# Dotted\n\nUpdated")
+		}
+	})
+
+	t.Run("rejects symlinked parent directory escape on save", func(t *testing.T) {
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
+		skillDir := filepath.Join(src, "my-skill")
+
+		outsideDir := t.TempDir()
+		outsidePath := filepath.Join(outsideDir, "out.md")
+		if err := os.WriteFile(outsidePath, []byte("outside"), 0644); err != nil {
+			t.Fatalf("failed to seed outside markdown file: %v", err)
+		}
+
+		linkDir := filepath.Join(skillDir, "linkdir")
+		if err := os.Symlink(outsideDir, linkDir); err != nil {
+			t.Skipf("symlink not supported in this environment: %v", err)
+		}
+
+		req := httptest.NewRequest(
+			http.MethodPut,
+			"/api/resources/my-skill/files/linkdir/out.md",
+			strings.NewReader(`{"content":"updated"}`),
+		)
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+		if !strings.Contains(rr.Body.String(), "invalid file path") {
+			t.Fatalf("expected invalid file path error, got: %s", rr.Body.String())
+		}
+	})
+
+	t.Run("rejects symlinked parent directory escape on save when target missing", func(t *testing.T) {
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
+		skillDir := filepath.Join(src, "my-skill")
+
+		outsideDir := t.TempDir()
+		linkDir := filepath.Join(skillDir, "linkdir")
+		if err := os.Symlink(outsideDir, linkDir); err != nil {
+			t.Skipf("symlink not supported in this environment: %v", err)
+		}
+
+		req := httptest.NewRequest(
+			http.MethodPut,
+			"/api/resources/my-skill/files/linkdir/missing.md",
+			strings.NewReader(`{"content":"updated"}`),
+		)
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+		if !strings.Contains(rr.Body.String(), "invalid file path") {
+			t.Fatalf("expected invalid file path error, got: %s", rr.Body.String())
+		}
+	})
+
+	t.Run("rejects non markdown path", func(t *testing.T) {
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
+		txtPath := filepath.Join(src, "my-skill", "notes.txt")
+		if err := os.WriteFile(txtPath, []byte("notes"), 0644); err != nil {
+			t.Fatalf("failed to seed notes.txt: %v", err)
+		}
+
+		req := httptest.NewRequest(
+			http.MethodPut,
+			"/api/resources/my-skill/files/notes.txt",
+			strings.NewReader(`{"content":"updated"}`),
+		)
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+		if !strings.Contains(rr.Body.String(), "invalid file path") {
+			t.Fatalf("expected invalid file path error, got: %s", rr.Body.String())
+		}
+	})
+
+	t.Run("rejects unknown JSON field", func(t *testing.T) {
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
+
+		req := httptest.NewRequest(
+			http.MethodPut,
+			"/api/resources/my-skill/files/SKILL.md",
+			strings.NewReader(`{"content":"updated","extra":true}`),
+		)
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+		if !strings.Contains(rr.Body.String(), "invalid request body") {
+			t.Fatalf("expected invalid request body error, got: %s", rr.Body.String())
+		}
+	})
+
+	t.Run("rejects missing required content field", func(t *testing.T) {
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
+
+		req := httptest.NewRequest(
+			http.MethodPut,
+			"/api/resources/my-skill/files/SKILL.md",
+			strings.NewReader(`{}`),
+		)
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+		if !strings.Contains(rr.Body.String(), "invalid request body") {
+			t.Fatalf("expected invalid request body error, got: %s", rr.Body.String())
+		}
+		if !strings.Contains(rr.Body.String(), "missing content") {
+			t.Fatalf("expected missing content message, got: %s", rr.Body.String())
+		}
+	})
+}
+
+func TestHandleOpenSkillFile(t *testing.T) {
+	t.Run("opens a local skill file with the configured opener", func(t *testing.T) {
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
+
+		notesPath := filepath.Join(src, "my-skill", "notes.md")
+		if err := os.WriteFile(notesPath, []byte("# Notes"), 0644); err != nil {
+			t.Fatalf("failed to seed notes.md: %v", err)
+		}
+
+		var openedPath string
+		s.openPath = func(path string) error {
+			openedPath = path
+			return nil
+		}
+
+		req := httptest.NewRequest(http.MethodPost, "/api/resources/my-skill/open-file/notes.md", nil)
+		req.SetPathValue("name", "my-skill")
+		req.SetPathValue("filepath", "notes.md")
+		rr := httptest.NewRecorder()
+		s.handleOpenSkillFile(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+		}
+		if openedPath != notesPath {
+			t.Fatalf("opened path = %q, want %q", openedPath, notesPath)
+		}
+
+		var resp struct {
+			Success  bool   `json:"success"`
+			Filename string `json:"filename"`
+		}
+		if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		if !resp.Success {
+			t.Fatalf("expected success=true, got false")
+		}
+		if resp.Filename != "notes.md" {
+			t.Fatalf("filename = %q, want %q", resp.Filename, "notes.md")
+		}
+	})
+
+	t.Run("rejects traversal attempts", func(t *testing.T) {
+		s, src := newTestServer(t)
+		addSkill(t, src, "my-skill")
+
+		req := httptest.NewRequest(http.MethodPost, "/api/resources/my-skill/open-file/../../etc/passwd", nil)
+		req.SetPathValue("name", "my-skill")
+		req.SetPathValue("filepath", "../../etc/passwd")
+		rr := httptest.NewRecorder()
+		s.handleOpenSkillFile(rr, req)
+
+		if rr.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+		}
+		if !strings.Contains(rr.Body.String(), "invalid file path") {
+			t.Fatalf("expected invalid file path error, got: %s", rr.Body.String())
+		}
+	})
 }
 
 func TestHandleUninstallRepo_NestedRepoPath(t *testing.T) {

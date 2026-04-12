@@ -2,9 +2,20 @@
 package testutil
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
 	"testing"
+)
+
+var (
+	resolvedBinaryOnce sync.Once
+	resolvedBinaryPath string
+	resolvedBinaryErr  error
 )
 
 // Sandbox represents an isolated test environment
@@ -34,24 +45,10 @@ func NewSandbox(t *testing.T) *Sandbox {
 		OrigEnv:    make(map[string]string),
 	}
 
-	// Get binary path from environment or use default
-	sb.BinaryPath = os.Getenv("SKILLSHARE_TEST_BINARY")
-	if sb.BinaryPath == "" {
-		// Try to find it relative to the project root
-		// This works when running from the project directory
-		cwd, _ := os.Getwd()
-		candidates := []string{
-			filepath.Join(cwd, "bin", "skillshare"),
-			filepath.Join(cwd, "..", "..", "bin", "skillshare"),
-			filepath.Join(cwd, "bin", "skillshare.exe"),
-			filepath.Join(cwd, "..", "..", "bin", "skillshare.exe"),
-		}
-		for _, path := range candidates {
-			if _, err := os.Stat(path); err == nil {
-				sb.BinaryPath = path
-				break
-			}
-		}
+	var err error
+	sb.BinaryPath, err = resolveTestBinaryPath()
+	if err != nil {
+		t.Fatalf("failed to resolve skillshare test binary: %v", err)
 	}
 
 	// Create directory structure
@@ -85,6 +82,89 @@ func NewSandbox(t *testing.T) *Sandbox {
 	sb.SetEnv("XDG_STATE_HOME", filepath.Join(home, ".local", "state"))
 
 	return sb
+}
+
+func resolveTestBinaryPath() (string, error) {
+	if envPath := strings.TrimSpace(os.Getenv("SKILLSHARE_TEST_BINARY")); envPath != "" {
+		if _, err := os.Stat(envPath); err != nil {
+			return "", fmt.Errorf("SKILLSHARE_TEST_BINARY %q is not usable: %w", envPath, err)
+		}
+		return envPath, nil
+	}
+
+	resolvedBinaryOnce.Do(func() {
+		repoRoot, err := testRepoRoot()
+		if err != nil {
+			resolvedBinaryErr = err
+			return
+		}
+
+		for _, candidate := range testBinaryCandidates(repoRoot) {
+			if _, err := os.Stat(candidate); err == nil {
+				resolvedBinaryPath = candidate
+				return
+			}
+		}
+
+		buildDir, err := os.MkdirTemp("", "skillshare-test-bin-*")
+		if err != nil {
+			resolvedBinaryErr = fmt.Errorf("create temp dir for test binary: %w", err)
+			return
+		}
+
+		resolvedBinaryPath, resolvedBinaryErr = buildTestBinary(repoRoot, buildDir)
+	})
+
+	if resolvedBinaryErr != nil {
+		return "", resolvedBinaryErr
+	}
+	if resolvedBinaryPath == "" {
+		return "", fmt.Errorf("skillshare test binary path is empty")
+	}
+	return resolvedBinaryPath, nil
+}
+
+func testRepoRoot() (string, error) {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return "", fmt.Errorf("determine internal/testutil path: runtime.Caller failed")
+	}
+
+	root := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
+	if _, err := os.Stat(filepath.Join(root, "go.mod")); err != nil {
+		return "", fmt.Errorf("locate repo root from %s: %w", file, err)
+	}
+	return root, nil
+}
+
+func testBinaryCandidates(repoRoot string) []string {
+	candidates := []string{
+		filepath.Join(repoRoot, "bin", "skillshare"),
+	}
+	if runtime.GOOS == "windows" {
+		candidates = append(candidates, filepath.Join(repoRoot, "bin", "skillshare.exe"))
+	}
+	return candidates
+}
+
+func buildTestBinary(repoRoot, buildDir string) (string, error) {
+	binaryName := "skillshare"
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
+
+	binaryPath := filepath.Join(buildDir, binaryName)
+	cmd := exec.Command("go", "build", "-o", binaryPath, "./cmd/skillshare")
+	cmd.Dir = repoRoot
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		trimmed := strings.TrimSpace(string(out))
+		if trimmed == "" {
+			return "", fmt.Errorf("go build %s failed: %w", binaryPath, err)
+		}
+		return "", fmt.Errorf("go build %s failed: %w: %s", binaryPath, err, trimmed)
+	}
+	return binaryPath, nil
 }
 
 // SetEnv sets an environment variable, saving the original

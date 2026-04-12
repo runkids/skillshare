@@ -539,6 +539,45 @@
 :root:not([data-theme]).dark .ss-detail-pinned-cyan,
 :root:not([data-theme]).dark .ss-detail-pinned-green { background-color: rgba(255,255,255,0.06) !important; }
 
+.ss-detail-manifest-input,
+.ss-detail-manifest-textarea {
+  border-color: transparent !important;
+  background: rgba(255, 255, 255, 0.45) !important;
+  box-shadow: none !important;
+}
+
+.ss-detail-manifest-input {
+  min-height: 3rem;
+}
+
+.ss-detail-manifest-textarea {
+  min-height: 5.75rem;
+  resize: none !important;
+  overflow-y: hidden !important;
+}
+
+.ss-detail-manifest-input:hover,
+.ss-detail-manifest-input:focus,
+.ss-detail-manifest-textarea:hover,
+.ss-detail-manifest-textarea:focus {
+  border-color: var(--color-muted) !important;
+  background: var(--color-surface) !important;
+}
+
+.ss-detail-content-boundary {
+  border-bottom: 1px dashed rgba(90, 87, 80, 0.26);
+  padding-bottom: 1rem;
+}
+
+.dark .ss-detail-manifest-input,
+.dark .ss-detail-manifest-textarea {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.dark .ss-detail-content-boundary {
+  border-bottom-color: rgba(163, 160, 154, 0.26);
+}
+
 /* ── Playful: Skill Detail Page — bulletin board aesthetic ── */
 /*
  * The detail page sidebar cards look like sticky notes pinned to a corkboard.
@@ -644,11 +683,6 @@
   text-decoration-thickness: 2px;
 }
 
-/* Target Distribution / Sync Status — dashed left accent border */
-[data-theme="playful"] .ss-detail-outlined {
-  border-left: 3px dashed var(--color-pencil-light) !important;
-}
-
 /* Dark mode adjustments for detail page decorations */
 [data-theme="playful"].dark .ss-detail-manifest {
   background-color: rgba(255,249,196,0.08) !important;
@@ -670,10 +704,6 @@
 [data-theme="playful"].dark .ss-detail-pinned-blue  { background-color: rgba(220,238,251,0.08) !important; }
 [data-theme="playful"].dark .ss-detail-pinned-cyan  { background-color: rgba(224,247,250,0.08) !important; }
 [data-theme="playful"].dark .ss-detail-pinned-green { background-color: rgba(224,242,225,0.08) !important; }
-[data-theme="playful"].dark .ss-detail-outlined {
-  border-left-color: var(--color-pencil-light) !important;
-}
-
 /* ── Playful Dark: refinements ── */
 [data-theme="playful"].dark .ss-card,
 [data-theme="playful"].dark .ss-btn,
@@ -920,6 +950,28 @@ body {
     font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
     border: 1px solid var(--color-muted);
   }
+  .ss-substitution-token {
+    display: inline-flex;
+    align-items: center;
+    margin: 0 0.08rem;
+    padding: 0.12rem 0.45rem;
+    border-radius: 4px;
+    border: 1px solid rgba(115, 76, 216, 0.22);
+    background-color: rgba(115, 76, 216, 0.12);
+    color: #734cd8;
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.4;
+    font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
+    white-space: nowrap;
+    box-shadow: inset 0 -1px 0 rgba(115, 76, 216, 0.1);
+  }
+  .dark .ss-substitution-token {
+    border-color: rgba(186, 162, 255, 0.3);
+    background-color: rgba(186, 162, 255, 0.14);
+    color: #d2c4ff;
+    box-shadow: inset 0 -1px 0 rgba(186, 162, 255, 0.12);
+  }
   pre {
     position: relative;
     background: #1e1e2e;
@@ -982,6 +1034,265 @@ body {
   }
   th:last-child, td:last-child { border-right: none; }
   tbody tr:last-child td { border-bottom: none; }
+}
+
+.ss-skill-markdown-editor[data-mode="split"] {
+  height: 100%;
+  min-height: 0;
+}
+
+.ss-skill-markdown-editor-instance {
+  --accentBase: rgba(45, 93, 161, 0.08);
+  --accentBgSubtle: rgba(45, 93, 161, 0.12);
+  --accentBg: rgba(45, 93, 161, 0.16);
+  --accentBgHover: rgba(45, 93, 161, 0.2);
+  --accentBgActive: rgba(45, 93, 161, 0.24);
+  --accentLine: rgba(45, 93, 161, 0.3);
+  --accentBorder: rgba(45, 93, 161, 0.38);
+  --accentBorderHover: rgba(45, 93, 161, 0.5);
+  --accentSolid: var(--color-blue);
+  --accentSolidHover: var(--color-blue-light);
+  --accentText: var(--color-blue);
+  --accentTextContrast: var(--color-paper-warm);
+
+  --basePageBg: var(--color-paper-warm);
+  --baseBase: var(--color-paper);
+  --baseBgSubtle: var(--color-paper);
+  --baseBg: var(--color-muted);
+  --baseBgHover: var(--color-border-light);
+  --baseBgActive: var(--color-muted);
+  --baseLine: var(--color-muted);
+  --baseBorder: var(--color-muted-dark);
+  --baseBorderHover: var(--color-pencil-light);
+  --baseSolid: var(--color-pencil);
+  --baseSolidHover: var(--color-pencil-light);
+  --baseText: var(--color-pencil-light);
+  --baseTextContrast: var(--color-pencil);
+}
+
+.dark .ss-skill-markdown-editor-instance {
+  --accentBase: rgba(163, 160, 154, 0.08);
+  --accentBgSubtle: rgba(163, 160, 154, 0.12);
+  --accentBg: rgba(163, 160, 154, 0.16);
+  --accentBgHover: rgba(163, 160, 154, 0.2);
+  --accentBgActive: rgba(163, 160, 154, 0.24);
+  --accentLine: rgba(163, 160, 154, 0.24);
+  --accentBorder: rgba(163, 160, 154, 0.32);
+  --accentBorderHover: rgba(192, 189, 183, 0.42);
+  --accentSolid: #706c66;
+  --accentSolidHover: #8a857d;
+  --accentText: #c0bdb7;
+  --accentTextContrast: #ededeb;
+
+  --basePageBg: #1c1b19;
+  --baseBase: #201f1d;
+  --baseBgSubtle: #242320;
+  --baseBg: #2e2d2a;
+  --baseBgHover: #3a3834;
+  --baseBgActive: #46433d;
+  --baseLine: #3d3a34;
+  --baseBorder: #706c66;
+  --baseBorderHover: #a3a09a;
+  --baseSolid: #ededeb;
+  --baseSolidHover: #ffffff;
+  --baseText: #a3a09a;
+  --baseTextContrast: #ededeb;
+}
+
+.ss-skill-markdown-editor-instance .cm-editor,
+.ss-skill-markdown-editor-instance .cm-scroller {
+  background-color: var(--basePageBg);
+  color: var(--baseTextContrast);
+}
+
+.ss-skill-markdown-editor-instance .cm-content,
+.ss-skill-markdown-editor-instance .cm-lineNumbers {
+  color: var(--baseTextContrast);
+}
+
+.ss-skill-markdown-editor-instance .cm-gutters {
+  color: var(--baseText);
+  border-right: 1px solid var(--baseLine);
+}
+
+.ss-skill-markdown-editor-instance .cm-activeLine,
+.ss-skill-markdown-editor-instance .cm-activeLineGutter {
+  background-color: rgba(20, 19, 18, 0.04);
+}
+
+.dark .ss-skill-markdown-editor-instance .cm-activeLine,
+.dark .ss-skill-markdown-editor-instance .cm-activeLineGutter {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.ss-skill-markdown-editor-instance .cm-cursor,
+.ss-skill-markdown-editor-instance .cm-dropCursor {
+  border-left-color: var(--baseTextContrast);
+}
+
+.ss-skill-markdown-editor-instance .cm-tooltip,
+.ss-skill-markdown-editor-instance .cm-panels {
+  background-color: var(--baseBgSubtle);
+  color: var(--baseTextContrast);
+  border-color: var(--baseLine);
+}
+
+.ss-skill-codeblock-editor {
+  overflow: hidden;
+  border: 1px solid var(--baseBorder);
+  border-radius: calc(var(--radius-md) + 2px);
+  background-color: var(--basePageBg);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.ss-skill-codeblock-editor:hover,
+.ss-skill-codeblock-editor:focus-within {
+  border-color: var(--baseBorderHover);
+  box-shadow: 0 0 0 1px var(--baseLine);
+}
+
+.ss-skill-codeblock-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid var(--baseLine);
+  background: linear-gradient(180deg, var(--baseBgSubtle), rgba(0, 0, 0, 0));
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.ss-skill-codeblock-editor:hover .ss-skill-codeblock-toolbar,
+.ss-skill-codeblock-editor:focus-within .ss-skill-codeblock-toolbar {
+  border-bottom-color: var(--baseLine);
+  background: linear-gradient(180deg, var(--baseBgSubtle), rgba(0, 0, 0, 0));
+}
+
+.ss-skill-codeblock-surface {
+  background-color: var(--basePageBg);
+}
+
+.ss-skill-codeblock-language-select {
+  flex: 1 1 auto;
+  max-width: 18rem;
+}
+
+.ss-skill-codeblock-language-select [role="combobox"] {
+  border-color: var(--baseBorder);
+  background-color: var(--baseBgSubtle);
+  color: var(--baseTextContrast);
+  box-shadow: none;
+}
+
+.ss-skill-codeblock-language-select [role="combobox"]:hover {
+  border-color: var(--baseBorderHover);
+  background-color: var(--baseBgHover);
+}
+
+.ss-skill-codeblock-language-select [role="combobox"]:focus-visible,
+.ss-skill-codeblock-language-select [role="combobox"][aria-expanded="true"] {
+  border-color: var(--baseBorderHover);
+  background-color: var(--baseBg);
+  box-shadow: 0 0 0 1px var(--baseLine);
+}
+
+.ss-skill-codeblock-language-select [role="listbox"] {
+  border-color: var(--baseBorder);
+  background-color: var(--baseBgSubtle);
+  box-shadow: var(--shadow-lg);
+}
+
+.ss-skill-codeblock-language-select [role="option"] {
+  border-radius: calc(var(--radius-sm) + 1px);
+}
+
+.ss-skill-codeblock-language-select [role="option"]:hover,
+.ss-skill-codeblock-language-select [role="option"][aria-selected="true"] {
+  background-color: var(--baseBgHover) !important;
+}
+
+.ss-skill-codeblock-language-select [role="option"][aria-selected="true"] {
+  color: var(--baseTextContrast);
+}
+
+.ss-skill-codeblock-delete {
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-sm) + 2px);
+  background-color: transparent;
+  color: var(--baseText);
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.ss-skill-codeblock-delete:hover,
+.ss-skill-codeblock-delete:focus-visible {
+  border-color: rgba(232, 86, 74, 0.32);
+  background-color: var(--color-danger-light);
+  color: var(--color-danger);
+  transform: translateY(-1px);
+}
+
+.dark .ss-skill-codeblock-delete:hover,
+.dark .ss-skill-codeblock-delete:focus-visible {
+  border-color: rgba(232, 86, 74, 0.42);
+  background-color: rgba(232, 86, 74, 0.12);
+  color: #ff8f86;
+}
+
+.ss-skill-markdown-editor-instance [class*="_tableColumnEditorTrigger_"],
+.ss-skill-markdown-editor-instance [class*="_tableRowEditorTrigger_"],
+.ss-skill-markdown-editor-instance [class*="_addRowButton_"],
+.ss-skill-markdown-editor-instance [class*="_addColumnButton_"],
+.ss-skill-markdown-editor-instance [class*="_tableColumnEditorToolbar_"] > button,
+.ss-skill-markdown-editor-instance [title="Row menu"],
+.ss-skill-markdown-editor-instance [title="Column menu"],
+.ss-skill-markdown-editor-instance [title="Delete table"] {
+  cursor: pointer !important;
+}
+
+.ss-skill-markdown-editor-instance [class*="_listItemUnchecked_"]:focus::before,
+.ss-skill-markdown-editor-instance [class*="_listItemChecked_"]:focus::before {
+  box-shadow: 0 0 0 2px var(--color-success-light);
+}
+
+.ss-skill-markdown-editor-instance [class*="_listItemChecked_"]::before {
+  border-color: rgba(46, 139, 87, 0.35);
+  background-color: var(--color-success);
+}
+
+.dark .ss-skill-markdown-editor-instance [class*="_listItemChecked_"]::before {
+  border-color: rgba(92, 201, 138, 0.45);
+}
+
+.ss-skill-markdown-editor[data-mode="split"] .ss-skill-markdown-editor-surface {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ss-skill-markdown-editor[data-mode="split"] .ss-skill-markdown-editor-instance {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.ss-skill-markdown-editor[data-mode="split"] .ss-skill-markdown-editor-instance > div {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ss-skill-markdown-editor[data-mode="split"] .ss-skill-markdown-editor-content {
+  min-height: 100%;
+}
+
+.ss-skill-markdown-editor[data-mode="split"] .ss-skill-markdown-editor-input {
+  height: 100%;
 }
 
 /* Animation keyframes */

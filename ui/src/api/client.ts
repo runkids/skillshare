@@ -68,6 +68,10 @@ function createSSEStream(
   return es;
 }
 
+function encodePathSegments(path: string): string {
+  return path.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+}
+
 // Extras types
 export interface ExtraTarget {
   path: string;
@@ -321,7 +325,16 @@ export const api = {
 
   // Skill file content
   getSkillFile: (skillName: string, filepath: string) =>
-    apiFetch<SkillFileContent>(`/resources/${encodeURIComponent(skillName)}/files/${filepath}`),
+    apiFetch<SkillFileContent>(`/resources/${encodeURIComponent(skillName)}/files/${encodePathSegments(filepath)}`),
+  saveSkillFile: (skillName: string, filepath: string, content: string) =>
+    apiFetch<SkillFileSaveResponse>(`/resources/${encodeURIComponent(skillName)}/files/${encodePathSegments(filepath)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
+  openSkillFile: (skillName: string, filepath: string) =>
+    apiFetch<SkillFileOpenResponse>(`/resources/${encodeURIComponent(skillName)}/open-file/${encodePathSegments(filepath)}`, {
+      method: 'POST',
+    }),
 
   // Collect
   collectScan: (target?: string, kind?: 'skill' | 'agent') => {
@@ -598,6 +611,12 @@ export interface CreateSkillResponse {
   createdFiles: string[];
 }
 
+export interface SkillStats {
+  wordCount: number;
+  lineCount: number;
+  tokenCount: number;
+}
+
 export interface Target {
   name: string;
   path: string;
@@ -711,6 +730,16 @@ export interface AvailableTarget {
 export interface SkillFileContent {
   content: string;
   contentType: string;
+  filename: string;
+}
+
+export interface SkillFileSaveResponse {
+  content: string;
+  filename: string;
+}
+
+export interface SkillFileOpenResponse {
+  success: boolean;
   filename: string;
 }
 
