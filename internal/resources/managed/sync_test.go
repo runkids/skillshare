@@ -231,8 +231,14 @@ func TestSync_HonorsAssignedTargetsAndDisabledState(t *testing.T) {
 	}
 }
 
-func TestSync_SkipsGeminiHooksUntilSupported(t *testing.T) {
+func TestSync_SyncsGeminiHooksAndPreservesExistingSettings(t *testing.T) {
 	projectRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".gemini"), 0o755); err != nil {
+		t.Fatalf("mkdir .gemini: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(projectRoot, ".gemini", "settings.json"), []byte(`{"theme":"light"}`), 0o644); err != nil {
+		t.Fatalf("write gemini settings: %v", err)
+	}
 
 	ruleStore := managedrules.NewStore(projectRoot)
 	if _, err := ruleStore.Put(managedrules.Save{
@@ -240,6 +246,28 @@ func TestSync_SkipsGeminiHooksUntilSupported(t *testing.T) {
 		Content: []byte("# Backend\n"),
 	}); err != nil {
 		t.Fatalf("put managed gemini rule: %v", err)
+	}
+	hookStore := managedhooks.NewStore(projectRoot)
+	hookID, err := managedhooks.CanonicalRelativePath("gemini", "BeforeTool", "Read")
+	if err != nil {
+		t.Fatalf("canonical gemini hook id: %v", err)
+	}
+	sequential := true
+	if _, err := hookStore.Put(managedhooks.Save{
+		ID:         hookID,
+		Tool:       "gemini",
+		Event:      "BeforeTool",
+		Matcher:    "Read",
+		Sequential: &sequential,
+		Handlers: []managedhooks.Handler{{
+			Type:        "command",
+			Name:        "lint-read",
+			Description: "Run read lint",
+			Command:     "./bin/gemini-lint",
+			Timeout:     "30000",
+		}},
+	}); err != nil {
+		t.Fatalf("put managed gemini hook: %v", err)
 	}
 
 	results := Sync(SyncRequest{
@@ -252,8 +280,8 @@ func TestSync_SkipsGeminiHooksUntilSupported(t *testing.T) {
 		}},
 	})
 
-	if got := len(results); got != 1 {
-		t.Fatalf("Sync() results len = %d, want 1 rule result and no hook result", got)
+	if got := len(results); got != 2 {
+		t.Fatalf("Sync() results len = %d, want rule and hook results", got)
 	}
 
 	ruleResult := findSyncResult(t, results, "gemini", "rules")
@@ -262,6 +290,21 @@ func TestSync_SkipsGeminiHooksUntilSupported(t *testing.T) {
 	}
 	if !containsAll(ruleResult.Updated, filepath.Join(projectRoot, ".gemini", "rules", "backend.md")) {
 		t.Fatalf("gemini rules updated = %v, want backend rule output", ruleResult.Updated)
+	}
+
+	hookResult := findSyncResult(t, results, "gemini", "hooks")
+	if hookResult.Err != nil {
+		t.Fatalf("gemini hooks sync error = %v", hookResult.Err)
+	}
+	if !containsAll(hookResult.Updated, filepath.Join(projectRoot, ".gemini", "settings.json")) {
+		t.Fatalf("gemini hooks updated = %v, want settings.json", hookResult.Updated)
+	}
+
+	compiledHook := readFile(t, filepath.Join(projectRoot, ".gemini", "settings.json"))
+	for _, want := range []string{`"theme":"light"`, `"BeforeTool"`, `"sequential":true`, `"name":"lint-read"`, `"description":"Run read lint"`} {
+		if !strings.Contains(compiledHook, want) {
+			t.Fatalf("compiled gemini hook content missing %q: %q", want, compiledHook)
+		}
 	}
 }
 

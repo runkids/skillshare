@@ -123,6 +123,44 @@ func TestHookStore_PutAndGet_RoundTripsMetadata(t *testing.T) {
 	}
 }
 
+func TestHookStore_GeminiRoundTripsSequentialAndHandlerMetadata(t *testing.T) {
+	projectRoot := t.TempDir()
+	store := NewStore(projectRoot)
+	sequential := true
+
+	saved, err := store.Put(Save{
+		ID:         "gemini/before-tool/read.yaml",
+		Tool:       "gemini",
+		Event:      "BeforeTool",
+		Matcher:    "Read",
+		Sequential: &sequential,
+		Handlers: []Handler{{
+			Type:        "command",
+			Name:        "lint-read",
+			Description: "Run read lint",
+			Command:     "./bin/gemini-lint",
+			Timeout:     "30000",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("Put() error = %v", err)
+	}
+
+	got, err := store.Get(saved.ID)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if got.Sequential == nil || !*got.Sequential {
+		t.Fatalf("Get() Sequential = %#v, want true", got.Sequential)
+	}
+	if len(got.Handlers) != 1 {
+		t.Fatalf("Get() Handlers len = %d, want 1", len(got.Handlers))
+	}
+	if got.Handlers[0].Name != "lint-read" || got.Handlers[0].Description != "Run read lint" {
+		t.Fatalf("Get() gemini handler metadata = %#v, want name/description preserved", got.Handlers[0])
+	}
+}
+
 func TestHookStore_RejectsEmptyHandlers(t *testing.T) {
 	store := NewStore(t.TempDir())
 
@@ -296,12 +334,39 @@ func TestHookStore_RejectsMismatchedToolAndIDPrefix(t *testing.T) {
 			Matcher:  "^bash",
 			Handlers: []Handler{{Type: "command", Command: "./scripts/guard.sh"}},
 		},
+	}
+
+	for _, tc := range cases {
+		if _, err := store.Put(tc); err == nil {
+			t.Fatalf("Put(%#v) error = nil, want validation error", tc)
+		}
+	}
+}
+
+func TestHookStore_RejectsInvalidGeminiRecords(t *testing.T) {
+	store := NewStore(t.TempDir())
+
+	cases := []Save{
 		{
-			ID:       "gemini/pre-tool-use/bash.yaml",
+			ID:       "gemini/before-tool/read.yaml",
 			Tool:     "gemini",
-			Event:    "pre-tool-use",
-			Matcher:  "^bash",
-			Handlers: []Handler{{Type: "command", Command: "./scripts/guard.sh"}},
+			Event:    "FileChanged",
+			Matcher:  "Read",
+			Handlers: []Handler{{Type: "command", Command: "./bin/check"}},
+		},
+		{
+			ID:       "gemini/before-tool/read.yaml",
+			Tool:     "gemini",
+			Event:    "BeforeTool",
+			Matcher:  "Read",
+			Handlers: []Handler{{Type: "http", URL: "https://example.com/hook"}},
+		},
+		{
+			ID:       "gemini/before-tool/read.yaml",
+			Tool:     "gemini",
+			Event:    "BeforeTool",
+			Matcher:  "Read",
+			Handlers: []Handler{{Type: "command", Command: "./bin/check", Timeout: "30s"}},
 		},
 	}
 

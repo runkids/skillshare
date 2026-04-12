@@ -396,6 +396,66 @@ func TestCollectHooks_CodexEmptyMatcherAndNumericTimeoutRoundTrip(t *testing.T) 
 	}
 }
 
+func TestCollectHooks_GeminiPreservesSequentialAndHandlerMetadata(t *testing.T) {
+	tmp := t.TempDir()
+	home := filepath.Join(tmp, "home")
+	project := filepath.Join(tmp, "project")
+
+	if err := os.MkdirAll(filepath.Join(project, ".gemini"), 0o755); err != nil {
+		t.Fatalf("mkdir gemini dir error = %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(project, ".gemini", "settings.json"),
+		[]byte(`{"hooks":{"BeforeTool":[{"matcher":"Read","sequential":true,"hooks":[{"type":"command","name":"lint-read","description":"Run read lint","command":"./bin/gemini-lint","timeout":30000}]}]}}`),
+		0o644,
+	); err != nil {
+		t.Fatalf("write gemini hook config error = %v", err)
+	}
+
+	t.Setenv("HOME", home)
+
+	discovered, warnings, err := inspect.ScanHooks(project)
+	if err != nil {
+		t.Fatalf("ScanHooks() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("expected no warnings, got %v", warnings)
+	}
+	if len(discovered) != 1 {
+		t.Fatalf("expected 1 discovered gemini hook item, got %d", len(discovered))
+	}
+	if !discovered[0].Collectible {
+		t.Fatalf("discovered item collectible = false, want true")
+	}
+
+	result, err := Collect(project, discovered, CollectOptions{Strategy: StrategyOverwrite})
+	if err != nil {
+		t.Fatalf("Collect() error = %v", err)
+	}
+	if len(result.Created) != 1 {
+		t.Fatalf("Collect() Created = %v, want 1 created hook", result.Created)
+	}
+
+	store := NewStore(project)
+	id := mustCanonicalRelativePath(t, "gemini", "BeforeTool", "Read")
+	got, err := store.Get(id)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if got.Sequential == nil || !*got.Sequential {
+		t.Fatalf("Get() Sequential = %#v, want true", got.Sequential)
+	}
+	if len(got.Handlers) != 1 {
+		t.Fatalf("Get() handlers len = %d, want 1", len(got.Handlers))
+	}
+	if got.Handlers[0].Name != "lint-read" || got.Handlers[0].Description != "Run read lint" {
+		t.Fatalf("Get() gemini handler metadata = %#v, want name/description preserved", got.Handlers[0])
+	}
+	if got.Handlers[0].Timeout != "30000" {
+		t.Fatalf("Get() gemini timeout = %q, want 30000", got.Handlers[0].Timeout)
+	}
+}
+
 func TestCollectHooks_RollsBackOnLaterWriteFailure(t *testing.T) {
 	root := t.TempDir()
 	store := NewStore(root)

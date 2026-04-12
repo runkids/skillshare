@@ -378,6 +378,97 @@ func TestCompileCodexHooks_SkipsUnsupportedEvents(t *testing.T) {
 	}
 }
 
+func TestCompileGeminiHooks_WritesSettingsJSON(t *testing.T) {
+	projectRoot := "/tmp/project"
+	sequential := true
+	records := []HookRecord{
+		{
+			ID:           "gemini/before-tool/read.yaml",
+			RelativePath: "gemini/before-tool/read.yaml",
+			Tool:         "gemini",
+			Event:        "BeforeTool",
+			Matcher:      "Read",
+			Sequential:   &sequential,
+			Handlers: []HookHandler{{
+				Type:        "command",
+				Name:        "lint-read",
+				Description: "Run read lint",
+				Command:     "./bin/gemini-lint",
+				Timeout:     "30000",
+			}},
+		},
+	}
+
+	files, warnings, err := CompileGeminiHooks(records, projectRoot, `{"theme":"light"}`)
+	if err != nil {
+		t.Fatalf("CompileGeminiHooks() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("CompileGeminiHooks() warnings = %v, want none", warnings)
+	}
+
+	compiled := findHookCompiledFile(t, files, filepath.Join(projectRoot, ".gemini", "settings.json"))
+	for _, want := range []string{
+		`"theme":"light"`,
+		`"BeforeTool"`,
+		`"matcher":"Read"`,
+		`"sequential":true`,
+		`"type":"command"`,
+		`"name":"lint-read"`,
+		`"description":"Run read lint"`,
+		`"command":"./bin/gemini-lint"`,
+		`"timeout":30000`,
+	} {
+		if !strings.Contains(compiled.Content, want) {
+			t.Fatalf("compiled content missing %q: %q", want, compiled.Content)
+		}
+	}
+}
+
+func TestCompileGeminiHooks_SkipsUnsupportedEventsAndHandlers(t *testing.T) {
+	projectRoot := "/tmp/project"
+	records := []HookRecord{
+		{
+			ID:           "gemini/before-tool/read.yaml",
+			RelativePath: "gemini/before-tool/read.yaml",
+			Tool:         "gemini",
+			Event:        "BeforeTool",
+			Matcher:      "Read",
+			Handlers: []HookHandler{
+				{Type: "command", Command: "./bin/gemini-lint"},
+				{Type: "http", URL: "https://example.com/hook"},
+			},
+		},
+		{
+			ID:           "gemini/file-changed/read.yaml",
+			RelativePath: "gemini/file-changed/read.yaml",
+			Tool:         "gemini",
+			Event:        "FileChanged",
+			Matcher:      "Read",
+			Handlers:     []HookHandler{{Type: "command", Command: "./bin/skip"}},
+		},
+	}
+
+	files, warnings, err := CompileGeminiHooks(records, projectRoot, "")
+	if err != nil {
+		t.Fatalf("CompileGeminiHooks() error = %v", err)
+	}
+	if len(warnings) == 0 {
+		t.Fatal("expected warnings for unsupported gemini hook content")
+	}
+
+	compiled := findHookCompiledFile(t, files, filepath.Join(projectRoot, ".gemini", "settings.json"))
+	if strings.Contains(compiled.Content, `"type":"http"`) {
+		t.Fatalf("unsupported gemini handler leaked into output: %q", compiled.Content)
+	}
+	if strings.Contains(compiled.Content, "FileChanged") {
+		t.Fatalf("unsupported gemini event leaked into output: %q", compiled.Content)
+	}
+	if !strings.Contains(compiled.Content, "BeforeTool") {
+		t.Fatalf("supported gemini event missing from output: %q", compiled.Content)
+	}
+}
+
 func findHookCompiledFile(t *testing.T, files []CompiledFile, wantPath string) CompiledFile {
 	t.Helper()
 	for _, file := range files {

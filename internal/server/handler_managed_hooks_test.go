@@ -287,6 +287,80 @@ func TestHandleManagedHookDisabled_PersistsDisabledState(t *testing.T) {
 	}
 }
 
+func TestManagedHooksGeminiCreateGetAndDiffPreserveMetadata(t *testing.T) {
+	s, projectRoot, _, _ := newManagedProjectServer(t, "gemini")
+	targetPath := filepath.Join(projectRoot, ".gemini", "skills")
+	if err := os.MkdirAll(targetPath, 0o755); err != nil {
+		t.Fatalf("failed to create gemini target dir: %v", err)
+	}
+	s.cfg.Targets["gemini"] = config.TargetConfig{Path: targetPath}
+
+	createBody := `{"tool":"gemini","event":"BeforeTool","matcher":"Read","sequential":true,"handlers":[{"type":"command","name":"lint-read","description":"Run read lint","command":"./bin/gemini-lint","timeout":"30000"}]}`
+	createReq := httptest.NewRequest(http.MethodPost, "/api/managed/hooks", strings.NewReader(createBody))
+	createRR := httptest.NewRecorder()
+	s.handler.ServeHTTP(createRR, createReq)
+	if createRR.Code != http.StatusCreated {
+		t.Fatalf("expected 201 from gemini create, got %d: %s", createRR.Code, createRR.Body.String())
+	}
+
+	var createResp struct {
+		Hook struct {
+			ID         string `json:"id"`
+			Sequential *bool  `json:"sequential"`
+			Handlers   []struct {
+				Name        string `json:"name"`
+				Description string `json:"description"`
+				Timeout     string `json:"timeout"`
+			} `json:"handlers"`
+		} `json:"hook"`
+		Previews []struct {
+			Target string `json:"target"`
+			Files  []struct {
+				Path    string `json:"path"`
+				Content string `json:"content"`
+			} `json:"files"`
+		} `json:"previews"`
+	}
+	if err := json.Unmarshal(createRR.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("failed to decode gemini create response: %v", err)
+	}
+	if createResp.Hook.Sequential == nil || !*createResp.Hook.Sequential {
+		t.Fatalf("create sequential = %#v, want true", createResp.Hook.Sequential)
+	}
+	if len(createResp.Hook.Handlers) != 1 {
+		t.Fatalf("create handlers = %#v, want one handler", createResp.Hook.Handlers)
+	}
+	if createResp.Hook.Handlers[0].Name != "lint-read" || createResp.Hook.Handlers[0].Description != "Run read lint" || createResp.Hook.Handlers[0].Timeout != "30000" {
+		t.Fatalf("create gemini handler metadata = %#v, want preserved metadata", createResp.Hook.Handlers[0])
+	}
+	if len(createResp.Previews) != 1 || createResp.Previews[0].Target != "gemini" {
+		t.Fatalf("create previews = %#v, want one gemini preview", createResp.Previews)
+	}
+	if len(createResp.Previews[0].Files) != 1 || createResp.Previews[0].Files[0].Path != filepath.Join(projectRoot, ".gemini", "settings.json") {
+		t.Fatalf("create preview files = %#v, want gemini settings path", createResp.Previews[0].Files)
+	}
+	for _, want := range []string{`"sequential":true`, `"name":"lint-read"`, `"description":"Run read lint"`} {
+		if !strings.Contains(createResp.Previews[0].Files[0].Content, want) {
+			t.Fatalf("gemini preview content missing %q: %q", want, createResp.Previews[0].Files[0].Content)
+		}
+	}
+
+	hookID := canonicalManagedHookID(t, "gemini", "BeforeTool", "Read")
+	getReq := httptest.NewRequest(http.MethodGet, "/api/managed/hooks/"+hookID, nil)
+	getRR := httptest.NewRecorder()
+	s.handler.ServeHTTP(getRR, getReq)
+	if getRR.Code != http.StatusOK {
+		t.Fatalf("expected 200 from gemini get, got %d: %s", getRR.Code, getRR.Body.String())
+	}
+
+	diffReq := httptest.NewRequest(http.MethodGet, "/api/managed/hooks/diff", nil)
+	diffRR := httptest.NewRecorder()
+	s.handler.ServeHTTP(diffRR, diffReq)
+	if diffRR.Code != http.StatusOK {
+		t.Fatalf("expected 200 from gemini diff, got %d: %s", diffRR.Code, diffRR.Body.String())
+	}
+}
+
 func TestManagedHooksCollectRoute(t *testing.T) {
 	s, projectRoot, _, _ := newManagedProjectServer(t, "claude")
 
@@ -448,7 +522,7 @@ func TestManagedHooksCreateAndUpdateRejectStoreValidationErrorsAsBadRequest(t *t
 	hookID := canonicalManagedHookID(t, "claude", "PreToolUse", "Bash")
 
 	for name, body := range map[string]string{
-		"unsupported tool":         `{"tool":"gemini","event":"PreToolUse","matcher":"Bash","handlers":[{"type":"command","command":"./bin/check"}]}`,
+		"unsupported tool":         `{"tool":"cursor","event":"PreToolUse","matcher":"Bash","handlers":[{"type":"command","command":"./bin/check"}]}`,
 		"missing nested command":   `{"tool":"claude","event":"PreToolUse","matcher":"Bash","handlers":[{"type":"command"}]}`,
 		"missing nested prompt":    `{"tool":"claude","event":"PreToolUse","matcher":"Bash","handlers":[{"type":"prompt"}]}`,
 		"missing nested webhook":   `{"tool":"claude","event":"PreToolUse","matcher":"Bash","handlers":[{"type":"http"}]}`,
@@ -472,7 +546,7 @@ func TestManagedHooksCreateAndUpdateRejectStoreValidationErrorsAsBadRequest(t *t
 	}
 
 	for name, body := range map[string]string{
-		"unsupported tool":         `{"tool":"gemini","event":"PreToolUse","matcher":"Bash","handlers":[{"type":"command","command":"./bin/check"}]}`,
+		"unsupported tool":         `{"tool":"cursor","event":"PreToolUse","matcher":"Bash","handlers":[{"type":"command","command":"./bin/check"}]}`,
 		"missing nested command":   `{"tool":"claude","event":"PreToolUse","matcher":"Bash","handlers":[{"type":"command"}]}`,
 		"missing nested prompt":    `{"tool":"claude","event":"PreToolUse","matcher":"Bash","handlers":[{"type":"prompt"}]}`,
 		"missing nested webhook":   `{"tool":"claude","event":"PreToolUse","matcher":"Bash","handlers":[{"type":"http"}]}`,

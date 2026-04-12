@@ -69,6 +69,48 @@ func TestCompileHooks_SkipsDisabledHook(t *testing.T) {
 	}
 }
 
+func TestCompileHooks_GeminiWritesSettingsJSON(t *testing.T) {
+	projectRoot := t.TempDir()
+	sequential := true
+	records := []Record{
+		{
+			ID:           "gemini/before-tool/read.yaml",
+			RelativePath: "gemini/before-tool/read.yaml",
+			Tool:         "gemini",
+			Event:        "BeforeTool",
+			Matcher:      "Read",
+			Sequential:   &sequential,
+			Handlers: []Handler{{
+				Type:        "command",
+				Name:        "lint-read",
+				Description: "Run read lint",
+				Command:     "./bin/gemini-lint",
+				Timeout:     "30000",
+			}},
+		},
+	}
+
+	files, warnings, err := CompileTarget(records, "gemini", "gemini", projectRoot, `{"theme":"light"}`)
+	if err != nil {
+		t.Fatalf("CompileTarget() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("CompileTarget() warnings = %v, want none", warnings)
+	}
+	if !containsCompiledPath(files, projectRoot+"/.gemini/settings.json") {
+		t.Fatalf("expected gemini settings output, got %v", files)
+	}
+	if !containsCompiledContent(files, projectRoot+"/.gemini/settings.json", `"name":"lint-read"`) {
+		t.Fatalf("expected gemini hook metadata in compiled settings")
+	}
+	if !containsCompiledContent(files, projectRoot+"/.gemini/settings.json", `"sequential":true`) {
+		t.Fatalf("expected gemini sequential flag in compiled settings")
+	}
+	if !containsCompiledContent(files, projectRoot+"/.gemini/settings.json", `"theme":"light"`) {
+		t.Fatalf("expected raw gemini config content to be preserved")
+	}
+}
+
 func containsCompiledContent(files []CompiledFile, wantPath, wantSubstring string) bool {
 	for _, file := range files {
 		if file.Path == wantPath {

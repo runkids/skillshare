@@ -12,6 +12,8 @@ import (
 
 type hookJSONAction struct {
 	Type          string `json:"type"`
+	Name          string `json:"name,omitempty"`
+	Description   string `json:"description,omitempty"`
 	Command       string `json:"command,omitempty"`
 	URL           string `json:"url,omitempty"`
 	Prompt        string `json:"prompt,omitempty"`
@@ -20,8 +22,9 @@ type hookJSONAction struct {
 }
 
 type hookJSONEntry struct {
-	Matcher string           `json:"matcher,omitempty"`
-	Hooks   []hookJSONAction `json:"hooks"`
+	Matcher    string           `json:"matcher,omitempty"`
+	Sequential *bool            `json:"sequential,omitempty"`
+	Hooks      []hookJSONAction `json:"hooks"`
 }
 
 func normalizeHookRecord(record HookRecord) (HookRecord, string, error) {
@@ -65,7 +68,7 @@ func normalizeHookRecord(record HookRecord) (HookRecord, string, error) {
 	if tool == "codex" && (event == "UserPromptSubmit" || event == "Stop") {
 		matcher = ""
 	}
-	if matcher == "" && tool != "codex" {
+	if matcher == "" && !hookAllowsEmptyMatcher(tool, event) {
 		return HookRecord{}, fmt.Sprintf("skipping hook %q: missing matcher", record.ID), nil
 	}
 
@@ -114,8 +117,9 @@ func buildHookDocument(records []HookRecord, allowHandler func(HookHandler) (hoo
 		}
 
 		document[normalized.Event] = append(document[normalized.Event], hookJSONEntry{
-			Matcher: normalized.Matcher,
-			Hooks:   actions,
+			Matcher:    normalized.Matcher,
+			Sequential: normalized.Sequential,
+			Hooks:      actions,
 		})
 	}
 
@@ -145,6 +149,15 @@ func normalizedHookSortKey(record HookRecord) string {
 
 func encodeHookDocument(document map[string][]hookJSONEntry) ([]byte, error) {
 	return json.Marshal(map[string]any{"hooks": document})
+}
+
+func hookAllowsEmptyMatcher(tool, event string) bool {
+	normalizedTool := strings.ToLower(strings.TrimSpace(tool))
+	normalizedEvent := strings.TrimSpace(event)
+	if normalizedTool == "codex" && (normalizedEvent == "UserPromptSubmit" || normalizedEvent == "Stop") {
+		return true
+	}
+	return normalizedTool == "gemini"
 }
 
 func mergeJSONConfig(raw string, updates map[string]any) (string, error) {

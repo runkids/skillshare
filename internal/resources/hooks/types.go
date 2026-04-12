@@ -8,6 +8,7 @@ type Record struct {
 	Tool         string
 	Event        string
 	Matcher      string
+	Sequential   *bool
 	Handlers     []Handler
 	Targets      []string
 	SourceType   string
@@ -20,6 +21,7 @@ type Save struct {
 	Tool       string
 	Event      string
 	Matcher    string
+	Sequential *bool
 	Handlers   []Handler
 	Targets    []string
 	SourceType string
@@ -29,6 +31,8 @@ type Save struct {
 // Handler is one action within a managed matcher-group hook.
 type Handler struct {
 	Type           string `yaml:"type"`
+	Name           string `yaml:"name,omitempty"`
+	Description    string `yaml:"description,omitempty"`
 	Command        string `yaml:"command,omitempty"`
 	URL            string `yaml:"url,omitempty"`
 	Prompt         string `yaml:"prompt,omitempty"`

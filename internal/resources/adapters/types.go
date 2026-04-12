@@ -23,12 +23,15 @@ type HookRecord struct {
 	RelativePath string
 	Event        string
 	Matcher      string
+	Sequential   *bool
 	Handlers     []HookHandler
 }
 
 // HookHandler is one action within a managed hook record.
 type HookHandler struct {
 	Type           string
+	Name           string
+	Description    string
 	Command        string
 	URL            string
 	Prompt         string

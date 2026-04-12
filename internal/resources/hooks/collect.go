@@ -36,6 +36,7 @@ type collectedHookGroup struct {
 	Scope         inspect.Scope
 	Event         string
 	Matcher       string
+	Sequential    *bool
 	Path          string
 	Collectible   bool
 	CollectReason string
@@ -156,6 +157,7 @@ func planCollect(existing []Record, discovered []inspect.HookItem, strategy Stra
 			Tool:       strings.ToLower(strings.TrimSpace(group.SourceTool)),
 			Event:      strings.TrimSpace(group.Event),
 			Matcher:    strings.TrimSpace(group.Matcher),
+			Sequential: copyOptionalBool(group.Sequential),
 			Handlers:   handlersFromInspectHooks(sortedHookItems(group.Items)),
 			SourceType: "local",
 		}
@@ -202,7 +204,7 @@ func groupInspectHooks(discovered []inspect.HookItem) ([]collectedHookGroup, err
 		if strings.TrimSpace(item.Event) == "" {
 			return nil, fmt.Errorf("cannot collect %s: missing event", groupID)
 		}
-		if strings.TrimSpace(item.Matcher) == "" && strings.ToLower(strings.TrimSpace(item.SourceTool)) != "codex" {
+		if strings.TrimSpace(item.Matcher) == "" && !managedHookAllowsEmptyMatcher(strings.TrimSpace(item.SourceTool), strings.TrimSpace(item.Event)) {
 			return nil, fmt.Errorf("cannot collect %s: missing matcher", groupID)
 		}
 
@@ -214,6 +216,7 @@ func groupInspectHooks(discovered []inspect.HookItem) ([]collectedHookGroup, err
 				Scope:         item.Scope,
 				Event:         strings.TrimSpace(item.Event),
 				Matcher:       strings.TrimSpace(item.Matcher),
+				Sequential:    copyOptionalBool(item.Sequential),
 				Path:          strings.TrimSpace(item.Path),
 				Collectible:   item.Collectible,
 				CollectReason: strings.TrimSpace(item.CollectReason),
@@ -226,6 +229,9 @@ func groupInspectHooks(discovered []inspect.HookItem) ([]collectedHookGroup, err
 
 		if group.SourceTool != strings.TrimSpace(item.SourceTool) || group.Event != strings.TrimSpace(item.Event) || group.Matcher != strings.TrimSpace(item.Matcher) {
 			return nil, fmt.Errorf("cannot collect %s: hook items disagree on source tool, event, or matcher", groupID)
+		}
+		if !optionalBoolsEqual(group.Sequential, item.Sequential) {
+			return nil, fmt.Errorf("cannot collect %s: hook items disagree on sequential", groupID)
 		}
 		if group.Path != strings.TrimSpace(item.Path) {
 			return nil, fmt.Errorf("cannot collect %s: hook items disagree on source path", groupID)
@@ -270,6 +276,8 @@ func handlersFromInspectHooks(items []inspect.HookItem) []Handler {
 	for _, item := range items {
 		handlers = append(handlers, Handler{
 			Type:           strings.TrimSpace(item.ActionType),
+			Name:           strings.TrimSpace(item.Name),
+			Description:    strings.TrimSpace(item.Description),
 			Command:        strings.TrimSpace(item.Command),
 			URL:            strings.TrimSpace(item.URL),
 			Prompt:         strings.TrimSpace(item.Prompt),
@@ -302,11 +310,15 @@ func rollbackAppliedHookWrites(store *Store, applied []collectAppliedWrite) erro
 		entry := applied[i]
 		if entry.hadPrior {
 			if _, err := store.Put(Save{
-				ID:       entry.priorRecord.ID,
-				Tool:     entry.priorRecord.Tool,
-				Event:    entry.priorRecord.Event,
-				Matcher:  entry.priorRecord.Matcher,
-				Handlers: entry.priorRecord.Handlers,
+				ID:         entry.priorRecord.ID,
+				Tool:       entry.priorRecord.Tool,
+				Event:      entry.priorRecord.Event,
+				Matcher:    entry.priorRecord.Matcher,
+				Sequential: copyOptionalBool(entry.priorRecord.Sequential),
+				Handlers:   entry.priorRecord.Handlers,
+				Targets:    append([]string(nil), entry.priorRecord.Targets...),
+				SourceType: entry.priorRecord.SourceType,
+				Disabled:   entry.priorRecord.Disabled,
 			}); err != nil && firstErr == nil {
 				firstErr = err
 			}
@@ -317,6 +329,13 @@ func rollbackAppliedHookWrites(store *Store, applied []collectAppliedWrite) erro
 		}
 	}
 	return firstErr
+}
+
+func optionalBoolsEqual(left, right *bool) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return *left == *right
 }
 
 func managedHookByID(existing []Record, id string) Record {

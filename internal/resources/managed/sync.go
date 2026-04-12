@@ -177,7 +177,7 @@ func managedHookGlobalPreviewRoot(targetPath string) string {
 	}
 
 	switch strings.ToLower(filepath.Base(cleaned)) {
-	case ".claude", "claude", ".codex", "codex", ".agents", "agents":
+	case ".claude", "claude", ".codex", "codex", ".agents", "agents", ".gemini", "gemini":
 		return filepath.Dir(cleaned)
 	default:
 		return cleaned
@@ -205,6 +205,8 @@ func managedHookConfigPath(target, root string) (string, bool) {
 		return filepath.Join(root, ".claude", "settings.json"), true
 	case "codex":
 		return filepath.Join(root, ".codex", "config.toml"), true
+	case "gemini":
+		return filepath.Join(root, ".gemini", "settings.json"), true
 	default:
 		return "", false
 	}

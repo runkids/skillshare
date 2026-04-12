@@ -597,14 +597,14 @@ func resolveManagedRuleTool(name, targetPath string) (string, bool) {
 }
 
 func resolveManagedHookTool(name, targetPath string) (string, bool) {
-	for _, supported := range []string{"claude", "codex"} {
+	for _, supported := range []string{"claude", "codex", "gemini"} {
 		if config.MatchesTargetName(supported, name) {
 			return supported, true
 		}
 	}
 
 	switch managedHookPathFamily(targetPath) {
-	case "claude", "codex":
+	case "claude", "codex", "gemini":
 		return managedHookPathFamily(targetPath), true
 	default:
 		return "", false
@@ -632,7 +632,7 @@ func managedHookGlobalRoot(targetPath string) string {
 	}
 
 	switch strings.ToLower(filepath.Base(cleaned)) {
-	case ".claude", "claude", ".codex", "codex", ".agents", "agents":
+	case ".claude", "claude", ".codex", "codex", ".agents", "agents", ".gemini", "gemini":
 		return filepath.Dir(cleaned)
 	default:
 		return cleaned
@@ -678,6 +678,8 @@ func managedHookPathFamily(targetPath string) string {
 		return "claude"
 	case ".codex", "codex", ".agents", "agents":
 		return "codex"
+	case ".gemini", "gemini":
+		return "gemini"
 	default:
 		return ""
 	}
@@ -704,6 +706,8 @@ func managedHookConfigPath(target, root string) (string, bool) {
 		return filepath.Join(root, ".claude", "settings.json"), true
 	case "codex":
 		return filepath.Join(root, ".codex", "config.toml"), true
+	case "gemini":
+		return filepath.Join(root, ".gemini", "settings.json"), true
 	default:
 		return "", false
 	}

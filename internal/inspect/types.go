@@ -30,6 +30,9 @@ type HookItem struct {
 	GroupID        string `json:"groupId"`
 	Collectible    bool   `json:"collectible"`
 	CollectReason  string `json:"collectReason,omitempty"`
+	Sequential     *bool  `json:"sequential,omitempty"`
+	Name           string `json:"name,omitempty"`
+	Description    string `json:"description,omitempty"`
 	Command        string `json:"command"`
 	URL            string `json:"url,omitempty"`
 	Prompt         string `json:"prompt,omitempty"`

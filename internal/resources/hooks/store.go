@@ -33,6 +33,7 @@ type hookFile struct {
 	Tool       string    `yaml:"tool"`
 	Event      string    `yaml:"event"`
 	Matcher    string    `yaml:"matcher"`
+	Sequential *bool     `yaml:"sequential,omitempty"`
 	Handlers   []Handler `yaml:"handlers"`
 	Targets    []string  `yaml:"targets,omitempty"`
 	SourceType string    `yaml:"sourceType,omitempty"`
@@ -57,6 +58,7 @@ func (s *Store) Put(in Save) (Record, error) {
 		Tool:       strings.TrimSpace(in.Tool),
 		Event:      strings.TrimSpace(in.Event),
 		Matcher:    strings.TrimSpace(in.Matcher),
+		Sequential: copyOptionalBool(in.Sequential),
 		Handlers:   sanitizeHandlers(in.Handlers),
 		Targets:    sanitizeTargets(in.Targets),
 		SourceType: strings.TrimSpace(in.SourceType),
@@ -82,6 +84,7 @@ func (s *Store) Put(in Save) (Record, error) {
 		Tool:         strings.TrimSpace(in.Tool),
 		Event:        strings.TrimSpace(in.Event),
 		Matcher:      strings.TrimSpace(in.Matcher),
+		Sequential:   copyOptionalBool(in.Sequential),
 		Handlers:     sanitizeHandlers(in.Handlers),
 		Targets:      sanitizeTargets(in.Targets),
 		SourceType:   strings.TrimSpace(in.SourceType),
@@ -116,6 +119,7 @@ func (s *Store) Get(id string) (Record, error) {
 		Tool:         strings.TrimSpace(file.Tool),
 		Event:        strings.TrimSpace(file.Event),
 		Matcher:      strings.TrimSpace(file.Matcher),
+		Sequential:   copyOptionalBool(file.Sequential),
 		Handlers:     sanitizeHandlers(file.Handlers),
 		Targets:      sanitizeTargets(file.Targets),
 		SourceType:   strings.TrimSpace(file.SourceType),
@@ -170,6 +174,7 @@ func (s *Store) List() ([]Record, error) {
 			Tool:         strings.TrimSpace(file.Tool),
 			Event:        strings.TrimSpace(file.Event),
 			Matcher:      strings.TrimSpace(file.Matcher),
+			Sequential:   copyOptionalBool(file.Sequential),
 			Handlers:     sanitizeHandlers(file.Handlers),
 			Targets:      sanitizeTargets(file.Targets),
 			SourceType:   strings.TrimSpace(file.SourceType),
@@ -221,10 +226,11 @@ func (s *Store) pathForID(id string) (fullPath string, cleanedID string, err err
 
 func validateSave(in Save, id string) error {
 	file := hookFile{
-		Tool:     in.Tool,
-		Event:    in.Event,
-		Matcher:  in.Matcher,
-		Handlers: in.Handlers,
+		Tool:       in.Tool,
+		Event:      in.Event,
+		Matcher:    in.Matcher,
+		Sequential: in.Sequential,
+		Handlers:   in.Handlers,
 	}
 	return validateFile(id, file)
 }
@@ -252,10 +258,15 @@ func validateFile(id string, in hookFile) error {
 			return err
 		}
 	}
+	if tool == "gemini" {
+		if err := validateGeminiManagedHook(id, in); err != nil {
+			return err
+		}
+	}
 	if strings.TrimSpace(in.Event) == "" {
 		return fmt.Errorf("hook %q: event is required", id)
 	}
-	if strings.TrimSpace(in.Matcher) == "" && tool != "codex" {
+	if strings.TrimSpace(in.Matcher) == "" && !managedHookAllowsEmptyMatcher(tool, strings.TrimSpace(in.Event)) {
 		return fmt.Errorf("hook %q: matcher is required", id)
 	}
 	if len(in.Handlers) == 0 {
@@ -323,7 +334,7 @@ func isSupportedCodexManagedEvent(event string) bool {
 
 func isSupportedManagedHookTool(tool string) bool {
 	switch strings.ToLower(strings.TrimSpace(tool)) {
-	case "claude", "codex":
+	case "claude", "codex", "gemini":
 		return true
 	default:
 		return false
@@ -351,6 +362,8 @@ func sanitizeHandlers(in []Handler) []Handler {
 	for i, h := range in {
 		out[i] = Handler{
 			Type:           strings.TrimSpace(h.Type),
+			Name:           strings.TrimSpace(h.Name),
+			Description:    strings.TrimSpace(h.Description),
 			Command:        strings.TrimSpace(h.Command),
 			URL:            strings.TrimSpace(h.URL),
 			Prompt:         strings.TrimSpace(h.Prompt),
@@ -360,6 +373,53 @@ func sanitizeHandlers(in []Handler) []Handler {
 		}
 	}
 	return out
+}
+
+func validateGeminiManagedHook(id string, in hookFile) error {
+	if !isSupportedGeminiManagedEvent(strings.TrimSpace(in.Event)) {
+		return fmt.Errorf("hook %q: event %q is not supported for gemini", id, in.Event)
+	}
+	for i, h := range in.Handlers {
+		actionType := strings.TrimSpace(h.Type)
+		if actionType != "command" {
+			return fmt.Errorf("hook %q: handlers[%d].type %q is not supported for gemini", id, i, actionType)
+		}
+		if strings.TrimSpace(h.Command) == "" {
+			return fmt.Errorf("hook %q: handlers[%d].command is required for gemini", id, i)
+		}
+		if strings.TrimSpace(h.Timeout) != "" && h.TimeoutSeconds == nil {
+			if _, err := strconv.Atoi(strings.TrimSpace(h.Timeout)); err != nil {
+				return fmt.Errorf("hook %q: handlers[%d].timeout must be numeric milliseconds for gemini", id, i)
+			}
+		}
+	}
+	return nil
+}
+
+func isSupportedGeminiManagedEvent(event string) bool {
+	switch strings.TrimSpace(event) {
+	case "SessionStart", "SessionEnd", "BeforeAgent", "AfterAgent", "BeforeModel", "AfterModel", "BeforeToolSelection", "BeforeTool", "AfterTool", "PreCompress", "Notification":
+		return true
+	default:
+		return false
+	}
+}
+
+func managedHookAllowsEmptyMatcher(tool, event string) bool {
+	tool = strings.ToLower(strings.TrimSpace(tool))
+	event = strings.TrimSpace(event)
+	if tool == "codex" && (event == "UserPromptSubmit" || event == "Stop") {
+		return true
+	}
+	return tool == "gemini"
+}
+
+func copyOptionalBool(value *bool) *bool {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
 }
 
 func sanitizeTargets(in []string) []string {

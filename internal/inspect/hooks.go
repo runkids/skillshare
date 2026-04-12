@@ -239,8 +239,9 @@ func hookEventsForTool(sourceTool string) []string {
 
 func normalizeHookEntry(path, sourceTool string, scope Scope, event string, entryIndex int, rawEntry json.RawMessage) ([]HookItem, []string) {
 	var entry struct {
-		Matcher string            `json:"matcher"`
-		Hooks   []json.RawMessage `json:"hooks"`
+		Matcher    string            `json:"matcher"`
+		Sequential *bool             `json:"sequential"`
+		Hooks      []json.RawMessage `json:"hooks"`
 	}
 	if err := json.Unmarshal(rawEntry, &entry); err != nil {
 		return nil, []string{fmt.Sprintf("%s: invalid %s hook entry: %v", path, event, err)}
@@ -258,7 +259,7 @@ func normalizeHookEntry(path, sourceTool string, scope Scope, event string, entr
 	var items []HookItem
 	var warnings []string
 	for i, rawHook := range entry.Hooks {
-		hook, warn, ok := normalizeHookAction(path, sourceTool, scope, event, matcher, groupID, collectible, collectReason, entryIndex, i, rawHook)
+		hook, warn, ok := normalizeHookAction(path, sourceTool, scope, event, matcher, copyOptionalBool(entry.Sequential), groupID, collectible, collectReason, entryIndex, i, rawHook)
 		if warn != "" {
 			warnings = append(warnings, warn)
 		}
@@ -270,9 +271,11 @@ func normalizeHookEntry(path, sourceTool string, scope Scope, event string, entr
 	return items, warnings
 }
 
-func normalizeHookAction(path, sourceTool string, scope Scope, event, matcher, groupID string, collectible bool, collectReason string, entryIndex, actionIndex int, rawHook json.RawMessage) (HookItem, string, bool) {
+func normalizeHookAction(path, sourceTool string, scope Scope, event, matcher string, sequential *bool, groupID string, collectible bool, collectReason string, entryIndex, actionIndex int, rawHook json.RawMessage) (HookItem, string, bool) {
 	var action struct {
 		Type          string          `json:"type"`
+		Name          string          `json:"name"`
+		Description   string          `json:"description"`
 		Command       string          `json:"command"`
 		URL           string          `json:"url"`
 		Prompt        string          `json:"prompt"`
@@ -284,6 +287,8 @@ func normalizeHookAction(path, sourceTool string, scope Scope, event, matcher, g
 		return HookItem{}, fmt.Sprintf("%s: invalid %s %s action: %v", path, event, matcher, err), false
 	}
 	actionType := strings.TrimSpace(action.Type)
+	name := strings.TrimSpace(action.Name)
+	description := strings.TrimSpace(action.Description)
 	command := strings.TrimSpace(action.Command)
 	url := strings.TrimSpace(action.URL)
 	prompt := strings.TrimSpace(action.Prompt)
@@ -313,6 +318,9 @@ func normalizeHookAction(path, sourceTool string, scope Scope, event, matcher, g
 				GroupID:        groupID,
 				Collectible:    collectible,
 				CollectReason:  collectReason,
+				Sequential:     copyOptionalBool(sequential),
+				Name:           name,
+				Description:    description,
 				Command:        command,
 				Timeout:        timeout,
 				TimeoutSeconds: timeoutSeconds,
@@ -334,6 +342,9 @@ func normalizeHookAction(path, sourceTool string, scope Scope, event, matcher, g
 				GroupID:        groupID,
 				Collectible:    collectible,
 				CollectReason:  collectReason,
+				Sequential:     copyOptionalBool(sequential),
+				Name:           name,
+				Description:    description,
 				URL:            url,
 				Timeout:        timeout,
 				TimeoutSeconds: timeoutSeconds,
@@ -355,6 +366,9 @@ func normalizeHookAction(path, sourceTool string, scope Scope, event, matcher, g
 				GroupID:        groupID,
 				Collectible:    collectible,
 				CollectReason:  collectReason,
+				Sequential:     copyOptionalBool(sequential),
+				Name:           name,
+				Description:    description,
 				Prompt:         prompt,
 				Timeout:        timeout,
 				TimeoutSeconds: timeoutSeconds,
@@ -378,6 +392,9 @@ func normalizeHookAction(path, sourceTool string, scope Scope, event, matcher, g
 				GroupID:        groupID,
 				Collectible:    collectible,
 				CollectReason:  collectReason,
+				Sequential:     copyOptionalBool(sequential),
+				Name:           name,
+				Description:    description,
 				Command:        command,
 				Timeout:        timeout,
 				TimeoutSeconds: timeoutSeconds,
@@ -401,6 +418,9 @@ func normalizeHookAction(path, sourceTool string, scope Scope, event, matcher, g
 				GroupID:        groupID,
 				Collectible:    collectible,
 				CollectReason:  collectReason,
+				Sequential:     copyOptionalBool(sequential),
+				Name:           name,
+				Description:    description,
 				Command:        command,
 				Timeout:        timeout,
 				TimeoutSeconds: timeoutSeconds,
@@ -504,10 +524,16 @@ func hookCollectibility(path, sourceTool string) (bool, string) {
 		return false, "diagnostics-only: .claude/settings.local.json is not collectible"
 	}
 	switch strings.ToLower(strings.TrimSpace(sourceTool)) {
-	case "claude", "codex":
+	case "claude", "codex", "gemini":
 		return true, ""
-	case "gemini":
-		return false, "unsupported managed hook tool: gemini hooks are diagnostics-only"
 	}
 	return true, ""
+}
+
+func copyOptionalBool(value *bool) *bool {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	return &copy
 }

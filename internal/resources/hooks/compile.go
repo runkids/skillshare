@@ -64,6 +64,8 @@ func CompileTarget(records []Record, targetFamily, targetName, projectRoot, rawC
 		files, adapterWarnings, err = adapters.CompileClaudeHooks(converted, projectRoot, rawConfig)
 	case "codex":
 		files, adapterWarnings, err = adapters.CompileCodexHooks(converted, projectRoot, rawConfig)
+	case "gemini":
+		files, adapterWarnings, err = adapters.CompileGeminiHooks(converted, projectRoot, rawConfig)
 	default:
 		return nil, nil, fmt.Errorf("%w %q", ErrUnsupportedTarget, targetFamily)
 	}
@@ -154,7 +156,7 @@ func normalizeRecord(record Record) (adapters.HookRecord, string, error) {
 	if tool == "codex" && (event == "UserPromptSubmit" || event == "Stop") {
 		matcher = ""
 	}
-	if matcher == "" && tool != "codex" {
+	if matcher == "" && !managedHookAllowsEmptyMatcher(tool, event) {
 		return adapters.HookRecord{}, fmt.Sprintf("skipping hook %q: missing matcher", record.ID), nil
 	}
 	if len(record.Handlers) == 0 {
@@ -165,6 +167,8 @@ func normalizeRecord(record Record) (adapters.HookRecord, string, error) {
 	for i, handler := range record.Handlers {
 		handlers[i] = adapters.HookHandler{
 			Type:           strings.TrimSpace(handler.Type),
+			Name:           strings.TrimSpace(handler.Name),
+			Description:    strings.TrimSpace(handler.Description),
 			Command:        strings.TrimSpace(handler.Command),
 			URL:            strings.TrimSpace(handler.URL),
 			Prompt:         strings.TrimSpace(handler.Prompt),
@@ -180,6 +184,7 @@ func normalizeRecord(record Record) (adapters.HookRecord, string, error) {
 		RelativePath: rel,
 		Event:        event,
 		Matcher:      matcher,
+		Sequential:   copyOptionalBool(record.Sequential),
 		Handlers:     handlers,
 	}, "", nil
 }

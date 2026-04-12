@@ -919,12 +919,12 @@ func TestScanHooks_CodexPrefersNumericTimeoutSecOverInvalidTimeout(t *testing.T)
 	}
 }
 
-func TestScanHooks_GeminiHooksAreNotCollectible(t *testing.T) {
+func TestScanHooks_GeminiHooksAreCollectibleAndPreserveMetadata(t *testing.T) {
 	tmp := t.TempDir()
 	home := filepath.Join(tmp, "home")
 	project := filepath.Join(tmp, "project")
 
-	mustWriteFile(t, filepath.Join(project, ".gemini", "settings.json"), `{"hooks":{"BeforeTool":[{"matcher":"Read","hooks":[{"type":"command","command":"./gemini.sh"}]}]}}`)
+	mustWriteFile(t, filepath.Join(project, ".gemini", "settings.json"), `{"hooks":{"BeforeTool":[{"matcher":"Read","sequential":true,"hooks":[{"type":"command","name":"lint-read","description":"Run read lint","command":"./gemini.sh","timeout":30000}]}]}}`)
 
 	t.Setenv("HOME", home)
 
@@ -938,11 +938,23 @@ func TestScanHooks_GeminiHooksAreNotCollectible(t *testing.T) {
 	if len(items) != 1 {
 		t.Fatalf("expected 1 gemini hook item, got %d", len(items))
 	}
-	if items[0].Collectible {
-		t.Fatal("expected gemini hook to be non-collectible")
+	if !items[0].Collectible {
+		t.Fatal("expected gemini hook to be collectible")
 	}
-	if !strings.Contains(strings.ToLower(items[0].CollectReason), "unsupported") {
-		t.Fatalf("collectReason = %q, want reason mentioning unsupported managed hooks", items[0].CollectReason)
+	if items[0].CollectReason != "" {
+		t.Fatalf("collectReason = %q, want empty", items[0].CollectReason)
+	}
+	if items[0].Sequential == nil || !*items[0].Sequential {
+		t.Fatalf("sequential = %#v, want true", items[0].Sequential)
+	}
+	if items[0].Name != "lint-read" {
+		t.Fatalf("name = %q, want lint-read", items[0].Name)
+	}
+	if items[0].Description != "Run read lint" {
+		t.Fatalf("description = %q, want Run read lint", items[0].Description)
+	}
+	if items[0].Timeout != "30000" {
+		t.Fatalf("timeout = %q, want 30000", items[0].Timeout)
 	}
 }
 

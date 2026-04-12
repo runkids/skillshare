@@ -16,6 +16,8 @@ import (
 
 type managedHookHandlerPayload struct {
 	Type           string `json:"type"`
+	Name           string `json:"name,omitempty"`
+	Description    string `json:"description,omitempty"`
 	Command        string `json:"command,omitempty"`
 	URL            string `json:"url,omitempty"`
 	Prompt         string `json:"prompt,omitempty"`
@@ -29,6 +31,7 @@ type managedHookPayload struct {
 	Tool       string                      `json:"tool"`
 	Event      string                      `json:"event"`
 	Matcher    string                      `json:"matcher"`
+	Sequential *bool                       `json:"sequential,omitempty"`
 	Handlers   []managedHookHandlerPayload `json:"handlers"`
 	Targets    []string                    `json:"targets"`
 	SourceType string                      `json:"sourceType"`
@@ -46,6 +49,7 @@ type managedHookRequest struct {
 	Tool       string                      `json:"tool"`
 	Event      string                      `json:"event"`
 	Matcher    *string                     `json:"matcher"`
+	Sequential *bool                       `json:"sequential"`
 	Handlers   []managedHookHandlerPayload `json:"handlers"`
 	Targets    *[]string                   `json:"targets"`
 	SourceType *string                     `json:"sourceType"`
@@ -233,6 +237,7 @@ func (s *Server) handleSetManagedHookTargets(w http.ResponseWriter, r *http.Requ
 		Tool:       record.Tool,
 		Event:      record.Event,
 		Matcher:    record.Matcher,
+		Sequential: record.Sequential,
 		Handlers:   append([]managedhooks.Handler(nil), record.Handlers...),
 		Targets:    normalizeManagedTargets([]string{body.Target}),
 		SourceType: record.SourceType,
@@ -285,6 +290,7 @@ func (s *Server) handleSetManagedHookDisabled(w http.ResponseWriter, r *http.Req
 		Tool:       record.Tool,
 		Event:      record.Event,
 		Matcher:    record.Matcher,
+		Sequential: record.Sequential,
 		Handlers:   append([]managedhooks.Handler(nil), record.Handlers...),
 		Targets:    append([]string(nil), record.Targets...),
 		SourceType: record.SourceType,
@@ -466,6 +472,7 @@ func restoreManagedHookRecord(store *managedhooks.Store, record managedhooks.Rec
 		Tool:       record.Tool,
 		Event:      record.Event,
 		Matcher:    record.Matcher,
+		Sequential: record.Sequential,
 		Handlers:   record.Handlers,
 		Targets:    append([]string(nil), record.Targets...),
 		SourceType: record.SourceType,
@@ -535,14 +542,14 @@ func (s *Server) resolveManagedHookPreviewTarget(name string, target config.Targ
 }
 
 func resolveManagedHookPreviewTool(name, targetPath string) (string, bool) {
-	for _, supported := range []string{"claude", "codex"} {
+	for _, supported := range []string{"claude", "codex", "gemini"} {
 		if config.MatchesTargetName(supported, name) {
 			return supported, true
 		}
 	}
 
 	switch managedHookPathFamily(targetPath) {
-	case "claude", "codex":
+	case "claude", "codex", "gemini":
 		return managedHookPathFamily(targetPath), true
 	default:
 		return "", false
@@ -565,6 +572,8 @@ func managedHookPathFamily(targetPath string) string {
 		return "claude"
 	case ".codex", "codex", ".agents", "agents":
 		return "codex"
+	case ".gemini", "gemini":
+		return "gemini"
 	default:
 		return ""
 	}
@@ -580,7 +589,7 @@ func managedHookGlobalPreviewRoot(targetPath string) string {
 	}
 
 	switch strings.ToLower(filepath.Base(cleaned)) {
-	case ".claude", "claude", ".codex", "codex", ".agents", "agents":
+	case ".claude", "claude", ".codex", "codex", ".agents", "agents", ".gemini", "gemini":
 		return filepath.Dir(cleaned)
 	default:
 		return cleaned
@@ -608,6 +617,8 @@ func managedHookConfigPath(target, root string) (string, bool) {
 		return filepath.Join(root, ".claude", "settings.json"), true
 	case "codex":
 		return filepath.Join(root, ".codex", "config.toml"), true
+	case "gemini":
+		return filepath.Join(root, ".gemini", "settings.json"), true
 	default:
 		return "", false
 	}
@@ -652,7 +663,10 @@ func decodeManagedHookRequest(r *http.Request, body *managedHookRequest) error {
 func managedHookAllowsEmptyMatcher(tool, event string) bool {
 	normalizedTool := strings.ToLower(strings.TrimSpace(tool))
 	normalizedEvent := strings.TrimSpace(event)
-	return normalizedTool == "codex" && (normalizedEvent == "UserPromptSubmit" || normalizedEvent == "Stop")
+	if normalizedTool == "codex" && (normalizedEvent == "UserPromptSubmit" || normalizedEvent == "Stop") {
+		return true
+	}
+	return normalizedTool == "gemini"
 }
 
 func (r managedHookRequest) matcher() string {
@@ -671,6 +685,8 @@ func (r managedHookRequest) toHandlers() []managedhooks.Handler {
 	for i, handler := range r.Handlers {
 		out[i] = managedhooks.Handler{
 			Type:           strings.TrimSpace(handler.Type),
+			Name:           strings.TrimSpace(handler.Name),
+			Description:    strings.TrimSpace(handler.Description),
 			Command:        strings.TrimSpace(handler.Command),
 			URL:            strings.TrimSpace(handler.URL),
 			Prompt:         strings.TrimSpace(handler.Prompt),
@@ -691,6 +707,8 @@ func managedHookRecordPayload(record managedhooks.Record) managedHookPayload {
 	for i, handler := range record.Handlers {
 		handlers[i] = managedHookHandlerPayload{
 			Type:           handler.Type,
+			Name:           handler.Name,
+			Description:    handler.Description,
 			Command:        handler.Command,
 			URL:            handler.URL,
 			Prompt:         handler.Prompt,
@@ -704,6 +722,7 @@ func managedHookRecordPayload(record managedhooks.Record) managedHookPayload {
 		Tool:       record.Tool,
 		Event:      record.Event,
 		Matcher:    record.Matcher,
+		Sequential: record.Sequential,
 		Handlers:   handlers,
 		Targets:    append([]string(nil), record.Targets...),
 		SourceType: record.SourceType,
@@ -737,6 +756,7 @@ func managedHookSave(body managedHookRequest, id string, existing *managedhooks.
 		Tool:       body.Tool,
 		Event:      body.Event,
 		Matcher:    body.matcher(),
+		Sequential: body.Sequential,
 		Handlers:   body.toHandlers(),
 		Targets:    targets,
 		SourceType: sourceType,
