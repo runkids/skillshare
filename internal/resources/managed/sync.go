@@ -113,56 +113,26 @@ func syncHooks(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
 
 func resolveRuleTarget(name string, target config.TargetConfig, projectRoot string) (compileTarget, compileRoot string, ok bool) {
 	sc := target.SkillsConfig()
-	compileTarget, ok = resolveRuleTargetFamily(name, sc.Path)
+	family, ok := ResolveManagedFamily(ResourceKindRules, name, sc.Path)
 	if !ok {
 		return "", "", false
 	}
 	if projectRoot != "" {
-		return compileTarget, projectRoot, true
+		return family, projectRoot, true
 	}
-	return compileTarget, managedRuleGlobalPreviewRoot(sc.Path), true
+	return family, managedRuleGlobalPreviewRoot(sc.Path), true
 }
 
 func resolveHookTarget(name string, target config.TargetConfig, projectRoot string) (compileTarget, compileRoot string, ok bool) {
 	sc := target.SkillsConfig()
-	compileTarget, ok = resolveHookTargetFamily(name, sc.Path)
+	family, ok := ResolveManagedFamily(ResourceKindHooks, name, sc.Path)
 	if !ok {
 		return "", "", false
 	}
 	if projectRoot != "" {
-		return compileTarget, projectRoot, true
+		return family, projectRoot, true
 	}
-	return compileTarget, managedHookGlobalPreviewRoot(sc.Path), true
-}
-
-func resolveRuleTargetFamily(name, targetPath string) (string, bool) {
-	for _, supported := range []string{"claude", "codex", "gemini"} {
-		if config.MatchesTargetName(supported, name) {
-			return supported, true
-		}
-	}
-
-	switch managedRulePathFamily(targetPath) {
-	case "claude", "codex", "gemini":
-		return managedRulePathFamily(targetPath), true
-	default:
-		return "", false
-	}
-}
-
-func resolveHookTargetFamily(name, targetPath string) (string, bool) {
-	for _, supported := range []string{"claude", "codex"} {
-		if config.MatchesTargetName(supported, name) {
-			return supported, true
-		}
-	}
-
-	switch managedHookPathFamily(targetPath) {
-	case "claude", "codex":
-		return managedHookPathFamily(targetPath), true
-	default:
-		return "", false
-	}
+	return family, managedHookGlobalPreviewRoot(sc.Path), true
 }
 
 func managedRuleGlobalPreviewRoot(targetPath string) string {
