@@ -595,23 +595,6 @@ func managedRuleGlobalRoot(targetPath string) string {
 	return cleaned
 }
 
-func managedHookGlobalRoot(targetPath string) string {
-	cleaned := filepath.Clean(strings.TrimSpace(targetPath))
-	if cleaned == "" || cleaned == "." {
-		return targetPath
-	}
-	if strings.EqualFold(filepath.Base(cleaned), "skills") {
-		cleaned = filepath.Dir(cleaned)
-	}
-
-	switch strings.ToLower(filepath.Base(cleaned)) {
-	case ".claude", "claude", ".codex", "codex", ".agents", "agents", ".gemini", "gemini":
-		return filepath.Dir(cleaned)
-	default:
-		return cleaned
-	}
-}
-
 func managedRulePathFamily(targetPath string) string {
 	cleaned := filepath.Clean(strings.TrimSpace(targetPath))
 	if cleaned == "" || cleaned == "." {
