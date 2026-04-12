@@ -516,6 +516,105 @@ func TestSync_RejectsProjectRootAgentsConflictForSingleTargetSyncWithNonCanonica
 	}
 }
 
+func TestSync_RejectsSharedOutputConflictBetweenSameFamilyTargets(t *testing.T) {
+	projectRoot := t.TempDir()
+	ruleStore := managedrules.NewStore(projectRoot)
+	if _, err := ruleStore.Put(managedrules.Save{
+		ID:         "codex/intro.md",
+		Content:    []byte("# Codex Intro\n"),
+		Targets:    []string{"codex"},
+		SourceType: "local",
+	}); err != nil {
+		t.Fatalf("put codex rule: %v", err)
+	}
+	if _, err := ruleStore.Put(managedrules.Save{
+		ID:         "codex/alt.md",
+		Content:    []byte("# Universal Intro\n"),
+		Targets:    []string{"universal"},
+		SourceType: "local",
+	}); err != nil {
+		t.Fatalf("put universal rule: %v", err)
+	}
+
+	results := Sync(SyncRequest{
+		ProjectRoot: projectRoot,
+		DryRun:      false,
+		Resources:   ResourceSet{Rules: true},
+		Targets: []TargetSyncSpec{
+			{
+				Name:   "codex",
+				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".codex", "skills")},
+			},
+			{
+				Name:   "universal",
+				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".agents", "skills")},
+			},
+		},
+	})
+
+	codexResult := findSyncResult(t, results, "codex", "rules")
+	if codexResult.Err == nil {
+		t.Fatal("codex rules sync error = nil, want shared AGENTS conflict")
+	}
+	if !strings.Contains(codexResult.Err.Error(), "conflict") || !strings.Contains(codexResult.Err.Error(), "AGENTS.md") {
+		t.Fatalf("codex rules sync error = %v, want AGENTS conflict", codexResult.Err)
+	}
+
+	universalResult := findSyncResult(t, results, "universal", "rules")
+	if universalResult.Err == nil {
+		t.Fatal("universal rules sync error = nil, want shared AGENTS conflict")
+	}
+	if !strings.Contains(universalResult.Err.Error(), "conflict") || !strings.Contains(universalResult.Err.Error(), "AGENTS.md") {
+		t.Fatalf("universal rules sync error = %v, want AGENTS conflict", universalResult.Err)
+	}
+
+	if _, err := os.Stat(filepath.Join(projectRoot, "AGENTS.md")); !os.IsNotExist(err) {
+		t.Fatalf("expected no shared AGENTS.md to be written, got err=%v", err)
+	}
+}
+
+func TestSync_AllowsSharedOutputBetweenSameFamilyTargetsWhenContentsMatch(t *testing.T) {
+	projectRoot := t.TempDir()
+	ruleStore := managedrules.NewStore(projectRoot)
+	if _, err := ruleStore.Put(managedrules.Save{
+		ID:         "codex/shared.md",
+		Content:    []byte("# Shared Intro\n"),
+		SourceType: "local",
+	}); err != nil {
+		t.Fatalf("put codex rule: %v", err)
+	}
+
+	results := Sync(SyncRequest{
+		ProjectRoot: projectRoot,
+		DryRun:      false,
+		Resources:   ResourceSet{Rules: true},
+		Targets: []TargetSyncSpec{
+			{
+				Name:   "codex",
+				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".codex", "skills")},
+			},
+			{
+				Name:   "universal",
+				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".agents", "skills")},
+			},
+		},
+	})
+
+	codexResult := findSyncResult(t, results, "codex", "rules")
+	if codexResult.Err != nil {
+		t.Fatalf("codex rules sync error = %v, want nil", codexResult.Err)
+	}
+
+	universalResult := findSyncResult(t, results, "universal", "rules")
+	if universalResult.Err != nil {
+		t.Fatalf("universal rules sync error = %v, want nil", universalResult.Err)
+	}
+
+	if got := readFile(t, filepath.Join(projectRoot, "AGENTS.md")); !strings.Contains(got, "# Shared Intro") {
+		t.Fatalf("shared AGENTS.md = %q, want shared content", got)
+	}
+}
+
 func ensureClaudeTargetFiles(t *testing.T, projectRoot string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(projectRoot, ".claude"), 0o755); err != nil {

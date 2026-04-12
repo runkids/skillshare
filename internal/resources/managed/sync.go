@@ -211,9 +211,9 @@ func detectRuleOutputConflicts(req SyncRequest, current TargetSyncSpec, records 
 		return nil
 	}
 
-	currentPaths := make(map[string]struct{}, len(currentFiles))
+	currentPaths := make(map[string]string, len(currentFiles))
 	for _, file := range currentFiles {
-		currentPaths[filepath.Clean(file.Path)] = struct{}{}
+		currentPaths[filepath.Clean(file.Path)] = file.Content
 	}
 
 	for _, other := range conflictAnalysisTargets(req) {
@@ -221,7 +221,7 @@ func detectRuleOutputConflicts(req SyncRequest, current TargetSyncSpec, records 
 			continue
 		}
 		otherFamily, otherRoot, ok := resolveRuleTarget(other.Name, other.Target, req.ProjectRoot)
-		if !ok || otherFamily == currentFamily {
+		if !ok {
 			continue
 		}
 
@@ -234,7 +234,7 @@ func detectRuleOutputConflicts(req SyncRequest, current TargetSyncSpec, records 
 		}
 		for _, otherFile := range otherFiles {
 			cleaned := filepath.Clean(otherFile.Path)
-			if _, ok := currentPaths[cleaned]; ok {
+			if currentContent, ok := currentPaths[cleaned]; ok && currentContent != otherFile.Content {
 				return fmt.Errorf("managed rule output conflict: %s is produced by %s (%s) and %s (%s)", cleaned, current.Name, currentFamily, other.Name, otherFamily)
 			}
 		}
