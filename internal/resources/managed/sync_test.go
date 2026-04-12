@@ -366,6 +366,56 @@ func TestSync_PrunesManagedProjectRootAgentsAfterPiSourceDeletion(t *testing.T) 
 	}
 }
 
+func TestSync_PrunesNestedPiAgentsAfterSourceDeletion(t *testing.T) {
+	stateHome := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", stateHome)
+
+	projectRoot := t.TempDir()
+	ruleStore := managedrules.NewStore(projectRoot)
+	if _, err := ruleStore.Put(managedrules.Save{
+		ID:      "pi/nested/AGENTS.md",
+		Content: []byte("# Nested Pi Agents\n"),
+	}); err != nil {
+		t.Fatalf("put managed nested pi agents: %v", err)
+	}
+
+	req := SyncRequest{
+		ProjectRoot: projectRoot,
+		DryRun:      false,
+		Resources:   ResourceSet{Rules: true},
+		Targets: []TargetSyncSpec{{
+			Name:   "pi",
+			Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
+		}},
+	}
+
+	first := Sync(req)
+	if firstResult := findSyncResult(t, first, "pi", "rules"); firstResult.Err != nil {
+		t.Fatalf("first pi rules sync error = %v", firstResult.Err)
+	}
+
+	nestedAgentsPath := filepath.Join(projectRoot, "nested", "AGENTS.md")
+	if _, err := os.Stat(nestedAgentsPath); err != nil {
+		t.Fatalf("expected nested managed AGENTS.md after first sync: %v", err)
+	}
+
+	if err := ruleStore.Delete("pi/nested/AGENTS.md"); err != nil {
+		t.Fatalf("delete managed nested pi agents: %v", err)
+	}
+
+	second := Sync(req)
+	secondResult := findSyncResult(t, second, "pi", "rules")
+	if secondResult.Err != nil {
+		t.Fatalf("second pi rules sync error = %v", secondResult.Err)
+	}
+	if !containsAll(secondResult.Pruned, nestedAgentsPath) {
+		t.Fatalf("second pi rules pruned = %v, want %q", secondResult.Pruned, nestedAgentsPath)
+	}
+	if _, err := os.Stat(nestedAgentsPath); !os.IsNotExist(err) {
+		t.Fatalf("expected nested managed AGENTS.md to be pruned, got err=%v", err)
+	}
+}
+
 func TestSync_ProjectModePiSyncDoesNotPruneManualProjectRootAgents(t *testing.T) {
 	stateHome := t.TempDir()
 	t.Setenv("XDG_STATE_HOME", stateHome)

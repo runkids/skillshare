@@ -19,17 +19,18 @@ type managedRuleSyncState struct {
 
 type managedRuleSyncOutput struct {
 	Target    string    `json:"target,omitempty"`
+	Path      string    `json:"path,omitempty"`
 	Checksum  string    `json:"checksum,omitempty"`
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 }
 
-func loadManagedRuleSyncState(projectRoot string) (*managedRuleSyncState, error) {
+func loadManagedRuleSyncState(root string) (*managedRuleSyncState, error) {
 	state := &managedRuleSyncState{Outputs: map[string]managedRuleSyncOutput{}}
-	if strings.TrimSpace(projectRoot) == "" {
+	if strings.TrimSpace(root) == "" {
 		return state, nil
 	}
 
-	path := managedRuleSyncStatePath(projectRoot)
+	path := managedRuleSyncStatePath(root)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errorsIsNotExist(err) {
@@ -41,110 +42,104 @@ func loadManagedRuleSyncState(projectRoot string) (*managedRuleSyncState, error)
 	if err := json.Unmarshal(data, state); err != nil {
 		return &managedRuleSyncState{Outputs: map[string]managedRuleSyncOutput{}}, nil
 	}
-	normalizeManagedRuleSyncState(state)
+	normalizeManagedRuleSyncState(root, state)
 	return state, nil
 }
 
-func recordManagedRuleSyncState(projectRoot, target string, files []adapters.CompiledFile, state *managedRuleSyncState) error {
-	if strings.TrimSpace(projectRoot) == "" || state == nil {
+func recordManagedRuleSyncState(targetName, family, root string, files []adapters.CompiledFile, state *managedRuleSyncState) error {
+	if strings.TrimSpace(root) == "" || state == nil {
 		return nil
 	}
 	if state.Outputs == nil {
 		state.Outputs = map[string]managedRuleSyncOutput{}
 	}
-
-	rootAgentsPath := filepath.Clean(filepath.Join(projectRoot, "AGENTS.md"))
-	target = strings.TrimSpace(target)
-	for _, file := range files {
-		if filepath.Clean(file.Path) != rootAgentsPath {
-			continue
-		}
-		if target == "" {
-			return nil
-		}
-		state.Outputs[target] = managedRuleSyncOutput{
-			Target:    target,
-			Checksum:  checksumForContent([]byte(file.Content)),
-			UpdatedAt: time.Now().UTC(),
-		}
-		return saveManagedRuleSyncState(projectRoot, state)
-	}
-
-	if target != "" {
-		delete(state.Outputs, target)
-	}
-	return saveManagedRuleSyncState(projectRoot, state)
-}
-
-func managedRuleProjectRootAgentsOwned(state *managedRuleSyncState, root string) bool {
-	if strings.TrimSpace(root) == "" || state == nil {
-		return false
-	}
-	if state.Outputs == nil {
-		return false
-	}
-	return len(state.Outputs) > 0
-}
-
-func pruneManagedProjectRootAgents(root string, keep map[string]struct{}, state *managedRuleSyncState, dryRun bool, pruned *[]string) error {
-	if strings.TrimSpace(root) == "" || state == nil {
+	targetName = strings.TrimSpace(targetName)
+	if targetName == "" {
 		return nil
 	}
 
-	agentsPath := filepath.Clean(filepath.Join(root, "AGENTS.md"))
-	if _, ok := keep[agentsPath]; ok {
-		return nil
+	clearManagedRuleTrackedOutputsForTarget(state, targetName)
+	for _, output := range managedRuleTrackedOutputs(targetName, family, root, files) {
+		state.Outputs[managedRuleSyncOutputKey(output.Target, output.Path)] = output
 	}
-
-	ownership, ok := managedRuleProjectRootAgentsClaim(state)
-	if !ok {
-		return nil
-	}
-
-	data, err := os.ReadFile(agentsPath)
-	if err != nil {
-		if errorsIsNotExist(err) {
-			if dryRun {
-				return nil
-			}
-			clearManagedRuleProjectRootAgentsClaims(state)
-			return saveManagedRuleSyncState(root, state)
-		}
-		return err
-	}
-	if checksumForContent(data) != ownership.Checksum {
-		if dryRun {
-			return nil
-		}
-		clearManagedRuleProjectRootAgentsClaims(state)
-		return saveManagedRuleSyncState(root, state)
-	}
-
-	*pruned = append(*pruned, agentsPath)
-	if dryRun {
-		return nil
-	}
-	if err := os.Remove(agentsPath); err != nil && !errorsIsNotExist(err) {
-		return err
-	}
-	clearManagedRuleProjectRootAgentsClaims(state)
 	return saveManagedRuleSyncState(root, state)
 }
 
-func saveManagedRuleSyncState(projectRoot string, state *managedRuleSyncState) error {
-	if strings.TrimSpace(projectRoot) == "" || state == nil {
+func managedRuleHasTrackedOutputs(state *managedRuleSyncState) bool {
+	return state != nil && len(state.Outputs) > 0
+}
+
+func pruneTrackedManagedRuleOutputs(root string, keep map[string]struct{}, state *managedRuleSyncState, dryRun bool, pruned *[]string) error {
+	if state == nil || len(state.Outputs) == 0 {
 		return nil
 	}
-	normalizeManagedRuleSyncState(state)
+
+	changed := false
+	for path, claims := range managedRuleTrackedOutputsByPath(state) {
+		if _, ok := keep[path]; ok {
+			continue
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			if errorsIsNotExist(err) {
+				if !dryRun {
+					clearManagedRuleTrackedOutputsForPath(state, path)
+					changed = true
+				}
+				continue
+			}
+			return err
+		}
+
+		currentChecksum := checksumForContent(data)
+		claimed := false
+		for _, claim := range claims {
+			if claim.Checksum == currentChecksum {
+				claimed = true
+				break
+			}
+		}
+		if !claimed {
+			if !dryRun {
+				clearManagedRuleTrackedOutputsForPath(state, path)
+				changed = true
+			}
+			continue
+		}
+
+		*pruned = append(*pruned, path)
+		if dryRun {
+			continue
+		}
+		if err := os.Remove(path); err != nil && !errorsIsNotExist(err) {
+			return err
+		}
+		clearManagedRuleTrackedOutputsForPath(state, path)
+		changed = true
+	}
+
+	if !changed || dryRun {
+		return nil
+	}
+
+	return saveManagedRuleSyncState(root, state)
+}
+
+func saveManagedRuleSyncState(root string, state *managedRuleSyncState) error {
+	if strings.TrimSpace(root) == "" || state == nil {
+		return nil
+	}
+	normalizeManagedRuleSyncState(root, state)
 	if len(state.Outputs) == 0 {
-		err := os.Remove(managedRuleSyncStatePath(projectRoot))
+		err := os.Remove(managedRuleSyncStatePath(root))
 		if err != nil && !errorsIsNotExist(err) {
 			return err
 		}
 		return nil
 	}
 
-	path := managedRuleSyncStatePath(projectRoot)
+	path := managedRuleSyncStatePath(root)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -176,8 +171,8 @@ func saveManagedRuleSyncState(projectRoot string, state *managedRuleSyncState) e
 	return nil
 }
 
-func managedRuleSyncStatePath(projectRoot string) string {
-	cleaned := filepath.Clean(strings.TrimSpace(projectRoot))
+func managedRuleSyncStatePath(root string) string {
+	cleaned := filepath.Clean(strings.TrimSpace(root))
 	sum := sha256.Sum256([]byte(cleaned))
 	return filepath.Join(config.StateDir(), "managed", "rules", hex.EncodeToString(sum[:])+".json")
 }
@@ -191,43 +186,103 @@ func errorsIsNotExist(err error) bool {
 	return err != nil && os.IsNotExist(err)
 }
 
-func normalizeManagedRuleSyncState(state *managedRuleSyncState) {
+func normalizeManagedRuleSyncState(root string, state *managedRuleSyncState) {
 	if state.Outputs == nil {
 		state.Outputs = map[string]managedRuleSyncOutput{}
 	}
 
-	legacy, ok := state.Outputs["AGENTS.md"]
-	if !ok {
-		return
-	}
-	delete(state.Outputs, "AGENTS.md")
-	target := strings.TrimSpace(legacy.Target)
-	if target == "" {
-		target = "legacy"
-	}
-	if _, exists := state.Outputs[target]; !exists {
-		state.Outputs[target] = legacy
-	}
-}
-
-func managedRuleProjectRootAgentsClaim(state *managedRuleSyncState) (managedRuleSyncOutput, bool) {
-	if state == nil {
-		return managedRuleSyncOutput{}, false
-	}
-	for _, output := range state.Outputs {
-		if strings.TrimSpace(output.Checksum) == "" {
+	normalized := make(map[string]managedRuleSyncOutput, len(state.Outputs))
+	rootAgentsPath := filepath.Clean(filepath.Join(root, "AGENTS.md"))
+	for key, output := range state.Outputs {
+		target := strings.TrimSpace(output.Target)
+		path := filepath.Clean(strings.TrimSpace(output.Path))
+		switch {
+		case target == "" && key == "AGENTS.md":
+			target = "legacy"
+			path = rootAgentsPath
+		case target == "" && path == "":
+			target = strings.TrimSpace(key)
+			path = rootAgentsPath
+		case path == "":
+			path = rootAgentsPath
+		}
+		if target == "" || path == "" || output.Checksum == "" {
 			continue
 		}
-		return output, true
+		output.Target = target
+		output.Path = path
+		normalized[managedRuleSyncOutputKey(target, path)] = output
 	}
-	return managedRuleSyncOutput{}, false
+	state.Outputs = normalized
 }
 
-func clearManagedRuleProjectRootAgentsClaims(state *managedRuleSyncState) {
+func managedRuleSyncOutputKey(target, path string) string {
+	return strings.TrimSpace(target) + "\x00" + filepath.Clean(strings.TrimSpace(path))
+}
+
+func managedRuleTrackedOutputs(targetName, family, root string, files []adapters.CompiledFile) []managedRuleSyncOutput {
+	ownedDir, hasOwnedDir := managedRuleOwnedDir(family, root)
+	ownedFileSet := make(map[string]struct{})
+	for _, path := range managedRuleOwnedFiles(family, root) {
+		ownedFileSet[filepath.Clean(path)] = struct{}{}
+	}
+
+	outputs := make([]managedRuleSyncOutput, 0, len(files))
+	for _, file := range files {
+		cleanedPath := filepath.Clean(file.Path)
+		if hasOwnedDir && pathWithinDir(cleanedPath, ownedDir) {
+			continue
+		}
+		if _, ok := ownedFileSet[cleanedPath]; ok {
+			continue
+		}
+		outputs = append(outputs, managedRuleSyncOutput{
+			Target:    strings.TrimSpace(targetName),
+			Path:      cleanedPath,
+			Checksum:  checksumForContent([]byte(file.Content)),
+			UpdatedAt: time.Now().UTC(),
+		})
+	}
+	return outputs
+}
+
+func managedRuleTrackedOutputsByPath(state *managedRuleSyncState) map[string][]managedRuleSyncOutput {
+	byPath := make(map[string][]managedRuleSyncOutput)
+	if state == nil {
+		return byPath
+	}
+	for _, output := range state.Outputs {
+		if output.Path == "" || output.Checksum == "" {
+			continue
+		}
+		path := filepath.Clean(output.Path)
+		byPath[path] = append(byPath[path], output)
+	}
+	return byPath
+}
+
+func clearManagedRuleTrackedOutputsForTarget(state *managedRuleSyncState, target string) {
 	if state == nil {
 		return
 	}
-	for key := range state.Outputs {
+	target = strings.TrimSpace(target)
+	for key, output := range state.Outputs {
+		if output.Target != target {
+			continue
+		}
+		delete(state.Outputs, key)
+	}
+}
+
+func clearManagedRuleTrackedOutputsForPath(state *managedRuleSyncState, path string) {
+	if state == nil {
+		return
+	}
+	path = filepath.Clean(strings.TrimSpace(path))
+	for key, output := range state.Outputs {
+		if filepath.Clean(output.Path) != path {
+			continue
+		}
 		delete(state.Outputs, key)
 	}
 }

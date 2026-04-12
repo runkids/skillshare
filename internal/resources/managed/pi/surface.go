@@ -185,5 +185,18 @@ func nestedAgentsManagedID(id string) bool {
 	if normalized == ManagedAgentsID {
 		return false
 	}
-	return strings.HasSuffix(normalized, "/AGENTS.md")
+	if !strings.HasSuffix(normalized, "/AGENTS.md") {
+		return false
+	}
+
+	parts := strings.Split(strings.TrimPrefix(normalized, "pi/"), "/")
+	if len(parts) < 2 || parts[len(parts)-1] != "AGENTS.md" {
+		return false
+	}
+	for _, part := range parts[:len(parts)-1] {
+		if part == "" || strings.HasPrefix(part, ".") {
+			return false
+		}
+	}
+	return true
 }

@@ -365,6 +365,16 @@ func TestNormalizeRuleID_RejectsUnsupportedPiPaths(t *testing.T) {
 	}
 }
 
+func TestNormalizeRuleID_RejectsHiddenNestedPiAgentsPaths(t *testing.T) {
+	for _, id := range []string{"pi/.codex/AGENTS.md", "pi/.gemini/AGENTS.md", "pi/.hidden/team/AGENTS.md"} {
+		t.Run(id, func(t *testing.T) {
+			if _, err := NormalizeRuleID(id); err == nil {
+				t.Fatalf("NormalizeRuleID(%q) error = nil, want error", id)
+			}
+		})
+	}
+}
+
 func TestNormalizeRuleID_RejectsReservedTempSegments(t *testing.T) {
 	for _, id := range []string{
 		"claude/.rule-tmp-test.md",

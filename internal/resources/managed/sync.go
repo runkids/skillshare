@@ -68,7 +68,7 @@ func syncRules(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
 		result.Err = fmt.Errorf("apply managed rules: %w", err)
 		return result, true
 	}
-	state, err := loadManagedRuleSyncState(req.ProjectRoot)
+	state, err := loadManagedRuleSyncState(compileRoot)
 	if err != nil {
 		result.Err = fmt.Errorf("load managed rule state: %w", err)
 		return result, true
@@ -80,7 +80,7 @@ func syncRules(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
 		return result, true
 	}
 	if !req.DryRun {
-		if err := recordManagedRuleSyncState(req.ProjectRoot, spec.Name, files, state); err != nil {
+		if err := recordManagedRuleSyncState(spec.Name, compileTarget, compileRoot, files, state); err != nil {
 			result.Err = fmt.Errorf("save managed rule state: %w", err)
 			return result, true
 		}
@@ -264,7 +264,7 @@ func conflictAnalysisTargets(req SyncRequest) []TargetSyncSpec {
 func pruneRuleOrphans(target, root string, files []adapters.CompiledFile, otherCurrentPaths map[string]struct{}, state *managedRuleSyncState, dryRun bool) ([]string, error) {
 	ownedDir, ok := managedRuleOwnedDir(target, root)
 	ownedFiles := managedRuleOwnedFiles(target, root)
-	if !ok && len(ownedFiles) == 0 && !managedRuleProjectRootAgentsOwned(state, root) {
+	if !ok && len(ownedFiles) == 0 && !managedRuleHasTrackedOutputs(state) {
 		return []string{}, nil
 	}
 
@@ -321,7 +321,7 @@ func pruneRuleOrphans(target, root string, files []adapters.CompiledFile, otherC
 			return nil, err
 		}
 	}
-	if err := pruneManagedProjectRootAgents(root, keep, state, dryRun, &pruned); err != nil {
+	if err := pruneTrackedManagedRuleOutputs(root, keep, state, dryRun, &pruned); err != nil {
 		return nil, err
 	}
 	for _, ownedPath := range ownedFiles {
