@@ -195,7 +195,11 @@ func normalizeManagedRuleSyncState(root string, state *managedRuleSyncState) {
 	rootAgentsPath := filepath.Clean(filepath.Join(root, "AGENTS.md"))
 	for key, output := range state.Outputs {
 		target := strings.TrimSpace(output.Target)
-		path := filepath.Clean(strings.TrimSpace(output.Path))
+		rawPath := strings.TrimSpace(output.Path)
+		path := ""
+		if rawPath != "" {
+			path = filepath.Clean(rawPath)
+		}
 		switch {
 		case target == "" && key == "AGENTS.md":
 			target = "legacy"

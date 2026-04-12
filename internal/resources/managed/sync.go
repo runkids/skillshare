@@ -293,6 +293,9 @@ func pruneRuleOrphans(target, root string, files []adapters.CompiledFile, otherC
 			}
 		}
 	}
+	for _, output := range managedRuleTrackedOutputs("", target, root, files) {
+		keep[filepath.Clean(output.Path)] = struct{}{}
+	}
 	for path := range otherCurrentPaths {
 		keep[path] = struct{}{}
 	}
