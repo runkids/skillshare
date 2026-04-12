@@ -49,6 +49,31 @@ func TestWriteJSONError(t *testing.T) {
 	}
 }
 
+func TestIsStructuredOutput(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{"--json", []string{"search", "foo", "--json"}, true},
+		{"-j short alias", []string{"list", "-j"}, true},
+		{"--format json", []string{"audit", "--format", "json"}, true},
+		{"--format sarif", []string{"audit", "--format", "sarif"}, true},
+		{"--format markdown", []string{"audit", "--format", "markdown"}, true},
+		{"--format text is not structured", []string{"audit", "--format", "text"}, false},
+		{"no flags", []string{"search", "foo"}, false},
+		{"empty args", []string{}, false},
+		{"--format without value", []string{"audit", "--format"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isStructuredOutput(tt.args); got != tt.want {
+				t.Errorf("isStructuredOutput(%v) = %v, want %v", tt.args, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestWriteJSONErrorIsWrappedWithErrorsAs(t *testing.T) {
 	inner := writeJSONError(errors.New("wrapped sync failed"))
 	if inner == nil {

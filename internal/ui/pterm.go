@@ -547,12 +547,12 @@ func RenderInlineBar(done, total int) string {
 // or "skillshare upgrade").
 func UpdateNotification(currentVersion, latestVersion, upgradeCmd string) {
 	if !IsTTY() {
-		fmt.Printf("\n! Update available: %s -> %s\n", currentVersion, latestVersion)
-		fmt.Printf("  Run '%s' to update\n", upgradeCmd)
+		fmt.Fprintf(os.Stderr, "\n! Update available: %s -> %s\n", currentVersion, latestVersion)
+		fmt.Fprintf(os.Stderr, "  Run '%s' to update\n", upgradeCmd)
 		return
 	}
 
-	fmt.Println()
+	fmt.Fprintln(os.Stderr)
 	versionLine := fmt.Sprintf("  Version: %s -> %s", currentVersion, latestVersion)
 	runLine := fmt.Sprintf("  Run: %s", upgradeCmd)
 	w := DisplayWidth(versionLine)
@@ -560,10 +560,10 @@ func UpdateNotification(currentVersion, latestVersion, upgradeCmd string) {
 		w = rw
 	}
 
-	fmt.Println(pterm.Yellow("Update Available"))
-	fmt.Println(pterm.Yellow(strings.Repeat("─", w)))
-	fmt.Println(versionLine)
-	fmt.Println(runLine)
+	fmt.Fprintln(os.Stderr, pterm.Yellow("Update Available"))
+	fmt.Fprintln(os.Stderr, pterm.Yellow(strings.Repeat("─", w)))
+	fmt.Fprintln(os.Stderr, versionLine)
+	fmt.Fprintln(os.Stderr, runLine)
 }
 
 // SyncSummary prints a sync summary line.

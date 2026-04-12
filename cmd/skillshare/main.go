@@ -111,14 +111,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println()
+	// Structured-output contract: machine-readable modes (--json, -j,
+	// --format json/sarif/markdown) must produce only structured data on
+	// stdout and nothing on stderr.  Skip the trailing newline and update
+	// check entirely so machine consumers get a clean payload.
+	if !isStructuredOutput(args) {
+		fmt.Println()
 
-	// Check for updates (non-blocking, silent on errors)
-	// Skip for upgrade (just upgraded, old version in process) and doctor (has its own check)
-	if cmd != "upgrade" && cmd != "doctor" {
-		method := detectInstallMethod()
-		if result := versioncheck.Check(version, method); result != nil && result.UpdateAvailable {
-			ui.UpdateNotification(result.CurrentVersion, result.LatestVersion, result.InstallMethod.UpgradeCommand())
+		// Check for updates (non-blocking, silent on errors)
+		// Skip for upgrade (just upgraded, old version in process) and doctor (has its own check)
+		if cmd != "upgrade" && cmd != "doctor" {
+			method := detectInstallMethod()
+			if result := versioncheck.Check(version, method); result != nil && result.UpdateAvailable {
+				ui.UpdateNotification(result.CurrentVersion, result.LatestVersion, result.InstallMethod.UpgradeCommand())
+			}
 		}
 	}
 }

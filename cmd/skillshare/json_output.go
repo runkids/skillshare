@@ -117,6 +117,25 @@ func hasFlag(args []string, flag string) bool {
 	return slices.Contains(args, flag)
 }
 
+// isStructuredOutput returns true if the args request any machine-readable
+// output mode.  This covers --json, -j, and --format json/sarif/markdown.
+// Used by main() to suppress human-oriented output (update notices, trailing
+// newlines) that would violate the structured-output contract.
+func isStructuredOutput(args []string) bool {
+	if hasFlag(args, "--json") || hasFlag(args, "-j") {
+		return true
+	}
+	for i, arg := range args {
+		if arg == "--format" && i+1 < len(args) {
+			switch args[i+1] {
+			case "json", "sarif", "markdown":
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // wantsHelp returns true if args contain --help or -h.
 func wantsHelp(args []string) bool {
 	return hasFlag(args, "--help") || hasFlag(args, "-h")
