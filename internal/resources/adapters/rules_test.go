@@ -129,6 +129,27 @@ func TestCompilePiRules_WritesInstructionSurfaces(t *testing.T) {
 	_ = findCompiledFile(t, files, filepath.Join(projectRoot, ".pi", "APPEND_SYSTEM.md"))
 }
 
+func TestCompilePiRules_GlobalConfigRootUsesAgentSubdir(t *testing.T) {
+	globalRoot := "/tmp/home/.pi/agent"
+	records := []RuleRecord{
+		{ID: "pi/SYSTEM.md", Tool: "pi", RelativePath: "pi/SYSTEM.md", Name: "SYSTEM.md", Content: "# Pi System\n"},
+		{ID: "pi/APPEND_SYSTEM.md", Tool: "pi", RelativePath: "pi/APPEND_SYSTEM.md", Name: "APPEND_SYSTEM.md", Content: "# Pi Append\n"},
+	}
+
+	files, warnings, err := CompilePiRules(records, globalRoot)
+	if err != nil {
+		t.Fatalf("CompilePiRules() error = %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Fatalf("CompilePiRules() warnings = %v, want none", warnings)
+	}
+
+	_ = findCompiledFile(t, files, filepath.Join(globalRoot, "SYSTEM.md"))
+	_ = findCompiledFile(t, files, filepath.Join(globalRoot, "APPEND_SYSTEM.md"))
+	mustNotContainCompiledFile(t, files, filepath.Join(globalRoot, ".pi", "SYSTEM.md"))
+	mustNotContainCompiledFile(t, files, filepath.Join(globalRoot, ".pi", "APPEND_SYSTEM.md"))
+}
+
 func findCompiledFile(t *testing.T, files []CompiledFile, wantPath string) CompiledFile {
 	t.Helper()
 	for _, file := range files {

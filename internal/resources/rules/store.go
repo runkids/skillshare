@@ -304,7 +304,7 @@ func splitRuleID(id string) (tool string, name string) {
 
 func isSupportedRuleToolPrefix(tool string) bool {
 	switch tool {
-	case "claude", "codex", "gemini":
+	case "claude", "codex", "gemini", "pi":
 		return true
 	default:
 		return false

@@ -427,7 +427,7 @@ func resolveManagedRulePreviewTool(name, targetPath string) (string, bool) {
 	}
 
 	switch managedRulePathFamily(targetPath) {
-	case "claude", "codex", "gemini":
+	case "claude", "codex", "gemini", "pi":
 		return managedRulePathFamily(targetPath), true
 	default:
 		return "", false
@@ -452,10 +452,6 @@ func managedRulePathFamily(targetPath string) string {
 	}
 
 	base := strings.ToLower(filepath.Base(cleaned))
-	if base == "skills" {
-		base = strings.ToLower(filepath.Base(filepath.Dir(cleaned)))
-	}
-
 	switch base {
 	case ".claude", "claude":
 		return "claude"
@@ -463,9 +459,17 @@ func managedRulePathFamily(targetPath string) string {
 		return "codex"
 	case ".gemini", "gemini":
 		return "gemini"
-	default:
-		return ""
+	case ".pi", "pi":
+		return "pi"
+	case "skills":
+		parent := strings.ToLower(filepath.Base(filepath.Dir(cleaned)))
+		grandparent := strings.ToLower(filepath.Base(filepath.Dir(filepath.Dir(cleaned))))
+		if parent == ".pi" || parent == "pi" || (parent == "agent" && grandparent == ".pi") {
+			return "pi"
+		}
 	}
+
+	return ""
 }
 
 func decodeManagedRuleRequest(r *http.Request, body *managedRuleRequest) error {
@@ -625,7 +629,7 @@ func managedRuleDerivedID(body managedRuleRequest) (string, error) {
 func normalizeManagedRuleTool(raw string) (string, error) {
 	tool := strings.ToLower(strings.TrimSpace(raw))
 	switch tool {
-	case "claude", "codex", "gemini":
+	case "claude", "codex", "gemini", "pi":
 		return tool, nil
 	case "":
 		return "", nil

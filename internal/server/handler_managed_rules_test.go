@@ -567,6 +567,41 @@ func TestManagedRulesPreviewCompilesSharedAgentsTargetsAtGlobalRoot(t *testing.T
 	}
 }
 
+func TestManagedRulesPreviewCompilesPiTargetsAtGlobalRoot(t *testing.T) {
+	tmp := t.TempDir()
+	homeDir := filepath.Join(tmp, "home")
+	t.Setenv("HOME", homeDir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmp, "xdg-config"))
+
+	targetPath := filepath.Join(homeDir, ".pi", "agent", "skills")
+	s, _ := newTestServerWithTargets(t, map[string]string{"pi": targetPath})
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/managed/rules", strings.NewReader(`{"tool":"pi","relativePath":"pi/SYSTEM.md","content":"# Pi System\n"}`))
+	createRR := httptest.NewRecorder()
+	s.handler.ServeHTTP(createRR, createReq)
+	if createRR.Code != http.StatusCreated {
+		t.Fatalf("expected 201 from create, got %d: %s", createRR.Code, createRR.Body.String())
+	}
+
+	var createResp struct {
+		Previews []struct {
+			Target string `json:"target"`
+			Files  []struct {
+				Path string `json:"path"`
+			} `json:"files"`
+		} `json:"previews"`
+	}
+	if err := json.Unmarshal(createRR.Body.Bytes(), &createResp); err != nil {
+		t.Fatalf("failed to decode create response: %v", err)
+	}
+	if len(createResp.Previews) != 1 || createResp.Previews[0].Target != "pi" {
+		t.Fatalf("create previews = %#v, want one pi preview", createResp.Previews)
+	}
+	if len(createResp.Previews[0].Files) != 1 || createResp.Previews[0].Files[0].Path != filepath.Join(homeDir, ".pi", "agent", "SYSTEM.md") {
+		t.Fatalf("create preview files = %#v, want SYSTEM.md under ~/.pi/agent", createResp.Previews[0].Files)
+	}
+}
+
 func TestManagedRulesCreateServerErrorOnWriteFailure(t *testing.T) {
 	s, projectRoot, _, _ := newManagedProjectServer(t, "claude")
 

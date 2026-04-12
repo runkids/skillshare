@@ -47,7 +47,13 @@ func CompilePiRules(records []RuleRecord, projectRoot string) ([]CompiledFile, [
 
 func piOutputBaseDir(root string) string {
 	cleaned := filepath.Clean(strings.TrimSpace(root))
-	if strings.EqualFold(filepath.Base(cleaned), ".pi") {
+	if cleaned == "" || cleaned == "." {
+		return cleaned
+	}
+
+	base := strings.ToLower(filepath.Base(cleaned))
+	parent := strings.ToLower(filepath.Base(filepath.Dir(cleaned)))
+	if base == ".pi" || (base == "agent" && parent == ".pi") {
 		return cleaned
 	}
 	return filepath.Join(cleaned, ".pi")
