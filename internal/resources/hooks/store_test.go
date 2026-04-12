@@ -161,6 +161,45 @@ func TestHookStore_GeminiRoundTripsSequentialAndHandlerMetadata(t *testing.T) {
 	}
 }
 
+func TestHookStore_LoadsLegacyGeminiTimeoutUsingTimeoutSeconds(t *testing.T) {
+	store := NewStore(t.TempDir())
+	fullPath, id, err := store.pathForID("gemini/before-tool/read.yaml")
+	if err != nil {
+		t.Fatalf("pathForID() error = %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+		t.Fatalf("mkdir hook dir: %v", err)
+	}
+	if err := os.WriteFile(fullPath, []byte("tool: gemini\nevent: BeforeTool\nmatcher: Read\nhandlers:\n  - type: command\n    command: ./bin/check\n    timeout: 30s\n    timeoutSec: 30000\n"), 0o644); err != nil {
+		t.Fatalf("write legacy gemini hook: %v", err)
+	}
+
+	got, err := store.Get(id)
+	if err != nil {
+		t.Fatalf("Get() error = %v, want legacy gemini timeout compatibility", err)
+	}
+	if len(got.Handlers) != 1 {
+		t.Fatalf("Get() Handlers len = %d, want 1", len(got.Handlers))
+	}
+	if got.Handlers[0].Timeout != "30000" {
+		t.Fatalf("Get() Timeout = %q, want canonicalized timeout from timeoutSec", got.Handlers[0].Timeout)
+	}
+	if got.Handlers[0].TimeoutSeconds == nil || *got.Handlers[0].TimeoutSeconds != 30000 {
+		t.Fatalf("Get() TimeoutSeconds = %#v, want 30000", got.Handlers[0].TimeoutSeconds)
+	}
+
+	all, err := store.List()
+	if err != nil {
+		t.Fatalf("List() error = %v, want legacy gemini timeout compatibility", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("List() len = %d, want 1", len(all))
+	}
+	if all[0].Handlers[0].Timeout != "30000" {
+		t.Fatalf("List() Timeout = %q, want canonicalized timeout from timeoutSec", all[0].Handlers[0].Timeout)
+	}
+}
+
 func TestHookStore_RejectsEmptyHandlers(t *testing.T) {
 	store := NewStore(t.TempDir())
 

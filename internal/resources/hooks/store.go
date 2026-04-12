@@ -108,6 +108,7 @@ func (s *Store) Get(id string) (Record, error) {
 	if err := yaml.Unmarshal(data, &file); err != nil {
 		return Record{}, fmt.Errorf("parse hook %q: %w", cleanedID, err)
 	}
+	file = normalizeLoadedHookFile(file)
 	if err := validateFile(cleanedID, file); err != nil {
 		return Record{}, err
 	}
@@ -163,6 +164,7 @@ func (s *Store) List() ([]Record, error) {
 		if err := yaml.Unmarshal(data, &file); err != nil {
 			return fmt.Errorf("parse hook %q: %w", id, err)
 		}
+		file = normalizeLoadedHookFile(file)
 		if err := validateFile(id, file); err != nil {
 			return err
 		}
@@ -371,6 +373,32 @@ func sanitizeHandlers(in []Handler) []Handler {
 			TimeoutSeconds: h.TimeoutSeconds,
 			StatusMessage:  strings.TrimSpace(h.StatusMessage),
 		}
+	}
+	return out
+}
+
+func normalizeLoadedHookFile(in hookFile) hookFile {
+	if strings.ToLower(strings.TrimSpace(in.Tool)) != "gemini" {
+		return in
+	}
+	in.Handlers = normalizeLegacyGeminiTimeouts(in.Handlers)
+	return in
+}
+
+func normalizeLegacyGeminiTimeouts(in []Handler) []Handler {
+	if len(in) == 0 {
+		return nil
+	}
+	out := sanitizeHandlers(in)
+	for i := range out {
+		timeout := strings.TrimSpace(out[i].Timeout)
+		if timeout == "" || out[i].TimeoutSeconds == nil {
+			continue
+		}
+		if _, err := strconv.Atoi(timeout); err == nil {
+			continue
+		}
+		out[i].Timeout = strconv.Itoa(*out[i].TimeoutSeconds)
 	}
 	return out
 }
