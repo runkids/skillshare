@@ -60,10 +60,11 @@ func ManagedRuleIDs() []string {
 }
 
 func RuleInstructionFiles() []string {
-	out := make([]string, 0, len(managedRuleSurfaces))
+	out := make([]string, 0, len(managedRuleSurfaces)+1)
 	for _, surface := range managedRuleSurfaces {
 		out = append(out, surface.instructionFile)
 	}
+	out = append(out, "**/AGENTS.md")
 	return out
 }
 

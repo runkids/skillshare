@@ -55,4 +55,7 @@ func TestCapabilitySnapshot_ContainsExhaustiveTargetClassification(t *testing.T)
 	if got := snapshot.Families["claude"]; containsString(got.CompatibleTargets, "xcode-claude") {
 		t.Fatalf("claude compatible targets = %v, want xcode-claude excluded", got.CompatibleTargets)
 	}
+	if got := snapshot.Families["pi"]; !containsString(got.RuleInstructionFiles, "**/AGENTS.md") {
+		t.Fatalf("pi rule instruction files = %v, want nested AGENTS surface", got.RuleInstructionFiles)
+	}
 }
