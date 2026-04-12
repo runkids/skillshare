@@ -57,7 +57,8 @@ func syncRules(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
 		result.Err = fmt.Errorf("compile managed rules: %w", err)
 		return result, true
 	}
-	if err := detectRuleOutputConflicts(req, spec, records, compileTarget, files); err != nil {
+	otherCurrentPaths, err := detectRuleOutputConflicts(req, spec, records, compileTarget, files)
+	if err != nil {
 		result.Err = fmt.Errorf("compile managed rules: %w", err)
 		return result, true
 	}
@@ -67,10 +68,22 @@ func syncRules(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
 		result.Err = fmt.Errorf("apply managed rules: %w", err)
 		return result, true
 	}
-	pruned, err := pruneRuleOrphans(compileTarget, compileRoot, files, req.DryRun)
+	state, err := loadManagedRuleSyncState(req.ProjectRoot)
+	if err != nil {
+		result.Err = fmt.Errorf("load managed rule state: %w", err)
+		return result, true
+	}
+
+	pruned, err := pruneRuleOrphans(compileTarget, compileRoot, files, otherCurrentPaths, state, req.DryRun)
 	if err != nil {
 		result.Err = fmt.Errorf("prune managed rules: %w", err)
 		return result, true
+	}
+	if !req.DryRun {
+		if err := recordManagedRuleSyncState(req.ProjectRoot, spec.Name, files, state); err != nil {
+			result.Err = fmt.Errorf("save managed rule state: %w", err)
+			return result, true
+		}
 	}
 
 	result.Updated = updated
@@ -206,15 +219,12 @@ func managedRuleOwnedFiles(target, root string) []string {
 	}
 }
 
-func detectRuleOutputConflicts(req SyncRequest, current TargetSyncSpec, records []managedrules.Record, currentFamily string, currentFiles []adapters.CompiledFile) error {
-	if len(currentFiles) == 0 {
-		return nil
-	}
-
+func detectRuleOutputConflicts(req SyncRequest, current TargetSyncSpec, records []managedrules.Record, currentFamily string, currentFiles []adapters.CompiledFile) (map[string]struct{}, error) {
 	currentPaths := make(map[string]string, len(currentFiles))
 	for _, file := range currentFiles {
 		currentPaths[filepath.Clean(file.Path)] = file.Content
 	}
+	otherCurrentPaths := make(map[string]struct{})
 
 	for _, other := range conflictAnalysisTargets(req) {
 		if other.Name == current.Name {
@@ -230,17 +240,18 @@ func detectRuleOutputConflicts(req SyncRequest, current TargetSyncSpec, records 
 			if errors.Is(err, managedrules.ErrUnsupportedTarget) {
 				continue
 			}
-			return err
+			return nil, err
 		}
 		for _, otherFile := range otherFiles {
 			cleaned := filepath.Clean(otherFile.Path)
+			otherCurrentPaths[cleaned] = struct{}{}
 			if currentContent, ok := currentPaths[cleaned]; ok && currentContent != otherFile.Content {
-				return fmt.Errorf("managed rule output conflict: %s is produced by %s (%s) and %s (%s)", cleaned, current.Name, currentFamily, other.Name, otherFamily)
+				return nil, fmt.Errorf("managed rule output conflict: %s is produced by %s (%s) and %s (%s)", cleaned, current.Name, currentFamily, other.Name, otherFamily)
 			}
 		}
 	}
 
-	return nil
+	return otherCurrentPaths, nil
 }
 
 func conflictAnalysisTargets(req SyncRequest) []TargetSyncSpec {
@@ -250,10 +261,10 @@ func conflictAnalysisTargets(req SyncRequest) []TargetSyncSpec {
 	return req.Targets
 }
 
-func pruneRuleOrphans(target, root string, files []adapters.CompiledFile, dryRun bool) ([]string, error) {
+func pruneRuleOrphans(target, root string, files []adapters.CompiledFile, otherCurrentPaths map[string]struct{}, state *managedRuleSyncState, dryRun bool) ([]string, error) {
 	ownedDir, ok := managedRuleOwnedDir(target, root)
 	ownedFiles := managedRuleOwnedFiles(target, root)
-	if !ok && len(ownedFiles) == 0 {
+	if !ok && len(ownedFiles) == 0 && !managedRuleProjectRootAgentsOwned(state, root) {
 		return []string{}, nil
 	}
 
@@ -282,6 +293,9 @@ func pruneRuleOrphans(target, root string, files []adapters.CompiledFile, dryRun
 			}
 		}
 	}
+	for path := range otherCurrentPaths {
+		keep[path] = struct{}{}
+	}
 
 	pruned := make([]string, 0)
 	if ok {
@@ -306,6 +320,9 @@ func pruneRuleOrphans(target, root string, files []adapters.CompiledFile, dryRun
 		}); err != nil {
 			return nil, err
 		}
+	}
+	if err := pruneManagedProjectRootAgents(root, keep, state, dryRun, &pruned); err != nil {
+		return nil, err
 	}
 	for _, ownedPath := range ownedFiles {
 		if _, ok := keep[ownedPath]; ok {

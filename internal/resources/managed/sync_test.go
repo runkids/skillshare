@@ -316,22 +316,20 @@ func TestSync_PrunesDeletedPiRuleOutputs(t *testing.T) {
 	}
 }
 
-func TestSync_ProjectModePiSyncDoesNotPruneManualProjectRootAgents(t *testing.T) {
-	projectRoot := t.TempDir()
-	manualAgentsPath := filepath.Join(projectRoot, "AGENTS.md")
-	if err := os.WriteFile(manualAgentsPath, []byte("# Manual Agents\n"), 0o644); err != nil {
-		t.Fatalf("write manual AGENTS.md: %v", err)
-	}
+func TestSync_PrunesManagedProjectRootAgentsAfterPiSourceDeletion(t *testing.T) {
+	stateHome := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", stateHome)
 
+	projectRoot := t.TempDir()
 	ruleStore := managedrules.NewStore(projectRoot)
 	if _, err := ruleStore.Put(managedrules.Save{
-		ID:      "pi/SYSTEM.md",
-		Content: []byte("# Pi System\n"),
+		ID:      "pi/AGENTS.md",
+		Content: []byte("# Pi Agents\n"),
 	}); err != nil {
-		t.Fatalf("put managed pi rule: %v", err)
+		t.Fatalf("put managed pi agents: %v", err)
 	}
 
-	results := Sync(SyncRequest{
+	req := SyncRequest{
 		ProjectRoot: projectRoot,
 		DryRun:      false,
 		Resources:   ResourceSet{Rules: true},
@@ -339,19 +337,82 @@ func TestSync_ProjectModePiSyncDoesNotPruneManualProjectRootAgents(t *testing.T)
 			Name:   "pi",
 			Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
 		}},
-		AllTargets: []TargetSyncSpec{
-			{
-				Name:   "codex",
-				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".codex", "skills")},
-			},
-			{
-				Name:   "pi",
-				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
-			},
-		},
+	}
+
+	first := Sync(req)
+	firstResult := findSyncResult(t, first, "pi", "rules")
+	if firstResult.Err != nil {
+		t.Fatalf("first pi rules sync error = %v", firstResult.Err)
+	}
+	managedAgentsPath := filepath.Join(projectRoot, "AGENTS.md")
+	if _, err := os.Stat(managedAgentsPath); err != nil {
+		t.Fatalf("expected managed AGENTS.md after first sync: %v", err)
+	}
+
+	if err := ruleStore.Delete("pi/AGENTS.md"); err != nil {
+		t.Fatalf("delete managed pi agents: %v", err)
+	}
+
+	second := Sync(req)
+	secondResult := findSyncResult(t, second, "pi", "rules")
+	if secondResult.Err != nil {
+		t.Fatalf("second pi rules sync error = %v", secondResult.Err)
+	}
+	if !containsAll(secondResult.Pruned, managedAgentsPath) {
+		t.Fatalf("second pi rules pruned = %v, want %q", secondResult.Pruned, managedAgentsPath)
+	}
+	if _, err := os.Stat(managedAgentsPath); !os.IsNotExist(err) {
+		t.Fatalf("expected managed AGENTS.md to be pruned, got err=%v", err)
+	}
+}
+
+func TestSync_ProjectModePiSyncDoesNotPruneManualProjectRootAgents(t *testing.T) {
+	stateHome := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", stateHome)
+
+	projectRoot := t.TempDir()
+	ruleStore := managedrules.NewStore(projectRoot)
+	if _, err := ruleStore.Put(managedrules.Save{
+		ID:      "pi/AGENTS.md",
+		Content: []byte("# Managed Agents\n"),
+	}); err != nil {
+		t.Fatalf("put managed pi agents: %v", err)
+	}
+
+	first := Sync(SyncRequest{
+		ProjectRoot: projectRoot,
+		DryRun:      false,
+		Resources:   ResourceSet{Rules: true},
+		Targets: []TargetSyncSpec{{
+			Name:   "pi",
+			Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
+		}},
 	})
 
-	result := findSyncResult(t, results, "pi", "rules")
+	firstResult := findSyncResult(t, first, "pi", "rules")
+	if firstResult.Err != nil {
+		t.Fatalf("first pi rules sync error = %v", firstResult.Err)
+	}
+	manualAgentsPath := filepath.Join(projectRoot, "AGENTS.md")
+	if err := os.WriteFile(manualAgentsPath, []byte("# Manual Agents\n"), 0o644); err != nil {
+		t.Fatalf("rewrite manual AGENTS.md: %v", err)
+	}
+
+	if err := ruleStore.Delete("pi/AGENTS.md"); err != nil {
+		t.Fatalf("delete managed pi agents: %v", err)
+	}
+
+	second := Sync(SyncRequest{
+		ProjectRoot: projectRoot,
+		DryRun:      false,
+		Resources:   ResourceSet{Rules: true},
+		Targets: []TargetSyncSpec{{
+			Name:   "pi",
+			Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
+		}},
+	})
+
+	result := findSyncResult(t, second, "pi", "rules")
 	if result.Err != nil {
 		t.Fatalf("pi rules sync error = %v", result.Err)
 	}
@@ -360,6 +421,79 @@ func TestSync_ProjectModePiSyncDoesNotPruneManualProjectRootAgents(t *testing.T)
 	}
 	if got := readFile(t, manualAgentsPath); got != "# Manual Agents\n" {
 		t.Fatalf("project AGENTS.md = %q, want manual content preserved", got)
+	}
+}
+
+func TestSync_PreservesProjectRootAgentsWhenAnotherCurrentTargetStillProducesIt(t *testing.T) {
+	stateHome := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", stateHome)
+
+	projectRoot := t.TempDir()
+	ruleStore := managedrules.NewStore(projectRoot)
+	if _, err := ruleStore.Put(managedrules.Save{
+		ID:      "codex/AGENTS.md",
+		Content: []byte("# Codex Agents\n"),
+	}); err != nil {
+		t.Fatalf("put managed codex agents: %v", err)
+	}
+	if _, err := ruleStore.Put(managedrules.Save{
+		ID:      "pi/AGENTS.md",
+		Content: []byte("# Pi Agents\n"),
+	}); err != nil {
+		t.Fatalf("put managed pi agents: %v", err)
+	}
+
+	first := Sync(SyncRequest{
+		ProjectRoot: projectRoot,
+		DryRun:      false,
+		Resources:   ResourceSet{Rules: true},
+		Targets: []TargetSyncSpec{
+			{
+				Name:   "pi",
+				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
+			},
+		},
+	})
+
+	if piFirst := findSyncResult(t, first, "pi", "rules"); piFirst.Err != nil {
+		t.Fatalf("first pi rules sync error = %v", piFirst.Err)
+	}
+	if got := readFile(t, filepath.Join(projectRoot, "AGENTS.md")); !strings.Contains(got, "# Pi Agents") {
+		t.Fatalf("managed AGENTS.md = %q, want pi content", got)
+	}
+
+	if err := ruleStore.Delete("pi/AGENTS.md"); err != nil {
+		t.Fatalf("delete managed pi agents: %v", err)
+	}
+
+	second := Sync(SyncRequest{
+		ProjectRoot: projectRoot,
+		DryRun:      false,
+		Resources:   ResourceSet{Rules: true},
+		Targets: []TargetSyncSpec{
+			{
+				Name:   "pi",
+				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".pi", "skills")},
+			},
+			{
+				Name:   "codex",
+				Target: config.TargetConfig{Path: filepath.Join(projectRoot, ".codex", "skills")},
+			},
+		},
+	})
+
+	piResult := findSyncResult(t, second, "pi", "rules")
+	if piResult.Err != nil {
+		t.Fatalf("second pi rules sync error = %v", piResult.Err)
+	}
+	if containsAll(piResult.Pruned, filepath.Join(projectRoot, "AGENTS.md")) {
+		t.Fatalf("pi rules pruned = %v, shared AGENTS.md must not be pruned while codex still produces it", piResult.Pruned)
+	}
+	if codexResult := findSyncResult(t, second, "codex", "rules"); codexResult.Err != nil {
+		t.Fatalf("second codex rules sync error = %v", codexResult.Err)
+	}
+	if got := readFile(t, filepath.Join(projectRoot, "AGENTS.md")); !strings.Contains(got, "# Codex Agents") {
+		t.Fatalf("shared AGENTS.md = %q, want codex content preserved", got)
 	}
 }
 
