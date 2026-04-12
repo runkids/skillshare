@@ -156,6 +156,58 @@ func TestCollectRules_DoesNotPartiallyWriteOnLaterFailure(t *testing.T) {
 	}
 }
 
+func TestCollectRules_DuplicateRejectsFixedPiSurface(t *testing.T) {
+	projectRoot := t.TempDir()
+	store := NewStore(projectRoot)
+
+	_, err := store.Put(Save{
+		ID:         "pi/SYSTEM.md",
+		Content:    []byte("# Existing Pi System\n"),
+		SourceType: "tracked",
+	})
+	if err != nil {
+		t.Fatalf("seed Put() error = %v", err)
+	}
+
+	discovered := []inspect.RuleItem{
+		{
+			Name:        "SYSTEM.md",
+			SourceTool:  "pi",
+			Scope:       inspect.ScopeProject,
+			Path:        "/tmp/project/.pi/SYSTEM.md",
+			Content:     "# Pi System\n",
+			Collectible: true,
+		},
+	}
+
+	_, err = Collect(projectRoot, discovered, CollectOptions{Strategy: StrategyDuplicate})
+	if err == nil {
+		t.Fatal("Collect() error = nil, want fixed-surface duplicate error")
+	}
+	if !errors.Is(err, ErrInvalidCollect) {
+		t.Fatalf("Collect() error = %v, want ErrInvalidCollect", err)
+	}
+	if !strings.Contains(err.Error(), "fixed instruction surface") {
+		t.Fatalf("Collect() error = %v, want fixed-surface message", err)
+	}
+
+	record, err := store.Get("pi/SYSTEM.md")
+	if err != nil {
+		t.Fatalf("Get(pi/SYSTEM.md) error = %v", err)
+	}
+	if string(record.Content) != "# Existing Pi System\n" {
+		t.Fatalf("pi/SYSTEM.md content = %q, want original content", string(record.Content))
+	}
+
+	all, err := store.List()
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("List() len = %d, want 1", len(all))
+	}
+}
+
 func TestCollectRules_RejectsCanonicalManagedIDCollisions(t *testing.T) {
 	projectRoot := t.TempDir()
 

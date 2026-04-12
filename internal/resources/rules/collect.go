@@ -163,6 +163,9 @@ func planCollect(existing []Record, discovered []inspect.RuleItem, strategy Stra
 			takenIDs[id] = true
 			plan.result.Overwritten = append(plan.result.Overwritten, id)
 		case strategy == StrategyDuplicate:
+			if managedpi.IsManagedRuleID(id) {
+				return collectPlan{}, invalidCollectf("cannot collect %s: managed pi rules use fixed instruction surfaces", item.Path)
+			}
 			duplicateID := nextDuplicateIDFromTaken(takenIDs, id)
 			plan.writes = append(plan.writes, Save{
 				ID:         duplicateID,

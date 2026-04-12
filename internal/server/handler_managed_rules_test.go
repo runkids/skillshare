@@ -613,6 +613,52 @@ func TestManagedRulesCreateRejectsUnsupportedPiPath(t *testing.T) {
 	}
 }
 
+func TestManagedRulesCollectDuplicatePiSurfaceReturnsBadRequest(t *testing.T) {
+	s, projectRoot, _, _ := newManagedProjectServer(t, "pi")
+
+	store := managedrules.NewStore(projectRoot)
+	if _, err := store.Put(managedrules.Save{
+		ID:      "pi/SYSTEM.md",
+		Content: []byte("# Existing Pi System\n"),
+	}); err != nil {
+		t.Fatalf("seed Put() error = %v", err)
+	}
+
+	systemPath := filepath.Join(projectRoot, ".pi", "SYSTEM.md")
+	if err := os.MkdirAll(filepath.Dir(systemPath), 0755); err != nil {
+		t.Fatalf("failed to create pi dir: %v", err)
+	}
+	if err := os.WriteFile(systemPath, []byte("# Pi System\n"), 0644); err != nil {
+		t.Fatalf("failed to write pi system file: %v", err)
+	}
+
+	discovered, _, err := inspect.ScanRules(projectRoot)
+	if err != nil {
+		t.Fatalf("ScanRules() error = %v", err)
+	}
+
+	var discoveredID string
+	for _, item := range discovered {
+		if item.Path == systemPath {
+			discoveredID = item.ID
+			break
+		}
+	}
+	if discoveredID == "" {
+		t.Fatalf("failed to find discovered rule id for %s", systemPath)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/managed/rules/collect", strings.NewReader(`{"ids":["`+discoveredID+`"],"strategy":"duplicate"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 from collect, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "fixed instruction surface") {
+		t.Fatalf("collect response = %s, want fixed-surface validation message", rr.Body.String())
+	}
+}
+
 func TestManagedRulesCreateServerErrorOnWriteFailure(t *testing.T) {
 	s, projectRoot, _, _ := newManagedProjectServer(t, "claude")
 
