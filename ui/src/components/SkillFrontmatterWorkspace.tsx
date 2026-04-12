@@ -1,6 +1,7 @@
 import Button from './Button';
 import { Input, Textarea } from './Input';
 import SkillFrontmatterGuide from './SkillFrontmatterGuide';
+import type { FrontmatterSchema } from '../lib/skillFrontmatter';
 
 export type FrontmatterWorkspaceEntry = {
   id: string;
@@ -14,6 +15,7 @@ export type FrontmatterWorkspaceEntry = {
 
 type SkillFrontmatterWorkspaceProps = {
   mode: 'read' | 'edit';
+  schema?: FrontmatterSchema;
   builtInEntries: FrontmatterWorkspaceEntry[];
   additionalEntries: FrontmatterWorkspaceEntry[];
   referenceExcludeKeys?: string[];
@@ -174,13 +176,13 @@ function ActiveFieldCard({
   );
 }
 
-function CustomAddCard({ onAddCustomField }: { onAddCustomField: () => void }) {
+function CustomAddCard({ onAddCustomField, schema }: { onAddCustomField: () => void; schema: FrontmatterSchema }) {
   return (
     <article className="flex min-h-48 flex-col justify-between rounded-[var(--radius-md)] border border-dashed border-muted-dark/40 bg-paper/40 p-4">
       <div className="space-y-2">
         <div className="text-sm font-semibold text-pencil">Custom</div>
         <p className="text-sm leading-relaxed text-pencil-light">
-          Add an extra frontmatter field for project-specific metadata that is not part of the built-in skill reference.
+          Add an extra frontmatter field for project-specific metadata that is not part of the built-in {schema === 'agent' ? 'subagent' : 'skill'} reference.
         </p>
       </div>
 
@@ -200,6 +202,7 @@ function CustomAddCard({ onAddCustomField }: { onAddCustomField: () => void }) {
 
 export default function SkillFrontmatterWorkspace({
   mode,
+  schema = 'skill',
   builtInEntries,
   additionalEntries,
   referenceExcludeKeys = ['name', 'description'],
@@ -238,11 +241,12 @@ export default function SkillFrontmatterWorkspace({
             />
           ))}
 
-          {mode === 'edit' ? <CustomAddCard onAddCustomField={onAddCustomField} /> : null}
+          {mode === 'edit' ? <CustomAddCard onAddCustomField={onAddCustomField} schema={schema} /> : null}
         </div>
       </div>
 
       <SkillFrontmatterGuide
+        schema={schema}
         frontmatter={buildGuideFrontmatter(builtInEntries)}
         excludeKeys={referenceExcludeKeys}
         isReferenceEntryActive={(entry) => activeBuiltInKeys.has(entry.key)}

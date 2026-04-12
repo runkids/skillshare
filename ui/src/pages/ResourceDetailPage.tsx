@@ -1346,6 +1346,7 @@ export default function ResourceDetailPage() {
             skillName={currentResource.flatName}
             filepath={viewingFile}
             sourcePath={currentResource.sourcePath}
+            resourceKind={currentResource.kind}
             onClose={() => setViewingFile(null)}
           />
         </Suspense>

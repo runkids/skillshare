@@ -1,7 +1,7 @@
 import type { SkillStats } from '../api/client';
 import { getEncoding, type Tiktoken } from 'js-tiktoken';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { SKILL_FRONTMATTER_FIELDS } from './skillFrontmatter';
+import { getFrontmatterFields, type FrontmatterSchema } from './skillFrontmatter';
 
 export type SkillManifest = {
   name?: string;
@@ -19,16 +19,21 @@ export type SkillMarkdownParts = {
 const BOOLEAN_FRONTMATTER_KEYS = new Set([
   'disable-model-invocation',
   'user-invocable',
+  'background',
 ]);
 
 const STRUCTURED_FRONTMATTER_KEYS = new Set([
   'hooks',
   'metadata',
+  'mcpServers',
 ]);
 
 const STRING_OR_LIST_FRONTMATTER_KEYS = new Set([
   'allowed-tools',
   'paths',
+  'tools',
+  'disallowedTools',
+  'skills',
 ]);
 
 export function normalizeMarkdownForRichEditor(content: string): string {
@@ -167,6 +172,7 @@ export function updateSkillFrontmatterField(
   key: string,
   rawValue: string,
   previousValue?: unknown,
+  schema: FrontmatterSchema = 'skill',
 ): string {
   const { frontmatter, markdown } = splitSkillMarkdown(content);
   const parsedFrontmatter = frontmatter ? parseYaml(frontmatter) : {};
@@ -181,7 +187,7 @@ export function updateSkillFrontmatterField(
     currentFrontmatter[key] = nextValue;
   }
 
-  const serializedFrontmatter = serializeCanonicalFrontmatter(currentFrontmatter);
+  const serializedFrontmatter = serializeCanonicalFrontmatter(currentFrontmatter, schema);
   if (!serializedFrontmatter) {
     return markdown.startsWith('\n') ? markdown.slice(1) : markdown;
   }
@@ -190,7 +196,12 @@ export function updateSkillFrontmatterField(
   return `---\n${serializedFrontmatter}\n---${bodySeparator}${markdown}`;
 }
 
-export function renameSkillFrontmatterField(content: string, currentKey: string, nextKey: string): string {
+export function renameSkillFrontmatterField(
+  content: string,
+  currentKey: string,
+  nextKey: string,
+  schema: FrontmatterSchema = 'skill',
+): string {
   if (currentKey === nextKey) return content;
   const { frontmatter, markdown } = splitSkillMarkdown(content);
   const parsedFrontmatter = frontmatter ? parseYaml(frontmatter) : {};
@@ -206,7 +217,7 @@ export function renameSkillFrontmatterField(content: string, currentKey: string,
   delete current[currentKey];
   if (value !== undefined) current[nextKey] = value;
 
-  const serializedFrontmatter = serializeCanonicalFrontmatter(current);
+  const serializedFrontmatter = serializeCanonicalFrontmatter(current, schema);
   return serializedFrontmatter ? `---\n${serializedFrontmatter}\n---${markdown && !markdown.startsWith('\n') ? '\n' : ''}${markdown}` : (markdown.startsWith('\n') ? markdown.slice(1) : markdown);
 }
 
@@ -285,10 +296,10 @@ function countLines(content: string): number {
   return trimmed.replaceAll('\r\n', '\n').split('\n').length;
 }
 
-function serializeCanonicalFrontmatter(frontmatter: Record<string, unknown>): string {
+function serializeCanonicalFrontmatter(frontmatter: Record<string, unknown>, schema: FrontmatterSchema = 'skill'): string {
   const orderedFrontmatter: Record<string, unknown> = {};
 
-  for (const field of SKILL_FRONTMATTER_FIELDS) {
+  for (const field of getFrontmatterFields(schema)) {
     if (Object.prototype.hasOwnProperty.call(frontmatter, field.key)) {
       orderedFrontmatter[field.key] = frontmatter[field.key];
     }

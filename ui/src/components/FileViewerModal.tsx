@@ -16,7 +16,12 @@ import DialogShell from './DialogShell';
 import ConfirmDialog from './ConfirmDialog';
 import { api, type SkillFileContent } from '../api/client';
 import { handTheme } from '../lib/codemirror-theme';
-import { getAdditionalFrontmatterEntries, getReferenceFrontmatterEntries, SKILL_FRONTMATTER_FIELDS } from '../lib/skillFrontmatter';
+import {
+  getAdditionalFrontmatterEntries,
+  getFrontmatterFieldOrder,
+  getReferenceFrontmatterEntries,
+  type FrontmatterSchema,
+} from '../lib/skillFrontmatter';
 import {
   parseSkillMarkdown,
   renameSkillFrontmatterField,
@@ -45,11 +50,11 @@ type WorkspaceSlotState = {
 const AUTOSAVE_DELAY_MS = 250;
 const SAVE_STATUS_RESET_MS = 1800;
 const BOOLEAN_FRONTMATTER_KEYS = new Set(['disable-model-invocation', 'user-invocable']);
-const STRUCTURED_FRONTMATTER_KEYS = new Set(['hooks', 'metadata']);
-const BUILT_IN_FRONTMATTER_ORDER = SKILL_FRONTMATTER_FIELDS.map((field) => field.key);
+const AGENT_BOOLEAN_FRONTMATTER_KEYS = new Set(['background']);
+const STRUCTURED_FRONTMATTER_KEYS = new Set(['hooks', 'metadata', 'mcpServers']);
 
-function getBuiltInFrontmatterKeys(frontmatter: Record<string, unknown>) {
-  return getReferenceFrontmatterEntries(frontmatter)
+function getBuiltInFrontmatterKeys(frontmatter: Record<string, unknown>, schema: FrontmatterSchema) {
+  return getReferenceFrontmatterEntries(frontmatter, { schema })
     .filter((entry) => entry.isSet)
     .map((entry) => entry.key);
 }
@@ -58,9 +63,9 @@ function buildWorkspaceInputMap(key: string, value = ''): FrontmatterCardInputSt
   return { key, value };
 }
 
-function orderBuiltInKeys(keys: Iterable<string>) {
+function orderBuiltInKeys(keys: Iterable<string>, builtInFrontmatterOrder: string[]) {
   const keySet = new Set(keys);
-  return BUILT_IN_FRONTMATTER_ORDER.filter((key) => keySet.has(key));
+  return builtInFrontmatterOrder.filter((key) => keySet.has(key));
 }
 
 function sortWorkspaceSlotsByKey(entries: WorkspaceSlotState[], inputValues: FrontmatterCardInputMap): WorkspaceSlotState[] {
@@ -74,14 +79,18 @@ function sortWorkspaceSlotsByKey(entries: WorkspaceSlotState[], inputValues: Fro
   });
 }
 
-function buildWorkspaceSlotsFromContent(content: string): WorkspaceSlotState[] {
+function buildWorkspaceSlotsFromContent(
+  content: string,
+  schema: FrontmatterSchema,
+  builtInFrontmatterOrder: string[],
+): WorkspaceSlotState[] {
   const parsed = parseSkillMarkdown(content);
   return [
-    ...orderBuiltInKeys(getBuiltInFrontmatterKeys(parsed.frontmatter)).map((key) => ({
+    ...orderBuiltInKeys(getBuiltInFrontmatterKeys(parsed.frontmatter, schema), builtInFrontmatterOrder).map((key) => ({
       id: `slot:${key}`,
       key,
     })),
-    ...getAdditionalFrontmatterEntries(parsed.frontmatter).map((entry) => ({
+    ...getAdditionalFrontmatterEntries(parsed.frontmatter, schema).map((entry) => ({
       id: `slot:${entry.key}`,
       key: entry.key,
     })),
@@ -121,11 +130,23 @@ interface FileViewerModalProps {
   skillName: string;
   filepath: string;
   sourcePath?: string;
+  resourceKind?: 'skill' | 'agent';
   onClose: () => void;
 }
 
-export default function FileViewerModal({ skillName, filepath, sourcePath, onClose }: FileViewerModalProps) {
+export default function FileViewerModal({
+  skillName,
+  filepath,
+  sourcePath,
+  resourceKind = 'skill',
+  onClose,
+}: FileViewerModalProps) {
   const fullPath = sourcePath ? `${sourcePath}/${filepath}` : filepath;
+  const frontmatterSchema: FrontmatterSchema = resourceKind === 'agent' ? 'agent' : 'skill';
+  const builtInFrontmatterOrder = useMemo(
+    () => getFrontmatterFieldOrder(frontmatterSchema),
+    [frontmatterSchema],
+  );
   const { toast } = useToast();
   const [data, setData] = useState<SkillFileContent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -162,12 +183,12 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
     [draftContent, isMarkdownFile],
   );
   const canonicalBuiltInKeys = useMemo(
-    () => (isMarkdownFile && parsedMarkdown ? getBuiltInFrontmatterKeys(parsedMarkdown.frontmatter) : []),
-    [isMarkdownFile, parsedMarkdown],
+    () => (isMarkdownFile && parsedMarkdown ? getBuiltInFrontmatterKeys(parsedMarkdown.frontmatter, frontmatterSchema) : []),
+    [frontmatterSchema, isMarkdownFile, parsedMarkdown],
   );
   const canonicalAdditionalFrontmatterEntries = useMemo(
-    () => (isMarkdownFile && parsedMarkdown ? getAdditionalFrontmatterEntries(parsedMarkdown.frontmatter) : []),
-    [isMarkdownFile, parsedMarkdown],
+    () => (isMarkdownFile && parsedMarkdown ? getAdditionalFrontmatterEntries(parsedMarkdown.frontmatter, frontmatterSchema) : []),
+    [frontmatterSchema, isMarkdownFile, parsedMarkdown],
   );
   const workspaceSlotEntries = useMemo(() => {
     if (!isMarkdownFile) return [];
@@ -201,7 +222,7 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
     const grouped = workspaceSlotEntries.reduce<FrontmatterWorkspaceEntry[]>((entries, slot) => {
       const inputState = frontmatterInputValues[slot.id];
       const displayKey = (inputState?.key ?? slot.key).trim();
-      if (!BUILT_IN_FRONTMATTER_ORDER.includes(displayKey)) {
+      if (!builtInFrontmatterOrder.includes(displayKey)) {
         return entries;
       }
       const canonicalValue = displayKey && parsedMarkdown ? parsedMarkdown.frontmatter[displayKey] : undefined;
@@ -209,7 +230,7 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
         id: slot.id,
         key: displayKey,
         value: inputState?.value ?? serializeFrontmatterEditorValue(canonicalValue),
-        isBoolean: BOOLEAN_FRONTMATTER_KEYS.has(displayKey),
+        isBoolean: BOOLEAN_FRONTMATTER_KEYS.has(displayKey) || AGENT_BOOLEAN_FRONTMATTER_KEYS.has(displayKey),
         isStructured: isStructuredFrontmatterEntry(displayKey, canonicalValue),
         isCustom: false,
         error: frontmatterErrors[slot.id] ?? null,
@@ -218,15 +239,15 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
     }, []);
 
     const groupedByKey = new Map(grouped.map((entry) => [entry.key, entry]));
-    return orderBuiltInKeys(grouped.map((entry) => entry.key))
+    return orderBuiltInKeys(grouped.map((entry) => entry.key), builtInFrontmatterOrder)
       .map((key) => groupedByKey.get(key))
       .filter((entry): entry is FrontmatterWorkspaceEntry => Boolean(entry));
-  }, [frontmatterErrors, frontmatterInputValues, parsedMarkdown, workspaceSlotEntries]);
+  }, [builtInFrontmatterOrder, frontmatterErrors, frontmatterInputValues, parsedMarkdown, workspaceSlotEntries]);
   const workspaceAdditionalEntries = useMemo<FrontmatterWorkspaceEntry[]>(() => (
     sortWorkspaceSlotsByKey(
       workspaceSlotEntries.filter((slot) => {
         const displayKey = (frontmatterInputValues[slot.id]?.key ?? slot.key).trim();
-        return displayKey.length === 0 || !BUILT_IN_FRONTMATTER_ORDER.includes(displayKey);
+        return displayKey.length === 0 || !builtInFrontmatterOrder.includes(displayKey);
       }),
       frontmatterInputValues,
     ).map((slot) => {
@@ -244,7 +265,7 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
         error: frontmatterErrors[slot.id] ?? null,
       };
     })
-  ), [frontmatterErrors, frontmatterInputValues, parsedMarkdown, workspaceSlotEntries]);
+  ), [builtInFrontmatterOrder, frontmatterErrors, frontmatterInputValues, parsedMarkdown, workspaceSlotEntries]);
   const hasConfiguredFrontmatter = canonicalBuiltInKeys.length > 0 || canonicalAdditionalFrontmatterEntries.length > 0;
   const hasPendingFrontmatterEdits = useMemo(() => workspaceSlotEntries.some((slot) => {
     const inputState = frontmatterInputValues[slot.id];
@@ -448,7 +469,7 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
         setDraftContent(response.content);
         savedContentRef.current = response.content;
         draftContentRef.current = response.content;
-        const nextSlots = buildWorkspaceSlotsFromContent(response.content);
+        const nextSlots = buildWorkspaceSlotsFromContent(response.content, frontmatterSchema, builtInFrontmatterOrder);
         workspaceSlotsRef.current = nextSlots;
         setWorkspaceSlots(nextSlots);
       })
@@ -461,7 +482,7 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
         clearTimeout(saveStatusTimerRef.current);
       }
     };
-  }, [filepath, skillName]);
+  }, [builtInFrontmatterOrder, filepath, frontmatterSchema, skillName]);
 
   const cmExtensions = useMemo(() => {
     if (!data) return [];
@@ -479,7 +500,7 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
   }, [data, filepath]);
 
   const syncWorkspaceStateFromContent = (content: string) => {
-    const canonicalSlots = buildWorkspaceSlotsFromContent(content);
+    const canonicalSlots = buildWorkspaceSlotsFromContent(content, frontmatterSchema, builtInFrontmatterOrder);
     const canonicalKeySet = new Set(canonicalSlots.map((slot) => slot.key));
     const nextInputValues = frontmatterInputValuesRef.current;
     const preservedSlots = workspaceSlotsRef.current.filter((slot) => {
@@ -576,7 +597,13 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
     }
 
     try {
-      const nextContent = updateSkillFrontmatterField(draftContent, key, rawValue, parsedMarkdown.frontmatter[key]);
+      const nextContent = updateSkillFrontmatterField(
+        draftContent,
+        key,
+        rawValue,
+        parsedMarkdown.frontmatter[key],
+        frontmatterSchema,
+      );
       draftContentRef.current = nextContent;
       setDraftContent(nextContent);
       setSaveError(null);
@@ -631,7 +658,7 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
 
     const currentKey = (frontmatterInputValues[entryId]?.key ?? workspaceEntry.key).trim();
     const nextContent = currentKey
-      ? updateSkillFrontmatterField(draftContent, currentKey, '', parsedMarkdown.frontmatter[currentKey])
+      ? updateSkillFrontmatterField(draftContent, currentKey, '', parsedMarkdown.frontmatter[currentKey], frontmatterSchema)
       : draftContent;
     draftContentRef.current = nextContent;
     setDraftContent(nextContent);
@@ -683,9 +710,15 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
     try {
       let nextContent = draftContent;
       if (currentKey && Object.prototype.hasOwnProperty.call(parsedMarkdown.frontmatter, currentKey)) {
-        nextContent = renameSkillFrontmatterField(draftContent, currentKey, nextKey);
+        nextContent = renameSkillFrontmatterField(draftContent, currentKey, nextKey, frontmatterSchema);
       } else if (pendingValue.trim().length > 0) {
-        nextContent = updateSkillFrontmatterField(draftContent, nextKey, pendingValue, parsedMarkdown.frontmatter[nextKey]);
+        nextContent = updateSkillFrontmatterField(
+          draftContent,
+          nextKey,
+          pendingValue,
+          parsedMarkdown.frontmatter[nextKey],
+          frontmatterSchema,
+        );
       }
 
       updateWorkspaceSlot(entryId, nextKey);
@@ -855,6 +888,7 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
 
                       <SkillFrontmatterWorkspace
                         mode="edit"
+                        schema={frontmatterSchema}
                         builtInEntries={workspaceBuiltInEntries}
                         additionalEntries={workspaceAdditionalEntries}
                         referenceExcludeKeys={[]}

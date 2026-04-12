@@ -2,15 +2,19 @@ import type { SkillFrontmatter } from './skillMarkdown';
 
 export type SkillFrontmatterField = {
   key: string;
-  required: 'No' | 'Recommended';
+  required: 'No' | 'Recommended' | 'Yes';
   description: string;
 };
 
+export type FrontmatterSchema = 'skill' | 'agent';
+
 type FrontmatterFieldQueryOptions = {
   excludeKeys?: string[];
+  schema?: FrontmatterSchema;
 };
 
 export const SKILL_FRONTMATTER_REFERENCE_URL = 'https://code.claude.com/docs/en/skills#frontmatter-reference';
+export const AGENT_FRONTMATTER_REFERENCE_URL = 'https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields';
 
 export const SKILL_FRONTMATTER_FIELDS: SkillFrontmatterField[] = [
   {
@@ -80,15 +84,122 @@ export const SKILL_FRONTMATTER_FIELDS: SkillFrontmatterField[] = [
   },
 ];
 
-const referenceKeySet = new Set(SKILL_FRONTMATTER_FIELDS.map((field) => field.key));
+export const AGENT_FRONTMATTER_FIELDS: SkillFrontmatterField[] = [
+  {
+    key: 'name',
+    required: 'Yes',
+    description: 'Unique identifier for the subagent. Use lowercase letters and hyphens.',
+  },
+  {
+    key: 'description',
+    required: 'Yes',
+    description: 'When Claude should delegate to this subagent.',
+  },
+  {
+    key: 'tools',
+    required: 'No',
+    description: 'Tools the subagent can use. Inherits all tools from the parent session if omitted.',
+  },
+  {
+    key: 'disallowedTools',
+    required: 'No',
+    description: 'Tools to explicitly deny from the inherited or configured tool list.',
+  },
+  {
+    key: 'model',
+    required: 'No',
+    description: 'Model to use: sonnet, opus, haiku, inherit, or a full model ID.',
+  },
+  {
+    key: 'permissionMode',
+    required: 'No',
+    description: 'Permission mode for the subagent. Options include default, acceptEdits, auto, dontAsk, bypassPermissions, and plan.',
+  },
+  {
+    key: 'maxTurns',
+    required: 'No',
+    description: 'Maximum number of agentic turns before the subagent stops.',
+  },
+  {
+    key: 'skills',
+    required: 'No',
+    description: 'Skills to preload into the subagent context at startup. Accepts a string or YAML list.',
+  },
+  {
+    key: 'mcpServers',
+    required: 'No',
+    description: 'MCP servers available to this subagent. Accepts configured server names or inline server definitions.',
+  },
+  {
+    key: 'hooks',
+    required: 'No',
+    description: 'Lifecycle hooks scoped to this subagent.',
+  },
+  {
+    key: 'memory',
+    required: 'No',
+    description: 'Persistent memory scope for this subagent. Options: user, project, or local.',
+  },
+  {
+    key: 'background',
+    required: 'No',
+    description: 'Set to true to always run this subagent as a background task.',
+  },
+  {
+    key: 'effort',
+    required: 'No',
+    description: 'Effort level when this subagent is active. Options: low, medium, high, max.',
+  },
+  {
+    key: 'isolation',
+    required: 'No',
+    description: 'Set to worktree to run the subagent in a temporary isolated git worktree.',
+  },
+  {
+    key: 'color',
+    required: 'No',
+    description: 'Display color for the subagent in the task list and transcript.',
+  },
+  {
+    key: 'initialPrompt',
+    required: 'No',
+    description: 'Initial user turn submitted automatically when this agent runs as the main session agent.',
+  },
+];
 
-export function isBuiltInFrontmatterKey(key: string): boolean {
-  return referenceKeySet.has(key);
+const FRONTMATTER_FIELDS_BY_SCHEMA: Record<FrontmatterSchema, SkillFrontmatterField[]> = {
+  skill: SKILL_FRONTMATTER_FIELDS,
+  agent: AGENT_FRONTMATTER_FIELDS,
+};
+
+const FRONTMATTER_REFERENCE_URLS: Record<FrontmatterSchema, string> = {
+  skill: SKILL_FRONTMATTER_REFERENCE_URL,
+  agent: AGENT_FRONTMATTER_REFERENCE_URL,
+};
+
+export function getFrontmatterFields(schema: FrontmatterSchema = 'skill') {
+  return FRONTMATTER_FIELDS_BY_SCHEMA[schema];
+}
+
+export function getFrontmatterFieldOrder(schema: FrontmatterSchema = 'skill') {
+  return getFrontmatterFields(schema).map((field) => field.key);
+}
+
+export function getFrontmatterReferenceUrl(schema: FrontmatterSchema = 'skill') {
+  return FRONTMATTER_REFERENCE_URLS[schema];
+}
+
+function getReferenceKeySet(schema: FrontmatterSchema = 'skill') {
+  return new Set(getFrontmatterFieldOrder(schema));
+}
+
+export function isBuiltInFrontmatterKey(key: string, schema: FrontmatterSchema = 'skill'): boolean {
+  return getReferenceKeySet(schema).has(key);
 }
 
 function getFilteredFrontmatterFields(options?: FrontmatterFieldQueryOptions) {
   const excludedKeys = new Set(options?.excludeKeys ?? []);
-  return SKILL_FRONTMATTER_FIELDS.filter((field) => !excludedKeys.has(field.key));
+  return getFrontmatterFields(options?.schema).filter((field) => !excludedKeys.has(field.key));
 }
 
 export function buildFrontmatterTemplate(options?: FrontmatterFieldQueryOptions): string {
@@ -127,7 +238,9 @@ export function getReferenceFrontmatterEntries(frontmatter: SkillFrontmatter, op
   });
 }
 
-export function getAdditionalFrontmatterEntries(frontmatter: SkillFrontmatter) {
+export function getAdditionalFrontmatterEntries(frontmatter: SkillFrontmatter, schema: FrontmatterSchema = 'skill') {
+  const referenceKeySet = getReferenceKeySet(schema);
+
   return Object.entries(frontmatter)
     .filter(([key, value]) => !referenceKeySet.has(key) && isFrontmatterValueSet(value))
     .sort(([left], [right]) => left.localeCompare(right))

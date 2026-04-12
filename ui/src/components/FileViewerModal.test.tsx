@@ -113,13 +113,18 @@ describe('FileViewerModal', () => {
     });
   });
 
-  function renderModal(filepath = 'docs/guide.md', onClose = vi.fn()) {
+  function renderModal(
+    filepath = 'docs/guide.md',
+    onClose = vi.fn(),
+    resourceKind: 'skill' | 'agent' = 'skill',
+  ) {
     render(
       <ToastProvider>
         <FileViewerModal
           skillName="sample-skill"
           filepath={filepath}
           sourcePath="/tmp/sample-skill"
+          resourceKind={resourceKind}
           onClose={onClose}
         />
       </ToastProvider>,
@@ -197,6 +202,24 @@ describe('FileViewerModal', () => {
     expect(screen.getByText(/no frontmatter fields are set yet/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add custom frontmatter/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /add name/i })).toBeInTheDocument();
+  });
+
+  it('shows the agent frontmatter reference in markdown modals for agent resources', async () => {
+    const user = userEvent.setup();
+
+    getSkillFile.mockResolvedValueOnce({
+      filename: 'agents/reviewer.md',
+      contentType: 'text/markdown',
+      content: '# Reviewer\n\nBody',
+    });
+
+    renderModal('agents/reviewer.md', vi.fn(), 'agent');
+
+    expect(await screen.findByRole('textbox', { name: 'Raw markdown editor' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /show frontmatter/i }));
+
+    expect(screen.getByRole('button', { name: /add permissionmode/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add allowed-tools/i })).not.toBeInTheDocument();
   });
 
   it('adds modal frontmatter fields through the workspace and autosaves them on blur', async () => {

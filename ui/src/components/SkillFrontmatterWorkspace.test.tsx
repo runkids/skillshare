@@ -299,4 +299,27 @@ describe('SkillFrontmatterWorkspace', () => {
     expect(referenceCard).toHaveClass('bg-surface');
     expect(screen.queryByRole('button', { name: /add argument-hint/i })).not.toBeInTheDocument();
   });
+
+  it('can render the agent frontmatter reference schema', async () => {
+    const user = userEvent.setup();
+    const onAddBuiltInField = vi.fn();
+
+    render(
+      <SkillFrontmatterWorkspace
+        mode="edit"
+        schema="agent"
+        builtInEntries={[]}
+        additionalEntries={[]}
+        onAddBuiltInField={onAddBuiltInField}
+        onAddCustomField={vi.fn()}
+        onRemoveField={vi.fn()}
+        onChangeFieldValue={vi.fn()}
+        onChangeFieldKey={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: /add permissionmode/i }));
+    expect(onAddBuiltInField).toHaveBeenCalledWith('permissionMode');
+    expect(screen.queryByRole('button', { name: /add allowed-tools/i })).not.toBeInTheDocument();
+  });
 });

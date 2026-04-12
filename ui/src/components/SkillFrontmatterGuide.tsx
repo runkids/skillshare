@@ -4,6 +4,7 @@ import type { SkillFrontmatter } from '../lib/skillMarkdown';
 import {
   buildFrontmatterTemplate,
   formatFrontmatterValue,
+  type FrontmatterSchema,
   getAdditionalFrontmatterEntries,
   getReferenceFrontmatterEntries,
 } from '../lib/skillFrontmatter';
@@ -14,6 +15,7 @@ type SkillFrontmatterGuideProps = {
   className?: string;
   showCurrentValues?: boolean;
   excludeKeys?: string[];
+  schema?: FrontmatterSchema;
   isReferenceEntryActive?: (entry: ReturnType<typeof getReferenceFrontmatterEntries>[number]) => boolean;
   renderReferenceAccessory?: (entry: ReturnType<typeof getReferenceFrontmatterEntries>[number]) => ReactNode;
 };
@@ -24,12 +26,14 @@ export default function SkillFrontmatterGuide({
   className = '',
   showCurrentValues = false,
   excludeKeys,
+  schema = 'skill',
   isReferenceEntryActive,
   renderReferenceAccessory,
 }: SkillFrontmatterGuideProps) {
   const HeadingTag = headingLevel;
-  const referenceEntries = getReferenceFrontmatterEntries(frontmatter, { excludeKeys });
-  const extraEntries = getAdditionalFrontmatterEntries(frontmatter);
+  const referenceEntries = getReferenceFrontmatterEntries(frontmatter, { excludeKeys, schema });
+  const extraEntries = getAdditionalFrontmatterEntries(frontmatter, schema);
+  const isAgentSchema = schema === 'agent';
 
   return (
     <section className={`space-y-4 ${className}`}>
@@ -37,15 +41,31 @@ export default function SkillFrontmatterGuide({
         <div className="space-y-1">
           <HeadingTag className="text-lg font-bold text-pencil">Reference</HeadingTag>
           <p className="text-sm text-pencil-light max-w-2xl">
-            All fields are optional. Description is recommended. Use
-            {' '}
-            <code>context: fork</code>
-            {' '}
-            with
-            {' '}
-            <code>agent</code>
-            {' '}
-            when you want the skill to run in an isolated subagent context.
+            {isAgentSchema ? (
+              <>
+                Name and description are required. The markdown body below the frontmatter becomes the subagent system prompt. Use
+                {' '}
+                <code>tools</code>
+                {' '}
+                and
+                {' '}
+                <code>disallowedTools</code>
+                {' '}
+                to control capabilities.
+              </>
+            ) : (
+              <>
+                All fields are optional. Description is recommended. Use
+                {' '}
+                <code>context: fork</code>
+                {' '}
+                with
+                {' '}
+                <code>agent</code>
+                {' '}
+                when you want the skill to run in an isolated subagent context.
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -56,7 +76,7 @@ export default function SkillFrontmatterGuide({
           Template
         </div>
         <pre className="overflow-x-auto rounded-[var(--radius-sm)] border border-muted/80 bg-surface px-3 py-3 text-xs text-pencil-light">
-          <code>{buildFrontmatterTemplate({ excludeKeys })}</code>
+          <code>{buildFrontmatterTemplate({ excludeKeys, schema })}</code>
         </pre>
       </div>
 
@@ -102,7 +122,7 @@ export default function SkillFrontmatterGuide({
 
       {showCurrentValues && extraEntries.length > 0 ? (
         <div className="space-y-2 rounded-[var(--radius-md)] border border-muted-dark/40 bg-surface p-4">
-          <div className="text-sm font-semibold text-pencil">Additional fields in this skill</div>
+          <div className="text-sm font-semibold text-pencil">Additional fields in this {isAgentSchema ? 'agent' : 'skill'}</div>
           <div className="space-y-2">
             {extraEntries.map((entry) => (
               <div key={entry.key} className="rounded-[var(--radius-sm)] border border-muted/80 bg-paper/60 px-3 py-2">
