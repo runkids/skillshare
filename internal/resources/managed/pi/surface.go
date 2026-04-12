@@ -14,30 +14,30 @@ const (
 
 var managedRuleSurfaces = []ruleSurface{
 	{
-		id:                ManagedAgentsID,
-		bareName:          "AGENTS.md",
-		instructionFile:   "AGENTS.md",
-		projectCompileRel: "AGENTS.md",
-		globalCompileRel:  "AGENTS.md",
+		id:                 ManagedAgentsID,
+		bareName:           "AGENTS.md",
+		instructionFile:    "AGENTS.md",
+		projectCompileRel:  "AGENTS.md",
+		globalCompileRel:   "AGENTS.md",
 		discoveryGlobalRel: ".pi/agent/AGENTS.md",
 	},
 	{
-		id:                 ManagedSystemID,
-		bareName:           "SYSTEM.md",
-		instructionFile:    ".pi/SYSTEM.md",
-		projectCompileRel:  ".pi/SYSTEM.md",
-		globalCompileRel:   "SYSTEM.md",
+		id:                  ManagedSystemID,
+		bareName:            "SYSTEM.md",
+		instructionFile:     ".pi/SYSTEM.md",
+		projectCompileRel:   ".pi/SYSTEM.md",
+		globalCompileRel:    "SYSTEM.md",
 		discoveryProjectRel: ".pi/SYSTEM.md",
-		discoveryGlobalRel: ".pi/agent/SYSTEM.md",
+		discoveryGlobalRel:  ".pi/agent/SYSTEM.md",
 	},
 	{
-		id:                 ManagedAppendSystemID,
-		bareName:           "APPEND_SYSTEM.md",
-		instructionFile:    ".pi/APPEND_SYSTEM.md",
-		projectCompileRel:  ".pi/APPEND_SYSTEM.md",
-		globalCompileRel:   "APPEND_SYSTEM.md",
+		id:                  ManagedAppendSystemID,
+		bareName:            "APPEND_SYSTEM.md",
+		instructionFile:     ".pi/APPEND_SYSTEM.md",
+		projectCompileRel:   ".pi/APPEND_SYSTEM.md",
+		globalCompileRel:    "APPEND_SYSTEM.md",
 		discoveryProjectRel: ".pi/APPEND_SYSTEM.md",
-		discoveryGlobalRel: ".pi/agent/APPEND_SYSTEM.md",
+		discoveryGlobalRel:  ".pi/agent/APPEND_SYSTEM.md",
 	},
 }
 
@@ -121,10 +121,7 @@ func DiscoveryGlobalPaths(home string) []string {
 }
 
 func OwnedCompilePaths(root string) []string {
-	ids := []string{ManagedSystemID, ManagedAppendSystemID}
-	if isGlobalOutputRoot(root) {
-		ids = append([]string{ManagedAgentsID}, ids...)
-	}
+	ids := []string{ManagedAgentsID, ManagedSystemID, ManagedAppendSystemID}
 
 	out := make([]string, 0, len(ids))
 	for _, id := range ids {

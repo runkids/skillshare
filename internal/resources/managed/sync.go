@@ -57,7 +57,7 @@ func syncRules(req SyncRequest, spec TargetSyncSpec) (SyncResult, bool) {
 		result.Err = fmt.Errorf("compile managed rules: %w", err)
 		return result, true
 	}
-	if err := detectRuleOutputConflicts(req, spec, records, compileTarget, files); err != nil {
+	if err := detectRuleOutputConflicts(req, spec, records, compileTarget, compileRoot, req.ProjectRoot != "", files); err != nil {
 		result.Err = fmt.Errorf("compile managed rules: %w", err)
 		return result, true
 	}
@@ -206,7 +206,7 @@ func managedRuleOwnedFiles(target, root string) []string {
 	}
 }
 
-func detectRuleOutputConflicts(req SyncRequest, current TargetSyncSpec, records []managedrules.Record, currentFamily string, currentFiles []adapters.CompiledFile) error {
+func detectRuleOutputConflicts(req SyncRequest, current TargetSyncSpec, records []managedrules.Record, currentFamily, compileRoot string, projectMode bool, currentFiles []adapters.CompiledFile) error {
 	if len(currentFiles) == 0 {
 		return nil
 	}
@@ -240,7 +240,85 @@ func detectRuleOutputConflicts(req SyncRequest, current TargetSyncSpec, records 
 		}
 	}
 
+	if err := detectStoredProjectAgentsConflicts(records, current, currentFamily, compileRoot, projectMode, currentPaths); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func detectStoredProjectAgentsConflicts(records []managedrules.Record, current TargetSyncSpec, currentFamily, compileRoot string, projectMode bool, currentPaths map[string]struct{}) error {
+	if !projectMode || compileRoot == "" {
+		return nil
+	}
+
+	for _, candidate := range sharedProjectAgentsConflictCandidates(currentFamily) {
+		if candidate.family == currentFamily && candidate.targetName == current.Name {
+			continue
+		}
+
+		files, _, err := managedrules.CompileTarget(records, candidate.family, candidate.targetName, compileRoot)
+		if err != nil {
+			if errors.Is(err, managedrules.ErrUnsupportedTarget) {
+				continue
+			}
+			return err
+		}
+		for _, file := range files {
+			cleaned := filepath.Clean(file.Path)
+			if _, ok := currentPaths[cleaned]; ok {
+				return fmt.Errorf("managed rule output conflict: %s is produced by %s (%s) and %s (%s)", cleaned, current.Name, currentFamily, candidate.targetName, candidate.family)
+			}
+		}
+	}
+
+	return nil
+}
+
+type ruleConflictCandidate struct {
+	targetName string
+	family     string
+}
+
+func sharedProjectAgentsConflictCandidates(currentFamily string) []ruleConflictCandidate {
+	switch strings.ToLower(strings.TrimSpace(currentFamily)) {
+	case "codex":
+		return compatibleRuleCandidatesForFamily("pi")
+	case "pi":
+		return compatibleRuleCandidatesForFamily("codex")
+	default:
+		return nil
+	}
+}
+
+func compatibleRuleCandidatesForFamily(family string) []ruleConflictCandidate {
+	spec, ok := managedCapabilities.families[family]
+	if !ok || !spec.SupportsRules {
+		return nil
+	}
+
+	names := append([]string(nil), spec.CompatibleTargets...)
+	if len(names) == 0 {
+		names = []string{family}
+	}
+
+	candidates := make([]ruleConflictCandidate, 0, len(names))
+	seen := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		candidates = append(candidates, ruleConflictCandidate{
+			targetName: name,
+			family:     family,
+		})
+	}
+	return candidates
 }
 
 func pruneRuleOrphans(target, root string, files []adapters.CompiledFile, dryRun bool) ([]string, error) {
