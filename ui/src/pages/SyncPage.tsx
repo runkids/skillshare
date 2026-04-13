@@ -25,7 +25,6 @@ import { useToast } from '../components/Toast';
 import { api, type SyncResult, type DiffTarget, type IgnoreSources } from '../api/client';
 import { formatSyncToast, invalidateAfterSync } from '../lib/sync';
 import StreamProgressBar from '../components/StreamProgressBar';
-import SyncResultList from '../components/SyncResultList';
 import { radius, shadows } from '../design';
 import KindBadge from '../components/KindBadge';
 import SegmentedControl from '../components/SegmentedControl';
@@ -327,7 +326,7 @@ export default function SyncPage() {
           >
             {lastDryRun ? 'Preview Results' : 'Results'}
           </h2>
-          <SyncResultList results={results} />
+          <SyncResults results={results} />
         </div>
       )}
 
@@ -440,6 +439,68 @@ export default function SyncPage() {
   );
 }
 
+/** Sync results visualization — grouped by resource, then compact per-target cards. */
+function SyncResults({ results }: { results: SyncResult[] }) {
+  if (results.length === 0) {
+    return (
+      <Card variant="outlined">
+        <p className="text-pencil-light text-center py-4">No results to show.</p>
+      </Card>
+    );
+  }
+
+  const grouped = new Map<string, SyncResult[]>();
+  for (const result of results) {
+    const current = grouped.get(result.resource) ?? [];
+    current.push(result);
+    grouped.set(result.resource, current);
+  }
+
+  return (
+    <div className="space-y-4">
+      {Array.from(grouped.entries()).map(([resource, resourceResults], resourceIndex) => (
+        <div key={resource} className="space-y-3">
+          <h3 className="text-lg font-bold text-pencil" style={{ fontFamily: 'var(--font-heading)' }}>
+            {resource}
+          </h3>
+          <div className="space-y-3">
+            {resourceResults.map((r, i) => {
+              const linked = r.linked?.length ?? 0;
+              const updated = r.updated?.length ?? 0;
+              const skipped = r.skipped?.length ?? 0;
+              const pruned = r.pruned?.length ?? 0;
+              const hasChanges = linked > 0 || updated > 0;
+
+              return (
+                <Card
+                  key={`${resource}:${r.target}`}
+                  style={{ animation: `fadeInUp 0.3s ease-out ${(resourceIndex + i) * 100}ms both` }}
+                >
+                  <div className="flex items-center gap-3">
+                    {hasChanges ? (
+                      <CheckCircle size={18} className="text-success shrink-0" />
+                    ) : (
+                      <Info size={18} className="text-pencil-light shrink-0" />
+                    )}
+                    <span className="text-pencil font-medium flex-1" style={{ fontFamily: 'var(--font-hand)' }}>
+                      {r.target}
+                    </span>
+                    <div className="flex gap-2 flex-wrap">
+                      {linked > 0 && <Badge variant="success">{linked} linked</Badge>}
+                      {updated > 0 && <Badge variant="info">{updated} updated</Badge>}
+                      {skipped > 0 && <Badge variant="default">{skipped} skipped</Badge>}
+                      {pruned > 0 && <Badge variant="warning">{pruned} pruned</Badge>}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 function ActionBadge({ action }: { action: string }) {
   const map: Record<string, { variant: 'success' | 'info' | 'warning' | 'danger' | 'default'; label: string }> = {
     link: { variant: 'success', label: 'link' },

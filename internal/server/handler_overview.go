@@ -9,6 +9,8 @@ import (
 	"skillshare/internal/git"
 	"skillshare/internal/install"
 	"skillshare/internal/resource"
+	managedhooks "skillshare/internal/resources/hooks"
+	managedrules "skillshare/internal/resources/rules"
 	"skillshare/internal/sync"
 	"skillshare/internal/utils"
 	versioncheck "skillshare/internal/version"
@@ -36,18 +38,16 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 
 	isProjectMode := projectRoot != ""
 
-	// Count skills
 	skills, err := sync.DiscoverSourceSkills(source)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// Count top-level source entries (for display)
 	topLevelCount := 0
 	entries, _ := os.ReadDir(source)
-	for _, e := range entries {
-		if e.IsDir() && !utils.IsHidden(e.Name()) {
+	for _, entry := range entries {
+		if entry.IsDir() && !utils.IsHidden(entry.Name()) {
 			topLevelCount++
 		}
 	}
@@ -57,10 +57,8 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		mode = "merge"
 	}
 
-	// Tracked repos
 	trackedRepos := buildTrackedRepos(source, skills)
 
-	// Count agents
 	agentCount := 0
 	if agentsSource != "" {
 		if agents, discoverErr := (resource.AgentKind{}).Discover(agentsSource); discoverErr == nil {
@@ -68,16 +66,29 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	managedRuleRecords, err := managedrules.NewStore(s.managedRulesProjectRoot()).List()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list managed rules: "+err.Error())
+		return
+	}
+	managedHookRecords, err := managedhooks.NewStore(s.managedHooksProjectRoot()).List()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list managed hooks: "+err.Error())
+		return
+	}
+
 	resp := map[string]any{
-		"source":        source,
-		"skillCount":    len(skills),
-		"agentCount":    agentCount,
-		"topLevelCount": topLevelCount,
-		"targetCount":   targetCount,
-		"mode":          mode,
-		"version":       versioncheck.Version,
-		"trackedRepos":  trackedRepos,
-		"isProjectMode": isProjectMode,
+		"source":            source,
+		"skillCount":        len(skills),
+		"agentCount":        agentCount,
+		"managedRulesCount": len(managedRuleRecords),
+		"managedHooksCount": len(managedHookRecords),
+		"topLevelCount":     topLevelCount,
+		"targetCount":       targetCount,
+		"mode":              mode,
+		"version":           versioncheck.Version,
+		"trackedRepos":      trackedRepos,
+		"isProjectMode":     isProjectMode,
 	}
 	if agentsSource != "" {
 		resp["agentsSource"] = agentsSource
@@ -102,7 +113,6 @@ func buildTrackedRepos(sourceDir string, skills []sync.DiscoveredSkill) []tracke
 	for _, repoName := range repoNames {
 		repoPath := filepath.Join(sourceDir, repoName)
 
-		// Count skills belonging to this repo
 		skillCount := 0
 		for _, sk := range skills {
 			if sk.IsInRepo && strings.HasPrefix(sk.RelPath, repoName+"/") {
@@ -110,7 +120,6 @@ func buildTrackedRepos(sourceDir string, skills []sync.DiscoveredSkill) []tracke
 			}
 		}
 
-		// Check git dirty status
 		dirty, _ := git.IsDirty(repoPath)
 
 		items = append(items, trackedRepoItem{

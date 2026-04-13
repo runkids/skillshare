@@ -4,25 +4,28 @@ import { shadows } from '../design';
 interface CardProps {
   children: ReactNode;
   className?: string;
-  variant?: 'default' | 'accent' | 'outlined';
+  variant?: 'default' | 'accent' | 'outlined' | 'postit';
   hover?: boolean;
   overflow?: boolean;
   tilt?: boolean;
   padding?: 'none' | 'sm' | 'md';
   style?: CSSProperties;
   skillCard?: boolean;
+  decoration?: 'tape' | 'none';
 }
 
 const variantStyles = {
   default: 'bg-surface border border-muted',
   accent: 'bg-surface border-2 border-muted-dark/30',
   outlined: 'border border-muted',
+  postit: 'bg-surface border border-muted',
 };
 
 const variantShadows = {
   default: shadows.sm,
   accent: shadows.sm,
   outlined: 'none',
+  postit: shadows.sm,
 };
 
 const paddingClasses = {
@@ -41,12 +44,15 @@ export default function Card({
   padding = 'md',
   style,
   skillCard = false,
+  decoration = 'none',
 }: CardProps) {
+  const showTape = skillCard || decoration === 'tape';
+
   return (
     <div
       className={`
         ss-card
-        ${skillCard ? 'ss-skill-card' : ''}
+        ${showTape ? 'ss-skill-card' : ''}
         relative ${paddingClasses[padding]}
         ${overflow ? 'overflow-visible' : 'overflow-hidden'}
         transition-all duration-150

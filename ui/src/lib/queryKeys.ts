@@ -12,6 +12,20 @@ export const queryKeys = {
     available: ['targets', 'available'] as const,
   },
 
+  rules: {
+    all: ['rules'] as const,
+    managed: ['rules', 'managed'] as const,
+    discovered: ['rules', 'discovered'] as const,
+    detail: (id: string) => ['rules', 'managed', id] as const,
+  },
+
+  hooks: {
+    all: ['hooks'] as const,
+    managed: ['hooks', 'managed'] as const,
+    discovered: ['hooks', 'discovered'] as const,
+    detail: (id: string) => ['hooks', 'managed', id] as const,
+  },
+
   diff: (target?: string) => ['diff', target ?? '__all'] as const,
   collectScan: (target?: string) => ['collect-scan', target ?? '__all'] as const,
 
@@ -52,6 +66,8 @@ export const staleTimes = {
   gitStatus: 30 * 1000,       // 30s
   log: 30 * 1000,             // 30s
   targets: 60 * 1000,         // 1min — changes after sync
+  rules: 5 * 60 * 1000,       // 5min
+  hooks: 5 * 60 * 1000,       // 5min
   version: 5 * 60 * 1000,     // 5min — rarely changes
   config: 5 * 60 * 1000,      // 5min
   auditRules: 5 * 60 * 1000,  // 5min

@@ -346,3 +346,34 @@ func TestHandleInstall_ErrorAlsoWritesInstallLog(t *testing.T) {
 		t.Fatalf("expected error message to mention existing skill, got %q", e.Message)
 	}
 }
+
+func TestHandleSync_WritesActualTargetCountInOpsLog(t *testing.T) {
+	s, src := newTestServerWithTargets(t, map[string]string{
+		"claude": filepath.Join(t.TempDir(), "claude-skills"),
+	})
+	addSkill(t, src, "alpha")
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got %d, body=%s", rr.Code, rr.Body.String())
+	}
+
+	entries, err := oplog.Read(config.ConfigPath(), oplog.OpsFile, 10)
+	if err != nil {
+		t.Fatalf("failed to read ops log: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected at least one operations log entry")
+	}
+
+	e := entries[0]
+	if e.Command != "sync" {
+		t.Fatalf("expected latest command to be sync, got %q", e.Command)
+	}
+	if got := e.Args["targets_total"]; got != float64(1) && got != 1 {
+		t.Fatalf("expected targets_total=1, got %#v", got)
+	}
+}

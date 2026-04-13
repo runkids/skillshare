@@ -5,11 +5,17 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
+	"skillshare/internal/resource"
 	"skillshare/internal/skill"
 )
+
+var validAgentNameRe = regexp.MustCompile(`^[a-z_][a-z0-9_-]*(/[a-z_][a-z0-9_-]*)*$`)
 
 func (s *Server) handleGetTemplates(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
@@ -20,6 +26,7 @@ func (s *Server) handleGetTemplates(w http.ResponseWriter, r *http.Request) {
 
 type createSkillRequest struct {
 	Name         string   `json:"name"`
+	Kind         string   `json:"kind"`
 	Pattern      string   `json:"pattern"`
 	Category     string   `json:"category"`
 	ScaffoldDirs []string `json:"scaffoldDirs"`
@@ -31,6 +38,20 @@ func (s *Server) handleCreateSkill(w http.ResponseWriter, r *http.Request) {
 	var req createSkillRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	kind := req.Kind
+	if kind == "" {
+		kind = "skill"
+	}
+	if kind != "skill" && kind != "agent" {
+		writeError(w, http.StatusBadRequest, "invalid kind: "+kind)
+		return
+	}
+
+	if kind == "agent" {
+		s.handleCreateAgent(w, start, req)
 		return
 	}
 
@@ -121,10 +142,79 @@ func (s *Server) handleCreateSkill(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"skill": map[string]any{
 			"name":       req.Name,
+			"kind":       "skill",
 			"flatName":   req.Name,
 			"relPath":    req.Name,
 			"sourcePath": skillDir,
 		},
 		"createdFiles": createdFiles,
 	})
+}
+
+func (s *Server) handleCreateAgent(w http.ResponseWriter, start time.Time, req createSkillRequest) {
+	normalized := normalizeAgentName(req.Name)
+	if !validAgentNameRe.MatchString(normalized) {
+		writeError(w, http.StatusBadRequest, "invalid agent name: use lowercase path segments separated by /, with letters, numbers, hyphens, and underscores")
+		return
+	}
+
+	relPath := normalized + ".md"
+	displayName := path.Base(normalized)
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	agentsSource := s.agentsSource()
+	agentPath := filepath.Join(agentsSource, filepath.FromSlash(relPath))
+
+	if _, err := os.Stat(agentPath); err == nil {
+		writeError(w, http.StatusConflict, fmt.Sprintf("agent '%s' already exists", normalized))
+		return
+	}
+
+	if err := os.MkdirAll(filepath.Dir(agentPath), 0o755); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create directory: "+err.Error())
+		return
+	}
+
+	content := generateAgentContent(displayName)
+	if err := os.WriteFile(agentPath, []byte(content), 0o644); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to write agent file: "+err.Error())
+		return
+	}
+
+	s.writeOpsLog("create-agent", "ok", start, map[string]any{
+		"name":  normalized,
+		"scope": "ui",
+	}, "")
+
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, map[string]any{
+		"skill": map[string]any{
+			"name":       displayName,
+			"kind":       "agent",
+			"flatName":   resource.AgentFlatName(relPath),
+			"relPath":    relPath,
+			"sourcePath": agentPath,
+		},
+		"createdFiles": []string{relPath},
+	})
+}
+
+func normalizeAgentName(name string) string {
+	name = strings.TrimSpace(strings.ReplaceAll(name, "\\", "/"))
+	return strings.Trim(name, "/")
+}
+
+func generateAgentContent(name string) string {
+	return fmt.Sprintf(`---
+name: %s
+description: >-
+  Describe when this agent should be used.
+---
+
+# %s
+
+Describe this agent's role, scope, and constraints.
+`, name, name)
 }

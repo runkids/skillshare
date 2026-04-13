@@ -72,6 +72,42 @@ func TestHandleGetSkill_Found(t *testing.T) {
 	if res["flatName"] != "my-skill" {
 		t.Errorf("expected flatName 'my-skill', got %v", res["flatName"])
 	}
+
+	skillMdContent, _ := resp["skillMdContent"].(string)
+	stats, ok := resp["stats"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected stats object in response, got %T", resp["stats"])
+	}
+
+	wordCount, ok := stats["wordCount"].(float64)
+	if !ok {
+		t.Fatalf("expected numeric stats.wordCount, got %T", stats["wordCount"])
+	}
+	lineCount, ok := stats["lineCount"].(float64)
+	if !ok {
+		t.Fatalf("expected numeric stats.lineCount, got %T", stats["lineCount"])
+	}
+	tokenCount, ok := stats["tokenCount"].(float64)
+	if !ok {
+		t.Fatalf("expected numeric stats.tokenCount, got %T", stats["tokenCount"])
+	}
+
+	trimmed := strings.TrimSpace(skillMdContent)
+	wantWords := 0
+	wantLines := 0
+	if trimmed != "" {
+		wantWords = len(strings.Fields(trimmed))
+		wantLines = len(strings.Split(strings.ReplaceAll(trimmed, "\r\n", "\n"), "\n"))
+	}
+	if int(wordCount) != wantWords {
+		t.Fatalf("stats.wordCount = %d, want %d", int(wordCount), wantWords)
+	}
+	if int(lineCount) != wantLines {
+		t.Fatalf("stats.lineCount = %d, want %d", int(lineCount), wantLines)
+	}
+	if int(tokenCount) <= 0 {
+		t.Fatalf("stats.tokenCount = %d, want > 0 for non-empty SKILL.md", int(tokenCount))
+	}
 }
 
 func TestHandleGetSkill_NotFound(t *testing.T) {
@@ -101,6 +137,47 @@ func TestHandleGetSkillFile_PathTraversal(t *testing.T) {
 	// 404 or the handler never seeing "..". Either non-200 is acceptable.
 	if rr.Code == http.StatusOK {
 		t.Error("expected non-200 for path traversal attempt")
+	}
+}
+
+func TestHandleGetSkill_StatsTokenizerCompatibility(t *testing.T) {
+	s, src := newTestServer(t)
+
+	skillDir := filepath.Join(src, "token-skill")
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatalf("failed to create skill directory: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte("tiktoken is great!"), 0644); err != nil {
+		t.Fatalf("failed to write SKILL.md: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/skills/token-skill", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Stats struct {
+			TokenCount int `json:"tokenCount"`
+			WordCount  int `json:"wordCount"`
+			LineCount  int `json:"lineCount"`
+		} `json:"stats"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Stats.WordCount != 3 {
+		t.Fatalf("stats.wordCount = %d, want 3", resp.Stats.WordCount)
+	}
+	if resp.Stats.LineCount != 1 {
+		t.Fatalf("stats.lineCount = %d, want 1", resp.Stats.LineCount)
+	}
+	if resp.Stats.TokenCount != 6 {
+		t.Fatalf("stats.tokenCount = %d, want 6", resp.Stats.TokenCount)
 	}
 }
 

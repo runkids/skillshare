@@ -12,12 +12,13 @@ import (
 	"skillshare/internal/ui"
 )
 
-func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, []syncTargetResult, *skillignore.IgnoreStats, error) {
+func cmdSyncProject(root string, resources resourceSelection, dryRun, force, jsonOutput bool) (syncLogStats, []syncTargetResult, *skillignore.IgnoreStats, error) {
 	start := time.Now()
 	stats := syncLogStats{
 		DryRun:       dryRun,
 		Force:        force,
 		ProjectScope: true,
+		Resources:    resources.names(),
 	}
 
 	if !projectConfigExists(root) {
@@ -31,49 +32,6 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 		return stats, nil, nil, err
 	}
 	stats.Targets = len(runtime.config.Targets)
-
-	// Validate project config before sync
-	warnings, validErr := config.ValidateProjectConfig(runtime.config, root)
-	if validErr != nil {
-		return stats, nil, nil, validErr
-	}
-	if !jsonOutput {
-		for _, w := range warnings {
-			ui.Warning("%s", w)
-		}
-	}
-
-	// ValidateProjectConfig warns on missing source (may not exist yet after init).
-	// Gate here as a hard error — sync cannot proceed without source skills.
-	if _, err := os.Stat(runtime.sourcePath); os.IsNotExist(err) {
-		return stats, nil, nil, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
-	}
-
-	// Phase 1: Discovery
-	var spinner *ui.Spinner
-	if !jsonOutput {
-		spinner = ui.StartSpinner("Discovering skills")
-	}
-	discoveredSkills, ignoreStats, discoverErr := sync.DiscoverSourceSkillsWithStats(runtime.sourcePath)
-	if discoverErr != nil {
-		if spinner != nil {
-			spinner.Fail("Discovery failed")
-		}
-		return stats, nil, nil, discoverErr
-	}
-	if spinner != nil {
-		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
-		reportCollisions(discoveredSkills, runtime.targets)
-	}
-
-	// Phase 2: Per-target sync
-	if !jsonOutput {
-		ui.Header("Syncing skills (project)")
-		if dryRun {
-			ui.Warning("Dry run mode - no changes will be made")
-		}
-	}
-
 	var entries []syncTargetEntry
 	notFoundCount := 0
 	for _, entry := range runtime.config.Targets {
@@ -93,12 +51,69 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 		entries = append(entries, syncTargetEntry{name: name, target: target, mode: mode})
 	}
 
+	var discoveredSkills []sync.DiscoveredSkill
+	var ignoreStats *skillignore.IgnoreStats
+	var skillSyncErr error
+	if resources.skills {
+		if _, err := os.Stat(runtime.sourcePath); os.IsNotExist(err) {
+			sourceErr := fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
+			if !resources.includesManaged() {
+				return stats, nil, nil, sourceErr
+			}
+			skillSyncErr = sourceErr
+		} else {
+			var spinner *ui.Spinner
+			if !jsonOutput {
+				spinner = ui.StartSpinner("Discovering skills")
+			}
+			discoveredSkills, ignoreStats, err = sync.DiscoverSourceSkillsWithStats(runtime.sourcePath)
+			if err != nil {
+				if spinner != nil {
+					spinner.Fail("Discovery failed")
+				}
+				if !resources.includesManaged() {
+					return stats, nil, nil, err
+				}
+				skillSyncErr = err
+			} else if spinner != nil {
+				spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
+				reportCollisions(discoveredSkills, runtime.targets)
+			}
+		}
+	}
+
+	if !jsonOutput {
+		switch {
+		case resources.skills && resources.includesManaged():
+			ui.Header("Syncing skills and resources (project)")
+		case resources.skills:
+			ui.Header("Syncing skills (project)")
+		default:
+			ui.Header("Syncing resources (project)")
+		}
+		if dryRun {
+			ui.Warning("Dry run mode - no changes will be made")
+		}
+	}
+
 	var results []syncTargetResult
 	var failedTargets int
-	if jsonOutput {
-		results, failedTargets = runParallelSyncQuiet(entries, runtime.sourcePath, discoveredSkills, dryRun, force, root)
-	} else {
-		results, failedTargets = runParallelSync(entries, runtime.sourcePath, discoveredSkills, dryRun, force, root)
+	if resources.skills {
+		if skillSyncErr != nil {
+			results, failedTargets = syncResultsForSkillError(entries, skillSyncErr)
+		} else if jsonOutput || resources.includesManaged() {
+			results, failedTargets = runParallelSyncQuiet(entries, runtime.sourcePath, discoveredSkills, dryRun, force, root)
+		} else {
+			results, failedTargets = runParallelSync(entries, runtime.sourcePath, discoveredSkills, dryRun, force, root)
+		}
+	}
+	if resources.includesManaged() {
+		var managedFailed int
+		results, managedFailed = syncManagedResourcesForEntries(entries, entries, results, resources, root, dryRun)
+		failedTargets += managedFailed
+		if !jsonOutput {
+			renderSyncResults(results)
+		}
 	}
 	failedTargets += notFoundCount
 
@@ -126,8 +141,6 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 		printIgnoredSkills(ignoreStats)
 	}
 
-	// Reconcile registry and cleanup regardless of target failures.
-	// Registry cleanup only depends on source disk state, not target sync results.
 	if !dryRun {
 		if n, _ := trash.Cleanup(trash.ProjectTrashDir(root), 0); n > 0 {
 			if !jsonOutput {

@@ -78,6 +78,53 @@ func newTestServerWithTargets(t *testing.T, targets map[string]string) (*Server,
 	return s, sourceDir
 }
 
+// newManagedProjectServer creates a project-mode server with one configured target.
+func newManagedProjectServer(t *testing.T, targetName string) (*Server, string, string, string) {
+	t.Helper()
+
+	tmp := t.TempDir()
+	homeDir := filepath.Join(tmp, "home")
+	projectRoot := filepath.Join(tmp, "project")
+	sourceDir := filepath.Join(tmp, "source")
+	targetPath := filepath.Join(tmp, "targets", targetName)
+
+	t.Setenv("HOME", homeDir)
+	t.Setenv("XDG_STATE_HOME", filepath.Join(tmp, "state"))
+
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".skillshare"), 0755); err != nil {
+		t.Fatalf("failed to create project config dir: %v", err)
+	}
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		t.Fatalf("failed to create source dir: %v", err)
+	}
+	if err := os.MkdirAll(targetPath, 0755); err != nil {
+		t.Fatalf("failed to create target dir: %v", err)
+	}
+
+	projectCfgPath := filepath.Join(projectRoot, ".skillshare", "config.yaml")
+	raw := "targets:\n- name: " + targetName + "\n  path: " + targetPath + "\n"
+	if err := os.WriteFile(projectCfgPath, []byte(raw), 0644); err != nil {
+		t.Fatalf("failed to write project config: %v", err)
+	}
+
+	projectCfg, err := config.LoadProject(projectRoot)
+	if err != nil {
+		t.Fatalf("failed to load project config: %v", err)
+	}
+
+	targets, err := config.ResolveProjectTargets(projectRoot, projectCfg)
+	if err != nil {
+		t.Fatalf("failed to resolve project targets: %v", err)
+	}
+
+	cfg := &config.Config{
+		Source:  sourceDir,
+		Targets: targets,
+	}
+	s := NewProject(cfg, projectCfg, projectRoot, "127.0.0.1:0", "", "")
+	return s, projectRoot, sourceDir, targetPath
+}
+
 // addSkill creates a skill directory with SKILL.md in the source directory.
 func addSkill(t *testing.T, sourceDir, name string) {
 	t.Helper()

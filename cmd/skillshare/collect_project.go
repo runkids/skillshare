@@ -9,8 +9,15 @@ import (
 	"skillshare/internal/ui"
 )
 
-func cmdCollectProject(opts collectOptions, root string, start time.Time) (collectLogSummary, error) {
+func cmdCollectProject(opts collectOptions, root string, start time.Time, resources resourceSelection) (collectLogSummary, error) {
 	summary := newCollectLogSummary(kindSkills, "project", opts)
+
+	if resources.onlyManaged() {
+		if opts.targetName != "" || opts.collectAll {
+			return summary, collectCommandError(fmt.Errorf("target selection is only supported when collecting skills"), opts.jsonOutput)
+		}
+		return runManagedOnlyCollect(summary, opts, start, root, resources)
+	}
 
 	runtime, err := loadProjectRuntime(root)
 	if err != nil {
@@ -25,13 +32,17 @@ func cmdCollectProject(opts collectOptions, root string, start time.Time) (colle
 		return summary, nil
 	}
 
-	return runCollectPlan(collectPlan{
-		kind: kindSkills, source: runtime.sourcePath,
-		scan: func(warn bool) collectResources {
-			skills := collectLocalSkills(targets, runtime.sourcePath, "", warn)
-			return toCollectResources(skills, runtime.sourcePath, skillDisplayItem, sync.PullSkills)
-		},
-	}, opts, start, "project")
+	if !resources.includesManaged() {
+		return runCollectPlan(collectPlan{
+			kind: kindSkills, source: runtime.sourcePath,
+			scan: func(warn bool) collectResources {
+				skills := collectLocalSkills(targets, runtime.sourcePath, "", warn)
+				return toCollectResources(skills, runtime.sourcePath, skillDisplayItem, sync.PullSkills)
+			},
+		}, opts, start, "project")
+	}
+
+	return runCombinedCollect(summary, opts, start, runtime.sourcePath, "", targets, root, resources)
 }
 
 func selectCollectProjectTargets(runtime *projectRuntime, targetName string, collectAll, jsonOutput bool) (map[string]config.TargetConfig, error) {

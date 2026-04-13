@@ -219,6 +219,64 @@ func TestHandleCreateSkill_InvalidScaffoldDir(t *testing.T) {
 	}
 }
 
+func TestHandleCreateSkill_AgentSuccess(t *testing.T) {
+	s, src := newTestServer(t)
+	agentsDir := filepath.Join(filepath.Dir(src), "agents")
+	s.cfg.AgentsSource = agentsDir
+
+	body := `{"name":"reviewer","kind":"agent"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/resources", bytes.NewBufferString(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Skill struct {
+			Name       string `json:"name"`
+			Kind       string `json:"kind"`
+			FlatName   string `json:"flatName"`
+			RelPath    string `json:"relPath"`
+			SourcePath string `json:"sourcePath"`
+		} `json:"skill"`
+		CreatedFiles []string `json:"createdFiles"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Skill.Name != "reviewer" {
+		t.Errorf("expected name 'reviewer', got %q", resp.Skill.Name)
+	}
+	if resp.Skill.Kind != "agent" {
+		t.Errorf("expected kind 'agent', got %q", resp.Skill.Kind)
+	}
+	if resp.Skill.FlatName != "reviewer.md" {
+		t.Errorf("expected flatName 'reviewer.md', got %q", resp.Skill.FlatName)
+	}
+	if resp.Skill.RelPath != "reviewer.md" {
+		t.Errorf("expected relPath 'reviewer.md', got %q", resp.Skill.RelPath)
+	}
+
+	data, err := os.ReadFile(resp.Skill.SourcePath)
+	if err != nil {
+		t.Fatalf("agent file not created: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "name: reviewer") {
+		t.Error("agent file missing 'name: reviewer'")
+	}
+	if !strings.Contains(content, "# reviewer") {
+		t.Error("agent file missing '# reviewer'")
+	}
+
+	if len(resp.CreatedFiles) != 1 || resp.CreatedFiles[0] != "reviewer.md" {
+		t.Fatalf("expected createdFiles [reviewer.md], got %v", resp.CreatedFiles)
+	}
+}
+
 func TestHandleCreateSkill_NonePattern(t *testing.T) {
 	s, src := newTestServer(t)
 
