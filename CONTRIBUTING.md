@@ -2,76 +2,74 @@
 
 Thanks for your interest in contributing! This guide helps you get started.
 
-## How to Contribute
+## Start with an Issue
 
-### 1. Open an Issue First
+The best way to contribute is to [open an issue](https://github.com/runkids/skillshare/issues/new). Issues are where ideas, feature requests, and design discussions happen. This helps us:
 
-Before writing code, [open an issue](https://github.com/runkids/skillshare/issues/new) to describe what you'd like to change and why. This helps us:
+- Align on whether the change fits the project direction
+- Agree on scope and approach before any code is written
+- Avoid investing time in work that may not be merged
 
-- Align on the scope and approach
-- Avoid duplicate effort
-- Discuss alternative solutions early
+**Please open an issue before writing code**, even if you're confident in the approach. Skipping this step is the most common reason contributions can't be accepted.
 
-Even small changes benefit from a quick issue — it gives context for reviewers and future contributors.
+## Pull Requests
 
-### 2. Submit a Draft PR
+### What PRs are good for
 
-If you'd like to propose an implementation, open a [draft pull request](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests#draft-pull-requests) and link it to the issue. Draft PRs let us:
+PRs work best for **small, focused changes**:
 
-- Collaborate on the approach before investing time in polish
-- Catch design mismatches early
-- Provide incremental feedback
+- Bug fixes with a clear reproduction
+- Typo and documentation corrections
+- Small improvements (a few files, under ~200 lines of meaningful change)
 
-> **Note:** Due to the nature of this project, most PRs won't be merged directly — but every contribution is valuable. Your draft PR serves as a concrete reference that shapes the final implementation.
+These can go straight to a PR (still link to an issue if one exists).
 
-### 3. Include Tests
+### Feature Ideas
 
-PRs with test coverage are much easier to review and merge. skillshare has both unit and integration tests:
+For new features or large changes:
 
-- **Unit tests**: alongside source files (`*_test.go`)
-- **Integration tests**: `tests/integration/` using `testutil.Sandbox`
+1. **Open an issue** to describe the idea and the problem it solves
+2. **Submit a proposal** — copy [`proposals/TEMPLATE.md`](proposals/TEMPLATE.md), fill it in, and open a PR to `proposals/`
 
-Run the full check before submitting:
+Approved proposals will be added to the roadmap. Implementation is handled by the maintainer to ensure consistency with the project's architecture and codebase conventions.
 
-```bash
-make check          # format + lint + unit + integration tests
-```
+> **Note:** Due to the nature of this project, most feature PRs won't be merged directly — but every contribution is valuable. Your PR serves as a concrete reference that shapes the final implementation.
+
+### PR Checklist
+
+- [ ] Linked to an issue (required for features, recommended for bug fixes)
+- [ ] Tests included and passing (`make check`)
+- [ ] No unrelated changes in the diff
+- [ ] Commit messages explain "why", not just "what"
+- [ ] Scope is focused — one concern per PR
 
 ## Development Setup
 
-### Option A: Dev Containers (Recommended)
-
-Open in [Dev Containers](https://containers.dev/) — Go toolchain, Node.js, pnpm, and demo content are pre-configured.
-
-### Option B: Local
-
-Requirements: Go 1.23+
+All development and testing should be done inside the **devcontainer**. This ensures a consistent environment (Go toolchain, Node.js, pnpm, and demo content are pre-configured).
 
 ```bash
 git clone https://github.com/runkids/skillshare.git
 cd skillshare
-make build          # build binary
-make check          # format + lint + test
+make devc            # start devcontainer + enter shell (one step)
 ```
 
-### Useful Commands
+Once inside the devcontainer:
 
 ```bash
-make build          # build binary → bin/skillshare
-make test           # unit + integration tests
-make test-unit      # unit tests only
-make lint           # go vet
-make fmt            # gofmt
-make check          # fmt + lint + test (must pass before PR)
-make ui-dev         # Go API server + Vite HMR for Web UI
+make build           # build binary → bin/skillshare
+make test            # unit + integration tests
+make check           # fmt + lint + test (must pass before PR)
+make ui-dev          # Go API server + Vite HMR for Web UI
 ```
 
-## PR Checklist
+Other devcontainer commands:
 
-- [ ] Linked to an issue
-- [ ] Tests included and passing (`make check`)
-- [ ] No unrelated changes in the diff
-- [ ] Commit messages explain "why", not just "what"
+```bash
+make devc-down       # stop devcontainer
+make devc-restart    # restart devcontainer
+make devc-reset      # full reset (remove volumes)
+make devc-status     # show devcontainer status
+```
 
 ## Questions?
 

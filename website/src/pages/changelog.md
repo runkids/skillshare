@@ -9,6 +9,12 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.19.1] - 2026-04-13
+
+### Bug Fixes
+
+- **Structured output no longer corrupted by update notices** — `--json`, `-j`, and `--format json/sarif/markdown` modes could emit a trailing human-readable update notification into stdout, producing invalid JSON for downstream consumers. The update check is now skipped entirely in structured-output modes, and the notification itself writes to stderr as a safety net. Refs: #129
+
 ## [0.19.0] - 2026-04-11
 
 ### New Features

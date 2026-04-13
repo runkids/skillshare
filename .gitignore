@@ -30,6 +30,7 @@ docs/superpowers/
 !.skillshare/registry.yaml
 !.skillshare/.gitignore
 /specs/
+!/proposals/
 .pnpm-store/
 .feature-radar/
 .cache/
