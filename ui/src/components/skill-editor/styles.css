@@ -121,37 +121,6 @@
 }
 @keyframes ss-editor-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
-/* ── Segmented control (Edit / Split / Preview) ───────────── */
-.ss-skill-editor .seg-group {
-  display: inline-flex;
-  background: rgba(226,223,216,0.5);
-  border: 1px solid var(--color-muted);
-  border-radius: var(--radius-btn);
-  padding: 2px;
-  gap: 2px;
-}
-.ss-skill-editor .seg-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-btn);
-  color: var(--color-pencil-light);
-  cursor: pointer;
-  transition: all 0.12s;
-}
-.ss-skill-editor .seg-btn:hover { color: var(--color-pencil); }
-.ss-skill-editor .seg-btn.active {
-  background: var(--color-surface);
-  color: var(--color-pencil);
-  font-weight: 600;
-  box-shadow: var(--shadow-sm);
-}
-
 /* ── Notion-style document layout ─────────────────────────── */
 .ss-skill-editor .main { display: flex; flex-direction: column; min-height: 0; }
 .ss-skill-editor .main-inner {
@@ -1188,9 +1157,6 @@
 .ss-skill-editor .switch-toggle input:focus-visible + .switch-track {
   box-shadow: 0 0 0 3px var(--color-accent-light);
 }
-
-/* SegmentedField (extends existing .seg-group) */
-.ss-skill-editor .seg-group-field { display: inline-flex; flex-wrap: wrap; }
 
 /* CharBudget */
 .ss-skill-editor .char-budget {

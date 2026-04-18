@@ -28,6 +28,7 @@ import {
 } from '../../lib/frontmatter';
 import { api, ApiError } from '../../api/client';
 import Button from '../Button';
+import SegmentedControl from '../SegmentedControl';
 import './styles.css';
 
 type PreviewMode = 'edit' | 'split' | 'preview';
@@ -91,6 +92,7 @@ export default function SkillEditor({
   const previewRef = useRef<HTMLDivElement | null>(null);
   const syncOriginRef = useRef<'ta' | 'preview' | null>(null);
   const syncResetTimerRef = useRef<number | null>(null);
+  const syncRafRef = useRef<number | null>(null);
   const leftAnchorsRef = useRef<Map<number, number>>(new Map());
 
   const scheduleSyncReset = () => {
@@ -193,28 +195,41 @@ export default function SkillEditor({
     return last[dst];
   };
 
+  const scheduleSync = (origin: 'ta' | 'preview') => {
+    if (syncOriginRef.current && syncOriginRef.current !== origin) return;
+    if (syncRafRef.current != null) return;
+    syncRafRef.current = window.requestAnimationFrame(() => {
+      syncRafRef.current = null;
+      const ta = textareaRef.current;
+      const pv = previewRef.current;
+      if (!ta || !pv) return;
+      const pairs = buildSyncAnchors();
+      if (!pairs) return;
+      syncOriginRef.current = origin;
+      if (origin === 'ta') {
+        pv.scrollTop = interpolateSync(pairs, ta.scrollTop, false);
+      } else {
+        ta.scrollTop = interpolateSync(pairs, pv.scrollTop, true);
+      }
+      scheduleSyncReset();
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      if (syncRafRef.current != null) window.cancelAnimationFrame(syncRafRef.current);
+      if (syncResetTimerRef.current != null) window.clearTimeout(syncResetTimerRef.current);
+    };
+  }, []);
+
   const handleTextareaScroll = () => {
     if (syncOriginRef.current === 'preview') return;
-    const ta = textareaRef.current;
-    const pv = previewRef.current;
-    if (!ta || !pv) return;
-    const pairs = buildSyncAnchors();
-    if (!pairs) return;
-    syncOriginRef.current = 'ta';
-    pv.scrollTop = interpolateSync(pairs, ta.scrollTop, false);
-    scheduleSyncReset();
+    scheduleSync('ta');
   };
 
   const handlePreviewScroll = () => {
     if (syncOriginRef.current === 'ta') return;
-    const ta = textareaRef.current;
-    const pv = previewRef.current;
-    if (!ta || !pv) return;
-    const pairs = buildSyncAnchors();
-    if (!pairs) return;
-    syncOriginRef.current = 'preview';
-    ta.scrollTop = interpolateSync(pairs, pv.scrollTop, true);
-    scheduleSyncReset();
+    scheduleSync('preview');
   };
 
   const requestSave = useCallback(() => {
@@ -510,28 +525,17 @@ export default function SkillEditor({
             {fileCount} files
           </span>
           <div className="stats-bar-actions">
-            <div className="seg-group" title="⌘P to cycle">
-              <button
-                type="button"
-                className={`seg-btn ${previewMode === 'edit' ? 'active' : ''}`}
-                onClick={() => setPreviewMode('edit')}
-              >
-                <Pencil size={12} /> Edit
-              </button>
-              <button
-                type="button"
-                className={`seg-btn ${previewMode === 'split' ? 'active' : ''}`}
-                onClick={() => setPreviewMode('split')}
-              >
-                <Code2 size={12} /> Split
-              </button>
-              <button
-                type="button"
-                className={`seg-btn ${previewMode === 'preview' ? 'active' : ''}`}
-                onClick={() => setPreviewMode('preview')}
-              >
-                <Eye size={12} /> Preview
-              </button>
+            <div title="⌘P to cycle">
+              <SegmentedControl<PreviewMode>
+                value={previewMode}
+                onChange={setPreviewMode}
+                connected
+                options={[
+                  { value: 'edit', label: <><Pencil size={12} /> Edit</> },
+                  { value: 'split', label: <><Code2 size={12} /> Split</> },
+                  { value: 'preview', label: <><Eye size={12} /> Preview</> },
+                ]}
+              />
             </div>
             <Outline
               markdown={deferredBody}
