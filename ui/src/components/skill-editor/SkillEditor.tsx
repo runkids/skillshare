@@ -28,7 +28,7 @@ import {
 } from '../../lib/frontmatter';
 import { api, ApiError } from '../../api/client';
 import Button from '../Button';
-import SegmentedControl from '../SegmentedControl';
+import EditorSegment from './controls/EditorSegment';
 import './styles.css';
 
 type PreviewMode = 'edit' | 'split' | 'preview';
@@ -525,18 +525,16 @@ export default function SkillEditor({
             {fileCount} files
           </span>
           <div className="stats-bar-actions">
-            <div title="⌘P to cycle">
-              <SegmentedControl<PreviewMode>
-                value={previewMode}
-                onChange={setPreviewMode}
-                connected
-                options={[
-                  { value: 'edit', label: <><Pencil size={12} /> Edit</> },
-                  { value: 'split', label: <><Code2 size={12} /> Split</> },
-                  { value: 'preview', label: <><Eye size={12} /> Preview</> },
-                ]}
-              />
-            </div>
+            <EditorSegment<PreviewMode>
+              value={previewMode}
+              onChange={setPreviewMode}
+              title="⌘P to cycle"
+              options={[
+                { value: 'edit', label: <><Pencil size={12} /> Edit</> },
+                { value: 'split', label: <><Code2 size={12} /> Split</> },
+                { value: 'preview', label: <><Eye size={12} /> Preview</> },
+              ]}
+            />
             <Outline
               markdown={deferredBody}
               activeSlug={activeSlug}
@@ -550,7 +548,20 @@ export default function SkillEditor({
             <div className="editor-pane">
               <div className="pane-head">
                 <span>Body · Markdown</span>
-                <span className="hint">⌘S save · ⌘P toggle · Esc cancel</span>
+                <span className="hint">
+                  <span className="hint-group">
+                    <kbd className="kbd-hint">⌘S</kbd>
+                    <span className="hint-label">Save</span>
+                  </span>
+                  <span className="hint-group">
+                    <kbd className="kbd-hint">⌘P</kbd>
+                    <span className="hint-label">Toggle</span>
+                  </span>
+                  <span className="hint-group">
+                    <kbd className="kbd-hint">Esc</kbd>
+                    <span className="hint-label">Cancel</span>
+                  </span>
+                </span>
               </div>
               <div className="ta-wrap">
                 <textarea

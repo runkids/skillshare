@@ -121,6 +121,38 @@
 }
 @keyframes ss-editor-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
+/* ── Segmented control (Edit / Split / Preview) ───────────── */
+.ss-skill-editor .seg-group {
+  display: inline-flex;
+  background: rgba(226,223,216,0.5);
+  border: 1px solid var(--color-muted);
+  border-radius: var(--radius-btn);
+  padding: 2px;
+  gap: 2px;
+}
+.ss-skill-editor .seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-btn);
+  color: var(--color-pencil-light);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.ss-skill-editor .seg-btn:hover { color: var(--color-pencil); }
+.ss-skill-editor .seg-btn.active {
+  background: var(--color-surface);
+  color: var(--color-pencil);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+.ss-skill-editor .seg-group-field { display: inline-flex; flex-wrap: wrap; }
+
 /* ── Notion-style document layout ─────────────────────────── */
 .ss-skill-editor .main { display: flex; flex-direction: column; min-height: 0; }
 .ss-skill-editor .main-inner {
@@ -462,7 +494,7 @@
   display: flex; align-items: center; justify-content: space-between;
   padding: 8px 14px;
   border-bottom: 1px solid var(--color-muted);
-  background: var(--color-paper-warm);
+  background: var(--color-paper, #fff);
   font-size: 11px;
   color: var(--color-muted-dark);
   letter-spacing: 0.08em;
@@ -474,11 +506,30 @@
   flex: none;
 }
 .ss-skill-editor .pane-head .hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   color: var(--color-pencil-light);
   font-size: 11px;
   text-transform: none;
   letter-spacing: 0;
   font-weight: 400;
+}
+.ss-skill-editor .pane-head .hint-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.ss-skill-editor .pane-head .hint-label {
+  opacity: 0.75;
+}
+.ss-skill-editor .pane-head .hint .kbd-hint {
+  margin-left: 0;
+  opacity: 0.85;
+}
+@media (max-width: 640px) {
+  .ss-skill-editor .pane-head .hint-label { display: none; }
+  .ss-skill-editor .pane-head .hint { gap: 6px; }
 }
 .ss-skill-editor .ta-wrap {
   position: relative;
@@ -903,6 +954,139 @@
   border-width: 2px;
   border-radius: var(--radius-wobble-dialog);
   box-shadow: 4px 4px 0 var(--color-shadow);
+  transform: rotate(-0.3deg);
+}
+
+/* ── Playful theme overrides for keyboard hints (kbd pills) ── */
+[data-theme="playful"] .ss-skill-editor .kbd-hint {
+  padding: 1px 7px;
+  border-width: 1.5px;
+  border-radius: var(--radius-wobble-badge);
+  box-shadow: 1.5px 1.5px 0 var(--color-shadow);
+  opacity: 0.9;
+  font-family: var(--font-hand, ui-monospace, SFMono-Regular, monospace);
+}
+[data-theme="playful"] .ss-skill-editor .pane-head .hint-group:nth-child(odd) .kbd-hint {
+  transform: rotate(-1.2deg);
+}
+[data-theme="playful"] .ss-skill-editor .pane-head .hint-group:nth-child(even) .kbd-hint {
+  transform: rotate(1deg);
+}
+[data-theme="playful"] .ss-skill-editor .pane-head .hint-label {
+  font-family: var(--font-hand, inherit);
+  opacity: 0.85;
+}
+
+/* ── Playful theme overrides for Frontmatter editor ─────────── */
+/* Group cards: wobble radius + hard offset shadow + alternating tilt */
+[data-theme="playful"] .ss-skill-editor .fm-group {
+  border-width: 2px;
+  border-style: solid;
+  border-color: var(--color-pencil);
+  border-radius: var(--radius-wobble-card);
+  box-shadow: 3px 3px 0 var(--color-shadow);
+  background: var(--color-paper, #fff);
+  padding: 10px 14px 14px 14px;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+[data-theme="playful"] .ss-skill-editor .fm-groups > .fm-group:nth-child(odd) {
+  transform: rotate(-0.4deg);
+}
+[data-theme="playful"] .ss-skill-editor .fm-groups > .fm-group:nth-child(even) {
+  transform: rotate(0.3deg);
+}
+[data-theme="playful"] .ss-skill-editor .fm-group-head {
+  font-family: var(--font-hand, inherit);
+  font-size: 15px;
+}
+[data-theme="playful"] .ss-skill-editor .fm-group-count {
+  border: 1.5px solid var(--color-pencil);
+  border-radius: var(--radius-wobble-badge);
+  background: var(--color-paper-warm);
+  box-shadow: 1.5px 1.5px 0 var(--color-shadow);
+  padding: 2px 9px;
+  transform: rotate(1.5deg);
+}
+
+/* Field inputs: wobble input radius + thicker border */
+[data-theme="playful"] .ss-skill-editor .fm-input {
+  border-width: 1.5px;
+  border-color: var(--color-pencil);
+  border-radius: var(--radius-wobble-input);
+  background: var(--color-paper, #fff);
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+[data-theme="playful"] .ss-skill-editor .fm-input:focus {
+  border-color: var(--color-pencil);
+  box-shadow: 2px 2px 0 var(--color-shadow);
+  transform: translate(-1px, -1px);
+}
+
+/* Tool / path / field chips: wobble badge + sticker feel */
+[data-theme="playful"] .ss-skill-editor .chip {
+  border-width: 1.5px;
+  border-radius: var(--radius-wobble-badge);
+  font-family: var(--font-hand, var(--font-mono, monospace));
+  box-shadow: 1.5px 1.5px 0 var(--color-shadow);
+}
+[data-theme="playful"] .ss-skill-editor .tool-chips > .chip:nth-child(3n) {
+  transform: rotate(-1.2deg);
+}
+[data-theme="playful"] .ss-skill-editor .tool-chips > .chip:nth-child(3n+1) {
+  transform: rotate(0.8deg);
+}
+[data-theme="playful"] .ss-skill-editor .tool-chips > .chip:nth-child(3n+2) {
+  transform: rotate(-0.4deg);
+}
+[data-theme="playful"] .ss-skill-editor .chip.add {
+  border: 1.5px dashed var(--color-pencil);
+  box-shadow: 1.5px 1.5px 0 var(--color-shadow);
+  background: var(--color-paper, #fff);
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+[data-theme="playful"] .ss-skill-editor .chip.add:hover {
+  transform: translate(-1px, -1px) rotate(-0.8deg);
+  box-shadow: 2.5px 2.5px 0 var(--color-shadow);
+  background: var(--color-paper-warm);
+}
+[data-theme="playful"] .ss-skill-editor .chip.add:active {
+  transform: translate(1.5px, 1.5px);
+  box-shadow: none;
+}
+
+/* Switch toggles: thicker track + wobble + tiny wobble thumb */
+[data-theme="playful"] .ss-skill-editor .switch-track {
+  border-width: 2px;
+  border-radius: var(--radius-wobble-badge);
+  box-shadow: 1.5px 1.5px 0 var(--color-shadow);
+}
+[data-theme="playful"] .ss-skill-editor .switch-thumb {
+  border-radius: var(--radius-wobble-badge);
+}
+
+/* Pinned-fields divider and metadata extras: hand-drawn dash */
+[data-theme="playful"] .ss-skill-editor .fm-grid-pinned,
+[data-theme="playful"] .ss-skill-editor .fm-metadata-extras {
+  border-top-width: 1.5px;
+  border-top-color: var(--color-pencil);
+}
+
+/* Targets section block */
+[data-theme="playful"] .ss-skill-editor .targets-section {
+  border-width: 2px;
+  border-color: var(--color-pencil);
+  border-radius: var(--radius-wobble-card);
+  box-shadow: 3px 3px 0 var(--color-shadow);
+  background: var(--color-paper, #fff);
+  transform: rotate(-0.2deg);
+}
+
+/* Metadata tip card at bottom */
+[data-theme="playful"] .ss-skill-editor .fm-metadata-tip {
+  border-width: 1.5px;
+  border-color: var(--color-pencil);
+  border-radius: var(--radius-wobble-badge);
+  box-shadow: 2px 2px 0 var(--color-shadow);
   transform: rotate(-0.3deg);
 }
 .ss-skill-editor-outline-popover .outline-list {

@@ -3,7 +3,7 @@ import { Code2, LayoutGrid, Plus, X } from 'lucide-react';
 import type { Frontmatter, FrontmatterValue } from '../../lib/frontmatter';
 import { serializeFrontmatter } from '../../lib/frontmatter';
 import { Input } from '../Input';
-import SegmentedControl from '../SegmentedControl';
+import EditorSegment from './controls/EditorSegment';
 import SwitchToggle from './controls/SwitchToggle';
 import CharBudget from './controls/CharBudget';
 
@@ -176,10 +176,9 @@ export default function FrontmatterEditor({
           <span>Frontmatter</span>
           <span className="fm-sub">YAML metadata · drives routing &amp; tool access</span>
         </div>
-        <SegmentedControl<'fields' | 'yaml'>
+        <EditorSegment<'fields' | 'yaml'>
           value={yamlMode ? 'yaml' : 'fields'}
           onChange={(v) => onToggleYaml(v === 'yaml')}
-          connected
           options={[
             { value: 'fields', label: <><LayoutGrid size={12} /> Fields</> },
             { value: 'yaml', label: <><Code2 size={12} /> YAML</> },
@@ -380,10 +379,11 @@ function FieldControl({
 
 function EnumField({ def, value, setField }: { def: FieldDef; value: string; setField: SetField }) {
   return (
-    <SegmentedControl<string>
+    <EditorSegment<string>
       value={value}
       onChange={(next) => setField(def.key, next || null)}
-      connected
+      className="seg-group-field"
+      role="radiogroup"
       options={(def.options ?? []).map((o) => ({ value: o, label: o || 'inherit' }))}
     />
   );
