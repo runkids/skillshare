@@ -40,8 +40,8 @@ describe('resolveFieldPath', () => {
     expect(resolveFieldPath(sampleLines, 100)).toBeNull();
   });
 
-  it('returns null for bare list values (no key)', () => {
-    expect(resolveFieldPath(sampleLines, 5)).toBeNull();
+  it('resolves bare list values as short-form keys', () => {
+    expect(resolveFieldPath(sampleLines, 5)).toBe('targets.claude.include.skill-a');
   });
 
   // YAML list items with keys: "- name: rules"
