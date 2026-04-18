@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useT } from '../i18n';
 import {
   Puzzle,
   Target,
@@ -40,6 +41,7 @@ import { formatSkillDisplayName } from '../lib/resourceNames';
 const STAR_CTA_DISMISSED_KEY = 'skillshare.dashboard.starCta.dismissed';
 
 export default function DashboardPage() {
+  const t = useT();
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.overview,
     queryFn: () => api.getOverview(),
@@ -64,7 +66,7 @@ export default function DashboardPage() {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg">
-          Oops! Something went wrong.
+          {t("dashboard.error.title")}
         </p>
         <p className="text-pencil-light text-sm mt-1">{error.message}</p>
       </Card>
@@ -81,18 +83,19 @@ export default function DashboardPage() {
       const errors = res.results.filter((r) => r.action === 'error');
       const blocked = res.results.filter((r) => r.action === 'blocked');
       if (res.results.length === 0) {
-        toast('No tracked repos or updatable skills found.', 'info');
+        toast(t("dashboard.toast.noTrackedRepos"), 'info');
       } else {
         const parts = [`${updated} updated`, `${upToDate} up-to-date`];
         if (blocked.length > 0) parts.push(`${blocked.length} blocked`);
-        toast(`Update complete: ${parts.join(', ')}.`, blocked.length > 0 ? 'warning' : updated > 0 ? 'success' : 'info');
+        toast(t("dashboard.toast.updateComplete", { summary: parts.join(', ') }), blocked.length > 0 ? 'warning' : updated > 0 ? 'success' : 'info');
       }
       const allUpdateErrors = [
         ...blocked.map((r) => `${formatSkillDisplayName(r.name)}: ${r.message}`),
         ...errors.map((r) => `${formatSkillDisplayName(r.name)}: ${r.message}`),
       ];
       if (allUpdateErrors.length > 0) {
-        toast(`${allUpdateErrors.length} issue${allUpdateErrors.length !== 1 ? 's' : ''}: ${allUpdateErrors.join('; ')}`, 'error');
+        const key = allUpdateErrors.length !== 1 ? "dashboard.toast.issueCount" : "dashboard.toast.issueCountSingular";
+        toast(t(key, { count: allUpdateErrors.length, details: allUpdateErrors.join('; ') }), 'error');
       }
       await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
       await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
@@ -114,36 +117,36 @@ export default function DashboardPage() {
 
   const stats = [
     {
-      label: 'Skills',
+      label: t("dashboard.stats.skills"),
       value: data.skillCount,
-      subtitle: `${data.topLevelCount} top-level`,
+      subtitle: t("dashboard.stats.topLevel", { count: data.topLevelCount }),
       icon: Puzzle,
       color: 'text-blue',
       bg: 'bg-info-light',
       to: '/resources?tab=skills',
     },
     {
-      label: 'Agents',
+      label: t("dashboard.stats.agents"),
       value: data.agentCount,
-      subtitle: 'installed',
+      subtitle: t("dashboard.stats.installed"),
       icon: Bot,
       color: 'text-accent',
       bg: 'bg-accent/10',
       to: '/resources?tab=agents',
     },
     {
-      label: 'Targets',
+      label: t("dashboard.stats.targets"),
       value: data.targetCount,
-      subtitle: 'configured',
+      subtitle: t("dashboard.stats.configured"),
       icon: Target,
       color: 'text-success',
       bg: 'bg-success-light',
       to: '/targets',
     },
     {
-      label: 'Extras',
+      label: t("dashboard.stats.extras"),
       value: extrasData?.extras?.length ?? 0,
-      subtitle: `${totalExtraFiles} files · ${totalExtraTargets} targets`,
+      subtitle: t("dashboard.stats.extrasSubtitle", { files: totalExtraFiles, targets: totalExtraTargets }),
       icon: FolderPlus,
       color: 'text-lime-600',
       bg: 'bg-lime-100',
@@ -153,7 +156,7 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-fade-in">
-      <PageHeader icon={<LayoutDashboard size={24} strokeWidth={2.5} />} title="Dashboard" subtitle="Your skill management overview at a glance" />
+      <PageHeader icon={<LayoutDashboard size={24} strokeWidth={2.5} />} title={t("dashboard.title")} subtitle={t("dashboard.subtitle")} />
 
       {/* Stats grid */}
       <div data-tour="stats-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
@@ -192,15 +195,15 @@ export default function DashboardPage() {
       {/* Source path card */}
       <Card className="mb-8">
         <h3 className="text-lg font-bold text-pencil mb-3">
-          Source Directories
+          {t("dashboard.source.title")}
         </h3>
         <div className="space-y-2.5">
-          <SourceRow label="Skills" path={data.source} />
-          {data.agentsSource && <SourceRow label="Agents" path={data.agentsSource} />}
-          {data.extrasSource && <SourceRow label="Extras" path={data.extrasSource} />}
+          <SourceRow label={t("dashboard.stats.skills")} path={data.source} />
+          {data.agentsSource && <SourceRow label={t("dashboard.stats.agents")} path={data.agentsSource} />}
+          {data.extrasSource && <SourceRow label={t("dashboard.stats.extras")} path={data.extrasSource} />}
         </div>
         <p className="text-sm text-muted-dark mt-3">
-          All targets sync from these directories.
+          {t("dashboard.source.allTargetsSyncFrom")}
         </p>
       </Card>
 
@@ -219,10 +222,10 @@ export default function DashboardPage() {
                 <h3
                   className="text-lg font-bold text-pencil"
                 >
-                  Enjoying skillshare?
+                  {t("dashboard.starCta.enjoying")}
                 </h3>
                 <p className="text-sm text-pencil-light mt-1">
-                  If skillshare saved you time, please give us a star on GitHub:
+                  {t("dashboard.starCta.message")}
                   {' '}
                   <a
                     href="https://github.com/runkids/skillshare"
@@ -237,7 +240,7 @@ export default function DashboardPage() {
             </div>
             <IconButton
               icon={<X size={16} strokeWidth={2.5} />}
-              label="Dismiss star reminder"
+              label={t("dashboard.starCta.dismiss")}
               size="sm"
               variant="ghost"
               onClick={dismissStarCta}
@@ -268,7 +271,7 @@ export default function DashboardPage() {
         <h3
           className="text-xl font-bold text-pencil mb-4"
         >
-          Quick Actions
+          {t("dashboard.quickActions.title")}
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link to="/sync" className="h-full">
@@ -292,9 +295,9 @@ export default function DashboardPage() {
               />
               <div className="flex-1">
                 <p className="font-medium text-pencil">
-                  Sync Now
+                  {t("dashboard.quickActions.syncNow")}
                 </p>
-                <p className="text-sm text-pencil-light">Push skills to all targets</p>
+                <p className="text-sm text-pencil-light">{t("dashboard.quickActions.syncNow.description")}</p>
               </div>
               <ArrowRight size={16} className="text-pencil-light" />
             </div>
@@ -317,9 +320,9 @@ export default function DashboardPage() {
               <ShieldCheck size={22} strokeWidth={2.5} className="text-blue group-hover:animate-pulse" />
               <div className="flex-1">
                 <p className="font-medium text-pencil">
-                  Security Audit
+                  {t("dashboard.quickActions.securityAudit")}
                 </p>
-                <p className="text-sm text-pencil-light">Scan skills for threats</p>
+                <p className="text-sm text-pencil-light">{t("dashboard.quickActions.securityAudit.description")}</p>
               </div>
               <ArrowRight size={16} className="text-pencil-light" />
             </div>
@@ -342,9 +345,9 @@ export default function DashboardPage() {
               <Puzzle size={22} strokeWidth={2.5} className="text-success group-hover:animate-bounce" />
               <div className="flex-1">
                 <p className="font-medium text-pencil">
-                  Browse Skills
+                  {t("dashboard.quickActions.browseSkills")}
                 </p>
-                <p className="text-sm text-pencil-light">View and manage your skills</p>
+                <p className="text-sm text-pencil-light">{t("dashboard.quickActions.browseSkills.description")}</p>
               </div>
               <ArrowRight size={16} className="text-pencil-light" />
             </div>
@@ -376,9 +379,9 @@ export default function DashboardPage() {
               />
               <div className="flex-1">
                 <p className="font-medium text-pencil">
-                  {updatingAll ? 'Updating...' : 'Update All'}
+                  {updatingAll ? t("dashboard.quickActions.updating") : t("dashboard.quickActions.updateAll")}
                 </p>
-                <p className="text-sm text-pencil-light">Pull latest for all tracked repos</p>
+                <p className="text-sm text-pencil-light">{t("dashboard.quickActions.updateAll.description")}</p>
               </div>
               {!updatingAll && <ArrowRight size={16} className="text-pencil-light" />}
             </div>
@@ -391,10 +394,10 @@ export default function DashboardPage() {
               handleUpdateAll();
             }}
             onCancel={() => setShowUpdateConfirm(false)}
-            title="Update All"
-            message="This will pull the latest changes for all tracked repositories. Continue?"
-            confirmText="Update"
-            cancelText="Cancel"
+            title={t("dashboard.quickActions.updateAll.confirm.title")}
+            message={t("dashboard.quickActions.updateAll.confirm.message")}
+            confirmText={t("dashboard.trackedRepos.update")}
+            cancelText={t("common.cancel")}
           />
         </div>
       </div>
@@ -427,6 +430,7 @@ function SourceRow({ label, path }: { label: string; path: string }) {
 /* -- Tracked Repositories Section --------------------- */
 
 function TrackedReposSection({ repos }: { repos: { name: string; skillCount: number; dirty: boolean }[] }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [updatingRepos, setUpdatingRepos] = useState<Set<string>>(new Set());
@@ -448,15 +452,15 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
       const displayName = repoName.replace(/^_/, '');
 
       if (item?.action === 'updated') {
-        toast(`Updated: ${displayName} — ${item.message ?? 'done'}`, 'success');
+        toast(t("dashboard.toast.repoUpdated", { name: displayName, message: item.message ?? 'done' }), 'success');
       } else if (item?.action === 'up-to-date') {
-        toast(`${displayName} is already up to date.`, 'info');
+        toast(t("dashboard.toast.repoAlreadyUpToDate", { name: displayName }), 'info');
       } else if (item?.action === 'blocked') {
-        toast(item.message ?? `Update blocked for ${displayName}`, 'error');
+        toast(item.message ?? t("dashboard.toast.updateBlockedFor", { name: displayName }), 'error');
       } else if (item?.action === 'error') {
-        toast(item.message ?? `Update failed for ${displayName}`, 'error');
+        toast(item.message ?? t("dashboard.toast.updateFailedFor", { name: displayName }), 'error');
       } else {
-        toast(item?.message ?? `Skipped ${displayName}`, 'warning');
+        toast(item?.message ?? t("dashboard.toast.repoSkipped", { name: displayName }), 'warning');
       }
 
       await invalidateRepoData();
@@ -479,7 +483,7 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
     try {
       const displayName = targetRepo.replace(/^_/, '');
       await api.deleteRepo(targetRepo);
-      toast(`Repository "${displayName}" uninstalled.`, 'success');
+      toast(t("dashboard.toast.repoUninstalled", { name: displayName }), 'success');
       setRepoToDelete(null);
       await invalidateRepoData();
     } catch (e: unknown) {
@@ -501,7 +505,7 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
           <h3
             className="text-lg font-bold text-pencil"
           >
-            Tracked Repositories
+            {t("dashboard.trackedRepos.title")}
           </h3>
         </div>
         <div className="space-y-3">
@@ -525,11 +529,11 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
                   >
                     {displayName}
                   </span>
-                  <Badge variant="info">{repo.skillCount} skills</Badge>
+                  <Badge variant="info">{t("dashboard.trackedRepos.skillCount", { count: repo.skillCount })}</Badge>
                   {repo.dirty ? (
-                    <Badge variant="warning" dot>modified</Badge>
+                    <Badge variant="warning" dot>{t("dashboard.trackedRepos.modified")}</Badge>
                   ) : (
-                    <Badge variant="default">clean</Badge>
+                    <Badge variant="default">{t("dashboard.trackedRepos.clean")}</Badge>
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -541,7 +545,7 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
                     disabled={hasAnyDeleteInProgress}
                   >
                     <RefreshCw size={12} />
-                    Update
+                    {t("dashboard.trackedRepos.update")}
                   </Button>
                   <Button
                     variant="danger"
@@ -550,7 +554,7 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
                     disabled={isBusy || repoToDelete !== null || updatingRepos.size > 0}
                   >
                     <Trash2 size={12} />
-                    Uninstall
+                    {t("dashboard.trackedRepos.uninstall")}
                   </Button>
                 </div>
               </div>
@@ -561,13 +565,13 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
 
       <ConfirmDialog
         open={repoToDelete !== null}
-        title="Uninstall Repository"
+        title={t("dashboard.trackedRepos.uninstallConfirm.title")}
         message={
           repoToDelete
-            ? `Remove repository "${repoToDelete.replace(/^_/, '')}"? This will move all skills in the repo to trash.`
+            ? t("dashboard.trackedRepos.uninstallConfirm.message", { name: repoToDelete.replace(/^_/, '') })
             : ''
         }
-        confirmText="Uninstall"
+        confirmText={t("dashboard.trackedRepos.uninstall")}
         variant="danger"
         loading={repoToDelete !== null && deletingRepos.has(repoToDelete)}
         onConfirm={handleDeleteRepo}
@@ -582,6 +586,7 @@ function TrackedReposSection({ repos }: { repos: { name: string; skillCount: num
 /* -- Skill Updates Section ---------------------------- */
 
 function SkillUpdatesSection() {
+  const t = useT();
   const [checkData, setCheckData] = useState<CheckResult | null>(null);
   const [checking, setChecking] = useState(false);
   const [checked, setChecked] = useState(false);
@@ -613,23 +618,23 @@ function SkillUpdatesSection() {
           <h3
             className="text-lg font-bold text-pencil"
           >
-            Skill Updates
+            {t("dashboard.updates.title")}
           </h3>
           {checked && updatableCount > 0 && (
-            <Badge variant="warning">{updatableCount} available</Badge>
+            <Badge variant="warning">{t("dashboard.updates.available", { count: updatableCount })}</Badge>
           )}
           {checked && updatableCount === 0 && (
-            <Badge variant="success">All up to date</Badge>
+            <Badge variant="success">{t("dashboard.updates.allUpToDate")}</Badge>
           )}
         </div>
         <Button variant="link" onClick={handleCheck} disabled={checking}>
-          {checking ? 'Checking...' : checked ? 'Re-check' : 'Run Check'}
+          {checking ? t("dashboard.updates.checking") : checked ? t("dashboard.updates.recheck") : t("dashboard.updates.runCheck")}
         </Button>
       </div>
 
       {!checked && !checking && (
         <p className="text-pencil-light text-sm">
-          Click "Run Check" to see if any tracked repos or skills have updates available.
+          {t("dashboard.updates.runCheckDescription")}
         </p>
       )}
 
@@ -654,10 +659,10 @@ function SkillUpdatesSection() {
                   {repo.name.replace(/^_/, '')}
                 </span>
               </div>
-              {repo.status === 'up_to_date' && <Badge variant="success">Up to date</Badge>}
-              {repo.status === 'behind' && <Badge variant="warning">{repo.behind} behind</Badge>}
-              {repo.status === 'dirty' && <Badge variant="default">Modified</Badge>}
-              {repo.status === 'error' && <Badge variant="danger">Error</Badge>}
+              {repo.status === 'up_to_date' && <Badge variant="success">{t("dashboard.updates.status.upToDate")}</Badge>}
+              {repo.status === 'behind' && <Badge variant="warning">{t("dashboard.updates.status.behind", { count: repo.behind })}</Badge>}
+              {repo.status === 'dirty' && <Badge variant="default">{t("dashboard.updates.status.modified")}</Badge>}
+              {repo.status === 'error' && <Badge variant="danger">{t("dashboard.updates.status.error")}</Badge>}
             </div>
           ))}
           {checkData.skills.map((skill) => (
@@ -675,14 +680,14 @@ function SkillUpdatesSection() {
                   <span className="text-xs text-muted-dark truncate max-w-[200px]">{skill.source}</span>
                 )}
               </div>
-              {skill.status === 'up_to_date' && <Badge variant="success">Up to date</Badge>}
-              {skill.status === 'update_available' && <Badge variant="warning">Update available</Badge>}
-              {skill.status === 'local' && <Badge variant="default">Local</Badge>}
-              {skill.status === 'error' && <Badge variant="danger">Error</Badge>}
+              {skill.status === 'up_to_date' && <Badge variant="success">{t("dashboard.updates.status.upToDate")}</Badge>}
+              {skill.status === 'update_available' && <Badge variant="warning">{t("dashboard.updates.status.updateAvailable")}</Badge>}
+              {skill.status === 'local' && <Badge variant="default">{t("dashboard.updates.status.local")}</Badge>}
+              {skill.status === 'error' && <Badge variant="danger">{t("dashboard.updates.status.error")}</Badge>}
             </div>
           ))}
           {checkData.tracked_repos.length === 0 && checkData.skills.length === 0 && (
-            <p className="text-pencil-light text-sm">No tracked repos or updatable skills found.</p>
+            <p className="text-pencil-light text-sm">{t("dashboard.updates.noTrackedRepos")}</p>
           )}
         </div>
       )}
@@ -701,6 +706,7 @@ const riskLabelVariant: Record<string, 'success' | 'default' | 'info' | 'warning
 };
 
 function SecurityAuditSection() {
+  const t = useT();
   const [auditData, setAuditData] = useState<AuditAllResponse | null>(null);
   const [scanning, setScanning] = useState(false);
   const [scanned, setScanned] = useState(false);
@@ -748,7 +754,7 @@ function SecurityAuditSection() {
           <h3
             className="text-lg font-bold text-pencil"
           >
-            Security Overview
+            {t("dashboard.security.title")}
           </h3>
           {scanned && auditData && (
             <Badge variant={riskLabelVariant[auditData.summary.riskLabel] ?? 'default'}>
@@ -757,17 +763,17 @@ function SecurityAuditSection() {
           )}
         </div>
         <Link to="/audit" className="text-sm text-blue hover:underline">
-          {scanned ? 'View Details' : 'Run scan'}
+          {scanned ? t("dashboard.security.viewDetails") : t("dashboard.security.runScan")}
         </Link>
       </div>
 
       {!scanned && !scanning && (
         <div className="flex items-center justify-between">
           <p className="text-pencil-light text-sm">
-            Scan your installed skills for malicious patterns and security threats.
+            {t("dashboard.security.scanDescription")}
           </p>
           <Button variant="link" onClick={handleScan} className="shrink-0 ml-4">
-            Quick Scan
+            {t("dashboard.security.quickScan")}
           </Button>
         </div>
       )}
@@ -790,7 +796,7 @@ function SecurityAuditSection() {
               <p className="text-lg font-bold text-pencil">
                 {auditData.summary.total}
               </p>
-              <p className="text-xs text-pencil-light">Scanned</p>
+              <p className="text-xs text-pencil-light">{t("dashboard.security.scanned")}</p>
             </div>
             <div
               className="py-2 px-3 bg-paper-warm border border-muted text-center"
@@ -799,7 +805,7 @@ function SecurityAuditSection() {
               <p className="text-lg font-bold text-success">
                 {auditData.summary.passed}
               </p>
-              <p className="text-xs text-pencil-light">Passed</p>
+              <p className="text-xs text-pencil-light">{t("dashboard.security.passed")}</p>
             </div>
             <div
               className="py-2 px-3 bg-paper-warm border border-muted text-center"
@@ -808,7 +814,7 @@ function SecurityAuditSection() {
               <p className="text-lg font-bold text-warning">
                 {auditData.summary.warning}
               </p>
-              <p className="text-xs text-pencil-light">Warnings</p>
+              <p className="text-xs text-pencil-light">{t("dashboard.security.warnings")}</p>
             </div>
             <div
               className={`py-2 px-3 bg-paper-warm border text-center ${auditData.summary.failed > 0 ? 'border-danger' : 'border-muted'}`}
@@ -819,7 +825,7 @@ function SecurityAuditSection() {
               >
                 {auditData.summary.failed}
               </p>
-              <p className="text-xs text-pencil-light">Failed</p>
+              <p className="text-xs text-pencil-light">{t("dashboard.security.failed")}</p>
             </div>
           </div>
 
@@ -827,7 +833,7 @@ function SecurityAuditSection() {
           {hasFindings ? (
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-pencil-light">
-                Findings:
+                {t("dashboard.security.findings")}
               </span>
               {severityCounts
                 .filter((s) => s.count > 0)
@@ -841,7 +847,7 @@ function SecurityAuditSection() {
             <div className="flex items-center gap-2 text-success">
               <ShieldCheck size={16} strokeWidth={2.5} />
               <span className="text-sm font-medium">
-                All Clear — no security findings detected
+                {t("dashboard.security.allClear")}
               </span>
             </div>
           )}
@@ -854,6 +860,7 @@ function SecurityAuditSection() {
 /* -- Targets Health Section --------------------------- */
 
 function TargetsHealthSection() {
+  const t = useT();
   const { data, isPending } = useQuery({
     queryKey: queryKeys.targets.all,
     queryFn: () => api.listTargets(),
@@ -862,13 +869,13 @@ function TargetsHealthSection() {
 
   const sourceSkillCount = data?.sourceSkillCount ?? 0;
   const driftTargets = (data?.targets ?? []).filter(
-    (t) => {
-      const expected = t.expectedSkillCount || sourceSkillCount;
-      return (t.mode === 'merge' && t.status === 'merged' || t.mode === 'copy' && t.status === 'copied') && t.linkedCount < expected;
+    (tgt) => {
+      const expected = tgt.expectedSkillCount || sourceSkillCount;
+      return (tgt.mode === 'merge' && tgt.status === 'merged' || tgt.mode === 'copy' && tgt.status === 'copied') && tgt.linkedCount < expected;
     }
   );
   const maxDrift = driftTargets.reduce(
-    (max, t) => Math.max(max, (t.expectedSkillCount || sourceSkillCount) - t.linkedCount),
+    (max, tgt) => Math.max(max, (tgt.expectedSkillCount || sourceSkillCount) - tgt.linkedCount),
     0
   );
 
@@ -880,14 +887,14 @@ function TargetsHealthSection() {
           <h3
             className="text-lg font-bold text-pencil"
           >
-            Targets Health
+            {t("dashboard.targets.title")}
           </h3>
           {maxDrift > 0 && (
-            <Badge variant="warning">{maxDrift} not synced</Badge>
+            <Badge variant="warning">{t("dashboard.targets.notSynced", { count: maxDrift })}</Badge>
           )}
         </div>
         <Link to="/targets" className="text-sm text-blue hover:underline">
-          View all
+          {t("dashboard.targets.viewAll")}
         </Link>
       </div>
       {isPending ? (
@@ -899,11 +906,11 @@ function TargetsHealthSection() {
       ) : data?.targets && data.targets.length > 0 ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {data.targets.map((t: TargetType) => {
-              const expected = t.expectedSkillCount || sourceSkillCount;
-              const hasDrift = (t.mode === 'merge' && t.status === 'merged' || t.mode === 'copy' && t.status === 'copied') && t.linkedCount < expected;
+            {data.targets.map((tgt: TargetType) => {
+              const expected = tgt.expectedSkillCount || sourceSkillCount;
+              const hasDrift = (tgt.mode === 'merge' && tgt.status === 'merged' || tgt.mode === 'copy' && tgt.status === 'copied') && tgt.linkedCount < expected;
               return (
-                <Link key={t.name} to="/targets">
+                <Link key={tgt.name} to="/targets">
                   <div
                     className={`flex items-center justify-between py-2 px-3 bg-paper-warm border ${hasDrift ? 'border-warning' : 'border-muted'} hover:border-pencil-light transition-colors`}
                     style={{ borderRadius: radius.sm }}
@@ -913,15 +920,15 @@ function TargetsHealthSection() {
                       <span
                         className="font-medium text-pencil truncate"
                       >
-                        {t.name}
+                        {tgt.name}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 ml-2">
-                      <StatusBadge status={t.status} />
+                      <StatusBadge status={tgt.status} />
                       {hasDrift ? (
-                        <Badge variant="warning">{t.linkedCount}/{expected} synced</Badge>
-                      ) : t.linkedCount > 0 ? (
-                        <span className="text-xs text-muted-dark">{t.linkedCount} {t.mode === 'copy' ? 'managed' : 'linked'}</span>
+                        <Badge variant="warning">{t("dashboard.targets.synced", { linked: tgt.linkedCount, expected })}</Badge>
+                      ) : tgt.linkedCount > 0 ? (
+                        <span className="text-xs text-muted-dark">{tgt.mode === 'copy' ? t("dashboard.targets.managed", { count: tgt.linkedCount }) : t("dashboard.targets.linked", { count: tgt.linkedCount })}</span>
                       ) : null}
                     </div>
                   </div>
@@ -932,12 +939,12 @@ function TargetsHealthSection() {
           {maxDrift > 0 && (
             <div className="mt-3 flex items-center gap-2 text-warning text-sm">
               <AlertTriangle size={14} strokeWidth={2.5} />
-              <span>{maxDrift} skill(s) not synced — <Link to="/sync" className="underline hover:text-pencil">go to Sync page</Link></span>
+              <span>{t("dashboard.targets.driftWarning", { count: maxDrift })} <Link to="/sync" className="underline hover:text-pencil">{t("dashboard.targets.goToSync")}</Link></span>
             </div>
           )}
         </>
       ) : (
-        <p className="text-pencil-light text-sm">No targets configured.</p>
+        <p className="text-pencil-light text-sm">{t("dashboard.targets.noTargets")}</p>
       )}
     </Card>
   );
@@ -946,6 +953,7 @@ function TargetsHealthSection() {
 /* -- Version Status Section --------------------------- */
 
 function VersionStatusSection() {
+  const t = useT();
   const { data, isPending } = useQuery({
     queryKey: queryKeys.versionCheck,
     queryFn: () => api.getVersionCheck(),
@@ -959,7 +967,7 @@ function VersionStatusSection() {
         <h3
           className="text-lg font-bold text-pencil"
         >
-          Version Status
+          {t("dashboard.version.title")}
         </h3>
       </div>
       {isPending ? (
@@ -977,7 +985,7 @@ function VersionStatusSection() {
             <div className="flex items-center gap-2">
               <Zap size={14} className="text-pencil-light" />
               <span className="text-pencil text-sm">
-                CLI
+                {t("dashboard.version.cli")}
               </span>
               <span
                 className="font-mono font-medium text-pencil"
@@ -987,9 +995,9 @@ function VersionStatusSection() {
               </span>
             </div>
             {data.cliUpdateAvailable ? (
-              <Badge variant="warning">Update: {data.cliLatest}</Badge>
+              <Badge variant="warning">{t("dashboard.version.update", { version: data.cliLatest })}</Badge>
             ) : (
-              <Badge variant="success">Up to date</Badge>
+              <Badge variant="success">{t("dashboard.version.upToDate")}</Badge>
             )}
           </div>
 
@@ -1001,7 +1009,7 @@ function VersionStatusSection() {
             <div className="flex items-center gap-2">
               <Puzzle size={14} className="text-pencil-light" />
               <span className="text-pencil text-sm">
-                Skill
+                {t("dashboard.version.skill")}
               </span>
               <span
                 className="font-mono font-medium text-pencil"
@@ -1012,19 +1020,19 @@ function VersionStatusSection() {
             </div>
             {data.skillVersion ? (
               data.skillUpdateAvailable ? (
-                <Badge variant="warning">Update: {data.skillLatest}</Badge>
+                <Badge variant="warning">{t("dashboard.version.update", { version: data.skillLatest })}</Badge>
               ) : data.skillLatest ? (
-                <Badge variant="success">Up to date</Badge>
+                <Badge variant="success">{t("dashboard.version.upToDate")}</Badge>
               ) : (
-                <Badge variant="default">Check failed</Badge>
+                <Badge variant="default">{t("dashboard.version.checkFailed")}</Badge>
               )
             ) : (
-              <Badge variant="default">Not installed</Badge>
+              <Badge variant="default">{t("dashboard.version.notInstalled")}</Badge>
             )}
           </div>
         </div>
       ) : (
-        <p className="text-pencil-light text-sm">Could not check versions.</p>
+        <p className="text-pencil-light text-sm">{t("dashboard.version.couldNotCheck")}</p>
       )}
     </Card>
   );
