@@ -14,6 +14,7 @@ import Spinner from './Spinner';
 import DialogShell from './DialogShell';
 import { api, type SkillFileContent } from '../api/client';
 import { handTheme } from '../lib/codemirror-theme';
+import { useT } from '../i18n';
 
 interface FileViewerModalProps {
   skillName: string;
@@ -23,6 +24,7 @@ interface FileViewerModalProps {
 }
 
 export default function FileViewerModal({ skillName, filepath, sourcePath, onClose }: FileViewerModalProps) {
+  const t = useT();
   const fullPath = sourcePath ? `${sourcePath}/${filepath}` : filepath;
   const [data, setData] = useState<SkillFileContent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,13 +66,13 @@ export default function FileViewerModal({ skillName, filepath, sourcePath, onClo
               {filepath}
               <CopyButton
                 value={fullPath}
-                title="Copy file path"
+                title={t('fileViewer.copyPath')}
                 copiedLabelClassName="text-xs font-normal"
               />
             </h3>
             <IconButton
               icon={<X size={16} strokeWidth={2.5} />}
-              label="Close"
+              label={t('common.close')}
               size="md"
               onClick={onClose}
               className="shrink-0 ml-2"

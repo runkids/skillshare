@@ -29,9 +29,11 @@ import { severityBadgeVariant } from '../lib/severity';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
 import { clearAuditCache } from '../lib/auditCache';
 import { formatSkillDisplayName, formatTrackedRepoName } from '../lib/resourceNames';
+import { syncMatrixReasonText } from '../lib/syncMatrixText';
 import { SkillEditor, Outline } from '../components/skill-editor';
 import ScrollToTop from '../components/ScrollToTop';
 import { parseSkillMarkdown } from '../lib/frontmatter';
+import { useT } from '../i18n';
 
 const FileViewerModal = lazy(() => import('../components/FileViewerModal'));
 
@@ -68,6 +70,7 @@ function getFileIcon(filename: string): { icon: typeof File; className: string }
 
 /** Content stats bar showing word count, line count, file count, license */
 function ContentStatsBar({ content, description, body, fileCount, license, trailing }: { content: string; description?: string; body?: string; fileCount: number; license?: string; trailing?: React.ReactNode }) {
+  const t = useT();
   const trimmed = content.trim();
   const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
   const lineCount = trimmed ? trimmed.split(/\r?\n/).length : 0;
@@ -77,24 +80,24 @@ function ContentStatsBar({ content, description, body, fileCount, license, trail
 
   return (
     <div className="ss-detail-stats flex items-center gap-4 flex-wrap text-sm text-pencil-light py-3 mb-4 border-b border-muted">
-      <Tooltip content={`Description: ~${descTokens.toLocaleString()}\nBody: ~${bodyTokens.toLocaleString()}\nTotal: ~${totalTokens.toLocaleString()}\n(~4 chars/token estimate)`}>
+      <Tooltip content={t('resourceDetail.stats.tokensDesc', { desc: descTokens.toLocaleString(), body: bodyTokens.toLocaleString(), total: totalTokens.toLocaleString() })}>
         <span className="inline-flex items-center gap-1.5">
           <Zap size={12} strokeWidth={2.5} />
-          ~{totalTokens.toLocaleString()} tokens
-          {descTokens > 0 && <span className="text-pencil-light/60">(desc ~{descTokens.toLocaleString()} · body ~{bodyTokens.toLocaleString()})</span>}
+          {t('resourceDetail.stats.tokens', { count: totalTokens.toLocaleString() })}
+          {descTokens > 0 && <span className="text-pencil-light/60">{t('resourceDetail.stats.tokensParts', { desc: descTokens.toLocaleString(), body: bodyTokens.toLocaleString() })}</span>}
         </span>
       </Tooltip>
       <span className="inline-flex items-center gap-1.5">
         <Type size={12} strokeWidth={2.5} />
-        {wordCount.toLocaleString()} words
+        {t('resourceDetail.stats.words', { count: wordCount.toLocaleString() })}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <AlignLeft size={12} strokeWidth={2.5} />
-        {lineCount.toLocaleString()} lines
+        {t('resourceDetail.stats.lines', { count: lineCount.toLocaleString() })}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <Files size={12} strokeWidth={2.5} />
-        {fileCount} file{fileCount !== 1 ? 's' : ''}
+        {t('resourceDetail.stats.files', { count: fileCount })}
       </span>
       {license && (
         <span className="inline-flex items-center gap-1.5">
@@ -153,6 +156,7 @@ export default function SkillDetailPage() {
   const [viewingFile, setViewingFile] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const { toast } = useToast();
+  const t = useT();
 
   // Build lookup maps for skill cross-referencing
   const skillMaps = useMemo(() => {
@@ -171,7 +175,7 @@ export default function SkillDetailPage() {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg">
-          Failed to load resource
+          {t('resourceDetail.error.failedToLoad')}
         </p>
         <p className="text-pencil-light text-sm mt-1">{error.message}</p>
       </Card>
@@ -252,10 +256,10 @@ export default function SkillDetailPage() {
       if (resource.isInRepo) {
         const repoName = resource.relPath.split('/')[0];
         await api.deleteRepo(repoName);
-        toast(`Repository "${formatTrackedRepoName(repoName)}" uninstalled.`, 'success');
+        toast(t('resourceDetail.toast.repoUninstalled', { name: formatTrackedRepoName(repoName) }), 'success');
       } else {
         await api.deleteResource(resource.flatName, resource.kind);
-        toast(`${resource.kind === 'agent' ? 'Agent' : 'Skill'} "${resource.name}" uninstalled.`, 'success');
+        toast(t('resourceDetail.toast.resourceUninstalled', { kind: resource.kind === 'agent' ? 'Agent' : 'Skill', name: resource.name }), 'success');
       }
       clearAuditCache(queryClient);
       await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
@@ -284,19 +288,19 @@ export default function SkillDetailPage() {
         const auditInfo = item.auditRiskLabel
           ? ` · Security: ${item.auditRiskLabel.toUpperCase()}${item.auditRiskScore ? ` (${item.auditRiskScore}/100)` : ''}`
           : '';
-        toast(`Updated: ${formatSkillDisplayName(item.name)} — ${item.message}${auditInfo}`, 'success');
+        toast(t('resourceDetail.toast.updated', { name: formatSkillDisplayName(item.name), message: item.message ?? '', auditInfo }), 'success');
         clearAuditCache(queryClient);
         await queryClient.invalidateQueries({ queryKey: queryKeys.skills.detail(name!) });
         await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
         await queryClient.invalidateQueries({ queryKey: queryKeys.overview });
       } else if (item?.action === 'up-to-date') {
-        toast(`${formatSkillDisplayName(item.name)} is already up to date.`, 'info');
+        toast(t('resourceDetail.toast.upToDate', { name: formatSkillDisplayName(item.name) }), 'info');
       } else if (item?.action === 'blocked') {
-        setBlockedMessage(item.message ?? 'Blocked by security audit — HIGH/CRITICAL findings detected');
+        setBlockedMessage(item.message ?? t('resourceDetail.toast.blockedDefault'));
       } else if (item?.action === 'error') {
-        toast(item.message ?? 'Update failed', 'error');
+        toast(item.message ?? t('resourceDetail.toast.updateFailed'), 'error');
       } else {
-        toast(item?.message ?? 'Skipped', 'warning');
+        toast(item?.message ?? t('resourceDetail.toast.skipped'), 'warning');
       }
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
@@ -310,10 +314,10 @@ export default function SkillDetailPage() {
     try {
       if (resource.disabled) {
         await api.enableResource(resource.flatName, resource.kind);
-        toast(`Enabled: ${resource.name}`, 'success');
+        toast(t('resourceDetail.toast.enabled', { name: resource.name }), 'success');
       } else {
         await api.disableResource(resource.flatName, resource.kind);
-        toast(`Disabled: ${resource.name}`, 'success');
+        toast(t('resourceDetail.toast.disabled', { name: resource.name }), 'success');
       }
       await queryClient.invalidateQueries({ queryKey: queryKeys.skills.detail(name!) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
@@ -328,7 +332,7 @@ export default function SkillDetailPage() {
   const handleOpenInEditor = async () => {
     try {
       const resp = await api.openSkillInEditor(resource.flatName, { kind: resource.kind });
-      toast(`Opened in ${resp.editor}`, 'info');
+      toast(t('resourceDetail.toast.openedIn', { editor: resp.editor }), 'info');
     } catch (e) {
       toast((e as Error).message, 'error');
     }
@@ -394,7 +398,7 @@ export default function SkillDetailPage() {
       <div className="flex items-center gap-3 mb-2 sticky top-0 z-20 bg-paper py-3 -mx-4 px-4 md:-mx-8 md:px-8 -mt-3">
         <IconButton
           icon={<ArrowLeft size={18} strokeWidth={2.5} />}
-          label="Back to resources"
+          label={t('resourceDetail.backToResources')}
           size="lg"
           variant="outline"
           onClick={() => navigate('/resources')}
@@ -421,10 +425,10 @@ export default function SkillDetailPage() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={handleOpenInEditor}>
-            <ExternalLink size={14} /> Open in editor
+            <ExternalLink size={14} /> {t('resourceDetail.actions.openInEditor')}
           </Button>
           <Button variant="primary" size="sm" onClick={() => setEditMode(true)}>
-            <Pencil size={14} /> Edit
+            <Pencil size={14} /> {t('resourceDetail.actions.edit')}
           </Button>
         </div>
       </div>
@@ -441,19 +445,19 @@ export default function SkillDetailPage() {
                 <dl className="space-y-2">
                   {parsedDoc.manifest.name && (
                     <div>
-                      <dt className="text-sm text-muted-dark uppercase tracking-wide">Name</dt>
+                      <dt className="text-sm text-muted-dark uppercase tracking-wide">{t('resourceDetail.manifest.name')}</dt>
                       <dd className="text-xl font-bold text-pencil">{parsedDoc.manifest.name}</dd>
                     </div>
                   )}
                   {parsedDoc.manifest.description && (
                     <div>
-                      <dt className="text-sm text-muted-dark uppercase tracking-wide">Description</dt>
+                      <dt className="text-sm text-muted-dark uppercase tracking-wide">{t('resourceDetail.manifest.description')}</dt>
                       <dd className="text-base text-pencil">{parsedDoc.manifest.description}</dd>
                     </div>
                   )}
                   {parsedDoc.manifest.license && (
                     <div>
-                      <dt className="text-sm text-muted-dark uppercase tracking-wide">License</dt>
+                      <dt className="text-sm text-muted-dark uppercase tracking-wide">{t('resourceDetail.manifest.license')}</dt>
                       <dd className="text-base text-pencil">{parsedDoc.manifest.license}</dd>
                     </div>
                   )}
@@ -490,7 +494,7 @@ export default function SkillDetailPage() {
                 </Markdown>
               ) : (
                 <p className="text-pencil-light italic text-center py-8">
-                  No content available.
+                  {t('resourceDetail.noContent')}
                 </p>
               )}
             </div>
@@ -503,32 +507,32 @@ export default function SkillDetailPage() {
             <h3
               className="ss-detail-heading font-bold text-pencil mb-3"
             >
-              Metadata
+              {t('resourceDetail.metadata.title')}
             </h3>
             <dl className="space-y-2">
-              <MetaItem label="Path" value={resource.relPath} mono copyable copyValue={resource.sourcePath} />
-              {resource.source && <MetaItem label="Source" value={resource.source} mono />}
-              {resource.version && <MetaItem label="Version" value={resource.version} mono />}
-              {resource.branch && <MetaItem label="Branch" value={resource.branch} mono />}
+              <MetaItem label={t('resourceDetail.metadata.path')} value={resource.relPath} mono copyable copyValue={resource.sourcePath} />
+              {resource.source && <MetaItem label={t('resourceDetail.metadata.source')} value={resource.source} mono />}
+              {resource.version && <MetaItem label={t('resourceDetail.metadata.version')} value={resource.version} mono />}
+              {resource.branch && <MetaItem label={t('resourceDetail.metadata.branch')} value={resource.branch} mono />}
               {resource.installedAt && (
                 <MetaItem
-                  label="Installed"
+                  label={t('resourceDetail.metadata.installed')}
                   value={new Date(resource.installedAt).toLocaleDateString()}
                 />
               )}
               {resource.targets && resource.targets.length > 0 && (
                 <div className="flex items-baseline gap-3">
-                  <dt className="text-xs text-pencil-light uppercase tracking-wider shrink-0 min-w-[4.5rem]">Targets</dt>
+                  <dt className="text-xs text-pencil-light uppercase tracking-wider shrink-0 min-w-[4.5rem]">{t('resourceDetail.metadata.targets')}</dt>
                   <dd className="min-w-0 flex flex-wrap gap-1.5">
-                    {resource.targets.map((t) => (
-                      <Badge key={t} variant="default">{t}</Badge>
+                    {resource.targets.map((tgt) => (
+                      <Badge key={tgt} variant="default">{tgt}</Badge>
                     ))}
                   </dd>
                 </div>
               )}
               {resource.repoUrl && (
                 <div className="flex items-baseline gap-3">
-                  <dt className="text-xs text-pencil-light uppercase tracking-wider shrink-0 min-w-[4.5rem]">Repo</dt>
+                  <dt className="text-xs text-pencil-light uppercase tracking-wider shrink-0 min-w-[4.5rem]">{t('resourceDetail.metadata.repo')}</dt>
                   <dd className="min-w-0">
                     <a
                       href={resource.repoUrl}
@@ -562,8 +566,8 @@ export default function SkillDetailPage() {
                     <EyeOff size={14} strokeWidth={2.5} />
                   )}
                   {toggling
-                    ? (resource.disabled ? 'Enabling...' : 'Disabling...')
-                    : (resource.disabled ? 'Enable' : 'Disable')}
+                    ? (resource.disabled ? t('resourceDetail.actions.enabling') : t('resourceDetail.actions.disabling'))
+                    : (resource.disabled ? t('resourceDetail.actions.enable') : t('resourceDetail.actions.disable'))}
                 </Button>
                 {(resource.isInRepo || resource.source) && (
                   <Button
@@ -574,7 +578,7 @@ export default function SkillDetailPage() {
                     className="flex-1"
                   >
                     {updating ? <Spinner size="sm" /> : <RefreshCw size={14} strokeWidth={2.5} />}
-                    {updating ? 'Updating...' : 'Update'}
+                    {updating ? t('resourceDetail.actions.updating') : t('resourceDetail.actions.update')}
                   </Button>
                 )}
               </div>
@@ -586,10 +590,10 @@ export default function SkillDetailPage() {
               >
                 <Trash2 size={12} strokeWidth={2.5} />
                 {deleting
-                  ? 'Uninstalling...'
+                  ? t('resourceDetail.actions.uninstalling')
                   : resource.isInRepo
-                    ? 'Uninstall Repo'
-                    : 'Uninstall'}
+                    ? t('resourceDetail.actions.uninstallRepo')
+                    : t('resourceDetail.actions.uninstall')}
               </Button>
             </div>
           </Card>
@@ -599,7 +603,7 @@ export default function SkillDetailPage() {
               className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2"
             >
               <FileText size={16} strokeWidth={2.5} />
-              Files ({files.length})
+              {t('resourceDetail.files.title', { count: files.length })}
             </h3>
             {files.length > 0 ? (
               <ul className="space-y-1.5 max-h-80 overflow-y-auto">
@@ -645,7 +649,7 @@ export default function SkillDetailPage() {
                 })}
               </ul>
             ) : (
-              <p className="text-sm text-muted-dark italic">No files.</p>
+              <p className="text-sm text-muted-dark italic">{t('resourceDetail.files.noFiles')}</p>
             )}
           </Card>}
 
@@ -675,14 +679,14 @@ export default function SkillDetailPage() {
       {/* Blocked by security audit dialog */}
       <ConfirmDialog
         open={blockedMessage !== null}
-        title="Blocked by Security Audit"
+        title={t('resourceDetail.blocked.title')}
         message={
           <>
             <p className="text-danger text-sm mb-2">{blockedMessage}</p>
-            <p className="text-pencil-light text-sm">Skip the audit and apply the update anyway?</p>
+            <p className="text-pencil-light text-sm">{t('resourceDetail.blocked.skipPrompt')}</p>
           </>
         }
-        confirmText="Skip Audit & Update"
+        confirmText={t('resourceDetail.blocked.skipAuditAndUpdate')}
         variant="danger"
         loading={updating}
         onConfirm={() => {
@@ -695,13 +699,13 @@ export default function SkillDetailPage() {
       {/* Confirm uninstall dialog */}
       <ConfirmDialog
         open={confirmDelete}
-        title={resource.isInRepo ? 'Uninstall Repository' : `Uninstall ${resource.kind === 'agent' ? 'Agent' : 'Skill'}`}
+        title={resource.isInRepo ? t('resourceDetail.confirm.titleRepo') : t('resourceDetail.confirm.titleResource', { kind: resource.kind === 'agent' ? 'Agent' : 'Skill' })}
         message={
           resource.isInRepo
-            ? `Remove repository "${resource.relPath.split('/')[0]}"? This will move all skills in the repo to trash.`
-            : `Uninstall ${resource.kind === 'agent' ? 'agent' : 'skill'} "${resource.name}"? It will be moved to trash and can be restored within 7 days.`
+            ? t('resourceDetail.confirm.repoMessage', { name: resource.relPath.split('/')[0] })
+            : t('resourceDetail.confirm.resourceMessage', { kind: resource.kind === 'agent' ? 'agent' : 'skill', name: resource.name })
         }
-        confirmText="Uninstall"
+        confirmText={t('resourceDetail.actions.uninstall')}
         variant="danger"
         loading={deleting}
         onConfirm={handleDelete}
@@ -750,13 +754,14 @@ function SecurityAuditCard({
 }: {
   auditQuery: ReturnType<typeof useQuery<Awaited<ReturnType<typeof api.auditSkill>>>>;
 }) {
+  const t = useT();
   if (auditQuery.isPending) {
     return (
       <Card variant="outlined">
         <div className="flex items-center gap-2 animate-pulse">
           <ShieldCheck size={16} strokeWidth={2.5} className="text-pencil-light" />
           <span className="text-sm text-pencil-light">
-            Scanning security...
+            {t('resourceDetail.security.scanning')}
           </span>
         </div>
       </Card>
@@ -780,7 +785,7 @@ function SecurityAuditCard({
         className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2"
       >
         <ShieldCheck size={16} strokeWidth={2.5} />
-        Security
+        {t('resourceDetail.security.title')}
       </h3>
       <div className="space-y-3">
         <div className="flex items-stretch gap-2 flex-wrap">
@@ -800,7 +805,7 @@ function SecurityAuditCard({
         )}
         {result.findings.length === 0 && (
           <p className="text-sm text-success">
-            No security issues detected
+            {t('resourceDetail.security.noIssues')}
           </p>
         )}
       </div>
@@ -822,6 +827,7 @@ function sevOrder(sev: string): number {
 /** Target Distribution sidebar card */
 function TargetDistribution({ flatName, kind }: { flatName: string; kind: 'skill' | 'agent' }) {
   const { getSkillTargets } = useSyncMatrix();
+  const t = useT();
   const entries = getSkillTargets(flatName);
 
   if (entries.length === 0) return null;
@@ -830,7 +836,7 @@ function TargetDistribution({ flatName, kind }: { flatName: string; kind: 'skill
     <Card className="ss-detail-pinned ss-detail-pinned-blue ss-detail-outlined">
       <h3 className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2">
         <Target size={16} strokeWidth={2.5} />
-        Target Distribution
+        {t('resourceDetail.targetDistribution.title')}
       </h3>
       <div className="space-y-3">
         {entries.map(e => (
@@ -851,19 +857,19 @@ function TargetDistribution({ flatName, kind }: { flatName: string; kind: 'skill
                 e.status === 'skill_target_mismatch' ? 'text-purple-600' :
                 e.status === 'na' ? 'text-muted-dark' : 'text-danger'
               }`}>
-                {e.status === 'synced' && '\u2713 Synced'}
-                {e.status === 'excluded' && `\u2717 Excluded (${e.reason})`}
-                {e.status === 'not_included' && '\u2717 Not included'}
-                {e.status === 'skill_target_mismatch' && `Targets: ${e.reason}`}
-                {e.status === 'na' && '\u2014 Symlink mode'}
+                {e.status === 'synced' && `\u2713 ${syncMatrixReasonText(e, t)}`}
+                {e.status === 'excluded' && `\u2717 ${syncMatrixReasonText(e, t)}`}
+                {e.status === 'not_included' && `\u2717 ${syncMatrixReasonText(e, t)}`}
+                {e.status === 'skill_target_mismatch' && syncMatrixReasonText(e, t)}
+                {e.status === 'na' && `\u2014 ${syncMatrixReasonText(e, t)}`}
               </span>
             </div>
           </div>
         ))}
       </div>
       <p className="text-xs text-pencil-light mt-3">
-        Filters only apply to merge/copy mode targets.{' '}
-        <Link to="/targets" className="text-blue hover:underline">Manage targets &rarr;</Link>
+        {t('resourceDetail.targetDistribution.filterNote')}{' '}
+        <Link to="/targets" className="text-blue hover:underline">{t('resourceDetail.targetDistribution.manageTargets')}</Link>
       </p>
     </Card>
   );
@@ -877,6 +883,7 @@ function SyncStatusCard({
   diffQuery: ReturnType<typeof useQuery<Awaited<ReturnType<typeof api.diff>>>>;
   skillFlatName: string;
 }) {
+  const t = useT();
   if (diffQuery.isPending || !diffQuery.data) return null;
 
   // Find which targets have this skill and their status
@@ -909,10 +916,10 @@ function SyncStatusCard({
   };
 
   const statusLabel: Record<string, string> = {
-    linked: 'linked',
-    missing: 'not synced',
-    conflict: 'conflict',
-    excluded: 'excluded',
+    linked: t('resourceDetail.syncStatus.linked'),
+    missing: t('resourceDetail.syncStatus.notSynced'),
+    conflict: t('resourceDetail.syncStatus.conflict'),
+    excluded: t('resourceDetail.syncStatus.excluded'),
   };
 
   return (
@@ -921,7 +928,7 @@ function SyncStatusCard({
         className="ss-detail-heading font-bold text-pencil mb-3 flex items-center gap-2"
       >
         <Link2 size={16} strokeWidth={2.5} />
-        Target Sync
+        {t('resourceDetail.syncStatus.title')}
       </h3>
       <ul className="space-y-1.5">
         {targetStatuses.map((t) => (

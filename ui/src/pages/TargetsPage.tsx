@@ -19,28 +19,38 @@ import { queryKeys, staleTimes } from '../lib/queryKeys';
 import { radius, shadows } from '../design';
 import { shortenHome } from '../lib/paths';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
+import { useT } from '../i18n';
 
-const SYNC_MODE_OPTIONS = [
-  { value: 'merge', label: 'Merge (default)', description: 'Per-skill symlinks, preserves local skills' },
-  { value: 'symlink', label: 'Symlink', description: 'Entire directory symlinked to source' },
-  { value: 'copy', label: 'Copy', description: 'Physical file copies instead of symlinks' },
-];
+function getSyncModeOptions(t: (key: string) => string) {
+  return [
+    { value: 'merge', label: t('targets.syncMode.merge'), description: t('targets.syncMode.mergeDescription') },
+    { value: 'symlink', label: t('targets.syncMode.symlink'), description: t('targets.syncMode.symlinkDescription') },
+    { value: 'copy', label: t('targets.syncMode.copy'), description: t('targets.syncMode.copyDescription') },
+  ];
+}
 
-const TARGET_NAMING_OPTIONS = [
-  { value: 'flat', label: 'Flat (default)', description: 'Flattened names with __ separators' },
-  { value: 'standard', label: 'Standard', description: 'SKILL.md name (Agent Skills spec)' },
-];
+function getTargetNamingOptions(t: (key: string) => string) {
+  return [
+    { value: 'flat', label: t('targets.targetNaming.flat'), description: t('targets.targetNaming.flatDescription') },
+    { value: 'standard', label: t('targets.targetNaming.standard'), description: t('targets.targetNaming.standardDescription') },
+  ];
+}
 
-const AGENT_MODE_OPTIONS = [
-  { value: 'merge', label: 'Merge (default)', description: 'Per-agent symlinks, preserves local agents' },
-  { value: 'symlink', label: 'Symlink', description: 'Entire directory symlinked to source' },
-  { value: 'copy', label: 'Copy', description: 'Physical file copies instead of symlinks' },
-];
+function getAgentModeOptions(t: (key: string) => string) {
+  return [
+    { value: 'merge', label: t('targets.agentMode.merge'), description: t('targets.agentMode.mergeDescription') },
+    { value: 'symlink', label: t('targets.agentMode.symlink'), description: t('targets.agentMode.symlinkDescription') },
+    { value: 'copy', label: t('targets.agentMode.copy'), description: t('targets.agentMode.copyDescription') },
+  ];
+}
 
 export type CollectScope = 'skill' | 'agent' | 'both';
 
-function pluralize(count: number, singular: string): string {
-  return `${count} ${singular}${count === 1 ? '' : 's'}`;
+type TFunc = (key: string, params?: Record<string, string | number | boolean | null | undefined>, fallback?: string) => string;
+
+function pluralize(t: TFunc, count: number, label: string): string {
+  if (count === 1) return t('targets.pluralizeSingular', { count, label });
+  return t('targets.pluralize', { count, label });
 }
 
 export function getTargetCollectScope(target: TargetType): CollectScope | null {
@@ -53,7 +63,7 @@ export function getTargetCollectScope(target: TargetType): CollectScope | null {
   return null;
 }
 
-export function targetAgentSummary(target: TargetType): { text: string; hasDrift: boolean } {
+export function targetAgentSummary(t: TFunc, target: TargetType): { text: string; hasDrift: boolean } {
   const expected = target.agentExpectedCount ?? 0;
   const linked = target.agentLinkedCount ?? 0;
   const local = target.agentLocalCount ?? 0;
@@ -62,35 +72,36 @@ export function targetAgentSummary(target: TargetType): { text: string; hasDrift
 
   if (expected === 0) {
     const counts = [
-      linked > 0 ? pluralize(linked, label) : null,
-      local > 0 ? pluralize(local, 'local') : null,
+      linked > 0 ? pluralize(t, linked, label) : null,
+      local > 0 ? pluralize(t, local, 'local') : null,
     ].filter(Boolean).join(', ');
     if (counts) {
-      return { text: `No source agents yet (${counts})`, hasDrift: false };
+      return { text: t('targets.agentsSummary.noSourceAgentsWithCounts', { counts }), hasDrift: false };
     }
-    return { text: 'No source agents yet', hasDrift: false };
+    return { text: t('targets.agentsSummary.noSourceAgents'), hasDrift: false };
   }
 
-  const suffix = target.agentMode === 'symlink' ? ' (directory symlink)' : '';
-  const localSuffix = local > 0 ? `, ${pluralize(local, 'local')}` : '';
+  const suffix = target.agentMode === 'symlink' ? t('targets.agentsSummary.dirSymlink') : '';
+  const localSuffix = local > 0 ? `, ${pluralize(t, local, 'local')}` : '';
   return { text: `${linked}/${expected} ${label}${suffix}${localSuffix}`, hasDrift };
 }
 
-export function targetAgentAvailabilityText(target: TargetType): string {
+export function targetAgentAvailabilityText(t: TFunc, target: TargetType): string {
   const expected = target.agentExpectedCount ?? 0;
   const local = target.agentLocalCount ?? 0;
   const agentFilters = (target.agentInclude?.length ?? 0) + (target.agentExclude?.length ?? 0);
 
   if (expected === 0) {
-    return local > 0 ? pluralize(local, 'local agent') : 'No agents';
+    return local > 0 ? pluralize(t, local, 'local agent') : t('targets.availability.noAgents');
   }
 
-  if (!agentFilters) return `All ${expected} agents`;
+  if (!agentFilters) return t('targets.availability.allAgents', { count: expected });
   const linked = target.agentLinkedCount ?? 0;
-  return `${linked}/${expected} agents`;
+  return t('targets.availability.agentsCount', { linked, expected });
 }
 
 export default function TargetsPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.targets.all,
@@ -111,6 +122,10 @@ export default function TargetsPage() {
   const navigate = useNavigate();
   const { getTargetSummary } = useSyncMatrix();
   const { toast } = useToast();
+
+  const SYNC_MODE_OPTIONS = useMemo(() => getSyncModeOptions(t), [t]);
+  const TARGET_NAMING_OPTIONS = useMemo(() => getTargetNamingOptions(t), [t]);
+  const AGENT_MODE_OPTIONS = useMemo(() => getAgentModeOptions(t), [t]);
 
   const updateTargetSetting = async (
     targetName: string,
@@ -165,7 +180,7 @@ export default function TargetsPage() {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg">
-          Failed to load targets
+          {t('targets.error.failedToLoad')}
         </p>
         <p className="text-pencil-light text-sm mt-1">{error.message}</p>
       </Card>
@@ -187,7 +202,7 @@ export default function TargetsPage() {
       setNewTarget({ name: '', path: '', agentPath: '' });
       setSearchQuery('');
       setCustomMode(false);
-      toast(`Target "${newTarget.name}" added.`, 'success');
+      toast(t('targets.targetAdded', { name: newTarget.name }), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.targets.available });
       queryClient.invalidateQueries({ queryKey: queryKeys.config });
@@ -201,7 +216,7 @@ export default function TargetsPage() {
   const handleRemove = async (name: string) => {
     try {
       await api.removeTarget(name);
-      toast(`Target "${name}" removed.`, 'success');
+      toast(t('targets.targetRemoved', { name }), 'success');
       setRemoving(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.config });
@@ -218,8 +233,8 @@ export default function TargetsPage() {
       {/* Header */}
       <PageHeader
         icon={<Target size={24} strokeWidth={2.5} />}
-        title="Targets"
-        subtitle={`${targets.length} target${targets.length !== 1 ? 's' : ''} configured`}
+        title={t('targets.title')}
+        subtitle={targets.length !== 1 ? t('targets.subtitlePlural', { count: targets.length }) : t('targets.subtitle', { count: targets.length })}
         actions={
           <Button
             onClick={() => setAdding(true)}
@@ -227,7 +242,7 @@ export default function TargetsPage() {
             size="sm"
           >
             <Plus size={16} strokeWidth={2.5} />
-            Add Target
+            {t('targets.addTarget')}
           </Button>
         }
       />
@@ -245,7 +260,7 @@ export default function TargetsPage() {
         padding="none"
       >
         <div className="p-5 pb-0 flex items-center justify-between">
-          <h3 className="font-bold text-pencil text-lg">Add New Target</h3>
+          <h3 className="font-bold text-pencil text-lg">{t('targets.addNewTarget')}</h3>
           <button
             onClick={() => {
               setAdding(false);
@@ -254,7 +269,7 @@ export default function TargetsPage() {
               setCustomMode(false);
             }}
             className="w-8 h-8 flex items-center justify-center text-pencil-light hover:text-pencil transition-colors cursor-pointer"
-            aria-label="Close"
+            aria-label={t('targets.close')}
           >
             <X size={18} strokeWidth={2.5} />
           </button>
@@ -275,11 +290,11 @@ export default function TargetsPage() {
                 {newTarget.agentPath ? (
                   <>
                     <p className="font-mono text-sm text-pencil-light truncate">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-pencil-light/70 mr-1.5">Skills</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-pencil-light/70 mr-1.5">{t('targets.skillsLabel')}</span>
                       {shortenHome(newTarget.path)}
                     </p>
                     <p className="font-mono text-sm text-pencil-light truncate">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-pencil-light/70 mr-1.5">Agents</span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-pencil-light/70 mr-1.5">{t('targets.agentsLabel')}</span>
                       {shortenHome(newTarget.agentPath)}
                     </p>
                   </>
@@ -292,19 +307,19 @@ export default function TargetsPage() {
             </div>
 
             <Input
-              label={newTarget.agentPath ? 'Skills path (customize if needed)' : 'Path (customize if needed)'}
+              label={newTarget.agentPath ? t('targets.skillsPathLabel') : t('targets.pathLabel')}
               type="text"
               value={newTarget.path}
               onChange={(e) => setNewTarget({ ...newTarget, path: e.target.value })}
-              placeholder="/path/to/target/skills"
+              placeholder={t('targets.skillsPathPlaceholder')}
             />
             {newTarget.agentPath && (
               <Input
-                label="Agents path (customize if needed)"
+                label={t('targets.agentPathLabel')}
                 type="text"
                 value={newTarget.agentPath}
                 onChange={(e) => setNewTarget({ ...newTarget, agentPath: e.target.value })}
-                placeholder="/path/to/target/agents"
+                placeholder={t('targets.agentsPathPlaceholder')}
               />
             )}
 
@@ -314,11 +329,11 @@ export default function TargetsPage() {
                 variant="ghost"
                 size="sm"
               >
-                Change
+                {t('targets.change')}
               </Button>
               <Button onClick={handleAdd} variant="primary" size="sm">
                 <Plus size={16} strokeWidth={2.5} />
-                Add Target
+                {t('targets.addTarget')}
               </Button>
             </div>
           </div>
@@ -326,26 +341,26 @@ export default function TargetsPage() {
           /* Custom target entry mode */
           <div className="p-5 space-y-4 animate-fade-in">
             <Input
-              label="Target Name"
+              label={t('targets.customTargetName')}
               type="text"
               value={newTarget.name}
               onChange={(e) => setNewTarget({ ...newTarget, name: e.target.value })}
-              placeholder="my-custom-target"
+              placeholder={t('targets.customTargetNamePlaceholder')}
               autoFocus
             />
             <Input
-              label="Skills Path"
+              label={t('targets.customSkillsPath')}
               type="text"
               value={newTarget.path}
               onChange={(e) => setNewTarget({ ...newTarget, path: e.target.value })}
-              placeholder="/path/to/target/skills"
+              placeholder={t('targets.skillsPathPlaceholder')}
             />
             <Input
-              label="Agents Path (optional)"
+              label={t('targets.customAgentsPath')}
               type="text"
               value={newTarget.agentPath}
               onChange={(e) => setNewTarget({ ...newTarget, agentPath: e.target.value })}
-              placeholder="/path/to/target/agents"
+              placeholder={t('targets.agentsPathPlaceholder')}
             />
             <div className="flex items-center justify-between pt-2">
               <Button
@@ -356,11 +371,11 @@ export default function TargetsPage() {
                 variant="ghost"
                 size="sm"
               >
-                Back to picker
+                {t('targets.backToPicker')}
               </Button>
               <Button onClick={handleAdd} variant="primary" size="sm">
                 <Plus size={16} strokeWidth={2.5} />
-                Add Target
+                {t('targets.addTarget')}
               </Button>
             </div>
           </div>
@@ -378,7 +393,7 @@ export default function TargetsPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search targets..."
+                placeholder={t('targets.searchPlaceholder')}
                 className="w-full pl-10 pr-4 py-2.5 bg-surface border-2 border-muted text-pencil placeholder:text-muted-dark focus:outline-none focus:border-pencil transition-all"
                 style={{
                   borderRadius: radius.sm,
@@ -400,7 +415,7 @@ export default function TargetsPage() {
                     <div className="absolute inset-0 bg-success-light pointer-events-none" />
                     <span className="relative text-sm font-bold text-success flex items-center gap-1.5">
                       <CircleDot size={14} strokeWidth={3} />
-                      Detected on your system
+                      {t('targets.detectedOnSystem')}
                     </span>
                   </div>
                   {detected.map((t) => (
@@ -422,7 +437,7 @@ export default function TargetsPage() {
                 <div>
                   <div className="px-3 py-2 border-b border-dashed border-muted-dark sticky top-0 z-10 bg-surface">
                     <span className="text-sm font-bold text-pencil-light">
-                      All available targets
+                      {t('targets.allAvailableTargets')}
                     </span>
                   </div>
                   {others.map((t) => (
@@ -441,7 +456,7 @@ export default function TargetsPage() {
               {/* No results */}
               {detected.length === 0 && others.length === 0 && (
                 <div className="px-4 py-8 text-center text-pencil-light">
-                  {searchQuery ? `No targets matching "${searchQuery}"` : 'No available targets'}
+                  {searchQuery ? t('targets.noTargetsMatching', { query: searchQuery }) : t('targets.noAvailableTargets')}
                 </div>
               )}
             </div>
@@ -454,7 +469,7 @@ export default function TargetsPage() {
                 className="inline-flex items-center gap-1.5"
               >
                 <PenLine size={14} strokeWidth={2.5} />
-                Enter custom target
+                {t('targets.enterCustomTarget')}
               </Button>
             </div>
           </div>
@@ -468,7 +483,7 @@ export default function TargetsPage() {
             const expectedCount = target.expectedSkillCount || sourceSkillCount;
             const isMergeOrCopy = target.mode === 'merge' && target.status === 'merged' || target.mode === 'copy' && target.status === 'copied';
             const hasDrift = isMergeOrCopy && target.linkedCount < expectedCount;
-            const agentSummary = targetAgentSummary(target);
+            const agentSummary = targetAgentSummary(t, target);
             const agentFilters = (target.agentInclude?.length ?? 0) + (target.agentExclude?.length ?? 0);
             const collectScope = getTargetCollectScope(target);
             const visibleAgentInclude = (target.agentInclude ?? []).slice(0, 3);
@@ -490,7 +505,7 @@ export default function TargetsPage() {
                     {collectScope && (
                       <IconButton
                         icon={<ArrowDownToLine size={16} strokeWidth={2.5} />}
-                        label={`Collect local ${collectScope === 'both' ? 'resources' : collectScope === 'agent' ? 'agents' : 'skills'}`}
+                        label={collectScope === 'both' ? t('targets.collectLabel.both') : collectScope === 'agent' ? t('targets.collectLabel.agent') : t('targets.collectLabel.skill')}
                         size="md"
                         variant="outline"
                         onClick={() => setCollecting({ name: target.name, scope: collectScope })}
@@ -499,7 +514,7 @@ export default function TargetsPage() {
                     )}
                     <IconButton
                       icon={<Trash2 size={16} strokeWidth={2.5} />}
-                      label="Remove target"
+                      label={t('targets.removeTarget')}
                       size="md"
                       variant="danger-outline"
                       onClick={() => setRemoving(target.name)}
@@ -513,7 +528,7 @@ export default function TargetsPage() {
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-xs font-bold uppercase tracking-[0.12em] text-pencil shrink-0">
-                      Skills
+                      {t('targets.skillsLabel')}
                     </span>
                     <StatusBadge status={target.status} />
                   </div>
@@ -523,7 +538,7 @@ export default function TargetsPage() {
                   <div className="flex items-center gap-2">
                     <Select
                       value={target.mode || 'merge'}
-                      onChange={(mode) => updateTargetSetting(target.name, { mode }, `Sync mode changed to ${mode}`)}
+                      onChange={(mode) => updateTargetSetting(target.name, { mode }, t('targets.syncModeChanged', { mode }))}
                       options={SYNC_MODE_OPTIONS}
                       size="sm"
                       className="w-44"
@@ -531,7 +546,7 @@ export default function TargetsPage() {
                     {target.mode !== 'symlink' && (
                       <Select
                         value={target.targetNaming || 'flat'}
-                        onChange={(naming) => updateTargetSetting(target.name, { target_naming: naming }, `Target naming changed to ${naming}`)}
+                        onChange={(naming) => updateTargetSetting(target.name, { target_naming: naming }, t('targets.targetNamingChanged', { naming }))}
                         options={TARGET_NAMING_OPTIONS}
                         size="sm"
                         className="w-48"
@@ -542,10 +557,14 @@ export default function TargetsPage() {
                         {hasDrift ? (
                           <span className="flex items-center gap-1">
                             <AlertTriangle size={12} strokeWidth={2.5} />
-                            {target.linkedCount}/{expectedCount} {target.mode === 'copy' ? 'managed' : 'shared'}, {target.localCount} local
+                            {target.mode === 'copy'
+                              ? t('targets.skillsSummary.managedLocal', { linked: target.linkedCount, expected: expectedCount, local: target.localCount })
+                              : t('targets.skillsSummary.sharedLocal', { linked: target.linkedCount, expected: expectedCount, local: target.localCount })}
                           </span>
                         ) : (
-                          <>{target.linkedCount} {target.mode === 'copy' ? 'managed' : 'shared'}, {target.localCount} local</>
+                          <>{target.mode === 'copy'
+                              ? `${t('targets.skillsSummary.managed', { count: target.linkedCount })}, ${t('targets.skillsSummary.local', { count: target.localCount })}`
+                              : `${t('targets.skillsSummary.shared', { count: target.linkedCount })}, ${t('targets.skillsSummary.local', { count: target.localCount })}`}</>
                         )}
                       </span>
                     )}
@@ -556,9 +575,9 @@ export default function TargetsPage() {
                         {(() => {
                           const summary = getTargetSummary(target.name);
                           const hasFilters = target.include?.length || target.exclude?.length;
-                          if (summary.total === 0) return 'No skills';
-                          if (!hasFilters) return `All ${summary.total} skills`;
-                          return `${summary.synced}/${summary.total} skills`;
+                          if (summary.total === 0) return t('targets.skillsNone');
+                          if (!hasFilters) return t('targets.skillsAll', { count: summary.total });
+                          return t('targets.skillsCount', { synced: summary.synced, total: summary.total });
                         })()}
                       </span>
                       {(() => {
@@ -581,7 +600,7 @@ export default function TargetsPage() {
                               </span>
                             ))}
                             {overflow > 0 && (
-                              <span className="text-xs text-pencil-light">+{overflow} more</span>
+                              <span className="text-xs text-pencil-light">{t('targets.filterCount', { count: overflow })}</span>
                             )}
                           </>
                         );
@@ -590,7 +609,7 @@ export default function TargetsPage() {
                         to={`/targets/${encodeURIComponent(target.name)}/filters?kind=skill`}
                         className="text-xs font-bold text-blue hover:underline"
                       >
-                        {(target.include?.length || target.exclude?.length) ? 'Edit in Filter Studio →' : 'Customize filters →'}
+                        {(target.include?.length || target.exclude?.length) ? t('targets.editInFilterStudio') : t('targets.customizeFilters')}
                       </Link>
                     </div>
                   )}
@@ -604,7 +623,7 @@ export default function TargetsPage() {
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-bold uppercase tracking-[0.12em] text-pencil shrink-0">
-                        Agents
+                        {t('targets.agentsLabel')}
                       </span>
                       {(() => {
                         const agentExpected = target.agentExpectedCount ?? 0;
@@ -623,7 +642,7 @@ export default function TargetsPage() {
                     <div className="flex items-center gap-2">
                       <Select
                         value={target.agentMode || 'merge'}
-                        onChange={(mode) => updateTargetSetting(target.name, { agent_mode: mode }, `Agent mode changed to ${mode}`)}
+                        onChange={(mode) => updateTargetSetting(target.name, { agent_mode: mode }, t('targets.agentModeChanged', { mode }))}
                         options={AGENT_MODE_OPTIONS}
                         size="sm"
                         className="w-44"
@@ -640,7 +659,7 @@ export default function TargetsPage() {
                       </span>
                     </div>
                     <div className="mt-2 flex items-center gap-2 flex-wrap">
-                      <span className="text-sm text-pencil-light">{targetAgentAvailabilityText(target)}</span>
+                      <span className="text-sm text-pencil-light">{targetAgentAvailabilityText(t, target)}</span>
                       {visibleAgentInclude.map((pattern, idx) => (
                         <span
                           key={`agent-inc-${idx}`}
@@ -660,13 +679,13 @@ export default function TargetsPage() {
                         </span>
                       ))}
                       {overflowAgentFilters > 0 && (
-                        <span className="text-xs text-pencil-light">+{overflowAgentFilters} more</span>
+                        <span className="text-xs text-pencil-light">{t('targets.filterCount', { count: overflowAgentFilters })}</span>
                       )}
                       <Link
                         to={`/targets/${encodeURIComponent(target.name)}/filters?kind=agent`}
                         className="text-xs font-bold text-blue hover:underline"
                       >
-                        {agentFilters ? 'Edit in Filter Studio →' : 'Customize filters →'}
+                        {agentFilters ? t('targets.editInFilterStudio') : t('targets.customizeFilters')}
                       </Link>
                     </div>
                   </div>
@@ -674,9 +693,9 @@ export default function TargetsPage() {
                 {(target.skippedSkillCount ?? 0) > 0 && (
                   <p className="mt-1 text-xs text-warning flex items-center gap-1">
                     <AlertTriangle size={11} strokeWidth={2.5} />
-                    {target.skippedSkillCount} skill(s) skipped
-                    {(target.collisionCount ?? 0) > 0 && <> ({target.collisionCount} name collision(s))</>}
-                    {' '}— try switching to <strong>Flat</strong> naming to resolve
+                    {t('targets.skippedSkills', { count: target.skippedSkillCount })}
+                    {(target.collisionCount ?? 0) > 0 && <> ({t('targets.skippedSkillsCollisions', { count: target.collisionCount })})</>}
+                    {' '}{t('targets.skippedSkillsResolution.prefix')} <strong>{t('targets.skippedSkillsResolution.naming')}</strong> {t('targets.skippedSkillsResolution.suffix')}
                   </p>
                 )}
               </Card>
@@ -686,13 +705,13 @@ export default function TargetsPage() {
       ) : (
         <EmptyState
           icon={Target}
-          title="No targets configured"
-          description="Add a target to start syncing your skills."
+          title={t('targets.emptyTitle')}
+          description={t('targets.emptyDescription')}
           action={
             !adding ? (
               <Button onClick={() => setAdding(true)} variant="secondary" size="sm">
                 <Plus size={16} strokeWidth={2.5} />
-                Add Your First Target
+                {t('targets.addYourFirstTarget')}
               </Button>
             ) : undefined
           }
@@ -702,9 +721,9 @@ export default function TargetsPage() {
       {/* Confirm remove dialog */}
       <ConfirmDialog
         open={!!removing}
-        title="Remove Target"
-        message={`Remove target "${removing}"? Skills will no longer sync to it.`}
-        confirmText="Remove"
+        title={t('targets.removeConfirm.title')}
+        message={t('targets.removeConfirm.message', { name: removing ?? '' })}
+        confirmText={t('targets.removeConfirm.remove')}
         variant="danger"
         onConfirm={() => removing && handleRemove(removing)}
         onCancel={() => setRemoving(null)}
@@ -713,11 +732,11 @@ export default function TargetsPage() {
       {/* Confirm collect dialog */}
       <ConfirmDialog
         open={!!collecting}
-        title={`Collect Local ${collecting?.scope === 'both' ? 'Resources' : collecting?.scope === 'agent' ? 'Agents' : 'Skills'}`}
+        title={t('targets.collectConfirm.title', { scope: collecting?.scope === 'both' ? t('targets.scopeBoth') : collecting?.scope === 'agent' ? t('targets.scopeAgent') : t('targets.scopeSkill') })}
         message={collecting
-          ? `Scan "${collecting.name}" for local ${collecting.scope === 'both' ? 'resources' : collecting.scope === 'agent' ? 'agents' : 'skills'} to collect back to source?`
+          ? t('targets.collectConfirm.message', { name: collecting.name, scope: collecting.scope === 'both' ? t('targets.scopeBoth') : collecting.scope === 'agent' ? t('targets.scopeAgent') : t('targets.scopeSkill') })
           : ''}
-        confirmText="Scan"
+        confirmText={t('targets.collectConfirm.scan')}
         onConfirm={() => {
           if (collecting) {
             const params = new URLSearchParams({
@@ -744,6 +763,7 @@ function TargetPickerItem({
   isDetected?: boolean;
   onSelect: (target: AvailableTarget) => void;
 }) {
+  const t = useT();
   return (
     <button
       onClick={() => onSelect(target)}
@@ -761,11 +781,11 @@ function TargetPickerItem({
         {target.agentPath ? (
           <div className="mt-0.5 space-y-0.5">
             <p className="font-mono text-xs text-pencil-light truncate">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-pencil-light/70 mr-1.5">Skills</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-pencil-light/70 mr-1.5">{t('targets.skillsLabel')}</span>
               {shortenHome(target.path)}
             </p>
             <p className="font-mono text-xs text-pencil-light truncate">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-pencil-light/70 mr-1.5">Agents</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-pencil-light/70 mr-1.5">{t('targets.agentsLabel')}</span>
               {shortenHome(target.agentPath)}
             </p>
           </div>
@@ -780,7 +800,7 @@ function TargetPickerItem({
           className="text-xs text-success bg-success-light px-2 py-0.5 shrink-0"
           style={{ borderRadius: radius.sm }}
         >
-          detected
+          {t('targets.detected')}
         </span>
       )}
     </button>

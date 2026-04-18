@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useT } from '../i18n';
 import {
   ShieldCheck,
   Search,
@@ -54,6 +55,7 @@ type ViewMode = 'structured' | 'yaml';
  * ────────────────────────────────────────────────────────────────────── */
 
 export default function AuditRulesPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { isProjectMode } = useAppContext();
@@ -130,7 +132,7 @@ export default function AuditRulesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.audit.compiled });
       queryClient.invalidateQueries({ queryKey: queryKeys.audit.rules });
-      toast('All custom rules reset to defaults.', 'success');
+      toast(t('auditRules.toast.resetSuccess'), 'success');
     },
     onError: (e: Error) => {
       toast(e.message, 'error');
@@ -253,7 +255,7 @@ export default function AuditRulesPage() {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg">
-          Failed to load audit rules
+          {t('auditRules.error.failedToLoad')}
         </p>
         <p className="text-pencil-light text-sm mt-1">{compiled.error.message}</p>
       </Card>
@@ -265,11 +267,11 @@ export default function AuditRulesPage() {
       {/* ─── Header ─── */}
       <PageHeader
         icon={<ShieldCheck size={24} strokeWidth={2.5} />}
-        title="Audit Rules"
+        title={t('auditRules.header.title')}
         subtitle={
           isProjectMode
-            ? 'Browse and manage project-level audit rules'
-            : 'Browse and manage global audit rules'
+            ? t('auditRules.header.subtitleProject')
+            : t('auditRules.header.subtitleGlobal')
         }
         className="mb-1!"
         backTo="/audit"
@@ -281,9 +283,9 @@ export default function AuditRulesPage() {
               size="sm"
             >
               {viewMode === 'structured' ? (
-                <><FileEdit size={16} strokeWidth={2.5} /> Edit YAML</>
+                <><FileEdit size={16} strokeWidth={2.5} /> {t('auditRules.header.editYaml')}</>
               ) : (
-                <><List size={16} strokeWidth={2.5} /> Rule Browser</>
+                <><List size={16} strokeWidth={2.5} /> {t('auditRules.header.ruleBrowser')}</>
               )}
             </Button>
             {viewMode === 'yaml' && (
@@ -294,7 +296,7 @@ export default function AuditRulesPage() {
                 size="sm"
               >
                 <Save size={16} strokeWidth={2.5} />
-                {yamlSaving ? 'Saving...' : 'Save'}
+                {yamlSaving ? t('auditRules.header.saving') : t('auditRules.header.save')}
               </Button>
             )}
             {viewMode === 'structured' && stats.custom > 0 && (
@@ -305,7 +307,7 @@ export default function AuditRulesPage() {
                 size="sm"
               >
                 <RotateCcw size={16} strokeWidth={2.5} />
-                {resetMutation.isPending ? 'Resetting...' : 'Reset All'}
+                {resetMutation.isPending ? t('auditRules.header.resetting') : t('auditRules.header.resetAll')}
               </Button>
             )}
           </>
@@ -319,17 +321,17 @@ export default function AuditRulesPage() {
           <div ref={toolbarRef} className="sticky top-0 z-20 bg-paper pt-4 pb-4 -mx-1 px-1 space-y-3" style={{ boxShadow: '0 12px 0 0 var(--color-paper)' }}>
             {/* Inline summary */}
             <p className="text-sm text-pencil-light">
-              <span className="font-medium text-pencil">{stats.total}</span> rules
+              <span className="font-medium text-pencil">{stats.total}</span> {t('auditRules.stats.rulesLabel')}
               {' '}&middot;{' '}
-              <span className="text-success">{stats.enabled} enabled</span>
+              <span className="text-success">{t('auditRules.stats.enabled', { count: stats.enabled })}</span>
               {stats.disabled > 0 && (
-                <>{' '}&middot;{' '}<span className="text-warning">{stats.disabled} disabled</span></>
+                <>{' '}&middot;{' '}<span className="text-warning">{t('auditRules.stats.disabled', { count: stats.disabled })}</span></>
               )}
               {stats.custom > 0 && (
-                <>{' '}&middot;{' '}<span className="text-blue">{stats.custom} custom</span></>
+                <>{' '}&middot;{' '}<span className="text-blue">{t('auditRules.stats.custom', { count: stats.custom })}</span></>
               )}
               {' '}&middot;{' '}
-              {stats.patterns} patterns
+              {t('auditRules.stats.patterns', { count: stats.patterns })}
             </p>
 
             {/* Severity tabs */}
@@ -338,7 +340,7 @@ export default function AuditRulesPage() {
               onChange={setActiveTab}
               options={SEVERITY_TABS.map((tab) => ({
                 value: tab.value,
-                label: tab.label,
+                label: t(`audit.severityTab.${tab.value.toLowerCase()}`, {}, tab.label),
                 count: tabCounts[tab.value] ?? 0,
               }))}
               colorFn={(v) =>
@@ -362,7 +364,7 @@ export default function AuditRulesPage() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by ID, message, regex, or pattern..."
+                  placeholder={t('auditRules.search.placeholder')}
                   className="!pl-9"
                 />
               </div>
@@ -373,9 +375,9 @@ export default function AuditRulesPage() {
                   size="sm"
                 >
                   {allExpanded ? (
-                    <><ChevronsDownUp size={16} strokeWidth={2.5} /> Collapse</>
+                    <><ChevronsDownUp size={16} strokeWidth={2.5} /> {t('auditRules.search.collapseAll')}</>
                   ) : (
-                    <><ChevronsUpDown size={16} strokeWidth={2.5} /> Expand</>
+                    <><ChevronsUpDown size={16} strokeWidth={2.5} /> {t('auditRules.search.expandAll')}</>
                   )}
                 </Button>
               )}
@@ -386,8 +388,8 @@ export default function AuditRulesPage() {
           {groupedRules.length === 0 ? (
             <EmptyState
               icon={ShieldCheck}
-              title="No rules match"
-              description="Try adjusting your filter or search terms"
+              title={t('auditRules.empty.noMatch.title')}
+              description={t('auditRules.empty.noMatch.description')}
             />
           ) : (
             <div className="space-y-4 pt-3">
@@ -432,10 +434,10 @@ export default function AuditRulesPage() {
           resetMutation.mutate();
         }}
         onCancel={() => setShowResetConfirm(false)}
-        title="Reset All Custom Rules"
-        message="This will delete your audit-rules.yaml and restore all rules to their built-in defaults. This action cannot be undone."
-        confirmText="Reset All"
-        cancelText="Cancel"
+        title={t('auditRules.confirm.title')}
+        message={t('auditRules.confirm.message')}
+        confirmText={t('auditRules.confirm.confirmText')}
+        cancelText={t('auditRules.confirm.cancel')}
         variant="danger"
         loading={resetMutation.isPending}
       />
@@ -476,6 +478,7 @@ function PatternAccordion({
   stickyTop: number;
   isToggling: boolean;
 }) {
+  const t = useT();
   const group = allPatterns.find((p) => p.pattern === pattern);
   const maxSev = group?.maxSeverity ?? 'MEDIUM';
   const stripeColor = severityColor(maxSev);
@@ -575,7 +578,7 @@ function PatternAccordion({
           </div>
 
           <span className="text-sm text-pencil-light shrink-0">
-            {rules.length} rule{rules.length !== 1 ? 's' : ''}
+            {rules.length !== 1 ? t('auditRules.pattern.rules', { count: rules.length }) : t('auditRules.pattern.rule', { count: rules.length })}
           </span>
           {disabledCount > 0 && <Badge variant="warning">{disabledCount} off</Badge>}
           <Badge variant={severityBadgeVariant(maxSev)}>{maxSev}</Badge>
@@ -585,14 +588,14 @@ function PatternAccordion({
         {isExpanded && (
           <div className="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-paper-warm/30 border-t-2 border-dashed border-pencil-light/30">
             <span className="text-sm text-pencil-light">
-              {enabledCount}/{rules.length} enabled
+              {t('auditRules.pattern.enabledRatio', { enabled: enabledCount, total: rules.length })}
             </span>
             <div className="flex-1" />
             <SeverityPicker
               current={maxSev}
               onSelect={(sev) => onSetPatternSeverity(pattern, sev)}
               disabled={isToggling}
-              label="Group severity"
+              label={t('auditRules.pattern.groupSeverity')}
             />
             <button
               onClick={(e) => {
@@ -608,9 +611,9 @@ function PatternAccordion({
               }}
             >
               {allEnabled ? (
-                <><EyeOff size={14} strokeWidth={2.5} /> Disable All</>
+                <><EyeOff size={14} strokeWidth={2.5} /> {t('auditRules.pattern.disableAll')}</>
               ) : (
-                <><Eye size={14} strokeWidth={2.5} /> Enable All</>
+                <><Eye size={14} strokeWidth={2.5} /> {t('auditRules.pattern.enableAll')}</>
               )}
             </button>
           </div>
@@ -659,6 +662,7 @@ function RuleRow({
   onSetSeverity: (severity: string) => void;
   isToggling: boolean;
 }) {
+  const t = useT();
   const shortId = rule.id.startsWith(pattern + '-')
     ? rule.id.slice(pattern.length + 1)
     : rule.id;
@@ -716,18 +720,18 @@ function RuleRow({
             backgroundColor: severityBgColor(rule.severity),
           }}
         >
-          <DetailRow label="Full ID" value={rule.id} mono />
+          <DetailRow label={t('auditRules.detail.fullId')} value={rule.id} mono />
           <div className="flex items-center gap-2 text-sm">
             <span className="text-pencil-light shrink-0 w-20">
-              Severity
+              {t('auditRules.detail.severity')}
             </span>
             <SeverityPicker current={rule.severity} onSelect={onSetSeverity} disabled={isToggling} />
           </div>
-          <DetailRow label="Message" value={rule.message} />
+          <DetailRow label={t('auditRules.detail.message')} value={rule.message} />
           {rule.regex && (
             <div className="flex items-start gap-2 text-sm">
               <span className="text-pencil-light shrink-0 w-20">
-                Regex
+                {t('auditRules.detail.regex')}
               </span>
               <code
                 className="font-mono text-xs text-pencil px-2 py-1 border border-pencil-light/30 bg-paper-warm break-all"
@@ -740,7 +744,7 @@ function RuleRow({
           {rule.exclude && (
             <div className="flex items-start gap-2 text-sm">
               <span className="text-pencil-light shrink-0 w-20">
-                Exclude
+                {t('auditRules.detail.exclude')}
               </span>
               <code
                 className="font-mono text-xs text-pencil px-2 py-1 border border-pencil-light/30 bg-paper-warm break-all"
@@ -750,7 +754,7 @@ function RuleRow({
               </code>
             </div>
           )}
-          <DetailRow label="Source" value={rule.source} />
+          <DetailRow label={t('auditRules.detail.source')} value={rule.source} />
         </div>
       )}
     </div>
@@ -770,6 +774,7 @@ function ToggleSwitch({
   onToggle: () => void;
   disabled: boolean;
 }) {
+  const t = useT();
   return (
     <button
       role="switch"
@@ -788,7 +793,7 @@ function ToggleSwitch({
         backgroundColor: enabled ? 'var(--color-success)' : 'var(--color-muted)',
         borderColor: enabled ? 'var(--color-success)' : 'var(--color-muted-dark)',
       }}
-      title={enabled ? 'Disable rule' : 'Enable rule'}
+      title={enabled ? t('auditRules.toggle.disable') : t('auditRules.toggle.enable')}
     >
       <span
         className="absolute top-0.5 w-4 h-4 bg-white border border-pencil-light/30 transition-all duration-200"
@@ -846,8 +851,9 @@ function SeverityPicker({
   disabled: boolean;
   label?: string;
 }) {
+  const t = useT();
   return (
-    <div className="flex items-center gap-1" role="radiogroup" aria-label={label ?? 'Set severity'}>
+    <div className="flex items-center gap-1" role="radiogroup" aria-label={label ?? t('auditRules.severity.setLabel')}>
       {label && (
         <span className="text-xs text-pencil-light mr-1">
           {label}
@@ -882,7 +888,7 @@ function SeverityPicker({
               boxShadow: isActive ? '1px 1px 0 rgba(0,0,0,0.15)' : 'none',
               opacity: isActive ? 1 : 0.75,
             }}
-            title={`Set severity to ${sev}`}
+            title={t('auditRules.severity.setTo', { sev })}
           >
             {SEV_SHORT[sev]}
           </button>

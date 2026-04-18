@@ -2,19 +2,21 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react
 import { Palette } from 'lucide-react';
 import { useTheme, type Style, type ModePreference } from '../context/ThemeContext';
 import { shadows } from '../design';
+import { useT } from '../i18n';
 
 const styles: { value: Style; label: string }[] = [
-  { value: 'clean', label: 'Clean' },
-  { value: 'playful', label: 'Playful' },
+  { value: 'clean', label: 'theme.clean' },
+  { value: 'playful', label: 'theme.playful' },
 ];
 
 const modes: { value: ModePreference; label: string }[] = [
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-  { value: 'system', label: 'System' },
+  { value: 'light', label: 'theme.light' },
+  { value: 'dark', label: 'theme.dark' },
+  { value: 'system', label: 'theme.system' },
 ];
 
 export default function ThemePopover() {
+  const t = useT();
   const { style, setStyle, modePreference, setModePreference } = useTheme();
   const [open, setOpen] = useState(false);
   const [dropUp, setDropUp] = useState(true);
@@ -91,18 +93,18 @@ export default function ThemePopover() {
         ref={triggerRef}
         onClick={() => setOpen(!open)}
         className="flex items-center gap-3 px-3 py-1.5 text-sm text-pencil-light hover:text-pencil hover:bg-muted/20 transition-colors cursor-pointer w-full"
-        aria-label="Theme settings"
+        aria-label={t('theme.settings')}
         aria-expanded={open}
       >
         <Palette size={16} strokeWidth={2.5} />
-        Theme
+        {t('theme.settings')}
       </button>
 
       {open && (
         <div
           ref={panelRef}
           role="dialog"
-          aria-label="Theme settings"
+          aria-label={t('theme.settings')}
           className={`
             absolute left-0 z-50 w-56 bg-surface border border-muted p-3 rounded-[var(--radius-md)] animate-dropdown-in
             ${dropUp ? 'bottom-full mb-2' : 'top-full mt-2'}
@@ -110,8 +112,8 @@ export default function ThemePopover() {
           style={{ boxShadow: shadows.lg }}
         >
           {/* Style group */}
-          <div role="radiogroup" aria-label="Style" className="mb-3">
-            <div className="text-xs font-medium text-muted-dark uppercase tracking-wider mb-2">Style</div>
+          <div role="radiogroup" aria-label={t('theme.style')} className="mb-3">
+            <div className="text-xs font-medium text-muted-dark uppercase tracking-wider mb-2">{t('theme.style')}</div>
             <div className="flex gap-2">
               {styles.map((s) => (
                 <button
@@ -129,15 +131,15 @@ export default function ThemePopover() {
                   `}
                   tabIndex={style === s.value ? 0 : -1}
                 >
-                  {s.label}
+                  {t(s.label)}
                 </button>
               ))}
             </div>
           </div>
 
           {/* Mode group */}
-          <div role="radiogroup" aria-label="Mode">
-            <div className="text-xs font-medium text-muted-dark uppercase tracking-wider mb-2">Mode</div>
+          <div role="radiogroup" aria-label={t('theme.mode')}>
+            <div className="text-xs font-medium text-muted-dark uppercase tracking-wider mb-2">{t('theme.mode')}</div>
             <div className="flex gap-1.5">
               {modes.map((m) => (
                 <button
@@ -155,7 +157,7 @@ export default function ThemePopover() {
                   `}
                   tabIndex={modePreference === m.value ? 0 : -1}
                 >
-                  {m.label}
+                  {t(m.label)}
                 </button>
               ))}
             </div>

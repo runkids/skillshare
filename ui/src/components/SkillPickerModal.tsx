@@ -6,6 +6,7 @@ import { Input, Checkbox } from './Input';
 import { radius } from '../design';
 import type { DiscoveredSkill } from '../api/client';
 import KindBadge from './KindBadge';
+import { useT } from '../i18n';
 
 interface SkillPickerModalProps {
   open: boolean;
@@ -26,6 +27,7 @@ export default function SkillPickerModal({
   installing,
   singleSelect,
 }: SkillPickerModalProps) {
+  const t = useT();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState('');
 
@@ -92,8 +94,8 @@ export default function SkillPickerModal({
     <DialogShell open={open} onClose={onCancel} maxWidth="2xl" preventClose={installing}>
           <h3 className="text-xl font-bold text-pencil mb-1">
             {singleSelect
-              ? `Select ${singularLabel[0].toUpperCase() + singularLabel.slice(1)} to Install`
-              : `Select ${pluralLabel[0].toUpperCase() + pluralLabel.slice(1)} to Install`
+              ? t('skillPicker.titleSingle', { singular: singularLabel[0].toUpperCase() + singularLabel.slice(1) })
+              : t('skillPicker.titleMulti', { plural: pluralLabel[0].toUpperCase() + pluralLabel.slice(1) })
             }
           </h3>
           <p className="text-sm text-pencil-light mb-4 truncate font-mono">
@@ -110,7 +112,7 @@ export default function SkillPickerModal({
               />
               <Input
                 type="text"
-                placeholder={`Filter ${pluralLabel}...`}
+                placeholder={t('skillPicker.filterPlaceholder', { plural: pluralLabel })}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 className="!pl-8 !py-1.5 !text-sm font-mono"
@@ -122,13 +124,13 @@ export default function SkillPickerModal({
           {!singleSelect && (
             <div className="flex items-center justify-between border-b border-dashed border-pencil-light/30 pb-2 mb-2">
               <Checkbox
-                label={allFilteredSelected ? 'Deselect All' : 'Select All'}
+                label={allFilteredSelected ? t('skillPicker.deselectAll') : t('skillPicker.selectAll')}
                 checked={allFilteredSelected}
                 onChange={toggleAll}
               />
               {filter && (
                 <span className="text-xs text-muted-dark">
-                  {filtered.length} of {skills.length} {pluralLabel}
+                  {t('skillPicker.filterCount', { filtered: filtered.length, total: skills.length, plural: pluralLabel })}
                 </span>
               )}
             </div>
@@ -138,8 +140,9 @@ export default function SkillPickerModal({
           {singleSelect && (
             <div className="border-b border-dashed border-pencil-light/30 pb-2 mb-2">
               <span className="text-xs text-muted-dark">
-                Custom name is set — select one {singularLabel}
-                {filter && ` (${filtered.length} of ${skills.length})`}
+                {filter
+                  ? t('skillPicker.selectOneHintWithFilter', { singular: singularLabel, filtered: filtered.length, total: skills.length })
+                  : t('skillPicker.selectOneHint', { singular: singularLabel })}
               </span>
             </div>
           )}
@@ -208,7 +211,7 @@ export default function SkillPickerModal({
               onClick={onCancel}
               disabled={installing}
             >
-              Cancel
+              {t('skillPicker.cancelButton')}
             </Button>
             <Button
               variant="primary"
@@ -218,7 +221,7 @@ export default function SkillPickerModal({
               loading={installing}
             >
               <Download size={14} strokeWidth={2.5} />
-              {singleSelect ? 'Install' : `Install Selected (${selected.size})`}
+              {singleSelect ? t('skillPicker.installButton') : t('skillPicker.installSelectedButton', { count: selected.size })}
             </Button>
           </div>
     </DialogShell>

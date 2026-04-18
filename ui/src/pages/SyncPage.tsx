@@ -29,6 +29,7 @@ import SyncResultList from '../components/SyncResultList';
 import { radius, shadows } from '../design';
 import KindBadge from '../components/KindBadge';
 import SegmentedControl from '../components/SegmentedControl';
+import { useT } from '../i18n';
 
 function extractIgnoreSources(data: IgnoreSources): IgnoreSources {
   return {
@@ -43,6 +44,7 @@ function extractIgnoreSources(data: IgnoreSources): IgnoreSources {
 }
 
 export default function SyncPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const [syncing, setSyncing] = useState(false);
   const [results, setResults] = useState<SyncResult[] | null>(null);
@@ -109,7 +111,7 @@ export default function SyncPage() {
       setSyncWarnings(res.warnings ?? []);
       setIgnoreSources(extractIgnoreSources(res));
       if (dryRun) {
-        toast('Dry run complete -- no changes were made.', 'info');
+        toast(t('sync.toast.dryRunComplete'), 'info');
       } else {
         toast(formatSyncToast(res.results), 'success');
       }
@@ -151,17 +153,17 @@ export default function SyncPage() {
   const totalPrune = counts.skill.prune + counts.agent.prune;
 
   const statParts = [
-    totalLink > 0 && { n: totalLink, label: 'to link', cls: 'text-success' },
-    totalUpdate > 0 && { n: totalUpdate, label: 'to update', cls: 'text-info' },
-    totalSkip > 0 && { n: totalSkip, label: 'skipped', cls: 'text-warning' },
-    totalPrune > 0 && { n: totalPrune, label: 'to prune', cls: 'text-danger' },
-    pendingLocal > 0 && { n: pendingLocal, label: 'local only', cls: 'text-pencil-light' },
-    allIgnored.length > 0 && { n: allIgnored.length, label: 'ignored', cls: 'text-muted-dark' },
+    totalLink > 0 && { n: totalLink, label: t('sync.stat.toLink'), cls: 'text-success' },
+    totalUpdate > 0 && { n: totalUpdate, label: t('sync.stat.toUpdate'), cls: 'text-info' },
+    totalSkip > 0 && { n: totalSkip, label: t('sync.stat.skipped'), cls: 'text-warning' },
+    totalPrune > 0 && { n: totalPrune, label: t('sync.stat.toPrune'), cls: 'text-danger' },
+    pendingLocal > 0 && { n: pendingLocal, label: t('sync.stat.localOnly'), cls: 'text-pencil-light' },
+    allIgnored.length > 0 && { n: allIgnored.length, label: t('sync.stat.ignored'), cls: 'text-muted-dark' },
   ].filter((x): x is { n: number; label: string; cls: string } => !!x);
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <PageHeader icon={<RefreshCw size={24} strokeWidth={2.5} />} title="Sync" subtitle="Push resources from source to all configured targets" />
+      <PageHeader icon={<RefreshCw size={24} strokeWidth={2.5} />} title={t('sync.title')} subtitle={t('sync.subtitle')} />
 
       {/* Visual Pipeline */}
       <div className="hidden md:flex items-center justify-center gap-4">
@@ -171,7 +173,7 @@ export default function SyncPage() {
         >
           <Folder size={18} strokeWidth={2.5} className="text-warning" />
           <span className="text-base font-medium">
-            Source
+            {t('sync.pipeline.source')}
           </span>
         </div>
 
@@ -199,7 +201,7 @@ export default function SyncPage() {
             <RefreshCw size={18} strokeWidth={2.5} className="text-blue" />
           )}
           <span className="text-base font-medium">
-            Sync Engine
+            {t('sync.pipeline.syncEngine')}
           </span>
         </div>
 
@@ -223,7 +225,7 @@ export default function SyncPage() {
         >
           <Target size={18} strokeWidth={2.5} className="text-success" />
           <span className="text-base font-medium">
-            Targets ({diffs.length})
+            {t('sync.pipeline.targets', { count: diffs.length })}
           </span>
         </div>
       </div>
@@ -233,7 +235,7 @@ export default function SyncPage() {
         <div data-tour="sync-actions" className="flex flex-col items-center gap-4">
           {/* Status indicator */}
           {diffLoading ? (
-            <p className="text-pencil-light text-base">Checking status...</p>
+            <p className="text-pencil-light text-base">{t('sync.status.checking')}</p>
           ) : syncActions > 0 ? (
             <div className="space-y-1 text-center">
               <p className="text-sm">
@@ -255,9 +257,9 @@ export default function SyncPage() {
           ) : (
             <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
               <CheckCircle size={16} strokeWidth={2.5} className="text-success" />
-              <span className="font-medium text-success">All targets are in sync!</span>
-              {pendingLocal > 0 && <><span className="text-muted-dark">·</span><span className="text-pencil-light">{pendingLocal} local only</span></>}
-              {allIgnored.length > 0 && <><span className="text-muted-dark">·</span><span className="text-pencil-light">{allIgnored.length} ignored</span></>}
+              <span className="font-medium text-success">{t('sync.status.allInSync')}</span>
+              {pendingLocal > 0 && <><span className="text-muted-dark">·</span><span className="text-pencil-light">{t('sync.status.localOnlyCount', { count: pendingLocal })}</span></>}
+              {allIgnored.length > 0 && <><span className="text-muted-dark">·</span><span className="text-pencil-light">{t('sync.badge.ignored', { count: allIgnored.length })}</span></>}
             </div>
           )}
 
@@ -267,9 +269,9 @@ export default function SyncPage() {
               value={syncScope}
               onChange={setSyncScope}
               options={[
-                { value: 'skill' as const, label: 'Skills' },
-                { value: 'agent' as const, label: 'Agents' },
-                { value: 'both' as const, label: 'Both' },
+                { value: 'skill' as const, label: t('sync.scope.skills') },
+                { value: 'agent' as const, label: t('sync.scope.agents') },
+                { value: 'both' as const, label: t('sync.scope.both') },
               ]}
               size="sm"
               connected
@@ -282,13 +284,13 @@ export default function SyncPage() {
               dropdownAlign="right"
               items={[
                 {
-                  label: syncScope === 'agent' ? 'Force Sync Agents' : syncScope === 'skill' ? 'Force Sync Skills' : 'Force Sync',
+                  label: syncScope === 'agent' ? t('sync.button.forceSyncAgents') : syncScope === 'skill' ? t('sync.button.forceSyncSkills') : t('sync.button.forceSync'),
                   icon: <Zap size={16} strokeWidth={2.5} />,
                   onClick: () => handleSync({ force: true }),
                   confirm: true,
                 },
                 {
-                  label: 'Dry Run',
+                  label: t('sync.button.dryRun'),
                   icon: <Eye size={16} strokeWidth={2.5} />,
                   onClick: () => handleSync({ dryRun: true }),
                 },
@@ -296,12 +298,12 @@ export default function SyncPage() {
             >
               {!syncing && <RefreshCw size={18} strokeWidth={2.5} />}
               {syncing
-                ? 'Syncing...'
+                ? t('sync.button.syncing')
                 : syncScope === 'skill'
-                  ? 'Sync Skills'
+                  ? t('sync.button.syncSkills')
                   : syncScope === 'agent'
-                    ? 'Sync Agents'
-                    : 'Sync Now'}
+                    ? t('sync.button.syncAgents')
+                    : t('sync.button.syncNow')}
             </SplitButton>
           </div>
         </div>
@@ -325,7 +327,7 @@ export default function SyncPage() {
           <h2
             className="text-lg font-bold text-pencil"
           >
-            {lastDryRun ? 'Preview Results' : 'Results'}
+            {lastDryRun ? t('sync.results.preview') : t('sync.results.title')}
           </h2>
           <SyncResultList results={results} />
         </div>
@@ -345,9 +347,9 @@ export default function SyncPage() {
             )}
             <EyeOff size={16} strokeWidth={2.5} className="text-pencil-light shrink-0" />
             <span className="font-medium text-pencil-light text-left flex-1">
-              Ignored by .skillignore / .agentignore
+              {t('sync.ignored.label')}
             </span>
-            <Badge variant="default">{allIgnored.length} resource{allIgnored.length !== 1 && 's'}</Badge>
+            <Badge variant="default">{allIgnored.length !== 1 ? t('sync.badge.resourceCountPlural', { count: allIgnored.length }) : t('sync.badge.resourceCount', { count: allIgnored.length })}</Badge>
           </button>
 
           {ignoredExpanded && (() => {
@@ -388,25 +390,25 @@ export default function SyncPage() {
                   {hasRoot && (
                     <div className="flex items-center gap-1.5 text-xs text-pencil-light">
                       <Info size={12} className="shrink-0" />
-                      <span>Root .skillignore active — edit in Config page</span>
+                      <span>{t('sync.ignored.skillignoreActive')}</span>
                     </div>
                   )}
                   {repoCount > 0 && (
                     <div className="flex items-center gap-1.5 text-xs text-pencil-light">
                       <Info size={12} className="shrink-0" />
-                      <span>{repoCount} repo-level .skillignore {repoCount === 1 ? 'file' : 'files'} active</span>
+                      <span>{t('sync.ignored.repoFilesActive', { count: repoCount, files: repoCount === 1 ? 'file' : 'files' })}</span>
                     </div>
                   )}
                   {hasAgentRoot && (
                     <div className="flex items-center gap-1.5 text-xs text-pencil-light">
                       <Info size={12} className="shrink-0" />
-                      <span>Root .agentignore active — edit in Config page</span>
+                      <span>{t('sync.ignored.agentignoreActive')}</span>
                     </div>
                   )}
                   {!hasRoot && repoCount === 0 && !hasAgentRoot && (
                     <div className="flex items-center gap-1.5 text-xs text-pencil-light">
                       <Info size={12} className="shrink-0" />
-                      <span>Edit .skillignore in Config to manage exclusions</span>
+                      <span>{t('sync.ignored.editSkillignore')}</span>
                     </div>
                   )}
                 </div>
@@ -421,7 +423,7 @@ export default function SyncPage() {
         <h3
           className="text-xl font-bold text-pencil mb-4"
         >
-          Current Diff
+          {t('sync.diff.title')}
         </h3>
         {diffLoading && diffProgress && (
           <StreamProgressBar
@@ -429,9 +431,9 @@ export default function SyncPage() {
             total={diffProgress.total}
             startTime={startTimeRef.current}
             icon={RefreshCw}
-            labelDiscovering="Discovering skills..."
-            labelRunning="Computing diff..."
-            units="targets"
+            labelDiscovering={t('sync.diff.discoveringSkills')}
+            labelRunning={t('sync.diff.computingDiff')}
+            units={t('sync.diff.units')}
           />
         )}
         {!diffLoading && diffData && <DiffView diffs={diffData} />}
@@ -458,6 +460,7 @@ function ActionBadge({ action }: { action: string }) {
 
 /** Diff preview with expandable targets */
 function DiffView({ diffs: rawDiffs }: { diffs: DiffTarget[] }) {
+  const t = useT();
   const diffs = rawDiffs ?? [];
 
   if (diffs.length === 0) {
@@ -465,7 +468,7 @@ function DiffView({ diffs: rawDiffs }: { diffs: DiffTarget[] }) {
       <Card variant="outlined">
         <div className="flex items-center justify-center gap-2 py-4 text-pencil-light">
           <AlertCircle size={18} strokeWidth={2} />
-          <span>No targets configured.</span>
+          <span>{t('sync.diff.noTargets')}</span>
         </div>
       </Card>
     );
@@ -486,6 +489,7 @@ const VIRTUALIZE_THRESHOLD = 100;
 const VIRTUOSO_HEIGHT = 400;
 
 function DiffTargetCard({ diff }: { diff: DiffTarget }) {
+  const t = useT();
   const items = diff.items ?? [];
   const [expanded, setExpanded] = useState(items.length <= VIRTUALIZE_THRESHOLD);
   const localOnly = useMemo(() => items.filter((i) => i.action === 'local'), [items]);
@@ -515,13 +519,13 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
           {diff.target}
         </h4>
         {inSync ? (
-          <Badge variant="success">in sync</Badge>
+          <Badge variant="success">{t('sync.badge.inSync')}</Badge>
         ) : onlyLocal ? (
-          <Badge variant="default">{localOnly.length} local only</Badge>
+          <Badge variant="default">{t('sync.badge.localOnly', { count: localOnly.length })}</Badge>
         ) : (
           <div className="flex items-center gap-2">
-            <Badge variant="info">{syncItems.length} pending</Badge>
-            {localOnly.length > 0 && <Badge variant="default">{localOnly.length} local</Badge>}
+            <Badge variant="info">{t('sync.badge.pendingCount', { count: syncItems.length })}</Badge>
+            {localOnly.length > 0 && <Badge variant="default">{t('sync.badge.localCount', { count: localOnly.length })}</Badge>}
           </div>
         )}
       </button>
@@ -550,7 +554,7 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
                 <div className="flex items-center gap-1.5 text-xs text-pencil-light">
                   <Info size={12} className="shrink-0" />
                   <span>
-                    Run sync (or sync --force) to fix pending items
+                    {t('sync.hint.runSync')}
                   </span>
                 </div>
               )}
@@ -558,7 +562,7 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
                 <div className="flex items-center gap-1.5 text-xs text-pencil-light">
                   <FileText size={12} className="shrink-0" />
                   <span>
-                    Use collect to import local-only skills to source
+                    {t('sync.hint.useCollect')}
                   </span>
                 </div>
               )}
@@ -570,13 +574,13 @@ function DiffTargetCard({ diff }: { diff: DiffTarget }) {
       {expanded && inSync && (
         <div className="mt-2 pl-8">
           <p className="text-base text-pencil-light">
-            Everything looks good! No changes needed.
+            {t('sync.status.inSyncDetail')}
           </p>
           {(diff.skippedCount ?? 0) > 0 && (
             <p className="text-sm text-warning mt-1">
-              {diff.skippedCount} skill(s) skipped due to naming conflicts
-              {(diff.collisionCount ?? 0) > 0 && <> ({diff.collisionCount} name collision(s))</>}
-              — switch to <strong>flat</strong> naming to include all skills
+              {t('sync.warning.skippedNamingConflicts', { count: diff.skippedCount ?? 0 })}
+              {(diff.collisionCount ?? 0) > 0 && <> {t('sync.warning.collisionCount', { count: diff.collisionCount ?? 0 })}</>}
+              {' '}{t('sync.warning.skippedSwitchToFlat')}
             </p>
           )}
         </div>

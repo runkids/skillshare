@@ -17,6 +17,7 @@ import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
+import { useT } from '../i18n';
 
 // ─── AddExtraModal ────────────────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ function AddExtraModal({
   onCreated: () => void;
 }) {
   const { toast } = useToast();
+  const t = useT();
   const [name, setName] = useState('');
   const [source, setSource] = useState('');
   const [targets, setTargets] = useState<TargetEntry[]>([{ path: '', mode: 'merge', flatten: false }]);
@@ -57,12 +59,12 @@ function AddExtraModal({
 
   const handleCreate = async () => {
     if (!name.trim()) {
-      toast('Name is required', 'error');
+      toast(t('extras.error.nameRequired'), 'error');
       return;
     }
-    const validTargets = targets.filter((t) => t.path.trim());
+    const validTargets = targets.filter((tgt) => tgt.path.trim());
     if (validTargets.length === 0) {
-      toast('At least one target path is required', 'error');
+      toast(t('extras.error.targetRequired'), 'error');
       return;
     }
     setSaving(true);
@@ -70,9 +72,9 @@ function AddExtraModal({
       await api.createExtra({
         name: name.trim(),
         ...(source.trim() && { source: source.trim() }),
-        targets: validTargets.map((t) => ({ path: t.path.trim(), mode: t.mode, flatten: t.flatten })),
+        targets: validTargets.map((tgt) => ({ path: tgt.path.trim(), mode: tgt.mode, flatten: tgt.flatten })),
       });
-      toast(`Extra "${name.trim()}" created`, 'success');
+      toast(t('extras.toast.created', { name: name.trim() }), 'success');
       onCreated();
     } catch (err: any) {
       toast(err.message, 'error');
@@ -87,11 +89,11 @@ function AddExtraModal({
             <h3
               className="text-xl font-bold text-pencil"
             >
-              Add Extra
+              {t('extras.addExtraTitle')}
             </h3>
             <IconButton
               icon={<X size={20} strokeWidth={2.5} />}
-              label="Close"
+              label={t('common.close')}
               size="sm"
               variant="ghost"
               onClick={onClose}
@@ -102,8 +104,8 @@ function AddExtraModal({
           <div className="space-y-4">
             {/* Name */}
             <Input
-              label="Name"
-              placeholder="e.g. my-scripts"
+              label={t('extras.modal.name')}
+              placeholder={t('extras.modal.namePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={saving}
@@ -111,8 +113,8 @@ function AddExtraModal({
 
             {/* Source path (optional) */}
             <Input
-              label="Source path (optional)"
-              placeholder="e.g. ~/my-extras/scripts"
+              label={t('extras.modal.sourcePath')}
+              placeholder={t('extras.modal.sourcePathPlaceholder')}
               value={source}
               onChange={(e) => setSource(e.target.value)}
               disabled={saving}
@@ -123,22 +125,22 @@ function AddExtraModal({
               <label
                 className="block text-base text-pencil-light mb-2"
               >
-                Targets
+                {t('extras.modal.targets')}
               </label>
               <div className="space-y-2">
-                {targets.map((t, i) => (
+                {targets.map((tgt, i) => (
                   <div key={i} className="flex gap-2 items-center">
                     <div className="flex-1">
                       <Input
-                        placeholder="Target path (e.g. ~/.cursor/scripts)"
-                        value={t.path}
+                        placeholder={t('extras.modal.targetPathPlaceholder')}
+                        value={tgt.path}
                         onChange={(e) => updateTarget(i, 'path', e.target.value)}
                         disabled={saving}
                       />
                     </div>
                     <div className="w-32 shrink-0">
                       <Select
-                        value={t.mode}
+                        value={tgt.mode}
                         onChange={(v) => {
                           updateTarget(i, 'mode', v);
                           if (v === 'symlink') updateTarget(i, 'flatten', false);
@@ -146,22 +148,22 @@ function AddExtraModal({
                         options={MODE_OPTIONS}
                       />
                     </div>
-                    <label className="flex items-center gap-1.5 shrink-0 cursor-pointer select-none" title="Sync files from subdirectories directly into the target root (e.g., for tools that only discover top-level files)">
+                    <label className="flex items-center gap-1.5 shrink-0 cursor-pointer select-none" title={t('extras.flattenTitle')}>
                       <input
                         type="checkbox"
-                        checked={t.flatten}
+                        checked={tgt.flatten}
                         onChange={(e) => updateTarget(i, 'flatten', e.target.checked)}
-                        disabled={saving || t.mode === 'symlink'}
+                        disabled={saving || tgt.mode === 'symlink'}
                         className="accent-primary"
                       />
-                      <span className={`text-xs ${t.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
-                        Flatten
+                      <span className={`text-xs ${tgt.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
+                        {t('extras.flatten')}
                       </span>
                     </label>
                     {targets.length > 1 && (
                       <IconButton
                         icon={<X size={16} strokeWidth={2.5} />}
-                        label="Remove target"
+                        label={t('extras.removeTarget')}
                         size="sm"
                         variant="ghost"
                         onClick={() => removeTarget(i)}
@@ -179,17 +181,17 @@ function AddExtraModal({
                 disabled={saving}
                 className="mt-2"
               >
-                <Plus size={14} strokeWidth={2.5} /> Add Target
+                <Plus size={14} strokeWidth={2.5} /> {t('extras.addTarget')}
               </Button>
             </div>
           </div>
 
           <div className="flex gap-3 justify-end mt-6">
             <Button variant="secondary" size="sm" onClick={onClose} disabled={saving}>
-              Cancel
+              {t('extras.cancel')}
             </Button>
             <Button variant="primary" size="sm" onClick={handleCreate} disabled={saving}>
-              {saving ? 'Creating...' : 'Create'}
+              {saving ? t('extras.creating') : t('extras.create')}
             </Button>
           </div>
     </DialogShell>
@@ -212,6 +214,7 @@ function ExtraCard({
   onRemove: (name: string) => void;
   onModeChange: (name: string, target: string, mode: string, flatten?: boolean) => Promise<void>;
 }) {
+  const t = useT();
   const [syncing, setSyncing] = useState(false);
   const [changingMode, setChangingMode] = useState<string | null>(null);
 
@@ -254,7 +257,7 @@ function ExtraCard({
             dropdownAlign="right"
             items={[
               {
-                label: 'Force Sync',
+                label: t('extras.forceSync'),
                 icon: <Zap size={14} strokeWidth={2.5} />,
                 onClick: () => handleSync(true),
                 confirm: true,
@@ -262,11 +265,11 @@ function ExtraCard({
             ]}
           >
             <RefreshCw size={12} strokeWidth={2.5} />
-            {syncing ? 'Syncing...' : 'Sync'}
+            {syncing ? t('extras.syncing') : t('extras.sync')}
           </SplitButton>
           <IconButton
             icon={<Trash2 size={16} strokeWidth={2.5} />}
-            label="Remove extra"
+            label={t('extras.removeConfirm.title')}
             size="md"
             variant="danger-outline"
             onClick={() => onRemove(extra.name)}
@@ -285,55 +288,55 @@ function ExtraCard({
       <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-dashed border-pencil-light/30">
         <Target size={13} strokeWidth={2.5} className="text-success shrink-0" />
         <span className="text-xs text-pencil-light uppercase tracking-wider">
-          {extra.targets.length > 0 ? `Targets (${extra.targets.length})` : 'Targets'}
+          {extra.targets.length > 0 ? `${t('extras.modal.targets')} (${extra.targets.length})` : t('extras.modal.targets')}
         </span>
       </div>
       <div className="ml-5 mt-1 space-y-1.5">
         {extra.targets.length > 0 ? (
-          extra.targets.map((t, ti) => (
+          extra.targets.map((tgt, ti) => (
             <div key={ti} className="flex items-center gap-3">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                <span className="font-mono text-sm truncate text-pencil-light">{t.path}</span>
+                <span className="font-mono text-sm truncate text-pencil-light">{tgt.path}</span>
                 <Badge
                   variant={
-                    t.status === 'synced'
+                    tgt.status === 'synced'
                       ? 'success'
-                      : t.status === 'drift'
+                      : tgt.status === 'drift'
                       ? 'warning'
                       : 'danger'
                   }
                   size="sm"
                 >
-                  {t.status}
+                  {tgt.status}
                 </Badge>
               </div>
-              <label className="flex items-center gap-1 shrink-0 cursor-pointer select-none" title="Sync files from subdirectories directly into the target root (e.g., for tools that only discover top-level files)">
+              <label className="flex items-center gap-1 shrink-0 cursor-pointer select-none" title={t('extras.flattenTitle')}>
                 <input
                   type="checkbox"
-                  checked={t.flatten}
+                  checked={tgt.flatten}
                   onChange={async (e) => {
                     const newFlatten = e.target.checked;
-                    setChangingMode(t.path);
+                    setChangingMode(tgt.path);
                     try {
-                      await onModeChange(extra.name, t.path, t.mode, newFlatten);
+                      await onModeChange(extra.name, tgt.path, tgt.mode, newFlatten);
                     } finally {
                       setChangingMode(null);
                     }
                   }}
-                  disabled={changingMode === t.path || t.mode === 'symlink'}
+                  disabled={changingMode === tgt.path || tgt.mode === 'symlink'}
                   className="accent-primary"
                 />
-                <span className={`text-xs ${t.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
-                  Flatten
+                <span className={`text-xs ${tgt.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
+                  {t('extras.flatten')}
                 </span>
               </label>
               <Select
-                value={t.mode}
+                value={tgt.mode}
                 onChange={async (v) => {
-                  if (v === t.mode) return;
-                  setChangingMode(t.path);
+                  if (v === tgt.mode) return;
+                  setChangingMode(tgt.path);
                   try {
-                    await onModeChange(extra.name, t.path, v);
+                    await onModeChange(extra.name, tgt.path, v);
                   } finally {
                     setChangingMode(null);
                   }
@@ -341,12 +344,12 @@ function ExtraCard({
                 options={MODE_OPTIONS}
                 size="sm"
                 className="w-36 shrink-0"
-                disabled={changingMode === t.path}
+                disabled={changingMode === tgt.path}
               />
             </div>
           ))
         ) : (
-          <p className="text-sm text-pencil-light italic">No targets configured</p>
+          <p className="text-sm text-pencil-light italic">{t('extras.noTargets')}</p>
         )}
       </div>
     </Card>
@@ -391,17 +394,21 @@ function syncToastType(t: SyncTotals): 'success' | 'warning' | 'error' {
   return 'success';
 }
 
-function buildSyncToast(label: string, failLabel: string, t: SyncTotals, isForce: boolean): string {
-  if (t.errors > 0 && t.synced === 0)
-    return `${failLabel} \u2014 ${t.errors} error${t.errors > 1 ? 's' : ''}`;
-  if (t.synced === 0 && t.skipped === 0 && t.errors === 0)
-    return `${label} \u2014 no files in source`;
+type TFunc = (key: string, params?: Record<string, any>, fallback?: string) => string;
+
+function buildSyncToast(label: string, failLabel: string, totals: SyncTotals, isForce: boolean, t: TFunc): string {
+  if (totals.errors > 0 && totals.synced === 0)
+    return `${failLabel} \u2014 ${t('extras.toast.nErrors', { errors: totals.errors }, `${totals.errors} error${totals.errors > 1 ? 's' : ''}`)}`;
+  if (totals.synced === 0 && totals.skipped === 0 && totals.errors === 0)
+    return `${label} \u2014 ${t('extras.toast.noFilesInSource', {}, 'no files in source')}`;
   const parts: string[] = [];
-  parts.push(`${t.synced} file${t.synced !== 1 ? 's' : ''} to ${t.targets} target${t.targets !== 1 ? 's' : ''}`);
-  if (t.skipped > 0)
-    parts.push(`${t.skipped} skipped${!isForce ? ' (enable Force to override)' : ''}`);
-  if (t.errors > 0)
-    parts.push(`${t.errors} error${t.errors > 1 ? 's' : ''}`);
+  parts.push(t('extras.toast.syncedNFiles', { synced: totals.synced, targets: totals.targets }, `${totals.synced} file${totals.synced !== 1 ? 's' : ''} to ${totals.targets} target${totals.targets !== 1 ? 's' : ''}`));
+  if (totals.skipped > 0)
+    parts.push(!isForce
+      ? t('extras.toast.skippedForce', { skipped: totals.skipped }, `${totals.skipped} skipped (enable Force to override)`)
+      : t('extras.toast.skipped', { skipped: totals.skipped }, `${totals.skipped} skipped`));
+  if (totals.errors > 0)
+    parts.push(t('extras.toast.nErrors', { errors: totals.errors }, `${totals.errors} error${totals.errors > 1 ? 's' : ''}`));
   return `${label} \u2014 ${parts.join(', ')}`;
 }
 
@@ -410,6 +417,7 @@ function buildSyncToast(label: string, failLabel: string, t: SyncTotals, isForce
 export default function ExtrasPage() {
   const { isProjectMode } = useAppContext();
   const { toast } = useToast();
+  const tr = useT();
   const queryClient = useQueryClient();
 
   const { data, isPending, error } = useQuery({
@@ -434,8 +442,8 @@ export default function ExtrasPage() {
     setSyncingAll(true);
     try {
       const res = await api.syncExtras({ force });
-      const t = sumAll(res.extras);
-      toast(buildSyncToast('All extras synced', 'Extras sync failed', t, force), syncToastType(t));
+      const totals = sumAll(res.extras);
+      toast(buildSyncToast(tr('extras.toast.syncAll'), tr('extras.toast.syncAllFailed'), totals, force, tr), syncToastType(totals));
       invalidate();
     } catch (err: any) {
       toast(err.message, 'error');
@@ -448,8 +456,8 @@ export default function ExtrasPage() {
     try {
       const res = await api.syncExtras({ name, force });
       const entry = res.extras.find((e) => e.name === name);
-      const t = sumEntry(entry);
-      toast(buildSyncToast(`"${name}" synced`, `"${name}" sync failed`, t, force), syncToastType(t));
+      const totals = sumEntry(entry);
+      toast(buildSyncToast(tr('extras.toast.syncOne', { name }), tr('extras.toast.syncOneFailed', { name }), totals, force, tr), syncToastType(totals));
       invalidate();
     } catch (err: any) {
       toast(err.message, 'error');
@@ -461,7 +469,7 @@ export default function ExtrasPage() {
     setRemoving(true);
     try {
       await api.deleteExtra(removeName);
-      toast(`"${removeName}" removed`, 'success');
+      toast(tr('extras.toast.removed', { name: removeName }), 'success');
       invalidate();
     } catch (err: any) {
       toast(err.message, 'error');
@@ -474,7 +482,9 @@ export default function ExtrasPage() {
   const handleModeChange = async (name: string, target: string, mode: string, flatten?: boolean) => {
     try {
       await api.setExtraMode(name, target, mode, flatten);
-      const msg = flatten !== undefined ? `Updated (flatten=${flatten})` : `Mode changed to "${mode}"`;
+      const msg = flatten !== undefined
+        ? tr('extras.toast.flattenChanged', { flatten: String(flatten) })
+        : tr('extras.toast.modeChanged', { mode });
       toast(msg, 'success');
       invalidate();
     } catch (err: any) {
@@ -494,10 +504,10 @@ export default function ExtrasPage() {
       {/* Header */}
       <PageHeader
         icon={<FolderPlus size={24} strokeWidth={2.5} />}
-        title="Extras"
+        title={tr('extras.title')}
         subtitle={isProjectMode
-          ? 'Sync arbitrary directories to project targets'
-          : 'Sync arbitrary directories to AI tool targets'}
+          ? tr('extras.subtitle.project')
+          : tr('extras.subtitle.global')}
         actions={
           <>
             {extras.length > 0 && (
@@ -509,7 +519,7 @@ export default function ExtrasPage() {
                 dropdownAlign="right"
                 items={[
                   {
-                    label: 'Force Sync All',
+                    label: tr('extras.syncForceSyncAll'),
                     icon: <Zap size={14} strokeWidth={2.5} />,
                     onClick: () => handleSyncAll(true),
                     confirm: true,
@@ -517,11 +527,11 @@ export default function ExtrasPage() {
                 ]}
               >
                 <RefreshCw size={14} strokeWidth={2.5} />
-                {syncingAll ? 'Syncing...' : 'Sync All'}
+                {syncingAll ? tr('extras.syncing') : tr('extras.syncAll')}
               </SplitButton>
             )}
             <Button variant="primary" size="sm" onClick={() => setShowAdd(true)}>
-              <Plus size={14} strokeWidth={2.5} /> Add Extra
+              <Plus size={14} strokeWidth={2.5} /> {tr('extras.addExtra')}
             </Button>
           </>
         }
@@ -543,11 +553,11 @@ export default function ExtrasPage() {
           {extras.length === 0 ? (
             <EmptyState
               icon={FolderPlus}
-              title="No extras configured"
-              description="Extras let you sync any directory to your AI tool targets alongside your skills."
+              title={tr('extras.empty.title')}
+              description={tr('extras.empty.description')}
               action={
                 <Button variant="primary" size="md" onClick={() => setShowAdd(true)}>
-                  <Plus size={16} strokeWidth={2.5} /> Add Extra
+                  <Plus size={16} strokeWidth={2.5} /> {tr('extras.addExtra')}
                 </Button>
               }
             />
@@ -577,18 +587,17 @@ export default function ExtrasPage() {
       {/* Remove confirm dialog */}
       <ConfirmDialog
         open={removeName !== null}
-        title="Remove Extra"
+        title={tr('extras.removeConfirm.title')}
         message={
           removeName ? (
             <span>
-              Remove extra <strong>{removeName}</strong>? This will not delete the source
-              directory or synced files.
+              {tr('extras.removeConfirm.message', { name: removeName })}
             </span>
           ) : (
             <span />
           )
         }
-        confirmText="Remove"
+        confirmText={tr('extras.removeConfirm.confirmText')}
         variant="danger"
         loading={removing}
         onConfirm={handleRemove}

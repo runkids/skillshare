@@ -6,6 +6,7 @@ import { radius } from '../design';
 import { api } from '../api/client';
 import type { VersionCheck } from '../api/client';
 import DialogShell from './DialogShell';
+import { useT } from '../i18n';
 
 const DISMISSED_KEY = 'ss-update-dialog-dismissed';
 
@@ -20,6 +21,7 @@ const mockData: VersionCheck = {
 };
 
 export default function UpdateDialog() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -66,14 +68,14 @@ export default function UpdateDialog() {
         <button
           onClick={dismiss}
           className="absolute top-3 right-3 p-1 text-pencil-light hover:text-pencil transition-colors cursor-pointer"
-          aria-label="Close"
+          aria-label={t('common.close')}
         >
           <X size={16} />
         </button>
 
         {/* Title — plain text, no icon block */}
         <p className="text-sm font-medium text-pencil mb-3 pr-6">
-          New version available
+          {t('updateDialog.newVersion')}
         </p>
 
         {/* Version lines */}
@@ -105,7 +107,7 @@ export default function UpdateDialog() {
           <button
             onClick={handleCopy}
             className="p-1 text-pencil-light hover:text-pencil transition-colors cursor-pointer"
-            aria-label="Copy command"
+            aria-label={t('updateDialog.copyCommand')}
           >
             {copied
               ? <Check size={14} className="text-success" />

@@ -41,6 +41,7 @@ openspec/
 
 # Worktrees
 .worktrees/
+showcase/
 
 video/node_modules/
 

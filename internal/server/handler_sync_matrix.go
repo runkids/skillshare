@@ -10,11 +10,44 @@ import (
 )
 
 type syncMatrixEntry struct {
-	Skill  string `json:"skill"`
-	Target string `json:"target"`
-	Status string `json:"status"`
-	Reason string `json:"reason"`
-	Kind   string `json:"kind,omitempty"`
+	Skill        string            `json:"skill"`
+	Target       string            `json:"target"`
+	Status       string            `json:"status"`
+	Reason       string            `json:"reason"`
+	ReasonCode   string            `json:"reasonCode,omitempty"`
+	ReasonParams map[string]string `json:"reasonParams,omitempty"`
+	Kind         string            `json:"kind,omitempty"`
+}
+
+func syncMatrixReason(status, reason string) (string, map[string]string) {
+	if reason == "symlink mode — filters not applicable" {
+		return "sync_matrix.symlink_filters_not_applicable", nil
+	}
+	switch status {
+	case "synced":
+		return "sync_matrix.synced", nil
+	case "excluded":
+		return "sync_matrix.excluded", map[string]string{"pattern": reason}
+	case "not_included":
+		return "sync_matrix.not_included", nil
+	case "skill_target_mismatch":
+		return "sync_matrix.skill_target_mismatch", nil
+	default:
+		return "", nil
+	}
+}
+
+func newSyncMatrixEntry(skill, target, status, reason, kind string) syncMatrixEntry {
+	reasonCode, reasonParams := syncMatrixReason(status, reason)
+	return syncMatrixEntry{
+		Skill:        skill,
+		Target:       target,
+		Status:       status,
+		Reason:       reason,
+		ReasonCode:   reasonCode,
+		ReasonParams: reasonParams,
+		Kind:         kind,
+	}
 }
 
 func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
@@ -54,22 +87,12 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 		sc := target.SkillsConfig()
 		if sc.Mode == "symlink" {
 			for _, skill := range skills {
-				entries = append(entries, syncMatrixEntry{
-					Skill:  skill.FlatName,
-					Target: name,
-					Status: "na",
-					Reason: "symlink mode — filters not applicable",
-				})
+				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, "na", "symlink mode — filters not applicable", ""))
 			}
 		} else {
 			for _, skill := range skills {
 				status, reason := ssync.ClassifySkillForTarget(skill.FlatName, skill.Targets, name, sc.Include, sc.Exclude)
-				entries = append(entries, syncMatrixEntry{
-					Skill:  skill.FlatName,
-					Target: name,
-					Status: status,
-					Reason: reason,
-				})
+				entries = append(entries, newSyncMatrixEntry(skill.FlatName, name, status, reason, ""))
 			}
 		}
 		// Agents — resolve path from user config or builtin defaults
@@ -89,24 +112,12 @@ func (s *Server) handleSyncMatrix(w http.ResponseWriter, r *http.Request) {
 		}
 		if agentMode == "symlink" {
 			for _, agent := range agents {
-				entries = append(entries, syncMatrixEntry{
-					Skill:  agent.FlatName,
-					Target: name,
-					Status: "na",
-					Reason: "symlink mode — filters not applicable",
-					Kind:   "agent",
-				})
+				entries = append(entries, newSyncMatrixEntry(agent.FlatName, name, "na", "symlink mode — filters not applicable", "agent"))
 			}
 		} else {
 			for _, agent := range agents {
 				status, reason := ssync.ClassifySkillForTarget(agent.FlatName, agent.Targets, name, ac.Include, ac.Exclude)
-				entries = append(entries, syncMatrixEntry{
-					Skill:  agent.FlatName,
-					Target: name,
-					Status: status,
-					Reason: reason,
-					Kind:   "agent",
-				})
+				entries = append(entries, newSyncMatrixEntry(agent.FlatName, name, status, reason, "agent"))
 			}
 		}
 	}
@@ -166,12 +177,7 @@ func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request)
 	var entries []syncMatrixEntry
 	for _, skill := range skills {
 		status, reason := ssync.ClassifySkillForTarget(skill.FlatName, skill.Targets, body.Target, body.Include, body.Exclude)
-		entries = append(entries, syncMatrixEntry{
-			Skill:  skill.FlatName,
-			Target: body.Target,
-			Status: status,
-			Reason: reason,
-		})
+		entries = append(entries, newSyncMatrixEntry(skill.FlatName, body.Target, status, reason, ""))
 	}
 
 	// Agents — resolve path from config or builtin defaults
@@ -199,24 +205,12 @@ func (s *Server) handleSyncMatrixPreview(w http.ResponseWriter, r *http.Request)
 			}
 			if agentMode == "symlink" {
 				for _, agent := range agents {
-					entries = append(entries, syncMatrixEntry{
-						Skill:  agent.FlatName,
-						Target: body.Target,
-						Status: "na",
-						Reason: "symlink mode — filters not applicable",
-						Kind:   "agent",
-					})
+					entries = append(entries, newSyncMatrixEntry(agent.FlatName, body.Target, "na", "symlink mode — filters not applicable", "agent"))
 				}
 			} else {
 				for _, agent := range agents {
 					status, reason := ssync.ClassifySkillForTarget(agent.FlatName, agent.Targets, body.Target, body.AgentInclude, body.AgentExclude)
-					entries = append(entries, syncMatrixEntry{
-						Skill:  agent.FlatName,
-						Target: body.Target,
-						Status: status,
-						Reason: reason,
-						Kind:   "agent",
-					})
+					entries = append(entries, newSyncMatrixEntry(agent.FlatName, body.Target, status, reason, "agent"))
 				}
 			}
 		}

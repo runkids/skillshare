@@ -1,21 +1,24 @@
 import { Download, GitBranch, FolderOpen, Globe } from 'lucide-react';
 import InstallForm from '../components/InstallForm';
 import PageHeader from '../components/PageHeader';
-
-const EXAMPLES = [
-  { icon: Globe, label: 'owner/repo', desc: 'GitHub shorthand' },
-  { icon: GitBranch, label: 'https://github.com/…', desc: 'Any git URL' },
-  { icon: GitBranch, label: 'git@host:org/repo', desc: 'SSH (private repos)' },
-  { icon: FolderOpen, label: '~/local/path', desc: 'Local directory' },
-];
+import { useT } from '../i18n';
 
 export default function InstallPage() {
+  const t = useT();
+
+  const EXAMPLES = [
+    { icon: Globe, label: 'owner/repo', desc: t('install.example.githubShorthand') },
+    { icon: GitBranch, label: 'https://github.com/…', desc: t('install.example.anyGitUrl') },
+    { icon: GitBranch, label: 'git@host:org/repo', desc: t('install.example.sshPrivateRepos') },
+    { icon: FolderOpen, label: '~/local/path', desc: t('install.example.localDirectory') },
+  ];
+
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         icon={<Download size={24} strokeWidth={2.5} />}
-        title="Install Resources"
-        subtitle="Install skills or agents from any git repository or local path"
+        title={t('install.title')}
+        subtitle={t('install.subtitle')}
       />
 
       <div data-tour="install-form">

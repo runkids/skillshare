@@ -11,6 +11,7 @@ import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api } from '../api/client';
 import type { SkillPattern, SkillCategory } from '../api/client';
+import { useT } from '../i18n';
 
 /* -- Step definitions -------------------------------- */
 
@@ -32,10 +33,17 @@ function computeSteps(selectedPattern: SkillPattern | null): StepId[] {
 
 const NAME_REGEX = /^[a-z_][a-z0-9_-]*$/;
 
-function validateName(name: string, existingNames: Set<string>): string | null {
-  if (!name) return 'Name is required';
-  if (!NAME_REGEX.test(name)) return 'Must start with a-z or _, and contain only a-z, 0-9, _ or -';
-  if (existingNames.has(name)) return 'A skill with this name already exists';
+// Validation uses i18n keys resolved at call site
+const VALIDATION_KEYS = {
+  required: 'newSkill.name.validation.required',
+  format: 'newSkill.name.validation.format',
+  alreadyExists: 'newSkill.name.validation.alreadyExists',
+} as const;
+
+function validateNameKey(name: string, existingNames: Set<string>): string | null {
+  if (!name) return VALIDATION_KEYS.required;
+  if (!NAME_REGEX.test(name)) return VALIDATION_KEYS.format;
+  if (existingNames.has(name)) return VALIDATION_KEYS.alreadyExists;
   return null;
 }
 
@@ -45,6 +53,7 @@ export default function NewSkillPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const t = useT();
   // Form state
   const [name, setName] = useState('');
   const [selectedPattern, setSelectedPattern] = useState<SkillPattern | null>(null);
@@ -104,15 +113,16 @@ export default function NewSkillPage() {
   }, []);
 
   // Step validation
-  const nameError = useMemo(() => {
+  const nameErrorKey = useMemo(() => {
     if (!name) return null; // Don't show error for empty (user hasn't typed yet)
-    return validateName(name, existingNames);
+    return validateNameKey(name, existingNames);
   }, [name, existingNames]);
+  const nameError = nameErrorKey ? t(nameErrorKey) : null;
 
   const canAdvance = useMemo(() => {
     switch (currentStep) {
       case 'name':
-        return name.length > 0 && nameError === null;
+        return name.length > 0 && nameErrorKey === null;
       case 'pattern':
         return selectedPattern !== null;
       case 'category':
@@ -173,7 +183,7 @@ export default function NewSkillPage() {
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
-      toast(`Skill "${res.skill.name}" created successfully!`, 'success');
+      toast(t('newSkill.toast.created', { name: res.skill.name }), 'success');
       navigate(`/resources/${encodeURIComponent(res.skill.flatName)}`);
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
@@ -188,7 +198,7 @@ export default function NewSkillPage() {
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         icon={<></>}
-        title="Create New Skill"
+        title={t('newSkill.title')}
         backTo="/resources"
       />
 
@@ -239,7 +249,7 @@ export default function NewSkillPage() {
       <div className="flex items-center justify-between">
         <Button variant="secondary" onClick={goBack}>
           <ArrowLeft size={16} strokeWidth={2.5} />
-          Back
+          {t('newSkill.back')}
         </Button>
         {currentStep === 'confirm' ? (
           <Button
@@ -249,7 +259,7 @@ export default function NewSkillPage() {
             disabled={!canAdvance}
           >
             {!creating && <Check size={16} strokeWidth={2.5} />}
-            Create Skill
+            {t('newSkill.createSkill')}
           </Button>
         ) : (
           <Button
@@ -257,7 +267,7 @@ export default function NewSkillPage() {
             onClick={goNext}
             disabled={!canAdvance}
           >
-            Next
+            {t('newSkill.next')}
             <ArrowRight size={16} strokeWidth={2.5} />
           </Button>
         )}
@@ -269,13 +279,14 @@ export default function NewSkillPage() {
 /* -- Progress bar ------------------------------------ */
 
 function ProgressBar({ current, steps }: { current: number; steps: StepId[] }) {
+  const t = useT();
   const total = steps.length;
   const labels: Record<StepId, string> = {
-    name: 'Name',
-    pattern: 'Pattern',
-    category: 'Category',
-    scaffold: 'Scaffold',
-    confirm: 'Confirm',
+    name: t('newSkill.step.name'),
+    pattern: t('newSkill.step.pattern'),
+    category: t('newSkill.step.category'),
+    scaffold: t('newSkill.step.scaffold'),
+    confirm: t('newSkill.step.confirm'),
   };
 
   return (
@@ -301,7 +312,7 @@ function ProgressBar({ current, steps }: { current: number; steps: StepId[] }) {
         />
       </div>
       <p className="text-sm text-pencil-light mt-1">
-        Step {current + 1} of {total}
+        {t('newSkill.progress.stepOf', { current: current + 1, total })}
       </p>
     </div>
   );
@@ -318,15 +329,16 @@ function NameStep({
   onChange: (v: string) => void;
   error: string | null;
 }) {
+  const t = useT();
   return (
     <Card>
-      <h3 className="text-lg font-bold text-pencil mb-1">Skill Name</h3>
+      <h3 className="text-lg font-bold text-pencil mb-1">{t('newSkill.name.title')}</h3>
       <p className="text-pencil-light text-sm mb-4">
-        Choose a unique name for your skill. Use lowercase letters, numbers, hyphens, and underscores.
+        {t('newSkill.name.subtitle')}
       </p>
       <Input
         type="text"
-        placeholder="my-awesome-skill"
+        placeholder={t('newSkill.name.placeholder')}
         value={value}
         onChange={(e) => onChange(e.target.value.toLowerCase())}
         autoFocus
@@ -335,7 +347,7 @@ function NameStep({
         <p className="text-danger text-sm mt-2">{error}</p>
       )}
       {value && !error && (
-        <p className="text-success text-sm mt-2">Name is available</p>
+        <p className="text-success text-sm mt-2">{t('newSkill.name.available')}</p>
       )}
     </Card>
   );
@@ -352,11 +364,12 @@ function PatternStep({
   selected: SkillPattern | null;
   onSelect: (p: SkillPattern) => void;
 }) {
+  const t = useT();
   return (
     <div>
-      <h3 className="text-lg font-bold text-pencil mb-1">Choose a Pattern</h3>
+      <h3 className="text-lg font-bold text-pencil mb-1">{t('newSkill.pattern.title')}</h3>
       <p className="text-pencil-light text-sm mb-4">
-        Patterns provide different file structures optimized for various use cases.
+        {t('newSkill.pattern.subtitle')}
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {patterns.map((p) => (
@@ -373,8 +386,8 @@ function PatternStep({
               }
             `}
           >
-            <h4 className="font-bold text-pencil text-base mb-1 capitalize">{p.name}</h4>
-            <p className="text-pencil-light text-sm leading-snug">{p.description}</p>
+            <h4 className="font-bold text-pencil text-base mb-1">{t(`newSkill.pattern.${p.name}.label`, {}, p.name)}</h4>
+            <p className="text-pencil-light text-sm leading-snug">{t(`newSkill.pattern.${p.name}.description`, {}, p.description)}</p>
             {p.scaffoldDirs.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {p.scaffoldDirs.map((d) => (
@@ -402,11 +415,12 @@ function CategoryStep({
   selected: SkillCategory | null;
   onSelect: (c: SkillCategory | null) => void;
 }) {
+  const t = useT();
   return (
     <div>
-      <h3 className="text-lg font-bold text-pencil mb-1">Choose a Category</h3>
+      <h3 className="text-lg font-bold text-pencil mb-1">{t('newSkill.category.title')}</h3>
       <p className="text-pencil-light text-sm mb-4">
-        Categories help organize your skill with a descriptive label. You can skip this step.
+        {t('newSkill.category.subtitle')}
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {/* Skip option */}
@@ -422,8 +436,8 @@ function CategoryStep({
             }
           `}
         >
-          <h4 className="font-bold text-pencil text-base mb-1">Skip</h4>
-          <p className="text-pencil-light text-sm leading-snug">No category</p>
+          <h4 className="font-bold text-pencil text-base mb-1">{t('newSkill.category.skip')}</h4>
+          <p className="text-pencil-light text-sm leading-snug">{t('newSkill.category.noCategory')}</p>
         </button>
         {categories.map((c) => (
           <button
@@ -439,7 +453,7 @@ function CategoryStep({
               }
             `}
           >
-            <h4 className="font-bold text-pencil text-base mb-1">{c.label}</h4>
+            <h4 className="font-bold text-pencil text-base mb-1">{t(`newSkill.category.${c.key}.label`, {}, c.label)}</h4>
             <p className="text-pencil-light text-sm leading-snug">{c.key}</p>
           </button>
         ))}
@@ -459,11 +473,12 @@ function ScaffoldStep({
   selected: Set<string>;
   onToggle: (dir: string) => void;
 }) {
+  const t = useT();
   return (
     <div>
-      <h3 className="text-lg font-bold text-pencil mb-1">Scaffold Directories</h3>
+      <h3 className="text-lg font-bold text-pencil mb-1">{t('newSkill.scaffold.title')}</h3>
       <p className="text-pencil-light text-sm mb-4">
-        Choose which directories to create. All are selected by default.
+        {t('newSkill.scaffold.subtitle')}
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {dirs.map((dir) => {
@@ -510,27 +525,28 @@ function ConfirmStep({
   category: SkillCategory | null;
   scaffoldDirs: Set<string>;
 }) {
+  const t = useT();
   return (
     <Card>
-      <h3 className="text-lg font-bold text-pencil mb-4">Review &amp; Create</h3>
+      <h3 className="text-lg font-bold text-pencil mb-4">{t('newSkill.confirm.title')}</h3>
       <dl className="space-y-3">
         <div className="flex items-start gap-3">
-          <dt className="text-pencil-light text-sm w-28 shrink-0">Name</dt>
+          <dt className="text-pencil-light text-sm w-28 shrink-0">{t('newSkill.confirm.name')}</dt>
           <dd className="font-mono font-bold text-pencil">{name}</dd>
         </div>
         <div className="flex items-start gap-3">
-          <dt className="text-pencil-light text-sm w-28 shrink-0">Pattern</dt>
+          <dt className="text-pencil-light text-sm w-28 shrink-0">{t('newSkill.confirm.pattern')}</dt>
           <dd className="text-pencil capitalize">{pattern?.name ?? 'none'}</dd>
         </div>
         {category && (
           <div className="flex items-start gap-3">
-            <dt className="text-pencil-light text-sm w-28 shrink-0">Category</dt>
-            <dd className="text-pencil">{category.label}</dd>
+            <dt className="text-pencil-light text-sm w-28 shrink-0">{t('newSkill.confirm.category')}</dt>
+            <dd className="text-pencil">{t(`newSkill.category.${category.key}.label`, {}, category.label)}</dd>
           </div>
         )}
         {pattern && pattern.scaffoldDirs.length > 0 && (
           <div className="flex items-start gap-3">
-            <dt className="text-pencil-light text-sm w-28 shrink-0">Directories</dt>
+            <dt className="text-pencil-light text-sm w-28 shrink-0">{t('newSkill.confirm.directories')}</dt>
             <dd className="flex flex-wrap gap-1.5">
               {[...scaffoldDirs].map((dir) => (
                 <span
@@ -542,7 +558,7 @@ function ConfirmStep({
                 </span>
               ))}
               {scaffoldDirs.size === 0 && (
-                <span className="text-pencil-light text-sm">None</span>
+                <span className="text-pencil-light text-sm">{t('newSkill.confirm.none')}</span>
               )}
             </dd>
           </div>

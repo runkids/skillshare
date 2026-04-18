@@ -6,6 +6,7 @@ import { Input } from '../Input';
 import EditorSegment from './controls/EditorSegment';
 import SwitchToggle from './controls/SwitchToggle';
 import CharBudget from './controls/CharBudget';
+import { useT } from '../../i18n';
 
 const DESC_BUDGET = 1536;
 
@@ -32,34 +33,119 @@ interface GroupDef {
   fields: FieldDef[];
 }
 
-const GROUPS: GroupDef[] = [
+function getGroups(t: ReturnType<typeof useT>): GroupDef[] {
+  return [
+    {
+      id: 'identity',
+      label: 'Identity',
+      defaultOpen: true,
+      fields: [
+        {
+          key: 'name',
+          label: 'name',
+          hint: t('frontmatterEditor.field.name.hint'),
+          type: 'text',
+          required: true,
+        },
+        {
+          key: 'description',
+          label: 'description',
+          hint: t('frontmatterEditor.field.description.hint'),
+          type: 'multiline',
+          required: true,
+          rows: 5,
+        },
+        {
+          key: 'when_to_use',
+          label: 'when_to_use',
+          hint: t('frontmatterEditor.field.whenToUse.hint'),
+          type: 'multiline',
+          rows: 3,
+        },
+      ],
+    },
+    {
+      id: 'invocation',
+      label: 'Invocation',
+      defaultOpen: true,
+      fields: [
+        {
+          key: 'argument-hint',
+          label: 'argument-hint',
+          hint: t('frontmatterEditor.field.argumentHint.hint'),
+          type: 'text',
+        },
+        {
+          key: 'paths',
+          label: 'paths',
+          hint: t('frontmatterEditor.field.paths.hint'),
+          type: 'array',
+          arrayPlaceholder: 'src/**/*.ts',
+          arrayItemLabel: 'path',
+        },
+        {
+          key: 'disable-model-invocation',
+          label: 'disable-model-invocation',
+          hint: t('frontmatterEditor.field.disableModelInvocation.hint'),
+          type: 'bool',
+        },
+        {
+          key: 'user-invocable',
+          label: 'user-invocable',
+          hint: t('frontmatterEditor.field.userInvocable.hint'),
+          type: 'bool',
+        },
+      ],
+    },
+    {
+      id: 'execution',
+      label: 'Execution',
+      defaultOpen: false,
+      fields: [
+        {
+          key: 'allowed-tools',
+          label: 'allowed-tools',
+          hint: t('frontmatterEditor.field.allowedTools.hint'),
+          type: 'array',
+          arrayPlaceholder: 'Tool(pattern:*)',
+          arrayItemLabel: 'tool',
+        },
+        {
+          key: 'context',
+          label: 'context',
+          hint: t('frontmatterEditor.field.context.hint'),
+          type: 'enum',
+          options: ['', 'fork'],
+        },
+        {
+          key: 'agent',
+          label: 'agent',
+          hint: t('frontmatterEditor.field.agent.hint'),
+          type: 'text',
+          showWhen: { key: 'context', value: 'fork' },
+          placeholder: 'Explore / Plan / general-purpose',
+        },
+        {
+          key: 'shell',
+          label: 'shell',
+          hint: t('frontmatterEditor.field.shell.hint'),
+          type: 'enum',
+          options: ['', 'bash', 'powershell'],
+        },
+      ],
+    },
+  ];
+}
+
+const _STATIC_GROUPS_FOR_ORDER: GroupDef[] = [
   {
     id: 'identity',
     label: 'Identity',
     defaultOpen: true,
     fields: [
-      {
-        key: 'name',
-        label: 'name',
-        hint: 'Skill identifier. Used by /<name> invocation.',
-        type: 'text',
-        required: true,
-      },
-      {
-        key: 'description',
-        label: 'description',
-        hint: 'One-line summary — shown in skill lists and routing.',
-        type: 'multiline',
-        required: true,
-        rows: 5,
-      },
-      {
-        key: 'when_to_use',
-        label: 'when_to_use',
-        hint: 'Trigger phrases or example requests. Shares the 1,536-char budget with description.',
-        type: 'multiline',
-        rows: 3,
-      },
+      { key: 'name', label: 'name', hint: '', type: 'text', required: true },
+      { key: 'description', label: 'description', hint: '', type: 'multiline', required: true },
+      { key: 'when_to_use', label: 'when_to_use', hint: '', type: 'multiline' },
     ],
   },
   {
@@ -67,32 +153,10 @@ const GROUPS: GroupDef[] = [
     label: 'Invocation',
     defaultOpen: true,
     fields: [
-      {
-        key: 'argument-hint',
-        label: 'argument-hint',
-        hint: 'Placeholder shown during autocomplete. e.g. [issue-number]',
-        type: 'text',
-      },
-      {
-        key: 'paths',
-        label: 'paths',
-        hint: 'Glob patterns that limit when this skill auto-activates.',
-        type: 'array',
-        arrayPlaceholder: 'src/**/*.ts',
-        arrayItemLabel: 'path',
-      },
-      {
-        key: 'disable-model-invocation',
-        label: 'disable-model-invocation',
-        hint: "Only the user can trigger via /name. Claude won't auto-load.",
-        type: 'bool',
-      },
-      {
-        key: 'user-invocable',
-        label: 'user-invocable',
-        hint: 'Hide from / menu. Background knowledge only — Claude can still load it.',
-        type: 'bool',
-      },
+      { key: 'argument-hint', label: 'argument-hint', hint: '', type: 'text' },
+      { key: 'paths', label: 'paths', hint: '', type: 'array' },
+      { key: 'disable-model-invocation', label: 'disable-model-invocation', hint: '', type: 'bool' },
+      { key: 'user-invocable', label: 'user-invocable', hint: '', type: 'bool' },
     ],
   },
   {
@@ -100,41 +164,15 @@ const GROUPS: GroupDef[] = [
     label: 'Execution',
     defaultOpen: false,
     fields: [
-      {
-        key: 'allowed-tools',
-        label: 'allowed-tools',
-        hint: 'Tools Claude can use without per-call approval while this skill is active.',
-        type: 'array',
-        arrayPlaceholder: 'Tool(pattern:*)',
-        arrayItemLabel: 'tool',
-      },
-      {
-        key: 'context',
-        label: 'context',
-        hint: 'Set "fork" to run in a forked subagent context.',
-        type: 'enum',
-        options: ['', 'fork'],
-      },
-      {
-        key: 'agent',
-        label: 'agent',
-        hint: 'Subagent type. Only used when context=fork.',
-        type: 'text',
-        showWhen: { key: 'context', value: 'fork' },
-        placeholder: 'Explore / Plan / general-purpose',
-      },
-      {
-        key: 'shell',
-        label: 'shell',
-        hint: 'Shell for !`...` and ```! blocks.',
-        type: 'enum',
-        options: ['', 'bash', 'powershell'],
-      },
+      { key: 'allowed-tools', label: 'allowed-tools', hint: '', type: 'array' },
+      { key: 'context', label: 'context', hint: '', type: 'enum' },
+      { key: 'agent', label: 'agent', hint: '', type: 'text' },
+      { key: 'shell', label: 'shell', hint: '', type: 'enum' },
     ],
   },
 ];
 
-export const FM_FIELD_ORDER = GROUPS.flatMap((g) => g.fields.map((f) => f.key));
+export const FM_FIELD_ORDER = _STATIC_GROUPS_FOR_ORDER.flatMap((g) => g.fields.map((f) => f.key));
 
 type SetField = (key: string, value: string | string[] | boolean | null) => void;
 
@@ -153,6 +191,8 @@ export default function FrontmatterEditor({
   onToggleYaml,
   metadataHint,
 }: FrontmatterEditorProps) {
+  const t = useT();
+  const groups = useMemo(() => getGroups(t), [t]);
   const yaml = useMemo(
     () => (yamlMode ? serializeFrontmatter(frontmatter, FM_FIELD_ORDER) : ''),
     [frontmatter, yamlMode],
@@ -173,22 +213,22 @@ export default function FrontmatterEditor({
       <div className="fm-head">
         <div className="fm-title">
           <span className="fm-tick">---</span>
-          <span>Frontmatter</span>
-          <span className="fm-sub">YAML metadata · drives routing &amp; tool access</span>
+          <span>{t('frontmatterEditor.title')}</span>
+          <span className="fm-sub">{t('frontmatterEditor.subtitle')}</span>
         </div>
         <EditorSegment<'fields' | 'yaml'>
           value={yamlMode ? 'yaml' : 'fields'}
           onChange={(v) => onToggleYaml(v === 'yaml')}
           options={[
-            { value: 'fields', label: <><LayoutGrid size={12} /> Fields</> },
-            { value: 'yaml', label: <><Code2 size={12} /> YAML</> },
+            { value: 'fields', label: <><LayoutGrid size={12} /> {t('frontmatterEditor.viewFields')}</> },
+            { value: 'yaml', label: <><Code2 size={12} /> {t('frontmatterEditor.viewYaml')}</> },
           ]}
         />
       </div>
 
       {!yamlMode ? (
         <div className="fm-groups">
-          {GROUPS.map((group) => (
+          {groups.map((group) => (
             <FrontmatterGroup
               key={group.id}
               group={group}
@@ -250,6 +290,12 @@ function CollapsibleGroup({
   );
 }
 
+const GROUP_LABEL_KEYS: Record<GroupDef['id'], string> = {
+  identity: 'frontmatterEditor.group.identity',
+  invocation: 'frontmatterEditor.group.invocation',
+  execution: 'frontmatterEditor.group.execution',
+};
+
 function FrontmatterGroup({
   group,
   frontmatter,
@@ -259,6 +305,7 @@ function FrontmatterGroup({
   frontmatter: Frontmatter;
   setField: SetField;
 }) {
+  const t = useT();
   const isVisible = (f: FieldDef) =>
     !f.showWhen || frontmatter[f.showWhen.key] === f.showWhen.value;
   const visibleFields = group.fields.filter(isVisible);
@@ -266,9 +313,11 @@ function FrontmatterGroup({
     ? visibleFields.filter((f) => isFieldSet(f.key, frontmatter))
     : [];
 
+  const groupLabel = t(GROUP_LABEL_KEYS[group.id]);
+
   return (
     <CollapsibleGroup
-      label={group.label}
+      label={groupLabel}
       count={visibleFields.length}
       secondaryCount={pinned.length > 0 ? `${pinned.length} set` : undefined}
       defaultOpen={group.defaultOpen}
@@ -517,6 +566,7 @@ function FrontmatterMetadataGroup({
   onChange: (next: Frontmatter) => void;
   hint?: ReactNode;
 }) {
+  const t = useT();
   const metadata = readMetadata(frontmatter);
   const metaKeys = Object.keys(metadata);
   const rowIdRef = useRef(0);
@@ -621,14 +671,13 @@ function FrontmatterMetadataGroup({
   };
 
   return (
-    <CollapsibleGroup label="Metadata" count={metaKeys.length} defaultOpen>
+    <CollapsibleGroup label={t('frontmatterEditor.group.metadata')} count={metaKeys.length} defaultOpen>
       {(open) =>
         open ? (
           <div className="fm-grid fm-grid-custom">
             {rows.length === 0 && (
               <p className="fm-custom-empty">
-                No metadata entries. Add keys under <code>metadata:</code> like{' '}
-                <code>targets</code>.
+                {t('frontmatterEditor.emptyMetadata', { metadataKey: 'metadata:', targetsKey: 'targets' })}
               </p>
             )}
             {rows.map((row) => (
@@ -642,7 +691,7 @@ function FrontmatterMetadataGroup({
               />
             ))}
             <button type="button" className="chip add" onClick={addRow}>
-              <Plus size={12} strokeWidth={2.2} /> field
+              <Plus size={12} strokeWidth={2.2} /> {t('frontmatterEditor.addField')}
             </button>
             {hint && <div className="fm-metadata-extras">{hint}</div>}
           </div>
@@ -665,6 +714,7 @@ function MetadataRowEditor({
   onChangeValue: (v: string) => void;
   onRemove: () => void;
 }) {
+  const t = useT();
   const isList = LIST_VALUED_KEYS.has(row.key);
   return (
     <div className="fm-custom-row">
@@ -685,8 +735,8 @@ function MetadataRowEditor({
         type="button"
         className="chip-x"
         onClick={onRemove}
-        aria-label="Remove"
-        title="Remove field"
+        aria-label={t('frontmatterEditor.removeField')}
+        title={t('frontmatterEditor.removeField')}
       >
         <X size={11} strokeWidth={2.4} />
       </button>

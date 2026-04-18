@@ -23,6 +23,7 @@ import EmptyState from '../components/EmptyState';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import KindBadge from '../components/KindBadge';
+import { useT } from '../i18n';
 
 function timeAgo(dateStr: string): string {
   const now = Date.now();
@@ -42,6 +43,7 @@ export default function TrashPage() {
   const { isProjectMode } = useAppContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const t = useT();
 
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.trash,
@@ -80,7 +82,7 @@ export default function TrashPage() {
     setRestoring(true);
     try {
       await api.restoreTrash(restoreItem.name, restoreItem.kind ?? 'skill');
-      toast(`Restored "${restoreItem.name}" from trash`, 'success');
+      toast(t('trash.toast.restored', { name: restoreItem.name }), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.trash });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
     } catch (e: any) {
@@ -96,7 +98,7 @@ export default function TrashPage() {
     setDeleting(true);
     try {
       await api.deleteTrash(deleteItem.name, deleteItem.kind ?? 'skill');
-      toast(`Permanently deleted "${deleteItem.name}"`, 'success');
+      toast(t('trash.toast.deleted', { name: deleteItem.name }), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.trash });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
     } catch (e: any) {
@@ -111,7 +113,7 @@ export default function TrashPage() {
     setEmptying(true);
     try {
       const res = await api.emptyTrash('all');
-      toast(`Emptied trash (${res.removed} item${res.removed !== 1 ? 's' : ''} removed)`, 'success');
+      toast(t('trash.toast.emptied', { count: res.removed, s: res.removed !== 1 ? 's' : '' }), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.trash });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
     } catch (e: any) {
@@ -136,19 +138,19 @@ export default function TrashPage() {
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         icon={<Trash2 size={24} strokeWidth={2.5} />}
-        title="Trash"
+        title={t('trash.title')}
         subtitle={isProjectMode
-          ? 'Recently deleted project skills and agents are kept for 7 days before automatic cleanup'
-          : 'Recently deleted skills and agents are kept for 7 days before automatic cleanup'}
+          ? t('trash.subtitle.project')
+          : t('trash.subtitle.global')}
         className="mb-4!"
         actions={
           <>
             <Button onClick={handleRefresh} variant="secondary" size="sm">
-              <RefreshCw size={16} /> Refresh
+              <RefreshCw size={16} /> {t('trash.refresh')}
             </Button>
             {allItems.length > 0 && (
               <Button variant="danger" size="sm" onClick={() => setEmptyOpen(true)}>
-                <Trash2 size={16} strokeWidth={2.5} /> Empty Trash
+                <Trash2 size={16} strokeWidth={2.5} /> {t('trash.emptyButton')}
               </Button>
             )}
           </>
@@ -158,8 +160,8 @@ export default function TrashPage() {
       {/* Resource type tabs (Skills / Agents) */}
       <nav className="ss-resource-tabs flex items-center gap-6 border-b-2 border-muted -mx-4 px-4 md:-mx-8 md:px-8" role="tablist">
         {([
-          { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: 'Skills', count: skillCount },
-          { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: 'Agents', count: agentCount },
+          { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: t('trash.tab.skills'), count: skillCount },
+          { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: t('trash.tab.agents'), count: agentCount },
         ]).map((tab) => (
           <button
             key={tab.key}
@@ -191,7 +193,7 @@ export default function TrashPage() {
       {/* Summary line */}
       {items.length > 0 && (
         <p className="text-sm text-pencil-light">
-          {items.length} item{items.length !== 1 ? 's' : ''} in trash
+          {t('trash.itemCount', { count: items.length, s: items.length !== 1 ? 's' : '' })}
           {data && data.totalSize > 0 && ` · ${formatSize(data.totalSize)}`}
         </p>
       )}
@@ -200,10 +202,10 @@ export default function TrashPage() {
       {items.length === 0 ? (
         <EmptyState
           icon={Trash2}
-          title={activeTab === 'agents' ? 'No agents in trash' : 'No skills in trash'}
+          title={activeTab === 'agents' ? t('trash.emptyState.agents.title') : t('trash.emptyState.skills.title')}
           description={activeTab === 'agents'
-            ? 'Deleted agents will appear here for 7 days'
-            : 'Deleted skills will appear here for 7 days'}
+            ? t('trash.emptyState.agents.description')
+            : t('trash.emptyState.skills.description')}
         />
       ) : (
         <div className="space-y-4">
@@ -221,15 +223,18 @@ export default function TrashPage() {
       {/* Restore Dialog */}
       <ConfirmDialog
         open={restoreItem !== null}
-        title={restoreItem?.kind === 'agent' ? 'Restore Agent' : 'Restore Skill'}
+        title={restoreItem?.kind === 'agent' ? t('trash.confirm.restore.titleAgent') : t('trash.confirm.restore.titleSkill')}
         message={
           restoreItem ? (
             <span>
-              Restore <strong>{restoreItem.name}</strong> back to your {restoreItem.kind === 'agent' ? 'agents' : 'skills'} directory?
+              {t('trash.confirm.restore.message', {
+                name: restoreItem.name,
+                dir: restoreItem.kind === 'agent' ? 'agents' : 'skills',
+              })}
             </span>
           ) : <span />
         }
-        confirmText="Restore"
+        confirmText={t('trash.actions.restore')}
         variant="default"
         loading={restoring}
         onConfirm={handleRestore}
@@ -239,15 +244,15 @@ export default function TrashPage() {
       {/* Delete Dialog */}
       <ConfirmDialog
         open={deleteItem !== null}
-        title="Permanently Delete"
+        title={t('trash.confirm.delete.title')}
         message={
           deleteItem ? (
             <span>
-              Permanently delete <strong>{deleteItem.name}</strong>? This cannot be undone.
+              {t('trash.confirm.delete.message', { name: deleteItem.name })}
             </span>
           ) : <span />
         }
-        confirmText="Delete Forever"
+        confirmText={t('trash.confirm.delete.confirmText')}
         variant="danger"
         loading={deleting}
         onConfirm={handleDelete}
@@ -257,14 +262,13 @@ export default function TrashPage() {
       {/* Empty Trash Dialog */}
       <ConfirmDialog
         open={emptyOpen}
-        title="Empty Trash"
+        title={t('trash.confirm.empty.title')}
         message={
           <span>
-            Permanently delete all <strong>{items.length}</strong> item{items.length !== 1 ? 's' : ''} from trash?
-            This cannot be undone.
+            {t('trash.confirm.empty.message', { count: items.length, s: items.length !== 1 ? 's' : '' })}
           </span>
         }
-        confirmText="Empty Trash"
+        confirmText={t('trash.confirm.empty.confirmText')}
         variant="danger"
         loading={emptying}
         onConfirm={handleEmpty}
@@ -283,6 +287,7 @@ function TrashCard({
   onRestore: () => void;
   onDelete: () => void;
 }) {
+  const t = useT();
   return (
     <Card>
       <div className="space-y-3">
@@ -302,22 +307,22 @@ function TrashCard({
         {/* Deleted at */}
         <div className="flex items-center gap-2 text-sm text-pencil-light">
           <Clock size={14} strokeWidth={2.5} />
-          <span>Deleted {new Date(item.date).toLocaleString(undefined, {
+          <span>{t('trash.deletedAt', { date: new Date(item.date).toLocaleString(undefined, {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
             hour: 'numeric',
             minute: '2-digit',
-          })}</span>
+          }) })}</span>
         </div>
 
         {/* Actions */}
         <div className="border-t border-dashed border-pencil-light/30 pt-3 flex gap-2">
           <Button variant="secondary" size="sm" onClick={onRestore}>
-            <RotateCcw size={14} strokeWidth={2.5} /> Restore
+            <RotateCcw size={14} strokeWidth={2.5} /> {t('trash.actions.restore')}
           </Button>
           <Button variant="ghost" size="sm" onClick={onDelete}>
-            <X size={14} strokeWidth={2.5} /> Delete
+            <X size={14} strokeWidth={2.5} /> {t('trash.actions.delete')}
           </Button>
         </div>
       </div>

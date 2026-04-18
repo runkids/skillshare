@@ -75,9 +75,11 @@ func TestHandleSyncMatrix_WithFilters(t *testing.T) {
 	s.handler.ServeHTTP(rr, req)
 	var resp struct {
 		Entries []struct {
-			Skill  string `json:"skill"`
-			Status string `json:"status"`
-			Reason string `json:"reason"`
+			Skill        string            `json:"skill"`
+			Status       string            `json:"status"`
+			Reason       string            `json:"reason"`
+			ReasonCode   string            `json:"reasonCode"`
+			ReasonParams map[string]string `json:"reasonParams"`
 		} `json:"entries"`
 	}
 	json.Unmarshal(rr.Body.Bytes(), &resp)
@@ -86,9 +88,15 @@ func TestHandleSyncMatrix_WithFilters(t *testing.T) {
 	}
 	statusMap := map[string]string{}
 	reasonMap := map[string]string{}
+	reasonCodeMap := map[string]string{}
+	reasonPatternMap := map[string]string{}
 	for _, e := range resp.Entries {
 		statusMap[e.Skill] = e.Status
 		reasonMap[e.Skill] = e.Reason
+		reasonCodeMap[e.Skill] = e.ReasonCode
+		if e.ReasonParams != nil {
+			reasonPatternMap[e.Skill] = e.ReasonParams["pattern"]
+		}
 	}
 	if statusMap["frontend-design"] != "synced" {
 		t.Errorf("frontend-design: expected synced, got %q", statusMap["frontend-design"])
@@ -98,6 +106,12 @@ func TestHandleSyncMatrix_WithFilters(t *testing.T) {
 	}
 	if reasonMap["backend-api"] != "backend*" {
 		t.Errorf("backend-api reason: expected 'backend*', got %q", reasonMap["backend-api"])
+	}
+	if reasonCodeMap["backend-api"] != "sync_matrix.excluded" {
+		t.Errorf("backend-api reasonCode: expected sync_matrix.excluded, got %q", reasonCodeMap["backend-api"])
+	}
+	if reasonPatternMap["backend-api"] != "backend*" {
+		t.Errorf("backend-api pattern param: expected backend*, got %q", reasonPatternMap["backend-api"])
 	}
 }
 

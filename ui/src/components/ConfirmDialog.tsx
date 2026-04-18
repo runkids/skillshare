@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import Button from './Button';
 import DialogShell from './DialogShell';
+import { useT } from '../i18n';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -21,12 +22,15 @@ export default function ConfirmDialog({
   onCancel,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
+  confirmText,
+  cancelText,
   variant = 'default',
   loading = false,
   wide = false,
 }: ConfirmDialogProps) {
+  const t = useT();
+  const resolvedCancelText = cancelText ?? t('common.cancel');
+  const resolvedConfirmText = confirmText ?? t('common.confirm');
   return (
     <DialogShell
       open={open}
@@ -41,14 +45,14 @@ export default function ConfirmDialog({
           {message}
         </div>
         <div className="flex gap-3 justify-end">
-          {cancelText && (
+          {resolvedCancelText && (
             <Button
               variant="secondary"
               size="md"
               onClick={onCancel}
               disabled={loading}
             >
-              {cancelText}
+              {resolvedCancelText}
             </Button>
           )}
           <Button
@@ -57,7 +61,7 @@ export default function ConfirmDialog({
             onClick={onConfirm}
             loading={loading}
           >
-            {confirmText}
+            {resolvedConfirmText}
           </Button>
         </div>
     </DialogShell>

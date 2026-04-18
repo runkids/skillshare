@@ -5,6 +5,7 @@ import IconButton from './IconButton';
 import DialogShell from './DialogShell';
 import { Input } from './Input';
 import { radius } from '../design';
+import { useT } from '../i18n';
 
 export interface SavedHub {
   label: string;
@@ -29,6 +30,7 @@ export default function HubManagerModal({
   onSave,
   onClose,
 }: HubManagerModalProps) {
+  const t = useT();
   const [localHubs, setLocalHubs] = useState<SavedHub[]>([]);
   const [newLabel, setNewLabel] = useState('');
   const [newURL, setNewURL] = useState('');
@@ -63,11 +65,11 @@ export default function HubManagerModal({
   const handleAdd = () => {
     const url = normalizeURL(newURL);
     if (!url) {
-      setError('URL is required');
+      setError(t('hubManager.error.urlRequired'));
       return;
     }
     if (localHubs.some((h) => normalizeURL(h.url) === url)) {
-      setError('This hub URL already exists');
+      setError(t('hubManager.error.urlExists'));
       return;
     }
     const label = newLabel.trim() || url.split('/').pop() || 'Untitled';
@@ -96,7 +98,7 @@ export default function HubManagerModal({
           <div className="flex items-center gap-2 mb-4">
             <Server size={18} strokeWidth={2.5} className="text-pencil-light" />
             <h3 className="text-xl font-bold text-pencil">
-              Manage Hubs
+              {t('hubManager.title')}
             </h3>
           </div>
 
@@ -118,7 +120,7 @@ export default function HubManagerModal({
                     </span>
                   </div>
                   {hub.builtIn ? (
-                    <span className="text-xs text-muted-dark shrink-0 px-1.5">Built-in</span>
+                    <span className="text-xs text-muted-dark shrink-0 px-1.5">{t('hubManager.builtIn')}</span>
                   ) : confirmDelete === hub.url ? (
                     <div className="flex items-center gap-1 shrink-0">
                       <Button
@@ -126,20 +128,20 @@ export default function HubManagerModal({
                         size="sm"
                         onClick={() => handleDelete(hub.url)}
                       >
-                        Confirm
+                        {t('hubManager.confirmDelete')}
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setConfirmDelete(null)}
                       >
-                        Cancel
+                        {t('hubManager.cancelDelete')}
                       </Button>
                     </div>
                   ) : (
                     <IconButton
                       icon={<Trash2 size={16} strokeWidth={2.5} />}
-                      label="Remove hub"
+                      label={t('hubManager.removeHub')}
                       size="sm"
                       variant="ghost"
                       onClick={() => handleDelete(hub.url)}
@@ -151,25 +153,25 @@ export default function HubManagerModal({
             </div>
           ) : (
             <p className="text-base text-muted-dark mb-4 text-center py-4">
-              No hubs configured yet.
+              {t('hubManager.noHubs')}
             </p>
           )}
 
           {/* Add hub form */}
           <div className="border-t border-dashed border-pencil-light/30 pt-3">
             <p className="text-base font-bold text-pencil mb-2">
-              Add Hub
+              {t('hubManager.addHub')}
             </p>
             <div className="space-y-2 mb-2">
               <Input
                 type="text"
-                placeholder="Label (optional)"
+                placeholder={t('hubManager.labelPlaceholder')}
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
               />
               <Input
                 type="text"
-                placeholder="URL or file path"
+                placeholder={t('hubManager.urlPlaceholder')}
                 value={newURL}
                 onChange={(e) => {
                   setNewURL(e.target.value);
@@ -182,15 +184,15 @@ export default function HubManagerModal({
               <p className="text-sm text-danger mb-2">{error}</p>
             )}
             <p className="text-xs text-muted-dark mb-3">
-              Enter a URL or local path to a skillshare-hub.json file.
+              {t('hubManager.hubHint')}
             </p>
             <div className="flex justify-between">
               <Button variant="primary" size="sm" onClick={handleAdd}>
                 <Plus size={14} strokeWidth={2.5} />
-                Add
+                {t('hubManager.addButton')}
               </Button>
               <Button variant="ghost" size="sm" onClick={onClose}>
-                Close
+                {t('hubManager.closeButton')}
               </Button>
             </div>
           </div>

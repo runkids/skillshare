@@ -39,6 +39,7 @@ import { radius } from '../design';
 import KindBadge from '../components/KindBadge';
 import SourceBadge from '../components/SourceBadge';
 import { globToRegex } from '../lib/glob';
+import { useT } from '../i18n';
 
 /* ── Types ──────────────────────────────────────────── */
 
@@ -72,6 +73,7 @@ export default function BatchUninstallPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const t = useT();
 
   const { data, isPending } = useQuery({
     queryKey: queryKeys.skills.all,
@@ -133,9 +135,9 @@ export default function BatchUninstallPage() {
   const groupOptions = useMemo(
     () => groups.map((g) => ({
       value: g,
-      label: g === '(all)' ? 'All groups' : g === '(root)' ? 'Top-level' : g.replace(/^_/, ''),
+      label: g === '(all)' ? t('batchUninstall.filter.allGroups') : g === '(root)' ? t('batchUninstall.filter.topLevel') : g.replace(/^_/, ''),
     })),
-    [groups],
+    [groups, t],
   );
 
   // Lookup map for O(1) skill access by flatName
@@ -275,15 +277,15 @@ export default function BatchUninstallPage() {
       queryClient.invalidateQueries({ queryKey: ['overview'] });
       queryClient.invalidateQueries({ queryKey: ['trash'] });
       if (res.summary.failed === 0) {
-        toast(`Successfully removed ${res.summary.succeeded} item(s)`, 'success');
+        toast(t('batchUninstall.toast.success', { count: res.summary.succeeded }), 'success');
       } else if (res.summary.succeeded > 0) {
-        toast(`Removed ${res.summary.succeeded}, failed ${res.summary.failed}. See details below.`, 'warning');
+        toast(t('batchUninstall.toast.partialSuccess', { succeeded: res.summary.succeeded, failed: res.summary.failed }), 'warning');
       } else {
-        toast(`All ${res.summary.failed} uninstall(s) failed`, 'error');
+        toast(t('batchUninstall.toast.allFailed', { count: res.summary.failed }), 'error');
       }
     } catch (err) {
       setPhase('done');
-      toast(`Uninstall failed: ${err instanceof Error ? err.message : String(err)}`, 'error');
+      toast(t('batchUninstall.toast.uninstallFailed', { error: err instanceof Error ? err.message : String(err) }), 'error');
     }
   }, [buildApiNames, forceChecked, queryClient, toast]);
 
@@ -305,14 +307,14 @@ export default function BatchUninstallPage() {
   if (allSkills.length === 0) {
     return (
       <div className="space-y-5 animate-fade-in">
-        <PageHeader title="Uninstall Resources" icon={<Trash2 size={24} strokeWidth={2.5} />} />
+        <PageHeader title={t('batchUninstall.title')} icon={<Trash2 size={24} strokeWidth={2.5} />} />
         <EmptyState
           icon={Trash2}
-          title="No skills installed"
-          description="Install some skills first, then come back to manage them."
+          title={t('batchUninstall.empty.title')}
+          description={t('batchUninstall.empty.description')}
           action={
             <Button variant="secondary" size="sm" onClick={() => navigate('/search')}>
-              Search Skills
+              {t('batchUninstall.empty.searchButton')}
             </Button>
           }
         />
@@ -323,9 +325,9 @@ export default function BatchUninstallPage() {
   return (
     <div className="space-y-3 animate-fade-in pb-20">
       <PageHeader
-        title="Uninstall Resources"
+        title={t('batchUninstall.title')}
         icon={<Trash2 size={24} strokeWidth={2.5} />}
-        subtitle={`${allSkills.length} resource${allSkills.length !== 1 ? 's' : ''} installed`}
+        subtitle={t('batchUninstall.subtitle', { count: allSkills.length, s: allSkills.length !== 1 ? 's' : '' })}
         className="mb-4!"
       />
 
@@ -372,7 +374,7 @@ export default function BatchUninstallPage() {
             className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
           />
           <Input
-            placeholder="Filter by glob pattern… e.g. *react*, frontend/*"
+            placeholder={t('batchUninstall.filter.placeholder')}
             value={pattern}
             onChange={(e) => setPattern(e.target.value)}
             className="!pl-11"
@@ -396,7 +398,7 @@ export default function BatchUninstallPage() {
             size="sm"
             options={typeFilterOptions.map((opt) => ({
               value: opt.key,
-              label: <span className="inline-flex items-center gap-1.5">{opt.icon}{opt.label}</span>,
+              label: <span className="inline-flex items-center gap-1.5">{opt.icon}{t(`batchUninstall.typeFilter.${opt.key}`, {}, opt.label)}</span>,
               count: filterCounts[opt.key],
             }))}
           />
@@ -408,13 +410,13 @@ export default function BatchUninstallPage() {
               disabled={filtered.length === 0 || phase !== 'selecting'}
             >
               {allInViewSelected
-                ? <><Square size={14} /> Deselect All</>
-                : <><CheckSquare size={14} /> Select All</>
+                ? <><Square size={14} /> {t('batchUninstall.action.deselectAll')}</>
+                : <><CheckSquare size={14} /> {t('batchUninstall.action.selectAll')}</>
               }
             </Button>
             {selected.size > 0 && (
               <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
-                Clear
+                {t('batchUninstall.action.clear')}
               </Button>
             )}
           </div>
@@ -424,16 +426,16 @@ export default function BatchUninstallPage() {
       {/* ── Summary line ─────────────────────────────────── */}
       {hasActiveFilter && (
         <p className="text-pencil-light text-sm mb-3">
-          Showing {filtered.length} of {skills.length} skills
+          {t('batchUninstall.filter.showing', { filtered: filtered.length, total: skills.length })}
           {selected.size > 0 && (
-            <> &middot; <strong className="text-danger">{selected.size} selected</strong></>
+            <> &middot; <strong className="text-danger">{t('batchUninstall.selectedCount', { count: selected.size })}</strong></>
           )}
           {' '}&middot;{' '}
           <Button
             variant="link"
             onClick={() => { setTypeFilter('all'); setGroup('(all)'); setPattern(''); }}
           >
-            Clear filters
+            {t('batchUninstall.filter.clearFilters')}
           </Button>
         </p>
       )}
@@ -441,7 +443,7 @@ export default function BatchUninstallPage() {
       {/* ── Skill List ─────────────────────────────────── */}
       {filtered.length === 0 ? (
         <div className="py-12 text-center">
-          <p className="text-pencil-light text-sm">No {activeTab === 'agents' ? 'agents' : 'skills'} match your filter.</p>
+          <p className="text-pencil-light text-sm">{t('batchUninstall.filter.noMatch', { kind: activeTab === 'agents' ? 'agents' : 'skills' })}</p>
         </div>
       ) : (
         <div
@@ -507,11 +509,11 @@ export default function BatchUninstallPage() {
         <Card>
           <h3 className="text-lg font-bold text-pencil mb-4 flex items-center gap-2">
             {summary && summary.failed === 0 ? (
-              <><CheckCircle size={20} className="text-success" /> All removed</>
+              <><CheckCircle size={20} className="text-success" /> {t('batchUninstall.results.allRemoved')}</>
             ) : summary && summary.succeeded === 0 ? (
-              <><XCircle size={20} className="text-danger" /> All failed</>
+              <><XCircle size={20} className="text-danger" /> {t('batchUninstall.results.allFailed')}</>
             ) : (
-              <><AlertTriangle size={20} className="text-warning" /> Partial result</>
+              <><AlertTriangle size={20} className="text-warning" /> {t('batchUninstall.results.partialResult')}</>
             )}
           </h3>
           <div
@@ -533,13 +535,13 @@ export default function BatchUninstallPage() {
             ))}
           </div>
           <div className="mt-5 pt-4 border-dashed border-t border-pencil-light/30 flex flex-wrap items-center gap-3">
-            <Badge variant="info" size="sm">Run sync to update targets</Badge>
+            <Badge variant="info" size="sm">{t('batchUninstall.results.runSyncBadge')}</Badge>
             <div className="ml-auto flex gap-3">
               <Button variant="secondary" size="md" onClick={dismissResults}>
-                Continue
+                {t('batchUninstall.results.continueButton')}
               </Button>
               <Button variant="primary" size="md" onClick={() => navigate('/sync')}>
-                Go to Sync
+                {t('batchUninstall.results.goToSync')}
               </Button>
             </div>
           </div>
@@ -550,7 +552,7 @@ export default function BatchUninstallPage() {
       {phase === 'selecting' && selected.size > 0 && (
         <div className="fixed bottom-0 right-0 left-60 max-md:left-0 bg-paper/95 backdrop-blur-sm border-t border-muted px-6 py-3 flex items-center justify-between z-30">
           <span className="text-sm text-pencil">
-            <strong className="text-danger">{selected.size}</strong> skill{selected.size !== 1 ? 's' : ''} selected for removal
+            <strong className="text-danger">{selected.size}</strong> {t('batchUninstall.actionBar.selected', { count: selected.size, s: selected.size !== 1 ? 's' : '' })}
           </span>
           <Button
             variant="danger"
@@ -558,7 +560,7 @@ export default function BatchUninstallPage() {
             onClick={() => setConfirmOpen(true)}
           >
             <Trash2 size={16} />
-            Uninstall ({selected.size})
+            {t('batchUninstall.actionBar.uninstallButton', { count: selected.size })}
           </Button>
         </div>
       )}
@@ -566,7 +568,7 @@ export default function BatchUninstallPage() {
       {phase === 'uninstalling' && (
         <div className="fixed bottom-0 right-0 left-60 max-md:left-0 bg-paper/95 backdrop-blur-sm border-t border-muted px-6 py-3 flex items-center justify-center gap-2 z-30">
           <Loader2 size={16} className="animate-spin text-pencil-light" />
-          <span className="text-sm text-pencil">Removing {selected.size} item(s)…</span>
+          <span className="text-sm text-pencil">{t('batchUninstall.actionBar.removing', { count: selected.size })}</span>
         </div>
       )}
 
@@ -575,14 +577,14 @@ export default function BatchUninstallPage() {
         open={confirmOpen}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={executeUninstall}
-        title="Confirm Batch Uninstall"
+        title={t('batchUninstall.confirm.title')}
         variant="danger"
-        confirmText={`Uninstall ${selected.size} item(s)`}
+        confirmText={t('batchUninstall.actionBar.uninstallButton', { count: selected.size })}
         wide
         message={
           <div className="space-y-3">
             <p className="text-pencil-light">
-              {selected.size} item(s) will be moved to trash with 7-day retention.
+              {t('batchUninstall.confirm.itemsWillBeMovedToTrash', { count: selected.size })}
             </p>
             <div
               className="max-h-48 overflow-y-auto bg-muted/10 p-3 space-y-1"
@@ -599,12 +601,12 @@ export default function BatchUninstallPage() {
               >
                 <AlertTriangle size={16} className="text-warning shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium text-pencil">Tracked repos selected</p>
+                  <p className="font-medium text-pencil">{t('batchUninstall.confirm.trackedReposWarningTitle')}</p>
                   <p className="text-pencil-light mt-0.5">
-                    Repos with uncommitted changes will fail unless force is enabled.
+                    {t('batchUninstall.confirm.trackedReposWarning')}
                   </p>
                   <Checkbox
-                    label="Force (ignore uncommitted changes)"
+                    label={t('batchUninstall.confirm.forceLabel')}
                     checked={forceChecked}
                     onChange={setForceChecked}
                     size="sm"

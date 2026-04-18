@@ -4,6 +4,7 @@ import { Check, ChevronRight, Target } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { useT } from '../i18n';
 
 /* ------------------------------------------------------------------ */
 /*  Context menu item types                                           */
@@ -298,6 +299,7 @@ export default function TargetMenu({
   open,
   onClose,
 }: TargetMenuProps) {
+  const t = useT();
   const { data: availableData } = useQuery({
     queryKey: queryKeys.targets.available,
     queryFn: () => api.availableTargets(),
@@ -319,7 +321,7 @@ export default function TargetMenu({
       items: [
         {
           key: '__all__',
-          label: 'All',
+          label: t('targetMenu.allTargets'),
           selected: isAllSelected,
           onSelect: () => onSelect(null),
         },

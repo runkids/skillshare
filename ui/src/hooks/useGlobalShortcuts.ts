@@ -2,8 +2,8 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export interface ShortcutEntry {
-  /** Display label for the shortcuts modal */
-  label: string;
+  /** Translation key for the shortcuts modal */
+  labelKey: string;
   /** Key(s) to display, e.g. "?" or "g d" */
   keys: string;
   /** Whether this is a modifier shortcut (Cmd/Ctrl+key) */
@@ -21,16 +21,16 @@ export function isMacOS(): boolean {
 
 /** All registered global shortcuts for display in the help modal */
 export const SHORTCUT_ENTRIES: ShortcutEntry[] = [
-  { keys: '?', label: 'Open keyboard shortcuts' },
-  { keys: '/', label: 'Focus search input' },
-  { keys: 'r', label: 'Refresh current page' },
-  { keys: 'g d', label: 'Go to Dashboard' },
-  { keys: 'g s', label: 'Go to Skills' },
-  { keys: 'g t', label: 'Go to Targets' },
-  { keys: 'g l', label: 'Go to Log' },
-  { keys: 'g a', label: 'Go to Audit' },
-  { keys: 'g u', label: 'Go to Update' },
-  { keys: 'Mod+S', label: 'Go to Sync', modifier: true },
+  { keys: '?', labelKey: 'shortcuts.openKeyboard' },
+  { keys: '/', labelKey: 'shortcuts.focusSearch' },
+  { keys: 'r', labelKey: 'shortcuts.refreshPage' },
+  { keys: 'g d', labelKey: 'shortcuts.goToDashboard' },
+  { keys: 'g s', labelKey: 'shortcuts.goToResources' },
+  { keys: 'g t', labelKey: 'shortcuts.goToTargets' },
+  { keys: 'g l', labelKey: 'shortcuts.goToLog' },
+  { keys: 'g a', labelKey: 'shortcuts.goToAudit' },
+  { keys: 'g u', labelKey: 'shortcuts.goToUpdate' },
+  { keys: 'Mod+S', labelKey: 'shortcuts.goToSync', modifier: true },
 ];
 
 const NAV_MAP: Record<string, string> = {

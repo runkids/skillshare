@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -16,9 +17,54 @@ func writeJSON(w http.ResponseWriter, data any) {
 
 // writeError writes a JSON error response
 func writeError(w http.ResponseWriter, code int, msg string) {
+	writeCodedError(w, code, defaultErrorCode(code, msg), msg, nil)
+}
+
+// writeCodedError writes a JSON error response with a stable machine-readable
+// code while preserving the legacy string `error` field for existing callers.
+func writeCodedError(w http.ResponseWriter, status int, errCode, msg string, params map[string]string) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+	w.WriteHeader(status)
+	body := map[string]any{
+		"error":        msg,
+		"error_code":   errCode,
+		"error_params": params,
+	}
+	if params == nil {
+		delete(body, "error_params")
+	}
+	json.NewEncoder(w).Encode(body)
+}
+
+func defaultErrorCode(status int, msg string) string {
+	lower := strings.ToLower(msg)
+	switch {
+	case strings.Contains(lower, "not found"):
+		return "not_found"
+	case strings.Contains(lower, "invalid"):
+		return "validation"
+	case strings.Contains(lower, "required"):
+		return "validation"
+	case strings.Contains(lower, "conflict") || strings.Contains(lower, "already exists"):
+		return "conflict"
+	}
+	switch status {
+	case http.StatusBadRequest:
+		return "bad_request"
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return "unauthorized"
+	case http.StatusNotFound:
+		return "not_found"
+	case http.StatusConflict:
+		return "conflict"
+	case http.StatusUnprocessableEntity:
+		return "validation"
+	default:
+		if status >= 500 {
+			return "internal"
+		}
+		return "generic"
+	}
 }
 
 // sendSSE writes a single Server-Sent Event frame and flushes.

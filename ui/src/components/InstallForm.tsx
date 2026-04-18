@@ -13,6 +13,7 @@ import { queryKeys } from '../lib/queryKeys';
 import { clearAuditCache } from '../lib/auditCache';
 import { radius } from '../design';
 import { formatSkillDisplayName } from '../lib/resourceNames';
+import { useT } from '../i18n';
 
 interface InstallFormProps {
   /** Called after a successful install with the result */
@@ -97,6 +98,7 @@ export default function InstallForm({
   collapsible = true,
   className = '',
 }: InstallFormProps) {
+  const t = useT();
   const [open, setOpen] = useState(defaultOpen);
   const [source, setSource] = useState('');
   const [name, setName] = useState('');
@@ -153,7 +155,7 @@ export default function InstallForm({
   const handleResult = useCallback(
     (res: InstallResult, label?: string) => {
       const prefix = label ? `${label}: ` : '';
-      toast(`${prefix}Installed (${res.action})`, 'success');
+      toast(label ? t('installForm.toast.installedLabel', { label }) : t('installForm.toast.installed'), 'success');
       if (res.warnings && res.warnings.length > 0) {
         setWarningDialog(res.warnings);
       }
@@ -212,7 +214,7 @@ export default function InstallForm({
           if (item.warnings?.length) allWarnings.push(...item.warnings.map((w) => `${item.name}: ${w}`));
         }
         if (allErrors.length > 0) {
-          toast(`${allErrors.length} failed: ${allErrors.join('; ')}`, 'error');
+          toast(t('common.nFailed', { count: allErrors.length, details: allErrors.join('; ') }), 'error');
         }
         if (allWarnings.length > 0) setWarningDialog(allWarnings);
         resetForm();
@@ -330,7 +332,7 @@ export default function InstallForm({
           if (item.warnings?.length) allWarnings.push(...item.warnings.map((w) => `${item.name}: ${w}`));
         }
         if (allErrors.length > 0) {
-          toast(`${allErrors.length} failed: ${allErrors.join('; ')}`, 'error');
+          toast(t('common.nFailed', { count: allErrors.length, details: allErrors.join('; ') }), 'error');
         }
         if (installed > 0) {
           const variant = auditBlockedSkills.length > 0 ? 'warning' : 'success';
@@ -399,7 +401,7 @@ export default function InstallForm({
         if (item.warnings?.length) allWarnings.push(...item.warnings.map((w) => `${item.name}: ${w}`));
       }
       if (allErrors.length > 0) {
-        toast(`${allErrors.length} failed: ${allErrors.join('; ')}`, 'error');
+        toast(t('common.nFailed', { count: allErrors.length, details: allErrors.join('; ') }), 'error');
       }
 
       // Only show summary + close picker when at least one skill installed
@@ -455,18 +457,18 @@ export default function InstallForm({
         <div>
           <div className={isGitSource(source) ? 'grid grid-cols-[7fr_3fr] gap-3' : ''}>
             <Input
-              label="Source"
+              label={t('installForm.sourceLabel')}
               type="text"
-              placeholder="owner/repo, git URL, or local path"
+              placeholder={t('installForm.sourcePlaceholder')}
               value={source}
               onChange={(e) => setSource(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleInstall()}
             />
             {isGitSource(source) && (
               <Input
-                label="Branch"
+                label={t('installForm.branchLabel')}
                 type="text"
-                placeholder="default"
+                placeholder={t('installForm.branchPlaceholder')}
                 value={branch}
                 onChange={(e) => setBranch(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleInstall()}
@@ -475,7 +477,7 @@ export default function InstallForm({
           </div>
           <p className="text-xs text-muted-dark mt-1.5">
             e.g. <span className="font-mono">owner/repo</span>, <span className="font-mono">https://github.com/…</span>, or <span className="font-mono">~/local/path</span>
-            {isGitSource(source) && <> · Leave branch empty for remote default</>}
+            {isGitSource(source) && <> · {t('installForm.sourceHintBranch')}</>}
           </p>
         </div>
 
@@ -483,18 +485,18 @@ export default function InstallForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <Input
-              label="Custom name"
+              label={t('installForm.customNameLabel')}
               type="text"
-              placeholder="my-skill"
+              placeholder={t('installForm.customNamePlaceholder')}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            <p className="text-xs text-muted-dark mt-1">Only applies to single resource install</p>
+            <p className="text-xs text-muted-dark mt-1">{t('installForm.customNameHint')}</p>
           </div>
           <Input
-            label="Into directory"
+            label={t('installForm.intoDirLabel')}
             type="text"
-            placeholder="frontend/react"
+            placeholder={t('installForm.intoDirPlaceholder')}
             value={into}
             onChange={(e) => setInto(e.target.value)}
           />
@@ -504,23 +506,23 @@ export default function InstallForm({
         <div className="border-t border-dashed border-pencil-light/30 pt-4">
           <div className="flex items-center gap-6 flex-wrap">
             <Checkbox
-              label="Track"
+              label={t('installForm.trackOption')}
               checked={track}
               onChange={setTrack}
             />
             <Checkbox
-              label="Force overwrite"
+              label={t('installForm.forceOption')}
               checked={force}
               onChange={setForce}
             />
             <Checkbox
-              label="Skip audit"
+              label={t('installForm.skipAuditOption')}
               checked={skipAudit}
               onChange={setSkipAudit}
             />
           </div>
           <p className="text-xs text-muted-dark mt-2">
-            Track keeps the git repo linked for updates · Force overwrites existing resources · Skip audit bypasses security scan
+            {t('installForm.optionsHint')}
           </p>
         </div>
 
@@ -533,7 +535,7 @@ export default function InstallForm({
           loading={installing}
         >
           <Download size={16} strokeWidth={2.5} />
-          Install
+          {t('installForm.installButton')}
         </Button>
       </div>
     </Card>
@@ -554,11 +556,11 @@ export default function InstallForm({
   const kindSelectorDialog = (
     <ConfirmDialog
       open={showKindSelector}
-      title="Mixed Repository"
+      title={t('installForm.kindSelector.title')}
       message={
         <div className="text-left space-y-3">
           <p className="text-pencil-light text-sm">
-            This repository contains both skills and agents. What would you like to install?
+            {t('installForm.kindSelector.message')}
           </p>
           <div className="flex gap-3 justify-center">
             <Button
@@ -571,7 +573,7 @@ export default function InstallForm({
               }}
             >
               <Package size={16} strokeWidth={2.5} />
-              Skills ({discoveredSkills.length})
+              {t('installForm.kindSelector.skillsButton', { count: discoveredSkills.length })}
             </Button>
             <Button
               variant="secondary"
@@ -588,13 +590,13 @@ export default function InstallForm({
               }}
             >
               <Download size={16} strokeWidth={2.5} />
-              Agents ({discoveredAgents.length})
+              {t('installForm.kindSelector.agentsButton', { count: discoveredAgents.length })}
             </Button>
           </div>
         </div>
       }
       confirmText=""
-      cancelText="Cancel"
+      cancelText={t('installForm.kindSelector.cancelText')}
       onConfirm={() => setShowKindSelector(false)}
       onCancel={() => setShowKindSelector(false)}
     />
@@ -605,20 +607,20 @@ export default function InstallForm({
       open={!!auditDialog}
       variant="danger"
       wide
-      title="Security Threats Detected"
+      title={t('installForm.audit.title')}
       message={
         <div className="text-left space-y-3">
           <div className="flex items-center gap-2 justify-center mb-1">
             <ShieldAlert size={20} className="text-danger" />
-            <span>Critical issues found during security audit</span>
+            <span>{t('installForm.audit.causeText')}</span>
           </div>
           <div className="flex flex-wrap gap-1.5 items-center text-xs text-pencil-light">
-            <span>{auditFindings.length} {auditFindings.length === 1 ? 'finding' : 'findings'}:</span>
+            <span>{auditFindings.length === 1 ? t('installForm.audit.findings', { count: auditFindings.length }) : t('installForm.audit.findingsPlural', { count: auditFindings.length })}:</span>
             {filterBadge('CRITICAL', auditCounts.CRITICAL, 'danger', 'Critical')}
             {filterBadge('HIGH', auditCounts.HIGH, 'warning', 'High')}
             {filterBadge('MEDIUM', auditCounts.MEDIUM, 'default', 'Medium')}
             {severityFilter && (
-              <span className="text-pencil-light">— showing {filteredAudit.length}</span>
+              <span className="text-pencil-light">{t('installForm.audit.showingCount', { count: filteredAudit.length })}</span>
             )}
           </div>
           <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
@@ -651,12 +653,12 @@ export default function InstallForm({
             })}
           </div>
           <p className="text-xs text-pencil-light">
-            Force install will bypass the security check. Proceed with caution.
+            {t('installForm.audit.forceWarning')}
           </p>
         </div>
       }
-      confirmText="Force Install"
-      cancelText="Cancel"
+      confirmText={t('installForm.audit.forceInstall')}
+      cancelText={t('installForm.audit.cancelText')}
       onConfirm={handleAuditForce}
       onCancel={() => { setAuditDialog(null); setSeverityFilter(null); }}
       loading={auditForcing}
@@ -668,20 +670,20 @@ export default function InstallForm({
       open={!!warningDialog}
       variant="default"
       wide
-      title="Security Warnings"
+      title={t('installForm.warnings.title')}
       message={
         <div className="text-left space-y-3">
           <div className="flex items-center gap-2 mb-4">
             <ShieldCheck size={20} className="text-warning" />
-            <span>Resource installed with audit warnings</span>
+            <span>{t('installForm.warnings.causeText')}</span>
           </div>
           <div className="flex flex-wrap gap-1.5 items-center text-xs text-pencil-light">
-            <span>{warningFindings.length} {warningFindings.length === 1 ? 'warning' : 'warnings'}:</span>
+            <span>{warningFindings.length === 1 ? t('installForm.warnings.warning', { count: warningFindings.length }) : t('installForm.warnings.warningPlural', { count: warningFindings.length })}:</span>
             {filterBadge('CRITICAL', warningCounts.CRITICAL, 'danger', 'Critical')}
             {filterBadge('HIGH', warningCounts.HIGH, 'warning', 'High')}
             {filterBadge('MEDIUM', warningCounts.MEDIUM, 'default', 'Medium')}
             {severityFilter && (
-              <span className="text-pencil-light">— showing {filteredWarnings.length}</span>
+              <span className="text-pencil-light">{t('installForm.audit.showingCount', { count: filteredWarnings.length })}</span>
             )}
           </div>
           <div className="space-y-2 max-h-128 overflow-y-auto pr-1">
@@ -715,7 +717,7 @@ export default function InstallForm({
           </div>
         </div>
       }
-      confirmText="OK"
+      confirmText={t('installForm.warnings.okText')}
       cancelText=""
       onConfirm={() => { setWarningDialog(null); setSeverityFilter(null); }}
       onCancel={() => { setWarningDialog(null); setSeverityFilter(null); }}
@@ -746,7 +748,7 @@ export default function InstallForm({
         }}
       >
         <Package size={16} strokeWidth={2.5} />
-        <span className="text-base">Install from URL / Path</span>
+        <span className="text-base">{t('installForm.openLabel')}</span>
         {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
       </button>
       {open && formContent}

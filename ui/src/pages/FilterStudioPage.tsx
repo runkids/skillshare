@@ -16,6 +16,8 @@ import FilterTagInput from '../components/FilterTagInput';
 import KindBadge from '../components/KindBadge';
 import { radius } from '../design';
 import { formatPreviewResourceName } from '../lib/resourceNames';
+import { syncMatrixReasonText } from '../lib/syncMatrixText';
+import { useT } from '../i18n';
 
 type FilterKind = 'skill' | 'agent';
 
@@ -25,6 +27,7 @@ export default function FilterStudioPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const t = useT();
 
   const kind: FilterKind = searchParams.get('kind') === 'agent' ? 'agent' : 'skill';
   const kindLabel = kind === 'agent' ? 'agents' : 'skills';
@@ -121,7 +124,7 @@ export default function FilterStudioPage() {
         ? { agent_include: include, agent_exclude: exclude }
         : { include, exclude };
       await api.updateTarget(name, payload);
-      toast(`${kind === 'agent' ? 'Agent' : 'Skill'} filters for "${name}" saved.`, 'success');
+      toast(t('filterStudio.toast.saved', { kind: kind === 'agent' ? 'Agent' : 'Skill', name }), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.syncMatrix() });
       if (goBack) navigate('/targets');
@@ -175,11 +178,11 @@ export default function FilterStudioPage() {
       <div className="animate-fade-in">
         <EmptyState
           icon={Filter}
-          title={`Target "${name}" not found`}
-          description="This target may have been removed."
+          title={t('filterStudio.targetNotFound.title', { name: name ?? '' })}
+          description={t('filterStudio.targetNotFound.description')}
           action={
             <Button variant="secondary" size="sm" onClick={() => navigate('/targets')}>
-              Back to Targets
+              {t('targets.backToPicker')}
             </Button>
           }
         />
@@ -191,11 +194,11 @@ export default function FilterStudioPage() {
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         icon={<Filter size={24} strokeWidth={2.5} />}
-        title="Filter Studio"
+        title={t('filterStudio.title')}
         subtitle={
           <span className="inline-flex items-center gap-2">
             <KindBadge kind={kind} />
-            <span>Route specific {kindLabel} to <strong>{name}</strong></span>
+            <span>{t('filterStudio.routeSubtitle', { kindLabel, name: name ?? '' })}</span>
           </span>
         }
         backTo="/targets"
@@ -208,7 +211,7 @@ export default function FilterStudioPage() {
               loading={saving}
               disabled={!hasChanges}
             >
-              Save
+              {t('filterStudio.save')}
             </Button>
             <Button
               variant="secondary"
@@ -217,13 +220,13 @@ export default function FilterStudioPage() {
               loading={saving}
               disabled={!hasChanges}
             >
-              Save & Back
+              {t('filterStudio.saveAndBack')}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => navigate('/targets')}>
-              Cancel
+              {t('filterStudio.cancel')}
             </Button>
             {hasChanges && (
-              <span className="text-xs text-warning">Unsaved changes</span>
+              <span className="text-xs text-warning">{t('filterStudio.hasChanges')}</span>
             )}
           </>
         }
@@ -234,17 +237,17 @@ export default function FilterStudioPage() {
         {/* Left column — Filter Rules */}
         <Card>
           <h3 className="font-bold text-pencil mb-4">
-            {kind === 'agent' ? 'Agent' : 'Skill'} Filter Rules
+            {kind === 'agent' ? t('filterStudio.agentFilterRules') : t('filterStudio.skillFilterRules')}
           </h3>
           <div className="space-y-4">
             <FilterTagInput
-              label="Include patterns"
+              label={t('filterStudio.includePatterns')}
               patterns={include}
               onChange={setInclude}
               color="blue"
             />
             <FilterTagInput
-              label="Exclude patterns"
+              label={t('filterStudio.excludePatterns')}
               patterns={exclude}
               onChange={setExclude}
               color="danger"
@@ -258,15 +261,15 @@ export default function FilterStudioPage() {
         {/* Right column — Live Preview */}
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-pencil">Live Preview</h3>
+            <h3 className="font-bold text-pencil">{t('filterStudio.livePreview')}</h3>
             {previewLoading && <Spinner size="sm" />}
           </div>
 
           {kindPreview.length === 0 && !previewLoading ? (
             <EmptyState
               icon={PackageOpen}
-              title={`No ${kindLabel} to preview`}
-              description={`Add some ${kindLabel} to your source first.`}
+              title={t('filterStudio.noPreview.title', { kindLabel })}
+              description={t('filterStudio.noPreview.description', { kindLabel })}
             />
           ) : (
             <>
@@ -277,7 +280,7 @@ export default function FilterStudioPage() {
                   type="text"
                   value={previewSearch}
                   onChange={(e) => setPreviewSearch(e.target.value)}
-                  placeholder={`Filter ${kindLabel}...`}
+                  placeholder={t('filterStudio.searchPlaceholder', { kindLabel })}
                   className="w-full pl-8 pr-3 py-1.5 text-sm text-pencil bg-surface border-2 border-muted font-mono placeholder:text-muted-dark focus:border-pencil focus:outline-none"
                   style={{ borderRadius: radius.sm }}
                 />
@@ -289,7 +292,7 @@ export default function FilterStudioPage() {
               >
                 {filteredPreview.length === 0 && previewSearch ? (
                   <p className="text-sm text-pencil-light text-center py-6">
-                    No {kindLabel} matching &ldquo;{previewSearch}&rdquo;
+                    {t('filterStudio.noSearchMatch', { kindLabel, query: previewSearch })}
                   </p>
                 ) : (
                   <Virtuoso
@@ -308,9 +311,8 @@ export default function FilterStudioPage() {
               </div>
 
               <p className="text-sm text-pencil-light mt-3 text-center">
-                <span className="font-bold text-success">{syncedCount}</span>
-                /{totalCount} {kindLabel} will sync
-                {previewSearch && ` · showing ${filteredPreview.length}`}
+                {t('filterStudio.syncCount', { synced: syncedCount, total: totalCount, kindLabel })}
+                {previewSearch && ` ${t('filterStudio.syncCountSearch', { count: filteredPreview.length })}`}
               </p>
             </>
           )}
@@ -330,6 +332,7 @@ const PreviewRow = memo(function PreviewRow({
   kind: FilterKind;
   onClick: () => void;
 }) {
+  const t = useT();
   const isMismatch = entry.status === 'skill_target_mismatch';
   const clickable = !isMismatch;
   const label = kind === 'agent' ? 'agent' : 'skill';
@@ -347,7 +350,7 @@ const PreviewRow = memo(function PreviewRow({
       `}
       title={
         isMismatch
-          ? `This ${label} declares specific targets: ${entry.reason}`
+          ? `This ${label} declares specific targets: ${syncMatrixReasonText(entry, t)}`
           : entry.status === 'synced'
             ? `Click to exclude this ${label}`
             : `Click to include this ${label}`
@@ -358,12 +361,12 @@ const PreviewRow = memo(function PreviewRow({
         {displayName}
       </span>
       {entry.status === 'excluded' && entry.reason && (
-        <span className="text-xs text-pencil-light shrink-0">({entry.reason})</span>
+        <span className="text-xs text-pencil-light shrink-0">({syncMatrixReasonText(entry, t)})</span>
       )}
       {isMismatch && (
         <span className="flex items-center gap-1 text-xs text-pencil-light shrink-0">
           <Info size={12} strokeWidth={2.5} />
-          {entry.reason}
+          {syncMatrixReasonText(entry, t)}
         </span>
       )}
     </div>

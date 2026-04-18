@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useT } from '../i18n';
 import {
   GitBranch,
   ArrowUpCircle,
@@ -58,16 +59,17 @@ function platformIcon(platform: Platform) {
   }
 }
 
-function platformLabel(platform: Platform): string | null {
+function platformLabel(platform: Platform, t: (key: string) => string): string | null {
   switch (platform) {
-    case 'github': return 'Open on GitHub';
-    case 'gitlab': return 'Open on GitLab';
-    case 'bitbucket': return 'Open on Bitbucket';
+    case 'github': return t('gitSync.platformLabel.github');
+    case 'gitlab': return t('gitSync.platformLabel.gitlab');
+    case 'bitbucket': return t('gitSync.platformLabel.bitbucket');
     default: return null;
   }
 }
 
 export default function GitSyncPage() {
+  const t = useT();
   const { isProjectMode } = useAppContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -86,16 +88,16 @@ export default function GitSyncPage() {
           <h2
             className="text-2xl font-bold text-pencil mb-2"
           >
-            Git Sync is not available in project mode
+            {t('gitSync.projectMode.title')}
           </h2>
           <p className="text-pencil-light mb-4">
-            Project skills are managed through your project's own version control.
+            {t('gitSync.projectMode.description')}
           </p>
           <Link
             to="/"
             className="text-blue hover:underline"
           >
-            Back to Dashboard
+            {t('common.back')}
           </Link>
         </Card>
       </div>
@@ -113,7 +115,7 @@ export default function GitSyncPage() {
     mutationFn: () => api.gitBranches({ fetch: true }),
     onSuccess: (data) => {
       queryClient.setQueryData(queryKeys.gitBranches, data);
-      toast('Branch list refreshed', 'info');
+      toast(t('gitSync.toast.branchListRefreshed'), 'info');
     },
     onError: (err: any) => {
       toast(err.message, 'error');
@@ -123,7 +125,7 @@ export default function GitSyncPage() {
   const checkoutMutation = useMutation({
     mutationFn: (branch: string) => api.gitCheckout(branch),
     onSuccess: (res) => {
-      toast(`Switched to ${res.branch}`, 'success');
+      toast(t('gitSync.toast.switchedTo', { branch: res.branch }), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
       queryClient.invalidateQueries({ queryKey: queryKeys.gitBranches });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
@@ -163,7 +165,7 @@ export default function GitSyncPage() {
       const res = await api.push({ message: commitMsg || undefined, dryRun: pushDryRun });
       setPushResult(res.message);
       if (pushDryRun) {
-        toast(res.message, 'info');
+        toast(res.message ?? '', 'info');
       } else {
         toast(res.message, 'success');
         setCommitMsg('');
@@ -185,12 +187,12 @@ export default function GitSyncPage() {
       const res = await api.pull({ dryRun: pullDryRun });
       setPullResult(res);
       if (pullDryRun) {
-        toast(res.message || 'Dry run complete', 'info');
+        toast(res.message || t('gitSync.pull.dryRunComplete'), 'info');
       } else if (res.upToDate) {
-        toast('Already up to date', 'info');
+        toast(t('gitSync.toast.alreadyUpToDate'), 'info');
       } else {
         const n = res.commits?.length ?? 0;
-        toast(`Pulled ${n} commit(s) and synced`, 'success');
+        toast(t('gitSync.pull.pulled', { count: n }), 'success');
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
@@ -207,8 +209,8 @@ export default function GitSyncPage() {
       <div className="space-y-5 animate-fade-in">
         <PageHeader
           icon={<GitBranch size={24} strokeWidth={2.5} />}
-          title="Git Sync"
-          subtitle="Push and pull your skills source directory via git"
+          title={t('gitSync.title')}
+          subtitle={t('gitSync.subtitle')}
         />
         <PageSkeleton />
       </div>
@@ -220,8 +222,8 @@ export default function GitSyncPage() {
       <div className="space-y-5 animate-fade-in">
         <PageHeader
           icon={<GitBranch size={24} strokeWidth={2.5} />}
-          title="Git Sync"
-          subtitle="Push and pull your skills source directory via git"
+          title={t('gitSync.title')}
+          subtitle={t('gitSync.subtitle')}
         />
         <Card variant="accent">
           <p className="text-danger">{error.message}</p>
@@ -235,8 +237,8 @@ export default function GitSyncPage() {
       {/* Header */}
       <PageHeader
         icon={<GitBranch size={24} strokeWidth={2.5} />}
-        title="Git Sync"
-        subtitle="Push and pull your skills source directory via git"
+        title={t('gitSync.title')}
+        subtitle={t('gitSync.subtitle')}
       />
 
       {/* Repository Info Card — z-10 so branch dropdown renders above cards below */}
@@ -244,12 +246,12 @@ export default function GitSyncPage() {
         {!status?.isRepo ? (
           <div className="flex items-center gap-2 text-pencil p-4">
             <AlertTriangle size={18} strokeWidth={2.5} className="text-danger" />
-            <span>Source directory is not a git repository</span>
-            <Badge variant="danger">not a repo</Badge>
+            <span>{t('gitSync.notARepo')}</span>
+            <Badge variant="danger">{t('gitSync.repo.notARepoLabel')}</Badge>
           </div>
         ) : (() => {
           const parsed = parseRemoteURL(status.remoteURL);
-          const linkLabel = parsed ? platformLabel(parsed.platform) : null;
+          const linkLabel = parsed ? platformLabel(parsed.platform, t) : null;
           return (
             <>
               {/* ── Header: repo identity ── */}
@@ -285,8 +287,8 @@ export default function GitSyncPage() {
                 ) : (
                   <div className="flex items-center gap-2">
                     <GitBranch size={16} strokeWidth={2.5} />
-                    <span className="font-bold text-pencil">Local repository</span>
-                    <Badge variant="danger">no remote</Badge>
+                    <span className="font-bold text-pencil">{t('gitSync.repo.localRepository')}</span>
+                    <Badge variant="danger">{t('gitSync.repo.noRemote')}</Badge>
                   </div>
                 )}
 
@@ -320,7 +322,7 @@ export default function GitSyncPage() {
                       />
                       <button
                         type="button"
-                        title="Fetch remote branches"
+                        title={t('gitSync.branch.fetchRemote')}
                         disabled={fetchBranchesMutation.isPending}
                         onClick={() => fetchBranchesMutation.mutate()}
                         className="p-1 rounded text-pencil-light hover:text-pencil hover:bg-muted/60 transition-colors disabled:opacity-50 cursor-pointer"
@@ -337,7 +339,7 @@ export default function GitSyncPage() {
                       {status.hasRemote && (
                         <button
                           type="button"
-                          title="Fetch remote branches"
+                          title={t('gitSync.branch.fetchRemote')}
                           disabled={fetchBranchesMutation.isPending}
                           onClick={() => fetchBranchesMutation.mutate()}
                           className="p-1 rounded text-pencil-light hover:text-pencil hover:bg-muted/60 transition-colors disabled:opacity-50 cursor-pointer"
@@ -383,12 +385,12 @@ export default function GitSyncPage() {
             <div className="space-y-4 flex-1">
               <h3 className="text-xl font-bold text-pencil flex items-center gap-2">
                 <ArrowUpCircle size={20} strokeWidth={2.5} />
-                Push Changes
+                {t('gitSync.push.title')}
               </h3>
 
               <Input
-                label="Commit Message"
-                placeholder="Describe your changes..."
+                label={t('gitSync.commit.message')}
+                placeholder={t('gitSync.commit.placeholder')}
                 value={commitMsg}
                 onChange={(e) => setCommitMsg(e.target.value)}
               />
@@ -404,7 +406,7 @@ export default function GitSyncPage() {
                     ) : (
                       <ChevronRight size={14} strokeWidth={2.5} />
                     )}
-                    Changed Files ({status.files.length})
+                    {t('gitSync.files.changedFiles', { count: status.files.length })}
                   </button>
                   {filesExpanded && (
                     <div className="mt-2 space-y-1 p-2 border border-dashed border-pencil-light/30 rounded">
@@ -421,7 +423,7 @@ export default function GitSyncPage() {
 
               {status && !status.isDirty && !pushResult && (
                 <p className="text-sm text-pencil-light">
-                  No uncommitted changes. Edit skills in the source directory to push.
+                  {t('gitSync.noUncommitted')}
                 </p>
               )}
 
@@ -435,7 +437,7 @@ export default function GitSyncPage() {
 
             <div className="space-y-3 mt-4 border-t border-dashed border-pencil-light/20 pt-3">
               <div className="flex items-center justify-between gap-4">
-                <Checkbox label="Dry Run" checked={pushDryRun} onChange={setPushDryRun} />
+                <Checkbox label={t('gitSync.dryRun')} checked={pushDryRun} onChange={setPushDryRun} />
                 <Button
                   variant="primary"
                   size="sm"
@@ -444,7 +446,7 @@ export default function GitSyncPage() {
                   disabled={!status?.isDirty && !pushDryRun}
                 >
                   {!pushing && <ArrowUpCircle size={16} strokeWidth={2.5} />}
-                  {pushing ? 'Pushing...' : 'Push'}
+                  {pushing ? t('gitSync.actions.pushing') : t('gitSync.actions.push')}
                 </Button>
               </div>
             </div>
@@ -456,17 +458,17 @@ export default function GitSyncPage() {
             <div className="space-y-4 flex-1">
               <h3 className="text-xl font-bold text-pencil flex items-center gap-2">
                 <ArrowDownCircle size={20} strokeWidth={2.5} />
-                Pull Changes
+                {t('gitSync.pull.title')}
               </h3>
 
               {status?.isDirty ? (
                 <p className="text-sm text-warning flex items-center gap-1">
                   <AlertTriangle size={14} strokeWidth={2.5} />
-                  Commit or stash local changes before pulling
+                  {t('gitSync.pull.commitOrStash')}
                 </p>
               ) : (
                 <p className="text-sm text-pencil-light">
-                  Fetch latest commits from remote and auto-sync to all targets.
+                  {t('gitSync.pull.fetchLatest')}
                 </p>
               )}
 
@@ -496,7 +498,7 @@ export default function GitSyncPage() {
                   {pullResult.syncResults?.length > 0 && (
                     <p className="text-sm text-pencil-light flex items-center gap-1">
                       <CheckCircle size={14} strokeWidth={2.5} className="text-success" />
-                      Auto-synced to {pullResult.syncResults.length} target(s)
+                      {t('gitSync.pull.autoSynced', { count: pullResult.syncResults.length })}
                     </p>
                   )}
                 </div>
@@ -505,14 +507,14 @@ export default function GitSyncPage() {
               {pullResult && pullResult.upToDate && (
                 <p className="text-sm text-pencil-light flex items-center gap-1">
                   <CheckCircle size={14} strokeWidth={2.5} className="text-success" />
-                  Already up to date
+                  {t('gitSync.pull.alreadyUpToDate')}
                 </p>
               )}
             </div>
 
             <div className="space-y-3 mt-4 border-t border-dashed border-pencil-light/20 pt-3">
               <div className="flex items-center justify-between gap-4">
-                <Checkbox label="Dry Run" checked={pullDryRun} onChange={setPullDryRun} />
+                <Checkbox label={t('gitSync.dryRun')} checked={pullDryRun} onChange={setPullDryRun} />
                 <Button
                   variant="secondary"
                   size="sm"
@@ -521,7 +523,7 @@ export default function GitSyncPage() {
                   disabled={!!status?.isDirty && !pullDryRun}
                 >
                   {!pulling && <ArrowDownCircle size={16} strokeWidth={2.5} />}
-                  {pulling ? 'Pulling...' : 'Pull'}
+                  {pulling ? t('gitSync.actions.pulling') : t('gitSync.actions.pull')}
                 </Button>
               </div>
             </div>

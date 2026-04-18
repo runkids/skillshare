@@ -4,10 +4,70 @@ const BASE = BASE_PATH + '/api';
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  code?: string;
+  params?: Record<string, unknown>;
+  fallbackMessage: string;
+
+  constructor(
+    status: number,
+    message: string,
+    opts?: { code?: string; params?: Record<string, unknown>; fallbackMessage?: string },
+  ) {
     super(message);
     this.status = status;
+    this.code = opts?.code;
+    this.params = opts?.params;
+    this.fallbackMessage = opts?.fallbackMessage ?? message;
   }
+}
+
+interface ParsedApiError {
+  code?: string;
+  message: string;
+  params?: Record<string, unknown>;
+}
+
+function defaultErrorCode(status: number): string {
+  switch (status) {
+    case 400:
+      return 'bad_request';
+    case 401:
+    case 403:
+      return 'unauthorized';
+    case 404:
+      return 'not_found';
+    case 409:
+      return 'conflict';
+    case 422:
+      return 'validation';
+    default:
+      return status >= 500 ? 'internal' : 'generic';
+  }
+}
+
+export function parseApiErrorPayload(data: any, status: number, statusText: string): ParsedApiError {
+  const rawError = data?.error;
+  if (rawError && typeof rawError === 'object') {
+    const code = typeof rawError.code === 'string' ? rawError.code : defaultErrorCode(status);
+    const message = typeof rawError.message === 'string' ? rawError.message : statusText || 'Request failed';
+    const params = rawError.params && typeof rawError.params === 'object'
+      ? rawError.params as Record<string, unknown>
+      : undefined;
+    return { code, message, params };
+  }
+
+  const message = typeof rawError === 'string' ? rawError : statusText || 'Request failed';
+  const code = typeof data?.error_code === 'string'
+    ? data.error_code
+    : typeof data?.code === 'string'
+      ? data.code
+      : defaultErrorCode(status);
+  const params = data?.error_params && typeof data.error_params === 'object'
+    ? data.error_params as Record<string, unknown>
+    : data?.params && typeof data.params === 'object'
+      ? data.params as Record<string, unknown>
+      : undefined;
+  return { code, message, params };
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -18,20 +78,32 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       ...init,
     });
   } catch {
-    throw new ApiError(0, 'Server connection lost — try restarting with "skillshare ui".');
+    throw new ApiError(0, 'Server connection lost - try restarting with "skillshare ui".', {
+      code: 'connection_lost',
+    });
   }
   const text = await res.text();
   if (!text) {
-    throw new ApiError(res.status || 502, 'Empty response from server (request may have timed out)');
+    throw new ApiError(res.status || 502, 'Empty response from server (request may have timed out)', {
+      code: 'empty_response',
+    });
   }
   let data: any;
   try {
     data = JSON.parse(text);
   } catch {
-    throw new ApiError(res.status || 502, `Invalid JSON response: ${text.slice(0, 200)}`);
+    throw new ApiError(res.status || 502, `Invalid JSON response: ${text.slice(0, 200)}`, {
+      code: 'invalid_json',
+      params: { snippet: text.slice(0, 200) },
+    });
   }
   if (!res.ok) {
-    throw new ApiError(res.status, data.error ?? res.statusText);
+    const parsed = parseApiErrorPayload(data, res.status, res.statusText);
+    throw new ApiError(res.status, parsed.message, {
+      code: parsed.code,
+      params: parsed.params,
+      fallbackMessage: parsed.message,
+    });
   }
   return data as T;
 }
@@ -117,6 +189,8 @@ export interface SyncMatrixEntry {
   target: string;
   status: 'synced' | 'excluded' | 'not_included' | 'skill_target_mismatch' | 'na';
   reason: string;
+  reasonCode?: string;
+  reasonParams?: Record<string, string>;
   kind?: 'skill' | 'agent';
 }
 

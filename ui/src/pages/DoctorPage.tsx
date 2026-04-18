@@ -22,10 +22,11 @@ import SegmentedControl from '../components/SegmentedControl';
 import PageHeader from '../components/PageHeader';
 import { PageSkeleton } from '../components/Skeleton';
 import { palette } from '../design';
+import { useT } from '../i18n';
 
 type StatusFilter = 'all' | 'error' | 'warning' | 'pass';
 
-const checkLabels: Record<string, string> = {
+const checkLabelFallbacks: Record<string, string> = {
   source: 'Source Directory',
   symlink_support: 'Symlink Support',
   git_status: 'Git Status',
@@ -46,10 +47,6 @@ const checkLabels: Record<string, string> = {
   skillignore: 'Skillignore',
 };
 
-function checkLabel(name: string): string {
-  return checkLabels[name] ?? name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 function statusIcon(status: DoctorCheck['status'], size = 16) {
   switch (status) {
     case 'pass':
@@ -64,8 +61,11 @@ function statusIcon(status: DoctorCheck['status'], size = 16) {
 }
 
 function CheckRow({ check }: { check: DoctorCheck }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const hasDetails = check.details && check.details.length > 0;
+  const fallback = checkLabelFallbacks[check.name] ?? check.name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const label = t(`doctor.check.${check.name}`, {}, fallback);
 
   return (
     <div className="border-b border-muted last:border-b-0">
@@ -75,7 +75,7 @@ function CheckRow({ check }: { check: DoctorCheck }) {
       >
         {statusIcon(check.status)}
         <div className="flex-1 min-w-0">
-          <span className="font-medium text-pencil text-sm">{checkLabel(check.name)}</span>
+          <span className="font-medium text-pencil text-sm">{label}</span>
           <p className="text-pencil-light text-sm mt-0.5 truncate">{check.message}</p>
         </div>
         {hasDetails && (
@@ -96,6 +96,7 @@ function CheckRow({ check }: { check: DoctorCheck }) {
 }
 
 function CheckDetails({ details, name }: { details: string[]; name: string }) {
+  const t = useT();
   // Skillignore check uses --- to separate patterns from ignored skills
   const sepIdx = details.indexOf('---');
   if (name === 'skillignore' && sepIdx !== -1) {
@@ -105,7 +106,7 @@ function CheckDetails({ details, name }: { details: string[]; name: string }) {
       <div className="space-y-3">
         {patterns.length > 0 && (
           <div>
-            <p className="text-xs font-medium text-pencil-light mb-1.5">Patterns</p>
+            <p className="text-xs font-medium text-pencil-light mb-1.5">{t('doctor.skillignore.patterns')}</p>
             <div className="flex flex-wrap gap-1.5">
               {patterns.map((p, i) => (
                 <span key={i} className="font-mono text-xs px-2 py-0.5 rounded bg-muted/60 text-pencil-light border border-muted">
@@ -117,7 +118,7 @@ function CheckDetails({ details, name }: { details: string[]; name: string }) {
         )}
         {ignored.length > 0 && (
           <div>
-            <p className="text-xs font-medium text-pencil-light mb-1.5">Ignored Skills</p>
+            <p className="text-xs font-medium text-pencil-light mb-1.5">{t('doctor.skillignore.ignoredSkills')}</p>
             <div className="flex flex-wrap gap-1.5">
               {ignored.map((s, i) => (
                 <span key={i} className="font-mono text-xs px-2 py-0.5 rounded bg-warning-light/50 text-pencil-light border border-warning/30">
@@ -145,6 +146,7 @@ function CheckDetails({ details, name }: { details: string[]; name: string }) {
 }
 
 export default function DoctorPage() {
+  const t = useT();
   const { data, isPending, error, isFetching, refetch } = useQuery({
     queryKey: queryKeys.doctor,
     queryFn: () => api.doctor(),
@@ -167,12 +169,12 @@ export default function DoctorPage() {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Health Check"
+          title={t('doctor.title')}
           icon={<Stethoscope size={28} strokeWidth={2.5} />}
         />
         <Card>
           <div className="text-danger text-sm">
-            Failed to load health check: {error instanceof Error ? error.message : 'Unknown error'}
+            {t('doctor.error.failedToLoad', { error: error instanceof Error ? error.message : t('common.unknownError') })}
           </div>
         </Card>
       </div>
@@ -182,9 +184,9 @@ export default function DoctorPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Health Check"
+        title={t('doctor.title')}
         icon={<Stethoscope size={28} strokeWidth={2.5} />}
-        subtitle="Diagnose your skillshare setup"
+        subtitle={t('doctor.subtitle')}
         actions={
           <Button
             variant="secondary"
@@ -193,7 +195,7 @@ export default function DoctorPage() {
             loading={isFetching}
           >
             <RefreshCw size={14} strokeWidth={2.5} />
-            Re-check
+            {t('doctor.recheck')}
           </Button>
         }
       />
@@ -207,7 +209,7 @@ export default function DoctorPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-pencil">{data!.summary.pass}</div>
-              <div className="text-sm text-pencil-light">Passed</div>
+              <div className="text-sm text-pencil-light">{t('doctor.summary.passed')}</div>
             </div>
           </div>
         </Card>
@@ -218,7 +220,7 @@ export default function DoctorPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-pencil">{data!.summary.warnings}</div>
-              <div className="text-sm text-pencil-light">Warnings</div>
+              <div className="text-sm text-pencil-light">{t('doctor.summary.warnings')}</div>
             </div>
           </div>
         </Card>
@@ -229,7 +231,7 @@ export default function DoctorPage() {
             </div>
             <div>
               <div className="text-2xl font-bold text-pencil">{data!.summary.errors}</div>
-              <div className="text-sm text-pencil-light">Errors</div>
+              <div className="text-sm text-pencil-light">{t('doctor.summary.errors')}</div>
             </div>
           </div>
         </Card>
@@ -241,9 +243,9 @@ export default function DoctorPage() {
           <div className="flex items-center gap-3">
             <PartyPopper size={22} strokeWidth={2.5} style={{ color: palette.success }} />
             <div>
-              <div className="font-semibold text-pencil">All checks passed!</div>
+              <div className="font-semibold text-pencil">{t('doctor.allPassed.title')}</div>
               <div className="text-sm text-pencil-light">
-                Your skillshare setup is healthy. All {data!.summary.total} checks passed.
+                {t('doctor.allPassed.message', { count: data!.summary.total })}
               </div>
             </div>
           </div>
@@ -255,10 +257,10 @@ export default function DoctorPage() {
         value={filter}
         onChange={setFilter}
         options={[
-          { value: 'all', label: 'All', count: data!.summary.total },
-          { value: 'error', label: 'Error', count: data!.summary.errors },
-          { value: 'warning', label: 'Warning', count: data!.summary.warnings },
-          { value: 'pass', label: 'Pass', count: data!.summary.pass },
+          { value: 'all', label: t('doctor.filter.all'), count: data!.summary.total },
+          { value: 'error', label: t('doctor.filter.error'), count: data!.summary.errors },
+          { value: 'warning', label: t('doctor.filter.warning'), count: data!.summary.warnings },
+          { value: 'pass', label: t('doctor.filter.pass'), count: data!.summary.pass },
         ]}
       />
 
@@ -266,7 +268,7 @@ export default function DoctorPage() {
       <Card padding="none">
         {filteredChecks.length === 0 ? (
           <div className="py-8 text-center text-pencil-light text-sm">
-            No checks match the selected filter.
+            {t('doctor.filter.noMatch')}
           </div>
         ) : (
           filteredChecks.map((check, i) => (
@@ -280,18 +282,18 @@ export default function DoctorPage() {
         <Card>
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-medium text-pencil">Version</div>
+              <div className="text-sm font-medium text-pencil">{t('doctor.version.title')}</div>
               <div className="text-sm text-pencil-light mt-0.5">
-                Current: <span className="font-mono">{data!.version.current}</span>
+                {t('doctor.version.current')} <span className="font-mono">{data!.version.current}</span>
                 {data!.version.latest && (
-                  <> &middot; Latest: <span className="font-mono">{data!.version.latest}</span></>
+                  <> &middot; {t('doctor.version.latest')} <span className="font-mono">{data!.version.latest}</span></>
                 )}
               </div>
             </div>
             {data!.version.update_available && (
               <Badge variant="info" size="md" dot>
                 <ArrowUpCircle size={12} strokeWidth={2.5} />
-                Update available
+                {t('doctor.version.updateAvailable')}
               </Badge>
             )}
           </div>

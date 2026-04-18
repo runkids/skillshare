@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useT } from '../i18n';
 import { Link } from 'react-router-dom';
 import { Virtuoso } from 'react-virtuoso';
 import {
@@ -47,6 +48,7 @@ const severityFilterOptions: { value: SeverityFilter; label: string }[] = [
 ];
 
 export default function AuditPage() {
+  const t = useT();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const overviewQuery = useQuery({
@@ -116,19 +118,19 @@ export default function AuditPage() {
     const { summary } = res;
     const noun = activeKind === 'agents' ? 'agent(s)' : 'skill(s)';
     if (summary.failed > 0) {
-      toast(`Audit complete: ${summary.failed} ${noun} blocked at ${summary.threshold}+`, 'warning');
+      toast(t('audit.toast.blocked', { count: summary.failed, noun, threshold: summary.threshold }), 'warning');
     } else if (summary.warning > 0) {
-      toast(`Audit complete: ${summary.warning} ${noun} with warnings`, 'warning');
+      toast(t('audit.toast.warnings', { count: summary.warning, noun }), 'warning');
     } else if (summary.low > 0 || summary.info > 0) {
-      toast(`Audit complete: ${summary.low + summary.info} informational findings`, 'warning');
+      toast(t('audit.toast.informational', { count: summary.low + summary.info }), 'warning');
     } else {
-      toast(`Audit complete: all ${activeKind} passed`, 'success');
+      toast(t('audit.toast.allPassed', { activeKind }), 'success');
     }
-  }, [toast, activeKind]);
+  }, [toast, activeKind, t]);
 
   const runAudit = () => {
     if (installedCount === 0) {
-      toast(`No ${activeKind} installed to audit`, 'info');
+      toast(t('audit.toast.noInstalled', { activeKind }), 'info');
       return;
     }
 
@@ -163,14 +165,14 @@ export default function AuditPage() {
       <div data-tour="audit-summary">
       <PageHeader
         icon={<ShieldCheck size={24} strokeWidth={2.5} />}
-        title="Security Audit"
-        subtitle="Scan installed skills and agents for malicious patterns and security threats"
+        title={t('audit.header.title')}
+        subtitle={t('audit.header.subtitle')}
         actions={
           <>
             <Link to="/audit/rules">
               <Button variant="secondary" size="sm">
                 <FileEdit size={16} strokeWidth={2.5} />
-                Custom Rules
+                {t('audit.header.customRules')}
               </Button>
             </Link>
             <Button
@@ -180,7 +182,7 @@ export default function AuditPage() {
               disabled={loading || overviewQuery.isPending || installedCount === 0}
             >
               <ShieldCheck size={16} strokeWidth={2.5} />
-              {loading ? 'Scanning...' : 'Run Audit'}
+              {loading ? t('audit.header.scanning') : t('audit.header.runAudit')}
             </Button>
           </>
         }
@@ -190,8 +192,8 @@ export default function AuditPage() {
       {/* Kind tabs */}
       <nav className="ss-resource-tabs flex items-center gap-6 border-b-2 border-muted -mx-4 px-4 md:-mx-8 md:px-8" role="tablist">
         {([
-          { key: 'skills' as AuditKind, icon: <Puzzle size={16} strokeWidth={2.5} />, label: 'Skills', count: installedCounts.skills },
-          { key: 'agents' as AuditKind, icon: <Bot size={16} strokeWidth={2.5} />, label: 'Agents', count: installedCounts.agents },
+          { key: 'skills' as AuditKind, icon: <Puzzle size={16} strokeWidth={2.5} />, label: t('resources.tab.skills'), count: installedCounts.skills },
+          { key: 'agents' as AuditKind, icon: <Bot size={16} strokeWidth={2.5} />, label: t('resources.tab.agents'), count: installedCounts.agents },
         ]).map((tab) => (
           <button
             key={tab.key}
@@ -232,8 +234,8 @@ export default function AuditPage() {
           startTime={startTimeRef.current}
           icon={ShieldCheck}
           iconClassName="animate-pulse"
-          labelDiscovering={`Scanning ${activeKind}...`}
-          labelRunning={`Scanning ${activeKind}...`}
+          labelDiscovering={t('audit.scanning', { kind: activeKind })}
+          labelRunning={t('audit.scanning', { kind: activeKind })}
           units={activeKind}
         />
       )}
@@ -269,14 +271,14 @@ export default function AuditPage() {
           {totalFindings === 0 ? (
             <EmptyState
               icon={ShieldCheck}
-              title={`All ${activeKind} passed security audit`}
-              description="No malicious patterns or security threats detected"
+              title={t('audit.empty.allPassed.title', { activeKind })}
+              description={t('audit.empty.allPassed.description')}
             />
           ) : filteredResults.length === 0 ? (
             <EmptyState
               icon={Info}
-              title="No findings match current filter"
-              description={`Try lowering Min Severity below ${minSeverity}`}
+              title={t('audit.empty.noFilterMatch.title')}
+              description={t('audit.empty.noFilterMatch.description', { minSeverity })}
             />
           ) : (
             <Virtuoso
@@ -299,7 +301,7 @@ export default function AuditPage() {
                 <span
                   className="font-medium"
                 >
-                  {data.summary.passed} {activeKind === 'agents' ? 'agent' : 'skill'}{data.summary.passed !== 1 ? 's' : ''} passed with no issues
+                  {t('audit.passed.withNoIssues', { count: data.summary.passed, noun: `${activeKind === 'agents' ? 'agent' : 'skill'}${data.summary.passed !== 1 ? 's' : ''}` })}
                 </span>
               </div>
             </Card>
@@ -311,19 +313,19 @@ export default function AuditPage() {
       {!data && !loading && !error && installedCount === 0 && (
         <EmptyState
           icon={ShieldCheck}
-          title={`No ${activeKind} installed`}
-          description={`Install ${activeKind === 'agents' ? 'an agent' : 'a skill'} first to run a security audit`}
+          title={t('audit.empty.noInstalled.title', { activeKind })}
+          description={t('audit.empty.noInstalled.description', { noun: activeKind === 'agents' ? 'an agent' : 'a skill' })}
         />
       )}
 
       {!data && !loading && !error && installedCount !== 0 && (
         <EmptyState
           icon={ShieldCheck}
-          title={`No ${activeKind} audit results yet`}
-          description={`Click 'Run Audit' to scan your installed ${activeKind} for security threats`}
+          title={t('audit.empty.noResults.title', { activeKind })}
+          description={t('audit.empty.noResults.description', { activeKind })}
           action={
             <Button variant="primary" onClick={runAudit}>
-              <ShieldCheck size={16} strokeWidth={2.5} /> Run Audit
+              <ShieldCheck size={16} strokeWidth={2.5} /> {t('audit.empty.noResults.action')}
             </Button>
           }
         />
@@ -339,12 +341,13 @@ export default function AuditPage() {
  * ────────────────────────────────────────────────────────────────────── */
 
 function AuditSummaryLine({ summary }: { summary: AuditAllResponse['summary'] }) {
+  const t = useT();
   return (
     <p className="text-sm text-pencil-light">
-      <span className="font-medium text-pencil">{summary.total}</span> scanned
-      {' · '}<span className="font-medium text-success">{summary.passed}</span> passed
+      <span className="font-medium text-pencil">{summary.total}</span> {t('audit.summary.scanned')}
+      {' · '}<span className="font-medium text-success">{summary.passed}</span> {t('audit.summary.passed')}
       {summary.failed > 0 && (
-        <>{' · '}<span className="font-medium text-danger">{summary.failed}</span> blocked</>
+        <>{' · '}<span className="font-medium text-danger">{summary.failed}</span> {t('audit.summary.blocked')}</>
       )}
     </p>
   );
@@ -377,6 +380,7 @@ function TriagePanel({
   minSeverity: SeverityFilter;
   onSeverityChange: (v: string) => void;
 }) {
+  const t = useT();
   const overallStatus = failed > 0 ? 'blocked' : warning > 0 ? 'warning' : 'clean';
 
   return (
@@ -413,13 +417,13 @@ function TriagePanel({
             </div>
             <div className="min-w-0">
               <p className="text-xs text-pencil-light uppercase tracking-wide">
-                Block Threshold
+                {t('audit.triage.blockThreshold')}
               </p>
               <p
                 className={`text-base font-bold ${overallStatus === 'blocked' ? 'text-danger' : overallStatus === 'warning' ? 'text-warning' : 'text-success'}`}
               >
                 {threshold}
-                {overallStatus === 'blocked' && ` (${failed} blocked)`}
+                {overallStatus === 'blocked' && ` ${t('audit.triage.blockedCount', { count: failed })}`}
               </p>
             </div>
           </div>
@@ -445,7 +449,7 @@ function TriagePanel({
             </div>
             <div className="min-w-0">
               <p className="text-xs text-pencil-light uppercase tracking-wide">
-                Aggregate Risk
+                {t('audit.triage.aggregateRisk')}
               </p>
               <div className="flex items-center gap-2">
                 <p
@@ -489,7 +493,7 @@ function TriagePanel({
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs text-pencil-light uppercase tracking-wide">
-                Visible Findings
+                {t('audit.triage.visibleFindings')}
               </p>
               <p
                 className="text-base font-bold text-pencil"
@@ -505,7 +509,7 @@ function TriagePanel({
         <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3 pt-2 border-t border-dashed border-pencil-light/30">
           <div className="w-full sm:w-56">
             <Select
-              label="Min Severity"
+              label={t('audit.triage.minSeverity')}
               value={minSeverity}
               onChange={(value) => onSeverityChange(value)}
               size="sm"
@@ -516,11 +520,11 @@ function TriagePanel({
             {scanErrors > 0 && (
               <span className="text-danger text-sm flex items-center gap-1">
                 <AlertTriangle size={14} strokeWidth={2.5} />
-                {scanErrors} scan error{scanErrors !== 1 ? 's' : ''}
+                {scanErrors !== 1 ? t('audit.triage.scanErrors', { count: scanErrors }) : t('audit.triage.scanError', { count: scanErrors })}
               </span>
             )}
             <p className="text-xs text-pencil-light">
-              Block = any finding at/above threshold. Aggregate = overall risk score for triage.
+              {t('audit.triage.helpText')}
             </p>
           </div>
         </div>
@@ -534,6 +538,7 @@ function TriagePanel({
  * ────────────────────────────────────────────────────────────────────── */
 
 function SkillAuditCard({ result }: { result: AuditResult; index?: number }) {
+  const t = useT();
   const maxSeverity = getMaxSeverity(result.findings);
   const iconColor = riskColor(result.riskLabel);
   const iconBg = riskBgColor(result.riskLabel);
@@ -564,7 +569,7 @@ function SkillAuditCard({ result }: { result: AuditResult; index?: number }) {
               {result.skillName}
             </span>
             <Badge variant={severityBadgeVariant(maxSeverity)}>
-              {result.findings.length} issue{result.findings.length !== 1 ? 's' : ''}
+              {result.findings.length !== 1 ? t('audit.finding.issues', { count: result.findings.length }) : t('audit.finding.issue', { count: result.findings.length })}
             </Badge>
           </div>
 

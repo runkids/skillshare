@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Save, FileCode, Settings, EyeOff, RefreshCw, PanelRightOpen } from 'lucide-react';
+import { useT } from '../i18n';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
 import { EditorView, keymap } from '@codemirror/view';
@@ -28,6 +29,7 @@ import SyncPreviewModal from '../components/SyncPreviewModal';
 type ConfigTab = 'config' | 'skillignore' | 'agentignore';
 
 export default function ConfigPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { isProjectMode } = useAppContext();
@@ -72,9 +74,9 @@ export default function ConfigPage() {
     try {
       const res = await api.putConfig(raw);
       if (res.warnings?.length) {
-        toast(`Config saved with warnings: ${res.warnings.join('; ')}`, 'warning');
+        toast(t('config.toast.savedWithWarnings', { warnings: res.warnings.join('; ') }), 'warning');
       } else {
-        toast('Config saved successfully.', 'success');
+        toast(t('config.toast.savedSuccess'), 'success');
       }
       setShowSyncBanner(true);
       setDirty(false);
@@ -173,7 +175,7 @@ export default function ConfigPage() {
     setIgnoreSaving(true);
     try {
       await api.putSkillignore(ignoreRaw);
-      toast('.skillignore saved successfully.', 'success');
+      toast(t('config.skillignore.savedSuccess'), 'success');
       setIgnoreDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.skillignore });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
@@ -220,7 +222,7 @@ export default function ConfigPage() {
     setAgentIgnoreSaving(true);
     try {
       await api.putAgentignore(agentIgnoreRaw);
-      toast('.agentignore saved successfully.', 'success');
+      toast(t('config.agentignore.savedSuccess'), 'success');
       setAgentIgnoreDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.agentignore });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
@@ -296,7 +298,7 @@ export default function ConfigPage() {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg">
-          Failed to load {tab === 'config' ? 'config' : tab === 'skillignore' ? '.skillignore' : '.agentignore'}
+          {t('config.errorLoading', { file: tab === 'config' ? 'config' : tab === 'skillignore' ? '.skillignore' : '.agentignore' })}
         </p>
         <p className="text-pencil-light text-sm mt-1">{error.message}</p>
       </Card>
@@ -308,15 +310,15 @@ export default function ConfigPage() {
       {/* Header */}
       <PageHeader
         icon={<Settings size={24} strokeWidth={2.5} />}
-        title="Config"
-        subtitle={isProjectMode ? 'Edit your project configuration' : 'Edit your skillshare configuration'}
+        title={t('config.title')}
+        subtitle={isProjectMode ? t('config.subtitle.project') : t('config.subtitle.global')}
         actions={
           <>
             {activeDirty && (
               <span
                 className="text-sm text-warning px-2 py-1 bg-warning-light rounded-full border border-warning"
               >
-                unsaved changes
+                {t('config.unsavedChanges')}
               </span>
             )}
             <Button
@@ -326,7 +328,7 @@ export default function ConfigPage() {
               size="sm"
             >
               <Save size={16} strokeWidth={2.5} />
-              {activeSaving ? 'Saving...' : 'Save'}
+              {activeSaving ? t('config.saving') : t('config.save')}
             </Button>
           </>
         }
@@ -350,7 +352,7 @@ export default function ConfigPage() {
             <div className="flex items-center gap-3">
               <RefreshCw size={18} strokeWidth={2.5} className="text-blue shrink-0" />
               <span className="text-pencil">
-                Config updated — preview what sync will do?
+                {t('config.banner.message')}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -359,7 +361,7 @@ export default function ConfigPage() {
                 size="sm"
                 onClick={() => setShowSyncBanner(false)}
               >
-                Dismiss
+                {t('config.banner.dismiss')}
               </Button>
               <Button
                 variant="primary"
@@ -369,7 +371,7 @@ export default function ConfigPage() {
                   setShowSyncBanner(false);
                 }}
               >
-                Preview Sync
+                {t('config.banner.previewSync')}
               </Button>
             </div>
           </div>
@@ -388,7 +390,7 @@ export default function ConfigPage() {
               {panelCollapsed && (
                 <IconButton
                   icon={<PanelRightOpen size={14} strokeWidth={2} />}
-                  label="Expand assistant panel"
+                  label={t('config.expandAssistantPanel')}
                   size="sm"
                   variant="ghost"
                   onClick={togglePanel}
@@ -531,9 +533,9 @@ export default function ConfigPage() {
         open={showDiscardDialog}
         onConfirm={handleDiscard}
         onCancel={() => setShowDiscardDialog(false)}
-        title="Unsaved Changes"
-        message="You have unsaved changes that will be lost. Discard them?"
-        confirmText="Discard"
+        title={t('config.discard.title')}
+        message={t('config.discard.message')}
+        confirmText={t('config.discard.confirmText')}
         variant="danger"
       />
 
@@ -541,9 +543,9 @@ export default function ConfigPage() {
         open={showRevertDialog}
         onConfirm={handleRevert}
         onCancel={() => setShowRevertDialog(false)}
-        title="Revert Changes"
-        message="Reset editor to the last saved version? This cannot be undone."
-        confirmText="Revert"
+        title={t('config.revert.title')}
+        message={t('config.revert.message')}
+        confirmText={t('config.revert.confirmText')}
         variant="danger"
       />
     </div>
@@ -567,6 +569,7 @@ function IgnoreTab({
   panelCollapsed?: boolean;
   onTogglePanel?: () => void;
 }) {
+  const t = useT();
   const stats = data.stats;
   const fileName = kind === 'skill' ? '.skillignore' : '.agentignore';
   const itemLabel = kind === 'skill' ? 'skill' : 'agent';
@@ -581,14 +584,14 @@ function IgnoreTab({
           </span>
           {stats && stats.ignored_count > 0 && (
             <span className="text-xs text-pencil-light px-2 py-0.5 bg-muted rounded-full border border-muted-dark">
-              {stats.ignored_count} {itemLabel}{stats.ignored_count !== 1 ? 's' : ''} ignored
+              {t('config.ignore.ignoredCount', { count: stats.ignored_count, s: stats.ignored_count !== 1 ? 's' : '' })}
             </span>
           )}
           <span className="flex-1" />
           {panelCollapsed && onTogglePanel && (
             <IconButton
               icon={<PanelRightOpen size={14} strokeWidth={2} />}
-              label="Expand assistant panel"
+              label={t('config.expandAssistantPanel')}
               size="sm"
               variant="ghost"
               onClick={onTogglePanel}
@@ -599,7 +602,7 @@ function IgnoreTab({
 
         {!data.exists && (
           <p className="text-sm text-pencil-light mb-3">
-            Create a {fileName} file to hide {itemLabel}s from discovery. Uses gitignore syntax.
+            {t('config.ignore.createHint', { fileName, itemLabel })}
           </p>
         )}
 

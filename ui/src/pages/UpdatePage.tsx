@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useDeferredValue, forwardRef } from 'react';
+import { useT } from '../i18n';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowUpCircle, RefreshCw, Search, Check, Zap, Trash2,
@@ -66,6 +67,7 @@ interface ItemUpdateStatus {
 /* ── Component ──────────────────────────────────────── */
 
 export default function UpdatePage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -419,10 +421,10 @@ export default function UpdatePage() {
 
   const handlePurge = useCallback(
     async (name: string) => {
-      patchItem(name, { status: 'in-progress', message: 'Purging...' });
+      patchItem(name, { status: 'in-progress', message: t('update.updating.purging') });
       try {
         await api.batchUninstall({ names: [name], force: true });
-        patchItem(name, { status: 'skipped', message: 'Purged' });
+        patchItem(name, { status: 'skipped', message: t('update.updating.purged') });
         invalidateSkillData();
       } catch (err) {
         patchItem(name, { status: 'error', message: (err as Error).message });
@@ -470,17 +472,17 @@ export default function UpdatePage() {
     const typeFilterOptions = [
       {
         value: 'all' as TypeFilter,
-        label: <span className="inline-flex items-center gap-1.5"><LayoutGrid size={14} strokeWidth={2.5} />All</span>,
+        label: <span className="inline-flex items-center gap-1.5"><LayoutGrid size={14} strokeWidth={2.5} />{t('update.filter.all')}</span>,
         count: filterCounts.all,
       },
       {
         value: 'tracked' as TypeFilter,
-        label: <span className="inline-flex items-center gap-1.5"><Users size={14} strokeWidth={2.5} />Tracked</span>,
+        label: <span className="inline-flex items-center gap-1.5"><Users size={14} strokeWidth={2.5} />{t('update.filter.tracked')}</span>,
         count: filterCounts.tracked,
       },
       {
         value: 'github' as TypeFilter,
-        label: <span className="inline-flex items-center gap-1.5"><Globe size={14} strokeWidth={2.5} />GitHub</span>,
+        label: <span className="inline-flex items-center gap-1.5"><Globe size={14} strokeWidth={2.5} />{t('update.filter.github')}</span>,
         count: filterCounts.github,
       },
     ];
@@ -489,8 +491,8 @@ export default function UpdatePage() {
       <div className="space-y-3 animate-fade-in">
         <PageHeader
           icon={<ArrowUpCircle size={24} strokeWidth={2.5} />}
-          title="Updates"
-          subtitle="Check and apply updates for tracked repositories and installed skills."
+          title={t('update.header.title')}
+          subtitle={t('update.header.subtitle')}
           actions={
             <>
               <Button
@@ -501,7 +503,7 @@ export default function UpdatePage() {
                 disabled={checking || updatableItems.length === 0}
               >
                 <RefreshCw size={16} />
-                Check All
+                {t('update.header.checkAll')}
               </Button>
               <Button
                 variant="ghost"
@@ -511,7 +513,7 @@ export default function UpdatePage() {
                 disabled={checking || selected.size === 0}
               >
                 <RefreshCw size={16} />
-                Check Selected
+                {t('update.header.checkSelected')}
               </Button>
               <SplitButton
                 variant="primary"
@@ -521,7 +523,7 @@ export default function UpdatePage() {
                 dropdownAlign="right"
                 items={[
                   {
-                    label: 'Force Update',
+                    label: t('update.header.forceUpdate'),
                     icon: <Zap size={14} strokeWidth={2.5} />,
                     onClick: () => handleUpdate({ force: true }),
                     confirm: true,
@@ -529,7 +531,7 @@ export default function UpdatePage() {
                 ]}
               >
                 <ArrowUpCircle size={16} />
-                Update Selected ({selected.size})
+                {t('update.header.updateSelected', { count: selected.size })}
               </SplitButton>
             </>
           }
@@ -538,8 +540,8 @@ export default function UpdatePage() {
         {allUpdatableItems.length === 0 ? (
           <EmptyState
             icon={Check}
-            title="No updatable skills"
-            description="Install tracked repositories or GitHub skills to check for updates."
+            title={t('update.empty.title')}
+            description={t('update.empty.description')}
           />
         ) : (
           <>
@@ -549,8 +551,8 @@ export default function UpdatePage() {
               role="tablist"
             >
               {([
-                { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: 'Skills', count: skillTabCount },
-                { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: 'Agents', count: agentTabCount },
+                { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: t('resources.tab.skills'), count: skillTabCount },
+                { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: t('resources.tab.agents'), count: agentTabCount },
               ]).map((tab) => (
                 <button
                   key={tab.key}
@@ -590,7 +592,7 @@ export default function UpdatePage() {
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-dark pointer-events-none"
                 />
                 <Input
-                  placeholder={`Filter ${activeTab === 'agents' ? 'agents' : 'skills'}...`}
+                  placeholder={t('update.list.searchPlaceholder', { kind: activeTab === 'agents' ? t('resources.tab.agents').toLowerCase() : t('resources.tab.skills').toLowerCase() })}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="!pl-11"
@@ -612,11 +614,11 @@ export default function UpdatePage() {
                     onClick={allInViewSelected ? deselectAll : selectAll}
                     disabled={filtered.length === 0}
                   >
-                    {allInViewSelected ? 'Deselect All' : 'Select All'}
+                    {allInViewSelected ? t('update.list.deselectAll') : t('update.list.selectAll')}
                   </Button>
                   {selected.size > 0 && (
                     <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
-                      Clear
+                      {t('update.list.clear')}
                     </Button>
                   )}
                 </div>
@@ -628,8 +630,8 @@ export default function UpdatePage() {
               <div className="py-12 text-center">
                 <p className="text-pencil-light text-sm">
                   {updatableItems.length === 0
-                    ? `No updatable ${activeTab === 'agents' ? 'agents' : 'skills'}.`
-                    : `No ${activeTab === 'agents' ? 'agents' : 'skills'} match your filter.`}
+                    ? t('update.list.noUpdatable', { kind: activeTab === 'agents' ? t('resources.tab.agents').toLowerCase() : t('resources.tab.skills').toLowerCase() })
+                    : t('update.list.noMatch', { kind: activeTab === 'agents' ? t('resources.tab.agents').toLowerCase() : t('resources.tab.skills').toLowerCase() })}
                 </p>
               </div>
             ) : (
@@ -698,8 +700,8 @@ export default function UpdatePage() {
       <div className="space-y-4 animate-fade-in">
         <PageHeader
           icon={<ArrowUpCircle size={24} strokeWidth={2.5} />}
-          title="Updates"
-          subtitle="Updating selected skills..."
+          title={t('update.header.title')}
+          subtitle={t('update.updating.subtitle')}
         />
 
         {/* Sticky progress bar */}
@@ -710,9 +712,9 @@ export default function UpdatePage() {
             startTime={startTimeRef.current}
             icon={ArrowUpCircle}
             iconClassName=""
-            labelDiscovering="Starting update..."
-            labelRunning="Updating..."
-            units="items"
+            labelDiscovering={t('update.progress.labelDiscovering')}
+            labelRunning={t('update.progress.labelRunning')}
+            units={t('update.progress.units')}
           />
         </div>
 
@@ -737,11 +739,11 @@ export default function UpdatePage() {
     <div className="space-y-4 animate-fade-in">
       <PageHeader
         icon={<ArrowUpCircle size={24} strokeWidth={2.5} />}
-        title="Updates"
-        subtitle="Update complete."
+        title={t('update.header.title')}
+        subtitle={t('update.done.subtitle')}
         actions={
           <Button variant="ghost" size="sm" onClick={handleBackToList}>
-            Back to List
+            {t('update.done.backToList')}
           </Button>
         }
       />
@@ -750,10 +752,10 @@ export default function UpdatePage() {
       <Card tilt>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2 flex-wrap">
-            {successCount > 0 && <Badge variant="success">{successCount} updated</Badge>}
-            {skippedCount > 0 && <Badge>{skippedCount} skipped</Badge>}
-            {blockedCount > 0 && <Badge variant="warning">{blockedCount} blocked</Badge>}
-            {errorCount > 0 && <Badge variant="danger">{errorCount} failed</Badge>}
+            {successCount > 0 && <Badge variant="success">{t('update.summary.updated', { count: successCount })}</Badge>}
+            {skippedCount > 0 && <Badge>{t('update.summary.skipped', { count: skippedCount })}</Badge>}
+            {blockedCount > 0 && <Badge variant="warning">{t('update.summary.blocked', { count: blockedCount })}</Badge>}
+            {errorCount > 0 && <Badge variant="danger">{t('update.summary.failed', { count: errorCount })}</Badge>}
           </div>
         </div>
       </Card>
@@ -786,7 +788,9 @@ interface ItemStatusCardProps {
 }
 
 const ItemStatusCard = forwardRef<HTMLDivElement, ItemStatusCardProps>(
-  ({ item, index, showActions, onRetryForce, onPurge }, ref) => (
+  ({ item, index, showActions, onRetryForce, onPurge }, ref) => {
+  const t = useT();
+  return (
     <div
       ref={ref}
       className={`flex items-center gap-3 px-3 py-2 border transition-colors animate-fade-in ${
@@ -833,25 +837,26 @@ const ItemStatusCard = forwardRef<HTMLDivElement, ItemStatusCardProps>(
           isStaleError(item.message) ? (
             <Button variant="danger" size="sm" onClick={() => onPurge?.(item.name)}>
               <Trash2 size={14} />
-              Purge
+              {t('update.updating.purge')}
             </Button>
           ) : (
             <Button variant="danger" size="sm" onClick={() => onRetryForce?.(item.name)}>
               <RefreshCw size={14} />
-              Force Retry
+              {t('update.updating.forceRetry')}
             </Button>
           )
         )}
         {showActions && item.status === 'blocked' && (
           <Button variant="warning" size="sm" onClick={() => onRetryForce?.(item.name)}>
             <RefreshCw size={14} />
-            Force Retry
+            {t('update.updating.forceRetry')}
           </Button>
         )}
         <StatusBadge status={item.status} />
       </div>
     </div>
-  ),
+  );
+  }
 );
 ItemStatusCard.displayName = 'ItemStatusCard';
 
@@ -904,35 +909,37 @@ function StatusIcon({ status }: { status: ItemUpdateStatus['status'] }) {
 }
 
 function StatusBadge({ status }: { status: ItemUpdateStatus['status'] }) {
+  const t = useT();
   switch (status) {
     case 'pending':
-      return <Badge>Pending</Badge>;
+      return <Badge>{t('update.status.pending')}</Badge>;
     case 'in-progress':
-      return <Badge variant="info">Updating</Badge>;
+      return <Badge variant="info">{t('update.status.updating')}</Badge>;
     case 'success':
-      return <Badge variant="success">Updated</Badge>;
+      return <Badge variant="success">{t('update.status.updated')}</Badge>;
     case 'error':
-      return <Badge variant="danger">Failed</Badge>;
+      return <Badge variant="danger">{t('update.status.failed')}</Badge>;
     case 'blocked':
-      return <Badge variant="warning">Blocked</Badge>;
+      return <Badge variant="warning">{t('update.status.blocked')}</Badge>;
     case 'skipped':
-      return <Badge>Skipped</Badge>;
+      return <Badge>{t('update.status.skipped')}</Badge>;
   }
 }
 
 function CheckStatusBadge({ status }: { status: CheckItemStatus }) {
+  const t = useT();
   switch (status.status) {
     case 'unchecked':
-      return <Badge size="sm">Unchecked</Badge>;
+      return <Badge size="sm">{t('update.check.unchecked')}</Badge>;
     case 'checking':
-      return <Badge variant="info" size="sm"><Loader2 size={10} className="animate-spin mr-1" />Checking</Badge>;
+      return <Badge variant="info" size="sm"><Loader2 size={10} className="animate-spin mr-1" />{t('update.check.checking')}</Badge>;
     case 'behind':
-      return <Badge variant="warning" size="sm">{status.behind ? `${status.behind} behind` : 'Behind'}</Badge>;
+      return <Badge variant="warning" size="sm">{status.behind ? t('update.check.behind', { count: status.behind }) : t('update.check.behindFallback')}</Badge>;
     case 'up-to-date':
-      return <Badge variant="success" size="sm">Up to date</Badge>;
+      return <Badge variant="success" size="sm">{t('update.check.upToDate')}</Badge>;
     case 'update-available':
-      return <Badge variant="warning" size="sm">Update available</Badge>;
+      return <Badge variant="warning" size="sm">{t('update.check.updateAvailable')}</Badge>;
     case 'error':
-      return <Badge variant="danger" size="sm">Error</Badge>;
+      return <Badge variant="danger" size="sm">{t('update.check.error')}</Badge>;
   }
 }

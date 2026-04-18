@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useT } from '../i18n';
 import { FileCode, FilePlus, PanelRightOpen } from 'lucide-react';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
@@ -72,6 +73,7 @@ export default function AuditRulesYaml({
   isProjectMode,
   onSaveStateChange,
 }: AuditRulesYamlProps) {
+  const t = useT();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const editorRef = useRef<EditorView | null>(null);
@@ -161,7 +163,7 @@ export default function AuditRulesYaml({
     setSaving(true);
     try {
       await api.putAuditRules(raw);
-      toast('Audit rules saved successfully.', 'success');
+      toast(t('auditRulesYaml.toast.saved'), 'success');
       setDirty(false);
       queryClient.invalidateQueries({ queryKey: queryKeys.audit.rules });
       queryClient.invalidateQueries({ queryKey: queryKeys.audit.compiled });
@@ -193,7 +195,7 @@ export default function AuditRulesYaml({
     setCreating(true);
     try {
       await api.initAuditRules();
-      toast('Audit rules file created.', 'success');
+      toast(t('auditRulesYaml.toast.created'), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.audit.rules });
       queryClient.invalidateQueries({ queryKey: queryKeys.audit.compiled });
     } catch (e: unknown) {
@@ -228,7 +230,7 @@ export default function AuditRulesYaml({
   if (rawQuery.error) {
     return (
       <Card variant="accent" className="text-center py-8">
-        <p className="text-danger text-lg">Failed to load audit rules</p>
+        <p className="text-danger text-lg">{t('auditRules.error.failedToLoad')}</p>
         <p className="text-pencil-light text-sm mt-1">{rawQuery.error.message}</p>
       </Card>
     );
@@ -241,12 +243,12 @@ export default function AuditRulesYaml({
         <div className="flex-[3] min-w-0 transition-[flex] duration-300 ease-in-out">
           <EmptyState
             icon={FilePlus}
-            title="No custom rules file"
-            description={`Create ${isProjectMode ? 'a project-level' : 'a global'} audit-rules.yaml to add or override security rules`}
+            title={t('auditRulesYaml.empty.title')}
+            description={t('auditRulesYaml.empty.description', { scope: isProjectMode ? 'a project-level' : 'a global' })}
             action={
               <Button variant="primary" onClick={handleCreate} disabled={creating}>
                 <FilePlus size={16} strokeWidth={2.5} />
-                {creating ? 'Creating...' : 'Create Rules File'}
+                {creating ? t('auditRulesYaml.creating') : t('auditRulesYaml.createButton')}
               </Button>
             }
           />
@@ -290,7 +292,7 @@ export default function AuditRulesYaml({
           {panelCollapsed && (
             <IconButton
               icon={<PanelRightOpen size={14} strokeWidth={2} />}
-              label="Expand assistant panel"
+              label={t('auditRulesYaml.expandPanel')}
               size="sm"
               variant="ghost"
               onClick={onTogglePanel}

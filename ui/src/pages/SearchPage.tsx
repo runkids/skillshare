@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Search, Star, Download, Globe, Database, Settings, LayoutGrid, List } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useT } from '../i18n';
 import Card from '../components/Card';
 import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
@@ -38,6 +39,7 @@ function normalizeURL(url: string): string {
 }
 
 export default function SearchPage() {
+  const t = useT();
   const [mode, setMode] = useState<SearchMode>('github');
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[] | null>(null);
@@ -154,7 +156,7 @@ export default function SearchPage() {
   const handleSearch = async (searchQuery?: string) => {
     const q = searchQuery ?? query;
     if (mode === 'hub' && !selectedHub) {
-      toast('Add a hub source first', 'error');
+      toast(t('search.hub.addHubFirst'), 'error');
       return;
     }
     setSearching(true);
@@ -168,7 +170,7 @@ export default function SearchPage() {
       }
       setResults(res.results);
       if (res.results.length === 0) {
-        toast(q ? 'No results found.' : 'No skills found.', 'info');
+        toast(q ? t('search.results.noResultsFound') : t('search.results.noSkillsFound'), 'info');
       }
     } catch (e: unknown) {
       toast((e as Error).message, 'error');
@@ -201,7 +203,7 @@ export default function SearchPage() {
               item.warnings.forEach((w) => toast(`${formatSkillDisplayName(item.name)}: ${w}`, 'warning'));
             }
           }
-          if (batchErrors.length > 0) toast(`${batchErrors.length} failed: ${batchErrors.join('; ')}`, 'error');
+          if (batchErrors.length > 0) toast(t('common.nFailed', { count: batchErrors.length, details: batchErrors.join('; ') }), 'error');
           toast(res.summary, hasAuditBlock ? 'warning' : 'success');
           clearAuditCache(queryClient);
           queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
@@ -231,7 +233,7 @@ export default function SearchPage() {
             item.warnings.forEach((w) => toast(`${formatSkillDisplayName(item.name)}: ${w}`, 'warning'));
           }
         }
-        if (batchErrors.length > 0) toast(`${batchErrors.length} failed: ${batchErrors.join('; ')}`, 'error');
+        if (batchErrors.length > 0) toast(t('common.nFailed', { count: batchErrors.length, details: batchErrors.join('; ') }), 'error');
         toast(res.summary, hasAuditBlock ? 'warning' : 'success');
         clearAuditCache(queryClient);
         queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
@@ -239,7 +241,7 @@ export default function SearchPage() {
       } else {
         const res = await api.install({ source });
         toast(
-          `Installed: ${res.skillName ?? res.repoName} (${res.action})`,
+          t('search.toast.installed', { name: res.skillName ?? res.repoName ?? '', action: res.action }),
           'success',
         );
         if (res.warnings?.length > 0) {
@@ -278,7 +280,7 @@ export default function SearchPage() {
           item.warnings.forEach((w) => toast(`${formatSkillDisplayName(item.name)}: ${w}`, 'warning'));
         }
       }
-      if (batchErrors.length > 0) toast(`${batchErrors.length} failed: ${batchErrors.join('; ')}`, 'error');
+      if (batchErrors.length > 0) toast(t('common.nFailed', { count: batchErrors.length, details: batchErrors.join('; ') }), 'error');
       toast(res.summary, hasAuditBlock ? 'warning' : 'success');
       setShowPicker(false);
       clearAuditCache(queryClient);
@@ -352,7 +354,7 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-3 animate-fade-in">
-      <PageHeader icon={<Search size={24} strokeWidth={2.5} />} title="Search Skills" subtitle="Discover and install skills" />
+      <PageHeader icon={<Search size={24} strokeWidth={2.5} />} title={t('search.title')} subtitle={t('search.subtitle')} />
 
       {/* Mode tabs + search */}
       <div className="flex flex-wrap items-end gap-3">
@@ -382,16 +384,16 @@ export default function SearchPage() {
                 onClick={() => setShowHubManager(true)}
                 variant="ghost"
                 size="sm"
-                title="Manage hubs"
+                title={t('search.hub.manageButton')}
               >
                 <Settings size={14} strokeWidth={2.5} />
-                Manage
+                {t('search.hub.manageButton')}
               </Button>
             </div>
           ) : (
             <div className="text-center py-3">
               <p className="text-base text-muted-dark mb-3">
-                No hubs configured. Add one to get started.
+                {t('search.hub.noHubsConfigured')}
               </p>
               <Button
                 onClick={() => setShowHubManager(true)}
@@ -399,13 +401,13 @@ export default function SearchPage() {
                 size="sm"
               >
                 <Settings size={14} strokeWidth={2.5} />
-                Manage Hubs
+                {t('search.hub.manageHubsButton')}
               </Button>
             </div>
           )}
           <p className="text-sm text-muted-dark mt-3 flex items-center gap-1.5">
             <Globe size={12} strokeWidth={2} />
-            Found an awesome skill? Submit a PR to
+            {t('search.hub.submitPrPrompt')}
             {' '}
             <a
               href="https://github.com/runkids/skillshare-hub"
@@ -432,7 +434,7 @@ export default function SearchPage() {
             />
             <Input
               type="text"
-              placeholder={mode === 'github' ? 'Search GitHub for skills...' : 'Search hub...'}
+              placeholder={mode === 'github' ? t('search.input.placeholderGithub') : t('search.input.placeholderHub')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch(query)}
@@ -446,13 +448,13 @@ export default function SearchPage() {
             loading={searching}
           >
             {!searching && <Search size={16} strokeWidth={2.5} />}
-            Search
+            {t('search.button.search')}
           </Button>
         </div>
         {mode === 'github' && (
           <p className="text-sm text-muted-dark mt-3 flex items-center gap-1">
             <Globe size={12} strokeWidth={2} />
-            Requires GITHUB_TOKEN environment variable for GitHub API access.
+            {t('search.githubTokenHint')}
           </p>
         )}
       </Card>
@@ -464,7 +466,9 @@ export default function SearchPage() {
           <div className="sticky top-0 z-20 bg-paper -mx-4 px-4 md:-mx-8 md:px-8 py-2">
             <div className="flex items-center gap-3 flex-wrap">
               <p className="text-sm text-pencil-light whitespace-nowrap">
-                {filteredResults.length} result{filteredResults.length !== 1 ? 's' : ''}
+                {filteredResults.length !== 1
+                  ? t('search.results.countPlural', { count: filteredResults.length })
+                  : t('search.results.count', { count: filteredResults.length })}
               </p>
               <div className="relative flex-1 min-w-[200px]">
                 <Search
@@ -474,7 +478,7 @@ export default function SearchPage() {
                 />
                 <Input
                   type="text"
-                  placeholder="Filter by name, description, or tag..."
+                  placeholder={t('search.input.filterPlaceholder')}
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                   className="!pl-8 !py-1.5 !text-sm"
@@ -534,7 +538,7 @@ export default function SearchPage() {
                       className="shrink-0"
                     >
                       {installing !== r.source && <Download size={14} strokeWidth={2.5} />}
-                      Install
+                      {t('search.table.installButton')}
                     </Button>
                   </div>
                 </Card>
@@ -558,11 +562,11 @@ export default function SearchPage() {
       {results && results.length === 0 && (
         <EmptyState
           icon={Search}
-          title="No results found"
+          title={t('search.empty.noResults.title')}
           description={
             mode === 'github'
-              ? 'Try different search terms or check your GITHUB_TOKEN.'
-              : 'Try different search terms or check your hub source.'
+              ? t('search.empty.noResults.description.github')
+              : t('search.empty.noResults.description.hub')
           }
         />
       )}
@@ -571,11 +575,11 @@ export default function SearchPage() {
       {!results && !searching && (
         <EmptyState
           icon={Search}
-          title="Start searching"
+          title={t('search.empty.start.title')}
           description={
             mode === 'github'
-              ? 'Type a query above to find skills on GitHub'
-              : 'Type a query above, or search with empty query to browse all'
+              ? t('search.empty.start.description.github')
+              : t('search.empty.start.description.hub')
           }
           action={
             <Button
@@ -584,7 +588,7 @@ export default function SearchPage() {
               size="sm"
             >
               <Star size={14} strokeWidth={2.5} />
-              {mode === 'github' ? 'Browse Popular Skills' : 'Browse All Skills'}
+              {mode === 'github' ? t('search.empty.start.browsePopularSkills') : t('search.empty.start.browseAllSkills')}
             </Button>
           }
         />
@@ -630,6 +634,7 @@ function SearchResultsTable({
   installing: string | null;
   onInstall: (source: string, skill?: string) => void;
 }) {
+  const t = useT();
   const totalPages = Math.max(1, Math.ceil(results.length / pageSize));
   const start = page * pageSize;
   const visible = results.slice(start, start + pageSize);
@@ -640,11 +645,11 @@ function SearchResultsTable({
         <table className="w-full text-left">
           <thead className="sticky top-0 z-10 bg-surface">
             <tr className="border-b-2 border-dashed border-muted-dark">
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Name</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium hidden md:table-cell">Description</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Owner</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Stars</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium hidden lg:table-cell">Tags</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('search.table.columnName')}</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium hidden md:table-cell">{t('search.table.columnDescription')}</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('search.table.columnOwner')}</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('search.table.columnStars')}</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium hidden lg:table-cell">{t('search.table.columnTags')}</th>
               <th className="pb-3 text-pencil-light text-sm font-medium w-[100px]" />
             </tr>
           </thead>
@@ -702,7 +707,7 @@ function SearchResultsTable({
                     loading={installing === r.source}
                   >
                     {installing !== r.source && <Download size={14} strokeWidth={2.5} />}
-                    Install
+                    {t('search.table.installButton')}
                   </Button>
                 </td>
               </tr>

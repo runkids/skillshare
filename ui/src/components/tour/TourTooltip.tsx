@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { radius } from '../../design';
+import { useT } from '../../i18n';
 import Button from '../Button';
 import { useTour } from './TourProvider';
 
@@ -9,6 +10,7 @@ const ARROW_SIZE = 8;
 const OFFSET = 12;
 
 export default function TourTooltip() {
+  const t = useT();
   const { isActive, currentStep, steps, targetRect, isWaiting, nextStep, prevStep, skipTour } = useTour();
   const focusRef = useFocusTrap(isActive && !isWaiting && !!targetRect);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -58,18 +60,18 @@ export default function TourTooltip() {
 
   const content = (
     <div ref={focusRef}>
-      <p className="text-pencil font-semibold text-base mb-1">{step.title}</p>
-      <p className="text-pencil-light text-sm leading-relaxed mb-3">{step.description}</p>
+      <p className="text-pencil font-semibold text-base mb-1">{t(`tour.steps.${step.id}.title`, {}, step.title)}</p>
+      <p className="text-pencil-light text-sm leading-relaxed mb-3">{t(`tour.steps.${step.id}.description`, {}, step.description)}</p>
       <div className="flex items-center gap-1.5 mb-3">
         {steps.map((_, i) => (
           <div key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i <= currentStep ? 'bg-accent' : 'bg-muted'}`} />
         ))}
       </div>
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={skipTour}>Skip</Button>
+        <Button variant="ghost" size="sm" onClick={skipTour}>{t('tour.skip')}</Button>
         <div className="flex items-center gap-2">
-          {!isFirst && <Button variant="ghost" size="sm" onClick={prevStep}>Back</Button>}
-          <Button variant="primary" size="sm" onClick={nextStep}>{isLast ? 'Done' : 'Next'}</Button>
+          {!isFirst && <Button variant="ghost" size="sm" onClick={prevStep}>{t('tour.back')}</Button>}
+          <Button variant="primary" size="sm" onClick={nextStep}>{isLast ? t('tour.done') : t('tour.next')}</Button>
         </div>
       </div>
     </div>

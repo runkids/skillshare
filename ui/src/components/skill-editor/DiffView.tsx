@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react';
 import { Check, Code2 } from 'lucide-react';
 import Button from '../Button';
 import DialogShell from '../DialogShell';
+import { useT } from '../../i18n';
 
 type DiffOp = { t: 'eq'; a: string; b: string } | { t: 'del'; a: string } | { t: 'ins'; b: string };
 
@@ -50,12 +51,15 @@ export default function DiffView({
   open,
   oldText,
   newText,
-  oldLabel = 'Saved · on disk',
-  newLabel = 'Your draft',
+  oldLabel,
+  newLabel,
   onConfirm,
   onCancel,
   saving = false,
 }: DiffViewProps) {
+  const t = useT();
+  const resolvedOldLabel = oldLabel ?? t('diffView.oldLabel');
+  const resolvedNewLabel = newLabel ?? t('diffView.newLabel');
   const rows = useMemo(() => {
     const a = (oldText ?? '').split('\n');
     const b = (newText ?? '').split('\n');
@@ -110,7 +114,7 @@ export default function DiffView({
       <div className="ss-skill-editor-diff flex flex-col max-h-[85vh]">
         <div className="flex items-center gap-3 px-5 py-4 border-b-2 border-muted">
           <Code2 size={18} className="text-pencil-light" />
-          <h2 className="text-base font-bold text-pencil">Review changes before saving</h2>
+          <h2 className="text-base font-bold text-pencil">{t('diffView.reviewTitle')}</h2>
           <div className="flex items-center gap-2 font-mono text-sm font-bold">
             <span className="text-success">+{adds}</span>
             <span className="text-danger">−{dels}</span>
@@ -120,10 +124,10 @@ export default function DiffView({
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           <div className="grid grid-cols-2 border-b border-muted bg-paper">
             <span className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-danger bg-danger/5">
-              {oldLabel}
+              {resolvedOldLabel}
             </span>
             <span className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-success bg-success/5 border-l border-muted">
-              {newLabel}
+              {resolvedNewLabel}
             </span>
           </div>
           <div className="flex-1 overflow-auto bg-surface font-mono text-[12.5px] leading-relaxed">
@@ -138,11 +142,15 @@ export default function DiffView({
 
         <div className="flex items-center gap-3 px-5 py-3 border-t-2 border-muted bg-paper">
           <span className="text-xs text-pencil-light">
-            {noChanges ? 'No changes.' : `${changedCount} line${changedCount === 1 ? '' : 's'} changed`}
+            {noChanges
+              ? t('diffView.noChanges')
+              : changedCount === 1
+                ? t('diffView.lineChanged', { count: changedCount })
+                : t('diffView.linesChanged', { count: changedCount })}
           </span>
           <div className="flex-1" />
           <Button variant="secondary" size="md" onClick={onCancel} disabled={saving}>
-            Keep editing
+            {t('diffView.keepEditing')}
           </Button>
           <Button
             variant="primary"
@@ -151,7 +159,7 @@ export default function DiffView({
             disabled={noChanges || saving}
             loading={saving}
           >
-            <Check size={14} /> Confirm &amp; save
+            <Check size={14} /> {t('diffView.confirmSave')}
           </Button>
         </div>
       </div>

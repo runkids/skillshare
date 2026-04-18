@@ -1,11 +1,13 @@
 import { radius } from '../design';
 import { isMacOS, SHORTCUT_ENTRIES } from '../hooks/useGlobalShortcuts';
+import { useT } from '../i18n';
 
 interface ShortcutHUDProps {
   visible: boolean;
 }
 
 export default function ShortcutHUD({ visible }: ShortcutHUDProps) {
+  const t = useT();
   if (!visible) return null;
 
   const mac = isMacOS();
@@ -38,7 +40,7 @@ export default function ShortcutHUD({ visible }: ShortcutHUDProps) {
                 {keyPart}
               </kbd>
             </span>
-            <span className="text-sm text-pencil-light">{entry.label}</span>
+            <span className="text-sm text-pencil-light">{t(entry.labelKey)}</span>
           </div>
         );
       })}

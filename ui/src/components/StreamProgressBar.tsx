@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import Card from './Card';
 import { radius, palette } from '../design';
+import { useT } from '../i18n';
 
 interface StreamProgressBarProps {
   count: number;
@@ -18,6 +19,7 @@ export default function StreamProgressBar({
   icon: Icon, iconClassName = 'animate-spin',
   labelDiscovering, labelRunning, units,
 }: StreamProgressBarProps) {
+  const t = useT();
   const pct = total > 0 ? Math.min((count / total) * 100, 100) : 0;
   const elapsed = (Date.now() - startTime) / 1000;
   const eta = count > 0 && pct < 100
@@ -57,7 +59,7 @@ export default function StreamProgressBar({
             </div>
             <div className="flex items-center justify-between text-sm text-pencil-light">
               <span>{count} / {total} {units}</span>
-              {eta !== null && <span>~{eta}s remaining</span>}
+              {eta !== null && <span>{t('streamProgress.remaining', { eta })}</span>}
             </div>
           </>
         )}

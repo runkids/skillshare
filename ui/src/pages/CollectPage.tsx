@@ -29,6 +29,7 @@ import { radius, shadows } from '../design';
 import { formatSize } from '../lib/format';
 import KindBadge from '../components/KindBadge';
 import SegmentedControl from '../components/SegmentedControl';
+import { useT } from '../i18n';
 
 type Phase = 'idle' | 'scanning' | 'scanned' | 'collecting' | 'done';
 type CollectScope = 'skill' | 'agent' | 'both';
@@ -39,6 +40,7 @@ function parseCollectScope(value: string | null): CollectScope | null {
 }
 
 export default function CollectPage() {
+  const t = useT();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const presetTarget = searchParams.get('target') ?? undefined;
@@ -54,10 +56,25 @@ export default function CollectPage() {
   const { toast } = useToast();
   const [scope, setScope] = useState<CollectScope>(presetScope ?? 'skill');
 
-  const scopeLabels = {
-    skill: { noun: 'skill', nounPlural: 'skills', scanBtn: 'Scan for Local Skills', entity: 'Skills' },
-    agent: { noun: 'agent', nounPlural: 'agents', scanBtn: 'Scan for Local Agents', entity: 'Agents' },
-    both: { noun: 'resource', nounPlural: 'resources', scanBtn: 'Scan for Local Resources', entity: 'Resources' },
+  const scopeLabels: Record<CollectScope, { noun: string; nounPlural: string; scanBtn: string; entity: string }> = {
+    skill: {
+      noun: t('collect.noun.skill'),
+      nounPlural: t('collect.nounPlural.skill'),
+      scanBtn: t('collect.scan.button.skill'),
+      entity: t('collect.entity.skill'),
+    },
+    agent: {
+      noun: t('collect.noun.agent'),
+      nounPlural: t('collect.nounPlural.agent'),
+      scanBtn: t('collect.scan.button.agent'),
+      entity: t('collect.entity.agent'),
+    },
+    both: {
+      noun: t('collect.noun.both'),
+      nounPlural: t('collect.nounPlural.both'),
+      scanBtn: t('collect.scan.button.both'),
+      entity: t('collect.entity.both'),
+    },
   };
   const labels = scopeLabels[scope];
 
@@ -120,7 +137,7 @@ export default function CollectPage() {
       const skippedCount = res.skipped?.length ?? 0;
       const failedCount = Object.keys(res.failed ?? {}).length;
       toast(
-        `Collect complete! ${pulledCount} pulled, ${skippedCount} skipped, ${failedCount} failed.`,
+        t('collect.toast.complete', { pulled: pulledCount, skipped: skippedCount, failed: failedCount }),
         pulledCount > 0 ? 'success' : 'info',
       );
       setPhase('done');
@@ -159,7 +176,7 @@ export default function CollectPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <PageHeader icon={<ArrowDownToLine size={24} strokeWidth={2.5} />} title="Collect" subtitle="Pull local resources from targets back to source" />
+      <PageHeader icon={<ArrowDownToLine size={24} strokeWidth={2.5} />} title={t('collect.title')} subtitle={t('collect.subtitle')} />
 
       {/* Visual Pipeline (reverse direction) */}
       <div className="hidden md:flex items-center justify-center gap-4">
@@ -169,7 +186,7 @@ export default function CollectPage() {
         >
           <Target size={18} strokeWidth={2.5} className="text-success" />
           <span className="text-base font-medium">
-            Targets
+            {t('collect.pipeline.targets')}
           </span>
         </div>
 
@@ -196,7 +213,7 @@ export default function CollectPage() {
             className={`text-blue ${phase === 'collecting' ? 'animate-bounce' : ''}`}
           />
           <span className="text-base font-medium">
-            Collect Engine
+            {t('collect.pipeline.collectEngine')}
           </span>
         </div>
 
@@ -219,7 +236,7 @@ export default function CollectPage() {
         >
           <Folder size={18} strokeWidth={2.5} className="text-warning" />
           <span className="text-base font-medium">
-            Source
+            {t('collect.pipeline.source')}
           </span>
         </div>
       </div>
@@ -232,9 +249,9 @@ export default function CollectPage() {
               value={scope}
               onChange={setScope}
               options={[
-                { value: 'skill' as const, label: 'Skills' },
-                { value: 'agent' as const, label: 'Agents' },
-                { value: 'both' as const, label: 'Both' },
+                { value: 'skill' as const, label: t('collect.entity.skill') },
+                { value: 'agent' as const, label: t('collect.entity.agent') },
+                { value: 'both' as const, label: t('collect.entity.both') },
               ]}
               size="sm"
               connected
@@ -247,13 +264,13 @@ export default function CollectPage() {
               size="sm"
             >
               {phase !== 'scanning' && <ArrowDownToLine size={18} strokeWidth={2.5} />}
-              {phase === 'scanning' ? 'Scanning...' : phase === 'idle' ? labels.scanBtn : 'Re-scan'}
+              {phase === 'scanning' ? t('collect.button.scanning') : phase === 'idle' ? labels.scanBtn : t('collect.button.rescan')}
             </Button>
           </div>
 
           {presetTarget && (
             <p className="text-sm text-pencil-light">
-              Filtering: <Badge variant="info">{presetTarget}</Badge>
+              {t('collect.control.filteringBy')} <Badge variant="info">{presetTarget}</Badge>
             </p>
           )}
 
@@ -261,7 +278,7 @@ export default function CollectPage() {
           {(phase === 'scanned' || phase === 'done') && (
             <div className="flex items-center gap-2">
               <Checkbox
-                label="Force (overwrite existing in source)"
+                label={t('collect.control.force')}
                 checked={force}
                 onChange={setForce}
               />
@@ -280,8 +297,8 @@ export default function CollectPage() {
           {totalCount === 0 ? (
             <EmptyState
               icon={CheckCircle}
-              title={`No local ${labels.nounPlural} found`}
-              description={`All ${labels.nounPlural} in your targets are synced from source. Nothing to collect.`}
+              title={t('collect.empty.title', { nounPlural: labels.nounPlural })}
+              description={t('collect.empty.description', { nounPlural: labels.nounPlural })}
             />
           ) : (
             <div>
@@ -290,7 +307,7 @@ export default function CollectPage() {
                 <h3
                   className="text-xl font-bold text-pencil"
                 >
-                  Found {totalCount} local {totalCount !== 1 ? labels.nounPlural : labels.noun}
+                  {t('collect.scan.foundCount', { count: totalCount, noun: totalCount !== 1 ? labels.nounPlural : labels.noun })}
                 </h3>
                 <div className="flex gap-2">
                   <Button
@@ -299,7 +316,7 @@ export default function CollectPage() {
                     size="sm"
                     disabled={phase === 'collecting'}
                   >
-                    Select All
+                    {t('collect.scan.selectAll')}
                   </Button>
                   <Button
                     onClick={() => toggleAll(false)}
@@ -307,7 +324,7 @@ export default function CollectPage() {
                     size="sm"
                     disabled={phase === 'collecting'}
                   >
-                    Select None
+                    {t('collect.scan.selectNone')}
                   </Button>
                 </div>
               </div>
@@ -338,8 +355,8 @@ export default function CollectPage() {
                   >
                     {phase !== 'collecting' && <ArrowDownToLine size={22} strokeWidth={2.5} />}
                     {phase === 'collecting'
-                      ? 'Collecting...'
-                      : `Collect ${selected.size} ${labels.entity}`}
+                      ? t('collect.button.collecting')
+                      : t('collect.button.collectCount', { count: selected.size, entity: labels.entity })}
                   </Button>
                 </div>
               )}
@@ -358,12 +375,12 @@ export default function CollectPage() {
             <p
               className="text-base text-pencil"
             >
-              {labels.entity} collected to source! Run Sync to distribute them to all targets.
+              {t('collect.postCollect.message', { entity: labels.entity })}
             </p>
             <Link to="/sync">
               <Button variant="primary" size="sm">
                 <RefreshCw size={16} strokeWidth={2.5} />
-                Go to Sync
+                {t('collect.postCollect.goToSync')}
               </Button>
             </Link>
           </div>
@@ -373,11 +390,15 @@ export default function CollectPage() {
       {/* Confirm collect dialog */}
       <ConfirmDialog
         open={confirming}
-        title="Confirm Collect"
+        title={t('collect.confirm.title')}
         message={
           <div className="text-left">
             <p className="mb-2">
-              Copy {selected.size} {selected.size !== 1 ? labels.nounPlural : labels.noun} to source{force ? ' (force overwrite)' : ''}?
+              {t('collect.confirm.message', {
+                count: selected.size,
+                noun: selected.size !== 1 ? labels.nounPlural : labels.noun,
+                forceSuffix: force ? t('collect.confirm.forceOverwrite') : '',
+              })}
             </p>
             <ul className="list-none space-y-1 max-h-40 overflow-y-auto">
               {Array.from(selected).map((key) => {
@@ -393,7 +414,7 @@ export default function CollectPage() {
             </ul>
           </div>
         }
-        confirmText={`Collect ${selected.size} ${labels.entity}`}
+        confirmText={t('collect.button.collectCount', { count: selected.size, entity: labels.entity })}
         onConfirm={() => {
           setConfirming(false);
           handleCollect();
@@ -416,6 +437,7 @@ function ScanTargetCard({
   onToggle: (key: string) => void;
   disabled: boolean;
 }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(true);
   const skills = target.skills ?? [];
   const selectedCount = skills.filter((sk) => selected.has(`${target.targetName}/${sk.kind ?? 'skill'}/${sk.name}`)).length;
@@ -438,7 +460,7 @@ function ScanTargetCard({
           {target.targetName}
         </h4>
         <Badge variant={selectedCount > 0 ? 'info' : 'default'}>
-          {selectedCount}/{skills.length} selected
+          {t('collect.scan.selectedCount', { selected: selectedCount, total: skills.length })}
         </Badge>
       </button>
 
@@ -480,6 +502,7 @@ function ScanTargetCard({
 
 /** Collect result summary */
 function CollectResults({ result }: { result: CollectResult }) {
+  const t = useT();
   const pulled = result.pulled ?? [];
   const skipped = result.skipped ?? [];
   const failed = result.failed ?? {};
@@ -493,21 +516,21 @@ function CollectResults({ result }: { result: CollectResult }) {
       <h3
         className="text-xl font-bold text-pencil mb-4"
       >
-        Collect Results
+        {t('collect.results.title')}
       </h3>
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-        <ResultStat label="Pulled" count={pulled.length} icon={CheckCircle} variant="success" />
-        <ResultStat label="Skipped" count={skipped.length} icon={SkipForward} variant="warning" />
-        <ResultStat label="Failed" count={failedEntries.length} icon={XCircle} variant="danger" />
+        <ResultStat label={t('collect.results.pulled')} count={pulled.length} icon={CheckCircle} variant="success" />
+        <ResultStat label={t('collect.results.skipped')} count={skipped.length} icon={SkipForward} variant="warning" />
+        <ResultStat label={t('collect.results.failed')} count={failedEntries.length} icon={XCircle} variant="danger" />
       </div>
 
       {/* Detail lists */}
       {pulled.length > 0 && (
-        <DetailList title="Pulled" items={pulled} variant="success" />
+        <DetailList title={t('collect.results.pulled')} items={pulled} variant="success" />
       )}
       {skipped.length > 0 && (
-        <DetailList title="Skipped (already in source)" items={skipped} variant="warning" />
+        <DetailList title={t('collect.results.skippedInSource')} items={skipped} variant="warning" />
       )}
       {failedEntries.length > 0 && (
         <Card variant="accent" className="mt-3">
@@ -515,7 +538,7 @@ function CollectResults({ result }: { result: CollectResult }) {
             className="font-bold text-danger mb-2"
           >
             <AlertCircle size={16} strokeWidth={2.5} className="inline mr-1" />
-            Failed
+            {t('collect.results.failed')}
           </h4>
           <div className="space-y-1">
             {failedEntries.map(([name, err]) => (

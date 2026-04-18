@@ -6,6 +6,7 @@ import { queryClient } from './lib/queryClient';
 import { ToastProvider } from './components/Toast';
 import { ThemeProvider } from './context/ThemeContext';
 import { AppProvider } from './context/AppContext';
+import { I18nProvider } from './i18n';
 import { PageSkeleton } from './components/Skeleton';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import Layout from './components/Layout';
@@ -43,44 +44,46 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-      <ToastProvider>
-        <AppProvider>
-          <BrowserRouter basename={BASE_PATH}>
-            <ErrorBoundary>
-            <TourProvider>
-            <TourOverlay />
-            <TourTooltip />
-            <Routes>
-              <Route element={<Layout />}>
-                <Route index element={<DashboardPage />} />
-                <Route path="resources" element={<Lazy><ResourcesPage /></Lazy>} />
-                <Route path="resources/new" element={<Lazy><NewSkillPage /></Lazy>} />
-                <Route path="resources/:name" element={<Lazy><ResourceDetailPage /></Lazy>} />
-                <Route path="uninstall" element={<Lazy><BatchUninstallPage /></Lazy>} />
-                <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
-                <Route path="targets/:name/filters" element={<Lazy><FilterStudioPage /></Lazy>} />
-                <Route path="extras" element={<Lazy><ExtrasPage /></Lazy>} />
-                <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
-                <Route path="collect" element={<Lazy><CollectPage /></Lazy>} />
-                <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />
-                <Route path="trash" element={<Lazy><TrashPage /></Lazy>} />
-                <Route path="git" element={<Lazy><GitSyncPage /></Lazy>} />
-                <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
-                <Route path="install" element={<Lazy><InstallPage /></Lazy>} />
-                <Route path="update" element={<Lazy><UpdatePage /></Lazy>} />
-                <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
-                <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
-                <Route path="analyze" element={<Lazy><AnalyzePage /></Lazy>} />
-                <Route path="log" element={<Lazy><LogPage /></Lazy>} />
-                <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
-                <Route path="doctor" element={<Lazy><DoctorPage /></Lazy>} />
-              </Route>
-            </Routes>
-            </TourProvider>
-            </ErrorBoundary>
-          </BrowserRouter>
-        </AppProvider>
-      </ToastProvider>
+        <I18nProvider>
+          <ToastProvider>
+            <AppProvider>
+              <BrowserRouter basename={BASE_PATH}>
+                <ErrorBoundary>
+                  <TourProvider>
+                    <TourOverlay />
+                    <TourTooltip />
+                    <Routes>
+                      <Route element={<Layout />}>
+                        <Route index element={<DashboardPage />} />
+                        <Route path="resources" element={<Lazy><ResourcesPage /></Lazy>} />
+                        <Route path="resources/new" element={<Lazy><NewSkillPage /></Lazy>} />
+                        <Route path="resources/:name" element={<Lazy><ResourceDetailPage /></Lazy>} />
+                        <Route path="uninstall" element={<Lazy><BatchUninstallPage /></Lazy>} />
+                        <Route path="targets" element={<Lazy><TargetsPage /></Lazy>} />
+                        <Route path="targets/:name/filters" element={<Lazy><FilterStudioPage /></Lazy>} />
+                        <Route path="extras" element={<Lazy><ExtrasPage /></Lazy>} />
+                        <Route path="sync" element={<Lazy><SyncPage /></Lazy>} />
+                        <Route path="collect" element={<Lazy><CollectPage /></Lazy>} />
+                        <Route path="backup" element={<Lazy><BackupPage /></Lazy>} />
+                        <Route path="trash" element={<Lazy><TrashPage /></Lazy>} />
+                        <Route path="git" element={<Lazy><GitSyncPage /></Lazy>} />
+                        <Route path="search" element={<Lazy><SearchPage /></Lazy>} />
+                        <Route path="install" element={<Lazy><InstallPage /></Lazy>} />
+                        <Route path="update" element={<Lazy><UpdatePage /></Lazy>} />
+                        <Route path="audit" element={<Lazy><AuditPage /></Lazy>} />
+                        <Route path="audit/rules" element={<Lazy><AuditRulesPage /></Lazy>} />
+                        <Route path="analyze" element={<Lazy><AnalyzePage /></Lazy>} />
+                        <Route path="log" element={<Lazy><LogPage /></Lazy>} />
+                        <Route path="config" element={<Lazy><ConfigPage /></Lazy>} />
+                        <Route path="doctor" element={<Lazy><DoctorPage /></Lazy>} />
+                      </Route>
+                    </Routes>
+                  </TourProvider>
+                </ErrorBoundary>
+              </BrowserRouter>
+            </AppProvider>
+          </ToastProvider>
+        </I18nProvider>
       </ThemeProvider>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>

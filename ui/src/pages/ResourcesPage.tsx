@@ -56,6 +56,7 @@ import TargetMenu, { SkillContextMenu, type ContextMenuItem } from '../component
 import ConfirmDialog from '../components/ConfirmDialog';
 import Spinner from '../components/Spinner';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
+import { useT } from '../i18n';
 
 /* -- Sticky-note pastel palette (8 colors) --------- */
 
@@ -85,11 +86,11 @@ function resourceLabel(kind: Skill['kind'], capitalize = false): string {
   return capitalize ? label[0].toUpperCase() + label.slice(1) : label;
 }
 
-function summarizeAgentTargets(entries: SyncMatrixEntry[]): { label: string; title: string } {
+function summarizeAgentTargets(entries: SyncMatrixEntry[], t: (key: string, params?: Record<string, string | number>) => string): { label: string; title: string } {
   if (entries.length === 0) {
     return {
-      label: 'No agent targets',
-      title: 'No configured targets currently support agent sync.',
+      label: t('resources.tree.noAgentTargets.label'),
+      title: t('resources.tree.noAgentTargets.title'),
     };
   }
 
@@ -101,21 +102,21 @@ function summarizeAgentTargets(entries: SyncMatrixEntry[]): { label: string; tit
 
   if (synced.length === 0) {
     return {
-      label: 'Filtered out',
-      title: 'This agent is excluded by the current target agent filters.',
+      label: t('resources.tree.filteredOut.label'),
+      title: t('resources.tree.filteredOut.title'),
     };
   }
 
   // All applicable targets synced → "All"
   if (synced.length === applicable.length) {
     return {
-      label: 'All',
-      title: 'All targets',
+      label: t('resources.targets.all'),
+      title: t('resources.tree.allTargets'),
     };
   }
 
   return {
-    label: synced.length > 2 ? `${synced.length} targets` : synced.join(', '),
+    label: synced.length > 2 ? t('resources.targets.nTargets', { count: synced.length }) : synced.join(', '),
     title: synced.join(', '),
   };
 }
@@ -140,6 +141,7 @@ function useResourceActions() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const t = useT();
 
   const toggleMutation = useMutation({
     mutationFn: ({ name, kind, disable }: { name: string; kind: Skill['kind']; disable: boolean }) =>
@@ -152,7 +154,8 @@ function useResourceActions() {
     },
     onSuccess: (_, { name, kind, disable }) => {
       const display = formatAgentDisplayName(name);
-      toast(`${resourceLabel(kind, true)} ${display} ${disable ? 'disabled' : 'enabled'}`, 'success');
+      const kindLabel = resourceLabel(kind, true);
+      toast(disable ? t('resources.toast.disabled', { kind: kindLabel, name: display }) : t('resources.toast.enabled', { kind: kindLabel, name: display }), 'success');
     },
     onError: (err: Error, _, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
@@ -172,7 +175,7 @@ function useResourceActions() {
     onSuccess: (_, { name, kind }) => {
       clearAuditCache(queryClient);
       const display = formatAgentDisplayName(name);
-      toast(`Uninstalled ${resourceLabel(kind)} ${display}`, 'success');
+      toast(t('resources.toast.uninstalled', { kind: resourceLabel(kind), name: display }), 'success');
     },
     onError: (err: Error, _, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
@@ -193,7 +196,7 @@ function useResourceActions() {
     onSuccess: (_, repoName) => {
       clearAuditCache(queryClient);
       const display = formatTrackedRepoName(repoName);
-      toast(`Uninstalled repo ${display}`, 'success');
+      toast(t('resources.toast.repoUninstalled', { name: display }), 'success');
     },
     onError: (err: Error, _, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
@@ -217,7 +220,7 @@ function useResourceActions() {
     },
     onSuccess: (_, { name, target }) => {
       const display = formatAgentDisplayName(name);
-      toast(`${display} now available in ${target ?? 'All'}`, 'success');
+      toast(t('resources.toast.nowAvailableIn', { name: display, target: target ?? t('resources.targets.all') }), 'success');
     },
     onError: (err: Error, _, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(queryKeys.skills.all, ctx.previous);
@@ -235,13 +238,13 @@ function useResourceActions() {
     const items: ContextMenuItem[] = [
       {
         key: 'detail',
-        label: 'View Detail',
+        label: t('resources.contextMenu.viewDetail'),
         icon: <ExternalLink size={13} strokeWidth={2.5} />,
         onSelect: () => navigate(resourceDetailHref(skill)),
       },
       {
         key: 'toggle',
-        label: skill.disabled ? 'Enable' : 'Disable',
+        label: skill.disabled ? t('resources.contextMenu.enable') : t('resources.contextMenu.disable'),
         icon: skill.disabled
           ? <Eye size={13} strokeWidth={2.5} />
           : <EyeOff size={13} strokeWidth={2.5} />,
@@ -251,14 +254,14 @@ function useResourceActions() {
     if (skill.kind === 'skill' && skill.isInRepo) {
       items.push({
         key: 'uninstall-repo',
-        label: 'Uninstall Repo',
+        label: t('resources.contextMenu.uninstallRepo'),
         icon: <Trash2 size={13} strokeWidth={2.5} />,
         onSelect: () => onUninstallRepo(skill.relPath.split('/')[0]),
       });
     } else {
       items.push({
         key: 'uninstall',
-        label: 'Uninstall',
+        label: t('resources.contextMenu.uninstall'),
         icon: <Trash2 size={13} strokeWidth={2.5} />,
         onSelect: onUninstall,
       });
@@ -718,6 +721,7 @@ const SkillPostit = memo(function SkillPostit({
 const TIP_DISMISSED_KEY = 'skillshare:skills-context-menu-tip';
 
 function ContextMenuTip() {
+  const t = useT();
   const [dismissed, setDismissed] = useState(() =>
     localStorage.getItem(TIP_DISMISSED_KEY) === '1',
   );
@@ -730,7 +734,7 @@ function ContextMenuTip() {
     >
       <MousePointerClick size={18} strokeWidth={2} className="text-pencil-light/60 shrink-0" />
       <p className="flex-1">
-        <span className="font-medium text-pencil">Right-click</span> any resource or folder for quick actions — enable/disable, uninstall, and more.
+        <span className="font-medium text-pencil">{t('resources.tip.rightClick')}</span> {t('resources.tip.message')}
       </p>
       <button
         className="shrink-0 px-2.5 py-1 text-xs font-medium text-pencil-light hover:text-pencil hover:bg-muted/60 transition-colors cursor-pointer"
@@ -739,7 +743,7 @@ function ContextMenuTip() {
           localStorage.setItem(TIP_DISMISSED_KEY, '1');
           setDismissed(true);
         }}
-        aria-label="Dismiss tip"
+        aria-label={t('resources.tip.dismiss')}
       >
         <X size={14} strokeWidth={2.5} />
       </button>
@@ -750,6 +754,7 @@ function ContextMenuTip() {
 /* -- Main page ------------------------------------ */
 
 export default function SkillsPage() {
+  const t = useT();
   const { data, isPending, error } = useQuery({
     queryKey: queryKeys.skills.all,
     queryFn: () => api.listSkills(),
@@ -866,7 +871,7 @@ export default function SkillsPage() {
     return (
       <Card variant="accent" className="text-center py-8">
         <p className="text-danger text-lg">
-          Failed to load skills
+          {t('resources.error.failedToLoad')}
         </p>
         <p className="text-pencil-light text-base mt-1">{error.message}</p>
       </Card>
@@ -878,14 +883,14 @@ export default function SkillsPage() {
       {/* Header */}
       <PageHeader
         icon={<Layers size={24} strokeWidth={2.5} />}
-        title="Resources"
+        title={t('resources.title')}
         subtitle=""
         className="mb-4!"
         actions={activeTab === 'skills' ? (
           <Link to="/resources/new">
             <Button variant="primary" size="sm">
               <Plus size={16} strokeWidth={2.5} />
-              New Skill
+              {t('resources.newSkill')}
             </Button>
           </Link>
         ) : undefined}
@@ -894,8 +899,8 @@ export default function SkillsPage() {
       {/* Resource type underline tabs */}
       <nav className="ss-resource-tabs flex items-center gap-6 border-b-2 border-muted mb-3 -mx-4 px-4 md:-mx-8 md:px-8" role="tablist">
         {([
-          { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: 'Skills', count: skillItems.length },
-          { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: 'Agents', count: agentItems.length },
+          { key: 'skills' as ResourceTab, icon: <Puzzle size={16} strokeWidth={2.5} />, label: t('resources.tab.skills'), count: skillItems.length },
+          { key: 'agents' as ResourceTab, icon: <Bot size={16} strokeWidth={2.5} />, label: t('resources.tab.agents'), count: agentItems.length },
         ]).map((tab) => (
           <button
             key={tab.key}
@@ -936,7 +941,7 @@ export default function SkillsPage() {
             />
             <Input
               type="text"
-              placeholder="Filter skills..."
+              placeholder={t('resources.filter.placeholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="!pl-11"
@@ -949,10 +954,10 @@ export default function SkillsPage() {
               onChange={(v) => setSortType(v as SortType)}
               size="sm"
               options={[
-                { value: 'name-asc', label: 'Name A → Z' },
-                { value: 'name-desc', label: 'Name Z → A' },
-                { value: 'newest', label: 'Newest first' },
-                { value: 'oldest', label: 'Oldest first' },
+                { value: 'name-asc', label: t('resources.sort.nameAsc') },
+                { value: 'name-desc', label: t('resources.sort.nameDesc') },
+                { value: 'newest', label: t('resources.sort.newestFirst') },
+                { value: 'oldest', label: t('resources.sort.oldestFirst') },
               ]}
             />
           </div>
@@ -985,7 +990,7 @@ export default function SkillsPage() {
       {/* Result count — hidden in folder view (merged into folder toolbar) */}
       {(filterType !== 'all' || search) && viewType !== 'grouped' && (
         <p className="text-pencil-light text-sm mb-3">
-          Showing {tabFiltered.length} of {skills.length} resources
+          {t('resources.showing', { count: tabFiltered.length, total: skills.length })}
           {filterType !== 'all' && (
             <>
               {' '}
@@ -997,7 +1002,7 @@ export default function SkillsPage() {
                   setSearch('');
                 }}
               >
-                Clear filters
+                {t('resources.clearFilters')}
               </Button>
             </>
           )}
@@ -1057,13 +1062,13 @@ export default function SkillsPage() {
       ) : (
         <EmptyState
           icon={activeTab === 'agents' ? Bot : Puzzle}
-          title={search || filterType !== 'all' ? 'No matches' : activeTab === 'agents' ? 'No agents yet' : 'No skills yet'}
+          title={search || filterType !== 'all' ? t('resources.noMatches.title') : activeTab === 'agents' ? t('resources.agents.empty.title') : t('resources.skills.empty.title')}
           description={
             search || filterType !== 'all'
-              ? 'Try a different search term or filter.'
+              ? t('resources.noMatches.description')
               : activeTab === 'agents'
-                ? 'Install agents from GitHub or add them to your source directory.'
-                : 'Install skills from GitHub or add them to your source directory.'
+                ? t('resources.agents.empty.description')
+                : t('resources.skills.empty.description')
           }
         />
       )}
@@ -1097,9 +1102,9 @@ export default function SkillsPage() {
       )}
       <ConfirmDialog
         open={!!gridConfirmUninstall}
-        title={`Uninstall ${resourceLabel(gridConfirmUninstall?.kind ?? 'skill')}`}
+        title={t('resources.confirm.uninstallTitle', { kind: resourceLabel(gridConfirmUninstall?.kind ?? 'skill') })}
         message={<>Are you sure you want to uninstall <strong>{gridConfirmUninstall?.name}</strong>?</>}
-        confirmText="Uninstall"
+        confirmText={t('resources.confirm.uninstall')}
         variant="danger"
         loading={gridUninstallMutation.isPending}
         onConfirm={() => {
@@ -1110,9 +1115,9 @@ export default function SkillsPage() {
       />
       <ConfirmDialog
         open={!!gridConfirmUninstallRepo}
-        title="Uninstall tracked repo"
+        title={t('resources.confirm.uninstallRepoTitle')}
         message={<>Are you sure you want to uninstall all skills in <strong>{gridConfirmUninstallRepo}</strong>?</>}
-        confirmText="Uninstall Repo"
+        confirmText={t('resources.confirm.uninstallRepo')}
         variant="danger"
         loading={gridUninstallRepoMutation.isPending}
         onConfirm={() => {
@@ -1154,6 +1159,7 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
     isUniform: boolean;
   } | null>(null);
 
+  const t = useT();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { getSkillTargets: treeGetSkillTargets } = useSyncMatrix();
@@ -1187,12 +1193,12 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
       return { previous };
     },
     onSuccess: (data, { folder, target }) => {
-      const label = target ?? 'All';
+      const label = target ?? t('resources.targets.all');
       const folderLabel = folder || '(root)';
       if (data.updated === 0 && data.skipped > 0) {
-        toast(`No editable skills in ${folderLabel}/ — tracked-repo skills are read-only`, 'error');
+        toast(t('resources.folder.noEditableSkills', { folder: folderLabel }), 'error');
       } else {
-        toast(`${data.updated} skill${data.updated !== 1 ? 's' : ''} in ${folderLabel}/ now available in ${label}`, 'success');
+        toast(t('resources.folder.skillsUpdated', { count: data.updated, folder: folderLabel, target: label }), 'success');
       }
     },
     onError: (err: Error, _, ctx) => {
@@ -1347,10 +1353,10 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
               {pendingFolder === node.path && <Spinner size="sm" />}
               <Tooltip content={
                 node.targetSummary.display === 'Mixed'
-                  ? `Some: All targets · Others: ${node.targetSummary.targets.join(', ')}`
+                  ? t('resources.tree.mixedTooltip', { targets: node.targetSummary.targets.join(', ') })
                   : node.targetSummary.targets.length > 0
                     ? node.targetSummary.targets.join(', ')
-                    : 'All targets'
+                    : t('resources.tree.allTargets')
               }>
                 <Badge variant={node.targetSummary.isUniform ? 'default' : 'warning'}>
                   <Target size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
@@ -1365,16 +1371,16 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
 
     const skill = node.skill!;
     const nt = normalizeTargets(skill.targets);
-    const skillTargetLabel = nt.length > 0 ? nt.join(', ') : 'All';
-    const agentTargetInfo = skill.kind === 'agent' ? summarizeAgentTargets(treeGetSkillTargets(skill.flatName)) : null;
+    const skillTargetLabel = nt.length > 0 ? nt.join(', ') : t('resources.targets.all');
+    const agentTargetInfo = skill.kind === 'agent' ? summarizeAgentTargets(treeGetSkillTargets(skill.flatName), t) : null;
     const tooltipContent = (
       <div>
         <div>{skill.relPath}</div>
         {(skill.source || skill.installedAt) && (
           <>
             <hr className="border-paper/30 my-1" />
-            {skill.source && <div>Source: {shortSource(skill.source)}</div>}
-            {skill.installedAt && <div>Installed: {new Date(skill.installedAt).toLocaleDateString()}</div>}
+            {skill.source && <div>{t('resources.tree.source', { source: shortSource(skill.source) })}</div>}
+            {skill.installedAt && <div>{t('resources.tree.installed', { date: new Date(skill.installedAt).toLocaleDateString() })}</div>}
           </>
         )}
       </div>
@@ -1423,7 +1429,7 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
                 </Badge>
               )}
               {resourceKind === 'skill' && (
-                <Tooltip content={skillTargetLabel === 'All' ? 'All targets' : skillTargetLabel}>
+                <Tooltip content={skillTargetLabel === t('resources.targets.all') ? t('resources.tree.allTargets') : skillTargetLabel}>
                   <Badge variant="default">
                     <Target size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
                     {skillTargetLabel}
@@ -1452,25 +1458,25 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
         <span className="text-sm text-pencil-light">
           {isSearching ? (
             <>
-              Showing {skills.length} of {totalCount} {resourceKind === 'agent' ? 'agents' : 'skills'}
+              {t('resources.folder.showingFiltered', { count: skills.length, total: totalCount, kind: resourceKind === 'agent' ? t('resources.tab.agents').toLowerCase() : t('resources.tab.skills').toLowerCase() })}
               {onClearFilters && (
                 <>
                   {' '}&middot;{' '}
-                  <Button variant="link" onClick={onClearFilters}>Clear filters</Button>
+                  <Button variant="link" onClick={onClearFilters}>{t('resources.clearFilters')}</Button>
                 </>
               )}
             </>
           ) : (
-            <>{skills.length} item{skills.length !== 1 ? 's' : ''} in {folderCount} folder{folderCount !== 1 ? 's' : ''}</>
+            <>{t('resources.folder.itemsInFolders', { items: skills.length, folders: folderCount })}</>
           )}
         </span>
         {folderCount > 1 && (
           <span className="ml-auto flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={expandAll}>
-              <ChevronsUpDown size={14} strokeWidth={2.5} /> Expand All
+              <ChevronsUpDown size={14} strokeWidth={2.5} /> {t('resources.folder.expandAll')}
             </Button>
             <Button variant="ghost" size="sm" onClick={collapseAll}>
-              <ChevronsDownUp size={14} strokeWidth={2.5} /> Collapse All
+              <ChevronsDownUp size={14} strokeWidth={2.5} /> {t('resources.folder.collapseAll')}
             </Button>
           </span>
         )}
@@ -1517,7 +1523,7 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
                 <Tooltip content={
                   stickyFolder.node.targetSummary.targets.length > 0
                     ? stickyFolder.node.targetSummary.targets.join(', ')
-                    : 'All targets'
+                    : t('resources.tree.allTargets')
                 }>
                   <Badge variant={stickyFolder.node.targetSummary.isUniform ? 'default' : 'warning'}>
                     <Target size={10} strokeWidth={2.5} className="inline -mt-px mr-0.5" />
@@ -1544,7 +1550,7 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
           anchorPoint={contextMenu.point}
           currentTargets={contextMenu.currentTargets}
           isUniform={contextMenu.isUniform}
-          label={contextMenu.mode === 'folder' ? 'Folder available in...' : 'Available in...'}
+          label={contextMenu.mode === 'folder' ? t('resources.contextMenu.folderAvailableIn') : t('resources.contextMenu.availableIn')}
           extraItems={contextMenu.mode === 'skill' ? buildExtraItems(
               {
                 flatName: contextMenu.skillFlatName!,
@@ -1575,9 +1581,9 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
       )}
       <ConfirmDialog
         open={!!confirmUninstall}
-        title={`Uninstall ${resourceLabel(confirmUninstall?.kind ?? resourceKind)}`}
+        title={t('resources.confirm.uninstallTitle', { kind: resourceLabel(confirmUninstall?.kind ?? resourceKind) })}
         message={<>Are you sure you want to uninstall <strong>{confirmUninstall?.name}</strong>?</>}
-        confirmText="Uninstall"
+        confirmText={t('resources.confirm.uninstall')}
         variant="danger"
         loading={uninstallMutation.isPending}
         onConfirm={() => {
@@ -1588,9 +1594,9 @@ function FolderTreeView({ skills, resourceKind, totalCount, isSearching, stickyT
       />
       <ConfirmDialog
         open={!!confirmUninstallRepo}
-        title="Uninstall tracked repo"
+        title={t('resources.confirm.uninstallRepoTitle')}
         message={<>Are you sure you want to uninstall all skills in <strong>{confirmUninstallRepo}</strong>?</>}
-        confirmText="Uninstall Repo"
+        confirmText={t('resources.confirm.uninstallRepo')}
         variant="danger"
         loading={uninstallRepoMutation.isPending}
         onConfirm={() => {
@@ -1635,6 +1641,7 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
     kind: Skill['kind'];
   } | null>(null);
 
+  const t = useT();
   const {
     uninstallMutation,
     uninstallRepoMutation: tableUninstallRepoMutation,
@@ -1653,7 +1660,7 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
   const targetOptions: SelectOption[] = useMemo(() => {
     const installed = (availableData?.targets ?? []).filter((t) => t.installed);
     return [
-      { value: '__all__', label: 'All' },
+      { value: '__all__', label: t('resources.targets.all') },
       ...installed.map((t) => ({ value: t.name, label: t.name })),
     ];
   }, [availableData]);
@@ -1687,10 +1694,10 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
           <thead className="sticky top-0 z-10 bg-surface">
             <tr className="border-b-2 border-dashed border-muted-dark">
               <th className="pb-3 pr-4 text-pencil-light text-sm font-medium w-0" />
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Name</th>
-              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">Type</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('resources.table.name')}</th>
+              <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">{t('resources.table.type')}</th>
               <th className="pb-3 pr-4 text-pencil-light text-sm font-medium">
-                {resourceKind === 'agent' ? 'Synced to' : 'Available in'}
+                {resourceKind === 'agent' ? t('resources.table.syncedTo') : t('resources.table.availableIn')}
               </th>
               <th className="pb-3 text-pencil-light text-sm font-medium w-10" />
             </tr>
@@ -1699,7 +1706,7 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
             {visible.map((skill) => {
               const currentValue = skill.targets?.length === 1 ? skill.targets[0] : '__all__';
               const showPath = skill.relPath !== skill.name;
-              const agentTargets = summarizeAgentTargets(getSkillTargets(skill.flatName));
+              const agentTargets = summarizeAgentTargets(getSkillTargets(skill.flatName), t);
               return (
                 <tr
                   key={skill.flatName}
@@ -1801,7 +1808,7 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
                           isInRepo: !!skill.isInRepo,
                         });
                       }}
-                      title="Actions"
+                      title={t('resources.table.actions')}
                     >
                       <MoreHorizontal size={16} strokeWidth={2} />
                     </button>
@@ -1837,9 +1844,9 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
       )}
       <ConfirmDialog
         open={!!confirmUninstall}
-        title={`Uninstall ${resourceLabel(confirmUninstall?.kind ?? resourceKind)}`}
+        title={t('resources.confirm.uninstallTitle', { kind: resourceLabel(confirmUninstall?.kind ?? resourceKind) })}
         message={<>Are you sure you want to uninstall <strong>{confirmUninstall?.name}</strong>?</>}
-        confirmText="Uninstall"
+        confirmText={t('resources.confirm.uninstall')}
         variant="danger"
         loading={uninstallMutation.isPending}
         onConfirm={() => {
@@ -1850,9 +1857,9 @@ function SkillsTable({ skills, resourceKind }: { skills: Skill[]; resourceKind: 
       />
       <ConfirmDialog
         open={!!tableConfirmUninstallRepo}
-        title="Uninstall tracked repo"
+        title={t('resources.confirm.uninstallRepoTitle')}
         message={<>Are you sure you want to uninstall all skills in <strong>{tableConfirmUninstallRepo}</strong>?</>}
-        confirmText="Uninstall Repo"
+        confirmText={t('resources.confirm.uninstallRepo')}
         variant="danger"
         loading={tableUninstallRepoMutation.isPending}
         onConfirm={() => {

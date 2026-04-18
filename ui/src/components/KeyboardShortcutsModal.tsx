@@ -2,6 +2,7 @@ import { X, Keyboard } from 'lucide-react';
 import { SHORTCUT_ENTRIES, isMacOS } from '../hooks/useGlobalShortcuts';
 import { radius } from '../design';
 import DialogShell from './DialogShell';
+import { useT } from '../i18n';
 
 interface KeyboardShortcutsModalProps {
   open: boolean;
@@ -9,6 +10,7 @@ interface KeyboardShortcutsModalProps {
 }
 
 export default function KeyboardShortcutsModal({ open, onClose }: KeyboardShortcutsModalProps) {
+  const t = useT();
   return (
     <DialogShell open={open} onClose={onClose} maxWidth="md">
       {/* Header */}
@@ -16,13 +18,13 @@ export default function KeyboardShortcutsModal({ open, onClose }: KeyboardShortc
         <div className="flex items-center gap-2">
           <Keyboard size={20} strokeWidth={2.5} className="text-pencil" />
           <h2 className="text-lg font-bold text-pencil">
-            Keyboard Shortcuts
+            {t('shortcuts.title')}
           </h2>
         </div>
         <button
           onClick={onClose}
           className="w-8 h-8 flex items-center justify-center text-pencil-light hover:text-pencil transition-colors cursor-pointer"
-          aria-label="Close"
+          aria-label={t('common.close')}
         >
           <X size={18} strokeWidth={2.5} />
         </button>
@@ -37,7 +39,7 @@ export default function KeyboardShortcutsModal({ open, onClose }: KeyboardShortc
             style={{ borderRadius: radius.sm }}
           >
             <span className="text-sm text-pencil-light">
-              {entry.label}
+              {t(entry.labelKey)}
             </span>
             <ShortcutKeys keys={entry.keys} />
           </div>
@@ -46,7 +48,7 @@ export default function KeyboardShortcutsModal({ open, onClose }: KeyboardShortc
 
       {/* Footer hint */}
       <p className="mt-4 pt-3 border-t border-dashed border-pencil-light/30 text-xs text-pencil-light">
-        Shortcuts are disabled when typing in inputs.
+        {t('shortcuts.disabledInInputs')}
       </p>
     </DialogShell>
   );
@@ -55,6 +57,7 @@ export default function KeyboardShortcutsModal({ open, onClose }: KeyboardShortc
 /** Renders key combo like "g d" or "Mod+S" as individual key badges */
 function ShortcutKeys({ keys }: { keys: string }) {
   const mac = isMacOS();
+  const t = useT();
 
   // Handle modifier shortcuts like "Mod+S"
   if (keys.startsWith('Mod+')) {
@@ -76,7 +79,7 @@ function ShortcutKeys({ keys }: { keys: string }) {
         <span key={i}>
           <KeyBadge label={part} />
           {i < parts.length - 1 && (
-            <span className="text-pencil-light/50 text-xs mx-0.5">then</span>
+            <span className="text-pencil-light/50 text-xs mx-0.5">{t('common.then')}</span>
           )}
         </span>
       ))}

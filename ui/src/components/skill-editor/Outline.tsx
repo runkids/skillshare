@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, List } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { useT } from '../../i18n';
 
 export interface HeadingItem {
   level: number;
@@ -42,6 +43,7 @@ interface OutlineProps {
 }
 
 export default function Outline({ markdown, activeSlug, onJump, variant = 'inline' }: OutlineProps) {
+  const t = useT();
   const items = useMemo(() => parseOutline(markdown), [markdown]);
   const [open, setOpen] = useState(false);
   const [stickyOpen, setStickyOpen] = useState(false);
@@ -120,10 +122,10 @@ export default function Outline({ markdown, activeSlug, onJump, variant = 'inlin
       onClick={() => setOpen((v) => !v)}
       aria-expanded={open}
       aria-haspopup="menu"
-      title={open ? 'Close outline' : 'Show outline'}
+      title={open ? t('skillEditor.outline.close') : t('skillEditor.outline.show')}
     >
       <List size={14} strokeWidth={2.2} />
-      <span>Outline</span>
+      <span>{t('skillEditor.outline.label')}</span>
       <span className="count">{items.length}</span>
       <ChevronDown size={12} strokeWidth={2.4} className={open ? 'rot' : ''} />
     </button>

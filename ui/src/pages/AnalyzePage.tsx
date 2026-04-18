@@ -30,6 +30,7 @@ import Tooltip from '../components/Tooltip';
 import Pagination from '../components/Pagination';
 import DialogShell from '../components/DialogShell';
 import { radius } from '../design';
+import { useT } from '../i18n';
 
 /* ──────────────────────────────────────────────────────────────────────
  * Helpers
@@ -89,6 +90,7 @@ function lintIssueIcon(severity: string) {
  * ────────────────────────────────────────────────────────────────────── */
 
 export default function AnalyzePage() {
+  const t = useT();
   const [data, setData] = useState<AnalyzeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,11 +106,11 @@ export default function AnalyzePage() {
       setData(res);
       setSelectedGroupIdx(0);
     } catch (err: any) {
-      setError(err.message ?? 'Failed to load analysis');
+      setError(err.message ?? t('analyze.error.failedToLoad'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchData();
@@ -128,8 +130,8 @@ export default function AnalyzePage() {
       <div className="space-y-6">
         <PageHeader
           icon={<BarChart3 size={24} strokeWidth={2.5} />}
-          title="Analyze"
-          subtitle="Loading skill analysis..."
+          title={t('analyze.title')}
+          subtitle={t('analyze.loading')}
         />
         <PageSkeleton />
       </div>
@@ -142,14 +144,14 @@ export default function AnalyzePage() {
       <div className="space-y-6">
         <PageHeader
           icon={<BarChart3 size={24} strokeWidth={2.5} />}
-          title="Analyze"
+          title={t('analyze.title')}
         />
         <Card>
           <div className="flex flex-col items-center gap-3 py-8">
             <p className="text-danger">{error}</p>
             <Button variant="secondary" size="sm" onClick={fetchData}>
               <RefreshCw size={14} strokeWidth={2.5} />
-              Retry
+              {t('analyze.retry')}
             </Button>
           </div>
         </Card>
@@ -163,18 +165,18 @@ export default function AnalyzePage() {
       <div className="space-y-6">
         <PageHeader
           icon={<BarChart3 size={24} strokeWidth={2.5} />}
-          title="Analyze"
+          title={t('analyze.title')}
           actions={
             <Button variant="secondary" size="sm" onClick={fetchData}>
               <RefreshCw size={14} strokeWidth={2.5} />
-              Refresh
+              {t('common.reloadPage')}
             </Button>
           }
         />
         <EmptyState
           icon={BarChart3}
-          title="No targets configured"
-          description="Configure targets and sync skills to see analysis data"
+          title={t('analyze.empty.title')}
+          description={t('analyze.empty.description')}
         />
       </div>
     );
@@ -185,7 +187,7 @@ export default function AnalyzePage() {
       {/* Header */}
       <PageHeader
         icon={<BarChart3 size={24} strokeWidth={2.5} />}
-        title="Analyze"
+        title={t('analyze.title')}
         subtitle={subtitle}
         actions={
           <>
@@ -197,7 +199,7 @@ export default function AnalyzePage() {
             </button>
             <Button variant="secondary" size="sm" onClick={fetchData}>
               <RefreshCw size={14} strokeWidth={2.5} />
-              Refresh
+              {t('backup.actions.refresh')}
             </Button>
           </>
         }
@@ -208,24 +210,24 @@ export default function AnalyzePage() {
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <HelpCircle size={20} strokeWidth={2.5} className="text-pencil" />
-            <h2 className="text-lg font-bold text-pencil">About Analyze</h2>
+            <h2 className="text-lg font-bold text-pencil">{t('analyze.dialog.aboutTitle')}</h2>
           </div>
-          <button onClick={() => setShowHelp(false)} className="w-8 h-8 flex items-center justify-center text-pencil-light hover:text-pencil transition-colors cursor-pointer" aria-label="Close">
+          <button onClick={() => setShowHelp(false)} className="w-8 h-8 flex items-center justify-center text-pencil-light hover:text-pencil transition-colors cursor-pointer" aria-label={t('common.close')}>
             <X size={18} strokeWidth={2.5} />
           </button>
         </div>
         <div className="space-y-3 text-sm text-pencil-light">
-          <p>Analyze helps you understand how your skills consume AI context window tokens.</p>
+          <p>{t('analyze.dialog.intro')}</p>
           <ul className="space-y-2 list-disc pl-4">
-            <li><span className="text-pencil font-medium">Always-loaded tokens</span> — skills loaded into every conversation, directly impacting available context</li>
-            <li><span className="text-pencil font-medium">On-demand max</span> — maximum tokens if all on-demand skills are invoked at once</li>
-            <li><span className="text-pencil font-medium">Top-10 chart</span> — quickly spot the heaviest skills by description size</li>
-            <li><span className="text-pencil font-medium">Quality issues</span> — find skills missing trigger phrases or descriptions that help agents invoke them correctly</li>
+            <li><span className="text-pencil font-medium">{t('analyze.dialog.alwaysLoaded')}</span> — {t('analyze.dialog.alwaysLoadedDesc')}</li>
+            <li><span className="text-pencil font-medium">{t('analyze.dialog.onDemandMax')}</span> — {t('analyze.dialog.onDemandMaxDesc')}</li>
+            <li><span className="text-pencil font-medium">{t('analyze.dialog.top10Chart')}</span> — {t('analyze.dialog.top10ChartDesc')}</li>
+            <li><span className="text-pencil font-medium">{t('analyze.dialog.qualityIssues')}</span> — {t('analyze.dialog.qualityIssuesDesc')}</li>
           </ul>
-          <p>Click any skill row to see its full token breakdown and quality details.</p>
+          <p>{t('analyze.dialog.skillDetail')}</p>
         </div>
         <p className="mt-4 pt-3 border-t border-dashed border-pencil-light/30 text-xs text-pencil-light">
-          Token counts are estimated (~4 chars/token average). Actual usage varies by model and content. Treat as approximations for relative comparison.
+          {t('analyze.dialog.tokenDisclaimer')}
         </p>
       </DialogShell>
 
@@ -264,6 +266,7 @@ export default function AnalyzePage() {
  * ────────────────────────────────────────────────────────────────────── */
 
 function SummaryCards({ target }: { target: AnalyzeTarget }) {
+  const t = useT();
   const totalIssues = useMemo(
     () => target.skills.reduce((sum, s) => sum + (s.lint_issues?.length ?? 0), 0),
     [target.skills],
@@ -271,32 +274,32 @@ function SummaryCards({ target }: { target: AnalyzeTarget }) {
 
   const cards = [
     {
-      label: 'Skills',
+      label: t('analyze.summary.skills'),
       value: target.skill_count,
       icon: <Package size={18} strokeWidth={2.5} />,
       color: 'text-success',
       iconClass: 'bg-success-light text-success border-success',
     },
     {
-      label: 'Always-loaded',
+      label: t('analyze.summary.alwaysLoaded'),
       value: formatTokens(target.always_loaded.estimated_tokens),
-      unit: 'tokens',
+      unit: t('analyze.summary.tokens'),
       sub: `${target.always_loaded.chars.toLocaleString()} chars`,
       icon: <Zap size={18} strokeWidth={2.5} />,
       color: 'text-info',
       iconClass: 'bg-info-light text-info border-info',
     },
     {
-      label: 'On-demand max',
+      label: t('analyze.summary.onDemandMax'),
       value: formatTokens(target.on_demand_max.estimated_tokens),
-      unit: 'tokens',
+      unit: t('analyze.summary.tokens'),
       sub: `${target.on_demand_max.chars.toLocaleString()} chars`,
       icon: <ToggleRight size={18} strokeWidth={2.5} />,
       color: 'text-pencil',
       iconClass: 'bg-paper text-muted-dark border-muted-dark',
     },
     {
-      label: 'Quality issues',
+      label: t('analyze.summary.qualityIssues'),
       value: totalIssues,
       icon: totalIssues > 0
         ? <AlertTriangle size={18} strokeWidth={2.5} />
@@ -337,6 +340,7 @@ function SummaryCards({ target }: { target: AnalyzeTarget }) {
  * ────────────────────────────────────────────────────────────────────── */
 
 function TopHeaviestChart({ skills }: { skills: AnalyzeSkill[] }) {
+  const t = useT();
   const { sorted, maxTokens } = useMemo(() => {
     const top = [...skills]
       .sort((a, b) => b.description_tokens - a.description_tokens)
@@ -350,11 +354,11 @@ function TopHeaviestChart({ skills }: { skills: AnalyzeSkill[] }) {
     <Card>
       <h3 className="text-base font-bold text-pencil mb-4 flex items-center gap-2">
         <IconBlock className="bg-info-light text-info border-info"><BarChart3 size={14} strokeWidth={2.5} /></IconBlock>
-        Top-10 Heaviest Skills
-        <span className="text-xs font-normal text-pencil-light">(by description tokens)</span>
+        {t('analyze.chart.title')}
+        <span className="text-xs font-normal text-pencil-light">{t('analyze.chart.titleSub')}</span>
       </h3>
       {sorted.length === 0 ? (
-        <p className="text-pencil-light text-sm py-4">No skills to display</p>
+        <p className="text-pencil-light text-sm py-4">{t('analyze.chart.noSkills')}</p>
       ) : (
         <div className="space-y-1.5">
           {sorted.map((skill, idx) => {
@@ -402,7 +406,7 @@ function TopHeaviestChart({ skills }: { skills: AnalyzeSkill[] }) {
       )}
       {/* Footer info */}
       <p className="text-xs text-pencil-light mt-4 pt-3 border-t border-dashed border-pencil-light/20">
-        Based on description token count across {skills.length} skills
+        {t('analyze.chart.basedOn', { count: skills.length })}
       </p>
     </Card>
   );
@@ -418,6 +422,7 @@ interface LintSummaryProps {
 }
 
 function LintSummary({ skills, onRuleClick }: LintSummaryProps) {
+  const t = useT();
   const { grouped, maxCount, totalIssues } = useMemo(() => {
     const map = new Map<string, { rule: string; severity: 'error' | 'warning'; count: number }>();
     for (const skill of skills) {
@@ -440,17 +445,22 @@ function LintSummary({ skills, onRuleClick }: LintSummaryProps) {
     <Card>
       <h3 className="text-base font-bold text-pencil mb-1 flex items-center gap-2">
         <IconBlock className="bg-warning-light text-warning border-warning"><AlertTriangle size={14} strokeWidth={2.5} /></IconBlock>
-        Quality Issues
+        {t('analyze.lint.title')}
       </h3>
       {grouped.length === 0 ? (
         <div className="flex flex-col items-center py-6 text-center">
           <CheckCircle size={28} strokeWidth={2} className="text-success mb-2" />
-          <p className="text-sm text-success font-medium">All skills pass quality checks</p>
+          <p className="text-sm text-success font-medium">{t('analyze.lint.allPassed')}</p>
         </div>
       ) : (
         <>
           <p className="text-xs text-pencil-light mb-3">
-            {totalIssues} issue{totalIssues !== 1 ? 's' : ''} in {grouped.length} categor{grouped.length !== 1 ? 'ies' : 'y'}
+            {t('analyze.lint.issueCount', {
+              count: totalIssues,
+              s: totalIssues !== 1 ? 's' : '',
+              cats: grouped.length,
+              ies: grouped.length !== 1 ? 'ies' : 'y',
+            })}
           </p>
           <div className="space-y-2">
             {grouped.map((g) => {
@@ -493,6 +503,7 @@ function LintSummary({ skills, onRuleClick }: LintSummaryProps) {
  * ────────────────────────────────────────────────────────────────────── */
 
 function FilteredSummaryBar({ filtered, total }: { filtered: AnalyzeSkill[]; total: number }) {
+  const t = useT();
   const summary = useMemo(() => {
     let descTokens = 0;
     let bodyTokens = 0;
@@ -506,9 +517,9 @@ function FilteredSummaryBar({ filtered, total }: { filtered: AnalyzeSkill[]; tot
   const isActive = filtered.length !== total;
 
   const stats = [
-    { label: 'Always', value: formatTokens(summary.descTokens), icon: <Zap size={14} strokeWidth={2.5} />, colorClass: 'text-info', bgClass: 'bg-info-light border-info' },
-    { label: 'On-demand', value: formatTokens(summary.bodyTokens), icon: <ToggleRight size={14} strokeWidth={2.5} />, colorClass: 'text-pencil', bgClass: 'bg-paper border-muted-dark' },
-    { label: 'Total', value: formatTokens(summary.totalTokens), icon: <Package size={14} strokeWidth={2.5} />, colorClass: 'text-success', bgClass: 'bg-success-light border-success' },
+    { label: t('analyze.filter.alwaysLabel'), value: formatTokens(summary.descTokens), icon: <Zap size={14} strokeWidth={2.5} />, colorClass: 'text-info', bgClass: 'bg-info-light border-info' },
+    { label: t('analyze.filter.onDemandLabel'), value: formatTokens(summary.bodyTokens), icon: <ToggleRight size={14} strokeWidth={2.5} />, colorClass: 'text-pencil', bgClass: 'bg-paper border-muted-dark' },
+    { label: t('analyze.filter.totalLabel'), value: formatTokens(summary.totalTokens), icon: <Package size={14} strokeWidth={2.5} />, colorClass: 'text-success', bgClass: 'bg-success-light border-success' },
   ];
 
   return (
@@ -550,6 +561,7 @@ function SkillTable({
   lintFilter: string | null;
   onLintFilterChange: (rule: string | null) => void;
 }) {
+  const t = useT();
   const [sortKey, setSortKey] = useState<SortKey>('desc');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [search, setSearch] = useState('');
@@ -631,7 +643,7 @@ function SkillTable({
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
         <h3 className="text-base font-bold text-pencil flex items-center gap-2">
           <IconBlock className="bg-success-light text-success border-success"><FileText size={14} strokeWidth={2.5} /></IconBlock>
-          All Skills
+          {t('analyze.table.allSkills')}
           <span className="text-xs font-normal text-pencil-light">({filtered.length})</span>
         </h3>
         <div className="flex-1" />
@@ -649,7 +661,7 @@ function SkillTable({
           )}
           <div className="w-40">
             <Input
-              placeholder="Search..."
+              placeholder={t('analyze.table.searchPlaceholder')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="!py-1.5 !px-3 !text-sm"
@@ -674,11 +686,11 @@ function SkillTable({
           <thead className="sticky top-0 z-10 bg-surface">
             <tr className="border-b-2 border-dashed border-muted-dark">
               {([
-                ['name', 'Name'],
-                ['desc', 'Desc Tokens'],
-                ['body', 'Body Tokens'],
-                ['total', 'Total'],
-                ['issues', 'Issues'],
+                ['name', t('analyze.table.name')],
+                ['desc', t('analyze.table.descTokens')],
+                ['body', t('analyze.table.bodyTokens')],
+                ['total', t('analyze.table.total')],
+                ['issues', t('analyze.table.issues')],
               ] as [SortKey, string][]).map(([key, label]) => (
                 <th
                   key={key}
@@ -697,8 +709,8 @@ function SkillTable({
                 <td colSpan={5} className="py-6">
                   <EmptyState
                     icon={search || lintFilter ? SearchX : FileText}
-                    title={search || lintFilter ? 'No skills match the current filters' : 'No skills found'}
-                    description={search || lintFilter ? 'Try a different search term or clear the filter' : undefined}
+                    title={search || lintFilter ? t('analyze.table.noMatch') : t('analyze.table.noSkills')}
+                    description={search || lintFilter ? t('analyze.table.noMatchDesc') : undefined}
                   />
                 </td>
               </tr>
@@ -774,6 +786,7 @@ function SkillDetailDialog({
   onClose: () => void;
   onLintFilter: (rule: string) => void;
 }) {
+  const t = useT();
   if (!skill) return null;
 
   const total = skill.description_tokens + skill.body_tokens;
@@ -788,7 +801,7 @@ function SkillDetailDialog({
           <h2 className="text-lg font-bold text-pencil truncate">{skill.path}</h2>
           {skill.is_tracked && <Badge variant="info" size="sm">Tracked</Badge>}
         </div>
-        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-pencil-light hover:text-pencil transition-colors cursor-pointer shrink-0" aria-label="Close">
+        <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-pencil-light hover:text-pencil transition-colors cursor-pointer shrink-0" aria-label={t('common.close')}>
           <X size={18} strokeWidth={2.5} />
         </button>
       </div>
@@ -796,13 +809,13 @@ function SkillDetailDialog({
       {/* Token breakdown */}
       <div className="grid grid-cols-3 gap-3 mb-4">
         {[
-          { label: 'Description', tokens: skill.description_tokens, chars: skill.description_chars, bg: 'var(--color-info-light)' },
-          { label: 'Body', tokens: skill.body_tokens, chars: skill.body_chars, bg: 'var(--color-warning-light)' },
-          { label: 'Total', tokens: total, chars: totalChars, bg: 'var(--color-success-light)' },
+          { label: t('analyze.breakdown.description'), tokens: skill.description_tokens, chars: skill.description_chars, bg: 'var(--color-info-light)' },
+          { label: t('analyze.breakdown.body'), tokens: skill.body_tokens, chars: skill.body_chars, bg: 'var(--color-warning-light)' },
+          { label: t('analyze.breakdown.total'), tokens: total, chars: totalChars, bg: 'var(--color-success-light)' },
         ].map((item) => (
           <div key={item.label} className="p-2.5" style={{ borderRadius: radius.sm, backgroundColor: item.bg }}>
             <p className="text-xs text-pencil-light uppercase tracking-wide">{item.label}</p>
-            <p className="text-base font-bold text-pencil">{formatTokens(item.tokens)} <span className="text-xs font-medium text-pencil-light">tokens</span></p>
+            <p className="text-base font-bold text-pencil">{formatTokens(item.tokens)} <span className="text-xs font-medium text-pencil-light">{t('analyze.summary.tokens')}</span></p>
             <p className="text-xs text-pencil-light">{item.chars.toLocaleString()} chars</p>
           </div>
         ))}
@@ -811,7 +824,7 @@ function SkillDetailDialog({
       {/* Details */}
       {skill.targets && skill.targets.length > 0 && (
         <p className="text-sm text-pencil-light mb-4">
-          <span className="text-pencil-light/60">Restricted to:</span>{' '}
+          <span className="text-pencil-light/60">{t('analyze.dialog.restrictedTo')}</span>{' '}
           {skill.targets.join(', ')}
         </p>
       )}
@@ -819,7 +832,7 @@ function SkillDetailDialog({
       {/* Quality issues */}
       {skill.lint_issues && skill.lint_issues.length > 0 && (
         <div className="mb-4">
-          <p className="text-xs text-pencil-light uppercase tracking-wide mb-2">Quality Issues</p>
+          <p className="text-xs text-pencil-light uppercase tracking-wide mb-2">{t('analyze.lint.title')}</p>
           <div className="space-y-1.5">
             {skill.lint_issues.map((issue, idx) => (
               <LintIssueRow key={`${issue.rule}-${idx}`} issue={issue} onRuleClick={onLintFilter} />
@@ -831,7 +844,7 @@ function SkillDetailDialog({
       {/* Description preview */}
       {skill.description && (
         <>
-          <p className="mt-4 pt-3 border-t border-dashed border-pencil-light/30 text-xs text-pencil-light uppercase tracking-wide mb-1">Description Preview</p>
+          <p className="mt-4 pt-3 border-t border-dashed border-pencil-light/30 text-xs text-pencil-light uppercase tracking-wide mb-1">{t('analyze.dialog.descriptionPreview')}</p>
           <p className="text-sm text-pencil-light">{skill.description}</p>
         </>
       )}
@@ -842,7 +855,7 @@ function SkillDetailDialog({
           to={`/resources/${encodeURIComponent(skill.name)}`}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-info hover:underline"
         >
-          View Skill Detail
+          {t('analyze.dialog.viewSkillDetail')}
           <ExternalLink size={14} strokeWidth={2.5} />
         </Link>
       </div>

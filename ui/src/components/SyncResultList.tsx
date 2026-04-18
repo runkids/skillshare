@@ -4,12 +4,15 @@ import type { SyncResult } from '../api/client';
 
 import Badge from './Badge';
 import Card from './Card';
+import { useT } from '../i18n';
 
 export default function SyncResultList({ results }: { results: SyncResult[] }) {
+  const t = useT();
+
   if (results.length === 0) {
     return (
       <Card variant="outlined">
-        <p className="text-pencil-light text-center py-4">No results to show.</p>
+        <p className="text-pencil-light text-center py-4">{t('syncResult.empty')}</p>
       </Card>
     );
   }
@@ -34,12 +37,12 @@ export default function SyncResultList({ results }: { results: SyncResult[] }) {
               <span className="text-pencil font-medium flex-1">{r.target}</span>
               <div className="flex gap-2 flex-wrap">
                 {r.dir_created && (
-                  <Badge variant="info">new directory</Badge>
+                  <Badge variant="info">{t('syncResult.dirCreated')}</Badge>
                 )}
-                {linked > 0 && <Badge variant="success">{linked} linked</Badge>}
-                {updated > 0 && <Badge variant="info">{updated} updated</Badge>}
-                {skipped > 0 && <Badge variant="default">{skipped} skipped</Badge>}
-                {pruned > 0 && <Badge variant="warning">{pruned} pruned</Badge>}
+                {linked > 0 && <Badge variant="success">{t('syncResult.linked', { count: linked })}</Badge>}
+                {updated > 0 && <Badge variant="info">{t('syncResult.updated', { count: updated })}</Badge>}
+                {skipped > 0 && <Badge variant="default">{t('syncResult.skipped', { count: skipped })}</Badge>}
+                {pruned > 0 && <Badge variant="warning">{t('syncResult.pruned', { count: pruned })}</Badge>}
               </div>
             </div>
           </Card>

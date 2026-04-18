@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useT } from '../i18n';
 import {
   Archive,
   Clock,
@@ -51,6 +52,7 @@ function formatDate(dateStr: string): string {
 }
 
 export default function BackupPage() {
+  const t = useT();
   const { isProjectMode } = useAppContext();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -83,9 +85,9 @@ export default function BackupPage() {
     try {
       const res = await api.createBackup();
       if (res.backedUpTargets?.length) {
-        toast(`Backed up ${res.backedUpTargets.length} target(s)`, 'success');
+        toast(t('backup.toast.backedUp', { count: res.backedUpTargets.length }), 'success');
       } else {
-        toast('Nothing to back up', 'info');
+        toast(t('backup.toast.nothingToBackUp'), 'info');
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.backups });
     } catch (e: any) {
@@ -99,7 +101,7 @@ export default function BackupPage() {
     setCleaningUp(true);
     try {
       const res = await api.cleanupBackups();
-      toast(`Cleaned up ${res.removed} old backup(s)`, 'success');
+      toast(t('backup.toast.cleanedUp', { count: res.removed }), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.backups });
     } catch (e: any) {
       toast(e.message, 'error');
@@ -131,7 +133,7 @@ export default function BackupPage() {
     const needsForce = (validation.result?.conflicts?.length ?? 0) > 0;
     try {
       await api.restore({ ...restoreTarget, force: needsForce });
-      toast(`Restored ${restoreTarget.target} from backup`, 'success');
+      toast(t('backup.toast.restored', { target: restoreTarget.target }), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.backups });
       queryClient.invalidateQueries({ queryKey: queryKeys.targets.all });
     } catch (e: any) {
@@ -149,16 +151,16 @@ export default function BackupPage() {
         <Card className="text-center py-12">
           <Archive size={40} strokeWidth={2} className="text-pencil-light mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-pencil mb-2">
-            Backup & Restore is not available in project mode
+            {t('backup.projectMode.title')}
           </h2>
           <p className="text-pencil-light mb-4">
-            Project skills are managed through your project's own version control.
+            {t('backup.projectMode.description')}
           </p>
           <Link
             to="/"
             className="text-blue hover:underline"
           >
-            Back to Dashboard
+            {t('common.back')}
           </Link>
         </Card>
       </div>
@@ -179,12 +181,12 @@ export default function BackupPage() {
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         icon={<Archive size={24} strokeWidth={2.5} />}
-        title="Backup & Restore"
-        subtitle="Create snapshots of your targets and restore them when needed"
+        title={t('backup.title')}
+        subtitle={t('backup.subtitle')}
         actions={
           <>
             <Button onClick={handleRefresh} variant="secondary" size="sm">
-              <RefreshCw size={16} /> Refresh
+              <RefreshCw size={16} /> {t('backup.actions.refresh')}
             </Button>
             <Button
               variant="primary"
@@ -193,9 +195,9 @@ export default function BackupPage() {
               disabled={creating}
             >
               {creating ? (
-                <><Spinner size="sm" /> Creating...</>
+                <><Spinner size="sm" /> {t('backup.actions.creating')}</>
               ) : (
-                <><Plus size={16} strokeWidth={2.5} /> Create Backup</>
+                <><Plus size={16} strokeWidth={2.5} /> {t('backup.actions.createBackup')}</>
               )}
             </Button>
             {backups.length > 0 && (
@@ -204,7 +206,7 @@ export default function BackupPage() {
                 size="sm"
                 onClick={() => setCleanupOpen(true)}
               >
-                <Trash2 size={16} strokeWidth={2.5} /> Cleanup
+                <Trash2 size={16} strokeWidth={2.5} /> {t('backup.actions.cleanup')}
               </Button>
             )}
           </>
@@ -214,7 +216,7 @@ export default function BackupPage() {
       {/* Summary line */}
       {backups.length > 0 && (
         <p className="text-sm text-pencil-light">
-          {backups.length} backup{backups.length !== 1 ? 's' : ''} on file
+          {t('backup.summary.backupsOnFile', { count: backups.length, s: backups.length !== 1 ? 's' : '' })}
           {data && data.totalSizeBytes > 0 && ` · ${formatSize(data.totalSizeBytes)}`}
         </p>
       )}
@@ -223,11 +225,11 @@ export default function BackupPage() {
       {backups.length === 0 ? (
         <EmptyState
           icon={Archive}
-          title="No backups found"
-          description="Create your first backup to protect your target configurations"
+          title={t('backup.empty.title')}
+          description={t('backup.empty.description')}
           action={
             <Button variant="primary" onClick={handleCreate} disabled={creating}>
-              <Archive size={16} strokeWidth={2.5} /> Create First Backup
+              <Archive size={16} strokeWidth={2.5} /> {t('backup.actions.createFirstBackup')}
             </Button>
           }
         />
@@ -248,14 +250,13 @@ export default function BackupPage() {
       {/* Cleanup Dialog */}
       <ConfirmDialog
         open={cleanupOpen}
-        title="Cleanup Old Backups"
+        title={t('backup.cleanup.title')}
         message={
           <span>
-            This will remove old backups based on retention policy
-            (max 30 days, max 10 backups, max 500 MB).
+            {t('backup.cleanup.message')}
           </span>
         }
-        confirmText="Cleanup"
+        confirmText={t('backup.cleanup.confirmText')}
         variant="danger"
         loading={cleaningUp}
         onConfirm={handleCleanup}
@@ -265,33 +266,33 @@ export default function BackupPage() {
       {/* Restore Dialog */}
       <ConfirmDialog
         open={restoreTarget !== null}
-        title="Restore Backup"
+        title={t('backup.restore.title')}
         wide
         message={
           restoreTarget ? (
             <div className="text-left space-y-3">
               <div className="space-y-1 text-sm">
-                <div><strong>Target:</strong> {restoreTarget.target}</div>
-                <div><strong>From:</strong> <code className="text-xs bg-paper-dark/50 px-1 rounded">{restoreTarget.timestamp}</code></div>
+                <div><strong>{t('backup.card.target')}</strong> {restoreTarget.target}</div>
+                <div><strong>{t('backup.card.from')}</strong> <code className="text-xs bg-paper-dark/50 px-1 rounded">{restoreTarget.timestamp}</code></div>
                 {validation.result && validation.result.backupSizeBytes > 0 && (
-                  <div><strong>Backup size:</strong> {formatSize(validation.result.backupSizeBytes)}</div>
+                  <div><strong>{t('backup.card.backupSize')}</strong> {formatSize(validation.result.backupSizeBytes)}</div>
                 )}
               </div>
 
               {validation.loading && (
-                <p className="text-pencil-light italic text-sm">Checking target state...</p>
+                <p className="text-pencil-light italic text-sm">{t('backup.restore.checkingTarget')}</p>
               )}
 
               {validation.result?.currentIsSymlink && (
                 <p className="text-blue text-sm">
-                  Current target is a symlink — it will be safely replaced.
+                  {t('backup.restore.symlinkNote')}
                 </p>
               )}
 
               {(validation.result?.conflicts?.length ?? 0) > 0 && (
                 <div className="bg-warning/10 border border-warning/30 rounded p-2 text-sm">
                   <p className="font-medium text-warning mb-1">
-                    Target has {validation.result!.conflicts.length} existing item(s) that will be overwritten:
+                    {t('backup.restore.overwriteWarning', { count: validation.result!.conflicts.length })}
                   </p>
                   <ul className="list-disc list-inside text-pencil-light max-h-24 overflow-y-auto">
                     {validation.result!.conflicts.slice(0, 10).map((f) => (
@@ -306,7 +307,7 @@ export default function BackupPage() {
 
               {validation.result && !validation.result.currentIsSymlink && validation.result.conflicts.length === 0 && (
                 <p className="text-green text-sm">
-                  Target is empty or does not exist — safe to restore.
+                  {t('backup.restore.emptyOrMissing')}
                 </p>
               )}
             </div>
@@ -314,8 +315,8 @@ export default function BackupPage() {
         }
         confirmText={
           (validation.result?.conflicts?.length ?? 0) > 0
-            ? 'Restore (overwrite)'
-            : 'Restore'
+            ? t('backup.actions.restoreOverwrite')
+            : t('backup.actions.restore')
         }
         variant="danger"
         loading={restoring || validation.loading}
@@ -333,6 +334,7 @@ function BackupCard({
   backup: BackupInfo;
   onRestore: (target: string) => void;
 }) {
+  const t = useT();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -399,7 +401,7 @@ function BackupCard({
                 onClick={toggleDropdown}
               >
                 <RotateCcw size={14} strokeWidth={2.5} />
-                Restore target
+                {t('backup.actions.restoreTarget')}
                 <ChevronDown
                   size={14}
                   strokeWidth={2.5}

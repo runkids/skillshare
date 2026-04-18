@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import SegmentedControl from './SegmentedControl';
 import { radius } from '../design';
+import { useT } from '../i18n';
 
 interface PageSizeConfig {
   value: number;
@@ -25,12 +26,13 @@ export default function Pagination({
   rangeText,
   pageSize,
 }: PaginationProps) {
+  const t = useT();
   return (
     <div className="flex items-center justify-between pt-4 mt-4 border-t-2 border-dashed border-muted">
       <div className="flex items-center gap-2 text-sm text-pencil-light">
         {pageSize && (
           <>
-            <span>Show</span>
+            <span>{t('pagination.show')}</span>
             <SegmentedControl
               value={String(pageSize.value)}
               onChange={(v) => pageSize.onChange(Number(v))}

@@ -10,6 +10,7 @@ import Button from './Button';
 import DialogShell from './DialogShell';
 import Spinner from './Spinner';
 import SyncResultList from './SyncResultList';
+import { useT } from '../i18n';
 
 interface SyncPreviewModalProps {
   open: boolean;
@@ -17,6 +18,7 @@ interface SyncPreviewModalProps {
 }
 
 export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProps) {
+  const t = useT();
   const queryClient = useQueryClient();
 
   const [loading, setLoading] = useState(false);
@@ -82,12 +84,12 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
     <DialogShell open={open} onClose={onClose} maxWidth="2xl" preventClose={syncing}>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-pencil">{synced ? 'Sync Complete' : 'Sync Preview'}</h2>
+            <h2 className="text-lg font-bold text-pencil">{synced ? t('syncPreview.titleComplete') : t('syncPreview.titlePreview')}</h2>
             {results !== null && !loading && !synced && (
               <button
                 onClick={runDryRun}
                 className="text-pencil-light hover:text-pencil transition-colors"
-                title="Refresh preview"
+                title={t('syncPreview.refreshPreview')}
               >
                 <RefreshCw size={16} />
               </button>
@@ -97,7 +99,7 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
           {synced && (
             <div className="flex items-center gap-2 rounded-lg border border-success/30 bg-success/5 px-3 py-2 text-sm font-medium text-success">
               <CheckCircle size={16} className="shrink-0" />
-              Sync completed successfully.
+              {t('syncPreview.completed')}
             </div>
           )}
 
@@ -113,7 +115,7 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
           {loading && (
             <div className="flex items-center justify-center py-8">
               <Spinner />
-              <span className="ml-3 text-pencil-light">Running dry-run...</span>
+              <span className="ml-3 text-pencil-light">{t('syncPreview.dryRunning')}</span>
             </div>
           )}
 
@@ -121,20 +123,20 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
             <div className="text-center py-4 space-y-3">
               <p className="text-danger text-sm">{error}</p>
               <Button variant="secondary" size="sm" onClick={runDryRun}>
-                Retry
+                {t('syncPreview.retryButton')}
               </Button>
             </div>
           )}
 
           {!loading && !error && noTargets && (
             <p className="text-pencil-light text-center py-4">
-              No targets configured. Check your config to add targets.
+              {t('syncPreview.noTargets')}
             </p>
           )}
 
           {!loading && !error && allUpToDate && !noTargets && (
             <p className="text-pencil-light text-center py-4">
-              Everything is up to date. No sync needed.
+              {t('syncPreview.allUpToDate')}
             </p>
           )}
 
@@ -145,16 +147,16 @@ export default function SyncPreviewModal({ open, onClose }: SyncPreviewModalProp
           <div className="flex justify-end gap-3 pt-2">
             {synced ? (
               <Button variant="primary" onClick={onClose}>
-                Close
+                {t('syncPreview.closeButton')}
               </Button>
             ) : (
               <>
                 <Button variant="secondary" onClick={onClose} disabled={syncing}>
-                  Cancel
+                  {t('syncPreview.cancelButton')}
                 </Button>
                 {!allUpToDate && !noTargets && results && !error && (
                   <Button onClick={handleSync} loading={syncing}>
-                    Sync Now
+                    {t('syncPreview.syncNowButton')}
                   </Button>
                 )}
               </>

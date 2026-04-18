@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { LogEntry, LogStatsResponse } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
+import { useT } from '../i18n';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import PageHeader from '../components/PageHeader';
@@ -212,6 +213,7 @@ function formatDetail(entry: LogEntry): string {
 /* ─── LogTable — clean, minimal table ─── */
 
 function LogTable({ entries }: { entries: LogEntry[] }) {
+  const t = useT();
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState<number>(10);
 
@@ -227,11 +229,11 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b-2 border-dashed border-muted-dark text-pencil-light">
-              <th className="pb-3 pr-4 font-medium">Time</th>
-              <th className="pb-3 pr-4 font-medium">Command</th>
-              <th className="pb-3 pr-4 font-medium">Details</th>
-              <th className="pb-3 pr-4 font-medium">Status</th>
-              <th className="pb-3 font-medium text-right">Duration</th>
+              <th className="pb-3 pr-4 font-medium">{t('log.table.time')}</th>
+              <th className="pb-3 pr-4 font-medium">{t('log.table.command')}</th>
+              <th className="pb-3 pr-4 font-medium">{t('log.table.details')}</th>
+              <th className="pb-3 pr-4 font-medium">{t('log.table.status')}</th>
+              <th className="pb-3 font-medium text-right">{t('log.table.duration')}</th>
             </tr>
           </thead>
           <tbody>
@@ -287,6 +289,7 @@ function LogTable({ entries }: { entries: LogEntry[] }) {
 /* ─── SummaryLine — compact stats in one line ─── */
 
 function SummaryLine({ stats, filtered }: { stats?: LogStatsResponse; filtered: boolean }) {
+  const t = useT();
   if (!stats || stats.total === 0) return null;
 
   const rate = Math.round(stats.success_rate * 100);
@@ -294,18 +297,18 @@ function SummaryLine({ stats, filtered }: { stats?: LogStatsResponse; filtered: 
 
   return (
     <p className="text-sm text-pencil-light">
-      <span className="font-medium" style={{ color: rateColor }}>{rate}%</span>
-      {' success · '}
-      {stats.total} entries
+      <span className="font-medium" style={{ color: rateColor }}>{t('log.summary.success', { rate })}</span>
+      {' · '}
+      {t('log.summary.entries', { total: stats.total })}
       {stats.last_operation && (
         <>
-          {' · Last: '}
+          {' · '}{t('log.summary.lastCommand')}{' '}
           <span className="font-medium text-pencil">{stats.last_operation.cmd}</span>
           {' '}
           {timeAgo(stats.last_operation.ts)}
         </>
       )}
-      {filtered && ' · filtered'}
+      {filtered && ' · ' + t('log.summary.filtered')}
     </p>
   );
 }
@@ -313,6 +316,7 @@ function SummaryLine({ stats, filtered }: { stats?: LogStatsResponse; filtered: 
 /* ─── LogPage ─── */
 
 export default function LogPage() {
+  const t = useT();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<LogTab>('all');
@@ -428,7 +432,7 @@ export default function LogPage() {
       }
       queryClient.invalidateQueries({ queryKey: ['log'] });
       queryClient.invalidateQueries({ queryKey: ['log-stats'] });
-      toast('Log cleared', 'success');
+      toast(t('log.toast.cleared'), 'success');
     } catch (e: any) {
       toast(e.message, 'error');
     } finally {
@@ -445,18 +449,18 @@ export default function LogPage() {
     <div className="space-y-5 animate-fade-in">
       <PageHeader
         icon={<ScrollText size={24} strokeWidth={2.5} />}
-        title="Operations & Audit Log"
-        subtitle="Record of CLI and UI operations"
+        title={t('log.title')}
+        subtitle={t('log.subtitle')}
         actions={
           <>
             <Button onClick={handleRefresh} variant="secondary" size="sm" disabled={loading}>
               {loading ? <Spinner size="sm" /> : <RefreshCw size={16} />}
-              Refresh
+              {t('log.refresh')}
             </Button>
             {hasEntries && (
               <Button onClick={() => setConfirmOpen(true)} variant="danger" size="sm" disabled={clearing}>
                 <Trash2 size={16} />
-                Clear
+                {t('log.clear')}
               </Button>
             )}
           </>
@@ -469,38 +473,38 @@ export default function LogPage() {
           value={tab}
           onChange={setTab}
           options={[
-            { value: 'all', label: 'All' },
-            { value: 'ops', label: 'Operations' },
-            { value: 'audit', label: 'Audit' },
+            { value: 'all', label: t('log.tab.all') },
+            { value: 'ops', label: t('log.tab.ops') },
+            { value: 'audit', label: t('log.tab.audit') },
           ]}
         />
         <div className="w-36">
           <Select
-            label="Command"
+            label={t('log.filter.command')}
             value={cmdFilter}
             onChange={setCmdFilter}
             size="sm"
             options={[
-              { value: '', label: 'All' },
+              { value: '', label: t('log.filter.all') },
               ...knownCommands.map((cmd) => ({ value: cmd, label: cmd })),
             ]}
           />
         </div>
         <div className="w-28">
           <Select
-            label="Status"
+            label={t('log.filter.status')}
             value={statusFilter}
             onChange={setStatusFilter}
             size="sm"
-            options={STATUS_OPTIONS.map((s) => ({ value: s, label: s || 'All' }))}
+            options={STATUS_OPTIONS.map((s) => ({ value: s, label: s || t('log.filter.all') }))}
           />
         </div>
         <div>
-          <span className="block text-sm text-pencil-light mb-1">Time</span>
+          <span className="block text-sm text-pencil-light mb-1">{t('log.filter.time')}</span>
           <SegmentedControl
             value={timeRange}
             onChange={setTimeRange}
-            options={TIME_RANGES.map((tr) => ({ value: tr.value, label: tr.label }))}
+            options={TIME_RANGES.map((tr) => ({ value: tr.value, label: tr.value === '' ? t('log.timeRange.all') : tr.label }))}
           />
         </div>
       </div>
@@ -512,10 +516,10 @@ export default function LogPage() {
       {!hasEntries ? (
         <EmptyState
           icon={ScrollText}
-          title={hasFilter ? 'No matching entries' : 'No entries yet'}
+          title={hasFilter ? t('log.empty.filterTitle') : t('log.empty.noEntriesTitle')}
           description={hasFilter
-            ? 'Try adjusting filters or expanding the time range.'
-            : 'Operations and audit events will appear here.'}
+            ? t('log.empty.filterDescription')
+            : t('log.empty.noEntriesDescription')}
         />
       ) : (
         <LogTable entries={displayEntries} />
@@ -525,9 +529,11 @@ export default function LogPage() {
         open={confirmOpen}
         onConfirm={handleClear}
         onCancel={() => setConfirmOpen(false)}
-        title="Clear Log"
-        message={`Clear the ${tab === 'all' ? 'operations and audit logs' : tab === 'audit' ? 'audit log' : 'operations log'}? This cannot be undone.`}
-        confirmText="Clear"
+        title={t('log.clearConfirm.title')}
+        message={t('log.clearConfirm.message', {
+          logType: tab === 'all' ? t('log.clearConfirm.all') : tab === 'audit' ? t('log.clearConfirm.audit') : t('log.clearConfirm.ops'),
+        })}
+        confirmText={t('log.clearConfirm.confirmText')}
         variant="danger"
         loading={clearing}
       />

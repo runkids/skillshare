@@ -31,67 +31,70 @@ import { useGlobalShortcuts } from '../hooks/useGlobalShortcuts';
 import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import ShortcutHUD from './ShortcutHUD';
 import ThemePopover from './ThemePopover';
+import LanguagePopover from './LanguagePopover';
 import { useTour } from './tour';
 import UpdateDialog from './UpdateDialog';
+import { useT } from '../i18n';
 
 interface NavItem {
   to: string;
   icon: React.ElementType;
-  label: string;
+  labelKey: string;
   hideInProject?: boolean;
 }
 
 interface NavGroup {
-  label?: string;
+  labelKey?: string;
   items: NavItem[];
 }
 
 const navGroups: NavGroup[] = [
   {
     items: [
-      { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/', icon: LayoutDashboard, labelKey: 'layout.nav.dashboard' },
     ],
   },
   {
-    label: 'MANAGE',
+    labelKey: 'layout.group.manage',
     items: [
-      { to: '/resources', icon: Layers, label: 'Resources' },
-      { to: '/extras', icon: FolderPlus, label: 'Extras' },
-      { to: '/targets', icon: Target, label: 'Targets' },
-      { to: '/search', icon: Search, label: 'Search' },
+      { to: '/resources', icon: Layers, labelKey: 'layout.nav.resources' },
+      { to: '/extras', icon: FolderPlus, labelKey: 'layout.nav.extras' },
+      { to: '/targets', icon: Target, labelKey: 'layout.nav.targets' },
+      { to: '/search', icon: Search, labelKey: 'layout.nav.search' },
     ],
   },
   {
-    label: 'OPERATIONS',
+    labelKey: 'layout.group.operations',
     items: [
-      { to: '/sync', icon: RefreshCw, label: 'Sync' },
-      { to: '/collect', icon: ArrowDownToLine, label: 'Collect' },
-      { to: '/install', icon: Download, label: 'Install' },
-      { to: '/update', icon: ArrowUpCircle, label: 'Update' },
-      { to: '/uninstall', icon: Trash2, label: 'Uninstall' },
+      { to: '/sync', icon: RefreshCw, labelKey: 'layout.nav.sync' },
+      { to: '/collect', icon: ArrowDownToLine, labelKey: 'layout.nav.collect' },
+      { to: '/install', icon: Download, labelKey: 'layout.nav.install' },
+      { to: '/update', icon: ArrowUpCircle, labelKey: 'layout.nav.update' },
+      { to: '/uninstall', icon: Trash2, labelKey: 'layout.nav.uninstall' },
     ],
   },
   {
-    label: 'SECURITY & MAINTENANCE',
+    labelKey: 'layout.group.securityMaintenance',
     items: [
-      { to: '/audit', icon: ShieldCheck, label: 'Audit' },
-      { to: '/analyze', icon: BarChart3, label: 'Analyze' },
-      { to: '/git', icon: GitBranch, label: 'Git Sync', hideInProject: true },
-      { to: '/backup', icon: Archive, label: 'Backup', hideInProject: true },
-      { to: '/trash', icon: Trash2, label: 'Trash' },
+      { to: '/audit', icon: ShieldCheck, labelKey: 'layout.nav.audit' },
+      { to: '/analyze', icon: BarChart3, labelKey: 'layout.nav.analyze' },
+      { to: '/git', icon: GitBranch, labelKey: 'layout.nav.gitSync', hideInProject: true },
+      { to: '/backup', icon: Archive, labelKey: 'layout.nav.backup', hideInProject: true },
+      { to: '/trash', icon: Trash2, labelKey: 'layout.nav.trash' },
     ],
   },
   {
-    label: 'SYSTEM',
+    labelKey: 'layout.group.system',
     items: [
-      { to: '/log', icon: ScrollText, label: 'Log' },
-      { to: '/config', icon: Settings, label: 'Config' },
-      { to: '/doctor', icon: Stethoscope, label: 'Health Check' },
+      { to: '/log', icon: ScrollText, labelKey: 'layout.nav.log' },
+      { to: '/config', icon: Settings, labelKey: 'layout.nav.config' },
+      { to: '/doctor', icon: Stethoscope, labelKey: 'layout.nav.healthCheck' },
     ],
   },
 ];
 
 export default function Layout() {
+  const t = useT();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(() => {
@@ -125,7 +128,7 @@ export default function Layout() {
         onClick={() => setMobileOpen(!mobileOpen)}
         className="fixed top-4 left-4 z-50 md:hidden w-10 h-10 flex items-center justify-center bg-surface border-2 border-pencil cursor-pointer"
         style={{ borderRadius: radius.sm }}
-        aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+        aria-label={mobileOpen ? t('layout.mobile.closeMenu') : t('layout.mobile.openMenu')}
       >
         {mobileOpen ? <X size={20} strokeWidth={2.5} /> : <Menu size={20} strokeWidth={2.5} />}
       </button>
@@ -154,20 +157,20 @@ export default function Layout() {
             className="text-2xl font-bold text-pencil tracking-wide"
 
           >
-            skillshare
+            {t('app.name')}
           </h1>
           <div className="flex items-center gap-2 mt-0.5">
             <p
               className="text-sm text-pencil-light"
                          >
-              Web Dashboard
+              {t('app.subtitle')}
             </p>
             {isProjectMode && (
               <span
                 className="text-xs px-1.5 py-0.5 bg-info-light text-blue border border-blue font-medium"
                 style={{ borderRadius: radius.sm, fontFamily: 'var(--font-hand)' }}
               >
-                Project
+                {t('app.project')}
               </span>
             )}
           </div>
@@ -177,12 +180,12 @@ export default function Layout() {
         <nav className="flex-1 min-h-0 overflow-y-auto py-2 px-2">
           {filteredGroups.map((group, groupIdx) => (
             <div key={groupIdx}>
-              {group.label && (
+              {group.labelKey && (
                 <div className="px-3 pt-4 pb-1 text-xs font-medium tracking-wider text-muted-dark uppercase">
-                  {group.label}
+                  {t(group.labelKey)}
                 </div>
               )}
-              {group.items.map(({ to, icon: Icon, label }) => (
+              {group.items.map(({ to, icon: Icon, labelKey }) => (
                 <NavLink
                   key={to}
                   to={to}
@@ -198,7 +201,7 @@ export default function Layout() {
 
                 >
                   <Icon size={16} strokeWidth={2.5} />
-                  {label}
+                  {t(labelKey)}
                 </NavLink>
               ))}
             </div>
@@ -211,9 +214,9 @@ export default function Layout() {
             onClick={() => setToolsOpen((v) => !v)}
             className="w-full flex items-center justify-between px-4 py-1.5 text-xs font-medium tracking-wider text-muted-dark uppercase hover:text-pencil-light transition-colors cursor-pointer"
             aria-expanded={toolsOpen}
-            aria-label={toolsOpen ? 'Collapse tools' : 'Expand tools'}
+            aria-label={toolsOpen ? t('layout.tools.collapse') : t('layout.tools.expand')}
           >
-            Tools
+            {t('common.tools')}
             {toolsOpen
               ? <ChevronDown size={14} strokeWidth={2.5} />
               : <ChevronUp size={14} strokeWidth={2.5} />}
@@ -221,23 +224,24 @@ export default function Layout() {
           {toolsOpen && (
             <div className="px-2 pb-2 flex flex-col gap-0.5">
               <ThemePopover />
+              <LanguagePopover />
               <button
                 onClick={startTour}
                 className="flex items-center gap-3 px-3 py-1.5 text-sm text-pencil-light hover:text-pencil hover:bg-muted/20 transition-colors cursor-pointer"
-                aria-label="Quick Tour"
+                aria-label={t('layout.tools.quickTour')}
               >
                 <Compass size={16} strokeWidth={2.5} />
-                Quick Tour
+                {t('layout.tools.quickTour')}
               </button>
               <button
                 data-tour="shortcuts-btn"
                 onClick={toggleShortcuts}
                 className="flex items-center gap-3 px-3 py-1.5 text-sm text-pencil-light hover:text-pencil hover:bg-muted/20 transition-colors cursor-pointer"
-                aria-label="Keyboard shortcuts"
+                aria-label={t('shortcuts.title')}
                 aria-keyshortcuts="?"
               >
                 <Keyboard size={16} strokeWidth={2.5} />
-                Shortcuts
+                {t('layout.tools.shortcuts')}
               </button>
             </div>
           )}

@@ -294,7 +294,7 @@
 .ss-skill-editor .fm-grid { display: flex; flex-direction: column; gap: 10px; }
 .ss-skill-editor .fm-row {
   display: grid;
-  grid-template-columns: 180px minmax(0, 1fr);
+  grid-template-columns: 300px minmax(0, 1fr);
   gap: 14px;
   align-items: flex-start;
   padding: 6px 0;

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { radius, shadows } from '../design';
+import { useT } from '../i18n';
 
 interface PageHeaderProps {
   title: string;
@@ -13,13 +14,14 @@ interface PageHeaderProps {
 }
 
 export default function PageHeader({ title, subtitle, icon, actions, className = '', backTo }: PageHeaderProps) {
+  const t = useT();
   const heading = (
     <div className="flex items-center gap-3">
       {backTo && (
         <Link
           to={backTo}
           className="inline-flex items-center justify-center shrink-0 w-9 h-9 border-2 border-transparent hover:border-muted-dark text-pencil-light hover:text-pencil bg-surface transition-all duration-150 active:scale-95"
-          aria-label="Back"
+          aria-label={t('common.back')}
           style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
         >
           <ArrowLeft size={18} strokeWidth={2.5} />

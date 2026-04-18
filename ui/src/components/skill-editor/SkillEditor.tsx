@@ -19,6 +19,7 @@ import {
 import { useToast } from '../Toast';
 import ConfirmDialog from '../ConfirmDialog';
 import FrontmatterEditor from './FrontmatterEditor';
+import { useT } from '../../i18n';
 import Outline, { parseOutline, type HeadingItem } from './Outline';
 import DiffView from './DiffView';
 import {
@@ -73,6 +74,7 @@ export default function SkillEditor({
   onSaved,
 }: SkillEditorProps) {
   const { toast } = useToast();
+  const t = useT();
   const initial = useMemo(() => parseSkillMarkdown(initialContent), [initialContent]);
 
   const [draftFrontmatter, setDraftFrontmatter] = useState<Frontmatter>(() =>
@@ -253,11 +255,11 @@ export default function SkillEditor({
       await api.saveSkillContent(skillName, next, kind);
       setDirty(false);
       setShowDiff(false);
-      toast(`Saved · ${skillName}`, 'success');
+      toast(t('skillEditor.toast.saved', { name: skillName }), 'success');
       onSaved(next);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : String(err);
-      toast('Save failed: ' + msg, 'error');
+      toast(t('skillEditor.toast.saveFailed', { error: msg }), 'error');
     } finally {
       setSaving(false);
     }
@@ -279,16 +281,16 @@ export default function SkillEditor({
   const openInEditor = useCallback(async () => {
     try {
       const resp = await api.openSkillInEditor(skillName, { kind });
-      toast(`Opened in ${resp.editor}`, 'info');
+      toast(t('resourceDetail.toast.openedIn', { editor: resp.editor }), 'info');
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : String(err);
-      toast('Open-in-editor failed: ' + msg, 'error');
+      toast(t('skillEditor.toast.openInEditorFailed', { error: msg }), 'error');
     }
   }, [skillName, kind, toast]);
 
   const copyPath = useCallback(() => {
     void navigator.clipboard?.writeText(derived.path);
-    toast('Path copied', 'info');
+    toast(t('skillEditor.toast.pathCopied'), 'info');
   }, [derived.path, toast]);
 
   useEffect(() => {
@@ -380,21 +382,21 @@ export default function SkillEditor({
   return (
     <div className="ss-skill-editor">
       <div className="mode-strip editing">
-        <button type="button" className="back-btn" onClick={cancelEdit} aria-label="Back">
+        <button type="button" className="back-btn" onClick={cancelEdit} aria-label={t('common.back')}>
           <ArrowLeft size={16} strokeWidth={2.2} />
         </button>
         <div className="title-row">
           <h1 className="title mono">{displayName}</h1>
           <span className="kind-badge">{kind.toUpperCase()}</span>
-          {tracked && <span className="tracked-badge">Tracked</span>}
-          {dirty && <span className="dirty-pill">unsaved</span>}
+          {tracked && <span className="tracked-badge">{t('skillEditor.trackedBadge')}</span>}
+          {dirty && <span className="dirty-pill">{t('skillEditor.dirtyPill')}</span>}
         </div>
         <div className="mode-actions">
           <Button variant="ghost" size="sm" onClick={openInEditor}>
-            <ExternalLink size={14} /> Open in editor
+            <ExternalLink size={14} /> {t('skillEditor.openInEditor')}
           </Button>
           <Button variant="ghost" size="sm" onClick={cancelEdit} disabled={saving}>
-            <X size={14} /> Cancel
+            <X size={14} /> {t('skillEditor.cancelButton')}
           </Button>
           <Button
             variant="primary"
@@ -403,7 +405,7 @@ export default function SkillEditor({
             disabled={!dirty || saving}
             loading={saving}
           >
-            <Check size={14} /> Save
+            <Check size={14} /> {t('skillEditor.saveButton')}
             <span className="kbd-hint">⌘S</span>
           </Button>
         </div>
@@ -415,14 +417,14 @@ export default function SkillEditor({
             <section className="doc-hero">
               <div className="doc-kicker">
                 <Pencil size={14} strokeWidth={2.2} />
-                <span>Editing SKILL.md</span>
+                <span>{t('skillEditor.editingLabel')}</span>
                 <span className="doc-kicker-sep">·</span>
                 <span className="mono">{derived.path}</span>
                 <button
                   type="button"
                   className="copy-btn"
                   onClick={copyPath}
-                  title="Copy path"
+                  title={t('skillEditor.copyPath')}
                 >
                   <Copy size={12} strokeWidth={2.2} />
                 </button>
@@ -446,9 +448,9 @@ export default function SkillEditor({
                 )}
                 <span className="doc-kicker-sep">·</span>
                 {dirty ? (
-                  <span className="kicker-status dirty">Unsaved changes</span>
+                  <span className="kicker-status dirty">{t('skillEditor.unsavedChanges')}</span>
                 ) : (
-                  <span className="kicker-status">No changes</span>
+                  <span className="kicker-status">{t('skillEditor.noChanges')}</span>
                 )}
               </div>
               <div
@@ -466,14 +468,14 @@ export default function SkillEditor({
                     nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }
                 }}
-                title="Click to edit identity"
+                title={t('skillEditor.titleClickHint')}
               >
                 <h1 className="doc-title-display mono" data-empty={!draftFrontmatter.name}>
                   {String(draftFrontmatter.name ?? '') || 'untitled-skill'}
                 </h1>
                 <p className="doc-desc-display" data-empty={!draftFrontmatter.description}>
                   {String(draftFrontmatter.description ?? '') ||
-                    'No description — add one in the Identity group below.'}
+                    t('skillEditor.descPlaceholder')}
                 </p>
               </div>
             </section>
@@ -487,12 +489,11 @@ export default function SkillEditor({
                 <p className="fm-metadata-tip">
                   <TargetIcon size={12} strokeWidth={2.2} />
                   <span>
-                    <strong>skillshare tip:</strong> set{' '}
-                    <code>metadata.targets: [name, …]</code> to limit which agents
-                    receive this skill on sync.
+                    <strong>{t('skillEditor.metadataHint.tip')}</strong>{' '}
+                    {t('skillEditor.metadataHint.text')}
                     {availableTargets.length > 0 && (
                       <>
-                        {' '}Available: <code>{availableTargets.map((t) => t.name).join(', ')}</code>.
+                        {' '}{t('skillEditor.metadataHint.available')} <code>{availableTargets.map((tgt) => tgt.name).join(', ')}</code>.
                       </>
                     )}
                   </span>
@@ -504,25 +505,25 @@ export default function SkillEditor({
 
         <div className="stats-bar">
           <span className={`stat${overBudget ? ' over' : ''}`}>
-            <Zap size={14} strokeWidth={2.5} />~{totalTokens.toLocaleString()} tokens
+            <Zap size={14} strokeWidth={2.5} />{t('skillEditor.statsTokens', { total: totalTokens.toLocaleString() })}
             <span className="sub">
-              (desc ~{tokensDesc} · body ~{tokensBody})
+              {t('skillEditor.statsTokensSub', { desc: tokensDesc, body: tokensBody })}
             </span>
             {overBudget && (
-              <span className="budget-warn" title="Over 5K token budget">⚠ budget</span>
+              <span className="budget-warn" title={t('skillEditor.argsBudgetWarning')}>⚠ {t('skillEditor.statsBudget')}</span>
             )}
           </span>
           <span className="stat">
             <Type size={14} />
-            {words.toLocaleString()} words
+            {t('skillEditor.statsWords', { count: words.toLocaleString() })}
           </span>
           <span className="stat">
             <AlignLeft size={14} />
-            {lines.toLocaleString()} lines
+            {t('skillEditor.statsLines', { count: lines.toLocaleString() })}
           </span>
           <span className="stat">
             <Files size={14} />
-            {fileCount} files
+            {t('skillEditor.statsFiles', { count: fileCount })}
           </span>
           <div className="stats-bar-actions">
             <EditorSegment<PreviewMode>
@@ -530,9 +531,9 @@ export default function SkillEditor({
               onChange={setPreviewMode}
               title="⌘P to cycle"
               options={[
-                { value: 'edit', label: <><Pencil size={12} /> Edit</> },
-                { value: 'split', label: <><Code2 size={12} /> Split</> },
-                { value: 'preview', label: <><Eye size={12} /> Preview</> },
+                { value: 'edit', label: <><Pencil size={12} /> {t('skillEditor.pane.edit')}</> },
+                { value: 'split', label: <><Code2 size={12} /> {t('skillEditor.pane.split')}</> },
+                { value: 'preview', label: <><Eye size={12} /> {t('skillEditor.pane.preview')}</> },
               ]}
             />
             <Outline
@@ -547,19 +548,19 @@ export default function SkillEditor({
           {previewMode !== 'preview' && (
             <div className="editor-pane">
               <div className="pane-head">
-                <span>Body · Markdown</span>
+                <span>{t('skillEditor.pane.body')}</span>
                 <span className="hint">
                   <span className="hint-group">
                     <kbd className="kbd-hint">⌘S</kbd>
-                    <span className="hint-label">Save</span>
+                    <span className="hint-label">{t('skillEditor.pane.saveHint')}</span>
                   </span>
                   <span className="hint-group">
                     <kbd className="kbd-hint">⌘P</kbd>
-                    <span className="hint-label">Toggle</span>
+                    <span className="hint-label">{t('skillEditor.pane.toggleHint')}</span>
                   </span>
                   <span className="hint-group">
                     <kbd className="kbd-hint">Esc</kbd>
-                    <span className="hint-label">Cancel</span>
+                    <span className="hint-label">{t('skillEditor.pane.cancelHint')}</span>
                   </span>
                 </span>
               </div>
@@ -575,10 +576,10 @@ export default function SkillEditor({
                 {argsCount > 0 && (
                   <div
                     className="args-hint"
-                    title="This skill uses $ARGUMENTS — will be replaced at invocation"
+                    title={t('skillEditor.argsTitle')}
                   >
                     <span className="args-token-pill">$ARGUMENTS</span>
-                    <span>×{argsCount} · will be replaced when invoked</span>
+                    <span>{t('skillEditor.argsHint', { count: argsCount })}</span>
                   </div>
                 )}
               </div>
@@ -587,8 +588,8 @@ export default function SkillEditor({
           {previewMode !== 'edit' && (
             <div className="editor-pane">
               <div className="pane-head">
-                <span>Preview</span>
-                <span className="hint">Live</span>
+                <span>{t('skillEditor.pane.preview')}</span>
+                <span className="hint">{t('skillEditor.pane.previewLive')}</span>
               </div>
               <div
                 ref={previewRef}
@@ -617,15 +618,14 @@ export default function SkillEditor({
 
       <ConfirmDialog
         open={showDiscardConfirm}
-        title="Discard unsaved changes?"
+        title={t('skillEditor.discardConfirmTitle')}
         message={
           <p>
-            You have unsaved edits to <strong className="text-pencil">{skillName}</strong>.
-            Leaving edit mode will discard them. The locally-saved draft will also be cleared.
+            {t('skillEditor.discardConfirmMessage', { skillName })}
           </p>
         }
-        confirmText="Discard changes"
-        cancelText="Keep editing"
+        confirmText={t('skillEditor.discardButton')}
+        cancelText={t('skillEditor.keepEditingButton')}
         variant="danger"
         onConfirm={discardAndExit}
         onCancel={() => setShowDiscardConfirm(false)}
