@@ -155,7 +155,10 @@ export default function FrontmatterEditor({
   onToggleYaml,
   metadataHint,
 }: FrontmatterEditorProps) {
-  const yaml = useMemo(() => serializeFrontmatter(frontmatter, FM_FIELD_ORDER), [frontmatter]);
+  const yaml = useMemo(
+    () => (yamlMode ? serializeFrontmatter(frontmatter, FM_FIELD_ORDER) : ''),
+    [frontmatter, yamlMode],
+  );
 
   const setField = (key: string, value: string | string[] | boolean | null) => {
     const next = { ...frontmatter };
@@ -437,7 +440,6 @@ function FrontmatterMetadataGroup({
     metaKeys.map((k) => ({ id: nextRowId(), key: k })),
   );
 
-  // Reconcile rows with external metadata changes (e.g. YAML mode edit).
   useEffect(() => {
     setRows((prev) => {
       const seen = new Set<string>();
@@ -456,6 +458,12 @@ function FrontmatterMetadataGroup({
         if (!seen.has(k)) {
           kept.push({ id: nextRowId(), key: k });
         }
+      }
+      if (
+        kept.length === prev.length &&
+        kept.every((r, i) => r.id === prev[i].id && r.key === prev[i].key)
+      ) {
+        return prev;
       }
       return kept;
     });

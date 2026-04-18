@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -9,7 +9,6 @@ import {
   Copy,
   ExternalLink,
   Eye,
-  FileText,
   Files,
   Pencil,
   Target as TargetIcon,
@@ -39,11 +38,6 @@ export interface EditorTarget {
   status: 'ok' | 'pending' | 'off';
 }
 
-export interface EditorCustomField {
-  k: string;
-  v: string;
-}
-
 interface SkillEditorProps {
   skillName: string;
   displayName: string;
@@ -60,9 +54,8 @@ interface SkillEditorProps {
     license?: string;
   };
   availableTargets: EditorTarget[];
-  initialCustomFields?: EditorCustomField[];
   onBack: () => void;
-  onSaved: (nextContent: string, nextCustomFields: EditorCustomField[], targets: EditorTarget[]) => void;
+  onSaved: (nextContent: string) => void;
 }
 
 export default function SkillEditor({
@@ -75,23 +68,16 @@ export default function SkillEditor({
   fileCount,
   derived,
   availableTargets,
-  initialCustomFields = [],
   onBack,
   onSaved,
 }: SkillEditorProps) {
   const { toast } = useToast();
   const initial = useMemo(() => parseSkillMarkdown(initialContent), [initialContent]);
 
-  const [draftFrontmatter, setDraftFrontmatter] = useState<Frontmatter>(() => {
-    const fm = migrateRootTargets({ ...initial.frontmatter });
-    for (const { k, v } of initialCustomFields) {
-      const key = k.trim();
-      if (key && !(key in fm)) fm[key] = v;
-    }
-    return fm;
-  });
+  const [draftFrontmatter, setDraftFrontmatter] = useState<Frontmatter>(() =>
+    migrateRootTargets({ ...initial.frontmatter })
+  );
   const [draftBody, setDraftBody] = useState<string>(() => initial.body);
-  const [draftTargets] = useState<EditorTarget[]>(() => availableTargets);
   const [yamlMode, setYamlMode] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>('split');
   const [dirty, setDirty] = useState(false);
@@ -253,14 +239,14 @@ export default function SkillEditor({
       setDirty(false);
       setShowDiff(false);
       toast(`Saved · ${skillName}`, 'success');
-      onSaved(next, [], draftTargets);
+      onSaved(next);
     } catch (err) {
       const msg = err instanceof ApiError ? err.message : String(err);
       toast('Save failed: ' + msg, 'error');
     } finally {
       setSaving(false);
     }
-  }, [draftFrontmatter, draftBody, draftTargets, skillName, kind, toast, onSaved]);
+  }, [draftFrontmatter, draftBody, skillName, kind, toast, onSaved]);
 
   const discardAndExit = useCallback(() => {
     setShowDiscardConfirm(false);
@@ -290,7 +276,6 @@ export default function SkillEditor({
     toast('Path copied', 'info');
   }, [derived.path, toast]);
 
-  // Keyboard shortcuts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
@@ -309,13 +294,29 @@ export default function SkillEditor({
     return () => window.removeEventListener('keydown', onKey);
   }, [requestSave, cancelEdit, showDiff]);
 
-  // Derived stats.
-  const tokensDesc = Math.round(String(draftFrontmatter.description ?? '').length / 4);
-  const tokensBody = Math.round(draftBody.length / 4);
-  const totalTokens = tokensDesc + tokensBody;
-  const words = draftBody.split(/\s+/).filter(Boolean).length;
-  const lines = draftBody.split('\n').length;
-  const overBudget = totalTokens > 5000;
+  const stats = useMemo(() => {
+    const tokensDesc = Math.round(String(draftFrontmatter.description ?? '').length / 4);
+    const tokensBody = Math.round(draftBody.length / 4);
+    const totalTokens = tokensDesc + tokensBody;
+    let words = 0;
+    let lines = 1;
+    let inWord = false;
+    for (let i = 0; i < draftBody.length; i++) {
+      const c = draftBody.charCodeAt(i);
+      if (c === 10) lines++;
+      const isSpace = c === 32 || c === 9 || c === 10 || c === 13;
+      if (!isSpace) {
+        if (!inWord) words++;
+        inWord = true;
+      } else {
+        inWord = false;
+      }
+    }
+    return { tokensDesc, tokensBody, totalTokens, words, lines, overBudget: totalTokens > 5000 };
+  }, [draftFrontmatter.description, draftBody]);
+  const { tokensDesc, tokensBody, totalTokens, words, lines, overBudget } = stats;
+
+  const deferredBody = useDeferredValue(draftBody);
 
   const argsCount = useMemo(() => {
     const matches = draftBody.match(/\$ARGUMENTS\b/g);
@@ -332,9 +333,6 @@ export default function SkillEditor({
     setDirty(true);
   }, []);
 
-  // Sync targets are user-edited via the YAML field "metadata.targets".
-  // The Targets checkbox UI was removed in favor of a hint in the Metadata group.
-  // draftTargets is kept only so initial state can be passed back via onSaved.
   const jumpToHeading = useCallback(
     (heading: HeadingItem) => {
       setActiveSlug(heading.slug);
@@ -366,7 +364,6 @@ export default function SkillEditor({
 
   return (
     <div className="ss-skill-editor">
-      {/* Mode strip (top bar) */}
       <div className="mode-strip editing">
         <button type="button" className="back-btn" onClick={cancelEdit} aria-label="Back">
           <ArrowLeft size={16} strokeWidth={2.2} />
@@ -478,9 +475,9 @@ export default function SkillEditor({
                     <strong>skillshare tip:</strong> set{' '}
                     <code>metadata.targets: [name, …]</code> to limit which agents
                     receive this skill on sync.
-                    {draftTargets.length > 0 && (
+                    {availableTargets.length > 0 && (
                       <>
-                        {' '}Available: <code>{draftTargets.map((t) => t.name).join(', ')}</code>.
+                        {' '}Available: <code>{availableTargets.map((t) => t.name).join(', ')}</code>.
                       </>
                     )}
                   </span>
@@ -537,7 +534,7 @@ export default function SkillEditor({
               </button>
             </div>
             <Outline
-              markdown={draftBody}
+              markdown={deferredBody}
               activeSlug={activeSlug}
               onJump={jumpToHeading}
             />
@@ -584,7 +581,7 @@ export default function SkillEditor({
                 onScroll={handlePreviewScroll}
               >
                 <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                  {draftBody}
+                  {deferredBody}
                 </Markdown>
               </div>
             </div>
@@ -592,14 +589,16 @@ export default function SkillEditor({
         </section>
       </div>
 
-      <DiffView
-        open={showDiff}
-        oldText={initialContent}
-        newText={composeSkillMarkdown(draftFrontmatter, draftBody)}
-        onConfirm={commitSave}
-        onCancel={() => setShowDiff(false)}
-        saving={saving}
-      />
+      {showDiff && (
+        <DiffView
+          open
+          oldText={initialContent}
+          newText={composeSkillMarkdown(migrateRootTargets(draftFrontmatter), draftBody)}
+          onConfirm={commitSave}
+          onCancel={() => setShowDiff(false)}
+          saving={saving}
+        />
+      )}
 
       <ConfirmDialog
         open={showDiscardConfirm}
@@ -753,5 +752,3 @@ function highlightArgsInString(s: string): React.ReactNode {
   );
 }
 
-// Re-export for convenience
-export { FileText };

@@ -31,6 +31,7 @@ import { clearAuditCache } from '../lib/auditCache';
 import { formatSkillDisplayName, formatTrackedRepoName } from '../lib/resourceNames';
 import { SkillEditor, Outline } from '../components/skill-editor';
 import ScrollToTop from '../components/ScrollToTop';
+import { parseSkillMarkdown } from '../lib/frontmatter';
 
 const FileViewerModal = lazy(() => import('../components/FileViewerModal'));
 
@@ -40,65 +41,18 @@ type SkillManifest = {
   license?: string;
 };
 
-function parseScalarValue(raw: string): string | undefined {
-  const trimmed = raw.trim();
-  if (!trimmed) return undefined;
-  // YAML block scalar indicators — fall through to block reader
-  if (/^[>|][+-]?$/.test(trimmed)) return undefined;
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1).trim() || undefined;
-  }
-  return trimmed;
-}
-
-function extractManifestValue(frontmatter: string, key: 'name' | 'description' | 'license'): string | undefined {
-  const lines = frontmatter.split(/\r?\n/);
-  const keyPrefix = `${key}:`;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (!line.startsWith(keyPrefix)) continue;
-
-    const inline = parseScalarValue(line.slice(keyPrefix.length));
-    if (inline) return inline;
-
-    const blockLines: string[] = [];
-    for (let j = i + 1; j < lines.length; j++) {
-      const candidate = lines[j];
-      if (candidate.trim() === '') {
-        blockLines.push('');
-        continue;
-      }
-      if (!candidate.startsWith(' ') && !candidate.startsWith('\t')) break;
-      blockLines.push(candidate.trim());
-      i = j;
-    }
-
-    const block = blockLines.join(' ').replace(/\s+/g, ' ').trim();
-    return block || undefined;
-  }
-
-  return undefined;
-}
-
-function parseSkillMarkdown(content: string): { manifest: SkillManifest; markdown: string } {
-  if (!content) return { manifest: {}, markdown: '' };
-
-  const match = content.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n)?/);
-  if (!match) return { manifest: {}, markdown: content };
-
-  const frontmatter = match[1];
-  const manifest: SkillManifest = {
-    name: extractManifestValue(frontmatter, 'name'),
-    description: extractManifestValue(frontmatter, 'description'),
-    license: extractManifestValue(frontmatter, 'license'),
+function parseSkillDoc(content: string): { manifest: SkillManifest; markdown: string } {
+  const { frontmatter, body } = parseSkillMarkdown(content ?? '');
+  const pick = (k: 'name' | 'description' | 'license'): string | undefined => {
+    const v = frontmatter[k];
+    if (v == null) return undefined;
+    const s = String(v).trim();
+    return s || undefined;
   };
-
-  const markdown = content.slice(match[0].length);
-  return { manifest, markdown };
+  return {
+    manifest: { name: pick('name'), description: pick('description'), license: pick('license') },
+    markdown: body,
+  };
 }
 
 /** Returns a lucide icon component + color class for a filename */
@@ -227,7 +181,7 @@ export default function SkillDetailPage() {
 
   const { resource, skillMdContent, files: rawFiles } = data;
   const files = rawFiles ?? [];
-  const parsedDoc = parseSkillMarkdown(skillMdContent ?? '');
+  const parsedDoc = parseSkillDoc(skillMdContent ?? '');
   const hasManifest = Boolean(parsedDoc.manifest.name || parsedDoc.manifest.description || parsedDoc.manifest.license);
   const renderedMarkdown = parsedDoc.markdown.trim() ? parsedDoc.markdown : skillMdContent;
 
@@ -416,7 +370,6 @@ export default function SkillDetailPage() {
             license: parsedDoc.manifest.license,
           }}
           availableTargets={editorTargets}
-          initialCustomFields={[]}
           onBack={() => setEditMode(false)}
           onSaved={async (next) => {
             queryClient.setQueryData(
@@ -507,7 +460,6 @@ export default function SkillDetailPage() {
                 </dl>
               </div>
             )}
-            {/* Stage 1: Content Stats Bar */}
             <ContentStatsBar
               content={skillMdContent ?? ''}
               description={parsedDoc.manifest.description}
