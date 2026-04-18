@@ -5,9 +5,12 @@ import { radius } from '../design';
 interface ScrollToTopProps {
   /** Scroll threshold in pixels before the button appears (default: 400) */
   threshold?: number;
+  /** 'floating' pins the button to bottom-right (legacy);
+   *  'inline' renders a compact button that fits inside a sticky header/toolbar. */
+  variant?: 'floating' | 'inline';
 }
 
-export default function ScrollToTop({ threshold = 400 }: ScrollToTopProps) {
+export default function ScrollToTop({ threshold = 400, variant = 'floating' }: ScrollToTopProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -18,6 +21,20 @@ export default function ScrollToTop({ threshold = 400 }: ScrollToTopProps) {
   }, [threshold]);
 
   if (!visible) return null;
+
+  if (variant === 'inline') {
+    return (
+      <button
+        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        className="inline-flex items-center justify-center w-8 h-8 bg-surface border border-muted-dark text-pencil-light hover:text-accent hover:border-accent hover:bg-accent-light transition-all duration-150 cursor-pointer animate-fade-in"
+        style={{ borderRadius: radius.sm }}
+        aria-label="Scroll to top"
+        title="Scroll to top"
+      >
+        <ArrowUp size={14} strokeWidth={2.5} />
+      </button>
+    );
+  }
 
   return (
     <button

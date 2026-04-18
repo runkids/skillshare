@@ -3,7 +3,7 @@ import {
   ArrowLeft, Trash2, ExternalLink, FileText, ArrowUpRight, RefreshCw, Target,
   Type, AlignLeft, Files, Scale, Zap,
   FileCode2, Braces, Settings, BookOpen, File, FolderOpen,
-  ShieldCheck, Link2, EyeOff, Eye,
+  ShieldCheck, Link2, EyeOff, Eye, Pencil,
 } from 'lucide-react';
 import Markdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -29,6 +29,8 @@ import { severityBadgeVariant } from '../lib/severity';
 import { useSyncMatrix } from '../hooks/useSyncMatrix';
 import { clearAuditCache } from '../lib/auditCache';
 import { formatSkillDisplayName, formatTrackedRepoName } from '../lib/resourceNames';
+import { SkillEditor, Outline } from '../components/skill-editor';
+import ScrollToTop from '../components/ScrollToTop';
 
 const FileViewerModal = lazy(() => import('../components/FileViewerModal'));
 
@@ -111,7 +113,7 @@ function getFileIcon(filename: string): { icon: typeof File; className: string }
 }
 
 /** Content stats bar showing word count, line count, file count, license */
-function ContentStatsBar({ content, description, body, fileCount, license }: { content: string; description?: string; body?: string; fileCount: number; license?: string }) {
+function ContentStatsBar({ content, description, body, fileCount, license, trailing }: { content: string; description?: string; body?: string; fileCount: number; license?: string; trailing?: React.ReactNode }) {
   const trimmed = content.trim();
   const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
   const lineCount = trimmed ? trimmed.split(/\r?\n/).length : 0;
@@ -146,6 +148,7 @@ function ContentStatsBar({ content, description, body, fileCount, license }: { c
           {license}
         </span>
       )}
+      {trailing && <span className="ml-auto">{trailing}</span>}
     </div>
   );
 }
@@ -171,6 +174,11 @@ export default function SkillDetailPage() {
     queryFn: () => api.listSkills(),
     staleTime: staleTimes.skills,
   });
+  const allTargets = useQuery({
+    queryKey: queryKeys.targets.all,
+    queryFn: () => api.listTargets(),
+    staleTime: staleTimes.targets,
+  });
   const skillKind = data?.resource.kind;
   const auditQuery = useQuery({
     queryKey: [...queryKeys.audit.skill(name!), skillKind],
@@ -189,6 +197,7 @@ export default function SkillDetailPage() {
   const [toggling, setToggling] = useState(false);
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
   const { toast } = useToast();
 
   // Build lookup maps for skill cross-referencing
@@ -362,8 +371,72 @@ export default function SkillDetailPage() {
     }
   };
 
+  const handleOpenInEditor = async () => {
+    try {
+      const resp = await api.openSkillInEditor(resource.flatName, { kind: resource.kind });
+      toast(`Opened in ${resp.editor}`, 'info');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
+  };
+
+  if (editMode) {
+    // Show all configured targets so the user can toggle each on/off.
+    // Targets currently linked to this resource start as enabled.
+    const linkedTargetNames = new Set(resource.targets ?? []);
+    const configuredTargets = allTargets.data?.targets ?? [];
+    const editorTargets = (configuredTargets.length > 0
+      ? configuredTargets.map((t) => ({
+          id: t.name,
+          name: t.name,
+          status: (linkedTargetNames.has(t.name) ? 'ok' : 'off') as 'ok' | 'off',
+        }))
+      : Array.from(linkedTargetNames).map((tname) => ({
+          id: tname,
+          name: tname,
+          status: 'ok' as const,
+        })));
+
+    return (
+      <div className="-mx-4 -my-3 md:-mx-8 md:-my-3 animate-fade-in">
+        <ScrollToTop />
+        <SkillEditor
+          skillName={resource.flatName}
+          displayName={resource.name}
+          kind={resource.kind}
+          path={resource.relPath}
+          tracked={resource.isInRepo}
+          initialContent={skillMdContent ?? ''}
+          fileCount={files.length}
+          derived={{
+            path: resource.relPath,
+            source: resource.source,
+            version: resource.version,
+            branch: resource.branch,
+            license: parsedDoc.manifest.license,
+          }}
+          availableTargets={editorTargets}
+          initialCustomFields={[]}
+          onBack={() => setEditMode(false)}
+          onSaved={async (next) => {
+            queryClient.setQueryData(
+              [...queryKeys.skills.detail(name!), requestedKind],
+              (prev: unknown) => {
+                if (!prev || typeof prev !== 'object') return prev;
+                return { ...(prev as object), skillMdContent: next };
+              }
+            );
+            await queryClient.invalidateQueries({ queryKey: queryKeys.skills.detail(name!) });
+            setEditMode(false);
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-in">
+      <ScrollToTop />
       {/* Header — sticky */}
       <div className="flex items-center gap-3 mb-2 sticky top-0 z-20 bg-paper py-3 -mx-4 px-4 md:-mx-8 md:px-8 -mt-3">
         <IconButton
@@ -392,6 +465,14 @@ export default function SkillDetailPage() {
               ))}
             </span>
           )}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={handleOpenInEditor}>
+            <ExternalLink size={14} /> Open in editor
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => setEditMode(true)}>
+            <Pencil size={14} /> Edit
+          </Button>
         </div>
       </div>
 
@@ -433,6 +514,22 @@ export default function SkillDetailPage() {
               body={parsedDoc.markdown}
               fileCount={files.length}
               license={parsedDoc.manifest.license}
+              trailing={
+                renderedMarkdown ? (
+                  <Outline
+                    markdown={renderedMarkdown}
+                    onJump={(h) => {
+                      const candidates = document.querySelectorAll<HTMLElement>(
+                        '.prose-hand h1, .prose-hand h2, .prose-hand h3, .prose-hand h4, .prose-hand h5, .prose-hand h6'
+                      );
+                      const target = Array.from(candidates).find(
+                        (el) => (el.textContent ?? '').trim() === h.text.trim()
+                      );
+                      target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                  />
+                ) : undefined
+              }
             />
             <div className="prose-hand">
               {renderedMarkdown ? (
@@ -470,7 +567,7 @@ export default function SkillDetailPage() {
               {resource.targets && resource.targets.length > 0 && (
                 <div className="flex items-baseline gap-3">
                   <dt className="text-xs text-pencil-light uppercase tracking-wider shrink-0 min-w-[4.5rem]">Targets</dt>
-                  <dd className="flex flex-wrap gap-1.5 min-w-0">
+                  <dd className="min-w-0 flex flex-wrap gap-1.5">
                     {resource.targets.map((t) => (
                       <Badge key={t} variant="default">{t}</Badge>
                     ))}

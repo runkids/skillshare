@@ -323,6 +323,31 @@ export const api = {
   getSkillFile: (skillName: string, filepath: string) =>
     apiFetch<SkillFileContent>(`/resources/${encodeURIComponent(skillName)}/files/${filepath}`),
 
+  // Save SKILL.md / agent markdown.
+  saveSkillContent: (name: string, content: string, kind?: 'skill' | 'agent') =>
+    apiFetch<{
+      bytesWritten: number;
+      path: string;
+      contentType: string;
+      savedAt: string;
+    }>(`/resources/${encodeURIComponent(name)}/content${kind ? `?kind=${kind}` : ''}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
+
+  // Launch an external editor (VS Code / Cursor / $EDITOR) against the skill file.
+  openSkillInEditor: (
+    name: string,
+    opts?: { editor?: string; kind?: 'skill' | 'agent' }
+  ) =>
+    apiFetch<{ editor: string; path: string; pid: number }>(
+      `/resources/${encodeURIComponent(name)}/open-in-editor${opts?.kind ? `?kind=${opts.kind}` : ''}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ editor: opts?.editor ?? 'auto' }),
+      }
+    ),
+
   // Collect
   collectScan: (target?: string, kind?: 'skill' | 'agent') => {
     const params = new URLSearchParams();
