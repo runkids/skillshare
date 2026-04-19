@@ -154,7 +154,6 @@ export default function InstallForm({
   /** Handle install result: show warning dialog if warnings exist, otherwise just toast */
   const handleResult = useCallback(
     (res: InstallResult, label?: string) => {
-      const prefix = label ? `${label}: ` : '';
       toast(label ? t('installForm.toast.installedLabel', { label }) : t('installForm.toast.installed'), 'success');
       if (res.warnings && res.warnings.length > 0) {
         setWarningDialog(res.warnings);
