@@ -21,6 +21,12 @@
 
 - **Targets visible in detail sidebar** — the resource detail sidebar now shows a **Targets** row when `metadata.targets` is set, so you can see at a glance which targets a skill is scoped to
 
+#### Web UI Localization
+
+- **11 languages in the Web UI** — every page is now fully translated. Pick your language from the language switcher in the top navigation bar; the preference is saved to your browser and auto-detected on first visit from `navigator.languages`
+  - Supported: English, 中文, 日本語, 한국어, Español, Français, Deutsch, فارسی, Português (BR), Bahasa Indonesia
+  - Persian (فارسی) automatically switches the layout to right-to-left
+
 ## [0.19.2] - 2026-04-14
 
 ### New Features

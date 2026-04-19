@@ -9,6 +9,33 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.19.3] - 2026-04-18
+
+### New Features
+
+#### Web-Based Skill Editor
+
+- **Edit skills directly in the Web UI** — the resource detail page now has an **Edit** action that opens a full in-browser editor, replacing the previous read-only view. Changes are saved back to the source `SKILL.md` through a new `POST /api/resources/:name/content` endpoint
+  ```bash
+  skillshare ui              # then open any skill and click Edit
+  ```
+
+- **Two-pane Markdown editor** — side-by-side textarea and live preview with synced scrolling. A mode toggle in the status bar switches between Edit / Split / Preview (`⌘P` cycles), and `⌘S` saves while `Esc` cancels. An outline drawer lets you jump to any heading, and the status bar shows token / word / line / file counts with a 5K-character budget warning
+
+- **Structured frontmatter editor** — all 13 official SKILL.md fields are grouped into Identity / Invocation / Execution / Metadata sections with field-appropriate controls: switch toggles for booleans, segmented control for enums, and chip inputs for list-valued fields. A shared 1,536-character budget is enforced across `description` + `when_to_use`. A raw **YAML mode** is also available, and round-trips cleanly with the Fields view. Legacy root-level `targets:` is automatically migrated to `metadata.targets` on load
+
+- **Diff review before save** — saving opens a side-by-side diff modal so you can confirm every change before writing to disk. The YAML serializer emits plain scalars when safe, so the diff no longer shows spurious quote wrapping for values containing `:`, `*`, `#`, or `"`
+
+- **Open in local editor** — a new `POST /api/resources/:name/open` endpoint opens the skill file in your preferred local editor (via `$EDITOR`), useful when you prefer `vim` / VS Code over the browser editor
+
+- **Targets visible in detail sidebar** — the resource detail sidebar now shows a **Targets** row when `metadata.targets` is set, so you can see at a glance which targets a skill is scoped to
+
+#### Web UI Localization
+
+- **11 languages in the Web UI** — every page is now fully translated. Pick your language from the language switcher in the top navigation bar; the preference is saved to your browser and auto-detected on first visit from `navigator.languages`
+  - Supported: English, 中文, 日本語, 한국어, Español, Français, Deutsch, فارسی, Português (BR), Bahasa Indonesia
+  - Persian (فارسی) automatically switches the layout to right-to-left
+
 ## [0.19.2] - 2026-04-14
 
 ### New Features

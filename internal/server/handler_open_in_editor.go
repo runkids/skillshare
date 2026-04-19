@@ -37,21 +37,21 @@ type editorCandidate struct {
 // knownEditors returns explicit editor aliases the API accepts.
 func knownEditors() map[string]editorCandidate {
 	return map[string]editorCandidate{
-		"code":      {name: "code", bin: "code", args: []string{"--goto"}},
-		"cursor":    {name: "cursor", bin: "cursor", args: nil},
-		"windsurf":  {name: "windsurf", bin: "windsurf", args: nil},
-		"subl":      {name: "subl", bin: "subl", args: nil},
-		"sublime":   {name: "subl", bin: "subl", args: nil},
-		"vim":       {name: "vim", bin: "vim", args: nil},
-		"nvim":      {name: "nvim", bin: "nvim", args: nil},
-		"nano":      {name: "nano", bin: "nano", args: nil},
-		"emacs":     {name: "emacs", bin: "emacs", args: nil},
-		"idea":      {name: "idea", bin: "idea", args: nil},
-		"webstorm":  {name: "webstorm", bin: "webstorm", args: nil},
-		"goland":    {name: "goland", bin: "goland", args: nil},
-		"textmate":  {name: "textmate", bin: "mate", args: nil},
-		"mate":      {name: "mate", bin: "mate", args: nil},
-		"zed":       {name: "zed", bin: "zed", args: nil},
+		"code":     {name: "code", bin: "code", args: []string{"--goto"}},
+		"cursor":   {name: "cursor", bin: "cursor", args: nil},
+		"windsurf": {name: "windsurf", bin: "windsurf", args: nil},
+		"subl":     {name: "subl", bin: "subl", args: nil},
+		"sublime":  {name: "subl", bin: "subl", args: nil},
+		"vim":      {name: "vim", bin: "vim", args: nil},
+		"nvim":     {name: "nvim", bin: "nvim", args: nil},
+		"nano":     {name: "nano", bin: "nano", args: nil},
+		"emacs":    {name: "emacs", bin: "emacs", args: nil},
+		"idea":     {name: "idea", bin: "idea", args: nil},
+		"webstorm": {name: "webstorm", bin: "webstorm", args: nil},
+		"goland":   {name: "goland", bin: "goland", args: nil},
+		"textmate": {name: "textmate", bin: "mate", args: nil},
+		"mate":     {name: "mate", bin: "mate", args: nil},
+		"zed":      {name: "zed", bin: "zed", args: nil},
 	}
 }
 
