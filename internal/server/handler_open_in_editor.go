@@ -142,11 +142,8 @@ func pickEditor(requested string) (editorCandidate, string, error) {
 			}
 			return editorCandidate{}, "", fmt.Errorf("%s not found on PATH", cand.bin)
 		}
-		// Unknown alias — treat as raw binary.
-		if _, err := exec.LookPath(requested); err == nil {
-			return editorCandidate{name: requested, bin: requested}, requested, nil
-		}
-		return editorCandidate{}, "", fmt.Errorf("%s not found on PATH", requested)
+		// Unknown alias — reject to prevent arbitrary binary execution.
+		return editorCandidate{}, "", fmt.Errorf("unsupported editor: %s", requested)
 	}
 
 	// Auto: respect $VISUAL / $EDITOR first.

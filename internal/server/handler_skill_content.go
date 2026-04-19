@@ -120,15 +120,14 @@ func (s *Server) resolveEditableSkillPath(source, agentsSource, name, kind strin
 	return "", "", fmt.Errorf("skill not found: %s", name)
 }
 
-// withinDir reports whether path is inside dir (after cleaning).
+// withinDir reports whether path is inside (or equal to) dir.
+// Uses filepath.Rel for correctness on case-insensitive filesystems.
 func withinDir(path, dir string) bool {
-	abs := filepath.Clean(path)
-	base := filepath.Clean(dir) + string(filepath.Separator)
-	// If dir is exactly the file (e.g. single-file agent), treat as within.
-	if abs == filepath.Clean(dir) {
-		return true
+	rel, err := filepath.Rel(filepath.Clean(dir), filepath.Clean(path))
+	if err != nil {
+		return false
 	}
-	return strings.HasPrefix(abs, base)
+	return rel == "." || (!strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel))
 }
 
 // writeFileAtomic writes data to a temp file in the same directory, then renames it

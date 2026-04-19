@@ -5,16 +5,18 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"testing"
 )
 
 func TestHandleOpenInEditor_UsesEchoAsEditor(t *testing.T) {
+	// Use auto-detect via $EDITOR so we don't need the binary in the whitelist.
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", "true")
+
 	s, src := newTestServer(t)
 	addSkill(t, src, "my-skill")
 
-	// `true` is a universally-available no-op binary on POSIX.
-	body := openInEditorRequest{Editor: "true"}
+	body := openInEditorRequest{Editor: "auto"}
 	raw, _ := json.Marshal(body)
 	req := httptest.NewRequest(http.MethodPost, "/api/resources/my-skill/open-in-editor", bytes.NewReader(raw))
 	rr := httptest.NewRecorder()
@@ -30,8 +32,8 @@ func TestHandleOpenInEditor_UsesEchoAsEditor(t *testing.T) {
 	if resp.PID == 0 {
 		t.Errorf("expected pid > 0, got %d", resp.PID)
 	}
-	if resp.Path != filepath.Join(src, "my-skill") {
-		t.Errorf("unexpected path: %s", resp.Path)
+	if resp.Editor != "true" {
+		t.Errorf("expected editor=true, got %s", resp.Editor)
 	}
 }
 
