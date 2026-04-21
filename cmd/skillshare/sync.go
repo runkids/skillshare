@@ -9,7 +9,9 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	hookpkg "skillshare/internal/hooks"
 	"skillshare/internal/oplog"
+	pluginpkg "skillshare/internal/plugins"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
@@ -39,6 +41,8 @@ type syncJSONOutput struct {
 	Details       []syncJSONTargetDetail `json:"details"`
 	Extras        []syncExtrasJSONEntry  `json:"extras,omitempty"`
 	ContextCost   *contextCostJSON       `json:"context_cost,omitempty"`
+	Plugins       []pluginpkg.SyncResult `json:"plugins,omitempty"`
+	Hooks         []hookpkg.SyncResult   `json:"hooks,omitempty"`
 }
 
 type syncJSONTargetDetail struct {
@@ -126,6 +130,12 @@ func cmdSync(args []string) error {
 				if extrasErr := cmdSyncExtras(append([]string{"-p"}, rest...)); extrasErr != nil {
 					ui.Warning("Extras sync: %v", extrasErr)
 				}
+				if pluginErr := cmdPluginsSync([]string{"-p", "--target", "all"}); pluginErr != nil {
+					ui.Warning("Plugins sync: %v", pluginErr)
+				}
+				if hooksErr := cmdHooksSync([]string{"-p", "--target", "all"}); hooksErr != nil {
+					ui.Warning("Hooks sync: %v", hooksErr)
+				}
 			}()
 		}
 
@@ -141,17 +151,33 @@ func cmdSync(args []string) error {
 		}
 
 		if jsonOutput {
+			var extrasEntries []syncExtrasJSONEntry
+			var pluginResults []pluginpkg.SyncResult
+			var hookResults []hookpkg.SyncResult
 			if hasAll {
 				projCfg, loadErr := config.LoadProject(cwd)
 				if loadErr == nil && len(projCfg.Extras) > 0 {
 					agentPaths := collectAgentTargetPathsProject(cwd)
-					extrasEntries := runExtrasSyncEntries(projCfg.Extras, func(extra config.ExtraConfig) string {
+					extrasEntries = runExtrasSyncEntries(projCfg.Extras, func(extra config.ExtraConfig) string {
 						return config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), extra.Name)
 					}, dryRun, force, cwd, agentPaths)
-					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, extrasEntries)
+				}
+				pluginRoot, projectRoot, pluginRootErr := pluginRoots(modeProject)
+				if pluginRootErr == nil {
+					pluginResults, pluginRootErr = pluginpkg.SyncAll(pluginRoot, projectRoot, "all", true)
+				}
+				if pluginRootErr != nil && err == nil {
+					err = pluginRootErr
+				}
+				hookRoot, hookProjectRoot, hookRootErr := hookRoots(modeProject)
+				if hookRootErr == nil {
+					hookResults, hookRootErr = hookpkg.SyncAll(hookRoot, hookProjectRoot, "all")
+				}
+				if hookRootErr != nil && err == nil {
+					err = hookRootErr
 				}
 			}
-			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost)
+			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, extrasEntries, pluginResults, hookResults)
 		}
 		return err
 	}
@@ -294,14 +320,32 @@ func cmdSync(args []string) error {
 		if analyzeErr == nil && len(analyzeEntries) > 0 {
 			ctxCost = buildContextCostJSON(analyzeEntries, cfg.ContextBudget)
 		}
+		var extrasEntries []syncExtrasJSONEntry
+		var pluginResults []pluginpkg.SyncResult
+		var hookResults []hookpkg.SyncResult
 		if hasAll && len(cfg.Extras) > 0 {
 			agentPaths := collectAgentTargetPathsGlobal(cfg)
-			extrasEntries := runExtrasSyncEntries(cfg.Extras, func(extra config.ExtraConfig) string {
+			extrasEntries = runExtrasSyncEntries(cfg.Extras, func(extra config.ExtraConfig) string {
 				return config.ResolveExtrasSourceDir(extra, cfg.EffectiveExtrasSource(), cfg.EffectiveSkillsSource())
 			}, dryRun, force, "", agentPaths)
-			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, extrasEntries)
 		}
-		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost)
+		if hasAll {
+			pluginRoot, _, pErr := pluginRoots(modeGlobal)
+			if pErr == nil {
+				pluginResults, pErr = pluginpkg.SyncAll(pluginRoot, "", "all", true)
+			}
+			if pErr != nil && syncErr == nil {
+				syncErr = pErr
+			}
+			hookRoot, _, hErr := hookRoots(modeGlobal)
+			if hErr == nil {
+				hookResults, hErr = hookpkg.SyncAll(hookRoot, "", "all")
+			}
+			if hErr != nil && syncErr == nil {
+				syncErr = hErr
+			}
+		}
+		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, extrasEntries, pluginResults, hookResults)
 	}
 
 	// Agent sync when kind=all or --all (after skill sync)
@@ -314,6 +358,12 @@ func cmdSync(args []string) error {
 	if hasAll {
 		if extrasErr := cmdSyncExtras(append([]string{"-g"}, rest...)); extrasErr != nil {
 			ui.Warning("Extras sync: %v", extrasErr)
+		}
+		if pluginErr := cmdPluginsSync([]string{"-g", "--target", "all"}); pluginErr != nil {
+			ui.Warning("Plugins sync: %v", pluginErr)
+		}
+		if hooksErr := cmdHooksSync([]string{"-g", "--target", "all"}); hooksErr != nil {
+			ui.Warning("Hooks sync: %v", hooksErr)
 		}
 	}
 
@@ -405,7 +455,7 @@ func printIgnoredSkills(stats *skillignore.IgnoreStats) {
 
 // syncOutputJSON converts sync results to JSON and writes to stdout.
 // extras is optional and included when --all is used.
-func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iStats *skillignore.IgnoreStats, syncErr error, ctxCost *contextCostJSON, extras ...[]syncExtrasJSONEntry) error {
+func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iStats *skillignore.IgnoreStats, syncErr error, ctxCost *contextCostJSON, extras []syncExtrasJSONEntry, plugins []pluginpkg.SyncResult, hooks []hookpkg.SyncResult) error {
 	var totals syncModeStats
 	var details []syncJSONTargetDetail
 	for _, r := range results {
@@ -439,10 +489,10 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iS
 	}
 	output.IgnoredCount = len(ignoredSkills)
 	output.IgnoredSkills = ignoredSkills
-	if len(extras) > 0 && extras[0] != nil {
-		output.Extras = extras[0]
-	}
 	output.ContextCost = ctxCost
+	output.Extras = extras
+	output.Plugins = plugins
+	output.Hooks = hooks
 	return writeJSONResult(&output, syncErr)
 }
 
@@ -842,7 +892,7 @@ func printSyncHelp() {
 Sync skills from source to all configured targets.
 
 Options:
-  --all             Sync skills, agents, and extras
+  --all             Sync skills, agents, extras, plugins, and hooks
   --dry-run, -n     Preview changes without applying
   --force, -f       Force sync (overwrite local changes)
   --json            Output results as JSON
@@ -857,7 +907,7 @@ Subcommands:
 Examples:
   skillshare sync                Sync skills to all targets
   skillshare sync --dry-run      Preview sync changes
-  skillshare sync --all          Sync skills, agents, and extras
+  skillshare sync --all          Sync skills, agents, extras, plugins, and hooks
   skillshare sync -p             Sync project-level skills
   skillshare sync agents         Sync agents only`)
 }
