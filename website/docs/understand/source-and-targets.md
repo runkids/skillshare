@@ -7,7 +7,7 @@ sidebar_position: 2
 The core model behind skillshare: one source, many targets.
 
 :::tip When does this matter?
-Understanding source vs targets helps you know where to edit skills and agents (always in source — changes reflect via symlinks), why `sync` is a separate step, and how `collect` works in the reverse direction.
+Understanding source vs targets helps you know where to edit skills, agents, plugins, hooks, and extras, why `sync` is a separate step for some resource kinds, and how `collect` or import flows work in the reverse direction.
 :::
 
 ## The Problem
@@ -34,29 +34,29 @@ Without skillshare, you manage skills separately for each AI CLI:
 
 ## The Solution
 
-skillshare introduces a **source directory** that syncs to all **targets**:
+skillshare introduces source-managed resource roots that sync to targets or target config:
 
 ```mermaid
 flowchart TD
-    SRC["SOURCE — ~/.config/skillshare/skills/"]
-    TGT_CLAUDE["~/.claude/skills/"]
-    TGT_CURSOR["~/.cursor/skills/"]
-    TGT_CODEX["~/.codex/skills/"]
-    SRC -->|"sync"| TGT_CLAUDE
-    SRC -->|"sync"| TGT_CURSOR
-    SRC -->|"sync"| TGT_CODEX
+    SRC["skills/ + agents/ + extras/ + plugins/ + hooks/"]
+    TGT_CLAUDE["Claude"]
+    TGT_CURSOR["Cursor"]
+    TGT_CODEX["Codex"]
+    SRC -->|"resource-specific sync"| TGT_CLAUDE
+    SRC -->|"resource-specific sync"| TGT_CURSOR
+    SRC -->|"resource-specific sync"| TGT_CODEX
 ```
 
 **Benefits:**
-- Edit in source → all targets update instantly
-- Edit in target → changes go to source (via symlinks)
+- Edit in source → targets or target config can be regenerated consistently
+- Skills and agents can reflect edits instantly through symlinks
 - Single source of truth
 
 ---
 
 ## Why Sync is a Separate Step
 
-Operations like `install`, `update`, and `uninstall` only modify the **source** directory. A separate `sync` step propagates changes to all targets. This two-phase design is intentional:
+Operations like `install`, `update`, `uninstall`, `plugins import`, and `hooks import` only modify the **source** side. A separate `sync` step propagates changes to targets or target config. This two-phase design is intentional:
 
 **Preview before propagating** — Run `sync --dry-run` to review what will change across all targets before applying. Especially useful after `uninstall` or `--force` operations.
 
@@ -69,7 +69,7 @@ Operations like `install`, `update`, and `uninstall` only modify the **source** 
 :::
 
 :::info When sync is NOT needed
-Editing an existing skill doesn't require sync — symlinks mean changes are instantly visible in all targets. You only need sync when the set of skills changes (add, remove, rename) or when targets/modes change.
+Editing an existing skill or agent usually doesn't require sync because symlinks mean changes are instantly visible in linked targets. Plugins, hooks, and extras still require explicit sync because they render into managed roots or config files.
 :::
 
 ---
@@ -150,6 +150,69 @@ See [Agents](/docs/understand/agents) for the full agent file format, `.agentign
 
 ---
 
+## Plugin source
+
+Plugins are their own source-managed subsystem:
+
+```text
+~/.config/skillshare/plugins/      # global
+.skillshare/plugins/               # project
+```
+
+A plugin bundle is not synced like a skill directory. The flow is:
+
+```text
+source bundle
+  -> target-specific staged bundle
+  -> rendered marketplace root
+  -> optional install/enable step
+```
+
+Target render roots:
+
+- Claude:
+  - Global: `~/.config/skillshare/rendered/claude-marketplace/`
+  - Project: `.skillshare/rendered/claude-marketplace/`
+- Codex:
+  - Global: `~/.agents/plugins/`
+  - Project: `.agents/plugins/`
+
+Codex activation is still global because enablement writes `~/.codex/config.toml`, even when the plugin source itself is project-scoped.
+
+---
+
+## Hook source
+
+Hooks are another separate subsystem:
+
+```text
+~/.config/skillshare/hooks/        # global
+.skillshare/hooks/                 # project
+```
+
+The hook flow is:
+
+```text
+source bundle
+  -> managed hook script root
+  -> merge managed entries back into target config
+```
+
+Managed config files:
+
+- Claude: `.claude/settings.json` or `~/.claude/settings.json`
+- Codex: `.codex/hooks.json` or `~/.codex/hooks.json`
+- Codex also enables `features.codex_hooks = true` in `~/.codex/config.toml`
+
+This merge model preserves unmanaged hook entries that already exist in those config files.
+
+For native resources, reporting stays target-aware:
+
+- plugin reporting includes only targets the bundle can actually sync to, including generated manifests
+- hook reporting includes only target sections defined in `hook.yaml`
+
+---
+
 ## Targets
 
 Targets are AI CLI skill directories that skillshare syncs to.
@@ -218,6 +281,12 @@ $EDITOR ~/.claude/skills/my-skill/SKILL.md
 
 - [sync](/docs/reference/commands/sync) — Propagate changes from source to targets
 - [collect](/docs/reference/commands/collect) — Pull skills from targets back to source
+- [plugins](/docs/reference/commands/plugins) — Native plugin bundle flow
+- [hooks](/docs/reference/commands/hooks) — Standalone hook bundle flow
 - [Sync Modes](./sync-modes.md) — How files are linked (merge, copy, symlink)
 - [Agents](./agents.md) — Agent resource model and discovery
 - [Configuration](/docs/reference/targets/configuration) — Target config reference
+
+:::note Current web UI scope
+The web UI exposes skills, targets, extras, and related operations, but it does not yet have dedicated plugin or hook screens. Use the CLI or server API endpoints for plugin/hook workflows.
+:::

@@ -19,6 +19,18 @@
       "default": "~/.config/skillshare/agents",
       "examples": ["~/.config/skillshare/agents", "/home/user/my-agents"]
     },
+    "plugins_source": {
+      "type": "string",
+      "description": "Path to the plugin bundle source directory. Supports ~ for home directory. Defaults to ~/.config/skillshare/plugins if not set.",
+      "default": "~/.config/skillshare/plugins",
+      "examples": ["~/.config/skillshare/plugins", "/home/user/my-plugins"]
+    },
+    "hooks_source": {
+      "type": "string",
+      "description": "Path to the standalone hook bundle source directory. Supports ~ for home directory. Defaults to ~/.config/skillshare/hooks if not set.",
+      "default": "~/.config/skillshare/hooks",
+      "examples": ["~/.config/skillshare/hooks", "/home/user/my-hooks"]
+    },
     "mode": {
       "type": "string",
       "description": "Default sync mode for all targets.",

@@ -45,7 +45,7 @@ func diffProjectAgents(root, targetName string, opts diffRenderOpts, start time.
 	}
 
 	if opts.jsonOutput {
-		return diffOutputJSON(results, start)
+		return diffOutputJSON(results, nil, nil, start)
 	}
 
 	if len(results) == 0 {
@@ -79,7 +79,7 @@ func diffGlobalAgents(cfg *config.Config, targetName string, opts diffRenderOpts
 	}
 
 	if opts.jsonOutput {
-		return diffOutputJSON(results, start)
+		return diffOutputJSON(results, nil, nil, start)
 	}
 
 	if len(results) == 0 {

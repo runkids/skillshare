@@ -12,7 +12,9 @@ import (
 
 	"skillshare/internal/backup"
 	"skillshare/internal/config"
+	hookpkg "skillshare/internal/hooks"
 	"skillshare/internal/install"
+	pluginpkg "skillshare/internal/plugins"
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
@@ -140,13 +142,17 @@ func cmdDoctorGlobal(jsonMode bool) error {
 
 	runDoctorChecks(cfg, result, false)
 	checkExtras(cfg.Extras, result, false, cfg.Source, cfg.ExtrasSource, "")
+	checkPlugins(cfg.EffectivePluginsSource(), "", result)
+	checkHooks(cfg.EffectiveHooksSource(), "", result)
+	pluginBundles, _ := pluginpkg.Discover(cfg.EffectivePluginsSource())
+	hookBundles, _ := hookpkg.Discover(cfg.EffectiveHooksSource())
 	ui.Header("Storage")
 	checkBackupStatus(result, false, backup.BackupDir())
 	checkTrashStatus(result, trash.TrashDir())
 	checkVersionDoctor(cfg, result, false)
 
 	if jsonMode {
-		return finalizeDoctorJSON(restoreUI, result, updateCh)
+		return finalizeDoctorJSON(restoreUI, result, updateCh, pluginBundles, hookBundles)
 	}
 
 	printUpdateAvailable(<-updateCh)
@@ -198,13 +204,17 @@ func cmdDoctorProject(root string, jsonMode bool) error {
 
 	runDoctorChecks(cfg, result, true)
 	checkExtras(rt.config.Extras, result, true, "", "", root)
+	checkPlugins(config.PluginsSourceDirProject(root), root, result)
+	checkHooks(config.HooksSourceDirProject(root), root, result)
+	pluginBundles, _ := pluginpkg.Discover(config.PluginsSourceDirProject(root))
+	hookBundles, _ := hookpkg.Discover(config.HooksSourceDirProject(root))
 	ui.Header("Storage")
 	checkBackupStatus(result, true, "")
 	checkTrashStatus(result, trash.ProjectTrashDir(root))
 	checkVersionDoctor(cfg, result, true)
 
 	if jsonMode {
-		return finalizeDoctorJSON(restoreUI, result, updateCh)
+		return finalizeDoctorJSON(restoreUI, result, updateCh, pluginBundles, hookBundles)
 	}
 
 	printUpdateAvailable(<-updateCh)
@@ -1105,6 +1115,68 @@ func checkExtras(extras []config.ExtraConfig, result *doctorResult, isProject bo
 	} else {
 		result.addCheck("extras", checkPass, fmt.Sprintf("All %d extra(s) OK", len(extras)), nil)
 	}
+}
+
+func checkPlugins(sourceRoot, projectRoot string, result *doctorResult) {
+	bundles, err := pluginpkg.Discover(sourceRoot)
+	if err != nil {
+		result.addWarning()
+		result.addCheck("plugins", checkWarning, fmt.Sprintf("Plugins source unavailable: %v", err), nil)
+		return
+	}
+	if len(bundles) == 0 {
+		result.addCheck("plugins", checkPass, "No plugin bundles configured", nil)
+		return
+	}
+	var details []string
+	for _, bundle := range bundles {
+		targets := pluginpkg.SupportedTargets(bundle)
+		if len(targets) == 0 {
+			continue
+		}
+		missing := 0
+		for _, target := range targets {
+			if _, err := os.Stat(pluginpkg.RenderRoot(projectRoot, bundle.Name, target)); err != nil {
+				missing++
+			}
+		}
+		if missing == len(targets) {
+			details = append(details, fmt.Sprintf("%s: not rendered", bundle.Name))
+		}
+	}
+	if len(details) > 0 {
+		result.addWarning()
+		result.addCheck("plugins", checkWarning, "Some plugins need sync", details)
+		return
+	}
+	result.addCheck("plugins", checkPass, fmt.Sprintf("All %d plugin bundle(s) rendered", len(bundles)), nil)
+}
+
+func checkHooks(sourceRoot, projectRoot string, result *doctorResult) {
+	bundles, err := hookpkg.Discover(sourceRoot)
+	if err != nil {
+		result.addWarning()
+		result.addCheck("hooks", checkWarning, fmt.Sprintf("Hooks source unavailable: %v", err), nil)
+		return
+	}
+	if len(bundles) == 0 {
+		result.addCheck("hooks", checkPass, "No hook bundles configured", nil)
+		return
+	}
+	var details []string
+	for _, bundle := range bundles {
+		for _, target := range hookpkg.SupportedTargets(bundle) {
+			if _, err := os.Stat(hookpkg.RenderRoot(projectRoot, bundle.Name, target)); err != nil {
+				details = append(details, fmt.Sprintf("%s: %s hooks not rendered", bundle.Name, target))
+			}
+		}
+	}
+	if len(details) > 0 {
+		result.addWarning()
+		result.addCheck("hooks", checkWarning, "Some hooks need sync", details)
+		return
+	}
+	result.addCheck("hooks", checkPass, fmt.Sprintf("All %d hook bundle(s) rendered", len(bundles)), nil)
 }
 
 // checkBackupStatus shows last backup time

@@ -11,6 +11,8 @@ import (
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/git"
+	hookpkg "skillshare/internal/hooks"
+	pluginpkg "skillshare/internal/plugins"
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
@@ -25,6 +27,8 @@ type statusJSONOutput struct {
 	TrackedRepos []statusJSONRepo   `json:"tracked_repos"`
 	Targets      []statusJSONTarget `json:"targets"`
 	Agents       *statusJSONAgents  `json:"agents,omitempty"`
+	Plugins      []pluginpkg.Bundle `json:"plugins,omitempty"`
+	Hooks        []hookpkg.Bundle   `json:"hooks,omitempty"`
 	Audit        statusJSONAudit    `json:"audit"`
 	Version      string             `json:"version"`
 }
@@ -134,6 +138,18 @@ func cmdStatus(args []string) error {
 				return config.ResolveExtrasSourceDir(extra, cfg.ExtrasSource, cfg.Source)
 			})
 		}
+		if bundles, bundleErr := pluginpkg.Discover(cfg.EffectivePluginsSource()); bundleErr == nil && len(bundles) > 0 {
+			ui.Header("Plugins")
+			for _, bundle := range bundles {
+				ui.Status(bundle.Name, "plugin", fmt.Sprintf("claude=%t codex=%t", bundle.HasClaude, bundle.HasCodex))
+			}
+		}
+		if bundles, bundleErr := hookpkg.Discover(cfg.EffectiveHooksSource()); bundleErr == nil && len(bundles) > 0 {
+			ui.Header("Hooks")
+			for _, bundle := range bundles {
+				ui.Status(bundle.Name, "hook", fmt.Sprintf("claude=%d codex=%d", bundle.Targets["claude"], bundle.Targets["codex"]))
+			}
+		}
 
 		printAuditStatus(cfg.Audit)
 		checkSkillVersion(cfg)
@@ -185,6 +201,8 @@ func cmdStatus(args []string) error {
 	}
 
 	output.Agents = buildAgentStatusJSON(cfg)
+	output.Plugins, _ = pluginpkg.Discover(cfg.EffectivePluginsSource())
+	output.Hooks, _ = hookpkg.Discover(cfg.EffectiveHooksSource())
 
 	return writeJSON(&output)
 }

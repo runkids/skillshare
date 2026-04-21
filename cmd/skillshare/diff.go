@@ -28,8 +28,10 @@ type diffRenderOpts struct {
 
 // diffJSONOutput is the JSON representation for diff --json output.
 type diffJSONOutput struct {
-	Targets  []diffJSONTarget `json:"targets"`
-	Duration string           `json:"duration"`
+	Targets  []diffJSONTarget      `json:"targets"`
+	Duration string                `json:"duration"`
+	Plugins  []pluginDiffJSONEntry `json:"plugins,omitempty"`
+	Hooks    []hookDiffJSONEntry   `json:"hooks,omitempty"`
 }
 
 type diffJSONTarget struct {
@@ -483,7 +485,7 @@ func cmdDiffGlobal(targetName string, kind resourceKindFilter, opts diffRenderOp
 	results = mergeAgentDiffsGlobal(cfg, results, targetName)
 
 	if opts.jsonOutput {
-		return diffOutputJSONWithExtras(results, extrasResults, start)
+		return diffOutputJSONWithExtras(results, extrasResults, collectPluginDiff(cfg.EffectivePluginsSource(), ""), collectHookDiff(cfg.EffectiveHooksSource(), ""), start)
 	}
 	if shouldLaunchTUI(opts.noTUI, cfg) && len(results) > 0 {
 		return runDiffTUI(results, extrasResults)
@@ -509,9 +511,11 @@ func diffItemToJSON(item copyDiffEntry) diffJSONItem {
 	}
 }
 
-func diffOutputJSON(results []targetDiffResult, start time.Time) error {
+func diffOutputJSON(results []targetDiffResult, pluginResults []pluginDiffJSONEntry, hookResults []hookDiffJSONEntry, start time.Time) error {
 	output := diffJSONOutput{
 		Duration: formatDuration(start),
+		Plugins:  pluginResults,
+		Hooks:    hookResults,
 	}
 	for _, r := range results {
 		jt := diffJSONTarget{
@@ -530,15 +534,19 @@ func diffOutputJSON(results []targetDiffResult, start time.Time) error {
 	return writeJSON(&output)
 }
 
-func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraDiffResult, start time.Time) error {
+func diffOutputJSONWithExtras(results []targetDiffResult, extrasResults []extraDiffResult, pluginResults []pluginDiffJSONEntry, hookResults []hookDiffJSONEntry, start time.Time) error {
 	type outputWithExtras struct {
-		Targets  []diffJSONTarget     `json:"targets"`
-		Extras   []extraDiffJSONEntry `json:"extras,omitempty"`
-		Duration string               `json:"duration"`
+		Targets  []diffJSONTarget      `json:"targets"`
+		Extras   []extraDiffJSONEntry  `json:"extras,omitempty"`
+		Plugins  []pluginDiffJSONEntry `json:"plugins,omitempty"`
+		Hooks    []hookDiffJSONEntry   `json:"hooks,omitempty"`
+		Duration string                `json:"duration"`
 	}
 	o := outputWithExtras{
 		Duration: formatDuration(start),
 		Extras:   extrasDiffToJSON(extrasResults),
+		Plugins:  pluginResults,
+		Hooks:    hookResults,
 	}
 	for _, r := range results {
 		jt := diffJSONTarget{

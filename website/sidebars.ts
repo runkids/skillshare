@@ -158,6 +158,8 @@ const sidebars: SidebarsConfig = {
               items: [
                 'reference/commands/collect',
                 'reference/commands/extras',
+                'reference/commands/plugins',
+                'reference/commands/hooks',
                 'reference/commands/backup',
                 'reference/commands/restore',
                 'reference/commands/trash',
