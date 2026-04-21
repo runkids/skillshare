@@ -126,6 +126,12 @@ func Discover(sourceRoot string) ([]Bundle, error) {
 		dir := filepath.Join(sourceRoot, entry.Name())
 		cfg, warnings, err := readHookConfig(filepath.Join(dir, "hook.yaml"))
 		if err != nil {
+			out = append(out, Bundle{
+				Name:      entry.Name(),
+				SourceDir: dir,
+				Targets:   map[string]int{},
+				Issues:    []string{err.Error()},
+			})
 			continue
 		}
 		targets := map[string]int{}
@@ -201,6 +207,9 @@ func SyncAll(sourceRoot, projectRoot, target string) ([]SyncResult, error) {
 }
 
 func SyncBundle(bundle Bundle, projectRoot, target string) (SyncResult, error) {
+	if len(bundle.Issues) > 0 {
+		return SyncResult{Name: bundle.Name, Target: target, Warnings: append([]string{}, bundle.Issues...)}, nil
+	}
 	switch target {
 	case "claude":
 		if bundle.Config.Claude == nil {
@@ -409,11 +418,15 @@ func decodeHookMap(raw any) map[string][]map[string]any {
 	if raw == nil {
 		return result
 	}
-	data, err := json.Marshal(raw)
-	if err != nil {
+	root, ok := anyMap(raw)
+	if !ok {
 		return result
 	}
-	_ = json.Unmarshal(data, &result)
+	for event, payload := range root {
+		for _, entry := range anySliceOfMaps(payload) {
+			result[event] = append(result[event], entry)
+		}
+	}
 	return result
 }
 
@@ -422,19 +435,15 @@ func decodeClaudeHookMap(raw any) map[string][]claudeMatcherGroup {
 	if raw == nil {
 		return result
 	}
-	payload := map[string][]map[string]any{}
-	data, err := json.Marshal(raw)
-	if err != nil {
-		return result
-	}
-	if err := json.Unmarshal(data, &payload); err != nil {
+	payload, ok := anyMap(raw)
+	if !ok {
 		return result
 	}
 	for event, groups := range payload {
-		for _, rawGroup := range groups {
+		for _, rawGroup := range anySliceOfMaps(groups) {
 			group := claudeMatcherGroup{Extra: map[string]any{}}
 			if hooksRaw, ok := rawGroup["hooks"]; ok {
-				group.Matcher = rawGroup["matcher"]
+				group.Matcher = deepCloneAny(rawGroup["matcher"])
 				if group.Matcher == nil {
 					group.Matcher = defaultClaudeMatcher(event)
 				}
@@ -442,9 +451,9 @@ func decodeClaudeHookMap(raw any) map[string][]claudeMatcherGroup {
 					if key == "hooks" || key == "matcher" {
 						continue
 					}
-					group.Extra[key] = value
+					group.Extra[key] = deepCloneAny(value)
 				}
-				for _, hook := range decodeJSONArrayOfMaps(hooksRaw) {
+				for _, hook := range anySliceOfMaps(hooksRaw) {
 					group.Hooks = append(group.Hooks, hook)
 				}
 			} else {
@@ -762,26 +771,21 @@ func buildLocalizedImportCommand(original, managedRoot, srcPath, prefix, quote, 
 }
 
 func parseDirectExecutableCommand(command string) (string, string, string, bool) {
-	if len(command) == 0 {
+	if strings.TrimSpace(command) == "" {
 		return "", "", "", false
 	}
 	if command[0] == '"' || command[0] == '\'' {
-		quote := string(command[0])
-		end := strings.Index(command[1:], quote)
-		if end < 0 {
+		path, rest, quote, ok := parseQuotedCommandPath(command)
+		if !ok {
 			return "", "", "", false
 		}
-		path := command[1 : 1+end]
 		if filepath.IsAbs(path) {
-			return path, quote, command[1+end+1:], true
+			return path, quote, rest, true
 		}
-		return "", "", "", false
-	}
-	if !filepath.IsAbs(strings.Fields(command)[0]) {
 		return "", "", "", false
 	}
 	fields := strings.Fields(command)
-	if len(fields) == 0 {
+	if len(fields) == 0 || !filepath.IsAbs(fields[0]) {
 		return "", "", "", false
 	}
 	path := fields[0]
@@ -805,16 +809,14 @@ func parseInterpreterScriptCommand(command string) (string, string, string, stri
 		return "", "", "", "", false
 	}
 	if remaining[0] == '"' || remaining[0] == '\'' {
-		quote := string(remaining[0])
-		end := strings.Index(remaining[1:], quote)
-		if end < 0 {
+		path, rest, quote, ok := parseQuotedCommandPath(remaining)
+		if !ok {
 			return "", "", "", "", false
 		}
-		path := remaining[1 : 1+end]
 		if !filepath.IsAbs(path) {
 			return "", "", "", "", false
 		}
-		return prefix, path, quote, remaining[1+end+1:], true
+		return prefix, path, quote, rest, true
 	}
 	second := strings.Fields(remaining)
 	if len(second) == 0 || !filepath.IsAbs(second[0]) {
@@ -924,19 +926,12 @@ func writeImportedGroups(sourceRoot string, groups map[string]importGroup, targe
 
 func copyImportedHookFiles(dir string, files map[string]string) error {
 	for srcPath, rel := range files {
-		data, err := os.ReadFile(srcPath)
-		if err != nil {
-			return err
-		}
 		dst := filepath.Join(dir, "scripts", filepath.FromSlash(rel))
-		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-			return err
-		}
 		info, err := os.Stat(srcPath)
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(dst, data, info.Mode()); err != nil {
+		if err := tooling.CopyFile(srcPath, dst, info.Mode()); err != nil {
 			return err
 		}
 	}
@@ -990,15 +985,7 @@ func matcherSignature(matcher any) string {
 }
 
 func cloneMatcher(matcher any) any {
-	data, err := json.Marshal(matcher)
-	if err != nil {
-		return matcher
-	}
-	var out any
-	if err := json.Unmarshal(data, &out); err != nil {
-		return matcher
-	}
-	return out
+	return deepCloneAny(matcher)
 }
 
 func cloneAnyMap(src map[string]any) map[string]any {
@@ -1007,7 +994,7 @@ func cloneAnyMap(src map[string]any) map[string]any {
 	}
 	dst := make(map[string]any, len(src))
 	for key, value := range src {
-		dst[key] = value
+		dst[key] = deepCloneAny(value)
 	}
 	return dst
 }
@@ -1029,16 +1016,6 @@ func mergeAnyMap(dst map[string]any, src map[string]any) {
 	}
 }
 
-func decodeJSONArrayOfMaps(raw any) []map[string]any {
-	var items []map[string]any
-	data, err := json.Marshal(raw)
-	if err != nil {
-		return nil
-	}
-	_ = json.Unmarshal(data, &items)
-	return items
-}
-
 func cloneHandlerSlice(src []map[string]any) []map[string]any {
 	if len(src) == 0 {
 		return nil
@@ -1056,7 +1033,7 @@ func isManagedCommandHandler(handler map[string]any, managedPrefix string) bool 
 }
 
 func anyStringMap(raw any) map[string]string {
-	items, ok := raw.(map[string]any)
+	items, ok := anyMap(raw)
 	if !ok {
 		return nil
 	}
@@ -1070,7 +1047,7 @@ func anyStringMap(raw any) map[string]string {
 }
 
 func anyStringSlice(raw any) []string {
-	list, ok := raw.([]any)
+	list, ok := anySlice(raw)
 	if !ok {
 		if typed, ok := raw.([]string); ok {
 			return append([]string{}, typed...)
@@ -1084,6 +1061,91 @@ func anyStringSlice(raw any) []string {
 		}
 	}
 	return out
+}
+
+func anyMap(raw any) (map[string]any, bool) {
+	switch value := raw.(type) {
+	case map[string]any:
+		return value, true
+	case map[any]any:
+		out := make(map[string]any, len(value))
+		for key, item := range value {
+			ks, ok := key.(string)
+			if !ok {
+				return nil, false
+			}
+			out[ks] = item
+		}
+		return out, true
+	default:
+		return nil, false
+	}
+}
+
+func anySlice(raw any) ([]any, bool) {
+	list, ok := raw.([]any)
+	return list, ok
+}
+
+func anySliceOfMaps(raw any) []map[string]any {
+	list, ok := anySlice(raw)
+	if !ok {
+		return nil
+	}
+	out := make([]map[string]any, 0, len(list))
+	for _, item := range list {
+		if mapped, ok := anyMap(item); ok {
+			out = append(out, cloneAnyMap(mapped))
+		}
+	}
+	return out
+}
+
+func deepCloneAny(raw any) any {
+	switch value := raw.(type) {
+	case map[string]any:
+		return cloneAnyMap(value)
+	case map[any]any:
+		mapped, ok := anyMap(value)
+		if !ok {
+			return value
+		}
+		return cloneAnyMap(mapped)
+	case []any:
+		out := make([]any, 0, len(value))
+		for _, item := range value {
+			out = append(out, deepCloneAny(item))
+		}
+		return out
+	default:
+		return value
+	}
+}
+
+func parseQuotedCommandPath(command string) (string, string, string, bool) {
+	if len(command) == 0 {
+		return "", "", "", false
+	}
+	quote := command[0]
+	var path strings.Builder
+	escaped := false
+	for i := 1; i < len(command); i++ {
+		ch := command[i]
+		if escaped {
+			path.WriteByte(ch)
+			escaped = false
+			continue
+		}
+		if quote == '"' && ch == '\\' {
+			escaped = true
+			continue
+		}
+		if ch == quote {
+			return path.String(), command[i+1:], string(quote), true
+		}
+		path.WriteByte(ch)
+	}
+	return "", "", "", false
 }
 
 func anyInt(raw any) int {

@@ -167,6 +167,32 @@ enabled = false
 	}
 }
 
+func TestDiscoverCodexInstalledPluginsWalksProviderNameHashLayout(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	writeFile(t, config.CodexConfigPath(), `
+[plugins.'demo@provider-a'] # existing quoted ref
+enabled = true
+`)
+	providerA := filepath.Join(config.CodexPluginCacheBase(), "provider-a", "demo", "hash-a")
+	local := filepath.Join(config.CodexPluginCacheBase(), "skillshare", "demo", "local")
+	writeFile(t, filepath.Join(providerA, ".codex-plugin", "plugin.json"), `{"name":"demo","version":"1.0.0"}`)
+	writeFile(t, filepath.Join(local, ".codex-plugin", "plugin.json"), `{"name":"demo","version":"1.1.0"}`)
+	writeFile(t, filepath.Join(config.CodexPluginCacheBase(), "provider-a", "demo", "hash-a", "deep", "ignored", ".codex-plugin", "plugin.json"), `{"name":"demo","version":"bad"}`)
+
+	installed, err := discoverCodexInstalledPlugins()
+	if err != nil {
+		t.Fatalf("discoverCodexInstalledPlugins() error = %v", err)
+	}
+	if got := installed["demo@provider-a"]; len(got) != 1 || got[0] != providerA {
+		t.Fatalf("unexpected provider-a entries: %+v", installed)
+	}
+	if got := installed["demo@skillshare"]; len(got) != 1 || got[0] != local {
+		t.Fatalf("unexpected skillshare entries: %+v", installed)
+	}
+}
+
 func TestSyncBundleClaudeUsesInstalledMetadataForUpdate(t *testing.T) {
 	home := t.TempDir()
 	binDir := filepath.Join(t.TempDir(), "bin")

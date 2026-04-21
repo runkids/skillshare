@@ -307,6 +307,143 @@ func TestImportClaudeHooksOwnedOnlyAndConflict(t *testing.T) {
 	}
 }
 
+func TestDiscoverIncludesInvalidBundleIssues(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "hooks")
+	writeHookBundle(t, filepath.Join(root, "valid"), `
+claude:
+  events:
+    SessionStart:
+      - command: "{HOOK_ROOT}/scripts/start.sh"
+`)
+	writeHookBundle(t, filepath.Join(root, "broken"), `
+claude:
+  events:
+    SessionStart:
+      - command: "{OTHER_ROOT}/scripts/start.sh"
+`)
+
+	bundles, err := Discover(root)
+	if err != nil {
+		t.Fatalf("Discover() error = %v", err)
+	}
+	if len(bundles) != 2 {
+		t.Fatalf("expected 2 bundles, got %+v", bundles)
+	}
+
+	var broken Bundle
+	for _, bundle := range bundles {
+		if bundle.Name == "broken" {
+			broken = bundle
+			break
+		}
+	}
+	if broken.Name == "" {
+		t.Fatalf("broken bundle missing from %+v", bundles)
+	}
+	if len(broken.Issues) == 0 {
+		t.Fatalf("expected discovery issues for broken bundle: %+v", broken)
+	}
+	if len(broken.Targets) != 0 {
+		t.Fatalf("expected invalid bundle to have no targets, got %+v", broken.Targets)
+	}
+}
+
+func TestSyncAllReturnsWarningRowForInvalidBundle(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	sourceRoot := filepath.Join(t.TempDir(), "hooks")
+	writeHookBundle(t, filepath.Join(sourceRoot, "broken"), `
+claude:
+  events:
+    SessionStart:
+      - command: "{OTHER_ROOT}/scripts/start.sh"
+`)
+
+	results, err := SyncAll(sourceRoot, "", "all")
+	if err != nil {
+		t.Fatalf("SyncAll() error = %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected warning rows for both targets, got %+v", results)
+	}
+	for _, res := range results {
+		if res.Name != "broken" {
+			t.Fatalf("unexpected result row: %+v", res)
+		}
+		if res.Root != "" || res.Merged {
+			t.Fatalf("expected warning-only result, got %+v", res)
+		}
+		if len(res.Warnings) == 0 || !strings.Contains(strings.Join(res.Warnings, "\n"), "hook.yaml") {
+			t.Fatalf("expected surfaced issue in warnings, got %+v", res)
+		}
+	}
+}
+
+func TestParseDirectExecutableCommandRejectsWhitespaceOnly(t *testing.T) {
+	if _, _, _, ok := parseDirectExecutableCommand("   \t "); ok {
+		t.Fatal("expected whitespace-only command to fail")
+	}
+}
+
+func TestParseDirectExecutableCommandSupportsEscapedQuotes(t *testing.T) {
+	command := "\"/tmp/a\\\"b/script.sh\" --flag"
+	path, quote, rest, ok := parseDirectExecutableCommand(command)
+	if !ok {
+		t.Fatalf("expected parse success for %q", command)
+	}
+	if path != `/tmp/a"b/script.sh` || quote != `"` || rest != " --flag" {
+		t.Fatalf("unexpected parse result path=%q quote=%q rest=%q", path, quote, rest)
+	}
+}
+
+func TestParseInterpreterScriptCommandSupportsEscapedQuotes(t *testing.T) {
+	command := "node \"/tmp/a\\\"b/script.js\" --watch"
+	prefix, path, quote, suffix, ok := parseInterpreterScriptCommand(command)
+	if !ok {
+		t.Fatalf("expected parse success for %q", command)
+	}
+	if prefix != "node " || path != `/tmp/a"b/script.js` || quote != `"` || suffix != " --watch" {
+		t.Fatalf("unexpected parse result prefix=%q path=%q quote=%q suffix=%q", prefix, path, quote, suffix)
+	}
+}
+
+func TestImportClaudeHooksCopiesImportedScriptWithMode(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	sourceRoot := filepath.Join(t.TempDir(), "hooks")
+
+	scriptPath := filepath.Join(home, ".claude", "hooks", "audit", "scripts", "pre.sh")
+	writeFile(t, scriptPath, "#!/bin/sh\nexit 0\n")
+	if err := os.Chmod(scriptPath, 0o755); err != nil {
+		t.Fatalf("chmod script: %v", err)
+	}
+	writeFile(t, config.ClaudeSettingsPath(""), `{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {"type": "command", "command": "`+filepath.ToSlash(scriptPath)+`"}
+        ]
+      }
+    ]
+  }
+}`)
+
+	if _, err := Import(sourceRoot, ImportOptions{From: "claude", All: true}); err != nil {
+		t.Fatalf("Import() error = %v", err)
+	}
+
+	imported := filepath.Join(sourceRoot, "audit", "scripts", "pre.sh")
+	info, err := os.Stat(imported)
+	if err != nil {
+		t.Fatalf("stat imported script: %v", err)
+	}
+	if info.Mode().Perm() != 0o755 {
+		t.Fatalf("expected executable mode preserved, got %o", info.Mode().Perm())
+	}
+}
+
 func writeHookBundle(t *testing.T, root, yamlText string) {
 	t.Helper()
 	if err := os.MkdirAll(root, 0o755); err != nil {

@@ -55,7 +55,14 @@ func cmdHooksList(args []string) error {
 	}
 	ui.Header(ui.WithModeLabel("Hooks"))
 	for _, bundle := range bundles {
-		ui.Info("%s  claude=%d codex=%d", bundle.Name, bundle.Targets["claude"], bundle.Targets["codex"])
+		summary := fmt.Sprintf("claude=%d codex=%d", bundle.Targets["claude"], bundle.Targets["codex"])
+		if len(bundle.Issues) > 0 {
+			summary += fmt.Sprintf(" issues=%d", len(bundle.Issues))
+		}
+		ui.Info("%s  %s", bundle.Name, summary)
+		for _, issue := range bundle.Issues {
+			ui.Info("  %s", issue)
+		}
 	}
 	return nil
 }
