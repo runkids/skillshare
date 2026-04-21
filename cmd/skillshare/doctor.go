@@ -1165,6 +1165,12 @@ func checkHooks(sourceRoot, projectRoot string, result *doctorResult) {
 	}
 	var details []string
 	for _, bundle := range bundles {
+		if len(bundle.Issues) > 0 {
+			for _, issue := range bundle.Issues {
+				details = append(details, fmt.Sprintf("%s: %s", bundle.Name, issue))
+			}
+			continue
+		}
 		for _, target := range hookpkg.SupportedTargets(bundle) {
 			if _, err := os.Stat(hookpkg.RenderRoot(projectRoot, bundle.Name, target)); err != nil {
 				details = append(details, fmt.Sprintf("%s: %s hooks not rendered", bundle.Name, target))

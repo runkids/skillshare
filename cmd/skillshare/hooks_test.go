@@ -117,3 +117,33 @@ func TestCmdHooksSyncTextShowsWarningsForRenderedBundles(t *testing.T) {
 		t.Fatalf("expected warning output, got %s", output)
 	}
 }
+
+func TestCmdHooksSyncTextShowsInvalidBundleWarnings(t *testing.T) {
+	root := t.TempDir()
+	oldWD, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(root); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(oldWD)
+	})
+
+	if err := os.MkdirAll(filepath.Join(root, ".skillshare", "hooks", "broken"), 0o755); err != nil {
+		t.Fatalf("mkdir broken: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".skillshare", "hooks", "broken", "hook.yaml"), []byte("claude:\n  events:\n    SessionStart:\n      - command: \"{OTHER_ROOT}/scripts/start.sh\"\n"), 0o644); err != nil {
+		t.Fatalf("write broken hook: %v", err)
+	}
+
+	output := stripANSIWarnings(captureStdout(t, func() {
+		if err := cmdHooksSync([]string{"-p", "broken", "--target", "all"}); err != nil {
+			t.Fatalf("cmdHooksSync: %v", err)
+		}
+	}))
+	if !strings.Contains(output, "broken:") || !strings.Contains(output, "hook.yaml") {
+		t.Fatalf("expected invalid bundle warning output, got %s", output)
+	}
+}

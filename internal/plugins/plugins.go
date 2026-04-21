@@ -659,32 +659,62 @@ func resolvePluginRef[T any](ref string, installed map[string][]T, ecosystem str
 func discoverCodexInstalledPlugins() (map[string][]string, error) {
 	refs := readCodexConfiguredPluginRefs()
 	cacheBase := config.CodexPluginCacheBase()
-	pattern := filepath.Join(cacheBase, "*", "*", "*")
-	matches, _ := filepath.Glob(pattern)
 	out := map[string][]string{}
-	for _, dir := range matches {
-		if !dirExists(dir) || !fileExists(filepath.Join(dir, ".codex-plugin", "plugin.json")) {
+	providers, err := os.ReadDir(cacheBase)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	for _, providerEntry := range providers {
+		if !providerEntry.IsDir() {
 			continue
 		}
-		provider := filepath.Base(filepath.Dir(filepath.Dir(dir)))
-		name := filepath.Base(filepath.Dir(dir))
-		if filepath.Base(dir) == "local" {
-			name = filepath.Base(filepath.Dir(dir))
-			provider = "skillshare"
+		provider := providerEntry.Name()
+		names, nameErr := os.ReadDir(filepath.Join(cacheBase, provider))
+		if nameErr != nil {
+			continue
 		}
-		ref := name + "@" + provider
-		out[ref] = append(out[ref], dir)
+		for _, nameEntry := range names {
+			if !nameEntry.IsDir() {
+				continue
+			}
+			name := nameEntry.Name()
+			hashes, hashErr := os.ReadDir(filepath.Join(cacheBase, provider, name))
+			if hashErr != nil {
+				continue
+			}
+			for _, hashEntry := range hashes {
+				if !hashEntry.IsDir() {
+					continue
+				}
+				dir := filepath.Join(cacheBase, provider, name, hashEntry.Name())
+				if !fileExists(filepath.Join(dir, ".codex-plugin", "plugin.json")) {
+					continue
+				}
+				refProvider := provider
+				if hashEntry.Name() == "local" {
+					refProvider = "skillshare"
+				}
+				ref := name + "@" + refProvider
+				out[ref] = append(out[ref], dir)
+			}
+		}
 	}
 	for _, ref := range refs {
 		if _, ok := out[ref]; ok {
 			continue
 		}
 		name, provider := splitPluginRef(ref)
-		pattern := filepath.Join(cacheBase, provider, name, "*")
-		candidates, _ := filepath.Glob(pattern)
+		candidates, readErr := os.ReadDir(filepath.Join(cacheBase, provider, name))
+		if readErr != nil {
+			continue
+		}
 		for _, candidate := range candidates {
-			if dirExists(candidate) && fileExists(filepath.Join(candidate, ".codex-plugin", "plugin.json")) {
-				out[ref] = append(out[ref], candidate)
+			if !candidate.IsDir() {
+				continue
+			}
+			dir := filepath.Join(cacheBase, provider, name, candidate.Name())
+			if fileExists(filepath.Join(dir, ".codex-plugin", "plugin.json")) {
+				out[ref] = append(out[ref], dir)
 			}
 		}
 	}

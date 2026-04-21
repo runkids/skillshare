@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -12,27 +13,12 @@ import (
 
 // CopyDir recursively copies src into dst, skipping .git directories.
 func CopyDir(src, dst string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		rel, err := filepath.Rel(src, path)
-		if err != nil {
-			return err
-		}
-		target := filepath.Join(dst, rel)
-		if info.IsDir() {
-			if info.Name() == ".git" {
-				return filepath.SkipDir
-			}
-			return os.MkdirAll(target, info.Mode())
-		}
-		return copyFile(path, target, info.Mode())
-	})
+	return walkCopyDir(src, dst, false)
 }
 
-func copyFile(src, dst string, mode os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+// CopyFile streams a single file from src to dst and preserves mode.
+func CopyFile(src, dst string, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
 	in, err := os.Open(src)
@@ -47,8 +33,10 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	}
 	defer out.Close()
 
-	_, err = io.Copy(out, in)
-	return err
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+	return out.Close()
 }
 
 // ReplaceDir atomically replaces dst with a fresh copy of src.
@@ -62,7 +50,11 @@ func ReplaceDir(src, dst string) error {
 // MergeDir recursively copies src into dst without removing dst first.
 // When a file/dir type conflicts, the destination path is replaced.
 func MergeDir(src, dst string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+	return walkCopyDir(src, dst, true)
+}
+
+func walkCopyDir(src, dst string, merge bool) error {
+	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -74,23 +66,35 @@ func MergeDir(src, dst string) error {
 			return os.MkdirAll(dst, 0o755)
 		}
 		target := filepath.Join(dst, rel)
-		if info.IsDir() {
-			if info.Name() == ".git" {
+		if d.IsDir() {
+			if d.Name() == ".git" {
 				return filepath.SkipDir
 			}
-			if existing, statErr := os.Stat(target); statErr == nil && !existing.IsDir() {
-				if err := os.Remove(target); err != nil {
-					return err
+			info, err := d.Info()
+			if err != nil {
+				return err
+			}
+			if merge {
+				if existing, statErr := os.Stat(target); statErr == nil && !existing.IsDir() {
+					if err := os.Remove(target); err != nil {
+						return err
+					}
 				}
 			}
 			return os.MkdirAll(target, info.Mode())
 		}
-		if existing, statErr := os.Stat(target); statErr == nil && existing.IsDir() {
-			if err := os.RemoveAll(target); err != nil {
-				return err
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if merge {
+			if existing, statErr := os.Stat(target); statErr == nil && existing.IsDir() {
+				if err := os.RemoveAll(target); err != nil {
+					return err
+				}
 			}
 		}
-		return copyFile(path, target, info.Mode())
+		return CopyFile(path, target, info.Mode())
 	})
 }
 
@@ -125,19 +129,22 @@ func ReadJSON(path string, dst any) error {
 // EnsureManagedTableEntry adds or updates a simple TOML boolean key in a table.
 func EnsureManagedTableEntry(content, header, key string, value bool) string {
 	lines := strings.Split(content, "\n")
-	sectionLine := "[" + header + "]"
 	valueLine := fmt.Sprintf("%s = %t", key, value)
+	wantPath, ok := parseTOMLHeaderPath("[" + header + "]")
+	if !ok {
+		return content
+	}
 	for i := 0; i < len(lines); i++ {
-		if strings.TrimSpace(lines[i]) != sectionLine {
+		path, isHeader := parseTOMLHeaderPath(lines[i])
+		if !isHeader || !tomlPathEqual(path, wantPath) {
 			continue
 		}
 		for j := i + 1; j < len(lines); j++ {
-			trimmed := strings.TrimSpace(lines[j])
-			if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			if _, nextHeader := parseTOMLHeaderPath(lines[j]); nextHeader {
 				lines = append(lines[:j], append([]string{valueLine}, lines[j:]...)...)
 				return strings.Join(lines, "\n")
 			}
-			if strings.HasPrefix(trimmed, key+" =") {
+			if tomlLineDefinesKey(lines[j], key) {
 				lines[j] = valueLine
 				return strings.Join(lines, "\n")
 			}
@@ -151,7 +158,7 @@ func EnsureManagedTableEntry(content, header, key string, value bool) string {
 	if content != "" {
 		content += "\n"
 	}
-	return content + sectionLine + "\n" + valueLine + "\n"
+	return content + "[" + header + "]\n" + valueLine + "\n"
 }
 
 // EnsureManagedTOMLBool adds or updates a boolean key in a TOML table path.
@@ -160,18 +167,22 @@ func EnsureManagedTOMLBool(content string, tablePath []string, key string, value
 	sectionLine := "[" + strings.Join(tablePath, ".") + "]"
 	valueLine := fmt.Sprintf("%s = %t", key, value)
 	lines := strings.Split(content, "\n")
+	wantPath, ok := parseTOMLHeaderPath(sectionLine)
+	if !ok {
+		return content
+	}
 	for i := 0; i < len(lines); i++ {
-		if strings.TrimSpace(lines[i]) != sectionLine {
+		path, isHeader := parseTOMLHeaderPath(lines[i])
+		if !isHeader || !tomlPathEqual(path, wantPath) {
 			continue
 		}
 		insertAt := len(lines)
 		for j := i + 1; j < len(lines); j++ {
-			trimmed := strings.TrimSpace(lines[j])
-			if strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]") {
+			if _, nextHeader := parseTOMLHeaderPath(lines[j]); nextHeader {
 				insertAt = j
 				break
 			}
-			if strings.HasPrefix(trimmed, key+" =") {
+			if tomlLineDefinesKey(lines[j], key) {
 				lines[j] = valueLine
 				return strings.Join(lines, "\n")
 			}
@@ -186,6 +197,114 @@ func EnsureManagedTOMLBool(content string, tablePath []string, key string, value
 		content += "\n"
 	}
 	return content + sectionLine + "\n" + valueLine + "\n"
+}
+
+func parseTOMLHeaderPath(line string) ([]string, bool) {
+	trimmed := strings.TrimSpace(stripTOMLComment(line))
+	if !strings.HasPrefix(trimmed, "[") || !strings.HasSuffix(trimmed, "]") {
+		return nil, false
+	}
+	body := strings.TrimSpace(trimmed[1 : len(trimmed)-1])
+	if body == "" {
+		return nil, false
+	}
+	parts := splitTOMLHeaderParts(body)
+	if len(parts) == 0 {
+		return nil, false
+	}
+	return parts, true
+}
+
+func splitTOMLHeaderParts(body string) []string {
+	var parts []string
+	var current strings.Builder
+	var quote rune
+	escaped := false
+	for _, r := range body {
+		switch {
+		case escaped:
+			current.WriteRune(r)
+			escaped = false
+		case quote != 0:
+			if quote == '"' && r == '\\' {
+				escaped = true
+				continue
+			}
+			if r == quote {
+				quote = 0
+				continue
+			}
+			current.WriteRune(r)
+		case r == '"' || r == '\'':
+			quote = r
+		case r == '.':
+			parts = append(parts, strings.TrimSpace(current.String()))
+			current.Reset()
+		default:
+			current.WriteRune(r)
+		}
+	}
+	if escaped || quote != 0 {
+		return nil
+	}
+	parts = append(parts, strings.TrimSpace(current.String()))
+	for _, part := range parts {
+		if part == "" {
+			return nil
+		}
+	}
+	return parts
+}
+
+func tomlPathEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func tomlLineDefinesKey(line, key string) bool {
+	trimmed := strings.TrimSpace(stripTOMLComment(line))
+	if !strings.HasPrefix(trimmed, key) {
+		return false
+	}
+	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, key))
+	return strings.HasPrefix(rest, "=")
+}
+
+func stripTOMLComment(line string) string {
+	var out strings.Builder
+	var quote rune
+	escaped := false
+	for _, r := range line {
+		switch {
+		case escaped:
+			out.WriteRune(r)
+			escaped = false
+		case quote != 0:
+			out.WriteRune(r)
+			if quote == '"' && r == '\\' {
+				escaped = true
+				continue
+			}
+			if r == quote {
+				quote = 0
+			}
+		case r == '"' || r == '\'':
+			quote = r
+			out.WriteRune(r)
+		case r == '#':
+			return out.String()
+		default:
+			out.WriteRune(r)
+		}
+	}
+	return out.String()
 }
 
 // ManagedJSONMapMerge rewrites a top-level object key containing event arrays.

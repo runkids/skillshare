@@ -59,7 +59,14 @@ func cmdStatusProject(root string) error {
 	if bundles, bundleErr := hookpkg.Discover(config.HooksSourceDirProject(root)); bundleErr == nil && len(bundles) > 0 {
 		ui.Header("Hooks")
 		for _, bundle := range bundles {
-			ui.Status(bundle.Name, "hook", fmt.Sprintf("claude=%d codex=%d", bundle.Targets["claude"], bundle.Targets["codex"]))
+			summary := fmt.Sprintf("claude=%d codex=%d", bundle.Targets["claude"], bundle.Targets["codex"])
+			if len(bundle.Issues) > 0 {
+				summary += fmt.Sprintf(" issues=%d", len(bundle.Issues))
+			}
+			ui.Status(bundle.Name, "hook", summary)
+			for _, issue := range bundle.Issues {
+				ui.Info("  %s", issue)
+			}
 		}
 	}
 
