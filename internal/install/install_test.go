@@ -121,6 +121,35 @@ func TestDiscoverLocal_ExplicitSkillTarget_ReturnsOnlyRootSkill(t *testing.T) {
 	}
 }
 
+// Regression: UI discover endpoint defers CleanupDiscovery; for local sources
+// RepoPath is the user's directory and must not be removed.
+func TestCleanupDiscovery_PreservesLocalSource(t *testing.T) {
+	repoPath := t.TempDir()
+	skillFile := filepath.Join(repoPath, "SKILL.md")
+	if err := os.WriteFile(skillFile, []byte("---\nname: keep-me\n---\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	discovery, err := DiscoverLocal(&Source{
+		Type: SourceTypeLocalPath,
+		Raw:  repoPath,
+		Path: repoPath,
+		Name: filepath.Base(repoPath),
+	})
+	if err != nil {
+		t.Fatalf("DiscoverLocal: %v", err)
+	}
+	if discovery.RepoPath != repoPath {
+		t.Fatalf("RepoPath = %q, want %q", discovery.RepoPath, repoPath)
+	}
+
+	CleanupDiscovery(discovery)
+
+	if _, err := os.Stat(skillFile); err != nil {
+		t.Fatalf("local source was removed after CleanupDiscovery: %v", err)
+	}
+}
+
 func TestDiscoverSkills_ChildrenOnly(t *testing.T) {
 	// Setup: orchestrator repo with no root SKILL.md, only children
 	repoPath := t.TempDir()
