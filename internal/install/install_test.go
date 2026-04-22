@@ -150,6 +150,18 @@ func TestCleanupDiscovery_PreservesLocalSource(t *testing.T) {
 	}
 }
 
+func TestCleanupDiscovery_SkipsWhenSourceNil(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "keep.txt")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	CleanupDiscovery(&DiscoveryResult{RepoPath: dir, Source: nil})
+	if _, err := os.Stat(file); err != nil {
+		t.Fatalf("directory was removed when Source was nil: %v", err)
+	}
+}
+
 func TestDiscoverSkills_ChildrenOnly(t *testing.T) {
 	// Setup: orchestrator repo with no root SKILL.md, only children
 	repoPath := t.TempDir()

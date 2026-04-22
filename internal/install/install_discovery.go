@@ -436,14 +436,16 @@ func discoverFromGitSubdirImpl(source *Source) (*DiscoveryResult, error) {
 }
 
 // CleanupDiscovery removes the temporary directory created for git-based
-// discovery. Local-path discovery reuses the user's directory as RepoPath;
-// that path is never removed here.
+// discovery (clone under RepoPath). It only runs when Source is known to be
+// a git remote; local paths, missing source metadata, and other types are
+// skipped so RepoPath is never treated as disposable unless it came from a
+// git clone.
 
 func cleanupDiscoveryImpl(result *DiscoveryResult) {
-	if result == nil || result.RepoPath == "" {
+	if result == nil || result.RepoPath == "" || result.Source == nil {
 		return
 	}
-	if result.Source != nil && result.Source.Type == SourceTypeLocalPath {
+	if !result.Source.IsGit() {
 		return
 	}
 	os.RemoveAll(result.RepoPath)
