@@ -224,19 +224,21 @@ type ExtraConfig struct {
 
 // Config holds the application configuration
 type Config struct {
-	Source       string                  `yaml:"source"`
-	AgentsSource string                  `yaml:"agents_source,omitempty"`
-	ExtrasSource string                  `yaml:"extras_source,omitempty"`
-	Mode         string                  `yaml:"mode,omitempty"` // default mode: merge
-	TargetNaming string                  `yaml:"target_naming,omitempty"`
-	Targets      map[string]TargetConfig `yaml:"targets"`
-	Extras       []ExtraConfig           `yaml:"extras,omitempty"`
-	Ignore       []string                `yaml:"ignore,omitempty"`
-	Audit        AuditConfig             `yaml:"audit,omitempty"`
-	Hub          HubConfig               `yaml:"hub,omitempty"`
-	Log          LogConfig               `yaml:"log,omitempty"`
-	TUI          *bool                   `yaml:"tui,omitempty"` // nil = default true
-	GitLabHosts  []string                `yaml:"gitlab_hosts,omitempty"`
+	Source        string                  `yaml:"source"`
+	AgentsSource  string                  `yaml:"agents_source,omitempty"`
+	ExtrasSource  string                  `yaml:"extras_source,omitempty"`
+	PluginsSource string                  `yaml:"plugins_source,omitempty"`
+	HooksSource   string                  `yaml:"hooks_source,omitempty"`
+	Mode          string                  `yaml:"mode,omitempty"` // default mode: merge
+	TargetNaming  string                  `yaml:"target_naming,omitempty"`
+	Targets       map[string]TargetConfig `yaml:"targets"`
+	Extras        []ExtraConfig           `yaml:"extras,omitempty"`
+	Ignore        []string                `yaml:"ignore,omitempty"`
+	Audit         AuditConfig             `yaml:"audit,omitempty"`
+	Hub           HubConfig               `yaml:"hub,omitempty"`
+	Log           LogConfig               `yaml:"log,omitempty"`
+	TUI           *bool                   `yaml:"tui,omitempty"` // nil = default true
+	GitLabHosts   []string                `yaml:"gitlab_hosts,omitempty"`
 
 	// RegistryDir is the resolved directory for registry.yaml (cached SourceRoot result).
 	// Set during Load(), not serialized to YAML.
@@ -250,6 +252,24 @@ func (c *Config) EffectiveAgentsSource() string {
 		return ExpandPath(c.AgentsSource)
 	}
 	return filepath.Join(BaseDir(), "agents")
+}
+
+// EffectivePluginsSource returns the plugins source directory.
+// Defaults to <BaseDir>/plugins if not explicitly configured.
+func (c *Config) EffectivePluginsSource() string {
+	if c.PluginsSource != "" {
+		return ExpandPath(c.PluginsSource)
+	}
+	return filepath.Join(BaseDir(), "plugins")
+}
+
+// EffectiveHooksSource returns the hooks source directory.
+// Defaults to <BaseDir>/hooks if not explicitly configured.
+func (c *Config) EffectiveHooksSource() string {
+	if c.HooksSource != "" {
+		return ExpandPath(c.HooksSource)
+	}
+	return filepath.Join(BaseDir(), "hooks")
 }
 
 // HasAgentTarget reports whether any configured target has an agents path,
@@ -423,6 +443,8 @@ func Load() (*Config, error) {
 	// Expand ~ in paths
 	cfg.Source = expandPath(cfg.Source)
 	cfg.ExtrasSource = expandPath(cfg.ExtrasSource)
+	cfg.PluginsSource = expandPath(cfg.PluginsSource)
+	cfg.HooksSource = expandPath(cfg.HooksSource)
 	defaults := DefaultTargets()
 	for name, target := range cfg.Targets {
 		target.defaultTargetNaming = cfg.TargetNaming

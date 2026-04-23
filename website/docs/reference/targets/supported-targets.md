@@ -10,6 +10,8 @@ Complete list of AI CLIs that skillshare supports out of the box.
 
 skillshare supports **56+ AI CLI tools**. When you run `skillshare init`, it automatically detects and configures any installed tools.
 
+The built-in target table below describes **skill target paths**. Other resource kinds have different support coverage; see the support matrix later on this page.
+
 ---
 
 ## Built-in Targets
@@ -178,6 +180,25 @@ skillshare target add claude-code      # alias — same result
 ```
 
 Aliases are resolved automatically. The canonical name is used in config files and status output.
+
+---
+
+## Resource Support Matrix
+
+| Resource | Built-in target support |
+|----------|-------------------------|
+| `skills` | All built-in targets with a skills path |
+| `agents` | `augment`, `claude`, `cursor`, `opencode` |
+| `plugins` | `claude`, `codex` |
+| `hooks` | `claude`, `codex` |
+| `extras` | Path-configurable; support depends on configured target paths, not built-in target names |
+
+Notes:
+
+- `agents` are intentionally limited to targets with explicit agent directory support.
+- `plugins` and `hooks` are native integration subsystems, not generic path-based skill sync.
+- Codex plugin activation still writes the global `~/.codex/config.toml`, even when the plugin source itself is project-scoped.
+- Claude plugin rendering uses a Skillshare-managed marketplace root rather than writing directly into `~/.claude/plugins/`.
 
 ---
 

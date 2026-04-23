@@ -87,7 +87,7 @@ Push skills from source to all targets.
 ```bash
 skillshare sync              # Sync skills to all targets
 skillshare sync agents       # Sync agents only
-skillshare sync --all        # Sync skills + agents + extras
+skillshare sync --all        # Sync skills + agents + extras + plugins + hooks
 skillshare sync --dry-run    # Preview changes
 skillshare sync -n           # Short form
 skillshare sync --force      # Overwrite all managed skills
@@ -96,7 +96,7 @@ skillshare sync -f           # Short form
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--all` | | Also sync agents and extras after skills |
+| `--all` | | Also sync agents, extras, plugins, and hooks after skills |
 | `--dry-run` | `-n` | Preview changes without writing |
 | `--force` | `-f` | Overwrite all managed entries regardless of checksum (copy mode) or replace existing directories with symlinks (merge mode) |
 | `--json` | | Output as JSON |
@@ -135,9 +135,29 @@ skillshare sync --json
       "updated": 0,
       "pruned": 0
     }
+  ],
+  "plugins": [
+    {
+      "name": "demo",
+      "target": "codex",
+      "rendered": "/home/user/.agents/plugins/demo",
+      "installed": true
+    }
+  ],
+  "hooks": [
+    {
+      "name": "audit",
+      "target": "claude",
+      "root": "/home/user/.claude/hooks/skillshare/audit",
+      "merged": true
+    }
   ]
 }
 ```
+
+When `--all` is used, JSON output can also include top-level `extras`, `plugins`, and `hooks` sections describing the follow-on sync work after the core skills pass.
+
+Overall success is still possible when those follow-on sections contain warnings or target-specific no-op rows. Example: a Claude-only hook bundle synced with `--target all` can produce a successful Claude result plus a Codex warning row saying `no codex hooks defined`.
 
 The `ignored_count` and `ignored_skills` fields show skills excluded by `.skillignore` (and `.skillignore.local` if present). These are filtered at discovery time and never reach any target. When `.skillignore.local` is active, the text output includes a `.local` source hint. See [.skillignore](/docs/reference/appendix/file-structure#skillignore-optional) for pattern syntax.
 
@@ -150,13 +170,35 @@ flowchart TD
     S2["2. For each target"]
     MERGE["merge mode"]
     SYMLINK["symlink mode"]
-    S3["3. Report results"]
+    S3["3. Optional resource sync
+agents + extras + plugins + hooks"]
+    S4["4. Report results"]
     TITLE --> S1 --> S2
     COPY["copy mode"]
     S2 --> MERGE --> S3
     S2 --> COPY --> S3
     S2 --> SYMLINK --> S3
+    S3 --> S4
 ```
+
+## `sync --all` resource coverage
+
+`skillshare sync --all` is the umbrella command for these source-managed resource kinds:
+
+- `skills`
+- `agents`
+- `extras`
+- `plugins`
+- `hooks`
+
+The resource-specific flows remain separate:
+
+- Skills and agents sync through target path management.
+- Extras sync file trees to configured targets.
+- Plugins render into Claude/Codex marketplace roots and may install/enable natively.
+- Hooks render scripts into managed roots and merge references back into Claude/Codex config files.
+
+See [plugins](./plugins.md) and [hooks](./hooks.md) for the native integration details.
 
 ### Example Output
 

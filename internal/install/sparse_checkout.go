@@ -2,7 +2,9 @@ package install
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -69,6 +71,9 @@ func sparseCloneSubdir(url, subdir, destPath, branch string, extraEnv []string, 
 
 	if err := runGitCommandWithProgress([]string{"checkout"}, destPath, extraEnv, nil); err != nil {
 		return err
+	}
+	if _, err := os.Stat(filepath.Join(destPath, filepath.FromSlash(subdir))); err != nil {
+		return fmt.Errorf("sparse checkout path %q not found: %w", subdir, err)
 	}
 
 	return nil

@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <strong>One source of truth for AI CLI skills, agents, rules, commands & more. Sync everywhere with one command — from personal to organization-wide.</strong><br>
+  <strong>One source of truth for AI CLI skills, agents, native plugins, standalone hooks, rules, commands & more. Sync everywhere with one command — from personal to organization-wide.</strong><br>
   Codex, Claude Code, OpenClaw, OpenCode & 50+ more.
 </p>
 
@@ -51,7 +51,7 @@ skillshare fixes this:
 
 - **One source, every agent** — sync to Claude, Cursor, Codex & 50+ more with `skillshare sync`
 - **Agent management** — sync custom agents alongside skills to agent-capable targets
-- **More than skills** — manage rules, commands, prompts & any file-based resource with [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras)
+- **More than skills** — manage agents, native plugins, standalone hooks, and file-based resources with [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras)
 - **Install from anywhere** — GitHub, GitLab, Bitbucket, Azure DevOps, or any self-hosted Git
 - **Built-in security** — audit skills for prompt injection and data exfiltration before use
 - **Team-ready** — project skills in `.skillshare/`, org-wide skills via tracked repos
@@ -71,6 +71,8 @@ skillshare fixes this:
 │   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
 │   ~/.config/skillshare/agents/    ← agents                   │
 │   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
+│   ~/.config/skillshare/plugins/   ← native plugin bundles   │
+│   ~/.config/skillshare/hooks/     ← standalone hook bundles │
 └─────────────────────────────────────────────────────────────┘
                               │ sync
               ┌───────────────┼───────────────┐
@@ -80,10 +82,21 @@ skillshare fixes this:
        └───────────┘   └───────────┘   └───────────┘
 ```
 
-| Platform | Skills Source | Agents Source | Extras Source | Link Type |
-|----------|---------------|---------------|---------------|-----------|
-| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` | `~/.config/skillshare/extras/` | Symlinks |
-| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\agents\` | `%AppData%\skillshare\extras\` | NTFS Junctions (no admin required) |
+| Platform | Skills Source | Agents Source | Plugins Source | Hooks Source | Extras Source | Link Type |
+|----------|---------------|---------------|----------------|--------------|---------------|-----------|
+| macOS/Linux | `~/.config/skillshare/skills/` | `~/.config/skillshare/agents/` | `~/.config/skillshare/plugins/` | `~/.config/skillshare/hooks/` | `~/.config/skillshare/extras/` | Symlinks |
+| Windows | `%AppData%\skillshare\skills\` | `%AppData%\skillshare\agents\` | `%AppData%\skillshare\plugins\` | `%AppData%\skillshare\hooks\` | `%AppData%\skillshare\extras\` | NTFS Junctions (no admin required) |
+
+### Native integrations
+
+Plugins and hooks are separate from skills, agents, and extras:
+
+- **Plugins** are native Claude/Codex plugin bundles that render into target-specific marketplace roots and can be enabled during sync.
+- **Hooks** are standalone Claude/Codex hook bundles that render scripts into managed hook roots, then merge references back into each tool's config.
+- **Scope today** — plugin and hook management currently targets **Claude** and **Codex** only.
+- **Web UI** — the current web UI does not yet have dedicated plugin/hook screens; use the CLI or server API surfaces for these resources.
+
+See the full docs: [Plugins](https://skillshare.runkids.cc/docs/reference/commands/plugins), [Hooks](https://skillshare.runkids.cc/docs/reference/commands/hooks), and [Source & Targets](https://skillshare.runkids.cc/docs/understand/source-and-targets).
 
 | | Imperative (install-per-command) | Declarative (skillshare) |
 |---|---|---|
@@ -197,6 +210,16 @@ skillshare sync --all                 # sync skills + extras together
 skillshare extras collect rules       # collect local files back to source
 ```
 
+**Native plugins and hooks** —manage Claude/Codex native integrations from source
+
+```bash
+skillshare plugins list
+skillshare plugins import demo --from claude
+skillshare plugins sync --target all
+skillshare hooks import --from codex --all
+skillshare hooks sync --target claude
+```
+
 **Web dashboard** —visual control panel
 
 ```bash
@@ -204,6 +227,9 @@ skillshare ui
 ```
 
 [All commands & guides →](https://skillshare.runkids.cc/docs/reference/commands)
+
+> [!NOTE]
+> Validation for plugin/hook docs and runtime flows is safest in an isolated Docker sandbox: mount the repo read-only, copy your `~/.config/skillshare`, `~/.claude`, `~/.codex`, and `~/.agents` state into a disposable sandbox HOME, and run verification there so host config is never mutated.
 
 ## Contributing
 

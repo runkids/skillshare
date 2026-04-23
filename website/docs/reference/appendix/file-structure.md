@@ -31,11 +31,31 @@ Directory layout and file locations for skillshare.
 │   ├── .agentignore         # Optional: exclude agents from sync
 │   ├── reviewer.md          # Agent file
 │   └── auditor.md           # Another agent
-├── rules/                   # Extras source (if configured)
-│   ├── coding.md
-│   └── testing.md
-└── commands/                # Extras source (if configured)
-    └── deploy.md
+├── plugins/                 # Native plugin bundle source
+│   └── demo/
+│       ├── .claude-plugin/
+│       │   └── plugin.json
+│       ├── .codex-plugin/
+│       │   └── plugin.json
+│       └── skillshare.plugin.yaml
+├── hooks/                   # Standalone hook bundle source
+│   └── audit/
+│       ├── hook.yaml
+│       └── scripts/
+│           └── pre.sh
+├── extras/                  # Extras source root (if configured)
+│   ├── rules/
+│   │   ├── coding.md
+│   │   └── testing.md
+│   └── commands/
+│       └── deploy.md
+└── rendered/
+    └── claude-marketplace/  # Claude plugin render root (global mode)
+        ├── .claude-plugin/
+        │   └── marketplace.json
+        └── plugins/
+            └── demo/
+                └── .claude-plugin/plugin.json
 
 ~/.local/share/skillshare/   # XDG_DATA_HOME
 ├── backups/                 # Backup directory
@@ -90,6 +110,8 @@ XDG_CONFIG_HOME=/custom/path → /custom/path/skillshare/config.yaml
 # yaml-language-server: $schema=https://raw.githubusercontent.com/runkids/skillshare/main/schemas/config.schema.json
 source: ~/.config/skillshare/skills
 agents_source: ~/.config/skillshare/agents  # Optional; defaults to <source parent>/agents
+plugins_source: ~/.config/skillshare/plugins # Optional; defaults to <base>/plugins
+hooks_source: ~/.config/skillshare/hooks     # Optional; defaults to <base>/hooks
 mode: merge
 targets:
   claude:
@@ -250,6 +272,86 @@ Agents are a separate resource kind from skills. They live in a sibling source d
 ```
 
 The agents source is created automatically by `skillshare init` alongside `skills/`. You can override the global location with the `agents_source` config field; project mode always uses `.skillshare/agents/`.
+
+---
+
+## Plugin bundles
+
+Plugin bundles live under:
+
+```text
+~/.config/skillshare/plugins/      # global
+.skillshare/plugins/               # project
+```
+
+Expected bundle shape:
+
+```text
+plugins/
+└── demo/
+    ├── .claude-plugin/plugin.json     # optional if generated from shared metadata
+    ├── .codex-plugin/plugin.json      # optional if generated from shared metadata
+    ├── skillshare.plugin.yaml         # optional shared metadata
+    ├── skills/                        # optional shared files
+    ├── assets/
+    └── vendor/
+```
+
+Rendered/plugin activation paths:
+
+- Claude rendered marketplace:
+  - Global: `~/.config/skillshare/rendered/claude-marketplace/`
+  - Project: `.skillshare/rendered/claude-marketplace/`
+- Codex rendered marketplace:
+  - Global: `~/.agents/plugins/`
+  - Project: `.agents/plugins/`
+- Codex local cache:
+  - `~/.codex/plugins/cache/skillshare/<name>/local/`
+- Codex activation config:
+  - `~/.codex/config.toml`
+
+In project mode, the plugin source is project-local, but Codex activation still updates the global `~/.codex/config.toml`.
+
+---
+
+## Hook bundles
+
+Hook bundles live under:
+
+```text
+~/.config/skillshare/hooks/        # global
+.skillshare/hooks/                 # project
+```
+
+Expected bundle shape:
+
+```text
+hooks/
+└── audit/
+    ├── hook.yaml
+    └── scripts/
+        ├── pre.sh
+        └── post.sh
+```
+
+Managed hook state:
+
+- Claude settings file:
+  - Global: `~/.claude/settings.json`
+  - Project: `.claude/settings.json`
+- Claude rendered hook root:
+  - Global: `~/.claude/hooks/skillshare/<name>/`
+  - Project: `.claude/hooks/skillshare/<name>/`
+- Codex hooks config:
+  - Global: `~/.codex/hooks.json`
+  - Project: `.codex/hooks.json`
+- Codex rendered hook root:
+  - Global: `~/.codex/hooks/skillshare/<name>/`
+  - Project: `.codex/hooks/skillshare/<name>/`
+- Codex feature flag config:
+  - Global: `~/.codex/config.toml`
+
+Hook sync merges Skillshare-managed entries into `settings.json` and `hooks.json` while preserving unmanaged entries already present.
 
 ### Agent file format
 

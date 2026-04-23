@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 
+	hookpkg "skillshare/internal/hooks"
+	pluginpkg "skillshare/internal/plugins"
 	versioncheck "skillshare/internal/version"
 )
 
@@ -23,9 +25,11 @@ type doctorCheck struct {
 }
 
 type doctorOutput struct {
-	Checks  []doctorCheck  `json:"checks"`
-	Summary doctorSummary  `json:"summary"`
-	Version *doctorVersion `json:"version,omitempty"`
+	Checks  []doctorCheck      `json:"checks"`
+	Summary doctorSummary      `json:"summary"`
+	Plugins []pluginpkg.Bundle `json:"plugins,omitempty"`
+	Hooks   []hookpkg.Bundle   `json:"hooks,omitempty"`
+	Version *doctorVersion     `json:"version,omitempty"`
 }
 
 type doctorSummary struct {
@@ -46,7 +50,7 @@ type doctorVersion struct {
 // Counts are derived from the checks slice (not from result.errors/warnings)
 // because check-level counts may differ from the text-mode counters when a
 // single check function calls addError/addWarning multiple times.
-func buildDoctorOutput(result *doctorResult) doctorOutput {
+func buildDoctorOutput(result *doctorResult, plugins []pluginpkg.Bundle, hooks []hookpkg.Bundle) doctorOutput {
 	var pass, warnings, errors, info int
 	for _, c := range result.checks {
 		switch c.Status {
@@ -69,14 +73,16 @@ func buildDoctorOutput(result *doctorResult) doctorOutput {
 			Errors:   errors,
 			Info:     info,
 		},
+		Plugins: plugins,
+		Hooks:   hooks,
 	}
 }
 
 // finalizeDoctorJSON writes the JSON output and returns an appropriate error.
 // Shared by cmdDoctorGlobal and cmdDoctorProject.
-func finalizeDoctorJSON(restoreUI func(), result *doctorResult, updateCh <-chan *versioncheck.CheckResult) error {
+func finalizeDoctorJSON(restoreUI func(), result *doctorResult, updateCh <-chan *versioncheck.CheckResult, plugins []pluginpkg.Bundle, hooks []hookpkg.Bundle) error {
 	restoreUI()
-	output := buildDoctorOutput(result)
+	output := buildDoctorOutput(result, plugins, hooks)
 	updateResult := <-updateCh
 	output.Version = &doctorVersion{Current: version}
 	if updateResult != nil && updateResult.UpdateAvailable {

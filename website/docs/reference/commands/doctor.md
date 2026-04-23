@@ -20,6 +20,7 @@ skillshare doctor --json    # Structured JSON output for CI
 - Something isn't working and you don't know why
 - After upgrading skillshare or your OS
 - Verify all targets, git, and symlinks are healthy
+- Check whether plugin and hook bundles have been rendered to their managed roots
 - First diagnostic step before filing a bug report
 
 ## What It Checks
@@ -54,6 +55,9 @@ codex
 Extras
 ✓ rules: 4 files, 1/1 targets OK
 ✓ commands: 3 files, 1/1 targets OK
+
+✓ plugins: All 1 plugin bundle(s) rendered
+✓ hooks: All 1 hook bundle(s) rendered
 
 Version
 ✓ CLI: 0.17.0
@@ -115,6 +119,20 @@ When extras are configured, verifies:
 - Source directory exists for each extra
 - Target directories are reachable
 - Reports missing source directories or unreachable targets
+
+### Plugins
+
+When plugin bundles exist, doctor checks whether each bundle has been rendered to its actually supported marketplace roots:
+
+- Claude: `.skillshare/rendered/claude-marketplace/plugins/<name>/` in project mode, or `~/.config/skillshare/rendered/claude-marketplace/plugins/<name>/` globally
+- Codex: `.agents/plugins/<name>/` in project mode, or `~/.agents/plugins/<name>/` globally
+
+### Hooks
+
+When hook bundles exist, doctor checks whether each supported target-specific managed hook root exists:
+
+- Claude: `.claude/hooks/skillshare/<name>/` or `~/.claude/hooks/skillshare/<name>/`
+- Codex: `.codex/hooks/skillshare/<name>/` or `~/.codex/hooks/skillshare/<name>/`
 
 ### Other
 
@@ -239,6 +257,12 @@ skillshare doctor --json
     { "name": "skillignore", "status": "pass", "message": ".skillignore: 3 patterns, 2 skills ignored", "details": ["test-*", "vendor/", "!important", "---", "test-draft", "vendor/lib"] },
     { "name": "sync_drift", "status": "warning", "message": "claude: 1 skill(s) not synced (7/8 linked)", "details": ["new-skill"] },
     { "name": "broken_symlinks", "status": "error", "message": "cursor: 1 broken symlink(s)", "details": ["old-skill"] }
+  ],
+  "plugins": [
+    { "name": "demo", "source_dir": "/home/user/.config/skillshare/plugins/demo", "has_claude": true, "has_codex": true }
+  ],
+  "hooks": [
+    { "name": "audit", "source_dir": "/home/user/.config/skillshare/hooks/audit", "targets": { "claude": 2, "codex": 1 } }
   ],
   "summary": { "total": 14, "pass": 12, "warnings": 1, "errors": 1, "info": 0 },
   "version": { "current": "0.17.4", "latest": "0.18.0", "update_available": true }

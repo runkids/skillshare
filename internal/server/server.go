@@ -443,6 +443,16 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("PATCH /api/extras/{name}/mode", s.handleExtrasMode)
 	s.mux.HandleFunc("DELETE /api/extras/{name}", s.handleExtrasDelete)
 
+	// Plugins & Hooks
+	s.mux.HandleFunc("GET /api/plugins", s.handlePlugins)
+	s.mux.HandleFunc("GET /api/plugins/diff", s.handlePluginsDiff)
+	s.mux.HandleFunc("POST /api/plugins/import", s.handlePluginsImport)
+	s.mux.HandleFunc("POST /api/plugins/sync", s.handlePluginsSync)
+	s.mux.HandleFunc("GET /api/hooks", s.handleHooks)
+	s.mux.HandleFunc("GET /api/hooks/diff", s.handleHooksDiff)
+	s.mux.HandleFunc("POST /api/hooks/import", s.handleHooksImport)
+	s.mux.HandleFunc("POST /api/hooks/sync", s.handleHooksSync)
+
 	// Git
 	s.mux.HandleFunc("GET /api/git/status", s.handleGitStatus)
 	s.mux.HandleFunc("GET /api/git/branches", s.handleGitBranches)
