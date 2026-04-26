@@ -130,6 +130,78 @@ func TestDiscoverSourceSkills_ParsesTargets(t *testing.T) {
 	}
 }
 
+func TestDiscoverSourceSkills_InfersTargetsFromHostPaths(t *testing.T) {
+	src := t.TempDir()
+
+	writeSkillMD(t, filepath.Join(src, ".cursor", "skills", "gstack-browse"), "---\nname: gstack-browse\n---\n# Cursor")
+	writeSkillMD(t, filepath.Join(src, "openclaw", "skills", "gstack-openclaw-investigate"), "---\nname: gstack-openclaw-investigate\n---\n# Openclaw")
+	writeSkillMD(t, filepath.Join(src, ".factory", "skills", "gstack-benchmark"), "---\nname: gstack-benchmark\n---\n# Factory")
+	writeSkillMD(t, filepath.Join(src, ".skills", "letta-skill"), "---\nname: letta-skill\n---\n# Letta")
+	writeSkillMD(t, filepath.Join(src, ".agents", "skills", "universal-skill"), "---\nname: universal-skill\n---\n# Universal")
+	writeSkillMD(t, filepath.Join(src, "shared", "generic"), "---\nname: generic\n---\n# Generic")
+
+	skills, err := DiscoverSourceSkills(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 6 {
+		t.Fatalf("expected 6 skills, got %d", len(skills))
+	}
+
+	byRel := make(map[string]DiscoveredSkill)
+	for _, s := range skills {
+		byRel[s.RelPath] = s
+	}
+
+	cursorSkill := byRel[".cursor/skills/gstack-browse"]
+	if cursorSkill.RelPath == "" {
+		t.Fatalf("missing .cursor/skills/gstack-browse")
+	}
+	if len(cursorSkill.Targets) != 1 || cursorSkill.Targets[0] != "cursor" {
+		t.Errorf("expected cursor host skill to target [cursor], got %v", cursorSkill.Targets)
+	}
+
+	openclawSkill := byRel["openclaw/skills/gstack-openclaw-investigate"]
+	if openclawSkill.RelPath == "" {
+		t.Fatalf("missing openclaw/skills/gstack-openclaw-investigate")
+	}
+	if len(openclawSkill.Targets) != 1 || openclawSkill.Targets[0] != "openclaw" {
+		t.Errorf("expected openclaw host skill to target [openclaw], got %v", openclawSkill.Targets)
+	}
+
+	factorySkill := byRel[".factory/skills/gstack-benchmark"]
+	if factorySkill.RelPath == "" {
+		t.Fatalf("missing .factory/skills/gstack-benchmark")
+	}
+	if len(factorySkill.Targets) != 1 || factorySkill.Targets[0] != "droid" {
+		t.Errorf("expected .factory host skill to target [droid], got %v", factorySkill.Targets)
+	}
+
+	lettaSkill := byRel[".skills/letta-skill"]
+	if lettaSkill.RelPath == "" {
+		t.Fatalf("missing .skills/letta-skill")
+	}
+	if len(lettaSkill.Targets) != 1 || lettaSkill.Targets[0] != "letta" {
+		t.Errorf("expected .skills host skill to target [letta], got %v", lettaSkill.Targets)
+	}
+
+	universalSkill := byRel[".agents/skills/universal-skill"]
+	if universalSkill.RelPath == "" {
+		t.Fatalf("missing .agents/skills/universal-skill")
+	}
+	if len(universalSkill.Targets) != 1 || universalSkill.Targets[0] != "universal" {
+		t.Errorf("expected .agents host skill to target [universal], got %v", universalSkill.Targets)
+	}
+
+	genericSkill := byRel["shared/generic"]
+	if genericSkill.RelPath == "" {
+		t.Fatalf("missing shared/generic")
+	}
+	if genericSkill.Targets != nil {
+		t.Errorf("expected generic skill targets to be nil, got %v", genericSkill.Targets)
+	}
+}
+
 func TestDiscoverSourceSkills_EmptyDir(t *testing.T) {
 	src := t.TempDir()
 
@@ -169,6 +241,25 @@ func TestDiscoverSourceSkillsLite_SkipsTargetsParsing(t *testing.T) {
 		t.Fatalf("expected 1 skill, got %d", len(skills))
 	}
 	// Lite version should NOT parse targets
+	if skills[0].Targets != nil {
+		t.Errorf("expected Targets to be nil in Lite mode, got %v", skills[0].Targets)
+	}
+	if len(repos) != 0 {
+		t.Errorf("expected 0 tracked repos, got %d", len(repos))
+	}
+}
+
+func TestDiscoverSourceSkillsLite_DoesNotInferTargetsFromPath(t *testing.T) {
+	src := t.TempDir()
+	writeSkillMD(t, filepath.Join(src, ".cursor", "skills", "gstack-browse"), "---\nname: gstack-browse\n---\n# Cursor")
+
+	skills, repos, err := DiscoverSourceSkillsLite(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(skills))
+	}
 	if skills[0].Targets != nil {
 		t.Errorf("expected Targets to be nil in Lite mode, got %v", skills[0].Targets)
 	}
