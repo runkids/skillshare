@@ -51,6 +51,54 @@ targets:
 	}
 }
 
+func TestSkillTargets_InfersTargetsFromHostPaths(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.CreateNestedSkill(".cursor/skills/gstack-browse", map[string]string{
+		"SKILL.md": "---\nname: gstack-browse\n---\n# Cursor host skill",
+	})
+	sb.CreateNestedSkill(".factory/skills/gstack-benchmark", map[string]string{
+		"SKILL.md": "---\nname: gstack-benchmark\n---\n# Factory host skill",
+	})
+	sb.CreateSkill("generic", map[string]string{
+		"SKILL.md": "---\nname: generic\n---\n# Generic",
+	})
+
+	cursorPath := sb.CreateTarget("cursor")
+	droidPath := sb.CreateTarget("droid")
+
+	sb.WriteConfig(`source: ` + sb.SourcePath + `
+targets:
+  cursor:
+    path: ` + cursorPath + `
+  droid:
+    path: ` + droidPath + `
+`)
+
+	sb.RunCLI("sync").AssertSuccess(t)
+
+	if !sb.IsSymlink(filepath.Join(cursorPath, ".cursor__skills__gstack-browse")) {
+		t.Error("cursor host skill should be synced to cursor target")
+	}
+	if sb.FileExists(filepath.Join(cursorPath, ".factory__skills__gstack-benchmark")) {
+		t.Error("factory host skill should NOT be synced to cursor target")
+	}
+	if !sb.IsSymlink(filepath.Join(cursorPath, "generic")) {
+		t.Error("generic skill should still sync to cursor target")
+	}
+
+	if !sb.IsSymlink(filepath.Join(droidPath, ".factory__skills__gstack-benchmark")) {
+		t.Error("factory host skill should be synced to droid target")
+	}
+	if sb.FileExists(filepath.Join(droidPath, ".cursor__skills__gstack-browse")) {
+		t.Error("cursor host skill should NOT be synced to droid target")
+	}
+	if !sb.IsSymlink(filepath.Join(droidPath, "generic")) {
+		t.Error("generic skill should still sync to droid target")
+	}
+}
+
 func TestSkillTargets_CrossModeMatching(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
