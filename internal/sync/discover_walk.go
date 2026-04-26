@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
+	"skillshare/internal/config"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/utils"
 )
@@ -17,6 +19,80 @@ type discoverOptions struct {
 	collectTracked   bool // collect tracked repo paths (for Lite mode)
 	collectContext   bool // compute DescChars/BodyChars during walk (for analyze)
 	includeIgnored   bool // include ignored skills in results with Disabled=true
+}
+
+var (
+	knownTargetNameSet     map[string]bool
+	knownTargetNameSetOnce sync.Once
+)
+
+func getKnownTargetNameSet() map[string]bool {
+	knownTargetNameSetOnce.Do(func() {
+		targetNames := config.KnownTargetNames()
+		knownTargetNameSet = make(map[string]bool, len(targetNames))
+		for _, name := range targetNames {
+			knownTargetNameSet[name] = true
+		}
+	})
+	return knownTargetNameSet
+}
+
+func inferSkillTargetsFromRelPath(relPath string) []string {
+	parts := strings.Split(relPath, "/")
+	if len(parts) < 3 || parts[1] != "skills" {
+		return nil
+	}
+
+	// Prefer explicit project paths from known targets (e.g. ".factory/skills").
+	targets := inferTargetsFromProjectPaths(relPath)
+	if len(targets) > 0 {
+		return targets
+	}
+
+	// Fallback to top-level host-style paths that match known target names
+	// (e.g. "openclaw/skills/*" for openclaw project path "skills").
+	host := strings.TrimPrefix(parts[0], ".")
+	if host == "" {
+		return nil
+	}
+	if getKnownTargetNameSet()[host] {
+		return []string{host}
+	}
+
+	return nil
+}
+
+func inferTargetsFromProjectPaths(relPath string) []string {
+	targets := make([]string, 0, 2)
+	seen := make(map[string]bool)
+
+	for targetName, pathCfg := range config.ProjectTargets() {
+		if targetName == "" || pathCfg.Path == "" {
+			continue
+		}
+
+		targetPath := filepath.ToSlash(pathCfg.Path)
+		if matchesHostSkillPath(relPath, targetName, targetPath) && !seen[targetName] {
+			seen[targetName] = true
+			targets = append(targets, targetName)
+		}
+	}
+
+	return targets
+}
+
+func matchesHostSkillPath(relPath, targetName, targetPath string) bool {
+	switch {
+	case targetPath == "skills":
+		parts := strings.Split(relPath, "/")
+		return len(parts) >= 2 && parts[1] == "skills" && strings.TrimPrefix(parts[0], ".") == targetName
+	case relPath == targetPath:
+		return false
+	case strings.HasPrefix(relPath, targetPath+"/"):
+		return true
+	default:
+		return false
+	}
 }
 
 // discoverSourceSkillsInternal is the shared walk implementation used by all
@@ -152,6 +228,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 						RelPath:    relPath,
 						FlatName:   utils.PathToFlatName(relPath),
 						IsInRepo:   inRepo,
+						Targets:    inferSkillTargetsFromRelPath(relPath),
 						Disabled:   true,
 					})
 				}
@@ -174,6 +251,7 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 						RelPath:    relPath,
 						FlatName:   utils.PathToFlatName(relPath),
 						IsInRepo:   true,
+						Targets:    inferSkillTargetsFromRelPath(relPath),
 						Disabled:   true,
 					})
 				}
@@ -207,6 +285,10 @@ func discoverSourceSkillsInternal(sourcePath string, opts discoverOptions) ([]Di
 				}
 			} else if opts.parseFrontmatter {
 				targets = utils.ParseFrontmatterList(skillFile, "targets")
+			}
+
+			if len(targets) == 0 && (opts.parseFrontmatter || opts.collectContext) {
+				targets = inferSkillTargetsFromRelPath(relPath)
 			}
 
 			// Use original sourcePath (not walkRoot) so SourcePath preserves
