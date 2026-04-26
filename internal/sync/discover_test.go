@@ -136,14 +136,16 @@ func TestDiscoverSourceSkills_InfersTargetsFromHostPaths(t *testing.T) {
 	writeSkillMD(t, filepath.Join(src, ".cursor", "skills", "gstack-browse"), "---\nname: gstack-browse\n---\n# Cursor")
 	writeSkillMD(t, filepath.Join(src, "openclaw", "skills", "gstack-openclaw-investigate"), "---\nname: gstack-openclaw-investigate\n---\n# Openclaw")
 	writeSkillMD(t, filepath.Join(src, ".factory", "skills", "gstack-benchmark"), "---\nname: gstack-benchmark\n---\n# Factory")
+	writeSkillMD(t, filepath.Join(src, ".skills", "letta-skill"), "---\nname: letta-skill\n---\n# Letta")
+	writeSkillMD(t, filepath.Join(src, ".agents", "skills", "universal-skill"), "---\nname: universal-skill\n---\n# Universal")
 	writeSkillMD(t, filepath.Join(src, "shared", "generic"), "---\nname: generic\n---\n# Generic")
 
 	skills, err := DiscoverSourceSkills(src)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(skills) != 4 {
-		t.Fatalf("expected 4 skills, got %d", len(skills))
+	if len(skills) != 6 {
+		t.Fatalf("expected 6 skills, got %d", len(skills))
 	}
 
 	byRel := make(map[string]DiscoveredSkill)
@@ -173,6 +175,22 @@ func TestDiscoverSourceSkills_InfersTargetsFromHostPaths(t *testing.T) {
 	}
 	if len(factorySkill.Targets) != 1 || factorySkill.Targets[0] != "droid" {
 		t.Errorf("expected .factory host skill to target [droid], got %v", factorySkill.Targets)
+	}
+
+	lettaSkill := byRel[".skills/letta-skill"]
+	if lettaSkill.RelPath == "" {
+		t.Fatalf("missing .skills/letta-skill")
+	}
+	if len(lettaSkill.Targets) != 1 || lettaSkill.Targets[0] != "letta" {
+		t.Errorf("expected .skills host skill to target [letta], got %v", lettaSkill.Targets)
+	}
+
+	universalSkill := byRel[".agents/skills/universal-skill"]
+	if universalSkill.RelPath == "" {
+		t.Fatalf("missing .agents/skills/universal-skill")
+	}
+	if len(universalSkill.Targets) != 1 || universalSkill.Targets[0] != "universal" {
+		t.Errorf("expected .agents host skill to target [universal], got %v", universalSkill.Targets)
 	}
 
 	genericSkill := byRel["shared/generic"]
