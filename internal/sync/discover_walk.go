@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
@@ -24,7 +25,14 @@ type discoverOptions struct {
 var (
 	knownTargetNameSet     map[string]bool
 	knownTargetNameSetOnce sync.Once
+	projectTargetPaths     []projectTargetPath
+	projectTargetPathsOnce sync.Once
 )
+
+type projectTargetPath struct {
+	name string
+	path string
+}
 
 func getKnownTargetNameSet() map[string]bool {
 	knownTargetNameSetOnce.Do(func() {
@@ -37,16 +45,39 @@ func getKnownTargetNameSet() map[string]bool {
 	return knownTargetNameSet
 }
 
-func inferSkillTargetsFromRelPath(relPath string) []string {
-	parts := strings.Split(relPath, "/")
-	if len(parts) < 3 || parts[1] != "skills" {
-		return nil
-	}
+func getProjectTargetPaths() []projectTargetPath {
+	projectTargetPathsOnce.Do(func() {
+		groupedTargets := config.GroupedProjectTargets()
+		projectTargetPaths = make([]projectTargetPath, 0, len(groupedTargets))
+		for _, target := range groupedTargets {
+			if target.Name == "" || target.Path == "" {
+				continue
+			}
+			projectTargetPaths = append(projectTargetPaths, projectTargetPath{
+				name: target.Name,
+				path: filepath.ToSlash(target.Path),
+			})
+		}
+		sort.Slice(projectTargetPaths, func(i, j int) bool {
+			if projectTargetPaths[i].path == projectTargetPaths[j].path {
+				return projectTargetPaths[i].name < projectTargetPaths[j].name
+			}
+			return projectTargetPaths[i].path < projectTargetPaths[j].path
+		})
+	})
+	return projectTargetPaths
+}
 
+func inferSkillTargetsFromRelPath(relPath string) []string {
 	// Prefer explicit project paths from known targets (e.g. ".factory/skills").
 	targets := inferTargetsFromProjectPaths(relPath)
 	if len(targets) > 0 {
 		return targets
+	}
+
+	parts := strings.Split(relPath, "/")
+	if len(parts) < 3 || parts[1] != "skills" {
+		return nil
 	}
 
 	// Fallback to top-level host-style paths that match known target names
@@ -64,17 +95,10 @@ func inferSkillTargetsFromRelPath(relPath string) []string {
 
 func inferTargetsFromProjectPaths(relPath string) []string {
 	targets := make([]string, 0, 2)
-	seen := make(map[string]bool)
 
-	for targetName, pathCfg := range config.ProjectTargets() {
-		if targetName == "" || pathCfg.Path == "" {
-			continue
-		}
-
-		targetPath := filepath.ToSlash(pathCfg.Path)
-		if matchesHostSkillPath(relPath, targetName, targetPath) && !seen[targetName] {
-			seen[targetName] = true
-			targets = append(targets, targetName)
+	for _, target := range getProjectTargetPaths() {
+		if matchesHostSkillPath(relPath, target.name, target.path) {
+			targets = append(targets, target.name)
 		}
 	}
 
