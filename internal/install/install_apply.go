@@ -309,25 +309,26 @@ func installFromGit(source *Source, destPath string, result *InstallResult, opts
 // DiscoverFromGit clones a repo and discovers available skills
 
 func installFromDiscoveryImpl(discovery *DiscoveryResult, skill SkillInfo, destPath string, opts InstallOptions) (*InstallResult, error) {
-	// Build full source path
-	// For subdir discovery, skill.Path is relative to the subdir
-	// For whole-repo discovery, skill.Path is relative to repo root
-	var fullSource string
-	var fullSubdir string
+	return installFromDiscoveryInternal(discovery, skill, destPath, opts, true)
+}
 
+func discoveredSkillSourceParts(discovery *DiscoveryResult, skill SkillInfo) (string, string) {
+	// For subdir discovery, skill.Path is relative to the subdir.
+	// For whole-repo discovery, skill.Path is relative to repo root.
 	if skill.Path == "." {
-		// Root skill of a subdir discovery
-		fullSource = buildDiscoverySkillSource(discovery.Source, skill.Path)
-		fullSubdir = discovery.Source.Subdir
-	} else if discovery.Source.HasSubdir() {
-		// Nested skill within subdir discovery
-		fullSource = buildDiscoverySkillSource(discovery.Source, skill.Path)
-		fullSubdir = discovery.Source.Subdir + "/" + skill.Path
-	} else {
-		// Whole-repo discovery
-		fullSource = buildDiscoverySkillSource(discovery.Source, skill.Path)
-		fullSubdir = skill.Path
+		// Root skill of a subdir discovery.
+		return buildDiscoverySkillSource(discovery.Source, skill.Path), discovery.Source.Subdir
 	}
+	if discovery.Source.HasSubdir() {
+		// Nested skill within subdir discovery.
+		return buildDiscoverySkillSource(discovery.Source, skill.Path), discovery.Source.Subdir + "/" + skill.Path
+	}
+	// Whole-repo discovery.
+	return buildDiscoverySkillSource(discovery.Source, skill.Path), skill.Path
+}
+
+func installFromDiscoveryInternal(discovery *DiscoveryResult, skill SkillInfo, destPath string, opts InstallOptions, writeMeta bool) (*InstallResult, error) {
+	fullSource, fullSubdir := discoveredSkillSourceParts(discovery, skill)
 
 	result := &InstallResult{
 		SkillName: skill.Name,
@@ -402,7 +403,17 @@ func installFromDiscoveryImpl(discovery *DiscoveryResult, skill SkillInfo, destP
 		return nil, err
 	}
 
-	// Write metadata with file hashes
+	if writeMeta {
+		if err := writeDiscoveredSkillMetadata(discovery, skill, destPath, opts.SourceDir, fullSource, fullSubdir); err != nil {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
+		}
+	}
+
+	result.Action = "installed"
+	return result, nil
+}
+
+func writeDiscoveredSkillMetadata(discovery *DiscoveryResult, skill SkillInfo, destPath, sourceDir, fullSource, fullSubdir string) error {
 	source := &Source{
 		Type:     discovery.Source.Type,
 		Raw:      fullSource,
@@ -412,6 +423,7 @@ func installFromDiscoveryImpl(discovery *DiscoveryResult, skill SkillInfo, destP
 		Branch:   discovery.Source.Branch,
 	}
 	meta := NewMetaFromSource(source)
+	sourceRoot := discoverySourceRoot(discovery)
 	if discovery.CommitHash != "" {
 		meta.Version = discovery.CommitHash
 	} else if hash, err := getGitCommit(sourceRoot); err == nil {
@@ -423,12 +435,7 @@ func installFromDiscoveryImpl(discovery *DiscoveryResult, skill SkillInfo, destP
 	if hashes, hashErr := ComputeFileHashes(destPath); hashErr == nil {
 		meta.FileHashes = hashes
 	}
-	if err := WriteMetaToStore(opts.SourceDir, destPath, meta); err != nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("failed to write metadata: %v", err))
-	}
-
-	result.Action = "installed"
-	return result, nil
+	return WriteMetaToStore(sourceDir, destPath, meta)
 }
 
 func installFromGitSubdir(source *Source, destPath string, result *InstallResult, opts InstallOptions) (*InstallResult, error) {

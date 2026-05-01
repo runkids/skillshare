@@ -228,7 +228,7 @@ func (s *Server) findMetadataEntry(name, kind, source, agentsSource string) *met
 				}
 				return &metadataLookup{
 					Store: s.skillsStore, StoreDir: source,
-					Entry: s.skillsStore.GetByPath(d.RelPath),
+					Entry:   s.skillsStore.GetByPath(d.RelPath),
 					RelPath: d.RelPath, SourcePath: d.SourcePath,
 					IsInRepo: d.IsInRepo, Kind: "skill",
 				}
@@ -245,7 +245,7 @@ func (s *Server) findMetadataEntry(name, kind, source, agentsSource string) *met
 			agentKey := strings.TrimSuffix(d.RelPath, ".md")
 			return &metadataLookup{
 				Store: s.agentsStore, StoreDir: agentsSource,
-				Entry: s.agentsStore.GetByPath(agentKey),
+				Entry:   s.agentsStore.GetByPath(agentKey),
 				RelPath: agentKey, SourcePath: filepath.Dir(d.SourcePath),
 				IsInRepo: d.IsInRepo, Kind: "agent",
 			}
