@@ -16,6 +16,8 @@ Configuration file reference for skillshare.
 │   ├── my-skill/
 │   ├── another/
 │   └── _team-repo/      ← Tracked repository
+├── plugins/             ← Plugin bundle source
+├── hooks/               ← Hook bundle source
 ├── extras/              ← Extras source root
 │   └── rules/           ← Extra resource (e.g., rules)
 
@@ -113,6 +115,10 @@ skills:
 
 # Custom agents source (optional, overrides default location)
 agents_source: ~/my-agents
+
+# Custom plugin and hook sources (optional, override defaults)
+plugins_source: ~/my-plugins
+hooks_source: ~/my-hooks
 
 # Custom extras source (optional, overrides default location)
 extras_source: ~/my-extras
@@ -753,6 +759,39 @@ targets:
 ```
 
 Uses NTFS junctions (no admin required).
+
+---
+
+### `plugins_source`
+
+Path to the native plugin bundle source directory.
+
+```yaml
+plugins_source: ~/.config/skillshare/plugins
+```
+
+Default:
+
+- Global mode: `~/.config/skillshare/plugins`
+- Project mode: fixed at `.skillshare/plugins`
+
+### `hooks_source`
+
+Path to the standalone hook bundle source directory.
+
+```yaml
+hooks_source: ~/.config/skillshare/hooks
+```
+
+Default:
+
+- Global mode: `~/.config/skillshare/hooks`
+- Project mode: fixed at `.skillshare/hooks`
+
+Notes:
+
+- Project mode always uses the fixed `.skillshare/plugins` and `.skillshare/hooks` roots.
+- Plugin and hook management currently target only Claude and Codex.
 
 ---
 

@@ -17,6 +17,7 @@ skillshare status
 - Verify tracked repos are up to date
 - Verify the active audit policy (profile, threshold, dedupe mode)
 - Check for CLI or skill updates
+- See whether plugin and hook bundles are present in the current source root
 
 ![status demo](/img/status-demo.png)
 
@@ -46,6 +47,12 @@ windsurf
 Extras
 rules        has files  [merge] .cursor/rules (4 files)
 commands     has files  [merge] .claude/commands (3 files)
+
+Plugins
+demo         plugin      claude=true codex=true
+
+Hooks
+audit        hook        claude=2 codex=1
 
 Audit
 → Profile:    DEFAULT
@@ -113,6 +120,14 @@ commands     has files  [merge] .claude/commands (3 files)
 
 Each entry shows the name, status, sync mode, target path, and file count.
 
+### Plugins
+
+When plugin bundles exist in the current source root, `status` lists each bundle and whether it has Claude and/or Codex manifests available.
+
+### Hooks
+
+When hook bundles exist in the current source root, `status` lists each bundle and the number of hook entries defined for Claude and Codex.
+
 ### Audit
 
 Shows the active audit policy configuration (resolved from CLI flags, project config, or global config):
@@ -178,6 +193,24 @@ skillshare status --json
       {"name": "claude", "path": "~/.claude/agents", "expected": 8, "linked": 8, "drift": false}
     ]
   },
+  "plugins": [
+    {
+      "name": "demo",
+      "source_dir": "/home/user/.config/skillshare/plugins/demo",
+      "has_claude": true,
+      "has_codex": true
+    }
+  ],
+  "hooks": [
+    {
+      "name": "audit",
+      "source_dir": "/home/user/.config/skillshare/hooks/audit",
+      "targets": {
+        "claude": 2,
+        "codex": 1
+      }
+    }
+  ],
   "audit": {
     "profile": "DEFAULT",
     "threshold": "CRITICAL",
@@ -190,7 +223,7 @@ skillshare status --json
 
 The `source.skillignore` field is present only when at least one `.skillignore` or `.skillignore.local` file exists. When absent: `"skillignore": { "active": false }`. The `files` array includes `.skillignore.local` paths when present. In text mode, the source line shows `.local active` when any `.skillignore.local` is in effect.
 
-JSON output is supported in both global and project mode.
+JSON output is supported in both global and project mode. The top-level `plugins` and `hooks` arrays are omitted when no plugin or hook bundles are discovered. Plugin bundles report generated-target capability, and hook bundles report only the target sections they actually define.
 
 ## Project Mode
 

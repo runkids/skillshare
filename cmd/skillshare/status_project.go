@@ -9,6 +9,8 @@ import (
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/git"
+	hookpkg "skillshare/internal/hooks"
+	pluginpkg "skillshare/internal/plugins"
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
@@ -47,6 +49,25 @@ func cmdStatusProject(root string) error {
 		printExtrasStatus(runtime.config.Extras, func(extra config.ExtraConfig) string {
 			return config.ExtrasSourceDirProject(root, extra.Name)
 		})
+	}
+	if bundles, bundleErr := pluginpkg.Discover(config.PluginsSourceDirProject(root)); bundleErr == nil && len(bundles) > 0 {
+		ui.Header("Plugins")
+		for _, bundle := range bundles {
+			ui.Status(bundle.Name, "plugin", fmt.Sprintf("claude=%t codex=%t", bundle.HasClaude, bundle.HasCodex))
+		}
+	}
+	if bundles, bundleErr := hookpkg.Discover(config.HooksSourceDirProject(root)); bundleErr == nil && len(bundles) > 0 {
+		ui.Header("Hooks")
+		for _, bundle := range bundles {
+			summary := fmt.Sprintf("claude=%d codex=%d", bundle.Targets["claude"], bundle.Targets["codex"])
+			if len(bundle.Issues) > 0 {
+				summary += fmt.Sprintf(" issues=%d", len(bundle.Issues))
+			}
+			ui.Status(bundle.Name, "hook", summary)
+			for _, issue := range bundle.Issues {
+				ui.Info("  %s", issue)
+			}
+		}
 	}
 
 	printAuditStatus(runtime.config.Audit)
@@ -117,6 +138,8 @@ func cmdStatusProjectJSON(root string) error {
 	}
 
 	output.Agents = buildProjectAgentStatusJSON(runtime)
+	output.Plugins, _ = pluginpkg.Discover(config.PluginsSourceDirProject(root))
+	output.Hooks, _ = hookpkg.Discover(config.HooksSourceDirProject(root))
 
 	return writeJSON(&output)
 }

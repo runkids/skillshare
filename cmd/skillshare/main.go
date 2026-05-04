@@ -45,6 +45,8 @@ var commands = map[string]func([]string) error{
 	"ui":        cmdUI,
 	"tui":       cmdTUIToggle,
 	"extras":    cmdExtras,
+	"plugins":   cmdPlugins,
+	"hooks":     cmdHooks,
 	"enable":    cmdEnable,
 	"disable":   cmdDisable,
 }
@@ -251,6 +253,17 @@ func printUsage() {
 	cmd("extras", "collect <name>", "Collect local files into extras source")
 	fmt.Println()
 
+	// Plugins & Hooks
+	fmt.Println("PLUGINS & HOOKS")
+	cmd("plugins", "list", "List plugin bundles in the Skillshare source")
+	cmd("plugins", "import <ref> --from <claude|codex>", "Import a native plugin bundle into Skillshare")
+	cmd("plugins", "install <ref> --from <claude|codex>", "Import, render, and install a plugin bundle")
+	cmd("plugins", "sync", "Render/install plugins for Claude and/or Codex")
+	cmd("hooks", "list", "List standalone hook bundles in the Skillshare source")
+	cmd("hooks", "import --from <claude|codex>", "Import local Claude/Codex hooks into standalone bundles")
+	cmd("hooks", "sync", "Render/install standalone hooks for Claude/Codex")
+	fmt.Println()
+
 	// Git Remote
 	fmt.Println("GIT REMOTE")
 	cmd("push", "", "Commit and push source to git remote")
@@ -280,7 +293,7 @@ func printUsage() {
 	fmt.Println(g + "  skillshare status                                   # Check current state")
 	fmt.Println("  skillshare sync --dry-run                           # Preview before sync")
 	fmt.Println("  skillshare sync agents                              # Sync agents only")
-	fmt.Println("  skillshare sync --all                               # Sync skills + agents + extras")
+	fmt.Println("  skillshare sync --all                               # Sync skills + agents + extras + plugins + hooks")
 	fmt.Println("  skillshare list --all                               # List skills + agents")
 	fmt.Println("  skillshare collect claude                           # Import local skills")
 	fmt.Println("  skillshare install anthropics/skills/pdf -p         # Project install")
