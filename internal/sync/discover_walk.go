@@ -48,15 +48,22 @@ func getKnownTargetNameSet() map[string]bool {
 func getProjectTargetPaths() []projectTargetPath {
 	projectTargetPathsOnce.Do(func() {
 		groupedTargets := config.GroupedProjectTargets()
-		projectTargetPaths = make([]projectTargetPath, 0, len(groupedTargets))
+		projectTargetPaths = make([]projectTargetPath, 0, len(groupedTargets)*2)
 		for _, target := range groupedTargets {
 			if target.Name == "" || target.Path == "" {
 				continue
 			}
+			p := filepath.ToSlash(target.Path)
 			projectTargetPaths = append(projectTargetPaths, projectTargetPath{
 				name: target.Name,
-				path: filepath.ToSlash(target.Path),
+				path: p,
 			})
+			for _, member := range target.Members {
+				projectTargetPaths = append(projectTargetPaths, projectTargetPath{
+					name: member,
+					path: p,
+				})
+			}
 		}
 		sort.Slice(projectTargetPaths, func(i, j int) bool {
 			if projectTargetPaths[i].path == projectTargetPaths[j].path {

@@ -189,8 +189,16 @@ func TestDiscoverSourceSkills_InfersTargetsFromHostPaths(t *testing.T) {
 	if universalSkill.RelPath == "" {
 		t.Fatalf("missing .agents/skills/universal-skill")
 	}
-	if len(universalSkill.Targets) != 1 || universalSkill.Targets[0] != "universal" {
-		t.Errorf("expected .agents host skill to target [universal], got %v", universalSkill.Targets)
+	// .agents/skills is shared by multiple targets (universal, codex, amp, etc.)
+	uTargets := make(map[string]bool, len(universalSkill.Targets))
+	for _, tgt := range universalSkill.Targets {
+		uTargets[tgt] = true
+	}
+	if !uTargets["universal"] || !uTargets["codex"] {
+		t.Errorf("expected .agents host skill targets to include universal and codex, got %v", universalSkill.Targets)
+	}
+	if len(universalSkill.Targets) < 2 {
+		t.Errorf("expected multiple targets for .agents/skills path, got %v", universalSkill.Targets)
 	}
 
 	genericSkill := byRel["shared/generic"]
