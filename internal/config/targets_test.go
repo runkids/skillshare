@@ -34,7 +34,7 @@ func TestGroupedProjectTargets_UniversalGrouped(t *testing.T) {
 		memberSet[m] = true
 	}
 
-	expectedMembers := []string{"amp", "codex", "kimi", "replit"}
+	expectedMembers := []string{"amp", "codex", "cursor", "dexto", "kimi", "replit"}
 	for _, name := range expectedMembers {
 		if !memberSet[name] {
 			t.Errorf("expected %q in universal group members, got %v", name, universalGroup.Members)
@@ -50,17 +50,17 @@ func TestGroupedProjectTargets_UniversalGrouped(t *testing.T) {
 func TestGroupedProjectTargets_SinglePathNotGrouped(t *testing.T) {
 	grouped := GroupedProjectTargets()
 
-	// cursor has a unique path (.cursor/skills), should not have members
+	// copilot has a unique path (.github/skills), should not have members
 	for _, g := range grouped {
-		if g.Name == "cursor" {
+		if g.Name == "copilot" {
 			if len(g.Members) != 0 {
-				t.Errorf("cursor should have no members, got %v", g.Members)
+				t.Errorf("copilot should have no members, got %v", g.Members)
 			}
 			return
 		}
 	}
 
-	t.Error("cursor not found in GroupedProjectTargets result")
+	t.Error("copilot not found in GroupedProjectTargets result")
 }
 
 func TestGroupedProjectTargets_NoDuplicatePaths(t *testing.T) {

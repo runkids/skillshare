@@ -23,7 +23,7 @@
 
 <p align="center">
   <strong>One source of truth for AI CLI skills, agents, rules, commands & more. Sync everywhere with one command — from personal to organization-wide.</strong><br>
-  Codex, Claude Code, OpenClaw, OpenCode & 50+ more.
+  Codex, Claude Code, OpenClaw, OpenCode & 60+ more.
 </p>
 
 <p align="center">
@@ -49,7 +49,7 @@ You edit in one, forget to copy to another, and lose track of what's where.
 
 skillshare fixes this:
 
-- **One source, every agent** — sync to Claude, Cursor, Codex & 50+ more with `skillshare sync`
+- **One source, every agent** — sync to Claude, Cursor, Codex & 60+ more with `skillshare sync`
 - **Agent management** — sync custom agents alongside skills to agent-capable targets
 - **More than skills** — manage rules, commands, prompts & any file-based resource with [extras](https://skillshare.runkids.cc/docs/reference/targets/configuration#extras)
 - **Install from anywhere** — GitHub, GitLab, Bitbucket, Azure DevOps, or any self-hosted Git

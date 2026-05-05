@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.19.6] - 2026-05-05
+
+### New Features
+
+- **8 new agent targets** — added AiderDesk, CodeArts Agent (Huawei), Code Studio (Syncfusion), Devin for Terminal (Cognition), Dexto, ForgeCode, Rovo Dev (Atlassian), and Tabnine CLI. Total built-in targets: 64+
+- **Cursor project path updated to `.agents/skills`** — Cursor officially supports `.agents/skills` as a project-level skill path alongside `.cursor/skills`. The project path now uses the ecosystem-standard `.agents/skills` convention, matching Cursor's official documentation. The global path (`~/.cursor/skills`) and agents paths are unchanged
+- **Automatic target inference from directory structure** — skills organized under a target's project path are now automatically scoped to that target during sync, without needing `targets:` in SKILL.md frontmatter. For example, placing a skill at `.cursor/skills/my-skill/` in the source directory automatically restricts it to the `cursor` target
+  ```
+  source/
+    .cursor/skills/browse/     → syncs only to cursor
+    .factory/skills/bench/     → syncs only to droid
+    openclaw/skills/investigate/ → syncs only to openclaw
+    shared/my-tool/            → syncs to all targets (no inference)
+  ```
+  Inference matches against the project paths defined in `targets.yaml`. When multiple targets share the same path (e.g. `universal`, `codex`, `amp` all use `.agents/skills`), the skill is correctly scoped to all of them
+
+### Bug Fixes
+
+- Fixed host path inference only returning the canonical target name when multiple targets share the same project path — `.agents/skills/` skills now correctly infer all sharing targets instead of just `universal`
+- Fixed `skillshare update` failing for skills originally installed at the repo root of an orchestrator (multi-skill) repository — the update now correctly detects the repo layout and re-applies subdirectory extraction
+
 ## [0.19.5] - 2026-04-23
 
 ### New Features

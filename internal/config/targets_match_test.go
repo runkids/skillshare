@@ -43,7 +43,7 @@ func TestMatchesTargetName_SharedProjectPath(t *testing.T) {
 }
 
 func TestMatchesTargetName_SharedPath_NoFalsePositive(t *testing.T) {
-	// claude and cursor have different paths — must not match via path fallback
+	// claude (.claude/skills) and cursor (.agents/skills) have different project and global paths
 	if MatchesTargetName("claude", "cursor") {
 		t.Error("claude should not match cursor (different paths)")
 	}

@@ -16,6 +16,11 @@ targets:
     skills:
       global: "~/.gemini/antigravity/skills"
       project: ".agent/skills"
+  - name: aiderdesk
+    skills:
+      global: "~/.aider-desk/skills"
+      project: ".aider-desk/skills"
+    aliases: [aider-desk]
   - name: astrbot
     skills:
       global: "~/.astrbot/data/skills"
@@ -39,6 +44,11 @@ targets:
       global: "~/.claude/agents"
       project: ".claude/agents"
     aliases: [claude-code]
+  - name: codearts
+    skills:
+      global: "~/.codeartsdoer/skills"
+      project: ".codeartsdoer/skills"
+    aliases: [codearts-agent]
   - name: cline
     skills:
       global: "~/.agents/skills"
@@ -47,6 +57,11 @@ targets:
     skills:
       global: "~/.codebuddy/skills"
       project: ".codebuddy/skills"
+  - name: codestudio
+    skills:
+      global: "~/.codestudio/skills"
+      project: ".codestudio/skills"
+    aliases: [code-studio]
   - name: comate
     skills:
       global: "~/.comate/skills"
@@ -80,7 +95,7 @@ targets:
   - name: cursor
     skills:
       global: "~/.cursor/skills"
-      project: ".cursor/skills"
+      project: ".agents/skills"
     agents:
       global: "~/.cursor/agents"
       project: ".cursor/agents"
@@ -89,6 +104,15 @@ targets:
       global: "~/.deepagents/agent/skills"
       project: ".deepagents/skills"
     aliases: [deep-agents]
+  - name: devin
+    skills:
+      global: "~/.config/devin/skills"
+      project: ".devin/skills"
+    aliases: [devin-terminal]
+  - name: dexto
+    skills:
+      global: "~/.agents/skills"
+      project: ".agents/skills"
   - name: droid
     skills:
       global: "~/.factory/skills"
@@ -97,6 +121,11 @@ targets:
     skills:
       global: "~/.firebender/skills"
       project: ".firebender/skills"
+  - name: forgecode
+    skills:
+      global: "~/forge/skills"
+      project: ".forge/skills"
+    aliases: [forge-code]
   - name: gemini
     skills:
       global: "~/.gemini/skills"
@@ -205,6 +234,16 @@ targets:
     skills:
       global: "~/.roo/skills"
       project: ".roo/skills"
+  - name: rovodev
+    skills:
+      global: "~/.rovodev/skills"
+      project: ".rovodev/skills"
+    aliases: [rovo-dev]
+  - name: tabnine
+    skills:
+      global: "~/.tabnine/agent/skills"
+      project: ".tabnine/agent/skills"
+    aliases: [tabnine-cli]
   - name: trae
     skills:
       global: "~/.trae/skills"

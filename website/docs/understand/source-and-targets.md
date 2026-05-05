@@ -159,7 +159,7 @@ Targets are AI CLI skill directories that skillshare syncs to.
 - `~/.cursor/skills/` — Cursor
 - `~/.codex/skills/` — OpenAI Codex CLI
 - `~/.gemini/skills/` — Gemini CLI
-- And [56+ more](/docs/reference/targets/supported-targets)
+- And [64+ more](/docs/reference/targets/supported-targets)
 
 **Auto-detection:** When you run `skillshare init`, it automatically detects installed AI CLIs and adds them as targets.
 

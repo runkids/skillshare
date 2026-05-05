@@ -15,7 +15,7 @@ flowchart LR
     TGT_CURSOR["cursor &nbsp; ~/.cursor/skills"]
     TGT_CODEX["codex &nbsp; ~/.codex/skills"]
     TGT_GEMINI["gemini &nbsp; ~/.gemini/skills"]
-    TGT_MORE["... &nbsp; 56+ supported"]
+    TGT_MORE["... &nbsp; 64+ supported"]
 
     SRC -->|sync| TGT_CLAUDE
     SRC -->|sync| TGT_CURSOR
@@ -36,7 +36,7 @@ flowchart LR
 
 | Topic | Description |
 |-------|-------------|
-| [Supported Targets](./supported-targets.md) | Complete list of 56+ supported AI CLIs |
+| [Supported Targets](./supported-targets.md) | Complete list of 64+ supported AI CLIs |
 | [Adding Custom Targets](./adding-custom-targets.md) | Add any tool with a skills directory |
 | [Configuration](./configuration.md) | Config file reference |
 
