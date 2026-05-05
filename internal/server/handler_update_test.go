@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 )
 
 // initGitRepo creates a minimal git repo with an initial commit.
@@ -206,5 +207,28 @@ func TestAuditGateTrackedRepo_Clean_ReturnsNil(t *testing.T) {
 	}
 	if auditResult.RiskLabel != "clean" {
 		t.Errorf("expected riskLabel=clean, got %q", auditResult.RiskLabel)
+	}
+}
+
+func TestUpdateAgent_AzureOnPrem_UsesParseOpts(t *testing.T) {
+	s, _ := newTestServer(t)
+	s.cfg.AzureHosts = []string{"azuredevops.corp.com"}
+
+	// Verify that server.parseOpts() + ParseSourceWithOptions produces
+	// the correct CloneURL for an on-prem Azure agent source.
+	// This is the exact parse path used inside updateAgent.
+	source, err := install.ParseSourceWithOptions(
+		"https://azuredevops.corp.com/Org/Project/_git/Repo/agents/my-agent.md",
+		s.parseOpts(),
+	)
+	if err != nil {
+		t.Fatalf("ParseSourceWithOptions error: %v", err)
+	}
+	wantURL := "https://azuredevops.corp.com/Org/Project/_git/Repo"
+	if source.CloneURL != wantURL {
+		t.Errorf("CloneURL = %q, want %q", source.CloneURL, wantURL)
+	}
+	if source.Subdir != "agents/my-agent.md" {
+		t.Errorf("Subdir = %q, want %q", source.Subdir, "agents/my-agent.md")
 	}
 }

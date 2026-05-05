@@ -51,3 +51,14 @@ func loadProjectRuntime(root string) (*projectRuntime, error) {
 		targets:          targets,
 	}, nil
 }
+
+// configFromProjectRuntime builds a minimal global Config from a project runtime,
+// carrying host lists so that source parsing uses the project's azure_hosts / gitlab_hosts.
+func configFromProjectRuntime(r *projectRuntime) *config.Config {
+	return &config.Config{
+		Source:       r.sourcePath,
+		AgentsSource: r.agentsSourcePath,
+		GitLabHosts:  r.config.GitLabHosts,
+		AzureHosts:   r.config.AzureHosts,
+	}
+}

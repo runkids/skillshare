@@ -4,8 +4,56 @@ import (
 	"strings"
 	"testing"
 
+	"skillshare/internal/config"
 	"skillshare/internal/install"
 )
+
+func TestParseOptsFromConfig_IncludesAzureHosts(t *testing.T) {
+	cfg := &config.Config{
+		GitLabHosts: []string{"gitlab.corp.com"},
+		AzureHosts:  []string{"azuredevops.corp.com"},
+	}
+	opts := parseOptsFromConfig(cfg)
+	if len(opts.AzureHosts) != 1 || opts.AzureHosts[0] != "azuredevops.corp.com" {
+		t.Errorf("parseOptsFromConfig: AzureHosts = %v, want [azuredevops.corp.com]", opts.AzureHosts)
+	}
+	if len(opts.GitLabHosts) != 1 || opts.GitLabHosts[0] != "gitlab.corp.com" {
+		t.Errorf("parseOptsFromConfig: GitLabHosts = %v, want [gitlab.corp.com]", opts.GitLabHosts)
+	}
+}
+
+func TestParseOptsFromProjectConfig_IncludesAzureHosts(t *testing.T) {
+	cfg := &config.ProjectConfig{
+		GitLabHosts: []string{"gitlab.corp.com"},
+		AzureHosts:  []string{"azuredevops.corp.com"},
+	}
+	opts := parseOptsFromProjectConfig(cfg)
+	if len(opts.AzureHosts) != 1 || opts.AzureHosts[0] != "azuredevops.corp.com" {
+		t.Errorf("parseOptsFromProjectConfig: AzureHosts = %v, want [azuredevops.corp.com]", opts.AzureHosts)
+	}
+}
+
+func TestConfigFromProjectRuntime_IncludesAzureHosts(t *testing.T) {
+	runtime := &projectRuntime{
+		sourcePath:       "/tmp/skills",
+		agentsSourcePath: "/tmp/agents",
+		config: &config.ProjectConfig{
+			GitLabHosts: []string{"gitlab.corp.com"},
+			AzureHosts:  []string{"azuredevops.corp.com"},
+		},
+	}
+	cfg := configFromProjectRuntime(runtime)
+	opts := parseOptsFromConfig(cfg)
+	source, err := install.ParseSourceWithOptions(
+		"https://azuredevops.corp.com/Org/Project/_git/Repo", opts)
+	if err != nil {
+		t.Fatalf("ParseSourceWithOptions error: %v", err)
+	}
+	wantURL := "https://azuredevops.corp.com/Org/Project/_git/Repo"
+	if source.CloneURL != wantURL {
+		t.Errorf("CloneURL = %q, want %q (configFromProjectRuntime dropped AzureHosts)", source.CloneURL, wantURL)
+	}
+}
 
 func TestFilterSkillsByName_ExactMatch(t *testing.T) {
 	skills := []install.SkillInfo{
