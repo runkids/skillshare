@@ -515,6 +515,44 @@ SKILLSHARE_GITLAB_HOSTS=git.company.com,code.internal.io skillshare install git.
 
 When both the config file and env var are set, their values are **merged** (deduplicated). Invalid entries in the env var are silently skipped.
 
+### `azure_hosts`
+
+Hostnames of self-hosted Azure DevOps Server instances. The built-in patterns for `dev.azure.com` and `*.visualstudio.com` are always active — this field is only needed for on-premises Azure DevOps Server with custom domains.
+
+```yaml
+azure_hosts:
+  - azuredevops.mycompany.com
+```
+
+When a hostname is listed here, URLs containing `/_git/` are routed through Azure DevOps parsing logic, which correctly extracts the org, project, and repo without appending `.git` to the clone URL.
+
+**Without `azure_hosts`:**
+
+```bash
+# Falls through to generic HTTPS parsing — clone URL becomes
+# https://azuredevops.mycompany.com/Org/Project.git (WRONG)
+skillshare install https://azuredevops.mycompany.com/Org/Project/_git/Repo
+```
+
+**With `azure_hosts: [azuredevops.mycompany.com]`:**
+
+```bash
+# Correctly parsed — clone URL is
+# https://azuredevops.mycompany.com/Org/Project/_git/Repo
+skillshare install https://azuredevops.mycompany.com/Org/Project/_git/Repo
+```
+
+Entries must be bare hostnames (no scheme, path, or port). They are normalized to lowercase.
+
+#### Environment variable
+
+For CI/CD pipelines, use `SKILLSHARE_AZURE_HOSTS` (comma-separated):
+
+```bash
+SKILLSHARE_AZURE_HOSTS=azuredevops.mycompany.com skillshare install \
+  https://azuredevops.mycompany.com/Org/Project/_git/Repo
+```
+
 ### `audit`
 
 Security audit configuration.

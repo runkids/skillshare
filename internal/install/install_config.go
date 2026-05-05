@@ -105,7 +105,10 @@ func InstallFromConfig(ctx InstallContext, opts InstallOptions) (ConfigInstallRe
 
 	sourcePath := ctx.SourcePath()
 
-	parseOpts := ParseOptions{GitLabHosts: ctx.GitLabHosts()}
+	parseOpts := ParseOptions{
+		GitLabHosts: ctx.GitLabHosts(),
+		AzureHosts:  ctx.AzureHosts(),
+	}
 
 	// ── Classify skills: tracked / plain (groupable vs singles) ──
 	var tracked []SkillEntryDTO

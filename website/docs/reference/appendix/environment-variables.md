@@ -102,6 +102,20 @@ When both the env var and config file [`gitlab_hosts`](/docs/reference/targets/c
 
 ---
 
+### SKILLSHARE_AZURE_HOSTS
+
+Comma-separated list of self-hosted Azure DevOps Server hostnames.
+
+```bash
+SKILLSHARE_AZURE_HOSTS=azuredevops.mycompany.com,tfs.internal.io
+```
+
+When both the env var and config file [`azure_hosts`](/docs/reference/targets/configuration#azure_hosts) are set, their values are **merged** (deduplicated). Invalid entries in the env var are silently skipped.
+
+**Default:** _(none)_
+
+---
+
 ## Web UI
 
 ### SKILLSHARE_UI_BASE_PATH
@@ -364,6 +378,7 @@ export GITHUB_TOKEN="ghp_your_token_here"
 | `SKILLSHARE_CONFIG` | Config file path | `~/.config/skillshare/config.yaml` |
 | `SKILLSHARE_UI_BASE_PATH` | Web UI sub-path for reverse proxy | None |
 | `SKILLSHARE_GITLAB_HOSTS` | Custom GitLab hostnames (comma-separated) | None |
+| `SKILLSHARE_AZURE_HOSTS` | Custom Azure DevOps Server hostnames (comma-separated) | None |
 | `XDG_CONFIG_HOME` | Base config directory | `~/.config` (Linux/macOS), `%AppData%` (Windows) |
 | `XDG_DATA_HOME` | Data directory (backups, trash) | `~/.local/share` |
 | `XDG_STATE_HOME` | State directory (logs) | `~/.local/state` |

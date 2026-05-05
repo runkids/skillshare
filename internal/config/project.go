@@ -261,11 +261,17 @@ type ProjectConfig struct {
 	Audit        AuditConfig          `yaml:"audit,omitempty"`
 	Hub          HubConfig            `yaml:"hub,omitempty"`
 	GitLabHosts  []string             `yaml:"gitlab_hosts,omitempty"`
+	AzureHosts   []string             `yaml:"azure_hosts,omitempty"`
 }
 
 // EffectiveGitLabHosts returns GitLabHosts merged with SKILLSHARE_GITLAB_HOSTS env var.
 func (c *ProjectConfig) EffectiveGitLabHosts() []string {
 	return mergeGitLabHostsFromEnv(c.GitLabHosts)
+}
+
+// EffectiveAzureHosts returns AzureHosts merged with SKILLSHARE_AZURE_HOSTS env var.
+func (c *ProjectConfig) EffectiveAzureHosts() []string {
+	return mergeAzureHostsFromEnv(c.AzureHosts)
 }
 
 // ProjectConfigPath returns the project config path for the given root.
@@ -305,6 +311,13 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 		return nil, fmt.Errorf("project config: %w", err)
 	}
 	cfg.GitLabHosts = hosts
+
+	// Validate and normalize azure_hosts
+	azureHosts, err := normalizeAzureHosts(cfg.AzureHosts)
+	if err != nil {
+		return nil, fmt.Errorf("project config: %w", err)
+	}
+	cfg.AzureHosts = azureHosts
 
 	for _, target := range cfg.Targets {
 		if strings.TrimSpace(target.Name) == "" {

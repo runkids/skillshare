@@ -21,6 +21,7 @@ All source URL patterns recognized by `skillshare install`.
 | Azure DevOps shorthand | `ado:org/project/repo` | Expands to `dev.azure.com` URL |
 | Azure DevOps HTTPS | `https://dev.azure.com/org/proj/_git/repo` | Modern format |
 | Azure DevOps SSH | `git@ssh.dev.azure.com:v3/org/proj/repo` | SSH v3 format |
+| Azure DevOps Server | `https://custom-host/org/proj/_git/repo` | Requires `azure_hosts` config |
 | Local path | `~/my-skill` or `/abs/path` | Copies directory to source |
 | Git file URL | `file:///path/to/repo` | Local git clone (for testing) |
 
@@ -219,6 +220,19 @@ This tells skillshare to treat the full URL path as the repository, matching Git
 # Installs from git.company.com/team/frontend/ui (full path as repo)
 skillshare install git.company.com/team/frontend/ui.git
 ```
+
+## Custom Azure DevOps Domains {#custom-azure-domains}
+
+The built-in Azure DevOps patterns match `dev.azure.com` and `*.visualstudio.com` automatically.
+
+For self-hosted Azure DevOps Server instances on custom domains, add the hostname to [`azure_hosts`](../targets/configuration.md#azure_hosts) in your config:
+
+```yaml
+azure_hosts:
+  - azuredevops.mycompany.com
+```
+
+This tells skillshare to route URLs with `/_git/` on that host through Azure DevOps parsing, which correctly constructs the clone URL without appending `.git`.
 
 ## Platform Support
 

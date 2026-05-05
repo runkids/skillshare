@@ -170,13 +170,19 @@ func (s *Server) cloneTargets() map[string]config.TargetConfig {
 	return targets
 }
 
-// parseOpts returns install.ParseOptions with GitLabHosts from the current config.
+// parseOpts returns install.ParseOptions from the current config.
 // In project mode, project config is used unconditionally (not a fallback to global).
 func (s *Server) parseOpts() install.ParseOptions {
 	if s.IsProjectMode() && s.projectCfg != nil {
-		return install.ParseOptions{GitLabHosts: s.projectCfg.EffectiveGitLabHosts()}
+		return install.ParseOptions{
+			GitLabHosts: s.projectCfg.EffectiveGitLabHosts(),
+			AzureHosts:  s.projectCfg.EffectiveAzureHosts(),
+		}
 	}
-	return install.ParseOptions{GitLabHosts: s.cfg.EffectiveGitLabHosts()}
+	return install.ParseOptions{
+		GitLabHosts: s.cfg.EffectiveGitLabHosts(),
+		AzureHosts:  s.cfg.EffectiveAzureHosts(),
+	}
 }
 
 // gitignoreDir returns the directory containing the managed .gitignore.

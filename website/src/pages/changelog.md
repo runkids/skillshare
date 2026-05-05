@@ -9,6 +9,20 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.19.7] - 2026-05-05
+
+### New Features
+
+- **Azure DevOps Server (on-premises) support** — added `azure_hosts` config parameter for self-hosted Azure DevOps Server instances on custom domains. Previously, only `dev.azure.com` and `*.visualstudio.com` were recognized; custom-domain URLs would fail with an incorrect `.git` suffix in the clone URL. Refs: #147
+  ```yaml
+  azure_hosts:
+    - azuredevops.mycompany.com
+  ```
+  ```bash
+  skillshare install https://azuredevops.mycompany.com/Org/Project/_git/Repo
+  ```
+  Works in both global and project configs. For CI/CD, use the `SKILLSHARE_AZURE_HOSTS` environment variable (comma-separated, merged with config file values)
+
 ## [0.19.6] - 2026-05-05
 
 ### New Features

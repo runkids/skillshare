@@ -53,6 +53,7 @@ func (g *globalInstallContext) Reconcile() error {
 func (g *globalInstallContext) PostInstallSkill(string) error { return nil }
 func (g *globalInstallContext) Mode() string                  { return "global" }
 func (g *globalInstallContext) GitLabHosts() []string         { return g.cfg.EffectiveGitLabHosts() }
+func (g *globalInstallContext) AzureHosts() []string          { return g.cfg.EffectiveAzureHosts() }
 
 // ---------------------------------------------------------------------------
 // projectInstallContext
@@ -79,4 +80,7 @@ func (p *projectInstallContext) PostInstallSkill(displayName string) error {
 func (p *projectInstallContext) Mode() string { return "project" }
 func (p *projectInstallContext) GitLabHosts() []string {
 	return p.runtime.config.EffectiveGitLabHosts()
+}
+func (p *projectInstallContext) AzureHosts() []string {
+	return p.runtime.config.EffectiveAzureHosts()
 }

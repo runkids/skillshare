@@ -62,3 +62,26 @@ func TestParseOpts_ProjectMode_MergesEnvVar(t *testing.T) {
 		t.Errorf("[1] = %s, want env.host", opts.GitLabHosts[1])
 	}
 }
+
+func TestParseOpts_GlobalMode_AzureHosts(t *testing.T) {
+	s, _ := newTestServer(t)
+	s.cfg.AzureHosts = []string{"azure.company.com"}
+
+	opts := s.parseOpts()
+	if len(opts.AzureHosts) != 1 || opts.AzureHosts[0] != "azure.company.com" {
+		t.Errorf("global mode: expected [azure.company.com], got %v", opts.AzureHosts)
+	}
+}
+
+func TestParseOpts_ProjectMode_AzureHosts(t *testing.T) {
+	s, _ := newTestServer(t)
+	s.projectRoot = t.TempDir()
+	s.projectCfg = &config.ProjectConfig{
+		AzureHosts: []string{"azure.company.com"},
+	}
+
+	opts := s.parseOpts()
+	if len(opts.AzureHosts) != 1 || opts.AzureHosts[0] != "azure.company.com" {
+		t.Errorf("project mode: expected [azure.company.com], got %v", opts.AzureHosts)
+	}
+}

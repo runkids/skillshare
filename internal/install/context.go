@@ -59,6 +59,9 @@ type InstallContext interface {
 
 	// GitLabHosts returns extra hostnames to treat as GitLab instances.
 	GitLabHosts() []string
+
+	// AzureHosts returns extra hostnames to treat as Azure DevOps on-premises instances.
+	AzureHosts() []string
 }
 
 // ConfigInstallResult summarises the outcome of InstallFromConfig.

@@ -249,12 +249,18 @@ func ensureIntoDirExists(sourceDir string, opts install.InstallOptions) error {
 
 // parseOptsFromConfig builds install.ParseOptions from the global config.
 func parseOptsFromConfig(cfg *config.Config) install.ParseOptions {
-	return install.ParseOptions{GitLabHosts: cfg.EffectiveGitLabHosts()}
+	return install.ParseOptions{
+		GitLabHosts: cfg.EffectiveGitLabHosts(),
+		AzureHosts:  cfg.EffectiveAzureHosts(),
+	}
 }
 
 // parseOptsFromProjectConfig builds install.ParseOptions from a project config.
 func parseOptsFromProjectConfig(cfg *config.ProjectConfig) install.ParseOptions {
-	return install.ParseOptions{GitLabHosts: cfg.EffectiveGitLabHosts()}
+	return install.ParseOptions{
+		GitLabHosts: cfg.EffectiveGitLabHosts(),
+		AzureHosts:  cfg.EffectiveAzureHosts(),
+	}
 }
 
 // resolveSkillFromName resolves a skill name to source using metadata

@@ -1419,6 +1419,97 @@ func TestParseSourceWithOptions_GitLabHosts(t *testing.T) {
 	}
 }
 
+func TestParseSourceWithOptions_AzureHosts(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		hosts        []string
+		wantCloneURL string
+		wantSubdir   string
+		wantName     string
+	}{
+		{
+			name:         "on-prem URL with host in azure_hosts",
+			input:        "https://azuredevops.mycompany.com/Org/Project/_git/Repo",
+			hosts:        []string{"azuredevops.mycompany.com"},
+			wantCloneURL: "https://azuredevops.mycompany.com/Org/Project/_git/Repo",
+			wantSubdir:   "",
+			wantName:     "Repo",
+		},
+		{
+			name:         "on-prem URL with subdir",
+			input:        "https://azuredevops.mycompany.com/Org/Project/_git/Repo/skills/react",
+			hosts:        []string{"azuredevops.mycompany.com"},
+			wantCloneURL: "https://azuredevops.mycompany.com/Org/Project/_git/Repo",
+			wantSubdir:   "skills/react",
+			wantName:     "react",
+		},
+		{
+			name:         "on-prem URL with .git suffix stripped",
+			input:        "https://azuredevops.mycompany.com/Org/Project/_git/Repo.git",
+			hosts:        []string{"azuredevops.mycompany.com"},
+			wantCloneURL: "https://azuredevops.mycompany.com/Org/Project/_git/Repo",
+			wantSubdir:   "",
+			wantName:     "Repo",
+		},
+		{
+			name:         "case-insensitive host match",
+			input:        "https://AzureDevOps.MyCompany.COM/Org/Project/_git/Repo",
+			hosts:        []string{"azuredevops.mycompany.com"},
+			wantCloneURL: "https://AzureDevOps.MyCompany.COM/Org/Project/_git/Repo",
+			wantSubdir:   "",
+			wantName:     "Repo",
+		},
+		{
+			name:         "/_git/ URL without azure_hosts falls through",
+			input:        "https://azuredevops.mycompany.com/Org/Project/_git/Repo",
+			hosts:        nil,
+			wantCloneURL: "https://azuredevops.mycompany.com/Org/Project.git",
+			wantSubdir:   "_git/Repo",
+			wantName:     "Repo",
+		},
+		{
+			name:         "dev.azure.com still uses hardcoded pattern",
+			input:        "https://dev.azure.com/org/proj/_git/repo",
+			hosts:        nil,
+			wantCloneURL: "https://dev.azure.com/org/proj/_git/repo",
+			wantSubdir:   "",
+			wantName:     "repo",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := ParseOptions{AzureHosts: tt.hosts}
+			source, err := ParseSourceWithOptions(tt.input, opts)
+			if err != nil {
+				t.Fatalf("ParseSourceWithOptions(%q) error = %v", tt.input, err)
+			}
+			if source.CloneURL != tt.wantCloneURL {
+				t.Errorf("CloneURL = %q, want %q", source.CloneURL, tt.wantCloneURL)
+			}
+			if source.Subdir != tt.wantSubdir {
+				t.Errorf("Subdir = %q, want %q", source.Subdir, tt.wantSubdir)
+			}
+			if source.Name != tt.wantName {
+				t.Errorf("Name = %q, want %q", source.Name, tt.wantName)
+			}
+		})
+	}
+}
+
+func TestTrackName_AzureOnPrem(t *testing.T) {
+	opts := ParseOptions{AzureHosts: []string{"azuredevops.mycompany.com"}}
+	source, err := ParseSourceWithOptions("https://azuredevops.mycompany.com/Org/Project/_git/Repo", opts)
+	if err != nil {
+		t.Fatalf("ParseSourceWithOptions() error: %v", err)
+	}
+	got := source.TrackName()
+	if got != "Org-Project-Repo" {
+		t.Errorf("TrackName() = %q, want %q", got, "Org-Project-Repo")
+	}
+}
+
 func TestParseSource_AzureDevOps_GitHubOwnerEmpty(t *testing.T) {
 	// Azure DevOps sources should return empty GitHubOwner/GitHubRepo
 	inputs := []string{

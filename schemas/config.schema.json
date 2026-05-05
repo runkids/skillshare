@@ -73,6 +73,13 @@
       "uniqueItems": true,
       "examples": [["git.company.com", "code.internal.io"]]
     },
+    "azure_hosts": {
+      "type": "array",
+      "description": "Hostnames of self-hosted Azure DevOps Server instances. The built-in patterns for dev.azure.com and *.visualstudio.com are always active.",
+      "items": { "type": "string" },
+      "uniqueItems": true,
+      "examples": [["azuredevops.mycompany.com"]]
+    },
     "extras": {
       "type": "array",
       "description": "Non-skill resources (rules, commands, etc.) to sync to specific target paths.",

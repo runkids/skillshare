@@ -73,9 +73,14 @@ var azureVSPattern = regexp.MustCompile(
 var azureSSHPattern = regexp.MustCompile(
 	`^git@ssh\.dev\.azure\.com:v3/([^/]+)/([^/]+)/(.+?)(?:\.git)?(?://(.+))?$`)
 
+// Azure DevOps on-premises: https://{custom-host}/{org}/{project}/_git/{repo}[/subdir]
+var azureOnPremPattern = regexp.MustCompile(
+	`^https?://([^/]+)/([^/]+)/([^/]+)/_git/([^/?]+?)(?:\.git)?(?:/(.+))?$`)
+
 // ParseOptions holds optional configuration that affects source parsing.
 type ParseOptions struct {
 	GitLabHosts []string // extra hostnames to treat as GitLab (nested subgroup support)
+	AzureHosts  []string // extra hostnames to treat as Azure DevOps on-premises
 }
 
 // ParseSource analyzes the input string and returns a Source struct.
@@ -116,6 +121,15 @@ func ParseSourceWithOptions(input string, opts ParseOptions) (*Source, error) {
 	}
 	if matches := azureSSHPattern.FindStringSubmatch(input); matches != nil {
 		return parseAzureSSH(matches[1], matches[2], matches[3], matches[4], source)
+	}
+
+	// Try Azure DevOps on-premises (custom host with /_git/ marker)
+	if len(opts.AzureHosts) > 0 {
+		if matches := azureOnPremPattern.FindStringSubmatch(input); matches != nil {
+			if isAzureHost(matches[1], opts.AzureHosts) {
+				return parseAzureOnPrem(matches[1], matches[2], matches[3], matches[4], matches[5], source)
+			}
+		}
 	}
 
 	// Try GitHub shorthand pattern
@@ -329,9 +343,13 @@ func parseFileURL(matches []string, source *Source) (*Source, error) {
 }
 
 func parseAzureDevOps(org, project, repo, subdir string, source *Source) (*Source, error) {
+	return parseAzureOnPrem("dev.azure.com", org, project, repo, subdir, source)
+}
+
+func parseAzureOnPrem(host, org, project, repo, subdir string, source *Source) (*Source, error) {
 	repo = strings.TrimSuffix(repo, ".git")
 	source.Type = SourceTypeGitHTTPS
-	source.CloneURL = fmt.Sprintf("https://dev.azure.com/%s/%s/_git/%s", org, project, repo)
+	source.CloneURL = fmt.Sprintf("https://%s/%s/%s/_git/%s", host, org, project, repo)
 	if subdir != "" {
 		source.Subdir = subdir
 		source.Name = filepath.Base(subdir)
@@ -423,20 +441,24 @@ func parseGitHTTPS(matches []string, source *Source, opts ParseOptions) (*Source
 	return source, nil
 }
 
-// isGitLabHost returns true if the host should be treated as a GitLab instance.
-// Built-in detection checks for "gitlab" or "jihulab" in the hostname;
-// extraHosts provides additional hostnames for self-managed instances on
-// custom domains.
-func isGitLabHost(host string, extraHosts []string) bool {
-	if strings.Contains(host, "gitlab") || strings.Contains(host, "jihulab") {
-		return true
-	}
-	for _, eh := range extraHosts {
-		if strings.EqualFold(eh, host) {
+func hostMatchesAny(host string, list []string) bool {
+	for _, h := range list {
+		if strings.EqualFold(h, host) {
 			return true
 		}
 	}
 	return false
+}
+
+// isAzureHost returns true if the host is an Azure DevOps on-premises instance.
+func isAzureHost(host string, extraHosts []string) bool {
+	return hostMatchesAny(host, extraHosts)
+}
+
+// isGitLabHost returns true if the host should be treated as a GitLab instance.
+func isGitLabHost(host string, extraHosts []string) bool {
+	return strings.Contains(host, "gitlab") || strings.Contains(host, "jihulab") ||
+		hostMatchesAny(host, extraHosts)
 }
 
 // stripGitBranchPrefix removes platform-specific branch path segments from web URLs.
@@ -576,6 +598,17 @@ func (s *Source) TrackName() string {
 			// parts: [org, project, _git, repo]
 			if len(parts) >= 4 && parts[2] == "_git" {
 				return parts[0] + "-" + parts[1] + "-" + parts[3]
+			}
+		}
+	}
+
+	// Azure DevOps on-premises: https://custom-host/org/project/_git/repo
+	if strings.Contains(cloneURL, "/_git/") {
+		u, err := url.Parse(cloneURL)
+		if err == nil {
+			parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+			if len(parts) >= 4 && parts[len(parts)-2] == "_git" {
+				return parts[len(parts)-4] + "-" + parts[len(parts)-3] + "-" + parts[len(parts)-1]
 			}
 		}
 	}

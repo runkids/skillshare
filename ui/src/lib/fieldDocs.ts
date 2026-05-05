@@ -50,6 +50,11 @@ export const fieldDocs: Record<string, FieldDoc> = {
     type: 'string[]',
     example: 'gitlab_hosts:\n  - gitlab.company.com',
   },
+  azure_hosts: {
+    description: 'List of self-hosted Azure DevOps Server instances for skill installation.',
+    type: 'string[]',
+    example: 'azure_hosts:\n  - azuredevops.mycompany.com',
+  },
 
   // --- Targets ---
   targets: {
