@@ -42,7 +42,7 @@ func TestSyncProject_MultipleTargets(t *testing.T) {
 	if !sb.IsSymlink(filepath.Join(projectRoot, ".claude", "skills", "shared")) {
 		t.Error("symlink in claude target missing")
 	}
-	if !sb.IsSymlink(filepath.Join(projectRoot, ".cursor", "skills", "shared")) {
+	if !sb.IsSymlink(filepath.Join(projectRoot, ".agents", "skills", "shared")) {
 		t.Error("symlink in cursor target missing")
 	}
 }

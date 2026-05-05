@@ -276,7 +276,7 @@ func (sb *Sandbox) SetupProjectDir(targets ...string) string {
 	knownPaths := map[string]string{
 		"claude":      ".claude/skills",
 		"claude-code": ".claude/skills", // legacy alias
-		"cursor":      ".cursor/skills",
+		"cursor":      ".agents/skills",
 		"codex":       ".agents/skills",
 	}
 	for _, t := range targets {
