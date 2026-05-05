@@ -147,7 +147,7 @@ func cmdUpdateAgents(args []string, cfg *config.Config, start time.Time) error {
 			}
 		}
 	} else {
-		updatedItems, updated, failed = batchUpdateAgents(agentsDir, updatable, opts, "", !opts.jsonOutput)
+		updatedItems, updated, failed = batchUpdateAgents(agentsDir, updatable, opts, "", !opts.jsonOutput, parseOptsFromConfig(cfg))
 		finalItems = mergeAgentUpdateItems(finalItems, updatedItems)
 	}
 
@@ -190,7 +190,7 @@ type agentUpdateItem struct {
 
 // batchUpdateAgents groups agents by repo URL and clones once per group.
 // Agents with no RepoURL fall back to per-agent reinstallAgent.
-func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *updateAgentArgs, projectRoot string, verbose bool) ([]agentUpdateItem, int, int) {
+func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *updateAgentArgs, projectRoot string, verbose bool, parseOpts install.ParseOptions) ([]agentUpdateItem, int, int) {
 	store := install.LoadMetadataOrNew(agentsDir)
 	trackedRepos := map[string][]check.AgentCheckResult{}
 	groups := map[agentRepoKey][]check.AgentCheckResult{}
@@ -213,7 +213,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 			continue
 		}
 
-		source, parseErr := install.ParseSource(entry.Source)
+		source, parseErr := install.ParseSourceWithOptions(entry.Source, parseOpts)
 		if parseErr != nil {
 			noRepo = append(noRepo, r)
 			continue
@@ -382,7 +382,7 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 
 	// Fallback: agents without RepoURL
 	for _, r := range noRepo {
-		if err := reinstallAgent(agentsDir, r, store, opts, projectRoot); err != nil {
+		if err := reinstallAgent(agentsDir, r, store, opts, projectRoot, parseOpts); err != nil {
 			items = append(items, agentUpdateItem{
 				Name:    r.Name,
 				Source:  r.Source,
@@ -415,14 +415,14 @@ func batchUpdateAgents(agentsDir string, agents []check.AgentCheckResult, opts *
 // discovery + InstallAgentFromDiscovery (single-file copy), not the
 // directory-based skill installer.
 // Used as fallback for agents without RepoURL in the batch path.
-func reinstallAgent(agentsDir string, r check.AgentCheckResult, store *install.MetadataStore, opts *updateAgentArgs, projectRoot string) error {
+func reinstallAgent(agentsDir string, r check.AgentCheckResult, store *install.MetadataStore, opts *updateAgentArgs, projectRoot string, parseOpts install.ParseOptions) error {
 	entry := store.GetByPath(r.Name)
 	if entry == nil || entry.Source == "" {
 		return fmt.Errorf("no source metadata for agent %q", r.Name)
 	}
 
 	// Reconstruct the repo-level subdir for discovery.
-	source, parseErr := install.ParseSource(entry.Source)
+	source, parseErr := install.ParseSourceWithOptions(entry.Source, parseOpts)
 	if parseErr != nil {
 		return fmt.Errorf("invalid source: %w", parseErr)
 	}
@@ -830,7 +830,7 @@ func cmdUpdateAgentsProject(args []string, projectRoot string, start time.Time) 
 		return nil
 	}
 
-	updatedItems, updated, failed := batchUpdateAgents(agentsDir, updatable, opts, projectRoot, !opts.jsonOutput)
+	updatedItems, updated, failed := batchUpdateAgents(agentsDir, updatable, opts, projectRoot, !opts.jsonOutput, parseOptsFromProjectConfig(runtime.config))
 	finalItems = mergeAgentUpdateItems(finalItems, updatedItems)
 
 	logUpdateAgentOp(config.ProjectConfigPath(projectRoot), len(updatable), updated, failed, opts.dryRun, start)

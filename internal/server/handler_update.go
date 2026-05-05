@@ -186,7 +186,7 @@ func (s *Server) updateAgent(name string, force, skipAudit bool) updateResultIte
 		}
 	}
 
-	source, err := install.ParseSource(entry.Source)
+	source, err := install.ParseSourceWithOptions(entry.Source, s.parseOpts())
 	if err != nil {
 		return updateResultItem{Name: metaKey, Kind: "agent", Action: "error", Message: "invalid source: " + err.Error()}
 	}
