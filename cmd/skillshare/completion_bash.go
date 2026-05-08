@@ -25,7 +25,7 @@ _skillshare() {
     local extras_subcmds="init list remove collect source mode"
     local backup_subcmds="restore"
     local audit_subcmds="rules"
-    local completion_subcmds="bash zsh fish"
+    local completion_subcmds="bash zsh fish powershell nushell"
 
     # Per-command flags
     local init_flags="--source -s --remote --copy-from -c --no-copy --targets -t --all-targets --no-targets --mode -m --git --no-git --skill --no-skill --discover -d --select --subdir --dry-run -n --help -h"
@@ -179,4 +179,12 @@ _skillshare() {
 }
 
 complete -F _skillshare skillshare
+
+# Auto-detect aliases pointing to skillshare and register completion for them
+if command -v alias >/dev/null 2>&1; then
+    while IFS= read -r _ss_alias; do
+        complete -F _skillshare "$_ss_alias"
+    done < <(alias 2>/dev/null | sed -n "s/^alias \([^=]*\)=['\"].*skillshare['\"]$/\1/p")
+    unset _ss_alias
+fi
 `

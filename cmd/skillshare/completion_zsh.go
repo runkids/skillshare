@@ -458,7 +458,7 @@ _skillshare() {
                     ;;
                 completion)
                     _arguments \
-                        '1:shell:(bash zsh fish)' \
+                        '1:shell:(bash zsh fish powershell nushell)' \
                         '--install[Install completion script]' \
                         '--help[Show help]' \
                         '-h[Show help]'
@@ -469,4 +469,12 @@ _skillshare() {
 }
 
 _skillshare "$@"
+
+# Auto-detect aliases and register completion for them
+() {
+    local _ss_name
+    for _ss_name in ${(k)aliases}; do
+        [[ "${aliases[$_ss_name]}" == "skillshare" ]] && compdef _skillshare $_ss_name
+    done
+}
 `

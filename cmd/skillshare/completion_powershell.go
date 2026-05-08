@@ -2,7 +2,7 @@ package main
 
 const powershellCompletionScript = `# skillshare PowerShell completion
 
-Register-ArgumentCompleter -Native -CommandName skillshare -ScriptBlock {
+$_skillshareCompleter = {
     param($wordToComplete, $commandAst, $cursorPosition)
 
     $commands = @{
@@ -146,5 +146,12 @@ Register-ArgumentCompleter -Native -CommandName skillshare -ScriptBlock {
             }
         }
     }
+}
+
+Register-ArgumentCompleter -Native -CommandName skillshare -ScriptBlock $_skillshareCompleter
+
+# Auto-detect aliases pointing to skillshare and register completion for them
+Get-Alias -ErrorAction SilentlyContinue | Where-Object { $_.Definition -eq 'skillshare' } | ForEach-Object {
+    Register-ArgumentCompleter -Native -CommandName $_.Name -ScriptBlock $_skillshareCompleter
 }
 `

@@ -290,7 +290,7 @@ complete -c skillshare -n '__fish_skillshare_using_command analyze' -l json -d '
 complete -c skillshare -n '__fish_skillshare_using_command analyze' -l help -s h -d 'Show help'
 
 # completion
-complete -c skillshare -n '__fish_skillshare_using_command completion' -a 'bash zsh fish' -d 'Shell type'
+complete -c skillshare -n '__fish_skillshare_using_command completion' -a 'bash zsh fish powershell nushell' -d 'Shell type'
 complete -c skillshare -n '__fish_skillshare_using_command completion' -l install -d 'Install completion script'
 complete -c skillshare -n '__fish_skillshare_using_command completion' -l help -s h -d 'Show help'
 `
