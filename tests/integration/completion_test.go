@@ -53,11 +53,37 @@ func TestCompletion_Fish_OutputsScript(t *testing.T) {
 	}
 }
 
-func TestCompletion_UnsupportedShell_Errors(t *testing.T) {
+func TestCompletion_PowerShell_OutputsScript(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
 	result := sb.RunCLI("completion", "powershell")
+	if result.ExitCode != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", result.ExitCode, result.Stderr)
+	}
+	if !strings.Contains(result.Stdout, "Register-ArgumentCompleter") {
+		t.Error("powershell script missing Register-ArgumentCompleter")
+	}
+}
+
+func TestCompletion_Nushell_OutputsScript(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	result := sb.RunCLI("completion", "nushell")
+	if result.ExitCode != 0 {
+		t.Fatalf("expected exit 0, got %d: %s", result.ExitCode, result.Stderr)
+	}
+	if !strings.Contains(result.Stdout, "export extern \"skillshare\"") {
+		t.Error("nushell script missing extern definition")
+	}
+}
+
+func TestCompletion_UnsupportedShell_Errors(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	result := sb.RunCLI("completion", "tcsh")
 	if result.ExitCode == 0 {
 		t.Error("expected non-zero exit for unsupported shell")
 	}

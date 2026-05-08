@@ -5,7 +5,14 @@ const bashCompletionScript = `#!/bin/bash
 
 _skillshare() {
     local cur prev words cword
-    _init_completion || return
+    if declare -F _init_completion >/dev/null 2>&1; then
+        _init_completion || return
+    else
+        cur="${COMP_WORDS[COMP_CWORD]}"
+        prev="${COMP_WORDS[COMP_CWORD-1]}"
+        words=("${COMP_WORDS[@]}")
+        cword=$COMP_CWORD
+    fi
 
     local commands="init install uninstall list search sync status diff backup restore collect pull push doctor target upgrade update check new trash analyze audit hub log ui tui extras enable disable completion version help"
 
