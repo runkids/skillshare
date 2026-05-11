@@ -95,6 +95,19 @@ func DiscoverSourceSkillsWithStats(sourcePath string) ([]DiscoveredSkill, *skill
 	return skills, stats, err
 }
 
+// DiscoverSourceSkillsWithStatsAndContext is like DiscoverSourceSkillsWithStats
+// but also computes DescChars/BodyChars for each skill in a single walk pass.
+// Use this for commands (e.g. sync) that need both ignore stats and context cost.
+func DiscoverSourceSkillsWithStatsAndContext(sourcePath string) ([]DiscoveredSkill, *skillignore.IgnoreStats, error) {
+	skills, _, stats, err := discoverSourceSkillsInternal(sourcePath, discoverOptions{
+		parseFrontmatter: true,
+		collectIgnored:   true,
+		collectContext:   true,
+		collectTracked:   false,
+	})
+	return skills, stats, err
+}
+
 // DiscoverSourceSkillsAll scans the source directory and returns ALL skills
 // including those ignored by .skillignore. Ignored skills have Disabled=true.
 // Use this for list/UI commands that need to show disabled skills.

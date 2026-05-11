@@ -190,7 +190,7 @@ func cmdSync(args []string) error {
 	if !jsonOutput {
 		spinner = ui.StartSpinner("Discovering skills")
 	}
-	discoveredSkills, ignoreStats, discoverErr := sync.DiscoverSourceSkillsWithStats(cfg.Source)
+	discoveredSkills, ignoreStats, discoverErr := sync.DiscoverSourceSkillsWithStatsAndContext(cfg.Source)
 	if discoverErr != nil {
 		if spinner != nil {
 			spinner.Fail("Discovery failed")

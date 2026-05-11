@@ -54,7 +54,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	if !jsonOutput {
 		spinner = ui.StartSpinner("Discovering skills")
 	}
-	discoveredSkills, ignoreStats, discoverErr := sync.DiscoverSourceSkillsWithStats(runtime.sourcePath)
+	discoveredSkills, ignoreStats, discoverErr := sync.DiscoverSourceSkillsWithStatsAndContext(runtime.sourcePath)
 	if discoverErr != nil {
 		if spinner != nil {
 			spinner.Fail("Discovery failed")
