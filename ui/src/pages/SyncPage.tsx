@@ -338,7 +338,7 @@ export default function SyncPage() {
       {/* Context cost summary */}
       {contextCost && (
         <div className="space-y-3 animate-fade-in">
-          <h2 className="text-lg font-bold text-pencil">Context Cost</h2>
+          <h2 className="text-lg font-bold text-pencil">{t('sync.contextCost.title')}</h2>
 
           {/* Budget warnings */}
           {contextCost.warnings && contextCost.warnings.length > 0 && (
@@ -349,16 +349,19 @@ export default function SyncPage() {
                     <AlertCircle size={16} className="mt-0.5 shrink-0 text-warning" />
                     <div className="space-y-1 flex-1">
                       <p className="font-medium text-pencil">
-                        {w.type === 'always_loaded' ? 'Always-loaded' : 'On-demand'} budget exceeded:{' '}
-                        <strong>{formatTokenK(w.actual)}</strong> / {formatTokenK(w.budget)} tokens
+                        {t('sync.contextCost.budgetExceeded', {
+                          type: t(w.type === 'always_loaded' ? 'sync.contextCost.typeAlwaysLoaded' : 'sync.contextCost.typeOnDemand'),
+                          actual: formatTokenK(w.actual),
+                          budget: formatTokenK(w.budget),
+                        })}
                       </p>
                       {w.top_offenders.length > 0 && (
                         <div className="space-y-0.5">
-                          <p className="text-xs text-pencil-light">Top offenders:</p>
+                          <p className="text-xs text-pencil-light">{t('sync.contextCost.topOffenders')}</p>
                           {w.top_offenders.slice(0, 3).map((o) => (
                             <div key={o.name} className="flex items-center gap-2 text-xs">
                               <span className="font-mono text-pencil truncate">{o.name}</span>
-                              <span className="text-pencil-light shrink-0">{formatTokenK(o.tokens)} tokens</span>
+                              <span className="text-pencil-light shrink-0">{t('sync.contextCost.tokens', { count: formatTokenK(o.tokens) })}</span>
                             </div>
                           ))}
                         </div>
@@ -382,11 +385,11 @@ export default function SyncPage() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0 text-xs text-pencil-light">
                     <span>
-                      <strong className="text-pencil">{formatTokenK(g.always_loaded_tokens)}</strong> always
+                      <strong className="text-pencil">{formatTokenK(g.always_loaded_tokens)}</strong> {t('sync.contextCost.always')}
                     </span>
                     <span className="text-pencil-light/40">·</span>
                     <span>
-                      <strong className="text-pencil">{formatTokenK(g.on_demand_tokens)}</strong> on-demand
+                      <strong className="text-pencil">{formatTokenK(g.on_demand_tokens)}</strong> {t('sync.contextCost.onDemand')}
                     </span>
                   </div>
                 </div>
