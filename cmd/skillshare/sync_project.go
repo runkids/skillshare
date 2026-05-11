@@ -12,7 +12,7 @@ import (
 	"skillshare/internal/ui"
 )
 
-func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, []syncTargetResult, *skillignore.IgnoreStats, error) {
+func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLogStats, []syncTargetResult, *skillignore.IgnoreStats, error) {
 	start := time.Now()
 	stats := syncLogStats{
 		DryRun:       dryRun,
@@ -124,6 +124,16 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput bool) (syncLogStats, 
 
 		// Show ignored skills from .skillignore
 		printIgnoredSkills(ignoreStats)
+
+		// Token cost summary
+		if !quiet {
+			if analyzeEntries, analyzeErr := buildAnalyzeEntries(discoveredSkills, runtime.targets, "", ""); analyzeErr == nil && len(analyzeEntries) > 0 {
+				printTokenSummary(analyzeEntries)
+				if violations := checkBudget(analyzeEntries, runtime.config.ContextBudget); len(violations) > 0 {
+					printBudgetWarning(violations)
+				}
+			}
+		}
 	}
 
 	// Reconcile registry and cleanup regardless of target failures.

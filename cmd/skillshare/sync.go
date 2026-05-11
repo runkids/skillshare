@@ -103,7 +103,7 @@ func cmdSync(args []string) error {
 	// Extract kind filter (e.g. "skillshare sync agents").
 	kind, rest := parseKindArg(rest)
 
-	dryRun, force, jsonOutput := parseSyncFlags(rest)
+	dryRun, force, jsonOutput, quiet := parseSyncFlags(rest)
 
 	prevDiagOutput := sync.DiagOutput
 	if jsonOutput {
@@ -128,7 +128,7 @@ func cmdSync(args []string) error {
 			}()
 		}
 
-		stats, results, projIgnoreStats, err := cmdSyncProject(cwd, dryRun, force, jsonOutput)
+		stats, results, projIgnoreStats, err := cmdSyncProject(cwd, dryRun, force, jsonOutput, quiet)
 		stats.ProjectScope = true
 		logSyncOp(config.ProjectConfigPath(cwd), stats, start, err)
 
@@ -256,6 +256,16 @@ func cmdSync(args []string) error {
 		// Show ignored skills from .skillignore
 		printIgnoredSkills(ignoreStats)
 
+		// Token cost summary
+		if !quiet {
+			if analyzeEntries, analyzeErr := buildAnalyzeEntries(discoveredSkills, cfg.Targets, cfg.Mode, ""); analyzeErr == nil && len(analyzeEntries) > 0 {
+				printTokenSummary(analyzeEntries)
+				if violations := checkBudget(analyzeEntries, cfg.ContextBudget); len(violations) > 0 {
+					printBudgetWarning(violations)
+				}
+			}
+		}
+
 		// Opportunistic cleanup of expired trash items
 		if !dryRun {
 			if n, _ := trash.Cleanup(trash.TrashDir(), 0); n > 0 {
@@ -302,7 +312,7 @@ func cmdSync(args []string) error {
 	return syncErr
 }
 
-func parseSyncFlags(args []string) (dryRun, force, jsonOutput bool) {
+func parseSyncFlags(args []string) (dryRun, force, jsonOutput, quiet bool) {
 	for _, arg := range args {
 		switch arg {
 		case "--dry-run", "-n":
@@ -311,9 +321,11 @@ func parseSyncFlags(args []string) (dryRun, force, jsonOutput bool) {
 			force = true
 		case "--json":
 			jsonOutput = true
+		case "--quiet", "-q":
+			quiet = true
 		}
 	}
-	return dryRun, force, jsonOutput
+	return dryRun, force, jsonOutput, quiet
 }
 
 func logSyncOp(cfgPath string, stats syncLogStats, start time.Time, cmdErr error) {
@@ -825,6 +837,7 @@ Options:
   --dry-run, -n     Preview changes without applying
   --force, -f       Force sync (overwrite local changes)
   --json            Output results as JSON
+  --quiet, -q       Suppress token summary and budget warnings
   --project, -p     Use project-level config
   --global, -g      Use global config
   --help, -h        Show this help
