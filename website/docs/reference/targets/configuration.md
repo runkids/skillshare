@@ -588,6 +588,23 @@ audit:
 - Use `--skip-audit` to bypass scanning for a single install
 - Use `--force` to override a block (findings are still shown)
 
+### `context_budget`
+
+Token budget warning thresholds. Warnings appear after `sync` and `analyze` when token count exceeds budget.
+
+```yaml
+context_budget:
+  warn_always_loaded_tokens: 10000
+  warn_on_demand_tokens: 100000
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `warn_always_loaded_tokens` | integer | `10000` | Warn when always-loaded tokens exceed this value. `0` disables |
+| `warn_on_demand_tokens` | integer | `100000` | Warn when on-demand tokens exceed this value. `0` disables |
+
+When omitted, defaults apply (10K / 100K). Use `skillshare sync --quiet` to suppress warnings. See [sync — Context Cost](/docs/reference/commands/sync#context-cost) for output format.
+
 ---
 
 ## Project Config

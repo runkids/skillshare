@@ -100,6 +100,7 @@ skillshare sync -f           # Short form
 | `--dry-run` | `-n` | Preview changes without writing |
 | `--force` | `-f` | Overwrite all managed entries regardless of checksum (copy mode) or replace existing directories with symlinks (merge mode) |
 | `--json` | | Output as JSON |
+| `--quiet` | `-q` | Suppress token summary and budget warnings |
 
 ### JSON Output
 
@@ -135,7 +136,16 @@ skillshare sync --json
       "updated": 0,
       "pruned": 0
     }
-  ]
+  ],
+  "context_cost": {
+    "groups": [
+      {
+        "targets": ["claude", "cursor"],
+        "always_loaded_tokens": 12400,
+        "on_demand_tokens": 58200
+      }
+    ]
+  }
 }
 ```
 
