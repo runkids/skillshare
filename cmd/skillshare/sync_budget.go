@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"skillshare/internal/config"
+	"skillshare/internal/ui"
 )
 
 // formatTokenK formats token count with K suffix: 12400 → "12.4K", 830 → "830"
@@ -145,4 +146,35 @@ func topOffenders(skills []analyzeSkillEntry, n int, byDescription bool) []token
 		result[i] = tokenOffender{Name: p.name, Tokens: p.tokens}
 	}
 	return result
+}
+
+func printTokenSummary(entries []analyzeTargetEntry) {
+	groups := groupByTokenCost(entries)
+	for _, g := range groups {
+		targets := strings.Join(g.Targets, ", ")
+		fmt.Printf("  Context: ~%s always-loaded · ~%s on-demand (%s)\n",
+			formatTokenK(g.AlwaysLoaded),
+			formatTokenK(g.OnDemand),
+			targets)
+	}
+}
+
+func printBudgetWarning(violations []budgetViolation) {
+	for _, v := range violations {
+		label := "Always-loaded"
+		if v.Type == "on_demand" {
+			label = "On-demand"
+		}
+		ui.Warning("%s context is ~%s tokens (budget: %s)",
+			label,
+			formatTokenComma(v.Actual),
+			formatTokenComma(v.Budget))
+		if len(v.Offenders) > 0 {
+			fmt.Printf("   Top %d:\n", len(v.Offenders))
+			for _, o := range v.Offenders {
+				fmt.Printf("     • %-35s ~%s tokens\n", o.Name, formatTokenComma(o.Tokens))
+			}
+		}
+		fmt.Println("   Run `skillshare analyze` for details.")
+	}
 }
