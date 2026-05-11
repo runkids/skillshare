@@ -299,19 +299,9 @@ func runAnalyzeCore(sourcePath string, targets map[string]config.TargetConfig, d
 		printAnalyzeTable(entries)
 	}
 
-	// Budget warning
 	if violations := checkBudget(entries, budget); len(violations) > 0 {
 		fmt.Println()
-		for _, v := range violations {
-			label := "Always-loaded"
-			if v.Type == "on_demand" {
-				label = "On-demand"
-			}
-			ui.Warning("%s context is ~%s tokens (budget: %s)",
-				label,
-				formatTokenComma(v.Actual),
-				formatTokenComma(v.Budget))
-		}
+		printBudgetWarning(violations, false)
 	}
 
 	return nil

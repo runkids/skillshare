@@ -257,16 +257,6 @@ func cmdSync(args []string) error {
 		// Show ignored skills from .skillignore
 		printIgnoredSkills(ignoreStats)
 
-		// Token cost summary
-		if !quiet {
-			if analyzeEntries, analyzeErr := buildAnalyzeEntries(discoveredSkills, cfg.Targets, cfg.Mode, ""); analyzeErr == nil && len(analyzeEntries) > 0 {
-				printTokenSummary(analyzeEntries)
-				if violations := checkBudget(analyzeEntries, cfg.ContextBudget); len(violations) > 0 {
-					printBudgetWarning(violations)
-				}
-			}
-		}
-
 		// Opportunistic cleanup of expired trash items
 		if !dryRun {
 			if n, _ := trash.Cleanup(trash.TrashDir(), 0); n > 0 {
@@ -279,6 +269,16 @@ func cmdSync(args []string) error {
 	// Sync only manages symlinks — it must not prune registry entries
 	// for installed skills whose files may be missing from disk.
 
+	// Compute token cost once — used by both text summary and JSON output
+	analyzeEntries, analyzeErr := buildAnalyzeEntries(discoveredSkills, cfg.Targets, cfg.Mode, "")
+
+	if !jsonOutput && !quiet && analyzeErr == nil && len(analyzeEntries) > 0 {
+		printTokenSummary(analyzeEntries)
+		if violations := checkBudget(analyzeEntries, cfg.ContextBudget); len(violations) > 0 {
+			printBudgetWarning(violations, true)
+		}
+	}
+
 	logSyncOp(config.ConfigPath(), syncLogStats{
 		Targets: len(cfg.Targets),
 		Failed:  failedTargets,
@@ -288,7 +288,7 @@ func cmdSync(args []string) error {
 
 	if jsonOutput {
 		var ctxCost *contextCostJSON
-		if analyzeEntries, analyzeErr := buildAnalyzeEntries(discoveredSkills, cfg.Targets, cfg.Mode, ""); analyzeErr == nil && len(analyzeEntries) > 0 {
+		if analyzeErr == nil && len(analyzeEntries) > 0 {
 			ctxCost = buildContextCostJSON(analyzeEntries, cfg.ContextBudget)
 		}
 		if hasAll && len(cfg.Extras) > 0 {

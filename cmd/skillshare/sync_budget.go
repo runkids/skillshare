@@ -10,7 +10,11 @@ import (
 	"skillshare/internal/ui"
 )
 
-// formatTokenK formats token count with K suffix: 12400 → "12.4K", 830 → "830"
+const (
+	budgetTypeAlwaysLoaded = "always_loaded"
+	budgetTypeOnDemand     = "on_demand"
+)
+
 func formatTokenK(n int) string {
 	if n < 1000 {
 		return strconv.Itoa(n)
@@ -18,7 +22,6 @@ func formatTokenK(n int) string {
 	return fmt.Sprintf("%.1fK", float64(n)/1000)
 }
 
-// formatTokenComma formats with comma separators: 50123 → "50,123"
 func formatTokenComma(n int) string {
 	s := strconv.Itoa(n)
 	if len(s) <= 3 {
@@ -49,7 +52,6 @@ type tokenGroup struct {
 	Targets      []string
 }
 
-// groupByTokenCost groups targets with identical token counts
 func groupByTokenCost(entries []analyzeTargetEntry) []tokenGroup {
 	groups := make(map[tokenPair][]string)
 	for _, e := range entries {
@@ -83,7 +85,6 @@ type tokenOffender struct {
 	Tokens int
 }
 
-// checkBudget checks if any target exceeds the configured budget thresholds
 func checkBudget(entries []analyzeTargetEntry, budget config.ContextBudgetConfig) []budgetViolation {
 	alwaysThreshold := budget.AlwaysLoadedThreshold()
 	onDemandThreshold := budget.OnDemandThreshold()
@@ -104,7 +105,7 @@ func checkBudget(entries []analyzeTargetEntry, budget config.ContextBudgetConfig
 	var violations []budgetViolation
 	if alwaysThreshold > 0 && maxAlways > alwaysThreshold && len(entries) > 0 {
 		violations = append(violations, budgetViolation{
-			Type:      "always_loaded",
+			Type:      budgetTypeAlwaysLoaded,
 			Actual:    maxAlways,
 			Budget:    alwaysThreshold,
 			Offenders: topOffenders(entries[worstAlwaysIdx].Skills, 3, true),
@@ -112,7 +113,7 @@ func checkBudget(entries []analyzeTargetEntry, budget config.ContextBudgetConfig
 	}
 	if onDemandThreshold > 0 && maxOnDemand > onDemandThreshold && len(entries) > 0 {
 		violations = append(violations, budgetViolation{
-			Type:      "on_demand",
+			Type:      budgetTypeOnDemand,
 			Actual:    maxOnDemand,
 			Budget:    onDemandThreshold,
 			Offenders: topOffenders(entries[worstOnDemandIdx].Skills, 3, false),
@@ -121,7 +122,6 @@ func checkBudget(entries []analyzeTargetEntry, budget config.ContextBudgetConfig
 	return violations
 }
 
-// topOffenders returns the top N skills by token count
 func topOffenders(skills []analyzeSkillEntry, n int, byDescription bool) []tokenOffender {
 	type pair struct {
 		name   string
@@ -159,23 +159,25 @@ func printTokenSummary(entries []analyzeTargetEntry) {
 	}
 }
 
-func printBudgetWarning(violations []budgetViolation) {
+func printBudgetWarning(violations []budgetViolation, showDetails bool) {
 	for _, v := range violations {
 		label := "Always-loaded"
-		if v.Type == "on_demand" {
+		if v.Type == budgetTypeOnDemand {
 			label = "On-demand"
 		}
 		ui.Warning("%s context is ~%s tokens (budget: %s)",
 			label,
 			formatTokenComma(v.Actual),
 			formatTokenComma(v.Budget))
-		if len(v.Offenders) > 0 {
-			fmt.Printf("   Top %d:\n", len(v.Offenders))
-			for _, o := range v.Offenders {
-				fmt.Printf("     • %-35s ~%s tokens\n", o.Name, formatTokenComma(o.Tokens))
+		if showDetails {
+			if len(v.Offenders) > 0 {
+				fmt.Printf("   Top %d:\n", len(v.Offenders))
+				for _, o := range v.Offenders {
+					fmt.Printf("     • %-35s ~%s tokens\n", o.Name, formatTokenComma(o.Tokens))
+				}
 			}
+			fmt.Println("   Run `skillshare analyze` for details.")
 		}
-		fmt.Println("   Run `skillshare analyze` for details.")
 	}
 }
 

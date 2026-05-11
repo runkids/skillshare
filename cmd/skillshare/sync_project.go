@@ -130,7 +130,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 			if analyzeEntries, analyzeErr := buildAnalyzeEntries(discoveredSkills, runtime.targets, "", ""); analyzeErr == nil && len(analyzeEntries) > 0 {
 				printTokenSummary(analyzeEntries)
 				if violations := checkBudget(analyzeEntries, runtime.config.ContextBudget); len(violations) > 0 {
-					printBudgetWarning(violations)
+					printBudgetWarning(violations, true)
 				}
 			}
 		}
