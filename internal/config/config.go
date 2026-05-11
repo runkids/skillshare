@@ -195,6 +195,31 @@ type LogConfig struct {
 	MaxEntries *int `yaml:"max_entries,omitempty"` // nil = use default (1000), 0 = unlimited, >0 = limit
 }
 
+// ContextBudgetConfig holds token budget warning thresholds.
+type ContextBudgetConfig struct {
+	WarnAlwaysLoadedTokens *int `yaml:"warn_always_loaded_tokens,omitempty"`
+	WarnOnDemandTokens     *int `yaml:"warn_on_demand_tokens,omitempty"`
+}
+
+const (
+	DefaultWarnAlwaysLoadedTokens = 10000
+	DefaultWarnOnDemandTokens     = 100000
+)
+
+func (c ContextBudgetConfig) AlwaysLoadedThreshold() int {
+	if c.WarnAlwaysLoadedTokens == nil {
+		return DefaultWarnAlwaysLoadedTokens
+	}
+	return *c.WarnAlwaysLoadedTokens
+}
+
+func (c ContextBudgetConfig) OnDemandThreshold() int {
+	if c.WarnOnDemandTokens == nil {
+		return DefaultWarnOnDemandTokens
+	}
+	return *c.WarnOnDemandTokens
+}
+
 // HubEntry represents a single saved hub source.
 type HubEntry struct {
 	Label   string `yaml:"label"`
@@ -235,6 +260,7 @@ type Config struct {
 	Audit        AuditConfig             `yaml:"audit,omitempty"`
 	Hub          HubConfig               `yaml:"hub,omitempty"`
 	Log          LogConfig               `yaml:"log,omitempty"`
+	ContextBudget ContextBudgetConfig    `yaml:"context_budget,omitempty"`
 	TUI          *bool                   `yaml:"tui,omitempty"` // nil = default true
 	GitLabHosts  []string                `yaml:"gitlab_hosts,omitempty"`
 	AzureHosts   []string                `yaml:"azure_hosts,omitempty"`
