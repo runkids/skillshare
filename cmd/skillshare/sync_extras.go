@@ -45,7 +45,7 @@ func cmdSyncExtras(args []string) error {
 		return err
 	}
 
-	dryRun, force, jsonOutput := parseSyncFlags(rest)
+	dryRun, force, jsonOutput, _ := parseSyncFlags(rest)
 
 	cwd, _ := os.Getwd()
 	if mode == modeAuto {

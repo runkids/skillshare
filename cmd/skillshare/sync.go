@@ -38,6 +38,7 @@ type syncJSONOutput struct {
 	Duration      string                 `json:"duration"`
 	Details       []syncJSONTargetDetail `json:"details"`
 	Extras        []syncExtrasJSONEntry  `json:"extras,omitempty"`
+	ContextCost   *contextCostJSON       `json:"context_cost,omitempty"`
 }
 
 type syncJSONTargetDetail struct {
@@ -147,10 +148,10 @@ func cmdSync(args []string) error {
 					extrasEntries := runExtrasSyncEntries(projCfg.Extras, func(extra config.ExtraConfig) string {
 						return config.ExtrasSourceDirProject(cwd, extra.Name)
 					}, dryRun, force, cwd, agentPaths)
-					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, extrasEntries)
+					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, nil, extrasEntries)
 				}
 			}
-			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err)
+			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, nil)
 		}
 		return err
 	}
@@ -286,14 +287,18 @@ func cmdSync(args []string) error {
 	}, start, syncErr)
 
 	if jsonOutput {
+		var ctxCost *contextCostJSON
+		if analyzeEntries, analyzeErr := buildAnalyzeEntries(discoveredSkills, cfg.Targets, cfg.Mode, ""); analyzeErr == nil && len(analyzeEntries) > 0 {
+			ctxCost = buildContextCostJSON(analyzeEntries, cfg.ContextBudget)
+		}
 		if hasAll && len(cfg.Extras) > 0 {
 			agentPaths := collectAgentTargetPathsGlobal(cfg)
 			extrasEntries := runExtrasSyncEntries(cfg.Extras, func(extra config.ExtraConfig) string {
 				return config.ResolveExtrasSourceDir(extra, cfg.ExtrasSource, cfg.Source)
 			}, dryRun, force, "", agentPaths)
-			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, extrasEntries)
+			return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost, extrasEntries)
 		}
-		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr)
+		return syncOutputJSON(results, dryRun, start, ignoreStats, syncErr, ctxCost)
 	}
 
 	// Agent sync when kind=all or --all (after skill sync)
@@ -397,7 +402,7 @@ func printIgnoredSkills(stats *skillignore.IgnoreStats) {
 
 // syncOutputJSON converts sync results to JSON and writes to stdout.
 // extras is optional and included when --all is used.
-func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iStats *skillignore.IgnoreStats, syncErr error, extras ...[]syncExtrasJSONEntry) error {
+func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iStats *skillignore.IgnoreStats, syncErr error, ctxCost *contextCostJSON, extras ...[]syncExtrasJSONEntry) error {
 	var totals syncModeStats
 	var details []syncJSONTargetDetail
 	for _, r := range results {
@@ -434,6 +439,7 @@ func syncOutputJSON(results []syncTargetResult, dryRun bool, start time.Time, iS
 	if len(extras) > 0 && extras[0] != nil {
 		output.Extras = extras[0]
 	}
+	output.ContextCost = ctxCost
 	return writeJSONResult(&output, syncErr)
 }
 

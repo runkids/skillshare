@@ -178,3 +178,54 @@ func printBudgetWarning(violations []budgetViolation) {
 		fmt.Println("   Run `skillshare analyze` for details.")
 	}
 }
+
+type contextCostJSON struct {
+	Groups   []contextCostGroup   `json:"groups"`
+	Warnings []contextCostWarning `json:"warnings,omitempty"`
+}
+
+type contextCostGroup struct {
+	Targets            []string `json:"targets"`
+	AlwaysLoadedTokens int      `json:"always_loaded_tokens"`
+	OnDemandTokens     int      `json:"on_demand_tokens"`
+}
+
+type contextCostWarning struct {
+	Type         string                `json:"type"`
+	Actual       int                   `json:"actual"`
+	Budget       int                   `json:"budget"`
+	TopOffenders []contextCostOffender `json:"top_offenders"`
+}
+
+type contextCostOffender struct {
+	Name   string `json:"name"`
+	Tokens int    `json:"tokens"`
+}
+
+func buildContextCostJSON(entries []analyzeTargetEntry, budget config.ContextBudgetConfig) *contextCostJSON {
+	groups := groupByTokenCost(entries)
+	result := &contextCostJSON{
+		Groups: make([]contextCostGroup, len(groups)),
+	}
+	for i, g := range groups {
+		result.Groups[i] = contextCostGroup{
+			Targets:            g.Targets,
+			AlwaysLoadedTokens: g.AlwaysLoaded,
+			OnDemandTokens:     g.OnDemand,
+		}
+	}
+	violations := checkBudget(entries, budget)
+	for _, v := range violations {
+		cw := contextCostWarning{
+			Type:         v.Type,
+			Actual:       v.Actual,
+			Budget:       v.Budget,
+			TopOffenders: make([]contextCostOffender, len(v.Offenders)),
+		}
+		for j, o := range v.Offenders {
+			cw.TopOffenders[j] = contextCostOffender{Name: o.Name, Tokens: o.Tokens}
+		}
+		result.Warnings = append(result.Warnings, cw)
+	}
+	return result
+}
