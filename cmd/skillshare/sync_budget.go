@@ -1,0 +1,148 @@
+package main
+
+import (
+	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+
+	"skillshare/internal/config"
+)
+
+// formatTokenK formats token count with K suffix: 12400 → "12.4K", 830 → "830"
+func formatTokenK(n int) string {
+	if n < 1000 {
+		return strconv.Itoa(n)
+	}
+	return fmt.Sprintf("%.1fK", float64(n)/1000)
+}
+
+// formatTokenComma formats with comma separators: 50123 → "50,123"
+func formatTokenComma(n int) string {
+	s := strconv.Itoa(n)
+	if len(s) <= 3 {
+		return s
+	}
+	var b strings.Builder
+	remainder := len(s) % 3
+	if remainder > 0 {
+		b.WriteString(s[:remainder])
+	}
+	for i := remainder; i < len(s); i += 3 {
+		if b.Len() > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString(s[i : i+3])
+	}
+	return b.String()
+}
+
+type tokenPair struct {
+	AlwaysLoaded int
+	OnDemand     int
+}
+
+type tokenGroup struct {
+	AlwaysLoaded int
+	OnDemand     int
+	Targets      []string
+}
+
+// groupByTokenCost groups targets with identical token counts
+func groupByTokenCost(entries []analyzeTargetEntry) []tokenGroup {
+	groups := make(map[tokenPair][]string)
+	for _, e := range entries {
+		key := tokenPair{e.AlwaysLoaded.EstimatedTokens, e.OnDemandMax.EstimatedTokens}
+		groups[key] = append(groups[key], e.Name)
+	}
+	var result []tokenGroup
+	for pair, targets := range groups {
+		sort.Strings(targets)
+		result = append(result, tokenGroup{
+			AlwaysLoaded: pair.AlwaysLoaded,
+			OnDemand:     pair.OnDemand,
+			Targets:      targets,
+		})
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Targets[0] < result[j].Targets[0]
+	})
+	return result
+}
+
+type budgetViolation struct {
+	Type      string
+	Actual    int
+	Budget    int
+	Offenders []tokenOffender
+}
+
+type tokenOffender struct {
+	Name   string
+	Tokens int
+}
+
+// checkBudget checks if any target exceeds the configured budget thresholds
+func checkBudget(entries []analyzeTargetEntry, budget config.ContextBudgetConfig) []budgetViolation {
+	alwaysThreshold := budget.AlwaysLoadedThreshold()
+	onDemandThreshold := budget.OnDemandThreshold()
+
+	var maxAlways, maxOnDemand int
+	var worstAlwaysIdx, worstOnDemandIdx int
+	for i, e := range entries {
+		if e.AlwaysLoaded.EstimatedTokens > maxAlways {
+			maxAlways = e.AlwaysLoaded.EstimatedTokens
+			worstAlwaysIdx = i
+		}
+		if e.OnDemandMax.EstimatedTokens > maxOnDemand {
+			maxOnDemand = e.OnDemandMax.EstimatedTokens
+			worstOnDemandIdx = i
+		}
+	}
+
+	var violations []budgetViolation
+	if alwaysThreshold > 0 && maxAlways > alwaysThreshold && len(entries) > 0 {
+		violations = append(violations, budgetViolation{
+			Type:      "always_loaded",
+			Actual:    maxAlways,
+			Budget:    alwaysThreshold,
+			Offenders: topOffenders(entries[worstAlwaysIdx].Skills, 3, true),
+		})
+	}
+	if onDemandThreshold > 0 && maxOnDemand > onDemandThreshold && len(entries) > 0 {
+		violations = append(violations, budgetViolation{
+			Type:      "on_demand",
+			Actual:    maxOnDemand,
+			Budget:    onDemandThreshold,
+			Offenders: topOffenders(entries[worstOnDemandIdx].Skills, 3, false),
+		})
+	}
+	return violations
+}
+
+// topOffenders returns the top N skills by token count
+func topOffenders(skills []analyzeSkillEntry, n int, byDescription bool) []tokenOffender {
+	type pair struct {
+		name   string
+		tokens int
+	}
+	var pairs []pair
+	for _, s := range skills {
+		tokens := s.DescriptionTokens
+		if !byDescription {
+			tokens = s.BodyTokens
+		}
+		if tokens > 0 {
+			pairs = append(pairs, pair{s.Name, tokens})
+		}
+	}
+	sort.Slice(pairs, func(i, j int) bool { return pairs[i].tokens > pairs[j].tokens })
+	if len(pairs) > n {
+		pairs = pairs[:n]
+	}
+	result := make([]tokenOffender, len(pairs))
+	for i, p := range pairs {
+		result[i] = tokenOffender{Name: p.name, Tokens: p.tokens}
+	}
+	return result
+}
