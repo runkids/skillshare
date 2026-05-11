@@ -22,7 +22,7 @@ import Badge from '../components/Badge';
 import SplitButton from '../components/SplitButton';
 import Spinner from '../components/Spinner';
 import { useToast } from '../components/Toast';
-import { api, type SyncResult, type DiffTarget, type IgnoreSources } from '../api/client';
+import { api, type SyncResult, type DiffTarget, type IgnoreSources, type ContextCost, formatTokenK } from '../api/client';
 import { formatSyncToast, invalidateAfterSync } from '../lib/sync';
 import StreamProgressBar from '../components/StreamProgressBar';
 import SyncResultList from '../components/SyncResultList';
@@ -52,6 +52,7 @@ export default function SyncPage() {
   const [lastDryRun, setLastDryRun] = useState(false);
   const [ignoreSources, setIgnoreSources] = useState<IgnoreSources | null>(null);
   const [ignoredExpanded, setIgnoredExpanded] = useState(false);
+  const [contextCost, setContextCost] = useState<ContextCost | null>(null);
   const { toast } = useToast();
   const [syncScope, setSyncScope] = useState<'skill' | 'agent' | 'both'>('both');
   const toastRef = useRef(toast);
@@ -110,6 +111,7 @@ export default function SyncPage() {
       setResults(res.results);
       setSyncWarnings(res.warnings ?? []);
       setIgnoreSources(extractIgnoreSources(res));
+      setContextCost(res.context_cost ?? null);
       if (dryRun) {
         toast(t('sync.toast.dryRunComplete'), 'info');
       } else {
@@ -330,6 +332,67 @@ export default function SyncPage() {
             {lastDryRun ? t('sync.results.preview') : t('sync.results.title')}
           </h2>
           <SyncResultList results={results} />
+        </div>
+      )}
+
+      {/* Context cost summary */}
+      {contextCost && (
+        <div className="space-y-3 animate-fade-in">
+          <h2 className="text-lg font-bold text-pencil">Context Cost</h2>
+
+          {/* Budget warnings */}
+          {contextCost.warnings && contextCost.warnings.length > 0 && (
+            <div className="space-y-2">
+              {contextCost.warnings.map((w, i) => (
+                <Card key={i} className="bg-warning-light border-warning">
+                  <div className="flex items-start gap-2 text-sm">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0 text-warning" />
+                    <div className="space-y-1 flex-1">
+                      <p className="font-medium text-pencil">
+                        {w.type === 'always_loaded' ? 'Always-loaded' : 'On-demand'} budget exceeded:{' '}
+                        <strong>{formatTokenK(w.actual)}</strong> / {formatTokenK(w.budget)} tokens
+                      </p>
+                      {w.top_offenders.length > 0 && (
+                        <div className="space-y-0.5">
+                          <p className="text-xs text-pencil-light">Top offenders:</p>
+                          {w.top_offenders.slice(0, 3).map((o) => (
+                            <div key={o.name} className="flex items-center gap-2 text-xs">
+                              <span className="font-mono text-pencil truncate">{o.name}</span>
+                              <span className="text-pencil-light shrink-0">{formatTokenK(o.tokens)} tokens</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Token groups */}
+          <Card>
+            <div className="space-y-2">
+              {contextCost.groups.map((g, i) => (
+                <div key={i} className="flex items-center gap-3 text-sm">
+                  <div className="flex-1 min-w-0">
+                    <span className="font-mono text-pencil-light text-xs truncate">
+                      {g.targets.join(', ')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 text-xs text-pencil-light">
+                    <span>
+                      <strong className="text-pencil">{formatTokenK(g.always_loaded_tokens)}</strong> always
+                    </span>
+                    <span className="text-pencil-light/40">·</span>
+                    <span>
+                      <strong className="text-pencil">{formatTokenK(g.on_demand_tokens)}</strong> on-demand
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
         </div>
       )}
 

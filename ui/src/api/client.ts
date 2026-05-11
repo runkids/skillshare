@@ -750,9 +750,38 @@ export interface IgnoreSources {
   agent_ignored_skills?: string[];
 }
 
+export interface ContextCostGroup {
+  targets: string[];
+  always_loaded_tokens: number;
+  on_demand_tokens: number;
+}
+
+export interface ContextCostOffender {
+  name: string;
+  tokens: number;
+}
+
+export interface ContextCostWarning {
+  type: 'always_loaded' | 'on_demand';
+  actual: number;
+  budget: number;
+  top_offenders: ContextCostOffender[];
+}
+
+export interface ContextCost {
+  groups: ContextCostGroup[];
+  warnings?: ContextCostWarning[];
+}
+
+export function formatTokenK(n: number): string {
+  if (n < 1000) return String(n);
+  return (n / 1000).toFixed(1) + 'K';
+}
+
 export interface SyncResponse extends IgnoreSources {
   results: SyncResult[];
   warnings?: string[];
+  context_cost?: ContextCost;
 }
 
 export interface ConfigSaveResponse {
