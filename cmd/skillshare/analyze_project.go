@@ -35,5 +35,5 @@ func cmdAnalyzeProject(root string, opts *analyzeOptions) error {
 		return runAnalyzeTUI(loadFn, "project", opts.filter)
 	}
 
-	return runAnalyzeCore(runtime.sourcePath, runtime.targets, "", opts)
+	return runAnalyzeCore(runtime.sourcePath, runtime.targets, "", runtime.config.ContextBudget, opts)
 }

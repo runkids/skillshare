@@ -220,14 +220,14 @@ func runAnalyze(opts *analyzeOptions) error {
 		}
 		return runAnalyzeTUI(loadFn, "global", opts.filter)
 	}
-	return runAnalyzeCore(cfg.Source, cfg.Targets, cfg.Mode, opts)
+	return runAnalyzeCore(cfg.Source, cfg.Targets, cfg.Mode, cfg.ContextBudget, opts)
 }
 
 const charsPerToken = 4
 
 func estimateTokens(chars int) int { return chars / charsPerToken }
 
-func runAnalyzeCore(sourcePath string, targets map[string]config.TargetConfig, defaultMode string, opts *analyzeOptions) error {
+func runAnalyzeCore(sourcePath string, targets map[string]config.TargetConfig, defaultMode string, budget config.ContextBudgetConfig, opts *analyzeOptions) error {
 	var sp *ui.Spinner
 	if !opts.json {
 		sp = ui.StartSpinner("Analyzing skills...")
@@ -298,6 +298,22 @@ func runAnalyzeCore(sourcePath string, targets map[string]config.TargetConfig, d
 	} else {
 		printAnalyzeTable(entries)
 	}
+
+	// Budget warning
+	if violations := checkBudget(entries, budget); len(violations) > 0 {
+		fmt.Println()
+		for _, v := range violations {
+			label := "Always-loaded"
+			if v.Type == "on_demand" {
+				label = "On-demand"
+			}
+			ui.Warning("%s context is ~%s tokens (budget: %s)",
+				label,
+				formatTokenComma(v.Actual),
+				formatTokenComma(v.Budget))
+		}
+	}
+
 	return nil
 }
 
