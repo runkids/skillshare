@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.19.9] - 2026-05-11
+
+### New Features
+
+- **Context cost summary after sync** — `skillshare sync` now displays a one-line token cost summary showing always-loaded and on-demand context usage per target. Targets with identical token counts are grouped on a single line. Refs: #150
+  ```
+  ✔ Synced 47 skill(s) to 4 target(s) in 312ms
+    Context: ~12.4K always-loaded · ~58.2K on-demand (claude, cursor, codex, opencode)
+  ```
+- **Configurable budget warnings** — set token budget thresholds in `config.yaml`. When `sync` or `analyze` detects a target exceeding the budget, a warning shows the top 3 offenders by token count
+  ```yaml
+  context_budget:
+    warn_always_loaded_tokens: 10000   # default; 0 = disabled
+    warn_on_demand_tokens: 100000      # default; 0 = disabled
+  ```
+  Defaults to 10K always-loaded / 100K on-demand. Set to `0` to disable
+- **`--quiet` / `-q` flag for sync** — suppresses the token summary and budget warnings. JSON output (`--json`) always includes `context_cost` regardless of `--quiet`
+- **Context cost in Web UI** — the Sync page now displays token cost groups and budget violation warnings after each sync
+
+### Bug Fixes
+
+- Fixed `skillshare install` failing with `http://` protocol URLs (contributed by @eekryuos)
+
 ## [0.19.8] - 2026-05-08
 
 ### New Features
