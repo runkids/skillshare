@@ -591,6 +591,53 @@ Commands
 
 ---
 
+## Context Cost
+
+After syncing, skillshare displays a token cost summary:
+
+```
+✔ Synced 47 skill(s) to 4 target(s) in 312ms
+  Context: ~12.4K always-loaded · ~58.2K on-demand (claude, cursor, codex, opencode)
+```
+
+- **Always-loaded**: frontmatter name + description (loaded every request)
+- **On-demand**: skill body (loaded when triggered)
+
+Targets with identical token counts are grouped on one line.
+
+### Budget Warnings
+
+Configure warning thresholds in your config:
+
+```yaml
+context_budget:
+  warn_always_loaded_tokens: 10000   # default; 0 = disabled
+  warn_on_demand_tokens: 100000      # default; 0 = disabled
+```
+
+When a threshold is exceeded, a warning appears with the top 3 offenders:
+
+```
+! Always-loaded context is ~50,123 tokens (budget: 10,000)
+   Top 3:
+     • my-big-skill                    ~8,200 tokens
+     • another-verbose-skill           ~6,400 tokens
+     • chatgpt-system-prompt           ~5,100 tokens
+   Run `skillshare analyze` for details.
+```
+
+### Quiet Mode
+
+Use `--quiet` or `-q` to suppress token summary and budget warnings:
+
+```bash
+skillshare sync --quiet
+```
+
+JSON output (`--json`) always includes `context_cost` regardless of `--quiet`.
+
+---
+
 ## See Also
 
 - [status](/docs/reference/commands/status) — Show sync state

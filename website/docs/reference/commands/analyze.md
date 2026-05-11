@@ -248,6 +248,10 @@ In JSON mode, the output includes a `filtered_summary` with aggregated token cou
 
 The Web UI also shows a dynamic token summary bar when search or filter is active.
 
+## Budget Warnings
+
+When `context_budget` thresholds are configured, `analyze` shows a warning if any target exceeds the budget. See [sync — Context Cost](/docs/reference/commands/sync#context-cost) for configuration details.
+
 ## See Also
 
 - [list](/docs/reference/commands/list) — View installed skills
