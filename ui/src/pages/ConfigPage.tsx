@@ -379,7 +379,6 @@ export default function ConfigPage() {
       )}
 
       {tab === 'config' && (
-        <>
           <div className="flex gap-4">
             <Card className="flex-[3] min-w-0 transition-[flex] duration-300 ease-in-out">
               <div className="flex items-center gap-2 mb-3">
@@ -443,20 +442,6 @@ export default function ConfigPage() {
             </div>
 
           </div>
-
-          {/* Context Budget reference */}
-          <Card className="mt-4">
-            <h3 className="text-base font-semibold text-pencil mb-1">Context Budget</h3>
-            <p className="text-sm text-pencil-light mb-3">
-              Add this block to your config to set token budget warning thresholds.
-              Warnings appear after sync and analyze when token count exceeds budget.
-              Set to <code className="text-xs bg-muted px-1 py-0.5 rounded">0</code> to disable.
-            </p>
-            <pre className="text-xs bg-muted rounded-lg p-3 overflow-x-auto text-pencil font-mono leading-relaxed">{`context_budget:
-  warn_always_loaded_tokens: 10000   # default
-  warn_on_demand_tokens: 100000      # default`}</pre>
-          </Card>
-        </>
       )}
 
       {tab === 'skillignore' && (
