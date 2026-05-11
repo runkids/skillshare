@@ -5,6 +5,7 @@ import (
 	"maps"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 
 	"skillshare/internal/config"
@@ -77,12 +78,12 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	results := make([]syncTargetResult, 0)
 
 	var ignoreStats *skillignore.IgnoreStats
+	var allSkills []ssync.DiscoveredSkill
 
 	// Skill sync (skip when kind == "agent")
 	if body.Kind != kindAgent {
-		var allSkills []ssync.DiscoveredSkill
 		var err error
-		allSkills, ignoreStats, err = ssync.DiscoverSourceSkillsWithStats(s.cfg.Source)
+		allSkills, ignoreStats, err = ssync.DiscoverSourceSkillsWithStatsAndContext(s.cfg.Source)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to discover skills: "+err.Error())
 			return
@@ -245,13 +246,150 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		"scope":          "ui",
 	}, "")
 
+	var contextCost map[string]any
+	if len(allSkills) > 0 {
+		contextCost = s.computeContextCost(allSkills)
+	}
+
 	resp := map[string]any{
 		"results":  results,
 		"warnings": warnings,
 	}
+	if contextCost != nil {
+		resp["context_cost"] = contextCost
+	}
 	maps.Copy(resp, ignorePayload(ignoreStats))
 	maps.Copy(resp, agentIgnorePayload(s.agentsSource(), nil))
 	writeJSON(w, resp)
+}
+
+func (s *Server) computeContextCost(skills []ssync.DiscoveredSkill) map[string]any {
+	const charsPerToken = 4
+
+	type tokenPair struct{ always, onDemand int }
+	groupMap := make(map[tokenPair][]string)
+
+	type skillToken struct {
+		name       string
+		descTokens int
+		bodyTokens int
+	}
+
+	var maxAlways, maxOnDemand int
+	var worstAlwaysSkills, worstOnDemandSkills []skillToken
+
+	for name, target := range s.cfg.Targets {
+		sc := target.SkillsConfig()
+		filtered, err := ssync.FilterSkills(skills, sc.Include, sc.Exclude)
+		if err != nil {
+			filtered = skills
+		}
+		filtered = ssync.FilterSkillsByTarget(filtered, name)
+
+		var alwaysChars, onDemandChars int
+		var perSkill []skillToken
+		for _, sk := range filtered {
+			alwaysChars += sk.DescChars
+			onDemandChars += sk.BodyChars
+			perSkill = append(perSkill, skillToken{
+				name:       sk.FlatName,
+				descTokens: sk.DescChars / charsPerToken,
+				bodyTokens: sk.BodyChars / charsPerToken,
+			})
+		}
+		at := alwaysChars / charsPerToken
+		ot := onDemandChars / charsPerToken
+
+		groupMap[tokenPair{at, ot}] = append(groupMap[tokenPair{at, ot}], name)
+
+		if at > maxAlways {
+			maxAlways = at
+			worstAlwaysSkills = perSkill
+		}
+		if ot > maxOnDemand {
+			maxOnDemand = ot
+			worstOnDemandSkills = perSkill
+		}
+	}
+
+	type group struct {
+		Targets            []string `json:"targets"`
+		AlwaysLoadedTokens int      `json:"always_loaded_tokens"`
+		OnDemandTokens     int      `json:"on_demand_tokens"`
+	}
+
+	groups := make([]group, 0, len(groupMap))
+	for pair, names := range groupMap {
+		sort.Strings(names)
+		groups = append(groups, group{
+			Targets:            names,
+			AlwaysLoadedTokens: pair.always,
+			OnDemandTokens:     pair.onDemand,
+		})
+	}
+	sort.Slice(groups, func(i, j int) bool { return groups[i].Targets[0] < groups[j].Targets[0] })
+
+	budget := s.cfg.ContextBudget
+	if s.IsProjectMode() && s.projectCfg != nil {
+		budget = s.projectCfg.ContextBudget
+	}
+
+	result := map[string]any{"groups": groups}
+
+	type offender struct {
+		Name   string `json:"name"`
+		Tokens int    `json:"tokens"`
+	}
+	type warning struct {
+		Type         string     `json:"type"`
+		Actual       int        `json:"actual"`
+		Budget       int        `json:"budget"`
+		TopOffenders []offender `json:"top_offenders"`
+	}
+
+	topN := func(perSkill []skillToken, n int, byDesc bool) []offender {
+		type pair struct {
+			name   string
+			tokens int
+		}
+		pairs := make([]pair, 0, len(perSkill))
+		for _, sk := range perSkill {
+			t := sk.bodyTokens
+			if byDesc {
+				t = sk.descTokens
+			}
+			if t > 0 {
+				pairs = append(pairs, pair{sk.name, t})
+			}
+		}
+		sort.Slice(pairs, func(i, j int) bool { return pairs[i].tokens > pairs[j].tokens })
+		if len(pairs) > n {
+			pairs = pairs[:n]
+		}
+		out := make([]offender, len(pairs))
+		for i, p := range pairs {
+			out[i] = offender{Name: p.name, Tokens: p.tokens}
+		}
+		return out
+	}
+
+	var warns []warning
+	if t := budget.AlwaysLoadedThreshold(); t > 0 && maxAlways > t {
+		warns = append(warns, warning{
+			Type: "always_loaded", Actual: maxAlways, Budget: t,
+			TopOffenders: topN(worstAlwaysSkills, 3, true),
+		})
+	}
+	if t := budget.OnDemandThreshold(); t > 0 && maxOnDemand > t {
+		warns = append(warns, warning{
+			Type: "on_demand", Actual: maxOnDemand, Budget: t,
+			TopOffenders: topN(worstOnDemandSkills, 3, false),
+		})
+	}
+	if len(warns) > 0 {
+		result["warnings"] = warns
+	}
+	return result
 }
 
 type diffItem struct {
