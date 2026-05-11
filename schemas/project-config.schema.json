@@ -32,6 +32,9 @@
     "audit": {
       "$ref": "#/$defs/auditConfig"
     },
+    "context_budget": {
+      "$ref": "#/$defs/contextBudgetConfig"
+    },
     "hub": {
       "$ref": "#/$defs/hubConfig"
     },
@@ -160,6 +163,25 @@
           }
         }
       ]
+    },
+    "contextBudgetConfig": {
+      "type": "object",
+      "description": "Token budget warning thresholds. Warnings appear after sync and analyze when token count exceeds budget.",
+      "additionalProperties": false,
+      "properties": {
+        "warn_always_loaded_tokens": {
+          "type": "integer",
+          "description": "Warn when always-loaded tokens exceed this value. 0 disables the warning.",
+          "default": 10000,
+          "minimum": 0
+        },
+        "warn_on_demand_tokens": {
+          "type": "integer",
+          "description": "Warn when on-demand tokens exceed this value. 0 disables the warning.",
+          "default": 100000,
+          "minimum": 0
+        }
+      }
     },
     "auditConfig": {
       "type": "object",
