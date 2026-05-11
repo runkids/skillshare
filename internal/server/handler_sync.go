@@ -278,13 +278,29 @@ func (s *Server) computeContextCost(skills []ssync.DiscoveredSkill) map[string]a
 	var maxAlways, maxOnDemand int
 	var worstAlwaysSkills, worstOnDemandSkills []skillToken
 
+	cfgMode := s.cfg.Mode
+	if cfgMode == "" {
+		cfgMode = "merge"
+	}
+
 	for name, target := range s.cfg.Targets {
 		sc := target.SkillsConfig()
-		filtered, err := ssync.FilterSkills(skills, sc.Include, sc.Exclude)
-		if err != nil {
-			filtered = skills
+		mode := sc.Mode
+		if mode == "" {
+			mode = cfgMode
 		}
-		filtered = ssync.FilterSkillsByTarget(filtered, name)
+
+		var filtered []ssync.DiscoveredSkill
+		if mode == "symlink" {
+			filtered = skills
+		} else {
+			var fErr error
+			filtered, fErr = ssync.FilterSkills(skills, sc.Include, sc.Exclude)
+			if fErr != nil {
+				filtered = skills
+			}
+			filtered = ssync.FilterSkillsByTarget(filtered, name)
+		}
 
 		var alwaysChars, onDemandChars int
 		var perSkill []skillToken

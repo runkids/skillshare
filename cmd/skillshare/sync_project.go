@@ -12,7 +12,7 @@ import (
 	"skillshare/internal/ui"
 )
 
-func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLogStats, []syncTargetResult, *skillignore.IgnoreStats, error) {
+func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLogStats, []syncTargetResult, *skillignore.IgnoreStats, *contextCostJSON, error) {
 	start := time.Now()
 	stats := syncLogStats{
 		DryRun:       dryRun,
@@ -22,20 +22,20 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 
 	if !projectConfigExists(root) {
 		if err := performProjectInit(root, projectInitOptions{}); err != nil {
-			return stats, nil, nil, err
+			return stats, nil, nil, nil, err
 		}
 	}
 
 	runtime, err := loadProjectRuntime(root)
 	if err != nil {
-		return stats, nil, nil, err
+		return stats, nil, nil, nil, err
 	}
 	stats.Targets = len(runtime.config.Targets)
 
 	// Validate project config before sync
 	warnings, validErr := config.ValidateProjectConfig(runtime.config, root)
 	if validErr != nil {
-		return stats, nil, nil, validErr
+		return stats, nil, nil, nil, validErr
 	}
 	if !jsonOutput {
 		for _, w := range warnings {
@@ -46,7 +46,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 	// ValidateProjectConfig warns on missing source (may not exist yet after init).
 	// Gate here as a hard error — sync cannot proceed without source skills.
 	if _, err := os.Stat(runtime.sourcePath); os.IsNotExist(err) {
-		return stats, nil, nil, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
+		return stats, nil, nil, nil, fmt.Errorf("source directory does not exist: %s", runtime.sourcePath)
 	}
 
 	// Phase 1: Discovery
@@ -59,7 +59,7 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 		if spinner != nil {
 			spinner.Fail("Discovery failed")
 		}
-		return stats, nil, nil, discoverErr
+		return stats, nil, nil, nil, discoverErr
 	}
 	if spinner != nil {
 		spinner.Success(fmt.Sprintf("Discovered %d skills", len(discoveredSkills)))
@@ -124,14 +124,19 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 
 		// Show ignored skills from .skillignore
 		printIgnoredSkills(ignoreStats)
+	}
 
-		// Token cost summary
-		if !quiet {
-			if analyzeEntries, analyzeErr := buildAnalyzeEntries(discoveredSkills, runtime.targets, "", ""); analyzeErr == nil && len(analyzeEntries) > 0 {
-				printTokenSummary(analyzeEntries)
-				if violations := checkBudget(analyzeEntries, runtime.config.ContextBudget); len(violations) > 0 {
-					printBudgetWarning(violations, true)
-				}
+	// Compute context cost once — used by both text summary and JSON output
+	analyzeEntries, analyzeErr := buildAnalyzeEntries(discoveredSkills, runtime.targets, "", "")
+
+	var ctxCost *contextCostJSON
+	if analyzeErr == nil && len(analyzeEntries) > 0 {
+		ctxCost = buildContextCostJSON(analyzeEntries, runtime.config.ContextBudget)
+
+		if !jsonOutput && !quiet {
+			printTokenSummary(analyzeEntries)
+			if violations := checkBudget(analyzeEntries, runtime.config.ContextBudget); len(violations) > 0 {
+				printBudgetWarning(violations, true)
 			}
 		}
 	}
@@ -144,17 +149,13 @@ func cmdSyncProject(root string, dryRun, force, jsonOutput, quiet bool) (syncLog
 				ui.Info("Cleaned up %d expired trash item(s)", n)
 			}
 		}
-
-		// Registry entries are managed by install/uninstall, not sync.
-		// Sync only manages symlinks — it must not prune registry entries
-		// for installed skills whose files may be missing from disk.
 	}
 
 	if failedTargets > 0 {
-		return stats, results, ignoreStats, fmt.Errorf("some targets failed to sync")
+		return stats, results, ignoreStats, ctxCost, fmt.Errorf("some targets failed to sync")
 	}
 
-	return stats, results, ignoreStats, nil
+	return stats, results, ignoreStats, ctxCost, nil
 }
 
 func projectTargetDisplayPath(entry config.ProjectTargetEntry) string {

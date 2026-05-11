@@ -763,6 +763,7 @@ export interface ContextCostOffender {
 
 export interface ContextCostWarning {
   type: 'always_loaded' | 'on_demand';
+  target: string;
   actual: number;
   budget: number;
   top_offenders: ContextCostOffender[];

@@ -129,7 +129,7 @@ func cmdSync(args []string) error {
 			}()
 		}
 
-		stats, results, projIgnoreStats, err := cmdSyncProject(cwd, dryRun, force, jsonOutput, quiet)
+		stats, results, projIgnoreStats, projCtxCost, err := cmdSyncProject(cwd, dryRun, force, jsonOutput, quiet)
 		stats.ProjectScope = true
 		logSyncOp(config.ProjectConfigPath(cwd), stats, start, err)
 
@@ -148,10 +148,10 @@ func cmdSync(args []string) error {
 					extrasEntries := runExtrasSyncEntries(projCfg.Extras, func(extra config.ExtraConfig) string {
 						return config.ExtrasSourceDirProject(cwd, extra.Name)
 					}, dryRun, force, cwd, agentPaths)
-					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, nil, extrasEntries)
+					return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost, extrasEntries)
 				}
 			}
-			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, nil)
+			return syncOutputJSON(results, dryRun, start, projIgnoreStats, err, projCtxCost)
 		}
 		return err
 	}

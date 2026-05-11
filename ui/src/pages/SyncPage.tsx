@@ -349,6 +349,7 @@ export default function SyncPage() {
                     <AlertCircle size={16} className="mt-0.5 shrink-0 text-warning" />
                     <div className="space-y-1 flex-1">
                       <p className="font-medium text-pencil">
+                        {w.target && <strong>{w.target}: </strong>}
                         {t('sync.contextCost.budgetExceeded', {
                           type: t(w.type === 'always_loaded' ? 'sync.contextCost.typeAlwaysLoaded' : 'sync.contextCost.typeOnDemand'),
                           actual: formatTokenK(w.actual),

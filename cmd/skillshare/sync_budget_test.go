@@ -122,6 +122,9 @@ func TestCheckBudget_ExceedsAlwaysLoaded(t *testing.T) {
 	if v.Type != "always_loaded" {
 		t.Errorf("expected type always_loaded, got %s", v.Type)
 	}
+	if v.Target != "claude" {
+		t.Errorf("expected target claude, got %s", v.Target)
+	}
 	if v.Actual != 10000 {
 		t.Errorf("expected actual 10000, got %d", v.Actual)
 	}

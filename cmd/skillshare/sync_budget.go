@@ -75,6 +75,7 @@ func groupByTokenCost(entries []analyzeTargetEntry) []tokenGroup {
 
 type budgetViolation struct {
 	Type      string
+	Target    string
 	Actual    int
 	Budget    int
 	Offenders []tokenOffender
@@ -89,35 +90,35 @@ func checkBudget(entries []analyzeTargetEntry, budget config.ContextBudgetConfig
 	alwaysThreshold := budget.AlwaysLoadedThreshold()
 	onDemandThreshold := budget.OnDemandThreshold()
 
-	var maxAlways, maxOnDemand int
-	var worstAlwaysIdx, worstOnDemandIdx int
-	for i, e := range entries {
-		if e.AlwaysLoaded.EstimatedTokens > maxAlways {
-			maxAlways = e.AlwaysLoaded.EstimatedTokens
-			worstAlwaysIdx = i
-		}
-		if e.OnDemandMax.EstimatedTokens > maxOnDemand {
-			maxOnDemand = e.OnDemandMax.EstimatedTokens
-			worstOnDemandIdx = i
-		}
-	}
-
+	seen := make(map[string]bool)
 	var violations []budgetViolation
-	if alwaysThreshold > 0 && maxAlways > alwaysThreshold && len(entries) > 0 {
-		violations = append(violations, budgetViolation{
-			Type:      budgetTypeAlwaysLoaded,
-			Actual:    maxAlways,
-			Budget:    alwaysThreshold,
-			Offenders: topOffenders(entries[worstAlwaysIdx].Skills, 3, true),
-		})
-	}
-	if onDemandThreshold > 0 && maxOnDemand > onDemandThreshold && len(entries) > 0 {
-		violations = append(violations, budgetViolation{
-			Type:      budgetTypeOnDemand,
-			Actual:    maxOnDemand,
-			Budget:    onDemandThreshold,
-			Offenders: topOffenders(entries[worstOnDemandIdx].Skills, 3, false),
-		})
+	for _, e := range entries {
+		if alwaysThreshold > 0 && e.AlwaysLoaded.EstimatedTokens > alwaysThreshold {
+			key := budgetTypeAlwaysLoaded + ":" + e.Name
+			if !seen[key] {
+				seen[key] = true
+				violations = append(violations, budgetViolation{
+					Type:      budgetTypeAlwaysLoaded,
+					Target:    e.Name,
+					Actual:    e.AlwaysLoaded.EstimatedTokens,
+					Budget:    alwaysThreshold,
+					Offenders: topOffenders(e.Skills, 3, true),
+				})
+			}
+		}
+		if onDemandThreshold > 0 && e.OnDemandMax.EstimatedTokens > onDemandThreshold {
+			key := budgetTypeOnDemand + ":" + e.Name
+			if !seen[key] {
+				seen[key] = true
+				violations = append(violations, budgetViolation{
+					Type:      budgetTypeOnDemand,
+					Target:    e.Name,
+					Actual:    e.OnDemandMax.EstimatedTokens,
+					Budget:    onDemandThreshold,
+					Offenders: topOffenders(e.Skills, 3, false),
+				})
+			}
+		}
 	}
 	return violations
 }
@@ -165,10 +166,17 @@ func printBudgetWarning(violations []budgetViolation, showDetails bool) {
 		if v.Type == budgetTypeOnDemand {
 			label = "On-demand"
 		}
-		ui.Warning("%s context is ~%s tokens (budget: %s)",
-			label,
-			formatTokenComma(v.Actual),
-			formatTokenComma(v.Budget))
+		if v.Target != "" {
+			ui.Warning("%s: %s context is ~%s tokens (budget: %s)",
+				v.Target, label,
+				formatTokenComma(v.Actual),
+				formatTokenComma(v.Budget))
+		} else {
+			ui.Warning("%s context is ~%s tokens (budget: %s)",
+				label,
+				formatTokenComma(v.Actual),
+				formatTokenComma(v.Budget))
+		}
 		if showDetails {
 			if len(v.Offenders) > 0 {
 				fmt.Printf("   Top %d:\n", len(v.Offenders))
@@ -194,6 +202,7 @@ type contextCostGroup struct {
 
 type contextCostWarning struct {
 	Type         string                `json:"type"`
+	Target       string                `json:"target"`
 	Actual       int                   `json:"actual"`
 	Budget       int                   `json:"budget"`
 	TopOffenders []contextCostOffender `json:"top_offenders"`
@@ -220,6 +229,7 @@ func buildContextCostJSON(entries []analyzeTargetEntry, budget config.ContextBud
 	for _, v := range violations {
 		cw := contextCostWarning{
 			Type:         v.Type,
+			Target:       v.Target,
 			Actual:       v.Actual,
 			Budget:       v.Budget,
 			TopOffenders: make([]contextCostOffender, len(v.Offenders)),

@@ -379,69 +379,69 @@ export default function ConfigPage() {
       )}
 
       {tab === 'config' && (
-          <div className="flex gap-4">
-            <Card className="flex-[3] min-w-0 transition-[flex] duration-300 ease-in-out">
-              <div className="flex items-center gap-2 mb-3">
-                <FileCode size={16} strokeWidth={2.5} className="text-blue" />
-                <span className="text-base text-pencil-light">
-                  {isProjectMode ? '.skillshare/config.yaml' : 'config.yaml'}
-                </span>
-                <span className="flex-1" />
-                {panelCollapsed && (
-                  <IconButton
-                    icon={<PanelRightOpen size={14} strokeWidth={2} />}
-                    label={t('config.expandAssistantPanel')}
-                    size="sm"
-                    variant="ghost"
-                    onClick={togglePanel}
-                    className="hidden lg:inline-flex"
-                  />
-                )}
-              </div>
-              <div className="min-w-0 -mx-4 -mb-4">
-                <CodeMirror
-                  value={raw}
-                  onChange={handleConfigChange}
-                  extensions={yamlExtensions}
-                  theme="none"
-                  height="500px"
-                  onCreateEditor={(view) => { editorRef.current = view; }}
-                  basicSetup={{
-                    lineNumbers: true,
-                    foldGutter: true,
-                    highlightActiveLine: true,
-                    highlightSelectionMatches: true,
-                    bracketMatching: true,
-                    indentOnInput: true,
-                    autocompletion: false,
-                  }}
+        <div className="flex gap-4">
+          <Card className="flex-[3] min-w-0 transition-[flex] duration-300 ease-in-out">
+            <div className="flex items-center gap-2 mb-3">
+              <FileCode size={16} strokeWidth={2.5} className="text-blue" />
+              <span className="text-base text-pencil-light">
+                {isProjectMode ? '.skillshare/config.yaml' : 'config.yaml'}
+              </span>
+              <span className="flex-1" />
+              {panelCollapsed && (
+                <IconButton
+                  icon={<PanelRightOpen size={14} strokeWidth={2} />}
+                  label={t('config.expandAssistantPanel')}
+                  size="sm"
+                  variant="ghost"
+                  onClick={togglePanel}
+                  className="hidden lg:inline-flex"
                 />
-              </div>
-            </Card>
-
-            {/* Assistant panel */}
-            <div
-              className={`hidden lg:block transition-all duration-300 ease-in-out ${
-                panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none overflow-hidden' : 'flex-[2] opacity-100 overflow-visible'
-              }`}
-            >
-              <Card className="!p-0 !overflow-visible min-w-[280px]">
-                <AssistantPanel
-                  errors={yamlErrors}
-                  changeCount={changeCount}
-                  fieldPath={fieldPath}
-                  cursorLine={cursorLine}
-                  source={raw}
-                  diff={diff}
-                  editorRef={editorRef}
-                  collapsed={panelCollapsed}
-                  onToggleCollapse={togglePanel}
-                  onRevert={() => setShowRevertDialog(true)}
-                />
-              </Card>
+              )}
             </div>
+            <div className="min-w-0 -mx-4 -mb-4">
+              <CodeMirror
+                value={raw}
+                onChange={handleConfigChange}
+                extensions={yamlExtensions}
+                theme="none"
+                height="500px"
+                onCreateEditor={(view) => { editorRef.current = view; }}
+                basicSetup={{
+                  lineNumbers: true,
+                  foldGutter: true,
+                  highlightActiveLine: true,
+                  highlightSelectionMatches: true,
+                  bracketMatching: true,
+                  indentOnInput: true,
+                  autocompletion: false,
+                }}
+              />
+            </div>
+          </Card>
 
+          {/* Assistant panel */}
+          <div
+            className={`hidden lg:block transition-all duration-300 ease-in-out ${
+              panelCollapsed ? 'flex-[0] w-0 opacity-0 pointer-events-none overflow-hidden' : 'flex-[2] opacity-100 overflow-visible'
+            }`}
+          >
+            <Card className="!p-0 !overflow-visible min-w-[280px]">
+              <AssistantPanel
+                errors={yamlErrors}
+                changeCount={changeCount}
+                fieldPath={fieldPath}
+                cursorLine={cursorLine}
+                source={raw}
+                diff={diff}
+                editorRef={editorRef}
+                collapsed={panelCollapsed}
+                onToggleCollapse={togglePanel}
+                onRevert={() => setShowRevertDialog(true)}
+              />
+            </Card>
           </div>
+
+        </div>
       )}
 
       {tab === 'skillignore' && (
