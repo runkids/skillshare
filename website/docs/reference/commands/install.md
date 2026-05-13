@@ -187,7 +187,7 @@ skillshare install /absolute/path/to/skill
 When specifying a subdirectory path like `owner/repo/skill-name`, if the exact path doesn't exist in the repo, skillshare scans all `SKILL.md` files and matches by directory basename. If multiple skills share the same name, an ambiguity error is shown with full paths so you can specify the exact one.
 :::
 
-For example, `Xquik-dev/tweetclaw/skills/tweetclaw` installs TweetClaw's OpenClaw skill for search tweets, search tweet replies, post tweets, post tweet replies, follower export, user lookup, media workflows, monitor tweets, webhooks, and giveaway draws from the TweetClaw repository while leaving the package and plugin files outside the skill path.
+For example, `Xquik-dev/tweetclaw/skills/tweetclaw` installs the TweetClaw OpenClaw skill from a nested path. Package and plugin files elsewhere in the repository stay outside the installed skill.
 
 ## Install from Config (No Arguments)
 
