@@ -265,6 +265,12 @@ type Config struct {
 	GitLabHosts   []string                `yaml:"gitlab_hosts,omitempty"`
 	AzureHosts    []string                `yaml:"azure_hosts,omitempty"`
 
+	// PreserveTildeOnSave folds $HOME prefixes back to ~ when serializing the
+	// config to YAML. Useful when the config is shared via dotfiles across
+	// machines or users. The in-memory config is unaffected; Load() still
+	// expands ~ as usual.
+	PreserveTildeOnSave bool `yaml:"preserve_tilde_on_save,omitempty"`
+
 	// RegistryDir is the resolved directory for registry.yaml (cached SourceRoot result).
 	// Set during Load(), not serialized to YAML.
 	RegistryDir string `yaml:"-"`
@@ -507,7 +513,17 @@ func (c *Config) Save() error {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	data, err := marshalYAML(c)
+	// fork patch: fold $HOME prefixes back to ~ so serialized paths are
+	// machine-agnostic (dotfiles-friendly). Opt-in via preserve_tilde_on_save.
+	// The in-memory config is left untouched; we marshal a shallow copy with
+	// folded path fields.
+	var payload *Config
+	if c.PreserveTildeOnSave {
+		payload = c.cloneForSave()
+	} else {
+		payload = c
+	}
+	data, err := marshalYAML(payload)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
@@ -519,6 +535,63 @@ func (c *Config) Save() error {
 	}
 
 	return nil
+}
+
+// cloneForSave returns a shallow copy of c with all path fields folded back to
+// ~ form via utils.FoldHomePathWith. Slices and maps that contain path fields
+// are re-allocated to avoid mutating the live config. The user home directory
+// is resolved once and passed to FoldHomePathWith to avoid repeated syscalls.
+//
+// Keep this in sync with the expandPath() calls in Load().
+func (c *Config) cloneForSave() *Config {
+	out := *c
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		// Cannot fold without a home directory; serialize as-is.
+		return &out
+	}
+
+	fold := func(p string) string { return utils.FoldHomePathWith(p, home) }
+
+	out.Source = fold(out.Source)
+	out.AgentsSource = fold(out.AgentsSource)
+	out.ExtrasSource = fold(out.ExtrasSource)
+
+	if len(c.Targets) > 0 {
+		out.Targets = make(map[string]TargetConfig, len(c.Targets))
+		for name, tc := range c.Targets {
+			tc.Path = fold(tc.Path)
+			if tc.Skills != nil {
+				skills := *tc.Skills
+				skills.Path = fold(skills.Path)
+				tc.Skills = &skills
+			}
+			if tc.Agents != nil {
+				agents := *tc.Agents
+				agents.Path = fold(agents.Path)
+				tc.Agents = &agents
+			}
+			out.Targets[name] = tc
+		}
+	}
+
+	if len(c.Extras) > 0 {
+		out.Extras = make([]ExtraConfig, len(c.Extras))
+		for i, extra := range c.Extras {
+			extra.Source = fold(extra.Source)
+			if len(extra.Targets) > 0 {
+				targets := make([]ExtraTargetConfig, len(extra.Targets))
+				for j, et := range extra.Targets {
+					et.Path = fold(et.Path)
+					targets[j] = et
+				}
+				extra.Targets = targets
+			}
+			out.Extras[i] = extra
+		}
+	}
+
+	return &out
 }
 
 // ExpandPath expands ~ to home directory.

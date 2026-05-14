@@ -83,6 +83,11 @@
       "uniqueItems": true,
       "examples": [["azuredevops.mycompany.com"]]
     },
+    "preserve_tilde_on_save": {
+      "type": "boolean",
+      "description": "When true, fold $HOME prefixes back to ~ when serializing this config to YAML. Keeps the on-disk config portable across machines (e.g. when shared via dotfiles). The in-memory config is unaffected; Load() still expands ~ as usual.",
+      "default": false
+    },
     "extras": {
       "type": "array",
       "description": "Non-skill resources (rules, commands, etc.) to sync to specific target paths.",
