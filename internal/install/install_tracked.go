@@ -12,13 +12,13 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 		return nil, fmt.Errorf("--track requires a git repository source")
 	}
 
-	// Determine repo name: opts.Name > TrackName (owner-repo) > source.Name
+	// Determine repo name: opts.Name > source.Name (from config) > TrackName (derived from URL)
 	repoName := opts.Name
 	if repoName == "" {
-		repoName = source.TrackName()
+		repoName = source.Name
 	}
 	if repoName == "" {
-		repoName = source.Name
+		repoName = source.TrackName()
 	}
 
 	// Prefix with _ to indicate tracked repo (avoid double prefix if user already added _)
@@ -79,7 +79,12 @@ func installTrackedRepoImpl(source *Source, sourceDir string, opts InstallOption
 
 	// Clone tracked repos with a download-optimized strategy first, then
 	// fallback to the legacy full clone for compatibility.
-	if err := cloneTrackedRepo(source.CloneURL, source.Subdir, destPath, opts.Branch, opts.OnProgress); err != nil {
+	// Prefer CLI --branch over source.Branch (from config); both beat empty.
+	cloneBranch := opts.Branch
+	if cloneBranch == "" {
+		cloneBranch = source.Branch
+	}
+	if err := cloneTrackedRepo(source.CloneURL, source.Subdir, destPath, cloneBranch, opts.OnProgress); err != nil {
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 
