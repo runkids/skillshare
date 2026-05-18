@@ -133,6 +133,7 @@ func TestIsScannable(t *testing.T) {
 		{"shell", "setup.sh", true},
 		{"python", "script.py", true},
 		{"go", "main.go", true},
+		{"swift", "ViewModel.swift", true},
 		{"no extension", "Makefile", true},
 		{"png", "image.png", false},
 		{"jpg", "photo.jpg", false},

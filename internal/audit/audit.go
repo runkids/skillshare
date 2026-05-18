@@ -981,7 +981,7 @@ func isScannable(name string) bool {
 	switch ext {
 	case ".md", ".txt", ".yaml", ".yml", ".json", ".toml",
 		".sh", ".bash", ".zsh", ".fish",
-		".py", ".js", ".ts", ".rb", ".go", ".rs":
+		".py", ".js", ".ts", ".rb", ".go", ".rs", ".swift":
 		return true
 	}
 	// Also scan files without extension (e.g. Makefile, Dockerfile)
