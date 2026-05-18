@@ -120,6 +120,27 @@ func TestCheckPublisherMismatch(t *testing.T) {
 			wantNil: true,
 		},
 		{
+			name:    "trigger text: from any docx is not a publisher claim",
+			skillN:  "officecli-docx",
+			desc:    "Use this skill any time a .docx file is involved -- as input from any document.",
+			repoURL: "https://github.com/iOfficeAI/OfficeCLI.git",
+			wantNil: true,
+		},
+		{
+			name:    "trigger text: from CSV data is not a publisher claim",
+			skillN:  "officecli-data-dashboard",
+			desc:    "Create dashboards from CSV/tabular data in Excel format.",
+			repoURL: "https://github.com/iOfficeAI/OfficeCLI.git",
+			wantNil: true,
+		},
+		{
+			name:    "trigger text: from human-friendly names is not a publisher claim",
+			skillN:  "asc-id-resolver",
+			desc:    "Resolve App Store Connect IDs from human-friendly names using asc.",
+			repoURL: "https://github.com/rudrankriyam/asc-skills.git",
+			wantNil: true,
+		},
+		{
 			name:    "empty repo URL",
 			skillN:  "tool",
 			desc:    "from Acme Corp",

@@ -224,7 +224,7 @@ rules:
     pattern: external-link
     message: "External URL in markdown link"
     regex: '\]\(https?://[^)]+\)'
-    exclude: '(?i)\]\(https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)[:/)]'
+    exclude: '(?i)\]\(https?://(localhost|127\.0\.0\.1|0\.0\.0\.0|learn\.microsoft\.com|developers\.figma\.com|developer\.mozilla\.org|lawsofux\.com|help\.figma\.com|developer\.apple\.com|help\.obsidian\.md|azure\.microsoft\.com|web\.dev|www\.microsoft\.com|opentelemetry\.io|nextjs\.org|motion\.dev|www\.radix-ui\.com|ui\.shadcn\.com|tailwindcss\.com|caniuse\.com)([:/)]|\?)'
 
   # ── HIGH: remote code execution (pipe to interpreter) ──
   - id: fetch-with-pipe-0

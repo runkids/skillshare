@@ -39,8 +39,11 @@ const (
 	ruleAuthorityLanguage = "authority-language"
 )
 
-// reOrgClaim matches patterns like "from Acme Corp", "by Acme", "@acme".
-var reOrgClaim = regexp.MustCompile(`(?i)(?:from|by|made by|created by|published by|maintained by)\s+([A-Z][\w-]+(?:\s+(?:Corp|Inc|Ltd|Team|Labs|AI|HQ|Co|Group))?)|@([A-Za-z][\w-]+)`)
+// reOrgClaim matches explicit organization claims like "from Acme Corp",
+// "published by Widget Labs", or "@acme". Keep the captured organization
+// case-sensitive so ordinary trigger text such as "from any .docx" or
+// "from CSV data" is not treated as a publisher claim.
+var reOrgClaim = regexp.MustCompile(`(?i:(?:from|by|made by|created by|published by|maintained by))\s+([A-Z][a-z][\w-]*(?:\s+(?:[A-Z][\w-]*|Corp|Inc|Ltd|Team|Labs|AI|HQ|Co|Group))*)|@([A-Za-z][\w-]+)`)
 
 // authorityWords are terms that imply official endorsement.
 var authorityWords = []string{

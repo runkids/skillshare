@@ -1282,9 +1282,6 @@ func extractInlineLinksFromLine(line string, lineNum int, codeSpans []span) []ma
 		}
 
 		j := labelEnd + 1
-		for j < len(line) && (line[j] == ' ' || line[j] == '\t') {
-			j++
-		}
 		if j >= len(line) || line[j] != '(' {
 			i = labelEnd
 			continue
@@ -1624,13 +1621,35 @@ func isLikelyTutorialPath(path string) bool {
 func isExternalOrAnchor(target string) bool {
 	lower := strings.ToLower(target)
 	for _, prefix := range []string{
-		"http://", "https://", "mailto:", "tel:", "data:", "ftp://", "//",
+		"http://", "https://", "mailto:", "tel:", "data:", "ftp://", "file:", "//",
 	} {
 		if strings.HasPrefix(lower, prefix) {
 			return true
 		}
 	}
+	if idx := strings.IndexByte(target, ':'); idx > 0 {
+		scheme := target[:idx]
+		if isURLScheme(scheme) {
+			return true
+		}
+	}
 	return strings.HasPrefix(target, "#")
+}
+
+func isURLScheme(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i, r := range s {
+		if r >= 'a' && r <= 'z' {
+			continue
+		}
+		if i > 0 && ((r >= '0' && r <= '9') || r == '+' || r == '-' || r == '.') {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 // checkContentIntegrity compares files on disk against pinned hashes in the
