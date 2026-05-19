@@ -30,6 +30,9 @@ flowchart TD
 # From GitHub (shorthand)
 skillshare install anthropics/skills/skills/pdf
 
+# OpenClaw skill from a nested GitHub path
+skillshare install Xquik-dev/tweetclaw/skills/tweetclaw --track
+
 # Browse available skills in a repo
 skillshare install anthropics/skills
 
@@ -160,6 +163,9 @@ Provide the full path to install immediately:
 skillshare install anthropics/skills/skills/pdf
 skillshare install google-gemini/gemini-cli/packages/core/src/skills/builtin/skill-creator
 
+# OpenClaw X/Twitter automation skill
+skillshare install Xquik-dev/tweetclaw/skills/tweetclaw --track
+
 # Fuzzy subdirectory — if exact path doesn't exist, matches by skill name
 skillshare install runkids/my-skills/vue-best-practices
 
@@ -180,6 +186,8 @@ skillshare install /absolute/path/to/skill
 :::tip Fuzzy subdirectory resolution
 When specifying a subdirectory path like `owner/repo/skill-name`, if the exact path doesn't exist in the repo, skillshare scans all `SKILL.md` files and matches by directory basename. If multiple skills share the same name, an ambiguity error is shown with full paths so you can specify the exact one.
 :::
+
+For example, `Xquik-dev/tweetclaw/skills/tweetclaw` installs the TweetClaw OpenClaw skill from a nested path. Package and plugin files elsewhere in the repository stay outside the installed skill.
 
 ## Install from Config (No Arguments)
 
