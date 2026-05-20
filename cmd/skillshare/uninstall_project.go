@@ -87,12 +87,10 @@ func cmdUninstallProject(args []string, root string) error {
 	}
 
 	projectCfg, loadErr := config.LoadProject(root)
-	var sourceDir string
-	if loadErr == nil {
-		sourceDir = projectCfg.EffectiveSkillsSource(root)
-	} else {
-		sourceDir = filepath.Join(root, ".skillshare", "skills")
+	if loadErr != nil {
+		return fmt.Errorf("failed to load project config: %w", loadErr)
 	}
+	sourceDir := projectCfg.EffectiveSkillsSource(root)
 	trashDir := trash.ProjectTrashDir(root)
 	gitignoreDir, gitignorePrefix := config.ProjectGitignoreTarget(root, sourceDir)
 

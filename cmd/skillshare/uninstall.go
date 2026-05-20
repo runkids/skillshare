@@ -558,12 +558,10 @@ func cmdUninstall(args []string) error {
 	if mode == modeProject {
 		if kind == kindAgents {
 			projectCfg, loadErr := config.LoadProject(cwd)
-			var agentsDir string
-			if loadErr == nil {
-				agentsDir = projectCfg.EffectiveAgentsSource(cwd)
-			} else {
-				agentsDir = filepath.Join(cwd, ".skillshare", "agents")
+			if loadErr != nil {
+				return fmt.Errorf("failed to load project config: %w", loadErr)
 			}
+			agentsDir := projectCfg.EffectiveAgentsSource(cwd)
 			opts, _, _ := parseUninstallArgs(rest)
 			if opts == nil {
 				opts = &uninstallOptions{skillNames: rest}
