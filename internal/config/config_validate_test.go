@@ -219,6 +219,43 @@ func TestValidateProjectConfig_CustomTarget_MissingPath(t *testing.T) {
 	}
 }
 
+func TestValidateProjectConfig_SourceAliasesBuiltinTarget(t *testing.T) {
+	root := t.TempDir()
+	// Configure source to alias the built-in claude target path
+	os.MkdirAll(filepath.Join(root, ".claude", "skills"), 0755)
+	cfg := &ProjectConfig{
+		Sources: ProjectSources{Skills: ".claude/skills"},
+		Targets: []ProjectTargetEntry{
+			{Name: "claude", Skills: &ResourceTargetConfig{Mode: "merge"}},
+		},
+	}
+	_, err := ValidateProjectConfig(cfg, root)
+	if err == nil {
+		t.Fatal("expected overlap error when skills source aliases claude target path")
+	}
+	if !strings.Contains(err.Error(), "overlaps skills source") {
+		t.Fatalf("expected 'overlaps skills source' error, got: %v", err)
+	}
+}
+
+func TestValidateProjectConfig_SourceNestsTargetPath(t *testing.T) {
+	root := t.TempDir()
+	os.MkdirAll(filepath.Join(root, "shared", "skills", "nested"), 0755)
+	cfg := &ProjectConfig{
+		Sources: ProjectSources{Skills: "shared"},
+		Targets: []ProjectTargetEntry{
+			{Name: "custom", Skills: &ResourceTargetConfig{Path: "shared/skills/nested", Mode: "merge"}},
+		},
+	}
+	_, err := ValidateProjectConfig(cfg, root)
+	if err == nil {
+		t.Fatal("expected overlap error when target nests inside source")
+	}
+	if !strings.Contains(err.Error(), "overlaps") {
+		t.Fatalf("expected overlap error, got: %v", err)
+	}
+}
+
 func TestValidateProjectConfig_BuiltinTarget_NoPath_OK(t *testing.T) {
 	root := t.TempDir()
 	os.MkdirAll(filepath.Join(root, ".skillshare", "skills"), 0755)

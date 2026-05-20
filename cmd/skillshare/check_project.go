@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"skillshare/internal/config"
-	"skillshare/internal/ui"
 )
 
 func cmdCheckProject(root string, opts *checkOptions) error {
@@ -13,24 +11,19 @@ func cmdCheckProject(root string, opts *checkOptions) error {
 		return fmt.Errorf("no project config found in %s", root)
 	}
 
-	var extraNames []string
 	projectCfg, err := config.LoadProject(root)
 	if err != nil {
-		ui.Warning("Failed to load project config for target validation: %v", err)
-	} else {
-		for _, t := range projectCfg.Targets {
-			if t.Name != "" {
-				extraNames = append(extraNames, t.Name)
-			}
+		return fmt.Errorf("failed to load project config: %w", err)
+	}
+
+	var extraNames []string
+	for _, t := range projectCfg.Targets {
+		if t.Name != "" {
+			extraNames = append(extraNames, t.Name)
 		}
 	}
 
-	var sourcePath string
-	if projectCfg != nil {
-		sourcePath = projectCfg.EffectiveSkillsSource(root)
-	} else {
-		sourcePath = filepath.Join(root, ".skillshare", "skills")
-	}
+	sourcePath := projectCfg.EffectiveSkillsSource(root)
 	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
 		return fmt.Errorf("no project skills directory found")
 	}
