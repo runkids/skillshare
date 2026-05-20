@@ -7,6 +7,28 @@
   "required": ["targets"],
   "additionalProperties": false,
   "properties": {
+    "sources": {
+      "type": "object",
+      "description": "Custom source directories for project resources. Each key overrides the default .skillshare/{key}/ path. Relative paths resolve from the project root.",
+      "additionalProperties": false,
+      "properties": {
+        "skills": {
+          "type": "string",
+          "description": "Custom skills source directory. Default: .skillshare/skills/",
+          "examples": ["./docs/skills", "./ai/skills"]
+        },
+        "agents": {
+          "type": "string",
+          "description": "Custom agents source directory. Default: .skillshare/agents/",
+          "examples": ["./docs/agents"]
+        },
+        "extras": {
+          "type": "string",
+          "description": "Custom extras source directory. Default: .skillshare/extras/",
+          "examples": ["./docs/extras"]
+        }
+      }
+    },
     "target_naming": {
       "type": "string",
       "description": "Default target entry naming strategy for merge/copy sync in this project. 'flat' preserves flattened parent directory prefixes; 'standard' uses the SKILL.md name and enforces the Agent Skills standard.",

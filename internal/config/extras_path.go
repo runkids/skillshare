@@ -16,9 +16,9 @@ func ResolveExtrasSourceDir(extra ExtraConfig, extrasSource, skillsSource string
 }
 
 // ExtrasSourceDirProject returns the source directory for a named extra in project mode.
-// Project mode does not support extras_source or per-extra Source — path is always fixed.
-func ExtrasSourceDirProject(projectRoot, name string) string {
-	return filepath.Join(projectRoot, ".skillshare", "extras", name)
+// extrasParent is the resolved extras parent (e.g. from ProjectConfig.EffectiveExtrasSource).
+func ExtrasSourceDirProject(extrasParent, name string) string {
+	return filepath.Join(extrasParent, name)
 }
 
 // ExtrasParentDir returns the extras parent directory (for migration/init).
@@ -27,8 +27,9 @@ func ExtrasParentDir(skillsSource string) string {
 }
 
 // ExtrasParentDirProject returns the extras parent directory in project mode.
-func ExtrasParentDirProject(projectRoot string) string {
-	return filepath.Join(projectRoot, ".skillshare", "extras")
+// extrasParent is the resolved extras parent (e.g. from ProjectConfig.EffectiveExtrasSource).
+func ExtrasParentDirProject(extrasParent string) string {
+	return extrasParent
 }
 
 // ResolveExtrasSourceType returns which level resolved the source path.

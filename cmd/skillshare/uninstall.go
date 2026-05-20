@@ -557,7 +557,13 @@ func cmdUninstall(args []string) error {
 
 	if mode == modeProject {
 		if kind == kindAgents {
-			agentsDir := filepath.Join(cwd, ".skillshare", "agents")
+			projectCfg, loadErr := config.LoadProject(cwd)
+			var agentsDir string
+			if loadErr == nil {
+				agentsDir = projectCfg.EffectiveAgentsSource(cwd)
+			} else {
+				agentsDir = filepath.Join(cwd, ".skillshare", "agents")
+			}
 			opts, _, _ := parseUninstallArgs(rest)
 			if opts == nil {
 				opts = &uninstallOptions{skillNames: rest}

@@ -6,8 +6,8 @@ import (
 )
 
 func TestExtrasSourceDirProject(t *testing.T) {
-	got := ExtrasSourceDirProject("/projects/myapp", "rules")
-	want := filepath.Join("/projects/myapp", ".skillshare", "extras", "rules")
+	got := ExtrasSourceDirProject("/projects/myapp/.skillshare/extras", "rules")
+	want := filepath.Join("/projects/myapp/.skillshare/extras", "rules")
 	if got != want {
 		t.Errorf("ExtrasSourceDirProject() = %q, want %q", got, want)
 	}

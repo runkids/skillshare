@@ -149,7 +149,7 @@ func targetRemoveProject(args []string, root string) error {
 		return err
 	}
 
-	sourcePath := filepath.Join(root, ".skillshare", "skills")
+	sourcePath := cfg.EffectiveSkillsSource(root)
 
 	if opts.dryRun {
 		return targetRemoveProjectDryRun(toRemove, targets, sourcePath)
@@ -344,7 +344,7 @@ func targetInfoProject(name string, args []string, root string) error {
 		}
 
 		if filterOpts.Agents.hasUpdates() {
-			agentBuilder, buildErr := targetsummary.NewProjectBuilder(root)
+			agentBuilder, buildErr := targetsummary.NewProjectBuilder(cfg.EffectiveAgentsSource(root), root)
 			if buildErr != nil {
 				return buildErr
 			}
@@ -420,8 +420,8 @@ func targetInfoProject(name string, args []string, root string) error {
 	}
 
 	targetEntry := cfg.Targets[targetIdx]
-	sourcePath := filepath.Join(root, ".skillshare", "skills")
-	agentBuilder, err := targetsummary.NewProjectBuilder(root)
+	sourcePath := cfg.EffectiveSkillsSource(root)
+	agentBuilder, err := targetsummary.NewProjectBuilder(cfg.EffectiveAgentsSource(root), root)
 	if err != nil {
 		return err
 	}
@@ -495,7 +495,7 @@ func updateTargetAgentModeProject(cfg *config.ProjectConfig, idx int, newMode st
 	}
 
 	entry := &cfg.Targets[idx]
-	agentBuilder, err := targetsummary.NewProjectBuilder(root)
+	agentBuilder, err := targetsummary.NewProjectBuilder(cfg.EffectiveAgentsSource(root), root)
 	if err != nil {
 		return err
 	}

@@ -44,6 +44,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 	targets := s.cloneTargets()
 	isProjectMode := s.IsProjectMode()
 	projectRoot := s.projectRoot
+	agentsSourcePath := s.agentsSource()
 	cfgSnapshot := *s.cfg
 	var projectEntries []config.ProjectTargetEntry
 	if isProjectMode && s.projectCfg != nil {
@@ -66,7 +67,7 @@ func (s *Server) handleListTargets(w http.ResponseWriter, r *http.Request) {
 		err          error
 	)
 	if isProjectMode {
-		agentBuilder, err = targetsummary.NewProjectBuilder(projectRoot)
+		agentBuilder, err = targetsummary.NewProjectBuilder(agentsSourcePath, projectRoot)
 	} else {
 		agentBuilder, err = targetsummary.NewGlobalBuilder(&cfgSnapshot)
 	}

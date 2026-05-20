@@ -32,10 +32,7 @@ func (s *Server) handleCheckStream(w http.ResponseWriter, r *http.Request) {
 
 	// Snapshot config under RLock, then release before slow I/O.
 	s.mu.RLock()
-	sourceDir := s.cfg.Source
-	if s.IsProjectMode() {
-		sourceDir = filepath.Join(s.projectRoot, ".skillshare", "skills")
-	}
+	sourceDir := s.skillsSource()
 	s.mu.RUnlock()
 
 	// Immediate feedback before the potentially slow discovery walk.

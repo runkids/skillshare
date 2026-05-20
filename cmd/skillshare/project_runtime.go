@@ -1,8 +1,6 @@
 package main
 
 import (
-	"path/filepath"
-
 	"skillshare/internal/config"
 	"skillshare/internal/install"
 )
@@ -28,8 +26,8 @@ func loadProjectRuntime(root string) (*projectRuntime, error) {
 		return nil, err
 	}
 
-	skillsDir := filepath.Join(root, ".skillshare", "skills")
-	agentsDir := filepath.Join(root, ".skillshare", "agents")
+	skillsDir := cfg.EffectiveSkillsSource(root)
+	agentsDir := cfg.EffectiveAgentsSource(root)
 
 	skillsStore, err := install.LoadMetadataWithMigration(skillsDir, "")
 	if err != nil {

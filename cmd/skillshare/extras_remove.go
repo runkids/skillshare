@@ -105,7 +105,7 @@ func removeExtraFromProjectConfig(projCfg *config.ProjectConfig, cwd, name strin
 		return "", fmt.Errorf("failed to save project config: %w", err)
 	}
 
-	sourceDir := config.ExtrasSourceDirProject(cwd, name)
+	sourceDir := config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), name)
 
 	cfgPath := config.ProjectConfigPath(cwd)
 	e := oplog.NewEntry("extras-remove", "ok", 0)
@@ -161,7 +161,7 @@ func extrasRemoveProject(cwd, name string, force bool, start time.Time) error {
 	}
 
 	if !force {
-		sourceDir := config.ExtrasSourceDirProject(cwd, name)
+		sourceDir := config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), name)
 		ui.Warning("This will remove %q from project config.", name)
 		ui.Info("Source files in %s will NOT be deleted.", shortenPath(sourceDir))
 		ui.Info("Existing symlinks in targets will become orphaned.")

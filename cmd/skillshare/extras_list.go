@@ -118,7 +118,7 @@ func cmdExtrasList(args []string) error {
 		}
 		extras = projCfg.Extras
 		sourceFunc = func(extra config.ExtraConfig) string {
-			return config.ExtrasSourceDirProject(cwd, extra.Name)
+			return config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), extra.Name)
 		}
 		configPath = config.ProjectConfigPath(cwd)
 	} else {

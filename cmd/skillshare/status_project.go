@@ -45,7 +45,7 @@ func cmdStatusProject(root string) error {
 	if len(runtime.config.Extras) > 0 {
 		ui.Header("Extras")
 		printExtrasStatus(runtime.config.Extras, func(extra config.ExtraConfig) string {
-			return config.ExtrasSourceDirProject(root, extra.Name)
+			return config.ExtrasSourceDirProject(runtime.config.EffectiveExtrasSource(root), extra.Name)
 		})
 	}
 
@@ -172,11 +172,11 @@ func printProjectSourceStatus(sourcePath, agentsSourcePath string, skillCount in
 	ui.Header("Source (project)")
 	info, err := os.Stat(sourcePath)
 	if err != nil {
-		ui.Error(".skillshare/skills/ (not found)")
+		ui.Error("%s (not found)", sourcePath)
 		return
 	}
 
-	ui.Success(".skillshare/skills/ (%d skills, %s)", skillCount, info.ModTime().Format("2006-01-02 15:04"))
+	ui.Success("%s (%d skills, %s)", sourcePath, skillCount, info.ModTime().Format("2006-01-02 15:04"))
 	printSkillignoreLine(stats)
 
 	// Agents source
@@ -185,7 +185,7 @@ func printProjectSourceStatus(sourcePath, agentsSourcePath string, skillCount in
 		if agents, discoverErr := (resource.AgentKind{}).Discover(agentsSourcePath); discoverErr == nil {
 			agentCount = len(agents)
 		}
-		ui.Success(".skillshare/agents/ (%d agents, %s)", agentCount, agentsInfo.ModTime().Format("2006-01-02 15:04"))
+		ui.Success("%s (%d agents, %s)", agentsSourcePath, agentCount, agentsInfo.ModTime().Format("2006-01-02 15:04"))
 	}
 }
 

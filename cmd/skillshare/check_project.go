@@ -13,11 +13,6 @@ func cmdCheckProject(root string, opts *checkOptions) error {
 		return fmt.Errorf("no project config found in %s", root)
 	}
 
-	sourcePath := filepath.Join(root, ".skillshare", "skills")
-	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
-		return fmt.Errorf("no project skills directory found")
-	}
-
 	var extraNames []string
 	projectCfg, err := config.LoadProject(root)
 	if err != nil {
@@ -28,6 +23,16 @@ func cmdCheckProject(root string, opts *checkOptions) error {
 				extraNames = append(extraNames, t.Name)
 			}
 		}
+	}
+
+	var sourcePath string
+	if projectCfg != nil {
+		sourcePath = projectCfg.EffectiveSkillsSource(root)
+	} else {
+		sourcePath = filepath.Join(root, ".skillshare", "skills")
+	}
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return fmt.Errorf("no project skills directory found")
 	}
 
 	// No names and no groups → check all (existing behavior)

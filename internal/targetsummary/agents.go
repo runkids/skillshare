@@ -42,8 +42,8 @@ func NewGlobalBuilder(cfg *config.Config) (*Builder, error) {
 }
 
 // NewProjectBuilder returns a summary builder for project-mode targets.
-func NewProjectBuilder(projectRoot string) (*Builder, error) {
-	return newBuilder(filepath.Join(projectRoot, ".skillshare", "agents"), projectRoot, config.ProjectAgentTargets())
+func NewProjectBuilder(agentsSourcePath, projectRoot string) (*Builder, error) {
+	return newBuilder(agentsSourcePath, projectRoot, config.ProjectAgentTargets())
 }
 
 func newBuilder(sourcePath, projectRoot string, builtinAgents map[string]config.TargetConfig) (*Builder, error) {

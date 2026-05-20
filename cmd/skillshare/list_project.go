@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"skillshare/internal/config"
@@ -18,8 +17,12 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 		}
 	}
 
-	skillsSource := filepath.Join(root, ".skillshare", "skills")
-	agentsSource := filepath.Join(root, ".skillshare", "agents")
+	projCfg, err := config.LoadProject(root)
+	if err != nil {
+		return err
+	}
+	skillsSource := projCfg.EffectiveSkillsSource(root)
+	agentsSource := projCfg.EffectiveAgentsSource(root)
 
 	resourceLabel := "skills"
 	if kind == kindAgents {
@@ -77,9 +80,8 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 			return updateErr
 		case "uninstall":
 			if skillKind == "agent" {
-				agentsDir := filepath.Join(root, ".skillshare", "agents")
 				uOpts := &uninstallOptions{skillNames: []string{skillName}, force: true}
-				return cmdUninstallAgents(agentsDir, uOpts, config.ProjectConfigPath(root), trash.ProjectAgentTrashDir(root), time.Now())
+				return cmdUninstallAgents(agentsSource, uOpts, config.ProjectConfigPath(root), trash.ProjectAgentTrashDir(root), time.Now())
 			}
 			return cmdUninstallProject([]string{"--force", skillName}, root)
 		}

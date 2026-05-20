@@ -72,8 +72,7 @@ func ValidateConfig(cfg *Config) (warnings []string, err error) {
 func ValidateProjectConfig(cfg *ProjectConfig, projectRoot string) (warnings []string, err error) {
 	var errs []string
 
-	// Source path is always .skillshare/skills/ — validate it exists
-	sourcePath := filepath.Join(projectRoot, ".skillshare", "skills")
+	sourcePath := cfg.EffectiveSkillsSource(projectRoot)
 	if info, statErr := os.Stat(sourcePath); statErr != nil {
 		if os.IsNotExist(statErr) {
 			// For project mode, missing source is a warning not an error —

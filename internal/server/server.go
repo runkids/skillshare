@@ -110,8 +110,8 @@ func New(cfg *config.Config, addr, basePath, uiDistDir string) *Server {
 // NewProject creates a new Server for project mode.
 // uiDistDir, when non-empty, serves UI from disk instead of the embedded SPA.
 func NewProject(cfg *config.Config, projectCfg *config.ProjectConfig, projectRoot, addr, basePath, uiDistDir string) *Server {
-	skillsDir := filepath.Join(projectRoot, ".skillshare", "skills")
-	agentsDir := filepath.Join(projectRoot, ".skillshare", "agents")
+	skillsDir := projectCfg.EffectiveSkillsSource(projectRoot)
+	agentsDir := projectCfg.EffectiveAgentsSource(projectRoot)
 	skillsStore, _ := install.LoadMetadataWithMigration(skillsDir, "")
 	if skillsStore == nil {
 		skillsStore = install.NewMetadataStore()
@@ -146,7 +146,7 @@ func (s *Server) IsProjectMode() bool {
 // Caller must hold s.mu (RLock or Lock) when accessing s.cfg.
 func (s *Server) skillsSource() string {
 	if s.IsProjectMode() {
-		return filepath.Join(s.projectRoot, ".skillshare", "skills")
+		return s.projectCfg.EffectiveSkillsSource(s.projectRoot)
 	}
 	return s.cfg.Source
 }
@@ -155,7 +155,7 @@ func (s *Server) skillsSource() string {
 // Caller must hold s.mu (RLock or Lock) when accessing s.cfg.
 func (s *Server) agentsSource() string {
 	if s.IsProjectMode() {
-		return filepath.Join(s.projectRoot, ".skillshare", "agents")
+		return s.projectCfg.EffectiveAgentsSource(s.projectRoot)
 	}
 	return s.cfg.EffectiveAgentsSource()
 }
@@ -236,8 +236,8 @@ func (s *Server) reloadConfig() error {
 			return err
 		}
 		s.cfg.Targets = targets
-		skillsDir := filepath.Join(s.projectRoot, ".skillshare", "skills")
-		agentsDir := filepath.Join(s.projectRoot, ".skillshare", "agents")
+		skillsDir := pcfg.EffectiveSkillsSource(s.projectRoot)
+		agentsDir := pcfg.EffectiveAgentsSource(s.projectRoot)
 		if st, err := install.LoadMetadata(skillsDir); err == nil {
 			s.skillsStore = st
 		}

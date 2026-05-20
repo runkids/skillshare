@@ -141,7 +141,13 @@ func resolveAgentTargetPath(tc config.TargetConfig, builtinAgents map[string]con
 // syncAgentsProject syncs agents for project mode using .skillshare/agents/ as source
 // and project-level target agent paths.
 func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start time.Time) error {
-	agentsSource := filepath.Join(projectRoot, ".skillshare", "agents")
+	// Load project config first to resolve agents source path.
+	projCfg, loadErr := config.LoadProject(projectRoot)
+	if loadErr != nil {
+		return fmt.Errorf("cannot load project config: %w", loadErr)
+	}
+
+	agentsSource := projCfg.EffectiveAgentsSource(projectRoot)
 
 	if _, err := os.Stat(agentsSource); err != nil {
 		if os.IsNotExist(err) {
@@ -167,12 +173,6 @@ func syncAgentsProject(projectRoot string, dryRun, force, jsonOutput bool, start
 		if dryRun {
 			ui.Warning("Dry run mode - no changes will be made")
 		}
-	}
-
-	// Load project config for target list
-	projCfg, loadErr := config.LoadProject(projectRoot)
-	if loadErr != nil {
-		return fmt.Errorf("cannot load project config: %w", loadErr)
 	}
 
 	builtinAgents := config.ProjectAgentTargets()
@@ -331,17 +331,17 @@ func collectAgentTargetPathsGlobal(cfg *config.Config) map[string]bool {
 // collectAgentTargetPathsProject returns the set of resolved agent target paths
 // for all targets in the project config. Returns nil when no agents exist.
 func collectAgentTargetPathsProject(projectRoot string) map[string]bool {
-	agentsSource := filepath.Join(projectRoot, ".skillshare", "agents")
+	projCfg, err := config.LoadProject(projectRoot)
+	if err != nil {
+		return nil
+	}
+
+	agentsSource := projCfg.EffectiveAgentsSource(projectRoot)
 	if _, err := os.Stat(agentsSource); err != nil {
 		return nil
 	}
 	agents, err := resource.AgentKind{}.Discover(agentsSource)
 	if err != nil || len(agents) == 0 {
-		return nil
-	}
-
-	projCfg, err := config.LoadProject(projectRoot)
-	if err != nil {
 		return nil
 	}
 

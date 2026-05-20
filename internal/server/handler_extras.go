@@ -33,7 +33,7 @@ type extrasTargetInfo struct {
 // current mode.
 func (s *Server) extrasSourceDir(extra config.ExtraConfig) string {
 	if s.IsProjectMode() {
-		return config.ExtrasSourceDirProject(s.projectRoot, extra.Name)
+		return config.ExtrasSourceDirProject(s.projectCfg.EffectiveExtrasSource(s.projectRoot), extra.Name)
 	}
 	return config.ResolveExtrasSourceDir(extra, s.cfg.ExtrasSource, s.cfg.Source)
 }
@@ -54,6 +54,10 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 	projectRoot := s.projectRoot
 	source := s.cfg.Source
 	extrasSource := s.cfg.ExtrasSource
+	var projectExtrasParent string
+	if s.IsProjectMode() {
+		projectExtrasParent = s.projectCfg.EffectiveExtrasSource(s.projectRoot)
+	}
 	s.mu.RUnlock()
 
 	isProjectMode := projectRoot != ""
@@ -68,7 +72,7 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 	for _, extra := range extras {
 		var sourceDir string
 		if isProjectMode {
-			sourceDir = config.ExtrasSourceDirProject(projectRoot, extra.Name)
+			sourceDir = config.ExtrasSourceDirProject(projectExtrasParent, extra.Name)
 		} else {
 			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
 		}
@@ -137,6 +141,10 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 	projectRoot := s.projectRoot
 	source := s.cfg.Source
 	extrasSource := s.cfg.ExtrasSource
+	var projectExtrasParent string
+	if s.IsProjectMode() {
+		projectExtrasParent = s.projectCfg.EffectiveExtrasSource(s.projectRoot)
+	}
 	s.mu.RUnlock()
 
 	isProjectMode := projectRoot != ""
@@ -151,7 +159,7 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 
 		var sourceDir string
 		if isProjectMode {
-			sourceDir = config.ExtrasSourceDirProject(projectRoot, extra.Name)
+			sourceDir = config.ExtrasSourceDirProject(projectExtrasParent, extra.Name)
 		} else {
 			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
 		}
@@ -367,6 +375,10 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 	projectRoot := s.projectRoot
 	source := s.cfg.Source
 	extrasSource := s.cfg.ExtrasSource
+	var projectExtrasParent string
+	if s.IsProjectMode() {
+		projectExtrasParent = s.projectCfg.EffectiveExtrasSource(s.projectRoot)
+	}
 	s.mu.RUnlock()
 
 	type targetSyncResult struct {
@@ -393,7 +405,7 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 
 		var sourceDir string
 		if projectRoot != "" {
-			sourceDir = config.ExtrasSourceDirProject(projectRoot, extra.Name)
+			sourceDir = config.ExtrasSourceDirProject(projectExtrasParent, extra.Name)
 		} else {
 			sourceDir = config.ResolveExtrasSourceDir(extra, extrasSource, source)
 		}

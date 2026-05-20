@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"skillshare/internal/config"
 	"skillshare/internal/install"
 	"skillshare/internal/sync"
 	"skillshare/internal/trash"
@@ -85,7 +86,13 @@ func cmdUninstallProject(args []string, root string) error {
 		}
 	}
 
-	sourceDir := filepath.Join(root, ".skillshare", "skills")
+	projectCfg, loadErr := config.LoadProject(root)
+	var sourceDir string
+	if loadErr == nil {
+		sourceDir = projectCfg.EffectiveSkillsSource(root)
+	} else {
+		sourceDir = filepath.Join(root, ".skillshare", "skills")
+	}
 	trashDir := trash.ProjectTrashDir(root)
 
 	// Load centralized metadata store for display/reinstall hints.

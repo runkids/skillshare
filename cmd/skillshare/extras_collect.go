@@ -100,7 +100,7 @@ func extrasCollectProject(cwd, name, fromPath string, dryRun bool, start time.Ti
 		targetPath = filepath.Join(cwd, targetPath)
 	}
 
-	sourceDir := config.ExtrasSourceDirProject(cwd, extra.Name)
+	sourceDir := config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), extra.Name)
 	return runCollect(sourceDir, targetPath, extra.Name, dryRun, flatten, "project", config.ProjectConfigPath(cwd), start, cwd)
 }
 

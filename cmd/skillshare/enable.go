@@ -79,10 +79,19 @@ func cmdToggleSkill(args []string, enable bool) error {
 	var ignorePath string
 	var cfgPath string
 	if mode == modeProject {
+		projectCfg, loadErr := config.LoadProject(cwd)
 		if isAgent {
-			ignorePath = filepath.Join(cwd, ".skillshare", "agents", ".agentignore")
+			if loadErr == nil {
+				ignorePath = filepath.Join(projectCfg.EffectiveAgentsSource(cwd), ".agentignore")
+			} else {
+				ignorePath = filepath.Join(cwd, ".skillshare", "agents", ".agentignore")
+			}
 		} else {
-			ignorePath = filepath.Join(cwd, ".skillshare", "skills", ".skillignore")
+			if loadErr == nil {
+				ignorePath = filepath.Join(projectCfg.EffectiveSkillsSource(cwd), ".skillignore")
+			} else {
+				ignorePath = filepath.Join(cwd, ".skillshare", "skills", ".skillignore")
+			}
 		}
 		cfgPath = config.ProjectConfigPath(cwd)
 	} else {

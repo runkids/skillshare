@@ -300,18 +300,22 @@ func resolveTrashBase(mode runMode, cwd string, kind resourceKindFilter) string 
 }
 
 func resolveSourceDir(mode runMode, cwd string, kind resourceKindFilter) (string, error) {
-	if kind == kindAgents {
-		if mode == modeProject {
-			return fmt.Sprintf("%s/.skillshare/agents", cwd), nil
+	if mode == modeProject {
+		projCfg, err := config.LoadProject(cwd)
+		if err != nil {
+			return "", fmt.Errorf("failed to load project config: %w", err)
 		}
+		if kind == kindAgents {
+			return projCfg.EffectiveAgentsSource(cwd), nil
+		}
+		return projCfg.EffectiveSkillsSource(cwd), nil
+	}
+	if kind == kindAgents {
 		cfg, err := config.Load()
 		if err != nil {
 			return "", fmt.Errorf("failed to load config: %w", err)
 		}
 		return cfg.EffectiveAgentsSource(), nil
-	}
-	if mode == modeProject {
-		return fmt.Sprintf("%s/.skillshare/skills", cwd), nil
 	}
 	cfg, err := config.Load()
 	if err != nil {

@@ -253,8 +253,17 @@ func PruneStaleSkills(skills []SkillEntry, live map[string]bool, skillsOnly bool
 	return pruned, changed
 }
 
+// ProjectSources overrides default source directories for project resources.
+// Relative paths resolve from the project root, not from .skillshare/.
+type ProjectSources struct {
+	Skills string `yaml:"skills,omitempty"`
+	Agents string `yaml:"agents,omitempty"`
+	Extras string `yaml:"extras,omitempty"`
+}
+
 // ProjectConfig holds project-level config (.skillshare/config.yaml).
 type ProjectConfig struct {
+	Sources       ProjectSources       `yaml:"sources,omitempty"`
 	Targets       []ProjectTargetEntry `yaml:"targets"`
 	Skills        []SkillEntry         `yaml:"skills,omitempty"`
 	TargetNaming  string               `yaml:"target_naming,omitempty"`
@@ -264,6 +273,37 @@ type ProjectConfig struct {
 	Hub           HubConfig            `yaml:"hub,omitempty"`
 	GitLabHosts   []string             `yaml:"gitlab_hosts,omitempty"`
 	AzureHosts    []string             `yaml:"azure_hosts,omitempty"`
+}
+
+// EffectiveSkillsSource returns the resolved skills source directory.
+func (c *ProjectConfig) EffectiveSkillsSource(projectRoot string) string {
+	if c.Sources.Skills != "" {
+		return resolveProjectSourcePath(projectRoot, c.Sources.Skills)
+	}
+	return filepath.Join(projectRoot, ".skillshare", "skills")
+}
+
+// EffectiveAgentsSource returns the resolved agents source directory.
+func (c *ProjectConfig) EffectiveAgentsSource(projectRoot string) string {
+	if c.Sources.Agents != "" {
+		return resolveProjectSourcePath(projectRoot, c.Sources.Agents)
+	}
+	return filepath.Join(projectRoot, ".skillshare", "agents")
+}
+
+// EffectiveExtrasSource returns the resolved extras parent directory.
+func (c *ProjectConfig) EffectiveExtrasSource(projectRoot string) string {
+	if c.Sources.Extras != "" {
+		return resolveProjectSourcePath(projectRoot, c.Sources.Extras)
+	}
+	return filepath.Join(projectRoot, ".skillshare", "extras")
+}
+
+func resolveProjectSourcePath(projectRoot, path string) string {
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path)
+	}
+	return filepath.Join(projectRoot, filepath.FromSlash(path))
 }
 
 // EffectiveGitLabHosts returns GitLabHosts merged with SKILLSHARE_GITLAB_HOSTS env var.

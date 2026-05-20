@@ -83,7 +83,12 @@ func cmdNew(args []string) error {
 	// Resolve source directory
 	var sourceDir string
 	if mode == modeProject {
-		sourceDir = filepath.Join(cwd, ".skillshare", "skills")
+		projectCfg, loadErr := config.LoadProject(cwd)
+		if loadErr == nil {
+			sourceDir = projectCfg.EffectiveSkillsSource(cwd)
+		} else {
+			sourceDir = filepath.Join(cwd, ".skillshare", "skills")
+		}
 	} else {
 		cfg, err := config.Load()
 		if err != nil {

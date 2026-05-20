@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"skillshare/internal/config"
@@ -113,7 +112,7 @@ func cmdCollectProjectAgents(projectRoot string, opts collectOptions, start time
 		return summary, nil
 	}
 
-	source := filepath.Join(projectRoot, ".skillshare", "agents")
+	source := projCfg.EffectiveAgentsSource(projectRoot)
 	return runCollectPlan(collectPlan{
 		kind: kindAgents, source: source,
 		scan: func(warn bool) collectResources {

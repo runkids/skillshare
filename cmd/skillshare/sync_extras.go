@@ -265,7 +265,7 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 
 	if len(projCfg.Extras) == 0 {
 		// Clean up empty extras directory
-		removeEmptyDir(config.ExtrasParentDirProject(cwd))
+		removeEmptyDir(config.ExtrasParentDirProject(projCfg.EffectiveExtrasSource(cwd)))
 
 		if jsonOutput {
 			return writeJSON(&syncExtrasJSONOutput{Extras: []syncExtrasJSONEntry{}, Duration: formatDuration(start)})
@@ -296,7 +296,7 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 	}
 
 	for _, extra := range projCfg.Extras {
-		extraSource := config.ExtrasSourceDirProject(cwd, extra.Name)
+		extraSource := config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), extra.Name)
 
 		if _, statErr := os.Stat(extraSource); os.IsNotExist(statErr) {
 			if !jsonOutput {

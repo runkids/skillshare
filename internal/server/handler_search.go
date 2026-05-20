@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-	"path/filepath"
 	"strconv"
 
 	"skillshare/internal/hub"
@@ -13,8 +12,7 @@ import (
 func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	source := s.cfg.Source
-	projectRoot := s.projectRoot
+	source := s.skillsSource()
 	s.mu.RUnlock()
 
 	query := r.URL.Query().Get("q")
@@ -31,7 +29,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 	var err error
 	switch {
 	case hubParam == "@builtin":
-		results, err = searchBuiltinIndex(source, projectRoot, query, limit)
+		results, err = searchBuiltinIndex(source, query, limit)
 	case hubParam != "":
 		results, err = search.SearchFromIndexURL(query, limit, hubParam)
 	default:
@@ -75,11 +73,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 // searchBuiltinIndex builds the hub index from local skills and searches it in-memory.
-func searchBuiltinIndex(source, projectRoot, query string, limit int) ([]search.SearchResult, error) {
-	sourcePath := source
-	if projectRoot != "" {
-		sourcePath = filepath.Join(projectRoot, ".skillshare", "skills")
-	}
+func searchBuiltinIndex(sourcePath, query string, limit int) ([]search.SearchResult, error) {
 	idx, err := hub.BuildIndex(sourcePath, false, false)
 	if err != nil {
 		return nil, err

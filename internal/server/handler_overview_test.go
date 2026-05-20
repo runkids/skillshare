@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"skillshare/internal/config"
 )
 
 func TestHandleOverview_Empty(t *testing.T) {
@@ -83,7 +85,8 @@ func TestHandleOverview_AgentCountIncludesNestedAgents(t *testing.T) {
 func TestHandleOverview_ProjectMode(t *testing.T) {
 	tmp := t.TempDir()
 	s, _ := newTestServer(t)
-	s.projectRoot = tmp // simulate project mode
+	s.projectRoot = tmp                    // simulate project mode
+	s.projectCfg = &config.ProjectConfig{} // provide empty project config
 
 	req := httptest.NewRequest(http.MethodGet, "/api/overview", nil)
 	rr := httptest.NewRecorder()

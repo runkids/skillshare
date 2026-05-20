@@ -193,3 +193,102 @@ extras:
 		t.Errorf("tilde path should remain unexpanded in project config, got %q", cfg.Extras[0].Targets[0].Path)
 	}
 }
+
+func TestProjectEffectiveSkillsSource_Default(t *testing.T) {
+	cfg := &ProjectConfig{}
+	root := "/project"
+	want := filepath.Join(root, ".skillshare", "skills")
+	if got := cfg.EffectiveSkillsSource(root); got != want {
+		t.Errorf("EffectiveSkillsSource() = %q, want %q", got, want)
+	}
+}
+
+func TestProjectEffectiveSkillsSource_Custom(t *testing.T) {
+	cfg := &ProjectConfig{Sources: ProjectSources{Skills: "./docs/skills"}}
+	root := "/project"
+	want := filepath.Join(root, "docs", "skills")
+	if got := cfg.EffectiveSkillsSource(root); got != want {
+		t.Errorf("EffectiveSkillsSource() = %q, want %q", got, want)
+	}
+}
+
+func TestProjectEffectiveAgentsSource_Default(t *testing.T) {
+	cfg := &ProjectConfig{}
+	root := "/project"
+	want := filepath.Join(root, ".skillshare", "agents")
+	if got := cfg.EffectiveAgentsSource(root); got != want {
+		t.Errorf("EffectiveAgentsSource() = %q, want %q", got, want)
+	}
+}
+
+func TestProjectEffectiveAgentsSource_Custom(t *testing.T) {
+	cfg := &ProjectConfig{Sources: ProjectSources{Agents: "ai/agents"}}
+	root := "/project"
+	want := filepath.Join(root, "ai", "agents")
+	if got := cfg.EffectiveAgentsSource(root); got != want {
+		t.Errorf("EffectiveAgentsSource() = %q, want %q", got, want)
+	}
+}
+
+func TestProjectEffectiveExtrasSource_Default(t *testing.T) {
+	cfg := &ProjectConfig{}
+	root := "/project"
+	want := filepath.Join(root, ".skillshare", "extras")
+	if got := cfg.EffectiveExtrasSource(root); got != want {
+		t.Errorf("EffectiveExtrasSource() = %q, want %q", got, want)
+	}
+}
+
+func TestProjectEffectiveExtrasSource_Custom(t *testing.T) {
+	cfg := &ProjectConfig{Sources: ProjectSources{Extras: "./docs/extras"}}
+	root := "/project"
+	want := filepath.Join(root, "docs", "extras")
+	if got := cfg.EffectiveExtrasSource(root); got != want {
+		t.Errorf("EffectiveExtrasSource() = %q, want %q", got, want)
+	}
+}
+
+func TestProjectEffectiveSkillsSource_Absolute(t *testing.T) {
+	cfg := &ProjectConfig{Sources: ProjectSources{Skills: "/opt/shared/skills"}}
+	got := cfg.EffectiveSkillsSource("/project")
+	if got != "/opt/shared/skills" {
+		t.Errorf("absolute path should pass through, got %q", got)
+	}
+}
+
+func TestLoadProject_Sources(t *testing.T) {
+	root := t.TempDir()
+	skillshareDir := filepath.Join(root, ".skillshare")
+	os.MkdirAll(skillshareDir, 0755)
+
+	os.WriteFile(filepath.Join(skillshareDir, "config.yaml"), []byte(`sources:
+  skills: ./docs/skills
+  agents: ./ai/agents
+targets:
+  - claude
+`), 0644)
+
+	cfg, err := LoadProject(root)
+	if err != nil {
+		t.Fatalf("LoadProject failed: %v", err)
+	}
+	if cfg.Sources.Skills != "./docs/skills" {
+		t.Errorf("Sources.Skills = %q, want %q", cfg.Sources.Skills, "./docs/skills")
+	}
+	if cfg.Sources.Agents != "./ai/agents" {
+		t.Errorf("Sources.Agents = %q, want %q", cfg.Sources.Agents, "./ai/agents")
+	}
+	if cfg.Sources.Extras != "" {
+		t.Errorf("Sources.Extras should be empty, got %q", cfg.Sources.Extras)
+	}
+
+	wantSkills := filepath.Join(root, "docs", "skills")
+	if got := cfg.EffectiveSkillsSource(root); got != wantSkills {
+		t.Errorf("EffectiveSkillsSource() = %q, want %q", got, wantSkills)
+	}
+
+	wantExtras := filepath.Join(root, ".skillshare", "extras")
+	if got := cfg.EffectiveExtrasSource(root); got != wantExtras {
+		t.Errorf("EffectiveExtrasSource() = %q, want %q (default)", got, wantExtras)
+	}
+}

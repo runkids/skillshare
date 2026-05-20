@@ -186,7 +186,7 @@ func extrasInitProject(cwd, name string, targets []string, syncMode string, flat
 	}
 
 	// Create source directory
-	sourceDir := config.ExtrasSourceDirProject(cwd, name)
+	sourceDir := config.ExtrasSourceDirProject(projCfg.EffectiveExtrasSource(cwd), name)
 	if err := os.MkdirAll(sourceDir, 0755); err != nil {
 		return fmt.Errorf("failed to create extras source directory: %w", err)
 	}

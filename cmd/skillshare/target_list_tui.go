@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -173,7 +172,7 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 		if err != nil {
 			return nil, err
 		}
-		agentBuilder, err := targetsummary.NewProjectBuilder(cwd)
+		agentBuilder, err := targetsummary.NewProjectBuilder(projCfg.EffectiveAgentsSource(cwd), cwd)
 		if err != nil {
 			return nil, err
 		}
@@ -190,7 +189,7 @@ func buildTargetTUIItems(isProject bool, cwd string) ([]targetTUIItem, error) {
 				name:         entry.Name,
 				target:       resolved,
 				displayPath:  projectTargetDisplayPath(entry),
-				skillSync:    buildTargetSkillSyncSummary(resolved.SkillsConfig().Path, filepath.Join(cwd, ".skillshare", "skills"), resolved.SkillsConfig().Mode),
+				skillSync:    buildTargetSkillSyncSummary(resolved.SkillsConfig().Path, projCfg.EffectiveSkillsSource(cwd), resolved.SkillsConfig().Mode),
 				agentConfig:  config.ResourceTargetConfig{Mode: agentSummaryMode(agentSummary), Include: agentSummaryInclude(agentSummary), Exclude: agentSummaryExclude(agentSummary)},
 				agentSummary: agentSummary,
 			})
