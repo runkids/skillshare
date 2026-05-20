@@ -196,13 +196,12 @@ func cmdCheck(args []string) error {
 		cfgPath = config.ProjectConfigPath(cwd)
 		if kind == kindAgents {
 			projectCfg, loadErr := config.LoadProject(cwd)
-			var agentsDir string
-			if loadErr == nil {
-				agentsDir = projectCfg.EffectiveAgentsSource(cwd)
-			} else {
-				agentsDir = filepath.Join(cwd, ".skillshare", "agents")
+			if loadErr != nil {
+				err := fmt.Errorf("failed to load project config: %w", loadErr)
+				logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, err)
+				return err
 			}
-			renderAgentCheck(agentsDir, opts.groups, opts.json)
+			renderAgentCheck(projectCfg.EffectiveAgentsSource(cwd), opts.groups, opts.json)
 			logCheckOp(cfgPath, 0, 0, 0, 0, scope, start, nil)
 			return nil
 		}
