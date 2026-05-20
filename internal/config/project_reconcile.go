@@ -22,7 +22,9 @@ func ReconcileProjectSkills(projectRoot string, projectCfg *ProjectConfig, store
 
 	var gitignoreEntries []string
 	onFound := func(fullPath string) {
-		gitignoreEntries = append(gitignoreEntries, prefix+"/"+fullPath)
+		if gitignoreDir != "" {
+			gitignoreEntries = append(gitignoreEntries, prefix+"/"+fullPath)
+		}
 	}
 
 	result, err := reconcileSkillsWalk(sourcePath, store, onFound)

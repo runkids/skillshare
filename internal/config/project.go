@@ -301,18 +301,19 @@ func (c *ProjectConfig) EffectiveExtrasSource(projectRoot string) string {
 
 // ProjectGitignoreTarget returns the directory containing the .gitignore to
 // manage and the entry prefix for skills inside sourcePath. When sourcePath is
-// under .skillshare/, it returns (.skillshare/, "skills"). Otherwise it returns
-// (projectRoot, relative-path-to-source) so that entries land in the project
-// root .gitignore with correct paths.
+// under .skillshare/, it returns (.skillshare/, "skills"). When sourcePath is
+// elsewhere inside projectRoot, it returns (projectRoot, relative-path).
+// When sourcePath is outside projectRoot (e.g. absolute external path),
+// both return values are empty — callers must skip gitignore management.
 func ProjectGitignoreTarget(projectRoot, sourcePath string) (gitignoreDir, entryPrefix string) {
 	skillshareDir := filepath.Join(projectRoot, ".skillshare")
 	if rel, err := filepath.Rel(skillshareDir, sourcePath); err == nil && !strings.HasPrefix(rel, "..") {
 		return skillshareDir, filepath.ToSlash(rel)
 	}
-	if rel, err := filepath.Rel(projectRoot, sourcePath); err == nil {
+	if rel, err := filepath.Rel(projectRoot, sourcePath); err == nil && !strings.HasPrefix(rel, "..") {
 		return projectRoot, filepath.ToSlash(rel)
 	}
-	return skillshareDir, "skills"
+	return "", ""
 }
 
 func resolveProjectSourcePath(projectRoot, path string) string {

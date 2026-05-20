@@ -82,6 +82,9 @@ func (p *projectInstallContext) Reconcile() error {
 }
 func (p *projectInstallContext) PostInstallSkill(displayName string) error {
 	gitDir, prefix := config.ProjectGitignoreTarget(p.runtime.root, p.runtime.sourcePath)
+	if gitDir == "" {
+		return nil
+	}
 	return install.UpdateGitIgnore(gitDir, prefix+"/"+displayName)
 }
 func (p *projectInstallContext) Mode() string { return "project" }

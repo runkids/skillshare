@@ -380,17 +380,19 @@ func (s *Server) handleUninstallRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gitDir := s.gitignoreDir()
-	if s.IsProjectMode() {
-		install.RemoveFromGitIgnore(gitDir, s.projectGitignorePrefix()+"/"+repoName)
-	} else {
-		install.RemoveFromGitIgnore(gitDir, repoName)
-	}
-
-	// Move to trash instead of permanent delete
+	// Move to trash first — only clean gitignore after durable removal.
 	if _, err := trash.MoveToTrash(repoPath, repoName, s.trashBase()); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to trash repo: "+err.Error())
 		return
+	}
+
+	gitDir := s.gitignoreDir()
+	if gitDir != "" {
+		if s.IsProjectMode() {
+			install.RemoveFromGitIgnore(gitDir, s.projectGitignorePrefix()+"/"+repoName)
+		} else {
+			install.RemoveFromGitIgnore(gitDir, repoName)
+		}
 	}
 
 	// Prune store entries: the repo itself + skills belonging to it.

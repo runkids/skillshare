@@ -256,6 +256,42 @@ func TestProjectEffectiveSkillsSource_Absolute(t *testing.T) {
 	}
 }
 
+func TestProjectGitignoreTarget_UnderSkillshare(t *testing.T) {
+	root := "/project"
+	source := filepath.Join(root, ".skillshare", "skills")
+	dir, prefix := ProjectGitignoreTarget(root, source)
+	if dir != filepath.Join(root, ".skillshare") {
+		t.Errorf("dir = %q, want .skillshare dir", dir)
+	}
+	if prefix != "skills" {
+		t.Errorf("prefix = %q, want %q", prefix, "skills")
+	}
+}
+
+func TestProjectGitignoreTarget_InsideProject(t *testing.T) {
+	root := "/project"
+	source := filepath.Join(root, "docs", "skills")
+	dir, prefix := ProjectGitignoreTarget(root, source)
+	if dir != root {
+		t.Errorf("dir = %q, want %q", dir, root)
+	}
+	if prefix != "docs/skills" {
+		t.Errorf("prefix = %q, want %q", prefix, "docs/skills")
+	}
+}
+
+func TestProjectGitignoreTarget_OutsideProject(t *testing.T) {
+	root := "/project/app"
+	source := "/shared/skills"
+	dir, prefix := ProjectGitignoreTarget(root, source)
+	if dir != "" {
+		t.Errorf("dir should be empty for external source, got %q", dir)
+	}
+	if prefix != "" {
+		t.Errorf("prefix should be empty for external source, got %q", prefix)
+	}
+}
+
 func TestLoadProject_Sources(t *testing.T) {
 	root := t.TempDir()
 	skillshareDir := filepath.Join(root, ".skillshare")

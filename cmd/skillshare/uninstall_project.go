@@ -312,7 +312,7 @@ func cmdUninstallProject(args []string, root string) error {
 		}
 
 		// Batch-remove .gitignore entries (one read/write pass for all succeeded targets).
-		if len(succeeded) > 0 {
+		if len(succeeded) > 0 && gitignoreDir != "" {
 			entries := make([]string, len(succeeded))
 			for i, t := range succeeded {
 				entries[i] = gitignorePrefix + "/" + t.name
@@ -410,7 +410,7 @@ func cmdUninstallProject(args []string, root string) error {
 		}
 
 		// Batch-remove .gitignore entries after all targets processed.
-		if len(succeeded) > 0 {
+		if len(succeeded) > 0 && gitignoreDir != "" {
 			entries := make([]string, len(succeeded))
 			for i, t := range succeeded {
 				entries[i] = gitignorePrefix + "/" + t.name

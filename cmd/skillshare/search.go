@@ -501,10 +501,12 @@ func installFromSearchResultProject(result search.SearchResult, cwd string) (err
 		ui.Warning("%s", warning)
 	}
 
-	// Update .gitignore for the installed skill
+	// Update .gitignore for the installed skill (skip for external sources)
 	gitDir, gitPrefix := config.ProjectGitignoreTarget(runtime.root, runtime.sourcePath)
-	if err := install.UpdateGitIgnore(gitDir, gitPrefix+"/"+result.Name); err != nil {
-		ui.Warning("Failed to update .gitignore: %v", err)
+	if gitDir != "" {
+		if err := install.UpdateGitIgnore(gitDir, gitPrefix+"/"+result.Name); err != nil {
+			ui.Warning("Failed to update .gitignore: %v", err)
+		}
 	}
 
 	// Reconcile project config with installed skills
