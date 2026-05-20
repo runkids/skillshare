@@ -1628,7 +1628,7 @@ func isExternalOrAnchor(target string) bool {
 		}
 	}
 	if idx := strings.IndexByte(target, ':'); idx > 0 {
-		scheme := target[:idx]
+		scheme := strings.ToLower(target[:idx])
 		if isURLScheme(scheme) {
 			return true
 		}

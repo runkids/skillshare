@@ -251,6 +251,24 @@ func TestScanSkill_DanglingLink_CustomSchemeSkipped(t *testing.T) {
 	}
 }
 
+func TestScanSkill_DanglingLink_UppercaseSchemeSkipped(t *testing.T) {
+	dir := t.TempDir()
+	skillDir := filepath.Join(dir, "my-skill")
+	os.MkdirAll(skillDir, 0755)
+	os.WriteFile(filepath.Join(skillDir, "SKILL.md"),
+		[]byte("# Skill\n\n[open in VS Code](VSCode://vscode.github-authentication/did-authenticate?windowId=1)\n"), 0644)
+
+	result, err := ScanSkill(skillDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range result.Findings {
+		if f.Pattern == "dangling-link" {
+			t.Errorf("unexpected dangling-link finding for uppercase custom URI scheme: %+v", f)
+		}
+	}
+}
+
 func TestScanSkill_DanglingLink_BracketPlaceholderWithFollowingParens_NoFinding(t *testing.T) {
 	dir := t.TempDir()
 	skillDir := filepath.Join(dir, "my-skill")
