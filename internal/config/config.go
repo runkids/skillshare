@@ -262,7 +262,7 @@ type GlobalSources struct {
 
 // Config holds the application configuration
 type Config struct {
-	Source        string                  `yaml:"source"`
+	Source        string                  `yaml:"source,omitempty"`
 	AgentsSource  string                  `yaml:"agents_source,omitempty"`
 	ExtrasSource  string                  `yaml:"extras_source,omitempty"`
 	Sources       GlobalSources           `yaml:"sources,omitempty"`

@@ -934,9 +934,12 @@ targets:
 	result.AssertAnyOutputContains(t, "not found")
 }
 
-// TestInit_SetsExtrasSource verifies that "init" sets extras_source in the config
-// to the default extras directory (sibling of source).
-func TestInit_SetsExtrasSource(t *testing.T) {
+// TestInit_WritesSourcesMap verifies that fresh "init" emits the new
+// `sources:` map (v0.19.16+) with skills and agents entries, and does NOT
+// write the legacy top-level source / agents_source / extras_source fields.
+// The extras parent directory is provided at runtime by
+// Config.EffectiveExtrasSource() — it does not need to be persisted.
+func TestInit_WritesSourcesMap(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -947,16 +950,29 @@ func TestInit_SetsExtrasSource(t *testing.T) {
 	result := sb.RunCLI("init", "--no-copy", "--no-targets", "--no-git", "--no-skill")
 	result.AssertSuccess(t)
 
-	// Verify config contains extras_source
 	configContent := sb.ReadFile(sb.ConfigPath)
-	if !strings.Contains(configContent, "extras_source:") {
-		t.Errorf("expected config to contain 'extras_source:', got:\n%s", configContent)
+
+	// New format: must contain `sources:` map with skills/agents entries.
+	if !strings.Contains(configContent, "sources:") {
+		t.Errorf("expected config to contain 'sources:' map, got:\n%s", configContent)
+	}
+	if !strings.Contains(configContent, "skills: "+sb.SourcePath) {
+		t.Errorf("expected sources.skills to point to %s, got:\n%s", sb.SourcePath, configContent)
+	}
+	expectedAgents := filepath.Join(filepath.Dir(sb.SourcePath), "agents")
+	if !strings.Contains(configContent, "agents: "+expectedAgents) {
+		t.Errorf("expected sources.agents to point to %s, got:\n%s", expectedAgents, configContent)
 	}
 
-	// Verify it points to the extras dir (sibling of skills source)
-	expected := filepath.Join(filepath.Dir(sb.SourcePath), "extras")
-	if !strings.Contains(configContent, expected) {
-		t.Errorf("expected extras_source to contain %s, got:\n%s", expected, configContent)
+	// Legacy fields must NOT be written by fresh init.
+	if strings.Contains(configContent, "\nsource:") {
+		t.Errorf("expected no legacy 'source:' field, got:\n%s", configContent)
+	}
+	if strings.Contains(configContent, "extras_source:") {
+		t.Errorf("expected no legacy 'extras_source:' field, got:\n%s", configContent)
+	}
+	if strings.Contains(configContent, "agents_source:") {
+		t.Errorf("expected no legacy 'agents_source:' field, got:\n%s", configContent)
 	}
 }
 

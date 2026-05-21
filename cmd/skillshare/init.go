@@ -325,14 +325,14 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 		}
 		// Ensure git is initialized before setting up remote
 		// (--remote implies --git, so opts.initGit is already true)
-		initGitIfNeeded(cfg.Source, opts.dryRun, opts.initGit, opts.noGit)
+		initGitIfNeeded(cfg.EffectiveSkillsSource(), opts.dryRun, opts.initGit, opts.noGit)
 		// Commit any uncommitted source files so push/pull work cleanly
 		if !opts.dryRun && !opts.noGit {
-			if err := commitSourceFiles(cfg.Source); err != nil {
+			if err := commitSourceFiles(cfg.EffectiveSkillsSource()); err != nil {
 				ui.Warning("Failed to commit source files: %v", err)
 			}
 		}
-		setupGitRemote(cfg.Source, opts.remoteURL, opts.dryRun)
+		setupGitRemote(cfg.EffectiveSkillsSource(), opts.remoteURL, opts.dryRun)
 		return true, nil
 	}
 
@@ -401,12 +401,17 @@ func performFreshInit(opts *initOptions, home string) error {
 		mode = "merge"
 	}
 
-	// Create config
+	// Create config — new installs use the `sources:` map (v0.19.16+).
+	// Existing configs that still use legacy top-level source / agents_source /
+	// extras_source remain fully supported via Config.Effective*Source helpers;
+	// they just don't get auto-migrated here.
 	cfg := &config.Config{
-		Source:       sourcePath,
-		ExtrasSource: config.ExtrasParentDir(sourcePath),
-		Mode:         mode,
-		Targets:      targets,
+		Sources: config.GlobalSources{
+			Skills: sourcePath,
+			Agents: agentsSourcePath,
+		},
+		Mode:    mode,
+		Targets: targets,
 		Ignore: []string{
 			"**/.DS_Store",
 			"**/.git/**",
@@ -432,7 +437,7 @@ func performFreshInit(opts *initOptions, home string) error {
 		if err := createSourceDir(sourcePath, opts.dryRun); err != nil {
 			return err
 		}
-		cfg.Source = sourcePath
+		cfg.Sources.Skills = sourcePath
 	}
 
 	if opts.dryRun {
@@ -898,7 +903,7 @@ func joinTargetNames(targets map[string]config.TargetConfig) string {
 
 func summarizeInitConfig(cfg *config.Config) {
 	ui.Header("Planned configuration")
-	ui.Info("Source: %s", cfg.Source)
+	ui.Info("Source: %s", cfg.EffectiveSkillsSource())
 
 	if len(cfg.Targets) == 0 {
 		ui.Info("Targets: none")
