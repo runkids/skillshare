@@ -9,7 +9,7 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
-## [Unreleased]
+## [0.19.16] - 2026-05-21
 
 ### New Features
 
