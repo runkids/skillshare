@@ -20,6 +20,8 @@ Complete reference for all skillshare commands.
 | Temporarily hide a skill without removing it | [`enable` / `disable`](./enable.md) |
 | Sync across machines | [`push`](./push.md) / [`pull`](./pull.md) |
 | Manage non-skill resources (rules, commands) | [`extras`](./extras.md) |
+| Manage native Claude/Codex plugins | [`plugins`](./plugins.md) |
+| Manage standalone Claude/Codex hooks | [`hooks`](./hooks.md) |
 | Manage single-file `.md` agents | Most commands accept `agents` or `--kind agent` — see [Agents](/docs/understand/agents) |
 | See which skills use the most context tokens | [`analyze`](./analyze.md) |
 | Fix something broken | [`doctor`](./doctor.md) |
@@ -35,6 +37,7 @@ Complete reference for all skillshare commands.
 | **Core** | `init`, `install`, `uninstall`, `list`, `search`, `sync`, `status` |
 | **Skill Management** | `new`, `check`, `update`, `upgrade`, `enable`, `disable` |
 | **Target Management** | `target`, `diff` |
+| **Native Integrations** | `plugins`, `hooks` |
 | **Extras Management** | `extras` (`init`, `list`, `remove`, `collect`) |
 | **Sync Operations** | `collect`, `backup`, `restore`, `trash`, `push`, `pull` |
 | **Security & Utilities** | `analyze`, `audit`, `hub`, `log`, `doctor`, `tui`, `ui`, `completion`, `version` |
@@ -75,6 +78,13 @@ Complete reference for all skillshare commands.
 | Command | Description |
 |---------|-------------|
 | [extras](./extras.md) | Manage non-skill resources (rules, commands, prompts) |
+
+## Native Integrations
+
+| Command | Description |
+|---------|-------------|
+| [plugins](./plugins.md) | Manage native Claude/Codex plugin bundles |
+| [hooks](./hooks.md) | Manage standalone Claude/Codex hook bundles |
 
 ## Sync Operations
 
@@ -131,6 +141,7 @@ skillshare new my-skill
 # Sync
 skillshare sync
 skillshare sync --dry-run
+skillshare sync --all --json
 
 # Cross-machine
 skillshare push -m "Add skill"
@@ -161,6 +172,10 @@ skillshare tui on         # Re-enable TUI
 # Web UI
 skillshare ui
 skillshare ui -p          # Project mode
+
+# Native integrations
+skillshare plugins list
+skillshare hooks sync --target all
 
 # Hub
 skillshare hub list

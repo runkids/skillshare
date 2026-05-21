@@ -230,9 +230,21 @@ skillshare diff --json
       "exclude": []
     }
   ],
+  "plugins": [
+    {"name": "demo", "target": "claude", "synced": true},
+    {"name": "demo", "target": "codex", "synced": false, "items": ["missing rendered state: /home/user/.agents/plugins/demo"]}
+  ],
+  "hooks": [
+    {"name": "audit", "target": "claude", "synced": true},
+    {"name": "audit", "target": "codex", "synced": false, "items": ["missing rendered state: /home/user/.codex/hooks/skillshare/audit"]}
+  ],
   "duration": "0.045s"
 }
 ```
+
+Plugin and hook diff sections only include targets that the bundle can actually sync to. For plugins, generated cross-target manifests count as supported targets. For hooks, only defined/syncable target sections are emitted.
+
+The top-level `plugins` and `hooks` arrays summarize native integration render drift alongside the standard target diff output.
 
 ## See Also
 

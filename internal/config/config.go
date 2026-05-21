@@ -266,6 +266,8 @@ type Config struct {
 	AgentsSource  string                  `yaml:"agents_source,omitempty"`
 	ExtrasSource  string                  `yaml:"extras_source,omitempty"`
 	Sources       GlobalSources           `yaml:"sources,omitempty"`
+	PluginsSource string                  `yaml:"plugins_source,omitempty"`
+	HooksSource   string                  `yaml:"hooks_source,omitempty"`
 	Mode          string                  `yaml:"mode,omitempty"` // default mode: merge
 	TargetNaming  string                  `yaml:"target_naming,omitempty"`
 	Targets       map[string]TargetConfig `yaml:"targets"`
@@ -327,6 +329,24 @@ func (c *Config) EffectiveExtrasSource() string {
 		return ExpandPath(c.ExtrasSource)
 	}
 	return ExtrasParentDir(c.EffectiveSkillsSource())
+}
+
+// EffectivePluginsSource returns the plugins source directory.
+// Defaults to <BaseDir>/plugins if not explicitly configured.
+func (c *Config) EffectivePluginsSource() string {
+	if c.PluginsSource != "" {
+		return ExpandPath(c.PluginsSource)
+	}
+	return filepath.Join(BaseDir(), "plugins")
+}
+
+// EffectiveHooksSource returns the hooks source directory.
+// Defaults to <BaseDir>/hooks if not explicitly configured.
+func (c *Config) EffectiveHooksSource() string {
+	if c.HooksSource != "" {
+		return ExpandPath(c.HooksSource)
+	}
+	return filepath.Join(BaseDir(), "hooks")
 }
 
 // HasAgentTarget reports whether any configured target has an agents path,
@@ -516,6 +536,8 @@ func Load() (*Config, error) {
 	cfg.Sources.Skills = expandPath(cfg.Sources.Skills)
 	cfg.Sources.Agents = expandPath(cfg.Sources.Agents)
 	cfg.Sources.Extras = expandPath(cfg.Sources.Extras)
+	cfg.PluginsSource = expandPath(cfg.PluginsSource)
+	cfg.HooksSource = expandPath(cfg.HooksSource)
 	defaults := DefaultTargets()
 	for name, target := range cfg.Targets {
 		target.defaultTargetNaming = cfg.TargetNaming

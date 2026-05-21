@@ -129,7 +129,7 @@ func cmdDiffProject(root, targetName string, kind resourceKindFilter, opts diffR
 	results = mergeAgentDiffsProject(root, results, targetName)
 
 	if opts.jsonOutput {
-		return diffOutputJSONWithExtras(results, extrasResults, start)
+		return diffOutputJSONWithExtras(results, extrasResults, collectPluginDiff(config.PluginsSourceDirProject(root), root), collectHookDiff(config.HooksSourceDirProject(root), root), start)
 	}
 	if shouldLaunchTUI(opts.noTUI, nil) && len(results) > 0 {
 		return runDiffTUI(results, extrasResults)
