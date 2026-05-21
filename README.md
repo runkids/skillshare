@@ -69,7 +69,7 @@ skillshare fixes this:
 ┌─────────────────────────────────────────────────────────────┐
 │                    Source Directory                         │
 │   ~/.config/skillshare/skills/    ← skills (SKILL.md)       │
-│   ~/.config/skillshare/agents/    ← agents                   │
+│   ~/.config/skillshare/agents/    ← agents                  │
 │   ~/.config/skillshare/extras/    ← rules, commands, etc.   │
 └─────────────────────────────────────────────────────────────┘
                               │ sync

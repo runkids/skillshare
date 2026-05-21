@@ -23,6 +23,26 @@ export const fieldDocs: Record<string, FieldDoc> = {
     type: 'string',
     example: 'extras_source: ~/.config/skillshare/extras',
   },
+  sources: {
+    description: 'Project-mode custom source directories. Each key (skills, agents, extras) overrides the default .skillshare/<type>/ path. All keys are optional — omit any key to fall back to the default.',
+    type: 'object',
+    example: 'sources:\n  skills: ./docs/skills\n  agents: ./docs/agents\n  extras: ./docs/extras',
+  },
+  'sources.skills': {
+    description: 'Custom skills source directory for project mode. Relative paths resolve from the project root; absolute paths and ~ are supported. Default: .skillshare/skills/. Sync rejects configs where this aliases or nests with a target path.',
+    type: 'string',
+    example: 'sources:\n  skills: ./docs/skills',
+  },
+  'sources.agents': {
+    description: 'Custom agents source directory for project mode. Relative paths resolve from the project root. Default: .skillshare/agents/.',
+    type: 'string',
+    example: 'sources:\n  agents: ./docs/agents',
+  },
+  'sources.extras': {
+    description: 'Custom extras source directory for project mode. Relative paths resolve from the project root. Default: .skillshare/extras/.',
+    type: 'string',
+    example: 'sources:\n  extras: ./docs/extras',
+  },
   mode: {
     description: 'Default sync mode for all targets. Can be overridden per target.',
     type: 'string',
