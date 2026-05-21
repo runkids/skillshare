@@ -4,20 +4,41 @@
   "title": "Skillshare Global Configuration",
   "description": "Configuration file for skillshare — the universal AI skill manager. Location: ~/.config/skillshare/config.yaml",
   "type": "object",
-  "required": ["source"],
   "additionalProperties": false,
   "properties": {
     "source": {
       "type": "string",
-      "description": "Path to the skills source directory (single source of truth). Supports ~ for home directory.",
+      "description": "Legacy top-level skills source path. Prefer sources.skills (added in v0.19.16). When both are set, sources.skills wins. Supports ~ for home directory.",
       "default": "~/.config/skillshare/skills",
       "examples": ["~/.config/skillshare/skills", "/home/user/my-skills"]
     },
     "agents_source": {
       "type": "string",
-      "description": "Path to the agents source directory. Supports ~ for home directory. Defaults to ~/.config/skillshare/agents if not set.",
+      "description": "Legacy top-level agents source path. Prefer sources.agents (added in v0.19.16). When both are set, sources.agents wins. Supports ~ for home directory.",
       "default": "~/.config/skillshare/agents",
       "examples": ["~/.config/skillshare/agents", "/home/user/my-agents"]
+    },
+    "sources": {
+      "type": "object",
+      "description": "Custom source directories for global resources (added in v0.19.16). Mirrors project-mode sources. When set, each key overrides the corresponding legacy top-level field (source / agents_source / extras_source). Supports ~ for home directory.",
+      "additionalProperties": false,
+      "properties": {
+        "skills": {
+          "type": "string",
+          "description": "Custom skills source directory. Falls back to source (legacy) or ~/.config/skillshare/skills.",
+          "examples": ["~/work/skills", "/home/user/my-skills"]
+        },
+        "agents": {
+          "type": "string",
+          "description": "Custom agents source directory. Falls back to agents_source (legacy) or ~/.config/skillshare/agents.",
+          "examples": ["~/work/agents"]
+        },
+        "extras": {
+          "type": "string",
+          "description": "Custom extras parent directory. Falls back to extras_source (legacy) or the sibling 'extras' directory next to the skills source.",
+          "examples": ["~/work/extras"]
+        }
+      }
     },
     "mode": {
       "type": "string",

@@ -68,6 +68,85 @@ func TestEffectiveAgentsSource_Explicit(t *testing.T) {
 	}
 }
 
+func TestEffectiveAgentsSource_SourcesPrefersOverLegacy(t *testing.T) {
+	cfg := &Config{
+		AgentsSource: "/legacy/agents",
+		Sources:      GlobalSources{Agents: "/new/agents"},
+	}
+
+	got := cfg.EffectiveAgentsSource()
+	if got != "/new/agents" {
+		t.Errorf("EffectiveAgentsSource() = %q, want %q", got, "/new/agents")
+	}
+}
+
+func TestEffectiveSkillsSource_Default(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "")
+	cfg := &Config{}
+
+	got := cfg.EffectiveSkillsSource()
+	want := filepath.Join(BaseDir(), "skills")
+	if got != want {
+		t.Errorf("EffectiveSkillsSource() = %q, want %q", got, want)
+	}
+}
+
+func TestEffectiveSkillsSource_LegacySource(t *testing.T) {
+	cfg := &Config{Source: "/legacy/skills"}
+
+	got := cfg.EffectiveSkillsSource()
+	if got != "/legacy/skills" {
+		t.Errorf("EffectiveSkillsSource() = %q, want %q", got, "/legacy/skills")
+	}
+}
+
+func TestEffectiveSkillsSource_SourcesPrefersOverLegacy(t *testing.T) {
+	cfg := &Config{
+		Source:  "/legacy/skills",
+		Sources: GlobalSources{Skills: "/new/skills"},
+	}
+
+	got := cfg.EffectiveSkillsSource()
+	if got != "/new/skills" {
+		t.Errorf("EffectiveSkillsSource() = %q, want %q", got, "/new/skills")
+	}
+}
+
+func TestEffectiveExtrasSource_DerivedFromSkills(t *testing.T) {
+	cfg := &Config{Source: "/work/skills"}
+
+	got := cfg.EffectiveExtrasSource()
+	want := filepath.Join("/work", "extras")
+	if got != want {
+		t.Errorf("EffectiveExtrasSource() = %q, want %q", got, want)
+	}
+}
+
+func TestEffectiveExtrasSource_LegacyExtrasSource(t *testing.T) {
+	cfg := &Config{
+		Source:       "/work/skills",
+		ExtrasSource: "/custom/extras",
+	}
+
+	got := cfg.EffectiveExtrasSource()
+	if got != "/custom/extras" {
+		t.Errorf("EffectiveExtrasSource() = %q, want %q", got, "/custom/extras")
+	}
+}
+
+func TestEffectiveExtrasSource_SourcesPrefersOverLegacy(t *testing.T) {
+	cfg := &Config{
+		Source:       "/work/skills",
+		ExtrasSource: "/legacy/extras",
+		Sources:      GlobalSources{Extras: "/new/extras"},
+	}
+
+	got := cfg.EffectiveExtrasSource()
+	if got != "/new/extras" {
+		t.Errorf("EffectiveExtrasSource() = %q, want %q", got, "/new/extras")
+	}
+}
+
 func TestConfigPath_SKILLSHARECONFIGTakesPriority(t *testing.T) {
 	t.Setenv("SKILLSHARE_CONFIG", "/override/config.yaml")
 	t.Setenv("XDG_CONFIG_HOME", "/custom/config")

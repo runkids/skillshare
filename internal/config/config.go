@@ -247,11 +247,25 @@ type ExtraConfig struct {
 	Targets []ExtraTargetConfig `yaml:"targets"`
 }
 
+// GlobalSources overrides default source directories for global resources.
+// New in v0.19.16 — mirrors ProjectSources for project mode.
+// When a field is set, it takes precedence over the corresponding legacy
+// top-level field (Source / AgentsSource / ExtrasSource). When all three are
+// empty, EffectiveSkillsSource / EffectiveAgentsSource / EffectiveExtrasSource
+// fall back to <BaseDir>/<type>/ defaults (or, for extras, the derivation
+// described in ExtrasParentDir).
+type GlobalSources struct {
+	Skills string `yaml:"skills,omitempty"`
+	Agents string `yaml:"agents,omitempty"`
+	Extras string `yaml:"extras,omitempty"`
+}
+
 // Config holds the application configuration
 type Config struct {
 	Source        string                  `yaml:"source"`
 	AgentsSource  string                  `yaml:"agents_source,omitempty"`
 	ExtrasSource  string                  `yaml:"extras_source,omitempty"`
+	Sources       GlobalSources           `yaml:"sources,omitempty"`
 	Mode          string                  `yaml:"mode,omitempty"` // default mode: merge
 	TargetNaming  string                  `yaml:"target_naming,omitempty"`
 	Targets       map[string]TargetConfig `yaml:"targets"`
@@ -276,13 +290,43 @@ type Config struct {
 	RegistryDir string `yaml:"-"`
 }
 
-// EffectiveAgentsSource returns the agents source directory.
-// Defaults to <BaseDir>/agents if not explicitly configured.
+// EffectiveSkillsSource returns the resolved skills source directory.
+// Priority: c.Sources.Skills (v0.19.16+) → c.Source (legacy) → <BaseDir>/skills.
+func (c *Config) EffectiveSkillsSource() string {
+	if c.Sources.Skills != "" {
+		return ExpandPath(c.Sources.Skills)
+	}
+	if c.Source != "" {
+		return ExpandPath(c.Source)
+	}
+	return filepath.Join(BaseDir(), "skills")
+}
+
+// EffectiveAgentsSource returns the resolved agents source directory.
+// Priority: c.Sources.Agents (v0.19.16+) → c.AgentsSource (legacy) → <BaseDir>/agents.
 func (c *Config) EffectiveAgentsSource() string {
+	if c.Sources.Agents != "" {
+		return ExpandPath(c.Sources.Agents)
+	}
 	if c.AgentsSource != "" {
 		return ExpandPath(c.AgentsSource)
 	}
 	return filepath.Join(BaseDir(), "agents")
+}
+
+// EffectiveExtrasSource returns the resolved extras parent directory.
+// Priority: c.Sources.Extras (v0.19.16+) → c.ExtrasSource (legacy) →
+// ExtrasParentDir(c.EffectiveSkillsSource()) (sibling of skills source).
+// The fallback preserves existing global-mode behavior where extras live in
+// the parent of the skills source directory.
+func (c *Config) EffectiveExtrasSource() string {
+	if c.Sources.Extras != "" {
+		return ExpandPath(c.Sources.Extras)
+	}
+	if c.ExtrasSource != "" {
+		return ExpandPath(c.ExtrasSource)
+	}
+	return ExtrasParentDir(c.EffectiveSkillsSource())
 }
 
 // HasAgentTarget reports whether any configured target has an agents path,
@@ -467,7 +511,11 @@ func Load() (*Config, error) {
 
 	// Expand ~ in paths
 	cfg.Source = expandPath(cfg.Source)
+	cfg.AgentsSource = expandPath(cfg.AgentsSource)
 	cfg.ExtrasSource = expandPath(cfg.ExtrasSource)
+	cfg.Sources.Skills = expandPath(cfg.Sources.Skills)
+	cfg.Sources.Agents = expandPath(cfg.Sources.Agents)
+	cfg.Sources.Extras = expandPath(cfg.Sources.Extras)
 	defaults := DefaultTargets()
 	for name, target := range cfg.Targets {
 		target.defaultTargetNaming = cfg.TargetNaming
@@ -495,8 +543,10 @@ func Load() (*Config, error) {
 	}
 
 	// Cache SourceRoot so callers don't re-walk .git/ on every LoadRegistry call.
-	if cfg.Source != "" {
-		cfg.RegistryDir = SourceRoot(cfg.Source)
+	// Use EffectiveSkillsSource so configs using the new sources.skills field
+	// (without a legacy source: top-level) still resolve a registry root.
+	if skillsDir := cfg.EffectiveSkillsSource(); skillsDir != "" {
+		cfg.RegistryDir = SourceRoot(skillsDir)
 		MigrateRegistryToSource(filepath.Dir(path), cfg.RegistryDir)
 	}
 
@@ -556,6 +606,9 @@ func (c *Config) cloneForSave() *Config {
 	out.Source = fold(out.Source)
 	out.AgentsSource = fold(out.AgentsSource)
 	out.ExtrasSource = fold(out.ExtrasSource)
+	out.Sources.Skills = fold(out.Sources.Skills)
+	out.Sources.Agents = fold(out.Sources.Agents)
+	out.Sources.Extras = fold(out.Sources.Extras)
 
 	if len(c.Targets) > 0 {
 		out.Targets = make(map[string]TargetConfig, len(c.Targets))
