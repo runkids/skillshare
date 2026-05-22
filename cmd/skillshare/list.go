@@ -672,7 +672,7 @@ func cmdList(args []string) error {
 			}
 			return fmt.Errorf("cannot discover skills: %w", discErr)
 		}
-		trackedRepos = extractTrackedRepos(discoveredSkills)
+		trackedRepos = extractTrackedRepos(cfg.EffectiveSkillsSource())
 		if sp != nil {
 			sp.Update(fmt.Sprintf("Reading metadata for %d skills...", len(discoveredSkills)))
 		}

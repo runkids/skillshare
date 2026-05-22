@@ -462,7 +462,7 @@ func cmdInstall(args []string) error {
 		if summary.Source == "" {
 			summary.Source = parsed.sourceArg
 		}
-		if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
+		if err == nil && !parsed.opts.DryRun {
 			store, storeErr := install.LoadMetadataWithMigration(cfg.EffectiveSkillsSource(), "")
 			if storeErr != nil {
 				ui.Warning("Failed to load metadata: %v", storeErr)
@@ -484,7 +484,7 @@ func cmdInstall(args []string) error {
 	if summary.Source == "" {
 		summary.Source = parsed.sourceArg
 	}
-	if err == nil && !parsed.opts.DryRun && len(summary.InstalledSkills) > 0 {
+	if err == nil && !parsed.opts.DryRun {
 		store, storeErr := install.LoadMetadataWithMigration(cfg.EffectiveSkillsSource(), "")
 		if storeErr != nil {
 			ui.Warning("Failed to load metadata: %v", storeErr)

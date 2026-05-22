@@ -32,7 +32,7 @@ func cmdStatusProject(root string) error {
 	if discoverErr != nil {
 		discovered = nil
 	}
-	trackedRepos := extractTrackedRepos(discovered)
+	trackedRepos := extractTrackedRepos(runtime.sourcePath)
 	sp.Stop()
 
 	printProjectSourceStatus(runtime.sourcePath, runtime.agentsSourcePath, len(discovered), stats)
@@ -71,7 +71,7 @@ func cmdStatusProjectJSON(root string) error {
 	}
 
 	discovered, stats, _ := sync.DiscoverSourceSkillsWithStats(runtime.sourcePath)
-	trackedRepos := extractTrackedRepos(discovered)
+	trackedRepos := extractTrackedRepos(runtime.sourcePath)
 
 	output.Source = statusJSONSource{
 		Path:        runtime.sourcePath,

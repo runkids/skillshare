@@ -107,7 +107,7 @@ func cmdListProject(root string, opts listOptions, kind resourceKindFilter) erro
 			}
 			return fmt.Errorf("cannot discover project skills: %w", discErr)
 		}
-		trackedRepos = extractTrackedRepos(discoveredSkills)
+		trackedRepos = extractTrackedRepos(skillsSource)
 		if sp != nil {
 			sp.Update(fmt.Sprintf("Reading metadata for %d skills...", len(discoveredSkills)))
 		}

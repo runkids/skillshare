@@ -11,6 +11,7 @@ import (
 	"skillshare/internal/audit"
 	"skillshare/internal/config"
 	"skillshare/internal/git"
+	"skillshare/internal/install"
 	"skillshare/internal/resource"
 	"skillshare/internal/skillignore"
 	"skillshare/internal/sync"
@@ -118,7 +119,7 @@ func cmdStatus(args []string) error {
 		if discoverErr != nil {
 			discovered = nil
 		}
-		trackedRepos := extractTrackedRepos(discovered)
+		trackedRepos := extractTrackedRepos(cfg.EffectiveSkillsSource())
 		sp.Stop()
 
 		printSourceStatus(cfg, len(discovered), stats)
@@ -146,7 +147,7 @@ func cmdStatus(args []string) error {
 	}
 
 	discovered, stats, _ := sync.DiscoverSourceSkillsWithStats(cfg.EffectiveSkillsSource())
-	trackedRepos := extractTrackedRepos(discovered)
+	trackedRepos := extractTrackedRepos(cfg.EffectiveSkillsSource())
 
 	output.Source = statusJSONSource{
 		Path:        cfg.EffectiveSkillsSource(),
@@ -301,25 +302,14 @@ func printTrackedReposStatus(cfg *config.Config, discovered []sync.DiscoveredSki
 	}
 }
 
-// extractTrackedRepos derives tracked repo names from discovered skills.
-// Note: repos with zero skills will not appear (acceptable trade-off).
-func extractTrackedRepos(discovered []sync.DiscoveredSkill) []string {
-	seen := make(map[string]bool)
-	var repos []string
-	for _, d := range discovered {
-		if !d.IsInRepo {
-			continue
-		}
-		// First path segment is the repo name (e.g. "_team" from "_team/frontend/ui")
-		idx := strings.Index(d.RelPath, "/")
-		if idx <= 0 {
-			continue
-		}
-		repo := d.RelPath[:idx]
-		if !seen[repo] {
-			seen[repo] = true
-			repos = append(repos, repo)
-		}
+// extractTrackedRepos walks sourcePath for `_`-prefixed directories that are
+// git repositories. Using a directory walk (instead of deriving from discovered
+// skills) ensures repos with zero discoverable skills — e.g. those whose only
+// SKILL.md sits at the repo root — still appear in status output.
+func extractTrackedRepos(sourcePath string) []string {
+	repos, err := install.GetTrackedRepos(sourcePath)
+	if err != nil {
+		return nil
 	}
 	sort.Strings(repos)
 	return repos
