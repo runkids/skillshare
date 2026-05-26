@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react';
-import { Download, Package, ChevronDown, ChevronUp, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { useState, useCallback, type ReactNode } from 'react';
+import { Bot, Download, Package, ChevronDown, ChevronUp, ChevronRight, ShieldAlert, ShieldCheck, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import Card from './Card';
 import Button from './Button';
@@ -7,6 +7,7 @@ import Badge from './Badge';
 import { Input, Checkbox } from './Input';
 import SkillPickerModal from './SkillPickerModal';
 import ConfirmDialog from './ConfirmDialog';
+import DialogShell from './DialogShell';
 import { useToast } from './Toast';
 import { api, type InstallResult, type DiscoveredSkill, type DiscoveredAgent } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
@@ -90,6 +91,52 @@ interface PendingInstall {
   name?: string;
   into?: string;
   skills?: DiscoveredSkill[];
+  kind?: 'skill' | 'agent';
+  branch?: string;
+  force?: boolean;
+  skipAudit?: boolean;
+}
+
+/** Detect the backend's mixed-tracked-repo ambiguity error */
+function isTrackKindAmbiguous(msg: string): boolean {
+  return msg.includes('tracked install is ambiguous');
+}
+
+function KindOption({
+  icon,
+  label,
+  countText,
+  onClick,
+  autoFocus,
+}: {
+  icon: ReactNode;
+  label: string;
+  countText: string;
+  onClick: () => void;
+  autoFocus?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      autoFocus={autoFocus}
+      className="group w-full flex items-center gap-4 p-4 border-2 border-muted bg-paper hover:border-pencil hover:bg-surface focus-visible:border-pencil focus-visible:outline-none transition-colors text-left cursor-pointer"
+      style={{ borderRadius: radius.md }}
+    >
+      <div
+        className="shrink-0 w-11 h-11 flex items-center justify-center bg-surface border border-muted"
+        style={{ borderRadius: radius.md }}
+        aria-hidden
+      >
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-base font-semibold text-pencil">{label}</div>
+        <div className="text-xs text-muted-dark mt-0.5 tabular-nums">{countText}</div>
+      </div>
+      <ChevronRight size={18} className="text-muted-dark group-hover:text-pencil transition-colors shrink-0" />
+    </button>
+  );
 }
 
 export default function InstallForm({
@@ -115,8 +162,10 @@ export default function InstallForm({
   const [discoveredSkills, setDiscoveredSkills] = useState<DiscoveredSkill[]>([]);
   const [discoveredAgents, setDiscoveredAgents] = useState<DiscoveredAgent[]>([]);
   const [showPicker, setShowPicker] = useState(false);
-  const [showKindSelector, setShowKindSelector] = useState(false);
+  const [kindSelectorMode, setKindSelectorMode] = useState<null | 'install' | 'track'>(null);
+  const [trackKindCounts, setTrackKindCounts] = useState<{ skills: number; agents: number }>({ skills: 0, agents: 0 });
   const [pendingSource, setPendingSource] = useState('');
+  const [pendingTrackParams, setPendingTrackParams] = useState<PendingInstall | null>(null);
   const [batchInstalling, setBatchInstalling] = useState(false);
 
   // Audit dialog state
@@ -194,6 +243,7 @@ export default function InstallForm({
           force: true,
           skipAudit,
           branch: branch.trim() || undefined,
+          kind: pending.kind,
         });
         handleResult(res, res.skillName ?? res.repoName);
       } else if (pending.type === 'batch') {
@@ -245,20 +295,44 @@ export default function InstallForm({
 
     // Track mode → direct install (no discovery needed)
     if (track) {
+      // Snapshot params at click time so a later kind selection uses these,
+      // not whatever the user edits behind the dialog.
+      const snapshot: PendingInstall = {
+        type: 'track',
+        source: trimmed,
+        name: name.trim() || undefined,
+        into: into.trim() || undefined,
+      };
+      const branchSnapshot = branch.trim() || undefined;
       setInstalling(true);
       try {
         const res = await api.install({
-          source: trimmed,
-          name: name.trim() || undefined,
-          into: into.trim() || undefined,
+          source: snapshot.source,
+          name: snapshot.name,
+          into: snapshot.into,
           track: true,
           force,
           skipAudit,
-          branch: branch.trim() || undefined,
+          branch: branchSnapshot,
         });
         handleResult(res, res.skillName ?? res.repoName);
       } catch (e: unknown) {
-        handleError(e, { type: 'track', source: trimmed, name: name.trim() || undefined, into: into.trim() || undefined });
+        const msg = (e as Error).message;
+        if (isTrackKindAmbiguous(msg)) {
+          try {
+            const disc = await api.discover(snapshot.source, branchSnapshot);
+            setTrackKindCounts({ skills: disc.skills.length, agents: disc.agents?.length ?? 0 });
+            setPendingSource(snapshot.source);
+            setPendingTrackParams({ ...snapshot, branch: branchSnapshot, force, skipAudit });
+            setKindSelectorMode('track');
+          } catch {
+            // Discover failed after the ambiguous error — surface the
+            // original message so the user knows --kind is the issue.
+            handleError(e, snapshot);
+          }
+        } else {
+          handleError(e, snapshot);
+        }
       } finally {
         setInstalling(false);
       }
@@ -277,7 +351,7 @@ export default function InstallForm({
         setDiscoveredSkills(disc.skills);
         setDiscoveredAgents(disc.agents);
         setPendingSource(trimmed);
-        setShowKindSelector(true);
+        setKindSelectorMode('install');
         setInstalling(false);
         return;
       }
@@ -361,6 +435,30 @@ export default function InstallForm({
       }
     } catch (e: unknown) {
       handleError(e, { type: 'single', source: trimmed, name: name.trim() || undefined, into: into.trim() || undefined });
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  const handleTrackKindSelect = async (kind: 'skill' | 'agent') => {
+    const snap = pendingTrackParams;
+    if (!snap) return;
+    setKindSelectorMode(null);
+    setInstalling(true);
+    try {
+      const res = await api.install({
+        source: snap.source,
+        name: snap.name,
+        into: snap.into,
+        track: true,
+        force: snap.force,
+        skipAudit: snap.skipAudit,
+        branch: snap.branch,
+        kind,
+      });
+      handleResult(res, res.skillName ?? res.repoName);
+    } catch (e: unknown) {
+      handleError(e, { ...snap, kind });
     } finally {
       setInstalling(false);
     }
@@ -552,53 +650,70 @@ export default function InstallForm({
     />
   );
 
+  const skillsCount = kindSelectorMode === 'track' ? trackKindCounts.skills : discoveredSkills.length;
+  const agentsCount = kindSelectorMode === 'track' ? trackKindCounts.agents : discoveredAgents.length;
+  const onPickSkill = () => {
+    if (kindSelectorMode === 'track') {
+      void handleTrackKindSelect('skill');
+      return;
+    }
+    setKindSelectorMode(null);
+    setDiscoveredSkills(discoveredSkills.map((s) => ({ ...s, kind: 'skill' as const })));
+    setShowPicker(true);
+  };
+  const onPickAgent = () => {
+    if (kindSelectorMode === 'track') {
+      void handleTrackKindSelect('agent');
+      return;
+    }
+    setKindSelectorMode(null);
+    const agentAsSkills: DiscoveredSkill[] = discoveredAgents.map((a) => ({
+      name: a.name,
+      path: a.path,
+      kind: 'agent' as const,
+    }));
+    setDiscoveredSkills(agentAsSkills);
+    setShowPicker(true);
+  };
+
   const kindSelectorDialog = (
-    <ConfirmDialog
-      open={showKindSelector}
-      title={t('installForm.kindSelector.title')}
-      message={
-        <div className="text-left space-y-3">
-          <p className="text-pencil-light text-sm">
-            {t('installForm.kindSelector.message')}
-          </p>
-          <div className="flex gap-3 justify-center">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => {
-                setShowKindSelector(false);
-                setDiscoveredSkills(discoveredSkills.map((s) => ({ ...s, kind: 'skill' as const })));
-                setShowPicker(true);
-              }}
-            >
-              <Package size={16} strokeWidth={2.5} />
-              {t('installForm.kindSelector.skillsButton', { count: discoveredSkills.length })}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setShowKindSelector(false);
-                const agentAsSkills: DiscoveredSkill[] = discoveredAgents.map((a) => ({
-                  name: a.name,
-                  path: a.path,
-                  kind: 'agent' as const,
-                }));
-                setDiscoveredSkills(agentAsSkills);
-                setShowPicker(true);
-              }}
-            >
-              <Download size={16} strokeWidth={2.5} />
-              {t('installForm.kindSelector.agentsButton', { count: discoveredAgents.length })}
-            </Button>
-          </div>
-        </div>
-      }
-      confirmText=""
-      cancelText={t('installForm.kindSelector.cancelText')}
-      onConfirm={() => setShowKindSelector(false)}
-      onCancel={() => setShowKindSelector(false)}
-    />
+    <DialogShell
+      open={kindSelectorMode !== null}
+      onClose={() => setKindSelectorMode(null)}
+      maxWidth="md"
+      preventClose={installing}
+    >
+      <div className="flex items-start justify-between gap-3 mb-1">
+        <h3 className="text-lg font-bold text-pencil">
+          {t('installForm.kindSelector.title')}
+        </h3>
+        <button
+          onClick={() => setKindSelectorMode(null)}
+          className="shrink-0 -mt-1 -mr-1 w-8 h-8 flex items-center justify-center text-pencil-light hover:text-pencil transition-colors cursor-pointer"
+          aria-label={t('common.close')}
+        >
+          <X size={18} strokeWidth={2.5} />
+        </button>
+      </div>
+      <p className="text-pencil-light text-sm mb-5">
+        {t('installForm.kindSelector.message')}
+      </p>
+      <div className="space-y-2.5">
+        <KindOption
+          icon={<Package size={20} strokeWidth={2} className="text-pencil" />}
+          label={t('installForm.kindSelector.skillsLabel')}
+          countText={t('installForm.kindSelector.itemCount', { count: skillsCount })}
+          onClick={onPickSkill}
+          autoFocus
+        />
+        <KindOption
+          icon={<Bot size={20} strokeWidth={2} className="text-pencil" />}
+          label={t('installForm.kindSelector.agentsLabel')}
+          countText={t('installForm.kindSelector.itemCount', { count: agentsCount })}
+          onClick={onPickAgent}
+        />
+      </div>
+    </DialogShell>
   );
 
   const auditConfirmDialog = (
@@ -752,6 +867,7 @@ export default function InstallForm({
       </button>
       {open && formContent}
       {pickerModal}
+      {kindSelectorDialog}
       {auditConfirmDialog}
       {warningConfirmDialog}
     </div>

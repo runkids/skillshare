@@ -356,7 +356,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ source, branch }),
     }),
-  install: (opts: { source: string; name?: string; force?: boolean; skipAudit?: boolean; track?: boolean; into?: string; branch?: string }) =>
+  install: (opts: { source: string; name?: string; force?: boolean; skipAudit?: boolean; track?: boolean; into?: string; branch?: string; kind?: 'skill' | 'agent' }) =>
     apiFetch<InstallResult>('/install', {
       method: 'POST',
       body: JSON.stringify(opts),
