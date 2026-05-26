@@ -41,7 +41,7 @@
 </p>
 
 > [!NOTE]
-> **最新版本**: [v0.19.12](https://github.com/runkids/skillshare/releases/tag/v0.19.12) — config.yaml 中的 `skills:` 字段现在会保留（修复了团队共享问题）。[查看全部版本 →](https://github.com/runkids/skillshare/releases)
+> **最新版本**: [v0.19.23](https://github.com/runkids/skillshare/releases/tag/v0.19.23) — 子目录安装的技能在更新后不再重复标记为可更新，仪表盘更新检测状态现在会跨会话保留。[查看全部版本 →](https://github.com/runkids/skillshare/releases)
 
 ## 为什么选择 skillshare
 
