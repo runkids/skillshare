@@ -76,7 +76,7 @@ func giteaAPIBase(source *Source) string {
 // giteaDownloadDirRecursive recursively downloads a directory via the Gitea Contents API.
 func giteaDownloadDirRecursive(client *http.Client, apiBase, owner, repo, path, destDir string, onProgress ProgressCallback) error {
 	contentsURL := fmt.Sprintf("%s/repos/%s/%s/contents/%s",
-		strings.TrimRight(apiBase, "/"), owner, repo, url.PathEscape(path))
+		strings.TrimRight(apiBase, "/"), owner, repo, escapeGiteaPath(path))
 
 	req, err := giteaNewRequest(contentsURL)
 	if err != nil {
@@ -283,4 +283,14 @@ func giteaOwnerRepo(cloneURL string) (owner, repo string) {
 		return segments[0], segments[1]
 	}
 	return "", ""
+}
+
+// escapeGiteaPath escapes each path segment individually for the Gitea Contents API.
+// This preserves directory separators while encoding special characters in each segment.
+func escapeGiteaPath(path string) string {
+	parts := strings.Split(path, "/")
+	for i := range parts {
+		parts[i] = url.PathEscape(parts[i])
+	}
+	return strings.Join(parts, "/")
 }
