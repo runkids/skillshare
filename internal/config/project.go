@@ -273,6 +273,7 @@ type ProjectConfig struct {
 	Hub           HubConfig            `yaml:"hub,omitempty"`
 	GitLabHosts   []string             `yaml:"gitlab_hosts,omitempty"`
 	AzureHosts    []string             `yaml:"azure_hosts,omitempty"`
+	CNBHosts      []string             `yaml:"cnb_hosts,omitempty"`
 }
 
 // EffectiveSkillsSource returns the resolved skills source directory.
@@ -339,6 +340,11 @@ func (c *ProjectConfig) EffectiveAzureHosts() []string {
 	return mergeAzureHostsFromEnv(c.AzureHosts)
 }
 
+// EffectiveCNBHosts returns CNBHosts merged with SKILLSHARE_CNB_HOSTS env var.
+func (c *ProjectConfig) EffectiveCNBHosts() []string {
+	return mergeCNBHostsFromEnv(c.CNBHosts)
+}
+
 // ProjectConfigPath returns the project config path for the given root.
 func ProjectConfigPath(projectRoot string) string {
 	return filepath.Join(projectRoot, ".skillshare", "config.yaml")
@@ -380,6 +386,13 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 		return nil, fmt.Errorf("project config: %w", err)
 	}
 	cfg.AzureHosts = azureHosts
+
+	// Validate and normalize cnb_hosts
+	cnbHosts, err := normalizeCNBHosts(cfg.CNBHosts)
+	if err != nil {
+		return nil, fmt.Errorf("project config: %w", err)
+	}
+	cfg.CNBHosts = cnbHosts
 
 	for _, target := range cfg.Targets {
 		if strings.TrimSpace(target.Name) == "" {

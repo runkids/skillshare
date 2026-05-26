@@ -278,6 +278,7 @@ type Config struct {
 	TUI           *bool                   `yaml:"tui,omitempty"` // nil = default true
 	GitLabHosts   []string                `yaml:"gitlab_hosts,omitempty"`
 	AzureHosts    []string                `yaml:"azure_hosts,omitempty"`
+	CNBHosts      []string                `yaml:"cnb_hosts,omitempty"`
 
 	// PreserveTildeOnSave folds $HOME prefixes back to ~ when serializing the
 	// config to YAML. Useful when the config is shared via dotfiles across
@@ -356,6 +357,11 @@ func (c *Config) EffectiveGitLabHosts() []string {
 // EffectiveAzureHosts returns AzureHosts merged with SKILLSHARE_AZURE_HOSTS env var.
 func (c *Config) EffectiveAzureHosts() []string {
 	return mergeAzureHostsFromEnv(c.AzureHosts)
+}
+
+// EffectiveCNBHosts returns CNBHosts merged with SKILLSHARE_CNB_HOSTS env var.
+func (c *Config) EffectiveCNBHosts() []string {
+	return mergeCNBHostsFromEnv(c.CNBHosts)
 }
 
 // IsTUIEnabled reports whether interactive TUI is enabled.
@@ -498,6 +504,13 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	cfg.AzureHosts = azureHosts
+
+	// Validate and normalize cnb_hosts
+	cnbHosts, err := normalizeCNBHosts(cfg.CNBHosts)
+	if err != nil {
+		return nil, err
+	}
+	cfg.CNBHosts = cnbHosts
 
 	// Migrate legacy flat target fields to skills: sub-key (one-time, persisted immediately)
 	if migrateTargetConfigs(cfg.Targets) {
@@ -758,6 +771,10 @@ func normalizeAzureHosts(hosts []string) ([]string, error) {
 	return normalizeHostList(hosts, "azure_hosts")
 }
 
+func normalizeCNBHosts(hosts []string) ([]string, error) {
+	return normalizeHostList(hosts, "cnb_hosts")
+}
+
 // mergeHostsFromEnv merges comma-separated env var entries with config file hosts.
 // Invalid entries in the env var are silently skipped.
 func mergeHostsFromEnv(configHosts []string, envKey string) []string {
@@ -789,6 +806,10 @@ func mergeGitLabHostsFromEnv(configHosts []string) []string {
 
 func mergeAzureHostsFromEnv(configHosts []string) []string {
 	return mergeHostsFromEnv(configHosts, "SKILLSHARE_AZURE_HOSTS")
+}
+
+func mergeCNBHostsFromEnv(configHosts []string) []string {
+	return mergeHostsFromEnv(configHosts, "SKILLSHARE_CNB_HOSTS")
 }
 
 func normalizeAuditBlockThreshold(v string) (string, error) {

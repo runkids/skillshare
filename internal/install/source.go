@@ -81,6 +81,7 @@ var azureOnPremPattern = regexp.MustCompile(
 type ParseOptions struct {
 	GitLabHosts []string // extra hostnames to treat as GitLab (nested subgroup support)
 	AzureHosts  []string // extra hostnames to treat as Azure DevOps on-premises
+	CNBHosts    []string // extra hostnames to treat as CNB instances
 }
 
 // ParseSource analyzes the input string and returns a Source struct.
@@ -460,6 +461,11 @@ func isAzureHost(host string, extraHosts []string) bool {
 func isGitLabHost(host string, extraHosts []string) bool {
 	return strings.Contains(host, "gitlab") || strings.Contains(host, "jihulab") ||
 		hostMatchesAny(host, extraHosts)
+}
+
+// isCNBHost returns true if the host should be treated as a CNB instance.
+func isCNBHost(host string, extraHosts []string) bool {
+	return strings.Contains(host, "cnb.cool") || hostMatchesAny(host, extraHosts)
 }
 
 // stripGitBranchPrefix removes platform-specific branch path segments from web URLs.
