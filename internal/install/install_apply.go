@@ -492,6 +492,21 @@ func installFromGitSubdir(source *Source, destPath string, result *InstallResult
 		}
 	}
 
+	// Fast path 2b: Gitea Contents API
+	if subdirPath == "" && isGiteaAPISource(source) {
+		owner, repo := giteaOwnerRepo(source.CloneURL)
+		resolved = source.Subdir
+		subdirPath = filepath.Join(tempRepoPath, resolved)
+		hash, dlErr := downloadGiteaDir(owner, repo, source.Subdir, subdirPath, source, opts.OnProgress)
+		if dlErr == nil {
+			commitHash = hash
+		} else {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("Gitea API install fallback: %v", dlErr))
+			subdirPath = ""
+			_ = os.RemoveAll(tempRepoPath)
+		}
+	}
+
 	// Fallback: full clone + fuzzy subdir resolution
 	if subdirPath == "" {
 		_ = os.RemoveAll(tempRepoPath)

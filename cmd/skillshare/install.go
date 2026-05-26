@@ -253,6 +253,7 @@ func parseOptsFromConfig(cfg *config.Config) install.ParseOptions {
 		GitLabHosts: cfg.EffectiveGitLabHosts(),
 		AzureHosts:  cfg.EffectiveAzureHosts(),
 		CNBHosts:    cfg.EffectiveCNBHosts(),
+		GiteaHosts:  cfg.EffectiveGiteaHosts(),
 	}
 }
 
@@ -262,6 +263,7 @@ func parseOptsFromProjectConfig(cfg *config.ProjectConfig) install.ParseOptions 
 		GitLabHosts: cfg.EffectiveGitLabHosts(),
 		AzureHosts:  cfg.EffectiveAzureHosts(),
 		CNBHosts:    cfg.EffectiveCNBHosts(),
+		GiteaHosts:  cfg.EffectiveGiteaHosts(),
 	}
 }
 

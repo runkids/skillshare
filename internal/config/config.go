@@ -279,6 +279,7 @@ type Config struct {
 	GitLabHosts   []string                `yaml:"gitlab_hosts,omitempty"`
 	AzureHosts    []string                `yaml:"azure_hosts,omitempty"`
 	CNBHosts      []string                `yaml:"cnb_hosts,omitempty"`
+	GiteaHosts    []string                `yaml:"gitea_hosts,omitempty"`
 
 	// PreserveTildeOnSave folds $HOME prefixes back to ~ when serializing the
 	// config to YAML. Useful when the config is shared via dotfiles across
@@ -362,6 +363,11 @@ func (c *Config) EffectiveAzureHosts() []string {
 // EffectiveCNBHosts returns CNBHosts merged with SKILLSHARE_CNB_HOSTS env var.
 func (c *Config) EffectiveCNBHosts() []string {
 	return mergeCNBHostsFromEnv(c.CNBHosts)
+}
+
+// EffectiveGiteaHosts returns GiteaHosts merged with SKILLSHARE_GITEA_HOSTS env var.
+func (c *Config) EffectiveGiteaHosts() []string {
+	return mergeGiteaHostsFromEnv(c.GiteaHosts)
 }
 
 // IsTUIEnabled reports whether interactive TUI is enabled.
@@ -511,6 +517,13 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	cfg.CNBHosts = cnbHosts
+
+	// Validate and normalize gitea_hosts
+	giteaHosts, err := normalizeGiteaHosts(cfg.GiteaHosts)
+	if err != nil {
+		return nil, err
+	}
+	cfg.GiteaHosts = giteaHosts
 
 	// Migrate legacy flat target fields to skills: sub-key (one-time, persisted immediately)
 	if migrateTargetConfigs(cfg.Targets) {
@@ -775,6 +788,10 @@ func normalizeCNBHosts(hosts []string) ([]string, error) {
 	return normalizeHostList(hosts, "cnb_hosts")
 }
 
+func normalizeGiteaHosts(hosts []string) ([]string, error) {
+	return normalizeHostList(hosts, "gitea_hosts")
+}
+
 // mergeHostsFromEnv merges comma-separated env var entries with config file hosts.
 // Invalid entries in the env var are silently skipped.
 func mergeHostsFromEnv(configHosts []string, envKey string) []string {
@@ -810,6 +827,10 @@ func mergeAzureHostsFromEnv(configHosts []string) []string {
 
 func mergeCNBHostsFromEnv(configHosts []string) []string {
 	return mergeHostsFromEnv(configHosts, "SKILLSHARE_CNB_HOSTS")
+}
+
+func mergeGiteaHostsFromEnv(configHosts []string) []string {
+	return mergeHostsFromEnv(configHosts, "SKILLSHARE_GITEA_HOSTS")
 }
 
 func normalizeAuditBlockThreshold(v string) (string, error) {

@@ -274,6 +274,7 @@ type ProjectConfig struct {
 	GitLabHosts   []string             `yaml:"gitlab_hosts,omitempty"`
 	AzureHosts    []string             `yaml:"azure_hosts,omitempty"`
 	CNBHosts      []string             `yaml:"cnb_hosts,omitempty"`
+	GiteaHosts    []string             `yaml:"gitea_hosts,omitempty"`
 }
 
 // EffectiveSkillsSource returns the resolved skills source directory.
@@ -345,6 +346,11 @@ func (c *ProjectConfig) EffectiveCNBHosts() []string {
 	return mergeCNBHostsFromEnv(c.CNBHosts)
 }
 
+// EffectiveGiteaHosts returns GiteaHosts merged with SKILLSHARE_GITEA_HOSTS env var.
+func (c *ProjectConfig) EffectiveGiteaHosts() []string {
+	return mergeGiteaHostsFromEnv(c.GiteaHosts)
+}
+
 // ProjectConfigPath returns the project config path for the given root.
 func ProjectConfigPath(projectRoot string) string {
 	return filepath.Join(projectRoot, ".skillshare", "config.yaml")
@@ -393,6 +399,13 @@ func LoadProject(projectRoot string) (*ProjectConfig, error) {
 		return nil, fmt.Errorf("project config: %w", err)
 	}
 	cfg.CNBHosts = cnbHosts
+
+	// Validate and normalize gitea_hosts
+	giteaHosts, err := normalizeGiteaHosts(cfg.GiteaHosts)
+	if err != nil {
+		return nil, fmt.Errorf("project config: %w", err)
+	}
+	cfg.GiteaHosts = giteaHosts
 
 	for _, target := range cfg.Targets {
 		if strings.TrimSpace(target.Name) == "" {
