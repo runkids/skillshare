@@ -265,6 +265,61 @@ extras:
 
 ---
 
+## Extension transforms
+
+Some tools do not read markdown. Gemini CLI expects TOML commands; Codex CLI expects TOML agents. The `extension` field on a target runs an external script that converts each source file into the target's native format during sync.
+
+```yaml
+extras:
+  - name: commands
+    targets:
+      - path: .claude/commands        # no extension — synced as-is
+      - path: .gemini/commands
+        extension: md2gemini           # transform during sync
+```
+
+**Resolution** — a bare name resolves under the extensions directory (`~/.config/skillshare/extensions/<name>` global, `.skillshare/extensions/<name>` project); a path (`./x.sh`, `/abs/x`) is used directly.
+
+**Copy semantics** — `extension` implies `copy` mode. Setting `mode: merge` or `mode: symlink` on a target with an `extension` is an error.
+
+**One-way** — transforms run source → target only. `extras collect` skips extension targets.
+
+### Extension layout
+
+A single executable, or a directory with a manifest:
+
+```
+.skillshare/extensions/md2gemini/
+├── extension.yaml
+└── convert.py
+```
+
+`extension.yaml`:
+
+```yaml
+run: ["python3", "convert.py"]   # explicit command (argv), execed directly
+output_ext: toml                  # .md → .toml; omit to keep the source extension
+description: "Markdown command → Gemini CLI TOML"
+```
+
+A bare single-file executable (no manifest) is execed directly (relies on the shebang on Unix) and keeps the source extension. Transforms that rename the extension must use the directory form.
+
+### Execution contract
+
+- Source file content is passed on **stdin**; the script writes the converted content to **stdout**.
+- Environment variables: `SS_SRC_PATH`, `SS_REL_PATH` (path relative to the source root — useful for Gemini's `/namespace:command` naming), `SS_TARGET_DIR`, `SS_MODE`.
+- A non-zero exit code marks that file as failed; other files continue.
+
+### Cross-platform
+
+The mechanism is cross-platform; whether an extension runs depends on its interpreter. Because `run` is an explicit command, an extension written for `python3` or `node` works on Windows, macOS, and Linux. Pure `bash` scripts only run where a shell is available (Unix, or Windows with Git Bash). Prefer Python/Node for portable extensions.
+
+### Reference extensions
+
+The skillshare repo ships example extensions under `extensions/` (`md2gemini`, `md2codex`). Copy one into your extensions directory and adapt it — they are references, not installed automatically.
+
+---
+
 ## Directory Structure
 
 ```
