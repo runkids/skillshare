@@ -1,0 +1,3 @@
+run: ["python3", "convert.py"]
+output_ext: toml
+description: "Markdown slash-command (Claude/Cursor style) → Gemini CLI TOML command"

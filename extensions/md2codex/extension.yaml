@@ -1,0 +1,3 @@
+run: ["python3", "convert.py"]
+output_ext: toml
+description: "Markdown subagent (Claude style) → Codex CLI TOML agent"
