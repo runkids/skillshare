@@ -159,7 +159,35 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 				continue
 			}
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, "", nil)
+			var spec *sync.ExtensionSpec
+			if target.Extension != "" {
+				effMode, modeErr := validateExtensionMode(target.Mode)
+				if modeErr != nil {
+					if !jsonOutput {
+						ui.Warning("%s: %v", shortenPath(targetPath), modeErr)
+					}
+					jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
+						Path: target.Path, Mode: mode, Error: modeErr.Error(),
+					})
+					totalErrors++
+					continue
+				}
+				mode = effMode
+				var specErr error
+				spec, specErr = resolveExtension(target.Extension, globalExtensionsDir())
+				if specErr != nil {
+					if !jsonOutput {
+						ui.Warning("%s: %v", shortenPath(targetPath), specErr)
+					}
+					jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
+						Path: target.Path, Mode: mode, Error: specErr.Error(),
+					})
+					totalErrors++
+					continue
+				}
+			}
+
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, "", spec)
 			shortTarget := shortenPath(targetPath)
 
 			jsonTarget := syncExtrasJSONTarget{
@@ -332,7 +360,35 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 				continue
 			}
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, cwd, nil)
+			var spec *sync.ExtensionSpec
+			if target.Extension != "" {
+				effMode, modeErr := validateExtensionMode(target.Mode)
+				if modeErr != nil {
+					if !jsonOutput {
+						ui.Warning("%s: %v", shortenPath(targetPath), modeErr)
+					}
+					jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
+						Path: target.Path, Mode: mode, Error: modeErr.Error(),
+					})
+					totalErrors++
+					continue
+				}
+				mode = effMode
+				var specErr error
+				spec, specErr = resolveExtension(target.Extension, projectExtensionsDir(cwd))
+				if specErr != nil {
+					if !jsonOutput {
+						ui.Warning("%s: %v", shortenPath(targetPath), specErr)
+					}
+					jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
+						Path: target.Path, Mode: mode, Error: specErr.Error(),
+					})
+					totalErrors++
+					continue
+				}
+			}
+
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, cwd, spec)
 			shortTarget := shortenPath(targetPath)
 
 			jsonTarget := syncExtrasJSONTarget{
