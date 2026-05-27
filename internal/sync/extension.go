@@ -1,8 +1,10 @@
 package sync
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -70,4 +72,39 @@ func applyOutputExt(rel, outputExt string) string {
 		return rel
 	}
 	return strings.TrimSuffix(rel, filepath.Ext(rel)) + "." + outputExt
+}
+
+// runExtensionFile pipes srcFile's content through the extension subprocess and
+// writes the stdout to tgtFile. A non-zero exit code is returned as an error.
+func runExtensionFile(spec *ExtensionSpec, srcFile, tgtFile string, env map[string]string) error {
+	src, err := os.Open(srcFile)
+	if err != nil {
+		return fmt.Errorf("open source: %w", err)
+	}
+	defer src.Close()
+
+	if err := os.MkdirAll(filepath.Dir(tgtFile), 0755); err != nil {
+		return fmt.Errorf("create target dir: %w", err)
+	}
+
+	cmd := exec.Command(spec.Run[0], spec.Run[1:]...)
+	cmd.Dir = spec.Dir
+	cmd.Stdin = src
+	cmd.Env = os.Environ()
+	for k, v := range env {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		if msg := strings.TrimSpace(stderr.String()); msg != "" {
+			return fmt.Errorf("extension %q failed: %s", spec.Name, msg)
+		}
+		return fmt.Errorf("extension %q failed: %w", spec.Name, err)
+	}
+	if err := os.WriteFile(tgtFile, stdout.Bytes(), 0644); err != nil {
+		return fmt.Errorf("write target: %w", err)
+	}
+	return nil
 }

@@ -3,6 +3,7 @@ package sync
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -62,5 +63,41 @@ func TestApplyOutputExt(t *testing.T) {
 	}
 	if got := applyOutputExt("x.md", ""); got != "x.md" {
 		t.Errorf("got %q, want x.md (empty ext keeps original)", got)
+	}
+}
+
+func TestRunExtensionFile_TransformsAndWrites(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "in.md")
+	if err := os.WriteFile(src, []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// Extension uppercases stdin via tr.
+	spec := &ExtensionSpec{Run: []string{"tr", "a-z", "A-Z"}, Dir: dir, Name: "upper"}
+	tgt := filepath.Join(dir, "out", "in.toml")
+
+	err := runExtensionFile(spec, src, tgt, map[string]string{"SS_MODE": "sync"})
+	if err != nil {
+		t.Fatalf("runExtensionFile: %v", err)
+	}
+	out, _ := os.ReadFile(tgt)
+	if string(out) != "HELLO" {
+		t.Errorf("output = %q, want HELLO", string(out))
+	}
+}
+
+func TestRunExtensionFile_NonZeroExitReturnsError(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "in.md")
+	if err := os.WriteFile(src, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	spec := &ExtensionSpec{Run: []string{"sh", "-c", "echo boom >&2; exit 3"}, Dir: dir, Name: "fail"}
+	err := runExtensionFile(spec, src, filepath.Join(dir, "out.toml"), nil)
+	if err == nil {
+		t.Fatal("expected error on non-zero exit")
+	}
+	if !strings.Contains(err.Error(), "boom") {
+		t.Errorf("error should include stderr, got: %v", err)
 	}
 }
