@@ -67,11 +67,16 @@ func DiscoverExtraFiles(sourcePath string) ([]string, error) {
 //   - "copy":            per-file copy
 //   - "symlink":         entire directory symlink
 //
+// When spec is non-nil, the sync is routed through syncExtraTransform
+// (transform/extension mode). When spec is nil, behavior is unchanged.
 // When dryRun is true the function counts what would happen but makes no
 // filesystem changes.
-func SyncExtra(sourcePath, targetPath, mode string, dryRun, force, flatten bool, projectRoot string) (*ExtraResult, error) {
+func SyncExtra(sourcePath, targetPath, mode string, dryRun, force, flatten bool, projectRoot string, spec *ExtensionSpec) (*ExtraResult, error) {
 	if mode == "" {
 		mode = "merge"
+	}
+	if spec != nil {
+		return syncExtraTransform(sourcePath, targetPath, spec, dryRun, flatten)
 	}
 	if flatten && mode == "symlink" {
 		return nil, fmt.Errorf("flatten cannot be used with symlink mode")
@@ -85,6 +90,11 @@ func SyncExtra(sourcePath, targetPath, mode string, dryRun, force, flatten bool,
 	default:
 		return nil, fmt.Errorf("unsupported extras sync mode: %q", mode)
 	}
+}
+
+// syncExtraTransform is implemented in a later task.
+func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryRun, flatten bool) (*ExtraResult, error) {
+	return &ExtraResult{}, nil
 }
 
 // syncExtraSymlinkMode symlinks the entire source directory to the target path.

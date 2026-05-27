@@ -1001,7 +1001,7 @@ func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
 	for _, t := range targets {
 		mode := sync.EffectiveMode(t.Mode)
 		resolved := config.ExpandPath(t.Path)
-		_, err := sync.SyncExtra(sourceDir, resolved, mode, false, false, t.Flatten, m.projectRoot())
+		_, err := sync.SyncExtra(sourceDir, resolved, mode, false, false, t.Flatten, m.projectRoot(), nil)
 		if err != nil {
 			return "", fmt.Errorf("sync %s: %w", t.Path, err)
 		}

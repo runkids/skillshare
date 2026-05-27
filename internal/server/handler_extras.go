@@ -433,7 +433,7 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 				Errors: []string{},
 			}
 
-			res, err := syncpkg.SyncExtra(sourceDir, t.Path, m, body.DryRun, body.Force, t.Flatten, projectRoot)
+			res, err := syncpkg.SyncExtra(sourceDir, t.Path, m, body.DryRun, body.Force, t.Flatten, projectRoot, nil)
 			if err != nil {
 				tr.Error = err.Error()
 			} else {

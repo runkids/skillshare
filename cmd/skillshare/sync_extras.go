@@ -159,7 +159,7 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 				continue
 			}
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, "")
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, "", nil)
 			shortTarget := shortenPath(targetPath)
 
 			jsonTarget := syncExtrasJSONTarget{
@@ -332,7 +332,7 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 				continue
 			}
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, cwd)
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, cwd, nil)
 			shortTarget := shortenPath(targetPath)
 
 			jsonTarget := syncExtrasJSONTarget{
@@ -473,7 +473,7 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 				continue
 			}
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, projectRoot)
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, projectRoot, nil)
 			jt := syncExtrasJSONTarget{Path: targetPath, Mode: mode}
 			if syncErr != nil {
 				jt.Error = syncErr.Error()
