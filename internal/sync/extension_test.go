@@ -101,3 +101,85 @@ func TestRunExtensionFile_NonZeroExitReturnsError(t *testing.T) {
 		t.Errorf("error should include stderr, got: %v", err)
 	}
 }
+
+func TestSyncExtraTransform_GeneratesRenamedFiles(t *testing.T) {
+	dir := t.TempDir()
+	srcDir := filepath.Join(dir, "src")
+	if err := os.MkdirAll(filepath.Join(srcDir, "review"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "review", "pr.md"), []byte("body"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	tgtDir := filepath.Join(dir, "tgt")
+	spec := &ExtensionSpec{Run: []string{"cat"}, Dir: dir, Name: "id", OutputExt: "toml"}
+
+	res, err := SyncExtra(srcDir, tgtDir, "copy", false, false, false, "", spec)
+	if err != nil {
+		t.Fatalf("SyncExtra: %v", err)
+	}
+	if res.Synced != 1 {
+		t.Errorf("Synced = %d, want 1", res.Synced)
+	}
+	out := filepath.Join(tgtDir, "review", "pr.toml")
+	if _, statErr := os.Stat(out); statErr != nil {
+		t.Errorf("expected generated file %s: %v", out, statErr)
+	}
+}
+
+func TestSyncExtraTransform_PrunesGeneratedOrphans(t *testing.T) {
+	dir := t.TempDir()
+	srcDir := filepath.Join(dir, "src")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "a.md"), []byte("a"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	tgtDir := filepath.Join(dir, "tgt")
+	if err := os.MkdirAll(tgtDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tgtDir, "old.toml"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	spec := &ExtensionSpec{Run: []string{"cat"}, Dir: dir, Name: "id", OutputExt: "toml"}
+
+	res, err := SyncExtra(srcDir, tgtDir, "copy", false, false, false, "", spec)
+	if err != nil {
+		t.Fatalf("SyncExtra: %v", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(tgtDir, "a.toml")); statErr != nil {
+		t.Errorf("expected a.toml to exist (not pruned): %v", statErr)
+	}
+	if _, statErr := os.Stat(filepath.Join(tgtDir, "old.toml")); !os.IsNotExist(statErr) {
+		t.Errorf("expected old.toml to be pruned")
+	}
+	if res.Pruned != 1 {
+		t.Errorf("Pruned = %d, want 1", res.Pruned)
+	}
+}
+
+func TestSyncExtraTransform_DryRunNoSpawn(t *testing.T) {
+	dir := t.TempDir()
+	srcDir := filepath.Join(dir, "src")
+	if err := os.MkdirAll(srcDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(srcDir, "a.md"), []byte("a"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	tgtDir := filepath.Join(dir, "tgt")
+	spec := &ExtensionSpec{Run: []string{"false"}, Dir: dir, Name: "x", OutputExt: "toml"}
+
+	res, err := SyncExtra(srcDir, tgtDir, "copy", true, false, false, "", spec)
+	if err != nil {
+		t.Fatalf("SyncExtra dry-run: %v", err)
+	}
+	if res.Synced != 1 {
+		t.Errorf("Synced = %d, want 1 (counted, not run)", res.Synced)
+	}
+	if _, statErr := os.Stat(filepath.Join(tgtDir, "a.toml")); !os.IsNotExist(statErr) {
+		t.Errorf("dry-run must not write files")
+	}
+}
