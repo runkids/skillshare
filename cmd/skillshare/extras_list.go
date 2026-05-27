@@ -56,7 +56,9 @@ func buildExtrasListEntries(extras []config.ExtraConfig, extrasSource string, so
 				Flatten: t.Flatten,
 			}
 
-			if !entry.SourceExists {
+			if t.Extension != "" {
+				ti.Status = "extension"
+			} else if !entry.SourceExists {
 				ti.Status = "no source"
 			} else if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
 				ti.Status = "not synced"
@@ -216,14 +218,21 @@ func cmdExtrasList(args []string) error {
 				icon, color = "✗", ui.Yellow
 			case "no source":
 				icon, color = "-", ui.Cyan
+			case "extension":
+				icon, color = "→", ui.Cyan
 			}
-			modeLabel := t.Mode
-			if t.Flatten {
-				modeLabel += ", flatten"
+			var modeLabel string
+			if t.Status == "extension" {
+				modeLabel = "extension"
+			} else {
+				modeLabel = t.Mode
+				if t.Flatten {
+					modeLabel += ", flatten"
+				}
 			}
 			// Status text after mode, dimmed
 			statusSuffix := ""
-			if t.Status != "synced" {
+			if t.Status != "synced" && t.Status != "extension" {
 				statusSuffix = fmt.Sprintf("  %s%s%s", color, t.Status, ui.Reset)
 			}
 			fmt.Printf("  %s%s%s %s  %s%s%s%s\n", color, icon, ui.Reset, shortenPath(t.Path), ui.Dim, modeLabel, ui.Reset, statusSuffix)
