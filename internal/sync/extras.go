@@ -92,9 +92,67 @@ func SyncExtra(sourcePath, targetPath, mode string, dryRun, force, flatten bool,
 	}
 }
 
-// syncExtraTransform is implemented in a later task.
+// syncExtraTransform applies an extension to every source file and writes the
+// transformed output into targetPath using copy semantics. Output files are
+// renamed per spec.OutputExt. Orphan generated files are pruned.
 func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryRun, flatten bool) (*ExtraResult, error) {
-	return &ExtraResult{}, nil
+	result := &ExtraResult{}
+
+	files, err := DiscoverExtraFiles(sourcePath)
+	if err != nil {
+		return nil, err
+	}
+	absSrc, err := filepath.Abs(sourcePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve source path: %w", err)
+	}
+
+	seen := make(map[string]string) // flatten: basename → original rel
+	sourceSet := make(map[string]bool)
+
+	for _, rel := range files {
+		srcFile := filepath.Join(absSrc, rel)
+		tgtRel := rel
+		if flatten {
+			base := filepath.Base(rel)
+			if prev, ok := seen[base]; ok {
+				result.Skipped++
+				result.Warnings = append(result.Warnings,
+					fmt.Sprintf("flatten conflict: %s skipped (%s already synced from %s)", rel, base, prev))
+				continue
+			}
+			seen[base] = rel
+			tgtRel = base
+		}
+		tgtRel = applyOutputExt(tgtRel, spec.OutputExt)
+		sourceSet[tgtRel] = true
+
+		if dryRun {
+			result.Synced++
+			continue
+		}
+
+		env := map[string]string{
+			"SS_SRC_PATH":   srcFile,
+			"SS_REL_PATH":   rel,
+			"SS_TARGET_DIR": targetPath,
+			"SS_MODE":       "sync",
+		}
+		tgtFile := filepath.Join(targetPath, tgtRel)
+		if runErr := runExtensionFile(spec, srcFile, tgtFile, env); runErr != nil {
+			result.Errors = append(result.Errors, fmt.Sprintf("%s: %v", rel, runErr))
+			continue
+		}
+		result.Synced++
+	}
+
+	if !dryRun {
+		pruned, pruneErrors := pruneExtraOrphans(targetPath, sourceSet, "copy")
+		result.Pruned = pruned
+		result.Errors = append(result.Errors, pruneErrors...)
+	}
+
+	return result, nil
 }
 
 // syncExtraSymlinkMode symlinks the entire source directory to the target path.
