@@ -262,10 +262,15 @@ type GlobalSources struct {
 
 // Config holds the application configuration
 type Config struct {
-	Source        string                  `yaml:"source,omitempty"`
-	AgentsSource  string                  `yaml:"agents_source,omitempty"`
-	ExtrasSource  string                  `yaml:"extras_source,omitempty"`
-	Sources       GlobalSources           `yaml:"sources,omitempty"`
+	Source       string        `yaml:"source,omitempty"`
+	AgentsSource string        `yaml:"agents_source,omitempty"`
+	ExtrasSource string        `yaml:"extras_source,omitempty"`
+	Sources      GlobalSources `yaml:"sources,omitempty"`
+	// GitRoot selects which directory the git integration (commit/push/pull)
+	// operates on. One of: "skills" (default), "agents", "extras", "root".
+	// "root" is BaseDir() and version-controls skills + agents + extras together.
+	// Empty is treated as "skills" for backward compatibility.
+	GitRoot       string                  `yaml:"git_root,omitempty"`
 	Mode          string                  `yaml:"mode,omitempty"` // default mode: merge
 	TargetNaming  string                  `yaml:"target_naming,omitempty"`
 	Targets       map[string]TargetConfig `yaml:"targets"`
@@ -327,6 +332,32 @@ func (c *Config) EffectiveExtrasSource() string {
 		return ExpandPath(c.ExtrasSource)
 	}
 	return ExtrasParentDir(c.EffectiveSkillsSource())
+}
+
+// EffectiveGitRoot returns the directory the git integration (commit/push/pull)
+// operates on, based on the git_root scope keyword. Empty/"skills" preserves the
+// historical behavior of operating on the skills source.
+func (c *Config) EffectiveGitRoot() string {
+	switch c.GitRoot {
+	case "root":
+		return BaseDir()
+	case "agents":
+		return c.EffectiveAgentsSource()
+	case "extras":
+		return c.EffectiveExtrasSource()
+	default: // "skills" or ""
+		return c.EffectiveSkillsSource()
+	}
+}
+
+// ValidGitRoot reports whether s is an accepted git_root scope keyword.
+// Empty is accepted (means "skills").
+func ValidGitRoot(s string) bool {
+	switch s {
+	case "", "skills", "agents", "extras", "root":
+		return true
+	}
+	return false
 }
 
 // HasAgentTarget reports whether any configured target has an agents path,
