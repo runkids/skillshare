@@ -318,6 +318,21 @@ The mechanism is cross-platform; whether an extension runs depends on its interp
 
 The skillshare repo ships example extensions under `extensions/` (`md2gemini`, `md2codex`). Copy one into your extensions directory and adapt it — they are references, not installed automatically.
 
+### Recipe: Codex agents
+
+Codex CLI expects TOML agents rather than markdown. Because a `source` can point at any directory, you can reuse your agents source as an extras source and transform it with `md2codex`:
+
+```yaml
+extras:
+  - name: codex-agents
+    source: ~/.config/skillshare/agents   # reuse the agents source
+    targets:
+      - path: ~/.codex/agents
+        extension: md2codex
+```
+
+`skillshare sync extras` converts each `<agent>.md` into `~/.codex/agents/<agent>.toml`, mapping frontmatter `name`, `description`, and `model` and folding the markdown body into `developer_instructions` (other frontmatter keys are dropped). No separate copy of the agents is needed.
+
 ---
 
 ## Directory Structure

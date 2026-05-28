@@ -5,6 +5,7 @@
 // Mapping:
 //   frontmatter `name`        -> TOML `name` (falls back to SS_REL_PATH filename)
 //   frontmatter `description` -> TOML `description`
+//   frontmatter `model`       -> TOML `model` (omitted when absent)
 //   markdown body             -> TOML `developer_instructions` (triple-quoted)
 // Unknown frontmatter keys are dropped.
 
@@ -53,9 +54,11 @@ function readStdin() {
     name = path.basename(rel, path.extname(rel));
   }
   const description = getKey(fm, "description");
+  const model = getKey(fm, "model");
 
   const out = [`name = "${tomlEscapeBasic(name)}"`];
   if (description) out.push(`description = "${tomlEscapeBasic(description)}"`);
+  if (model) out.push(`model = "${tomlEscapeBasic(model)}"`);
   let fence = '"""';
   if (body.includes(fence)) fence = "'''";
   out.push(`developer_instructions = ${fence}\n${body.replace(/\n+$/, "")}\n${fence}`);
