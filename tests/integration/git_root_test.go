@@ -1,0 +1,88 @@
+//go:build !online
+
+package integration
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"skillshare/internal/testutil"
+)
+
+// TestGitRoot_CommitCoversAgents verifies that commit with git_root=root
+// creates a commit that includes files under agents/ (outside skills/).
+func TestGitRoot_CommitCoversAgents(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	base := filepath.Dir(sb.ConfigPath) // ~/.config/skillshare in sandbox
+	skills := filepath.Join(base, "skills")
+	agents := filepath.Join(base, "agents")
+	grMkdir(t, skills)
+	grMkdir(t, agents)
+
+	sb.WriteConfig("git_root: root\nsources:\n  skills: " + skills + "\n  agents: " + agents + "\ntargets: {}\n")
+
+	// Init a repo at root with config.yaml ignored.
+	testutil.RunGit(t, base, "init")
+	testutil.ConfigureGitUser(t, base)
+	grWrite(t, filepath.Join(base, ".gitignore"), "config.yaml\n.DS_Store\n")
+	testutil.RunGit(t, base, "add", "-A")
+	testutil.RunGit(t, base, "commit", "-m", "initial")
+
+	// Add a new agent file, then commit via the CLI.
+	grWrite(t, filepath.Join(agents, "my-agent.md"), "# agent\n")
+	result := sb.RunCLI("commit", "-m", "add agent")
+	result.AssertSuccess(t)
+
+	// The committed tree must include the agents file.
+	tree := testutil.RunGit(t, base, "ls-tree", "-r", "--name-only", "HEAD")
+	if !strings.Contains(tree, "agents/my-agent.md") {
+		t.Errorf("expected agents/my-agent.md in committed tree, got:\n%s", tree)
+	}
+	if strings.Contains(tree, "config.yaml") {
+		t.Errorf("config.yaml must not be tracked at root scope, got:\n%s", tree)
+	}
+}
+
+// TestGitRoot_MismatchGuidance verifies that when git_root=root but the git
+// repo lives under skills/ instead, the CLI prints mismatch guidance and aborts.
+func TestGitRoot_MismatchGuidance(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	base := filepath.Dir(sb.ConfigPath)
+	skills := filepath.Join(base, "skills")
+	grMkdir(t, skills)
+
+	sb.WriteConfig("git_root: root\nsources:\n  skills: " + skills + "\ntargets: {}\n")
+
+	// Repo lives at skills/, NOT at the configured root.
+	testutil.RunGit(t, skills, "init")
+	testutil.ConfigureGitUser(t, skills)
+
+	result := sb.RunCLI("commit", "-m", "x")
+	out := result.Stdout + result.Stderr
+	if !strings.Contains(out, "Git root mismatch") {
+		t.Errorf("expected mismatch guidance, got:\nstdout: %s\nstderr: %s", result.Stdout, result.Stderr)
+	}
+}
+
+func grMkdir(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func grWrite(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
