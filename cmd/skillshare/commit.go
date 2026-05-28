@@ -40,7 +40,10 @@ func cmdCommit(args []string) error {
 	ui.Header("Committing local changes")
 
 	spinner := ui.StartSpinner("Checking repository...")
-	source := cfg.EffectiveSkillsSource()
+	source, ok := resolveGitRoot(cfg, spinner)
+	if !ok {
+		return nil // Mismatch guidance already displayed
+	}
 
 	if err := checkGitWorktree(source, spinner); err != nil {
 		return nil // Error already displayed
