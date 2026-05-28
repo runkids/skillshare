@@ -70,6 +70,40 @@ func TestGitRoot_MismatchGuidance(t *testing.T) {
 	}
 }
 
+// init --git-root root sets up the repo at BaseDir with config.yaml ignored.
+func TestGitRoot_InitRootScope(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	result := sb.RunCLI("init", "--no-copy", "--no-targets", "--no-skill", "--git", "--git-root", "root")
+	result.AssertSuccess(t)
+
+	base := filepath.Dir(sb.ConfigPath)
+
+	if _, err := os.Stat(filepath.Join(base, ".git")); err != nil {
+		t.Errorf("expected .git at root %s: %v", base, err)
+	}
+	if _, err := os.Stat(filepath.Join(base, "skills", ".git")); err == nil {
+		t.Errorf("did not expect .git nested under skills/")
+	}
+
+	gi, err := os.ReadFile(filepath.Join(base, ".gitignore"))
+	if err != nil {
+		t.Fatalf("read .gitignore: %v", err)
+	}
+	if !strings.Contains(string(gi), "config.yaml") {
+		t.Errorf("root .gitignore must ignore config.yaml, got:\n%s", gi)
+	}
+
+	cfgBytes, err := os.ReadFile(sb.ConfigPath)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	if !strings.Contains(string(cfgBytes), "git_root: root") {
+		t.Errorf("config must persist git_root: root, got:\n%s", cfgBytes)
+	}
+}
+
 func grMkdir(t *testing.T, dir string) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
