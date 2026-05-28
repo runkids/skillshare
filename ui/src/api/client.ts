@@ -594,6 +594,11 @@ export const api = {
 
   // Git
   gitStatus: () => apiFetch<GitStatus>('/git/status'),
+  gitSetRoot: (scope: string) =>
+    apiFetch<{ success: boolean; scope: string; gitRoot: string }>('/git/root', {
+      method: 'POST',
+      body: JSON.stringify({ scope }),
+    }),
   gitBranches: (opts?: { fetch?: boolean }) =>
     apiFetch<GitBranches>(`/git/branches${opts?.fetch ? '?fetch=true' : ''}`),
   gitCheckout: (branch: string) =>
@@ -1023,6 +1028,10 @@ export interface GitStatus {
   isDirty: boolean;
   files: string[];
   sourceDir: string;
+  scope: string;
+  scopeMismatch: boolean;
+  mismatchScope?: string;
+  mismatchDir?: string;
   remoteURL?: string;
   headHash?: string;
   headMessage?: string;

@@ -18,6 +18,9 @@ type gitStatusResponse struct {
 	Files          []string `json:"files"`
 	SourceDir      string   `json:"sourceDir"`
 	Scope          string   `json:"scope"`
+	ScopeMismatch  bool     `json:"scopeMismatch"`
+	MismatchScope  string   `json:"mismatchScope,omitempty"`
+	MismatchDir    string   `json:"mismatchDir,omitempty"`
 	RemoteURL      string   `json:"remoteURL,omitempty"`
 	HeadHash       string   `json:"headHash,omitempty"`
 	HeadMessage    string   `json:"headMessage,omitempty"`
@@ -30,14 +33,18 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
 	src := s.cfg.EffectiveGitRoot()
 	scope := s.cfg.GitRoot
+	mScope, mDir, mismatch := s.cfg.GitRootMismatch()
 	s.mu.RUnlock()
 	if scope == "" {
 		scope = "skills"
 	}
 	resp := gitStatusResponse{
-		SourceDir: src,
-		Scope:     scope,
-		Files:     make([]string, 0),
+		SourceDir:     src,
+		Scope:         scope,
+		ScopeMismatch: mismatch,
+		MismatchScope: mScope,
+		MismatchDir:   mDir,
+		Files:         make([]string, 0),
 	}
 
 	resp.IsRepo = git.IsRepo(src)

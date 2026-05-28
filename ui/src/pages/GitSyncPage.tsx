@@ -293,11 +293,33 @@ export default function GitSyncPage() {
       {/* Repository Info Card — z-10 so branch dropdown renders above cards below */}
       <Card overflow className="relative z-10" padding="none">
         {!status?.isRepo ? (
-          <div className="flex items-center gap-2 text-pencil p-4">
-            <AlertTriangle size={18} strokeWidth={2.5} className="text-danger" />
-            <span>{t('gitSync.notARepo')}</span>
-            <Badge variant="danger">{t('gitSync.repo.notARepoLabel')}</Badge>
-          </div>
+          status?.scopeMismatch ? (
+            <div className="flex items-start gap-2 text-pencil p-4">
+              <AlertTriangle size={18} strokeWidth={2.5} className="text-warning shrink-0 mt-0.5" />
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold">{t('gitSync.mismatch.title')}</span>
+                  <Badge variant="warning">{status.mismatchScope}</Badge>
+                </div>
+                <p className="text-pencil-light">
+                  {t('gitSync.mismatch.description', {
+                    scope: status.scope || 'skills',
+                    repoScope: status.mismatchScope ?? '',
+                  })}
+                </p>
+                <p className="text-pencil-light font-mono text-xs truncate max-w-[480px]">
+                  {status.mismatchDir}
+                </p>
+                <p className="text-pencil-light">{t('gitSync.mismatch.hint')}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-pencil p-4">
+              <AlertTriangle size={18} strokeWidth={2.5} className="text-danger" />
+              <span>{t('gitSync.notARepo')}</span>
+              <Badge variant="danger">{t('gitSync.repo.notARepoLabel')}</Badge>
+            </div>
+          )
         ) : (() => {
           const parsed = parseRemoteURL(status.remoteURL);
           const linkLabel = parsed ? platformLabel(parsed.platform, t) : null;

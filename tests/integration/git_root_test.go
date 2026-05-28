@@ -157,6 +157,93 @@ func TestGitRoot_CommitAgentsScope(t *testing.T) {
 	}
 }
 
+// push with git_root=root pushes a tree that includes files under agents/
+// (outside skills/) to the remote, and never tracks config.yaml.
+func TestGitRoot_PushCoversAgents(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	base := filepath.Dir(sb.ConfigPath)
+	skills := filepath.Join(base, "skills")
+	agents := filepath.Join(base, "agents")
+	grMkdir(t, skills)
+	grMkdir(t, agents)
+
+	sb.WriteConfig("git_root: root\nsources:\n  skills: " + skills + "\n  agents: " + agents + "\ntargets: {}\n")
+
+	// Bare remote outside the working tree.
+	bareRepo := testutil.SetupBareRemoteRepo(t, t.TempDir())
+
+	// Init repo at root, ignore config.yaml, seed initial commit, wire the remote.
+	testutil.RunGit(t, base, "init")
+	testutil.ConfigureGitUser(t, base)
+	grWrite(t, filepath.Join(base, ".gitignore"), "config.yaml\n.DS_Store\n")
+	testutil.RunGit(t, base, "add", "-A")
+	testutil.RunGit(t, base, "commit", "-m", "initial")
+	testutil.RunGit(t, base, "branch", "-M", "main")
+	testutil.RunGit(t, base, "remote", "add", "origin", bareRepo)
+	testutil.RunGit(t, base, "push", "-u", "origin", "main")
+
+	// New agent file (outside skills/), then push via the CLI.
+	grWrite(t, filepath.Join(agents, "my-agent.md"), "# agent\n")
+	result := sb.RunCLI("push", "-m", "add agent")
+	result.AssertSuccess(t)
+
+	// The pushed tree on the remote must include the agents file, not config.yaml.
+	tree := testutil.RunGit(t, bareRepo, "ls-tree", "-r", "--name-only", "main")
+	if !strings.Contains(tree, "agents/my-agent.md") {
+		t.Errorf("expected agents/my-agent.md pushed to remote, got:\n%s", tree)
+	}
+	if strings.Contains(tree, "config.yaml") {
+		t.Errorf("config.yaml must not be pushed at root scope, got:\n%s", tree)
+	}
+}
+
+// pull with git_root=root brings remote changes under agents/ into the root
+// working tree (not just skills/).
+func TestGitRoot_PullRootScope(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	base := filepath.Dir(sb.ConfigPath)
+	skills := filepath.Join(base, "skills")
+	agents := filepath.Join(base, "agents")
+	grMkdir(t, skills)
+	grMkdir(t, agents)
+
+	sb.WriteConfig("git_root: root\nsources:\n  skills: " + skills + "\n  agents: " + agents + "\ntargets: {}\n")
+
+	bareRepo := testutil.SetupBareRemoteRepo(t, t.TempDir())
+
+	// Init at root, seed, wire remote, push initial, set remote HEAD to main.
+	testutil.RunGit(t, base, "init")
+	testutil.ConfigureGitUser(t, base)
+	grWrite(t, filepath.Join(base, ".gitignore"), "config.yaml\n")
+	testutil.RunGit(t, base, "add", "-A")
+	testutil.RunGit(t, base, "commit", "-m", "initial")
+	testutil.RunGit(t, base, "branch", "-M", "main")
+	testutil.RunGit(t, base, "remote", "add", "origin", bareRepo)
+	testutil.RunGit(t, base, "push", "-u", "origin", "main")
+	testutil.RunGit(t, bareRepo, "symbolic-ref", "HEAD", "refs/heads/main")
+
+	// Another clone pushes a new agent file to the remote.
+	other := filepath.Join(t.TempDir(), "other")
+	testutil.RunGit(t, "", "clone", "-b", "main", bareRepo, other)
+	testutil.ConfigureGitUser(t, other)
+	grWrite(t, filepath.Join(other, "agents", "remote-agent.md"), "# remote agent\n")
+	testutil.RunGit(t, other, "add", "-A")
+	testutil.RunGit(t, other, "commit", "-m", "add remote agent")
+	testutil.RunGit(t, other, "push", "origin", "main")
+
+	// Pull via the CLI must materialize the agents file in the root working tree.
+	result := sb.RunCLI("pull")
+	result.AssertSuccess(t)
+
+	if _, err := os.Stat(filepath.Join(agents, "remote-agent.md")); err != nil {
+		t.Errorf("expected agents/remote-agent.md after pull at root scope: %v", err)
+	}
+}
+
 func grMkdir(t *testing.T, dir string) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
