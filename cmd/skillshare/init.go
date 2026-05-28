@@ -1028,10 +1028,15 @@ func setupInitGit(cfg *config.Config, skillsSource string, opts *initOptions) st
 }
 
 // doGitInitIfAbsent initializes a repo at gitRoot (with a scope-aware .gitignore)
-// unless one already exists there. dryRun only prints intentions.
+// unless one already exists there. dryRun only prints intentions. The actual git
+// work is shared with the web server via gitops.InitScopeRepo.
 func doGitInitIfAbsent(gitRoot, scope string, dryRun bool) {
 	if hasGitDir(gitRoot) {
 		ui.Info("Git already initialized in %s", gitRoot)
+		// Still ensure the scope-aware .gitignore (e.g. config.yaml at root scope).
+		if err := gitops.WriteScopeGitignore(gitRoot, scope); err != nil {
+			ui.Warning("Failed to update .gitignore: %v", err)
+		}
 		return
 	}
 	if dryRun {
@@ -1039,84 +1044,17 @@ func doGitInitIfAbsent(gitRoot, scope string, dryRun bool) {
 		return
 	}
 
-	if err := os.MkdirAll(gitRoot, 0o755); err != nil {
-		ui.Warning("Failed to create git root %s: %v", gitRoot, err)
-		return
-	}
-	cmd := exec.Command("git", "init")
-	cmd.Dir = gitRoot
-	if err := cmd.Run(); err != nil {
+	identitySet, err := gitops.InitScopeRepo(gitRoot, scope)
+	if err != nil {
 		ui.Warning("Failed to initialize git: %v", err)
 		return
 	}
-	writeInitGitignore(gitRoot, scope)
-	ensureGitIdentity(gitRoot)
+	if identitySet {
+		ui.Info("Git identity not configured, using local default")
+		ui.Info("  Set yours: git config --global user.name \"Your Name\"")
+		ui.Info("             git config --global user.email \"you@example.com\"")
+	}
 	ui.Success("Git initialized in %s", gitRoot)
-}
-
-// writeInitGitignore writes a default .gitignore at gitRoot unless one exists.
-// At "root" scope it also ignores config.yaml (machine-specific paths/tokens).
-func writeInitGitignore(gitRoot, scope string) {
-	gitignore := filepath.Join(gitRoot, ".gitignore")
-
-	// If a .gitignore already exists, don't clobber it — but at root scope we
-	// MUST guarantee config.yaml (machine-specific paths + local target config)
-	// is excluded, so append the entry if it's missing (idempotent).
-	if existing, err := os.ReadFile(gitignore); err == nil {
-		if scope == "root" && !gitignoreHasEntry(string(existing), "config.yaml") {
-			content := string(existing)
-			if content != "" && !strings.HasSuffix(content, "\n") {
-				content += "\n"
-			}
-			content += "config.yaml\n"
-			if err := os.WriteFile(gitignore, []byte(content), 0o644); err != nil {
-				ui.Warning("Failed to add config.yaml to .gitignore: %v", err)
-			}
-		}
-		return
-	}
-
-	lines := []string{".DS_Store"}
-	if scope == "root" {
-		lines = append([]string{"config.yaml"}, lines...)
-	}
-	if err := os.WriteFile(gitignore, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
-		ui.Warning("Failed to write .gitignore: %v", err)
-	}
-}
-
-// gitignoreHasEntry reports whether content has a line exactly matching entry
-// (ignoring surrounding whitespace), so we don't add a duplicate.
-func gitignoreHasEntry(content, entry string) bool {
-	for _, line := range strings.Split(content, "\n") {
-		if strings.TrimSpace(line) == entry {
-			return true
-		}
-	}
-	return false
-}
-
-// ensureGitIdentity sets repo-local user.name/email if not configured globally.
-func ensureGitIdentity(repoDir string) {
-	// Check if user.name is already set (global or local)
-	cmd := exec.Command("git", "config", "user.name")
-	cmd.Dir = repoDir
-	if out, err := cmd.Output(); err == nil && strings.TrimSpace(string(out)) != "" {
-		return // already configured
-	}
-
-	// Set repo-local fallback identity so git commit works
-	nameCmd := exec.Command("git", "config", "user.name", "skillshare")
-	nameCmd.Dir = repoDir
-	nameCmd.Run()
-
-	emailCmd := exec.Command("git", "config", "user.email", "skillshare@local")
-	emailCmd.Dir = repoDir
-	emailCmd.Run()
-
-	ui.Info("Git identity not configured, using local default")
-	ui.Info("  Set yours: git config --global user.name \"Your Name\"")
-	ui.Info("             git config --global user.email \"you@example.com\"")
 }
 
 // commitSourceFiles creates a single commit with all source files

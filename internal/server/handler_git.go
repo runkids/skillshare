@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"skillshare/internal/config"
 	"skillshare/internal/git"
 	ssync "skillshare/internal/sync"
 )
@@ -16,6 +17,7 @@ type gitStatusResponse struct {
 	IsDirty        bool     `json:"isDirty"`
 	Files          []string `json:"files"`
 	SourceDir      string   `json:"sourceDir"`
+	Scope          string   `json:"scope"`
 	RemoteURL      string   `json:"remoteURL,omitempty"`
 	HeadHash       string   `json:"headHash,omitempty"`
 	HeadMessage    string   `json:"headMessage,omitempty"`
@@ -26,10 +28,15 @@ type gitStatusResponse struct {
 func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	src := s.cfg.EffectiveSkillsSource()
+	src := s.cfg.EffectiveGitRoot()
+	scope := s.cfg.GitRoot
 	s.mu.RUnlock()
+	if scope == "" {
+		scope = "skills"
+	}
 	resp := gitStatusResponse{
 		SourceDir: src,
+		Scope:     scope,
 		Files:     make([]string, 0),
 	}
 
@@ -72,6 +79,63 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
+type setGitRootRequest struct {
+	Scope string `json:"scope"`
+}
+
+// handleSetGitRoot changes the git_root scope: it initializes a git repo at the
+// new scope directory if absent (with a scope-aware .gitignore), persists the
+// scope to config, and returns the updated git status. It does NOT relocate an
+// existing repo — switching scope creates/uses a repo at the target directory,
+// mirroring the CLI's `skillshare init --git-root` behavior.
+func (s *Server) handleSetGitRoot(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
+	if s.IsProjectMode() {
+		writeError(w, http.StatusBadRequest, "git_root is only available in global mode")
+		return
+	}
+
+	var body setGitRootRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if !config.ValidGitRoot(body.Scope) || body.Scope == "" {
+		writeError(w, http.StatusBadRequest, "invalid scope (want: skills, agents, extras, or root)")
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	dir := config.ScopeDir(s.cfg, body.Scope)
+	if _, err := git.InitScopeRepo(dir, body.Scope); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to initialize git at scope: "+err.Error())
+		return
+	}
+
+	// Persist the scope. "skills" is the default — store it as empty to keep
+	// config.yaml clean and consistent with the CLI.
+	if body.Scope == "skills" {
+		s.cfg.GitRoot = ""
+	} else {
+		s.cfg.GitRoot = body.Scope
+	}
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeOpsLog("git-root", "ok", start, map[string]any{"scope": body.Scope}, "")
+
+	writeJSON(w, map[string]any{
+		"success": true,
+		"scope":   body.Scope,
+		"gitRoot": dir,
+	})
+}
+
 type gitBranchesResponse struct {
 	Current    string   `json:"current"`
 	Local      []string `json:"local"`
@@ -85,7 +149,7 @@ type gitBranchesResponse struct {
 func (s *Server) handleGitBranches(w http.ResponseWriter, r *http.Request) {
 	// Snapshot config under RLock, then release before I/O.
 	s.mu.RLock()
-	src := s.cfg.EffectiveSkillsSource()
+	src := s.cfg.EffectiveGitRoot()
 	s.mu.RUnlock()
 
 	if !git.IsRepo(src) {
@@ -155,7 +219,7 @@ func (s *Server) handleGitCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	src := s.cfg.EffectiveSkillsSource()
+	src := s.cfg.EffectiveGitRoot()
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
@@ -231,7 +295,7 @@ func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	src := s.cfg.EffectiveSkillsSource()
+	src := s.cfg.EffectiveGitRoot()
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
@@ -298,7 +362,7 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	src := s.cfg.EffectiveSkillsSource()
+	src := s.cfg.EffectiveGitRoot()
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
@@ -387,7 +451,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 	}
 	json.NewDecoder(r.Body).Decode(&body)
 
-	src := s.cfg.EffectiveSkillsSource()
+	src := s.cfg.EffectiveGitRoot()
 
 	if !git.IsRepo(src) {
 		writeError(w, http.StatusBadRequest, "source directory is not a git repository")
