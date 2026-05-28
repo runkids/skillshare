@@ -206,13 +206,15 @@ function ExtraCard({
   onForceSync,
   onRemove,
   onModeChange,
+  availableExtensions,
 }: {
   extra: Extra;
   index?: number;
   onSync: (name: string) => Promise<void>;
   onForceSync: (name: string) => Promise<void>;
   onRemove: (name: string) => void;
-  onModeChange: (name: string, target: string, mode: string, flatten?: boolean) => Promise<void>;
+  onModeChange: (name: string, target: string, mode: string, flatten?: boolean, extension?: string) => Promise<void>;
+  availableExtensions: string[];
 }) {
   const t = useT();
   const [syncing, setSyncing] = useState(false);
@@ -330,6 +332,31 @@ function ExtraCard({
                   {t('extras.flatten')}
                 </span>
               </label>
+              {(availableExtensions.length > 0 || tgt.extension) && (
+                <Select
+                  value={tgt.extension ?? ''}
+                  onChange={async (v) => {
+                    if (v === (tgt.extension ?? '')) return;
+                    setChangingMode(tgt.path);
+                    try {
+                      // selecting an extension forces copy; clearing keeps the current mode
+                      await onModeChange(extra.name, tgt.path, v ? 'copy' : tgt.mode, undefined, v);
+                    } finally {
+                      setChangingMode(null);
+                    }
+                  }}
+                  options={[
+                    { value: '', label: t('extras.noExtension', {}, 'no extension') },
+                    ...availableExtensions.map((e) => ({ value: e, label: e })),
+                    ...(tgt.extension && !availableExtensions.includes(tgt.extension)
+                      ? [{ value: tgt.extension, label: `${tgt.extension} (missing)` }]
+                      : []),
+                  ]}
+                  size="sm"
+                  className="w-40 shrink-0"
+                  disabled={changingMode === tgt.path}
+                />
+              )}
               <Select
                 value={tgt.mode}
                 onChange={async (v) => {
@@ -344,7 +371,7 @@ function ExtraCard({
                 options={MODE_OPTIONS}
                 size="sm"
                 className="w-36 shrink-0"
-                disabled={changingMode === tgt.path}
+                disabled={changingMode === tgt.path || !!tgt.extension}
               />
             </div>
           ))
@@ -426,6 +453,15 @@ export default function ExtrasPage() {
     staleTime: staleTimes.extras,
   });
 
+  // Available transform extensions for the current mode (-g/-p), used to
+  // populate the per-target extension picker.
+  const { data: extData } = useQuery({
+    queryKey: ['extras', 'extensions'],
+    queryFn: () => api.listExtraExtensions(),
+    staleTime: staleTimes.extras,
+  });
+  const availableExtensions = extData?.extensions ?? [];
+
   const [showAdd, setShowAdd] = useState(false);
   const [removeName, setRemoveName] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -479,12 +515,45 @@ export default function ExtrasPage() {
     }
   };
 
-  const handleModeChange = async (name: string, target: string, mode: string, flatten?: boolean) => {
+  const handleModeChange = async (name: string, target: string, mode: string, flatten?: boolean, extension?: string) => {
+    // Optimistically patch the cache so the dropdown reflects the choice
+    // immediately, instead of waiting for the PATCH + refetch round-trip.
+    const prev = queryClient.getQueryData<{ extras: Extra[] }>(queryKeys.extras);
+    queryClient.setQueryData<{ extras: Extra[] }>(queryKeys.extras, (old) =>
+      old
+        ? {
+            extras: old.extras.map((e) =>
+              e.name !== name
+                ? e
+                : {
+                    ...e,
+                    targets: e.targets.map((tg) =>
+                      tg.path !== target
+                        ? tg
+                        : {
+                            ...tg,
+                            mode,
+                            ...(flatten !== undefined && { flatten }),
+                            ...(extension !== undefined && { extension }),
+                          },
+                    ),
+                  },
+            ),
+          }
+        : old,
+    );
     try {
-      await api.setExtraMode(name, target, mode, flatten);
-      const msg = flatten !== undefined
-        ? tr('extras.toast.flattenChanged', { flatten: String(flatten) })
-        : tr('extras.toast.modeChanged', { mode });
+      await api.setExtraMode(name, target, mode, flatten, extension);
+      let msg: string;
+      if (extension !== undefined) {
+        msg = extension
+          ? tr('extras.toast.extensionChanged', { extension }, `Extension set to ${extension} (copy mode)`)
+          : tr('extras.toast.extensionCleared', {}, 'Extension cleared');
+      } else if (flatten !== undefined) {
+        msg = tr('extras.toast.flattenChanged', { flatten: String(flatten) });
+      } else {
+        msg = tr('extras.toast.modeChanged', { mode });
+      }
       toast(msg, 'success');
       invalidate();
     } catch (err: any) {
@@ -572,6 +641,7 @@ export default function ExtrasPage() {
                   onForceSync={(name) => handleSync(name, true)}
                   onRemove={(name) => setRemoveName(name)}
                   onModeChange={handleModeChange}
+                  availableExtensions={availableExtensions}
                 />
               ))}
             </div>
