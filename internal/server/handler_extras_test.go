@@ -349,6 +349,156 @@ func TestHandleExtras_ProjectMode_DefaultSourceType(t *testing.T) {
 	}
 }
 
+// writeExtension creates a directory-form extension under dir/<name>/.
+func writeExtension(t *testing.T, dir, name string) {
+	t.Helper()
+	extDir := filepath.Join(dir, name)
+	if err := os.MkdirAll(extDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(extDir, "extension.yaml"), []byte("run: [\"cat\"]\noutput_ext: toml\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestHandleExtrasExtensions verifies GET /api/extras/extensions lists the
+// extensions installed under the global extensions directory.
+func TestHandleExtrasExtensions(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+
+	extRoot := filepath.Join(filepath.Dir(config.ConfigPath()), "extensions")
+	writeExtension(t, extRoot, "md2codex")
+	writeExtension(t, extRoot, "md2gemini")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/extras/extensions", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Extensions []string `json:"extensions"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(resp.Extensions) != 2 || resp.Extensions[0] != "md2codex" || resp.Extensions[1] != "md2gemini" {
+		t.Errorf("got %v, want [md2codex md2gemini]", resp.Extensions)
+	}
+}
+
+// TestHandleExtrasExtensions_ProjectMode verifies the endpoint reads the
+// project extensions directory (.skillshare/extensions) in project mode.
+func TestHandleExtrasExtensions_ProjectMode(t *testing.T) {
+	s, projectRoot := newTestProjectServerWithExtras(t, nil)
+
+	extRoot := filepath.Join(projectRoot, ".skillshare", "extensions")
+	writeExtension(t, extRoot, "md2codex")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/extras/extensions", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Extensions []string `json:"extensions"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(resp.Extensions) != 1 || resp.Extensions[0] != "md2codex" {
+		t.Errorf("got %v, want [md2codex]", resp.Extensions)
+	}
+}
+
+// TestHandleExtrasMode_ExtensionImpliesCopy verifies that setting an extension
+// on a target persists it and forces the mode to copy.
+func TestHandleExtrasMode_ExtensionImpliesCopy(t *testing.T) {
+	targetDir := t.TempDir()
+	extras := []config.ExtraConfig{{
+		Name:    "agents",
+		Targets: []config.ExtraTargetConfig{{Path: targetDir, Mode: "merge"}},
+	}}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	body := `{"target":"` + targetDir + `","extension":"md2codex"}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/extras/agents/mode", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	s.mu.RLock()
+	tt := s.cfg.Extras[0].Targets[0]
+	s.mu.RUnlock()
+	if tt.Extension != "md2codex" {
+		t.Errorf("extension = %q, want md2codex", tt.Extension)
+	}
+	if tt.Mode != "copy" {
+		t.Errorf("mode = %q, want copy (extension implies copy)", tt.Mode)
+	}
+}
+
+// TestHandleExtrasMode_ExtensionRejectsNonCopy verifies that an explicit
+// non-copy mode combined with an extension is rejected.
+func TestHandleExtrasMode_ExtensionRejectsNonCopy(t *testing.T) {
+	targetDir := t.TempDir()
+	extras := []config.ExtraConfig{{
+		Name:    "agents",
+		Targets: []config.ExtraTargetConfig{{Path: targetDir, Mode: "merge"}},
+	}}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	body := `{"target":"` + targetDir + `","mode":"symlink","extension":"md2codex"}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/extras/agents/mode", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code == http.StatusOK {
+		t.Fatalf("expected non-200 for extension + symlink mode, got 200")
+	}
+}
+
+// TestHandleExtras_IncludesExtension verifies GET /api/extras surfaces the
+// per-target extension value.
+func TestHandleExtras_IncludesExtension(t *testing.T) {
+	targetDir := t.TempDir()
+	extras := []config.ExtraConfig{{
+		Name:    "agents",
+		Targets: []config.ExtraTargetConfig{{Path: targetDir, Mode: "copy", Extension: "md2codex"}},
+	}}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/extras", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Extras []struct {
+			Targets []struct {
+				Extension string `json:"extension"`
+			} `json:"targets"`
+		} `json:"extras"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(resp.Extras) != 1 || len(resp.Extras[0].Targets) != 1 {
+		t.Fatalf("unexpected shape: %s", rr.Body.String())
+	}
+	if resp.Extras[0].Targets[0].Extension != "md2codex" {
+		t.Errorf("extension = %q, want md2codex", resp.Extras[0].Targets[0].Extension)
+	}
+}
+
 // TestHandleExtrasCreate_PreservesEmptyExtrasSource verifies that POST /api/extras
 // does NOT silently write the legacy extras_source field when the user has
 // not explicitly set it. The runtime fallback is provided by

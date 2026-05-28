@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -63,6 +64,40 @@ func LoadExtensionSpec(execPath, name string) (*ExtensionSpec, error) {
 		Name:      name,
 		Source:    execPath,
 	}, nil
+}
+
+// ListExtensions returns the names of transform extensions available in dir,
+// sorted alphabetically. An extension is either a subdirectory containing
+// extension.yaml or an executable regular file (matching the two forms
+// LoadExtensionSpec accepts). A missing dir yields an empty list, not an
+// error — extensions are optional.
+func ListExtensions(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var names []string
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() {
+			if _, statErr := os.Stat(filepath.Join(dir, name, "extension.yaml")); statErr == nil {
+				names = append(names, name)
+			}
+			continue
+		}
+		info, statErr := e.Info()
+		if statErr != nil {
+			continue
+		}
+		if info.Mode().IsRegular() && info.Mode()&0o111 != 0 {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names, nil
 }
 
 // applyOutputExt replaces rel's extension with outputExt (no leading dot).

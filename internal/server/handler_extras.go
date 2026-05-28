@@ -23,10 +23,11 @@ type extrasListEntry struct {
 
 // extrasTargetInfo is the per-target sync status inside an extra entry.
 type extrasTargetInfo struct {
-	Path    string `json:"path"`
-	Mode    string `json:"mode"`
-	Flatten bool   `json:"flatten"`
-	Status  string `json:"status"` // "synced", "drift", "not synced", "no source"
+	Path      string `json:"path"`
+	Mode      string `json:"mode"`
+	Flatten   bool   `json:"flatten"`
+	Extension string `json:"extension,omitempty"`
+	Status    string `json:"status"` // "synced", "drift", "not synced", "no source"
 }
 
 // extrasSourceDir returns the source directory for the named extra in the
@@ -103,9 +104,10 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 		for _, t := range extra.Targets {
 			m := syncpkg.EffectiveMode(t.Mode)
 			ti := extrasTargetInfo{
-				Path:    t.Path,
-				Mode:    m,
-				Flatten: t.Flatten,
+				Path:      t.Path,
+				Mode:      m,
+				Flatten:   t.Flatten,
+				Extension: t.Extension,
 			}
 
 			if !entry.SourceExists {
@@ -123,6 +125,23 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, map[string]any{"extras": entries})
+}
+
+// handleExtrasExtensions — GET /api/extras/extensions
+// Lists transform extensions available in the current mode's extensions
+// directory (~/.config/skillshare/extensions globally, .skillshare/extensions
+// in project mode). Used by the UI to populate the per-target extension picker.
+func (s *Server) handleExtrasExtensions(w http.ResponseWriter, r *http.Request) {
+	extDir := filepath.Join(filepath.Dir(s.configPath()), "extensions")
+	names, err := syncpkg.ListExtensions(extDir)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if names == nil {
+		names = []string{}
+	}
+	writeJSON(w, map[string]any{"extensions": names})
 }
 
 // extrasDiffItem represents one file that needs action during sync.
@@ -475,9 +494,10 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 
 	var body struct {
-		Target  string `json:"target"`
-		Mode    string `json:"mode"`
-		Flatten *bool  `json:"flatten,omitempty"`
+		Target    string  `json:"target"`
+		Mode      string  `json:"mode"`
+		Flatten   *bool   `json:"flatten,omitempty"`
+		Extension *string `json:"extension,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -506,7 +526,7 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 		}
 		for j, t := range extra.Targets {
 			if t.Path == body.Target {
-				// Determine effective mode and flatten after this change
+				// Determine effective mode, flatten, and extension after this change
 				newMode := body.Mode
 				if newMode == "" {
 					newMode = t.Mode
@@ -515,6 +535,21 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 				if body.Flatten != nil {
 					newFlatten = *body.Flatten
 				}
+				newExtension := t.Extension
+				if body.Extension != nil {
+					newExtension = *body.Extension
+				}
+
+				// An extension transform implies copy mode. Reject only a mode
+				// explicitly requested in this call that conflicts; otherwise
+				// force copy, overriding any prior mode on the target.
+				if newExtension != "" {
+					if body.Mode != "" && body.Mode != "copy" {
+						writeError(w, http.StatusBadRequest, "extension requires copy mode, but mode "+body.Mode+" was set on the target")
+						return
+					}
+					newMode = "copy"
+				}
 
 				// Validate the combination
 				if err := config.ValidateExtraFlatten(newFlatten, newMode); err != nil {
@@ -522,11 +557,12 @@ func (s *Server) handleExtrasMode(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 
-				if body.Mode != "" {
-					extras[i].Targets[j].Mode = body.Mode
-				}
+				extras[i].Targets[j].Mode = newMode
 				if body.Flatten != nil {
 					extras[i].Targets[j].Flatten = *body.Flatten
+				}
+				if body.Extension != nil {
+					extras[i].Targets[j].Extension = *body.Extension
 				}
 
 				found = true

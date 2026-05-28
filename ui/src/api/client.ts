@@ -145,6 +145,7 @@ export interface ExtraTarget {
   path: string;
   mode: string;
   flatten: boolean;
+  extension?: string;  // transform extension name; presence implies copy mode
   status: string;  // "synced" | "drift" | "not synced" | "no source"
 }
 
@@ -525,10 +526,17 @@ export const api = {
     }),
   deleteExtra: (name: string) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  setExtraMode: (name: string, target: string, mode: string, flatten?: boolean) =>
+  listExtraExtensions: () => apiFetch<{ extensions: string[] }>('/extras/extensions'),
+  // extension: undefined = leave unchanged; '' = clear; name = set (forces copy mode)
+  setExtraMode: (name: string, target: string, mode: string, flatten?: boolean, extension?: string) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/mode`, {
       method: 'PATCH',
-      body: JSON.stringify({ target, mode, ...(flatten !== undefined && { flatten }) }),
+      body: JSON.stringify({
+        target,
+        mode,
+        ...(flatten !== undefined && { flatten }),
+        ...(extension !== undefined && { extension }),
+      }),
     }),
 
   // Log

@@ -57,6 +57,56 @@ func TestLoadExtensionSpec_NotFound(t *testing.T) {
 	}
 }
 
+func TestListExtensions(t *testing.T) {
+	dir := t.TempDir()
+
+	// (a) directory-form extension (has extension.yaml)
+	md2gemini := filepath.Join(dir, "md2gemini")
+	if err := os.MkdirAll(md2gemini, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(md2gemini, "extension.yaml"), []byte("run: [\"cat\"]\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// (b) single-file executable extension
+	if err := os.WriteFile(filepath.Join(dir, "conv.sh"), []byte("#!/bin/sh\ncat\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	// (c) directory without manifest — excluded
+	if err := os.MkdirAll(filepath.Join(dir, "notanext"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	// (d) non-executable regular file — excluded
+	if err := os.WriteFile(filepath.Join(dir, "readme.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := ListExtensions(dir)
+	if err != nil {
+		t.Fatalf("ListExtensions: %v", err)
+	}
+	want := []string{"conv.sh", "md2gemini"} // sorted
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("got %v, want %v", got, want)
+			break
+		}
+	}
+}
+
+func TestListExtensions_MissingDirReturnsEmpty(t *testing.T) {
+	got, err := ListExtensions(filepath.Join(t.TempDir(), "nope"))
+	if err != nil {
+		t.Fatalf("expected nil error for missing dir, got %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("got %v, want empty", got)
+	}
+}
+
 func TestApplyOutputExt(t *testing.T) {
 	if got := applyOutputExt("review/x.md", "toml"); got != "review/x.toml" {
 		t.Errorf("got %q, want review/x.toml", got)
