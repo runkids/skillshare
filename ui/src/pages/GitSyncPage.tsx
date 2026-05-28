@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useT } from '../i18n';
+import ConfirmDialog from '../components/ConfirmDialog';
 import {
   GitBranch,
   ArrowUpCircle,
@@ -110,6 +111,22 @@ export default function GitSyncPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
       queryClient.invalidateQueries({ queryKey: queryKeys.gitBranches });
       queryClient.invalidateQueries({ queryKey: queryKeys.skills.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.overview });
+    },
+    onError: (err: unknown) => {
+      toast(errorMessage(err), 'error');
+    },
+  });
+
+  const [pendingScope, setPendingScope] = useState<string | null>(null);
+
+  const setRootMutation = useMutation({
+    mutationFn: (scope: string) => api.gitSetRoot(scope),
+    onSuccess: (res) => {
+      toast(t('gitSync.scope.switched', { scope: res.scope }), 'success');
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitBranches });
+      queryClient.invalidateQueries({ queryKey: queryKeys.config });
       queryClient.invalidateQueries({ queryKey: queryKeys.overview });
     },
     onError: (err: unknown) => {
@@ -333,6 +350,28 @@ export default function GitSyncPage() {
                 )}
               </div>
 
+              {/* ── Scope row ── */}
+              <div className="px-4 py-2 border-t border-dashed border-pencil-light/20 flex items-center gap-3 text-sm">
+                <span className="text-pencil-light">{t('gitSync.scope.label')}</span>
+                <Select
+                  value={status.scope || 'skills'}
+                  onChange={(val) => {
+                    if (val !== status.scope) {
+                      setPendingScope(val);
+                    }
+                  }}
+                  options={[
+                    { value: 'skills', label: 'skills' },
+                    { value: 'agents', label: 'agents' },
+                    { value: 'extras', label: 'extras' },
+                    { value: 'root', label: 'root' },
+                  ]}
+                  size="sm"
+                  disabled={setRootMutation.isPending}
+                  className="min-w-[120px]"
+                />
+              </div>
+
               {/* ── Status bar: branch / HEAD / tracking ── */}
               <div className="px-4 py-2.5 border-t border-dashed border-pencil-light/20 bg-muted/30 flex items-center gap-x-5 gap-y-2 flex-wrap text-sm">
                 {/* Branch */}
@@ -408,6 +447,21 @@ export default function GitSyncPage() {
           );
         })()}
       </Card>
+
+      <ConfirmDialog
+        open={pendingScope !== null}
+        onCancel={() => setPendingScope(null)}
+        onConfirm={() => {
+          if (pendingScope) {
+            setRootMutation.mutate(pendingScope);
+          }
+          setPendingScope(null);
+        }}
+        title={t('gitSync.scope.confirmTitle')}
+        message={t('gitSync.scope.confirmMessage', { scope: pendingScope ?? '' })}
+        loading={setRootMutation.isPending}
+        variant="default"
+      />
 
       {/* Push / Pull Actions */}
       <Card className={repoDisabled ? 'opacity-50 pointer-events-none' : ''} padding="none">
