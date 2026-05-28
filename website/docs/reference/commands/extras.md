@@ -291,13 +291,13 @@ A single executable, or a directory with a manifest:
 ```
 .skillshare/extensions/md2gemini/
 ├── extension.yaml
-└── convert.py
+└── convert.js
 ```
 
 `extension.yaml`:
 
 ```yaml
-run: ["python3", "convert.py"]   # explicit command (argv), execed directly
+run: ["node", "convert.js"]      # explicit command (argv), execed directly
 output_ext: toml                  # .md → .toml; omit to keep the source extension
 description: "Markdown command → Gemini CLI TOML"
 ```
@@ -312,7 +312,7 @@ A bare single-file executable (no manifest) is execed directly (relies on the sh
 
 ### Cross-platform
 
-The mechanism is cross-platform; whether an extension runs depends on its interpreter. Because `run` is an explicit command, an extension written for `python3` or `node` works on Windows, macOS, and Linux. Pure `bash` scripts only run where a shell is available (Unix, or Windows with Git Bash). Prefer Python/Node for portable extensions.
+The mechanism is cross-platform; whether an extension runs depends on its interpreter. Because `run` is an explicit command, an extension written for `node` or `python3` works on Windows, macOS, and Linux. Pure `bash` scripts only run where a shell is available (Unix, or Windows with Git Bash). Node is the preferred interpreter for reference extensions because it ships uniformly across platforms.
 
 ### Reference extensions
 

@@ -181,6 +181,52 @@ func TestSchemaFiles_ValidJSON(t *testing.T) {
 	}
 }
 
+func TestSchema_ExtraTargetsAllowExtension(t *testing.T) {
+	root := findRepoRoot(t)
+	for _, file := range []string{"schemas/config.schema.json", "schemas/project-config.schema.json"} {
+		data, err := os.ReadFile(filepath.Join(root, file))
+		if err != nil {
+			t.Fatalf("read %s: %v", file, err)
+		}
+
+		var schema map[string]any
+		if err := json.Unmarshal(data, &schema); err != nil {
+			t.Fatalf("%s: invalid JSON: %v", file, err)
+		}
+		owners := map[string]bool{}
+		collectExtensionOwners(schema, owners)
+		if !owners["extraTargetConfig"] {
+			t.Errorf("%s: extraTargetConfig missing 'extension' property", file)
+		}
+		if owners["agents"] {
+			t.Errorf("%s: agents block must not expose 'extension' (agent extensions are unsupported)", file)
+		}
+	}
+}
+
+// collectExtensionOwners records the key of every object whose "properties"
+// includes an "extension" field, so schema tests can assert which blocks accept
+// an extension transform.
+func collectExtensionOwners(node any, owners map[string]bool) {
+	switch n := node.(type) {
+	case map[string]any:
+		for k, v := range n {
+			if vm, ok := v.(map[string]any); ok {
+				if props, ok := vm["properties"].(map[string]any); ok {
+					if _, has := props["extension"]; has {
+						owners[k] = true
+					}
+				}
+			}
+			collectExtensionOwners(v, owners)
+		}
+	case []any:
+		for _, item := range n {
+			collectExtensionOwners(item, owners)
+		}
+	}
+}
+
 // findRepoRoot walks up from the current working directory to find go.mod.
 func findRepoRoot(t *testing.T) string {
 	t.Helper()
