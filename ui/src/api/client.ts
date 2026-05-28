@@ -158,6 +158,13 @@ export interface Extra {
   targets: ExtraTarget[];
 }
 
+export interface ExtensionInfo {
+  name: string;
+  description?: string;
+  builtin: boolean;
+  installed: boolean;
+}
+
 export interface ExtraDiffItem {
   action: string;  // "create" | "update" | "prune"
   file: string;
@@ -527,6 +534,18 @@ export const api = {
   deleteExtra: (name: string) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}`, { method: 'DELETE' }),
   listExtraExtensions: () => apiFetch<{ extensions: string[] }>('/extras/extensions'),
+  // Extensions management (Config page)
+  listExtensions: () => apiFetch<{ extensions: ExtensionInfo[] }>('/extensions'),
+  installExtension: (name: string) =>
+    apiFetch<{ success: boolean; name: string }>('/extensions/install', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+  openExtensionsDir: (editor?: string) =>
+    apiFetch<{ editor: string; path: string; pid: number }>('/extensions/open', {
+      method: 'POST',
+      body: JSON.stringify(editor ? { editor } : {}),
+    }),
   // extension: undefined = leave unchanged; '' = clear; name = set (forces copy mode)
   setExtraMode: (name: string, target: string, mode: string, flatten?: boolean, extension?: string) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/mode`, {

@@ -14,11 +14,12 @@ import (
 
 // ExtensionSpec describes a resolved transform extension applied to a target.
 type ExtensionSpec struct {
-	Run       []string // explicit argv, e.g. ["python", "convert.py"]
-	OutputExt string   // output extension without dot, e.g. "toml"; empty = keep source ext
-	Dir       string   // working directory for the subprocess
-	Name      string   // display / oplog name
-	Source    string   // resolved exec path (file or dir), for trust pinning
+	Run         []string // explicit argv, e.g. ["python", "convert.py"]
+	OutputExt   string   // output extension without dot, e.g. "toml"; empty = keep source ext
+	Dir         string   // working directory for the subprocess
+	Name        string   // display / oplog name
+	Source      string   // resolved exec path (file or dir), for trust pinning
+	Description string   // human-readable description from extension.yaml (dir form only)
 }
 
 // extensionManifest mirrors the on-disk extension.yaml shape.
@@ -49,11 +50,12 @@ func LoadExtensionSpec(execPath, name string) (*ExtensionSpec, error) {
 			return nil, fmt.Errorf("extension %q: extension.yaml is missing 'run'", name)
 		}
 		return &ExtensionSpec{
-			Run:       m.Run,
-			OutputExt: strings.TrimPrefix(m.OutputExt, "."),
-			Dir:       execPath,
-			Name:      name,
-			Source:    execPath,
+			Run:         m.Run,
+			OutputExt:   strings.TrimPrefix(m.OutputExt, "."),
+			Dir:         execPath,
+			Name:        name,
+			Source:      execPath,
+			Description: m.Description,
 		}, nil
 	}
 	// Single-file executable: exec directly (shebang on Unix); keep source extension.

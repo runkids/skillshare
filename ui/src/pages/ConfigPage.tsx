@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Save, FileCode, Settings, EyeOff, RefreshCw, PanelRightOpen } from 'lucide-react';
+import { Save, FileCode, Settings, EyeOff, RefreshCw, PanelRightOpen, Puzzle, FolderOpen, Download } from 'lucide-react';
 import { useT } from '../i18n';
 import CodeMirror from '@uiw/react-codemirror';
 import { yaml } from '@codemirror/lang-yaml';
@@ -26,7 +26,7 @@ import { useAppContext } from '../context/AppContext';
 import { handTheme } from '../lib/codemirror-theme';
 import SyncPreviewModal from '../components/SyncPreviewModal';
 
-type ConfigTab = 'config' | 'skillignore' | 'agentignore';
+type ConfigTab = 'config' | 'skillignore' | 'agentignore' | 'extensions';
 
 export default function ConfigPage() {
   const t = useT();
@@ -236,9 +236,9 @@ export default function ConfigPage() {
   };
 
   // --- active tab dirty/saving state ---
-  const activeDirty = tab === 'config' ? dirty : tab === 'skillignore' ? ignoreDirty : agentIgnoreDirty;
-  const activeSaving = tab === 'config' ? saving : tab === 'skillignore' ? ignoreSaving : agentIgnoreSaving;
-  const handleSave = tab === 'config' ? handleConfigSave : tab === 'skillignore' ? handleIgnoreSave : handleAgentIgnoreSave;
+  const activeDirty = tab === 'config' ? dirty : tab === 'skillignore' ? ignoreDirty : tab === 'agentignore' ? agentIgnoreDirty : false;
+  const activeSaving = tab === 'config' ? saving : tab === 'skillignore' ? ignoreSaving : tab === 'agentignore' ? agentIgnoreSaving : false;
+  const handleSave = tab === 'config' ? handleConfigSave : tab === 'skillignore' ? handleIgnoreSave : tab === 'agentignore' ? handleAgentIgnoreSave : () => {};
   saveRef.current = handleSave;
 
   // --- panel toggle + Cmd+B ---
@@ -290,8 +290,8 @@ export default function ConfigPage() {
   };
 
   // --- loading / error for active tab ---
-  const isPending = tab === 'config' ? configPending : tab === 'skillignore' ? ignorePending : agentIgnorePending;
-  const error = tab === 'config' ? configError : tab === 'skillignore' ? ignoreError : agentIgnoreError;
+  const isPending = tab === 'config' ? configPending : tab === 'skillignore' ? ignorePending : tab === 'agentignore' ? agentIgnorePending : false;
+  const error = tab === 'config' ? configError : tab === 'skillignore' ? ignoreError : tab === 'agentignore' ? agentIgnoreError : null;
 
   if (isPending) return <PageSkeleton />;
   if (error) {
@@ -342,6 +342,7 @@ export default function ConfigPage() {
             { value: 'config' as ConfigTab, label: 'config.yaml' },
             { value: 'skillignore' as ConfigTab, label: '.skillignore' },
             { value: 'agentignore' as ConfigTab, label: '.agentignore' },
+            { value: 'extensions' as ConfigTab, label: 'Extensions' },
           ]}
         />
       </div>
@@ -524,6 +525,8 @@ export default function ConfigPage() {
         </div>
       )}
 
+      {tab === 'extensions' && <ExtensionsSection isProjectMode={isProjectMode} />}
+
       <SyncPreviewModal
         open={showSyncPreview}
         onClose={() => setShowSyncPreview(false)}
@@ -627,5 +630,124 @@ function IgnoreTab({
       </Card>
 
     </div>
+  );
+}
+
+// ─── ExtensionsSection ──────────────────────────────────────────────────────
+// Manage transform extensions for the current mode: list installed ones,
+// download bundled built-ins, and open the extensions directory in an editor.
+function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
+  const t = useT();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [installing, setInstalling] = useState<string | null>(null);
+  const [opening, setOpening] = useState(false);
+
+  const { data, isPending } = useQuery({
+    queryKey: ['extensions'],
+    queryFn: () => api.listExtensions(),
+    staleTime: staleTimes.extras,
+  });
+  const extensions = data?.extensions ?? [];
+  const installed = extensions.filter((e) => e.installed);
+  const available = extensions.filter((e) => !e.installed);
+  const dirLabel = isProjectMode ? '.skillshare/extensions' : '~/.config/skillshare/extensions';
+
+  const handleInstall = async (name: string) => {
+    setInstalling(name);
+    try {
+      await api.installExtension(name);
+      toast(t('config.extensions.toast.installed', { name }, `Installed ${name}`), 'success');
+      queryClient.invalidateQueries({ queryKey: ['extensions'] });
+      queryClient.invalidateQueries({ queryKey: ['extras', 'extensions'] });
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setInstalling(null);
+    }
+  };
+
+  const handleOpenDir = async () => {
+    setOpening(true);
+    try {
+      const res = await api.openExtensionsDir();
+      toast(t('config.extensions.toast.opened', { editor: res.editor }, `Opened in ${res.editor}`), 'success');
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between gap-4 mb-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Puzzle size={16} strokeWidth={2.5} className="text-blue shrink-0" />
+          <span className="font-bold text-pencil">Extensions</span>
+          <span className="text-xs text-pencil-light font-mono truncate">({dirLabel})</span>
+        </div>
+        <Button variant="secondary" size="sm" onClick={handleOpenDir} loading={opening}>
+          <FolderOpen size={14} strokeWidth={2.5} />
+          {t('config.extensions.openDir', {}, 'Open directory')}
+        </Button>
+      </div>
+
+      <p className="text-sm text-pencil-light mb-4">
+        {t('config.extensions.description', {}, 'Transform extensions convert source files to a target format during sync (e.g. markdown agents to Codex TOML). Install one, then select it on an Extras target.')}
+      </p>
+
+      {isPending ? (
+        <p className="text-sm text-pencil-light italic">{t('config.extensions.loading', {}, 'Loading...')}</p>
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <div className="text-xs text-pencil-light uppercase tracking-wider mb-2">
+              {t('config.extensions.installedHeading', {}, 'Installed')} ({installed.length})
+            </div>
+            {installed.length > 0 ? (
+              <div className="space-y-1.5">
+                {installed.map((e) => (
+                  <div key={e.name} className="flex items-center gap-2">
+                    <span className="font-mono text-sm text-pencil">{e.name}</span>
+                    {e.builtin && (
+                      <span className="text-[10px] uppercase tracking-wider text-blue border border-blue/40 rounded px-1 py-0.5">built-in</span>
+                    )}
+                    {e.description && <span className="text-sm text-pencil-light truncate">— {e.description}</span>}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-pencil-light italic">{t('config.extensions.none', {}, 'No extensions installed yet.')}</p>
+            )}
+          </div>
+
+          {available.length > 0 && (
+            <div>
+              <div className="text-xs text-pencil-light uppercase tracking-wider mb-2">
+                {t('config.extensions.available', {}, 'Available built-ins')}
+              </div>
+              <div className="space-y-1.5">
+                {available.map((e) => (
+                  <div key={e.name} className="flex items-center gap-3">
+                    <span className="font-mono text-sm text-pencil">{e.name}</span>
+                    <span className="flex-1" />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleInstall(e.name)}
+                      loading={installing === e.name}
+                    >
+                      <Download size={14} strokeWidth={2.5} />
+                      {t('config.extensions.download', {}, 'Download')}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }

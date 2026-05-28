@@ -459,6 +459,11 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("PATCH /api/extras/{name}/mode", s.handleExtrasMode)
 	s.mux.HandleFunc("DELETE /api/extras/{name}", s.handleExtrasDelete)
 
+	// Extensions (transform extensions management)
+	s.mux.HandleFunc("GET /api/extensions", s.handleExtensionsList)
+	s.mux.HandleFunc("POST /api/extensions/install", s.handleExtensionsInstall)
+	s.mux.HandleFunc("POST /api/extensions/open", s.handleExtensionsOpen)
+
 	// Git
 	s.mux.HandleFunc("GET /api/git/status", s.handleGitStatus)
 	s.mux.HandleFunc("GET /api/git/branches", s.handleGitBranches)
