@@ -8,14 +8,14 @@ import (
 	"skillshare/internal/ui"
 )
 
-// gitRootScopes maps each scope keyword to its resolved directory.
+// gitRootScopes maps each scope keyword to its resolved directory, using
+// config.ScopeDir as the single source of truth for the mapping.
 func gitRootScopes(cfg *config.Config) map[string]string {
-	return map[string]string{
-		"root":   config.BaseDir(),
-		"skills": cfg.EffectiveSkillsSource(),
-		"agents": cfg.EffectiveAgentsSource(),
-		"extras": cfg.EffectiveExtrasSource(),
+	scopes := map[string]string{}
+	for _, s := range []string{"root", "skills", "agents", "extras"} {
+		scopes[s] = config.ScopeDir(cfg, s)
 	}
+	return scopes
 }
 
 // hasGitDir reports whether dir contains a .git entry directly (not via a parent).

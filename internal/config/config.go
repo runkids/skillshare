@@ -334,11 +334,11 @@ func (c *Config) EffectiveExtrasSource() string {
 	return ExtrasParentDir(c.EffectiveSkillsSource())
 }
 
-// EffectiveGitRoot returns the directory the git integration (commit/push/pull)
-// operates on, based on the git_root scope keyword. Empty/"skills" preserves the
-// historical behavior of operating on the skills source.
-func (c *Config) EffectiveGitRoot() string {
-	switch c.GitRoot {
+// ScopeDir resolves a git_root scope keyword to its directory. It is the single
+// source of truth for the scope→directory mapping; EffectiveGitRoot and the
+// CLI helpers all delegate here. Empty/"skills" maps to the skills source.
+func ScopeDir(c *Config, scope string) string {
+	switch scope {
 	case "root":
 		return BaseDir()
 	case "agents":
@@ -348,6 +348,13 @@ func (c *Config) EffectiveGitRoot() string {
 	default: // "skills" or ""
 		return c.EffectiveSkillsSource()
 	}
+}
+
+// EffectiveGitRoot returns the directory the git integration (commit/push/pull)
+// operates on, based on the git_root scope keyword. Empty/"skills" preserves the
+// historical behavior of operating on the skills source.
+func (c *Config) EffectiveGitRoot() string {
+	return ScopeDir(c, c.GitRoot)
 }
 
 // ValidGitRoot reports whether s is an accepted git_root scope keyword.

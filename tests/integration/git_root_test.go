@@ -104,6 +104,59 @@ func TestGitRoot_InitRootScope(t *testing.T) {
 	}
 }
 
+// init --git-root root must add config.yaml to a pre-existing .gitignore that
+// lacks it, so a root-scope commit never tracks machine-specific config.
+func TestGitRoot_InitRootScope_AppendsConfigToExistingGitignore(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	base := filepath.Dir(sb.ConfigPath)
+	grMkdir(t, base)
+	// A .gitignore already exists at root WITHOUT config.yaml.
+	grWrite(t, filepath.Join(base, ".gitignore"), "node_modules/\n")
+
+	result := sb.RunCLI("init", "--no-copy", "--no-targets", "--no-skill", "--git", "--git-root", "root")
+	result.AssertSuccess(t)
+
+	gi, err := os.ReadFile(filepath.Join(base, ".gitignore"))
+	if err != nil {
+		t.Fatalf("read .gitignore: %v", err)
+	}
+	if !strings.Contains(string(gi), "config.yaml") {
+		t.Errorf("existing root .gitignore must gain config.yaml, got:\n%s", gi)
+	}
+	if !strings.Contains(string(gi), "node_modules/") {
+		t.Errorf("existing .gitignore entries must be preserved, got:\n%s", gi)
+	}
+}
+
+// commit with git_root=agents commits changes under agents/ (outside skills/).
+func TestGitRoot_CommitAgentsScope(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	base := filepath.Dir(sb.ConfigPath)
+	skills := filepath.Join(base, "skills")
+	agents := filepath.Join(base, "agents")
+	grMkdir(t, skills)
+	grMkdir(t, agents)
+
+	sb.WriteConfig("git_root: agents\nsources:\n  skills: " + skills + "\n  agents: " + agents + "\ntargets: {}\n")
+
+	// Repo lives at the agents source.
+	testutil.RunGit(t, agents, "init")
+	testutil.ConfigureGitUser(t, agents)
+
+	grWrite(t, filepath.Join(agents, "reviewer.md"), "# reviewer\n")
+	result := sb.RunCLI("commit", "-m", "add agent")
+	result.AssertSuccess(t)
+
+	tree := testutil.RunGit(t, agents, "ls-tree", "-r", "--name-only", "HEAD")
+	if !strings.Contains(tree, "reviewer.md") {
+		t.Errorf("expected reviewer.md in committed tree, got:\n%s", tree)
+	}
+}
+
 func grMkdir(t *testing.T, dir string) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o755); err != nil {

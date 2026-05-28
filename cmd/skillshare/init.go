@@ -346,6 +346,12 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 		if scope == "" {
 			scope = "skills"
 		}
+		// Changing the git scope on an existing repo isn't supported here — it
+		// would require relocating .git. Warn instead of silently ignoring.
+		if opts.gitRootScope != "" && opts.gitRootScope != scope {
+			ui.Warning("--git-root %q ignored: git is already set up for scope %q", opts.gitRootScope, scope)
+			ui.Info("  Changing the git scope requires re-initializing git at the new directory.")
+		}
 		gitRoot := cfg.EffectiveGitRoot()
 		if opts.noGit {
 			ui.Info("Skipped git initialization (--no-git)")
@@ -951,19 +957,6 @@ func summarizeInitConfig(cfg *config.Config) {
 }
 
 // scopeDir returns the resolved directory for a git_root scope keyword.
-func scopeDir(cfg *config.Config, scope string) string {
-	switch scope {
-	case "root":
-		return config.BaseDir()
-	case "agents":
-		return cfg.EffectiveAgentsSource()
-	case "extras":
-		return cfg.EffectiveExtrasSource()
-	default:
-		return cfg.EffectiveSkillsSource()
-	}
-}
-
 // chooseGitRootScope returns the git_root scope keyword for a fresh init.
 // Priority: --git-root flag -> interactive radio (TTY) -> "skills" default.
 func chooseGitRootScope(opts *initOptions) string {
@@ -1026,7 +1019,7 @@ func setupInitGit(cfg *config.Config, skillsSource string, opts *initOptions) st
 	}
 
 	scope := chooseGitRootScope(opts)
-	gitRoot := scopeDir(cfg, scope)
+	gitRoot := config.ScopeDir(cfg, scope)
 	if scope != "skills" && !opts.dryRun {
 		cfg.GitRoot = scope
 	}
@@ -1065,14 +1058,42 @@ func doGitInitIfAbsent(gitRoot, scope string, dryRun bool) {
 // At "root" scope it also ignores config.yaml (machine-specific paths/tokens).
 func writeInitGitignore(gitRoot, scope string) {
 	gitignore := filepath.Join(gitRoot, ".gitignore")
-	if _, err := os.Stat(gitignore); err == nil {
+
+	// If a .gitignore already exists, don't clobber it — but at root scope we
+	// MUST guarantee config.yaml (machine-specific paths + local target config)
+	// is excluded, so append the entry if it's missing (idempotent).
+	if existing, err := os.ReadFile(gitignore); err == nil {
+		if scope == "root" && !gitignoreHasEntry(string(existing), "config.yaml") {
+			content := string(existing)
+			if content != "" && !strings.HasSuffix(content, "\n") {
+				content += "\n"
+			}
+			content += "config.yaml\n"
+			if err := os.WriteFile(gitignore, []byte(content), 0o644); err != nil {
+				ui.Warning("Failed to add config.yaml to .gitignore: %v", err)
+			}
+		}
 		return
 	}
+
 	lines := []string{".DS_Store"}
 	if scope == "root" {
 		lines = append([]string{"config.yaml"}, lines...)
 	}
-	os.WriteFile(gitignore, []byte(strings.Join(lines, "\n")+"\n"), 0644)
+	if err := os.WriteFile(gitignore, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
+		ui.Warning("Failed to write .gitignore: %v", err)
+	}
+}
+
+// gitignoreHasEntry reports whether content has a line exactly matching entry
+// (ignoring surrounding whitespace), so we don't add a duplicate.
+func gitignoreHasEntry(content, entry string) bool {
+	for _, line := range strings.Split(content, "\n") {
+		if strings.TrimSpace(line) == entry {
+			return true
+		}
+	}
+	return false
 }
 
 // ensureGitIdentity sets repo-local user.name/email if not configured globally.
