@@ -40,6 +40,13 @@
         }
       }
     },
+    "git_root": {
+      "type": "string",
+      "description": "Directory scope that the git integration (commit/push/pull) operates on. 'skills' (default) versions the skills source; 'agents' and 'extras' version those sources; 'root' versions the entire ~/.config/skillshare/ directory (skills + agents + extras) under one repo. Changing this requires re-running 'skillshare init' so git is set up at the new directory.",
+      "enum": ["skills", "agents", "extras", "root"],
+      "default": "skills",
+      "examples": ["skills", "root"]
+    },
     "mode": {
       "type": "string",
       "description": "Default sync mode for all targets.",
