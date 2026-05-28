@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -88,4 +90,98 @@ func initServerGitRepo(t *testing.T, dir string) {
 	testutil.RunGit(t, dir, "init")
 	testutil.ConfigureGitUser(t, dir)
 	testutil.RunGit(t, dir, "commit", "--allow-empty", "-m", "initial")
+}
+
+// POST /api/git/root with a non-default scope initializes a repo at that scope
+// directory and persists git_root to config.
+func TestHandleSetGitRoot_SwitchToAgents_InitsAndPersists(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/root", strings.NewReader(`{"scope":"agents"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp["scope"] != "agents" {
+		t.Fatalf("scope = %v, want agents", resp["scope"])
+	}
+	dir, _ := resp["gitRoot"].(string)
+	if dir == "" {
+		t.Fatalf("missing gitRoot in response: %+v", resp)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".git")); err != nil {
+		t.Errorf("expected .git initialized at agents scope %s: %v", dir, err)
+	}
+	if s.cfg.GitRoot != "agents" {
+		t.Errorf("cfg.GitRoot = %q, want agents (persisted)", s.cfg.GitRoot)
+	}
+}
+
+// POST /api/git/root rejects unknown or empty scopes with 400.
+func TestHandleSetGitRoot_InvalidScope_Rejected(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	for _, scope := range []string{`"bogus"`, `""`} {
+		req := httptest.NewRequest(http.MethodPost, "/api/git/root", strings.NewReader(`{"scope":`+scope+`}`))
+		rr := httptest.NewRecorder()
+		s.handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("scope %s: expected 400, got %d: %s", scope, rr.Code, rr.Body.String())
+		}
+	}
+}
+
+// git_root is global-only; project mode must reject the request.
+func TestHandleSetGitRoot_ProjectMode_Rejected(t *testing.T) {
+	s, _ := newProjectTargetServer(t, nil)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/git/root", strings.NewReader(`{"scope":"root"}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 in project mode, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// GET /api/git/status reports a scope mismatch when the configured root has no
+// repo but a sibling scope directory does.
+func TestHandleGitStatus_ScopeMismatch(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	// git_root defaults to skills (the source). Plant a stray repo at the agents
+	// scope dir so the configured root lacks .git but agents has one.
+	agentsDir := s.cfg.EffectiveAgentsSource()
+	if err := os.MkdirAll(filepath.Join(agentsDir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/git/status", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp gitStatusResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !resp.ScopeMismatch {
+		t.Fatalf("expected scopeMismatch=true, got: %+v", resp)
+	}
+	if resp.MismatchScope != "agents" {
+		t.Errorf("mismatchScope = %q, want agents", resp.MismatchScope)
+	}
+	if resp.MismatchDir != agentsDir {
+		t.Errorf("mismatchDir = %q, want %q", resp.MismatchDir, agentsDir)
+	}
 }

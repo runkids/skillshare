@@ -357,6 +357,33 @@ func (c *Config) EffectiveGitRoot() string {
 	return ScopeDir(c, c.GitRoot)
 }
 
+// gitDirExists reports whether dir contains a .git entry directly.
+func gitDirExists(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, ".git"))
+	return err == nil
+}
+
+// GitRootMismatch reports whether the git repository lives at a different scope
+// than configured: the configured git root has no .git, but another scope's
+// directory does. This happens when git_root is changed without re-initializing
+// git at the new directory. Returns the stray scope keyword and its directory.
+func (c *Config) GitRootMismatch() (scope, dir string, mismatch bool) {
+	root := c.EffectiveGitRoot()
+	if gitDirExists(root) {
+		return "", "", false
+	}
+	for _, s := range []string{"root", "skills", "agents", "extras"} {
+		d := ScopeDir(c, s)
+		if d == root {
+			continue
+		}
+		if gitDirExists(d) {
+			return s, d, true
+		}
+	}
+	return "", "", false
+}
+
 // ValidGitRoot reports whether s is an accepted git_root scope keyword.
 // Empty is accepted (means "skills").
 func ValidGitRoot(s string) bool {

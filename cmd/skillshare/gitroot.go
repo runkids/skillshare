@@ -8,16 +8,6 @@ import (
 	"skillshare/internal/ui"
 )
 
-// gitRootScopes maps each scope keyword to its resolved directory, using
-// config.ScopeDir as the single source of truth for the mapping.
-func gitRootScopes(cfg *config.Config) map[string]string {
-	scopes := map[string]string{}
-	for _, s := range []string{"root", "skills", "agents", "extras"} {
-		scopes[s] = config.ScopeDir(cfg, s)
-	}
-	return scopes
-}
-
 // hasGitDir reports whether dir contains a .git entry directly (not via a parent).
 func hasGitDir(dir string) bool {
 	_, err := os.Stat(filepath.Join(dir, ".git"))
@@ -35,21 +25,13 @@ func hasGitDir(dir string) bool {
 // an unrelated parent git repo).
 func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, bool) {
 	root := cfg.EffectiveGitRoot()
-	if hasGitDir(root) {
-		return root, true
-	}
-	for scope, dir := range gitRootScopes(cfg) {
-		if dir == root {
-			continue
-		}
-		if hasGitDir(dir) {
-			spinner.Fail("Git root mismatch")
-			ui.Info("  git_root operates on: %s", root)
-			ui.Info("  but the git repo lives at: %s (%s)", dir, scope)
-			ui.Info("  Re-run 'skillshare init' to set up git at the configured root,")
-			ui.Info("  or edit git_root in %s to match.", config.ConfigPath())
-			return "", false
-		}
+	if scope, dir, mismatch := cfg.GitRootMismatch(); mismatch {
+		spinner.Fail("Git root mismatch")
+		ui.Info("  git_root operates on: %s", root)
+		ui.Info("  but the git repo lives at: %s (%s)", dir, scope)
+		ui.Info("  Re-run 'skillshare init' to set up git at the configured root,")
+		ui.Info("  or edit git_root in %s to match.", config.ConfigPath())
+		return "", false
 	}
 	return root, true
 }
