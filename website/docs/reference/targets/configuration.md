@@ -114,6 +114,9 @@ skills:
 # Fold $HOME → ~ on save (dotfiles-friendly)
 # preserve_tilde_on_save: true
 
+# Directory for commit/push/pull (skills default, agents, extras, root)
+# git_root: skills
+
 # Custom agents source (optional, overrides default location)
 agents_source: ~/my-agents
 
@@ -642,6 +645,29 @@ The in-memory config is unaffected — `Load()` still expands `~` as usual. Non-
 
 :::note Global mode only
 This option applies to the global `config.yaml` only. Project configs (`.skillshare/config.yaml`) typically use relative paths and don't need tilde folding.
+:::
+
+### `git_root` {#git-root}
+
+Selects which directory `skillshare commit`, `push`, and `pull` operate on.
+
+```yaml
+git_root: skills
+```
+
+| Value | Directory versioned |
+|-------|---------------------|
+| `skills` (default) | Skills source (`~/.config/skillshare/skills/`) |
+| `agents` | Agents source (`~/.config/skillshare/agents/`) |
+| `extras` | Extras source (`~/.config/skillshare/extras/`) |
+| `root` | Config root (`~/.config/skillshare/`) — skills + agents + extras in one repo; `config.yaml` is auto-ignored |
+
+**Default:** `skills`
+
+Set during init with `skillshare init --git-root <scope>`, or interactively during the init wizard. After changing this field, re-run `skillshare init` so the git repository is initialized at the new location. If `git_root` points to a directory without a repo while another scope directory has one, `commit`/`push`/`pull` print a "Git root mismatch" error and ask you to re-run `skillshare init`.
+
+:::note Global mode only
+`git_root` applies to global mode only. Project mode uses the `.skillshare/` directory and does not support this field.
 :::
 
 ---

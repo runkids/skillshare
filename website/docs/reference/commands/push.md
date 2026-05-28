@@ -41,6 +41,10 @@ flowchart TD
 | `-m, --message <msg>` | Commit message (default: "Update skills") |
 | `--dry-run, -n` | Preview without making changes |
 
+## Git Root Scope
+
+`push` operates on the directory selected by the `git_root` config field (default: `skills` source). See [commit — Git Root Scope](./commit.md#git-root-scope) for the scope table. If `git_root` was changed but the git repo still lives in another scope's directory, `push` prints a "Git root mismatch" error and asks you to re-run `skillshare init`.
+
 ## Prerequisites
 
 Your source directory must be a git repository with a remote:

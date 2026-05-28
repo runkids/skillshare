@@ -40,6 +40,19 @@ flowchart TD
 | `-m, --message <msg>` | Commit message (default: "Update skills") |
 | `--dry-run, -n` | Preview without making changes |
 
+## Git Root Scope
+
+`commit` operates on the directory selected by the `git_root` config field (default: `skills` source). Use `skillshare init --git-root <scope>` to change which directory is versioned. Valid scopes:
+
+| Scope | Directory |
+|-------|-----------|
+| `skills` (default) | Skills source (`~/.config/skillshare/skills/`) |
+| `agents` | Agents source (`~/.config/skillshare/agents/`) |
+| `extras` | Extras source (`~/.config/skillshare/extras/`) |
+| `root` | Config root (`~/.config/skillshare/`) — versions skills + agents + extras in one repo |
+
+If `git_root` was changed but the git repo still lives in another scope's directory, `commit` prints a "Git root mismatch" error and asks you to re-run `skillshare init`.
+
 ## Prerequisites
 
 Your skills source directory must be a git repository:

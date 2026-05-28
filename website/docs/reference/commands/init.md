@@ -126,6 +126,7 @@ If you run `skillshare init` on an already-initialized setup without `--discover
 | `--discover, -d` | Detect and add new AI CLI targets to existing config |
 | `--select <list>` | Comma-separated targets to add (requires `--discover`) |
 | `--config local` | Gitignore `config.yaml` so each developer manages own targets (project mode only). See [Centralized Skills Repo](/docs/how-to/recipes/centralized-skills-repo) recipe. |
+| `--git-root <scope>` | Directory for `commit`/`push`/`pull` operations (`skills` default, `agents`, `extras`, `root`). `root` versions skills + agents + extras together in one repo with `config.yaml` auto-ignored. Also offered interactively during setup. Changing this after init requires re-running `skillshare init`. |
 | `--subdir <name>` | Use a subdirectory as the source path (e.g. `skills`) |
 | `--dry-run, -n` | Preview without changes |
 
