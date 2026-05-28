@@ -65,15 +65,19 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 	pullStart := time.Now()
 	spinner := ui.StartSpinner("Checking repository...")
 
+	source, ok := resolveGitRoot(cfg, spinner)
+	if !ok {
+		return nil // Mismatch guidance already displayed
+	}
+
 	// Check if source is a git repo with a configured remote
-	err := checkGitRepo(cfg.EffectiveSkillsSource(), spinner)
-	if err != nil {
+	if err := checkGitRepo(source, spinner); err != nil {
 		return nil
 	}
 
 	// Check for uncommitted changes
 	cmd := exec.Command("git", "status", "--porcelain")
-	cmd.Dir = cfg.EffectiveSkillsSource()
+	cmd.Dir = source
 	output, err := cmd.Output()
 	if err != nil {
 		spinner.Fail("Failed to check git status")
@@ -83,7 +87,7 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 	if len(strings.TrimSpace(string(output))) > 0 {
 		spinner.Fail("Local changes detected")
 		ui.Info("  Run: skillshare push")
-		ui.Info("  Or:  cd %s && git stash -u", cfg.EffectiveSkillsSource())
+		ui.Info("  Or:  cd %s && git stash -u", source)
 		return nil
 	}
 
@@ -100,15 +104,15 @@ func pullFromRemote(cfg *config.Config, dryRun, force bool) error {
 	// upstream. This mirrors tryPullAfterRemoteSetup() in init.go and avoids
 	// merge conflicts between the local init commit and remote history.
 	// Subsequent pulls: normal git pull.
-	authEnv := gitops.AuthEnvForRepo(cfg.EffectiveSkillsSource())
-	if !gitops.HasUpstream(cfg.EffectiveSkillsSource()) {
-		if _, err := firstPull(cfg.EffectiveSkillsSource(), authEnv, force, spinner); err != nil {
+	authEnv := gitops.AuthEnvForRepo(source)
+	if !gitops.HasUpstream(source) {
+		if _, err := firstPull(source, authEnv, force, spinner); err != nil {
 			return err
 		}
 	} else {
 		spinner.Update("Running git pull...")
 		cmd = exec.Command("git", "pull")
-		cmd.Dir = cfg.EffectiveSkillsSource()
+		cmd.Dir = source
 		if len(authEnv) > 0 {
 			cmd.Env = append(os.Environ(), authEnv...)
 		}
