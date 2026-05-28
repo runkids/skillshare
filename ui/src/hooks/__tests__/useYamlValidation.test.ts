@@ -34,6 +34,19 @@ describe('validateYaml', () => {
     expect(errors[0].message).toContain('invalid_mode');
   });
 
+  it('accepts valid git_root values', () => {
+    for (const scope of ['skills', 'agents', 'extras', 'root']) {
+      expect(validateYaml(`git_root: ${scope}\n`)).toEqual([]);
+    }
+  });
+
+  it('detects invalid git_root values', () => {
+    const errors = validateYaml('git_root: everything\n');
+    expect(errors.length).toBe(1);
+    expect(errors[0].severity).toBe('warning');
+    expect(errors[0].message).toContain('everything');
+  });
+
   it('detects invalid per-target mode', () => {
     const yaml = 'targets:\n  claude:\n    mode: bad\n';
     const errors = validateYaml(yaml);
