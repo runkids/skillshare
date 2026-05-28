@@ -39,6 +39,7 @@ type initOptions struct {
 	initGit      bool
 	noGit        bool
 	gitFlagSet   bool
+	gitRootScope string
 	initSkill    bool
 	noSkill      bool
 	skillFlagSet bool
@@ -70,6 +71,7 @@ func printInitUsage() {
 	fmt.Println("                            With --discover, applies only to newly added targets")
 	fmt.Println("  --git                     Initialize git in source (default: prompt)")
 	fmt.Println("  --no-git                  Skip git initialization")
+	fmt.Println("  --git-root <scope>        Git scope: skills (default), agents, extras, or root")
 	fmt.Println("  --skill                   Install built-in skillshare skill")
 	fmt.Println("  --no-skill                Skip built-in skill installation")
 	fmt.Println("  --discover, -d            Detect and add new AI CLI agents to existing config")
@@ -135,6 +137,12 @@ func parseInitArgs(args []string) (*initOptions, error) {
 			opts.gitFlagSet = true
 		case "--no-git":
 			opts.noGit = true
+		case "--git-root":
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("--git-root requires a scope argument (skills|agents|extras|root)")
+			}
+			opts.gitRootScope = args[i+1]
+			i++
 		case "--skill":
 			opts.initSkill = true
 			opts.skillFlagSet = true
@@ -182,6 +190,15 @@ func validateInitOptions(opts *initOptions, home string) error {
 
 	if opts.gitFlagSet && opts.noGit {
 		return fmt.Errorf("--git and --no-git are mutually exclusive")
+	}
+
+	if opts.gitRootScope != "" {
+		if !config.ValidGitRoot(opts.gitRootScope) {
+			return fmt.Errorf("invalid --git-root %q (want: skills, agents, extras, or root)", opts.gitRootScope)
+		}
+		if opts.noGit {
+			return fmt.Errorf("--git-root cannot be combined with --no-git")
+		}
 	}
 
 	if opts.skillFlagSet && opts.noSkill {
@@ -324,15 +341,24 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 			return true, err
 		}
 		// Ensure git is initialized before setting up remote
-		// (--remote implies --git, so opts.initGit is already true)
-		initGitIfNeeded(cfg.EffectiveSkillsSource(), opts.dryRun, opts.initGit, opts.noGit)
-		// Commit any uncommitted source files so push/pull work cleanly
-		if !opts.dryRun && !opts.noGit {
-			if err := commitSourceFiles(cfg.EffectiveSkillsSource()); err != nil {
-				ui.Warning("Failed to commit source files: %v", err)
+		// (--remote implies --git unless --no-git is also passed)
+		scope := cfg.GitRoot
+		if scope == "" {
+			scope = "skills"
+		}
+		gitRoot := cfg.EffectiveGitRoot()
+		if opts.noGit {
+			ui.Info("Skipped git initialization (--no-git)")
+		} else {
+			doGitInitIfAbsent(gitRoot, scope, opts.dryRun)
+			// Commit any uncommitted source files so push/pull work cleanly
+			if !opts.dryRun {
+				if err := commitSourceFiles(gitRoot); err != nil {
+					ui.Warning("Failed to commit source files: %v", err)
+				}
 			}
 		}
-		setupGitRemote(cfg.EffectiveSkillsSource(), opts.remoteURL, opts.dryRun)
+		setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun)
 		return true, nil
 	}
 
@@ -421,11 +447,11 @@ func performFreshInit(opts *initOptions, home string) error {
 		},
 	}
 
-	// Initialize git in source directory for safety
-	initGitIfNeeded(sourcePath, opts.dryRun, opts.initGit, opts.noGit)
+	// Initialize git at the chosen scope (skills by default).
+	gitRoot := setupInitGit(cfg, sourcePath, opts)
 
-	// Set up git remote for cross-machine sync
-	remoteHadSkills := setupGitRemote(sourcePath, opts.remoteURL, opts.dryRun)
+	// Set up git remote for cross-machine sync (on the git root).
+	remoteHadSkills := setupGitRemote(gitRoot, opts.remoteURL, opts.dryRun)
 
 	// Subdirectory: use --subdir flag or prompt interactively
 	subDir := opts.subdir
@@ -454,7 +480,7 @@ func performFreshInit(opts *initOptions, home string) error {
 
 	// Single initial commit with all source files (.gitignore + skills)
 	if !opts.dryRun && !opts.noGit {
-		if err := commitSourceFiles(sourcePath); err != nil {
+		if err := commitSourceFiles(gitRoot); err != nil {
 			ui.Warning("Failed to create initial commit: %v", err)
 		}
 	}
@@ -924,55 +950,129 @@ func summarizeInitConfig(cfg *config.Config) {
 	}
 }
 
-func initGitIfNeeded(sourcePath string, dryRun, initGit, noGit bool) {
-	// Non-interactive: --no-git
-	if noGit {
+// scopeDir returns the resolved directory for a git_root scope keyword.
+func scopeDir(cfg *config.Config, scope string) string {
+	switch scope {
+	case "root":
+		return config.BaseDir()
+	case "agents":
+		return cfg.EffectiveAgentsSource()
+	case "extras":
+		return cfg.EffectiveExtrasSource()
+	default:
+		return cfg.EffectiveSkillsSource()
+	}
+}
+
+// chooseGitRootScope returns the git_root scope keyword for a fresh init.
+// Priority: --git-root flag -> interactive radio (TTY) -> "skills" default.
+func chooseGitRootScope(opts *initOptions) string {
+	if opts.gitRootScope != "" {
+		return opts.gitRootScope
+	}
+	if !runningInInteractiveTTY() {
+		return "skills"
+	}
+	items := []checklistItemData{
+		{label: "skills", desc: "Version-control skills only (default)", preSelected: true},
+		{label: "root", desc: "Everything: skills, agents, and extras in one repo"},
+		{label: "agents", desc: "Agents only"},
+		{label: "extras", desc: "Extras only (hooks, rules, commands, prompts)"},
+	}
+	sel, err := runChecklistTUI(checklistConfig{
+		title:        "What should git version-control?",
+		items:        items,
+		singleSelect: true,
+		itemName:     "scope",
+	})
+	if err != nil || len(sel) == 0 {
+		return "skills"
+	}
+	return items[sel[0]].label
+}
+
+// setupInitGit runs the fresh-init git section: asks whether to use git,
+// chooses the scope, initializes a repo at the scope directory, and records the
+// scope on cfg (persisted by the caller's cfg.Save()). Returns the resolved git
+// root directory (used for remote setup and the initial commit).
+func setupInitGit(cfg *config.Config, skillsSource string, opts *initOptions) string {
+	if opts.noGit {
 		ui.Info("Skipped git initialization (--no-git)")
 		ui.Warning("Without git, deleted skills cannot be recovered!")
-		return
+		return skillsSource
 	}
 
-	gitDir := filepath.Join(sourcePath, ".git")
-	if _, err := os.Stat(gitDir); err == nil {
-		ui.Info("Git already initialized in source directory")
-		return
-	}
-
-	// Non-interactive: --git flag was set, proceed without prompting
-	if initGit {
-		if dryRun {
-			ui.Info("Dry run - would initialize git in %s (--git)", sourcePath)
-			return
+	if !opts.initGit {
+		if !runningInInteractiveTTY() {
+			ui.Info("Skipped git initialization")
+			return skillsSource
 		}
-		doGitInit(sourcePath)
-		return
-	}
-
-	// Interactive mode
-	ui.Header("Git version control")
-	fmt.Println("  Git helps protect your skills from accidental deletion.")
-	fmt.Println()
-	fmt.Print("  Initialize git in source directory? [Y/n]: ")
-	var input string
-	fmt.Scanln(&input)
-	input = strings.ToLower(strings.TrimSpace(input))
-
-	if input != "" && input != "y" && input != "yes" {
-		if dryRun {
-			ui.Info("Dry run - skipped git initialization")
-			return
+		ui.Header("Git version control")
+		fmt.Println("  Git helps protect your skills from accidental deletion.")
+		fmt.Println()
+		fmt.Print("  Initialize git? [Y/n]: ")
+		var input string
+		fmt.Scanln(&input)
+		input = strings.ToLower(strings.TrimSpace(input))
+		if input != "" && input != "y" && input != "yes" {
+			if opts.dryRun {
+				ui.Info("Dry run - skipped git initialization")
+			} else {
+				ui.Info("Skipped git initialization")
+				ui.Warning("Without git, deleted skills cannot be recovered!")
+			}
+			return skillsSource
 		}
-		ui.Info("Skipped git initialization")
-		ui.Warning("Without git, deleted skills cannot be recovered!")
-		return
 	}
 
+	scope := chooseGitRootScope(opts)
+	gitRoot := scopeDir(cfg, scope)
+	if scope != "skills" && !opts.dryRun {
+		cfg.GitRoot = scope
+	}
+	doGitInitIfAbsent(gitRoot, scope, opts.dryRun)
+	return gitRoot
+}
+
+// doGitInitIfAbsent initializes a repo at gitRoot (with a scope-aware .gitignore)
+// unless one already exists there. dryRun only prints intentions.
+func doGitInitIfAbsent(gitRoot, scope string, dryRun bool) {
+	if hasGitDir(gitRoot) {
+		ui.Info("Git already initialized in %s", gitRoot)
+		return
+	}
 	if dryRun {
-		ui.Info("Dry run - would initialize git in %s", sourcePath)
+		ui.Info("Dry run - would initialize git in %s (scope: %s)", gitRoot, scope)
 		return
 	}
 
-	doGitInit(sourcePath)
+	if err := os.MkdirAll(gitRoot, 0o755); err != nil {
+		ui.Warning("Failed to create git root %s: %v", gitRoot, err)
+		return
+	}
+	cmd := exec.Command("git", "init")
+	cmd.Dir = gitRoot
+	if err := cmd.Run(); err != nil {
+		ui.Warning("Failed to initialize git: %v", err)
+		return
+	}
+	writeInitGitignore(gitRoot, scope)
+	ensureGitIdentity(gitRoot)
+	ui.Success("Git initialized in %s", gitRoot)
+}
+
+// writeInitGitignore writes a default .gitignore at gitRoot unless one exists.
+// At "root" scope it also ignores config.yaml (machine-specific paths/tokens).
+func writeInitGitignore(gitRoot, scope string) {
+	gitignore := filepath.Join(gitRoot, ".gitignore")
+	if _, err := os.Stat(gitignore); err == nil {
+		return
+	}
+	lines := []string{".DS_Store"}
+	if scope == "root" {
+		lines = append([]string{"config.yaml"}, lines...)
+	}
+	os.WriteFile(gitignore, []byte(strings.Join(lines, "\n")+"\n"), 0644)
 }
 
 // ensureGitIdentity sets repo-local user.name/email if not configured globally.
@@ -996,27 +1096,6 @@ func ensureGitIdentity(repoDir string) {
 	ui.Info("Git identity not configured, using local default")
 	ui.Info("  Set yours: git config --global user.name \"Your Name\"")
 	ui.Info("             git config --global user.email \"you@example.com\"")
-}
-
-func doGitInit(sourcePath string) {
-	// Run git init
-	cmd := exec.Command("git", "init")
-	cmd.Dir = sourcePath
-	if err := cmd.Run(); err != nil {
-		ui.Warning("Failed to initialize git: %v", err)
-		return
-	}
-
-	// Create .gitignore
-	gitignore := filepath.Join(sourcePath, ".gitignore")
-	if _, err := os.Stat(gitignore); os.IsNotExist(err) {
-		os.WriteFile(gitignore, []byte(".DS_Store\n"), 0644)
-	}
-
-	// Ensure git identity is configured (needed for commit).
-	ensureGitIdentity(sourcePath)
-
-	ui.Success("Git initialized")
 }
 
 // commitSourceFiles creates a single commit with all source files
