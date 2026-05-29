@@ -51,7 +51,7 @@ flowchart TD
 | `extras` | Extras source (`~/.config/skillshare/extras/`) |
 | `root` | Config root (`~/.config/skillshare/`) — versions skills + agents + extras in one repo |
 
-If `git_root` was changed but the git repo still lives in another scope's directory, `commit` prints a "Git root mismatch" error and asks you to re-run `skillshare init`.
+If `git_root` was changed but the git repo still lives in another scope's directory, `commit` prints a "Git root mismatch" error with the exact `git init` / `mv` commands to fix it. See [Changing the scope after init](../targets/configuration.md#git-root).
 
 ## Prerequisites
 

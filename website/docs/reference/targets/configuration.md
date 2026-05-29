@@ -664,7 +664,16 @@ git_root: skills
 
 **Default:** `skills`
 
-Set during init with `skillshare init --git-root <scope>`, or interactively during the init wizard. After changing this field, re-run `skillshare init` so the git repository is initialized at the new location. If `git_root` points to a directory without a repo while another scope directory has one, `commit`/`push`/`pull` print a "Git root mismatch" error and ask you to re-run `skillshare init`.
+Set during init with `skillshare init --git-root <scope>`, or interactively during the init wizard.
+
+#### Changing the scope after init
+
+Skillshare does **not** move an existing `.git` when you change `git_root` — switching scope means "start versioning a different directory", not "relocate the repo". After editing this field, set git up at the new scope directory yourself, in one of two ways:
+
+- **Start a fresh history** — run `git init` in the new scope directory (e.g. `~/.config/skillshare/` for `root`).
+- **Keep the existing history** — move the repo yourself: `mv <old-scope>/.git <new-scope>/.git`.
+
+Re-running `skillshare init --git-root <scope>` does **not** relocate an existing repo either — it warns and keeps the current scope. If `git_root` points to a directory without a repo while another scope directory has one, `commit`/`push`/`pull` print a "Git root mismatch" error that includes the exact `git init` / `mv` commands to resolve it.
 
 :::note Global mode only
 `git_root` applies to global mode only. Project mode uses the `.skillshare/` directory and does not support this field.

@@ -38,7 +38,7 @@ flowchart TD
 
 ## Git Root Scope
 
-`pull` operates on the directory selected by the `git_root` config field (default: `skills` source). See [commit — Git Root Scope](./commit.md#git-root-scope) for the scope table. If `git_root` was changed but the git repo still lives in another scope's directory, `pull` prints a "Git root mismatch" error and asks you to re-run `skillshare init`.
+`pull` operates on the directory selected by the `git_root` config field (default: `skills` source). See [commit — Git Root Scope](./commit.md#git-root-scope) for the scope table. If `git_root` was changed but the git repo still lives in another scope's directory, `pull` prints a "Git root mismatch" error with the exact `git init` / `mv` commands to fix it. See [Changing the scope after init](../targets/configuration.md#git-root).
 
 ## Prerequisites
 

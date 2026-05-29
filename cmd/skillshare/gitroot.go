@@ -29,8 +29,10 @@ func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, bool) {
 		spinner.Fail("Git root mismatch")
 		ui.Info("  git_root operates on: %s", root)
 		ui.Info("  but the git repo lives at: %s (%s)", dir, scope)
-		ui.Info("  Re-run 'skillshare init' to set up git at the configured root,")
-		ui.Info("  or edit git_root in %s to match.", config.ConfigPath())
+		ui.Info("  To version the configured scope, either:")
+		ui.Info("    - run 'git init' in %s (starts a fresh history), or", root)
+		ui.Info("    - move the repo: mv %s/.git %s/.git (keeps history)", dir, root)
+		ui.Info("  Or set 'git_root: %s' in %s to match the existing repo.", scope, config.ConfigPath())
 		return "", false
 	}
 	return root, true
