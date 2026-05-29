@@ -130,7 +130,10 @@ func TestRunAdopt_WarnsOnLingeringLockfile(t *testing.T) {
 		},
 	}
 	data, _ := json.Marshal(lock)
-	if err := os.WriteFile(filepath.Join(actx.agentsPath, ".skill-lock.json"), data, 0o644); err != nil {
+	// The lockfile lives beside the skills dir (~/.agents/.skill-lock.json),
+	// one level up — matching where production ReadLock looks.
+	lockPath := adopt.LockPath(actx.agentsPath)
+	if err := os.WriteFile(lockPath, data, 0o644); err != nil {
 		t.Fatalf("write lock: %v", err)
 	}
 
@@ -147,7 +150,7 @@ func TestRunAdopt_WarnsOnLingeringLockfile(t *testing.T) {
 	}
 
 	// Lockfile must NOT be modified.
-	raw, _ := os.ReadFile(filepath.Join(actx.agentsPath, ".skill-lock.json"))
+	raw, _ := os.ReadFile(lockPath)
 	var got map[string]any
 	if err := json.Unmarshal(raw, &got); err != nil {
 		t.Fatalf("lockfile became unreadable: %v", err)
