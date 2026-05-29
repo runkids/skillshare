@@ -337,13 +337,19 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 	// Headless scope switch: `skillshare init --git-root <scope>` on an existing
 	// setup initializes a repo at the new scope directory and persists git_root.
 	// It does not relocate an existing repo (run `mv <old>/.git <new>/.git` for
-	// that). Combined with --remote we fall through to the remote path below.
-	if opts.gitRootScope != "" && opts.remoteURL == "" {
+	// that). With --remote also given, fall through so the remote is configured
+	// on the just-switched scope's repo.
+	if opts.gitRootScope != "" {
 		cfg, err := config.Load()
 		if err != nil {
 			return true, err
 		}
-		return true, switchGitRootScope(cfg, opts.gitRootScope, opts.dryRun)
+		if err := switchGitRootScope(cfg, opts.gitRootScope, opts.dryRun); err != nil {
+			return true, err
+		}
+		if opts.remoteURL == "" {
+			return true, nil
+		}
 	}
 
 	// If --remote provided, just add the remote to existing setup
@@ -357,12 +363,6 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 		scope := cfg.GitRoot
 		if scope == "" {
 			scope = "skills"
-		}
-		// Scope changes are not combined with --remote — direct the user to the
-		// dedicated headless form instead of silently applying it here.
-		if opts.gitRootScope != "" && opts.gitRootScope != scope {
-			ui.Warning("--git-root %q ignored when combined with --remote", opts.gitRootScope)
-			ui.Info("  Change the scope separately: skillshare init --git-root %s", opts.gitRootScope)
 		}
 		gitRoot := cfg.EffectiveGitRoot()
 		if opts.noGit {
