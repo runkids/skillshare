@@ -339,6 +339,66 @@ func TestSyncExtraTransform_ReplacesLeftoverSymlink(t *testing.T) {
 	}
 }
 
+// A real directory at the generated path must never be destroyed without
+// --force — it is skipped like any copy-mode conflict, contents preserved.
+func TestSyncExtraTransform_DirConflictSkippedWithoutForce(t *testing.T) {
+	srcDir, tgtDir, spec := transformFixture(t)
+	dirAtOutput := filepath.Join(tgtDir, "a.toml")
+	if err := os.MkdirAll(dirAtOutput, 0755); err != nil {
+		t.Fatal(err)
+	}
+	keep := filepath.Join(dirAtOutput, "keep.txt")
+	if err := os.WriteFile(keep, []byte("precious"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := SyncExtra(srcDir, tgtDir, "copy", false, false, false, "", spec)
+	if err != nil {
+		t.Fatalf("SyncExtra: %v", err)
+	}
+	if res.Synced != 0 || res.Skipped != 1 {
+		t.Errorf("Synced=%d Skipped=%d, want 0/1", res.Synced, res.Skipped)
+	}
+	info, statErr := os.Stat(dirAtOutput)
+	if statErr != nil || !info.IsDir() {
+		t.Fatalf("directory must be preserved without --force (statErr=%v)", statErr)
+	}
+	if data, _ := os.ReadFile(keep); string(data) != "precious" {
+		t.Errorf("directory contents destroyed: %q", data)
+	}
+}
+
+// With --force, a conflicting directory is replaced wholesale by the generated
+// file (explicitly defined behavior).
+func TestSyncExtraTransform_DirConflictForceReplaces(t *testing.T) {
+	srcDir, tgtDir, spec := transformFixture(t)
+	dirAtOutput := filepath.Join(tgtDir, "a.toml")
+	if err := os.MkdirAll(dirAtOutput, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dirAtOutput, "keep.txt"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := SyncExtra(srcDir, tgtDir, "copy", false, true, false, "", spec)
+	if err != nil {
+		t.Fatalf("SyncExtra: %v", err)
+	}
+	if res.Synced != 1 || res.Skipped != 0 {
+		t.Errorf("Synced=%d Skipped=%d, want 1/0", res.Synced, res.Skipped)
+	}
+	info, statErr := os.Lstat(dirAtOutput)
+	if statErr != nil {
+		t.Fatalf("lstat: %v", statErr)
+	}
+	if info.IsDir() {
+		t.Errorf("expected directory to be replaced by a regular file")
+	}
+	if data, _ := os.ReadFile(dirAtOutput); string(data) != "fresh" {
+		t.Errorf("generated file content = %q, want fresh", data)
+	}
+}
+
 // Transforms require copy semantics; merge/symlink modes are rejected so the
 // API and CLI enforce the same contract.
 func TestSyncExtra_TransformRejectsNonCopyMode(t *testing.T) {

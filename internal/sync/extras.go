@@ -163,11 +163,30 @@ func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryR
 		}
 
 		// Conflict/force contract, mirroring syncOneExtraFile copy semantics:
-		// a regular local target file is never overwritten without --force.
+		// only leftover symlinks auto-replace; real files and directories are
+		// never destroyed without --force.
 		if info, lstatErr := os.Lstat(tgtFile); lstatErr == nil {
-			isSymlink := info.Mode()&os.ModeSymlink != 0
-			if !isSymlink && !info.IsDir() {
-				// Already up to date → idempotent, no rewrite needed.
+			switch {
+			case info.Mode()&os.ModeSymlink != 0:
+				// Leftover symlink from a different mode: safe to replace.
+				// os.Remove drops the link itself without following it.
+				if rmErr := os.Remove(tgtFile); rmErr != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("%s: failed to remove conflicting symlink: %v", rel, rmErr))
+					continue
+				}
+			case info.IsDir():
+				// A real directory is never silently destroyed; require --force,
+				// then replace it wholesale with the generated file.
+				if !force {
+					result.Skipped++
+					continue
+				}
+				if rmErr := os.RemoveAll(tgtFile); rmErr != nil {
+					result.Errors = append(result.Errors, fmt.Sprintf("%s: failed to remove conflicting directory: %v", rel, rmErr))
+					continue
+				}
+			default:
+				// Regular file: idempotent if identical, otherwise needs --force.
 				if existing, readErr := os.ReadFile(tgtFile); readErr == nil && bytes.Equal(existing, out) {
 					result.Synced++
 					continue
@@ -176,13 +195,7 @@ func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryR
 					result.Skipped++
 					continue
 				}
-			} else {
-				// Symlinks/dirs left over from a different mode are safe to
-				// replace; remove first so WriteFile does not follow the link.
-				if rmErr := os.RemoveAll(tgtFile); rmErr != nil {
-					result.Errors = append(result.Errors, fmt.Sprintf("%s: failed to remove conflicting target: %v", rel, rmErr))
-					continue
-				}
+				// With --force, WriteFile overwrites the file in place below.
 			}
 		}
 
@@ -429,6 +442,12 @@ func pruneExtraOrphans(targetPath string, sourceFiles map[string]bool, mode stri
 		}
 		if info.IsDir() {
 			if info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			// A directory occupying a claimed output path is a skipped conflict
+			// (the source wanted a file there but we refused to clobber it).
+			// Leave its contents entirely untouched — never prune inside it.
+			if rel, relErr := filepath.Rel(targetPath, path); relErr == nil && sourceFiles[rel] {
 				return filepath.SkipDir
 			}
 			return nil
