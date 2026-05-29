@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderOpen, FolderPlus, Lock, Plus, Puzzle, RefreshCw, Target, Trash2, X, Zap } from 'lucide-react';
+import { Check, FolderOpen, FolderPlus, Lock, Plus, Puzzle, RefreshCw, Target, Trash2, X, Zap } from 'lucide-react';
 import { api } from '../api/client';
 import type { Extra } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -310,10 +310,37 @@ function ExtraCard({
       : '';
   const [syncing, setSyncing] = useState(false);
   const [changingMode, setChangingMode] = useState<string | null>(null);
+  const [addingTarget, setAddingTarget] = useState(false);
+  const [newTarget, setNewTarget] = useState<TargetEntry>({ path: '', mode: 'merge', flatten: false });
+  const [savingTarget, setSavingTarget] = useState(false);
 
-  // Wired in Task 7; consumed by inline add form (Task 8) and per-target remove (Task 9).
-  void onAddTarget;
+  // Wired in Task 7; consumed by per-target remove (Task 9).
   void onRemoveTarget;
+
+  const handleSaveNew = async () => {
+    if (!newTarget.path.trim()) {
+      return;
+    }
+    setSavingTarget(true);
+    try {
+      await onAddTarget(extra.name, {
+        path: newTarget.path.trim(),
+        mode: newTarget.mode,
+        flatten: newTarget.flatten,
+      });
+      setAddingTarget(false);
+      setNewTarget({ path: '', mode: 'merge', flatten: false });
+    } catch {
+      // Form stays open so the user can fix and retry. Toast was emitted upstream.
+    } finally {
+      setSavingTarget(false);
+    }
+  };
+
+  const handleCancelNew = () => {
+    setAddingTarget(false);
+    setNewTarget({ path: '', mode: 'merge', flatten: false });
+  };
 
   const handleSync = async (force?: boolean) => {
     setSyncing(true);
@@ -491,6 +518,76 @@ function ExtraCard({
           <p className="text-sm text-pencil-light italic">{t('extras.noTargets')}</p>
         )}
       </div>
+
+      {/* Inline "Add target" form */}
+      {addingTarget && (
+        <div className="ml-5 mt-2 flex gap-2 items-center">
+          <div className="flex-1">
+            <Input
+              placeholder={t('extras.modal.targetPathPlaceholder')}
+              value={newTarget.path}
+              onChange={(e) => setNewTarget((prev) => ({ ...prev, path: e.target.value }))}
+              disabled={savingTarget}
+              autoFocus
+            />
+          </div>
+          <div className="w-32 shrink-0">
+            <Select
+              value={newTarget.mode}
+              onChange={(v) => {
+                setNewTarget((prev) => ({
+                  ...prev,
+                  mode: v,
+                  flatten: v === 'symlink' ? false : prev.flatten,
+                }));
+              }}
+              options={MODE_OPTIONS}
+              size="sm"
+            />
+          </div>
+          <label className="flex items-center gap-1.5 shrink-0 cursor-pointer select-none" title={t('extras.flattenTitle')}>
+            <input
+              type="checkbox"
+              checked={newTarget.flatten}
+              onChange={(e) => setNewTarget((prev) => ({ ...prev, flatten: e.target.checked }))}
+              disabled={savingTarget || newTarget.mode === 'symlink'}
+              className="accent-primary"
+            />
+            <span className={`text-xs ${newTarget.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
+              {t('extras.flatten')}
+            </span>
+          </label>
+          <IconButton
+            icon={<Check size={16} strokeWidth={2.5} />}
+            label={t('extras.saveTarget')}
+            size="sm"
+            variant="outline"
+            onClick={handleSaveNew}
+            disabled={savingTarget || !newTarget.path.trim()}
+          />
+          <IconButton
+            icon={<X size={16} strokeWidth={2.5} />}
+            label={t('extras.cancelTarget')}
+            size="sm"
+            variant="ghost"
+            onClick={handleCancelNew}
+            disabled={savingTarget}
+          />
+        </div>
+      )}
+
+      {/* "Add target" button */}
+      {!addingTarget && (
+        <div className="ml-5 mt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAddingTarget(true)}
+          >
+            <Plus size={14} strokeWidth={2.5} /> {t('extras.addTarget')}
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }
