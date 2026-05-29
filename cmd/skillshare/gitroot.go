@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"skillshare/internal/config"
 	gitops "skillshare/internal/git"
@@ -26,6 +27,16 @@ func hasGitDir(dir string) bool {
 // guidance (this also preserves the legacy case of a skills source nested inside
 // an unrelated parent git repo).
 func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, bool) {
+	// Reject an unknown git_root before resolving: ScopeDir silently falls back
+	// to the skills scope for any unrecognized value, which would make
+	// commit/push/pull operate on the wrong repository without warning.
+	if !config.ValidGitRoot(cfg.GitRoot) {
+		spinner.Fail("Invalid git_root")
+		ui.Info("  git_root %q is not a valid scope", cfg.GitRoot)
+		ui.Info("  valid values: %s (or leave empty for skills)", strings.Join(config.ValidGitRoots, ", "))
+		return "", false
+	}
+
 	root := cfg.EffectiveGitRoot()
 	if scope, dir, mismatch := cfg.GitRootMismatch(); mismatch {
 		configured := cfg.GitRoot

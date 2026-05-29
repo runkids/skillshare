@@ -30,6 +30,10 @@ var ValidSyncModes = []string{"merge", "symlink", "copy"}
 // ValidTargetNamings lists all valid target naming values.
 var ValidTargetNamings = []string{"flat", "standard"}
 
+// ValidGitRoots lists all valid git_root scope keywords. Empty is also accepted
+// (meaning "skills"); see ValidGitRoot.
+var ValidGitRoots = []string{"skills", "agents", "extras", "root"}
+
 // IsValidSyncMode reports whether mode is a valid sync mode (or empty, meaning inherit).
 func IsValidSyncMode(mode string) bool {
 	if mode == "" {
@@ -388,11 +392,10 @@ func (c *Config) GitRootMismatch() (scope, dir string, mismatch bool) {
 // ValidGitRoot reports whether s is an accepted git_root scope keyword.
 // Empty is accepted (means "skills").
 func ValidGitRoot(s string) bool {
-	switch s {
-	case "", "skills", "agents", "extras", "root":
-		return true
+	if s == "" {
+		return true // empty = skills
 	}
-	return false
+	return slices.Contains(ValidGitRoots, s)
 }
 
 // HasAgentTarget reports whether any configured target has an agents path,

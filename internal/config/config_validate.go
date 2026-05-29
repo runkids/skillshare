@@ -40,6 +40,13 @@ func ValidateConfig(cfg *Config) (warnings []string, err error) {
 		errs = append(errs, fmt.Sprintf("invalid global target naming %q (valid: %s)", cfg.TargetNaming, strings.Join(ValidTargetNamings, ", ")))
 	}
 
+	// git_root scope keyword. An unknown value silently falls back to the skills
+	// scope in ScopeDir, so commit/push/pull would operate on the wrong repo
+	// without warning — reject it here instead.
+	if !ValidGitRoot(cfg.GitRoot) {
+		errs = append(errs, fmt.Sprintf("invalid git_root %q (valid: %s)", cfg.GitRoot, strings.Join(ValidGitRoots, ", ")))
+	}
+
 	// Per-target validation
 	for name, target := range cfg.Targets {
 		sc := target.SkillsConfig()
