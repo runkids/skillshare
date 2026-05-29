@@ -719,7 +719,7 @@ func TestCheckSyncStatus_Synced(t *testing.T) {
 	SyncExtra(src, tgt, "merge", false, false, false, "", nil)
 	files, _ := DiscoverExtraFiles(src)
 	absSrc, _ := filepath.Abs(src)
-	if s := CheckSyncStatus(files, absSrc, tgt, "merge", false); s != "synced" {
+	if s := CheckSyncStatus(files, absSrc, tgt, "merge", false, ""); s != "synced" {
 		t.Errorf("expected synced, got %s", s)
 	}
 }
@@ -730,7 +730,7 @@ func TestCheckSyncStatus_Drift(t *testing.T) {
 	os.MkdirAll(tgt, 0755)
 	files, _ := DiscoverExtraFiles(src)
 	absSrc, _ := filepath.Abs(src)
-	if s := CheckSyncStatus(files, absSrc, tgt, "merge", false); s != "drift" {
+	if s := CheckSyncStatus(files, absSrc, tgt, "merge", false, ""); s != "drift" {
 		t.Errorf("expected drift, got %s", s)
 	}
 }
@@ -740,7 +740,7 @@ func TestCheckSyncStatus_FlattenSynced(t *testing.T) {
 	SyncExtra(src, tgt, "merge", false, false, true, "", nil)
 	files, _ := DiscoverExtraFiles(src)
 	absSrc, _ := filepath.Abs(src)
-	if s := CheckSyncStatus(files, absSrc, tgt, "merge", true); s != "synced" {
+	if s := CheckSyncStatus(files, absSrc, tgt, "merge", true, ""); s != "synced" {
 		t.Errorf("expected synced, got %s", s)
 	}
 }
@@ -751,7 +751,7 @@ func TestCheckSyncStatus_FlattenDrift(t *testing.T) {
 	os.MkdirAll(tgt, 0755)
 	files, _ := DiscoverExtraFiles(src)
 	absSrc, _ := filepath.Abs(src)
-	if s := CheckSyncStatus(files, absSrc, tgt, "merge", true); s != "drift" {
+	if s := CheckSyncStatus(files, absSrc, tgt, "merge", true, ""); s != "drift" {
 		t.Errorf("expected drift, got %s", s)
 	}
 }
@@ -764,7 +764,7 @@ func TestCheckSyncStatus_FlattenCollisionNotDrift(t *testing.T) {
 	SyncExtra(src, tgt, "merge", false, false, true, "", nil)
 	files, _ := DiscoverExtraFiles(src)
 	absSrc, _ := filepath.Abs(src)
-	if s := CheckSyncStatus(files, absSrc, tgt, "merge", true); s != "synced" {
+	if s := CheckSyncStatus(files, absSrc, tgt, "merge", true, ""); s != "synced" {
 		t.Errorf("expected synced (collision skipped), got %s", s)
 	}
 }
@@ -774,7 +774,26 @@ func TestCheckSyncStatus_CopyMode(t *testing.T) {
 	SyncExtra(src, tgt, "copy", false, false, false, "", nil)
 	files, _ := DiscoverExtraFiles(src)
 	absSrc, _ := filepath.Abs(src)
-	if s := CheckSyncStatus(files, absSrc, tgt, "copy", false); s != "synced" {
+	if s := CheckSyncStatus(files, absSrc, tgt, "copy", false, ""); s != "synced" {
 		t.Errorf("expected synced, got %s", s)
+	}
+}
+
+// TestCheckSyncStatus_TransformOutputExt is a regression test: a transform
+// extension renames output (.md → .toml), so status must compare against the
+// transformed filename. Without outputExt the checker looks for the source
+// name and wrongly reports drift right after a successful sync.
+func TestCheckSyncStatus_TransformOutputExt(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{"agent.md": "# Agent"})
+	spec := &ExtensionSpec{Run: []string{"cat"}, OutputExt: "toml"}
+	SyncExtra(src, tgt, "copy", false, false, false, "", spec)
+	files, _ := DiscoverExtraFiles(src)
+	absSrc, _ := filepath.Abs(src)
+
+	if s := CheckSyncStatus(files, absSrc, tgt, "copy", false, "toml"); s != "synced" {
+		t.Errorf("expected synced with outputExt, got %s", s)
+	}
+	if s := CheckSyncStatus(files, absSrc, tgt, "copy", false, ""); s != "drift" {
+		t.Errorf("expected drift without outputExt (looks for .md), got %s", s)
 	}
 }

@@ -479,14 +479,17 @@ func FlattenRel(rel string, flatten bool, seen map[string]bool) (tgtRel string, 
 }
 
 // CheckSyncStatus compares source files against the target directory and
-// returns a status string: "synced" or "drift".
-func CheckSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string, flatten bool) string {
+// returns a status string: "synced" or "drift". When outputExt is non-empty a
+// transform extension is in effect, so the expected target file carries the
+// transformed extension (e.g. foo.md → foo.toml) instead of the source name.
+func CheckSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string, flatten bool, outputExt string) string {
 	seen := make(map[string]bool)
 	for _, rel := range sourceFiles {
 		tgtRel, ok := FlattenRel(rel, flatten, seen)
 		if !ok {
 			continue
 		}
+		tgtRel = applyOutputExt(tgtRel, outputExt)
 		targetFile := filepath.Join(targetDir, tgtRel)
 		sourceFile := filepath.Join(sourceDir, rel)
 

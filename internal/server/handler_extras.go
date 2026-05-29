@@ -131,7 +131,16 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 			} else if _, statErr := os.Stat(t.Path); os.IsNotExist(statErr) {
 				ti.Status = "not synced"
 			} else {
-				ti.Status = syncpkg.CheckSyncStatus(files, sourceDir, t.Path, m, t.Flatten)
+				// A transform extension renames output (e.g. .md → .toml), so
+				// resolve its output_ext to compare against the right target
+				// filenames — otherwise status is always reported as drift.
+				outputExt := ""
+				if t.Extension != "" {
+					if spec, serr := s.resolveExtensionSpec(t.Extension); serr == nil && spec != nil {
+						outputExt = spec.OutputExt
+					}
+				}
+				ti.Status = syncpkg.CheckSyncStatus(files, sourceDir, t.Path, m, t.Flatten, outputExt)
 			}
 
 			entry.Targets = append(entry.Targets, ti)

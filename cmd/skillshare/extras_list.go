@@ -63,7 +63,9 @@ func buildExtrasListEntries(extras []config.ExtraConfig, extrasSource string, so
 			} else if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
 				ti.Status = "not synced"
 			} else {
-				ti.Status = sync.CheckSyncStatus(files, sourceDir, resolvedPath, m, t.Flatten)
+				// This branch is only reached for non-extension targets; transform
+				// targets short-circuit to the "extension" status above.
+				ti.Status = sync.CheckSyncStatus(files, sourceDir, resolvedPath, m, t.Flatten, "")
 			}
 
 			entry.Targets = append(entry.Targets, ti)
