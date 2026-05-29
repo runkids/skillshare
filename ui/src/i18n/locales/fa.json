@@ -292,7 +292,7 @@
   "config.extensions.available": "extension‌های داخلی موجود",
   "config.extensions.download": "دانلود",
   "config.extensions.toast.installed": "{name} نصب شد",
-  "config.extensions.toast.opened": "در {editor} باز شد",
+  "config.extensions.toast.opened": "پوشهٔ extensions باز شد",
   "config.subtitle.global": "پیکربندی skillshare خود را ویرایش کنید",
   "config.subtitle.project": "پیکربندی پروژه خود را ویرایش کنید",
   "config.title": "پیکربندی",

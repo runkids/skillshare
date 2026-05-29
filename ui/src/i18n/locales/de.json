@@ -292,7 +292,7 @@
   "config.extensions.available": "Verfügbare integrierte Extensions",
   "config.extensions.download": "Herunterladen",
   "config.extensions.toast.installed": "{name} installiert",
-  "config.extensions.toast.opened": "In {editor} geöffnet",
+  "config.extensions.toast.opened": "Extensions-Verzeichnis geöffnet",
   "config.subtitle.global": "Deine skillshare-Konfiguration bearbeiten",
   "config.subtitle.project": "Deine Projektkonfiguration bearbeiten",
   "config.title": "Konfiguration",

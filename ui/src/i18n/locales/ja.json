@@ -292,7 +292,7 @@
   "config.extensions.available": "利用可能な組み込み extension",
   "config.extensions.download": "ダウンロード",
   "config.extensions.toast.installed": "{name} をインストールしました",
-  "config.extensions.toast.opened": "{editor} で開きました",
+  "config.extensions.toast.opened": "extensions ディレクトリを開きました",
   "config.subtitle.global": "skillshare の設定を編集します",
   "config.subtitle.project": "プロジェクトの設定を編集します",
   "config.title": "設定",

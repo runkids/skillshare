@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
+	"runtime"
 	"time"
 
 	"skillshare/internal/install"
@@ -90,19 +90,14 @@ func (s *Server) handleExtensionsInstall(w http.ResponseWriter, r *http.Request)
 }
 
 // handleExtensionsOpen — POST /api/extensions/open
-// Opens the current mode's extensions directory in the user's editor, mirroring
-// the skill "open in editor" affordance.
+// Opens the current mode's extensions directory in the OS file manager
+// (Finder on macOS, Explorer on Windows, the default handler on Linux/BSD).
 func (s *Server) handleExtensionsOpen(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
 	if os.Getenv("SKILLSHARE_HEADLESS") == "1" {
-		writeError(w, http.StatusConflict, "refusing to launch editor: SKILLSHARE_HEADLESS=1")
+		writeError(w, http.StatusConflict, "refusing to open file manager: SKILLSHARE_HEADLESS=1")
 		return
-	}
-
-	var req openInEditorRequest
-	if r.Body != nil {
-		_ = json.NewDecoder(r.Body).Decode(&req)
 	}
 
 	dir := s.extensionsDir()
@@ -111,24 +106,29 @@ func (s *Server) handleExtensionsOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	editor, picked, err := pickEditor(strings.TrimSpace(req.Editor))
-	if err != nil {
-		writeError(w, http.StatusConflict, "no editor available: "+err.Error())
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", dir)
+	case "windows":
+		cmd = exec.Command("explorer", dir)
+	case "linux", "freebsd", "openbsd", "netbsd":
+		cmd = exec.Command("xdg-open", dir)
+	default:
+		writeError(w, http.StatusNotImplemented, "opening a file manager is not supported on this platform")
 		return
 	}
-
-	cmd := exec.Command(editor.bin, append(editor.args, dir)...) //nolint:gosec // editor choice is explicit
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, nil, nil
 	if err := cmd.Start(); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to launch %s: %s", editor.bin, err))
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to open file manager: %s", err))
 		return
 	}
+	// Explorer returns a non-zero exit code even on success; ignore Wait result.
 	go func() { _ = cmd.Wait() }()
 
 	s.writeOpsLog("extensions-open", "ok", start, map[string]any{
-		"editor": picked,
-		"path":   dir,
-		"scope":  "ui",
+		"path":  dir,
+		"scope": "ui",
 	}, "")
-	writeJSON(w, openInEditorResponse{Editor: picked, Path: dir, PID: cmd.Process.Pid})
+	writeJSON(w, map[string]any{"path": dir})
 }

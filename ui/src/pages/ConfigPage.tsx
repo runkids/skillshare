@@ -670,8 +670,8 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
   const handleOpenDir = async () => {
     setOpening(true);
     try {
-      const res = await api.openExtensionsDir();
-      toast(t('config.extensions.toast.opened', { editor: res.editor }, `Opened in ${res.editor}`), 'success');
+      await api.openExtensionsDir();
+      toast(t('config.extensions.toast.opened', {}, 'Opened extensions directory'), 'success');
     } catch (err: any) {
       toast(err.message, 'error');
     } finally {

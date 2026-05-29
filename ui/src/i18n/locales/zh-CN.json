@@ -292,7 +292,7 @@
   "config.extensions.available": "可用的内置 extension",
   "config.extensions.download": "下载",
   "config.extensions.toast.installed": "已安装 {name}",
-  "config.extensions.toast.opened": "已在 {editor} 中打开",
+  "config.extensions.toast.opened": "已打开 extensions 目录",
   "config.subtitle.global": "编辑你的 skillshare 配置",
   "config.subtitle.project": "编辑你的项目配置",
   "config.title": "配置",

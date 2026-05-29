@@ -292,7 +292,7 @@
   "config.extensions.available": "사용 가능한 기본 제공 extension",
   "config.extensions.download": "다운로드",
   "config.extensions.toast.installed": "{name} 설치 완료",
-  "config.extensions.toast.opened": "{editor}에서 열었습니다",
+  "config.extensions.toast.opened": "extensions 디렉터리를 열었습니다",
   "config.subtitle.global": "skillshare 설정 편집",
   "config.subtitle.project": "프로젝트 설정 편집",
   "config.title": "설정",

@@ -541,11 +541,8 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ name }),
     }),
-  openExtensionsDir: (editor?: string) =>
-    apiFetch<{ editor: string; path: string; pid: number }>('/extensions/open', {
-      method: 'POST',
-      body: JSON.stringify(editor ? { editor } : {}),
-    }),
+  openExtensionsDir: () =>
+    apiFetch<{ path: string }>('/extensions/open', { method: 'POST' }),
   // extension: undefined = leave unchanged; '' = clear; name = set (forces copy mode)
   setExtraMode: (name: string, target: string, mode: string, flatten?: boolean, extension?: string) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/mode`, {
