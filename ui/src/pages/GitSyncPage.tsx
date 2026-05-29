@@ -324,9 +324,9 @@ export default function GitSyncPage() {
               </div>
             </div>
           ) : (
-            <div className="p-4 space-y-3">
+            <div className="p-4 flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2 text-pencil">
-                <AlertTriangle size={18} strokeWidth={2.5} className="text-danger" />
+                <AlertTriangle size={18} strokeWidth={2.5} className="text-danger shrink-0" />
                 <span>{t('gitSync.notARepo')}</span>
                 <Badge variant="danger">{t('gitSync.repo.notARepoLabel')}</Badge>
               </div>
@@ -394,31 +394,33 @@ export default function GitSyncPage() {
                 )}
               </div>
 
-              {/* ── Scope row ── */}
-              <div className="px-4 py-2 border-t border-dashed border-pencil-light/20 flex items-center gap-3 text-sm">
-                <span className="text-pencil-light">{t('gitSync.scope.label')}</span>
-                <Select
-                  value={status.scope || 'skills'}
-                  onChange={(val) => {
-                    if (val !== status.scope) {
-                      setPendingRemote('');
-                      setPendingScope(val);
-                    }
-                  }}
-                  options={[
-                    { value: 'skills', label: 'skills' },
-                    { value: 'agents', label: 'agents' },
-                    { value: 'extras', label: 'extras' },
-                    { value: 'root', label: 'root' },
-                  ]}
-                  size="sm"
-                  disabled={setRootMutation.isPending}
-                  className="min-w-[120px]"
-                />
-              </div>
-
-              {/* ── Status bar: branch / HEAD / tracking ── */}
+              {/* ── Status bar: scope / branch / HEAD ── */}
               <div className="px-4 py-2.5 border-t border-dashed border-pencil-light/20 bg-muted/30 flex items-center gap-x-5 gap-y-2 flex-wrap text-sm">
+                {/* Scope */}
+                <div className="flex items-center gap-2">
+                  <span className="text-pencil-light">{t('gitSync.scope.label')}</span>
+                  <Select
+                    value={status.scope || 'skills'}
+                    onChange={(val) => {
+                      if (val !== status.scope) {
+                        setPendingRemote('');
+                        setPendingScope(val);
+                      }
+                    }}
+                    options={[
+                      { value: 'skills', label: 'skills' },
+                      { value: 'agents', label: 'agents' },
+                      { value: 'extras', label: 'extras' },
+                      { value: 'root', label: 'root' },
+                    ]}
+                    size="sm"
+                    disabled={setRootMutation.isPending}
+                    className="min-w-[110px]"
+                  />
+                </div>
+
+                <span className="hidden sm:inline text-pencil-light/30">|</span>
+
                 {/* Branch */}
                 <div className="flex items-center gap-2">
                   <GitBranch size={14} strokeWidth={2.5} className="text-pencil-light" />
