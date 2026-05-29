@@ -313,9 +313,8 @@ function ExtraCard({
   const [addingTarget, setAddingTarget] = useState(false);
   const [newTarget, setNewTarget] = useState<TargetEntry>({ path: '', mode: 'merge', flatten: false });
   const [savingTarget, setSavingTarget] = useState(false);
-
-  // Wired in Task 7; consumed by per-target remove (Task 9).
-  void onRemoveTarget;
+  const [removingTarget, setRemovingTarget] = useState<string | null>(null);
+  const [removingTargetInFlight, setRemovingTargetInFlight] = useState(false);
 
   const handleSaveNew = async () => {
     if (!newTarget.path.trim()) {
@@ -340,6 +339,17 @@ function ExtraCard({
   const handleCancelNew = () => {
     setAddingTarget(false);
     setNewTarget({ path: '', mode: 'merge', flatten: false });
+  };
+
+  const handleConfirmRemoveTarget = async () => {
+    if (!removingTarget) return;
+    setRemovingTargetInFlight(true);
+    try {
+      await onRemoveTarget(extra.name, removingTarget);
+    } finally {
+      setRemovingTargetInFlight(false);
+      setRemovingTarget(null);
+    }
   };
 
   const handleSync = async (force?: boolean) => {
@@ -512,6 +522,14 @@ function ExtraCard({
                   disabled={changingMode === tgt.path}
                 />
               )}
+              <IconButton
+                icon={<Trash2 size={14} strokeWidth={2.5} />}
+                label={t('extras.removeTarget')}
+                size="sm"
+                variant="danger-outline"
+                onClick={() => setRemovingTarget(tgt.path)}
+                disabled={changingMode === tgt.path}
+              />
             </div>
           ))
         ) : (
@@ -588,6 +606,24 @@ function ExtraCard({
           </Button>
         </div>
       )}
+      <ConfirmDialog
+        open={removingTarget !== null}
+        title={t('extras.removeTargetConfirm.title')}
+        message={
+          removingTarget ? (
+            <span>
+              {t('extras.removeTargetConfirm.message', { name: extra.name, path: removingTarget })}
+            </span>
+          ) : (
+            <span />
+          )
+        }
+        confirmText={t('extras.removeTargetConfirm.confirmText')}
+        variant="danger"
+        loading={removingTargetInFlight}
+        onConfirm={handleConfirmRemoveTarget}
+        onCancel={() => setRemovingTarget(null)}
+      />
     </Card>
   );
 }
