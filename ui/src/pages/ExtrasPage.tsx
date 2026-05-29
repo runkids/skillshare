@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderOpen, FolderPlus, Plus, RefreshCw, Target, Trash2, X, Zap } from 'lucide-react';
+import { FolderOpen, FolderPlus, Lock, Plus, RefreshCw, Target, Trash2, X, Zap } from 'lucide-react';
 import { api } from '../api/client';
 import type { Extra, ExtrasSyncResult } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -135,70 +135,98 @@ function AddExtraModal({
               >
                 {t('extras.modal.targets')}
               </label>
+              {/* Column headers — aligned to the control widths below */}
+              <div className="flex gap-2 items-center mb-1.5 px-0.5">
+                <span className="flex-1 text-xs font-medium text-pencil-light">{t('extras.modal.colPath', {}, 'Path')}</span>
+                {availableExtensions.length > 0 && (
+                  <span className="w-36 shrink-0 text-xs font-medium text-pencil-light">{t('extras.modal.colExtension', {}, 'Extension')}</span>
+                )}
+                <span className="w-32 shrink-0 text-xs font-medium text-pencil-light">{t('extras.modal.colMode', {}, 'Mode')}</span>
+                <span className="w-24 shrink-0" aria-hidden="true" />
+                <span className="w-8 shrink-0" aria-hidden="true" />
+              </div>
               <div className="space-y-2">
                 {targets.map((tgt, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <div className="flex-1">
-                      <Input
-                        placeholder={t('extras.modal.targetPathPlaceholder')}
-                        value={tgt.path}
-                        onChange={(e) => updateTarget(i, 'path', e.target.value)}
-                        disabled={saving}
-                      />
-                    </div>
-                    {(availableExtensions.length > 0 || tgt.extension) && (
-                      <div className="w-36 shrink-0">
-                        <Select
-                          value={tgt.extension}
-                          onChange={(v) => {
-                            // selecting an extension forces copy mode
-                            setTargets((prev) =>
-                              prev.map((te, idx) =>
-                                idx === i ? { ...te, extension: v, ...(v ? { mode: 'copy' } : {}) } : te,
-                              ),
-                            );
-                          }}
-                          options={[
-                            { value: '', label: t('extras.noExtension', {}, 'no extension') },
-                            ...availableExtensions.map((e) => ({ value: e, label: e })),
-                          ]}
+                  <div key={i}>
+                    <div className="flex gap-2 items-center">
+                      <div className="flex-1">
+                        <Input
+                          placeholder={t('extras.modal.targetPathPlaceholder')}
+                          value={tgt.path}
+                          onChange={(e) => updateTarget(i, 'path', e.target.value)}
                           disabled={saving}
                         />
                       </div>
-                    )}
-                    <div className="w-32 shrink-0">
-                      <Select
-                        value={tgt.mode}
-                        onChange={(v) => {
-                          updateTarget(i, 'mode', v);
-                          if (v === 'symlink') updateTarget(i, 'flatten', false);
-                        }}
-                        options={MODE_OPTIONS}
-                        disabled={saving || !!tgt.extension}
-                      />
+                      {(availableExtensions.length > 0 || tgt.extension) && (
+                        <div className="w-36 shrink-0">
+                          <Select
+                            value={tgt.extension}
+                            onChange={(v) => {
+                              // selecting an extension forces copy mode
+                              setTargets((prev) =>
+                                prev.map((te, idx) =>
+                                  idx === i ? { ...te, extension: v, ...(v ? { mode: 'copy' } : {}) } : te,
+                                ),
+                              );
+                            }}
+                            options={[
+                              { value: '', label: t('extras.noExtension', {}, 'no extension') },
+                              ...availableExtensions.map((e) => ({ value: e, label: e })),
+                            ]}
+                            disabled={saving}
+                          />
+                        </div>
+                      )}
+                      {/* Extension forces copy mode: show a read-only locked chip instead of a greyed-out select */}
+                      {tgt.extension ? (
+                        <div className="w-32 shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] border-2 border-muted bg-muted/30 text-xs text-pencil-light">
+                          <Lock size={12} strokeWidth={2.5} className="shrink-0" />
+                          <span>copy</span>
+                        </div>
+                      ) : (
+                        <div className="w-32 shrink-0">
+                          <Select
+                            value={tgt.mode}
+                            onChange={(v) => {
+                              updateTarget(i, 'mode', v);
+                              if (v === 'symlink') updateTarget(i, 'flatten', false);
+                            }}
+                            options={MODE_OPTIONS}
+                            disabled={saving}
+                          />
+                        </div>
+                      )}
+                      <label className="w-24 shrink-0 flex items-center gap-1.5 cursor-pointer select-none" title={t('extras.flattenTitle')}>
+                        <input
+                          type="checkbox"
+                          checked={tgt.flatten}
+                          onChange={(e) => updateTarget(i, 'flatten', e.target.checked)}
+                          disabled={saving || tgt.mode === 'symlink'}
+                          className="accent-primary"
+                        />
+                        <span className={`text-xs ${tgt.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
+                          {t('extras.flatten')}
+                        </span>
+                      </label>
+                      <div className="w-8 shrink-0 flex justify-center">
+                        {targets.length > 1 && (
+                          <IconButton
+                            icon={<X size={16} strokeWidth={2.5} />}
+                            label={t('extras.removeTarget')}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => removeTarget(i)}
+                            disabled={saving}
+                            className="hover:text-danger"
+                          />
+                        )}
+                      </div>
                     </div>
-                    <label className="flex items-center gap-1.5 shrink-0 cursor-pointer select-none" title={t('extras.flattenTitle')}>
-                      <input
-                        type="checkbox"
-                        checked={tgt.flatten}
-                        onChange={(e) => updateTarget(i, 'flatten', e.target.checked)}
-                        disabled={saving || tgt.mode === 'symlink'}
-                        className="accent-primary"
-                      />
-                      <span className={`text-xs ${tgt.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
-                        {t('extras.flatten')}
-                      </span>
-                    </label>
-                    {targets.length > 1 && (
-                      <IconButton
-                        icon={<X size={16} strokeWidth={2.5} />}
-                        label={t('extras.removeTarget')}
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeTarget(i)}
-                        disabled={saving}
-                        className="hover:text-danger"
-                      />
+                    {tgt.extension && (
+                      <p className="flex items-center gap-1 mt-1 ml-0.5 text-xs text-pencil-light/70">
+                        <Lock size={11} strokeWidth={2.5} className="shrink-0" />
+                        {t('extras.modal.extensionLockedHint', {}, 'Extensions run in copy mode')}
+                      </p>
                     )}
                   </div>
                 ))}
