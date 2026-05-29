@@ -1115,9 +1115,9 @@ export default function SkillsPage() {
             skills={tabFiltered}
             resourceKind={activeTab === 'agents' ? 'agent' : 'skill'}
             totalCount={skills.length}
-            isSearching={!!search || filterType !== 'all'}
+            isSearching={!!search || filterType !== 'all' || statusFilter !== 'all'}
             stickyTop={toolbarH}
-            onClearFilters={(filterType !== 'all' || search) ? () => { setFilterType('all'); setSearch(''); } : undefined}
+            onClearFilters={(filterType !== 'all' || statusFilter !== 'all' || search) ? () => { setFilterType('all'); setStatusFilter('all'); setSearch(''); } : undefined}
           />
         ) : (
           <SkillsTable skills={tabFiltered} resourceKind={activeTab === 'agents' ? 'agent' : 'skill'} />
@@ -1125,9 +1125,9 @@ export default function SkillsPage() {
       ) : (
         <EmptyState
           icon={activeTab === 'agents' ? Bot : Puzzle}
-          title={search || filterType !== 'all' ? t('resources.noMatches.title') : activeTab === 'agents' ? t('resources.agents.empty.title') : t('resources.skills.empty.title')}
+          title={search || filterType !== 'all' || statusFilter !== 'all' ? t('resources.noMatches.title') : activeTab === 'agents' ? t('resources.agents.empty.title') : t('resources.skills.empty.title')}
           description={
-            search || filterType !== 'all'
+            search || filterType !== 'all' || statusFilter !== 'all'
               ? t('resources.noMatches.description')
               : activeTab === 'agents'
                 ? t('resources.agents.empty.description')
