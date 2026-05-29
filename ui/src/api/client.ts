@@ -518,6 +518,19 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  addExtraTarget: (
+    name: string,
+    data: { path: string; mode: string; flatten: boolean },
+  ) =>
+    apiFetch<{ success: boolean }>(
+      `/extras/${encodeURIComponent(name)}/targets`,
+      { method: 'POST', body: JSON.stringify(data) },
+    ),
+  deleteExtraTarget: (name: string, target: string) =>
+    apiFetch<{ success: boolean }>(
+      `/extras/${encodeURIComponent(name)}/targets/${encodeURIComponent(target)}`,
+      { method: 'DELETE' },
+    ),
   syncExtras: (opts?: { name?: string; dry_run?: boolean; force?: boolean }) =>
     apiFetch<{ extras: ExtrasSyncResult[] }>('/extras/sync', {
       method: 'POST',
