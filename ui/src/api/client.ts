@@ -163,6 +163,7 @@ export interface ExtensionInfo {
   description?: string;
   builtin: boolean;
   installed: boolean;
+  used_by?: string[]; // names of extras referencing this extension
 }
 
 export interface ExtraDiffItem {
@@ -543,6 +544,10 @@ export const api = {
     }),
   openExtensionsDir: () =>
     apiFetch<{ path: string }>('/extensions/open', { method: 'POST' }),
+  removeExtension: (name: string) =>
+    apiFetch<{ success: boolean; name: string }>(`/extensions/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    }),
   // extension: undefined = leave unchanged; '' = clear; name = set (forces copy mode)
   setExtraMode: (name: string, target: string, mode: string, flatten?: boolean, extension?: string) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/mode`, {

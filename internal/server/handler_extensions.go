@@ -16,10 +16,28 @@ import (
 
 // extensionInfo is the JSON shape for one extension in the management list.
 type extensionInfo struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Builtin     bool   `json:"builtin"`
-	Installed   bool   `json:"installed"`
+	Name        string   `json:"name"`
+	Description string   `json:"description,omitempty"`
+	Builtin     bool     `json:"builtin"`
+	Installed   bool     `json:"installed"`
+	UsedBy      []string `json:"used_by,omitempty"` // names of extras referencing this extension
+}
+
+// extensionUsage maps each extension name to the extras (by name) whose targets
+// reference it, so the UI can warn before removing an in-use extension.
+func (s *Server) extensionUsage() map[string][]string {
+	usage := make(map[string][]string)
+	for _, extra := range s.extrasConfig() {
+		seen := make(map[string]bool)
+		for _, t := range extra.Targets {
+			if t.Extension == "" || seen[t.Extension] {
+				continue
+			}
+			seen[t.Extension] = true
+			usage[t.Extension] = append(usage[t.Extension], extra.Name)
+		}
+	}
+	return usage
 }
 
 // extensionsDir returns the transform-extensions directory for the current
@@ -40,10 +58,11 @@ func (s *Server) handleExtensionsList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	usage := s.extensionUsage()
 	infos := make([]extensionInfo, 0, len(names))
 	seen := make(map[string]bool, len(names))
 	for _, name := range names {
-		info := extensionInfo{Name: name, Builtin: install.IsBuiltinExtension(name), Installed: true}
+		info := extensionInfo{Name: name, Builtin: install.IsBuiltinExtension(name), Installed: true, UsedBy: usage[name]}
 		// Built-ins use the catalog description (consistent, formal wording);
 		// local extensions fall back to their own extension.yaml description.
 		if info.Builtin {
@@ -135,4 +154,35 @@ func (s *Server) handleExtensionsOpen(w http.ResponseWriter, r *http.Request) {
 		"scope": "ui",
 	}, "")
 	writeJSON(w, map[string]any{"path": dir})
+}
+
+// handleExtensionsRemove — DELETE /api/extensions/{name}
+// Removes an installed extension from the current mode's extensions directory.
+// The UI is expected to warn the user first when the extension is still
+// referenced by an extra (see extensionInfo.UsedBy); this endpoint performs the
+// removal unconditionally once confirmed.
+func (s *Server) handleExtensionsRemove(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	name := r.PathValue("name")
+	// Guard against path traversal: name must be a single path component.
+	if name == "" || name == "." || name == ".." || name != filepath.Base(name) {
+		writeError(w, http.StatusBadRequest, "invalid extension name")
+		return
+	}
+
+	path := filepath.Join(s.extensionsDir(), name)
+	if _, err := os.Stat(path); err != nil {
+		writeError(w, http.StatusNotFound, "extension not installed: "+name)
+		return
+	}
+	if err := os.RemoveAll(path); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to remove extension: "+err.Error())
+		return
+	}
+
+	s.writeOpsLog("extensions-remove", "ok", start, map[string]any{
+		"name":  name,
+		"scope": "ui",
+	}, "")
+	writeJSON(w, map[string]any{"success": true, "name": name})
 }

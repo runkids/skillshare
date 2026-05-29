@@ -463,6 +463,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/extensions", s.handleExtensionsList)
 	s.mux.HandleFunc("POST /api/extensions/install", s.handleExtensionsInstall)
 	s.mux.HandleFunc("POST /api/extensions/open", s.handleExtensionsOpen)
+	s.mux.HandleFunc("DELETE /api/extensions/{name}", s.handleExtensionsRemove)
 
 	// Git
 	s.mux.HandleFunc("GET /api/git/status", s.handleGitStatus)
