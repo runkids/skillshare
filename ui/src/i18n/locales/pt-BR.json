@@ -459,6 +459,7 @@
   "extras.modal.targets": "Destinos",
   "extras.sourceType.custom": "Pasta de origem personalizada",
   "extras.sourceType.shared": "Pasta de origem compartilhada",
+  "extras.installExtensionHint": "Instalar uma extension",
   "extras.noExtension": "sem extensão",
   "extras.noTargets": "Nenhum destino configurado",
   "extras.removeConfirm.confirmText": "Remover",

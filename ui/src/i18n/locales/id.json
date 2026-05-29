@@ -459,6 +459,7 @@
   "extras.modal.targets": "Target",
   "extras.sourceType.custom": "Folder sumber khusus",
   "extras.sourceType.shared": "Folder sumber bersama",
+  "extras.installExtensionHint": "Pasang extension",
   "extras.noExtension": "tanpa extension",
   "extras.noTargets": "Tidak ada target yang dikonfigurasi",
   "extras.removeConfirm.confirmText": "Hapus",

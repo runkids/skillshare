@@ -459,6 +459,7 @@
   "extras.modal.targets": "ターゲット",
   "extras.sourceType.custom": "カスタムソースフォルダー",
   "extras.sourceType.shared": "共有ソースフォルダー",
+  "extras.installExtensionHint": "extension をインストール",
   "extras.noExtension": "extension なし",
   "extras.noTargets": "ターゲットが設定されていません",
   "extras.removeConfirm.confirmText": "削除",

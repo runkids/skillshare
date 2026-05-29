@@ -459,6 +459,7 @@
   "extras.modal.targets": "هدف‌ها",
   "extras.sourceType.custom": "پوشهٔ منبع سفارشی",
   "extras.sourceType.shared": "پوشهٔ منبع مشترک",
+  "extras.installExtensionHint": "نصب extension",
   "extras.noExtension": "بدون افزونه",
   "extras.noTargets": "هیچ هدفی پیکربندی نشده",
   "extras.removeConfirm.confirmText": "حذف",

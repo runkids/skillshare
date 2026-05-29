@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderOpen, FolderPlus, Lock, Plus, RefreshCw, Target, Trash2, X, Zap } from 'lucide-react';
+import { FolderOpen, FolderPlus, Lock, Plus, Puzzle, RefreshCw, Target, Trash2, X, Zap } from 'lucide-react';
 import { api } from '../api/client';
 import type { Extra, ExtrasSyncResult } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -160,9 +161,9 @@ function AddExtraModal({
                     </div>
                     {/* Extension · Mode · Flatten — second row with room to breathe */}
                     <div className="flex flex-wrap items-end gap-3">
-                      {(availableExtensions.length > 0 || tgt.extension) && (
-                        <div className="w-44">
-                          <label className={fieldLabel}>{t('extras.modal.colExtension', {}, 'Extension')}</label>
+                      <div className="w-44">
+                        <label className={fieldLabel}>{t('extras.modal.colExtension', {}, 'Extension')}</label>
+                        {availableExtensions.length > 0 || tgt.extension ? (
                           <Select
                             value={tgt.extension}
                             onChange={(v) => {
@@ -179,8 +180,17 @@ function AddExtraModal({
                             ]}
                             disabled={saving}
                           />
-                        </div>
-                      )}
+                        ) : (
+                          // None installed: guide the user to install one in Config.
+                          <Link
+                            to="/config?tab=extensions"
+                            className="inline-flex items-center gap-1.5 py-2 text-sm text-blue hover:underline"
+                          >
+                            <Puzzle size={14} strokeWidth={2.5} className="shrink-0" />
+                            {t('extras.installExtensionHint', {}, 'Install an extension')}
+                          </Link>
+                        )}
+                      </div>
                       <div className="w-36">
                         <label className={fieldLabel}>{t('extras.modal.colMode', {}, 'Mode')}</label>
                         {tgt.extension ? (
@@ -397,7 +407,7 @@ function ExtraCard({
                   />
                 </span>
               </Tooltip>
-              {(availableExtensions.length > 0 || tgt.extension) && (
+              {availableExtensions.length > 0 || tgt.extension ? (
                 <Select
                   value={tgt.extension ?? ''}
                   onChange={async (v) => {
@@ -421,6 +431,15 @@ function ExtraCard({
                   className="w-40 shrink-0"
                   disabled={changingMode === tgt.path}
                 />
+              ) : (
+                // None installed: guide the user to install one in Config.
+                <Link
+                  to="/config?tab=extensions"
+                  className="shrink-0 inline-flex items-center gap-1.5 text-xs text-blue hover:underline"
+                >
+                  <Puzzle size={12} strokeWidth={2.5} className="shrink-0" />
+                  {t('extras.installExtensionHint', {}, 'Install an extension')}
+                </Link>
               )}
               {tgt.extension ? (
                 // Extension forces copy mode: read-only locked chip, matching the Add Extra modal.

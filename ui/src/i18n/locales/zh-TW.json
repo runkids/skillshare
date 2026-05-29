@@ -459,6 +459,7 @@
   "extras.modal.targets": "目標",
   "extras.sourceType.custom": "自訂來源資料夾",
   "extras.sourceType.shared": "共用來源資料夾",
+  "extras.installExtensionHint": "安裝 extension",
   "extras.noExtension": "不使用 extension",
   "extras.noTargets": "尚未設定目標",
   "extras.removeConfirm.confirmText": "移除",

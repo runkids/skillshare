@@ -526,6 +526,7 @@
   "extras.modal.extensionLockedHint": "Extensions run in copy mode",
   "extras.sourceType.custom": "Custom source folder",
   "extras.sourceType.shared": "Shared source folder",
+  "extras.installExtensionHint": "Install an extension",
   "extras.noExtension": "no extension",
   "extras.noTargets": "No targets configured",
   "extras.removeConfirm.message": "Remove extra {name}? This will not delete the source directory or synced files.",

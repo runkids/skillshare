@@ -459,6 +459,7 @@
   "extras.modal.targets": "Cibles",
   "extras.sourceType.custom": "Dossier source personnalisé",
   "extras.sourceType.shared": "Dossier source partagé",
+  "extras.installExtensionHint": "Installer une extension",
   "extras.noExtension": "aucune extension",
   "extras.noTargets": "Aucune cible configurée",
   "extras.removeConfirm.confirmText": "Supprimer",

@@ -459,6 +459,7 @@
   "extras.modal.targets": "Destinos",
   "extras.sourceType.custom": "Carpeta de origen personalizada",
   "extras.sourceType.shared": "Carpeta de origen compartida",
+  "extras.installExtensionHint": "Instalar una extension",
   "extras.noExtension": "sin extensión",
   "extras.noTargets": "No hay destinos configurados",
   "extras.removeConfirm.confirmText": "Eliminar",

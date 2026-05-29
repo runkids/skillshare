@@ -459,6 +459,7 @@
   "extras.modal.targets": "Ziele",
   "extras.sourceType.custom": "Eigener Quellordner",
   "extras.sourceType.shared": "Gemeinsamer Quellordner",
+  "extras.installExtensionHint": "Extension installieren",
   "extras.noExtension": "keine Extension",
   "extras.noTargets": "Keine Ziele konfiguriert",
   "extras.removeConfirm.confirmText": "Entfernen",

@@ -459,6 +459,7 @@
   "extras.modal.targets": "대상",
   "extras.sourceType.custom": "사용자 지정 소스 폴더",
   "extras.sourceType.shared": "공유 소스 폴더",
+  "extras.installExtensionHint": "extension 설치",
   "extras.noExtension": "extension 없음",
   "extras.noTargets": "설정된 대상 없음",
   "extras.removeConfirm.confirmText": "제거",

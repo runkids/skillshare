@@ -459,6 +459,7 @@
   "extras.modal.targets": "目标",
   "extras.sourceType.custom": "自定义来源文件夹",
   "extras.sourceType.shared": "共用来源文件夹",
+  "extras.installExtensionHint": "安装 extension",
   "extras.noExtension": "不使用 extension",
   "extras.noTargets": "未配置任何目标",
   "extras.removeConfirm.confirmText": "删除",

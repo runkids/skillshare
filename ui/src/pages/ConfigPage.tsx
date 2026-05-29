@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Save, FileCode, Settings, EyeOff, RefreshCw, PanelRightOpen, Puzzle, FolderOpen, Download } from 'lucide-react';
 import { useT } from '../i18n';
 import CodeMirror from '@uiw/react-codemirror';
@@ -33,7 +34,15 @@ export default function ConfigPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { isProjectMode } = useAppContext();
-  const [tab, setTab] = useState<ConfigTab>('config');
+  const [searchParams] = useSearchParams();
+  // Deep link: /config?tab=extensions opens the Extensions tab directly, so
+  // the Extras page can guide users here to install one.
+  const [tab, setTab] = useState<ConfigTab>(() => {
+    const requested = searchParams.get('tab');
+    return requested === 'extensions' || requested === 'skillignore' || requested === 'agentignore'
+      ? requested
+      : 'config';
+  });
   const [showSyncBanner, setShowSyncBanner] = useState(false);
   const [showSyncPreview, setShowSyncPreview] = useState(false);
   const editorRef = useRef<EditorView | null>(null);
