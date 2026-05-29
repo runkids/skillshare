@@ -180,12 +180,12 @@ func TestMigrateTargetConfigs_MixedFormat_NoOverwrite(t *testing.T) {
 }
 
 func TestExtraTargetConfig_ExtensionField(t *testing.T) {
-	data := []byte("path: .gemini/commands\nextension: md2gemini\n")
+	data := []byte("path: .gemini/commands\nextension: gemini-commands\n")
 	var tc ExtraTargetConfig
 	if err := yaml.Unmarshal(data, &tc); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if tc.Extension != "md2gemini" {
-		t.Errorf("Extension = %q, want %q", tc.Extension, "md2gemini")
+	if tc.Extension != "gemini-commands" {
+		t.Errorf("Extension = %q, want %q", tc.Extension, "gemini-commands")
 	}
 }

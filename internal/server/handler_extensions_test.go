@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"skillshare/internal/config"
+	"skillshare/internal/install"
 )
 
 // writeExtensionWithDescription creates a directory-form extension carrying a
@@ -33,8 +34,8 @@ func TestHandleExtensionsList(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
 
 	extRoot := filepath.Join(filepath.Dir(config.ConfigPath()), "extensions")
-	// One installed built-in (md2codex) and one installed local extension.
-	writeExtensionWithDescription(t, extRoot, "md2codex", "Markdown to Codex")
+	// One installed built-in (codex-agents) and one installed local extension.
+	writeExtensionWithDescription(t, extRoot, "codex-agents", "Markdown to Codex")
 	writeExtensionWithDescription(t, extRoot, "my-local", "Local transform")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/extensions", nil)
@@ -56,11 +57,12 @@ func TestHandleExtensionsList(t *testing.T) {
 		byName[e.Name] = e
 	}
 
-	// Installed built-in: installed + builtin + description.
-	if got, ok := byName["md2codex"]; !ok {
-		t.Error("md2codex missing from list")
-	} else if !got.Installed || !got.Builtin || got.Description != "Markdown to Codex" {
-		t.Errorf("md2codex = %+v, want installed builtin with description", got)
+	// Installed built-in: installed + builtin + catalog description (the
+	// catalog wins over the on-disk extension.yaml for built-ins).
+	if got, ok := byName["codex-agents"]; !ok {
+		t.Error("codex-agents missing from list")
+	} else if !got.Installed || !got.Builtin || got.Description != install.BuiltinExtensionDescription("codex-agents") {
+		t.Errorf("codex-agents = %+v, want installed builtin with catalog description", got)
 	}
 
 	// Installed local extension: installed, NOT builtin.
@@ -70,11 +72,11 @@ func TestHandleExtensionsList(t *testing.T) {
 		t.Errorf("my-local = %+v, want installed non-builtin", got)
 	}
 
-	// Built-in not installed yet (md2gemini): available to download.
-	if got, ok := byName["md2gemini"]; !ok {
-		t.Error("md2gemini missing from list (should appear as available built-in)")
+	// Built-in not installed yet (gemini-commands): available to download.
+	if got, ok := byName["gemini-commands"]; !ok {
+		t.Error("gemini-commands missing from list (should appear as available built-in)")
 	} else if got.Installed || !got.Builtin {
-		t.Errorf("md2gemini = %+v, want builtin and not installed", got)
+		t.Errorf("gemini-commands = %+v, want builtin and not installed", got)
 	}
 }
 

@@ -275,7 +275,7 @@ extras:
     targets:
       - path: .claude/commands        # no extension — synced as-is
       - path: .gemini/commands
-        extension: md2gemini           # transform during sync
+        extension: gemini-commands           # transform during sync
 ```
 
 **Resolution** — a bare name resolves under the extensions directory (`~/.config/skillshare/extensions/<name>` global, `.skillshare/extensions/<name>` project); a path (`./x.sh`, `/abs/x`) is used directly.
@@ -289,7 +289,7 @@ extras:
 A single executable, or a directory with a manifest:
 
 ```
-.skillshare/extensions/md2gemini/
+.skillshare/extensions/gemini-commands/
 ├── extension.yaml
 └── convert.js
 ```
@@ -316,11 +316,11 @@ The mechanism is cross-platform; whether an extension runs depends on its interp
 
 ### Reference extensions
 
-The skillshare repo ships example extensions under `extensions/` (`md2gemini`, `md2codex`). Copy one into your extensions directory and adapt it — they are references, not installed automatically.
+The skillshare repo ships example extensions under `extensions/` (`gemini-commands`, `codex-agents`). Copy one into your extensions directory and adapt it — they are references, not installed automatically.
 
 ### Recipe: Codex agents
 
-Codex CLI expects TOML agents rather than markdown. Because a `source` can point at any directory, you can reuse your agents source as an extras source and transform it with `md2codex`:
+Codex CLI expects TOML agents rather than markdown. Because a `source` can point at any directory, you can reuse your agents source as an extras source and transform it with `codex-agents`:
 
 ```yaml
 extras:
@@ -328,7 +328,7 @@ extras:
     source: ~/.config/skillshare/agents   # reuse the agents source
     targets:
       - path: ~/.codex/agents
-        extension: md2codex
+        extension: codex-agents
 ```
 
 `skillshare sync extras` converts each `<agent>.md` into `~/.codex/agents/<agent>.toml`, mapping frontmatter `name`, `description`, and `model` and folding the markdown body into `developer_instructions` (other frontmatter keys are dropped). No separate copy of the agents is needed.

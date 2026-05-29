@@ -29,7 +29,7 @@ func TestValidateExtensionMode(t *testing.T) {
 
 func TestResolveExtension_BareNameInDir(t *testing.T) {
 	dir := t.TempDir()
-	extDir := filepath.Join(dir, "md2gemini")
+	extDir := filepath.Join(dir, "gemini-commands")
 	if err := os.MkdirAll(extDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestResolveExtension_BareNameInDir(t *testing.T) {
 		[]byte("run: [\"cat\"]\noutput_ext: toml\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	spec, err := resolveExtension("md2gemini", dir)
+	spec, err := resolveExtension("gemini-commands", dir)
 	if err != nil {
 		t.Fatalf("resolveExtension: %v", err)
 	}

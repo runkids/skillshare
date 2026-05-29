@@ -9,7 +9,7 @@ import (
 
 func TestLoadExtensionSpec_Directory(t *testing.T) {
 	dir := t.TempDir()
-	extDir := filepath.Join(dir, "md2gemini")
+	extDir := filepath.Join(dir, "gemini-commands")
 	if err := os.MkdirAll(extDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -18,7 +18,7 @@ func TestLoadExtensionSpec_Directory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	spec, err := LoadExtensionSpec(extDir, "md2gemini")
+	spec, err := LoadExtensionSpec(extDir, "gemini-commands")
 	if err != nil {
 		t.Fatalf("LoadExtensionSpec: %v", err)
 	}
@@ -61,11 +61,11 @@ func TestListExtensions(t *testing.T) {
 	dir := t.TempDir()
 
 	// (a) directory-form extension (has extension.yaml)
-	md2gemini := filepath.Join(dir, "md2gemini")
-	if err := os.MkdirAll(md2gemini, 0755); err != nil {
+	geminiDir := filepath.Join(dir, "gemini-commands")
+	if err := os.MkdirAll(geminiDir, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(md2gemini, "extension.yaml"), []byte("run: [\"cat\"]\n"), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(geminiDir, "extension.yaml"), []byte("run: [\"cat\"]\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 	// (b) single-file executable extension
@@ -85,7 +85,7 @@ func TestListExtensions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListExtensions: %v", err)
 	}
-	want := []string{"conv.sh", "md2gemini"} // sorted
+	want := []string{"conv.sh", "gemini-commands"} // sorted
 	if len(got) != len(want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}

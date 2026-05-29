@@ -44,23 +44,27 @@ func (s *Server) handleExtensionsList(w http.ResponseWriter, r *http.Request) {
 	seen := make(map[string]bool, len(names))
 	for _, name := range names {
 		info := extensionInfo{Name: name, Builtin: install.IsBuiltinExtension(name), Installed: true}
-		if spec, derr := syncpkg.LoadExtensionSpec(filepath.Join(dir, name), name); derr == nil {
+		// Built-ins use the catalog description (consistent, formal wording);
+		// local extensions fall back to their own extension.yaml description.
+		if info.Builtin {
+			info.Description = install.BuiltinExtensionDescription(name)
+		} else if spec, derr := syncpkg.LoadExtensionSpec(filepath.Join(dir, name), name); derr == nil {
 			info.Description = spec.Description
 		}
 		infos = append(infos, info)
 		seen[name] = true
 	}
 	// Append built-ins that aren't installed yet (available to download).
-	for _, name := range install.BuiltinExtensions {
-		if !seen[name] {
-			infos = append(infos, extensionInfo{Name: name, Builtin: true, Installed: false})
+	for _, b := range install.BuiltinExtensions {
+		if !seen[b.Name] {
+			infos = append(infos, extensionInfo{Name: b.Name, Description: b.Description, Builtin: true, Installed: false})
 		}
 	}
 
 	writeJSON(w, map[string]any{"extensions": infos})
 }
 
-// handleExtensionsInstall — POST /api/extensions/install {"name": "md2codex"}
+// handleExtensionsInstall — POST /api/extensions/install {"name": "codex-agents"}
 // Downloads a built-in extension into the current mode's extensions directory.
 func (s *Server) handleExtensionsInstall(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()

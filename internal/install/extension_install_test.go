@@ -3,12 +3,15 @@ package install
 import "testing"
 
 func TestIsBuiltinExtension(t *testing.T) {
-	for _, name := range BuiltinExtensions {
-		if !IsBuiltinExtension(name) {
-			t.Errorf("%q should be a built-in extension", name)
+	for _, b := range BuiltinExtensions {
+		if !IsBuiltinExtension(b.Name) {
+			t.Errorf("%q should be a built-in extension", b.Name)
+		}
+		if b.Description == "" {
+			t.Errorf("built-in %q must have a catalog description", b.Name)
 		}
 	}
-	for _, bad := range []string{"", "../evil", "md2codex/..", "unknown"} {
+	for _, bad := range []string{"", "../evil", "codex-agents/..", "unknown"} {
 		if IsBuiltinExtension(bad) {
 			t.Errorf("%q must not be reported as built-in", bad)
 		}

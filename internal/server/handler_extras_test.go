@@ -260,7 +260,7 @@ func TestHandleExtrasCreate_WithExtension(t *testing.T) {
 
 	targetDir := t.TempDir()
 	// Request mode "merge" but with an extension — should be coerced to copy.
-	body := `{"name":"agents","targets":[{"path":"` + targetDir + `","mode":"merge","extension":"md2codex"}]}`
+	body := `{"name":"agents","targets":[{"path":"` + targetDir + `","mode":"merge","extension":"codex-agents"}]}`
 	req := httptest.NewRequest(http.MethodPost, "/api/extras", strings.NewReader(body))
 	rr := httptest.NewRecorder()
 	s.handler.ServeHTTP(rr, req)
@@ -283,8 +283,8 @@ func TestHandleExtrasCreate_WithExtension(t *testing.T) {
 			t.Fatalf("expected 1 target, got %d", len(e.Targets))
 		}
 		tt := e.Targets[0]
-		if tt.Extension != "md2codex" {
-			t.Errorf("extension = %q, want md2codex", tt.Extension)
+		if tt.Extension != "codex-agents" {
+			t.Errorf("extension = %q, want codex-agents", tt.Extension)
 		}
 		if tt.Mode != "copy" {
 			t.Errorf("mode = %q, want copy (extension implies copy)", tt.Mode)
@@ -410,8 +410,8 @@ func TestHandleExtrasExtensions(t *testing.T) {
 	s, _ := newTestServerWithExtras(t, nil, "")
 
 	extRoot := filepath.Join(filepath.Dir(config.ConfigPath()), "extensions")
-	writeExtension(t, extRoot, "md2codex")
-	writeExtension(t, extRoot, "md2gemini")
+	writeExtension(t, extRoot, "codex-agents")
+	writeExtension(t, extRoot, "gemini-commands")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/extras/extensions", nil)
 	rr := httptest.NewRecorder()
@@ -426,8 +426,8 @@ func TestHandleExtrasExtensions(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if len(resp.Extensions) != 2 || resp.Extensions[0] != "md2codex" || resp.Extensions[1] != "md2gemini" {
-		t.Errorf("got %v, want [md2codex md2gemini]", resp.Extensions)
+	if len(resp.Extensions) != 2 || resp.Extensions[0] != "codex-agents" || resp.Extensions[1] != "gemini-commands" {
+		t.Errorf("got %v, want [codex-agents gemini-commands]", resp.Extensions)
 	}
 }
 
@@ -437,7 +437,7 @@ func TestHandleExtrasExtensions_ProjectMode(t *testing.T) {
 	s, projectRoot := newTestProjectServerWithExtras(t, nil)
 
 	extRoot := filepath.Join(projectRoot, ".skillshare", "extensions")
-	writeExtension(t, extRoot, "md2codex")
+	writeExtension(t, extRoot, "codex-agents")
 
 	req := httptest.NewRequest(http.MethodGet, "/api/extras/extensions", nil)
 	rr := httptest.NewRecorder()
@@ -452,8 +452,8 @@ func TestHandleExtrasExtensions_ProjectMode(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if len(resp.Extensions) != 1 || resp.Extensions[0] != "md2codex" {
-		t.Errorf("got %v, want [md2codex]", resp.Extensions)
+	if len(resp.Extensions) != 1 || resp.Extensions[0] != "codex-agents" {
+		t.Errorf("got %v, want [codex-agents]", resp.Extensions)
 	}
 }
 
@@ -467,7 +467,7 @@ func TestHandleExtrasMode_ExtensionImpliesCopy(t *testing.T) {
 	}}
 	s, _ := newTestServerWithExtras(t, extras, "")
 
-	body := `{"target":"` + targetDir + `","extension":"md2codex"}`
+	body := `{"target":"` + targetDir + `","extension":"codex-agents"}`
 	req := httptest.NewRequest(http.MethodPatch, "/api/extras/agents/mode", strings.NewReader(body))
 	rr := httptest.NewRecorder()
 	s.handler.ServeHTTP(rr, req)
@@ -479,8 +479,8 @@ func TestHandleExtrasMode_ExtensionImpliesCopy(t *testing.T) {
 	s.mu.RLock()
 	tt := s.cfg.Extras[0].Targets[0]
 	s.mu.RUnlock()
-	if tt.Extension != "md2codex" {
-		t.Errorf("extension = %q, want md2codex", tt.Extension)
+	if tt.Extension != "codex-agents" {
+		t.Errorf("extension = %q, want codex-agents", tt.Extension)
 	}
 	if tt.Mode != "copy" {
 		t.Errorf("mode = %q, want copy (extension implies copy)", tt.Mode)
@@ -497,7 +497,7 @@ func TestHandleExtrasMode_ExtensionRejectsNonCopy(t *testing.T) {
 	}}
 	s, _ := newTestServerWithExtras(t, extras, "")
 
-	body := `{"target":"` + targetDir + `","mode":"symlink","extension":"md2codex"}`
+	body := `{"target":"` + targetDir + `","mode":"symlink","extension":"codex-agents"}`
 	req := httptest.NewRequest(http.MethodPatch, "/api/extras/agents/mode", strings.NewReader(body))
 	rr := httptest.NewRecorder()
 	s.handler.ServeHTTP(rr, req)
@@ -513,7 +513,7 @@ func TestHandleExtras_IncludesExtension(t *testing.T) {
 	targetDir := t.TempDir()
 	extras := []config.ExtraConfig{{
 		Name:    "agents",
-		Targets: []config.ExtraTargetConfig{{Path: targetDir, Mode: "copy", Extension: "md2codex"}},
+		Targets: []config.ExtraTargetConfig{{Path: targetDir, Mode: "copy", Extension: "codex-agents"}},
 	}}
 	s, _ := newTestServerWithExtras(t, extras, "")
 
@@ -537,8 +537,8 @@ func TestHandleExtras_IncludesExtension(t *testing.T) {
 	if len(resp.Extras) != 1 || len(resp.Extras[0].Targets) != 1 {
 		t.Fatalf("unexpected shape: %s", rr.Body.String())
 	}
-	if resp.Extras[0].Targets[0].Extension != "md2codex" {
-		t.Errorf("extension = %q, want md2codex", resp.Extras[0].Targets[0].Extension)
+	if resp.Extras[0].Targets[0].Extension != "codex-agents" {
+		t.Errorf("extension = %q, want codex-agents", resp.Extras[0].Targets[0].Extension)
 	}
 }
 
