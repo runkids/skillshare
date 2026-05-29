@@ -454,6 +454,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/extras", s.handleExtras)
 	s.mux.HandleFunc("GET /api/extras/diff", s.handleExtrasDiff)
 	s.mux.HandleFunc("POST /api/extras", s.handleExtrasCreate)
+	s.mux.HandleFunc("POST /api/extras/{name}/targets", s.handleExtrasAddTarget)
 	s.mux.HandleFunc("POST /api/extras/sync", s.handleExtrasSync)
 	s.mux.HandleFunc("PATCH /api/extras/{name}/mode", s.handleExtrasMode)
 	s.mux.HandleFunc("DELETE /api/extras/{name}", s.handleExtrasDelete)

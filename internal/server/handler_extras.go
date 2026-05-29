@@ -600,3 +600,87 @@ func (s *Server) handleExtrasDelete(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, map[string]any{"success": true, "name": name})
 }
+
+// handleExtrasAddTarget — POST /api/extras/{name}/targets
+//
+// Appends a new target to an existing extra. Returns 404 if the extra
+// doesn't exist, 409 if a target with the same path already exists, and
+// 400 for invalid mode/flatten combinations.
+func (s *Server) handleExtrasAddTarget(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	name := r.PathValue("name")
+
+	var body struct {
+		Path    string `json:"path"`
+		Mode    string `json:"mode"`
+		Flatten bool   `json:"flatten"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	if body.Path == "" {
+		writeError(w, http.StatusBadRequest, "target path is required")
+		return
+	}
+	if err := config.ValidateExtraMode(body.Mode); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if body.Flatten {
+		if err := config.ValidateExtraFlatten(true, body.Mode); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	extras := s.extrasConfig()
+	idx := -1
+	for i, e := range extras {
+		if e.Name == name {
+			idx = i
+			break
+		}
+	}
+	if idx == -1 {
+		writeError(w, http.StatusNotFound, "extra not found: "+name)
+		return
+	}
+
+	// Reject duplicate target path on this extra.
+	for _, t := range extras[idx].Targets {
+		if t.Path == body.Path {
+			writeError(w, http.StatusConflict, "target path already exists for this extra")
+			return
+		}
+	}
+
+	newTarget := config.ExtraTargetConfig{Path: body.Path, Flatten: body.Flatten}
+	if body.Mode != "" {
+		newTarget.Mode = body.Mode
+	}
+
+	if s.IsProjectMode() {
+		s.projectCfg.Extras[idx].Targets = append(s.projectCfg.Extras[idx].Targets, newTarget)
+	} else {
+		s.cfg.Extras[idx].Targets = append(s.cfg.Extras[idx].Targets, newTarget)
+	}
+
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeOpsLog("extras-add-target", "ok", start, map[string]any{
+		"name":   name,
+		"target": body.Path,
+		"mode":   body.Mode,
+		"scope":  "ui",
+	}, "")
+
+	writeJSON(w, map[string]any{"success": true, "name": name, "target": body.Path})
+}

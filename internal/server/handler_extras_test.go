@@ -392,3 +392,42 @@ func TestHandleExtrasCreate_PreservesEmptyExtrasSource(t *testing.T) {
 		t.Errorf("expected EffectiveExtrasSource %q (derived), got %q", expected, got)
 	}
 }
+
+// TestHandleExtrasAddTarget_AppendsTarget verifies POST /api/extras/{name}/targets
+// appends a new target to an existing extra and persists it.
+func TestHandleExtrasAddTarget_AppendsTarget(t *testing.T) {
+	existingTarget := t.TempDir()
+	extras := []config.ExtraConfig{
+		{
+			Name: "openspec",
+			Targets: []config.ExtraTargetConfig{
+				{Path: existingTarget, Mode: "copy"},
+			},
+		},
+	}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	newTarget := t.TempDir()
+	body := `{"path":"` + newTarget + `","mode":"copy","flatten":false}`
+	req := httptest.NewRequest(http.MethodPost, "/api/extras/openspec/targets", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	// Verify the target was appended in memory.
+	if len(s.cfg.Extras) != 1 {
+		t.Fatalf("expected 1 extra, got %d", len(s.cfg.Extras))
+	}
+	if len(s.cfg.Extras[0].Targets) != 2 {
+		t.Fatalf("expected 2 targets after append, got %d", len(s.cfg.Extras[0].Targets))
+	}
+	if s.cfg.Extras[0].Targets[1].Path != newTarget {
+		t.Errorf("expected appended target path %q, got %q", newTarget, s.cfg.Extras[0].Targets[1].Path)
+	}
+	if s.cfg.Extras[0].Targets[1].Mode != "copy" {
+		t.Errorf("expected mode 'copy', got %q", s.cfg.Extras[0].Targets[1].Mode)
+	}
+}
