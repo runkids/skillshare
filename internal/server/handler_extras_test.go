@@ -568,3 +568,38 @@ func TestHandleExtrasDeleteTarget_RemovesTarget(t *testing.T) {
 		t.Errorf("sentinel file should still exist after target removal, got: %v", err)
 	}
 }
+
+// TestHandleExtrasDeleteTarget_ExtraNotFound returns 404 for an unknown extra.
+func TestHandleExtrasDeleteTarget_ExtraNotFound(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+
+	encoded := url.PathEscape("/some/path")
+	req := httptest.NewRequest(http.MethodDelete, "/api/extras/missing/targets/"+encoded, nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestHandleExtrasDeleteTarget_TargetNotFound returns 404 when the named
+// extra exists but no target with that path is configured on it.
+func TestHandleExtrasDeleteTarget_TargetNotFound(t *testing.T) {
+	extras := []config.ExtraConfig{
+		{
+			Name:    "openspec",
+			Targets: []config.ExtraTargetConfig{{Path: t.TempDir(), Mode: "copy"}},
+		},
+	}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	encoded := url.PathEscape("/never/configured")
+	req := httptest.NewRequest(http.MethodDelete, "/api/extras/openspec/targets/"+encoded, nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
