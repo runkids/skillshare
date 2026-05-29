@@ -56,6 +56,24 @@ func TestDiscoverExtraFiles(t *testing.T) {
 	}
 }
 
+// TestDiscoverExtraFiles_SkipsMetadata verifies skillshare's reserved
+// .metadata.json tracking store is never discovered, so it cannot be synced or
+// transformed into a target (e.g. installed-agent dirs carry one).
+func TestDiscoverExtraFiles_SkipsMetadata(t *testing.T) {
+	src, _ := setupExtrasTest(t, map[string]string{
+		"agent.md":       "# Agent",
+		".metadata.json": `{"version":1,"entries":{}}`,
+	})
+
+	files, err := DiscoverExtraFiles(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(files) != 1 || files[0] != "agent.md" {
+		t.Errorf("expected only [agent.md], got %v", files)
+	}
+}
+
 // --- SyncExtra merge mode tests ---
 
 func TestSyncExtra_MergeMode(t *testing.T) {

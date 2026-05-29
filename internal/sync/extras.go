@@ -19,9 +19,16 @@ type ExtraResult struct {
 	Warnings []string // Non-fatal warnings (e.g. flatten collisions)
 }
 
+// reservedMetadataFile is skillshare's per-directory install-tracking store
+// (mirrors install.MetadataFileName, duplicated here to avoid an import cycle).
+// It is internal bookkeeping, not user content, so it must never be synced or
+// transformed into a target directory.
+const reservedMetadataFile = ".metadata.json"
+
 // DiscoverExtraFiles recursively walks sourcePath and returns relative paths
-// of all regular files. Directories named ".git" are skipped. Results are
-// sorted for deterministic output.
+// of all regular files. Directories named ".git" and skillshare's reserved
+// .metadata.json bookkeeping file are skipped. Results are sorted for
+// deterministic output.
 func DiscoverExtraFiles(sourcePath string) ([]string, error) {
 	info, err := os.Stat(sourcePath)
 	if err != nil {
@@ -44,6 +51,9 @@ func DiscoverExtraFiles(sourcePath string) ([]string, error) {
 				return filepath.SkipDir
 			}
 			return nil
+		}
+		if fi.Name() == reservedMetadataFile {
+			return nil // skillshare's internal tracking store, never sync it
 		}
 		rel, relErr := filepath.Rel(sourcePath, path)
 		if relErr != nil {
