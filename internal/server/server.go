@@ -405,6 +405,10 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/collect/scan", s.handleCollectScan)
 	s.mux.HandleFunc("POST /api/collect", s.handleCollect)
 
+	// Adopt
+	s.mux.HandleFunc("GET /api/adopt/preview", s.handleAdoptPreview)
+	s.mux.HandleFunc("POST /api/adopt/apply", s.handleAdoptApply)
+
 	// Hub
 	s.mux.HandleFunc("GET /api/hub/index", s.handleHubIndex)
 	s.mux.HandleFunc("GET /api/hub/saved", s.handleGetHubSaved)
