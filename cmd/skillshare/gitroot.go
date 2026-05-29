@@ -48,7 +48,7 @@ func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, bool) {
 		ui.Info("  but the git repo lives at: %s (%s)", dir, scope)
 		ui.Info("  Fix it with one of:")
 		ui.Info("    - skillshare init --git-root %s   (start a fresh repo at the configured scope)", configured)
-		ui.Info("    - mv %s/.git %s/.git   (move the existing repo over, keeps history)", dir, root)
+		ui.Info("    - mv \"%s/.git\" \"%s/.git\"   (move the existing repo over, keeps history)", dir, root)
 		ui.Info("    - set 'git_root: %s' in %s   (keep using the existing repo)", scope, config.ConfigPath())
 		return "", false
 	}
@@ -111,7 +111,7 @@ func (r rootSweepResult) printNotices(dir string) {
 		lines = append(lines,
 			"",
 			"Their files will NOT be tracked. Disable each nested repo, then retry:",
-			fmt.Sprintf("  mv %s/<dir>/.git %s/<dir>/.git.disabled", dir, dir),
+			fmt.Sprintf("  mv \"%s/<dir>/.git\" \"%s/<dir>/.git.disabled\"", dir, dir),
 			"(or use one-click disable on the web UI Git Sync page)",
 		)
 		ui.WarningBox("Nested git repositories found", lines...)

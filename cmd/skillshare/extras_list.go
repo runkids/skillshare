@@ -66,6 +66,11 @@ func buildExtrasListEntries(extras []config.ExtraConfig, extrasSource, extension
 				m = "copy"
 				if spec, rerr := resolveExtension(t.Extension, extensionsDir); rerr == nil && spec != nil {
 					outputExt = spec.OutputExt
+				} else if rerr != nil {
+					// A misconfigured extension would otherwise be silent: status
+					// falls back to comparing the original .md files, reporting
+					// false drift. Surface it so the cause is visible.
+					fmt.Fprintf(os.Stderr, "warning: extension %q for extra %q could not be resolved (%v); sync status may be inaccurate\n", t.Extension, extra.Name, rerr)
 				}
 			}
 

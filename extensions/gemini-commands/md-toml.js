@@ -65,7 +65,10 @@ function stripQuotes(value) {
 }
 
 function tomlString(value) {
-  return `"${String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  // JSON basic-string escaping is a valid subset of TOML basic strings and,
+  // unlike a hand-rolled escape of just \ and ", also handles control
+  // characters (newlines, tabs, etc.) that would otherwise produce invalid TOML.
+  return JSON.stringify(String(value));
 }
 
 function tomlBlock(value) {

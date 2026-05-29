@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -155,6 +156,8 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 				if t.Extension != "" {
 					if spec, serr := s.resolveExtensionSpec(t.Extension); serr == nil && spec != nil {
 						outputExt = spec.OutputExt
+					} else if serr != nil {
+						log.Printf("warning: extension %q for extra %q could not be resolved (%v); sync status may be inaccurate", t.Extension, extra.Name, serr)
 					}
 				}
 				ti.Status = syncpkg.CheckSyncStatus(files, sourceDir, t.Path, m, t.Flatten, outputExt)
@@ -265,6 +268,8 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 				}
 				if spec, serr := s.resolveExtensionSpec(t.Extension); serr == nil && spec != nil {
 					outputExt = spec.OutputExt
+				} else if serr != nil {
+					log.Printf("warning: extension %q for extra %q could not be resolved (%v); diff may report false drift", t.Extension, extra.Name, serr)
 				}
 			}
 

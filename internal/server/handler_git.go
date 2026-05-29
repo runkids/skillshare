@@ -670,15 +670,22 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 		resp.Commits = make([]git.CommitInfo, 0)
 	}
 
-	// Auto-sync to targets (same logic as handleSync)
+	// Auto-sync to targets (same logic as handleSync). The git pull above runs
+	// at the git_root scope, but skills must always sync from the skills source:
+	// when git_root is root/agents/extras, src is the config/agents/extras dir,
+	// not the skills directory, so discovering from src would mangle rel paths
+	// (e.g. skills/foo → skills__foo). Mirror the CLI, which pulls at the git
+	// root then runs `skillshare sync --global` against EffectiveSkillsSource().
 	if !info.UpToDate {
 		globalMode := s.cfg.Mode
 		if globalMode == "" {
 			globalMode = "merge"
 		}
 
+		skillsSrc := s.cfg.EffectiveSkillsSource()
+
 		// Discover skills once for all targets
-		allSkills, discoverErr := ssync.DiscoverSourceSkills(src)
+		allSkills, discoverErr := ssync.DiscoverSourceSkills(skillsSrc)
 
 		for name, target := range s.cfg.Targets {
 			sc := target.SkillsConfig()
@@ -702,21 +709,21 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 
 			switch mode {
 			case "merge":
-				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, src, false, false, s.projectRoot)
+				mergeResult, err := ssync.SyncTargetMergeWithSkills(name, target, allSkills, skillsSrc, false, false, s.projectRoot)
 				if err == nil {
 					res.Linked = mergeResult.Linked
 					res.Updated = mergeResult.Updated
 					res.Skipped = mergeResult.Skipped
 				}
 				pruneResult, err := ssync.PruneOrphanLinksWithSkills(ssync.PruneOptions{
-					TargetPath: sc.Path, SourcePath: src, Skills: allSkills,
+					TargetPath: sc.Path, SourcePath: skillsSrc, Skills: allSkills,
 					Include: sc.Include, Exclude: sc.Exclude, TargetNaming: sc.TargetNaming, TargetName: name,
 				})
 				if err == nil {
 					res.Pruned = pruneResult.Removed
 				}
 			case "copy":
-				copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, src, false, false, nil)
+				copyResult, err := ssync.SyncTargetCopyWithSkills(name, target, allSkills, skillsSrc, false, false, nil)
 				if err == nil {
 					res.Linked = copyResult.Copied
 					res.Updated = copyResult.Updated
@@ -727,7 +734,7 @@ func (s *Server) handlePull(w http.ResponseWriter, r *http.Request) {
 					res.Pruned = pruneResult.Removed
 				}
 			default:
-				ssync.SyncTarget(name, target, src, false, s.projectRoot)
+				ssync.SyncTarget(name, target, skillsSrc, false, s.projectRoot)
 				res.Linked = []string{"(symlink mode)"}
 			}
 

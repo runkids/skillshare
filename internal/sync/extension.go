@@ -2,15 +2,22 @@ package sync
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+// extensionTimeout bounds a single transform subprocess. Transforms convert one
+// file via stdin/stdout and should finish in well under a second; the cap keeps
+// a misbehaving extension (waiting on input, infinite loop) from hanging sync.
+const extensionTimeout = 30 * time.Second
 
 // ExtensionSpec describes a resolved transform extension applied to a target.
 type ExtensionSpec struct {
@@ -138,7 +145,9 @@ func runExtension(spec *ExtensionSpec, srcFile string, env map[string]string) ([
 	}
 	defer src.Close()
 
-	cmd := exec.Command(spec.Run[0], spec.Run[1:]...)
+	ctx, cancel := context.WithTimeout(context.Background(), extensionTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, spec.Run[0], spec.Run[1:]...)
 	cmd.Dir = spec.Dir
 	cmd.Stdin = src
 	cmd.Env = os.Environ()
@@ -149,6 +158,9 @@ func runExtension(spec *ExtensionSpec, srcFile string, env map[string]string) ([
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("extension %q timed out after %s", spec.Name, extensionTimeout)
+		}
 		if msg := strings.TrimSpace(stderr.String()); msg != "" {
 			return nil, fmt.Errorf("extension %q failed: %s", spec.Name, msg)
 		}
