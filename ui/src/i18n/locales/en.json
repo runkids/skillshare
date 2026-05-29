@@ -394,7 +394,7 @@
   "gitSync.nested.hint": "These directories have their own .git and would upload as empty submodules — their files won't be tracked. Disabling renames .git to .git.disabled (reversible) so the files track normally.",
   "gitSync.nested.disableButton": "Disable nested .git",
   "gitSync.nested.disabled": "Disabled nested repo: {dirs}",
-  "gitSync.nested.configTracked": "config.yaml is tracked in this repo. It will be removed from version control automatically on the next commit or push; the file stays on disk.",
+  "gitSync.nested.configTracked": "config.yaml holds machine-specific paths and shouldn't be version-controlled. The next commit or push removes it from tracking automatically; the file stays on disk.",
   "gitSync.gitNotInstalled.title": "Git is not installed",
   "gitSync.gitNotInstalled.hint": "Git Sync needs the git executable on your PATH. Install git and reload this page.",
   "gitSync.mismatch.title": "Git scope mismatch",

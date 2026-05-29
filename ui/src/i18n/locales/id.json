@@ -568,7 +568,7 @@
   "gitSync.nested.hint": "Direktori ini punya .git sendiri dan akan terunggah sebagai submodule kosong — file-nya tidak akan dilacak. Menonaktifkan akan mengganti nama .git menjadi .git.disabled (dapat dikembalikan) agar file-nya dilacak secara normal.",
   "gitSync.nested.disableButton": "Nonaktifkan .git bersarang",
   "gitSync.nested.disabled": "Repositori bersarang dinonaktifkan: {dirs}",
-  "gitSync.nested.configTracked": "config.yaml dilacak di repositori ini. Ini akan dihapus dari kontrol versi secara otomatis pada commit atau push berikutnya; file tetap ada di disk.",
+  "gitSync.nested.configTracked": "config.yaml berisi path khusus mesin dan tidak seharusnya masuk kontrol versi. Commit atau push berikutnya akan menghapusnya dari pelacakan secara otomatis; file tetap ada di disk.",
   "gitSync.gitNotInstalled.title": "Git tidak terpasang",
   "gitSync.gitNotInstalled.hint": "Git Sync memerlukan executable git di PATH Anda. Pasang git lalu muat ulang halaman ini.",
   "gitSync.mismatch.title": "Cakupan git tidak cocok",

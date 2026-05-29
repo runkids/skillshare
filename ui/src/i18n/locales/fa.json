@@ -568,7 +568,7 @@
   "gitSync.nested.hint": "این پوشه‌ها .git مخصوص خود را دارند و هنگام آپلود به‌صورت زیرماژول خالی بارگذاری می‌شوند — فایل‌هایشان ردیابی نمی‌شوند. غیرفعال‌کردن، ‏.git را به ‎.git.disabled تغییر نام می‌دهد (برگشت‌پذیر) تا فایل‌ها به‌طور عادی ردیابی شوند.",
   "gitSync.nested.disableButton": "غیرفعال‌کردن ‎.git تودرتو",
   "gitSync.nested.disabled": "مخزن تودرتو غیرفعال شد: {dirs}",
-  "gitSync.nested.configTracked": "‏config.yaml در این مخزن ردیابی می‌شود. در commit یا push بعدی به‌طور خودکار از کنترل نسخه حذف می‌شود؛ فایل روی دیسک باقی می‌ماند.",
+  "gitSync.nested.configTracked": "‏config.yaml شامل مسیرهای مخصوص دستگاه است و نباید تحت کنترل نسخه باشد. در commit یا push بعدی به‌طور خودکار از ردیابی حذف می‌شود؛ فایل روی دیسک باقی می‌ماند.",
   "gitSync.gitNotInstalled.title": "Git نصب نشده است",
   "gitSync.gitNotInstalled.hint": "Git Sync به فایل اجرایی git در PATH شما نیاز دارد. git را نصب کنید و این صفحه را دوباره بارگذاری کنید.",
   "gitSync.mismatch.title": "ناهماهنگی محدوده git",

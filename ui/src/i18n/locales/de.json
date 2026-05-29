@@ -568,7 +568,7 @@
   "gitSync.nested.hint": "Diese Verzeichnisse haben ein eigenes .git und würden als leere Submodule hochgeladen – ihre Dateien werden nicht versioniert. Deaktivieren benennt .git in .git.disabled um (umkehrbar), damit die Dateien normal versioniert werden.",
   "gitSync.nested.disableButton": "Verschachteltes .git deaktivieren",
   "gitSync.nested.disabled": "Verschachteltes Repository deaktiviert: {dirs}",
-  "gitSync.nested.configTracked": "config.yaml wird in diesem Repository versioniert. Es wird beim nächsten Commit oder Push automatisch aus der Versionsverwaltung entfernt; die Datei bleibt auf der Festplatte.",
+  "gitSync.nested.configTracked": "config.yaml enthält maschinenspezifische Pfade und sollte nicht versioniert werden. Beim nächsten Commit oder Push wird sie automatisch aus der Versionsverwaltung entfernt; die Datei bleibt auf der Festplatte.",
   "gitSync.gitNotInstalled.title": "Git ist nicht installiert",
   "gitSync.gitNotInstalled.hint": "Git Sync benötigt das git-Programm im PATH. Installieren Sie git und laden Sie diese Seite neu.",
   "gitSync.mismatch.title": "Git-Bereich stimmt nicht überein",

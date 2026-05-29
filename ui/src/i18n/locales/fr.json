@@ -568,7 +568,7 @@
   "gitSync.nested.hint": "Ces dossiers ont leur propre .git et seraient envoyés comme des sous-modules vides — leurs fichiers ne seront pas suivis. La désactivation renomme .git en .git.disabled (réversible) afin que les fichiers soient suivis normalement.",
   "gitSync.nested.disableButton": "Désactiver le .git imbriqué",
   "gitSync.nested.disabled": "Dépôt imbriqué désactivé : {dirs}",
-  "gitSync.nested.configTracked": "config.yaml est suivi dans ce dépôt. Il sera retiré du contrôle de version automatiquement au prochain commit ou push ; le fichier reste sur le disque.",
+  "gitSync.nested.configTracked": "config.yaml contient des chemins propres à la machine et ne devrait pas être versionné. Le prochain commit ou push le retire automatiquement du suivi ; le fichier reste sur le disque.",
   "gitSync.gitNotInstalled.title": "Git n'est pas installé",
   "gitSync.gitNotInstalled.hint": "Git Sync nécessite l'exécutable git dans votre PATH. Installez git et rechargez cette page.",
   "gitSync.mismatch.title": "Incohérence de la portée git",

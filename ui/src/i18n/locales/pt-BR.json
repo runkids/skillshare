@@ -568,7 +568,7 @@
   "gitSync.nested.hint": "Esses diretórios têm o próprio .git e seriam enviados como submódulos vazios — seus arquivos não serão versionados. Desativar renomeia .git para .git.disabled (reversível) para que os arquivos sejam versionados normalmente.",
   "gitSync.nested.disableButton": "Desativar .git aninhado",
   "gitSync.nested.disabled": "Repositório aninhado desativado: {dirs}",
-  "gitSync.nested.configTracked": "config.yaml está versionado neste repositório. Ele será removido do controle de versão automaticamente no próximo commit ou push; o arquivo permanece no disco.",
+  "gitSync.nested.configTracked": "config.yaml contém caminhos específicos da máquina e não deveria estar no controle de versão. O próximo commit ou push o remove do rastreamento automaticamente; o arquivo permanece no disco.",
   "gitSync.gitNotInstalled.title": "Git não está instalado",
   "gitSync.gitNotInstalled.hint": "O Git Sync precisa do executável git no seu PATH. Instale o git e recarregue esta página.",
   "gitSync.mismatch.title": "Incompatibilidade de escopo do git",
