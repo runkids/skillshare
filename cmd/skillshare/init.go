@@ -1214,9 +1214,10 @@ func setupGitRemote(sourcePath, remoteURL string, dryRun bool) bool {
 }
 
 func addRemote(sourcePath, remoteURL string) bool {
-	cmd := exec.Command("git", "remote", "add", "origin", remoteURL)
-	cmd.Dir = sourcePath
-	if err := cmd.Run(); err != nil {
+	// SetOrAddRemote validates the URL (rejecting flag-smuggling values that
+	// begin with "-") and passes "--" before positional args. setupGitRemote
+	// has already confirmed origin is absent, so this takes the add path.
+	if err := gitops.SetOrAddRemote(sourcePath, remoteURL); err != nil {
 		ui.Warning("Failed to add remote: %v", err)
 		return false
 	}
