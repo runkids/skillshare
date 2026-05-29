@@ -297,7 +297,8 @@ A single executable, or a directory with a manifest:
 ```
 .skillshare/extensions/gemini-commands/
 ├── extension.yaml
-└── convert.js
+├── convert.js        # mapping rules you edit
+└── md-toml.js        # helper for markdown/frontmatter/TOML
 ```
 
 `extension.yaml`:
@@ -322,7 +323,7 @@ The mechanism is cross-platform; whether an extension runs depends on its interp
 
 ### Reference extensions
 
-The skillshare repo ships example extensions under `extensions/` (`gemini-commands`, `codex-agents`). Copy one into your extensions directory and adapt it — they are references, not installed automatically.
+The skillshare repo ships example extensions under `extensions/` (`gemini-commands`, `codex-agents`). Copy one into your extensions directory and adapt it — they are references, not installed automatically. Each reference extension keeps `convert.js` short so you edit only the field mapping; `md-toml.js` handles reading markdown, parsing simple frontmatter, and writing TOML.
 
 ### Recipe: Codex agents
 
