@@ -559,6 +559,8 @@
   "gitSync.scope.confirmTitle": "¿Cambiar el ámbito de git?",
   "gitSync.scope.confirmMessage": "Cambiar a \"{scope}\" inicializará un repositorio git en ese directorio si no existe uno, y versionará ese ámbito a partir de ahora. NO moverá el historial actual de tu repositorio. El ámbito \"root\" versiona skills, agents y extras en conjunto.",
   "gitSync.scope.switched": "Ámbito de git cambiado a {scope}",
+  "gitSync.scope.remoteLabel": "URL remota (opcional)",
+  "gitSync.scope.remoteHint": "Déjalo en blanco para configurar el remoto más tarde. Si ya existe un remoto, se reemplaza su URL.",
   "gitSync.mismatch.title": "Discrepancia en el ámbito de git",
   "gitSync.mismatch.description": "git_root está configurado como \"{scope}\", pero el repositorio git en realidad reside en el ámbito \"{repoScope}\":",
   "gitSync.mismatch.hint": "Cambia el ámbito para que coincida abajo, o vuelve a ejecutar `skillshare init` para configurar git en el ámbito configurado.",
@@ -745,7 +747,6 @@
   "newSkill.title": "Crear nueva skill",
   "newSkill.toast.created": "¡Skill \"{name}\" creada correctamente!",
   "pagination.show": "Mostrar",
-
   "preview.title": "Vista previa del skill",
   "preview.install": "Instalar",
   "preview.loading": "Cargando contenido…",
@@ -754,7 +755,6 @@
   "preview.source": "Fuente",
   "preview.license": "Licencia",
   "preview.noContent": "No hay contenido SKILL.md disponible",
-
   "resourceDetail.actions.disable": "Desactivar",
   "resourceDetail.actions.disabling": "Desactivando...",
   "resourceDetail.actions.edit": "Editar",

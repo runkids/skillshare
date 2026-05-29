@@ -559,6 +559,8 @@
   "gitSync.scope.confirmTitle": "git スコープを変更しますか？",
   "gitSync.scope.confirmMessage": "\"{scope}\" に切り替えると、そのディレクトリに git リポジトリが存在しない場合は初期化され、今後はそのスコープをバージョン管理します。現在のリポジトリ履歴は移動されません。\"root\" スコープは skills、agents、extras をまとめてバージョン管理します。",
   "gitSync.scope.switched": "git スコープを {scope} に変更しました",
+  "gitSync.scope.remoteLabel": "リモート URL(任意)",
+  "gitSync.scope.remoteHint": "空欄のままにすると後で設定できます。既存のリモートがある場合は URL を置き換えます。",
   "gitSync.mismatch.title": "git スコープの不一致",
   "gitSync.mismatch.description": "git_root は \"{scope}\" に設定されていますが、git リポジトリは実際には \"{repoScope}\" スコープにあります：",
   "gitSync.mismatch.hint": "以下でスコープを一致するように切り替えるか、`skillshare init` を再実行して設定済みのスコープに git をセットアップしてください。",
@@ -745,7 +747,6 @@
   "newSkill.title": "新しいスキルを作成",
   "newSkill.toast.created": "スキル「{name}」を正常に作成しました！",
   "pagination.show": "表示",
-
   "preview.title": "スキルプレビュー",
   "preview.install": "インストール",
   "preview.loading": "スキルコンテンツを読み込み中…",
@@ -754,7 +755,6 @@
   "preview.source": "ソース",
   "preview.license": "ライセンス",
   "preview.noContent": "SKILL.mdコンテンツがありません",
-
   "resourceDetail.actions.disable": "無効化",
   "resourceDetail.actions.disabling": "無効化中...",
   "resourceDetail.actions.edit": "編集",

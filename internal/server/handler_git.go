@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
@@ -87,14 +88,16 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 type setGitRootRequest struct {
-	Scope string `json:"scope"`
+	Scope     string `json:"scope"`
+	RemoteURL string `json:"remoteURL,omitempty"`
 }
 
 // handleSetGitRoot changes the git_root scope: it initializes a git repo at the
-// new scope directory if absent (with a scope-aware .gitignore), persists the
-// scope to config, and returns the updated git status. It does NOT relocate an
-// existing repo — switching scope creates/uses a repo at the target directory,
-// mirroring the CLI's `skillshare init --git-root` behavior.
+// new scope directory if absent (with a scope-aware .gitignore), optionally
+// wires the "origin" remote on that repo, persists the scope to config, and
+// returns the updated git status. It does NOT relocate an existing repo —
+// switching scope creates/uses a repo at the target directory, mirroring the
+// CLI's `skillshare init --git-root <scope> [--remote <url>]` behavior.
 func (s *Server) handleSetGitRoot(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -120,6 +123,14 @@ func (s *Server) handleSetGitRoot(w http.ResponseWriter, r *http.Request) {
 	if _, err := git.InitScopeRepo(dir, body.Scope); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to initialize git at scope: "+err.Error())
 		return
+	}
+
+	// Optionally wire the remote on the just-initialized scope repo.
+	if remote := strings.TrimSpace(body.RemoteURL); remote != "" {
+		if err := git.SetOrAddRemote(dir, remote); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to set git remote: "+err.Error())
+			return
+		}
 	}
 
 	// Persist the scope. "skills" is the default — store it as empty to keep

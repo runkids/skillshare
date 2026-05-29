@@ -580,6 +580,8 @@
   "gitSync.scope.confirmTitle": "变更 Git 范围？",
   "gitSync.scope.confirmMessage": "切换到「{scope}」将在该目录初始化 git 仓库（若尚不存在），并从现在起对该范围进行版本控制。这不会迁移现有仓库的历史记录。「root」范围将同时对 skills、agents 和 extras 进行版本控制。",
   "gitSync.scope.switched": "Git 范围已切换为 {scope}",
+  "gitSync.scope.remoteLabel": "远程 URL(可选)",
+  "gitSync.scope.remoteHint": "留空可稍后再设置远程。若已有远程,将替换其 URL。",
   "gitSync.mismatch.title": "Git 范围不一致",
   "gitSync.mismatch.description": "git_root 设置为「{scope}」，但 git 仓库实际上位于「{repoScope}」范围：",
   "gitSync.mismatch.hint": "请将下方范围切换为一致的设置，或重新执行 `skillshare init` 在设置的范围创建 git。",
@@ -745,7 +747,6 @@
   "newSkill.title": "创建新 Skill",
   "newSkill.toast.created": "Skill \"{name}\" 已成功创建！",
   "pagination.show": "显示",
-
   "preview.title": "技能预览",
   "preview.install": "安装",
   "preview.loading": "加载技能内容中…",
@@ -754,7 +755,6 @@
   "preview.source": "来源",
   "preview.license": "许可证",
   "preview.noContent": "没有 SKILL.md 内容",
-
   "resourceDetail.actions.disable": "禁用",
   "resourceDetail.actions.disabling": "禁用中...",
   "resourceDetail.actions.edit": "编辑",

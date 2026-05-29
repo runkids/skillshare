@@ -119,9 +119,11 @@ export default function GitSyncPage() {
   });
 
   const [pendingScope, setPendingScope] = useState<string | null>(null);
+  const [pendingRemote, setPendingRemote] = useState('');
 
   const setRootMutation = useMutation({
-    mutationFn: (scope: string) => api.gitSetRoot(scope),
+    mutationFn: ({ scope, remoteURL }: { scope: string; remoteURL?: string }) =>
+      api.gitSetRoot(scope, remoteURL),
     onSuccess: (res) => {
       toast(t('gitSync.scope.switched', { scope: res.scope }), 'success');
       queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
@@ -379,6 +381,7 @@ export default function GitSyncPage() {
                   value={status.scope || 'skills'}
                   onChange={(val) => {
                     if (val !== status.scope) {
+                      setPendingRemote('');
                       setPendingScope(val);
                     }
                   }}
@@ -472,15 +475,31 @@ export default function GitSyncPage() {
 
       <ConfirmDialog
         open={pendingScope !== null}
-        onCancel={() => setPendingScope(null)}
+        onCancel={() => {
+          setPendingScope(null);
+          setPendingRemote('');
+        }}
         onConfirm={() => {
           if (pendingScope) {
-            setRootMutation.mutate(pendingScope);
+            setRootMutation.mutate({ scope: pendingScope, remoteURL: pendingRemote.trim() || undefined });
           }
           setPendingScope(null);
+          setPendingRemote('');
         }}
         title={t('gitSync.scope.confirmTitle')}
-        message={t('gitSync.scope.confirmMessage', { scope: pendingScope ?? '' })}
+        message={
+          <div className="space-y-3">
+            <p>{t('gitSync.scope.confirmMessage', { scope: pendingScope ?? '' })}</p>
+            <Input
+              label={t('gitSync.scope.remoteLabel')}
+              value={pendingRemote}
+              onChange={(e) => setPendingRemote(e.target.value)}
+              placeholder="git@github.com:user/skills.git"
+              disabled={setRootMutation.isPending}
+            />
+            <p className="text-xs text-muted-dark">{t('gitSync.scope.remoteHint')}</p>
+          </div>
+        }
         loading={setRootMutation.isPending}
         variant="default"
       />

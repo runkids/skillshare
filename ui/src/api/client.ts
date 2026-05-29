@@ -623,10 +623,10 @@ export const api = {
 
   // Git
   gitStatus: () => apiFetch<GitStatus>('/git/status'),
-  gitSetRoot: (scope: string) =>
+  gitSetRoot: (scope: string, remoteURL?: string) =>
     apiFetch<{ success: boolean; scope: string; gitRoot: string }>('/git/root', {
       method: 'POST',
-      body: JSON.stringify({ scope }),
+      body: JSON.stringify(remoteURL ? { scope, remoteURL } : { scope }),
     }),
   gitBranches: (opts?: { fetch?: boolean }) =>
     apiFetch<GitBranches>(`/git/branches${opts?.fetch ? '?fetch=true' : ''}`),

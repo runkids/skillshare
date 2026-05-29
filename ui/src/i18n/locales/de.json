@@ -559,6 +559,8 @@
   "gitSync.scope.confirmTitle": "Git-Bereich ändern?",
   "gitSync.scope.confirmMessage": "Beim Wechsel zu \"{scope}\" wird in diesem Verzeichnis ein Git-Repository initialisiert, falls noch keines vorhanden ist, und dieser Bereich wird ab jetzt versioniert. Der bisherige Repository-Verlauf wird dabei NICHT verschoben. Der Bereich \"root\" versioniert skills, agents und extras gemeinsam.",
   "gitSync.scope.switched": "Git-Bereich auf {scope} geändert",
+  "gitSync.scope.remoteLabel": "Remote-URL (optional)",
+  "gitSync.scope.remoteHint": "Leer lassen, um das Remote später festzulegen. Falls bereits ein Remote existiert, wird dessen URL ersetzt.",
   "gitSync.mismatch.title": "Git-Bereich stimmt nicht überein",
   "gitSync.mismatch.description": "git_root ist auf \"{scope}\" gesetzt, aber das Git-Repository befindet sich tatsächlich im Bereich \"{repoScope}\":",
   "gitSync.mismatch.hint": "Wechseln Sie den Bereich unten, damit er übereinstimmt, oder führen Sie `skillshare init` erneut aus, um Git im konfigurierten Bereich einzurichten.",
@@ -745,7 +747,6 @@
   "newSkill.title": "Neuen Skill erstellen",
   "newSkill.toast.created": "Skill \"{name}\" erfolgreich erstellt!",
   "pagination.show": "Anzeigen",
-
   "preview.title": "Skill-Vorschau",
   "preview.install": "Installieren",
   "preview.loading": "Skill-Inhalt wird geladen…",
@@ -754,7 +755,6 @@
   "preview.source": "Quelle",
   "preview.license": "Lizenz",
   "preview.noContent": "Kein SKILL.md-Inhalt verfügbar",
-
   "resourceDetail.actions.disable": "Deaktivieren",
   "resourceDetail.actions.disabling": "Wird deaktiviert...",
   "resourceDetail.actions.edit": "Bearbeiten",

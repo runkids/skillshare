@@ -811,6 +811,19 @@ func SetRemoteURL(repoPath, newURL string) error {
 	return cmd.Run()
 }
 
+// SetOrAddRemote points the "origin" remote at url: it updates the URL when
+// origin already exists and adds the remote otherwise. ("git remote set-url"
+// fails when origin is absent and "git remote add" fails when it exists, so the
+// correct command depends on the current state.)
+func SetOrAddRemote(repoPath, url string) error {
+	if _, err := GetRemoteURL(repoPath); err == nil {
+		return SetRemoteURL(repoPath, url)
+	}
+	cmd := exec.Command("git", "remote", "add", "origin", url)
+	cmd.Dir = repoPath
+	return cmd.Run()
+}
+
 // GetHeadMessage returns the subject line of the HEAD commit.
 func GetHeadMessage(repoPath string) (string, error) {
 	cmd := exec.Command("git", "log", "-1", "--format=%s")

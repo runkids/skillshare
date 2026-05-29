@@ -559,6 +559,8 @@
   "gitSync.scope.confirmTitle": "Ubah cakupan git?",
   "gitSync.scope.confirmMessage": "Beralih ke \"{scope}\" akan menginisialisasi repositori git di direktori tersebut jika belum ada, dan mulai sekarang akan memversikan cakupan tersebut. Ini TIDAK akan memindahkan riwayat repositori Anda saat ini. Cakupan \"root\" memversikan skills, agents, dan extras secara bersamaan.",
   "gitSync.scope.switched": "Cakupan git diubah menjadi {scope}",
+  "gitSync.scope.remoteLabel": "URL remote (opsional)",
+  "gitSync.scope.remoteHint": "Kosongkan untuk mengatur remote nanti. Jika remote sudah ada, URL-nya akan diganti.",
   "gitSync.mismatch.title": "Cakupan git tidak cocok",
   "gitSync.mismatch.description": "git_root diatur ke \"{scope}\", tetapi repositori git sebenarnya berada di cakupan \"{repoScope}\":",
   "gitSync.mismatch.hint": "Ubah cakupan agar cocok di bawah, atau jalankan ulang `skillshare init` untuk menyiapkan git pada cakupan yang dikonfigurasi.",
@@ -745,7 +747,6 @@
   "newSkill.title": "Buat Skill Baru",
   "newSkill.toast.created": "Skill \"{name}\" berhasil dibuat!",
   "pagination.show": "Tampilkan",
-
   "preview.title": "Pratinjau Skill",
   "preview.install": "Pasang",
   "preview.loading": "Memuat konten skill…",
@@ -754,7 +755,6 @@
   "preview.source": "Sumber",
   "preview.license": "Lisensi",
   "preview.noContent": "Tidak ada konten SKILL.md tersedia",
-
   "resourceDetail.actions.disable": "Nonaktifkan",
   "resourceDetail.actions.disabling": "Menonaktifkan...",
   "resourceDetail.actions.edit": "Edit",

@@ -385,6 +385,8 @@
   "gitSync.scope.confirmTitle": "Change git scope?",
   "gitSync.scope.confirmMessage": "Switching to \"{scope}\" will initialize a git repository at that directory if one doesn't exist, and version-control that scope from now on. It will NOT move your current repository history. The \"root\" scope versions skills, agents, and extras together.",
   "gitSync.scope.switched": "Git scope changed to {scope}",
+  "gitSync.scope.remoteLabel": "Remote URL (optional)",
+  "gitSync.scope.remoteHint": "Leave blank to set the remote later. If a remote already exists, this replaces its URL.",
   "gitSync.mismatch.title": "Git scope mismatch",
   "gitSync.mismatch.description": "git_root is set to \"{scope}\", but the git repository actually lives in the \"{repoScope}\" scope:",
   "gitSync.mismatch.hint": "Switch the scope to match below, or re-run `skillshare init` to set up git at the configured scope.",
@@ -427,7 +429,6 @@
   "install.example.githubShorthand": "GitHub shorthand",
   "install.subtitle": "Install skills or agents from any git repository or local path",
   "install.title": "Install Resources",
-
   "analyze.chart.basedOn": "Based on description token count across {count} skills",
   "analyze.chart.noSkills": "No skills to display",
   "analyze.chart.title": "Top-10 Heaviest Skills",
@@ -477,7 +478,6 @@
   "analyze.table.searchPlaceholder": "Search...",
   "analyze.table.total": "Total",
   "analyze.title": "Analyze",
-
   "doctor.allPassed.message": "Your skillshare setup is healthy. All {count} checks passed.",
   "doctor.allPassed.title": "All checks passed!",
   "doctor.error.failedToLoad": "Failed to load health check: {error}",
@@ -516,7 +516,6 @@
   "doctor.check.cli_version": "CLI Version",
   "doctor.check.skill_version": "Skill Version",
   "doctor.check.skillignore": "Skillignore",
-
   "extras.addExtra": "Add Extra",
   "extras.addExtraTitle": "Add Extra",
   "extras.addTarget": "Add Target",
@@ -572,7 +571,6 @@
   "extras.toast.skipped": "{skipped} skipped",
   "extras.toast.skippedForce": "{skipped} skipped (enable Force to override)",
   "extras.toast.nErrors": "{errors} error(s)",
-
   "filterStudio.agentFilterRules": "Agent Filter Rules",
   "filterStudio.cancel": "Cancel",
   "filterStudio.excludePatterns": "Exclude patterns",
@@ -594,9 +592,7 @@
   "filterStudio.targetNotFound.title": "Target \"{name}\" not found",
   "filterStudio.title": "Filter Studio",
   "filterStudio.toast.saved": "{kind} filters for \"{name}\" saved.",
-
   "pagination.show": "Show",
-
   "preview.title": "Skill Preview",
   "preview.install": "Install",
   "preview.loading": "Loading skill content…",
@@ -605,7 +601,6 @@
   "preview.source": "Source",
   "preview.license": "License",
   "preview.noContent": "No SKILL.md content available",
-
   "newSkill.back": "Back",
   "newSkill.step.category": "Category",
   "newSkill.step.confirm": "Confirm",
@@ -638,7 +633,6 @@
   "newSkill.scaffold.title": "Scaffold Directories",
   "newSkill.title": "Create New Skill",
   "newSkill.toast.created": "Skill \"{name}\" created successfully!",
-
   "newSkill.pattern.tool-wrapper.label": "Tool Wrapper",
   "newSkill.pattern.tool-wrapper.description": "Teach agent how to use a library/API",
   "newSkill.pattern.generator.label": "Generator",
@@ -651,7 +645,6 @@
   "newSkill.pattern.pipeline.description": "Multi-step workflow with checkpoints",
   "newSkill.pattern.none.label": "None",
   "newSkill.pattern.none.description": "Blank template",
-
   "newSkill.category.library.label": "Library & API Reference",
   "newSkill.category.verification.label": "Product Verification",
   "newSkill.category.data.label": "Data Fetching & Analysis",
@@ -661,7 +654,6 @@
   "newSkill.category.cicd.label": "CI/CD & Deployment",
   "newSkill.category.runbook.label": "Runbooks & Incident Response",
   "newSkill.category.infra.label": "Infrastructure Operations",
-
   "trash.confirm.delete.confirmText": "Delete Forever",
   "trash.confirm.delete.message": "Permanently delete {name}? This cannot be undone.",
   "trash.confirm.delete.title": "Permanently Delete",
@@ -689,7 +681,6 @@
   "trash.toast.restored": "Restored \"{name}\" from trash",
   "trash.actions.delete": "Delete",
   "trash.actions.restore": "Restore",
-
   "resourceDetail.actions.disable": "Disable",
   "resourceDetail.actions.disabling": "Disabling...",
   "resourceDetail.actions.edit": "Edit",
@@ -729,7 +720,7 @@
   "resourceDetail.security.title": "Security",
   "resourceDetail.stats.tokens": "~{count} tokens",
   "resourceDetail.stats.tokensDesc": "Description: ~{desc}\nBody: ~{body}\nTotal: ~{total}\n(~4 chars/token estimate)",
-  "resourceDetail.stats.tokensParts": "(desc ~{desc} \u00b7 body ~{body})",
+  "resourceDetail.stats.tokensParts": "(desc ~{desc} · body ~{body})",
   "resourceDetail.stats.words": "{count} words",
   "resourceDetail.stats.lines": "{count} lines",
   "resourceDetail.stats.files": "{count} file(s)",
@@ -739,9 +730,9 @@
   "resourceDetail.syncStatus.linked": "linked",
   "resourceDetail.syncStatus.notSynced": "not synced",
   "resourceDetail.targetDistribution.filterNote": "Filters only apply to merge/copy mode targets.",
-  "resourceDetail.targetDistribution.manageTargets": "Manage targets \u2192",
+  "resourceDetail.targetDistribution.manageTargets": "Manage targets →",
   "resourceDetail.targetDistribution.title": "Target Distribution",
-  "resourceDetail.toast.blockedDefault": "Blocked by security audit \u2014 HIGH/CRITICAL findings detected",
+  "resourceDetail.toast.blockedDefault": "Blocked by security audit — HIGH/CRITICAL findings detected",
   "resourceDetail.toast.disabled": "Disabled: {name}",
   "resourceDetail.toast.enabled": "Enabled: {name}",
   "resourceDetail.toast.openedIn": "Opened in {editor}",
@@ -749,9 +740,8 @@
   "resourceDetail.toast.resourceUninstalled": "{kind} \"{name}\" uninstalled.",
   "resourceDetail.toast.skipped": "Skipped",
   "resourceDetail.toast.updateFailed": "Update failed",
-  "resourceDetail.toast.updated": "Updated: {name} \u2014 {message}{auditInfo}",
+  "resourceDetail.toast.updated": "Updated: {name} — {message}{auditInfo}",
   "resourceDetail.toast.upToDate": "{name} is already up to date.",
-
   "resources.agents.empty.description": "Install agents from GitHub or add them to your source directory.",
   "resources.agents.empty.title": "No agents yet",
   "resources.clearFilters": "Clear filters",
@@ -777,7 +767,7 @@
   "resources.folder.collapseAll": "Collapse All",
   "resources.folder.expandAll": "Expand All",
   "resources.folder.itemsInFolders": "{items} item(s) in {folders} folder(s)",
-  "resources.folder.noEditableSkills": "No editable skills in {folder}/ \u2014 tracked-repo skills are read-only",
+  "resources.folder.noEditableSkills": "No editable skills in {folder}/ — tracked-repo skills are read-only",
   "resources.folder.skillsUpdated": "{count} skill(s) in {folder}/ now available in {target}",
   "resources.newSkill": "New Skill",
   "resources.noMatches.description": "Try a different search term or filter.",
@@ -785,8 +775,8 @@
   "resources.showing": "Showing {count} of {total} resources",
   "resources.skills.empty.description": "Install skills from GitHub or add them to your source directory.",
   "resources.skills.empty.title": "No skills yet",
-  "resources.sort.nameAsc": "Name A \u2192 Z",
-  "resources.sort.nameDesc": "Name Z \u2192 A",
+  "resources.sort.nameAsc": "Name A → Z",
+  "resources.sort.nameDesc": "Name Z → A",
   "resources.sort.newestFirst": "Newest first",
   "resources.sort.oldestFirst": "Oldest first",
   "resources.status.disabled": "Disabled",
@@ -800,7 +790,7 @@
   "resources.targets.all": "All",
   "resources.targets.nTargets": "{count} targets",
   "resources.tip.dismiss": "Dismiss tip",
-  "resources.tip.message": "any resource or folder for quick actions \u2014 enable/disable, uninstall, and more.",
+  "resources.tip.message": "any resource or folder for quick actions — enable/disable, uninstall, and more.",
   "resources.tip.rightClick": "Right-click",
   "resources.title": "Resources",
   "resources.toast.disabled": "{kind} {name} disabled",
@@ -813,7 +803,7 @@
   "resources.tree.filteredOut.title": "This agent is excluded by the current target agent filters.",
   "resources.tree.installed": "Installed: {date}",
   "resources.tree.mixed": "Mixed",
-  "resources.tree.mixedTooltip": "Some: All targets \u00b7 Others: {targets}",
+  "resources.tree.mixedTooltip": "Some: All targets · Others: {targets}",
   "resources.tree.noAgentTargets.label": "No agent targets",
   "resources.tree.noAgentTargets.title": "No configured targets currently support agent sync.",
   "resources.tree.source": "Source: {source}",
@@ -967,7 +957,6 @@
   "sync_matrix.synced": "Included for sync",
   "sync_matrix.symlink_filters_not_applicable": "Symlink mode - filters not applicable",
   "targetMenu.allTargets": "All",
-
   "targets.addTarget": "Add Target",
   "targets.addYourFirstTarget": "Add Your First Target",
   "targets.agentModeChanged": "Agent mode changed to {mode}",
@@ -1109,7 +1098,6 @@
   "theme.settings": "Theme",
   "theme.style": "Style",
   "theme.system": "System",
-
   "diffView.confirmSave": "Confirm & save",
   "diffView.keepEditing": "Keep editing",
   "diffView.lineChanged": "{count} line changed",
@@ -1118,9 +1106,7 @@
   "diffView.noChanges": "No changes.",
   "diffView.oldLabel": "Saved · on disk",
   "diffView.reviewTitle": "Review changes before saving",
-
   "fileViewer.copyPath": "Copy file path",
-
   "frontmatterEditor.addField": "field",
   "frontmatterEditor.emptyMetadata": "No metadata entries. Add keys under {metadataKey} like {targetsKey}.",
   "frontmatterEditor.field.agent.hint": "Subagent type. Only used when context=fork.",
@@ -1143,7 +1129,6 @@
   "frontmatterEditor.title": "Frontmatter",
   "frontmatterEditor.viewFields": "Fields",
   "frontmatterEditor.viewYaml": "YAML",
-
   "hubManager.addHub": "Add Hub",
   "hubManager.addButton": "Add",
   "hubManager.builtIn": "Built-in",
@@ -1158,7 +1143,6 @@
   "hubManager.removeHub": "Remove hub",
   "hubManager.title": "Manage Hubs",
   "hubManager.urlPlaceholder": "URL or file path",
-
   "installForm.audit.cancelText": "Cancel",
   "installForm.audit.causeText": "Critical issues found during security audit",
   "installForm.audit.findings": "{count} finding",
@@ -1196,15 +1180,14 @@
   "installForm.warnings.warningPlural": "{count} warnings",
   "installForm.toast.installed": "Installed",
   "installForm.toast.installedLabel": "{label}: Installed",
-
   "skillEditor.metadataHint.available": "Available:",
-  "skillEditor.metadataHint.text": "set metadata.targets: [name, \u2026] to limit which agents receive this skill on sync.",
+  "skillEditor.metadataHint.text": "set metadata.targets: [name, …] to limit which agents receive this skill on sync.",
   "skillEditor.metadataHint.tip": "skillshare tip:",
   "skillEditor.pane.edit": "Edit",
   "skillEditor.pane.split": "Split",
   "skillEditor.toast.openInEditorFailed": "Open-in-editor failed: {error}",
   "skillEditor.toast.pathCopied": "Path copied",
-  "skillEditor.toast.saved": "Saved \u00b7 {name}",
+  "skillEditor.toast.saved": "Saved · {name}",
   "skillEditor.toast.saveFailed": "Save failed: {error}",
   "skillEditor.argsBudgetWarning": "Over 5K token budget",
   "skillEditor.argsHint": "will be replaced when invoked",
@@ -1242,7 +1225,6 @@
   "skillEditor.outline.label": "Outline",
   "skillEditor.outline.show": "Show outline",
   "skillEditor.outline.close": "Close outline",
-
   "skillPicker.cancelButton": "Cancel",
   "skillPicker.deselectAll": "Deselect All",
   "skillPicker.filterCount": "{filtered} of {total} {plural}",
@@ -1254,9 +1236,7 @@
   "skillPicker.selectOneHintWithFilter": "Custom name is set — select one {singular} ({filtered} of {total})",
   "skillPicker.titleMulti": "Select {plural} to Install",
   "skillPicker.titleSingle": "Select {singular} to Install",
-
   "streamProgress.remaining": "~{eta}s remaining",
-
   "syncPreview.allUpToDate": "Everything is up to date. No sync needed.",
   "syncPreview.cancelButton": "Cancel",
   "syncPreview.closeButton": "Close",
@@ -1268,14 +1248,12 @@
   "syncPreview.syncNowButton": "Sync Now",
   "syncPreview.titleComplete": "Sync Complete",
   "syncPreview.titlePreview": "Sync Preview",
-
   "syncResult.dirCreated": "new directory",
   "syncResult.empty": "No results to show.",
   "syncResult.linked": "{count} linked",
   "syncResult.pruned": "{count} pruned",
   "syncResult.skipped": "{count} skipped",
   "syncResult.updated": "{count} updated",
-
   "updateDialog.copyCommand": "Copy command",
   "updateDialog.newVersion": "New version available",
   "updateDialog.restartDev": "DEV mode restart simulated.",
@@ -1283,7 +1261,6 @@
   "updateDialog.restarting": "Restarting local UI server…",
   "updateDialog.updateNow": "Update now",
   "updateDialog.updating": "Updating Skillshare…",
-
   "tour.back": "Back",
   "tour.done": "Done",
   "tour.next": "Next",

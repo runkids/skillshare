@@ -559,6 +559,8 @@
   "gitSync.scope.confirmTitle": "محدوده git تغییر کند؟",
   "gitSync.scope.confirmMessage": "تغییر به \"{scope}\" در صورت نبود مخزن، یک مخزن git در آن پوشه ایجاد می‌کند و از این پس آن محدوده را نسخه‌بندی می‌کند. تاریخچه مخزن فعلی شما را جابه‌جا نمی‌کند. محدوده \"root\" مجموعه skills، agents و extras را با هم نسخه‌بندی می‌کند.",
   "gitSync.scope.switched": "محدوده git به {scope} تغییر یافت",
+  "gitSync.scope.remoteLabel": "نشانی ریموت (اختیاری)",
+  "gitSync.scope.remoteHint": "برای تنظیم ریموت بعداً خالی بگذارید. اگر ریموتی از قبل وجود داشته باشد، نشانی آن جایگزین می‌شود.",
   "gitSync.mismatch.title": "ناهماهنگی محدوده git",
   "gitSync.mismatch.description": "git_root روی \"{scope}\" تنظیم شده است، اما مخزن git در واقع در محدوده \"{repoScope}\" قرار دارد:",
   "gitSync.mismatch.hint": "برای هماهنگی، محدوده را در پایین تغییر دهید یا `skillshare init` را دوباره اجرا کنید تا git در محدوده پیکربندی‌شده راه‌اندازی شود.",
@@ -745,7 +747,6 @@
   "newSkill.title": "ایجاد اسکیل جدید",
   "newSkill.toast.created": "اسکیل \"{name}\" با موفقیت ایجاد شد!",
   "pagination.show": "نمایش",
-
   "preview.title": "پیش‌نمایش اسکیل",
   "preview.install": "نصب",
   "preview.loading": "در حال بارگذاری محتوا…",
@@ -754,7 +755,6 @@
   "preview.source": "منبع",
   "preview.license": "مجوز",
   "preview.noContent": "محتوای SKILL.md موجود نیست",
-
   "resourceDetail.actions.disable": "غیرفعال کردن",
   "resourceDetail.actions.disabling": "در حال غیرفعال‌سازی...",
   "resourceDetail.actions.edit": "ویرایش",

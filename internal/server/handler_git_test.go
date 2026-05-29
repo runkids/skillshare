@@ -124,6 +124,37 @@ func TestHandleSetGitRoot_SwitchToAgents_InitsAndPersists(t *testing.T) {
 	}
 }
 
+// POST /api/git/root with a remoteURL initializes the scope repo and wires the
+// "origin" remote on it in one request (UI parity with the CLI's
+// `init --git-root <scope> --remote <url>`).
+func TestHandleSetGitRoot_WithRemote_WiresOrigin(t *testing.T) {
+	s, _ := newTestServer(t)
+
+	const remote = "https://example.com/skills.git"
+	body := `{"scope":"agents","remoteURL":"` + remote + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/git/root", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp map[string]any
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	dir, _ := resp["gitRoot"].(string)
+	if dir == "" {
+		t.Fatalf("missing gitRoot in response: %+v", resp)
+	}
+
+	got := testutil.RunGit(t, dir, "remote", "get-url", "origin")
+	if got != remote {
+		t.Errorf("origin = %q, want %q", got, remote)
+	}
+}
+
 // POST /api/git/root rejects unknown or empty scopes with 400.
 func TestHandleSetGitRoot_InvalidScope_Rejected(t *testing.T) {
 	s, _ := newTestServer(t)

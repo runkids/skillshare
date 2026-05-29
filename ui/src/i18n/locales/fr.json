@@ -559,6 +559,8 @@
   "gitSync.scope.confirmTitle": "Changer la portée git ?",
   "gitSync.scope.confirmMessage": "Passer à \"{scope}\" initialisera un dépôt git dans ce répertoire s'il n'en existe pas, et versionnera cette portée à partir de maintenant. Cela ne déplacera PAS l'historique actuel de votre dépôt. La portée \"root\" versionne skills, agents et extras ensemble.",
   "gitSync.scope.switched": "Portée git changée en {scope}",
+  "gitSync.scope.remoteLabel": "URL distante (facultatif)",
+  "gitSync.scope.remoteHint": "Laissez vide pour définir la distante plus tard. Si une distante existe déjà, son URL est remplacée.",
   "gitSync.mismatch.title": "Incohérence de la portée git",
   "gitSync.mismatch.description": "git_root est défini sur \"{scope}\", mais le dépôt git se trouve en réalité dans la portée \"{repoScope}\" :",
   "gitSync.mismatch.hint": "Changez la portée ci-dessous pour qu'elle corresponde, ou relancez `skillshare init` pour configurer git dans la portée configurée.",
@@ -745,7 +747,6 @@
   "newSkill.title": "Créer un nouveau skill",
   "newSkill.toast.created": "Skill « {name} » créé avec succès !",
   "pagination.show": "Afficher",
-
   "preview.title": "Aperçu du skill",
   "preview.install": "Installer",
   "preview.loading": "Chargement du contenu…",
@@ -754,7 +755,6 @@
   "preview.source": "Source",
   "preview.license": "Licence",
   "preview.noContent": "Aucun contenu SKILL.md disponible",
-
   "resourceDetail.actions.disable": "Désactiver",
   "resourceDetail.actions.disabling": "Désactivation...",
   "resourceDetail.actions.edit": "Modifier",

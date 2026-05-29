@@ -559,6 +559,8 @@
   "gitSync.scope.confirmTitle": "git 범위를 변경하시겠습니까?",
   "gitSync.scope.confirmMessage": "\"{scope}\"(으)로 전환하면 해당 디렉토리에 git 저장소가 없을 경우 초기화하고, 이제부터 해당 범위를 버전 관리합니다. 현재 저장소 기록은 이동되지 않습니다. \"root\" 범위는 skills, agents, extras를 함께 버전 관리합니다.",
   "gitSync.scope.switched": "git 범위가 {scope}(으)로 변경되었습니다",
+  "gitSync.scope.remoteLabel": "원격 URL(선택 사항)",
+  "gitSync.scope.remoteHint": "비워 두면 나중에 원격을 설정할 수 있습니다. 원격이 이미 있으면 URL을 교체합니다.",
   "gitSync.mismatch.title": "git 범위 불일치",
   "gitSync.mismatch.description": "git_root는 \"{scope}\"(으)로 설정되어 있지만, git 저장소는 실제로 \"{repoScope}\" 범위에 있습니다:",
   "gitSync.mismatch.hint": "아래에서 범위를 일치하도록 전환하거나, `skillshare init`을 다시 실행하여 구성된 범위에 git을 설정하세요.",
@@ -745,7 +747,6 @@
   "newSkill.title": "새 Skill 만들기",
   "newSkill.toast.created": "\"{name}\" skill이 성공적으로 생성되었습니다!",
   "pagination.show": "표시",
-
   "preview.title": "스킬 미리보기",
   "preview.install": "설치",
   "preview.loading": "스킬 내용 로딩 중…",
@@ -754,7 +755,6 @@
   "preview.source": "출처",
   "preview.license": "라이선스",
   "preview.noContent": "SKILL.md 내용이 없습니다",
-
   "resourceDetail.actions.disable": "비활성화",
   "resourceDetail.actions.disabling": "비활성화 중...",
   "resourceDetail.actions.edit": "편집",
