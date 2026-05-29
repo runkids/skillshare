@@ -450,6 +450,7 @@
   "extras.modal.namePlaceholder": "例: my-scripts",
   "extras.modal.sourcePath": "ソースパス（任意）",
   "extras.modal.sourcePathPlaceholder": "例: ~/my-extras/scripts",
+  "extras.modal.sourcePathHelp": "空欄のままにすると、この extra の既定フォルダー（<extras_source>/<name>、または extras_source 未設定時は skills source の隣の extras/<name>）を作成または使用します。カスタムフォルダーを使う場合だけ入力してください。",
   "extras.modal.targetPathPlaceholder": "ターゲットパス（例: ~/.cursor/scripts）",
   "extras.modal.colPath": "パス",
   "extras.modal.colExtension": "Extension",

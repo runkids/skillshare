@@ -450,6 +450,7 @@
   "extras.modal.namePlaceholder": "مثلاً my-scripts",
   "extras.modal.sourcePath": "مسیر منبع (اختیاری)",
   "extras.modal.sourcePathPlaceholder": "مثلاً ~/my-extras/scripts",
+  "extras.modal.sourcePathHelp": "خالی بگذارید تا پوشهٔ پیش‌فرض این extra ساخته یا استفاده شود: <extras_source>/<name>، یا اگر extras_source تنظیم نشده باشد، extras/<name> کنار منبع skills. فقط وقتی پر کنید که می‌خواهید از یک پوشهٔ سفارشی استفاده کنید.",
   "extras.modal.targetPathPlaceholder": "مسیر هدف (مثلاً ~/.cursor/scripts)",
   "extras.modal.colPath": "مسیر",
   "extras.modal.colExtension": "Extension",

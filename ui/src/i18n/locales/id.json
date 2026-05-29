@@ -450,6 +450,7 @@
   "extras.modal.namePlaceholder": "cth. my-scripts",
   "extras.modal.sourcePath": "Path sumber (opsional)",
   "extras.modal.sourcePathPlaceholder": "cth. ~/my-extras/scripts",
+  "extras.modal.sourcePathHelp": "Biarkan kosong untuk membuat atau memakai folder default untuk extra ini: <extras_source>/<name>, atau extras/<name> di sebelah sumber skills jika extras_source belum diatur. Isi hanya jika ingin memakai folder khusus.",
   "extras.modal.targetPathPlaceholder": "Path target (cth. ~/.cursor/scripts)",
   "extras.modal.colPath": "Path",
   "extras.modal.colExtension": "Extension",

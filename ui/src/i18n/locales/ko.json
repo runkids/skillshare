@@ -450,6 +450,7 @@
   "extras.modal.namePlaceholder": "예: my-scripts",
   "extras.modal.sourcePath": "소스 경로 (선택사항)",
   "extras.modal.sourcePathPlaceholder": "예: ~/my-extras/scripts",
+  "extras.modal.sourcePathHelp": "비워 두면 이 extra의 기본 폴더(<extras_source>/<name>, extras_source가 없으면 skills source 옆의 extras/<name>)를 만들거나 사용합니다. 사용자 지정 폴더를 쓸 때만 입력하세요.",
   "extras.modal.targetPathPlaceholder": "대상 경로 (예: ~/.cursor/scripts)",
   "extras.modal.colPath": "경로",
   "extras.modal.colExtension": "Extension",

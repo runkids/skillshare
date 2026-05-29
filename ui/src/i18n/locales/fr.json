@@ -450,6 +450,7 @@
   "extras.modal.namePlaceholder": "ex. mes-scripts",
   "extras.modal.sourcePath": "Chemin source (optionnel)",
   "extras.modal.sourcePathPlaceholder": "ex. ~/mes-extras/scripts",
+  "extras.modal.sourcePathHelp": "Laissez vide pour créer ou utiliser le dossier par défaut de cet extra : <extras_source>/<name>, ou extras/<name> à côté de la source des skills si extras_source n’est pas défini. Renseignez ce champ seulement pour utiliser un dossier personnalisé.",
   "extras.modal.targetPathPlaceholder": "Chemin de cible (ex. ~/.cursor/scripts)",
   "extras.modal.colPath": "Chemin",
   "extras.modal.colExtension": "Extension",

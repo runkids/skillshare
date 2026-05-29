@@ -450,6 +450,7 @@
   "extras.modal.namePlaceholder": "ej. mis-scripts",
   "extras.modal.sourcePath": "Ruta de origen (opcional)",
   "extras.modal.sourcePathPlaceholder": "ej. ~/mis-extras/scripts",
+  "extras.modal.sourcePathHelp": "Déjalo vacío para crear o usar la carpeta predeterminada de este extra: <extras_source>/<name>, o extras/<name> junto a la fuente de skills si no hay extras_source. Rellénalo solo para usar una carpeta personalizada.",
   "extras.modal.targetPathPlaceholder": "Ruta de destino (ej. ~/.cursor/scripts)",
   "extras.modal.colPath": "Ruta",
   "extras.modal.colExtension": "Extension",

@@ -450,6 +450,7 @@
   "extras.modal.namePlaceholder": "z. B. meine-skripte",
   "extras.modal.sourcePath": "Quellpfad (optional)",
   "extras.modal.sourcePathPlaceholder": "z. B. ~/meine-extras/skripte",
+  "extras.modal.sourcePathHelp": "Leer lassen, um den Standardordner für dieses Extra zu erstellen oder zu verwenden: <extras_source>/<name> oder extras/<name> neben der Skills-Quelle, wenn kein extras_source gesetzt ist. Nur ausfüllen, wenn ein eigener Ordner verwendet werden soll.",
   "extras.modal.targetPathPlaceholder": "Zielpfad (z. B. ~/.cursor/scripts)",
   "extras.modal.colPath": "Pfad",
   "extras.modal.colExtension": "Extension",

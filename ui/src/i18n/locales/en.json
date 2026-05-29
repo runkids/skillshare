@@ -517,6 +517,7 @@
   "extras.modal.namePlaceholder": "e.g. my-scripts",
   "extras.modal.sourcePath": "Source path (optional)",
   "extras.modal.sourcePathPlaceholder": "e.g. ~/my-extras/scripts",
+  "extras.modal.sourcePathHelp": "Leave blank to create or use the default folder for this extra: <extras_source>/<name>, or extras/<name> next to your skills source. Fill only to use a custom folder.",
   "extras.modal.targets": "Targets",
   "extras.modal.targetPathPlaceholder": "Target path (e.g. ~/.cursor/scripts)",
   "extras.modal.colPath": "Path",

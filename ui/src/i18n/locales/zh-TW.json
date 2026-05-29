@@ -450,6 +450,7 @@
   "extras.modal.namePlaceholder": "例如 my-scripts",
   "extras.modal.sourcePath": "來源路徑（選填）",
   "extras.modal.sourcePathPlaceholder": "例如 ~/my-extras/scripts",
+  "extras.modal.sourcePathHelp": "留空會建立或使用這個 extra 的預設資料夾：<extras_source>/<name>；若未設定 extras_source，則使用 skills source 旁的 extras/<name>。只有要使用自訂資料夾時才需要填寫。",
   "extras.modal.targetPathPlaceholder": "目標路徑（例如 ~/.cursor/scripts）",
   "extras.modal.colPath": "路徑",
   "extras.modal.colExtension": "Extension",

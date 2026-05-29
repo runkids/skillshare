@@ -120,13 +120,20 @@ function AddExtraModal({
             />
 
             {/* Source path (optional) */}
-            <Input
-              label={t('extras.modal.sourcePath')}
-              placeholder={t('extras.modal.sourcePathPlaceholder')}
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              disabled={saving}
-            />
+            <div>
+              <Input
+                id="extra-source-path"
+                label={t('extras.modal.sourcePath')}
+                placeholder={t('extras.modal.sourcePathPlaceholder')}
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                disabled={saving}
+                aria-describedby="extra-source-path-help"
+              />
+              <p id="extra-source-path-help" className="mt-1.5 text-xs leading-relaxed text-pencil-light/70">
+                {t('extras.modal.sourcePathHelp')}
+              </p>
+            </div>
 
             {/* Targets */}
             <div>
