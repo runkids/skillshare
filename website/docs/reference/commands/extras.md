@@ -77,7 +77,7 @@ skillshare extras list [--json] [--no-tui] [-p|-g]
 
 | Flag | Description |
 |------|-------------|
-| `--json` | JSON output (includes `source_type`: `per-extra` / `extras_source` / `default`) |
+| `--json` | JSON output (includes `source_type`: `per-extra` / `extras_source` / `default`, and a per-target `extension` field when set) |
 | `--no-tui` | Disable interactive TUI, use plain text output |
 | `--project, -p` | Use project-mode extras (`.skillshare/`) |
 | `--global, -g` | Use global extras (`~/.config/skillshare/`) |
@@ -113,13 +113,17 @@ When TUI is disabled (via `--no-tui`, `skillshare tui off`, or piped output):
 ```
 $ skillshare extras list --no-tui
 
-Rules            ~/.config/skillshare/extras/rules/  (2 files)
-  ✔ ~/.claude/rules   merge   synced
-  ✔ ~/.cursor/rules   copy    synced
+Extras
+─────────────────────────────────────────
+→ rules  ~/.config/skillshare/extras/rules/ · 2 files
+  ✓ ~/.claude/rules  merge
+  ✓ ~/.cursor/rules  copy
 
-Prompts          ~/.config/skillshare/extras/prompts/  (1 file)
-  ✔ ~/.claude/prompts  merge  synced
+→ codex-agents  ~/.config/skillshare/agents · 3 files
+  ✓ ~/.codex/agents  extension: codex-agents
 ```
+
+A synced row shows only its icon, path, and mode; non-synced rows append a status word (`drift`, `not synced`, `no source`). Targets with a transform extension are labeled `extension: <name>` in place of the sync mode (their underlying mode is always `copy`).
 
 ### `extras source`
 
@@ -283,6 +287,8 @@ extras:
 **Copy semantics** — `extension` implies `copy` mode. Setting `mode: merge` or `mode: symlink` on a target with an `extension` is an error.
 
 **One-way** — transforms run source → target only. `extras collect` skips extension targets.
+
+**Overwrite safety** — generated output follows the same conflict rules as `copy` mode. A leftover symlink at an output path is replaced automatically; an existing regular file or directory you created locally is left untouched and skipped unless you pass `--force` (with `--force`, a conflicting directory is replaced wholesale by the generated file).
 
 ### Extension layout
 
