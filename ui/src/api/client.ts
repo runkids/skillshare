@@ -145,6 +145,7 @@ export interface ExtraTarget {
   path: string;
   mode: string;
   flatten: boolean;
+  extension?: string;  // transform extension name; presence implies copy mode
   status: string;  // "synced" | "drift" | "not synced" | "no source"
 }
 
@@ -155,6 +156,14 @@ export interface Extra {
   file_count: number;
   source_exists: boolean;
   targets: ExtraTarget[];
+}
+
+export interface ExtensionInfo {
+  name: string;
+  description?: string;
+  builtin: boolean;
+  installed: boolean;
+  used_by?: string[]; // names of extras referencing this extension
 }
 
 export interface ExtraDiffItem {
@@ -512,7 +521,7 @@ export const api = {
   createExtra: (data: {
     name: string;
     source?: string;
-    targets: Array<{ path: string; mode: string }>;
+    targets: Array<{ path: string; mode: string; flatten?: boolean; extension?: string }>;
   }) =>
     apiFetch<{ success: boolean }>('/extras', {
       method: 'POST',
@@ -525,10 +534,30 @@ export const api = {
     }),
   deleteExtra: (name: string) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}`, { method: 'DELETE' }),
-  setExtraMode: (name: string, target: string, mode: string, flatten?: boolean) =>
+  listExtraExtensions: () => apiFetch<{ extensions: string[] }>('/extras/extensions'),
+  // Extensions management (Config page)
+  listExtensions: () => apiFetch<{ extensions: ExtensionInfo[] }>('/extensions'),
+  installExtension: (name: string) =>
+    apiFetch<{ success: boolean; name: string }>('/extensions/install', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+  openExtensionsDir: () =>
+    apiFetch<{ path: string }>('/extensions/open', { method: 'POST' }),
+  removeExtension: (name: string) =>
+    apiFetch<{ success: boolean; name: string }>(`/extensions/${encodeURIComponent(name)}`, {
+      method: 'DELETE',
+    }),
+  // extension: undefined = leave unchanged; '' = clear; name = set (forces copy mode)
+  setExtraMode: (name: string, target: string, mode: string, flatten?: boolean, extension?: string) =>
     apiFetch<{ success: boolean }>(`/extras/${encodeURIComponent(name)}/mode`, {
       method: 'PATCH',
-      body: JSON.stringify({ target, mode, ...(flatten !== undefined && { flatten }) }),
+      body: JSON.stringify({
+        target,
+        mode,
+        ...(flatten !== undefined && { flatten }),
+        ...(extension !== undefined && { extension }),
+      }),
     }),
 
   // Log

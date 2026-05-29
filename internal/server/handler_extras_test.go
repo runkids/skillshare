@@ -252,6 +252,49 @@ func TestHandleExtrasCreate_WithSource(t *testing.T) {
 	}
 }
 
+// TestHandleExtrasCreate_WithExtension verifies that creating an extra with a
+// target extension persists the extension and forces the target into copy mode,
+// even when the request asks for a different mode.
+func TestHandleExtrasCreate_WithExtension(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+
+	targetDir := t.TempDir()
+	// Request mode "merge" but with an extension — should be coerced to copy.
+	body := `{"name":"agents","targets":[{"path":"` + targetDir + `","mode":"merge","extension":"codex-agents"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/extras", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	s.mu.RLock()
+	extras := s.cfg.Extras
+	s.mu.RUnlock()
+
+	var found bool
+	for _, e := range extras {
+		if e.Name != "agents" {
+			continue
+		}
+		found = true
+		if len(e.Targets) != 1 {
+			t.Fatalf("expected 1 target, got %d", len(e.Targets))
+		}
+		tt := e.Targets[0]
+		if tt.Extension != "codex-agents" {
+			t.Errorf("extension = %q, want codex-agents", tt.Extension)
+		}
+		if tt.Mode != "copy" {
+			t.Errorf("mode = %q, want copy (extension implies copy)", tt.Mode)
+		}
+	}
+	if !found {
+		t.Error("extra 'agents' not found in config after create")
+	}
+}
+
 // TestHandleExtrasCreate_WithoutSource verifies POST /api/extras works
 // without a "source" field (backward compatibility).
 func TestHandleExtrasCreate_WithoutSource(t *testing.T) {
@@ -349,6 +392,156 @@ func TestHandleExtras_ProjectMode_DefaultSourceType(t *testing.T) {
 	}
 }
 
+// writeExtension creates a directory-form extension under dir/<name>/.
+func writeExtension(t *testing.T, dir, name string) {
+	t.Helper()
+	extDir := filepath.Join(dir, name)
+	if err := os.MkdirAll(extDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(extDir, "extension.yaml"), []byte("run: [\"cat\"]\noutput_ext: toml\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestHandleExtrasExtensions verifies GET /api/extras/extensions lists the
+// extensions installed under the global extensions directory.
+func TestHandleExtrasExtensions(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+
+	extRoot := filepath.Join(filepath.Dir(config.ConfigPath()), "extensions")
+	writeExtension(t, extRoot, "codex-agents")
+	writeExtension(t, extRoot, "gemini-commands")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/extras/extensions", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Extensions []string `json:"extensions"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(resp.Extensions) != 2 || resp.Extensions[0] != "codex-agents" || resp.Extensions[1] != "gemini-commands" {
+		t.Errorf("got %v, want [codex-agents gemini-commands]", resp.Extensions)
+	}
+}
+
+// TestHandleExtrasExtensions_ProjectMode verifies the endpoint reads the
+// project extensions directory (.skillshare/extensions) in project mode.
+func TestHandleExtrasExtensions_ProjectMode(t *testing.T) {
+	s, projectRoot := newTestProjectServerWithExtras(t, nil)
+
+	extRoot := filepath.Join(projectRoot, ".skillshare", "extensions")
+	writeExtension(t, extRoot, "codex-agents")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/extras/extensions", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Extensions []string `json:"extensions"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(resp.Extensions) != 1 || resp.Extensions[0] != "codex-agents" {
+		t.Errorf("got %v, want [codex-agents]", resp.Extensions)
+	}
+}
+
+// TestHandleExtrasMode_ExtensionImpliesCopy verifies that setting an extension
+// on a target persists it and forces the mode to copy.
+func TestHandleExtrasMode_ExtensionImpliesCopy(t *testing.T) {
+	targetDir := t.TempDir()
+	extras := []config.ExtraConfig{{
+		Name:    "agents",
+		Targets: []config.ExtraTargetConfig{{Path: targetDir, Mode: "merge"}},
+	}}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	body := `{"target":"` + targetDir + `","extension":"codex-agents"}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/extras/agents/mode", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	s.mu.RLock()
+	tt := s.cfg.Extras[0].Targets[0]
+	s.mu.RUnlock()
+	if tt.Extension != "codex-agents" {
+		t.Errorf("extension = %q, want codex-agents", tt.Extension)
+	}
+	if tt.Mode != "copy" {
+		t.Errorf("mode = %q, want copy (extension implies copy)", tt.Mode)
+	}
+}
+
+// TestHandleExtrasMode_ExtensionRejectsNonCopy verifies that an explicit
+// non-copy mode combined with an extension is rejected.
+func TestHandleExtrasMode_ExtensionRejectsNonCopy(t *testing.T) {
+	targetDir := t.TempDir()
+	extras := []config.ExtraConfig{{
+		Name:    "agents",
+		Targets: []config.ExtraTargetConfig{{Path: targetDir, Mode: "merge"}},
+	}}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	body := `{"target":"` + targetDir + `","mode":"symlink","extension":"codex-agents"}`
+	req := httptest.NewRequest(http.MethodPatch, "/api/extras/agents/mode", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code == http.StatusOK {
+		t.Fatalf("expected non-200 for extension + symlink mode, got 200")
+	}
+}
+
+// TestHandleExtras_IncludesExtension verifies GET /api/extras surfaces the
+// per-target extension value.
+func TestHandleExtras_IncludesExtension(t *testing.T) {
+	targetDir := t.TempDir()
+	extras := []config.ExtraConfig{{
+		Name:    "agents",
+		Targets: []config.ExtraTargetConfig{{Path: targetDir, Mode: "copy", Extension: "codex-agents"}},
+	}}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/extras", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+	var resp struct {
+		Extras []struct {
+			Targets []struct {
+				Extension string `json:"extension"`
+			} `json:"targets"`
+		} `json:"extras"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(resp.Extras) != 1 || len(resp.Extras[0].Targets) != 1 {
+		t.Fatalf("unexpected shape: %s", rr.Body.String())
+	}
+	if resp.Extras[0].Targets[0].Extension != "codex-agents" {
+		t.Errorf("extension = %q, want codex-agents", resp.Extras[0].Targets[0].Extension)
+	}
+}
+
 // TestHandleExtrasCreate_PreservesEmptyExtrasSource verifies that POST /api/extras
 // does NOT silently write the legacy extras_source field when the user has
 // not explicitly set it. The runtime fallback is provided by
@@ -390,5 +583,44 @@ func TestHandleExtrasCreate_PreservesEmptyExtrasSource(t *testing.T) {
 	expected := config.ExtrasParentDir(sourceDir)
 	if got := cfg.EffectiveExtrasSource(); got != expected {
 		t.Errorf("expected EffectiveExtrasSource %q (derived), got %q", expected, got)
+	}
+}
+
+// TestHandleExtrasSync_AppliesExtension is a regression test: the web UI sync
+// endpoint must resolve a target's transform extension and apply it, instead of
+// copying files verbatim. The transform renames .md output to the spec's
+// output_ext, so seeing api-architect.toml (and no .md) proves the spec ran.
+func TestHandleExtrasSync_AppliesExtension(t *testing.T) {
+	targetDir := t.TempDir()
+	extras := []config.ExtraConfig{{
+		Name:    "agents",
+		Targets: []config.ExtraTargetConfig{{Path: targetDir, Mode: "copy", Extension: "to-toml"}},
+	}}
+	s, sourceDir := newTestServerWithExtras(t, extras, "")
+
+	// Install a transform extension that pipes through cat (identity) and
+	// renames output to .toml.
+	extRoot := filepath.Join(filepath.Dir(config.ConfigPath()), "extensions")
+	writeExtensionWithDescription(t, extRoot, "to-toml", "identity to toml")
+
+	// Seed a markdown source file in the extra's source directory.
+	srcDir := config.ResolveExtrasSourceDir(extras[0], "", sourceDir)
+	if err := os.WriteFile(filepath.Join(srcDir, "api-architect.md"), []byte("# Agent\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/extras/sync",
+		strings.NewReader(`{"name":"agents","force":true}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	if _, err := os.Stat(filepath.Join(targetDir, "api-architect.toml")); err != nil {
+		t.Errorf("expected transformed api-architect.toml in target, got: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(targetDir, "api-architect.md")); err == nil {
+		t.Error("api-architect.md was copied verbatim — extension transform was not applied")
 	}
 }

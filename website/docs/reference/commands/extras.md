@@ -77,7 +77,7 @@ skillshare extras list [--json] [--no-tui] [-p|-g]
 
 | Flag | Description |
 |------|-------------|
-| `--json` | JSON output (includes `source_type`: `per-extra` / `extras_source` / `default`) |
+| `--json` | JSON output (includes `source_type`: `per-extra` / `extras_source` / `default`, and a per-target `extension` field when set) |
 | `--no-tui` | Disable interactive TUI, use plain text output |
 | `--project, -p` | Use project-mode extras (`.skillshare/`) |
 | `--global, -g` | Use global extras (`~/.config/skillshare/`) |
@@ -113,13 +113,17 @@ When TUI is disabled (via `--no-tui`, `skillshare tui off`, or piped output):
 ```
 $ skillshare extras list --no-tui
 
-Rules            ~/.config/skillshare/extras/rules/  (2 files)
-  ✔ ~/.claude/rules   merge   synced
-  ✔ ~/.cursor/rules   copy    synced
+Extras
+─────────────────────────────────────────
+→ rules  ~/.config/skillshare/extras/rules/ · 2 files
+  ✓ ~/.claude/rules  merge
+  ✓ ~/.cursor/rules  copy
 
-Prompts          ~/.config/skillshare/extras/prompts/  (1 file)
-  ✔ ~/.claude/prompts  merge  synced
+→ codex-agents  ~/.config/skillshare/agents · 3 files
+  ✓ ~/.codex/agents  extension: codex-agents
 ```
+
+A synced row shows only its icon, path, and mode; non-synced rows append a status word (`drift`, `not synced`, `no source`). Targets with a transform extension are labeled `extension: <name>` in place of the sync mode (their underlying mode is always `copy`).
 
 ### `extras source`
 
@@ -262,6 +266,79 @@ extras:
 **Constraints:**
 - Only works with `merge` and `copy` modes — cannot be used with `symlink` mode
 - `collect` places newly collected files in the source root (no subdirectory mapping for new files)
+
+---
+
+## Extension transforms
+
+Some tools do not read markdown. Gemini CLI expects TOML commands; Codex CLI expects TOML agents. The `extension` field on a target runs an external script that converts each source file into the target's native format during sync.
+
+```yaml
+extras:
+  - name: commands
+    targets:
+      - path: .claude/commands        # no extension — synced as-is
+      - path: .gemini/commands
+        extension: gemini-commands           # transform during sync
+```
+
+**Resolution** — a bare name resolves under the extensions directory (`~/.config/skillshare/extensions/<name>` global, `.skillshare/extensions/<name>` project); a path (`./x.sh`, `/abs/x`) is used directly.
+
+**Copy semantics** — `extension` implies `copy` mode. Setting `mode: merge` or `mode: symlink` on a target with an `extension` is an error.
+
+**One-way** — transforms run source → target only. `extras collect` skips extension targets.
+
+**Overwrite safety** — generated output follows the same conflict rules as `copy` mode. A leftover symlink at an output path is replaced automatically; an existing regular file or directory you created locally is left untouched and skipped unless you pass `--force` (with `--force`, a conflicting directory is replaced wholesale by the generated file).
+
+### Extension layout
+
+A single executable, or a directory with a manifest:
+
+```
+.skillshare/extensions/gemini-commands/
+├── extension.yaml
+├── convert.js        # mapping rules you edit
+└── md-toml.js        # helper for markdown/frontmatter/TOML
+```
+
+`extension.yaml`:
+
+```yaml
+run: ["node", "convert.js"]      # explicit command (argv), execed directly
+output_ext: toml                  # .md → .toml; omit to keep the source extension
+description: "Markdown command → Gemini CLI TOML"
+```
+
+A bare single-file executable (no manifest) is execed directly (relies on the shebang on Unix) and keeps the source extension. Transforms that rename the extension must use the directory form.
+
+### Execution contract
+
+- Source file content is passed on **stdin**; the script writes the converted content to **stdout**.
+- Environment variables: `SS_SRC_PATH`, `SS_REL_PATH` (path relative to the source root — useful for Gemini's `/namespace:command` naming), `SS_TARGET_DIR`, `SS_MODE`.
+- A non-zero exit code marks that file as failed; other files continue.
+
+### Cross-platform
+
+The mechanism is cross-platform; whether an extension runs depends on its interpreter. Because `run` is an explicit command, an extension written for `node` or `python3` works on Windows, macOS, and Linux. Pure `bash` scripts only run where a shell is available (Unix, or Windows with Git Bash). Node is the preferred interpreter for reference extensions because it ships uniformly across platforms.
+
+### Reference extensions
+
+The skillshare repo ships example extensions under `extensions/` (`gemini-commands`, `codex-agents`). Copy one into your extensions directory and adapt it — they are references, not installed automatically. Each reference extension keeps `convert.js` short so you edit only the field mapping; `md-toml.js` handles reading markdown, parsing simple frontmatter, and writing TOML.
+
+### Recipe: Codex agents
+
+Codex CLI expects TOML agents rather than markdown. Because a `source` can point at any directory, you can reuse your agents source as an extras source and transform it with `codex-agents`:
+
+```yaml
+extras:
+  - name: codex-agents
+    source: ~/.config/skillshare/agents   # reuse the agents source
+    targets:
+      - path: ~/.codex/agents
+        extension: codex-agents
+```
+
+`skillshare sync extras` converts each `<agent>.md` into `~/.codex/agents/<agent>.toml`, mapping frontmatter `name`, `description`, and `model` and folding the markdown body into `developer_instructions` (other frontmatter keys are dropped). No separate copy of the agents is needed.
 
 ---
 

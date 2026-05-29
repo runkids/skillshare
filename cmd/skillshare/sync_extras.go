@@ -159,7 +159,35 @@ func cmdSyncExtrasGlobal(dryRun, force, jsonOutput bool, start time.Time) error 
 				continue
 			}
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, "")
+			var spec *sync.ExtensionSpec
+			if target.Extension != "" {
+				effMode, modeErr := validateExtensionMode(target.Mode)
+				if modeErr != nil {
+					if !jsonOutput {
+						ui.Warning("%s: %v", shortenPath(targetPath), modeErr)
+					}
+					jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
+						Path: target.Path, Mode: mode, Error: modeErr.Error(),
+					})
+					totalErrors++
+					continue
+				}
+				mode = effMode
+				var specErr error
+				spec, specErr = resolveExtension(target.Extension, globalExtensionsDir())
+				if specErr != nil {
+					if !jsonOutput {
+						ui.Warning("%s: %v", shortenPath(targetPath), specErr)
+					}
+					jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
+						Path: target.Path, Mode: mode, Error: specErr.Error(),
+					})
+					totalErrors++
+					continue
+				}
+			}
+
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, "", spec)
 			shortTarget := shortenPath(targetPath)
 
 			jsonTarget := syncExtrasJSONTarget{
@@ -332,7 +360,35 @@ func cmdSyncExtrasProject(cwd string, dryRun, force, jsonOutput bool, start time
 				continue
 			}
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, cwd)
+			var spec *sync.ExtensionSpec
+			if target.Extension != "" {
+				effMode, modeErr := validateExtensionMode(target.Mode)
+				if modeErr != nil {
+					if !jsonOutput {
+						ui.Warning("%s: %v", shortenPath(targetPath), modeErr)
+					}
+					jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
+						Path: target.Path, Mode: mode, Error: modeErr.Error(),
+					})
+					totalErrors++
+					continue
+				}
+				mode = effMode
+				var specErr error
+				spec, specErr = resolveExtension(target.Extension, projectExtensionsDir(cwd))
+				if specErr != nil {
+					if !jsonOutput {
+						ui.Warning("%s: %v", shortenPath(targetPath), specErr)
+					}
+					jsonEntry.Targets = append(jsonEntry.Targets, syncExtrasJSONTarget{
+						Path: target.Path, Mode: mode, Error: specErr.Error(),
+					})
+					totalErrors++
+					continue
+				}
+			}
+
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, cwd, spec)
 			shortTarget := shortenPath(targetPath)
 
 			jsonTarget := syncExtrasJSONTarget{
@@ -473,7 +529,33 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 				continue
 			}
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, projectRoot)
+			// Resolve the per-target transform extension so --all --json applies
+			// it like a normal sync instead of copying files verbatim.
+			var spec *sync.ExtensionSpec
+			if target.Extension != "" {
+				effMode, modeErr := validateExtensionMode(target.Mode)
+				if modeErr != nil {
+					entry.Targets = append(entry.Targets, syncExtrasJSONTarget{
+						Path: targetPath, Mode: mode, Error: modeErr.Error(),
+					})
+					continue
+				}
+				mode = effMode
+				extDir := globalExtensionsDir()
+				if projectRoot != "" {
+					extDir = projectExtensionsDir(projectRoot)
+				}
+				var specErr error
+				spec, specErr = resolveExtension(target.Extension, extDir)
+				if specErr != nil {
+					entry.Targets = append(entry.Targets, syncExtrasJSONTarget{
+						Path: targetPath, Mode: mode, Error: specErr.Error(),
+					})
+					continue
+				}
+			}
+
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, projectRoot, spec)
 			jt := syncExtrasJSONTarget{Path: targetPath, Mode: mode}
 			if syncErr != nil {
 				jt.Error = syncErr.Error()

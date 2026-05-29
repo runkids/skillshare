@@ -202,7 +202,7 @@
         },
         "agents": {
           "type": "object",
-          "description": "(Reserved — not yet available) Agents-specific target configuration. Will be enabled in a future release.",
+          "description": "Agents-specific target configuration. Controls which agents are synced to this target, the sync mode, and the target path.",
           "additionalProperties": false,
           "properties": {
             "path": { "type": "string" },
@@ -348,6 +348,11 @@
           "type": "boolean",
           "description": "When true, files from subdirectories are synced directly into the target root instead of preserving directory structure.",
           "default": false
+        },
+        "extension": {
+          "type": "string",
+          "description": "Transform each file through an extension before writing it to this target (copy mode only). A bare name resolves under the extensions directory; a path (containing a separator or starting with '.') is used directly.",
+          "examples": ["md2gemini", "./my-converter.js"]
         }
       }
     }

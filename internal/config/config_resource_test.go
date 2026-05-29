@@ -178,3 +178,14 @@ func TestMigrateTargetConfigs_MixedFormat_NoOverwrite(t *testing.T) {
 		t.Fatalf("skills.Path should keep existing value, got %q", tc.Skills.Path)
 	}
 }
+
+func TestExtraTargetConfig_ExtensionField(t *testing.T) {
+	data := []byte("path: .gemini/commands\nextension: gemini-commands\n")
+	var tc ExtraTargetConfig
+	if err := yaml.Unmarshal(data, &tc); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if tc.Extension != "gemini-commands" {
+		t.Errorf("Extension = %q, want %q", tc.Extension, "gemini-commands")
+	}
+}

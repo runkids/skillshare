@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FolderOpen, FolderPlus, Plus, RefreshCw, Target, Trash2, X, Zap } from 'lucide-react';
+import { FolderOpen, FolderPlus, Lock, Plus, Puzzle, RefreshCw, Target, Trash2, X, Zap } from 'lucide-react';
 import { api } from '../api/client';
 import type { Extra, ExtrasSyncResult } from '../api/client';
 import { queryKeys, staleTimes } from '../lib/queryKeys';
@@ -11,21 +12,32 @@ import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import SplitButton from '../components/SplitButton';
 import DialogShell from '../components/DialogShell';
-import { Input, Select } from '../components/Input';
+import { Input, Select, Checkbox } from '../components/Input';
 import Badge from '../components/Badge';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
+import Tooltip from '../components/Tooltip';
 import { useT } from '../i18n';
 
 // ─── AddExtraModal ────────────────────────────────────────────────────────────
 
 interface TargetEntry {
+  id: string; // stable React key — paths can be empty/duplicate while editing
   path: string;
   mode: string;
   flatten: boolean;
+  extension: string;
 }
+
+const newTarget = (): TargetEntry => ({
+  id: crypto.randomUUID(),
+  path: '',
+  mode: 'merge',
+  flatten: false,
+  extension: '',
+});
 
 const MODE_OPTIONS = [
   { value: 'merge', label: 'merge', description: 'Per-file symlinks, preserves local files' },
@@ -36,18 +48,20 @@ const MODE_OPTIONS = [
 function AddExtraModal({
   onClose,
   onCreated,
+  availableExtensions,
 }: {
   onClose: () => void;
   onCreated: () => void;
+  availableExtensions: string[];
 }) {
   const { toast } = useToast();
   const t = useT();
   const [name, setName] = useState('');
   const [source, setSource] = useState('');
-  const [targets, setTargets] = useState<TargetEntry[]>([{ path: '', mode: 'merge', flatten: false }]);
+  const [targets, setTargets] = useState<TargetEntry[]>(() => [newTarget()]);
   const [saving, setSaving] = useState(false);
 
-  const addTarget = () => setTargets((prev) => [...prev, { path: '', mode: 'merge', flatten: false }]);
+  const addTarget = () => setTargets((prev) => [...prev, newTarget()]);
 
   const updateTarget = (i: number, field: keyof TargetEntry, value: string | boolean) => {
     setTargets((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: value } : t)));
@@ -72,7 +86,12 @@ function AddExtraModal({
       await api.createExtra({
         name: name.trim(),
         ...(source.trim() && { source: source.trim() }),
-        targets: validTargets.map((tgt) => ({ path: tgt.path.trim(), mode: tgt.mode, flatten: tgt.flatten })),
+        targets: validTargets.map((tgt) => ({
+          path: tgt.path.trim(),
+          mode: tgt.mode,
+          flatten: tgt.flatten,
+          ...(tgt.extension && { extension: tgt.extension }),
+        })),
       });
       toast(t('extras.toast.created', { name: name.trim() }), 'success');
       onCreated();
@@ -112,13 +131,20 @@ function AddExtraModal({
             />
 
             {/* Source path (optional) */}
-            <Input
-              label={t('extras.modal.sourcePath')}
-              placeholder={t('extras.modal.sourcePathPlaceholder')}
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              disabled={saving}
-            />
+            <div>
+              <Input
+                id="extra-source-path"
+                label={t('extras.modal.sourcePath')}
+                placeholder={t('extras.modal.sourcePathPlaceholder')}
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                disabled={saving}
+                aria-describedby="extra-source-path-help"
+              />
+              <p id="extra-source-path-help" className="mt-1.5 text-xs leading-relaxed text-pencil-light/70">
+                {t('extras.modal.sourcePathHelp')}
+              </p>
+            </div>
 
             {/* Targets */}
             <div>
@@ -127,10 +153,14 @@ function AddExtraModal({
               >
                 {t('extras.modal.targets')}
               </label>
-              <div className="space-y-2">
-                {targets.map((tgt, i) => (
-                  <div key={i} className="flex gap-2 items-center">
-                    <div className="flex-1">
+              <div className="space-y-3">
+                {targets.map((tgt, i) => {
+                  const fieldLabel = 'block text-xs font-medium text-pencil-light mb-1';
+                  return (
+                  <div key={tgt.id} className="rounded-[var(--radius-md)] border border-muted bg-muted/10 p-3 space-y-2.5">
+                    {/* Path — full width, like Name / Source above */}
+                    <div>
+                      <label className={fieldLabel}>{t('extras.modal.colPath', {}, 'Path')}</label>
                       <Input
                         placeholder={t('extras.modal.targetPathPlaceholder')}
                         value={tgt.path}
@@ -138,41 +168,92 @@ function AddExtraModal({
                         disabled={saving}
                       />
                     </div>
-                    <div className="w-32 shrink-0">
-                      <Select
-                        value={tgt.mode}
-                        onChange={(v) => {
-                          updateTarget(i, 'mode', v);
-                          if (v === 'symlink') updateTarget(i, 'flatten', false);
-                        }}
-                        options={MODE_OPTIONS}
-                      />
+                    {/* Extension · Mode · Flatten — second row with room to breathe */}
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div className="w-44">
+                        <label className={fieldLabel}>{t('extras.modal.colExtension', {}, 'Extension')}</label>
+                        {availableExtensions.length > 0 || tgt.extension ? (
+                          <Select
+                            value={tgt.extension}
+                            onChange={(v) => {
+                              // selecting an extension forces copy mode
+                              setTargets((prev) =>
+                                prev.map((te, idx) =>
+                                  idx === i ? { ...te, extension: v, ...(v ? { mode: 'copy' } : {}) } : te,
+                                ),
+                              );
+                            }}
+                            options={[
+                              { value: '', label: t('extras.noExtension', {}, 'no extension') },
+                              ...availableExtensions.map((e) => ({ value: e, label: e })),
+                            ]}
+                            disabled={saving}
+                          />
+                        ) : (
+                          // None installed: guide the user to install one in Config.
+                          <Link
+                            to="/config?tab=extensions"
+                            className="inline-flex items-center gap-1.5 py-2 text-sm text-blue hover:underline"
+                          >
+                            <Puzzle size={14} strokeWidth={2.5} className="shrink-0" />
+                            {t('extras.installExtensionHint', {}, 'Install an extension')}
+                          </Link>
+                        )}
+                      </div>
+                      <div className="w-36">
+                        <label className={fieldLabel}>{t('extras.modal.colMode', {}, 'Mode')}</label>
+                        {tgt.extension ? (
+                          // Extension forces copy mode: read-only locked chip, not a greyed-out select.
+                          <div className="flex items-center gap-1.5 px-4 py-2 rounded-[var(--radius-sm)] border-2 border-muted bg-muted/40 text-sm text-pencil-light">
+                            <Lock size={13} strokeWidth={2.5} className="shrink-0" />
+                            <span>copy</span>
+                          </div>
+                        ) : (
+                          <Select
+                            value={tgt.mode}
+                            onChange={(v) => {
+                              updateTarget(i, 'mode', v);
+                              if (v === 'symlink') updateTarget(i, 'flatten', false);
+                            }}
+                            options={MODE_OPTIONS}
+                            disabled={saving}
+                          />
+                        )}
+                      </div>
+                      <Tooltip content={t('extras.flattenTitle')} side="bottom">
+                        <span className="h-[2.6rem] flex items-center">
+                          <Checkbox
+                            label={t('extras.flatten')}
+                            checked={tgt.flatten}
+                            onChange={(c) => updateTarget(i, 'flatten', c)}
+                            disabled={saving || tgt.mode === 'symlink'}
+                            size="sm"
+                          />
+                        </span>
+                      </Tooltip>
+                      {targets.length > 1 && (
+                        <div className="ml-auto h-[2.6rem] flex items-center">
+                          <IconButton
+                            icon={<X size={16} strokeWidth={2.5} />}
+                            label={t('extras.removeTarget')}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => removeTarget(i)}
+                            disabled={saving}
+                            className="hover:text-danger"
+                          />
+                        </div>
+                      )}
                     </div>
-                    <label className="flex items-center gap-1.5 shrink-0 cursor-pointer select-none" title={t('extras.flattenTitle')}>
-                      <input
-                        type="checkbox"
-                        checked={tgt.flatten}
-                        onChange={(e) => updateTarget(i, 'flatten', e.target.checked)}
-                        disabled={saving || tgt.mode === 'symlink'}
-                        className="accent-primary"
-                      />
-                      <span className={`text-xs ${tgt.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
-                        {t('extras.flatten')}
-                      </span>
-                    </label>
-                    {targets.length > 1 && (
-                      <IconButton
-                        icon={<X size={16} strokeWidth={2.5} />}
-                        label={t('extras.removeTarget')}
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => removeTarget(i)}
-                        disabled={saving}
-                        className="hover:text-danger"
-                      />
+                    {tgt.extension && (
+                      <p className="flex items-center gap-1 text-xs text-pencil-light/70">
+                        <Lock size={11} strokeWidth={2.5} className="shrink-0" />
+                        {t('extras.modal.extensionLockedHint', {}, 'Extensions run in copy mode')}
+                      </p>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
               <Button
                 variant="ghost"
@@ -206,15 +287,22 @@ function ExtraCard({
   onForceSync,
   onRemove,
   onModeChange,
+  availableExtensions,
 }: {
   extra: Extra;
   index?: number;
   onSync: (name: string) => Promise<void>;
   onForceSync: (name: string) => Promise<void>;
   onRemove: (name: string) => void;
-  onModeChange: (name: string, target: string, mode: string, flatten?: boolean) => Promise<void>;
+  onModeChange: (name: string, target: string, mode: string, flatten?: boolean, extension?: string) => Promise<void>;
+  availableExtensions: string[];
 }) {
   const t = useT();
+  const sourceTypeLabel = extra.source_type === 'per-extra'
+    ? t('extras.sourceType.custom')
+    : extra.source_type === 'extras_source'
+      ? t('extras.sourceType.shared')
+      : '';
   const [syncing, setSyncing] = useState(false);
   const [changingMode, setChangingMode] = useState<string | null>(null);
 
@@ -244,8 +332,8 @@ function ExtraCard({
           {!extra.source_exists && (
             <Badge variant="danger">source missing</Badge>
           )}
-          {extra.source_type !== "default" && (
-            <span className="ml-2 text-xs text-gray-500">({extra.source_type})</span>
+          {sourceTypeLabel && (
+            <Badge variant="default">{sourceTypeLabel}</Badge>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -293,8 +381,8 @@ function ExtraCard({
       </div>
       <div className="ml-5 mt-1 space-y-1.5">
         {extra.targets.length > 0 ? (
-          extra.targets.map((tgt, ti) => (
-            <div key={ti} className="flex items-center gap-3">
+          extra.targets.map((tgt) => (
+            <div key={tgt.path} className="flex items-center gap-3">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <span className="font-mono text-sm truncate text-pencil-light">{tgt.path}</span>
                 <Badge
@@ -310,42 +398,84 @@ function ExtraCard({
                   {tgt.status}
                 </Badge>
               </div>
-              <label className="flex items-center gap-1 shrink-0 cursor-pointer select-none" title={t('extras.flattenTitle')}>
-                <input
-                  type="checkbox"
-                  checked={tgt.flatten}
-                  onChange={async (e) => {
-                    const newFlatten = e.target.checked;
+              <Tooltip content={t('extras.flattenTitle')} side="bottom">
+                <span className="shrink-0">
+                  <Checkbox
+                    label={t('extras.flatten')}
+                    checked={tgt.flatten}
+                    onChange={async (c) => {
+                      setChangingMode(tgt.path);
+                      try {
+                        await onModeChange(extra.name, tgt.path, tgt.mode, c);
+                      } finally {
+                        setChangingMode(null);
+                      }
+                    }}
+                    disabled={changingMode === tgt.path || tgt.mode === 'symlink'}
+                    size="sm"
+                  />
+                </span>
+              </Tooltip>
+              {availableExtensions.length > 0 || tgt.extension ? (
+                <Select
+                  value={tgt.extension ?? ''}
+                  onChange={async (v) => {
+                    if (v === (tgt.extension ?? '')) return;
                     setChangingMode(tgt.path);
                     try {
-                      await onModeChange(extra.name, tgt.path, tgt.mode, newFlatten);
+                      // selecting an extension forces copy; clearing keeps the current mode
+                      await onModeChange(extra.name, tgt.path, v ? 'copy' : tgt.mode, undefined, v);
                     } finally {
                       setChangingMode(null);
                     }
                   }}
-                  disabled={changingMode === tgt.path || tgt.mode === 'symlink'}
-                  className="accent-primary"
+                  options={[
+                    { value: '', label: t('extras.noExtension', {}, 'no extension') },
+                    ...availableExtensions.map((e) => ({ value: e, label: e })),
+                    ...(tgt.extension && !availableExtensions.includes(tgt.extension)
+                      ? [{ value: tgt.extension, label: `${tgt.extension} (missing)` }]
+                      : []),
+                  ]}
+                  size="sm"
+                  className="w-40 shrink-0"
+                  disabled={changingMode === tgt.path}
                 />
-                <span className={`text-xs ${tgt.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
-                  {t('extras.flatten')}
-                </span>
-              </label>
-              <Select
-                value={tgt.mode}
-                onChange={async (v) => {
-                  if (v === tgt.mode) return;
-                  setChangingMode(tgt.path);
-                  try {
-                    await onModeChange(extra.name, tgt.path, v);
-                  } finally {
-                    setChangingMode(null);
-                  }
-                }}
-                options={MODE_OPTIONS}
-                size="sm"
-                className="w-36 shrink-0"
-                disabled={changingMode === tgt.path}
-              />
+              ) : (
+                // None installed: guide the user to install one in Config.
+                <Link
+                  to="/config?tab=extensions"
+                  className="shrink-0 inline-flex items-center gap-1.5 text-xs text-blue hover:underline"
+                >
+                  <Puzzle size={12} strokeWidth={2.5} className="shrink-0" />
+                  {t('extras.installExtensionHint', {}, 'Install an extension')}
+                </Link>
+              )}
+              {tgt.extension ? (
+                // Extension forces copy mode: read-only locked chip, matching the Add Extra modal.
+                <Tooltip content={t('extras.modal.extensionLockedHint', {}, 'Extensions run in copy mode')} side="bottom">
+                  <div className="w-36 shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] border-2 border-muted bg-muted/40 text-xs text-pencil-light">
+                    <Lock size={12} strokeWidth={2.5} className="shrink-0" />
+                    <span>copy</span>
+                  </div>
+                </Tooltip>
+              ) : (
+                <Select
+                  value={tgt.mode}
+                  onChange={async (v) => {
+                    if (v === tgt.mode) return;
+                    setChangingMode(tgt.path);
+                    try {
+                      await onModeChange(extra.name, tgt.path, v);
+                    } finally {
+                      setChangingMode(null);
+                    }
+                  }}
+                  options={MODE_OPTIONS}
+                  size="sm"
+                  className="w-36 shrink-0"
+                  disabled={changingMode === tgt.path}
+                />
+              )}
             </div>
           ))
         ) : (
@@ -426,6 +556,15 @@ export default function ExtrasPage() {
     staleTime: staleTimes.extras,
   });
 
+  // Available transform extensions for the current mode (-g/-p), used to
+  // populate the per-target extension picker.
+  const { data: extData } = useQuery({
+    queryKey: ['extras', 'extensions'],
+    queryFn: () => api.listExtraExtensions(),
+    staleTime: staleTimes.extras,
+  });
+  const availableExtensions = extData?.extensions ?? [];
+
   const [showAdd, setShowAdd] = useState(false);
   const [removeName, setRemoveName] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -479,15 +618,50 @@ export default function ExtrasPage() {
     }
   };
 
-  const handleModeChange = async (name: string, target: string, mode: string, flatten?: boolean) => {
+  const handleModeChange = async (name: string, target: string, mode: string, flatten?: boolean, extension?: string) => {
+    // Optimistically patch the cache so the dropdown reflects the choice
+    // immediately, instead of waiting for the PATCH + refetch round-trip.
+    const prev = queryClient.getQueryData<{ extras: Extra[] }>(queryKeys.extras);
+    queryClient.setQueryData<{ extras: Extra[] }>(queryKeys.extras, (old) =>
+      old
+        ? {
+            extras: old.extras.map((e) =>
+              e.name !== name
+                ? e
+                : {
+                    ...e,
+                    targets: e.targets.map((tg) =>
+                      tg.path !== target
+                        ? tg
+                        : {
+                            ...tg,
+                            mode,
+                            ...(flatten !== undefined && { flatten }),
+                            ...(extension !== undefined && { extension }),
+                          },
+                    ),
+                  },
+            ),
+          }
+        : old,
+    );
     try {
-      await api.setExtraMode(name, target, mode, flatten);
-      const msg = flatten !== undefined
-        ? tr('extras.toast.flattenChanged', { flatten: String(flatten) })
-        : tr('extras.toast.modeChanged', { mode });
+      await api.setExtraMode(name, target, mode, flatten, extension);
+      let msg: string;
+      if (extension !== undefined) {
+        msg = extension
+          ? tr('extras.toast.extensionChanged', { extension }, `Extension set to ${extension} (copy mode)`)
+          : tr('extras.toast.extensionCleared', {}, 'Extension cleared');
+      } else if (flatten !== undefined) {
+        msg = tr('extras.toast.flattenChanged', { flatten: String(flatten) });
+      } else {
+        msg = tr('extras.toast.modeChanged', { mode });
+      }
       toast(msg, 'success');
       invalidate();
     } catch (err: any) {
+      // Roll back the optimistic cache update on failure.
+      if (prev) queryClient.setQueryData(queryKeys.extras, prev);
       toast(err.message, 'error');
     }
   };
@@ -572,6 +746,7 @@ export default function ExtrasPage() {
                   onForceSync={(name) => handleSync(name, true)}
                   onRemove={(name) => setRemoveName(name)}
                   onModeChange={handleModeChange}
+                  availableExtensions={availableExtensions}
                 />
               ))}
             </div>
@@ -581,7 +756,11 @@ export default function ExtrasPage() {
 
       {/* Add Extra modal */}
       {showAdd && (
-        <AddExtraModal onClose={() => setShowAdd(false)} onCreated={handleCreated} />
+        <AddExtraModal
+          onClose={() => setShowAdd(false)}
+          onCreated={handleCreated}
+          availableExtensions={availableExtensions}
+        />
       )}
 
       {/* Remove confirm dialog */}
