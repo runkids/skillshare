@@ -694,7 +694,7 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
       </div>
 
       <p className="text-sm text-pencil-light mb-4">
-        {t('config.extensions.description', {}, 'Transform extensions convert source files to a target format during sync (e.g. markdown agents to Codex TOML). Install one, then select it on an Extras target.')}
+        {t('config.extensions.description', {}, 'Extensions pipe each file through a script during sync, so you can reshape its content or format for a specific tool — for example, Markdown agents into Codex CLI TOML. Install one below, then select it on a target in Extras.')}
       </p>
 
       {isPending ? (
@@ -703,7 +703,7 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
         <div className="space-y-4">
           <div>
             <div className="text-xs text-pencil-light uppercase tracking-wider mb-2">
-              {t('config.extensions.installedHeading', {}, 'Installed')} ({installed.length})
+              {t('config.extensions.installedHeading', {}, 'Installed extensions')} ({installed.length})
             </div>
             {installed.length > 0 ? (
               <div className="space-y-1.5">
@@ -725,12 +725,15 @@ function ExtensionsSection({ isProjectMode }: { isProjectMode: boolean }) {
           {available.length > 0 && (
             <div>
               <div className="text-xs text-pencil-light uppercase tracking-wider mb-2">
-                {t('config.extensions.available', {}, 'Available built-ins')}
+                {t('config.extensions.available', {}, 'Available to download')}
               </div>
               <div className="space-y-1.5">
                 {available.map((e) => (
                   <div key={e.name} className="flex items-center gap-3">
-                    <span className="font-mono text-sm text-pencil">{e.name}</span>
+                    <span className="font-mono text-sm text-pencil shrink-0">{e.name}</span>
+                    {e.description && (
+                      <span className="text-sm text-pencil-light truncate">— {e.description}</span>
+                    )}
                     <span className="flex-1" />
                     <Button
                       variant="secondary"
