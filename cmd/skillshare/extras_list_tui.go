@@ -997,11 +997,31 @@ func (m extrasListTUIModel) doSync(name, targetPath string) (string, error) {
 	}
 
 	sourceDir := m.sourceFunc(*extra)
+	projectRoot := m.projectRoot()
 	synced := 0
 	for _, t := range targets {
 		mode := sync.EffectiveMode(t.Mode)
 		resolved := config.ExpandPath(t.Path)
-		_, err := sync.SyncExtra(sourceDir, resolved, mode, false, false, t.Flatten, m.projectRoot(), nil)
+		// Resolve the per-target transform extension so the TUI sync applies
+		// it instead of copying files verbatim.
+		var spec *sync.ExtensionSpec
+		if t.Extension != "" {
+			effMode, modeErr := validateExtensionMode(t.Mode)
+			if modeErr != nil {
+				return "", fmt.Errorf("sync %s: %w", t.Path, modeErr)
+			}
+			mode = effMode
+			extDir := globalExtensionsDir()
+			if projectRoot != "" {
+				extDir = projectExtensionsDir(projectRoot)
+			}
+			var specErr error
+			spec, specErr = resolveExtension(t.Extension, extDir)
+			if specErr != nil {
+				return "", fmt.Errorf("sync %s: %w", t.Path, specErr)
+			}
+		}
+		_, err := sync.SyncExtra(sourceDir, resolved, mode, false, false, t.Flatten, projectRoot, spec)
 		if err != nil {
 			return "", fmt.Errorf("sync %s: %w", t.Path, err)
 		}

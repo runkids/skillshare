@@ -5,11 +5,27 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"skillshare/internal/config"
 	syncpkg "skillshare/internal/sync"
 )
+
+// resolveExtensionSpec resolves a target's extension value into a transform
+// spec, mirroring the CLI's resolveExtension. A bare name resolves under the
+// current mode's extensions dir; a path (contains a separator or starts with
+// ".") is used directly. An empty value yields (nil, nil) — no transform.
+func (s *Server) resolveExtensionSpec(ext string) (*syncpkg.ExtensionSpec, error) {
+	if ext == "" {
+		return nil, nil
+	}
+	execPath := filepath.Join(s.extensionsDir(), ext)
+	if strings.ContainsAny(ext, "/\\") || strings.HasPrefix(ext, ".") {
+		execPath = config.ExpandPath(ext)
+	}
+	return syncpkg.LoadExtensionSpec(execPath, ext)
+}
 
 // extrasListEntry is the JSON response shape for a single extra.
 type extrasListEntry struct {
@@ -458,7 +474,17 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 				Errors: []string{},
 			}
 
-			res, err := syncpkg.SyncExtra(sourceDir, t.Path, m, body.DryRun, body.Force, t.Flatten, projectRoot, nil)
+			// Resolve the per-target transform extension (if any) so the UI
+			// sync applies it just like the CLI — otherwise files are copied
+			// verbatim instead of being transformed (e.g. .md left as .md).
+			spec, specErr := s.resolveExtensionSpec(t.Extension)
+			if specErr != nil {
+				tr.Error = "extension " + t.Extension + ": " + specErr.Error()
+				result.Targets = append(result.Targets, tr)
+				continue
+			}
+
+			res, err := syncpkg.SyncExtra(sourceDir, t.Path, m, body.DryRun, body.Force, t.Flatten, projectRoot, spec)
 			if err != nil {
 				tr.Error = err.Error()
 			} else {

@@ -529,7 +529,33 @@ func runExtrasSyncEntries(extras []config.ExtraConfig, sourceFunc func(config.Ex
 				continue
 			}
 
-			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, projectRoot, nil)
+			// Resolve the per-target transform extension so --all --json applies
+			// it like a normal sync instead of copying files verbatim.
+			var spec *sync.ExtensionSpec
+			if target.Extension != "" {
+				effMode, modeErr := validateExtensionMode(target.Mode)
+				if modeErr != nil {
+					entry.Targets = append(entry.Targets, syncExtrasJSONTarget{
+						Path: targetPath, Mode: mode, Error: modeErr.Error(),
+					})
+					continue
+				}
+				mode = effMode
+				extDir := globalExtensionsDir()
+				if projectRoot != "" {
+					extDir = projectExtensionsDir(projectRoot)
+				}
+				var specErr error
+				spec, specErr = resolveExtension(target.Extension, extDir)
+				if specErr != nil {
+					entry.Targets = append(entry.Targets, syncExtrasJSONTarget{
+						Path: targetPath, Mode: mode, Error: specErr.Error(),
+					})
+					continue
+				}
+			}
+
+			result, syncErr := sync.SyncExtra(extraSource, targetPath, mode, dryRun, force, target.Flatten, projectRoot, spec)
 			jt := syncExtrasJSONTarget{Path: targetPath, Mode: mode}
 			if syncErr != nil {
 				jt.Error = syncErr.Error()

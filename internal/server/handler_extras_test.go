@@ -585,3 +585,42 @@ func TestHandleExtrasCreate_PreservesEmptyExtrasSource(t *testing.T) {
 		t.Errorf("expected EffectiveExtrasSource %q (derived), got %q", expected, got)
 	}
 }
+
+// TestHandleExtrasSync_AppliesExtension is a regression test: the web UI sync
+// endpoint must resolve a target's transform extension and apply it, instead of
+// copying files verbatim. The transform renames .md output to the spec's
+// output_ext, so seeing api-architect.toml (and no .md) proves the spec ran.
+func TestHandleExtrasSync_AppliesExtension(t *testing.T) {
+	targetDir := t.TempDir()
+	extras := []config.ExtraConfig{{
+		Name:    "agents",
+		Targets: []config.ExtraTargetConfig{{Path: targetDir, Mode: "copy", Extension: "to-toml"}},
+	}}
+	s, sourceDir := newTestServerWithExtras(t, extras, "")
+
+	// Install a transform extension that pipes through cat (identity) and
+	// renames output to .toml.
+	extRoot := filepath.Join(filepath.Dir(config.ConfigPath()), "extensions")
+	writeExtensionWithDescription(t, extRoot, "to-toml", "identity to toml")
+
+	// Seed a markdown source file in the extra's source directory.
+	srcDir := config.ResolveExtrasSourceDir(extras[0], "", sourceDir)
+	if err := os.WriteFile(filepath.Join(srcDir, "api-architect.md"), []byte("# Agent\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/extras/sync",
+		strings.NewReader(`{"name":"agents","force":true}`))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	if _, err := os.Stat(filepath.Join(targetDir, "api-architect.toml")); err != nil {
+		t.Errorf("expected transformed api-architect.toml in target, got: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(targetDir, "api-architect.md")); err == nil {
+		t.Error("api-architect.md was copied verbatim — extension transform was not applied")
+	}
+}
