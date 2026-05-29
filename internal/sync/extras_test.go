@@ -270,6 +270,38 @@ func TestSyncExtra_DryRun(t *testing.T) {
 	}
 }
 
+// TestSyncExtraTransform_DryRunConflict verifies that a transform-mode dry-run
+// reports an existing target (under the transformed name agent.md → agent.toml)
+// as a skip that needs --force, instead of claiming it would sync. The dry-run
+// never spawns the extension (see TestSyncExtraTransform_DryRunNoSpawn), so it
+// can't compare content and conservatively treats any real file as a conflict —
+// and writes nothing.
+func TestSyncExtraTransform_DryRunConflict(t *testing.T) {
+	src, tgt := setupExtrasTest(t, map[string]string{"agent.md": "# Agent"})
+	spec := &ExtensionSpec{Run: []string{"cat"}, OutputExt: "toml"}
+
+	// Pre-create a real file at the transformed target name.
+	conflictPath := filepath.Join(tgt, "agent.toml")
+	os.WriteFile(conflictPath, []byte("local version"), 0644)
+
+	result, err := SyncExtra(src, tgt, "copy", true /* dryRun */, false /* force */, false, "", spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Skipped != 1 {
+		t.Errorf("expected 1 skipped on dry-run conflict, got %d", result.Skipped)
+	}
+	if result.Synced != 0 {
+		t.Errorf("expected 0 synced on dry-run conflict, got %d", result.Synced)
+	}
+
+	// Dry-run must not touch the conflicting file.
+	content, _ := os.ReadFile(conflictPath)
+	if string(content) != "local version" {
+		t.Errorf("dry-run modified the target, got %q", string(content))
+	}
+}
+
 // --- Idempotent test ---
 
 func TestSyncExtra_Idempotent(t *testing.T) {

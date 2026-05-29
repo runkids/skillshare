@@ -142,9 +142,22 @@ func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryR
 		}
 		tgtRel = applyOutputExt(tgtRel, spec.OutputExt)
 		sourceSet[tgtRel] = true
+		tgtFile := filepath.Join(targetPath, tgtRel)
 
+		// Dry-run reports the outcome without spawning the extension and without
+		// touching the filesystem. The transformed output can only be produced by
+		// a subprocess, and a preview must never execute arbitrary extension code,
+		// so content can't be compared here. An existing real file or directory is
+		// therefore conservatively reported as a conflict requiring --force —
+		// matching the non-dry-run skip path below — while a missing target, a
+		// leftover symlink, or --force would be (re)written and counts as synced.
 		if dryRun {
-			result.Synced++
+			if info, lstatErr := os.Lstat(tgtFile); lstatErr == nil &&
+				info.Mode()&os.ModeSymlink == 0 && !force {
+				result.Skipped++
+			} else {
+				result.Synced++
+			}
 			continue
 		}
 
@@ -154,7 +167,6 @@ func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryR
 			"SS_TARGET_DIR": targetPath,
 			"SS_MODE":       "sync",
 		}
-		tgtFile := filepath.Join(targetPath, tgtRel)
 
 		out, runErr := runExtension(spec, srcFile, env)
 		if runErr != nil {
