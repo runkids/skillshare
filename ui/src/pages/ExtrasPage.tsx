@@ -24,11 +24,20 @@ import { useT } from '../i18n';
 // ─── AddExtraModal ────────────────────────────────────────────────────────────
 
 interface TargetEntry {
+  id: string; // stable React key — paths can be empty/duplicate while editing
   path: string;
   mode: string;
   flatten: boolean;
   extension: string;
 }
+
+const newTarget = (): TargetEntry => ({
+  id: crypto.randomUUID(),
+  path: '',
+  mode: 'merge',
+  flatten: false,
+  extension: '',
+});
 
 const MODE_OPTIONS = [
   { value: 'merge', label: 'merge', description: 'Per-file symlinks, preserves local files' },
@@ -49,10 +58,10 @@ function AddExtraModal({
   const t = useT();
   const [name, setName] = useState('');
   const [source, setSource] = useState('');
-  const [targets, setTargets] = useState<TargetEntry[]>([{ path: '', mode: 'merge', flatten: false, extension: '' }]);
+  const [targets, setTargets] = useState<TargetEntry[]>(() => [newTarget()]);
   const [saving, setSaving] = useState(false);
 
-  const addTarget = () => setTargets((prev) => [...prev, { path: '', mode: 'merge', flatten: false, extension: '' }]);
+  const addTarget = () => setTargets((prev) => [...prev, newTarget()]);
 
   const updateTarget = (i: number, field: keyof TargetEntry, value: string | boolean) => {
     setTargets((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: value } : t)));
@@ -148,7 +157,7 @@ function AddExtraModal({
                 {targets.map((tgt, i) => {
                   const fieldLabel = 'block text-xs font-medium text-pencil-light mb-1';
                   return (
-                  <div key={i} className="rounded-[var(--radius-md)] border border-muted bg-muted/10 p-3 space-y-2.5">
+                  <div key={tgt.id} className="rounded-[var(--radius-md)] border border-muted bg-muted/10 p-3 space-y-2.5">
                     {/* Path — full width, like Name / Source above */}
                     <div>
                       <label className={fieldLabel}>{t('extras.modal.colPath', {}, 'Path')}</label>
@@ -372,8 +381,8 @@ function ExtraCard({
       </div>
       <div className="ml-5 mt-1 space-y-1.5">
         {extra.targets.length > 0 ? (
-          extra.targets.map((tgt, ti) => (
-            <div key={ti} className="flex items-center gap-3">
+          extra.targets.map((tgt) => (
+            <div key={tgt.path} className="flex items-center gap-3">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <span className="font-mono text-sm truncate text-pencil-light">{tgt.path}</span>
                 <Badge
