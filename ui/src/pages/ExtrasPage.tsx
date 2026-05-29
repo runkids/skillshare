@@ -206,6 +206,8 @@ function ExtraCard({
   onForceSync,
   onRemove,
   onModeChange,
+  onAddTarget,
+  onRemoveTarget,
 }: {
   extra: Extra;
   index?: number;
@@ -213,10 +215,16 @@ function ExtraCard({
   onForceSync: (name: string) => Promise<void>;
   onRemove: (name: string) => void;
   onModeChange: (name: string, target: string, mode: string, flatten?: boolean) => Promise<void>;
+  onAddTarget: (name: string, data: { path: string; mode: string; flatten: boolean }) => Promise<void>;
+  onRemoveTarget: (name: string, target: string) => Promise<void>;
 }) {
   const t = useT();
   const [syncing, setSyncing] = useState(false);
   const [changingMode, setChangingMode] = useState<string | null>(null);
+
+  // Wired in Task 7; consumed by inline add form (Task 8) and per-target remove (Task 9).
+  void onAddTarget;
+  void onRemoveTarget;
 
   const handleSync = async (force?: boolean) => {
     setSyncing(true);
@@ -492,6 +500,30 @@ export default function ExtrasPage() {
     }
   };
 
+  const handleAddTarget = async (
+    name: string,
+    data: { path: string; mode: string; flatten: boolean },
+  ) => {
+    try {
+      await api.addExtraTarget(name, data);
+      toast(tr('extras.toast.targetAdded', { name }), 'success');
+      invalidate();
+    } catch (err: any) {
+      toast(err.message, 'error');
+      throw err;
+    }
+  };
+
+  const handleRemoveTarget = async (name: string, target: string) => {
+    try {
+      await api.deleteExtraTarget(name, target);
+      toast(tr('extras.toast.targetRemoved', { name }), 'success');
+      invalidate();
+    } catch (err: any) {
+      toast(err.message, 'error');
+    }
+  };
+
   const handleCreated = () => {
     setShowAdd(false);
     invalidate();
@@ -572,6 +604,8 @@ export default function ExtrasPage() {
                   onForceSync={(name) => handleSync(name, true)}
                   onRemove={(name) => setRemoveName(name)}
                   onModeChange={handleModeChange}
+                  onAddTarget={handleAddTarget}
+                  onRemoveTarget={handleRemoveTarget}
                 />
               ))}
             </div>
