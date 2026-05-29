@@ -684,3 +684,68 @@ func (s *Server) handleExtrasAddTarget(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, map[string]any{"success": true, "name": name, "target": body.Path})
 }
+
+// handleExtrasDeleteTarget — DELETE /api/extras/{name}/targets/{target}
+//
+// Removes one target from an existing extra. The target path is supplied
+// URL-encoded in the path segment. Files already synced to the target
+// directory are NOT touched — only the config entry is removed.
+func (s *Server) handleExtrasDeleteTarget(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	name := r.PathValue("name")
+	target := r.PathValue("target")
+
+	if target == "" {
+		writeError(w, http.StatusBadRequest, "target path is required")
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	extras := s.extrasConfig()
+	extraIdx := -1
+	for i, e := range extras {
+		if e.Name == name {
+			extraIdx = i
+			break
+		}
+	}
+	if extraIdx == -1 {
+		writeError(w, http.StatusNotFound, "extra not found: "+name)
+		return
+	}
+
+	targetIdx := -1
+	for j, t := range extras[extraIdx].Targets {
+		if t.Path == target {
+			targetIdx = j
+			break
+		}
+	}
+	if targetIdx == -1 {
+		writeError(w, http.StatusNotFound, "target not found: "+target)
+		return
+	}
+
+	if s.IsProjectMode() {
+		ts := s.projectCfg.Extras[extraIdx].Targets
+		s.projectCfg.Extras[extraIdx].Targets = append(ts[:targetIdx], ts[targetIdx+1:]...)
+	} else {
+		ts := s.cfg.Extras[extraIdx].Targets
+		s.cfg.Extras[extraIdx].Targets = append(ts[:targetIdx], ts[targetIdx+1:]...)
+	}
+
+	if err := s.saveAndReloadConfig(); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	s.writeOpsLog("extras-remove-target", "ok", start, map[string]any{
+		"name":   name,
+		"target": target,
+		"scope":  "ui",
+	}, "")
+
+	writeJSON(w, map[string]any{"success": true, "name": name, "target": target})
+}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -519,5 +520,51 @@ func TestHandleExtrasAddTarget_EmptyPath(t *testing.T) {
 
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestHandleExtrasDeleteTarget_RemovesTarget verifies DELETE removes a
+// single target from an extra and leaves files on disk untouched.
+func TestHandleExtrasDeleteTarget_RemovesTarget(t *testing.T) {
+	keepTarget := t.TempDir()
+	removeTarget := t.TempDir()
+
+	// Drop a sentinel file in removeTarget — it must NOT be deleted.
+	sentinel := filepath.Join(removeTarget, "keep-me.txt")
+	if err := os.WriteFile(sentinel, []byte("hello"), 0644); err != nil {
+		t.Fatalf("failed to write sentinel: %v", err)
+	}
+
+	extras := []config.ExtraConfig{
+		{
+			Name: "openspec",
+			Targets: []config.ExtraTargetConfig{
+				{Path: keepTarget, Mode: "copy"},
+				{Path: removeTarget, Mode: "copy"},
+			},
+		},
+	}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	// URL-encode the target path so the path-segment matcher accepts it.
+	encoded := url.PathEscape(removeTarget)
+	req := httptest.NewRequest(http.MethodDelete, "/api/extras/openspec/targets/"+encoded, nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	if len(s.cfg.Extras[0].Targets) != 1 {
+		t.Fatalf("expected 1 target after delete, got %d", len(s.cfg.Extras[0].Targets))
+	}
+	if s.cfg.Extras[0].Targets[0].Path != keepTarget {
+		t.Errorf("expected remaining target %q, got %q", keepTarget, s.cfg.Extras[0].Targets[0].Path)
+	}
+
+	// Sentinel file must still exist on disk.
+	if _, err := os.Stat(sentinel); err != nil {
+		t.Errorf("sentinel file should still exist after target removal, got: %v", err)
 	}
 }

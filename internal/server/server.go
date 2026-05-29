@@ -457,6 +457,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/extras/{name}/targets", s.handleExtrasAddTarget)
 	s.mux.HandleFunc("POST /api/extras/sync", s.handleExtrasSync)
 	s.mux.HandleFunc("PATCH /api/extras/{name}/mode", s.handleExtrasMode)
+	s.mux.HandleFunc("DELETE /api/extras/{name}/targets/{target}", s.handleExtrasDeleteTarget)
 	s.mux.HandleFunc("DELETE /api/extras/{name}", s.handleExtrasDelete)
 
 	// Git
