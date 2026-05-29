@@ -136,6 +136,17 @@ export default function GitSyncPage() {
     },
   });
 
+  const absorbNestedMutation = useMutation({
+    mutationFn: (subdirs: string[]) => api.gitAbsorbNested(subdirs),
+    onSuccess: (res) => {
+      toast(t('gitSync.nested.disabled', { dirs: res.disabled.join(', ') }), 'success');
+      queryClient.invalidateQueries({ queryKey: queryKeys.gitStatus });
+    },
+    onError: (err: unknown) => {
+      toast(errorMessage(err), 'error');
+    },
+  });
+
   const [commitMsg, setCommitMsg] = useState('');
   const [pushDryRun, setPushDryRun] = useState(false);
   const [pullDryRun, setPullDryRun] = useState(false);
@@ -291,6 +302,42 @@ export default function GitSyncPage() {
         title={t('gitSync.title')}
         subtitle={t('gitSync.subtitle')}
       />
+
+      {/* Root-scope hazards: nested submodule traps and a leaked config.yaml */}
+      {status?.isRepo && ((status.nestedRepos?.length ?? 0) > 0 || status.configTracked) && (
+        <Card variant="outlined" padding="md" className="space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={18} strokeWidth={2.5} className="text-warning shrink-0" />
+            <span className="font-bold text-pencil">{t('gitSync.nested.title')}</span>
+          </div>
+          {(status.nestedRepos?.length ?? 0) > 0 && (
+            <div className="space-y-2.5">
+              <p className="text-sm text-pencil-light">{t('gitSync.nested.hint')}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                {status.nestedRepos.map((d) => (
+                  <code
+                    key={d}
+                    className="font-mono text-xs px-2 py-0.5 rounded bg-muted/60 text-pencil"
+                  >
+                    {d}
+                  </code>
+                ))}
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={absorbNestedMutation.isPending}
+                onClick={() => absorbNestedMutation.mutate(status.nestedRepos)}
+              >
+                {t('gitSync.nested.disableButton')}
+              </Button>
+            </div>
+          )}
+          {status.configTracked && (
+            <p className="text-sm text-pencil-light">{t('gitSync.nested.configTracked')}</p>
+          )}
+        </Card>
+      )}
 
       {/* Repository Info Card — z-10 so branch dropdown renders above cards below */}
       <Card overflow className="relative z-10" padding="none">

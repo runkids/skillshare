@@ -49,6 +49,12 @@ func cmdCommit(args []string) error {
 		return nil // Error already displayed
 	}
 
+	if sweep := rootScopeSafetySweep(cfg, source); sweep.hasNotice() {
+		spinner.Stop()
+		sweep.printNotices(source)
+		spinner = ui.StartSpinner("Checking changes...")
+	}
+
 	changes, err := getGitChanges(source)
 	if err != nil {
 		spinner.Fail("Failed to check git status")

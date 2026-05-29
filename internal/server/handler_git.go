@@ -27,6 +27,11 @@ type gitStatusResponse struct {
 	HeadHash       string   `json:"headHash,omitempty"`
 	HeadMessage    string   `json:"headMessage,omitempty"`
 	TrackingBranch string   `json:"trackingBranch,omitempty"`
+	// Root-scope hazards (populated only when scope == "root"): NestedRepos are
+	// subdirectories with their own .git that commit as empty submodules;
+	// ConfigTracked means config.yaml leaked into version control.
+	NestedRepos   []string `json:"nestedRepos"`
+	ConfigTracked bool     `json:"configTracked"`
 }
 
 // handleGitStatus returns the git status of the source directory
@@ -48,6 +53,7 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 		MismatchScope: mScope,
 		MismatchDir:   mDir,
 		Files:         make([]string, 0),
+		NestedRepos:   make([]string, 0),
 	}
 
 	// Without git on PATH every other probe is a raw exec failure; report it
@@ -91,6 +97,14 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 
 	if tb, err := git.GetTrackingBranch(src); err == nil {
 		resp.TrackingBranch = tb
+	}
+
+	// Root-scope hazards: nested submodule traps and a leaked config.yaml.
+	if scope == "root" {
+		if nested, err := git.NestedRepos(src); err == nil {
+			resp.NestedRepos = nested
+		}
+		resp.ConfigTracked = git.IsConfigTracked(src)
 	}
 
 	writeJSON(w, resp)
@@ -333,6 +347,8 @@ func (s *Server) handleGitCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.protectRootScopeConfig(src)
+
 	status, err := git.GetStatus(src)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get git status: "+err.Error())
@@ -404,6 +420,8 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.protectRootScopeConfig(src)
+
 	// Check for changes
 	status, err := git.GetStatus(src)
 	if err != nil {
@@ -459,6 +477,77 @@ func (s *Server) handlePush(w http.ResponseWriter, r *http.Request) {
 	}, "")
 
 	writeJSON(w, pushResponse{Success: true, Message: "pushed successfully"})
+}
+
+// protectRootScopeConfig keeps config.yaml out of a root-scope repo before
+// staging (server-side parity with the CLI push sweep). No-op off the root
+// scope; best-effort so a failure never blocks the commit/push.
+func (s *Server) protectRootScopeConfig(src string) {
+	if s.cfg.GitRoot != "root" {
+		return
+	}
+	_, _ = git.EnsureConfigUntracked(src)
+}
+
+type absorbNestedRequest struct {
+	Subdirs []string `json:"subdirs"`
+}
+
+// handleAbsorbNested disables nested git repos under the root scope by renaming
+// each <sub>/.git to <sub>/.git.disabled, so the directory's files get tracked
+// normally instead of as an empty submodule. Global mode + root scope only; each
+// subdir must match a currently-detected nested repo (this also blocks path
+// traversal).
+func (s *Server) handleAbsorbNested(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+
+	if s.IsProjectMode() {
+		writeError(w, http.StatusBadRequest, "git_root is only available in global mode")
+		return
+	}
+
+	var body absorbNestedRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if len(body.Subdirs) == 0 {
+		writeError(w, http.StatusBadRequest, "no subdirectories specified")
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.cfg.GitRoot != "root" {
+		writeError(w, http.StatusBadRequest, "nested repos can only be disabled at the root scope")
+		return
+	}
+	src := s.cfg.EffectiveGitRoot()
+
+	allowed := make(map[string]bool)
+	if nested, err := git.NestedRepos(src); err == nil {
+		for _, n := range nested {
+			allowed[n] = true
+		}
+	}
+
+	disabled := make([]string, 0, len(body.Subdirs))
+	for _, sub := range body.Subdirs {
+		if !allowed[sub] {
+			writeError(w, http.StatusBadRequest, "not a detected nested repository: "+sub)
+			return
+		}
+		if err := git.DisableNestedRepo(src, sub); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to disable "+sub+": "+err.Error())
+			return
+		}
+		disabled = append(disabled, sub)
+	}
+
+	s.writeOpsLog("git-absorb-nested", "ok", start, map[string]any{"subdirs": disabled}, "")
+
+	writeJSON(w, map[string]any{"success": true, "disabled": disabled})
 }
 
 type pullResponse struct {

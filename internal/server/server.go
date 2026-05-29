@@ -471,6 +471,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/git/branches", s.handleGitBranches)
 	s.mux.HandleFunc("POST /api/git/checkout", s.handleGitCheckout)
 	s.mux.HandleFunc("POST /api/git/commit", s.handleGitCommit)
+	s.mux.HandleFunc("POST /api/git/absorb-nested", s.handleAbsorbNested)
 	s.mux.HandleFunc("POST /api/push", s.handlePush)
 	s.mux.HandleFunc("POST /api/pull", s.handlePull)
 

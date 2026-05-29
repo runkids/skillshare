@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"skillshare/internal/config"
+	gitops "skillshare/internal/git"
 	"skillshare/internal/ui"
 )
 
@@ -40,4 +42,55 @@ func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, bool) {
 		return "", false
 	}
 	return root, true
+}
+
+// rootSweepResult reports what the root-scope safety sweep changed or found.
+type rootSweepResult struct {
+	configUntracked bool     // config.yaml was removed from version control
+	nested          []string // subdirs (relative) that have their own .git
+}
+
+func (r rootSweepResult) hasNotice() bool {
+	return r.configUntracked || len(r.nested) > 0
+}
+
+// rootScopeSafetySweep guards a root-scope repo before staging. It keeps
+// skillshare's own config.yaml out of version control (the push-time net for
+// repos not created via InitScopeRepo) and detects nested git repos that would
+// otherwise be committed as empty submodules. It is a no-op (zero result) for
+// non-root scopes. Mutation failures are swallowed: the worst case is the prior
+// behavior, never a blocked push.
+func rootScopeSafetySweep(cfg *config.Config, dir string) rootSweepResult {
+	var res rootSweepResult
+	if cfg.GitRoot != "root" {
+		return res
+	}
+	if removed, err := gitops.EnsureConfigUntracked(dir); err == nil {
+		res.configUntracked = removed
+	}
+	if nested, err := gitops.NestedRepos(dir); err == nil {
+		res.nested = nested
+	}
+	return res
+}
+
+// printNotices reports the sweep outcome. Callers stop any active spinner first
+// so the warning box renders cleanly.
+func (r rootSweepResult) printNotices(dir string) {
+	if r.configUntracked {
+		ui.Info("Removed config.yaml from version control (kept on disk; it holds machine-specific paths)")
+	}
+	if len(r.nested) > 0 {
+		lines := []string{"These directories have their own .git and upload as EMPTY submodules:"}
+		for _, sub := range r.nested {
+			lines = append(lines, "  - "+sub)
+		}
+		lines = append(lines,
+			"",
+			"Their files will NOT be tracked. Disable each nested repo, then push again:",
+			fmt.Sprintf("  mv %s/<dir>/.git %s/<dir>/.git.disabled", dir, dir),
+			"(or use one-click disable on the web UI Git Sync page)",
+		)
+		ui.WarningBox("Nested git repositories found", lines...)
+	}
 }

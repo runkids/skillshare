@@ -635,6 +635,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ branch }),
     }),
+  gitAbsorbNested: (subdirs: string[]) =>
+    apiFetch<{ success: boolean; disabled: string[] }>('/git/absorb-nested', {
+      method: 'POST',
+      body: JSON.stringify({ subdirs }),
+    }),
   gitCommit: (opts: { message?: string; dryRun?: boolean }) =>
     apiFetch<PushResponse>('/git/commit', {
       method: 'POST',
@@ -1066,6 +1071,9 @@ export interface GitStatus {
   headHash?: string;
   headMessage?: string;
   trackingBranch?: string;
+  // Root-scope hazards (populated only when scope === 'root').
+  nestedRepos: string[];
+  configTracked: boolean;
 }
 
 export interface GitBranches {
