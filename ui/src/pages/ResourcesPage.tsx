@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, forwardRef, memo, type ReactElement } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  Asterisk,
   Search,
   GitBranch,
   Folder,
@@ -529,6 +530,7 @@ function saveCollapsed(collapsed: Set<string>) {
 
 type ResourceTab = 'skills' | 'agents';
 type FilterType = 'all' | 'tracked' | 'github' | 'local';
+type StatusFilter = 'all' | 'enabled' | 'disabled';
 type SortType = 'name-asc' | 'name-desc' | 'newest' | 'oldest';
 type ViewType = 'grid' | 'grouped' | 'table';
 
@@ -537,6 +539,12 @@ const filterOptions: { key: FilterType; label: string; icon: React.ReactNode }[]
   { key: 'tracked', label: 'Tracked', icon: <Users size={14} strokeWidth={2.5} /> },
   { key: 'github', label: 'GitHub', icon: <Globe size={14} strokeWidth={2.5} /> },
   { key: 'local', label: 'Local', icon: <FolderOpen size={14} strokeWidth={2.5} /> },
+];
+
+const statusOptions: { key: StatusFilter; label: string; icon: React.ReactNode }[] = [
+  { key: 'all', label: 'All', icon: <Asterisk size={14} strokeWidth={2.5} /> },
+  { key: 'enabled', label: 'Enabled', icon: <Eye size={14} strokeWidth={2.5} /> },
+  { key: 'disabled', label: 'Disabled', icon: <EyeOff size={14} strokeWidth={2.5} /> },
 ];
 
 function matchFilter(skill: Skill, filterType: FilterType): boolean {
@@ -549,6 +557,17 @@ function matchFilter(skill: Skill, filterType: FilterType): boolean {
       return (skill.type === 'github' || skill.type === 'github-subdir') && !skill.isInRepo;
     case 'local':
       return !skill.type && !skill.isInRepo;
+  }
+}
+
+function matchStatus(skill: Skill, statusFilter: StatusFilter): boolean {
+  switch (statusFilter) {
+    case 'all':
+      return true;
+    case 'enabled':
+      return !skill.disabled;
+    case 'disabled':
+      return !!skill.disabled;
   }
 }
 
@@ -788,10 +807,12 @@ export default function SkillsPage() {
     setActiveTab(tab);
     localStorage.setItem('skillshare:resources-tab', tab);
     setFilterType('all');
+    setStatusFilter('all');
     setSearch('');
   };
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortType, setSortType] = useState<SortType>('name-asc');
   const [viewType, setViewType] = useState<ViewType>(() => {
     const saved = localStorage.getItem('skillshare:skills-view');
@@ -849,7 +870,26 @@ export default function SkillsPage() {
     return counts;
   }, [skills, activeTab]);
 
-  // Apply text filter -> type filter -> sort
+  // Compute enabled/disabled counts — scoped to the active tab, independent of
+  // the source filter so the two filter dimensions stay orthogonal.
+  const statusCounts = useMemo(() => {
+    const tabSkills = activeTab === 'agents'
+      ? skills.filter((s) => s.kind === 'agent')
+      : skills.filter((s) => s.kind !== 'agent');
+    let disabled = 0;
+    for (const s of tabSkills) if (s.disabled) disabled++;
+    return { all: tabSkills.length, enabled: tabSkills.length - disabled, disabled };
+  }, [skills, activeTab]);
+
+  // Status filter is a single toggle button cycling All → Enabled → Disabled.
+  const nextStatusFilter: Record<StatusFilter, StatusFilter> = {
+    all: 'enabled',
+    enabled: 'disabled',
+    disabled: 'all',
+  };
+  const curStatus = statusOptions.find((o) => o.key === statusFilter)!;
+
+  // Apply text filter -> source filter -> status filter -> sort
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     const result = skills.filter(
@@ -857,10 +897,11 @@ export default function SkillsPage() {
         (s.name.toLowerCase().includes(q) ||
           s.flatName.toLowerCase().includes(q) ||
           (s.source ?? '').toLowerCase().includes(q)) &&
-        matchFilter(s, filterType),
+        matchFilter(s, filterType) &&
+        matchStatus(s, statusFilter),
     );
     return sortSkills(result, sortType);
-  }, [skills, search, filterType, sortType]);
+  }, [skills, search, filterType, statusFilter, sortType]);
 
   const skillItems = useMemo(() => filtered.filter((s) => s.kind !== 'agent'), [filtered]);
   const agentItems = useMemo(() => filtered.filter((s) => s.kind === 'agent'), [filtered]);
@@ -975,23 +1016,44 @@ export default function SkillsPage() {
           />
         </div>
 
-        {/* Filter tabs */}
-        <SegmentedControl
-          value={filterType}
-          onChange={setFilterType}
-          options={filterOptions.map((opt) => ({
-            value: opt.key,
-            label: <span className="inline-flex items-center gap-1.5">{opt.icon}{opt.label}</span>,
-            count: filterCounts[opt.key],
-          }))}
-        />
+        {/* Filters — source chips (outlined) + status pill-group (connected),
+            two orthogonal dimensions distinguished by control style */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <SegmentedControl
+            value={filterType}
+            onChange={setFilterType}
+            options={filterOptions.map((opt) => ({
+              value: opt.key,
+              label: <span className="inline-flex items-center gap-1.5">{opt.icon}{opt.label}</span>,
+              count: filterCounts[opt.key],
+            }))}
+          />
+          <div className="h-6 w-px self-center bg-pencil-light/30" aria-hidden="true" />
+          <button
+            type="button"
+            onClick={() => setStatusFilter(nextStatusFilter[statusFilter])}
+            title={`Status: ${curStatus.label} · click to cycle`}
+            aria-label={`Status filter: ${curStatus.label}. Click to cycle through all, enabled, and disabled.`}
+            className={`inline-flex items-center gap-1.5 rounded border px-3 py-1.5 text-sm font-medium transition-all duration-150 cursor-pointer ${
+              statusFilter === 'all'
+                ? 'border-muted bg-transparent text-pencil-light hover:border-muted-dark hover:text-pencil'
+                : 'border-muted-dark bg-surface text-pencil'
+            }`}
+          >
+            {curStatus.icon}
+            {curStatus.label}
+            {statusFilter !== 'all' && (
+              <span className="opacity-60">{statusCounts[statusFilter]}</span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Result count — hidden in folder view (merged into folder toolbar) */}
-      {(filterType !== 'all' || search) && viewType !== 'grouped' && (
+      {(filterType !== 'all' || statusFilter !== 'all' || search) && viewType !== 'grouped' && (
         <p className="text-pencil-light text-sm mb-3">
           {t('resources.showing', { count: tabFiltered.length, total: skills.length })}
-          {filterType !== 'all' && (
+          {(filterType !== 'all' || statusFilter !== 'all') && (
             <>
               {' '}
               &middot;{' '}
@@ -999,6 +1061,7 @@ export default function SkillsPage() {
                 variant="link"
                 onClick={() => {
                   setFilterType('all');
+                  setStatusFilter('all');
                   setSearch('');
                 }}
               >
