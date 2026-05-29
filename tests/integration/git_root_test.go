@@ -3,7 +3,9 @@
 package integration
 
 import (
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,6 +16,8 @@ import (
 // TestGitRoot_CommitCoversAgents verifies that commit with git_root=root
 // creates a commit that includes files under agents/ (outside skills/).
 func TestGitRoot_CommitCoversAgents(t *testing.T) {
+	requireWorkingGit(t)
+
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -50,6 +54,8 @@ func TestGitRoot_CommitCoversAgents(t *testing.T) {
 // TestGitRoot_MismatchGuidance verifies that when git_root=root but the git
 // repo lives under skills/ instead, the CLI prints mismatch guidance and aborts.
 func TestGitRoot_MismatchGuidance(t *testing.T) {
+	requireWorkingGit(t)
+
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -72,6 +78,8 @@ func TestGitRoot_MismatchGuidance(t *testing.T) {
 
 // init --git-root root sets up the repo at BaseDir with config.yaml ignored.
 func TestGitRoot_InitRootScope(t *testing.T) {
+	requireWorkingGit(t)
+
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -107,6 +115,8 @@ func TestGitRoot_InitRootScope(t *testing.T) {
 // init --git-root root must add config.yaml to a pre-existing .gitignore that
 // lacks it, so a root-scope commit never tracks machine-specific config.
 func TestGitRoot_InitRootScope_AppendsConfigToExistingGitignore(t *testing.T) {
+	requireWorkingGit(t)
+
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -132,6 +142,8 @@ func TestGitRoot_InitRootScope_AppendsConfigToExistingGitignore(t *testing.T) {
 
 // commit with git_root=agents commits changes under agents/ (outside skills/).
 func TestGitRoot_CommitAgentsScope(t *testing.T) {
+	requireWorkingGit(t)
+
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -160,6 +172,8 @@ func TestGitRoot_CommitAgentsScope(t *testing.T) {
 // push with git_root=root pushes a tree that includes files under agents/
 // (outside skills/) to the remote, and never tracks config.yaml.
 func TestGitRoot_PushCoversAgents(t *testing.T) {
+	requireWorkingGit(t)
+
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -202,6 +216,8 @@ func TestGitRoot_PushCoversAgents(t *testing.T) {
 // pull with git_root=root brings remote changes under agents/ into the root
 // working tree (not just skills/).
 func TestGitRoot_PullRootScope(t *testing.T) {
+	requireWorkingGit(t)
+
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()
 
@@ -241,6 +257,41 @@ func TestGitRoot_PullRootScope(t *testing.T) {
 
 	if _, err := os.Stat(filepath.Join(agents, "remote-agent.md")); err != nil {
 		t.Errorf("expected agents/remote-agent.md after pull at root scope: %v", err)
+	}
+}
+
+// requireWorkingGit skips the test when the host/container git environment
+// cannot init a repo and create a commit (e.g. read-only HOME, an identity that
+// cannot be written, or an owner/permission mismatch). Stripped one-shot
+// containers that lack the devcontainer's setup can hit this; without the probe
+// the failure surfaces deep inside a test as a misleading assertion error. The
+// probe writes nothing outside its own temp dir and never touches git_root.
+func requireWorkingGit(t *testing.T) {
+	t.Helper()
+
+	dir := t.TempDir()
+	run := func(args ...string) error {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("git %v: %v (%s)", args, err, strings.TrimSpace(string(out)))
+		}
+		return nil
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "probe.txt"), []byte("x"), 0o644); err != nil {
+		t.Skipf("git environment probe: cannot write temp file: %v", err)
+	}
+	for _, step := range [][]string{
+		{"init"},
+		{"config", "user.email", "probe@test.local"},
+		{"config", "user.name", "Probe"},
+		{"add", "-A"},
+		{"commit", "-m", "probe"},
+	} {
+		if err := run(step...); err != nil {
+			t.Skipf("git environment cannot create commits, skipping git_root test: %v", err)
+		}
 	}
 }
 
