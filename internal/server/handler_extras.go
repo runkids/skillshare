@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -127,6 +126,23 @@ func (s *Server) handleExtras(w http.ResponseWriter, r *http.Request) {
 				Extension: t.Extension,
 			}
 
+			// Transform extensions use copy semantics. Resolve the mode through
+			// the shared resolver instead of EffectiveMode, whose generic "merge"
+			// default for an empty mode would make a valid extension target always
+			// report drift.
+			if t.Extension != "" {
+				resolved, modeErr := syncpkg.ResolveExtensionMode(t.Mode)
+				if modeErr != nil {
+					// Invalid config (extension with a non-copy mode): sync rejects
+					// it with a clear error, so flag drift here rather than guessing.
+					ti.Status = "drift"
+					entry.Targets = append(entry.Targets, ti)
+					continue
+				}
+				m = resolved
+				ti.Mode = m
+			}
+
 			if !entry.SourceExists {
 				ti.Status = "no source"
 			} else if _, statErr := os.Stat(t.Path); os.IsNotExist(statErr) {
@@ -237,6 +253,14 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 
 		for _, t := range extra.Targets {
 			m := syncpkg.EffectiveMode(t.Mode)
+			// Transform extensions use copy semantics; resolve through the shared
+			// resolver so the diff isn't computed against the merge default. On an
+			// invalid (non-copy) mode, leave m as-is — sync surfaces that error.
+			if t.Extension != "" {
+				if resolved, modeErr := syncpkg.ResolveExtensionMode(t.Mode); modeErr == nil {
+					m = resolved
+				}
+			}
 
 			items := buildExtrasDiffItems(files, sourceDir, t.Path, m, t.Flatten)
 			synced := len(items) == 0
@@ -495,15 +519,16 @@ func (s *Server) handleExtrasSync(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// Transform extensions emit generated files via copy semantics.
-			// Mirror the CLI's validateExtensionMode: only empty/copy is valid,
-			// and EffectiveMode's "merge" default must not leak through here.
+			// Resolve through the shared resolver so the CLI, sync, status, and
+			// diff paths all enforce one contract (empty/copy → copy, else error).
 			if spec != nil {
-				if t.Mode != "" && t.Mode != "copy" {
-					tr.Error = fmt.Sprintf("extension %s requires copy mode, but mode %q was set", t.Extension, t.Mode)
+				resolved, modeErr := syncpkg.ResolveExtensionMode(t.Mode)
+				if modeErr != nil {
+					tr.Error = "extension " + t.Extension + ": " + modeErr.Error()
 					result.Targets = append(result.Targets, tr)
 					continue
 				}
-				m = "copy"
+				m = resolved
 				tr.Mode = m
 			}
 

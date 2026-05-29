@@ -161,6 +161,64 @@ func TestHandleExtras_IncludesSourceType(t *testing.T) {
 	}
 }
 
+// TestHandleExtras_ExtensionTargetUsesCopyMode verifies that a target carrying a
+// transform extension with an empty mode is reported with copy semantics, not the
+// generic merge default. Previously EffectiveMode("") returned "merge" for these
+// targets, so a valid extension config always looked like drift in the dashboard.
+func TestHandleExtras_ExtensionTargetUsesCopyMode(t *testing.T) {
+	extras := []config.ExtraConfig{
+		{
+			Name: "rules",
+			Targets: []config.ExtraTargetConfig{
+				// Extension set, mode left empty — must resolve to copy.
+				{Path: filepath.Join(t.TempDir(), "nope"), Extension: "gemini-commands"},
+				// Plain target, mode left empty — must stay merge.
+				{Path: filepath.Join(t.TempDir(), "nope2")},
+			},
+		},
+	}
+
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/extras", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Extras []struct {
+			Name    string `json:"name"`
+			Targets []struct {
+				Mode      string `json:"mode"`
+				Extension string `json:"extension"`
+				Status    string `json:"status"`
+			} `json:"targets"`
+		} `json:"extras"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+	if len(resp.Extras) != 1 || len(resp.Extras[0].Targets) != 2 {
+		t.Fatalf("unexpected shape: %+v", resp.Extras)
+	}
+
+	ext := resp.Extras[0].Targets[0]
+	if ext.Mode != "copy" {
+		t.Errorf("extension target: mode = %q, want copy", ext.Mode)
+	}
+	if ext.Status == "drift" {
+		t.Errorf("extension target with empty mode should not report drift, got %q", ext.Status)
+	}
+
+	plain := resp.Extras[0].Targets[1]
+	if plain.Mode != "merge" {
+		t.Errorf("plain target: mode = %q, want merge", plain.Mode)
+	}
+}
+
 // TestHandleExtras_IncludesSourceType_ExtrasSource verifies that when
 // extras_source is set globally and the extra has no per-extra source,
 // source_type is "extras_source".

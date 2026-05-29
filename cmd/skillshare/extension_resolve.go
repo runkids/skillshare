@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -27,13 +26,9 @@ func resolveExtension(ext, extensionsDir string) (*sync.ExtensionSpec, error) {
 
 // validateExtensionMode ensures a target's mode is compatible with a transform.
 // Transforms require copy semantics. Returns the effective mode or an error.
+// Delegates to sync.ResolveExtensionMode so the CLI and server share one contract.
 func validateExtensionMode(rawMode string) (string, error) {
-	switch rawMode {
-	case "", "copy":
-		return "copy", nil
-	default:
-		return "", fmt.Errorf("extension requires copy mode, but mode %q was set on the target", rawMode)
-	}
+	return sync.ResolveExtensionMode(rawMode)
 }
 
 // globalExtensionsDir returns the global extensions directory (~/.config/skillshare/extensions).

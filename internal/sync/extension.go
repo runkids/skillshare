@@ -29,6 +29,21 @@ type extensionManifest struct {
 	Description string   `yaml:"description"`
 }
 
+// ResolveExtensionMode validates that a target's sync mode is compatible with a
+// transform extension and returns the effective mode. Transforms emit generated
+// files into the target, so they require copy semantics; an empty mode defaults
+// to copy rather than inheriting the generic merge default. It is the single
+// source of truth shared by the CLI and the server so extension target status is
+// reported consistently.
+func ResolveExtensionMode(rawMode string) (string, error) {
+	switch rawMode {
+	case "", "copy":
+		return "copy", nil
+	default:
+		return "", fmt.Errorf("extension requires copy mode, but mode %q was set on the target", rawMode)
+	}
+}
+
 // LoadExtensionSpec resolves an extension at execPath into a spec. execPath may be
 // a single executable file or a directory containing extension.yaml.
 func LoadExtensionSpec(execPath, name string) (*ExtensionSpec, error) {

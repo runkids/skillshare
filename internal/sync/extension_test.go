@@ -7,6 +7,30 @@ import (
 	"testing"
 )
 
+func TestResolveExtensionMode(t *testing.T) {
+	for _, tc := range []struct {
+		raw     string
+		want    string
+		wantErr bool
+	}{
+		{"", "copy", false},     // empty defaults to copy, NOT the generic merge
+		{"copy", "copy", false}, // explicit copy is accepted
+		{"merge", "", true},     // transforms require copy semantics
+		{"symlink", "", true},
+	} {
+		got, err := ResolveExtensionMode(tc.raw)
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("mode %q: expected error, got %q", tc.raw, got)
+			}
+			continue
+		}
+		if err != nil || got != tc.want {
+			t.Errorf("mode %q: got (%q, %v), want (%q, nil)", tc.raw, got, err, tc.want)
+		}
+	}
+}
+
 func TestLoadExtensionSpec_Directory(t *testing.T) {
 	dir := t.TempDir()
 	extDir := filepath.Join(dir, "gemini-commands")
