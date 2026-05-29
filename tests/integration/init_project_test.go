@@ -51,6 +51,18 @@ func TestInitProject_AlreadyInitialized_Error(t *testing.T) {
 	result.AssertAnyOutputContains(t, "already initialized")
 }
 
+// git_root is global-only; project init must reject --git-root with guidance
+// to use global mode, not a bare "unknown option".
+func TestInitProject_GitRootFlag_RejectedAsGlobalOnly(t *testing.T) {
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	projectRoot := sb.SetupProjectDir("claude")
+	result := sb.RunCLIInDir(projectRoot, "init", "-p", "--git-root", "root")
+	result.AssertFailure(t)
+	result.AssertAnyOutputContains(t, "global-only")
+}
+
 func TestInitProject_DryRun_NoFiles(t *testing.T) {
 	sb := testutil.NewSandbox(t)
 	defer sb.Cleanup()

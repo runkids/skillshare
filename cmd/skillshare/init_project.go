@@ -87,6 +87,8 @@ func parseProjectInitArgs(args []string) (projectInitOptions, bool, error) {
 			}
 			i++
 			opts.mode = normalizeSyncMode(args[i])
+		case arg == "--git-root" || arg == "--git" || arg == "--no-git" || arg == "--remote":
+			return opts, false, fmt.Errorf("%s is a global-only flag; project mode has no git integration. Run it in global mode: skillshare init -g %s", arg, arg)
 		case strings.HasPrefix(arg, "-"):
 			return opts, false, fmt.Errorf("unknown option: %s", arg)
 		}
