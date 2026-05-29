@@ -12,6 +12,7 @@ import (
 )
 
 type gitStatusResponse struct {
+	GitInstalled   bool     `json:"gitInstalled"`
 	IsRepo         bool     `json:"isRepo"`
 	HasRemote      bool     `json:"hasRemote"`
 	Branch         string   `json:"branch"`
@@ -40,12 +41,20 @@ func (s *Server) handleGitStatus(w http.ResponseWriter, r *http.Request) {
 		scope = "skills"
 	}
 	resp := gitStatusResponse{
+		GitInstalled:  git.IsInstalled(),
 		SourceDir:     src,
 		Scope:         scope,
 		ScopeMismatch: mismatch,
 		MismatchScope: mScope,
 		MismatchDir:   mDir,
 		Files:         make([]string, 0),
+	}
+
+	// Without git on PATH every other probe is a raw exec failure; report it
+	// plainly and stop so the UI can show a clear "git not installed" notice.
+	if !resp.GitInstalled {
+		writeJSON(w, resp)
+		return
 	}
 
 	resp.IsRepo = git.IsRepo(src)
@@ -103,6 +112,10 @@ func (s *Server) handleSetGitRoot(w http.ResponseWriter, r *http.Request) {
 
 	if s.IsProjectMode() {
 		writeError(w, http.StatusBadRequest, "git_root is only available in global mode")
+		return
+	}
+	if !git.IsInstalled() {
+		writeError(w, http.StatusBadRequest, "git is not installed or not in PATH")
 		return
 	}
 

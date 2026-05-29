@@ -1051,6 +1051,7 @@ export interface CheckResult {
 
 // Git types
 export interface GitStatus {
+  gitInstalled: boolean;
   isRepo: boolean;
   hasRemote: boolean;
   branch: string;

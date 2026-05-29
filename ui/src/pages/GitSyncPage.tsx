@@ -295,7 +295,15 @@ export default function GitSyncPage() {
       {/* Repository Info Card — z-10 so branch dropdown renders above cards below */}
       <Card overflow className="relative z-10" padding="none">
         {!status?.isRepo ? (
-          status?.scopeMismatch ? (
+          status && !status.gitInstalled ? (
+            <div className="flex items-start gap-2 text-pencil p-4">
+              <AlertTriangle size={18} strokeWidth={2.5} className="text-danger shrink-0 mt-0.5" />
+              <div className="space-y-1 text-sm">
+                <span className="font-bold">{t('gitSync.gitNotInstalled.title')}</span>
+                <p className="text-pencil-light">{t('gitSync.gitNotInstalled.hint')}</p>
+              </div>
+            </div>
+          ) : status?.scopeMismatch ? (
             <div className="flex items-start gap-2 text-pencil p-4">
               <AlertTriangle size={18} strokeWidth={2.5} className="text-warning shrink-0 mt-0.5" />
               <div className="space-y-1 text-sm">
@@ -316,10 +324,22 @@ export default function GitSyncPage() {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-pencil p-4">
-              <AlertTriangle size={18} strokeWidth={2.5} className="text-danger" />
-              <span>{t('gitSync.notARepo')}</span>
-              <Badge variant="danger">{t('gitSync.repo.notARepoLabel')}</Badge>
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-2 text-pencil">
+                <AlertTriangle size={18} strokeWidth={2.5} className="text-danger" />
+                <span>{t('gitSync.notARepo')}</span>
+                <Badge variant="danger">{t('gitSync.repo.notARepoLabel')}</Badge>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setPendingRemote('');
+                  setPendingScope(status?.scope || 'skills');
+                }}
+              >
+                {t('gitSync.scope.initButton')}
+              </Button>
             </div>
           )
         ) : (() => {
@@ -486,10 +506,14 @@ export default function GitSyncPage() {
           setPendingScope(null);
           setPendingRemote('');
         }}
-        title={t('gitSync.scope.confirmTitle')}
+        title={t(status?.isRepo ? 'gitSync.scope.confirmTitle' : 'gitSync.scope.initTitle')}
         message={
           <div className="space-y-3">
-            <p>{t('gitSync.scope.confirmMessage', { scope: pendingScope ?? '' })}</p>
+            <p>
+              {t(status?.isRepo ? 'gitSync.scope.confirmMessage' : 'gitSync.scope.initMessage', {
+                scope: pendingScope ?? '',
+              })}
+            </p>
             <Input
               label={t('gitSync.scope.remoteLabel')}
               value={pendingRemote}

@@ -446,6 +446,14 @@ func IsRepo(dir string) bool {
 	return cmd.Run() == nil
 }
 
+// IsInstalled reports whether the git executable is available on PATH. Every
+// other helper shells out to git, so callers can use this to surface a clear
+// "git is not installed" message instead of a raw exec error.
+func IsInstalled() bool {
+	_, err := exec.LookPath("git")
+	return err == nil
+}
+
 // HasRemote checks if the repo has at least one remote configured
 func HasRemote(dir string) bool {
 	cmd := exec.Command("git", "remote")
