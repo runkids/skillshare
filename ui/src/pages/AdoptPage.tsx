@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   PackagePlus,
   Folder,
+  FolderCheck,
   Zap,
   Eye,
   Link2Off,
@@ -20,14 +21,15 @@ import Card from '../components/Card';
 import PageHeader from '../components/PageHeader';
 import Badge from '../components/Badge';
 import Button from '../components/Button';
+import SplitButton from '../components/SplitButton';
+import Spinner from '../components/Spinner';
 import { Checkbox } from '../components/Input';
-import EmptyState from '../components/EmptyState';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
 import { useToast } from '../components/Toast';
 import { api, type AdoptCandidate, type AdoptApplyResult } from '../api/client';
 import { queryKeys } from '../lib/queryKeys';
-import { radius } from '../design';
+import { radius, shadows } from '../design';
 import { useT } from '../i18n';
 
 type Phase = 'loading' | 'loaded' | 'applying' | 'done';
@@ -41,10 +43,9 @@ export default function AdoptPage() {
   const [candidates, setCandidates] = useState<AdoptCandidate[]>([]);
   const [lockPresent, setLockPresent] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [force, setForce] = useState(false);
-  const [dryRun, setDryRun] = useState(false);
   const [result, setResult] = useState<AdoptApplyResult | null>(null);
-  const [confirming, setConfirming] = useState(false);
+  // Pending destructive confirmation; null = closed, boolean = the force flag.
+  const [confirmForce, setConfirmForce] = useState<boolean | null>(null);
 
   const loadPreview = async () => {
     setPhase('loading');
@@ -70,7 +71,9 @@ export default function AdoptPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleApply = async () => {
+  const handleApply = async (opts: { dryRun?: boolean; force?: boolean } = {}) => {
+    const dryRun = opts.dryRun ?? false;
+    const force = opts.force ?? false;
     setPhase('applying');
     try {
       const res = await api.postAdoptApply({
@@ -115,16 +118,20 @@ export default function AdoptPage() {
     });
   };
 
-  const selectableNames = candidates
-    .filter((c) => force || !c.conflict)
-    .map((c) => c.name);
-
   const toggleAll = (selectAll: boolean) => {
-    setSelected(selectAll ? new Set(selectableNames) : new Set());
+    setSelected(selectAll ? new Set(candidates.map((c) => c.name)) : new Set());
   };
 
-  // Conflicting candidates need Force to be adoptable.
-  const isSelectable = (c: AdoptCandidate) => force || !c.conflict;
+  const conflictCount = candidates.filter((c) => c.conflict).length;
+  const hasCandidates = candidates.length > 0;
+  const busy = phase === 'applying';
+  const rowsLocked = busy || phase === 'done';
+
+  // Status summary line, mirroring the Sync page's stat-parts pattern.
+  const statParts = [
+    { n: candidates.length, label: t('adopt.stat.adoptable'), cls: 'text-info' },
+    conflictCount > 0 && { n: conflictCount, label: t('adopt.stat.conflicts'), cls: 'text-danger' },
+  ].filter((x): x is { n: number; label: string; cls: string } => !!x);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -134,62 +141,140 @@ export default function AdoptPage() {
         subtitle={t('adopt.subtitle')}
       />
 
-      {/* Controls */}
+      {/* Visual pipeline: agents target → adopt engine → source */}
+      <div className="hidden md:flex items-center justify-center gap-4">
+        <div
+          className="flex items-center gap-2 px-4 py-2 bg-paper border-2 border-pencil"
+          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
+        >
+          <Folder size={18} strokeWidth={2.5} className="text-warning" />
+          <span className="text-base font-medium">{t('adopt.pipeline.agents')}</span>
+        </div>
+
+        <WavyConnector active={busy} />
+
+        <div
+          className="flex items-center gap-2 px-4 py-2 bg-info-light border-2 border-pencil"
+          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
+        >
+          {busy ? (
+            <Spinner size="sm" className="text-blue" />
+          ) : (
+            <PackagePlus size={18} strokeWidth={2.5} className="text-blue" />
+          )}
+          <span className="text-base font-medium">{t('adopt.pipeline.engine')}</span>
+        </div>
+
+        <WavyConnector active={busy} />
+
+        <div
+          className="flex items-center gap-2 px-4 py-2 bg-success-light border-2 border-pencil"
+          style={{ borderRadius: radius.sm, boxShadow: shadows.sm }}
+        >
+          <FolderCheck size={18} strokeWidth={2.5} className="text-success" />
+          <span className="text-base font-medium">{t('adopt.pipeline.source')}</span>
+        </div>
+      </div>
+
+      {/* Control area */}
       <Card className="text-center">
         <div className="flex flex-col items-center gap-4">
+          {/* Status indicator */}
+          {phase === 'loading' ? (
+            <p className="text-pencil-light text-base">{t('adopt.button.scanning')}</p>
+          ) : hasCandidates ? (
+            <p className="text-sm">
+              {statParts.map((p, i) => (
+                <span key={i}>
+                  {i > 0 && <span className="text-muted-dark mx-1.5">·</span>}
+                  <strong className={p.cls}>{p.n}</strong>{' '}
+                  <span className="text-pencil-light">{p.label}</span>
+                </span>
+              ))}
+            </p>
+          ) : (
+            <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+              <CheckCircle size={16} strokeWidth={2.5} className="text-success" />
+              <span className="font-medium text-success">{t('adopt.empty.title')}</span>
+              <span className="text-muted-dark">·</span>
+              <span className="text-pencil-light">{t('adopt.empty.description')}</span>
+            </div>
+          )}
+
+          {/* Action bar */}
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Button
               onClick={loadPreview}
               loading={phase === 'loading'}
-              disabled={phase === 'applying'}
+              disabled={busy}
               variant="secondary"
               size="sm"
             >
               {phase !== 'loading' && <RefreshCw size={18} strokeWidth={2.5} />}
               {phase === 'loading' ? t('adopt.button.scanning') : t('adopt.button.rescan')}
             </Button>
-          </div>
 
-          {(phase === 'loaded' || phase === 'done') && candidates.length > 0 && (
-            <div className="flex flex-wrap items-center justify-center gap-5">
-              <div className="flex items-center gap-2">
-                <Checkbox label={t('adopt.control.dryRun')} checked={dryRun} onChange={setDryRun} />
-                <Eye size={16} strokeWidth={2.5} className="text-blue" />
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox label={t('adopt.control.force')} checked={force} onChange={setForce} />
-                <Zap size={16} strokeWidth={2.5} className="text-accent" />
-              </div>
-            </div>
-          )}
+            {hasCandidates && phase !== 'done' && (
+              <SplitButton
+                onClick={() => setConfirmForce(false)}
+                loading={busy}
+                disabled={selected.size === 0}
+                variant="primary"
+                size="sm"
+                dropdownAlign="right"
+                items={[
+                  {
+                    label: t('adopt.button.previewCount', { count: selected.size }),
+                    icon: <Eye size={16} strokeWidth={2.5} />,
+                    onClick: () => handleApply({ dryRun: true }),
+                  },
+                  {
+                    label: t('adopt.button.forceAdopt', { count: selected.size }),
+                    icon: <Zap size={16} strokeWidth={2.5} />,
+                    onClick: () => setConfirmForce(true),
+                    confirm: true,
+                  },
+                ]}
+              >
+                {!busy && <PackagePlus size={18} strokeWidth={2.5} />}
+                {busy
+                  ? t('adopt.button.applying')
+                  : t('adopt.button.adoptCount', { count: selected.size })}
+              </SplitButton>
+            )}
+          </div>
         </div>
       </Card>
 
       {/* Loading */}
       {phase === 'loading' && <PageSkeleton />}
 
-      {/* Empty */}
-      {phase !== 'loading' && candidates.length === 0 && (
-        <EmptyState
-          icon={CheckCircle}
-          title={t('adopt.empty.title')}
-          description={t('adopt.empty.description')}
-        />
+      {/* Lockfile warning (preview-time hint) */}
+      {phase === 'loaded' && lockPresent && hasCandidates && (
+        <Card variant="accent">
+          <div className="flex items-start gap-3">
+            <Lock size={18} strokeWidth={2.5} className="text-warning shrink-0 mt-0.5" />
+            <div>
+              <h4 className="font-bold text-pencil mb-1">{t('adopt.lock.title')}</h4>
+              <p className="text-sm text-pencil-light">{t('adopt.lock.previewHint')}</p>
+            </div>
+          </div>
+        </Card>
       )}
 
       {/* Candidate list */}
-      {phase !== 'loading' && candidates.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-pencil">
+      {phase !== 'loading' && hasCandidates && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-pencil">
               {t('adopt.foundCount', { count: candidates.length })}
-            </h3>
+            </h2>
             {phase !== 'done' && (
               <div className="flex gap-2">
-                <Button onClick={() => toggleAll(true)} variant="ghost" size="sm" disabled={phase === 'applying'}>
+                <Button onClick={() => toggleAll(true)} variant="ghost" size="sm" disabled={busy}>
                   {t('adopt.selectAll')}
                 </Button>
-                <Button onClick={() => toggleAll(false)} variant="ghost" size="sm" disabled={phase === 'applying'}>
+                <Button onClick={() => toggleAll(false)} variant="ghost" size="sm" disabled={busy}>
                   {t('adopt.selectNone')}
                 </Button>
               </div>
@@ -198,19 +283,13 @@ export default function AdoptPage() {
 
           <div className="space-y-2">
             {candidates.map((c) => {
-              const selectable = isSelectable(c);
               const isSelected = selected.has(c.name);
               return (
-                <Card
-                  key={c.name}
-                  className={`!p-3 ${!selectable ? 'opacity-60' : ''}`}
-                >
+                <Card key={c.name} className="!p-3">
                   <div
-                    className={`flex items-center gap-3 ${
-                      selectable && phase !== 'applying' && phase !== 'done' ? 'cursor-pointer' : ''
-                    }`}
+                    className={`flex items-center gap-3 ${!rowsLocked ? 'cursor-pointer' : ''}`}
                     onClick={() => {
-                      if (selectable && phase !== 'applying' && phase !== 'done') toggle(c.name);
+                      if (!rowsLocked) toggle(c.name);
                     }}
                   >
                     <span onClick={(e) => e.stopPropagation()}>
@@ -219,16 +298,14 @@ export default function AdoptPage() {
                         checked={isSelected}
                         onChange={() => toggle(c.name)}
                         size="sm"
-                        disabled={!selectable || phase === 'applying' || phase === 'done'}
+                        disabled={rowsLocked}
                       />
                     </span>
                     <Folder size={16} strokeWidth={2.5} className="text-warning shrink-0" />
                     <span className="font-mono font-medium text-pencil text-sm">{c.name}</span>
 
                     <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
-                      {c.sourceTool && (
-                        <Badge variant="info">{c.sourceTool}</Badge>
-                      )}
+                      {c.sourceTool && <Badge variant="info">{c.sourceTool}</Badge>}
                       {c.conflict && (
                         <Badge variant="danger">
                           <AlertTriangle size={11} strokeWidth={2.5} className="inline" />
@@ -245,9 +322,7 @@ export default function AdoptPage() {
                   </div>
 
                   {c.conflict && (
-                    <p className="mt-2 pl-8 text-sm text-danger">
-                      {t('adopt.conflict.hint')}
-                    </p>
+                    <p className="mt-2 pl-8 text-sm text-danger">{t('adopt.conflict.hint')}</p>
                   )}
                   {c.externalLinks.length > 0 && (
                     <div className="mt-2 pl-8 space-y-0.5">
@@ -262,41 +337,7 @@ export default function AdoptPage() {
               );
             })}
           </div>
-
-          {/* Apply button */}
-          {phase !== 'done' && (
-            <div className="mt-6 text-center">
-              <Button
-                onClick={() => setConfirming(true)}
-                loading={phase === 'applying'}
-                disabled={selected.size === 0}
-                variant="primary"
-                size="lg"
-                className="min-w-[200px]"
-              >
-                {phase !== 'applying' && <PackagePlus size={22} strokeWidth={2.5} />}
-                {phase === 'applying'
-                  ? t('adopt.button.applying')
-                  : dryRun
-                    ? t('adopt.button.previewCount', { count: selected.size })
-                    : t('adopt.button.adoptCount', { count: selected.size })}
-              </Button>
-            </div>
-          )}
         </div>
-      )}
-
-      {/* Lockfile warning (preview-time hint) */}
-      {phase === 'loaded' && lockPresent && candidates.length > 0 && (
-        <Card variant="accent">
-          <div className="flex items-start gap-3">
-            <Lock size={18} strokeWidth={2.5} className="text-warning shrink-0 mt-0.5" />
-            <div>
-              <h4 className="font-bold text-pencil mb-1">{t('adopt.lock.title')}</h4>
-              <p className="text-sm text-pencil-light">{t('adopt.lock.previewHint')}</p>
-            </div>
-          </div>
-        </Card>
       )}
 
       {/* Results */}
@@ -317,19 +358,17 @@ export default function AdoptPage() {
         </Card>
       )}
 
-      {/* Confirm dialog */}
+      {/* Confirm dialog (destructive: trashes originals) */}
       <ConfirmDialog
-        open={confirming}
-        title={dryRun ? t('adopt.confirm.dryRunTitle') : t('adopt.confirm.title')}
+        open={confirmForce !== null}
+        title={t('adopt.confirm.title')}
         message={
           <div className="text-left">
             <p className="mb-2">
-              {dryRun
-                ? t('adopt.confirm.dryRunMessage', { count: selected.size })
-                : t('adopt.confirm.message', {
-                    count: selected.size,
-                    forceSuffix: force ? t('adopt.confirm.forceOverwrite') : '',
-                  })}
+              {t('adopt.confirm.message', {
+                count: selected.size,
+                forceSuffix: confirmForce ? t('adopt.confirm.forceOverwrite') : '',
+              })}
             </p>
             <ul className="list-none space-y-1 max-h-40 overflow-y-auto">
               {Array.from(selected).map((name) => (
@@ -341,13 +380,33 @@ export default function AdoptPage() {
             </ul>
           </div>
         }
-        confirmText={dryRun ? t('adopt.button.previewCount', { count: selected.size }) : t('adopt.button.adoptCount', { count: selected.size })}
+        confirmText={t('adopt.button.adoptCount', { count: selected.size })}
         onConfirm={() => {
-          setConfirming(false);
-          handleApply();
+          const force = confirmForce ?? false;
+          setConfirmForce(null);
+          handleApply({ force });
         }}
-        onCancel={() => setConfirming(false)}
+        onCancel={() => setConfirmForce(null)}
       />
+    </div>
+  );
+}
+
+/** Hand-drawn wavy connector between pipeline stages (mirrors the Sync page). */
+function WavyConnector({ active }: { active: boolean }) {
+  return (
+    <div className="flex items-center gap-1">
+      <svg width="60" height="20" viewBox="0 0 60 20" className="text-pencil-light">
+        <path
+          d="M0 10 Q15 4 30 10 Q45 16 60 10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeDasharray="4 4"
+          className={active ? 'animate-flow' : ''}
+        />
+      </svg>
     </div>
   );
 }
@@ -362,12 +421,12 @@ function AdoptResults({ result }: { result: AdoptApplyResult }) {
   const lockWarnings = result.lockWarnings ?? [];
 
   return (
-    <div className="animate-fade-in">
-      <h3 className="text-xl font-bold text-pencil mb-4">
+    <div className="space-y-3 animate-fade-in">
+      <h2 className="text-lg font-bold text-pencil">
         {result.dryRun ? t('adopt.results.dryRunTitle') : t('adopt.results.title')}
-      </h3>
+      </h2>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <ResultStat label={t('adopt.results.adopted')} count={adopted.length} icon={CheckCircle} variant="success" />
         <ResultStat label={t('adopt.results.trashed')} count={result.trashed} icon={Trash2} variant="warning" />
         <ResultStat label={t('adopt.results.pruned')} count={result.prunedLinks} icon={Link2Off} variant="info" />
@@ -375,7 +434,7 @@ function AdoptResults({ result }: { result: AdoptApplyResult }) {
       </div>
 
       {adopted.length > 0 && (
-        <Card className="mb-3">
+        <Card>
           <h4 className="font-bold text-success mb-2">
             <CheckCircle size={16} strokeWidth={2.5} className="inline mr-1" />
             {t('adopt.results.adopted')}
@@ -389,7 +448,7 @@ function AdoptResults({ result }: { result: AdoptApplyResult }) {
       )}
 
       {skipped.length > 0 && (
-        <Card className="mb-3">
+        <Card>
           <h4 className="font-bold text-warning mb-2">
             <SkipForward size={16} strokeWidth={2.5} className="inline mr-1" />
             {t('adopt.results.skipped')}
@@ -403,7 +462,7 @@ function AdoptResults({ result }: { result: AdoptApplyResult }) {
       )}
 
       {failedEntries.length > 0 && (
-        <Card variant="accent" className="mb-3">
+        <Card variant="accent">
           <h4 className="font-bold text-danger mb-2">
             <AlertCircle size={16} strokeWidth={2.5} className="inline mr-1" />
             {t('adopt.results.failed')}
