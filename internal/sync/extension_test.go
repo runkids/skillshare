@@ -132,10 +132,10 @@ func TestListExtensions_MissingDirReturnsEmpty(t *testing.T) {
 }
 
 func TestApplyOutputExt(t *testing.T) {
-	if got := applyOutputExt("review/x.md", "toml"); got != "review/x.toml" {
+	if got := ApplyOutputExt("review/x.md", "toml"); got != "review/x.toml" {
 		t.Errorf("got %q, want review/x.toml", got)
 	}
-	if got := applyOutputExt("x.md", ""); got != "x.md" {
+	if got := ApplyOutputExt("x.md", ""); got != "x.md" {
 		t.Errorf("got %q, want x.md (empty ext keeps original)", got)
 	}
 }

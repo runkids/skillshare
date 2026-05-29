@@ -140,7 +140,7 @@ func syncExtraTransform(sourcePath, targetPath string, spec *ExtensionSpec, dryR
 			seen[base] = rel
 			tgtRel = base
 		}
-		tgtRel = applyOutputExt(tgtRel, spec.OutputExt)
+		tgtRel = ApplyOutputExt(tgtRel, spec.OutputExt)
 		sourceSet[tgtRel] = true
 		tgtFile := filepath.Join(targetPath, tgtRel)
 
@@ -571,7 +571,7 @@ func CheckSyncStatus(sourceFiles []string, sourceDir, targetDir, mode string, fl
 		if !ok {
 			continue
 		}
-		tgtRel = applyOutputExt(tgtRel, outputExt)
+		tgtRel = ApplyOutputExt(tgtRel, outputExt)
 		targetFile := filepath.Join(targetDir, tgtRel)
 		sourceFile := filepath.Join(sourceDir, rel)
 

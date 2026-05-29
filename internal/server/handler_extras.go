@@ -256,13 +256,19 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 			// Transform extensions use copy semantics; resolve through the shared
 			// resolver so the diff isn't computed against the merge default. On an
 			// invalid (non-copy) mode, leave m as-is — sync surfaces that error.
+			// Resolve output_ext too, so the diff compares against the transformed
+			// target filenames (e.g. .md → .toml) instead of reporting false drift.
+			outputExt := ""
 			if t.Extension != "" {
 				if resolved, modeErr := syncpkg.ResolveExtensionMode(t.Mode); modeErr == nil {
 					m = resolved
 				}
+				if spec, serr := s.resolveExtensionSpec(t.Extension); serr == nil && spec != nil {
+					outputExt = spec.OutputExt
+				}
 			}
 
-			items := buildExtrasDiffItems(files, sourceDir, t.Path, m, t.Flatten)
+			items := buildExtrasDiffItems(files, sourceDir, t.Path, m, t.Flatten, outputExt)
 			synced := len(items) == 0
 
 			out = append(out, extrasDiffEntry{
@@ -278,8 +284,11 @@ func (s *Server) handleExtrasDiff(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"extras": out})
 }
 
-// buildExtrasDiffItems returns the list of files that differ between source and target.
-func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode string, flatten bool) []extrasDiffItem {
+// buildExtrasDiffItems returns the list of files that differ between source and
+// target. When outputExt is non-empty a transform extension is in effect, so
+// the expected target file carries the transformed extension (e.g. foo.md →
+// foo.toml) — matching sync and status, which otherwise reports false drift.
+func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode string, flatten bool, outputExt string) []extrasDiffItem {
 	var items []extrasDiffItem
 	seen := make(map[string]bool)
 
@@ -288,6 +297,7 @@ func buildExtrasDiffItems(sourceFiles []string, sourceDir, targetDir, mode strin
 		if !ok {
 			continue
 		}
+		tgtRel = syncpkg.ApplyOutputExt(tgtRel, outputExt)
 		sourceFile := filepath.Join(sourceDir, rel)
 		targetFile := filepath.Join(targetDir, tgtRel)
 

@@ -682,3 +682,49 @@ func TestHandleExtrasSync_AppliesExtension(t *testing.T) {
 		t.Error("api-architect.md was copied verbatim — extension transform was not applied")
 	}
 }
+
+// After a .md→.toml transform sync, /api/extras/diff must compare against the
+// transformed target filenames. Regression: the diff path ignored output_ext
+// and looked for the source .md name, reporting false drift.
+func TestHandleExtrasDiff_TransformOutputExt(t *testing.T) {
+	targetDir := t.TempDir()
+	extras := []config.ExtraConfig{{
+		Name:    "agents",
+		Targets: []config.ExtraTargetConfig{{Path: targetDir, Mode: "copy", Extension: "to-toml"}},
+	}}
+	s, sourceDir := newTestServerWithExtras(t, extras, "")
+
+	extRoot := filepath.Join(filepath.Dir(config.ConfigPath()), "extensions")
+	writeExtensionWithDescription(t, extRoot, "to-toml", "identity to toml")
+
+	srcDir := config.ResolveExtrasSourceDir(extras[0], "", sourceDir)
+	if err := os.WriteFile(filepath.Join(srcDir, "api-architect.md"), []byte("# Agent\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Sync first so the transformed api-architect.toml lands in the target.
+	syncReq := httptest.NewRequest(http.MethodPost, "/api/extras/sync",
+		strings.NewReader(`{"name":"agents","force":true}`))
+	s.handler.ServeHTTP(httptest.NewRecorder(), syncReq)
+
+	// Diff must now report synced — not false drift against a missing .md target.
+	req := httptest.NewRequest(http.MethodGet, "/api/extras/diff?name=agents", nil)
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var resp struct {
+		Extras []extrasDiffEntry `json:"extras"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Extras) != 1 {
+		t.Fatalf("expected 1 diff entry, got %d: %+v", len(resp.Extras), resp.Extras)
+	}
+	if !resp.Extras[0].Synced {
+		t.Errorf("expected synced=true after .md→.toml sync, got drift: %+v", resp.Extras[0].Items)
+	}
+}

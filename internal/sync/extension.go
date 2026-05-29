@@ -117,9 +117,10 @@ func ListExtensions(dir string) ([]string, error) {
 	return names, nil
 }
 
-// applyOutputExt replaces rel's extension with outputExt (no leading dot).
-// An empty outputExt keeps the original extension.
-func applyOutputExt(rel, outputExt string) string {
+// ApplyOutputExt replaces rel's extension with outputExt (no leading dot).
+// An empty outputExt keeps the original extension. Exported so the web server's
+// extras diff path computes target filenames identically to sync and status.
+func ApplyOutputExt(rel, outputExt string) string {
 	if outputExt == "" {
 		return rel
 	}
