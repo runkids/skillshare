@@ -38,7 +38,9 @@ func adoptWriteLock(t *testing.T, agentsDir, sourceTool string, names ...string)
 	if err != nil {
 		t.Fatalf("marshal lock: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(agentsDir, ".skill-lock.json"), data, 0o644); err != nil {
+	// The lockfile lives one level up beside the skills dir
+	// (~/.agents/.skill-lock.json), not inside ~/.agents/skills.
+	if err := os.WriteFile(filepath.Join(filepath.Dir(agentsDir), ".skill-lock.json"), data, 0o644); err != nil {
 		t.Fatalf("write lock: %v", err)
 	}
 }
@@ -149,7 +151,7 @@ func TestAdopt_LockfileUnchanged_WithWarning(t *testing.T) {
 
 	agentsPath, _ := setupAdoptGlobal(t, sb, "firecrawl", "firecrawl")
 
-	lockPath := filepath.Join(agentsPath, ".skill-lock.json")
+	lockPath := filepath.Join(filepath.Dir(agentsPath), ".skill-lock.json")
 	before, err := os.ReadFile(lockPath)
 	if err != nil {
 		t.Fatalf("read lock before: %v", err)

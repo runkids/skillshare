@@ -94,13 +94,14 @@ func cmdAdoptGlobal(opts adoptOptions, start time.Time) error {
 	}
 
 	actx := adoptContext{
-		agentsPath: sc.Path,
-		sourcePath: cfg.EffectiveSkillsSource(),
-		syncMode:   adoptSyncMode(sc.Mode, cfg.Mode),
-		allTargets: allTargets,
-		targets:    cfg.Targets,
-		trashBase:  trash.TrashDir(),
-		configPath: config.ConfigPath(),
+		agentsPath:  sc.Path,
+		sourcePath:  cfg.EffectiveSkillsSource(),
+		syncMode:    adoptSyncMode(sc.Mode, cfg.Mode),
+		defaultMode: cfg.Mode,
+		allTargets:  allTargets,
+		targets:     cfg.Targets,
+		trashBase:   trash.TrashDir(),
+		configPath:  config.ConfigPath(),
 	}
 
 	return runAdoptCommand(actx, opts, start)

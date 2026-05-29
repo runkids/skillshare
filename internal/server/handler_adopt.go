@@ -153,15 +153,16 @@ func (s *Server) handleAdoptApply(w http.ResponseWriter, r *http.Request) {
 	}
 
 	res, err := adopt.Apply(candidates, adopt.Request{
-		AgentsPath: sc.Path,
-		SourcePath: source,
-		SyncMode:   syncMode,
-		TrashBase:  trashBase,
-		AllTargets: allTargets,
-		Targets:    targets,
-		DryRun:     body.DryRun,
-		Force:      body.Force,
-		Selected:   body.Names,
+		AgentsPath:  sc.Path,
+		SourcePath:  source,
+		SyncMode:    syncMode,
+		DefaultMode: globalMode,
+		TrashBase:   trashBase,
+		AllTargets:  allTargets,
+		Targets:     targets,
+		DryRun:      body.DryRun,
+		Force:       body.Force,
+		Selected:    body.Names,
 	})
 	if err != nil {
 		s.writeOpsLog("adopt", "error", start, map[string]any{"scope": "ui"}, err.Error())
