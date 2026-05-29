@@ -13,13 +13,14 @@ import (
 // adoptContext carries the mode-specific inputs for the adopt flow so that the
 // global and project handlers share a single orchestration core.
 type adoptContext struct {
-	agentsPath string                         // universal/agents target skills dir (~/.agents/skills)
-	sourcePath string                         // skillshare source of truth
-	syncMode   string                         // agents target sync mode
-	allTargets map[string]string              // name -> skills dir, for orphan-link pruning + re-sync
-	targets    map[string]config.TargetConfig // resolved targets, for re-sync (optional)
-	trashBase  string                         // trash dir (global or project)
-	configPath string                         // config path for oplog
+	agentsPath  string                         // universal/agents target skills dir (~/.agents/skills)
+	sourcePath  string                         // skillshare source of truth
+	syncMode    string                         // agents target sync mode
+	defaultMode string                         // config-level sync mode (cfg.Mode); used when a target sets no mode
+	allTargets  map[string]string              // name -> skills dir, for orphan-link pruning + re-sync
+	targets     map[string]config.TargetConfig // resolved targets, for re-sync (optional)
+	trashBase   string                         // trash dir (global or project)
+	configPath  string                         // config path for oplog
 }
 
 // runAdoptCommand wires an adoptContext through detection, confirmation,
@@ -140,15 +141,16 @@ func applyAdopt(actx adoptContext, selected []adopt.Candidate, opts adoptOptions
 		names[i] = c.Name
 	}
 	out, err := adopt.Apply(selected, adopt.Request{
-		AgentsPath: actx.agentsPath,
-		SourcePath: actx.sourcePath,
-		SyncMode:   actx.syncMode,
-		TrashBase:  actx.trashBase,
-		AllTargets: actx.allTargets,
-		Targets:    actx.targets,
-		DryRun:     opts.dryRun,
-		Force:      opts.force,
-		Selected:   names,
+		AgentsPath:  actx.agentsPath,
+		SourcePath:  actx.sourcePath,
+		SyncMode:    actx.syncMode,
+		DefaultMode: actx.defaultMode,
+		TrashBase:   actx.trashBase,
+		AllTargets:  actx.allTargets,
+		Targets:     actx.targets,
+		DryRun:      opts.dryRun,
+		Force:       opts.force,
+		Selected:    names,
 	})
 	return adoptResultFromApply(out, opts.dryRun), err
 }

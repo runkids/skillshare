@@ -48,17 +48,29 @@ func sourceToolFromRaw(raw map[string]any) string {
 	return ""
 }
 
-// ReadLock reads agentsDir/.skill-lock.json and returns its entries keyed by
+// LockPath returns the absolute path of the external tool lockfile for a given
+// agents *skills* directory. The lockfile lives one level up beside the skills
+// dir (e.g. skillsDir ~/.agents/skills => ~/.agents/.skill-lock.json), matching
+// the ~/.agents convention used by firecrawl/cli, googleworkspace/cli, etc.
+func LockPath(skillsDir string) string {
+	return filepath.Join(filepath.Dir(skillsDir), lockFileName)
+}
+
+// ReadLock reads the external tool lockfile and returns its entries keyed by
 // skill name. The lockfile is never modified.
+//
+// skillsDir is the agents *skills* directory (e.g. ~/.agents/skills); the
+// lockfile lives one level up beside it (~/.agents/.skill-lock.json) — NOT
+// inside the skills directory.
 //
 // Behavior:
 //   - file does not exist  => empty map, nil error
 //   - malformed JSON       => empty (non-nil) map + non-fatal error (caller may ignore)
 //   - valid                => populated map, nil error
-func ReadLock(agentsDir string) (map[string]LockEntry, error) {
+func ReadLock(skillsDir string) (map[string]LockEntry, error) {
 	entries := make(map[string]LockEntry)
 
-	data, err := os.ReadFile(filepath.Join(agentsDir, lockFileName))
+	data, err := os.ReadFile(LockPath(skillsDir))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return entries, nil
