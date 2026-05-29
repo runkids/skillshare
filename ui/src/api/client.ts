@@ -520,7 +520,7 @@ export const api = {
   createExtra: (data: {
     name: string;
     source?: string;
-    targets: Array<{ path: string; mode: string }>;
+    targets: Array<{ path: string; mode: string; flatten?: boolean; extension?: string }>;
   }) =>
     apiFetch<{ success: boolean }>('/extras', {
       method: 'POST',

@@ -252,6 +252,49 @@ func TestHandleExtrasCreate_WithSource(t *testing.T) {
 	}
 }
 
+// TestHandleExtrasCreate_WithExtension verifies that creating an extra with a
+// target extension persists the extension and forces the target into copy mode,
+// even when the request asks for a different mode.
+func TestHandleExtrasCreate_WithExtension(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+
+	targetDir := t.TempDir()
+	// Request mode "merge" but with an extension — should be coerced to copy.
+	body := `{"name":"agents","targets":[{"path":"` + targetDir + `","mode":"merge","extension":"md2codex"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/extras", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	s.mu.RLock()
+	extras := s.cfg.Extras
+	s.mu.RUnlock()
+
+	var found bool
+	for _, e := range extras {
+		if e.Name != "agents" {
+			continue
+		}
+		found = true
+		if len(e.Targets) != 1 {
+			t.Fatalf("expected 1 target, got %d", len(e.Targets))
+		}
+		tt := e.Targets[0]
+		if tt.Extension != "md2codex" {
+			t.Errorf("extension = %q, want md2codex", tt.Extension)
+		}
+		if tt.Mode != "copy" {
+			t.Errorf("mode = %q, want copy (extension implies copy)", tt.Mode)
+		}
+	}
+	if !found {
+		t.Error("extra 'agents' not found in config after create")
+	}
+}
+
 // TestHandleExtrasCreate_WithoutSource verifies POST /api/extras works
 // without a "source" field (backward compatibility).
 func TestHandleExtrasCreate_WithoutSource(t *testing.T) {

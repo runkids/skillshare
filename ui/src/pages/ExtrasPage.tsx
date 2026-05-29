@@ -25,6 +25,7 @@ interface TargetEntry {
   path: string;
   mode: string;
   flatten: boolean;
+  extension: string;
 }
 
 const MODE_OPTIONS = [
@@ -36,18 +37,20 @@ const MODE_OPTIONS = [
 function AddExtraModal({
   onClose,
   onCreated,
+  availableExtensions,
 }: {
   onClose: () => void;
   onCreated: () => void;
+  availableExtensions: string[];
 }) {
   const { toast } = useToast();
   const t = useT();
   const [name, setName] = useState('');
   const [source, setSource] = useState('');
-  const [targets, setTargets] = useState<TargetEntry[]>([{ path: '', mode: 'merge', flatten: false }]);
+  const [targets, setTargets] = useState<TargetEntry[]>([{ path: '', mode: 'merge', flatten: false, extension: '' }]);
   const [saving, setSaving] = useState(false);
 
-  const addTarget = () => setTargets((prev) => [...prev, { path: '', mode: 'merge', flatten: false }]);
+  const addTarget = () => setTargets((prev) => [...prev, { path: '', mode: 'merge', flatten: false, extension: '' }]);
 
   const updateTarget = (i: number, field: keyof TargetEntry, value: string | boolean) => {
     setTargets((prev) => prev.map((t, idx) => (idx === i ? { ...t, [field]: value } : t)));
@@ -72,7 +75,12 @@ function AddExtraModal({
       await api.createExtra({
         name: name.trim(),
         ...(source.trim() && { source: source.trim() }),
-        targets: validTargets.map((tgt) => ({ path: tgt.path.trim(), mode: tgt.mode, flatten: tgt.flatten })),
+        targets: validTargets.map((tgt) => ({
+          path: tgt.path.trim(),
+          mode: tgt.mode,
+          flatten: tgt.flatten,
+          ...(tgt.extension && { extension: tgt.extension }),
+        })),
       });
       toast(t('extras.toast.created', { name: name.trim() }), 'success');
       onCreated();
@@ -138,6 +146,26 @@ function AddExtraModal({
                         disabled={saving}
                       />
                     </div>
+                    {(availableExtensions.length > 0 || tgt.extension) && (
+                      <div className="w-36 shrink-0">
+                        <Select
+                          value={tgt.extension}
+                          onChange={(v) => {
+                            // selecting an extension forces copy mode
+                            setTargets((prev) =>
+                              prev.map((te, idx) =>
+                                idx === i ? { ...te, extension: v, ...(v ? { mode: 'copy' } : {}) } : te,
+                              ),
+                            );
+                          }}
+                          options={[
+                            { value: '', label: t('extras.noExtension', {}, 'no extension') },
+                            ...availableExtensions.map((e) => ({ value: e, label: e })),
+                          ]}
+                          disabled={saving}
+                        />
+                      </div>
+                    )}
                     <div className="w-32 shrink-0">
                       <Select
                         value={tgt.mode}
@@ -146,6 +174,7 @@ function AddExtraModal({
                           if (v === 'symlink') updateTarget(i, 'flatten', false);
                         }}
                         options={MODE_OPTIONS}
+                        disabled={saving || !!tgt.extension}
                       />
                     </div>
                     <label className="flex items-center gap-1.5 shrink-0 cursor-pointer select-none" title={t('extras.flattenTitle')}>
@@ -651,7 +680,11 @@ export default function ExtrasPage() {
 
       {/* Add Extra modal */}
       {showAdd && (
-        <AddExtraModal onClose={() => setShowAdd(false)} onCreated={handleCreated} />
+        <AddExtraModal
+          onClose={() => setShowAdd(false)}
+          onCreated={handleCreated}
+          availableExtensions={availableExtensions}
+        />
       )}
 
       {/* Remove confirm dialog */}

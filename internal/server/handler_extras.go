@@ -292,9 +292,10 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 		Name    string `json:"name"`
 		Source  string `json:"source,omitempty"`
 		Targets []struct {
-			Path    string `json:"path"`
-			Mode    string `json:"mode"`
-			Flatten bool   `json:"flatten"`
+			Path      string `json:"path"`
+			Mode      string `json:"mode"`
+			Flatten   bool   `json:"flatten"`
+			Extension string `json:"extension,omitempty"`
 		} `json:"targets"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -341,6 +342,11 @@ func (s *Server) handleExtrasCreate(w http.ResponseWriter, r *http.Request) {
 		et := config.ExtraTargetConfig{Path: t.Path, Flatten: t.Flatten}
 		if t.Mode != "" {
 			et.Mode = t.Mode
+		}
+		if t.Extension != "" {
+			// A transform extension only makes sense with copy mode.
+			et.Extension = t.Extension
+			et.Mode = "copy"
 		}
 		extra.Targets = append(extra.Targets, et)
 	}
