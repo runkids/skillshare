@@ -9,6 +9,41 @@ All notable changes to skillshare are documented here. For the full commit histo
 
 ---
 
+## [0.20.0] - 2026-05-29
+
+### New Features
+
+#### Git scope control (`git_root`)
+
+- **`git_root` scope** — choose which directory `skillshare commit`, `push`, and `pull` version. The default stays your skills source, but you can point git at `agents`, `extras`, or `root` (skills + agents + extras together in a single repo). Set it during init, or switch later on an existing setup:
+  ```bash
+  skillshare init --git-root root      # version skills, agents, and extras in one repo
+  skillshare init --git-root agents    # switch scope headlessly later
+  ```
+  A `root`-scope repo automatically keeps `config.yaml` out of version control (it holds machine-specific paths), and nested git repositories are detected and blocked before they would upload as empty submodules. If `git_root` points to a scope whose directory has no repo, `commit`/`push`/`pull` print a "Git root mismatch" error with the exact commands to fix it.
+- **Switch scope from the dashboard** — the Git Sync page can change the `git_root` scope, set the git remote during the switch, and offers a one-click action when the scoped directory isn't a repository yet.
+
+#### Extras extension transforms
+
+- **`extension` field on extras targets** — convert Markdown into a tool's native format during sync, for tools that don't read Markdown. Reference extensions ship for Gemini CLI (TOML commands) and Codex CLI (TOML agents):
+  ```yaml
+  extras:
+    - name: commands
+      targets:
+        - path: .gemini/commands
+          extension: gemini-commands    # transforms .md → .toml during sync
+  ```
+  Transforms run source → target only (`extras collect` skips them), use `copy` semantics, and never overwrite a local file or directory without `--force`. The Codex agents extension maps `name`, `description`, and `model` from frontmatter.
+- **Manage extensions from the dashboard** — the Config page lists installed extensions with descriptions and guards against removing one that is still in use; the Extras page and Add Extra modal include a per-target extension picker.
+
+#### List filtering
+
+- **Filter skills by enabled/disabled status** — press `s` in the `list` TUI to cycle All → Enabled → Disabled, or use the `s:enabled` / `s:disabled` tag to combine status with other filters. The dashboard Resources page gains the same status filter.
+
+### Bug Fixes
+
+- **Hardened git remote handling** — remote URLs beginning with `-` (which git could misinterpret as a flag) are now rejected when setting or adding a remote, including via `skillshare init --remote`.
+
 ## [0.19.24] - 2026-05-27
 
 ### New Features

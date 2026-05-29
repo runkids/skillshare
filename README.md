@@ -40,7 +40,7 @@
 </p>
 
 > [!NOTE]
-> **Latest**: [v0.19.24](https://github.com/runkids/skillshare/releases/tag/v0.19.24) — `skillshare commit` creates local git checkpoints without pushing; the Git Sync page now supports **Commit locally**. [All releases →](https://github.com/runkids/skillshare/releases)
+> **Latest**: [v0.20.0](https://github.com/runkids/skillshare/releases/tag/v0.20.0) — choose what `commit`/`push`/`pull` version with **git_root scope** (skills, agents, extras, or all together in one repo); extras **extension transforms** convert Markdown to native formats (Gemini TOML commands, Codex TOML agents) during sync. [All releases →](https://github.com/runkids/skillshare/releases)
 
 ## Why skillshare
 
@@ -277,6 +277,9 @@ Thanks to everyone who helped shape skillshare.
 <a href="https://github.com/xarthurx"><img src="https://github.com/xarthurx.png" width="50" style="border-radius:50%" alt="xarthurx"></a>
 <a href="https://github.com/m0cun"><img src="https://github.com/m0cun.png" width="50" style="border-radius:50%" alt="m0cun"></a>
 <a href="https://github.com/bit3125"><img src="https://github.com/bit3125.png" width="50" style="border-radius:50%" alt="bit3125"></a>
+<a href="https://github.com/eekryuos"><img src="https://github.com/eekryuos.png" width="50" style="border-radius:50%" alt="eekryuos"></a>
+<a href="https://github.com/Bongseop-Kim"><img src="https://github.com/Bongseop-Kim.png" width="50" style="border-radius:50%" alt="Bongseop-Kim"></a>
+<a href="https://github.com/sophodex"><img src="https://github.com/sophodex.png" width="50" style="border-radius:50%" alt="sophodex"></a>
 
 ---
 
