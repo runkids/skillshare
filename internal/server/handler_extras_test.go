@@ -431,3 +431,93 @@ func TestHandleExtrasAddTarget_AppendsTarget(t *testing.T) {
 		t.Errorf("expected mode 'copy', got %q", s.cfg.Extras[0].Targets[1].Mode)
 	}
 }
+
+// TestHandleExtrasAddTarget_DuplicatePath returns 409 when adding a target
+// with a path that already exists on the same extra.
+func TestHandleExtrasAddTarget_DuplicatePath(t *testing.T) {
+	existing := t.TempDir()
+	extras := []config.ExtraConfig{
+		{
+			Name: "openspec",
+			Targets: []config.ExtraTargetConfig{
+				{Path: existing, Mode: "copy"},
+			},
+		},
+	}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	body := `{"path":"` + existing + `","mode":"copy","flatten":false}`
+	req := httptest.NewRequest(http.MethodPost, "/api/extras/openspec/targets", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("expected 409, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestHandleExtrasAddTarget_ExtraNotFound returns 404 for an unknown extra.
+func TestHandleExtrasAddTarget_ExtraNotFound(t *testing.T) {
+	s, _ := newTestServerWithExtras(t, nil, "")
+
+	body := `{"path":"` + t.TempDir() + `","mode":"copy","flatten":false}`
+	req := httptest.NewRequest(http.MethodPost, "/api/extras/missing/targets", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestHandleExtrasAddTarget_InvalidMode returns 400 for an invalid sync mode.
+func TestHandleExtrasAddTarget_InvalidMode(t *testing.T) {
+	extras := []config.ExtraConfig{
+		{Name: "openspec", Targets: []config.ExtraTargetConfig{{Path: t.TempDir(), Mode: "copy"}}},
+	}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	body := `{"path":"` + t.TempDir() + `","mode":"bogus","flatten":false}`
+	req := httptest.NewRequest(http.MethodPost, "/api/extras/openspec/targets", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestHandleExtrasAddTarget_FlattenWithSymlink returns 400 — flatten is
+// incompatible with symlink mode.
+func TestHandleExtrasAddTarget_FlattenWithSymlink(t *testing.T) {
+	extras := []config.ExtraConfig{
+		{Name: "openspec", Targets: []config.ExtraTargetConfig{{Path: t.TempDir(), Mode: "copy"}}},
+	}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	body := `{"path":"` + t.TempDir() + `","mode":"symlink","flatten":true}`
+	req := httptest.NewRequest(http.MethodPost, "/api/extras/openspec/targets", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
+
+// TestHandleExtrasAddTarget_EmptyPath returns 400 when no path is supplied.
+func TestHandleExtrasAddTarget_EmptyPath(t *testing.T) {
+	extras := []config.ExtraConfig{
+		{Name: "openspec", Targets: []config.ExtraTargetConfig{{Path: t.TempDir(), Mode: "copy"}}},
+	}
+	s, _ := newTestServerWithExtras(t, extras, "")
+
+	body := `{"path":"","mode":"copy","flatten":false}`
+	req := httptest.NewRequest(http.MethodPost, "/api/extras/openspec/targets", strings.NewReader(body))
+	rr := httptest.NewRecorder()
+	s.handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d: %s", rr.Code, rr.Body.String())
+	}
+}
