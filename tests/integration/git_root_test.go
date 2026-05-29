@@ -293,6 +293,37 @@ func TestGitRoot_SwitchScopeAfterInit(t *testing.T) {
 	}
 }
 
+// init --git-root <scope> --remote <url> switches the scope and wires the
+// remote on the new scope's repo in one headless command.
+func TestGitRoot_SwitchScopeWithRemote(t *testing.T) {
+	requireWorkingGit(t)
+
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	sb.RunCLI("init", "--no-copy", "--no-targets", "--no-skill", "--git").AssertSuccess(t)
+
+	base := filepath.Dir(sb.ConfigPath)
+	bareRepo := testutil.SetupBareRemoteRepo(t, t.TempDir())
+
+	// Switch to root scope AND wire a remote in one command.
+	result := sb.RunCLI("init", "--git-root", "root", "--remote", bareRepo)
+	result.AssertSuccess(t)
+
+	cfgBytes, err := os.ReadFile(sb.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(cfgBytes), "git_root: root") {
+		t.Errorf("expected git_root: root, got:\n%s", cfgBytes)
+	}
+	// The root-scope repo must carry the configured remote.
+	remote := testutil.RunGit(t, base, "remote", "get-url", "origin")
+	if remote != bareRepo {
+		t.Errorf("expected origin %q at root scope, got %q", bareRepo, remote)
+	}
+}
+
 // requireWorkingGit skips the test when the host/container git environment
 // cannot init a repo and create a commit (e.g. read-only HOME, an identity that
 // cannot be written, or an owner/permission mismatch). Stripped one-shot
