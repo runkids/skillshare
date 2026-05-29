@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # adopt
 
-Adopt CLI-bundled skills that external tools dropped into the universal target (`~/.agents/skills`) so skillshare governs them.
+Repair external CLI-bundled skills that were dropped into the universal target (`~/.agents/skills`) so skillshare can govern them.
 
 ```bash
 skillshare adopt                  # Detect and interactively adopt
@@ -21,7 +21,9 @@ Some CLI tools (for example `firecrawl/cli`, `googleworkspace/cli`) ship their o
 - the tool's symlinks only reach the agents it detected — other targets are left uncovered
 - moving them into skillshare by hand gets overwritten on the tool's next reinstall (the lockfile still claims them)
 
-Use `adopt` to bring those skills under skillshare's management: migrate the canonical files into your source, clean up the tool's orphan symlinks, and re-sync to **all** targets.
+Use `adopt` as a repair flow when `doctor`, `audit`, or the dashboard's **Health Check** page shows skills that came from another CLI. Normal new installs should still use [`install`](/docs/reference/commands/install); `adopt` exists for already-present files that bypassed skillshare.
+
+`adopt` brings those skills under skillshare's management: migrate the canonical files into your source, clean up the tool's orphan symlinks in configured targets, and re-sync to all configured targets.
 
 ## What Happens
 
@@ -126,6 +128,7 @@ Run 'skillshare sync' to confirm distribution to all targets
 ## See Also
 
 - [collect](/docs/reference/commands/collect) — Pull local (non-symlinked) skills from a target into source
+- [doctor](/docs/reference/commands/doctor) — Diagnose setup issues and open the dashboard repair flow
 - [sync](/docs/reference/commands/sync) — Distribute from source to targets
 - [audit](/docs/reference/commands/audit) — Find unmanaged skills
 - [restore](/docs/reference/commands/restore) — Restore a trashed original
