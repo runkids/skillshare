@@ -668,12 +668,18 @@ Set during init with `skillshare init --git-root <scope>`, or interactively duri
 
 #### Changing the scope after init
 
-Skillshare does **not** move an existing `.git` when you change `git_root` — switching scope means "start versioning a different directory", not "relocate the repo". After editing this field, set git up at the new scope directory yourself, in one of two ways:
+Switch the scope headlessly on an already-initialized setup:
 
-- **Start a fresh history** — run `git init` in the new scope directory (e.g. `~/.config/skillshare/` for `root`).
-- **Keep the existing history** — move the repo yourself: `mv <old-scope>/.git <new-scope>/.git`.
+```bash
+skillshare init --git-root <scope>   # global mode; add -g if your cwd is a project
+```
 
-Re-running `skillshare init --git-root <scope>` does **not** relocate an existing repo either — it warns and keeps the current scope. If `git_root` points to a directory without a repo while another scope directory has one, `commit`/`push`/`pull` print a "Git root mismatch" error that includes the exact `git init` / `mv` commands to resolve it.
+This initializes a git repo at the new scope directory (reusing one already there), persists `git_root` to config, and does not prompt or require `--remote`. It does **not** move an existing repo, though — switching scope means "start versioning a different directory", not "relocate history":
+
+- **Fresh history** — `skillshare init --git-root <scope>` initializes an empty repo at the new scope.
+- **Keep history** — first `mv <old-scope>/.git <new-scope>/.git`, then `skillshare init --git-root <scope>` to record the scope.
+
+You can also edit `git_root` in `config.yaml` directly. If `git_root` points to a directory without a repo while another scope directory has one, `commit`/`push`/`pull` print a "Git root mismatch" error that includes the exact `skillshare init` / `mv` commands to resolve it.
 
 :::note Global mode only
 `git_root` applies to global mode only. Project mode uses the `.skillshare/` directory and does not support this field.

@@ -334,6 +334,18 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 		return false, nil // Not initialized, continue with fresh init
 	}
 
+	// Headless scope switch: `skillshare init --git-root <scope>` on an existing
+	// setup initializes a repo at the new scope directory and persists git_root.
+	// It does not relocate an existing repo (run `mv <old>/.git <new>/.git` for
+	// that). Combined with --remote we fall through to the remote path below.
+	if opts.gitRootScope != "" && opts.remoteURL == "" {
+		cfg, err := config.Load()
+		if err != nil {
+			return true, err
+		}
+		return true, switchGitRootScope(cfg, opts.gitRootScope, opts.dryRun)
+	}
+
 	// If --remote provided, just add the remote to existing setup
 	if opts.remoteURL != "" {
 		cfg, err := config.Load()
@@ -346,11 +358,11 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 		if scope == "" {
 			scope = "skills"
 		}
-		// Changing the git scope on an existing repo isn't supported here — it
-		// would require relocating .git. Warn instead of silently ignoring.
+		// Scope changes are not combined with --remote — direct the user to the
+		// dedicated headless form instead of silently applying it here.
 		if opts.gitRootScope != "" && opts.gitRootScope != scope {
-			ui.Warning("--git-root %q ignored: git is already set up for scope %q", opts.gitRootScope, scope)
-			ui.Info("  Changing the git scope requires re-initializing git at the new directory.")
+			ui.Warning("--git-root %q ignored when combined with --remote", opts.gitRootScope)
+			ui.Info("  Change the scope separately: skillshare init --git-root %s", opts.gitRootScope)
 		}
 		gitRoot := cfg.EffectiveGitRoot()
 		if opts.noGit {
@@ -378,6 +390,32 @@ func handleExistingInit(opts *initOptions) (bool, error) {
 	}
 
 	return true, fmt.Errorf("already initialized. Run 'skillshare init --discover' to add new agents, or 'skillshare init -p' to initialize project-level skills")
+}
+
+// switchGitRootScope changes git_root on an already-initialized setup. It
+// initializes a git repo at the new scope directory if absent (reusing one
+// already there) and persists git_root to config. This is the headless
+// counterpart to the web UI's POST /api/git/root; it never relocates an
+// existing repo — switching scope means "version a different directory", not
+// "move the old history" (run `mv <old>/.git <new>/.git` to carry it over).
+func switchGitRootScope(cfg *config.Config, scope string, dryRun bool) error {
+	dir := config.ScopeDir(cfg, scope)
+	doGitInitIfAbsent(dir, scope, dryRun)
+	if dryRun {
+		ui.Info("Dry run - would set git_root: %s", scope)
+		return nil
+	}
+	// "skills" is the default — store it as empty to keep config.yaml clean.
+	if scope == "skills" {
+		cfg.GitRoot = ""
+	} else {
+		cfg.GitRoot = scope
+	}
+	if err := cfg.Save(); err != nil {
+		return err
+	}
+	ui.Success("git_root set to %q (versioning %s)", scope, dir)
+	return nil
 }
 
 // performFreshInit performs a fresh initialization
