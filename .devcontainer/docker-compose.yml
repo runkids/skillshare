@@ -20,7 +20,7 @@ services:
     ports:
       - "5173:5173"
       - "19420:19420"
-      - "3000:3000"
+      - "8888:8888"
     volumes:
       - ..:/workspace
       - go-mod-cache:/go/pkg/mod
