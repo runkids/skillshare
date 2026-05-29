@@ -260,6 +260,39 @@ func TestGitRoot_PullRootScope(t *testing.T) {
 	}
 }
 
+// init --git-root <scope> on an already-initialized setup switches the scope
+// headlessly: it inits a repo at the new scope dir and persists git_root,
+// without prompting or erroring with "already initialized".
+func TestGitRoot_SwitchScopeAfterInit(t *testing.T) {
+	requireWorkingGit(t)
+
+	sb := testutil.NewSandbox(t)
+	defer sb.Cleanup()
+
+	// Fresh init at the default skills scope.
+	sb.RunCLI("init", "--no-copy", "--no-targets", "--no-skill", "--git").AssertSuccess(t)
+
+	base := filepath.Dir(sb.ConfigPath)
+	if _, err := os.Stat(filepath.Join(base, "skills", ".git")); err != nil {
+		t.Fatalf("expected skills repo after fresh init: %v", err)
+	}
+
+	// Headless switch to the agents scope on the already-initialized setup.
+	result := sb.RunCLI("init", "--git-root", "agents")
+	result.AssertSuccess(t)
+
+	if _, err := os.Stat(filepath.Join(base, "agents", ".git")); err != nil {
+		t.Errorf("expected agents repo after scope switch: %v", err)
+	}
+	cfgBytes, err := os.ReadFile(sb.ConfigPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(cfgBytes), "git_root: agents") {
+		t.Errorf("config must persist git_root: agents, got:\n%s", cfgBytes)
+	}
+}
+
 // requireWorkingGit skips the test when the host/container git environment
 // cannot init a repo and create a commit (e.g. read-only HOME, an identity that
 // cannot be written, or an owner/permission mismatch). Stripped one-shot

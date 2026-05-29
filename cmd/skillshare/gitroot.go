@@ -26,13 +26,17 @@ func hasGitDir(dir string) bool {
 func resolveGitRoot(cfg *config.Config, spinner *ui.Spinner) (string, bool) {
 	root := cfg.EffectiveGitRoot()
 	if scope, dir, mismatch := cfg.GitRootMismatch(); mismatch {
+		configured := cfg.GitRoot
+		if configured == "" {
+			configured = "skills"
+		}
 		spinner.Fail("Git root mismatch")
 		ui.Info("  git_root operates on: %s", root)
 		ui.Info("  but the git repo lives at: %s (%s)", dir, scope)
-		ui.Info("  To version the configured scope, either:")
-		ui.Info("    - run 'git init' in %s (starts a fresh history), or", root)
-		ui.Info("    - move the repo: mv %s/.git %s/.git (keeps history)", dir, root)
-		ui.Info("  Or set 'git_root: %s' in %s to match the existing repo.", scope, config.ConfigPath())
+		ui.Info("  Fix it with one of:")
+		ui.Info("    - skillshare init --git-root %s   (start a fresh repo at the configured scope)", configured)
+		ui.Info("    - mv %s/.git %s/.git   (move the existing repo over, keeps history)", dir, root)
+		ui.Info("    - set 'git_root: %s' in %s   (keep using the existing repo)", scope, config.ConfigPath())
 		return "", false
 	}
 	return root, true
