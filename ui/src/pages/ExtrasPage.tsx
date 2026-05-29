@@ -11,12 +11,13 @@ import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import SplitButton from '../components/SplitButton';
 import DialogShell from '../components/DialogShell';
-import { Input, Select } from '../components/Input';
+import { Input, Select, Checkbox } from '../components/Input';
 import Badge from '../components/Badge';
 import EmptyState from '../components/EmptyState';
 import PageHeader from '../components/PageHeader';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { PageSkeleton } from '../components/Skeleton';
+import Tooltip from '../components/Tooltip';
 import { useT } from '../i18n';
 
 // ─── AddExtraModal ────────────────────────────────────────────────────────────
@@ -142,30 +143,26 @@ function AddExtraModal({
               >
                 {t('extras.modal.targets')}
               </label>
-              {/* Column headers — aligned to the control widths below */}
-              <div className="flex gap-2 items-center mb-1.5 px-0.5">
-                <span className="flex-1 text-xs font-medium text-pencil-light">{t('extras.modal.colPath', {}, 'Path')}</span>
-                {availableExtensions.length > 0 && (
-                  <span className="w-36 shrink-0 text-xs font-medium text-pencil-light">{t('extras.modal.colExtension', {}, 'Extension')}</span>
-                )}
-                <span className="w-32 shrink-0 text-xs font-medium text-pencil-light">{t('extras.modal.colMode', {}, 'Mode')}</span>
-                <span className="w-24 shrink-0" aria-hidden="true" />
-                <span className="w-8 shrink-0" aria-hidden="true" />
-              </div>
-              <div className="space-y-2">
-                {targets.map((tgt, i) => (
-                  <div key={i}>
-                    <div className="flex gap-2 items-center">
-                      <div className="flex-1">
-                        <Input
-                          placeholder={t('extras.modal.targetPathPlaceholder')}
-                          value={tgt.path}
-                          onChange={(e) => updateTarget(i, 'path', e.target.value)}
-                          disabled={saving}
-                        />
-                      </div>
+              <div className="space-y-3">
+                {targets.map((tgt, i) => {
+                  const fieldLabel = 'block text-xs font-medium text-pencil-light mb-1';
+                  return (
+                  <div key={i} className="rounded-[var(--radius-md)] border border-muted bg-muted/10 p-3 space-y-2.5">
+                    {/* Path — full width, like Name / Source above */}
+                    <div>
+                      <label className={fieldLabel}>{t('extras.modal.colPath', {}, 'Path')}</label>
+                      <Input
+                        placeholder={t('extras.modal.targetPathPlaceholder')}
+                        value={tgt.path}
+                        onChange={(e) => updateTarget(i, 'path', e.target.value)}
+                        disabled={saving}
+                      />
+                    </div>
+                    {/* Extension · Mode · Flatten — second row with room to breathe */}
+                    <div className="flex flex-wrap items-end gap-3">
                       {(availableExtensions.length > 0 || tgt.extension) && (
-                        <div className="w-36 shrink-0">
+                        <div className="w-44">
+                          <label className={fieldLabel}>{t('extras.modal.colExtension', {}, 'Extension')}</label>
                           <Select
                             value={tgt.extension}
                             onChange={(v) => {
@@ -184,14 +181,15 @@ function AddExtraModal({
                           />
                         </div>
                       )}
-                      {/* Extension forces copy mode: show a read-only locked chip instead of a greyed-out select */}
-                      {tgt.extension ? (
-                        <div className="w-32 shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] border-2 border-muted bg-muted/30 text-xs text-pencil-light">
-                          <Lock size={12} strokeWidth={2.5} className="shrink-0" />
-                          <span>copy</span>
-                        </div>
-                      ) : (
-                        <div className="w-32 shrink-0">
+                      <div className="w-36">
+                        <label className={fieldLabel}>{t('extras.modal.colMode', {}, 'Mode')}</label>
+                        {tgt.extension ? (
+                          // Extension forces copy mode: read-only locked chip, not a greyed-out select.
+                          <div className="flex items-center gap-1.5 px-4 py-2 rounded-[var(--radius-sm)] border-2 border-muted bg-muted/40 text-sm text-pencil-light">
+                            <Lock size={13} strokeWidth={2.5} className="shrink-0" />
+                            <span>copy</span>
+                          </div>
+                        ) : (
                           <Select
                             value={tgt.mode}
                             onChange={(v) => {
@@ -201,22 +199,21 @@ function AddExtraModal({
                             options={MODE_OPTIONS}
                             disabled={saving}
                           />
-                        </div>
-                      )}
-                      <label className="w-24 shrink-0 flex items-center gap-1.5 cursor-pointer select-none" title={t('extras.flattenTitle')}>
-                        <input
-                          type="checkbox"
-                          checked={tgt.flatten}
-                          onChange={(e) => updateTarget(i, 'flatten', e.target.checked)}
-                          disabled={saving || tgt.mode === 'symlink'}
-                          className="accent-primary"
-                        />
-                        <span className={`text-xs ${tgt.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
-                          {t('extras.flatten')}
+                        )}
+                      </div>
+                      <Tooltip content={t('extras.flattenTitle')} side="bottom">
+                        <span className="h-[2.6rem] flex items-center">
+                          <Checkbox
+                            label={t('extras.flatten')}
+                            checked={tgt.flatten}
+                            onChange={(c) => updateTarget(i, 'flatten', c)}
+                            disabled={saving || tgt.mode === 'symlink'}
+                            size="sm"
+                          />
                         </span>
-                      </label>
-                      <div className="w-8 shrink-0 flex justify-center">
-                        {targets.length > 1 && (
+                      </Tooltip>
+                      {targets.length > 1 && (
+                        <div className="ml-auto h-[2.6rem] flex items-center">
                           <IconButton
                             icon={<X size={16} strokeWidth={2.5} />}
                             label={t('extras.removeTarget')}
@@ -226,17 +223,18 @@ function AddExtraModal({
                             disabled={saving}
                             className="hover:text-danger"
                           />
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                     {tgt.extension && (
-                      <p className="flex items-center gap-1 mt-1 ml-0.5 text-xs text-pencil-light/70">
+                      <p className="flex items-center gap-1 text-xs text-pencil-light/70">
                         <Lock size={11} strokeWidth={2.5} className="shrink-0" />
                         {t('extras.modal.extensionLockedHint', {}, 'Extensions run in copy mode')}
                       </p>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
               <Button
                 variant="ghost"
@@ -281,6 +279,11 @@ function ExtraCard({
   availableExtensions: string[];
 }) {
   const t = useT();
+  const sourceTypeLabel = extra.source_type === 'per-extra'
+    ? t('extras.sourceType.custom')
+    : extra.source_type === 'extras_source'
+      ? t('extras.sourceType.shared')
+      : '';
   const [syncing, setSyncing] = useState(false);
   const [changingMode, setChangingMode] = useState<string | null>(null);
 
@@ -310,8 +313,8 @@ function ExtraCard({
           {!extra.source_exists && (
             <Badge variant="danger">source missing</Badge>
           )}
-          {extra.source_type !== "default" && (
-            <span className="ml-2 text-xs text-gray-500">({extra.source_type})</span>
+          {sourceTypeLabel && (
+            <Badge variant="default">{sourceTypeLabel}</Badge>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -376,26 +379,24 @@ function ExtraCard({
                   {tgt.status}
                 </Badge>
               </div>
-              <label className="flex items-center gap-1 shrink-0 cursor-pointer select-none" title={t('extras.flattenTitle')}>
-                <input
-                  type="checkbox"
-                  checked={tgt.flatten}
-                  onChange={async (e) => {
-                    const newFlatten = e.target.checked;
-                    setChangingMode(tgt.path);
-                    try {
-                      await onModeChange(extra.name, tgt.path, tgt.mode, newFlatten);
-                    } finally {
-                      setChangingMode(null);
-                    }
-                  }}
-                  disabled={changingMode === tgt.path || tgt.mode === 'symlink'}
-                  className="accent-primary"
-                />
-                <span className={`text-xs ${tgt.mode === 'symlink' ? 'text-pencil-light/50' : 'text-pencil-light'}`}>
-                  {t('extras.flatten')}
+              <Tooltip content={t('extras.flattenTitle')} side="bottom">
+                <span className="shrink-0">
+                  <Checkbox
+                    label={t('extras.flatten')}
+                    checked={tgt.flatten}
+                    onChange={async (c) => {
+                      setChangingMode(tgt.path);
+                      try {
+                        await onModeChange(extra.name, tgt.path, tgt.mode, c);
+                      } finally {
+                        setChangingMode(null);
+                      }
+                    }}
+                    disabled={changingMode === tgt.path || tgt.mode === 'symlink'}
+                    size="sm"
+                  />
                 </span>
-              </label>
+              </Tooltip>
               {(availableExtensions.length > 0 || tgt.extension) && (
                 <Select
                   value={tgt.extension ?? ''}
@@ -421,22 +422,32 @@ function ExtraCard({
                   disabled={changingMode === tgt.path}
                 />
               )}
-              <Select
-                value={tgt.mode}
-                onChange={async (v) => {
-                  if (v === tgt.mode) return;
-                  setChangingMode(tgt.path);
-                  try {
-                    await onModeChange(extra.name, tgt.path, v);
-                  } finally {
-                    setChangingMode(null);
-                  }
-                }}
-                options={MODE_OPTIONS}
-                size="sm"
-                className="w-36 shrink-0"
-                disabled={changingMode === tgt.path || !!tgt.extension}
-              />
+              {tgt.extension ? (
+                // Extension forces copy mode: read-only locked chip, matching the Add Extra modal.
+                <Tooltip content={t('extras.modal.extensionLockedHint', {}, 'Extensions run in copy mode')} side="bottom">
+                  <div className="w-36 shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-sm)] border-2 border-muted bg-muted/40 text-xs text-pencil-light">
+                    <Lock size={12} strokeWidth={2.5} className="shrink-0" />
+                    <span>copy</span>
+                  </div>
+                </Tooltip>
+              ) : (
+                <Select
+                  value={tgt.mode}
+                  onChange={async (v) => {
+                    if (v === tgt.mode) return;
+                    setChangingMode(tgt.path);
+                    try {
+                      await onModeChange(extra.name, tgt.path, v);
+                    } finally {
+                      setChangingMode(null);
+                    }
+                  }}
+                  options={MODE_OPTIONS}
+                  size="sm"
+                  className="w-36 shrink-0"
+                  disabled={changingMode === tgt.path}
+                />
+              )}
             </div>
           ))
         ) : (
